@@ -7,7 +7,9 @@ const mocks = vi.hoisted(() => ({
   generateResumeStructured: vi.fn(),
   parseResumeFast: vi.fn(),
   putObjectBytes: vi.fn(),
+  runResumeParseWorkflow: vi.fn(),
   sha256HexOfBytes: vi.fn(),
+  streamResumeParseWorkflow: vi.fn(),
   updateStructuredByHash: vi.fn(),
 }));
 
@@ -20,6 +22,13 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline", 
   generateResumeStructured: mocks.generateResumeStructured,
   parseResumeFast: mocks.parseResumeFast,
 }));
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/server/agents/mastra/workflows/resume-parse-workflow",
+  () => ({
+    runResumeParseWorkflow: mocks.runResumeParseWorkflow,
+    streamResumeParseWorkflow: mocks.streamResumeParseWorkflow,
+  }),
+);
 vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments", () => ({
   createAttachment: mocks.createAttachment,
   findAttachmentByContentHash: mocks.findAttachmentByContentHash,
@@ -66,10 +75,19 @@ function makeFile(content = "pdf-bytes") {
 async function readStreamEvents(stream: ReadableStream<Uint8Array>) {
   const text = await new Response(stream).text();
   return text
-    .trim()
-    .split("\n")
+    .split("\n\n")
+    .map((frame) => frame.trim())
     .filter(Boolean)
-    .map((line) => JSON.parse(line) as { type: string; data?: unknown; message?: string });
+    .map((frame) => {
+      const data = frame
+        .split("\n")
+        .find((line) => line.startsWith("data: "))
+        ?.slice("data: ".length);
+      if (!data) {
+        throw new Error(`Missing SSE data frame: ${frame}`);
+      }
+      return JSON.parse(data) as { type: string; output?: unknown };
+    });
 }
 
 describe("streamParseResumeProfile cache policy", () => {
@@ -93,7 +111,8 @@ describe("streamParseResumeProfile cache policy", () => {
       parsedStructured: { ...STRUCTURED, name: "缓存候选人" },
       storageKey: "chat-attachments/cached.pdf",
     });
-    mocks.parseResumeFast.mockResolvedValue({
+    mocks.streamResumeParseWorkflow.mockResolvedValue({
+      fileHash: HASH,
       pageCount: 1,
       structured: STRUCTURED,
       text: "fresh raw text",
@@ -101,10 +120,12 @@ describe("streamParseResumeProfile cache policy", () => {
     });
 
     const events = await readStreamEvents(streamParseResumeProfile(makeFile()));
-    const result = events.find((event) => event.type === "result")?.data;
+    const result = events.find((event) => event.type === "run.completed")?.output;
 
     expect(mocks.findAttachmentByContentHash).not.toHaveBeenCalled();
-    expect(mocks.parseResumeFast).toHaveBeenCalledTimes(1);
+    expect(mocks.streamResumeParseWorkflow).toHaveBeenCalledTimes(1);
+    expect(mocks.runResumeParseWorkflow).not.toHaveBeenCalled();
+    expect(mocks.parseResumeFast).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       fileName: "resume.pdf",
       resumeProfile: {

@@ -16,6 +16,7 @@ export type AiRunEvent =
   | { at: string; runId: string; traceId?: string; type: "run.heartbeat" }
   | { label: string; runId: string; stepId: string; traceId?: string; type: "step.started" }
   | {
+      detail?: unknown;
       label?: string;
       progress?: number;
       runId: string;

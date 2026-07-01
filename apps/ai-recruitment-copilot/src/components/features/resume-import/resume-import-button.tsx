@@ -151,6 +151,7 @@ export function ResumeImportButton({
   const matchAbortControllerRef = useRef<AbortController | null>(null);
   const cachedParseResultRef = useRef<ParseResult | null>(null);
   const accumulatedTextRef = useRef("");
+  const progressStepLabelsRef = useRef<Record<string, string>>({});
   // 暂存语义查重命中时的状态：用户点"继续解析"才会真正进入 Step 2。
   // Cached state for the dedup-pause flow so "继续解析" can resume Step 2.
   const pendingResumeFileRef = useRef<File | null>(null);
@@ -173,23 +174,40 @@ export function ResumeImportButton({
     pendingResumeFileRef.current = null;
     pendingJobDescriptionIdRef.current = null;
     accumulatedTextRef.current = "";
+    progressStepLabelsRef.current = {};
   }, []);
 
   const handleStreamEvent = useCallback((event: AnalysisStreamEvent) => {
-    if (event.type === "status") {
-      setProgressStatus(event.message);
-    } else if (event.type === "tool-start") {
-      setProgressTools((prev) => [...prev, { done: false, name: event.name }]);
-    } else if (event.type === "tool-end") {
+    if (event.type === "run.started") {
+      setProgressStatus(event.title);
+    } else if (event.type === "step.started") {
+      progressStepLabelsRef.current = {
+        ...progressStepLabelsRef.current,
+        [event.stepId]: event.label,
+      };
       setProgressTools((prev) =>
-        prev.map((tool) => (tool.name === event.name ? { ...tool, done: true } : tool)),
+        prev.some((tool) => tool.name === event.label)
+          ? prev
+          : [...prev, { done: false, name: event.label }],
       );
-    } else if (event.type === "text-delta") {
+      setProgressStatus(event.label);
+    } else if (event.type === "step.progress" && event.label) {
+      setProgressStatus(event.label);
+    } else if (event.type === "step.completed") {
+      const name = progressStepLabelsRef.current[event.stepId] ?? event.stepId;
+      setProgressTools((prev) =>
+        prev.some((tool) => tool.name === name)
+          ? prev.map((tool) => (tool.name === name ? { ...tool, done: true } : tool))
+          : [...prev, { done: true, name }],
+      );
+    } else if (event.type === "step.delta") {
       accumulatedTextRef.current += event.text;
       const fields = tryExtractPartialFields(accumulatedTextRef.current);
       if (fields.length > 0) {
         setPartialFields(fields);
       }
+    } else if (event.type === "run.failed") {
+      setProgressStatus(event.error.message);
     }
   }, []);
 

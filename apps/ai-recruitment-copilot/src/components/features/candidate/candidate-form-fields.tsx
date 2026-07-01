@@ -96,6 +96,8 @@ export interface CandidateFormFieldsProps {
   disabled?: boolean;
   /** 简历评价 label 右侧动作，例如“重新生成”。 */
   notesLabelAction?: ReactNode;
+  /** 简历评价编辑器上方内容，例如自动生成进度。 */
+  notesEditorLeadingContent?: ReactNode;
   /** 仅禁用简历评价编辑器；用于自动生成过程中防止手动录入。 */
   notesDisabled?: boolean;
   /** false 时只显示简历文件字段；用于新建弹窗解析完成前的初始状态。 */
@@ -240,6 +242,7 @@ export function CandidateFormFields({
   requireCandidateName = false,
   disabled,
   notesLabelAction,
+  notesEditorLeadingContent,
   notesDisabled = false,
   showDetails = true,
   showResumeEvaluationStatus = false,
@@ -447,6 +450,7 @@ export function CandidateFormFields({
                   {notesLabelAction}
                 </div>
                 <FieldContent className="gap-2">
+                  {notesEditorLeadingContent}
                   <MarkdownEditor
                     aria-invalid={!!errors?.length}
                     disabled={disabled || notesDisabled}

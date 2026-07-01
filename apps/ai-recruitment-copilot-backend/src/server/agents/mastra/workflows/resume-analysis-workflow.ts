@@ -29,6 +29,8 @@ const resumeAnalysisOutputSchema = parsedResumeWorkflowOutputSchema.extend({
   interviewQuestions: z.array(interviewQuestionSchema),
 });
 
+export type ResumeAnalysisWorkflowOutput = z.output<typeof resumeAnalysisOutputSchema>;
+
 export interface ResumeAnalysisWorkflowDeps {
   generateQuestions: typeof generateInterviewQuestionsForProfile;
   parseResume: typeof parseResumeBytesToProfile;
@@ -48,7 +50,7 @@ export function createResumeAnalysisWorkflow(deps: ResumeAnalysisWorkflowDeps) {
         resumeText: parsed.parsedText,
       };
     },
-    id: "parse-resume-profile",
+    id: "run-resume-parse-workflow",
     inputSchema: resumeAnalysisInputSchema,
     outputSchema: parsedResumeWorkflowOutputSchema,
   });
@@ -82,3 +84,26 @@ export const resumeAnalysisWorkflow = createResumeAnalysisWorkflow({
   generateQuestions: generateInterviewQuestionsForProfile,
   parseResume: parseResumeBytesToProfile,
 });
+
+export async function runResumeAnalysisWorkflow(input: {
+  bytes: Uint8Array;
+  fileName: string;
+  mediaType?: string;
+}): Promise<ResumeAnalysisWorkflowOutput> {
+  const run = await resumeAnalysisWorkflow.createRun();
+  const result = await run.start({
+    inputData: {
+      bytesBase64: Buffer.from(input.bytes).toString("base64"),
+      fileName: input.fileName,
+      mediaType: input.mediaType,
+    },
+  });
+
+  if (result.status === "success") {
+    return resumeAnalysisOutputSchema.parse(result.result);
+  }
+  if (result.status === "failed") {
+    throw result.error;
+  }
+  throw new Error(`Resume analysis workflow ended with status ${result.status}.`);
+}

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   interviewQuestionCountScorer,
+  jdMatchEvidenceScorer,
   recruitmentScorers,
+  reportEvidenceGroundingScorer,
   resumeProfileCompletenessScorer,
   resumeReviewStructureScorer,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/scorers/recruitment-scorers";
@@ -26,6 +28,8 @@ describe("recruitment Mastra scorers", () => {
   it("exports stable scorer registrations", () => {
     expect(Object.keys(recruitmentScorers).toSorted()).toEqual([
       "interviewQuestionCountScorer",
+      "jdMatchEvidenceScorer",
+      "reportEvidenceGroundingScorer",
       "resumeProfileCompletenessScorer",
       "resumeReviewStructureScorer",
     ]);
@@ -77,5 +81,84 @@ describe("recruitment Mastra scorers", () => {
     });
 
     expect(result.score).toBe(1);
+  });
+
+  it("scores JD match evidence against the selected job and resume terms", async () => {
+    const input = {
+      jobDescriptions: [
+        {
+          departmentName: "研发部",
+          description: "负责 React 与 TypeScript 前端工程建设。",
+          id: "jd-frontend",
+          name: "前端工程师",
+        },
+        {
+          departmentName: "销售部",
+          description: "负责客户拓展和商务跟进。",
+          id: "jd-sales",
+          name: "销售顾问",
+        },
+      ],
+      resumeProfile: COMPLETE_PROFILE,
+    };
+    const grounded = await jdMatchEvidenceScorer.run({
+      input,
+      output: {
+        jobDescriptionId: "jd-frontend",
+        reason: "候选人目标岗位是前端工程师，React 和 TypeScript 经验与岗位要求匹配。",
+      },
+    });
+    const weak = await jdMatchEvidenceScorer.run({
+      input,
+      output: {
+        jobDescriptionId: "jd-frontend",
+        reason: "默认选择这个岗位。",
+      },
+    });
+
+    expect(grounded.score).toBe(1);
+    expect(weak.score).toBeLessThan(grounded.score);
+  });
+
+  it("scores interview report evidence against candidate transcript quotes", async () => {
+    const grounded = await reportEvidenceGroundingScorer.run({
+      input: {
+        transcript: [
+          { message: "请介绍项目。", role: "agent" },
+          { message: "我负责招聘系统前端，也处理了性能优化。", role: "user" },
+        ],
+      },
+      output: {
+        evaluation: {
+          questions: [
+            {
+              evidence: [{ quote: "我负责招聘系统前端" }],
+            },
+          ],
+        },
+        summary: "候选人介绍了项目经历。",
+      },
+    });
+    const ungrounded = await reportEvidenceGroundingScorer.run({
+      input: {
+        transcript: [
+          { message: "请介绍项目。", role: "agent" },
+          { message: "我负责招聘系统前端，也处理了性能优化。", role: "user" },
+        ],
+      },
+      output: {
+        evaluation: {
+          questions: [
+            {
+              evidence: [{ quote: "我负责后端支付系统" }],
+            },
+          ],
+        },
+        summary: "候选人介绍了项目经历。",
+      },
+    });
+
+    expect(grounded.score).toBe(1);
+    expect(ungrounded.score).toBe(0);
   });
 });

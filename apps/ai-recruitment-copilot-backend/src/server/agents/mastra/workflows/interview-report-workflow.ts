@@ -1,7 +1,12 @@
 import { createStep, createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
 import { generatedInterviewQuestionSchema } from "@arc/db-schema/interview/types";
-import { generateInterviewReport } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-report";
+import {
+  composeInterviewReport,
+  generateInterviewEvaluation,
+  generateInterviewSummary,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-report";
+import type { InterviewEvaluation } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-report";
 
 const interviewTranscriptTurnSchema = z.object({
   message: z.string().min(1),
@@ -25,15 +30,112 @@ const interviewReportOutputSchema = z.object({
   summaryError: z.string().optional(),
 });
 
+export type InterviewReportWorkflowOutput = z.output<typeof interviewReportOutputSchema>;
+
+const settledStringSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("fulfilled"), value: z.string() }),
+  z.object({ reason: z.unknown(), status: z.literal("rejected") }),
+]);
+
+const settledEvaluationSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("fulfilled"), value: z.unknown() }),
+  z.object({ reason: z.unknown(), status: z.literal("rejected") }),
+]);
+
+const summaryOutputSchema = interviewReportInputSchema.extend({
+  summaryResult: settledStringSchema,
+});
+
+const evaluationOutputSchema = interviewReportInputSchema.extend({
+  evaluationResult: settledEvaluationSchema,
+});
+
+const reportGenerationOutputSchema = z.object({
+  evaluation: evaluationOutputSchema,
+  summary: summaryOutputSchema,
+});
+
+type ComposeInterviewReportInput = Parameters<typeof composeInterviewReport>[0];
+
 export interface InterviewReportWorkflowDeps {
-  generateReport: typeof generateInterviewReport;
+  composeReport: typeof composeInterviewReport;
+  generateEvaluation: typeof generateInterviewEvaluation;
+  generateSummary: typeof generateInterviewSummary;
 }
 
 export function createInterviewReportWorkflow(deps: InterviewReportWorkflowDeps) {
-  const generateReportStep = createStep({
-    execute: ({ inputData }) => deps.generateReport(inputData),
-    id: "generate-interview-report",
+  const loadConversationStep = createStep({
+    // oxlint-disable-next-line require-await -- Mastra step execute functions are typed as async.
+    execute: async ({ inputData }) => inputData,
+    id: "load-interview-conversation",
     inputSchema: interviewReportInputSchema,
+    outputSchema: interviewReportInputSchema,
+  });
+
+  const summaryStep = createStep({
+    execute: async ({ inputData }) => {
+      try {
+        return {
+          ...inputData,
+          summaryResult: {
+            status: "fulfilled" as const,
+            value: await deps.generateSummary({ transcript: inputData.transcript }),
+          },
+        };
+      } catch (error) {
+        return {
+          ...inputData,
+          summaryResult: {
+            reason: error instanceof Error ? error.message : String(error),
+            status: "rejected" as const,
+          },
+        };
+      }
+    },
+    id: "summary",
+    inputSchema: interviewReportInputSchema,
+    outputSchema: summaryOutputSchema,
+  });
+
+  const evaluationStep = createStep({
+    execute: async ({ inputData }) => {
+      try {
+        return {
+          ...inputData,
+          evaluationResult: {
+            status: "fulfilled" as const,
+            value: await deps.generateEvaluation({
+              questions: inputData.questions,
+              transcript: inputData.transcript,
+            }),
+          },
+        };
+      } catch (error) {
+        return {
+          ...inputData,
+          evaluationResult: {
+            reason: error instanceof Error ? error.message : String(error),
+            status: "rejected" as const,
+          },
+        };
+      }
+    },
+    id: "evaluation",
+    inputSchema: interviewReportInputSchema,
+    outputSchema: evaluationOutputSchema,
+  });
+
+  const composeReportStep = createStep({
+    // oxlint-disable-next-line require-await -- Mastra step execute functions are typed as async.
+    execute: async ({ inputData }) =>
+      deps.composeReport({
+        evaluationResult: inputData.evaluation
+          .evaluationResult as PromiseSettledResult<InterviewEvaluation>,
+        summaryResult: inputData.summary
+          .summaryResult as ComposeInterviewReportInput["summaryResult"],
+      }),
+    id: "compose-interview-report",
+    inputSchema: reportGenerationOutputSchema,
     outputSchema: interviewReportOutputSchema,
   });
 
@@ -45,11 +147,33 @@ export function createInterviewReportWorkflow(deps: InterviewReportWorkflowDeps)
       outputSchema: interviewReportOutputSchema,
     })
       // oxlint-disable-next-line prefer-await-to-then -- Mastra workflows compose steps with .then().
-      .then(generateReportStep)
+      .then(loadConversationStep)
+      // oxlint-disable-next-line prefer-await-to-then -- Mastra workflows compose branches with .parallel().
+      .parallel([summaryStep, evaluationStep])
+      // oxlint-disable-next-line prefer-await-to-then -- Mastra workflows compose steps with .then().
+      .then(composeReportStep)
       .commit()
   );
 }
 
 export const interviewReportWorkflow = createInterviewReportWorkflow({
-  generateReport: generateInterviewReport,
+  composeReport: composeInterviewReport,
+  generateEvaluation: generateInterviewEvaluation,
+  generateSummary: generateInterviewSummary,
 });
+
+export async function runInterviewReportWorkflow(input: {
+  questions: z.input<typeof interviewReportInputSchema>["questions"];
+  transcript: z.input<typeof interviewReportInputSchema>["transcript"];
+}): Promise<InterviewReportWorkflowOutput> {
+  const run = await interviewReportWorkflow.createRun();
+  const result = await run.start({ inputData: input });
+
+  if (result.status === "success") {
+    return interviewReportOutputSchema.parse(result.result);
+  }
+  if (result.status === "failed") {
+    throw result.error;
+  }
+  throw new Error(`Interview report workflow ended with status ${result.status}.`);
+}

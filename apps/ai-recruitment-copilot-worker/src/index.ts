@@ -62,9 +62,9 @@ async function main() {
   if (isResumeParseQueueConfigured()) {
     await recoverIncompleteResumeParseJobs();
     worker = createResumeParseWorker(async ({ itemId }) => {
-      const { processBatchItem } =
-        await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/processor");
-      await processBatchItem(itemId);
+      const { runBulkResumeUploadWorkflow } =
+        await import("@arc/ai-recruitment-copilot-backend/server/agents/mastra/workflows/bulk-resume-upload-workflow");
+      await runBulkResumeUploadWorkflow({ itemId });
     });
     if (isResumeSemanticIndexEnabled()) {
       semanticIndexWorker = createResumeSemanticIndexWorker(async (payload) => {

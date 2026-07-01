@@ -13,11 +13,26 @@
 import type { DedupMatchRecord } from "@/lib/client/api";
 import { env } from "@/env/client";
 import { fetchResumeDedup } from "@/lib/client/api";
-import { readNdjsonStream } from "@/lib/client/ndjson-stream";
+import { readAiRunEventStream } from "@/lib/client/ai-run-event-stream";
 import { matchJobDescriptionForResume, parseResumeFile } from "@/lib/client/resume-analysis";
 import type { GenerateResumeReviewResult } from "@/lib/client/resume-analysis";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import {
+  appendUniqueStreamDelta,
+  getCompletedProgressToolName,
+  profilePreviewToPartialFields,
+  rememberProgressStepLabel,
+  upsertOcrPagePreview,
+  upsertOcrPageProgress,
+  upsertProgressTool,
+} from "./resume-analysis-stream-state";
+import type {
+  ResumeOcrPagePreview,
+  ResumeOcrPageProgress,
+  ResumeOcrPageProgressDetail,
+  ProgressStepLabels,
+} from "./resume-analysis-stream-state";
 import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
 import type {
   InterviewQuestion,
@@ -55,6 +70,7 @@ export interface ResumeAnalysisPipelineState {
   isMatchingJobDescription: boolean;
   progressStatus: string;
   progressTools: { name: string; done: boolean }[];
+  ocrPages: ResumeOcrPageProgress[];
   partialFields: { label: string; value: string }[];
   reviewPreview: string;
   dedupMatches: DedupMatchRecord[] | null;
@@ -80,6 +96,30 @@ export interface ResumeAnalysisPipelineHandlers {
 
 export type ResumeAnalysisPipeline = ResumeAnalysisPipelineState & ResumeAnalysisPipelineHandlers;
 
+function isOcrPageProgressDetail(value: unknown): value is ResumeOcrPageProgressDetail {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const detail = value as Partial<ResumeOcrPageProgressDetail>;
+  return (
+    detail.kind === "ocr-page" &&
+    typeof detail.page === "number" &&
+    typeof detail.totalPages === "number" &&
+    (detail.status === "queued" ||
+      detail.status === "running" ||
+      detail.status === "completed" ||
+      detail.status === "failed")
+  );
+}
+
+function isOcrPagePreview(value: unknown): value is ResumeOcrPagePreview {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const preview = value as Partial<ResumeOcrPagePreview>;
+  return typeof preview.page === "number" && typeof preview.totalPages === "number";
+}
+
 // oxlint-disable-next-line complexity -- The pipeline orchestrates parse, JD match, dedup, and question generation; splitting it further fragments shared state.
 export function useResumeAnalysisPipeline(
   options: ResumeAnalysisPipelineOptions,
@@ -104,6 +144,7 @@ export function useResumeAnalysisPipeline(
   const [isMatchingJobDescription, setIsMatchingJobDescription] = useState(false);
   const [progressStatus, setProgressStatus] = useState("");
   const [progressTools, setProgressTools] = useState<{ name: string; done: boolean }[]>([]);
+  const [ocrPages, setOcrPages] = useState<ResumeOcrPageProgress[]>([]);
   const [partialFields, setPartialFields] = useState<{ label: string; value: string }[]>([]);
   const [reviewPreview, setReviewPreview] = useState("");
   const [dedupMatches, setDedupMatches] = useState<DedupMatchRecord[] | null>(null);
@@ -111,6 +152,7 @@ export function useResumeAnalysisPipeline(
   const accumulatedTextRef = useRef("");
   const reviewTextRef = useRef("");
   const abortControllerRef = useRef<AbortController | null>(null);
+  const progressStepLabelsRef = useRef<ProgressStepLabels>({});
   // 缓存 Step 1 解析结果，用户在语义查重弹窗点"继续解析"时再驱动 Step 2。
   // Cache the Step 1 parse result so we can resume Step 2 after the user
   // clicks "继续解析" on the dedup overlay.
@@ -180,21 +222,56 @@ export function useResumeAnalysisPipeline(
     return fields;
   }
 
+  function appendAnalysisDelta(text: string) {
+    accumulatedTextRef.current = appendUniqueStreamDelta(accumulatedTextRef.current, text);
+    const fields = tryExtractPartialFields(accumulatedTextRef.current);
+    if (fields.length > 0) {
+      setPartialFields(fields);
+    }
+  }
+
+  // oxlint-disable-next-line complexity -- Handles the legacy stream and AiRun stream event union in one state reducer.
   function handleStreamEvent(event: AnalysisStreamEvent) {
-    if (event.type === "status") {
-      setProgressStatus(event.message);
-    } else if (event.type === "tool-start") {
-      setProgressTools((prev) => [...prev, { done: false, name: event.name }]);
-    } else if (event.type === "tool-end") {
-      setProgressTools((prev) =>
-        prev.map((t) => (t.name === event.name ? { ...t, done: true } : t)),
+    if (event.type === "run.started") {
+      setProgressStatus(event.title);
+    } else if (event.type === "step.started") {
+      progressStepLabelsRef.current = rememberProgressStepLabel(
+        progressStepLabelsRef.current,
+        event.stepId,
+        event.label,
       );
-    } else if (event.type === "text-delta") {
-      accumulatedTextRef.current += event.text;
-      const fields = tryExtractPartialFields(accumulatedTextRef.current);
+      setProgressTools((prev) => upsertProgressTool(prev, event.label, false));
+      setProgressStatus(event.label);
+    } else if (event.type === "step.progress" && event.label) {
+      const { detail } = event;
+      if (isOcrPageProgressDetail(detail)) {
+        setOcrPages((prev) => upsertOcrPageProgress(prev, detail));
+      }
+      setProgressStatus(event.label);
+    } else if (event.type === "step.preview" && event.artifactType === "resume.ocr.page") {
+      const preview = event.data;
+      if (isOcrPagePreview(preview)) {
+        setOcrPages((prev) => upsertOcrPagePreview(prev, preview));
+      }
+    } else if (event.type === "step.preview" && event.artifactType === "resume.profile.preview") {
+      const fields = profilePreviewToPartialFields(event.data);
       if (fields.length > 0) {
         setPartialFields(fields);
       }
+    } else if (event.type === "step.completed") {
+      setProgressTools((prev) =>
+        upsertProgressTool(
+          prev,
+          getCompletedProgressToolName(event, progressStepLabelsRef.current),
+          true,
+        ),
+      );
+    } else if (event.type === "step.delta") {
+      appendAnalysisDelta(event.text);
+    } else if (event.type === "run.failed") {
+      setProgressStatus(event.error.message);
+    } else if (event.type === "run.suspended" || event.type === "approval.required") {
+      setProgressStatus("等待人工确认。");
     }
   }
 
@@ -208,11 +285,13 @@ export function useResumeAnalysisPipeline(
     setIsGeneratingQuestions(true);
     setProgressStatus("正在生成面试题…");
     setProgressTools([]);
+    setOcrPages([]);
     setPartialFields([]);
     setReviewPreview("");
     setResumeReview(null);
     accumulatedTextRef.current = "";
     reviewTextRef.current = "";
+    progressStepLabelsRef.current = {};
 
     try {
       // 流式响应不能走 rpcFetch（parseResponse 会消费 body），但可以用 hc 客户端
@@ -232,16 +311,16 @@ export function useResumeAnalysisPipeline(
       let questions: InterviewQuestion[] | null = null;
       let streamError: string | null = null;
 
-      await readNdjsonStream<AnalysisStreamEvent>(
+      await readAiRunEventStream<AnalysisStreamEvent>(
         qResponse,
         (event) => {
           handleStreamEvent(event);
-          if (event.type === "result") {
-            const data = event.data as { interviewQuestions?: InterviewQuestion[] };
-            questions = data.interviewQuestions ?? null;
+          if (event.type === "run.completed") {
+            const data = event.output as { interviewQuestions?: InterviewQuestion[] } | undefined;
+            questions = data?.interviewQuestions ?? questions;
           }
-          if (event.type === "error") {
-            streamError = event.message;
+          if (event.type === "run.failed") {
+            streamError = event.error.message;
           }
         },
         abortController.signal,
@@ -276,10 +355,12 @@ export function useResumeAnalysisPipeline(
       setIsGeneratingQuestions(false);
       setProgressStatus("");
       setProgressTools([]);
+      setOcrPages([]);
       setPartialFields([]);
       setReviewPreview("");
       accumulatedTextRef.current = "";
       reviewTextRef.current = "";
+      progressStepLabelsRef.current = {};
     }
   }
 
@@ -294,10 +375,12 @@ export function useResumeAnalysisPipeline(
       pendingProfileRef.current = null;
       setProgressStatus("");
       setProgressTools([]);
+      setOcrPages([]);
       setPartialFields([]);
       setReviewPreview("");
       accumulatedTextRef.current = "";
       reviewTextRef.current = "";
+      progressStepLabelsRef.current = {};
 
       if (!file) {
         return;
@@ -313,6 +396,7 @@ export function useResumeAnalysisPipeline(
           onEvent: (event) => {
             handleStreamEvent(event);
           },
+          progress: true,
           signal: abortController.signal,
         });
 
@@ -327,8 +411,10 @@ export function useResumeAnalysisPipeline(
         });
         setIsAnalyzingResume(false);
         setProgressTools([]);
+        setOcrPages([]);
         setPartialFields([]);
         accumulatedTextRef.current = "";
+        progressStepLabelsRef.current = {};
         toast.success("简历解析完成，已回填候选人信息");
 
         // Match best in-flight job description; non-fatal on failure.
@@ -376,7 +462,7 @@ export function useResumeAnalysisPipeline(
           setReviewPreview("");
           reviewTextRef.current = "";
           try {
-            // 流式响应：用 hc 拿 URL/类型，body 自己读 NDJSON。
+            // 流式响应：用 hc 拿 URL/类型，body 自己读 AiRun SSE。
             // Streaming endpoint: hc for URL + types, manually consume the
             // ReadableStream body (rpcFetch would parse the whole body).
             const reviewResponse = await rpc.api.interview["generate-review"].$post(
@@ -388,18 +474,21 @@ export function useResumeAnalysisPipeline(
             }
 
             let reviewResult: GenerateResumeReviewResult | null = null;
-            await readNdjsonStream<AnalysisStreamEvent>(
+            await readAiRunEventStream<AnalysisStreamEvent>(
               reviewResponse,
               (event) => {
-                if (event.type === "text-delta") {
-                  reviewTextRef.current += event.text;
+                if (event.type === "step.delta") {
+                  reviewTextRef.current = appendUniqueStreamDelta(
+                    reviewTextRef.current,
+                    event.text,
+                  );
                   const draft = reviewTextRef.current;
                   setReviewPreview(draft);
                   onReviewDraftChange?.(draft);
                 }
-                if (event.type === "result") {
-                  const data = event.data as Partial<GenerateResumeReviewResult>;
-                  if (data.review && data.structuredReview) {
+                if (event.type === "run.completed") {
+                  const data = event.output as Partial<GenerateResumeReviewResult> | undefined;
+                  if (data?.review && data.structuredReview) {
                     reviewResult = {
                       review: data.review,
                       structuredReview: data.structuredReview,
@@ -503,6 +592,7 @@ export function useResumeAnalysisPipeline(
         if (!postParseAnalysisStarted) {
           setProgressStatus("");
           setProgressTools([]);
+          setOcrPages([]);
           setPartialFields([]);
         }
         accumulatedTextRef.current = "";
@@ -537,6 +627,7 @@ export function useResumeAnalysisPipeline(
     setIsMatchingJobDescription(false);
     setProgressStatus("");
     setProgressTools([]);
+    setOcrPages([]);
     setPartialFields([]);
     setReviewPreview("");
     setDedupMatches(null);
@@ -544,6 +635,7 @@ export function useResumeAnalysisPipeline(
     pendingProfileRef.current = null;
     accumulatedTextRef.current = "";
     reviewTextRef.current = "";
+    progressStepLabelsRef.current = {};
     toast.info("已取消简历分析");
   }, []);
 
@@ -577,6 +669,7 @@ export function useResumeAnalysisPipeline(
     setIsMatchingJobDescription(false);
     setProgressStatus("");
     setProgressTools([]);
+    setOcrPages([]);
     setPartialFields([]);
     setReviewPreview("");
     setDedupMatches(null);
@@ -584,6 +677,7 @@ export function useResumeAnalysisPipeline(
     pendingProfileRef.current = null;
     accumulatedTextRef.current = "";
     reviewTextRef.current = "";
+    progressStepLabelsRef.current = {};
   }, []);
 
   // 等待用户决定时的 overlay 也算"忙"——禁止关闭外层弹窗，避免在用户决定前丢状态。
@@ -610,6 +704,7 @@ export function useResumeAnalysisPipeline(
     isGeneratingQuestions,
     isGeneratingReview,
     isMatchingJobDescription,
+    ocrPages,
     partialFields,
     progressStatus,
     progressTools,

@@ -7,7 +7,7 @@ import { createDefaultScheduleEntry } from "@arc/db-schema/studio-interviews";
 import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
 import type { ResumeLibraryFormValues } from "@arc/shared/studio-resumes";
 import type { ResumeReview } from "@arc/shared/resume-review";
-import { readNdjsonStream } from "./ndjson-stream";
+import { readAiRunEventStream } from "./ai-run-event-stream";
 import { rpc } from "./rpc";
 
 export interface ParsedResumeResult {
@@ -22,12 +22,14 @@ export interface JobDescriptionMatchResult {
 }
 
 export interface StreamRequestOptions {
+  progress?: boolean;
   signal?: AbortSignal;
   onEvent?: (event: AnalysisStreamEvent) => void;
 }
 
 export interface GenerateResumeReviewOptions {
   jobDescriptionId?: string | null;
+  onEvent?: (event: AnalysisStreamEvent) => void;
   onDraftChange?: (review: string) => void;
   resumeProfile: ResumeProfile;
   signal?: AbortSignal;
@@ -46,6 +48,9 @@ export async function parseResumeFile(
 ): Promise<ParsedResumeResult> {
   const formData = new FormData();
   formData.append("resume", file);
+  if (options.progress) {
+    formData.append("progress", "1");
+  }
 
   const response = await fetch("/api/interview/parse-resume", {
     body: formData,
@@ -61,15 +66,15 @@ export async function parseResumeFile(
   let result: ParsedResumeResult | null = null;
   let streamError: string | null = null;
 
-  await readNdjsonStream<AnalysisStreamEvent>(
+  await readAiRunEventStream<AnalysisStreamEvent>(
     response,
     (event) => {
       options.onEvent?.(event);
-      if (event.type === "result") {
-        result = event.data as ParsedResumeResult;
+      if (event.type === "run.completed") {
+        result = event.output as ParsedResumeResult;
       }
-      if (event.type === "error") {
-        streamError = event.message;
+      if (event.type === "run.failed") {
+        streamError = event.error.message;
       }
     },
     options.signal,
@@ -140,6 +145,7 @@ export async function matchJobDescriptionForChatAttachment(
 
 export async function generateResumeReview({
   jobDescriptionId,
+  onEvent,
   onDraftChange,
   resumeProfile,
   signal,
@@ -158,25 +164,82 @@ export async function generateResumeReview({
   let result: GenerateResumeReviewResult | null = null;
   let streamError: string | null = null;
 
-  await readNdjsonStream<AnalysisStreamEvent>(
+  await readAiRunEventStream<AnalysisStreamEvent>(
     response,
     (event) => {
       if (signal?.aborted) {
         return;
       }
-      if (event.type === "text-delta") {
+      onEvent?.(event);
+      if (event.type === "step.delta") {
         draft += event.text;
         onDraftChange?.(draft);
       }
-      if (event.type === "result") {
-        const data = event.data as Partial<GenerateResumeReviewResult>;
+      if (event.type === "run.completed") {
+        const data = event.output as Partial<GenerateResumeReviewResult>;
         if (data.review && data.structuredReview) {
           result = { review: data.review, structuredReview: data.structuredReview };
           onDraftChange?.(result.review);
         }
       }
-      if (event.type === "error") {
-        streamError = event.message;
+      if (event.type === "run.failed") {
+        streamError = event.error.message;
+      }
+    },
+    signal,
+  );
+
+  if (signal?.aborted) {
+    return null;
+  }
+  if (streamError) {
+    throw new Error(streamError);
+  }
+
+  return result ?? null;
+}
+
+export async function generateResumeReviewMarkdownFirst({
+  jobDescriptionId,
+  onEvent,
+  onDraftChange,
+  resumeProfile,
+  signal,
+}: GenerateResumeReviewOptions): Promise<GenerateResumeReviewResult | null> {
+  const response = await rpc.api.interview["generate-review-markdown-stream"].$post(
+    { json: { jobDescriptionId: jobDescriptionId || null, resumeProfile } },
+    { init: { signal } },
+  );
+
+  if (!response.ok) {
+    const errBody = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(errBody?.error ?? "简历评价生成失败");
+  }
+
+  let draft = "";
+  let result: GenerateResumeReviewResult | null = null;
+  let streamError: string | null = null;
+
+  await readAiRunEventStream<AnalysisStreamEvent>(
+    response,
+    (event) => {
+      if (signal?.aborted) {
+        return;
+      }
+      onEvent?.(event);
+      if (event.type === "step.delta") {
+        draft += event.text;
+        onDraftChange?.(draft);
+      }
+      if (event.type === "run.completed") {
+        const data = event.output as Partial<GenerateResumeReviewResult>;
+        if (data.review && data.structuredReview) {
+          result = { review: data.review, structuredReview: data.structuredReview };
+          onDraftChange?.(result.review);
+        }
+      }
+      if (event.type === "run.failed") {
+        streamError = event.error.message;
       }
     },
     signal,

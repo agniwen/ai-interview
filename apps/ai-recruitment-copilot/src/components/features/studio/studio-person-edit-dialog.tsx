@@ -132,6 +132,53 @@ function getFirstResumeEditErrorMessage(meta: Record<string, { errors?: unknown[
   return "请检查简历信息后再保存";
 }
 
+function getScoringPreviewScore(value: unknown): number | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+  const score = (value as { baseScore?: unknown }).baseScore;
+  return typeof score === "number" && Number.isFinite(score) ? score : null;
+}
+
+function ResumeReviewGenerationProgress({
+  progressStatus,
+  progressTools,
+  scoringPreview,
+}: {
+  progressStatus: string;
+  progressTools: { done: boolean; name: string }[];
+  scoringPreview: unknown;
+}) {
+  if (!(progressStatus || progressTools.length > 0 || scoringPreview)) {
+    return null;
+  }
+
+  const score = getScoringPreviewScore(scoringPreview);
+  return (
+    <Card className="gap-0 rounded-md py-0" data-testid="resume-review-generation-progress">
+      <CardContent className="space-y-2 bg-muted/30 px-3 py-2 text-sm">
+        {progressStatus ? <p className="font-medium text-foreground">{progressStatus}</p> : null}
+        {progressTools.length > 0 ? (
+          <div className="flex flex-wrap gap-2 text-xs">
+            {progressTools.map((tool) => (
+              <span
+                className="inline-flex items-center gap-1 rounded-md border bg-background px-2 py-1"
+                key={tool.name}
+              >
+                {tool.done ? null : <IconLoader2 className="size-3 animate-spin" />}
+                <span className={tool.done ? "text-muted-foreground" : "text-foreground"}>
+                  {tool.name}
+                </span>
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {score !== null ? <p className="text-muted-foreground text-xs">评分预览：{score}</p> : null}
+      </CardContent>
+    </Card>
+  );
+}
+
 function mergeTargetRole(targetRoles: string[], targetRole: string) {
   const trimmed = targetRole.trim();
   if (!trimmed) {
@@ -284,7 +331,10 @@ function ResumeEditBody({
   const {
     cancel: cancelReviewGeneration,
     isGenerating: isReviewGenerating,
+    progressStatus: reviewGenerationProgressStatus,
+    progressTools: reviewGenerationProgressTools,
     regenerate: regenerateReview,
+    scoringPreview: reviewGenerationScoringPreview,
   } = useResumeReviewRegeneration({
     onDraftChange: (review) => form.setFieldValue("notes", review),
     onGenerated: (result) => {
@@ -414,6 +464,15 @@ function ResumeEditBody({
             existingResumeFileName={query.data?.resumeFileName ?? null}
             form={form}
             notesDisabled={isReviewGenerating}
+            notesEditorLeadingContent={
+              isReviewGenerating ? (
+                <ResumeReviewGenerationProgress
+                  progressStatus={reviewGenerationProgressStatus}
+                  progressTools={reviewGenerationProgressTools}
+                  scoringPreview={reviewGenerationScoringPreview}
+                />
+              ) : null
+            }
             notesLabelAction={
               <Button
                 disabled={

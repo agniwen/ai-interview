@@ -16,6 +16,7 @@ import { buildCandidateFormAnswersSchema } from "@arc/db-schema/candidate-forms"
 import { RECONNECT_GRACE_MS } from "@arc/db-schema/studio-interviews";
 import {
   streamGenerateInterviewQuestions,
+  streamGenerateResumeReviewMarkdownFirst,
   streamGenerateResumeReview,
   streamParseResumeProfile,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
@@ -72,8 +73,9 @@ export const interviewRouter = factory
       return new Response(stream, {
         headers: {
           "Cache-Control": "no-cache",
-          "Content-Type": "application/x-ndjson",
+          "Content-Type": "text/event-stream",
           "Transfer-Encoding": "chunked",
+          "X-Accel-Buffering": "no",
         },
       });
     } catch (error) {
@@ -154,8 +156,9 @@ export const interviewRouter = factory
       return new Response(stream, {
         headers: {
           "Cache-Control": "no-cache",
-          "Content-Type": "application/x-ndjson",
+          "Content-Type": "text/event-stream",
           "Transfer-Encoding": "chunked",
+          "X-Accel-Buffering": "no",
         },
       });
     },
@@ -208,8 +211,57 @@ export const interviewRouter = factory
       return new Response(stream, {
         headers: {
           "Cache-Control": "no-cache",
-          "Content-Type": "application/x-ndjson",
+          "Content-Type": "text/event-stream",
           "Transfer-Encoding": "chunked",
+          "X-Accel-Buffering": "no",
+        },
+      });
+    },
+  )
+  .post(
+    "/generate-review-markdown-stream",
+    authMiddleware,
+    zValidator(
+      "json",
+      z.object({
+        jobDescriptionId: z.string().trim().optional().nullable(),
+        resumeProfile: resumeProfileSchema,
+      }),
+      jsonValidatorError("缺少候选人信息 (resumeProfile)。"),
+    ),
+    async (c) => {
+      const { jobDescriptionId, resumeProfile } = c.req.valid("json");
+
+      let jobDescriptionText: string | null = null;
+      if (jobDescriptionId) {
+        const orgId =
+          (c.var.session as { activeOrganizationId?: string | null } | null)
+            ?.activeOrganizationId ?? null;
+        if (orgId) {
+          const jd = await loadJobDescriptionById(orgId, jobDescriptionId);
+          if (jd) {
+            jobDescriptionText = [
+              `岗位名称：${jd.name}`,
+              jd.description ? `岗位描述：${jd.description}` : null,
+              `岗位 Prompt：\n${jd.prompt}`,
+            ]
+              .filter(Boolean)
+              .join("\n\n");
+          }
+        }
+      }
+
+      const stream = streamGenerateResumeReviewMarkdownFirst({
+        jobDescription: jobDescriptionText,
+        resumeProfile,
+      });
+
+      return new Response(stream, {
+        headers: {
+          "Cache-Control": "no-cache",
+          "Content-Type": "text/event-stream",
+          "Transfer-Encoding": "chunked",
+          "X-Accel-Buffering": "no",
         },
       });
     },

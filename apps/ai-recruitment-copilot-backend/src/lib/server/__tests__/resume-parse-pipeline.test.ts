@@ -145,6 +145,66 @@ describe("parseResumeOcrOnly", () => {
     expect(maxActive).toBe(1);
   });
 
+  it("emits page-level OCR progress without changing the OCR result", async () => {
+    mocks.qwenVlOcr.mockImplementation((png: Buffer) => png.toString());
+    const events: unknown[] = [];
+
+    const result = await parseResumeOcrOnly(new Uint8Array([1, 2, 3]), {
+      onProgress: (event) => events.push(event),
+    });
+
+    expect(result.text).toBe("page-1\n\npage-2\n\npage-3");
+    expect(events).toEqual([
+      {
+        renderedPages: 3,
+        totalPages: 3,
+        type: "document.pages.ready",
+      },
+      {
+        page: 1,
+        totalPages: 3,
+        type: "ocr.page.started",
+      },
+      {
+        charCount: 6,
+        page: 1,
+        textPreview: "page-1",
+        totalPages: 3,
+        type: "ocr.page.completed",
+      },
+      {
+        page: 2,
+        totalPages: 3,
+        type: "ocr.page.started",
+      },
+      {
+        charCount: 6,
+        page: 2,
+        textPreview: "page-2",
+        totalPages: 3,
+        type: "ocr.page.completed",
+      },
+      {
+        page: 3,
+        totalPages: 3,
+        type: "ocr.page.started",
+      },
+      {
+        charCount: 6,
+        page: 3,
+        textPreview: "page-3",
+        totalPages: 3,
+        type: "ocr.page.completed",
+      },
+      {
+        outputChars: 22,
+        renderedPages: 3,
+        totalPages: 3,
+        type: "ocr.completed",
+      },
+    ]);
+  });
+
   it("retries transient OCR connection errors", async () => {
     mocks.qwenVlOcr
       .mockRejectedValueOnce(new Error("Connection error."))

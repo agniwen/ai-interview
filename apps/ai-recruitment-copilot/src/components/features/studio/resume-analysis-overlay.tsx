@@ -38,12 +38,37 @@ function getAnalysisStepIndex(pipeline: ResumeAnalysisPipeline) {
   return -1;
 }
 
+function renderOcrPageMarker(page: ResumeAnalysisPipeline["ocrPages"][number]) {
+  if (page.status === "completed") {
+    return <IconCheck className="size-3" />;
+  }
+  if (page.status === "running") {
+    return <IconLoader2 className="size-3 animate-spin" />;
+  }
+  return page.page;
+}
+
 export function ResumeAnalysisOverlay({ pipeline }: { pipeline: ResumeAnalysisPipeline }) {
   // 尊重系统的"减少动效"偏好：reduced-motion 用户跳过淡入。
   // Honor the OS reduced-motion preference by skipping the fade-in.
   const prefersReducedMotion = useReducedMotion();
   const analysisStepIndex = getAnalysisStepIndex(pipeline);
   const hasReviewPreview = pipeline.reviewPreview.trim().length > 0;
+  const completedOcrPages = pipeline.ocrPages.filter((page) => page.status === "completed").length;
+  const hasCompletedResumeTextExtraction = pipeline.progressTools.some(
+    (tool) => tool.name === "提取简历文本" && tool.done,
+  );
+  const hasStartedStructuringResume = pipeline.progressTools.some(
+    (tool) => tool.name === "提取结构化字段",
+  );
+  const isStructuringResume = pipeline.progressTools.some(
+    (tool) => tool.name === "提取结构化字段" && !tool.done,
+  );
+  const shouldShowOcrProgress =
+    pipeline.isAnalyzingResume &&
+    pipeline.ocrPages.length > 0 &&
+    !hasCompletedResumeTextExtraction &&
+    !hasStartedStructuringResume;
   const reviewPreviewRef = useRef<HTMLDivElement | null>(null);
   const shouldAutoScrollReviewPreviewRef = useRef(true);
 
@@ -148,6 +173,39 @@ export function ResumeAnalysisOverlay({ pipeline }: { pipeline: ResumeAnalysisPi
               ))}
             </div>
           )}
+          {shouldShowOcrProgress ? (
+            <div className="w-full max-w-lg rounded-lg border bg-background/85 p-3 text-left shadow-sm">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="font-medium text-foreground text-sm">OCR 页面进度</p>
+                <span className="shrink-0 text-muted-foreground text-xs">
+                  {completedOcrPages}/{pipeline.ocrPages.length}
+                </span>
+              </div>
+              <div className="grid gap-1.5">
+                {pipeline.ocrPages.map((page) => (
+                  <div className="flex items-center gap-2 text-xs" key={page.page}>
+                    <span
+                      className={cn(
+                        "inline-flex size-5 shrink-0 items-center justify-center rounded-full border",
+                        page.status === "completed" &&
+                          "border-emerald-400/70 bg-emerald-50 text-emerald-600 dark:border-emerald-700/60 dark:bg-emerald-950/40 dark:text-emerald-300",
+                        page.status === "running" && "border-primary bg-primary/10 text-primary",
+                        page.status === "queued" && "border-border text-muted-foreground",
+                      )}
+                    >
+                      {renderOcrPageMarker(page)}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                      第 {page.page}/{page.totalPages} 页
+                    </span>
+                    {typeof page.charCount === "number" ? (
+                      <span className="shrink-0 text-muted-foreground">{page.charCount} 字</span>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {hasReviewPreview ? (
             <div className="w-full max-w-lg rounded-lg border bg-background/85 p-4 text-left shadow-sm">
               <div className="mb-2 flex items-center justify-between gap-3">
@@ -174,16 +232,31 @@ export function ResumeAnalysisOverlay({ pipeline }: { pipeline: ResumeAnalysisPi
               </div>
             </div>
           ) : null}
-          {pipeline.partialFields.length > 0 && (
-            <div className="mx-auto grid w-full max-w-xs grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-lg border bg-background/80 px-4 py-3 text-xs">
-              {pipeline.partialFields.map((f) => (
-                <div className="contents" key={f.label}>
-                  <span className="text-muted-foreground">{f.label}</span>
-                  <span className="truncate font-medium text-foreground">{f.value}</span>
+          {isStructuringResume || pipeline.partialFields.length > 0 ? (
+            <div className="w-full max-w-lg rounded-lg border bg-background/85 p-3 text-left shadow-sm">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="font-medium text-foreground text-sm">结构化字段提取</p>
+                {isStructuringResume ? (
+                  <span className="inline-flex items-center gap-1 text-muted-foreground text-xs">
+                    <IconLoader2 className="size-3 animate-spin" />
+                    生成中
+                  </span>
+                ) : null}
+              </div>
+              {pipeline.partialFields.length > 0 ? (
+                <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                  {pipeline.partialFields.map((f) => (
+                    <div className="contents" key={f.label}>
+                      <span className="text-muted-foreground">{f.label}</span>
+                      <span className="truncate font-medium text-foreground">{f.value}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              ) : (
+                <p className="text-muted-foreground text-xs">正在从 OCR 文本中提取候选人字段。</p>
+              )}
             </div>
-          )}
+          ) : null}
           <Button onClick={pipeline.handleCancelAnalysis} size="sm" variant="outline">
             取消
           </Button>

@@ -27,6 +27,14 @@ export interface MastraGeneratorLike {
   generate(messages: string, options?: MastraGenerateOptions): Promise<MastraGenerateResult>;
 }
 
+export interface MastraStreamResult {
+  textStream: AsyncIterable<string> | ReadableStream<string>;
+}
+
+export interface MastraStreamingGeneratorLike extends MastraGeneratorLike {
+  stream(messages: string, options?: MastraGenerateOptions): Promise<MastraStreamResult>;
+}
+
 export const titleAgent = new Agent({
   id: "title-agent",
   instructions: "你是会话标题助手。根据用户第一条消息生成简洁、准确的中文标题。",
@@ -99,6 +107,14 @@ export const resumeReviewScoringAgent = new Agent({
   name: "ResumeReviewScoringAgent",
 });
 
+export const resumeReviewMarkdownAgent = new Agent({
+  id: "resume-review-markdown-agent",
+  instructions: "你是招聘评估撰写助手，负责生成可直接写入简历评价编辑器的 Markdown 文案。",
+  maxRetries: 1,
+  model: mastraModels.fastModel,
+  name: "ResumeReviewMarkdownAgent",
+});
+
 export const interviewReportSummaryAgent = new Agent({
   id: "interview-report-summary-agent",
   instructions: "你是面试报告撰写助手，负责根据面试 transcript 生成摘要。",
@@ -158,6 +174,46 @@ export async function generateTextWithMastraAgent({
     throw result.error;
   }
   return result.text;
+}
+
+async function* readableStreamToAsyncIterable(stream: ReadableStream<string>) {
+  const reader = stream.getReader();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        return;
+      }
+      yield value;
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+function isReadableStream(value: unknown): value is ReadableStream<string> {
+  return typeof value === "object" && value !== null && "getReader" in value;
+}
+
+export async function* streamTextWithMastraAgent({
+  agent,
+  maxOutputTokens,
+  prompt,
+  temperature,
+}: {
+  agent: MastraStreamingGeneratorLike;
+  maxOutputTokens?: number;
+  prompt: string;
+  temperature?: number;
+}): AsyncIterable<string> {
+  const result = await agent.stream(prompt, {
+    modelSettings: buildModelSettings({ maxOutputTokens, temperature }),
+  });
+  const stream = result.textStream;
+  const iterable = isReadableStream(stream) ? readableStreamToAsyncIterable(stream) : stream;
+  for await (const chunk of iterable) {
+    yield chunk;
+  }
 }
 
 export async function generateStructuredWithMastraAgent<TSchema extends z.ZodType>({

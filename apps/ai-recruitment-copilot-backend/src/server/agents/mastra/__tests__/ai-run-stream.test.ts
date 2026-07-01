@@ -1,30 +1,41 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  createAiRunNdjsonStream,
-  encodeAiRunNdjsonEvent,
+  createAiRunEventStream,
+  encodeAiRunStreamEvent,
+  emitMastraWorkflowStreamEvents,
+  mastraWorkflowEventToAiRunEvents,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/adapters/ai-run-stream";
 
 async function readEvents(stream: ReadableStream<Uint8Array>) {
   const text = await new Response(stream).text();
   return text
-    .trim()
-    .split("\n")
+    .split("\n\n")
+    .map((frame) => frame.trim())
     .filter(Boolean)
-    .map((line) => JSON.parse(line) as { type: string; [key: string]: unknown });
+    .map((frame) => {
+      const data = frame
+        .split("\n")
+        .find((line) => line.startsWith("data: "))
+        ?.slice("data: ".length);
+      if (!data) {
+        throw new Error(`Missing SSE data frame: ${frame}`);
+      }
+      return JSON.parse(data) as { type: string; [key: string]: unknown };
+    });
 }
 
-describe("AiRun NDJSON stream", () => {
-  it("encodes one event per NDJSON line", () => {
+describe("AiRun event stream", () => {
+  it("encodes one event per SSE frame", () => {
     expect(
       new TextDecoder().decode(
-        encodeAiRunNdjsonEvent({ runId: "run-1", title: "分析简历", type: "run.started" }),
+        encodeAiRunStreamEvent({ runId: "run-1", title: "分析简历", type: "run.started" }),
       ),
-    ).toBe('{"runId":"run-1","title":"分析简历","type":"run.started"}\n');
+    ).toBe('event: ai-run\ndata: {"runId":"run-1","title":"分析简历","type":"run.started"}\n\n');
   });
 
   it("emits run lifecycle events around custom events", async () => {
     const events = await readEvents(
-      createAiRunNdjsonStream({
+      createAiRunEventStream({
         run: (emit) => {
           emit({ label: "读取简历", runId: "run-1", stepId: "load", type: "step.started" });
           return Promise.resolve({ ok: true });
@@ -49,7 +60,7 @@ describe("AiRun NDJSON stream", () => {
 
   it("turns thrown errors into run.failed events", async () => {
     const events = await readEvents(
-      createAiRunNdjsonStream({
+      createAiRunEventStream({
         run: () => Promise.reject(new Error("解析失败")),
         runId: "run-1",
         title: "分析简历",
@@ -69,7 +80,7 @@ describe("AiRun NDJSON stream", () => {
     });
 
     const events = await readEvents(
-      createAiRunNdjsonStream({
+      createAiRunEventStream({
         run: (emit) => {
           emitTerminal(emit);
           return Promise.resolve();
@@ -80,5 +91,80 @@ describe("AiRun NDJSON stream", () => {
     );
 
     expect(events.filter((event) => event.type === "run.completed")).toHaveLength(1);
+  });
+
+  it("maps Mastra workflow stream events into stable AiRunEvent objects", () => {
+    expect(
+      mastraWorkflowEventToAiRunEvents(
+        {
+          from: "WORKFLOW",
+          payload: { id: "summary", status: "running", stepCallId: "call-1" },
+          runId: "run-1",
+          type: "workflow-step-start",
+        } as never,
+        { stepLabels: { summary: "生成摘要" } },
+      ),
+    ).toEqual([{ label: "生成摘要", runId: "run-1", stepId: "summary", type: "step.started" }]);
+
+    expect(
+      mastraWorkflowEventToAiRunEvents({
+        from: "WORKFLOW",
+        payload: {
+          completedCount: 1,
+          currentIndex: 0,
+          id: "foreach",
+          iterationStatus: "success",
+          totalCount: 4,
+        },
+        runId: "run-1",
+        type: "workflow-step-progress",
+      } as never),
+    ).toEqual([
+      {
+        progress: 0.25,
+        runId: "run-1",
+        stepId: "foreach",
+        type: "step.progress",
+      },
+    ]);
+
+    expect(
+      mastraWorkflowEventToAiRunEvents({
+        from: "WORKFLOW",
+        payload: { id: "summary", output: { summary: "ok" }, status: "success", stepCallId: "c" },
+        runId: "run-1",
+        type: "workflow-step-result",
+      } as never),
+    ).toEqual([
+      {
+        output: { summary: "ok" },
+        runId: "run-1",
+        stepId: "summary",
+        type: "step.completed",
+      },
+    ]);
+  });
+
+  it("emits converted events from a Mastra workflow stream", async () => {
+    const emitted: unknown[] = [];
+
+    await emitMastraWorkflowStreamEvents(
+      [
+        {
+          from: "WORKFLOW",
+          payload: { id: "summary", status: "running", stepCallId: "call-1" },
+          runId: "run-1",
+          type: "workflow-step-start",
+        },
+      ] as never,
+      (event) => {
+        emitted.push(event);
+      },
+      { stepLabels: { summary: "生成摘要" } },
+    );
+
+    expect(emitted).toEqual([
+      { label: "生成摘要", runId: "run-1", stepId: "summary", type: "step.started" },
+    ]);
   });
 });

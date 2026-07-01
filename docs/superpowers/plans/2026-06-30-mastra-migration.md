@@ -8,6 +8,17 @@
 
 **Tech Stack:** Mastra (`@mastra/core`, `@mastra/hono`, `@mastra/pg`, `@mastra/memory`, `@mastra/observability`, `@mastra/evals`), Hono, TanStack Start, React 19, Drizzle/PostgreSQL, Zod, Alibaba OpenAI-compatible provider (`ALIBABA_BASE_URL`) with Alibaba Coding Plan fallback, Qdrant, existing S3/OCR/resume utilities.
 
+**Implementation snapshot (2026-07-01):**
+
+1. Mastra runtime 已落地在 `apps/ai-recruitment-copilot-backend/src/server/agents/mastra/`：包含 `models.ts`、`storage.ts`、`request-context.ts`、`index.ts`、`simple-generators.ts`、workflow adapter、scorers 和基础 workflow tests。
+2. 非 chat 的主要 AI 生成入口已经通过 Mastra agent/helper 或 workflow runner 执行：标题、JD 生成、JD 匹配、表单题、面试题模板、简历解析结构化、简历评价、面试报告 summary/evaluation。
+3. 前台等待型接口已统一为 SSE + `AiRunEvent`：`/api/interview/parse-resume`、`/generate-questions`、`/generate-review`、`/generate-review-markdown-stream`。前端通过 `readAiRunEventStream()` 消费；旧 `ndjson-stream.ts` 已删除。
+4. `packages/shared/src/api-stream.ts` 现在只是 `AnalysisStreamEvent = AiRunEvent` 的兼容 alias，不再定义独立 legacy NDJSON event union。
+5. 单份简历库上传已有 OCR 页进度、结构化字段预览、评价预览；OCR 页进度只在提取简历文本阶段展示，进入结构化后隐藏。简历库详情页“重新生成评价”使用 markdown-first 流式接口，先逐字回填评价 markdown，再生成结构化评分。
+6. 后台任务按当前决策不强制走前台 stream：批量简历上传、简历广场/多份简历分析保持后台状态/日志语义，已有基础 `bulk-resume-upload-workflow` runner，但完整 processor step 化和 snapshot/resume 仍未完成。
+7. chat 相关仍是最大未迁移区域：`@ai-sdk/react`、`useChat`、`DefaultChatTransport`、`UIMessage`、AI SDK tool/tool-loop 仍在前后端 chat runtime、resume chat agent 和消息 UI 中使用。
+8. 后端 `agents/provider.ts` 仍保留 AI SDK `createOpenAICompatible` 兼容入口，待 chat/旧 agent 完成迁移后删除。
+
 ---
 
 ## 1. 迁移原则和成功标准
@@ -39,14 +50,14 @@
 
 ### 2.1 依赖和共享类型
 
-| 编号  | 当前文件                                           | AI SDK 使用点                                                | 迁移目标                                                                        |
-| ----- | -------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| 2.1.1 | `apps/ai-recruitment-copilot/package.json`         | `@ai-sdk/openai-compatible`, `@ai-sdk/react`, `ai`           | 移除前端 AI SDK runtime，改用 `ArcMessage`、`AiRunEvent`、fetch/SSE/NDJSON hook |
-| 2.1.2 | `apps/ai-recruitment-copilot-backend/package.json` | `@ai-sdk/openai-compatible`, `ai`                            | 后端改用 Mastra core/provider/storage/evals                                     |
-| 2.1.3 | `packages/shared/package.json`                     | `ai` 类型依赖                                                | `packages/shared/src/ai-message.ts` 定义项目自有消息协议                        |
-| 2.1.4 | `packages/db-schema/package.json`                  | `ai` 类型依赖                                                | `@arc/db-schema` 不再引用 AI SDK 类型                                           |
-| 2.1.5 | `packages/db-schema/src/schema.ts`                 | `UIMessage` 用于 `chat_message.content` JSONB 和 `role` 类型 | `ArcMessage`/`ArcMessageRole` JSONB；提供一次性数据迁移                         |
-| 2.1.6 | `packages/shared/src/resume-pdf.ts`                | `UIMessage` 用于简历消息附件读取                             | 改为读取 `ArcMessagePart`/`ArcFilePart`                                         |
+| 编号  | 当前文件                                           | AI SDK 使用点                                                | 迁移目标                                                            |
+| ----- | -------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------- |
+| 2.1.1 | `apps/ai-recruitment-copilot/package.json`         | `@ai-sdk/openai-compatible`, `@ai-sdk/react`, `ai`           | 移除前端 AI SDK runtime，改用 `ArcMessage`、`AiRunEvent`、fetch/SSE |
+| 2.1.2 | `apps/ai-recruitment-copilot-backend/package.json` | `@ai-sdk/openai-compatible`, `ai`                            | 后端改用 Mastra core/provider/storage/evals                         |
+| 2.1.3 | `packages/shared/package.json`                     | `ai` 类型依赖                                                | `packages/shared/src/ai-message.ts` 定义项目自有消息协议            |
+| 2.1.4 | `packages/db-schema/package.json`                  | `ai` 类型依赖                                                | `@arc/db-schema` 不再引用 AI SDK 类型                               |
+| 2.1.5 | `packages/db-schema/src/schema.ts`                 | `UIMessage` 用于 `chat_message.content` JSONB 和 `role` 类型 | `ArcMessage`/`ArcMessageRole` JSONB；提供一次性数据迁移             |
+| 2.1.6 | `packages/shared/src/resume-pdf.ts`                | `UIMessage` 用于简历消息附件读取                             | 改为读取 `ArcMessagePart`/`ArcFilePart`                             |
 
 ### 2.2 后端 provider 和模型入口
 
@@ -69,12 +80,12 @@
 
 ### 2.4 当前手写 workflow/streaming
 
-| 编号  | 当前文件                                                                                     | 当前能力                                                                                            | 迁移目标                                                                                        |
-| ----- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| 2.4.1 | `apps/ai-recruitment-copilot-backend/src/server/agents/resume-analysis-agent.ts`             | 手写 `createNdjsonStream()`，发 `status/tool-start/tool-end/text-delta/step/result/error/heartbeat` | `resume-analysis-workflow` + `AiRunEvent` adapter                                               |
-| 2.4.2 | `apps/ai-recruitment-copilot/src/components/features/studio/use-resume-analysis-pipeline.ts` | 前端消费 `AnalysisStreamEvent`                                                                      | 通用 `useAiRunStream()`，可消费所有 Mastra workflow/agent run                                   |
-| 2.4.3 | `apps/ai-recruitment-copilot/src/components/features/studio/resume-analysis-overlay.tsx`     | 固定三段式简历处理 UI                                                                               | 通用 `AiRunPanel` + 简历领域 view adapter                                                       |
-| 2.4.4 | `packages/shared/src/api-stream.ts`                                                          | 自定义 stream event union                                                                           | 迁移到 `packages/shared/src/ai-run-events.ts`，覆盖 workflow/agent/tool/approval/suspend/scorer |
+| 编号  | 当前文件                                                                                     | 当前能力                                                                       | 迁移目标                                                         |
+| ----- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| 2.4.1 | `apps/ai-recruitment-copilot-backend/src/server/agents/resume-analysis-agent.ts`             | 已从手写 NDJSON 迁到 `createAiRunEventStream()` + Mastra workflow/agent facade | 继续收敛到 `resume-analysis-workflow` 编排 JD 匹配/评价/问题生成 |
+| 2.4.2 | `apps/ai-recruitment-copilot/src/components/features/studio/use-resume-analysis-pipeline.ts` | 前端消费 `AnalysisStreamEvent` alias，也就是 `AiRunEvent`                      | 通用 `useAiRunStream()`，可消费所有 Mastra workflow/agent run    |
+| 2.4.3 | `apps/ai-recruitment-copilot/src/components/features/studio/resume-analysis-overlay.tsx`     | 固定三段式简历处理 UI                                                          | 通用 `AiRunPanel` + 简历领域 view adapter                        |
+| 2.4.4 | `packages/shared/src/api-stream.ts`                                                          | `AnalysisStreamEvent` 兼容 alias                                               | 删除旧命名，直接使用 `AiRunEvent`                                |
 
 ### 2.5 Resume chat agent
 
@@ -335,7 +346,6 @@ apps/ai-recruitment-copilot-backend/src/server/agents/mastra/
   adapters/
     ai-run-stream.ts
     arc-message-adapter.ts
-    legacy-analysis-event-adapter.ts
 ```
 
 ### 4.2 共享协议
@@ -436,7 +446,7 @@ export type AiRunEvent =
 
 1. Mastra workflow stream chunk 只在后端 adapter 中解析，前端不直接依赖 Mastra 内部 chunk shape。
 2. 所有 UI 只消费 `AiRunEvent`，这样 resume analysis、chat、batch、report 使用同一套等待/进度组件。
-3. 现有 `AnalysisStreamEvent` 先由 `legacy-analysis-event-adapter.ts` 兼容，等前端全部迁移后删除。
+3. 现有 `AnalysisStreamEvent` 已收敛为 `AiRunEvent` 的类型 alias；后续删除别名和旧命名即可。
 4. 所有 event 都带 `runId`；可选带 `traceId`，用于 observability 跳转。
 5. 大对象不要频繁通过 `step.preview` 全量推送；简历解析字段可以 patch 化，比如只推送 changed fields。
 
@@ -629,13 +639,15 @@ export type AiRunEvent =
 
 ### 6.5 Phase 4：迁移简历解析 workflow
 
-- [ ] 新增 `resume-parse-workflow.ts`，steps：
+- [x] 新增 `resume-parse-workflow.ts` 基础 bytes workflow，steps：
+  1. `hash-resume`：计算 file hash。
+  2. `extract-resume-text`：复用现有 PDF/OCR/Office 文档文本抽取。
+  3. `structure-resume`：调用 `ResumeStructuredAgent.generate(..., { structuredOutput })`。
+  4. `compose-resume-parse-result`：产出结构化结果和前端 preview。
+- [ ] 扩展 `resume-parse-workflow.ts` 为持久化 workflow：
   1. `loadResumeFileStep`：读取 S3/local upload metadata。
-  2. `hashResumeStep`：计算 file hash，查缓存。
-  3. `rasterizePdfStep`：复用现有 PDF rasterization。
-  4. `ocrResumeStep`：复用 Qwen OCR。
-  5. `structureResumeStep`：调用 `ResumeStructuredAgent.generate(..., { structuredOutput })`。
-  6. `persistResumeProfileStep`：写入现有 profile/cache 表。
+  2. `cacheLookupStep`：按 file hash 查缓存。
+  3. `persistResumeProfileStep`：写入现有 profile/cache 表。
 - [x] 新增 `resume-analysis-workflow.ts` 的基础 parse/question steps，并注册到 Mastra。
 - [ ] 使用 workflow state 存：
   - `progress`
@@ -643,8 +655,8 @@ export type AiRunEvent =
   - `ocrTextPreview`
   - `partialProfile`
   - `cacheHit`
-- [ ] `structureResumeStep` 产出 `step.preview`，让前端能先显示姓名、学校、经历、技能。
-- [ ] `apps/ai-recruitment-copilot-backend/src/lib/server/resume-parse-pipeline.ts` 改为 workflow facade：
+- [x] `structureResumeStep` 产出 `step.preview`，让前端能先显示姓名、学校、经历、技能。
+- [x] `parseResumeBytesToProfile()` 和 `streamParseResumeProfile()` 改为 workflow facade：
   - 保留函数名，内部调用 workflow，降低 route/worker 改动面。
 - [x] 迁移 tests：
   - 原 `resume-parse-pipeline.test.ts` 不再 mock `generateText`，改 mock `ResumeStructuredAgent` 或 workflow step。
@@ -675,7 +687,11 @@ export type AiRunEvent =
   - scoring output schema。
   - `streamGenerateResumeReview()` 和 `generateResumeReview()`。
 - [x] `streamGenerateResumeReview()` 保留导出，并镜像输出 `AiRunEvent`。
-- [ ] `generateResumeReview()` 保留导出但调用 workflow blocking run，用于 bulk processor。
+- [x] `generateResumeReview()` 保留导出但调用 workflow blocking run，用于 bulk processor。
+- [x] 新增详情页专用 markdown-first 评价流：
+  - `/api/interview/generate-review-markdown-stream`
+  - 先通过 `resumeReviewMarkdownAgent` 流式生成 markdown 并逐字回填编辑器。
+  - 再把 markdown 传给结构化评价和评分步骤，生成 `structuredReview`。
 - [x] 给关键 AI 输出注册 scorer：
   - 字段完整度。
   - 分数范围约束。
@@ -698,6 +714,7 @@ export type AiRunEvent =
 - [x] 新增 `resume-analysis-workflow.ts` 基础编排：
   1. `parse-resume-profile`
   2. `generate-interview-questions`
+- [x] `analyzeResumeFile()` 改为调用 `runResumeAnalysisWorkflow()` blocking runner，用于创建/编辑面试的现场解析兜底路径。
 - [ ] 扩展 `resume-analysis-workflow.ts`，编排：
   1. `resume-parse-workflow`
   2. `job-description-match-step`
@@ -707,18 +724,31 @@ export type AiRunEvent =
   - 把 Mastra workflow stream chunk 转成 `AiRunEvent`。
   - 统一 heartbeat。
   - 捕获 error 并转 `run.failed`。
+  - 原生 `workflow-start` / `workflow-step-start` / `workflow-step-progress` / `workflow-step-result` / `workflow-finish` 已有稳定 adapter 测试。
 - [x] 修改 `packages/shared/src/api-stream.ts`：
   - 标记 legacy。
   - re-export `AiRunEvent` 或提供临时 union。
 - [x] 修改后端解析 / 出题 / 评价流：
-  - 旧 `AnalysisStreamEvent` 保持不变。
-  - 同时镜像 `run.started` / `step.*` / `run.completed` / `run.failed`。
-- [ ] 修改 `apps/ai-recruitment-copilot/src/components/features/studio/use-resume-analysis-pipeline.ts`：
-  - 第一阶段可同时支持 `AnalysisStreamEvent` 和 `AiRunEvent`。
-  - 第二阶段删除 legacy。
-- [ ] 修改 `resume-analysis-overlay.tsx`：
-  - 用 `AiRunPanel` 渲染 workflow。
-  - 领域化区域显示 `partialProfile`、JD match、review preview、question preview。
+  - `/api/interview/parse-resume`
+  - `/api/interview/generate-questions`
+  - `/api/interview/generate-review`
+  - `/api/interview/generate-review-markdown-stream`
+  - 统一返回 `text/event-stream`，事件为 `run.started` / `step.*` / `run.completed` / `run.failed`。
+- [x] 修改 `apps/ai-recruitment-copilot/src/components/features/studio/use-resume-analysis-pipeline.ts`：
+  - 通过 `readAiRunEventStream()` 消费 SSE。
+  - `AnalysisStreamEvent` 只是 `AiRunEvent` alias。
+- [x] 删除前端旧 NDJSON reader：
+  - `apps/ai-recruitment-copilot/src/lib/client/ndjson-stream.ts`
+- [x] 修改 `resume-analysis-overlay.tsx` 的领域化进度区域：
+  - OCR 页进度只在提取简历文本阶段显示。
+  - 进入结构化字段提取后隐藏 OCR 页进度。
+  - 结构化阶段显示 partial fields。
+  - 评价阶段显示 review preview。
+- [ ] 新增通用 `AiRunPanel`：
+  - 统一渲染 workflow step/tool/approval/scorer。
+  - 当前简历上传仍是领域化 overlay，不是通用面板。
+- [ ] 删除 `AnalysisStreamEvent` alias 和相关旧命名：
+  - 生产事件已是 `AiRunEvent`，但类型名还保留兼容。
 - [ ] 验证：
 
   ```bash
@@ -848,6 +878,8 @@ export type AiRunEvent =
 
 - [x] 新增 `bulk-resume-upload-workflow.ts` 基础单 item workflow：
   1. `process-bulk-upload-item`
+- [x] BullMQ resume parse worker 改为调用 `runBulkResumeUploadWorkflow({ itemId })`。
+- [x] 当前产品决策：后台批量任务不接前台 workflow stream，仍通过 batch 状态/日志展示总进度；Mastra workflow 主要用于执行编排、可观测性和后续恢复。
 - [ ] 扩展 `bulk-resume-upload-workflow.ts`：
   1. `prepareBatchStep`
   2. `foreachResumeStep` 或 child `resume-analysis-workflow`
@@ -876,14 +908,15 @@ export type AiRunEvent =
 
 - [x] 新增 `interview-report-workflow.ts` 基础报告生成 workflow：
   1. `generate-interview-report`
-- [ ] 扩展 `interview-report-workflow.ts`：
+- [x] `runSummaryJob()` 改为调用 `runInterviewReportWorkflow()`，实际面试报告生成入口已经过 Mastra workflow runner。
+- [x] 扩展 `interview-report-workflow.ts`：
   1. `loadConversationStep`
   2. `.parallel([summaryStep, evaluationStep])`
   3. `composeReportStep`
-  4. `persistReportStep`
+- [ ] 新增 `persistReportStep`
 - [x] `summaryStep` 替换 `generateText`。
 - [x] `evaluationStep` 替换 `generateObject`。
-- [ ] 使用 Mastra control flow 的 parallel output shape，明确下游 step input schema：
+- [x] 使用 Mastra control flow 的 parallel output shape，明确下游 step input schema：
 
   ```ts
   inputSchema: z.object({
@@ -892,7 +925,7 @@ export type AiRunEvent =
   });
   ```
 
-- [ ] 添加 `reportEvidenceGroundingScorer`。
+- [x] 添加 `reportEvidenceGroundingScorer`。
 - [x] 验证：
 
   ```bash
@@ -913,12 +946,11 @@ export type AiRunEvent =
   - request context 注入 workspace/user/resume/conversation metadata。
 - [x] 注册 scorers：
   - `resumeProfileCompletenessScorer`
+  - `jdMatchEvidenceScorer`
   - `interviewQuestionCountScorer`
   - `resumeReviewStructureScorer`
-- [ ] 补充业务语义 scorers：
-  - `jdMatchEvidenceScorer`
   - `reportEvidenceGroundingScorer`
-  - `chatToolUsageScorer`
+- [ ] 补充业务语义 scorers：
   - `chatToolUsageScorer`
 - [ ] 在关键 agents/workflow steps 上配置 live evaluation sampling：
   - dev/test: `1.0`
@@ -959,7 +991,7 @@ export type AiRunEvent =
 
 - [ ] 删除 legacy adapters：
   - `legacyUiMessageToArcMessage()` 如果数据迁移完成。
-  - `legacy-analysis-event-adapter.ts` 如果所有 UI 已切到 `AiRunEvent`。
+  - `packages/shared/src/api-stream.ts` 的 `AnalysisStreamEvent` alias 如果所有调用方已改用 `AiRunEvent`。
 - [ ] 更新 tests mock：
   - 不再 mock `generateText/generateObject/tool/ToolLoopAgent`。
   - 改 mock Mastra agents/workflows/tools。
@@ -973,14 +1005,31 @@ export type AiRunEvent =
   git diff --check
   ```
 
+### 6.15 当前剩余工作汇总
+
+截至 2026-07-01，按代码扫描和本轮实现对齐，剩余工作主要是：
+
+1. **Chat 迁移未完成。** 后端 `resume-agent.ts`、`screening.ts`、`agent-tools.ts`、`agent-helpers.ts`、`routes/resume/routes/chat/route.ts` 仍依赖 AI SDK `ToolLoopAgent`、`tool()`、`UIMessage`、`convertToModelMessages`；前端 `chat-workspace.tsx`、`chat-registry.ts`、`chat-transport.ts`、`studio-resume-floating-chat.tsx` 和消息组件仍依赖 `@ai-sdk/react` / `ai` 类型。
+2. **后端 provider 兼容入口未删除。** `apps/ai-recruitment-copilot-backend/src/server/agents/provider.ts` 仍使用 `createOpenAICompatible`，主要为旧 chat/agent 路径保留。
+3. **依赖未清理。** `apps/ai-recruitment-copilot/package.json` 和 `apps/ai-recruitment-copilot-backend/package.json` 仍保留 AI SDK 依赖；需等 chat runtime 和旧 provider 删除后再移除。
+4. **通用前端 `AiRunPanel` 未做。** 单份简历上传和详情页评价再生成已有领域化进度 UI，但还没有可复用的 run/step/tool/approval/scorer 面板。
+5. **`AnalysisStreamEvent` 旧命名未删除。** 生产事件已经是 `AiRunEvent`，但 `packages/shared/src/api-stream.ts` 和若干前端调用仍使用兼容 alias。
+6. **`resume-analysis-workflow` 还只是基础编排。** 已有 parse/question blocking runner；尚未把 JD 匹配、评价、可选出题完整收敛到一个可持久化 workflow graph。
+7. **`resume-parse-workflow` 还不是完整持久化 workflow。** bytes workflow 已有；S3/local metadata 加载、cache lookup、persist profile/cache 还在 facade/旧服务逻辑中。
+8. **批量上传只是接入基础 workflow runner。** BullMQ worker 已调用 `runBulkResumeUploadWorkflow({ itemId })`，但 `processor.ts` 的长流程尚未拆成 workflow steps，也还没有 child runId、snapshot/resume、单份失败重试。
+9. **面试报告还缺持久化 step。** summary/evaluation 并行和 compose 已迁到 workflow，`persistReportStep` 还没纳入 workflow。
+10. **Observability/live eval 未完整接入。** Scorers 已注册一批，但 tracing、sensitive data filter、request metadata、sampling、trace debug UI 还没落地。
+11. **Mastra approval/memory/suspend-resume 未用于业务路径。** 目前主要是 agent/workflow/structured output/stream/scorer；chat approval、workflow resume、Mastra memory thread 仍待实现。
+
 ## 7. 模块迁移顺序建议
 
 1. 先迁移 provider/runtime skeleton，因为所有后续模块依赖它。
 2. 再迁移结构化生成工具类模块：JD、表单题、面试题、标题。这些风险小、可快速验证 Mastra 模型和 structured output。
 3. 再迁移简历解析和评价 workflow，因为它们决定 Studio 等待体验。
-4. 再迁移 chat supervisor，因为它牵涉前后端 runtime、tool approval、memory、持久化。
-5. 再迁移批量上传，因为它最适合 snapshot/resume，但 blast radius 大。
-6. 最后迁移面试报告和删除 AI SDK 依赖。
+4. 面试报告 workflow 已经可以提前迁移；剩余是把持久化纳入 workflow。
+5. 再迁移 chat supervisor，因为它牵涉前后端 runtime、tool approval、memory、持久化。
+6. 再迁移批量上传，因为它最适合 snapshot/resume，但 blast radius 大。
+7. 最后删除 AI SDK 依赖和兼容层。
 
 不要先从前端 `useChat` 开始硬替换。当前 chat runtime 绑定 PDF upload、OCR、JD action、partial persistence 和 regenerate 逻辑；后端 Mastra stream 协议稳定前，前端替换容易返工。
 

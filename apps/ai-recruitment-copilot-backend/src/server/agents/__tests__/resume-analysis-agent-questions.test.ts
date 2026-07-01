@@ -4,6 +4,7 @@ import type { ResumeProfile } from "@arc/db-schema/interview/types";
 const mocks = vi.hoisted(() => ({
   buildAttachmentKeyByHash: vi.fn(),
   createAttachment: vi.fn(),
+  extractResumeDocumentText: vi.fn(),
   findAttachmentByContentHash: vi.fn(),
   generateResumeStructured: vi.fn(),
   generateStructuredWithMastraAgent: vi.fn(),
@@ -27,6 +28,7 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
   putObjectBytes: mocks.putObjectBytes,
 }));
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline", () => ({
+  extractResumeDocumentText: mocks.extractResumeDocumentText,
   generateResumeStructured: mocks.generateResumeStructured,
   parseResumeFast: mocks.parseResumeFast,
 }));
@@ -88,10 +90,19 @@ const QUESTIONS_OUTPUT = {
 async function readStreamEvents(stream: ReadableStream<Uint8Array>) {
   const text = await new Response(stream).text();
   return text
-    .trim()
-    .split("\n")
+    .split("\n\n")
+    .map((frame) => frame.trim())
     .filter(Boolean)
-    .map((line) => JSON.parse(line) as { type: string; data?: unknown; index?: number });
+    .map((frame) => {
+      const data = frame
+        .split("\n")
+        .find((line) => line.startsWith("data: "))
+        ?.slice("data: ".length);
+      if (!data) {
+        throw new Error(`Missing SSE data frame: ${frame}`);
+      }
+      return JSON.parse(data) as { type: string; output?: unknown; stepId?: string };
+    });
 }
 
 describe("resume interview question generation", () => {
@@ -120,7 +131,7 @@ describe("resume interview question generation", () => {
   it("uses structured output for streaming question generation", async () => {
     const events = await readStreamEvents(streamGenerateInterviewQuestions(PROFILE));
 
-    const result = events.find((event) => event.type === "result")?.data as {
+    const result = events.find((event) => event.type === "run.completed")?.output as {
       interviewQuestions?: unknown[];
     };
     expect(result.interviewQuestions).toHaveLength(10);
@@ -135,5 +146,9 @@ describe("resume interview question generation", () => {
         temperature: 0.3,
       }),
     );
+    expect(events.some((event) => event.type === "result" || event.type === "text-delta")).toBe(
+      false,
+    );
+    expect(events.some((event) => event.type === "step.started")).toBe(true);
   });
 });

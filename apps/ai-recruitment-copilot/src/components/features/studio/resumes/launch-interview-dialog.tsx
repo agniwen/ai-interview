@@ -27,7 +27,7 @@ import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { env } from "@/env/client";
 import { fetchStudioResume, launchInterviewFromResume } from "@/lib/client/api";
-import { readNdjsonStream } from "@/lib/client/ndjson-stream";
+import { readAiRunEventStream } from "@/lib/client/ai-run-event-stream";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
@@ -77,7 +77,7 @@ async function streamGenerateQuestions(
   signal: AbortSignal,
 ): Promise<InterviewQuestion[] | null> {
   // 用 hc 客户端调流式接口：URL 常量化 + body 类型推断走 zValidator schema；
-  // body 自己 await 拿 Response 后用 readNdjsonStream 读流（rpcFetch 会消费整个 body）。
+  // body 自己 await 拿 Response 后用 readAiRunEventStream 读流（rpcFetch 会消费整个 body）。
   // Streaming via hc: URL + body types come from the zValidator schema. Consume
   // the stream manually because rpcFetch would parse the whole body.
   const response = await rpc.api.interview["generate-questions"].$post(
@@ -92,14 +92,14 @@ async function streamGenerateQuestions(
   let questions: InterviewQuestion[] | null = null;
   let streamError: string | null = null;
 
-  await readNdjsonStream<AnalysisStreamEvent>(
+  await readAiRunEventStream<AnalysisStreamEvent>(
     response,
     (event) => {
-      if (event.type === "result") {
-        const data = event.data as { interviewQuestions?: InterviewQuestion[] };
-        questions = data.interviewQuestions ?? null;
-      } else if (event.type === "error") {
-        streamError = event.message;
+      if (event.type === "run.completed") {
+        const data = event.output as { interviewQuestions?: InterviewQuestion[] } | undefined;
+        questions = data?.interviewQuestions ?? null;
+      } else if (event.type === "run.failed") {
+        streamError = event.error.message;
       }
     },
     signal,

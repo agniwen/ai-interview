@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import type { ResumeReview } from "@arc/shared/resume-review";
 import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
+import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 import { StudioPersonEditDialog } from "./studio-person-edit-dialog";
 
@@ -20,6 +21,17 @@ const apiMocks = vi.hoisted(() => ({
 
 const routerMocks = vi.hoisted(() => ({
   navigate: vi.fn(),
+}));
+
+const reviewRegenerationMocks = vi.hoisted(() => ({
+  cancel: vi.fn(),
+  hookValue: {
+    isGenerating: false,
+    progressStatus: "",
+    progressTools: [] as { done: boolean; name: string }[],
+    regenerate: vi.fn(),
+    scoringPreview: null as unknown,
+  },
 }));
 
 vi.mock("@/lib/client/api", () => ({
@@ -102,9 +114,8 @@ vi.mock("@/components/features/markdown-editor", () => ({
 
 vi.mock("./use-resume-review-regeneration", () => ({
   useResumeReviewRegeneration: () => ({
-    cancel: vi.fn(),
-    isGenerating: false,
-    regenerate: vi.fn(),
+    cancel: reviewRegenerationMocks.cancel,
+    ...reviewRegenerationMocks.hookValue,
   }),
 }));
 
@@ -134,6 +145,22 @@ const STRUCTURED_REVIEW: ResumeReview = {
   strengths: [{ evidence: "简历证据", impact: "匹配岗位", point: "经验匹配" }],
   teamPositioning: { rationale: "经历集中", suggestion: "业务团队" },
   weaknesses: [{ evidence: null, impact: "需面试确认", point: "细节不足" }],
+};
+
+const STRUCTURED_PROFILE: ResumeProfile = {
+  age: null,
+  educationExperiences: [],
+  email: "candidate@example.com",
+  gender: null,
+  name: "邓超",
+  personalStrengths: [],
+  phone: null,
+  projectExperiences: [],
+  schools: [],
+  skills: ["React"],
+  targetRoles: ["前端工程师"],
+  workExperiences: [],
+  workYears: 5,
 };
 
 function makeDetail(overrides: Partial<ResumeLibraryDetail> = {}): ResumeLibraryDetail {
@@ -290,6 +317,13 @@ function renderInterviewDialog({
 afterEach(() => {
   document.body.innerHTML = "";
   vi.clearAllMocks();
+  reviewRegenerationMocks.hookValue = {
+    isGenerating: false,
+    progressStatus: "",
+    progressTools: [],
+    regenerate: vi.fn(),
+    scoringPreview: null,
+  };
 });
 
 describe("StudioPersonEditDialog", () => {
@@ -434,6 +468,41 @@ describe("StudioPersonEditDialog", () => {
       { body: FormData; method: string },
     ];
     expect(init.body.get("resumeEvaluationStatus")).toBe("pass");
+
+    act(() => {
+      root.unmount();
+    });
+    queryClient.clear();
+  });
+
+  it("shows resume review regeneration progress in resume edit mode", async () => {
+    reviewRegenerationMocks.hookValue = {
+      isGenerating: true,
+      progressStatus: "正在生成维度评分",
+      progressTools: [
+        { done: true, name: "检查硬性门槛" },
+        { done: false, name: "生成维度评分" },
+      ],
+      regenerate: vi.fn(),
+      scoringPreview: { baseScore: 82 },
+    };
+    apiMocks.fetchStudioResume.mockResolvedValue(makeDetail({ resumeProfile: STRUCTURED_PROFILE }));
+    const { queryClient, root } = renderDialog();
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("正在生成维度评分");
+    });
+
+    expect(document.body.textContent).toContain("检查硬性门槛");
+    expect(document.body.textContent).toContain("生成维度评分");
+    expect(document.body.textContent).toContain("评分预览：82");
+    const progressCard = document.querySelector(
+      '[data-testid="resume-review-generation-progress"]',
+    );
+    const notesEditor = document.querySelector("#notes");
+    expect(progressCard?.compareDocumentPosition(notesEditor as Node)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
 
     act(() => {
       root.unmount();

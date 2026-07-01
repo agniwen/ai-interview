@@ -12,6 +12,8 @@ const bulkResumeUploadOutputSchema = z.object({
   item: z.unknown().nullable(),
 });
 
+export type BulkResumeUploadWorkflowOutput = z.infer<typeof bulkResumeUploadOutputSchema>;
+
 export interface BulkResumeUploadWorkflowDeps {
   processItem: typeof processBatchItem;
 }
@@ -47,3 +49,18 @@ export function createBulkResumeUploadWorkflow(deps: BulkResumeUploadWorkflowDep
 export const bulkResumeUploadWorkflow = createBulkResumeUploadWorkflow({
   processItem: processBatchItem,
 });
+
+export async function runBulkResumeUploadWorkflow(input: {
+  itemId: string;
+}): Promise<BulkResumeUploadWorkflowOutput> {
+  const run = await bulkResumeUploadWorkflow.createRun();
+  const result = await run.start({ inputData: input });
+
+  if (result.status === "success") {
+    return result.result;
+  }
+  if (result.status === "failed") {
+    throw result.error;
+  }
+  throw new Error(`Bulk resume upload workflow ended with status ${result.status}.`);
+}

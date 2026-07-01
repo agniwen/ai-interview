@@ -56,7 +56,7 @@ const evaluationSchema = z.object({
 
 export type InterviewEvaluation = z.infer<typeof evaluationSchema>;
 
-function formatTranscript(turns: InterviewTranscriptTurn[]): string {
+export function formatTranscript(turns: InterviewTranscriptTurn[]): string {
   return turns
     .map((turn, index) => {
       const role = turn.role === "agent" ? "面试官" : "候选人";
@@ -67,7 +67,7 @@ function formatTranscript(turns: InterviewTranscriptTurn[]): string {
     .join("\n");
 }
 
-function formatQuestions(questions: InterviewQuestion[]): string {
+export function formatQuestions(questions: InterviewQuestion[]): string {
   if (questions.length === 0) {
     return "（无补充题目）";
   }
@@ -81,6 +81,58 @@ export interface InterviewReportResult {
   evaluationError?: string;
 }
 
+export function composeInterviewReport(input: {
+  evaluationResult: PromiseSettledResult<InterviewEvaluation>;
+  summaryResult: PromiseSettledResult<string>;
+}): InterviewReportResult {
+  const result: InterviewReportResult = { evaluation: null, summary: null };
+
+  if (input.summaryResult.status === "fulfilled") {
+    result.summary = input.summaryResult.value.trim() || null;
+  } else {
+    result.summaryError =
+      input.summaryResult.reason instanceof Error
+        ? input.summaryResult.reason.message
+        : String(input.summaryResult.reason);
+  }
+
+  if (input.evaluationResult.status === "fulfilled") {
+    result.evaluation = input.evaluationResult.value;
+  } else {
+    result.evaluationError =
+      input.evaluationResult.reason instanceof Error
+        ? input.evaluationResult.reason.message
+        : String(input.evaluationResult.reason);
+  }
+
+  return result;
+}
+
+export async function generateInterviewSummary(options: {
+  transcript: InterviewTranscriptTurn[];
+}): Promise<string> {
+  return await generateTextWithMastraAgent({
+    agent: interviewReportSummaryAgent,
+    prompt: SUMMARY_PROMPT.replace("{transcript}", formatTranscript(options.transcript)),
+    temperature: 0.2,
+  });
+}
+
+export async function generateInterviewEvaluation(options: {
+  questions: InterviewQuestion[];
+  transcript: InterviewTranscriptTurn[];
+}): Promise<InterviewEvaluation> {
+  return await generateStructuredWithMastraAgent({
+    agent: interviewReportEvaluationAgent,
+    prompt: EVALUATION_PROMPT.replace("{questions}", formatQuestions(options.questions)).replace(
+      "{transcript}",
+      formatTranscript(options.transcript),
+    ),
+    schema: evaluationSchema,
+    temperature: 0,
+  });
+}
+
 export async function generateInterviewReport(options: {
   transcript: InterviewTranscriptTurn[];
   questions: InterviewQuestion[];
@@ -91,45 +143,10 @@ export async function generateInterviewReport(options: {
     return { evaluation: null, summary: null };
   }
 
-  const transcriptText = formatTranscript(transcript);
-  const questionsText = formatQuestions(questions);
-
   const [summaryResult, evaluationResult] = await Promise.allSettled([
-    generateTextWithMastraAgent({
-      agent: interviewReportSummaryAgent,
-      prompt: SUMMARY_PROMPT.replace("{transcript}", transcriptText),
-      temperature: 0.2,
-    }),
-    generateStructuredWithMastraAgent({
-      agent: interviewReportEvaluationAgent,
-      prompt: EVALUATION_PROMPT.replace("{questions}", questionsText).replace(
-        "{transcript}",
-        transcriptText,
-      ),
-      schema: evaluationSchema,
-      temperature: 0,
-    }),
+    generateInterviewSummary({ transcript }),
+    generateInterviewEvaluation({ questions, transcript }),
   ]);
 
-  const result: InterviewReportResult = { evaluation: null, summary: null };
-
-  if (summaryResult.status === "fulfilled") {
-    result.summary = summaryResult.value.trim() || null;
-  } else {
-    result.summaryError =
-      summaryResult.reason instanceof Error
-        ? summaryResult.reason.message
-        : String(summaryResult.reason);
-  }
-
-  if (evaluationResult.status === "fulfilled") {
-    result.evaluation = evaluationResult.value;
-  } else {
-    result.evaluationError =
-      evaluationResult.reason instanceof Error
-        ? evaluationResult.reason.message
-        : String(evaluationResult.reason);
-  }
-
-  return result;
+  return composeInterviewReport({ evaluationResult, summaryResult });
 }
