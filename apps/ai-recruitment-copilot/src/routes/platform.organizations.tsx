@@ -57,7 +57,9 @@ function PlatformOrganizationsRoute() {
 
   return (
     <HydrationBoundary state={state.dehydratedState as unknown as DehydratedState}>
-      <OrganizationsGrid />
+      <div className="container mx-auto max-w-7xl">
+        <OrganizationsGrid />
+      </div>
     </HydrationBoundary>
   );
 }

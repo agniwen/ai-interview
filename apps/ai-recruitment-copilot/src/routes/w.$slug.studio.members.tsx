@@ -1210,7 +1210,7 @@ function MembersManagementPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto max-w-7xl space-y-6">
       <PageHeader
         description="维护工作区成员、邀请入口和招聘组身份，让招聘协作边界清晰可控。"
         title={

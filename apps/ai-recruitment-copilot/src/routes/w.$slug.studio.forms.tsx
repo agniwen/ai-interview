@@ -444,7 +444,7 @@ function CandidateFormTemplateManagementPage({
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="container mx-auto max-w-7xl space-y-6">
         <PageHeader
           description="准备候选人面试前需要补充的信息，按岗位复用，提交后的内容会随面试记录留档。"
           title="面试表单"

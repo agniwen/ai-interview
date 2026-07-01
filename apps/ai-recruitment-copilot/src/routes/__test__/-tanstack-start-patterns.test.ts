@@ -78,6 +78,8 @@ describe("TanStack Start migration patterns", () => {
     expect(platformLayout).toContain("PendingOutlet");
     expect(rootRoute).not.toContain("pointer-events-none opacity-70");
     expect(pendingView).toContain("正在加载");
+    expect(pendingView).toContain("bg-primary");
+    expect(pendingView).not.toContain("bg-foreground/55");
     expect(globalsCss).toContain("@keyframes route-pending");
   });
 

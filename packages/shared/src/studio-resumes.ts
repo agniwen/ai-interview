@@ -111,6 +111,7 @@ export interface ResumeLibraryListRecord {
   resumeParsedAt: string | null;
   resumeParseError: string | null;
   resumeParseStatus: ResumeParseStatus;
+  resumeProfile: ResumeProfile | null;
   hasResumeFile: boolean;
   duplicateMatch: ResumeDuplicateMatchSummary | null;
   // 是否已存在至少一个 AI 面试轮次（studioInterviewSchedule）。
@@ -160,13 +161,12 @@ export interface ResumeLibraryListRecord {
 }
 
 /**
- * 单条详情 DTO：列表字段 + resumeProfile 结构化简历 + interviewQuestions。
+ * 单条详情 DTO：列表字段 + interviewQuestions。
  *
- * Detail DTO: list fields plus the structured `resumeProfile` and any
- * `interviewQuestions` generated during upload (may be empty for legacy rows).
+ * Detail DTO: list fields plus any `interviewQuestions` generated during upload
+ * (may be empty for legacy rows).
  */
 export interface ResumeLibraryDetail extends ResumeLibraryListRecord {
-  resumeProfile: ResumeProfile | null;
   interviewQuestions: ResumeAnalysisResult["interviewQuestions"];
 }
 

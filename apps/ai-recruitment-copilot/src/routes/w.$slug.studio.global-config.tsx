@@ -10,7 +10,11 @@ function StudioGlobalConfigRoute() {
     return null;
   }
 
-  return <GlobalConfigForm initial={state.initial} />;
+  return (
+    <div className="container mx-auto max-w-7xl">
+      <GlobalConfigForm initial={state.initial} />
+    </div>
+  );
 }
 
 export const Route = createFileRoute("/w/$slug/studio/global-config")({

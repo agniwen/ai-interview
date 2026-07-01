@@ -108,7 +108,7 @@ function AgentDebugRoute() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="container mx-auto max-w-7xl flex flex-col gap-6">
       <PageHeader
         description="上传一份简历，查看解析后的候选人字段、parser 原始 JSON 和 OCR 文本。"
         title="Agent 调试"

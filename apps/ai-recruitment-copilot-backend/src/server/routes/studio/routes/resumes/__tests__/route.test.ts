@@ -25,6 +25,7 @@ const createFromStorageSource = readFileSync(
   "utf-8",
 );
 const evaluationDaoSource = readFileSync(new URL("../dao/evaluation.ts", import.meta.url), "utf-8");
+const resumeDaoSource = readFileSync(new URL("../dao/resumes.ts", import.meta.url), "utf-8");
 const resumePoolDaoSource = readFileSync(
   new URL("../../resume-pool/dao.ts", import.meta.url),
   "utf-8",
@@ -263,6 +264,14 @@ describe("resume OCR text persistence", () => {
     expect(createFromStorageSource).toContain("resumeText: input.resumeText");
     expect(resumePoolDaoSource).not.toContain("resumeText: row.resumeText");
     expect(resumePoolDaoSource).not.toContain("resumeText: row.item.resumeText");
+  });
+});
+
+describe("resume library list DTO", () => {
+  it("exposes resumeProfile so cards can render mastered skills", () => {
+    expect(sharedStudioResumesSource).toContain("resumeProfile: ResumeProfile | null;");
+    expect(resumeDaoSource).toContain("resumeProfile: studioInterview.resumeProfile");
+    expect(resumeDaoSource).toContain("resumeProfile: row.resumeProfile");
   });
 });
 

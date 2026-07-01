@@ -1,0 +1,65 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+
+const source = readFileSync(new URL("pipeline-stage-action-bar.tsx", import.meta.url), "utf-8");
+
+describe("PipelineStageActionBar compact stage rail", () => {
+  it("renders a compact rail without per-step status captions", () => {
+    const railSource = source.slice(
+      source.indexOf("<ol"),
+      source.indexOf('<div className="flex flex-wrap items-center justify-end gap-2'),
+    );
+
+    expect(source).toContain("aria-label={`招聘流程，当前阶段：");
+    expect(source).toContain("pipelineStageMeta[pipelineStage].label");
+    expect(source).toContain("grid list-none overflow-x-auto rounded-xl bg-muted/30 p-2");
+    expect(source).toContain("rounded-full px-2.5 py-1.5");
+    expect(source).toContain("{pipelineStageMeta[stage].label}");
+    expect(railSource).not.toContain("getStepCaption");
+    expect(railSource).not.toContain("已完成");
+    expect(railSource).not.toContain("下一步");
+    expect(railSource).not.toContain("待进行");
+  });
+
+  it("only highlights the current step and keeps other steps muted", () => {
+    const railSource = source.slice(
+      source.indexOf("<ol"),
+      source.indexOf('<div className="flex flex-wrap items-center justify-end gap-2'),
+    );
+
+    expect(railSource).toContain("const isCurrent = stage === pipelineStage;");
+    expect(railSource).toContain("isCurrent");
+    expect(railSource).toContain('"bg-primary text-primary-foreground shadow-xs"');
+    expect(railSource).toContain(': "bg-background text-muted-foreground ring-1 ring-border/60"');
+    expect(railSource).not.toContain('status === "done" && "border-primary');
+    expect(railSource).not.toContain('status === "next" && "border-primary');
+  });
+
+  it("groups the primary resume actions together", () => {
+    const actionsSource = source.slice(
+      source.indexOf('<div className="flex flex-wrap items-center justify-end gap-2'),
+      source.indexOf("</div>", source.indexOf("actions.right.length > 0")),
+    );
+
+    expect(source).toContain("primaryAction?: ReactNode;");
+    expect(source).toContain('import { ButtonGroup } from "@/components/ui/button-group";');
+    expect(actionsSource).toContain("<ButtonGroup");
+    expect(actionsSource).toContain("{primaryAction}");
+    expect(actionsSource).toContain("primaryAction || actions.right.length > 0");
+    expect(source).toContain("安排真人面试");
+    expect(source).toContain("直接发 Offer");
+    expect(source).toContain('key: "to-offer"');
+    expect(source).not.toContain(
+      '<Button key="to-offer" onClick={() => onAdvance("offer")} size="sm" variant="outline">',
+    );
+  });
+
+  it("can hide the AI interview step while resumes are still parsing", () => {
+    expect(source).toContain("showAiInterviewStep?: boolean;");
+    expect(source).toContain("showAiInterviewStep = true");
+    expect(source).toContain("const DEFAULT_ROUTE_STEPS_WITHOUT_AI");
+    expect(source).toContain(
+      "showAiInterviewStep ? DEFAULT_ROUTE_STEPS : DEFAULT_ROUTE_STEPS_WITHOUT_AI",
+    );
+  });
+});

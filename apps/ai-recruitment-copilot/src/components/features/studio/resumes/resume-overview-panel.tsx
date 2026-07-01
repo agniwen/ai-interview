@@ -299,8 +299,6 @@ function ExpandableMarkdownSummary({ value }: { value: string | null | undefined
 export function ResumeOverviewPanel({ detail }: { detail: ResumeLibraryDetail }) {
   const progress = describeResumeProgress(detail);
   const resumeEvaluation = describeResumeEvaluationStatus(detail.resumeEvaluationStatus);
-  const skills = detail.resumeProfile?.skills.slice(0, 8) ?? [];
-  const strengths = detail.resumeProfile?.personalStrengths.slice(0, 3) ?? [];
 
   return (
     <div className="space-y-8">
@@ -315,44 +313,10 @@ export function ResumeOverviewPanel({ detail }: { detail: ResumeLibraryDetail })
           </div>
         </div>
 
-        <dl className="grid gap-x-8 gap-y-4 md:grid-cols-4">
-          <SummaryItem label="目标岗位" value={detail.targetRole} />
+        <dl className="grid gap-x-8 gap-y-4 md:grid-cols-2">
           <SummaryItem label="关联岗位" value={detail.jobDescriptionName} />
           <SummaryItem label="简历评估" value={resumeEvaluation.label} />
-          <SummaryItem label="工作年限" value={detail.resumeProfile?.workYears ?? null} />
         </dl>
-
-        {skills.length > 0 || strengths.length > 0 ? (
-          <div className="grid gap-5 border-border/50 border-t pt-5 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.7fr)]">
-            {skills.length > 0 ? (
-              <div>
-                <p className="mb-2 text-muted-foreground text-xs">核心技能</p>
-                <ul className="flex flex-wrap gap-2">
-                  {skills.map((skill) => (
-                    <li
-                      className="rounded-full bg-background px-2.5 py-1 text-xs shadow-xs ring-1 ring-border/50"
-                      key={skill}
-                    >
-                      {skill}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            {strengths.length > 0 ? (
-              <div>
-                <p className="mb-2 text-muted-foreground text-xs">主要亮点</p>
-                <ul className="space-y-2 text-sm">
-                  {strengths.map((strength) => (
-                    <li className="line-clamp-2 text-muted-foreground leading-6" key={strength}>
-                      {strength}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
       </section>
 
       <section className="space-y-4 border-t border-border/50 pt-6">

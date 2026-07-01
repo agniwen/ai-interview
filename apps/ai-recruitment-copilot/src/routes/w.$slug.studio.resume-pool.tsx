@@ -130,8 +130,6 @@ const RESUME_POOL_MASONRY_COLUMNS = {
   1024: 2,
   1280: 3,
   1440: 4,
-  1920: 6,
-  2560: 7,
 } as const;
 
 function normalizeScope(value: unknown): ResumePoolScope {
@@ -1818,7 +1816,7 @@ function ResumePoolPage() {
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="container mx-auto max-w-7xl space-y-6">
         <PageHeader
           className="max-w-3xl"
           title="简历广场"

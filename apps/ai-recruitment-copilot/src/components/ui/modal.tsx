@@ -10,13 +10,14 @@ import { cossModalSurfaceClass } from "@/components/ui/coss-style";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@arc/shared/utils";
 
-type ModalSize = "sm" | "md" | "lg" | "xl" | "2xl" | "full";
+type ModalSize = "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "full";
 type HeaderLayout = "stack" | "row";
 
 // 不同尺寸映射到 Tailwind max-width 类，"full" 对应详情类弹窗的近全屏样态。
 // Size → max-width class mapping; "full" mirrors the detail-dialog near-fullscreen layout.
 const SIZE_CLASS: Record<ModalSize, string> = {
   "2xl": "sm:max-w-5xl",
+  "3xl": "sm:w-[min(96vw,1200px)] sm:max-w-none",
   full: "sm:w-[min(96vw,1440px)] sm:max-w-none",
   lg: "sm:max-w-2xl",
   md: "sm:max-w-lg",

@@ -1,6 +1,27 @@
-import { IconHistory, IconTrash, IconUsers } from "@tabler/icons-react";
-import { HydrationBoundary, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  IconArrowBackUp,
+  IconBriefcase,
+  IconCircleOff,
+  IconDots,
+  IconEdit,
+  IconEye,
+  IconHistory,
+  IconMail,
+  IconMessage2,
+  IconPhone,
+  IconSparkles,
+  IconTrash,
+  IconUsers,
+} from "@tabler/icons-react";
+import AvvvatarsModule from "avvvatars-react";
+import {
+  HydrationBoundary,
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   ClientOnly,
   createFileRoute,
@@ -31,19 +52,14 @@ import type {
 import { pipelineStageMeta, pipelineStageValues } from "@arc/db-schema/studio-interviews";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { TimeDisplay } from "@/components/features/display/time-display";
-import {
-  ResumeDocumentFileIcon,
-  getResumeDocumentFileIconKind,
-} from "@/components/features/resume/resume-document-file-icon";
 import { ResumeDuplicateMatchesDialog } from "@/components/features/resume/resume-dedup-overlay";
-import {
-  formatResumeCandidateTitle,
-  formatResumeRecordDisplayId,
-} from "@/components/features/resume/resume-record-display-id";
+import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
 import { listBulkResumeBatches } from "@/lib/client/api/endpoints/bulk-resume-upload";
 import { BulkUploadConfirmDialog } from "@/components/features/studio/resumes/bulk-upload-confirm-dialog";
 import type { BulkUploadConfirmConfig } from "@/components/features/studio/resumes/bulk-upload-confirm-dialog";
@@ -52,14 +68,10 @@ import { useBulkUpload } from "@/components/features/studio/resumes/use-bulk-upl
 import { UploadBatchListDialog } from "@/components/features/studio/resumes/upload-batch-list-dialog";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { JobDescriptionViewDialog } from "@/components/features/studio/interviews/job-description-view-dialog";
-import {
-  actionsColumn,
-  customColumn,
-  DataGrid,
-  dateColumn,
-  selectColumn,
-  useDataGridState,
-} from "@/components/data-grid";
+import { useDataGridState } from "@/components/data-grid";
+import type { ToolbarFilterConfig } from "@/components/data-grid";
+import { Toolbar } from "@/components/data-grid/parts/toolbar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -70,10 +82,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CreatorCell } from "@/components/data-grid/cells/creator-cell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Empty,
   EmptyContent,
@@ -82,7 +102,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import {
   bulkDeleteStudioResumes,
   deleteStudioResume,
@@ -114,13 +133,22 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   getPreviewableResumeDocumentKind,
   isPreviewableResumeDocumentInput,
-  UnsupportedResumeDocumentPreviewTooltip,
 } from "@/components/features/resume/resume-document-preview-button";
+import {
+  formatResumeEducationItem,
+  sortResumeEducationExperiences,
+} from "@arc/shared/resume-education";
+import { cn } from "@arc/shared/utils";
 
 const ResumeDocumentPreviewDialog = lazy(async () => {
   const mod = await import("@/components/features/resume/resume-document-preview-dialog");
   return { default: mod.ResumeDocumentPreviewDialog };
 });
+
+const Avvvatars =
+  typeof AvvvatarsModule === "function"
+    ? AvvvatarsModule
+    : (AvvvatarsModule as unknown as { default: typeof AvvvatarsModule }).default;
 
 // 工具栏多选下拉在 state/URL 里以 CSV 字符串编码，符合 data-grid 工具栏约定。
 // 「skills」= 候选人必须同时拥有所有选中的技能（AND）；
@@ -286,6 +314,15 @@ function textOrDash(value: string | null | undefined) {
   return text || "—";
 }
 
+function formatResumeCardContact(value: string | null | undefined, fallback: string) {
+  const text = value?.trim();
+  return text || fallback;
+}
+
+function getCreatorInitial(name: string | null | undefined) {
+  return name?.trim().slice(0, 1).toUpperCase() || "?";
+}
+
 function getResumeLibraryJobDescriptionLabel(record: ResumeLibraryListRecord) {
   return record.jobDescriptionName
     ? [record.jobDescriptionDepartmentName, record.jobDescriptionName].filter(Boolean).join(" / ")
@@ -326,47 +363,6 @@ async function copyResumeDetailLink(slug: string, record: ResumeLibraryListRecor
   }
 }
 
-function ResumeProgressCell({
-  onOpen,
-  record,
-}: {
-  onOpen: () => void;
-  record: ResumeLibraryListRecord;
-}) {
-  const meta = describeLifecycleCell(record);
-  const badge = (
-    <ResumeLifecycleBadge
-      className="w-44"
-      detailLabel={meta.detailLabel}
-      fullLabel={meta.fullLabel}
-      onClick={(e) => {
-        e.stopPropagation();
-        onOpen();
-      }}
-      stageLabel={meta.stageLabel}
-      tone={meta.tone}
-    />
-  );
-
-  if (record.resumeParseStatus !== "failed") {
-    return badge;
-  }
-
-  return (
-    <HoverCard closeDelay={120} openDelay={120}>
-      <HoverCardTrigger asChild>{badge}</HoverCardTrigger>
-      <HoverCardContent align="start" className="w-80">
-        <div className="flex flex-col gap-2">
-          <p className="font-medium text-sm">解析失败原因</p>
-          <p className="whitespace-pre-wrap break-words text-muted-foreground text-sm leading-relaxed">
-            {record.resumeParseError?.trim() || "后台未返回具体失败原因。"}
-          </p>
-        </div>
-      </HoverCardContent>
-    </HoverCard>
-  );
-}
-
 function duplicateMatchBadge(record: ResumeLibraryListRecord, onClick?: () => void) {
   if (!record.duplicateMatch) {
     return null;
@@ -397,6 +393,30 @@ function duplicateMatchBadge(record: ResumeLibraryListRecord, onClick?: () => vo
 const VISIBLE_PIPELINE_STAGES = pipelineStageValues.filter(
   (s) => !HIDDEN_PIPELINE_STAGE_TABS.has(s),
 );
+const RESUME_LIBRARY_INFINITE_PAGE_SIZE = 20;
+const RESUME_LIBRARY_CARD_ESTIMATED_SIZE = 190;
+const RESUME_PROFILE_PLACEHOLDER = "未发现信息";
+
+function findVerticalScrollParent(node: HTMLElement | null): HTMLElement | null {
+  let parent = node?.parentElement ?? null;
+  while (parent && parent !== document.body) {
+    const style = getComputedStyle(parent);
+    if (
+      (style.overflowY === "auto" || style.overflowY === "scroll") &&
+      parent.scrollHeight > parent.clientHeight
+    ) {
+      return parent;
+    }
+    parent = parent.parentElement;
+  }
+  return document.scrollingElement instanceof HTMLElement ? document.scrollingElement : null;
+}
+
+interface ResumeCardProfileSnapshotLine {
+  period: string | null;
+  primary: string;
+  secondary: string | null;
+}
 
 interface FetchParams {
   page: number;
@@ -405,6 +425,739 @@ interface FetchParams {
   filters: ResumeFilters;
   sortBy: string | undefined;
   sortOrder: "asc" | "desc" | undefined;
+}
+
+type ResumeLibraryGridState = ReturnType<
+  typeof useDataGridState<ResumeLibraryListRecord, ResumeFilters>
+>;
+
+function getResumeAvatarValue(record: ResumeLibraryListRecord) {
+  return [record.candidateName, record.candidateEmail].filter(Boolean).join(" ") || record.id;
+}
+
+function getResumeCardSkills(record: ResumeLibraryListRecord): string[] {
+  const seen = new Set<string>();
+  return (record.resumeProfile?.skills ?? [])
+    .map((item) => item.trim())
+    .filter((item) => {
+      const key = item.toLowerCase();
+      if (!item || seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 6);
+}
+
+function cleanResumeProfileText(value: string | null | undefined) {
+  const text = value?.trim();
+  return text && text !== RESUME_PROFILE_PLACEHOLDER ? text : null;
+}
+
+function formatResumeCardPeriod(value: string | null | undefined) {
+  const text = cleanResumeProfileText(value);
+  if (!text) {
+    return null;
+  }
+  const dateTokens = [...text.matchAll(/(\d{4})\s*[./年-]\s*(\d{1,2})\s*月?/gu)]
+    .map(([, year, rawMonth]) => {
+      const month = Number(rawMonth);
+      return month >= 1 && month <= 12 ? `${year}.${month.toString().padStart(2, "0")}` : null;
+    })
+    .filter((item): item is string => item !== null);
+
+  if (dateTokens.length === 0) {
+    const years = [...text.matchAll(/(?:^|[^\d])(\d{4})(?=$|[^\d])/gu)].map((match) => match[1]);
+    if (years.length === 0) {
+      return text;
+    }
+    if (years.length === 1 && /(至今|现在|目前|present|current)/iu.test(text)) {
+      return `${years[0]} - 至今`;
+    }
+    return years.slice(0, 2).join(" - ");
+  }
+
+  if (dateTokens.length === 1 && /(至今|现在|目前|present|current)/iu.test(text)) {
+    return `${dateTokens[0]} - 至今`;
+  }
+  return dateTokens.slice(0, 2).join(" - ");
+}
+
+function getLatestWorkLine(record: ResumeLibraryListRecord) {
+  const work = (record.resumeProfile?.workExperiences ?? []).find(
+    (item) => cleanResumeProfileText(item.company) || cleanResumeProfileText(item.role),
+  );
+  if (!work) {
+    return null;
+  }
+  const company = cleanResumeProfileText(work.company);
+  const role = cleanResumeProfileText(work.role);
+  const primary = company ?? role;
+  if (!primary) {
+    return null;
+  }
+  return {
+    period: formatResumeCardPeriod(work.period),
+    primary,
+    secondary: company ? role : null,
+  };
+}
+
+function getLatestEducationLine(record: ResumeLibraryListRecord) {
+  const [education] = sortResumeEducationExperiences(record.resumeProfile?.educationExperiences);
+  if (education) {
+    const item = formatResumeEducationItem(education);
+    if (item) {
+      return {
+        period:
+          formatResumeCardPeriod(education.period) ??
+          formatResumeCardPeriod(education.graduationYear),
+        primary: item.school,
+        secondary: [item.major, item.level].filter(Boolean).join(" · ") || null,
+      };
+    }
+  }
+  const school = record.resumeProfile?.schools.map(cleanResumeProfileText).find(Boolean);
+  return school ? { period: null, primary: school, secondary: null } : null;
+}
+
+function getResumeCardProfileSnapshot(record: ResumeLibraryListRecord) {
+  return {
+    education: getLatestEducationLine(record),
+    work: getLatestWorkLine(record),
+  };
+}
+
+function getResumeCardSummary(record: ResumeLibraryListRecord): string | null {
+  return record.resumeReview?.overall.conclusion ?? record.notes?.trim() ?? null;
+}
+
+function ResumeCardMetaItem({
+  children,
+  icon,
+  label,
+}: {
+  children: ReactNode;
+  icon: ReactNode;
+  label: string;
+}) {
+  return (
+    <div className="flex h-6 min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
+      <span aria-hidden className="inline-flex shrink-0 items-center text-muted-foreground/70">
+        {icon}
+      </span>
+      <span className="sr-only">{label}</span>
+      <span className="min-w-0 truncate">{children}</span>
+    </div>
+  );
+}
+
+function ResumeCardMetaSeparator() {
+  return <span aria-hidden className="h-3 w-px shrink-0 bg-border" />;
+}
+
+function ResumeCardCreatorMeta({ image, name }: { image: string | null; name: string | null }) {
+  const displayName = textOrDash(name);
+
+  return (
+    <span className="inline-flex h-6 min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
+      <Avatar size="sm" className="size-4!">
+        {image ? <AvatarImage alt={displayName} src={image} /> : null}
+        <AvatarFallback>{getCreatorInitial(name)}</AvatarFallback>
+      </Avatar>
+      <span className="min-w-0 truncate">{displayName}</span>
+    </span>
+  );
+}
+
+function ResumeCardProfileSnapshot({
+  snapshot,
+}: {
+  snapshot: {
+    education: ResumeCardProfileSnapshotLine | null;
+    work: ResumeCardProfileSnapshotLine | null;
+  };
+}) {
+  if (!(snapshot.work || snapshot.education)) {
+    return <div className="hidden xl:block" />;
+  }
+
+  return (
+    <div className="ml-22 grid min-w-0 content-start gap-1 text-sm xl:ml-0 xl:max-w-sm xl:self-start xl:pt-8.5">
+      {[snapshot.work, snapshot.education].map((line) =>
+        line ? (
+          <p
+            className="flex min-w-0 items-baseline gap-2"
+            key={`${line.primary}-${line.secondary ?? ""}-${line.period ?? ""}`}
+            title={[line.period, line.primary, line.secondary].filter(Boolean).join(" · ")}
+          >
+            {line.period ? (
+              <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                {line.period}
+              </span>
+            ) : null}
+            <span className="min-w-0 truncate text-foreground text-sm">
+              {[line.primary, line.secondary].filter(Boolean).join(" · ")}
+            </span>
+          </p>
+        ) : null,
+      )}
+    </div>
+  );
+}
+
+interface ResumeLibraryCardProps {
+  canCreateChat: boolean;
+  canCreateInterview: boolean;
+  canDeleteResumeLibrary: boolean;
+  canUpdateResumeLibrary: boolean;
+  currentMemberRole: string;
+  currentUserId: string | null;
+  onCopyDetailLink: (record: ResumeLibraryListRecord) => void;
+  onDelete: (record: ResumeLibraryListRecord) => void;
+  onEdit: (record: ResumeLibraryListRecord) => void;
+  onLaunchChat: (record: ResumeLibraryListRecord) => void;
+  onLaunchInterview: (record: ResumeLibraryListRecord) => void;
+  onOpenDetail: (record: ResumeLibraryListRecord, tab?: ResumeDetailDefaultTab) => void;
+  onPreviewResume: (record: ResumeLibraryListRecord) => void;
+  onSelectChange: (checked: boolean) => void;
+  onShowDuplicateMatches: (record: ResumeLibraryListRecord) => void;
+  onTransition: (record: ResumeLibraryListRecord, mode: "close" | "reactivate") => void;
+  onViewJobDescription: (id: string) => void;
+  record: ResumeLibraryListRecord;
+  selected: boolean;
+}
+
+type ResumeLibraryCardActionsProps = Pick<
+  ResumeLibraryCardProps,
+  | "canCreateChat"
+  | "canCreateInterview"
+  | "canDeleteResumeLibrary"
+  | "canUpdateResumeLibrary"
+  | "onCopyDetailLink"
+  | "onDelete"
+  | "onEdit"
+  | "onLaunchChat"
+  | "onLaunchInterview"
+  | "onOpenDetail"
+  | "onPreviewResume"
+  | "onTransition"
+  | "record"
+> & {
+  canCopyLink: boolean;
+};
+
+function ResumeLibraryIconActionButton({
+  children,
+  label,
+  onClick,
+}: {
+  children: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <Tooltip delayDuration={700}>
+      <TooltipTrigger asChild>
+        <Button aria-label={label} onClick={onClick} size="icon" type="button" variant="ghost">
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function ResumeLibraryCardActions({
+  canCopyLink,
+  canCreateChat,
+  canCreateInterview,
+  canDeleteResumeLibrary,
+  canUpdateResumeLibrary,
+  onCopyDetailLink,
+  onDelete,
+  onEdit,
+  onLaunchChat,
+  onLaunchInterview,
+  onOpenDetail,
+  onPreviewResume,
+  onTransition,
+  record,
+}: ResumeLibraryCardActionsProps) {
+  const canEdit = canUpdateResumeLibrary && canEditResumeRecord(record.resumeParseStatus);
+  const canDelete = canDeleteResumeLibrary && canDeleteResumeRecord(record.resumeParseStatus);
+  const previewable = isPreviewableResumeDocumentInput({ fileName: record.resumeFileName });
+  const canLaunchInterview =
+    canCreateInterview &&
+    canLaunchInterviewFromResume(record.resumeParseStatus) &&
+    !record.hasInterviewRounds &&
+    record.pipelineStage !== "closed";
+  const canPreviewFromMenu =
+    !canEditResumeRecord(record.resumeParseStatus) && record.hasResumeFile && previewable;
+  const canClose =
+    canUpdateResumeLibrary &&
+    canEditResumeRecord(record.resumeParseStatus) &&
+    record.pipelineStage !== "closed";
+  const canReactivate =
+    canUpdateResumeLibrary &&
+    canEditResumeRecord(record.resumeParseStatus) &&
+    record.pipelineStage === "closed";
+
+  return (
+    <div className="flex justify-end self-center">
+      <div className="flex items-center justify-end gap-1 xl:flex-col xl:items-center">
+        <ResumeLibraryIconActionButton
+          label="查看"
+          onClick={() => onOpenDetail(record, "overview")}
+        >
+          <IconEye className="size-4" />
+        </ResumeLibraryIconActionButton>
+        {canEdit ? (
+          <ResumeLibraryIconActionButton label="编辑" onClick={() => onEdit(record)}>
+            <IconEdit className="size-4" />
+          </ResumeLibraryIconActionButton>
+        ) : null}
+        {canLaunchInterview ? (
+          <ResumeLibraryIconActionButton
+            label="发起 AI 面试"
+            onClick={() => onLaunchInterview(record)}
+          >
+            <IconSparkles className="size-4" />
+          </ResumeLibraryIconActionButton>
+        ) : null}
+        <DropdownMenu modal={false}>
+          <Tooltip delayDuration={700}>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button aria-label="更多操作" size="icon" type="button" variant="ghost">
+                  <IconDots className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="top">更多操作</TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuLabel>更多操作</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {canCopyLink ? (
+              <DropdownMenuItem onSelect={() => onCopyDetailLink(record)}>
+                复制详情链接
+              </DropdownMenuItem>
+            ) : null}
+            {canCreateChat ? (
+              <DropdownMenuItem onSelect={() => onLaunchChat(record)}>
+                <IconMessage2 className="size-4" />
+                发起 AI Chat
+              </DropdownMenuItem>
+            ) : null}
+            {canPreviewFromMenu ? (
+              <DropdownMenuItem onSelect={() => onPreviewResume(record)}>查看简历</DropdownMenuItem>
+            ) : null}
+            {canClose ? (
+              <DropdownMenuItem onSelect={() => onTransition(record, "close")}>
+                <IconCircleOff className="size-4" />
+                标记结案
+              </DropdownMenuItem>
+            ) : null}
+            {canReactivate ? (
+              <DropdownMenuItem onSelect={() => onTransition(record, "reactivate")}>
+                <IconArrowBackUp className="size-4" />
+                重新激活
+              </DropdownMenuItem>
+            ) : null}
+            {canDelete ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => onDelete(record)} variant="destructive">
+                  删除
+                </DropdownMenuItem>
+              </>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  );
+}
+
+function ResumeLibraryCard({
+  canCreateChat,
+  canCreateInterview,
+  canDeleteResumeLibrary,
+  canUpdateResumeLibrary,
+  currentMemberRole,
+  currentUserId,
+  onCopyDetailLink,
+  onDelete,
+  onEdit,
+  onLaunchChat,
+  onLaunchInterview,
+  onOpenDetail,
+  onPreviewResume,
+  onSelectChange,
+  onShowDuplicateMatches,
+  onTransition,
+  onViewJobDescription,
+  record,
+  selected,
+}: ResumeLibraryCardProps) {
+  const jobDescriptionLabel = getResumeLibraryJobDescriptionLabel(record);
+  const lifecycle = describeLifecycleCell(record);
+  const profileSnapshot = getResumeCardProfileSnapshot(record);
+  const skills = getResumeCardSkills(record);
+  const summary = getResumeCardSummary(record);
+  const canCopyLink = canCopyResumeDetailLink({ currentMemberRole, currentUserId, record });
+
+  return (
+    <article
+      className={cn(
+        "rounded-2xl border bg-background p-4 shadow-xs transition-colors hover:border-border/80 hover:bg-muted/10",
+        selected && "border-primary/40 bg-primary/5",
+      )}
+    >
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)_auto] xl:items-start">
+        <div className="flex min-w-0 gap-3">
+          <Checkbox
+            aria-label={`选择 ${record.candidateName}`}
+            checked={selected}
+            className="mt-3"
+            onCheckedChange={(value) => onSelectChange(Boolean(value))}
+          />
+          <div className="mt-0.5 size-12 shrink-0 overflow-hidden rounded-full">
+            <Avvvatars radius={48} size={48} style="shape" value={getResumeAvatarValue(record)} />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <button
+                className="min-w-0 truncate text-left font-semibold text-base underline decoration-transparent underline-offset-4 transition-colors hover:decoration-foreground/40"
+                onClick={() => onOpenDetail(record, "overview")}
+                type="button"
+              >
+                {record.candidateName}
+              </button>
+              {duplicateMatchBadge(record, () => onShowDuplicateMatches(record))}
+              <ResumeLifecycleBadge
+                className="max-w-full"
+                detailLabel={lifecycle.detailLabel}
+                fullLabel={lifecycle.fullLabel}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpenDetail(record, lifecycleTargetTab(record));
+                }}
+                stageLabel={lifecycle.stageLabel}
+                tone={lifecycle.tone}
+              />
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+              <ResumeCardMetaItem icon={<IconBriefcase className="size-3.5" />} label="关联岗位">
+                <button
+                  className={cn(
+                    "min-w-0 truncate text-left underline decoration-foreground/15 underline-offset-4 hover:decoration-foreground/50",
+                    !jobDescriptionLabel &&
+                      "pointer-events-none text-muted-foreground no-underline",
+                  )}
+                  onClick={() => {
+                    if (record.jobDescriptionId) {
+                      onViewJobDescription(record.jobDescriptionId);
+                    }
+                  }}
+                  type="button"
+                >
+                  关联岗位：{jobDescriptionLabel ?? "未绑定"}
+                </button>
+              </ResumeCardMetaItem>
+              <ResumeCardMetaSeparator />
+              <ResumeCardCreatorMeta image={record.creatorImage} name={record.creatorName} />
+              <ResumeCardMetaSeparator />
+              <span className="inline-flex h-6 items-center text-muted-foreground text-xs">
+                <TimeDisplay as="span" emptyText="—" value={record.createdAt} />
+              </span>
+              <ResumeCardMetaSeparator />
+              <ResumeCardMetaItem icon={<IconMail className="size-3.5" />} label="邮箱">
+                {formatResumeCardContact(record.candidateEmail, "未填写邮箱")}
+              </ResumeCardMetaItem>
+              <ResumeCardMetaSeparator />
+              <ResumeCardMetaItem icon={<IconPhone className="size-3.5" />} label="电话">
+                {formatResumeCardContact(record.candidatePhone, "未填写电话")}
+              </ResumeCardMetaItem>
+            </div>
+
+            {summary ? (
+              <p className="mt-3 line-clamp-2 text-muted-foreground text-sm leading-6">{summary}</p>
+            ) : null}
+
+            {skills.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {skills.map((item) => (
+                  <Badge className="max-w-52 truncate" key={item} variant="secondary">
+                    {item}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <ResumeCardProfileSnapshot snapshot={profileSnapshot} />
+
+        <ResumeLibraryCardActions
+          canCopyLink={canCopyLink}
+          canCreateChat={canCreateChat}
+          canCreateInterview={canCreateInterview}
+          canDeleteResumeLibrary={canDeleteResumeLibrary}
+          canUpdateResumeLibrary={canUpdateResumeLibrary}
+          onCopyDetailLink={onCopyDetailLink}
+          onDelete={onDelete}
+          onEdit={onEdit}
+          onLaunchChat={onLaunchChat}
+          onLaunchInterview={onLaunchInterview}
+          onOpenDetail={onOpenDetail}
+          onPreviewResume={onPreviewResume}
+          onTransition={onTransition}
+          record={record}
+        />
+      </div>
+    </article>
+  );
+}
+
+interface ResumeLibraryCardListProps {
+  canCreateChat: boolean;
+  canCreateInterview: boolean;
+  canDeleteResumeLibrary: boolean;
+  canReadResumeUploadBatch: boolean;
+  canUpdateResumeLibrary: boolean;
+  canUploadResumeLibrary: boolean;
+  currentMemberRole: string;
+  currentUserId: string | null;
+  empty: ReactNode;
+  fetchNextPage: () => Promise<unknown>;
+  filters: ToolbarFilterConfig[];
+  grid: ResumeLibraryGridState;
+  hasNextPage: boolean;
+  onBulkDelete: () => void;
+  onCopyDetailLink: (record: ResumeLibraryListRecord) => void;
+  onDelete: (record: ResumeLibraryListRecord) => void;
+  onEdit: (record: ResumeLibraryListRecord) => void;
+  onLaunchChat: (record: ResumeLibraryListRecord) => void;
+  onLaunchInterview: (record: ResumeLibraryListRecord) => void;
+  onOpenBatchList: () => void;
+  onOpenDetail: (record: ResumeLibraryListRecord, tab?: ResumeDetailDefaultTab) => void;
+  onOpenUploadEntry: () => void;
+  onPreviewResume: (record: ResumeLibraryListRecord) => void;
+  onShowDuplicateMatches: (record: ResumeLibraryListRecord) => void;
+  onTransition: (record: ResumeLibraryListRecord, mode: "close" | "reactivate") => void;
+  onViewJobDescription: (id: string) => void;
+  records: ResumeLibraryListRecord[];
+  isFetchingNextPage: boolean;
+  isInitialLoading: boolean;
+  isRefetching: boolean;
+  total: number;
+  uploadEntryDisabled: boolean;
+  hasActiveUploadBatches: boolean;
+}
+
+function ResumeLibraryCardList({
+  canCreateChat,
+  canCreateInterview,
+  canDeleteResumeLibrary,
+  canReadResumeUploadBatch,
+  canUpdateResumeLibrary,
+  canUploadResumeLibrary,
+  currentMemberRole,
+  currentUserId,
+  empty,
+  fetchNextPage,
+  filters,
+  grid,
+  hasNextPage,
+  hasActiveUploadBatches,
+  isFetchingNextPage,
+  isInitialLoading,
+  isRefetching,
+  onBulkDelete,
+  onCopyDetailLink,
+  onDelete,
+  onEdit,
+  onLaunchChat,
+  onLaunchInterview,
+  onOpenBatchList,
+  onOpenDetail,
+  onOpenUploadEntry,
+  onPreviewResume,
+  onShowDuplicateMatches,
+  onTransition,
+  onViewJobDescription,
+  records,
+  total,
+  uploadEntryDisabled,
+}: ResumeLibraryCardListProps) {
+  const listRootRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null);
+  const virtualizer = useVirtualizer({
+    count: records.length,
+    estimateSize: () => RESUME_LIBRARY_CARD_ESTIMATED_SIZE,
+    getScrollElement: () => scrollElement,
+    overscan: 6,
+  });
+  const virtualItems = virtualizer.getVirtualItems();
+  const selectedIds = useMemo(
+    () => Object.keys(grid.bind.rowSelection).filter((id) => grid.bind.rowSelection[id]),
+    [grid.bind.rowSelection],
+  );
+  const selectedRows = useMemo(
+    () => records.filter((record) => grid.bind.rowSelection[record.id]),
+    [records, grid.bind.rowSelection],
+  );
+  const hasLockedSelection = selectedRows.some(
+    (record) => !canDeleteResumeRecord(record.resumeParseStatus),
+  );
+  const bulkSlot =
+    canDeleteResumeLibrary && selectedIds.length > 0 ? (
+      <Button
+        className="flex-1 sm:flex-none"
+        disabled={hasLockedSelection}
+        onClick={onBulkDelete}
+        title={hasLockedSelection ? "所选记录包含解析中的简历，暂不能删除" : undefined}
+        variant="destructive"
+      >
+        <IconTrash className="size-4" />
+        批量删除 ({selectedIds.length})
+      </Button>
+    ) : null;
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setScrollElement(findVerticalScrollParent(listRootRef.current));
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [records.length]);
+
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node || !hasNextPage || typeof IntersectionObserver === "undefined") {
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting) && !isFetchingNextPage) {
+          void fetchNextPage();
+        }
+      },
+      { root: scrollElement, rootMargin: "720px 0px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage, scrollElement]);
+
+  let loadMoreStatusText = "已显示全部简历";
+  if (hasNextPage) {
+    loadMoreStatusText = isFetchingNextPage
+      ? "正在加载更多简历"
+      : `已显示 ${records.length} / ${total} 条，继续下滑加载更多`;
+  }
+
+  let listContent: ReactNode = empty;
+  if (isInitialLoading) {
+    listContent = (
+      <div className="grid gap-3">
+        {Array.from({ length: 4 }, (_, index) => (
+          <Skeleton className="h-44 rounded-2xl" key={index} />
+        ))}
+      </div>
+    );
+  } else if (records.length > 0) {
+    listContent = (
+      <>
+        <div className="relative transition-opacity" style={{ height: virtualizer.getTotalSize() }}>
+          {virtualItems.map((virtualRow) => {
+            const record = records[virtualRow.index];
+            if (!record) {
+              return null;
+            }
+            return (
+              <div
+                className="absolute top-0 left-0 w-full pb-3 [contain:layout]"
+                data-index={virtualRow.index}
+                key={virtualRow.key}
+                ref={virtualizer.measureElement}
+                style={{ transform: `translateY(${virtualRow.start}px)` }}
+              >
+                <ResumeLibraryCard
+                  canCreateChat={canCreateChat}
+                  canCreateInterview={canCreateInterview}
+                  canDeleteResumeLibrary={canDeleteResumeLibrary}
+                  canUpdateResumeLibrary={canUpdateResumeLibrary}
+                  currentMemberRole={currentMemberRole}
+                  currentUserId={currentUserId}
+                  onCopyDetailLink={onCopyDetailLink}
+                  onDelete={onDelete}
+                  onEdit={onEdit}
+                  onLaunchChat={onLaunchChat}
+                  onLaunchInterview={onLaunchInterview}
+                  onOpenDetail={onOpenDetail}
+                  onPreviewResume={onPreviewResume}
+                  onSelectChange={(checked) =>
+                    grid.setRowSelection((prev) => ({ ...prev, [record.id]: checked }))
+                  }
+                  onShowDuplicateMatches={onShowDuplicateMatches}
+                  onTransition={onTransition}
+                  onViewJobDescription={onViewJobDescription}
+                  record={record}
+                  selected={Boolean(grid.bind.rowSelection[record.id])}
+                />
+              </div>
+            );
+          })}
+        </div>
+        <div
+          className="flex min-h-10 items-center justify-center text-muted-foreground text-sm"
+          ref={loadMoreRef}
+        >
+          {loadMoreStatusText}
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4" ref={listRootRef}>
+      <Toolbar
+        bulkActionsSlot={bulkSlot}
+        canResetFilters={grid.bind.canResetFilters}
+        filterValues={grid.bind.filterValues}
+        filters={filters}
+        onFilterChange={grid.bind.onFilterChange}
+        onRefresh={grid.bind.onRefresh}
+        onResetFilters={grid.bind.onResetFilters}
+        refreshing={isRefetching}
+        searchLoading={isInitialLoading}
+        toolbarRight={
+          canUploadResumeLibrary || canReadResumeUploadBatch ? (
+            <ButtonGroup>
+              {canUploadResumeLibrary ? (
+                <ResumeUploadEntryButton
+                  disabled={uploadEntryDisabled}
+                  onClick={onOpenUploadEntry}
+                />
+              ) : null}
+              {canReadResumeUploadBatch && hasActiveUploadBatches ? (
+                <Button onClick={onOpenBatchList} type="button">
+                  <IconHistory className="size-4" />
+                </Button>
+              ) : null}
+            </ButtonGroup>
+          ) : null
+        }
+      />
+
+      {listContent}
+    </div>
+  );
 }
 
 // 页面组件天然汇聚多种 dialog/state，复杂度阈值（20）会被踩到。
@@ -557,11 +1310,52 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
 
   const grid = useDataGridState<ResumeLibraryListRecord, ResumeFilters>({
     allowedSortIds: ["createdAt", "candidateName", "updatedAt"],
+    defaultPageSize: RESUME_LIBRARY_INFINITE_PAGE_SIZE,
     defaultSorting: [{ desc: true, id: "createdAt" }],
     initialFilters: EMPTY_FILTERS,
     queryFn: fetcher,
     queryKeyBase: ["studio-resumes", slug],
   });
+  const [activeSort] = grid.sorting;
+  let activeSortOrder: "asc" | "desc" | undefined;
+  if (activeSort) {
+    activeSortOrder = activeSort.desc ? "desc" : "asc";
+  }
+  const resumeLibraryListQuery = useInfiniteQuery({
+    getNextPageParam: (lastPage: PaginatedResumeLibraryResult) =>
+      lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) =>
+      fetcher({
+        filters: grid.filters,
+        page: Number(pageParam),
+        pageSize: RESUME_LIBRARY_INFINITE_PAGE_SIZE,
+        search: grid.deferredSearch,
+        sortBy: activeSort?.id,
+        sortOrder: activeSortOrder,
+      }),
+    queryKey: [
+      "studio-resumes",
+      slug,
+      "infinite",
+      {
+        filters: grid.filters,
+        search: grid.deferredSearch,
+        sortBy: activeSort?.id,
+        sortOrder: activeSortOrder,
+      },
+    ],
+    staleTime: 30_000,
+  });
+  const loadedResumeRecords = useMemo(
+    () => resumeLibraryListQuery.data?.pages.flatMap((page) => page.records) ?? [],
+    [resumeLibraryListQuery.data?.pages],
+  );
+  const resumeLibraryTotal = resumeLibraryListQuery.data?.pages[0]?.total ?? 0;
+  const loadedResumeRowsById = useMemo(
+    () => new Map(loadedResumeRecords.map((row) => [row.id, row])),
+    [loadedResumeRecords],
+  );
 
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
   // 中文：打开简历详情弹窗时默认聚焦的 tab；点「当前环节」直接跳到对应流程 tab。
@@ -667,274 +1461,6 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
     setLaunchingRecord({ candidateName: record.candidateName ?? null, id: record.id });
   }
 
-  const columns = useMemo(
-    () => [
-      selectColumn<ResumeLibraryListRecord>(),
-      customColumn<ResumeLibraryListRecord>({
-        cell: (r) => {
-          const documentKind = getResumeDocumentFileIconKind({ fileName: r.resumeFileName });
-          const previewable = isPreviewableResumeDocumentInput({ fileName: r.resumeFileName });
-          const previewTitle = r.resumeFileName ?? "查看简历";
-          const jobDescriptionLabel = getResumeLibraryJobDescriptionLabel(r);
-          let documentIcon = (
-            <span
-              aria-disabled="true"
-              aria-label="暂无可预览简历"
-              className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
-              title="暂无可预览简历"
-            >
-              <ResumeDocumentFileIcon className="size-8" kind={documentKind} />
-            </span>
-          );
-          if (r.hasResumeFile && previewable) {
-            documentIcon = (
-              <button
-                aria-label={previewTitle}
-                className="group/pdf mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setPreviewRecord(r);
-                }}
-                title={previewTitle}
-                type="button"
-              >
-                <ResumeDocumentFileIcon
-                  className="size-8 transition-transform duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] group-hover/pdf:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover/pdf:scale-100"
-                  kind={documentKind}
-                />
-              </button>
-            );
-          } else if (r.hasResumeFile) {
-            documentIcon = (
-              <UnsupportedResumeDocumentPreviewTooltip>
-                <span
-                  aria-disabled="true"
-                  aria-label="该格式不支持预览"
-                  className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
-                >
-                  <ResumeDocumentFileIcon className="size-8" kind={documentKind} />
-                </span>
-              </UnsupportedResumeDocumentPreviewTooltip>
-            );
-          }
-          return (
-            <div className="flex min-w-0 items-start gap-2">
-              {documentIcon}
-              <HoverCard closeDelay={120} openDelay={180}>
-                <HoverCardTrigger asChild>
-                  <div className="min-w-0">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <button
-                        className="block min-w-0 truncate text-left font-medium underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60"
-                        onClick={() => setDetailRecordId(r.id)}
-                        type="button"
-                      >
-                        {r.candidateName}
-                      </button>
-                      {duplicateMatchBadge(r, () => setDuplicateMatchRecord(r))}
-                    </div>
-                    <p className="mt-0.5 truncate text-muted-foreground/70 text-[11px] leading-4">
-                      {formatResumeRecordDisplayId(r.id)}
-                    </p>
-                  </div>
-                </HoverCardTrigger>
-                <HoverCardContent align="start" className="w-80">
-                  <div className="flex flex-col gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-sm">{r.candidateName}</p>
-                      <p className="mt-0.5 truncate text-muted-foreground/70 text-[11px] leading-4">
-                        {formatResumeRecordDisplayId(r.id)}
-                      </p>
-                    </div>
-                    <dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-2 text-xs">
-                      <dt className="text-muted-foreground">邮箱</dt>
-                      <dd className="min-w-0 break-all">{textOrDash(r.candidateEmail)}</dd>
-                      <dt className="text-muted-foreground">电话</dt>
-                      <dd className="min-w-0 break-all">{textOrDash(r.candidatePhone)}</dd>
-                      <dt className="text-muted-foreground">目标岗位</dt>
-                      <dd className="min-w-0 break-words">{textOrDash(r.targetRole)}</dd>
-                      <dt className="text-muted-foreground">关联岗位</dt>
-                      <dd className="min-w-0 break-words">{jobDescriptionLabel ?? "—"}</dd>
-                      <dt className="text-muted-foreground">创建人</dt>
-                      <dd className="min-w-0 break-words">{textOrDash(r.creatorName)}</dd>
-                      <dt className="text-muted-foreground">创建时间</dt>
-                      <dd className="min-w-0">
-                        <TimeDisplay as="span" emptyText="—" value={r.createdAt} />
-                      </dd>
-                      <dt className="text-muted-foreground">最近面试</dt>
-                      <dd className="min-w-0">
-                        <TimeDisplay as="span" emptyText="—" value={r.lastInterviewAt} />
-                      </dd>
-                      <dt className="text-muted-foreground">当前环节</dt>
-                      <dd className="min-w-0 break-words">{describeLifecycleCell(r).fullLabel}</dd>
-                    </dl>
-                  </div>
-                </HoverCardContent>
-              </HoverCard>
-            </div>
-          );
-        },
-        key: "candidateName",
-        size: 240,
-        title: "候选人",
-      }),
-      customColumn<ResumeLibraryListRecord>({
-        cell: (r) => {
-          const label = getResumeLibraryJobDescriptionLabel(r);
-
-          return label ? (
-            <button
-              className="truncate text-left underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60"
-              onClick={() => r.jobDescriptionId && setViewJobDescriptionId(r.jobDescriptionId)}
-              type="button"
-            >
-              {label}
-            </button>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          );
-        },
-        key: "jobDescriptionName",
-        title: "关联岗位",
-      }),
-      customColumn<ResumeLibraryListRecord>({
-        cell: (r) => {
-          const targetTab = lifecycleTargetTab(r);
-          return (
-            <ResumeProgressCell
-              onOpen={() => {
-                setDetailDefaultTab(targetTab);
-                setDetailRecordId(r.id);
-              }}
-              record={r}
-            />
-          );
-        },
-        key: "progress",
-        size: 220,
-        title: "当前环节",
-      }),
-      customColumn<ResumeLibraryListRecord>({
-        cell: (r) => <CreatorCell image={r.creatorImage} name={r.creatorName} />,
-        key: "creatorName",
-        title: "创建人",
-      }),
-      dateColumn<ResumeLibraryListRecord>({
-        key: "createdAt",
-        sortable: true,
-        title: "创建时间",
-      }),
-      dateColumn<ResumeLibraryListRecord>({
-        emptyText: "—",
-        key: "lastInterviewAt",
-        title: "最近面试时间",
-      }),
-      actionsColumn<ResumeLibraryListRecord>({
-        inline: [
-          {
-            label: "查看",
-            onClick: (r) => {
-              setDetailDefaultTab("overview");
-              setDetailRecordId(r.id);
-            },
-          },
-          {
-            label: "编辑",
-            onClick: (r) => setEditRecordId(r.id),
-            show: (r) => canUpdateResumeLibrary && canEditResumeRecord(r.resumeParseStatus),
-          },
-        ],
-        menu: [
-          {
-            label: "复制详情链接",
-            onClick: (r) => void copyResumeDetailLink(slug, r),
-            show: (r) =>
-              canCopyResumeDetailLink({
-                currentMemberRole,
-                currentUserId,
-                record: r,
-              }),
-          },
-          {
-            label: "发起 AI Chat",
-            onClick: (r) =>
-              openStudioResumeChat({
-                candidateName: r.candidateName ?? null,
-                recordId: r.id,
-              }),
-            show: () => canCreateChat,
-          },
-          {
-            label: "查看简历",
-            onClick: (r) => setPreviewRecord(r),
-            show: (r) =>
-              !canEditResumeRecord(r.resumeParseStatus) &&
-              r.hasResumeFile &&
-              isPreviewableResumeDocumentInput({ fileName: r.resumeFileName }),
-          },
-          {
-            label: "发起 AI 面试",
-            onClick: startAiInterview,
-            // 已存在任意 AI 面试轮次 或 已结案 时隐藏（已结案的人需要先重新激活）。
-            // Hide when the candidate already has any AI interview round OR is
-            // closed (closed candidates must be reactivated first).
-            show: (r) =>
-              canCreateInterview &&
-              canLaunchInterviewFromResume(r.resumeParseStatus) &&
-              !r.hasInterviewRounds &&
-              r.pipelineStage !== "closed",
-          },
-          {
-            label: "标记结案",
-            onClick: (r) =>
-              setTransitionTarget({
-                candidate: { candidateName: r.candidateName, id: r.id },
-                mode: "close",
-              }),
-            // 只在未结案候选人上显示。
-            // Only available on non-closed candidates.
-            show: (r) =>
-              canUpdateResumeLibrary &&
-              canEditResumeRecord(r.resumeParseStatus) &&
-              r.pipelineStage !== "closed",
-          },
-          {
-            label: "重新激活",
-            onClick: (r) =>
-              setTransitionTarget({
-                candidate: { candidateName: r.candidateName, id: r.id },
-                mode: "reactivate",
-              }),
-            // 仅对已结案候选人可见。
-            // Only visible for closed candidates.
-            show: (r) =>
-              canUpdateResumeLibrary &&
-              canEditResumeRecord(r.resumeParseStatus) &&
-              r.pipelineStage === "closed",
-          },
-          {
-            label: "删除",
-            onClick: (r) => setDeleteRecord(r),
-            show: (r) => canDeleteResumeLibrary && canDeleteResumeRecord(r.resumeParseStatus),
-            variant: "destructive",
-          },
-        ],
-      }),
-    ],
-    // startAiInterview captures setLaunchingRecord which is stable; safe to omit from deps.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      canCreateChat,
-      canCreateInterview,
-      canDeleteResumeLibrary,
-      canUpdateResumeLibrary,
-      currentMemberRole,
-      currentUserId,
-      slug,
-    ],
-  );
-
   const filtersConfig = useMemo(
     () => [
       {
@@ -1005,10 +1531,9 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
   }
 
   async function handleBulkDelete() {
-    const rowsById = new Map(grid.bind.data.map((row) => [row.id, row]));
     const selectedIds = Object.keys(grid.rowSelection).filter((id) => grid.rowSelection[id]);
     const locked = selectedIds.some((id) => {
-      const row = rowsById.get(id);
+      const row = loadedResumeRowsById.get(id);
       return row ? !canDeleteResumeRecord(row.resumeParseStatus) : false;
     });
     if (locked) {
@@ -1033,9 +1558,43 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
     }
   }
 
+  const resumeLibraryEmptyState = grid.filters.stage ? (
+    <Empty className="border-border">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <IconUsers className="size-5" />
+        </EmptyMedia>
+        <EmptyTitle>
+          暂无处于「
+          {pipelineStageMeta[grid.filters.stage as PipelineStage]?.label ?? grid.filters.stage}
+          」阶段的候选人
+        </EmptyTitle>
+        <EmptyDescription>切换到其他阶段或「全部」查看更多候选人。</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  ) : (
+    <Empty className="border-border">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <IconUsers className="size-5" />
+        </EmptyMedia>
+        <EmptyTitle>简历库还没有任何候选人</EmptyTitle>
+        <EmptyDescription>点击右上角「上传简历」加入第一份候选人简历。</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        {canUploadResumeLibrary ? (
+          <ResumeUploadEntryButton
+            disabled={uploadEntryDisabled}
+            onClick={() => setUploadEntryOpen(true)}
+          />
+        ) : null}
+      </EmptyContent>
+    </Empty>
+  );
+
   return (
     <>
-      <div className="space-y-6">
+      <div className="container mx-auto max-w-7xl space-y-6">
         <PageHeader
           title="简历库"
           description="沉淀候选人档案、简历 PDF、岗位匹配和流程进展，筛选到面试推进都能从这里接上。"
@@ -1071,92 +1630,68 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
             ))}
           </TabsList>
         </Tabs>
+        <ResumeLibraryCardList
+          canCreateChat={canCreateChat}
+          canCreateInterview={canCreateInterview}
+          canDeleteResumeLibrary={canDeleteResumeLibrary}
+          canReadResumeUploadBatch={canReadResumeUploadBatch}
+          canUpdateResumeLibrary={canUpdateResumeLibrary}
+          canUploadResumeLibrary={canUploadResumeLibrary}
+          currentMemberRole={currentMemberRole}
+          currentUserId={currentUserId}
+          empty={resumeLibraryEmptyState}
+          fetchNextPage={resumeLibraryListQuery.fetchNextPage}
+          filters={filtersConfig}
+          grid={grid}
+          hasActiveUploadBatches={hasActiveUploadBatches}
+          hasNextPage={Boolean(resumeLibraryListQuery.hasNextPage)}
+          isFetchingNextPage={resumeLibraryListQuery.isFetchingNextPage}
+          isInitialLoading={resumeLibraryListQuery.isLoading}
+          isRefetching={
+            resumeLibraryListQuery.isRefetching && !resumeLibraryListQuery.isFetchingNextPage
+          }
+          onBulkDelete={() => setBulkDeleteOpen(true)}
+          onCopyDetailLink={(record) => void copyResumeDetailLink(slug, record)}
+          onDelete={setDeleteRecord}
+          onEdit={(record) => setEditRecordId(record.id)}
+          onLaunchChat={(record) =>
+            openStudioResumeChat({
+              candidateName: record.candidateName ?? null,
+              recordId: record.id,
+            })
+          }
+          onLaunchInterview={startAiInterview}
+          onOpenBatchList={() => setBatchListOpen(true)}
+          onOpenDetail={(record, tab = "overview") => {
+            setDetailDefaultTab(tab);
+            setDetailRecordId(record.id);
+          }}
+          onOpenUploadEntry={() => setUploadEntryOpen(true)}
+          onPreviewResume={setPreviewRecord}
+          onShowDuplicateMatches={setDuplicateMatchRecord}
+          onTransition={(record, mode) =>
+            setTransitionTarget({
+              candidate: { candidateName: record.candidateName, id: record.id },
+              mode,
+            })
+          }
+          onViewJobDescription={setViewJobDescriptionId}
+          records={loadedResumeRecords}
+          total={resumeLibraryTotal}
+          uploadEntryDisabled={uploadEntryDisabled}
+        />
+        {/* DataGrid table preserved while the resume library moves to a card list.
         <DataGrid<ResumeLibraryListRecord>
           {...grid.bind}
           columns={columns}
           getRowId={(r) => r.id}
           columnPinning={{ left: ["select", "candidateName"], right: ["actions"] }}
           filters={filtersConfig}
-          toolbarRight={
-            canUploadResumeLibrary || canReadResumeUploadBatch ? (
-              <ButtonGroup>
-                {canUploadResumeLibrary ? (
-                  <ResumeUploadEntryButton
-                    disabled={uploadEntryDisabled}
-                    onClick={() => setUploadEntryOpen(true)}
-                  />
-                ) : null}
-                {canReadResumeUploadBatch && hasActiveUploadBatches ? (
-                  <Button onClick={() => setBatchListOpen(true)} type="button">
-                    <IconHistory className="size-4" />
-                  </Button>
-                ) : null}
-              </ButtonGroup>
-            ) : null
-          }
-          bulkActions={
-            canDeleteResumeLibrary
-              ? ({ selectedIds }) => (
-                  <Button
-                    className="flex-1 sm:flex-none"
-                    disabled={selectedIds.some((id) => {
-                      const row = grid.bind.data.find((record) => record.id === id);
-                      return row ? !canDeleteResumeRecord(row.resumeParseStatus) : false;
-                    })}
-                    onClick={() => setBulkDeleteOpen(true)}
-                    title={
-                      selectedIds.some((id) => {
-                        const row = grid.bind.data.find((record) => record.id === id);
-                        return row ? !canDeleteResumeRecord(row.resumeParseStatus) : false;
-                      })
-                        ? "所选记录包含解析中的简历，暂不能删除"
-                        : undefined
-                    }
-                    variant="destructive"
-                  >
-                    <IconTrash className="size-4" />
-                    批量删除 ({selectedIds.length})
-                  </Button>
-                )
-              : undefined
-          }
-          empty={
-            grid.filters.stage ? (
-              <Empty className="border-border">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <IconUsers className="size-5" />
-                  </EmptyMedia>
-                  <EmptyTitle>
-                    暂无处于「
-                    {pipelineStageMeta[grid.filters.stage as PipelineStage]?.label ??
-                      grid.filters.stage}
-                    」阶段的候选人
-                  </EmptyTitle>
-                  <EmptyDescription>切换到其他阶段或「全部」查看更多候选人。</EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            ) : (
-              <Empty className="border-border">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <IconUsers className="size-5" />
-                  </EmptyMedia>
-                  <EmptyTitle>简历库还没有任何候选人</EmptyTitle>
-                  <EmptyDescription>点击右上角「上传简历」加入第一份候选人简历。</EmptyDescription>
-                </EmptyHeader>
-                <EmptyContent>
-                  {canUploadResumeLibrary ? (
-                    <ResumeUploadEntryButton
-                      disabled={uploadEntryDisabled}
-                      onClick={() => setUploadEntryOpen(true)}
-                    />
-                  ) : null}
-                </EmptyContent>
-              </Empty>
-            )
-          }
+          toolbarRight={...}
+          bulkActions={...}
+          empty={resumeLibraryEmptyState}
         />
+        */}
       </div>
 
       <StudioPersonDetailDialog
@@ -1165,7 +1700,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
         onEdit={
           canUpdateResumeLibrary
             ? (id) => {
-                const row = grid.bind.data.find((record) => record.id === id);
+                const row = loadedResumeRowsById.get(id);
                 const reason = row ? getResumeActionLockedReason(row.resumeParseStatus) : null;
                 if (reason) {
                   toast.error(reason);
@@ -1179,7 +1714,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
         onLaunchInterview={
           canCreateInterview
             ? ({ id, candidateName }) => {
-                const row = grid.bind.data.find((record) => record.id === id);
+                const row = loadedResumeRowsById.get(id);
                 if (row && !canLaunchInterviewFromResume(row.resumeParseStatus)) {
                   toast.error("简历解析完成后才能发起 AI 面试");
                   return;

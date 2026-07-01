@@ -182,6 +182,7 @@ const SELECTED_COLUMNS = {
   resumeParseError: studioInterview.resumeParseError,
   resumeParseStatus: studioInterview.resumeParseStatus,
   resumeParsedAt: studioInterview.resumeParsedAt,
+  resumeProfile: studioInterview.resumeProfile,
   resumeReview: studioInterview.resumeReview,
   resumeStorageKey: studioInterview.resumeStorageKey,
   status: studioInterview.status,
@@ -490,6 +491,7 @@ function toRecord(
     resumeParseError: row.resumeParseError,
     resumeParseStatus: row.resumeParseStatus,
     resumeParsedAt: serializeDate(row.resumeParsedAt),
+    resumeProfile: row.resumeProfile,
     resumeReview: row.resumeReview,
     stageProgress: resolvedDerived.stageProgress,
     status: row.status,
@@ -607,7 +609,6 @@ export async function loadResumeDetail(
     .select({
       ...SELECTED_COLUMNS,
       interviewQuestions: studioInterview.interviewQuestions,
-      resumeProfile: studioInterview.resumeProfile,
     })
     .from(studioInterview)
     .leftJoin(user, eq(studioInterview.createdBy, user.id))
@@ -632,7 +633,7 @@ export async function loadResumeDetail(
     return null;
   }
 
-  const { resumeProfile, interviewQuestions, ...rest } = row;
+  const { interviewQuestions, ...rest } = row;
   const [derivedFields, duplicateMatches] = await Promise.all([
     loadResumeDerivedFields([rest.id]),
     listActiveDuplicateMatchCounts({
@@ -648,7 +649,6 @@ export async function loadResumeDetail(
       toDuplicateMatchSummary(duplicateMatches.get(rest.id)),
     ),
     interviewQuestions: interviewQuestions ?? [],
-    resumeProfile,
   };
 }
 

@@ -21,16 +21,17 @@ describe("ResumePoolPage masonry layout", () => {
     expect(publicTabIndex).toBeLessThan(privateTabIndex);
   });
 
-  it("uses sparse small-width breakpoints while skipping a five-column layout", () => {
+  it("uses sparse breakpoints capped at four columns inside the page container", () => {
     expect(source).toContain('from "react-responsive-masonry"');
     expect(source).toContain("const RESUME_POOL_MASONRY_COLUMNS = {");
     expect(source).toContain("0: 1");
     expect(source).toContain("1024: 2");
     expect(source).toContain("1280: 3");
     expect(source).toContain("1440: 4");
+    expect(source).toContain("container mx-auto max-w-7xl");
     expect(source).not.toContain("1536: 5");
-    expect(source).toContain("1920: 6");
-    expect(source).toContain("2560: 7");
+    expect(source).not.toContain("1920: 6");
+    expect(source).not.toContain("2560: 7");
     expect(source).toContain("columnsCountBreakPoints={RESUME_POOL_MASONRY_COLUMNS}");
   });
 

@@ -115,6 +115,15 @@ describe("ResumeProfileView education experiences", () => {
 });
 
 describe("ResumeProfileView visual density", () => {
+  it("orders sections like a readable resume", () => {
+    const viewSource = source.slice(source.indexOf("export function ResumeProfileView"));
+    const labels = ["求职意向", "教育经历", "工作经历", "项目经历", "掌握技能", "个人优势"];
+    const indexes = labels.map((label) => viewSource.indexOf(`title="${label}"`));
+
+    expect(indexes.every((index) => index !== -1)).toBe(true);
+    expect(indexes).toEqual([...indexes].toSorted((a, b) => a - b));
+  });
+
   it("uses breathable sections instead of nested bordered cards", () => {
     expect(source).toContain("function ResumeProfileSection");
     expect(source).toContain('className="space-y-8"');

@@ -117,30 +117,77 @@ describe("StudioPersonDetailPanel visual density", () => {
     expect(roundsSource).not.toContain("<SoftPanel");
   });
 
+  it("hides AI interview tab and panel before the pipeline reaches AI interview", () => {
+    const helperSource = sourceBetween(
+      "function shouldShowAiInterviewTab",
+      "function shouldShowHumanInterviewTab",
+    );
+    const availableTabsStart = source.indexOf("const availableTabs = useMemo");
+    const availableTabsSource = source.slice(
+      availableTabsStart,
+      source.indexOf("useEffect(() => {", availableTabsStart),
+    );
+    const tabsListSource = sourceBetween(
+      '<TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="ai-analysis">',
+      "{/* 真人复面 / Offer tab",
+    );
+    const roundsContentSource = sourceBetween(
+      '{mode === "resume" && shouldShowAiInterviewTab(tabVisibilityRecord) ? (',
+      '<TabsContent value="human-interview">',
+    );
+
+    expect(helperSource).toContain("pipelineStage");
+    expect(helperSource).toContain('"ai_interview"');
+    expect(helperSource).toContain('"human_interview"');
+    expect(helperSource).toContain('"offer"');
+    expect(helperSource).toContain('"closed"');
+    expect(helperSource).not.toContain("resumeParseStatus");
+    expect(availableTabsSource).toContain("shouldShowAiInterviewTab(tabVisibilityRecord)");
+    expect(tabsListSource).toContain("shouldShowAiInterviewTab(tabVisibilityRecord)");
+    expect(roundsContentSource).toContain("shouldShowAiInterviewTab(tabVisibilityRecord)");
+    expect(source).toContain("showAiInterviewStep={shouldShowAiInterviewTab(tabVisibilityRecord)}");
+  });
+
   it("renders resume AI parsing in its own tab instead of the overview", () => {
     const overviewSource = sourceBetween('<TabsContent value="overview">', "{/* 轮次概览");
     const aiAnalysisSource = sourceBetween(
       '<TabsContent value="ai-analysis">',
       '<TabsContent value="reports">',
     );
+    const modalSizeStart = source.indexOf("let modalSize:");
+    const modalSizeSource = source.slice(
+      modalSizeStart,
+      source.indexOf("return (", modalSizeStart),
+    );
 
     expect(source).toContain('value="ai-analysis"');
     expect(source).toContain("AI 解析");
     expect(overviewSource).not.toContain("<ResumeReviewStructuredView");
     expect(aiAnalysisSource).toContain("<ResumeReviewStructuredView");
+    expect(modalSizeSource).not.toContain("activeTab");
+    expect(modalSizeSource).toContain('"3xl"');
   });
 
-  it("disables launching AI interview from resume details when no job description is bound", () => {
-    const footerSource = sourceBetween("const resumeModeFooter =", "const title =");
+  it("moves resume launch actions into the pipeline action bar without a footer", () => {
+    const launchSource = sourceBetween(
+      "const launchResumeModeButtonContent = showLaunchButton ?",
+      "const title =",
+    );
+    const actionBarSource = sourceBetween("const actionBar =", "let headerExtra");
 
     expect(source).toContain("请先绑定在招岗位后再发起 AI 面试");
     expect(source).toContain('from "@/components/ui/tooltip"');
-    expect(footerSource).toContain("launchResumeModeDisabledReason");
-    expect(source).toContain("disabled={Boolean(launchResumeModeDisabledReason)}");
-    expect(footerSource).toContain("<TooltipTrigger asChild>");
-    expect(footerSource).toContain(
+    expect(launchSource).toContain("launchResumeModeDisabledReason");
+    expect(source).toContain("aria-disabled={Boolean(launchResumeModeDisabledReason)}");
+    expect(launchSource).toContain("<TooltipTrigger asChild>");
+    expect(launchSource).toContain(
       "<TooltipContent>{launchResumeModeDisabledReason}</TooltipContent>",
     );
+    expect(actionBarSource).toContain("primaryAction={launchResumeModeButton}");
+    expect(source).toContain("const footer = null;");
+    expect(source).not.toContain("const resumeModeFooter =");
+    expect(source).not.toContain("<IconPencil");
+    expect(source).not.toContain(">编辑</Button>");
   });
 
   it("uses a consistent framed surface for expanded interview report items", () => {

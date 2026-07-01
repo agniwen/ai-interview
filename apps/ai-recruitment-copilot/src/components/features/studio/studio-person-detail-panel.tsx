@@ -6,7 +6,6 @@ import {
   IconEye,
   IconInfoCircle,
   IconMessage2,
-  IconPencil,
   IconRobot,
 } from "@tabler/icons-react";
 // 候选人详情视图的共享主体 —— 把数据获取、tab 切换、各 section 渲染抽离出来,
@@ -22,7 +21,7 @@ import Markdown from "react-markdown";
 import type { CandidateFormSubmissionWithSnapshot } from "@arc/db-schema/candidate-forms";
 import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
 import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
-import { canEditResumeRecord, canLaunchInterviewFromResume } from "@arc/shared/studio-resumes";
+import { canLaunchInterviewFromResume } from "@arc/shared/studio-resumes";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import { DIFFICULTY_LABEL } from "@arc/shared/interview-question-difficulty";
 import { cn } from "@arc/shared/utils";
@@ -152,6 +151,13 @@ export type StudioPersonDetailTab =
   | "transcript"
   | "forms";
 
+function shouldShowAiInterviewTab(record: { pipelineStage?: string } | null): boolean {
+  if (!record?.pipelineStage) {
+    return false;
+  }
+  return ["ai_interview", "human_interview", "offer", "closed"].includes(record.pipelineStage);
+}
+
 // 真人复面 / Offer tab 的可见性：阶段已到达或经过时才显示，避免新候选人页面噪音。
 // 关闭后仍显示（HR 想回看历史 / 重新激活时直接点）。
 // Human-interview tab is visible once the candidate has reached or passed that
@@ -198,7 +204,7 @@ export interface StudioPersonDetailSlots {
   body: ReactNode;
   bodyClassName?: string;
   modalClassName?: string;
-  modalSize?: "sm" | "md" | "lg" | "xl" | "2xl" | "full";
+  modalSize?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "full";
   footer: ReactNode;
 }
 
@@ -1040,7 +1046,6 @@ function useStudioPersonDetailPanel({
   accessMode = "authed",
   layoutMode = "modal",
   onUpdated,
-  onEdit,
   onLaunchInterview,
   onViewRoundDetail,
   onClose,
@@ -1392,7 +1397,12 @@ function useStudioPersonDetailPanel({
   const visiblePipelineStage = optimisticPipelineStage ?? record?.pipelineStage;
   const hasRecord = record !== null;
   const tabVisibilityRecord = useMemo(
-    () => (hasRecord ? { pipelineStage: visiblePipelineStage } : null),
+    () =>
+      hasRecord
+        ? {
+            pipelineStage: visiblePipelineStage,
+          }
+        : null,
     [hasRecord, visiblePipelineStage],
   );
 
@@ -1413,7 +1423,9 @@ function useStudioPersonDetailPanel({
       return tabs;
     }
     tabs.add("ai-analysis");
-    tabs.add("rounds");
+    if (shouldShowAiInterviewTab(tabVisibilityRecord)) {
+      tabs.add("rounds");
+    }
     if (shouldShowHumanInterviewTab(tabVisibilityRecord)) {
       tabs.add("human-interview");
     }
@@ -1523,20 +1535,12 @@ function useStudioPersonDetailPanel({
   const roundActionLockedReason = isRoundLive ? "面试正在进行中，结束后才能发送或复制链接。" : null;
   const roundActionDisabledReason = roundActionLockedReason ?? aiStageLockedReason;
 
-  // 简历模式底部双按钮：两个按钮各占一半宽度。
-  // 已存在 AI 面试轮次的简历隐藏「发起 AI 面试」按钮，避免重复创建；
-  // 编辑按钮以 flex-1 自动撑满剩余空间。轮次列表加载中也先隐藏，避免闪烁。
+  // 简历模式的「发起 AI 面试」合并到顶部招聘流程按钮组。
+  // 已存在 AI 面试轮次的简历隐藏该按钮，避免重复创建；轮次列表加载中也先隐藏，避免闪烁。
   //
-  // Resume-mode footer: two buttons sharing flex space. Hide the launch
-  // button once the resume has any rounds (to prevent dup-creates) — the edit
-  // button stays flex-1 and naturally expands. Suppressed during rounds-load
-  // to avoid a flash-then-hide.
-  const canEditResumeModeRecord =
-    canUseManagementActions &&
-    !!onEdit &&
-    (mode !== "resume" || !record?.resumeParseStatus
-      ? true
-      : canEditResumeRecord(record.resumeParseStatus));
+  // Resume-mode launch action is grouped into the top pipeline action bar.
+  // Hide it once the resume has any rounds (to prevent dup-creates), and
+  // suppress it while rounds are loading to avoid a flash-then-hide.
   const canLaunchResumeModeRecord =
     canUseManagementActions &&
     (mode !== "resume" || !record?.resumeParseStatus
@@ -1549,11 +1553,11 @@ function useStudioPersonDetailPanel({
     candidateRounds.length === 0;
   const launchResumeModeDisabledReason =
     showLaunchButton && !resumeRecord?.jobDescriptionId ? "请先绑定在招岗位后再发起 AI 面试" : null;
-  const launchResumeModeButton = showLaunchButton ? (
+  const launchResumeModeButtonContent = showLaunchButton ? (
     <Button
-      className={launchResumeModeDisabledReason ? "w-full" : "flex-1"}
-      disabled={Boolean(launchResumeModeDisabledReason)}
-      size="lg"
+      aria-disabled={Boolean(launchResumeModeDisabledReason)}
+      className={cn(launchResumeModeDisabledReason && "opacity-50")}
+      size="sm"
       onClick={() => {
         if (!record) {
           return;
@@ -1583,36 +1587,17 @@ function useStudioPersonDetailPanel({
       {onLaunchInterview ? null : <IconExternalLink className="size-3.5 opacity-70" />}
     </Button>
   ) : null;
-  const resumeModeFooter =
-    record && (canEditResumeModeRecord || showLaunchButton) ? (
-      <div className="flex w-full gap-2">
-        {canEditResumeModeRecord ? (
-          <Button
-            className="flex-1"
-            onClick={() => {
-              if (onEdit) {
-                onEdit(record.id);
-              }
-            }}
-            size="lg"
-            type="button"
-            variant="outline"
-          >
-            <IconPencil className="size-4" />
-            编辑
-          </Button>
-        ) : null}
-        {launchResumeModeButton && launchResumeModeDisabledReason ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="flex flex-1">{launchResumeModeButton}</span>
-            </TooltipTrigger>
-            <TooltipContent>{launchResumeModeDisabledReason}</TooltipContent>
-          </Tooltip>
-        ) : null}
-        {launchResumeModeButton && !launchResumeModeDisabledReason ? launchResumeModeButton : null}
-      </div>
-    ) : null;
+  const launchResumeModeButton =
+    launchResumeModeButtonContent && launchResumeModeDisabledReason ? (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span>{launchResumeModeButtonContent}</span>
+        </TooltipTrigger>
+        <TooltipContent>{launchResumeModeDisabledReason}</TooltipContent>
+      </Tooltip>
+    ) : (
+      launchResumeModeButtonContent
+    );
 
   const title =
     mode === "resume" ? (
@@ -1693,8 +1678,9 @@ function useStudioPersonDetailPanel({
         onRequestReactivate={() =>
           onRequestReactivate?.({ candidateName: record.candidateName, id: record.id })
         }
-        outcome={record.outcome}
         pipelineStage={record.pipelineStage}
+        primaryAction={launchResumeModeButton}
+        showAiInterviewStep={shouldShowAiInterviewTab(tabVisibilityRecord)}
       />
     ) : null;
 
@@ -1728,7 +1714,7 @@ function useStudioPersonDetailPanel({
               AI 解析
             </TabsTrigger>
           ) : null}
-          {mode === "resume" ? (
+          {mode === "resume" && shouldShowAiInterviewTab(tabVisibilityRecord) ? (
             <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="rounds">
               AI 面试
             </TabsTrigger>
@@ -2276,7 +2262,7 @@ function useStudioPersonDetailPanel({
             </TabsContent>
           ) : null}
 
-          {mode === "resume" ? (
+          {mode === "resume" && shouldShowAiInterviewTab(tabVisibilityRecord) ? (
             <TabsContent value="rounds">
               <section className="space-y-4">
                 <div className="flex items-center justify-between gap-3">
@@ -2445,12 +2431,12 @@ function useStudioPersonDetailPanel({
     </div>
   );
 
-  const footer = mode === "resume" && activeTab === "overview" ? resumeModeFooter : null;
+  const footer = null;
   const bodyClassName = canUseTimelineRailScroll ? "xl:overflow-hidden" : undefined;
   const modalClassName = canUseTimelineRailScroll ? "xl:h-[90vh]" : undefined;
   let modalSize: StudioPersonDetailSlots["modalSize"] = "full";
   if (mode === "resume") {
-    modalSize = showTimelineRail ? "2xl" : "xl";
+    modalSize = "3xl";
   }
 
   return (

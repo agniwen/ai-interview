@@ -11,7 +11,7 @@ describe("ResumeOverviewPanel visual density", () => {
     expect(source).toContain('className="space-y-8"');
     expect(source).toContain("rounded-2xl border border-muted/60 bg-muted/20 p-5");
     expect(source).toContain("border-t border-border/50 pt-6");
-    expect(source).toContain("rounded-full bg-background px-2.5 py-1 text-xs");
+    expect(source).toContain("grid gap-x-8 gap-y-4 md:grid-cols-2");
     expect(source).not.toContain("SoftPanel");
     expect(source).not.toContain("rounded-2xl border border-border bg-background p-5");
   });
@@ -29,6 +29,17 @@ describe("ResumeOverviewPanel visual density", () => {
     expect(overviewBody).toContain('<SummaryItem label="简历评估"');
     expect(overviewBody).not.toContain("<Select");
     expect(overviewBody).not.toContain("onValueChange");
+  });
+
+  it("does not repeat structured resume fields in the overview summary", () => {
+    const overviewBody = source.slice(source.indexOf("export function ResumeOverviewPanel"));
+
+    expect(overviewBody).toContain('<SummaryItem label="关联岗位"');
+    expect(overviewBody).toContain('<SummaryItem label="简历评估"');
+    expect(overviewBody).not.toContain('<SummaryItem label="目标岗位"');
+    expect(overviewBody).not.toContain('<SummaryItem label="工作年限"');
+    expect(overviewBody).not.toContain("核心技能");
+    expect(overviewBody).not.toContain("主要亮点");
   });
 
   it("uses a spacious AI review layout instead of dense nested cards", () => {

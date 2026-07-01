@@ -245,25 +245,6 @@ export function ResumeProfileView({ profile }: ResumeProfileViewProps) {
         )}
       </ResumeProfileSection>
 
-      <ResumeProfileSection title="掌握技能">
-        <ChipList items={profile.skills} />
-      </ResumeProfileSection>
-
-      <ResumeProfileSection title="个人优势">
-        {profile.personalStrengths.length === 0 ? (
-          <p className="text-muted-foreground text-sm">—</p>
-        ) : (
-          <ul className="space-y-2 text-sm leading-6">
-            {profile.personalStrengths.map((item) => (
-              <li className="flex gap-2" key={item}>
-                <span className="mt-2 size-1.5 shrink-0 rounded-full bg-muted-foreground/40" />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </ResumeProfileSection>
-
       <ResumeProfileSection title="工作经历">
         <WorkExperienceTimeline experiences={profile.workExperiences} />
       </ResumeProfileSection>
@@ -297,6 +278,25 @@ export function ResumeProfileView({ profile }: ResumeProfileViewProps) {
                     <ChipList items={proj.techStack} />
                   </div>
                 ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </ResumeProfileSection>
+
+      <ResumeProfileSection title="掌握技能">
+        <ChipList items={profile.skills} />
+      </ResumeProfileSection>
+
+      <ResumeProfileSection title="个人优势">
+        {profile.personalStrengths.length === 0 ? (
+          <p className="text-muted-foreground text-sm">—</p>
+        ) : (
+          <ul className="space-y-2 text-sm leading-6">
+            {profile.personalStrengths.map((item) => (
+              <li className="flex gap-2" key={item}>
+                <span className="mt-2 size-1.5 shrink-0 rounded-full bg-muted-foreground/40" />
+                <span>{item}</span>
               </li>
             ))}
           </ul>
