@@ -1,5 +1,9 @@
 import type { studioInterview } from "@arc/db-schema/schema";
 import type { CandidateOutcome, ClosedMeta, PipelineStage } from "@arc/db-schema/studio-interviews";
+import {
+  canApplyCandidatePipelineEvent,
+  getCandidatePipelineEventForTargetStage,
+} from "@arc/shared/candidate-pipeline-machine";
 
 type LegacyCandidateStatus = typeof studioInterview.$inferInsert.status;
 
@@ -39,6 +43,44 @@ export interface CandidateTransitionAuditDetail {
   reason: string | null;
   toOutcome: CandidateOutcome;
   toStage: PipelineStage;
+}
+
+export function getCandidateStageTransitionError({
+  from,
+  hasJobDescription,
+  humanInterviewReadyForOffer,
+  to,
+}: {
+  from: PipelineStage;
+  hasJobDescription: boolean;
+  humanInterviewReadyForOffer: boolean;
+  to: PipelineStage;
+}): string | null {
+  if (from === to) {
+    return null;
+  }
+  if (to === "closed") {
+    return null;
+  }
+  if (to === "human_interview" && !hasJobDescription) {
+    return "请先绑定在招岗位后再安排真人面试";
+  }
+
+  const event = getCandidatePipelineEventForTargetStage({ from, to });
+  if (!event) {
+    return "当前招聘阶段不能直接推进到目标阶段。";
+  }
+  const canApply = canApplyCandidatePipelineEvent(
+    { humanInterviewReadyForOffer, stage: from },
+    event,
+  );
+  if (canApply) {
+    return null;
+  }
+  if (from === "human_interview" && to === "offer") {
+    return "请先完成所有真人面试轮次，并补全每轮面试评价";
+  }
+  return "当前招聘阶段不能直接推进到目标阶段。";
 }
 
 export function resolveCandidateTransitionPatch({

@@ -383,6 +383,9 @@ importers:
       watermark-js-plus:
         specifier: ^1.6.4
         version: 1.6.4
+      xstate:
+        specifier: ^5.32.3
+        version: 5.32.3
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -737,6 +740,9 @@ importers:
       tailwind-merge:
         specifier: ^3.6.0
         version: 3.6.0
+      xstate:
+        specifier: ^5.32.3
+        version: 5.32.3
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -8372,6 +8378,9 @@ packages:
 
   xmlchars@2.2.0:
     resolution: {integrity: sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==}
+
+  xstate@5.32.3:
+    resolution: {integrity: sha512-I8PDV+D9f5iuAGR/CjiQwf/7A+iiSWHsd16jWe/2Z1GQh4T4JQBYvpauqBK+SAU3TegOBtTvxcqAjhJnqeT0sg==}
 
   xtend@4.0.2:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
@@ -16231,6 +16240,8 @@ snapshots:
   xmlbuilder@10.1.1: {}
 
   xmlchars@2.2.0: {}
+
+  xstate@5.32.3: {}
 
   xtend@4.0.2: {}
 

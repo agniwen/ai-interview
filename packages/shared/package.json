@@ -23,6 +23,7 @@
     "dayjs": "^1.11.20",
     "lodash-es": "^4.18.1",
     "tailwind-merge": "^3.6.0",
+    "xstate": "^5.32.3",
     "zod": "catalog:"
   },
   "devDependencies": {

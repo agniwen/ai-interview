@@ -211,10 +211,24 @@ describe("StudioPersonDetailPanel visual density", () => {
       "<TooltipContent>{launchResumeModeDisabledReason}</TooltipContent>",
     );
     expect(actionBarSource).toContain("primaryAction={launchResumeModeButton}");
+    expect(actionBarSource).toContain(
+      "hasJobDescription={Boolean(resumeRecord?.jobDescriptionId)}",
+    );
     expect(source).toContain("const footer = null;");
     expect(source).not.toContain("const resumeModeFooter =");
     expect(source).not.toContain("<IconPencil");
     expect(source).not.toContain(">编辑</Button>");
+  });
+
+  it("hides resume-mode AI launch actions after the candidate enters human interview", () => {
+    const launchConditionSource = sourceBetween(
+      "const showLaunchButton =",
+      "const launchResumeModeDisabledReason =",
+    );
+
+    expect(launchConditionSource).toContain('record?.pipelineStage === "screening"');
+    expect(launchConditionSource).not.toContain('record.pipelineStage === "human_interview"');
+    expect(launchConditionSource).not.toContain('record.pipelineStage === "offer"');
   });
 
   it("uses a consistent framed surface for expanded interview report items", () => {

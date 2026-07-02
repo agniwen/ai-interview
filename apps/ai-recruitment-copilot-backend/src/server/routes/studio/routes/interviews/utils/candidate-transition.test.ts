@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveCandidateTransitionPatch } from "./candidate-transition";
+import {
+  getCandidateStageTransitionError,
+  resolveCandidateTransitionPatch,
+} from "./candidate-transition";
 
 const now = new Date("2026-06-21T12:00:00.000Z");
 
@@ -79,5 +82,72 @@ describe("resolveCandidateTransitionPatch", () => {
     expect(result.auditDetail.closedMeta).toBeNull();
     expect(result.auditDetail.fromStage).toBe("closed");
     expect(result.auditDetail.toStage).toBe("human_interview");
+  });
+});
+
+describe("getCandidateStageTransitionError", () => {
+  it("rejects direct offer transitions before human interview", () => {
+    expect(
+      getCandidateStageTransitionError({
+        from: "screening",
+        hasJobDescription: true,
+        humanInterviewReadyForOffer: true,
+        to: "offer",
+      }),
+    ).toBe("当前招聘阶段不能直接推进到目标阶段。");
+    expect(
+      getCandidateStageTransitionError({
+        from: "ai_interview",
+        hasJobDescription: true,
+        humanInterviewReadyForOffer: true,
+        to: "offer",
+      }),
+    ).toBe("当前招聘阶段不能直接推进到目标阶段。");
+  });
+
+  it("requires human interview readiness for offer transition", () => {
+    expect(
+      getCandidateStageTransitionError({
+        from: "human_interview",
+        hasJobDescription: true,
+        humanInterviewReadyForOffer: false,
+        to: "offer",
+      }),
+    ).toBe("请先完成所有真人面试轮次，并补全每轮面试评价");
+    expect(
+      getCandidateStageTransitionError({
+        from: "human_interview",
+        hasJobDescription: true,
+        humanInterviewReadyForOffer: true,
+        to: "offer",
+      }),
+    ).toBeNull();
+  });
+
+  it("requires a bound job description before entering human interview", () => {
+    expect(
+      getCandidateStageTransitionError({
+        from: "screening",
+        hasJobDescription: false,
+        humanInterviewReadyForOffer: false,
+        to: "human_interview",
+      }),
+    ).toBe("请先绑定在招岗位后再安排真人面试");
+    expect(
+      getCandidateStageTransitionError({
+        from: "ai_interview",
+        hasJobDescription: false,
+        humanInterviewReadyForOffer: false,
+        to: "human_interview",
+      }),
+    ).toBe("请先绑定在招岗位后再安排真人面试");
+    expect(
+      getCandidateStageTransitionError({
+        from: "screening",
+        hasJobDescription: true,
+        humanInterviewReadyForOffer: false,
+        to: "human_interview",
+      }),
+    ).toBeNull();
   });
 });

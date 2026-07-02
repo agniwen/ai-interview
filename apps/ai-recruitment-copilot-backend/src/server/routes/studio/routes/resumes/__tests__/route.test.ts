@@ -84,6 +84,24 @@ const RESUME_PAYLOAD: ResumeAnalysisResult = {
   resumeText: "客户端预解析 OCR 原文",
 };
 
+describe("resume launch interview route source", () => {
+  it("uses the shared candidate pipeline rule before launching AI interview", () => {
+    const launchInterviewSource = routeSource.slice(
+      routeSource.indexOf('.post(\n    "/:id/launch-interview"'),
+      routeSource.indexOf(
+        "const { interviewQuestions }",
+        routeSource.indexOf("/:id/launch-interview"),
+      ),
+    );
+
+    expect(routeSource).toContain("canApplyCandidatePipelineEvent");
+    expect(launchInterviewSource).toContain('type: "START_AI_INTERVIEW"');
+    expect(launchInterviewSource).toContain("humanInterviewReadyForOffer: false");
+    expect(launchInterviewSource).toContain("stage: existing.pipelineStage");
+    expect(launchInterviewSource).toContain("候选人已进入后续招聘阶段，不能再发起 AI 面试。");
+  });
+});
+
 describeWithDatabase("resume detail route database behavior", () => {
   let db: typeof database;
   let loadResumeDetail: typeof loadResumeDetailFn;

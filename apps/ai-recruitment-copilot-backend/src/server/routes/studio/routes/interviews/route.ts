@@ -131,7 +131,10 @@ import {
   parseResumeCreateDedupPolicy,
   resolveResumeCreateDedupConflict,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/dedup";
-import { resolveCandidateTransitionPatch } from "./utils/candidate-transition";
+import {
+  getCandidateStageTransitionError,
+  resolveCandidateTransitionPatch,
+} from "./utils/candidate-transition";
 
 const dedupCheckInputSchema = z.object({
   email: z.string().trim().max(200).nullable().optional(),
@@ -1376,6 +1379,7 @@ export const studioInterviewsRouter = factory
         const [existing] = await tx
           .select({
             closedMeta: studioInterview.closedMeta,
+            jobDescriptionId: studioInterview.jobDescriptionId,
             outcome: studioInterview.outcome,
             pipelineStage: studioInterview.pipelineStage,
           })
@@ -1391,12 +1395,24 @@ export const studioInterviewsRouter = factory
         if (!existing) {
           return { kind: "not_found" as const };
         }
+        let humanInterviewOfferReadinessError: string | null = null;
+        let humanInterviewReadyForOffer = false;
         if (existing.pipelineStage === "human_interview" && input.pipelineStage === "offer") {
           const readiness = await loadHumanInterviewRoundReadiness(candidateId, activeOrg.id);
-          const readinessError = getHumanInterviewOfferReadinessError(readiness);
-          if (readinessError) {
-            return { kind: "human_interview_not_ready" as const, message: readinessError };
-          }
+          humanInterviewOfferReadinessError = getHumanInterviewOfferReadinessError(readiness);
+          humanInterviewReadyForOffer = !humanInterviewOfferReadinessError;
+        }
+        const stageTransitionError = getCandidateStageTransitionError({
+          from: existing.pipelineStage,
+          hasJobDescription: Boolean(existing.jobDescriptionId),
+          humanInterviewReadyForOffer,
+          to: input.pipelineStage,
+        });
+        if (stageTransitionError) {
+          return {
+            kind: "invalid_stage_transition" as const,
+            message: humanInterviewOfferReadinessError ?? stageTransitionError,
+          };
         }
         // 同态写入直接 200，避免无谓审计噪音。
         // No-op writes short-circuit to keep the audit log clean.
@@ -1432,7 +1448,7 @@ export const studioInterviewsRouter = factory
       if (result.kind === "not_found") {
         return c.json({ error: "候选人记录不存在。" }, 404);
       }
-      if (result.kind === "human_interview_not_ready") {
+      if (result.kind === "invalid_stage_transition") {
         return c.json({ error: result.message }, 400);
       }
       // noop 路径不写库也不刷缓存，但仍返回 200 让客户端把请求当作成功完成。
@@ -1715,6 +1731,9 @@ export const studioInterviewsRouter = factory
       }
       if (candidate.pipelineStage === "closed") {
         return c.json({ error: "已结案的候选人请先重新激活。" }, 400);
+      }
+      if (candidate.pipelineStage !== "human_interview" && candidate.pipelineStage !== "offer") {
+        return c.json({ error: "候选人需先进入真人复面阶段，才能创建 Offer。" }, 400);
       }
       if (candidate.pipelineStage === "human_interview") {
         const readiness = await loadHumanInterviewRoundReadiness(recordId, activeOrg.id);

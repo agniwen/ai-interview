@@ -47,7 +47,6 @@ describe("PipelineStageActionBar compact stage rail", () => {
     expect(actionsSource).toContain("{groupedPrimaryAction}");
     expect(actionsSource).toContain("groupedPrimaryAction || actions.right.length > 0");
     expect(source).toContain("安排真人面试");
-    expect(source).toContain("直接发 Offer");
     expect(source).toContain('key: "to-offer"');
     expect(source).not.toContain(
       '<Button key="to-offer" onClick={() => onAdvance("offer")} size="sm" variant="outline">',
@@ -85,13 +84,43 @@ describe("PipelineStageActionBar compact stage rail", () => {
   it("gates human interview and offer stage actions by dedicated permissions", () => {
     expect(source).toContain("canManageHumanInterview?: boolean;");
     expect(source).toContain("canManageOffer?: boolean;");
+    expect(source).toContain("hasJobDescription?: boolean;");
     expect(source).toContain("canManageHumanInterview = true");
     expect(source).toContain("canManageOffer = true");
-    expect(source).toContain("canAdvanceToHumanInterview");
-    expect(source).toContain("canAdvanceToOffer");
-    expect(source).toContain("if (canAdvanceToHumanInterview) {");
-    expect(source).toContain("if (canAdvanceToOffer) {");
-    expect(source).toContain("if (canManageHumanInterview) {");
+    expect(source).toContain("&& canManageHumanInterview");
+    expect(source).toContain("if (canManageOffer) {");
+    expect(source).toContain('hasEvent({ type: "SKIP_TO_HUMAN_INTERVIEW" })');
+    expect(source).toContain('hasEvent({ type: "ADVANCE_TO_OFFER" })');
+    expect(source).toContain("canApplyCandidatePipelineEvent");
+    expect(source).not.toContain("getCandidatePipelineEvents");
+  });
+
+  it("requires a bound job before arranging human interview", () => {
+    expect(source).toContain("hasJobDescription = true");
+    expect(source).toContain("resolveHumanInterviewAdvanceDisabledReason");
+    expect(source).toContain("请先绑定在招岗位后再安排真人面试");
+    expect(source).toContain('hasEvent({ type: "SKIP_TO_HUMAN_INTERVIEW" })');
+    expect(source).toContain('hasEvent({ type: "ADVANCE_TO_HUMAN_INTERVIEW" })');
+    expect(source).toContain("HumanInterviewAdvanceButton");
+  });
+
+  it("keeps the AI interview next-step human interview button primary", () => {
+    const aiStageSource = source.slice(
+      source.indexOf('case "ai_interview":'),
+      source.indexOf('case "human_interview":'),
+    );
+
+    expect(aiStageSource).toContain('hasEvent({ type: "ADVANCE_TO_HUMAN_INTERVIEW" })');
+    expect(aiStageSource).toContain("<HumanInterviewAdvanceButton");
+    expect(aiStageSource).not.toContain('variant={aiInterviewDone ? "default" : "outline"}');
+    expect(aiStageSource).not.toContain('variant="outline"');
+  });
+
+  it("does not expose direct offer or backward stage actions", () => {
+    expect(source).not.toContain("直接发 Offer");
+    expect(source).not.toContain('onAdvance("offer")');
+    expect(source).not.toContain("退回 AI 面试");
+    expect(source).not.toContain("退回真人复面");
   });
 
   it("requires completed human interview feedback before advancing to offer", () => {

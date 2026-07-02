@@ -129,6 +129,7 @@
     "use-stick-to-bottom": "^1.1.4",
     "vaul": "^1.1.2",
     "watermark-js-plus": "^1.6.4",
+    "xstate": "^5.32.3",
     "zod": "catalog:"
   },
   "devDependencies": {

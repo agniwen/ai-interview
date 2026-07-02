@@ -1565,6 +1565,7 @@ function useStudioPersonDetailPanel({
       : canLaunchInterviewFromResume(record.resumeParseStatus));
   const showLaunchButton =
     mode === "resume" &&
+    record?.pipelineStage === "screening" &&
     canLaunchResumeModeRecord &&
     !isRoundsLoading &&
     candidateRounds.length === 0;
@@ -1657,11 +1658,6 @@ function useStudioPersonDetailPanel({
     record.pipelineStage &&
     record.outcome ? (
       <PipelineStageActionBar
-        aiInterviewDone={Boolean(
-          resumeRecord?.stageProgress.aiInterview &&
-          resumeRecord.stageProgress.aiInterview.totalRounds > 0 &&
-          resumeRecord.stageProgress.aiInterview.activeRound === null,
-        )}
         humanInterviewDone={Boolean(
           resumeRecord?.stageProgress.humanInterview &&
           resumeRecord.stageProgress.humanInterview.totalRounds > 0 &&
@@ -1673,6 +1669,7 @@ function useStudioPersonDetailPanel({
         )}
         canManageHumanInterview={canManageHumanInterview}
         canManageOffer={canManageOffer}
+        hasJobDescription={Boolean(resumeRecord?.jobDescriptionId)}
         onAdvance={(target) => {
           // 行内推进（不带元数据）：直接调 transition API，刷新缓存。
           // Inline advance: call transition + invalidate so the bar/tabs update.

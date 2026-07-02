@@ -7,6 +7,7 @@ import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { getObjectBytes, getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { interviewAuditLog, studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
 import { parseCsvParam } from "@arc/shared/csv";
+import { canApplyCandidatePipelineEvent } from "@arc/shared/candidate-pipeline-machine";
 import { resumeReviewSchema } from "@arc/shared/resume-review";
 import type { ResumeReview } from "@arc/shared/resume-review";
 import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
@@ -535,6 +536,14 @@ export const resumeLibraryRouter = factory
       // 2) bypass the reactivate audit path.
       if (existing.pipelineStage === "closed") {
         return c.json({ error: "候选人已结案，请先「重新激活」后再发起 AI 面试。" }, 409);
+      }
+      if (
+        !canApplyCandidatePipelineEvent(
+          { humanInterviewReadyForOffer: false, stage: existing.pipelineStage },
+          { type: "START_AI_INTERVIEW" },
+        )
+      ) {
+        return c.json({ error: "候选人已进入后续招聘阶段，不能再发起 AI 面试。" }, 409);
       }
       if (!canLaunchInterviewFromResume(existing.resumeParseStatus)) {
         return c.json({ error: "简历解析完成后才能发起 AI 面试。" }, 409);
