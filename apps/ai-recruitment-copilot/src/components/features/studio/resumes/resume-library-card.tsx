@@ -11,7 +11,7 @@ import {
   IconSparkles,
 } from "@tabler/icons-react";
 import AvvvatarsModule from "avvvatars-react";
-import type { ReactNode } from "react";
+import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 
 import { TimeDisplay } from "@/components/features/display/time-display";
 import {
@@ -179,6 +179,19 @@ function textOrDash(value: string | null | undefined) {
 function formatResumeCardContact(value: string | null | undefined, fallback: string) {
   const text = value?.trim();
   return text || fallback;
+}
+
+function isResumeCardInteractiveClick(event: ReactMouseEvent<HTMLElement>) {
+  const { target } = event;
+  if (!(target instanceof Element)) {
+    return false;
+  }
+
+  return Boolean(
+    target.closest(
+      "a,button,input,label,select,textarea,[role='button'],[role='menuitem'],[data-resume-card-interactive='true']",
+    ),
+  );
 }
 
 function getCreatorInitial(name: string | null | undefined) {
@@ -668,13 +681,22 @@ export function ResumeLibraryCard({
   const skills = getResumeCardSkills(record);
   const summary = getResumeCardSummary(record);
   const canCopyLink = canCopyResumeDetailLink({ currentMemberRole, currentUserId, record });
+  const jobDescriptionTextClass =
+    "min-w-0 truncate text-left underline decoration-transparent underline-offset-4 transition-colors hover:decoration-foreground/40";
 
   return (
+    // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <article
       className={cn(
-        "relative rounded-2xl border border-input bg-background bg-clip-padding p-4 shadow-xs/5 transition-colors before:pointer-events-none before:absolute before:inset-0 before:rounded-[inherit] before:shadow-[0_1px_--theme(--color-black/4%)] hover:border-border/80 hover:bg-muted/10 dark:bg-input/30 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
-        selected && "border-primary/40 bg-primary/5 hover:bg-primary/5",
+        "relative rounded-2xl border border-input bg-background bg-clip-padding p-4 shadow-xs/5 transition-colors before:pointer-events-none before:absolute before:inset-0 before:rounded-[inherit] before:shadow-[0_1px_--theme(--color-black/4%)] hover:border-border/80 hover:bg-muted/30 dark:bg-input/30 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
+        selected && "border-primary/40 bg-primary/5 hover:bg-primary/5 hover:border-primary/60",
       )}
+      onClick={(event) => {
+        if (isResumeCardInteractiveClick(event)) {
+          return;
+        }
+        onOpenDetail(record, "overview");
+      }}
     >
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)_auto] xl:items-start">
         <div className="flex min-w-0 gap-3">
@@ -713,21 +735,21 @@ export function ResumeLibraryCard({
 
             <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
               <ResumeCardMetaItem icon={<IconBriefcase className="size-3.5" />} label="关联岗位">
-                <button
-                  className={cn(
-                    "min-w-0 truncate text-left underline decoration-foreground/15 underline-offset-4 hover:decoration-foreground/50",
-                    !jobDescriptionLabel &&
-                      "pointer-events-none text-muted-foreground no-underline",
-                  )}
-                  onClick={() => {
-                    if (record.jobDescriptionId) {
+                {record.jobDescriptionId && jobDescriptionLabel ? (
+                  <button
+                    className={jobDescriptionTextClass}
+                    onClick={() => {
                       onViewJobDescription(record.jobDescriptionId);
-                    }
-                  }}
-                  type="button"
-                >
-                  关联岗位：{jobDescriptionLabel ?? "未绑定"}
-                </button>
+                    }}
+                    type="button"
+                  >
+                    关联岗位：{jobDescriptionLabel}
+                  </button>
+                ) : (
+                  <span className={cn(jobDescriptionTextClass, "text-muted-foreground")}>
+                    关联岗位：未绑定
+                  </span>
+                )}
               </ResumeCardMetaItem>
               <ResumeCardMetaSeparator />
               <ResumeCardCreatorMeta image={record.creatorImage} name={record.creatorName} />

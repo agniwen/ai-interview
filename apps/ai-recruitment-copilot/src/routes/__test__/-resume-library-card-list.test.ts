@@ -2,6 +2,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("../w.$slug.studio.resumes.tsx", import.meta.url), "utf-8");
+const cardSourceFile = readFileSync(
+  new URL("../../components/features/studio/resumes/resume-library-card.tsx", import.meta.url),
+  "utf-8",
+);
 
 describe("ResumeLibraryPage card list", () => {
   it("keeps the previous table in a comment and renders the card list instead", () => {
@@ -17,33 +21,32 @@ describe("ResumeLibraryPage card list", () => {
   });
 
   it("lays out resume cards with candidate, lifecycle, job, contact, review and action areas", () => {
-    const actionSource = source.slice(
-      source.indexOf("function ResumeLibraryCardActions("),
-      source.indexOf("function ResumeLibraryCard("),
+    const actionSource = cardSourceFile.slice(
+      cardSourceFile.indexOf("function ResumeLibraryCardActions("),
+      cardSourceFile.indexOf("export function ResumeLibraryCard("),
     );
-    const actionButtonSource = source.slice(
-      source.indexOf("function ResumeLibraryIconActionButton("),
-      source.indexOf("function ResumeLibraryCardActions("),
+    const actionButtonSource = cardSourceFile.slice(
+      cardSourceFile.indexOf("function ResumeLibraryIconActionButton("),
+      cardSourceFile.indexOf("function ResumeLibraryCardActions("),
     );
-    const cardSource = source.slice(
-      source.indexOf("function ResumeLibraryCard("),
-      source.indexOf("function ResumeLibraryCardList("),
+    const cardSource = cardSourceFile.slice(
+      cardSourceFile.indexOf("export function ResumeLibraryCard("),
     );
-    const avatarInteropSource = source.slice(
-      source.indexOf('import AvvvatarsModule from "avvvatars-react";'),
-      source.indexOf("// 工具栏多选下拉"),
+    const avatarInteropSource = cardSourceFile.slice(
+      cardSourceFile.indexOf('import AvvvatarsModule from "avvvatars-react";'),
+      cardSourceFile.indexOf("interface ResumeLibraryCardProps"),
     );
-    const skillsSource = source.slice(
-      source.indexOf("function getResumeCardSkills("),
-      source.indexOf("function getResumeCardSummary("),
+    const skillsSource = cardSourceFile.slice(
+      cardSourceFile.indexOf("function getResumeCardSkills("),
+      cardSourceFile.indexOf("function getResumeCardSummary("),
     );
-    const creatorMetaSource = source.slice(
-      source.indexOf("function ResumeCardCreatorMeta("),
-      source.indexOf("interface ResumeLibraryCardProps"),
+    const creatorMetaSource = cardSourceFile.slice(
+      cardSourceFile.indexOf("function ResumeCardCreatorMeta("),
+      cardSourceFile.indexOf("function ResumeCardProfileSnapshot("),
     );
-    const profileSnapshotSource = source.slice(
-      source.indexOf("function getLatestWorkLine("),
-      source.indexOf("function getResumeCardSummary("),
+    const profileSnapshotSource = cardSourceFile.slice(
+      cardSourceFile.indexOf("function getLatestWorkLine("),
+      cardSourceFile.indexOf("function getResumeCardSummary("),
     );
 
     expect(cardSource).toContain("duplicateMatchBadge(record");
@@ -61,6 +64,19 @@ describe("ResumeLibraryPage card list", () => {
     expect(cardSource).toContain('formatResumeCardContact(record.candidatePhone, "未填写电话")');
     expect(cardSource).toContain("关联岗位");
     expect(cardSource).toContain("jobDescriptionLabel");
+    expect(cardSource).not.toContain("cursor-pointer");
+    expect(cardSource).toContain("onClick={(event) => {");
+    expect(cardSource).toContain("isResumeCardInteractiveClick(event)");
+    expect(cardSource).toContain('onOpenDetail(record, "overview");');
+    expect(cardSourceFile).toContain("function isResumeCardInteractiveClick");
+    expect(cardSourceFile).toContain(
+      "\"a,button,input,label,select,textarea,[role='button'],[role='menuitem'],[data-resume-card-interactive='true']\"",
+    );
+    expect(cardSource).toContain("decoration-transparent");
+    expect(cardSource).toContain("hover:decoration-foreground/40");
+    expect(cardSource).toContain("jobDescriptionTextClass");
+    expect(cardSource).toContain("关联岗位：未绑定");
+    expect(cardSource).not.toContain("pointer-events-none text-muted-foreground no-underline");
     expect(cardSource).not.toContain("record.targetRole");
     expect(cardSource).toContain("ResumeCardMetaSeparator");
     expect(cardSource).toContain("ResumeCardCreatorMeta");
@@ -80,15 +96,15 @@ describe("ResumeLibraryPage card list", () => {
     expect(profileSnapshotSource).toContain("education.period");
     expect(profileSnapshotSource).toContain("education.graduationYear");
     expect(profileSnapshotSource).toContain("record.resumeProfile?.schools");
-    expect(source).toContain("ml-22");
-    expect(source).toContain("xl:ml-0");
-    expect(source).toContain("content-start");
-    expect(source).toContain("xl:self-start");
-    expect(source).toContain("xl:pt-8.5");
-    expect(source).not.toContain("content-center");
-    expect(source).not.toContain("xl:self-center");
-    expect(source).toContain("text-[11px]");
-    expect(source).toContain("text-foreground text-sm");
+    expect(cardSourceFile).toContain("ml-22");
+    expect(cardSourceFile).toContain("xl:ml-0");
+    expect(cardSourceFile).toContain("content-start");
+    expect(cardSourceFile).toContain("xl:self-start");
+    expect(cardSourceFile).toContain("xl:pt-8.5");
+    expect(cardSourceFile).not.toContain("content-center");
+    expect(cardSourceFile).not.toContain("xl:self-center");
+    expect(cardSourceFile).toContain("text-[11px]");
+    expect(cardSourceFile).toContain("text-foreground text-sm");
     expect(skillsSource).toContain("record.resumeProfile?.skills");
     expect(skillsSource).not.toContain("resumeReview?.nextStep.interviewFocus");
     expect(cardSource).toContain("TimeDisplay");
@@ -116,7 +132,25 @@ describe("ResumeLibraryPage card list", () => {
     );
 
     expect(listSource).toContain("<Toolbar");
-    expect(listSource).toContain("bulkActionsSlot={bulkSlot}");
+    expect(listSource).toContain("<ResumeLibraryFloatingActionBar");
+    expect(listSource).toContain("selectedCount={selectedIds.length}");
+    expect(listSource).toContain("selectedItems={selectedItems}");
+    expect(listSource).toContain("onClearSelection={() => grid.setRowSelection({})}");
+    expect(listSource).toContain(
+      "onRemoveItem={(id) => grid.setRowSelection((prev) => ({ ...prev, [id]: false }))}",
+    );
+    expect(listSource).toContain("onViewItem={(id) => {");
+    expect(listSource).toContain("const record = records.find((item) => item.id === id);");
+    expect(listSource).toContain("onOpenDetail(record);");
+    expect(listSource).toContain("formatResumeCandidateTitle(record.candidateName, record.id)");
+    expect(listSource).toContain("formatResumeLibraryJobDescriptionLabel(record)");
+    expect(listSource).toContain("disabled={hasLockedSelection}");
+    expect(listSource).toContain("disabledReason={bulkDeleteLockedReason}");
+    expect(source).toContain(
+      'from "@/components/features/studio/resumes/resume-library-floating-action-bar"',
+    );
+    expect(listSource).not.toContain("bulkActionsSlot={bulkSlot}");
+    expect(listSource).not.toContain("批量删除 ({selectedIds.length})");
     expect(listSource).toContain("grid.bind.rowSelection");
     expect(listSource).not.toContain("<PaginationBar");
     expect(listSource).not.toContain("grid.bind.pagination");

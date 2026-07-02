@@ -1,4 +1,4 @@
-import { IconHistory, IconTrash, IconUsers } from "@tabler/icons-react";
+import { IconHistory, IconUsers } from "@tabler/icons-react";
 import {
   HydrationBoundary,
   useInfiniteQuery,
@@ -99,6 +99,7 @@ import { LaunchInterviewDialog } from "@/components/features/studio/resumes/laun
 import { ResumeLibraryCard } from "@/components/features/studio/resumes/resume-library-card";
 import type { ResumeDetailDefaultTab } from "@/components/features/studio/resumes/resume-library-card";
 import { ResumeLibraryCharts } from "@/components/features/studio/resumes/resume-library-charts";
+import { ResumeLibraryFloatingActionBar } from "@/components/features/studio/resumes/resume-library-floating-action-bar";
 import { TransitionCandidateDialog } from "@/components/features/studio/resumes/transition-candidate-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getPreviewableResumeDocumentKind } from "@/components/features/resume/resume-document-preview-button";
@@ -194,6 +195,12 @@ function findVerticalScrollParent(node: HTMLElement | null): HTMLElement | null 
     parent = parent.parentElement;
   }
   return document.scrollingElement instanceof HTMLElement ? document.scrollingElement : null;
+}
+
+function formatResumeLibraryJobDescriptionLabel(record: ResumeLibraryListRecord) {
+  return record.jobDescriptionName
+    ? [record.jobDescriptionDepartmentName, record.jobDescriptionName].filter(Boolean).join(" / ")
+    : null;
 }
 
 interface FetchParams {
@@ -298,22 +305,21 @@ function ResumeLibraryCardList({
     () => records.filter((record) => grid.bind.rowSelection[record.id]),
     [records, grid.bind.rowSelection],
   );
+  const selectedItems = useMemo(
+    () =>
+      selectedRows.map((record) => ({
+        id: record.id,
+        jobDescriptionLabel: formatResumeLibraryJobDescriptionLabel(record),
+        name: formatResumeCandidateTitle(record.candidateName, record.id),
+      })),
+    [selectedRows],
+  );
   const hasLockedSelection = selectedRows.some(
     (record) => !canDeleteResumeRecord(record.resumeParseStatus),
   );
-  const bulkSlot =
-    canDeleteResumeLibrary && selectedIds.length > 0 ? (
-      <Button
-        className="flex-1 sm:flex-none"
-        disabled={hasLockedSelection}
-        onClick={onBulkDelete}
-        title={hasLockedSelection ? "所选记录包含解析中的简历，暂不能删除" : undefined}
-        variant="destructive"
-      >
-        <IconTrash className="size-4" />
-        批量删除 ({selectedIds.length})
-      </Button>
-    ) : null;
+  const bulkDeleteLockedReason = hasLockedSelection
+    ? "所选记录包含解析中的简历，暂不能删除"
+    : undefined;
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -412,7 +418,6 @@ function ResumeLibraryCardList({
   return (
     <div className="flex flex-col gap-4" ref={listRootRef}>
       <Toolbar
-        bulkActionsSlot={bulkSlot}
         canResetFilters={grid.bind.canResetFilters}
         filterValues={grid.bind.filterValues}
         filters={filters}
@@ -441,6 +446,23 @@ function ResumeLibraryCardList({
       />
 
       {listContent}
+      {canDeleteResumeLibrary ? (
+        <ResumeLibraryFloatingActionBar
+          disabled={hasLockedSelection}
+          disabledReason={bulkDeleteLockedReason}
+          onClearSelection={() => grid.setRowSelection({})}
+          onBulkDelete={onBulkDelete}
+          onRemoveItem={(id) => grid.setRowSelection((prev) => ({ ...prev, [id]: false }))}
+          onViewItem={(id) => {
+            const record = records.find((item) => item.id === id);
+            if (record) {
+              onOpenDetail(record);
+            }
+          }}
+          selectedCount={selectedIds.length}
+          selectedItems={selectedItems}
+        />
+      ) : null}
     </div>
   );
 }
