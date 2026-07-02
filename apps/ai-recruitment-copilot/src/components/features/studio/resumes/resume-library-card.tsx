@@ -681,8 +681,9 @@ export function ResumeLibraryCard({
   const skills = getResumeCardSkills(record);
   const summary = getResumeCardSummary(record);
   const canCopyLink = canCopyResumeDetailLink({ currentMemberRole, currentUserId, record });
+  const { jobDescriptionId } = record;
   const jobDescriptionTextClass =
-    "min-w-0 truncate text-left underline decoration-transparent underline-offset-4 transition-colors hover:decoration-foreground/40";
+    "min-w-0 truncate text-left underline decoration-transparent underline-offset-2 transition-colors hover:decoration-foreground/40";
 
   return (
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
@@ -735,11 +736,14 @@ export function ResumeLibraryCard({
 
             <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
               <ResumeCardMetaItem icon={<IconBriefcase className="size-3.5" />} label="关联岗位">
-                {record.jobDescriptionId && jobDescriptionLabel ? (
+                {jobDescriptionId && jobDescriptionLabel ? (
                   <button
                     className={jobDescriptionTextClass}
                     onClick={() => {
-                      onViewJobDescription(record.jobDescriptionId);
+                      if (!jobDescriptionId) {
+                        return;
+                      }
+                      onViewJobDescription(jobDescriptionId);
                     }}
                     type="button"
                   >
