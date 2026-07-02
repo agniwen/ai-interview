@@ -5,14 +5,6 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { MarkdownEditor } from "@/components/features/markdown-editor";
 import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
@@ -77,92 +69,7 @@ export function GlobalConfigForm({ initial }: Props) {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="系统设置"
-        description="统一维护公司名称、开场收尾话术和公司资料，让候选人沟通保持同一种口径。"
-      />
-
-      <Card className="rounded-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">Agent 全局指令</CardTitle>
-          <CardDescription>配置面试话术和公司背景，所有面试都会默认继承。</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <FieldGroup className="gap-5">
-            <Field>
-              <FieldLabel htmlFor="company-name">公司名称</FieldLabel>
-              <InputGroup>
-                <InputGroupInput
-                  disabled={pending}
-                  id="company-name"
-                  maxLength={COMPANY_NAME_MAX_LENGTH}
-                  onChange={(event) => setCompanyName(event.target.value)}
-                  placeholder="例如：Acme 科技"
-                  value={companyName}
-                />
-              </InputGroup>
-              <FieldDescription>
-                用于面试邀请邮件的主题和正文，以及候选人面前展示的发件方名称。
-              </FieldDescription>
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="job-code-prefix">岗位编码前缀</FieldLabel>
-              <InputGroup>
-                <InputGroupInput
-                  disabled={pending}
-                  id="job-code-prefix"
-                  maxLength={JOB_CODE_PREFIX_MAX_LENGTH}
-                  onChange={(event) => setJobCodePrefix(event.target.value)}
-                  placeholder="AUR"
-                  value={jobCodePrefix}
-                />
-              </InputGroup>
-              <FieldDescription>新建岗位编码使用此前缀，后接 4 位数字或字母。</FieldDescription>
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="opening">开场白 prompt</FieldLabel>
-              <MarkdownEditor
-                disabled={pending}
-                id="opening"
-                maxLength={PROMPT_MAX_LENGTH}
-                onChange={setOpening}
-                placeholder='例如：用候选人的名字"{候选人姓名}"打招呼，介绍你是 XX 公司"{岗位}"的面试官…'
-                value={opening}
-              />
-              <PlaceholderDescription />
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="closing">结束语 prompt</FieldLabel>
-              <MarkdownEditor
-                disabled={pending}
-                id="closing"
-                maxLength={PROMPT_MAX_LENGTH}
-                onChange={setClosing}
-                placeholder="例如：感谢候选人参加本次面试，祝你一切顺利。"
-                value={closing}
-              />
-              <PlaceholderDescription />
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="company">公司资料</FieldLabel>
-              <MarkdownEditor
-                disabled={pending}
-                id="company"
-                maxLength={COMPANY_CONTEXT_MAX_LENGTH}
-                onChange={setCompany}
-                placeholder="公司业务、规模、文化等，候选人若问及可由此回答。"
-                value={company}
-              />
-              <FieldDescription>
-                候选人主动问到公司相关信息时，agent 会优先参考这里。
-              </FieldDescription>
-            </Field>
-          </FieldGroup>
-        </CardContent>
-        <CardFooter className="justify-end">
+        actionRender={
           <Button disabled={pending} onClick={onSave}>
             {pending ? (
               <Spinner data-icon="inline-start" />
@@ -171,8 +78,83 @@ export function GlobalConfigForm({ initial }: Props) {
             )}
             {pending ? "保存中" : "保存配置"}
           </Button>
-        </CardFooter>
-      </Card>
+        }
+        description="统一维护公司名称、开场收尾话术和公司资料，让候选人沟通保持同一种口径。"
+        title="系统设置"
+      />
+
+      <FieldGroup className="gap-5">
+        <Field>
+          <FieldLabel htmlFor="company-name">公司名称</FieldLabel>
+          <InputGroup>
+            <InputGroupInput
+              disabled={pending}
+              id="company-name"
+              maxLength={COMPANY_NAME_MAX_LENGTH}
+              onChange={(event) => setCompanyName(event.target.value)}
+              placeholder="例如：Acme 科技"
+              value={companyName}
+            />
+          </InputGroup>
+          <FieldDescription>
+            用于面试邀请邮件的主题和正文，以及候选人面前展示的发件方名称。
+          </FieldDescription>
+        </Field>
+
+        <Field>
+          <FieldLabel htmlFor="job-code-prefix">岗位编码前缀</FieldLabel>
+          <InputGroup>
+            <InputGroupInput
+              disabled={pending}
+              id="job-code-prefix"
+              maxLength={JOB_CODE_PREFIX_MAX_LENGTH}
+              onChange={(event) => setJobCodePrefix(event.target.value)}
+              placeholder="AUR"
+              value={jobCodePrefix}
+            />
+          </InputGroup>
+          <FieldDescription>新建岗位编码使用此前缀，后接 4 位数字或字母。</FieldDescription>
+        </Field>
+
+        <Field>
+          <FieldLabel htmlFor="opening">开场白 prompt</FieldLabel>
+          <MarkdownEditor
+            disabled={pending}
+            id="opening"
+            maxLength={PROMPT_MAX_LENGTH}
+            onChange={setOpening}
+            placeholder='例如：用候选人的名字"{候选人姓名}"打招呼，介绍你是 XX 公司"{岗位}"的面试官…'
+            value={opening}
+          />
+          <PlaceholderDescription />
+        </Field>
+
+        <Field>
+          <FieldLabel htmlFor="closing">结束语 prompt</FieldLabel>
+          <MarkdownEditor
+            disabled={pending}
+            id="closing"
+            maxLength={PROMPT_MAX_LENGTH}
+            onChange={setClosing}
+            placeholder="例如：感谢候选人参加本次面试，祝你一切顺利。"
+            value={closing}
+          />
+          <PlaceholderDescription />
+        </Field>
+
+        <Field>
+          <FieldLabel htmlFor="company">公司资料</FieldLabel>
+          <MarkdownEditor
+            disabled={pending}
+            id="company"
+            maxLength={COMPANY_CONTEXT_MAX_LENGTH}
+            onChange={setCompany}
+            placeholder="公司业务、规模、文化等，候选人若问及可由此回答。"
+            value={company}
+          />
+          <FieldDescription>候选人主动问到公司相关信息时，agent 会优先参考这里。</FieldDescription>
+        </Field>
+      </FieldGroup>
     </div>
   );
 }

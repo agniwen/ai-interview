@@ -1,185 +1,104 @@
 "use client";
 
-import type { VariantProps } from "class-variance-authority";
-import { cva } from "class-variance-authority";
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
-import { MotionConfig, motion, useReducedMotion } from "motion/react";
-import type { Transition } from "motion/react";
 import * as React from "react";
 
 import { cn } from "@arc/shared/utils";
 
-type BaseTabsRootProps = React.ComponentProps<typeof TabsPrimitive.Root>;
-type BaseTabsChangeDetails = Parameters<NonNullable<BaseTabsRootProps["onValueChange"]>>[1];
+export type TabsVariant = "default" | "underline";
+type TabsListVariant = TabsVariant | "line";
 type TabsActivationMode = "automatic" | "manual";
-type TabsListVariant = "default" | "line";
 
-interface TabsContextValue {
-  activationMode: TabsActivationMode;
-  layoutId: string;
-}
-
-interface TabsListContextValue {
-  variant: TabsListVariant;
-}
-
-const TabsContext = React.createContext<TabsContextValue>({
+const TabsContext = React.createContext<{ activationMode: TabsActivationMode }>({
   activationMode: "automatic",
-  layoutId: "tabs-indicator",
 });
-const TabsListContext = React.createContext<TabsListContextValue>({ variant: "default" });
 
-const tabsIndicatorTransition: Transition = {
-  damping: 24,
-  mass: 1.2,
-  stiffness: 170,
-  type: "spring",
-};
-
-function Tabs({
+export function Tabs({
   activationMode = "automatic",
   className,
-  onValueChange,
-  orientation = "horizontal",
   ...props
-}: Omit<BaseTabsRootProps, "onValueChange"> & {
+}: TabsPrimitive.Root.Props & {
   activationMode?: TabsActivationMode;
-  onValueChange?: (value: string, eventDetails: BaseTabsChangeDetails) => void;
-}) {
-  const layoutId = React.useId();
-  const reduceMotion = useReducedMotion();
-
+}): React.ReactElement {
   return (
-    <MotionConfig transition={reduceMotion ? { duration: 0 } : tabsIndicatorTransition}>
-      <TabsContext.Provider value={{ activationMode, layoutId }}>
-        <TabsPrimitive.Root
-          data-slot="tabs"
-          data-orientation={orientation}
-          orientation={orientation}
-          render={<motion.div layoutRoot />}
-          className={cn("group/tabs flex gap-2 data-[orientation=horizontal]:flex-col", className)}
-          onValueChange={(value, eventDetails) => {
-            if (value !== null && value !== undefined) {
-              onValueChange?.(value as string, eventDetails);
-            }
-          }}
-          {...props}
-        />
-      </TabsContext.Provider>
-    </MotionConfig>
-  );
-}
-
-const tabsListVariants = cva(
-  "group/tabs-list inline-flex w-fit items-center justify-center rounded-lg p-[3px] text-muted-foreground data-[orientation=horizontal]:h-9 data-[orientation=vertical]:h-fit data-[orientation=vertical]:flex-col data-[variant=line]:rounded-none",
-  {
-    defaultVariants: {
-      variant: "default",
-    },
-    variants: {
-      variant: {
-        default: "bg-muted",
-        line: "gap-1 bg-transparent",
-      },
-    },
-  },
-);
-
-function TabsList({
-  activateOnFocus,
-  className,
-  variant = "default",
-  ...props
-}: React.ComponentProps<typeof TabsPrimitive.List> & VariantProps<typeof tabsListVariants>) {
-  const { activationMode } = React.useContext(TabsContext);
-  const resolvedVariant = variant ?? "default";
-
-  return (
-    <TabsListContext.Provider value={{ variant: resolvedVariant }}>
-      <TabsPrimitive.List
-        data-slot="tabs-list"
-        data-variant={resolvedVariant}
-        activateOnFocus={activateOnFocus ?? activationMode === "automatic"}
-        className={cn(tabsListVariants({ variant: resolvedVariant }), className)}
+    <TabsContext.Provider value={{ activationMode }}>
+      <TabsPrimitive.Root
+        className={cn("flex flex-col gap-2 data-[orientation=vertical]:flex-row", className)}
+        data-slot="tabs"
         {...props}
       />
-    </TabsListContext.Provider>
+    </TabsContext.Provider>
   );
 }
 
-function TabsTrigger({
-  children,
+export function TabsList({
+  activateOnFocus,
   className,
+  children,
+  variant = "default",
   ...props
-}: React.ComponentProps<typeof TabsPrimitive.Tab>) {
-  const { layoutId } = React.useContext(TabsContext);
-  const { variant } = React.useContext(TabsListContext);
+}: TabsPrimitive.List.Props & {
+  variant?: TabsListVariant;
+}): React.ReactElement {
+  const { activationMode } = React.useContext(TabsContext);
+  const resolvedVariant: TabsVariant = variant === "line" ? "underline" : variant;
 
   return (
-    <TabsPrimitive.Tab
-      data-slot="tabs-trigger"
-      className={(state) =>
-        cn(
-          "relative isolate inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 overflow-visible rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap text-foreground/60 transition-colors data-[orientation=vertical]:w-full data-[orientation=vertical]:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 group-data-[variant=default]/tabs-list:data-[active]:shadow-none group-data-[variant=line]/tabs-list:data-[active]:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-          "group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-[active]:bg-transparent",
-          "data-[active]:text-foreground",
-          typeof className === "function" ? className(state) : className,
-        )
-      }
-      render={(renderProps, state) => {
-        const indicator =
-          state.active && variant === "line" ? (
-            <motion.span
-              layoutId={layoutId}
-              className={cn(
-                "absolute bg-foreground",
-                state.orientation === "vertical"
-                  ? "inset-y-0 -right-1 w-0.5"
-                  : "-bottom-[5px] right-0 left-0 h-0.5",
-              )}
-            />
-          ) : state.active ? (
-            <motion.span
-              layoutId={layoutId}
-              className="pointer-events-none absolute inset-0 -z-10 rounded-md bg-background shadow-sm"
-            />
-          ) : null;
+    <TabsPrimitive.List
+      activateOnFocus={activateOnFocus ?? activationMode === "automatic"}
+      className={cn(
+        "relative z-0 flex w-fit items-center justify-center gap-x-0.5 text-muted-foreground",
+        "data-[orientation=vertical]:flex-col",
+        resolvedVariant === "default"
+          ? "rounded-lg bg-muted p-0.5 text-muted-foreground/72"
+          : "data-[orientation=vertical]:px-1 data-[orientation=horizontal]:py-1 *:data-[slot=tabs-tab]:hover:bg-accent",
+        className,
+      )}
+      data-slot="tabs-list"
+      data-variant={resolvedVariant}
+      {...props}
+    >
+      {children}
+      <TabsPrimitive.Indicator
+        className={cn(
+          "absolute bottom-0 left-0 h-(--active-tab-height) w-(--active-tab-width) translate-x-(--active-tab-left) -translate-y-(--active-tab-bottom) transition-[width,translate] duration-200 ease-in-out",
+          resolvedVariant === "underline"
+            ? "z-10 bg-primary data-[orientation=horizontal]:h-0.5 data-[orientation=vertical]:w-0.5 data-[orientation=vertical]:-translate-x-px data-[orientation=horizontal]:translate-y-px"
+            : "-z-1 rounded-md bg-background shadow-sm/5 dark:bg-input",
+        )}
+        data-slot="tab-indicator"
+      />
+    </TabsPrimitive.List>
+  );
+}
 
-        return (
-          <button {...renderProps}>
-            {indicator}
-            {children}
-          </button>
-        );
-      }}
+export function TabsTab({ className, ...props }: TabsPrimitive.Tab.Props): React.ReactElement {
+  return (
+    <TabsPrimitive.Tab
+      className={cn(
+        "relative flex h-9 shrink-0 grow cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-transparent px-[calc(--spacing(2.5)-1px)] font-medium text-base outline-none transition-[color,background-color,box-shadow] hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring data-disabled:pointer-events-none data-[orientation=vertical]:w-full data-[orientation=vertical]:justify-start data-active:text-foreground data-disabled:opacity-64 sm:h-8 sm:text-sm [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:-mx-0.5 [&_svg]:shrink-0",
+        className,
+      )}
+      data-slot="tabs-tab"
       {...props}
     />
   );
 }
 
-function TabsContent({
+export function TabsPanel({
   className,
   forceMount,
   keepMounted,
   ...props
-}: React.ComponentProps<typeof TabsPrimitive.Panel> & { forceMount?: boolean }) {
-  const reduceMotion = useReducedMotion();
-
+}: TabsPrimitive.Panel.Props & { forceMount?: boolean }): React.ReactElement {
   return (
     <TabsPrimitive.Panel
+      className={cn("flex-1 outline-none", className)}
       data-slot="tabs-content"
       keepMounted={keepMounted ?? forceMount}
-      className={cn("flex-1 outline-none data-[ending-style]:hidden", className)}
-      render={
-        <motion.div
-          animate={{ opacity: 1, y: 0 }}
-          initial={{ opacity: 0, y: reduceMotion ? 0 : 4 }}
-          transition={reduceMotion ? { duration: 0 } : { duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-        />
-      }
       {...props}
     />
   );
 }
 
-export { Tabs, TabsContent, TabsList, tabsListVariants, TabsTrigger };
+export { TabsPrimitive, TabsPanel as TabsContent, TabsTab as TabsTrigger };

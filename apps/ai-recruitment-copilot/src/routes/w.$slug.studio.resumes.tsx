@@ -891,9 +891,9 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
           onValueChange={(value) => grid.setFilter("stage", value === "all" ? "" : value)}
           value={grid.filters.stage || "all"}
         >
-          <TabsList className="grid w-full grid-cols-2 h-auto items-stretch gap-1 data-[orientation=horizontal]:h-auto sm:inline-flex sm:w-fit sm:flex-wrap">
+          <TabsList className="grid w-full  grid-cols-2 h-auto items-stretch gap-1 data-[orientation=horizontal]:h-auto sm:inline-flex sm:w-fit sm:flex-wrap">
             <TabsTrigger
-              className="h-auto w-full flex-col items-start gap-0.5 px-3 py-1.5 sm:w-auto sm:px-8"
+              className=" w-full flex-col items-start gap-0.5 px-3  sm:w-auto sm:px-8 py-1.5 h-12!"
               value="all"
             >
               <span className="text-sm leading-tight">全部</span>
@@ -903,7 +903,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
             </TabsTrigger>
             {VISIBLE_PIPELINE_STAGES.map((s) => (
               <TabsTrigger
-                className="h-auto w-full flex-col items-start gap-0.5 px-3 py-1.5 sm:w-auto sm:px-8"
+                className=" w-full flex-col items-start gap-0.5 px-3 sm:w-auto sm:px-8 py-1.5 h-12!"
                 key={s}
                 value={s}
               >

@@ -58,7 +58,8 @@ describe("TanStack Start studio settings and detail route migration", () => {
     expect(sidebar).toContain('title: "权限管理"');
     expect(sidebar).toContain('action: "permissions"');
     expect(sidebar).toContain('resource: "page"');
-    expect(permissionsRoute).toContain("<WorkspacePermissionsSection />");
+    expect(permissionsRoute).toContain("<WorkspacePermissionsSection");
+    expect(permissionsRoute).toContain("headerRender");
     expect(globalConfigForm).not.toContain("<WorkspacePermissionsSection />");
   });
 
@@ -78,6 +79,26 @@ describe("TanStack Start studio settings and detail route migration", () => {
     expect(agentDebugRoute).toContain('action: "agentDebug"');
     expect(agentDebugRoute).toContain("JsonEditor");
     expect(agentDebugRoute).toContain("/studio/agent-debug/resume-parser-test");
+    expect(agentDebugRoute).toContain('<section className="flex flex-col gap-4">');
+    expect(agentDebugRoute).not.toContain("@/components/ui/card");
+    expect(agentDebugRoute).not.toContain("<Card");
+    expect(agentDebugRoute).not.toContain("简历解析");
+    expect(agentDebugRoute).not.toContain("仅用于调试当前解析链路");
+    expect(agentDebugRoute).not.toContain("当前上传文件的解析结果");
+  });
+
+  it("keeps system settings as a bare form with the save action in the page header", () => {
+    const source = readSource("components/features/studio/global-config/global-config-form.tsx");
+
+    expect(source).toContain("actionRender={");
+    expect(source).toContain("保存配置");
+    expect(source).toContain('<FieldGroup className="gap-5">');
+    expect(source).not.toContain("@/components/ui/card");
+    expect(source).not.toContain("<Card");
+    expect(source).not.toContain("<CardHeader");
+    expect(source).not.toContain("<CardContent");
+    expect(source).not.toContain("Agent 全局指令");
+    expect(source).not.toContain("配置面试话术和公司背景");
   });
 
   it("keeps system settings as the last item in the system configuration group", () => {
@@ -152,6 +173,8 @@ describe("TanStack Start studio settings and detail route migration", () => {
     const source = readSource(
       "components/features/studio/members/workspace-permissions-section.tsx",
     );
+    const routeSource = readSource("routes/w.$slug.studio.permissions.tsx");
+    const pageHeaderSource = readSource("components/features/studio/page-header.tsx");
 
     expect(source).toContain("IconPencil");
     expect(source).toContain("IconCopy");
@@ -163,11 +186,23 @@ describe("TanStack Start studio settings and detail route migration", () => {
     expect(source).toContain("rowSpan={2}");
     expect(source).toContain("colSpan={group.items.length}");
     expect(source).toContain("新建角色");
+    expect(source).toContain('<section className="flex flex-col gap-4">');
+    expect(source).not.toContain("角色权限表");
+    expect(source).not.toContain("每一行是工作区角色");
+    expect(source).toContain("headerRender?.({ actionRender: createRoleAction })");
+    expect(routeSource).toContain("headerRender={({ actionRender }) =>");
+    expect(routeSource).toContain("actionRender={actionRender}");
+    expect(pageHeaderSource).toContain("actionRender?: ReactNode;");
+    expect(pageHeaderSource).toContain("{actionRender ? <div");
     expect(source).toContain("additionalFields: { name: input.name }");
     expect(source).toContain("name: input.name");
     expect(source).toContain(
       "role: input.role === roleFormState.role.role ? undefined : input.role",
     );
+    expect(source).not.toContain("@/components/ui/card");
+    expect(source).not.toContain("<Card");
+    expect(source).not.toContain("<CardHeader");
+    expect(source).not.toContain("<CardContent");
     expect(source).not.toContain("IconDeviceFloppy");
     expect(source).not.toContain('title="保存权限"');
     expect(source).not.toContain("showStatusText");
@@ -196,11 +231,25 @@ describe("TanStack Start studio settings and detail route migration", () => {
     expect(memberCellSource).toContain('avatarSize = "sm"');
   });
 
-  it("resolves custom workspace role names in the mail ingest status column", () => {
+  it("splits mail ingest account role and status into separate columns", () => {
     const source = readSource("routes/w.$slug.studio.mail-ingest-accounts.tsx");
+    const roleColumnSource = source.slice(
+      source.indexOf('key: "role"'),
+      source.indexOf('key: "status"'),
+    );
+    const statusColumnSource = source.slice(
+      source.indexOf('key: "status"'),
+      source.indexOf('key: "imapHost"'),
+    );
 
     expect(source).toContain("authClient.organization.listRoles");
     expect(source).toContain("buildWorkspaceRoleOptions");
+    expect(roleColumnSource).toContain('title: "角色"');
     expect(source).toContain("roleLabelByValue.get(row.user.role) ?? row.user.role");
+    expect(statusColumnSource).toContain('title: "状态"');
+    expect(source).toContain('let statusLabel = "未配置";');
+    expect(source).toContain('statusLabel = "启用";');
+    expect(source).toContain('statusLabel = "停用";');
+    expect(statusColumnSource).not.toContain("roleLabelByValue");
   });
 });

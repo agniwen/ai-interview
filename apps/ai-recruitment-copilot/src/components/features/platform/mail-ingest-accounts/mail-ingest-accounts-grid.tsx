@@ -498,17 +498,25 @@ export function PlatformMailIngestAccountsGrid() {
       }),
       customColumn<PlatformMailIngestAccountRow>({
         cell: (row) => (
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={row.user.role === "owner" ? "default" : "outline"}>
-              {roleLabel(row.user.role)}
-            </Badge>
-            {row.account ? (
-              <Badge variant={row.account.enabled ? "success" : "outline"}>
-                {row.account.enabled ? "启用" : "停用"}
-              </Badge>
-            ) : null}
-          </div>
+          <Badge variant={row.user.role === "owner" ? "default" : "outline"}>
+            {roleLabel(row.user.role)}
+          </Badge>
         ),
+        key: "role",
+        title: "角色",
+      }),
+      customColumn<PlatformMailIngestAccountRow>({
+        cell: (row) => {
+          let statusLabel = "未配置";
+          if (row.account?.enabled) {
+            statusLabel = "启用";
+          } else if (row.account) {
+            statusLabel = "停用";
+          }
+          return (
+            <Badge variant={row.account?.enabled ? "success" : "outline"}>{statusLabel}</Badge>
+          );
+        },
         key: "status",
         title: "状态",
       }),
