@@ -320,6 +320,7 @@ function ResumeLibraryCardList({
   const bulkDeleteLockedReason = hasLockedSelection
     ? "所选记录包含解析中的简历，暂不能删除"
     : undefined;
+  const canShowFloatingActionBar = canDeleteResumeLibrary && selectedIds.length > 0;
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -446,7 +447,7 @@ function ResumeLibraryCardList({
       />
 
       {listContent}
-      {canDeleteResumeLibrary ? (
+      {canShowFloatingActionBar ? (
         <ResumeLibraryFloatingActionBar
           disabled={hasLockedSelection}
           disabledReason={bulkDeleteLockedReason}
@@ -623,6 +624,12 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
     queryFn: fetcher,
     queryKeyBase: ["studio-resumes", slug],
   });
+  const { setRowSelection } = grid;
+
+  useEffect(() => {
+    setRowSelection({});
+  }, [slug, setRowSelection]);
+
   const [activeSort] = grid.sorting;
   let activeSortOrder: "asc" | "desc" | undefined;
   if (activeSort) {
@@ -910,7 +917,10 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
           <ResumeLibraryCharts metrics={metrics} />
         </ClientOnly>
         <Tabs
-          onValueChange={(value) => grid.setFilter("stage", value === "all" ? "" : value)}
+          onValueChange={(value) => {
+            setRowSelection({});
+            grid.setFilter("stage", value === "all" ? "" : value);
+          }}
           value={grid.filters.stage || "all"}
         >
           <TabsList className="grid w-full  grid-cols-2 h-auto items-stretch gap-1 data-[orientation=horizontal]:h-auto sm:inline-flex sm:w-fit sm:flex-wrap">

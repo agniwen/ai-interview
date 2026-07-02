@@ -132,6 +132,10 @@ describe("ResumeLibraryPage card list", () => {
     );
 
     expect(listSource).toContain("<Toolbar");
+    expect(listSource).toContain(
+      "const canShowFloatingActionBar = canDeleteResumeLibrary && selectedIds.length > 0;",
+    );
+    expect(listSource).toContain("{canShowFloatingActionBar ? (");
     expect(listSource).toContain("<ResumeLibraryFloatingActionBar");
     expect(listSource).toContain("selectedCount={selectedIds.length}");
     expect(listSource).toContain("selectedItems={selectedItems}");
@@ -163,5 +167,29 @@ describe("ResumeLibraryPage card list", () => {
     expect(listSource).toContain("IntersectionObserver");
     expect(listSource).toContain("fetchNextPage");
     expect(listSource).toContain("hasNextPage");
+  });
+
+  it("resets selected rows when switching workspaces", () => {
+    const pageSource = source.slice(
+      source.indexOf("function ResumeLibraryPage("),
+      source.indexOf("const [activeSort] = grid.sorting;"),
+    );
+
+    expect(pageSource).toContain('queryKeyBase: ["studio-resumes", slug]');
+    expect(pageSource).toContain("const { setRowSelection } = grid;");
+    expect(pageSource).toContain("useEffect(() => {");
+    expect(pageSource).toContain("setRowSelection({});");
+    expect(pageSource).toContain("}, [slug, setRowSelection]);");
+  });
+
+  it("clears selected rows when switching resume stage tabs", () => {
+    const tabsSource = source.slice(
+      source.indexOf("<Tabs"),
+      source.indexOf("<ResumeLibraryCardList"),
+    );
+
+    expect(tabsSource).toContain("onValueChange={(value) => {");
+    expect(tabsSource).toContain("setRowSelection({});");
+    expect(tabsSource).toContain('grid.setFilter("stage", value === "all" ? "" : value);');
   });
 });
