@@ -44,14 +44,33 @@ describe("PipelineStageActionBar compact stage rail", () => {
     expect(source).toContain("primaryAction?: ReactNode;");
     expect(source).toContain('import { ButtonGroup } from "@/components/ui/button-group";');
     expect(actionsSource).toContain("<ButtonGroup");
-    expect(actionsSource).toContain("{primaryAction}");
-    expect(actionsSource).toContain("primaryAction || actions.right.length > 0");
+    expect(actionsSource).toContain("{groupedPrimaryAction}");
+    expect(actionsSource).toContain("groupedPrimaryAction || actions.right.length > 0");
     expect(source).toContain("安排真人面试");
     expect(source).toContain("直接发 Offer");
     expect(source).toContain('key: "to-offer"');
     expect(source).not.toContain(
       '<Button key="to-offer" onClick={() => onAdvance("offer")} size="sm" variant="outline">',
     );
+  });
+
+  it("suppresses external primary actions after the candidate is closed", () => {
+    const renderSource = source.slice(
+      source.indexOf("const actions = getStageActions"),
+      source.indexOf("const DEFAULT_ROUTE_STEPS"),
+    );
+    const closedSource = source.slice(
+      source.indexOf('if (pipelineStage === "closed")'),
+      source.indexOf("// 所有非 closed 阶段都能直接结案。"),
+    );
+
+    expect(renderSource).toContain(
+      'const groupedPrimaryAction = pipelineStage === "closed" ? null : primaryAction;',
+    );
+    expect(renderSource).toContain("groupedPrimaryAction || actions.right.length > 0");
+    expect(renderSource).toContain("{groupedPrimaryAction}");
+    expect(closedSource).toContain('key="reactivate"');
+    expect(closedSource).not.toContain("primaryAction");
   });
 
   it("can hide the AI interview step while resumes are still parsing", () => {

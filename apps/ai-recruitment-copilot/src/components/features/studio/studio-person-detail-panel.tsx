@@ -1590,9 +1590,7 @@ function useStudioPersonDetailPanel({
   const launchResumeModeButton =
     launchResumeModeButtonContent && launchResumeModeDisabledReason ? (
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span>{launchResumeModeButtonContent}</span>
-        </TooltipTrigger>
+        <TooltipTrigger asChild>{launchResumeModeButtonContent}</TooltipTrigger>
         <TooltipContent>{launchResumeModeDisabledReason}</TooltipContent>
       </Tooltip>
     ) : (

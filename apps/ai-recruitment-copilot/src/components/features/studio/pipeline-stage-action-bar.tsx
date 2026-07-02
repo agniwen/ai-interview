@@ -64,6 +64,7 @@ export function PipelineStageActionBar({
     pipelineStage,
   });
   const routeSteps = getRouteSteps(pipelineStage, showAiInterviewStep);
+  const groupedPrimaryAction = pipelineStage === "closed" ? null : primaryAction;
 
   return (
     <div className="space-y-2 rounded-2xl border border-border bg-background p-3 shadow-xs">
@@ -101,9 +102,9 @@ export function PipelineStageActionBar({
 
       <div className="flex flex-wrap items-center justify-end gap-2 border-border border-t pt-2">
         {actions.left.length > 0 ? actions.left : null}
-        {primaryAction || actions.right.length > 0 ? (
+        {groupedPrimaryAction || actions.right.length > 0 ? (
           <ButtonGroup className="flex-wrap justify-end">
-            {primaryAction}
+            {groupedPrimaryAction}
             {actions.right}
           </ButtonGroup>
         ) : null}

@@ -180,6 +180,7 @@ describe("StudioPersonDetailPanel visual density", () => {
     expect(launchSource).toContain("launchResumeModeDisabledReason");
     expect(source).toContain("aria-disabled={Boolean(launchResumeModeDisabledReason)}");
     expect(launchSource).toContain("<TooltipTrigger asChild>");
+    expect(launchSource).not.toContain("<span>{launchResumeModeButtonContent}</span>");
     expect(launchSource).toContain(
       "<TooltipContent>{launchResumeModeDisabledReason}</TooltipContent>",
     );

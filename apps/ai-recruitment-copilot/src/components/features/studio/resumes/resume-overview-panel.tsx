@@ -134,7 +134,7 @@ export function ResumeReviewStructuredView({ review }: { review: ResumeReviewLoo
   const baseScore = getResumeReviewBaseScore(review);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
+    <div className="mx-auto space-y-8">
       <section className="rounded-2xl border border-muted/60 bg-muted/20 p-5 md:p-6">
         <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0 space-y-3">
