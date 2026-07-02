@@ -11,6 +11,7 @@ import {
   IconSparkles,
 } from "@tabler/icons-react";
 import AvvvatarsModule from "avvvatars-react";
+import { memo } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 
 import { TimeDisplay } from "@/components/features/display/time-display";
@@ -42,28 +43,20 @@ import {
   canLaunchInterviewFromResume,
   describeResumeProgress,
 } from "@arc/shared/studio-resumes";
-import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
-import {
-  formatResumeEducationItem,
-  sortResumeEducationExperiences,
-} from "@arc/shared/resume-education";
+import type {
+  ResumeLibraryListRecord,
+  ResumeLibraryProfileSnapshotLine,
+} from "@arc/shared/studio-resumes";
 import { cn } from "@arc/shared/utils";
 
 export type ResumeDetailDefaultTab = "overview" | "rounds" | "human-interview" | "offer";
 
-const RESUME_PROFILE_PLACEHOLDER = "未发现信息";
 const RESUME_LIBRARY_ACTION_ICON_CLASS = "size-4";
 
 const Avvvatars =
   typeof AvvvatarsModule === "function"
     ? AvvvatarsModule
     : (AvvvatarsModule as unknown as { default: typeof AvvvatarsModule }).default;
-
-interface ResumeCardProfileSnapshotLine {
-  period: string | null;
-  primary: string;
-  secondary: string | null;
-}
 
 function lifecycleTargetTab(record: ResumeLibraryListRecord): ResumeDetailDefaultTab {
   if (record.pipelineStage === "ai_interview") {
@@ -251,104 +244,6 @@ function getResumeAvatarValue(record: ResumeLibraryListRecord) {
   return [record.candidateName, record.candidateEmail].filter(Boolean).join(" ") || record.id;
 }
 
-function getResumeCardSkills(record: ResumeLibraryListRecord): string[] {
-  const seen = new Set<string>();
-  return (record.resumeProfile?.skills ?? [])
-    .map((item) => item.trim())
-    .filter((item) => {
-      const key = item.toLowerCase();
-      if (!item || seen.has(key)) {
-        return false;
-      }
-      seen.add(key);
-      return true;
-    })
-    .slice(0, 6);
-}
-
-function cleanResumeProfileText(value: string | null | undefined) {
-  const text = value?.trim();
-  return text && text !== RESUME_PROFILE_PLACEHOLDER ? text : null;
-}
-
-function formatResumeCardPeriod(value: string | null | undefined) {
-  const text = cleanResumeProfileText(value);
-  if (!text) {
-    return null;
-  }
-  const dateTokens = [...text.matchAll(/(\d{4})\s*[./年-]\s*(\d{1,2})\s*月?/gu)]
-    .map(([, year, rawMonth]) => {
-      const month = Number(rawMonth);
-      return month >= 1 && month <= 12 ? `${year}.${month.toString().padStart(2, "0")}` : null;
-    })
-    .filter((item): item is string => item !== null);
-
-  if (dateTokens.length === 0) {
-    const years = [...text.matchAll(/(?:^|[^\d])(\d{4})(?=$|[^\d])/gu)].map((match) => match[1]);
-    if (years.length === 0) {
-      return text;
-    }
-    if (years.length === 1 && /(至今|现在|目前|present|current)/iu.test(text)) {
-      return `${years[0]} - 至今`;
-    }
-    return years.slice(0, 2).join(" - ");
-  }
-
-  if (dateTokens.length === 1 && /(至今|现在|目前|present|current)/iu.test(text)) {
-    return `${dateTokens[0]} - 至今`;
-  }
-  return dateTokens.slice(0, 2).join(" - ");
-}
-
-function getLatestWorkLine(record: ResumeLibraryListRecord) {
-  const work = (record.resumeProfile?.workExperiences ?? []).find(
-    (item) => cleanResumeProfileText(item.company) || cleanResumeProfileText(item.role),
-  );
-  if (!work) {
-    return null;
-  }
-  const company = cleanResumeProfileText(work.company);
-  const role = cleanResumeProfileText(work.role);
-  const primary = company ?? role;
-  if (!primary) {
-    return null;
-  }
-  return {
-    period: formatResumeCardPeriod(work.period),
-    primary,
-    secondary: company ? role : null,
-  };
-}
-
-function getLatestEducationLine(record: ResumeLibraryListRecord) {
-  const [education] = sortResumeEducationExperiences(record.resumeProfile?.educationExperiences);
-  if (education) {
-    const item = formatResumeEducationItem(education);
-    if (item) {
-      return {
-        period:
-          formatResumeCardPeriod(education.period) ??
-          formatResumeCardPeriod(education.graduationYear),
-        primary: item.school,
-        secondary: [item.major, item.level].filter(Boolean).join(" · ") || null,
-      };
-    }
-  }
-  const school = record.resumeProfile?.schools.map(cleanResumeProfileText).find(Boolean);
-  return school ? { period: null, primary: school, secondary: null } : null;
-}
-
-function getResumeCardProfileSnapshot(record: ResumeLibraryListRecord) {
-  return {
-    education: getLatestEducationLine(record),
-    work: getLatestWorkLine(record),
-  };
-}
-
-function getResumeCardSummary(record: ResumeLibraryListRecord): string | null {
-  return record.resumeReview?.overall.conclusion ?? record.notes?.trim() ?? null;
-}
-
 function ResumeCardMetaItem({
   children,
   icon,
@@ -391,8 +286,8 @@ function ResumeCardProfileSnapshot({
   snapshot,
 }: {
   snapshot: {
-    education: ResumeCardProfileSnapshotLine | null;
-    work: ResumeCardProfileSnapshotLine | null;
+    education: ResumeLibraryProfileSnapshotLine | null;
+    work: ResumeLibraryProfileSnapshotLine | null;
   };
 }) {
   if (!(snapshot.work || snapshot.education)) {
@@ -654,7 +549,7 @@ function ResumeLibraryCardActions({
   );
 }
 
-export function ResumeLibraryCard({
+function ResumeLibraryCardComponent({
   canCreateChat,
   canCreateInterview,
   canDeleteResumeLibrary,
@@ -677,9 +572,9 @@ export function ResumeLibraryCard({
 }: ResumeLibraryCardProps) {
   const jobDescriptionLabel = getResumeLibraryJobDescriptionLabel(record);
   const lifecycle = describeLifecycleCell(record);
-  const profileSnapshot = getResumeCardProfileSnapshot(record);
-  const skills = getResumeCardSkills(record);
-  const summary = getResumeCardSummary(record);
+  const profileSnapshot = record.resumeProfileSnapshot;
+  const skills = record.resumeSkills;
+  const summary = record.resumeSummary;
   const canCopyLink = canCopyResumeDetailLink({ currentMemberRole, currentUserId, record });
   const { jobDescriptionId } = record;
   const jobDescriptionTextClass =
@@ -809,3 +704,16 @@ export function ResumeLibraryCard({
     </article>
   );
 }
+
+export const ResumeLibraryCard = memo(
+  ResumeLibraryCardComponent,
+  (prev, next) =>
+    prev.canCreateChat === next.canCreateChat &&
+    prev.canCreateInterview === next.canCreateInterview &&
+    prev.canDeleteResumeLibrary === next.canDeleteResumeLibrary &&
+    prev.canUpdateResumeLibrary === next.canUpdateResumeLibrary &&
+    prev.currentMemberRole === next.currentMemberRole &&
+    prev.currentUserId === next.currentUserId &&
+    prev.record === next.record &&
+    prev.selected === next.selected,
+);

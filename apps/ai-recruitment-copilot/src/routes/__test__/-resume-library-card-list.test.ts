@@ -23,30 +23,22 @@ describe("ResumeLibraryPage card list", () => {
   it("lays out resume cards with candidate, lifecycle, job, contact, review and action areas", () => {
     const actionSource = cardSourceFile.slice(
       cardSourceFile.indexOf("function ResumeLibraryCardActions("),
-      cardSourceFile.indexOf("export function ResumeLibraryCard("),
+      cardSourceFile.indexOf("function ResumeLibraryCardComponent("),
     );
     const actionButtonSource = cardSourceFile.slice(
       cardSourceFile.indexOf("function ResumeLibraryIconActionButton("),
       cardSourceFile.indexOf("function ResumeLibraryCardActions("),
     );
     const cardSource = cardSourceFile.slice(
-      cardSourceFile.indexOf("export function ResumeLibraryCard("),
+      cardSourceFile.indexOf("function ResumeLibraryCardComponent("),
     );
     const avatarInteropSource = cardSourceFile.slice(
       cardSourceFile.indexOf('import AvvvatarsModule from "avvvatars-react";'),
       cardSourceFile.indexOf("interface ResumeLibraryCardProps"),
     );
-    const skillsSource = cardSourceFile.slice(
-      cardSourceFile.indexOf("function getResumeCardSkills("),
-      cardSourceFile.indexOf("function getResumeCardSummary("),
-    );
     const creatorMetaSource = cardSourceFile.slice(
       cardSourceFile.indexOf("function ResumeCardCreatorMeta("),
       cardSourceFile.indexOf("function ResumeCardProfileSnapshot("),
-    );
-    const profileSnapshotSource = cardSourceFile.slice(
-      cardSourceFile.indexOf("function getLatestWorkLine("),
-      cardSourceFile.indexOf("function getResumeCardSummary("),
     );
 
     expect(cardSource).toContain("duplicateMatchBadge(record");
@@ -86,16 +78,12 @@ describe("ResumeLibraryPage card list", () => {
     expect(creatorMetaSource).toContain("<AvatarFallback");
     expect(cardSource).toContain("value={record.createdAt}");
     expect(cardSource).not.toContain("rounded-xl bg-muted/25 p-3 text-xs");
-    expect(cardSource).toContain("getResumeCardSkills(record)");
+    expect(cardSource).toContain("record.resumeSkills");
     expect(cardSource).toContain("ResumeCardProfileSnapshot");
-    expect(cardSource).toContain("profileSnapshot");
-    expect(profileSnapshotSource).toContain("record.resumeProfile?.workExperiences");
-    expect(profileSnapshotSource).toContain("formatResumeCardPeriod");
-    expect(profileSnapshotSource).toContain("work.period");
-    expect(profileSnapshotSource).toContain("record.resumeProfile?.educationExperiences");
-    expect(profileSnapshotSource).toContain("education.period");
-    expect(profileSnapshotSource).toContain("education.graduationYear");
-    expect(profileSnapshotSource).toContain("record.resumeProfile?.schools");
+    expect(cardSource).toContain("record.resumeProfileSnapshot");
+    expect(cardSource).toContain("record.resumeSummary");
+    expect(cardSource).not.toContain("record.resumeProfile?.");
+    expect(cardSource).not.toContain("record.resumeReview");
     expect(cardSourceFile).toContain("ml-22");
     expect(cardSourceFile).toContain("xl:ml-0");
     expect(cardSourceFile).toContain("content-start");
@@ -105,8 +93,10 @@ describe("ResumeLibraryPage card list", () => {
     expect(cardSourceFile).not.toContain("xl:self-center");
     expect(cardSourceFile).toContain("text-[11px]");
     expect(cardSourceFile).toContain("text-foreground text-sm");
-    expect(skillsSource).toContain("record.resumeProfile?.skills");
-    expect(skillsSource).not.toContain("resumeReview?.nextStep.interviewFocus");
+    expect(cardSourceFile).toContain("export const ResumeLibraryCard = memo(");
+    expect(cardSourceFile).toContain("ResumeLibraryCardComponent,");
+    expect(cardSourceFile).toContain("prev.record === next.record");
+    expect(cardSourceFile).not.toContain("resumeReview?.nextStep.interviewFocus");
     expect(cardSource).toContain("TimeDisplay");
     expect(cardSource).not.toContain("ResumeLibraryCardDocument");
     expect(cardSource).not.toContain("record.resumeFileName");
@@ -160,6 +150,8 @@ describe("ResumeLibraryPage card list", () => {
     expect(listSource).not.toContain("grid.bind.pagination");
     expect(listSource).toContain("useVirtualizer");
     expect(listSource).toContain("getScrollElement");
+    expect(listSource).toContain("getItemKey");
+    expect(listSource).toContain("useAnimationFrameWithResizeObserver: true");
     expect(listSource).toContain("findVerticalScrollParent");
     expect(listSource).toContain("virtualizer.getVirtualItems()");
     expect(listSource).toContain("virtualizer.measureElement");
@@ -172,10 +164,14 @@ describe("ResumeLibraryPage card list", () => {
   it("resets selected rows when switching workspaces", () => {
     const pageSource = source.slice(
       source.indexOf("function ResumeLibraryPage("),
-      source.indexOf("const [activeSort] = grid.sorting;"),
+      source.indexOf("const resumeLibraryListQuery = useInfiniteQuery"),
     );
 
-    expect(pageSource).toContain('queryKeyBase: ["studio-resumes", slug]');
+    expect(source).not.toContain('import { useDataGridState } from "@/components/data-grid";');
+    expect(source).not.toContain("useDataGridState<ResumeLibraryListRecord, ResumeFilters>");
+    expect(source).toContain("function useResumeLibrarySearchState(");
+    expect(source).toContain("router.navigate({");
+    expect(source).toContain("resetScroll: false");
     expect(pageSource).toContain("const { setRowSelection } = grid;");
     expect(pageSource).toContain("useEffect(() => {");
     expect(pageSource).toContain("setRowSelection({});");

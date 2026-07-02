@@ -268,10 +268,32 @@ describe("resume OCR text persistence", () => {
 });
 
 describe("resume library list DTO", () => {
-  it("exposes resumeProfile so cards can render mastered skills", () => {
-    expect(sharedStudioResumesSource).toContain("resumeProfile: ResumeProfile | null;");
+  it("exposes card-ready summary fields instead of full resume JSON blobs", () => {
+    const listRecordSource = sharedStudioResumesSource.slice(
+      sharedStudioResumesSource.indexOf("export interface ResumeLibraryListRecord"),
+      sharedStudioResumesSource.indexOf("export interface ResumeLibraryDetail"),
+    );
+    const detailRecordSource = sharedStudioResumesSource.slice(
+      sharedStudioResumesSource.indexOf("export interface ResumeLibraryDetail"),
+    );
+    const toRecordSource = resumeDaoSource.slice(
+      resumeDaoSource.indexOf("function toRecord("),
+      resumeDaoSource.indexOf("export async function queryPaginatedResumeRecords("),
+    );
+
+    expect(listRecordSource).toContain("resumeSkills: string[];");
+    expect(listRecordSource).toContain("resumeSummary: string | null;");
+    expect(listRecordSource).toContain("resumeProfileSnapshot: ResumeLibraryProfileSnapshot;");
+    expect(listRecordSource).not.toContain("resumeProfile: ResumeProfile | null;");
+    expect(listRecordSource).not.toContain("resumeReview: ResumeReview | null;");
+    expect(detailRecordSource).toContain("resumeProfile: ResumeProfile | null;");
+    expect(detailRecordSource).toContain("resumeReview: ResumeReview | null;");
     expect(resumeDaoSource).toContain("resumeProfile: studioInterview.resumeProfile");
-    expect(resumeDaoSource).toContain("resumeProfile: row.resumeProfile");
+    expect(toRecordSource).toContain("resumeSkills:");
+    expect(toRecordSource).toContain("resumeSummary:");
+    expect(toRecordSource).toContain("resumeProfileSnapshot:");
+    expect(toRecordSource).not.toContain("resumeProfile: row.resumeProfile");
+    expect(toRecordSource).not.toContain("resumeReview: row.resumeReview");
   });
 });
 

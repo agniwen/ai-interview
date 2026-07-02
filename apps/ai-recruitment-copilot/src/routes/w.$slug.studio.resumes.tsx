@@ -16,7 +16,6 @@ import {
   useRouter,
   useSearch,
 } from "@tanstack/react-router";
-import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import { loadStudioResumesState } from "@/lib/start/studio/resumes.functions";
 import type { StudioResumesState } from "@/lib/start/studio/resumes.functions";
@@ -36,8 +35,17 @@ import { pipelineStageMeta, pipelineStageValues } from "@arc/db-schema/studio-in
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { toast } from "sonner";
 import { ResumeDuplicateMatchesDialog } from "@/components/features/resume/resume-dedup-overlay";
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
@@ -49,7 +57,6 @@ import { useBulkUpload } from "@/components/features/studio/resumes/use-bulk-upl
 import { UploadBatchListDialog } from "@/components/features/studio/resumes/upload-batch-list-dialog";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { JobDescriptionViewDialog } from "@/components/features/studio/interviews/job-description-view-dialog";
-import { useDataGridState } from "@/components/data-grid";
 import type { ToolbarFilterConfig } from "@/components/data-grid";
 import { Toolbar } from "@/components/data-grid/parts/toolbar";
 import {
@@ -123,6 +130,11 @@ interface ResumeFilters extends Record<string, string> {
   stage: string;
 }
 const EMPTY_FILTERS: ResumeFilters = { creatorIds: "", jdIds: "", skills: "", stage: "" };
+const RESUME_LIBRARY_FILTER_KEYS = Object.keys(EMPTY_FILTERS) as (keyof ResumeFilters & string)[];
+const RESUME_LIBRARY_ALLOWED_SORT_IDS = ["createdAt", "candidateName", "updatedAt"] as const;
+const RESUME_LIBRARY_DEFAULT_SORTING = [{ desc: true, id: "createdAt" }];
+const RESUME_LIBRARY_INFINITE_PAGE_SIZE = 20;
+const RESUME_LIBRARY_CARD_ESTIMATED_SIZE = 190;
 
 interface WorkspaceMember {
   id: string;
@@ -179,8 +191,6 @@ async function copyResumeDetailLink(slug: string, record: ResumeLibraryListRecor
 const VISIBLE_PIPELINE_STAGES = pipelineStageValues.filter(
   (s) => !HIDDEN_PIPELINE_STAGE_TABS.has(s),
 );
-const RESUME_LIBRARY_INFINITE_PAGE_SIZE = 20;
-const RESUME_LIBRARY_CARD_ESTIMATED_SIZE = 190;
 
 function findVerticalScrollParent(node: HTMLElement | null): HTMLElement | null {
   let parent = node?.parentElement ?? null;
@@ -212,9 +222,186 @@ interface FetchParams {
   sortOrder: "asc" | "desc" | undefined;
 }
 
-type ResumeLibraryGridState = ReturnType<
-  typeof useDataGridState<ResumeLibraryListRecord, ResumeFilters>
+type ResumeLibraryRowSelection = Record<string, boolean>;
+
+interface ResumeLibraryQueryState {
+  filters: ResumeFilters;
+  page: number;
+  pageSize: number;
+  search: string;
+  sortBy: string | undefined;
+  sortOrder: "asc" | "desc" | undefined;
+}
+
+interface ResumeLibraryGridState {
+  bind: {
+    canResetFilters: boolean;
+    filterValues: Record<string, string>;
+    onFilterChange: (key: string, value: string) => void;
+    onRefresh: () => void;
+    onResetFilters: () => void;
+    rowSelection: ResumeLibraryRowSelection;
+  };
+  deferredSearch: string;
+  filters: ResumeFilters;
+  rowSelection: ResumeLibraryRowSelection;
+  setFilter: (key: keyof ResumeFilters & string, value: string) => void;
+  setRowSelection: Dispatch<SetStateAction<ResumeLibraryRowSelection>>;
+  sorting: { desc: boolean; id: string }[];
+}
+
+type SearchParamsPrimitive = boolean | number | string;
+type SearchParamsRecord = Record<
+  string,
+  SearchParamsPrimitive | SearchParamsPrimitive[] | undefined
 >;
+
+interface UseResumeLibrarySearchStateOptions {
+  onRefresh: () => void;
+  search: SearchParamsRecord;
+  slug: string;
+}
+
+function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord {
+  const out: SearchParamsRecord = {};
+  for (const [key, value] of Object.entries(search)) {
+    if (typeof value === "string") {
+      out[key] = value;
+      continue;
+    }
+    if (typeof value === "number" || typeof value === "boolean") {
+      out[key] = value;
+      continue;
+    }
+    if (Array.isArray(value)) {
+      out[key] = value.filter(
+        (item): item is boolean | number | string =>
+          typeof item === "string" || typeof item === "number" || typeof item === "boolean",
+      );
+    }
+  }
+  return out;
+}
+
+function parseResumeQuery(searchParams: SearchParamsRecord): ResumeLibraryQueryState {
+  return parseDataGridSearchParams(searchParams, {
+    allowedSortIds: RESUME_LIBRARY_ALLOWED_SORT_IDS,
+    defaultPageSize: RESUME_LIBRARY_INFINITE_PAGE_SIZE,
+    defaultSorting: RESUME_LIBRARY_DEFAULT_SORTING,
+    initialFilters: EMPTY_FILTERS,
+  });
+}
+
+function useResumeLibrarySearchState({
+  onRefresh,
+  search: routeSearch,
+  slug,
+}: UseResumeLibrarySearchStateOptions): ResumeLibraryGridState {
+  const router = useRouter();
+  const query = useMemo(() => parseResumeQuery(routeSearch), [routeSearch]);
+  const deferredSearch = useDeferredValue(query.search);
+  const [rowSelection, setRowSelection] = useState<ResumeLibraryRowSelection>({});
+
+  const updateRouteSearch = useCallback(
+    (updates: Record<string, number | string | undefined>) => {
+      void router.navigate({
+        params: { slug },
+        replace: true,
+        resetScroll: false,
+        search: (prev: SearchParamsRecord) => {
+          const next = Object.fromEntries(
+            Object.entries(coerceSearchParams(prev)).filter(
+              ([key]) => !(Object.hasOwn(updates, key) && updates[key] === undefined),
+            ),
+          ) as SearchParamsRecord;
+          for (const [key, value] of Object.entries(updates)) {
+            if (value !== undefined) {
+              next[key] = value;
+            }
+          }
+          return next;
+        },
+        to: "/w/$slug/studio/resumes",
+      } as never);
+    },
+    [router, slug],
+  );
+
+  const updateRouteSearchAndResetPage = useCallback(
+    (updates: Record<string, string | undefined>) => {
+      updateRouteSearch({ ...updates, page: 1 });
+    },
+    [updateRouteSearch],
+  );
+
+  const setFilter = useCallback(
+    (key: keyof ResumeFilters & string, value: string) => {
+      updateRouteSearchAndResetPage({ [key]: value || undefined });
+    },
+    [updateRouteSearchAndResetPage],
+  );
+
+  const onFilterChange = useCallback(
+    (key: string, value: string) => {
+      if (key === "search") {
+        updateRouteSearchAndResetPage({ search: value || undefined });
+        return;
+      }
+      setFilter(key as keyof ResumeFilters & string, value);
+    },
+    [setFilter, updateRouteSearchAndResetPage],
+  );
+
+  const filterValues = useMemo(() => {
+    const out: Record<string, string> = { search: query.search };
+    for (const key of RESUME_LIBRARY_FILTER_KEYS) {
+      out[key] = query.filters[key];
+    }
+    return out;
+  }, [query.filters, query.search]);
+
+  const canResetFilters =
+    query.search.trim() !== "" ||
+    RESUME_LIBRARY_FILTER_KEYS.some((key) => query.filters[key] !== EMPTY_FILTERS[key]);
+
+  const onResetFilters = useCallback(() => {
+    const updates: Record<string, number | string | undefined> = { page: 1, search: undefined };
+    for (const key of RESUME_LIBRARY_FILTER_KEYS) {
+      updates[key] = EMPTY_FILTERS[key] || undefined;
+    }
+    updateRouteSearch(updates);
+  }, [updateRouteSearch]);
+
+  const sorting = useMemo(
+    () => (query.sortBy ? [{ desc: query.sortOrder === "desc", id: query.sortBy }] : []),
+    [query.sortBy, query.sortOrder],
+  );
+
+  const bind = useMemo(
+    () => ({
+      canResetFilters,
+      filterValues,
+      onFilterChange,
+      onRefresh,
+      onResetFilters,
+      rowSelection,
+    }),
+    [canResetFilters, filterValues, onFilterChange, onRefresh, onResetFilters, rowSelection],
+  );
+
+  return useMemo(
+    () => ({
+      bind,
+      deferredSearch,
+      filters: query.filters,
+      rowSelection,
+      setFilter,
+      setRowSelection,
+      sorting,
+    }),
+    [bind, deferredSearch, query.filters, rowSelection, setFilter, setRowSelection, sorting],
+  );
+}
 
 interface ResumeLibraryCardListProps {
   canCreateChat: boolean;
@@ -290,11 +477,17 @@ function ResumeLibraryCardList({
   const listRootRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null);
+  const getVirtualItemKey = useCallback(
+    (index: number) => records[index]?.id ?? `resume-placeholder-${index}`,
+    [records],
+  );
   const virtualizer = useVirtualizer({
     count: records.length,
     estimateSize: () => RESUME_LIBRARY_CARD_ESTIMATED_SIZE,
+    getItemKey: getVirtualItemKey,
     getScrollElement: () => scrollElement,
     overscan: 6,
+    useAnimationFrameWithResizeObserver: true,
   });
   const virtualItems = virtualizer.getVirtualItems();
   const selectedIds = useMemo(
@@ -522,7 +715,12 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
     enabled: canReadResumeUploadBatch,
     queryFn: () => listBulkResumeBatches(slug),
     queryKey: ["bulk-resume-batches", slug],
-    refetchInterval: 10_000,
+    refetchInterval: (query) =>
+      (query.state.data ?? []).some(
+        (batch) => batch.status === "pending" || batch.status === "running",
+      )
+        ? 10_000
+        : false,
   });
   const libraryBatches = useMemo(
     () =>
@@ -537,11 +735,18 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
     (batch) => batch.status === "pending" || batch.status === "running",
   );
 
+  const activeUploadBatchIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    const hasActiveBatch = libraryBatches.some(
-      (batch) => batch.status === "pending" || batch.status === "running",
+    const nextActiveBatchIds = new Set(
+      libraryBatches
+        .filter((batch) => batch.status === "pending" || batch.status === "running")
+        .map((batch) => batch.id),
     );
-    if (hasActiveBatch) {
+    const hadBatchFinish = [...activeUploadBatchIdsRef.current].some(
+      (batchId) => !nextActiveBatchIds.has(batchId),
+    );
+    activeUploadBatchIdsRef.current = nextActiveBatchIds;
+    if (hadBatchFinish) {
       void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
     }
   }, [libraryBatches, queryClient]);
@@ -616,13 +821,13 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
     staleTime: 60_000,
   });
 
-  const grid = useDataGridState<ResumeLibraryListRecord, ResumeFilters>({
-    allowedSortIds: ["createdAt", "candidateName", "updatedAt"],
-    defaultPageSize: RESUME_LIBRARY_INFINITE_PAGE_SIZE,
-    defaultSorting: [{ desc: true, id: "createdAt" }],
-    initialFilters: EMPTY_FILTERS,
-    queryFn: fetcher,
-    queryKeyBase: ["studio-resumes", slug],
+  const refreshResumeList = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ["studio-resumes", slug] });
+  }, [queryClient, slug]);
+  const grid = useResumeLibrarySearchState({
+    onRefresh: refreshResumeList,
+    search: routeSearch as SearchParamsRecord,
+    slug,
   });
   const { setRowSelection } = grid;
 
@@ -1308,41 +1513,6 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
       />
     </>
   );
-}
-
-type SearchParamsPrimitive = boolean | number | string;
-type SearchParamsRecord = Record<
-  string,
-  SearchParamsPrimitive | SearchParamsPrimitive[] | undefined
->;
-
-function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord {
-  const out: SearchParamsRecord = {};
-  for (const [key, value] of Object.entries(search)) {
-    if (typeof value === "string") {
-      out[key] = value;
-      continue;
-    }
-    if (typeof value === "number" || typeof value === "boolean") {
-      out[key] = value;
-      continue;
-    }
-    if (Array.isArray(value)) {
-      out[key] = value.filter(
-        (item): item is boolean | number | string =>
-          typeof item === "string" || typeof item === "number" || typeof item === "boolean",
-      );
-    }
-  }
-  return out;
-}
-
-function parseResumeQuery(searchParams: SearchParamsRecord): DataGridQueryState<ResumeFilters> {
-  return parseDataGridSearchParams(searchParams, {
-    allowedSortIds: ["createdAt", "candidateName", "updatedAt"],
-    defaultSorting: [{ desc: true, id: "createdAt" }],
-    initialFilters: { creatorIds: "", jdIds: "", skills: "", stage: "" },
-  });
 }
 
 function StudioResumesRoute() {

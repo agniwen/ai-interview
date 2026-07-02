@@ -200,7 +200,13 @@ function makeDetail(overrides: Partial<ResumeLibraryDetail> = {}): ResumeLibrary
     resumeParseStatus: "ready",
     resumeParsedAt: "2026-06-15T00:00:00.000Z",
     resumeProfile: null,
+    resumeProfileSnapshot: {
+      education: null,
+      work: null,
+    },
     resumeReview: null,
+    resumeSkills: [],
+    resumeSummary: null,
     stageProgress: {
       aiInterview: null,
       humanInterview: null,

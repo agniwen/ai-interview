@@ -86,6 +86,17 @@ export interface ResumeStageProgress {
   offer: OfferProgress | null;
 }
 
+export interface ResumeLibraryProfileSnapshotLine {
+  period: string | null;
+  primary: string;
+  secondary: string | null;
+}
+
+export interface ResumeLibraryProfileSnapshot {
+  education: ResumeLibraryProfileSnapshotLine | null;
+  work: ResumeLibraryProfileSnapshotLine | null;
+}
+
 /**
  * 简历库列表行 DTO。AI 面试列表的精简投影：去掉 status / interviewQuestions /
  * scheduleEntries 等面试态字段，只保留候选人 / 简历 / 创建者维度。
@@ -107,11 +118,12 @@ export interface ResumeLibraryListRecord {
   resumeFileName: string | null;
   resumeContentHash: string | null;
   resumeEvaluationStatus: ResumeEvaluationStatus | null;
-  resumeReview: ResumeReview | null;
+  resumeSummary: string | null;
   resumeParsedAt: string | null;
   resumeParseError: string | null;
   resumeParseStatus: ResumeParseStatus;
-  resumeProfile: ResumeProfile | null;
+  resumeSkills: string[];
+  resumeProfileSnapshot: ResumeLibraryProfileSnapshot;
   hasResumeFile: boolean;
   duplicateMatch: ResumeDuplicateMatchSummary | null;
   // 是否已存在至少一个 AI 面试轮次（studioInterviewSchedule）。
@@ -167,6 +179,8 @@ export interface ResumeLibraryListRecord {
  * (may be empty for legacy rows).
  */
 export interface ResumeLibraryDetail extends ResumeLibraryListRecord {
+  resumeProfile: ResumeProfile | null;
+  resumeReview: ResumeReview | null;
   interviewQuestions: ResumeAnalysisResult["interviewQuestions"];
 }
 

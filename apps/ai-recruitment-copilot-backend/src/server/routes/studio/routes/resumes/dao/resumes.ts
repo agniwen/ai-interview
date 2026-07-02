@@ -35,6 +35,7 @@ import type {
   PaginatedResumeLibraryResult,
   ResumeLibraryDetail,
   ResumeLibraryListRecord,
+  ResumeLibraryProfileSnapshot,
   ResumeStageProgress,
 } from "@arc/shared/studio-resumes";
 import type { ResumeDuplicateMatchSummary } from "@arc/shared/resume-duplicates";
@@ -177,14 +178,53 @@ const SELECTED_COLUMNS = {
   outcome: studioInterview.outcome,
   pipelineStage: studioInterview.pipelineStage,
   resumeContentHash: studioInterview.resumeContentHash,
+  resumeEducationGraduationYear: sql<
+    string | null
+  >`${studioInterview.resumeProfile}->'educationExperiences'->0->>'graduationYear'`.as(
+    "resume_education_graduation_year",
+  ),
+  resumeEducationLevel: sql<
+    string | null
+  >`${studioInterview.resumeProfile}->'educationExperiences'->0->>'level'`.as(
+    "resume_education_level",
+  ),
+  resumeEducationMajor: sql<
+    string | null
+  >`${studioInterview.resumeProfile}->'educationExperiences'->0->>'major'`.as(
+    "resume_education_major",
+  ),
+  resumeEducationPeriod: sql<
+    string | null
+  >`${studioInterview.resumeProfile}->'educationExperiences'->0->>'period'`.as(
+    "resume_education_period",
+  ),
+  resumeEducationSchool: sql<
+    string | null
+  >`${studioInterview.resumeProfile}->'educationExperiences'->0->>'school'`.as(
+    "resume_education_school",
+  ),
   resumeEvaluationStatus: studioInterview.resumeEvaluationStatus,
   resumeFileName: studioInterview.resumeFileName,
   resumeParseError: studioInterview.resumeParseError,
   resumeParseStatus: studioInterview.resumeParseStatus,
   resumeParsedAt: studioInterview.resumeParsedAt,
-  resumeProfile: studioInterview.resumeProfile,
-  resumeReview: studioInterview.resumeReview,
+  resumeReviewConclusion: sql<
+    string | null
+  >`${studioInterview.resumeReview}->'overall'->>'conclusion'`.as("resume_review_conclusion"),
+  resumeSchool: sql<string | null>`${studioInterview.resumeProfile}->'schools'->>0`.as(
+    "resume_school",
+  ),
+  resumeSkills: sql<unknown>`${studioInterview.resumeProfile}->'skills'`.as("resume_skills"),
   resumeStorageKey: studioInterview.resumeStorageKey,
+  resumeWorkCompany: sql<
+    string | null
+  >`${studioInterview.resumeProfile}->'workExperiences'->0->>'company'`.as("resume_work_company"),
+  resumeWorkPeriod: sql<
+    string | null
+  >`${studioInterview.resumeProfile}->'workExperiences'->0->>'period'`.as("resume_work_period"),
+  resumeWorkRole: sql<
+    string | null
+  >`${studioInterview.resumeProfile}->'workExperiences'->0->>'role'`.as("resume_work_role"),
   status: studioInterview.status,
   targetRole: studioInterview.targetRole,
   updatedAt: studioInterview.updatedAt,
@@ -266,6 +306,98 @@ function serializeStageProgressTimestamp(value: Date | string | null): string | 
   }
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toISOString();
+}
+
+const RESUME_PROFILE_PLACEHOLDER = "未发现信息";
+
+function cleanResumeProfileText(value: string | null | undefined) {
+  const text = value?.trim();
+  return text && text !== RESUME_PROFILE_PLACEHOLDER ? text : null;
+}
+
+function formatResumeCardPeriod(value: string | null | undefined) {
+  const text = cleanResumeProfileText(value);
+  if (!text) {
+    return null;
+  }
+  const dateTokens = [...text.matchAll(/(\d{4})\s*[./年-]\s*(\d{1,2})\s*月?/gu)]
+    .map(([, year, rawMonth]) => {
+      const month = Number(rawMonth);
+      return month >= 1 && month <= 12 ? `${year}.${month.toString().padStart(2, "0")}` : null;
+    })
+    .filter((item): item is string => item !== null);
+
+  if (dateTokens.length === 0) {
+    const years = [...text.matchAll(/(?:^|[^\d])(\d{4})(?=$|[^\d])/gu)].map((match) => match[1]);
+    if (years.length === 0) {
+      return text;
+    }
+    if (years.length === 1 && /(至今|现在|目前|present|current)/iu.test(text)) {
+      return `${years[0]} - 至今`;
+    }
+    return years.slice(0, 2).join(" - ");
+  }
+
+  if (dateTokens.length === 1 && /(至今|现在|目前|present|current)/iu.test(text)) {
+    return `${dateTokens[0]} - 至今`;
+  }
+  return dateTokens.slice(0, 2).join(" - ");
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function buildResumeSkills(value: unknown) {
+  const seen = new Set<string>();
+  return toStringArray(value)
+    .map((item) => item.trim())
+    .filter((item) => {
+      const key = item.toLowerCase();
+      if (!item || seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 6);
+}
+
+function buildResumeProfileSnapshot(row: Row): ResumeLibraryProfileSnapshot {
+  const workPrimary =
+    cleanResumeProfileText(row.resumeWorkCompany) ?? cleanResumeProfileText(row.resumeWorkRole);
+  const educationSchool =
+    cleanResumeProfileText(row.resumeEducationSchool) ?? cleanResumeProfileText(row.resumeSchool);
+
+  return {
+    education: educationSchool
+      ? {
+          period:
+            formatResumeCardPeriod(row.resumeEducationPeriod) ??
+            formatResumeCardPeriod(row.resumeEducationGraduationYear),
+          primary: educationSchool,
+          secondary:
+            [
+              cleanResumeProfileText(row.resumeEducationMajor),
+              cleanResumeProfileText(row.resumeEducationLevel),
+            ]
+              .filter(Boolean)
+              .join(" · ") || null,
+        }
+      : null,
+    work: workPrimary
+      ? {
+          period: formatResumeCardPeriod(row.resumeWorkPeriod),
+          primary: workPrimary,
+          secondary: cleanResumeProfileText(row.resumeWorkCompany)
+            ? cleanResumeProfileText(row.resumeWorkRole)
+            : null,
+        }
+      : null,
+  };
 }
 
 // 批量组装 4 类派生字段，集中在一个函数里避免在分页行上重复 correlated subquery。
@@ -491,8 +623,9 @@ function toRecord(
     resumeParseError: row.resumeParseError,
     resumeParseStatus: row.resumeParseStatus,
     resumeParsedAt: serializeDate(row.resumeParsedAt),
-    resumeProfile: row.resumeProfile,
-    resumeReview: row.resumeReview,
+    resumeProfileSnapshot: buildResumeProfileSnapshot(row),
+    resumeSkills: buildResumeSkills(row.resumeSkills),
+    resumeSummary: row.resumeReviewConclusion ?? row.notes?.trim() ?? null,
     stageProgress: resolvedDerived.stageProgress,
     status: row.status,
     targetRole: row.targetRole,
@@ -609,6 +742,8 @@ export async function loadResumeDetail(
     .select({
       ...SELECTED_COLUMNS,
       interviewQuestions: studioInterview.interviewQuestions,
+      resumeProfile: studioInterview.resumeProfile,
+      resumeReview: studioInterview.resumeReview,
     })
     .from(studioInterview)
     .leftJoin(user, eq(studioInterview.createdBy, user.id))
@@ -633,7 +768,7 @@ export async function loadResumeDetail(
     return null;
   }
 
-  const { interviewQuestions, ...rest } = row;
+  const { interviewQuestions, resumeProfile, resumeReview, ...rest } = row;
   const [derivedFields, duplicateMatches] = await Promise.all([
     loadResumeDerivedFields([rest.id]),
     listActiveDuplicateMatchCounts({
@@ -649,6 +784,8 @@ export async function loadResumeDetail(
       toDuplicateMatchSummary(duplicateMatches.get(rest.id)),
     ),
     interviewQuestions: interviewQuestions ?? [],
+    resumeProfile,
+    resumeReview,
   };
 }
 
