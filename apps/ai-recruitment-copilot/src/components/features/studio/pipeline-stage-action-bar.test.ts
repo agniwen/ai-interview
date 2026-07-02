@@ -81,4 +81,16 @@ describe("PipelineStageActionBar compact stage rail", () => {
       "showAiInterviewStep ? DEFAULT_ROUTE_STEPS : DEFAULT_ROUTE_STEPS_WITHOUT_AI",
     );
   });
+
+  it("gates human interview and offer stage actions by dedicated permissions", () => {
+    expect(source).toContain("canManageHumanInterview?: boolean;");
+    expect(source).toContain("canManageOffer?: boolean;");
+    expect(source).toContain("canManageHumanInterview = true");
+    expect(source).toContain("canManageOffer = true");
+    expect(source).toContain("canAdvanceToHumanInterview");
+    expect(source).toContain("canAdvanceToOffer");
+    expect(source).toContain("if (canAdvanceToHumanInterview) {");
+    expect(source).toContain("if (canAdvanceToOffer) {");
+    expect(source).toContain("if (canManageHumanInterview) {");
+  });
 });

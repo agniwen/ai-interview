@@ -28,6 +28,8 @@ export interface PipelineStageActionBarProps {
   pipelineStage: PipelineStage;
   primaryAction?: ReactNode;
   showAiInterviewStep?: boolean;
+  canManageHumanInterview?: boolean;
+  canManageOffer?: boolean;
   // AI 面试是否全部 completed（决定 ai_interview tab 是否显示「待决策」按钮组）。
   // Whether all AI rounds are done; drives the "待决策" CTA group.
   aiInterviewDone?: boolean;
@@ -49,6 +51,8 @@ export function PipelineStageActionBar({
   pipelineStage,
   primaryAction,
   showAiInterviewStep = true,
+  canManageHumanInterview = true,
+  canManageOffer = true,
   aiInterviewDone,
   humanInterviewDone,
   onAdvance,
@@ -57,6 +61,8 @@ export function PipelineStageActionBar({
 }: PipelineStageActionBarProps) {
   const actions = getStageActions({
     aiInterviewDone,
+    canManageHumanInterview,
+    canManageOffer,
     humanInterviewDone,
     onAdvance,
     onRequestClose,
@@ -159,6 +165,8 @@ interface StageButton {
 function getStageActions(props: {
   pipelineStage: PipelineStage;
   aiInterviewDone?: boolean;
+  canManageHumanInterview: boolean;
+  canManageOffer: boolean;
   humanInterviewDone?: boolean;
   onAdvance: (target: PipelineStage) => void;
   onRequestClose: () => void;
@@ -167,6 +175,8 @@ function getStageActions(props: {
   const {
     pipelineStage,
     aiInterviewDone,
+    canManageHumanInterview,
+    canManageOffer,
     humanInterviewDone,
     onAdvance,
     onRequestClose,
@@ -197,38 +207,14 @@ function getStageActions(props: {
   );
 
   const buttons: StageButton[] = [];
+  const canAdvanceToHumanInterview = canManageHumanInterview;
+  const canAdvanceToOffer = canManageOffer;
 
   switch (pipelineStage) {
     case "screening": {
       // 简历筛选阶段：HR 可以跳过 AI 面试直接安排真人复面 / 发 Offer。
       // Screening: HR may skip ahead to human interview / offer.
-      buttons.push({
-        key: "to-human",
-        node: (
-          <Button key="to-human" onClick={() => onAdvance("human_interview")} size="sm">
-            <IconUsers className="size-4" />
-            安排真人面试
-          </Button>
-        ),
-        side: "right",
-      });
-      buttons.push({
-        key: "to-offer",
-        node: (
-          <Button key="to-offer" onClick={() => onAdvance("offer")} size="sm">
-            <IconSend className="size-4" />
-            直接发 Offer
-          </Button>
-        ),
-        side: "right",
-      });
-      break;
-    }
-
-    case "ai_interview": {
-      // AI 面试全部完成才提示推进；否则只提供「跳过」选项。
-      // Once AI interviews are done, surface "推进" CTAs; else only skip options.
-      if (aiInterviewDone) {
+      if (canAdvanceToHumanInterview) {
         buttons.push({
           key: "to-human",
           node: (
@@ -239,6 +225,8 @@ function getStageActions(props: {
           ),
           side: "right",
         });
+      }
+      if (canAdvanceToOffer) {
         buttons.push({
           key: "to-offer",
           node: (
@@ -249,7 +237,39 @@ function getStageActions(props: {
           ),
           side: "right",
         });
-      } else {
+      }
+      break;
+    }
+
+    case "ai_interview": {
+      // AI 面试全部完成才提示推进；否则只提供「跳过」选项。
+      // Once AI interviews are done, surface "推进" CTAs; else only skip options.
+      if (aiInterviewDone) {
+        if (canAdvanceToHumanInterview) {
+          buttons.push({
+            key: "to-human",
+            node: (
+              <Button key="to-human" onClick={() => onAdvance("human_interview")} size="sm">
+                <IconUsers className="size-4" />
+                安排真人面试
+              </Button>
+            ),
+            side: "right",
+          });
+        }
+        if (canAdvanceToOffer) {
+          buttons.push({
+            key: "to-offer",
+            node: (
+              <Button key="to-offer" onClick={() => onAdvance("offer")} size="sm">
+                <IconSend className="size-4" />
+                直接发 Offer
+              </Button>
+            ),
+            side: "right",
+          });
+        }
+      } else if (canAdvanceToHumanInterview) {
         // 还没跑完时，允许 HR 提前安排复面（跳过场景：技术面已经过、不想等剩下的）。
         // Skip-ahead path while AI interviews are still in flight.
         buttons.push({
@@ -274,57 +294,63 @@ function getStageActions(props: {
     case "human_interview": {
       // 真人复面阶段：推进到 Offer / 退回 AI 面试（万一 HR 误推进）。
       // Human interview stage: advance to offer, or step back to AI interview.
-      buttons.push({
-        key: "to-offer",
-        node: (
-          <Button
-            key="to-offer"
-            onClick={() => onAdvance("offer")}
-            size="sm"
-            variant={humanInterviewDone ? "default" : "outline"}
-          >
-            <IconArrowRight className="size-4" />
-            推进到 Offer
-          </Button>
-        ),
-        side: "right",
-      });
-      buttons.push({
-        key: "back-ai",
-        node: (
-          <Button
-            key="back-ai"
-            onClick={() => onAdvance("ai_interview")}
-            size="sm"
-            variant="outline"
-          >
-            <IconArrowLeft className="size-4" />
-            退回 AI 面试
-          </Button>
-        ),
-        side: "left",
-      });
+      if (canAdvanceToOffer) {
+        buttons.push({
+          key: "to-offer",
+          node: (
+            <Button
+              key="to-offer"
+              onClick={() => onAdvance("offer")}
+              size="sm"
+              variant={humanInterviewDone ? "default" : "outline"}
+            >
+              <IconArrowRight className="size-4" />
+              推进到 Offer
+            </Button>
+          ),
+          side: "right",
+        });
+      }
+      if (canManageHumanInterview) {
+        buttons.push({
+          key: "back-ai",
+          node: (
+            <Button
+              key="back-ai"
+              onClick={() => onAdvance("ai_interview")}
+              size="sm"
+              variant="outline"
+            >
+              <IconArrowLeft className="size-4" />
+              退回 AI 面试
+            </Button>
+          ),
+          side: "left",
+        });
+      }
       break;
     }
 
     case "offer": {
       // Offer 阶段：通常等结案；退回真人复面备用。
       // Offer stage: usually waiting to close; allow stepping back if needed.
-      buttons.push({
-        key: "back-human",
-        node: (
-          <Button
-            key="back-human"
-            onClick={() => onAdvance("human_interview")}
-            size="sm"
-            variant="ghost"
-          >
-            <IconArrowLeft className="size-4" />
-            退回真人复面
-          </Button>
-        ),
-        side: "left",
-      });
+      if (canManageHumanInterview) {
+        buttons.push({
+          key: "back-human",
+          node: (
+            <Button
+              key="back-human"
+              onClick={() => onAdvance("human_interview")}
+              size="sm"
+              variant="ghost"
+            >
+              <IconArrowLeft className="size-4" />
+              退回真人复面
+            </Button>
+          ),
+          side: "left",
+        });
+      }
       break;
     }
 

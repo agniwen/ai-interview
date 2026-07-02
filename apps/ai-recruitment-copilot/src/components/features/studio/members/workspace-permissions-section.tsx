@@ -46,11 +46,13 @@ import {
   hasPermissionAction,
   normalizeDynamicRoleName,
   readRoleDeleteError,
+  sortDynamicWorkspaceRolesByCreatedAt,
   togglePermissionAction,
 } from "./workspace-role-permissions";
 import type { PermissionItem, PermissionRecord } from "./workspace-role-permissions";
 
 interface DynamicWorkspaceRole {
+  createdAt: Date | string;
   id: string;
   name: string;
   role: string;
@@ -317,6 +319,7 @@ export function WorkspacePermissionsSection({ headerRender }: WorkspacePermissio
     },
     queryKey,
     refetchOnWindowFocus: false,
+    select: sortDynamicWorkspaceRolesByCreatedAt,
   });
 
   useEffect(() => {

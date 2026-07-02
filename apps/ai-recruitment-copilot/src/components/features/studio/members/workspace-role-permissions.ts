@@ -8,6 +8,11 @@ export type PermissionResource = keyof typeof statement;
 export type PermissionAction<R extends PermissionResource = PermissionResource> =
   (typeof statement)[R][number];
 export type PermissionRecord = Partial<Record<PermissionResource, string[]>>;
+interface DynamicWorkspaceRoleOrderKey {
+  createdAt?: Date | string | null;
+  id?: string;
+  role?: string;
+}
 
 export const BUILT_IN_WORKSPACE_ROLE_NAMES = new Set([
   "owner",
@@ -74,6 +79,16 @@ export const WORKSPACE_PERMISSION_GROUPS = [
         actions: ["create", "read", "update", "delete"] as const,
         key: "interview",
         label: "AI 面试",
+      },
+      {
+        actions: ["manage"] as const,
+        key: "humanInterview",
+        label: "真人面试管理",
+      },
+      {
+        actions: ["manage"] as const,
+        key: "offer",
+        label: "Offer 管理",
       },
       {
         actions: ["create", "read", "update", "delete"] as const,
@@ -159,6 +174,8 @@ export const PERMISSION_ACTION_LABELS: Record<string, string> = {
 };
 
 const PERMISSION_ITEM_ACTION_LABELS: Record<string, string> = {
+  "humanInterview:manage": "管理",
+  "offer:manage": "管理",
   "resumePool:create": "上传",
 };
 
@@ -217,6 +234,9 @@ const RESOURCE_ACTION_DESCRIPTIONS: Partial<Record<PermissionResource, Record<st
     read: "允许加载「系统设置」里的全局配置。",
     update: "允许保存「系统设置」里的公司信息、面试配置等全局配置。",
   },
+  humanInterview: {
+    manage: "允许查看真人复面阶段页签，并将候选人推进到真人复面或从 Offer 退回真人复面。",
+  },
   interview: {
     create: "允许在「AI 面试」页面创建面试记录或从候选人流程发起新的 AI 面试。",
     delete: "允许删除 AI 面试记录及相关轮次数据。",
@@ -252,6 +272,9 @@ const RESOURCE_ACTION_DESCRIPTIONS: Partial<Record<PermissionResource, Record<st
     delete: "允许从工作区移除成员。",
     update:
       "允许调整成员角色，并管理招聘组、组成员、组内角色和成员所属组；实际可调整范围仍受服务端角色规则限制。",
+  },
+  offer: {
+    manage: "允许查看 Offer 阶段页签，并将候选人推进到 Offer。",
   },
   organization: {
     update: "允许修改工作区基础设置，例如工作区名称；不包含成员、角色和邀请管理。",
@@ -431,6 +454,26 @@ export function readRoleDeleteError(error: unknown): string {
     return ROLE_ASSIGNED_TO_MEMBERS_MESSAGE;
   }
   return message ?? "删除角色失败";
+}
+
+function readCreatedAtTime(value: Date | string | null | undefined): number {
+  if (!value) {
+    return Number.POSITIVE_INFINITY;
+  }
+  const time = value instanceof Date ? value.getTime() : new Date(value).getTime();
+  return Number.isFinite(time) ? time : Number.POSITIVE_INFINITY;
+}
+
+export function sortDynamicWorkspaceRolesByCreatedAt<T extends DynamicWorkspaceRoleOrderKey>(
+  roles: readonly T[],
+): T[] {
+  return [...roles].toSorted((left, right) => {
+    const byCreatedAt = readCreatedAtTime(left.createdAt) - readCreatedAtTime(right.createdAt);
+    if (byCreatedAt !== 0) {
+      return byCreatedAt;
+    }
+    return (left.id ?? left.role ?? "").localeCompare(right.id ?? right.role ?? "");
+  });
 }
 
 export function normalizeDynamicRoleName(value: string): string {

@@ -76,6 +76,7 @@ import {
   isBuiltInWorkspaceRole,
 } from "@/components/features/studio/members/role-display";
 import type { WorkspaceRole } from "@/components/features/studio/members/role-display";
+import { sortDynamicWorkspaceRolesByCreatedAt } from "@/components/features/studio/members/workspace-role-permissions";
 import { WorkspaceSettingsDialog } from "@/components/features/studio/members/workspace-settings-dialog";
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -132,6 +133,7 @@ interface MemberRow {
 }
 
 interface DynamicWorkspaceRole {
+  createdAt: Date | string;
   id: string;
   name: string;
   role: string;
@@ -229,6 +231,7 @@ function useDynamicWorkspaceRoles(workspaceId: string, enabled: boolean) {
     },
     queryKey: ["workspace-dynamic-roles", workspaceId],
     refetchOnWindowFocus: false,
+    select: sortDynamicWorkspaceRolesByCreatedAt,
   });
 }
 

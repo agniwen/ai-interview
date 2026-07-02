@@ -154,6 +154,8 @@ describe("permissions matrix", () => {
         "globalConfig",
         "interview",
         "interviewer",
+        "humanInterview",
+        "offer",
         "invitation",
         "jd",
         "member",
@@ -196,6 +198,13 @@ describe("permission matrix cross-cut", () => {
     ["member", "department", "create", true],
     ["member", "interviewer", "update", true],
     ["admin", "department", "delete", true],
+    // later-stage workflow controls
+    ["admin", "humanInterview", "manage", true],
+    ["member", "humanInterview", "manage", true],
+    ["noAccess", "humanInterview", "manage", false],
+    ["admin", "offer", "manage", true],
+    ["member", "offer", "manage", true],
+    ["noAccess", "offer", "manage", false],
     // candidateForm / questionTemplate
     ["member", "candidateForm", "delete", true],
     ["member", "questionTemplate", "delete", true],

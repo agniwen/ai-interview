@@ -29,6 +29,7 @@ import { Modal } from "@/components/ui/modal";
 import { rpc } from "@/lib/client/rpc";
 import { useModalPagination } from "@/lib/client/use-modal-pagination";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { useHasPermission } from "@/hooks/use-has-permission";
 
 // 二选一的 scope：决定按什么维度过滤 JD，以及弹窗 title 怎么拼。
 // Discriminated scope: determines the filter dimension + how the title reads.
@@ -78,6 +79,7 @@ export function ScopedJobDescriptionsModal({
 }: ScopedJobDescriptionsModalProps) {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
+  const canDeleteJobDescription = useHasPermission("jd", "delete");
 
   const { page, pageSize, setPage, setPageSize } = useModalPagination(DEFAULT_PAGE_SIZE);
 
@@ -190,13 +192,14 @@ export function ScopedJobDescriptionsModal({
           {
             label: "删除",
             onClick: (r) => crud.setDeleteRecord(r),
+            show: () => canDeleteJobDescription,
             variant: "destructive",
           },
         ],
       }),
     ],
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- columns 不应跟着 crud 引用变化重建
-    [],
+    [canDeleteJobDescription],
   );
 
   return (
@@ -241,7 +244,7 @@ export function ScopedJobDescriptionsModal({
         }
         onClose={() => crud.setDeleteRecord(null)}
         onConfirm={crud.handleDelete}
-        record={crud.deleteRecord}
+        record={canDeleteJobDescription ? crud.deleteRecord : null}
         title="确认删除这个在招岗位？"
       />
     </>

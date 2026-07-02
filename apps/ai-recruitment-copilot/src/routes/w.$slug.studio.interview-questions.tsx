@@ -58,6 +58,7 @@ import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { InterviewQuestionTemplateEditorDialog } from "@/components/features/studio/interview-questions/interview-question-template-editor-dialog";
 import { InterviewQuestionTemplateAiCreateDialog } from "@/components/features/studio/interview-questions/interview-question-template-ai-create-dialog";
+import { useHasPermission } from "@/hooks/use-has-permission";
 
 function scopeLabel(scope: InterviewQuestionTemplateScope) {
   return scope === "global" ? "全局" : "岗位绑定";
@@ -89,6 +90,9 @@ function InterviewQuestionTemplateManagementPage({
 }) {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
+  const canCreateQuestionTemplate = useHasPermission("questionTemplate", "create");
+  const canUpdateQuestionTemplate = useHasPermission("questionTemplate", "update");
+  const canDeleteQuestionTemplate = useHasPermission("questionTemplate", "delete");
 
   const fetchTemplates = useCallback(
     async (params: {
@@ -227,6 +231,10 @@ function InterviewQuestionTemplateManagementPage({
     if (!activeTemplateId || lastLoadedTemplateRef.current === activeTemplateId) {
       return;
     }
+    if (!canUpdateQuestionTemplate) {
+      void setActiveTemplateId(null);
+      return;
+    }
     lastLoadedTemplateRef.current = activeTemplateId;
     let cancelled = false;
     void (async () => {
@@ -248,6 +256,7 @@ function InterviewQuestionTemplateManagementPage({
     };
   }, [
     activeTemplateId,
+    canUpdateQuestionTemplate,
     loadTemplateDetailById,
     setActiveTemplateId,
     setEditingRecord,
@@ -270,6 +279,9 @@ function InterviewQuestionTemplateManagementPage({
     jobDescriptionId: string;
     questions: InterviewQuestionTemplateInput["questions"];
   }) {
+    if (!canCreateQuestionTemplate) {
+      return;
+    }
     setCreateDraft({
       description: "",
       jobDescriptionIds: [jobDescriptionId],
@@ -363,6 +375,7 @@ function InterviewQuestionTemplateManagementPage({
             onClick: (r) => {
               void crud.openEdit(r);
             },
+            show: () => canUpdateQuestionTemplate,
           },
         ],
         // 行的归档态决定显示「归档」还是「取消归档」；show 回调按状态二选一。
@@ -371,19 +384,19 @@ function InterviewQuestionTemplateManagementPage({
           {
             label: "归档",
             onClick: (r) => crud.setDeleteRecord(r),
-            show: (r) => !r.archivedAt,
+            show: (r) => canDeleteQuestionTemplate && !r.archivedAt,
             variant: "destructive",
           },
           {
             label: "取消归档",
             onClick: (r) => void unarchiveTemplate(r),
-            show: (r) => Boolean(r.archivedAt),
+            show: (r) => canUpdateQuestionTemplate && Boolean(r.archivedAt),
           },
         ],
       }),
     ],
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [canDeleteQuestionTemplate, canUpdateQuestionTemplate],
   );
 
   const filtersConfig = useMemo(
@@ -440,28 +453,30 @@ function InterviewQuestionTemplateManagementPage({
                   创建后，符合作用域的面试在创建时会自动绑定到最新版本的题目快照。
                 </EmptyDescription>
               </EmptyHeader>
-              <EmptyContent className="flex items-center justify-center">
-                <ButtonGroup>
-                  <Button
-                    onClick={() => {
-                      setCreateDraft(null);
-                      crud.openCreate();
-                    }}
-                  >
-                    <IconPlus className="size-4" />
-                    新建面试题
-                  </Button>
-                  <Button
-                    aria-label="AI 创建面试题"
-                    onClick={() => setAiCreateOpen(true)}
-                    size="icon"
-                    title="AI 创建面试题"
-                    type="button"
-                  >
-                    <IconSparkles className="size-4" />
-                  </Button>
-                </ButtonGroup>
-              </EmptyContent>
+              {canCreateQuestionTemplate ? (
+                <EmptyContent className="flex items-center justify-center">
+                  <ButtonGroup>
+                    <Button
+                      onClick={() => {
+                        setCreateDraft(null);
+                        crud.openCreate();
+                      }}
+                    >
+                      <IconPlus className="size-4" />
+                      新建面试题
+                    </Button>
+                    <Button
+                      aria-label="AI 创建面试题"
+                      onClick={() => setAiCreateOpen(true)}
+                      size="icon"
+                      title="AI 创建面试题"
+                      type="button"
+                    >
+                      <IconSparkles className="size-4" />
+                    </Button>
+                  </ButtonGroup>
+                </EmptyContent>
+              ) : null}
             </Empty>
           }
           filters={filtersConfig}
@@ -487,51 +502,57 @@ function InterviewQuestionTemplateManagementPage({
           }
           getRowId={(r) => r.id}
           toolbarRight={
-            <ButtonGroup className="flex-1 sm:flex-none">
-              <Button
-                className="flex-1 sm:flex-none"
-                onClick={() => {
-                  setCreateDraft(null);
-                  crud.openCreate();
-                }}
-              >
-                <IconPlus className="size-4" />
-                新建面试题
-              </Button>
-              <Button
-                aria-label="AI 创建面试题"
-                onClick={() => setAiCreateOpen(true)}
-                size="icon"
-                title="AI 创建面试题"
-                type="button"
-              >
-                <IconSparkles className="size-4" />
-              </Button>
-            </ButtonGroup>
+            canCreateQuestionTemplate ? (
+              <ButtonGroup className="flex-1 sm:flex-none">
+                <Button
+                  className="flex-1 sm:flex-none"
+                  onClick={() => {
+                    setCreateDraft(null);
+                    crud.openCreate();
+                  }}
+                >
+                  <IconPlus className="size-4" />
+                  新建面试题
+                </Button>
+                <Button
+                  aria-label="AI 创建面试题"
+                  onClick={() => setAiCreateOpen(true)}
+                  size="icon"
+                  title="AI 创建面试题"
+                  type="button"
+                >
+                  <IconSparkles className="size-4" />
+                </Button>
+              </ButtonGroup>
+            ) : null
           }
         />
       </div>
 
-      <InterviewQuestionTemplateAiCreateDialog
-        jobDescriptions={jobDescriptions}
-        onGenerated={handleAiGenerated}
-        onOpenChange={setAiCreateOpen}
-        open={aiCreateOpen}
-      />
+      {canCreateQuestionTemplate ? (
+        <InterviewQuestionTemplateAiCreateDialog
+          jobDescriptions={jobDescriptions}
+          onGenerated={handleAiGenerated}
+          onOpenChange={setAiCreateOpen}
+          open={aiCreateOpen}
+        />
+      ) : null}
 
-      <InterviewQuestionTemplateEditorDialog
-        initialDraft={createDraft}
-        jobDescriptions={jobDescriptions}
-        key={editorDialogKey}
-        onOpenChange={onEditorOpenChange}
-        onSaved={() => {
-          grid.invalidate();
-          void queryClient.invalidateQueries({ queryKey: ["interview-question-templates"] });
-        }}
-        open={crud.formDialogOpen}
-        record={crud.editingRecord}
-        slug={slug}
-      />
+      {(crud.editingRecord ? canUpdateQuestionTemplate : canCreateQuestionTemplate) ? (
+        <InterviewQuestionTemplateEditorDialog
+          initialDraft={createDraft}
+          jobDescriptions={jobDescriptions}
+          key={editorDialogKey}
+          onOpenChange={onEditorOpenChange}
+          onSaved={() => {
+            grid.invalidate();
+            void queryClient.invalidateQueries({ queryKey: ["interview-question-templates"] });
+          }}
+          open={crud.formDialogOpen}
+          record={crud.editingRecord}
+          slug={slug}
+        />
+      ) : null}
 
       <EntityDeleteDialog
         description={(record) =>
@@ -539,7 +560,7 @@ function InterviewQuestionTemplateManagementPage({
         }
         onClose={() => crud.setDeleteRecord(null)}
         onConfirm={crud.handleDelete}
-        record={crud.deleteRecord}
+        record={canDeleteQuestionTemplate ? crud.deleteRecord : null}
         title="确认归档这组面试题？"
       />
     </>

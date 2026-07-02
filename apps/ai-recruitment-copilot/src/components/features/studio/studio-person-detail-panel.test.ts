@@ -148,6 +148,32 @@ describe("StudioPersonDetailPanel visual density", () => {
     expect(source).toContain("showAiInterviewStep={shouldShowAiInterviewTab(tabVisibilityRecord)}");
   });
 
+  it("gates human interview and offer tabs plus stage actions by dedicated permissions", () => {
+    const availableTabsStart = source.indexOf("const availableTabs = useMemo");
+    const availableTabsSource = source.slice(
+      availableTabsStart,
+      source.indexOf("useEffect(() => {", availableTabsStart),
+    );
+    const actionBarSource = sourceBetween("const actionBar =", "let headerExtra");
+
+    expect(source).toContain('useHasPermission("humanInterview", "manage")');
+    expect(source).toContain('useHasPermission("offer", "manage")');
+    expect(availableTabsSource).toContain(
+      "shouldShowHumanInterviewTab(tabVisibilityRecord, canManageHumanInterview)",
+    );
+    expect(availableTabsSource).toContain(
+      "shouldShowOfferTab(tabVisibilityRecord, canManageOffer)",
+    );
+    expect(
+      source.match(/shouldShowHumanInterviewTab\(tabVisibilityRecord, canManageHumanInterview\)/g),
+    ).toHaveLength(3);
+    expect(source.match(/shouldShowOfferTab\(tabVisibilityRecord, canManageOffer\)/g)).toHaveLength(
+      3,
+    );
+    expect(actionBarSource).toContain("canManageHumanInterview={canManageHumanInterview}");
+    expect(actionBarSource).toContain("canManageOffer={canManageOffer}");
+  });
+
   it("renders resume AI parsing in its own tab instead of the overview", () => {
     const overviewSource = sourceBetween('<TabsContent value="overview">', "{/* 轮次概览");
     const aiAnalysisSource = sourceBetween(

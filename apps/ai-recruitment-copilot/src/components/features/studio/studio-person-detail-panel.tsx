@@ -87,6 +87,7 @@ import { Modal } from "@/components/ui/modal";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useHasPermission } from "@/hooks/use-has-permission";
 import { HumanInterviewStagePanel } from "./human-interview-stage-panel";
 import { OfferStagePanel } from "./offer-stage-panel";
 import { PipelineStageActionBar } from "./pipeline-stage-action-bar";
@@ -162,14 +163,26 @@ function shouldShowAiInterviewTab(record: { pipelineStage?: string } | null): bo
 // 关闭后仍显示（HR 想回看历史 / 重新激活时直接点）。
 // Human-interview tab is visible once the candidate has reached or passed that
 // stage; remains visible after close for HR audit and reactivation.
-function shouldShowHumanInterviewTab(record: { pipelineStage?: string } | null): boolean {
+function shouldShowHumanInterviewTab(
+  record: { pipelineStage?: string } | null,
+  canManageHumanInterview: boolean,
+): boolean {
+  if (!canManageHumanInterview) {
+    return false;
+  }
   if (!record?.pipelineStage) {
     return false;
   }
   return ["human_interview", "offer", "closed"].includes(record.pipelineStage);
 }
 
-function shouldShowOfferTab(record: { pipelineStage?: string } | null): boolean {
+function shouldShowOfferTab(
+  record: { pipelineStage?: string } | null,
+  canManageOffer: boolean,
+): boolean {
+  if (!canManageOffer) {
+    return false;
+  }
   if (!record?.pipelineStage) {
     return false;
   }
@@ -1133,6 +1146,10 @@ function useStudioPersonDetailPanel({
   const isReview = accessMode === "review";
   const canUseManagementActions = accessMode === "authed";
   const canViewReportMetadata = accessMode === "authed";
+  const hasHumanInterviewPermission = useHasPermission("humanInterview", "manage");
+  const hasOfferPermission = useHasPermission("offer", "manage");
+  const canManageHumanInterview = canUseManagementActions && hasHumanInterviewPermission;
+  const canManageOffer = canUseManagementActions && hasOfferPermission;
   // 公开模式下故意不依赖 slug；authed 模式下我们仍要求 workspace 上下文。
   // Public mode is slug-agnostic by design; authed mode still needs the workspace ctx.
   if (!isPublic && !optionalSlug) {
@@ -1426,14 +1443,14 @@ function useStudioPersonDetailPanel({
     if (shouldShowAiInterviewTab(tabVisibilityRecord)) {
       tabs.add("rounds");
     }
-    if (shouldShowHumanInterviewTab(tabVisibilityRecord)) {
+    if (shouldShowHumanInterviewTab(tabVisibilityRecord, canManageHumanInterview)) {
       tabs.add("human-interview");
     }
-    if (shouldShowOfferTab(tabVisibilityRecord)) {
+    if (shouldShowOfferTab(tabVisibilityRecord, canManageOffer)) {
       tabs.add("offer");
     }
     return tabs;
-  }, [hasRecord, isPublic, mode, tabVisibilityRecord]);
+  }, [canManageHumanInterview, canManageOffer, hasRecord, isPublic, mode, tabVisibilityRecord]);
 
   useEffect(() => {
     if (record && !availableTabs.has(activeTab)) {
@@ -1650,6 +1667,8 @@ function useStudioPersonDetailPanel({
           resumeRecord.stageProgress.humanInterview.totalRounds > 0 &&
           resumeRecord.stageProgress.humanInterview.activeRound === null,
         )}
+        canManageHumanInterview={canManageHumanInterview}
+        canManageOffer={canManageOffer}
         onAdvance={(target) => {
           // 行内推进（不带元数据）：直接调 transition API，刷新缓存。
           // Inline advance: call transition + invalidate so the bar/tabs update.
@@ -1719,12 +1738,13 @@ function useStudioPersonDetailPanel({
           ) : null}
           {/* 真人复面 / Offer tab：阶段已到达或经过时才显示，避免新候选人页面过于喧闹。
             Human interview / Offer tabs surface only once the candidate has reached that stage. */}
-          {mode === "resume" && shouldShowHumanInterviewTab(tabVisibilityRecord) ? (
+          {mode === "resume" &&
+          shouldShowHumanInterviewTab(tabVisibilityRecord, canManageHumanInterview) ? (
             <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="human-interview">
               真人复面
             </TabsTrigger>
           ) : null}
-          {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord) ? (
+          {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord, canManageOffer) ? (
             <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="offer">
               Offer
             </TabsTrigger>
@@ -2349,7 +2369,8 @@ function useStudioPersonDetailPanel({
             </TabsContent>
           ) : null}
 
-          {mode === "resume" && shouldShowHumanInterviewTab(tabVisibilityRecord) ? (
+          {mode === "resume" &&
+          shouldShowHumanInterviewTab(tabVisibilityRecord, canManageHumanInterview) ? (
             <TabsContent value="human-interview">
               <HumanInterviewStagePanel
                 candidateId={record.id}
@@ -2359,7 +2380,7 @@ function useStudioPersonDetailPanel({
             </TabsContent>
           ) : null}
 
-          {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord) ? (
+          {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord, canManageOffer) ? (
             <TabsContent value="offer">
               <OfferStagePanel
                 candidateEmail={record.candidateEmail}

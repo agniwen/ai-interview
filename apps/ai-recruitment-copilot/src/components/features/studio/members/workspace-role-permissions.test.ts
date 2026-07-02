@@ -7,6 +7,7 @@ import {
   canManageWorkspacePermissions,
   normalizeDynamicRoleName,
   readRoleDeleteError,
+  sortDynamicWorkspaceRolesByCreatedAt,
 } from "./workspace-role-permissions";
 
 describe("workspace role permission helpers", () => {
@@ -43,6 +44,21 @@ describe("workspace role permission helpers", () => {
     expect(readRoleDeleteError(new Error("network failed"))).toBe("network failed");
   });
 
+  it("sorts dynamic roles by creation time without mutating the source list", () => {
+    const roles = [
+      { createdAt: "2026-06-24T10:00:00.000Z", id: "role-b", role: "reviewer" },
+      { createdAt: "2026-06-23T10:00:00.000Z", id: "role-a", role: "screener" },
+      { createdAt: "2026-06-24T10:00:00.000Z", id: "role-c", role: "operator" },
+    ];
+
+    expect(sortDynamicWorkspaceRolesByCreatedAt(roles).map((role) => role.id)).toEqual([
+      "role-a",
+      "role-b",
+      "role-c",
+    ]);
+    expect(roles.map((role) => role.id)).toEqual(["role-b", "role-a", "role-c"]);
+  });
+
   it("flattens permission groups into stable table columns", () => {
     const items = buildPermissionItems();
 
@@ -58,6 +74,8 @@ describe("workspace role permission helpers", () => {
     expect(items.map((item) => item.key)).toContain("resumeLibrary:read");
     expect(items.map((item) => item.key)).toContain("resumePool:import");
     expect(items.map((item) => item.key)).toContain("resumeUploadBatch:process");
+    expect(items.map((item) => item.key)).toContain("humanInterview:manage");
+    expect(items.map((item) => item.key)).toContain("offer:manage");
     expect(items.map((item) => item.key)).toContain("mailIngestAccount:manage");
     expect(items.map((item) => item.key)).not.toContain("resume:read");
     expect(items.map((item) => item.key)).toContain("globalConfig:update");

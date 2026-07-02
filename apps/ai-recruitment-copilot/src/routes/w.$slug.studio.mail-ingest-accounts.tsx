@@ -14,6 +14,7 @@ import {
   buildWorkspaceRoleOptions,
 } from "@/components/features/studio/members/role-display";
 import type { DynamicWorkspaceRoleDisplay } from "@/components/features/studio/members/role-display";
+import { sortDynamicWorkspaceRolesByCreatedAt } from "@/components/features/studio/members/workspace-role-permissions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -427,10 +428,11 @@ function ManagedMailIngestPage() {
       if (error) {
         throw new Error(error.message ?? "加载自定义角色失败");
       }
-      return (data ?? []) as DynamicWorkspaceRoleDisplay[];
+      return (data ?? []) as (DynamicWorkspaceRoleDisplay & { createdAt: Date | string })[];
     },
     queryKey: ["workspace-dynamic-roles", workspaceId],
     refetchOnWindowFocus: false,
+    select: sortDynamicWorkspaceRolesByCreatedAt,
   });
 
   function fetchMailIngestRows(

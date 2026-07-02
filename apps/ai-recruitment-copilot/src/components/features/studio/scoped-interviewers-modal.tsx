@@ -23,6 +23,7 @@ import { rpc } from "@/lib/client/rpc";
 import { useModalPagination } from "@/lib/client/use-modal-pagination";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { getMinimaxVoiceMeta } from "@arc/db-schema/minimax-voices";
+import { useHasPermission } from "@/hooks/use-has-permission";
 import { ScopedJobDescriptionsModal } from "./scoped-job-descriptions-modal";
 
 interface ScopedInterviewersModalProps {
@@ -51,6 +52,7 @@ export function ScopedInterviewersModal({
 }: ScopedInterviewersModalProps) {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
+  const canReadJobDescriptions = useHasPermission("jd", "read");
   const { page, pageSize, setPage, setPageSize } = useModalPagination(DEFAULT_PAGE_SIZE);
   // 当前点开"引用岗位"的那位面试官；null 时嵌套 JD 弹窗关闭。
   // The interviewer whose referenced JDs are being inspected; null = closed.
@@ -120,8 +122,8 @@ export function ScopedInterviewersModal({
       }),
       customColumn<InterviewerListRecord>({
         cell: (r) => {
-          if (r.jobDescriptionCount === 0) {
-            return "0 个岗位";
+          if (r.jobDescriptionCount === 0 || !canReadJobDescriptions) {
+            return `${r.jobDescriptionCount} 个岗位`;
           }
           return (
             <Button
@@ -138,7 +140,7 @@ export function ScopedInterviewersModal({
         title: "引用岗位",
       }),
     ],
-    [],
+    [canReadJobDescriptions],
   );
 
   return (
@@ -194,7 +196,7 @@ export function ScopedInterviewersModal({
             setNestedInterviewer(null);
           }
         }}
-        open={nestedInterviewer !== null}
+        open={canReadJobDescriptions && nestedInterviewer !== null}
         scope={
           nestedInterviewer
             ? { id: nestedInterviewer.id, name: nestedInterviewer.name, type: "interviewer" }

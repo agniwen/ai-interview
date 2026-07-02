@@ -77,6 +77,7 @@ import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
 import { JobDescriptionViewDialog } from "@/components/features/studio/interviews/job-description-view-dialog";
+import { useHasPermission } from "@/hooks/use-has-permission";
 
 const ResumeDocumentPreviewDialog = lazy(async () => {
   const mod = await import("@/components/features/resume/resume-document-preview-dialog");
@@ -173,6 +174,9 @@ function InterviewManagementPage() {
   const navigate = useNavigate();
   const routeSearch = useSearch({ from: "/w/$slug/studio/interviews" });
   const queryClient = useQueryClient();
+  const canUpdateInterview = useHasPermission("interview", "update");
+  const canDeleteInterview = useHasPermission("interview", "delete");
+  const canReadJobDescriptions = useHasPermission("jd", "read");
 
   // 拉取轮次列表（含分页 / 搜索 / 状态过滤）。
   // Fetch the round list with pagination / search / status filtering.
@@ -324,7 +328,7 @@ function InterviewManagementPage() {
   // Column definitions: round-keyed; candidate info shown as snapshot columns.
   const columns = useMemo(
     () => [
-      selectColumn<StudioInterviewRoundListRecord>(),
+      ...(canDeleteInterview ? [selectColumn<StudioInterviewRoundListRecord>()] : []),
       customColumn<StudioInterviewRoundListRecord>({
         cell: (r) => {
           const documentKind = getResumeDocumentFileIconKind({ fileName: r.resumeFileName });
@@ -392,7 +396,13 @@ function InterviewManagementPage() {
             ? [r.jobDescriptionDepartmentName, r.jobDescriptionName].filter(Boolean).join(" / ")
             : null;
 
-          return label ? (
+          if (!label) {
+            return <span className="text-muted-foreground">—</span>;
+          }
+          if (!canReadJobDescriptions) {
+            return <span className="truncate text-left">{label}</span>;
+          }
+          return (
             <button
               className="truncate text-left underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60"
               onClick={() => r.jobDescriptionId && setViewJobDescriptionId(r.jobDescriptionId)}
@@ -400,8 +410,6 @@ function InterviewManagementPage() {
             >
               {label}
             </button>
-          ) : (
-            <span className="text-muted-foreground">—</span>
           );
         },
         key: "jobDescriptionName",
@@ -465,6 +473,7 @@ function InterviewManagementPage() {
             disabledReason: aiStageLockedReason,
             label: "编辑",
             onClick: (r) => setEditRecordId(r.id),
+            show: () => canUpdateInterview,
           },
         ],
         menu: [
@@ -481,12 +490,13 @@ function InterviewManagementPage() {
           {
             label: "删除",
             onClick: (r) => setDeleteRecord(r),
+            show: () => canDeleteInterview,
             variant: "destructive",
           },
         ],
       }),
     ],
-    [],
+    [canDeleteInterview, canReadJobDescriptions, canUpdateInterview],
   );
 
   // 状态过滤选项：对应 round 级状态枚举。
@@ -566,7 +576,7 @@ function InterviewManagementPage() {
   // 删除单条：目前以 roundId 调用旧 candidateId 端点，T5 修正前暂时会 404。
   // Delete single: calling old candidateId endpoint with roundId for now — will 404 until T5.
   async function handleDelete() {
-    if (!deleteRecord) {
+    if (!(deleteRecord && canDeleteInterview)) {
       return;
     }
     try {
@@ -580,6 +590,9 @@ function InterviewManagementPage() {
   }
 
   async function handleBulkDelete() {
+    if (!canDeleteInterview) {
+      return;
+    }
     const ids = Object.keys(grid.rowSelection).filter((id) => grid.rowSelection[id]);
     if (ids.length === 0) {
       return;
@@ -609,19 +622,26 @@ function InterviewManagementPage() {
           {...grid.bind}
           columns={columns}
           getRowId={(r) => r.id}
-          columnPinning={{ left: ["select", "candidateName"], right: ["actions"] }}
+          columnPinning={{
+            left: canDeleteInterview ? ["select", "candidateName"] : ["candidateName"],
+            right: ["actions"],
+          }}
           filters={filtersConfig}
           headerExtra={stats}
-          bulkActions={({ selectedIds }) => (
-            <Button
-              className="flex-1 sm:flex-none"
-              onClick={() => setBulkDeleteOpen(true)}
-              variant="destructive"
-            >
-              <IconTrash className="size-4" />
-              批量删除 ({selectedIds.length})
-            </Button>
-          )}
+          bulkActions={
+            canDeleteInterview
+              ? ({ selectedIds }) => (
+                  <Button
+                    className="flex-1 sm:flex-none"
+                    onClick={() => setBulkDeleteOpen(true)}
+                    variant="destructive"
+                  >
+                    <IconTrash className="size-4" />
+                    批量删除 ({selectedIds.length})
+                  </Button>
+                )
+              : undefined
+          }
           empty={
             <Empty className="border-border">
               <EmptyHeader>
@@ -659,14 +679,16 @@ function InterviewManagementPage() {
       />
 
       {/* 编辑 dialog：T5 修正写入路径。/ Edit dialog: T5 fixes the write path. */}
-      <StudioPersonEditDialog
-        mode="interview"
-        onEditResumeRecord={setResumeEditRecordId}
-        onOpenChange={(open) => !open && setEditRecordId(null)}
-        onUpdated={invalidateAll}
-        open={editRecordId !== null}
-        recordId={editRecordId}
-      />
+      {canUpdateInterview ? (
+        <StudioPersonEditDialog
+          mode="interview"
+          onEditResumeRecord={setResumeEditRecordId}
+          onOpenChange={(open) => !open && setEditRecordId(null)}
+          onUpdated={invalidateAll}
+          open={editRecordId !== null}
+          recordId={editRecordId}
+        />
+      ) : null}
 
       <StudioPersonEditDialog
         mode="resume"
@@ -678,7 +700,7 @@ function InterviewManagementPage() {
 
       <AlertDialog
         onOpenChange={(open) => !open && setDeleteRecord(null)}
-        open={deleteRecord !== null}
+        open={canDeleteInterview && deleteRecord !== null}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -697,7 +719,7 @@ function InterviewManagementPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog onOpenChange={setBulkDeleteOpen} open={bulkDeleteOpen}>
+      <AlertDialog onOpenChange={setBulkDeleteOpen} open={canDeleteInterview && bulkDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -748,7 +770,7 @@ function InterviewManagementPage() {
         : null}
 
       <JobDescriptionViewDialog
-        jobDescriptionId={viewJobDescriptionId}
+        jobDescriptionId={canReadJobDescriptions ? viewJobDescriptionId : null}
         onOpenChange={(open) => !open && setViewJobDescriptionId(null)}
       />
     </>

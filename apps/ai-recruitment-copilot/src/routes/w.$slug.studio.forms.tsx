@@ -59,6 +59,7 @@ import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { CandidateFormTemplateEditorDialog } from "@/components/features/studio/forms/form-template-editor-dialog";
 import { FormTemplateAiCreateDialog } from "@/components/features/studio/forms/form-template-ai-create-dialog";
 import { CandidateFormTemplateSubmissionsDrawer } from "@/components/features/studio/forms/form-template-submissions-drawer";
+import { useHasPermission } from "@/hooks/use-has-permission";
 
 function scopeLabel(scope: CandidateFormScope) {
   return scope === "global" ? "全局" : "岗位绑定";
@@ -90,6 +91,9 @@ function CandidateFormTemplateManagementPage({
 }) {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
+  const canCreateCandidateForm = useHasPermission("candidateForm", "create");
+  const canUpdateCandidateForm = useHasPermission("candidateForm", "update");
+  const canDeleteCandidateForm = useHasPermission("candidateForm", "delete");
 
   const fetchTemplates = useMemo(
     () =>
@@ -226,6 +230,10 @@ function CandidateFormTemplateManagementPage({
     if (!activeTemplateId || lastLoadedTemplateRef.current === activeTemplateId) {
       return;
     }
+    if (!canUpdateCandidateForm) {
+      void setActiveTemplateId(null);
+      return;
+    }
     lastLoadedTemplateRef.current = activeTemplateId;
     let cancelled = false;
     void (async () => {
@@ -247,6 +255,7 @@ function CandidateFormTemplateManagementPage({
     };
   }, [
     activeTemplateId,
+    canUpdateCandidateForm,
     loadTemplateDetailById,
     setActiveTemplateId,
     setEditingRecord,
@@ -357,6 +366,7 @@ function CandidateFormTemplateManagementPage({
             onClick: (r) => {
               void crud.openEdit(r);
             },
+            show: () => canUpdateCandidateForm,
           },
         ],
         // 行的归档态决定显示「归档」还是「取消归档」；show 回调按状态二选一。
@@ -369,19 +379,19 @@ function CandidateFormTemplateManagementPage({
           {
             label: "归档",
             onClick: (r) => crud.setDeleteRecord(r),
-            show: (r) => !r.archivedAt,
+            show: (r) => canDeleteCandidateForm && !r.archivedAt,
             variant: "destructive",
           },
           {
             label: "取消归档",
             onClick: (r) => void unarchiveTemplate(r),
-            show: (r) => Boolean(r.archivedAt),
+            show: (r) => canUpdateCandidateForm && Boolean(r.archivedAt),
           },
         ],
       }),
     ],
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [canDeleteCandidateForm, canUpdateCandidateForm],
   );
 
   const filtersConfig = useMemo(
@@ -423,6 +433,9 @@ function CandidateFormTemplateManagementPage({
     jobDescriptionId: string;
     questions: CandidateFormTemplateInput["questions"];
   }) {
+    if (!canCreateCandidateForm) {
+      return;
+    }
     setCreateDraft({
       description: "",
       jobDescriptionIds: [jobDescriptionId],
@@ -464,28 +477,30 @@ function CandidateFormTemplateManagementPage({
                   创建后，符合作用域的面试开始前，候选人会先被要求填写表单。
                 </EmptyDescription>
               </EmptyHeader>
-              <EmptyContent className="flex items-center justify-center">
-                <ButtonGroup>
-                  <Button
-                    onClick={() => {
-                      setCreateDraft(null);
-                      crud.openCreate();
-                    }}
-                  >
-                    <IconPlus className="size-4" />
-                    新建面试表单
-                  </Button>
-                  <Button
-                    aria-label="AI 创建面试表单"
-                    onClick={() => setAiCreateOpen(true)}
-                    size="icon"
-                    title="AI 创建面试表单"
-                    type="button"
-                  >
-                    <IconSparkles className="size-4" />
-                  </Button>
-                </ButtonGroup>
-              </EmptyContent>
+              {canCreateCandidateForm ? (
+                <EmptyContent className="flex items-center justify-center">
+                  <ButtonGroup>
+                    <Button
+                      onClick={() => {
+                        setCreateDraft(null);
+                        crud.openCreate();
+                      }}
+                    >
+                      <IconPlus className="size-4" />
+                      新建面试表单
+                    </Button>
+                    <Button
+                      aria-label="AI 创建面试表单"
+                      onClick={() => setAiCreateOpen(true)}
+                      size="icon"
+                      title="AI 创建面试表单"
+                      type="button"
+                    >
+                      <IconSparkles className="size-4" />
+                    </Button>
+                  </ButtonGroup>
+                </EmptyContent>
+              ) : null}
             </Empty>
           }
           filters={filtersConfig}
@@ -511,50 +526,56 @@ function CandidateFormTemplateManagementPage({
           }
           getRowId={(r) => r.id}
           toolbarRight={
-            <ButtonGroup className="flex-1 sm:flex-none">
-              <Button
-                className="flex-1 sm:flex-none"
-                onClick={() => {
-                  setCreateDraft(null);
-                  crud.openCreate();
-                }}
-              >
-                <IconPlus className="size-4" />
-                新建面试表单
-              </Button>
-              <Button
-                aria-label="AI 创建面试表单"
-                onClick={() => setAiCreateOpen(true)}
-                size="icon"
-                title="AI 创建面试表单"
-                type="button"
-              >
-                <IconSparkles className="size-4" />
-              </Button>
-            </ButtonGroup>
+            canCreateCandidateForm ? (
+              <ButtonGroup className="flex-1 sm:flex-none">
+                <Button
+                  className="flex-1 sm:flex-none"
+                  onClick={() => {
+                    setCreateDraft(null);
+                    crud.openCreate();
+                  }}
+                >
+                  <IconPlus className="size-4" />
+                  新建面试表单
+                </Button>
+                <Button
+                  aria-label="AI 创建面试表单"
+                  onClick={() => setAiCreateOpen(true)}
+                  size="icon"
+                  title="AI 创建面试表单"
+                  type="button"
+                >
+                  <IconSparkles className="size-4" />
+                </Button>
+              </ButtonGroup>
+            ) : null
           }
         />
       </div>
 
-      <FormTemplateAiCreateDialog
-        jobDescriptions={jobDescriptions}
-        onGenerated={handleAiGenerated}
-        onOpenChange={setAiCreateOpen}
-        open={aiCreateOpen}
-      />
+      {canCreateCandidateForm ? (
+        <FormTemplateAiCreateDialog
+          jobDescriptions={jobDescriptions}
+          onGenerated={handleAiGenerated}
+          onOpenChange={setAiCreateOpen}
+          open={aiCreateOpen}
+        />
+      ) : null}
 
-      <CandidateFormTemplateEditorDialog
-        initialDraft={createDraft}
-        jobDescriptions={jobDescriptions}
-        key={editorDialogKey}
-        onOpenChange={onEditorOpenChange}
-        onSaved={() => {
-          grid.invalidate();
-          void queryClient.invalidateQueries({ queryKey: ["candidate-form-templates"] });
-        }}
-        open={crud.formDialogOpen}
-        record={crud.editingRecord}
-      />
+      {(crud.editingRecord ? canUpdateCandidateForm : canCreateCandidateForm) ? (
+        <CandidateFormTemplateEditorDialog
+          initialDraft={createDraft}
+          jobDescriptions={jobDescriptions}
+          key={editorDialogKey}
+          onOpenChange={onEditorOpenChange}
+          onSaved={() => {
+            grid.invalidate();
+            void queryClient.invalidateQueries({ queryKey: ["candidate-form-templates"] });
+          }}
+          open={crud.formDialogOpen}
+          record={crud.editingRecord}
+        />
+      ) : null}
 
       <CandidateFormTemplateSubmissionsDrawer
         onOpenChange={(value) => !value && setSubmissionsRecord(null)}
@@ -568,7 +589,7 @@ function CandidateFormTemplateManagementPage({
         }
         onClose={() => crud.setDeleteRecord(null)}
         onConfirm={crud.handleDelete}
-        record={crud.deleteRecord}
+        record={canDeleteCandidateForm ? crud.deleteRecord : null}
         title="确认归档这个面试表单？"
       />
     </>
