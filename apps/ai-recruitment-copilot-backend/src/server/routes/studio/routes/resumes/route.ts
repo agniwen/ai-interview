@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { getObjectBytes, getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
-import { studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
+import { interviewAuditLog, studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
 import { parseCsvParam } from "@arc/shared/csv";
 import { resumeReviewSchema } from "@arc/shared/resume-review";
 import type { ResumeReview } from "@arc/shared/resume-review";
@@ -66,7 +66,10 @@ import {
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
 import { deleteResumeSemanticIndexBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/lifecycle";
 import { autoBindApplicableTemplates } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/bindings";
-import { jobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import {
+  jobDescriptionIdsExist,
+  loadJobDescriptionById,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { syncResumeProfileIdentity } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/profile-sync";
 import { generateResumeReviewBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-generation";
@@ -877,6 +880,12 @@ export const resumeLibraryRouter = factory
           return c.json({ error: "所选在招岗位不存在。" }, 400);
         }
       }
+      const nextJobDescriptionId = input.data.jobDescriptionId || null;
+      const jobDescriptionChanged = existing.jobDescriptionId !== nextJobDescriptionId;
+      const nextJobDescription =
+        jobDescriptionChanged && nextJobDescriptionId
+          ? await loadJobDescriptionById(activeOrg.id, nextJobDescriptionId)
+          : null;
 
       const uploadResult =
         resume && c.var.user
@@ -929,15 +938,16 @@ export const resumeLibraryRouter = factory
 
       // 显式白名单写入 —— 绝不触碰 interviewQuestions / status / schedule。
       // Explicit whitelist write — never touches interviewQuestions / status / schedule.
+      const now = new Date();
       const update = {
         candidateEmail: input.data.candidateEmail || null,
         candidateName: input.data.candidateName || resumeProfile?.name || existing.candidateName,
         candidatePhone: input.data.candidatePhone || resumeProfile?.phone || null,
-        jobDescriptionId: input.data.jobDescriptionId || null,
+        jobDescriptionId: nextJobDescriptionId,
         notes: input.data.notes || null,
         resumeReview: nextResumeReview,
         targetRole: input.data.targetRole || resumeProfile?.targetRoles[0] || null,
-        updatedAt: new Date(),
+        updatedAt: now,
         ...resumeProfileUpdate,
       } satisfies Partial<typeof studioInterview.$inferInsert>;
 
@@ -954,6 +964,22 @@ export const resumeLibraryRouter = factory
             interviewId: id,
             organizationId: activeOrg.id,
             skills: resumeProfile?.skills,
+          });
+        }
+        if (jobDescriptionChanged) {
+          await tx.insert(interviewAuditLog).values({
+            action: "job_description_changed",
+            createdAt: now,
+            detail: {
+              fromJobDescriptionId: existing.jobDescriptionId,
+              fromJobDescriptionName: existing.jobDescriptionName,
+              toJobDescriptionId: nextJobDescriptionId,
+              toJobDescriptionName: nextJobDescription?.name ?? null,
+            },
+            id: crypto.randomUUID(),
+            interviewRecordId: id,
+            operatorId: c.var.user?.id ?? null,
+            organizationId: activeOrg.id,
           });
         }
       });

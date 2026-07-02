@@ -246,15 +246,22 @@ function getResumeAvatarValue(record: ResumeLibraryListRecord) {
 
 function ResumeCardMetaItem({
   children,
+  className,
   icon,
   label,
 }: {
   children: ReactNode;
+  className?: string;
   icon: ReactNode;
   label: string;
 }) {
   return (
-    <div className="flex h-6 min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
+    <div
+      className={cn(
+        "flex min-h-6 min-w-0 items-center gap-1.5 text-muted-foreground text-xs",
+        className,
+      )}
+    >
       <span aria-hidden className="inline-flex shrink-0 items-center text-muted-foreground/70">
         {icon}
       </span>
@@ -262,10 +269,6 @@ function ResumeCardMetaItem({
       <span className="min-w-0 truncate">{children}</span>
     </div>
   );
-}
-
-function ResumeCardMetaSeparator() {
-  return <span aria-hidden className="h-3 w-px shrink-0 bg-border" />;
 }
 
 function ResumeCardCreatorMeta({ image, name }: { image: string | null; name: string | null }) {
@@ -629,8 +632,12 @@ function ResumeLibraryCardComponent({
               />
             </div>
 
-            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-              <ResumeCardMetaItem icon={<IconBriefcase className="size-3.5" />} label="关联岗位">
+            <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2 2xl:grid-cols-3">
+              <ResumeCardMetaItem
+                className="sm:col-span-2 2xl:col-span-1"
+                icon={<IconBriefcase className="size-3.5" />}
+                label="关联岗位"
+              >
                 {jobDescriptionId && jobDescriptionLabel ? (
                   <button
                     className={jobDescriptionTextClass}
@@ -642,25 +649,23 @@ function ResumeLibraryCardComponent({
                     }}
                     type="button"
                   >
-                    关联岗位：{jobDescriptionLabel}
+                    {jobDescriptionLabel}
                   </button>
                 ) : (
                   <span className={cn(jobDescriptionTextClass, "text-muted-foreground")}>
-                    关联岗位：未绑定
+                    未绑定岗位
                   </span>
                 )}
               </ResumeCardMetaItem>
-              <ResumeCardMetaSeparator />
-              <ResumeCardCreatorMeta image={record.creatorImage} name={record.creatorName} />
-              <ResumeCardMetaSeparator />
-              <span className="inline-flex h-6 items-center text-muted-foreground text-xs">
+              <div className="min-w-0">
+                <ResumeCardCreatorMeta image={record.creatorImage} name={record.creatorName} />
+              </div>
+              <span className="inline-flex min-h-6 min-w-0 items-center text-muted-foreground text-xs">
                 <TimeDisplay as="span" emptyText="—" value={record.createdAt} />
               </span>
-              <ResumeCardMetaSeparator />
               <ResumeCardMetaItem icon={<IconMail className="size-3.5" />} label="邮箱">
                 {formatResumeCardContact(record.candidateEmail, "未填写邮箱")}
               </ResumeCardMetaItem>
-              <ResumeCardMetaSeparator />
               <ResumeCardMetaItem icon={<IconPhone className="size-3.5" />} label="电话">
                 {formatResumeCardContact(record.candidatePhone, "未填写电话")}
               </ResumeCardMetaItem>

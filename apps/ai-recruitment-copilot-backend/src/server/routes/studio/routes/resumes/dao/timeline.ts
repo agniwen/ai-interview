@@ -140,6 +140,19 @@ function resumeEvaluationLabel(value: unknown): string {
   return isResumeEvaluationStatus(value) ? describeResumeEvaluationStatus(value).label : "未知状态";
 }
 
+function jobDescriptionChangeLabel(
+  detail: Record<string, unknown>,
+  idKey: "fromJobDescriptionId" | "toJobDescriptionId",
+  nameKey: "fromJobDescriptionName" | "toJobDescriptionName",
+) {
+  const name = typeof detail[nameKey] === "string" ? detail[nameKey].trim() : "";
+  if (name) {
+    return name;
+  }
+  const id = typeof detail[idKey] === "string" ? detail[idKey].trim() : "";
+  return id || "未绑定岗位";
+}
+
 function auditDescription(detail: Record<string, unknown>, action: string): string | null {
   if (action === "candidate_transition") {
     const from = stageLabel(detail.fromStage);
@@ -161,6 +174,15 @@ function auditDescription(detail: Record<string, unknown>, action: string): stri
   if (action === "resume_evaluation_updated") {
     return `评估状态：${resumeEvaluationLabel(detail.fromStatus)} -> ${resumeEvaluationLabel(detail.toStatus)}`;
   }
+  if (action === "job_description_changed") {
+    const from = jobDescriptionChangeLabel(
+      detail,
+      "fromJobDescriptionId",
+      "fromJobDescriptionName",
+    );
+    const to = jobDescriptionChangeLabel(detail, "toJobDescriptionId", "toJobDescriptionName");
+    return `${from} -> ${to}`;
+  }
   return null;
 }
 
@@ -180,6 +202,9 @@ function auditTitle(action: string): string {
     }
     case "resume_evaluation_updated": {
       return "简历评估状态变更";
+    }
+    case "job_description_changed": {
+      return "关联岗位已变更";
     }
     default: {
       return "系统操作";
@@ -201,6 +226,9 @@ function auditTone(action: string): CandidateTimelineEventTone {
     return "info";
   }
   if (action === "resume_evaluation_updated") {
+    return "info";
+  }
+  if (action === "job_description_changed") {
     return "info";
   }
   return "muted";

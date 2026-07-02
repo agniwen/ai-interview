@@ -26,6 +26,7 @@ const createFromStorageSource = readFileSync(
 );
 const evaluationDaoSource = readFileSync(new URL("../dao/evaluation.ts", import.meta.url), "utf-8");
 const resumeDaoSource = readFileSync(new URL("../dao/resumes.ts", import.meta.url), "utf-8");
+const timelineDaoSource = readFileSync(new URL("../dao/timeline.ts", import.meta.url), "utf-8");
 const resumePoolDaoSource = readFileSync(
   new URL("../../resume-pool/dao.ts", import.meta.url),
   "utf-8",
@@ -320,5 +321,23 @@ describe("resume review detail route", () => {
     expect(routeSource).toContain("let resumeReview = resumeReviewInput.data");
     expect(routeSource).toContain("generatedReview?.structuredReview ?? null");
     expect(routeSource).toContain("resumeReview,");
+  });
+});
+
+describe("resume library job description audit log", () => {
+  it("records and renders an audit log when the linked job description changes", () => {
+    expect(routeSource).toContain(
+      "const nextJobDescriptionId = input.data.jobDescriptionId || null",
+    );
+    expect(routeSource).toContain(
+      "const jobDescriptionChanged = existing.jobDescriptionId !== nextJobDescriptionId",
+    );
+    expect(routeSource).toContain('action: "job_description_changed"');
+    expect(routeSource).toContain("fromJobDescriptionId: existing.jobDescriptionId");
+    expect(routeSource).toContain("toJobDescriptionId: nextJobDescriptionId");
+    expect(timelineDaoSource).toContain('if (action === "job_description_changed")');
+    expect(timelineDaoSource).toContain("fromJobDescriptionName");
+    expect(timelineDaoSource).toContain("toJobDescriptionName");
+    expect(timelineDaoSource).toContain("关联岗位已变更");
   });
 });
