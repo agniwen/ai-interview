@@ -93,4 +93,14 @@ describe("PipelineStageActionBar compact stage rail", () => {
     expect(source).toContain("if (canAdvanceToOffer) {");
     expect(source).toContain("if (canManageHumanInterview) {");
   });
+
+  it("requires completed human interview feedback before advancing to offer", () => {
+    expect(source).toContain("humanInterviewFeedbackComplete?: boolean;");
+    expect(source).toContain("resolveOfferAdvanceDisabledReason");
+    expect(source).toContain("OfferAdvanceButton");
+    expect(source).toContain("请先完成所有真人面试轮次，并补全每轮面试评价");
+    expect(source).toContain("aria-disabled={Boolean(disabledReason)}");
+    expect(source).toContain("<TooltipTrigger asChild>{button}</TooltipTrigger>");
+    expect(source).toContain("humanInterviewFeedbackComplete");
+  });
 });

@@ -45,6 +45,7 @@ export interface AiInterviewProgress {
 export interface HumanInterviewProgress {
   totalRounds: number;
   completedRounds: number;
+  completedRoundsMissingFeedback: number;
   passedRounds: number;
   failedRounds: number;
   activeRound: {

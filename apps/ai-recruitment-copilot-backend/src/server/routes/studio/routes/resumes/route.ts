@@ -34,6 +34,7 @@ import {
   queryPaginatedResumeRecords,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
 import {
+  resetResumeEvaluationForJobChange,
   submitResumeEvaluationOnce,
   updateResumeEvaluationStatus,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/evaluation";
@@ -984,10 +985,19 @@ export const resumeLibraryRouter = factory
         }
       });
       const nextResumeEvaluationStatus =
-        input.data.resumeEvaluationStatus === "unreviewed"
+        jobDescriptionChanged || input.data.resumeEvaluationStatus === "unreviewed"
           ? null
           : input.data.resumeEvaluationStatus;
-      if (nextResumeEvaluationStatus !== existing.resumeEvaluationStatus) {
+      if (jobDescriptionChanged && existing.resumeEvaluationStatus) {
+        await resetResumeEvaluationForJobChange({
+          id,
+          nextJobDescriptionId,
+          operatorId: c.var.user?.id ?? null,
+          organizationId: activeOrg.id,
+          previousJobDescriptionId: existing.jobDescriptionId,
+          previousStatus: existing.resumeEvaluationStatus,
+        });
+      } else if (nextResumeEvaluationStatus !== existing.resumeEvaluationStatus) {
         await updateResumeEvaluationStatus({
           id,
           operatorId: c.var.user?.id ?? null,

@@ -579,6 +579,7 @@ describe("queryPaginatedResumeRecords", () => {
           status: "pending",
         },
         completedRounds: 2,
+        completedRoundsMissingFeedback: 2,
         failedRounds: 1,
         passedRounds: 1,
         totalRounds: 3,

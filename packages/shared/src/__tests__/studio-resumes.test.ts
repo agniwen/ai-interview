@@ -234,6 +234,7 @@ describe("describeResumeProgress", () => {
               status: "pending",
             },
             completedRounds: 0,
+            completedRoundsMissingFeedback: 0,
             failedRounds: 0,
             passedRounds: 0,
             totalRounds: 2,
@@ -264,6 +265,7 @@ describe("describeResumeProgress", () => {
               status: "pending",
             },
             completedRounds: 0,
+            completedRoundsMissingFeedback: 0,
             failedRounds: 0,
             passedRounds: 0,
             totalRounds: 1,
@@ -287,6 +289,7 @@ describe("describeResumeProgress", () => {
           humanInterview: {
             activeRound: null,
             completedRounds: 2,
+            completedRoundsMissingFeedback: 0,
             failedRounds: 0,
             passedRounds: 2,
             totalRounds: 2,

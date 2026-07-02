@@ -286,6 +286,7 @@ describe("human interview rounds DAO", () => {
       organizationId: ORG,
     });
     await completeHumanInterviewRound({
+      feedback: "通过",
       organizationId: ORG,
       outcome: "pass",
       roundId: round2.id,
@@ -476,6 +477,7 @@ describe("human interview meetings DAO", () => {
       organizationId: ORG,
     });
     await completeHumanInterviewRound({
+      feedback: "通过",
       organizationId: ORG,
       outcome: "pass",
       roundId: round.id,

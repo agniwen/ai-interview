@@ -340,4 +340,13 @@ describe("resume library job description audit log", () => {
     expect(timelineDaoSource).toContain("toJobDescriptionName");
     expect(timelineDaoSource).toContain("关联岗位已变更");
   });
+
+  it("resets the resume evaluation when the linked job description changes", () => {
+    expect(routeSource).toContain("resetResumeEvaluationForJobChange");
+    expect(routeSource).toContain("jobDescriptionChanged && existing.resumeEvaluationStatus");
+    expect(evaluationDaoSource).toContain("resume_evaluation_reset_for_job_change");
+    expect(evaluationDaoSource).toContain("岗位变更后需重新评估");
+    expect(timelineDaoSource).toContain("resume_evaluation_reset_for_job_change");
+    expect(timelineDaoSource).toContain("简历评估已重置");
+  });
 });

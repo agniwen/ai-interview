@@ -64,7 +64,9 @@ import {
   createHumanInterviewRound,
   editHumanInterviewRound,
   EditRoundError,
+  getHumanInterviewOfferReadinessError,
   listHumanInterviewRounds,
+  loadHumanInterviewRoundReadiness,
   maybeAdvanceToHumanInterview,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/human-interview-rounds";
 import {
@@ -194,10 +196,10 @@ async function canManageStageTransition(headers: Headers, target: string): Promi
   return true;
 }
 
-// 真人复面：「标记完成」的 input。outcome 必填，score / feedback 可选。
+// 真人复面：「标记完成」的 input。outcome / feedback 必填，score 可选。
 // Human interview "mark complete" input. Outcome required.
 const completeHumanRoundSchema = z.object({
-  feedback: z.string().trim().max(5000).nullable().optional(),
+  feedback: z.string().trim().min(1, "请填写面试评价").max(5000),
   outcome: humanInterviewRoundOutcomeSchema,
   score: z.number().int().min(0).max(100).nullable().optional(),
 });
@@ -1389,6 +1391,13 @@ export const studioInterviewsRouter = factory
         if (!existing) {
           return { kind: "not_found" as const };
         }
+        if (existing.pipelineStage === "human_interview" && input.pipelineStage === "offer") {
+          const readiness = await loadHumanInterviewRoundReadiness(candidateId, activeOrg.id);
+          const readinessError = getHumanInterviewOfferReadinessError(readiness);
+          if (readinessError) {
+            return { kind: "human_interview_not_ready" as const, message: readinessError };
+          }
+        }
         // 同态写入直接 200，避免无谓审计噪音。
         // No-op writes short-circuit to keep the audit log clean.
         if (
@@ -1422,6 +1431,9 @@ export const studioInterviewsRouter = factory
 
       if (result.kind === "not_found") {
         return c.json({ error: "候选人记录不存在。" }, 404);
+      }
+      if (result.kind === "human_interview_not_ready") {
+        return c.json({ error: result.message }, 400);
       }
       // noop 路径不写库也不刷缓存，但仍返回 200 让客户端把请求当作成功完成。
       // No-op path skips cache invalidation but still returns 200 to clients.
@@ -1526,6 +1538,9 @@ export const studioInterviewsRouter = factory
       }
       if (candidate.pipelineStage === "closed") {
         return c.json({ error: "已结案的候选人请先重新激活。" }, 400);
+      }
+      if (candidate.pipelineStage === "offer") {
+        return c.json({ error: "候选人已进入 Offer 阶段，不能再新建真人面试轮次。" }, 400);
       }
 
       const input = c.req.valid("json");
@@ -1700,6 +1715,13 @@ export const studioInterviewsRouter = factory
       }
       if (candidate.pipelineStage === "closed") {
         return c.json({ error: "已结案的候选人请先重新激活。" }, 400);
+      }
+      if (candidate.pipelineStage === "human_interview") {
+        const readiness = await loadHumanInterviewRoundReadiness(recordId, activeOrg.id);
+        const readinessError = getHumanInterviewOfferReadinessError(readiness);
+        if (readinessError) {
+          return c.json({ error: readinessError }, 400);
+        }
       }
 
       const { sendImmediately, ...input } = c.req.valid("json");

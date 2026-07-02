@@ -495,7 +495,7 @@ export function completeHumanInterviewRound(
   slug: string,
   candidateId: string,
   roundId: string,
-  input: { outcome: HumanInterviewRoundOutcome; score?: number | null; feedback?: string | null },
+  input: { outcome: HumanInterviewRoundOutcome; score?: number | null; feedback: string },
 ): Promise<HumanInterviewRoundRecord> {
   return rpcFetch<HumanInterviewRoundRecord>(
     rpc.api.w[":slug"].studio.interviews[":id"]["human-interview-rounds"][

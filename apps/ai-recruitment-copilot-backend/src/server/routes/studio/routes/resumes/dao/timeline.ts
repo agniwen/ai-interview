@@ -174,6 +174,9 @@ function auditDescription(detail: Record<string, unknown>, action: string): stri
   if (action === "resume_evaluation_updated") {
     return `评估状态：${resumeEvaluationLabel(detail.fromStatus)} -> ${resumeEvaluationLabel(detail.toStatus)}`;
   }
+  if (action === "resume_evaluation_reset_for_job_change") {
+    return typeof detail.reason === "string" ? detail.reason : "岗位变更后需重新评估";
+  }
   if (action === "job_description_changed") {
     const from = jobDescriptionChangeLabel(
       detail,
@@ -203,6 +206,9 @@ function auditTitle(action: string): string {
     case "resume_evaluation_updated": {
       return "简历评估状态变更";
     }
+    case "resume_evaluation_reset_for_job_change": {
+      return "简历评估已重置";
+    }
     case "job_description_changed": {
       return "关联岗位已变更";
     }
@@ -227,6 +233,9 @@ function auditTone(action: string): CandidateTimelineEventTone {
   }
   if (action === "resume_evaluation_updated") {
     return "info";
+  }
+  if (action === "resume_evaluation_reset_for_job_change") {
+    return "warning";
   }
   if (action === "job_description_changed") {
     return "info";

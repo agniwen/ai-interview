@@ -1214,8 +1214,12 @@ function CompleteRoundDialog({
       ) {
         throw new Error("评分需为 0-100 的数字");
       }
+      const trimmedFeedback = feedback.trim();
+      if (!trimmedFeedback) {
+        throw new Error("请填写面试评价");
+      }
       return completeHumanInterviewRound(slug, candidateId, round.id, {
-        feedback: feedback.trim() || null,
+        feedback: trimmedFeedback,
         outcome,
         score: parsedScore,
       });
@@ -1277,12 +1281,13 @@ function CompleteRoundDialog({
 
           <div className="grid gap-1.5">
             <Label className="text-sm" htmlFor="round-feedback">
-              反馈（可选）
+              反馈
             </Label>
             <Textarea
               id="round-feedback"
               maxLength={5000}
               onChange={(e) => setFeedback(e.target.value)}
+              required
               placeholder="对候选人的评价、亮点、不足……"
               rows={4}
               value={feedback}

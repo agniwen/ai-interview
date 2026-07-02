@@ -1667,6 +1667,10 @@ function useStudioPersonDetailPanel({
           resumeRecord.stageProgress.humanInterview.totalRounds > 0 &&
           resumeRecord.stageProgress.humanInterview.activeRound === null,
         )}
+        humanInterviewFeedbackComplete={Boolean(
+          resumeRecord?.stageProgress.humanInterview &&
+          resumeRecord.stageProgress.humanInterview.completedRoundsMissingFeedback === 0,
+        )}
         canManageHumanInterview={canManageHumanInterview}
         canManageOffer={canManageOffer}
         onAdvance={(target) => {
