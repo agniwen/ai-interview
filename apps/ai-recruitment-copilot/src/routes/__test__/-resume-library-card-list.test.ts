@@ -40,6 +40,10 @@ describe("ResumeLibraryPage card list", () => {
       cardSourceFile.indexOf("function ResumeCardCreatorMeta("),
       cardSourceFile.indexOf("function ResumeCardProfileSnapshot("),
     );
+    const metaItemSource = cardSourceFile.slice(
+      cardSourceFile.indexOf("function ResumeCardMetaItem("),
+      cardSourceFile.indexOf("function ResumeCardCreatorMeta("),
+    );
 
     expect(cardSource).toContain("duplicateMatchBadge(record");
     expect(cardSource).toContain("ResumeLifecycleBadge");
@@ -67,6 +71,9 @@ describe("ResumeLibraryPage card list", () => {
     expect(cardSource).toContain("decoration-transparent");
     expect(cardSource).toContain("hover:decoration-foreground/40");
     expect(cardSource).toContain("jobDescriptionTextClass");
+    expect(cardSource).toContain("block w-full max-w-full");
+    expect(metaItemSource).toContain("flex min-h-6 w-full min-w-0");
+    expect(metaItemSource).toContain("min-w-0 flex-1 truncate");
     expect(cardSource).not.toContain("关联岗位：");
     expect(cardSource).toContain("未绑定岗位");
     expect(cardSource).not.toContain("pointer-events-none text-muted-foreground no-underline");
@@ -80,22 +87,35 @@ describe("ResumeLibraryPage card list", () => {
     expect(cardSource).toContain("2xl:col-span-1");
     expect(cardSource).toContain("ResumeCardCreatorMeta");
     expect(cardSource).toContain("record.creatorImage");
+    expect(creatorMetaSource).toContain("IconUpload");
+    expect(creatorMetaSource).toContain("上传人");
+    expect(creatorMetaSource).toContain("flex h-6 w-full min-w-0");
     expect(creatorMetaSource).toContain("<Avatar");
+    expect(creatorMetaSource).toContain("size-4! shrink-0");
     expect(creatorMetaSource).toContain("<AvatarImage");
     expect(creatorMetaSource).toContain("<AvatarFallback");
+    expect(creatorMetaSource).toContain("min-w-0 flex-1 truncate");
     expect(cardSource).toContain("value={record.createdAt}");
     expect(cardSource).not.toContain("rounded-xl bg-muted/25 p-3 text-xs");
     expect(cardSource).toContain("record.resumeSkills");
     expect(cardSource).toContain("ResumeCardProfileSnapshot");
     expect(cardSource).toContain("record.resumeProfileSnapshot");
+    expect(cardSourceFile).toContain("snapshot.work.slice(0, 3)");
+    expect(cardSourceFile).toContain("snapshot.education.slice(0, 3)");
+    expect(cardSourceFile).toContain("snapshot.workHasMore");
+    expect(cardSourceFile).toContain("snapshot.educationHasMore");
+    expect(cardSourceFile).toContain('{"..."}');
+    expect(cardSourceFile).toContain("my-0.5 border-border/60 border-t");
+    expect(cardSourceFile.indexOf("snapshot.work.slice(0, 3)")).toBeLessThan(
+      cardSourceFile.indexOf("snapshot.education.slice(0, 3)"),
+    );
     expect(cardSource).toContain("record.resumeSummary");
     expect(cardSource).not.toContain("record.resumeProfile?.");
     expect(cardSource).not.toContain("record.resumeReview");
-    expect(cardSourceFile).toContain("ml-22");
-    expect(cardSourceFile).toContain("xl:ml-0");
     expect(cardSourceFile).toContain("content-start");
-    expect(cardSourceFile).toContain("xl:self-start");
-    expect(cardSourceFile).toContain("xl:pt-8.5");
+    expect(cardSourceFile).toContain("xl:col-span-2");
+    expect(cardSourceFile).toContain("xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)]");
+    expect(cardSourceFile).not.toContain("xl:pt-");
     expect(cardSourceFile).not.toContain("content-center");
     expect(cardSourceFile).not.toContain("xl:self-center");
     expect(cardSourceFile).toContain("text-[11px]");

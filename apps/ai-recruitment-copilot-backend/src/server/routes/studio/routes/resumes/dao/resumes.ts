@@ -26,6 +26,7 @@ import {
   pipelineStageValues,
   studioInterviewStatusMeta,
 } from "@arc/db-schema/studio-interviews";
+import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type {
   CandidateOutcome,
   PipelineStage,
@@ -50,6 +51,7 @@ const ORDER_COLUMNS = {
 } as const;
 
 const paginationSchema = makePaginationSchema(SORT_COLUMNS);
+const RESUME_PROFILE_SNAPSHOT_LIMIT = 3;
 
 // 允许调用方原样传入 CSV 拆分结果（可能含空串）；buildWhere 内统一 trim + drop blank。
 // Accept caller-supplied arrays that may contain empty/whitespace entries —
@@ -178,6 +180,10 @@ const SELECTED_COLUMNS = {
   outcome: studioInterview.outcome,
   pipelineStage: studioInterview.pipelineStage,
   resumeContentHash: studioInterview.resumeContentHash,
+  resumeEducationExperiences:
+    sql<unknown>`${studioInterview.resumeProfile}->'educationExperiences'`.as(
+      "resume_education_experiences",
+    ),
   resumeEducationGraduationYear: sql<
     string | null
   >`${studioInterview.resumeProfile}->'educationExperiences'->0->>'graduationYear'`.as(
@@ -219,6 +225,9 @@ const SELECTED_COLUMNS = {
   resumeWorkCompany: sql<
     string | null
   >`${studioInterview.resumeProfile}->'workExperiences'->0->>'company'`.as("resume_work_company"),
+  resumeWorkExperiences: sql<unknown>`${studioInterview.resumeProfile}->'workExperiences'`.as(
+    "resume_work_experiences",
+  ),
   resumeWorkPeriod: sql<
     string | null
   >`${studioInterview.resumeProfile}->'workExperiences'->0->>'period'`.as("resume_work_period"),
@@ -366,15 +375,93 @@ function buildResumeSkills(value: unknown) {
     .slice(0, 6);
 }
 
-function buildResumeProfileSnapshot(row: Row): ResumeLibraryProfileSnapshot {
+function toRecordArray(value: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter(
+    (item): item is Record<string, unknown> => typeof item === "object" && item !== null,
+  );
+}
+
+function cleanResumeProfileRecordText(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+  return typeof value === "string" ? cleanResumeProfileText(value) : null;
+}
+
+type ResumeProfileWorkExperience = ResumeProfile["workExperiences"][number];
+type ResumeProfileEducationExperience = NonNullable<ResumeProfile["educationExperiences"]>[number];
+
+function buildResumeWorkSnapshotLines(value: unknown): ResumeLibraryProfileSnapshot["work"] {
+  return toRecordArray(value).flatMap(
+    (item: Partial<ResumeProfileWorkExperience> & Record<string, unknown>) => {
+      const company = cleanResumeProfileRecordText(item, "company");
+      const role = cleanResumeProfileRecordText(item, "role");
+      const primary = company ?? role;
+      if (!primary) {
+        return [];
+      }
+      return [
+        {
+          period: formatResumeCardPeriod(cleanResumeProfileRecordText(item, "period")),
+          primary,
+          secondary: company ? role : null,
+        },
+      ];
+    },
+  );
+}
+
+function buildResumeEducationSnapshotLines(
+  value: unknown,
+): ResumeLibraryProfileSnapshot["education"] {
+  return toRecordArray(value).flatMap(
+    (item: Partial<ResumeProfileEducationExperience> & Record<string, unknown>) => {
+      const school = cleanResumeProfileRecordText(item, "school");
+      if (!school) {
+        return [];
+      }
+      return [
+        {
+          period:
+            formatResumeCardPeriod(cleanResumeProfileRecordText(item, "period")) ??
+            formatResumeCardPeriod(cleanResumeProfileRecordText(item, "graduationYear")),
+          primary: school,
+          secondary:
+            [
+              cleanResumeProfileRecordText(item, "major"),
+              cleanResumeProfileRecordText(item, "level"),
+            ]
+              .filter(Boolean)
+              .join(" · ") || null,
+        },
+      ];
+    },
+  );
+}
+
+function buildLegacyWorkSnapshotFallback(row: Row): ResumeLibraryProfileSnapshot["work"] {
   const workPrimary =
     cleanResumeProfileText(row.resumeWorkCompany) ?? cleanResumeProfileText(row.resumeWorkRole);
+  return workPrimary
+    ? [
+        {
+          period: formatResumeCardPeriod(row.resumeWorkPeriod),
+          primary: workPrimary,
+          secondary: cleanResumeProfileText(row.resumeWorkCompany)
+            ? cleanResumeProfileText(row.resumeWorkRole)
+            : null,
+        },
+      ]
+    : [];
+}
+
+function buildLegacyEducationSnapshotFallback(row: Row): ResumeLibraryProfileSnapshot["education"] {
   const educationSchool =
     cleanResumeProfileText(row.resumeEducationSchool) ?? cleanResumeProfileText(row.resumeSchool);
-
-  return {
-    education: educationSchool
-      ? {
+  return educationSchool
+    ? [
+        {
           period:
             formatResumeCardPeriod(row.resumeEducationPeriod) ??
             formatResumeCardPeriod(row.resumeEducationGraduationYear),
@@ -386,17 +473,59 @@ function buildResumeProfileSnapshot(row: Row): ResumeLibraryProfileSnapshot {
             ]
               .filter(Boolean)
               .join(" · ") || null,
-        }
-      : null,
-    work: workPrimary
-      ? {
-          period: formatResumeCardPeriod(row.resumeWorkPeriod),
-          primary: workPrimary,
-          secondary: cleanResumeProfileText(row.resumeWorkCompany)
-            ? cleanResumeProfileText(row.resumeWorkRole)
-            : null,
-        }
-      : null,
+        },
+      ]
+    : [];
+}
+
+function getResumeSnapshotDateRank(value: string): number | null {
+  const monthTokens = [...value.matchAll(/(\d{4})\.(\d{1,2})/gu)].map(([, year, month]) => {
+    const parsedMonth = Number(month);
+    return Number(year) * 12 + (parsedMonth >= 1 && parsedMonth <= 12 ? parsedMonth : 1);
+  });
+  if (monthTokens.length > 0) {
+    return monthTokens.at(-1) ?? null;
+  }
+
+  const yearTokens = [...value.matchAll(/(?:^|[^\d])(\d{4})(?=$|[^\d])/gu)].map(
+    ([, year]) => Number(year) * 12,
+  );
+  return yearTokens.at(-1) ?? null;
+}
+
+function getResumeSnapshotLineSortValue(line: ResumeLibraryProfileSnapshot["work"][number]) {
+  if (!line.period) {
+    return Number.NEGATIVE_INFINITY;
+  }
+  if (/(至今|现在|目前|present|current)/iu.test(line.period)) {
+    return Number.POSITIVE_INFINITY;
+  }
+  return getResumeSnapshotDateRank(line.period) ?? Number.NEGATIVE_INFINITY;
+}
+
+function sortResumeProfileSnapshotLines(
+  a: ResumeLibraryProfileSnapshot["work"][number],
+  b: ResumeLibraryProfileSnapshot["work"][number],
+) {
+  return getResumeSnapshotLineSortValue(b) - getResumeSnapshotLineSortValue(a);
+}
+
+function buildResumeProfileSnapshot(row: Row): ResumeLibraryProfileSnapshot {
+  const work = buildResumeWorkSnapshotLines(row.resumeWorkExperiences).toSorted(
+    sortResumeProfileSnapshotLines,
+  );
+  const education = buildResumeEducationSnapshotLines(row.resumeEducationExperiences).toSorted(
+    sortResumeProfileSnapshotLines,
+  );
+  const resolvedWork = work.length > 0 ? work : buildLegacyWorkSnapshotFallback(row);
+  const resolvedEducation =
+    education.length > 0 ? education : buildLegacyEducationSnapshotFallback(row);
+
+  return {
+    education: resolvedEducation.slice(0, RESUME_PROFILE_SNAPSHOT_LIMIT),
+    educationHasMore: resolvedEducation.length > RESUME_PROFILE_SNAPSHOT_LIMIT,
+    work: resolvedWork.slice(0, RESUME_PROFILE_SNAPSHOT_LIMIT),
+    workHasMore: resolvedWork.length > RESUME_PROFILE_SNAPSHOT_LIMIT,
   };
 }
 

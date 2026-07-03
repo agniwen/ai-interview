@@ -1243,7 +1243,6 @@ function useStudioPersonDetailPanel({
       return fetchStudioResume(slug, effectiveRecordId as string);
     },
     queryKey: ["studio-resumes", slug, "detail", effectiveRecordId, accessMode] as const,
-    staleTime: 30 * 1000,
   });
 
   // 面试报告与表单仅面试模式查询 / Reports and form submissions only in interview mode
@@ -1307,7 +1306,6 @@ function useStudioPersonDetailPanel({
         : fetchStudioResumeTimeline(slug, effectiveRecordId as string),
     queryKey: ["studio-resumes", slug, "timeline", effectiveRecordId, accessMode] as const,
     refetchOnWindowFocus: true,
-    staleTime: 15 * 1000,
   });
 
   // 中文：当前轮次的邮件发送摘要 — 用于轮次概览里发送按钮显示发送次数与最后一次时间。

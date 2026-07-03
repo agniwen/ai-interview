@@ -14,6 +14,25 @@ function expectSourceOrder(text: string, first: string, second: string) {
 }
 
 describe("StudioPersonDetailPanel visual density", () => {
+  it("keeps modal detail queries stale immediately so every open fetches fresh data", () => {
+    const resumeDetailQuerySource = sourceBetween(
+      "// 简历库模式查询 / Resume-mode record query",
+      "// 面试报告与表单仅面试模式查询 / Reports and form submissions only in interview mode",
+    );
+    const timelineQuerySource = sourceBetween(
+      "const { data: candidateTimeline, isLoading: isTimelineLoading } = useQuery({",
+      "// 中文：当前轮次的邮件发送摘要",
+    );
+    const interviewRoundQuerySource = sourceBetween(
+      "// 面试模式查询（`:id` = roundId）/ Interview-mode query (`:id` = roundId)",
+      "// 简历库模式查询 / Resume-mode record query",
+    );
+
+    expect(resumeDetailQuerySource).not.toContain("staleTime");
+    expect(timelineQuerySource).not.toContain("staleTime");
+    expect(interviewRoundQuerySource).not.toContain("staleTime");
+  });
+
   it("uses breathable tab spacing for resume and AI interview details", () => {
     expect(source).toContain('"flex flex-col gap-8"');
     expect(source).toContain('"min-w-0 flex flex-col gap-8"');

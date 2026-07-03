@@ -94,8 +94,10 @@ export interface ResumeLibraryProfileSnapshotLine {
 }
 
 export interface ResumeLibraryProfileSnapshot {
-  education: ResumeLibraryProfileSnapshotLine | null;
-  work: ResumeLibraryProfileSnapshotLine | null;
+  education: ResumeLibraryProfileSnapshotLine[];
+  educationHasMore: boolean;
+  work: ResumeLibraryProfileSnapshotLine[];
+  workHasMore: boolean;
 }
 
 /**
