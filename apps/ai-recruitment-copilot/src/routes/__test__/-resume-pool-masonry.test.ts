@@ -2,6 +2,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("../w.$slug.studio.resume-pool.tsx", import.meta.url), "utf-8");
+const resumePoolSharedSource = readFileSync(
+  new URL("../../../../../packages/shared/src/resume-pool.ts", import.meta.url),
+  "utf-8",
+);
 const educationLineSource = readFileSync(
   new URL("../../components/features/resume/resume-education-line.tsx", import.meta.url),
   "utf-8",
@@ -13,6 +17,9 @@ describe("ResumePoolPage masonry layout", () => {
   });
 
   it("shows the public pool tab before private resumes", () => {
+    expect(resumePoolSharedSource).toContain('public: { label: "公共简历池" }');
+    expect(resumePoolSharedSource).toContain('private: { label: "私有简历池" }');
+
     const publicTabIndex = source.indexOf('value="public"');
     const privateTabIndex = source.indexOf('value="private"');
 
@@ -82,7 +89,7 @@ describe("ResumePoolPage masonry layout", () => {
   });
 
   it("keeps a bottom refresh action as an unframed breathing area", () => {
-    expect(source).toContain("刷新简历广场");
+    expect(source).toContain("刷新公共简历池");
     expect(source).toContain("已显示全部简历");
     expect(source).toContain(
       'className="flex flex-col items-center gap-3 px-2 pt-5 pb-10 text-center text-muted-foreground text-sm"',
@@ -310,7 +317,7 @@ describe("ResumePoolPage masonry layout", () => {
     expect(actionsSource).toContain(
       'aria-label={scope === "private" ? "删除私有简历" : "删除简历"}',
     );
-    expect(actionsSource).toContain('aria-label="推送到简历广场"');
+    expect(actionsSource).toContain('aria-label="推送到公共简历池"');
     expect(actionsSource).toContain('"删除私有简历"');
     expect(actionsSource).toContain('"删除简历"');
     expect(actionsSource).toContain('size="icon-sm"');

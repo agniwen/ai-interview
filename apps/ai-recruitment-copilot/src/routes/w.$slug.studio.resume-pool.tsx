@@ -1101,12 +1101,12 @@ function ResumePoolCardActions({
       ) : null}
       {showPublishAction ? (
         <Button
-          aria-label="推送到简历广场"
+          aria-label="推送到公共简历池"
           className="shrink-0"
           disabled={publishing}
           onClick={() => onPublish(record)}
           size="icon-sm"
-          title="推送到简历广场"
+          title="推送到公共简历池"
           variant="outline"
         >
           <IconSend className="size-4" />
@@ -1732,7 +1732,7 @@ function ResumePoolPage() {
     mutationFn: (record: ResumePoolListRecord) => publishResumePoolItem(slug, record.id),
     onError: (error) => toast.error(error instanceof Error ? error.message : "推送失败"),
     onSuccess: () => {
-      toast.success("已推送到简历广场");
+      toast.success("已推送到公共简历池");
       invalidatePool();
     },
   });
@@ -1760,7 +1760,7 @@ function ResumePoolPage() {
   });
   const isDeletingPoolRecords = deleteMutation.isPending || bulkDeleteMutation.isPending;
 
-  const emptyTitle = scope === "private" ? "暂无私有简历" : "简历广场暂无简历";
+  const emptyTitle = scope === "private" ? "暂无私有简历池简历" : "公共简历池暂无简历";
   const filtersConfig = useMemo(
     () => [
       {
@@ -1907,7 +1907,7 @@ function ResumePoolPage() {
                 variant="outline"
               >
                 <IconRefresh className={`size-4 ${isPoolBusy ? "animate-spin" : ""}`} />
-                刷新简历广场
+                刷新公共简历池
               </Button>
             </div>
           ) : null}
@@ -1926,7 +1926,7 @@ function ResumePoolPage() {
       <ResumeUploadEntryDialog
         description="选择 1 份或多份 PDF，都会进入后台解析队列。"
         fileUploadDescription="可选择 1 份或多份 PDF，上传后在后台异步解析。"
-        fileUploadTitle="请选择要加入简历广场的简历文件"
+        fileUploadTitle="请选择要加入公共简历池的简历文件"
         onMultipleFilesPicked={(files) => handleQueuedUploadFilesPicked(files, uploadScope)}
         onOpenChange={setUploadEntryOpen}
         onSingleFilePicked={(file) => handleQueuedUploadFilesPicked([file], uploadScope)}

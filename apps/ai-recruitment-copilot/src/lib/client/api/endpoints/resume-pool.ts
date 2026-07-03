@@ -61,7 +61,7 @@ export function publishResumePoolItem(slug: string, id: string): Promise<ResumeP
     rpc.api.w[":slug"].studio["resume-pool"][":id"].publish.$post({
       param: { id, slug },
     }),
-    "推送到简历广场失败",
+    "推送到公共简历池失败",
   );
 }
 

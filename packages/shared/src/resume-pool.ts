@@ -120,6 +120,6 @@ export type ResumePoolImportResult =
   | ResumePoolImportSuccessResult;
 
 export const resumePoolScopeMeta: Record<ResumePoolScope, { label: string }> = {
-  private: { label: "私有简历" },
-  public: { label: "简历广场" },
+  private: { label: "私有简历池" },
+  public: { label: "公共简历池" },
 };
