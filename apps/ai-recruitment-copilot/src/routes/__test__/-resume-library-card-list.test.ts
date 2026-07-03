@@ -215,4 +215,21 @@ describe("ResumeLibraryPage card list", () => {
     expect(tabsSource).toContain("setRowSelection({});");
     expect(tabsSource).toContain('grid.setFilter("stage", value === "all" ? "" : value);');
   });
+
+  it("routes single-file uploads through the background batch flow", () => {
+    const singleUploadHandlerSource = source.slice(
+      source.indexOf("function handleSingleUploadFilePicked("),
+      source.indexOf("function handleMultipleUploadFilesPicked("),
+    );
+    const dialogSource = source.slice(
+      source.indexOf("<ResumeUploadEntryDialog"),
+      source.indexOf("<BulkUploadConfirmDialog"),
+    );
+
+    expect(singleUploadHandlerSource).toContain("setPendingFiles([file]);");
+    expect(singleUploadHandlerSource).toContain("setConfirmOpen(true);");
+    expect(singleUploadHandlerSource).not.toContain("setSingleUploadFile");
+    expect(singleUploadHandlerSource).not.toContain("setCreateDialogOpen(true)");
+    expect(dialogSource).not.toContain("<CreateResumeRecordDialog");
+  });
 });

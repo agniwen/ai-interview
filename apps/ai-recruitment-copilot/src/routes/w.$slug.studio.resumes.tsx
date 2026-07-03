@@ -96,8 +96,6 @@ import { StudioPersonDetailDialog } from "@/components/features/studio/studio-pe
 import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
 import { StudioResumeFloatingChat } from "@/components/features/studio/studio-resume-floating-chat";
 import { openStudioResumeChat } from "@/components/features/studio/studio-resume-chat";
-import { CreateResumeRecordDialog } from "@/components/features/studio/resumes/upload-resume-dialog";
-import type { CreateResumeRecordResult } from "@/components/features/studio/resumes/upload-resume-dialog";
 import {
   ResumeUploadEntryButton,
   ResumeUploadEntryDialog,
@@ -696,8 +694,6 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
   }, [queryClient, router]);
 
   const [uploadEntryOpen, setUploadEntryOpen] = useState(false);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [singleUploadFile, setSingleUploadFile] = useState<File | null>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
@@ -947,24 +943,9 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
     });
   }, [routeSearch, router, slug]);
 
-  // 保存：仅刷新列表。
-  // 保存并发起面试：刷新列表 + 立即打开该轮次的 AI 面试详情弹窗，
-  // 让用户能马上确认排期 / 复制邀请链接 / 查看生成的面试题。
-  //
-  // Save-only: refresh list. Save-and-start: refresh list AND pop the newly
-  // created round's AI interview detail dialog so the user can confirm the
-  // schedule, copy the invite link, and review generated questions in place.
-  function handleResumeRecordCreated(result: CreateResumeRecordResult) {
-    invalidateAll();
-    if (result.mode === "save-and-start") {
-      setInterviewDetailDefaultTab("overview");
-      setInterviewRoundDetailId(result.round.id);
-    }
-  }
-
   function handleSingleUploadFilePicked(file: File) {
-    setSingleUploadFile(file);
-    setCreateDialogOpen(true);
+    setPendingFiles([file]);
+    setConfirmOpen(true);
   }
 
   function handleMultipleUploadFilesPicked(files: File[]) {
@@ -1439,19 +1420,6 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
         onOpenChange={setUploadEntryOpen}
         onSingleFilePicked={handleSingleUploadFilePicked}
         open={uploadEntryOpen}
-      />
-
-      <CreateResumeRecordDialog
-        initialFile={singleUploadFile}
-        onCreated={handleResumeRecordCreated}
-        onMultipleFilesPicked={handleMultipleUploadFilesPicked}
-        onOpenChange={(open) => {
-          setCreateDialogOpen(open);
-          if (!open) {
-            setSingleUploadFile(null);
-          }
-        }}
-        open={createDialogOpen}
       />
 
       <BulkUploadConfirmDialog

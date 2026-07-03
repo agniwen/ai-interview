@@ -50,8 +50,8 @@ function validateResumeFiles(files: File[]) {
 
 export function ResumeUploadEntryDialog({
   disabled = false,
-  description = `选择 1 份简历会创建单条记录；选择多份会进入批量上传流程。支持 ${supportedResumeDocumentLabel}。`,
-  fileUploadDescription = `可选择 1 份或多份简历文件；多份将进入批量上传，最多 ${MAX_BULK_BATCH_SIZE} 份。`,
+  description = `选择 1 份或多份简历都会进入后台上传任务。支持 ${supportedResumeDocumentLabel}。`,
+  fileUploadDescription = `可选择 1 份或多份简历文件；上传后将在后台解析入库，最多 ${MAX_BULK_BATCH_SIZE} 份。`,
   fileUploadTitle = "请选择 1 份或多份简历文件",
   open,
   onMultipleFilesPicked,
