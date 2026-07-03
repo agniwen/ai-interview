@@ -1,7 +1,7 @@
 "use client";
 
 import { IconX } from "@tabler/icons-react";
-import { Dialog as DialogPrimitive } from "radix-ui";
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 
@@ -28,6 +28,7 @@ const SIZE_CLASS: Record<ModalSize, string> = {
 export interface ModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onOpenChangeComplete?: (open: boolean) => void;
   title: React.ReactNode;
   description?: React.ReactNode;
   /** 固定在底部的 footer，不传则不渲染。Sticky footer; omit to render none. */
@@ -56,6 +57,7 @@ export function Modal(props: ModalProps) {
 function DialogModal({
   open,
   onOpenChange,
+  onOpenChangeComplete,
   title,
   description,
   footer,
@@ -70,23 +72,33 @@ function DialogModal({
   headerClassName,
   footerClassName,
 }: ModalProps) {
-  const blockWhenLocked = (event: Event) => {
-    if (!dismissible) {
-      event.preventDefault();
+  const handleOpenChange: DialogPrimitive.Root.Props["onOpenChange"] = (nextOpen, details) => {
+    if (
+      !dismissible &&
+      !nextOpen &&
+      (details.reason === "escape-key" || details.reason === "outside-press")
+    ) {
+      return;
     }
+    onOpenChange(nextOpen);
   };
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+    <DialogPrimitive.Root
+      disablePointerDismissal={!dismissible}
+      open={open}
+      onOpenChange={handleOpenChange}
+      onOpenChangeComplete={onOpenChangeComplete}
+    >
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay
+        <DialogPrimitive.Backdrop
           className={cn(
-            "fixed inset-0 z-50 backdrop-blur bg-background/60",
-            "data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
-            "data-[state=open]:animate-in data-[state=open]:fade-in-0",
+            "fixed inset-0 z-50 backdrop-blur bg-background/60 duration-200",
+            "data-closed:animate-out data-closed:fade-out-0",
+            "data-open:animate-in data-open:fade-in-0",
           )}
         />
-        <DialogPrimitive.Content
+        <DialogPrimitive.Popup
           className={cn(
             // 外层只承担居中定位与 zoom 动画；不放 overflow-hidden 与背景，
             // 让 Popover 等 position:fixed 子节点不会被裁切（Content 自身的 transform
@@ -97,14 +109,11 @@ function DialogModal({
             // their containing block is still this transformed Content.
             "fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2",
             "w-full max-w-[calc(100%-2rem)] outline-none duration-200",
-            "data-[state=open]:animate-in data-[state=closed]:animate-out",
-            "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-            "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+            "data-open:animate-in data-closed:animate-out",
+            "data-closed:fade-out-0 data-open:fade-in-0",
+            "data-closed:zoom-out-95 data-open:zoom-in-95",
             SIZE_CLASS[size],
           )}
-          onEscapeKeyDown={blockWhenLocked}
-          onPointerDownOutside={blockWhenLocked}
-          onInteractOutside={blockWhenLocked}
         >
           <div
             className={cn(
@@ -126,7 +135,7 @@ function DialogModal({
                 className={cn(
                   "absolute right-4 top-4 rounded-xs opacity-70 ring-offset-background transition-opacity",
                   "hover:opacity-100 focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2",
-                  "disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground",
+                  "disabled:pointer-events-none data-popup-open:bg-accent data-popup-open:text-muted-foreground",
                   "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
                 )}
               >
@@ -152,7 +161,7 @@ function DialogModal({
               </div>
             ) : null}
           </div>
-        </DialogPrimitive.Content>
+        </DialogPrimitive.Popup>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
   );
@@ -161,6 +170,7 @@ function DialogModal({
 function DrawerModal({
   open,
   onOpenChange,
+  onOpenChangeComplete,
   title,
   description,
   footer,
@@ -173,12 +183,33 @@ function DrawerModal({
   headerClassName,
   footerClassName,
 }: ModalProps) {
+  const previousOpenRef = React.useRef(open);
+
+  React.useEffect(() => {
+    if (previousOpenRef.current === open) {
+      return;
+    }
+
+    previousOpenRef.current = open;
+
+    if (open) {
+      onOpenChangeComplete?.(true);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      onOpenChangeComplete?.(false);
+    }, 220);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [open, onOpenChangeComplete]);
+
   return (
     <DrawerPrimitive.Root open={open} onOpenChange={onOpenChange} dismissible={dismissible}>
       <DrawerPrimitive.Portal>
         <DrawerPrimitive.Overlay
           className={cn(
-            "fixed inset-0 z-50 backdrop-blur bg-background/60",
+            "fixed inset-0 z-50 backdrop-blur bg-background/60 duration-200",
             "data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
             "data-[state=open]:animate-in data-[state=open]:fade-in-0",
           )}
@@ -253,8 +284,7 @@ function ModalHeader({
   isMobile: boolean;
   className?: string;
 }) {
-  // Radix 必须用 Title/Description 才能正确连上 ARIA 关系。
-  // Radix's Title/Description primitives wire ARIA labelledby/describedby for us.
+  // Title/Description primitives wire ARIA labelledby/describedby for us.
   const TitleEl = isMobile ? DrawerPrimitive.Title : DialogPrimitive.Title;
   const DescEl = isMobile ? DrawerPrimitive.Description : DialogPrimitive.Description;
   const titleNode = (

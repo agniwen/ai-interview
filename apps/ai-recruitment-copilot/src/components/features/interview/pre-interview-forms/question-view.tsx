@@ -85,7 +85,11 @@ export function QuestionView({
   if (question.type === "single" && question.displayMode === "select") {
     return (
       <Select
-        onValueChange={(next) => onChange(next)}
+        onValueChange={(next) => {
+          if (next !== null) {
+            onChange(next);
+          }
+        }}
         value={typeof value === "string" ? value : undefined}
       >
         <SelectTrigger aria-invalid={invalidProp} className="w-full" id={inputId}>

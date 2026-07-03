@@ -141,7 +141,7 @@ describe("ResumeLibraryPage card list", () => {
     );
     expect(actionButtonSource).toContain('variant="ghost"');
     expect(actionButtonSource).toContain('size="icon"');
-    expect(actionButtonSource).toContain("delayDuration={700}");
+    expect(actionButtonSource).toContain("delay={700}");
     expect(actionButtonSource).toContain("aria-label={label}");
     expect(actionSource).toContain("发起 AI 面试");
     expect(cardSourceFile).toContain("更多操作");

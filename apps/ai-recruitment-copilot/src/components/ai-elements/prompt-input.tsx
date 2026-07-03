@@ -359,16 +359,12 @@ export function PromptInputActionAddAttachments({
 }: PromptInputActionAddAttachmentsProps) {
   const attachments = usePromptInputAttachments();
 
-  const handleSelect = useCallback(
-    (e: Event) => {
-      e.preventDefault();
-      attachments.openFileDialog();
-    },
-    [attachments],
-  );
+  const handleClick = useCallback(() => {
+    attachments.openFileDialog();
+  }, [attachments]);
 
   return (
-    <DropdownMenuItem {...props} onSelect={handleSelect}>
+    <DropdownMenuItem closeOnClick={false} {...props} onClick={handleClick}>
       <IconPhoto className="mr-2 size-4" /> {label}
     </DropdownMenuItem>
   );
@@ -1122,7 +1118,7 @@ export function PromptInputButton({
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      <TooltipTrigger render={button} />
       <TooltipContent side={side}>
         {tooltipContent}
         {shortcut && <span className="ml-2 text-muted-foreground">{shortcut}</span>}
@@ -1144,11 +1140,13 @@ export function PromptInputActionMenuTrigger({
   ...props
 }: PromptInputActionMenuTriggerProps) {
   return (
-    <DropdownMenuTrigger asChild>
-      <PromptInputButton className={className} {...props}>
-        {children ?? <IconPlus className="size-4" />}
-      </PromptInputButton>
-    </DropdownMenuTrigger>
+    <DropdownMenuTrigger
+      render={
+        <PromptInputButton className={className} {...props}>
+          {children ?? <IconPlus className="size-4" />}
+        </PromptInputButton>
+      }
+    />
   );
 }
 
@@ -1195,8 +1193,10 @@ export function PromptInputSubmit({
     Icon = <IconX className="size-4" />;
   }
 
-  const handleClick = useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleClick = useCallback<
+    NonNullable<React.ComponentProps<typeof InputGroupButton>["onClick"]>
+  >(
+    (e) => {
       if (isGenerating && onStop) {
         e.preventDefault();
         onStop();
@@ -1263,12 +1263,8 @@ export function PromptInputSelectValue({ className, ...props }: PromptInputSelec
 
 export type PromptInputHoverCardProps = ComponentProps<typeof HoverCard>;
 
-export function PromptInputHoverCard({
-  openDelay = 0,
-  closeDelay = 0,
-  ...props
-}: PromptInputHoverCardProps) {
-  return <HoverCard closeDelay={closeDelay} openDelay={openDelay} {...props} />;
+export function PromptInputHoverCard(props: PromptInputHoverCardProps) {
+  return <HoverCard {...props} />;
 }
 
 export type PromptInputHoverCardTriggerProps = ComponentProps<typeof HoverCardTrigger>;

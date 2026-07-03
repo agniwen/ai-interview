@@ -154,17 +154,19 @@ export function PendingInvitationsButton({ organizationId }: { organizationId: s
 
   return (
     <Sheet onOpenChange={setOpen} open={open}>
-      <SheetTrigger asChild>
-        <Button type="button" variant="outline">
-          <IconMail className="size-4" />
-          待处理邀请
-          {count > 0 ? (
-            <Badge className="ml-1" variant="secondary">
-              {count}
-            </Badge>
-          ) : null}
-        </Button>
-      </SheetTrigger>
+      <SheetTrigger
+        render={
+          <Button type="button" variant="outline">
+            <IconMail className="size-4" />
+            待处理邀请
+            {count > 0 ? (
+              <Badge className="ml-1" variant="secondary">
+                {count}
+              </Badge>
+            ) : null}
+          </Button>
+        }
+      />
       <SheetContent className="w-[420px] sm:max-w-[420px]">
         <SheetHeader>
           <SheetTitle>待处理邀请</SheetTitle>

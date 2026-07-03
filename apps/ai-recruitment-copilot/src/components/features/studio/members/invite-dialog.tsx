@@ -1,7 +1,7 @@
 "use client";
 
 import { IconMail } from "@tabler/icons-react";
-import type { ReactNode } from "react";
+import type { ReactElement } from "react";
 import { useEffect, useState } from "react";
 
 import { toast } from "sonner";
@@ -41,7 +41,7 @@ interface InviteDialogProps {
   assignableRoleOptions?: readonly WorkspaceRoleOption[];
   assignableRoles?: readonly string[];
   /** 自定义触发节点；省略则用默认"邀请成员"按钮。 */
-  trigger?: ReactNode;
+  trigger?: ReactElement;
 }
 
 function getDefaultInviteRole(assignableRoles: readonly string[]): string {
@@ -96,7 +96,7 @@ export function InviteDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger ?? <Button>邀请成员</Button>}</DialogTrigger>
+      <DialogTrigger render={trigger ?? <Button>邀请成员</Button>} />
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>邀请新成员</DialogTitle>
@@ -126,7 +126,15 @@ export function InviteDialog({
           </Field>
           <Field>
             <FieldLabel htmlFor="invite-role">工作区角色</FieldLabel>
-            <Select disabled={assignableRoles.length === 0} value={role} onValueChange={setRole}>
+            <Select
+              disabled={assignableRoles.length === 0}
+              value={role}
+              onValueChange={(nextRole) => {
+                if (nextRole) {
+                  setRole(nextRole);
+                }
+              }}
+            >
               <SelectTrigger className="w-full" id="invite-role">
                 <SelectValue />
               </SelectTrigger>

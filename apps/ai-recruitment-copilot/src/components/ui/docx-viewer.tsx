@@ -274,9 +274,7 @@ function isInteractiveViewerTarget(target: EventTarget | null) {
 function ToolbarTooltip({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="inline-flex">{children}</span>
-      </TooltipTrigger>
+      <TooltipTrigger render={<span className="inline-flex">{children}</span>} />
       <TooltipContent side="bottom">{label}</TooltipContent>
     </Tooltip>
   );
@@ -321,11 +319,13 @@ function DocxFileActionsMenu({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="icon-sm" aria-label="打开 Word 操作菜单">
-          <IconDots className="size-4" />
-        </Button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <Button type="button" variant="ghost" size="icon-sm" aria-label="打开 Word 操作菜单">
+            <IconDots className="size-4" />
+          </Button>
+        }
+      />
       <DropdownMenuContent align="end" className="w-52">
         {showNightRenderToggle ? (
           <>

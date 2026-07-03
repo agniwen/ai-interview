@@ -873,6 +873,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
   );
 
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   // 中文：打开简历详情弹窗时默认聚焦的 tab；点「当前环节」直接跳到对应流程 tab。
   // English: Default tab when opening the resume detail dialog — clicking
   // 当前环节 jumps straight to the matching lifecycle tab.
@@ -881,6 +882,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
   // Round id whose AI interview detail dialog should pop after a successful
   // save-and-start; null hides the dialog.
   const [interviewRoundDetailId, setInterviewRoundDetailId] = useState<string | null>(null);
+  const [interviewDetailDialogOpen, setInterviewDetailDialogOpen] = useState(false);
   const [interviewDetailDefaultTab, setInterviewDetailDefaultTab] = useState<
     "overview" | "reports"
   >("overview");
@@ -1172,6 +1174,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
           onOpenDetail={(record, tab = "overview") => {
             setDetailDefaultTab(tab);
             setDetailRecordId(record.id);
+            setDetailDialogOpen(true);
           }}
           onOpenUploadEntry={() => setUploadEntryOpen(true)}
           onPreviewResume={setPreviewRecord}
@@ -1213,7 +1216,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
                   toast.error(reason);
                   return;
                 }
-                setDetailRecordId(null);
+                setDetailDialogOpen(false);
                 setEditRecordId(id);
               }
             : undefined
@@ -1230,13 +1233,14 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
                   toast.error("请先绑定在招岗位后再发起 AI 面试");
                   return;
                 }
-                setDetailRecordId(null);
+                setDetailDialogOpen(false);
                 setLaunchingRecord({ candidateName, id });
               }
             : undefined
         }
-        onOpenChange={(open) => {
-          if (!open) {
+        onOpenChange={setDetailDialogOpen}
+        onOpenChangeComplete={(open) => {
+          if (!open && !detailDialogOpen) {
             setDetailRecordId(null);
             setDetailDefaultTab("overview");
           }
@@ -1273,14 +1277,15 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
         onUpdated={invalidateAll}
         onViewRoundDetail={(roundId) => {
           // 中文：不要关闭简历详情弹窗 — 用户可能看完单轮后还想回来看其他轮次。
-          // 两个 Dialog 叠着放，Radix 自动处理 stacking。
+          // 两个 Dialog 叠着放，Base UI 会处理 stacking。
           // English: Keep the resume detail dialog open underneath — user may
           // want to come back to view other rounds after viewing one.
-          // Radix Dialogs stack natively.
+          // Base UI dialogs stack natively.
           setInterviewDetailDefaultTab("reports");
           setInterviewRoundDetailId(roundId);
+          setInterviewDetailDialogOpen(true);
         }}
-        open={detailRecordId !== null}
+        open={detailDialogOpen}
         recordId={detailRecordId}
       />
       <ResumeDuplicateMatchesDialog
@@ -1311,14 +1316,15 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
       <StudioPersonDetailDialog
         defaultTab={interviewDetailDefaultTab}
         mode="interview"
-        onOpenChange={(open) => {
-          if (!open) {
+        onOpenChange={setInterviewDetailDialogOpen}
+        onOpenChangeComplete={(open) => {
+          if (!open && !interviewDetailDialogOpen) {
             setInterviewRoundDetailId(null);
             setInterviewDetailDefaultTab("overview");
           }
         }}
         onUpdated={invalidateAll}
-        open={interviewRoundDetailId !== null}
+        open={interviewDetailDialogOpen}
         recordId={interviewRoundDetailId}
       />
 
@@ -1328,6 +1334,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
           invalidateAll();
           setInterviewDetailDefaultTab("overview");
           setInterviewRoundDetailId(round.id);
+          setInterviewDetailDialogOpen(true);
         }}
         onOpenChange={(open) => !open && setLaunchingRecord(null)}
         open={launchingRecord !== null}

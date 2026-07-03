@@ -136,7 +136,7 @@ export function TimeDisplay({
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{content}</TooltipTrigger>
+      <TooltipTrigger render={content} />
       <TooltipContent className="min-w-48 px-3 py-2" side="top">
         <div className="grid gap-1">
           {tooltipRows.map((row) => (

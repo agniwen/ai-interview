@@ -472,18 +472,20 @@ export function AgentControlBar({
         {/* Disconnect */}
         {visibleControls.leave && (
           <Dialog>
-            <DialogTrigger asChild>
-              <AgentDisconnectButton
-                disabled={!isConnected}
-                className={cn(
-                  variant === "livekit" &&
-                    "bg-destructive/10 dark:bg-destructive/10 text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/20 focus:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/4 rounded-full font-mono text-xs font-bold tracking-wider",
-                )}
-              >
-                <span className="hidden md:inline">结束面试</span>
-                <span className="inline md:hidden">结束</span>
-              </AgentDisconnectButton>
-            </DialogTrigger>
+            <DialogTrigger
+              render={
+                <AgentDisconnectButton
+                  disabled={!isConnected}
+                  className={cn(
+                    variant === "livekit" &&
+                      "bg-destructive/10 dark:bg-destructive/10 text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/20 focus:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/4 rounded-full font-mono text-xs font-bold tracking-wider",
+                  )}
+                >
+                  <span className="hidden md:inline">结束面试</span>
+                  <span className="inline md:hidden">结束</span>
+                </AgentDisconnectButton>
+              }
+            />
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>确认结束面试</DialogTitle>
@@ -492,14 +494,14 @@ export function AgentControlBar({
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
-                <DialogClose asChild>
-                  <Button variant="outline">继续面试</Button>
-                </DialogClose>
-                <DialogClose asChild>
-                  <Button onClick={onDisconnect} variant="destructive">
-                    确认结束
-                  </Button>
-                </DialogClose>
+                <DialogClose render={<Button variant="outline">继续面试</Button>} />
+                <DialogClose
+                  render={
+                    <Button onClick={onDisconnect} variant="destructive">
+                      确认结束
+                    </Button>
+                  }
+                />
               </DialogFooter>
             </DialogContent>
           </Dialog>

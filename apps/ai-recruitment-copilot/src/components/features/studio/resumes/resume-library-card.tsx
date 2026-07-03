@@ -32,12 +32,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   canDeleteResumeRecord,
   canEditResumeRecord,
@@ -223,18 +224,22 @@ function duplicateMatchBadge(record: ResumeLibraryListRecord, onClick?: () => vo
     record.duplicateMatch.count > 1 ? `疑似重复 ${record.duplicateMatch.count} 条` : "疑似重复";
   const variant = record.duplicateMatch.highestLevel === "high" ? "destructive" : "secondary";
   return onClick ? (
-    <Badge asChild className="shrink-0 cursor-pointer" variant={variant}>
-      <button
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          onClick();
-        }}
-        type="button"
-      >
-        {label}
-      </button>
-    </Badge>
+    <Badge
+      className="shrink-0 cursor-pointer"
+      render={
+        <button
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onClick();
+          }}
+          type="button"
+        >
+          {label}
+        </button>
+      }
+      variant={variant}
+    />
   ) : (
     <Badge className="shrink-0" variant={variant}>
       {label}
@@ -388,14 +393,18 @@ function ResumeLibraryIconActionButton({
   onClick: () => void;
 }) {
   return (
-    <Tooltip delayDuration={700}>
-      <TooltipTrigger asChild>
-        <Button aria-label={label} onClick={onClick} size="icon" type="button" variant="ghost">
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="top">{label}</TooltipContent>
-    </Tooltip>
+    <TooltipProvider delay={700}>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button aria-label={label} onClick={onClick} size="icon" type="button" variant="ghost">
+              {children}
+            </Button>
+          }
+        />
+        <TooltipContent side="top">{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -410,28 +419,32 @@ function ResumeLibraryPreviewAction({
 
   if (canPreview) {
     return (
-      <Tooltip delayDuration={700}>
-        <TooltipTrigger asChild>
-          <Button
-            aria-label={previewLabel}
-            className="group/pdf"
-            onClick={() => onPreviewResume(record)}
-            size="icon"
-            title={previewLabel}
-            type="button"
-            variant="ghost"
-          >
-            <ResumeDocumentFileIcon
-              className={cn(
-                RESUME_LIBRARY_ACTION_ICON_CLASS,
-                "transition-transform duration-200 group-hover/pdf:scale-[1.03] motion-reduce:group-hover/pdf:scale-100",
-              )}
-              kind={documentKind}
-            />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top">查看简历</TooltipContent>
-      </Tooltip>
+      <TooltipProvider delay={700}>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                aria-label={previewLabel}
+                className="group/pdf"
+                onClick={() => onPreviewResume(record)}
+                size="icon"
+                title={previewLabel}
+                type="button"
+                variant="ghost"
+              >
+                <ResumeDocumentFileIcon
+                  className={cn(
+                    RESUME_LIBRARY_ACTION_ICON_CLASS,
+                    "transition-transform duration-200 group-hover/pdf:scale-[1.03] motion-reduce:group-hover/pdf:scale-100",
+                  )}
+                  kind={documentKind}
+                />
+              </Button>
+            }
+          />
+          <TooltipContent side="top">查看简历</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   }
 
@@ -481,41 +494,47 @@ function ResumeLibraryCardMoreMenu({
 }) {
   return (
     <DropdownMenu modal={false}>
-      <Tooltip delayDuration={700}>
-        <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <Button aria-label="更多操作" size="icon" type="button" variant="ghost">
-              <IconDots className={RESUME_LIBRARY_ACTION_ICON_CLASS} />
-            </Button>
-          </DropdownMenuTrigger>
-        </TooltipTrigger>
-        <TooltipContent side="top">更多操作</TooltipContent>
-      </Tooltip>
+      <TooltipProvider delay={700}>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <DropdownMenuTrigger
+                render={
+                  <Button aria-label="更多操作" size="icon" type="button" variant="ghost">
+                    <IconDots className={RESUME_LIBRARY_ACTION_ICON_CLASS} />
+                  </Button>
+                }
+              />
+            }
+          />
+          <TooltipContent side="top">更多操作</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <DropdownMenuContent align="end" className="w-44">
-        <DropdownMenuLabel>更多操作</DropdownMenuLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>更多操作</DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         {canCopyLink ? (
-          <DropdownMenuItem onSelect={() => onCopyDetailLink(record)}>
-            复制详情链接
-          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onCopyDetailLink(record)}>复制详情链接</DropdownMenuItem>
         ) : null}
         {canLaunchChat ? (
-          <DropdownMenuItem onSelect={() => onLaunchChat(record)}>
+          <DropdownMenuItem onClick={() => onLaunchChat(record)}>
             <IconMessage2 className={RESUME_LIBRARY_ACTION_ICON_CLASS} />
             发起 AI Chat
           </DropdownMenuItem>
         ) : null}
         {canPreviewFromMenu ? (
-          <DropdownMenuItem onSelect={() => onPreviewResume(record)}>查看简历</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onPreviewResume(record)}>查看简历</DropdownMenuItem>
         ) : null}
         {canClose ? (
-          <DropdownMenuItem onSelect={() => onTransition(record, "close")}>
+          <DropdownMenuItem onClick={() => onTransition(record, "close")}>
             <IconCircleOff className={RESUME_LIBRARY_ACTION_ICON_CLASS} />
             标记结案
           </DropdownMenuItem>
         ) : null}
         {canReactivate ? (
-          <DropdownMenuItem onSelect={() => onTransition(record, "reactivate")}>
+          <DropdownMenuItem onClick={() => onTransition(record, "reactivate")}>
             <IconArrowBackUp className={RESUME_LIBRARY_ACTION_ICON_CLASS} />
             重新激活
           </DropdownMenuItem>
@@ -523,7 +542,7 @@ function ResumeLibraryCardMoreMenu({
         {canDelete ? (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => onDelete(record)} variant="destructive">
+            <DropdownMenuItem onClick={() => onDelete(record)} variant="destructive">
               删除
             </DropdownMenuItem>
           </>

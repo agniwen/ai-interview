@@ -379,7 +379,7 @@ function HumanInterviewAdvanceButton({
 
   return (
     <Tooltip key="to-human">
-      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      <TooltipTrigger render={button} />
       <TooltipContent>{disabledReason}</TooltipContent>
     </Tooltip>
   );
@@ -420,7 +420,7 @@ function OfferAdvanceButton({
 
   return (
     <Tooltip key="to-offer">
-      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      <TooltipTrigger render={button} />
       <TooltipContent>{disabledReason}</TooltipContent>
     </Tooltip>
   );

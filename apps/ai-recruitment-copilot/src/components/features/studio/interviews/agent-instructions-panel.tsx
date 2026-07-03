@@ -85,16 +85,15 @@ export function AgentInstructionsPanel({
         <ToggleGroup
           aria-label="提示词显示模式"
           onValueChange={(value) => {
-            // ToggleGroup type=single 允许空值（再次点击当前项），这里固定保留一项。
-            // single ToggleGroup emits "" when user clicks the active item; keep
-            // the current mode so the panel always has a rendered view.
-            if (value === "preview" || value === "raw") {
-              setMode(value);
+            // Base UI single ToggleGroup emits an empty array when the active item
+            // is clicked again; keep the current mode so the panel always renders.
+            const [nextMode] = value;
+            if (nextMode === "preview" || nextMode === "raw") {
+              setMode(nextMode);
             }
           }}
           size="sm"
-          type="single"
-          value={mode}
+          value={[mode]}
           variant="outline"
         >
           <ToggleGroupItem aria-label="Markdown 预览" value="preview">

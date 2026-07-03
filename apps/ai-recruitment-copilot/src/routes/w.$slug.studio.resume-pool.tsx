@@ -193,18 +193,22 @@ function duplicateMatchBadge(record: ResumePoolListRecord, onClick?: () => void)
     record.duplicateMatch.count > 1 ? `疑似重复 ${record.duplicateMatch.count} 条` : "疑似重复";
   const variant = record.duplicateMatch.highestLevel === "high" ? "destructive" : "secondary";
   return onClick ? (
-    <Badge asChild className="cursor-pointer" variant={variant}>
-      <button
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          onClick();
-        }}
-        type="button"
-      >
-        {label}
-      </button>
-    </Badge>
+    <Badge
+      className="cursor-pointer"
+      render={
+        <button
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onClick();
+          }}
+          type="button"
+        >
+          {label}
+        </button>
+      }
+      variant={variant}
+    />
   ) : (
     <Badge variant={variant}>{label}</Badge>
   );

@@ -63,12 +63,16 @@ export function PlatformSidebarSlots() {
                 const Icon = item.icon;
                 return (
                   <SidebarMenuItem key={item.path}>
-                    <SidebarMenuButton asChild isActive={isActive(item.path)} tooltip={item.title}>
-                      <Link to={item.path}>
-                        <Icon />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
+                    <SidebarMenuButton
+                      isActive={isActive(item.path)}
+                      render={
+                        <Link to={item.path}>
+                          <Icon />
+                          <span>{item.title}</span>
+                        </Link>
+                      }
+                      tooltip={item.title}
+                    />
                   </SidebarMenuItem>
                 );
               })}

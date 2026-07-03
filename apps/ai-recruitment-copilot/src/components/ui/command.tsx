@@ -40,6 +40,7 @@ function CommandDialog({
   showCloseButton = true,
   ...props
 }: React.ComponentProps<typeof Dialog> & {
+  children: React.ReactNode;
   title?: string;
   description?: string;
   className?: string;

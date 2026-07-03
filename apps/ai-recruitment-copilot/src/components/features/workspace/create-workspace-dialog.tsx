@@ -3,7 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactElement } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -83,7 +83,7 @@ interface CreateWorkspaceDialogProps {
   onOpenChange?: (open: boolean) => void;
   // 非受控用法：传入 trigger，Dialog 自己管 open 状态。
   // Uncontrolled — pass a trigger, the dialog manages its own state.
-  trigger?: ReactNode;
+  trigger?: ReactElement;
 }
 
 export function CreateWorkspaceDialog({
@@ -139,7 +139,7 @@ export function CreateWorkspaceDialog({
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
-      {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
+      {trigger ? <DialogTrigger render={trigger} /> : null}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>创建新工作区</DialogTitle>

@@ -162,6 +162,13 @@ function TrackDeviceSelect({
     onActiveDeviceChange?.(deviceId);
   };
 
+  const handleSelectedDeviceChange = (deviceId: string | null) => {
+    if (!deviceId) {
+      return;
+    }
+    handleActiveDeviceChange(deviceId);
+  };
+
   const filteredDevices = useMemo(() => devices.filter((d) => d.deviceId !== ""), [devices]);
 
   if (filteredDevices.length < 2) {
@@ -173,14 +180,14 @@ function TrackDeviceSelect({
       open={open}
       value={activeDeviceId}
       onOpenChange={handleOpenChange}
-      onValueChange={handleActiveDeviceChange}
+      onValueChange={handleSelectedDeviceChange}
     >
       <SelectTrigger className={cn(selectVariants({ size, variant }), className)} {...props}>
         {size !== "sm" && (
           <SelectValue className="font-mono text-sm" placeholder={`Select a ${kind}`} />
         )}
       </SelectTrigger>
-      <SelectContent position="popper">
+      <SelectContent alignItemWithTrigger={false} sideOffset={4}>
         {filteredDevices.map((device) => (
           <SelectItem key={device.deviceId} value={device.deviceId} className="font-mono text-xs">
             {device.label}

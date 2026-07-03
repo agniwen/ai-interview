@@ -166,28 +166,32 @@ export function ModelPicker({ className }: ModelPickerProps) {
   return (
     <Popover onOpenChange={setOpen} open={open}>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button
-              aria-label="选择模型"
-              className={cn(
-                "h-7 gap-1.5 rounded-md border-0 bg-transparent px-2 font-normal text-xs hover:bg-accent",
-                className,
-              )}
-              disabled={isLoading || models.length === 0}
-              size="sm"
-              variant="ghost"
-            >
-              {current ? (
-                <ProviderIcon provider={current.provider} />
-              ) : (
-                <IconCpu className="size-3.5" />
-              )}
-              <span className="max-w-[180px] truncate font-mono">{triggerLabel}</span>
-              <IconChevronDown className="size-3 opacity-60" />
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <PopoverTrigger
+              render={
+                <Button
+                  aria-label="选择模型"
+                  className={cn(
+                    "h-7 gap-1.5 rounded-md border-0 bg-transparent px-2 font-normal text-xs hover:bg-accent",
+                    className,
+                  )}
+                  disabled={isLoading || models.length === 0}
+                  size="sm"
+                  variant="ghost"
+                >
+                  {current ? (
+                    <ProviderIcon provider={current.provider} />
+                  ) : (
+                    <IconCpu className="size-3.5" />
+                  )}
+                  <span className="max-w-[180px] truncate font-mono">{triggerLabel}</span>
+                  <IconChevronDown className="size-3 opacity-60" />
+                </Button>
+              }
+            />
+          }
+        />
         <TooltipContent side="top">切换对话模型</TooltipContent>
       </Tooltip>
 

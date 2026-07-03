@@ -419,11 +419,13 @@ export function UsersGrid() {
         r.feishuTenantName ? (
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge variant="outline" className="max-w-[200px] truncate">
-                  {r.feishuTenantName}
-                </Badge>
-              </TooltipTrigger>
+              <TooltipTrigger
+                render={
+                  <Badge variant="outline" className="max-w-[200px] truncate">
+                    {r.feishuTenantName}
+                  </Badge>
+                }
+              />
               <TooltipContent>{r.feishuTenantName}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -438,12 +440,14 @@ export function UsersGrid() {
         r.banned ? (
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge variant="danger">
-                  <IconBan className="mr-1 size-3" />
-                  已封禁
-                </Badge>
-              </TooltipTrigger>
+              <TooltipTrigger
+                render={
+                  <Badge variant="danger">
+                    <IconBan className="mr-1 size-3" />
+                    已封禁
+                  </Badge>
+                }
+              />
               <TooltipContent>
                 <div className="space-y-1">
                   {r.banReason && <p>原因：{r.banReason}</p>}

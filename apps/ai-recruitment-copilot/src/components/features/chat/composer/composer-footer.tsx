@@ -33,10 +33,8 @@ import { useChatActionsContext, useChatMessagesContext } from "../chat-runtime-c
 import { useComposerInputContext } from "../composer-input-context";
 import { ModelPicker } from "./model-picker";
 
-const focusTextareaOnMenuClose = (event: Event) => {
-  event.preventDefault();
-  document.querySelector<HTMLTextAreaElement>('textarea[name="message"]')?.focus();
-};
+const getTextareaAfterMenuClose = () =>
+  document.querySelector<HTMLTextAreaElement>('textarea[name="message"]') ?? true;
 
 function getComposerStatusLabel(
   status: ChatStatus,
@@ -61,10 +59,10 @@ function ThinkingModeMenuItem() {
 
   return (
     <PromptInputActionMenuItem
-      onSelect={(event) => {
+      closeOnClick={false}
+      onClick={() => {
         // Toggle on click but keep the menu open so the user can see the new
         // state without re-opening.
-        event.preventDefault();
         setEnabled(!enabled);
       }}
     >
@@ -92,16 +90,18 @@ function ConversationDownloadButton() {
   const downloadable = messages.map(toDownloadMessage);
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <ConversationDownload
-          aria-label="导出聊天记录"
-          className="static rounded-md border-0 bg-transparent shadow-none hover:bg-accent"
-          disabled={downloadable.length === 0}
-          messages={downloadable}
-          size="icon-sm"
-          variant="ghost"
-        />
-      </TooltipTrigger>
+      <TooltipTrigger
+        render={
+          <ConversationDownload
+            aria-label="导出聊天记录"
+            className="static rounded-md border-0 bg-transparent shadow-none hover:bg-accent"
+            disabled={downloadable.length === 0}
+            messages={downloadable}
+            size="icon-sm"
+            variant="ghost"
+          />
+        }
+      />
       <TooltipContent side="top">导出聊天记录</TooltipContent>
     </Tooltip>
   );
@@ -147,10 +147,10 @@ export function ComposerFooter({
       <PromptInputTools>
         <PromptInputActionMenu onOpenChange={setUploadMenuOpen} open={uploadMenuOpen}>
           <PromptInputActionMenuTrigger id="prompt-actions-menu-trigger" tooltip="更多输入操作" />
-          <PromptInputActionMenuContent onCloseAutoFocus={focusTextareaOnMenuClose}>
+          <PromptInputActionMenuContent finalFocus={getTextareaAfterMenuClose}>
             <PromptInputActionMenuItem
-              onSelect={(event) => {
-                event.preventDefault();
+              closeOnClick={false}
+              onClick={() => {
                 setUploadMenuOpen(false);
                 attachments.openFileDialog();
               }}
@@ -159,8 +159,8 @@ export function ComposerFooter({
               上传简历文件
             </PromptInputActionMenuItem>
             <PromptInputActionMenuItem
-              onSelect={(event) => {
-                event.preventDefault();
+              closeOnClick={false}
+              onClick={() => {
                 setUploadMenuOpen(false);
                 attachments.clear();
               }}
@@ -175,10 +175,10 @@ export function ComposerFooter({
           <PromptInputActionMenuTrigger id="prompt-job-settings-menu-trigger" tooltip="岗位设置">
             <IconSettings className="size-4" />
           </PromptInputActionMenuTrigger>
-          <PromptInputActionMenuContent onCloseAutoFocus={focusTextareaOnMenuClose}>
+          <PromptInputActionMenuContent finalFocus={getTextareaAfterMenuClose}>
             <PromptInputActionMenuItem
-              onSelect={(event) => {
-                event.preventDefault();
+              closeOnClick={false}
+              onClick={() => {
                 onOpenJobDescriptionSettings();
               }}
             >
@@ -186,9 +186,9 @@ export function ComposerFooter({
               设置在招岗位信息
             </PromptInputActionMenuItem>
             <PromptInputActionMenuItem
+              closeOnClick={false}
               disabled={!hasJobDescription}
-              onSelect={(event) => {
-                event.preventDefault();
+              onClick={() => {
                 onClearJobDescription();
               }}
             >

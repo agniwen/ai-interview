@@ -8,9 +8,7 @@ export function InvalidJoinLink() {
       <p className="mb-6 text-muted-foreground">
         该邀请链接不存在或已被工作区管理员禁用。请联系邀请人确认。
       </p>
-      <Button asChild>
-        <Link to="/">返回首页</Link>
-      </Button>
+      <Button nativeButton={false} render={<Link to="/">返回首页</Link>} />
     </div>
   );
 }

@@ -67,12 +67,17 @@ function ResumePreviewHeaderActions({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <Button asChild size="sm" type="button" variant="outline">
-        <a aria-label="下载原文件" download={downloadFileName} href={downloadUrl}>
-          <IconDownload className="size-4" />
-          下载
-        </a>
-      </Button>
+      <Button
+        nativeButton={false}
+        render={
+          <a aria-label="下载原文件" download={downloadFileName} href={downloadUrl}>
+            <IconDownload className="size-4" />
+            下载
+          </a>
+        }
+        size="sm"
+        variant="outline"
+      />
       <Button aria-label="关闭" onClick={onClose} size="icon" type="button" variant="ghost">
         <IconX className="size-4" />
       </Button>

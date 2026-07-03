@@ -194,16 +194,16 @@ function SidebarNavItem({ item, active, href }: { item: NavItem; active: boolean
   return (
     <SidebarMenuItem key={item.path}>
       <SidebarMenuButton
-        asChild
         className="cursor-default select-none"
         isActive={active}
+        render={
+          <Link to={href}>
+            <Icon />
+            <span>{item.title}</span>
+          </Link>
+        }
         tooltip={item.title}
-      >
-        <Link to={href}>
-          <Icon />
-          <span>{item.title}</span>
-        </Link>
-      </SidebarMenuButton>
+      />
     </SidebarMenuItem>
   );
 }

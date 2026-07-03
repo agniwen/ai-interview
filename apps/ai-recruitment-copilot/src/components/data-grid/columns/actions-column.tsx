@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -109,19 +110,23 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
           })}
           {visibleMenu.length > 0 ? (
             <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  aria-label="更多操作"
-                  className="h-8 pl-2.5 pr-0 text-xs"
-                  size="sm"
-                  title="更多操作"
-                  variant="ghost"
-                >
-                  更多
-                </Button>
-              </DropdownMenuTrigger>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    aria-label="更多操作"
+                    className="h-8 pl-2.5 pr-0 text-xs"
+                    size="sm"
+                    title="更多操作"
+                    variant="ghost"
+                  >
+                    更多
+                  </Button>
+                }
+              />
               <DropdownMenuContent align="end" className="w-44">
-                <DropdownMenuLabel>{opts.menuLabel ?? "更多操作"}</DropdownMenuLabel>
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>{opts.menuLabel ?? "更多操作"}</DropdownMenuLabel>
+                </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 {visibleMenu.map((item, index) => {
                   const itemDisabled = item.disabled?.(record) ?? false;
@@ -131,7 +136,7 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
                       {item.separator === "before" && index > 0 ? <DropdownMenuSeparator /> : null}
                       <DropdownMenuItem
                         disabled={itemDisabled}
-                        onSelect={() => void item.onClick(record)}
+                        onClick={() => void item.onClick(record)}
                         title={itemReason ?? undefined}
                         variant={item.variant}
                       >

@@ -148,12 +148,14 @@ export function InterviewLinkQrButton({
           复制链接
         </Button>
         <DropdownMenu modal={false}>
-          <DropdownMenuTrigger asChild>
-            <Button disabled={disabled} size="icon-sm" type="button" variant="ghost">
-              <IconChevronDown className="size-3.5" />
-              <span className="sr-only">打开分享选项</span>
-            </Button>
-          </DropdownMenuTrigger>
+          <DropdownMenuTrigger
+            render={
+              <Button disabled={disabled} size="icon-sm" type="button" variant="ghost">
+                <IconChevronDown className="size-3.5" />
+                <span className="sr-only">打开分享选项</span>
+              </Button>
+            }
+          />
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem disabled={isCopying} onClick={() => void copyQrImage()}>
               <IconQrcode className="size-3.5" />

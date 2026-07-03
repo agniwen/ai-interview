@@ -506,12 +506,14 @@ function CandidateFormTemplateManagementPage({
           filters={filtersConfig}
           filtersExtra={
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button type="button" variant="outline">
-                  {archivedFilterLabel}
-                  <IconChevronDown className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
+              <DropdownMenuTrigger
+                render={
+                  <Button type="button" variant="outline">
+                    {archivedFilterLabel}
+                    <IconChevronDown className="size-4" />
+                  </Button>
+                }
+              />
               <DropdownMenuContent align="start">
                 <DropdownMenuRadioGroup
                   onValueChange={(v) => grid.setFilter("archivedFilter", v)}

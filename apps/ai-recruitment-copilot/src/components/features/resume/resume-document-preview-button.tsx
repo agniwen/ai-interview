@@ -1,7 +1,7 @@
 "use client";
 
 import { IconEye } from "@tabler/icons-react";
-import type { ReactNode } from "react";
+import type { ReactElement } from "react";
 import { Suspense, lazy, useState } from "react";
 import { PdfPreviewButton } from "@/components/features/pdf/pdf-preview-button";
 import type { ResumeDocumentPreviewKind } from "@/components/features/resume/resume-document-preview-dialog";
@@ -42,10 +42,10 @@ export function isPreviewableResumeDocumentInput(input: {
   return getPreviewableResumeDocumentKind(input) !== null;
 }
 
-export function UnsupportedResumeDocumentPreviewTooltip({ children }: { children: ReactNode }) {
+export function UnsupportedResumeDocumentPreviewTooltip({ children }: { children: ReactElement }) {
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipTrigger render={children} />
       <TooltipContent>{UNSUPPORTED_RESUME_DOCUMENT_PREVIEW_TOOLTIP}</TooltipContent>
     </Tooltip>
   );

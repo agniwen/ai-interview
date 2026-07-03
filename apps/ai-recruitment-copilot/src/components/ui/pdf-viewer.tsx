@@ -283,9 +283,7 @@ function PDFViewerLoadingSkeleton({
 function ToolbarTooltip({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="inline-flex">{children}</span>
-      </TooltipTrigger>
+      <TooltipTrigger render={<span className="inline-flex">{children}</span>} />
       <TooltipContent side="bottom">{label}</TooltipContent>
     </Tooltip>
   );
@@ -1550,17 +1548,19 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
             ) : null}
             <Popover>
               <ToolbarTooltip label="搜索文本">
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="搜索文本"
-                    disabled={controlsDisabled}
-                  >
-                    <IconSearch className="size-4" />
-                  </Button>
-                </PopoverTrigger>
+                <PopoverTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="搜索文本"
+                      disabled={controlsDisabled}
+                    >
+                      <IconSearch className="size-4" />
+                    </Button>
+                  }
+                />
               </ToolbarTooltip>
               <PopoverContent align="end" className="w-64">
                 <SearchInput
@@ -1585,29 +1585,29 @@ export const PDFViewer = React.forwardRef<PDFViewerHandle, PDFViewerProps>(funct
                 <Separator orientation="vertical" className="mx-1 h-4 self-center" />
                 <ToolbarTooltip label="上传 PDF">
                   <Button
-                    type="button"
                     variant="ghost"
                     size="icon-sm"
                     aria-label="上传 PDF"
-                    asChild
-                  >
-                    <label>
-                      <input
-                        type="file"
-                        accept="application/pdf,.pdf"
-                        className="sr-only"
-                        onChange={(event) => {
-                          const nextFile = event.target.files?.[0];
+                    nativeButton={false}
+                    render={
+                      <label>
+                        <input
+                          type="file"
+                          accept="application/pdf,.pdf"
+                          className="sr-only"
+                          onChange={(event) => {
+                            const nextFile = event.target.files?.[0];
 
-                          if (nextFile) {
-                            handleUpload(nextFile);
-                            event.currentTarget.value = "";
-                          }
-                        }}
-                      />
-                      <IconUpload className="size-4" />
-                    </label>
-                  </Button>
+                            if (nextFile) {
+                              handleUpload(nextFile);
+                              event.currentTarget.value = "";
+                            }
+                          }}
+                        />
+                        <IconUpload className="size-4" />
+                      </label>
+                    }
+                  />
                 </ToolbarTooltip>
               </>
             ) : null}

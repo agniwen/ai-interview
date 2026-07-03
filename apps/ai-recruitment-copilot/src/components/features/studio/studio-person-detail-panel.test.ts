@@ -104,7 +104,8 @@ describe("StudioPersonDetailPanel visual density", () => {
     expect(answerListSource).toContain("text-muted-foreground leading-6 break-words");
     expect(answerListSource).toContain("line-clamp-2");
     expect(answerListSource).toContain("<Tooltip key");
-    expect(answerListSource).toContain("<TooltipTrigger asChild>");
+    expect(answerListSource).toContain("<TooltipTrigger");
+    expect(answerListSource).toContain("render={");
     expect(answerListSource).toContain("<TooltipContent");
   });
 
@@ -224,7 +225,7 @@ describe("StudioPersonDetailPanel visual density", () => {
     expect(source).toContain('from "@/components/ui/tooltip"');
     expect(launchSource).toContain("launchResumeModeDisabledReason");
     expect(source).toContain("aria-disabled={Boolean(launchResumeModeDisabledReason)}");
-    expect(launchSource).toContain("<TooltipTrigger asChild>");
+    expect(launchSource).toContain("<TooltipTrigger render={launchResumeModeButtonContent} />");
     expect(launchSource).not.toContain("<span>{launchResumeModeButtonContent}</span>");
     expect(launchSource).toContain(
       "<TooltipContent>{launchResumeModeDisabledReason}</TooltipContent>",

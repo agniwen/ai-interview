@@ -33,7 +33,7 @@ export function ThemeToggle({
   const activeTheme = isHydrated ? (theme ?? "system") : "system";
 
   return (
-    // modal={false}：主题菜单是非模态的小菜单，不需要 Radix 默认的 body 锁滚和焦点陷阱。
+    // modal={false}: theme picker is a small non-modal menu and should not lock body scroll.
     // 首页"打开菜单时滚动条往上跳"的真正根因是 GSAP ScrollSmoother 的 onFocusIn
     // 自动 scroll-into-view —— 已在 src/components/features/home/smooth-scroll.tsx 修掉。
     // modal={false}: small non-modal theme picker doesn't need Radix's scroll lock
@@ -41,18 +41,20 @@ export function ThemeToggle({
     // GSAP ScrollSmoother's onFocusIn auto-scroll-into-view — fixed in
     // src/components/features/home/smooth-scroll.tsx.
     <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          aria-label="切换主题"
-          className={className}
-          size={size}
-          type="button"
-          variant="ghost"
-        >
-          <IconSun className="size-4 dark:hidden" />
-          <IconMoon className="hidden size-4 dark:block" />
-        </Button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            aria-label="切换主题"
+            className={className}
+            size={size}
+            type="button"
+            variant="ghost"
+          >
+            <IconSun className="size-4 dark:hidden" />
+            <IconMoon className="hidden size-4 dark:block" />
+          </Button>
+        }
+      />
       <DropdownMenuContent align="end" className="w-40">
         <DropdownMenuRadioGroup onValueChange={setTheme} value={activeTheme}>
           {THEME_OPTIONS.map((option) => {

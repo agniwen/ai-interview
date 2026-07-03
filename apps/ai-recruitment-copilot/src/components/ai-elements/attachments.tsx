@@ -385,12 +385,8 @@ export function AttachmentRemove({
 
 export type AttachmentHoverCardProps = ComponentProps<typeof HoverCard>;
 
-export function AttachmentHoverCard({
-  openDelay = 0,
-  closeDelay = 0,
-  ...props
-}: AttachmentHoverCardProps) {
-  return <HoverCard closeDelay={closeDelay} openDelay={openDelay} {...props} />;
+export function AttachmentHoverCard(props: AttachmentHoverCardProps) {
+  return <HoverCard {...props} />;
 }
 
 export type AttachmentHoverCardTriggerProps = ComponentProps<typeof HoverCardTrigger>;

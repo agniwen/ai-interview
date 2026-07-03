@@ -670,13 +670,15 @@ function MicrophoneDeviceMenu() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className={deviceButtonClass} type="button">
-          <IconMicrophone className="size-4" />
-          <span className="max-w-36 truncate">{selectedLabel}</span>
-          <IconChevronDown className="size-3.5 opacity-70" />
-        </button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <button className={deviceButtonClass} type="button">
+            <IconMicrophone className="size-4" />
+            <span className="max-w-36 truncate">{selectedLabel}</span>
+            <IconChevronDown className="size-3.5 opacity-70" />
+          </button>
+        }
+      />
       <DropdownMenuContent align="center" className="w-72" side="top">
         <DropdownMenuGroup>
           {devices.length === 0 ? (
@@ -686,7 +688,7 @@ function MicrophoneDeviceMenu() {
               <DropdownMenuItem
                 className="flex items-center justify-between gap-2"
                 key={device.deviceId}
-                onSelect={() => void handleSelect(device.deviceId)}
+                onClick={() => void handleSelect(device.deviceId)}
               >
                 <span className="truncate">{getDeviceLabel(device, index)}</span>
                 {device.deviceId === activeDeviceId ? (
@@ -767,20 +769,22 @@ function VoiceEffectMenu() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className={deviceButtonClass} disabled={isApplying} type="button">
-          {triggerIcon}
-          <span>{selectedLabel}</span>
-          <IconChevronDown className="size-3.5 opacity-70" />
-        </button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <button className={deviceButtonClass} disabled={isApplying} type="button">
+            {triggerIcon}
+            <span>{selectedLabel}</span>
+            <IconChevronDown className="size-3.5 opacity-70" />
+          </button>
+        }
+      />
       <DropdownMenuContent align="center" className="w-44" side="top">
         <DropdownMenuGroup>
           {voiceEffectOptions.map((option) => (
             <DropdownMenuItem
               className="flex items-center justify-between gap-2"
               key={option.id}
-              onSelect={() => void handleSelect(option.id)}
+              onClick={() => void handleSelect(option.id)}
             >
               <span>{option.label}</span>
               {option.id === selectedEffect ? <IconCheck className="size-4 shrink-0" /> : null}

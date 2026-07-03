@@ -4,7 +4,7 @@ import { IconSettings } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { useEffect, useState } from "react";
-import type { FormEvent, ReactNode } from "react";
+import type { FormEvent, ReactElement } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,7 +26,7 @@ import { authClient } from "@/lib/client/auth-client";
 
 interface WorkspaceSettingsDialogProps {
   currentName: string;
-  trigger?: ReactNode;
+  trigger?: ReactElement;
 }
 
 export function WorkspaceSettingsDialog({ currentName, trigger }: WorkspaceSettingsDialogProps) {
@@ -86,14 +86,16 @@ export function WorkspaceSettingsDialog({ currentName, trigger }: WorkspaceSetti
 
   return (
     <Dialog onOpenChange={setOpen} open={open}>
-      <DialogTrigger asChild>
-        {trigger ?? (
-          <Button variant="outline">
-            <IconSettings data-icon="inline-start" />
-            设置
-          </Button>
-        )}
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          trigger ?? (
+            <Button variant="outline">
+              <IconSettings data-icon="inline-start" />
+              设置
+            </Button>
+          )
+        }
+      />
       <DialogContent>
         <DialogHeader>
           <DialogTitle>工作区设置</DialogTitle>
@@ -121,11 +123,13 @@ export function WorkspaceSettingsDialog({ currentName, trigger }: WorkspaceSetti
           </FieldGroup>
         </form>
         <DialogFooter>
-          <DialogClose asChild>
-            <Button disabled={submitting} type="button" variant="outline">
-              取消
-            </Button>
-          </DialogClose>
+          <DialogClose
+            render={
+              <Button disabled={submitting} type="button" variant="outline">
+                取消
+              </Button>
+            }
+          />
           <Button disabled={!canSubmit} form="workspace-settings-form" type="submit">
             {submitting ? "保存中..." : "保存"}
           </Button>

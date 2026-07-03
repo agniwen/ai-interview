@@ -349,20 +349,22 @@ export function StudioResumeFloatingChat() {
       {open ? null : (
         <div className="fixed right-4 bottom-4 z-50 size-10">
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                aria-label="打开简历聊天"
-                className="size-full rounded-xl border-primary/20 bg-primary/10 backdrop-blur  shadow text-primary hover:bg-primary/25 "
-                onClick={() => {
-                  setSessionListOpen(!activeSession);
-                  setOpen(true);
-                }}
-                size="icon"
-                type="button"
-              >
-                <IconSparkles className="size-4" />
-              </Button>
-            </TooltipTrigger>
+            <TooltipTrigger
+              render={
+                <Button
+                  aria-label="打开简历聊天"
+                  className="size-full rounded-xl border-primary/20 bg-primary/10 backdrop-blur  shadow text-primary hover:bg-primary/25 "
+                  onClick={() => {
+                    setSessionListOpen(!activeSession);
+                    setOpen(true);
+                  }}
+                  size="icon"
+                  type="button"
+                >
+                  <IconSparkles className="size-4" />
+                </Button>
+              }
+            />
             <TooltipContent side="left">简历聊天</TooltipContent>
           </Tooltip>
         </div>
@@ -402,21 +404,23 @@ export function StudioResumeFloatingChat() {
                         }
                         open={deleteConfirmRecordId === item.recordId}
                       >
-                        <PopoverTrigger asChild>
-                          <Button
-                            aria-label={`删除 ${displaySessionTitle(item)}`}
-                            className={cn(
-                              "mr-1 size-7 shrink-0 opacity-0 transition-opacity group-hover/session:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100",
-                              item.recordId === activeRecordId && "opacity-100",
-                            )}
-                            disabled={deletingRecordId === item.recordId}
-                            size="icon"
-                            type="button"
-                            variant="ghost"
-                          >
-                            <IconTrash className="size-3.5" />
-                          </Button>
-                        </PopoverTrigger>
+                        <PopoverTrigger
+                          render={
+                            <Button
+                              aria-label={`删除 ${displaySessionTitle(item)}`}
+                              className={cn(
+                                "mr-1 size-7 shrink-0 opacity-0 transition-opacity group-hover/session:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100",
+                                item.recordId === activeRecordId && "opacity-100",
+                              )}
+                              disabled={deletingRecordId === item.recordId}
+                              size="icon"
+                              type="button"
+                              variant="ghost"
+                            >
+                              <IconTrash className="size-3.5" />
+                            </Button>
+                          }
+                        />
                         <PopoverContent align="end" className="w-52 p-3" sideOffset={6}>
                           <div className="flex flex-col gap-3">
                             <div className="flex flex-col gap-1">

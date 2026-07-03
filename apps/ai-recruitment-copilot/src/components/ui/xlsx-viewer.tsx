@@ -403,9 +403,7 @@ function useDelayedLoadingIndicator(isLoading: boolean, delayMs: number) {
 function ToolbarTooltip({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="inline-flex">{children}</span>
-      </TooltipTrigger>
+      <TooltipTrigger render={<span className="inline-flex">{children}</span>} />
       <TooltipContent side="bottom">{label}</TooltipContent>
     </Tooltip>
   );
@@ -442,11 +440,13 @@ function WorkbookFileActionsMenu({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="icon-sm" aria-label="打开表格操作菜单">
-          <IconDots className="size-4" />
-        </Button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <Button type="button" variant="ghost" size="icon-sm" aria-label="打开表格操作菜单">
+            <IconDots className="size-4" />
+          </Button>
+        }
+      />
       <DropdownMenuContent align="end" className={cn("w-52", XLSX_DROPDOWN_Z_INDEX_CLASS)}>
         {showThemeControl ? (
           <>
@@ -498,18 +498,20 @@ export function WorkbookTableHeaderMenu({
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          {...triggerProps}
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className={cn("size-6 rounded-sm", triggerProps.className)}
-          aria-label="列菜单"
-        >
-          {triggerIcon ? triggerIcon : <IconDots className="size-3.5" />}
-        </Button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            {...triggerProps}
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className={cn("size-6 rounded-sm", triggerProps.className)}
+            aria-label="列菜单"
+          >
+            {triggerIcon ? triggerIcon : <IconDots className="size-3.5" />}
+          </Button>
+        }
+      />
       <DropdownMenuContent align="end" className={cn("w-40", XLSX_DROPDOWN_Z_INDEX_CLASS)}>
         <DropdownMenuRadioGroup
           value={direction ?? ""}
@@ -670,17 +672,19 @@ function WorkbookSearchPopover({
   return (
     <Popover>
       <ToolbarTooltip label="搜索工作簿">
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="搜索工作簿"
-            disabled={controlsDisabled}
-          >
-            <IconSearch className="size-4" />
-          </Button>
-        </PopoverTrigger>
+        <PopoverTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="搜索工作簿"
+              disabled={controlsDisabled}
+            >
+              <IconSearch className="size-4" />
+            </Button>
+          }
+        />
       </ToolbarTooltip>
       <PopoverContent align="end" className="w-72">
         <div className="space-y-3">

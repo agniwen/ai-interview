@@ -1155,7 +1155,11 @@ function MembersManagementPage() {
           return (
             <Select
               disabled={pending === r.id}
-              onValueChange={(value) => void changeWorkspaceRole(r, value)}
+              onValueChange={(value) => {
+                if (value) {
+                  void changeWorkspaceRole(r, value);
+                }
+              }}
               value={r.role}
             >
               <SelectTrigger className="w-36" size="sm">

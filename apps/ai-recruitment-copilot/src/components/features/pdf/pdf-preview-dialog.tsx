@@ -52,16 +52,21 @@ export function PdfPreviewDialog({
       title={filename ?? "简历预览"}
       headerExtra={
         <div className="flex items-center gap-2">
-          <Button asChild size="sm" type="button" variant="outline">
-            <a
-              aria-label="下载原文件"
-              download={resolvedDownloadFileName}
-              href={downloadUrl ?? url}
-            >
-              <IconDownload className="size-4" />
-              下载
-            </a>
-          </Button>
+          <Button
+            nativeButton={false}
+            render={
+              <a
+                aria-label="下载原文件"
+                download={resolvedDownloadFileName}
+                href={downloadUrl ?? url}
+              >
+                <IconDownload className="size-4" />
+                下载
+              </a>
+            }
+            size="sm"
+            variant="outline"
+          />
           <Button
             aria-label="关闭"
             onClick={() => onOpenChange(false)}

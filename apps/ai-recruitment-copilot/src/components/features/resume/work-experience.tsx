@@ -167,98 +167,96 @@ export function ExperiencePositionItem({ position }: ExperiencePositionItemProps
 
   return (
     <Collapsible
-      asChild
       defaultOpen={position.isExpanded}
       disabled={!position.description}
       onOpenChange={handleOpenChange}
+      render={<div className="relative" />}
     >
-      <div className="relative">
-        <CollapsibleTrigger
-          className={cn(
-            "group/experience-position not-prose block w-full text-left select-none",
-            "relative before:absolute before:-top-1 before:-right-1 before:-bottom-1.5 before:left-7 before:rounded-lg hover:before:bg-muted/30",
-            "data-disabled:before:content-none",
-          )}
-        >
-          <div className="relative z-[1] mb-1 flex items-start gap-3 text-base">
-            <div
-              className={cn(
-                "flex size-6 shrink-0 items-center justify-center rounded-lg",
-                "border border-muted-foreground/15 bg-muted text-muted-foreground ring-1 ring-border ring-offset-1 ring-offset-background",
-                "[&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-              )}
-            >
-              {position.icon ?? <IconBriefcase2 />}
-            </div>
-
-            <h4 className="flex-1 text-balance font-medium text-foreground">{position.title}</h4>
-
-            <div className="shrink-0 text-muted-foreground group-disabled/experience-position:hidden [&_svg]:h-lh [&_svg]:w-4">
-              <ChevronsUpDownIcon ref={chevronsUpDownIconRef} duration={0.15} />
-            </div>
+      <CollapsibleTrigger
+        className={cn(
+          "group/experience-position not-prose block w-full text-left select-none",
+          "relative before:absolute before:-top-1 before:-right-1 before:-bottom-1.5 before:left-7 before:rounded-lg hover:before:bg-muted/30",
+          "data-disabled:before:content-none",
+        )}
+      >
+        <div className="relative z-[1] mb-1 flex items-start gap-3 text-base">
+          <div
+            className={cn(
+              "flex size-6 shrink-0 items-center justify-center rounded-lg",
+              "border border-muted-foreground/15 bg-muted text-muted-foreground ring-1 ring-border ring-offset-1 ring-offset-background",
+              "[&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+            )}
+          >
+            {position.icon ?? <IconBriefcase2 />}
           </div>
 
-          <dl className="relative z-[1] flex items-center gap-2 pl-9 text-muted-foreground text-sm">
-            {position.employmentType && (
-              <>
-                <div>
-                  <dt className="sr-only">Employment Type</dt>
-                  <dd>{position.employmentType}</dd>
-                </div>
+          <h4 className="flex-1 text-balance font-medium text-foreground">{position.title}</h4>
 
-                <Separator
-                  className="data-[orientation=vertical]:h-4 data-[orientation=vertical]:self-center"
-                  orientation="vertical"
-                />
-              </>
-            )}
+          <div className="shrink-0 text-muted-foreground group-disabled/experience-position:hidden [&_svg]:h-lh [&_svg]:w-4">
+            <ChevronsUpDownIcon ref={chevronsUpDownIconRef} duration={0.15} />
+          </div>
+        </div>
 
-            <div>
-              <dt className="sr-only">Employment Period</dt>
-              <dd className="flex items-center gap-0.5 tabular-nums">
-                <span>{start}</span>
-                <span className="font-mono">—</span>
-                {isOngoing ? (
-                  <IconInfinity aria-label="Present" className="size-4.5 translate-y-[0.5px]" />
-                ) : (
-                  <span>{end}</span>
-                )}
-              </dd>
-            </div>
+        <dl className="relative z-[1] flex items-center gap-2 pl-9 text-muted-foreground text-sm">
+          {position.employmentType && (
+            <>
+              <div>
+                <dt className="sr-only">Employment Type</dt>
+                <dd>{position.employmentType}</dd>
+              </div>
 
-            {duration && (
-              <>
-                <Separator
-                  className="data-[orientation=vertical]:h-4 data-[orientation=vertical]:self-center"
-                  orientation="vertical"
-                />
-                <div>
-                  <dt className="sr-only">Duration</dt>
-                  <dd className="tabular-nums">{duration}</dd>
-                </div>
-              </>
-            )}
-          </dl>
-        </CollapsibleTrigger>
-
-        <CollapsibleContent className="overflow-hidden">
-          {position.description && (
-            <Prose className="pt-2 pl-9">
-              <ReactMarkdown>{position.description}</ReactMarkdown>
-            </Prose>
+              <Separator
+                className="data-[orientation=vertical]:h-4 data-[orientation=vertical]:self-center"
+                orientation="vertical"
+              />
+            </>
           )}
-        </CollapsibleContent>
 
-        {Array.isArray(position.skills) && position.skills.length > 0 && (
-          <ul className="not-prose flex flex-wrap gap-1.5 pt-3 pl-9">
-            {position.skills.map((skill, index) => (
-              <li className="flex" key={`${position.id}-skill-${index}`}>
-                <Skill>{skill}</Skill>
-              </li>
-            ))}
-          </ul>
+          <div>
+            <dt className="sr-only">Employment Period</dt>
+            <dd className="flex items-center gap-0.5 tabular-nums">
+              <span>{start}</span>
+              <span className="font-mono">—</span>
+              {isOngoing ? (
+                <IconInfinity aria-label="Present" className="size-4.5 translate-y-[0.5px]" />
+              ) : (
+                <span>{end}</span>
+              )}
+            </dd>
+          </div>
+
+          {duration && (
+            <>
+              <Separator
+                className="data-[orientation=vertical]:h-4 data-[orientation=vertical]:self-center"
+                orientation="vertical"
+              />
+              <div>
+                <dt className="sr-only">Duration</dt>
+                <dd className="tabular-nums">{duration}</dd>
+              </div>
+            </>
+          )}
+        </dl>
+      </CollapsibleTrigger>
+
+      <CollapsibleContent className="overflow-hidden">
+        {position.description && (
+          <Prose className="pt-2 pl-9">
+            <ReactMarkdown>{position.description}</ReactMarkdown>
+          </Prose>
         )}
-      </div>
+      </CollapsibleContent>
+
+      {Array.isArray(position.skills) && position.skills.length > 0 && (
+        <ul className="not-prose flex flex-wrap gap-1.5 pt-3 pl-9">
+          {position.skills.map((skill, index) => (
+            <li className="flex" key={`${position.id}-skill-${index}`}>
+              <Skill>{skill}</Skill>
+            </li>
+          ))}
+        </ul>
+      )}
     </Collapsible>
   );
 }

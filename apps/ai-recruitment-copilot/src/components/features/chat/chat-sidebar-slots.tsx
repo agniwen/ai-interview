@@ -100,18 +100,20 @@ function ChatSidebarHeader({
           {isBulkDeleting ? "正在删除…" : `删除 (${selectedCount})`}
         </Button>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              aria-label="退出批量编辑"
-              className="size-9 shrink-0"
-              disabled={isBulkDeleting}
-              onClick={onToggleEditMode}
-              size="icon"
-              variant="ghost"
-            >
-              <IconX className="size-4" />
-            </Button>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <Button
+                aria-label="退出批量编辑"
+                className="size-9 shrink-0"
+                disabled={isBulkDeleting}
+                onClick={onToggleEditMode}
+                size="icon"
+                variant="ghost"
+              >
+                <IconX className="size-4" />
+              </Button>
+            }
+          />
           <TooltipContent>退出批量编辑</TooltipContent>
         </Tooltip>
       </div>
@@ -130,17 +132,19 @@ function ChatSidebarHeader({
         <span className="font-medium text-sm">新建对话</span>
       </Button>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            aria-label="批量编辑"
-            className="size-9 shrink-0 text-sidebar-foreground/80"
-            onClick={onToggleEditMode}
-            size="icon"
-            variant="ghost"
-          >
-            <IconSquareCheck className="size-4" />
-          </Button>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <Button
+              aria-label="批量编辑"
+              className="size-9 shrink-0 text-sidebar-foreground/80"
+              onClick={onToggleEditMode}
+              size="icon"
+              variant="ghost"
+            >
+              <IconSquareCheck className="size-4" />
+            </Button>
+          }
+        />
         <TooltipContent>批量编辑</TooltipContent>
       </Tooltip>
     </div>
@@ -258,26 +262,28 @@ function ChatSidebarBody({
             return (
               <li key={conversation.id}>
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link
-                      className={cn(
-                        "block cursor-default rounded-md px-1.5 py-1.5 transition-colors",
-                        isActive ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/60",
-                      )}
-                      params={{ sessionId: conversation.id, slug }}
-                      to="/w/$slug/chat/$sessionId"
-                      onClick={closeOnNavigate}
-                    >
-                      <div
+                  <TooltipTrigger
+                    render={
+                      <Link
                         className={cn(
-                          "h-1.5 rounded-full",
-                          isActive
-                            ? "bg-sidebar-foreground/40 w-full"
-                            : "bg-muted-foreground/20 w-3/4",
+                          "block cursor-default rounded-md px-1.5 py-1.5 transition-colors",
+                          isActive ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/60",
                         )}
-                      />
-                    </Link>
-                  </TooltipTrigger>
+                        params={{ sessionId: conversation.id, slug }}
+                        to="/w/$slug/chat/$sessionId"
+                        onClick={closeOnNavigate}
+                      >
+                        <div
+                          className={cn(
+                            "h-1.5 rounded-full",
+                            isActive
+                              ? "bg-sidebar-foreground/40 w-full"
+                              : "bg-muted-foreground/20 w-3/4",
+                          )}
+                        />
+                      </Link>
+                    }
+                  />
                   <TooltipContent side="right">{visibleTitle}</TooltipContent>
                 </Tooltip>
               </li>

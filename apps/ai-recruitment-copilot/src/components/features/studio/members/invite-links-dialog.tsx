@@ -114,7 +114,11 @@ function InviteLinkRoleDialog({
           <Select
             disabled={assignableRoles.length === 0}
             value={value}
-            onValueChange={onValueChange}
+            onValueChange={(nextValue) => {
+              if (nextValue) {
+                onValueChange(nextValue);
+              }
+            }}
           >
             <SelectTrigger className="w-full" id="invite-link-initial-role">
               <SelectValue />
@@ -370,11 +374,13 @@ export function InviteLinksDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline">
-          <IconLink /> 邀请链接
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          <Button variant="outline">
+            <IconLink /> 邀请链接
+          </Button>
+        }
+      />
       <DialogContent className="w-[min(calc(100vw-2rem),56rem)] overflow-hidden sm:max-w-none">
         <DialogHeader>
           <DialogTitle>共享邀请链接</DialogTitle>

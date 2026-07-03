@@ -113,11 +113,13 @@ function copyPermission(permission: PermissionRecord | null | undefined): Permis
 function PermissionHeaderLabel({ item }: { item: PermissionItem }) {
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="inline-flex cursor-help items-center justify-center border-muted-foreground/60 border-b border-dotted leading-none outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-          {item.actionLabel}
-        </span>
-      </TooltipTrigger>
+      <TooltipTrigger
+        render={
+          <span className="inline-flex cursor-help items-center justify-center border-muted-foreground/60 border-b border-dotted leading-none outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+            {item.actionLabel}
+          </span>
+        }
+      />
       <TooltipContent className="max-w-72 text-left leading-relaxed" side="top">
         {item.description}
       </TooltipContent>

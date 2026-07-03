@@ -412,17 +412,19 @@ function CollectedCandidateInfoList({ items }: { items: CollectedCandidateInfoIt
                   <div className="flex flex-col gap-1.5">
                     {item.answers.map((answer, index) => (
                       <Tooltip key={`${index}-${answer}`}>
-                        <TooltipTrigger asChild>
-                          <p
-                            className={
-                              item.kind === "interview"
-                                ? "line-clamp-2 cursor-help text-muted-foreground leading-6 break-words"
-                                : "line-clamp-2 cursor-help text-foreground leading-6 break-words"
-                            }
-                          >
-                            “{answer}”
-                          </p>
-                        </TooltipTrigger>
+                        <TooltipTrigger
+                          render={
+                            <p
+                              className={
+                                item.kind === "interview"
+                                  ? "line-clamp-2 cursor-help text-muted-foreground leading-6 break-words"
+                                  : "line-clamp-2 cursor-help text-foreground leading-6 break-words"
+                              }
+                            >
+                              “{answer}”
+                            </p>
+                          }
+                        />
                         <TooltipContent className="max-w-[min(32rem,calc(100vw-2rem))] whitespace-pre-wrap break-words leading-6">
                           {answer}
                         </TooltipContent>
@@ -941,7 +943,7 @@ function InterviewReportMetadataFullTextInputSection({
       <Accordion
         className="mt-3 rounded-xl border border-border/60"
         defaultValue={["job", "questions", "transcript"]}
-        type="multiple"
+        multiple
       >
         <AccordionItem value="candidate">
           <AccordionTrigger className="px-4 py-3 hover:no-underline">
@@ -995,11 +997,7 @@ function InterviewReportMetadataFullTextInputSection({
 
 function InterviewReportMetadataJsonSection({ metadata }: { metadata: ReportSnapshotMetadata }) {
   return (
-    <Accordion
-      className="rounded-xl border border-border/60 bg-background"
-      collapsible
-      type="single"
-    >
+    <Accordion className="rounded-xl border border-border/60 bg-background">
       <AccordionItem className="border-0" value="raw">
         <AccordionTrigger className="px-4 py-3 hover:no-underline">结构化 JSON</AccordionTrigger>
         <AccordionContent className="px-4 pb-4">
@@ -1606,7 +1604,7 @@ function useStudioPersonDetailPanel({
   const launchResumeModeButton =
     launchResumeModeButtonContent && launchResumeModeDisabledReason ? (
       <Tooltip>
-        <TooltipTrigger asChild>{launchResumeModeButtonContent}</TooltipTrigger>
+        <TooltipTrigger render={launchResumeModeButtonContent} />
         <TooltipContent>{launchResumeModeDisabledReason}</TooltipContent>
       </Tooltip>
     ) : (
@@ -2051,7 +2049,7 @@ function useStudioPersonDetailPanel({
                     <Accordion
                       className="space-y-4"
                       defaultValue={[reports[0].conversationId]}
-                      type="multiple"
+                      multiple
                     >
                       {reports.map((report) => {
                         const startedAt = report.startedAt ?? report.createdAt;
@@ -2083,7 +2081,7 @@ function useStudioPersonDetailPanel({
                             key={report.conversationId}
                             value={report.conversationId}
                           >
-                            <AccordionTrigger className="rounded-none px-5 py-4 hover:no-underline data-[state=open]:border-border/60 data-[state=open]:border-b data-[state=open]:bg-background/70">
+                            <AccordionTrigger className="rounded-none px-5 py-4 hover:no-underline data-panel-open:border-border/60 data-panel-open:border-b data-panel-open:bg-background/70">
                               <div className="min-w-0 flex-1 text-left">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <TimeDisplay

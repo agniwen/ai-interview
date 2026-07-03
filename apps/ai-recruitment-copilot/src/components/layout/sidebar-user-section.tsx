@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -73,36 +74,42 @@ export function SidebarUserSection({
   } else if (session?.user) {
     content = collapsed ? (
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            aria-label="用户菜单"
-            className="w-full active:scale-100"
-            size="icon"
-            type="button"
-            variant="ghost"
-          >
-            <Avatar size="sm">
-              <AvatarImage alt={userName} src={session.user.image ?? undefined} />
-              <AvatarFallback>{userInitials}</AvatarFallback>
-            </Avatar>
-          </Button>
-        </DropdownMenuTrigger>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              aria-label="用户菜单"
+              className="w-full active:scale-100"
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <Avatar size="sm">
+                <AvatarImage alt={userName} src={session.user.image ?? undefined} />
+                <AvatarFallback>{userInitials}</AvatarFallback>
+              </Avatar>
+            </Button>
+          }
+        />
         <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel className="space-y-0.5">
-            <p className="truncate font-medium text-sm">{userName}</p>
-            <p className="truncate text-muted-foreground text-xs">{userEmail}</p>
-            {organizationName ? (
-              <p className="truncate text-muted-foreground text-xs">{organizationName}</p>
-            ) : null}
-          </DropdownMenuLabel>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="space-y-0.5">
+              <p className="truncate font-medium text-sm">{userName}</p>
+              <p className="truncate text-muted-foreground text-xs">{userEmail}</p>
+              {organizationName ? (
+                <p className="truncate text-muted-foreground text-xs">{organizationName}</p>
+              ) : null}
+            </DropdownMenuLabel>
+          </DropdownMenuGroup>
           <DropdownMenuSeparator />
           {showHomeLink ? (
-            <DropdownMenuItem asChild>
-              <Link to="/">
-                <IconHome className="mr-2 size-4" />
-                返回首页
-              </Link>
-            </DropdownMenuItem>
+            <DropdownMenuItem
+              render={
+                <Link to="/">
+                  <IconHome className="mr-2 size-4" />
+                  返回首页
+                </Link>
+              }
+            />
           ) : null}
           {showHomeLink ? <DropdownMenuSeparator /> : null}
           <DropdownMenuItem onClick={handleSignOut} variant="destructive">
@@ -113,41 +120,47 @@ export function SidebarUserSection({
       </DropdownMenu>
     ) : (
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            className="h-12 w-full justify-start gap-2 rounded-full hover:bg-background active:scale-100"
-            type="button"
-            variant="ghost"
-          >
-            <Avatar size="default">
-              <AvatarImage alt={userName} src={session.user.image ?? undefined} />
-              <AvatarFallback>{userInitials}</AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1 text-left">
-              <p className="truncate font-medium text-sm">{userName}</p>
-              <p className="truncate text-muted-foreground text-xs">
-                {organizationName ?? userEmail}
-              </p>
-            </div>
-            {/* <SelectChevronsUpDownIcon className="size-4 text-muted-foreground" /> */}
-          </Button>
-        </DropdownMenuTrigger>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              className="h-12 w-full justify-start gap-2 rounded-full hover:bg-background active:scale-100"
+              type="button"
+              variant="ghost"
+            >
+              <Avatar size="default">
+                <AvatarImage alt={userName} src={session.user.image ?? undefined} />
+                <AvatarFallback>{userInitials}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1 text-left">
+                <p className="truncate font-medium text-sm">{userName}</p>
+                <p className="truncate text-muted-foreground text-xs">
+                  {organizationName ?? userEmail}
+                </p>
+              </div>
+              {/* <SelectChevronsUpDownIcon className="size-4 text-muted-foreground" /> */}
+            </Button>
+          }
+        />
         <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel className="space-y-0.5">
-            <p className="truncate font-medium text-sm">{userName}</p>
-            <p className="truncate text-muted-foreground text-xs">{userEmail}</p>
-            {organizationName ? (
-              <p className="truncate text-muted-foreground text-xs">{organizationName}</p>
-            ) : null}
-          </DropdownMenuLabel>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="space-y-0.5">
+              <p className="truncate font-medium text-sm">{userName}</p>
+              <p className="truncate text-muted-foreground text-xs">{userEmail}</p>
+              {organizationName ? (
+                <p className="truncate text-muted-foreground text-xs">{organizationName}</p>
+              ) : null}
+            </DropdownMenuLabel>
+          </DropdownMenuGroup>
           <DropdownMenuSeparator />
           {showHomeLink ? (
-            <DropdownMenuItem asChild>
-              <Link to="/">
-                <IconHome className="mr-2 size-4" />
-                返回首页
-              </Link>
-            </DropdownMenuItem>
+            <DropdownMenuItem
+              render={
+                <Link to="/">
+                  <IconHome className="mr-2 size-4" />
+                  返回首页
+                </Link>
+              }
+            />
           ) : null}
           {showHomeLink ? <DropdownMenuSeparator /> : null}
           <DropdownMenuItem onClick={handleSignOut} variant="destructive">
@@ -161,16 +174,16 @@ export function SidebarUserSection({
     content = collapsed ? (
       <Button
         aria-label="登录"
-        asChild
         className="w-full"
+        nativeButton={false}
+        render={
+          <Link search={{ callbackURL }} to="/login">
+            <IconUser className="size-4" />
+          </Link>
+        }
         size="icon"
-        type="button"
         variant="ghost"
-      >
-        <Link search={{ callbackURL }} to="/login">
-          <IconUser className="size-4" />
-        </Link>
-      </Button>
+      />
     ) : (
       <div className="flex w-full flex-col gap-2">
         <FeishuSignInButton callbackURL={callbackURL} />

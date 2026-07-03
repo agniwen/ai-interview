@@ -125,7 +125,14 @@ function ApprovalView({
 }) {
   return (
     <>
-      <Select onValueChange={onSelectedIdChange} value={selectedId}>
+      <Select
+        onValueChange={(nextId) => {
+          if (nextId) {
+            onSelectedIdChange(nextId);
+          }
+        }}
+        value={selectedId}
+      >
         <SelectTrigger className="h-13! w-full">
           <SelectValue placeholder="选择一个在招岗位" />
         </SelectTrigger>

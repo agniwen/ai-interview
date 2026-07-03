@@ -28,19 +28,19 @@ export const agentTrackToggleVariants = cva(["size-9"], {
     },
     variant: {
       default: [
-        "data-[state=off]:bg-destructive/10 data-[state=off]:text-destructive",
-        "data-[state=off]:hover:bg-destructive/15",
-        "data-[state=off]:focus-visible:ring-destructive/30",
-        "data-[state=on]:bg-accent data-[state=on]:text-accent-foreground",
-        "data-[state=on]:hover:bg-foreground/10",
+        "bg-destructive/10 text-destructive",
+        "hover:bg-destructive/15",
+        "focus-visible:ring-destructive/30",
+        "data-pressed:bg-accent data-pressed:text-accent-foreground",
+        "data-pressed:hover:bg-foreground/10",
       ],
       outline: [
-        "data-[state=off]:bg-destructive/10 data-[state=off]:text-destructive data-[state=off]:border-destructive/20",
-        "data-[state=off]:hover:bg-destructive/15 data-[state=off]:hover:text-destructive",
-        "data-[state=off]:focus:text-destructive",
-        "data-[state=off]:focus-visible:border-destructive data-[state=off]:focus-visible:ring-destructive/30",
-        "data-[state=on]:hover:bg-foreground/10 data-[state=on]:hover:border-foreground/12",
-        "dark:data-[state=on]:hover:bg-foreground/10",
+        "border-destructive/20 bg-destructive/10 text-destructive",
+        "hover:bg-destructive/15 hover:text-destructive",
+        "focus:text-destructive",
+        "focus-visible:border-destructive focus-visible:ring-destructive/30",
+        "data-pressed:hover:border-foreground/12 data-pressed:hover:bg-foreground/10",
+        "dark:data-pressed:hover:bg-foreground/10",
       ],
     },
   },
@@ -71,7 +71,7 @@ function getSourceIcon(source: Track.Source, enabled: boolean, pending = false) 
  * Props for the AgentTrackToggle component.
  */
 export type AgentTrackToggleProps = VariantProps<typeof agentTrackToggleVariants> &
-  ComponentProps<"button"> & {
+  Omit<ComponentProps<"button">, "value"> & {
     /**
      * The size of the toggle.
      */
