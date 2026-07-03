@@ -5,7 +5,7 @@ const source = readFileSync(new URL("../resume-library-card.tsx", import.meta.ur
 
 describe("ResumeLibraryCard", () => {
   it("uses the shared control surface material without a table frame", () => {
-    expect(source).toContain("export function ResumeLibraryCard");
+    expect(source).toContain("export const ResumeLibraryCard = memo(");
     expect(source).toContain("border border-input bg-background bg-clip-padding");
     expect(source).toContain("shadow-xs/5");
     expect(source).toContain("before:shadow-[0_1px_--theme(--color-black/4%)]");
@@ -16,7 +16,7 @@ describe("ResumeLibraryCard", () => {
   it("puts a resume file preview action before the detail action", () => {
     const actionsSource = source.slice(
       source.indexOf("function ResumeLibraryCardActions("),
-      source.indexOf("export function ResumeLibraryCard("),
+      source.indexOf("function ResumeLibraryCardComponent("),
     );
 
     expect(actionsSource).toContain("ResumeLibraryPreviewAction");

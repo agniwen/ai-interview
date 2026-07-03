@@ -1157,12 +1157,16 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
           onCopyDetailLink={(record) => void copyResumeDetailLink(slug, record)}
           onDelete={setDeleteRecord}
           onEdit={(record) => setEditRecordId(record.id)}
-          onLaunchChat={(record) =>
+          onLaunchChat={(record) => {
+            if (!canLaunchInterviewFromResume(record.resumeParseStatus)) {
+              toast.error("简历解析完成后才能发起 AI Chat");
+              return;
+            }
             openStudioResumeChat({
               candidateName: record.candidateName ?? null,
               recordId: record.id,
-            })
-          }
+            });
+          }}
           onLaunchInterview={startAiInterview}
           onOpenBatchList={() => setBatchListOpen(true)}
           onOpenDetail={(record, tab = "overview") => {
@@ -1242,12 +1246,19 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
         // Action bar reuses the existing TransitionCandidateDialog stacked over the detail panel.
         onRequestClose={
           canUpdateResumeLibrary
-            ? ({ id, candidateName, initialOutcome }) =>
+            ? ({ id, candidateName, initialOutcome }) => {
+                const row = loadedResumeRowsById.get(id);
+                const reason = row ? getResumeActionLockedReason(row.resumeParseStatus) : null;
+                if (reason) {
+                  toast.error(reason);
+                  return;
+                }
                 setTransitionTarget({
                   candidate: { candidateName, id },
                   initialOutcome,
                   mode: "close",
-                })
+                });
+              }
             : undefined
         }
         onRequestReactivate={

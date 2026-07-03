@@ -455,6 +455,84 @@ function ResumeLibraryPreviewAction({
   );
 }
 
+function ResumeLibraryCardMoreMenu({
+  canClose,
+  canCopyLink,
+  canDelete,
+  canLaunchChat,
+  canPreviewFromMenu,
+  canReactivate,
+  onCopyDetailLink,
+  onDelete,
+  onLaunchChat,
+  onPreviewResume,
+  onTransition,
+  record,
+}: Pick<
+  ResumeLibraryCardProps,
+  "onCopyDetailLink" | "onDelete" | "onLaunchChat" | "onPreviewResume" | "onTransition" | "record"
+> & {
+  canClose: boolean;
+  canCopyLink: boolean;
+  canDelete: boolean;
+  canLaunchChat: boolean;
+  canPreviewFromMenu: boolean;
+  canReactivate: boolean;
+}) {
+  return (
+    <DropdownMenu modal={false}>
+      <Tooltip delayDuration={700}>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <Button aria-label="更多操作" size="icon" type="button" variant="ghost">
+              <IconDots className={RESUME_LIBRARY_ACTION_ICON_CLASS} />
+            </Button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="top">更多操作</TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent align="end" className="w-44">
+        <DropdownMenuLabel>更多操作</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {canCopyLink ? (
+          <DropdownMenuItem onSelect={() => onCopyDetailLink(record)}>
+            复制详情链接
+          </DropdownMenuItem>
+        ) : null}
+        {canLaunchChat ? (
+          <DropdownMenuItem onSelect={() => onLaunchChat(record)}>
+            <IconMessage2 className={RESUME_LIBRARY_ACTION_ICON_CLASS} />
+            发起 AI Chat
+          </DropdownMenuItem>
+        ) : null}
+        {canPreviewFromMenu ? (
+          <DropdownMenuItem onSelect={() => onPreviewResume(record)}>查看简历</DropdownMenuItem>
+        ) : null}
+        {canClose ? (
+          <DropdownMenuItem onSelect={() => onTransition(record, "close")}>
+            <IconCircleOff className={RESUME_LIBRARY_ACTION_ICON_CLASS} />
+            标记结案
+          </DropdownMenuItem>
+        ) : null}
+        {canReactivate ? (
+          <DropdownMenuItem onSelect={() => onTransition(record, "reactivate")}>
+            <IconArrowBackUp className={RESUME_LIBRARY_ACTION_ICON_CLASS} />
+            重新激活
+          </DropdownMenuItem>
+        ) : null}
+        {canDelete ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => onDelete(record)} variant="destructive">
+              删除
+            </DropdownMenuItem>
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function ResumeLibraryCardActions({
   canCopyLink,
   canCreateChat,
@@ -479,6 +557,7 @@ function ResumeLibraryCardActions({
     canLaunchInterviewFromResume(record.resumeParseStatus) &&
     !record.hasInterviewRounds &&
     record.pipelineStage !== "closed";
+  const canLaunchChat = canCreateChat && canLaunchInterviewFromResume(record.resumeParseStatus);
   const canPreviewFromMenu =
     !canEditResumeRecord(record.resumeParseStatus) && record.hasResumeFile && previewable;
   const canClose =
@@ -513,56 +592,20 @@ function ResumeLibraryCardActions({
             <IconSparkles className={RESUME_LIBRARY_ACTION_ICON_CLASS} />
           </ResumeLibraryIconActionButton>
         ) : null}
-        <DropdownMenu modal={false}>
-          <Tooltip delayDuration={700}>
-            <TooltipTrigger asChild>
-              <DropdownMenuTrigger asChild>
-                <Button aria-label="更多操作" size="icon" type="button" variant="ghost">
-                  <IconDots className={RESUME_LIBRARY_ACTION_ICON_CLASS} />
-                </Button>
-              </DropdownMenuTrigger>
-            </TooltipTrigger>
-            <TooltipContent side="top">更多操作</TooltipContent>
-          </Tooltip>
-          <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuLabel>更多操作</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {canCopyLink ? (
-              <DropdownMenuItem onSelect={() => onCopyDetailLink(record)}>
-                复制详情链接
-              </DropdownMenuItem>
-            ) : null}
-            {canCreateChat ? (
-              <DropdownMenuItem onSelect={() => onLaunchChat(record)}>
-                <IconMessage2 className={RESUME_LIBRARY_ACTION_ICON_CLASS} />
-                发起 AI Chat
-              </DropdownMenuItem>
-            ) : null}
-            {canPreviewFromMenu ? (
-              <DropdownMenuItem onSelect={() => onPreviewResume(record)}>查看简历</DropdownMenuItem>
-            ) : null}
-            {canClose ? (
-              <DropdownMenuItem onSelect={() => onTransition(record, "close")}>
-                <IconCircleOff className={RESUME_LIBRARY_ACTION_ICON_CLASS} />
-                标记结案
-              </DropdownMenuItem>
-            ) : null}
-            {canReactivate ? (
-              <DropdownMenuItem onSelect={() => onTransition(record, "reactivate")}>
-                <IconArrowBackUp className={RESUME_LIBRARY_ACTION_ICON_CLASS} />
-                重新激活
-              </DropdownMenuItem>
-            ) : null}
-            {canDelete ? (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => onDelete(record)} variant="destructive">
-                  删除
-                </DropdownMenuItem>
-              </>
-            ) : null}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <ResumeLibraryCardMoreMenu
+          canClose={canClose}
+          canCopyLink={canCopyLink}
+          canDelete={canDelete}
+          canLaunchChat={canLaunchChat}
+          canPreviewFromMenu={canPreviewFromMenu}
+          canReactivate={canReactivate}
+          onCopyDetailLink={onCopyDetailLink}
+          onDelete={onDelete}
+          onLaunchChat={onLaunchChat}
+          onPreviewResume={onPreviewResume}
+          onTransition={onTransition}
+          record={record}
+        />
       </div>
     </div>
   );

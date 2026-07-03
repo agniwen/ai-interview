@@ -100,6 +100,11 @@ describe("ResumeLibraryPage card list", () => {
     expect(cardSource).toContain("record.resumeSkills");
     expect(cardSource).toContain("ResumeCardProfileSnapshot");
     expect(cardSource).toContain("record.resumeProfileSnapshot");
+    expect(actionSource).toContain("const canLaunchChat =");
+    expect(actionSource).toContain(
+      "canCreateChat && canLaunchInterviewFromResume(record.resumeParseStatus)",
+    );
+    expect(cardSourceFile).toContain("{canLaunchChat ? (");
     expect(cardSourceFile).toContain("snapshot.work.slice(0, 3)");
     expect(cardSourceFile).toContain("snapshot.education.slice(0, 3)");
     expect(cardSourceFile).toContain("snapshot.workHasMore");
@@ -139,7 +144,27 @@ describe("ResumeLibraryPage card list", () => {
     expect(actionButtonSource).toContain("delayDuration={700}");
     expect(actionButtonSource).toContain("aria-label={label}");
     expect(actionSource).toContain("发起 AI 面试");
-    expect(actionSource).toContain("更多操作");
+    expect(cardSourceFile).toContain("更多操作");
+  });
+
+  it("guards chat and close actions while a resume is still parsing", () => {
+    const pageSource = source.slice(
+      source.indexOf("<ResumeLibraryCardList"),
+      source.indexOf("<StudioPersonDetailDialog"),
+    );
+    const detailCloseSource = source.slice(
+      source.indexOf("onRequestClose={"),
+      source.indexOf("onRequestReactivate={"),
+    );
+
+    expect(pageSource).toContain("if (!canLaunchInterviewFromResume(record.resumeParseStatus))");
+    expect(pageSource).toContain('toast.error("简历解析完成后才能发起 AI Chat")');
+    expect(detailCloseSource).toContain("getResumeActionLockedReason(row.resumeParseStatus)");
+    expect(detailCloseSource).toContain("toast.error(reason)");
+    expect(detailCloseSource).toContain("return;");
+    expect(detailCloseSource.indexOf("toast.error(reason)")).toBeLessThan(
+      detailCloseSource.indexOf("setTransitionTarget({"),
+    );
   });
 
   it("reuses toolbar selection around the infinite virtual card list", () => {
