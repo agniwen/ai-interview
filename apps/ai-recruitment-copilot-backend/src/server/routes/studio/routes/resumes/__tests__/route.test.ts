@@ -100,6 +100,22 @@ describe("resume launch interview route source", () => {
     expect(launchInterviewSource).toContain("stage: existing.pipelineStage");
     expect(launchInterviewSource).toContain("候选人已进入后续招聘阶段，不能再发起 AI 面试。");
   });
+
+  it("creates the interview context snapshot when launching AI interview", () => {
+    const launchInterviewSource = routeSource.slice(
+      routeSource.indexOf('.post(\n    "/:id/launch-interview"'),
+      routeSource.indexOf(
+        "return c.json(detail, 201);",
+        routeSource.indexOf("/:id/launch-interview"),
+      ),
+    );
+
+    expect(routeSource).toContain("loadOrCreateActiveInterviewContextSnapshot");
+    expect(launchInterviewSource).toContain("loadOrCreateActiveInterviewContextSnapshot({");
+    expect(launchInterviewSource).toContain("interviewRecordId: id");
+    expect(launchInterviewSource).toContain('reason: "create"');
+    expect(launchInterviewSource).toContain("scheduleEntryId: scheduleRow.id");
+  });
 });
 
 describeWithDatabase("resume detail route database behavior", () => {

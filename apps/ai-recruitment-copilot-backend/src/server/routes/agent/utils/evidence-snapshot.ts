@@ -6,7 +6,7 @@ import { interviewConversation, interviewEvidenceSnapshot } from "@arc/db-schema
 import { loadSubmissionsByInterview } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/submissions";
 import {
   hashSnapshotPayload,
-  loadOrCreateActiveInterviewContextSnapshot,
+  loadActiveInterviewContextSnapshot,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
 
 export interface CreateInterviewEvidenceSnapshotOptions {
@@ -59,12 +59,10 @@ export async function createInterviewEvidenceSnapshot(
     throw new Error(`interview conversation ${options.conversationId} not found`);
   }
 
-  const contextSnapshot = await loadOrCreateActiveInterviewContextSnapshot({
-    createdBy: null,
-    interviewRecordId: options.interviewRecordId,
-    reason: "create",
-    scheduleEntryId: conversation.scheduleEntryId,
-  });
+  const contextSnapshot = await loadActiveInterviewContextSnapshot(options.interviewRecordId);
+  if (!contextSnapshot) {
+    throw new Error(`interview context snapshot ${options.interviewRecordId} not found`);
+  }
   const submissions = await loadSubmissionsByInterview(options.interviewRecordId);
   const generatedAt =
     conversation.webhookReceivedAt ?? conversation.lastSyncedAt ?? conversation.updatedAt;

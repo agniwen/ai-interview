@@ -31,7 +31,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { getGlobalConfig } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/global-config/dao";
 import { loadSubmittedTemplateIds } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/submissions";
-import { loadOrCreateActiveInterviewContextSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
+import { loadActiveInterviewContextSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
 import {
   cacheTags,
   lookupOrgIdByInterviewRecord,
@@ -284,12 +284,10 @@ export const interviewRouter = factory
       return c.json({ error: "当前面试轮次已结束，如需重新面试请联系管理员。" }, 403);
     }
 
-    const contextSnapshot = await loadOrCreateActiveInterviewContextSnapshot({
-      createdBy: null,
-      interviewRecordId: id,
-      reason: "create",
-      scheduleEntryId: roundId,
-    });
+    const contextSnapshot = await loadActiveInterviewContextSnapshot(id);
+    if (!contextSnapshot) {
+      return c.json({ error: "Interview not available." }, 404);
+    }
     const requiredTemplateIds = contextSnapshot.payload.forms.map((form) => form.templateId);
     if (requiredTemplateIds.length > 0) {
       const submittedIds = await loadSubmittedTemplateIds(id, requiredTemplateIds);
@@ -535,12 +533,10 @@ export const interviewRouter = factory
       return c.json({ error: "Interview not available." }, 404);
     }
 
-    const contextSnapshot = await loadOrCreateActiveInterviewContextSnapshot({
-      createdBy: null,
-      interviewRecordId: id,
-      reason: "create",
-      scheduleEntryId: roundId,
-    });
+    const contextSnapshot = await loadActiveInterviewContextSnapshot(id);
+    if (!contextSnapshot) {
+      return c.json({ error: "Interview not available." }, 404);
+    }
     const required = contextSnapshot.payload.forms.map((form) => ({
       snapshot: form.snapshot,
       templateId: form.templateId,
@@ -586,12 +582,10 @@ export const interviewRouter = factory
 
       const { versionId, answers: rawAnswers } = c.req.valid("json");
 
-      const contextSnapshot = await loadOrCreateActiveInterviewContextSnapshot({
-        createdBy: null,
-        interviewRecordId: id,
-        reason: "create",
-        scheduleEntryId: roundId,
-      });
+      const contextSnapshot = await loadActiveInterviewContextSnapshot(id);
+      if (!contextSnapshot) {
+        return c.json({ error: "Interview not available." }, 404);
+      }
       const requiredForm = contextSnapshot.payload.forms.find(
         (form) => form.templateId === templateId,
       );

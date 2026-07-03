@@ -68,6 +68,7 @@ import {
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
 import { deleteResumeSemanticIndexBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/lifecycle";
 import { autoBindApplicableTemplates } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/bindings";
+import { loadOrCreateActiveInterviewContextSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
 import {
   jobDescriptionIdsExist,
   loadJobDescriptionById,
@@ -580,6 +581,12 @@ export const resumeLibraryRouter = factory
             );
           await tx.insert(studioInterviewSchedule).values(scheduleRow);
           await autoBindApplicableTemplates(tx, id, existing.jobDescriptionId);
+        });
+        await loadOrCreateActiveInterviewContextSnapshot({
+          createdBy: c.var.user?.id ?? null,
+          interviewRecordId: id,
+          reason: "create",
+          scheduleEntryId: scheduleRow.id,
         });
       } catch (error) {
         const result = toBadRequest(error);

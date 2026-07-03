@@ -23,7 +23,7 @@ import { generateResumeStructured } from "@arc/ai-recruitment-copilot-backend/li
 import { getResumeDocumentExtension } from "@arc/shared/resume-documents";
 import {
   flattenPresetQuestionsFromContextSnapshot,
-  loadOrCreateActiveInterviewContextSnapshot,
+  loadActiveInterviewContextSnapshot,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
 import { sha256HexOfBytes } from "@arc/shared/file-hash";
 import {
@@ -65,12 +65,10 @@ export async function loadCandidateInterviewRecord(id: string, roundId: string) 
 
   const view = buildCandidateInterviewView(record, sortScheduleEntries(scheduleEntries), roundId);
 
-  const contextSnapshot = await loadOrCreateActiveInterviewContextSnapshot({
-    createdBy: null,
-    interviewRecordId: id,
-    reason: "create",
-    scheduleEntryId: view.currentRoundId ?? roundId,
-  });
+  const contextSnapshot = await loadActiveInterviewContextSnapshot(id);
+  if (!contextSnapshot) {
+    return null;
+  }
   const { payload } = contextSnapshot;
   const jobDescriptionPresetQuestions = flattenPresetQuestionsFromContextSnapshot(payload);
 

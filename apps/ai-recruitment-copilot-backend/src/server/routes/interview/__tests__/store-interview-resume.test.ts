@@ -69,7 +69,7 @@ vi.mock(
   "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots",
   () => ({
     flattenPresetQuestionsFromContextSnapshot: vi.fn(),
-    loadOrCreateActiveInterviewContextSnapshot: vi.fn(),
+    loadActiveInterviewContextSnapshot: vi.fn(),
   }),
 );
 
