@@ -71,6 +71,20 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in GitHub Issues for `agniwen/ai-interview`; external PRs are not a triage request surface. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The triage label vocabulary uses the default five labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Domain documentation uses the single-context layout: root `CONTEXT.md` and `docs/adr/`. See `docs/agents/domain.md`.
+
 ## Project Overview
 
 AI-powered voice interview/resume screening application. Chinese-first locale — agent instructions and interview prompts are in Simplified Chinese.
