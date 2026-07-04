@@ -553,33 +553,40 @@ function RecruitingContextPanel() {
   const [mobileOpen, setMobileOpen] = useState(false);
   return (
     <>
-      <aside
-        className={cn(
-          "hidden min-h-0 border-l bg-muted/20 transition-[width] lg:block",
-          desktopOpen ? "w-80" : "w-12",
-        )}
-      >
-        <div className="flex h-full min-h-0 flex-col">
-          <div className="flex h-12 items-center justify-between border-b px-3">
-            {desktopOpen ? <h2 className="font-medium text-sm">上下文</h2> : null}
-            <Button
-              aria-label={desktopOpen ? "收起上下文" : "展开上下文"}
-              className="ms-auto size-8"
-              onClick={() => setDesktopOpen((open) => !open)}
-              size="icon"
-              type="button"
-              variant="ghost"
-            >
-              {desktopOpen ? <IconX className="size-4" /> : <IconExternalLink className="size-4" />}
-            </Button>
-          </div>
-          {desktopOpen ? (
+      {desktopOpen ? (
+        <aside className="absolute top-4 right-4 bottom-4 z-30 hidden w-80 overflow-hidden rounded-xl border bg-background/95 shadow-xl shadow-black/8 backdrop-blur lg:flex">
+          <div className="flex h-full min-h-0 flex-1 flex-col">
+            <div className="flex h-12 shrink-0 items-center justify-between border-b px-3">
+              <h2 className="font-medium text-sm">上下文</h2>
+              <Button
+                aria-label="收起上下文"
+                className="ms-auto size-8"
+                onClick={() => setDesktopOpen(false)}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <IconX className="size-4" />
+              </Button>
+            </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-3">
               <ContextPanelContent />
             </div>
-          ) : null}
-        </div>
-      </aside>
+          </div>
+        </aside>
+      ) : (
+        <Button
+          aria-label="展开上下文"
+          className="absolute top-4 right-4 z-30 hidden h-9 rounded-full bg-background/95 px-3 shadow-lg shadow-black/8 backdrop-blur lg:inline-flex"
+          onClick={() => setDesktopOpen(true)}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <IconExternalLink className="size-4" />
+          上下文
+        </Button>
+      )}
       <Button
         className="fixed right-4 bottom-24 z-30 h-9 rounded-full px-3 shadow-sm lg:hidden"
         onClick={() => setMobileOpen(true)}
@@ -814,10 +821,10 @@ export function RecruitingToolRenderers() {
 export function RecruitingThread({ isRunning }: { isRunning: boolean }) {
   return (
     <ThreadPrimitive.Root
-      className="aui-root aui-thread-root flex min-h-0 flex-1 flex-col bg-background text-foreground"
+      className="aui-root aui-thread-root relative flex min-h-0 flex-1 flex-col bg-background text-foreground"
       style={activeThreadStyle}
     >
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1">
         <div className="relative flex min-w-0 flex-1 flex-col">
           <ThreadPrimitive.Viewport
             autoScroll
