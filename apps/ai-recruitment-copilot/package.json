@@ -10,7 +10,7 @@
     "copy:mupdf-wasm": "tsx scripts/copy-mupdf-wasm.ts",
     "env:validate": "tsx src/env/validate.ts",
     "prebuild": "pnpm env:validate",
-    "build": "vite build",
+    "build": "node scripts/build.mjs",
     "postbuild": "pnpm copy:mupdf-wasm",
     "start": "node --import dotenv/config .output/server/index.mjs",
     "typecheck": "tsc --noEmit",
