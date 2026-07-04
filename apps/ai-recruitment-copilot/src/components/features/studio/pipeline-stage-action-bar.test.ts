@@ -81,14 +81,14 @@ describe("PipelineStageActionBar compact stage rail", () => {
     );
   });
 
-  it("gates human interview and offer stage actions by dedicated permissions", () => {
-    expect(source).toContain("canManageHumanInterview?: boolean;");
-    expect(source).toContain("canManageOffer?: boolean;");
+  it("gates human interview and offer stage actions by create permissions", () => {
+    expect(source).toContain("canCreateHumanInterview?: boolean;");
+    expect(source).toContain("canCreateOffer?: boolean;");
     expect(source).toContain("hasJobDescription?: boolean;");
-    expect(source).toContain("canManageHumanInterview = true");
-    expect(source).toContain("canManageOffer = true");
-    expect(source).toContain("&& canManageHumanInterview");
-    expect(source).toContain("if (canManageOffer) {");
+    expect(source).toContain("canCreateHumanInterview = true");
+    expect(source).toContain("canCreateOffer = true");
+    expect(source).toContain("&& canCreateHumanInterview");
+    expect(source).toContain("if (canCreateOffer) {");
     expect(source).toContain('hasEvent({ type: "SKIP_TO_HUMAN_INTERVIEW" })');
     expect(source).toContain('hasEvent({ type: "ADVANCE_TO_OFFER" })');
     expect(source).toContain("canApplyCandidatePipelineEvent");

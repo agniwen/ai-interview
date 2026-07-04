@@ -24,8 +24,8 @@ export interface PipelineStageActionBarProps {
   pipelineStage: PipelineStage;
   primaryAction?: ReactNode;
   showAiInterviewStep?: boolean;
-  canManageHumanInterview?: boolean;
-  canManageOffer?: boolean;
+  canCreateHumanInterview?: boolean;
+  canCreateOffer?: boolean;
   hasJobDescription?: boolean;
   // 真人复面是否全部 completed。
   // Whether all human interview rounds are done.
@@ -48,8 +48,8 @@ export function PipelineStageActionBar({
   pipelineStage,
   primaryAction,
   showAiInterviewStep = true,
-  canManageHumanInterview = true,
-  canManageOffer = true,
+  canCreateHumanInterview = true,
+  canCreateOffer = true,
   hasJobDescription = true,
   humanInterviewDone,
   humanInterviewFeedbackComplete,
@@ -58,8 +58,8 @@ export function PipelineStageActionBar({
   onRequestReactivate,
 }: PipelineStageActionBarProps) {
   const actions = getStageActions({
-    canManageHumanInterview,
-    canManageOffer,
+    canCreateHumanInterview,
+    canCreateOffer,
     hasJobDescription,
     humanInterviewDone,
     humanInterviewFeedbackComplete,
@@ -163,8 +163,8 @@ interface StageButton {
 
 function getStageActions(props: {
   pipelineStage: PipelineStage;
-  canManageHumanInterview: boolean;
-  canManageOffer: boolean;
+  canCreateHumanInterview: boolean;
+  canCreateOffer: boolean;
   hasJobDescription: boolean;
   humanInterviewFeedbackComplete?: boolean;
   humanInterviewDone?: boolean;
@@ -174,8 +174,8 @@ function getStageActions(props: {
 }): { left: ReactNode[]; right: ReactNode[] } {
   const {
     pipelineStage,
-    canManageHumanInterview,
-    canManageOffer,
+    canCreateHumanInterview,
+    canCreateOffer,
     hasJobDescription,
     humanInterviewFeedbackComplete,
     humanInterviewDone,
@@ -220,7 +220,7 @@ function getStageActions(props: {
       // 简历筛选阶段：可发起 AI 面试，也可跳过 AI 直接进入真人复面；Offer 必须在真人复面后。
       // Screening: start AI, or skip to human interview. Offer requires human interview first.
       const canAdvanceToHumanInterview = hasEvent({ type: "SKIP_TO_HUMAN_INTERVIEW" });
-      if (canAdvanceToHumanInterview && canManageHumanInterview) {
+      if (canAdvanceToHumanInterview && canCreateHumanInterview) {
         buttons.push({
           key: "to-human",
           node: (
@@ -243,7 +243,7 @@ function getStageActions(props: {
       // AI 面试阶段只能进入真人复面或结案，不能直接进入 Offer。
       // AI interview can only advance to human interview or close, never directly to offer.
       const canAdvanceToHumanInterview = hasEvent({ type: "ADVANCE_TO_HUMAN_INTERVIEW" });
-      if (canAdvanceToHumanInterview && canManageHumanInterview) {
+      if (canAdvanceToHumanInterview && canCreateHumanInterview) {
         // 还没跑完时，允许 HR 提前安排复面（跳过场景：技术面已经过、不想等剩下的）。
         // Skip-ahead path while AI interviews are still in flight.
         buttons.push({
@@ -267,7 +267,7 @@ function getStageActions(props: {
     case "human_interview": {
       // 真人复面阶段：只有完成所有轮次并补全评价后才能进入 Offer。
       // Human interview: offer is available only after rounds are complete with feedback.
-      if (canManageOffer) {
+      if (canCreateOffer) {
         const disabledReason = resolveOfferAdvanceDisabledReason(
           humanInterviewDone,
           humanInterviewFeedbackComplete,

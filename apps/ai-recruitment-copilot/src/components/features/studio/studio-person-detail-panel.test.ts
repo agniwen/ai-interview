@@ -168,7 +168,7 @@ describe("StudioPersonDetailPanel visual density", () => {
     expect(source).toContain("showAiInterviewStep={shouldShowAiInterviewTab(tabVisibilityRecord)}");
   });
 
-  it("gates human interview and offer tabs plus stage actions by dedicated permissions", () => {
+  it("gates human interview and offer tabs plus stage actions by CRUD permissions", () => {
     const availableTabsStart = source.indexOf("const availableTabs = useMemo");
     const availableTabsSource = source.slice(
       availableTabsStart,
@@ -176,22 +176,30 @@ describe("StudioPersonDetailPanel visual density", () => {
     );
     const actionBarSource = sourceBetween("const actionBar =", "let headerExtra");
 
-    expect(source).toContain('useHasPermission("humanInterview", "manage")');
-    expect(source).toContain('useHasPermission("offer", "manage")');
+    expect(source).toContain('useHasPermission("humanInterview", "read")');
+    expect(source).toContain('useHasPermission("humanInterview", "create")');
+    expect(source).toContain('useHasPermission("humanInterview", "update")');
+    expect(source).toContain('useHasPermission("humanInterview", "delete")');
+    expect(source).toContain('useHasPermission("offer", "read")');
+    expect(source).toContain('useHasPermission("offer", "create")');
+    expect(source).toContain('useHasPermission("offer", "update")');
+    expect(source).toContain('useHasPermission("offer", "delete")');
     expect(availableTabsSource).toContain(
-      "shouldShowHumanInterviewTab(tabVisibilityRecord, canManageHumanInterview)",
+      "shouldShowHumanInterviewTab(tabVisibilityRecord, canReadHumanInterview)",
     );
-    expect(availableTabsSource).toContain(
-      "shouldShowOfferTab(tabVisibilityRecord, canManageOffer)",
-    );
+    expect(availableTabsSource).toContain("shouldShowOfferTab(tabVisibilityRecord, canReadOffer)");
     expect(
-      source.match(/shouldShowHumanInterviewTab\(tabVisibilityRecord, canManageHumanInterview\)/g),
+      source.match(/shouldShowHumanInterviewTab\(tabVisibilityRecord, canReadHumanInterview\)/g),
     ).toHaveLength(3);
-    expect(source.match(/shouldShowOfferTab\(tabVisibilityRecord, canManageOffer\)/g)).toHaveLength(
+    expect(source.match(/shouldShowOfferTab\(tabVisibilityRecord, canReadOffer\)/g)).toHaveLength(
       3,
     );
-    expect(actionBarSource).toContain("canManageHumanInterview={canManageHumanInterview}");
-    expect(actionBarSource).toContain("canManageOffer={canManageOffer}");
+    expect(actionBarSource).toContain("canCreateHumanInterview={canCreateHumanInterview}");
+    expect(actionBarSource).toContain("canCreateOffer={canCreateOffer}");
+    expect(source).toContain("canUpdate={canUpdateHumanInterview}");
+    expect(source).toContain("canDelete={canDeleteHumanInterview}");
+    expect(source).toContain("canUpdate={canUpdateOffer}");
+    expect(source).toContain("canDelete={canDeleteOffer}");
   });
 
   it("renders resume AI parsing in its own tab instead of the overview", () => {

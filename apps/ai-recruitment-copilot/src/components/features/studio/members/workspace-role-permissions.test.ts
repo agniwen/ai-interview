@@ -5,6 +5,7 @@ import {
   buildPermissionHeaderGroups,
   buildPermissionItems,
   canManageWorkspacePermissions,
+  copyPermissionRecord,
   normalizeDynamicRoleName,
   readRoleDeleteError,
   sortDynamicWorkspaceRolesByCreatedAt,
@@ -59,6 +60,18 @@ describe("workspace role permission helpers", () => {
     expect(roles.map((role) => role.id)).toEqual(["role-b", "role-a", "role-c"]);
   });
 
+  it("expands legacy late-stage manage permissions to CRUD actions", () => {
+    const permission = copyPermissionRecord({
+      humanInterview: ["manage"],
+      mailIngestAccount: ["manage"],
+      offer: ["read", "manage"],
+    });
+
+    expect(permission.humanInterview).toEqual(["create", "read", "update", "delete"]);
+    expect(permission.offer).toEqual(["read", "create", "update", "delete"]);
+    expect(permission.mailIngestAccount).toEqual(["manage"]);
+  });
+
   it("flattens permission groups into stable table columns", () => {
     const items = buildPermissionItems();
 
@@ -74,8 +87,14 @@ describe("workspace role permission helpers", () => {
     expect(items.map((item) => item.key)).toContain("resumeLibrary:read");
     expect(items.map((item) => item.key)).toContain("resumePool:import");
     expect(items.map((item) => item.key)).toContain("resumeUploadBatch:process");
-    expect(items.map((item) => item.key)).toContain("humanInterview:manage");
-    expect(items.map((item) => item.key)).toContain("offer:manage");
+    expect(items.map((item) => item.key)).toContain("humanInterview:create");
+    expect(items.map((item) => item.key)).toContain("humanInterview:read");
+    expect(items.map((item) => item.key)).toContain("humanInterview:update");
+    expect(items.map((item) => item.key)).toContain("humanInterview:delete");
+    expect(items.map((item) => item.key)).toContain("offer:create");
+    expect(items.map((item) => item.key)).toContain("offer:read");
+    expect(items.map((item) => item.key)).toContain("offer:update");
+    expect(items.map((item) => item.key)).toContain("offer:delete");
     expect(items.map((item) => item.key)).toContain("mailIngestAccount:manage");
     expect(items.map((item) => item.key)).not.toContain("resume:read");
     expect(items.map((item) => item.key)).toContain("globalConfig:update");
@@ -103,6 +122,8 @@ describe("workspace role permission helpers", () => {
       "导入",
       "删除",
     ]);
+    expect(groups.find((group) => group.resource === "humanInterview")?.items).toHaveLength(4);
+    expect(groups.find((group) => group.resource === "offer")?.items).toHaveLength(4);
     expect(groups.flatMap((group) => group.items).map((item) => item.key)).toEqual(
       buildPermissionItems().map((item) => item.key),
     );

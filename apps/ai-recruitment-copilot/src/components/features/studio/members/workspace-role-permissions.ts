@@ -81,12 +81,12 @@ export const WORKSPACE_PERMISSION_GROUPS = [
         label: "AI 面试",
       },
       {
-        actions: ["manage"] as const,
+        actions: ["create", "read", "update", "delete"] as const,
         key: "humanInterview",
         label: "真人面试管理",
       },
       {
-        actions: ["manage"] as const,
+        actions: ["create", "read", "update", "delete"] as const,
         key: "offer",
         label: "Offer 管理",
       },
@@ -174,8 +174,6 @@ export const PERMISSION_ACTION_LABELS: Record<string, string> = {
 };
 
 const PERMISSION_ITEM_ACTION_LABELS: Record<string, string> = {
-  "humanInterview:manage": "管理",
-  "offer:manage": "管理",
   "resumePool:create": "上传",
 };
 
@@ -235,7 +233,10 @@ const RESOURCE_ACTION_DESCRIPTIONS: Partial<Record<PermissionResource, Record<st
     update: "允许保存「系统设置」里的公司信息、面试配置等全局配置。",
   },
   humanInterview: {
-    manage: "允许查看真人复面阶段页签，并将候选人推进到真人复面或从 Offer 退回真人复面。",
+    create: "允许将候选人推进到真人复面，并新建真人复面轮次或视频会议。",
+    delete: "允许取消真人复面轮次，或删除尚未开始的真人复面会议。",
+    read: "允许查看真人复面阶段页签、轮次、会议和入场链接。",
+    update: "允许调整真人复面时间、结束会议、标记完成并录入面试评价。",
   },
   interview: {
     create: "允许在「AI 面试」页面创建面试记录或从候选人流程发起新的 AI 面试。",
@@ -274,7 +275,10 @@ const RESOURCE_ACTION_DESCRIPTIONS: Partial<Record<PermissionResource, Record<st
       "允许调整成员角色，并管理招聘组、组成员、组内角色和成员所属组；实际可调整范围仍受服务端角色规则限制。",
   },
   offer: {
-    manage: "允许查看 Offer 阶段页签，并将候选人推进到 Offer。",
+    create: "允许将候选人推进到 Offer，并新建 Offer 草稿。",
+    delete: "允许撤回已创建或已发送的 Offer。",
+    read: "允许查看 Offer 阶段页签和 Offer 版本记录。",
+    update: "允许编辑 Offer 草稿、发送 Offer，并记录候选人响应。",
   },
   organization: {
     update: "允许修改工作区基础设置，例如工作区名称；不包含成员、角色和邀请管理。",
@@ -410,13 +414,29 @@ export function buildPermissionHeaderGroups(items: PermissionItem[]): Permission
   return groups;
 }
 
+const LEGACY_MANAGE_PERMISSION_REPLACEMENTS: Partial<Record<PermissionResource, string[]>> = {
+  humanInterview: ["create", "read", "update", "delete"],
+  offer: ["create", "read", "update", "delete"],
+};
+
+function normalizeLegacyPermissionActions(
+  resource: PermissionResource,
+  actions: readonly string[] | undefined,
+): string[] {
+  const replacement = LEGACY_MANAGE_PERMISSION_REPLACEMENTS[resource];
+  if (!replacement || !actions?.includes("manage")) {
+    return actions ? [...new Set(actions)] : [];
+  }
+  return [...new Set([...actions.filter((action) => action !== "manage"), ...replacement])];
+}
+
 export function copyPermissionRecord(
   permission: PermissionRecord | null | undefined,
 ): PermissionRecord {
   return Object.fromEntries(
     Object.entries(permission ?? {}).map(([resource, actions]) => [
       resource,
-      actions ? [...new Set(actions)] : [],
+      normalizeLegacyPermissionActions(resource as PermissionResource, actions),
     ]),
   ) as PermissionRecord;
 }

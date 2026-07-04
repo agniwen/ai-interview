@@ -168,9 +168,9 @@ function shouldShowAiInterviewTab(record: { pipelineStage?: string } | null): bo
 // stage; remains visible after close for HR audit and reactivation.
 function shouldShowHumanInterviewTab(
   record: { pipelineStage?: string } | null,
-  canManageHumanInterview: boolean,
+  canReadHumanInterview: boolean,
 ): boolean {
-  if (!canManageHumanInterview) {
+  if (!canReadHumanInterview) {
     return false;
   }
   if (!record?.pipelineStage) {
@@ -181,9 +181,9 @@ function shouldShowHumanInterviewTab(
 
 function shouldShowOfferTab(
   record: { pipelineStage?: string } | null,
-  canManageOffer: boolean,
+  canReadOffer: boolean,
 ): boolean {
-  if (!canManageOffer) {
+  if (!canReadOffer) {
     return false;
   }
   if (!record?.pipelineStage) {
@@ -1193,10 +1193,22 @@ function useStudioPersonDetailPanel({
   const isReview = accessMode === "review";
   const canUseManagementActions = accessMode === "authed";
   const canViewReportMetadata = accessMode === "authed";
-  const hasHumanInterviewPermission = useHasPermission("humanInterview", "manage");
-  const hasOfferPermission = useHasPermission("offer", "manage");
-  const canManageHumanInterview = canUseManagementActions && hasHumanInterviewPermission;
-  const canManageOffer = canUseManagementActions && hasOfferPermission;
+  const hasReadHumanInterviewPermission = useHasPermission("humanInterview", "read");
+  const hasCreateHumanInterviewPermission = useHasPermission("humanInterview", "create");
+  const hasUpdateHumanInterviewPermission = useHasPermission("humanInterview", "update");
+  const hasDeleteHumanInterviewPermission = useHasPermission("humanInterview", "delete");
+  const hasReadOfferPermission = useHasPermission("offer", "read");
+  const hasCreateOfferPermission = useHasPermission("offer", "create");
+  const hasUpdateOfferPermission = useHasPermission("offer", "update");
+  const hasDeleteOfferPermission = useHasPermission("offer", "delete");
+  const canReadHumanInterview = canUseManagementActions && hasReadHumanInterviewPermission;
+  const canCreateHumanInterview = canUseManagementActions && hasCreateHumanInterviewPermission;
+  const canUpdateHumanInterview = canUseManagementActions && hasUpdateHumanInterviewPermission;
+  const canDeleteHumanInterview = canUseManagementActions && hasDeleteHumanInterviewPermission;
+  const canReadOffer = canUseManagementActions && hasReadOfferPermission;
+  const canCreateOffer = canUseManagementActions && hasCreateOfferPermission;
+  const canUpdateOffer = canUseManagementActions && hasUpdateOfferPermission;
+  const canDeleteOffer = canUseManagementActions && hasDeleteOfferPermission;
   // 公开模式下故意不依赖 slug；authed 模式下我们仍要求 workspace 上下文。
   // Public mode is slug-agnostic by design; authed mode still needs the workspace ctx.
   if (!isPublic && !optionalSlug) {
@@ -1488,14 +1500,14 @@ function useStudioPersonDetailPanel({
     if (shouldShowAiInterviewTab(tabVisibilityRecord)) {
       tabs.add("rounds");
     }
-    if (shouldShowHumanInterviewTab(tabVisibilityRecord, canManageHumanInterview)) {
+    if (shouldShowHumanInterviewTab(tabVisibilityRecord, canReadHumanInterview)) {
       tabs.add("human-interview");
     }
-    if (shouldShowOfferTab(tabVisibilityRecord, canManageOffer)) {
+    if (shouldShowOfferTab(tabVisibilityRecord, canReadOffer)) {
       tabs.add("offer");
     }
     return tabs;
-  }, [canManageHumanInterview, canManageOffer, hasRecord, isPublic, mode, tabVisibilityRecord]);
+  }, [canReadHumanInterview, canReadOffer, hasRecord, isPublic, mode, tabVisibilityRecord]);
 
   useEffect(() => {
     if (record && !availableTabs.has(activeTab)) {
@@ -1712,8 +1724,8 @@ function useStudioPersonDetailPanel({
           resumeRecord?.stageProgress.humanInterview &&
           resumeRecord.stageProgress.humanInterview.completedRoundsMissingFeedback === 0,
         )}
-        canManageHumanInterview={canManageHumanInterview}
-        canManageOffer={canManageOffer}
+        canCreateHumanInterview={canCreateHumanInterview}
+        canCreateOffer={canCreateOffer}
         hasJobDescription={Boolean(resumeRecord?.jobDescriptionId)}
         onAdvance={(target) => {
           // 行内推进（不带元数据）：直接调 transition API，刷新缓存。
@@ -1785,12 +1797,12 @@ function useStudioPersonDetailPanel({
           {/* 真人复面 / Offer tab：阶段已到达或经过时才显示，避免新候选人页面过于喧闹。
             Human interview / Offer tabs surface only once the candidate has reached that stage. */}
           {mode === "resume" &&
-          shouldShowHumanInterviewTab(tabVisibilityRecord, canManageHumanInterview) ? (
+          shouldShowHumanInterviewTab(tabVisibilityRecord, canReadHumanInterview) ? (
             <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="human-interview">
               真人复面
             </TabsTrigger>
           ) : null}
-          {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord, canManageOffer) ? (
+          {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord, canReadOffer) ? (
             <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="offer">
               Offer
             </TabsTrigger>
@@ -2411,9 +2423,12 @@ function useStudioPersonDetailPanel({
           ) : null}
 
           {mode === "resume" &&
-          shouldShowHumanInterviewTab(tabVisibilityRecord, canManageHumanInterview) ? (
+          shouldShowHumanInterviewTab(tabVisibilityRecord, canReadHumanInterview) ? (
             <TabsContent value="human-interview">
               <HumanInterviewStagePanel
+                canCreate={canCreateHumanInterview}
+                canDelete={canDeleteHumanInterview}
+                canUpdate={canUpdateHumanInterview}
                 candidateId={record.id}
                 candidateName={record.candidateName}
                 disabled={record.pipelineStage === "closed"}
@@ -2421,9 +2436,12 @@ function useStudioPersonDetailPanel({
             </TabsContent>
           ) : null}
 
-          {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord, canManageOffer) ? (
+          {mode === "resume" && shouldShowOfferTab(tabVisibilityRecord, canReadOffer) ? (
             <TabsContent value="offer">
               <OfferStagePanel
+                canCreate={canCreateOffer}
+                canDelete={canDeleteOffer}
+                canUpdate={canUpdateOffer}
                 candidateEmail={record.candidateEmail}
                 candidateId={record.id}
                 candidateName={record.candidateName}

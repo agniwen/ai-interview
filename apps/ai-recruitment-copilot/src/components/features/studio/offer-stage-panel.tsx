@@ -67,6 +67,9 @@ interface PanelProps {
   candidateId: string;
   candidateName: string;
   candidateEmail: string | null;
+  canCreate?: boolean;
+  canDelete?: boolean;
+  canUpdate?: boolean;
   disabled?: boolean;
   // 父级在「候选人接受 Offer」二次确认后，开「标记结案 + outcome=hired」dialog。
   // Parent opens the close dialog with outcome=hired after this fires.
@@ -77,6 +80,9 @@ export function OfferStagePanel({
   candidateId,
   candidateEmail,
   candidateName,
+  canCreate = true,
+  canDelete = true,
+  canUpdate = true,
   disabled,
   onRequestCloseAsHired,
 }: PanelProps) {
@@ -108,6 +114,12 @@ export function OfferStagePanel({
     }
 
     if (drafts.length === 0) {
+      let emptyDescription = "你可以查看 Offer 记录，但不能新建 Offer。";
+      if (disabled) {
+        emptyDescription = "已结案候选人不可新建 Offer。";
+      } else if (canCreate) {
+        emptyDescription = "点「新建 Offer」起草第一版。";
+      }
       return (
         <Empty className="border-border">
           <EmptyHeader>
@@ -115,9 +127,7 @@ export function OfferStagePanel({
               <IconHeartHandshake className="size-5" />
             </EmptyMedia>
             <EmptyTitle>尚未发出 Offer</EmptyTitle>
-            <EmptyDescription>
-              {disabled ? "已结案候选人不可新建 Offer。" : "点「新建 Offer」起草第一版。"}
-            </EmptyDescription>
+            <EmptyDescription>{emptyDescription}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       );
@@ -127,6 +137,8 @@ export function OfferStagePanel({
       <div className="space-y-3">
         {drafts.map((draft) => (
           <OfferCard
+            canDelete={canDelete}
+            canUpdate={canUpdate}
             candidateEmail={candidateEmail}
             candidateId={candidateId}
             disabled={disabled}
@@ -144,7 +156,7 @@ export function OfferStagePanel({
 
   return (
     <div className="space-y-5">
-      <CandidateExpectationsBlock candidateId={candidateId} disabled={disabled} />
+      <CandidateExpectationsBlock candidateId={candidateId} disabled={disabled || !canUpdate} />
 
       <div className="flex items-center justify-between">
         <div>
@@ -153,7 +165,7 @@ export function OfferStagePanel({
             管理 {candidateName} 的 Offer：新版本会自动 supersede 旧的草稿/已发版本。
           </p>
         </div>
-        {disabled ? null : (
+        {disabled || !canCreate ? null : (
           <Button onClick={() => setCreateOpen(true)} size="sm">
             <IconPlus className="size-4" />
             新建 Offer
@@ -386,6 +398,8 @@ function ExpectationField({ label, value }: { label: string; value: string | nul
 
 function OfferCard({
   draft,
+  canDelete,
+  canUpdate,
   candidateId,
   candidateEmail,
   disabled,
@@ -395,6 +409,8 @@ function OfferCard({
   onCancelled,
 }: {
   draft: OfferDraftRecord;
+  canDelete: boolean;
+  canUpdate: boolean;
   candidateId: string;
   candidateEmail: string | null;
   disabled?: boolean;
@@ -448,7 +464,7 @@ function OfferCard({
     setEditing(false);
   }
 
-  if (editing && draft.status === "draft") {
+  if (editing && canUpdate && draft.status === "draft") {
     return (
       <Card className="gap-0 rounded-lg py-0">
         <CardContent className="p-4">
@@ -503,6 +519,8 @@ function OfferCard({
           {disabled ? null : (
             <div className="border-border/60 border-t pt-3">
               <OfferCardActions
+                canDelete={canDelete}
+                canUpdate={canUpdate}
                 cancelMutation={cancelMutation}
                 draft={draft}
                 onEdit={() => setEditing(true)}
@@ -527,6 +545,8 @@ function OfferCard({
 
 function OfferCardActions({
   draft,
+  canDelete,
+  canUpdate,
   onEdit,
   onRespond,
   onSend,
@@ -534,6 +554,8 @@ function OfferCardActions({
   cancelMutation,
 }: {
   draft: OfferDraftRecord;
+  canDelete: boolean;
+  canUpdate: boolean;
   onEdit: () => void;
   onRespond: () => void;
   onSend: () => void;
@@ -541,6 +563,9 @@ function OfferCardActions({
   cancelMutation: { mutate: () => void; isPending: boolean };
 }) {
   if (draft.status === "draft") {
+    if (!canUpdate) {
+      return null;
+    }
     return (
       <div className="flex flex-wrap justify-end gap-2">
         <Button onClick={onEdit} size="sm" variant="ghost">
@@ -555,21 +580,29 @@ function OfferCardActions({
     );
   }
   if (draft.status === "sent") {
+    const hasActions = canUpdate || canDelete;
+    if (!hasActions) {
+      return null;
+    }
     return (
       <div className="flex flex-wrap justify-end gap-2">
-        <Button onClick={onRespond} size="sm">
-          <IconCircleCheck className="size-4" />
-          记录响应
-        </Button>
-        <Button
-          disabled={cancelMutation.isPending}
-          onClick={() => cancelMutation.mutate()}
-          size="sm"
-          variant="outline"
-        >
-          <IconBan className="size-4" />
-          撤回
-        </Button>
+        {canUpdate ? (
+          <Button onClick={onRespond} size="sm">
+            <IconCircleCheck className="size-4" />
+            记录响应
+          </Button>
+        ) : null}
+        {canDelete ? (
+          <Button
+            disabled={cancelMutation.isPending}
+            onClick={() => cancelMutation.mutate()}
+            size="sm"
+            variant="outline"
+          >
+            <IconBan className="size-4" />
+            撤回
+          </Button>
+        ) : null}
       </div>
     );
   }

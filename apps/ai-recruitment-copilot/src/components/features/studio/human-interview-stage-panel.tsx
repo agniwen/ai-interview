@@ -123,6 +123,9 @@ function useWorkspaceMembers() {
 interface PanelProps {
   candidateId: string;
   candidateName: string;
+  canCreate?: boolean;
+  canDelete?: boolean;
+  canUpdate?: boolean;
   // closed 状态时所有写按钮禁用（页面上层已隐藏，这里再兜一手）。
   // All writes disabled when candidate is closed (defense in depth).
   disabled?: boolean;
@@ -174,7 +177,14 @@ function dialogReducer(state: DialogState, action: DialogAction): DialogState {
   }
 }
 
-export function HumanInterviewStagePanel({ candidateId, candidateName, disabled }: PanelProps) {
+export function HumanInterviewStagePanel({
+  candidateId,
+  candidateName,
+  canCreate = true,
+  canDelete = true,
+  canUpdate = true,
+  disabled,
+}: PanelProps) {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
   const { data: rounds = [], isLoading } = useQuery({
@@ -228,6 +238,12 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
       </Card>
     );
   } else if (rounds.length === 0) {
+    let emptyDescription = "你可以查看真人复面记录，但不能新建复面。";
+    if (disabled) {
+      emptyDescription = "已结案候选人不可新增复面，请先重新激活。";
+    } else if (canCreate) {
+      emptyDescription = "点「安排真人复面」创建线上复面会议。";
+    }
     roundsContent = (
       <Empty className="border-border">
         <EmptyHeader>
@@ -235,11 +251,7 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
             <IconUsers className="size-5" />
           </EmptyMedia>
           <EmptyTitle>尚未安排真人复面</EmptyTitle>
-          <EmptyDescription>
-            {disabled
-              ? "已结案候选人不可新增复面，请先重新激活。"
-              : "点「安排真人复面」创建线上复面会议。"}
-          </EmptyDescription>
+          <EmptyDescription>{emptyDescription}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -253,6 +265,9 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
             ) ?? null;
           return (
             <RoundCard
+              canCreate={canCreate}
+              canDelete={canDelete}
+              canUpdate={canUpdate}
               disabled={disabled}
               key={round.id}
               meeting={meeting}
@@ -281,7 +296,7 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
 
       {roundsContent}
 
-      {disabled ? null : (
+      {disabled || !canCreate ? null : (
         <div className="flex justify-end w-full">
           <Button
             onClick={() => dispatchDialog({ open: true, type: "scheduleOpenChanged" })}
@@ -337,6 +352,9 @@ export function HumanInterviewStagePanel({ candidateId, candidateName, disabled 
 // Single round card; action buttons appear only when status='pending'.
 function RoundCard({
   round,
+  canCreate,
+  canDelete,
+  canUpdate,
   disabled,
   meeting,
   onComplete,
@@ -347,6 +365,9 @@ function RoundCard({
   onRescheduled,
 }: {
   round: HumanInterviewRoundRecord;
+  canCreate: boolean;
+  canDelete: boolean;
+  canUpdate: boolean;
   disabled?: boolean;
   meeting: HumanInterviewMeetingRecord | null;
   onComplete: () => void;
@@ -359,9 +380,13 @@ function RoundCard({
   const statusBadge = describeRoundSummaryStatus(round, meeting);
   const canWrite = disabled !== true;
   const canCreateMeeting =
-    meeting === null && round.status === "pending" && canWrite && Boolean(round.scheduledAt);
-  const canCancelRound = canCancelHumanInterviewRound(round, meeting, disabled);
-  const canCompleteRound = canCompleteHumanInterviewRound(round, meeting, disabled);
+    canCreate &&
+    meeting === null &&
+    round.status === "pending" &&
+    canWrite &&
+    Boolean(round.scheduledAt);
+  const canCancelRound = canDelete && canCancelHumanInterviewRound(round, meeting, disabled);
+  const canCompleteRound = canUpdate && canCompleteHumanInterviewRound(round, meeting, disabled);
 
   return (
     <Card className="gap-0 rounded-lg py-0">
@@ -376,6 +401,7 @@ function RoundCard({
             </div>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-xs">
               <RoundScheduledAtControl
+                canUpdate={canUpdate}
                 disabled={disabled}
                 meeting={meeting}
                 onRescheduled={onRescheduled}
@@ -414,7 +440,7 @@ function RoundCard({
           canCancelRound={canCancelRound}
           canCompleteRound={canCompleteRound}
           canCreateMeeting={canCreateMeeting}
-          canEndMeeting={canEndHumanInterviewMeeting(meeting, disabled)}
+          canEndMeeting={canUpdate && canEndHumanInterviewMeeting(meeting, disabled)}
           canOpenLinks={canOpenMeetingLinks(meeting)}
           meeting={meeting}
           onCancel={onCancel}
@@ -431,11 +457,13 @@ function RoundCard({
 function RoundScheduledAtControl({
   round,
   meeting,
+  canUpdate,
   disabled,
   onRescheduled,
 }: {
   round: HumanInterviewRoundRecord;
   meeting: HumanInterviewMeetingRecord | null;
+  canUpdate: boolean;
   disabled?: boolean;
   onRescheduled: () => void;
 }) {
@@ -447,7 +475,7 @@ function RoundScheduledAtControl({
   const [validUntil, setValidUntil] = useState(() =>
     toDateTimeLocalInputValue(meeting?.validUntil ?? addOneHourToIsoString(round.scheduledAt)),
   );
-  const canReschedule = canRescheduleHumanInterviewRound(round, meeting, disabled);
+  const canReschedule = canUpdate && canRescheduleHumanInterviewRound(round, meeting, disabled);
   const inputId = `human-round-${round.id}-scheduled-at`;
   const validUntilInputId = `human-round-${round.id}-valid-until`;
   const mutation = useMutation({
