@@ -49,13 +49,15 @@ export default defineConfig({
       pages: [
         {
           path: "/",
-          prerender: { enabled: true, outputPath: "/index.html" },
+          // The home loader is request-scoped and Nitro prerender currently leaves
+          // Rolldown workers alive after crawling this route.
+          prerender: { enabled: false, outputPath: "/index.html" },
         },
       ],
       prerender: {
         autoStaticPathsDiscovery: false,
         crawlLinks: false,
-        enabled: true,
+        enabled: false,
       },
       router: {
         routesDirectory: "routes",
