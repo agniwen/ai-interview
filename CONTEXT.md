@@ -60,6 +60,26 @@ _Avoid_: Survey, questionnaire
 Workspace-wide interview settings such as company context, opening instructions, closing instructions, and job-code prefix.
 _Avoid_: System config, environment config
 
+**Workspace Recruiting Copilot**:
+A workspace-scoped chat assistant that answers recruiting questions by using the workspace's job descriptions, resume library, and related recruiting records as context.
+_Avoid_: Chat page, resume upload chat, global recruiting bot
+
+**Copilot Action Proposal**:
+A recruiter-confirmed action suggested by the workspace recruiting copilot before it changes recruiting records.
+_Avoid_: Agent write, auto action, tool result
+
+**Copilot Citation**:
+A visible reference to a workspace recruiting record that the workspace recruiting copilot used to produce an answer.
+_Avoid_: Prompt context, raw retrieval chunk, footnote
+
+**Candidate Summary Card**:
+A compact candidate representation returned by copilot retrieval before loading the full resume record.
+_Avoid_: Full resume, raw resume text, search row
+
+**Copilot Retrieval Scope**:
+The temporary recruiting-data boundary used by the workspace recruiting copilot for the current turn or short conversation segment.
+_Avoid_: Saved filter, default workspace setting, permission scope
+
 ### Candidates and Resumes
 
 **Candidate**:
