@@ -11,6 +11,7 @@ import {
   useEditComposer,
   useMessage,
 } from "@assistant-ui/react";
+import type { TextMessagePartComponent } from "@assistant-ui/react";
 import {
   IconArrowDown,
   IconCheck,
@@ -29,6 +30,7 @@ import type {
   KeyboardEvent,
   ReactNode,
 } from "react";
+import { MarkdownView } from "@/components/features/display/markdown-view";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -209,6 +211,10 @@ function EditComposer() {
   );
 }
 
+const MarkdownTextPart: TextMessagePartComponent = ({ text }) => (
+  <MarkdownView className="aui-markdown-text" content={text} />
+);
+
 function AssistantMessage() {
   return (
     <MessagePrimitive.Root
@@ -216,7 +222,7 @@ function AssistantMessage() {
       data-role="assistant"
     >
       <div className="aui-assistant-message-content text-foreground leading-7 wrap-break-word">
-        <MessagePrimitive.Parts />
+        <MessagePrimitive.Parts components={{ Text: MarkdownTextPart }} />
       </div>
       <div className="mt-1 flex min-h-8 items-center">
         <BranchPicker />
