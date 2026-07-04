@@ -194,7 +194,10 @@ describe("ResumePoolPage masonry layout", () => {
       source.indexOf("function ResumePoolLoadingState"),
     );
 
-    expect(cardSource).toContain("record.masteredSkills");
+    expect(source).toContain("const RESUME_POOL_CARD_SKILL_LIMIT = 18");
+    expect(cardSource).toContain("record.masteredSkills.slice(0, RESUME_POOL_CARD_SKILL_LIMIT)");
+    expect(cardSource).toContain("const skillsOverflow =");
+    expect(cardSource).toContain("+{skillsOverflow}");
     expect(cardSource).not.toContain("record.masteredSkills.slice(0, 5)");
     expect(cardSource).not.toContain("record.skillsNormalized.slice(0, 5)");
   });

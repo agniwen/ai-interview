@@ -308,6 +308,7 @@ export interface TransitionInterviewInput {
   // closedMeta partial：仅在 pipelineStage='closed' 时允许传；previousStage 由服务端写。
   // Partial closedMeta; previousStage is server-controlled.
   closedMeta?: Omit<Partial<ClosedMeta>, "previousStage">;
+  reactivationReason?: string;
 }
 
 export async function transitionInterviewRecord(

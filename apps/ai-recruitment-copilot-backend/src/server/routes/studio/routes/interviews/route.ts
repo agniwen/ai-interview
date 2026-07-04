@@ -157,6 +157,7 @@ const transitionInputSchema = z
     closedReason: z.string().trim().max(500, "结案原因不能超过 500 字").optional().nullable(),
     outcome: candidateOutcomeSchema.optional(),
     pipelineStage: pipelineStageSchema,
+    reactivationReason: z.string().trim().max(500, "重新激活原因不能超过 500 字").optional(),
   })
   .refine(
     (v) => {
@@ -178,6 +179,10 @@ const transitionInputSchema = z
   .refine((v) => v.pipelineStage === "closed" || !v.closedMeta, {
     message: "closedMeta 仅在结案时允许。",
     path: ["closedMeta"],
+  })
+  .refine((v) => v.pipelineStage !== "closed" || !v.reactivationReason, {
+    message: "reactivationReason 仅在重新激活时允许。",
+    path: ["reactivationReason"],
   });
 
 async function canManageStageTransition(headers: Headers, target: string): Promise<boolean> {
@@ -1400,6 +1405,13 @@ export const studioInterviewsRouter = factory
         if (!existing) {
           return { kind: "not_found" as const };
         }
+        if (
+          existing.pipelineStage === "closed" &&
+          input.pipelineStage !== "closed" &&
+          !input.reactivationReason
+        ) {
+          return { kind: "missing_reactivation_reason" as const };
+        }
         let humanInterviewOfferReadinessError: string | null = null;
         let humanInterviewReadyForOffer = false;
         if (existing.pipelineStage === "human_interview" && input.pipelineStage === "offer") {
@@ -1452,6 +1464,9 @@ export const studioInterviewsRouter = factory
 
       if (result.kind === "not_found") {
         return c.json({ error: "候选人记录不存在。" }, 404);
+      }
+      if (result.kind === "missing_reactivation_reason") {
+        return c.json({ error: "请填写重新激活原因。" }, 400);
       }
       if (result.kind === "invalid_stage_transition") {
         return c.json({ error: result.message }, 400);

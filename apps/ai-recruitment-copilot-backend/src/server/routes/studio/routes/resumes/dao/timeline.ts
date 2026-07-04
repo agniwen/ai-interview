@@ -158,7 +158,13 @@ function auditDescription(detail: Record<string, unknown>, action: string): stri
     const from = stageLabel(detail.fromStage);
     const to = stageLabel(detail.toStage);
     const outcome = outcomeLabel(detail.toOutcome);
-    return `${from} -> ${to}，结论：${outcome}`;
+    const reactivationReason =
+      typeof detail.reactivationReason === "string" && detail.reactivationReason
+        ? detail.reactivationReason
+        : null;
+    return reactivationReason
+      ? `${from} -> ${to}，结论：${outcome}，原因：${reactivationReason}`
+      : `${from} -> ${to}，结论：${outcome}`;
   }
   if (action === "round_reset") {
     const roundLabel = typeof detail.roundLabel === "string" ? detail.roundLabel : "AI 面试轮次";
@@ -736,6 +742,13 @@ export async function loadCandidateTimeline(
       metadata: compactMeta([
         textMeta("动作", auditTitle(log.action)),
         textMeta("轮次 ID", log.scheduleEntryId),
+        textMeta(
+          "重新激活原因",
+          log.action === "candidate_transition" &&
+            typeof log.detail?.reactivationReason === "string"
+            ? log.detail.reactivationReason
+            : null,
+        ),
       ]),
       occurredAt: log.createdAt,
       title: auditTitle(log.action),

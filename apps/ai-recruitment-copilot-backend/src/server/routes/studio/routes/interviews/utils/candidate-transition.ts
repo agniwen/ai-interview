@@ -1,5 +1,10 @@
 import type { studioInterview } from "@arc/db-schema/schema";
-import type { CandidateOutcome, ClosedMeta, PipelineStage } from "@arc/db-schema/studio-interviews";
+import type {
+  CandidateOutcome,
+  ClosedMeta,
+  PipelineStage,
+  ResumeEvaluationStatus,
+} from "@arc/db-schema/studio-interviews";
 import {
   canApplyCandidatePipelineEvent,
   getCandidatePipelineEventForTargetStage,
@@ -18,6 +23,7 @@ export interface CandidateTransitionInput {
   closedReason?: string | null;
   outcome?: CandidateOutcome;
   pipelineStage: PipelineStage;
+  reactivationReason?: string;
 }
 
 export interface CandidateTransitionPatch {
@@ -30,6 +36,7 @@ export interface CandidateTransitionPatch {
   offerSentAt?: Date | null;
   outcome: CandidateOutcome;
   pipelineStage: PipelineStage;
+  resumeEvaluationStatus?: ResumeEvaluationStatus | null;
   status?: LegacyCandidateStatus;
   updatedAt: Date;
   writtenTestScheduledAt?: Date | null;
@@ -41,6 +48,7 @@ export interface CandidateTransitionAuditDetail {
   fromOutcome: CandidateOutcome;
   fromStage: PipelineStage;
   reason: string | null;
+  reactivationReason: string | null;
   toOutcome: CandidateOutcome;
   toStage: PipelineStage;
 }
@@ -142,6 +150,7 @@ export function resolveCandidateTransitionPatch({
     offerSentAt,
     outcome,
     pipelineStage: input.pipelineStage,
+    resumeEvaluationStatus: wasClosed && !isClosing ? null : undefined,
     status: legacyStatus,
     updatedAt: now,
     writtenTestScheduledAt,
@@ -153,6 +162,7 @@ export function resolveCandidateTransitionPatch({
       closedMeta: closedMeta ?? null,
       fromOutcome: existing.outcome,
       fromStage: existing.pipelineStage,
+      reactivationReason: wasClosed && !isClosing ? (input.reactivationReason ?? null) : null,
       reason: input.closedReason ?? null,
       toOutcome: outcome,
       toStage: input.pipelineStage,

@@ -44,6 +44,7 @@ describe("resolveCandidateTransitionPatch", () => {
       },
       fromOutcome: "in_pipeline",
       fromStage: "ai_interview",
+      reactivationReason: null,
       reason: "技能匹配度不够",
       toOutcome: "rejected",
       toStage: "closed",
@@ -60,6 +61,7 @@ describe("resolveCandidateTransitionPatch", () => {
       input: {
         outcome: "in_pipeline",
         pipelineStage: "human_interview",
+        reactivationReason: "候选人补充了新的项目经历",
       },
       now,
     });
@@ -74,6 +76,7 @@ describe("resolveCandidateTransitionPatch", () => {
       offerSentAt: null,
       outcome: "in_pipeline",
       pipelineStage: "human_interview",
+      resumeEvaluationStatus: null,
       status: "ready",
       updatedAt: now,
       writtenTestScheduledAt: null,
@@ -81,6 +84,7 @@ describe("resolveCandidateTransitionPatch", () => {
     });
     expect(result.auditDetail.closedMeta).toBeNull();
     expect(result.auditDetail.fromStage).toBe("closed");
+    expect(result.auditDetail.reactivationReason).toBe("候选人补充了新的项目经历");
     expect(result.auditDetail.toStage).toBe("human_interview");
   });
 });

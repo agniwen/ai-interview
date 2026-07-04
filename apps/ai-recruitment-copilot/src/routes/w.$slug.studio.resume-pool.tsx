@@ -122,6 +122,7 @@ const EMPTY_POOL_FILTERS: ResumePoolFilters = {
   parseStatus: "",
   sourceType: "all",
 };
+const RESUME_POOL_CARD_SKILL_LIMIT = 18;
 const RESUME_POOL_INITIAL_PAGE_SIZE = 20;
 const RESUME_POOL_LOAD_STEP = 20;
 // oxlint-disable-next-line sort-keys -- Breakpoints are easier to audit in ascending viewport order.
@@ -1170,7 +1171,8 @@ function ResumePoolCard({
 }) {
   const title = getCandidateDisplayTitle(record);
   const previewLabel = record.resumeFileName ?? "查看简历";
-  const skills = record.masteredSkills;
+  const skills = record.masteredSkills.slice(0, RESUME_POOL_CARD_SKILL_LIMIT);
+  const skillsOverflow = record.masteredSkills.length - skills.length;
   const note = notesPreview(record.notes);
   const documentKind = getResumeDocumentFileIconKind({ fileName: record.resumeFileName });
   const hasStoredResume = Boolean(record.resumeStorageKey);
@@ -1264,6 +1266,11 @@ function ResumePoolCard({
                 {skill}
               </Badge>
             ))}
+            {skillsOverflow > 0 ? (
+              <Badge title={`还有 ${skillsOverflow} 项技能未展示`} variant="outline">
+                +{skillsOverflow}
+              </Badge>
+            ) : null}
           </div>
         ) : null}
 
