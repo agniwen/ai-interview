@@ -549,7 +549,7 @@ function ContextPanelContent() {
 }
 
 function RecruitingContextPanel() {
-  const [desktopOpen, setDesktopOpen] = useState(true);
+  const [desktopOpen, setDesktopOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   return (
     <>
@@ -588,7 +588,7 @@ function RecruitingContextPanel() {
         </Button>
       )}
       <Button
-        className="fixed right-4 bottom-24 z-30 h-9 rounded-full px-3 shadow-sm lg:hidden"
+        className="absolute top-4 right-4 z-30 h-9 rounded-full bg-background/95 px-3 shadow-lg shadow-black/8 backdrop-blur lg:hidden"
         onClick={() => setMobileOpen(true)}
         size="sm"
         type="button"
