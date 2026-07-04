@@ -13,13 +13,12 @@ import {
 } from "@assistant-ui/react";
 import {
   IconArrowDown,
-  IconArrowUp,
   IconCheck,
   IconCopy,
   IconPencil,
   IconRefresh,
+  IconSend2,
   IconSquare,
-  IconWaveSine,
 } from "@tabler/icons-react";
 import { useState } from "react";
 import type {
@@ -278,7 +277,7 @@ function Composer() {
                 className="size-9 rounded-full bg-[#0d0d0d] text-white hover:bg-[#0d0d0d]/90 hover:text-white dark:bg-white dark:text-black dark:hover:bg-white/90 dark:hover:text-black"
                 label="发送"
               >
-                <IconArrowUp className="size-5" />
+                <IconSend2 className="size-4.5" />
               </ChatGPTIconButton>
             </ComposerPrimitive.Send>
           </AuiIf>
@@ -507,14 +506,14 @@ export function NewRecruitingThread({
               value={text}
             />
             <Button
-              aria-label={canSubmit ? "发送" : "语音模式"}
-              className="size-9 shrink-0 rounded-full bg-[#0d0d0d] p-0 text-white hover:bg-[#0d0d0d]/90 disabled:opacity-100 dark:bg-white dark:text-black dark:hover:bg-white/90"
+              aria-label="发送"
+              className="size-9 shrink-0 rounded-full bg-[#0d0d0d] p-0 text-white hover:bg-[#0d0d0d]/90 disabled:bg-[#d9d9d9] disabled:text-white disabled:opacity-100 dark:bg-white dark:text-black dark:hover:bg-white/90 dark:disabled:bg-[#424242] dark:disabled:text-[#8f8f8f]"
               disabled={!canSubmit}
               size="icon"
-              title={canSubmit ? "发送" : "语音模式"}
+              title="发送"
               type="submit"
             >
-              {canSubmit ? <IconArrowUp className="size-5" /> : <IconWaveSine className="size-5" />}
+              <IconSend2 className="size-4.5" />
             </Button>
           </div>
         </form>
