@@ -16,23 +16,31 @@ import {
   IconArrowDown,
   IconCheck,
   IconCopy,
+  IconExternalLink,
+  IconLoader2,
   IconPencil,
   IconRefresh,
   IconSend2,
   IconSquare,
+  IconX,
 } from "@tabler/icons-react";
-import { useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type {
   ChangeEvent,
   ComponentProps,
   CSSProperties,
   FormEvent,
   KeyboardEvent,
+  PropsWithChildren,
   ReactNode,
 } from "react";
+import { toast } from "sonner";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { Button } from "@/components/ui/button";
+import { confirmRecruitingAction } from "@/lib/client/api";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { cn } from "@/lib/utils";
+import { notifyConversationsChanged } from "@/components/features/chat/lib/chat-events";
 
 interface CandidateSummaryCard {
   candidateName: string;
@@ -50,7 +58,17 @@ interface CandidateSummaryCard {
 
 interface SearchResumeRecordsResult {
   candidateSummaryCards?: CandidateSummaryCard[];
+  citations?: CopilotCitation[];
+  retrievalMode?: "combined" | "semantic" | "structured" | "structured_text";
+  semanticHitCount?: number;
   total?: number;
+}
+
+interface CopilotCitation {
+  id: string;
+  label: string;
+  recordType: "job_description" | "resume_pool_item" | "resume_record";
+  secondaryLabel: string | null;
 }
 
 interface RecruitingActionProposal {
@@ -63,6 +81,97 @@ interface RecruitingActionProposal {
 
 interface RecruitingActionProposalResult {
   proposal?: RecruitingActionProposal;
+}
+
+type ProposalStatus = "confirmed" | "failed" | "ignored" | "pending";
+
+interface RecruitingCopilotContextValue {
+  citations: CopilotCitation[];
+  conversationId: string | null;
+  proposalStatuses: Record<string, ProposalStatus>;
+  proposals: RecruitingActionProposal[];
+  markProposal: (id: string, status: ProposalStatus) => void;
+  upsertCitations: (citations: CopilotCitation[]) => void;
+  upsertProposal: (proposal: RecruitingActionProposal) => void;
+}
+
+const RecruitingCopilotContext = createContext<RecruitingCopilotContextValue | null>(null);
+
+function useRecruitingCopilotContext() {
+  const context = useContext(RecruitingCopilotContext);
+  if (!context) {
+    throw new Error("RecruitingCopilotContext is missing.");
+  }
+  return context;
+}
+
+function mergeByKey<T>(current: T[], incoming: T[], keyOf: (value: T) => string): T[] {
+  const map = new Map(current.map((item) => [keyOf(item), item]));
+  for (const item of incoming) {
+    map.set(keyOf(item), item);
+  }
+  return [...map.values()];
+}
+
+export function RecruitingCopilotContextProvider({
+  children,
+  conversationId,
+}: PropsWithChildren<{ conversationId: string | null }>) {
+  const [citations, setCitations] = useState<CopilotCitation[]>([]);
+  const [proposals, setProposals] = useState<RecruitingActionProposal[]>([]);
+  const [proposalStatuses, setProposalStatuses] = useState<Record<string, ProposalStatus>>({});
+
+  useEffect(() => {
+    setCitations([]);
+    setProposals([]);
+    setProposalStatuses({});
+  }, [conversationId]);
+
+  const upsertCitations = useCallback((next: CopilotCitation[]) => {
+    if (next.length === 0) {
+      return;
+    }
+    setCitations((current) =>
+      mergeByKey(current, next, (citation) => `${citation.recordType}:${citation.id}`),
+    );
+  }, []);
+
+  const upsertProposal = useCallback((proposal: RecruitingActionProposal) => {
+    setProposals((current) => mergeByKey(current, [proposal], (item) => item.id));
+    setProposalStatuses((current) => ({
+      ...current,
+      [proposal.id]: current[proposal.id] ?? "pending",
+    }));
+  }, []);
+
+  const markProposal = useCallback((id: string, status: ProposalStatus) => {
+    setProposalStatuses((current) => ({ ...current, [id]: status }));
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      citations,
+      conversationId,
+      markProposal,
+      proposalStatuses,
+      proposals,
+      upsertCitations,
+      upsertProposal,
+    }),
+    [
+      citations,
+      conversationId,
+      markProposal,
+      proposalStatuses,
+      proposals,
+      upsertCitations,
+      upsertProposal,
+    ],
+  );
+
+  return (
+    <RecruitingCopilotContext.Provider value={value}>{children}</RecruitingCopilotContext.Provider>
+  );
 }
 
 const activeThreadStyle = {
@@ -303,6 +412,186 @@ function Composer() {
   );
 }
 
+function CopilotToolContextReporter({
+  citations = [],
+  proposal,
+}: {
+  citations?: CopilotCitation[];
+  proposal?: RecruitingActionProposal;
+}) {
+  const { upsertCitations, upsertProposal } = useRecruitingCopilotContext();
+  const citationsKey = JSON.stringify(citations);
+  useEffect(() => {
+    upsertCitations(JSON.parse(citationsKey) as CopilotCitation[]);
+  }, [citationsKey, upsertCitations]);
+  useEffect(() => {
+    if (proposal) {
+      upsertProposal(proposal);
+    }
+  }, [proposal, upsertProposal]);
+  return null;
+}
+
+function citationHref(slug: string, citation: CopilotCitation) {
+  if (citation.recordType === "job_description") {
+    return `/w/${slug}/studio/job-descriptions`;
+  }
+  if (citation.recordType === "resume_pool_item") {
+    return `/w/${slug}/studio/resume-pool`;
+  }
+  return `/w/${slug}/studio/resumes`;
+}
+
+function CitationList({ citations }: { citations: CopilotCitation[] }) {
+  const slug = useWorkspaceSlug();
+  if (citations.length === 0) {
+    return <p className="text-muted-foreground text-sm">当前会话还没有引用系统记录。</p>;
+  }
+  return (
+    <div className="grid gap-2">
+      {citations.map((citation) => (
+        <a
+          className="group flex min-w-0 items-start justify-between gap-2 rounded-lg border bg-background px-3 py-2 text-sm transition-colors hover:border-primary/40 hover:bg-primary/5"
+          href={citationHref(slug, citation)}
+          key={`${citation.recordType}:${citation.id}`}
+        >
+          <span className="min-w-0">
+            <span className="block truncate font-medium">{citation.label}</span>
+            <span className="block truncate text-muted-foreground text-xs">
+              {citation.secondaryLabel ?? citation.recordType}
+            </span>
+          </span>
+          <IconExternalLink className="mt-0.5 size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
+        </a>
+      ))}
+    </div>
+  );
+}
+
+function ProposalList({
+  proposals,
+  statuses,
+}: {
+  proposals: RecruitingActionProposal[];
+  statuses: Record<string, ProposalStatus>;
+}) {
+  if (proposals.length === 0) {
+    return <p className="text-muted-foreground text-sm">暂无待确认动作。</p>;
+  }
+  return (
+    <div className="grid gap-2">
+      {proposals.map((proposal) => (
+        <div className="rounded-lg border bg-background px-3 py-2 text-sm" key={proposal.id}>
+          <div className="flex items-start justify-between gap-2">
+            <p className="min-w-0 truncate font-medium">{proposal.title}</p>
+            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs">
+              {statuses[proposal.id] ?? "pending"}
+            </span>
+          </div>
+          <p className="mt-1 line-clamp-2 text-muted-foreground text-xs">{proposal.explanation}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ContextPanelContent() {
+  const { citations, proposalStatuses, proposals } = useRecruitingCopilotContext();
+  const pendingCount = proposals.filter(
+    (proposal) => (proposalStatuses[proposal.id] ?? "pending") === "pending",
+  ).length;
+  return (
+    <div className="space-y-5">
+      <section>
+        <h2 className="font-medium text-sm">引用记录</h2>
+        <div className="mt-2">
+          <CitationList citations={citations} />
+        </div>
+      </section>
+      <section>
+        <h2 className="font-medium text-sm">检索范围</h2>
+        <div className="mt-2 rounded-lg border bg-background px-3 py-2 text-sm">
+          <p>当前 workspace 简历库与岗位库</p>
+          <p className="mt-1 text-muted-foreground text-xs">
+            已收集 {citations.length} 条引用，{pendingCount} 个动作待确认。
+          </p>
+        </div>
+      </section>
+      <section>
+        <h2 className="font-medium text-sm">待确认动作</h2>
+        <div className="mt-2">
+          <ProposalList proposals={proposals} statuses={proposalStatuses} />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function RecruitingContextPanel() {
+  const [desktopOpen, setDesktopOpen] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  return (
+    <>
+      <aside
+        className={cn(
+          "hidden min-h-0 border-l bg-muted/20 transition-[width] lg:block",
+          desktopOpen ? "w-80" : "w-12",
+        )}
+      >
+        <div className="flex h-full min-h-0 flex-col">
+          <div className="flex h-12 items-center justify-between border-b px-3">
+            {desktopOpen ? <h2 className="font-medium text-sm">上下文</h2> : null}
+            <Button
+              aria-label={desktopOpen ? "收起上下文" : "展开上下文"}
+              className="ms-auto size-8"
+              onClick={() => setDesktopOpen((open) => !open)}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              {desktopOpen ? <IconX className="size-4" /> : <IconExternalLink className="size-4" />}
+            </Button>
+          </div>
+          {desktopOpen ? (
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+              <ContextPanelContent />
+            </div>
+          ) : null}
+        </div>
+      </aside>
+      <Button
+        className="fixed right-4 bottom-24 z-30 h-9 rounded-full px-3 shadow-sm lg:hidden"
+        onClick={() => setMobileOpen(true)}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
+        上下文
+      </Button>
+      {mobileOpen ? (
+        <div className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden">
+          <div className="absolute inset-x-3 bottom-20 max-h-[70vh] overflow-y-auto rounded-2xl border bg-background p-3 shadow-lg">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-medium text-sm">上下文</h2>
+              <Button
+                aria-label="关闭上下文"
+                className="size-8"
+                onClick={() => setMobileOpen(false)}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <IconX className="size-4" />
+              </Button>
+            </div>
+            <ContextPanelContent />
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 export const RecruitingResumeSearchToolUI = makeAssistantToolUI<unknown, SearchResumeRecordsResult>(
   {
     display: "standalone",
@@ -312,13 +601,25 @@ export const RecruitingResumeSearchToolUI = makeAssistantToolUI<unknown, SearchR
         return <ToolNotice>正在检索候选人...</ToolNotice>;
       }
       if (cards.length === 0) {
-        return <ToolNotice>未找到匹配候选人。</ToolNotice>;
+        return (
+          <>
+            <CopilotToolContextReporter citations={result?.citations ?? []} />
+            <ToolNotice>未找到匹配候选人。</ToolNotice>
+          </>
+        );
       }
       return (
         <div className="aui-candidate-card-list grid gap-2">
+          <CopilotToolContextReporter citations={result?.citations ?? []} />
+          {result?.retrievalMode ? (
+            <p className="text-muted-foreground text-xs">
+              检索方式：{result.retrievalMode}
+              {result.semanticHitCount ? ` · 语义命中 ${result.semanticHitCount}` : ""}
+            </p>
+          ) : null}
           {cards.map((card) => (
             <article
-              className="aui-candidate-card rounded-2xl border bg-background p-3 shadow-sm"
+              className="aui-candidate-card rounded-xl border bg-background p-3"
               key={card.id}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -362,6 +663,94 @@ export const RecruitingResumeSearchToolUI = makeAssistantToolUI<unknown, SearchR
   },
 );
 
+function statusLabel(status: ProposalStatus) {
+  switch (status) {
+    case "confirmed": {
+      return "已确认";
+    }
+    case "failed": {
+      return "确认失败";
+    }
+    case "ignored": {
+      return "已忽略";
+    }
+    default: {
+      return "待确认";
+    }
+  }
+}
+
+function RecruitingActionProposalCard({ proposal }: { proposal: RecruitingActionProposal }) {
+  const slug = useWorkspaceSlug();
+  const { conversationId, markProposal, proposalStatuses } = useRecruitingCopilotContext();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const currentStatus = proposalStatuses[proposal.id] ?? "pending";
+  const isDone = currentStatus === "confirmed" || currentStatus === "ignored";
+
+  const handleConfirm = async () => {
+    if (!conversationId || isSubmitting || isDone) {
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const result = await confirmRecruitingAction(slug, conversationId, proposal);
+      if (result.status === "failed") {
+        markProposal(proposal.id, "failed");
+        toast.error(result.message);
+        return;
+      }
+      markProposal(proposal.id, "confirmed");
+      notifyConversationsChanged();
+      toast.success(result.message);
+    } catch (error) {
+      markProposal(proposal.id, "failed");
+      toast.error(error instanceof Error ? error.message : "确认动作失败");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleIgnore = () => {
+    markProposal(proposal.id, "ignored");
+  };
+
+  return (
+    <article className="aui-action-proposal rounded-xl border bg-background p-3">
+      <CopilotToolContextReporter proposal={proposal} />
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-muted-foreground text-xs">{statusLabel(currentStatus)}</p>
+          <h3 className="mt-1 font-medium text-sm">{proposal.title}</h3>
+        </div>
+        <span className="rounded-full border bg-muted/50 px-2 py-0.5 text-muted-foreground text-xs">
+          {proposal.type}
+        </span>
+      </div>
+      <p className="mt-2 text-sm leading-6">{proposal.explanation}</p>
+      <div className="mt-3 flex justify-end gap-2">
+        <Button
+          disabled={isSubmitting || isDone}
+          onClick={handleIgnore}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          忽略
+        </Button>
+        <Button
+          disabled={!conversationId || isSubmitting || isDone}
+          onClick={handleConfirm}
+          size="sm"
+          type="button"
+        >
+          {isSubmitting ? <IconLoader2 className="size-3.5 animate-spin" /> : null}
+          确认
+        </Button>
+      </div>
+    </article>
+  );
+}
+
 export const RecruitingActionProposalToolUI = makeAssistantToolUI<
   unknown,
   RecruitingActionProposalResult
@@ -375,28 +764,7 @@ export const RecruitingActionProposalToolUI = makeAssistantToolUI<
     if (!proposal) {
       return null;
     }
-    return (
-      <article className="aui-action-proposal rounded-2xl border bg-background p-3 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-muted-foreground text-xs">待确认动作</p>
-            <h3 className="mt-1 font-medium text-sm">{proposal.title}</h3>
-          </div>
-          <span className="rounded-full border bg-muted/50 px-2 py-0.5 text-muted-foreground text-xs">
-            {proposal.type}
-          </span>
-        </div>
-        <p className="mt-2 text-sm leading-6">{proposal.explanation}</p>
-        <div className="mt-3 flex justify-end gap-2">
-          <Button disabled size="sm" type="button" variant="outline">
-            忽略
-          </Button>
-          <Button disabled size="sm" type="button">
-            确认
-          </Button>
-        </div>
-      </article>
-    );
+    return <RecruitingActionProposalCard proposal={proposal} />;
   },
   toolName: "propose_recruiting_action",
 });
@@ -416,28 +784,33 @@ export function RecruitingThread({ isRunning }: { isRunning: boolean }) {
       className="aui-root aui-thread-root flex min-h-0 flex-1 flex-col bg-background text-foreground"
       style={activeThreadStyle}
     >
-      <ThreadPrimitive.Viewport
-        autoScroll
-        className="aui-thread-viewport min-h-0 flex-1 overflow-x-hidden overflow-y-auto scroll-smooth"
-        scrollToBottomOnRunStart
-        turnAnchor="top"
-      >
-        <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-col gap-6 px-4 pt-6 pb-8">
-          <ThreadPrimitive.Messages>{() => <ThreadMessage />}</ThreadPrimitive.Messages>
-          {isRunning ? (
-            <div className="aui-assistant-working w-fit rounded-2xl bg-muted/55 px-3 py-2 text-muted-foreground text-sm">
-              思考中...
+      <div className="flex min-h-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <ThreadPrimitive.Viewport
+            autoScroll
+            className="aui-thread-viewport min-h-0 flex-1 overflow-x-hidden overflow-y-auto scroll-smooth"
+            scrollToBottomOnRunStart
+            turnAnchor="top"
+          >
+            <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-col gap-6 px-4 pt-6 pb-8">
+              <ThreadPrimitive.Messages>{() => <ThreadMessage />}</ThreadPrimitive.Messages>
+              {isRunning ? (
+                <div className="aui-assistant-working w-fit rounded-2xl bg-muted/55 px-3 py-2 text-muted-foreground text-sm">
+                  思考中...
+                </div>
+              ) : null}
             </div>
-          ) : null}
+          </ThreadPrimitive.Viewport>
+          <div className="aui-thread-footer sticky bottom-0 bg-background px-4 pt-2 pb-3">
+            <div className="mx-auto w-full max-w-(--thread-max-width)">
+              <Composer />
+              <p className="mt-2 text-center text-muted-foreground text-xs">
+                Copilot 可能出错，请在确认动作前核对候选人和岗位信息。
+              </p>
+            </div>
+          </div>
         </div>
-      </ThreadPrimitive.Viewport>
-      <div className="aui-thread-footer sticky bottom-0 bg-background px-4 pt-2 pb-3">
-        <div className="mx-auto w-full max-w-(--thread-max-width)">
-          <Composer />
-          <p className="mt-2 text-center text-muted-foreground text-xs">
-            Copilot 可能出错，请在确认动作前核对候选人和岗位信息。
-          </p>
-        </div>
+        <RecruitingContextPanel />
       </div>
       <ThreadPrimitive.ScrollToBottom asChild>
         <Button

@@ -192,6 +192,10 @@ function auditDescription(detail: Record<string, unknown>, action: string): stri
     const to = jobDescriptionChangeLabel(detail, "toJobDescriptionId", "toJobDescriptionName");
     return `${from} -> ${to}`;
   }
+  if (action === "interview_questions_drafted") {
+    const count = typeof detail.questionCount === "number" ? detail.questionCount : null;
+    return count === null ? "面试题草稿已生成" : `已生成 ${count} 道面试题草稿`;
+  }
   return null;
 }
 
@@ -217,6 +221,9 @@ function auditTitle(action: string): string {
     }
     case "job_description_changed": {
       return "关联岗位已变更";
+    }
+    case "interview_questions_drafted": {
+      return "面试题草稿已生成";
     }
     default: {
       return "系统操作";
@@ -245,6 +252,9 @@ function auditTone(action: string): CandidateTimelineEventTone {
   }
   if (action === "job_description_changed") {
     return "info";
+  }
+  if (action === "interview_questions_drafted") {
+    return "success";
   }
   return "muted";
 }

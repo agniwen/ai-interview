@@ -6,7 +6,7 @@
 
 `apps/ai-recruitment-copilot-backend/src/server/agents/chat-models.config.ts` 是聊天可选模型的**唯一可信源**。
 
-- picker 显示什么 = `LOCAL_CHAT_MODELS` 里有什么
+- 旧模型 picker 显示什么 = `LOCAL_CHAT_MODELS` 里有什么
 - 服务端接受什么 id = `LOCAL_CHAT_MODELS` 里有什么
 - 客户端没传 model 时落到 `LOCAL_DEFAULT_MODEL_ID`
 
@@ -16,15 +16,15 @@
 
 - 运行时仍走阿里云百炼 OpenAI 兼容网关（`https://dashscope.aliyuncs.com/compatible-mode/v1`），所以 `id` 字段必须是百炼**上架的字面 id**，区分大小写（`MiniMax-M2.7` 不是 `minimax-m2.7`）。
 - 用户账号必须是百炼**国内 region**——第三方模型（DeepSeek / Kimi / GLM / MiniMax）只在国内 region 提供；新加坡国际版只有 `deepseek-v3.2`。
-- 我们当前的 5 个 provider 桶：`alibaba` / `deepseek` / `moonshot` / `zhipu` / `minimax`，另有 `other` 兜底。Provider 决定 picker 里的分组标题和 Logo（见 `composer/model-picker.tsx` 的 `PROVIDER_LABEL` / `PROVIDER_LOGO_SLUG`）。
+- 我们当前的 5 个 provider 桶：`alibaba` / `deepseek` / `moonshot` / `zhipu` / `minimax`，另有 `other` 兜底。Workspace Recruiting Copilot 当前不再暴露前端模型 picker；provider 主要用于后端清单分组和将来恢复选择器时复用。
 
 ## 字段含义
 
 ```ts
 {
   id: "qwen3.6-plus",      // 调上游用的字面 id；必须是百炼上架值
-  label: "Qwen3.6 Plus",   // picker 显示文字；可带说明如 "（推理）"
-  provider: "alibaba",     // 用于分组 + 选 Logo；只能用上面列出的 5+1 个值
+  label: "Qwen3.6 Plus",   // 展示文字；可带说明如 "（推理）"
+  provider: "alibaba",     // 用于分组；只能用上面列出的 5+1 个值
 }
 ```
 
@@ -55,13 +55,9 @@
 
 如果默认 id 被移出清单了，必须改 `LOCAL_DEFAULT_MODEL_ID` 指向新的存在于清单里的 id。
 
-### 5. 同步 `SESSION_MODEL_FALLBACK_ID`
+### 5. 检查前端是否重新暴露模型选择
 
-`apps/ai-recruitment-copilot/src/app/(auth)/w/[slug]/chat/_atoms/model.ts` 的 `SESSION_MODEL_FALLBACK_ID` 是**客户端**的二级兜底（当 localStorage 里的 id 失效时用）。
-
-**约定**：保持和 `LOCAL_DEFAULT_MODEL_ID` 一致。改一处必须改另一处。
-
-> 老用户 localStorage 里旧 id 失效时，picker 会自动 reconcile + 弹 toast。不需要手动处理。
+当前 Workspace Recruiting Copilot 不再暴露前端模型 picker，也没有 session-local model fallback。若未来恢复模型选择器，再为新的前端入口补 provider label/order/fallback。
 
 ### 6. 运行验证
 
@@ -71,7 +67,7 @@ pnpm check        # 必须 0 errors
 pnpm test         # 必须全绿（无 model-catalog 相关测试，因为已废弃）
 ```
 
-如果改了字段形状（例如加了新字段），还要同步 `src/lib/client/api/endpoints/resume.ts` 里的 `ChatModelOption` interface（两边都要改——server-only 模块不能被 client import，所以维护两份）。
+如果改了字段形状（例如加了新字段），还要同步仍在消费模型列表的客户端类型。
 
 ### 7. dev server 重启
 
@@ -80,23 +76,22 @@ rm -rf apps/ai-recruitment-copilot/.next
 pnpm dev
 ```
 
-Next.js dev cache 会持有旧模块引用，不清的话 picker 可能短时间显示旧列表。
+Next.js dev cache 会持有旧模块引用，不清的话本地页面可能短时间显示旧列表。
 
 ## 同步检查项（容易漏的）
 
-| 文件                                                                                             | 检查点                                                                                                                                |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/ai-recruitment-copilot-backend/src/server/agents/chat-models.config.ts`                    | `LOCAL_CHAT_MODELS` + `LOCAL_DEFAULT_MODEL_ID`                                                                                        |
-| `apps/ai-recruitment-copilot/src/app/(auth)/w/[slug]/chat/_atoms/model.ts`                       | `SESSION_MODEL_FALLBACK_ID` 是否还在清单里                                                                                            |
-| `apps/ai-recruitment-copilot/src/lib/client/api/endpoints/resume.ts`                             | `ChatModelOption` 字段形状跟 server 端是否一致                                                                                        |
-| `apps/ai-recruitment-copilot/src/app/(auth)/w/[slug]/chat/_components/composer/model-picker.tsx` | 如果新增了 provider，要更新 `PROVIDER_ORDER` / `PROVIDER_LABEL` / `PROVIDER_LOGO_SLUG`                                                |
-| `apps/ai-recruitment-copilot-backend/src/server/agents/resume-agent.ts`                          | `ALIBABA_MODEL` 由 TanStack Start env 管理注入；不要在 agent 里重新加硬编码 fallback（**简历筛选 agent 专用**，跟 picker 是独立通路） |
+| 文件                                                                          | 检查点                                                                                                                                |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/ai-recruitment-copilot-backend/src/server/agents/chat-models.config.ts` | `LOCAL_CHAT_MODELS` + `LOCAL_DEFAULT_MODEL_ID`                                                                                        |
+| 前端模型选择入口                                                              | 当前没有；如果重新新增 picker，要同步 provider order/label/fallback                                                                   |
+| 客户端模型列表类型                                                            | 如果仍有前端消费模型列表，字段形状需要跟 server 端一致                                                                                |
+| `apps/ai-recruitment-copilot-backend/src/server/agents/resume-agent.ts`       | `ALIBABA_MODEL` 由 TanStack Start env 管理注入；不要在 agent 里重新加硬编码 fallback（**简历筛选 agent 专用**，跟 picker 是独立通路） |
 
 ## 反模式（不要做）
 
 - ❌ 重新引入 `list-upstream-models.ts` 之类的 `/models` 接口拉取——已经显式删掉了，要它就破坏了本地维护的初衷
 - ❌ 在清单里塞带日期的快照 id（`qwen3.6-plus-2026-04-02`）——用别名
-- ❌ 在 picker 里加新 provider 但忘了在 `composer/model-picker.tsx` 里加 PROVIDER_LABEL/LOGO_SLUG——会显示 "其他" + 一个 cpu 图标
+- ❌ 重新加 picker 时只改 server 清单、不改前端 provider label/order/fallback
 - ❌ 重新依赖 `ALIBABA_MODEL` env 作为聊天默认——picker 跟 chat route 都不再读它
 
 ## 当前清单（写文档时的快照，仅供对照）

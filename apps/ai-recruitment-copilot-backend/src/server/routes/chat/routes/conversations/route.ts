@@ -10,10 +10,13 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat";
 import {
   patchConversationSchema,
+  confirmRecruitingActionSchema,
   upsertChatMessageSchema,
   upsertConversationSchema,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/schema";
+import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { confirmRecruitingAction } from "./actions";
 
 export const conversationsRouter = factory
   .createApp()
@@ -153,6 +156,39 @@ export const conversationsRouter = factory
 
     return c.json({ ok: true }, 200);
   })
+  .post(
+    "/:id/actions/confirm",
+    requirePermission("resumeLibrary", "update"),
+    zValidator("json", confirmRecruitingActionSchema, jsonValidatorError("动作参数无效。")),
+    async (c) => {
+      const { user, activeOrg } = c.var;
+      if (!user) {
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+      if (!activeOrg) {
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+
+      const conversationId = c.req.param("id");
+      const owner = await checkConversationOwner(user.id, conversationId, activeOrg.id);
+      if (owner === "not_found") {
+        return c.json({ error: "Not Found" }, 404);
+      }
+      if (owner === "forbidden") {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      const { proposal } = c.req.valid("json");
+      const result = await confirmRecruitingAction({
+        headers: c.req.raw.headers,
+        operatorId: user.id,
+        organizationId: activeOrg.id,
+        proposal,
+      });
+      const status = result.status === "failed" ? 409 : 200;
+      return c.json(result, status);
+    },
+  )
   .post(
     "/:id/messages",
     zValidator("json", upsertChatMessageSchema, jsonValidatorError("消息参数无效。")),

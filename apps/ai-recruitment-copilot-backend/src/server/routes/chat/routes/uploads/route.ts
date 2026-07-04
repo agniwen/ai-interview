@@ -260,10 +260,9 @@ export const uploadsRouter = factory
         attachmentId,
         parsedPageCount: parseOutcome.status === "fulfilled" ? parseOutcome.value.pageCount : null,
         parsedStatus: parseFields.parsedStatus,
-        // text-only：响应里 structured 总为 null；前端 ParsedResumeButton 与
-        // chat-message-item 已兼容这种形态。
-        // Text-only path: structured is always null in the response; the
-        // ParsedResumeButton and chat-message-item already handle this case.
+        // text-only：响应里 structured 总为 null；附件预览和历史消息烘焙路径需要兼容这种形态。
+        // Text-only path: structured is always null in the response; attachment preview
+        // and historical message baking paths need to tolerate it.
         parsedStructured: null,
         parsedText: parseOutcome.status === "fulfilled" ? parseOutcome.value.text : null,
         parsedTextSource:

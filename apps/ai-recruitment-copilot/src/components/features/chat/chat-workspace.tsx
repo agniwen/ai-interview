@@ -8,6 +8,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   NewRecruitingThread,
+  RecruitingCopilotContextProvider,
   RecruitingThread,
   RecruitingToolRenderers,
 } from "@/components/assistant-ui/recruiting-thread";
@@ -314,15 +315,17 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
   return (
     <div className="relative flex h-full w-full flex-col">
       <AssistantRuntimeProvider runtime={runtime}>
-        <RecruitingToolRenderers />
-        {activeConversationId ? (
-          <RecruitingThread isRunning={isStreaming} />
-        ) : (
-          <NewRecruitingThread
-            disabled={isCreatingConversation || !session}
-            onSubmit={sendFirstMessage}
-          />
-        )}
+        <RecruitingCopilotContextProvider conversationId={activeConversationId}>
+          <RecruitingToolRenderers />
+          {activeConversationId ? (
+            <RecruitingThread isRunning={isStreaming} />
+          ) : (
+            <NewRecruitingThread
+              disabled={isCreatingConversation || !session}
+              onSubmit={sendFirstMessage}
+            />
+          )}
+        </RecruitingCopilotContextProvider>
         <ChatErrorBar
           error={error}
           historyErrorMessage={historyErrorMessage}

@@ -69,8 +69,80 @@ describe("recruiting copilot tools", () => {
         secondaryLabel: "前端工程师",
       },
     ]);
+    expect(result.retrievalMode).toBe("structured_text");
+    expect(result.semanticHitCount).toBe(0);
     expect(JSON.stringify(result)).not.toContain("full resume text should not leak");
     expect(JSON.stringify(result)).not.toContain("should-not-leak");
+  });
+
+  it("merges semantic candidate cards without duplicating structured hits", async () => {
+    const listResumeRecords = vi.fn().mockResolvedValue({
+      records: [
+        {
+          candidateName: "张三",
+          id: "resume-1",
+          jobDescriptionId: "jd-1",
+          jobDescriptionName: "前端工程师",
+          notes: null,
+          pipelineStage: "screening",
+          resumeSkills: ["React"],
+          resumeSummary: "React 候选人",
+          targetRole: "前端",
+          updatedAt: "2026-07-04T10:00:00.000Z",
+        },
+      ],
+      total: 1,
+    });
+    const semanticSearch = vi.fn().mockResolvedValue([
+      {
+        candidateName: "张三",
+        id: "resume-1",
+        jobDescriptionId: "jd-1",
+        jobDescriptionName: "前端工程师",
+        keySkills: ["React"],
+        notes: null,
+        pipelineStage: "screening",
+        resumeSummary: "duplicate",
+        targetRole: "前端",
+        updatedAt: "2026-07-04T10:00:00.000Z",
+        workYears: null,
+      },
+      {
+        candidateName: "李四",
+        id: "resume-2",
+        jobDescriptionId: "jd-2",
+        jobDescriptionName: "后端工程师",
+        keySkills: ["Node.js"],
+        notes: null,
+        pipelineStage: "screening",
+        resumeSummary: "semantic hit",
+        targetRole: "后端",
+        updatedAt: "2026-07-04T11:00:00.000Z",
+        workYears: 4,
+      },
+    ]);
+
+    const result = await searchResumeRecordsForCopilot(
+      {
+        limit: 5,
+        organizationId: "org-1",
+        query: "找全栈候选人",
+      },
+      { listResumeRecords, semanticSearch },
+    );
+
+    expect(semanticSearch).toHaveBeenCalledWith({
+      jobDescriptionId: undefined,
+      limit: 5,
+      organizationId: "org-1",
+      pipelineStages: undefined,
+      query: "找全栈候选人",
+      skills: undefined,
+    });
+    expect(result.retrievalMode).toBe("combined");
+    expect(result.semanticHitCount).toBe(2);
+    expect(result.candidateSummaryCards.map((card) => card.id)).toEqual(["resume-1", "resume-2"]);
+    expect(result.citations.map((citation) => citation.id)).toEqual(["resume-1", "resume-2"]);
   });
 
   it("caps candidate comparison at five ids", () => {
