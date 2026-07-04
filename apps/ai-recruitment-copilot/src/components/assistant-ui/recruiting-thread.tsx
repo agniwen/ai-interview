@@ -785,7 +785,7 @@ export function RecruitingThread({ isRunning }: { isRunning: boolean }) {
       style={activeThreadStyle}
     >
       <div className="flex min-h-0 flex-1">
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="relative flex min-w-0 flex-1 flex-col">
           <ThreadPrimitive.Viewport
             autoScroll
             className="aui-thread-viewport min-h-0 flex-1 overflow-x-hidden overflow-y-auto scroll-smooth"
@@ -809,20 +809,20 @@ export function RecruitingThread({ isRunning }: { isRunning: boolean }) {
               </p>
             </div>
           </div>
+          <ThreadPrimitive.ScrollToBottom asChild>
+            <Button
+              aria-label="回到底部"
+              className="aui-thread-scroll-to-bottom absolute bottom-40 left-1/2 z-20 size-8 -translate-x-1/2 rounded-full disabled:invisible"
+              size="icon"
+              type="button"
+              variant="outline"
+            >
+              <IconArrowDown className="size-4" />
+            </Button>
+          </ThreadPrimitive.ScrollToBottom>
         </div>
         <RecruitingContextPanel />
       </div>
-      <ThreadPrimitive.ScrollToBottom asChild>
-        <Button
-          aria-label="回到底部"
-          className="aui-thread-scroll-to-bottom absolute right-6 bottom-28 size-8 rounded-full disabled:invisible"
-          size="icon"
-          type="button"
-          variant="outline"
-        >
-          <IconArrowDown className="size-4" />
-        </Button>
-      </ThreadPrimitive.ScrollToBottom>
     </ThreadPrimitive.Root>
   );
 }
