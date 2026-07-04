@@ -1,20 +1,17 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import {
-  AssistantRuntimeProvider,
-  ComposerPrimitive,
-  makeAssistantToolUI,
-  MessagePrimitive,
-  ThreadPrimitive,
-  useMessage,
-} from "@assistant-ui/react";
+import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { useAISDKRuntime } from "@assistant-ui/react-ai-sdk";
-import { IconArrowDown, IconRefresh, IconSend2, IconSparkles, IconX } from "@tabler/icons-react";
+import { IconRefresh, IconX } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  NewRecruitingThread,
+  RecruitingThread,
+  RecruitingToolRenderers,
+} from "@/components/assistant-ui/recruiting-thread";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import {
   fetchConversation,
   patchConversation,
@@ -23,7 +20,6 @@ import {
 } from "@/lib/client/api";
 import { authClient } from "@/lib/client/auth-client";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { cn } from "@/lib/utils";
 import { CHAT_EVENTS, notifyConversationsChanged } from "./lib/chat-events";
 import { setChatMeta } from "./lib/chat-meta";
 import { getOrCreateChat, hasChat } from "./lib/chat-registry";
@@ -32,271 +28,9 @@ const NEW_CHAT_TITLE = "新对话";
 const GENERATING_CHAT_TITLE = "生成中...";
 const MAX_CHAT_TITLE_LENGTH = 28;
 
-interface CandidateSummaryCard {
-  candidateName: string;
-  id: string;
-  jobDescriptionId: string | null;
-  jobDescriptionName: string | null;
-  keySkills: string[];
-  notes: string | null;
-  pipelineStage: string;
-  resumeSummary: string | null;
-  targetRole: string | null;
-  updatedAt: string;
-  workYears: number | null;
-}
-
-interface SearchResumeRecordsResult {
-  candidateSummaryCards?: CandidateSummaryCard[];
-  total?: number;
-}
-
-interface RecruitingActionProposal {
-  explanation: string;
-  id: string;
-  payload: Record<string, unknown>;
-  title: string;
-  type: "bind_candidate_to_job" | "advance_candidate_stage" | "generate_interview_questions";
-}
-
-interface RecruitingActionProposalResult {
-  proposal?: RecruitingActionProposal;
-}
-
-const RecruitingResumeSearchToolUI = makeAssistantToolUI<unknown, SearchResumeRecordsResult>({
-  display: "standalone",
-  render: ({ result, status }) => {
-    const cards = result?.candidateSummaryCards ?? [];
-    if (status.type === "running") {
-      return (
-        <div className="rounded-md border bg-muted/30 px-3 py-2 text-muted-foreground text-sm">
-          正在检索候选人...
-        </div>
-      );
-    }
-    if (cards.length === 0) {
-      return (
-        <div className="rounded-md border bg-muted/30 px-3 py-2 text-muted-foreground text-sm">
-          未找到匹配候选人。
-        </div>
-      );
-    }
-    return (
-      <div className="grid gap-2">
-        {cards.map((card) => (
-          <article className="rounded-md border bg-background p-3 shadow-sm" key={card.id}>
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div className="min-w-0">
-                <h3 className="truncate font-medium text-sm">{card.candidateName}</h3>
-                <p className="text-muted-foreground text-xs">
-                  {card.targetRole ?? "未标注目标岗位"}
-                  {card.jobDescriptionName ? ` · ${card.jobDescriptionName}` : ""}
-                </p>
-              </div>
-              <span className="rounded-sm border bg-muted px-1.5 py-0.5 text-muted-foreground text-xs">
-                {card.pipelineStage}
-              </span>
-            </div>
-            {card.resumeSummary ? (
-              <p className="mt-2 line-clamp-2 text-sm leading-6">{card.resumeSummary}</p>
-            ) : null}
-            {card.keySkills.length > 0 ? (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {card.keySkills.map((skill) => (
-                  <span className="rounded-sm bg-muted px-1.5 py-0.5 text-xs" key={skill}>
-                    {skill}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-          </article>
-        ))}
-        {typeof result?.total === "number" && result.total > cards.length ? (
-          <p className="text-muted-foreground text-xs">
-            还有 {result.total - cards.length} 个候选人未展示。
-          </p>
-        ) : null}
-      </div>
-    );
-  },
-  toolName: "search_resume_records",
-});
-
-const RecruitingActionProposalToolUI = makeAssistantToolUI<unknown, RecruitingActionProposalResult>(
-  {
-    display: "standalone",
-    render: ({ result, status }) => {
-      const proposal = result?.proposal;
-      if (status.type === "running") {
-        return (
-          <div className="rounded-md border bg-muted/30 px-3 py-2 text-muted-foreground text-sm">
-            正在生成动作建议...
-          </div>
-        );
-      }
-      if (!proposal) {
-        return null;
-      }
-      return (
-        <article className="rounded-md border bg-background p-3 shadow-sm">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-muted-foreground text-xs">待确认动作</p>
-              <h3 className="mt-1 font-medium text-sm">{proposal.title}</h3>
-            </div>
-            <span className="rounded-sm border bg-muted px-1.5 py-0.5 text-muted-foreground text-xs">
-              {proposal.type}
-            </span>
-          </div>
-          <p className="mt-2 text-sm leading-6">{proposal.explanation}</p>
-          <div className="mt-3 flex justify-end gap-2">
-            <Button disabled size="sm" type="button" variant="outline">
-              忽略
-            </Button>
-            <Button disabled size="sm" type="button">
-              确认
-            </Button>
-          </div>
-        </article>
-      );
-    },
-    toolName: "propose_recruiting_action",
-  },
-);
-
 function getConversationTitleFromText(text: string) {
   const title = text.trim().replaceAll(/\s+/g, " ").slice(0, MAX_CHAT_TITLE_LENGTH);
   return title || NEW_CHAT_TITLE;
-}
-
-function RecruitingToolRenderers() {
-  return (
-    <>
-      <RecruitingResumeSearchToolUI />
-      <RecruitingActionProposalToolUI />
-    </>
-  );
-}
-
-function CopilotMessage() {
-  const role = useMessage((message) => message.role);
-  if (role === "system") {
-    return null;
-  }
-  const isUser = role === "user";
-  return (
-    <MessagePrimitive.Root className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}>
-      <div
-        className={cn(
-          "max-w-[min(760px,88%)] rounded-md px-3 py-2 text-sm leading-6",
-          isUser ? "bg-primary text-primary-foreground" : "bg-muted/55 text-foreground",
-        )}
-      >
-        <MessagePrimitive.Parts />
-      </div>
-    </MessagePrimitive.Root>
-  );
-}
-
-function AssistantThread({ isStreaming }: { isStreaming: boolean }) {
-  return (
-    <ThreadPrimitive.Root className="flex min-h-0 flex-1 flex-col">
-      <ThreadPrimitive.Viewport
-        autoScroll
-        className="min-h-0 flex-1 overflow-y-auto px-4 py-4"
-        scrollToBottomOnRunStart
-      >
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
-          <ThreadPrimitive.Messages>{() => <CopilotMessage />}</ThreadPrimitive.Messages>
-          {isStreaming ? (
-            <div className="w-fit rounded-md bg-muted/55 px-3 py-2 text-muted-foreground text-sm">
-              思考中...
-            </div>
-          ) : null}
-        </div>
-      </ThreadPrimitive.Viewport>
-      <div className="border-t bg-background px-4 py-3">
-        <div className="mx-auto flex w-full max-w-5xl items-end gap-2 rounded-md border bg-background p-2 shadow-sm">
-          <ComposerPrimitive.Root className="flex min-w-0 flex-1 items-end gap-2">
-            <ComposerPrimitive.Input
-              className="max-h-40 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted-foreground"
-              placeholder="输入招聘问题..."
-              submitMode="enter"
-            />
-            <ComposerPrimitive.Send asChild>
-              <Button aria-label="发送" className="size-9 shrink-0" size="icon" type="submit">
-                <IconSend2 className="size-4" />
-              </Button>
-            </ComposerPrimitive.Send>
-          </ComposerPrimitive.Root>
-        </div>
-      </div>
-      <ThreadPrimitive.ScrollToBottom asChild>
-        <Button
-          aria-label="回到底部"
-          className="absolute right-6 bottom-24 size-8"
-          size="icon"
-          variant="outline"
-        >
-          <IconArrowDown className="size-4" />
-        </Button>
-      </ThreadPrimitive.ScrollToBottom>
-    </ThreadPrimitive.Root>
-  );
-}
-
-function EmptyCopilotComposer({
-  disabled,
-  onSubmit,
-}: {
-  disabled: boolean;
-  onSubmit: (text: string) => Promise<void>;
-}) {
-  const [text, setText] = useState("");
-  const canSubmit = text.trim().length > 0 && !disabled;
-
-  const handleSubmit = async () => {
-    if (!canSubmit) {
-      return;
-    }
-    const nextText = text.trim();
-    setText("");
-    await onSubmit(nextText);
-  };
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex flex-1 items-center justify-center px-4">
-        <div className="w-full max-w-3xl">
-          <div className="mb-4 flex items-center gap-2 text-muted-foreground text-sm">
-            <IconSparkles className="size-4" />
-            <span>Workspace 招聘 Copilot</span>
-          </div>
-          <div className="rounded-md border bg-background p-2 shadow-sm">
-            <Textarea
-              className="min-h-24 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0"
-              disabled={disabled}
-              onChange={(event) => setText(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  void handleSubmit();
-                }
-              }}
-              placeholder="输入招聘问题..."
-              value={text}
-            />
-            <div className="flex justify-end">
-              <Button disabled={!canSubmit} onClick={handleSubmit} size="sm" type="button">
-                <IconSend2 className="size-4" />
-                发送
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function ChatErrorBar({
@@ -370,7 +104,7 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
     boundChat ? { chat: boundChat, experimental_throttle: 50 } : { experimental_throttle: 50 },
   );
   const runtime = useAISDKRuntime(chatHelpers, { joinStrategy: "none" });
-  const { clearError, error, messages, regenerate, setMessages, status, stop } = chatHelpers;
+  const { clearError, error, messages, regenerate, setMessages, status } = chatHelpers;
   const isStreaming = status === "submitted" || status === "streaming";
 
   useEffect(() => {
@@ -582,9 +316,9 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
       <AssistantRuntimeProvider runtime={runtime}>
         <RecruitingToolRenderers />
         {activeConversationId ? (
-          <AssistantThread isStreaming={isStreaming} />
+          <RecruitingThread isRunning={isStreaming} />
         ) : (
-          <EmptyCopilotComposer
+          <NewRecruitingThread
             disabled={isCreatingConversation || !session}
             onSubmit={sendFirstMessage}
           />
@@ -595,18 +329,6 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
           onClearError={clearError}
           onRetry={retryLastReply}
         />
-        {isStreaming ? (
-          <Button
-            aria-label="停止"
-            className="absolute right-6 bottom-24 size-8"
-            onClick={stop}
-            size="icon"
-            type="button"
-            variant="outline"
-          >
-            <IconX className="size-4" />
-          </Button>
-        ) : null}
       </AssistantRuntimeProvider>
     </div>
   );
