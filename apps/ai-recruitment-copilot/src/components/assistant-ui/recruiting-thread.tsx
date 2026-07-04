@@ -36,6 +36,7 @@ import type {
 } from "react";
 import { toast } from "sonner";
 import { MarkdownView } from "@/components/features/display/markdown-view";
+import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import { Button } from "@/components/ui/button";
 import { confirmRecruitingAction } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -91,6 +92,7 @@ interface RecruitingCopilotContextValue {
   proposalStatuses: Record<string, ProposalStatus>;
   proposals: RecruitingActionProposal[];
   markProposal: (id: string, status: ProposalStatus) => void;
+  openResumeDetail: (recordId: string) => void;
   upsertCitations: (citations: CopilotCitation[]) => void;
   upsertProposal: (proposal: RecruitingActionProposal) => void;
 }
@@ -118,11 +120,13 @@ export function RecruitingCopilotContextProvider({
   conversationId,
 }: PropsWithChildren<{ conversationId: string | null }>) {
   const [citations, setCitations] = useState<CopilotCitation[]>([]);
+  const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
   const [proposals, setProposals] = useState<RecruitingActionProposal[]>([]);
   const [proposalStatuses, setProposalStatuses] = useState<Record<string, ProposalStatus>>({});
 
   useEffect(() => {
     setCitations([]);
+    setDetailRecordId(null);
     setProposals([]);
     setProposalStatuses({});
   }, [conversationId]);
@@ -148,11 +152,16 @@ export function RecruitingCopilotContextProvider({
     setProposalStatuses((current) => ({ ...current, [id]: status }));
   }, []);
 
+  const openResumeDetail = useCallback((recordId: string) => {
+    setDetailRecordId(recordId);
+  }, []);
+
   const value = useMemo(
     () => ({
       citations,
       conversationId,
       markProposal,
+      openResumeDetail,
       proposalStatuses,
       proposals,
       upsertCitations,
@@ -162,6 +171,7 @@ export function RecruitingCopilotContextProvider({
       citations,
       conversationId,
       markProposal,
+      openResumeDetail,
       proposalStatuses,
       proposals,
       upsertCitations,
@@ -170,7 +180,19 @@ export function RecruitingCopilotContextProvider({
   );
 
   return (
-    <RecruitingCopilotContext.Provider value={value}>{children}</RecruitingCopilotContext.Provider>
+    <RecruitingCopilotContext.Provider value={value}>
+      {children}
+      <StudioPersonDetailDialog
+        mode="resume"
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetailRecordId(null);
+          }
+        }}
+        open={detailRecordId !== null}
+        recordId={detailRecordId}
+      />
+    </RecruitingCopilotContext.Provider>
   );
 }
 
@@ -592,6 +614,49 @@ function RecruitingContextPanel() {
   );
 }
 
+function CandidateSummaryCardButton({ card }: { card: CandidateSummaryCard }) {
+  const { openResumeDetail } = useRecruitingCopilotContext();
+  return (
+    <button
+      aria-label={`查看 ${card.candidateName} 的简历详情`}
+      className="aui-candidate-card group w-full rounded-xl border bg-background p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+      onClick={() => openResumeDetail(card.id)}
+      type="button"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h3 className="truncate font-medium text-sm">{card.candidateName}</h3>
+            <IconExternalLink className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
+          </div>
+          <p className="text-muted-foreground text-xs">
+            {card.targetRole ?? "未标注目标岗位"}
+            {card.jobDescriptionName ? ` · ${card.jobDescriptionName}` : ""}
+          </p>
+        </div>
+        <span className="rounded-full border bg-muted/50 px-2 py-0.5 text-muted-foreground text-xs">
+          {card.pipelineStage}
+        </span>
+      </div>
+      {card.resumeSummary ? (
+        <p className="mt-2 line-clamp-2 text-sm leading-6">{card.resumeSummary}</p>
+      ) : null}
+      {card.keySkills.length > 0 ? (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {card.keySkills.map((skill) => (
+            <span
+              className="rounded-full bg-primary/10 px-2 py-0.5 text-primary text-xs"
+              key={skill}
+            >
+              {skill}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </button>
+  );
+}
+
 export const RecruitingResumeSearchToolUI = makeAssistantToolUI<unknown, SearchResumeRecordsResult>(
   {
     display: "standalone",
@@ -618,38 +683,7 @@ export const RecruitingResumeSearchToolUI = makeAssistantToolUI<unknown, SearchR
             </p>
           ) : null}
           {cards.map((card) => (
-            <article
-              className="aui-candidate-card rounded-xl border bg-background p-3"
-              key={card.id}
-            >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <h3 className="truncate font-medium text-sm">{card.candidateName}</h3>
-                  <p className="text-muted-foreground text-xs">
-                    {card.targetRole ?? "未标注目标岗位"}
-                    {card.jobDescriptionName ? ` · ${card.jobDescriptionName}` : ""}
-                  </p>
-                </div>
-                <span className="rounded-full border bg-muted/50 px-2 py-0.5 text-muted-foreground text-xs">
-                  {card.pipelineStage}
-                </span>
-              </div>
-              {card.resumeSummary ? (
-                <p className="mt-2 line-clamp-2 text-sm leading-6">{card.resumeSummary}</p>
-              ) : null}
-              {card.keySkills.length > 0 ? (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {card.keySkills.map((skill) => (
-                    <span
-                      className="rounded-full bg-primary/10 px-2 py-0.5 text-primary text-xs"
-                      key={skill}
-                    >
-                      {skill}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-            </article>
+            <CandidateSummaryCardButton card={card} key={card.id} />
           ))}
           {typeof result?.total === "number" && result.total > cards.length ? (
             <p className="text-muted-foreground text-xs">
