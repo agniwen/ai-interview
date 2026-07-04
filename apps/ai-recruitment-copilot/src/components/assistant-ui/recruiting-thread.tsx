@@ -294,8 +294,7 @@ function AssistantActionBar() {
 function UserActionBar() {
   return (
     <ActionBarPrimitive.Root
-      autohide="not-last"
-      className="aui-user-action-bar flex items-center justify-end gap-0"
+      className="aui-user-action-bar flex min-h-8 items-center justify-end gap-0"
       hideWhenRunning
     >
       <ActionBarPrimitive.Copy asChild>
