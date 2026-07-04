@@ -22,9 +22,15 @@ import {
   IconWaveSine,
 } from "@tabler/icons-react";
 import { useState } from "react";
-import type { ComponentProps, CSSProperties, FormEvent, ReactNode } from "react";
+import type {
+  ChangeEvent,
+  ComponentProps,
+  CSSProperties,
+  FormEvent,
+  KeyboardEvent,
+  ReactNode,
+} from "react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 interface CandidateSummaryCard {
@@ -453,6 +459,13 @@ export function NewRecruitingThread({
   const [text, setText] = useState("");
   const canSubmit = text.trim().length > 0 && !disabled;
 
+  const handleTextChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    const target = event.currentTarget;
+    setText(target.value);
+    target.style.height = "auto";
+    target.style.height = `${target.scrollHeight}px`;
+  };
+
   const handleSubmit = async (event?: FormEvent) => {
     event?.preventDefault();
     if (!canSubmit) {
@@ -463,49 +476,46 @@ export function NewRecruitingThread({
     await onSubmit(nextText);
   };
 
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      void handleSubmit();
+    }
+  };
+
   return (
     <div
       className="aui-root aui-thread-root flex min-h-0 flex-1 flex-col bg-white text-[#0d0d0d] dark:bg-black dark:text-[#ececec]"
       style={emptyThreadStyle}
     >
-      <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-1 flex-col justify-center px-4 pb-[12vh]">
+      <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-1 flex-col justify-center px-4 pb-[18vh]">
         <div className="aui-thread-welcome-root mb-6 text-center">
           <h1 className="aui-thread-welcome-message-inner fade-in slide-in-from-bottom-1 animate-in fill-mode-both text-2xl font-normal duration-200">
             从哪里开始招聘协作？
           </h1>
         </div>
         <form className="aui-composer-root relative flex w-full flex-col" onSubmit={handleSubmit}>
-          <div className="aui-composer-shell flex w-full flex-col gap-2 rounded-[28px] border border-[#e5e5e5] bg-white px-3 py-2 shadow-sm transition-[border-color,box-shadow] focus-within:shadow-[0_6px_24px_-8px_rgba(0,0,0,0.14),0_1px_2px_rgba(0,0,0,0.05)] dark:border-transparent dark:bg-[#212121] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
-            <Textarea
+          <div className="aui-composer-shell flex w-full items-end gap-1 rounded-[28px] border border-[#e5e5e5] bg-white px-3 py-2 shadow-sm transition-[border-color,box-shadow] focus-within:shadow-[0_6px_24px_-8px_rgba(0,0,0,0.14),0_1px_2px_rgba(0,0,0,0.05)] dark:border-transparent dark:bg-[#212121] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
+            <textarea
               aria-label="招聘问题输入"
-              className="aui-composer-input min-h-24 resize-none border-0 bg-transparent px-2 py-2 text-[#0d0d0d] text-base shadow-none outline-none placeholder:text-[#5d5d5d] focus-visible:ring-0 dark:text-[#ececec] dark:placeholder:text-[#afafaf]"
+              className="aui-composer-input max-h-36 min-h-9 flex-1 resize-none overflow-y-auto bg-transparent px-2 py-2 text-[#0d0d0d] text-base leading-6 outline-none placeholder:text-[#5d5d5d] dark:text-[#ececec] dark:placeholder:text-[#afafaf]"
               disabled={disabled}
-              onChange={(event) => setText(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  void handleSubmit();
-                }
-              }}
+              onChange={handleTextChange}
+              onKeyDown={handleKeyDown}
               placeholder="输入招聘问题..."
+              rows={1}
               value={text}
             />
-            <div className="aui-composer-action-wrapper flex justify-end gap-1">
-              <Button
-                aria-label={canSubmit ? "发送" : "语音模式"}
-                className="size-9 rounded-full bg-[#0d0d0d] p-0 text-white hover:bg-[#0d0d0d]/90 disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-white/90"
-                disabled={!canSubmit}
-                size="icon"
-                title={canSubmit ? "发送" : "语音模式"}
-                type="submit"
-              >
-                {canSubmit ? (
-                  <IconArrowUp className="size-5" />
-                ) : (
-                  <IconWaveSine className="size-5" />
-                )}
-              </Button>
-            </div>
+            <Button
+              aria-label={canSubmit ? "发送" : "语音模式"}
+              className="size-9 shrink-0 rounded-full bg-[#0d0d0d] p-0 text-white hover:bg-[#0d0d0d]/90 disabled:opacity-100 dark:bg-white dark:text-black dark:hover:bg-white/90"
+              disabled={!canSubmit}
+              size="icon"
+              title={canSubmit ? "发送" : "语音模式"}
+              type="submit"
+            >
+              {canSubmit ? <IconArrowUp className="size-5" /> : <IconWaveSine className="size-5" />}
+            </Button>
           </div>
         </form>
         <p className="mt-2 text-center text-[#5d5d5d] text-xs dark:text-[#afafaf]">
