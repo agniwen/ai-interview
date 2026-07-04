@@ -3,6 +3,7 @@ import { studioInterview } from "@arc/db-schema/schema";
 import type { StudioInterviewResumeSourceType } from "@arc/db-schema/schema";
 import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ResumeReview } from "@arc/db-schema/resume-review";
+import type { ResumeReviewStatus } from "@arc/db-schema/studio-interviews";
 import { syncResumeSkills } from "../dao/skills";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -19,6 +20,7 @@ export interface CreateResumeRecordFromStorageInput {
   resumeFileName: string | null;
   resumeProfile: ResumeProfile | null;
   resumeReview?: ResumeReview | null;
+  resumeReviewStatus?: ResumeReviewStatus;
   resumeText?: string | null;
   storageKey: string | null;
   targetRole: string | null;
@@ -66,6 +68,10 @@ export async function createResumeRecordFromStorage(
       resumeParsedAt: input.resumeProfile ? now : null,
       resumeProfile: input.resumeProfile,
       resumeReview: input.resumeReview ?? null,
+      resumeReviewError: null,
+      resumeReviewGeneratedAt: input.resumeReview ? now : null,
+      resumeReviewQueuedAt: input.resumeReviewStatus === "queued" ? now : null,
+      resumeReviewStatus: input.resumeReview ? "ready" : (input.resumeReviewStatus ?? "idle"),
       resumeSourceImportedAt: input.source?.importedAt ?? null,
       resumeSourceImportedBy: input.source?.importedBy ?? null,
       resumeSourcePoolItemId: input.source?.poolItemId ?? null,

@@ -13,6 +13,11 @@ import {
   RESUME_PARSE_QUEUE_NAME,
 } from "@arc/resume-parse-queue/resume-parse";
 import {
+  getResumeReviewGenerationQueueOverview,
+  listResumeReviewGenerationQueueJobs,
+  RESUME_REVIEW_GENERATION_QUEUE_NAME,
+} from "@arc/resume-parse-queue/resume-review-generation";
+import {
   createMailIngestAccount,
   getMailIngestAccountLoginConfig,
   isWorkspaceMember,
@@ -32,6 +37,7 @@ import {
   enrichResumeParseQueueJobs,
   filterEnrichedResumeParseQueueJobRecords,
 } from "./queue-details";
+import type { PlatformQueueJobsResult } from "./queue-details";
 
 // --- Organizations list ---
 const orgQuerySchema = z.object({
@@ -560,21 +566,49 @@ async function listResumeParseQueueJobsWithDetailFilters(query: QueueJobsQuery) 
   };
 }
 
+async function listResumeReviewGenerationQueueJobsWithDetails(
+  query: QueueJobsQuery,
+): Promise<PlatformQueueJobsResult> {
+  const result = await listResumeReviewGenerationQueueJobs({
+    page: query.page,
+    pageSize: query.pageSize,
+    search: query.search,
+    state: query.state,
+  });
+
+  return {
+    ...result,
+    records: result.records.map((record) => ({
+      ...record,
+      organization: null,
+      resumeDetail: null,
+      triggeredBy: null,
+    })),
+  };
+}
+
 const platformQueues = factory
   .createApp()
   .get("/queues", async (c) => {
-    const overview = await getResumeParseQueueOverview();
-    return c.json({ records: [overview], total: 1 }, 200);
+    const records = await Promise.all([
+      getResumeParseQueueOverview(),
+      getResumeReviewGenerationQueueOverview(),
+    ]);
+    return c.json({ records, total: records.length }, 200);
   })
   .get(
     "/queues/:queueName/jobs",
     zValidator("query", queueJobsQuerySchema, jsonValidatorError("参数校验失败")),
     async (c) => {
       const queueName = c.req.param("queueName");
+      const query = c.req.valid("query");
+      if (queueName === RESUME_REVIEW_GENERATION_QUEUE_NAME) {
+        const result = await listResumeReviewGenerationQueueJobsWithDetails(query);
+        return c.json(result, 200);
+      }
       if (queueName !== RESUME_PARSE_QUEUE_NAME) {
         return c.json({ error: "队列不存在" }, 404);
       }
-      const query = c.req.valid("query");
       const result = await listResumeParseQueueJobsWithDetailFilters(query);
       return c.json(result, 200);
     },

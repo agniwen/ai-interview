@@ -100,6 +100,17 @@ describe("describeResumeProgress", () => {
     ).toEqual({ label: "简历筛选 · 待处理", tone: "outline" });
   });
 
+  it("screening with queued review → 简历筛选 · 分析中", () => {
+    expect(
+      describeResumeProgress({
+        outcome: "in_pipeline",
+        pipelineStage: "screening",
+        resumeReviewStatus: "queued",
+        stageProgress: EMPTY,
+      }),
+    ).toEqual({ label: "简历筛选 · 分析中", tone: "warning" });
+  });
+
   it("ai_interview 无排期 → 未排期", () => {
     expect(
       describeResumeProgress({

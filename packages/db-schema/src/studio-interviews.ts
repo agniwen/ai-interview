@@ -113,6 +113,27 @@ export const resumeEvaluationStatusMeta: Record<
   pass: { label: "通过", tone: "success" },
 };
 
+export const resumeReviewStatusValues = [
+  "idle",
+  "queued",
+  "processing",
+  "ready",
+  "failed",
+] as const;
+export const resumeReviewStatusSchema = z.enum(resumeReviewStatusValues);
+export type ResumeReviewStatus = z.infer<typeof resumeReviewStatusSchema>;
+
+export const resumeReviewStatusMeta: Record<
+  ResumeReviewStatus,
+  { label: string; tone: "success" | "warning" | "danger" | "outline" }
+> = {
+  failed: { label: "分析失败", tone: "danger" },
+  idle: { label: "未分析", tone: "outline" },
+  processing: { label: "分析中", tone: "warning" },
+  queued: { label: "等待分析", tone: "warning" },
+  ready: { label: "已分析", tone: "success" },
+};
+
 // ── 真人复面阶段 / Human Interview Stage ──
 
 // 单轮状态：pending（已排期/未排期）→ completed / cancelled（终态）。

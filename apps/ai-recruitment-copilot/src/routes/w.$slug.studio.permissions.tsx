@@ -4,7 +4,7 @@ import { WorkspacePermissionsSection } from "@/components/features/studio/member
 
 function StudioPermissionsRoute() {
   return (
-    <div className="container mx-auto max-w-7xl">
+    <div className="mx-auto w-full max-w-[96em]">
       <WorkspacePermissionsSection
         headerRender={({ actionRender }) => (
           <PageHeader

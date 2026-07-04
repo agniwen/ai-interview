@@ -91,6 +91,7 @@ const capturedGridOptions = vi.hoisted(() => ({
 }));
 
 const rpcQueueJobsGetMock = vi.hoisted(() => vi.fn());
+const setFilterMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/hooks/use-mobile", () => ({
   useIsMobile: () => false,
@@ -133,8 +134,15 @@ vi.mock("@/components/data-grid", async () => {
           total: 1,
           totalPages: 1,
         },
+        filters: {
+          parseStatus: "all",
+          queue: "resume-parse",
+          state: "all",
+          uploadStatus: "all",
+        },
         invalidate: vi.fn(),
         search: "",
+        setFilter: setFilterMock,
       };
     }),
   };
@@ -178,8 +186,25 @@ vi.mock("@/lib/client/api", () => ({
           workers: [],
           workersCount: 0,
         },
+        {
+          counts: {
+            active: 0,
+            completed: 0,
+            delayed: 0,
+            failed: 0,
+            paused: 0,
+            prioritized: 0,
+            waiting: 2,
+            "waiting-children": 0,
+          },
+          displayName: "AI分析",
+          name: "resume-review-generation",
+          redis: null,
+          workers: [],
+          workersCount: 0,
+        },
       ],
-      total: 1,
+      total: 2,
     }),
   ),
 }));
@@ -215,6 +240,8 @@ describe("QueuesGrid", () => {
     });
 
     expect(document.body.textContent).toContain("文件名");
+    expect(document.body.textContent).toContain("简历解析");
+    expect(document.body.textContent).toContain("AI分析");
     expect(document.body.textContent).toContain("Nolan.jpeg");
     expect(document.body.textContent).toContain("上传任务状态");
     expect(document.body.textContent).toContain("解析状态");
@@ -288,6 +315,61 @@ describe("QueuesGrid", () => {
         parseStatus: "failed",
         state: "all",
         uploadStatus: "processing",
+      },
+    });
+
+    act(() => {
+      root.unmount();
+    });
+    queryClient.clear();
+  });
+
+  it("uses the AI analysis queue when that tab filter is selected", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
+    });
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            <QueuesGrid />
+          </TooltipProvider>
+        </QueryClientProvider>,
+      );
+      await Promise.resolve();
+    });
+
+    const queryFn = capturedGridOptions.current?.queryFn;
+    expect(queryFn).toBeTypeOf("function");
+
+    await queryFn?.({
+      filters: {
+        parseStatus: "all",
+        queue: "resume-review-generation",
+        state: "waiting",
+        uploadStatus: "all",
+      },
+      page: 1,
+      pageSize: 20,
+      search: "",
+    });
+
+    expect(rpcQueueJobsGetMock).toHaveBeenCalledWith({
+      param: { queueName: "resume-review-generation" },
+      query: {
+        page: "1",
+        pageSize: "20",
+        parseStatus: "all",
+        state: "waiting",
+        uploadStatus: "all",
       },
     });
 

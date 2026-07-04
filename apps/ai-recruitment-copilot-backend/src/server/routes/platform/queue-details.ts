@@ -1,7 +1,4 @@
-import type {
-  ResumeParseQueueJobRecord,
-  ResumeParseQueueJobsResult,
-} from "@arc/resume-parse-queue/resume-parse";
+import type { ResumeParseQueueJobsResult } from "@arc/resume-parse-queue/resume-parse";
 import { and, eq, inArray } from "drizzle-orm";
 import {
   organization,
@@ -62,7 +59,23 @@ export interface ResumeQueueDetail {
   userName: string | null;
 }
 
-export type PlatformQueueJobRecord = ResumeParseQueueJobRecord & {
+export interface QueueJobRecordBase {
+  attemptsMade: number;
+  attemptsStarted: number | null;
+  data: unknown;
+  failedReason: string | null;
+  finishedOn: string | null;
+  id: string;
+  name: string;
+  processedBy: string | null;
+  processedOn: string | null;
+  progress: unknown;
+  returnvalue: unknown;
+  state: string;
+  timestamp: string | null;
+}
+
+export type PlatformQueueJobRecord = QueueJobRecordBase & {
   organization: PlatformQueueOrganization | null;
   resumeDetail: ResumeQueueDetail | null;
   triggeredBy: PlatformQueueTriggeredBy | null;
@@ -101,7 +114,7 @@ function getResumeParseItemId(data: unknown): string | null {
 }
 
 export function mergeResumeParseQueueJobsWithResumeDetails(
-  jobs: ResumeParseQueueJobRecord[],
+  jobs: QueueJobRecordBase[],
   details: ResumeQueueDetail[],
 ): PlatformQueueJobRecord[] {
   const detailsByItemId = new Map(details.map((detail) => [detail.itemId, detail]));

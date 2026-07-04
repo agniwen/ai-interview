@@ -35,6 +35,10 @@ const resumePoolRouteSource = readFileSync(
   new URL("../../resume-pool/route.ts", import.meta.url),
   "utf-8",
 );
+const resumeReviewWorkerSource = readFileSync(
+  new URL("../utils/review-worker.ts", import.meta.url),
+  "utf-8",
+);
 const batchProcessorSource = readFileSync(
   new URL("../../resume-upload-batches/utils/processor.ts", import.meta.url),
   "utf-8",
@@ -115,6 +119,31 @@ describe("resume launch interview route source", () => {
     expect(launchInterviewSource).toContain("interviewRecordId: id");
     expect(launchInterviewSource).toContain('reason: "create"');
     expect(launchInterviewSource).toContain("scheduleEntryId: scheduleRow.id");
+  });
+});
+
+describe("resume review generation queue source", () => {
+  it("queues AI analysis only after resume-pool imports with a bound job description", () => {
+    const importRouteSource = resumePoolRouteSource.slice(
+      resumePoolRouteSource.indexOf('/:id/import"'),
+      resumePoolRouteSource.indexOf(
+        'return c.json({ error: error instanceof Error ? error.message : "入库失败。" }, 400);',
+        resumePoolRouteSource.indexOf('/:id/import"'),
+      ),
+    );
+
+    expect(resumePoolRouteSource).toContain("enqueueResumeReviewGenerationForRecordBestEffort");
+    expect(importRouteSource).toContain('result.status === "imported" && input.jobDescriptionId');
+    expect(importRouteSource).toContain('source: "resume_pool_import"');
+    expect(importRouteSource).toContain('poolItemId: c.req.param("id")');
+  });
+
+  it("keeps review worker idempotent and status-driven", () => {
+    expect(resumeReviewWorkerSource).toContain('resumeReviewStatus: "processing"');
+    expect(resumeReviewWorkerSource).toContain("if (record.resumeReview)");
+    expect(resumeReviewWorkerSource).toContain('resumeReviewStatus: "ready"');
+    expect(resumeReviewWorkerSource).toContain('resumeReviewStatus: "failed"');
+    expect(resumeReviewWorkerSource).toContain("generateResumeReviewBestEffort");
   });
 });
 

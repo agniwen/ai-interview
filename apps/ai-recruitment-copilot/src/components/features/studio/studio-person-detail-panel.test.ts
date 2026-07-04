@@ -208,6 +208,8 @@ describe("StudioPersonDetailPanel visual density", () => {
 
     expect(source).toContain('value="ai-analysis"');
     expect(source).toContain("AI 解析");
+    expect(source).toContain("简历筛选 · 分析中");
+    expect(source).toContain("resumeRecord?.resumeReviewStatus");
     expect(overviewSource).not.toContain("<ResumeReviewStructuredView");
     expect(aiAnalysisSource).toContain("<ResumeReviewStructuredView");
     expect(modalSizeSource).not.toContain("activeTab");

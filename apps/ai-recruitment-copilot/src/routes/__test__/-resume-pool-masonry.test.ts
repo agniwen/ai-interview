@@ -35,7 +35,7 @@ describe("ResumePoolPage masonry layout", () => {
     expect(source).toContain("1024: 2");
     expect(source).toContain("1280: 3");
     expect(source).toContain("1440: 4");
-    expect(source).toContain("container mx-auto max-w-7xl");
+    expect(source).toContain("mx-auto w-full max-w-[96em]");
     expect(source).not.toContain("1536: 5");
     expect(source).not.toContain("1920: 6");
     expect(source).not.toContain("2560: 7");

@@ -21,17 +21,17 @@ const studioPageFiles = [
 ] as const;
 
 describe("studio page containers", () => {
-  it("adds the width container inside each studio page route", () => {
+  it("adds the 96em width container inside each studio page route", () => {
     for (const filename of studioPageFiles) {
       const source = readFileSync(new URL(`../${filename}`, import.meta.url), "utf-8");
 
-      expect(source, filename).toContain("container mx-auto max-w-7xl");
+      expect(source, filename).toContain("mx-auto w-full max-w-[96em]");
     }
   });
 
   it("does not put the page container on the studio layout route", () => {
     const layoutSource = readFileSync(new URL("../w.$slug.studio.tsx", import.meta.url), "utf-8");
 
-    expect(layoutSource).not.toContain("container mx-auto max-w-7xl");
+    expect(layoutSource).not.toContain("max-w-[96em]");
   });
 });

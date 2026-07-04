@@ -96,9 +96,9 @@ describe("TanStack Start platform route migration", () => {
     ];
     const layoutSource = readSource("routes/platform.tsx");
 
-    expect(layoutSource).not.toContain("container mx-auto max-w-7xl");
+    expect(layoutSource).not.toContain("container mx-auto");
     for (const file of leafRouteFiles) {
-      expect(readSource(file)).toContain("container mx-auto max-w-7xl");
+      expect(readSource(file)).toContain("container mx-auto");
     }
   });
 });

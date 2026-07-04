@@ -3,6 +3,7 @@ import {
   getResumeParseQueueStats,
   isResumeParseQueueConfigured,
 } from "@arc/resume-parse-queue/resume-parse";
+import { getResumeReviewGenerationQueueStats } from "@arc/resume-parse-queue/resume-review-generation";
 import { getResumeParseReadinessIssue } from "./parse-config";
 
 async function pingDatabase(): Promise<void> {
@@ -41,6 +42,11 @@ export function createWorkerApp() {
 
   app.get("/queues/resume-parse/stats", async (c) => {
     const stats = await getResumeParseQueueStats();
+    return c.json(stats, 200);
+  });
+
+  app.get("/queues/resume-review-generation/stats", async (c) => {
+    const stats = await getResumeReviewGenerationQueueStats();
     return c.json(stats, 200);
   });
 

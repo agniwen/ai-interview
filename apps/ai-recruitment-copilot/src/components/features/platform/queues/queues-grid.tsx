@@ -34,11 +34,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { formatBytes } from "@arc/shared/utils/format";
 
 const DEFAULT_QUEUE_NAME = "resume-parse";
+const PLATFORM_QUEUE_OPTIONS = [
+  { label: "简历解析", value: "resume-parse" },
+  { label: "AI分析", value: "resume-review-generation" },
+] as const;
 const DEFAULT_FILTERS = {
   parseStatus: "all",
   queue: DEFAULT_QUEUE_NAME,
@@ -340,7 +345,14 @@ function getJobDataSummary(data: unknown): string {
   if (itemId && batchId) {
     return `${itemId} / ${batchId}`;
   }
-  return itemId ?? batchId ?? "—";
+  const resumeRecordId =
+    typeof maybeRecord.resumeRecordId === "string" ? maybeRecord.resumeRecordId : null;
+  const jobDescriptionId =
+    typeof maybeRecord.jobDescriptionId === "string" ? maybeRecord.jobDescriptionId : null;
+  if (resumeRecordId && jobDescriptionId) {
+    return `${resumeRecordId} / ${jobDescriptionId}`;
+  }
+  return itemId ?? batchId ?? resumeRecordId ?? jobDescriptionId ?? "—";
 }
 
 function QueueOrganizationCell({ organization }: { organization: QueueJobRecord["organization"] }) {
@@ -632,18 +644,23 @@ export function QueuesGrid() {
     staleTime: 5000,
   });
 
-  const queueOptions = useMemo(
-    () =>
-      (overviewQuery.data?.records ?? []).map((queue) => ({
-        label: queue.displayName,
-        value: queue.name,
-      })),
-    [overviewQuery.data?.records],
-  );
-  const selectedQueue =
-    overviewQuery.data?.records.find((queue) => queue.name === DEFAULT_QUEUE_NAME) ??
-    overviewQuery.data?.records[0] ??
-    null;
+  const queueOptions = useMemo(() => {
+    const records = overviewQuery.data?.records ?? [];
+    if (records.length === 0) {
+      return [...PLATFORM_QUEUE_OPTIONS];
+    }
+    const seen = new Set<string>();
+    return [
+      ...records.map((queue) => {
+        seen.add(queue.name);
+        return {
+          label: queue.displayName,
+          value: queue.name,
+        };
+      }),
+      ...PLATFORM_QUEUE_OPTIONS.filter((queue) => !seen.has(queue.value)),
+    ];
+  }, [overviewQuery.data?.records]);
 
   const fetchJobs = useMemo(
     () =>
@@ -680,6 +697,13 @@ export function QueuesGrid() {
     refetchOnWindowFocus: false,
     staleTime: 5000,
   });
+  const selectedQueueName = grid.filters.queue || DEFAULT_QUEUE_NAME;
+  const selectedQueue =
+    overviewQuery.data?.records.find((queue) => queue.name === selectedQueueName) ??
+    overviewQuery.data?.records.find((queue) => queue.name === DEFAULT_QUEUE_NAME) ??
+    overviewQuery.data?.records[0] ??
+    null;
+  const isResumeParseQueue = selectedQueueName === DEFAULT_QUEUE_NAME;
 
   function refreshAll() {
     grid.invalidate();
@@ -715,28 +739,34 @@ export function QueuesGrid() {
         key: "state",
         title: "状态",
       }),
-      customColumn<QueueJobRecord>({
-        cell: (record) => {
-          if (!record.resumeDetail) {
-            return <span className="text-muted-foreground">—</span>;
-          }
-          const status = uploadItemStatusMeta(
-            record.resumeDetail.itemStatus,
-            record.resumeDetail.batch.target,
-          );
-          return <Badge variant={status.variant}>{status.label}</Badge>;
-        },
-        key: "uploadTaskStatus",
-        title: "上传任务状态",
-      }),
-      customColumn<QueueJobRecord>({
-        cell: (record) => {
-          const status = resumeParseStatusMeta(record.resumeDetail?.resumeParseStatus ?? null);
-          return <Badge variant={status.variant}>{status.label}</Badge>;
-        },
-        key: "resumeParseStatus",
-        title: "解析状态",
-      }),
+      ...(isResumeParseQueue
+        ? [
+            customColumn<QueueJobRecord>({
+              cell: (record) => {
+                if (!record.resumeDetail) {
+                  return <span className="text-muted-foreground">—</span>;
+                }
+                const status = uploadItemStatusMeta(
+                  record.resumeDetail.itemStatus,
+                  record.resumeDetail.batch.target,
+                );
+                return <Badge variant={status.variant}>{status.label}</Badge>;
+              },
+              key: "uploadTaskStatus",
+              title: "上传任务状态",
+            }),
+            customColumn<QueueJobRecord>({
+              cell: (record) => {
+                const status = resumeParseStatusMeta(
+                  record.resumeDetail?.resumeParseStatus ?? null,
+                );
+                return <Badge variant={status.variant}>{status.label}</Badge>;
+              },
+              key: "resumeParseStatus",
+              title: "解析状态",
+            }),
+          ]
+        : []),
       customColumn<QueueJobRecord>({
         cell: (record) => <QueueOrganizationCell organization={record.organization} />,
         key: "organization",
@@ -794,11 +824,25 @@ export function QueuesGrid() {
         ],
       }),
     ],
-    [],
+    [isResumeParseQueue],
   );
 
   return (
     <div className="flex flex-col gap-6">
+      <Tabs
+        activationMode="manual"
+        onValueChange={(value) => grid.setFilter("queue", value)}
+        value={selectedQueueName}
+      >
+        <TabsList>
+          {queueOptions.map((queue) => (
+            <TabsTrigger key={queue.value} value={queue.value}>
+              {queue.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+
       <QueueOverview overview={selectedQueue} />
 
       <DataGrid<QueueJobRecord>
@@ -824,32 +868,27 @@ export function QueuesGrid() {
             type: "search",
           },
           {
-            key: "queue",
-            options:
-              queueOptions.length > 0
-                ? queueOptions
-                : [{ label: "简历解析", value: DEFAULT_QUEUE_NAME }],
-            placeholder: "选择队列",
-            type: "select",
-          },
-          {
             key: "state",
             options: [...JOB_STATE_OPTIONS],
             placeholder: "任务状态",
             type: "select",
           },
-          {
-            key: "uploadStatus",
-            options: [...UPLOAD_STATUS_FILTER_OPTIONS],
-            placeholder: "上传任务状态",
-            type: "select",
-          },
-          {
-            key: "parseStatus",
-            options: [...PARSE_STATUS_FILTER_OPTIONS],
-            placeholder: "解析状态",
-            type: "select",
-          },
+          ...(isResumeParseQueue
+            ? [
+                {
+                  key: "uploadStatus",
+                  options: [...UPLOAD_STATUS_FILTER_OPTIONS],
+                  placeholder: "上传任务状态",
+                  type: "select" as const,
+                },
+                {
+                  key: "parseStatus",
+                  options: [...PARSE_STATUS_FILTER_OPTIONS],
+                  placeholder: "解析状态",
+                  type: "select" as const,
+                },
+              ]
+            : []),
         ]}
         getRowId={(record) => record.id}
         onRefresh={refreshAll}

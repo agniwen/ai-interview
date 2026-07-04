@@ -7,7 +7,87 @@ import * as React from "react";
 import { cossPopupSurfaceClass, cossTriggerSurfaceClass } from "@/components/ui/coss-style";
 import { cn } from "@arc/shared/utils";
 
-const Select = SelectPrimitive.Root;
+type SelectRootItems = NonNullable<SelectPrimitive.Root.Props<unknown>["items"]>;
+type SelectItemElementProps = React.ComponentProps<typeof SelectItem>;
+
+function getFirstTextNode(children: React.ReactNode): string | null {
+  let result: string | null = null;
+
+  function visit(node: React.ReactNode): void {
+    if (result !== null || node === null || node === undefined || typeof node === "boolean") {
+      return;
+    }
+    if (typeof node === "string" || typeof node === "number") {
+      const text = String(node).trim();
+      if (text) {
+        result = text;
+      }
+      return;
+    }
+    if (Array.isArray(node)) {
+      for (const child of node) {
+        visit(child);
+        if (result !== null) {
+          return;
+        }
+      }
+      return;
+    }
+    if (React.isValidElement<{ children?: React.ReactNode }>(node)) {
+      visit(node.props.children);
+    }
+  }
+
+  visit(children);
+  return result;
+}
+
+function getSelectItemLabel(children: React.ReactNode, label: string | undefined) {
+  return label ?? getFirstTextNode(children) ?? children;
+}
+
+function collectSelectItems(
+  children: React.ReactNode,
+  records: { label: React.ReactNode; value: unknown }[],
+) {
+  React.Children.forEach(children, (child) => {
+    if (!React.isValidElement<{ children?: React.ReactNode }>(child)) {
+      return;
+    }
+
+    if (child.type === SelectItem) {
+      const props = child.props as SelectItemElementProps;
+      if (Object.hasOwn(props, "value")) {
+        records.push({
+          label: getSelectItemLabel(props.children, props.label),
+          value: props.value,
+        });
+      }
+    }
+
+    collectSelectItems(child.props.children, records);
+  });
+}
+
+function inferSelectItems(children: React.ReactNode): SelectRootItems | undefined {
+  const records: { label: React.ReactNode; value: unknown }[] = [];
+  collectSelectItems(children, records);
+  return records.length > 0 ? records : undefined;
+}
+
+function Select<Value, Multiple extends boolean | undefined = false>({
+  children,
+  items,
+  ...props
+}: SelectPrimitive.Root.Props<Value, Multiple>) {
+  const inferredItems = React.useMemo(() => items ?? inferSelectItems(children), [children, items]);
+
+  return (
+    <SelectPrimitive.Root items={inferredItems} {...props}>
+      {children}
+    </SelectPrimitive.Root>
+  );
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return <SelectPrimitive.Group data-slot="select-group" className={cn(className)} {...props} />;
@@ -103,11 +183,15 @@ function SelectLabel({ className, ...props }: SelectPrimitive.GroupLabel.Props) 
 function SelectItem({
   className,
   children,
+  label,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Item>) {
+  const itemLabel = label ?? getFirstTextNode(children) ?? undefined;
+
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
+      label={itemLabel}
       className={cn(
         "data-highlighted:bg-accent data-highlighted:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
         className,

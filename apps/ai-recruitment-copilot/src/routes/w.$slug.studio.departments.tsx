@@ -215,7 +215,7 @@ function DepartmentManagementPage() {
 
   return (
     <>
-      <div className="container mx-auto max-w-7xl space-y-6">
+      <div className="mx-auto w-full max-w-[96em] space-y-6">
         <PageHeader
           description="按业务团队整理岗位和面试官，后续筛选、统计和协作都能对齐到部门。"
           title="部门"

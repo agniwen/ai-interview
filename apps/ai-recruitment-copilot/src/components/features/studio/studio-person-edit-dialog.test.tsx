@@ -207,6 +207,10 @@ function makeDetail(overrides: Partial<ResumeLibraryDetail> = {}): ResumeLibrary
       workHasMore: false,
     },
     resumeReview: null,
+    resumeReviewError: null,
+    resumeReviewGeneratedAt: null,
+    resumeReviewQueuedAt: null,
+    resumeReviewStatus: "idle",
     resumeSkills: [],
     resumeSummary: null,
     stageProgress: {

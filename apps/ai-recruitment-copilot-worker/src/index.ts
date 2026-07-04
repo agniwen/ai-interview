@@ -9,6 +9,10 @@ import {
   closeResumeSemanticIndexQueue,
   createResumeSemanticIndexWorker,
 } from "@arc/resume-parse-queue/resume-semantic-index";
+import {
+  closeResumeReviewGenerationQueue,
+  createResumeReviewGenerationWorker,
+} from "@arc/resume-parse-queue/resume-review-generation";
 import { createWorkerApp } from "./app";
 import { resolveWorkerServerConfig } from "./config";
 import { getWorkerConnectionSummary, loadWorkerEnv } from "./env";
@@ -58,6 +62,7 @@ async function main() {
 
   let worker: ReturnType<typeof createResumeParseWorker> | null = null;
   let semanticIndexWorker: ReturnType<typeof createResumeSemanticIndexWorker> | null = null;
+  let reviewGenerationWorker: ReturnType<typeof createResumeReviewGenerationWorker> | null = null;
   let mailIngestScheduler: MailIngestScheduler | null = null;
   if (isResumeParseQueueConfigured()) {
     await recoverIncompleteResumeParseJobs();
@@ -73,6 +78,11 @@ async function main() {
         await runResumeSemanticIndexJob(payload);
       });
     }
+    reviewGenerationWorker = createResumeReviewGenerationWorker(async (payload) => {
+      const { processResumeReviewGenerationJob } =
+        await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-worker");
+      await processResumeReviewGenerationJob(payload);
+    });
     mailIngestScheduler = startMailIngestScheduler();
   }
   if (!worker) {
@@ -92,8 +102,10 @@ async function main() {
         await closeServer();
         await worker?.close();
         await semanticIndexWorker?.close();
+        await reviewGenerationWorker?.close();
         await closeResumeParseQueue();
         await closeResumeSemanticIndexQueue();
+        await closeResumeReviewGenerationQueue();
         if (process.env.DATABASE_URL) {
           const { closeDatabase } =
             await import("@arc/ai-recruitment-copilot-backend/lib/server/db");

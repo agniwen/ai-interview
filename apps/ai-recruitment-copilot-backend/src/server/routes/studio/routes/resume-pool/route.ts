@@ -18,6 +18,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
 import { jobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
+import { enqueueResumeReviewGenerationForRecordBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue";
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
 import { runResumeSemanticIndexJob } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer";
 import {
@@ -353,6 +354,15 @@ export const resumePoolRouter = factory
           organizationId: activeOrg.id,
           poolItemId: c.req.param("id"),
         });
+        if (result.status === "imported" && input.jobDescriptionId) {
+          await enqueueResumeReviewGenerationForRecordBestEffort({
+            jobDescriptionId: input.jobDescriptionId,
+            organizationId: activeOrg.id,
+            poolItemId: c.req.param("id"),
+            resumeRecordId: result.resumeRecordId,
+            source: "resume_pool_import",
+          });
+        }
         return c.json(result, result.status === "imported" ? 201 : 409);
       } catch (error) {
         return c.json({ error: error instanceof Error ? error.message : "入库失败。" }, 400);

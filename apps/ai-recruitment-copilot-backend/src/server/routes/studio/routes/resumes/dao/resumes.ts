@@ -217,6 +217,10 @@ const SELECTED_COLUMNS = {
   resumeReviewConclusion: sql<
     string | null
   >`${studioInterview.resumeReview}->'overall'->>'conclusion'`.as("resume_review_conclusion"),
+  resumeReviewError: studioInterview.resumeReviewError,
+  resumeReviewGeneratedAt: studioInterview.resumeReviewGeneratedAt,
+  resumeReviewQueuedAt: studioInterview.resumeReviewQueuedAt,
+  resumeReviewStatus: studioInterview.resumeReviewStatus,
   resumeSchool: sql<string | null>`${studioInterview.resumeProfile}->'schools'->>0`.as(
     "resume_school",
   ),
@@ -757,6 +761,10 @@ function toRecord(
     resumeParseStatus: row.resumeParseStatus,
     resumeParsedAt: serializeDate(row.resumeParsedAt),
     resumeProfileSnapshot: buildResumeProfileSnapshot(row),
+    resumeReviewError: row.resumeReviewError,
+    resumeReviewGeneratedAt: serializeDate(row.resumeReviewGeneratedAt),
+    resumeReviewQueuedAt: serializeDate(row.resumeReviewQueuedAt),
+    resumeReviewStatus: row.resumeReviewStatus,
     resumeSkills: buildResumeSkills(row.resumeSkills),
     resumeSummary: row.resumeReviewConclusion ?? row.notes?.trim() ?? null,
     stageProgress: resolvedDerived.stageProgress,

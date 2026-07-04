@@ -59,7 +59,7 @@ function PlatformQueuesRoute() {
 
   return (
     <HydrationBoundary state={state.dehydratedState as unknown as DehydratedState}>
-      <div className="container mx-auto max-w-7xl">
+      <div className="container mx-auto">
         <QueuesGrid />
       </div>
     </HydrationBoundary>

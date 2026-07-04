@@ -579,7 +579,7 @@ function ManagedMailIngestPage() {
   );
 
   return (
-    <div className="container mx-auto max-w-7xl flex flex-col gap-6">
+    <div className="mx-auto w-full max-w-[96em] flex flex-col gap-6">
       <PageHeader
         title="邮箱监听"
         description="管理员查看全工作区配置，其他成员仅查看和维护自己的监听账号。"

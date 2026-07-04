@@ -45,6 +45,7 @@ import type {
   PipelineStage,
   ResumeEvaluationStatus,
   ResumeParseStatus,
+  ResumeReviewStatus,
   ScheduleEntryStatus,
   StudioInterviewStatus,
 } from "./studio-interviews";
@@ -461,6 +462,13 @@ export const studioInterview = pgTable(
     resumeParsedAt: timestamp("resume_parsed_at", { withTimezone: true }),
     resumeProfile: jsonb("resume_profile").$type<ResumeProfile | null>(),
     resumeReview: jsonb("resume_review").$type<ResumeReview | null>(),
+    resumeReviewError: text("resume_review_error"),
+    resumeReviewGeneratedAt: timestamp("resume_review_generated_at", { withTimezone: true }),
+    resumeReviewQueuedAt: timestamp("resume_review_queued_at", { withTimezone: true }),
+    resumeReviewStatus: text("resume_review_status")
+      .$type<ResumeReviewStatus>()
+      .notNull()
+      .default("idle"),
     // 简历进入简历库的来源。直传 / 我的简历池 / 公共简历池 / 聊天入库 / API 入库。
     // Source metadata for resume-library rows; keeps the existing workflow
     // intact while preserving provenance for pool imports.

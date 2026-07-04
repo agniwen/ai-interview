@@ -11,7 +11,7 @@ function StudioGlobalConfigRoute() {
   }
 
   return (
-    <div className="container mx-auto max-w-7xl">
+    <div className="mx-auto w-full max-w-[96em]">
       <GlobalConfigForm initial={state.initial} />
     </div>
   );

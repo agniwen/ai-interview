@@ -1827,7 +1827,7 @@ function ResumePoolPage() {
 
   return (
     <>
-      <div className="container mx-auto max-w-7xl space-y-6">
+      <div className="mx-auto w-full max-w-[96em] space-y-6">
         <PageHeader
           className="max-w-3xl"
           title="简历广场"
