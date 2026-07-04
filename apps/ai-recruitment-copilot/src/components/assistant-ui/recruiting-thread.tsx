@@ -73,7 +73,7 @@ const emptyThreadStyle = {
 
 function ToolNotice({ children }: { children: string }) {
   return (
-    <div className="aui-tool-notice rounded-2xl border border-[#e5e5e5] bg-white px-3 py-2 text-[#5d5d5d] text-sm dark:border-transparent dark:bg-[#212121] dark:text-[#afafaf]">
+    <div className="aui-tool-notice rounded-2xl border bg-muted/40 px-3 py-2 text-muted-foreground text-sm">
       {children}
     </div>
   );
@@ -92,7 +92,7 @@ function ChatGPTIconButton({
     <Button
       aria-label={label}
       className={cn(
-        "size-8 rounded-lg bg-transparent p-0 text-[#5d5d5d] transition-colors hover:bg-black/[0.07] hover:text-[#5d5d5d] dark:text-[#cdcdcd] dark:hover:bg-white/15 dark:hover:text-[#cdcdcd]",
+        "size-8 rounded-lg bg-transparent p-0 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
         className,
       )}
       size="icon"
@@ -136,7 +136,7 @@ function AssistantActionBar() {
   return (
     <ActionBarPrimitive.Root
       autohide="not-last"
-      className="aui-assistant-action-bar -ms-1 flex gap-0 text-[#5d5d5d] dark:text-[#cdcdcd]"
+      className="aui-assistant-action-bar -ms-1 flex gap-0 text-muted-foreground"
       hideWhenRunning
     >
       <ActionBarPrimitive.Copy asChild>
@@ -187,7 +187,7 @@ function UserActionBar() {
 function EditComposer() {
   return (
     <MessagePrimitive.Root className="aui-edit-composer-wrapper flex flex-col px-2">
-      <ComposerPrimitive.Root className="aui-edit-composer ms-auto flex w-full max-w-[70%] flex-col rounded-[22px] border border-[#e5e5e5] bg-white shadow-sm dark:border-transparent dark:bg-[#212121]">
+      <ComposerPrimitive.Root className="aui-edit-composer ms-auto flex w-full max-w-[70%] flex-col rounded-[22px] border bg-background shadow-sm">
         <ComposerPrimitive.Input
           autoFocus
           className="aui-edit-composer-input min-h-14 w-full resize-none bg-transparent px-4 pt-3 pb-1 text-base text-foreground outline-none"
@@ -215,7 +215,7 @@ function AssistantMessage() {
       className="aui-assistant-message fade-in slide-in-from-bottom-1 animate-in relative w-full duration-150"
       data-role="assistant"
     >
-      <div className="aui-assistant-message-content text-[#0d0d0d] leading-7 wrap-break-word dark:text-[#ececec]">
+      <div className="aui-assistant-message-content text-foreground leading-7 wrap-break-word">
         <MessagePrimitive.Parts />
       </div>
       <div className="mt-1 flex min-h-8 items-center">
@@ -232,7 +232,7 @@ function UserMessage() {
       className="aui-user-message fade-in slide-in-from-bottom-1 animate-in flex w-full flex-col items-end gap-1 duration-150"
       data-role="user"
     >
-      <div className="aui-user-message-content max-w-[70%] rounded-[22px] bg-[#0d0d0d] px-4 py-2.5 text-white leading-6 wrap-break-word empty:hidden dark:bg-[#ececec] dark:text-[#0d0d0d]">
+      <div className="aui-user-message-content max-w-[70%] rounded-[22px] border border-primary/15 bg-primary/10 px-4 py-2.5 text-foreground leading-6 wrap-break-word empty:hidden dark:bg-primary/15">
         <MessagePrimitive.Parts />
       </div>
       <UserActionBar />
@@ -260,11 +260,11 @@ function ThreadMessage() {
 function Composer() {
   return (
     <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
-      <div className="aui-composer-shell flex w-full flex-col gap-2 rounded-[28px] border border-[#e5e5e5] bg-white px-3 py-2 shadow-sm transition-[border-color,box-shadow] focus-within:shadow-[0_6px_24px_-8px_rgba(0,0,0,0.14),0_1px_2px_rgba(0,0,0,0.05)] dark:border-transparent dark:bg-[#212121] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
+      <div className="aui-composer-shell flex w-full flex-col gap-2 rounded-[28px] border bg-background px-3 py-2 shadow-sm transition-[border-color,box-shadow] focus-within:border-primary/40 focus-within:shadow-[0_6px_24px_-8px_color-mix(in_oklch,var(--primary)_24%,transparent),0_1px_2px_rgba(0,0,0,0.05)]">
         <ComposerPrimitive.Input
           aria-label="招聘问题输入"
           autoFocus
-          className="aui-composer-input max-h-32 min-h-10 w-full resize-none bg-transparent px-2 py-2 text-[#0d0d0d] text-base outline-none placeholder:text-[#5d5d5d] dark:text-[#ececec] dark:placeholder:text-[#afafaf]"
+          className="aui-composer-input max-h-32 min-h-10 w-full resize-none bg-transparent px-2 py-2 text-base text-foreground outline-none placeholder:text-muted-foreground"
           enterKeyHint="send"
           placeholder="输入招聘问题..."
           rows={1}
@@ -274,7 +274,7 @@ function Composer() {
           <AuiIf condition={(state) => !state.thread.isRunning}>
             <ComposerPrimitive.Send asChild>
               <ChatGPTIconButton
-                className="size-9 rounded-full bg-[#0d0d0d] text-white hover:bg-[#0d0d0d]/90 hover:text-white dark:bg-white dark:text-black dark:hover:bg-white/90 dark:hover:text-black"
+                className="size-9 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
                 label="发送"
               >
                 <IconSend2 className="size-4.5" />
@@ -284,7 +284,7 @@ function Composer() {
           <AuiIf condition={(state) => state.thread.isRunning}>
             <ComposerPrimitive.Cancel asChild>
               <ChatGPTIconButton
-                className="size-9 rounded-full bg-[#0d0d0d] text-white hover:bg-[#0d0d0d]/90 hover:text-white dark:bg-white dark:text-black dark:hover:bg-white/90 dark:hover:text-black"
+                className="size-9 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
                 label="停止生成"
               >
                 <IconSquare className="size-3.5 fill-current" />
@@ -312,7 +312,7 @@ export const RecruitingResumeSearchToolUI = makeAssistantToolUI<unknown, SearchR
         <div className="aui-candidate-card-list grid gap-2">
           {cards.map((card) => (
             <article
-              className="aui-candidate-card rounded-2xl border border-[#e5e5e5] bg-white p-3 shadow-sm dark:border-transparent dark:bg-[#212121]"
+              className="aui-candidate-card rounded-2xl border bg-background p-3 shadow-sm"
               key={card.id}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -323,7 +323,7 @@ export const RecruitingResumeSearchToolUI = makeAssistantToolUI<unknown, SearchR
                     {card.jobDescriptionName ? ` · ${card.jobDescriptionName}` : ""}
                   </p>
                 </div>
-                <span className="rounded-full border border-[#e5e5e5] px-2 py-0.5 text-[#5d5d5d] text-xs dark:border-white/10 dark:text-[#afafaf]">
+                <span className="rounded-full border bg-muted/50 px-2 py-0.5 text-muted-foreground text-xs">
                   {card.pipelineStage}
                 </span>
               </div>
@@ -334,7 +334,7 @@ export const RecruitingResumeSearchToolUI = makeAssistantToolUI<unknown, SearchR
                 <div className="mt-2 flex flex-wrap gap-1">
                   {card.keySkills.map((skill) => (
                     <span
-                      className="rounded-full bg-black/[0.05] px-2 py-0.5 text-xs dark:bg-white/10"
+                      className="rounded-full bg-primary/10 px-2 py-0.5 text-primary text-xs"
                       key={skill}
                     >
                       {skill}
@@ -370,13 +370,13 @@ export const RecruitingActionProposalToolUI = makeAssistantToolUI<
       return null;
     }
     return (
-      <article className="aui-action-proposal rounded-2xl border border-[#e5e5e5] bg-white p-3 shadow-sm dark:border-transparent dark:bg-[#212121]">
+      <article className="aui-action-proposal rounded-2xl border bg-background p-3 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-muted-foreground text-xs">待确认动作</p>
             <h3 className="mt-1 font-medium text-sm">{proposal.title}</h3>
           </div>
-          <span className="rounded-full border border-[#e5e5e5] px-2 py-0.5 text-[#5d5d5d] text-xs dark:border-white/10 dark:text-[#afafaf]">
+          <span className="rounded-full border bg-muted/50 px-2 py-0.5 text-muted-foreground text-xs">
             {proposal.type}
           </span>
         </div>
@@ -407,7 +407,7 @@ export function RecruitingToolRenderers() {
 export function RecruitingThread({ isRunning }: { isRunning: boolean }) {
   return (
     <ThreadPrimitive.Root
-      className="aui-root aui-thread-root flex min-h-0 flex-1 flex-col bg-white text-[#0d0d0d] dark:bg-black dark:text-[#ececec]"
+      className="aui-root aui-thread-root flex min-h-0 flex-1 flex-col bg-background text-foreground"
       style={activeThreadStyle}
     >
       <ThreadPrimitive.Viewport
@@ -419,16 +419,16 @@ export function RecruitingThread({ isRunning }: { isRunning: boolean }) {
         <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-col gap-6 px-4 pt-6 pb-8">
           <ThreadPrimitive.Messages>{() => <ThreadMessage />}</ThreadPrimitive.Messages>
           {isRunning ? (
-            <div className="aui-assistant-working w-fit rounded-2xl bg-black/[0.05] px-3 py-2 text-[#5d5d5d] text-sm dark:bg-white/10 dark:text-[#afafaf]">
+            <div className="aui-assistant-working w-fit rounded-2xl bg-muted/55 px-3 py-2 text-muted-foreground text-sm">
               思考中...
             </div>
           ) : null}
         </div>
       </ThreadPrimitive.Viewport>
-      <div className="aui-thread-footer sticky bottom-0 bg-white px-4 pt-2 pb-3 dark:bg-black">
+      <div className="aui-thread-footer sticky bottom-0 bg-background px-4 pt-2 pb-3">
         <div className="mx-auto w-full max-w-(--thread-max-width)">
           <Composer />
-          <p className="mt-2 text-center text-[#5d5d5d] text-xs dark:text-[#afafaf]">
+          <p className="mt-2 text-center text-muted-foreground text-xs">
             Copilot 可能出错，请在确认动作前核对候选人和岗位信息。
           </p>
         </div>
@@ -484,7 +484,7 @@ export function NewRecruitingThread({
 
   return (
     <div
-      className="aui-root aui-thread-root flex min-h-0 flex-1 flex-col bg-white text-[#0d0d0d] dark:bg-black dark:text-[#ececec]"
+      className="aui-root aui-thread-root flex min-h-0 flex-1 flex-col bg-background text-foreground"
       style={emptyThreadStyle}
     >
       <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-1 flex-col justify-center px-4 pb-[18vh]">
@@ -494,10 +494,10 @@ export function NewRecruitingThread({
           </h1>
         </div>
         <form className="aui-composer-root relative flex w-full flex-col" onSubmit={handleSubmit}>
-          <div className="aui-composer-shell flex w-full items-end gap-1 rounded-[28px] border border-[#e5e5e5] bg-white px-3 py-2 shadow-sm transition-[border-color,box-shadow] focus-within:shadow-[0_6px_24px_-8px_rgba(0,0,0,0.14),0_1px_2px_rgba(0,0,0,0.05)] dark:border-transparent dark:bg-[#212121] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
+          <div className="aui-composer-shell flex w-full items-end gap-1 rounded-[28px] border bg-background px-3 py-2 shadow-sm transition-[border-color,box-shadow] focus-within:border-primary/40 focus-within:shadow-[0_6px_24px_-8px_color-mix(in_oklch,var(--primary)_24%,transparent),0_1px_2px_rgba(0,0,0,0.05)]">
             <textarea
               aria-label="招聘问题输入"
-              className="aui-composer-input max-h-36 min-h-9 flex-1 resize-none overflow-y-auto bg-transparent px-2 py-2 text-[#0d0d0d] text-base leading-6 outline-none placeholder:text-[#5d5d5d] dark:text-[#ececec] dark:placeholder:text-[#afafaf]"
+              className="aui-composer-input max-h-36 min-h-9 flex-1 resize-none overflow-y-auto bg-transparent px-2 py-2 text-base text-foreground leading-6 outline-none placeholder:text-muted-foreground"
               disabled={disabled}
               onChange={handleTextChange}
               onKeyDown={handleKeyDown}
@@ -507,7 +507,7 @@ export function NewRecruitingThread({
             />
             <Button
               aria-label="发送"
-              className="size-9 shrink-0 rounded-full bg-[#0d0d0d] p-0 text-white hover:bg-[#0d0d0d]/90 disabled:bg-[#d9d9d9] disabled:text-white disabled:opacity-100 dark:bg-white dark:text-black dark:hover:bg-white/90 dark:disabled:bg-[#424242] dark:disabled:text-[#8f8f8f]"
+              className="size-9 shrink-0 rounded-full bg-primary p-0 text-primary-foreground hover:bg-primary/90 disabled:bg-primary/20 disabled:text-primary/50 disabled:opacity-100"
               disabled={!canSubmit}
               size="icon"
               title="发送"
@@ -517,7 +517,7 @@ export function NewRecruitingThread({
             </Button>
           </div>
         </form>
-        <p className="mt-2 text-center text-[#5d5d5d] text-xs dark:text-[#afafaf]">
+        <p className="mt-2 text-center text-muted-foreground text-xs">
           Copilot 可能出错，请在确认动作前核对候选人和岗位信息。
         </p>
       </div>
