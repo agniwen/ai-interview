@@ -218,10 +218,10 @@ const MarkdownTextPart: TextMessagePartComponent = ({ text }) => (
 function AssistantMessage() {
   return (
     <MessagePrimitive.Root
-      className="aui-assistant-message fade-in slide-in-from-bottom-1 animate-in relative w-full duration-150"
+      className="aui-assistant-message fade-in slide-in-from-bottom-1 animate-in relative w-full min-w-0 duration-150"
       data-role="assistant"
     >
-      <div className="aui-assistant-message-content text-foreground leading-7 wrap-break-word">
+      <div className="aui-assistant-message-content min-w-0 max-w-full text-foreground leading-7 wrap-break-word">
         <MessagePrimitive.Parts components={{ Text: MarkdownTextPart }} />
       </div>
       <div className="mt-1 flex min-h-8 items-center">

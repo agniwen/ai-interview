@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@arc/shared/utils";
@@ -22,19 +23,56 @@ const MARKDOWN_BODY_CLASS = cn(
   "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_code]:text-foreground",
   "[&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-2",
   "[&_pre_code]:bg-transparent [&_pre_code]:p-0",
-  "[&_table]:my-3 [&_table]:w-full [&_table]:min-w-max [&_table]:border-collapse [&_table]:overflow-hidden [&_table]:rounded-md",
-  "[&_thead]:bg-muted/70",
-  "[&_th]:border [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-medium [&_th]:text-foreground",
-  "[&_td]:border [&_td]:px-3 [&_td]:py-2 [&_td]:align-top",
-  "[&_tr:nth-child(even)_td]:bg-muted/30",
   "[&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground",
   "[&_a]:text-primary [&_a]:underline-offset-4 hover:[&_a]:underline",
 );
 
+const markdownComponents = {
+  table({ children, className, ...props }: ComponentProps<"table">) {
+    return (
+      <div className="my-3 max-w-full overflow-x-auto rounded-md border">
+        <table className={cn("w-max min-w-full border-collapse text-sm", className)} {...props}>
+          {children}
+        </table>
+      </div>
+    );
+  },
+  tbody({ className, ...props }: ComponentProps<"tbody">) {
+    return <tbody className={className} {...props} />;
+  },
+  td({ className, ...props }: ComponentProps<"td">) {
+    return (
+      <td
+        className={cn("border px-3 py-2 align-top leading-6 whitespace-normal", className)}
+        {...props}
+      />
+    );
+  },
+  th({ className, ...props }: ComponentProps<"th">) {
+    return (
+      <th
+        className={cn(
+          "border px-3 py-2 text-left font-medium text-foreground leading-6 whitespace-nowrap",
+          className,
+        )}
+        {...props}
+      />
+    );
+  },
+  thead({ className, ...props }: ComponentProps<"thead">) {
+    return <thead className={cn("bg-muted/70", className)} {...props} />;
+  },
+  tr({ className, ...props }: ComponentProps<"tr">) {
+    return <tr className={cn("even:bg-muted/30", className)} {...props} />;
+  },
+};
+
 export function MarkdownView({ content, className }: { content: string; className?: string }) {
   return (
-    <div className={cn(MARKDOWN_BODY_CLASS, "overflow-x-auto", className)}>
-      <Markdown remarkPlugins={[remarkGfm]}>{content}</Markdown>
+    <div className={cn(MARKDOWN_BODY_CLASS, "min-w-0 max-w-full", className)}>
+      <Markdown components={markdownComponents} remarkPlugins={[remarkGfm]}>
+        {content}
+      </Markdown>
     </div>
   );
 }
