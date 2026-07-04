@@ -1,4 +1,5 @@
 import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { cn } from "@arc/shared/utils";
 
 // 这个通用 MarkdownView 需要保持紧凑排版，所以这里继续直接给 markdown
@@ -21,14 +22,19 @@ const MARKDOWN_BODY_CLASS = cn(
   "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_code]:text-foreground",
   "[&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-2",
   "[&_pre_code]:bg-transparent [&_pre_code]:p-0",
+  "[&_table]:my-3 [&_table]:w-full [&_table]:min-w-max [&_table]:border-collapse [&_table]:overflow-hidden [&_table]:rounded-md",
+  "[&_thead]:bg-muted/70",
+  "[&_th]:border [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-medium [&_th]:text-foreground",
+  "[&_td]:border [&_td]:px-3 [&_td]:py-2 [&_td]:align-top",
+  "[&_tr:nth-child(even)_td]:bg-muted/30",
   "[&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground",
   "[&_a]:text-primary [&_a]:underline-offset-4 hover:[&_a]:underline",
 );
 
 export function MarkdownView({ content, className }: { content: string; className?: string }) {
   return (
-    <div className={cn(MARKDOWN_BODY_CLASS, className)}>
-      <Markdown>{content}</Markdown>
+    <div className={cn(MARKDOWN_BODY_CLASS, "overflow-x-auto", className)}>
+      <Markdown remarkPlugins={[remarkGfm]}>{content}</Markdown>
     </div>
   );
 }

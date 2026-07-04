@@ -118,6 +118,7 @@
     "react-resizable-panels": "^4.11.0",
     "react-responsive-masonry": "^2.7.2",
     "recharts": "2.15.4",
+    "remark-gfm": "^4.0.1",
     "resend": "^6.12.3",
     "shiki": "^4.0.2",
     "simplex-noise": "^4.0.3",
