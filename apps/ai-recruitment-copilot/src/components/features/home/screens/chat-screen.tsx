@@ -338,7 +338,7 @@ export function ChatScreen({ className }: { className?: string }) {
         breadcrumb={BREADCRUMB}
         headerClassName="bg-background/60 backdrop-blur-md"
         sidebar={<ChatNav />}
-        tab="chat"
+        tab="agent"
       >
         <ChatContent />
       </AppShell>

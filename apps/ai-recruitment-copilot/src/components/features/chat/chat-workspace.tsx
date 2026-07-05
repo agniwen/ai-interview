@@ -126,14 +126,14 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
         void navigate({
           params: { sessionId, slug },
           replace: true,
-          to: "/w/$slug/chat/$sessionId",
+          to: "/w/$slug/agent/$sessionId",
         });
         return;
       }
       void navigate({
         params: { slug },
         replace: true,
-        to: "/w/$slug/chat",
+        to: "/w/$slug/agent",
       });
     },
     [initialSessionId, navigate, slug],

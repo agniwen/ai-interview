@@ -46,7 +46,7 @@ export function BackgroundStreamToaster() {
                 toast.dismiss(toastId);
                 void navigate({
                   params: { sessionId: chatId, slug },
-                  to: "/w/$slug/chat/$sessionId",
+                  to: "/w/$slug/agent/$sessionId",
                 });
               }}
               size="sm"

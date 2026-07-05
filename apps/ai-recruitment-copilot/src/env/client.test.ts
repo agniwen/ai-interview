@@ -19,6 +19,7 @@ describe("client env", () => {
     expect(env.NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN).toBe(false);
     expect(env.NEXT_PUBLIC_ENABLE_CANDIDATE_SPECIFIC_INTERVIEW_QUESTIONS).toBe(true);
     expect(env.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING).toBe(true);
+    expect(env.NEXT_PUBLIC_ENABLE_WATERMARK).toBe(true);
     expect(env.NEXT_PUBLIC_AGENT_NAME).toBe("interview-agent");
   });
 
@@ -38,6 +39,15 @@ describe("client env", () => {
     });
 
     expect(env.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING).toBe(false);
+  });
+
+  it("allows disabling the app watermark from public env", () => {
+    const env = createClientEnv({
+      ...configuredEnv,
+      NEXT_PUBLIC_ENABLE_WATERMARK: "false",
+    });
+
+    expect(env.NEXT_PUBLIC_ENABLE_WATERMARK).toBe(false);
   });
 
   it("rejects unknown keys at typecheck time", () => {

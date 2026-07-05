@@ -137,8 +137,8 @@ function SidebarProvider({
             }
             className={cn(
               "group/sidebar-wrapper flex min-h-svh w-full ",
-              // "has-data-[variant=inset]:bg-sidebar",
-              "has-data-[variant=inset]:bg-sidebar/85",
+              "has-data-[variant=inset]:bg-sidebar",
+              // "has-data-[variant=inset]:bg-sidebar/85",
               className,
             )}
             {...props}
@@ -170,7 +170,7 @@ function Sidebar({
       <div
         data-slot="sidebar"
         className={cn(
-          "flex h-full w-(--sidebar-width) flex-col bg-background text-sidebar-foreground",
+          "flex h-full w-(--sidebar-width) flex-col bg-background  text-sidebar-foreground",
           className,
         )}
         {...props}
@@ -305,7 +305,7 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
     <main
       data-slot="sidebar-inset"
       className={cn(
-        "relative flex w-full flex-1 flex-col bg-background",
+        "relative flex w-full flex-1 flex-col bg-background ml-0!",
         "md:peer-data-[variant=inset]:m-3 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-none md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-3",
         className,
       )}

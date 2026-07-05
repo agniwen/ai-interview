@@ -3,19 +3,19 @@ import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
 import { getActiveOrganizationState } from "@/lib/start/auth-session";
 import HomeShell from "@/components/features/home/home-shell";
 
-type GotoTarget = "chat" | "studio";
+type GotoTarget = "agent" | "chat" | "studio";
 
 interface HomeSearch {
   goto?: GotoTarget;
 }
 
 function resolveGoto(value: unknown): GotoTarget | undefined {
-  return value === "chat" || value === "studio" ? value : undefined;
+  return value === "agent" || value === "chat" || value === "studio" ? value : undefined;
 }
 
 function buildWorkspaceDestination(slug: string, goto: GotoTarget | undefined): string {
-  if (goto === "chat") {
-    return `/w/${slug}/chat`;
+  if (goto === "agent" || goto === "chat") {
+    return `/w/${slug}/agent`;
   }
   return `/w/${slug}/studio/resumes`;
 }

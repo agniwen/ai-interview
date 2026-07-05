@@ -13,6 +13,7 @@ describe("TanStack Start legacy entry migration", () => {
     const routeTree = readSource("routeTree.gen.ts");
 
     expect(routeTree).toContain("'/'");
+    expect(routeTree).toContain("'/agent'");
     expect(routeTree).toContain("'/chat'");
     expect(routeTree).toContain("'/interview'");
     expect(routeTree).toContain("'/studio/interviews'");
@@ -22,6 +23,7 @@ describe("TanStack Start legacy entry migration", () => {
   it("keeps migrated entry routes free of Next runtime imports", () => {
     const sources = [
       readSource("routes/index.tsx"),
+      readSource("routes/agent.tsx"),
       readSource("routes/chat.tsx"),
       readSource("routes/interview.tsx"),
       readSource("routes/studio.interviews.tsx"),

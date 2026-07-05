@@ -11,11 +11,13 @@ describe("recruiting copilot tools", () => {
       records: [
         {
           candidateName: "张三",
+          hasResumeFile: true,
           id: "resume-1",
           jobDescriptionId: "jd-1",
           jobDescriptionName: "前端工程师",
           notes: "沟通清晰",
           pipelineStage: "screening",
+          resumeFileName: "zhangsan.pdf",
           resumeProfile: { name: "should-not-leak" },
           resumeReviewConclusion: "should-not-leak",
           resumeSkills: ["React", "TypeScript"],
@@ -56,9 +58,11 @@ describe("recruiting copilot tools", () => {
     expect(result.candidateSummaryCards).toEqual([
       expect.objectContaining({
         candidateName: "张三",
+        hasResumeFile: true,
         id: "resume-1",
         jobDescriptionName: "前端工程师",
         keySkills: ["React", "TypeScript"],
+        resumeFileName: "zhangsan.pdf",
       }),
     ]);
     expect(result.citations).toEqual([
@@ -80,11 +84,13 @@ describe("recruiting copilot tools", () => {
       records: [
         {
           candidateName: "张三",
+          hasResumeFile: true,
           id: "resume-1",
           jobDescriptionId: "jd-1",
           jobDescriptionName: "前端工程师",
           notes: null,
           pipelineStage: "screening",
+          resumeFileName: "zhangsan.pdf",
           resumeSkills: ["React"],
           resumeSummary: "React 候选人",
           targetRole: "前端",
@@ -96,12 +102,14 @@ describe("recruiting copilot tools", () => {
     const semanticSearch = vi.fn().mockResolvedValue([
       {
         candidateName: "张三",
+        hasResumeFile: true,
         id: "resume-1",
         jobDescriptionId: "jd-1",
         jobDescriptionName: "前端工程师",
         keySkills: ["React"],
         notes: null,
         pipelineStage: "screening",
+        resumeFileName: "zhangsan.pdf",
         resumeSummary: "duplicate",
         targetRole: "前端",
         updatedAt: "2026-07-04T10:00:00.000Z",
@@ -109,12 +117,14 @@ describe("recruiting copilot tools", () => {
       },
       {
         candidateName: "李四",
+        hasResumeFile: false,
         id: "resume-2",
         jobDescriptionId: "jd-2",
         jobDescriptionName: "后端工程师",
         keySkills: ["Node.js"],
         notes: null,
         pipelineStage: "screening",
+        resumeFileName: null,
         resumeSummary: "semantic hit",
         targetRole: "后端",
         updatedAt: "2026-07-04T11:00:00.000Z",

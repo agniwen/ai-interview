@@ -74,7 +74,7 @@ export const STUDIO_NAV_GROUPS: NavGroup[] = [
 
 // ─────────────────── Tabs (real shadcn Tabs default variant) ───────────────────
 interface SidebarTabsProps {
-  active: "chat" | "studio";
+  active: "agent" | "chat" | "studio";
 }
 
 function SidebarTabs({ active }: SidebarTabsProps) {
@@ -82,7 +82,7 @@ function SidebarTabs({ active }: SidebarTabsProps) {
     // 对齐 Tabs default variant：bg-muted + h-9 + p-[3px] + rounded-lg + 子项 shadow-sm
     // Matches Tabs default variant: bg-muted h-9 p-[3px] rounded-lg; active gets shadow-sm
     <div className="inline-flex h-9 w-full items-center justify-center rounded-lg bg-muted/60 p-[3px] text-muted-foreground">
-      {(["chat", "studio"] as const).map((value) => {
+      {(["agent", "studio"] as const).map((value) => {
         const isActive = value === active;
         return (
           <span
@@ -92,7 +92,7 @@ function SidebarTabs({ active }: SidebarTabsProps) {
             )}
             key={value}
           >
-            {value === "chat" ? "Chat" : "Studio"}
+            {value === "agent" ? "Agent" : "Studio"}
           </span>
         );
       })}
@@ -322,7 +322,7 @@ export const Icons = {
 
 // ─────────────────── App shell ───────────────────
 interface AppShellProps {
-  tab?: "chat" | "studio";
+  tab?: "agent" | "chat" | "studio";
   sidebar: ReactNode;
   breadcrumb: BreadcrumbCrumb[];
   headerActions?: ReactNode;

@@ -38,12 +38,12 @@ function InviteAcceptRoute() {
     }
     const orgId = data.invitation.organizationId;
     await authClient.organization.setActive({ organizationId: orgId });
-    // 新加入的成员在 studio/resumes 看到的是空列表，体验割裂；让他们直接落到 chat，
+    // 新加入的成员在 studio/resumes 看到的是空列表，体验割裂；让他们直接落到 agent，
     // 跟 home shell "开始简历筛选" CTA 共用同一套 ?goto= 分流，
-    // 由根路径 route 解析活跃 workspace 后转到 /w/[slug]/chat。
+    // 由根路径 route 解析活跃 workspace 后转到 /w/[slug]/agent。
     // New members would land on an empty resume table in studio. Route them to
-    // chat, sharing the home-shell "begin screening" CTA's ?goto= dispatcher.
-    await router.navigate({ search: { goto: "chat" }, to: "/" });
+    // agent, sharing the home-shell "begin screening" CTA's ?goto= dispatcher.
+    await router.navigate({ search: { goto: "agent" }, to: "/" });
   }
 
   async function onReject() {

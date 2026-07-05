@@ -60,7 +60,7 @@ describe("TanStack Start migration patterns", () => {
     const router = readSource("src/router.tsx");
     const pendingOutlet = readSource("src/components/layout/pending-outlet.tsx");
     const studioLayout = readSource("src/routes/w.$slug.studio.tsx");
-    const chatLayout = readSource("src/routes/w.$slug.chat.tsx");
+    const agentLayout = readSource("src/routes/w.$slug.agent.tsx");
     const platformLayout = readSource("src/routes/platform.tsx");
     const pendingView = readSource("src/components/layout/route-pending-view.tsx");
     const globalsCss = readSource("src/styles/globals.css");
@@ -74,7 +74,7 @@ describe("TanStack Start migration patterns", () => {
     expect(pendingOutlet).toContain("state.isLoading || state.isTransitioning");
     expect(pendingOutlet).toContain("opacity-70");
     expect(studioLayout).toContain("PendingOutlet");
-    expect(chatLayout).toContain("PendingOutlet");
+    expect(agentLayout).toContain("PendingOutlet");
     expect(platformLayout).toContain("PendingOutlet");
     expect(rootRoute).not.toContain("pointer-events-none opacity-70");
     expect(pendingView).toContain("正在加载");
@@ -300,13 +300,13 @@ describe("TanStack Start migration patterns", () => {
   it("applies pending opacity to nested app outlets instead of the root shell", () => {
     const rootRoute = readSource("src/routes/__root.tsx");
     const studioLayoutRoute = readSource("src/routes/w.$slug.studio.tsx");
-    const chatLayoutRoute = readSource("src/routes/w.$slug.chat.tsx");
+    const agentLayoutRoute = readSource("src/routes/w.$slug.agent.tsx");
     const platformLayoutRoute = readSource("src/routes/platform.tsx");
 
     expect(rootRoute).not.toContain("opacity-70");
     expect(rootRoute).not.toContain("isTransitioning");
     expect(studioLayoutRoute).toContain("PendingOutlet");
-    expect(chatLayoutRoute).toContain("PendingOutlet");
+    expect(agentLayoutRoute).toContain("PendingOutlet");
     expect(platformLayoutRoute).toContain("PendingOutlet");
   });
 

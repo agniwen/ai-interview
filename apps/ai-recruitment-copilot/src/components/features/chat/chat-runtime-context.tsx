@@ -59,8 +59,8 @@ interface ActionsValue {
 }
 
 interface SessionValue {
-  /** 当前激活的 conversation id；空 `/chat` 页（未发首条消息）时为 null。
-   *  Active conversation id; null on the empty `/chat` shell before first send. */
+  /** 当前激活的 conversation id；空 `/agent` 页（未发首条消息）时为 null。
+   *  Active conversation id; null on the empty `/agent` shell before first send. */
   chatId: string | null;
 }
 

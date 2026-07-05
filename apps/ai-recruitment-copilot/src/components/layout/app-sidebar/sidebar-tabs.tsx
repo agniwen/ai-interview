@@ -5,7 +5,7 @@ import { useGlimm } from "glimm/react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authClient } from "@/lib/client/auth-client";
 
-type SidebarTabValue = "chat" | "studio";
+type SidebarTabValue = "agent" | "studio";
 
 // 从 pathname 解析当前 workspace slug;非 /w/[slug]/* 路径返回 null。
 function extractWorkspaceSlug(pathname: string): string | null {
@@ -20,8 +20,8 @@ function resolveActiveTab(pathname: string): SidebarTabValue | null {
   if (pathname.includes("/studio")) {
     return "studio";
   }
-  if (pathname.includes("/chat")) {
-    return "chat";
+  if (pathname.includes("/agent") || pathname.includes("/chat")) {
+    return "agent";
   }
   return null;
 }
@@ -44,7 +44,7 @@ export function SidebarTabs() {
     }
 
     const nextTab = value as SidebarTabValue;
-    const target = nextTab === "chat" ? `/w/${slug}/chat` : `/w/${slug}/studio/resumes`;
+    const target = nextTab === "agent" ? `/w/${slug}/agent` : `/w/${slug}/studio/resumes`;
 
     if (target !== pathname) {
       void sweep(
@@ -52,7 +52,7 @@ export function SidebarTabs() {
           navigate({ to: target });
         },
         {
-          direction: nextTab === "chat" ? "rtl" : "ltr",
+          direction: nextTab === "agent" ? "rtl" : "ltr",
         },
       ).done;
     }
@@ -67,10 +67,10 @@ export function SidebarTabs() {
       activationMode="manual"
       className="w-full group-data-[collapsible=icon]:hidden"
       onValueChange={handleChange}
-      value={activeTab ?? "chat"}
+      value={activeTab ?? "agent"}
     >
-      <TabsList className="w-full  bg-sidebar/60  select-none">
-        <TabsTrigger value="chat">Chat</TabsTrigger>
+      <TabsList className="w-full dark:bg-sidebar/60  select-none">
+        <TabsTrigger value="agent">Agent</TabsTrigger>
         <TabsTrigger value="studio">Studio</TabsTrigger>
       </TabsList>
     </Tabs>

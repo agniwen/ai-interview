@@ -15,6 +15,7 @@ import { Route as PlatformRouteImport } from './routes/platform'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as InterviewRouteImport } from './routes/interview'
 import { Route as ChatRouteImport } from './routes/chat'
+import { Route as AgentRouteImport } from './routes/agent'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WSlugRouteImport } from './routes/w.$slug'
 import { Route as StudioResumesRouteImport } from './routes/studio.resumes'
@@ -32,10 +33,12 @@ import { Route as InterviewIdRouteImport } from './routes/interview.$id'
 import { Route as HumanInterviewInviteTokenRouteImport } from './routes/human-interview.$inviteToken'
 import { Route as WSlugStudioRouteImport } from './routes/w.$slug.studio'
 import { Route as WSlugChatRouteImport } from './routes/w.$slug.chat'
+import { Route as WSlugAgentRouteImport } from './routes/w.$slug.agent'
 import { Route as ResumeReviewSlugRecordIdRouteImport } from './routes/resume-review.$slug.$recordId'
 import { Route as InterviewIdRoundIdRouteImport } from './routes/interview.$id.$roundId'
 import { Route as HumanInterviewInterviewerInviteTokenRouteImport } from './routes/human-interview.interviewer.$inviteToken'
 import { Route as WSlugChatIndexRouteImport } from './routes/w.$slug.chat.index'
+import { Route as WSlugAgentIndexRouteImport } from './routes/w.$slug.agent.index'
 import { Route as WSlugStudioResumesRouteImport } from './routes/w.$slug.studio.resumes'
 import { Route as WSlugStudioResumePoolRouteImport } from './routes/w.$slug.studio.resume-pool'
 import { Route as WSlugStudioPermissionsRouteImport } from './routes/w.$slug.studio.permissions'
@@ -52,6 +55,7 @@ import { Route as WSlugStudioDepartmentsRouteImport } from './routes/w.$slug.stu
 import { Route as WSlugStudioDashboardRouteImport } from './routes/w.$slug.studio.dashboard'
 import { Route as WSlugStudioAgentDebugRouteImport } from './routes/w.$slug.studio.agent-debug'
 import { Route as WSlugChatSessionIdRouteImport } from './routes/w.$slug.chat.$sessionId'
+import { Route as WSlugAgentSessionIdRouteImport } from './routes/w.$slug.agent.$sessionId'
 import { Route as WSlugStudioInterviewsRoundIdRouteImport } from './routes/w.$slug.studio.interviews.$roundId'
 
 const WaitRoute = WaitRouteImport.update({
@@ -82,6 +86,11 @@ const InterviewRoute = InterviewRouteImport.update({
 const ChatRoute = ChatRouteImport.update({
   id: '/chat',
   path: '/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgentRoute = AgentRouteImport.update({
+  id: '/agent',
+  path: '/agent',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -171,6 +180,11 @@ const WSlugChatRoute = WSlugChatRouteImport.update({
   path: '/chat',
   getParentRoute: () => WSlugRoute,
 } as any)
+const WSlugAgentRoute = WSlugAgentRouteImport.update({
+  id: '/agent',
+  path: '/agent',
+  getParentRoute: () => WSlugRoute,
+} as any)
 const ResumeReviewSlugRecordIdRoute =
   ResumeReviewSlugRecordIdRouteImport.update({
     id: '/resume-review/$slug/$recordId',
@@ -192,6 +206,11 @@ const WSlugChatIndexRoute = WSlugChatIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => WSlugChatRoute,
+} as any)
+const WSlugAgentIndexRoute = WSlugAgentIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => WSlugAgentRoute,
 } as any)
 const WSlugStudioResumesRoute = WSlugStudioResumesRouteImport.update({
   id: '/resumes',
@@ -276,6 +295,11 @@ const WSlugChatSessionIdRoute = WSlugChatSessionIdRouteImport.update({
   path: '/$sessionId',
   getParentRoute: () => WSlugChatRoute,
 } as any)
+const WSlugAgentSessionIdRoute = WSlugAgentSessionIdRouteImport.update({
+  id: '/$sessionId',
+  path: '/$sessionId',
+  getParentRoute: () => WSlugAgentRoute,
+} as any)
 const WSlugStudioInterviewsRoundIdRoute =
   WSlugStudioInterviewsRoundIdRouteImport.update({
     id: '/$roundId',
@@ -285,6 +309,7 @@ const WSlugStudioInterviewsRoundIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/agent': typeof AgentRoute
   '/chat': typeof ChatRoute
   '/interview': typeof InterviewRouteWithChildren
   '/login': typeof LoginRoute
@@ -308,8 +333,10 @@ export interface FileRoutesByFullPath {
   '/human-interview/interviewer/$inviteToken': typeof HumanInterviewInterviewerInviteTokenRoute
   '/interview/$id/$roundId': typeof InterviewIdRoundIdRoute
   '/resume-review/$slug/$recordId': typeof ResumeReviewSlugRecordIdRoute
+  '/w/$slug/agent': typeof WSlugAgentRouteWithChildren
   '/w/$slug/chat': typeof WSlugChatRouteWithChildren
   '/w/$slug/studio': typeof WSlugStudioRouteWithChildren
+  '/w/$slug/agent/$sessionId': typeof WSlugAgentSessionIdRoute
   '/w/$slug/chat/$sessionId': typeof WSlugChatSessionIdRoute
   '/w/$slug/studio/agent-debug': typeof WSlugStudioAgentDebugRoute
   '/w/$slug/studio/dashboard': typeof WSlugStudioDashboardRoute
@@ -326,11 +353,13 @@ export interface FileRoutesByFullPath {
   '/w/$slug/studio/permissions': typeof WSlugStudioPermissionsRoute
   '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRoute
   '/w/$slug/studio/resumes': typeof WSlugStudioResumesRoute
+  '/w/$slug/agent/': typeof WSlugAgentIndexRoute
   '/w/$slug/chat/': typeof WSlugChatIndexRoute
   '/w/$slug/studio/interviews/$roundId': typeof WSlugStudioInterviewsRoundIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/agent': typeof AgentRoute
   '/chat': typeof ChatRoute
   '/interview': typeof InterviewRouteWithChildren
   '/login': typeof LoginRoute
@@ -355,6 +384,7 @@ export interface FileRoutesByTo {
   '/interview/$id/$roundId': typeof InterviewIdRoundIdRoute
   '/resume-review/$slug/$recordId': typeof ResumeReviewSlugRecordIdRoute
   '/w/$slug/studio': typeof WSlugStudioRouteWithChildren
+  '/w/$slug/agent/$sessionId': typeof WSlugAgentSessionIdRoute
   '/w/$slug/chat/$sessionId': typeof WSlugChatSessionIdRoute
   '/w/$slug/studio/agent-debug': typeof WSlugStudioAgentDebugRoute
   '/w/$slug/studio/dashboard': typeof WSlugStudioDashboardRoute
@@ -371,12 +401,14 @@ export interface FileRoutesByTo {
   '/w/$slug/studio/permissions': typeof WSlugStudioPermissionsRoute
   '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRoute
   '/w/$slug/studio/resumes': typeof WSlugStudioResumesRoute
+  '/w/$slug/agent': typeof WSlugAgentIndexRoute
   '/w/$slug/chat': typeof WSlugChatIndexRoute
   '/w/$slug/studio/interviews/$roundId': typeof WSlugStudioInterviewsRoundIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/agent': typeof AgentRoute
   '/chat': typeof ChatRoute
   '/interview': typeof InterviewRouteWithChildren
   '/login': typeof LoginRoute
@@ -400,8 +432,10 @@ export interface FileRoutesById {
   '/human-interview/interviewer/$inviteToken': typeof HumanInterviewInterviewerInviteTokenRoute
   '/interview/$id/$roundId': typeof InterviewIdRoundIdRoute
   '/resume-review/$slug/$recordId': typeof ResumeReviewSlugRecordIdRoute
+  '/w/$slug/agent': typeof WSlugAgentRouteWithChildren
   '/w/$slug/chat': typeof WSlugChatRouteWithChildren
   '/w/$slug/studio': typeof WSlugStudioRouteWithChildren
+  '/w/$slug/agent/$sessionId': typeof WSlugAgentSessionIdRoute
   '/w/$slug/chat/$sessionId': typeof WSlugChatSessionIdRoute
   '/w/$slug/studio/agent-debug': typeof WSlugStudioAgentDebugRoute
   '/w/$slug/studio/dashboard': typeof WSlugStudioDashboardRoute
@@ -418,6 +452,7 @@ export interface FileRoutesById {
   '/w/$slug/studio/permissions': typeof WSlugStudioPermissionsRoute
   '/w/$slug/studio/resume-pool': typeof WSlugStudioResumePoolRoute
   '/w/$slug/studio/resumes': typeof WSlugStudioResumesRoute
+  '/w/$slug/agent/': typeof WSlugAgentIndexRoute
   '/w/$slug/chat/': typeof WSlugChatIndexRoute
   '/w/$slug/studio/interviews/$roundId': typeof WSlugStudioInterviewsRoundIdRoute
 }
@@ -425,6 +460,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/agent'
     | '/chat'
     | '/interview'
     | '/login'
@@ -448,8 +484,10 @@ export interface FileRouteTypes {
     | '/human-interview/interviewer/$inviteToken'
     | '/interview/$id/$roundId'
     | '/resume-review/$slug/$recordId'
+    | '/w/$slug/agent'
     | '/w/$slug/chat'
     | '/w/$slug/studio'
+    | '/w/$slug/agent/$sessionId'
     | '/w/$slug/chat/$sessionId'
     | '/w/$slug/studio/agent-debug'
     | '/w/$slug/studio/dashboard'
@@ -466,11 +504,13 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/permissions'
     | '/w/$slug/studio/resume-pool'
     | '/w/$slug/studio/resumes'
+    | '/w/$slug/agent/'
     | '/w/$slug/chat/'
     | '/w/$slug/studio/interviews/$roundId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/agent'
     | '/chat'
     | '/interview'
     | '/login'
@@ -495,6 +535,7 @@ export interface FileRouteTypes {
     | '/interview/$id/$roundId'
     | '/resume-review/$slug/$recordId'
     | '/w/$slug/studio'
+    | '/w/$slug/agent/$sessionId'
     | '/w/$slug/chat/$sessionId'
     | '/w/$slug/studio/agent-debug'
     | '/w/$slug/studio/dashboard'
@@ -511,11 +552,13 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/permissions'
     | '/w/$slug/studio/resume-pool'
     | '/w/$slug/studio/resumes'
+    | '/w/$slug/agent'
     | '/w/$slug/chat'
     | '/w/$slug/studio/interviews/$roundId'
   id:
     | '__root__'
     | '/'
+    | '/agent'
     | '/chat'
     | '/interview'
     | '/login'
@@ -539,8 +582,10 @@ export interface FileRouteTypes {
     | '/human-interview/interviewer/$inviteToken'
     | '/interview/$id/$roundId'
     | '/resume-review/$slug/$recordId'
+    | '/w/$slug/agent'
     | '/w/$slug/chat'
     | '/w/$slug/studio'
+    | '/w/$slug/agent/$sessionId'
     | '/w/$slug/chat/$sessionId'
     | '/w/$slug/studio/agent-debug'
     | '/w/$slug/studio/dashboard'
@@ -557,12 +602,14 @@ export interface FileRouteTypes {
     | '/w/$slug/studio/permissions'
     | '/w/$slug/studio/resume-pool'
     | '/w/$slug/studio/resumes'
+    | '/w/$slug/agent/'
     | '/w/$slug/chat/'
     | '/w/$slug/studio/interviews/$roundId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AgentRoute: typeof AgentRoute
   ChatRoute: typeof ChatRoute
   InterviewRoute: typeof InterviewRouteWithChildren
   LoginRoute: typeof LoginRoute
@@ -624,6 +671,13 @@ declare module '@tanstack/react-router' {
       path: '/chat'
       fullPath: '/chat'
       preLoaderRoute: typeof ChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agent': {
+      id: '/agent'
+      path: '/agent'
+      fullPath: '/agent'
+      preLoaderRoute: typeof AgentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -745,6 +799,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugChatRouteImport
       parentRoute: typeof WSlugRoute
     }
+    '/w/$slug/agent': {
+      id: '/w/$slug/agent'
+      path: '/agent'
+      fullPath: '/w/$slug/agent'
+      preLoaderRoute: typeof WSlugAgentRouteImport
+      parentRoute: typeof WSlugRoute
+    }
     '/resume-review/$slug/$recordId': {
       id: '/resume-review/$slug/$recordId'
       path: '/resume-review/$slug/$recordId'
@@ -772,6 +833,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/w/$slug/chat/'
       preLoaderRoute: typeof WSlugChatIndexRouteImport
       parentRoute: typeof WSlugChatRoute
+    }
+    '/w/$slug/agent/': {
+      id: '/w/$slug/agent/'
+      path: '/'
+      fullPath: '/w/$slug/agent/'
+      preLoaderRoute: typeof WSlugAgentIndexRouteImport
+      parentRoute: typeof WSlugAgentRoute
     }
     '/w/$slug/studio/resumes': {
       id: '/w/$slug/studio/resumes'
@@ -885,6 +953,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WSlugChatSessionIdRouteImport
       parentRoute: typeof WSlugChatRoute
     }
+    '/w/$slug/agent/$sessionId': {
+      id: '/w/$slug/agent/$sessionId'
+      path: '/$sessionId'
+      fullPath: '/w/$slug/agent/$sessionId'
+      preLoaderRoute: typeof WSlugAgentSessionIdRouteImport
+      parentRoute: typeof WSlugAgentRoute
+    }
     '/w/$slug/studio/interviews/$roundId': {
       id: '/w/$slug/studio/interviews/$roundId'
       path: '/$roundId'
@@ -935,6 +1010,20 @@ const PlatformRouteChildren: PlatformRouteChildren = {
 
 const PlatformRouteWithChildren = PlatformRoute._addFileChildren(
   PlatformRouteChildren,
+)
+
+interface WSlugAgentRouteChildren {
+  WSlugAgentSessionIdRoute: typeof WSlugAgentSessionIdRoute
+  WSlugAgentIndexRoute: typeof WSlugAgentIndexRoute
+}
+
+const WSlugAgentRouteChildren: WSlugAgentRouteChildren = {
+  WSlugAgentSessionIdRoute: WSlugAgentSessionIdRoute,
+  WSlugAgentIndexRoute: WSlugAgentIndexRoute,
+}
+
+const WSlugAgentRouteWithChildren = WSlugAgentRoute._addFileChildren(
+  WSlugAgentRouteChildren,
 )
 
 interface WSlugChatRouteChildren {
@@ -1005,11 +1094,13 @@ const WSlugStudioRouteWithChildren = WSlugStudioRoute._addFileChildren(
 )
 
 interface WSlugRouteChildren {
+  WSlugAgentRoute: typeof WSlugAgentRouteWithChildren
   WSlugChatRoute: typeof WSlugChatRouteWithChildren
   WSlugStudioRoute: typeof WSlugStudioRouteWithChildren
 }
 
 const WSlugRouteChildren: WSlugRouteChildren = {
+  WSlugAgentRoute: WSlugAgentRouteWithChildren,
   WSlugChatRoute: WSlugChatRouteWithChildren,
   WSlugStudioRoute: WSlugStudioRouteWithChildren,
 }
@@ -1018,6 +1109,7 @@ const WSlugRouteWithChildren = WSlugRoute._addFileChildren(WSlugRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AgentRoute: AgentRoute,
   ChatRoute: ChatRoute,
   InterviewRoute: InterviewRouteWithChildren,
   LoginRoute: LoginRoute,

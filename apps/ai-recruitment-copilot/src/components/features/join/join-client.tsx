@@ -29,7 +29,7 @@ export function JoinClient({ code, initialRole, workspace }: JoinClientProps) {
         status: "joined" | "already_member";
       }>(rpc.api.join[":code"].accept.$post({ param: { code } }), "加入工作区失败");
       await authClient.organization.setActive({ organizationId: result.organizationId });
-      await navigate({ search: { goto: "chat" }, to: "/" });
+      await navigate({ search: { goto: "agent" }, to: "/" });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "加入工作区失败");
       setAccepting(false);

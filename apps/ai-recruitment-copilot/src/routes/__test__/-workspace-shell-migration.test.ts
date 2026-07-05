@@ -13,6 +13,9 @@ describe("TanStack Start workspace shell migration", () => {
     const routeTree = readSource("routeTree.gen.ts");
 
     expect(routeTree).toContain("'/w/$slug'");
+    expect(routeTree).toContain("'/w/$slug/agent'");
+    expect(routeTree).toContain("'/w/$slug/agent/'");
+    expect(routeTree).toContain("'/w/$slug/agent/$sessionId'");
     expect(routeTree).toContain("'/w/$slug/chat'");
     expect(routeTree).toContain("'/w/$slug/chat/'");
     expect(routeTree).toContain("'/w/$slug/chat/$sessionId'");
@@ -22,7 +25,7 @@ describe("TanStack Start workspace shell migration", () => {
   it("keeps migrated workspace shell files free of Next runtime imports", () => {
     const sources = [
       readSource("routes/w.$slug.tsx"),
-      readSource("routes/w.$slug.chat.tsx"),
+      readSource("routes/w.$slug.agent.tsx"),
       readSource("routes/w.$slug.studio.tsx"),
       readSource("components/features/chat/background-stream-toaster.tsx"),
     ];
@@ -30,7 +33,7 @@ describe("TanStack Start workspace shell migration", () => {
     expect(sources.join("\n")).not.toMatch(/next\/(?:link|navigation|headers|server|cache)/u);
   });
 
-  it("derives chat session active state from TanStack Router params", () => {
+  it("derives agent session active state from TanStack Router params", () => {
     const sidebarSlots = readSource("components/features/chat/chat-sidebar-slots.tsx");
 
     expect(sidebarSlots).toContain("useParams");
@@ -39,7 +42,7 @@ describe("TanStack Start workspace shell migration", () => {
     expect(sidebarSlots).not.toContain("useSyncExternalStore");
   });
 
-  it("uses typed router navigation for chat session URL changes", () => {
+  it("uses typed router navigation for agent session URL changes", () => {
     const workspace = readSource("components/features/chat/chat-workspace.tsx");
     const toaster = readSource("components/features/chat/background-stream-toaster.tsx");
 
@@ -47,7 +50,7 @@ describe("TanStack Start workspace shell migration", () => {
     expect(workspace).not.toContain("CHAT_EVENTS.sessionPathUpdated");
     expect(toaster).not.toContain("window.location.pathname");
     expect(toaster).not.toContain("navigate({ href");
-    expect(`${workspace}\n${toaster}`).toContain('to: "/w/$slug/chat/$sessionId"');
+    expect(`${workspace}\n${toaster}`).toContain('to: "/w/$slug/agent/$sessionId"');
   });
 
   it("clears one-shot studio query params through router search state", () => {
@@ -82,7 +85,7 @@ describe("TanStack Start workspace shell migration", () => {
     expect(skeleton).toContain("aria-hidden");
   });
 
-  it("scopes Glimm transitions to Chat and Studio sidebar tab switches", () => {
+  it("scopes Glimm transitions to Agent and Studio sidebar tab switches", () => {
     const packageJson = readSource("../package.json");
     const workspaceRoute = readSource("routes/w.$slug.tsx");
     const sidebarTabs = readSource("components/layout/app-sidebar/sidebar-tabs.tsx");
@@ -92,7 +95,8 @@ describe("TanStack Start workspace shell migration", () => {
     expect(workspaceRoute).toContain("<GlimmProvider");
     expect(sidebarTabs).toContain('import { useGlimm } from "glimm/react"');
     expect(sidebarTabs).toContain("const { sweep } = useGlimm();");
-    expect(sidebarTabs).toContain("sweep(() => navigate({ to: target })");
+    expect(sidebarTabs).toContain("void sweep(");
+    expect(sidebarTabs).toContain("navigate({ to: target });");
     expect(sidebarTabs).not.toContain("InterceptLinks");
   });
 });

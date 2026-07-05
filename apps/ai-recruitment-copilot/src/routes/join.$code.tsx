@@ -89,7 +89,7 @@ export const Route = createFileRoute("/join/$code")({
     }
 
     if (state.status === "already_member") {
-      throw redirect({ href: "/?goto=chat" });
+      throw redirect({ href: "/?goto=agent" });
     }
 
     return state;

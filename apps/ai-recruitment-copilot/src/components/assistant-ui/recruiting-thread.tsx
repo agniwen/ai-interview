@@ -14,17 +14,26 @@ import {
 import type { TextMessagePartComponent } from "@assistant-ui/react";
 import {
   IconArrowDown,
+  IconArrowUp,
   IconCheck,
   IconCopy,
   IconExternalLink,
   IconLoader2,
   IconPencil,
   IconRefresh,
-  IconSend2,
   IconSquare,
   IconX,
 } from "@tabler/icons-react";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  lazy,
+  Suspense,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import type {
   ChangeEvent,
   ComponentProps,
@@ -36,21 +45,39 @@ import type {
 } from "react";
 import { toast } from "sonner";
 import { MarkdownView } from "@/components/features/display/markdown-view";
+import {
+  ResumeDocumentFileIcon,
+  getResumeDocumentFileIconKind,
+} from "@/components/features/resume/resume-document-file-icon";
+import {
+  UnsupportedResumeDocumentPreviewTooltip,
+  getPreviewableResumeDocumentKind,
+  isPreviewableResumeDocumentInput,
+} from "@/components/features/resume/resume-document-preview-button";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { confirmRecruitingAction } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { cn } from "@/lib/utils";
 import { notifyConversationsChanged } from "@/components/features/chat/lib/chat-events";
+import { pipelineStageMeta, pipelineStageSchema } from "@arc/db-schema/studio-interviews";
+
+const ResumeDocumentPreviewDialog = lazy(async () => {
+  const mod = await import("@/components/features/resume/resume-document-preview-dialog");
+  return { default: mod.ResumeDocumentPreviewDialog };
+});
 
 interface CandidateSummaryCard {
   candidateName: string;
+  hasResumeFile?: boolean;
   id: string;
   jobDescriptionId: string | null;
   jobDescriptionName: string | null;
   keySkills: string[];
   notes: string | null;
   pipelineStage: string;
+  resumeFileName?: string | null;
   resumeSummary: string | null;
   targetRole: string | null;
   updatedAt: string;
@@ -93,6 +120,7 @@ interface RecruitingCopilotContextValue {
   proposals: RecruitingActionProposal[];
   markProposal: (id: string, status: ProposalStatus) => void;
   openResumeDetail: (recordId: string) => void;
+  openResumePreview: (record: Pick<CandidateSummaryCard, "id" | "resumeFileName">) => void;
   upsertCitations: (citations: CopilotCitation[]) => void;
   upsertProposal: (proposal: RecruitingActionProposal) => void;
 }
@@ -121,12 +149,17 @@ export function RecruitingCopilotContextProvider({
 }: PropsWithChildren<{ conversationId: string | null }>) {
   const [citations, setCitations] = useState<CopilotCitation[]>([]);
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
+  const [previewRecord, setPreviewRecord] = useState<Pick<
+    CandidateSummaryCard,
+    "id" | "resumeFileName"
+  > | null>(null);
   const [proposals, setProposals] = useState<RecruitingActionProposal[]>([]);
   const [proposalStatuses, setProposalStatuses] = useState<Record<string, ProposalStatus>>({});
 
   useEffect(() => {
     setCitations([]);
     setDetailRecordId(null);
+    setPreviewRecord(null);
     setProposals([]);
     setProposalStatuses({});
   }, [conversationId]);
@@ -156,12 +189,20 @@ export function RecruitingCopilotContextProvider({
     setDetailRecordId(recordId);
   }, []);
 
+  const openResumePreview = useCallback(
+    (record: Pick<CandidateSummaryCard, "id" | "resumeFileName">) => {
+      setPreviewRecord(record);
+    },
+    [],
+  );
+
   const value = useMemo(
     () => ({
       citations,
       conversationId,
       markProposal,
       openResumeDetail,
+      openResumePreview,
       proposalStatuses,
       proposals,
       upsertCitations,
@@ -172,12 +213,18 @@ export function RecruitingCopilotContextProvider({
       conversationId,
       markProposal,
       openResumeDetail,
+      openResumePreview,
       proposalStatuses,
       proposals,
       upsertCitations,
       upsertProposal,
     ],
   );
+
+  const previewKind = previewRecord
+    ? getPreviewableResumeDocumentKind({ fileName: previewRecord.resumeFileName })
+    : null;
+  const slug = useWorkspaceSlug();
 
   return (
     <RecruitingCopilotContext.Provider value={value}>
@@ -192,6 +239,17 @@ export function RecruitingCopilotContextProvider({
         open={detailRecordId !== null}
         recordId={detailRecordId}
       />
+      {previewRecord && previewKind ? (
+        <Suspense fallback={null}>
+          <ResumeDocumentPreviewDialog
+            filename={previewRecord.resumeFileName ?? undefined}
+            kind={previewKind}
+            onOpenChange={(open) => !open && setPreviewRecord(null)}
+            open={previewRecord !== null}
+            url={`/api/w/${slug}/studio/resumes/${previewRecord.id}/resume`}
+          />
+        </Suspense>
+      ) : null}
     </RecruitingCopilotContext.Provider>
   );
 }
@@ -203,6 +261,9 @@ const activeThreadStyle = {
 const emptyThreadStyle = {
   "--thread-max-width": "48rem",
 } as CSSProperties;
+
+const composerSendButtonClass =
+  "size-9 rounded-full bg-primary p-0 text-primary-foreground hover:bg-primary/90 disabled:border-input disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100";
 
 function ToolNotice({ children }: { children: string }) {
   return (
@@ -348,7 +409,7 @@ const MarkdownTextPart: TextMessagePartComponent = ({ text }) => (
 function AssistantMessage() {
   return (
     <MessagePrimitive.Root
-      className="aui-assistant-message fade-in slide-in-from-bottom-1 animate-in relative w-full min-w-0 duration-150"
+      className="aui-assistant-message fade-in slide-in-from-bottom-1 animate-in relative w-full min-w-0 px-2 duration-150"
       data-role="assistant"
     >
       <div className="aui-assistant-message-content min-w-0 max-w-full text-foreground leading-7 wrap-break-word">
@@ -368,7 +429,7 @@ function UserMessage() {
       className="aui-user-message fade-in slide-in-from-bottom-1 animate-in flex w-full flex-col items-end gap-1 duration-150"
       data-role="user"
     >
-      <div className="aui-user-message-content max-w-[70%] rounded-[22px] border border-primary/15 bg-primary/10 px-4 py-2.5 text-foreground leading-6 wrap-break-word empty:hidden dark:bg-primary/15">
+      <div className="aui-user-message-content max-w-[70%] rounded-[22px] border border-border bg-muted/55 px-4 py-2.5 text-foreground leading-6 wrap-break-word empty:hidden dark:bg-muted/35">
         <MessagePrimitive.Parts />
       </div>
       <UserActionBar />
@@ -396,7 +457,7 @@ function ThreadMessage() {
 function Composer() {
   return (
     <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
-      <div className="aui-composer-shell flex w-full flex-col gap-2 rounded-[28px] border bg-background px-3 py-2 shadow-sm transition-[border-color,box-shadow] focus-within:border-primary/40 focus-within:shadow-[0_6px_24px_-8px_color-mix(in_oklch,var(--primary)_24%,transparent),0_1px_2px_rgba(0,0,0,0.05)]">
+      <div className="aui-composer-shell flex w-full flex-col gap-2 rounded-[28px] border border-input bg-background px-3 py-2 shadow-sm transition-shadow focus-within:shadow-[0_4px_16px_rgba(0,0,0,0.07),0_1px_2px_rgba(0,0,0,0.04)] dark:focus-within:shadow-[0_6px_18px_rgba(0,0,0,0.24),0_1px_2px_rgba(255,255,255,0.04)]">
         <ComposerPrimitive.Input
           aria-label="招聘问题输入"
           autoFocus
@@ -409,22 +470,26 @@ function Composer() {
         <div className="aui-composer-action-wrapper flex items-center justify-end gap-1">
           <AuiIf condition={(state) => !state.thread.isRunning}>
             <ComposerPrimitive.Send asChild>
-              <ChatGPTIconButton
-                className="size-9 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
-                label="发送"
+              <Button
+                aria-label="发送"
+                className={composerSendButtonClass}
+                size="icon"
+                type="button"
               >
-                <IconSend2 className="size-4.5" />
-              </ChatGPTIconButton>
+                <IconArrowUp className="size-4" />
+              </Button>
             </ComposerPrimitive.Send>
           </AuiIf>
           <AuiIf condition={(state) => state.thread.isRunning}>
             <ComposerPrimitive.Cancel asChild>
-              <ChatGPTIconButton
-                className="size-9 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
-                label="停止生成"
+              <Button
+                aria-label="停止生成"
+                className="size-9 rounded-full bg-primary p-0 text-primary-foreground hover:bg-primary/90"
+                size="icon"
+                type="button"
               >
                 <IconSquare className="size-3.5 fill-current" />
-              </ChatGPTIconButton>
+              </Button>
             </ComposerPrimitive.Cancel>
           </AuiIf>
         </div>
@@ -620,38 +685,118 @@ function RecruitingContextPanel() {
   );
 }
 
+function getPipelineStageLabel(stage: string) {
+  const parsed = pipelineStageSchema.safeParse(stage);
+  return parsed.success ? pipelineStageMeta[parsed.data].label : "未知阶段";
+}
+
+function CandidateResumePreviewIcon({ card }: { card: CandidateSummaryCard }) {
+  const { openResumePreview } = useRecruitingCopilotContext();
+  const documentKind = getResumeDocumentFileIconKind({ fileName: card.resumeFileName });
+  const previewable = isPreviewableResumeDocumentInput({ fileName: card.resumeFileName });
+  // Older persisted tool results do not include `hasResumeFile`; avoid
+  // pessimistically disabling previews for records that may still have files.
+  const hasResumeFile = card.hasResumeFile ?? true;
+  const canPreview = hasResumeFile && previewable;
+  const label = card.resumeFileName ?? "简历附件";
+
+  if (canPreview) {
+    return (
+      <TooltipProvider delay={500}>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                aria-label={`预览 ${label}`}
+                className="size-8 shrink-0 rounded-md p-0"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openResumePreview({ id: card.id, resumeFileName: card.resumeFileName ?? null });
+                }}
+                size="icon-sm"
+                title={label}
+                type="button"
+                variant="ghost"
+              >
+                <ResumeDocumentFileIcon className="size-4" kind={documentKind} />
+              </Button>
+            }
+          />
+          <TooltipContent side="top">预览简历</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  const disabledIcon = (
+    <span
+      aria-disabled="true"
+      aria-label={hasResumeFile ? "该格式不支持预览" : "暂无可预览简历"}
+      className="inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
+      title={hasResumeFile ? undefined : "暂无可预览简历"}
+    >
+      <ResumeDocumentFileIcon className="size-4" kind={documentKind} />
+    </span>
+  );
+
+  return hasResumeFile ? (
+    <UnsupportedResumeDocumentPreviewTooltip>
+      {disabledIcon}
+    </UnsupportedResumeDocumentPreviewTooltip>
+  ) : (
+    disabledIcon
+  );
+}
+
 function CandidateSummaryCardButton({ card }: { card: CandidateSummaryCard }) {
   const { openResumeDetail } = useRecruitingCopilotContext();
+  const stageLabel = getPipelineStageLabel(card.pipelineStage);
+  const openDetail = () => openResumeDetail(card.id);
+
   return (
-    <button
-      aria-label={`查看 ${card.candidateName} 的简历详情`}
-      className="aui-candidate-card group w-full rounded-xl border bg-background p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-      onClick={() => openResumeDetail(card.id)}
-      type="button"
-    >
-      <div className="flex flex-wrap items-start justify-between gap-2">
+    <div className="aui-candidate-card group relative w-full rounded-xl border bg-background p-3 text-left transition-colors hover:border-foreground/15 hover:bg-muted/35">
+      <button
+        aria-label={`查看 ${card.candidateName} 的简历详情`}
+        className="absolute inset-0 z-10 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        onClick={openDetail}
+        type="button"
+      />
+      <div className="pointer-events-none relative z-20 flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-1.5">
             <h3 className="truncate font-medium text-sm">{card.candidateName}</h3>
             <IconExternalLink className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
           </div>
-          <p className="text-muted-foreground text-xs">
-            {card.targetRole ?? "未标注目标岗位"}
-            {card.jobDescriptionName ? ` · ${card.jobDescriptionName}` : ""}
-          </p>
+          <div className="mt-1 grid gap-0.5 text-muted-foreground text-xs">
+            <p className="truncate">
+              <span className="text-muted-foreground/75">意向岗位：</span>
+              <span>{card.targetRole ?? "未标注"}</span>
+            </p>
+            <p className="truncate">
+              <span className="text-muted-foreground/75">关联岗位：</span>
+              <span>{card.jobDescriptionName ?? "未绑定"}</span>
+            </p>
+          </div>
         </div>
-        <span className="rounded-full border bg-muted/50 px-2 py-0.5 text-muted-foreground text-xs">
-          {card.pipelineStage}
-        </span>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className="pointer-events-auto">
+            <CandidateResumePreviewIcon card={card} />
+          </span>
+          <span className="rounded-full border bg-muted/50 px-2 py-0.5 text-muted-foreground text-xs">
+            {stageLabel}
+          </span>
+        </div>
       </div>
       {card.resumeSummary ? (
-        <p className="mt-2 line-clamp-2 text-sm leading-6">{card.resumeSummary}</p>
+        <p className="pointer-events-none relative z-20 mt-2 line-clamp-2 text-sm leading-6">
+          {card.resumeSummary}
+        </p>
       ) : null}
       {card.keySkills.length > 0 ? (
-        <div className="mt-2 flex flex-wrap gap-1">
+        <div className="pointer-events-none relative z-20 mt-2 flex flex-wrap gap-1">
           {card.keySkills.map((skill) => (
             <span
-              className="rounded-full bg-primary/10 px-2 py-0.5 text-primary text-xs"
+              className="rounded-full border border-border/70 bg-muted/50 px-2 py-0.5 text-muted-foreground text-xs"
               key={skill}
             >
               {skill}
@@ -659,7 +804,7 @@ function CandidateSummaryCardButton({ card }: { card: CandidateSummaryCard }) {
           ))}
         </div>
       ) : null}
-    </button>
+    </div>
   );
 }
 
@@ -841,11 +986,11 @@ export function RecruitingThread({ isRunning }: { isRunning: boolean }) {
               ) : null}
             </div>
           </ThreadPrimitive.Viewport>
-          <div className="aui-thread-footer sticky bottom-0 bg-background px-4 pt-2 pb-3">
+          <div className="aui-thread-footer sticky bottom-0 bg-background px-4 pb-3">
             <div className="mx-auto w-full max-w-(--thread-max-width)">
               <Composer />
               <p className="mt-2 text-center text-muted-foreground text-xs">
-                Copilot 可能出错，请在确认动作前核对候选人和岗位信息。
+                AI Recruitment Copilot 可能出错，请在确认动作前核对候选人和岗位信息。
               </p>
             </div>
           </div>
@@ -913,7 +1058,7 @@ export function NewRecruitingThread({
           </h1>
         </div>
         <form className="aui-composer-root relative flex w-full flex-col" onSubmit={handleSubmit}>
-          <div className="aui-composer-shell flex w-full items-end gap-1 rounded-[28px] border bg-background px-3 py-2 shadow-sm transition-[border-color,box-shadow] focus-within:border-primary/40 focus-within:shadow-[0_6px_24px_-8px_color-mix(in_oklch,var(--primary)_24%,transparent),0_1px_2px_rgba(0,0,0,0.05)]">
+          <div className="aui-composer-shell flex w-full items-end gap-1 rounded-[28px] border border-input bg-background px-3 py-2 shadow-sm transition-shadow focus-within:shadow-[0_4px_16px_rgba(0,0,0,0.07),0_1px_2px_rgba(0,0,0,0.04)] dark:focus-within:shadow-[0_6px_18px_rgba(0,0,0,0.24),0_1px_2px_rgba(255,255,255,0.04)]">
             <textarea
               aria-label="招聘问题输入"
               className="aui-composer-input max-h-36 min-h-9 flex-1 resize-none overflow-y-auto bg-transparent px-2 py-2 text-base text-foreground leading-6 outline-none placeholder:text-muted-foreground"
@@ -926,18 +1071,18 @@ export function NewRecruitingThread({
             />
             <Button
               aria-label="发送"
-              className="size-9 shrink-0 rounded-full bg-primary p-0 text-primary-foreground hover:bg-primary/90 disabled:bg-primary/20 disabled:text-primary/50 disabled:opacity-100"
+              className={cn(composerSendButtonClass, "shrink-0")}
               disabled={!canSubmit}
               size="icon"
               title="发送"
               type="submit"
             >
-              <IconSend2 className="size-4.5" />
+              <IconArrowUp className="size-4" />
             </Button>
           </div>
         </form>
         <p className="mt-2 text-center text-muted-foreground text-xs">
-          Copilot 可能出错，请在确认动作前核对候选人和岗位信息。
+          AI Recruitment Copilot 可能出错，请在确认动作前核对候选人和岗位信息。
         </p>
       </div>
     </div>
