@@ -782,6 +782,7 @@ function MembersManagementPage() {
   const [pending, setPending] = useState<string | null>(null);
   const [groupNameDrafts, setGroupNameDrafts] = useState<Record<string, string>>({});
   const [newGroupName, setNewGroupName] = useState("");
+  const [memberSearch, setMemberSearch] = useState("");
 
   // 「最近活跃」按 userId 索引：服务端取 COALESCE(MAX(session.updatedAt),
   // user.lastActiveAt)——前者给当前活跃 session 5 分钟级的滚动更新，后者
@@ -883,6 +884,18 @@ function MembersManagementPage() {
       };
     });
   }, [org?.members, lastActiveMap]);
+  const normalizedMemberSearch = memberSearch.trim().toLowerCase();
+  const hasMemberSearch = normalizedMemberSearch.length > 0;
+  const filteredRows = useMemo(() => {
+    if (!hasMemberSearch) {
+      return allRows;
+    }
+    return allRows.filter((row) => {
+      const email = row.email.toLowerCase();
+      const name = row.name.toLowerCase();
+      return email.includes(normalizedMemberSearch) || name.includes(normalizedMemberSearch);
+    });
+  }, [allRows, hasMemberSearch, normalizedMemberSearch]);
 
   useEffect(() => {
     setGroupNameDrafts((current) => {
@@ -904,12 +917,12 @@ function MembersManagementPage() {
   // 成员列表来自 authClient.useActiveOrganization() 内存数据,这里做客户端切片
   // 让分页 UI 跟其他 studio 页面 (服务端分页) 视觉一致。
   // total <= pageSize 时 totalPages 仍是 1, DataGrid 会隐藏页码控件。
-  const total = allRows.length;
+  const total = filteredRows.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, totalPages);
   const rows = useMemo(
-    () => allRows.slice((safePage - 1) * pageSize, safePage * pageSize),
-    [allRows, safePage, pageSize],
+    () => filteredRows.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [filteredRows, safePage, pageSize],
   );
 
   async function createGroup() {
@@ -1253,29 +1266,49 @@ function MembersManagementPage() {
                   <EmptyMedia variant="icon">
                     <IconUsers className="size-5" />
                   </EmptyMedia>
-                  <EmptyTitle>暂无成员</EmptyTitle>
+                  <EmptyTitle>{hasMemberSearch ? "没有匹配的成员" : "暂无成员"}</EmptyTitle>
                   <EmptyDescription>
-                    邀请同事加入这个工作区，再到招聘组看板里分配组内身份。
+                    {hasMemberSearch
+                      ? "调整邮箱或姓名关键词后重试。"
+                      : "邀请同事加入这个工作区，再到招聘组看板里分配组内身份。"}
                   </EmptyDescription>
                 </EmptyHeader>
-                <EmptyContent>
-                  <PermissionGate action="create" resource="invitation">
-                    <InviteDialog
-                      assignableRoleOptions={assignableRoleOptions}
-                      assignableRoles={assignableRoles}
-                      trigger={
-                        <Button>
-                          <IconUserPlus className="size-4" />
-                          邀请成员
-                        </Button>
-                      }
-                    />
-                  </PermissionGate>
-                </EmptyContent>
+                {hasMemberSearch ? null : (
+                  <EmptyContent>
+                    <PermissionGate action="create" resource="invitation">
+                      <InviteDialog
+                        assignableRoleOptions={assignableRoleOptions}
+                        assignableRoles={assignableRoles}
+                        trigger={
+                          <Button>
+                            <IconUserPlus className="size-4" />
+                            邀请成员
+                          </Button>
+                        }
+                      />
+                    </PermissionGate>
+                  </EmptyContent>
+                )}
               </Empty>
             }
+            filterValues={{ search: memberSearch }}
+            filters={[
+              {
+                key: "search",
+                minWidth: "20rem",
+                placeholder: "搜索邮箱或姓名",
+                type: "search",
+              },
+            ]}
             getRowId={(r) => r.id}
             loading={isPending}
+            onFilterChange={(key, value) => {
+              if (key !== "search") {
+                return;
+              }
+              setMemberSearch(value);
+              setPage(1);
+            }}
             pagination={{
               onPageChange: setPage,
               onPageSizeChange: (size) => {
