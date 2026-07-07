@@ -5,6 +5,7 @@ import {
   IconExternalLink,
   IconListCheck,
   IconLoader2,
+  IconSparkles,
 } from "@tabler/icons-react";
 import type { CandidateFormTemplateListRecord } from "@arc/db-schema/candidate-forms";
 import type { DepartmentRecord } from "@arc/shared/departments";
@@ -157,10 +158,15 @@ function getRequiredSkillsRule(policy: ResumeScreeningPolicy) {
   return policy.rules.find((rule): rule is ResumeScreeningSkillRule => rule.type === "skill");
 }
 
+// eslint-disable-next-line complexity -- rule editor coordinates several controlled field groups.
 function ResumeScreeningPolicyFields({
+  isGenerating,
+  onGenerateFromJobDescription,
   policy,
   onChange,
 }: {
+  isGenerating?: boolean;
+  onGenerateFromJobDescription?: () => void;
   policy: ResumeScreeningPolicy;
   onChange: (policy: ResumeScreeningPolicy) => void;
 }) {
@@ -277,6 +283,31 @@ function ResumeScreeningPolicyFields({
 
   return (
     <div className="mt-4 space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-medium text-sm">筛选规则草稿</p>
+          <p className="mt-1 text-muted-foreground text-xs">
+            可从当前 JD 生成草稿，再由 HR 调整确认。
+          </p>
+        </div>
+        {onGenerateFromJobDescription ? (
+          <Button
+            disabled={isGenerating}
+            onClick={onGenerateFromJobDescription}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            {isGenerating ? (
+              <IconLoader2 className="size-3.5 animate-spin" />
+            ) : (
+              <IconSparkles className="size-3.5" />
+            )}
+            从 JD 生成
+          </Button>
+        ) : null}
+      </div>
+
       <Field>
         <Card className="gap-0 rounded-lg py-0">
           <CardContent className="flex items-center justify-between gap-4 px-3 py-2.5">
@@ -479,6 +510,7 @@ export function JobDescriptionFormDialog({
   const isEdit = record !== null;
   const codeLocked = Boolean(record?.code);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+  const [isGeneratingScreeningPolicy, setIsGeneratingScreeningPolicy] = useState(false);
   const [activeTab, setActiveTab] = useState<JobDescriptionFormTab>("basic");
   const resolvedInitialValues = useMemo(() => {
     if (record) {
@@ -640,6 +672,41 @@ export function JobDescriptionFormDialog({
       form.setFieldValue("code", payload.code);
     } finally {
       setIsGeneratingCode(false);
+    }
+  }
+
+  async function handleGenerateScreeningPolicy() {
+    const { values } = form.store.state;
+    if (!values.prompt.trim()) {
+      toast.error("请先填写岗位 Prompt");
+      return;
+    }
+    setIsGeneratingScreeningPolicy(true);
+    try {
+      const response = await rpc.api.w[":slug"].studio["job-descriptions"][
+        "generate-screening-policy"
+      ].$post({
+        json: {
+          description: values.description?.trim() || undefined,
+          name: values.name.trim() || undefined,
+          prompt: values.prompt.trim(),
+        },
+        param: { slug },
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        policy?: ResumeScreeningPolicy;
+      } | null;
+      if (!response.ok || !payload?.policy) {
+        toast.error(payload?.error ?? "筛选规则生成失败");
+        return;
+      }
+      form.setFieldValue("resumeScreeningPolicy", payload.policy);
+      toast.success(
+        payload.policy.rules.length > 0 ? "已生成筛选规则草稿" : "JD 中未发现明确筛选规则",
+      );
+    } finally {
+      setIsGeneratingScreeningPolicy(false);
     }
   }
 
@@ -932,6 +999,8 @@ export function JobDescriptionFormDialog({
               <form.Field name="resumeScreeningPolicy">
                 {(field) => (
                   <ResumeScreeningPolicyFields
+                    isGenerating={isGeneratingScreeningPolicy}
+                    onGenerateFromJobDescription={handleGenerateScreeningPolicy}
                     onChange={field.handleChange}
                     policy={field.state.value}
                   />

@@ -91,6 +91,14 @@ export const resumeHardFilterAgent = new Agent({
   name: "ResumeHardFilterAgent",
 });
 
+export const resumeScreeningPolicyDraftAgent = new Agent({
+  id: "resume-screening-policy-draft-agent",
+  instructions: "你是招聘筛选规则草稿助手，负责从 JD 中提取可由 HR 确认的简历筛选规则。",
+  maxRetries: 1,
+  model: mastraModels.structuredModel,
+  name: "ResumeScreeningPolicyDraftAgent",
+});
+
 export const resumeScreeningEvidenceAgent = new Agent({
   id: "resume-screening-evidence-agent",
   instructions: "你是简历筛选证据助手，只根据已确认的岗位筛选规则判断简历证据。",

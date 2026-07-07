@@ -24,6 +24,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { cacheTags, safeUpdateTag } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import { generateJobDescriptionFromPrompt } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/utils/ai-job-description-generate";
+import { generateResumeScreeningPolicyFromJobDescription } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/utils/resume-screening-policy-generate";
 import {
   buildJobDescriptionCodeCandidates,
   pickAvailableJobDescriptionCode,
@@ -36,6 +37,12 @@ const generateJobDescriptionBodySchema = z.object({
   departmentName: z.string().trim().max(120).optional(),
   jobName: z.string().trim().max(120).optional(),
   prompt: z.string().trim().min(1, "请填写 AI 填写指令").max(2000),
+});
+
+const generateResumeScreeningPolicyBodySchema = z.object({
+  description: z.string().trim().max(500).optional(),
+  name: z.string().trim().max(120).optional(),
+  prompt: z.string().trim().min(1, "请先填写岗位 Prompt").max(10_000),
 });
 
 async function validateReferences(
@@ -216,6 +223,35 @@ export const jobDescriptionsRouter = factory
     }
     return c.json({ code }, 200);
   })
+  .post(
+    "/generate-screening-policy",
+    requirePermission("jd", "update"),
+    zValidator(
+      "json",
+      generateResumeScreeningPolicyBodySchema,
+      jsonValidatorError("请求参数无效。"),
+    ),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const input = c.req.valid("json");
+      try {
+        const policy = await generateResumeScreeningPolicyFromJobDescription({
+          description: input.description ?? null,
+          name: input.name ?? null,
+          prompt: input.prompt,
+        });
+        return c.json({ policy }, 200);
+      } catch (error) {
+        return c.json(
+          { error: error instanceof Error ? error.message : "筛选规则生成失败。" },
+          500,
+        );
+      }
+    },
+  )
   .post(
     "/",
     requirePermission("jd", "create"),
