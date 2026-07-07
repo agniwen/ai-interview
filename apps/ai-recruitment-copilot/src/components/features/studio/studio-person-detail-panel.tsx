@@ -256,7 +256,6 @@ interface CollectedCandidateInfoItem {
   answers: string[];
   id: string;
   kind: "form" | "interview";
-  meta: string | null;
   question: string;
   sequence: number;
 }
@@ -319,7 +318,6 @@ function getCollectedCandidateInfoItems({
         answers: answer ? [answer] : [],
         id: `form-${submission.id}-${question.id}`,
         kind: "form",
-        meta: submission.snapshot.title,
         question: question.label,
         sequence: formItems.length + 1,
       });
@@ -357,7 +355,6 @@ function getCollectedCandidateInfoItems({
       answers,
       id: `interview-${order}-${question}`,
       kind: "interview",
-      meta: null,
       question,
       sequence: interviewItems.length + 1,
     });
@@ -393,12 +390,7 @@ function CollectedCandidateInfoList({
               {item.sequence}.
             </span>
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                {item.meta ? (
-                  <span className="text-muted-foreground text-xs leading-5">{item.meta}</span>
-                ) : null}
-              </div>
-              <div className="mt-3 space-y-1">
+              <div className="space-y-1">
                 <div className="font-medium text-[11px] text-muted-foreground">问题</div>
                 <p className="font-medium text-foreground leading-normal">{item.question}</p>
               </div>
@@ -2052,15 +2044,15 @@ function useStudioPersonDetailPanel({
                   <div className="grid gap-x-6 gap-y-8 md:grid-cols-2">
                     <div>
                       <div className="mb-3 flex items-center gap-2">
-                        <h4 className="font-medium text-sm">表单答复</h4>
-                        <Badge variant="outline">{formItems.length}</Badge>
+                        <h4 className="font-medium text-sm">表单题</h4>
+                        <Badge variant="outline">共{formItems.length}题</Badge>
                       </div>
                       <CollectedCandidateInfoList emptyLabel="暂无表单答复" items={formItems} />
                     </div>
                     <div>
                       <div className="mb-3 flex items-center gap-2">
                         <h4 className="font-medium text-sm">面试题</h4>
-                        <Badge variant="outline">{interviewItems.length}</Badge>
+                        <Badge variant="outline">共{interviewItems.length}题</Badge>
                       </div>
                       <CollectedCandidateInfoList emptyLabel="暂无面试题" items={interviewItems} />
                     </div>

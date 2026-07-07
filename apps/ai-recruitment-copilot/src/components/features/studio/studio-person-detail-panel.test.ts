@@ -80,10 +80,10 @@ describe("StudioPersonDetailPanel visual density", () => {
     // 旧扁平变量整体消失,精确证明顶部总数 badge 及其数据源已删(比查 "条信息" 更不易误报)
     expect(source).not.toContain("collectedCandidateInfoItems");
     expect(collectedSource).toContain("md:grid-cols-2");
-    expect(collectedSource).toContain("表单答复");
+    expect(collectedSource).toContain("表单题");
     expect(collectedSource).toContain("面试题");
-    expect(collectedSource).toContain("{formItems.length}");
-    expect(collectedSource).toContain("{interviewItems.length}");
+    expect(collectedSource).toContain("共{formItems.length}题");
+    expect(collectedSource).toContain("共{interviewItems.length}题");
     expect(collectedSource).toContain('emptyLabel="暂无表单答复"');
     expect(collectedSource).toContain('emptyLabel="暂无面试题"');
   });
