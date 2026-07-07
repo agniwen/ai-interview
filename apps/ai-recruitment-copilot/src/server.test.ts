@@ -5,6 +5,7 @@ const honoFetch = vi.fn(() => Promise.resolve(new Response("hono")));
 const createServerApp = vi.fn(() => ({
   fetch: honoFetch,
 }));
+const initializeFeishuBots = vi.fn(() => Promise.resolve());
 
 vi.mock("@tanstack/react-start/server-entry", () => ({
   createServerEntry: (entry: unknown) => entry,
@@ -15,6 +16,10 @@ vi.mock("@tanstack/react-start/server-entry", () => ({
 
 vi.mock("@arc/ai-recruitment-copilot-backend/server/app", () => ({
   createServerApp,
+}));
+
+vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/bot", () => ({
+  initializeFeishuBots,
 }));
 
 afterEach(() => {
@@ -34,6 +39,7 @@ describe("TanStack Start server entry", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true });
     expect(createServerApp).not.toHaveBeenCalled();
+    expect(initializeFeishuBots).not.toHaveBeenCalled();
     expect(startFetch).not.toHaveBeenCalled();
   });
 
@@ -49,6 +55,19 @@ describe("TanStack Start server entry", () => {
     expect(honoFetch).toHaveBeenCalledWith(request);
     expect(createServerApp).toHaveBeenCalledTimes(1);
     expect(startFetch).not.toHaveBeenCalled();
+  });
+
+  it("starts Feishu bot websocket connections once when enabled", async () => {
+    vi.stubEnv("FEISHU_BOT_ENABLED", "true");
+    const serverModule = await import("./server");
+    const entry = serverModule.default;
+    const first = new Request("https://example.test/api/rpc/health");
+    const second = new Request("https://example.test/api/resume/models");
+
+    await entry.fetch(first);
+    await entry.fetch(second);
+
+    expect(initializeFeishuBots).toHaveBeenCalledTimes(1);
   });
 
   it("routes /api requests to the Hono app", async () => {

@@ -14,6 +14,7 @@ interface HonoApp {
 }
 
 let honoAppPromise: Promise<HonoApp> | undefined;
+let feishuBotStartPromise: Promise<void> | undefined;
 
 async function createHonoApp() {
   const { createServerApp } = await import("@arc/ai-recruitment-copilot-backend/server/app");
@@ -23,6 +24,24 @@ async function createHonoApp() {
 async function getHonoApp() {
   honoAppPromise ??= createHonoApp();
   return await honoAppPromise;
+}
+
+function startFeishuBotsIfEnabled() {
+  if (process.env.FEISHU_BOT_ENABLED !== "true") {
+    return;
+  }
+
+  feishuBotStartPromise ??= (async () => {
+    try {
+      const { initializeFeishuBots } =
+        await import("@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/bot");
+      await initializeFeishuBots();
+      console.info("[web] Feishu bot websocket connections initialized");
+    } catch (error) {
+      feishuBotStartPromise = undefined;
+      console.error("[web] failed to initialize Feishu bot websocket connections", error);
+    }
+  })();
 }
 
 function isApiRequest(request: Request) {
@@ -42,6 +61,8 @@ export default createServerEntry({
     if (isHealthRequest(request)) {
       return Response.json({ ok: true });
     }
+
+    startFeishuBotsIfEnabled();
 
     if (isApiRequest(request)) {
       const honoApp = await getHonoApp();
