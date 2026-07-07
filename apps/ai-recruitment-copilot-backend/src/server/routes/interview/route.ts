@@ -452,6 +452,7 @@ export const interviewRouter = factory
         })
       : null;
     const participantMetadata = JSON.stringify({
+      allow_text_input: interviewRecord.currentRoundAllowTextInput,
       candidate_name: interviewRecord.candidateName,
       candidate_profile: interviewRecord.resumeProfile,
       global_closing_instructions: globalCfg.closingInstructions,

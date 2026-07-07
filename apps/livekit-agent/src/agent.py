@@ -324,7 +324,7 @@ def _build_session(
     )
 
 
-def _build_room_options() -> room_io.RoomOptions:
+def _build_room_options(*, allow_text_input: bool) -> room_io.RoomOptions:
     """组装 RoomOptions: 噪声抑制选择器 + close_on_disconnect=False.
 
     Build RoomOptions. close_on_disconnect=False 关掉框架默认的"候选人断开
@@ -334,7 +334,7 @@ def _build_room_options() -> room_io.RoomOptions:
     lifecycle instead of the framework auto-closing on first drop.
     """
     return room_io.RoomOptions(
-        text_input=False,
+        text_input=allow_text_input,
         audio_input=room_io.AudioInputOptions(
             noise_cancellation=(
                 None if _DISABLE_NOISE_CANCELLATION else _pick_noise_cancellation
@@ -663,7 +663,9 @@ async def my_agent(ctx: JobContext) -> None:
     await session.start(
         agent=interview_agent,
         room=ctx.room,
-        room_options=_build_room_options(),
+        room_options=_build_room_options(
+            allow_text_input=bool(interview_context.get("allow_text_input"))
+        ),
     )
 
     # 让 agent 的 elapsed clock 对齐 state.started_at, per-turn 时间提示才准.

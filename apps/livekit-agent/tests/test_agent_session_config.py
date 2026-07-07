@@ -79,8 +79,15 @@ def test_agent_session_endpointing_waits_for_interview_pauses(monkeypatch):
     assert endpointing["max_delay"] == 5.0
 
 
-def test_room_options_disable_text_input():
-    options = _build_room_options()
+def test_room_options_enable_text_input_when_round_allows_it():
+    options = _build_room_options(allow_text_input=True)
+
+    assert options.text_input is True
+    assert options.close_on_disconnect is False
+
+
+def test_room_options_disable_text_input_when_round_disallows_it():
+    options = _build_room_options(allow_text_input=False)
 
     assert options.text_input is False
     assert options.close_on_disconnect is False
