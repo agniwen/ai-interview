@@ -1,3 +1,7 @@
+from types import SimpleNamespace
+
+import pytest
+
 from interview_agent import (
     DEFAULT_CLOSING_INSTRUCTIONS,
     DEFAULT_OPENING_INSTRUCTIONS,
@@ -25,6 +29,24 @@ def _ctx(**overrides):
     }
     ctx.update(overrides)
     return ctx
+
+
+class _FakeSpeechHandle:
+    def __init__(self):
+        self.waited = False
+
+    async def wait_for_playout(self):
+        self.waited = True
+
+
+class _FakeSession:
+    def __init__(self):
+        self.calls = []
+        self.handle = _FakeSpeechHandle()
+
+    def say(self, text, **kwargs):
+        self.calls.append((text, kwargs))
+        return self.handle
 
 
 def test_uses_custom_opening_when_provided():
@@ -87,6 +109,33 @@ def test_default_timeline_warns_at_21_and_hard_cuts_at_25():
     assert INTERVIEW_FINAL_WRAP_SECONDS == 21 * 60
     assert a.time_limit_seconds == 24 * 60
     assert INTERVIEW_TIME_LIMIT_SECONDS + INTERVIEW_HARD_GRACE_SECONDS == 25 * 60
+
+
+@pytest.mark.asyncio
+async def test_user_turn_exceeded_uses_fixed_non_interruptible_cue(monkeypatch):
+    session = _FakeSession()
+    a = InterviewAgent(_ctx())
+    monkeypatch.setattr(
+        a,
+        "_get_activity_or_raise",
+        lambda: SimpleNamespace(session=session),
+    )
+
+    await a.on_user_turn_exceeded(
+        SimpleNamespace(
+            accumulated_word_count=601,
+            accumulated_transcript="我想继续展开讲很多项目细节。",
+        )
+    )
+
+    assert session.calls == [
+        (
+            "我先打断一下。为了控制面试时间，请用一两句话收个尾，"
+            "然后我们继续下一个问题。",
+            {"allow_interruptions": False},
+        )
+    ]
+    assert session.handle.waited is True
 
 
 def test_noise_transcript_filters_punctuation_only_text():

@@ -40,6 +40,7 @@ from livekit.agents import (
     JobContext,
     JobProcess,
     cli,
+    inference,
     room_io,
 )
 from livekit.agents import (
@@ -51,9 +52,7 @@ from livekit.plugins import (
     minimax,
     noise_cancellation,  # LiveKit Cloud only, disabled for self-hosted
     openai,
-    silero,
 )
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 from interview_agent import INTERVIEW_FINAL_WRAP_SECONDS, InterviewAgent
 from prompts import pick_interviewer
@@ -111,6 +110,12 @@ _HOT_RECONNECT_GRACE_SECONDS = 180
 # instead of blocking shutdown indefinitely (which would also delay egress stop).
 _TIMEOUT_REPLY_PLAYOUT_SECONDS = 20.0
 _WIND_DOWN_PLAYOUT_SECONDS = 15.0
+
+# User-turn-limit guardrail. The longest normal prompt in the interview script
+# asks for about 400 Chinese characters. Keep roughly 2x headroom plus pauses so
+# this remains an emergency brake, not the normal pacing mechanism.
+_USER_TURN_LIMIT_MAX_DURATION_SECONDS = 240.0
+_USER_TURN_LIMIT_MAX_WORDS = 1000
 
 
 # --------------------------------------------------------------------------- #
@@ -220,7 +225,7 @@ def prewarm(proc: JobProcess) -> None:
         候选人轻声"嗯/呃"等填充音 → STT 拿不到对应文本 → turn detector 误判
         句子已说完 → 用 min_delay=0.5s 立即回, 抢答风险高; 反向上长 user turn
         也跟这条相关 (filler 被 VAD 吞了, 句子断成多段累积).
-        min_silence 1.5s 与 turn detector + max_delay=5s 兜底协同, 是给真实
+        min_silence 1.5s 与 turn detector + max_delay=4s 兜底协同, 是给真实
         思考停顿的最小窗口. max_buffered_speech 提到 600s, 覆盖面试里
         长答场景; Silero 达到该上限后会忽略当前 speech input 的后续音频.
 
@@ -229,7 +234,8 @@ def prewarm(proc: JobProcess) -> None:
         saw deceptively "complete" text and either responded too fast or chained
         broken sentences into long user turns.
     """
-    proc.userdata["vad"] = silero.VAD.load(
+    proc.userdata["vad"] = inference.VAD(
+        model="silero",
         activation_threshold=0.5,
         min_speech_duration=0.05,
         min_silence_duration=1.5,
@@ -302,16 +308,17 @@ def _build_session(
         userdata=state,
         preemptive_generation=False,
         turn_handling={
-            "turn_detection": MultilingualModel(),
+            # LiveKit Agents 1.6 audio turn detector uses acoustic + semantic
+            # cues and supersedes the deprecated text MultilingualModel.
+            "turn_detection": inference.TurnDetector(),
             "endpointing": {
                 "mode": "dynamic",
-                "min_delay": 1.5,
-                # 单轮 EOT 最长等 5s. 之前 8s 在结合候选人大量"嗯/呃"破碎
-                # 表达时, 会把一连串中途停顿累积成几分钟不关闭的 user turn,
-                # 期间 agent 完全沉默, 体感像模型卡死.
-                # Cap per-turn EOT at 5s — previously 8s chained filler-heavy
-                # pauses into multi-minute user turns of silent agent.
-                "max_delay": 5.0,
+                # Audio EOT is more accurate than the old text model, so we can
+                # lower latency while still leaving room for Chinese interview
+                # pauses. Official defaults are 0.3/2.5; keep a conservative
+                # floor/ceiling for candidate reflection time.
+                "min_delay": 1.0,
+                "max_delay": 4.0,
             },
             "interruption": {
                 "mode": "adaptive",
@@ -319,6 +326,10 @@ def _build_session(
                 "min_words": 1,
                 "false_interruption_timeout": 2.0,
                 "resume_false_interruption": True,
+            },
+            "user_turn_limit": {
+                "max_duration": _USER_TURN_LIMIT_MAX_DURATION_SECONDS,
+                "max_words": _USER_TURN_LIMIT_MAX_WORDS,
             },
         },
     )

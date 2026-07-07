@@ -17,11 +17,11 @@ class _FakeComponent:
 def test_prewarm_allows_long_interview_answers(monkeypatch):
     calls = []
 
-    def fake_load(**kwargs):
+    def fake_vad(**kwargs):
         calls.append(kwargs)
         return "silero-vad"
 
-    monkeypatch.setattr(agent_module.silero, "VAD", SimpleNamespace(load=fake_load))
+    monkeypatch.setattr(agent_module.inference, "VAD", fake_vad)
 
     proc = SimpleNamespace(userdata={})
     prewarm(proc)
@@ -30,6 +30,7 @@ def test_prewarm_allows_long_interview_answers(monkeypatch):
     assert calls == [
         {
             "activation_threshold": 0.5,
+            "model": "silero",
             "max_buffered_speech": 600.0,
             "min_silence_duration": 1.5,
             "min_speech_duration": 0.05,
@@ -43,7 +44,9 @@ def test_agent_session_uses_scribe_v2_realtime_stt(monkeypatch):
     monkeypatch.setattr(agent_module.elevenlabs, "STT", _FakeComponent)
     monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
     monkeypatch.setattr(agent_module.minimax, "TTS", _FakeComponent)
-    monkeypatch.setattr(agent_module, "MultilingualModel", lambda: "turn-detector")
+    monkeypatch.setattr(
+        agent_module.inference, "TurnDetector", lambda: "audio-turn-detector"
+    )
 
     session = _build_session(
         proc=SimpleNamespace(userdata={"vad": "silero-vad"}),
@@ -64,7 +67,9 @@ def test_agent_session_endpointing_waits_for_interview_pauses(monkeypatch):
     monkeypatch.setattr(agent_module.elevenlabs, "STT", _FakeComponent)
     monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
     monkeypatch.setattr(agent_module.minimax, "TTS", _FakeComponent)
-    monkeypatch.setattr(agent_module, "MultilingualModel", lambda: "turn-detector")
+    monkeypatch.setattr(
+        agent_module.inference, "TurnDetector", lambda: "audio-turn-detector"
+    )
 
     session = _build_session(
         proc=SimpleNamespace(userdata={"vad": "silero-vad"}),
@@ -75,8 +80,32 @@ def test_agent_session_endpointing_waits_for_interview_pauses(monkeypatch):
     endpointing = session.kwargs["turn_handling"]["endpointing"]
 
     assert endpointing["mode"] == "dynamic"
-    assert endpointing["min_delay"] == 1.5
-    assert endpointing["max_delay"] == 5.0
+    assert endpointing["min_delay"] == 1.0
+    assert endpointing["max_delay"] == 4.0
+
+
+def test_agent_session_uses_audio_turn_detector_and_user_turn_limit(monkeypatch):
+    monkeypatch.setattr(agent_module, "AgentSession", _FakeAgentSession)
+    monkeypatch.setattr(agent_module.elevenlabs, "STT", _FakeComponent)
+    monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
+    monkeypatch.setattr(agent_module.minimax, "TTS", _FakeComponent)
+    monkeypatch.setattr(
+        agent_module.inference, "TurnDetector", lambda: "audio-turn-detector"
+    )
+
+    session = _build_session(
+        proc=SimpleNamespace(userdata={"vad": "silero-vad"}),
+        selected_voice="voice_agent_Male_Phone_1",
+        state=object(),
+    )
+
+    turn_handling = session.kwargs["turn_handling"]
+
+    assert turn_handling["turn_detection"] == "audio-turn-detector"
+    assert turn_handling["user_turn_limit"] == {
+        "max_duration": 240.0,
+        "max_words": 1000,
+    }
 
 
 def test_room_options_enable_text_input_when_round_allows_it():

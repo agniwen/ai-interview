@@ -10,6 +10,7 @@ from livekit.agents import (
     ChatContext,
     ChatMessage,
     ModelSettings,
+    UserTurnExceededEvent,
     function_tool,
     stt,
 )
@@ -74,7 +75,9 @@ DEFAULT_OPENING_INSTRUCTIONS = (
     "等候选人明确表示准备好之后，再开始第一道题。"
 )
 # 默认结束语指令 / Default closing instructions when none are configured globally
-DEFAULT_CLOSING_INSTRUCTIONS = "用候选人的主要语言感谢候选人参加本次面试，并礼貌祝对方一切顺利。"
+DEFAULT_CLOSING_INSTRUCTIONS = (
+    "用候选人的主要语言感谢候选人参加本次面试，并礼貌祝对方一切顺利。"
+)
 
 
 def _format_mmss(seconds: float) -> str:
@@ -232,6 +235,22 @@ class InterviewAgent(Agent):
                 f"剩余 {_format_mmss(remaining)}。请合理分配剩余时间。"
             )
         turn_ctx.add_message(role="system", content=hint)
+
+    async def on_user_turn_exceeded(self, ev: UserTurnExceededEvent) -> None:
+        # Agent-initiated cut-in for runaway monologues. Keep it deterministic:
+        # no LLM call, no new topic, and non-interruptible so the candidate
+        # actually hears the time-control cue.
+        logger.info(
+            "user turn exceeded: words=%s transcript=%r",
+            ev.accumulated_word_count,
+            ev.accumulated_transcript[:120],
+        )
+        handle = self.session.say(
+            "我先打断一下。为了控制面试时间，请用一两句话收个尾，"
+            "然后我们继续下一个问题。",
+            allow_interruptions=False,
+        )
+        await handle.wait_for_playout()
 
     async def on_enter(self):
         # 开场寒暄 + "准备好了吗"确认拆到 ReadyCheckTask 里执行: 该 task 只暴露
