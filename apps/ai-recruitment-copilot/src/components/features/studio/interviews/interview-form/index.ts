@@ -69,6 +69,8 @@ export function normalizeScheduleEntries(values: InterviewFormValues["scheduleEn
 export function normalizeInterviewQuestions(values: InterviewFormValues["interviewQuestions"]) {
   return values.map((question, index) => ({
     ...question,
+    evaluationFocus: question.evaluationFocus?.trim() || null,
+    followUpDirections: question.followUpDirections?.trim() || null,
     order: index + 1,
     question: question.question.trim(),
   }));

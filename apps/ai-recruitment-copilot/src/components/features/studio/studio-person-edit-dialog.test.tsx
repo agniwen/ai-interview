@@ -368,6 +368,24 @@ describe("StudioPersonEditDialog", () => {
     queryClient.clear();
   });
 
+  it("shows reset in interview edit mode before the round is completed", async () => {
+    apiMocks.fetchStudioInterviewRound.mockResolvedValue(
+      makeRoundDetail({
+        status: "in_progress",
+      }),
+    );
+    const { queryClient, root } = renderInterviewDialog();
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("重置面试");
+    });
+
+    act(() => {
+      root.unmount();
+    });
+    queryClient.clear();
+  });
+
   it("prefills resume review notes in resume edit mode", async () => {
     apiMocks.fetchStudioResume.mockResolvedValue(makeDetail());
     const { queryClient, root } = renderDialog();

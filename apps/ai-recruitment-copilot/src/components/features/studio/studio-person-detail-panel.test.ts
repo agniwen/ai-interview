@@ -261,6 +261,32 @@ describe("StudioPersonDetailPanel visual density", () => {
     expect(launchConditionSource).not.toContain('record.pipelineStage === "offer"');
   });
 
+  it("shows AI round reset throughout the AI interview stage instead of only after completion", () => {
+    const resetConditionSource = sourceBetween("const canResetAiRound =", "const isRoundLive =");
+    const resetButtonStart = source.indexOf("{canResetAiRound ? (");
+    const resetButtonSource = source.slice(
+      resetButtonStart,
+      source.indexOf("</Button>", resetButtonStart),
+    );
+
+    expect(resetConditionSource).toContain('record?.pipelineStage === "ai_interview"');
+    expect(resetConditionSource).not.toContain('record?.roundStatus === "completed"');
+    expect(resetButtonSource).toContain("handleResetRound");
+    expect(resetButtonSource).not.toContain('record.roundStatus === "completed"');
+  });
+
+  it("invalidates agent prompt and question binding caches after resetting form submissions", () => {
+    const resetSubmissionSource = sourceBetween(
+      "async function resetInterviewFormSubmission",
+      "async function updateAllowTextInput",
+    );
+
+    expect(resetSubmissionSource).toContain("deleteStudioInterviewFormSubmission");
+    expect(resetSubmissionSource).toContain("studio-interview-round-form-submissions");
+    expect(resetSubmissionSource).toContain("studio-interview-agent-instructions");
+    expect(resetSubmissionSource).toContain("interview-question-bindings");
+  });
+
   it("uses a consistent framed surface for expanded interview report items", () => {
     const reportsSource = sourceBetween(
       '<TabsContent value="reports">',

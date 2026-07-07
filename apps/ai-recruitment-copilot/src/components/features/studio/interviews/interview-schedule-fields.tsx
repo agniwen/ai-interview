@@ -81,10 +81,10 @@ export function InterviewScheduleFields({
                 const isLocked = entryStatus === "completed" || entryStatus === "in_progress";
                 const statusMeta = entryStatus ? scheduleEntryStatusMeta[entryStatus] : undefined;
                 const isLastEntry = index === scheduleEntriesField.state.value.length - 1;
-                // 仅在最后一轮且状态为「已结束」时显示重置按钮，与详情 dialog 保持一致。
-                // Show reset only on the last completed round, mirroring the detail dialog.
-                const canResetRound =
-                  !!entry.id && isLastEntry && entryStatus === "completed" && !!onResetRound;
+                // 仅在最后一轮显示重置按钮；是否允许重置由父级按 AI 面试阶段决定。
+                // Show reset only on the last round; the parent gates availability
+                // by the AI interview pipeline stage.
+                const canResetRound = !!entry.id && isLastEntry && !!onResetRound;
                 const isResetting = !!entry.id && resettingRoundId === entry.id;
 
                 return (

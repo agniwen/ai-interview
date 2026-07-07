@@ -151,6 +151,8 @@ export interface InterviewReportSnapshotMetadata {
     } | null;
     personalizedQuestions: {
       difficulty: string;
+      evaluationFocus?: string | null;
+      followUpDirections?: string | null;
       order: number;
       question: string;
     }[];
@@ -159,6 +161,8 @@ export interface InterviewReportSnapshotMetadata {
       questions: {
         content: string;
         difficulty: string;
+        evaluationFocus?: string | null;
+        followUpDirections?: string | null;
         questionId: string;
       }[];
       templateId: string;

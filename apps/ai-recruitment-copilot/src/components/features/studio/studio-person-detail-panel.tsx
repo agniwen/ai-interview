@@ -526,6 +526,12 @@ async function resetInterviewFormSubmission({
     await queryClient.invalidateQueries({
       queryKey: ["studio-interview-round-form-submissions", slug, effectiveRoundId],
     });
+    await queryClient.invalidateQueries({
+      queryKey: ["studio-interview-agent-instructions", slug, effectiveRoundId],
+    });
+    await queryClient.invalidateQueries({
+      queryKey: ["interview-question-bindings", slug, effectiveRoundId],
+    });
     return null;
   } catch (error) {
     return error instanceof Error ? error.message : "重置失败";
@@ -1604,6 +1610,8 @@ function useStudioPersonDetailPanel({
     formSubmissions,
   });
   const isRoundCompleted = record?.roundStatus === "completed";
+  const canResetAiRound =
+    Boolean(record?.roundId) && !isPublic && record?.pipelineStage === "ai_interview";
   const isRoundLive =
     record?.roundStatus === "in_progress" || record?.roundStatus === "interrupted";
   const roundActionLockedReason = isRoundLive ? "面试正在进行中，结束后才能发送或复制链接。" : null;
@@ -2014,12 +2022,11 @@ function useStudioPersonDetailPanel({
                               void handleToggleAllowTextInput(record.roundId as string, next)
                             }
                           />
-                          {record.roundStatus === "completed" ? (
+                          {canResetAiRound ? (
                             <Button
-                              disabled={resettingRoundId === record.roundId || isAiStageLocked}
+                              disabled={resettingRoundId === record.roundId}
                               onClick={() => void handleResetRound(record.roundId as string)}
                               size="sm"
-                              title={aiStageLockedReason ?? undefined}
                               type="button"
                               variant="outline"
                             >

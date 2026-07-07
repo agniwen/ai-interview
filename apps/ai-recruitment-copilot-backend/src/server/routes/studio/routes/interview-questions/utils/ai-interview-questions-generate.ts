@@ -35,13 +35,20 @@ const INTERVIEW_QUESTIONS_PROMPT = `你是一名技术面试出题助手。请�
 - 题目必须与候选人简历、岗位和 HR 指令高度相关
 - 由浅入深：前几道偏 easy/medium，后几道可含 hard
 - 每道题是面试官在语音/现场面试中可直接提问的完整问句
+- 每道题必须给出考核意图/考核点，说明这题要验证什么能力或风险
+- 每道题必须给出追问方向，提供面试官可以顺着候选人回答深挖的方向；不要写标准答案
 - 不要输出答案、解析或编号前缀
 - 使用中文，除非 HR 指令或岗位要求英文
 
 ## 输出 JSON 结构（必须严格遵守，仅输出 JSON 对象）
 {
   "interviewQuestions": [
-    { "difficulty": "easy" | "medium" | "hard", "question": "题目正文" }
+    {
+      "difficulty": "easy" | "medium" | "hard",
+      "evaluationFocus": "考核意图或能力点",
+      "followUpDirections": "追问方向",
+      "question": "题目正文"
+    }
   ]
 }
 顶层字段名必须是 interviewQuestions。请直接返回 JSON，不要用 markdown 代码块包裹。`;
@@ -56,6 +63,8 @@ function formatJobContext(job: { name: string; prompt: string | null } | null): 
 function normalizeInterviewQuestions(questions: GeneratedInterviewQuestion[]): InterviewQuestion[] {
   return questions.map((question, index) => ({
     difficulty: question.difficulty,
+    evaluationFocus: question.evaluationFocus?.trim() || null,
+    followUpDirections: question.followUpDirections?.trim() || null,
     order: index + 1,
     question: question.question.trim(),
   }));
@@ -63,7 +72,12 @@ function normalizeInterviewQuestions(questions: GeneratedInterviewQuestion[]): I
 
 const generationSchema = z.object({
   interviewQuestions: z
-    .array(generatedInterviewQuestionSchema)
+    .array(
+      generatedInterviewQuestionSchema.extend({
+        evaluationFocus: z.string().trim().min(1).max(500),
+        followUpDirections: z.string().trim().min(1).max(1000),
+      }),
+    )
     .min(8, "至少生成 8 道面试题")
     .max(12, "最多生成 12 道面试题"),
 });
@@ -106,6 +120,8 @@ export async function generateInterviewQuestionTemplateFromPrompt(options: {
   return interviewQuestions.map((question, index) => ({
     content: question.question,
     difficulty: question.difficulty,
+    evaluationFocus: question.evaluationFocus ?? "",
+    followUpDirections: question.followUpDirections ?? "",
     id: crypto.randomUUID(),
     sortOrder: index,
   }));

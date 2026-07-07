@@ -1010,21 +1010,58 @@ export const studioInterviewsRouter = factory
         return c.json({ error: "记录不存在。" }, 404);
       }
 
-      const result = await db
-        .delete(candidateFormSubmission)
-        .where(
-          and(
-            eq(candidateFormSubmission.id, submissionId),
-            eq(candidateFormSubmission.interviewRecordId, candidateId),
-          ),
-        )
-        .returning({ id: candidateFormSubmission.id });
+      const now = new Date();
+      const operatorId = c.var.user?.id ?? null;
+      const result = await db.transaction(async (tx) => {
+        const deleted = await tx
+          .delete(candidateFormSubmission)
+          .where(
+            and(
+              eq(candidateFormSubmission.id, submissionId),
+              eq(candidateFormSubmission.interviewRecordId, candidateId),
+            ),
+          )
+          .returning({ id: candidateFormSubmission.id });
+        if (deleted.length === 0) {
+          return null;
+        }
 
-      if (result.length === 0) {
+        const refreshed = await refreshInterviewContextSnapshot(tx, {
+          createdAt: now,
+          createdBy: operatorId,
+          interviewRecordId: candidateId,
+          reason: "manual_refresh",
+          scheduleEntryId: roundId,
+        });
+        await tx.insert(interviewAuditLog).values({
+          action: "context_snapshot_refresh",
+          createdAt: now,
+          detail: {
+            reason: "form_submission_reset",
+            snapshotId: refreshed.id,
+            snapshotVersion: refreshed.version,
+            submissionId,
+          },
+          id: crypto.randomUUID(),
+          interviewRecordId: candidateId,
+          operatorId,
+          organizationId: activeOrg.id,
+          scheduleEntryId: roundId,
+        });
+        return refreshed;
+      });
+
+      if (!result) {
         return c.json({ error: "答卷不存在或已被重置。" }, 404);
       }
 
-      return c.json({ success: true }, 200);
+      return c.json(
+        {
+          snapshot: result,
+          success: true,
+        },
+        200,
+      );
     },
   )
   .patch(
@@ -1276,10 +1313,6 @@ export const studioInterviewsRouter = factory
     if (!scheduleRow) {
       return c.json({ error: "记录不存在。" }, 404);
     }
-    if (scheduleRow.status !== "completed") {
-      return c.json({ error: "只能重置已结束的轮次。" }, 400);
-    }
-
     const candidateId = scheduleRow.interviewRecordId;
     const [candidateRow] = await db
       .select({
@@ -1293,12 +1326,14 @@ export const studioInterviewsRouter = factory
     if (!candidateRow) {
       return c.json({ error: "候选人记录不存在。" }, 404);
     }
-    // 已结案的候选人不可直接 reset 轮次；HR 需要先「重新激活」再操作。
-    // 这样避免 outcome=rejected/hired 还能默默被 reset 改回 in_progress。
-    // Closed candidates must be reactivated before any round can be reset;
-    // prevents silently clobbering an outcome the HR already finalized.
-    if (candidateRow.pipelineStage === "closed") {
-      return c.json({ error: "已结案的候选人请先重新激活再重置轮次。" }, 400);
+    // 只要候选人仍在 AI 面试阶段，任意状态的 AI 轮次都可重置；阶段推进后禁止绕过 UI 回滚。
+    // Any round status can be reset while the candidate is still in AI interview;
+    // once the pipeline advances, reject bypass attempts server-side.
+    if (candidateRow.pipelineStage !== "ai_interview") {
+      return c.json(
+        { error: "候选人已不在 AI 面试阶段，无法重置面试轮次。如需修改请先回退阶段或重新激活。" },
+        409,
+      );
     }
 
     const now = new Date();

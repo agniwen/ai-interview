@@ -39,6 +39,8 @@ function normalizeQuestions(
     id?: string;
     content: string;
     difficulty: "easy" | "medium" | "hard";
+    evaluationFocus?: string | null;
+    followUpDirections?: string | null;
     sortOrder: number;
   }[],
   templateId: string,
@@ -48,6 +50,8 @@ function normalizeQuestions(
     content: question.content.trim(),
     createdAt: now,
     difficulty: question.difficulty,
+    evaluationFocus: question.evaluationFocus?.trim() || null,
+    followUpDirections: question.followUpDirections?.trim() || null,
     id: question.id?.trim() || crypto.randomUUID(),
     sortOrder: typeof question.sortOrder === "number" ? question.sortOrder : index,
     templateId,

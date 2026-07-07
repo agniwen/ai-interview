@@ -34,6 +34,10 @@ describe("interview context snapshot creation boundary", () => {
         interviewsRouteSource.indexOf("/:id/reset"),
       ),
     );
+    const resetSubmissionSource = interviewsRouteSource.slice(
+      interviewsRouteSource.indexOf('"/:id/form-submissions/:submissionId"'),
+      interviewsRouteSource.indexOf(".patch(", interviewsRouteSource.indexOf("/:submissionId")),
+    );
 
     expect(launchInterviewSource).toContain("loadOrCreateActiveInterviewContextSnapshot");
     expect(interviewsRouteSource).toContain("createInterviewContextSnapshot(tx");
@@ -41,6 +45,13 @@ describe("interview context snapshot creation boundary", () => {
     expect(resetRoundSource).toContain("refreshInterviewContextSnapshot(tx");
     expect(resetRoundSource).toContain('reason: "reset"');
     expect(resetRoundSource).toContain("scheduleEntryId: roundId");
+    expect(resetRoundSource).toContain('candidateRow.pipelineStage !== "ai_interview"');
+    expect(resetRoundSource).not.toContain('scheduleRow.status !== "completed"');
+    expect(resetRoundSource).not.toContain("只能重置已结束的轮次");
+    expect(resetSubmissionSource).toContain("refreshInterviewContextSnapshot(tx");
+    expect(resetSubmissionSource).toContain('reason: "manual_refresh"');
+    expect(resetSubmissionSource).toContain('reason: "form_submission_reset"');
+    expect(resetSubmissionSource).toContain("scheduleEntryId: roundId");
     expect(agentInstructionsSource).not.toContain("loadOrCreateActiveInterviewContextSnapshot");
     expect(agentEvidenceSource).not.toContain("loadOrCreateActiveInterviewContextSnapshot");
   });

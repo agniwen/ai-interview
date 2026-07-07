@@ -1887,6 +1887,8 @@ export const interviewQuestionTemplateQuestion = pgTable(
       .$type<InterviewQuestionTemplateDifficulty>()
       .notNull()
       .default("easy"),
+    evaluationFocus: text("evaluation_focus"),
+    followUpDirections: text("follow_up_directions"),
     id: text("id").primaryKey(),
     sortOrder: integer("sort_order").notNull(),
     templateId: text("template_id")

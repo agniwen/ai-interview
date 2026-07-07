@@ -52,6 +52,8 @@ const EMPTY_FORM_VALUES: LaunchFormValues = { interviewQuestions: [] };
 function normalizeInterviewQuestions(values: InterviewQuestion[]): InterviewQuestion[] {
   return values.map((question, index) => ({
     ...question,
+    evaluationFocus: question.evaluationFocus?.trim() || null,
+    followUpDirections: question.followUpDirections?.trim() || null,
     order: index + 1,
     question: question.question.trim(),
   }));
@@ -325,6 +327,8 @@ export function LaunchInterviewDialog({
                 contentPlaceholder="输入面试题目"
                 createItem={(sortIndex) => ({
                   difficulty: "easy",
+                  evaluationFocus: "",
+                  followUpDirections: "",
                   order: sortIndex + 1,
                   question: "",
                 })}

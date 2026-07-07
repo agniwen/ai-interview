@@ -5,7 +5,10 @@ import type {
 } from "@arc/db-schema/interview/types";
 import { uniq } from "lodash-es";
 import { z } from "zod";
-import { generatedInterviewQuestionsSchema } from "@arc/db-schema/interview/types";
+import {
+  generatedInterviewQuestionSchema,
+  generatedInterviewQuestionsSchema,
+} from "@arc/db-schema/interview/types";
 import { generateResumeStructured } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline";
 import {
   getResumeDocumentExtension,
@@ -316,6 +319,8 @@ export function normalizeResumeProfile(profile: ResumeProfile): ResumeProfile {
 function normalizeInterviewQuestions(questions: GeneratedInterviewQuestion[]) {
   return questions.map((question, index) => ({
     difficulty: question.difficulty,
+    evaluationFocus: question.evaluationFocus?.trim() || null,
+    followUpDirections: question.followUpDirections?.trim() || null,
     order: index + 1,
     question: question.question.trim(),
   }));
@@ -360,7 +365,12 @@ const QUESTION_INSTRUCTIONS = `你是一名技术面试出题助手。请基于�
 
 {
   "interviewQuestions": [
-    { "difficulty": "easy" | "medium" | "hard", "question": string }
+    {
+      "difficulty": "easy" | "medium" | "hard",
+      "evaluationFocus": string,
+      "followUpDirections": string,
+      "question": string
+    }
   ]
 }
 
@@ -374,8 +384,21 @@ const QUESTION_INSTRUCTIONS = `你是一名技术面试出题助手。请基于�
    - 第 4-7 题为 medium，聚焦项目细节、技术选型、实现思路、问题排查。
    - 第 8-10 题为 hard，聚焦复杂场景、权衡取舍、系统设计、难点复盘。
 4. 优先围绕简历中真实出现过的项目经历、工作经历、技能栈来提问，不要输出泛泛而谈的空洞题目。
-5. 题目语言以候选人的主要语言为主：根据简历、目标岗位和岗位说明中占主导的语言判断；如果无法判断，默认使用中文。
-6. 不要给答案，不要输出解释，不要重复题目。`;
+5. 每道题必须给出 evaluationFocus，说明本题要验证的能力点、真实性风险或岗位匹配点。
+6. 每道题必须给出 followUpDirections，说明面试官可以顺着候选人回答继续深挖的方向；不要写标准答案。
+7. 题目语言以候选人的主要语言为主：根据简历、目标岗位和岗位说明中占主导的语言判断；如果无法判断，默认使用中文。
+8. 不要给答案，不要输出解释，不要重复题目。`;
+
+const generatedInterviewQuestionsWithGuidanceSchema = generatedInterviewQuestionsSchema.extend({
+  interviewQuestions: z
+    .array(
+      generatedInterviewQuestionSchema.extend({
+        evaluationFocus: z.string().trim().min(1).max(500),
+        followUpDirections: z.string().trim().min(1).max(1000),
+      }),
+    )
+    .length(10),
+});
 
 export interface ResumeParseResult {
   fileName: string;
@@ -664,7 +687,7 @@ export async function generateInterviewQuestionsForProfile(
     const parsed = await generateStructuredWithMastraAgent({
       agent: interviewQuestionAgent,
       prompt: `${QUESTION_INSTRUCTIONS}\n\n候选人信息：\n${JSON.stringify(resumeProfile, null, 2)}`,
-      schema: generatedInterviewQuestionsSchema,
+      schema: generatedInterviewQuestionsWithGuidanceSchema,
       temperature: 0.3,
     });
 

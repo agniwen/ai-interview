@@ -38,7 +38,16 @@ export function emptyInterviewQuestionTemplateValues(): InterviewQuestionTemplat
   return {
     description: "",
     jobDescriptionIds: [],
-    questions: [{ content: "", difficulty: "easy", id: crypto.randomUUID(), sortOrder: 0 }],
+    questions: [
+      {
+        content: "",
+        difficulty: "easy",
+        evaluationFocus: "",
+        followUpDirections: "",
+        id: crypto.randomUUID(),
+        sortOrder: 0,
+      },
+    ],
     scope: "global",
     title: "",
   };
@@ -51,6 +60,8 @@ function toFormValues(record: InterviewQuestionTemplateRecord): InterviewQuestio
     questions: record.questions.map((question, index) => ({
       content: question.content,
       difficulty: question.difficulty ?? "easy",
+      evaluationFocus: question.evaluationFocus ?? "",
+      followUpDirections: question.followUpDirections ?? "",
       id: question.id,
       sortOrder: index,
     })),
@@ -97,6 +108,8 @@ export function InterviewQuestionTemplateEditorDialog({
         questions: value.questions.map((question, index) => ({
           content: question.content.trim(),
           difficulty: question.difficulty,
+          evaluationFocus: question.evaluationFocus?.trim() || "",
+          followUpDirections: question.followUpDirections?.trim() || "",
           id: question.id,
           sortOrder: index,
         })),
@@ -302,6 +315,8 @@ export function InterviewQuestionTemplateEditorDialog({
               createItem={(sortIndex) => ({
                 content: "",
                 difficulty: "easy",
+                evaluationFocus: "",
+                followUpDirections: "",
                 id: crypto.randomUUID(),
                 sortOrder: sortIndex,
               })}

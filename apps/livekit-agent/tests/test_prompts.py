@@ -24,7 +24,6 @@ def test_company_context_section_included_when_provided():
 def test_company_context_section_omitted_when_empty():
     ctx = _base_ctx(global_company_context="")
     out = build_instructions(ctx)
-    # 公司情况内容段不存在；只可能出现在"## 公司情况问答"规则段中  # noqa: RUF003
     assert "## 公司情况\n" not in out
 
 
@@ -35,19 +34,12 @@ def test_company_context_section_omitted_when_missing_key():
     assert "## 公司情况\n" not in out
 
 
-def test_company_qa_rule_uses_provided_context_when_present():
-    # 配置了公司情况：规则要求基于该内容作答  # noqa: RUF003
-    ctx = _base_ctx(global_company_context="我们是 ACME。")
-    out = build_instructions(ctx)
-    assert "仅基于上方" in out
-    assert "后续面试流程中由其他面试官" not in out
-
-
-def test_company_qa_rule_defers_to_other_interviewers_when_absent():
-    # 未配置公司情况：规则要求转到后续面试官回答  # noqa: RUF003
+def test_company_question_handoff_rule_is_not_included():
     ctx = _base_ctx(global_company_context="")
     out = build_instructions(ctx)
-    assert "后续面试流程中由其他面试官" in out
+    assert "## 公司情况问答" not in out
+    assert "后续面试流程" not in out
+    assert "其他面试官" not in out
     assert "仅基于上方" not in out
 
 
@@ -86,3 +78,33 @@ def test_medium_questions_allow_up_to_two_followups():
     assert '不得超过 [medium] 题"最多两次追问"的上限' in out
     assert "[medium] 题: 仅可针对关键细节追问一次" not in out
     assert '不得超过 [medium] 题"仅一次追问"的上限' not in out
+
+
+def test_question_metadata_is_included_as_internal_guidance():
+    out = build_instructions(
+        _base_ctx(
+            job_description_preset_questions=[
+                {
+                    "content": "请介绍一次线上故障排查经历。",
+                    "difficulty": "medium",
+                    "evaluationFocus": "验证排障方法和复盘能力",
+                    "followUpDirections": "追问定位链路、监控信号和后续预防措施",
+                }
+            ],
+            interview_questions=[
+                {
+                    "difficulty": "hard",
+                    "evaluationFocus": "验证系统设计权衡",
+                    "followUpDirections": "追问容量估算和降级策略",
+                    "order": 1,
+                    "question": "如果核心服务不可用，你会如何设计降级方案？",
+                }
+            ],
+        )
+    )
+
+    assert "考核点：验证排障方法和复盘能力" in out
+    assert "追问方向：追问定位链路、监控信号和后续预防措施" in out
+    assert "考核点：验证系统设计权衡" in out
+    assert "追问方向：追问容量估算和降级策略" in out
+    assert "考核点和追问方向仅供你内部参考，提问时不要念出来" in out

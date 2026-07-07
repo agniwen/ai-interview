@@ -47,6 +47,7 @@ import {
 import {
   createDefaultScheduleEntry,
   parseResumePayloadInput,
+  studioInterviewQuestionClientSchema,
 } from "@arc/db-schema/studio-interviews";
 import {
   buildScheduleRows,
@@ -91,15 +92,7 @@ const dedupCheckInputSchema = z.object({
 // persist the (possibly edited) questions and add a default schedule entry.
 // Zero-length is allowed.
 const launchInterviewSchema = z.object({
-  interviewQuestions: z
-    .array(
-      z.object({
-        difficulty: z.enum(["easy", "medium", "hard"]),
-        order: z.number().int().nonnegative(),
-        question: z.string().trim().min(1).max(500),
-      }),
-    )
-    .max(50),
+  interviewQuestions: z.array(studioInterviewQuestionClientSchema).max(50),
 });
 
 function loadVisibilityScope(

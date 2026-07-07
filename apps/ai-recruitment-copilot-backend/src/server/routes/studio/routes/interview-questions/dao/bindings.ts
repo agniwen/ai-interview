@@ -435,6 +435,8 @@ export async function refreshInterviewBindingsToLatest(
 export interface InterviewPresetQuestion {
   content: string;
   difficulty: InterviewQuestionTemplateDifficulty;
+  evaluationFocus?: string | null;
+  followUpDirections?: string | null;
 }
 
 export async function loadInterviewPresetQuestions(
@@ -466,7 +468,12 @@ export async function loadInterviewPresetQuestions(
     for (const q of snapshotQuestions) {
       const trimmed = q.content?.trim();
       if (trimmed) {
-        out.push({ content: trimmed, difficulty: q.difficulty });
+        out.push({
+          content: trimmed,
+          difficulty: q.difficulty,
+          evaluationFocus: q.evaluationFocus ?? null,
+          followUpDirections: q.followUpDirections ?? null,
+        });
       }
     }
   }
@@ -532,7 +539,13 @@ export async function loadInterviewPresetQuestionsWithScope(
     for (const q of snapshotQuestions) {
       const trimmed = q.content?.trim();
       if (trimmed) {
-        out.push({ content: trimmed, difficulty: q.difficulty, scope: row.scope });
+        out.push({
+          content: trimmed,
+          difficulty: q.difficulty,
+          evaluationFocus: q.evaluationFocus ?? null,
+          followUpDirections: q.followUpDirections ?? null,
+          scope: row.scope,
+        });
       }
     }
   }

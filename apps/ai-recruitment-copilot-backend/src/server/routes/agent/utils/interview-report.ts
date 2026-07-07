@@ -71,7 +71,17 @@ export function formatQuestions(questions: InterviewQuestion[]): string {
   if (questions.length === 0) {
     return "（无补充题目）";
   }
-  return questions.map((q) => `${q.order}. [${q.difficulty}] ${q.question}`).join("\n");
+  return questions
+    .map((q) => {
+      const metadata = [
+        q.evaluationFocus ? `   考核点：${q.evaluationFocus}` : null,
+        q.followUpDirections ? `   追问方向：${q.followUpDirections}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
+      return `${q.order}. [${q.difficulty}] ${q.question}${metadata ? `\n${metadata}` : ""}`;
+    })
+    .join("\n");
 }
 
 export interface InterviewReportResult {

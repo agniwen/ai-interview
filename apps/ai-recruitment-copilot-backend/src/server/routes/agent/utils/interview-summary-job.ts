@@ -38,6 +38,8 @@ function buildEvaluationQuestionsFromContext(
       }
       presetQuestions.push({
         difficulty: question.difficulty,
+        evaluationFocus: question.evaluationFocus ?? null,
+        followUpDirections: question.followUpDirections ?? null,
         order: nextOrder,
         question: `[${label}] ${content}`,
       });

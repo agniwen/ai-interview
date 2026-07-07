@@ -83,6 +83,8 @@ function questionText(index: number): string {
 const QUESTIONS_OUTPUT = {
   interviewQuestions: Array.from({ length: 10 }, (_, index) => ({
     difficulty: questionDifficulty(index),
+    evaluationFocus: `第 ${index + 1} 题考核点`,
+    followUpDirections: `第 ${index + 1} 题追问方向`,
     question: questionText(index),
   })),
 };
@@ -116,8 +118,20 @@ describe("resume interview question generation", () => {
 
     expect(result).toHaveLength(10);
     expect(result.slice(0, 2)).toEqual([
-      { difficulty: "easy", order: 1, question: "请介绍一个你负责的前端项目。" },
-      { difficulty: "easy", order: 2, question: "你如何设计组件状态管理？" },
+      {
+        difficulty: "easy",
+        evaluationFocus: "第 1 题考核点",
+        followUpDirections: "第 1 题追问方向",
+        order: 1,
+        question: "请介绍一个你负责的前端项目。",
+      },
+      {
+        difficulty: "easy",
+        evaluationFocus: "第 2 题考核点",
+        followUpDirections: "第 2 题追问方向",
+        order: 2,
+        question: "你如何设计组件状态管理？",
+      },
     ]);
     expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -136,8 +150,20 @@ describe("resume interview question generation", () => {
     };
     expect(result.interviewQuestions).toHaveLength(10);
     expect(result.interviewQuestions?.slice(0, 2)).toEqual([
-      { difficulty: "easy", order: 1, question: "请介绍一个你负责的前端项目。" },
-      { difficulty: "easy", order: 2, question: "你如何设计组件状态管理？" },
+      {
+        difficulty: "easy",
+        evaluationFocus: "第 1 题考核点",
+        followUpDirections: "第 1 题追问方向",
+        order: 1,
+        question: "请介绍一个你负责的前端项目。",
+      },
+      {
+        difficulty: "easy",
+        evaluationFocus: "第 2 题考核点",
+        followUpDirections: "第 2 题追问方向",
+        order: 2,
+        question: "你如何设计组件状态管理？",
+      },
     ]);
     expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledWith(
       expect.objectContaining({
