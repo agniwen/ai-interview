@@ -7,7 +7,6 @@ import { factory } from "./factory";
 import { betterAuthMiddleware } from "./middlewares/better-auth";
 import { agentRouter } from "./routes/agent/route";
 import { chatRouter } from "./routes/chat/route";
-import { feishuRouter } from "./routes/feishu/route";
 import { interviewRouter } from "./routes/interview/route";
 import { joinRouter } from "./routes/join/route";
 import { livekitRouter } from "./routes/livekit/route";
@@ -25,7 +24,6 @@ import { studioRouter } from "./routes/studio/route";
 // the URL ↔ call shape correspondence.
 const apiRoutes = factory
   .createApp()
-  .route("/", feishuRouter)
   .route("/agent", agentRouter)
   .route("/livekit", livekitRouter)
   .route("/resume", resumeRouter)

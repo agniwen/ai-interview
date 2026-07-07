@@ -1,8 +1,5 @@
 /* oxlint-disable jsdoc/check-tag-names -- `@jsxImportSource` is a TS compiler directive */
 /** @jsxImportSource chat */
-// 中文：面试报告通知卡片。header 颜色由 recommendation 决定（绿/黄/红/灰）
-// English: interview summary notification card; header color reflects recommendation
-import type { FeishuHeaderTemplate } from "@arc/adapter-feishu";
 import { Card, CardText, Divider, Field, Fields, Section } from "chat";
 
 export interface InterviewSummaryCardProps {
@@ -52,19 +49,4 @@ export function InterviewSummaryCard({
       </Section>
     </Card>
   );
-}
-
-// 中文：录用建议 → header 颜色。文案来自 interview-report.ts 的 recommendation enum
-// English: map recommendation to Feishu header color; values from interview-report.ts enum
-export function resolveHeaderTemplate(recommendation: string): FeishuHeaderTemplate {
-  if (recommendation.includes("不建议")) {
-    return "red";
-  }
-  if (recommendation.includes("待定")) {
-    return "yellow";
-  }
-  if (recommendation.includes("建议")) {
-    return "green";
-  }
-  return "grey";
 }

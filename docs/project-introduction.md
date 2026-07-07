@@ -135,7 +135,6 @@ flowchart LR
 - `apps/livekit-agent/`：Python 语音面试 agent。
 - `packages/db-schema/`：Drizzle schema、relations、数据库相邻类型。
 - `packages/shared/`：纯类型、Zod schema、同构工具。
-- `packages/adapter-feishu/`：飞书适配层。
 - `packages/resume-parse-queue/`：简历解析队列共享定义。
 
 ### 前端：TanStack Start + Router + Query

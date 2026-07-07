@@ -71,9 +71,6 @@ importers:
       '@ai-sdk/react':
         specifier: ^3.0.221
         version: 3.0.221(react@19.2.3)(zod@4.4.3)
-      '@arc/adapter-feishu':
-        specifier: workspace:*
-        version: link:../../packages/adapter-feishu
       '@arc/ai-recruitment-copilot-backend':
         specifier: workspace:*
         version: link:../ai-recruitment-copilot-backend
@@ -471,9 +468,6 @@ importers:
       '@ai-sdk/openai-compatible':
         specifier: ^2.0.56
         version: 2.0.56(zod@4.4.3)
-      '@arc/adapter-feishu':
-        specifier: workspace:*
-        version: link:../../packages/adapter-feishu
       '@arc/db-schema':
         specifier: workspace:*
         version: link:../../packages/db-schema
@@ -498,6 +492,9 @@ importers:
       '@hono/zod-validator':
         specifier: ^0.7.6
         version: 0.7.6(hono@4.12.23)(zod@4.4.3)
+      '@larksuite/vercel-chat-adapter':
+        specifier: ^0.1.2
+        version: 0.1.2(ai@6.0.219(zod@4.4.3))(chat@4.29.0(ai@6.0.219(zod@4.4.3))(zod@4.4.3))(zod@4.4.3)
       '@livekit/protocol':
         specifier: ^1.45.8
         version: 1.46.0
@@ -665,28 +662,6 @@ importers:
       tsx:
         specifier: ^4.21.0
         version: 4.22.4
-      typescript:
-        specifier: 'catalog:'
-        version: 7.0.1-rc
-      vitest:
-        specifier: 'catalog:'
-        version: 4.1.7(@opentelemetry/api@1.9.1)(@types/node@24.11.2)(jsdom@29.1.1(@noble/hashes@2.2.0))(vite@8.1.3(@types/node@24.11.2)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
-
-  packages/adapter-feishu:
-    dependencies:
-      '@chat-adapter/shared':
-        specifier: ^4.28.1
-        version: 4.29.0(ai@6.0.219(zod@4.4.3))(zod@4.4.3)
-      '@larksuiteoapi/node-sdk':
-        specifier: ^1.59.0
-        version: 1.65.0
-      chat:
-        specifier: 'catalog:'
-        version: 4.29.0(ai@6.0.219(zod@4.4.3))(zod@4.4.3)
-    devDependencies:
-      '@types/node':
-        specifier: 24.11.2
-        version: 24.11.2
       typescript:
         specifier: 'catalog:'
         version: 7.0.1-rc
@@ -1969,8 +1944,13 @@ packages:
     resolution: {integrity: sha512-hloP58zRVCRSpgDxmqCWJNlizAlUgJFqG2ypq79DCvyv9tHjRYMDOcPFjzfl/A1/YxDvRCZz8wvZvmapQnKwFQ==}
     engines: {node: '>=12'}
 
-  '@larksuiteoapi/node-sdk@1.65.0':
-    resolution: {integrity: sha512-SkMeiFvi4mMVGrmBBh50vWPOgAvfbcpdcAW+iryheFFHUmji49aDch/YtxsKGFtzFlL/rseQXFzNFL8+LdQQ5Q==}
+  '@larksuite/vercel-chat-adapter@0.1.2':
+    resolution: {integrity: sha512-SRanjyZKuzMP71+NP+c72NR97FiNCHYzOwsCYTao0Lc+oZCQ5WZy47ZPdgKnY2R89FJbIODC92RZr06EkKWngw==}
+    peerDependencies:
+      chat: ^4.26.0
+
+  '@larksuiteoapi/node-sdk@1.63.1':
+    resolution: {integrity: sha512-bVC2QVkITZ1i6kLP7hI7DXtp61ic9shP/F+bp/2qZ0ISSvrcHp2euu1xt6C29jPJVNieRgvdsBPuapOlybviVw==}
 
   '@livekit/components-core@0.12.13':
     resolution: {integrity: sha512-DQmi84afHoHjZ62wm8y+XPNIDHTwFHAltjd3lmyXj8UZHOY7wcza4vFt1xnghJOD5wLRY58L1dkAgAw59MgWvw==}
@@ -7540,10 +7520,6 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
-  qs@6.15.2:
-    resolution: {integrity: sha512-Rzq0KEyX/w/tEybncDgdkZrJgVUsUMk3xjh3t5bv3S1HTAtg+uOYt72+ZfwiQwKdysThkTBdL/rTi6HDmX9Ddw==}
-    engines: {node: '>=0.6'}
-
   qs@6.15.3:
     resolution: {integrity: sha512-O9gl3zCl5h5blw1KGUzQKhA5oUXSl8rwUIM5o0S3nCXMliSvy5Dzx7/DJcI+SwgICv+IneSZwhBh1oSyEHA71A==}
     engines: {node: '>=0.6'}
@@ -7993,10 +7969,6 @@ packages:
 
   side-channel-weakmap@1.0.2:
     resolution: {integrity: sha512-WPS/HvHQTYnHisLo9McqBHOJk2FkHO/tlpvldyrnem4aeQp4hai3gythswg6p01oSoTl58rcpiFAjF2br2Ak2A==}
-    engines: {node: '>= 0.4'}
-
-  side-channel@1.1.0:
-    resolution: {integrity: sha512-ZX99e6tRweoUXqR+VBrslhda51Nh5MTQwou5tnUDgbtyM0dBgmhEDtWGP/xbKn6hqfPRHujUNwz5fy/wbbhnpw==}
     engines: {node: '>= 0.4'}
 
   side-channel@1.1.1:
@@ -10047,14 +10019,27 @@ snapshots:
     dependencies:
       jsbi: 4.3.2
 
-  '@larksuiteoapi/node-sdk@1.65.0':
+  '@larksuite/vercel-chat-adapter@0.1.2(ai@6.0.219(zod@4.4.3))(chat@4.29.0(ai@6.0.219(zod@4.4.3))(zod@4.4.3))(zod@4.4.3)':
+    dependencies:
+      '@chat-adapter/shared': 4.29.0(ai@6.0.219(zod@4.4.3))(zod@4.4.3)
+      '@larksuiteoapi/node-sdk': 1.63.1
+      chat: 4.29.0(ai@6.0.219(zod@4.4.3))(zod@4.4.3)
+    transitivePeerDependencies:
+      - ai
+      - bufferutil
+      - debug
+      - supports-color
+      - utf-8-validate
+      - zod
+
+  '@larksuiteoapi/node-sdk@1.63.1':
     dependencies:
       axios: 1.13.6
       lodash.identity: 3.0.0
       lodash.merge: 4.6.2
       lodash.pickby: 4.6.0
       protobufjs: 7.6.1
-      qs: 6.15.2
+      qs: 6.15.3
       ws: 8.21.0
     transitivePeerDependencies:
       - bufferutil
@@ -15771,10 +15756,6 @@ snapshots:
     dependencies:
       react: 19.2.3
 
-  qs@6.15.2:
-    dependencies:
-      side-channel: 1.1.0
-
   qs@6.15.3:
     dependencies:
       es-define-property: 1.0.1
@@ -16401,14 +16382,6 @@ snapshots:
       get-intrinsic: 1.3.0
       object-inspect: 1.13.4
       side-channel-map: 1.0.1
-
-  side-channel@1.1.0:
-    dependencies:
-      es-errors: 1.3.0
-      object-inspect: 1.13.4
-      side-channel-list: 1.0.1
-      side-channel-map: 1.0.1
-      side-channel-weakmap: 1.0.2
 
   side-channel@1.1.1:
     dependencies:

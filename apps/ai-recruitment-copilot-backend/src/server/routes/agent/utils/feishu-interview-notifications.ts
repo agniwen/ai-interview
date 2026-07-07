@@ -14,10 +14,7 @@ import {
   getResendClient,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resend";
 import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
-import {
-  InterviewSummaryCard,
-  resolveHeaderTemplate,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/interview-summary-card";
+import { InterviewSummaryCard } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/interview-summary-card";
 import { FEISHU_PROVIDER_IDS } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
 import type { FeishuProviderId } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
 import { getGlobalConfig } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/global-config/dao";
@@ -109,7 +106,7 @@ function buildNotificationCard(input: NotificationCardInput) {
     targetRole: input.targetRole,
   });
 
-  return { card, headerTemplate: resolveHeaderTemplate(recommendation) };
+  return { card };
 }
 
 async function loadNotificationContext(options: SummaryReadyNotificationOptions) {
@@ -454,7 +451,7 @@ export async function notifyInterviewSummaryReady(
     targetRole: context.targetRole,
   };
   const detailUrl = buildStudioUrl(context.scheduleEntryId, context.organizationSlug ?? null);
-  const { card, headerTemplate } = buildNotificationCard(notificationInput);
+  const { card } = buildNotificationCard(notificationInput);
 
   if (recipients.length > 0) {
     const { postFeishuDirectCard } =
@@ -472,9 +469,7 @@ export async function notifyInterviewSummaryReady(
       }
 
       try {
-        const sent = await postFeishuDirectCard(recipient.providerId, recipient.accountId, card, {
-          headerTemplate,
-        });
+        const sent = await postFeishuDirectCard(recipient.providerId, recipient.accountId, card);
         await markNotificationSent(notificationId, sent.id ?? null);
       } catch (error) {
         await markNotificationFailed(notificationId, error);

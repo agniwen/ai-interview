@@ -94,7 +94,7 @@ AI-powered voice interview/resume screening application. Chinese-first locale �
 - **Web app** (`apps/ai-recruitment-copilot/`): TanStack Start + React 19, TanStack Router, TanStack Query, Vite/Nitro, shadcn/ui + Tailwind CSS v4. It mounts the Hono backend at `/api` for integrated web runs.
 - **Backend app** (`apps/ai-recruitment-copilot-backend/`): Hono API runtime, Drizzle ORM + PostgreSQL, Better Auth. It can be mounted by the web app at `/api` or started as a standalone Node app.
 - **Voice agent** (`apps/livekit-agent/`): Python LiveKit Agents SDK with OpenAI / Google / ElevenLabs / Minimax plugins, Silero VAD, turn-detector
-- **Monorepo**: pnpm workspace + Turborepo at the root; shared packages in `packages/` (`@arc/shared` — shared types, schemas, and isomorphic utilities; `@arc/db-schema` — Drizzle schema/relations + DB-adjacent shared types; `@arc/adapter-feishu` — Feishu chat adapter). Workspace packages are scoped under `@arc/*`.
+- **Monorepo**: pnpm workspace + Turborepo at the root; shared packages in `packages/` (`@arc/shared` — shared types, schemas, and isomorphic utilities; `@arc/db-schema` — Drizzle schema/relations + DB-adjacent shared types). Workspace packages are scoped under `@arc/*`.
 
 Two separate package managers: **pnpm** for web, **uv** for Python agent. Do not mix them.
 

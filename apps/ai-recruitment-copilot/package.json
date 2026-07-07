@@ -25,7 +25,6 @@
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.56",
     "@ai-sdk/react": "^3.0.221",
-    "@arc/adapter-feishu": "workspace:*",
     "@arc/ai-recruitment-copilot-backend": "workspace:*",
     "@arc/db-schema": "workspace:*",
     "@arc/resume-parse-queue": "workspace:*",

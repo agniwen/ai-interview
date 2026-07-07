@@ -1,39 +1,30 @@
 import { createPostgresState } from "@chat-adapter/state-pg";
-import { createFeishuAdapter } from "@arc/adapter-feishu";
-import type { CardToFeishuPayloadOptions } from "@arc/adapter-feishu";
-import { Chat } from "chat";
-import type { Adapter, AdapterPostableMessage, CardElement } from "chat";
+import { createLarkAdapter } from "@larksuite/vercel-chat-adapter";
+import { cardChildToFallbackText, Chat, isCardElement, toCardElement } from "chat";
+import type { AdapterPostableMessage, CardElement } from "chat";
 import type { FeishuProviderId } from "./provider";
+import { FEISHU_PROVIDER_IDS } from "./provider";
 import { routeDM, routeGroupMention } from "./router";
 
-// FeishuAdapter implements Adapter<FeishuThreadId, unknown>. encodeThreadId is in a
-// contravariant position so Adapter<FeishuThreadId, unknown> is not assignable to
-// Adapter<unknown, unknown> — the cast at construction site widens safely.
-type FeishuAdapter = ReturnType<typeof createFeishuAdapter>;
+type LarkAdapter = ReturnType<typeof createLarkAdapter>;
 type FeishuBot = Chat;
 
-const cached = new Map<FeishuProviderId, { adapter: FeishuAdapter; bot: FeishuBot }>();
+const cached = new Map<FeishuProviderId, { adapter: LarkAdapter; bot: FeishuBot }>();
 
 const FEISHU_BOT_CONFIG: Record<
   FeishuProviderId,
   {
     appIdEnv: string;
     appSecretEnv: string;
-    encryptKeyEnv?: string;
-    verificationTokenEnv?: string;
   }
 > = {
   feishu: {
     appIdEnv: "FEISHU_APP_ID",
     appSecretEnv: "FEISHU_APP_SECRET",
-    encryptKeyEnv: "FEISHU_ENCRYPT_KEY",
-    verificationTokenEnv: "FEISHU_VERIFICATION_TOKEN",
   },
   "feishu-jiguang-hr": {
     appIdEnv: "FEISHU_APP_ID2",
     appSecretEnv: "FEISHU_APP_SECRET2",
-    encryptKeyEnv: "FEISHU_ENCRYPT_KEY2",
-    verificationTokenEnv: "FEISHU_VERIFICATION_TOKEN2",
   },
 };
 
@@ -42,11 +33,31 @@ function getEnv(name: string): string | undefined {
   return value && value.length > 0 ? value : undefined;
 }
 
+function resolveCardElement(card: CardElement | unknown): CardElement {
+  if (isCardElement(card)) {
+    return card;
+  }
+  const cardElement = toCardElement(card);
+  if (!cardElement) {
+    throw new Error("postFeishuDirectCard expects a Chat SDK CardElement or JSX card");
+  }
+  return cardElement;
+}
+
+function cardToFallbackText(card: CardElement): string {
+  const parts = [
+    card.title ? `**${card.title}**` : null,
+    card.subtitle ?? null,
+    ...card.children.map((child) => cardChildToFallbackText(child)),
+  ];
+  return parts.filter(Boolean).join("\n\n");
+}
+
 /**
- * Lazily construct the Feishu Chat instance. Uses a module-level cache
- * so a single instance is shared across requests in the same process.
+ * Lazily construct the Feishu/Lark Chat instance. Uses a module-level cache
+ * so each provider owns one official long-connection adapter per process.
  *
- * Throws (via createFeishuAdapter) if FEISHU_APP_ID / FEISHU_APP_SECRET
+ * Throws (via createLarkAdapter) if FEISHU_APP_ID / FEISHU_APP_SECRET
  * are missing, so callers should only invoke this from request paths
  * (not at import time).
  */
@@ -68,27 +79,19 @@ export function getFeishuBot(providerId: FeishuProviderId = "feishu"): FeishuBot
     throw new Error(`${config.appIdEnv} and ${config.appSecretEnv} are required`);
   }
 
-  const adapter = createFeishuAdapter({
+  const adapter = createLarkAdapter({
     appId,
     appSecret,
-    encryptKey: config.encryptKeyEnv
-      ? (getEnv(config.encryptKeyEnv) ?? getEnv("FEISHU_ENCRYPT_KEY"))
-      : undefined,
     userName: "resume-bot",
-    verificationToken: config.verificationTokenEnv
-      ? (getEnv(config.verificationTokenEnv) ?? getEnv("FEISHU_VERIFICATION_TOKEN"))
-      : undefined,
   });
 
   const bot = new Chat({
     adapters: {
-      // cast: FeishuAdapter is Adapter<FeishuThreadId, unknown>; encodeThreadId's
-      // contravariant position prevents direct assignability to Adapter<unknown, unknown>
-      feishu: adapter as unknown as Adapter<unknown, unknown>,
+      lark: adapter,
     },
     concurrency: "queue",
     dedupeTtlMs: 600_000,
-    state: createPostgresState({ keyPrefix: `feishu:${providerId}`, url: databaseUrl }),
+    state: createPostgresState({ keyPrefix: `lark:${providerId}`, url: databaseUrl }),
     userName: "resume-bot",
   });
 
@@ -110,21 +113,39 @@ export function getFeishuBot(providerId: FeishuProviderId = "feishu"): FeishuBot
   return bot;
 }
 
+async function ensureFeishuBotInitialized(providerId: FeishuProviderId): Promise<{
+  adapter: LarkAdapter;
+  bot: FeishuBot;
+}> {
+  const bot = getFeishuBot(providerId);
+  await bot.initialize();
+  const entry = cached.get(providerId);
+  if (!entry) {
+    throw new Error(`Feishu bot is not initialized for provider ${providerId}`);
+  }
+  return entry;
+}
+
+export async function initializeFeishuBots(): Promise<void> {
+  await Promise.all(
+    FEISHU_PROVIDER_IDS.map((providerId) => ensureFeishuBotInitialized(providerId)),
+  );
+}
+
+export async function shutdownFeishuBots(): Promise<void> {
+  const entries = [...cached.values()];
+  await Promise.all(entries.map(({ bot }) => bot.shutdown()));
+  cached.clear();
+}
+
 export async function postFeishuDirectMessage(
   providerId: FeishuProviderId,
   openId: string,
   message: AdapterPostableMessage,
 ): Promise<{ id: string }> {
-  const existing = cached.get(providerId);
-  if (!existing) {
-    getFeishuBot(providerId);
-  }
-  const adapter = cached.get(providerId)?.adapter;
-  if (!adapter) {
-    throw new Error(`Feishu bot is not initialized for provider ${providerId}`);
-  }
-
-  const sent = await adapter.postDirectMessage(openId, message);
+  const { adapter, bot } = await ensureFeishuBotInitialized(providerId);
+  const threadId = await adapter.openDM(openId);
+  const sent = await bot.thread(threadId).post(message);
   return { id: sent.id };
 }
 
@@ -132,17 +153,13 @@ export async function postFeishuDirectCard(
   providerId: FeishuProviderId,
   openId: string,
   card: CardElement | unknown,
-  options?: CardToFeishuPayloadOptions,
 ): Promise<{ id: string }> {
-  const existing = cached.get(providerId);
-  if (!existing) {
-    getFeishuBot(providerId);
-  }
-  const adapter = cached.get(providerId)?.adapter;
-  if (!adapter) {
-    throw new Error(`Feishu bot is not initialized for provider ${providerId}`);
-  }
-
-  const sent = await adapter.postDirectCard(openId, card, options);
+  const { adapter, bot } = await ensureFeishuBotInitialized(providerId);
+  const threadId = await adapter.openDM(openId);
+  const cardElement = resolveCardElement(card);
+  const sent = await bot.thread(threadId).post({
+    card: cardElement,
+    fallbackText: cardToFallbackText(cardElement),
+  });
   return { id: sent.id };
 }
