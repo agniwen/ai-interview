@@ -1,6 +1,6 @@
 "use client";
 
-import { IconBuilding, IconInbox, IconListCheck, IconUsers } from "@tabler/icons-react";
+import { IconBell, IconBuilding, IconInbox, IconListCheck, IconUsers } from "@tabler/icons-react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   SidebarBodyPortalContent,
@@ -38,6 +38,11 @@ const navItems: NavItem[] = [
     icon: IconInbox,
     path: "/platform/mail-ingest-accounts",
     title: "邮箱监听",
+  },
+  {
+    icon: IconBell,
+    path: "/platform/notifications",
+    title: "飞书通知",
   },
   {
     icon: IconListCheck,

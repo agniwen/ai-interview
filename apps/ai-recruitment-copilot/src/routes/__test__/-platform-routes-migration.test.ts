@@ -12,6 +12,7 @@ describe("TanStack Start platform route migration", () => {
   const routes = [
     "/platform",
     "/platform/mail-ingest-accounts",
+    "/platform/notifications",
     "/platform/organizations",
     "/platform/queues",
     "/platform/users",
@@ -29,10 +30,12 @@ describe("TanStack Start platform route migration", () => {
     const sources = [
       readSource("routes/platform.tsx"),
       readSource("routes/platform.mail-ingest-accounts.tsx"),
+      readSource("routes/platform.notifications.tsx"),
       readSource("routes/platform.organizations.tsx"),
       readSource("routes/platform.queues.tsx"),
       readSource("routes/platform.users.tsx"),
       readSource("components/features/platform/mail-ingest-accounts/mail-ingest-accounts-grid.tsx"),
+      readSource("components/features/platform/notifications/notifications-grid.tsx"),
       readSource("components/features/platform/platform-sidebar-slots.tsx"),
       readSource("components/features/platform/platform-header.tsx"),
       readSource("components/features/platform/organizations/organizations-grid.tsx"),
@@ -90,6 +93,7 @@ describe("TanStack Start platform route migration", () => {
   it("wraps every platform leaf page in a page-level container", () => {
     const leafRouteFiles = [
       "routes/platform.mail-ingest-accounts.tsx",
+      "routes/platform.notifications.tsx",
       "routes/platform.organizations.tsx",
       "routes/platform.queues.tsx",
       "routes/platform.users.tsx",

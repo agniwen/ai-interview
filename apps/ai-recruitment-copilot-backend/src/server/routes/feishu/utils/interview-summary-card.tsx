@@ -1,12 +1,21 @@
 /* oxlint-disable jsdoc/check-tag-names -- `@jsxImportSource` is a TS compiler directive */
 /** @jsxImportSource chat */
-import { Card, CardText, Divider, Field, Fields, Section } from "chat";
+import { Actions, Card, CardText, Divider, Field, Fields, LinkButton, Section, Table } from "chat";
+
+export interface InterviewSummaryQuestionScore {
+  maxScore: number;
+  question: string;
+  score: number;
+}
 
 export interface InterviewSummaryCardProps {
   assessment: string | null;
   candidateName: string;
   detailUrl: string;
+  duration: string;
+  interviewStartedAt: string;
   overallScore: string;
+  questionScores: InterviewSummaryQuestionScore[];
   recommendation: string;
   summary: string | null;
   targetRole: string | null;
@@ -16,7 +25,10 @@ export function InterviewSummaryCard({
   assessment,
   candidateName,
   detailUrl,
+  duration,
+  interviewStartedAt,
   overallScore,
+  questionScores,
   recommendation,
   summary,
   targetRole,
@@ -29,8 +41,20 @@ export function InterviewSummaryCard({
           <Field label="目标岗位" value={targetRole ?? "未填写"} />
           <Field label="综合评分" value={overallScore} />
           <Field label="推荐结论" value={recommendation} />
+          <Field label="开始时间" value={interviewStartedAt} />
+          <Field label="面试耗时" value={duration} />
         </Fields>
       </Section>
+      {questionScores.length > 0 ? <Divider /> : null}
+      {questionScores.length > 0 ? (
+        <Section>
+          <CardText>**题目得分概览**</CardText>
+          <Table
+            headers={["题目", "得分"]}
+            rows={questionScores.map((item) => [item.question, `${item.score}/${item.maxScore}`])}
+          />
+        </Section>
+      ) : null}
       {assessment ? <Divider /> : null}
       {assessment ? (
         <Section>
@@ -44,9 +68,11 @@ export function InterviewSummaryCard({
         </Section>
       ) : null}
       <Divider />
-      <Section>
-        <CardText>{`🔗 [查看完整报告](${detailUrl})`}</CardText>
-      </Section>
+      <Actions>
+        <LinkButton style="primary" url={detailUrl}>
+          查看完整报告
+        </LinkButton>
+      </Actions>
     </Card>
   );
 }

@@ -26,6 +26,7 @@ import { Route as RRoundIdRouteImport } from './routes/r.$roundId'
 import { Route as PlatformUsersRouteImport } from './routes/platform.users'
 import { Route as PlatformQueuesRouteImport } from './routes/platform.queues'
 import { Route as PlatformOrganizationsRouteImport } from './routes/platform.organizations'
+import { Route as PlatformNotificationsRouteImport } from './routes/platform.notifications'
 import { Route as PlatformMailIngestAccountsRouteImport } from './routes/platform.mail-ingest-accounts'
 import { Route as JoinCodeRouteImport } from './routes/join.$code'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
@@ -141,6 +142,11 @@ const PlatformQueuesRoute = PlatformQueuesRouteImport.update({
 const PlatformOrganizationsRoute = PlatformOrganizationsRouteImport.update({
   id: '/organizations',
   path: '/organizations',
+  getParentRoute: () => PlatformRoute,
+} as any)
+const PlatformNotificationsRoute = PlatformNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => PlatformRoute,
 } as any)
 const PlatformMailIngestAccountsRoute =
@@ -321,6 +327,7 @@ export interface FileRoutesByFullPath {
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
   '/platform/mail-ingest-accounts': typeof PlatformMailIngestAccountsRoute
+  '/platform/notifications': typeof PlatformNotificationsRoute
   '/platform/organizations': typeof PlatformOrganizationsRoute
   '/platform/queues': typeof PlatformQueuesRoute
   '/platform/users': typeof PlatformUsersRoute
@@ -371,6 +378,7 @@ export interface FileRoutesByTo {
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
   '/platform/mail-ingest-accounts': typeof PlatformMailIngestAccountsRoute
+  '/platform/notifications': typeof PlatformNotificationsRoute
   '/platform/organizations': typeof PlatformOrganizationsRoute
   '/platform/queues': typeof PlatformQueuesRoute
   '/platform/users': typeof PlatformUsersRoute
@@ -420,6 +428,7 @@ export interface FileRoutesById {
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
   '/platform/mail-ingest-accounts': typeof PlatformMailIngestAccountsRoute
+  '/platform/notifications': typeof PlatformNotificationsRoute
   '/platform/organizations': typeof PlatformOrganizationsRoute
   '/platform/queues': typeof PlatformQueuesRoute
   '/platform/users': typeof PlatformUsersRoute
@@ -472,6 +481,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/join/$code'
     | '/platform/mail-ingest-accounts'
+    | '/platform/notifications'
     | '/platform/organizations'
     | '/platform/queues'
     | '/platform/users'
@@ -522,6 +532,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/join/$code'
     | '/platform/mail-ingest-accounts'
+    | '/platform/notifications'
     | '/platform/organizations'
     | '/platform/queues'
     | '/platform/users'
@@ -570,6 +581,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/join/$code'
     | '/platform/mail-ingest-accounts'
+    | '/platform/notifications'
     | '/platform/organizations'
     | '/platform/queues'
     | '/platform/users'
@@ -748,6 +760,13 @@ declare module '@tanstack/react-router' {
       path: '/organizations'
       fullPath: '/platform/organizations'
       preLoaderRoute: typeof PlatformOrganizationsRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/platform/notifications': {
+      id: '/platform/notifications'
+      path: '/notifications'
+      fullPath: '/platform/notifications'
+      preLoaderRoute: typeof PlatformNotificationsRouteImport
       parentRoute: typeof PlatformRoute
     }
     '/platform/mail-ingest-accounts': {
@@ -996,6 +1015,7 @@ const InterviewRouteWithChildren = InterviewRoute._addFileChildren(
 
 interface PlatformRouteChildren {
   PlatformMailIngestAccountsRoute: typeof PlatformMailIngestAccountsRoute
+  PlatformNotificationsRoute: typeof PlatformNotificationsRoute
   PlatformOrganizationsRoute: typeof PlatformOrganizationsRoute
   PlatformQueuesRoute: typeof PlatformQueuesRoute
   PlatformUsersRoute: typeof PlatformUsersRoute
@@ -1003,6 +1023,7 @@ interface PlatformRouteChildren {
 
 const PlatformRouteChildren: PlatformRouteChildren = {
   PlatformMailIngestAccountsRoute: PlatformMailIngestAccountsRoute,
+  PlatformNotificationsRoute: PlatformNotificationsRoute,
   PlatformOrganizationsRoute: PlatformOrganizationsRoute,
   PlatformQueuesRoute: PlatformQueuesRoute,
   PlatformUsersRoute: PlatformUsersRoute,

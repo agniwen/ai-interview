@@ -15,6 +15,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resend";
 import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
 import { InterviewSummaryCard } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/interview-summary-card";
+import type { InterviewSummaryQuestionScore } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/interview-summary-card";
 import { FEISHU_PROVIDER_IDS } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
 import type { FeishuProviderId } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
 import { getGlobalConfig } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/global-config/dao";
@@ -27,6 +28,11 @@ const GOOGLE_PROVIDER_ID = "google";
 interface SummaryReadyNotificationOptions {
   conversationId: string;
   interviewRecordId: string;
+}
+
+export interface ResendInterviewSummaryNotificationResult {
+  notificationId: string;
+  sentAt: string;
 }
 
 interface RecipientAccount {
@@ -67,9 +73,79 @@ function buildStudioUrl(roundId: string, organizationSlug: string | null): strin
   return `${root}${prefix}/studio/interviews?roundId=${encodeURIComponent(roundId)}`;
 }
 
+function formatDateTime(value: Date | null): string {
+  if (!value) {
+    return "未知";
+  }
+  return new Intl.DateTimeFormat("zh-CN", {
+    day: "2-digit",
+    hour: "2-digit",
+    hour12: false,
+    minute: "2-digit",
+    month: "2-digit",
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+  }).format(value);
+}
+
+function formatDuration(startedAt: Date | null, endedAt: Date | null): string {
+  if (!startedAt || !endedAt) {
+    return "未知";
+  }
+  const durationMs = endedAt.getTime() - startedAt.getTime();
+  if (!Number.isFinite(durationMs) || durationMs <= 0) {
+    return "未知";
+  }
+  const totalMinutes = Math.max(1, Math.round(durationMs / 60_000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0) {
+    return minutes > 0 ? `${hours} 小时 ${minutes} 分钟` : `${hours} 小时`;
+  }
+  return `${minutes} 分钟`;
+}
+
+function truncateForCard(value: string, maxLength: number): string {
+  const trimmed = value.trim().replaceAll(/\s+/g, " ");
+  if (trimmed.length <= maxLength) {
+    return trimmed;
+  }
+  return `${trimmed.slice(0, maxLength - 1)}…`;
+}
+
+function extractQuestionScores(
+  evaluation: Record<string, unknown>,
+): InterviewSummaryQuestionScore[] {
+  const questions = Array.isArray(evaluation.questions) ? evaluation.questions : [];
+  const rows = questions.flatMap((item): InterviewSummaryQuestionScore[] => {
+    if (!item || typeof item !== "object") {
+      return [];
+    }
+    const record = item as Record<string, unknown>;
+    if (
+      typeof record.question !== "string" ||
+      typeof record.score !== "number" ||
+      typeof record.maxScore !== "number"
+    ) {
+      return [];
+    }
+    return [
+      {
+        maxScore: record.maxScore,
+        question: truncateForCard(record.question, 28),
+        score: record.score,
+      },
+    ];
+  });
+
+  return rows.toSorted((a, b) => a.score / a.maxScore - b.score / b.maxScore).slice(0, 4);
+}
+
 interface NotificationCardInput {
   candidateName: string;
+  duration: string;
   evaluation: Record<string, unknown>;
+  interviewStartedAt: string;
   organizationSlug: string | null;
   roundId: string;
   summary: string | null;
@@ -100,7 +176,10 @@ function buildNotificationCard(input: NotificationCardInput) {
     assessment,
     candidateName: input.candidateName,
     detailUrl: buildStudioUrl(input.roundId, input.organizationSlug),
+    duration: input.duration,
+    interviewStartedAt: input.interviewStartedAt,
     overallScore,
+    questionScores: extractQuestionScores(input.evaluation),
     recommendation,
     summary: input.summary,
     targetRole: input.targetRole,
@@ -114,10 +193,12 @@ async function loadNotificationContext(options: SummaryReadyNotificationOptions)
     .select({
       candidateName: studioInterview.candidateName,
       createdBy: studioInterview.createdBy,
+      endedAt: interviewConversation.endedAt,
       evaluationCriteriaResults: interviewConversation.evaluationCriteriaResults,
       organizationId: studioInterview.organizationId,
       organizationSlug: organization.slug,
       scheduleEntryId: interviewConversation.scheduleEntryId,
+      startedAt: interviewConversation.startedAt,
       summaryStatus: interviewConversation.summaryStatus,
       targetRole: studioInterview.targetRole,
       transcriptSummary: interviewConversation.transcriptSummary,
@@ -356,6 +437,90 @@ async function sendGoogleSummaryEmail({
   }
 }
 
+export async function resendInterviewSummaryNotification(
+  notificationId: string,
+): Promise<ResendInterviewSummaryNotificationResult> {
+  const [notification] = await db
+    .select({
+      conversationId: interviewNotification.conversationId,
+      id: interviewNotification.id,
+      interviewRecordId: interviewNotification.interviewRecordId,
+      providerId: interviewNotification.providerId,
+      recipientOpenId: interviewNotification.recipientOpenId,
+      type: interviewNotification.type,
+    })
+    .from(interviewNotification)
+    .where(eq(interviewNotification.id, notificationId))
+    .limit(1);
+
+  if (!notification) {
+    throw new Error("通知记录不存在");
+  }
+  if (notification.type !== "summary_ready") {
+    throw new Error("暂不支持重发该类型通知");
+  }
+  if (!notification.conversationId) {
+    throw new Error("通知缺少面试会话，无法重发");
+  }
+  if (!isFeishuProviderId(notification.providerId)) {
+    throw new Error("只支持重发飞书机器人通知");
+  }
+
+  const context = await loadNotificationContext({
+    conversationId: notification.conversationId,
+    interviewRecordId: notification.interviewRecordId,
+  });
+  if (!context || context.summaryStatus !== "ready") {
+    throw new Error("面试报告还未生成完成，无法重发");
+  }
+  if (!context.scheduleEntryId) {
+    throw new Error("通知缺少面试轮次，无法生成报告链接");
+  }
+
+  const { card } = buildNotificationCard({
+    candidateName: context.candidateName,
+    duration: formatDuration(context.startedAt, context.endedAt),
+    evaluation: context.evaluationCriteriaResults ?? {},
+    interviewStartedAt: formatDateTime(context.startedAt),
+    organizationSlug: context.organizationSlug ?? null,
+    roundId: context.scheduleEntryId,
+    summary: context.transcriptSummary,
+    targetRole: context.targetRole,
+  });
+
+  await db
+    .update(interviewNotification)
+    .set({
+      error: null,
+      status: "pending",
+    })
+    .where(eq(interviewNotification.id, notification.id));
+
+  try {
+    const { postFeishuDirectCard } =
+      await import("@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/bot");
+    const sent = await postFeishuDirectCard(
+      notification.providerId,
+      notification.recipientOpenId,
+      card,
+    );
+    const sentAt = new Date();
+    await db
+      .update(interviewNotification)
+      .set({
+        error: null,
+        feishuMessageId: sent.id ?? null,
+        sentAt,
+        status: "sent",
+      })
+      .where(eq(interviewNotification.id, notification.id));
+    return { notificationId: notification.id, sentAt: sentAt.toISOString() };
+  } catch (error) {
+    await markNotificationFailed(notification.id, error);
+    throw error;
+  }
+}
+
 async function loadMissingGoogleEmailNotificationTargets(
   limit: number,
 ): Promise<NotificationTarget[]> {
@@ -444,7 +609,9 @@ export async function notifyInterviewSummaryReady(
 
   const notificationInput = {
     candidateName: context.candidateName,
+    duration: formatDuration(context.startedAt, context.endedAt),
     evaluation: context.evaluationCriteriaResults ?? {},
+    interviewStartedAt: formatDateTime(context.startedAt),
     organizationSlug: context.organizationSlug ?? null,
     roundId: context.scheduleEntryId,
     summary: context.transcriptSummary,
