@@ -121,6 +121,7 @@ function getFirstResumeEditErrorMessage(meta: Record<string, { errors?: unknown[
     "targetRole",
     "jobDescriptionId",
     "resumeEvaluationStatus",
+    "hrResumeAssessment",
     "notes",
   ];
   for (const field of fieldOrder) {
@@ -215,6 +216,7 @@ function createResumeEditFormValues(
     candidateEmail: detail.candidateEmail ?? "",
     candidateName: detail.candidateName,
     candidatePhone: detail.candidatePhone ?? "",
+    hrResumeAssessment: detail.hrResumeAssessment ?? "",
     jobDescriptionId: detail.jobDescriptionId ?? "",
     notes: detail.notes ?? "",
     resumeEvaluationStatus: detail.resumeEvaluationStatus ?? "unreviewed",
@@ -298,6 +300,7 @@ function ResumeEditBody({
       formData.append("candidatePhone", value.candidatePhone);
       formData.append("targetRole", value.targetRole);
       formData.append("jobDescriptionId", value.jobDescriptionId);
+      formData.append("hrResumeAssessment", value.hrResumeAssessment);
       formData.append("notes", value.notes);
       formData.append("resumeEvaluationStatus", value.resumeEvaluationStatus);
       if (resumeFile) {
@@ -463,7 +466,7 @@ function ResumeEditBody({
             disabled={isSubmitting || isResumeLocked}
             existingResumeFileName={query.data?.resumeFileName ?? null}
             form={form}
-            notesDisabled={isReviewGenerating}
+            notesDisabled
             notesEditorLeadingContent={
               isReviewGenerating ? (
                 <ResumeReviewGenerationProgress

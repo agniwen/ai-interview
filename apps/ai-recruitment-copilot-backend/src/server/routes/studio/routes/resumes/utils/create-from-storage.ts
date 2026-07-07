@@ -3,7 +3,8 @@ import { studioInterview } from "@arc/db-schema/schema";
 import type { StudioInterviewResumeSourceType } from "@arc/db-schema/schema";
 import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ResumeReview } from "@arc/db-schema/resume-review";
-import type { ResumeReviewStatus } from "@arc/db-schema/studio-interviews";
+import type { ResumeReviewStatus, ResumeScreeningStatus } from "@arc/db-schema/studio-interviews";
+import type { ResumeScreeningResult } from "@arc/shared/resume-screening";
 import { syncResumeSkills } from "../dao/skills";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -13,6 +14,7 @@ export interface CreateResumeRecordFromStorageInput {
   candidateName: string | null;
   candidatePhone: string | null;
   contentHash: string | null;
+  hrResumeAssessment?: string | null;
   interviewQuestions?: InterviewQuestion[];
   jobDescriptionId: string | null;
   notes: string | null;
@@ -21,6 +23,8 @@ export interface CreateResumeRecordFromStorageInput {
   resumeProfile: ResumeProfile | null;
   resumeReview?: ResumeReview | null;
   resumeReviewStatus?: ResumeReviewStatus;
+  resumeScreeningResult?: ResumeScreeningResult | null;
+  resumeScreeningStatus?: ResumeScreeningStatus;
   resumeText?: string | null;
   storageKey: string | null;
   targetRole: string | null;
@@ -56,6 +60,9 @@ export async function createResumeRecordFromStorage(
       candidatePhone,
       createdAt: now,
       createdBy: input.userId,
+      hrResumeAssessment: input.hrResumeAssessment?.trim() || null,
+      hrResumeAssessmentUpdatedAt: input.hrResumeAssessment?.trim() ? now : null,
+      hrResumeAssessmentUpdatedBy: input.hrResumeAssessment?.trim() ? input.userId : null,
       id: recordId,
       interviewQuestions: input.interviewQuestions ?? [],
       jobDescriptionId: input.jobDescriptionId,
@@ -72,6 +79,12 @@ export async function createResumeRecordFromStorage(
       resumeReviewGeneratedAt: input.resumeReview ? now : null,
       resumeReviewQueuedAt: input.resumeReviewStatus === "queued" ? now : null,
       resumeReviewStatus: input.resumeReview ? "ready" : (input.resumeReviewStatus ?? "idle"),
+      resumeScreeningError: null,
+      resumeScreeningEvaluatedAt: input.resumeScreeningResult ? now : null,
+      resumeScreeningResult: input.resumeScreeningResult ?? null,
+      resumeScreeningStatus: input.resumeScreeningResult
+        ? "ready"
+        : (input.resumeScreeningStatus ?? "idle"),
       resumeSourceImportedAt: input.source?.importedAt ?? null,
       resumeSourceImportedBy: input.source?.importedBy ?? null,
       resumeSourcePoolItemId: input.source?.poolItemId ?? null,

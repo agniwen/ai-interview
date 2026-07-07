@@ -134,6 +134,10 @@ export const resumeReviewStatusMeta: Record<
   ready: { label: "已分析", tone: "success" },
 };
 
+export const resumeScreeningStatusValues = ["idle", "processing", "ready", "failed"] as const;
+export const resumeScreeningStatusSchema = z.enum(resumeScreeningStatusValues);
+export type ResumeScreeningStatus = z.infer<typeof resumeScreeningStatusSchema>;
+
 // ── 真人复面阶段 / Human Interview Stage ──
 
 // 单轮状态：pending（已排期/未排期）→ completed / cancelled（终态）。

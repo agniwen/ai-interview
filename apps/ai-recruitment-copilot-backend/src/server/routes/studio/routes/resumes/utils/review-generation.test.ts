@@ -3,11 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   generateResumeReview: vi.fn(),
+  generateResumeScreeningResult: vi.fn(),
   loadJobDescriptionById: vi.fn(),
 }));
 
 vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent", () => ({
   generateResumeReview: mocks.generateResumeReview,
+  generateResumeScreeningResult: mocks.generateResumeScreeningResult,
 }));
 vi.mock(
   "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao",
@@ -48,6 +50,15 @@ describe("generateResumeReviewBestEffort", () => {
       description: "负责 Web 端研发",
       name: "前端工程师",
       prompt: "需要 React 经验",
+      resumeScreeningPolicy: { enabled: true, rules: [], version: 1 },
+    });
+    mocks.generateResumeScreeningResult.mockResolvedValue({
+      policyEmpty: true,
+      policyEnabled: true,
+      policyHash: "hash",
+      policyVersion: 1,
+      recommendation: "pass",
+      ruleResults: [],
     });
     mocks.generateResumeReview.mockResolvedValue({
       review: "评价 markdown",
@@ -66,11 +77,27 @@ describe("generateResumeReviewBestEffort", () => {
       jobDescription:
         "岗位名称：前端工程师\n\n岗位描述：负责 Web 端研发\n\n岗位 Prompt：\n需要 React 经验",
       resumeProfile: RESUME_PROFILE,
+      screeningResult: {
+        policyEmpty: true,
+        policyEnabled: true,
+        policyHash: "hash",
+        policyVersion: 1,
+        recommendation: "pass",
+        ruleResults: [],
+      },
     });
   });
 
   it("returns null when review generation fails", async () => {
     mocks.loadJobDescriptionById.mockResolvedValue(null);
+    mocks.generateResumeScreeningResult.mockResolvedValue({
+      policyEmpty: true,
+      policyEnabled: false,
+      policyHash: null,
+      policyVersion: null,
+      recommendation: "pass",
+      ruleResults: [],
+    });
     mocks.generateResumeReview.mockRejectedValue(new Error("model unavailable"));
 
     const result = await generateResumeReviewBestEffort({

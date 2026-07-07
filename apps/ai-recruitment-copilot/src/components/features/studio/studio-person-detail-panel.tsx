@@ -5,6 +5,7 @@ import {
   IconExternalLink,
   IconEye,
   IconInfoCircle,
+  IconLoader2,
   IconMessage2,
   IconRobot,
 } from "@tabler/icons-react";
@@ -488,6 +489,120 @@ function ResumeAiAnalysisPlaceholder({
       <div className="text-muted-foreground text-sm leading-6">
         <Markdown>{truncateText(resumeRecord?.notes) || "暂无 AI 解析结果"}</Markdown>
       </div>
+    </section>
+  );
+}
+
+type ResumeScreeningRuleResult = NonNullable<
+  ResumeLibraryDetail["resumeScreeningResult"]
+>["ruleResults"][number];
+
+function getResumeScreeningRuleStatusMeta(status: ResumeScreeningRuleResult["status"]) {
+  if (status === "pass") {
+    return { label: "满足", variant: "success" as const };
+  }
+  if (status === "fail") {
+    return { label: "未满足", variant: "destructive" as const };
+  }
+  return { label: "待核实", variant: "warning" as const };
+}
+
+function getResumeScreeningRuleSeverityLabel(severity: ResumeScreeningRuleResult["severity"]) {
+  if (severity === "blocking") {
+    return "阻断";
+  }
+  if (severity === "warning") {
+    return "提醒";
+  }
+  return "信息";
+}
+
+function ResumeScreeningResultPanel({
+  onReassess,
+  reassessing,
+  resumeRecord,
+}: {
+  onReassess?: () => void;
+  reassessing?: boolean;
+  resumeRecord: ResumeLibraryDetail | null | undefined;
+}) {
+  const result = resumeRecord?.resumeScreeningResult;
+  const recommendationMeta = {
+    flag: { label: "需人工核实", variant: "warning" as const },
+    hold: { label: "暂缓推进", variant: "destructive" as const },
+    pass: { label: "通过", variant: "success" as const },
+  };
+
+  return (
+    <section className="space-y-3 rounded-2xl border border-muted/60 bg-muted/20 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="font-medium text-sm">简历筛选结果</h3>
+          {result ? (
+            <Badge variant={recommendationMeta[result.recommendation].variant}>
+              {recommendationMeta[result.recommendation].label}
+            </Badge>
+          ) : (
+            <Badge variant="outline">未生成</Badge>
+          )}
+          {resumeRecord?.resumeScreeningStale ? <Badge variant="warning">规则已更新</Badge> : null}
+        </div>
+        {onReassess ? (
+          <Button
+            disabled={reassessing}
+            onClick={onReassess}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            {reassessing ? (
+              <IconLoader2 className="size-3.5 animate-spin" />
+            ) : (
+              <IconArrowBackUp className="size-3.5" />
+            )}
+            重新评估
+          </Button>
+        ) : null}
+      </div>
+      {resumeRecord?.resumeScreeningError ? (
+        <p className="text-destructive text-sm">{resumeRecord.resumeScreeningError}</p>
+      ) : null}
+      {resumeRecord?.resumeScreeningStale ? (
+        <p className="text-muted-foreground text-sm leading-6">
+          当前筛选结果基于旧版岗位规则生成，重新评估会同时更新筛选结果和系统简历评价。
+        </p>
+      ) : null}
+      {result?.ruleResults.length ? (
+        <div className="space-y-2">
+          {result.ruleResults.map((rule) => (
+            <div className="rounded-md border bg-background px-3 py-2" key={rule.ruleId}>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={getResumeScreeningRuleStatusMeta(rule.status).variant}>
+                  {getResumeScreeningRuleStatusMeta(rule.status).label}
+                </Badge>
+                <Badge variant="outline">
+                  {getResumeScreeningRuleSeverityLabel(rule.severity)}
+                </Badge>
+                <span className="font-medium text-sm">{rule.label}</span>
+              </div>
+              <p className="mt-1 text-muted-foreground text-sm leading-6">{rule.reason}</p>
+              {rule.evidence.length > 0 ? (
+                <ul className="mt-2 space-y-1 text-muted-foreground text-xs">
+                  {rule.evidence.slice(0, 2).map((evidence, index) => (
+                    <li key={`${rule.ruleId}-${index}`}>
+                      {evidence.quote ? `“${evidence.quote}”` : evidence.explanation}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-muted-foreground text-sm leading-6">
+          {result?.policyEmpty ? "该岗位未启用具体筛选规则。" : "暂无筛选结果。"}
+        </p>
+      )}
     </section>
   );
 }
@@ -1226,6 +1341,7 @@ function useStudioPersonDetailPanel({
   const [optimisticPipelineStage, setOptimisticPipelineStage] = useState<PipelineStage | null>(
     null,
   );
+  const [isReassessingResume, setIsReassessingResume] = useState(false);
   const tabContentRootRef = useRef<HTMLDivElement>(null);
   const {
     pendingResetSubmissionId,
@@ -1302,6 +1418,37 @@ function useStudioPersonDetailPanel({
     },
     queryKey: ["studio-resumes", slug, "detail", effectiveRecordId, accessMode] as const,
   });
+
+  async function handleReassessResume() {
+    if (!(slug && effectiveRecordId) || !canUseManagementActions) {
+      return;
+    }
+    setIsReassessingResume(true);
+    try {
+      const response = await fetch(
+        `/api/w/${encodeURIComponent(slug)}/studio/resumes/${encodeURIComponent(effectiveRecordId)}/reassess`,
+        { method: "POST" },
+      );
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "重新评估失败");
+      }
+      toast.success("已重新评估");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["studio-resumes"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["studio-resumes", slug, "detail", effectiveRecordId],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["studio-resumes", slug, "timeline", effectiveRecordId],
+        }),
+      ]);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "重新评估失败");
+    } finally {
+      setIsReassessingResume(false);
+    }
+  }
 
   // 面试报告与表单仅面试模式查询 / Reports and form submissions only in interview mode
   const { data: reports = [], isLoading: isReportsLoading } = useQuery({
@@ -2073,11 +2220,18 @@ function useStudioPersonDetailPanel({
 
           {mode === "resume" ? (
             <TabsContent value="ai-analysis">
-              {resumeRecord?.resumeReview ? (
-                <ResumeReviewStructuredView review={resumeRecord.resumeReview} />
-              ) : (
-                <ResumeAiAnalysisPlaceholder resumeRecord={resumeRecord} />
-              )}
+              <div className="space-y-5">
+                <ResumeScreeningResultPanel
+                  onReassess={canUseManagementActions ? handleReassessResume : undefined}
+                  reassessing={isReassessingResume}
+                  resumeRecord={resumeRecord}
+                />
+                {resumeRecord?.resumeReview ? (
+                  <ResumeReviewStructuredView review={resumeRecord.resumeReview} />
+                ) : (
+                  <ResumeAiAnalysisPlaceholder resumeRecord={resumeRecord} />
+                )}
+              </div>
             </TabsContent>
           ) : null}
 

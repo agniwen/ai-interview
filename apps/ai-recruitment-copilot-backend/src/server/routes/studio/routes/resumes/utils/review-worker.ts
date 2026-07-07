@@ -14,6 +14,8 @@ async function markResumeReviewFailed(input: {
     .set({
       resumeReviewError: input.errorMessage.slice(0, 1000),
       resumeReviewStatus: "failed",
+      resumeScreeningError: input.errorMessage.slice(0, 1000),
+      resumeScreeningStatus: "failed",
       updatedAt: new Date(),
     })
     .where(
@@ -30,6 +32,8 @@ export async function processResumeReviewGenerationJob(input: ResumeReviewGenera
       jobDescriptionId: studioInterview.jobDescriptionId,
       resumeProfile: studioInterview.resumeProfile,
       resumeReview: studioInterview.resumeReview,
+      resumeScreeningResult: studioInterview.resumeScreeningResult,
+      resumeText: studioInterview.resumeText,
     })
     .from(studioInterview)
     .where(
@@ -50,6 +54,8 @@ export async function processResumeReviewGenerationJob(input: ResumeReviewGenera
         resumeReviewError: null,
         resumeReviewGeneratedAt: new Date(),
         resumeReviewStatus: "ready",
+        resumeScreeningError: null,
+        resumeScreeningStatus: record.resumeScreeningResult ? "ready" : "idle",
         updatedAt: new Date(),
       })
       .where(
@@ -77,6 +83,8 @@ export async function processResumeReviewGenerationJob(input: ResumeReviewGenera
     .set({
       resumeReviewError: null,
       resumeReviewStatus: "processing",
+      resumeScreeningError: null,
+      resumeScreeningStatus: "processing",
       updatedAt: new Date(),
     })
     .where(
@@ -92,6 +100,7 @@ export async function processResumeReviewGenerationJob(input: ResumeReviewGenera
       logPrefix: "[resume-review-generation-worker]",
       organizationId: input.organizationId,
       resumeProfile: record.resumeProfile,
+      resumeText: record.resumeText,
     });
     if (!generated?.structuredReview) {
       throw new Error("AI 分析生成失败。");
@@ -103,6 +112,10 @@ export async function processResumeReviewGenerationJob(input: ResumeReviewGenera
         resumeReviewError: null,
         resumeReviewGeneratedAt: new Date(),
         resumeReviewStatus: "ready",
+        resumeScreeningError: null,
+        resumeScreeningEvaluatedAt: new Date(),
+        resumeScreeningResult: generated.screeningResult,
+        resumeScreeningStatus: "ready",
         updatedAt: new Date(),
       })
       .where(

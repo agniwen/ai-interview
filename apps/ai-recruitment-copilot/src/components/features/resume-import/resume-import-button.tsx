@@ -407,6 +407,7 @@ export function ResumeImportButton({
             candidateEmail: "",
             candidateName: "",
             candidatePhone: "",
+            hrResumeAssessment: "",
             jobDescriptionId,
             notes: "",
             resumeEvaluationStatus: "unreviewed",

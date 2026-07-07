@@ -134,6 +134,78 @@ _Avoid_: File id, checksum when discussing product behavior
 A user-scoped attachment record that can also act as the canonical registry for resume file bytes and parsed resume facts.
 _Avoid_: Resume record, S3 object
 
+**Resume Screening Rule**:
+A job-description-specific requirement used to compare a resume profile against recruiting expectations before interview progression.
+_Avoid_: Prompt instruction, hidden hard filter
+
+**Draft Resume Screening Rule**:
+A resume screening rule suggestion that has not yet been confirmed for use in resume screening.
+_Avoid_: Active rule, saved requirement
+
+**Active Resume Screening Rule**:
+A resume screening rule that has been confirmed for use in resume screening.
+_Avoid_: AI suggestion, draft rule
+
+**Resume Screening Rule Severity**:
+The configured strength of a resume screening rule, determining whether a rule result is informational, warning-level, or blocking for screening guidance.
+_Avoid_: Score weight, automatic outcome
+
+**Deterministic Resume Screening Rule**:
+A resume screening rule that can be evaluated from structured resume profile fields without semantic judgment.
+_Avoid_: AI judgment, semantic requirement
+
+**Resume Screening Field Rule**:
+A resume screening rule evaluated from a specific structured resume profile field, such as education level or work years.
+_Avoid_: Skill semantic match, open-ended evidence rule
+
+**Resume Screening Skill Rule**:
+A resume screening rule where a recruiter configures required skills and the system evaluates resume evidence for semantically equivalent skill experience.
+_Avoid_: Manually maintained alias list, open-ended semantic requirement
+
+**Semantic Resume Screening Rule**:
+A resume screening rule that asks whether the resume provides evidence for a qualitative job expectation.
+_Avoid_: Deterministic failure, automatic disqualification
+
+**Resume Screening Evidence Agent**:
+The narrow AI evaluator that extracts evidence for resume screening skill rules and semantic resume screening rules.
+_Avoid_: Resume review agent, final decision maker
+
+**Resume Screening Policy**:
+The current set of resume screening rules configured on a job description.
+_Avoid_: Resume review prompt, candidate filter text
+
+**Resume Screening Result**:
+The system's recommendation after applying resume screening rules to a resume record; it may suggest pass, hold, or risk, but it is not a final candidate outcome.
+_Avoid_: Rejection, candidate status, final verdict
+
+**Resume Screening Evidence**:
+The cited resume fact, text, inference, or manual note used to explain one resume screening rule result.
+_Avoid_: Hidden model reasoning, score rationale
+
+**Resume Screening Recommendation**:
+The action guidance produced by a resume screening result, limited to pass, flag, or hold unless a human later changes the candidate outcome.
+_Avoid_: Automatic rejection, closed outcome
+
+**Resume Screening Snapshot**:
+The stable record of which resume screening policy and rule results were used for one resume screening result.
+_Avoid_: Current job rule, live policy
+
+**Stale Resume Screening Snapshot**:
+A resume screening snapshot created with an older resume screening policy than the current job description policy.
+_Avoid_: Invalid result, failed screening
+
+**Resume Review**:
+The generated evaluation of how a resume record matches a job description, including dimensions, strengths, risks, and next-step guidance.
+_Avoid_: Screening result, final candidate outcome, manual feedback note
+
+**HR Resume Assessment**:
+A human-written assessment of a resume record that captures the recruiter's judgment separately from the generated resume review.
+_Avoid_: Resume review, screening result, interview report
+
+**Resume Reassessment**:
+The act of regenerating both resume screening and resume review for a resume record after relevant job-description context changes.
+_Avoid_: Screening-only refresh
+
 ### Interview Workflow
 
 **AI Interview Round**:

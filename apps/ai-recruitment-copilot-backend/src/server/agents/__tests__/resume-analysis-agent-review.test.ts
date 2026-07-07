@@ -86,22 +86,6 @@ const PROFILE_WITH_DEGREE: ResumeProfile = {
   ],
 };
 
-// Agent 0 门槛提取输出（无硬性门槛）。
-const HARD_FILTER_PASS = {
-  minimumEducation: null,
-  minimumWorkYears: null,
-  requiredSkills: null,
-  semanticRequirements: ["有从零到一建设经验"],
-};
-
-// Agent 0 门槛提取输出（学历不达标）。
-const HARD_FILTER_FAIL = {
-  minimumEducation: "硕士",
-  minimumWorkYears: null,
-  requiredSkills: null,
-  semanticRequirements: null,
-};
-
 // Agent 1 定性输出 —— 不含 score / dimensions。
 const QUALITATIVE_OUTPUT = {
   biasScan: { items: [] },
@@ -167,10 +151,9 @@ const EXPECTED_REVIEW: ResumeReview = {
   weaknesses: QUALITATIVE_OUTPUT.weaknesses,
 };
 
-// 三阶段 mock：Agent 0 (pass) → Agent 1 → Agent 2。
+// 两阶段 mock：Agent 1 → Agent 2。硬性筛选结果由上游 policy evaluator 传入。
 function mockThreeAgentPipeline() {
   mocks.generateStructuredWithMastraAgent
-    .mockResolvedValueOnce(HARD_FILTER_PASS)
     .mockResolvedValueOnce(QUALITATIVE_OUTPUT)
     .mockResolvedValueOnce(SCORING_OUTPUT);
 }
@@ -220,7 +203,7 @@ describe("generateResumeReview", () => {
     vi.useRealTimers();
   });
 
-  it("runs three-agent pipeline (hard filter pass + qualitative + scoring) and assembles v4 review", async () => {
+  it("runs qualitative + scoring pipeline and assembles v4 review", async () => {
     mockThreeAgentPipeline();
 
     const result = await generateResumeReview({
@@ -231,20 +214,16 @@ describe("generateResumeReview", () => {
     expect(result.structuredReview).toEqual(EXPECTED_REVIEW);
     expect(result.structuredReview.overall.baseScore).toBe(88);
     expect(result.review).toBe(formatResumeReviewMarkdown(EXPECTED_REVIEW));
-    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledTimes(3);
+    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledTimes(2);
     expect(mocks.generateStructuredWithMastraAgent).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({ agent: mocks.resumeHardFilterAgent, schema: expect.any(Object) }),
-    );
-    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenNthCalledWith(
-      2,
       expect.objectContaining({
         agent: mocks.resumeReviewQualitativeAgent,
         schema: expect.any(Object),
       }),
     );
     expect(mocks.generateStructuredWithMastraAgent).toHaveBeenNthCalledWith(
-      3,
+      2,
       expect.objectContaining({
         agent: mocks.resumeReviewScoringAgent,
         schema: expect.any(Object),
@@ -262,7 +241,7 @@ describe("generateResumeReview", () => {
       }),
     );
 
-    expect(events).toContainEqual(
+    expect(events).not.toContainEqual(
       expect.objectContaining({ stepId: "hard-filter", type: "step.started" }),
     );
     expect(events).toContainEqual(
@@ -365,20 +344,40 @@ describe("generateResumeReview", () => {
     }
   });
 
-  it("skips Agent 1/2 when hard filter fails (short-circuit reject)", async () => {
-    mocks.generateStructuredWithMastraAgent.mockResolvedValueOnce(HARD_FILTER_FAIL);
+  it("injects confirmed screening result into review prompts without running hard filter", async () => {
+    mockThreeAgentPipeline();
 
     const result = await generateResumeReview({
       jobDescription: "岗位要求硕士以上",
       resumeProfile: PROFILE_WITH_DEGREE,
+      screeningResult: {
+        policyEmpty: false,
+        policyEnabled: true,
+        policyHash: "abc123",
+        policyVersion: 2,
+        recommendation: "hold",
+        ruleResults: [
+          {
+            evidence: [],
+            label: "最低学历：硕士",
+            reason: "候选人学历未满足硕士及以上要求。",
+            ruleId: "minimum-education",
+            severity: "blocking",
+            status: "fail",
+            type: "field",
+          },
+        ],
+      },
     });
 
-    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledTimes(1);
-    expect(result.structuredReview.overall.baseScore).toBe(0);
-    expect(result.structuredReview.nextStep.action).toBe("reject");
-    expect(result.structuredReview.biasScan.items).toHaveLength(1);
-    expect(result.structuredReview.biasScan.items[0].category).toBe("hard_gap");
-    expect(result.structuredReview.biasScan.items[0].description).toContain("学历不达标");
+    expect(result.structuredReview.overall.baseScore).toBe(88);
+    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledTimes(2);
+    expect(mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0]?.prompt).toContain(
+      "已确认的简历筛选结果",
+    );
+    expect(mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0]?.prompt).toContain(
+      "最低学历：硕士",
+    );
   });
 
   it("skips hard filter entirely when no JD is provided", async () => {

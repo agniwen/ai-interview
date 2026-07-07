@@ -4,6 +4,10 @@ import type {
   JobDescriptionMetrics,
   JobDescriptionRecord,
 } from "@arc/shared/job-descriptions";
+import {
+  createDefaultResumeScreeningPolicy,
+  resumeScreeningPolicySchema,
+} from "@arc/shared/resume-screening";
 import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
 import { and, asc, count, desc, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
@@ -48,6 +52,11 @@ const jobDescriptionPaginationSchema = makePaginationSchema(SORT_COLUMNS);
 export type JobDescriptionPaginationParams = PaginationParams<SortColumn>;
 
 export type PaginatedJobDescriptionResult = PaginatedResult<JobDescriptionListRecord>;
+
+function parseResumeScreeningPolicy(value: unknown) {
+  const parsedPolicy = resumeScreeningPolicySchema.safeParse(value);
+  return parsedPolicy.success ? parsedPolicy.data : createDefaultResumeScreeningPolicy();
+}
 
 function buildWhereConditions({
   organizationId,
@@ -154,6 +163,9 @@ function listJobDescriptionRows({
       name: jobDescription.name,
       presetQuestions: jobDescription.presetQuestions,
       prompt: jobDescription.prompt,
+      resumeScreeningPolicy: jobDescription.resumeScreeningPolicy,
+      resumeScreeningPolicyHash: jobDescription.resumeScreeningPolicyHash,
+      resumeScreeningPolicyVersion: jobDescription.resumeScreeningPolicyVersion,
       updatedAt: jobDescription.updatedAt,
     })
     .from(jobDescription)
@@ -276,6 +288,7 @@ function toJobDescriptionListRecord(
   interviewers: JobDescriptionInterviewerSummary[],
   resumeCount: number,
 ): JobDescriptionListRecord {
+  const resumeScreeningPolicy = parseResumeScreeningPolicy(row.resumeScreeningPolicy);
   return {
     allowCrossDepartmentInterviewers: row.allowCrossDepartmentInterviewers,
     code: row.code,
@@ -291,6 +304,9 @@ function toJobDescriptionListRecord(
     presetQuestions: row.presetQuestions ?? [],
     prompt: row.prompt,
     resumeCount,
+    resumeScreeningPolicy,
+    resumeScreeningPolicyHash: row.resumeScreeningPolicyHash,
+    resumeScreeningPolicyVersion: row.resumeScreeningPolicyVersion,
     updatedAt: serializeDate(row.updatedAt),
   };
 }
@@ -471,20 +487,11 @@ export async function loadJobDescriptionById(
   }
   const interviewersMap = await loadInterviewersForJobDescriptions([id]);
   const interviewers = interviewersMap.get(id) ?? [];
-  return {
-    allowCrossDepartmentInterviewers: row.allowCrossDepartmentInterviewers,
-    code: row.code,
-    createdAt: serializeDate(row.createdAt),
-    createdBy: row.createdBy,
-    departmentId: row.departmentId,
-    description: row.description,
-    id: row.id,
-    interviewerIds: interviewers.map((item) => item.id),
-    name: row.name,
-    presetQuestions: row.presetQuestions ?? [],
-    prompt: row.prompt,
-    updatedAt: serializeDate(row.updatedAt),
-  };
+  // eslint-disable-next-line no-use-before-define -- kept near public load functions for readability.
+  return serializeJobDescription(
+    row,
+    interviewers.map((item) => item.id),
+  );
 }
 
 // =========================================================================
@@ -644,6 +651,7 @@ export function serializeJobDescription(
   row: typeof jobDescription.$inferSelect,
   interviewerIds: string[],
 ): JobDescriptionRecord {
+  const resumeScreeningPolicy = parseResumeScreeningPolicy(row.resumeScreeningPolicy);
   return {
     allowCrossDepartmentInterviewers: row.allowCrossDepartmentInterviewers,
     code: row.code,
@@ -656,6 +664,9 @@ export function serializeJobDescription(
     name: row.name,
     presetQuestions: row.presetQuestions ?? [],
     prompt: row.prompt,
+    resumeScreeningPolicy,
+    resumeScreeningPolicyHash: row.resumeScreeningPolicyHash,
+    resumeScreeningPolicyVersion: row.resumeScreeningPolicyVersion,
     updatedAt: serializeDate(row.updatedAt),
   };
 }

@@ -40,6 +40,7 @@ import type {
   ResumeStageProgress,
 } from "@arc/shared/studio-resumes";
 import type { ResumeDuplicateMatchSummary } from "@arc/shared/resume-duplicates";
+import { resumeScreeningResultSchema } from "@arc/shared/resume-screening";
 import { normalizeSkill } from "./skills";
 
 const SORT_COLUMNS = ["createdAt", "candidateName", "updatedAt"] as const;
@@ -168,12 +169,16 @@ const SELECTED_COLUMNS = {
   creatorImage: user.image,
   creatorName: user.name,
   creatorOrganizationName: user.feishuTenantName,
+  hrResumeAssessment: studioInterview.hrResumeAssessment,
+  hrResumeAssessmentUpdatedAt: studioInterview.hrResumeAssessmentUpdatedAt,
+  hrResumeAssessmentUpdatedBy: studioInterview.hrResumeAssessmentUpdatedBy,
   humanInterviewScheduledAt: studioInterview.humanInterviewScheduledAt,
   humanInterviewerId: studioInterview.humanInterviewerId,
   id: studioInterview.id,
   jobDescriptionDepartmentName: department.name,
   jobDescriptionId: studioInterview.jobDescriptionId,
   jobDescriptionName: jobDescription.name,
+  jobDescriptionResumeScreeningPolicyHash: jobDescription.resumeScreeningPolicyHash,
   notes: studioInterview.notes,
   offerAcceptedAt: studioInterview.offerAcceptedAt,
   offerSentAt: studioInterview.offerSentAt,
@@ -224,6 +229,10 @@ const SELECTED_COLUMNS = {
   resumeSchool: sql<string | null>`${studioInterview.resumeProfile}->'schools'->>0`.as(
     "resume_school",
   ),
+  resumeScreeningError: studioInterview.resumeScreeningError,
+  resumeScreeningEvaluatedAt: studioInterview.resumeScreeningEvaluatedAt,
+  resumeScreeningResult: studioInterview.resumeScreeningResult,
+  resumeScreeningStatus: studioInterview.resumeScreeningStatus,
   resumeSkills: sql<unknown>`${studioInterview.resumeProfile}->'skills'`.as("resume_skills"),
   resumeStorageKey: studioInterview.resumeStorageKey,
   resumeWorkCompany: sql<
@@ -377,6 +386,11 @@ function buildResumeSkills(value: unknown) {
       return true;
     })
     .slice(0, 6);
+}
+
+function parseResumeScreeningResult(value: unknown) {
+  const parsed = resumeScreeningResultSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
 function toRecordArray(value: unknown): Record<string, unknown>[] {
@@ -726,6 +740,12 @@ function toRecord(
   duplicateMatch?: ResumeDuplicateMatchSummary | null,
 ): ResumeLibraryListRecord {
   const resolvedDerived = derived ?? EMPTY_DERIVED_FIELDS;
+  const resumeScreeningResult = parseResumeScreeningResult(row.resumeScreeningResult);
+  const resumeScreeningStale = Boolean(
+    resumeScreeningResult?.policyHash &&
+    row.jobDescriptionResumeScreeningPolicyHash &&
+    resumeScreeningResult.policyHash !== row.jobDescriptionResumeScreeningPolicyHash,
+  );
   return {
     candidateEmail: row.candidateEmail,
     candidateExpectationsMeta: row.candidateExpectationsMeta,
@@ -742,6 +762,9 @@ function toRecord(
     duplicateMatch: duplicateMatch ?? null,
     hasInterviewRounds: resolvedDerived.hasInterviewRounds,
     hasResumeFile: Boolean(row.resumeStorageKey),
+    hrResumeAssessment: row.hrResumeAssessment,
+    hrResumeAssessmentUpdatedAt: serializeDate(row.hrResumeAssessmentUpdatedAt),
+    hrResumeAssessmentUpdatedBy: row.hrResumeAssessmentUpdatedBy,
     humanInterviewScheduledAt: serializeDate(row.humanInterviewScheduledAt),
     humanInterviewerId: row.humanInterviewerId,
     id: row.id,
@@ -765,6 +788,11 @@ function toRecord(
     resumeReviewGeneratedAt: serializeDate(row.resumeReviewGeneratedAt),
     resumeReviewQueuedAt: serializeDate(row.resumeReviewQueuedAt),
     resumeReviewStatus: row.resumeReviewStatus,
+    resumeScreeningError: row.resumeScreeningError,
+    resumeScreeningEvaluatedAt: serializeDate(row.resumeScreeningEvaluatedAt),
+    resumeScreeningResult,
+    resumeScreeningStale,
+    resumeScreeningStatus: row.resumeScreeningStatus,
     resumeSkills: buildResumeSkills(row.resumeSkills),
     resumeSummary: row.resumeReviewConclusion ?? row.notes?.trim() ?? null,
     stageProgress: resolvedDerived.stageProgress,

@@ -230,6 +230,78 @@ function ResumeEvaluationStatusField({
   );
 }
 
+function CandidateAssessmentFields({
+  disabled,
+  form,
+  notesDisabled,
+  notesEditorLeadingContent,
+  notesLabelAction,
+}: {
+  disabled?: boolean;
+  form: CandidateFormApi;
+  notesDisabled: boolean;
+  notesEditorLeadingContent?: ReactNode;
+  notesLabelAction?: ReactNode;
+}) {
+  return (
+    <>
+      <form.Field name="hrResumeAssessment">
+        {(field) => {
+          const errors = toFieldErrors(field.state.meta.errors);
+          return (
+            <Field>
+              <FieldLabel htmlFor={field.name}>HR 评价</FieldLabel>
+              <FieldContent className="gap-2">
+                <MarkdownEditor
+                  aria-invalid={!!errors?.length}
+                  disabled={disabled}
+                  id={field.name}
+                  maxLength={NOTES_MAX_LENGTH}
+                  minHeight={120}
+                  onBlur={field.handleBlur}
+                  onChange={field.handleChange}
+                  placeholder="记录人工判断、补充观察或后续跟进重点"
+                  value={field.state.value}
+                />
+                <FieldError errors={errors} />
+              </FieldContent>
+            </Field>
+          );
+        }}
+      </form.Field>
+
+      <form.Field name="notes">
+        {(field) => {
+          const errors = toFieldErrors(field.state.meta.errors);
+          return (
+            <Field>
+              <div className="flex items-center gap-2">
+                <FieldLabel htmlFor={field.name}>系统简历评价</FieldLabel>
+                {notesLabelAction}
+              </div>
+              <FieldContent className="gap-2">
+                {notesEditorLeadingContent}
+                <MarkdownEditor
+                  aria-invalid={!!errors?.length}
+                  disabled={disabled || notesDisabled}
+                  id={field.name}
+                  maxLength={NOTES_MAX_LENGTH}
+                  minHeight={180}
+                  onBlur={field.handleBlur}
+                  onChange={field.handleChange}
+                  placeholder="对候选人简历的评价、来源、业务线、关注点等"
+                  value={field.state.value}
+                />
+                <FieldError errors={errors} />
+              </FieldContent>
+            </Field>
+          );
+        }}
+      </form.Field>
+    </>
+  );
+}
+
 export function CandidateFormFields({
   form,
   resumeFile,
@@ -440,34 +512,13 @@ export function CandidateFormFields({
       ) : null}
 
       {showDetails ? (
-        <form.Field name="notes">
-          {(field) => {
-            const errors = toFieldErrors(field.state.meta.errors);
-            return (
-              <Field>
-                <div className="flex items-center gap-2">
-                  <FieldLabel htmlFor={field.name}>简历评价</FieldLabel>
-                  {notesLabelAction}
-                </div>
-                <FieldContent className="gap-2">
-                  {notesEditorLeadingContent}
-                  <MarkdownEditor
-                    aria-invalid={!!errors?.length}
-                    disabled={disabled || notesDisabled}
-                    id={field.name}
-                    maxLength={NOTES_MAX_LENGTH}
-                    minHeight={180}
-                    onBlur={field.handleBlur}
-                    onChange={field.handleChange}
-                    placeholder="对候选人简历的评价、来源、业务线、关注点等"
-                    value={field.state.value}
-                  />
-                  <FieldError errors={errors} />
-                </FieldContent>
-              </Field>
-            );
-          }}
-        </form.Field>
+        <CandidateAssessmentFields
+          disabled={disabled}
+          form={form}
+          notesDisabled={notesDisabled}
+          notesEditorLeadingContent={notesEditorLeadingContent}
+          notesLabelAction={notesLabelAction}
+        />
       ) : null}
     </div>
   );

@@ -91,6 +91,14 @@ export const resumeHardFilterAgent = new Agent({
   name: "ResumeHardFilterAgent",
 });
 
+export const resumeScreeningEvidenceAgent = new Agent({
+  id: "resume-screening-evidence-agent",
+  instructions: "你是简历筛选证据助手，只根据已确认的岗位筛选规则判断简历证据。",
+  maxRetries: 1,
+  model: mastraModels.structuredModel,
+  name: "ResumeScreeningEvidenceAgent",
+});
+
 export const resumeReviewQualitativeAgent = new Agent({
   id: "resume-review-qualitative-agent",
   instructions: "你是招聘评估助手，负责生成简历与岗位匹配的结构化定性评价。",

@@ -11,6 +11,7 @@ import {
   studioInterview,
 } from "@arc/db-schema/schema";
 import { jobDescriptionFormSchema, jobDescriptionUpdateSchema } from "@arc/shared/job-descriptions";
+import { computeResumeScreeningPolicyHash } from "@arc/shared/resume-screening";
 import type { ReferralLinkCreateResult } from "@arc/shared/referrals";
 import { validateJobDescriptionInterviewerDepartments } from "@arc/shared/job-description-interviewers";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
@@ -225,6 +226,9 @@ export const jobDescriptionsRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       const input = c.req.valid("json");
+      const resumeScreeningPolicyHash = computeResumeScreeningPolicyHash(
+        input.resumeScreeningPolicy,
+      );
       const interviewerIds = dedupeInterviewerIds(input.interviewerIds);
       if (interviewerIds.length === 0) {
         return c.json({ error: "请至少选择一位面试官。" }, 400);
@@ -268,6 +272,9 @@ export const jobDescriptionsRouter = factory
           // data; new rows always store an empty array.
           presetQuestions: [],
           prompt: input.prompt.trim(),
+          resumeScreeningPolicy: input.resumeScreeningPolicy,
+          resumeScreeningPolicyHash,
+          resumeScreeningPolicyVersion: input.resumeScreeningPolicy.version,
           updatedAt: now,
         } satisfies typeof jobDescription.$inferSelect;
 
@@ -385,6 +392,14 @@ export const jobDescriptionsRouter = factory
       }
 
       const input = c.req.valid("json");
+      const nextPolicyHash = computeResumeScreeningPolicyHash(input.resumeScreeningPolicy);
+      const existingPolicyHash =
+        existing.resumeScreeningPolicyHash ??
+        computeResumeScreeningPolicyHash(existing.resumeScreeningPolicy);
+      const policyChanged = nextPolicyHash !== existingPolicyHash;
+      const nextPolicyVersion = policyChanged
+        ? existing.resumeScreeningPolicyVersion + 1
+        : existing.resumeScreeningPolicyVersion;
       const interviewerIds = dedupeInterviewerIds(input.interviewerIds);
       if (interviewerIds.length === 0) {
         return c.json({ error: "请至少选择一位面试官。" }, 400);
@@ -408,6 +423,12 @@ export const jobDescriptionsRouter = factory
         ...(!existing.code && input.code ? { code: input.code } : {}),
         name: input.name.trim(),
         prompt: input.prompt.trim(),
+        resumeScreeningPolicy: {
+          ...input.resumeScreeningPolicy,
+          version: nextPolicyVersion,
+        },
+        resumeScreeningPolicyHash: nextPolicyHash,
+        resumeScreeningPolicyVersion: nextPolicyVersion,
         updatedAt: now,
       };
       try {

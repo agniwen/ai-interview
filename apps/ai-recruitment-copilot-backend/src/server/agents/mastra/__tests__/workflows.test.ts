@@ -91,7 +91,6 @@ describe("Mastra recruitment workflows", () => {
   it("models resume review as explicit hard filter, review, scoring, and composition steps", () => {
     expect(recruitmentWorkflows.resumeReviewWorkflow.id).toBe("resume-review-workflow");
     expect(stepIds(recruitmentWorkflows.resumeReviewWorkflow)).toEqual([
-      "hard-filter",
       "qualitative-review",
       "scoring",
       "compose-review",

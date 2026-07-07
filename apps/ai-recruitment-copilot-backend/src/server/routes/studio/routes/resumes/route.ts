@@ -76,7 +76,10 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { syncResumeProfileIdentity } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/profile-sync";
-import { generateResumeReviewBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-generation";
+import {
+  generateResumeReviewBestEffort,
+  generateResumeScreeningBestEffort,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-generation";
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
 
 const dedupCheckInputSchema = z.object({
@@ -122,6 +125,7 @@ function parseResumeLibraryFormData(
     candidateEmail: toNullableString(formData.get("candidateEmail")) ?? "",
     candidateName: toNullableString(formData.get("candidateName")) ?? "",
     candidatePhone: toNullableString(formData.get("candidatePhone")) ?? "",
+    hrResumeAssessment: toNullableString(formData.get("hrResumeAssessment")) ?? "",
     jobDescriptionId: toNullableString(formData.get("jobDescriptionId")) ?? "",
     notes: toNullableString(formData.get("notes")) ?? "",
     resumeEvaluationStatus:
@@ -333,6 +337,92 @@ export const resumeLibraryRouter = factory
       return c.json({ error: "记录不存在。" }, 404);
     }
     return c.json(record, 200);
+  })
+  .post("/:id/reassess", requirePermission("resumeLibrary", "update"), async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const id = c.req.param("id");
+    const visibilityScope = await loadVisibilityScope(
+      activeOrg.id,
+      c.var.member?.role,
+      c.var.user?.id,
+    );
+    const existing = await loadResumeDetail(id, activeOrg.id, visibilityScope);
+    if (!existing) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    if (existing.pipelineStage === "closed" || existing.outcome !== "in_pipeline") {
+      return c.json({ error: "已结案候选人不能重新评估。" }, 409);
+    }
+    if (existing.resumeParseStatus !== "ready" || !existing.resumeProfile) {
+      return c.json({ error: "简历解析完成后才能重新评估。" }, 409);
+    }
+    if (!existing.jobDescriptionId) {
+      return c.json({ error: "请先关联在招岗位后再重新评估。" }, 409);
+    }
+
+    const [row] = await db
+      .select({ resumeText: studioInterview.resumeText })
+      .from(studioInterview)
+      .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)))
+      .limit(1);
+
+    await db
+      .update(studioInterview)
+      .set({
+        resumeReviewError: null,
+        resumeReviewStatus: "processing",
+        resumeScreeningError: null,
+        resumeScreeningStatus: "processing",
+        updatedAt: new Date(),
+      })
+      .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)));
+
+    const generated = await generateResumeReviewBestEffort({
+      jobDescriptionId: existing.jobDescriptionId,
+      logPrefix: "[studio-resumes-reassess]",
+      organizationId: activeOrg.id,
+      resumeProfile: existing.resumeProfile,
+      resumeText: row?.resumeText ?? null,
+    });
+
+    if (!generated?.structuredReview) {
+      await db
+        .update(studioInterview)
+        .set({
+          resumeReviewError: "AI 重新评估失败，请稍后重试。",
+          resumeReviewStatus: "failed",
+          resumeScreeningError: "AI 重新评估失败，请稍后重试。",
+          resumeScreeningStatus: "failed",
+          updatedAt: new Date(),
+        })
+        .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)));
+      const detail = await loadResumeDetail(id, activeOrg.id, visibilityScope);
+      return c.json(detail, 500);
+    }
+
+    const now = new Date();
+    await db
+      .update(studioInterview)
+      .set({
+        notes: generated.review,
+        resumeReview: generated.structuredReview,
+        resumeReviewError: null,
+        resumeReviewGeneratedAt: now,
+        resumeReviewStatus: "ready",
+        resumeScreeningError: null,
+        resumeScreeningEvaluatedAt: now,
+        resumeScreeningResult: generated.screeningResult,
+        resumeScreeningStatus: "ready",
+        updatedAt: now,
+      })
+      .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)));
+
+    invalidateStudioInterviewCaches(activeOrg.id);
+    const detail = await loadResumeDetail(id, activeOrg.id, visibilityScope);
+    return c.json(detail, 200);
   })
   .get("/:id/review/timeline", async (c) => {
     const { activeOrg } = c.var;
@@ -754,15 +844,27 @@ export const resumeLibraryRouter = factory
         resumeProfile,
       });
 
+      let generatedReview: Awaited<ReturnType<typeof generateResumeReviewBestEffort>> = null;
       let resumeReview = resumeReviewInput.data;
+      let resumeScreeningResult = null;
       if (!resumeReview && resumeProfile) {
-        const generatedReview = await generateResumeReviewBestEffort({
+        generatedReview = await generateResumeReviewBestEffort({
           jobDescriptionId: input.data.jobDescriptionId || null,
           logPrefix: "[studio-resumes]",
           organizationId: activeOrg.id,
           resumeProfile,
+          resumeText,
         });
         resumeReview = generatedReview?.structuredReview ?? null;
+        resumeScreeningResult = generatedReview?.screeningResult ?? null;
+      } else if (resumeProfile) {
+        resumeScreeningResult = await generateResumeScreeningBestEffort({
+          jobDescriptionId: input.data.jobDescriptionId || null,
+          logPrefix: "[studio-resumes]",
+          organizationId: activeOrg.id,
+          resumeProfile,
+          resumeText,
+        });
       }
 
       const recordId = await createResumeRecordFromStorage({
@@ -770,6 +872,7 @@ export const resumeLibraryRouter = factory
         candidateName: input.data.candidateName || null,
         candidatePhone: input.data.candidatePhone || null,
         contentHash: resumeContentHash,
+        hrResumeAssessment: input.data.hrResumeAssessment || null,
         interviewQuestions: parsedResumePayload?.interviewQuestions ?? [],
         jobDescriptionId: input.data.jobDescriptionId || null,
         notes: input.data.notes || null,
@@ -777,6 +880,7 @@ export const resumeLibraryRouter = factory
         resumeFileName: parsedFileName,
         resumeProfile,
         resumeReview,
+        resumeScreeningResult,
         resumeText,
         storageKey: resumeStorageKey,
         targetRole: input.data.targetRole || null,
@@ -949,10 +1053,19 @@ export const resumeLibraryRouter = factory
       // 显式白名单写入 —— 绝不触碰 interviewQuestions / status / schedule。
       // Explicit whitelist write — never touches interviewQuestions / status / schedule.
       const now = new Date();
+      const nextHrResumeAssessment = input.data.hrResumeAssessment || null;
+      const hrAssessmentChanged = existing.hrResumeAssessment !== nextHrResumeAssessment;
       const update = {
         candidateEmail: input.data.candidateEmail || null,
         candidateName: input.data.candidateName || resumeProfile?.name || existing.candidateName,
         candidatePhone: input.data.candidatePhone || resumeProfile?.phone || null,
+        hrResumeAssessment: nextHrResumeAssessment,
+        ...(hrAssessmentChanged
+          ? {
+              hrResumeAssessmentUpdatedAt: now,
+              hrResumeAssessmentUpdatedBy: c.var.user?.id ?? null,
+            }
+          : {}),
         jobDescriptionId: nextJobDescriptionId,
         notes: input.data.notes || null,
         resumeReview: nextResumeReview,

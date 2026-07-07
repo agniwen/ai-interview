@@ -3,14 +3,13 @@ import type { WorkflowStreamEvent } from "@mastra/core/stream";
 import { z } from "zod";
 import { resumeProfileSchema } from "@arc/db-schema/interview/types";
 import {
-  buildHardFilterRejectReview,
   composeResumeReviewResult,
   generateResumeQualitativeReview,
   generateResumeReviewScoring,
-  runResumeReviewHardFilter,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import type { AiRunEvent } from "@arc/shared/ai-run-events";
 import { emitMastraWorkflowStreamEvents } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/adapters/ai-run-stream";
+import { resumeScreeningResultSchema } from "@arc/shared/resume-screening";
 import type {
   ResumeQualitativeReview,
   ResumeReviewGenerationResult,
@@ -20,32 +19,15 @@ import type {
 const resumeReviewInputSchema = z.object({
   jobDescription: z.string().nullable().optional(),
   resumeProfile: resumeProfileSchema,
+  screeningResult: resumeScreeningResultSchema.nullable().optional(),
 });
-
-const hardFilterViolationSchema = z.object({
-  description: z.string(),
-  field: z.string(),
-  impact: z.string(),
-});
-
-const hardFilterResultSchema = z
-  .object({
-    semanticRequirements: z.array(z.string()).nullable(),
-    violations: z.array(hardFilterViolationSchema),
-  })
-  .nullable();
 
 const resumeReviewOutputSchema = z.object({
   review: z.string(),
   structuredReview: z.unknown(),
 });
 
-const hardFilterOutputSchema = resumeReviewInputSchema.extend({
-  hardFilterResult: hardFilterResultSchema,
-  rejectReview: resumeReviewOutputSchema.nullable(),
-});
-
-const qualitativeOutputSchema = hardFilterOutputSchema.extend({
+const qualitativeOutputSchema = resumeReviewInputSchema.extend({
   qualitative: z.unknown().nullable(),
 });
 
@@ -54,57 +36,36 @@ const scoringOutputSchema = qualitativeOutputSchema.extend({
 });
 
 export interface ResumeReviewWorkflowDeps {
-  buildRejectReview: typeof buildHardFilterRejectReview;
   composeReview: typeof composeResumeReviewResult;
   generateQualitativeReview: typeof generateResumeQualitativeReview;
   generateScoring: typeof generateResumeReviewScoring;
-  runHardFilter: typeof runResumeReviewHardFilter;
 }
 
 export function createResumeReviewWorkflow(deps: ResumeReviewWorkflowDeps) {
-  const hardFilterStep = createStep({
-    execute: async ({ inputData }) => {
-      const hardFilterResult = await deps.runHardFilter(
-        inputData.resumeProfile,
-        inputData.jobDescription,
-      );
-      const rejectReview =
-        hardFilterResult && hardFilterResult.violations.length > 0
-          ? deps.buildRejectReview(hardFilterResult.violations)
-          : null;
-      return { ...inputData, hardFilterResult, rejectReview };
-    },
-    id: "hard-filter",
-    inputSchema: resumeReviewInputSchema,
-    outputSchema: hardFilterOutputSchema,
-  });
-
   const qualitativeReviewStep = createStep({
     execute: async ({ inputData }) => {
-      if (inputData.rejectReview) {
-        return { ...inputData, qualitative: null };
-      }
       const qualitative = await deps.generateQualitativeReview({
         jobDescription: inputData.jobDescription,
         resumeProfile: inputData.resumeProfile,
-        semanticRequirements: inputData.hardFilterResult?.semanticRequirements ?? null,
+        screeningResult: inputData.screeningResult,
       });
       return { ...inputData, qualitative };
     },
     id: "qualitative-review",
-    inputSchema: hardFilterOutputSchema,
+    inputSchema: resumeReviewInputSchema,
     outputSchema: qualitativeOutputSchema,
   });
 
   const scoringStep = createStep({
     execute: async ({ inputData }) => {
-      if (inputData.rejectReview || !inputData.qualitative) {
+      if (!inputData.qualitative) {
         return { ...inputData, scoring: null };
       }
       const scoring = await deps.generateScoring({
         jobDescription: inputData.jobDescription,
         qualitative: inputData.qualitative as ResumeQualitativeReview,
         resumeProfile: inputData.resumeProfile,
+        screeningResult: inputData.screeningResult,
       });
       return { ...inputData, scoring };
     },
@@ -116,9 +77,6 @@ export function createResumeReviewWorkflow(deps: ResumeReviewWorkflowDeps) {
   const composeReviewStep = createStep({
     // oxlint-disable-next-line require-await -- Mastra step execute functions are typed as async.
     execute: async ({ inputData }) => {
-      if (inputData.rejectReview) {
-        return inputData.rejectReview;
-      }
       if (!(inputData.qualitative && inputData.scoring)) {
         throw new Error("Resume review workflow reached compose step without review outputs.");
       }
@@ -134,13 +92,11 @@ export function createResumeReviewWorkflow(deps: ResumeReviewWorkflowDeps) {
 
   return (
     createWorkflow({
-      description: "Run hard filter, qualitative review, and scoring for a resume.",
+      description: "Run qualitative review and scoring for a resume.",
       id: "resume-review-workflow",
       inputSchema: resumeReviewInputSchema,
       outputSchema: resumeReviewOutputSchema,
     })
-      // oxlint-disable-next-line prefer-await-to-then -- Mastra workflows compose steps with .then().
-      .then(hardFilterStep)
       // oxlint-disable-next-line prefer-await-to-then -- Mastra workflows compose steps with .then().
       .then(qualitativeReviewStep)
       // oxlint-disable-next-line prefer-await-to-then -- Mastra workflows compose steps with .then().
@@ -152,11 +108,9 @@ export function createResumeReviewWorkflow(deps: ResumeReviewWorkflowDeps) {
 }
 
 export const resumeReviewWorkflow = createResumeReviewWorkflow({
-  buildRejectReview: buildHardFilterRejectReview,
   composeReview: composeResumeReviewResult,
   generateQualitativeReview: generateResumeQualitativeReview,
   generateScoring: generateResumeReviewScoring,
-  runHardFilter: runResumeReviewHardFilter,
 });
 
 export async function runResumeReviewWorkflow(
@@ -186,7 +140,6 @@ export async function streamResumeReviewWorkflow(
     {
       stepLabels: {
         "compose-review": "生成评价摘要",
-        "hard-filter": "检查硬性门槛",
         "qualitative-review": "生成定性评价",
         scoring: "生成维度评分",
       },

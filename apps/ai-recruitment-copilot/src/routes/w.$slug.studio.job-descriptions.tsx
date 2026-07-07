@@ -25,6 +25,7 @@ import type {
   JobDescriptionMetrics,
   JobDescriptionRecord,
 } from "@arc/shared/job-descriptions";
+import { createDefaultResumeScreeningPolicy } from "@arc/shared/job-descriptions";
 import type { PaginatedJobDescriptionResult } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { JobDescriptionCharts } from "@/components/features/studio/job-descriptions/job-description-charts";
 import { ScopedResumesModal } from "@/components/features/studio/scoped-resumes-modal";
@@ -194,6 +195,7 @@ function JobDescriptionManagementPage({
       interviewerIds: [],
       name,
       prompt,
+      resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
     });
     setCreateDraftSessionId((id) => id + 1);
     crud.setEditingRecord(null);

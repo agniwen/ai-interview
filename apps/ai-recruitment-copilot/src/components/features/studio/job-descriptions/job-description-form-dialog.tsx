@@ -10,8 +10,17 @@ import type { CandidateFormTemplateListRecord } from "@arc/db-schema/candidate-f
 import type { DepartmentRecord } from "@arc/shared/departments";
 import type { InterviewerListRecord } from "@arc/shared/interviewers";
 import type { InterviewQuestionTemplateListRecord } from "@arc/db-schema/interview-question-templates";
-import { jobDescriptionFormSchema } from "@arc/shared/job-descriptions";
+import {
+  createDefaultResumeScreeningPolicy,
+  jobDescriptionFormSchema,
+} from "@arc/shared/job-descriptions";
 import type { JobDescriptionFormValues, JobDescriptionRecord } from "@arc/shared/job-descriptions";
+import type {
+  ResumeScreeningFieldRule,
+  ResumeScreeningPolicy,
+  ResumeScreeningRuleSeverity,
+  ResumeScreeningSkillRule,
+} from "@arc/shared/resume-screening";
 import {
   buildJobDescriptionInterviewerOptions,
   filterInterviewerIdsByDepartment,
@@ -49,6 +58,14 @@ import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
 const NAME_MAX_LENGTH = 120;
 const DESCRIPTION_MAX_LENGTH = 500;
 const PROMPT_MAX_LENGTH = 10_000;
+const SCREENING_TEXTAREA_MAX_LENGTH = 2000;
+const MIN_EDUCATION_RULE_ID = "minimum-education";
+const MIN_WORK_YEARS_RULE_ID = "minimum-work-years";
+const REQUIRED_SKILLS_RULE_ID = "required-skills";
+
+type JobDescriptionFormTab = "basic" | "screening" | "interview-questions" | "forms";
+type MinimumEducationRule = Extract<ResumeScreeningFieldRule, { field: "minimumEducation" }>;
+type MinimumWorkYearsRule = Extract<ResumeScreeningFieldRule, { field: "minimumWorkYears" }>;
 
 export function emptyJobDescriptionFormValues(): JobDescriptionFormValues {
   return {
@@ -59,6 +76,7 @@ export function emptyJobDescriptionFormValues(): JobDescriptionFormValues {
     interviewerIds: [],
     name: "",
     prompt: "",
+    resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
   };
 }
 
@@ -71,6 +89,7 @@ function toFormValues(record: JobDescriptionRecord): JobDescriptionFormValues {
     interviewerIds: [...record.interviewerIds],
     name: record.name,
     prompt: record.prompt,
+    resumeScreeningPolicy: record.resumeScreeningPolicy,
   };
 }
 
@@ -92,6 +111,350 @@ function toDepartmentScopedFormValues(
 
 function normalizeDepartmentId(value: string | null): string {
   return value ?? "";
+}
+
+function splitRuleLines(value: string): string[] {
+  return value
+    .split(/[\n,，]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function joinRuleLines(values: string[]) {
+  return values.join("\n");
+}
+
+function upsertRule<TRule extends ResumeScreeningPolicy["rules"][number]>(
+  rules: ResumeScreeningPolicy["rules"],
+  nextRule: TRule,
+) {
+  const without = rules.filter((rule) => rule.id !== nextRule.id);
+  return [...without, nextRule];
+}
+
+function removeRule(
+  rules: ResumeScreeningPolicy["rules"],
+  id: string,
+): ResumeScreeningPolicy["rules"] {
+  return rules.filter((rule) => rule.id !== id);
+}
+
+function getMinimumEducationRule(policy: ResumeScreeningPolicy) {
+  return policy.rules.find(
+    (rule): rule is MinimumEducationRule =>
+      rule.type === "field" && rule.field === "minimumEducation",
+  );
+}
+
+function getMinimumWorkYearsRule(policy: ResumeScreeningPolicy) {
+  return policy.rules.find(
+    (rule): rule is MinimumWorkYearsRule =>
+      rule.type === "field" && rule.field === "minimumWorkYears",
+  );
+}
+
+function getRequiredSkillsRule(policy: ResumeScreeningPolicy) {
+  return policy.rules.find((rule): rule is ResumeScreeningSkillRule => rule.type === "skill");
+}
+
+function ResumeScreeningPolicyFields({
+  policy,
+  onChange,
+}: {
+  policy: ResumeScreeningPolicy;
+  onChange: (policy: ResumeScreeningPolicy) => void;
+}) {
+  const minimumEducationRule = getMinimumEducationRule(policy);
+  const minimumWorkYearsRule = getMinimumWorkYearsRule(policy);
+  const requiredSkillsRule = getRequiredSkillsRule(policy);
+  const semanticRules = policy.rules.filter((rule) => rule.type === "semantic");
+  const skillSeverity = requiredSkillsRule?.severity ?? "warning";
+  const semanticSeverity = semanticRules[0]?.severity ?? "warning";
+
+  function patchPolicy(next: Partial<ResumeScreeningPolicy>) {
+    onChange({ ...policy, ...next });
+  }
+
+  function setMinimumEducation(level: MinimumEducationRule["level"]) {
+    patchPolicy({
+      rules: upsertRule(policy.rules, {
+        field: "minimumEducation",
+        id: MIN_EDUCATION_RULE_ID,
+        level,
+        severity: minimumEducationRule?.severity ?? "blocking",
+        type: "field",
+      }),
+    });
+  }
+
+  function setMinimumWorkYears(value: string) {
+    const years = Number.parseInt(value, 10);
+    if (!Number.isFinite(years) || years <= 0) {
+      patchPolicy({ rules: removeRule(policy.rules, MIN_WORK_YEARS_RULE_ID) });
+      return;
+    }
+    patchPolicy({
+      rules: upsertRule(policy.rules, {
+        field: "minimumWorkYears",
+        id: MIN_WORK_YEARS_RULE_ID,
+        severity: minimumWorkYearsRule?.severity ?? "blocking",
+        type: "field",
+        years,
+      }),
+    });
+  }
+
+  function setRequiredSkills(value: string) {
+    const requiredSkills = splitRuleLines(value);
+    if (requiredSkills.length === 0) {
+      patchPolicy({ rules: removeRule(policy.rules, REQUIRED_SKILLS_RULE_ID) });
+      return;
+    }
+    const matchMode =
+      requiredSkillsRule?.matchMode.type === "at_least"
+        ? {
+            count: Math.min(requiredSkillsRule.matchMode.count, requiredSkills.length),
+            type: "at_least" as const,
+          }
+        : { type: "all" as const };
+    patchPolicy({
+      rules: upsertRule(policy.rules, {
+        id: REQUIRED_SKILLS_RULE_ID,
+        matchMode,
+        requiredSkills,
+        severity: skillSeverity,
+        type: "skill",
+      }),
+    });
+  }
+
+  function setRequiredSkillsMatchMode(type: "all" | "at_least") {
+    if (!requiredSkillsRule) {
+      return;
+    }
+    patchPolicy({
+      rules: upsertRule(policy.rules, {
+        ...requiredSkillsRule,
+        matchMode:
+          type === "all"
+            ? { type: "all" }
+            : { count: Math.min(1, requiredSkillsRule.requiredSkills.length), type: "at_least" },
+      }),
+    });
+  }
+
+  function setRequiredSkillsMatchCount(value: string) {
+    if (!requiredSkillsRule) {
+      return;
+    }
+    const count = Number.parseInt(value, 10);
+    patchPolicy({
+      rules: upsertRule(policy.rules, {
+        ...requiredSkillsRule,
+        matchMode: {
+          count: Math.max(1, Math.min(count || 1, requiredSkillsRule.requiredSkills.length)),
+          type: "at_least",
+        },
+      }),
+    });
+  }
+
+  function setSemanticRules(value: string) {
+    const requirements = splitRuleLines(value);
+    const nonSemanticRules = policy.rules.filter((rule) => rule.type !== "semantic");
+    patchPolicy({
+      rules: [
+        ...nonSemanticRules,
+        ...requirements.map((requirement, index) => ({
+          id: `semantic-${index + 1}`,
+          requirement,
+          severity: semanticSeverity,
+          type: "semantic" as const,
+        })),
+      ],
+    });
+  }
+
+  return (
+    <div className="mt-4 space-y-5">
+      <Field>
+        <Card className="gap-0 rounded-lg py-0">
+          <CardContent className="flex items-center justify-between gap-4 px-3 py-2.5">
+            <div className="space-y-0.5">
+              <FieldLabel htmlFor="resume-screening-enabled">启用简历筛选规则</FieldLabel>
+              <p className="text-muted-foreground text-xs">
+                筛选结果只给出通过、需核实或暂缓推进，不会自动淘汰候选人。
+              </p>
+            </div>
+            <Switch
+              checked={policy.enabled}
+              id="resume-screening-enabled"
+              onCheckedChange={(enabled) => patchPolicy({ enabled })}
+            />
+          </CardContent>
+        </Card>
+      </Field>
+
+      <div className="grid gap-5 md:grid-cols-2">
+        <Field>
+          <FieldLabel>最低学历</FieldLabel>
+          <FieldContent className="gap-2">
+            <SearchableSelect
+              onChange={(value) =>
+                setMinimumEducation((value ?? "none") as MinimumEducationRule["level"])
+              }
+              options={["none", "专科", "本科", "硕士", "博士"].map((value) => ({
+                label: value === "none" ? "不限" : value,
+                value,
+              }))}
+              placeholder="不限"
+              value={minimumEducationRule?.level ?? "none"}
+            />
+            <SearchableSelect
+              onChange={(value) => {
+                if (minimumEducationRule) {
+                  patchPolicy({
+                    rules: upsertRule(policy.rules, {
+                      ...minimumEducationRule,
+                      severity: (value ?? "blocking") as ResumeScreeningRuleSeverity,
+                    }),
+                  });
+                }
+              }}
+              options={[
+                { label: "阻断", value: "blocking" },
+                { label: "提醒", value: "warning" },
+                { label: "信息", value: "info" },
+              ]}
+              placeholder="阻断"
+              value={minimumEducationRule?.severity ?? "blocking"}
+            />
+          </FieldContent>
+        </Field>
+
+        <Field>
+          <FieldLabel htmlFor="minimum-work-years">最低工作年限</FieldLabel>
+          <FieldContent className="gap-2">
+            <Input
+              id="minimum-work-years"
+              min={0}
+              onChange={(event) => setMinimumWorkYears(event.target.value)}
+              placeholder="不限"
+              type="number"
+              value={minimumWorkYearsRule?.years ?? ""}
+            />
+            <SearchableSelect
+              onChange={(value) => {
+                if (minimumWorkYearsRule) {
+                  patchPolicy({
+                    rules: upsertRule(policy.rules, {
+                      ...minimumWorkYearsRule,
+                      severity: (value ?? "blocking") as ResumeScreeningRuleSeverity,
+                    }),
+                  });
+                }
+              }}
+              options={[
+                { label: "阻断", value: "blocking" },
+                { label: "提醒", value: "warning" },
+                { label: "信息", value: "info" },
+              ]}
+              placeholder="阻断"
+              value={minimumWorkYearsRule?.severity ?? "blocking"}
+            />
+          </FieldContent>
+        </Field>
+      </div>
+
+      <Field>
+        <FieldLabel htmlFor="required-skills">必备技能</FieldLabel>
+        <FieldContent className="gap-3">
+          <Textarea
+            className="min-h-24"
+            id="required-skills"
+            maxLength={SCREENING_TEXTAREA_MAX_LENGTH}
+            onChange={(event) => setRequiredSkills(event.target.value)}
+            placeholder="每行一个技能，例如 React、TypeScript、Node.js"
+            value={joinRuleLines(requiredSkillsRule?.requiredSkills ?? [])}
+          />
+          <div className="grid gap-3 md:grid-cols-3">
+            <SearchableSelect
+              onChange={(value) => setRequiredSkillsMatchMode(value === "at_least" ? value : "all")}
+              options={[
+                { label: "全部满足", value: "all" },
+                { label: "至少 N 项", value: "at_least" },
+              ]}
+              placeholder="全部满足"
+              value={requiredSkillsRule?.matchMode.type ?? "all"}
+            />
+            <Input
+              disabled={requiredSkillsRule?.matchMode.type !== "at_least"}
+              min={1}
+              onChange={(event) => setRequiredSkillsMatchCount(event.target.value)}
+              placeholder="N"
+              type="number"
+              value={
+                requiredSkillsRule?.matchMode.type === "at_least"
+                  ? requiredSkillsRule.matchMode.count
+                  : ""
+              }
+            />
+            <SearchableSelect
+              onChange={(value) => {
+                if (requiredSkillsRule) {
+                  patchPolicy({
+                    rules: upsertRule(policy.rules, {
+                      ...requiredSkillsRule,
+                      severity: (value ?? "warning") as ResumeScreeningRuleSeverity,
+                    }),
+                  });
+                }
+              }}
+              options={[
+                { label: "阻断", value: "blocking" },
+                { label: "提醒", value: "warning" },
+                { label: "信息", value: "info" },
+              ]}
+              placeholder="提醒"
+              value={skillSeverity}
+            />
+          </div>
+        </FieldContent>
+      </Field>
+
+      <Field>
+        <FieldLabel htmlFor="semantic-screening-rules">其他语义要求</FieldLabel>
+        <FieldContent className="gap-3">
+          <Textarea
+            className="min-h-28"
+            id="semantic-screening-rules"
+            maxLength={SCREENING_TEXTAREA_MAX_LENGTH}
+            onChange={(event) => setSemanticRules(event.target.value)}
+            placeholder="每行一个要求，例如：有 0 到 1 搭建复杂前端项目经验"
+            value={joinRuleLines(semanticRules.map((rule) => rule.requirement))}
+          />
+          <SearchableSelect
+            onChange={(value) =>
+              patchPolicy({
+                rules: policy.rules.map((rule) =>
+                  rule.type === "semantic"
+                    ? { ...rule, severity: (value ?? "warning") as ResumeScreeningRuleSeverity }
+                    : rule,
+                ),
+              })
+            }
+            options={[
+              { label: "阻断", value: "blocking" },
+              { label: "提醒", value: "warning" },
+              { label: "信息", value: "info" },
+            ]}
+            placeholder="提醒"
+            value={semanticSeverity}
+          />
+        </FieldContent>
+      </Field>
+    </div>
+  );
 }
 
 // oxlint-disable-next-line complexity -- Dialog hosts tabs, queries, validation, and form submission together.
@@ -116,7 +479,7 @@ export function JobDescriptionFormDialog({
   const isEdit = record !== null;
   const codeLocked = Boolean(record?.code);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
-  const [activeTab, setActiveTab] = useState<"basic" | "interview-questions" | "forms">("basic");
+  const [activeTab, setActiveTab] = useState<JobDescriptionFormTab>("basic");
   const resolvedInitialValues = useMemo(() => {
     if (record) {
       return toDepartmentScopedFormValues(record, interviewers);
@@ -188,6 +551,7 @@ export function JobDescriptionFormDialog({
         interviewerIds: value.interviewerIds,
         name: value.name.trim(),
         prompt: value.prompt.trim(),
+        resumeScreeningPolicy: value.resumeScreeningPolicy,
       };
 
       const response = isEdit
@@ -221,9 +585,13 @@ export function JobDescriptionFormDialog({
         "description",
         "prompt",
       ];
+      const screeningFields = ["resumeScreeningPolicy"];
       const hasBasicError = basicFields.some((key) => (meta[key]?.errors?.length ?? 0) > 0);
+      const hasScreeningError = screeningFields.some((key) => (meta[key]?.errors?.length ?? 0) > 0);
       if (hasBasicError) {
         setActiveTab("basic");
+      } else if (hasScreeningError) {
+        setActiveTab("screening");
       }
     },
     validators: { onSubmit: jobDescriptionFormSchema },
@@ -276,10 +644,7 @@ export function JobDescriptionFormDialog({
   }
 
   return (
-    <Tabs
-      onValueChange={(value) => setActiveTab(value as "basic" | "interview-questions" | "forms")}
-      value={activeTab}
-    >
+    <Tabs onValueChange={(value) => setActiveTab(value as JobDescriptionFormTab)} value={activeTab}>
       <Modal
         open={open}
         onOpenChange={onOpenChange}
@@ -289,6 +654,7 @@ export function JobDescriptionFormDialog({
         headerExtra={
           <TabsList className="mt-2">
             <TabsTrigger value="basic">基本信息</TabsTrigger>
+            <TabsTrigger value="screening">筛选规则</TabsTrigger>
             {isEdit ? <TabsTrigger value="interview-questions">面试题</TabsTrigger> : null}
             {isEdit ? <TabsTrigger value="forms">面试表单</TabsTrigger> : null}
           </TabsList>
@@ -561,6 +927,16 @@ export function JobDescriptionFormDialog({
                   }}
                 </form.Field>
               </FieldGroup>
+            </TabsContent>
+            <TabsContent value="screening">
+              <form.Field name="resumeScreeningPolicy">
+                {(field) => (
+                  <ResumeScreeningPolicyFields
+                    onChange={field.handleChange}
+                    policy={field.state.value}
+                  />
+                )}
+              </form.Field>
             </TabsContent>
             {isEdit ? (
               <TabsContent value="interview-questions">
