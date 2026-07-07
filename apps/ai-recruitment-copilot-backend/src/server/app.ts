@@ -1,8 +1,10 @@
 import type { Env } from "@arc/ai-recruitment-copilot-backend/server/type";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { logger } from "hono/logger";
 import { auth } from "@arc/ai-recruitment-copilot-backend/lib/server/auth";
 import { runWithAuthRequestHeaders } from "@arc/ai-recruitment-copilot-backend/lib/server/auth-request-context";
+import { handleServerError } from "./error-handler";
 import { factory } from "./factory";
 import { betterAuthMiddleware } from "./middlewares/better-auth";
 import { agentRouter } from "./routes/agent/route";
@@ -41,6 +43,7 @@ const apiRoutes = factory
 // (auth/admin) belongs inside each router.
 export function createServerApp() {
   const honoApp = new Hono<Env>()
+    .use(logger())
     .use(
       "/api/auth/*",
       cors({
@@ -59,6 +62,7 @@ export function createServerApp() {
     .route("/api", apiRoutes);
 
   honoApp.notFound((c) => c.json({ error: "Not Found" }, 404));
+  honoApp.onError(handleServerError);
   return honoApp;
 }
 
