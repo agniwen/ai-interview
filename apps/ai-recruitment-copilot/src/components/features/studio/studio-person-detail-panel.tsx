@@ -259,7 +259,6 @@ interface CollectedCandidateInfoItem {
   meta: string | null;
   question: string;
   sequence: number;
-  sourceLabel: string;
 }
 
 type ReportSnapshotMetadata = NonNullable<StudioInterviewConversationReport["snapshotMetadata"]>;
@@ -310,24 +309,24 @@ function getCollectedCandidateInfoItems({
   evaluation: Record<string, unknown> | null | undefined;
   formSubmissions: CandidateFormSubmissionWithSnapshot[];
 }) {
-  const items: CollectedCandidateInfoItem[] = [];
+  const formItems: CollectedCandidateInfoItem[] = [];
 
   for (const submission of formSubmissions) {
     for (const question of submission.snapshot.questions) {
       const answer = formatFormAnswer(question, submission.answers[question.id]);
-      items.push({
+      formItems.push({
         analysis: null,
         answers: answer ? [answer] : [],
         id: `form-${submission.id}-${question.id}`,
         kind: "form",
         meta: submission.snapshot.title,
         question: question.label,
-        sequence: items.length + 1,
-        sourceLabel: "表单",
+        sequence: formItems.length + 1,
       });
     }
   }
 
+  const interviewItems: CollectedCandidateInfoItem[] = [];
   const questions = Array.isArray(evaluation?.questions) ? evaluation.questions : [];
 
   for (const [index, rawQuestion] of questions.entries()) {
@@ -353,26 +352,31 @@ function getCollectedCandidateInfoItems({
       return quote ? [quote] : [];
     });
 
-    items.push({
+    interviewItems.push({
       analysis,
       answers,
       id: `interview-${order}-${question}`,
       kind: "interview",
       meta: null,
       question,
-      sequence: items.length + 1,
-      sourceLabel: "面试",
+      sequence: interviewItems.length + 1,
     });
   }
 
-  return items;
+  return { formItems, interviewItems };
 }
 
-function CollectedCandidateInfoList({ items }: { items: CollectedCandidateInfoItem[] }) {
+function CollectedCandidateInfoList({
+  items,
+  emptyLabel,
+}: {
+  items: CollectedCandidateInfoItem[];
+  emptyLabel: string;
+}) {
   if (items.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border/70 bg-muted/30 px-4 py-8 text-center text-muted-foreground text-sm">
-        暂无可展示的收集信息。
+        {emptyLabel}
       </div>
     );
   }
@@ -390,9 +394,6 @@ function CollectedCandidateInfoList({ items }: { items: CollectedCandidateInfoIt
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge className="h-5 px-1.5 font-normal text-[10px]" variant="outline">
-                  {item.sourceLabel}
-                </Badge>
                 {item.meta ? (
                   <span className="text-muted-foreground text-xs leading-5">{item.meta}</span>
                 ) : null}
@@ -1605,7 +1606,7 @@ function useStudioPersonDetailPanel({
   const latestEvaluationSummary = getEvaluationSummary(
     latestReport?.evaluationCriteriaResults as Record<string, unknown> | undefined,
   );
-  const collectedCandidateInfoItems = getCollectedCandidateInfoItems({
+  const { formItems, interviewItems } = getCollectedCandidateInfoItems({
     evaluation: latestReport?.evaluationCriteriaResults as Record<string, unknown> | undefined,
     formSubmissions,
   });
@@ -2042,21 +2043,28 @@ function useStudioPersonDetailPanel({
               ) : null}
 
               <section className="xl:col-span-2 border-border/50 border-t pt-6">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h3 className="font-medium text-sm">候选人收集信息</h3>
-                    <p className="mt-1 text-muted-foreground text-xs">
-                      按表单、面试题顺序展示候选人提供的信息。
-                    </p>
-                  </div>
-                  {collectedCandidateInfoItems.length > 0 ? (
-                    <Badge variant="outline">{collectedCandidateInfoItems.length} 条信息</Badge>
-                  ) : null}
+                <div className="mb-4">
+                  <h3 className="font-medium text-sm">候选人收集信息</h3>
                 </div>
                 {isFormSubmissionsLoading || isReportsLoading ? (
                   <FormsSkeleton />
                 ) : (
-                  <CollectedCandidateInfoList items={collectedCandidateInfoItems} />
+                  <div className="grid gap-x-6 gap-y-8 md:grid-cols-2">
+                    <div>
+                      <div className="mb-3 flex items-center gap-2">
+                        <h4 className="font-medium text-sm">表单答复</h4>
+                        <Badge variant="outline">{formItems.length}</Badge>
+                      </div>
+                      <CollectedCandidateInfoList emptyLabel="暂无表单答复" items={formItems} />
+                    </div>
+                    <div>
+                      <div className="mb-3 flex items-center gap-2">
+                        <h4 className="font-medium text-sm">面试题</h4>
+                        <Badge variant="outline">{interviewItems.length}</Badge>
+                      </div>
+                      <CollectedCandidateInfoList emptyLabel="暂无面试题" items={interviewItems} />
+                    </div>
+                  </div>
                 )}
               </section>
 

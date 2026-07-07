@@ -69,12 +69,23 @@ describe("StudioPersonDetailPanel visual density", () => {
     expect(resultSource).not.toContain("<FormsTab");
     expect(resultSource).not.toContain("<InterviewAnswerList");
     expect(collectedSource).toContain("<CollectedCandidateInfoList");
-    expect(collectedSource).toContain("items={collectedCandidateInfoItems}");
+    expect(collectedSource).toContain("items={formItems}");
+    expect(collectedSource).toContain("items={interviewItems}");
     expect(resultSource).not.toContain("<ConversationTranscript");
     expect(source).toContain("function getCollectedCandidateInfoItems");
     expect(source).toContain("latestReport?.evaluationCriteriaResults");
     expectSourceOrder(overviewSource, "面试结果", "候选人收集信息");
     expectSourceOrder(overviewSource, "轮次概览", "候选人收集信息");
+    expect(overviewSource).not.toContain("按表单、面试题顺序展示");
+    // 旧扁平变量整体消失,精确证明顶部总数 badge 及其数据源已删(比查 "条信息" 更不易误报)
+    expect(source).not.toContain("collectedCandidateInfoItems");
+    expect(collectedSource).toContain("md:grid-cols-2");
+    expect(collectedSource).toContain("表单答复");
+    expect(collectedSource).toContain("面试题");
+    expect(collectedSource).toContain("{formItems.length}");
+    expect(collectedSource).toContain("{interviewItems.length}");
+    expect(collectedSource).toContain('emptyLabel="暂无表单答复"');
+    expect(collectedSource).toContain('emptyLabel="暂无面试题"');
   });
 
   it("shows AI analysis and clamps extracted candidate answers with a tooltip", () => {
@@ -88,13 +99,16 @@ describe("StudioPersonDetailPanel visual density", () => {
     );
 
     expect(source).toContain("rawQuestion.assessment");
-    expect(collectedItemsSource).toContain("sequence: items.length + 1");
+    expect(collectedItemsSource).toContain("sequence: formItems.length + 1");
+    expect(collectedItemsSource).toContain("sequence: interviewItems.length + 1");
     expectSourceOrder(collectedItemsSource, "for (const submission", "const questions =");
     expect(answerListSource).toContain("AI 分析");
     expect(answerListSource).toContain("问题");
     expect(answerListSource).toContain('item.kind === "interview" ? "候选人回答" : "回答"');
     expectSourceOrder(answerListSource, "问题", "AI 分析");
-    expect(answerListSource).toContain("sourceLabel");
+    expect(answerListSource).toContain("emptyLabel");
+    expect(collectedItemsSource).not.toContain("sourceLabel");
+    expect(answerListSource).not.toContain("sourceLabel");
     expect(answerListSource).toContain("{item.sequence}.");
     expect(answerListSource).toContain("border-border/60 border-b py-4 last:border-b-0");
     expect(answerListSource).not.toContain("rounded-xl border border-border/60 bg-background/70");
