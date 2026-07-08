@@ -116,6 +116,7 @@ import { useRoundEmailSummary } from "./interviews/round-email/use-round-email-s
 import { InterviewLinkQrButton } from "./interviews/interview-link-qr-button";
 import { ConversationTranscript } from "./interviews/interview-detail/conversation-transcript";
 import { KeywordHighlightProvider } from "./interviews/interview-detail/keyword-highlight/context";
+import { HighlightedText } from "./interviews/interview-detail/keyword-highlight/highlighted-text";
 import { KeywordHighlightLegend } from "./interviews/interview-detail/keyword-highlight/legend";
 import { DetailRow } from "./interviews/interview-detail/detail-row";
 import { EvaluationResults } from "./interviews/interview-detail/evaluation-results";
@@ -2338,7 +2339,7 @@ function useStudioPersonDetailPanel({
                               key={report.conversationId}
                               value={report.conversationId}
                             >
-                              <AccordionTrigger className="rounded-none px-5 py-4 hover:no-underline data-panel-open:border-border/60 data-panel-open:border-b data-panel-open:bg-background/70">
+                              <AccordionTrigger className="group rounded-none px-5 py-4 hover:no-underline data-panel-open:border-border/60 data-panel-open:border-b data-panel-open:bg-background/70">
                                 <div className="min-w-0 flex-1 text-left">
                                   <div className="flex flex-wrap items-center gap-2">
                                     <TimeDisplay
@@ -2353,7 +2354,7 @@ function useStudioPersonDetailPanel({
                                       <Badge variant="outline">{report.callSuccessful}</Badge>
                                     ) : null}
                                   </div>
-                                  <div className="mt-2 h-20 line-clamp-4 text-muted-foreground text-sm leading-5 [&_p]:m-0">
+                                  <div className="mt-2 h-20 line-clamp-4 text-muted-foreground text-sm leading-5 group-data-[panel-open]:hidden [&_p]:m-0">
                                     <Markdown>
                                       {report.transcriptSummary ??
                                         report.latestError ??
@@ -2365,17 +2366,35 @@ function useStudioPersonDetailPanel({
                               <AccordionContent className="bg-muted/25 px-5 pt-4 pb-5">
                                 <div className="grid gap-4  lg:grid-cols-[minmax(0,1fr)_minmax(400px,1fr)]">
                                   <div className="space-y-4">
-                                    {env.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING ? (
-                                      <RecordingPlayer
-                                        accessMode={isPublic ? "public" : "authed"}
-                                        conversationId={report.conversationId}
-                                        durationSecs={report.recordingDurationSecs}
-                                        recordId={effectiveRoundId ?? ""}
-                                        seekToSecs={activeEvidence?.timeInCallSecs ?? null}
-                                        status={report.recordingStatus}
-                                        surface="section"
-                                      />
-                                    ) : null}
+                                    <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+                                      <h4 className="font-medium text-sm">最终总结</h4>
+                                      <div className="mt-3 text-muted-foreground text-sm leading-6">
+                                        <HighlightedText
+                                          text={report.transcriptSummary ?? "暂无总结。"}
+                                        />
+                                      </div>
+                                      {report.latestError ? (
+                                        <div className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-sm">
+                                          {report.latestError}
+                                        </div>
+                                      ) : null}
+                                    </section>
+
+                                    <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+                                      <h4 className="font-medium text-sm">评估指标</h4>
+                                      <ScrollArea className="mt-4 max-h-[420px] pr-1">
+                                        <EvaluationResults
+                                          data={
+                                            (report.evaluationCriteriaResults as Record<
+                                              string,
+                                              unknown
+                                            >) ?? {}
+                                          }
+                                          onEvidenceSelect={handleEvidenceSelect}
+                                        />
+                                      </ScrollArea>
+                                    </section>
+
                                     <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
                                       <div className="flex flex-wrap items-center justify-between gap-3">
                                         <h4 className="font-medium text-sm">会话概览</h4>
@@ -2442,19 +2461,22 @@ function useStudioPersonDetailPanel({
                                       </div>
                                     </section>
 
-                                    <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
-                                      <h4 className="font-medium text-sm">最终总结</h4>
-                                      <div className="mt-3 text-muted-foreground text-sm leading-6">
-                                        <Markdown>
-                                          {report.transcriptSummary ?? "暂无总结。"}
-                                        </Markdown>
-                                      </div>
-                                      {report.latestError ? (
-                                        <div className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-sm">
-                                          {report.latestError}
-                                        </div>
-                                      ) : null}
-                                    </section>
+                                    {env.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING ? (
+                                      <RecordingPlayer
+                                        accessMode={isPublic ? "public" : "authed"}
+                                        conversationId={report.conversationId}
+                                        durationSecs={report.recordingDurationSecs}
+                                        recordId={effectiveRoundId ?? ""}
+                                        seekToSecs={activeEvidence?.timeInCallSecs ?? null}
+                                        status={report.recordingStatus}
+                                        surface="section"
+                                      />
+                                    ) : null}
+
+                                    <InterviewMetricsPanel
+                                      metrics={report.metrics ?? {}}
+                                      surface="section"
+                                    />
                                   </div>
 
                                   <div className="lg:relative">
@@ -2468,26 +2490,6 @@ function useStudioPersonDetailPanel({
                                       />
                                     </section>
                                   </div>
-
-                                  <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
-                                    <h4 className="font-medium text-sm">评估指标</h4>
-                                    <ScrollArea className="mt-4 max-h-[420px] pr-1">
-                                      <EvaluationResults
-                                        data={
-                                          (report.evaluationCriteriaResults as Record<
-                                            string,
-                                            unknown
-                                          >) ?? {}
-                                        }
-                                        onEvidenceSelect={handleEvidenceSelect}
-                                      />
-                                    </ScrollArea>
-                                  </section>
-
-                                  <InterviewMetricsPanel
-                                    metrics={report.metrics ?? {}}
-                                    surface="section"
-                                  />
                                 </div>
                               </AccordionContent>
                             </AccordionItem>

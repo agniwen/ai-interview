@@ -4,15 +4,13 @@ import { extractAnswerKeywords } from "@arc/shared/answer-keywords";
 import type { KeywordCategory } from "@arc/shared/answer-keywords";
 import { cn } from "@arc/shared/utils";
 import { useMemo } from "react";
-import { ALL_KEYWORD_CATEGORIES } from "./context";
+import { useKeywordHighlight } from "./context";
 
 const CATEGORY_CLASS: Record<KeywordCategory, string> = {
   metric: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
   risk: "bg-amber-500/20 text-amber-800 dark:text-amber-300",
   skill: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
 };
-
-const DEFAULT_ENABLED = new Set<KeywordCategory>(ALL_KEYWORD_CATEGORIES);
 
 interface HighlightedTextProps {
   text: string;
@@ -29,14 +27,16 @@ interface Segment {
 
 export function HighlightedText({
   text,
-  enabledCategories = DEFAULT_ENABLED,
+  enabledCategories,
   extraSkills,
   className,
 }: HighlightedTextProps) {
+  const { enabledCategories: contextCategories } = useKeywordHighlight();
+  const activeCategories = enabledCategories ?? contextCategories;
   const spans = useMemo(() => extractAnswerKeywords(text, { extraSkills }), [text, extraSkills]);
 
   const segments = useMemo<Segment[]>(() => {
-    const visible = spans.filter((span) => enabledCategories.has(span.category));
+    const visible = spans.filter((span) => activeCategories.has(span.category));
     const result: Segment[] = [];
     let cursor = 0;
     for (const span of visible) {
@@ -62,7 +62,7 @@ export function HighlightedText({
       });
     }
     return result;
-  }, [spans, enabledCategories, text]);
+  }, [spans, activeCategories, text]);
 
   return (
     <span className={cn("whitespace-pre-wrap", className)}>
