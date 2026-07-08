@@ -89,7 +89,7 @@ const dedupCheckInputSchema = z.object({
   resumeProfile: z.custom<ResumeProfile>().nullable().optional(),
 });
 
-// 「发起 AI 面试」请求体：候选人侧已存在简历库行，只把（可能被用户编辑过的）
+// 「发起 AI 面试」请求体：候选人侧已存在招聘台行，只把（可能被用户编辑过的）
 // 面试题落库，并新建一条默认排期。零长度数组允许，方便日后扩展。
 // "Launch interview" payload — the candidate row already exists, so we just
 // persist the (possibly edited) questions and add a default schedule entry.
@@ -564,7 +564,7 @@ export const resumeLibraryRouter = factory
     },
   )
   .get("/:id/rounds", requirePermission("resumeLibrary", "read"), async (c) => {
-    // 拉取该候选人的所有面试轮次（按 sortOrder 升序），用于简历库详情弹窗的「AI 面试」tab。
+    // 拉取该候选人的所有面试轮次（按 sortOrder 升序），用于招聘台详情弹窗的「AI 面试」tab。
     // List all rounds for this candidate, sorted by sortOrder asc — used by
     // the resume library detail dialog's "AI 面试" tab.
     const { activeOrg } = c.var;
@@ -589,7 +589,7 @@ export const resumeLibraryRouter = factory
     requirePermission("resumeLibrary", "update"),
     zValidator("json", launchInterviewSchema, jsonValidatorError("请求参数无效。")),
     async (c) => {
-      // 从简历库「发起 AI 面试」：把（可能被用户编辑过的）面试题写回现有
+      // 从招聘台「发起 AI 面试」：把（可能被用户编辑过的）面试题写回现有
       // studioInterview 行，并新建一条默认排期。状态推到 "ready" 让候选人侧
       // 状态与 AI 面试列表的语义一致。
       //

@@ -73,7 +73,7 @@ function isStudioInterviewStatus(
 }
 
 function sourceTypeLabel(match: DedupMatchRecord) {
-  return match.sourceType === "resume_pool_item" ? "私有简历" : "简历库";
+  return match.sourceType === "resume_pool_item" ? "私有简历" : "招聘台";
 }
 
 function ResumePoolMatchDetailDialog({

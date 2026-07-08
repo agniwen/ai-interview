@@ -228,7 +228,7 @@ function getResumePoolImportActionState(record: ResumePoolListRecord) {
     case "ready": {
       return {
         disabled: false,
-        label: "入库到简历库",
+        label: "入库到招聘台",
         loading: false,
       };
     }
@@ -338,7 +338,7 @@ function canDeletePoolRecord(
 }
 
 function deletePoolRecordLabel(record: ResumePoolListRecord | null) {
-  return record?.scope === "public" ? "简历广场简历" : "私有简历";
+  return record?.scope === "public" ? "人才库简历" : "私有简历";
 }
 
 function sessionUserId(session: { user?: { id?: string | null } } | null | undefined) {
@@ -623,7 +623,7 @@ function ImportResumePoolDialog({
         setDuplicates(result);
         return;
       }
-      toast.success("已入库到简历库");
+      toast.success("已入库到招聘台");
       onImported();
       onOpenChange(false);
     },
@@ -659,7 +659,7 @@ function ImportResumePoolDialog({
         }}
         open={item !== null}
         size="md"
-        title="入库到简历库"
+        title="入库到招聘台"
         description={item ? getCandidateTitle(item) : undefined}
       >
         <div className="space-y-5">
@@ -705,10 +705,10 @@ function ImportResumePoolDialog({
       <AlertDialog onOpenChange={(open) => !open && setDuplicates(null)} open={duplicates !== null}>
         <AlertDialogContent className="sm:max-w-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>简历库中可能已有相同候选人</AlertDialogTitle>
+            <AlertDialogTitle>招聘台中可能已有相同候选人</AlertDialogTitle>
             <AlertDialogDescription>
               系统会基于工作经历、项目经历、技能和岗位画像的语义相似度判断风险。
-              请根据判断依据确认是否为同一候选人。确认后会继续创建一条新的简历库记录。
+              请根据判断依据确认是否为同一候选人。确认后会继续创建一条新的招聘台记录。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <ResumeDedupMatchList matches={toResumeDedupMatches(duplicates)} />
@@ -1830,8 +1830,8 @@ function ResumePoolPage() {
       <div className="mx-auto w-full max-w-[96em] space-y-6">
         <PageHeader
           className="max-w-3xl"
-          title="简历广场"
-          description="先沉淀简历，再决定是否推送共享或入库到简历库。"
+          title="人才库"
+          description="先沉淀简历，再决定是否推送共享或入库到招聘台。"
         />
         <Tabs
           onValueChange={(value) => void navigate({ search: { scope: normalizeScope(value) } })}
@@ -2027,7 +2027,7 @@ function ResumePoolPage() {
             <AlertDialogTitle>确认删除这份{deletePoolRecordLabel(deleteTarget)}？</AlertDialogTitle>
             <AlertDialogDescription>
               这会永久删除 {deleteTarget ? getCandidateTitle(deleteTarget) : "该记录"}。
-              已入库到简历库的记录不会删除。
+              已入库到招聘台的记录不会删除。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -2072,7 +2072,7 @@ function ResumePoolPage() {
 export const Route = createFileRoute("/w/$slug/studio/resume-pool")({
   component: ResumePoolPage,
   head: () => ({
-    meta: [{ title: "简历广场" }],
+    meta: [{ title: "人才库" }],
   }),
   validateSearch: (search: Record<string, unknown>): ResumePoolSearch => ({
     scope: normalizeScope(search.scope),

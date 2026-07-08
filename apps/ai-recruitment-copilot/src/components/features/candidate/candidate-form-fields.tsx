@@ -29,7 +29,7 @@ import {
 
 /**
  * 候选人/简历字段公共表单组件。TanStack Form 受控。
- * 用于简历库的上传 / 编辑弹窗（以及未来需要采集候选人信息的任何场景）。
+ * 用于招聘台的上传 / 编辑弹窗（以及未来需要采集候选人信息的任何场景）。
  *
  * Shared candidate / resume fields, TanStack-Form-controlled. Used by the
  * resume library upload + edit dialogs (and any future flow that needs to

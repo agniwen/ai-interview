@@ -463,7 +463,7 @@ export async function loadRecruitingDashboardMetrics(
 }
 
 /**
- * 简历库聚合数据的缓存入口。三段并发查询：状态分布 / 近 30 天每日新增 / AI 面试转化。
+ * 招聘台聚合数据的缓存入口。三段并发查询：状态分布 / 近 30 天每日新增 / AI 面试转化。
  * cacheTag 与现有列表查询一致（`studio-resumes`），写入侧的 invalidate 已经覆盖。
  *
  * Cached entry point used by the resume-library page header charts. Three

@@ -1,7 +1,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 // 表格里「创建人」列的通用呈现：小头像（24px）+ 姓名，无姓名时退化为占位符。
-// 简历库 / AI 面试等不同表都使用同一份投影字段（creatorName + creatorImage），
+// 招聘台 / AI 面试等不同表都使用同一份投影字段（creatorName + creatorImage），
 // 抽到这里方便后续替换风格或新增二级信息。
 //
 // Shared cell renderer for the 创建人 column across studio tables. Takes the

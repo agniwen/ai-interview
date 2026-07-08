@@ -512,7 +512,7 @@ function JobDescriptionManagementPage({
         confirmDisabled={(record) => record.resumeCount > 0}
         description={(record) => {
           if (record.resumeCount > 0) {
-            return `当前有 ${record.resumeCount} 条简历关联到岗位「${record.name}」，无法删除；请先到简历库取消关联或删除这些候选人。`;
+            return `当前有 ${record.resumeCount} 条简历关联到岗位「${record.name}」，无法删除；请先到招聘台取消关联或删除这些候选人。`;
           }
           return `即将删除岗位：${record.name}，引用该岗位的面试记录的关联岗位字段会被清空。`;
         }}

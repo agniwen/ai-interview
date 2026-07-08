@@ -16,7 +16,7 @@ function expectSourceOrder(text: string, first: string, second: string) {
 describe("StudioPersonDetailPanel visual density", () => {
   it("keeps modal detail queries stale immediately so every open fetches fresh data", () => {
     const resumeDetailQuerySource = sourceBetween(
-      "// 简历库模式查询 / Resume-mode record query",
+      "// 招聘台模式查询 / Resume-mode record query",
       "// 面试报告与表单仅面试模式查询 / Reports and form submissions only in interview mode",
     );
     const timelineQuerySource = sourceBetween(
@@ -25,7 +25,7 @@ describe("StudioPersonDetailPanel visual density", () => {
     );
     const interviewRoundQuerySource = sourceBetween(
       "// 面试模式查询（`:id` = roundId）/ Interview-mode query (`:id` = roundId)",
-      "// 简历库模式查询 / Resume-mode record query",
+      "// 招聘台模式查询 / Resume-mode record query",
     );
 
     expect(resumeDetailQuerySource).not.toContain("staleTime");
@@ -216,7 +216,7 @@ describe("StudioPersonDetailPanel visual density", () => {
     expect(source).toContain("canDelete={canDeleteOffer}");
   });
 
-  it("renders resume AI parsing in its own tab instead of the overview", () => {
+  it("renders resume AI scoring in its own tab instead of the overview", () => {
     const overviewSource = sourceBetween('<TabsContent value="overview">', "{/* 轮次概览");
     const aiAnalysisSource = sourceBetween(
       '<TabsContent value="ai-analysis">',
@@ -229,7 +229,7 @@ describe("StudioPersonDetailPanel visual density", () => {
     );
 
     expect(source).toContain('value="ai-analysis"');
-    expect(source).toContain("AI 解析");
+    expect(source).toContain("AI评分");
     expect(source).toContain("简历筛选 · 分析中");
     expect(source).toContain("resumeRecord?.resumeReviewStatus");
     expect(overviewSource).not.toContain("<ResumeReviewStructuredView");

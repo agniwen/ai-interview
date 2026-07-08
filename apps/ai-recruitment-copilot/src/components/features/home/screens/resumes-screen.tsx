@@ -7,7 +7,7 @@ import {
   IconRefresh,
   IconSearch,
 } from "@tabler/icons-react";
-// 用途：landing 用「Studio › 简历库」简化版 UI。对齐真实组件：
+// 用途：landing 用「Studio › 招聘台」简化版 UI。对齐真实组件：
 // - PageHeader: <h1 class="text-2xl"> + <p class="text-muted-foreground text-sm">
 // - ResumeLibraryCharts: 3 张 shadcn chart card，顶部含指标分栏
 // - DataGrid: AlignUI table primitives，Toolbar 在外面 (filters 左 + button 右)
@@ -28,7 +28,7 @@ import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
 import { ScreenFrame } from "./screen-frame";
 
-const BREADCRUMB: BreadcrumbCrumb[] = [{ label: "Studio" }, { current: true, label: "简历库" }];
+const BREADCRUMB: BreadcrumbCrumb[] = [{ label: "Studio" }, { current: true, label: "招聘" }];
 
 // ─────────────────── shared mini Card ───────────────────
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -685,7 +685,7 @@ function ResumesContent() {
     <div className="flex flex-col gap-6 px-6 py-6">
       <PageHeader
         description="沉淀候选人档案、简历 PDF、岗位匹配和流程进展，筛选到面试推进都能从这里接上。"
-        title="简历库"
+        title="招聘"
       />
       <ChartsRow />
       <PipelineStageTabs />
@@ -700,7 +700,7 @@ function ResumesContent() {
 export function ResumesScreen({ className }: { className?: string }) {
   return (
     <ScreenFrame className={className}>
-      <AppShell breadcrumb={BREADCRUMB} sidebar={<StudioNav activeLabel="简历库" />} tab="studio">
+      <AppShell breadcrumb={BREADCRUMB} sidebar={<StudioNav activeLabel="招聘" />} tab="studio">
         <ResumesContent />
       </AppShell>
     </ScreenFrame>

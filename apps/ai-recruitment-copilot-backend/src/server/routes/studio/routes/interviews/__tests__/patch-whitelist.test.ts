@@ -2,7 +2,7 @@
 // fields in the request body. Candidate identity is now owned by the
 // resume library; leaving this path writable would let bugs in the editor
 // silently overwrite candidate data.
-// 验证 PATCH 接口不会覆写候选人身份字段，这些字段由简历库专属管理。
+// 验证 PATCH 接口不会覆写候选人身份字段，这些字段由招聘台专属管理。
 
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";

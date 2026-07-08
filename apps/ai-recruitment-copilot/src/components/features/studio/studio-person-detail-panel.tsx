@@ -463,7 +463,7 @@ function ResumeAiAnalysisPlaceholder({
           <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
         </div>
         <p className="text-muted-foreground text-sm leading-6">
-          系统正在基于绑定岗位生成 AI 分析，完成后会自动展示在这里。
+          系统正在基于绑定岗位生成 AI评分，完成后会自动展示在这里。
         </p>
       </section>
     );
@@ -473,11 +473,11 @@ function ResumeAiAnalysisPlaceholder({
     return (
       <section className="space-y-3 rounded-2xl border border-muted/60 bg-muted/20 p-5">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-medium text-sm">AI 解析失败</h3>
+          <h3 className="font-medium text-sm">AI评分失败</h3>
           <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
         </div>
         <p className="text-muted-foreground text-sm leading-6">
-          {resumeRecord?.resumeReviewError ?? "AI 分析生成失败，请稍后重试。"}
+          {resumeRecord?.resumeReviewError ?? "AI评分生成失败，请稍后重试。"}
         </p>
       </section>
     );
@@ -485,9 +485,9 @@ function ResumeAiAnalysisPlaceholder({
 
   return (
     <section className="space-y-3 rounded-2xl border border-muted/60 bg-muted/20 p-5">
-      <h3 className="font-medium text-sm">AI 解析</h3>
+      <h3 className="font-medium text-sm">AI评分</h3>
       <div className="text-muted-foreground text-sm leading-6">
-        <Markdown>{truncateText(resumeRecord?.notes) || "暂无 AI 解析结果"}</Markdown>
+        <Markdown>{truncateText(resumeRecord?.notes) || "暂无 AI评分结果"}</Markdown>
       </div>
     </section>
   );
@@ -1404,7 +1404,7 @@ function useStudioPersonDetailPanel({
     refetchOnWindowFocus: true,
   });
 
-  // 简历库模式查询 / Resume-mode record query
+  // 招聘台模式查询 / Resume-mode record query
   const { data: resumeRecord, isLoading: isResumeLoading } = useQuery({
     enabled: enabled && !!effectiveRecordId && mode === "resume",
     queryFn: () => {
@@ -1789,7 +1789,7 @@ function useStudioPersonDetailPanel({
           return;
         }
         if (onLaunchInterview) {
-          // 简历库详情入口：交给外层 LaunchInterviewDialog 处理；关闭本面板
+          // 招聘台详情入口：交给外层 LaunchInterviewDialog 处理；关闭本面板
           // 让 modal 切换显得自然。
           // Resume-library entry: hand off to the parent LaunchInterviewDialog
           // and close this panel so the swap reads naturally.
@@ -1934,7 +1934,7 @@ function useStudioPersonDetailPanel({
           ) : null}
           {mode === "resume" ? (
             <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="ai-analysis">
-              AI 解析
+              AI评分
             </TabsTrigger>
           ) : null}
           {mode === "resume" && shouldShowAiInterviewTab(tabVisibilityRecord) ? (
@@ -2519,7 +2519,7 @@ function useStudioPersonDetailPanel({
                 ) : /* oxlint-disable-next-line no-nested-ternary -- Secondary branch renders empty-state or list. */
                 candidateRounds.length === 0 ? (
                   <p className="text-muted-foreground text-sm leading-normal">
-                    该候选人还没有发起面试。在简历库点「保存并发起面试」即可创建。
+                    该候选人还没有发起面试。在招聘台点「保存并发起面试」即可创建。
                   </p>
                 ) : (
                   <div className="flex flex-col gap-3">

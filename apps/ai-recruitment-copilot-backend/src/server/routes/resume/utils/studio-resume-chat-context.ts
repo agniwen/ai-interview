@@ -33,7 +33,7 @@ function stringifyBounded(value: unknown, maxChars: number): string | null {
 export function buildStudioResumeChatContextBlock(input: StudioResumeChatContextInput): string {
   const lines = [
     "【Studio 简历上下文】",
-    "当前聊天绑定的是 Studio 简历库中的候选人。请优先基于下列简历库已分析信息回答，不要声称无法看到简历。",
+    "当前聊天绑定的是 Studio 招聘台中的候选人。请优先基于下列招聘台已分析信息回答，不要声称无法看到简历。",
     `候选人：${input.candidateName}`,
   ];
 

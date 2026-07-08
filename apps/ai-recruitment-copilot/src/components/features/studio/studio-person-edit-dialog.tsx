@@ -625,7 +625,7 @@ function InterviewEditBody({
   return (
     <>
       <Modal
-        description="编辑轮次排期、文本输入设置和备注。状态由系统流转，只读展示；候选人基础信息请在简历库编辑。"
+        description="编辑轮次排期、文本输入设置和备注。状态由系统流转，只读展示；候选人基础信息请在招聘台编辑。"
         footer={
           isLoading ? undefined : (
             <div className="flex w-full flex-wrap items-center justify-end gap-2">
@@ -664,7 +664,7 @@ function InterviewEditBody({
             <Card className="gap-0 rounded-lg py-0">
               <CardContent className="flex flex-col gap-3 bg-muted/20 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-muted-foreground text-sm leading-normal">
-                  候选人身份字段、关联岗位、简历和简历评价统一在简历库维护。
+                  候选人身份字段、关联岗位、简历和简历评价统一在招聘台维护。
                 </p>
                 {round?.candidate.id ? (
                   <Button
@@ -763,7 +763,7 @@ function InterviewEditBody({
 // ---------------------------------------------------------------------------
 
 /**
- * 统一的候选人记录编辑对话框，mode="resume" 编辑简历库，mode="interview" 编辑 AI 面试。
+ * 统一的候选人记录编辑对话框，mode="resume" 编辑招聘台，mode="interview" 编辑 AI 面试。
  * Unified edit dialog: mode="resume" edits a resume library record,
  * mode="interview" edits an AI interview record.
  */

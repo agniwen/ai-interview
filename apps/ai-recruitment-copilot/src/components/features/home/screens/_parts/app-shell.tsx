@@ -42,7 +42,7 @@ interface NavGroup {
 export const STUDIO_NAV_GROUPS: NavGroup[] = [
   {
     items: [
-      { icon: IconUsers, label: "简历库" },
+      { icon: IconUsers, label: "招聘" },
       { icon: IconRobot, label: "AI 面试" },
     ],
     label: "工作台",

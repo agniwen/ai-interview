@@ -105,7 +105,7 @@ export interface ResumeLibraryProfileSnapshot {
 }
 
 /**
- * 简历库列表行 DTO。AI 面试列表的精简投影：去掉 status / interviewQuestions /
+ * 招聘台列表行 DTO。AI 面试列表的精简投影：去掉 status / interviewQuestions /
  * scheduleEntries 等面试态字段，只保留候选人 / 简历 / 创建者维度。
  *
  * Resume library list row. A trimmed projection of the interview list — interview
@@ -289,7 +289,7 @@ function describeOffer(p: OfferProgress | null): Description {
 
 /**
  * 把（pipelineStage, outcome, stageProgress）一句话翻译成 UI 想展示的进度文本 + tone。
- * 单一来源——简历库列表、详情面板、卡片视图都从这里拿，避免文案各处分叉。
+ * 单一来源——招聘台列表、详情面板、卡片视图都从这里拿，避免文案各处分叉。
  *
  * Reduce (pipelineStage, outcome, stageProgress) to a single display string +
  * tone for the resume library "面试进度" cell, detail panel, and elsewhere.
@@ -513,7 +513,7 @@ export function createResumeLibraryFormValues(): ResumeLibraryFormValues {
 }
 
 /**
- * 简历库页头部 chart 的聚合数据。
+ * 招聘台页头部 chart 的聚合数据。
  * - byPipeline：按 pipelineStage × outcome 分组的候选人数；outcome='archived' 排除。
  * - dailyAdded：近 30 天每日新增；服务端只返回有数据的日期，零填充由客户端补。
  * - conversion：是否已发起 AI 面试的对比（archived 排除）。

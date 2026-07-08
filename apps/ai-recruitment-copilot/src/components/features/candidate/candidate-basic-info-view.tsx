@@ -9,7 +9,7 @@ import { ResumeDocumentPreviewButton } from "@/components/features/resume/resume
 import { getResumeDocumentKind, resumeDocumentFormats } from "@arc/shared/resume-documents";
 
 /**
- * 简历库与 AI 面试详情共用的"候选人基础信息卡片"。
+ * 招聘台与 AI 面试详情共用的"候选人基础信息卡片"。
  * 只读展示候选人身份维度的字段，附带可选简历预览按钮与 footer 操作槽。
  *
  * Read-only candidate basic-info card shared between the resume library detail

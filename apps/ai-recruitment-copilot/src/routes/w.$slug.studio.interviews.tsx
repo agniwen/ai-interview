@@ -310,9 +310,9 @@ function InterviewManagementPage() {
     }
   }, [navigate, routeSearch, slug]);
 
-  // 删除 / 重置 / 切轮次状态等写操作不仅影响 AI 面试列表，也会改变简历库的
+  // 删除 / 重置 / 切轮次状态等写操作不仅影响 AI 面试列表，也会改变招聘台的
   // hasInterviewRounds 标记和简历详情弹窗里的「AI 面试」tab，所以同步失效
-  // studio-resumes / studio-resume-rounds，确保用户切回简历库立即看到更新。
+  // studio-resumes / studio-resume-rounds，确保用户切回招聘台立即看到更新。
   //
   // Writes on this page (delete / reset / round toggle) can flip
   // hasInterviewRounds on the resume-library row and the resume detail
@@ -650,7 +650,7 @@ function InterviewManagementPage() {
                 </EmptyMedia>
                 <EmptyTitle>还没有候选人面试记录</EmptyTitle>
                 <EmptyDescription>
-                  请前往简历库新建简历记录，选择「保存并发起面试」即可创建面试。
+                  请前往招聘台新建简历记录，选择「保存并发起面试」即可创建面试。
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
@@ -658,7 +658,7 @@ function InterviewManagementPage() {
                   nativeButton={false}
                   render={
                     <Link params={{ slug }} to="/w/$slug/studio/resumes">
-                      前往简历库
+                      前往招聘台
                     </Link>
                   }
                 />

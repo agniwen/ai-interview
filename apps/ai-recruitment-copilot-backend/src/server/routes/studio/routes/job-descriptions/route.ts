@@ -528,7 +528,7 @@ export const jobDescriptionsRouter = factory
     if (resumeCount > 0) {
       return c.json(
         {
-          error: `当前有 ${resumeCount} 条简历关联到该在招岗位，无法删除；请先在简历库中调整或删除这些候选人。`,
+          error: `当前有 ${resumeCount} 条简历关联到该在招岗位，无法删除；请先在招聘台中调整或删除这些候选人。`,
         },
         409,
       );

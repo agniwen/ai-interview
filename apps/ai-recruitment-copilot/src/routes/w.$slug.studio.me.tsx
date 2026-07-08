@@ -469,7 +469,7 @@ function MailIngestAccountCard() {
     <Card className="rounded-lg">
       <CardHeader>
         <CardTitle>简历邮箱采集</CardTitle>
-        <CardDescription>轮询 Boss 直聘简历邮件，自动加入你的私有简历库解析队列。</CardDescription>
+        <CardDescription>轮询 Boss 直聘简历邮件，自动加入你的私有招聘台解析队列。</CardDescription>
       </CardHeader>
       <CardContent>
         <form

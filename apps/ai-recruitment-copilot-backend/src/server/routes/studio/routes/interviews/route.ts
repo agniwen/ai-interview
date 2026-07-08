@@ -508,7 +508,7 @@ export const studioInterviewsRouter = factory
           sourceType: "studio_interview",
         });
       }
-      // POST / 返回新建轮次的完整 detail，供简历库 onCreated 直接使用。
+      // POST / 返回新建轮次的完整 detail，供招聘台 onCreated 直接使用。
       // Return the first round's full detail so the resume library onCreated can use it directly.
       const firstRoundId = scheduleRows[0]?.id;
       if (!firstRoundId) {

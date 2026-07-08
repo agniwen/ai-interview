@@ -471,7 +471,7 @@ describe("processNextItem — resume pool target", () => {
     expect(poolItem?.notes).toBe("自动生成的简历评价");
   });
 
-  it("target=resume_pool → 创建简历池条目，不创建简历库候选人记录", async () => {
+  it("target=resume_pool → 创建简历池条目，不创建招聘台候选人记录", async () => {
     const batchId = await insertBatchWithItems({
       dedupPolicy: "create",
       files: makeFiles(1),
@@ -735,7 +735,7 @@ describe("processNextItem — dedup skip", () => {
     await db.delete(studioInterview).where(eq(studioInterview.id, preExistingId));
   });
 
-  it("语义重复 + skip 策略创建简历库记录并记录疑似重复", async () => {
+  it("语义重复 + skip 策略创建招聘台记录并记录疑似重复", async () => {
     const batchId = await insertBatchWithItems({
       dedupPolicy: "skip",
       files: makeFiles(1),
