@@ -3,6 +3,7 @@
 import { useRouterState } from "@tanstack/react-router";
 import { SidebarInsetHeader } from "@/components/layout/app-sidebar/sidebar-inset-header";
 import { WorkspaceSwitcher } from "@/components/features/workspace/workspace-switcher";
+import { useStudioHeaderOverrideValue } from "@/components/features/studio/studio-header-context";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -49,20 +50,23 @@ function resolveRouteMeta(pathname: string): RouteMeta {
 export function SiteHeader() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { title } = resolveRouteMeta(pathname);
+  const headerOverride = useStudioHeaderOverrideValue();
 
   return (
     <SidebarInsetHeader
       actions={<WorkspaceSwitcher />}
       breadcrumb={
-        <Breadcrumb>
-          <BreadcrumbList>
-            {/* <BreadcrumbItem className="hidden md:block">Studio</BreadcrumbItem> */}
-            {/* <BreadcrumbSeparator className="hidden md:block" /> */}
-            <BreadcrumbItem>
-              <BreadcrumbPage>{title}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
+        headerOverride ?? (
+          <Breadcrumb>
+            <BreadcrumbList>
+              {/* <BreadcrumbItem className="hidden md:block">Studio</BreadcrumbItem> */}
+              {/* <BreadcrumbSeparator className="hidden md:block" /> */}
+              <BreadcrumbItem>
+                <BreadcrumbPage>{title}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        )
       }
     />
   );

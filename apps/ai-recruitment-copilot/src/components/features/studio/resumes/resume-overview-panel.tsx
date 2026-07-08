@@ -167,7 +167,7 @@ function DimensionRadarChart({
   );
 }
 
-function ResumeOverviewAiScoreCard({
+function ResumeOverviewAiScoreSection({
   detail,
   onViewAiScore,
 }: {
@@ -179,7 +179,7 @@ function ResumeOverviewAiScoreCard({
   const dimensionScores = review ? getReviewDimensionDisplays(review) : [];
 
   return (
-    <section className="rounded-2xl border border-muted/60 bg-muted/20 p-5">
+    <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="font-medium text-sm">AI评分</h3>
@@ -193,7 +193,7 @@ function ResumeOverviewAiScoreCard({
         </div>
       </div>
 
-      <div className="mt-4 grid gap-5 lg:grid-cols-[minmax(14rem,0.8fr)_minmax(0,1.2fr)] lg:items-center">
+      <div className="grid gap-5 lg:grid-cols-[minmax(14rem,0.8fr)_minmax(0,1.2fr)] lg:items-center">
         <div className="min-w-0">
           <DimensionRadarChart compact dimensions={dimensionScores} />
         </div>
@@ -205,7 +205,7 @@ function ResumeOverviewAiScoreCard({
                 {baseScore ?? "—"}
               </div>
             </div>
-            {review ? <Badge variant="outline">{review.levelRecommendation.level}</Badge> : null}
+            {/* {review ? <Badge variant="outline">{review.levelRecommendation.level}</Badge> : null} */}
           </div>
           <div className="space-y-1.5">
             <h4 className="font-semibold text-sm leading-6">
@@ -415,7 +415,7 @@ export function ResumeReviewStructuredView({
   ].filter((group) => group.length > 0);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="w-full space-y-6">
       <ReviewSummaryHero baseScore={baseScore} review={review} summaryAction={summaryAction} />
 
       <section className="space-y-4">
@@ -493,9 +493,9 @@ export function ResumeOverviewPanel({
 
   return (
     <div className="space-y-8">
-      <section className="space-y-6">
-        <ResumeOverviewAiScoreCard detail={detail} onViewAiScore={onViewAiScore} />
+      <ResumeOverviewAiScoreSection detail={detail} onViewAiScore={onViewAiScore} />
 
+      <section className="space-y-6 border-border/50 border-t pt-6">
         <dl className="grid gap-x-8 gap-y-4 md:grid-cols-2">
           <SummaryItem label="关联岗位" value={detail.jobDescriptionName} />
           <SummaryItem label="简历评估" value={resumeEvaluation.label} />

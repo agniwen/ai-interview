@@ -94,6 +94,14 @@ _Avoid_: Candidate database, interview list
 One candidate/resume entry in the resume library.
 _Avoid_: Interview record, application
 
+**Recruiter Resume Detail**:
+The workspace-internal view of one resume record where a member inspects the candidate and performs recruiting actions.
+_Avoid_: Resume review link, public review page
+
+**Resume Review Link**:
+A member-facing review entry for viewing a resume record and submitting a resume evaluation, separate from recruiter management actions.
+_Avoid_: Recruiter resume detail, internal resume page
+
 **Resume Profile**:
 The structured facts extracted from a resume for candidate review, matching, and interview preparation.
 _Avoid_: Parsed JSON, resume data

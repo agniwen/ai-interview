@@ -72,6 +72,7 @@ function DialogModal({
   headerClassName,
   footerClassName,
 }: ModalProps) {
+  const popupRef = React.useRef<HTMLDivElement | null>(null);
   const handleOpenChange: DialogPrimitive.Root.Props["onOpenChange"] = (nextOpen, details) => {
     if (
       !dismissible &&
@@ -99,6 +100,9 @@ function DialogModal({
           )}
         />
         <DialogPrimitive.Popup
+          ref={popupRef}
+          initialFocus={popupRef}
+          tabIndex={-1}
           className={cn(
             // 外层只承担居中定位与 zoom 动画；不放 overflow-hidden 与背景，
             // 让 Popover 等 position:fixed 子节点不会被裁切（Content 自身的 transform

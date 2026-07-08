@@ -13,16 +13,17 @@ describe("TanStack Start studio resumes migration", () => {
     expect(readSource("routeTree.gen.ts")).toContain("'/w/$slug/studio/resumes'");
   });
 
-  it("registers the member review detail route in the generated route tree", () => {
+  it("registers the internal recruiter detail route separately from the member review route", () => {
     const routeTree = readSource("routeTree.gen.ts");
 
     expect(routeTree).toContain("'/resume-review/$slug/$recordId'");
-    expect(routeTree).not.toContain("'/w/$slug/studio/resumes/$recordId'");
+    expect(routeTree).toContain("'/w/$slug/studio/resumes/$recordId'");
   });
 
   it("keeps the migrated resumes route and page free of Next runtime imports", () => {
     const sources = [
       readSource("routes/w.$slug.studio.resumes.tsx"),
+      readSource("routes/w.$slug.studio.resumes.$recordId.tsx"),
       readSource("routes/resume-review.$slug.$recordId.tsx"),
     ];
 
@@ -30,20 +31,65 @@ describe("TanStack Start studio resumes migration", () => {
   });
 
   it("shows a tooltip on unsupported resume preview file icons", () => {
-    const source = readSource("routes/w.$slug.studio.resumes.tsx");
+    const source = readSource("components/features/studio/resumes/resume-library-card.tsx");
 
     expect(source).toContain("UnsupportedResumeDocumentPreviewTooltip");
   });
 
   it("adds a permission-scoped copy detail link action to resume-library rows", () => {
-    const source = readSource("routes/w.$slug.studio.resumes.tsx");
+    const routeSource = readSource("routes/w.$slug.studio.resumes.tsx");
+    const cardSource = readSource("components/features/studio/resumes/resume-library-card.tsx");
 
-    expect(source).toContain("copyResumeDetailLink");
-    expect(source).toContain("复制详情链接");
-    expect(source).toMatch(/`\/resume-review\/\$\{slug\}\/\$\{record\.id\}`/u);
-    expect(source).not.toMatch(/`\/w\/\$\{slug\}\/studio\/resumes\/\$\{record\.id\}`/u);
-    expect(source).toContain("record.createdBy === currentUserId");
-    expect(source).toContain("canCopyResumeDetailLink");
+    expect(routeSource).toContain("copyResumeDetailLink");
+    expect(cardSource).toContain("复制详情链接");
+    expect(routeSource).toMatch(/`\/resume-review\/\$\{slug\}\/\$\{record\.id\}`/u);
+    expect(routeSource).not.toMatch(/`\/w\/\$\{slug\}\/studio\/resumes\/\$\{record\.id\}`/u);
+    expect(cardSource).toContain("record.createdBy === currentUserId");
+    expect(cardSource).toContain("canCopyResumeDetailLink");
+  });
+
+  it("uses a recruiter resume detail page without transition-only wrappers", () => {
+    const source = readSource("routes/w.$slug.studio.resumes.$recordId.tsx");
+    const listSource = readSource("routes/w.$slug.studio.resumes.tsx");
+    const cardSource = readSource("components/features/studio/resumes/resume-library-card.tsx");
+
+    expect(source).toContain('createFileRoute("/w/$slug/studio/resumes/$recordId")');
+    expect(source).toContain("StudioPersonDetailPanel");
+    expect(source).toContain('accessMode="authed"');
+    expect(source).toContain('layoutMode="page"');
+    expect(source).not.toContain("ViewTransition");
+    expect(source).not.toContain("getResumeDetailTransitionName(recordId)");
+    expect(source).not.toContain("getResumeDetailMotionLayoutId(recordId)");
+    expect(source).not.toContain("viewTransitionName: transitionName");
+    expect(source).not.toContain("viewTransition: true");
+    expect(source).not.toContain('share="resume-card-expand"');
+    expect(source).toContain("LaunchInterviewDialog");
+    expect(source).toContain("TransitionCandidateDialog");
+    expect(source).toContain("StudioPersonEditDialog");
+    expect(source).toContain("requireStudioPageAccess");
+    expect(source).toContain("pendingComponent: RecruiterResumeDetailSkeleton");
+    expect(source).toContain("function RecruiterResumeDetailSkeleton()");
+    expect(source).toContain("function RecruiterResumeDetailHeaderText(");
+    expect(source).toContain('import { Skeleton } from "@/components/ui/skeleton"');
+    expect(source).toContain("if (detailQuery.isLoading) {");
+    expect(source).toContain("return <RecruiterResumeDetailSkeleton />;");
+    expect(source).toContain("<RecruiterResumeDetailHeaderText");
+    expect(source).toContain('<Skeleton className="h-8 w-48" />');
+    expect(source).toContain('<Skeleton className="mt-2 h-4 w-64 max-w-full" />');
+    expect(listSource).toContain("Outlet");
+    expect(listSource).toContain("useRouterState");
+    expect(listSource).toContain("routerState.location.pathname");
+    expect(listSource).not.toContain("LayoutGroup");
+    expect(listSource).toContain("<Outlet />");
+    expect(listSource).not.toContain("startTransition(() => {");
+    expect(listSource).toContain('to: "/w/$slug/studio/resumes/$recordId"');
+    expect(listSource).not.toContain("viewTransition: true");
+    expect(listSource).not.toContain("transitionName={getResumeDetailTransitionName(record.id)}");
+    expect(cardSource).not.toContain("ViewTransition");
+    expect(cardSource).not.toContain("getResumeDetailMotionLayoutId(record.id)");
+    expect(cardSource).not.toContain("viewTransitionName: transitionName");
+    expect(cardSource).not.toContain('share="resume-card-expand"');
+    expect(cardSource).not.toContain("onPrefetchDetail");
   });
 
   it("uses a standalone member review page with only the detail title in the header", () => {

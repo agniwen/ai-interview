@@ -183,13 +183,16 @@ describe("StudioPersonDetailPanel visual density", () => {
     expect(source).not.toContain("showAiInterviewStep");
   });
 
-  it("uses compact resume detail title and job-aware resume description", () => {
-    const titleSource = sourceBetween("const resumeTitleParts =", "const resumePreviewUrl =");
+  it("uses candidate name as the resume detail title and keeps the job-aware description", () => {
+    const titleSource = sourceBetween("const resumeTitle =", "const resumePreviewUrl =");
 
     expect(titleSource).toContain('"候选人详情"');
-    expect(titleSource).toContain("record?.candidateName?.trim() || null");
+    expect(titleSource).toContain("record?.candidateName?.trim() ||");
+    expect(titleSource).toContain("cachedResumeCandidateName");
+    expect(source).toContain("findCachedResumeCandidateName");
+    expect(source).toContain('queryKey: ["studio-resumes"]');
     expect(titleSource).not.toContain("record?.jobDescriptionName?.trim() || null");
-    expect(titleSource).toContain('resumeTitleParts.join(" · ")');
+    expect(titleSource).not.toContain('join(" · ")');
     expect(titleSource).toContain("linkedJobDescriptionName");
     expect(titleSource).toContain("关联岗位：");
     expect(titleSource).toContain('"暂未关联岗位"');

@@ -24,23 +24,26 @@ describe("ResumeOverviewPanel visual density", () => {
 
   it("shows an AI score preview at the top of the overview", () => {
     const overviewBody = source.slice(source.indexOf("export function ResumeOverviewPanel"));
-    const scoreCardSource = source.slice(
-      source.indexOf("function ResumeOverviewAiScoreCard"),
+    const scoreSectionSource = source.slice(
+      source.indexOf("function ResumeOverviewAiScoreSection"),
       source.indexOf("function ReviewSectionHeader"),
     );
 
-    expect(overviewBody).toContain("<ResumeOverviewAiScoreCard");
+    expect(overviewBody).toContain("<ResumeOverviewAiScoreSection");
     expect(overviewBody).not.toContain("候选人摘要");
-    expect(scoreCardSource).toContain("<DimensionRadarChart");
-    expect(scoreCardSource).toContain("<DimensionRadarChart compact");
-    expect(scoreCardSource).toContain("text-4xl tabular-nums");
-    expect(scoreCardSource).toContain("text-sm leading-6");
-    expect(scoreCardSource).toContain("text-xs");
-    expect(scoreCardSource).toContain("review?.overall.conclusion");
-    expect(scoreCardSource).toContain("review?.overall.scoreRationale");
-    expect(scoreCardSource).toContain("综合评分");
-    expect(scoreCardSource).toContain("查看详情");
-    expect(scoreCardSource).toContain("onViewAiScore");
+    expect(scoreSectionSource).toContain('className="space-y-4"');
+    expect(scoreSectionSource).not.toContain("rounded-2xl border border-muted/60 bg-muted/20 p-5");
+    expect(scoreSectionSource).toContain("<DimensionRadarChart");
+    expect(scoreSectionSource).toContain("<DimensionRadarChart compact");
+    expect(scoreSectionSource).toContain("text-4xl tabular-nums");
+    expect(scoreSectionSource).toContain("text-sm leading-6");
+    expect(scoreSectionSource).toContain("text-xs");
+    expect(scoreSectionSource).toContain("review?.overall.conclusion");
+    expect(scoreSectionSource).toContain("review?.overall.scoreRationale");
+    expect(scoreSectionSource).toContain("综合评分");
+    expect(scoreSectionSource).toContain("查看详情");
+    expect(scoreSectionSource).toContain("onViewAiScore");
+    expect(overviewBody).toContain('className="space-y-6 border-border/50 border-t pt-6"');
   });
 
   it("shows resume evaluation as a read-only summary field", () => {
@@ -73,7 +76,8 @@ describe("ResumeOverviewPanel visual density", () => {
       source.indexOf("export function ResumeReviewStructuredView"),
     );
 
-    expect(reviewSource).toContain("max-w-6xl space-y-6");
+    expect(reviewSource).toContain("w-full space-y-6");
+    expect(reviewSource).not.toContain("mx-auto max-w-6xl");
     expect(reviewSource).toContain("<ReviewSummaryHero");
     expect(summaryHeroSource).toContain("text-7xl tabular-nums");
     expect(summaryHeroSource).toContain("推荐建议");

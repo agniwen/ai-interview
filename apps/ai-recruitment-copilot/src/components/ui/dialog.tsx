@@ -124,11 +124,13 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  initialFocus,
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean;
 }) {
   const { isMobile } = useResponsiveDialog();
+  const popupRef = React.useRef<HTMLDivElement | null>(null);
 
   if (isMobile) {
     return (
@@ -165,7 +167,10 @@ function DialogContent({
         className="data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 fixed inset-0 z-50 backdrop-blur-xs bg-background/80 duration-200"
       />
       <DialogPrimitive.Popup
+        ref={popupRef}
         data-slot="dialog-content"
+        initialFocus={initialFocus ?? popupRef}
+        tabIndex={-1}
         className={cn(
           cossModalSurfaceClass,
           "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg p-6 duration-200 outline-none sm:max-w-lg",

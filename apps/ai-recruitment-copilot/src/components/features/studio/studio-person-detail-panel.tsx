@@ -197,6 +197,56 @@ function shouldShowOfferTab(
   return ["offer", "closed"].includes(record.pipelineStage);
 }
 
+function readCandidateNameFromRecord(value: unknown, recordId: string): string | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const record = value as { candidateName?: unknown; id?: unknown };
+  if (record.id !== recordId || typeof record.candidateName !== "string") {
+    return null;
+  }
+  return record.candidateName.trim() || null;
+}
+
+function readCandidateNameFromRecords(records: unknown, recordId: string): string | null {
+  if (!Array.isArray(records)) {
+    return null;
+  }
+  for (const record of records) {
+    const candidateName = readCandidateNameFromRecord(record, recordId);
+    if (candidateName) {
+      return candidateName;
+    }
+  }
+  return null;
+}
+
+function findCachedResumeCandidateName(queryClient: QueryClient, recordId: string | null) {
+  if (!recordId) {
+    return null;
+  }
+  for (const [, data] of queryClient.getQueriesData({ queryKey: ["studio-resumes"] })) {
+    const directRecords = (data as { records?: unknown } | null)?.records;
+    const directName = readCandidateNameFromRecords(directRecords, recordId);
+    if (directName) {
+      return directName;
+    }
+
+    const pages = (data as { pages?: unknown } | null)?.pages;
+    if (!Array.isArray(pages)) {
+      continue;
+    }
+    for (const page of pages) {
+      const pageRecords = (page as { records?: unknown } | null)?.records;
+      const pageName = readCandidateNameFromRecords(pageRecords, recordId);
+      if (pageName) {
+        return pageName;
+      }
+    }
+  }
+  return null;
+}
+
 function tabForPipelineStage(stage: PipelineStage): StudioPersonDetailTab {
   if (stage === "human_interview") {
     return "human-interview";
@@ -224,6 +274,7 @@ export interface StudioPersonDetailSlots {
   headerExtra: ReactNode;
   body: ReactNode;
   bodyClassName?: string;
+  isLoading: boolean;
   modalClassName?: string;
   modalSize?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "full";
   footer: ReactNode;
@@ -1827,10 +1878,12 @@ function useStudioPersonDetailPanel({
       launchResumeModeButtonContent
     );
 
-  const resumeTitleParts = ["候选人详情", record?.candidateName?.trim() || null].filter(Boolean);
+  const cachedResumeCandidateName =
+    mode === "resume" ? findCachedResumeCandidateName(queryClient, effectiveRecordId) : null;
+  const resumeTitle = record?.candidateName?.trim() || cachedResumeCandidateName || "候选人详情";
   const title =
     mode === "resume" ? (
-      <span className="break-words">{resumeTitleParts.join(" · ")}</span>
+      <span className="break-words">{resumeTitle}</span>
     ) : (
       <span className="flex flex-wrap items-center gap-3">
         <span className="break-words">{record?.candidateName ?? "候选人详情"}</span>
@@ -2699,7 +2752,7 @@ function useStudioPersonDetailPanel({
         <aside
           className={cn(
             "min-h-0 min-w-0 max-w-full overflow-hidden",
-            canUseTimelineRailScroll ? "xl:h-full" : "xl:sticky xl:top-5",
+            canUseTimelineRailScroll ? "xl:h-full" : "",
           )}
         >
           <CandidateTimeline
@@ -2739,6 +2792,7 @@ function useStudioPersonDetailPanel({
           description,
           footer,
           headerExtra,
+          isLoading,
           modalClassName,
           modalSize,
           title,

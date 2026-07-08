@@ -9,11 +9,14 @@ import type { DehydratedState } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   ClientOnly,
+  Outlet,
   createFileRoute,
   notFound,
   redirect,
   useLoaderData,
+  useParams,
   useRouter,
+  useRouterState,
   useSearch,
 } from "@tanstack/react-router";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
@@ -21,11 +24,7 @@ import { loadStudioResumesState } from "@/lib/start/studio/resumes.functions";
 import type { StudioResumesState } from "@/lib/start/studio/resumes.functions";
 import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
 import { parseCsvParam } from "@arc/shared/csv";
-import {
-  canDeleteResumeRecord,
-  canLaunchInterviewFromResume,
-  getResumeActionLockedReason,
-} from "@arc/shared/studio-resumes";
+import { canDeleteResumeRecord, canLaunchInterviewFromResume } from "@arc/shared/studio-resumes";
 import type {
   PaginatedResumeLibraryResult,
   ResumeLibraryListRecord,
@@ -872,12 +871,6 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
     [loadedResumeRecords],
   );
 
-  const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
-  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
-  // 中文：打开简历详情弹窗时默认聚焦的 tab；点「当前环节」直接跳到对应流程 tab。
-  // English: Default tab when opening the resume detail dialog — clicking
-  // 当前环节 jumps straight to the matching lifecycle tab.
-  const [detailDefaultTab, setDetailDefaultTab] = useState<ResumeDetailDefaultTab>("overview");
   // 「保存并发起面试」成功后打开的 AI 面试详情弹窗对应的 round id；为 null 则不展示。
   // Round id whose AI interview detail dialog should pop after a successful
   // save-and-start; null hides the dialog.
@@ -1172,9 +1165,15 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
           onLaunchInterview={startAiInterview}
           onOpenBatchList={() => setBatchListOpen(true)}
           onOpenDetail={(record, tab = "overview") => {
-            setDetailDefaultTab(tab);
-            setDetailRecordId(record.id);
-            setDetailDialogOpen(true);
+            void router.navigate({
+              params: { recordId: record.id, slug },
+              resetScroll: true,
+              search: {
+                ...routeSearch,
+                tab: tab === "overview" ? undefined : tab,
+              },
+              to: "/w/$slug/studio/resumes/$recordId",
+            } as never);
           }}
           onOpenUploadEntry={() => setUploadEntryOpen(true)}
           onPreviewResume={setPreviewRecord}
@@ -1204,90 +1203,6 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
         */}
       </div>
 
-      <StudioPersonDetailDialog
-        defaultTab={detailDefaultTab}
-        mode="resume"
-        onEdit={
-          canUpdateResumeLibrary
-            ? (id) => {
-                const row = loadedResumeRowsById.get(id);
-                const reason = row ? getResumeActionLockedReason(row.resumeParseStatus) : null;
-                if (reason) {
-                  toast.error(reason);
-                  return;
-                }
-                setDetailDialogOpen(false);
-                setEditRecordId(id);
-              }
-            : undefined
-        }
-        onLaunchInterview={
-          canCreateInterview
-            ? ({ id, candidateName }) => {
-                const row = loadedResumeRowsById.get(id);
-                if (row && !canLaunchInterviewFromResume(row.resumeParseStatus)) {
-                  toast.error("简历解析完成后才能发起 AI 面试");
-                  return;
-                }
-                if (row && !row.jobDescriptionId) {
-                  toast.error("请先绑定在招岗位后再发起 AI 面试");
-                  return;
-                }
-                setDetailDialogOpen(false);
-                setLaunchingRecord({ candidateName, id });
-              }
-            : undefined
-        }
-        onOpenChange={setDetailDialogOpen}
-        onOpenChangeComplete={(open) => {
-          if (!open && !detailDialogOpen) {
-            setDetailRecordId(null);
-            setDetailDefaultTab("overview");
-          }
-        }}
-        // Action bar 触发：复用现有 transitionTarget state + TransitionCandidateDialog。
-        // 不关详情面板——dialog 用 Radix stacking 叠在上面。
-        // Action bar reuses the existing TransitionCandidateDialog stacked over the detail panel.
-        onRequestClose={
-          canUpdateResumeLibrary
-            ? ({ id, candidateName, initialOutcome }) => {
-                const row = loadedResumeRowsById.get(id);
-                const reason = row ? getResumeActionLockedReason(row.resumeParseStatus) : null;
-                if (reason) {
-                  toast.error(reason);
-                  return;
-                }
-                setTransitionTarget({
-                  candidate: { candidateName, id },
-                  initialOutcome,
-                  mode: "close",
-                });
-              }
-            : undefined
-        }
-        onRequestReactivate={
-          canUpdateResumeLibrary
-            ? (candidate) =>
-                setTransitionTarget({
-                  candidate,
-                  mode: "reactivate",
-                })
-            : undefined
-        }
-        onUpdated={invalidateAll}
-        onViewRoundDetail={(roundId) => {
-          // 中文：不要关闭简历详情弹窗 — 用户可能看完单轮后还想回来看其他轮次。
-          // 两个 Dialog 叠着放，Base UI 会处理 stacking。
-          // English: Keep the resume detail dialog open underneath — user may
-          // want to come back to view other rounds after viewing one.
-          // Base UI dialogs stack natively.
-          setInterviewDetailDefaultTab("reports");
-          setInterviewRoundDetailId(roundId);
-          setInterviewDetailDialogOpen(true);
-        }}
-        open={detailDialogOpen}
-        recordId={detailRecordId}
-      />
       <ResumeDuplicateMatchesDialog
         isError={duplicateMatchesQuery.isError}
         isLoading={duplicateMatchesQuery.isLoading}
@@ -1505,9 +1420,15 @@ function StudioResumesRoute() {
   const state = useLoaderData({
     from: "/w/$slug/studio/resumes",
   }) as unknown as StudioResumesState;
+  const { slug } = useParams({ from: "/w/$slug/studio/resumes" });
+  const pathname = useRouterState({ select: (routerState) => routerState.location.pathname });
 
   if (state.status !== "ready") {
     return null;
+  }
+
+  if (pathname !== `/w/${slug}/studio/resumes`) {
+    return <Outlet />;
   }
 
   return (

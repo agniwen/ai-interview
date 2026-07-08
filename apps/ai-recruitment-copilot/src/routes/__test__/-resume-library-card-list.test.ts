@@ -6,6 +6,10 @@ const cardSourceFile = readFileSync(
   new URL("../../components/features/studio/resumes/resume-library-card.tsx", import.meta.url),
   "utf-8",
 );
+const detailRouteSource = readFileSync(
+  new URL("../w.$slug.studio.resumes.$recordId.tsx", import.meta.url),
+  "utf-8",
+);
 
 describe("ResumeLibraryPage card list", () => {
   it("keeps the previous table in a comment and renders the card list instead", () => {
@@ -145,21 +149,29 @@ describe("ResumeLibraryPage card list", () => {
     expect(actionButtonSource).toContain("aria-label={label}");
     expect(actionSource).toContain("发起 AI 面试");
     expect(cardSourceFile).toContain("更多操作");
+    expect(cardSourceFile).not.toContain("transitionName?: string");
+    expect(cardSourceFile).not.toContain("ViewTransition");
+    expect(cardSourceFile).not.toContain("onPrefetchDetail");
+    expect(cardSource).not.toContain("handlePrefetchDetail");
+    expect(cardSource).not.toContain("onPointerEnter=");
+    expect(cardSource).not.toContain("onPointerDown=");
+    expect(cardSource).not.toContain("onFocus=");
+    expect(cardSource).not.toContain("motion.article");
   });
 
-  it("guards chat and close actions while a resume is still parsing", () => {
+  it("guards chat and detail-page close actions while a resume is still parsing", () => {
     const pageSource = source.slice(
       source.indexOf("<ResumeLibraryCardList"),
       source.indexOf("<StudioPersonDetailDialog"),
     );
-    const detailCloseSource = source.slice(
-      source.indexOf("onRequestClose={"),
-      source.indexOf("onRequestReactivate={"),
+    const detailCloseSource = detailRouteSource.slice(
+      detailRouteSource.indexOf("onRequestClose={"),
+      detailRouteSource.indexOf("onRequestReactivate={"),
     );
 
     expect(pageSource).toContain("if (!canLaunchInterviewFromResume(record.resumeParseStatus))");
     expect(pageSource).toContain('toast.error("简历解析完成后才能发起 AI Chat")');
-    expect(detailCloseSource).toContain("getResumeActionLockedReason(row.resumeParseStatus)");
+    expect(detailCloseSource).toContain("getResumeActionLockedReason(detail.resumeParseStatus)");
     expect(detailCloseSource).toContain("toast.error(reason)");
     expect(detailCloseSource).toContain("return;");
     expect(detailCloseSource.indexOf("toast.error(reason)")).toBeLessThan(
@@ -188,6 +200,7 @@ describe("ResumeLibraryPage card list", () => {
     expect(listSource).toContain("onViewItem={(id) => {");
     expect(listSource).toContain("const record = records.find((item) => item.id === id);");
     expect(listSource).toContain("onOpenDetail(record);");
+    expect(listSource).not.toContain("onPrefetchDetail");
     expect(listSource).toContain("formatResumeCandidateTitle(record.candidateName, record.id)");
     expect(listSource).toContain("formatResumeLibraryJobDescriptionLabel(record)");
     expect(listSource).toContain("disabled={hasLockedSelection}");
@@ -211,6 +224,9 @@ describe("ResumeLibraryPage card list", () => {
     expect(listSource).toContain("IntersectionObserver");
     expect(listSource).toContain("fetchNextPage");
     expect(listSource).toContain("hasNextPage");
+    expect(source).not.toContain("const prefetchResumeDetail = useCallback(");
+    expect(source).not.toContain("prefetchedResumeDetailIdsRef");
+    expect(source).not.toContain("RESUME_DETAIL_PREFETCH_STALE_TIME");
   });
 
   it("resets selected rows when switching workspaces", () => {
