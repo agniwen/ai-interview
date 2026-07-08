@@ -36,6 +36,7 @@ describe("StudioPersonDetailPanel visual density", () => {
   it("uses breathable tab spacing for resume and AI interview details", () => {
     expect(source).toContain('"flex flex-col gap-8"');
     expect(source).toContain('"min-w-0 flex flex-col gap-8"');
+    expect(source).not.toContain("viewportRef={tabContentRootRef}");
   });
 
   it("keeps the AI interview overview free of nested bordered cards", () => {
@@ -227,11 +228,26 @@ describe("StudioPersonDetailPanel visual density", () => {
       modalSizeStart,
       source.indexOf("return (", modalSizeStart),
     );
+    const screeningPanelSource = sourceBetween(
+      "function ResumeScreeningResultPanel",
+      "function resolveDisplayTurnStats",
+    );
 
     expect(source).toContain('value="ai-analysis"');
     expect(source).toContain("AI评分");
     expect(source).toContain("简历筛选 · 分析中");
     expect(source).toContain("resumeRecord?.resumeReviewStatus");
+    expect(source).toContain("岗位规则检查");
+    expect(source).toContain('import { ScrollArea } from "@/components/ui/scroll-area";');
+    expect(source).toContain(
+      '<ScrollArea className="h-[28rem] rounded-2xl border border-muted/60 bg-muted/20">',
+    );
+    expect(overviewSource).toContain('onViewAiScore={() => setActiveTab("ai-analysis")}');
+    expect(source).toContain("function getResumeScreeningRuleStatusOrder");
+    expect(source).toContain("const sortedRuleResults =");
+    expect(screeningPanelSource).toContain("{sortedRuleResults.map((rule) => (");
+    expect(screeningPanelSource).not.toContain("{result.ruleResults.map((rule) => (");
+    expect(source).not.toContain("h-[28rem] overflow-y-auto");
     expect(overviewSource).not.toContain("<ResumeReviewStructuredView");
     expect(aiAnalysisSource).toContain("<ResumeReviewStructuredView");
     expect(modalSizeSource).not.toContain("activeTab");
@@ -312,6 +328,8 @@ describe("StudioPersonDetailPanel visual density", () => {
     expect(reportsSource).toContain(
       "rounded-xl border border-border/60 bg-background p-4 shadow-sm",
     );
+    expect(reportsSource).toContain('<ScrollArea className="mt-4 max-h-[420px] pr-1">');
+    expect(reportsSource).not.toContain("max-h-[420px] overflow-y-auto");
   });
 
   it("exposes internal report snapshot metadata from each report item", () => {
