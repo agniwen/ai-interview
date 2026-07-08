@@ -118,11 +118,11 @@ function NoSessionPanel({ hasSessions }: { hasSessions: boolean }) {
   return (
     <div className="flex min-h-0 flex-1 items-center justify-center px-8 text-center">
       <div className="flex max-w-sm flex-col gap-2">
-        <p className="font-medium text-sm">从简历库记录发起 AI Chat</p>
+        <p className="font-medium text-sm">从招聘台记录发起 AI Chat</p>
         <p className="text-muted-foreground text-sm">
           {hasSessions
-            ? "选择左侧已有聊天继续，或在简历库记录的更多菜单中发起新的 AI Chat。"
-            : "当前还没有简历聊天。请在简历库记录的更多菜单中发起 AI Chat。"}
+            ? "选择左侧已有聊天继续，或在招聘台记录的更多菜单中发起新的 AI Chat。"
+            : "当前还没有简历聊天。请在招聘台记录的更多菜单中发起 AI Chat。"}
         </p>
       </div>
     </div>

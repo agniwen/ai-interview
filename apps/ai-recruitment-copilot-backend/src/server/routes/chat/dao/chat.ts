@@ -266,7 +266,7 @@ export async function deleteMessagesFromId(input: {
 }
 
 /**
- * 当简历库里某条 studio_interview 被删除时，把所有 chat_conversation 的
+ * 当招聘台里某条 studio_interview 被删除时，把所有 chat_conversation 的
  * `resumeImports` JSONB map 里指向这条 interview 的 entry 清掉——下次该会话
  * 被读起来时，UI 不再显示「已入库」的假状态。
  *

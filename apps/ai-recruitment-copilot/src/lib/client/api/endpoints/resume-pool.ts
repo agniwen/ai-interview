@@ -20,7 +20,7 @@ export function fetchResumePoolItems(
       param: { slug },
       query: { scope },
     }),
-    "加载简历广场失败",
+    "加载人才库失败",
   );
 }
 

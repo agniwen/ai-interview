@@ -27,7 +27,7 @@ function InterviewRoundDetailPage({ slug, roundId }: { slug: string; roundId: st
       // lets the Panel's resolver try both id flavors transparently.
       mode="interview"
       onUpdated={() => {
-        // 与列表页 invalidateAll 行为对齐 —— 轮次写操作会影响简历库标记。
+        // 与列表页 invalidateAll 行为对齐 —— 轮次写操作会影响招聘台标记。
         // Mirror the list page's invalidateAll: round writes can flip the
         // hasInterviewRounds flag on the resume side.
         void queryClient.invalidateQueries({ queryKey: ["studio-interviews"] });

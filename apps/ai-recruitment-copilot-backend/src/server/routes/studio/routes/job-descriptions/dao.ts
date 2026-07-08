@@ -637,7 +637,7 @@ async function queryJobDescriptionMetrics(organizationId: string): Promise<JobDe
 /**
  * 在招岗位管理页头部 chart 聚合的缓存入口。
  * cacheTag 与列表查询共用 `job-descriptions`，再额外打 `studio-resumes` —— 候选人维度
- * 数据也会驱动 candidatesByJd / completionByJd / loadByInterviewer，简历库写操作必须能拉到新值。
+ * 数据也会驱动 candidatesByJd / completionByJd / loadByInterviewer，招聘台写操作必须能拉到新值。
  *
  * Cached entry for the JD-management header charts. Carries both the
  * `job-descriptions` tag (list-query parity) and `studio-resumes` because the

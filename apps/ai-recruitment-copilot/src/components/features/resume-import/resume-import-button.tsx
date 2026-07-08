@@ -1,9 +1,9 @@
 "use client";
 
 import { IconCheck, IconDatabase, IconEye, IconLoader2 } from "@tabler/icons-react";
-// 一键入库：把 chat 中的简历 PDF 解析后写入简历库（resume-only，不生成面试题、
+// 一键入库：把 chat 中的简历 PDF 解析后写入招聘台（resume-only，不生成面试题、
 // 不创建排期）。「发起 AI 面试」改成在打开的简历详情弹窗里走 LaunchInterview
-// Dialog —— 与简历库行菜单 / 详情入口完全同一套 UX。
+// Dialog —— 与招聘台行菜单 / 详情入口完全同一套 UX。
 //
 // One-click import: parse the chat resume PDF and persist it to the resume
 // library (no question generation, no schedule entries — those are deferred
@@ -66,7 +66,7 @@ const StudioPersonEditDialog = lazy(async () => {
 interface ResumeImportButtonProps {
   filePart: FileUIPart & { id: string };
   attachmentId?: string | null;
-  // 已导入的简历库行 id（旧字段名沿用，避免外部消费者再改一遍）。
+  // 已导入的招聘台行 id（旧字段名沿用，避免外部消费者再改一遍）。
   // Resume row id for this part if previously imported; field name kept for
   // compatibility with the existing chat layout state.
   importedInterviewId: string | null;
@@ -335,7 +335,7 @@ export function ResumeImportButton({
       // the interview is deferred to the user clicking 「发起 AI 面试」 in the
       // resume detail dialog, which routes into LaunchInterviewDialog.
       setPhase("saving");
-      setProgressStatus("正在写入简历库…");
+      setProgressStatus("正在写入招聘台…");
       setProgressTools([]);
       setPartialFields([]);
       accumulatedTextRef.current = "";
@@ -353,7 +353,7 @@ export function ResumeImportButton({
       });
       invalidateLibraryCaches();
       onImported(filePart.id, record.id);
-      toast.success("简历已加入简历库");
+      toast.success("简历已加入招聘台");
       cachedParseResultRef.current = null;
       resetProgress();
       setDetailRecordId(record.id);
@@ -396,7 +396,7 @@ export function ResumeImportButton({
 
     try {
       setPhase("saving");
-      setProgressStatus("正在写入简历库…");
+      setProgressStatus("正在写入招聘台…");
       setProgressTools([]);
       setPartialFields([]);
       accumulatedTextRef.current = "";
@@ -422,7 +422,7 @@ export function ResumeImportButton({
       });
       invalidateLibraryCaches();
       onImported(filePart.id, record.id);
-      toast.success("简历已加入简历库");
+      toast.success("简历已加入招聘台");
       cachedParseResultRef.current = null;
       resetProgress();
       setDetailRecordId(record.id);
@@ -552,7 +552,7 @@ export function ResumeImportButton({
     }
   }
 
-  // JD 选不选都行 —— save-only 接受空 jobDescriptionId，后续可以在简历库 / 发起
+  // JD 选不选都行 —— save-only 接受空 jobDescriptionId，后续可以在招聘台 / 发起
   // AI 面试时再补。
   // JD is optional: the save-only endpoint accepts an empty string; users can
   // attach a JD later from the resume library or the launch dialog.
@@ -616,7 +616,7 @@ export function ResumeImportButton({
         progressTools={progressTools}
       />
 
-      {/* 入库后打开简历库详情弹窗（resume mode）。点「发起 AI 面试」会通过
+      {/* 入库后打开招聘台详情弹窗（resume mode）。点「发起 AI 面试」会通过
           onLaunchInterview 把控制权交给本地 LaunchInterviewDialog，避免把用户
           从 chat 跳走到 /studio/resumes。
           Opens the resume-mode detail dialog. Clicking 「发起 AI 面试」 forwards
@@ -641,7 +641,7 @@ export function ResumeImportButton({
             onUpdated={() => {
               invalidateLibraryCaches();
               // 简历从库里被删（fetchStudioResume → null）时这里没有直接信号，
-              // 由简历库 DELETE 路由触发的 chat_conversation.resumeImports 清理兜底
+              // 由招聘台 DELETE 路由触发的 chat_conversation.resumeImports 清理兜底
               // （见 chat/dao/chat.ts removeImportedInterviewFromConversations）。
               // No direct 404 signal here; the chat-side "已入库" badge state is
               // swept server-side when the resume row is deleted (see

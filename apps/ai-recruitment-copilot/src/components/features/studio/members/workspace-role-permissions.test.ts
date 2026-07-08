@@ -80,7 +80,7 @@ describe("workspace role permission helpers", () => {
       description: expect.stringContaining("侧边栏"),
       groupTitle: "页面浏览",
       key: "page:resumes",
-      label: "页面浏览 · 简历库",
+      label: "页面浏览 · 招聘",
       resource: "page",
     });
     expect(items.map((item) => item.key)).toContain("page:permissions");
@@ -137,13 +137,13 @@ describe("workspace role permission helpers", () => {
     const jobDescriptionPage = items.find((item) => item.key === "page:jobDescriptions");
     const jdRead = items.find((item) => item.key === "jd:read");
 
-    expect(resumePoolPage?.description).toContain("访问「简历广场」页面");
-    expect(resumePoolPage?.description).toContain("数据接口仍受「简历广场」业务权限控制");
+    expect(resumePoolPage?.description).toContain("访问「人才库」页面");
+    expect(resumePoolPage?.description).toContain("数据接口仍受「人才库」业务权限控制");
     expect(resumePoolPage?.description).toContain("404");
-    expect(resumeLibraryRead?.description).toContain("「简历库」列表、详情、时间线");
+    expect(resumeLibraryRead?.description).toContain("「招聘台」列表、详情、时间线");
     expect(resumeLibraryRead?.description).toContain("推荐候选人接口");
-    expect(resumePoolRead?.description).toContain("「简历广场」列表、详情、简历文件");
-    expect(jobDescriptionPage?.description).toContain("推荐候选人还需要「简历库」查看权限");
-    expect(jdRead?.description).toContain("推荐候选人接口还同时需要「简历库」查看权限");
+    expect(resumePoolRead?.description).toContain("「人才库」列表、详情、简历文件");
+    expect(jobDescriptionPage?.description).toContain("推荐候选人还需要「招聘台」查看权限");
+    expect(jdRead?.description).toContain("推荐候选人接口还同时需要「招聘台」查看权限");
   });
 });

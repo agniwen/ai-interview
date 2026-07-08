@@ -1080,7 +1080,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
         <EmptyMedia variant="icon">
           <IconUsers className="size-5" />
         </EmptyMedia>
-        <EmptyTitle>简历库还没有任何候选人</EmptyTitle>
+        <EmptyTitle>招聘台还没有任何候选人</EmptyTitle>
         <EmptyDescription>点击右上角「上传简历」加入第一份候选人简历。</EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
@@ -1098,7 +1098,7 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
     <>
       <div className="mx-auto w-full max-w-[96em] space-y-6">
         <PageHeader
-          title="简历库"
+          title="招聘"
           description="沉淀候选人档案、简历 PDF、岗位匹配和流程进展，筛选到面试推进都能从这里接上。"
         />
         <ClientOnly fallback={<Skeleton className="h-48 w-full" />}>
@@ -1521,7 +1521,7 @@ function StudioResumesRoute() {
 export const Route = createFileRoute("/w/$slug/studio/resumes")({
   component: StudioResumesRoute,
   head: () => ({
-    meta: [{ title: "简历库" }],
+    meta: [{ title: "招聘" }],
   }),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {

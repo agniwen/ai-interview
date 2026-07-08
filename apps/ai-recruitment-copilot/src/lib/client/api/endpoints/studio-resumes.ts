@@ -1,5 +1,5 @@
 /**
- * Studio 后台「简历库」API。映射到 `/api/w/:slug/studio/resumes/*`。
+ * Studio 后台「招聘台」API。映射到 `/api/w/:slug/studio/resumes/*`。
  * 文件上传 (POST/PATCH 带 resume File) 由对话框组件直接用 fetch + FormData，
  * 不在本文件内（与 studio-interviews 同样的约定）。
  *
@@ -221,7 +221,7 @@ export function fetchResumeDedup(
 }
 
 /**
- * 从简历库「发起 AI 面试」：把（可能被用户编辑过的）面试题写回该简历行，
+ * 从招聘台「发起 AI 面试」：把（可能被用户编辑过的）面试题写回该简历行，
  * 并创建一条默认排期。返回新建轮次的详情，供调用方直接打开面试详情弹窗。
  *
  * Launch an AI interview from a resume library row — writes the questions

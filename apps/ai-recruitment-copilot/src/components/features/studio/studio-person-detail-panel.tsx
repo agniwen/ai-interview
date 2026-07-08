@@ -88,6 +88,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -114,11 +115,11 @@ import { RoundEmailAction } from "./interviews/round-email/round-email-action";
 import { useRoundEmailSummary } from "./interviews/round-email/use-round-email-summary";
 import { InterviewLinkQrButton } from "./interviews/interview-link-qr-button";
 import { ConversationTranscript } from "./interviews/interview-detail/conversation-transcript";
+import { KeywordHighlightProvider } from "./interviews/interview-detail/keyword-highlight/context";
+import { KeywordHighlightLegend } from "./interviews/interview-detail/keyword-highlight/legend";
 import { DetailRow } from "./interviews/interview-detail/detail-row";
 import { EvaluationResults } from "./interviews/interview-detail/evaluation-results";
 import type { EvidenceQuote } from "./interviews/interview-detail/evaluation-results";
-import { KeywordHighlightProvider } from "./interviews/interview-detail/keyword-highlight/context";
-import { KeywordHighlightLegend } from "./interviews/interview-detail/keyword-highlight/legend";
 import { FormsTab } from "./interviews/interview-detail/forms-tab";
 import { InterviewMetricsPanel } from "./interviews/interview-detail/interview-metrics-panel";
 import {
@@ -465,7 +466,7 @@ function ResumeAiAnalysisPlaceholder({
           <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
         </div>
         <p className="text-muted-foreground text-sm leading-6">
-          系统正在基于绑定岗位生成 AI 分析，完成后会自动展示在这里。
+          系统正在基于绑定岗位生成 AI评分，完成后会自动展示在这里。
         </p>
       </section>
     );
@@ -475,21 +476,21 @@ function ResumeAiAnalysisPlaceholder({
     return (
       <section className="space-y-3 rounded-2xl border border-muted/60 bg-muted/20 p-5">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-medium text-sm">AI 解析失败</h3>
+          <h3 className="font-medium text-sm">AI评分失败</h3>
           <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
         </div>
         <p className="text-muted-foreground text-sm leading-6">
-          {resumeRecord?.resumeReviewError ?? "AI 分析生成失败，请稍后重试。"}
+          {resumeRecord?.resumeReviewError ?? "AI评分生成失败，请稍后重试。"}
         </p>
       </section>
     );
   }
 
   return (
-    <section className="space-y-3 rounded-2xl border border-muted/60 bg-muted/20 p-5">
-      <h3 className="font-medium text-sm">AI 解析</h3>
+    <section className="space-y-4 rounded-2xl border border-muted/60 bg-muted/20 p-6">
+      <h3 className="font-medium text-sm">AI评分</h3>
       <div className="text-muted-foreground text-sm leading-6">
-        <Markdown>{truncateText(resumeRecord?.notes) || "暂无 AI 解析结果"}</Markdown>
+        <Markdown>{truncateText(resumeRecord?.notes) || "暂无 AI评分结果"}</Markdown>
       </div>
     </section>
   );
@@ -509,6 +510,16 @@ function getResumeScreeningRuleStatusMeta(status: ResumeScreeningRuleResult["sta
   return { label: "待核实", variant: "warning" as const };
 }
 
+function getResumeScreeningRuleStatusOrder(status: ResumeScreeningRuleResult["status"]) {
+  if (status === "pass") {
+    return 0;
+  }
+  if (status === "fail") {
+    return 1;
+  }
+  return 2;
+}
+
 function getResumeScreeningRuleSeverityLabel(severity: ResumeScreeningRuleResult["severity"]) {
   if (severity === "blocking") {
     return "阻断";
@@ -520,12 +531,8 @@ function getResumeScreeningRuleSeverityLabel(severity: ResumeScreeningRuleResult
 }
 
 function ResumeScreeningResultPanel({
-  onReassess,
-  reassessing,
   resumeRecord,
 }: {
-  onReassess?: () => void;
-  reassessing?: boolean;
   resumeRecord: ResumeLibraryDetail | null | undefined;
 }) {
   const result = resumeRecord?.resumeScreeningResult;
@@ -534,12 +541,21 @@ function ResumeScreeningResultPanel({
     hold: { label: "暂缓推进", variant: "destructive" as const },
     pass: { label: "通过", variant: "success" as const },
   };
+  const sortedRuleResults =
+    result?.ruleResults
+      .map((rule, index) => ({ index, rule }))
+      .toSorted(
+        (a, b) =>
+          getResumeScreeningRuleStatusOrder(a.rule.status) -
+            getResumeScreeningRuleStatusOrder(b.rule.status) || a.index - b.index,
+      )
+      .map(({ rule }) => rule) ?? [];
 
   return (
-    <section className="space-y-3 rounded-2xl border border-muted/60 bg-muted/20 p-5">
+    <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="font-medium text-sm">岗位规则检查</h3>
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-medium text-sm">简历筛选结果</h3>
           {result ? (
             <Badge variant={recommendationMeta[result.recommendation].variant}>
               {recommendationMeta[result.recommendation].label}
@@ -549,60 +565,48 @@ function ResumeScreeningResultPanel({
           )}
           {resumeRecord?.resumeScreeningStale ? <Badge variant="warning">规则已更新</Badge> : null}
         </div>
-        {onReassess ? (
-          <Button
-            disabled={reassessing}
-            onClick={onReassess}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            {reassessing ? (
-              <IconLoader2 className="size-3.5 animate-spin" />
-            ) : (
-              <IconArrowBackUp className="size-3.5" />
-            )}
-            重新评估
-          </Button>
-        ) : null}
       </div>
       {resumeRecord?.resumeScreeningError ? (
         <p className="text-destructive text-sm">{resumeRecord.resumeScreeningError}</p>
       ) : null}
       {resumeRecord?.resumeScreeningStale ? (
         <p className="text-muted-foreground text-sm leading-6">
-          当前筛选结果基于旧版岗位规则生成，重新评估会同时更新筛选结果和系统简历评价。
+          当前检查结果基于旧版岗位规则生成，重新评估会同时更新规则检查和系统简历评价。
         </p>
       ) : null}
-      {result?.ruleResults.length ? (
-        <div className="space-y-2">
-          {result.ruleResults.map((rule) => (
-            <div className="rounded-md border bg-background px-3 py-2" key={rule.ruleId}>
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={getResumeScreeningRuleStatusMeta(rule.status).variant}>
-                  {getResumeScreeningRuleStatusMeta(rule.status).label}
-                </Badge>
-                <Badge variant="outline">
-                  {getResumeScreeningRuleSeverityLabel(rule.severity)}
-                </Badge>
-                <span className="font-medium text-sm">{rule.label}</span>
-              </div>
-              <p className="mt-1 text-muted-foreground text-sm leading-6">{rule.reason}</p>
-              {rule.evidence.length > 0 ? (
-                <ul className="mt-2 space-y-1 text-muted-foreground text-xs">
-                  {rule.evidence.slice(0, 2).map((evidence, index) => (
-                    <li key={`${rule.ruleId}-${index}`}>
-                      {evidence.quote ? `“${evidence.quote}”` : evidence.explanation}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-          ))}
-        </div>
+      {sortedRuleResults.length ? (
+        <ScrollArea className="h-[28rem] rounded-2xl border border-muted/60 bg-muted/20">
+          <div className="px-5 md:px-6">
+            <ul className="divide-y divide-border/50">
+              {sortedRuleResults.map((rule) => (
+                <li className="py-4 text-sm leading-6" key={rule.ruleId}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={getResumeScreeningRuleStatusMeta(rule.status).variant}>
+                      {getResumeScreeningRuleStatusMeta(rule.status).label}
+                    </Badge>
+                    <Badge variant="outline">
+                      {getResumeScreeningRuleSeverityLabel(rule.severity)}
+                    </Badge>
+                    <span className="font-medium text-sm">{rule.label}</span>
+                  </div>
+                  <p className="mt-2 text-muted-foreground">{rule.reason}</p>
+                  {rule.evidence.length > 0 ? (
+                    <ul className="mt-2 space-y-1 text-muted-foreground text-xs">
+                      {rule.evidence.slice(0, 2).map((evidence, index) => (
+                        <li key={`${rule.ruleId}-${index}`}>
+                          {evidence.quote ? `“${evidence.quote}”` : evidence.explanation}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </ScrollArea>
       ) : (
-        <p className="text-muted-foreground text-sm leading-6">
-          {result?.policyEmpty ? "该岗位未启用具体筛选规则。" : "暂无筛选结果。"}
+        <p className="flex h-[28rem] items-center justify-center rounded-2xl border border-muted/60 bg-muted/20 p-5 text-muted-foreground text-sm leading-6">
+          {result?.policyEmpty ? "该岗位未启用具体筛选规则。" : "暂无规则检查结果。"}
         </p>
       )}
     </section>
@@ -1406,7 +1410,7 @@ function useStudioPersonDetailPanel({
     refetchOnWindowFocus: true,
   });
 
-  // 简历库模式查询 / Resume-mode record query
+  // 招聘台模式查询 / Resume-mode record query
   const { data: resumeRecord, isLoading: isResumeLoading } = useQuery({
     enabled: enabled && !!effectiveRecordId && mode === "resume",
     queryFn: () => {
@@ -1759,10 +1763,10 @@ function useStudioPersonDetailPanel({
   const roundActionLockedReason = isRoundLive ? "面试正在进行中，结束后才能发送或复制链接。" : null;
   const roundActionDisabledReason = roundActionLockedReason ?? aiStageLockedReason;
 
-  // 简历模式的「发起 AI 面试」合并到顶部招聘流程按钮组。
+  // 简历模式的「发起 AI 面试」合并到顶部阶段操作区。
   // 已存在 AI 面试轮次的简历隐藏该按钮，避免重复创建；轮次列表加载中也先隐藏，避免闪烁。
   //
-  // Resume-mode launch action is grouped into the top pipeline action bar.
+  // Resume-mode launch action is grouped into the top stage action area.
   // Hide it once the resume has any rounds (to prevent dup-creates), and
   // suppress it while rounds are loading to avoid a flash-then-hide.
   const canLaunchResumeModeRecord =
@@ -1791,7 +1795,7 @@ function useStudioPersonDetailPanel({
           return;
         }
         if (onLaunchInterview) {
-          // 简历库详情入口：交给外层 LaunchInterviewDialog 处理；关闭本面板
+          // 招聘台详情入口：交给外层 LaunchInterviewDialog 处理；关闭本面板
           // 让 modal 切换显得自然。
           // Resume-library entry: hand off to the parent LaunchInterviewDialog
           // and close this panel so the swap reads naturally.
@@ -1822,9 +1826,10 @@ function useStudioPersonDetailPanel({
       launchResumeModeButtonContent
     );
 
+  const resumeTitleParts = ["候选人详情", record?.candidateName?.trim() || null].filter(Boolean);
   const title =
     mode === "resume" ? (
-      "候选人详情"
+      <span className="break-words">{resumeTitleParts.join(" · ")}</span>
     ) : (
       <span className="flex flex-wrap items-center gap-3">
         <span className="break-words">{record?.candidateName ?? "候选人详情"}</span>
@@ -1838,7 +1843,9 @@ function useStudioPersonDetailPanel({
 
   const description =
     mode === "resume"
-      ? "查看候选人基础信息与结构化简历。"
+      ? (record?.jobDescriptionName?.trim()
+        ? `关联岗位：${record.jobDescriptionName.trim()}`
+        : "暂未关联岗位")
       : renderHeaderDescription({ isLoading, round });
   const resumePreviewUrl = (() => {
     if (!record?.hasResumeFile) {
@@ -1854,15 +1861,14 @@ function useStudioPersonDetailPanel({
     return `/api/w/${slug}/studio/${mode === "resume" ? "resumes" : "interviews"}/${previewRecordId}/resume`;
   })();
 
-  // resume 模式下且非公开访问时，渲染全局流程条；它描述候选人整体状态，
-  // 所以放在所有 tab 内容之上，而不是某个 tab 内容里。
-  // Action bar shows only on the authed resume-mode view. It is candidate-wide
-  // state, so it lives above all tab content rather than inside a tab panel.
+  // resume 模式下且非公开访问时，在 header 展示当前招聘阶段和下一步操作。
+  // The header owns stage status/actions while tabs stay focused on content navigation.
+  const actionBarPipelineStage = visiblePipelineStage ?? record?.pipelineStage;
   const actionBar =
     mode === "resume" &&
     record &&
     canUseManagementActions &&
-    record.pipelineStage &&
+    actionBarPipelineStage &&
     record.outcome ? (
       <PipelineStageActionBar
         humanInterviewDone={Boolean(
@@ -1903,9 +1909,9 @@ function useStudioPersonDetailPanel({
         onRequestReactivate={() =>
           onRequestReactivate?.({ candidateName: record.candidateName, id: record.id })
         }
-        pipelineStage={record.pipelineStage}
+        onViewCurrentStage={() => setActiveTab(tabForPipelineStage(actionBarPipelineStage))}
+        pipelineStage={actionBarPipelineStage}
         primaryAction={launchResumeModeButton}
-        showAiInterviewStep={shouldShowAiInterviewTab(tabVisibilityRecord)}
       />
     ) : null;
 
@@ -1914,7 +1920,7 @@ function useStudioPersonDetailPanel({
     headerExtra = <DetailHeaderSkeleton mode={mode} />;
   } else if (record) {
     headerExtra = (
-      <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <div className="mt-2 flex flex-col items-stretch gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
         <TabsList className="mt-0 w-full sm:w-auto">
           <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="overview">
             {mode === "interview" ? "结果" : "概览"}
@@ -1936,7 +1942,7 @@ function useStudioPersonDetailPanel({
           ) : null}
           {mode === "resume" ? (
             <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="ai-analysis">
-              AI 解析
+              AI评分
             </TabsTrigger>
           ) : null}
           {mode === "resume" && shouldShowAiInterviewTab(tabVisibilityRecord) ? (
@@ -1972,13 +1978,16 @@ function useStudioPersonDetailPanel({
             </>
           ) : null}
         </TabsList>
-        <ResumeDocumentPreviewButton
-          className="w-full sm:w-auto"
-          disabled={!record.hasResumeFile}
-          filename={record.resumeFileName ?? undefined}
-          label="预览简历"
-          url={resumePreviewUrl}
-        />
+        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
+          {actionBar}
+          <ResumeDocumentPreviewButton
+            className="w-full sm:w-auto"
+            disabled={!record.hasResumeFile}
+            filename={record.resumeFileName ?? undefined}
+            label="预览简历"
+            url={resumePreviewUrl}
+          />
+        </div>
       </div>
     );
   }
@@ -2005,7 +2014,6 @@ function useStudioPersonDetailPanel({
   record ? (
     <div className={bodyLayoutClassName}>
       <div className={detailScrollClassName} ref={tabContentRootRef}>
-        {actionBar}
         <AnimatedHeight clip={!showTimelineRail}>
           <TabsContent value="overview">
             <div className="space-y-8">
@@ -2014,7 +2022,10 @@ function useStudioPersonDetailPanel({
               Resume mode: defer to ResumeOverviewPanel so the
               launch-interview dialog and this view stay in sync. */}
               {mode === "resume" && resumeRecord ? (
-                <ResumeOverviewPanel detail={resumeRecord} />
+                <ResumeOverviewPanel
+                  detail={resumeRecord}
+                  onViewAiScore={() => setActiveTab("ai-analysis")}
+                />
               ) : (
                 <div className="grid gap-8 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
                   {isReportsLoading ? (
@@ -2227,16 +2238,35 @@ function useStudioPersonDetailPanel({
 
           {mode === "resume" ? (
             <TabsContent value="ai-analysis">
-              <div className="space-y-5">
-                <ResumeScreeningResultPanel
-                  onReassess={canUseManagementActions ? handleReassessResume : undefined}
-                  reassessing={isReassessingResume}
-                  resumeRecord={resumeRecord}
-                />
+              <div className="space-y-6">
                 {resumeRecord?.resumeReview ? (
-                  <ResumeReviewStructuredView review={resumeRecord.resumeReview} />
+                  <ResumeReviewStructuredView
+                    review={resumeRecord.resumeReview}
+                    screeningResultSlot={<ResumeScreeningResultPanel resumeRecord={resumeRecord} />}
+                    summaryAction={
+                      canUseManagementActions ? (
+                        <Button
+                          disabled={isReassessingResume}
+                          onClick={handleReassessResume}
+                          size="sm"
+                          type="button"
+                          variant="outline"
+                        >
+                          {isReassessingResume ? (
+                            <IconLoader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <IconArrowBackUp className="size-3.5" />
+                          )}
+                          重新评估
+                        </Button>
+                      ) : undefined
+                    }
+                  />
                 ) : (
-                  <ResumeAiAnalysisPlaceholder resumeRecord={resumeRecord} />
+                  <>
+                    <ResumeAiAnalysisPlaceholder resumeRecord={resumeRecord} />
+                    <ResumeScreeningResultPanel resumeRecord={resumeRecord} />
+                  </>
                 )}
               </div>
             </TabsContent>
@@ -2441,7 +2471,7 @@ function useStudioPersonDetailPanel({
 
                                   <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
                                     <h4 className="font-medium text-sm">评估指标</h4>
-                                    <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
+                                    <ScrollArea className="mt-4 max-h-[420px] pr-1">
                                       <EvaluationResults
                                         data={
                                           (report.evaluationCriteriaResults as Record<
@@ -2451,7 +2481,7 @@ function useStudioPersonDetailPanel({
                                         }
                                         onEvidenceSelect={handleEvidenceSelect}
                                       />
-                                    </div>
+                                    </ScrollArea>
                                   </section>
 
                                   <InterviewMetricsPanel
@@ -2529,7 +2559,7 @@ function useStudioPersonDetailPanel({
                 ) : /* oxlint-disable-next-line no-nested-ternary -- Secondary branch renders empty-state or list. */
                 candidateRounds.length === 0 ? (
                   <p className="text-muted-foreground text-sm leading-normal">
-                    该候选人还没有发起面试。在简历库点「保存并发起面试」即可创建。
+                    该候选人还没有发起面试。在招聘台点「保存并发起面试」即可创建。
                   </p>
                 ) : (
                   <div className="flex flex-col gap-3">
@@ -2687,7 +2717,7 @@ function useStudioPersonDetailPanel({
 
   const footer = null;
   const bodyClassName = canUseTimelineRailScroll ? "xl:overflow-hidden" : undefined;
-  const modalClassName = canUseTimelineRailScroll ? "xl:h-[90vh]" : undefined;
+  const modalClassName = cn("sm:rounded-2xl", canUseTimelineRailScroll && "xl:h-[90vh]");
   let modalSize: StudioPersonDetailSlots["modalSize"] = "full";
   if (mode === "resume") {
     modalSize = "3xl";

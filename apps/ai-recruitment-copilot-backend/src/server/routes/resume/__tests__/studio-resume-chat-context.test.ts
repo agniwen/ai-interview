@@ -22,7 +22,7 @@ describe("buildStudioResumeChatContextBlock", () => {
       targetRole: "前端",
     });
 
-    expect(block).toContain("当前聊天绑定的是 Studio 简历库中的候选人");
+    expect(block).toContain("当前聊天绑定的是 Studio 招聘台中的候选人");
     expect(block).toContain("候选人：张三");
     expect(block).toContain("目标岗位：前端");
     expect(block).toContain("绑定 JD：前端工程师");

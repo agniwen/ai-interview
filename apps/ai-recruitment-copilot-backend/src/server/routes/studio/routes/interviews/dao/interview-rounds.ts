@@ -304,7 +304,7 @@ export function listInterviewRounds(
 
 /**
  * 按候选人取所有面试轮次（按 sortOrder 升序）。
- * 用于简历库详情弹窗里的「AI 面试」tab。
+ * 用于招聘台详情弹窗里的「AI 面试」tab。
  *
  * List all rounds for a given candidate, sorted by sortOrder asc. Used by the
  * resume library detail dialog's "AI 面试" tab.

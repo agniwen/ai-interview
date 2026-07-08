@@ -1,6 +1,13 @@
 "use client";
 
-import { IconArrowBackUp, IconArrowRight, IconCircleOff, IconUsers } from "@tabler/icons-react";
+import {
+  IconArrowBackUp,
+  IconArrowRight,
+  IconCircleOff,
+  IconDots,
+  IconInfoCircle,
+  IconUsers,
+} from "@tabler/icons-react";
 /* oxlint-disable no-use-before-define -- helper defined below the export */
 // 候选人详情顶部「下一步操作」action bar。
 // 按候选人当前 pipelineStage + outcome 决定显示哪些按钮。所有写动作都是
@@ -13,8 +20,19 @@ import { IconArrowBackUp, IconArrowRight, IconCircleOff, IconUsers } from "@tabl
 import type { ComponentProps, ReactNode } from "react";
 import { pipelineStageMeta } from "@arc/db-schema/studio-interviews";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { CandidatePipelineEvent } from "@arc/shared/candidate-pipeline-machine";
 import { canApplyCandidatePipelineEvent } from "@arc/shared/candidate-pipeline-machine";
@@ -23,7 +41,6 @@ import { cn } from "@arc/shared/utils";
 export interface PipelineStageActionBarProps {
   pipelineStage: PipelineStage;
   primaryAction?: ReactNode;
-  showAiInterviewStep?: boolean;
   canCreateHumanInterview?: boolean;
   canCreateOffer?: boolean;
   hasJobDescription?: boolean;
@@ -36,6 +53,9 @@ export interface PipelineStageActionBarProps {
   // 推进到指定阶段的回调（仅 stage 跳变，无元数据）。
   // Advance to a target stage (no metadata).
   onAdvance: (target: PipelineStage) => void;
+  // 查看当前阶段对应内容；不对应独立 tab 时由上层回到概览。
+  // View content for the current stage; parent falls back to overview when no stage tab exists.
+  onViewCurrentStage: () => void;
   // 打开「标记结案」dialog。
   // Open the close dialog.
   onRequestClose: () => void;
@@ -47,7 +67,6 @@ export interface PipelineStageActionBarProps {
 export function PipelineStageActionBar({
   pipelineStage,
   primaryAction,
-  showAiInterviewStep = true,
   canCreateHumanInterview = true,
   canCreateOffer = true,
   hasJobDescription = true,
@@ -56,6 +75,7 @@ export function PipelineStageActionBar({
   onAdvance,
   onRequestClose,
   onRequestReactivate,
+  onViewCurrentStage,
 }: PipelineStageActionBarProps) {
   const actions = getStageActions({
     canCreateHumanInterview,
@@ -64,61 +84,55 @@ export function PipelineStageActionBar({
     humanInterviewDone,
     humanInterviewFeedbackComplete,
     onAdvance,
-    onRequestClose,
     onRequestReactivate,
     pipelineStage,
   });
-  const routeSteps = getRouteSteps(pipelineStage, showAiInterviewStep);
   const groupedPrimaryAction = pipelineStage === "closed" ? null : primaryAction;
+  const hasPrimaryActions = Boolean(groupedPrimaryAction) || actions.right.length > 0;
+  const canClose = pipelineStage !== "closed";
 
   return (
-    <div className="space-y-2 rounded-2xl border border-border bg-background p-3 shadow-xs">
-      <ol
-        aria-label={`招聘流程，当前阶段：${pipelineStageMeta[pipelineStage].label}`}
-        className="grid list-none overflow-x-auto rounded-xl bg-muted/30 p-2"
-        style={{ gridTemplateColumns: `repeat(${routeSteps.length}, minmax(6.5rem, 1fr))` }}
-      >
-        {routeSteps.map((stage, index) => {
-          const isCurrent = stage === pipelineStage;
-          const isLast = index === routeSteps.length - 1;
-          return (
-            <li className="relative flex min-w-[6.5rem] items-center px-1" key={stage}>
-              {isLast ? null : (
-                <span
-                  aria-hidden
-                  className="-translate-y-1/2 absolute top-1/2 left-1/2 h-px w-full bg-border"
-                />
-              )}
-              <span
-                className={cn(
-                  "relative z-10 inline-flex w-full items-center justify-center gap-1.5 rounded-full px-2.5 py-1.5 font-medium text-xs",
-                  isCurrent
-                    ? "bg-primary text-primary-foreground shadow-xs"
-                    : "bg-background text-muted-foreground ring-1 ring-border/60",
-                )}
-              >
-                <span className="tabular-nums">{index + 1}</span>
-                <span className="truncate">{pipelineStageMeta[stage].label}</span>
-              </span>
-            </li>
-          );
-        })}
-      </ol>
-
-      <div className="flex flex-wrap items-center justify-end gap-2 border-border border-t pt-2">
-        {actions.left.length > 0 ? actions.left : null}
-        {groupedPrimaryAction || actions.right.length > 0 ? (
-          <ButtonGroup className="flex-wrap justify-end">
-            {groupedPrimaryAction}
-            {actions.right}
-          </ButtonGroup>
-        ) : null}
-      </div>
+    <div
+      aria-label={`当前招聘阶段：${pipelineStageMeta[pipelineStage].label}`}
+      className="flex flex-wrap items-center justify-end gap-2"
+    >
+      <RecruitmentStageHoverCard
+        onViewCurrentStage={onViewCurrentStage}
+        pipelineStage={pipelineStage}
+      />
+      {hasPrimaryActions ? (
+        <ButtonGroup className="flex-wrap justify-end">
+          {groupedPrimaryAction}
+          {actions.right}
+        </ButtonGroup>
+      ) : null}
+      {canClose ? (
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger
+            render={
+              <Button aria-label="更多流程操作" size="sm" type="button" variant="outline">
+                <IconDots className="size-4" />
+                更多
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>流程操作</DropdownMenuLabel>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onRequestClose} variant="destructive">
+              <IconCircleOff className="size-4" />
+              标记结案
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
     </div>
   );
 }
 
-const DEFAULT_ROUTE_STEPS: PipelineStage[] = [
+const DEFAULT_FLOW_STEPS: PipelineStage[] = [
   "screening",
   "ai_interview",
   "human_interview",
@@ -126,14 +140,7 @@ const DEFAULT_ROUTE_STEPS: PipelineStage[] = [
   "closed",
 ];
 
-const DEFAULT_ROUTE_STEPS_WITHOUT_AI: PipelineStage[] = [
-  "screening",
-  "human_interview",
-  "offer",
-  "closed",
-];
-
-const ROUTE_WITH_WRITTEN_TEST: PipelineStage[] = [
+const WRITTEN_TEST_FLOW_STEPS: PipelineStage[] = [
   "screening",
   "written_test",
   "ai_interview",
@@ -142,17 +149,89 @@ const ROUTE_WITH_WRITTEN_TEST: PipelineStage[] = [
   "closed",
 ];
 
-function getRouteSteps(
-  pipelineStage: PipelineStage,
-  showAiInterviewStep: boolean,
-): PipelineStage[] {
-  if (pipelineStage === "written_test") {
-    return ROUTE_WITH_WRITTEN_TEST;
-  }
-  if (pipelineStage === "ai_interview") {
-    return DEFAULT_ROUTE_STEPS;
-  }
-  return showAiInterviewStep ? DEFAULT_ROUTE_STEPS : DEFAULT_ROUTE_STEPS_WITHOUT_AI;
+function getHoverFlowSteps(pipelineStage: PipelineStage): PipelineStage[] {
+  return pipelineStage === "written_test" ? WRITTEN_TEST_FLOW_STEPS : DEFAULT_FLOW_STEPS;
+}
+
+function RecruitmentStageHoverCard({
+  onViewCurrentStage,
+  pipelineStage,
+}: {
+  onViewCurrentStage: () => void;
+  pipelineStage: PipelineStage;
+}) {
+  const flowSteps = getHoverFlowSteps(pipelineStage);
+  const currentIndex = flowSteps.indexOf(pipelineStage);
+
+  return (
+    <HoverCard>
+      <HoverCardTrigger
+        render={
+          <Button
+            aria-label={`查看当前阶段：${pipelineStageMeta[pipelineStage].label}`}
+            className="h-8 px-3 font-medium"
+            onClick={onViewCurrentStage}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <IconInfoCircle className="size-4" />
+            当前阶段：{pipelineStageMeta[pipelineStage].label}
+          </Button>
+        }
+      />
+      <HoverCardContent align="end" className="w-72 p-4" side="bottom" sideOffset={8}>
+        <div className="space-y-3">
+          <div>
+            <p className="font-medium text-sm">完整招聘流程</p>
+            <p className="mt-1 text-muted-foreground text-xs">
+              当前处于「{pipelineStageMeta[pipelineStage].label}」
+            </p>
+          </div>
+          <ol className="space-y-0">
+            {flowSteps.map((stage, index) => {
+              const isCurrent = stage === pipelineStage;
+              const isDone = currentIndex !== -1 && index < currentIndex;
+              const isLast = index === flowSteps.length - 1;
+
+              return (
+                <li className="grid grid-cols-[1rem_minmax(0,1fr)] gap-2" key={stage}>
+                  <div className="flex flex-col items-center">
+                    <span
+                      className={cn(
+                        "mt-1 size-2.5 rounded-full border",
+                        isCurrent && "border-primary bg-primary",
+                        isDone && !isCurrent && "border-primary/40 bg-primary/30",
+                        !isDone && !isCurrent && "border-border bg-background",
+                      )}
+                    />
+                    {isLast ? null : <span className="mt-1 h-6 w-px bg-border" />}
+                  </div>
+                  <div className="min-w-0 pb-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        className={cn(
+                          "truncate text-sm",
+                          isCurrent ? "font-medium text-foreground" : "text-muted-foreground",
+                        )}
+                      >
+                        {pipelineStageMeta[stage].label}
+                      </span>
+                      {isCurrent ? (
+                        <Badge className="h-5 px-1.5 text-[10px]" variant="outline">
+                          当前
+                        </Badge>
+                      ) : null}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      </HoverCardContent>
+    </HoverCard>
+  );
 }
 
 interface StageButton {
@@ -169,7 +248,6 @@ function getStageActions(props: {
   humanInterviewFeedbackComplete?: boolean;
   humanInterviewDone?: boolean;
   onAdvance: (target: PipelineStage) => void;
-  onRequestClose: () => void;
   onRequestReactivate: () => void;
 }): { left: ReactNode[]; right: ReactNode[] } {
   const {
@@ -180,7 +258,6 @@ function getStageActions(props: {
     humanInterviewFeedbackComplete,
     humanInterviewDone,
     onAdvance,
-    onRequestClose,
     onRequestReactivate,
   } = props;
 
@@ -197,15 +274,6 @@ function getStageActions(props: {
       ],
     };
   }
-
-  // 所有非 closed 阶段都能直接结案。
-  // Every non-closed stage can be closed.
-  const closeBtn: ReactNode = (
-    <Button key="close" onClick={onRequestClose} size="sm" variant="outline">
-      <IconCircleOff className="size-4" />
-      标记结案
-    </Button>
-  );
 
   const buttons: StageButton[] = [];
   const pipelineSnapshot = {
@@ -317,10 +385,7 @@ function getStageActions(props: {
   }
 
   return {
-    left: [
-      ...buttons.filter((button) => button.side === "left").map((button) => button.node),
-      closeBtn,
-    ],
+    left: buttons.filter((button) => button.side === "left").map((button) => button.node),
     right: buttons.filter((button) => button.side === "right").map((button) => button.node),
   };
 }

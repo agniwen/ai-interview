@@ -109,7 +109,7 @@ describe("ResumePoolPage masonry layout", () => {
 
     expect(source).toContain('className="flex items-center gap-2 px-3"');
     expect(source).toContain('className="min-w-0 flex-1 justify-center"');
-    expect(source).toContain("入库到简历库");
+    expect(source).toContain("入库到招聘台");
     expect(source).toContain("已入库");
     expect(source).toContain("function getResumePoolImportActionState");
     expect(source).toContain('case "queued"');

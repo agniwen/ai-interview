@@ -1,7 +1,7 @@
 "use client";
 
 import { IconLoader2 } from "@tabler/icons-react";
-// 「发起 AI 面试」弹窗：在简历库内直接为既有候选人触发出题 + 编辑 + 落库。
+// 「发起 AI 面试」弹窗：在招聘台内直接为既有候选人触发出题 + 编辑 + 落库。
 // 开弹窗时拉简历详情拿 resumeProfile，自动跑 /api/interview/generate-questions
 // 把题目灌进 useInterviewForm；用户可在 InterviewQuestionsFields 内增删改，
 // 「发起」时 POST /studio/resumes/:id/launch-interview，由调用方收到 round
@@ -42,7 +42,7 @@ interface LaunchFormValues {
 
 const EMPTY_FORM_VALUES: LaunchFormValues = { interviewQuestions: [] };
 
-// 简历库的「发起 AI 面试」只编辑题目，所以走最小化的 useForm；不要复用
+// 招聘台的「发起 AI 面试」只编辑题目，所以走最小化的 useForm；不要复用
 // AI 面试侧的 useInterviewForm —— 它绑了 studioInterviewClientFormSchema，
 // 会因为本弹窗里没有候选人姓名 / JD / 排期字段而静默 invalid 阻塞提交。
 //
@@ -229,7 +229,7 @@ export function LaunchInterviewDialog({
   const isBusy = isGenerating || submitting;
 
   return (
-    // 与简历库详情弹窗对齐：Tabs 包住整个 Modal，TabsList 放进 headerExtra；
+    // 与招聘台详情弹窗对齐：Tabs 包住整个 Modal，TabsList 放进 headerExtra；
     // TabsContent 走 AnimatedHeight，切换时高度平滑过渡。
     // Mirror the detail dialog: Tabs wraps Modal, TabsList sits in headerExtra,
     // and AnimatedHeight gives the body a smooth height transition on switch.

@@ -148,7 +148,7 @@ export function BulkUploadProgressDialog({
       return "正在上传文件…";
     }
     if (phase === "processing") {
-      return target === "resume_pool" ? "正在加入简历广场" : "正在批量入库";
+      return target === "resume_pool" ? "正在加入人才库" : "正在批量入库";
     }
     if (phase === "paused") {
       return "已暂停";

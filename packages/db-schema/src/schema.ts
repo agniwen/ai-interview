@@ -484,7 +484,7 @@ export const studioInterview = pgTable(
       .$type<ResumeScreeningStatus>()
       .notNull()
       .default("idle"),
-    // 简历进入简历库的来源。直传 / 我的简历池 / 公共简历池 / 聊天入库 / API 入库。
+    // 简历进入招聘台的来源。直传 / 我的简历池 / 公共简历池 / 聊天入库 / API 入库。
     // Source metadata for resume-library rows; keeps the existing workflow
     // intact while preserving provenance for pool imports.
     resumeSourceImportedAt: timestamp("resume_source_imported_at", { withTimezone: true }),

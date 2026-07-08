@@ -597,7 +597,7 @@ function ContextPanelContent() {
       <section>
         <h2 className="font-medium text-sm">检索范围</h2>
         <div className="mt-2 rounded-lg border bg-background px-3 py-2 text-sm">
-          <p>当前 workspace 简历库与岗位库</p>
+          <p>当前 workspace 招聘台与岗位库</p>
           <p className="mt-1 text-muted-foreground text-xs">
             已收集 {citations.length} 条引用，{pendingCount} 个动作待确认。
           </p>
