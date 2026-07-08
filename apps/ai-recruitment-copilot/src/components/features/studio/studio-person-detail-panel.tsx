@@ -1761,10 +1761,10 @@ function useStudioPersonDetailPanel({
   const roundActionLockedReason = isRoundLive ? "面试正在进行中，结束后才能发送或复制链接。" : null;
   const roundActionDisabledReason = roundActionLockedReason ?? aiStageLockedReason;
 
-  // 简历模式的「发起 AI 面试」合并到顶部招聘流程按钮组。
+  // 简历模式的「发起 AI 面试」合并到顶部阶段操作区。
   // 已存在 AI 面试轮次的简历隐藏该按钮，避免重复创建；轮次列表加载中也先隐藏，避免闪烁。
   //
-  // Resume-mode launch action is grouped into the top pipeline action bar.
+  // Resume-mode launch action is grouped into the top stage action area.
   // Hide it once the resume has any rounds (to prevent dup-creates), and
   // suppress it while rounds are loading to avoid a flash-then-hide.
   const canLaunchResumeModeRecord =
@@ -1824,9 +1824,10 @@ function useStudioPersonDetailPanel({
       launchResumeModeButtonContent
     );
 
+  const resumeTitleParts = ["候选人详情", record?.candidateName?.trim() || null].filter(Boolean);
   const title =
     mode === "resume" ? (
-      "候选人详情"
+      <span className="break-words">{resumeTitleParts.join(" · ")}</span>
     ) : (
       <span className="flex flex-wrap items-center gap-3">
         <span className="break-words">{record?.candidateName ?? "候选人详情"}</span>
@@ -1840,7 +1841,9 @@ function useStudioPersonDetailPanel({
 
   const description =
     mode === "resume"
-      ? "查看候选人基础信息与结构化简历。"
+      ? (record?.jobDescriptionName?.trim()
+        ? `关联岗位：${record.jobDescriptionName.trim()}`
+        : "暂未关联岗位")
       : renderHeaderDescription({ isLoading, round });
   const resumePreviewUrl = (() => {
     if (!record?.hasResumeFile) {
@@ -1856,15 +1859,14 @@ function useStudioPersonDetailPanel({
     return `/api/w/${slug}/studio/${mode === "resume" ? "resumes" : "interviews"}/${previewRecordId}/resume`;
   })();
 
-  // resume 模式下且非公开访问时，渲染全局流程条；它描述候选人整体状态，
-  // 所以放在所有 tab 内容之上，而不是某个 tab 内容里。
-  // Action bar shows only on the authed resume-mode view. It is candidate-wide
-  // state, so it lives above all tab content rather than inside a tab panel.
+  // resume 模式下且非公开访问时，在 header 展示当前招聘阶段和下一步操作。
+  // The header owns stage status/actions while tabs stay focused on content navigation.
+  const actionBarPipelineStage = visiblePipelineStage ?? record?.pipelineStage;
   const actionBar =
     mode === "resume" &&
     record &&
     canUseManagementActions &&
-    record.pipelineStage &&
+    actionBarPipelineStage &&
     record.outcome ? (
       <PipelineStageActionBar
         humanInterviewDone={Boolean(
@@ -1905,9 +1907,9 @@ function useStudioPersonDetailPanel({
         onRequestReactivate={() =>
           onRequestReactivate?.({ candidateName: record.candidateName, id: record.id })
         }
-        pipelineStage={record.pipelineStage}
+        onViewCurrentStage={() => setActiveTab(tabForPipelineStage(actionBarPipelineStage))}
+        pipelineStage={actionBarPipelineStage}
         primaryAction={launchResumeModeButton}
-        showAiInterviewStep={shouldShowAiInterviewTab(tabVisibilityRecord)}
       />
     ) : null;
 
@@ -1916,7 +1918,7 @@ function useStudioPersonDetailPanel({
     headerExtra = <DetailHeaderSkeleton mode={mode} />;
   } else if (record) {
     headerExtra = (
-      <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <div className="mt-2 flex flex-col items-stretch gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
         <TabsList className="mt-0 w-full sm:w-auto">
           <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="overview">
             {mode === "interview" ? "结果" : "概览"}
@@ -1974,13 +1976,16 @@ function useStudioPersonDetailPanel({
             </>
           ) : null}
         </TabsList>
-        <ResumeDocumentPreviewButton
-          className="w-full sm:w-auto"
-          disabled={!record.hasResumeFile}
-          filename={record.resumeFileName ?? undefined}
-          label="预览简历"
-          url={resumePreviewUrl}
-        />
+        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
+          {actionBar}
+          <ResumeDocumentPreviewButton
+            className="w-full sm:w-auto"
+            disabled={!record.hasResumeFile}
+            filename={record.resumeFileName ?? undefined}
+            label="预览简历"
+            url={resumePreviewUrl}
+          />
+        </div>
       </div>
     );
   }
@@ -2007,7 +2012,6 @@ function useStudioPersonDetailPanel({
   record ? (
     <div className={bodyLayoutClassName}>
       <div className={detailScrollClassName} ref={tabContentRootRef}>
-        {actionBar}
         <AnimatedHeight clip={!showTimelineRail}>
           <TabsContent value="overview">
             <div className="space-y-8">
@@ -2703,7 +2707,7 @@ function useStudioPersonDetailPanel({
 
   const footer = null;
   const bodyClassName = canUseTimelineRailScroll ? "xl:overflow-hidden" : undefined;
-  const modalClassName = canUseTimelineRailScroll ? "xl:h-[90vh]" : undefined;
+  const modalClassName = cn("sm:rounded-2xl", canUseTimelineRailScroll && "xl:h-[90vh]");
   let modalSize: StudioPersonDetailSlots["modalSize"] = "full";
   if (mode === "resume") {
     modalSize = "3xl";

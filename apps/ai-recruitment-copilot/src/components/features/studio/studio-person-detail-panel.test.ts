@@ -180,7 +180,26 @@ describe("StudioPersonDetailPanel visual density", () => {
     expect(availableTabsSource).toContain("shouldShowAiInterviewTab(tabVisibilityRecord)");
     expect(tabsListSource).toContain("shouldShowAiInterviewTab(tabVisibilityRecord)");
     expect(roundsContentSource).toContain("shouldShowAiInterviewTab(tabVisibilityRecord)");
-    expect(source).toContain("showAiInterviewStep={shouldShowAiInterviewTab(tabVisibilityRecord)}");
+    expect(source).not.toContain("showAiInterviewStep");
+  });
+
+  it("uses compact resume detail title and job-aware resume description", () => {
+    const titleSource = sourceBetween("const resumeTitleParts =", "const resumePreviewUrl =");
+
+    expect(titleSource).toContain('"候选人详情"');
+    expect(titleSource).toContain("record?.candidateName?.trim() || null");
+    expect(titleSource).not.toContain("record?.jobDescriptionName?.trim() || null");
+    expect(titleSource).toContain('resumeTitleParts.join(" · ")');
+    expect(titleSource).toContain("`关联岗位：${record.jobDescriptionName.trim()}`");
+    expect(titleSource).toContain('"暂未关联岗位"');
+    expect(titleSource).not.toContain("查看候选人基础信息与结构化简历。");
+  });
+
+  it("uses a smaller radius for the person detail modal surface", () => {
+    const modalClassSource = sourceBetween("const modalClassName =", "let modalSize:");
+
+    expect(modalClassSource).toContain('"sm:rounded-2xl"');
+    expect(modalClassSource).toContain('canUseTimelineRailScroll && "xl:h-[90vh]"');
   });
 
   it("gates human interview and offer tabs plus stage actions by CRUD permissions", () => {
@@ -254,12 +273,18 @@ describe("StudioPersonDetailPanel visual density", () => {
     expect(modalSizeSource).toContain('"3xl"');
   });
 
-  it("moves resume launch actions into the pipeline action bar without a footer", () => {
+  it("moves resume launch actions into the compact pipeline header without a footer", () => {
     const launchSource = sourceBetween(
       "const launchResumeModeButtonContent = showLaunchButton ?",
       "const title =",
     );
     const actionBarSource = sourceBetween("const actionBar =", "let headerExtra");
+    const headerExtraSource = sourceBetween("let headerExtra", "const showTimelineRail");
+    const preOverviewTabSource = sourceBetween(
+      "<div className={detailScrollClassName} ref={tabContentRootRef}>",
+      '<TabsContent value="overview">',
+    );
+    const overviewSource = sourceBetween('<TabsContent value="overview">', "{/* 轮次概览");
 
     expect(source).toContain("请先绑定在招岗位后再发起 AI 面试");
     expect(source).toContain('from "@/components/ui/tooltip"');
@@ -274,6 +299,14 @@ describe("StudioPersonDetailPanel visual density", () => {
     expect(actionBarSource).toContain(
       "hasJobDescription={Boolean(resumeRecord?.jobDescriptionId)}",
     );
+    expect(actionBarSource).toContain(
+      "onViewCurrentStage={() => setActiveTab(tabForPipelineStage(actionBarPipelineStage))}",
+    );
+    expect(actionBarSource).toContain("pipelineStage={actionBarPipelineStage}");
+    expect(preOverviewTabSource).not.toContain("{actionBar}");
+    expect(overviewSource).not.toContain("{actionBar}");
+    expect(headerExtraSource).toContain("{actionBar}");
+    expect(headerExtraSource).toContain("<ResumeDocumentPreviewButton");
     expect(source).toContain("const footer = null;");
     expect(source).not.toContain("const resumeModeFooter =");
     expect(source).not.toContain("<IconPencil");
