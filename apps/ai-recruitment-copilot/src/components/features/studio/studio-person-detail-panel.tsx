@@ -2181,31 +2181,36 @@ function useStudioPersonDetailPanel({
                 </section>
               ) : null}
 
-              <section className="xl:col-span-2 border-border/50 border-t pt-6">
-                <div className="mb-4">
-                  <h3 className="font-medium text-sm">候选人收集信息</h3>
-                </div>
-                {isFormSubmissionsLoading || isReportsLoading ? (
-                  <FormsSkeleton />
-                ) : (
-                  <div className="grid gap-x-6 gap-y-8 md:grid-cols-2">
-                    <div>
-                      <div className="mb-3 flex items-center gap-2">
-                        <h4 className="font-medium text-sm">表单题</h4>
-                        <Badge variant="outline">共{formItems.length}题</Badge>
-                      </div>
-                      <CollectedCandidateInfoList emptyLabel="暂无表单答复" items={formItems} />
-                    </div>
-                    <div>
-                      <div className="mb-3 flex items-center gap-2">
-                        <h4 className="font-medium text-sm">面试题</h4>
-                        <Badge variant="outline">共{interviewItems.length}题</Badge>
-                      </div>
-                      <CollectedCandidateInfoList emptyLabel="暂无面试题" items={interviewItems} />
-                    </div>
+              {mode === "interview" ? (
+                <section className="xl:col-span-2 border-border/50 border-t pt-6">
+                  <div className="mb-4">
+                    <h3 className="font-medium text-sm">候选人收集信息</h3>
                   </div>
-                )}
-              </section>
+                  {isFormSubmissionsLoading || isReportsLoading ? (
+                    <FormsSkeleton />
+                  ) : (
+                    <div className="grid gap-x-6 gap-y-8 md:grid-cols-2">
+                      <div>
+                        <div className="mb-3 flex items-center gap-2">
+                          <h4 className="font-medium text-sm">表单题</h4>
+                          <Badge variant="outline">共{formItems.length}题</Badge>
+                        </div>
+                        <CollectedCandidateInfoList emptyLabel="暂无表单答复" items={formItems} />
+                      </div>
+                      <div>
+                        <div className="mb-3 flex items-center gap-2">
+                          <h4 className="font-medium text-sm">面试题</h4>
+                          <Badge variant="outline">共{interviewItems.length}题</Badge>
+                        </div>
+                        <CollectedCandidateInfoList
+                          emptyLabel="暂无面试题"
+                          items={interviewItems}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </section>
+              ) : null}
 
               {mode === "interview" ? (
                 <section className="space-y-3 border-t border-border/50 pt-6">
