@@ -15,6 +15,8 @@ import { Message, MessageContent } from "@/components/ai-elements/message";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
 import { coalescePersistedInterviewTurns } from "@arc/shared/interview-transcript-turns";
 import { cn } from "@arc/shared/utils";
+import { HighlightedText } from "./keyword-highlight/highlighted-text";
+import { useKeywordHighlight } from "./keyword-highlight/context";
 
 interface ConversationTranscriptProps {
   turns: PersistedInterviewTurn[];
@@ -29,6 +31,7 @@ export function ConversationTranscript({
 }: ConversationTranscriptProps) {
   const turnRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const displayTurns = useMemo(() => coalescePersistedInterviewTurns(turns), [turns]);
+  const { enabledCategories } = useKeywordHighlight();
 
   useEffect(() => {
     if (activeTurnIndex === null || activeTurnIndex === undefined) {
@@ -89,7 +92,7 @@ export function ConversationTranscript({
                   )}
                 >
                   {isUser ? (
-                    <span className="whitespace-pre-wrap">{turn.message}</span>
+                    <HighlightedText enabledCategories={enabledCategories} text={turn.message} />
                   ) : (
                     <Markdown>{turn.message}</Markdown>
                   )}
