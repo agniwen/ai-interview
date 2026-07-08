@@ -1,5 +1,8 @@
 import { globalConfigSchema } from "@arc/shared/global-config";
-import { jobDescriptionFormSchema } from "@arc/shared/job-descriptions";
+import {
+  createDefaultResumeScreeningPolicy,
+  jobDescriptionFormSchema,
+} from "@arc/shared/job-descriptions";
 import { describe, expect, it } from "vitest";
 import {
   buildJobDescriptionCodeCandidates,
@@ -80,6 +83,7 @@ describe("job description code helpers", () => {
       interviewerIds: ["interviewer-1"],
       name: "前端工程师",
       prompt: "考察前端能力",
+      resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
     });
 
     expect(parsed.code).toBe("AUR00AZ");
@@ -94,6 +98,7 @@ describe("job description code helpers", () => {
       interviewerIds: ["interviewer-1"],
       name: "前端工程师",
       prompt: "考察前端能力",
+      resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
     });
 
     expect(parsed.code).toBe("HRD00AZ");
@@ -109,6 +114,7 @@ describe("job description code helpers", () => {
         interviewerIds: ["interviewer-1"],
         name: "前端工程师",
         prompt: "考察前端能力",
+        resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
       }),
     ).toThrow();
   });
@@ -123,6 +129,7 @@ describe("job description code helpers", () => {
         interviewerIds: ["interviewer-1"],
         name: "前端工程师",
         prompt: "考察前端能力",
+        resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
       }),
     ).toThrow();
   });
