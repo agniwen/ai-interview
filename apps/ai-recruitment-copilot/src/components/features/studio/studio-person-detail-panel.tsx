@@ -1842,12 +1842,13 @@ function useStudioPersonDetailPanel({
       </span>
     );
 
-  const description =
-    mode === "resume"
-      ? (record?.jobDescriptionName?.trim()
-        ? `关联岗位：${record.jobDescriptionName.trim()}`
-        : "暂未关联岗位")
-      : renderHeaderDescription({ isLoading, round });
+  let description: ReactNode = renderHeaderDescription({ isLoading, round });
+  if (mode === "resume") {
+    const linkedJobDescriptionName = record?.jobDescriptionName?.trim();
+    description = linkedJobDescriptionName
+      ? `关联岗位：${linkedJobDescriptionName}`
+      : "暂未关联岗位";
+  }
   const resumePreviewUrl = (() => {
     if (!record?.hasResumeFile) {
       return "";

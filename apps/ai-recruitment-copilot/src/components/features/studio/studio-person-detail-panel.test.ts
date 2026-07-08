@@ -190,7 +190,8 @@ describe("StudioPersonDetailPanel visual density", () => {
     expect(titleSource).toContain("record?.candidateName?.trim() || null");
     expect(titleSource).not.toContain("record?.jobDescriptionName?.trim() || null");
     expect(titleSource).toContain('resumeTitleParts.join(" · ")');
-    expect(titleSource).toContain("`关联岗位：${record.jobDescriptionName.trim()}`");
+    expect(titleSource).toContain("linkedJobDescriptionName");
+    expect(titleSource).toContain("关联岗位：");
     expect(titleSource).toContain('"暂未关联岗位"');
     expect(titleSource).not.toContain("查看候选人基础信息与结构化简历。");
   });

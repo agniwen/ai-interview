@@ -8,7 +8,7 @@
 // same data renders the same way in both places.
 
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
-import { describeResumeEvaluationStatus, describeResumeProgress } from "@arc/shared/studio-resumes";
+import { describeResumeEvaluationStatus } from "@arc/shared/studio-resumes";
 import type {
   ResumeReview,
   ResumeReviewAction,
