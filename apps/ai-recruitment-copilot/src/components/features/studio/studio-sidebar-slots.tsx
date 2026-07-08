@@ -107,7 +107,7 @@ const navGroups: NavGroup[] = [
         icon: IconFileText,
         path: "/studio/job-descriptions",
         resource: "page",
-        title: "在招岗位管理",
+        title: "岗位设置",
       },
     ],
     label: "招聘配置",

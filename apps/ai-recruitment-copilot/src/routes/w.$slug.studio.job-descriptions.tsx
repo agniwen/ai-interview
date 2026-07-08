@@ -390,7 +390,7 @@ function JobDescriptionManagementPage({
       <div className="mx-auto w-full max-w-[96em] space-y-6">
         <PageHeader
           description="按岗位组织候选人、面试官和面试数据，让招聘进展和团队分工都落到同一处。"
-          title="在招岗位"
+          title="岗位设置"
         />
 
         <ClientOnly fallback={<Skeleton className="h-80 w-full" />}>
@@ -610,7 +610,7 @@ function StudioJobDescriptionsRoute() {
 export const Route = createFileRoute("/w/$slug/studio/job-descriptions")({
   component: StudioJobDescriptionsRoute,
   head: () => ({
-    meta: [{ title: "在招岗位管理" }],
+    meta: [{ title: "岗位设置" }],
   }),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {

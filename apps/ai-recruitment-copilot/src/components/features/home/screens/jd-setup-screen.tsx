@@ -8,10 +8,7 @@ import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
 import { ScreenFrame } from "./screen-frame";
 
-const BREADCRUMB: BreadcrumbCrumb[] = [
-  { label: "Studio" },
-  { current: true, label: "在招岗位管理" },
-];
+const BREADCRUMB: BreadcrumbCrumb[] = [{ label: "Studio" }, { current: true, label: "岗位设置" }];
 
 function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
   return (
@@ -170,7 +167,7 @@ function DimmedJobsBackground() {
   return (
     <div className="flex flex-col gap-6 px-6 py-6 opacity-50">
       <header className="flex flex-col gap-1.5">
-        <h1 className="text-[22px] leading-tight">在招岗位管理</h1>
+        <h1 className="text-[22px] leading-tight">岗位设置</h1>
         <p className="text-[12px] text-muted-foreground">
           维护岗位 JD、面试官与题库，所有评估共用同一份岗位语境。
         </p>
@@ -214,7 +211,7 @@ export function JdSetupScreen({ className }: { className?: string }) {
       <AppShell
         bodyClassName="bg-background"
         breadcrumb={BREADCRUMB}
-        sidebar={<StudioNav activeLabel="在招岗位管理" />}
+        sidebar={<StudioNav activeLabel="岗位设置" />}
         tab="studio"
       >
         <JdSetupContent />

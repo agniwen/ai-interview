@@ -51,7 +51,7 @@ export const STUDIO_NAV_GROUPS: NavGroup[] = [
     items: [
       { icon: IconBuilding, label: "部门管理" },
       { icon: IconUserCircle, label: "面试官管理" },
-      { icon: IconFileText, label: "在招岗位管理" },
+      { icon: IconFileText, label: "岗位设置" },
     ],
     label: "招聘配置",
   },

@@ -3,6 +3,7 @@
 import {
   IconClipboardList,
   IconExternalLink,
+  IconInfoCircle,
   IconListCheck,
   IconLoader2,
   IconSparkles,
@@ -46,6 +47,8 @@ import {
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
+  InputGroupText,
+  InputGroupTextarea,
 } from "@/components/ui/input-group";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -54,6 +57,7 @@ import { MarkdownEditor } from "@/components/features/markdown-editor";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
 
 const NAME_MAX_LENGTH = 120;
@@ -63,6 +67,19 @@ const SCREENING_TEXTAREA_MAX_LENGTH = 2000;
 const MIN_EDUCATION_RULE_ID = "minimum-education";
 const MIN_WORK_YEARS_RULE_ID = "minimum-work-years";
 const REQUIRED_SKILLS_RULE_ID = "required-skills";
+const SCREENING_ACTION_OPTIONS = [
+  { label: "暂缓推进", value: "blocking" },
+  { label: "需核实", value: "warning" },
+  { label: "仅记录", value: "info" },
+];
+const SCREENING_SECTION_CLASS = "flex flex-col gap-4 rounded-lg border bg-muted/10 p-4";
+const SCREENING_SECTION_HEADER_CLASS = "flex flex-col gap-1";
+const SCREENING_RULE_ROW_CLASS =
+  "grid gap-3 py-3 md:grid-cols-[minmax(12rem,1fr)_minmax(0,1fr)_9rem] md:items-center";
+const SCREENING_RULE_GRID_HEADER_CLASS =
+  "hidden gap-3 border-b px-1 pb-2 text-muted-foreground text-xs font-medium md:grid md:grid-cols-[minmax(12rem,1fr)_minmax(0,1fr)_9rem] md:items-center";
+const SCREENING_ACTION_TOOLTIP =
+  "暂缓推进：未满足时建议暂缓；需核实：未满足或证据不确定时提醒 HR 核实；仅记录：只展示信息，不影响通过/暂缓建议。";
 
 type JobDescriptionFormTab = "basic" | "screening" | "interview-questions" | "forms";
 type MinimumEducationRule = Extract<ResumeScreeningFieldRule, { field: "minimumEducation" }>;
@@ -158,6 +175,30 @@ function getRequiredSkillsRule(policy: ResumeScreeningPolicy) {
   return policy.rules.find((rule): rule is ResumeScreeningSkillRule => rule.type === "skill");
 }
 
+function ScreeningActionLabel() {
+  return (
+    <div className="flex items-center gap-1.5">
+      <FieldLabel>未满足时</FieldLabel>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <button
+              aria-label="查看筛选规则处理方式说明"
+              className="text-muted-foreground transition-colors hover:text-foreground"
+              type="button"
+            >
+              <IconInfoCircle className="size-3.5" />
+            </button>
+          }
+        />
+        <TooltipContent className="max-w-72" side="top">
+          {SCREENING_ACTION_TOOLTIP}
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
+
 // eslint-disable-next-line complexity -- rule editor coordinates several controlled field groups.
 function ResumeScreeningPolicyFields({
   isGenerating,
@@ -176,6 +217,18 @@ function ResumeScreeningPolicyFields({
   const semanticRules = policy.rules.filter((rule) => rule.type === "semantic");
   const skillSeverity = requiredSkillsRule?.severity ?? "warning";
   const semanticSeverity = semanticRules[0]?.severity ?? "warning";
+  const requiredSkillsPolicyText = joinRuleLines(requiredSkillsRule?.requiredSkills ?? []);
+  const semanticPolicyText = joinRuleLines(semanticRules.map((rule) => rule.requirement));
+  const [requiredSkillsText, setRequiredSkillsText] = useState(requiredSkillsPolicyText);
+  const [semanticRulesText, setSemanticRulesText] = useState(semanticPolicyText);
+
+  useEffect(() => {
+    setRequiredSkillsText(requiredSkillsPolicyText);
+  }, [requiredSkillsPolicyText]);
+
+  useEffect(() => {
+    setSemanticRulesText(semanticPolicyText);
+  }, [semanticPolicyText]);
 
   function patchPolicy(next: Partial<ResumeScreeningPolicy>) {
     onChange({ ...policy, ...next });
@@ -211,6 +264,7 @@ function ResumeScreeningPolicyFields({
   }
 
   function setRequiredSkills(value: string) {
+    setRequiredSkillsText(value);
     const requiredSkills = splitRuleLines(value);
     if (requiredSkills.length === 0) {
       patchPolicy({ rules: removeRule(policy.rules, REQUIRED_SKILLS_RULE_ID) });
@@ -266,6 +320,7 @@ function ResumeScreeningPolicyFields({
   }
 
   function setSemanticRules(value: string) {
+    setSemanticRulesText(value);
     const requirements = splitRuleLines(value);
     const nonSemanticRules = policy.rules.filter((rule) => rule.type !== "semantic");
     patchPolicy({
@@ -282,12 +337,12 @@ function ResumeScreeningPolicyFields({
   }
 
   return (
-    <div className="mt-4 space-y-5">
+    <FieldGroup className="mt-4 gap-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="flex flex-col gap-1">
           <p className="font-medium text-sm">筛选规则草稿</p>
-          <p className="mt-1 text-muted-foreground text-xs">
-            可从当前 JD 生成草稿，再由 HR 调整确认。
+          <p className="text-muted-foreground text-xs">
+            先确认基础门槛，再补充技能和经验要求；右侧处理方式决定筛选结果的提示级别。
           </p>
         </div>
         {onGenerateFromJobDescription ? (
@@ -299,19 +354,19 @@ function ResumeScreeningPolicyFields({
             variant="outline"
           >
             {isGenerating ? (
-              <IconLoader2 className="size-3.5 animate-spin" />
+              <IconLoader2 className="animate-spin" data-icon="inline-start" />
             ) : (
-              <IconSparkles className="size-3.5" />
+              <IconSparkles data-icon="inline-start" />
             )}
             从 JD 生成
           </Button>
         ) : null}
       </div>
 
-      <Field>
-        <Card className="gap-0 rounded-lg py-0">
+      <Field orientation="horizontal">
+        <Card className="gap-0 rounded-lg py-0 w-full">
           <CardContent className="flex items-center justify-between gap-4 px-3 py-2.5">
-            <div className="space-y-0.5">
+            <div className="flex flex-col gap-0.5">
               <FieldLabel htmlFor="resume-screening-enabled">启用简历筛选规则</FieldLabel>
               <p className="text-muted-foreground text-xs">
                 筛选结果只给出通过、需核实或暂缓推进，不会自动淘汰候选人。
@@ -326,90 +381,150 @@ function ResumeScreeningPolicyFields({
         </Card>
       </Field>
 
-      <div className="grid gap-5 md:grid-cols-2">
-        <Field>
-          <FieldLabel>最低学历</FieldLabel>
-          <FieldContent className="gap-2">
-            <SearchableSelect
-              onChange={(value) =>
-                setMinimumEducation((value ?? "none") as MinimumEducationRule["level"])
-              }
-              options={["none", "专科", "本科", "硕士", "博士"].map((value) => ({
-                label: value === "none" ? "不限" : value,
-                value,
-              }))}
-              placeholder="不限"
-              value={minimumEducationRule?.level ?? "none"}
-            />
-            <SearchableSelect
-              onChange={(value) => {
-                if (minimumEducationRule) {
-                  patchPolicy({
-                    rules: upsertRule(policy.rules, {
-                      ...minimumEducationRule,
-                      severity: (value ?? "blocking") as ResumeScreeningRuleSeverity,
-                    }),
-                  });
-                }
-              }}
-              options={[
-                { label: "阻断", value: "blocking" },
-                { label: "提醒", value: "warning" },
-                { label: "信息", value: "info" },
-              ]}
-              placeholder="阻断"
-              value={minimumEducationRule?.severity ?? "blocking"}
-            />
-          </FieldContent>
-        </Field>
+      <section className={SCREENING_SECTION_CLASS}>
+        <div className={SCREENING_SECTION_HEADER_CLASS}>
+          <p className="font-medium text-sm">基础门槛</p>
+          <p className="text-muted-foreground text-xs">
+            放在最前面，方便 HR 先确认硬性条件，再继续编辑需要判断的内容。
+          </p>
+        </div>
+        <div className="flex flex-col">
+          <div className={SCREENING_RULE_GRID_HEADER_CLASS}>
+            <span>规则</span>
+            <span>要求</span>
+            <ScreeningActionLabel />
+          </div>
 
-        <Field>
-          <FieldLabel htmlFor="minimum-work-years">最低工作年限</FieldLabel>
-          <FieldContent className="gap-2">
-            <Input
-              id="minimum-work-years"
-              min={0}
-              onChange={(event) => setMinimumWorkYears(event.target.value)}
-              placeholder="不限"
-              type="number"
-              value={minimumWorkYearsRule?.years ?? ""}
-            />
-            <SearchableSelect
-              onChange={(value) => {
-                if (minimumWorkYearsRule) {
-                  patchPolicy({
-                    rules: upsertRule(policy.rules, {
-                      ...minimumWorkYearsRule,
-                      severity: (value ?? "blocking") as ResumeScreeningRuleSeverity,
-                    }),
-                  });
-                }
-              }}
-              options={[
-                { label: "阻断", value: "blocking" },
-                { label: "提醒", value: "warning" },
-                { label: "信息", value: "info" },
-              ]}
-              placeholder="阻断"
-              value={minimumWorkYearsRule?.severity ?? "blocking"}
-            />
-          </FieldContent>
-        </Field>
-      </div>
+          <div className="divide-y">
+            <div className={SCREENING_RULE_ROW_CLASS}>
+              <div className="flex flex-col gap-1">
+                <FieldLabel>最低学历</FieldLabel>
+                <p className="text-muted-foreground text-xs">不限制学历时选择“不限”。</p>
+              </div>
+              <Field className="gap-1.5">
+                <FieldLabel className="md:sr-only">学历要求</FieldLabel>
+                <FieldContent>
+                  <SearchableSelect
+                    id="minimum-education"
+                    onChange={(value) =>
+                      setMinimumEducation((value ?? "none") as MinimumEducationRule["level"])
+                    }
+                    options={["none", "专科", "本科", "硕士", "博士"].map((value) => ({
+                      label: value === "none" ? "不限" : value,
+                      value,
+                    }))}
+                    placeholder="不限"
+                    value={minimumEducationRule?.level ?? "none"}
+                  />
+                </FieldContent>
+              </Field>
+              <Field className="gap-1.5">
+                <div className="md:hidden">
+                  <ScreeningActionLabel />
+                </div>
+                <FieldContent>
+                  <SearchableSelect
+                    onChange={(value) => {
+                      if (minimumEducationRule) {
+                        patchPolicy({
+                          rules: upsertRule(policy.rules, {
+                            ...minimumEducationRule,
+                            severity: (value ?? "blocking") as ResumeScreeningRuleSeverity,
+                          }),
+                        });
+                      }
+                    }}
+                    options={SCREENING_ACTION_OPTIONS}
+                    placeholder="暂缓推进"
+                    value={minimumEducationRule?.severity ?? "blocking"}
+                  />
+                </FieldContent>
+              </Field>
+            </div>
 
-      <Field>
-        <FieldLabel htmlFor="required-skills">必备技能</FieldLabel>
-        <FieldContent className="gap-3">
-          <Textarea
-            className="min-h-24"
-            id="required-skills"
-            maxLength={SCREENING_TEXTAREA_MAX_LENGTH}
-            onChange={(event) => setRequiredSkills(event.target.value)}
-            placeholder="每行一个技能，例如 React、TypeScript、Node.js"
-            value={joinRuleLines(requiredSkillsRule?.requiredSkills ?? [])}
-          />
-          <div className="grid gap-3 md:grid-cols-3">
+            <div className={SCREENING_RULE_ROW_CLASS}>
+              <div className="flex flex-col gap-1">
+                <FieldLabel>最低工作年限</FieldLabel>
+                <p className="text-muted-foreground text-xs">留空表示不设置年限门槛。</p>
+              </div>
+              <Field className="gap-1.5">
+                <FieldLabel className="md:sr-only" htmlFor="minimum-work-years">
+                  年限要求
+                </FieldLabel>
+                <FieldContent>
+                  <InputGroup>
+                    <InputGroupInput
+                      id="minimum-work-years"
+                      min={0}
+                      onChange={(event) => setMinimumWorkYears(event.target.value)}
+                      placeholder="不限"
+                      type="number"
+                      value={minimumWorkYearsRule?.years ?? ""}
+                    />
+                    <InputGroupAddon align="inline-end">
+                      <InputGroupText>年</InputGroupText>
+                    </InputGroupAddon>
+                  </InputGroup>
+                </FieldContent>
+              </Field>
+              <Field className="gap-1.5">
+                <div className="md:hidden">
+                  <ScreeningActionLabel />
+                </div>
+                <FieldContent>
+                  <SearchableSelect
+                    disabled={!minimumWorkYearsRule}
+                    onChange={(value) => {
+                      if (minimumWorkYearsRule) {
+                        patchPolicy({
+                          rules: upsertRule(policy.rules, {
+                            ...minimumWorkYearsRule,
+                            severity: (value ?? "blocking") as ResumeScreeningRuleSeverity,
+                          }),
+                        });
+                      }
+                    }}
+                    options={SCREENING_ACTION_OPTIONS}
+                    placeholder="暂缓推进"
+                    value={minimumWorkYearsRule?.severity ?? "blocking"}
+                  />
+                </FieldContent>
+              </Field>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className={SCREENING_SECTION_CLASS}>
+        <div className={SCREENING_SECTION_HEADER_CLASS}>
+          <p className="font-medium text-sm">必备技能</p>
+          <p className="text-muted-foreground text-xs">
+            逐行填写技能，下面再设置满足条件和未满足时的处理方式。
+          </p>
+        </div>
+        <Field>
+          <FieldLabel htmlFor="required-skills">技能列表</FieldLabel>
+          <InputGroup>
+            <InputGroupTextarea
+              className="min-h-28"
+              id="required-skills"
+              maxLength={SCREENING_TEXTAREA_MAX_LENGTH}
+              onChange={(event) => setRequiredSkills(event.target.value)}
+              placeholder={"React\nTypeScript\nNode.js"}
+              value={requiredSkillsText}
+            />
+            <InputGroupAddon align="block-end">
+              <InputGroupText>
+                已填写 {requiredSkillsRule?.requiredSkills.length ?? 0} 项
+              </InputGroupText>
+            </InputGroupAddon>
+          </InputGroup>
+        </Field>
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_9rem_7.5rem]">
+          <Field>
+            <FieldLabel>满足条件</FieldLabel>
             <SearchableSelect
+              disabled={!requiredSkillsRule}
               onChange={(value) => setRequiredSkillsMatchMode(value === "at_least" ? value : "all")}
               options={[
                 { label: "全部满足", value: "all" },
@@ -418,19 +533,32 @@ function ResumeScreeningPolicyFields({
               placeholder="全部满足"
               value={requiredSkillsRule?.matchMode.type ?? "all"}
             />
-            <Input
-              disabled={requiredSkillsRule?.matchMode.type !== "at_least"}
-              min={1}
-              onChange={(event) => setRequiredSkillsMatchCount(event.target.value)}
-              placeholder="N"
-              type="number"
-              value={
-                requiredSkillsRule?.matchMode.type === "at_least"
-                  ? requiredSkillsRule.matchMode.count
-                  : ""
-              }
-            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="required-skills-match-count">数量</FieldLabel>
+            <InputGroup>
+              <InputGroupInput
+                disabled={requiredSkillsRule?.matchMode.type !== "at_least"}
+                id="required-skills-match-count"
+                min={1}
+                onChange={(event) => setRequiredSkillsMatchCount(event.target.value)}
+                placeholder="N"
+                type="number"
+                value={
+                  requiredSkillsRule?.matchMode.type === "at_least"
+                    ? requiredSkillsRule.matchMode.count
+                    : ""
+                }
+              />
+              <InputGroupAddon align="inline-end">
+                <InputGroupText>项</InputGroupText>
+              </InputGroupAddon>
+            </InputGroup>
+          </Field>
+          <Field>
+            <ScreeningActionLabel />
             <SearchableSelect
+              disabled={!requiredSkillsRule}
               onChange={(value) => {
                 if (requiredSkillsRule) {
                   patchPolicy({
@@ -441,30 +569,43 @@ function ResumeScreeningPolicyFields({
                   });
                 }
               }}
-              options={[
-                { label: "阻断", value: "blocking" },
-                { label: "提醒", value: "warning" },
-                { label: "信息", value: "info" },
-              ]}
-              placeholder="提醒"
+              options={SCREENING_ACTION_OPTIONS}
+              placeholder="需核实"
               value={skillSeverity}
             />
-          </div>
-        </FieldContent>
-      </Field>
+          </Field>
+        </div>
+      </section>
 
-      <Field>
-        <FieldLabel htmlFor="semantic-screening-rules">其他语义要求</FieldLabel>
-        <FieldContent className="gap-3">
-          <Textarea
-            className="min-h-28"
-            id="semantic-screening-rules"
-            maxLength={SCREENING_TEXTAREA_MAX_LENGTH}
-            onChange={(event) => setSemanticRules(event.target.value)}
-            placeholder="每行一个要求，例如：有 0 到 1 搭建复杂前端项目经验"
-            value={joinRuleLines(semanticRules.map((rule) => rule.requirement))}
-          />
+      <section className={SCREENING_SECTION_CLASS}>
+        <div className={SCREENING_SECTION_HEADER_CLASS}>
+          <p className="font-medium text-sm">其他语义要求</p>
+          <p className="text-muted-foreground text-xs">
+            用自然语言写经验、行业背景或复杂项目要求，每行是一条独立规则。
+          </p>
+        </div>
+        <Field>
+          <FieldLabel htmlFor="semantic-screening-rules">要求列表</FieldLabel>
+          <InputGroup>
+            <InputGroupTextarea
+              className="min-h-32"
+              id="semantic-screening-rules"
+              maxLength={SCREENING_TEXTAREA_MAX_LENGTH}
+              onChange={(event) => setSemanticRules(event.target.value)}
+              placeholder={
+                "有互联网或餐饮行业招聘经验优先\n独立负责并交付过总监级及以上人员猎聘经验"
+              }
+              value={semanticRulesText}
+            />
+            <InputGroupAddon align="block-end">
+              <InputGroupText>已填写 {semanticRules.length} 条</InputGroupText>
+            </InputGroupAddon>
+          </InputGroup>
+        </Field>
+        <Field className="max-w-[12rem]">
+          <ScreeningActionLabel />
           <SearchableSelect
+            disabled={semanticRules.length === 0}
             onChange={(value) =>
               patchPolicy({
                 rules: policy.rules.map((rule) =>
@@ -474,17 +615,13 @@ function ResumeScreeningPolicyFields({
                 ),
               })
             }
-            options={[
-              { label: "阻断", value: "blocking" },
-              { label: "提醒", value: "warning" },
-              { label: "信息", value: "info" },
-            ]}
-            placeholder="提醒"
+            options={SCREENING_ACTION_OPTIONS}
+            placeholder="需核实"
             value={semanticSeverity}
           />
-        </FieldContent>
-      </Field>
-    </div>
+        </Field>
+      </section>
+    </FieldGroup>
   );
 }
 
