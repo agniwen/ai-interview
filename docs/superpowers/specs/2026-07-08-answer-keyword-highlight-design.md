@@ -5,7 +5,7 @@
 
 ## 背景与目标
 
-在「面试报告」和「问答记录」中，自动识别并高亮候选人回答里的关键词，帮助 HR / 面试官快速定位重点信息。
+在「面试报告」和「问答记录」中，自动识别并高亮与候选人回答相关的关键词，帮助 HR / 面试官快速定位重点信息。
 
 关键词分三类（项目名先不做，见「明确不做」）：
 
@@ -13,7 +13,14 @@
 - **数字/绩效（metric）** — 带含义的数字（百分比、量级、带单位计数、金额）
 - **风险词（risk）** — 表意含糊或负面的信号词（如「离职」「没做过」「不太清楚」「应该是」）
 
-「同步高亮」= 问答记录与报告两处共用同一套规则、同一份词表、同一种类别与配色，命中结果一致。
+**高亮的文本范围**（本期明确覆盖两类文本，均套用同一套规则与词表）：
+
+1. **候选人原话** — 问答记录里候选人（`user`）气泡、报告里的证据 `quote`。
+2. **AI 评价文本** — 报告里的 `overallAssessment` 与逐题 `assessment`。这是 AI 对候选人的评述、非候选人原话，高亮它是为方便 HR 扫读评价结论；不高亮面试官（`assistant`）的提问气泡。
+
+「同步高亮」= 上述所有文本共用同一套规则、同一份词表、同一种类别与配色；同一串文字在问答记录与报告中命中结果一致。
+
+**验收口径**：给定同一段候选人原话，分别出现在问答记录气泡与报告证据 `quote` 中时，两处产生的高亮片段（起止、类别）必须完全一致——由针对 `extractAnswerKeywords` 的单测保证（同输入同输出），渲染层不引入差异。
 
 ## 方案选型
 
@@ -61,20 +68,28 @@ export interface KeywordSpan {
   category: KeywordCategory;
 }
 export interface ExtractOptions {
-  extraSkills?: string[]; // 可选：外部结构化技能来源，与内置词典合并
+  extraSkills?: string[]; // 可选：外部结构化技能来源，与内置词典合并（提取器内部去重、trim、大小写按 skill 规则统一处理）
 }
 export function extractAnswerKeywords(text: string, options?: ExtractOptions): KeywordSpan[];
 ```
 
 匹配规则：
 
-- **skill**：匹配「内置技能词典 ∪ `extraSkills`」。拉丁词按词边界匹配（避免 `java` 命中 `javascript` 内部）、中文按子串匹配；同一位置多个候选取**最长优先**。
-- **metric**：顶层常量正则匹配「带含义的数字」——百分比（`30%`）、量级（`500万`/`3亿`/`5千`）、带单位计数（`10人`/`5个`/`3年`/`2倍`/`3次`/`2名`）、金额（`万元`/`元`/`￥`）。**裸序号**（如「第3题」「问题2」）不标。
-- **risk**：内置风险词表子串匹配。
+- **skill**：匹配「内置技能词典 ∪ `extraSkills`」。拉丁词按词边界匹配（避免 `java` 命中 `javascript` 内部），词边界定义为「命中片段两侧不是 `[A-Za-z0-9]`」——含符号的技能（`C++`、`C#`、`Node.js`、`React Native`）在词典里按完整字面量登记、整体匹配，不做子词拆分；中文按子串匹配；同一位置多个候选取**最长优先**。
+- **metric**：顶层常量正则匹配「带含义的数字」，判定规则单一——**只匹配后面紧跟单位/百分号的数字**：
+  - 百分比 `30%`、`30％`
+  - 量级前缀 `500万` / `3亿` / `5千`（可再接单位，如 `500万元`）
+  - 带单位计数 `10人` / `5个` / `3年` / `2倍` / `3次` / `2名`（单位取自固定小词表）
+  - 金额 `万元` / `元` / `￥` / `¥`
+  - 数字部分允许小数（`3.5年`）；**不处理**负数与英文 K/M 后缀（本期已知局限）。
+  - **裸数字一律不标**：年份（`2024`）、题号/轮次（`第3题`、`第二轮`）、年龄、版本号、纯数字，均因缺紧邻单位而不命中。
+- **risk**：内置风险词表子串匹配。**本期不做否定/语境判定**——如「从没想过离职」中的「离职」仍会命中，属已知误报，接受；降噪留待后续迭代。
 
 重叠消解：所有候选 span 汇总后，按优先级 `risk > skill > metric` 消解——重叠时保留高优先级，丢弃被其包含或与其交叠的低优先级 span；同优先级取更长者。结果按 `start` 升序返回、互不重叠。
 
-性能：词表为模块级常量，正则顶层定义（不在循环内 `new RegExp`）；技能匹配器对内置词典构建一次。
+**字符位置语义**：`start`/`end` 为 JS 字符串下标（UTF-16 code unit），与 `String.prototype.slice(start, end)` 一致；不做 grapheme 归一，含 emoji/组合字符时以 code unit 为准（切片仍稳定，不影响纯文本切段渲染）。
+
+性能：词表为模块级常量，正则顶层定义（不在循环内 `new RegExp`）；技能匹配器对内置词典构建一次。skill/risk 为按词表逐项扫描（复杂度 ~O(文本长度 × 词表规模）），词表规模为常量级，实际开销可接受——不宣称严格单遍线性。
 
 内置词表由本次实现给出一份初始集合（技能覆盖常见技术/管理能力词；风险词覆盖含糊与负面信号），可后续增补，不属架构决策。
 
@@ -89,16 +104,16 @@ export function extractAnswerKeywords(text: string, options?: ExtractOptions): K
 
 ### 3. 共享状态与图例
 
-- `keyword-highlight/context.tsx`：`KeywordHighlightProvider` 持有 `enabledCategories: Set<KeywordCategory>`（默认三类全开）与 `toggleCategory`；`useKeywordHighlight()` 读取。
+- `keyword-highlight/context.tsx`：`KeywordHighlightProvider` 持有 `enabledCategories: Set<KeywordCategory>`（默认三类全开）与 `toggleCategory`；`useKeywordHighlight()` 读取。`toggleCategory` 以**不可变方式**更新（`new Set(prev)` 后增删再 `setState`），保证 React 正确重渲染。
 - `keyword-highlight/legend.tsx`：`KeywordHighlightLegend` 渲染三个带颜色的可点 chip，点击切换对应类别的显隐。
 
-图例放在报告 Tab 区域顶部，问答记录与报告共用同一份状态与图例，实现「同步」。
+**Provider 作用域（同步的关键约束）**：`KeywordHighlightProvider` 必须包裹**同时含「问答记录」与「报告」的公共祖先容器**，使两个 Tab 都在同一 Provider 子树内、读到同一份 `enabledCategories`。据探索，`studio-person-detail-panel.tsx` 里问答记录与报告同属该面板的 Tabs（`TabsContent`）区域，因此 Provider 包裹该 Tabs 容器即可。若两者实际不在同一子树，则须把 Provider 上提到其公共祖先——不满足此约束，「同步」不成立。`<KeywordHighlightLegend>` 渲染在该容器顶部、Tabs 切换栏附近，两个 Tab 均可见并共用。
 
 ### 4. 接入点（外科式改动）
 
-- `conversation-transcript.tsx`：候选人（`user`）气泡的 `{turn.message}` 改用 `<HighlightedText>`；面试官（`assistant`）气泡**不变**（仍为 Markdown，不高亮——功能只针对候选人回答）。
-- `evaluation-results.tsx`：`overallAssessment`、逐题 `assessment`、证据 `quote` 文本包 `<HighlightedText>`。（证据为候选人原话；评价为 AI 文本——按需求两者都高亮。）这三处当前均为纯文本渲染，无需 Markdown 解析。
-- `studio-person-detail-panel.tsx`：用 `KeywordHighlightProvider` 包住报告区域，并在其上渲染 `<KeywordHighlightLegend>`。`extraSkills` 当前传空/不传（基线用内置词典）；未来接结构化技能时从此处注入。
+- `conversation-transcript.tsx`：候选人（`user`）气泡的 `{turn.message}` 改用 `<HighlightedText>`；面试官（`assistant`）气泡**不变**（仍为 Markdown、不高亮——不高亮提问方发言）。
+- `evaluation-results.tsx`：`overallAssessment`、逐题 `assessment`、证据 `quote` 文本包 `<HighlightedText>`（见「背景」高亮文本范围）。这三处当前均为纯文本渲染，无需 Markdown 解析。
+- `studio-person-detail-panel.tsx`：用 `KeywordHighlightProvider` 包住含两个 Tab 的公共容器（见「Provider 作用域」），并在其顶部渲染 `<KeywordHighlightLegend>`。`extraSkills` 当前传空/不传（基线用内置词典）；未来接结构化技能时从此处注入。
 
 ## 数据流
 
@@ -111,21 +126,30 @@ export function extractAnswerKeywords(text: string, options?: ExtractOptions): K
 
 - 空 / 无命中文本：原样返回纯文本，零额外开销。
 - 重叠命中：按上述优先级确定性消解，输出稳定。
-- 长文本：单次线性扫描，开销可接受。
+- 长文本：按词表规模逐项扫描，词表常量级，开销可接受。
 - 分类全关：渲染为纯文本。
+
+**已知局限（本期接受，写明以免误判为遗漏）**：
+
+- 风险词不做否定/语境判定，存在如「从没想过离职」类误报。
+- metric 不处理负数与英文 K/M 后缀。
+- AI 评价文本为模型转述、非候选人原话，其高亮仅供扫读；视觉上 `<mark>` 与候选人原话同色，不做来源区分（如需区分留待后续）。
+- 无障碍：本期高亮以颜色为主，未额外提供非颜色标识（色弱/读屏优化留待后续）。
 
 ## 测试（TDD 先行）
 
 - Vitest 单测 `extractAnswerKeywords`：
   - 各类别命中（skill / metric / risk）
   - 重叠消解优先级与最长优先
-  - 边界：拉丁词边界、中文子串、裸序号不误标、空串
-  - `extraSkills` 合并生效
+  - skill 边界：拉丁词边界（`java` 不命中 `javascript` 内部）、含符号技能整体命中（`C++`、`Node.js`）、中文子串
+  - metric 边界：`30%`/`500万`/`10人`/`3.5年` 命中；裸数字 `2024`/`第3题`/年龄 不命中
+  - 同一段候选人原话在两处输入下产出完全一致的 spans（对应「验收口径」）
+  - 空串、`extraSkills` 合并与去重生效
 - 组件轻测 `HighlightedText`：已知关键词产生 `<mark>`；`enabledCategories` 过滤生效（关某类则该类不出 `<mark>`）。
 
 ## 明确不做（YAGNI）
 
-- 项目名类别（`KeywordCategory` 预留扩展位，本期不实现）
+- 项目名类别（本期不实现；`KeywordCategory` 为字符串字面量 union，未来加类别即在 union 追加一项，扩展成本低）
 - 组织级自定义风险词（本期内置固定词表）
 - 任何持久化 / 数据库 / 后端改动
 - LLM 调用
