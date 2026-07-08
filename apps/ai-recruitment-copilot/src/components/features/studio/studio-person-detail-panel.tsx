@@ -117,6 +117,8 @@ import { ConversationTranscript } from "./interviews/interview-detail/conversati
 import { DetailRow } from "./interviews/interview-detail/detail-row";
 import { EvaluationResults } from "./interviews/interview-detail/evaluation-results";
 import type { EvidenceQuote } from "./interviews/interview-detail/evaluation-results";
+import { KeywordHighlightProvider } from "./interviews/interview-detail/keyword-highlight/context";
+import { KeywordHighlightLegend } from "./interviews/interview-detail/keyword-highlight/legend";
 import { FormsTab } from "./interviews/interview-detail/forms-tab";
 import { InterviewMetricsPanel } from "./interviews/interview-detail/interview-metrics-panel";
 import {
@@ -2245,218 +2247,226 @@ function useStudioPersonDetailPanel({
               {isReportsLoading ? (
                 <ReportsSkeleton />
               ) : (
-                <div className="space-y-8">
-                  <div className="grid gap-x-8 gap-y-4 md:grid-cols-4">
-                    <SummaryMetric label="本轮通话次数" value={reports.length} />
-                    <SummaryMetric
-                      label="已完成"
-                      value={reports.filter((report) => report.status === "done").length}
-                    />
-                    <SummaryMetric
-                      label="失败"
-                      value={reports.filter((report) => report.status === "failed").length}
-                    />
-                    <SummaryMetric label="累计对话轮次" value={totalDisplayTurnCount} />
-                  </div>
-
-                  {reports.length === 0 ? (
-                    <div className="flex min-h-60 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/40 px-6 py-10 text-center">
-                      <IconMessage2 className="size-8 text-muted-foreground" />
-                      <p className="mt-4 font-medium text-sm">暂无面试报告</p>
-                      <p className="mt-2 max-w-xl text-muted-foreground text-sm leading-normal">
-                        候选人开始并结束语音面试后，这里会展示逐场面试的总结、状态和完整对话记录。
-                      </p>
+                <KeywordHighlightProvider>
+                  <div className="space-y-8">
+                    <div className="grid gap-x-8 gap-y-4 md:grid-cols-4">
+                      <SummaryMetric label="本轮通话次数" value={reports.length} />
+                      <SummaryMetric
+                        label="已完成"
+                        value={reports.filter((report) => report.status === "done").length}
+                      />
+                      <SummaryMetric
+                        label="失败"
+                        value={reports.filter((report) => report.status === "failed").length}
+                      />
+                      <SummaryMetric label="累计对话轮次" value={totalDisplayTurnCount} />
                     </div>
-                  ) : (
-                    <Accordion
-                      className="space-y-4"
-                      defaultValue={[reports[0].conversationId]}
-                      multiple
-                    >
-                      {reports.map((report) => {
-                        const startedAt = report.startedAt ?? report.createdAt;
-                        const endedAt = report.endedAt ?? report.updatedAt;
-                        const { displayAgentTurnCount, displayTurnCount, displayUserTurnCount } =
-                          resolveDisplayTurnStats(
-                            report,
-                            reportTranscriptStats.get(report.conversationId),
-                          );
-                        const activeEvidence = resolveActiveEvidence(
-                          selectedEvidence,
-                          report.conversationId,
-                        );
-                        const snapshotMetadata = report.snapshotMetadata ?? null;
-                        const handleEvidenceSelect = (evidence: EvidenceQuote) => {
-                          dispatchUi({
-                            evidence: {
-                              conversationId: report.conversationId,
-                              timeInCallSecs: evidence.timeInCallSecs ?? null,
-                              turnIndex: evidence.turnIndex ?? null,
-                            },
-                            type: "selectedEvidenceChanged",
-                          });
-                        };
 
-                        return (
-                          <AccordionItem
-                            className="overflow-hidden rounded-2xl border border-border/70 bg-muted/25 px-0 shadow-sm"
-                            key={report.conversationId}
-                            value={report.conversationId}
-                          >
-                            <AccordionTrigger className="rounded-none px-5 py-4 hover:no-underline data-panel-open:border-border/60 data-panel-open:border-b data-panel-open:bg-background/70">
-                              <div className="min-w-0 flex-1 text-left">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <TimeDisplay
-                                    className="font-medium text-sm"
-                                    options={DATE_TIME_DISPLAY_OPTIONS}
-                                    value={startedAt}
-                                  />
-                                  <Badge variant={getReportBadgeVariant(report.status)}>
-                                    {formatReportStatus(report.status)}
-                                  </Badge>
-                                  {report.callSuccessful ? (
-                                    <Badge variant="outline">{report.callSuccessful}</Badge>
-                                  ) : null}
-                                </div>
-                                <div className="mt-2 h-20 line-clamp-4 text-muted-foreground text-sm leading-5 [&_p]:m-0">
-                                  <Markdown>
-                                    {report.transcriptSummary ??
-                                      report.latestError ??
-                                      "暂无总结，等待后续同步。"}
-                                  </Markdown>
-                                </div>
-                              </div>
-                            </AccordionTrigger>
-                            <AccordionContent className="bg-muted/25 px-5 pt-4 pb-5">
-                              <div className="grid gap-4  lg:grid-cols-[minmax(0,1fr)_minmax(400px,1fr)]">
-                                <div className="space-y-4">
-                                  {env.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING ? (
-                                    <RecordingPlayer
-                                      accessMode={isPublic ? "public" : "authed"}
-                                      conversationId={report.conversationId}
-                                      durationSecs={report.recordingDurationSecs}
-                                      recordId={effectiveRoundId ?? ""}
-                                      seekToSecs={activeEvidence?.timeInCallSecs ?? null}
-                                      status={report.recordingStatus}
-                                      surface="section"
+                    {reports.length > 0 ? <KeywordHighlightLegend /> : null}
+
+                    {reports.length === 0 ? (
+                      <div className="flex min-h-60 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/40 px-6 py-10 text-center">
+                        <IconMessage2 className="size-8 text-muted-foreground" />
+                        <p className="mt-4 font-medium text-sm">暂无面试报告</p>
+                        <p className="mt-2 max-w-xl text-muted-foreground text-sm leading-normal">
+                          候选人开始并结束语音面试后，这里会展示逐场面试的总结、状态和完整对话记录。
+                        </p>
+                      </div>
+                    ) : (
+                      <Accordion
+                        className="space-y-4"
+                        defaultValue={[reports[0].conversationId]}
+                        multiple
+                      >
+                        {reports.map((report) => {
+                          const startedAt = report.startedAt ?? report.createdAt;
+                          const endedAt = report.endedAt ?? report.updatedAt;
+                          const { displayAgentTurnCount, displayTurnCount, displayUserTurnCount } =
+                            resolveDisplayTurnStats(
+                              report,
+                              reportTranscriptStats.get(report.conversationId),
+                            );
+                          const activeEvidence = resolveActiveEvidence(
+                            selectedEvidence,
+                            report.conversationId,
+                          );
+                          const snapshotMetadata = report.snapshotMetadata ?? null;
+                          const handleEvidenceSelect = (evidence: EvidenceQuote) => {
+                            dispatchUi({
+                              evidence: {
+                                conversationId: report.conversationId,
+                                timeInCallSecs: evidence.timeInCallSecs ?? null,
+                                turnIndex: evidence.turnIndex ?? null,
+                              },
+                              type: "selectedEvidenceChanged",
+                            });
+                          };
+
+                          return (
+                            <AccordionItem
+                              className="overflow-hidden rounded-2xl border border-border/70 bg-muted/25 px-0 shadow-sm"
+                              key={report.conversationId}
+                              value={report.conversationId}
+                            >
+                              <AccordionTrigger className="rounded-none px-5 py-4 hover:no-underline data-panel-open:border-border/60 data-panel-open:border-b data-panel-open:bg-background/70">
+                                <div className="min-w-0 flex-1 text-left">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <TimeDisplay
+                                      className="font-medium text-sm"
+                                      options={DATE_TIME_DISPLAY_OPTIONS}
+                                      value={startedAt}
                                     />
-                                  ) : null}
-                                  <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
-                                    <div className="flex flex-wrap items-center justify-between gap-3">
-                                      <h4 className="font-medium text-sm">会话概览</h4>
-                                      <ReportMetadataButton
-                                        disabled={!snapshotMetadata}
-                                        label=""
-                                        onClick={() => setMetadataReport(report)}
-                                        visible={canViewReportMetadata}
+                                    <Badge variant={getReportBadgeVariant(report.status)}>
+                                      {formatReportStatus(report.status)}
+                                    </Badge>
+                                    {report.callSuccessful ? (
+                                      <Badge variant="outline">{report.callSuccessful}</Badge>
+                                    ) : null}
+                                  </div>
+                                  <div className="mt-2 h-20 line-clamp-4 text-muted-foreground text-sm leading-5 [&_p]:m-0">
+                                    <Markdown>
+                                      {report.transcriptSummary ??
+                                        report.latestError ??
+                                        "暂无总结，等待后续同步。"}
+                                    </Markdown>
+                                  </div>
+                                </div>
+                              </AccordionTrigger>
+                              <AccordionContent className="bg-muted/25 px-5 pt-4 pb-5">
+                                <div className="grid gap-4  lg:grid-cols-[minmax(0,1fr)_minmax(400px,1fr)]">
+                                  <div className="space-y-4">
+                                    {env.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING ? (
+                                      <RecordingPlayer
+                                        accessMode={isPublic ? "public" : "authed"}
+                                        conversationId={report.conversationId}
+                                        durationSecs={report.recordingDurationSecs}
+                                        recordId={effectiveRoundId ?? ""}
+                                        seekToSecs={activeEvidence?.timeInCallSecs ?? null}
+                                        status={report.recordingStatus}
+                                        surface="section"
                                       />
-                                    </div>
-                                    <div className="mt-3 grid gap-x-8 gap-y-4 text-sm md:grid-cols-2">
-                                      <DetailRow
-                                        label="会话 ID"
-                                        value={
-                                          <span className="break-all">{report.conversationId}</span>
-                                        }
-                                      />
-                                      <DetailRow
-                                        label="开始时间"
-                                        value={
-                                          <TimeDisplay
-                                            options={DATE_TIME_DISPLAY_OPTIONS}
-                                            value={startedAt}
-                                          />
-                                        }
-                                      />
-                                      <DetailRow
-                                        label="结束时间"
-                                        value={
-                                          <TimeDisplay
-                                            options={DATE_TIME_DISPLAY_OPTIONS}
-                                            value={endedAt}
-                                          />
-                                        }
-                                      />
-                                      <DetailRow
-                                        label="消息统计"
-                                        value={`共 ${displayTurnCount} 条 · 候选人 ${displayUserTurnCount} 条 · 面试官 ${displayAgentTurnCount} 条`}
-                                      />
-                                      <DetailRow
-                                        label="同步时间"
-                                        value={
-                                          <TimeDisplay
-                                            options={DATE_TIME_DISPLAY_OPTIONS}
-                                            value={report.lastSyncedAt}
-                                          />
-                                        }
-                                      />
-                                      <DetailRow
-                                        label="Webhook"
-                                        value={
-                                          report.webhookReceivedAt ? (
+                                    ) : null}
+                                    <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+                                      <div className="flex flex-wrap items-center justify-between gap-3">
+                                        <h4 className="font-medium text-sm">会话概览</h4>
+                                        <ReportMetadataButton
+                                          disabled={!snapshotMetadata}
+                                          label=""
+                                          onClick={() => setMetadataReport(report)}
+                                          visible={canViewReportMetadata}
+                                        />
+                                      </div>
+                                      <div className="mt-3 grid gap-x-8 gap-y-4 text-sm md:grid-cols-2">
+                                        <DetailRow
+                                          label="会话 ID"
+                                          value={
+                                            <span className="break-all">
+                                              {report.conversationId}
+                                            </span>
+                                          }
+                                        />
+                                        <DetailRow
+                                          label="开始时间"
+                                          value={
                                             <TimeDisplay
                                               options={DATE_TIME_DISPLAY_OPTIONS}
-                                              value={report.webhookReceivedAt}
+                                              value={startedAt}
                                             />
-                                          ) : (
-                                            "未收到"
-                                          )
+                                          }
+                                        />
+                                        <DetailRow
+                                          label="结束时间"
+                                          value={
+                                            <TimeDisplay
+                                              options={DATE_TIME_DISPLAY_OPTIONS}
+                                              value={endedAt}
+                                            />
+                                          }
+                                        />
+                                        <DetailRow
+                                          label="消息统计"
+                                          value={`共 ${displayTurnCount} 条 · 候选人 ${displayUserTurnCount} 条 · 面试官 ${displayAgentTurnCount} 条`}
+                                        />
+                                        <DetailRow
+                                          label="同步时间"
+                                          value={
+                                            <TimeDisplay
+                                              options={DATE_TIME_DISPLAY_OPTIONS}
+                                              value={report.lastSyncedAt}
+                                            />
+                                          }
+                                        />
+                                        <DetailRow
+                                          label="Webhook"
+                                          value={
+                                            report.webhookReceivedAt ? (
+                                              <TimeDisplay
+                                                options={DATE_TIME_DISPLAY_OPTIONS}
+                                                value={report.webhookReceivedAt}
+                                              />
+                                            ) : (
+                                              "未收到"
+                                            )
+                                          }
+                                        />
+                                      </div>
+                                    </section>
+
+                                    <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+                                      <h4 className="font-medium text-sm">最终总结</h4>
+                                      <div className="mt-3 text-muted-foreground text-sm leading-6">
+                                        <Markdown>
+                                          {report.transcriptSummary ?? "暂无总结。"}
+                                        </Markdown>
+                                      </div>
+                                      {report.latestError ? (
+                                        <div className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-sm">
+                                          {report.latestError}
+                                        </div>
+                                      ) : null}
+                                    </section>
+                                  </div>
+
+                                  <div className="lg:relative">
+                                    <section className="flex h-[480px] flex-col overflow-hidden rounded-xl border border-border/60 bg-background p-4 shadow-sm lg:absolute lg:inset-0 lg:h-auto">
+                                      <h4 className="shrink-0 pb-2 font-medium text-sm">
+                                        对话记录
+                                      </h4>
+                                      <ConversationTranscript
+                                        activeTurnIndex={activeEvidence?.turnIndex ?? null}
+                                        turns={report.turns}
+                                      />
+                                    </section>
+                                  </div>
+
+                                  <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+                                    <h4 className="font-medium text-sm">评估指标</h4>
+                                    <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
+                                      <EvaluationResults
+                                        data={
+                                          (report.evaluationCriteriaResults as Record<
+                                            string,
+                                            unknown
+                                          >) ?? {}
                                         }
+                                        onEvidenceSelect={handleEvidenceSelect}
                                       />
                                     </div>
                                   </section>
 
-                                  <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
-                                    <h4 className="font-medium text-sm">最终总结</h4>
-                                    <div className="mt-3 text-muted-foreground text-sm leading-6">
-                                      <Markdown>
-                                        {report.transcriptSummary ?? "暂无总结。"}
-                                      </Markdown>
-                                    </div>
-                                    {report.latestError ? (
-                                      <div className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-sm">
-                                        {report.latestError}
-                                      </div>
-                                    ) : null}
-                                  </section>
+                                  <InterviewMetricsPanel
+                                    metrics={report.metrics ?? {}}
+                                    surface="section"
+                                  />
                                 </div>
-
-                                <div className="lg:relative">
-                                  <section className="flex h-[480px] flex-col overflow-hidden rounded-xl border border-border/60 bg-background p-4 shadow-sm lg:absolute lg:inset-0 lg:h-auto">
-                                    <h4 className="shrink-0 pb-2 font-medium text-sm">对话记录</h4>
-                                    <ConversationTranscript
-                                      activeTurnIndex={activeEvidence?.turnIndex ?? null}
-                                      turns={report.turns}
-                                    />
-                                  </section>
-                                </div>
-
-                                <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
-                                  <h4 className="font-medium text-sm">评估指标</h4>
-                                  <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
-                                    <EvaluationResults
-                                      data={
-                                        (report.evaluationCriteriaResults as Record<
-                                          string,
-                                          unknown
-                                        >) ?? {}
-                                      }
-                                      onEvidenceSelect={handleEvidenceSelect}
-                                    />
-                                  </div>
-                                </section>
-
-                                <InterviewMetricsPanel
-                                  metrics={report.metrics ?? {}}
-                                  surface="section"
-                                />
-                              </div>
-                            </AccordionContent>
-                          </AccordionItem>
-                        );
-                      })}
-                    </Accordion>
-                  )}
-                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+                          );
+                        })}
+                      </Accordion>
+                    )}
+                  </div>
+                </KeywordHighlightProvider>
               )}
             </TabsContent>
           ) : null}
