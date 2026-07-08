@@ -95,8 +95,7 @@ describe("TanStack Start studio resumes migration", () => {
     expect(listSource).not.toContain("viewTransition: true");
     expect(listSource).not.toContain("transitionName={getResumeDetailTransitionName(record.id)}");
     expect(studioShellSource).toContain("STUDIO_MAIN_SCROLL_RESTORATION_ID");
-    expect(studioShellSource).toContain('"data-scroll-restoration-id"');
-    expect(studioShellSource).toContain('} as ComponentProps<"div">');
+    expect(studioShellSource).toContain("scrollRestorationId={STUDIO_MAIN_SCROLL_RESTORATION_ID}");
     expect(cardSource).not.toContain("ViewTransition");
     expect(cardSource).not.toContain("getResumeDetailMotionLayoutId(record.id)");
     expect(cardSource).not.toContain("viewTransitionName: transitionName");

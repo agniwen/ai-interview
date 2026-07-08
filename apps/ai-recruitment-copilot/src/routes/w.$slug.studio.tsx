@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Outlet, createFileRoute, notFound, redirect } from "@tanstack/react-router";
 import { PendingOutlet } from "@/components/layout/pending-outlet";
 import { SiteHeader } from "@/components/features/studio/site-header";
@@ -56,13 +56,8 @@ function StudioLayout({ children }: { children: ReactNode }) {
       <SidebarInset className="h-dvh overflow-hidden md:h-[calc(100dvh-1.5rem)] border border-border">
         <ScrollArea
           className="@container/main min-h-0 flex-1 bg-background"
+          scrollRestorationId={STUDIO_MAIN_SCROLL_RESTORATION_ID}
           scrollbars="never"
-          viewportClassName="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          viewportProps={
-            {
-              "data-scroll-restoration-id": STUDIO_MAIN_SCROLL_RESTORATION_ID,
-            } as ComponentProps<"div">
-          }
         >
           <SiteHeader />
           <PendingOutlet className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:px-6 md:py-6">

@@ -133,7 +133,7 @@ const RESUME_LIBRARY_FILTER_KEYS = Object.keys(EMPTY_FILTERS) as (keyof ResumeFi
 const RESUME_LIBRARY_ALLOWED_SORT_IDS = ["createdAt", "candidateName", "updatedAt"] as const;
 const RESUME_LIBRARY_DEFAULT_SORTING = [{ desc: true, id: "createdAt" }];
 const RESUME_LIBRARY_INFINITE_PAGE_SIZE = 20;
-const RESUME_LIBRARY_CARD_ESTIMATED_SIZE = 190;
+const RESUME_LIBRARY_CARD_ESTIMATED_SIZE = 240;
 
 interface WorkspaceMember {
   id: string;

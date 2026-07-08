@@ -1,6 +1,7 @@
 "use client";
 
 import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
+import type { EventListeners } from "overlayscrollbars";
 import type { ComponentProps, Ref } from "react";
 
 import { cn } from "@arc/shared/utils";
@@ -11,6 +12,7 @@ type ScrollAreaProps = Omit<ComponentProps<typeof OverlayScrollbarsComponent>, "
   orientation?: "horizontal" | "vertical";
   scrollbarGutter?: boolean;
   scrollFade?: boolean;
+  scrollRestorationId?: string;
   viewportClassName?: string;
   viewportProps?: ComponentProps<"div">;
   viewportRef?: Ref<HTMLDivElement>;
@@ -23,6 +25,8 @@ function ScrollArea({
   scrollbarGutter,
   scrollFade,
   scrollbars = "leave",
+  scrollRestorationId,
+  events: externalEvents,
   viewportClassName,
   viewportProps,
   viewportRef,
@@ -66,12 +70,29 @@ function ScrollArea({
     );
   }
 
+  const events: EventListeners | undefined =
+    scrollRestorationId || externalEvents
+      ? {
+          ...externalEvents,
+          initialized: (instance) => {
+            externalEvents?.initialized?.(instance);
+            if (!scrollRestorationId) {
+              return;
+            }
+            instance
+              .elements()
+              .viewport.setAttribute("data-scroll-restoration-id", scrollRestorationId);
+          },
+        }
+      : undefined;
+
   return (
     <OverlayScrollbarsComponent
       className={cn("relative", className)}
       data-slot="scroll-area"
       defer
       element="div"
+      events={events}
       options={{
         scrollbars: {
           autoHide: scrollbars,
