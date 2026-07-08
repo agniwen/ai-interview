@@ -52,6 +52,7 @@ describe("TanStack Start studio resumes migration", () => {
     const source = readSource("routes/w.$slug.studio.resumes.$recordId.tsx");
     const listSource = readSource("routes/w.$slug.studio.resumes.tsx");
     const cardSource = readSource("components/features/studio/resumes/resume-library-card.tsx");
+    const studioShellSource = readSource("routes/w.$slug.studio.tsx");
 
     expect(source).toContain('createFileRoute("/w/$slug/studio/resumes/$recordId")');
     expect(source).toContain("StudioPersonDetailPanel");
@@ -76,6 +77,10 @@ describe("TanStack Start studio resumes migration", () => {
     expect(source).toContain("<RecruiterResumeDetailHeaderText");
     expect(source).toContain('<Skeleton className="h-8 w-48" />');
     expect(source).toContain('<Skeleton className="mt-2 h-4 w-64 max-w-full" />');
+    expect(source).toContain("const locationState = router.state.location.state as");
+    expect(source).toContain("locationState.fromRecruiterResumeList");
+    expect(source).toContain("router.history.canGoBack()");
+    expect(source).toContain("router.history.back();");
     expect(listSource).toContain("Outlet");
     expect(listSource).toContain("useRouterState");
     expect(listSource).toContain("routerState.location.pathname");
@@ -83,8 +88,15 @@ describe("TanStack Start studio resumes migration", () => {
     expect(listSource).toContain("<Outlet />");
     expect(listSource).not.toContain("startTransition(() => {");
     expect(listSource).toContain('to: "/w/$slug/studio/resumes/$recordId"');
+    expect(listSource).toContain("useElementScrollRestoration");
+    expect(listSource).toContain("STUDIO_MAIN_SCROLL_RESTORATION_ID");
+    expect(listSource).toContain("initialOffset: studioScrollEntry?.scrollY");
+    expect(listSource).toContain("fromRecruiterResumeList: true");
     expect(listSource).not.toContain("viewTransition: true");
     expect(listSource).not.toContain("transitionName={getResumeDetailTransitionName(record.id)}");
+    expect(studioShellSource).toContain("STUDIO_MAIN_SCROLL_RESTORATION_ID");
+    expect(studioShellSource).toContain('"data-scroll-restoration-id"');
+    expect(studioShellSource).toContain('} as ComponentProps<"div">');
     expect(cardSource).not.toContain("ViewTransition");
     expect(cardSource).not.toContain("getResumeDetailMotionLayoutId(record.id)");
     expect(cardSource).not.toContain("viewTransitionName: transitionName");

@@ -216,6 +216,9 @@ describe("ResumeLibraryPage card list", () => {
     expect(listSource).toContain("useVirtualizer");
     expect(listSource).toContain("getScrollElement");
     expect(listSource).toContain("getItemKey");
+    expect(source).toContain("useElementScrollRestoration");
+    expect(source).toContain("STUDIO_MAIN_SCROLL_RESTORATION_ID");
+    expect(listSource).toContain("initialOffset: studioScrollEntry?.scrollY");
     expect(listSource).toContain("useAnimationFrameWithResizeObserver: true");
     expect(listSource).toContain("findVerticalScrollParent");
     expect(listSource).toContain("virtualizer.getVirtualItems()");

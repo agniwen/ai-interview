@@ -278,12 +278,17 @@ function RecruiterResumeDetailPage() {
   };
 
   const navigateBackToList = useCallback(() => {
+    const locationState = router.state.location.state as { fromRecruiterResumeList?: boolean };
+    if (locationState.fromRecruiterResumeList && router.history.canGoBack()) {
+      router.history.back();
+      return;
+    }
     void navigate({
       params: { slug },
       search: listSearchFromDetailSearch(routeSearch),
       to: "/w/$slug/studio/resumes",
     } as never);
-  }, [navigate, routeSearch, slug]);
+  }, [navigate, routeSearch, router, slug]);
 
   if (detailQuery.isLoading) {
     return <RecruiterResumeDetailSkeleton />;

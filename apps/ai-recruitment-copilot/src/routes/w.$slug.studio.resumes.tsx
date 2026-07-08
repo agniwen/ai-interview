@@ -13,6 +13,7 @@ import {
   createFileRoute,
   notFound,
   redirect,
+  useElementScrollRestoration,
   useLoaderData,
   useParams,
   useRouter,
@@ -56,6 +57,7 @@ import { useBulkUpload } from "@/components/features/studio/resumes/use-bulk-upl
 import { UploadBatchListDialog } from "@/components/features/studio/resumes/upload-batch-list-dialog";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { JobDescriptionViewDialog } from "@/components/features/studio/interviews/job-description-view-dialog";
+import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
 import type { ToolbarFilterConfig } from "@/components/data-grid";
 import { Toolbar } from "@/components/data-grid/parts/toolbar";
 import {
@@ -474,6 +476,9 @@ function ResumeLibraryCardList({
   const listRootRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null);
+  const studioScrollEntry = useElementScrollRestoration({
+    id: STUDIO_MAIN_SCROLL_RESTORATION_ID,
+  });
   const getVirtualItemKey = useCallback(
     (index: number) => records[index]?.id ?? `resume-placeholder-${index}`,
     [records],
@@ -483,6 +488,7 @@ function ResumeLibraryCardList({
     estimateSize: () => RESUME_LIBRARY_CARD_ESTIMATED_SIZE,
     getItemKey: getVirtualItemKey,
     getScrollElement: () => scrollElement,
+    initialOffset: studioScrollEntry?.scrollY,
     overscan: 6,
     useAnimationFrameWithResizeObserver: true,
   });
@@ -514,7 +520,11 @@ function ResumeLibraryCardList({
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      setScrollElement(findVerticalScrollParent(listRootRef.current));
+      setScrollElement(
+        document.querySelector<HTMLElement>(
+          `[data-scroll-restoration-id="${STUDIO_MAIN_SCROLL_RESTORATION_ID}"]`,
+        ) ?? findVerticalScrollParent(listRootRef.current),
+      );
     });
     return () => window.cancelAnimationFrame(frame);
   }, [records.length]);
@@ -1172,6 +1182,10 @@ function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
                 ...routeSearch,
                 tab: tab === "overview" ? undefined : tab,
               },
+              state: (prev: Record<string, unknown>) => ({
+                ...prev,
+                fromRecruiterResumeList: true,
+              }),
               to: "/w/$slug/studio/resumes/$recordId",
             } as never);
           }}
