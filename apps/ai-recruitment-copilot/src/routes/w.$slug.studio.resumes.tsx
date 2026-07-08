@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import type { ReactVirtualizer, VirtualItem } from "@tanstack/react-virtual";
 import {
   ClientOnly,
   Outlet,
@@ -45,7 +46,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { Dispatch, ReactNode, SetStateAction } from "react";
+import type { Dispatch, ReactNode, RefObject, SetStateAction } from "react";
 import { toast } from "sonner";
 import { ResumeDuplicateMatchesDialog } from "@/components/features/resume/resume-dedup-overlay";
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
@@ -134,6 +135,116 @@ const RESUME_LIBRARY_ALLOWED_SORT_IDS = ["createdAt", "candidateName", "updatedA
 const RESUME_LIBRARY_DEFAULT_SORTING = [{ desc: true, id: "createdAt" }];
 const RESUME_LIBRARY_INFINITE_PAGE_SIZE = 20;
 const RESUME_LIBRARY_CARD_ESTIMATED_SIZE = 240;
+
+interface ResumeLibraryScrollRestoreSnapshot {
+  measurements: VirtualItem[];
+  recordId: string;
+  recordTopInScrollElement: number;
+  scrollOffset: number;
+  viewportWidth: number;
+}
+
+let resumeLibraryScrollRestoreSnapshot: ResumeLibraryScrollRestoreSnapshot | null = null;
+
+function useResumeLibraryInitialScrollRestore(
+  restoreSnapshotRef: RefObject<ResumeLibraryScrollRestoreSnapshot | null>,
+) {
+  const initialScrollElement =
+    typeof document === "undefined"
+      ? null
+      : document.querySelector<HTMLElement>(
+          `[data-scroll-restoration-id="${STUDIO_MAIN_SCROLL_RESTORATION_ID}"]`,
+        );
+  const canUseInitialMeasurements =
+    !!restoreSnapshotRef.current &&
+    !!initialScrollElement &&
+    restoreSnapshotRef.current.viewportWidth === initialScrollElement.clientWidth;
+  const studioScrollEntry = useElementScrollRestoration({
+    id: STUDIO_MAIN_SCROLL_RESTORATION_ID,
+  });
+
+  return {
+    initialMeasurementsCache: canUseInitialMeasurements
+      ? restoreSnapshotRef.current?.measurements
+      : undefined,
+    initialOffset: canUseInitialMeasurements
+      ? restoreSnapshotRef.current?.scrollOffset
+      : studioScrollEntry?.scrollY,
+  };
+}
+
+function useResumeLibraryResizeScrollRestore({
+  listRootRef,
+  records,
+  restoreSnapshotRef,
+  scrollElement,
+  virtualizer,
+}: {
+  listRootRef: RefObject<HTMLDivElement | null>;
+  records: ResumeLibraryListRecord[];
+  restoreSnapshotRef: RefObject<ResumeLibraryScrollRestoreSnapshot | null>;
+  scrollElement: HTMLElement | null;
+  virtualizer: ReactVirtualizer<HTMLElement, HTMLElement>;
+}) {
+  useEffect(() => {
+    const snapshot = restoreSnapshotRef.current;
+    if (!snapshot || !scrollElement || records.length === 0) {
+      return;
+    }
+    const recordIndex = records.findIndex((record) => record.id === snapshot.recordId);
+    if (recordIndex === -1) {
+      resumeLibraryScrollRestoreSnapshot = null;
+      restoreSnapshotRef.current = null;
+      return;
+    }
+    if (scrollElement.clientWidth === snapshot.viewportWidth) {
+      resumeLibraryScrollRestoreSnapshot = null;
+      restoreSnapshotRef.current = null;
+      return;
+    }
+
+    let cancelled = false;
+    let frame: number | null = null;
+    let remainingAttempts = 4;
+    const clearSnapshot = () => {
+      resumeLibraryScrollRestoreSnapshot = null;
+      restoreSnapshotRef.current = null;
+    };
+    const alignToSnapshot = () => {
+      if (cancelled) {
+        return;
+      }
+      const rowElement = listRootRef.current?.querySelector<HTMLElement>(
+        `[data-resume-record-id="${snapshot.recordId}"]`,
+      );
+      if (!rowElement && remainingAttempts > 0) {
+        remainingAttempts -= 1;
+        frame = window.requestAnimationFrame(alignToSnapshot);
+        return;
+      }
+      if (rowElement) {
+        const nextTop =
+          rowElement.getBoundingClientRect().top - scrollElement.getBoundingClientRect().top;
+        const correction = nextTop - snapshot.recordTopInScrollElement;
+        if (Math.abs(correction) > 1) {
+          virtualizer.scrollToOffset(scrollElement.scrollTop + correction);
+        }
+      }
+      clearSnapshot();
+    };
+    virtualizer.scrollToIndex(recordIndex, { align: "start" });
+    frame = window.requestAnimationFrame(() => {
+      frame = window.requestAnimationFrame(alignToSnapshot);
+    });
+
+    return () => {
+      cancelled = true;
+      if (frame !== null) {
+        window.cancelAnimationFrame(frame);
+      }
+    };
+  }, [listRootRef, records, restoreSnapshotRef, scrollElement, virtualizer]);
+}
 
 interface WorkspaceMember {
   id: string;
@@ -475,20 +586,20 @@ function ResumeLibraryCardList({
 }: ResumeLibraryCardListProps) {
   const listRootRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const restoreSnapshotRef = useRef(resumeLibraryScrollRestoreSnapshot);
   const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null);
-  const studioScrollEntry = useElementScrollRestoration({
-    id: STUDIO_MAIN_SCROLL_RESTORATION_ID,
-  });
+  const initialScrollRestore = useResumeLibraryInitialScrollRestore(restoreSnapshotRef);
   const getVirtualItemKey = useCallback(
     (index: number) => records[index]?.id ?? `resume-placeholder-${index}`,
     [records],
   );
-  const virtualizer = useVirtualizer({
+  const virtualizer = useVirtualizer<HTMLElement, HTMLElement>({
     count: records.length,
     estimateSize: () => RESUME_LIBRARY_CARD_ESTIMATED_SIZE,
     getItemKey: getVirtualItemKey,
     getScrollElement: () => scrollElement,
-    initialOffset: studioScrollEntry?.scrollY,
+    initialMeasurementsCache: initialScrollRestore.initialMeasurementsCache,
+    initialOffset: initialScrollRestore.initialOffset,
     overscan: 6,
     useAnimationFrameWithResizeObserver: true,
   });
@@ -517,6 +628,25 @@ function ResumeLibraryCardList({
     ? "所选记录包含解析中的简历，暂不能删除"
     : undefined;
   const canShowFloatingActionBar = canDeleteResumeLibrary && selectedIds.length > 0;
+  const handleOpenDetail = useCallback(
+    (record: ResumeLibraryListRecord, tab?: ResumeDetailDefaultTab) => {
+      const rowElement = listRootRef.current?.querySelector<HTMLElement>(
+        `[data-resume-record-id="${record.id}"]`,
+      );
+      if (scrollElement && rowElement) {
+        resumeLibraryScrollRestoreSnapshot = {
+          measurements: virtualizer.takeSnapshot(),
+          recordId: record.id,
+          recordTopInScrollElement:
+            rowElement.getBoundingClientRect().top - scrollElement.getBoundingClientRect().top,
+          scrollOffset: scrollElement.scrollTop,
+          viewportWidth: scrollElement.clientWidth,
+        };
+      }
+      onOpenDetail(record, tab);
+    },
+    [onOpenDetail, scrollElement, virtualizer],
+  );
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -545,6 +675,14 @@ function ResumeLibraryCardList({
     observer.observe(node);
     return () => observer.disconnect();
   }, [fetchNextPage, hasNextPage, isFetchingNextPage, scrollElement]);
+
+  useResumeLibraryResizeScrollRestore({
+    listRootRef,
+    records,
+    restoreSnapshotRef,
+    scrollElement,
+    virtualizer,
+  });
 
   let loadMoreStatusText = "已显示全部简历";
   if (hasNextPage) {
@@ -575,6 +713,7 @@ function ResumeLibraryCardList({
               <div
                 className="absolute top-0 left-0 w-full pb-3 [contain:layout]"
                 data-index={virtualRow.index}
+                data-resume-record-id={record.id}
                 key={virtualRow.key}
                 ref={virtualizer.measureElement}
                 style={{ transform: `translateY(${virtualRow.start}px)` }}
@@ -591,7 +730,7 @@ function ResumeLibraryCardList({
                   onEdit={onEdit}
                   onLaunchChat={onLaunchChat}
                   onLaunchInterview={onLaunchInterview}
-                  onOpenDetail={onOpenDetail}
+                  onOpenDetail={handleOpenDetail}
                   onPreviewResume={onPreviewResume}
                   onSelectChange={(checked) =>
                     grid.setRowSelection((prev) => ({ ...prev, [record.id]: checked }))
@@ -657,7 +796,7 @@ function ResumeLibraryCardList({
           onViewItem={(id) => {
             const record = records.find((item) => item.id === id);
             if (record) {
-              onOpenDetail(record);
+              handleOpenDetail(record);
             }
           }}
           selectedCount={selectedIds.length}

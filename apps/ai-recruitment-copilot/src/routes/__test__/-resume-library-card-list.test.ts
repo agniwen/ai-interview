@@ -199,7 +199,7 @@ describe("ResumeLibraryPage card list", () => {
     );
     expect(listSource).toContain("onViewItem={(id) => {");
     expect(listSource).toContain("const record = records.find((item) => item.id === id);");
-    expect(listSource).toContain("onOpenDetail(record);");
+    expect(listSource).toContain("handleOpenDetail(record);");
     expect(listSource).not.toContain("onPrefetchDetail");
     expect(listSource).toContain("formatResumeCandidateTitle(record.candidateName, record.id)");
     expect(listSource).toContain("formatResumeLibraryJobDescriptionLabel(record)");
@@ -218,7 +218,21 @@ describe("ResumeLibraryPage card list", () => {
     expect(listSource).toContain("getItemKey");
     expect(source).toContain("useElementScrollRestoration");
     expect(source).toContain("STUDIO_MAIN_SCROLL_RESTORATION_ID");
-    expect(listSource).toContain("initialOffset: studioScrollEntry?.scrollY");
+    expect(source).toContain("interface ResumeLibraryScrollRestoreSnapshot");
+    expect(source).toContain("let resumeLibraryScrollRestoreSnapshot");
+    expect(source).toContain("useResumeLibraryInitialScrollRestore");
+    expect(source).toContain("initialMeasurementsCache: canUseInitialMeasurements");
+    expect(source).toContain("initialOffset: canUseInitialMeasurements");
+    expect(listSource).toContain(
+      "initialMeasurementsCache: initialScrollRestore.initialMeasurementsCache",
+    );
+    expect(listSource).toContain("initialOffset: initialScrollRestore.initialOffset");
+    expect(listSource).toContain("measurements: virtualizer.takeSnapshot()");
+    expect(listSource).toContain("data-resume-record-id={record.id}");
+    expect(source).toContain("useResumeLibraryResizeScrollRestore({");
+    expect(source).toContain('virtualizer.scrollToIndex(recordIndex, { align: "start" })');
+    expect(source).toContain("virtualizer.scrollToOffset(scrollElement.scrollTop + correction)");
+    expect(source).toContain("let remainingAttempts = 4");
     expect(listSource).toContain("useAnimationFrameWithResizeObserver: true");
     expect(listSource).toContain("findVerticalScrollParent");
     expect(listSource).toContain("virtualizer.getVirtualItems()");
