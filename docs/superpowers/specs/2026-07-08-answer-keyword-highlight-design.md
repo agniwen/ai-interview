@@ -76,20 +76,21 @@ export function extractAnswerKeywords(text: string, options?: ExtractOptions): K
 匹配规则：
 
 - **skill**：匹配「内置技能词典 ∪ `extraSkills`」。拉丁词按词边界匹配（避免 `java` 命中 `javascript` 内部），词边界定义为「命中片段两侧不是 `[A-Za-z0-9]`」——含符号的技能（`C++`、`C#`、`Node.js`、`React Native`）在词典里按完整字面量登记、整体匹配，不做子词拆分；中文按子串匹配；同一位置多个候选取**最长优先**。
-- **metric**：顶层常量正则匹配「带含义的数字」，判定规则单一——**只匹配后面紧跟单位/百分号的数字**：
+- **metric**：顶层常量正则匹配「带含义的数字」，判定规则单一——**数字必须紧邻单位才命中**，两种形态：数字后紧跟单位/百分号，**或**货币符号（`￥`/`¥`）前缀数字。数字与单位之间**不允许空格**。
   - 百分比 `30%`、`30％`
   - 量级前缀 `500万` / `3亿` / `5千`（可再接单位，如 `500万元`）
   - 带单位计数 `10人` / `5个` / `3年` / `2倍` / `3次` / `2名`（单位取自固定小词表）
-  - 金额 `万元` / `元` / `￥` / `¥`
+  - 金额 `500元` / `500万元` / `￥500` / `¥500`
   - 数字部分允许小数（`3.5年`）；**不处理**负数与英文 K/M 后缀（本期已知局限）。
   - **裸数字一律不标**：年份（`2024`）、题号/轮次（`第3题`、`第二轮`）、年龄、版本号、纯数字，均因缺紧邻单位而不命中。
+  - **已知噪声（接受）**：`2024年` 这类含单位的日历年份会被当 metric 命中——为保住「3年经验」类命中，`年` 保留为单位，此过度命中属可接受噪声，不单独排除。
 - **risk**：内置风险词表子串匹配。**本期不做否定/语境判定**——如「从没想过离职」中的「离职」仍会命中，属已知误报，接受；降噪留待后续迭代。
 
 重叠消解：所有候选 span 汇总后，按优先级 `risk > skill > metric` 消解——重叠时保留高优先级，丢弃被其包含或与其交叠的低优先级 span；同优先级取更长者。结果按 `start` 升序返回、互不重叠。
 
 **字符位置语义**：`start`/`end` 为 JS 字符串下标（UTF-16 code unit），与 `String.prototype.slice(start, end)` 一致；不做 grapheme 归一，含 emoji/组合字符时以 code unit 为准（切片仍稳定，不影响纯文本切段渲染）。
 
-性能：词表为模块级常量，正则顶层定义（不在循环内 `new RegExp`）；技能匹配器对内置词典构建一次。skill/risk 为按词表逐项扫描（复杂度 ~O(文本长度 × 词表规模）），词表规模为常量级，实际开销可接受——不宣称严格单遍线性。
+性能：词表为模块级常量，正则顶层定义（不在循环内 `new RegExp`）。每次调用会把「内置词典 ∪ extraSkills」合并去重一次（词表常量级，开销可忽略）；skill/risk 为按词表逐项扫描（复杂度 ~O(文本长度 × 词表规模)），实际开销可接受——不宣称严格单遍线性。
 
 内置词表由本次实现给出一份初始集合（技能覆盖常见技术/管理能力词；风险词覆盖含糊与负面信号），可后续增补，不属架构决策。
 
@@ -107,13 +108,13 @@ export function extractAnswerKeywords(text: string, options?: ExtractOptions): K
 - `keyword-highlight/context.tsx`：`KeywordHighlightProvider` 持有 `enabledCategories: Set<KeywordCategory>`（默认三类全开）与 `toggleCategory`；`useKeywordHighlight()` 读取。`toggleCategory` 以**不可变方式**更新（`new Set(prev)` 后增删再 `setState`），保证 React 正确重渲染。
 - `keyword-highlight/legend.tsx`：`KeywordHighlightLegend` 渲染三个带颜色的可点 chip，点击切换对应类别的显隐。
 
-**Provider 作用域（同步的关键约束）**：`KeywordHighlightProvider` 必须包裹**同时含「问答记录」与「报告」的公共祖先容器**，使两个 Tab 都在同一 Provider 子树内、读到同一份 `enabledCategories`。据探索，`studio-person-detail-panel.tsx` 里问答记录与报告同属该面板的 Tabs（`TabsContent`）区域，因此 Provider 包裹该 Tabs 容器即可。若两者实际不在同一子树，则须把 Provider 上提到其公共祖先——不满足此约束，「同步」不成立。`<KeywordHighlightLegend>` 渲染在该容器顶部、Tabs 切换栏附近，两个 Tab 均可见并共用。
+**Provider 作用域（同步的关键约束）**：经代码确认，`studio-person-detail-panel.tsx` 里**问答记录（`ConversationTranscript`）与评估报告（`EvaluationResults`）同处一个 `<TabsContent value="reports">` 子树内**——它们是同一「面试报告」Tab 下并排渲染的两块，不是两个独立 Tab。因此 `KeywordHighlightProvider` 只需包裹该 reports 内容区，两块即在同一 Provider 子树、读到同一份 `enabledCategories`，两者始终一起渲染，「同步」天然成立。`<KeywordHighlightLegend>` 渲染在该内容区顶部（汇总卡下方），报告有数据时显示。
 
 ### 4. 接入点（外科式改动）
 
 - `conversation-transcript.tsx`：候选人（`user`）气泡的 `{turn.message}` 改用 `<HighlightedText>`；面试官（`assistant`）气泡**不变**（仍为 Markdown、不高亮——不高亮提问方发言）。
 - `evaluation-results.tsx`：`overallAssessment`、逐题 `assessment`、证据 `quote` 文本包 `<HighlightedText>`（见「背景」高亮文本范围）。这三处当前均为纯文本渲染，无需 Markdown 解析。
-- `studio-person-detail-panel.tsx`：用 `KeywordHighlightProvider` 包住含两个 Tab 的公共容器（见「Provider 作用域」），并在其顶部渲染 `<KeywordHighlightLegend>`。`extraSkills` 当前传空/不传（基线用内置词典）；未来接结构化技能时从此处注入。
+- `studio-person-detail-panel.tsx`：用 `KeywordHighlightProvider` 包住 `<TabsContent value="reports">` 的内容区（见「Provider 作用域」），并在其顶部渲染 `<KeywordHighlightLegend>`。`extraSkills` 当前传空/不传（基线用内置词典）；未来接结构化技能时从此处注入。
 
 ## 数据流
 

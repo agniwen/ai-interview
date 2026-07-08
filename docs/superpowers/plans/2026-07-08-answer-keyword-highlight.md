@@ -11,6 +11,7 @@
 ## Global Constraints
 
 - 提取器放 `@arc/shared`，纯/同构，不引入 `node:*`、web 运行时或 `@/` 本地模块。
+- `@arc/shared` 的 `package.json` 已有 `"exports": { "./*": "./src/*.ts" }`，故 `@arc/shared/answer-keywords` 直接解析到 `src/answer-keywords.ts`——**无需**新增 barrel 或改 `exports`。
 - `KeywordSpan.start/end` 为 JS 字符串下标（UTF-16 code unit），与 `String.prototype.slice(start, end)` 一致。
 - 类别固定三类：`"skill" | "metric" | "risk"`；优先级 `risk > skill > metric`。
 - metric 只匹配紧跟单位/百分号的数字；裸数字（年份/题号/年龄/版本号）不命中。
@@ -230,12 +231,13 @@ export const BUILT_IN_RISK_WORDS: readonly string[] = [
 ];
 
 /**
- * 带含义的数字：只匹配紧跟单位/百分号的数字。裸数字不命中。
+ * 带含义的数字：数字必须紧邻单位才命中，数字与单位间不允许空格（spec「紧跟」）。
+ * 两种形态：货币符号前缀数字，或数字后紧跟单位/百分号。
  * 分支顺序：货币前缀 → 数字+单位（多字单位 `万元` 必须排在单字 `万`/`元` 之前）。
- * 已知局限：`2024年` 这类含单位的年份会被当 metric 命中，属可接受噪声。
+ * 已知噪声（接受）：`2024年` 这类含单位的年份会被当 metric 命中，为保住「3年」不单独排除。
  */
 export const METRIC_REGEX =
-  /[￥¥]\s?\d+(?:\.\d+)?(?:[万亿千])?(?:元)?|\d+(?:\.\d+)?\s?(?:万元|万|亿|千|个|人|名|位|年|月|天|次|倍|条|项|台|件|元|%|％)/g;
+  /[￥¥]\d+(?:\.\d+)?(?:[万亿千])?(?:元)?|\d+(?:\.\d+)?(?:万元|万|亿|千|个|人|名|位|年|月|天|次|倍|条|项|台|件|元|%|％)/g;
 ```
 
 - [ ] **Step 4: 写提取器实现**
@@ -730,7 +732,7 @@ import { describe, expect, it } from "vitest";
 import { EvaluationResults } from "./evaluation-results";
 
 describe("EvaluationResults highlighting", () => {
-  it("highlights skill and metric keywords in question assessment", () => {
+  it("highlights keywords in question assessment", () => {
     const html = renderToStaticMarkup(
       <EvaluationResults
         data={{
@@ -743,6 +745,33 @@ describe("EvaluationResults highlighting", () => {
     expect(html).toContain('data-category="skill"');
     expect(html).toContain('data-category="metric"');
   });
+
+  it("highlights keywords in overallAssessment", () => {
+    const html = renderToStaticMarkup(
+      <EvaluationResults
+        data={{ overallAssessment: "整体擅长数据分析，带10人团队", questions: [] }}
+      />,
+    );
+    expect(html).toContain('data-category="skill"');
+    expect(html).toContain('data-category="metric"');
+  });
+
+  it("highlights keywords in evidence quote", () => {
+    const html = renderToStaticMarkup(
+      <EvaluationResults
+        data={{
+          questions: [
+            {
+              order: 1,
+              question: "项目经历",
+              evidence: [{ quote: "我主导了架构设计", turnIndex: 2 }],
+            },
+          ],
+        }}
+      />,
+    );
+    expect(html).toContain('data-category="skill"');
+  });
 });
 ```
 
@@ -751,9 +780,23 @@ describe("EvaluationResults highlighting", () => {
 Run: `pnpm --filter @arc/ai-recruitment-copilot exec vitest run src/components/features/studio/interviews/interview-detail/evaluation-results.highlight.test.tsx`
 Expected: FAIL（`data-category` 不存在，评价文本仍是纯文本）。
 
-- [ ] **Step 3: 改 `evaluation-results.tsx` — 顶部导入**
+- [ ] **Step 3: 改 `evaluation-results.tsx` — 加 client 指令 + 顶部导入**
 
-在 `evaluation-results.tsx` 顶部（现有 import 之后）加入：
+`evaluation-results.tsx` 当前**没有** `"use client"`（现状是纯展示组件、未用 hook）。本任务给它加 `useKeywordHighlight`（`useContext`），需在文件**第一行**加指令。把文件开头的：
+
+```tsx
+import { Badge } from "@/components/ui/badge";
+```
+
+改为：
+
+```tsx
+"use client";
+
+import { Badge } from "@/components/ui/badge";
+```
+
+并在现有 import 之后加入：
 
 ```tsx
 import { HighlightedText } from "./keyword-highlight/highlighted-text";
@@ -1043,7 +1086,7 @@ Expected: `pnpm fix` 无报错并把 Step 2 的缩进补齐；typecheck 通过�
 - [ ] **Step 6: 提交**
 
 ```bash
-git add apps/ai-recruitment-copilot/src/components/features/studio/studio-person-detail-panel.tsx
+git add -A   # 含 studio-person-detail-panel.tsx，及 pnpm fix 可能重排的前序文件
 git commit -m "feat(studio): 报告 Tab 挂载关键词高亮 Provider 与图例"
 ```
 
