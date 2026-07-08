@@ -354,7 +354,7 @@ function getCollectedCandidateInfoItems({
     interviewItems.push({
       analysis,
       answers,
-      id: `interview-${order}-${question}`,
+      id: `interview-${index}-${order}-${question}`,
       kind: "interview",
       question,
       sequence: interviewItems.length + 1,
