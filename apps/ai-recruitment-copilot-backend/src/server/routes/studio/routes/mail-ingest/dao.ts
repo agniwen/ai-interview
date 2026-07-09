@@ -1,4 +1,18 @@
-import { and, asc, count, desc, eq, ilike, isNull, lt, or } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  isNull,
+  lt,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
@@ -9,11 +23,15 @@ import type {
   PaginatedResult,
   PaginationParams,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/db/pagination";
+import { listActiveDuplicateMatchCounts } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
 import {
+  jobDescription,
   mailIngestAccount,
   mailIngestMessage,
   member,
   organization,
+  resumePoolItem,
+  resumeUploadBatchItem,
   user as userTable,
 } from "@arc/db-schema/schema";
 import type {
@@ -21,6 +39,7 @@ import type {
   MailIngestMessageStatus,
   MailIngestSkipReason,
 } from "@arc/db-schema/schema";
+import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
 import {
   decryptMailIngestSecret,
   encryptMailIngestSecret,
@@ -1010,4 +1029,215 @@ export async function markMailIngestMessageSkipped(
       status: "skipped",
     })
     .where(eq(mailIngestMessage.id, id));
+}
+
+const POOL_SUMMARY_TERMINAL_READY: ResumeParseStatus = "ready";
+const POOL_SUMMARY_TERMINAL_FAILED: ResumeParseStatus = "failed";
+
+export interface MailMessageLogAttachment {
+  fileName: string;
+  hasDuplicate: boolean;
+  poolItemId: string | null;
+  resumeParseError: string | null;
+  resumeParseStatus: ResumeParseStatus | null;
+  resumeRecordId: string | null;
+}
+
+export interface MailMessageLogRecord {
+  attachmentCount: number | null;
+  attachments: MailMessageLogAttachment[];
+  boundJobDescriptionName: string | null;
+  fromAddress: string | null;
+  id: string;
+  jdBindStatus: MailIngestJdBindStatus | null;
+  poolSummary: "all_failed" | "all_pooled" | "parsing" | "partial_failed" | null;
+  receivedAt: string | null;
+  resumeAttachmentCount: number | null;
+  skipReason: MailIngestSkipReason | null;
+  status: MailIngestMessageStatus;
+  subject: string | null;
+}
+
+function summarizePool(
+  attachments: MailMessageLogAttachment[],
+): MailMessageLogRecord["poolSummary"] {
+  if (attachments.length === 0) {
+    return null;
+  }
+  const hasNonTerminal = attachments.some(
+    (a) =>
+      a.resumeParseStatus !== POOL_SUMMARY_TERMINAL_READY &&
+      a.resumeParseStatus !== POOL_SUMMARY_TERMINAL_FAILED,
+  );
+  if (hasNonTerminal) {
+    return "parsing";
+  }
+  const allReady = attachments.every((a) => a.resumeParseStatus === POOL_SUMMARY_TERMINAL_READY);
+  if (allReady) {
+    return "all_pooled";
+  }
+  const allFailed = attachments.every((a) => a.resumeParseStatus === POOL_SUMMARY_TERMINAL_FAILED);
+  if (allFailed) {
+    return "all_failed";
+  }
+  return "partial_failed";
+}
+
+async function loadMailMessageAttachments(
+  organizationId: string,
+  batchIds: string[],
+): Promise<Map<string, MailMessageLogAttachment[]>> {
+  const rows = await db
+    .select({
+      batchId: resumeUploadBatchItem.batchId,
+      fileName: resumeUploadBatchItem.originalFileName,
+      orderIndex: resumeUploadBatchItem.orderIndex,
+      poolItemId: resumeUploadBatchItem.poolItemId,
+      resumeParseError: resumePoolItem.resumeParseError,
+      resumeParseStatus: resumePoolItem.resumeParseStatus,
+      resumeRecordId: resumeUploadBatchItem.resumeRecordId,
+    })
+    .from(resumeUploadBatchItem)
+    .leftJoin(
+      resumePoolItem,
+      and(
+        eq(resumeUploadBatchItem.poolItemId, resumePoolItem.id),
+        eq(resumePoolItem.organizationId, organizationId),
+      ),
+    )
+    .where(inArray(resumeUploadBatchItem.batchId, batchIds))
+    .orderBy(asc(resumeUploadBatchItem.batchId), asc(resumeUploadBatchItem.orderIndex));
+
+  const poolItemIds = rows.map((row) => row.poolItemId).filter((id): id is string => id !== null);
+  const duplicateCounts = await listActiveDuplicateMatchCounts({
+    organizationId,
+    sourceIds: poolItemIds,
+    sourceType: "resume_pool_item",
+  });
+
+  const attachmentsByBatch = new Map<string, MailMessageLogAttachment[]>();
+  for (const row of rows) {
+    const attachment: MailMessageLogAttachment = {
+      fileName: row.fileName,
+      hasDuplicate: row.poolItemId ? (duplicateCounts.get(row.poolItemId)?.count ?? 0) > 0 : false,
+      poolItemId: row.poolItemId,
+      resumeParseError: row.resumeParseError,
+      resumeParseStatus: row.resumeParseStatus,
+      resumeRecordId: row.resumeRecordId,
+    };
+    const existing = attachmentsByBatch.get(row.batchId);
+    if (existing) {
+      existing.push(attachment);
+    } else {
+      attachmentsByBatch.set(row.batchId, [attachment]);
+    }
+  }
+  return attachmentsByBatch;
+}
+
+function buildMailMessageLogWhere(input: {
+  accountId: string;
+  jdBindStatus?: MailIngestJdBindStatus;
+  keyword?: string;
+  receivedFrom?: Date;
+  receivedTo?: Date;
+  skipReason?: MailIngestSkipReason;
+  status?: MailIngestMessageStatus;
+}) {
+  return and(
+    eq(mailIngestMessage.accountId, input.accountId),
+    ...(input.status ? [eq(mailIngestMessage.status, input.status)] : []),
+    ...(input.skipReason ? [eq(mailIngestMessage.skipReason, input.skipReason)] : []),
+    ...(input.jdBindStatus ? [eq(mailIngestMessage.jdBindStatus, input.jdBindStatus)] : []),
+    ...(input.keyword
+      ? [
+          or(
+            ilike(mailIngestMessage.subject, `%${input.keyword}%`),
+            ilike(mailIngestMessage.fromAddress, `%${input.keyword}%`),
+          ),
+        ]
+      : []),
+    ...(input.receivedFrom ? [gte(mailIngestMessage.receivedAt, input.receivedFrom)] : []),
+    ...(input.receivedTo ? [lte(mailIngestMessage.receivedAt, input.receivedTo)] : []),
+  );
+}
+
+export async function listAccountMailMessages(input: {
+  accountId: string;
+  jdBindStatus?: MailIngestJdBindStatus;
+  keyword?: string;
+  organizationId: string;
+  page: number;
+  pageSize: number;
+  receivedFrom?: Date;
+  receivedTo?: Date;
+  skipReason?: MailIngestSkipReason;
+  status?: MailIngestMessageStatus;
+}): Promise<{ records: MailMessageLogRecord[]; total: number }> {
+  const where = buildMailMessageLogWhere(input);
+
+  const [{ count: total } = { count: 0 }] = await db
+    .select({ count: count() })
+    .from(mailIngestMessage)
+    .innerJoin(
+      mailIngestAccount,
+      and(
+        eq(mailIngestMessage.accountId, mailIngestAccount.id),
+        eq(mailIngestAccount.organizationId, input.organizationId),
+      ),
+    )
+    .where(where);
+
+  const rows = await db
+    .select({
+      attachmentCount: mailIngestMessage.attachmentCount,
+      batchId: mailIngestMessage.batchId,
+      boundJobDescriptionName: jobDescription.name,
+      fromAddress: mailIngestMessage.fromAddress,
+      id: mailIngestMessage.id,
+      jdBindStatus: mailIngestMessage.jdBindStatus,
+      receivedAt: mailIngestMessage.receivedAt,
+      resumeAttachmentCount: mailIngestMessage.resumeAttachmentCount,
+      skipReason: mailIngestMessage.skipReason,
+      status: mailIngestMessage.status,
+      subject: mailIngestMessage.subject,
+    })
+    .from(mailIngestMessage)
+    .innerJoin(
+      mailIngestAccount,
+      and(
+        eq(mailIngestMessage.accountId, mailIngestAccount.id),
+        eq(mailIngestAccount.organizationId, input.organizationId),
+      ),
+    )
+    .leftJoin(jobDescription, eq(mailIngestMessage.boundJobDescriptionId, jobDescription.id))
+    .where(where)
+    .orderBy(sql`${mailIngestMessage.receivedAt} DESC NULLS LAST`, desc(mailIngestMessage.id))
+    .limit(input.pageSize)
+    .offset((input.page - 1) * input.pageSize);
+
+  const batchIds = rows.map((row) => row.batchId).filter((id): id is string => id !== null);
+  const attachmentsByBatch = batchIds.length
+    ? await loadMailMessageAttachments(input.organizationId, batchIds)
+    : new Map<string, MailMessageLogAttachment[]>();
+
+  const records = rows.map((row) => {
+    const attachments = row.batchId ? (attachmentsByBatch.get(row.batchId) ?? []) : [];
+    return {
+      attachmentCount: row.attachmentCount,
+      attachments,
+      boundJobDescriptionName: row.boundJobDescriptionName,
+      fromAddress: row.fromAddress,
+      id: row.id,
+      jdBindStatus: row.jdBindStatus,
+      poolSummary: summarizePool(attachments),
+      receivedAt: row.receivedAt ? row.receivedAt.toISOString() : null,
+      resumeAttachmentCount: row.resumeAttachmentCount,
+      skipReason: row.skipReason,
+      status: row.status,
+      subject: row.subject,
+    };
+  });
+
+  return { records, total };
 }
