@@ -5,6 +5,7 @@ import {
   deleteMailIngestAccount,
   getMailIngestAccountLoginConfig,
   isWorkspaceMember,
+  listAccountMailMessages,
   listMailIngestAccounts,
   queryPaginatedWorkspaceMailIngestAccounts,
   updateMailIngestAccount,
@@ -13,6 +14,7 @@ import {
 import {
   createMailIngestAccountSchema,
   createManagedMailIngestAccountSchema,
+  listMailMessagesQuerySchema,
   managedMailIngestAccountListQuerySchema,
   updateMailIngestAccountSchema,
 } from "./schema";
@@ -223,4 +225,31 @@ export const mailIngestRouter = factory
       return c.json({ error: "邮箱配置不存在。" }, 404);
     }
     return c.json({ ok: true }, 200);
-  });
+  })
+  .get(
+    "/:id/messages",
+    requirePermission("mailIngestAccount", "read"),
+    zValidator("query", listMailMessagesQuerySchema, jsonValidatorError("查询参数不合法")),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!activeOrg || !user) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const accountId = c.req.param("id");
+      const existing = await getMailIngestAccountLoginConfig({
+        id: accountId,
+        organizationId: activeOrg.id,
+        userId: user.id,
+      });
+      if (!existing) {
+        return c.json({ error: "邮箱配置不存在。" }, 404);
+      }
+      const q = c.req.valid("query");
+      const result = await listAccountMailMessages({
+        accountId,
+        organizationId: activeOrg.id,
+        ...q,
+      });
+      return c.json(result, 200);
+    },
+  );
