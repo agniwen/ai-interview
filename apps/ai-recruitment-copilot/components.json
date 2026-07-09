@@ -23,6 +23,7 @@
     "@ai-elements": "https://ai-sdk.dev/elements/api/registry/{name}.json",
     "@react-bits": "https://reactbits.dev/r/{name}.json",
     "@extend": "https://ui.extend.ai/r/{name}.json",
-    "@ogimagecn": "https://ogimagecn.vercel.app/r/{name}.json"
+    "@ogimagecn": "https://ogimagecn.vercel.app/r/{name}.json",
+    "@coss": "https://coss.com/ui/r/{name}.json"
   }
 }

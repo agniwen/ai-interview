@@ -45,4 +45,17 @@ describe("late-stage route permissions", () => {
     );
     expect(routeSource).not.toContain('requirePermission("offer", "manage")');
   });
+
+  it("records candidate activity for human interview and offer mutations", () => {
+    expect(routeSource).toContain("function recordCandidateActivity(");
+    expect(routeSource).toContain('action: "human_interview_round_created"');
+    expect(routeSource).toContain('action: "human_interview_round_updated"');
+    expect(routeSource).toContain('action: "human_interview_round_completed"');
+    expect(routeSource).toContain('action: "human_interview_round_cancelled"');
+    expect(routeSource).toContain('action: "offer_draft_created"');
+    expect(routeSource).toContain('action: "offer_draft_updated"');
+    expect(routeSource).toContain('action: "offer_draft_sent"');
+    expect(routeSource).toContain('action: "offer_draft_responded"');
+    expect(routeSource).toContain('action: "offer_draft_cancelled"');
+  });
 });

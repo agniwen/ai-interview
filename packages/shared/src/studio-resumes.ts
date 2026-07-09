@@ -447,6 +447,7 @@ export interface CandidateTimelineEvent {
   description: string | null;
   occurredAt: string;
   actorName: string | null;
+  actorImage: string | null;
   metadata: CandidateTimelineEventMeta[];
 }
 

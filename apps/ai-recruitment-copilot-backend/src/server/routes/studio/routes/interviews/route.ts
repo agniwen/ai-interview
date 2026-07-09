@@ -269,6 +269,33 @@ async function resetOrphanedAiInterviewParents(
     );
 }
 
+async function recordCandidateActivity({
+  action,
+  detail = {},
+  interviewRecordId,
+  operatorId,
+  organizationId,
+  scheduleEntryId = null,
+}: {
+  action: string;
+  detail?: Record<string, unknown>;
+  interviewRecordId: string;
+  operatorId: string | null;
+  organizationId: string;
+  scheduleEntryId?: string | null;
+}) {
+  await db.insert(interviewAuditLog).values({
+    action,
+    createdAt: new Date(),
+    detail,
+    id: crypto.randomUUID(),
+    interviewRecordId,
+    operatorId,
+    organizationId,
+    scheduleEntryId,
+  });
+}
+
 export const studioInterviewsRouter = factory
   .createApp()
   .get("/summary", requirePermission("interview", "read"), async (c) => {
@@ -1628,6 +1655,17 @@ export const studioInterviewsRouter = factory
       // 创建第一轮时自动把 pipelineStage 推进到 human_interview（screening/ai_interview 等才推）。
       // Auto-advance pipelineStage when the first round goes in.
       await maybeAdvanceToHumanInterview(recordId, activeOrg.id);
+      await recordCandidateActivity({
+        action: "human_interview_round_created",
+        detail: {
+          roundId: created.id,
+          roundLabel: created.label,
+          scheduledAt: created.scheduledAt,
+        },
+        interviewRecordId: recordId,
+        operatorId: c.var.user?.id ?? null,
+        organizationId: activeOrg.id,
+      });
       invalidateStudioInterviewCaches(activeOrg.id);
       return c.json(created, 200);
     },
@@ -1654,6 +1692,17 @@ export const studioInterviewsRouter = factory
           input,
           organizationId: activeOrg.id,
           roundId,
+        });
+        await recordCandidateActivity({
+          action: "human_interview_round_updated",
+          detail: {
+            roundId: updated.id,
+            roundLabel: updated.label,
+            scheduledAt: updated.scheduledAt,
+          },
+          interviewRecordId: updated.interviewRecordId,
+          operatorId: c.var.user?.id ?? null,
+          organizationId: activeOrg.id,
         });
         invalidateStudioInterviewCaches(activeOrg.id);
         return c.json(updated, 200);
@@ -1683,6 +1732,18 @@ export const studioInterviewsRouter = factory
           outcome,
           roundId,
           score,
+        });
+        await recordCandidateActivity({
+          action: "human_interview_round_completed",
+          detail: {
+            outcome: updated.outcome,
+            roundId: updated.id,
+            roundLabel: updated.label,
+            score: updated.score,
+          },
+          interviewRecordId: updated.interviewRecordId,
+          operatorId: c.var.user?.id ?? null,
+          organizationId: activeOrg.id,
         });
         const roomNames = await endHumanInterviewMeetingsByRound({
           organizationId: activeOrg.id,
@@ -1727,6 +1788,17 @@ export const studioInterviewsRouter = factory
             reason,
             roundId,
           });
+        await recordCandidateActivity({
+          action: "human_interview_round_cancelled",
+          detail: {
+            reason,
+            roundId: updated.id,
+            roundLabel: updated.label,
+          },
+          interviewRecordId: updated.interviewRecordId,
+          operatorId: c.var.user?.id ?? null,
+          organizationId: activeOrg.id,
+        });
         for (const roomName of deletedLiveKitRoomNames) {
           try {
             await deleteHumanInterviewLiveKitRoom(roomName);
@@ -1806,6 +1878,17 @@ export const studioInterviewsRouter = factory
         sendImmediately,
       });
       await maybeAdvanceToOffer(recordId, activeOrg.id);
+      await recordCandidateActivity({
+        action: "offer_draft_created",
+        detail: {
+          position: created.position,
+          sentImmediately: Boolean(sendImmediately),
+          version: created.version,
+        },
+        interviewRecordId: recordId,
+        operatorId: c.var.user?.id ?? null,
+        organizationId: activeOrg.id,
+      });
       invalidateStudioInterviewCaches(activeOrg.id);
       return c.json(created, 200);
     },
@@ -1827,6 +1910,16 @@ export const studioInterviewsRouter = factory
           input,
           organizationId: activeOrg.id,
         });
+        await recordCandidateActivity({
+          action: "offer_draft_updated",
+          detail: {
+            position: updated.position,
+            version: updated.version,
+          },
+          interviewRecordId: updated.interviewRecordId,
+          operatorId: c.var.user?.id ?? null,
+          organizationId: activeOrg.id,
+        });
         invalidateStudioInterviewCaches(activeOrg.id);
         return c.json(updated, 200);
       } catch (error) {
@@ -1845,6 +1938,16 @@ export const studioInterviewsRouter = factory
     const draftId = c.req.param("draftId");
     try {
       const updated = await sendOfferDraft(draftId, activeOrg.id);
+      await recordCandidateActivity({
+        action: "offer_draft_sent",
+        detail: {
+          position: updated.position,
+          version: updated.version,
+        },
+        interviewRecordId: updated.interviewRecordId,
+        operatorId: c.var.user?.id ?? null,
+        organizationId: activeOrg.id,
+      });
       invalidateStudioInterviewCaches(activeOrg.id);
       return c.json(updated, 200);
     } catch (error) {
@@ -1872,6 +1975,16 @@ export const studioInterviewsRouter = factory
           organizationId: activeOrg.id,
           response,
         });
+        await recordCandidateActivity({
+          action: "offer_draft_responded",
+          detail: {
+            response,
+            version: updated.version,
+          },
+          interviewRecordId: updated.interviewRecordId,
+          operatorId: c.var.user?.id ?? null,
+          organizationId: activeOrg.id,
+        });
         invalidateStudioInterviewCaches(activeOrg.id);
         return c.json(updated, 200);
       } catch (error) {
@@ -1890,6 +2003,16 @@ export const studioInterviewsRouter = factory
     const draftId = c.req.param("draftId");
     try {
       const updated = await cancelOfferDraft(draftId, activeOrg.id);
+      await recordCandidateActivity({
+        action: "offer_draft_cancelled",
+        detail: {
+          position: updated.position,
+          version: updated.version,
+        },
+        interviewRecordId: updated.interviewRecordId,
+        operatorId: c.var.user?.id ?? null,
+        organizationId: activeOrg.id,
+      });
       invalidateStudioInterviewCaches(activeOrg.id);
       return c.json(updated, 200);
     } catch (error) {

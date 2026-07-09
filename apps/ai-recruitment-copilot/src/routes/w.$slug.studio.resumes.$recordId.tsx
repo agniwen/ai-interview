@@ -20,6 +20,7 @@ import { StudioPersonDetailPanel } from "@/components/features/studio/studio-per
 import type { StudioPersonDetailTab } from "@/components/features/studio/studio-person-detail-panel";
 import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
 import { StudioResumeFloatingChat } from "@/components/features/studio/studio-resume-floating-chat";
+import { CandidateTimelineSkeleton } from "@/components/features/studio/candidate-timeline";
 import { useStudioHeaderOverride } from "@/components/features/studio/studio-header-context";
 import { LaunchInterviewDialog } from "@/components/features/studio/resumes/launch-interview-dialog";
 import { TransitionCandidateDialog } from "@/components/features/studio/resumes/transition-candidate-dialog";
@@ -167,37 +168,8 @@ function RecruiterResumeDetailSkeleton() {
               </div>
             </section>
           </div>
-          <aside className="hidden min-w-0 max-w-full overflow-hidden xl:block xl:border-border/50 xl:border-l xl:pl-6">
-            <Skeleton className="h-5 w-24" />
-            <div className="mt-5 flex flex-col gap-4">
-              {Array.from({ length: 4 }).map((_, index) => (
-                <div className="relative grid min-w-0 gap-3 pl-8" key={index}>
-                  {index < 3 ? (
-                    <span className="-translate-x-1/2 absolute left-3.5 top-3.5 h-[calc(100%+1rem)] w-px bg-border" />
-                  ) : null}
-                  <Skeleton className="-translate-x-1/2 absolute left-3.5 top-0 z-10 size-7 rounded-full" />
-                  <div className="min-w-0 rounded-xl border border-muted/60 bg-muted/30 p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <Skeleton className="h-4 w-24" />
-                          <Skeleton className="h-5 w-12 rounded-full" />
-                        </div>
-                        <Skeleton className="mt-2 h-3 w-28" />
-                      </div>
-                    </div>
-                    <div className="mt-3 space-y-2">
-                      <Skeleton className="h-3 w-full" />
-                      <Skeleton className="h-3 w-3/4" />
-                    </div>
-                    <div className="mt-3 flex gap-2">
-                      <Skeleton className="h-6 w-20" />
-                      <Skeleton className="h-6 w-24" />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <aside className="hidden min-w-0 max-w-full overflow-hidden xl:block">
+            <CandidateTimelineSkeleton />
           </aside>
         </div>
       </div>

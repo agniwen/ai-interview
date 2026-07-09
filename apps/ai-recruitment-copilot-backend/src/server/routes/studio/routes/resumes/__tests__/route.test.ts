@@ -426,3 +426,14 @@ describe("resume library job description audit log", () => {
     expect(timelineDaoSource).toContain("简历评估已重置");
   });
 });
+
+describe("resume library launch interview activity log", () => {
+  it("records and renders the operator who launched an AI interview", () => {
+    expect(routeSource).toContain('action: "ai_interview_launched"');
+    expect(routeSource).toContain("questionCount: interviewQuestions.length");
+    expect(timelineDaoSource).toContain('if (action === "ai_interview_launched")');
+    expect(timelineDaoSource).toContain("发起 AI 面试");
+    expect(timelineDaoSource).toContain("creatorImage: user.image");
+    expect(timelineDaoSource).toContain("actorImage: round.creatorImage");
+  });
+});

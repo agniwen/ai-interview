@@ -663,6 +663,20 @@ export const resumeLibraryRouter = factory
               and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)),
             );
           await tx.insert(studioInterviewSchedule).values(scheduleRow);
+          await tx.insert(interviewAuditLog).values({
+            action: "ai_interview_launched",
+            createdAt: now,
+            detail: {
+              questionCount: interviewQuestions.length,
+              roundId: scheduleRow.id,
+              roundLabel: scheduleRow.roundLabel,
+            },
+            id: crypto.randomUUID(),
+            interviewRecordId: id,
+            operatorId: c.var.user?.id ?? null,
+            organizationId: activeOrg.id,
+            scheduleEntryId: scheduleRow.id,
+          });
           await autoBindApplicableTemplates(tx, id, existing.jobDescriptionId);
         });
         await loadOrCreateActiveInterviewContextSnapshot({
