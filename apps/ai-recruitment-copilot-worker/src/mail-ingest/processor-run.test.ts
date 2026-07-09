@@ -191,6 +191,14 @@ describe("runMailIngestOnce", () => {
     );
   });
 
+  it("a failed poll preserves prior counters (no zeroed counts written)", async () => {
+    await runMailIngestOnce(config);
+
+    const call = mocks.finishMailIngestAccountRun.mock.calls.find((c) => c[0] === "account_1");
+    expect(call?.[1]).toMatchObject({ error: expect.any(Error) });
+    expect(call?.[1]).not.toHaveProperty("counts");
+  });
+
   it("binds an imported resume batch to the single job matched from the mail subject code", async () => {
     mocks.connect.mockImplementation(() => Promise.resolve());
     mocks.search.mockResolvedValue([101]);
@@ -340,7 +348,12 @@ describe("runMailIngestOnce", () => {
     expect(mocks.finishMailIngestAccountRun).toHaveBeenCalledWith(
       "account_1",
       expect.objectContaining({
-        counts: expect.objectContaining({ queued: 1, received: 2, subjectSkipped: 1 }),
+        counts: expect.objectContaining({
+          matched: 1,
+          queued: 1,
+          received: 2,
+          subjectSkipped: 1,
+        }),
       }),
     );
   });

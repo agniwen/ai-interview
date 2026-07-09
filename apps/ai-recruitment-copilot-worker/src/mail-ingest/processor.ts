@@ -343,16 +343,20 @@ async function finishAccounts(
   await Promise.all(
     accounts.map(({ id }) => {
       const t = tallies.get(id) ?? zeroMailAccountTally();
-      return finishMailIngestAccountRun(id, {
-        counts: {
-          failed: t.failed,
-          matched: t.queued + t.failed + t.noAttachment,
-          queued: t.queued,
-          received: t.received,
-          subjectSkipped: t.subjectSkipped,
-        },
-        error,
-      });
+      return finishMailIngestAccountRun(
+        id,
+        error
+          ? { error }
+          : {
+              counts: {
+                failed: t.failed,
+                matched: t.queued + t.failed + t.noAttachment,
+                queued: t.queued,
+                received: t.received,
+                subjectSkipped: t.subjectSkipped,
+              },
+            },
+      );
     }),
   );
 }
