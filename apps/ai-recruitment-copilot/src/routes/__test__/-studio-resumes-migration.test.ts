@@ -114,6 +114,17 @@ describe("TanStack Start studio resumes migration", () => {
     expect(cardSource).not.toContain("onPrefetchDetail");
   });
 
+  it("uses the candidate name in the recruiter resume detail document title", () => {
+    const source = readSource("routes/w.$slug.studio.resumes.$recordId.tsx");
+
+    expect(source).toContain("function getRecruiterResumeDocumentTitle(");
+    expect(source).toContain("`候选人详情·");
+    expect(source).toContain("const documentTitle = getRecruiterResumeDocumentTitle");
+    expect(source).toContain("document.title = documentTitle;");
+    expect(source).toContain('meta: [{ title: "候选人详情" }]');
+    expect(source).not.toContain('meta: [{ title: "简历详情" }]');
+  });
+
   it("uses a standalone member review page with only the detail title in the header", () => {
     const source = readSource("routes/resume-review.$slug.$recordId.tsx");
 

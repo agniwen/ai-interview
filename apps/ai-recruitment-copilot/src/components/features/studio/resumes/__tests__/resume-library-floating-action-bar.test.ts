@@ -12,6 +12,9 @@ describe("ResumeLibraryFloatingActionBar", () => {
     expect(source).toContain("const visible = selectedCount > 0;");
     expect(source).toContain("interface ResumeLibraryFloatingActionItem");
     expect(source).toContain("jobDescriptionLabel: string | null;");
+    expect(source).toContain("const FLOATING_ACTION_GLASS_CLASS");
+    expect(source).toContain("bg-background/32");
+    expect(source).toContain("backdrop-blur-lg");
     expect(source).toContain("selectedItems: ResumeLibraryFloatingActionItem[];");
     expect(source).toContain("onClearSelection: () => void;");
     expect(source).toContain("onRemoveItem: (id: string) => void;");
@@ -33,12 +36,14 @@ describe("ResumeLibraryFloatingActionBar", () => {
     expect(source).toContain("onClick={() => onViewItem(item.id)}");
     expect(source).toContain("onClick={() => onRemoveItem(item.id)}");
     expect(source).toContain('title="查看"');
+    expect(source).toContain("select-none whitespace-nowrap");
     expect(source).toContain("已选择 {selectedCount} 条");
     expect(source).toContain("onClick={onClearSelection}");
     expect(source).toContain("取消选择");
     expect(source).toContain("pointer-events-auto inline-flex");
-    expect(source).toContain("rounded-md border border-border");
+    expect(source).toContain("FLOATING_ACTION_GLASS_CLASS}");
     expect(source).toContain("批量删除");
     expect(source).not.toContain("rounded-full");
+    expect(source).not.toContain("bg-background/95");
   });
 });

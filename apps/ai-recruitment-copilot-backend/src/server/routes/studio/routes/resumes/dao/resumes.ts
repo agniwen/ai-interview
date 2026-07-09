@@ -40,6 +40,7 @@ import type {
   ResumeStageProgress,
 } from "@arc/shared/studio-resumes";
 import type { ResumeDuplicateMatchSummary } from "@arc/shared/resume-duplicates";
+import { formatResumeEducationSchoolWithLevel } from "@arc/shared/resume-education";
 import { resumeScreeningResultSchema } from "@arc/shared/resume-screening";
 import { normalizeSkill } from "./skills";
 
@@ -196,7 +197,7 @@ const SELECTED_COLUMNS = {
   ),
   resumeEducationLevel: sql<
     string | null
-  >`${studioInterview.resumeProfile}->'educationExperiences'->0->>'level'`.as(
+  >`${studioInterview.resumeProfile}->'educationExperiences'->0->>'educationLevel'`.as(
     "resume_education_level",
   ),
   resumeEducationMajor: sql<
@@ -439,19 +440,14 @@ function buildResumeEducationSnapshotLines(
       if (!school) {
         return [];
       }
+      const educationLevel = cleanResumeProfileRecordText(item, "educationLevel");
       return [
         {
           period:
             formatResumeCardPeriod(cleanResumeProfileRecordText(item, "period")) ??
             formatResumeCardPeriod(cleanResumeProfileRecordText(item, "graduationYear")),
-          primary: school,
-          secondary:
-            [
-              cleanResumeProfileRecordText(item, "major"),
-              cleanResumeProfileRecordText(item, "level"),
-            ]
-              .filter(Boolean)
-              .join(" · ") || null,
+          primary: formatResumeEducationSchoolWithLevel({ educationLevel, school }) ?? school,
+          secondary: cleanResumeProfileRecordText(item, "major"),
         },
       ];
     },
@@ -483,14 +479,12 @@ function buildLegacyEducationSnapshotFallback(row: Row): ResumeLibraryProfileSna
           period:
             formatResumeCardPeriod(row.resumeEducationPeriod) ??
             formatResumeCardPeriod(row.resumeEducationGraduationYear),
-          primary: educationSchool,
-          secondary:
-            [
-              cleanResumeProfileText(row.resumeEducationMajor),
-              cleanResumeProfileText(row.resumeEducationLevel),
-            ]
-              .filter(Boolean)
-              .join(" · ") || null,
+          primary:
+            formatResumeEducationSchoolWithLevel({
+              educationLevel: cleanResumeProfileText(row.resumeEducationLevel),
+              school: educationSchool,
+            }) ?? educationSchool,
+          secondary: cleanResumeProfileText(row.resumeEducationMajor),
         },
       ]
     : [];

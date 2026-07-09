@@ -660,6 +660,7 @@ function ResumeLibraryCardComponent({
   const { jobDescriptionId } = record;
   const jobDescriptionTextClass =
     "block w-full max-w-full min-w-0 truncate text-left underline decoration-transparent underline-offset-2 transition-colors hover:decoration-foreground/40";
+  const toggleSelected = () => onSelectChange(!selected);
 
   return (
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
@@ -675,12 +676,28 @@ function ResumeLibraryCardComponent({
         onOpenDetail(record, "overview");
       }}
     >
+      <button
+        aria-label={`${selected ? "取消选择" : "选择"} ${record.candidateName}`}
+        aria-pressed={selected}
+        className="absolute inset-y-0 left-0 z-10 w-12 rounded-l-2xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        data-resume-card-interactive="true"
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          toggleSelected();
+        }}
+        type="button"
+      />
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
         <div className="flex min-w-0 gap-3">
           <Checkbox
             aria-label={`选择 ${record.candidateName}`}
             checked={selected}
-            className="mt-3"
+            className="relative z-20 mt-3"
+            data-resume-card-interactive="true"
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
             onCheckedChange={(value) => onSelectChange(Boolean(value))}
           />
           <div className="mt-0.5 size-12 shrink-0 overflow-hidden rounded-full">

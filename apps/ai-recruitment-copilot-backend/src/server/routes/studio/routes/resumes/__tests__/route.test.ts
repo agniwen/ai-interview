@@ -359,6 +359,9 @@ describe("resume library list DTO", () => {
     expect(resumeDaoSource).toContain("resumeProfile: studioInterview.resumeProfile");
     expect(resumeDaoSource).toContain("resumeEducationExperiences");
     expect(resumeDaoSource).toContain("resumeWorkExperiences");
+    expect(resumeDaoSource).toContain("->>'educationLevel'");
+    expect(resumeDaoSource).toContain("formatResumeEducationSchoolWithLevel");
+    expect(resumeDaoSource).not.toContain("->>'level'");
     expect(resumeDaoSource).toContain("sortResumeProfileSnapshotLines");
     expect(resumeDaoSource).toContain("workHasMore:");
     expect(resumeDaoSource).toContain("educationHasMore:");

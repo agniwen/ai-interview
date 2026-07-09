@@ -6,6 +6,9 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+const FLOATING_ACTION_GLASS_CLASS =
+  "border border-border/40 bg-background/32 shadow-[0_18px_54px_-28px_rgb(0_0_0/0.45)] backdrop-blur-lg";
+
 interface ResumeLibraryFloatingActionItem {
   id: string;
   jobDescriptionLabel: string | null;
@@ -46,7 +49,9 @@ export function ResumeLibraryFloatingActionBar({
           initial={{ opacity: 0, scale: reduceMotion ? 1 : 0.98, y: reduceMotion ? 0 : 12 }}
           transition={reduceMotion ? { duration: 0 } : { duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
         >
-          <div className="pointer-events-auto w-full max-w-lg overflow-hidden rounded-md border border-border bg-background/95 p-1 shadow-xl backdrop-blur-xl">
+          <div
+            className={`pointer-events-auto w-full max-w-lg overflow-hidden rounded-md p-1 ${FLOATING_ACTION_GLASS_CLASS}`}
+          >
             <ScrollArea className="max-h-[7.75rem]" scrollbars="leave">
               {selectedItems.map((item) => (
                 <div
@@ -83,8 +88,10 @@ export function ResumeLibraryFloatingActionBar({
               ))}
             </ScrollArea>
           </div>
-          <div className="pointer-events-auto inline-flex max-w-[calc(100vw-2rem)] items-center gap-2 rounded-md border border-border bg-background/95 p-1 shadow-2xl backdrop-blur-xl">
-            <div className="whitespace-nowrap px-2.5 text-muted-foreground text-sm">
+          <div
+            className={`pointer-events-auto inline-flex max-w-[calc(100vw-2rem)] items-center gap-2 rounded-md p-1 ${FLOATING_ACTION_GLASS_CLASS}`}
+          >
+            <div className="select-none whitespace-nowrap px-2.5 text-muted-foreground text-sm">
               已选择 {selectedCount} 条
             </div>
             <Button onClick={onClearSelection} type="button" variant="ghost">

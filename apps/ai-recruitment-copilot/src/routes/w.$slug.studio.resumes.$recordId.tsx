@@ -7,7 +7,7 @@ import {
   useRouter,
   useSearch,
 } from "@tanstack/react-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import {
@@ -75,6 +75,11 @@ function listSearchFromDetailSearch(search: ResumeDetailPageSearch): ResumeDetai
   const next = { ...search };
   delete next.tab;
   return next;
+}
+
+function getRecruiterResumeDocumentTitle(candidateName: string | null | undefined) {
+  const name = candidateName?.trim();
+  return name ? `候选人详情·${name}` : "候选人详情";
 }
 
 function RecruiterResumeDetailSkeleton() {
@@ -269,6 +274,11 @@ function RecruiterResumeDetailPage() {
   });
   const detail = detailQuery.data ?? null;
   const defaultTab = resolveDefaultTab(routeSearch);
+  const documentTitle = getRecruiterResumeDocumentTitle(detail?.candidateName);
+
+  useEffect(() => {
+    document.title = documentTitle;
+  }, [documentTitle]);
 
   const invalidateAll = () => {
     void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
@@ -435,7 +445,7 @@ function RecruiterResumeDetailPage() {
 export const Route = createFileRoute("/w/$slug/studio/resumes/$recordId")({
   component: RecruiterResumeDetailPage,
   head: () => ({
-    meta: [{ title: "简历详情" }],
+    meta: [{ title: "候选人详情" }],
   }),
   loader: async (loaderContext) => {
     const { params } = loaderContext as unknown as {
