@@ -26,6 +26,7 @@ const mocks = vi.hoisted(() => ({
   getMailboxLock: vi.fn(),
   listEnabledMailIngestAccounts: vi.fn(),
   logout: vi.fn(),
+  markMailIngestMessageSkipped: vi.fn(),
   search: vi.fn(),
 }));
 
@@ -109,6 +110,7 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/mail-in
   claimMailIngestMessageForProcessing: vi.fn(),
   finishMailIngestAccountRun: mocks.finishMailIngestAccountRun,
   listEnabledMailIngestAccounts: mocks.listEnabledMailIngestAccounts,
+  markMailIngestMessageSkipped: mocks.markMailIngestMessageSkipped,
   updateMailIngestMessageResult: vi.fn(),
 }));
 
@@ -154,6 +156,7 @@ describe("runMailIngestOnce", () => {
     mocks.fetchOne.mockResolvedValue(null);
     mocks.getMailboxLock.mockResolvedValue({ release: vi.fn() });
     mocks.logout.mockImplementation(() => Promise.resolve());
+    mocks.markMailIngestMessageSkipped.mockImplementation(() => Promise.resolve());
     mocks.search.mockResolvedValue([]);
     vi.mocked(buildAttachmentKeyByHash).mockResolvedValue("resumes/hash.pdf");
     vi.mocked(claimMailIngestMessageForProcessing).mockResolvedValue({
@@ -182,7 +185,10 @@ describe("runMailIngestOnce", () => {
 
     expect(mocks.errorListenerCount).toBeGreaterThan(0);
     expect(result).toMatchObject({ accounts: 1, messagesFailed: 1 });
-    expect(mocks.finishMailIngestAccountRun).toHaveBeenCalledWith("account_1", expect.any(Error));
+    expect(mocks.finishMailIngestAccountRun).toHaveBeenCalledWith(
+      "account_1",
+      expect.objectContaining({ error: expect.any(Error) }),
+    );
   });
 
   it("binds an imported resume batch to the single job matched from the mail subject code", async () => {
@@ -218,6 +224,123 @@ describe("runMailIngestOnce", () => {
         jdMode: "bind",
         jobDescriptionId: "jd_1",
         organizationId: "org_1",
+      }),
+    );
+  });
+
+  it("queued mail records jdBindStatus + attachment counts", async () => {
+    mocks.connect.mockImplementation(() => Promise.resolve());
+    mocks.search.mockResolvedValue([201]);
+    mocks.fetchOne.mockResolvedValue({
+      envelope: { subject: "【BOSS直聘】李雷投递 AUR0001 后端工程师" },
+      internalDate: new Date("2026-06-18T10:02:00.000Z"),
+      source: Buffer.from("raw message"),
+    });
+    vi.mocked(simpleParser).mockResolvedValue({
+      attachments: [
+        {
+          content: Buffer.from("resume"),
+          contentDisposition: "attachment",
+          contentType: "application/pdf",
+          filename: "李雷.pdf",
+        },
+      ],
+      date: new Date("2026-06-18T10:02:00.000Z"),
+      from: { value: [{ address: "candidate2@example.com" }] },
+      messageId: "message-id-2",
+      subject: "【BOSS直聘】李雷投递 AUR0001 后端工程师",
+    } as unknown as Awaited<ReturnType<typeof simpleParser>>);
+    vi.mocked(fetchJobDescriptionsByCodes).mockResolvedValue([{ code: "AUR0001", id: "jd-1" }]);
+
+    await runMailIngestOnce(config);
+
+    expect(vi.mocked(updateMailIngestMessageResult)).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        boundJobDescriptionId: "jd-1",
+        jdBindStatus: "bound",
+        resumeAttachmentCount: 1,
+        status: "queued",
+      }),
+    );
+  });
+
+  it("mail with no supported attachment is skipped, not failed", async () => {
+    mocks.connect.mockImplementation(() => Promise.resolve());
+    mocks.search.mockResolvedValue([301]);
+    mocks.fetchOne.mockResolvedValue({
+      envelope: { subject: "【BOSS直聘】王芳投递 前端工程师" },
+      internalDate: new Date("2026-06-18T10:03:00.000Z"),
+      source: Buffer.from("raw message"),
+    });
+    vi.mocked(simpleParser).mockResolvedValue({
+      attachments: [
+        {
+          content: Buffer.from("resume"),
+          contentDisposition: "attachment",
+          contentType: "application/zip",
+          filename: "简历.zip",
+        },
+      ],
+      date: new Date("2026-06-18T10:03:00.000Z"),
+      from: { value: [{ address: "candidate3@example.com" }] },
+      messageId: "message-id-3",
+      subject: "【BOSS直聘】王芳投递 前端工程师",
+    } as unknown as Awaited<ReturnType<typeof simpleParser>>);
+
+    await runMailIngestOnce(config);
+
+    expect(mocks.markMailIngestMessageSkipped).toHaveBeenCalledWith(
+      expect.any(String),
+      "no_supported_attachment",
+      expect.objectContaining({ resumeAttachmentCount: 0 }),
+    );
+    expect(vi.mocked(updateMailIngestMessageResult)).not.toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ status: "failed" }),
+    );
+  });
+
+  it("finishMailIngestAccountRun receives per-account counts", async () => {
+    mocks.connect.mockImplementation(() => Promise.resolve());
+    mocks.search.mockResolvedValue([401, 402]);
+    mocks.fetchOne
+      .mockResolvedValueOnce({
+        envelope: { subject: "普通通知邮件" },
+        internalDate: new Date("2026-06-18T10:04:00.000Z"),
+        source: Buffer.from("raw message 1"),
+      })
+      .mockResolvedValueOnce({
+        envelope: { subject: "【BOSS直聘】赵敏投递 前端工程师" },
+        internalDate: new Date("2026-06-18T10:05:00.000Z"),
+        source: Buffer.from("raw message 2"),
+      });
+    vi.mocked(simpleParser)
+      .mockResolvedValueOnce({
+        attachments: [],
+        subject: "普通通知邮件",
+      } as unknown as Awaited<ReturnType<typeof simpleParser>>)
+      .mockResolvedValueOnce({
+        attachments: [
+          {
+            content: Buffer.from("resume"),
+            contentDisposition: "attachment",
+            contentType: "application/pdf",
+            filename: "赵敏.pdf",
+          },
+        ],
+        date: new Date("2026-06-18T10:05:00.000Z"),
+        from: { value: [{ address: "candidate4@example.com" }] },
+        messageId: "message-id-4",
+        subject: "【BOSS直聘】赵敏投递 前端工程师",
+      } as unknown as Awaited<ReturnType<typeof simpleParser>>);
+
+    await runMailIngestOnce(config);
+
+    expect(mocks.finishMailIngestAccountRun).toHaveBeenCalledWith(
+      "account_1",
+      expect.objectContaining({
+        counts: expect.objectContaining({ queued: 1, received: 2, subjectSkipped: 1 }),
       }),
     );
   });
