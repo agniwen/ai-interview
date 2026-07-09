@@ -1176,45 +1176,47 @@ export async function listAccountMailMessages(input: {
 }): Promise<{ records: MailMessageLogRecord[]; total: number }> {
   const where = buildMailMessageLogWhere(input);
 
-  const [{ count: total } = { count: 0 }] = await db
-    .select({ count: count() })
-    .from(mailIngestMessage)
-    .innerJoin(
-      mailIngestAccount,
-      and(
-        eq(mailIngestMessage.accountId, mailIngestAccount.id),
-        eq(mailIngestAccount.organizationId, input.organizationId),
-      ),
-    )
-    .where(where);
-
-  const rows = await db
-    .select({
-      attachmentCount: mailIngestMessage.attachmentCount,
-      batchId: mailIngestMessage.batchId,
-      boundJobDescriptionName: jobDescription.name,
-      fromAddress: mailIngestMessage.fromAddress,
-      id: mailIngestMessage.id,
-      jdBindStatus: mailIngestMessage.jdBindStatus,
-      receivedAt: mailIngestMessage.receivedAt,
-      resumeAttachmentCount: mailIngestMessage.resumeAttachmentCount,
-      skipReason: mailIngestMessage.skipReason,
-      status: mailIngestMessage.status,
-      subject: mailIngestMessage.subject,
-    })
-    .from(mailIngestMessage)
-    .innerJoin(
-      mailIngestAccount,
-      and(
-        eq(mailIngestMessage.accountId, mailIngestAccount.id),
-        eq(mailIngestAccount.organizationId, input.organizationId),
-      ),
-    )
-    .leftJoin(jobDescription, eq(mailIngestMessage.boundJobDescriptionId, jobDescription.id))
-    .where(where)
-    .orderBy(sql`${mailIngestMessage.receivedAt} DESC NULLS LAST`, desc(mailIngestMessage.id))
-    .limit(input.pageSize)
-    .offset((input.page - 1) * input.pageSize);
+  const [[{ count: total } = { count: 0 }], rows] = await Promise.all([
+    db
+      .select({ count: count() })
+      .from(mailIngestMessage)
+      .innerJoin(
+        mailIngestAccount,
+        and(
+          eq(mailIngestMessage.accountId, mailIngestAccount.id),
+          eq(mailIngestAccount.organizationId, input.organizationId),
+        ),
+      )
+      .leftJoin(jobDescription, eq(mailIngestMessage.boundJobDescriptionId, jobDescription.id))
+      .where(where),
+    db
+      .select({
+        attachmentCount: mailIngestMessage.attachmentCount,
+        batchId: mailIngestMessage.batchId,
+        boundJobDescriptionName: jobDescription.name,
+        fromAddress: mailIngestMessage.fromAddress,
+        id: mailIngestMessage.id,
+        jdBindStatus: mailIngestMessage.jdBindStatus,
+        receivedAt: mailIngestMessage.receivedAt,
+        resumeAttachmentCount: mailIngestMessage.resumeAttachmentCount,
+        skipReason: mailIngestMessage.skipReason,
+        status: mailIngestMessage.status,
+        subject: mailIngestMessage.subject,
+      })
+      .from(mailIngestMessage)
+      .innerJoin(
+        mailIngestAccount,
+        and(
+          eq(mailIngestMessage.accountId, mailIngestAccount.id),
+          eq(mailIngestAccount.organizationId, input.organizationId),
+        ),
+      )
+      .leftJoin(jobDescription, eq(mailIngestMessage.boundJobDescriptionId, jobDescription.id))
+      .where(where)
+      .orderBy(sql`${mailIngestMessage.receivedAt} DESC NULLS LAST`, desc(mailIngestMessage.id))
+      .limit(input.pageSize)
+      .offset((input.page - 1) * input.pageSize),
+  ]);
 
   const batchIds = rows.map((row) => row.batchId).filter((id): id is string => id !== null);
   const attachmentsByBatch = batchIds.length
@@ -1231,7 +1233,7 @@ export async function listAccountMailMessages(input: {
       id: row.id,
       jdBindStatus: row.jdBindStatus,
       poolSummary: summarizePool(attachments),
-      receivedAt: row.receivedAt ? row.receivedAt.toISOString() : null,
+      receivedAt: row.receivedAt?.toISOString() ?? null,
       resumeAttachmentCount: row.resumeAttachmentCount,
       skipReason: row.skipReason,
       status: row.status,
