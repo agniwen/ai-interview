@@ -7,14 +7,8 @@ const verbose =
 
 export default defineConfig({
   test: {
-    coverage: {
-      exclude: ["src/**/*.test.ts"],
-      include: ["src/**/*.ts"],
-      provider: "v8",
-      reporter: ["text", "json-summary"],
-    },
     environment: "node",
-    globals: true,
+    include: ["src/**/*.test.{ts,tsx}"],
     // VITEST_VERBOSE=1 → list every test; default hides console from passed tests.
     reporters: verbose ? ["verbose"] : ["default"],
     silent: verbose ? false : "passed-only",

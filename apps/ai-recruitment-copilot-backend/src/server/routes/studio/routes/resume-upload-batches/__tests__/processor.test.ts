@@ -9,6 +9,7 @@ import { getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/
 import type * as ResumeAgentModule from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import {
   generateResumeReview,
+  generateResumeScreeningResult,
   parseResumeBytesToProfile,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import type * as DedupServiceModule from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
@@ -37,6 +38,9 @@ import {
   processNextItem,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/processor";
 
+// Real DB round-trips routinely exceed the default 5s under parallel suite load.
+vi.setConfig({ testTimeout: 30_000 });
+
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", async () => {
   const actual = await vi.importActual<typeof S3Module>(
     "@arc/ai-recruitment-copilot-backend/lib/server/s3",
@@ -54,6 +58,8 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent
   return {
     ...actual,
     generateResumeReview: vi.fn(),
+    // Must mock screening too — real path can hang on network / model calls.
+    generateResumeScreeningResult: vi.fn(),
     parseResumeBytesToProfile: vi.fn(),
   };
 });
@@ -119,6 +125,15 @@ const REVIEW_RESULT = {
     weaknesses: [{ evidence: null, impact: "需面试确认", point: "细节不足" }],
   },
 } as const;
+
+const EMPTY_SCREENING_RESULT = {
+  policyEmpty: true,
+  policyEnabled: false,
+  policyHash: "test-policy-hash",
+  policyVersion: 1,
+  recommendation: "pass" as const,
+  ruleResults: [],
+};
 
 // ─── Mock helpers ─────────────────────────────────────────────────────────────
 
@@ -272,6 +287,9 @@ afterAll(async () => {
 beforeEach(() => {
   vi.resetAllMocks();
   (generateResumeReview as ReturnType<typeof vi.fn>).mockResolvedValue(REVIEW_RESULT);
+  (generateResumeScreeningResult as ReturnType<typeof vi.fn>).mockResolvedValue(
+    EMPTY_SCREENING_RESULT,
+  );
   (findSemanticResumeDuplicates as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   (enqueueResumeSemanticIndexJobBestEffort as ReturnType<typeof vi.fn>).mockImplementation(() =>
     Promise.resolve(),
@@ -458,10 +476,17 @@ describe("processNextItem — resume pool target", () => {
     const result = await processNextItem(batchId, ORG_A, USER_A);
 
     expect(result?.item?.status).toBe("succeeded");
-    expect(generateResumeReview).toHaveBeenCalledWith({
-      jobDescription: expect.stringContaining("岗位名称：运维总监"),
-      resumeProfile: expect.objectContaining({ name: "Ops User" }),
-    });
+    // Review generation now also receives a screening snapshot (even when policy is empty).
+    expect(generateResumeReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        jobDescription: expect.stringContaining("岗位名称：运维总监"),
+        resumeProfile: expect.objectContaining({ name: "Ops User" }),
+        screeningResult: expect.objectContaining({
+          policyEmpty: true,
+          recommendation: "pass",
+        }),
+      }),
+    );
 
     const [poolItem] = await db
       .select()

@@ -60,6 +60,12 @@ export default defineConfig({
         enabled: false,
       },
       router: {
+        // Ignore non-route artifacts under `src/routes` so colocated tests
+        // (or future helpers) never become pages. Defaults already skip names
+        // prefixed with `-`; this also drops `__tests__` / `__test__` dirs and
+        // `*.test.*` / `*.spec.*` files even without that prefix.
+        // See: https://tanstack.com/router/latest/docs/api/file-based-routing
+        routeFileIgnorePattern: "(__tests__|__test__|\\.test\\.|\\.spec\\.)",
         routesDirectory: "routes",
       },
       server: {

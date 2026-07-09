@@ -8,6 +8,7 @@
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:verbose": "VITEST_VERBOSE=1 turbo run test",
     "check": "ultracite check",
     "fix": "ultracite fix",
     "hooks": "lefthook install",

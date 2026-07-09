@@ -34,7 +34,7 @@ function readFontUrl(css: string, weight: number) {
   return match?.[1]?.replaceAll(/^["']|["']$/g, "");
 }
 
-async function loadOgFonts() {
+function loadOgFonts() {
   ogFontsPromise ??= (async () => {
     const params = new URLSearchParams({
       family: `${OG_FONT_FAMILY}:wght@400;700`,
