@@ -24,6 +24,11 @@ const CATEGORY_PRIORITY: Record<KeywordCategory, number> = {
 const LATIN_CHAR = /[A-Za-z0-9]/;
 const HAS_LATIN_LETTER = /[A-Za-z]/;
 
+// 风险词否定守卫：命中前一小窗口内出现否定词则判为语义反转（如「从没想过离职」）而丢弃。
+// 启发式，只取最可靠的 `不`/`没`；对复合词（不过 / 差不多）可能偶发误伤，属已知局限。
+const NEGATION_BEFORE = /[不没]/;
+const NEGATION_WINDOW = 3;
+
 function buildSkillList(extraSkills?: string[]): string[] {
   const seen = new Set<string>();
   const list: string[] = [];
@@ -87,8 +92,12 @@ function matchRisks(text: string): KeywordSpan[] {
       if (idx === -1) {
         break;
       }
-      spans.push({ category: "risk", end: idx + word.length, start: idx, text: word });
       from = idx + 1;
+      const before = text.slice(Math.max(0, idx - NEGATION_WINDOW), idx);
+      if (NEGATION_BEFORE.test(before)) {
+        continue;
+      }
+      spans.push({ category: "risk", end: idx + word.length, start: idx, text: word });
     }
   }
   return spans;

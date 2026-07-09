@@ -45,10 +45,32 @@ describe("extractAnswerKeywords", () => {
     expect(metrics).not.toContain("司级");
   });
 
+  it("matches signed numbers and K/M magnitudes", () => {
+    const spans = extractAnswerKeywords("年薪30K，服务1.2M用户，利润-500万，同比-30%");
+    expect(texts(spans)).toEqual(expect.arrayContaining(["30K", "1.2M", "-500万", "-30%"]));
+    // 连字符不是负号；K/M 后接字母不算量级
+    const noise = extractAnswerKeywords("需要3-5年经验，跑了3km");
+    const metrics = noise.filter((span) => span.category === "metric").map((span) => span.text);
+    expect(metrics).toContain("5年");
+    expect(metrics).not.toContain("-5年");
+    expect(metrics.some((value) => value.toLowerCase() === "3k")).toBe(false);
+  });
+
   it("matches risk words", () => {
     const spans = extractAnswerKeywords("这个我不太清楚，应该是别人做的");
     const risks = spans.filter((span) => span.category === "risk").map((span) => span.text);
     expect(risks).toEqual(expect.arrayContaining(["不太清楚", "应该是"]));
+  });
+
+  it("skips risk words negated by a preceding negation", () => {
+    const negated = extractAnswerKeywords("我从没想过离职");
+    const negatedRisks = negated
+      .filter((span) => span.category === "risk")
+      .map((span) => span.text);
+    expect(negatedRisks).not.toContain("离职");
+    const kept = extractAnswerKeywords("我打算年底离职");
+    const keptRisks = kept.filter((span) => span.category === "risk").map((span) => span.text);
+    expect(keptRisks).toContain("离职");
   });
 
   it("prefers risk over skill on identical overlap", () => {
