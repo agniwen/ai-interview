@@ -16,7 +16,11 @@ import {
   organization,
   user as userTable,
 } from "@arc/db-schema/schema";
-import type { MailIngestMessageStatus } from "@arc/db-schema/schema";
+import type {
+  MailIngestJdBindStatus,
+  MailIngestMessageStatus,
+  MailIngestSkipReason,
+} from "@arc/db-schema/schema";
 import {
   decryptMailIngestSecret,
   encryptMailIngestSecret,
@@ -828,16 +832,34 @@ export async function claimMailIngestAccount(accountId: string): Promise<boolean
 
 export async function finishMailIngestAccountRun(
   accountId: string,
-  error?: unknown,
+  opts?: {
+    error?: unknown;
+    counts?: {
+      received: number;
+      subjectSkipped: number;
+      matched: number;
+      queued: number;
+      failed: number;
+    };
+  },
 ): Promise<void> {
   const now = new Date();
   await db
     .update(mailIngestAccount)
     .set({
       lastCheckedAt: now,
-      lastError: error ? truncateError(error) : null,
+      lastError: opts?.error ? truncateError(opts.error) : null,
       pollingStartedAt: null,
       updatedAt: now,
+      ...(opts?.counts
+        ? {
+            lastRunFailed: opts.counts.failed,
+            lastRunMatched: opts.counts.matched,
+            lastRunQueued: opts.counts.queued,
+            lastRunReceived: opts.counts.received,
+            lastRunSubjectSkipped: opts.counts.subjectSkipped,
+          }
+        : {}),
     })
     .where(eq(mailIngestAccount.id, accountId));
 }
@@ -946,15 +968,46 @@ export async function claimMailIngestMessageForProcessing(input: {
 
 export async function updateMailIngestMessageResult(
   id: string,
-  result: { batchId?: string | null; error?: unknown; status: MailIngestMessageStatus },
+  result: {
+    batchId?: string | null;
+    error?: unknown;
+    status: MailIngestMessageStatus;
+    jdBindStatus?: MailIngestJdBindStatus | null;
+    boundJobDescriptionId?: string | null;
+    extractedJobCodes?: string[] | null;
+    attachmentCount?: number | null;
+    resumeAttachmentCount?: number | null;
+  },
 ): Promise<void> {
   await db
     .update(mailIngestMessage)
     .set({
+      attachmentCount: result.attachmentCount ?? null,
       batchId: result.batchId ?? null,
+      boundJobDescriptionId: result.boundJobDescriptionId ?? null,
       errorMessage: result.error ? truncateError(result.error) : null,
+      extractedJobCodes: result.extractedJobCodes ?? null,
+      jdBindStatus: result.jdBindStatus ?? null,
       processedAt: new Date(),
+      resumeAttachmentCount: result.resumeAttachmentCount ?? null,
       status: result.status,
+    })
+    .where(eq(mailIngestMessage.id, id));
+}
+
+export async function markMailIngestMessageSkipped(
+  id: string,
+  skipReason: MailIngestSkipReason,
+  extra?: { attachmentCount?: number | null; resumeAttachmentCount?: number | null },
+): Promise<void> {
+  await db
+    .update(mailIngestMessage)
+    .set({
+      attachmentCount: extra?.attachmentCount ?? null,
+      processedAt: new Date(),
+      resumeAttachmentCount: extra?.resumeAttachmentCount ?? null,
+      skipReason,
+      status: "skipped",
     })
     .where(eq(mailIngestMessage.id, id));
 }
