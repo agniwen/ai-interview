@@ -28,6 +28,23 @@ describe("extractAnswerKeywords", () => {
     expect(texts(bare)).not.toEqual(expect.arrayContaining(["2024", "3"]));
   });
 
+  it("matches Chinese-numeral magnitudes (千万/二十多万)", () => {
+    const spans = extractAnswerKeywords("GMV就过了千万，有二十多万的付费会员");
+    expect(texts(spans)).toEqual(expect.arrayContaining(["千万", "二十多万"]));
+    // 中文数字后接非量级单位不算 metric，避免「一个」「那一年度」误标
+    const noise = extractAnswerKeywords("那一年度做了一个付费会员");
+    expect(noise.filter((span) => span.category === "metric")).toHaveLength(0);
+  });
+
+  it("matches letter grades (S级/A级) but not 公司级", () => {
+    const spans = extractAnswerKeywords("那一年度公司级的唯一S级项目奖，我评的是A级");
+    const metrics = spans.filter((span) => span.category === "metric").map((span) => span.text);
+    expect(metrics).toEqual(expect.arrayContaining(["S级", "A级"]));
+    // `级` 前是汉字（公司级）不算字母等级
+    expect(metrics).not.toContain("公司级");
+    expect(metrics).not.toContain("司级");
+  });
+
   it("matches risk words", () => {
     const spans = extractAnswerKeywords("这个我不太清楚，应该是别人做的");
     const risks = spans.filter((span) => span.category === "risk").map((span) => span.text);
