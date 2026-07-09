@@ -16,6 +16,7 @@ import {
   claimMailIngestMessageForProcessing,
   createMailIngestAccount,
   finishMailIngestAccountRun,
+  getMailIngestAccountLoginConfig,
   listAccountMailMessages,
   listWorkspaceMailIngestAccounts,
   markMailIngestMessageSkipped,
@@ -283,6 +284,30 @@ describe("mail ingest workspace administration dao", () => {
     expect(row?.lastError).toContain("Command failed");
     expect(row?.lastError).toContain("NO");
     expect(row?.lastError).toContain("Too many simultaneous connections");
+  }, 30_000);
+
+  it("getMailIngestAccountLoginConfig rejects an account owned by a different user in the same org", async () => {
+    const asDifferentUser = await getMailIngestAccountLoginConfig({
+      id: "mail_ingest_owner_account",
+      organizationId: ORG,
+      userId: MEMBER,
+    });
+    expect(asDifferentUser).toBeNull();
+
+    const asOwner = await getMailIngestAccountLoginConfig({
+      id: "mail_ingest_owner_account",
+      organizationId: ORG,
+      userId: OWNER,
+    });
+    expect(asOwner).not.toBeNull();
+    expect(asOwner?.username).toBe("owner-listener@mail-ingest.test");
+
+    const wrongOrg = await getMailIngestAccountLoginConfig({
+      id: "mail_ingest_owner_account",
+      organizationId: OTHER_ORG,
+      userId: OWNER,
+    });
+    expect(wrongOrg).toBeNull();
   }, 30_000);
 });
 
