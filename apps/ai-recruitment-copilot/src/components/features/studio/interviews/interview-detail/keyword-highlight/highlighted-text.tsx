@@ -31,9 +31,14 @@ export function HighlightedText({
   extraSkills,
   className,
 }: HighlightedTextProps) {
-  const { enabledCategories: contextCategories } = useKeywordHighlight();
+  const { enabledCategories: contextCategories, extraSkills: contextExtraSkills } =
+    useKeywordHighlight();
   const activeCategories = enabledCategories ?? contextCategories;
-  const spans = useMemo(() => extractAnswerKeywords(text, { extraSkills }), [text, extraSkills]);
+  const activeExtraSkills = extraSkills ?? contextExtraSkills;
+  const spans = useMemo(
+    () => extractAnswerKeywords(text, { extraSkills: activeExtraSkills }),
+    [text, activeExtraSkills],
+  );
 
   const segments = useMemo<Segment[]>(() => {
     const visible = spans.filter((span) => activeCategories.has(span.category));

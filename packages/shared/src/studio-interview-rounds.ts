@@ -66,6 +66,11 @@ export interface StudioInterviewRoundDetail {
   hasReport: boolean;
   /** Candidate snapshot (resume + JD + generated questions). */
   candidate: StudioCandidateRecord;
+  /**
+   * 该轮 JD 简历筛选策略里的必备技能，供报告关键词高亮的 extraSkills。
+   * Required skills from the round's JD screening policy, fed to keyword-highlight extraSkills.
+   */
+  jdRequiredSkills: string[];
 }
 
 export interface PaginatedStudioInterviewRoundsResult {

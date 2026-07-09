@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { computeResumeScreeningPolicyHash, evaluateResumeScreening } from "../resume-screening";
+import {
+  computeResumeScreeningPolicyHash,
+  deriveJdRequiredSkills,
+  evaluateResumeScreening,
+} from "../resume-screening";
 import type { ResumeScreeningPolicy } from "../resume-screening";
 
 const PROFILE: ResumeProfile = {
@@ -194,5 +198,40 @@ describe("computeResumeScreeningPolicyHash", () => {
     expect(computeResumeScreeningPolicyHash(base)).not.toBe(
       computeResumeScreeningPolicyHash(changed),
     );
+  });
+});
+
+describe("deriveJdRequiredSkills", () => {
+  it("flattens skill rules and dedupes case-insensitively, ignoring non-skill rules", () => {
+    const policy: ResumeScreeningPolicy = {
+      enabled: true,
+      rules: [
+        {
+          id: "r1",
+          label: "后端技能",
+          matchMode: { type: "all" },
+          requiredSkills: ["Java", "Spring", "java"],
+          severity: "blocking",
+          type: "skill",
+        },
+        {
+          id: "r2",
+          label: "前端技能",
+          matchMode: { count: 1, type: "at_least" },
+          requiredSkills: ["React", " Spring "],
+          severity: "warning",
+          type: "skill",
+        },
+        { id: "r3", label: "语义", requirement: "有大厂经验", severity: "info", type: "semantic" },
+      ],
+      version: 1,
+    };
+    expect(deriveJdRequiredSkills(policy)).toEqual(["Java", "Spring", "React"]);
+  });
+
+  it("returns [] for null / missing / malformed policy (raw jsonb safe)", () => {
+    expect(deriveJdRequiredSkills(null)).toEqual([]);
+    expect(deriveJdRequiredSkills()).toEqual([]);
+    expect(deriveJdRequiredSkills({ rules: "nope" })).toEqual([]);
   });
 });

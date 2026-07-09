@@ -269,6 +269,7 @@ function makeRoundDetail(
     hasReport: false,
     id: "round-1",
     interviewLink: "/interview/round-1",
+    jdRequiredSkills: [],
     notes: "轮次备注",
     roundLabel: "第一轮",
     scheduledAt: null,

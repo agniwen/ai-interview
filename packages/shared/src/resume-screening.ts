@@ -115,6 +115,38 @@ export function createDefaultResumeScreeningPolicy(): ResumeScreeningPolicy {
   };
 }
 
+/**
+ * 从简历筛选策略抽取「岗位必备技能」清单，供关键词高亮的 `extraSkills` 使用。
+ * 只取 `type:"skill"` 规则的 `requiredSkills`，扁平化并按大小写不敏感去重（忽略首尾空白）。
+ * 可直接传入 DB 里的原始 jsonb（`Record`/`unknown`）：内部 safeParse，无策略/解析失败返回 `[]`。
+ */
+export function deriveJdRequiredSkills(policy: unknown): string[] {
+  const parsed = resumeScreeningPolicySchema.safeParse(policy);
+  if (!parsed.success) {
+    return [];
+  }
+  const seen = new Set<string>();
+  const skills: string[] = [];
+  for (const rule of parsed.data.rules) {
+    if (rule.type !== "skill") {
+      continue;
+    }
+    for (const raw of rule.requiredSkills) {
+      const skill = raw.trim();
+      if (!skill) {
+        continue;
+      }
+      const key = skill.toLowerCase();
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      skills.push(skill);
+    }
+  }
+  return skills;
+}
+
 const EDUCATION_LEVEL_ORDER = ["专科", "大专", "本科", "硕士", "博士"] as const;
 
 function entryToCanonicalRank(level: (typeof EDUCATION_LEVEL_ORDER)[number]) {

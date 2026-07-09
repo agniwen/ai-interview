@@ -2332,7 +2332,7 @@ function useStudioPersonDetailPanel({
               {isReportsLoading ? (
                 <ReportsSkeleton />
               ) : (
-                <KeywordHighlightProvider>
+                <KeywordHighlightProvider extraSkills={round?.jdRequiredSkills}>
                   <div className="space-y-8">
                     <div className="grid gap-x-8 gap-y-4 md:grid-cols-4">
                       <SummaryMetric label="本轮通话次数" value={reports.length} />
