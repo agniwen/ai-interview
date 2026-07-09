@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@arc/ai-recruitment-copilot-backend": "workspace:*",
+    "@arc/db-schema": "workspace:*",
     "@arc/resume-parse-queue": "workspace:*",
     "@types/mailparser": "^3.4.6",
     "@types/node": "24.11.2",

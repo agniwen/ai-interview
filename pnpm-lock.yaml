@@ -647,6 +647,9 @@ importers:
       '@arc/ai-recruitment-copilot-backend':
         specifier: workspace:*
         version: link:../ai-recruitment-copilot-backend
+      '@arc/db-schema':
+        specifier: workspace:*
+        version: link:../../packages/db-schema
       '@arc/resume-parse-queue':
         specifier: workspace:*
         version: link:../../packages/resume-parse-queue
