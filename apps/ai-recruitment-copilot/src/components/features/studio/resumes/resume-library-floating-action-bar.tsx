@@ -4,10 +4,10 @@ import { IconEye, IconTrash, IconX } from "@tabler/icons-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import { Button } from "@/components/ui/button";
+import { cossControlOverlayClass } from "@/components/ui/coss-style";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-const FLOATING_ACTION_GLASS_CLASS =
-  "border border-border/40 bg-background/32 shadow-[0_18px_54px_-28px_rgb(0_0_0/0.45)] backdrop-blur-lg";
+const FLOATING_ACTION_GLASS_CLASS = `relative border border-border/40 bg-background/32 bg-clip-padding shadow-[0_18px_54px_-28px_rgb(0_0_0/0.45)] backdrop-blur-lg ${cossControlOverlayClass}`;
 
 interface ResumeLibraryFloatingActionItem {
   id: string;

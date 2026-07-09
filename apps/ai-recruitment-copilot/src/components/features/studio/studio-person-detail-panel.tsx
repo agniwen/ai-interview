@@ -87,6 +87,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { cossControlOverlayClass } from "@/components/ui/coss-style";
 import { Modal } from "@/components/ui/modal";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
@@ -131,6 +132,8 @@ import {
   truncateText,
 } from "./interviews/interview-detail/helpers";
 import { RecordingPlayer } from "./interviews/interview-detail/recording-player";
+
+const DETAIL_PAGE_FLOATING_ACTION_CLASS = `relative border border-border/40 bg-background/32 bg-clip-padding shadow-[0_18px_54px_-28px_rgb(0_0_0/0.45)] backdrop-blur-lg ${cossControlOverlayClass}`;
 
 export type StudioPersonDetailMode = "interview" | "resume";
 export type StudioPersonDetailLayoutMode = "modal" | "page";
@@ -1969,6 +1972,8 @@ function useStudioPersonDetailPanel({
         primaryAction={launchResumeModeButton}
       />
     ) : null;
+  const headerActionBar = layoutMode === "modal" ? actionBar : null;
+  const floatingActionBar = layoutMode === "page" ? actionBar : null;
 
   let headerExtra: ReactNode = null;
   if (isLoading) {
@@ -2034,7 +2039,7 @@ function useStudioPersonDetailPanel({
           ) : null}
         </TabsList>
         <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
-          {actionBar}
+          {headerActionBar}
           <ResumeDocumentPreviewButton
             className="w-full sm:w-auto"
             disabled={!record.hasResumeFile}
@@ -2798,6 +2803,18 @@ function useStudioPersonDetailPanel({
           title,
         })}
       </Tabs>
+      {floatingActionBar ? (
+        <div className="pointer-events-none fixed right-4 bottom-[calc(2.5rem+env(safe-area-inset-bottom))] left-4 z-40 flex justify-center">
+          <div
+            className={cn(
+              "pointer-events-auto flex max-w-[calc(100vw-2rem)] flex-wrap items-center justify-center gap-2 rounded-md p-1",
+              DETAIL_PAGE_FLOATING_ACTION_CLASS,
+            )}
+          >
+            {floatingActionBar}
+          </div>
+        </div>
+      ) : null}
       {mode === "interview" && canViewReportMetadata ? (
         <InterviewReportMetadataDialog
           onOpenChange={(open) => {

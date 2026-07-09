@@ -13,6 +13,11 @@ describe("ResumeLibraryFloatingActionBar", () => {
     expect(source).toContain("interface ResumeLibraryFloatingActionItem");
     expect(source).toContain("jobDescriptionLabel: string | null;");
     expect(source).toContain("const FLOATING_ACTION_GLASS_CLASS");
+    expect(source).toContain(
+      'import { cossControlOverlayClass } from "@/components/ui/coss-style";',
+    );
+    expect(source).toContain("bg-clip-padding");
+    expect(source).toContain("cossControlOverlayClass");
     expect(source).toContain("bg-background/32");
     expect(source).toContain("backdrop-blur-lg");
     expect(source).toContain("selectedItems: ResumeLibraryFloatingActionItem[];");

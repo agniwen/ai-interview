@@ -277,7 +277,7 @@ describe("StudioPersonDetailPanel visual density", () => {
     expect(modalSizeSource).toContain('"3xl"');
   });
 
-  it("moves resume launch actions into the compact pipeline header without a footer", () => {
+  it("keeps modal resume actions in the header and moves page actions into a floating bar", () => {
     const launchSource = sourceBetween(
       "const launchResumeModeButtonContent = showLaunchButton ?",
       "const title =",
@@ -309,7 +309,18 @@ describe("StudioPersonDetailPanel visual density", () => {
     expect(actionBarSource).toContain("pipelineStage={actionBarPipelineStage}");
     expect(preOverviewTabSource).not.toContain("{actionBar}");
     expect(overviewSource).not.toContain("{actionBar}");
-    expect(headerExtraSource).toContain("{actionBar}");
+    expect(source).toContain('const headerActionBar = layoutMode === "modal" ? actionBar : null;');
+    expect(source).toContain('const floatingActionBar = layoutMode === "page" ? actionBar : null;');
+    expect(headerExtraSource).toContain("{headerActionBar}");
+    expect(headerExtraSource).not.toContain("{actionBar}");
+    expect(source).toContain("DETAIL_PAGE_FLOATING_ACTION_CLASS");
+    expect(source).toContain(
+      'import { cossControlOverlayClass } from "@/components/ui/coss-style";',
+    );
+    expect(source).toContain("bg-clip-padding");
+    expect(source).toContain("cossControlOverlayClass");
+    expect(source).toContain("fixed right-4 bottom-[calc(2.5rem+env(safe-area-inset-bottom))]");
+    expect(source).toContain("{floatingActionBar}");
     expect(headerExtraSource).toContain("<ResumeDocumentPreviewButton");
     expect(source).toContain("const footer = null;");
     expect(source).not.toContain("const resumeModeFooter =");

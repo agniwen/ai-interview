@@ -35,7 +35,7 @@ describe("PipelineStageActionBar compact header actions", () => {
     expect(source).toContain("const DEFAULT_FLOW_STEPS: PipelineStage[] = [");
   });
 
-  it("groups primary actions and moves close into the more menu", () => {
+  it("groups primary actions and renders close directly without a more menu", () => {
     const actionsSource = source.slice(
       source.indexOf("const hasPrimaryActions ="),
       source.indexOf("interface StageButton"),
@@ -43,13 +43,16 @@ describe("PipelineStageActionBar compact header actions", () => {
 
     expect(source).toContain("primaryAction?: ReactNode;");
     expect(source).toContain('import { ButtonGroup } from "@/components/ui/button-group";');
-    expect(source).toContain('from "@/components/ui/dropdown-menu";');
+    expect(source).not.toContain('from "@/components/ui/dropdown-menu";');
     expect(actionsSource).toContain("<ButtonGroup");
     expect(actionsSource).toContain("{groupedPrimaryAction}");
     expect(actionsSource).toContain("hasPrimaryActions");
-    expect(actionsSource).toContain("<DropdownMenu");
-    expect(actionsSource).toContain("更多");
-    expect(actionsSource).toContain("流程操作");
+    expect(actionsSource).not.toContain("<DropdownMenu");
+    expect(actionsSource).not.toContain("更多流程操作");
+    expect(actionsSource).not.toContain("<IconDots");
+    expect(actionsSource).toContain('variant="outline"');
+    expect(actionsSource).toContain("bg-destructive/8");
+    expect(actionsSource).toContain("text-destructive");
     expect(actionsSource).toContain("onClick={onRequestClose}");
     expect(actionsSource).toContain("标记结案");
     expect(source).toContain("安排真人面试");
