@@ -19,6 +19,7 @@ import {
 // chrome via shell — Modal, full-page layout, or any custom frame.
 
 import Markdown from "react-markdown";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { CandidateFormSubmissionWithSnapshot } from "@arc/db-schema/candidate-forms";
 import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
 import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
@@ -1363,6 +1364,7 @@ function useStudioPersonDetailPanel({
   onRequestReactivate?: (input: { id: string; candidateName: string | null }) => void;
   shell: (slots: StudioPersonDetailSlots) => ReactNode;
 }) {
+  const reduceMotion = useReducedMotion();
   const optionalSlug = useOptionalWorkspaceSlug();
   const isPublic = accessMode === "public";
   const isReview = accessMode === "review";
@@ -2803,18 +2805,28 @@ function useStudioPersonDetailPanel({
           title,
         })}
       </Tabs>
-      {floatingActionBar ? (
-        <div className="pointer-events-none fixed right-4 bottom-[calc(2.5rem+env(safe-area-inset-bottom))] left-4 z-40 flex justify-center">
-          <div
-            className={cn(
-              "pointer-events-auto flex max-w-[calc(100vw-2rem)] flex-wrap items-center justify-center gap-2 rounded-md p-1",
-              DETAIL_PAGE_FLOATING_ACTION_CLASS,
-            )}
+      <AnimatePresence>
+        {floatingActionBar ? (
+          <motion.div
+            animate={{ opacity: 1, y: 0 }}
+            className="pointer-events-none fixed right-4 bottom-[calc(2.5rem+env(safe-area-inset-bottom))] left-4 z-40 flex justify-center"
+            exit={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
+            initial={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
+            transition={
+              reduceMotion ? { duration: 0 } : { duration: 0.2, ease: [0.23, 1, 0.32, 1] }
+            }
           >
-            {floatingActionBar}
-          </div>
-        </div>
-      ) : null}
+            <div
+              className={cn(
+                "pointer-events-auto flex max-w-[calc(100vw-2rem)] flex-wrap items-center justify-center gap-2 rounded-md p-1",
+                DETAIL_PAGE_FLOATING_ACTION_CLASS,
+              )}
+            >
+              {floatingActionBar}
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
       {mode === "interview" && canViewReportMetadata ? (
         <InterviewReportMetadataDialog
           onOpenChange={(open) => {
