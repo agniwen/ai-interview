@@ -51,6 +51,7 @@ ARG RECORDING_R2_REGION=auto
 ARG S3_FORCE_PATH_STYLE=true
 ARG S3_KEY_PREFIX=uploads
 ARG S3_REGION=auto
+ARG NODE_OPTIONS=--max-old-space-size=3584
 
 ENV ALIBABA_BASE_URL=$ALIBABA_BASE_URL
 ENV ALIBABA_FAST_MODEL=$ALIBABA_FAST_MODEL
@@ -80,6 +81,7 @@ ENV RECORDING_R2_REGION=$RECORDING_R2_REGION
 ENV S3_FORCE_PATH_STYLE=$S3_FORCE_PATH_STYLE
 ENV S3_KEY_PREFIX=$S3_KEY_PREFIX
 ENV S3_REGION=$S3_REGION
+ENV NODE_OPTIONS=$NODE_OPTIONS
 
 # Carry over the fully-installed workspace from deps (root + per-workspace node_modules,
 # including packages/*/node_modules that pnpm symlinks into each package).
