@@ -1262,6 +1262,9 @@ export const resumeUploadBatchItem = pgTable(
 
 export type MailIngestMessageStatus = "processing" | "queued" | "skipped" | "failed";
 
+export type MailIngestSkipReason = "no_supported_attachment";
+export type MailIngestJdBindStatus = "bound" | "unmatched" | "ambiguous" | "fallback";
+
 export type ResumeSemanticSourceType = "resume_pool_item" | "studio_interview";
 export type ResumeSemanticIndexStatus = "failed" | "indexed" | "pending" | "skipped" | "stale";
 export type ResumeSemanticDuplicateLevel = "high" | "low" | "medium";
@@ -1380,6 +1383,11 @@ export const mailIngestAccount = pgTable(
     }),
     lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
     lastError: text("last_error"),
+    lastRunFailed: integer("last_run_failed").notNull().default(0),
+    lastRunMatched: integer("last_run_matched").notNull().default(0),
+    lastRunQueued: integer("last_run_queued").notNull().default(0),
+    lastRunReceived: integer("last_run_received").notNull().default(0),
+    lastRunSubjectSkipped: integer("last_run_subject_skipped").notNull().default(0),
     listenStartAt: timestamp("listen_start_at", { withTimezone: true }),
     mailbox: text("mailbox").notNull().default("INBOX"),
     organizationId: text("organization_id")
@@ -1419,15 +1427,23 @@ export const mailIngestMessage = pgTable(
     accountId: text("account_id")
       .notNull()
       .references(() => mailIngestAccount.id, { onDelete: "cascade" }),
+    attachmentCount: integer("attachment_count"),
     batchId: text("batch_id").references(() => resumeUploadBatch.id, { onDelete: "set null" }),
+    boundJobDescriptionId: text("bound_job_description_id").references(() => jobDescription.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     errorMessage: text("error_message"),
+    extractedJobCodes: jsonb("extracted_job_codes").$type<string[]>(),
     fromAddress: text("from_address"),
     id: text("id").primaryKey(),
+    jdBindStatus: text("jd_bind_status").$type<MailIngestJdBindStatus>(),
     mailbox: text("mailbox").notNull(),
     messageId: text("message_id"),
     processedAt: timestamp("processed_at", { withTimezone: true }),
     receivedAt: timestamp("received_at", { withTimezone: true }),
+    resumeAttachmentCount: integer("resume_attachment_count"),
+    skipReason: text("skip_reason").$type<MailIngestSkipReason>(),
     status: text("status").$type<MailIngestMessageStatus>().notNull(),
     subject: text("subject"),
     uid: text("uid").notNull(),
@@ -1446,6 +1462,7 @@ export const mailIngestMessage = pgTable(
       table.createdAt,
     ),
     index("mail_ingest_message_batch_idx").on(table.batchId),
+    index("mail_ingest_message_account_received_idx").on(table.accountId, table.receivedAt.desc()),
   ],
 );
 
