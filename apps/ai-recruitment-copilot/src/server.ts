@@ -26,6 +26,11 @@ async function getHonoApp() {
   return await honoAppPromise;
 }
 
+async function createOgImageResponse() {
+  const { createOgImageResponse: createResponse } = await import("./lib/server/og-image");
+  return createResponse();
+}
+
 function startFeishuBotsIfEnabled() {
   if (process.env.FEISHU_BOT_ENABLED !== "true") {
     return;
@@ -54,12 +59,21 @@ function isHealthRequest(request: Request) {
   return pathname === "/api/health";
 }
 
+function isOgImageRequest(request: Request) {
+  const { pathname } = new URL(request.url);
+  return pathname === "/og.png";
+}
+
 export default createServerEntry({
   async fetch(request, options) {
     applyServerEnv();
 
     if (isHealthRequest(request)) {
       return Response.json({ ok: true });
+    }
+
+    if (isOgImageRequest(request)) {
+      return createOgImageResponse();
     }
 
     startFeishuBotsIfEnabled();

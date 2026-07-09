@@ -2,6 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const startFetch = vi.fn(() => Promise.resolve(new Response("start")));
 const honoFetch = vi.fn(() => Promise.resolve(new Response("hono")));
+const createOgImageResponse = vi.fn(
+  () => new Response("og", { headers: { "Content-Type": "image/png" } }),
+);
 const createServerApp = vi.fn(() => ({
   fetch: honoFetch,
 }));
@@ -20,6 +23,10 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/app", () => ({
 
 vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/bot", () => ({
   initializeFeishuBots,
+}));
+
+vi.mock("./lib/server/og-image", () => ({
+  createOgImageResponse,
 }));
 
 afterEach(() => {
@@ -54,6 +61,20 @@ describe("TanStack Start server entry", () => {
     expect(text).toBe("hono");
     expect(honoFetch).toHaveBeenCalledWith(request);
     expect(createServerApp).toHaveBeenCalledTimes(1);
+    expect(startFetch).not.toHaveBeenCalled();
+  });
+
+  it("serves the Open Graph image before loading API routers", async () => {
+    const serverModule = await import("./server");
+    const entry = serverModule.default;
+    const request = new Request("https://example.test/og.png");
+
+    const response = await entry.fetch(request);
+
+    expect(response.headers.get("Content-Type")).toBe("image/png");
+    expect(await response.text()).toBe("og");
+    expect(createOgImageResponse).toHaveBeenCalledTimes(1);
+    expect(createServerApp).not.toHaveBeenCalled();
     expect(startFetch).not.toHaveBeenCalled();
   });
 

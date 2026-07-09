@@ -16,6 +16,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { OverlayScrollbarsBody } from "@/components/layout/overlay-scrollbars-body";
 import type { getQueryClient } from "@/lib/client/query-client";
 import { AppWatermark } from "@/components/features/watermark/app-watermark";
+import { env } from "@/env/client";
+
+const ROOT_TITLE = "招聘 AI 协同工作台 · AI Recruitment Copilot";
+const ROOT_DESCRIPTION =
+  "面向招聘场景的 AI 协同工作台，覆盖简历筛选、模拟面试与候选人评估全流程。AI Recruitment Copilot — your end-to-end hiring workflow.";
+const ROOT_OG_IMAGE_URL = new URL("/og.png", env.NEXT_PUBLIC_BASE_URL).toString();
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
@@ -98,10 +104,19 @@ export const Route = createRootRouteWithContext<{
         name: "viewport",
       },
       {
-        content:
-          "面向招聘场景的 AI 协同工作台，覆盖简历筛选、模拟面试与候选人评估全流程。AI Recruitment Copilot — your end-to-end hiring workflow.",
+        content: ROOT_DESCRIPTION,
         name: "description",
       },
+      { content: ROOT_TITLE, property: "og:title" },
+      { content: ROOT_DESCRIPTION, property: "og:description" },
+      { content: "website", property: "og:type" },
+      { content: ROOT_OG_IMAGE_URL, property: "og:image" },
+      { content: "1200", property: "og:image:width" },
+      { content: "630", property: "og:image:height" },
+      { content: "summary_large_image", name: "twitter:card" },
+      { content: ROOT_TITLE, name: "twitter:title" },
+      { content: ROOT_DESCRIPTION, name: "twitter:description" },
+      { content: ROOT_OG_IMAGE_URL, name: "twitter:image" },
       {
         content: "#ffffff",
         media: "(prefers-color-scheme: light)",
@@ -112,7 +127,7 @@ export const Route = createRootRouteWithContext<{
         media: "(prefers-color-scheme: dark)",
         name: "theme-color",
       },
-      { title: "招聘 AI 协同工作台 · AI Recruitment Copilot" },
+      { title: ROOT_TITLE },
     ],
   }),
   notFoundComponent: RootNotFoundComponent,
