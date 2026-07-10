@@ -18,7 +18,7 @@
 
 **做：** 标签挖掘(B) + 轻量人工补强(A)；**leave-one-out 召回评测器**；基线报告(recall@20/50、MRR，含**失败逐因拆分**)；一处支撑性重构(抽"打分内核")。
 
-**交付顺序（明确）：** 先出 **B-only 基线**（即时基线），A 补强后再出 **A+B 基线**（更全的绝对基线）。二者**不作干净 A/B 归因**（两次运行的库/索引快照可能不同）；A+B 的价值是覆盖更多岗位、样本更厚，而非"证明 A 有效"。两份都留档。
+**本轮交付边界（明确）：** 本 spec/计划**交付 B-only 基线** + a-plus-b 读文件接口（读入外部 `labels.json` 合并）。**A 补强工具**（Top-15 选岗导出、人工清单回收、每岗 ≥3 校验）**另开小计划**，产出的 manual 标签经 a-plus-b 接口喂入得到 A+B 基线。B-only 与 A+B **不作干净 A/B 归因**（两次运行的库/索引快照可能不同）；A+B 价值是覆盖更多岗位、样本更厚。
 
 **不做（后续 spec）：** 召回上限放开 / 混合检索 / JD embedding 缓存(①)；重排(②)；硬过滤、可学习打分、分数校准、埋点训练闭环。
 
@@ -36,7 +36,7 @@
 
 - `outcome='hired'`；或
 - `pipeline_stage ∈ {written_test, ai_interview, human_interview, offer}`；或
-- `outcome='rejected'` 且 `closed_meta->>'previousStage' ∉ {screening}`（**后期才拒 = 简历本身合格，算正例**）。
+- `outcome='rejected'` 且 `closed_meta->>'previousStage' ∈ {written_test, ai_interview, human_interview, offer}`（**后期才拒 = 简历本身合格，算正例**；**null/缺失/未知阶段一律不算正例**，避免误标）。
 
 **排除**：screening 且 in_pipeline（未判）、withdrawn（自撤）、`outcome='archived'`。
 
@@ -92,7 +92,7 @@ A 补强为**第二步**：评测器先跑 B-only 出基线，A 后重跑。
 
 对每个正例 P，按**生产管线顺序**判定，落入**唯一且互斥**的类别（前一步不满足才进下一步）：
 
-1. **not_indexed**：P 在 Qdrant **三分面均无 active 向量**（任一分面有向量即不属此类）。
+1. **not_indexed**：P 在 Qdrant 语义 collection **无任何 point**（collection 仅存当前 active 简历向量，故"有任一 point"= 已索引；判据 = `loadResumeEmbeddings({sourceId:P})` 非空）。
 2. **recall_capped**：P 至少一分面有 active 向量，但**三分面均未进各自 top-40/50** → 真·召回上限截断。
 3. **status_filtered**：P 进了检索并集，却被 `loadRecommendationCandidates` 的 DB 过滤剔除。**生产 DB 过滤完整枚举**（recommendations.ts:355-361）：`organizationId` 相等、`id ∈ 检索并集`、`status ≠ 'archived'`（无解析态或其它过滤）。评测已 LOO 豁免正例，故此类仅由 `status='archived'` 触发（当前实测 0 例）。
 4. **below_threshold**：P 进入打分排序，但 `score < 55`（生产阈值挡掉，UI 不展示）。
