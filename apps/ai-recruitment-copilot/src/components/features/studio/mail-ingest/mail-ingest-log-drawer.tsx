@@ -256,7 +256,7 @@ function MailIngestLogMessages({ account, slug }: { account: MailIngestLogAccoun
     );
   } else {
     messagesContent = (
-      <table className="w-full text-left text-sm">
+      <table className="w-full text-left text-sm [&_td]:py-1.5 [&_td]:pr-6 [&_td]:align-top [&_th]:pr-6 [&_th]:pb-2 [&_th]:font-medium">
         <thead>
           <tr className="text-muted-foreground">
             <th>收到时间</th>
@@ -436,7 +436,7 @@ export function MailIngestLogDrawer({
 
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
-      <SheetContent className="w-full gap-0 overflow-y-auto p-0 sm:max-w-6xl">
+      <SheetContent className="w-full gap-0 overflow-y-auto p-0 sm:max-w-[88vw]">
         <SheetHeader className="border-border border-b px-6 pt-6 pb-4">
           <SheetTitle>入库记录</SheetTitle>
           <SheetDescription>{account?.emailAddress ?? null}</SheetDescription>
