@@ -60,3 +60,4 @@ __pycache__/
 .output
 
 .claude/worktrees/
+.eval/
