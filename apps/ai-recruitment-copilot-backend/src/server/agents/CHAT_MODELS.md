@@ -34,9 +34,9 @@
 
 权威来源（按重要性排序）：
 
-- **首选**：<https://help.aliyun.com/zh/model-studio/newly-released-models> — 模型上下架公告，最新动态
-- **次选**：<https://help.aliyun.com/zh/model-studio/models> — 完整模型列表（含规格 / 计费）
-- **DeepSeek 专属**：<https://help.aliyun.com/zh/model-studio/deepseek-api> — DeepSeek 在百炼上的 id 一手信息
+- **首选**：[https://help.aliyun.com/zh/model-studio/newly-released-models](https://help.aliyun.com/zh/model-studio/newly-released-models) — 模型上下架公告，最新动态
+- **次选**：[https://help.aliyun.com/zh/model-studio/models](https://help.aliyun.com/zh/model-studio/models) — 完整模型列表（含规格 / 计费）
+- **DeepSeek 专属**：[https://help.aliyun.com/zh/model-studio/deepseek-api](https://help.aliyun.com/zh/model-studio/deepseek-api) — DeepSeek 在百炼上的 id 一手信息
 
 如果训练数据可能过时（例如距 cutoff 超过 3 个月），**必须** WebSearch / WebFetch 上面三个 URL 之一，不要凭记忆写 id。
 

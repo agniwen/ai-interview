@@ -194,12 +194,12 @@ recall@50_raw = 0.XX     MRR = 0.XX     (各指标均附按岗位宏平均)
 
 **运行：** `org_default` · `b-only` · git=`fb529b3f` · embedding=`text-embedding-v4@dashscope-text-embedding-v4-1024-v1` · collection=`resume_semantic_v1` · 覆盖率 **100%**（无岗位远程失败）。样本 = **51 挖掘正例 / 23 岗位**（多数岗仅 1 正例，宏平均噪声大，结论保守）。
 
-| 指标 | 微平均 | 宏平均 |
-|---|---|---|
-| recall@20_shown（主） | **29.4%** | 16.1% |
-| recall@20_raw | 62.7% | 49.0% |
-| recall@50_raw | 72.5% | 62.8% |
-| MRR | 0.172 | 0.136 |
+| 指标                  | 微平均    | 宏平均 |
+| --------------------- | --------- | ------ |
+| recall@20_shown（主） | **29.4%** | 16.1%  |
+| recall@20_raw         | 62.7%     | 49.0%  |
+| recall@50_raw         | 72.5%     | 62.8%  |
+| MRR                   | 0.172     | 0.136  |
 
 **失败拆分（§4.5 五类，51 正例）：** hit=15 · **below_threshold=25** · **recall_capped=11** · retrieved_low_rank=0 · not_indexed=0 · status_filtered=0。
 
