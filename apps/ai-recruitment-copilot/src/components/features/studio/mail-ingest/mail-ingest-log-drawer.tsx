@@ -45,6 +45,18 @@ const STATUS_LABELS: Record<Exclude<StatusFilter, "">, string> = {
   queued: "已入队",
   skipped: "已跳过",
 };
+const JD_BIND_LABELS: Record<string, string> = {
+  ambiguous: "多个匹配",
+  bound: "已绑定",
+  fallback: "兜底绑定",
+  unmatched: "未匹配",
+};
+const POOL_SUMMARY_LABELS: Record<string, string> = {
+  all_failed: "全部失败",
+  all_pooled: "全部入池",
+  parsing: "解析中",
+  partial_failed: "部分失败",
+};
 
 export function serializeDateRange(
   from: string | null,
@@ -134,6 +146,22 @@ function statusVariant(status: MailMessageRecord["status"]) {
     return "secondary";
   }
   return "default";
+}
+
+function renderJdBinding(rec: MailMessageRecord): ReactNode {
+  const statusTag = rec.jdBindStatus
+    ? (JD_BIND_LABELS[rec.jdBindStatus] ?? rec.jdBindStatus)
+    : null;
+  if (rec.boundJobDescriptionName) {
+    return (
+      <>
+        {rec.boundJobDescriptionName}
+        {statusTag ? <span className="ml-1 text-muted-foreground text-xs">{statusTag}</span> : null}
+      </>
+    );
+  }
+  // 无绑定 JD：新邮件显示未匹配/多个匹配等原因；改造前邮件（jdBindStatus 为 null）显示 —
+  return statusTag ?? "—";
 }
 
 function MailIngestLogMessages({ account, slug }: { account: MailIngestLogAccount; slug: string }) {
@@ -234,7 +262,7 @@ function MailIngestLogMessages({ account, slug }: { account: MailIngestLogAccoun
             <th>收到时间</th>
             <th>状态</th>
             <th>JD绑定</th>
-            <th>附件</th>
+            <th>附件(简历/总)</th>
             <th>主题</th>
             <th>发件人</th>
           </tr>
@@ -247,16 +275,13 @@ function MailIngestLogMessages({ account, slug }: { account: MailIngestLogAccoun
                 <td>
                   <Badge variant={statusVariant(rec.status)}>{STATUS_LABELS[rec.status]}</Badge>
                 </td>
-                <td>
-                  {rec.boundJobDescriptionName ?? "—"}
-                  {rec.jdBindStatus ? (
-                    <span className="ml-1 text-muted-foreground text-xs">{rec.jdBindStatus}</span>
-                  ) : null}
-                </td>
+                <td>{renderJdBinding(rec)}</td>
                 <td>
                   {`${rec.resumeAttachmentCount ?? "—"}/${rec.attachmentCount ?? "—"}`}
                   {rec.poolSummary ? (
-                    <span className="ml-1 text-muted-foreground text-xs">{rec.poolSummary}</span>
+                    <span className="ml-1 text-muted-foreground text-xs">
+                      {POOL_SUMMARY_LABELS[rec.poolSummary] ?? rec.poolSummary}
+                    </span>
                   ) : null}
                   {rec.attachments.length > 0 ? (
                     <button
@@ -411,7 +436,7 @@ export function MailIngestLogDrawer({
 
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
-      <SheetContent className="w-full gap-0 overflow-y-auto p-0 sm:max-w-4xl">
+      <SheetContent className="w-full gap-0 overflow-y-auto p-0 sm:max-w-6xl">
         <SheetHeader className="border-border border-b px-6 pt-6 pb-4">
           <SheetTitle>入库记录</SheetTitle>
           <SheetDescription>{account?.emailAddress ?? null}</SheetDescription>
