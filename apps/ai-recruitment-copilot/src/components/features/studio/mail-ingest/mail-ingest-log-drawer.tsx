@@ -39,6 +39,12 @@ interface MailMessageRecord {
 const PAGE_SIZE = 20;
 type StatusFilter = "" | "failed" | "processing" | "queued" | "skipped";
 const STATUS_OPTIONS: StatusFilter[] = ["", "queued", "skipped", "failed", "processing"];
+const STATUS_LABELS: Record<Exclude<StatusFilter, "">, string> = {
+  failed: "失败",
+  processing: "处理中",
+  queued: "已入队",
+  skipped: "已跳过",
+};
 
 export function serializeDateRange(
   from: string | null,
@@ -239,7 +245,7 @@ function MailIngestLogMessages({ account, slug }: { account: MailIngestLogAccoun
               <tr>
                 <td>{rec.receivedAt ? new Date(rec.receivedAt).toLocaleString() : "—"}</td>
                 <td>
-                  <Badge variant={statusVariant(rec.status)}>{rec.status}</Badge>
+                  <Badge variant={statusVariant(rec.status)}>{STATUS_LABELS[rec.status]}</Badge>
                 </td>
                 <td>
                   {rec.boundJobDescriptionName ?? "—"}
@@ -321,7 +327,7 @@ function MailIngestLogMessages({ account, slug }: { account: MailIngestLogAccoun
             }}
             type="button"
           >
-            {opt === "" ? "全部" : opt}
+            {opt === "" ? "全部" : STATUS_LABELS[opt]}
           </button>
         ))}
         <input
@@ -405,7 +411,7 @@ export function MailIngestLogDrawer({
 
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
-      <SheetContent className="w-full gap-0 overflow-y-auto p-0 sm:max-w-2xl">
+      <SheetContent className="w-full gap-0 overflow-y-auto p-0 sm:max-w-4xl">
         <SheetHeader className="border-border border-b px-6 pt-6 pb-4">
           <SheetTitle>入库记录</SheetTitle>
           <SheetDescription>{account?.emailAddress ?? null}</SheetDescription>
