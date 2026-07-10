@@ -54,6 +54,7 @@ from livekit.plugins import (
     openai,
 )
 
+from agent_config import resolve_agent_name
 from interview_agent import INTERVIEW_FINAL_WRAP_SECONDS, InterviewAgent
 from prompts import pick_interviewer
 from recording import (
@@ -66,6 +67,8 @@ from transcript_replay import replay_turns_to
 logger = logging.getLogger("agent")
 
 load_dotenv()
+
+AGENT_NAME = resolve_agent_name()
 
 
 # 本地 dev 时设置 INTERVIEW_DISABLE_NOISE_CANCELLATION=1 关掉噪声抑制. 默认
@@ -535,7 +538,7 @@ async def _on_session_end(ctx: JobContext) -> None:
 # --------------------------------------------------------------------------- #
 
 
-@server.rtc_session(agent_name="giaogiao", on_session_end=_on_session_end)
+@server.rtc_session(agent_name=AGENT_NAME, on_session_end=_on_session_end)
 async def my_agent(ctx: JobContext) -> None:
     """单次面试的主协程, 由 LiveKit worker 在每个 job 上调度.
 

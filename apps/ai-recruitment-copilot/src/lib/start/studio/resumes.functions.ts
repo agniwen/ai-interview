@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
-import type { JsonValue } from "@/lib/start/server-function-types";
 import {
   resolveWorkspaceAccessFromRequest,
   workspaceAccessHasPermission,
@@ -27,7 +26,6 @@ export type StudioResumesServerState =
   | { status: "unauthenticated" }
   | { status: "not_found" }
   | {
-      dehydratedState: JsonValue;
       metrics: ResumeLibraryMetrics;
       status: "ready";
     };
@@ -52,10 +50,6 @@ export const loadStudioResumesState = createServerFn({ method: "GET" })
 
     return {
       ...(await loadStudioResumesData({
-        query: data.query,
-        slug: data.slug,
-        userId: access.user.id,
-        userRole: access.member.role,
         workspaceId: access.workspace.id,
       })),
       status: "ready",

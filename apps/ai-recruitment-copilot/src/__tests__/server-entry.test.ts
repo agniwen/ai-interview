@@ -9,6 +9,9 @@ const createServerApp = vi.fn(() => ({
   fetch: honoFetch,
 }));
 const initializeFeishuBots = vi.fn(() => Promise.resolve());
+const pingDatabase = vi.fn(() => Promise.resolve());
+const getResumeParseQueueStats = vi.fn(() => Promise.resolve({ waiting: 0 }));
+const isResumeParseQueueConfigured = vi.fn(() => false);
 
 vi.mock("@tanstack/react-start/server-entry", () => ({
   createServerEntry: (entry: unknown) => entry,
@@ -25,12 +28,22 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/bot", ()
   initializeFeishuBots,
 }));
 
+vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
+  pingDatabase,
+}));
+
+vi.mock("@arc/resume-parse-queue/resume-parse", () => ({
+  getResumeParseQueueStats,
+  isResumeParseQueueConfigured,
+}));
+
 vi.mock("../lib/server/og-image", () => ({
   createOgImageResponse,
 }));
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.restoreAllMocks();
   vi.resetModules();
   vi.unstubAllEnvs();
 });
@@ -48,6 +61,47 @@ describe("TanStack Start server entry", () => {
     expect(createServerApp).not.toHaveBeenCalled();
     expect(initializeFeishuBots).not.toHaveBeenCalled();
     expect(startFetch).not.toHaveBeenCalled();
+  });
+
+  it("reports ready after the Hono app and database are available", async () => {
+    const serverModule = await import("../server");
+    const entry = serverModule.default;
+    const request = new Request("https://example.test/api/ready");
+
+    const response = await entry.fetch(request);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true });
+    expect(createServerApp).toHaveBeenCalledTimes(1);
+    expect(pingDatabase).toHaveBeenCalledTimes(1);
+    expect(isResumeParseQueueConfigured).toHaveBeenCalledTimes(1);
+    expect(getResumeParseQueueStats).not.toHaveBeenCalled();
+    expect(startFetch).not.toHaveBeenCalled();
+  });
+
+  it("checks Redis when the resume parse queue is configured", async () => {
+    isResumeParseQueueConfigured.mockReturnValueOnce(true);
+    const serverModule = await import("../server");
+    const entry = serverModule.default;
+
+    const response = await entry.fetch(new Request("https://example.test/api/ready"));
+
+    expect(response.status).toBe(200);
+    expect(getResumeParseQueueStats).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports not ready without exposing dependency errors", async () => {
+    const readinessError = new Error("database credentials leaked here");
+    pingDatabase.mockRejectedValueOnce(readinessError);
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const serverModule = await import("../server");
+    const entry = serverModule.default;
+
+    const response = await entry.fetch(new Request("https://example.test/api/ready"));
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ ok: false });
+    expect(consoleError).toHaveBeenCalledWith("[web] readiness check failed", readinessError);
   });
 
   it("routes /api/rpc requests to the Hono app", async () => {

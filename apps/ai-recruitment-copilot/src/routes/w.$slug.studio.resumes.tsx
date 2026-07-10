@@ -1,11 +1,5 @@
 import { IconHistory, IconUsers } from "@tabler/icons-react";
-import {
-  HydrationBoundary,
-  useInfiniteQuery,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
-import type { DehydratedState } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { ReactVirtualizer, VirtualItem } from "@tanstack/react-virtual";
 import {
@@ -1585,10 +1579,10 @@ function StudioResumesRoute() {
   }
 
   return (
-    <HydrationBoundary state={state.dehydratedState as unknown as DehydratedState}>
+    <>
       <ResumeLibraryPage metrics={state.metrics} />
       <StudioResumeFloatingChat />
-    </HydrationBoundary>
+    </>
   );
 }
 

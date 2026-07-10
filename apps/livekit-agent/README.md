@@ -18,9 +18,9 @@ For repo-wide setup (web + agent together), see the root [`README.md`](../README
 | Turn-detection | LiveKit multilingual model                        | downloaded via `download-files` |
 | Recording      | LiveKit Egress → Cloudflare R2                    | see `src/recording.py`          |
 
-Worker registers as `agent_name="giaogiao"` (hardcoded in `src/agent.py`). The
-web side dispatches sessions to that name via `AGENT_NAME` /
-`NEXT_PUBLIC_AGENT_NAME` — they must match.
+Worker registers with `AGENT_NAME`, defaulting to `giaogiao`. The web side
+dispatches sessions to that name via `AGENT_NAME` / `NEXT_PUBLIC_AGENT_NAME` —
+all three values must match.
 
 ## Setup
 
@@ -119,10 +119,9 @@ will work.
    POSTs session events back there). `AGENT_CALLBACK_SECRET`, `LIVEKIT_*`,
    and `RECORDING_R2_*` must match the values in the web app's root `.env`.
 
-5. **Align the agent name with the web side.** The worker registers as
-   `agent_name="giaogiao"` (hardcoded in `src/agent.py`). Either keep that
-   string and set `AGENT_NAME` / `NEXT_PUBLIC_AGENT_NAME` to `giaogiao` on the
-   web side, or change all three in lock-step.
+5. **Align the agent name with the web side.** Set `AGENT_NAME` in the worker
+   and web environments, and set `NEXT_PUBLIC_AGENT_NAME` to the same value.
+   All three default to `giaogiao` in the checked-in examples.
 
 6. **First deploy.** From `agent/`:
 
