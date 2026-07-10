@@ -1,6 +1,77 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from "vitest";
-import { renderRunSummary } from "./mail-ingest-log-drawer";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act } from "react";
+import { createRoot } from "react-dom/client";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  MailIngestLogDrawer,
+  renderRunSummary,
+  serializeDateRange,
+} from "./mail-ingest-log-drawer";
+import type { MailIngestLogAccount } from "./mail-ingest-log-drawer";
+
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+const rpcMessagesGetMock = vi.hoisted(() => vi.fn());
+const rpcFetchMock = vi.hoisted(() => vi.fn());
+const toastMocks = vi.hoisted(() => ({ error: vi.fn() }));
+
+vi.mock("@/lib/client/rpc", () => ({
+  rpc: {
+    api: {
+      w: {
+        ":slug": {
+          studio: {
+            "mail-ingest-accounts": {
+              managed: {
+                ":id": {
+                  messages: {
+                    $get: rpcMessagesGetMock,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+}));
+
+vi.mock("@/lib/client/api", () => ({
+  rpcFetch: rpcFetchMock,
+}));
+
+vi.mock("sonner", () => ({
+  toast: toastMocks,
+}));
+
+afterEach(() => {
+  document.body.innerHTML = "";
+  vi.clearAllMocks();
+});
+
+const account: MailIngestLogAccount = {
+  emailAddress: "inbox@example.com",
+  id: "acc-1",
+  lastCheckedAt: null,
+  lastError: null,
+  lastRunFailed: null,
+  lastRunMatched: null,
+  lastRunQueued: null,
+  lastRunReceived: null,
+  lastRunSubjectSkipped: null,
+};
+
+function renderDrawer() {
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return { container, queryClient, root };
+}
 
 describe("renderRunSummary", () => {
   const zero = {
@@ -42,5 +113,125 @@ describe("renderRunSummary", () => {
       lastRunSubjectSkipped: null,
     });
     expect(r).toMatchObject({ label: "上轮快照", showCounts: true });
+  });
+});
+
+describe("serializeDateRange", () => {
+  it("from → local day start, to → local day end; from>to throws", () => {
+    const r = serializeDateRange("2026-07-01", "2026-07-02");
+    expect(r.receivedFrom).toBe(new Date(2026, 6, 1, 0, 0, 0, 0).toISOString());
+    expect(r.receivedTo).toBe(new Date(2026, 6, 2, 23, 59, 59, 999).toISOString());
+    expect(() => serializeDateRange("2026-07-03", "2026-07-01")).toThrow();
+  });
+});
+
+describe("MailIngestLogDrawer messages table", () => {
+  it("renders records with status/date fallbacks, error/skip reasons, attachment counts, and expands attachments", async () => {
+    rpcFetchMock.mockResolvedValue({
+      records: [
+        {
+          attachmentCount: 2,
+          attachments: [],
+          boundJobDescriptionName: null,
+          errorMessage: "boom",
+          fromAddress: null,
+          id: "a",
+          jdBindStatus: null,
+          poolSummary: null,
+          receivedAt: null,
+          resumeAttachmentCount: 1,
+          status: "failed",
+          subject: null,
+        },
+        {
+          attachments: [
+            {
+              fileName: "x.pdf",
+              hasDuplicate: true,
+              resumeParseError: "bad",
+              resumeParseStatus: "failed",
+            },
+          ],
+          id: "b",
+          skipReason: "no_supported_attachment",
+          status: "skipped",
+        },
+      ],
+      total: 2,
+    });
+
+    const { queryClient, root } = renderDrawer();
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <MailIngestLogDrawer account={account} onOpenChange={vi.fn()} open slug="test-slug" />
+        </QueryClientProvider>,
+      );
+      await Promise.resolve();
+    });
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("boom");
+    });
+
+    expect(document.body.textContent).toContain("no_supported_attachment");
+    expect(document.body.textContent).toContain("（无主题）");
+    expect(document.body.textContent).toContain("—");
+    expect(document.body.textContent).toContain("1/2");
+
+    const expandButton = document.querySelector<HTMLButtonElement>('button[aria-label="展开附件"]');
+    expect(expandButton).not.toBeNull();
+
+    act(() => {
+      expandButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(document.body.textContent).toContain("x.pdf");
+    expect(document.body.textContent).toContain("bad");
+
+    act(() => {
+      root.unmount();
+    });
+    queryClient.clear();
+  });
+
+  it("distinguishes no-record empty state from filtered empty state", async () => {
+    rpcFetchMock.mockResolvedValue({ records: [], total: 0 });
+
+    const { queryClient, root } = renderDrawer();
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <MailIngestLogDrawer account={account} onOpenChange={vi.fn()} open slug="test-slug" />
+        </QueryClientProvider>,
+      );
+      await Promise.resolve();
+    });
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("该邮箱暂无入库记录");
+    });
+
+    const keywordInput = document.querySelector<HTMLInputElement>('input[aria-label="关键词"]');
+    expect(keywordInput).not.toBeNull();
+
+    act(() => {
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      if (keywordInput) {
+        valueSetter?.call(keywordInput, "foo");
+        keywordInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    });
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("当前筛选条件下无匹配邮件");
+    });
+
+    act(() => {
+      root.unmount();
+    });
+    queryClient.clear();
   });
 });
