@@ -87,7 +87,7 @@ export function ConversationTranscript({
                   className={cn(
                     isUser
                       ? undefined
-                      : "group-[.is-assistant]:w-fit group-[.is-assistant]:max-w-[88%] group-[.is-assistant]:rounded-2xl group-[.is-assistant]:border group-[.is-assistant]:border-border/70 group-[.is-assistant]:bg-muted/40 group-[.is-assistant]:px-3 group-[.is-assistant]:py-2",
+                      : "group-[.is-assistant]:w-fit group-[.is-assistant]:max-w-[88%] group-[.is-assistant]:rounded-2xl group-[.is-assistant]:border group-[.is-assistant]:border-muted/60 group-[.is-assistant]:bg-muted/30 group-[.is-assistant]:px-3 group-[.is-assistant]:py-2",
                     isActive && "ring-2 ring-primary/40 ring-offset-2 ring-offset-background",
                   )}
                 >

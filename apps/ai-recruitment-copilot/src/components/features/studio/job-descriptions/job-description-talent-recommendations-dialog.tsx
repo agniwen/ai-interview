@@ -90,7 +90,7 @@ function CandidateHighlight({
   label: string;
 }) {
   return (
-    <div className="min-w-0 rounded-md border-muted/60 border bg-muted/25 px-2.5 py-2">
+    <div className="min-w-0 rounded-md border-muted/60 border bg-muted/30 px-2.5 py-2">
       <div className="flex items-center gap-1.5 text-muted-foreground">
         <Icon className="size-3.5 shrink-0" />
         <span className="text-xs">{label}</span>
@@ -240,7 +240,7 @@ function CandidateRecommendationCard({
           </CardContent>
         </div>
 
-        <CardFooter className="flex min-w-0 flex-col items-stretch justify-between gap-4 border-border/70 border-t bg-muted/20 px-3 py-3 lg:border-t-0 lg:border-l">
+        <CardFooter className="flex min-w-0 flex-col items-stretch justify-between gap-4 border-muted/60 border-t bg-muted/20 px-3 py-3 lg:border-t-0 lg:border-l">
           <div className="min-w-0">
             <div className="mb-1 flex items-center justify-between text-sm">
               <span className="text-muted-foreground">推荐分</span>

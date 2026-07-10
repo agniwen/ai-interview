@@ -24,7 +24,7 @@ export function KeywordHighlightLegend({ className }: { className?: string }) {
               "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
               active
                 ? "border-border bg-background"
-                : "border-border/50 bg-muted/40 text-muted-foreground opacity-60",
+                : "border-muted/60 bg-muted/30 text-muted-foreground opacity-60",
             )}
             key={meta.category}
             onClick={() => toggleCategory(meta.category)}

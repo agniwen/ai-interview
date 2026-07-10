@@ -14,7 +14,7 @@ export function SoftPanel<T extends ElementType = "div">({
 
   return (
     <Component
-      className={cn("rounded-xl border border-border/50 bg-muted/40", className)}
+      className={cn("rounded-xl border border-muted/60 bg-muted/20", className)}
       {...props}
     />
   );

@@ -372,7 +372,7 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
     return (
       <main className="flex min-h-dvh items-center justify-center bg-background px-4 py-10">
         <section className="w-full max-w-lg space-y-6 text-center">
-          <div className="mx-auto flex size-14 items-center justify-center rounded-full border border-border/70 bg-muted/40">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-full border border-muted/60 bg-muted/30">
             <IconVideo className="size-6 text-foreground" />
           </div>
           <div className="space-y-2">

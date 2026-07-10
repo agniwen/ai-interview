@@ -347,7 +347,7 @@ export function StudioResumeFloatingChat() {
               render={
                 <Button
                   aria-label="打开简历聊天"
-                  className="size-full rounded-xl border-primary/20 bg-primary/10 backdrop-blur  shadow text-primary hover:bg-primary/25 "
+                  className="size-full rounded-xl border-primary/15 bg-primary/10 backdrop-blur  shadow text-primary hover:bg-primary/25 "
                   onClick={() => {
                     setSessionListOpen(!activeSession);
                     setOpen(true);
@@ -370,7 +370,7 @@ export function StudioResumeFloatingChat() {
           className="fixed right-4 bottom-4 z-50 flex h-[min(620px,calc(100dvh-2rem))] w-[min(680px,calc(100vw-2rem))] overflow-hidden rounded-xl border bg-popover text-popover-foreground shadow-xl"
         >
           {shouldShowSessionList ? (
-            <aside className="flex w-48 shrink-0 flex-col border-border/60 border-r bg-muted/20">
+            <aside className="flex w-48 shrink-0 flex-col border-muted/60 border-r bg-muted/20">
               <div className="min-h-0 flex-1 overflow-y-auto p-2">
                 <div className="flex flex-col gap-1">
                   {sessions.map((item) => (

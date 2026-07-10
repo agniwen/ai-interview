@@ -181,7 +181,7 @@ function RecruitmentStageHoverCard({
                       className={cn(
                         "mt-1 size-2.5 rounded-full border",
                         isCurrent && "border-primary bg-primary",
-                        isDone && !isCurrent && "border-primary/40 bg-primary/30",
+                        isDone && !isCurrent && "border-primary/40 bg-primary/20",
                         !isDone && !isCurrent && "border-border bg-background",
                       )}
                     />

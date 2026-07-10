@@ -31,7 +31,7 @@ export function Hero({ isPending, onResumeFiltering, onWorkbench }: HeroProps) {
       <FadeContent>
         {/* 中文官方名放在标语徽章里，承担本地化品牌识别。
             Chinese official name lives in the eyebrow badge for localized brand recall. */}
-        <p className="inline-flex items-center gap-1.5 rounded-full border border-primary/15 bg-primary/8 px-3 py-1 font-medium text-[11px] text-primary sm:text-xs">
+        <p className="inline-flex items-center gap-1.5 rounded-full border border-primary/15 bg-primary/10 px-3 py-1 font-medium text-[11px] text-primary sm:text-xs">
           <IconSparkles aria-hidden="true" className="size-3" />
           招聘 AI 协同工作台
         </p>

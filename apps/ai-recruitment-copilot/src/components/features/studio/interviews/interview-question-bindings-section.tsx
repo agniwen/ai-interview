@@ -156,7 +156,7 @@ export function InterviewQuestionBindingsSection({
         </p>
       ) : null}
       {isError ? (
-        <p className="rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-6 text-center text-destructive text-sm">
+        <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-6 text-center text-destructive text-sm">
           加载失败，请刷新重试。
         </p>
       ) : null}

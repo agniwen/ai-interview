@@ -226,7 +226,7 @@ function ResumePoolHighlightRow({
   value: ReactNode;
 }) {
   return (
-    <div className="rounded-md border-muted/60 border bg-muted/25 px-2.5 py-2">
+    <div className="rounded-md border-muted/60 border bg-muted/30 px-2.5 py-2">
       <div className="flex items-center gap-1.5 text-muted-foreground">
         <Icon className="size-3.5 shrink-0" />
         <span className="text-xs">{label}</span>

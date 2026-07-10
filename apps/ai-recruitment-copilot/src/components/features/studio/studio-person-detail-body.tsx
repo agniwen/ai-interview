@@ -418,7 +418,7 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                     </div>
                     {reports.length > 0 ? <KeywordHighlightLegend /> : null}
                     {reports.length === 0 ? (
-                      <div className="flex min-h-60 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/40 px-6 py-10 text-center">
+                      <div className="flex min-h-60 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/30 px-6 py-10 text-center">
                         <IconMessage2 className="size-8 text-muted-foreground" />
                         <p className="mt-4 font-medium text-sm">暂无面试报告</p>
                         <p className="mt-2 max-w-xl text-muted-foreground text-sm leading-normal">
@@ -456,7 +456,7 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                           };
                           return (
                             <AccordionItem
-                              className="overflow-hidden rounded-2xl border border-border/70 bg-muted/25 px-0 shadow-sm"
+                              className="overflow-hidden rounded-2xl border border-muted/60 bg-muted/20 px-0 shadow-sm"
                               key={report.conversationId}
                               value={report.conversationId}
                             >

@@ -76,7 +76,7 @@ export function ConversationScrollButton({ className, ...props }: ConversationSc
     !isAtBottom && (
       <Button
         className={cn(
-          "absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full border-border/70 bg-background/85 shadow-xs backdrop-blur-sm hover:bg-accent/60",
+          "absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full border-border/40 bg-background/80 shadow-xs backdrop-blur-sm hover:bg-accent/60",
           className,
         )}
         onClick={handleScrollToBottom}
@@ -143,7 +143,7 @@ export function ConversationDownload({
       {...props}
       ref={ref}
       className={cn(
-        "absolute top-4 right-4 rounded-full border-border/70 bg-background/85 shadow-xs backdrop-blur-sm hover:bg-accent/60",
+        "absolute top-4 right-4 rounded-full border-border/40 bg-background/80 shadow-xs backdrop-blur-sm hover:bg-accent/60",
         className,
       )}
       onClick={handleDownload}
