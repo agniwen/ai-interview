@@ -307,6 +307,7 @@ def _build_session(
             extra_body={"enable_thinking": False},
         ),
         tts=minimax.TTS(
+            audio_format="pcm",
             base_url="https://api.minimax.chat",
             voice=selected_voice,
         ),
