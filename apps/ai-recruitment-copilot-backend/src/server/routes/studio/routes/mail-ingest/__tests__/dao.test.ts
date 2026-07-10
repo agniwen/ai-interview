@@ -320,6 +320,7 @@ describe("mail ingest observability writers", () => {
     await db.delete(member).where(eq(member.organizationId, OBS_ORG));
     await db.delete(organization).where(eq(organization.id, OBS_ORG));
     await db.delete(user).where(eq(user.id, OBS_USER));
+    await db.delete(user).where(eq(user.id, "obs_noacct_user"));
   }
 
   beforeEach(obsCleanup, 30_000);
@@ -436,6 +437,72 @@ describe("mail ingest observability writers", () => {
     expect(row.lastRunReceived).toBe(5);
     expect(row.lastRunSubjectSkipped).toBe(2);
     expect(row.lastRunQueued).toBe(2);
+  }, 30_000);
+
+  it("projects messageCount/problemCount/lastRun* on workspace rows", async () => {
+    const accountId = await insertTestAccount();
+    await finishMailIngestAccountRun(accountId, {
+      counts: { failed: 1, matched: 3, queued: 2, received: 5, subjectSkipped: 2 },
+    });
+    await db.insert(mailIngestMessage).values([
+      { accountId, id: "m_ok_1", mailbox: "INBOX", status: "queued", uid: "1", uidValidity: "1" },
+      { accountId, id: "m_ok_2", mailbox: "INBOX", status: "queued", uid: "2", uidValidity: "1" },
+      { accountId, id: "m_fail", mailbox: "INBOX", status: "failed", uid: "3", uidValidity: "1" },
+      { accountId, id: "m_skip", mailbox: "INBOX", status: "skipped", uid: "4", uidValidity: "1" },
+    ]);
+
+    const { records } = await queryPaginatedWorkspaceMailIngestAccounts(OBS_ORG);
+    const row = records.find((r) => r.account?.id === accountId);
+
+    expect(row?.messageCount).toBe(4);
+    expect(row?.problemCount).toBe(2);
+    expect(row?.lastRunReceived).toBe(5);
+    expect(row?.lastRunFailed).toBe(1);
+    expect(row?.lastRunMatched).toBe(3);
+  }, 30_000);
+
+  it("returns account===null member rows with messageCount 0", async () => {
+    // insertTestAccount 建了 OBS_ORG + OBS_USER(owner)。再加一个无账号成员：
+    await insertTestAccount();
+    await db.insert(user).values({
+      createdAt: NOW,
+      email: "obs-noacct@mail-ingest.test",
+      emailVerified: true,
+      id: "obs_noacct_user",
+      name: "No Account",
+      updatedAt: NOW,
+    });
+    await db.insert(member).values({
+      createdAt: NOW,
+      id: "m_obs_noacct",
+      organizationId: OBS_ORG,
+      role: "member",
+      userId: "obs_noacct_user",
+    });
+
+    const { records } = await queryPaginatedWorkspaceMailIngestAccounts(OBS_ORG);
+    const noAcct = records.find((r) => r.user.id === "obs_noacct_user");
+
+    expect(noAcct?.account).toBeNull();
+    expect(noAcct?.messageCount).toBe(0);
+  }, 30_000);
+
+  it("platform rows also carry the new counts (mapper type parity)", async () => {
+    const accountId = await insertTestAccount();
+    await db.insert(mailIngestMessage).values([
+      {
+        accountId,
+        id: "mp_fail",
+        mailbox: "INBOX",
+        status: "failed",
+        uid: "9",
+        uidValidity: "1",
+      },
+    ]);
+    const { records } = await queryPaginatedPlatformMailIngestAccounts();
+    const row = records.find((r) => r.account?.id === accountId);
+    expect(row?.messageCount).toBe(1);
+    expect(row?.problemCount).toBe(1);
   }, 30_000);
 });
 

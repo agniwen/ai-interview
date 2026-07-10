@@ -99,6 +99,13 @@ export interface MailIngestAccountDto {
 
 export interface WorkspaceMailIngestAccountRow {
   account: MailIngestAccountDto | null;
+  lastRunFailed: number | null;
+  lastRunMatched: number | null;
+  lastRunQueued: number | null;
+  lastRunReceived: number | null;
+  lastRunSubjectSkipped: number | null;
+  messageCount: number;
+  problemCount: number;
   user: {
     email: string;
     id: string;
@@ -398,7 +405,14 @@ function listWorkspaceMailIngestAccountRows({
       accountSubjectKeyword: mailIngestAccount.subjectKeyword,
       accountUpdatedAt: mailIngestAccount.updatedAt,
       accountUsername: mailIngestAccount.username,
+      lastRunFailed: mailIngestAccount.lastRunFailed,
+      lastRunMatched: mailIngestAccount.lastRunMatched,
+      lastRunQueued: mailIngestAccount.lastRunQueued,
+      lastRunReceived: mailIngestAccount.lastRunReceived,
+      lastRunSubjectSkipped: mailIngestAccount.lastRunSubjectSkipped,
       memberRole: member.role,
+      messageCount: sql<number>`(select count(*)::int from mail_ingest_message where account_id = ${mailIngestAccount.id})`,
+      problemCount: sql<number>`(select count(*)::int from mail_ingest_message where account_id = ${mailIngestAccount.id} and status in ('failed','skipped'))`,
       userEmail: userTable.email,
       userId: userTable.id,
       userImage: userTable.image,
@@ -460,10 +474,17 @@ function listPlatformMailIngestAccountRows({
       accountSubjectKeyword: mailIngestAccount.subjectKeyword,
       accountUpdatedAt: mailIngestAccount.updatedAt,
       accountUsername: mailIngestAccount.username,
+      lastRunFailed: mailIngestAccount.lastRunFailed,
+      lastRunMatched: mailIngestAccount.lastRunMatched,
+      lastRunQueued: mailIngestAccount.lastRunQueued,
+      lastRunReceived: mailIngestAccount.lastRunReceived,
+      lastRunSubjectSkipped: mailIngestAccount.lastRunSubjectSkipped,
       memberRole: member.role,
+      messageCount: sql<number>`(select count(*)::int from mail_ingest_message where account_id = ${mailIngestAccount.id})`,
       organizationId: organization.id,
       organizationName: organization.name,
       organizationSlug: organization.slug,
+      problemCount: sql<number>`(select count(*)::int from mail_ingest_message where account_id = ${mailIngestAccount.id} and status in ('failed','skipped'))`,
       userEmail: userTable.email,
       userId: userTable.id,
       userImage: userTable.image,
@@ -545,6 +566,13 @@ function toWorkspaceMailIngestAccountRow(
 ): WorkspaceMailIngestAccountRow {
   return {
     account: toNullableAccountDto(row),
+    lastRunFailed: row.lastRunFailed,
+    lastRunMatched: row.lastRunMatched,
+    lastRunQueued: row.lastRunQueued,
+    lastRunReceived: row.lastRunReceived,
+    lastRunSubjectSkipped: row.lastRunSubjectSkipped,
+    messageCount: row.messageCount,
+    problemCount: row.problemCount,
     user: {
       email: row.userEmail,
       id: row.userId,
