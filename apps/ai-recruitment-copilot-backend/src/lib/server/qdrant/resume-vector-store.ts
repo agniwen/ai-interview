@@ -163,6 +163,11 @@ export class QdrantResumeVectorStore implements ResumeVectorStore, ResumeVectorR
     this.dimensions = dimensions;
   }
 
+  async hasCollection(): Promise<boolean> {
+    const res = await this.client.collectionExists(this.collectionName);
+    return res.exists === true;
+  }
+
   async ensureCollection(): Promise<void> {
     const existing = await this.client.collectionExists(this.collectionName);
     if (!existing.exists) {
