@@ -215,7 +215,7 @@ function MailIngestLogMessages({ account, slug }: { account: MailIngestLogAccoun
       </div>
     );
   } else if (records.length === 0) {
-    messagesContent = (
+    messagesContent = dateError ? null : (
       <p className="text-muted-foreground text-sm">
         {hasFilters ? "当前筛选条件下无匹配邮件" : "该邮箱暂无入库记录"}
       </p>

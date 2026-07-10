@@ -234,6 +234,50 @@ describe("MailIngestLogDrawer messages table", () => {
     });
     queryClient.clear();
   });
+
+  it("suppresses the empty-state text when the date range is invalid", async () => {
+    rpcFetchMock.mockResolvedValue({ records: [], total: 0 });
+
+    const { queryClient, root } = renderDrawer();
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <MailIngestLogDrawer account={account} onOpenChange={vi.fn()} open slug="test-slug" />
+        </QueryClientProvider>,
+      );
+      await Promise.resolve();
+    });
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("该邮箱暂无入库记录");
+    });
+
+    const fromInput = document.querySelector<HTMLInputElement>('input[aria-label="起始日期"]');
+    const toInput = document.querySelector<HTMLInputElement>('input[aria-label="结束日期"]');
+    const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+
+    act(() => {
+      valueSetter?.call(toInput, "2024-01-01");
+      toInput?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    act(() => {
+      valueSetter?.call(fromInput, "2024-02-01");
+      fromInput?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("起始日期不能晚于结束日期");
+    });
+
+    expect(document.body.textContent).not.toContain("该邮箱暂无入库记录");
+    expect(document.body.textContent).not.toContain("当前筛选条件下无匹配邮件");
+
+    act(() => {
+      root.unmount();
+    });
+    queryClient.clear();
+  });
 });
 
 describe("MailIngestLogDrawer summary + refresh", () => {

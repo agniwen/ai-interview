@@ -681,7 +681,7 @@ function ManagedMailIngestPage() {
             setSelectedAccountId(null);
           }
         }}
-        open={selectedAccountId !== null}
+        open={selectedAccountId !== null && selectedLogAccount !== null}
         slug={slug}
       />
 
