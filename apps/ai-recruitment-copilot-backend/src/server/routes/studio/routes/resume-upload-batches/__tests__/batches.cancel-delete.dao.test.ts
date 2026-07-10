@@ -22,6 +22,7 @@ import {
   deleteBatch,
   insertBatchWithItems,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
+import { deleteFixtureResumePoolItems } from "../../../../../../test-utils/db-fixture-cleanup";
 
 // 固定前缀，避免与其他测试数据冲突。
 // Fixed prefix so fixture data doesn't collide with other test runs.
@@ -31,6 +32,10 @@ const USER_A = "bulk_dao_cancel_user_a";
 const USER_B = "bulk_dao_cancel_user_b";
 const DEPARTMENT_A = "bulk_dao_cancel_department_a";
 const REFERRAL_JD = "bulk_dao_cancel_referral_jd";
+const MEMBER_A = "bulk_dao_cancel_member_a";
+const MEMBER_B = "bulk_dao_cancel_member_b";
+/** Suite-unique storage prefix so cleanup never leaves null-org pool orphans. */
+const STORAGE_KEY_PREFIX = "storage/test/bulk-dao-cancel/";
 
 const NOW = new Date("2026-05-18T10:00:00.000Z");
 
@@ -41,21 +46,24 @@ function makeFiles(n: number) {
     contentHash: `${String(i).repeat(64)}`,
     fileSize: 1024 * (i + 1),
     originalFileName: `resume_${i}.pdf`,
-    storageKey: `storage/test/${crypto.randomUUID()}.pdf`,
+    storageKey: `${STORAGE_KEY_PREFIX}${crypto.randomUUID()}.pdf`,
   }));
 }
 
 async function cleanup() {
-  // 按照 FK 顺序清理：先清 items（cascade），再 batch，再 member，再 org，再 user。
-  // FK-ordered cleanup: items cascade with batches, then members, orgs, users.
+  // FK-ordered: batches/interviews/matches first, then pool rows by every ownership
+  // key (org/user/storage) before deleting orgs/users — pool FKs are SET NULL.
   await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_A));
   await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_B));
   await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_A));
   await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_B));
   await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_A));
   await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_B));
-  await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_A));
-  await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_B));
+  await deleteFixtureResumePoolItems({
+    organizationIds: [ORG_A, ORG_B],
+    storageKeyPrefixes: [STORAGE_KEY_PREFIX],
+    userIds: [USER_A, USER_B],
+  });
   await db.delete(jobDescription).where(eq(jobDescription.organizationId, ORG_A));
   await db.delete(department).where(eq(department.organizationId, ORG_A));
   await db.delete(member).where(eq(member.userId, USER_A));
@@ -89,21 +97,21 @@ beforeAll(async () => {
   ]);
 
   await db.insert(organization).values([
-    { createdAt: NOW, id: ORG_A, name: "Bulk DAO Org A", slug: "bulk-dao-org-a" },
-    { createdAt: NOW, id: ORG_B, name: "Bulk DAO Org B", slug: "bulk-dao-org-b" },
+    { createdAt: NOW, id: ORG_A, name: "Bulk DAO Cancel Org A", slug: "bulk-dao-cancel-org-a" },
+    { createdAt: NOW, id: ORG_B, name: "Bulk DAO Cancel Org B", slug: "bulk-dao-cancel-org-b" },
   ]);
 
   await db.insert(member).values([
     {
       createdAt: NOW,
-      id: "bulk_dao_member_a",
+      id: MEMBER_A,
       organizationId: ORG_A,
       role: "owner",
       userId: USER_A,
     },
     {
       createdAt: NOW,
-      id: "bulk_dao_member_b",
+      id: MEMBER_B,
       organizationId: ORG_B,
       role: "owner",
       userId: USER_B,

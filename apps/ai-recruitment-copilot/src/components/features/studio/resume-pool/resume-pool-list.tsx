@@ -4,7 +4,8 @@ import { IconFileText, IconHistory, IconLoader2, IconTrash, IconUpload } from "@
 import type { ResumePoolScope } from "@arc/db-schema/schema";
 import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
 
-import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
+import { ClientOnly } from "@tanstack/react-router";
+import { lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import {
@@ -19,13 +20,10 @@ import {
 import { canDeletePoolRecord } from "./resume-pool-page-model";
 import { ResumePoolCard } from "./resume-pool-details";
 
-// oxlint-disable-next-line sort-keys -- Breakpoints are easier to audit in ascending viewport order.
-const RESUME_POOL_MASONRY_COLUMNS = {
-  0: 1,
-  1024: 2,
-  1280: 3,
-  1440: 4,
-} as const;
+const ResumePoolMasonry = lazy(async () => {
+  const mod = await import("./resume-pool-masonry");
+  return { default: mod.ResumePoolMasonry };
+});
 
 export function ResumePoolLoadingState() {
   return (
@@ -126,40 +124,44 @@ export function ResumePoolListContent({
   selectionDisabled: boolean;
 }) {
   if (records.length > 0) {
+    const cards = records.map((record) => {
+      const canDelete =
+        canDeletePoolRecord(record, {
+          currentOrganizationId,
+          currentUserId,
+        }) && canDeletePoolRecords;
+      return (
+        <ResumePoolCard
+          canDelete={canDelete}
+          canImport={canImportToLibrary}
+          canPublish={canPublishToPool}
+          deleting={deleting}
+          key={record.id}
+          onDelete={onDelete}
+          onImport={onImport}
+          onOpenDuplicateMatches={onOpenDuplicateMatches}
+          onOpenDetail={onOpenDetail}
+          onOpenPdf={onOpenPdf}
+          onPublish={onPublish}
+          publishing={publishing}
+          record={record}
+          selected={selectedPrivateResumeIds.has(record.id)}
+          selectionDisabled={selectionDisabled}
+          scope={scope}
+          onSelectionChange={onSelectionChange}
+        />
+      );
+    });
+    const fallback = (
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{cards}</div>
+    );
     return (
       <div className={isPoolBusy ? "opacity-60 transition-opacity" : "transition-opacity"}>
-        <ResponsiveMasonry columnsCountBreakPoints={RESUME_POOL_MASONRY_COLUMNS}>
-          <Masonry gutter="16px">
-            {records.map((record) => {
-              const canDelete =
-                canDeletePoolRecord(record, {
-                  currentOrganizationId,
-                  currentUserId,
-                }) && canDeletePoolRecords;
-              return (
-                <ResumePoolCard
-                  canDelete={canDelete}
-                  canImport={canImportToLibrary}
-                  canPublish={canPublishToPool}
-                  deleting={deleting}
-                  key={record.id}
-                  onDelete={onDelete}
-                  onImport={onImport}
-                  onOpenDuplicateMatches={onOpenDuplicateMatches}
-                  onOpenDetail={onOpenDetail}
-                  onOpenPdf={onOpenPdf}
-                  onPublish={onPublish}
-                  publishing={publishing}
-                  record={record}
-                  selected={selectedPrivateResumeIds.has(record.id)}
-                  selectionDisabled={selectionDisabled}
-                  scope={scope}
-                  onSelectionChange={onSelectionChange}
-                />
-              );
-            })}
-          </Masonry>
-        </ResponsiveMasonry>
+        <ClientOnly fallback={fallback}>
+          <Suspense fallback={fallback}>
+            <ResumePoolMasonry>{cards}</ResumePoolMasonry>
+          </Suspense>
+        </ClientOnly>
       </div>
     );
   }

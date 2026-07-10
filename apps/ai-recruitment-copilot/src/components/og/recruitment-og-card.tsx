@@ -1,18 +1,16 @@
-export interface ShadcnRegistry1Props {
+export interface RecruitmentOgCardProps {
   name: string;
   url: string;
   description: string;
-  logo?: string;
   items?: string[];
 }
 
-export const ShadcnRegistry1 = ({
+export const RecruitmentOgCard = ({
   name,
   url,
   description,
-  logo = "",
   items = [],
-}: ShadcnRegistry1Props) => (
+}: RecruitmentOgCardProps) => (
   <div
     style={{
       backgroundColor: "#09090b",
@@ -38,28 +36,15 @@ export const ShadcnRegistry1 = ({
       }}
     >
       <div style={{ alignItems: "center", display: "flex", gap: "16px" }}>
-        {logo ? (
-          <img
-            alt=""
-            height={48}
-            src={logo}
-            width={48}
-            style={{
-              borderRadius: "12px",
-              objectFit: "contain",
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              backgroundColor: "#22d3ee",
-              borderRadius: "999px",
-              display: "flex",
-              height: "48px",
-              width: "48px",
-            }}
-          />
-        )}
+        <div
+          style={{
+            backgroundColor: "#22d3ee",
+            borderRadius: "999px",
+            display: "flex",
+            height: "48px",
+            width: "48px",
+          }}
+        />
         <div
           style={{
             fontSize: "32px",

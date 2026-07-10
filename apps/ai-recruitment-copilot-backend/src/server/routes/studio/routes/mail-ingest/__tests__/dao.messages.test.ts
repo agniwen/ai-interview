@@ -12,6 +12,7 @@ import {
   user,
 } from "@arc/db-schema/schema";
 import { createMailIngestAccount, listAccountMailMessages } from "../dao";
+import { deleteFixtureResumePoolItems } from "../../../../../../test-utils/db-fixture-cleanup";
 
 const NOW = new Date("2026-06-18T10:00:00.000Z");
 
@@ -34,7 +35,11 @@ describe("listAccountMailMessages", () => {
     // mailIngestAccount -> mailIngestMessage 是 cascade 删除，不需要单独清理 message。
     await db.delete(resumeUploadBatchItem).where(eq(resumeUploadBatchItem.batchId, LOG_BATCH));
     await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, LOG_BATCH));
-    await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, LOG_ORG));
+    // Match pool rows by org/user before deleting parents (SET NULL FKs).
+    await deleteFixtureResumePoolItems({
+      organizationIds: [LOG_ORG],
+      userIds: [LOG_USER],
+    });
     await db.delete(mailIngestAccount).where(eq(mailIngestAccount.organizationId, LOG_ORG));
     await db.delete(member).where(eq(member.organizationId, LOG_ORG));
     await db.delete(organization).where(eq(organization.id, LOG_ORG));

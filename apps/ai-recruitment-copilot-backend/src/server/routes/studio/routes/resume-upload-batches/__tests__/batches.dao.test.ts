@@ -30,6 +30,7 @@ import {
   reviveOrphans,
   reviveRetriableFailures,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
+import { deleteFixtureResumePoolItems } from "../../../../../../test-utils/db-fixture-cleanup";
 
 // 固定前缀，避免与其他测试数据冲突。
 // Fixed prefix so fixture data doesn't collide with other test runs.
@@ -39,6 +40,8 @@ const USER_A = "bulk_dao_user_a";
 const USER_B = "bulk_dao_user_b";
 const DEPARTMENT_A = "bulk_dao_department_a";
 const REFERRAL_JD = "bulk_dao_referral_jd";
+/** Suite-unique storage prefix so cleanup never leaves null-org pool orphans. */
+const STORAGE_KEY_PREFIX = "storage/test/bulk-dao/";
 
 const NOW = new Date("2026-05-18T10:00:00.000Z");
 
@@ -49,21 +52,24 @@ function makeFiles(n: number) {
     contentHash: `${String(i).repeat(64)}`,
     fileSize: 1024 * (i + 1),
     originalFileName: `resume_${i}.pdf`,
-    storageKey: `storage/test/${crypto.randomUUID()}.pdf`,
+    storageKey: `${STORAGE_KEY_PREFIX}${crypto.randomUUID()}.pdf`,
   }));
 }
 
 async function cleanup() {
-  // 按照 FK 顺序清理：先清 items（cascade），再 batch，再 member，再 org，再 user。
-  // FK-ordered cleanup: items cascade with batches, then members, orgs, users.
+  // FK-ordered: batches/interviews/matches first, then pool rows by every ownership
+  // key (org/user/storage) before deleting orgs/users — pool FKs are SET NULL.
   await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_A));
   await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_B));
   await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_A));
   await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_B));
   await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_A));
   await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_B));
-  await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_A));
-  await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_B));
+  await deleteFixtureResumePoolItems({
+    organizationIds: [ORG_A, ORG_B],
+    storageKeyPrefixes: [STORAGE_KEY_PREFIX],
+    userIds: [USER_A, USER_B],
+  });
   await db.delete(jobDescription).where(eq(jobDescription.organizationId, ORG_A));
   await db.delete(department).where(eq(department.organizationId, ORG_A));
   await db.delete(member).where(eq(member.userId, USER_A));
@@ -228,7 +234,11 @@ describe("insertBatchWithItems", () => {
       expect(poolItem?.targetRole).toBe("内推前端工程师");
     } finally {
       await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
-      await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_A));
+      await deleteFixtureResumePoolItems({
+        organizationIds: [ORG_A],
+        storageKeyPrefixes: [STORAGE_KEY_PREFIX],
+        userIds: [USER_A],
+      });
     }
   });
 
@@ -260,7 +270,11 @@ describe("insertBatchWithItems", () => {
       expect(poolItem?.jobDescriptionId).toBeNull();
     } finally {
       await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
-      await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_A));
+      await deleteFixtureResumePoolItems({
+        organizationIds: [ORG_A],
+        storageKeyPrefixes: [STORAGE_KEY_PREFIX],
+        userIds: [USER_A],
+      });
     }
   });
 });

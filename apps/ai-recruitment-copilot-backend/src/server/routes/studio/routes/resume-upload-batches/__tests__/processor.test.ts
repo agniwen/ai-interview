@@ -37,6 +37,7 @@ import {
   processBatchItem,
   processNextItem,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/processor";
+import { deleteFixtureResumePoolItems } from "../../../../../../test-utils/db-fixture-cleanup";
 
 // Real DB round-trips routinely exceed the default 5s under parallel suite load.
 vi.setConfig({ testTimeout: 30_000 });
@@ -93,6 +94,8 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer"
 // Fixed prefix to avoid collisions with other test runs.
 const ORG_A = "bulk_proc_org_a";
 const USER_A = "bulk_proc_user_a";
+/** Suite-unique storage prefix so cleanup never leaves null-org pool orphans. */
+const STORAGE_KEY_PREFIX = "storage/bulk-proc-test/";
 
 const NOW = new Date("2026-05-18T10:00:00.000Z");
 const REVIEW_RESULT = {
@@ -174,7 +177,7 @@ function makeFiles(n: number) {
     contentHash: `${String(i + 1).repeat(64)}`,
     fileSize: 1024 * (i + 1),
     originalFileName: `resume_${i}.pdf`,
-    storageKey: `storage/bulk-proc-test/${crypto.randomUUID()}.pdf`,
+    storageKey: `${STORAGE_KEY_PREFIX}${crypto.randomUUID()}.pdf`,
   }));
 }
 
@@ -240,7 +243,12 @@ async function cleanup() {
   // 直接清理 org 下的 studio_interview（含 dedup 测试中手动插入的行）。
   // Also clean any studio_interview rows directly under the org (e.g. pre-inserted dedup rows).
   await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_A));
-  await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_A));
+  // Match pool rows by org/user/storage before deleting parents (SET NULL FKs).
+  await deleteFixtureResumePoolItems({
+    organizationIds: [ORG_A],
+    storageKeyPrefixes: [STORAGE_KEY_PREFIX],
+    userIds: [USER_A],
+  });
 
   await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_A));
   await db.delete(jobDescription).where(eq(jobDescription.organizationId, ORG_A));

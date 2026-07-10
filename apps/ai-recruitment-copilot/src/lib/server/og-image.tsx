@@ -1,5 +1,5 @@
-import { ImageResponse } from "@vercel/og";
-import { ShadcnRegistry1 } from "@/components/og/shadcn-registry-1";
+import { ImageResponse } from "takumi-js/response";
+import { RecruitmentOgCard } from "@/components/og/recruitment-og-card";
 
 const OG_FONT_FAMILY = "Noto Sans SC";
 const OG_FONT_TEXT = "招聘 AI 协同工作台覆盖简历筛选面试编排候选人评估端到端工作流";
@@ -62,7 +62,7 @@ function loadOgFonts() {
 
 export async function createOgImageResponse() {
   return new ImageResponse(
-    <ShadcnRegistry1
+    <RecruitmentOgCard
       description="覆盖简历筛选、AI 面试编排、候选人评估的端到端招聘工作流。"
       items={["简历筛选", "AI 面试", "候选人评估"]}
       name="招聘 AI 协同工作台"
