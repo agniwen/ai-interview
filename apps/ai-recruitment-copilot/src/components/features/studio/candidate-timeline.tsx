@@ -147,6 +147,7 @@ const ACTIVITY_FORMATTERS: Record<string, ActivityFormatter> = {
   简历评估已提交: formatWithDescription("提交简历评估", "提交简历评估"),
   简历评估已重置: () => "重置简历评估",
   简历评估状态变更: formatWithDescription("更新简历评估", "更新简历评估"),
+  重新激活候选人: formatWithDescription("重新激活候选人", "重新激活候选人"),
   面试邀约邮件发送失败: () => "发送面试邀约邮件失败",
   面试邀约邮件已发送: () => "发送面试邀约邮件",
   面试题草稿已生成: () => "生成面试题草稿",

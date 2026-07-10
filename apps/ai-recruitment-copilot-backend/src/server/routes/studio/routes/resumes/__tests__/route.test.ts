@@ -436,4 +436,16 @@ describe("resume library launch interview activity log", () => {
     expect(timelineDaoSource).toContain("creatorImage: user.image");
     expect(timelineDaoSource).toContain("actorImage: round.creatorImage");
   });
+
+  it("uses operator audit entries instead of duplicate system entity events", () => {
+    expect(timelineDaoSource).toContain("buildOperatorAuditedActionKeys");
+    expect(timelineDaoSource).toContain("if (!log.actorName)");
+    expect(timelineDaoSource).toContain(
+      '!hasOperatorAuditedAction(operatorAuditedActionKeys, "candidate_transition", "closed")',
+    );
+    expect(timelineDaoSource).toContain('detail.toStage === "closed"');
+    expect(timelineDaoSource).toContain("候选人结案");
+    expect(timelineDaoSource).toContain('"human_interview_round_created"');
+    expect(timelineDaoSource).toContain('"offer_draft_created"');
+  });
 });

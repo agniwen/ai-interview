@@ -249,9 +249,16 @@ function auditDescription(detail: Record<string, unknown>, action: string): stri
   return null;
 }
 
-function auditTitle(action: string): string {
+// oxlint-disable-next-line complexity -- Timeline audit titles are intentionally centralized by action.
+function auditTitle(action: string, detail: Record<string, unknown> = {}): string {
   switch (action) {
     case "candidate_transition": {
+      if (detail.toStage === "closed") {
+        return "候选人结案";
+      }
+      if (detail.fromStage === "closed") {
+        return "重新激活候选人";
+      }
       return "候选人阶段流转";
     }
     case "round_reset": {
@@ -541,6 +548,39 @@ function notificationTone(status: string): CandidateTimelineEventTone {
   return "muted";
 }
 
+function auditDetailString(detail: Record<string, unknown>, key: string): string | null {
+  const value = detail[key];
+  return typeof value === "string" && value ? value : null;
+}
+
+function buildOperatorAuditedActionKeys(
+  auditLogs: { action: string; actorName: string | null; detail: Record<string, unknown> | null }[],
+) {
+  const keys = new Set<string>();
+  for (const log of auditLogs) {
+    if (!log.actorName) {
+      continue;
+    }
+    const detail = log.detail ?? {};
+    const entityId =
+      auditDetailString(detail, "roundId") ??
+      auditDetailString(detail, "draftId") ??
+      auditDetailString(detail, "toStage");
+    if (entityId) {
+      keys.add(`${log.action}:${entityId}`);
+    }
+  }
+  return keys;
+}
+
+function hasOperatorAuditedAction(
+  keys: Set<string>,
+  action: string,
+  entityId: string | null | undefined,
+) {
+  return Boolean(entityId && keys.has(`${action}:${entityId}`));
+}
+
 // oxlint-disable-next-line complexity -- Timeline composition touches each event source once so audit coverage stays explicit.
 export async function loadCandidateTimeline(
   interviewRecordId: string,
@@ -564,6 +604,7 @@ export async function loadCandidateTimeline(
   ] = await loadTimelineRows(interviewRecordId, organizationId);
 
   const events: CandidateTimelineEvent[] = [];
+  const operatorAuditedActionKeys = buildOperatorAuditedActionKeys(auditLogs);
 
   addEvent(events, {
     actorImage: candidate.creatorImage,
@@ -583,7 +624,10 @@ export async function loadCandidateTimeline(
     tone: "default",
   });
 
-  if (candidate.closedAt) {
+  if (
+    candidate.closedAt &&
+    !hasOperatorAuditedAction(operatorAuditedActionKeys, "candidate_transition", "closed")
+  ) {
     addEvent(events, {
       actorImage: null,
       actorName: null,
@@ -719,32 +763,53 @@ export async function loadCandidateTimeline(
   }
 
   for (const round of humanRounds) {
-    addEvent(events, {
-      actorImage: null,
-      actorName: null,
-      description: `${round.label} 已创建`,
-      id: `human-round:${round.id}:created`,
-      kind: "human_interview",
-      metadata: compactMeta([
-        textMeta("轮次", round.label),
-        textMeta("状态", translatedLabel(round.status, HUMAN_INTERVIEW_ROUND_STATUS_LABEL)),
-      ]),
-      occurredAt: round.createdAt,
-      title: "创建真人复面",
-      tone: "info",
-    });
-    addEvent(events, {
-      actorImage: null,
-      actorName: null,
-      description: `${round.label} 已设置面试时间`,
-      id: `human-round:${round.id}:scheduled`,
-      kind: "human_interview",
-      metadata: compactMeta([textMeta("轮次", round.label)]),
-      occurredAt: round.scheduledAt,
-      title: "真人复面已排期",
-      tone: "info",
-    });
-    if (round.completedAt) {
+    const hasCreatedAudit = hasOperatorAuditedAction(
+      operatorAuditedActionKeys,
+      "human_interview_round_created",
+      round.id,
+    );
+    const hasUpdatedAudit = hasOperatorAuditedAction(
+      operatorAuditedActionKeys,
+      "human_interview_round_updated",
+      round.id,
+    );
+    if (!hasCreatedAudit) {
+      addEvent(events, {
+        actorImage: null,
+        actorName: null,
+        description: `${round.label} 已创建`,
+        id: `human-round:${round.id}:created`,
+        kind: "human_interview",
+        metadata: compactMeta([
+          textMeta("轮次", round.label),
+          textMeta("状态", translatedLabel(round.status, HUMAN_INTERVIEW_ROUND_STATUS_LABEL)),
+        ]),
+        occurredAt: round.createdAt,
+        title: "创建真人复面",
+        tone: "info",
+      });
+    }
+    if (!(hasCreatedAudit || hasUpdatedAudit)) {
+      addEvent(events, {
+        actorImage: null,
+        actorName: null,
+        description: `${round.label} 已设置面试时间`,
+        id: `human-round:${round.id}:scheduled`,
+        kind: "human_interview",
+        metadata: compactMeta([textMeta("轮次", round.label)]),
+        occurredAt: round.scheduledAt,
+        title: "真人复面已排期",
+        tone: "info",
+      });
+    }
+    if (
+      round.completedAt &&
+      !hasOperatorAuditedAction(
+        operatorAuditedActionKeys,
+        "human_interview_round_completed",
+        round.id,
+      )
+    ) {
       addEvent(events, {
         actorImage: null,
         actorName: null,
@@ -766,7 +831,14 @@ export async function loadCandidateTimeline(
         tone: round.outcome === "pass" ? "success" : "muted",
       });
     }
-    if (round.cancelledAt) {
+    if (
+      round.cancelledAt &&
+      !hasOperatorAuditedAction(
+        operatorAuditedActionKeys,
+        "human_interview_round_cancelled",
+        round.id,
+      )
+    ) {
       addEvent(events, {
         actorImage: null,
         actorName: null,
@@ -783,51 +855,67 @@ export async function loadCandidateTimeline(
 
   for (const draft of offerDrafts) {
     const statusMeta = offerDraftStatusMeta[draft.status];
-    addEvent(events, {
-      actorImage: null,
-      actorName: null,
-      description: `${draft.position} Offer v${draft.version} 已创建`,
-      id: `offer:${draft.id}:created`,
-      kind: "offer",
-      metadata: compactMeta([
-        textMeta("职位", draft.position),
-        textMeta("版本", `v${draft.version}`),
-        textMeta("币种", draft.currency),
-      ]),
-      occurredAt: draft.createdAt,
-      title: "创建 Offer",
-      tone: "info",
-    });
-    addEvent(events, {
-      actorImage: null,
-      actorName: null,
-      description: `Offer v${draft.version} 已发送，当前状态：${statusMeta.label}`,
-      id: `offer:${draft.id}:sent`,
-      kind: "offer",
-      metadata: compactMeta([
-        textMeta("职位", draft.position),
-        textMeta("版本", `v${draft.version}`),
-        textMeta("状态", statusMeta.label),
-      ]),
-      occurredAt: draft.sentAt,
-      title: "Offer 已发送",
-      tone: "info",
-    });
-    addEvent(events, {
-      actorImage: null,
-      actorName: null,
-      description: `候选人对 Offer v${draft.version} 的反馈：${statusMeta.label}`,
-      id: `offer:${draft.id}:response`,
-      kind: "offer",
-      metadata: compactMeta([
-        textMeta("职位", draft.position),
-        textMeta("版本", `v${draft.version}`),
-        textMeta("状态", statusMeta.label),
-      ]),
-      occurredAt: draft.responseAt,
-      title: "候选人回复 Offer",
-      tone: draft.status === "accepted" ? "success" : "warning",
-    });
+    const hasCreatedAudit = hasOperatorAuditedAction(
+      operatorAuditedActionKeys,
+      "offer_draft_created",
+      draft.id,
+    );
+    if (!hasCreatedAudit) {
+      addEvent(events, {
+        actorImage: null,
+        actorName: null,
+        description: `${draft.position} Offer v${draft.version} 已创建`,
+        id: `offer:${draft.id}:created`,
+        kind: "offer",
+        metadata: compactMeta([
+          textMeta("职位", draft.position),
+          textMeta("版本", `v${draft.version}`),
+          textMeta("币种", draft.currency),
+        ]),
+        occurredAt: draft.createdAt,
+        title: "创建 Offer",
+        tone: "info",
+      });
+    }
+    if (
+      !(
+        hasCreatedAudit ||
+        hasOperatorAuditedAction(operatorAuditedActionKeys, "offer_draft_sent", draft.id)
+      )
+    ) {
+      addEvent(events, {
+        actorImage: null,
+        actorName: null,
+        description: `Offer v${draft.version} 已发送，当前状态：${statusMeta.label}`,
+        id: `offer:${draft.id}:sent`,
+        kind: "offer",
+        metadata: compactMeta([
+          textMeta("职位", draft.position),
+          textMeta("版本", `v${draft.version}`),
+          textMeta("状态", statusMeta.label),
+        ]),
+        occurredAt: draft.sentAt,
+        title: "Offer 已发送",
+        tone: "info",
+      });
+    }
+    if (!hasOperatorAuditedAction(operatorAuditedActionKeys, "offer_draft_responded", draft.id)) {
+      addEvent(events, {
+        actorImage: null,
+        actorName: null,
+        description: `候选人对 Offer v${draft.version} 的反馈：${statusMeta.label}`,
+        id: `offer:${draft.id}:response`,
+        kind: "offer",
+        metadata: compactMeta([
+          textMeta("职位", draft.position),
+          textMeta("版本", `v${draft.version}`),
+          textMeta("状态", statusMeta.label),
+        ]),
+        occurredAt: draft.responseAt,
+        title: "候选人回复 Offer",
+        tone: draft.status === "accepted" ? "success" : "warning",
+      });
+    }
   }
 
   for (const log of emailLogs) {
@@ -878,7 +966,7 @@ export async function loadCandidateTimeline(
       id: `audit:${log.id}`,
       kind: "audit",
       metadata: compactMeta([
-        textMeta("动作", auditTitle(log.action)),
+        textMeta("动作", auditTitle(log.action, log.detail ?? {})),
         textMeta("轮次 ID", log.scheduleEntryId),
         textMeta(
           "重新激活原因",
@@ -889,7 +977,7 @@ export async function loadCandidateTimeline(
         ),
       ]),
       occurredAt: log.createdAt,
-      title: auditTitle(log.action),
+      title: auditTitle(log.action, log.detail ?? {}),
       tone: auditTone(log.action),
     });
   }
