@@ -3,9 +3,7 @@
 // candidate info via a schema-constrained Mastra agent call.
 
 import { setTimeout as delay } from "node:timers/promises";
-import { XMLParser } from "fast-xml-parser";
 import { convert as htmlToText } from "html-to-text";
-import JSZip from "jszip";
 import mammoth from "mammoth";
 import pLimit from "p-limit";
 import pRetry from "p-retry";
@@ -17,6 +15,18 @@ import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
 import { getResumeDocumentKind } from "@arc/shared/resume-documents";
 import { convertLegacyOfficeToOoxml } from "./office-conversion";
+import {
+  collectOfficeXmlText as collectXmlTextByLocalName,
+  extractOfficeXmlText as extractXmlText,
+  findFirstOfficeXmlDescendant as findFirstDescendant,
+  getFirstOfficeXmlChild as getFirstChild,
+  getOfficeXmlChildren as getChildren,
+  loadOfficeZip as loadZip,
+  officeXmlLocalName as localName,
+  parseOfficeXml as parseXml,
+  readOfficeXmlAttribute as readAttribute,
+  readOfficeZipText as readZipText,
+} from "./office-xml";
 import { rasterizePdfWithMeta } from "./pdf-rasterize";
 import { isQwenOcrConfigured, qwenVlOcr } from "./qwen-ocr";
 
@@ -141,14 +151,6 @@ export type ResumeParseProgressEvent =
       totalPages: number;
       type: "ocr.completed";
     };
-
-const xmlParser = new XMLParser({
-  attributeNamePrefix: "@_",
-  ignoreAttributes: false,
-  parseAttributeValue: false,
-  parseTagValue: false,
-  trimValues: false,
-});
 
 function clipForStructured(text: string): string {
   if (text.length <= STRUCTURED_TEXT_MAX_CHARS) {
@@ -285,137 +287,8 @@ function restoreOcrRetryError(error: unknown): never {
   throw error;
 }
 
-function parseXml(xml: string): unknown {
-  return xmlParser.parse(xml);
-}
-
-function localName(name: string): string {
-  return name.includes(":") ? (name.split(":").pop() ?? name) : name;
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function asArray(value: unknown): unknown[] {
-  if (value === undefined || value === null) {
-    return [];
-  }
-  return Array.isArray(value) ? value : [value];
-}
-
-function getChildren(node: unknown, childLocalName: string): unknown[] {
-  if (!isRecord(node)) {
-    return [];
-  }
-  const results: unknown[] = [];
-  for (const [key, value] of Object.entries(node)) {
-    if (key.startsWith("@_")) {
-      continue;
-    }
-    if (localName(key) === childLocalName) {
-      results.push(...asArray(value));
-    }
-  }
-  return results;
-}
-
-function getFirstChild(node: unknown, childLocalName: string): unknown {
-  return getChildren(node, childLocalName)[0];
-}
-
-function findFirstDescendant(node: unknown, descendantLocalName: string): unknown {
-  if (Array.isArray(node)) {
-    for (const item of node) {
-      const found = findFirstDescendant(item, descendantLocalName);
-      if (found !== undefined) {
-        return found;
-      }
-    }
-    return undefined;
-  }
-  if (!isRecord(node)) {
-    return undefined;
-  }
-  for (const [key, value] of Object.entries(node)) {
-    if (key.startsWith("@_")) {
-      continue;
-    }
-    if (localName(key) === descendantLocalName) {
-      return value;
-    }
-    const found = findFirstDescendant(value, descendantLocalName);
-    if (found !== undefined) {
-      return found;
-    }
-  }
-  return undefined;
-}
-
-function readAttribute(node: unknown, attributeName: string): string | null {
-  if (!isRecord(node)) {
-    return null;
-  }
-  const direct = node[`@_${attributeName}`];
-  if (typeof direct === "string") {
-    return direct;
-  }
-  for (const [key, value] of Object.entries(node)) {
-    if (
-      key.startsWith("@_") &&
-      localName(key.slice(2)) === attributeName &&
-      typeof value === "string"
-    ) {
-      return value;
-    }
-  }
-  return null;
-}
-
-function collectXmlTextByLocalName(node: unknown, textLocalName: string, output: string[]): void {
-  if (typeof node === "string" || typeof node === "number") {
-    return;
-  }
-  if (Array.isArray(node)) {
-    for (const item of node) {
-      collectXmlTextByLocalName(item, textLocalName, output);
-    }
-    return;
-  }
-  if (!isRecord(node)) {
-    return;
-  }
-  for (const [key, value] of Object.entries(node)) {
-    if (key.startsWith("@_")) {
-      continue;
-    }
-    if (localName(key) === textLocalName) {
-      for (const textNode of asArray(value)) {
-        if (typeof textNode === "string" || typeof textNode === "number") {
-          output.push(String(textNode));
-        } else if (isRecord(textNode) && typeof textNode["#text"] === "string") {
-          output.push(textNode["#text"]);
-        }
-      }
-      continue;
-    }
-    collectXmlTextByLocalName(value, textLocalName, output);
-  }
-}
-
-function extractXmlText(xml: string, textLocalName = "t"): string[] {
-  const texts: string[] = [];
-  collectXmlTextByLocalName(parseXml(xml), textLocalName, texts);
-  return texts.map((text) => text.trim()).filter(Boolean);
-}
-
-function loadZip(bytes: Uint8Array): Promise<JSZip> {
-  return JSZip.loadAsync(Buffer.from(bytes));
-}
-
-async function readZipText(zip: JSZip, path: string): Promise<string | null> {
-  const file = zip.file(path);
-  return file ? await file.async("string") : null;
 }
 
 async function extractDocxText(bytes: Uint8Array): Promise<ParsedResumeOcr> {

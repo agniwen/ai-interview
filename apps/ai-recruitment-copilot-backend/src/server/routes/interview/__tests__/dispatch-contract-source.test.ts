@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const candidateRouteSource = readFileSync(new URL("../route.ts", import.meta.url), "utf-8");
 const studioInterviewsRouteSource = readFileSync(
-  new URL("../../studio/routes/interviews/route.ts", import.meta.url),
+  new URL("../../studio/routes/interviews/detail-route.ts", import.meta.url),
   "utf-8",
 );
 

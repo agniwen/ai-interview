@@ -141,6 +141,12 @@ Either run via turbo from the root, or directly:
 - `make dev` — run web + agent in parallel
 - `make agent-console` — terminal chat without web
 
+## Frontend Route Layout (`apps/ai-recruitment-copilot/src/routes/`)
+
+Keep `src/routes/` limited to TanStack Router route modules: route declarations, route-level loaders, search validation, and thin page composition. Do not place reusable components, page sections, hooks, state models, dialog groups, list renderers, or other helper modules in `src/routes/`, including files hidden from route generation with a `-` prefix. Put feature-owned UI and client state under `src/components/features/<feature>/`; put reusable client utilities under `src/lib/client/` and TanStack Start server helpers under `src/lib/start/`.
+
+Route modules should import feature components and remain the routing boundary rather than growing into page implementations or state containers.
+
 ## Server Route Layout (`apps/ai-recruitment-copilot-backend/src/server/routes/`)
 
 Every route folder is a self-contained unit:

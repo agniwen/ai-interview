@@ -1,9 +1,6 @@
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { and, asc, eq, inArray, ne } from "drizzle-orm";
 import { uniq } from "lodash-es";
-import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
 import {
   studioHumanInterviewMeeting,
   studioHumanInterviewMeetingInterviewer,
@@ -20,144 +17,27 @@ import type {
   PublicHumanInterviewInterviewerPreview,
   PublicHumanInterviewMeetingPreview,
 } from "@arc/shared/studio-pipeline-stages";
+import {
+  HumanInterviewMeetingError,
+  buildCandidateInviteToken,
+  buildHumanInterviewRoomName,
+  buildInterviewerInviteToken,
+  buildInviteExpiry,
+  hashInviteToken,
+  resolveValidUntilInput,
+  verifyCandidateInviteToken,
+  verifyInterviewerInviteToken,
+} from "./human-interview-meeting-access";
+
+export {
+  HumanInterviewMeetingError,
+  isHumanInterviewMeetingAfterValidUntil,
+  isHumanInterviewMeetingBeforeScheduledStart,
+} from "./human-interview-meeting-access";
 
 type MeetingRow = typeof studioHumanInterviewMeeting.$inferSelect;
-const INVITE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const EARLY_JOIN_WINDOW_MS = 5 * 60 * 1000;
-const DEFAULT_VALID_DURATION_MS = 60 * 60 * 1000;
-
-const candidateInvitePayloadSchema = z.object({
-  exp: z.number().int().positive(),
-  meetingId: z.string().trim().min(1),
-  roundId: z.string().trim().min(1),
-});
-
-const interviewerInvitePayloadSchema = z.object({
-  exp: z.number().int().positive(),
-  meetingId: z.string().trim().min(1),
-  role: z.enum(["host", "interviewer", "observer"]),
-  userId: z.string().trim().min(1),
-});
-
-type CandidateInvitePayload = z.infer<typeof candidateInvitePayloadSchema>;
-type InterviewerInvitePayload = z.infer<typeof interviewerInvitePayloadSchema>;
-
-export class HumanInterviewMeetingError extends Error {
-  readonly status: 400 | 404 | 500;
-  constructor(message: string, status: 400 | 404 | 500) {
-    super(message);
-    this.name = "HumanInterviewMeetingError";
-    this.status = status;
-  }
-}
-
 function serializeDate(value: Date | null): string | null {
   return value ? value.toISOString() : null;
-}
-
-function buildRoomName(meetingId: string): string {
-  return `human_${meetingId}_${Math.floor(Math.random() * 10_000)}`;
-}
-
-function resolveValidUntilInput({
-  scheduledAt,
-  validUntil,
-  existingValidUntil,
-}: {
-  scheduledAt: Date | null;
-  validUntil: string | null | undefined;
-  existingValidUntil?: Date | null;
-}): Date | null {
-  if (!scheduledAt) {
-    return validUntil ? new Date(validUntil) : null;
-  }
-
-  let resolved: Date;
-  if (validUntil === undefined) {
-    resolved = existingValidUntil ?? new Date(scheduledAt.getTime() + DEFAULT_VALID_DURATION_MS);
-  } else if (validUntil) {
-    resolved = new Date(validUntil);
-  } else {
-    resolved = new Date(scheduledAt.getTime() + DEFAULT_VALID_DURATION_MS);
-  }
-
-  if (Number.isNaN(resolved.getTime())) {
-    throw new HumanInterviewMeetingError("请输入有效的有效时间至。", 400);
-  }
-  if (resolved.getTime() <= scheduledAt.getTime()) {
-    throw new HumanInterviewMeetingError("有效时间至必须晚于面试时间。", 400);
-  }
-  return resolved;
-}
-
-function getInviteSecret(): string {
-  try {
-    return getRequiredEnv("BETTER_AUTH_SECRET");
-  } catch {
-    throw new HumanInterviewMeetingError("邀请链接签名密钥未配置。", 500);
-  }
-}
-
-function signInvitePayload(encodedPayload: string): string {
-  return createHmac("sha256", getInviteSecret()).update(encodedPayload).digest("base64url");
-}
-
-function buildSignedInviteToken(
-  payload: CandidateInvitePayload | InterviewerInvitePayload,
-): string {
-  const encodedPayload = Buffer.from(JSON.stringify(payload), "utf-8").toString("base64url");
-  return `${encodedPayload}.${signInvitePayload(encodedPayload)}`;
-}
-
-function buildCandidateInviteToken(payload: CandidateInvitePayload): string {
-  return buildSignedInviteToken(payload);
-}
-
-function buildInterviewerInviteToken(payload: InterviewerInvitePayload): string {
-  return buildSignedInviteToken(payload);
-}
-
-function hashInviteToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
-
-function decodeSignedInviteToken(token: string): unknown | null {
-  const [encodedPayload, signature, extra] = token.split(".");
-  if (!encodedPayload || !signature || extra) {
-    return null;
-  }
-
-  const expected = signInvitePayload(encodedPayload);
-  const actualBuffer = Buffer.from(signature);
-  const expectedBuffer = Buffer.from(expected);
-  if (
-    actualBuffer.length !== expectedBuffer.length ||
-    !timingSafeEqual(actualBuffer, expectedBuffer)
-  ) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf-8"));
-  } catch {
-    return null;
-  }
-}
-
-function verifyCandidateInviteToken(token: string): CandidateInvitePayload | null {
-  const parsed = candidateInvitePayloadSchema.safeParse(decodeSignedInviteToken(token));
-  if (!parsed.success || parsed.data.exp < Date.now()) {
-    return null;
-  }
-  return parsed.data;
-}
-
-function verifyInterviewerInviteToken(token: string): InterviewerInvitePayload | null {
-  const parsed = interviewerInvitePayloadSchema.safeParse(decodeSignedInviteToken(token));
-  if (!parsed.success || parsed.data.exp < Date.now()) {
-    return null;
-  }
-  return parsed.data;
 }
 
 function toRecord({
@@ -407,7 +287,7 @@ export async function createHumanInterviewMeeting({
       createdAt: now,
       createdBy,
       id,
-      liveKitRoomName: buildRoomName(id),
+      liveKitRoomName: buildHumanInterviewRoomName(id),
       notes: input.notes ?? null,
       organizationId,
       scheduledAt,
@@ -486,7 +366,7 @@ export async function issueHumanInterviewMeetingLinks({
       row.candidateInviteTokenHash === hashInviteToken(reusableToken),
     );
     const expiresAt =
-      shouldReuse && currentExpiresAt ? currentExpiresAt : new Date(now + INVITE_TTL_MS);
+      shouldReuse && currentExpiresAt ? currentExpiresAt : new Date(buildInviteExpiry(now));
     const token =
       shouldReuse && reusableToken
         ? reusableToken
@@ -522,7 +402,7 @@ export async function issueHumanInterviewMeetingLinks({
     });
   }
 
-  const interviewerExpiresAt = now + INVITE_TTL_MS;
+  const interviewerExpiresAt = buildInviteExpiry(now);
   return {
     candidateLinks,
     interviewerLinks: meeting.interviewers.map((interviewer) => ({
@@ -689,28 +569,6 @@ export async function markHumanInterviewMeetingInProgress(meetingId: string): Pr
         eq(studioHumanInterviewMeeting.status, "scheduled"),
       ),
     );
-}
-
-export function isHumanInterviewMeetingBeforeScheduledStart(scheduledAt: string | null): boolean {
-  if (!scheduledAt) {
-    return false;
-  }
-  const start = new Date(scheduledAt);
-  return !Number.isNaN(start.getTime()) && start.getTime() - EARLY_JOIN_WINDOW_MS > Date.now();
-}
-
-export function isHumanInterviewMeetingAfterValidUntil(
-  validUntil: string | null,
-  nowInput: string | number | Date = Date.now(),
-): boolean {
-  if (!validUntil) {
-    return true;
-  }
-  const end = new Date(validUntil);
-  const now = new Date(nowInput);
-  return (
-    !Number.isNaN(end.getTime()) && !Number.isNaN(now.getTime()) && end.getTime() < now.getTime()
-  );
 }
 
 export async function markHumanInterviewMeetingInProgressByRoomName(

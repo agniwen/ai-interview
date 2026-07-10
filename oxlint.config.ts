@@ -17,6 +17,12 @@ export default defineConfig({
   ],
   overrides: [
     {
+      files: ["packages/db-schema/src/schema.ts"],
+      rules: {
+        "max-lines": "off",
+      },
+    },
+    {
       files: ["apps/ai-recruitment-copilot/src/routes/**/*.{ts,tsx}"],
       rules: {
         "nextjs/no-head-element": "off",
@@ -31,5 +37,13 @@ export default defineConfig({
   ],
   rules: {
     "func-style": "off",
+    "max-lines": [
+      "error",
+      {
+        max: 800,
+        skipBlankLines: false,
+        skipComments: false,
+      },
+    ],
   },
 });

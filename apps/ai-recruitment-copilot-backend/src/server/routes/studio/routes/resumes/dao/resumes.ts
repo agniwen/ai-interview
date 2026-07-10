@@ -22,19 +22,17 @@ import {
   user,
 } from "@arc/db-schema/schema";
 import { candidateOutcomeValues, pipelineStageValues } from "@arc/db-schema/studio-interviews";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { CandidateOutcome, PipelineStage } from "@arc/db-schema/studio-interviews";
 import type {
   PaginatedResumeLibraryResult,
   ResumeLibraryDetail,
   ResumeLibraryListRecord,
-  ResumeLibraryProfileSnapshot,
   ResumeStageProgress,
 } from "@arc/shared/studio-resumes";
 import type { ResumeDuplicateMatchSummary } from "@arc/shared/resume-duplicates";
-import { formatResumeEducationSchoolWithLevel } from "@arc/shared/resume-education";
 import { resumeScreeningResultSchema } from "@arc/shared/resume-screening";
 import { normalizeSkill } from "./skills";
+import { buildResumeProfileSnapshot } from "./resume-profile-snapshot";
 
 const SORT_COLUMNS = ["createdAt", "candidateName", "updatedAt"] as const;
 
@@ -45,7 +43,6 @@ const ORDER_COLUMNS = {
 } as const;
 
 const paginationSchema = makePaginationSchema(SORT_COLUMNS);
-const RESUME_PROFILE_SNAPSHOT_LIMIT = 3;
 
 // 允许调用方原样传入 CSV 拆分结果（可能含空串）；buildWhere 内统一 trim + drop blank。
 // Accept caller-supplied arrays that may contain empty/whitespace entries —
@@ -312,42 +309,6 @@ function serializeStageProgressTimestamp(value: Date | string | null): string | 
   return Number.isNaN(date.getTime()) ? value : date.toISOString();
 }
 
-const RESUME_PROFILE_PLACEHOLDER = "未发现信息";
-
-function cleanResumeProfileText(value: string | null | undefined) {
-  const text = value?.trim();
-  return text && text !== RESUME_PROFILE_PLACEHOLDER ? text : null;
-}
-
-function formatResumeCardPeriod(value: string | null | undefined) {
-  const text = cleanResumeProfileText(value);
-  if (!text) {
-    return null;
-  }
-  const dateTokens = [...text.matchAll(/(\d{4})\s*[./年-]\s*(\d{1,2})\s*月?/gu)]
-    .map(([, year, rawMonth]) => {
-      const month = Number(rawMonth);
-      return month >= 1 && month <= 12 ? `${year}.${month.toString().padStart(2, "0")}` : null;
-    })
-    .filter((item): item is string => item !== null);
-
-  if (dateTokens.length === 0) {
-    const years = [...text.matchAll(/(?:^|[^\d])(\d{4})(?=$|[^\d])/gu)].map((match) => match[1]);
-    if (years.length === 0) {
-      return text;
-    }
-    if (years.length === 1 && /(至今|现在|目前|present|current)/iu.test(text)) {
-      return `${years[0]} - 至今`;
-    }
-    return years.slice(0, 2).join(" - ");
-  }
-
-  if (dateTokens.length === 1 && /(至今|现在|目前|present|current)/iu.test(text)) {
-    return `${dateTokens[0]} - 至今`;
-  }
-  return dateTokens.slice(0, 2).join(" - ");
-}
-
 function toStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -373,153 +334,6 @@ function buildResumeSkills(value: unknown) {
 function parseResumeScreeningResult(value: unknown) {
   const parsed = resumeScreeningResultSchema.safeParse(value);
   return parsed.success ? parsed.data : null;
-}
-
-function toRecordArray(value: unknown): Record<string, unknown>[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.filter(
-    (item): item is Record<string, unknown> => typeof item === "object" && item !== null,
-  );
-}
-
-function cleanResumeProfileRecordText(record: Record<string, unknown>, key: string) {
-  const value = record[key];
-  return typeof value === "string" ? cleanResumeProfileText(value) : null;
-}
-
-type ResumeProfileWorkExperience = ResumeProfile["workExperiences"][number];
-type ResumeProfileEducationExperience = NonNullable<ResumeProfile["educationExperiences"]>[number];
-
-function buildResumeWorkSnapshotLines(value: unknown): ResumeLibraryProfileSnapshot["work"] {
-  return toRecordArray(value).flatMap(
-    (item: Partial<ResumeProfileWorkExperience> & Record<string, unknown>) => {
-      const company = cleanResumeProfileRecordText(item, "company");
-      const role = cleanResumeProfileRecordText(item, "role");
-      const primary = company ?? role;
-      if (!primary) {
-        return [];
-      }
-      return [
-        {
-          period: formatResumeCardPeriod(cleanResumeProfileRecordText(item, "period")),
-          primary,
-          secondary: company ? role : null,
-        },
-      ];
-    },
-  );
-}
-
-function buildResumeEducationSnapshotLines(
-  value: unknown,
-): ResumeLibraryProfileSnapshot["education"] {
-  return toRecordArray(value).flatMap(
-    (item: Partial<ResumeProfileEducationExperience> & Record<string, unknown>) => {
-      const school = cleanResumeProfileRecordText(item, "school");
-      if (!school) {
-        return [];
-      }
-      const educationLevel = cleanResumeProfileRecordText(item, "educationLevel");
-      return [
-        {
-          period:
-            formatResumeCardPeriod(cleanResumeProfileRecordText(item, "period")) ??
-            formatResumeCardPeriod(cleanResumeProfileRecordText(item, "graduationYear")),
-          primary: formatResumeEducationSchoolWithLevel({ educationLevel, school }) ?? school,
-          secondary: cleanResumeProfileRecordText(item, "major"),
-        },
-      ];
-    },
-  );
-}
-
-function buildLegacyWorkSnapshotFallback(row: Row): ResumeLibraryProfileSnapshot["work"] {
-  const workPrimary =
-    cleanResumeProfileText(row.resumeWorkCompany) ?? cleanResumeProfileText(row.resumeWorkRole);
-  return workPrimary
-    ? [
-        {
-          period: formatResumeCardPeriod(row.resumeWorkPeriod),
-          primary: workPrimary,
-          secondary: cleanResumeProfileText(row.resumeWorkCompany)
-            ? cleanResumeProfileText(row.resumeWorkRole)
-            : null,
-        },
-      ]
-    : [];
-}
-
-function buildLegacyEducationSnapshotFallback(row: Row): ResumeLibraryProfileSnapshot["education"] {
-  const educationSchool =
-    cleanResumeProfileText(row.resumeEducationSchool) ?? cleanResumeProfileText(row.resumeSchool);
-  return educationSchool
-    ? [
-        {
-          period:
-            formatResumeCardPeriod(row.resumeEducationPeriod) ??
-            formatResumeCardPeriod(row.resumeEducationGraduationYear),
-          primary:
-            formatResumeEducationSchoolWithLevel({
-              educationLevel: cleanResumeProfileText(row.resumeEducationLevel),
-              school: educationSchool,
-            }) ?? educationSchool,
-          secondary: cleanResumeProfileText(row.resumeEducationMajor),
-        },
-      ]
-    : [];
-}
-
-function getResumeSnapshotDateRank(value: string): number | null {
-  const monthTokens = [...value.matchAll(/(\d{4})\.(\d{1,2})/gu)].map(([, year, month]) => {
-    const parsedMonth = Number(month);
-    return Number(year) * 12 + (parsedMonth >= 1 && parsedMonth <= 12 ? parsedMonth : 1);
-  });
-  if (monthTokens.length > 0) {
-    return monthTokens.at(-1) ?? null;
-  }
-
-  const yearTokens = [...value.matchAll(/(?:^|[^\d])(\d{4})(?=$|[^\d])/gu)].map(
-    ([, year]) => Number(year) * 12,
-  );
-  return yearTokens.at(-1) ?? null;
-}
-
-function getResumeSnapshotLineSortValue(line: ResumeLibraryProfileSnapshot["work"][number]) {
-  if (!line.period) {
-    return Number.NEGATIVE_INFINITY;
-  }
-  if (/(至今|现在|目前|present|current)/iu.test(line.period)) {
-    return Number.POSITIVE_INFINITY;
-  }
-  return getResumeSnapshotDateRank(line.period) ?? Number.NEGATIVE_INFINITY;
-}
-
-function sortResumeProfileSnapshotLines(
-  a: ResumeLibraryProfileSnapshot["work"][number],
-  b: ResumeLibraryProfileSnapshot["work"][number],
-) {
-  return getResumeSnapshotLineSortValue(b) - getResumeSnapshotLineSortValue(a);
-}
-
-function buildResumeProfileSnapshot(row: Row): ResumeLibraryProfileSnapshot {
-  const work = buildResumeWorkSnapshotLines(row.resumeWorkExperiences).toSorted(
-    sortResumeProfileSnapshotLines,
-  );
-  const education = buildResumeEducationSnapshotLines(row.resumeEducationExperiences).toSorted(
-    sortResumeProfileSnapshotLines,
-  );
-  const resolvedWork = work.length > 0 ? work : buildLegacyWorkSnapshotFallback(row);
-  const resolvedEducation =
-    education.length > 0 ? education : buildLegacyEducationSnapshotFallback(row);
-
-  return {
-    education: resolvedEducation.slice(0, RESUME_PROFILE_SNAPSHOT_LIMIT),
-    educationHasMore: resolvedEducation.length > RESUME_PROFILE_SNAPSHOT_LIMIT,
-    work: resolvedWork.slice(0, RESUME_PROFILE_SNAPSHOT_LIMIT),
-    workHasMore: resolvedWork.length > RESUME_PROFILE_SNAPSHOT_LIMIT,
-  };
 }
 
 // 批量组装 4 类派生字段，集中在一个函数里避免在分页行上重复 correlated subquery。

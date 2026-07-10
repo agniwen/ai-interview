@@ -22,27 +22,9 @@ import {
   IconPencil,
   IconRefresh,
   IconSquare,
-  IconX,
 } from "@tabler/icons-react";
-import {
-  createContext,
-  lazy,
-  Suspense,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-import type {
-  ChangeEvent,
-  ComponentProps,
-  CSSProperties,
-  FormEvent,
-  KeyboardEvent,
-  PropsWithChildren,
-  ReactNode,
-} from "react";
+import { useEffect, useState } from "react";
+import type { ChangeEvent, ComponentProps, FormEvent, KeyboardEvent, ReactNode } from "react";
 import { toast } from "sonner";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import {
@@ -51,10 +33,8 @@ import {
 } from "@/components/features/resume/resume-document-file-icon";
 import {
   UnsupportedResumeDocumentPreviewTooltip,
-  getPreviewableResumeDocumentKind,
   isPreviewableResumeDocumentInput,
 } from "@/components/features/resume/resume-document-preview-button";
-import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { confirmRecruitingAction } from "@/lib/client/api";
@@ -62,208 +42,22 @@ import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { cn } from "@/lib/utils";
 import { notifyConversationsChanged } from "@/components/features/chat/lib/chat-events";
 import { pipelineStageMeta, pipelineStageSchema } from "@arc/db-schema/studio-interviews";
-
-const ResumeDocumentPreviewDialog = lazy(async () => {
-  const mod = await import("@/components/features/resume/resume-document-preview-dialog");
-  return { default: mod.ResumeDocumentPreviewDialog };
-});
-
-interface CandidateSummaryCard {
-  candidateName: string;
-  hasResumeFile?: boolean;
-  id: string;
-  jobDescriptionId: string | null;
-  jobDescriptionName: string | null;
-  keySkills: string[];
-  notes: string | null;
-  pipelineStage: string;
-  resumeFileName?: string | null;
-  resumeSummary: string | null;
-  targetRole: string | null;
-  updatedAt: string;
-  workYears: number | null;
-}
-
-interface SearchResumeRecordsResult {
-  candidateSummaryCards?: CandidateSummaryCard[];
-  citations?: CopilotCitation[];
-  retrievalMode?: "combined" | "semantic" | "structured" | "structured_text";
-  semanticHitCount?: number;
-  total?: number;
-}
-
-interface CopilotCitation {
-  id: string;
-  label: string;
-  recordType: "job_description" | "resume_pool_item" | "resume_record";
-  secondaryLabel: string | null;
-}
-
-interface RecruitingActionProposal {
-  explanation: string;
-  id: string;
-  payload: Record<string, unknown>;
-  title: string;
-  type: "bind_candidate_to_job" | "advance_candidate_stage" | "generate_interview_questions";
-}
-
-interface RecruitingActionProposalResult {
-  proposal?: RecruitingActionProposal;
-}
-
-type ProposalStatus = "confirmed" | "failed" | "ignored" | "pending";
-
-interface RecruitingCopilotContextValue {
-  citations: CopilotCitation[];
-  conversationId: string | null;
-  proposalStatuses: Record<string, ProposalStatus>;
-  proposals: RecruitingActionProposal[];
-  markProposal: (id: string, status: ProposalStatus) => void;
-  openResumeDetail: (recordId: string) => void;
-  openResumePreview: (record: Pick<CandidateSummaryCard, "id" | "resumeFileName">) => void;
-  upsertCitations: (citations: CopilotCitation[]) => void;
-  upsertProposal: (proposal: RecruitingActionProposal) => void;
-}
-
-const RecruitingCopilotContext = createContext<RecruitingCopilotContextValue | null>(null);
-
-function useRecruitingCopilotContext() {
-  const context = useContext(RecruitingCopilotContext);
-  if (!context) {
-    throw new Error("RecruitingCopilotContext is missing.");
-  }
-  return context;
-}
-
-function mergeByKey<T>(current: T[], incoming: T[], keyOf: (value: T) => string): T[] {
-  const map = new Map(current.map((item) => [keyOf(item), item]));
-  for (const item of incoming) {
-    map.set(keyOf(item), item);
-  }
-  return [...map.values()];
-}
-
-export function RecruitingCopilotContextProvider({
-  children,
-  conversationId,
-}: PropsWithChildren<{ conversationId: string | null }>) {
-  const [citations, setCitations] = useState<CopilotCitation[]>([]);
-  const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
-  const [previewRecord, setPreviewRecord] = useState<Pick<
-    CandidateSummaryCard,
-    "id" | "resumeFileName"
-  > | null>(null);
-  const [proposals, setProposals] = useState<RecruitingActionProposal[]>([]);
-  const [proposalStatuses, setProposalStatuses] = useState<Record<string, ProposalStatus>>({});
-
-  useEffect(() => {
-    setCitations([]);
-    setDetailRecordId(null);
-    setPreviewRecord(null);
-    setProposals([]);
-    setProposalStatuses({});
-  }, [conversationId]);
-
-  const upsertCitations = useCallback((next: CopilotCitation[]) => {
-    if (next.length === 0) {
-      return;
-    }
-    setCitations((current) =>
-      mergeByKey(current, next, (citation) => `${citation.recordType}:${citation.id}`),
-    );
-  }, []);
-
-  const upsertProposal = useCallback((proposal: RecruitingActionProposal) => {
-    setProposals((current) => mergeByKey(current, [proposal], (item) => item.id));
-    setProposalStatuses((current) => ({
-      ...current,
-      [proposal.id]: current[proposal.id] ?? "pending",
-    }));
-  }, []);
-
-  const markProposal = useCallback((id: string, status: ProposalStatus) => {
-    setProposalStatuses((current) => ({ ...current, [id]: status }));
-  }, []);
-
-  const openResumeDetail = useCallback((recordId: string) => {
-    setDetailRecordId(recordId);
-  }, []);
-
-  const openResumePreview = useCallback(
-    (record: Pick<CandidateSummaryCard, "id" | "resumeFileName">) => {
-      setPreviewRecord(record);
-    },
-    [],
-  );
-
-  const value = useMemo(
-    () => ({
-      citations,
-      conversationId,
-      markProposal,
-      openResumeDetail,
-      openResumePreview,
-      proposalStatuses,
-      proposals,
-      upsertCitations,
-      upsertProposal,
-    }),
-    [
-      citations,
-      conversationId,
-      markProposal,
-      openResumeDetail,
-      openResumePreview,
-      proposalStatuses,
-      proposals,
-      upsertCitations,
-      upsertProposal,
-    ],
-  );
-
-  const previewKind = previewRecord
-    ? getPreviewableResumeDocumentKind({ fileName: previewRecord.resumeFileName })
-    : null;
-  const slug = useWorkspaceSlug();
-
-  return (
-    <RecruitingCopilotContext.Provider value={value}>
-      {children}
-      <StudioPersonDetailDialog
-        mode="resume"
-        onOpenChange={(open) => {
-          if (!open) {
-            setDetailRecordId(null);
-          }
-        }}
-        open={detailRecordId !== null}
-        recordId={detailRecordId}
-      />
-      {previewRecord && previewKind ? (
-        <Suspense fallback={null}>
-          <ResumeDocumentPreviewDialog
-            filename={previewRecord.resumeFileName ?? undefined}
-            kind={previewKind}
-            onOpenChange={(open) => !open && setPreviewRecord(null)}
-            open={previewRecord !== null}
-            url={`/api/w/${slug}/studio/resumes/${previewRecord.id}/resume`}
-          />
-        </Suspense>
-      ) : null}
-    </RecruitingCopilotContext.Provider>
-  );
-}
-
-const activeThreadStyle = {
-  "--thread-max-width": "48rem",
-} as CSSProperties;
-
-const emptyThreadStyle = {
-  "--thread-max-width": "48rem",
-} as CSSProperties;
-
-const composerSendButtonClass =
-  "size-9 rounded-full bg-primary p-0 text-primary-foreground hover:bg-primary/90 disabled:border-input disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100";
+import { RecruitingContextPanel } from "./recruiting-context-panel";
+import {
+  activeThreadStyle,
+  composerSendButtonClass,
+  emptyThreadStyle,
+  useRecruitingCopilotContext,
+} from "./recruiting-copilot-context";
+import type {
+  CandidateSummaryCard,
+  CopilotCitation,
+  ProposalStatus,
+  RecruitingActionProposal,
+  RecruitingActionProposalResult,
+  SearchResumeRecordsResult,
+} from "./recruiting-copilot-context";
+export { RecruitingCopilotContextProvider } from "./recruiting-copilot-context";
 
 function ToolNotice({ children }: { children: string }) {
   return (
@@ -516,173 +310,6 @@ function CopilotToolContextReporter({
     }
   }, [proposal, upsertProposal]);
   return null;
-}
-
-function citationHref(slug: string, citation: CopilotCitation) {
-  if (citation.recordType === "job_description") {
-    return `/w/${slug}/studio/job-descriptions`;
-  }
-  if (citation.recordType === "resume_pool_item") {
-    return `/w/${slug}/studio/resume-pool`;
-  }
-  return `/w/${slug}/studio/resumes`;
-}
-
-function CitationList({ citations }: { citations: CopilotCitation[] }) {
-  const slug = useWorkspaceSlug();
-  if (citations.length === 0) {
-    return <p className="text-muted-foreground text-sm">当前会话还没有引用系统记录。</p>;
-  }
-  return (
-    <div className="grid gap-2">
-      {citations.map((citation) => (
-        <a
-          className="group flex min-w-0 items-start justify-between gap-2 rounded-lg border bg-background px-3 py-2 text-sm transition-colors hover:border-primary/40 hover:bg-primary/5"
-          href={citationHref(slug, citation)}
-          key={`${citation.recordType}:${citation.id}`}
-        >
-          <span className="min-w-0">
-            <span className="block truncate font-medium">{citation.label}</span>
-            <span className="block truncate text-muted-foreground text-xs">
-              {citation.secondaryLabel ?? citation.recordType}
-            </span>
-          </span>
-          <IconExternalLink className="mt-0.5 size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
-        </a>
-      ))}
-    </div>
-  );
-}
-
-function ProposalList({
-  proposals,
-  statuses,
-}: {
-  proposals: RecruitingActionProposal[];
-  statuses: Record<string, ProposalStatus>;
-}) {
-  if (proposals.length === 0) {
-    return <p className="text-muted-foreground text-sm">暂无待确认动作。</p>;
-  }
-  return (
-    <div className="grid gap-2">
-      {proposals.map((proposal) => (
-        <div className="rounded-lg border bg-background px-3 py-2 text-sm" key={proposal.id}>
-          <div className="flex items-start justify-between gap-2">
-            <p className="min-w-0 truncate font-medium">{proposal.title}</p>
-            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs">
-              {statuses[proposal.id] ?? "pending"}
-            </span>
-          </div>
-          <p className="mt-1 line-clamp-2 text-muted-foreground text-xs">{proposal.explanation}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ContextPanelContent() {
-  const { citations, proposalStatuses, proposals } = useRecruitingCopilotContext();
-  const pendingCount = proposals.filter(
-    (proposal) => (proposalStatuses[proposal.id] ?? "pending") === "pending",
-  ).length;
-  return (
-    <div className="space-y-5">
-      <section>
-        <h2 className="font-medium text-sm">引用记录</h2>
-        <div className="mt-2">
-          <CitationList citations={citations} />
-        </div>
-      </section>
-      <section>
-        <h2 className="font-medium text-sm">检索范围</h2>
-        <div className="mt-2 rounded-lg border bg-background px-3 py-2 text-sm">
-          <p>当前 workspace 招聘台与岗位库</p>
-          <p className="mt-1 text-muted-foreground text-xs">
-            已收集 {citations.length} 条引用，{pendingCount} 个动作待确认。
-          </p>
-        </div>
-      </section>
-      <section>
-        <h2 className="font-medium text-sm">待确认动作</h2>
-        <div className="mt-2">
-          <ProposalList proposals={proposals} statuses={proposalStatuses} />
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function RecruitingContextPanel() {
-  const [desktopOpen, setDesktopOpen] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  return (
-    <>
-      {desktopOpen ? (
-        <aside className="absolute top-4 right-4 bottom-4 z-30 hidden w-80 overflow-hidden rounded-xl border bg-background/95 shadow-xl shadow-black/8 backdrop-blur lg:flex">
-          <div className="flex h-full min-h-0 flex-1 flex-col">
-            <div className="flex h-12 shrink-0 items-center justify-between border-b px-3">
-              <h2 className="font-medium text-sm">上下文</h2>
-              <Button
-                aria-label="收起上下文"
-                className="ms-auto size-8"
-                onClick={() => setDesktopOpen(false)}
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                <IconX className="size-4" />
-              </Button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-3">
-              <ContextPanelContent />
-            </div>
-          </div>
-        </aside>
-      ) : (
-        <Button
-          aria-label="展开上下文"
-          className="absolute top-4 right-4 z-30 hidden h-9 rounded-full bg-background/95 px-3 shadow-lg shadow-black/8 backdrop-blur lg:inline-flex"
-          onClick={() => setDesktopOpen(true)}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          <IconExternalLink className="size-4" />
-          上下文
-        </Button>
-      )}
-      <Button
-        className="absolute top-4 right-4 z-30 h-9 rounded-full bg-background/95 px-3 shadow-lg shadow-black/8 backdrop-blur lg:hidden"
-        onClick={() => setMobileOpen(true)}
-        size="sm"
-        type="button"
-        variant="outline"
-      >
-        上下文
-      </Button>
-      {mobileOpen ? (
-        <div className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden">
-          <div className="absolute inset-x-3 bottom-20 max-h-[70vh] overflow-y-auto rounded-2xl border bg-background p-3 shadow-lg">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-medium text-sm">上下文</h2>
-              <Button
-                aria-label="关闭上下文"
-                className="size-8"
-                onClick={() => setMobileOpen(false)}
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                <IconX className="size-4" />
-              </Button>
-            </div>
-            <ContextPanelContent />
-          </div>
-        </div>
-      ) : null}
-    </>
-  );
 }
 
 function getPipelineStageLabel(stage: string) {

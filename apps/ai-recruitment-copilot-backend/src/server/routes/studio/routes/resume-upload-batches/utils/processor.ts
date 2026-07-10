@@ -38,6 +38,16 @@ import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backen
 import { replaceDuplicateMatchesForSource } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
 import { generateResumeReviewBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-generation";
 import { completeResumePoolReadinessWithDefaultAdapters } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/utils/readiness";
+import {
+  BatchItemCancelledError,
+  assertBatchItemNotCancelled,
+  getClaimMissRetryError,
+  isBatchItemCancelled,
+  isBatchItemCancelledError,
+  loadClaimMissSnapshot,
+} from "./processor-claims";
+
+export { getClaimMissRetryError } from "./processor-claims";
 
 const ERROR_MESSAGE_MAX = 500;
 
@@ -60,78 +70,6 @@ type ItemRow = Awaited<ReturnType<typeof claimNextPendingItem>>;
 type BatchRow = typeof resumeUploadBatch.$inferSelect;
 type ParsedResume = Awaited<ReturnType<typeof parseResumeBytesToProfile>>;
 type DuplicateMatches = Awaited<ReturnType<typeof findSemanticResumeDuplicates>>;
-
-class BatchItemCancelledError extends Error {
-  readonly batchId: string;
-  readonly itemId: string;
-
-  constructor(batchId: string, itemId: string) {
-    super("简历上传任务已取消。");
-    this.name = "BatchItemCancelledError";
-    this.batchId = batchId;
-    this.itemId = itemId;
-  }
-}
-
-async function loadClaimMissSnapshot(itemId: string) {
-  const [row] = await db
-    .select({
-      batchId: resumeUploadBatchItem.batchId,
-      startedAt: resumeUploadBatchItem.startedAt,
-      status: resumeUploadBatchItem.status,
-    })
-    .from(resumeUploadBatchItem)
-    .where(eq(resumeUploadBatchItem.id, itemId))
-    .limit(1);
-  return row ?? null;
-}
-
-async function isBatchItemCancelled(batchId: string, itemId: string): Promise<boolean> {
-  const [row] = await db
-    .select({
-      batchStatus: resumeUploadBatch.status,
-      itemStatus: resumeUploadBatchItem.status,
-    })
-    .from(resumeUploadBatchItem)
-    .innerJoin(resumeUploadBatch, eq(resumeUploadBatch.id, resumeUploadBatchItem.batchId))
-    .where(and(eq(resumeUploadBatchItem.id, itemId), eq(resumeUploadBatchItem.batchId, batchId)))
-    .limit(1);
-  return !row || row.batchStatus === "cancelled" || row.itemStatus === "cancelled";
-}
-
-async function assertBatchItemNotCancelled(batchId: string, itemId: string): Promise<void> {
-  if (await isBatchItemCancelled(batchId, itemId)) {
-    throw new BatchItemCancelledError(batchId, itemId);
-  }
-}
-
-type ClaimMissSnapshot = {
-  batchId: string;
-  startedAt: Date | null;
-  status: string;
-} | null;
-
-const CLAIM_MISS_NOOP_STATUSES = new Set([
-  "cancelled",
-  "duplicate_skipped",
-  "failed",
-  "processing",
-  "succeeded",
-]);
-
-export function getClaimMissRetryError(snapshot: ClaimMissSnapshot, itemId: string): Error | null {
-  if (!snapshot) {
-    return new Error(
-      `简历解析任务 ${itemId} 未找到对应上传项；请检查 worker 的 DATABASE_URL 是否与 Web/API 一致。`,
-    );
-  }
-  if (CLAIM_MISS_NOOP_STATUSES.has(snapshot.status)) {
-    return null;
-  }
-  return new Error(
-    `简历解析任务 ${itemId} 未能 claim 上传项（当前状态：${snapshot.status}），将交由队列重试。`,
-  );
-}
 
 // 拿到 resumeProfile 的两条路径：
 //   1) 命中注册表 → 投影 parsedStructured（零额外调用）
@@ -606,13 +544,6 @@ async function writeOutcome(
     durationMs: elapsed(reconcileStartedAt),
     itemId: item.id,
   });
-}
-
-function isBatchItemCancelledError(error: unknown): error is BatchItemCancelledError {
-  return (
-    error instanceof BatchItemCancelledError ||
-    (error instanceof Error && error.name === "BatchItemCancelledError")
-  );
 }
 
 function isTerminalBatchStatus(status: string): boolean {

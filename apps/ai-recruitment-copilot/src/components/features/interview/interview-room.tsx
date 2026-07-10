@@ -1,17 +1,13 @@
 "use client";
 
-import type { TablerIcon } from "@tabler/icons-react";
 import {
   IconAlertTriangle,
-  IconCircleCheck,
   IconMessage2,
   IconMicrophone,
   IconMicrophoneOff,
-  IconRefresh,
   IconUserCheck,
   IconVideo,
   IconVolume2,
-  IconWifi,
 } from "@tabler/icons-react";
 import type { CandidateInterviewView } from "@arc/shared/interview/interview-record";
 import { useAgent, useSession } from "@livekit/components-react";
@@ -23,7 +19,6 @@ import { AgentSessionProvider } from "@/components/agents-ui/agent-session-provi
 import { AgentSessionView_01 } from "@/components/agents-ui/blocks/agent-session-view-01";
 import { StartAudioButton } from "@/components/agents-ui/start-audio-button";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -38,6 +33,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { env } from "@/env/client";
 import { rpc } from "@/lib/client/rpc";
 import { InterviewTimer } from "./interview-timer";
+import { DevicePreflightCard } from "./interview-device-preflight";
+import { RuleItem } from "./interview-rule-item";
 import { PreInterviewFormsView } from "./pre-interview-forms-view";
 
 function AgentSpeechTimer() {
@@ -132,231 +129,6 @@ function resolveSubheading({
     return "正在为你重新接入刚才的对话，请稍候...";
   }
   return buildSubheading({ questionCount, roundLabel, targetRole });
-}
-
-function RuleItem({
-  icon: Icon,
-  title,
-  description,
-}: {
-  icon: TablerIcon;
-  title: string;
-  description: string;
-}) {
-  return (
-    <li className="flex gap-3 py-4 sm:gap-4 sm:py-5">
-      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground sm:size-4.5" />
-      <div className="flex flex-col gap-1">
-        <div className="font-medium text-sm sm:text-base">{title}</div>
-        <p className="text-muted-foreground text-xs leading-normal sm:text-sm">{description}</p>
-      </div>
-    </li>
-  );
-}
-
-type DeviceCheckStatus = "idle" | "checking" | "passed" | "warning" | "failed";
-
-interface DeviceCheckResult {
-  camera: DeviceCheckStatus;
-  microphone: DeviceCheckStatus;
-  network: DeviceCheckStatus;
-  message: string | null;
-}
-
-function stopStream(stream: MediaStream) {
-  for (const track of stream.getTracks()) {
-    track.stop();
-  }
-}
-
-function formatMediaError(error: unknown) {
-  if (!(error instanceof Error)) {
-    return "设备不可用";
-  }
-  if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
-    return "浏览器权限未允许";
-  }
-  if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
-    return "未找到可用设备";
-  }
-  if (error.name === "NotReadableError") {
-    return "设备可能被其他应用占用";
-  }
-  return error.message || "设备不可用";
-}
-
-async function checkMediaDevice(constraints: MediaStreamConstraints) {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    stopStream(stream);
-    return { ok: true, reason: null };
-  } catch (error) {
-    return { ok: false, reason: formatMediaError(error) };
-  }
-}
-
-function DeviceCheckBadge({ status }: { status: DeviceCheckStatus }) {
-  switch (status) {
-    case "checking": {
-      return <Badge variant="info">检测中</Badge>;
-    }
-    case "passed": {
-      return <Badge variant="success">正常</Badge>;
-    }
-    case "warning": {
-      return <Badge variant="warning">需留意</Badge>;
-    }
-    case "failed": {
-      return <Badge variant="destructive">异常</Badge>;
-    }
-    default: {
-      return <Badge variant="outline">未检测</Badge>;
-    }
-  }
-}
-
-function DeviceCheckItem({
-  detail,
-  icon: Icon,
-  status,
-  title,
-}: {
-  detail: string;
-  icon: TablerIcon;
-  status: DeviceCheckStatus;
-  title: string;
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-background/70 p-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Icon className="size-4 text-muted-foreground" />
-          <span className="font-medium text-sm">{title}</span>
-        </div>
-        <DeviceCheckBadge status={status} />
-      </div>
-      <p className="mt-2 text-muted-foreground text-xs leading-normal">{detail}</p>
-    </div>
-  );
-}
-
-function DevicePreflightCard({ recordingEnabled }: { recordingEnabled: boolean }) {
-  const [checking, setChecking] = useState(false);
-  const [result, setResult] = useState<DeviceCheckResult>({
-    camera: "idle",
-    message: null,
-    microphone: "idle",
-    network: "idle",
-  });
-
-  const runChecks = useCallback(async () => {
-    setChecking(true);
-    setResult({
-      camera: recordingEnabled ? "checking" : "idle",
-      message: "正在检测设备状态...",
-      microphone: "checking",
-      network: navigator.onLine ? "checking" : "failed",
-    });
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setResult({
-        camera: "failed",
-        message: "当前浏览器不支持媒体设备检测，请换用新版 Chrome、Edge 或 Safari。",
-        microphone: "failed",
-        network: navigator.onLine ? "passed" : "failed",
-      });
-      setChecking(false);
-      return;
-    }
-
-    const [microphone, camera] = await Promise.all([
-      checkMediaDevice({
-        audio: { autoGainControl: true, echoCancellation: true, noiseSuppression: true },
-      }),
-      recordingEnabled
-        ? checkMediaDevice({ video: true })
-        : Promise.resolve({ ok: true, reason: null }),
-    ]);
-
-    const networkStatus = navigator.onLine ? "passed" : "failed";
-    const message = (() => {
-      if (!microphone.ok) {
-        return `麦克风不可用：${microphone.reason}。可以先检查权限，或使用「静音开始」进入文字沟通。`;
-      }
-      if (recordingEnabled && !camera.ok) {
-        return `摄像头暂不可用：${camera.reason}。面试仍可继续，但录像可能只有音频。`;
-      }
-      if (networkStatus === "failed") {
-        return "浏览器报告当前离线，请恢复网络后再开始。";
-      }
-      return "设备检测通过，可以开始面试。";
-    })();
-
-    let cameraStatus: DeviceCheckStatus = "idle";
-    if (recordingEnabled) {
-      cameraStatus = camera.ok ? "passed" : "warning";
-    }
-
-    setResult({
-      camera: cameraStatus,
-      message,
-      microphone: microphone.ok ? "passed" : "failed",
-      network: networkStatus,
-    });
-    setChecking(false);
-  }, [recordingEnabled]);
-
-  return (
-    <section className="mt-6 rounded-2xl border border-border bg-background/70 p-4 backdrop-blur">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-medium text-sm">设备检测</h2>
-          <p className="mt-1 text-muted-foreground text-xs leading-normal">
-            {recordingEnabled
-              ? "开始前可快速确认麦克风、摄像头和网络状态。"
-              : "开始前可快速确认麦克风和网络状态。"}
-          </p>
-        </div>
-        <Button disabled={checking} onClick={runChecks} size="sm" type="button" variant="outline">
-          {checking ? (
-            <IconRefresh className="size-4 animate-spin" />
-          ) : (
-            <IconCircleCheck className="size-4" />
-          )}
-          检测设备
-        </Button>
-      </div>
-      <div
-        className={
-          recordingEnabled ? "mt-4 grid gap-2 sm:grid-cols-3" : "mt-4 grid gap-2 sm:grid-cols-2"
-        }
-      >
-        <DeviceCheckItem
-          detail="确认浏览器可采集你的声音。"
-          icon={IconMicrophone}
-          status={result.microphone}
-          title="麦克风"
-        />
-        {recordingEnabled ? (
-          <DeviceCheckItem
-            detail="确认摄像头可用于面试录像。"
-            icon={IconVideo}
-            status={result.camera}
-            title="摄像头"
-          />
-        ) : null}
-        <DeviceCheckItem
-          detail="读取浏览器当前联网状态。"
-          icon={IconWifi}
-          status={result.network}
-          title="网络"
-        />
-      </div>
-      <p className="mt-3 min-h-8 text-muted-foreground text-xs leading-normal">
-        {result.message ?? "\u00A0"}
-      </p>
-    </section>
-  );
 }
 
 function InterviewNoticeDialog({

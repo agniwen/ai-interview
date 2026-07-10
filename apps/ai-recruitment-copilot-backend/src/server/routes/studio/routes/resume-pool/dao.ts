@@ -18,15 +18,9 @@ import type {
   ResumePoolDetail,
   ResumePoolImportDuplicateMatchRecord,
   ResumePoolImportResult,
-  ResumePoolListRecord,
-  ResumePoolProfileHighlights,
   ResumePoolSourceChannel,
 } from "@arc/shared/resume-pool";
 import type { ResumeDuplicateMatchSummary } from "@arc/shared/resume-duplicates";
-import {
-  formatResumeEducationItems,
-  formatResumeEducationLines,
-} from "@arc/shared/resume-education";
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
 import {
   deleteDuplicateMatchesForSource,
@@ -38,23 +32,14 @@ import { deleteResumeSemanticIndexBestEffort } from "@arc/ai-recruitment-copilot
 import { cloneResumeSemanticIndexFromPoolToInterview } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/clone";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { normalizeSkill } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
+import { EMPTY_UPLOADER_META, toResumePoolDetail, toResumePoolListRecord } from "./dao/presenters";
+import type { PoolUploaderMeta } from "./dao/presenters";
 import { admitResumePoolItem } from "./utils/admission";
+
+export { buildMasteredSkills, buildProfileHighlights } from "./dao/presenters";
 
 type PoolRow = typeof resumePoolItem.$inferSelect;
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-interface PoolUploaderMeta {
-  uploaderEmail: string | null;
-  uploaderImage: string | null;
-  uploaderName: string | null;
-  uploaderOrganizationName: string | null;
-}
-
-const EMPTY_UPLOADER_META: PoolUploaderMeta = {
-  uploaderEmail: null,
-  uploaderImage: null,
-  uploaderName: null,
-  uploaderOrganizationName: null,
-};
 
 export interface CreateResumePoolItemInput {
   candidateEmail: string | null;
@@ -126,120 +111,6 @@ function normalizeSkills(skills: readonly string[] | null | undefined): string[]
         .filter((skill) => skill.length > 0),
     ),
   ];
-}
-
-function serializeDate(value: Date | null): string | null {
-  return value ? value.toISOString() : null;
-}
-
-function cleanHighlightText(value: string | null | undefined): string | null {
-  const text = value?.trim();
-  if (!text || text === "未发现信息") {
-    return null;
-  }
-  return text;
-}
-
-function firstPresentValue(values: (string | null | undefined)[]): string | null {
-  for (const value of values) {
-    const text = cleanHighlightText(value);
-    if (text) {
-      return text;
-    }
-  }
-  return null;
-}
-
-export function buildProfileHighlights(profile: ResumeProfile | null): ResumePoolProfileHighlights {
-  if (!profile) {
-    return {
-      educationItems: [],
-      educationLines: [],
-      latestCompany: null,
-      latestProject: null,
-      schools: [],
-    };
-  }
-  const schools = profile.schools
-    .map(cleanHighlightText)
-    .filter((item): item is string => item !== null);
-  return {
-    educationItems: formatResumeEducationItems(profile.educationExperiences),
-    educationLines: formatResumeEducationLines(profile.educationExperiences),
-    latestCompany: firstPresentValue(profile.workExperiences.map((item) => item.company)),
-    latestProject: firstPresentValue(profile.projectExperiences.map((item) => item.name)),
-    schools,
-  };
-}
-
-export function buildMasteredSkills(profile: ResumeProfile | null): string[] {
-  return [
-    ...new Set(
-      (profile?.skills ?? [])
-        .map(cleanHighlightText)
-        .filter((skill): skill is string => skill !== null),
-    ),
-  ];
-}
-
-function toListRecord(
-  row: PoolRow,
-  importRow?: { importedAt: Date; resumeRecordId: string } | null,
-  uploaderMeta: PoolUploaderMeta = EMPTY_UPLOADER_META,
-  sourceChannel: ResumePoolSourceChannel | null = null,
-  duplicateMatch: ResumeDuplicateMatchSummary | null = null,
-): ResumePoolListRecord {
-  return {
-    candidateEmail: row.candidateEmail,
-    candidateName: row.candidateName,
-    candidatePhone: row.candidatePhone,
-    createdAt: row.createdAt.toISOString(),
-    createdBy: row.createdBy,
-    duplicateMatch,
-    id: row.id,
-    importedAt: importRow ? importRow.importedAt.toISOString() : null,
-    importedResumeRecordId: importRow?.resumeRecordId ?? null,
-    jobDescriptionId: row.jobDescriptionId,
-    masteredSkills: buildMasteredSkills(row.resumeProfile),
-    notes: row.notes,
-    organizationId: row.organizationId,
-    profileHighlights: buildProfileHighlights(row.resumeProfile),
-    publishedAt: serializeDate(row.publishedAt),
-    publishedBy: row.publishedBy,
-    resumeContentHash: row.resumeContentHash,
-    resumeFileName: row.resumeFileName,
-    resumeParseError: row.resumeParseError,
-    resumeParseStatus: row.resumeParseStatus,
-    resumeParsedAt: serializeDate(row.resumeParsedAt),
-    resumeStorageKey: row.resumeStorageKey,
-    scope: row.scope,
-    skillsNormalized: row.skillsNormalized,
-    sourceChannel: row.sourceChannel ?? sourceChannel,
-    sourceOrganizationId: row.sourceOrganizationId,
-    sourcePoolItemId: row.sourcePoolItemId,
-    sourceUserId: row.sourceUserId,
-    status: row.status,
-    targetRole: row.targetRole,
-    updatedAt: row.updatedAt.toISOString(),
-    uploaderEmail: uploaderMeta.uploaderEmail,
-    uploaderImage: uploaderMeta.uploaderImage,
-    uploaderName: uploaderMeta.uploaderName,
-    uploaderOrganizationName: uploaderMeta.uploaderOrganizationName,
-    workYears: row.resumeProfile?.workYears ?? null,
-  };
-}
-
-function toDetail(
-  row: PoolRow,
-  importRow?: { importedAt: Date; resumeRecordId: string } | null,
-  uploaderMeta: PoolUploaderMeta = EMPTY_UPLOADER_META,
-  sourceChannel: ResumePoolSourceChannel | null = null,
-  duplicateMatch: ResumeDuplicateMatchSummary | null = null,
-): ResumePoolDetail {
-  return {
-    ...toListRecord(row, importRow, uploaderMeta, sourceChannel, duplicateMatch),
-    resumeProfile: row.resumeProfile,
-  };
 }
 
 function uploaderMetaFromRow(row: PoolUploaderMeta): PoolUploaderMeta {
@@ -556,7 +427,7 @@ export async function queryResumePoolItems(
   ]);
   return {
     records: rows.map((row, index) =>
-      toListRecord(
+      toResumePoolListRecord(
         row.item,
         imports[index] ?? null,
         uploaderMetaFromRow(row),
@@ -586,7 +457,7 @@ export async function loadResumePoolItem(input: {
     }),
   ]);
   const sourceChannels = await loadSourceChannels([row.id]);
-  return toDetail(
+  return toResumePoolDetail(
     row,
     importRow,
     uploaderMeta,

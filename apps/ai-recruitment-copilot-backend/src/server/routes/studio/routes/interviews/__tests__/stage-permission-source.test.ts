@@ -1,7 +1,13 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const routeSource = readFileSync(new URL("../route.ts", import.meta.url), "utf-8");
+const collectionRouteSource = readFileSync(
+  new URL("../collection-route.ts", import.meta.url),
+  "utf-8",
+);
+const detailRouteSource = readFileSync(new URL("../detail-route.ts", import.meta.url), "utf-8");
+const humanRouteSource = readFileSync(new URL("../human-route.ts", import.meta.url), "utf-8");
+const routeSource = `${collectionRouteSource}\n${detailRouteSource}\n${humanRouteSource}`;
 
 describe("late-stage route permissions", () => {
   it("splits human interview routes by CRUD permissions", () => {

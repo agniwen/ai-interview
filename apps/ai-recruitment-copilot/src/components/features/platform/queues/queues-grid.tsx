@@ -7,7 +7,6 @@ import {
   IconListCheck,
   IconServer,
 } from "@tabler/icons-react";
-import type { ComponentProps } from "react";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -38,6 +37,21 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { formatBytes } from "@arc/shared/utils/format";
+import {
+  batchStatusMeta,
+  formatCount,
+  formatDuration,
+  formatJson,
+  getInitials,
+  getJobDataSummary,
+  normalizeParseStatusFilter,
+  normalizeStateFilter,
+  normalizeUploadStatusFilter,
+  resumeParseStatusMeta,
+  stateLabel,
+  stateVariant,
+  uploadItemStatusMeta,
+} from "./queues-grid-model";
 
 const DEFAULT_QUEUE_NAME = "resume-parse";
 const PLATFORM_QUEUE_OPTIONS = [
@@ -83,9 +97,6 @@ const PARSE_STATUS_FILTER_OPTIONS = [
 ] as const;
 
 type QueueFilters = typeof DEFAULT_FILTERS;
-type JobStateFilter = (typeof JOB_STATE_OPTIONS)[number]["value"];
-type UploadStatusFilter = (typeof UPLOAD_STATUS_FILTER_OPTIONS)[number]["value"];
-type ParseStatusFilter = (typeof PARSE_STATUS_FILTER_OPTIONS)[number]["value"];
 
 interface QueueCounts {
   active: number;
@@ -198,161 +209,6 @@ interface QueueJobsResult {
   state: string;
   total: number;
   totalPages: number;
-}
-
-function formatCount(value: number): string {
-  return new Intl.NumberFormat("zh-CN").format(value);
-}
-
-function formatJson(value: unknown): string {
-  return JSON.stringify(value, null, 2) ?? "null";
-}
-
-function getInitials(name?: string | null, email?: string | null): string {
-  const source = (name ?? email ?? "").trim();
-  if (!source) {
-    return "U";
-  }
-  const words = source.split(/\s+/).filter(Boolean);
-  if (words.length >= 2) {
-    return `${words[0]?.[0] ?? ""}${words[1]?.[0] ?? ""}`.toUpperCase();
-  }
-  return source.slice(0, 2).toUpperCase();
-}
-
-function formatDuration(start: string | null, end: string | null): string {
-  if (!start || !end) {
-    return "—";
-  }
-  const ms = new Date(end).getTime() - new Date(start).getTime();
-  if (!Number.isFinite(ms) || ms < 0) {
-    return "—";
-  }
-  if (ms < 1000) {
-    return `${ms}ms`;
-  }
-  return `${(ms / 1000).toFixed(1)}s`;
-}
-
-function stateLabel(state: string): string {
-  return JOB_STATE_OPTIONS.find((option) => option.value === state)?.label ?? state;
-}
-
-function normalizeStateFilter(value: string): JobStateFilter {
-  return JOB_STATE_OPTIONS.some((option) => option.value === value)
-    ? (value as JobStateFilter)
-    : "all";
-}
-
-function normalizeUploadStatusFilter(value: string): UploadStatusFilter {
-  return UPLOAD_STATUS_FILTER_OPTIONS.some((option) => option.value === value)
-    ? (value as UploadStatusFilter)
-    : "all";
-}
-
-function normalizeParseStatusFilter(value: string): ParseStatusFilter {
-  return PARSE_STATUS_FILTER_OPTIONS.some((option) => option.value === value)
-    ? (value as ParseStatusFilter)
-    : "all";
-}
-
-function stateVariant(state: string): ComponentProps<typeof Badge>["variant"] {
-  if (state === "completed") {
-    return "success";
-  }
-  if (state === "failed") {
-    return "danger";
-  }
-  if (state === "active") {
-    return "info";
-  }
-  if (state === "delayed" || state === "waiting-children") {
-    return "warning";
-  }
-  return "outline";
-}
-
-function uploadItemStatusMeta(
-  status: string,
-  target: string,
-): { label: string; variant: ComponentProps<typeof Badge>["variant"] } {
-  if (status === "pending") {
-    return { label: "排队中", variant: "outline" };
-  }
-  if (status === "processing") {
-    return { label: "处理中", variant: "info" };
-  }
-  if (status === "succeeded") {
-    return { label: target === "resume_pool" ? "已加入" : "已入库", variant: "success" };
-  }
-  if (status === "failed") {
-    return { label: "失败", variant: "danger" };
-  }
-  if (status === "duplicate_skipped") {
-    return { label: "已跳过", variant: "warning" };
-  }
-  if (status === "cancelled") {
-    return { label: "已取消", variant: "outline" };
-  }
-  return { label: status || "未知", variant: "outline" };
-}
-
-function resumeParseStatusMeta(status: string | null): {
-  label: string;
-  variant: ComponentProps<typeof Badge>["variant"];
-} {
-  if (status === "ready") {
-    return { label: "已解析", variant: "success" };
-  }
-  if (status === "processing") {
-    return { label: "解析中", variant: "info" };
-  }
-  if (status === "failed") {
-    return { label: "解析失败", variant: "danger" };
-  }
-  if (status === "queued" || status === "unparsed") {
-    return { label: "未解析", variant: "outline" };
-  }
-  return { label: status || "—", variant: "outline" };
-}
-
-function batchStatusMeta(status: string): {
-  label: string;
-  variant: ComponentProps<typeof Badge>["variant"];
-} {
-  if (status === "running") {
-    return { label: "运行中", variant: "info" };
-  }
-  if (status === "completed") {
-    return { label: "已完成", variant: "success" };
-  }
-  if (status === "cancelled") {
-    return { label: "已取消", variant: "outline" };
-  }
-  if (status === "pending") {
-    return { label: "待开始", variant: "outline" };
-  }
-  return { label: status || "未知", variant: "outline" };
-}
-
-function getJobDataSummary(data: unknown): string {
-  if (!data || typeof data !== "object") {
-    return "—";
-  }
-  const maybeRecord = data as Record<string, unknown>;
-  const itemId = typeof maybeRecord.itemId === "string" ? maybeRecord.itemId : null;
-  const batchId = typeof maybeRecord.batchId === "string" ? maybeRecord.batchId : null;
-  if (itemId && batchId) {
-    return `${itemId} / ${batchId}`;
-  }
-  const resumeRecordId =
-    typeof maybeRecord.resumeRecordId === "string" ? maybeRecord.resumeRecordId : null;
-  const jobDescriptionId =
-    typeof maybeRecord.jobDescriptionId === "string" ? maybeRecord.jobDescriptionId : null;
-  if (resumeRecordId && jobDescriptionId) {
-    return `${resumeRecordId} / ${jobDescriptionId}`;
-  }
-  return itemId ?? batchId ?? resumeRecordId ?? jobDescriptionId ?? "—";
 }
 
 function QueueOrganizationCell({ organization }: { organization: QueueJobRecord["organization"] }) {

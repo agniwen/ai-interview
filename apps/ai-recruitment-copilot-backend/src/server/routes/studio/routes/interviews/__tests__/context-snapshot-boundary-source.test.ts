@@ -5,26 +5,34 @@ const agentEvidenceSource = readFileSync(
   new URL("../../../../agent/utils/evidence-snapshot.ts", import.meta.url),
   "utf-8",
 );
-const resumesRouteSource = readFileSync(
-  new URL("../../resumes/route.ts", import.meta.url),
+const resumesReadRouteSource = readFileSync(
+  new URL("../../resumes/read-route.ts", import.meta.url),
   "utf-8",
 );
 const interviewsRouteSource = readFileSync(new URL("../route.ts", import.meta.url), "utf-8");
+const interviewsCollectionRouteSource = readFileSync(
+  new URL("../collection-route.ts", import.meta.url),
+  "utf-8",
+);
+const interviewsDetailRouteSource = readFileSync(
+  new URL("../detail-route.ts", import.meta.url),
+  "utf-8",
+);
 
 describe("interview context snapshot creation boundary", () => {
   it("keeps creation on launch/transition/reset paths only", () => {
-    const agentInstructionsSource = interviewsRouteSource.slice(
-      interviewsRouteSource.indexOf('.get("/:id/agent-instructions"'),
-      interviewsRouteSource.indexOf(
+    const agentInstructionsSource = interviewsDetailRouteSource.slice(
+      interviewsDetailRouteSource.indexOf('.get("/:id/agent-instructions"'),
+      interviewsDetailRouteSource.indexOf(
         "buildAgentInstructions",
-        interviewsRouteSource.indexOf("/:id/agent-instructions"),
+        interviewsDetailRouteSource.indexOf("/:id/agent-instructions"),
       ),
     );
-    const launchInterviewSource = resumesRouteSource.slice(
-      resumesRouteSource.indexOf('.post(\n    "/:id/launch-interview"'),
-      resumesRouteSource.indexOf(
+    const launchInterviewSource = resumesReadRouteSource.slice(
+      resumesReadRouteSource.indexOf('.post(\n    "/:id/launch-interview"'),
+      resumesReadRouteSource.indexOf(
         "return c.json(detail, 201);",
-        resumesRouteSource.indexOf("/:id/launch-interview"),
+        resumesReadRouteSource.indexOf("/:id/launch-interview"),
       ),
     );
     const resetRoundSource = interviewsRouteSource.slice(
@@ -34,14 +42,18 @@ describe("interview context snapshot creation boundary", () => {
         interviewsRouteSource.indexOf("/:id/reset"),
       ),
     );
-    const resetSubmissionSource = interviewsRouteSource.slice(
-      interviewsRouteSource.indexOf('"/:id/form-submissions/:submissionId"'),
-      interviewsRouteSource.indexOf(".patch(", interviewsRouteSource.indexOf("/:submissionId")),
+    const resetSubmissionSource = interviewsDetailRouteSource.slice(
+      interviewsDetailRouteSource.indexOf('"/:id/form-submissions/:submissionId"'),
+      interviewsDetailRouteSource.indexOf(
+        ".patch(",
+        interviewsDetailRouteSource.indexOf("/:submissionId"),
+      ),
     );
 
     expect(launchInterviewSource).toContain("loadOrCreateActiveInterviewContextSnapshot");
-    expect(interviewsRouteSource).toContain("createInterviewContextSnapshot(tx");
+    expect(interviewsCollectionRouteSource).toContain("createInterviewContextSnapshot(tx");
     expect(interviewsRouteSource).toContain("refreshInterviewContextSnapshot(tx");
+    expect(interviewsDetailRouteSource).toContain("refreshInterviewContextSnapshot(tx");
     expect(resetRoundSource).toContain("refreshInterviewContextSnapshot(tx");
     expect(resetRoundSource).toContain('reason: "reset"');
     expect(resetRoundSource).toContain("scheduleEntryId: roundId");
