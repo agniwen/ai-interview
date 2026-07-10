@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { recommendCandidatesForJobDescription } from "./recommendations";
+import type {
+  ResumeSemanticChunkType,
+  ResumeSemanticTextChunk,
+} from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/text-builders";
+import {
+  recommendCandidatesForJobDescription,
+  scoreCandidatesForJobDescription,
+} from "./recommendations";
 
 const candidateProfile: ResumeProfile = {
   age: null,
@@ -176,7 +183,97 @@ describe("recommendCandidatesForJobDescription", () => {
     );
     expect(result.diagnostics.vectorHitCount).toBe(2);
   });
+});
 
+const rec = (id: string, currentJd: string | null = null) => ({
+  candidateEmail: null,
+  candidateName: id,
+  candidatePhone: null,
+  createdAt: "2026-01-01T00:00:00.000Z",
+  currentJobDescriptionId: currentJd,
+  currentJobDescriptionName: null,
+  id,
+  notes: null,
+  resumeFileName: null,
+  resumeParseStatus: "ready" as const,
+  resumeProfile: candidateProfile,
+  skillsNormalized: [],
+  targetRole: null,
+});
+const depsWith = (
+  search: (a: { chunkType: string }) => number,
+  candidates: ReturnType<typeof rec>[],
+) => ({
+  embed: vi.fn(({ chunks }: { chunks: ResumeSemanticTextChunk[] }) =>
+    Promise.resolve(chunks.map((c) => ({ ...c, embedding: [1, 2] }))),
+  ),
+  embeddingConfig: { apiKey: "k", baseUrl: "b", dimensions: 2, model: "m" },
+  enabled: true,
+  loadCandidates: vi.fn(() => Promise.resolve(candidates)),
+  vectorStore: {
+    deleteResumeEmbeddings: vi.fn(() => Promise.resolve()),
+    ensureCollection: vi.fn(() => Promise.resolve()),
+    searchSimilarResumes: vi.fn(({ chunkType }: { chunkType: ResumeSemanticChunkType }) =>
+      Promise.resolve(
+        candidates.map((c) => ({
+          chunkType,
+          score: search({ chunkType }),
+          sourceId: c.id,
+          sourceType: "studio_interview" as const,
+        })),
+      ),
+    ),
+    upsertResumeEmbeddings: vi.fn(() => Promise.resolve()),
+  },
+});
+const jd = { departmentName: null, description: "d", id: "jd1", name: "后端", prompt: "p" };
+const call = (deps: ReturnType<typeof depsWith>, excludeAlreadyLinked = true, limit = 20) =>
+  recommendCandidatesForJobDescription(
+    { excludeAlreadyLinked, jobDescription: jd, limit, organizationId: "org" },
+    deps,
+  );
+
+describe("recommendCandidatesForJobDescription — 特征化(锁生产行为)", () => {
+  it("score<55 被阈值剔除", async () => {
+    const res = await call(depsWith(() => 0.2, [rec("low")]));
+    expect(res.candidates).toHaveLength(0);
+  });
+  it("limit 截断：两高分 limit=1 只返回第一", async () => {
+    const res = await call(
+      depsWith(({ chunkType }) => (chunkType === "skill_role" ? 0.95 : 0.9), [rec("a"), rec("b")]),
+      true,
+      1,
+    );
+    expect(res.candidates).toHaveLength(1);
+  });
+  it("同分保留输入(loadCandidates)顺序", async () => {
+    const res = await call(
+      depsWith(({ chunkType }) => (chunkType === "skill_role" ? 0.9 : 0.9), [rec("a"), rec("b")]),
+    );
+    expect(res.candidates.map((c) => c.id)).toEqual(["a", "b"]);
+  });
+  it("excludeAlreadyLinked=true 剔除已绑定本 JD", async () => {
+    const res = await call(
+      depsWith(
+        ({ chunkType }) => (chunkType === "skill_role" ? 0.95 : 0.9),
+        [rec("linked", "jd1")],
+      ),
+    );
+    expect(res.candidates.map((c) => c.id)).not.toContain("linked");
+  });
+  it("excludeAlreadyLinked=false 保留已绑定本 JD", async () => {
+    const res = await call(
+      depsWith(
+        ({ chunkType }) => (chunkType === "skill_role" ? 0.95 : 0.9),
+        [rec("linked", "jd1")],
+      ),
+      false,
+    );
+    expect(res.candidates.map((c) => c.id)).toContain("linked");
+  });
+});
+
+describe("recommendCandidatesForJobDescription — disabled", () => {
   it("returns disabled status when semantic recommendation is not enabled", async () => {
     const result = await recommendCandidatesForJobDescription(
       {
@@ -214,5 +311,35 @@ describe("recommendCandidatesForJobDescription", () => {
       candidates: [],
       status: "disabled",
     });
+  });
+});
+
+describe("scoreCandidatesForJobDescription — 打分内核", () => {
+  it("内核返回完整排序 + 诊断中间量(不套阈值/截断，不调 ensureCollection)", async () => {
+    const ensureCollection = vi.fn(() => Promise.resolve());
+    const deps = {
+      ...depsWith(() => 0.2, [rec("low")]),
+      vectorStore: {
+        deleteResumeEmbeddings: vi.fn(() => Promise.resolve()),
+        ensureCollection,
+        searchSimilarResumes: vi.fn(({ chunkType }: { chunkType: ResumeSemanticChunkType }) =>
+          Promise.resolve([
+            { chunkType, score: 0.2, sourceId: "low", sourceType: "studio_interview" as const },
+          ]),
+        ),
+        upsertResumeEmbeddings: vi.fn(() => Promise.resolve()),
+      },
+    };
+    const core = await scoreCandidatesForJobDescription(
+      { jobDescription: jd, organizationId: "org" },
+      deps,
+    );
+    // 低分未被 55 剔除
+    expect(core.ranked).toHaveLength(1);
+    expect(core.ranked[0].candidateId).toBe("low");
+    expect(core.retrievedIds.has("low")).toBe(true);
+    expect(core.loadedIds.has("low")).toBe(true);
+    // 内核不调 ensureCollection
+    expect(ensureCollection).not.toHaveBeenCalled();
   });
 });
