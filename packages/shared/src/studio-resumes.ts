@@ -365,6 +365,10 @@ export interface PaginatedResumeLibraryResult {
   totalPages: number;
 }
 
+export const RESUME_LIBRARY_INFINITE_PAGE_SIZE = 20;
+export const resumeLibrarySortIds = ["createdAt", "candidateName", "updatedAt"] as const;
+export type ResumeLibrarySortId = (typeof resumeLibrarySortIds)[number];
+
 export function canEditResumeRecord(status: ResumeParseStatus): boolean {
   return status === "ready";
 }

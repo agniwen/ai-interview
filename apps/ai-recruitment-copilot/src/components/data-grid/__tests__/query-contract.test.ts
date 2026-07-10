@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildDataGridQueryKey,
+  buildInfiniteDataGridQueryKey,
   normalizeDataGridQueryState,
   parseDataGridSearchParams,
 } from "@/components/data-grid/query-contract";
@@ -162,6 +163,27 @@ describe("data grid query contract", () => {
         filters: { creatorIds: "u_1", status: "" },
         page: 2,
         pageSize: 10,
+        search: "candidate",
+        sortBy: "createdAt",
+        sortOrder: "desc",
+      },
+    ]);
+  });
+
+  it("builds an infinite-list key without pagination state", () => {
+    const key = buildInfiniteDataGridQueryKey(["studio-resumes", "acme"], {
+      filters: { creatorIds: "u_1", jdIds: "", skills: "React", stage: "screening" },
+      search: " candidate ",
+      sortBy: "createdAt",
+      sortOrder: "desc",
+    });
+
+    expect(key).toEqual([
+      "studio-resumes",
+      "acme",
+      "infinite",
+      {
+        filters: { creatorIds: "u_1", jdIds: "", skills: "React", stage: "screening" },
         search: "candidate",
         sortBy: "createdAt",
         sortOrder: "desc",
