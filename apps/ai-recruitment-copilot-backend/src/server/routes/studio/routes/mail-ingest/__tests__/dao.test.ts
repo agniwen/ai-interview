@@ -781,4 +781,29 @@ describe("listAccountMailMessages", () => {
     expect(filtered.total).toBe(1);
     expect(filtered.records[0]?.id).toBe(LOG_MSG_FAILED);
   }, 30_000);
+
+  it("projects errorMessage truncated + single-lined on failed rows", async () => {
+    const accountId = await insertTestAccount();
+    await db.insert(mailIngestMessage).values({
+      accountId,
+      errorMessage: `IMAP fetch failed\nstack line 2\n${"x".repeat(400)}`,
+      id: "m_err",
+      mailbox: "INBOX",
+      status: "failed",
+      uid: "1",
+      uidValidity: "1",
+    });
+
+    const { records } = await listAccountMailMessages({
+      accountId,
+      organizationId: LOG_ORG,
+      page: 1,
+      pageSize: 20,
+    });
+
+    expect(records[0]?.errorMessage).not.toContain("\n");
+    expect(records[0]?.errorMessage?.startsWith("IMAP fetch failed stack line 2")).toBe(true);
+    // 300 + "…"
+    expect((records[0]?.errorMessage ?? "").length).toBeLessThanOrEqual(301);
+  }, 30_000);
 });

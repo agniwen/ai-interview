@@ -51,6 +51,7 @@ import type { z } from "zod";
 const MAIL_INGEST_ACCOUNT_LEASE_MS = 14 * 60 * 1000;
 const MAIL_INGEST_MESSAGE_PROCESSING_STALE_MS = 30 * 60 * 1000;
 const ERROR_MESSAGE_MAX = 500;
+const MAIL_MESSAGE_ERROR_DISPLAY_MAX = 300;
 const WORKSPACE_MAIL_INGEST_SORT_COLUMNS = [
   "userName",
   "userEmail",
@@ -1075,6 +1076,7 @@ export interface MailMessageLogRecord {
   attachmentCount: number | null;
   attachments: MailMessageLogAttachment[];
   boundJobDescriptionName: string | null;
+  errorMessage: string | null;
   fromAddress: string | null;
   id: string;
   jdBindStatus: MailIngestJdBindStatus | null;
@@ -1084,6 +1086,16 @@ export interface MailMessageLogRecord {
   skipReason: MailIngestSkipReason | null;
   status: MailIngestMessageStatus;
   subject: string | null;
+}
+
+function truncateErrorForDisplay(message: string | null): string | null {
+  if (!message) {
+    return null;
+  }
+  const oneLine = message.replaceAll(/\s+/g, " ").trim();
+  return oneLine.length > MAIL_MESSAGE_ERROR_DISPLAY_MAX
+    ? `${oneLine.slice(0, MAIL_MESSAGE_ERROR_DISPLAY_MAX)}…`
+    : oneLine;
 }
 
 function summarizePool(
@@ -1222,6 +1234,7 @@ export async function listAccountMailMessages(input: {
         attachmentCount: mailIngestMessage.attachmentCount,
         batchId: mailIngestMessage.batchId,
         boundJobDescriptionName: jobDescription.name,
+        errorMessage: mailIngestMessage.errorMessage,
         fromAddress: mailIngestMessage.fromAddress,
         id: mailIngestMessage.id,
         jdBindStatus: mailIngestMessage.jdBindStatus,
@@ -1257,6 +1270,7 @@ export async function listAccountMailMessages(input: {
       attachmentCount: row.attachmentCount,
       attachments,
       boundJobDescriptionName: row.boundJobDescriptionName,
+      errorMessage: truncateErrorForDisplay(row.errorMessage),
       fromAddress: row.fromAddress,
       id: row.id,
       jdBindStatus: row.jdBindStatus,
