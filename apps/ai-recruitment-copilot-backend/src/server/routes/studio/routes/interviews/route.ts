@@ -28,8 +28,6 @@ import {
   humanInterviewRoundInputSchema,
   nullableInstantDateTimeInputSchema,
   humanInterviewRoundOutcomeSchema,
-  offerDraftInputSchema,
-  offerResponseInputSchema,
   parseResumePayloadInput,
   parseScheduleEntriesInput,
   pipelineStageSchema,
@@ -87,16 +85,6 @@ import {
   HumanInterviewLiveKitConfigError,
   signHumanInterviewMeetingToken,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/utils/human-interview-livekit";
-import {
-  cancelOfferDraft,
-  createOfferDraft,
-  editOfferDraft,
-  listOfferDrafts,
-  maybeAdvanceToOffer,
-  OfferDraftError,
-  respondOfferDraft,
-  sendOfferDraft,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/offer-drafts";
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
 import { jobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
@@ -111,6 +99,8 @@ import {
 import { recordingsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/routes/recordings/route";
 import { reportsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/routes/reports/route";
 import { roundEmailsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/routes/round-emails/route";
+import { offerDraftsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/routes/offer-drafts/route";
+import { recordCandidateActivity } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/utils/candidate-activity";
 import {
   buildTokenErrorResponse,
   buildScheduleRows,
@@ -132,9 +122,11 @@ import {
   resolveResumeCreateDedupConflict,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/dedup";
 import {
+  getCandidateReactivationError,
   getCandidateStageTransitionError,
   resolveCandidateTransitionPatch,
 } from "./utils/candidate-transition";
+import { humanInterviewFeedbackSchema } from "./utils/human-interview-readiness";
 
 const dedupCheckInputSchema = z.object({
   email: z.string().trim().max(200).nullable().optional(),
@@ -207,7 +199,7 @@ async function canManageStageTransition(headers: Headers, target: string): Promi
 // 真人复面：「标记完成」的 input。outcome / feedback 必填，score 可选。
 // Human interview "mark complete" input. Outcome required.
 const completeHumanRoundSchema = z.object({
-  feedback: z.string().trim().min(1, "请填写面试评价").max(5000),
+  feedback: humanInterviewFeedbackSchema,
   outcome: humanInterviewRoundOutcomeSchema,
   score: z.number().int().min(0).max(100).nullable().optional(),
 });
@@ -268,33 +260,6 @@ async function resetOrphanedAiInterviewParents(
         ),
       ),
     );
-}
-
-async function recordCandidateActivity({
-  action,
-  detail = {},
-  interviewRecordId,
-  operatorId,
-  organizationId,
-  scheduleEntryId = null,
-}: {
-  action: string;
-  detail?: Record<string, unknown>;
-  interviewRecordId: string;
-  operatorId: string | null;
-  organizationId: string;
-  scheduleEntryId?: string | null;
-}) {
-  await db.insert(interviewAuditLog).values({
-    action,
-    createdAt: new Date(),
-    detail,
-    id: crypto.randomUUID(),
-    interviewRecordId,
-    operatorId,
-    organizationId,
-    scheduleEntryId,
-  });
 }
 
 export const studioInterviewsRouter = factory
@@ -1470,12 +1435,16 @@ export const studioInterviewsRouter = factory
         if (!existing) {
           return { kind: "not_found" as const };
         }
-        if (
-          existing.pipelineStage === "closed" &&
-          input.pipelineStage !== "closed" &&
-          !input.reactivationReason
-        ) {
-          return { kind: "missing_reactivation_reason" as const };
+        const reactivationError = getCandidateReactivationError({
+          from: existing.pipelineStage,
+          reactivationReason: input.reactivationReason,
+          to: input.pipelineStage,
+        });
+        if (reactivationError) {
+          return {
+            kind: "missing_reactivation_reason" as const,
+            message: reactivationError,
+          };
         }
         let humanInterviewOfferReadinessError: string | null = null;
         let humanInterviewReadyForOffer = false;
@@ -1531,7 +1500,7 @@ export const studioInterviewsRouter = factory
         return c.json({ error: "候选人记录不存在。" }, 404);
       }
       if (result.kind === "missing_reactivation_reason") {
-        return c.json({ error: "请填写重新激活原因。" }, 400);
+        return c.json({ error: result.message }, 400);
       }
       if (result.kind === "invalid_stage_transition") {
         return c.json({ error: result.message }, 400);
@@ -1821,215 +1790,7 @@ export const studioInterviewsRouter = factory
       }
     },
   )
-  // ── Offer 草稿 endpoints ──
-  // `:id` 同上：interviewRecordId（候选人级）。/ `:id` = candidate id.
-  .get("/:id/offer-drafts", requirePermission("offer", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const recordId = c.req.param("id");
-    const drafts = await listOfferDrafts(recordId, activeOrg.id);
-    return c.json(drafts, 200);
-  })
-  .post(
-    "/:id/offer-drafts",
-    requirePermission("offer", "create"),
-    zValidator(
-      "json",
-      offerDraftInputSchema.extend({
-        sendImmediately: z.boolean().optional(),
-      }),
-      jsonValidatorError("Offer 参数无效。"),
-    ),
-    async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const recordId = c.req.param("id");
-
-      const [candidate] = await db
-        .select({ id: studioInterview.id, pipelineStage: studioInterview.pipelineStage })
-        .from(studioInterview)
-        .where(
-          and(eq(studioInterview.id, recordId), eq(studioInterview.organizationId, activeOrg.id)),
-        )
-        .limit(1);
-      if (!candidate) {
-        return c.json({ error: "候选人记录不存在。" }, 404);
-      }
-      if (candidate.pipelineStage === "closed") {
-        return c.json({ error: "已结案的候选人请先重新激活。" }, 400);
-      }
-      if (candidate.pipelineStage !== "human_interview" && candidate.pipelineStage !== "offer") {
-        return c.json({ error: "候选人需先进入真人复面阶段，才能创建 Offer。" }, 400);
-      }
-      if (candidate.pipelineStage === "human_interview") {
-        const readiness = await loadHumanInterviewRoundReadiness(recordId, activeOrg.id);
-        const readinessError = getHumanInterviewOfferReadinessError(readiness);
-        if (readinessError) {
-          return c.json({ error: readinessError }, 400);
-        }
-      }
-
-      const { sendImmediately, ...input } = c.req.valid("json");
-      const created = await createOfferDraft({
-        input,
-        interviewRecordId: recordId,
-        organizationId: activeOrg.id,
-        sendImmediately,
-      });
-      await maybeAdvanceToOffer(recordId, activeOrg.id);
-      await recordCandidateActivity({
-        action: "offer_draft_created",
-        detail: {
-          draftId: created.id,
-          position: created.position,
-          sentImmediately: Boolean(sendImmediately),
-          version: created.version,
-        },
-        interviewRecordId: recordId,
-        operatorId: c.var.user?.id ?? null,
-        organizationId: activeOrg.id,
-      });
-      invalidateStudioInterviewCaches(activeOrg.id);
-      return c.json(created, 200);
-    },
-  )
-  .patch(
-    "/:id/offer-drafts/:draftId",
-    requirePermission("offer", "update"),
-    zValidator("json", offerDraftInputSchema.partial(), jsonValidatorError("Offer 参数无效。")),
-    async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const draftId = c.req.param("draftId");
-      const input = c.req.valid("json");
-      try {
-        const updated = await editOfferDraft({
-          draftId,
-          input,
-          organizationId: activeOrg.id,
-        });
-        await recordCandidateActivity({
-          action: "offer_draft_updated",
-          detail: {
-            draftId: updated.id,
-            position: updated.position,
-            version: updated.version,
-          },
-          interviewRecordId: updated.interviewRecordId,
-          operatorId: c.var.user?.id ?? null,
-          organizationId: activeOrg.id,
-        });
-        invalidateStudioInterviewCaches(activeOrg.id);
-        return c.json(updated, 200);
-      } catch (error) {
-        if (error instanceof OfferDraftError) {
-          return c.json({ error: error.message }, error.status);
-        }
-        throw error;
-      }
-    },
-  )
-  .post("/:id/offer-drafts/:draftId/send", requirePermission("offer", "update"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const draftId = c.req.param("draftId");
-    try {
-      const updated = await sendOfferDraft(draftId, activeOrg.id);
-      await recordCandidateActivity({
-        action: "offer_draft_sent",
-        detail: {
-          draftId: updated.id,
-          position: updated.position,
-          version: updated.version,
-        },
-        interviewRecordId: updated.interviewRecordId,
-        operatorId: c.var.user?.id ?? null,
-        organizationId: activeOrg.id,
-      });
-      invalidateStudioInterviewCaches(activeOrg.id);
-      return c.json(updated, 200);
-    } catch (error) {
-      if (error instanceof OfferDraftError) {
-        return c.json({ error: error.message }, error.status);
-      }
-      throw error;
-    }
-  })
-  .post(
-    "/:id/offer-drafts/:draftId/respond",
-    requirePermission("offer", "update"),
-    zValidator("json", offerResponseInputSchema, jsonValidatorError("响应参数无效。")),
-    async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const draftId = c.req.param("draftId");
-      const { response, candidateCounter } = c.req.valid("json");
-      try {
-        const updated = await respondOfferDraft({
-          candidateCounter,
-          draftId,
-          organizationId: activeOrg.id,
-          response,
-        });
-        await recordCandidateActivity({
-          action: "offer_draft_responded",
-          detail: {
-            draftId: updated.id,
-            response,
-            version: updated.version,
-          },
-          interviewRecordId: updated.interviewRecordId,
-          operatorId: c.var.user?.id ?? null,
-          organizationId: activeOrg.id,
-        });
-        invalidateStudioInterviewCaches(activeOrg.id);
-        return c.json(updated, 200);
-      } catch (error) {
-        if (error instanceof OfferDraftError) {
-          return c.json({ error: error.message }, error.status);
-        }
-        throw error;
-      }
-    },
-  )
-  .post("/:id/offer-drafts/:draftId/cancel", requirePermission("offer", "delete"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const draftId = c.req.param("draftId");
-    try {
-      const updated = await cancelOfferDraft(draftId, activeOrg.id);
-      await recordCandidateActivity({
-        action: "offer_draft_cancelled",
-        detail: {
-          draftId: updated.id,
-          position: updated.position,
-          version: updated.version,
-        },
-        interviewRecordId: updated.interviewRecordId,
-        operatorId: c.var.user?.id ?? null,
-        organizationId: activeOrg.id,
-      });
-      invalidateStudioInterviewCaches(activeOrg.id);
-      return c.json(updated, 200);
-    } catch (error) {
-      if (error instanceof OfferDraftError) {
-        return c.json({ error: error.message }, error.status);
-      }
-      throw error;
-    }
-  })
+  .route("/:id/offer-drafts", offerDraftsRouter)
   .delete("/:id", requirePermission("interview", "delete"), async (c) => {
     // 轮次级删除：`:id` = roundId。/ Round-level delete: `:id` = roundId.
     const { activeOrg } = c.var;

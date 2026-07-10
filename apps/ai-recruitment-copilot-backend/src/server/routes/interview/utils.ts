@@ -31,6 +31,7 @@ import {
   putObjectBytes,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { isResumeParseCacheEnabled } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-cache-policy";
+import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
 
 export type StudioInterviewRow = typeof studioInterview.$inferSelect;
 export type StudioInterviewScheduleRow = typeof studioInterviewSchedule.$inferSelect;
@@ -571,7 +572,16 @@ export async function loadRecordById(id: string, organizationId?: string) {
 
 export function toBadRequest(error: unknown) {
   if (error instanceof ResumeAnalysisError) {
-    return { error: error.message, stage: error.stage, status: 500 };
+    return {
+      ...createInternalErrorResponse({
+        context: { stage: error.stage },
+        error,
+        operation: "resume-analysis",
+        publicMessage: "简历解析失败，请稍后重试。",
+      }),
+      stage: error.stage,
+      status: 500,
+    };
   }
 
   if (error instanceof Error) {

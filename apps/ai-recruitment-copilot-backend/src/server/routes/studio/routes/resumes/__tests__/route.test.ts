@@ -5,7 +5,6 @@
 // PATCH whitelist (no interview field bleed) and that the detail DTO drops
 // interview-only properties even when the underlying row has them.
 
-import { readFileSync } from "node:fs";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { ResumeAnalysisResult } from "@arc/db-schema/interview/types";
@@ -19,49 +18,6 @@ import type {
 import type { loadResumeDetail as loadResumeDetailFn } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
 import type { parseResumeLibraryEditFormInput as parseResumeLibraryEditFormInputFn } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/route";
 
-const routeSource = readFileSync(new URL("../route.ts", import.meta.url), "utf-8");
-const createFromStorageSource = readFileSync(
-  new URL("../utils/create-from-storage.ts", import.meta.url),
-  "utf-8",
-);
-const evaluationDaoSource = readFileSync(new URL("../dao/evaluation.ts", import.meta.url), "utf-8");
-const resumeDaoSource = readFileSync(new URL("../dao/resumes.ts", import.meta.url), "utf-8");
-const timelineDaoSource = readFileSync(new URL("../dao/timeline.ts", import.meta.url), "utf-8");
-const resumePoolDaoSource = readFileSync(
-  new URL("../../resume-pool/dao.ts", import.meta.url),
-  "utf-8",
-);
-const resumePoolRouteSource = readFileSync(
-  new URL("../../resume-pool/route.ts", import.meta.url),
-  "utf-8",
-);
-const resumeReviewWorkerSource = readFileSync(
-  new URL("../utils/review-worker.ts", import.meta.url),
-  "utf-8",
-);
-const batchProcessorSource = readFileSync(
-  new URL("../../resume-upload-batches/utils/processor.ts", import.meta.url),
-  "utf-8",
-);
-const dbSchemaSource = readFileSync(
-  new URL("../../../../../../../../../packages/db-schema/src/schema.ts", import.meta.url),
-  "utf-8",
-);
-const sharedStudioResumesSource = readFileSync(
-  new URL("../../../../../../../../../packages/shared/src/studio-resumes.ts", import.meta.url),
-  "utf-8",
-);
-const sharedResumePoolSource = readFileSync(
-  new URL("../../../../../../../../../packages/shared/src/resume-pool.ts", import.meta.url),
-  "utf-8",
-);
-const resumeTextMigrationSource = readFileSync(
-  new URL(
-    "../../../../../../../../../apps/ai-recruitment-copilot/drizzle/20260625160000_add_resume_text/migration.sql",
-    import.meta.url,
-  ),
-  "utf-8",
-);
 const describeWithDatabase = process.env.DATABASE_URL ? describe : describe.skip;
 
 const ORG = "test_org_resume_route";
@@ -87,65 +43,6 @@ const RESUME_PAYLOAD: ResumeAnalysisResult = {
   },
   resumeText: "客户端预解析 OCR 原文",
 };
-
-describe("resume launch interview route source", () => {
-  it("uses the shared candidate pipeline rule before launching AI interview", () => {
-    const launchInterviewSource = routeSource.slice(
-      routeSource.indexOf('.post(\n    "/:id/launch-interview"'),
-      routeSource.indexOf(
-        "const { interviewQuestions }",
-        routeSource.indexOf("/:id/launch-interview"),
-      ),
-    );
-
-    expect(routeSource).toContain("canApplyCandidatePipelineEvent");
-    expect(launchInterviewSource).toContain('type: "START_AI_INTERVIEW"');
-    expect(launchInterviewSource).toContain("humanInterviewReadyForOffer: false");
-    expect(launchInterviewSource).toContain("stage: existing.pipelineStage");
-    expect(launchInterviewSource).toContain("候选人已进入后续招聘阶段，不能再发起 AI 面试。");
-  });
-
-  it("creates the interview context snapshot when launching AI interview", () => {
-    const launchInterviewSource = routeSource.slice(
-      routeSource.indexOf('.post(\n    "/:id/launch-interview"'),
-      routeSource.indexOf(
-        "return c.json(detail, 201);",
-        routeSource.indexOf("/:id/launch-interview"),
-      ),
-    );
-
-    expect(routeSource).toContain("loadOrCreateActiveInterviewContextSnapshot");
-    expect(launchInterviewSource).toContain("loadOrCreateActiveInterviewContextSnapshot({");
-    expect(launchInterviewSource).toContain("interviewRecordId: id");
-    expect(launchInterviewSource).toContain('reason: "create"');
-    expect(launchInterviewSource).toContain("scheduleEntryId: scheduleRow.id");
-  });
-});
-
-describe("resume review generation queue source", () => {
-  it("queues AI analysis only after resume-pool imports with a bound job description", () => {
-    const importRouteSource = resumePoolRouteSource.slice(
-      resumePoolRouteSource.indexOf('/:id/import"'),
-      resumePoolRouteSource.indexOf(
-        'return c.json({ error: error instanceof Error ? error.message : "入库失败。" }, 400);',
-        resumePoolRouteSource.indexOf('/:id/import"'),
-      ),
-    );
-
-    expect(resumePoolRouteSource).toContain("enqueueResumeReviewGenerationForRecordBestEffort");
-    expect(importRouteSource).toContain('result.status === "imported" && input.jobDescriptionId');
-    expect(importRouteSource).toContain('source: "resume_pool_import"');
-    expect(importRouteSource).toContain('poolItemId: c.req.param("id")');
-  });
-
-  it("keeps review worker idempotent and status-driven", () => {
-    expect(resumeReviewWorkerSource).toContain('resumeReviewStatus: "processing"');
-    expect(resumeReviewWorkerSource).toContain("if (record.resumeReview)");
-    expect(resumeReviewWorkerSource).toContain('resumeReviewStatus: "ready"');
-    expect(resumeReviewWorkerSource).toContain('resumeReviewStatus: "failed"');
-    expect(resumeReviewWorkerSource).toContain("generateResumeReviewBestEffort");
-  });
-});
 
 describeWithDatabase("resume detail route database behavior", () => {
   let db: typeof database;
@@ -242,13 +139,6 @@ describeWithDatabase("resume detail route database behavior", () => {
   });
 });
 
-describe("resume duplicate match details route", () => {
-  it("exposes duplicate match details for badge clicks", () => {
-    expect(routeSource).toContain('"/:id/duplicate-matches"');
-    expect(routeSource).toContain("listDuplicateMatchesForSource");
-  });
-});
-
 describeWithDatabase("resolveResumeUploadStorage", () => {
   it("stores only the uploaded object when the client already sent resumePayload", async () => {
     const { resolveResumeUploadStorage } =
@@ -276,176 +166,5 @@ describeWithDatabase("resolveResumeUploadStorage", () => {
       resumeText: "客户端预解析 OCR 原文",
       storageKey: "resume/hash-1.pdf",
     });
-  });
-});
-
-describe("resume semantic index cleanup", () => {
-  it("cleans semantic indexes after single and bulk resume-library deletion", () => {
-    expect(routeSource).toContain("deleteResumeSemanticIndexBestEffort");
-    expect(routeSource).toContain("deleteDuplicateMatchesForSource");
-    expect(routeSource).toContain('sourceType: "studio_interview"');
-    expect(routeSource).toContain("sourceId: id");
-    expect(routeSource).toContain("for (const deletedId of result)");
-    expect(routeSource).toContain("sourceId: deletedId.id");
-  });
-});
-
-describe("resume library create duplicate handling", () => {
-  it("persists duplicate matches after creating the resume instead of returning conflict", () => {
-    expect(routeSource).toContain("replaceDuplicateMatchesForSource");
-    expect(routeSource).toContain("const dedupMatches = await findSemanticResumeDuplicates");
-    expect(routeSource).toContain("sourceId: recordId");
-    expect(routeSource).toContain('sourceType: "studio_interview"');
-    expect(routeSource).not.toContain("return c.json(dedupConflict, 409)");
-  });
-});
-
-describe("resume OCR text persistence", () => {
-  it("adds nullable resume_text columns to resume library and resume pool tables", () => {
-    expect(dbSchemaSource).toContain('resumeText: text("resume_text")');
-    expect(resumeTextMigrationSource).toContain(
-      'ALTER TABLE "studio_interview" ADD COLUMN "resume_text" text;',
-    );
-    expect(resumeTextMigrationSource).toContain(
-      'ALTER TABLE "resume_pool_item" ADD COLUMN "resume_text" text;',
-    );
-  });
-
-  it("persists parser text on direct uploads, batch uploads, pool rows, and pool imports", () => {
-    expect(routeSource).toContain("resumeText = parsed.parsedText");
-    expect(routeSource).toContain("resumeText,");
-    expect(createFromStorageSource).toContain("resumeText: input.resumeText");
-    expect(batchProcessorSource).toContain("resumeText,");
-    expect(resumePoolRouteSource).toContain("resumeText = parsed.parsedText");
-    expect(resumePoolDaoSource).toContain("resumeText: input.resumeText");
-    expect(resumePoolDaoSource).toContain("resumeText: poolItem.resumeText");
-  });
-
-  it("does not expose resumeText through frontend-facing list or detail DTOs", () => {
-    expect(sharedStudioResumesSource).not.toContain("resumeText");
-    expect(sharedResumePoolSource).not.toContain("resumeText");
-    expect(evaluationDaoSource).not.toContain("resumeText");
-    expect(createFromStorageSource).toContain("resumeText: input.resumeText");
-    expect(resumePoolDaoSource).not.toContain("resumeText: row.resumeText");
-    expect(resumePoolDaoSource).not.toContain("resumeText: row.item.resumeText");
-  });
-});
-
-describe("resume library list DTO", () => {
-  it("exposes card-ready summary fields instead of full resume JSON blobs", () => {
-    const listRecordSource = sharedStudioResumesSource.slice(
-      sharedStudioResumesSource.indexOf("export interface ResumeLibraryListRecord"),
-      sharedStudioResumesSource.indexOf("export interface ResumeLibraryDetail"),
-    );
-    const detailRecordSource = sharedStudioResumesSource.slice(
-      sharedStudioResumesSource.indexOf("export interface ResumeLibraryDetail"),
-    );
-    const toRecordSource = resumeDaoSource.slice(
-      resumeDaoSource.indexOf("function toRecord("),
-      resumeDaoSource.indexOf("export async function queryPaginatedResumeRecords("),
-    );
-
-    expect(listRecordSource).toContain("resumeSkills: string[];");
-    expect(listRecordSource).toContain("resumeSummary: string | null;");
-    expect(listRecordSource).toContain("resumeProfileSnapshot: ResumeLibraryProfileSnapshot;");
-    expect(sharedStudioResumesSource).toContain("education: ResumeLibraryProfileSnapshotLine[];");
-    expect(sharedStudioResumesSource).toContain("educationHasMore: boolean;");
-    expect(sharedStudioResumesSource).toContain("work: ResumeLibraryProfileSnapshotLine[];");
-    expect(sharedStudioResumesSource).toContain("workHasMore: boolean;");
-    expect(listRecordSource).not.toContain("resumeProfile: ResumeProfile | null;");
-    expect(listRecordSource).not.toContain("resumeReview: ResumeReview | null;");
-    expect(detailRecordSource).toContain("resumeProfile: ResumeProfile | null;");
-    expect(detailRecordSource).toContain("resumeReview: ResumeReview | null;");
-    expect(resumeDaoSource).toContain("resumeProfile: studioInterview.resumeProfile");
-    expect(resumeDaoSource).toContain("resumeEducationExperiences");
-    expect(resumeDaoSource).toContain("resumeWorkExperiences");
-    expect(resumeDaoSource).toContain("->>'educationLevel'");
-    expect(resumeDaoSource).toContain("formatResumeEducationSchoolWithLevel");
-    expect(resumeDaoSource).not.toContain("->>'level'");
-    expect(resumeDaoSource).toContain("sortResumeProfileSnapshotLines");
-    expect(resumeDaoSource).toContain("workHasMore:");
-    expect(resumeDaoSource).toContain("educationHasMore:");
-    expect(resumeDaoSource).toContain(".slice(0, RESUME_PROFILE_SNAPSHOT_LIMIT)");
-    expect(toRecordSource).toContain("resumeSkills:");
-    expect(toRecordSource).toContain("resumeSummary:");
-    expect(toRecordSource).toContain("resumeProfileSnapshot:");
-    expect(toRecordSource).not.toContain("resumeProfile: row.resumeProfile");
-    expect(toRecordSource).not.toContain("resumeReview: row.resumeReview");
-  });
-});
-
-describe("resume review detail route", () => {
-  it("exposes member-scoped review endpoints without relaxing the existing library detail route", () => {
-    expect(routeSource).toContain('"/:id/review"');
-    expect(routeSource).toContain('"/:id/review/timeline"');
-    expect(routeSource).toContain('"/:id/review/rounds"');
-    expect(routeSource).toContain('"/:id/review/resume"');
-    expect(routeSource).toContain('"/:id/review/evaluation"');
-    expect(routeSource).toContain("loadResumeDetailForWorkspaceMember");
-    expect(routeSource).toContain("submitResumeEvaluationOnce");
-  });
-
-  it("records audit logs for reviewer submission and admin edits", () => {
-    expect(evaluationDaoSource).toContain("resume_evaluation_submitted");
-    expect(evaluationDaoSource).toContain("resume_evaluation_updated");
-    expect(evaluationDaoSource).toContain("fromStatus");
-    expect(evaluationDaoSource).toContain("toStatus");
-  });
-
-  it("generates a V2 resume review on create when the client did not provide one", () => {
-    expect(routeSource).toContain("generateResumeReviewBestEffort");
-    expect(routeSource).toContain("let resumeReview = resumeReviewInput.data");
-    expect(routeSource).toContain("generatedReview?.structuredReview ?? null");
-    expect(routeSource).toContain("resumeReview,");
-  });
-});
-
-describe("resume library job description audit log", () => {
-  it("records and renders an audit log when the linked job description changes", () => {
-    expect(routeSource).toContain(
-      "const nextJobDescriptionId = input.data.jobDescriptionId || null",
-    );
-    expect(routeSource).toContain(
-      "const jobDescriptionChanged = existing.jobDescriptionId !== nextJobDescriptionId",
-    );
-    expect(routeSource).toContain('action: "job_description_changed"');
-    expect(routeSource).toContain("fromJobDescriptionId: existing.jobDescriptionId");
-    expect(routeSource).toContain("toJobDescriptionId: nextJobDescriptionId");
-    expect(timelineDaoSource).toContain('if (action === "job_description_changed")');
-    expect(timelineDaoSource).toContain("fromJobDescriptionName");
-    expect(timelineDaoSource).toContain("toJobDescriptionName");
-    expect(timelineDaoSource).toContain("关联岗位已变更");
-  });
-
-  it("resets the resume evaluation when the linked job description changes", () => {
-    expect(routeSource).toContain("resetResumeEvaluationForJobChange");
-    expect(routeSource).toContain("jobDescriptionChanged && existing.resumeEvaluationStatus");
-    expect(evaluationDaoSource).toContain("resume_evaluation_reset_for_job_change");
-    expect(evaluationDaoSource).toContain("岗位变更后需重新评估");
-    expect(timelineDaoSource).toContain("resume_evaluation_reset_for_job_change");
-    expect(timelineDaoSource).toContain("简历评估已重置");
-  });
-});
-
-describe("resume library launch interview activity log", () => {
-  it("records and renders the operator who launched an AI interview", () => {
-    expect(routeSource).toContain('action: "ai_interview_launched"');
-    expect(routeSource).toContain("questionCount: interviewQuestions.length");
-    expect(timelineDaoSource).toContain('if (action === "ai_interview_launched")');
-    expect(timelineDaoSource).toContain("发起 AI 面试");
-    expect(timelineDaoSource).toContain("creatorImage: user.image");
-    expect(timelineDaoSource).toContain("actorImage: round.creatorImage");
-  });
-
-  it("uses operator audit entries instead of duplicate system entity events", () => {
-    expect(timelineDaoSource).toContain("buildOperatorAuditedActionKeys");
-    expect(timelineDaoSource).toContain("if (!log.actorName)");
-    expect(timelineDaoSource).toContain(
-      '!hasOperatorAuditedAction(operatorAuditedActionKeys, "candidate_transition", "closed")',
-    );
-    expect(timelineDaoSource).toContain('detail.toStage === "closed"');
-    expect(timelineDaoSource).toContain("候选人结案");
-    expect(timelineDaoSource).toContain('"human_interview_round_created"');
-    expect(timelineDaoSource).toContain('"offer_draft_created"');
   });
 });

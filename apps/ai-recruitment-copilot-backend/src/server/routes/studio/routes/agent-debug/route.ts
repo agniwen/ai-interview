@@ -1,5 +1,5 @@
-import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { parseResumeFastToProfile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
+import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 
@@ -37,10 +37,19 @@ export const agentDebugRouter = factory
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "简历解析失败。";
-      const status = message.includes("PDF") || message.includes("MB") ? 400 : 500;
+      if (message.includes("PDF") || message.includes("MB")) {
+        return c.json({ error: message, stage: "agent-debug.resume-parser-test" }, 400);
+      }
       return c.json(
-        { error: message, stage: "agent-debug.resume-parser-test" },
-        status as ContentfulStatusCode,
+        {
+          ...createInternalErrorResponse({
+            error,
+            operation: "agent-debug-resume-parser-test",
+            publicMessage: "简历解析失败。",
+          }),
+          stage: "agent-debug.resume-parser-test",
+        },
+        500,
       );
     }
   });

@@ -1,4 +1,3 @@
-import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { RoomAgentDispatch, RoomConfiguration } from "@livekit/protocol";
 import { and, eq, ne } from "drizzle-orm";
 import { AccessToken } from "livekit-server-sdk";
@@ -80,15 +79,24 @@ export const interviewRouter = factory
         },
       });
     } catch (error) {
-      if (error instanceof Error) {
-        const status = error.message.includes("PDF") || error.message.includes("MB") ? 400 : 500;
-        return c.json(
-          { error: error.message, stage: "resume-parsing" },
-          status as ContentfulStatusCode,
-        );
+      if (
+        error instanceof Error &&
+        (error.message.includes("PDF") || error.message.includes("MB"))
+      ) {
+        return c.json({ error: error.message, stage: "resume-parsing" }, 400);
       }
-
-      return c.json({ error: "Failed to parse resume.", stage: "resume-parsing" }, 500);
+      return c.json(
+        {
+          ...createInternalErrorResponse({
+            context,
+            error,
+            operation: "interview-resume-parse-stream",
+            publicMessage: "Failed to parse resume.",
+          }),
+          stage: "resume-parsing",
+        },
+        500,
+      );
     }
   })
   .post(
@@ -137,7 +145,12 @@ export const interviewRouter = factory
         return c.json(match, 200);
       } catch (error) {
         return c.json(
-          { error: error instanceof Error ? error.message : "在招岗位匹配失败。" },
+          createInternalErrorResponse({
+            context: { organizationId: orgId },
+            error,
+            operation: "interview-job-description-match",
+            publicMessage: "在招岗位匹配失败。",
+          }),
           500,
         );
       }

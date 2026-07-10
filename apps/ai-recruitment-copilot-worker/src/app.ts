@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { bearerAuth } from "hono/bearer-auth";
 import {
   getResumeParseQueueStats,
   isResumeParseQueueConfigured,
@@ -34,6 +35,16 @@ export function createWorkerApp() {
       return c.json({ ok: false, reason: "Dependency check failed" }, 503);
     }
   });
+
+  app.use(
+    "/queues/*",
+    bearerAuth({
+      verifyToken: (token) => {
+        const expected = process.env.WORKER_DIAGNOSTICS_SECRET?.trim();
+        return Boolean(expected) && token === expected;
+      },
+    }),
+  );
 
   app.get("/queues/resume-parse/stats", async (c) => {
     const stats = await getResumeParseQueueStats();

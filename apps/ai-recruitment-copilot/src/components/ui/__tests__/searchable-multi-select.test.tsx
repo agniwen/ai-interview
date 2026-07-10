@@ -1,9 +1,7 @@
-import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { SearchableMultiSelect } from "../searchable-multi-select";
-
-const source = readFileSync(new URL("../searchable-multi-select.tsx", import.meta.url), "utf-8");
+import { handleScrollableListWheel } from "../searchable-select";
 
 const options = [
   { label: "岗位 A", value: "job-a" },
@@ -77,10 +75,20 @@ describe("SearchableMultiSelect", () => {
     expect(html).toContain("+1");
   });
 
-  it("lets long option lists flip on collision and keep wheel scrolling", () => {
-    expect(source).toContain("collisionAvoidance={{");
-    expect(source).toContain('side: "flip"');
-    expect(source).toContain('fallbackAxisSide: "none"');
-    expect(source).toContain("onWheelCapture={handleScrollableListWheel}");
+  it("keeps wheel scrolling inside a long option list", () => {
+    const list = { clientHeight: 100, scrollHeight: 300, scrollTop: 40 };
+    const preventDefault = vi.fn();
+    const stopPropagation = vi.fn();
+
+    handleScrollableListWheel({
+      currentTarget: list,
+      deltaY: 25,
+      preventDefault,
+      stopPropagation,
+    } as unknown as Parameters<typeof handleScrollableListWheel>[0]);
+
+    expect(list.scrollTop).toBe(65);
+    expect(preventDefault).toHaveBeenCalledOnce();
+    expect(stopPropagation).toHaveBeenCalledOnce();
   });
 });

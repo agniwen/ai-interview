@@ -53,6 +53,21 @@ export interface CandidateTransitionAuditDetail {
   toStage: PipelineStage;
 }
 
+export function getCandidateReactivationError({
+  from,
+  reactivationReason,
+  to,
+}: {
+  from: PipelineStage;
+  reactivationReason?: string;
+  to: PipelineStage;
+}): string | null {
+  if (from === "closed" && to !== "closed" && !reactivationReason?.trim()) {
+    return "请填写重新激活原因。";
+  }
+  return null;
+}
+
 export function getCandidateStageTransitionError({
   from,
   hasJobDescription,

@@ -21,18 +21,26 @@ import type {
   HumanInterviewRoundOutcome,
 } from "@arc/db-schema/studio-interviews";
 import type { HumanInterviewRoundRecord } from "@arc/shared/studio-pipeline-stages";
+import {
+  COMPLETED_HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE,
+  HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE,
+  humanInterviewFeedbackSchema,
+} from "../utils/human-interview-readiness";
+import type { HumanInterviewRoundReadiness } from "../utils/human-interview-readiness";
 
 export type { HumanInterviewRoundRecord };
+export {
+  COMPLETED_HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE,
+  HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE,
+  HUMAN_INTERVIEW_READY_FOR_OFFER_REQUIRED_MESSAGE,
+  getHumanInterviewOfferReadinessError,
+} from "../utils/human-interview-readiness";
+export type { HumanInterviewRoundReadiness } from "../utils/human-interview-readiness";
 
 // drizzle 事务 callback 参数类型；和 db 实例签名差一个 $client 字段，需要单独抽出来。
 // Inner-transaction type; drops the $client field that's on the top-level db.
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 const DEFAULT_VALID_DURATION_MS = 60 * 60 * 1000;
-export const HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE = "请填写面试评价";
-export const COMPLETED_HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE =
-  "请先填写已完成真人面试轮次的面试评价。";
-export const HUMAN_INTERVIEW_READY_FOR_OFFER_REQUIRED_MESSAGE =
-  "请先完成所有真人面试轮次，并补全每轮面试评价。";
 
 type HumanInterviewRoundEditInput = Partial<HumanInterviewRoundInput> & {
   validUntil?: string | null;
@@ -52,17 +60,14 @@ function serializeDate(value: Date | null): string | null {
 }
 
 function normalizeRequiredFeedback(value: string | null | undefined): string {
-  const feedback = value?.trim();
-  if (!feedback) {
-    throw new EditRoundError(HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE, 400);
+  const result = humanInterviewFeedbackSchema.safeParse(value);
+  if (!result.success) {
+    throw new EditRoundError(
+      result.error.issues[0]?.message ?? HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE,
+      400,
+    );
   }
-  return feedback;
-}
-
-export interface HumanInterviewRoundReadiness {
-  totalRounds: number;
-  pendingRounds: number;
-  completedRoundsMissingFeedback: number;
+  return result.data;
 }
 
 export async function loadHumanInterviewRoundReadiness(
@@ -90,16 +95,6 @@ export async function loadHumanInterviewRoundReadiness(
     pendingRounds: rows.filter((row) => row.status === "pending").length,
     totalRounds: rows.length,
   };
-}
-
-export function getHumanInterviewOfferReadinessError(
-  readiness: HumanInterviewRoundReadiness,
-): string | null {
-  return readiness.totalRounds > 0 &&
-    readiness.pendingRounds === 0 &&
-    readiness.completedRoundsMissingFeedback === 0
-    ? null
-    : HUMAN_INTERVIEW_READY_FOR_OFFER_REQUIRED_MESSAGE;
 }
 
 export async function assertCompletedHumanInterviewRoundsHaveFeedback(

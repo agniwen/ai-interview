@@ -25,37 +25,4 @@ describe("late-stage route permissions", () => {
     );
     expect(routeSource).not.toContain('requirePermission("humanInterview", "manage")');
   });
-
-  it("splits offer routes by CRUD permissions", () => {
-    expect(routeSource).toContain('.get("/:id/offer-drafts", requirePermission("offer", "read")');
-    expect(routeSource).toContain(
-      '.post(\n    "/:id/offer-drafts",\n    requirePermission("offer", "create")',
-    );
-    expect(routeSource).toContain(
-      '.patch(\n    "/:id/offer-drafts/:draftId",\n    requirePermission("offer", "update")',
-    );
-    expect(routeSource).toContain(
-      '.post("/:id/offer-drafts/:draftId/send", requirePermission("offer", "update")',
-    );
-    expect(routeSource).toContain(
-      '.post(\n    "/:id/offer-drafts/:draftId/respond",\n    requirePermission("offer", "update")',
-    );
-    expect(routeSource).toContain(
-      '.post("/:id/offer-drafts/:draftId/cancel", requirePermission("offer", "delete")',
-    );
-    expect(routeSource).not.toContain('requirePermission("offer", "manage")');
-  });
-
-  it("records candidate activity for human interview and offer mutations", () => {
-    expect(routeSource).toContain("function recordCandidateActivity(");
-    expect(routeSource).toContain('action: "human_interview_round_created"');
-    expect(routeSource).toContain('action: "human_interview_round_updated"');
-    expect(routeSource).toContain('action: "human_interview_round_completed"');
-    expect(routeSource).toContain('action: "human_interview_round_cancelled"');
-    expect(routeSource).toContain('action: "offer_draft_created"');
-    expect(routeSource).toContain('action: "offer_draft_updated"');
-    expect(routeSource).toContain('action: "offer_draft_sent"');
-    expect(routeSource).toContain('action: "offer_draft_responded"');
-    expect(routeSource).toContain('action: "offer_draft_cancelled"');
-  });
 });

@@ -6,6 +6,7 @@ import {
   updateStructuredByHash,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
 import { resolveJobDescriptionMatchBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/match-job-description";
 import { listAllJobDescriptions } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
@@ -48,7 +49,15 @@ export const attachmentsRouter = factory
       });
       return c.json(match, 200);
     } catch (error) {
-      return c.json({ error: error instanceof Error ? error.message : "在招岗位匹配失败。" }, 500);
+      return c.json(
+        createInternalErrorResponse({
+          context: { organizationId: activeOrg.id },
+          error,
+          operation: "chat-attachment-job-description-match",
+          publicMessage: "在招岗位匹配失败。",
+        }),
+        500,
+      );
     }
   })
   .get("/:previewId", async (c, next) => {
