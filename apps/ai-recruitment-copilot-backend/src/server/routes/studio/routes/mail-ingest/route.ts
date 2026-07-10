@@ -7,6 +7,7 @@ import {
   isWorkspaceMember,
   listAccountMailMessages,
   listMailIngestAccounts,
+  mailIngestAccountExistsInOrg,
   queryPaginatedWorkspaceMailIngestAccounts,
   updateMailIngestAccount,
   updateWorkspaceMailIngestAccount,
@@ -129,6 +130,32 @@ export const mailIngestRouter = factory
           500,
         );
       }
+    },
+  )
+  .get(
+    "/managed/:id/messages",
+    requirePermission("mailIngestAccount", "manage"),
+    zValidator("query", listMailMessagesQuerySchema, jsonValidatorError("查询参数不合法")),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!activeOrg || !user) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const accountId = c.req.param("id");
+      const exists = await mailIngestAccountExistsInOrg({
+        id: accountId,
+        organizationId: activeOrg.id,
+      });
+      if (!exists) {
+        return c.json({ error: "邮箱配置不存在。" }, 404);
+      }
+      const q = c.req.valid("query");
+      const result = await listAccountMailMessages({
+        accountId,
+        organizationId: activeOrg.id,
+        ...q,
+      });
+      return c.json(result, 200);
     },
   )
   .get("/", requirePermission("mailIngestAccount", "read"), async (c) => {

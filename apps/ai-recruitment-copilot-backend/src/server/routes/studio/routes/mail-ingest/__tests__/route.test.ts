@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   getMailIngestAccountLoginConfig: vi.fn(),
   isWorkspaceMember: vi.fn(),
   listAccountMailMessages: vi.fn(),
+  mailIngestAccountExistsInOrg: vi.fn(),
   updateWorkspaceMailIngestAccount: vi.fn(),
   validateMailIngestAccountLogin: vi.fn(),
 }));
@@ -25,6 +26,7 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/mail-in
   isWorkspaceMember: mocks.isWorkspaceMember,
   listAccountMailMessages: mocks.listAccountMailMessages,
   listMailIngestAccounts: vi.fn(),
+  mailIngestAccountExistsInOrg: mocks.mailIngestAccountExistsInOrg,
   queryPaginatedPlatformMailIngestAccounts: vi.fn(),
   queryPaginatedWorkspaceMailIngestAccounts: vi.fn(),
   updateMailIngestAccount: vi.fn(),
@@ -108,6 +110,7 @@ describe("mailIngestRouter", () => {
     mocks.isWorkspaceMember.mockResolvedValue(true);
     mocks.createMailIngestAccount.mockResolvedValue({ id: "account_1" });
     mocks.listAccountMailMessages.mockResolvedValue({ records: [], total: 0 });
+    mocks.mailIngestAccountExistsInOrg.mockResolvedValue(true);
     mocks.updateWorkspaceMailIngestAccount.mockResolvedValue({ id: "account_1" });
     mocks.validateMailIngestAccountLogin.mockRejectedValue(
       new mocks.MailIngestValidationError("邮箱登录校验失败：Invalid credentials"),
@@ -216,6 +219,35 @@ describe("mailIngestRouter", () => {
     mocks.getMailIngestAccountLoginConfig.mockResolvedValue(null);
 
     const res = await app.request("/mail-ingest-accounts/account_2/messages");
+
+    expect(res.status).toBe(404);
+    expect(mocks.listAccountMailMessages).not.toHaveBeenCalled();
+  });
+
+  it("managed messages: manage user drills into any org account (org-scoped, no userId)", async () => {
+    mocks.listAccountMailMessages.mockResolvedValue({ records: [{ id: "msg_1" }], total: 1 });
+
+    const res = await app.request("/mail-ingest-accounts/managed/account_9/messages");
+
+    expect(res.status).toBe(200);
+    expect(mocks.mailIngestAccountExistsInOrg).toHaveBeenCalledWith({
+      id: "account_9",
+      organizationId: "org_1",
+    });
+    expect(mocks.listAccountMailMessages).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: "account_9",
+        organizationId: "org_1",
+        page: 1,
+        pageSize: 20,
+      }),
+    );
+  });
+
+  it("managed messages: 404 when account not in org", async () => {
+    mocks.mailIngestAccountExistsInOrg.mockResolvedValue(false);
+
+    const res = await app.request("/mail-ingest-accounts/managed/account_x/messages");
 
     expect(res.status).toBe(404);
     expect(mocks.listAccountMailMessages).not.toHaveBeenCalled();
