@@ -36,9 +36,7 @@ def _recording_r2_upload_from_env() -> api.S3Upload | None:
         bucket=bucket,
         region=os.environ.get("RECORDING_R2_REGION", "auto"),
         endpoint=endpoint,
-        force_path_style=os.environ.get(
-            "RECORDING_R2_FORCE_PATH_STYLE", "true"
-        ).lower()
+        force_path_style=os.environ.get("RECORDING_R2_FORCE_PATH_STYLE", "true").lower()
         == "true",
     )
 

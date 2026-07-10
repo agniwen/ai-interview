@@ -43,6 +43,7 @@ import {
   parseResumeFastToProfile,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
 import { resolveCandidateQuestionGenerationEnabled } from "@arc/shared/interview/candidate-question-generation-config";
 import { loadSubmissionsByInterview } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/submissions";
 import {
@@ -722,10 +723,12 @@ export const studioInterviewsRouter = factory
           return c.json(buildTokenErrorResponse(), 500);
         }
         return c.json(
-          {
-            detail: error instanceof Error ? error.message : "Unknown error",
-            error: "Failed to sign LiveKit token.",
-          },
+          createInternalErrorResponse({
+            context: { meetingId: meeting.id },
+            error,
+            operation: "studio-interviewer-livekit-token",
+            publicMessage: "Failed to sign LiveKit token.",
+          }),
           500,
         );
       }

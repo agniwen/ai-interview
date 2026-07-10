@@ -1,11 +1,11 @@
 # Voice Interview Agent
 
 Python LiveKit agent that conducts the live interview half of **AI Recruitment
-Copilot**. The web app (`../src/`) handles auth, resume upload/parsing,
+Copilot**. The web app (`../ai-recruitment-copilot/`) handles auth, resume upload/parsing,
 screening chat, and interview scheduling; this agent joins a LiveKit room and
 runs the actual voice conversation, then reports the transcript back to web.
 
-For repo-wide setup (web + agent together), see the root [`README.md`](../README.md).
+For repo-wide setup (web + agent together), see the root [`README.md`](../../README.md).
 
 ## Pipeline
 
@@ -28,16 +28,18 @@ Python 3.11, [`uv`](https://docs.astral.sh/uv/) required. Do not mix in
 `pip` / `poetry`.
 
 ```bash
-cd agent
+cd apps/livekit-agent
 uv sync                                  # install deps into .venv
 uv run src/agent.py download-files       # Silero VAD + turn-detector models
 cp .env.example .env                     # then fill in values (see comments inside)
 ```
 
 `.env` is loaded by `src/agent.py` via `python-dotenv` (`load_dotenv()`) — it
-lives **inside `agent/`**, separate from the web app's root `.env`. Several
-secrets (`LIVEKIT_*`, `CALLBACK_BASE_URL`, `AGENT_CALLBACK_SECRET`,
-`RECORDING_R2_*`) need to be in lock-step across both files.
+lives **inside `apps/livekit-agent/`**, separate from the server environment:
+`apps/ai-recruitment-copilot/.env` for the integrated web runtime, or
+`apps/ai-recruitment-copilot-backend/.env` for the standalone backend. Shared
+values (`LIVEKIT_*`, `CALLBACK_BASE_URL`, `AGENT_CALLBACK_SECRET`,
+`RECORDING_R2_*`) must stay in lock-step with whichever server runtime is deployed.
 
 If local `dev` runs print `ai_coustics Missing configuration`, set
 `INTERVIEW_DISABLE_NOISE_CANCELLATION=1` in the local `.env`. Keep it unset in
@@ -92,11 +94,11 @@ will work.
    lk project add <your-project-alias>      # alias used by --project flags
    ```
 
-2. **Reset the project binding.** Delete the upstream `agent/livekit.toml` so
+2. **Reset the project binding.** Delete the upstream `apps/livekit-agent/livekit.toml` so
    the next `lk agent create` regenerates it against your project:
 
    ```bash
-   rm agent/livekit.toml
+   rm apps/livekit-agent/livekit.toml
    ```
 
 3. **Update the Makefile project alias.** In the repo root `Makefile`, change
@@ -108,7 +110,7 @@ will work.
    `uv run src/agent.py dev`). Copy and populate:
 
    ```bash
-   cd agent
+   cd apps/livekit-agent
    cp .env.example .env.secrets
    # fill in LIVEKIT_*, DASHSCOPE_API_KEY, ELEVEN_API_KEY, DEEPGRAM_API_KEY,
    #         MINIMAX_API_KEY,
@@ -117,13 +119,15 @@ will work.
 
    `CALLBACK_BASE_URL` must point at your deployed web service (the agent
    POSTs session events back there). `AGENT_CALLBACK_SECRET`, `LIVEKIT_*`,
-   and `RECORDING_R2_*` must match the values in the web app's root `.env`.
+   and `RECORDING_R2_*` must match `apps/ai-recruitment-copilot/.env` for the
+   integrated runtime, or `apps/ai-recruitment-copilot-backend/.env` for the
+   standalone backend.
 
 5. **Align the agent name with the web side.** Set `AGENT_NAME` in the worker
    and web environments, and set `NEXT_PUBLIC_AGENT_NAME` to the same value.
    All three default to `giaogiao` in the checked-in examples.
 
-6. **First deploy.** From `agent/`:
+6. **First deploy.** From `apps/livekit-agent/`:
 
    ```bash
    lk agent create --secrets-file .env.secrets --project <your-alias>

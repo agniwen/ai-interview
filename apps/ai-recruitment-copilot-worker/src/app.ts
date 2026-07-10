@@ -30,13 +30,8 @@ export function createWorkerApp() {
       await getResumeParseQueueStats();
       return c.json({ ok: true }, 200);
     } catch (error) {
-      return c.json(
-        {
-          ok: false,
-          reason: error instanceof Error ? error.message : String(error),
-        },
-        503,
-      );
+      console.error("[worker] readiness check failed", error);
+      return c.json({ ok: false, reason: "Dependency check failed" }, 503);
     }
   });
 

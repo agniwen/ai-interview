@@ -30,4 +30,11 @@ describe("Docker env configuration", () => {
     expect(dockerfile).toContain(`export NEXT_PUBLIC_BASE_URL="${baseUrlFallback}"`);
     expect(dockerfile).toContain(`export NEXT_PUBLIC_BETTER_AUTH_URL="${authUrlFallback}"`);
   });
+
+  it("uses the dependency-aware readiness endpoint for the web healthcheck", () => {
+    const compose = readRepoFile("docker-compose.yml");
+
+    expect(compose).toContain("fetch('http://127.0.0.1:3000/api/ready')");
+    expect(compose).not.toContain("fetch('http://127.0.0.1:3000/api/health')");
+  });
 });

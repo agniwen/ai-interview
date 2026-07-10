@@ -23,6 +23,7 @@ import {
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
 import { authMiddleware } from "@arc/ai-recruitment-copilot-backend/server/middlewares/auth";
 import { resumeProfileSchema } from "@arc/db-schema/interview/types";
 import {
@@ -494,10 +495,12 @@ export const interviewRouter = factory
       return c.json({ isReconnect, participantName, participantToken, roomName, serverUrl }, 200);
     } catch (error) {
       return c.json(
-        {
-          detail: error instanceof Error ? error.message : "Unknown error",
-          error: "Failed to sign LiveKit token.",
-        },
+        createInternalErrorResponse({
+          context: { interviewRecordId: id, roundId },
+          error,
+          operation: "interview-livekit-token",
+          publicMessage: "Failed to sign LiveKit token.",
+        }),
         500,
       );
     }

@@ -115,9 +115,7 @@ def test_stt_event_accumulates(monkeypatch):
     _patch_metrics_types(monkeypatch)
     state = _empty_metrics_state()
 
-    _accumulate_metrics(
-        state, _evt(_StubSTT, audio_duration=4.0, duration=0.8)
-    )
+    _accumulate_metrics(state, _evt(_StubSTT, audio_duration=4.0, duration=0.8))
 
     stt = state["session"]["stt"]
     assert stt["request_count"] == 1
