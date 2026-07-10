@@ -94,7 +94,7 @@ A 补强为**第二步**：评测器先跑 B-only 出基线，A 后重跑。
 
 1. **not_indexed**：P 在 Qdrant 语义 collection **无任何 point**（collection 仅存当前 active 简历向量，故"有任一 point"= 已索引；判据 = `loadResumeEmbeddings({sourceId:P})` 非空）。
 2. **recall_capped**：P 至少一分面有 active 向量，但**三分面均未进各自 top-40/50** → 真·召回上限截断。
-3. **status_filtered**：P 进了检索并集，却被 `loadRecommendationCandidates` 的 DB 过滤剔除。**生产 DB 过滤完整枚举**（recommendations.ts:355-361）：`organizationId` 相等、`id ∈ 检索并集`、`status ≠ 'archived'`（无解析态或其它过滤）。评测已 LOO 豁免正例，故此类仅由 `status='archived'` 触发（当前实测 0 例）。
+3. **status_filtered**：P 进了检索并集，却被 `loadRecommendationCandidates` 的 DB 过滤剔除。**生产 DB 过滤**（`recommendationCandidateWhere`）：`organizationId` 相等、`id ∈ 检索并集`、`pipelineStage ≠ 'closed'`（dev 分支由旧 `status ≠ 'archived'` 改此）。⚠️ 评测走 `includeClosed=true` **豁免**该过滤 —— B 挖掘的正例（hired / 后期 rejected）天然 `pipelineStage='closed'`，若跟随生产过滤会被全判成本类、掩盖检索质量（决策见 §11）。故此类实测 **0 例**。
 4. **below_threshold**：P 进入打分排序，但 `score < 55`（生产阈值挡掉，UI 不展示）。
 5. **retrieved_low_rank**：P `score ≥ 55`，但 `rank > 20`。
 
@@ -189,3 +189,27 @@ recall@50_raw = 0.XX     MRR = 0.XX     (各指标均附按岗位宏平均)
 1. **①召回快赢**：放开/重设召回上限、混合检索(dense+BM25)、JD embedding 缓存、去重、静默截断提示、子串→技能集精确匹配。→ 看 recall_capped 下降、recall@20 提升。
 2. **②重排**：召回集(top 100~200) LLM/cross-encoder 重排 + 分档展示。→ 看 retrieved_low_rank 下降、MRR 提升。
 3. **③埋点**：招聘方动作落表，为可学习打分与在线评测积累标签。
+
+### 11.1 B-only 基线实测与优先级回填（2026-07-10 只读实测）
+
+**运行：** `org_default` · `b-only` · git=`fb529b3f` · embedding=`text-embedding-v4@dashscope-text-embedding-v4-1024-v1` · collection=`resume_semantic_v1` · 覆盖率 **100%**（无岗位远程失败）。样本 = **51 挖掘正例 / 23 岗位**（多数岗仅 1 正例，宏平均噪声大，结论保守）。
+
+| 指标 | 微平均 | 宏平均 |
+|---|---|---|
+| recall@20_shown（主） | **29.4%** | 16.1% |
+| recall@20_raw | 62.7% | 49.0% |
+| recall@50_raw | 72.5% | 62.8% |
+| MRR | 0.172 | 0.136 |
+
+**失败拆分（§4.5 五类，51 正例）：** hit=15 · **below_threshold=25** · **recall_capped=11** · retrieved_low_rank=0 · not_indexed=0 · status_filtered=0。
+
+**判读（最可能，非唯一元凶）：**
+
+- **主元凶 = below_threshold（≈49%）。** `recall@20_raw 62.7%` ≫ `recall@20_shown 29.4%` —— 近半正例其实排进原始 top-20，却因加权分 <55 被阈值挡在展示外。**最高 ROI 的第一手是调阈值 / 重标定打分**（分面权重、或加重排让真正例分数抬上来），而非先动召回上限。此项原 §11 路线未单列，实测后**升为首要**。
+- **次元凶 = recall_capped（≈22%）→ 对应路线 ①。** 11 个正例没进 40/50/50 分面上限，连打分机会都没有；放开上限 / 混合检索能救回。⚠️ recall_capped 只证明"没进当前 top-K"，不单独证明分面/查询表达无责。
+- **retrieved_low_rank=0 → 路线 ② 重排暂非瓶颈**：当前无"分够 55 却掉出 top-20"的正例；重排收益要等阈值/召回改善、更多正例进入 ≥55 区间后才显现。
+- **not_indexed=0 / status_filtered=0**：标注集索引覆盖完整；状态过滤未误伤（见下 includeClosed 决策）。
+
+**修订后优先级：** ①ʹ **阈值/重标定打分**（打 below_threshold，实测新首要）→ ② 召回快赢（打 recall_capped，原①）→ ③ 重排（待 retrieved_low_rank 出现，原②）→ ④ 埋点（原③）。
+
+**includeClosed 决策（实现期发现的设计细化）：** dev 分支把 `loadRecommendationCandidates` 的过滤由 `status≠'archived'` 改为 **`pipelineStage≠'closed'`**（见 §4.5#3）。B 挖掘的正例（hired / 后期 rejected）天然是 `pipelineStage='closed'`，若评测跟随生产过滤会把它们全判成 `status_filtered`、掩盖真实检索质量。**决策：评测走 `includeClosed=true`**，让 LOO 反事实里的结案正例仍可加载打分 —— 与"绑定本 JD 豁免 `excludeLinkedExceptIds`"同理：业务展示规则（不推结案人）与检索质量测量正交。生产默认 `includeClosed=false`，行为不变。实测据此 `status_filtered=0`。实现于 `recommendationCandidateWhere` + CLI 注入，锁于 `recommendations.test.ts` 的 SQL 两分支特征化测试。
