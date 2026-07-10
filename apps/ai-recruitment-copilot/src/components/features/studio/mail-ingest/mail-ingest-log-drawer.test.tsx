@@ -235,3 +235,89 @@ describe("MailIngestLogDrawer messages table", () => {
     queryClient.clear();
   });
 });
+
+describe("MailIngestLogDrawer summary + refresh", () => {
+  const accountWithSnapshot: MailIngestLogAccount = {
+    emailAddress: "inbox@example.com",
+    id: "acc-1",
+    lastCheckedAt: "2026-07-10T00:00:00.000Z",
+    lastError: null,
+    lastRunFailed: 1,
+    lastRunMatched: 2,
+    lastRunQueued: 2,
+    lastRunReceived: 5,
+    lastRunSubjectSkipped: 1,
+  };
+
+  it("shows the derived run summary text at the top when opened with an account", async () => {
+    rpcFetchMock.mockResolvedValue({ records: [], total: 0 });
+
+    const { queryClient, root } = renderDrawer();
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <MailIngestLogDrawer
+            account={accountWithSnapshot}
+            onOpenChange={vi.fn()}
+            open
+            slug="test-slug"
+          />
+        </QueryClientProvider>,
+      );
+      await Promise.resolve();
+    });
+
+    expect(document.body.textContent).toContain("上轮快照");
+    expect(document.body.textContent).toContain("收到5 · 标题不符1 · 命中2 · 入队2 · 失败1");
+
+    act(() => {
+      root.unmount();
+    });
+    queryClient.clear();
+  });
+
+  it("refresh() invalidates both the messages query and the account list query", async () => {
+    rpcFetchMock.mockResolvedValue({ records: [], total: 0 });
+
+    const { queryClient, root } = renderDrawer();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <MailIngestLogDrawer
+            account={accountWithSnapshot}
+            onOpenChange={vi.fn()}
+            open
+            slug="test-slug"
+          />
+        </QueryClientProvider>,
+      );
+      await Promise.resolve();
+    });
+
+    const refreshButton = [...document.querySelectorAll("button")].find(
+      (btn) => btn.textContent === "刷新",
+    );
+    expect(refreshButton).not.toBeUndefined();
+
+    await act(async () => {
+      refreshButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledTimes(2);
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["mail-ingest-messages", "test-slug", "acc-1"],
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["managed-mail-ingest-accounts", "test-slug"],
+    });
+
+    act(() => {
+      root.unmount();
+    });
+    queryClient.clear();
+  });
+});

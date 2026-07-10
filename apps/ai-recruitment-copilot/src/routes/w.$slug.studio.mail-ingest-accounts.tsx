@@ -8,6 +8,7 @@ import { actionsColumn, customColumn, DataGrid, useDataGridState } from "@/compo
 import type { DataGridFetchParams, DataGridFetchResult } from "@/components/data-grid";
 import { MemberCell } from "@/components/data-grid/cells/member-cell";
 import { TimeDisplay } from "@/components/features/display/time-display";
+import { MailIngestLogDrawer } from "@/components/features/studio/mail-ingest/mail-ingest-log-drawer";
 import { PageHeader } from "@/components/features/studio/page-header";
 import {
   WORKSPACE_ROLES,
@@ -97,6 +98,13 @@ interface MailIngestAccountRecord {
 
 interface ManagedMailIngestRow {
   account: MailIngestAccountRecord | null;
+  lastRunFailed: number | null;
+  lastRunMatched: number | null;
+  lastRunQueued: number | null;
+  lastRunReceived: number | null;
+  lastRunSubjectSkipped: number | null;
+  messageCount: number;
+  problemCount: number;
   user: {
     email: string;
     id: string;
@@ -175,6 +183,31 @@ function toPayload(form: MailIngestFormState) {
     subjectKeyword: form.subjectKeyword.trim() || "boss直聘",
     username: form.username.trim(),
   };
+}
+
+export function renderMessageBadge(
+  row: {
+    account: { emailAddress: string; id: string } | null;
+    messageCount: number;
+    problemCount: number;
+  },
+  onSelect: (accountId: string) => void,
+) {
+  if (!row.account) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  const { account } = row;
+  return (
+    <button
+      aria-label={`查看 ${account.emailAddress} 的入库记录`}
+      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-sm hover:bg-muted focus-visible:outline-2"
+      onClick={() => onSelect(account.id)}
+      type="button"
+    >
+      <span>{row.messageCount}</span>
+      {row.problemCount > 0 ? <span className="text-destructive">·{row.problemCount}</span> : null}
+    </button>
+  );
 }
 
 function MailIngestAccountDialog({
@@ -458,6 +491,26 @@ function ManagedMailIngestPage() {
     queryFn: fetchMailIngestRows,
     queryKeyBase: ["managed-mail-ingest-accounts", slug],
   });
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+
+  const selectedRow =
+    selectedAccountId === null
+      ? null
+      : (grid.data.records.find((r) => r.account?.id === selectedAccountId) ?? null);
+
+  const selectedLogAccount = selectedRow?.account
+    ? {
+        emailAddress: selectedRow.account.emailAddress,
+        id: selectedRow.account.id,
+        lastCheckedAt: selectedRow.account.lastCheckedAt,
+        lastError: selectedRow.account.lastError,
+        lastRunFailed: selectedRow.lastRunFailed,
+        lastRunMatched: selectedRow.lastRunMatched,
+        lastRunQueued: selectedRow.lastRunQueued,
+        lastRunReceived: selectedRow.lastRunReceived,
+        lastRunSubjectSkipped: selectedRow.lastRunSubjectSkipped,
+      }
+    : null;
   const roleLabelByValue = useMemo(() => {
     const roles = [...WORKSPACE_ROLES, ...dynamicWorkspaceRoles.map((role) => role.role)].filter(
       (role, index, list) => list.indexOf(role) === index,
@@ -515,6 +568,11 @@ function ManagedMailIngestPage() {
         },
         key: "status",
         title: "状态",
+      }),
+      customColumn<ManagedMailIngestRow>({
+        cell: (row) => renderMessageBadge(row, setSelectedAccountId),
+        key: "messageLog",
+        title: "入库记录",
       }),
       customColumn<ManagedMailIngestRow>({
         cell: (row) =>
@@ -613,6 +671,18 @@ function ManagedMailIngestPage() {
           },
         ]}
         getRowId={(row) => `${row.user.id}:${row.account?.id ?? "empty"}`}
+      />
+
+      <MailIngestLogDrawer
+        account={selectedLogAccount}
+        key={selectedAccountId ?? "none"}
+        onOpenChange={(next) => {
+          if (!next) {
+            setSelectedAccountId(null);
+          }
+        }}
+        open={selectedAccountId !== null}
+        slug={slug}
       />
 
       <MailIngestAccountDialog

@@ -1,5 +1,5 @@
 // 不使用 keepPreviousData（见 remount 契约）
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
@@ -131,6 +131,7 @@ function statusVariant(status: MailMessageRecord["status"]) {
 }
 
 function MailIngestLogMessages({ account, slug }: { account: MailIngestLogAccount; slug: string }) {
+  const queryClient = useQueryClient();
   const [status, setStatus] = useState<StatusFilter>("");
   const [keyword, setKeyword] = useState("");
   const [from, setFrom] = useState<string | null>(null);
@@ -176,6 +177,13 @@ function MailIngestLogMessages({ account, slug }: { account: MailIngestLogAccoun
     setFrom(nextFrom);
     setTo(nextTo);
     resetToFirstPage();
+  }
+
+  async function refresh() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["mail-ingest-messages", slug, account.id] }),
+      queryClient.invalidateQueries({ queryKey: ["managed-mail-ingest-accounts", slug] }),
+    ]);
   }
 
   // 错误 toast 放 effect，避免在 render body 里每次渲染都触发（内联重试见下方三态分支）
@@ -355,6 +363,9 @@ function MailIngestLogMessages({ account, slug }: { account: MailIngestLogAccoun
             清除筛选
           </button>
         ) : null}
+        <button onClick={refresh} type="button">
+          刷新
+        </button>
       </div>
       {dateError ? <p className="text-destructive text-xs">{dateError}</p> : null}
 
