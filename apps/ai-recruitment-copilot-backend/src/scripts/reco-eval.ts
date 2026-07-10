@@ -7,6 +7,7 @@ import { QdrantResumeVectorStore } from "@arc/ai-recruitment-copilot-backend/lib
 import { loadJobDescriptionById } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import {
   createDefaultRecommendationDeps,
+  loadRecommendationCandidates,
   scoreCandidatesForJobDescription,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/utils/recommendations";
 import { dedupeLabels, validateLabels } from "./reco-eval/labels";
@@ -62,7 +63,14 @@ async function main() {
   const validKeys = await loadValidLabelKeys(org);
   const { invalid, valid } = validateLabels(deduped, validKeys);
 
-  const deps = { ...createDefaultRecommendationDeps(), vectorStore: store };
+  // 评测走 includeClosed:true —— 结案正例(hired/后期rejected)在 LOO 反事实里仍应加载打分，
+  // 否则会被生产的 pipelineStage≠closed 过滤成 status_filtered，掩盖真实检索质量。
+  const deps = {
+    ...createDefaultRecommendationDeps(),
+    loadCandidates: (o: string, ids: string[]) =>
+      loadRecommendationCandidates(o, ids, { includeClosed: true }),
+    vectorStore: store,
+  };
   const result = await runEval({
     deps: {
       hasVector: async (id: string) => {

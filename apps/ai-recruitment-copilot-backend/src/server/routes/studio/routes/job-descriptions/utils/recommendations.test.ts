@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import { studioInterview } from "@arc/db-schema/schema";
+import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import type {
   ResumeSemanticChunkType,
   ResumeSemanticTextChunk,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/text-builders";
 import {
+  recommendationCandidateWhere,
   recommendCandidatesForJobDescription,
   scoreCandidatesForJobDescription,
 } from "./recommendations";
@@ -341,5 +344,23 @@ describe("scoreCandidatesForJobDescription — 打分内核", () => {
     expect(core.loadedIds.has("low")).toBe(true);
     // 内核不调 ensureCollection
     expect(ensureCollection).not.toHaveBeenCalled();
+  });
+});
+
+// 只 select id，让 SQL 里 pipeline_stage 只可能来自 WHERE 过滤(而非 select 列表)。
+const whereSqlFor = (includeClosed: boolean) =>
+  db
+    .select({ id: studioInterview.id })
+    .from(studioInterview)
+    .where(recommendationCandidateWhere("org", ["a"], includeClosed))
+    .toSQL()
+    .sql.toLowerCase();
+
+describe("recommendationCandidateWhere — includeClosed 两分支", () => {
+  it("includeClosed=false 含 pipeline_stage 过滤(生产默认)", () => {
+    expect(whereSqlFor(false)).toContain("pipeline_stage");
+  });
+  it("includeClosed=true 不含 pipeline_stage 过滤(评测)", () => {
+    expect(whereSqlFor(true)).not.toContain("pipeline_stage");
   });
 });
