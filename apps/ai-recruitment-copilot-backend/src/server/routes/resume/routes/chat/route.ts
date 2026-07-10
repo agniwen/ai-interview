@@ -63,14 +63,14 @@ export const resumeChatRouter = factory
     const { chatId, messages: rawMessages, trigger, messageId } = c.req.valid("json");
 
     const userId = c.var.user?.id;
-    const orgId = (c.var.session as { activeOrganizationId?: string | null } | null)
-      ?.activeOrganizationId;
-    if (!orgId) {
-      return c.json({ error: "No active workspace" }, 400);
+    const orgId = c.var.activeOrg?.id;
+    if (!(orgId && userId)) {
+      return c.json({ error: "Workspace context is required" }, 403);
     }
 
-    const conversationOwned =
-      userId && chatId ? (await checkConversationOwner(userId, chatId, orgId)) === "ok" : false;
+    const conversationOwned = chatId
+      ? (await checkConversationOwner(userId, chatId, orgId)) === "ok"
+      : false;
 
     let messages = rawMessages as UIMessage[];
     if (trigger === "regenerate-message" && messageId) {

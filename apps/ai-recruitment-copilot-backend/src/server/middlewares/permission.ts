@@ -1,15 +1,14 @@
 // src/server/middlewares/permission.ts
 //
-// 资源-动作粒度的权限校验。通过 better-auth 官方 auth.api.hasPermission
-// 完成，内部根据 session.activeOrganizationId + member.role 解析
-// 自家 ac/roles 矩阵（见 src/lib/shared/permissions.ts）。
+// 资源-动作粒度的权限校验。工作区必须来自本次 URL 解析结果，不能回退到
+// 可被其他标签页修改的全局 session 状态。
 
-import { auth } from "@arc/ai-recruitment-copilot-backend/lib/server/auth";
 import type { statement } from "@arc/shared/permissions";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { and, eq } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { recruitingGroupMember } from "@arc/db-schema/schema";
+import { hasWorkspacePermission } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-permissions";
 
 type Resource = keyof typeof statement;
 type Action<R extends Resource> = (typeof statement)[R][number];
@@ -75,14 +74,18 @@ export function requirePermission<R extends Resource>(resource: R, action: Actio
       return next();
     }
 
-    const result = await auth.api.hasPermission({
-      body: {
-        permissions: { [resource]: [action] } as Record<string, string[]>,
-      },
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Forbidden" }, 403);
+    }
+    const allowed = await hasWorkspacePermission({
+      action,
       headers: c.req.raw.headers,
+      organizationId: activeOrg.id,
+      resource,
     });
 
-    if (!result.success) {
+    if (!allowed) {
       return c.json({ message: "Forbidden" }, 403);
     }
 

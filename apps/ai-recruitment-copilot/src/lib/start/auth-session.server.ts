@@ -19,6 +19,7 @@ import {
   user as userTable,
 } from "@arc/db-schema/schema";
 import { isNoAccessWorkspaceRole } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-roles";
+import { hasWorkspacePermission } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-permissions";
 import { roles } from "@arc/shared/permissions";
 
 type PermissionRecord = Record<string, readonly string[] | undefined>;
@@ -124,13 +125,12 @@ export async function workspaceAccessHasPermission<R extends Resource>({
   }
 
   const requestHeaders = getRequestHeaders();
-  const result = await auth.api.hasPermission({
-    body: {
-      permissions: { [resource]: [action] } as Record<string, string[]>,
-    },
+  return await hasWorkspacePermission({
+    action,
     headers: requestHeaders,
+    organizationId: access.workspace.id,
+    resource,
   });
-  return result.success;
 }
 
 export async function getActiveOrganizationStateFromRequest(): Promise<ActiveOrganizationState> {
@@ -140,14 +140,19 @@ export async function getActiveOrganizationStateFromRequest(): Promise<ActiveOrg
     return { status: "unauthenticated" };
   }
 
-  const organizations = await auth.api.listOrganizations({ headers: requestHeaders });
-  const activeId = (session.session as { activeOrganizationId?: string | null } | null)
-    ?.activeOrganizationId;
-  if (!activeId) {
+  const [preference] = await db
+    .select({ organizationId: userTable.lastActiveOrganizationId })
+    .from(userTable)
+    .where(eq(userTable.id, session.user.id))
+    .limit(1);
+  if (!preference?.organizationId) {
     return { status: "no_active_workspace" };
   }
 
-  const active = organizations.find((organization) => organization.id === activeId);
+  const organizations = await auth.api.listOrganizations({ headers: requestHeaders });
+  const active = organizations.find(
+    (organization) => organization.id === preference.organizationId,
+  );
   if (!active) {
     return { status: "no_active_workspace" };
   }
@@ -220,15 +225,6 @@ async function resolveWorkspaceAccess(
     return { status: "not_found" };
   }
 
-  const activeOrgId = (session.session as { activeOrganizationId?: string | null } | null)
-    ?.activeOrganizationId;
-  if (activeOrgId !== matched.id) {
-    await auth.api.setActiveOrganization({
-      body: { organizationId: matched.id },
-      headers: requestHeaders,
-    });
-  }
-
   const currentMember = await db.query.member.findFirst({
     columns: { role: true },
     where: { organizationId: matched.id, userId: session.user.id },
@@ -272,8 +268,11 @@ export async function getNoAccessWaitStateFromRequest(): Promise<NoAccessWaitSta
     return { status: "unauthenticated" };
   }
 
-  const activeOrgId = (session.session as { activeOrganizationId?: string | null } | null)
-    ?.activeOrganizationId;
+  const [preference] = await db
+    .select({ organizationId: userTable.lastActiveOrganizationId })
+    .from(userTable)
+    .where(eq(userTable.id, session.user.id))
+    .limit(1);
   const rows = await db
     .select({
       logo: organizationTable.logo,
@@ -288,7 +287,7 @@ export async function getNoAccessWaitStateFromRequest(): Promise<NoAccessWaitSta
     .orderBy(asc(memberTable.createdAt));
 
   const activeWaitingWorkspace = rows.find(
-    (row) => row.organizationId === activeOrgId && isNoAccessWorkspaceRole(row.role),
+    (row) => row.organizationId === preference?.organizationId && isNoAccessWorkspaceRole(row.role),
   );
   const waitingWorkspace =
     activeWaitingWorkspace ??

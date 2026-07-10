@@ -2,6 +2,7 @@
 
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { GenerateResumeReviewResult } from "@/lib/client/resume-analysis";
+import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -60,7 +61,11 @@ function renderHookHarness(callbacks: {
   }
 
   act(() => {
-    root.render(<Harness />);
+    root.render(
+      <WorkspaceSlugProvider id="org-test" memberRole="admin" slug="workspace-test">
+        <Harness />
+      </WorkspaceSlugProvider>,
+    );
   });
 
   if (!current) {

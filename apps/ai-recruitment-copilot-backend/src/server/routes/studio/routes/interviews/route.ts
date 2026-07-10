@@ -4,7 +4,7 @@ import { and, eq, inArray, notExists } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { auth } from "@arc/ai-recruitment-copilot-backend/lib/server/auth";
+import { hasWorkspacePermission } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-permissions";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   candidateFormSubmission,
@@ -178,20 +178,26 @@ const transitionInputSchema = z
     path: ["reactivationReason"],
   });
 
-async function canManageStageTransition(headers: Headers, target: string): Promise<boolean> {
+async function canManageStageTransition(
+  headers: Headers,
+  organizationId: string,
+  target: string,
+): Promise<boolean> {
   if (target === "human_interview") {
-    const result = await auth.api.hasPermission({
-      body: { permissions: { humanInterview: ["create"] } },
+    return await hasWorkspacePermission({
+      action: "create",
       headers,
+      organizationId,
+      resource: "humanInterview",
     });
-    return result.success;
   }
   if (target === "offer") {
-    const result = await auth.api.hasPermission({
-      body: { permissions: { offer: ["create"] } },
+    return await hasWorkspacePermission({
+      action: "create",
       headers,
+      organizationId,
+      resource: "offer",
     });
-    return result.success;
   }
   return true;
 }
@@ -1405,7 +1411,7 @@ export const studioInterviewsRouter = factory
       const candidateId = c.req.param("id");
       const operatorId = c.var.user?.id ?? null;
       const input = c.req.valid("json");
-      if (!(await canManageStageTransition(c.req.raw.headers, input.pipelineStage))) {
+      if (!(await canManageStageTransition(c.req.raw.headers, activeOrg.id, input.pipelineStage))) {
         return c.json({ message: "Forbidden" }, 403);
       }
 

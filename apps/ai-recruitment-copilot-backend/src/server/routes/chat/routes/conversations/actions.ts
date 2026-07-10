@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
-import { auth } from "@arc/ai-recruitment-copilot-backend/lib/server/auth";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import { hasWorkspacePermission } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-permissions";
 import {
   generateInterviewQuestionsForProfile,
   ResumeAnalysisError,
@@ -31,20 +31,26 @@ export type ConfirmRecruitingActionResult =
     }
   | { message: string; status: "failed" };
 
-async function canManageStageTransition(headers: Headers, target: string): Promise<boolean> {
+async function canManageStageTransition(
+  headers: Headers,
+  organizationId: string,
+  target: string,
+): Promise<boolean> {
   if (target === "human_interview") {
-    const result = await auth.api.hasPermission({
-      body: { permissions: { humanInterview: ["create"] } },
+    return await hasWorkspacePermission({
+      action: "create",
       headers,
+      organizationId,
+      resource: "humanInterview",
     });
-    return result.success;
   }
   if (target === "offer") {
-    const result = await auth.api.hasPermission({
-      body: { permissions: { offer: ["create"] } },
+    return await hasWorkspacePermission({
+      action: "create",
       headers,
+      organizationId,
+      resource: "offer",
     });
-    return result.success;
   }
   return true;
 }
@@ -173,7 +179,13 @@ async function confirmAdvanceCandidateStage(input: {
   proposalId: string;
   proposalTitle: string;
 }): Promise<ConfirmRecruitingActionResult> {
-  if (!(await canManageStageTransition(input.headers, input.payload.pipelineStage))) {
+  if (
+    !(await canManageStageTransition(
+      input.headers,
+      input.organizationId,
+      input.payload.pipelineStage,
+    ))
+  ) {
     return { message: "没有权限执行目标阶段流转。", status: "failed" };
   }
 

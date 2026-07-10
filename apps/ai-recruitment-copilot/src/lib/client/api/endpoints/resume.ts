@@ -5,13 +5,13 @@
  * 这一组方法对应 `/api/resume/*` 路由族。当前对外暴露：
  *   - `requestResumeChatTitle`：根据用户首条消息生成会话标题。
  *
- * 注：`/api/resume/chat`（POST）是 AI SDK 的流式聊天端点，调用方应通过 `useChat` 使用
+ * 注：`/api/w/:slug/resume/chat`（POST）是 AI SDK 的流式聊天端点，调用方应通过 `useChat` 使用
  * `DefaultChatTransport` 直接对接，而不是本模块——因此这里不暴露同步包装。
  *
  * Maps to the `/api/resume/*` route family. Currently exposes:
  *   - `requestResumeChatTitle` — generate a conversation title from the first message.
  *
- * Note: `/api/resume/chat` (POST) is an AI SDK streaming chat endpoint. Callers should use
+ * Note: `/api/w/:slug/resume/chat` (POST) is an AI SDK streaming chat endpoint. Callers should use
  * the `useChat` + `DefaultChatTransport` integration directly rather than going
  * through this module, so we deliberately don't wrap it.
  */

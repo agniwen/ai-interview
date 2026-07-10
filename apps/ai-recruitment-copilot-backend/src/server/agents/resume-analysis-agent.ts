@@ -420,7 +420,7 @@ export interface ResumeParseResult {
 
 export interface StreamParseResumeContext {
   /**
-   * 当前会话的 userId / activeOrganizationId。提供这两个值才会在 cache miss
+   * 本次请求解析出的 userId / organizationId。提供这两个值才会在 cache miss
    * 时把解析结果回写 chat_attachment 注册表 + S3，否则只返回解析结果不落表。
    * Provide both to populate the chat_attachment registry + S3 on cache miss;
    * omit to keep this endpoint side-effect-free.

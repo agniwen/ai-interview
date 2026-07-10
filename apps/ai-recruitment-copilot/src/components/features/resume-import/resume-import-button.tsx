@@ -248,7 +248,7 @@ export function ResumeImportButton({
         setPartialFields([]);
         accumulatedTextRef.current = "";
 
-        parseResult = await parseResumeFile(file, {
+        parseResult = await parseResumeFile(workspaceSlug, file, {
           onEvent: (event) => {
             handleStreamEvent(event);
           },
@@ -498,13 +498,17 @@ export function ResumeImportButton({
 
       const file = await dataUrlToFile(filePart.url, filePart.filename);
 
-      const parseResult = await parseResumeFile(file, { signal: abortController.signal });
+      const parseResult = await parseResumeFile(workspaceSlug, file, {
+        signal: abortController.signal,
+      });
 
       cachedParseResultRef.current = parseResult;
 
-      const matchPayload = await matchJobDescriptionForResume(parseResult.resumeProfile, {
-        signal: abortController.signal,
-      });
+      const matchPayload = await matchJobDescriptionForResume(
+        workspaceSlug,
+        parseResult.resumeProfile,
+        { signal: abortController.signal },
+      );
 
       if (matchPayload?.matchedId) {
         setSelectedJdId(matchPayload.matchedId);

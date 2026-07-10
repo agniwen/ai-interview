@@ -87,7 +87,7 @@ export function getOrCreateChat(
     sendAutomaticallyWhen: ({ messages }) =>
       lastAssistantMessageIsCompleteWithToolCalls({ messages }) ||
       lastAssistantMessageIsCompleteWithApprovalResponses({ messages }),
-    transport: createChatTransport(chatId),
+    transport: createChatTransport(chatId, slug),
   });
 
   chats.set(chatId, chat);

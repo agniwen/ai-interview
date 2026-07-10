@@ -33,6 +33,7 @@ export interface GenerateResumeReviewOptions {
   onDraftChange?: (review: string) => void;
   resumeProfile: ResumeProfile;
   signal?: AbortSignal;
+  workspaceSlug: string;
 }
 
 export interface GenerateResumeReviewResult {
@@ -43,6 +44,7 @@ export interface GenerateResumeReviewResult {
 export type ResumeCreateDedupPolicy = "check" | "force";
 
 export async function parseResumeFile(
+  workspaceSlug: string,
   file: File,
   options: StreamRequestOptions = {},
 ): Promise<ParsedResumeResult> {
@@ -52,11 +54,14 @@ export async function parseResumeFile(
     formData.append("progress", "1");
   }
 
-  const response = await fetch("/api/interview/parse-resume", {
-    body: formData,
-    method: "POST",
-    signal: options.signal,
-  });
+  const response = await fetch(
+    `/api/w/${encodeURIComponent(workspaceSlug)}/interview/parse-resume`,
+    {
+      body: formData,
+      method: "POST",
+      signal: options.signal,
+    },
+  );
 
   if (!response.ok) {
     const errBody = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -92,11 +97,12 @@ export async function parseResumeFile(
 }
 
 export async function matchJobDescriptionForResume(
+  workspaceSlug: string,
   resumeProfile: ResumeProfile,
   options: { signal?: AbortSignal } = {},
 ): Promise<JobDescriptionMatchResult | null> {
-  const response = await rpc.api.interview["match-job-description"].$post(
-    { json: { resumeProfile } },
+  const response = await rpc.api.w[":slug"].interview["match-job-description"].$post(
+    { json: { resumeProfile }, param: { slug: workspaceSlug } },
     { init: { signal: options.signal } },
   );
 
@@ -149,9 +155,13 @@ export async function generateResumeReview({
   onDraftChange,
   resumeProfile,
   signal,
+  workspaceSlug,
 }: GenerateResumeReviewOptions): Promise<GenerateResumeReviewResult | null> {
-  const response = await rpc.api.interview["generate-review"].$post(
-    { json: { jobDescriptionId: jobDescriptionId || null, resumeProfile } },
+  const response = await rpc.api.w[":slug"].interview["generate-review"].$post(
+    {
+      json: { jobDescriptionId: jobDescriptionId || null, resumeProfile },
+      param: { slug: workspaceSlug },
+    },
     { init: { signal } },
   );
 
@@ -205,9 +215,13 @@ export async function generateResumeReviewMarkdownFirst({
   onDraftChange,
   resumeProfile,
   signal,
+  workspaceSlug,
 }: GenerateResumeReviewOptions): Promise<GenerateResumeReviewResult | null> {
-  const response = await rpc.api.interview["generate-review-markdown-stream"].$post(
-    { json: { jobDescriptionId: jobDescriptionId || null, resumeProfile } },
+  const response = await rpc.api.w[":slug"].interview["generate-review-markdown-stream"].$post(
+    {
+      json: { jobDescriptionId: jobDescriptionId || null, resumeProfile },
+      param: { slug: workspaceSlug },
+    },
     { init: { signal } },
   );
 

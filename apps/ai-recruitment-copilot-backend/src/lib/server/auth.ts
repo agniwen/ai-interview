@@ -263,27 +263,16 @@ export const auth = betterAuth({
     provider: "pg",
     schema,
   }),
-  // 新 session 创建后（即登录完成时）把 session.activeOrganizationId 还原成
-  // user.lastActiveOrganizationId —— 让"切到 B → 退出 → 重新登录"还落到 B，
-  // 而不是回到默认 fallback。校验：用户仍然是该 org 的 member 才生效，避免
-  // user 被踢出 org 后 session 还指着它。
-  // After a new session is created (= login completes), restore the
-  // session.activeOrganizationId from user.lastActiveOrganizationId so users
-  // land back on the workspace they last visited rather than the default
-  // fallback. Verified against current membership so a kicked-out user
-  // doesn't land in an org they no longer belong to.
+  // 登录时只更新时间偏好；工作区权限上下文永远由具体请求 URL 决定。
+  // Login only updates durable activity metadata. Workspace authorization is
+  // always derived from the current request URL.
   databaseHooks: {
     session: {
       create: {
         // oxlint-disable-next-line require-await -- hook contract requires async
         async after(newSession) {
-          // 顺便刷新 user.lastActiveAt——这是"最近活跃"列的持久化兜底，session
-          // 行后续被登出/过期清理后仍能展示"该用户最后出现的时间"。失败不致命，
-          // 仅记日志，不影响 active-org 还原主流程。
-          // Update user.lastActiveAt alongside the org-restore work. This is the
-          // durable "last active" anchor that survives logout / expiry cleanup
-          // of session rows. Failure is non-fatal — log and continue so the
-          // org-restore path below still runs.
+          // user.lastActiveAt survives logout / session expiry and is only
+          // operational metadata, never an authorization input.
           try {
             await db
               .update(schema.user)
@@ -291,52 +280,6 @@ export const auth = betterAuth({
               .where(eq(schema.user.id, newSession.userId));
           } catch (error) {
             console.warn("[auth] failed to stamp user.lastActiveAt", error);
-          }
-
-          try {
-            const [u] = await db
-              .select({ lastActive: schema.user.lastActiveOrganizationId })
-              .from(schema.user)
-              .where(eq(schema.user.id, newSession.userId))
-              .limit(1);
-            if (!u?.lastActive) {
-              return;
-            }
-            // 再验一次成员关系才回填，避免被踢出后仍试图落到老 org。
-            // 失效的话主动把 user.lastActiveOrganizationId 清成 null —— 配合
-            // resolveActiveOrganization 不再 fallback 到 orgs[0]，登录后会被
-            // 引导到 /select-workspace 让用户明确选择新工作区。
-            //
-            // Re-verify membership so a kicked-out user can't be sent back.
-            // When membership is gone, proactively null out the stale pointer
-            // so the next page render flows to /select-workspace (the resolver
-            // no longer falls back to orgs[0]).
-            const [m] = await db
-              .select({ id: schema.member.id })
-              .from(schema.member)
-              .where(
-                and(
-                  eq(schema.member.userId, newSession.userId),
-                  eq(schema.member.organizationId, u.lastActive),
-                ),
-              )
-              .limit(1);
-            if (!m) {
-              await db
-                .update(schema.user)
-                .set({ lastActiveOrganizationId: null })
-                .where(eq(schema.user.id, newSession.userId));
-              return;
-            }
-            await db
-              .update(schema.session)
-              .set({ activeOrganizationId: u.lastActive })
-              .where(eq(schema.session.id, newSession.id));
-          } catch (error) {
-            // 还原失败不影响登录主流程；最多回退到默认 org 的旧行为。
-            // Restore failure must not block login; worst case is the prior
-            // "default org" behaviour.
-            console.warn("[auth] failed to restore lastActiveOrganizationId", error);
           }
         },
       },
@@ -411,33 +354,21 @@ export const auth = betterAuth({
             organizationId: org.id,
           });
         },
-        // 成员被移除后：清掉该用户名下 session.activeOrganizationId 仍指向这个 org 的
-        // 记录，让他们下一次请求被 workspaceMiddleware 拒之门外（成员表已经没他）。
-        // 不删 session 行——用户可能还属于其他 workspace，删了等于把所有 workspace
-        // 一起强制下线。activeOrganizationId 设为 null 即可，下次访问会被引导到
-        // /select-workspace，那边的 resolver 自然过滤掉无 membership 的 org。
-        //
-        // Clear session.activeOrganizationId for the removed user where it
-        // still points at this org. Their next request will fail the
-        // workspace-membership middleware and bounce to /select-workspace.
-        // We don't delete session rows because the user may belong to other
-        // workspaces; nulling the active pointer is the minimum effective fix.
+        // Clear only the durable landing preference. The member row remains
+        // the authorization source, so no session-wide tenant mutation is needed.
         afterRemoveMember: async ({ member: removed, organization: org }) => {
           try {
             await db
-              .update(schema.session)
-              .set({ activeOrganizationId: null })
+              .update(schema.user)
+              .set({ lastActiveOrganizationId: null })
               .where(
                 and(
-                  eq(schema.session.userId, removed.userId),
-                  eq(schema.session.activeOrganizationId, org.id),
+                  eq(schema.user.id, removed.userId),
+                  eq(schema.user.lastActiveOrganizationId, org.id),
                 ),
               );
           } catch (error) {
-            // 清理失败不影响移除主流程；最差情况是用户下一次请求看到 stale
-            // active-org，middleware 仍会因为没 membership 拒绝。
-            // Cleanup failure is non-fatal; middleware still blocks access.
-            console.warn("[auth] failed to clear stale session.activeOrg", error);
+            console.warn("[auth] failed to clear stale workspace preference", error);
           }
         },
         beforeCreateInvitation: async ({ invitation, inviter, organization: org }) => {

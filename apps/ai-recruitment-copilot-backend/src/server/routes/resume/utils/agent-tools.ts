@@ -78,7 +78,7 @@ export function createListUploadedResumePdfsTool({
 // =====================================================================
 // Job description suggestion (server) + approval (client)
 //
-// 改造目标：与招聘台 /api/interview/match-job-description 行为对齐 —— 一次
+// 改造目标：与招聘台工作区范围的 match-job-description 行为对齐 —— 一次
 // LLM 调用，直接产出"推荐这一个岗位 + 一句话理由"，前端只展示一张推荐卡片
 // （不再是排序下拉）。
 // Aligns with the resume-library matcher: a single LLM call that returns

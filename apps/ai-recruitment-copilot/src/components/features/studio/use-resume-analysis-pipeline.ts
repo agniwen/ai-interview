@@ -298,8 +298,8 @@ export function useResumeAnalysisPipeline(
       // 拿 URL + 类型推断，直接 await 取 Response 自己读流。
       // hc with streaming: route via the typed RPC for URL + body type-safety,
       // then read response.body manually (rpcFetch would consume the stream).
-      const qResponse = await rpc.api.interview["generate-questions"].$post(
-        { json: { resumeProfile: profileBundle.resumeProfile } },
+      const qResponse = await rpc.api.w[":slug"].interview["generate-questions"].$post(
+        { json: { resumeProfile: profileBundle.resumeProfile }, param: { slug } },
         { init: { signal: abortController.signal } },
       );
 
@@ -392,7 +392,7 @@ export function useResumeAnalysisPipeline(
       let postParseAnalysisStarted = false;
 
       try {
-        const parseResult = await parseResumeFile(file, {
+        const parseResult = await parseResumeFile(slug, file, {
           onEvent: (event) => {
             handleStreamEvent(event);
           },
@@ -429,7 +429,7 @@ export function useResumeAnalysisPipeline(
           setIsMatchingJobDescription(true);
           setProgressStatus("正在分析匹配岗位…");
           try {
-            const matchPayload = await matchJobDescriptionForResume(resumeProfile, {
+            const matchPayload = await matchJobDescriptionForResume(slug, resumeProfile, {
               signal: abortController.signal,
             });
             if (matchPayload?.matchedId) {
@@ -465,8 +465,11 @@ export function useResumeAnalysisPipeline(
             // 流式响应：用 hc 拿 URL/类型，body 自己读 AiRun SSE。
             // Streaming endpoint: hc for URL + types, manually consume the
             // ReadableStream body (rpcFetch would parse the whole body).
-            const reviewResponse = await rpc.api.interview["generate-review"].$post(
-              { json: { jobDescriptionId: matchedJdId, resumeProfile } },
+            const reviewResponse = await rpc.api.w[":slug"].interview["generate-review"].$post(
+              {
+                json: { jobDescriptionId: matchedJdId, resumeProfile },
+                param: { slug },
+              },
               { init: { signal: abortController.signal } },
             );
             if (!reviewResponse.ok) {
