@@ -156,6 +156,7 @@
        Vars under `@theme inline` are inlined into utilities only — they aren't
        emitted as :root custom properties. Use the `font-sans` utility instead. */
     @apply font-sans text-foreground;
+    font-optical-sizing: auto;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     touch-action: manipulation;
@@ -195,6 +196,7 @@
     @apply text-sm text-foreground;
     font-weight: 500;
     line-height: 1.4;
+    letter-spacing: 0.01em;
   }
   .bg-app {
     @apply bg-sidebar;
@@ -240,6 +242,15 @@
   }
 }
 
+/* Apple §12 — saturate(180%) on all translucent surfaces.
+   Without it, backdrop-blur desaturates the content underneath and the
+   material reads as flat gray. Tailwind v4 composes backdrop-filter from
+   --tw-backdrop-* variables, so setting --tw-backdrop-saturate here
+   augments every backdrop-blur-* utility without editing each call site. */
+[class*="backdrop-blur"]:not([class*="backdrop-blur-none"]) {
+  --tw-backdrop-saturate: saturate(180%);
+}
+
 /* kami section title — 左侧 2.5px 墨蓝竖条 + 字重 500 标题，
    用于页面/卡片内的小节起首，替代纯 font-bold 的层级表达。
    字体沿用全局 MiSans（不走 serif）。
@@ -282,6 +293,8 @@
   }
 }
 
+/* Apple §14 — reduced motion ≠ no feedback: preserve short opacity/color
+   transitions for comprehension, drop transform/position-based motion. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -289,7 +302,28 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    transition-duration: 200ms !important;
+    transition-property:
+      opacity, color, background-color, border-color, outline-color, fill, stroke !important;
+  }
+}
+
+/* Apple §14 — make translucent surfaces frostier/solid: drop the blur. */
+@media (prefers-reduced-transparency: reduce) {
+  [class*="backdrop-blur"]:not([class*="backdrop-blur-none"]) {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
+/* Apple §14 — near-solid backgrounds with a defined contrasting border. */
+@media (prefers-contrast: more) {
+  [class*="backdrop-blur"]:not([class*="backdrop-blur-none"]) {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    outline: 1px solid var(--border) !important;
+    outline-offset: -1px !important;
   }
 }
 
@@ -302,17 +336,4 @@
   --os-handle-bg: color-mix(in oklch, var(--muted-foreground) 25%, transparent);
   --os-handle-bg-hover: color-mix(in oklch, var(--muted-foreground) 40%, transparent);
   --os-handle-bg-active: color-mix(in oklch, var(--muted-foreground) 55%, transparent);
-}
-
-.markdown {
-  h1,
-  h2,
-  h3,
-  h4,
-  h5 {
-    font-weight: bold;
-    font-size: 15px;
-    margin: 4px 0;
-    opacity: 0.8;
-  }
 }

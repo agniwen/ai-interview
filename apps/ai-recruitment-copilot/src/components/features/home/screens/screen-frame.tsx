@@ -13,26 +13,26 @@ interface ScreenFrameProps {
   chrome?: boolean;
 }
 
-export function ScreenFrame({ children, className }: ScreenFrameProps) {
+export function ScreenFrame({ children, className, chrome = true }: ScreenFrameProps) {
   return (
     <div
       className={cn(
-        "relative pointer-events-none select-none overflow-hidden rounded-lg shadow-xl ring-1 ring-foreground/5 backdrop-blur",
-        // " bg-background/60",
+        "relative pointer-events-none p-1 select-none overflow-hidden rounded-lg shadow-xl ring-1 ring-foreground/5 backdrop-blur",
+        " bg-background/80",
         className,
       )}
     >
-      {/* {chrome ? (
-        <div className="flex h-6 flex-row items-center">
+      {chrome ? (
+        <div className="flex h-7 flex-row items-center">
           <div className="flex gap-2 px-2">
-            <i className="size-3 rounded-full bg-[#F0A7A9]" />
-            <i className="size-3 rounded-full bg-[#E8D481]" />
-            <i className="size-3 rounded-full bg-[#9FD8AE]" />
+            <i className="size-3 rounded-full bg-[#FF5C5F]" />
+            <i className="size-3 rounded-full bg-[#FFCC00]" />
+            <i className="size-3 rounded-full bg-[#34C759]" />
           </div>
         </div>
-      ) : null} */}
+      ) : null}
       <div
-        className="relative aspect-[1600/900] w-full overflow-hidden rounded-md border border-border bg-background/20"
+        className="relative aspect-[1600/900] w-full overflow-hidden rounded-md border border-border bg-background/80"
         style={{ containerType: "inline-size" }}
       >
         <div

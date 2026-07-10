@@ -201,7 +201,7 @@ function ResumeOverviewAiScoreSection({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 space-y-1.5">
               <div className="text-muted-foreground text-xs">综合评分</div>
-              <div className="font-semibold text-4xl tabular-nums leading-none">
+              <div className="font-semibold text-4xl tabular-nums leading-none tracking-tight">
                 {baseScore ?? "—"}
               </div>
             </div>
@@ -386,7 +386,7 @@ function ReviewSummaryHero({
         </div>
         <div className="flex min-w-0 flex-col items-start gap-5 lg:items-end lg:text-right">
           {summaryAction ? <div>{summaryAction}</div> : null}
-          <div className="font-semibold text-7xl tabular-nums leading-none tracking-normal">
+          <div className="font-semibold text-7xl tabular-nums leading-none tracking-tighter">
             {baseScore ?? "—"}
           </div>
           <div className="-mt-3 text-muted-foreground text-xs">综合评分 / 100</div>

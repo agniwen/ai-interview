@@ -132,7 +132,7 @@ export function StudioNav({ activeLabel }: StudioNavProps) {
                     className={cn(
                       "flex h-8 w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm",
                       active
-                        ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                        ? "bg-background font-medium text-sidebar-accent-foreground"
                         : "text-sidebar-foreground",
                     )}
                   >
@@ -182,7 +182,7 @@ export function ChatNav() {
                 className={cn(
                   "flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm",
                   c.active
-                    ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                    ? "bg-background font-medium text-sidebar-accent-foreground"
                     : "text-sidebar-foreground",
                 )}
               >
