@@ -4,7 +4,12 @@ import { IconEye, IconTrash, IconX } from "@tabler/icons-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import { Button } from "@/components/ui/button";
+import { cossControlOverlayClass } from "@/components/ui/coss-style";
 import { ScrollArea } from "@/components/ui/scroll-area";
+
+const FLOATING_ACTION_GLASS_CLASS = `relative border border-border/40 bg-background/32 bg-clip-padding shadow-[0_18px_54px_-28px_rgb(0_0_0/0.45)] backdrop-blur-lg ${cossControlOverlayClass}`;
+const FLOATING_ACTION_LIST_CLASS =
+  "border border-border/35 bg-background/90 bg-clip-padding shadow-[0_14px_42px_-30px_rgb(0_0_0/0.38)]";
 
 interface ResumeLibraryFloatingActionItem {
   id: string;
@@ -40,13 +45,15 @@ export function ResumeLibraryFloatingActionBar({
     <AnimatePresence>
       {visible ? (
         <motion.div
-          animate={{ opacity: 1, scale: 1, y: 0 }}
+          animate={{ opacity: 1, y: 0 }}
           className="fixed right-4 bottom-[calc(2.5rem+env(safe-area-inset-bottom))] left-4 z-40 flex flex-col items-center justify-center gap-2 pointer-events-none"
-          exit={{ opacity: 0, scale: reduceMotion ? 1 : 0.98, y: reduceMotion ? 0 : 12 }}
-          initial={{ opacity: 0, scale: reduceMotion ? 1 : 0.98, y: reduceMotion ? 0 : 12 }}
-          transition={reduceMotion ? { duration: 0 } : { duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+          exit={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
+          initial={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
+          transition={reduceMotion ? { duration: 0 } : { duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
         >
-          <div className="pointer-events-auto w-full max-w-lg overflow-hidden rounded-md border border-border bg-background/95 p-1 shadow-xl backdrop-blur-xl">
+          <div
+            className={`pointer-events-auto w-full max-w-lg overflow-hidden rounded-md p-1 ${FLOATING_ACTION_LIST_CLASS}`}
+          >
             <ScrollArea className="max-h-[7.75rem]" scrollbars="leave">
               {selectedItems.map((item) => (
                 <div
@@ -83,8 +90,10 @@ export function ResumeLibraryFloatingActionBar({
               ))}
             </ScrollArea>
           </div>
-          <div className="pointer-events-auto inline-flex max-w-[calc(100vw-2rem)] items-center gap-2 rounded-md border border-border bg-background/95 p-1 shadow-2xl backdrop-blur-xl">
-            <div className="whitespace-nowrap px-2.5 text-muted-foreground text-sm">
+          <div
+            className={`pointer-events-auto inline-flex max-w-[calc(100vw-2rem)] items-center gap-2 rounded-md p-1 ${FLOATING_ACTION_GLASS_CLASS}`}
+          >
+            <div className="select-none whitespace-nowrap px-2.5 text-muted-foreground text-sm">
               已选择 {selectedCount} 条
             </div>
             <Button onClick={onClearSelection} type="button" variant="ghost">

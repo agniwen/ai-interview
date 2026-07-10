@@ -184,7 +184,6 @@ beforeAll(async () => {
     interviewQuestions: [],
     organizationId: ORG_ID,
     resumeProfile: null,
-    status: "completed",
     targetRole: "后端工程师",
     updatedAt: NOW,
   });

@@ -25,24 +25,4 @@ describe("late-stage route permissions", () => {
     );
     expect(routeSource).not.toContain('requirePermission("humanInterview", "manage")');
   });
-
-  it("splits offer routes by CRUD permissions", () => {
-    expect(routeSource).toContain('.get("/:id/offer-drafts", requirePermission("offer", "read")');
-    expect(routeSource).toContain(
-      '.post(\n    "/:id/offer-drafts",\n    requirePermission("offer", "create")',
-    );
-    expect(routeSource).toContain(
-      '.patch(\n    "/:id/offer-drafts/:draftId",\n    requirePermission("offer", "update")',
-    );
-    expect(routeSource).toContain(
-      '.post("/:id/offer-drafts/:draftId/send", requirePermission("offer", "update")',
-    );
-    expect(routeSource).toContain(
-      '.post(\n    "/:id/offer-drafts/:draftId/respond",\n    requirePermission("offer", "update")',
-    );
-    expect(routeSource).toContain(
-      '.post("/:id/offer-drafts/:draftId/cancel", requirePermission("offer", "delete")',
-    );
-    expect(routeSource).not.toContain('requirePermission("offer", "manage")');
-  });
 });

@@ -1,4 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
+import { createRequestWorkspaceAuthorizer } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy";
+import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import { legacyUiMessageToArcMessage } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/adapters/arc-message-adapter";
 import {
   checkConversationOwner,
@@ -17,6 +19,7 @@ import {
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { confirmRecruitingAction } from "./actions";
+import { loadResumeDetail } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
 
 export const conversationsRouter = factory
   .createApp()
@@ -179,8 +182,27 @@ export const conversationsRouter = factory
       }
 
       const { proposal } = c.req.valid("json");
-      const result = await confirmRecruitingAction({
+      const visibilityScope = await resolveRecruitingVisibilityScope({
+        currentRole: c.var.member?.role,
+        organizationId: activeOrg.id,
+        userId: user.id,
+      });
+      const visibleRecord = await loadResumeDetail(
+        proposal.payload.resumeRecordId,
+        activeOrg.id,
+        visibilityScope,
+      );
+      if (!visibleRecord) {
+        return c.json({ error: "Not Found" }, 404);
+      }
+      const authorize = createRequestWorkspaceAuthorizer({
         headers: c.req.raw.headers,
+        memberRole: c.var.member?.role,
+        organizationId: activeOrg.id,
+        userId: user.id,
+      });
+      const result = await confirmRecruitingAction({
+        authorize,
         operatorId: user.id,
         organizationId: activeOrg.id,
         proposal,

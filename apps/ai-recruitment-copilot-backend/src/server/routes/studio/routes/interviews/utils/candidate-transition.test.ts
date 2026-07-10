@@ -1,13 +1,55 @@
 import { describe, expect, it } from "vitest";
 import {
+  getCandidateReactivationError,
   getCandidateStageTransitionError,
   resolveCandidateTransitionPatch,
 } from "./candidate-transition";
 
 const now = new Date("2026-06-21T12:00:00.000Z");
 
+describe("getCandidateReactivationError", () => {
+  it("requires a non-blank reason when restoring a closed candidate", () => {
+    expect(
+      getCandidateReactivationError({
+        from: "closed",
+        reactivationReason: undefined,
+        to: "human_interview",
+      }),
+    ).toBe("请填写重新激活原因。");
+    expect(
+      getCandidateReactivationError({
+        from: "closed",
+        reactivationReason: "   ",
+        to: "screening",
+      }),
+    ).toBe("请填写重新激活原因。");
+  });
+
+  it("allows a reasoned reactivation and transitions that are not reactivations", () => {
+    expect(
+      getCandidateReactivationError({
+        from: "closed",
+        reactivationReason: "候选人补充了新的项目经历",
+        to: "human_interview",
+      }),
+    ).toBeNull();
+    expect(
+      getCandidateReactivationError({
+        from: "screening",
+        to: "human_interview",
+      }),
+    ).toBeNull();
+    expect(
+      getCandidateReactivationError({
+        from: "closed",
+        to: "closed",
+      }),
+    ).toBeNull();
+  });
+});
+
 describe("resolveCandidateTransitionPatch", () => {
-  it("builds a close patch with server-controlled previousStage and legacy status", () => {
+  it("builds a close patch with server-controlled previousStage", () => {
     const result = resolveCandidateTransitionPatch({
       existing: {
         closedMeta: { internalNotes: "keep", previousStage: "screening" },
@@ -33,7 +75,6 @@ describe("resolveCandidateTransitionPatch", () => {
       closedReason: "技能匹配度不够",
       outcome: "rejected",
       pipelineStage: "closed",
-      status: "archived",
       updatedAt: now,
     });
     expect(result.auditDetail).toEqual({
@@ -77,7 +118,6 @@ describe("resolveCandidateTransitionPatch", () => {
       outcome: "in_pipeline",
       pipelineStage: "human_interview",
       resumeEvaluationStatus: null,
-      status: "ready",
       updatedAt: now,
       writtenTestScheduledAt: null,
       writtenTestScore: null,

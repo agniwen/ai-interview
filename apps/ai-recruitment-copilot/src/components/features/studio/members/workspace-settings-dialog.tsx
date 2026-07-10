@@ -21,8 +21,7 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/c
 import { Input } from "@/components/ui/input";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
-import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { authClient } from "@/lib/client/auth-client";
+import { useWorkspaceId, useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 interface WorkspaceSettingsDialogProps {
   currentName: string;
@@ -31,8 +30,8 @@ interface WorkspaceSettingsDialogProps {
 
 export function WorkspaceSettingsDialog({ currentName, trigger }: WorkspaceSettingsDialogProps) {
   const slug = useWorkspaceSlug();
+  const workspaceId = useWorkspaceId();
   const queryClient = useQueryClient();
-  const { refetch } = authClient.useActiveOrganization();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(currentName);
   const [fieldError, setFieldError] = useState<string | null>(null);
@@ -70,7 +69,7 @@ export function WorkspaceSettingsDialog({ currentName, trigger }: WorkspaceSetti
         "更新工作区名称失败",
       );
       await Promise.all([
-        refetch(),
+        queryClient.invalidateQueries({ queryKey: ["workspace-organization", workspaceId] }),
         queryClient.invalidateQueries({ queryKey: ["organizations"] }),
       ]);
       toast.success("工作区名称已更新");

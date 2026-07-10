@@ -3,15 +3,9 @@
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useGlimm } from "glimm/react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { authClient } from "@/lib/client/auth-client";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 type SidebarTabValue = "agent" | "studio";
-
-// 从 pathname 解析当前 workspace slug;非 /w/[slug]/* 路径返回 null。
-function extractWorkspaceSlug(pathname: string): string | null {
-  const match = pathname.match(/^\/w\/([^/]+)(?:\/|$)/);
-  return match?.[1] ?? null;
-}
 
 function resolveActiveTab(pathname: string): SidebarTabValue | null {
   if (!pathname.startsWith("/w/")) {
@@ -30,19 +24,10 @@ export function SidebarTabs() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const navigate = useNavigate();
   const { sweep } = useGlimm();
-  const activeOrganization = authClient.useActiveOrganization();
   const activeTab = resolveActiveTab(pathname);
-  const slug = extractWorkspaceSlug(pathname) ?? activeOrganization.data?.slug ?? null;
+  const slug = useWorkspaceSlug();
 
   const handleChange = (value: string) => {
-    // 缺 slug 时无法构造路径——回到根路径让根路由解析活跃 workspace。
-    // Without a slug we can't build the target — fall back to root and let
-    // src/routes/index.tsx redirect to the active workspace.
-    if (!slug) {
-      void navigate({ to: "/" });
-      return;
-    }
-
     const nextTab = value as SidebarTabValue;
     const target = nextTab === "agent" ? `/w/${slug}/agent` : `/w/${slug}/studio/resumes`;
 

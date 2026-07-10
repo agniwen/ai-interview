@@ -4,6 +4,7 @@ import {
   formatResumeEducationItems,
   formatResumeEducationLine,
   formatResumeEducationLines,
+  formatResumeEducationSchoolWithLevel,
 } from "./resume-education";
 
 describe("formatResumeEducationLine", () => {
@@ -39,6 +40,27 @@ describe("formatResumeEducationLine", () => {
         school: "浙江大学",
       }),
     ).toBe("硕士 浙江大学 · 软件工程");
+  });
+
+  it("formats the recorded education level after the school for resume cards", () => {
+    expect(
+      formatResumeEducationSchoolWithLevel({
+        educationLevel: "本科",
+        school: "清华大学",
+      }),
+    ).toBe("清华大学（本科）");
+    expect(
+      formatResumeEducationSchoolWithLevel({
+        educationLevel: "专科",
+        school: "职业技术学院",
+      }),
+    ).toBe("职业技术学院（大专）");
+    expect(
+      formatResumeEducationSchoolWithLevel({
+        educationLevel: "博士研究生",
+        school: "北京大学",
+      }),
+    ).toBe("北京大学（博士）");
   });
 
   it("returns null when school is missing", () => {

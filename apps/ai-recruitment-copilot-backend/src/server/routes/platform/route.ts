@@ -2,6 +2,7 @@ import { z } from "zod";
 import { eq, sql, count, ilike, or, desc, asc } from "drizzle-orm";
 import { zValidator } from "@hono/zod-validator";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
 import { adminMiddleware } from "@arc/ai-recruitment-copilot-backend/server/middlewares/admin";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { organization, member, session, user } from "@arc/db-schema/schema";
@@ -487,9 +488,13 @@ const platformMailIngestAccounts = factory
         if (error instanceof MailIngestValidationError) {
           return c.json({ error: error.message }, 400);
         }
-        console.error("[platform-mail-ingest] create account failed:", error);
         return c.json(
-          { error: error instanceof Error ? error.message : "邮箱配置保存失败。" },
+          createInternalErrorResponse({
+            context: { organizationId, userId },
+            error,
+            operation: "platform-mail-ingest-create",
+            publicMessage: "邮箱配置保存失败。",
+          }),
           500,
         );
       }
@@ -523,9 +528,13 @@ const platformMailIngestAccounts = factory
         if (error instanceof MailIngestValidationError) {
           return c.json({ error: error.message }, 400);
         }
-        console.error("[platform-mail-ingest] update account failed:", error);
         return c.json(
-          { error: error instanceof Error ? error.message : "邮箱配置更新失败。" },
+          createInternalErrorResponse({
+            context: { accountId: c.req.param("id"), organizationId },
+            error,
+            operation: "platform-mail-ingest-update",
+            publicMessage: "邮箱配置更新失败。",
+          }),
           500,
         );
       }

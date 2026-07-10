@@ -2,19 +2,8 @@
 
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
-import {
-  studioInterviewStatusMeta,
-  studioInterviewStatusValues,
-} from "@arc/db-schema/studio-interviews";
 import { JobDescriptionSelectField } from "../job-description-select-field";
 import { hasFieldErrors, toFieldErrors } from "./index";
 import type { InterviewFormApi } from "./index";
@@ -29,10 +18,10 @@ const NOTES_MAX_LENGTH = 2000;
  * "创建 / 编辑面试"对话框共用的基础信息字段块。
  * Shared basic-info field block for the create / edit interview dialogs.
  *
- * 抽出来的好处：候选人姓名 / 邮箱 / 目标岗位 / 当前流程 / 备注 等基础字段在两个对话框
+ * 抽出来的好处：候选人姓名 / 邮箱 / 目标岗位 / 备注 等基础字段在两个对话框
  * 中实现一模一样，集中后日后调整 placeholder、校验、a11y 都只需改一处。
  *
- * Why extract: candidate name / email / target role / status / notes are rendered
+ * Why extract: candidate name / email / target role / notes are rendered
  * identically in both dialogs. Centralising means placeholder / validation / a11y
  * tweaks live in a single place.
  */
@@ -142,39 +131,6 @@ export function InterviewBasicInfoFields({ form }: { form: InterviewFormApi }) {
                     placeholder="如：前端工程师 / 产品经理"
                     value={field.state.value}
                   />
-                  <FieldError errors={errors} />
-                </FieldContent>
-              </Field>
-            );
-          }}
-        </form.Field>
-
-        <form.Field name="status">
-          {(field) => {
-            const errors = toFieldErrors(field.state.meta.errors);
-            return (
-              <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                <FieldLabel htmlFor={field.name}>当前流程</FieldLabel>
-                <FieldContent className="gap-2">
-                  <Select
-                    onValueChange={(value) => field.handleChange(value as typeof field.state.value)}
-                    value={field.state.value}
-                  >
-                    <SelectTrigger
-                      aria-invalid={!!errors?.length}
-                      className="w-full"
-                      id={field.name}
-                    >
-                      <SelectValue placeholder="选择状态" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {studioInterviewStatusValues.map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {studioInterviewStatusMeta[status].label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                   <FieldError errors={errors} />
                 </FieldContent>
               </Field>

@@ -3,7 +3,6 @@ import type { StudioCandidateRecord } from "@arc/shared/studio-candidates";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { jobDescription, studioInterview, user } from "@arc/db-schema/schema";
 import type { ResumeSemanticSourceType } from "@arc/db-schema/schema";
-import type { StudioInterviewStatus } from "@arc/db-schema/studio-interviews";
 
 export interface DedupMatchRecord {
   id: string;
@@ -13,7 +12,7 @@ export interface DedupMatchRecord {
   candidatePhone: string | null;
   targetRole: string | null;
   jobDescriptionName: string | null;
-  status: StudioInterviewStatus | "active" | "archived";
+  status: "active" | "archived";
   createdAt: string;
   conflictingSignals?: string[];
   level?: "high" | "low" | "medium";
@@ -55,7 +54,6 @@ export async function loadStudioCandidate(
       resumeFileName: studioInterview.resumeFileName,
       resumeProfile: studioInterview.resumeProfile,
       resumeStorageKey: studioInterview.resumeStorageKey,
-      status: studioInterview.status,
       targetRole: studioInterview.targetRole,
       updatedAt: studioInterview.updatedAt,
     })
@@ -96,7 +94,6 @@ export async function loadStudioCandidate(
     resumeFileName: row.resumeFileName,
     resumeProfile: row.resumeProfile,
     resumeStorageKey: row.resumeStorageKey,
-    status: row.status,
     targetRole: row.targetRole,
     updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : row.updatedAt,
   };

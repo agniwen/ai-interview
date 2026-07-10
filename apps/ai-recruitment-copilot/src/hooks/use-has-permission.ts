@@ -27,12 +27,7 @@ export function useHasPermission<R extends keyof typeof statement>(
 ): boolean {
   const workspaceId = useOptionalWorkspaceId();
   const workspaceMemberRole = useOptionalWorkspaceMemberRole();
-  const { data: org } = authClient.useActiveOrganization();
-  const { data: session } = authClient.useSession();
-
-  const memberRole =
-    workspaceMemberRole ??
-    org?.members?.find((member) => member.userId === session?.user?.id)?.role;
+  const memberRole = workspaceMemberRole;
   const staticAllowed =
     Boolean(memberRole && APP_ROLES.has(memberRole)) &&
     authClient.organization.checkRolePermission({
@@ -43,7 +38,11 @@ export function useHasPermission<R extends keyof typeof statement>(
   const { data } = useQuery({
     enabled: Boolean(memberRole && workspaceId),
     queryFn: async () => {
+      if (!workspaceId) {
+        return false;
+      }
       const result = (await authClient.organization.hasPermission({
+        organizationId: workspaceId,
         permissions: { [resource]: [action] } as Record<string, string[]>,
       })) as HasPermissionResult;
       return readHasPermissionResult(result);

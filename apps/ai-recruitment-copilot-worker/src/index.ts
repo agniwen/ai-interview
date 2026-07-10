@@ -8,6 +8,7 @@ import {
 import {
   closeResumeSemanticIndexQueue,
   createResumeSemanticIndexWorker,
+  enqueueResumeSemanticIndexJobs,
 } from "@arc/resume-parse-queue/resume-semantic-index";
 import {
   closeResumeReviewGenerationQueue,
@@ -42,6 +43,20 @@ async function recoverIncompleteResumeParseJobs(): Promise<void> {
   });
 }
 
+async function recoverIncompleteResumeSemanticIndexJobs(): Promise<void> {
+  const { listRecoverableResumeSemanticIndexJobs } =
+    await import("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer");
+  const jobs = await listRecoverableResumeSemanticIndexJobs();
+  if (jobs.length === 0) {
+    console.info("[resume-semantic-index-worker] startup recovery found no pending sources");
+    return;
+  }
+  await enqueueResumeSemanticIndexJobs(jobs);
+  console.info("[resume-semantic-index-worker] startup recovery enqueued sources", {
+    count: jobs.length,
+  });
+}
+
 async function main() {
   const { hostname, port } = resolveWorkerServerConfig();
   const app = createWorkerApp();
@@ -72,6 +87,7 @@ async function main() {
       await runBulkResumeUploadWorkflow({ itemId });
     });
     if (isResumeSemanticIndexEnabled()) {
+      await recoverIncompleteResumeSemanticIndexJobs();
       semanticIndexWorker = createResumeSemanticIndexWorker(async (payload) => {
         const { runResumeSemanticIndexJob } =
           await import("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer");

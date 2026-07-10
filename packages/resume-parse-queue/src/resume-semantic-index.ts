@@ -6,6 +6,7 @@ import {
   createRedisConnectionFromUrl,
   defaultResumeParseJobOptions,
   isResumeParseQueueConfigured,
+  shouldRemoveExistingResumeParseJob,
 } from "./resume-parse";
 
 export const RESUME_SEMANTIC_INDEX_QUEUE_NAME = "resume-semantic-index";
@@ -69,6 +70,18 @@ export async function enqueueResumeSemanticIndexJobs(
     return;
   }
   const q = getResumeSemanticIndexQueue();
+  await Promise.all(
+    jobs.map(async (data) => {
+      const existing = await q.getJob(buildResumeSemanticIndexJobId(data));
+      if (!existing) {
+        return;
+      }
+      const state = await existing.getState();
+      if (shouldRemoveExistingResumeParseJob(state)) {
+        await existing.remove();
+      }
+    }),
+  );
   await q.addBulk(
     jobs.map((data) => ({
       data,

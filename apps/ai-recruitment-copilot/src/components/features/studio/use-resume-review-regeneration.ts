@@ -6,6 +6,7 @@ import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { generateResumeReviewMarkdownFirst } from "@/lib/client/resume-analysis";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 interface RegenerateResumeReviewInput {
   jobDescriptionId?: string | null;
@@ -29,6 +30,7 @@ export function useResumeReviewRegeneration({
   onDraftChange,
   onGenerated,
 }: UseResumeReviewRegenerationOptions) {
+  const workspaceSlug = useWorkspaceSlug();
   const [isGenerating, setIsGenerating] = useState(false);
   const [progressStatus, setProgressStatus] = useState("");
   const [progressTools, setProgressTools] = useState<{ done: boolean; name: string }[]>([]);
@@ -106,6 +108,7 @@ export function useResumeReviewRegeneration({
           onEvent: (event) => handleEvent(event, abortController.signal),
           resumeProfile,
           signal: abortController.signal,
+          workspaceSlug,
         });
 
         if (review && !abortController.signal.aborted) {
@@ -124,7 +127,7 @@ export function useResumeReviewRegeneration({
         }
       }
     },
-    [handleEvent, onDraftChange, onGenerated, resetProgress],
+    [handleEvent, onDraftChange, onGenerated, resetProgress, workspaceSlug],
   );
 
   useEffect(() => cancel, [cancel]);

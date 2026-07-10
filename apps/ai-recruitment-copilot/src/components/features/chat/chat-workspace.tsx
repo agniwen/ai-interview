@@ -173,7 +173,7 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
         resumeImports: {},
         title: withGeneratingTitle ? GENERATING_CHAT_TITLE : NEW_CHAT_TITLE,
       });
-      setChatMeta(id, { enableThinking: false, jobDescription: "", model: "" });
+      setChatMeta(id, {});
       notifyConversationsChanged();
       updateSessionInUrl(id);
       setActiveConversationId(id);

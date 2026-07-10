@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray } from "drizzle-orm";
+import { and, count, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   mailIngestMessage,
@@ -16,6 +16,7 @@ import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type {
   PaginatedResumePoolResult,
   ResumePoolDetail,
+  ResumePoolImportDuplicateMatchRecord,
   ResumePoolImportResult,
   ResumePoolListRecord,
   ResumePoolProfileHighlights,
@@ -37,6 +38,7 @@ import { deleteResumeSemanticIndexBestEffort } from "@arc/ai-recruitment-copilot
 import { cloneResumeSemanticIndexFromPoolToInterview } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/clone";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { normalizeSkill } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
+import { admitResumePoolItem } from "./utils/admission";
 
 type PoolRow = typeof resumePoolItem.$inferSelect;
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -669,111 +671,173 @@ export async function publishPrivatePoolItem(
   return publicItem;
 }
 
-export async function importPoolItemToResumeLibrary(
+export function importPoolItemToResumeLibrary(
   input: ImportPoolItemInput,
 ): Promise<ResumePoolImportResult> {
-  const poolItem = await loadAccessiblePoolItem({
-    organizationId: input.organizationId,
-    poolItemId: input.poolItemId,
-    userId: input.importedBy,
-  });
-  if (!poolItem) {
-    throw new Error("简历池记录不存在或无权访问");
-  }
-  if (poolItem.resumeParseStatus !== "ready") {
-    throw new Error("简历解析完成后才能入库");
-  }
+  return admitResumePoolItem<PoolRow, ResumePoolImportDuplicateMatchRecord>(input, {
+    cloneSemanticIndex: (admission) =>
+      cloneResumeSemanticIndexFromPoolToInterview({
+        poolItemId: admission.poolItemId,
+        resumeRecordId: admission.resumeRecordId,
+        sourceOrganizationId: admission.sourceOrganizationId,
+        targetOrganizationId: admission.organizationId,
+      }),
+    ensureAdmissionRecord: async ({ admission, source }) => {
+      let resumeRecordId = "";
+      await db.transaction(async (tx) => {
+        const lockKey = `resume-pool-import:${admission.organizationId}:${source.id}`;
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`);
+        const [existing] = await tx
+          .select({ resumeRecordId: resumePoolImport.importedResumeRecordId })
+          .from(resumePoolImport)
+          .where(
+            and(
+              eq(resumePoolImport.poolItemId, source.id),
+              eq(resumePoolImport.organizationId, admission.organizationId),
+            ),
+          )
+          .orderBy(desc(resumePoolImport.importedAt))
+          .limit(1);
+        if (existing) {
+          ({ resumeRecordId } = existing);
+          await tx
+            .update(studioInterview)
+            .set({
+              jobDescriptionId: admission.jobDescriptionId,
+              resumeParseError: null,
+              resumeParseStatus: "processing",
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(studioInterview.id, resumeRecordId),
+                eq(studioInterview.organizationId, admission.organizationId),
+                ne(studioInterview.resumeParseStatus, "ready"),
+              ),
+            );
+          return;
+        }
 
-  const matches = await findSemanticResumeDuplicates({
-    email: poolItem.candidateEmail ?? poolItem.resumeProfile?.email ?? null,
-    name: poolItem.candidateName ?? poolItem.resumeProfile?.name ?? null,
-    organizationId: input.organizationId,
-    phone: poolItem.candidatePhone ?? poolItem.resumeProfile?.phone ?? null,
-    resumeProfile: poolItem.resumeProfile,
-  });
-  const importedAt = new Date();
-  let resumeRecordId = "";
-  await db.transaction(async (tx) => {
-    resumeRecordId = await createResumeRecordFromStorage(
-      {
-        candidateEmail: poolItem.candidateEmail,
-        candidateName: poolItem.candidateName,
-        candidatePhone: poolItem.candidatePhone,
-        contentHash: poolItem.resumeContentHash,
-        jobDescriptionId: input.jobDescriptionId,
-        notes: poolItem.notes,
-        organizationId: input.organizationId,
-        resumeFileName: poolItem.resumeFileName,
-        resumeProfile: poolItem.resumeProfile,
-        resumeText: poolItem.resumeText,
-        source: {
+        const importedAt = new Date();
+        resumeRecordId = await createResumeRecordFromStorage(
+          {
+            candidateEmail: source.candidateEmail,
+            candidateName: source.candidateName,
+            candidatePhone: source.candidatePhone,
+            contentHash: source.resumeContentHash,
+            jobDescriptionId: admission.jobDescriptionId,
+            notes: source.notes,
+            organizationId: admission.organizationId,
+            resumeFileName: source.resumeFileName,
+            resumeParseStatus: "processing",
+            resumeProfile: source.resumeProfile,
+            resumeText: source.resumeText,
+            source: {
+              importedAt,
+              importedBy: admission.importedBy,
+              poolItemId: source.id,
+              type: source.scope === "public" ? "public_pool" : "private_pool",
+            },
+            storageKey: source.resumeStorageKey,
+            targetRole: source.targetRole,
+            userId: admission.importedBy,
+          },
+          tx,
+        );
+        await tx.insert(resumePoolImport).values({
+          id: crypto.randomUUID(),
           importedAt,
-          importedBy: input.importedBy,
-          poolItemId: poolItem.id,
-          type: poolItem.scope === "public" ? "public_pool" : "private_pool",
-        },
-        storageKey: poolItem.resumeStorageKey,
-        targetRole: poolItem.targetRole,
-        userId: input.importedBy,
-      },
-      tx,
-    );
-    await tx.insert(resumePoolImport).values({
-      id: crypto.randomUUID(),
-      importedAt,
-      importedBy: input.importedBy,
-      importedResumeRecordId: resumeRecordId,
-      organizationId: input.organizationId,
-      poolItemId: poolItem.id,
-    });
-    await writeResumePoolEvent(tx, {
-      actorId: input.importedBy,
-      organizationId: input.organizationId,
-      payload: { resumeRecordId },
-      poolItemId: poolItem.id,
-      type: "imported",
-    });
-  });
-
-  try {
-    await cloneResumeSemanticIndexFromPoolToInterview({
-      poolItemId: poolItem.id,
-      resumeRecordId,
-      sourceOrganizationId: poolItem.organizationId ?? input.organizationId,
-      targetOrganizationId: input.organizationId,
-    });
-    await replaceDuplicateMatchesForSource({
-      matches,
-      organizationId: input.organizationId,
-      sourceId: resumeRecordId,
-      sourceType: "studio_interview",
-    });
-  } catch (error) {
-    await db.transaction(async (tx) => {
-      await tx
-        .delete(resumePoolImport)
-        .where(eq(resumePoolImport.importedResumeRecordId, resumeRecordId));
-      await tx
-        .delete(studioInterview)
+          importedBy: admission.importedBy,
+          importedResumeRecordId: resumeRecordId,
+          organizationId: admission.organizationId,
+          poolItemId: source.id,
+        });
+        await writeResumePoolEvent(tx, {
+          actorId: admission.importedBy,
+          organizationId: admission.organizationId,
+          payload: { resumeRecordId },
+          poolItemId: source.id,
+          type: "imported",
+        });
+      });
+      return resumeRecordId;
+    },
+    findDuplicateMatches: async ({ admission, existingResumeRecordId, source }) => {
+      const matches = await findSemanticResumeDuplicates({
+        email: source.candidateEmail ?? source.resumeProfile?.email ?? null,
+        excludeSources: existingResumeRecordId
+          ? [{ sourceId: existingResumeRecordId, sourceType: "studio_interview" }]
+          : undefined,
+        name: source.candidateName ?? source.resumeProfile?.name ?? null,
+        organizationId: admission.organizationId,
+        phone: source.candidatePhone ?? source.resumeProfile?.phone ?? null,
+        resumeProfile: source.resumeProfile,
+        sourceTypes: ["studio_interview"],
+      });
+      return matches;
+    },
+    loadExistingAdmissionRecord: async (admission) => {
+      const [existing] = await db
+        .select({ resumeRecordId: resumePoolImport.importedResumeRecordId })
+        .from(resumePoolImport)
         .where(
           and(
-            eq(studioInterview.id, resumeRecordId),
-            eq(studioInterview.organizationId, input.organizationId),
+            eq(resumePoolImport.poolItemId, admission.poolItemId),
+            eq(resumePoolImport.organizationId, admission.organizationId),
+          ),
+        )
+        .orderBy(desc(resumePoolImport.importedAt))
+        .limit(1);
+      return existing?.resumeRecordId ?? null;
+    },
+    loadSource: (admission) =>
+      loadAccessiblePoolItem({
+        organizationId: admission.organizationId,
+        poolItemId: admission.poolItemId,
+        userId: admission.importedBy,
+      }),
+    markAdmissionFailed: async (admission) => {
+      await db
+        .update(studioInterview)
+        .set({
+          resumeParseError: admission.errorMessage.slice(0, 1000),
+          resumeParseStatus: "failed",
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(studioInterview.id, admission.resumeRecordId),
+            eq(studioInterview.organizationId, admission.organizationId),
+            ne(studioInterview.resumeParseStatus, "ready"),
           ),
         );
-    });
-    await deleteResumeSemanticIndexBestEffort({
-      sourceId: resumeRecordId,
-      sourceType: "studio_interview",
-    });
-    await deleteDuplicateMatchesForSource({
-      organizationId: input.organizationId,
-      sourceId: resumeRecordId,
-      sourceType: "studio_interview",
-    });
-    throw error;
-  }
-  return { resumeRecordId, status: "imported" };
+    },
+    markAdmissionReady: async (admission) => {
+      const now = new Date();
+      await db
+        .update(studioInterview)
+        .set({
+          resumeParseError: null,
+          resumeParseStatus: "ready",
+          resumeParsedAt: now,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(studioInterview.id, admission.resumeRecordId),
+            eq(studioInterview.organizationId, admission.organizationId),
+          ),
+        );
+    },
+    replaceDuplicateSnapshot: async (admission) => {
+      await replaceDuplicateMatchesForSource({
+        matches: admission.matches,
+        organizationId: admission.organizationId,
+        sourceId: admission.resumeRecordId,
+        sourceType: "studio_interview",
+      });
+    },
+  });
 }
 
 export async function deleteOwnPoolItem(input: DeleteOwnPoolItemInput): Promise<void> {

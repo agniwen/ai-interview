@@ -4,7 +4,6 @@ import {
   IconArrowBackUp,
   IconArrowRight,
   IconCircleOff,
-  IconDots,
   IconInfoCircle,
   IconUsers,
 } from "@tabler/icons-react";
@@ -23,15 +22,6 @@ import type { PipelineStage } from "@arc/db-schema/studio-interviews";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { CandidatePipelineEvent } from "@arc/shared/candidate-pipeline-machine";
@@ -107,26 +97,16 @@ export function PipelineStageActionBar({
         </ButtonGroup>
       ) : null}
       {canClose ? (
-        <DropdownMenu modal={false}>
-          <DropdownMenuTrigger
-            render={
-              <Button aria-label="更多流程操作" size="sm" type="button" variant="outline">
-                <IconDots className="size-4" />
-                更多
-              </Button>
-            }
-          />
-          <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>流程操作</DropdownMenuLabel>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onRequestClose} variant="destructive">
-              <IconCircleOff className="size-4" />
-              标记结案
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button
+          className="border-destructive/20 bg-destructive/8 text-destructive shadow-xs/5 hover:border-destructive/30 hover:bg-destructive/12 hover:text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/12 dark:hover:bg-destructive/18"
+          onClick={onRequestClose}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <IconCircleOff className="size-4" />
+          标记结案
+        </Button>
       ) : null}
     </div>
   );

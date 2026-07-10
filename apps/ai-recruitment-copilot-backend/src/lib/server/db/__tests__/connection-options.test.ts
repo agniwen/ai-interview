@@ -17,6 +17,14 @@ describe("getPostgresConnectionOptions", () => {
     });
   });
 
+  it("uses a smaller pool under Vitest so parallel forks do not exhaust Postgres", () => {
+    expect(getPostgresConnectionOptions({ NODE_ENV: "development", VITEST: "true" })).toMatchObject(
+      {
+        max: 2,
+      },
+    );
+  });
+
   it("allows explicit positive integer overrides", () => {
     expect(
       getPostgresConnectionOptions({

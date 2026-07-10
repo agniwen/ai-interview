@@ -2,10 +2,27 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 
 const mocks = vi.hoisted(() => ({
+  authorize: vi.fn(),
   checkConversationOwner: vi.fn(),
   confirmRecruitingAction: vi.fn(),
+  createRequestWorkspaceAuthorizer: vi.fn(),
+  loadResumeDetail: vi.fn(),
+  resolveRecruitingVisibilityScope: vi.fn(),
   upsertConversation: vi.fn(),
 }));
+
+vi.mock("@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy", () => ({
+  createRequestWorkspaceAuthorizer: mocks.createRequestWorkspaceAuthorizer,
+}));
+vi.mock("@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility", () => ({
+  resolveRecruitingVisibilityScope: mocks.resolveRecruitingVisibilityScope,
+}));
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes",
+  () => ({
+    loadResumeDetail: mocks.loadResumeDetail,
+  }),
+);
 
 vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat", () => ({
   checkConversationOwner: mocks.checkConversationOwner,
@@ -51,6 +68,9 @@ async function jsonOf(res: Response) {
 describe("conversationsRouter", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.createRequestWorkspaceAuthorizer.mockReturnValue(mocks.authorize);
+    mocks.loadResumeDetail.mockResolvedValue({ id: "resume-1" });
+    mocks.resolveRecruitingVisibilityScope.mockResolvedValue({ kind: "all" });
   });
 
   it("returns a normalized string error for invalid conversation create payloads", async () => {
@@ -108,6 +128,7 @@ describe("conversationsRouter", () => {
     expect(mocks.checkConversationOwner).toHaveBeenCalledWith(USER_ID, "conversation_1", ORG_ID);
     expect(mocks.confirmRecruitingAction).toHaveBeenCalledWith(
       expect.objectContaining({
+        authorize: mocks.authorize,
         operatorId: USER_ID,
         organizationId: ORG_ID,
       }),

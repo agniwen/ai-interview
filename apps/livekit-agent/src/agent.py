@@ -21,7 +21,6 @@ LiveKit worker entrypoint: one job == one interview session.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 import time
@@ -54,8 +53,13 @@ from livekit.plugins import (
     openai,
 )
 
+from agent_config import resolve_agent_name
+from dispatch_context import (
+    DispatchContextError,
+    InterviewDispatchContext,
+    parse_dispatch_context,
+)
 from interview_agent import INTERVIEW_FINAL_WRAP_SECONDS, InterviewAgent
-from prompts import pick_interviewer
 from recording import (
     start_room_recording,
     stop_recording,
@@ -66,6 +70,8 @@ from transcript_replay import replay_turns_to
 logger = logging.getLogger("agent")
 
 load_dotenv()
+
+AGENT_NAME = resolve_agent_name()
 
 
 # 本地 dev 时设置 INTERVIEW_DISABLE_NOISE_CANCELLATION=1 关掉噪声抑制. 默认
@@ -189,7 +195,7 @@ class SessionState:
     """
 
     lkapi: lkapi_module.LiveKitAPI
-    interview_context: dict[str, Any]
+    interview_context: InterviewDispatchContext
     recording_info: dict[str, Any]
     started_at: float
     turns: list[dict[str, Any]] = field(default_factory=list)
@@ -535,7 +541,7 @@ async def _on_session_end(ctx: JobContext) -> None:
 # --------------------------------------------------------------------------- #
 
 
-@server.rtc_session(agent_name="giaogiao", on_session_end=_on_session_end)
+@server.rtc_session(agent_name=AGENT_NAME, on_session_end=_on_session_end)
 async def my_agent(ctx: JobContext) -> None:
     """单次面试的主协程, 由 LiveKit worker 在每个 job 上调度.
 
@@ -550,45 +556,47 @@ async def my_agent(ctx: JobContext) -> None:
     # ---- 1) 候选人加入 + 元数据 + 录像 + 主考官选择 -------------------------
     # ---- 1) Wait for candidate, parse metadata, start recording, pick host
     participant = await ctx.wait_for_participant()
-    interview_context: dict[str, Any] = {}
-    if participant.metadata:
-        try:
-            interview_context = json.loads(participant.metadata)
-            logger.info(
-                "loaded interview context for %s",
-                interview_context.get("candidate_name", "unknown"),
-            )
-        except json.JSONDecodeError:
-            logger.warning("failed to parse participant metadata")
+    try:
+        interview_context = parse_dispatch_context(participant.metadata)
+    except DispatchContextError:
+        logger.exception("invalid interview dispatch metadata")
+        raise
+    logger.info(
+        "loaded interview dispatch context v%d for %s",
+        interview_context.schema_version,
+        interview_context.candidate.name,
+    )
 
-    # 录像: web 颁发 token 时在 metadata 里给出 recording_enabled /
-    # recording_file_key, 二者都满足才尝试启动 RoomCompositeEgress; 失败不影响
-    # 面试主流程. lkapi 在这里创建, 整个 job 生命周期共享一个实例.
-    # Recording: both flags must be present before we try egress; egress failure
-    # does not abort the interview. One lkapi instance shared for the whole job.
+    # 录像: versioned dispatch contract 中 recording.enabled / fileKey 二者都满足
+    # 才尝试启动 RoomCompositeEgress; 失败不影响面试主流程. lkapi 在这里创建,
+    # 整个 job 生命周期共享一个实例.
+    # Recording: both versioned contract fields must be present before egress;
+    # failure does not abort the interview. One lkapi instance is shared.
     lkapi = lkapi_module.LiveKitAPI()
     recording_info: dict[str, Any] = {}
-    if interview_context.get("recording_enabled") and interview_context.get(
-        "recording_file_key"
-    ):
+    if interview_context.recording.enabled and interview_context.recording.file_key:
         info = await start_room_recording(
             lkapi,
             room_name=ctx.room.name,
-            file_key=interview_context["recording_file_key"],
+            file_key=interview_context.recording.file_key,
         )
         if info is not None:
             recording_info = {
                 "egressId": info.egress_id,
-                "fileKey": interview_context["recording_file_key"],
+                "fileKey": interview_context.recording.file_key,
                 "status": "active",
             }
 
-    selected_interviewer = pick_interviewer(interview_context)
-    selected_voice = selected_interviewer.get("voice") or "voice_agent_Male_Phone_1"
-    if selected_interviewer:
+    selected_interviewer = interview_context.selected_interviewer
+    selected_voice = (
+        selected_interviewer.voice
+        if selected_interviewer and selected_interviewer.voice
+        else "voice_agent_Male_Phone_1"
+    )
+    if selected_interviewer is not None:
         logger.info(
             "selected interviewer: %s (voice=%s)",
-            selected_interviewer.get("name", "?"),
+            selected_interviewer.name,
             selected_voice,
         )
 
@@ -667,7 +675,7 @@ async def my_agent(ctx: JobContext) -> None:
 
             state.eager_stop_task = asyncio.create_task(_eager_stop_recording())
 
-    interview_agent = InterviewAgent(interview_context, selected_interviewer)
+    interview_agent = InterviewAgent(interview_context)
 
     # ---- 3) 启动 session ---------------------------------------------------
     # ---- 3) Start the session
@@ -675,7 +683,7 @@ async def my_agent(ctx: JobContext) -> None:
         agent=interview_agent,
         room=ctx.room,
         room_options=_build_room_options(
-            allow_text_input=bool(interview_context.get("allow_text_input"))
+            allow_text_input=interview_context.session.allow_text_input
         ),
     )
 

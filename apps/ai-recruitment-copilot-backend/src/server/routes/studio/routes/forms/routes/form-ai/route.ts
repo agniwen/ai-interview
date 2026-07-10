@@ -1,6 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import { searchCandidatesForFormAi } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/form-ai-context";
 import { generateFormQuestionsFromPrompt } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/utils/ai-form-questions-generate";
@@ -82,7 +83,15 @@ export const candidateFormAiRouter = factory
         });
         return c.json({ questions }, 200);
       } catch (error) {
-        return c.json({ error: error instanceof Error ? error.message : "AI 生成失败。" }, 500);
+        return c.json(
+          createInternalErrorResponse({
+            context: { organizationId: activeOrg.id },
+            error,
+            operation: "candidate-form-ai-generate",
+            publicMessage: "AI 生成失败。",
+          }),
+          500,
+        );
       }
     },
   );

@@ -129,7 +129,6 @@ export function CreateWorkspaceDialog({
       toast.error(error?.message ?? "创建工作区失败");
       return;
     }
-    await authClient.organization.setActive({ organizationId: data.id });
     // 让 WorkspaceSwitcher 重新拉取列表,新建的 workspace 立刻出现。
     // Invalidate so WorkspaceSwitcher refetches and the new org shows up.
     await queryClient.invalidateQueries({ queryKey: ["organizations"] });

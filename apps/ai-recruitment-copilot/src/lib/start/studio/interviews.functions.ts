@@ -24,20 +24,22 @@ export type StudioInterviewsServerState =
       status: "ready";
     };
 
-export type StudioInterviewsState =
-  | Exclude<StudioInterviewsServerState, { status: "ready" }>
-  | {
-      dehydratedState: JsonValue;
-      isListRoute: boolean;
-      status: "ready";
-    };
+export type StudioInterviewsState = StudioInterviewsServerState;
 
 export const loadStudioInterviewsState = createServerFn({ method: "GET" })
-  .validator(workspaceDataGridInputSchema(interviewFiltersSchema))
+  .validator(
+    workspaceDataGridInputSchema(interviewFiltersSchema).extend({ prefetchList: z.boolean() }),
+  )
   .handler(async ({ data }): Promise<StudioInterviewsServerState> => {
     const access = await resolveWorkspaceAccessFromRequest(data.slug);
     if (access.status !== "ready") {
       return access;
+    }
+    if (!data.prefetchList) {
+      return {
+        dehydratedState: { mutations: [], queries: [] },
+        status: "ready",
+      };
     }
 
     const visibilityScope = await resolveRecruitingVisibilityScope({

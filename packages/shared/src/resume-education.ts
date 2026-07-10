@@ -18,6 +18,25 @@ function cleanText(value: string | null | undefined): string | null {
   return trimmed && trimmed !== PLACEHOLDER ? trimmed : null;
 }
 
+function normalizeEducationLevelLabel(level: string | null): string | null {
+  if (!level) {
+    return null;
+  }
+  if (level.includes("博士")) {
+    return "博士";
+  }
+  if (level.includes("硕") || level.includes("研究生")) {
+    return "硕士";
+  }
+  if (level.includes("本") || level.includes("学士")) {
+    return "本科";
+  }
+  if (level.includes("大专") || level.includes("专科") || level.includes("高职")) {
+    return "大专";
+  }
+  return level;
+}
+
 function educationLevelRank(education: ResumeEducationLineInput): number {
   const label = [education.educationLevel, education.degree]
     .map(cleanText)
@@ -63,6 +82,18 @@ export function formatResumeEducationItem(
     major: cleanText(education.major),
     school,
   };
+}
+
+export function formatResumeEducationSchoolWithLevel(
+  education: ResumeEducationLineInput,
+): string | null {
+  const school = cleanText(education.school);
+  if (!school) {
+    return null;
+  }
+
+  const level = normalizeEducationLevelLabel(cleanText(education.educationLevel));
+  return level && !school.includes(`（${level}）`) ? `${school}（${level}）` : school;
 }
 
 export function formatResumeEducationLine(education: ResumeEducationLineInput): string | null {

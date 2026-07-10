@@ -17,8 +17,6 @@ import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import type { DedupMatchRecord } from "@/lib/client/api";
-import { studioInterviewStatusMeta } from "@arc/db-schema/studio-interviews";
-import type { StudioInterviewStatus } from "@arc/db-schema/studio-interviews";
 import { formatDate } from "@arc/shared/utils/time";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
@@ -64,12 +62,6 @@ interface ResumeDedupOverlayProps {
   matches: DedupMatchRecord[];
   onContinue: () => void;
   onCancel: () => void;
-}
-
-function isStudioInterviewStatus(
-  value: DedupMatchRecord["status"],
-): value is StudioInterviewStatus {
-  return Object.hasOwn(studioInterviewStatusMeta, value);
 }
 
 function sourceTypeLabel(match: DedupMatchRecord) {
@@ -159,9 +151,7 @@ export function ResumeDedupMatchList({ matches }: { matches: DedupMatchRecord[] 
     <>
       <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1">
         {matches.map((match) => {
-          const statusMeta = isStudioInterviewStatus(match.status)
-            ? studioInterviewStatusMeta[match.status]
-            : null;
+          const statusLabel = match.status === "active" ? "有效" : "已归档";
           return (
             <div
               className="rounded-xl border border-border/70 bg-background/95 p-4 shadow-sm"
@@ -181,9 +171,7 @@ export function ResumeDedupMatchList({ matches }: { matches: DedupMatchRecord[] 
                         {typeof match.score === "number" ? ` ${match.score}%` : ""}
                       </span>
                     ) : null}
-                    <Badge variant={statusMeta?.tone ?? "outline"}>
-                      {statusMeta?.label ?? match.status}
-                    </Badge>
+                    <Badge variant="outline">{statusLabel}</Badge>
                     <Badge variant="outline">{sourceTypeLabel(match)}</Badge>
                   </div>
                   <p className="text-muted-foreground text-xs">

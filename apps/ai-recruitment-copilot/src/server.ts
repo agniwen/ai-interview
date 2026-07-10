@@ -26,6 +26,31 @@ async function getHonoApp() {
   return await honoAppPromise;
 }
 
+async function createOgImageResponse() {
+  const { createOgImageResponse: createResponse } = await import("./lib/server/og-image");
+  return createResponse();
+}
+
+async function createReadinessResponse() {
+  try {
+    const [, { pingDatabase }, queue] = await Promise.all([
+      getHonoApp(),
+      import("@arc/ai-recruitment-copilot-backend/lib/server/db"),
+      import("@arc/resume-parse-queue/resume-parse"),
+    ]);
+
+    await pingDatabase();
+    if (queue.isResumeParseQueueConfigured()) {
+      await queue.getResumeParseQueueStats();
+    }
+
+    return Response.json({ ok: true });
+  } catch (error) {
+    console.error("[web] readiness check failed", error);
+    return Response.json({ ok: false }, { status: 503 });
+  }
+}
+
 function startFeishuBotsIfEnabled() {
   if (process.env.FEISHU_BOT_ENABLED !== "true") {
     return;
@@ -54,12 +79,30 @@ function isHealthRequest(request: Request) {
   return pathname === "/api/health";
 }
 
+function isReadinessRequest(request: Request) {
+  const { pathname } = new URL(request.url);
+  return pathname === "/api/ready";
+}
+
+function isOgImageRequest(request: Request) {
+  const { pathname } = new URL(request.url);
+  return pathname === "/og.png";
+}
+
 export default createServerEntry({
   async fetch(request, options) {
     applyServerEnv();
 
     if (isHealthRequest(request)) {
       return Response.json({ ok: true });
+    }
+
+    if (isReadinessRequest(request)) {
+      return createReadinessResponse();
+    }
+
+    if (isOgImageRequest(request)) {
+      return createOgImageResponse();
     }
 
     startFeishuBotsIfEnabled();

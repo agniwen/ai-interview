@@ -215,7 +215,12 @@ export async function listDuplicateMatchesForSource(input: {
             createdAt: studioInterview.createdAt,
             id: studioInterview.id,
             jobDescriptionName: jobDescription.name,
-            status: studioInterview.status,
+            status: sql<"active" | "archived">`
+              CASE
+                WHEN ${studioInterview.pipelineStage} = 'closed' THEN 'archived'
+                ELSE 'active'
+              END
+            `,
             targetRole: studioInterview.targetRole,
           })
           .from(studioInterview)

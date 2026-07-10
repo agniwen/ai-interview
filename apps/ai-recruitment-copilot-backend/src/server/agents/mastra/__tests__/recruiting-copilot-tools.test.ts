@@ -36,6 +36,7 @@ describe("recruiting copilot tools", () => {
         limit: 5,
         organizationId: "org-1",
         query: "找 React 候选人",
+        visibilityScope: { kind: "restricted", userIds: ["user-1"] },
       },
       { listResumeRecords },
     );
@@ -54,6 +55,7 @@ describe("recruiting copilot tools", () => {
         sortBy: "updatedAt",
         sortOrder: "desc",
       },
+      { kind: "restricted", userIds: ["user-1"] },
     );
     expect(result.candidateSummaryCards).toEqual([
       expect.objectContaining({
@@ -137,6 +139,7 @@ describe("recruiting copilot tools", () => {
         limit: 5,
         organizationId: "org-1",
         query: "找全栈候选人",
+        visibilityScope: { kind: "all" },
       },
       { listResumeRecords, semanticSearch },
     );
@@ -148,6 +151,7 @@ describe("recruiting copilot tools", () => {
       pipelineStages: undefined,
       query: "找全栈候选人",
       skills: undefined,
+      visibilityScope: { kind: "all" },
     });
     expect(result.retrievalMode).toBe("combined");
     expect(result.semanticHitCount).toBe(2);

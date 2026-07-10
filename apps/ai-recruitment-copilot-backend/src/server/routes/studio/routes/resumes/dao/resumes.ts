@@ -21,17 +21,9 @@ import {
   studioOfferDraft,
   user,
 } from "@arc/db-schema/schema";
-import {
-  candidateOutcomeValues,
-  pipelineStageValues,
-  studioInterviewStatusMeta,
-} from "@arc/db-schema/studio-interviews";
+import { candidateOutcomeValues, pipelineStageValues } from "@arc/db-schema/studio-interviews";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import type {
-  CandidateOutcome,
-  PipelineStage,
-  StudioInterviewStatus,
-} from "@arc/db-schema/studio-interviews";
+import type { CandidateOutcome, PipelineStage } from "@arc/db-schema/studio-interviews";
 import type {
   PaginatedResumeLibraryResult,
   ResumeLibraryDetail,
@@ -40,6 +32,7 @@ import type {
   ResumeStageProgress,
 } from "@arc/shared/studio-resumes";
 import type { ResumeDuplicateMatchSummary } from "@arc/shared/resume-duplicates";
+import { formatResumeEducationSchoolWithLevel } from "@arc/shared/resume-education";
 import { resumeScreeningResultSchema } from "@arc/shared/resume-screening";
 import { normalizeSkill } from "./skills";
 
@@ -64,8 +57,6 @@ const filtersSchema = z.object({
   pipelineStages: z.array(z.string()).max(10).optional().nullable(),
   search: z.string().trim().max(120).optional().nullable(),
   skills: z.array(z.string()).max(20).optional().nullable(),
-  // @deprecated 旧 status 过滤，由 pipelineStages + outcomes 取代；保留以兼容旧调用方。
-  statuses: z.array(z.string()).max(10).optional().nullable(),
 });
 
 type Pagination = z.infer<typeof paginationSchema>;
@@ -118,13 +109,6 @@ function buildCreatorIdsCondition(creatorIds: string[] | null | undefined) {
   return filtered.length > 0 ? inArray(studioInterview.createdBy, filtered) : null;
 }
 
-function buildStatusesCondition(statuses: string[] | null | undefined) {
-  const filtered = (statuses ?? []).filter((s): s is StudioInterviewStatus =>
-    Object.hasOwn(studioInterviewStatusMeta, s),
-  );
-  return filtered.length > 0 ? inArray(studioInterview.status, filtered) : null;
-}
-
 function buildStagesCondition(stages: string[] | null | undefined) {
   const filtered = (stages ?? []).filter((s): s is PipelineStage =>
     pipelineStageValues.includes(s as PipelineStage),
@@ -149,7 +133,6 @@ function buildWhere(organizationId: string, filters?: ResumeQueryFilters) {
     buildSkillsCondition(filters?.skills),
     buildJdIdsCondition(filters?.jobDescriptionIds),
     buildCreatorIdsCondition(filters?.creatorIds),
-    buildStatusesCondition(filters?.statuses),
     buildStagesCondition(filters?.pipelineStages),
     buildOutcomesCondition(filters?.outcomes),
   ].filter((c) => c !== null);
@@ -196,7 +179,7 @@ const SELECTED_COLUMNS = {
   ),
   resumeEducationLevel: sql<
     string | null
-  >`${studioInterview.resumeProfile}->'educationExperiences'->0->>'level'`.as(
+  >`${studioInterview.resumeProfile}->'educationExperiences'->0->>'educationLevel'`.as(
     "resume_education_level",
   ),
   resumeEducationMajor: sql<
@@ -247,7 +230,6 @@ const SELECTED_COLUMNS = {
   resumeWorkRole: sql<
     string | null
   >`${studioInterview.resumeProfile}->'workExperiences'->0->>'role'`.as("resume_work_role"),
-  status: studioInterview.status,
   targetRole: studioInterview.targetRole,
   updatedAt: studioInterview.updatedAt,
   writtenTestScheduledAt: studioInterview.writtenTestScheduledAt,
@@ -439,19 +421,14 @@ function buildResumeEducationSnapshotLines(
       if (!school) {
         return [];
       }
+      const educationLevel = cleanResumeProfileRecordText(item, "educationLevel");
       return [
         {
           period:
             formatResumeCardPeriod(cleanResumeProfileRecordText(item, "period")) ??
             formatResumeCardPeriod(cleanResumeProfileRecordText(item, "graduationYear")),
-          primary: school,
-          secondary:
-            [
-              cleanResumeProfileRecordText(item, "major"),
-              cleanResumeProfileRecordText(item, "level"),
-            ]
-              .filter(Boolean)
-              .join(" · ") || null,
+          primary: formatResumeEducationSchoolWithLevel({ educationLevel, school }) ?? school,
+          secondary: cleanResumeProfileRecordText(item, "major"),
         },
       ];
     },
@@ -483,14 +460,12 @@ function buildLegacyEducationSnapshotFallback(row: Row): ResumeLibraryProfileSna
           period:
             formatResumeCardPeriod(row.resumeEducationPeriod) ??
             formatResumeCardPeriod(row.resumeEducationGraduationYear),
-          primary: educationSchool,
-          secondary:
-            [
-              cleanResumeProfileText(row.resumeEducationMajor),
-              cleanResumeProfileText(row.resumeEducationLevel),
-            ]
-              .filter(Boolean)
-              .join(" · ") || null,
+          primary:
+            formatResumeEducationSchoolWithLevel({
+              educationLevel: cleanResumeProfileText(row.resumeEducationLevel),
+              school: educationSchool,
+            }) ?? educationSchool,
+          secondary: cleanResumeProfileText(row.resumeEducationMajor),
         },
       ]
     : [];
@@ -796,7 +771,6 @@ function toRecord(
     resumeSkills: buildResumeSkills(row.resumeSkills),
     resumeSummary: row.resumeReviewConclusion ?? row.notes?.trim() ?? null,
     stageProgress: resolvedDerived.stageProgress,
-    status: row.status,
     targetRole: row.targetRole,
     updatedAt: serializeDate(row.updatedAt),
     writtenTestScheduledAt: serializeDate(row.writtenTestScheduledAt),
@@ -811,7 +785,6 @@ export async function queryPaginatedResumeRecords(
     creatorIds?: string[] | null;
     skills?: string[] | null;
     jobDescriptionIds?: string[] | null;
-    statuses?: string[] | null;
     pipelineStages?: string[] | null;
     outcomes?: string[] | null;
   },
@@ -877,7 +850,6 @@ export function listResumeRecords(
     creatorIds?: string[] | null;
     skills?: string[] | null;
     jobDescriptionIds?: string[] | null;
-    statuses?: string[] | null;
     pipelineStages?: string[] | null;
     outcomes?: string[] | null;
   },

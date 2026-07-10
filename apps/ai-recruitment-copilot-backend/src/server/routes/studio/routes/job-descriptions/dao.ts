@@ -9,7 +9,7 @@ import {
   resumeScreeningPolicySchema,
 } from "@arc/shared/resume-screening";
 import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
-import { and, asc, count, desc, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
@@ -267,7 +267,7 @@ async function loadResumeCountsForJobDescriptions(
     .where(
       and(
         inArray(studioInterview.jobDescriptionId, jobDescriptionIds),
-        notInArray(studioInterview.status, ["archived"]),
+        ne(studioInterview.pipelineStage, "closed"),
       ),
     )
     .groupBy(studioInterview.jobDescriptionId);
@@ -522,7 +522,7 @@ async function loadCandidatesByJd(organizationId: string) {
       and(
         eq(studioInterview.jobDescriptionId, jobDescription.id),
         eq(studioInterview.organizationId, organizationId),
-        notInArray(studioInterview.status, ["archived"]),
+        ne(studioInterview.pipelineStage, "closed"),
       ),
     )
     .where(eq(jobDescription.organizationId, organizationId))
@@ -568,7 +568,7 @@ async function loadCompletionByJd(organizationId: string) {
     .where(
       and(
         eq(jobDescription.organizationId, organizationId),
-        notInArray(studioInterview.status, ["archived"]),
+        ne(studioInterview.pipelineStage, "closed"),
       ),
     )
     .groupBy(jobDescription.id, jobDescription.name)
@@ -586,11 +586,11 @@ async function loadCompletionByJd(organizationId: string) {
 
 async function loadLoadByInterviewer(organizationId: string) {
   // 通过 job_description_interviewer 关联到 studio_interview，
-  // 统计每位面试官当前 status ∈ {ready, in_progress} 的候选人数 DISTINCT 计数。
+  // 统计每位面试官已进入面试或 Offer 阶段的候选人数 DISTINCT 计数。
   // DISTINCT 是因为同一候选人可能落在多个 JD 的同一面试官关联上——但实际 schema
   // 是 1 候选人:1 JD，DISTINCT 主要做保险。
   // Walk interviewer → jobDescriptionInterviewer → studio_interview, counting
-  // active (ready / in_progress) candidates per interviewer. DISTINCT is a
+  // candidates in AI/human interview or offer stages per interviewer. DISTINCT is a
   // safety net — schema-wise a candidate maps to a single JD, so duplicates
   // shouldn't appear in practice.
   const rows = await db
@@ -609,7 +609,7 @@ async function loadLoadByInterviewer(organizationId: string) {
       and(
         eq(studioInterview.jobDescriptionId, jobDescriptionInterviewer.jobDescriptionId),
         eq(studioInterview.organizationId, organizationId),
-        inArray(studioInterview.status, ["ready", "in_progress"]),
+        inArray(studioInterview.pipelineStage, ["ai_interview", "human_interview", "offer"]),
       ),
     )
     .where(eq(interviewer.organizationId, organizationId))

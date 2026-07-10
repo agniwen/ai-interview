@@ -101,7 +101,7 @@ describe("findSemanticResumeDuplicates", () => {
               id: "candidate-semantic",
               jobDescriptionName: null,
               resumeProfile: queryProfile,
-              status: "ready",
+              status: "archived",
               targetRole: "全栈工程师",
             },
           ]),
@@ -129,6 +129,7 @@ describe("findSemanticResumeDuplicates", () => {
     });
     expect(ensureCollection).toHaveBeenCalledTimes(1);
     expect(matches[0]?.score).toBeGreaterThanOrEqual(92);
+    expect(matches[0]?.status).toBe("archived");
     expect(matches[0]?.semanticReasons).toContain("工作/项目经历语义高度相似");
   });
 

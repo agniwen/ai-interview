@@ -144,7 +144,6 @@ beforeAll(async () => {
       notes: null,
       organizationId: ORG_A,
       resumeFileName: "zhang.pdf",
-      status: "draft",
       targetRole: "前端工程师",
       updatedAt: NOW,
     },
@@ -159,7 +158,6 @@ beforeAll(async () => {
       notes: null,
       organizationId: ORG_A,
       resumeFileName: null,
-      status: "ready",
       targetRole: "产品经理",
       updatedAt: NOW,
     },
@@ -173,7 +171,6 @@ beforeAll(async () => {
       notes: null,
       organizationId: ORG_B,
       resumeFileName: "wang.pdf",
-      status: "draft",
       targetRole: null,
       updatedAt: NOW,
     },
@@ -220,7 +217,8 @@ describe("queryPaginatedResumeRecords", () => {
     }
     expect(sample).not.toHaveProperty("interviewQuestions");
     expect(sample).not.toHaveProperty("scheduleEntries");
-    expect(sample.status).toBeTypeOf("string");
+    expect(sample.pipelineStage).toBeTypeOf("string");
+    expect(sample.outcome).toBeTypeOf("string");
     expect(sample.hasResumeFile).toBeTypeOf("boolean");
     expect(typeof sample.createdAt).toBe("string");
   });

@@ -43,8 +43,11 @@ describe("managed messages permission (real middleware)", () => {
     const res = await app.request("/mail-ingest-accounts/managed/account_1/messages");
 
     expect(res.status).toBe(403);
+    // 权限边界重构后，authorizer 在 body 里附带 organizationId；仍须要求 mailIngestAccount:["manage"]
     expect(mocks.hasPermission).toHaveBeenCalledWith(
-      expect.objectContaining({ body: { permissions: { mailIngestAccount: ["manage"] } } }),
+      expect.objectContaining({
+        body: expect.objectContaining({ permissions: { mailIngestAccount: ["manage"] } }),
+      }),
     );
     expect(mocks.listAccountMailMessages).not.toHaveBeenCalled();
   });

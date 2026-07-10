@@ -25,7 +25,7 @@ const MATCH: DedupMatchRecord = {
   createdAt: "2026-06-21T00:00:00.000Z",
   id: "existing-resume",
   jobDescriptionName: null,
-  status: "draft",
+  status: "active",
   targetRole: "前端工程师",
 };
 

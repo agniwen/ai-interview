@@ -28,6 +28,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/client/auth-client";
+import { useWorkspaceId } from "@/lib/client/workspace-context";
 import {
   ASSIGNABLE_ROLES,
   buildWorkspaceRoleOptions,
@@ -53,6 +54,7 @@ export function InviteDialog({
   assignableRoles = ASSIGNABLE_ROLES,
   trigger,
 }: InviteDialogProps = {}) {
+  const workspaceId = useWorkspaceId();
   const roleOptions = assignableRoleOptions ?? buildWorkspaceRoleOptions(assignableRoles);
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
@@ -75,6 +77,7 @@ export function InviteDialog({
     setSubmitting(true);
     const { data, error } = await authClient.organization.inviteMember({
       email: trimmedEmail,
+      organizationId: workspaceId,
       role: role as "admin" | "member",
     });
     setSubmitting(false);

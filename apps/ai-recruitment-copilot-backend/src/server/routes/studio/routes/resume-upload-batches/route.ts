@@ -3,6 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { chatAttachment, jobDescription } from "@arc/db-schema/schema";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import { validateResumeFile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import {
@@ -74,8 +75,15 @@ export const resumeUploadBatchesRouter = factory
     } catch (error) {
       // S3 / 注册表写入抛错时给个人类可读的中文反馈，避免 AWS SDK 原始堆栈泄露到前端。
       // Surface a friendly Chinese error instead of leaking the raw AWS SDK trace.
-      console.error("[bulk-upload] /uploads failed:", error);
-      return c.json({ error: error instanceof Error ? error.message : "文件上传失败。" }, 500);
+      return c.json(
+        createInternalErrorResponse({
+          context: { organizationId: activeOrg.id, userId: user.id },
+          error,
+          operation: "bulk-resume-upload-store",
+          publicMessage: "文件上传失败。",
+        }),
+        500,
+      );
     }
     if (!result) {
       return c.json({ error: "文件上传失败，请重试。" }, 500);

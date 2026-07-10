@@ -98,4 +98,26 @@ describe("agentDebugRouter", () => {
       }),
     );
   });
+
+  it("POST /resume-parser-test hides unexpected parser failures", async () => {
+    const parserError = new Error("postgres://user:secret@private-host/database");
+    mocks.parseResumeFastToProfile.mockRejectedValueOnce(parserError);
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const form = new FormData();
+    form.append("resume", new File(["resume"], "resume.pdf", { type: "application/pdf" }));
+
+    const res = await createApp("admin").request("/resume-parser-test", {
+      body: form,
+      method: "POST",
+    });
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({
+      error: "简历解析失败。",
+      stage: "agent-debug.resume-parser-test",
+    });
+    expect(consoleError).toHaveBeenCalledWith("[agent-debug-resume-parser-test] failed", {
+      error: parserError,
+    });
+  });
 });

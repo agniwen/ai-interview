@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ResumeParseStatus, StudioInterviewStatus } from "@arc/db-schema/studio-interviews";
+import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ResumeEducationDisplayItem } from "./resume-education";
 import type { ResumeDuplicateMatchSummary } from "./resume-duplicates";
@@ -106,7 +106,7 @@ export interface ResumePoolImportDuplicateMatchRecord {
     skillRole?: number;
     workProject?: number;
   };
-  status: StudioInterviewStatus;
+  status: "active" | "archived";
   targetRole: string | null;
 }
 

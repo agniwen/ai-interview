@@ -69,6 +69,7 @@
     "@tiptap/pm": "^3.23.6",
     "@tiptap/react": "^3.23.6",
     "@tiptap/starter-kit": "^3.23.6",
+    "@vercel/og": "^0.11.1",
     "@visual-json/core": "^0.4.0",
     "@visual-json/react": "^0.4.0",
     "@zumer/snapdom": "^2.12.0",

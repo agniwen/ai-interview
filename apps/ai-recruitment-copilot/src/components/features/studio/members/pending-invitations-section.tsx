@@ -123,7 +123,12 @@ export function PendingInvitationsButton({ organizationId }: { organizationId: s
   const { data, isPending, refetch } = useQuery({
     enabled: Boolean(organizationId),
     queryFn: async (): Promise<InvitationItem[]> => {
-      const { data: list, error } = await authClient.organization.listInvitations();
+      if (!organizationId) {
+        return [];
+      }
+      const { data: list, error } = await authClient.organization.listInvitations({
+        query: { organizationId },
+      });
       if (error) {
         throw new Error(error.message ?? "加载邀请列表失败");
       }

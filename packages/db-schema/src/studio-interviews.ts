@@ -1,23 +1,9 @@
 import type { ResumeAnalysisResult } from "./interview/types";
 import { z } from "zod";
 
-// ⚠️ DEPRECATED — 旧的 record 级 status，被 pipelineStage + outcome 两维取代。
-// 仍然保留导出 + DB 列继续被写入，等所有读侧切到新字段后再说删除。
-// Legacy single-axis status. Superseded by pipelineStage + outcome. Kept
-// exported and dual-written from app code until consumers fully migrate.
-export const studioInterviewStatusValues = [
-  "draft",
-  "ready",
-  "in_progress",
-  "completed",
-  "archived",
-] as const;
-
-export const studioInterviewStatusSchema = z.enum(studioInterviewStatusValues);
-
 // ── 新模型：pipelineStage（候选人在 pipeline 哪个阶段）+ outcome（最终结论）──
-// Two-axis replacement for the legacy status enum: an explicit "where in the
-// hiring pipeline" stage, plus a separate "what's the verdict" outcome.
+// Candidate lifecycle uses an explicit "where in the hiring pipeline" stage
+// plus a separate "what's the verdict" outcome.
 
 // 顺序对应招聘漏斗：简历筛选 → 笔试 → AI 面试 → 真人复面 → offer → 结案。
 // closed 是终态，outcome 字段决定具体结局（hired/rejected/withdrawn/archived）。
@@ -449,7 +435,6 @@ export const studioInterviewBaseSchema = z.object({
         }
       }
     }),
-  status: studioInterviewStatusSchema,
   targetRole: z.string().trim().max(120, "目标岗位不能超过 120 个字符"),
 });
 
@@ -494,25 +479,11 @@ export const studioInterviewResumePayloadSchema = z.object({
   resumeText: z.string().nullable().default(null),
 });
 
-/** @deprecated Use `PipelineStage` + `CandidateOutcome` instead. */
-export type StudioInterviewStatus = z.infer<typeof studioInterviewStatusSchema>;
 export type StudioInterviewScheduleEntryFormValue = z.infer<
   typeof studioInterviewScheduleEntrySchema
 >;
 export type StudioInterviewFormValues = z.infer<typeof studioInterviewFormSchema>;
 export type StudioInterviewUpdateValues = z.infer<typeof studioInterviewUpdateSchema>;
-
-/** @deprecated Use `pipelineStageMeta` + `candidateOutcomeMeta` instead. */
-export const studioInterviewStatusMeta: Record<
-  StudioInterviewStatus,
-  { label: string; tone: "success" | "warning" | "info" | "outline" }
-> = {
-  archived: { label: "已归档", tone: "outline" },
-  completed: { label: "已完成", tone: "success" },
-  draft: { label: "草稿", tone: "outline" },
-  in_progress: { label: "进行中", tone: "warning" },
-  ready: { label: "待面试", tone: "info" },
-};
 
 export function createDefaultScheduleEntry(sortOrder = 0): StudioInterviewScheduleEntryFormValue {
   return {

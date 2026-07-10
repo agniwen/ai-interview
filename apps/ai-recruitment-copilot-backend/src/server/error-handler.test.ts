@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { describe, expect, it, vi } from "vitest";
 import type { Env } from "@arc/ai-recruitment-copilot-backend/server/type";
-import { handleServerError } from "./error-handler";
+import { createInternalErrorResponse, handleServerError } from "./error-handler";
 
 describe("handleServerError", () => {
   it("尊重 HTTPException 的原状态码，不当 500", async () => {
@@ -30,6 +30,28 @@ describe("handleServerError", () => {
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: "Internal Server Error" });
     expect(errorSpy).toHaveBeenCalledOnce();
+    errorSpy.mockRestore();
+  });
+});
+
+describe("createInternalErrorResponse", () => {
+  it("logs the internal error without returning it to the caller", () => {
+    const error = new Error("postgres://user:secret@private-host/database");
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const response = createInternalErrorResponse({
+      context: { interviewRecordId: "record-1" },
+      error,
+      operation: "interview-livekit-token",
+      publicMessage: "Failed to sign LiveKit token.",
+    });
+
+    expect(response).toEqual({ error: "Failed to sign LiveKit token." });
+    expect(JSON.stringify(response)).not.toContain("private-host");
+    expect(errorSpy).toHaveBeenCalledWith("[interview-livekit-token] failed", {
+      error,
+      interviewRecordId: "record-1",
+    });
     errorSpy.mockRestore();
   });
 });

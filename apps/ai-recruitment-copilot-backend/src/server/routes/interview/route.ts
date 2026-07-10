@@ -1,35 +1,18 @@
-import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { RoomAgentDispatch, RoomConfiguration } from "@livekit/protocol";
-import { and, eq, ne } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { AccessToken } from "livekit-server-sdk";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   buildRecordingFileKey,
   isRecordingStorageConfigured,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
-import {
-  candidateFormSubmission,
-  studioInterview,
-  studioInterviewSchedule,
-} from "@arc/db-schema/schema";
+import { candidateFormSubmission, studioInterviewSchedule } from "@arc/db-schema/schema";
 import { buildCandidateFormAnswersSchema } from "@arc/db-schema/candidate-forms";
 import { RECONNECT_GRACE_MS } from "@arc/db-schema/studio-interviews";
-import {
-  streamGenerateInterviewQuestions,
-  streamGenerateResumeReviewMarkdownFirst,
-  streamGenerateResumeReview,
-  streamParseResumeProfile,
-} from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
-import { authMiddleware } from "@arc/ai-recruitment-copilot-backend/server/middlewares/auth";
-import { resumeProfileSchema } from "@arc/db-schema/interview/types";
-import {
-  listAllJobDescriptions,
-  loadJobDescriptionById,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
-import { getGlobalConfig } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/global-config/dao";
+import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
 import { loadSubmittedTemplateIds } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/submissions";
 import { loadActiveInterviewContextSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
 import {
@@ -39,233 +22,17 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import { resolveInterviewRecordingEnabled } from "@arc/shared/interview/recording-config";
 import {
+  buildInterviewDispatchMetadata,
+  selectInterviewDispatchInterviewer,
+} from "@arc/shared/interview/dispatch-contract";
+import {
   buildTokenErrorResponse,
   loadCandidateInterviewRecord,
   loadScheduleEntriesForRedirect,
 } from "./utils";
-import { resolveJobDescriptionMatchBestEffort } from "./match-job-description";
 
 export const interviewRouter = factory
   .createApp()
-  .post("/parse-resume", authMiddleware, async (c) => {
-    const formData = await c.req.formData();
-    const resume = formData.get("resume");
-
-    if (!(resume instanceof File)) {
-      return c.json({ error: "缺少简历文件。" }, 400);
-    }
-
-    // 把 userId + activeOrganizationId 透传给流式解析器；缺任意一个就跳过缓存写入。
-    // 这里不挂 workspace 中间件，所以从 session 直接读 activeOrganizationId（与
-    // resume chat 路由的取法保持一致）。
-    // Forward userId + activeOrganizationId so the streamer can populate the
-    // chat_attachment registry on cache miss. We read activeOrganizationId off
-    // the session directly (no workspace middleware on this route), matching
-    // how the resume chat router resolves it.
-    const userId = c.var.user?.id;
-    const organizationId =
-      (c.var.session as { activeOrganizationId?: string | null } | null)?.activeOrganizationId ??
-      null;
-    const context = userId ? { organizationId, userId } : undefined;
-
-    try {
-      const stream = streamParseResumeProfile(resume, context);
-      return new Response(stream, {
-        headers: {
-          "Cache-Control": "no-cache",
-          "Content-Type": "text/event-stream",
-          "Transfer-Encoding": "chunked",
-          "X-Accel-Buffering": "no",
-        },
-      });
-    } catch (error) {
-      if (error instanceof Error) {
-        const status = error.message.includes("PDF") || error.message.includes("MB") ? 400 : 500;
-        return c.json(
-          { error: error.message, stage: "resume-parsing" },
-          status as ContentfulStatusCode,
-        );
-      }
-
-      return c.json({ error: "Failed to parse resume.", stage: "resume-parsing" }, 500);
-    }
-  })
-  .post(
-    "/match-job-description",
-    authMiddleware,
-    zValidator(
-      "json",
-      z.object({
-        interviewRecordId: z.string().optional(),
-        resumeProfile: resumeProfileSchema,
-      }),
-      jsonValidatorError("缺少候选人信息 (resumeProfile)。"),
-    ),
-    async (c) => {
-      const { interviewRecordId, resumeProfile } = c.req.valid("json");
-
-      // 优先用 interviewRecord 解析 orgId(候选人场景),否则回退到 session.activeOrganizationId(chat 内点匹配)。
-      // 两者都没有就拒——说明请求脱离了任何 workspace 上下文。
-      // Prefer the interview record (candidate-side); fall back to
-      // session.activeOrganizationId (chat-side). Reject when neither is
-      // available — the request has no workspace context.
-      let orgId: string | null = null;
-      if (interviewRecordId) {
-        const [row] = await db
-          .select({ organizationId: studioInterview.organizationId })
-          .from(studioInterview)
-          .where(eq(studioInterview.id, interviewRecordId))
-          .limit(1);
-        orgId = row?.organizationId ?? null;
-      }
-      if (!orgId) {
-        orgId =
-          (c.var.session as { activeOrganizationId?: string | null } | null)
-            ?.activeOrganizationId ?? null;
-      }
-      if (!orgId) {
-        return c.json({ error: "No active workspace" }, 400);
-      }
-
-      try {
-        const jobDescriptions = await listAllJobDescriptions(orgId);
-        const match = await resolveJobDescriptionMatchBestEffort({
-          jobDescriptions,
-          resumeProfile,
-        });
-        return c.json(match, 200);
-      } catch (error) {
-        return c.json(
-          { error: error instanceof Error ? error.message : "在招岗位匹配失败。" },
-          500,
-        );
-      }
-    },
-  )
-  .post(
-    "/generate-questions",
-    authMiddleware,
-    zValidator(
-      "json",
-      z.object({ resumeProfile: resumeProfileSchema }),
-      jsonValidatorError("缺少候选人信息 (resumeProfile)。"),
-    ),
-    (c) => {
-      const { resumeProfile } = c.req.valid("json");
-      const stream = streamGenerateInterviewQuestions(resumeProfile);
-      return new Response(stream, {
-        headers: {
-          "Cache-Control": "no-cache",
-          "Content-Type": "text/event-stream",
-          "Transfer-Encoding": "chunked",
-          "X-Accel-Buffering": "no",
-        },
-      });
-    },
-  )
-  .post(
-    "/generate-review",
-    authMiddleware,
-    zValidator(
-      "json",
-      z.object({
-        jobDescriptionId: z.string().trim().optional().nullable(),
-        resumeProfile: resumeProfileSchema,
-      }),
-      jsonValidatorError("缺少候选人信息 (resumeProfile)。"),
-    ),
-    async (c) => {
-      const { jobDescriptionId, resumeProfile } = c.req.valid("json");
-
-      // 取 JD prompt 作为评价上下文。jobDescriptionId 来自前端 JD 匹配阶段的回填,
-      // org scope 用当前 session 的 activeOrganizationId（generate-review 跟在
-      // JD 匹配后调用，那时 active org 已经定）；查不到 JD 静默退化为无 JD 评价。
-      // Resolve the JD prompt as review context. The id comes from the
-      // pipeline's match-job-description step; org scoping uses the active
-      // organization on the session. Silently fall back to a JD-less review if
-      // the id resolves to nothing (org-mismatch / freshly-deleted JD / etc.).
-      let jobDescriptionText: string | null = null;
-      if (jobDescriptionId) {
-        const orgId =
-          (c.var.session as { activeOrganizationId?: string | null } | null)
-            ?.activeOrganizationId ?? null;
-        if (orgId) {
-          const jd = await loadJobDescriptionById(orgId, jobDescriptionId);
-          if (jd) {
-            jobDescriptionText = [
-              `岗位名称：${jd.name}`,
-              jd.description ? `岗位描述：${jd.description}` : null,
-              `岗位 Prompt：\n${jd.prompt}`,
-            ]
-              .filter(Boolean)
-              .join("\n\n");
-          }
-        }
-      }
-
-      const stream = streamGenerateResumeReview({
-        jobDescription: jobDescriptionText,
-        resumeProfile,
-      });
-
-      return new Response(stream, {
-        headers: {
-          "Cache-Control": "no-cache",
-          "Content-Type": "text/event-stream",
-          "Transfer-Encoding": "chunked",
-          "X-Accel-Buffering": "no",
-        },
-      });
-    },
-  )
-  .post(
-    "/generate-review-markdown-stream",
-    authMiddleware,
-    zValidator(
-      "json",
-      z.object({
-        jobDescriptionId: z.string().trim().optional().nullable(),
-        resumeProfile: resumeProfileSchema,
-      }),
-      jsonValidatorError("缺少候选人信息 (resumeProfile)。"),
-    ),
-    async (c) => {
-      const { jobDescriptionId, resumeProfile } = c.req.valid("json");
-
-      let jobDescriptionText: string | null = null;
-      if (jobDescriptionId) {
-        const orgId =
-          (c.var.session as { activeOrganizationId?: string | null } | null)
-            ?.activeOrganizationId ?? null;
-        if (orgId) {
-          const jd = await loadJobDescriptionById(orgId, jobDescriptionId);
-          if (jd) {
-            jobDescriptionText = [
-              `岗位名称：${jd.name}`,
-              jd.description ? `岗位描述：${jd.description}` : null,
-              `岗位 Prompt：\n${jd.prompt}`,
-            ]
-              .filter(Boolean)
-              .join("\n\n");
-          }
-        }
-      }
-
-      const stream = streamGenerateResumeReviewMarkdownFirst({
-        jobDescription: jobDescriptionText,
-        resumeProfile,
-      });
-
-      return new Response(stream, {
-        headers: {
-          "Cache-Control": "no-cache",
-          "Content-Type": "text/event-stream",
-          "Transfer-Encoding": "chunked",
-          "X-Accel-Buffering": "no",
-        },
-      });
-    },
-  )
   // oxlint-disable-next-line complexity -- Token issuance composes auth, form gate, and the hot-reconnect state machine in one flow.
   .post("/:id/:roundId/livekit-token", async (c) => {
     const id = c.req.param("id");
@@ -299,7 +66,7 @@ export const interviewRouter = factory
     const apiKey = process.env.LIVEKIT_API_KEY;
     const apiSecret = process.env.LIVEKIT_API_SECRET;
     const serverUrl = process.env.LIVEKIT_URL;
-    const agentName = process.env.AGENT_NAME;
+    const agentName = process.env.AGENT_NAME?.trim() || "giaogiao";
 
     if (!apiKey || !apiSecret || !serverUrl) {
       return c.json(buildTokenErrorResponse(), 500);
@@ -404,14 +171,6 @@ export const interviewRouter = factory
           updatedAt: now,
         })
         .where(eq(studioInterviewSchedule.id, roundId));
-      // 记录级 status 跟着抬一档：候选人真的进场了，整条记录就不再是「待面试」。
-      // 守卫 status='ready' 避免覆盖 archived/completed 等终态（极端 race 下可能命中）。
-      // Bump the record-level status to mirror that interviewing has actually
-      // begun. Guard on status='ready' so we never overwrite terminal states.
-      await tx
-        .update(studioInterview)
-        .set({ status: "in_progress" as const, updatedAt: now })
-        .where(and(eq(studioInterview.id, id), eq(studioInterview.status, "ready")));
       return {
         isReconnect: false,
         participantIdentity: freshIdentity,
@@ -432,13 +191,12 @@ export const interviewRouter = factory
 
     // Interview context is surfaced to the Python agent worker via participant metadata.
     // Python: `ctx.wait_for_participant()` → `participant.metadata` → JSON.parse.
-    // When the JD has multiple interviewers, the agent picks one at random.
-    // 系统设置（公司背景、开场/结束指令）在颁发 token 前读取并注入。
-    // Global config (company context, opening/closing instructions) is read before token issuance and injected here.
+    // When the JD has multiple interviewers, select one before dispatch so the
+    // metadata contains the exact prompt and voice that the worker must use.
     // Candidate-facing route has no authenticated org context; derive the org from the
     // interview record itself. studio_interview.organization_id 已 NOT NULL,直接取。
     // studio_interview.organization_id is NOT NULL — read it directly.
-    const globalCfg = await getGlobalConfig(interviewRecord.organizationId);
+    const snapshotPayload = contextSnapshot.payload;
     // 录像开关：显式环境变量未关闭且 R2 录像桶凭据齐全时，才让 Agent 启动 Egress。
     // 候选人浏览器拒绝摄像头时由前端侧降级；这里只判服务端能力与部署开关。
     // Recording switch: only enable when both the feature flag and R2 storage are present.
@@ -451,23 +209,29 @@ export const interviewRouter = factory
           roundId,
         })
       : null;
-    const participantMetadata = JSON.stringify({
-      allow_text_input: interviewRecord.currentRoundAllowTextInput,
-      candidate_name: interviewRecord.candidateName,
-      candidate_profile: interviewRecord.resumeProfile,
-      global_closing_instructions: globalCfg.closingInstructions,
-      global_company_context: globalCfg.companyContext,
-      global_opening_instructions: globalCfg.openingInstructions,
-      interview_questions: interviewRecord.interviewQuestions,
-      interview_record_id: id,
-      interviewers: interviewRecord.interviewers,
-      job_description_preset_questions: interviewRecord.jobDescriptionPresetQuestions ?? [],
-      job_description_prompt: interviewRecord.jobDescriptionPrompt ?? null,
-      recording_enabled: recordingEnabled,
-      recording_file_key: recordingFileKey,
-      round_id: roundId,
-      target_role: interviewRecord.jobDescriptionName?.trim() || "未指定岗位",
-    });
+    const selectedInterviewer = selectInterviewDispatchInterviewer(
+      snapshotPayload.interviewers,
+      roundId,
+    );
+    const participantMetadata = JSON.stringify(
+      buildInterviewDispatchMetadata({
+        allowTextInput: interviewRecord.currentRoundAllowTextInput,
+        candidateName: snapshotPayload.candidate.candidateName,
+        closingInstructions: snapshotPayload.globalConfig.closingInstructions,
+        companyContext: snapshotPayload.globalConfig.companyContext,
+        interviewQuestions: snapshotPayload.personalizedQuestions,
+        interviewRecordId: id,
+        jobDescriptionPresetQuestions: interviewRecord.jobDescriptionPresetQuestions ?? [],
+        jobDescriptionPrompt: snapshotPayload.jobDescription?.prompt ?? null,
+        openingInstructions: snapshotPayload.globalConfig.openingInstructions,
+        recordingEnabled,
+        recordingFileKey,
+        resumeProfile: snapshotPayload.candidate.resumeProfile,
+        roundId,
+        selectedInterviewer,
+        targetRole: snapshotPayload.jobDescription?.name ?? null,
+      }),
+    );
 
     try {
       const at = new AccessToken(apiKey, apiSecret, {
@@ -485,21 +249,21 @@ export const interviewRouter = factory
         roomJoin: true,
       });
 
-      if (agentName) {
-        at.roomConfig = new RoomConfiguration({
-          agents: [new RoomAgentDispatch({ agentName })],
-        });
-      }
+      at.roomConfig = new RoomConfiguration({
+        agents: [new RoomAgentDispatch({ agentName })],
+      });
 
       const participantToken = await at.toJwt();
 
       return c.json({ isReconnect, participantName, participantToken, roomName, serverUrl }, 200);
     } catch (error) {
       return c.json(
-        {
-          detail: error instanceof Error ? error.message : "Unknown error",
-          error: "Failed to sign LiveKit token.",
-        },
+        createInternalErrorResponse({
+          context: { interviewRecordId: id, roundId },
+          error,
+          operation: "interview-livekit-token",
+          publicMessage: "Failed to sign LiveKit token.",
+        }),
         500,
       );
     }
@@ -700,43 +464,6 @@ export const interviewRouter = factory
           .update(studioInterviewSchedule)
           .set({ status: "completed" as const, updatedAt: now })
           .where(eq(studioInterviewSchedule.id, roundId));
-
-        const pendingRounds = await tx
-          .select({ id: studioInterviewSchedule.id })
-          .from(studioInterviewSchedule)
-          .where(
-            and(
-              eq(studioInterviewSchedule.interviewRecordId, entry.interviewRecordId),
-              ne(studioInterviewSchedule.status, "completed"),
-            ),
-          );
-
-        // 两个分支跑不同 UPDATE：completed vs 防御性抬到 in_progress；不能 ternary 化。
-        // Two different UPDATEs branch here; can't collapse into a ternary.
-        // oxlint-disable-next-line unicorn/prefer-ternary
-        if (pendingRounds.length === 0) {
-          await tx
-            .update(studioInterview)
-            .set({ status: "completed" as const, updatedAt: now })
-            .where(eq(studioInterview.id, entry.interviewRecordId));
-        } else {
-          // 防御性写入：本轮已结束但仍有未完成轮次。正常路径下 record 在首轮开始
-          // 时已置 in_progress；但 agent /report 兜底完成的轮次可能跳过 token 路由，
-          // 这里再补一刀，保证 record 不会停留在 ready。
-          // Defensive: a round finished but the candidate still has pending
-          // rounds. The first-round-start path normally bumps the record to
-          // in_progress, but agent-side completions can bypass it; ensure the
-          // record can never linger at "ready" once any round has finished.
-          await tx
-            .update(studioInterview)
-            .set({ status: "in_progress" as const, updatedAt: now })
-            .where(
-              and(
-                eq(studioInterview.id, entry.interviewRecordId),
-                eq(studioInterview.status, "ready"),
-              ),
-            );
-        }
       });
 
       // 候选人侧路由没有 activeOrg —— 反查 org 拼 org-scoped tag。

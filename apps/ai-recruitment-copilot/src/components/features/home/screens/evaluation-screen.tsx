@@ -431,7 +431,7 @@ function DetailDialog() {
         <div className="flex shrink-0 flex-col gap-1.5 border-b px-6 pt-5 pb-4 text-left">
           <div className="flex flex-wrap items-center gap-3 font-semibold text-foreground text-lg leading-none">
             <span>李铭</span>
-            {/* StudioInterviewStatusBadge — completed = success */}
+            {/* Completed evaluation badge */}
             <span className="inline-flex items-center rounded-md border border-transparent bg-emerald-500/5 px-1.5 py-0.5 font-medium text-emerald-700/80 text-xs dark:text-emerald-300/80">
               已结束
             </span>

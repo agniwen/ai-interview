@@ -33,8 +33,6 @@ export interface ResumeListParams {
   skills?: string[];
   /** 关联岗位 id 列表。 Job-description id filter (OR semantics). */
   jobDescriptionIds?: string[];
-  /** @deprecated 旧 status 过滤，由 pipelineStages + outcomes 取代。 */
-  statuses?: string[];
   /** pipeline 阶段过滤（任一匹配）。Pipeline stage filter (OR semantics). */
   pipelineStages?: string[];
   /** 候选人最终结论过滤（任一匹配）。Outcome filter (OR semantics). */
@@ -64,9 +62,6 @@ export function fetchStudioResumes(
         ...(params.skills && params.skills.length > 0 ? { skills: params.skills.join(",") } : {}),
         ...(params.jobDescriptionIds && params.jobDescriptionIds.length > 0
           ? { jdIds: params.jobDescriptionIds.join(",") }
-          : {}),
-        ...(params.statuses && params.statuses.length > 0
-          ? { statuses: params.statuses.join(",") }
           : {}),
         ...(params.pipelineStages && params.pipelineStages.length > 0
           ? { pipelineStages: params.pipelineStages.join(",") }

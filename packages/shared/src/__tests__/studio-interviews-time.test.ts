@@ -18,7 +18,6 @@ const baseInterviewInput = {
   candidatePhone: "",
   jobDescriptionId: "jd_1",
   notes: "",
-  status: "ready",
   targetRole: "",
 };
 

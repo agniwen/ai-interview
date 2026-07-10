@@ -11,6 +11,11 @@ export interface DataGridQueryState<F extends Record<string, string>> {
   sortOrder: DataGridSortOrder | undefined;
 }
 
+export type InfiniteDataGridQueryState<F extends Record<string, string>> = Pick<
+  DataGridQueryState<F>,
+  "filters" | "search" | "sortBy" | "sortOrder"
+>;
+
 interface ParseDataGridSearchParamsOptions<F extends Record<string, string>> {
   initialFilters: F;
   allowedSortIds?: readonly string[];
@@ -145,4 +150,20 @@ export function buildDataGridQueryKey<F extends Record<string, string>>(
   state: DataGridQueryState<F>,
 ) {
   return [...baseKey, normalizeDataGridQueryState(state)] as const;
+}
+
+export function buildInfiniteDataGridQueryKey<F extends Record<string, string>>(
+  baseKey: readonly unknown[],
+  state: InfiniteDataGridQueryState<F>,
+) {
+  return [
+    ...baseKey,
+    "infinite",
+    {
+      filters: state.filters,
+      search: state.search.trim(),
+      sortBy: state.sortBy,
+      sortOrder: normalizeSortOrder(state.sortOrder),
+    },
+  ] as const;
 }

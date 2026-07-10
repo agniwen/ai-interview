@@ -31,6 +31,10 @@ export interface CandidatePipelineResult {
   stage: PipelineStage;
 }
 
+export function getCandidateActivityStatus(stage: PipelineStage): "active" | "archived" {
+  return stage === "closed" ? "archived" : "active";
+}
+
 type ReactivationTarget = Exclude<PipelineStage, "closed">;
 
 export const candidatePipelineMachine = setup({

@@ -3,6 +3,7 @@ import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { presignRecordingGetObjectUrl } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import { resolveCandidateIdForRound } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-rounds";
 import { interviewConversation } from "@arc/db-schema/schema";
@@ -75,10 +76,12 @@ export const recordingsRouter = factory
       return c.json({ expiresInSeconds: 600, url }, 200);
     } catch (error) {
       return c.json(
-        {
-          detail: error instanceof Error ? error.message : "Unknown error",
-          error: "无法生成录像访问链接。",
-        },
+        createInternalErrorResponse({
+          context: { conversationId, organizationId: activeOrg.id, roundId },
+          error,
+          operation: "studio-recording-presign",
+          publicMessage: "无法生成录像访问链接。",
+        }),
         500,
       );
     }

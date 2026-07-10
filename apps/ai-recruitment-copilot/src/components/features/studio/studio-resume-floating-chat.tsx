@@ -261,10 +261,7 @@ export function StudioResumeFloatingChat() {
       return;
     }
     setChatMeta(activeConversationId, {
-      enableThinking: false,
-      jobDescription: "",
-      model: "",
-      studioResumeId: activeSession.recordId,
+      focus: { id: activeSession.recordId, kind: "resume_record" },
     });
   }, [activeConversationId, activeSession]);
 
@@ -284,10 +281,7 @@ export function StudioResumeFloatingChat() {
       });
       notifyConversationsChanged();
       setChatMeta(activeConversationId, {
-        enableThinking: false,
-        jobDescription: "",
-        model: "",
-        studioResumeId: activeSession.recordId,
+        focus: { id: activeSession.recordId, kind: "resume_record" },
       });
       setInput("");
       await getOrCreateChat(activeConversationId, slug).sendMessage({ text });
