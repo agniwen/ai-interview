@@ -20,8 +20,6 @@ import type {
   PaginatedStudioInterviewRoundsResult,
   StudioInterviewRoundDetail,
 } from "@arc/shared/studio-interview-rounds";
-// DedupMatchRecord 依赖 StudioInterviewStatus。
-// DedupMatchRecord depends on StudioInterviewStatus.
 import type {
   CandidateExpectationsMeta,
   CandidateOutcome,
@@ -32,7 +30,6 @@ import type {
   OfferDraftInput,
   PipelineStage,
   ScheduleEntryStatus,
-  StudioInterviewStatus,
 } from "@arc/db-schema/studio-interviews";
 import type { ResumeSemanticSourceType } from "@arc/db-schema/schema";
 import type {
@@ -57,7 +54,7 @@ export interface DedupMatchRecord {
   candidatePhone: string | null;
   targetRole: string | null;
   jobDescriptionName: string | null;
-  status: StudioInterviewStatus | "active" | "archived";
+  status: "active" | "archived";
   createdAt: string;
   conflictingSignals?: string[];
   level?: "high" | "low" | "medium";

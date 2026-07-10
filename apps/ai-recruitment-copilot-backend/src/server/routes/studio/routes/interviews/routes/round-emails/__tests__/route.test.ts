@@ -138,7 +138,6 @@ beforeAll(async () => {
     createdAt: NOW,
     id: INTERVIEW_WITH_EMAIL,
     organizationId: ORG,
-    status: "ready",
     updatedAt: NOW,
   });
 
@@ -148,7 +147,6 @@ beforeAll(async () => {
     createdAt: NOW,
     id: INTERVIEW_NO_EMAIL,
     organizationId: ORG,
-    status: "ready",
     updatedAt: NOW,
   });
 

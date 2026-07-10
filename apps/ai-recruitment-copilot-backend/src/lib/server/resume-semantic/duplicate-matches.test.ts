@@ -22,7 +22,7 @@ const MATCH: DedupMatchRecord = {
     skillRole: 0.88,
     workProject: 0.94,
   },
-  status: "draft",
+  status: "active",
   targetRole: "前端工程师",
 };
 

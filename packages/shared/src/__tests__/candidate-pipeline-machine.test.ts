@@ -5,10 +5,17 @@ import { createActor } from "xstate";
 import {
   canApplyCandidatePipelineEvent,
   candidatePipelineMachine,
+  getCandidateActivityStatus,
   getCandidatePipelineEventResult,
 } from "@arc/shared/candidate-pipeline-machine";
 
 describe("candidate pipeline machine", () => {
+  it("derives semantic activity only from the terminal pipeline stage", () => {
+    expect(getCandidateActivityStatus("screening")).toBe("active");
+    expect(getCandidateActivityStatus("offer")).toBe("active");
+    expect(getCandidateActivityStatus("closed")).toBe("archived");
+  });
+
   it("allows screening to start AI, skip to human interview, or close, but not offer", () => {
     expect(
       canApplyCandidatePipelineEvent(

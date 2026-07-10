@@ -1,7 +1,8 @@
 import { createTool } from "@mastra/core/tools";
-import { and, eq, inArray, notInArray } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import { QdrantResumeVectorStore } from "@arc/ai-recruitment-copilot-backend/lib/server/qdrant/resume-vector-store";
 import {
   embedResumeSemanticTexts,
@@ -226,7 +227,10 @@ function toResumeCitation(record: ResumeLibraryListRecord) {
 }
 
 export async function searchResumeRecordsForCopilot(
-  input: z.infer<typeof searchResumeRecordsInputSchema> & { organizationId: string },
+  input: z.infer<typeof searchResumeRecordsInputSchema> & {
+    organizationId: string;
+    visibilityScope: RecruitingVisibilityScope;
+  },
   deps?: SearchResumeRecordsDeps,
 ): Promise<z.infer<typeof searchResumeRecordsOutputSchema>> {
   const parsed = searchResumeRecordsInputSchema.parse(input);
@@ -246,6 +250,7 @@ export async function searchResumeRecordsForCopilot(
       sortBy: "updatedAt",
       sortOrder: "desc",
     },
+    input.visibilityScope,
   );
   const semanticCards = parsed.query
     ? // oxlint-disable-next-line no-use-before-define -- Default dependency is declared below the public tool entrypoint.
@@ -256,6 +261,7 @@ export async function searchResumeRecordsForCopilot(
         pipelineStages: parsed.pipelineStages,
         query: parsed.query,
         skills: parsed.skills,
+        visibilityScope: input.visibilityScope,
       })
     : [];
   const candidateSummaryCards = mergeCandidateSummaryCards(
@@ -361,13 +367,19 @@ function matchesSemanticFilters(
 async function loadSemanticCandidateCards({
   ids,
   organizationId,
+  visibilityScope,
 }: {
   ids: string[];
   organizationId: string;
+  visibilityScope: RecruitingVisibilityScope;
 }) {
-  if (ids.length === 0) {
+  if (ids.length === 0 || visibilityScope.kind === "none") {
     return [];
   }
+  const visibilityCondition =
+    visibilityScope.kind === "restricted"
+      ? inArray(studioInterview.createdBy, visibilityScope.userIds)
+      : undefined;
   const rows = await db
     .select({
       candidateName: studioInterview.candidateName,
@@ -396,7 +408,8 @@ async function loadSemanticCandidateCards({
       and(
         eq(studioInterview.organizationId, organizationId),
         inArray(studioInterview.id, ids),
-        notInArray(studioInterview.status, ["archived"]),
+        ne(studioInterview.pipelineStage, "closed"),
+        visibilityCondition,
       ),
     );
   const byId = new Map(rows.map((row) => [row.id, row]));
@@ -435,6 +448,7 @@ export async function searchSemanticResumeRecords(input: {
   pipelineStages?: string[];
   query: string;
   skills?: string[];
+  visibilityScope: RecruitingVisibilityScope;
 }): Promise<z.infer<typeof candidateSummaryCardSchema>[]> {
   const deps = createSemanticSearchDeps();
   if (!deps.enabled) {
@@ -458,7 +472,11 @@ export async function searchSemanticResumeRecords(input: {
       ),
     );
     const ids = mergeSemanticSourceIds(resultGroups.flat()).slice(0, Math.max(input.limit * 3, 10));
-    const cards = await loadSemanticCandidateCards({ ids, organizationId: input.organizationId });
+    const cards = await loadSemanticCandidateCards({
+      ids,
+      organizationId: input.organizationId,
+      visibilityScope: input.visibilityScope,
+    });
     return cards
       .filter((record) =>
         matchesSemanticFilters(record, {
@@ -478,8 +496,16 @@ export async function getResumeRecordDetailForCopilot(input: {
   id: string;
   includeResumeText?: boolean;
   organizationId: string;
+  visibilityScope: RecruitingVisibilityScope;
 }): Promise<z.infer<typeof getResumeRecordDetailOutputSchema>> {
   const parsed = getResumeRecordDetailInputSchema.parse(input);
+  if (input.visibilityScope.kind === "none") {
+    return { resumeRecord: null };
+  }
+  const visibilityCondition =
+    input.visibilityScope.kind === "restricted"
+      ? inArray(studioInterview.createdBy, input.visibilityScope.userIds)
+      : undefined;
   const [record] = await db
     .select({
       candidateName: studioInterview.candidateName,
@@ -506,6 +532,7 @@ export async function getResumeRecordDetailForCopilot(input: {
       and(
         eq(studioInterview.id, parsed.id),
         eq(studioInterview.organizationId, input.organizationId),
+        visibilityCondition,
       ),
     )
     .limit(1);
@@ -593,7 +620,13 @@ export function createRecruitingActionProposal(
   };
 }
 
-export function createRecruitingCopilotTools({ organizationId }: { organizationId: string }) {
+export function createRecruitingCopilotTools({
+  organizationId,
+  visibilityScope,
+}: {
+  organizationId: string;
+  visibilityScope: RecruitingVisibilityScope;
+}) {
   return {
     get_job_description_detail: createTool({
       description: "读取当前 workspace 中某个岗位的完整岗位描述，用于解释岗位匹配。",
@@ -613,7 +646,7 @@ export function createRecruitingCopilotTools({ organizationId }: { organizationI
       description:
         "读取当前 workspace 中某个候选人的简历详情。默认返回结构化画像；只有需要逐段引用时才请求 resumeText。",
       execute: (input: z.infer<typeof getResumeRecordDetailInputSchema>) =>
-        getResumeRecordDetailForCopilot({ ...input, organizationId }),
+        getResumeRecordDetailForCopilot({ ...input, organizationId, visibilityScope }),
       id: "get_resume_record_detail",
       inputSchema: getResumeRecordDetailInputSchema,
       outputSchema: getResumeRecordDetailOutputSchema,
@@ -638,7 +671,7 @@ export function createRecruitingCopilotTools({ organizationId }: { organizationI
       description:
         "在当前 workspace 的招聘台中检索候选人。默认返回候选人摘要卡片，不返回完整简历全文。",
       execute: (input: z.infer<typeof searchResumeRecordsInputSchema>) =>
-        searchResumeRecordsForCopilot({ ...input, organizationId }),
+        searchResumeRecordsForCopilot({ ...input, organizationId, visibilityScope }),
       id: "search_resume_records",
       inputSchema: searchResumeRecordsInputSchema,
       outputSchema: searchResumeRecordsOutputSchema,

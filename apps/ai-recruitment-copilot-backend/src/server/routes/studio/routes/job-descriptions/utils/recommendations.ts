@@ -1,4 +1,4 @@
-import { and, eq, inArray, notInArray } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import type {
   JobDescriptionTalentRecommendation,
   JobDescriptionTalentRecommendationResult,
@@ -356,7 +356,7 @@ async function loadRecommendationCandidates(
       and(
         eq(studioInterview.organizationId, organizationId),
         inArray(studioInterview.id, ids),
-        notInArray(studioInterview.status, ["archived"]),
+        ne(studioInterview.pipelineStage, "closed"),
       ),
     );
 

@@ -46,6 +46,15 @@ describe("request-scoped workspace authorization boundary", () => {
     expect(helper).toContain("auth.api.hasPermission");
   });
 
+  it("keeps recruiting group resource and role policy in one module", () => {
+    const policyPattern = /RECRUITING_GROUP_RESOURCES|groupRoleAllows/u;
+
+    expect(filesContaining(backendRoot, policyPattern)).toEqual([
+      "apps/ai-recruitment-copilot-backend/src/server/access/workspace-access-policy.ts",
+    ]);
+    expect(filesContaining(webRoot, policyPattern)).toEqual([]);
+  });
+
   it("mounts every workspace business router behind one URL-scoped boundary", () => {
     const workspaceRouter = readFileSync(
       path.join(backendRoot, "server/routes/workspace/route.ts"),

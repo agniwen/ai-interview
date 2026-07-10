@@ -49,7 +49,7 @@ describe("getCandidateReactivationError", () => {
 });
 
 describe("resolveCandidateTransitionPatch", () => {
-  it("builds a close patch with server-controlled previousStage and legacy status", () => {
+  it("builds a close patch with server-controlled previousStage", () => {
     const result = resolveCandidateTransitionPatch({
       existing: {
         closedMeta: { internalNotes: "keep", previousStage: "screening" },
@@ -75,7 +75,6 @@ describe("resolveCandidateTransitionPatch", () => {
       closedReason: "技能匹配度不够",
       outcome: "rejected",
       pipelineStage: "closed",
-      status: "archived",
       updatedAt: now,
     });
     expect(result.auditDetail).toEqual({
@@ -119,7 +118,6 @@ describe("resolveCandidateTransitionPatch", () => {
       outcome: "in_pipeline",
       pipelineStage: "human_interview",
       resumeEvaluationStatus: null,
-      status: "ready",
       updatedAt: now,
       writtenTestScheduledAt: null,
       writtenTestScore: null,

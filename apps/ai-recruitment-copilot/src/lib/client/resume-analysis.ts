@@ -342,7 +342,6 @@ export function buildSaveAndStartResumeFormData(
   options: { dedupPolicy?: ResumeCreateDedupPolicy; resumeReview?: ResumeReview | null } = {},
 ): FormData {
   const fd = buildSaveOnlyResumeFormData(value, file, resumePayload, options);
-  fd.append("status", "ready");
   fd.append("scheduleEntries", JSON.stringify([createDefaultScheduleEntry()]));
   return fd;
 }

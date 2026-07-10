@@ -1,4 +1,3 @@
-import type { studioInterview } from "@arc/db-schema/schema";
 import type {
   CandidateOutcome,
   ClosedMeta,
@@ -9,8 +8,6 @@ import {
   canApplyCandidatePipelineEvent,
   getCandidatePipelineEventForTargetStage,
 } from "@arc/shared/candidate-pipeline-machine";
-
-type LegacyCandidateStatus = typeof studioInterview.$inferInsert.status;
 
 export interface CandidateTransitionExisting {
   closedMeta: ClosedMeta | null;
@@ -37,7 +34,6 @@ export interface CandidateTransitionPatch {
   outcome: CandidateOutcome;
   pipelineStage: PipelineStage;
   resumeEvaluationStatus?: ResumeEvaluationStatus | null;
-  status?: LegacyCandidateStatus;
   updatedAt: Date;
   writtenTestScheduledAt?: Date | null;
   writtenTestScore?: string | null;
@@ -124,7 +120,6 @@ export function resolveCandidateTransitionPatch({
   let closedAt: Date | null | undefined;
   let closedReason: string | null | undefined;
   let closedMeta: ClosedMeta | null | undefined;
-  let legacyStatus: LegacyCandidateStatus | undefined;
   let humanInterviewScheduledAt: Date | null | undefined;
   let humanInterviewerId: string | null | undefined;
   let offerSentAt: Date | null | undefined;
@@ -140,7 +135,6 @@ export function resolveCandidateTransitionPatch({
       ...input.closedMeta,
       previousStage: existing.pipelineStage,
     };
-    legacyStatus = "archived";
   } else if (wasClosed) {
     closedAt = null;
     closedReason = null;
@@ -151,7 +145,6 @@ export function resolveCandidateTransitionPatch({
     offerAcceptedAt = null;
     writtenTestScheduledAt = null;
     writtenTestScore = null;
-    legacyStatus = "ready";
   }
 
   const outcome = input.outcome ?? "in_pipeline";
@@ -166,7 +159,6 @@ export function resolveCandidateTransitionPatch({
     outcome,
     pipelineStage: input.pipelineStage,
     resumeEvaluationStatus: wasClosed && !isClosing ? null : undefined,
-    status: legacyStatus,
     updatedAt: now,
     writtenTestScheduledAt,
     writtenTestScore,

@@ -590,7 +590,7 @@ describe("processNextItem — resume pool target", () => {
         score: 0.96,
         semanticReasons: ["整体履历高度相似"],
         similarity: { resumeOverview: 0.96 },
-        status: "draft",
+        status: "active",
         targetRole: null,
       },
     ];
@@ -717,7 +717,6 @@ describe("processNextItem — dedup skip", () => {
       resumeFileName: "existing.pdf",
       resumeProfile: null,
       resumeStorageKey: null,
-      status: "draft",
       targetRole: null,
       updatedAt: NOW,
     });
@@ -786,7 +785,7 @@ describe("processNextItem — dedup skip", () => {
         score: 0.96,
         semanticReasons: ["整体履历高度相似"],
         similarity: { resumeOverview: 0.96 },
-        status: "draft",
+        status: "active",
         targetRole: null,
       },
     ];

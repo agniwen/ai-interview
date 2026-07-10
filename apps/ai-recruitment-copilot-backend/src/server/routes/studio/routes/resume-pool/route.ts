@@ -20,18 +20,13 @@ import { jobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/serv
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
 import { enqueueResumeReviewGenerationForRecordBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue";
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
-import { runResumeSemanticIndexJob } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer";
-import {
-  listDuplicateMatchesForSource,
-  replaceDuplicateMatchesForSource,
-} from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
+import { listDuplicateMatchesForSource } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
+import { completeResumePoolReadinessWithDefaultAdapters } from "./utils/readiness";
 import {
   createResumePoolItem,
   deleteOwnPoolItem,
   importPoolItemToResumeLibrary,
   loadResumePoolItem,
-  markResumePoolItemParseFailed,
-  markResumePoolItemSemanticIndexed,
   publishPrivatePoolItem,
   queryResumePoolItems,
 } from "./dao";
@@ -269,30 +264,11 @@ export const resumePoolRouter = factory
         storageKey: uploadResult.storageKey,
         targetRole: input.data.targetRole ?? null,
       });
-      try {
-        await runResumeSemanticIndexJob({
-          organizationId: activeOrg.id,
-          sourceId: id,
-          sourceType: "resume_pool_item",
-        });
-        await markResumePoolItemSemanticIndexed({
-          organizationId: activeOrg.id,
-          poolItemId: id,
-        });
-        await replaceDuplicateMatchesForSource({
-          matches: duplicateMatches,
-          organizationId: activeOrg.id,
-          sourceId: id,
-          sourceType: "resume_pool_item",
-        });
-      } catch (error) {
-        await markResumePoolItemParseFailed({
-          errorMessage: error instanceof Error ? error.message : String(error),
-          organizationId: activeOrg.id,
-          poolItemId: id,
-        });
-        throw error;
-      }
+      await completeResumePoolReadinessWithDefaultAdapters({
+        duplicateMatches,
+        organizationId: activeOrg.id,
+        poolItemId: id,
+      });
       const item = await loadResumePoolItem({
         organizationId: activeOrg.id,
         poolItemId: id,

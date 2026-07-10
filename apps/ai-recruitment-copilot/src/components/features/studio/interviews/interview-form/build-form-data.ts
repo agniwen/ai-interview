@@ -40,7 +40,6 @@ export function buildInterviewFormData(
   formData.append("candidatePhone", values.candidatePhone);
   formData.append("targetRole", values.targetRole);
   formData.append("notes", values.notes);
-  formData.append("status", values.status);
   formData.append("jobDescriptionId", values.jobDescriptionId ?? "");
   formData.append(
     "scheduleEntries",

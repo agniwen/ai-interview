@@ -1,23 +1,18 @@
 import { RoomAgentDispatch, RoomConfiguration } from "@livekit/protocol";
-import { and, eq, ne } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { AccessToken } from "livekit-server-sdk";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   buildRecordingFileKey,
   isRecordingStorageConfigured,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
-import {
-  candidateFormSubmission,
-  studioInterview,
-  studioInterviewSchedule,
-} from "@arc/db-schema/schema";
+import { candidateFormSubmission, studioInterviewSchedule } from "@arc/db-schema/schema";
 import { buildCandidateFormAnswersSchema } from "@arc/db-schema/candidate-forms";
 import { RECONNECT_GRACE_MS } from "@arc/db-schema/studio-interviews";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
-import { getGlobalConfig } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/global-config/dao";
 import { loadSubmittedTemplateIds } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/submissions";
 import { loadActiveInterviewContextSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
 import {
@@ -26,6 +21,10 @@ import {
   safeUpdateTag,
 } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import { resolveInterviewRecordingEnabled } from "@arc/shared/interview/recording-config";
+import {
+  buildInterviewDispatchMetadata,
+  selectInterviewDispatchInterviewer,
+} from "@arc/shared/interview/dispatch-contract";
 import {
   buildTokenErrorResponse,
   loadCandidateInterviewRecord,
@@ -172,14 +171,6 @@ export const interviewRouter = factory
           updatedAt: now,
         })
         .where(eq(studioInterviewSchedule.id, roundId));
-      // 记录级 status 跟着抬一档：候选人真的进场了，整条记录就不再是「待面试」。
-      // 守卫 status='ready' 避免覆盖 archived/completed 等终态（极端 race 下可能命中）。
-      // Bump the record-level status to mirror that interviewing has actually
-      // begun. Guard on status='ready' so we never overwrite terminal states.
-      await tx
-        .update(studioInterview)
-        .set({ status: "in_progress" as const, updatedAt: now })
-        .where(and(eq(studioInterview.id, id), eq(studioInterview.status, "ready")));
       return {
         isReconnect: false,
         participantIdentity: freshIdentity,
@@ -200,13 +191,12 @@ export const interviewRouter = factory
 
     // Interview context is surfaced to the Python agent worker via participant metadata.
     // Python: `ctx.wait_for_participant()` → `participant.metadata` → JSON.parse.
-    // When the JD has multiple interviewers, the agent picks one at random.
-    // 系统设置（公司背景、开场/结束指令）在颁发 token 前读取并注入。
-    // Global config (company context, opening/closing instructions) is read before token issuance and injected here.
+    // When the JD has multiple interviewers, select one before dispatch so the
+    // metadata contains the exact prompt and voice that the worker must use.
     // Candidate-facing route has no authenticated org context; derive the org from the
     // interview record itself. studio_interview.organization_id 已 NOT NULL,直接取。
     // studio_interview.organization_id is NOT NULL — read it directly.
-    const globalCfg = await getGlobalConfig(interviewRecord.organizationId);
+    const snapshotPayload = contextSnapshot.payload;
     // 录像开关：显式环境变量未关闭且 R2 录像桶凭据齐全时，才让 Agent 启动 Egress。
     // 候选人浏览器拒绝摄像头时由前端侧降级；这里只判服务端能力与部署开关。
     // Recording switch: only enable when both the feature flag and R2 storage are present.
@@ -219,23 +209,29 @@ export const interviewRouter = factory
           roundId,
         })
       : null;
-    const participantMetadata = JSON.stringify({
-      allow_text_input: interviewRecord.currentRoundAllowTextInput,
-      candidate_name: interviewRecord.candidateName,
-      candidate_profile: interviewRecord.resumeProfile,
-      global_closing_instructions: globalCfg.closingInstructions,
-      global_company_context: globalCfg.companyContext,
-      global_opening_instructions: globalCfg.openingInstructions,
-      interview_questions: interviewRecord.interviewQuestions,
-      interview_record_id: id,
-      interviewers: interviewRecord.interviewers,
-      job_description_preset_questions: interviewRecord.jobDescriptionPresetQuestions ?? [],
-      job_description_prompt: interviewRecord.jobDescriptionPrompt ?? null,
-      recording_enabled: recordingEnabled,
-      recording_file_key: recordingFileKey,
-      round_id: roundId,
-      target_role: interviewRecord.jobDescriptionName?.trim() || "未指定岗位",
-    });
+    const selectedInterviewer = selectInterviewDispatchInterviewer(
+      snapshotPayload.interviewers,
+      roundId,
+    );
+    const participantMetadata = JSON.stringify(
+      buildInterviewDispatchMetadata({
+        allowTextInput: interviewRecord.currentRoundAllowTextInput,
+        candidateName: snapshotPayload.candidate.candidateName,
+        closingInstructions: snapshotPayload.globalConfig.closingInstructions,
+        companyContext: snapshotPayload.globalConfig.companyContext,
+        interviewQuestions: snapshotPayload.personalizedQuestions,
+        interviewRecordId: id,
+        jobDescriptionPresetQuestions: interviewRecord.jobDescriptionPresetQuestions ?? [],
+        jobDescriptionPrompt: snapshotPayload.jobDescription?.prompt ?? null,
+        openingInstructions: snapshotPayload.globalConfig.openingInstructions,
+        recordingEnabled,
+        recordingFileKey,
+        resumeProfile: snapshotPayload.candidate.resumeProfile,
+        roundId,
+        selectedInterviewer,
+        targetRole: snapshotPayload.jobDescription?.name ?? null,
+      }),
+    );
 
     try {
       const at = new AccessToken(apiKey, apiSecret, {
@@ -468,43 +464,6 @@ export const interviewRouter = factory
           .update(studioInterviewSchedule)
           .set({ status: "completed" as const, updatedAt: now })
           .where(eq(studioInterviewSchedule.id, roundId));
-
-        const pendingRounds = await tx
-          .select({ id: studioInterviewSchedule.id })
-          .from(studioInterviewSchedule)
-          .where(
-            and(
-              eq(studioInterviewSchedule.interviewRecordId, entry.interviewRecordId),
-              ne(studioInterviewSchedule.status, "completed"),
-            ),
-          );
-
-        // 两个分支跑不同 UPDATE：completed vs 防御性抬到 in_progress；不能 ternary 化。
-        // Two different UPDATEs branch here; can't collapse into a ternary.
-        // oxlint-disable-next-line unicorn/prefer-ternary
-        if (pendingRounds.length === 0) {
-          await tx
-            .update(studioInterview)
-            .set({ status: "completed" as const, updatedAt: now })
-            .where(eq(studioInterview.id, entry.interviewRecordId));
-        } else {
-          // 防御性写入：本轮已结束但仍有未完成轮次。正常路径下 record 在首轮开始
-          // 时已置 in_progress；但 agent /report 兜底完成的轮次可能跳过 token 路由，
-          // 这里再补一刀，保证 record 不会停留在 ready。
-          // Defensive: a round finished but the candidate still has pending
-          // rounds. The first-round-start path normally bumps the record to
-          // in_progress, but agent-side completions can bypass it; ensure the
-          // record can never linger at "ready" once any round has finished.
-          await tx
-            .update(studioInterview)
-            .set({ status: "in_progress" as const, updatedAt: now })
-            .where(
-              and(
-                eq(studioInterview.id, entry.interviewRecordId),
-                eq(studioInterview.status, "ready"),
-              ),
-            );
-        }
       });
 
       // 候选人侧路由没有 activeOrg —— 反查 org 拼 org-scoped tag。

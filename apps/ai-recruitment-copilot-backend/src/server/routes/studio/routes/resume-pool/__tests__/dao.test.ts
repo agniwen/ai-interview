@@ -509,7 +509,7 @@ describe("publishPrivatePoolItem", () => {
 });
 
 describe("importPoolItemToResumeLibrary", () => {
-  it("imports and records semantic duplicate matches when check policy finds matches", async () => {
+  it("returns duplicate matches without admitting a Resume Record under check policy", async () => {
     const publicId = await createResumePoolItem(basePoolInput({ scope: "public" }));
     const matches: Awaited<ReturnType<typeof findSemanticResumeDuplicates>> = [
       {
@@ -528,7 +528,7 @@ describe("importPoolItemToResumeLibrary", () => {
           skillRole: 0.86,
           workProject: 0.94,
         },
-        status: "draft",
+        status: "active",
         targetRole: "前端工程师",
       },
     ];
@@ -542,21 +542,15 @@ describe("importPoolItemToResumeLibrary", () => {
       poolItemId: publicId,
     });
 
-    expect(result.status).toBe("imported");
-    if (result.status !== "imported") {
-      throw new Error("expected import success");
-    }
-    const [matchRow] = await db
+    expect(result).toEqual({ matches, status: "duplicate_found" });
+    const records = await db
       .select()
-      .from(resumeDuplicateMatch)
-      .where(eq(resumeDuplicateMatch.sourceId, result.resumeRecordId));
-    expect(matchRow).toMatchObject({
-      level: "high",
-      matchedSourceId: "dup_resume_record",
-      organizationId: ORG_B,
-      sourceType: "studio_interview",
-      status: "active",
-    });
+      .from(studioInterview)
+      .where(eq(studioInterview.resumeSourcePoolItemId, publicId));
+    if (result.status !== "duplicate_found") {
+      throw new Error("expected duplicate result");
+    }
+    expect(records).toHaveLength(0);
   });
 
   it("imports a public item into the current organization's resume library", async () => {
@@ -599,7 +593,7 @@ describe("importPoolItemToResumeLibrary", () => {
     expect(enqueueResumeSemanticIndexJobBestEffort).not.toHaveBeenCalled();
   });
 
-  it("fails the import and removes the created resume record when vector cloning fails", async () => {
+  it("keeps a failed admission retryable and reuses its Resume Record", async () => {
     const publicId = await createResumePoolItem(
       basePoolInput({
         contentHash: "hash-resume-pool-clone-failure",
@@ -629,8 +623,30 @@ describe("importPoolItemToResumeLibrary", () => {
       .select()
       .from(resumePoolImport)
       .where(eq(resumePoolImport.poolItemId, publicId));
-    expect(records).toHaveLength(0);
-    expect(imports).toHaveLength(0);
+    expect(records).toHaveLength(1);
+    expect(records[0]?.resumeParseStatus).toBe("failed");
+    expect(records[0]?.resumeParseError).toBe("clone failed");
+    expect(imports).toHaveLength(1);
+
+    const retried = await importPoolItemToResumeLibrary({
+      dedupPolicy: "force",
+      importedBy: USER_B,
+      jobDescriptionId: null,
+      organizationId: ORG_B,
+      poolItemId: publicId,
+    });
+    expect(retried.status).toBe("imported");
+    if (retried.status !== "imported") {
+      throw new Error("expected import success");
+    }
+    expect(retried.resumeRecordId).toBe(records[0]?.id);
+    const retriedRecords = await db
+      .select()
+      .from(studioInterview)
+      .where(eq(studioInterview.resumeSourcePoolItemId, publicId));
+    expect(retriedRecords).toHaveLength(1);
+    expect(retriedRecords[0]?.resumeParseStatus).toBe("ready");
+    expect(retriedRecords[0]?.resumeParseError).toBeNull();
   });
 
   it("rejects importing another user's private item", async () => {

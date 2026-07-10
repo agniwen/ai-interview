@@ -80,6 +80,7 @@ import {
   generateResumeReviewBestEffort,
   generateResumeScreeningBestEffort,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-generation";
+import { reassessResumeRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-worker";
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
 
 const dedupCheckInputSchema = z.object({
@@ -180,7 +181,6 @@ export const resumeLibraryRouter = factory
         skills: z.string().optional(),
         sortBy: z.string().optional(),
         sortOrder: z.string().optional(),
-        statuses: z.string().optional(),
       }),
       jsonValidatorError("查询参数无效。"),
     ),
@@ -204,7 +204,6 @@ export const resumeLibraryRouter = factory
           pipelineStages: parseCsvParam(q.pipelineStages),
           search: q.search,
           skills: parseCsvParam(q.skills),
-          statuses: parseCsvParam(q.statuses),
         },
         {
           page: q.page,
@@ -353,72 +352,24 @@ export const resumeLibraryRouter = factory
     if (!existing) {
       return c.json({ error: "记录不存在。" }, 404);
     }
-    if (existing.pipelineStage === "closed" || existing.outcome !== "in_pipeline") {
-      return c.json({ error: "已结案候选人不能重新评估。" }, 409);
-    }
-    if (existing.resumeParseStatus !== "ready" || !existing.resumeProfile) {
-      return c.json({ error: "简历解析完成后才能重新评估。" }, 409);
-    }
-    if (!existing.jobDescriptionId) {
-      return c.json({ error: "请先关联在招岗位后再重新评估。" }, 409);
-    }
-
-    const [row] = await db
-      .select({ resumeText: studioInterview.resumeText })
-      .from(studioInterview)
-      .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)))
-      .limit(1);
-
-    await db
-      .update(studioInterview)
-      .set({
-        resumeReviewError: null,
-        resumeReviewStatus: "processing",
-        resumeScreeningError: null,
-        resumeScreeningStatus: "processing",
-        updatedAt: new Date(),
-      })
-      .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)));
-
-    const generated = await generateResumeReviewBestEffort({
-      jobDescriptionId: existing.jobDescriptionId,
-      logPrefix: "[studio-resumes-reassess]",
-      organizationId: activeOrg.id,
-      resumeProfile: existing.resumeProfile,
-      resumeText: row?.resumeText ?? null,
-    });
-
-    if (!generated?.structuredReview) {
-      await db
-        .update(studioInterview)
-        .set({
-          resumeReviewError: "AI 重新评估失败，请稍后重试。",
-          resumeReviewStatus: "failed",
-          resumeScreeningError: "AI 重新评估失败，请稍后重试。",
-          resumeScreeningStatus: "failed",
-          updatedAt: new Date(),
-        })
-        .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)));
+    try {
+      await reassessResumeRecord({
+        organizationId: activeOrg.id,
+        resumeRecordId: id,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "AI 重新评估失败，请稍后重试。";
+      const isEligibilityError = [
+        "已结案候选人不能重新评估。",
+        "简历解析完成后才能重新评估。",
+        "请先关联在招岗位后再重新评估。",
+      ].includes(message);
+      if (isEligibilityError) {
+        return c.json({ error: message }, 409);
+      }
       const detail = await loadResumeDetail(id, activeOrg.id, visibilityScope);
       return c.json(detail, 500);
     }
-
-    const now = new Date();
-    await db
-      .update(studioInterview)
-      .set({
-        notes: generated.review,
-        resumeReview: generated.structuredReview,
-        resumeReviewError: null,
-        resumeReviewGeneratedAt: now,
-        resumeReviewStatus: "ready",
-        resumeScreeningError: null,
-        resumeScreeningEvaluatedAt: now,
-        resumeScreeningResult: generated.screeningResult,
-        resumeScreeningStatus: "ready",
-        updatedAt: now,
-      })
-      .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)));
 
     invalidateStudioInterviewCaches(activeOrg.id);
     const detail = await loadResumeDetail(id, activeOrg.id, visibilityScope);
@@ -653,10 +604,9 @@ export const resumeLibraryRouter = factory
             .update(studioInterview)
             .set({
               interviewQuestions,
-              // 新模型：从 screening 推进到 ai_interview；保留 status 以兼容旧消费方。
-              // New model: advance from screening to ai_interview; keep legacy status for old readers.
+              // 从 screening 推进到 ai_interview；轮次进度由 schedule.status 独立维护。
+              // Advance to ai_interview; round progress remains on schedule.status.
               pipelineStage: "ai_interview",
-              status: "ready",
               updatedAt: now,
             })
             .where(
@@ -880,6 +830,12 @@ export const resumeLibraryRouter = factory
           resumeText,
         });
       }
+      let resumeReviewStatus: "failed" | "idle" | "ready" = "idle";
+      let resumeScreeningStatus: "failed" | "idle" | "ready" = "idle";
+      if (resumeProfile) {
+        resumeReviewStatus = resumeReview ? "ready" : "failed";
+        resumeScreeningStatus = resumeScreeningResult ? "ready" : "failed";
+      }
 
       const recordId = await createResumeRecordFromStorage({
         candidateEmail: input.data.candidateEmail || null,
@@ -894,7 +850,11 @@ export const resumeLibraryRouter = factory
         resumeFileName: parsedFileName,
         resumeProfile,
         resumeReview,
+        resumeReviewError: resumeProfile && !resumeReview ? "AI 分析生成失败。" : null,
+        resumeReviewStatus,
+        resumeScreeningError: resumeProfile && !resumeScreeningResult ? "AI 分析生成失败。" : null,
         resumeScreeningResult,
+        resumeScreeningStatus,
         resumeText,
         storageKey: resumeStorageKey,
         targetRole: input.data.targetRole || null,

@@ -8,13 +8,9 @@ export function createChatTransport(chatId: string, workspaceSlug: string) {
     api: `/api/w/${encodeURIComponent(workspaceSlug)}/resume/chat`,
     body: () => {
       const meta = getChatMeta(chatId);
-      const jd = meta.jobDescription.trim();
       return {
         chatId,
-        enableThinking: meta.enableThinking,
-        ...(jd && { jobDescription: jd }),
-        ...(meta.model && { model: meta.model }),
-        ...(meta.studioResumeId && { studioResumeId: meta.studioResumeId }),
+        ...(meta.focus && { focus: meta.focus }),
       };
     },
     fetch: async (fetchInput, init) => {

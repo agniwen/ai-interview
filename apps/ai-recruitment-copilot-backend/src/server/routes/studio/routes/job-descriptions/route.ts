@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, count, eq, inArray, notInArray } from "drizzle-orm";
+import { and, count, eq, inArray, ne } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
@@ -533,10 +533,7 @@ export const jobDescriptionsRouter = factory
       .select({ count: count() })
       .from(studioInterview)
       .where(
-        and(
-          eq(studioInterview.jobDescriptionId, id),
-          notInArray(studioInterview.status, ["archived"]),
-        ),
+        and(eq(studioInterview.jobDescriptionId, id), ne(studioInterview.pipelineStage, "closed")),
       );
     const resumeCount = resumeRow?.count ?? 0;
     if (resumeCount > 0) {

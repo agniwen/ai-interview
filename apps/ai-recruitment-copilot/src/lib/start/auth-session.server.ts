@@ -1,6 +1,5 @@
 import { getRequestHeaders } from "@tanstack/react-start/server";
 import { and, asc, eq, isNull, ne, or } from "drizzle-orm";
-import type { statement } from "@arc/shared/permissions";
 import type {
   ActiveOrganizationState,
   NoAccessWaitState,
@@ -15,29 +14,17 @@ import {
   member as memberTable,
   organization as organizationTable,
   organizationRole,
-  recruitingGroupMember,
   user as userTable,
 } from "@arc/db-schema/schema";
 import { isNoAccessWorkspaceRole } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-roles";
-import { hasWorkspacePermission } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-permissions";
+import { createRequestWorkspaceAuthorizer } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy";
+import type {
+  WorkspaceAction,
+  WorkspaceResource,
+} from "@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy";
 import { roles } from "@arc/shared/permissions";
 
 type PermissionRecord = Record<string, readonly string[] | undefined>;
-type Resource = keyof typeof statement;
-type Action<R extends Resource> = (typeof statement)[R][number];
-
-const RECRUITING_GROUP_RESOURCES = new Set<Resource>([
-  "candidateForm",
-  "department",
-  "globalConfig",
-  "interview",
-  "interviewer",
-  "jd",
-  "resumeLibrary",
-  "resumePool",
-  "resumeUploadBatch",
-  "questionTemplate",
-]);
 
 function readPermissionRecord(value: string): PermissionRecord {
   try {
@@ -49,34 +36,6 @@ function readPermissionRecord(value: string): PermissionRecord {
   } catch {
     return {};
   }
-}
-
-function groupRoleAllows(role: string, action: string) {
-  if (action === "read") {
-    return true;
-  }
-  return role === "hr" || role === "recruitingLead" || role === "recruitingSupervisor";
-}
-
-async function hasRecruitingGroupPermission({
-  action,
-  organizationId,
-  userId,
-}: {
-  action: string;
-  organizationId: string;
-  userId: string;
-}) {
-  const rows = await db
-    .select({ role: recruitingGroupMember.role })
-    .from(recruitingGroupMember)
-    .where(
-      and(
-        eq(recruitingGroupMember.organizationId, organizationId),
-        eq(recruitingGroupMember.userId, userId),
-      ),
-    );
-  return rows.some((row) => groupRoleAllows(row.role, action));
 }
 
 async function roleCanBrowseStudioPage({
@@ -104,33 +63,23 @@ async function roleCanBrowseStudioPage({
   return permission.page?.includes(action) ?? false;
 }
 
-export async function workspaceAccessHasPermission<R extends Resource>({
+export async function workspaceAccessHasPermission<R extends WorkspaceResource>({
   access,
   action,
   resource,
 }: {
   access: Extract<WorkspaceAccessState, { status: "ready" }>;
   resource: R;
-  action: Action<R>;
+  action: WorkspaceAction<R>;
 }): Promise<boolean> {
-  if (isNoAccessWorkspaceRole(access.member.role)) {
-    return false;
-  }
-  if (access.member.role === "member" && RECRUITING_GROUP_RESOURCES.has(resource)) {
-    return await hasRecruitingGroupPermission({
-      action,
-      organizationId: access.workspace.id,
-      userId: access.user.id,
-    });
-  }
-
   const requestHeaders = getRequestHeaders();
-  return await hasWorkspacePermission({
-    action,
+  const authorize = createRequestWorkspaceAuthorizer({
     headers: requestHeaders,
+    memberRole: access.member.role,
     organizationId: access.workspace.id,
-    resource,
+    userId: access.user.id,
   });
+  return await authorize({ action, resource });
 }
 
 export async function getActiveOrganizationStateFromRequest(): Promise<ActiveOrganizationState> {

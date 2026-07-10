@@ -1,8 +1,9 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { resumePoolItem, resumeSemanticIndex, studioInterview } from "@arc/db-schema/schema";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ResumeSemanticIndexJobData } from "@arc/resume-parse-queue/resume-semantic-index";
+import { getCandidateActivityStatus } from "@arc/shared/candidate-pipeline-machine";
 import { QdrantResumeVectorStore } from "../qdrant/resume-vector-store";
 import { embedResumeSemanticTexts, getResumeEmbeddingConfig } from "./embedding";
 import { hashResumeProfileForSemanticIndex } from "./profile-hash";
@@ -75,6 +76,23 @@ interface ResumeSemanticIndexerDeps {
   vectorStore: ResumeVectorStore;
 }
 
+interface PrepareResumeSemanticIndexDeps {
+  getConfig: () => ResumeSemanticIndexConfig;
+  loadSource: (job: ResumeSemanticIndexJobData) => Promise<ResumeSemanticSource | null>;
+  markPending: (input: {
+    contentHash: string | null;
+    embeddingModel: string;
+    embeddingVersion: string;
+    errorMessage: null;
+    organizationId: string;
+    profileHash: string;
+    sourceId: string;
+    sourceType: ResumeSemanticIndexJobData["sourceType"];
+    status: "pending";
+  }) => Promise<void> | void;
+  readIndexState: ResumeSemanticIndexerDeps["readIndexState"];
+}
+
 const SKIPPED_PROFILE_HASH = "skipped";
 
 export function getResumeSemanticIndexConfig(): ResumeSemanticIndexConfig {
@@ -86,6 +104,69 @@ export function getResumeSemanticIndexConfig(): ResumeSemanticIndexConfig {
     qdrantCollectionName: process.env.QDRANT_RESUME_COLLECTION || "resume_semantic_v1",
     qdrantUrl: process.env.QDRANT_URL || "",
   };
+}
+
+export async function prepareResumeSemanticIndexJob(
+  job: ResumeSemanticIndexJobData,
+  deps?: PrepareResumeSemanticIndexDeps,
+): Promise<boolean> {
+  const resolvedDeps = deps ?? {
+    getConfig: getResumeSemanticIndexConfig,
+    // oxlint-disable-next-line no-use-before-define -- DB adapter stays below the domain workflow.
+    loadSource: loadResumeSemanticSource,
+    // oxlint-disable-next-line no-use-before-define -- DB adapter stays below the domain workflow.
+    markPending: upsertResumeSemanticIndexState,
+    // oxlint-disable-next-line no-use-before-define -- DB adapter stays below the domain workflow.
+    readIndexState: readSemanticIndexState,
+  };
+  const config = resolvedDeps.getConfig();
+  const source = await resolvedDeps.loadSource(job);
+  if (!source) {
+    return false;
+  }
+  const profileHash = hashResumeProfileForSemanticIndex(source.profile);
+  const existing = await resolvedDeps.readIndexState({
+    embeddingVersion: config.embeddingVersion,
+    profileHash,
+    sourceId: job.sourceId,
+    sourceType: job.sourceType,
+  });
+  if (existing?.status === "indexed" && existing.profileHash === profileHash) {
+    return false;
+  }
+  await resolvedDeps.markPending({
+    contentHash: source.contentHash,
+    embeddingModel: config.model,
+    embeddingVersion: config.embeddingVersion,
+    errorMessage: null,
+    organizationId: job.organizationId,
+    profileHash,
+    sourceId: job.sourceId,
+    sourceType: job.sourceType,
+    status: "pending",
+  });
+  return true;
+}
+
+export async function listRecoverableResumeSemanticIndexJobs(
+  limit = 500,
+): Promise<ResumeSemanticIndexJobData[]> {
+  const config = getResumeSemanticIndexConfig();
+  const rows = await db
+    .select({
+      organizationId: resumeSemanticIndex.organizationId,
+      sourceId: resumeSemanticIndex.sourceId,
+      sourceType: resumeSemanticIndex.sourceType,
+    })
+    .from(resumeSemanticIndex)
+    .where(
+      and(
+        eq(resumeSemanticIndex.embeddingVersion, config.embeddingVersion),
+        inArray(resumeSemanticIndex.status, ["pending", "failed"]),
+      ),
+    )
+    .limit(limit);
+  return rows;
 }
 
 function semanticIndexId(sourceType: string, sourceId: string, embeddingVersion: string): string {
@@ -197,8 +278,8 @@ async function loadResumeSemanticSource(
       .select({
         contentHash: studioInterview.resumeContentHash,
         parseStatus: studioInterview.resumeParseStatus,
+        pipelineStage: studioInterview.pipelineStage,
         profile: studioInterview.resumeProfile,
-        status: studioInterview.status,
       })
       .from(studioInterview)
       .where(
@@ -214,7 +295,7 @@ async function loadResumeSemanticSource(
     return {
       contentHash: row.contentHash,
       profile: row.profile,
-      status: row.status === "archived" ? "archived" : "active",
+      status: getCandidateActivityStatus(row.pipelineStage),
     };
   }
 
@@ -275,7 +356,7 @@ export async function upsertResumeSemanticIndexState(input: {
   profileHash: string;
   sourceId: string;
   sourceType: ResumeSemanticIndexJobData["sourceType"];
-  status: "failed" | "indexed" | "skipped";
+  status: "failed" | "indexed" | "pending" | "skipped";
 }): Promise<void> {
   const now = new Date();
   await db

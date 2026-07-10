@@ -4,7 +4,7 @@ import { and, eq, inArray, notExists } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { hasWorkspacePermission } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-permissions";
+import { createRequestWorkspaceAuthorizer } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   candidateFormSubmission,
@@ -14,11 +14,7 @@ import {
 } from "@arc/db-schema/schema";
 import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
-import {
-  buildAgentInstructions,
-  resolveClosingPrompt,
-  resolveOpeningPrompt,
-} from "@arc/shared/interview/agent-instructions";
+import { buildInterviewDispatchContract } from "@arc/shared/interview/dispatch-contract";
 import { parseCsvParam } from "@arc/shared/csv";
 import {
   candidateExpectationsMetaSchema,
@@ -62,9 +58,7 @@ import {
   createHumanInterviewRound,
   editHumanInterviewRound,
   EditRoundError,
-  getHumanInterviewOfferReadinessError,
   listHumanInterviewRounds,
-  loadHumanInterviewRoundReadiness,
   maybeAdvanceToHumanInterview,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/human-interview-rounds";
 import {
@@ -121,11 +115,7 @@ import {
   parseResumeCreateDedupPolicy,
   resolveResumeCreateDedupConflict,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/dedup";
-import {
-  getCandidateReactivationError,
-  getCandidateStageTransitionError,
-  resolveCandidateTransitionPatch,
-} from "./utils/candidate-transition";
+import { transitionCandidateStage } from "./utils/candidate-stage-transition";
 import { humanInterviewFeedbackSchema } from "./utils/human-interview-readiness";
 
 const dedupCheckInputSchema = z.object({
@@ -177,30 +167,6 @@ const transitionInputSchema = z
     message: "reactivationReason 仅在重新激活时允许。",
     path: ["reactivationReason"],
   });
-
-async function canManageStageTransition(
-  headers: Headers,
-  organizationId: string,
-  target: string,
-): Promise<boolean> {
-  if (target === "human_interview") {
-    return await hasWorkspacePermission({
-      action: "create",
-      headers,
-      organizationId,
-      resource: "humanInterview",
-    });
-  }
-  if (target === "offer") {
-    return await hasWorkspacePermission({
-      action: "create",
-      headers,
-      organizationId,
-      resource: "offer",
-    });
-  }
-  return true;
-}
 
 // 真人复面：「标记完成」的 input。outcome / feedback 必填，score 可选。
 // Human interview "mark complete" input. Outcome required.
@@ -376,7 +342,6 @@ export const studioInterviewsRouter = factory
         jobDescriptionId: toNullableString(formData.get("jobDescriptionId")),
         notes: toNullableString(formData.get("notes")) ?? "",
         scheduleEntries: parsedScheduleEntries,
-        status: toNullableString(formData.get("status")) ?? "ready",
         targetRole: toNullableString(formData.get("targetRole")) ?? "",
       });
 
@@ -468,7 +433,6 @@ export const studioInterviewsRouter = factory
         resumeProfile: analysis?.resumeProfile ?? null,
         resumeStorageKey,
         resumeText,
-        status: input.data.status,
         targetRole: input.data.targetRole || analysis?.resumeProfile.targetRoles[0] || null,
         updatedAt: now,
       } satisfies typeof studioInterview.$inferInsert;
@@ -917,51 +881,42 @@ export const studioInterviewsRouter = factory
     const jobDescriptionPresetQuestions =
       flattenPresetQuestionsFromContextSnapshot(snapshotPayload);
 
-    const candidateName = snapshotPayload.candidate.candidateName?.trim() || "候选人";
-    const targetRole = snapshotPayload.jobDescription?.name?.trim() || "未指定岗位";
-    const openingPrompt = resolveOpeningPrompt(
-      snapshotPayload.globalConfig.openingInstructions ?? "",
-      candidateName,
-      targetRole,
-    );
-    const closingPrompt = resolveClosingPrompt(
-      snapshotPayload.globalConfig.closingInstructions ?? "",
-      candidateName,
-      targetRole,
-    );
-
     const baseContext = {
+      allowTextInput: false,
       candidateName: snapshotPayload.candidate.candidateName,
+      closingInstructions: snapshotPayload.globalConfig.closingInstructions,
       companyContext: snapshotPayload.globalConfig.companyContext ?? "",
       interviewQuestions: snapshotPayload.personalizedQuestions,
+      interviewRecordId: candidateId,
       jobDescriptionPresetQuestions,
       jobDescriptionPrompt: snapshotPayload.jobDescription?.prompt ?? null,
+      openingInstructions: snapshotPayload.globalConfig.openingInstructions,
+      recordingEnabled: false,
+      recordingFileKey: null,
       resumeProfile: snapshotPayload.candidate.resumeProfile,
+      roundId: id,
       targetRole: snapshotPayload.jobDescription?.name ?? null,
     } as const;
 
+    const buildVariant = (
+      selectedInterviewer: (typeof snapshotPayload.interviewers)[number] | null,
+    ) => {
+      const contract = buildInterviewDispatchContract({
+        ...baseContext,
+        selectedInterviewer,
+      });
+      return {
+        closingPrompt: contract.prompts.closing,
+        instructions: contract.prompts.system,
+        interviewerName: contract.selectedInterviewer?.name ?? null,
+        openingPrompt: contract.prompts.opening,
+      };
+    };
+
     const variants =
       snapshotPayload.interviewers.length > 0
-        ? snapshotPayload.interviewers.map((person) => ({
-            closingPrompt,
-            instructions: buildAgentInstructions({
-              ...baseContext,
-              interviewerPrompt: person.prompt,
-            }),
-            interviewerName: person.name,
-            openingPrompt,
-          }))
-        : [
-            {
-              closingPrompt,
-              instructions: buildAgentInstructions({
-                ...baseContext,
-                interviewerPrompt: null,
-              }),
-              interviewerName: null,
-              openingPrompt,
-            },
-          ];
+        ? snapshotPayload.interviewers.map(buildVariant)
+        : [buildVariant(null)];
 
     return c.json({ variants }, 200);
   })
@@ -1319,7 +1274,6 @@ export const studioInterviewsRouter = factory
       .select({
         jobDescriptionId: studioInterview.jobDescriptionId,
         pipelineStage: studioInterview.pipelineStage,
-        status: studioInterview.status,
       })
       .from(studioInterview)
       .where(eq(studioInterview.id, candidateId))
@@ -1356,13 +1310,6 @@ export const studioInterviewsRouter = factory
           updatedAt: now,
         })
         .where(eq(studioInterviewSchedule.id, roundId));
-
-      if (candidateRow.status === "completed") {
-        await tx
-          .update(studioInterview)
-          .set({ status: "in_progress", updatedAt: now })
-          .where(eq(studioInterview.id, candidateId));
-      }
 
       // 重置即「以当下为准」：刷新题库模板绑定并创建新版 runtime context snapshot。
       // Reset = "snapshot to now": refresh bindings and freeze a new runtime context.
@@ -1411,110 +1358,29 @@ export const studioInterviewsRouter = factory
       const candidateId = c.req.param("id");
       const operatorId = c.var.user?.id ?? null;
       const input = c.req.valid("json");
-      if (!(await canManageStageTransition(c.req.raw.headers, activeOrg.id, input.pipelineStage))) {
-        return c.json({ message: "Forbidden" }, 403);
-      }
-
-      const now = new Date();
-
-      // 事务 + FOR UPDATE：读 + 计算 closedMeta merge + 写 + 审计 全部串行化。
-      // 防止两个 HR 同时 close / reactivate 时 closedMeta.previousStage 写错。
-      // Transaction + FOR UPDATE: serialize read → merge → write → audit so
-      // concurrent close/reactivate calls can't mangle closedMeta.previousStage.
-      const result = await db.transaction(async (tx) => {
-        const [existing] = await tx
-          .select({
-            closedMeta: studioInterview.closedMeta,
-            jobDescriptionId: studioInterview.jobDescriptionId,
-            outcome: studioInterview.outcome,
-            pipelineStage: studioInterview.pipelineStage,
-          })
-          .from(studioInterview)
-          .where(
-            and(
-              eq(studioInterview.id, candidateId),
-              eq(studioInterview.organizationId, activeOrg.id),
-            ),
-          )
-          .for("update")
-          .limit(1);
-        if (!existing) {
-          return { kind: "not_found" as const };
-        }
-        const reactivationError = getCandidateReactivationError({
-          from: existing.pipelineStage,
-          reactivationReason: input.reactivationReason,
-          to: input.pipelineStage,
-        });
-        if (reactivationError) {
-          return {
-            kind: "missing_reactivation_reason" as const,
-            message: reactivationError,
-          };
-        }
-        let humanInterviewOfferReadinessError: string | null = null;
-        let humanInterviewReadyForOffer = false;
-        if (existing.pipelineStage === "human_interview" && input.pipelineStage === "offer") {
-          const readiness = await loadHumanInterviewRoundReadiness(candidateId, activeOrg.id);
-          humanInterviewOfferReadinessError = getHumanInterviewOfferReadinessError(readiness);
-          humanInterviewReadyForOffer = !humanInterviewOfferReadinessError;
-        }
-        const stageTransitionError = getCandidateStageTransitionError({
-          from: existing.pipelineStage,
-          hasJobDescription: Boolean(existing.jobDescriptionId),
-          humanInterviewReadyForOffer,
-          to: input.pipelineStage,
-        });
-        if (stageTransitionError) {
-          return {
-            kind: "invalid_stage_transition" as const,
-            message: humanInterviewOfferReadinessError ?? stageTransitionError,
-          };
-        }
-        // 同态写入直接 200，避免无谓审计噪音。
-        // No-op writes short-circuit to keep the audit log clean.
-        if (
-          existing.pipelineStage === input.pipelineStage &&
-          existing.outcome === (input.outcome ?? "in_pipeline")
-        ) {
-          return { kind: "noop" as const };
-        }
-
-        const transition = resolveCandidateTransitionPatch({ existing, input, now });
-
-        await tx
-          .update(studioInterview)
-          .set(transition.patch)
-          .where(eq(studioInterview.id, candidateId));
-
-        await tx.insert(interviewAuditLog).values({
-          action: "candidate_transition",
-          createdAt: now,
-          detail: {
-            ...transition.auditDetail,
-          },
-          id: crypto.randomUUID(),
-          interviewRecordId: candidateId,
-          operatorId,
-          organizationId: activeOrg.id,
-          scheduleEntryId: null,
-        });
-        return { kind: "ok" as const };
+      const authorize = createRequestWorkspaceAuthorizer({
+        headers: c.req.raw.headers,
+        memberRole: c.var.member?.role,
+        organizationId: activeOrg.id,
+        userId: c.var.user?.id,
+      });
+      const result = await transitionCandidateStage({
+        authorize,
+        candidateId,
+        input,
+        operatorId,
+        organizationId: activeOrg.id,
+        provenance: { kind: "manual" },
       });
 
+      if (result.kind === "forbidden") {
+        return c.json({ message: "Forbidden" }, 403);
+      }
       if (result.kind === "not_found") {
         return c.json({ error: "候选人记录不存在。" }, 404);
       }
-      if (result.kind === "missing_reactivation_reason") {
+      if (result.kind === "invalid") {
         return c.json({ error: result.message }, 400);
-      }
-      if (result.kind === "invalid_stage_transition") {
-        return c.json({ error: result.message }, 400);
-      }
-      // noop 路径不写库也不刷缓存，但仍返回 200 让客户端把请求当作成功完成。
-      // No-op path skips cache invalidation but still returns 200 to clients.
-      if (result.kind === "ok") {
-        invalidateStudioInterviewCaches(activeOrg.id);
       }
       return c.json({ ok: true }, 200);
     },

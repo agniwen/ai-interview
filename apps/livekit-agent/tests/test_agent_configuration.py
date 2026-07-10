@@ -1,7 +1,9 @@
+import json
 import logging
 
 import report as report_module
 from agent_config import resolve_agent_name
+from dispatch_context import parse_dispatch_context
 
 
 class _Response:
@@ -45,8 +47,29 @@ async def test_report_failure_log_does_not_include_transcript(caplog, monkeypatc
     monkeypatch.setattr(report_module.asyncio, "sleep", no_sleep)
     caplog.set_level(logging.ERROR, logger="agent")
 
+    interview_context = parse_dispatch_context(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "session": {
+                    "allowTextInput": True,
+                    "interviewRecordId": "record-1",
+                    "roundId": "round-1",
+                },
+                "candidate": {"name": "候选人", "targetRole": "工程师"},
+                "recording": {"enabled": False, "fileKey": None},
+                "selectedInterviewer": None,
+                "prompts": {
+                    "system": "system",
+                    "opening": "opening",
+                    "closing": "closing",
+                },
+            }
+        )
+    )
+
     await report_module.send_report(
-        interview_context={"interview_record_id": "record-1", "round_id": "round-1"},
+        interview_context=interview_context,
         room_name="room-1",
         turns=[{"role": "user", "message": secret_transcript}],
         call_successful="failed",

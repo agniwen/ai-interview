@@ -3,6 +3,7 @@ import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { jobDescription, resumePoolItem, studioInterview } from "@arc/db-schema/schema";
 import type { ResumePoolScope, ResumeSemanticSourceType } from "@arc/db-schema/schema";
+import { getCandidateActivityStatus } from "@arc/shared/candidate-pipeline-machine";
 import type { DedupMatchRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
 import { QdrantResumeVectorStore } from "../qdrant/resume-vector-store";
 import {
@@ -237,8 +238,8 @@ async function loadSemanticDedupCandidates(
             createdAt: studioInterview.createdAt,
             id: studioInterview.id,
             jobDescriptionName: jobDescription.name,
+            pipelineStage: studioInterview.pipelineStage,
             resumeProfile: studioInterview.resumeProfile,
-            status: studioInterview.status,
             targetRole: studioInterview.targetRole,
           })
           .from(studioInterview)
@@ -295,6 +296,7 @@ async function loadSemanticDedupCandidates(
       ...row,
       createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt,
       sourceType: "studio_interview" as const,
+      status: getCandidateActivityStatus(row.pipelineStage),
     })),
     ...poolRows.map((row) => ({
       ...row,

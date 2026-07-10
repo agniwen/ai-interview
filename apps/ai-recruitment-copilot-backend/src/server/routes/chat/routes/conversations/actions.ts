@@ -1,21 +1,14 @@
 import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { hasWorkspacePermission } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-permissions";
+import type { WorkspaceAuthorizer } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy";
 import {
   generateInterviewQuestionsForProfile,
   ResumeAnalysisError,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import { invalidateStudioInterviewCaches } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import { resetResumeEvaluationForJobChange } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/evaluation";
-import {
-  getHumanInterviewOfferReadinessError,
-  loadHumanInterviewRoundReadiness,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/human-interview-rounds";
-import {
-  getCandidateStageTransitionError,
-  resolveCandidateTransitionPatch,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/utils/candidate-transition";
+import { transitionCandidateStage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/utils/candidate-stage-transition";
 import { loadJobDescriptionById } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { interviewAuditLog, studioInterview } from "@arc/db-schema/schema";
 import type { ResumeEvaluationStatus } from "@arc/shared/studio-resumes";
@@ -30,30 +23,6 @@ export type ConfirmRecruitingActionResult =
       status: "executed" | "noop";
     }
   | { message: string; status: "failed" };
-
-async function canManageStageTransition(
-  headers: Headers,
-  organizationId: string,
-  target: string,
-): Promise<boolean> {
-  if (target === "human_interview") {
-    return await hasWorkspacePermission({
-      action: "create",
-      headers,
-      organizationId,
-      resource: "humanInterview",
-    });
-  }
-  if (target === "offer") {
-    return await hasWorkspacePermission({
-      action: "create",
-      headers,
-      organizationId,
-      resource: "offer",
-    });
-  }
-  return true;
-}
 
 function normalizeQuestions(
   questions: NonNullable<
@@ -169,7 +138,7 @@ async function confirmBindCandidateToJob(input: {
 }
 
 async function confirmAdvanceCandidateStage(input: {
-  headers: Headers;
+  authorize: WorkspaceAuthorizer;
   operatorId: string | null;
   organizationId: string;
   payload: Extract<
@@ -179,106 +148,26 @@ async function confirmAdvanceCandidateStage(input: {
   proposalId: string;
   proposalTitle: string;
 }): Promise<ConfirmRecruitingActionResult> {
-  if (
-    !(await canManageStageTransition(
-      input.headers,
-      input.organizationId,
-      input.payload.pipelineStage,
-    ))
-  ) {
-    return { message: "没有权限执行目标阶段流转。", status: "failed" };
-  }
-
-  const now = new Date();
-  const result = await db.transaction(async (tx) => {
-    const [existing] = await tx
-      .select({
-        closedMeta: studioInterview.closedMeta,
-        jobDescriptionId: studioInterview.jobDescriptionId,
-        outcome: studioInterview.outcome,
-        pipelineStage: studioInterview.pipelineStage,
-      })
-      .from(studioInterview)
-      .where(
-        and(
-          eq(studioInterview.id, input.payload.resumeRecordId),
-          eq(studioInterview.organizationId, input.organizationId),
-        ),
-      )
-      .for("update")
-      .limit(1);
-    if (!existing) {
-      return { kind: "not_found" as const };
-    }
-    if (
-      existing.pipelineStage === "closed" &&
-      input.payload.pipelineStage !== "closed" &&
-      !input.payload.reactivationReason
-    ) {
-      return { kind: "missing_reactivation_reason" as const };
-    }
-    let humanInterviewOfferReadinessError: string | null = null;
-    let humanInterviewReadyForOffer = false;
-    if (existing.pipelineStage === "human_interview" && input.payload.pipelineStage === "offer") {
-      const readiness = await loadHumanInterviewRoundReadiness(
-        input.payload.resumeRecordId,
-        input.organizationId,
-      );
-      humanInterviewOfferReadinessError = getHumanInterviewOfferReadinessError(readiness);
-      humanInterviewReadyForOffer = !humanInterviewOfferReadinessError;
-    }
-    const stageTransitionError = getCandidateStageTransitionError({
-      from: existing.pipelineStage,
-      hasJobDescription: Boolean(existing.jobDescriptionId),
-      humanInterviewReadyForOffer,
-      to: input.payload.pipelineStage,
-    });
-    if (stageTransitionError) {
-      return {
-        kind: "invalid_stage_transition" as const,
-        message: humanInterviewOfferReadinessError ?? stageTransitionError,
-      };
-    }
-    if (
-      existing.pipelineStage === input.payload.pipelineStage &&
-      existing.outcome === (input.payload.outcome ?? "in_pipeline")
-    ) {
-      return { kind: "noop" as const };
-    }
-    const transition = resolveCandidateTransitionPatch({
-      existing,
-      input: input.payload,
-      now,
-    });
-    await tx
-      .update(studioInterview)
-      .set(transition.patch)
-      .where(eq(studioInterview.id, input.payload.resumeRecordId));
-    await tx.insert(interviewAuditLog).values({
-      action: "candidate_transition",
-      createdAt: now,
-      detail: {
-        ...transition.auditDetail,
-        copilotActionProposalId: input.proposalId,
-        copilotActionTitle: input.proposalTitle,
-        source: "workspace_recruiting_copilot",
-      },
-      id: crypto.randomUUID(),
-      interviewRecordId: input.payload.resumeRecordId,
-      operatorId: input.operatorId,
-      organizationId: input.organizationId,
-      scheduleEntryId: null,
-    });
-    return { kind: "ok" as const };
+  const result = await transitionCandidateStage({
+    authorize: input.authorize,
+    candidateId: input.payload.resumeRecordId,
+    input: input.payload,
+    operatorId: input.operatorId,
+    organizationId: input.organizationId,
+    provenance: {
+      kind: "workspace_recruiting_copilot",
+      proposalId: input.proposalId,
+      proposalTitle: input.proposalTitle,
+    },
   });
 
+  if (result.kind === "forbidden") {
+    return { message: "没有权限执行目标阶段流转。", status: "failed" };
+  }
   if (result.kind === "not_found") {
     return { message: "候选人记录不存在。", status: "failed" };
   }
-  if (result.kind === "missing_reactivation_reason") {
-    return { message: "请填写重新激活原因。", status: "failed" };
-  }
-  if (result.kind === "invalid_stage_transition") {
+  if (result.kind === "invalid") {
     return { message: result.message, status: "failed" };
   }
   if (result.kind === "noop") {
@@ -288,7 +177,6 @@ async function confirmAdvanceCandidateStage(input: {
       status: "noop",
     };
   }
-  invalidateStudioInterviewCaches(input.organizationId);
   return {
     actionType: "advance_candidate_stage",
     message: "已推进候选人阶段。",
@@ -370,7 +258,7 @@ async function confirmGenerateInterviewQuestions(input: {
 }
 
 export function confirmRecruitingAction(input: {
-  headers: Headers;
+  authorize: WorkspaceAuthorizer;
   operatorId: string | null;
   organizationId: string;
   proposal: ConfirmRecruitingActionInput["proposal"];
@@ -387,7 +275,7 @@ export function confirmRecruitingAction(input: {
   }
   if (input.proposal.type === "advance_candidate_stage") {
     return confirmAdvanceCandidateStage({
-      headers: input.headers,
+      authorize: input.authorize,
       operatorId: input.operatorId,
       organizationId: input.organizationId,
       payload: input.proposal.payload,

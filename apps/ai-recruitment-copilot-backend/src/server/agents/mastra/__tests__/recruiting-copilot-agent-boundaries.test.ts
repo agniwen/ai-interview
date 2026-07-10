@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(
-  new URL("../agents/recruiting-copilot-agent.ts", import.meta.url),
+  new URL("../agents/recruiting-copilot-instructions.ts", import.meta.url),
   "utf-8",
 );
 

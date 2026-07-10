@@ -107,7 +107,6 @@ describeWithDatabase("resume detail route database behavior", () => {
           { difficulty: "easy", order: 1, question: "Should never leak through detail DTO" },
         ],
         organizationId: ORG,
-        status: "in_progress",
         updatedAt: NOW,
       });
 
@@ -116,7 +115,8 @@ describeWithDatabase("resume detail route database behavior", () => {
       // interviewQuestions is now exposed by the detail DTO (Task 1).
       // interviewQuestions 已由 Task 1 纳入详情 DTO，此处不再断言其缺失。
       expect(detail).not.toHaveProperty("scheduleEntries");
-      expect(detail?.status).toBe("in_progress");
+      expect(detail?.pipelineStage).toBe("screening");
+      expect(detail?.outcome).toBe("in_pipeline");
       expect(detail?.candidateName).toBe("测试");
     });
   });

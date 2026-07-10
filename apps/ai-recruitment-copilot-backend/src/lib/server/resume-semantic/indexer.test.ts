@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { runResumeSemanticIndexJob } from "./indexer";
+import { prepareResumeSemanticIndexJob, runResumeSemanticIndexJob } from "./indexer";
 
 const profile: ResumeProfile = {
   age: null,
@@ -180,6 +180,47 @@ describe("runResumeSemanticIndexJob", () => {
         embeddingVersion: "v1",
         organizationId: "org-1",
         sourceId: "candidate-1",
+      }),
+    );
+  });
+});
+
+describe("prepareResumeSemanticIndexJob", () => {
+  it("persists pending work before the queue adapter is called", async () => {
+    const markPending = vi.fn();
+
+    const shouldEnqueue = await prepareResumeSemanticIndexJob(
+      {
+        organizationId: "org-1",
+        sourceId: "candidate-1",
+        sourceType: "studio_interview",
+      },
+      {
+        getConfig: () => ({
+          apiKey: "key",
+          baseUrl: "https://dashscope.example/v1",
+          dimensions: 2,
+          embeddingVersion: "v1",
+          model: "text-embedding-v4",
+          qdrantApiKey: null,
+          qdrantCollectionName: "resume_semantic_v1",
+          qdrantUrl: "https://qdrant.example",
+        }),
+        loadSource: () => Promise.resolve({ contentHash: "hash", profile, status: "active" }),
+        markPending,
+        readIndexState: () => Promise.resolve(null),
+      },
+    );
+
+    expect(shouldEnqueue).toBe(true);
+    expect(markPending).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contentHash: "hash",
+        embeddingModel: "text-embedding-v4",
+        embeddingVersion: "v1",
+        organizationId: "org-1",
+        sourceId: "candidate-1",
+        status: "pending",
       }),
     );
   });

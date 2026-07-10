@@ -55,7 +55,6 @@ beforeAll(async () => {
     interviewQuestions: [],
     organizationId: ORG,
     pipelineStage: "ai_interview",
-    status: "completed",
     updatedAt: NOW,
   });
 });

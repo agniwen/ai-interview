@@ -48,7 +48,6 @@ import type {
   ResumeReviewStatus,
   ResumeScreeningStatus,
   ScheduleEntryStatus,
-  StudioInterviewStatus,
 } from "./studio-interviews";
 import type { ResumeParserStructured } from "./resume-parser-schema";
 import type { ResumeReview } from "./resume-review";
@@ -473,6 +472,7 @@ export const studioInterview = pgTable(
     resumeReviewError: text("resume_review_error"),
     resumeReviewGeneratedAt: timestamp("resume_review_generated_at", { withTimezone: true }),
     resumeReviewQueuedAt: timestamp("resume_review_queued_at", { withTimezone: true }),
+    resumeReviewRunId: text("resume_review_run_id"),
     resumeReviewStatus: text("resume_review_status")
       .$type<ResumeReviewStatus>()
       .notNull()
@@ -507,11 +507,6 @@ export const studioInterview = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
-    // ⚠️ DEPRECATED — 旧的 record 级 status，由 pipelineStage + outcome 替代。
-    // 共享数据库期间继续保留并被应用层 dual-write，待全部消费方下线后再 drop。
-    // Legacy single-axis status. Kept dual-written from app code while
-    // pipelineStage + outcome roll out across all consumers.
-    status: text("status").$type<StudioInterviewStatus>().notNull(),
     targetRole: text("target_role"),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
@@ -523,9 +518,6 @@ export const studioInterview = pgTable(
     writtenTestScore: text("written_test_score"),
   },
   (table) => [
-    // ⚠️ DEPRECATED — 旧的 status index，与旧列一并保留至 drop 阶段。
-    // Kept alongside the deprecated column until consumers fully migrate.
-    index("studio_interview_status_idx").on(table.status),
     // 新模型的索引：tabs 通常 WHERE pipeline_stage = ? AND outcome = ?。
     index("studio_interview_pipeline_stage_idx").on(table.pipelineStage),
     index("studio_interview_outcome_idx").on(table.outcome),

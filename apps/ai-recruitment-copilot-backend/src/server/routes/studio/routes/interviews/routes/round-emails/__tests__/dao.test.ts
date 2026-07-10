@@ -62,7 +62,6 @@ beforeAll(async () => {
     createdAt: NOW,
     id: INTERVIEW_ID,
     organizationId: ORG,
-    status: "ready",
     updatedAt: NOW,
   });
   await db.insert(studioInterviewSchedule).values([

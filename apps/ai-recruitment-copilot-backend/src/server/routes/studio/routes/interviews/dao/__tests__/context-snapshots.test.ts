@@ -224,7 +224,6 @@ beforeAll(async () => {
     jobDescriptionId: JD_ID,
     organizationId: ORG_ID,
     resumeProfile: null,
-    status: "ready",
     targetRole: "Backend Engineer",
     updatedAt: NOW,
   });

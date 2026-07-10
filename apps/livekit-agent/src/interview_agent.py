@@ -16,7 +16,7 @@ from livekit.agents import (
 )
 from livekit.agents.beta.tools import EndCallTool
 
-from prompts import apply_placeholders, build_instructions
+from dispatch_context import InterviewDispatchContext
 from ready_check_task import ReadyCheckTask
 from wrap_up_task import WrapUpTask
 
@@ -66,19 +66,6 @@ else:
     # goodbye without being interrupted mid-sentence.
     INTERVIEW_HARD_GRACE_SECONDS = 60
 
-# 默认开场白指令 / Default opening instructions when none are configured globally
-DEFAULT_OPENING_INSTRUCTIONS = (
-    '用候选人的主要语言称呼"{候选人姓名}"并打招呼；如果尚无法判断候选人语言，则使用简洁中文。'
-    '简短介绍你是今天"{岗位}"岗位的面试官，'
-    "然后用自然口语询问候选人是否准备好开始。语气友好专业，一两句话即可。"
-    "本轮只做开场和询问是否准备好，不要在这一轮提出任何面试题；"
-    "等候选人明确表示准备好之后，再开始第一道题。"
-)
-# 默认结束语指令 / Default closing instructions when none are configured globally
-DEFAULT_CLOSING_INSTRUCTIONS = (
-    "用候选人的主要语言感谢候选人参加本次面试，并礼貌祝对方一切顺利。"
-)
-
 
 def _format_mmss(seconds: float) -> str:
     total = max(0, int(seconds))
@@ -106,24 +93,11 @@ def _is_noise_transcript(text: str) -> bool:
 class InterviewAgent(Agent):
     def __init__(
         self,
-        interview_context: dict,
-        interviewer: dict | None = None,
+        interview_context: InterviewDispatchContext,
         time_limit_seconds: int = INTERVIEW_TIME_LIMIT_SECONDS,
     ) -> None:
-        candidate_name = interview_context.get("candidate_name", "候选人")
-        target_role = interview_context.get("target_role", "未指定岗位")
-
-        # 解析全局开场白与结束语，空值时使用默认值，并应用字面占位符替换  # noqa: RUF003
-        # Parse global opening/closing instructions; fall back to defaults when
-        # empty, then apply literal placeholder substitution.
-        opening = (interview_context.get("global_opening_instructions") or "").strip()
-        closing = (interview_context.get("global_closing_instructions") or "").strip()
-        self._opening_instructions = apply_placeholders(
-            opening or DEFAULT_OPENING_INSTRUCTIONS, candidate_name, target_role
-        )
-        self._closing_instructions = apply_placeholders(
-            closing or DEFAULT_CLOSING_INSTRUCTIONS, candidate_name, target_role
-        )
+        self._opening_instructions = interview_context.prompts.opening
+        self._closing_instructions = interview_context.prompts.closing
 
         self._end_call_tool = EndCallTool(
             extra_description="当面试结束、候选人要求结束、候选人连续三次答非所问、态度恶劣，或系统计时提示已到时间上限时，调用此工具结束面试。",
@@ -132,12 +106,12 @@ class InterviewAgent(Agent):
         )
 
         super().__init__(
-            instructions=build_instructions(interview_context, interviewer),
+            instructions=interview_context.prompts.system,
             tools=self._end_call_tool.tools,  # type: ignore
         )
 
-        self._candidate_name = candidate_name
-        self._target_role = target_role
+        self._candidate_name = interview_context.candidate.name
+        self._target_role = interview_context.candidate.target_role
         self._time_limit = time_limit_seconds
         self._started_at: float | None = None
         # 防止 enter_wrap_up 被重复调用: WrapUpTask 进入后会自行 end_call 关闭 session,

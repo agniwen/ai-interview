@@ -97,7 +97,6 @@ beforeAll(async () => {
       id: INTERVIEW_A1,
       interviewQuestions: [],
       organizationId: ORG_A,
-      status: "draft",
       updatedAt: NOW,
     },
     {
@@ -106,7 +105,6 @@ beforeAll(async () => {
       id: INTERVIEW_A2,
       interviewQuestions: [],
       organizationId: ORG_A,
-      status: "draft",
       updatedAt: NOW,
     },
     {
@@ -115,7 +113,6 @@ beforeAll(async () => {
       id: INTERVIEW_B1,
       interviewQuestions: [],
       organizationId: ORG_B,
-      status: "draft",
       updatedAt: NOW,
     },
   ]);
@@ -371,7 +368,6 @@ describe("DELETE trigger keeps canonical counts in sync", () => {
       id: cascadeId,
       interviewQuestions: [],
       organizationId: ORG_A,
-      status: "draft",
       updatedAt: NOW,
     });
     await db.transaction((tx) =>

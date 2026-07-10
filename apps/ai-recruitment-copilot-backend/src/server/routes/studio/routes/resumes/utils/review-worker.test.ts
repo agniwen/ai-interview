@@ -18,7 +18,9 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
     update: () => ({
       set: (patch: Record<string, unknown>) => {
         mocks.updates.push(patch);
-        return { where: async () => {} };
+        return {
+          where: () => ({ returning: () => Promise.resolve([{ id: "resume-1" }]) }),
+        };
       },
     }),
   },
@@ -37,6 +39,20 @@ const JOB = {
   source: "resume_pool_import" as const,
 };
 
+function assessmentRecord(overrides: Record<string, unknown>) {
+  return {
+    jobDescriptionId: JOB.jobDescriptionId,
+    outcome: "in_pipeline",
+    pipelineStage: "screening",
+    resumeParseStatus: "ready",
+    resumeProfile: { name: "候选人" },
+    resumeReview: null,
+    resumeScreeningResult: null,
+    resumeText: "简历原文",
+    ...overrides,
+  };
+}
+
 describe("processResumeReviewGenerationJob", () => {
   beforeEach(() => {
     mocks.record = null;
@@ -45,13 +61,9 @@ describe("processResumeReviewGenerationJob", () => {
   });
 
   it("treats a previously generated review as an idempotent success", async () => {
-    mocks.record = {
-      jobDescriptionId: JOB.jobDescriptionId,
-      resumeProfile: { name: "候选人" },
+    mocks.record = assessmentRecord({
       resumeReview: { overall: { baseScore: 85 } },
-      resumeScreeningResult: null,
-      resumeText: "简历原文",
-    };
+    });
 
     await processResumeReviewGenerationJob(JOB);
 
@@ -66,14 +78,9 @@ describe("processResumeReviewGenerationJob", () => {
   });
 
   it("moves a new review through processing to ready", async () => {
-    mocks.record = {
-      jobDescriptionId: JOB.jobDescriptionId,
-      resumeProfile: { name: "候选人" },
-      resumeReview: null,
-      resumeScreeningResult: null,
-      resumeText: "简历原文",
-    };
+    mocks.record = assessmentRecord({});
     mocks.generateResumeReviewBestEffort.mockResolvedValue({
+      review: "AI 分析",
       screeningResult: { recommendation: "pass" },
       structuredReview: { overall: { baseScore: 85 } },
     });
@@ -94,13 +101,9 @@ describe("processResumeReviewGenerationJob", () => {
   });
 
   it("marks the record failed and rethrows a generation failure", async () => {
-    mocks.record = {
-      jobDescriptionId: JOB.jobDescriptionId,
-      resumeProfile: { name: "候选人" },
-      resumeReview: null,
-      resumeScreeningResult: null,
+    mocks.record = assessmentRecord({
       resumeText: null,
-    };
+    });
     mocks.generateResumeReviewBestEffort.mockRejectedValue(new Error("model unavailable"));
 
     await expect(processResumeReviewGenerationJob(JOB)).rejects.toThrow("model unavailable");

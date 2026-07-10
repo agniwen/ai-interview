@@ -7,11 +7,7 @@
 // interviewLink, which now live on the round-side type.
 
 import type { ResumeAnalysisResult } from "@arc/db-schema/interview/types";
-import type {
-  CandidateOutcome,
-  PipelineStage,
-  StudioInterviewStatus,
-} from "@arc/db-schema/studio-interviews";
+import type { CandidateOutcome, PipelineStage } from "@arc/db-schema/studio-interviews";
 
 export interface StudioCandidateRecord {
   id: string;
@@ -19,7 +15,6 @@ export interface StudioCandidateRecord {
   candidateEmail: string | null;
   candidatePhone: string | null;
   targetRole: string | null;
-  status: StudioInterviewStatus;
   // 流转阶段 / outcome：用于判断 AI 面试相关操作是否已经被锁定。
   // Pipeline axes; used to lock AI-stage actions once the candidate has moved on.
   pipelineStage: PipelineStage;

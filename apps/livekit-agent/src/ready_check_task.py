@@ -25,11 +25,11 @@ logger = logging.getLogger("agent")
 
 
 # 仅描述工具调用规则, 不规定问候措辞: 真正的开场话术由 generate_reply 的
-# instructions 参数携带 (来自用户在控制台配置的 global_opening_instructions
-# 或 DEFAULT_OPENING_INSTRUCTIONS), 这样自定义提示词不会被任务级 system prompt 覆盖.
+# instructions 参数携带 (由 TS dispatch contract 提供最终 opening prompt),
+# 这样自定义提示词不会被任务级 system prompt 覆盖.
 # Tool-routing rules only; the greeting wording itself comes from the
-# per-call generate_reply instructions so the user's configured opening
-# (global_opening_instructions) is not overridden by the task-level prompt.
+# versioned dispatch contract and is passed as per-call generate_reply
+# instructions, so it is not overridden by the task-level prompt.
 _TASK_INSTRUCTIONS = f"""你正处在面试的开场阶段, 任务是与候选人完成开场对话, 并通过工具调用判断候选人是否已准备好开始面试.
 
 工具调用规则:

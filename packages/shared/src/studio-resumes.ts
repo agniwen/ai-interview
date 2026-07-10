@@ -21,7 +21,6 @@ import type {
   ResumeReviewStatus,
   ResumeScreeningStatus,
   ScheduleEntryStatus,
-  StudioInterviewStatus,
 } from "@arc/db-schema/studio-interviews";
 import type { ResumeScreeningResult } from "./resume-screening";
 
@@ -148,13 +147,6 @@ export interface ResumeLibraryListRecord {
   // 是否已存在至少一个 AI 面试轮次（studioInterviewSchedule）。
   // Whether this candidate already has at least one AI interview round.
   hasInterviewRounds: boolean;
-  /**
-   * @deprecated Use `pipelineStage` + `outcome` + `stageProgress` instead.
-   * 仍然返回是因为线上旧代码可能读取；新代码请不要消费。
-   * Returned for backwards compatibility with prod code; new consumers must
-   * not read this field.
-   */
-  status: StudioInterviewStatus;
   // 候选人所在 pipeline 阶段（screening / written_test / ai_interview /
   // human_interview / offer / closed）。
   pipelineStage: PipelineStage;

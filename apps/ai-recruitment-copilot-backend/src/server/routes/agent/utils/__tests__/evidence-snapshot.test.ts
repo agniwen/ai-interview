@@ -70,7 +70,6 @@ beforeAll(async () => {
     id: INTERVIEW_ID,
     interviewQuestions: [],
     organizationId: ORG_ID,
-    status: "ready",
     targetRole: "Engineer",
     updatedAt: NOW,
   });

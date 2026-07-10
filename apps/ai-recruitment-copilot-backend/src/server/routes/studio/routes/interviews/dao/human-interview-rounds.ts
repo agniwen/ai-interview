@@ -73,8 +73,9 @@ function normalizeRequiredFeedback(value: string | null | undefined): string {
 export async function loadHumanInterviewRoundReadiness(
   interviewRecordId: string,
   organizationId: string,
+  executor: Pick<Tx, "select"> = db,
 ): Promise<HumanInterviewRoundReadiness> {
-  const rows = await db
+  const rows = await executor
     .select({
       feedback: studioHumanInterviewRound.feedback,
       status: studioHumanInterviewRound.status,

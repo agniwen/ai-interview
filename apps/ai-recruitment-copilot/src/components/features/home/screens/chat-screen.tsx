@@ -127,7 +127,7 @@ function PdfFileIcon({ className }: { className?: string }) {
 
 function PdfAttachmentCard({ filename }: { filename: string }) {
   // 真实 ChatMessageItem PDF 卡: flex w-full flex-col gap-3 rounded-lg border bg-card p-3 hover:bg-accent/30
-  // 内容: filename + mediaType + (PdfPreviewButton | ParsedResumeButton | ResumeImportButton) border-t pt-3
+  // 内容: filename + mediaType + 预览操作。
   return (
     <div className="flex w-[280px] flex-col gap-3 rounded-lg border bg-card p-3">
       <div className="flex min-w-0 items-center gap-3">

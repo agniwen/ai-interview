@@ -1,4 +1,4 @@
-import { and, eq, inArray, lt, ne, or } from "drizzle-orm";
+import { and, eq, inArray, lt, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
@@ -215,7 +215,7 @@ export const agentRouter = factory
       // Guard against stale agent reports overwriting a freshly reset round:
       // require schedule.liveKitRoomName === conversationId. Mismatch means
       // this report is from a previous lifecycle and must not cascade.
-      const updatedSchedule = await tx
+      await tx
         .update(studioInterviewSchedule)
         .set({
           conversationId: data.conversationId,
@@ -227,58 +227,10 @@ export const agentRouter = factory
             eq(studioInterviewSchedule.id, data.scheduleEntryId),
             eq(studioInterviewSchedule.liveKitRoomName, data.conversationId),
           ),
-        )
-        .returning({ id: studioInterviewSchedule.id });
+        );
 
-      const cascaded = updatedSchedule.length > 0;
-
-      // 4. If all rounds completed → interview completed.
-      //    跳过级联当 schedule 不匹配（被 reset / 被新会话接管），避免误把
-      //    studioInterview 整体置 completed。transcript（interviewConversation）
-      //    照常落库，后续可以人工核对。
-      //    Skip cascading when the schedule update was rejected (round reset
-      //    or taken over by a newer session). Transcript still lands on the
-      //    interview_conversation row and remains auditable.
-      if (cascaded) {
-        const pendingRounds = await tx
-          .select({ id: studioInterviewSchedule.id })
-          .from(studioInterviewSchedule)
-          .where(
-            and(
-              eq(studioInterviewSchedule.interviewRecordId, data.interviewRecordId),
-              ne(studioInterviewSchedule.status, "completed"),
-            ),
-          );
-
-        // 两个分支跑不同 UPDATE（一个置 record completed，一个防御性抬到 in_progress），
-        // 改成 ternary 会牺牲可读性，故保留 if/else 并禁掉本规则。
-        // Two branches issue different UPDATEs; collapsing into a ternary loses
-        // clarity, so keep if/else and suppress the lint rule here.
-        // oxlint-disable-next-line unicorn/prefer-ternary
-        if (pendingRounds.length === 0) {
-          await tx
-            .update(studioInterview)
-            .set({ status: "completed" as const, updatedAt: now })
-            .where(eq(studioInterview.id, data.interviewRecordId));
-        } else {
-          // 还有未完成轮次：保底把 record 从 ready 抬到 in_progress。
-          // 正常路径下 token 路由首次开始时已写过；此处兜底极端情况（候选人首次
-          // 进场前 agent 已经把轮次报完成，理论上不会发生但留个安全网）。
-          // Defensive: still pending rounds left. Bump record to in_progress if
-          // it somehow remained at "ready" (token route normally handles it).
-          await tx
-            .update(studioInterview)
-            .set({ status: "in_progress" as const, updatedAt: now })
-            .where(
-              and(
-                eq(studioInterview.id, data.interviewRecordId),
-                eq(studioInterview.status, "ready"),
-              ),
-            );
-        }
-      }
-
-      // 5. Audit
+      // 4. Audit. Candidate lifecycle remains in pipelineStage/outcome; this
+      // report only completes the matching AI Interview Round.
       await tx.insert(interviewAuditLog).values({
         action: "agent_report_received",
         createdAt: now,

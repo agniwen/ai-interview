@@ -3,11 +3,11 @@
  * AI interviewer prompt assembly: merges candidate info / role / questions into the
  * final system prompt sent to the agent.
  *
- * **重要**：本文件需要与 `agent/src/prompts.py` 的 `build_instructions` 保持同步，
- * 否则 UI 预览的指令会和 agent 运行时实际接收的 prompt 不一致。
+ * **重要**：本文件是最终 system prompt 的唯一构建入口。UI 预览和 backend
+ * dispatch 都必须通过 dispatch contract builder 调用这里。
  *
- * **Important**: keep this file in sync with `agent/src/prompts.py::build_instructions`,
- * otherwise the preview shown in the UI will differ from what the agent actually receives.
+ * **Important**: this is the sole builder for the final system prompt. Both the
+ * UI preview and backend dispatch call it through the dispatch contract builder.
  */
 
 import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
@@ -21,10 +21,9 @@ export interface AgentInstructionPresetQuestion {
 }
 
 /**
- * 默认开场白 / 结束语 prompt：与 `agent/src/interview_agent.py` 中的同名常量保持同步。
- * Default opening/closing prompts; must mirror the constants in
- * `agent/src/interview_agent.py` so the UI preview matches what the agent
- * actually uses when global config fields are empty.
+ * 默认开场白 / 结束语 prompt：在 backend dispatch 前解析并写入版本化 contract。
+ * Default opening/closing prompts are resolved before backend dispatch and
+ * written into the versioned contract.
  */
 export const DEFAULT_OPENING_PROMPT =
   '用候选人的主要语言称呼"{候选人姓名}"并打招呼；如果尚无法判断候选人语言，则使用简洁中文。简短介绍你是今天"{岗位}"岗位的面试官，然后用自然口语询问候选人是否准备好开始。语气友好专业，一两句话即可。本轮只做开场和询问是否准备好，不要在这一轮提出任何面试题；等候选人明确表示准备好之后，再开始第一道题。';
@@ -33,9 +32,7 @@ export const DEFAULT_CLOSING_PROMPT =
 
 /**
  * 难度追问规则段落：在两个题目板块顶部各重复一次，让模型每次看到题目都被强提醒一遍。
- * 必须与 `agent/src/prompts.py::DIFFICULTY_FOLLOWUP_RULES` 完全一致。
- * Followup-rule block repeated above each question section. Must mirror
- * `DIFFICULTY_FOLLOWUP_RULES` in agent/src/prompts.py.
+ * Followup-rule block repeated above each question section.
  */
 const DIFFICULTY_FOLLOWUP_RULES =
   "**追问规则（必须严格执行, 不得忽略, 不得放宽）**:\n" +
@@ -213,8 +210,8 @@ function formatPrefixSections(
  * 构建最终发送给 LiveKit agent 的 system prompt。
  * Build the final system prompt sent to the LiveKit agent.
  *
- * 必须与 `agent/src/prompts.py::build_instructions` 同步，UI 预览才能反映真实下发内容。
- * Must mirror `agent/src/prompts.py::build_instructions` so the UI preview is accurate.
+ * Backend dispatch 与 UI 预览通过同一个 contract builder 调用此函数。
+ * Backend dispatch and UI preview call this through the same contract builder.
  */
 export function buildAgentInstructions(context: AgentInstructionContext): string {
   const candidateName = context.candidateName?.trim() || "候选人";

@@ -753,7 +753,6 @@ describe("cancelBatch", () => {
         notes: null,
         organizationId: ORG_A,
         resumeFileName: "bulk-cancel.pdf",
-        status: "draft",
         targetRole: null,
         updatedAt: NOW,
       });
