@@ -19,6 +19,7 @@ import {
   getMailIngestAccountLoginConfig,
   listAccountMailMessages,
   listWorkspaceMailIngestAccounts,
+  mailIngestAccountExistsInOrg,
   markMailIngestMessageSkipped,
   queryPaginatedPlatformMailIngestAccounts,
   queryPaginatedWorkspaceMailIngestAccounts,
@@ -308,6 +309,18 @@ describe("mail ingest workspace administration dao", () => {
       userId: OWNER,
     });
     expect(wrongOrg).toBeNull();
+  }, 30_000);
+
+  it("mailIngestAccountExistsInOrg: true same-org, false cross-org/missing", async () => {
+    await expect(
+      mailIngestAccountExistsInOrg({ id: "mail_ingest_owner_account", organizationId: ORG }),
+    ).resolves.toBe(true);
+    await expect(
+      mailIngestAccountExistsInOrg({ id: "mail_ingest_owner_account", organizationId: OTHER_ORG }),
+    ).resolves.toBe(false);
+    await expect(
+      mailIngestAccountExistsInOrg({ id: "does_not_exist", organizationId: ORG }),
+    ).resolves.toBe(false);
   }, 30_000);
 });
 

@@ -742,6 +742,21 @@ export async function getMailIngestAccountLoginConfig({
   return row ? toLoginConfig(row) : null;
 }
 
+export async function mailIngestAccountExistsInOrg({
+  id,
+  organizationId,
+}: {
+  id: string;
+  organizationId: string;
+}): Promise<boolean> {
+  const [row] = await db
+    .select({ id: mailIngestAccount.id })
+    .from(mailIngestAccount)
+    .where(and(eq(mailIngestAccount.id, id), eq(mailIngestAccount.organizationId, organizationId)))
+    .limit(1);
+  return Boolean(row);
+}
+
 function buildAccountUpdateValues(input: UpdateAccountInput) {
   const updateValues: Partial<typeof mailIngestAccount.$inferInsert> = {
     updatedAt: new Date(),
