@@ -108,6 +108,26 @@ def test_agent_session_uses_audio_turn_detector_and_user_turn_limit(monkeypatch)
     }
 
 
+def test_agent_session_uses_pcm_for_minimax_streaming_audio(monkeypatch):
+    monkeypatch.setattr(agent_module, "AgentSession", _FakeAgentSession)
+    monkeypatch.setattr(agent_module.elevenlabs, "STT", _FakeComponent)
+    monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
+    monkeypatch.setattr(agent_module.minimax, "TTS", _FakeComponent)
+    monkeypatch.setattr(
+        agent_module.inference, "TurnDetector", lambda: "audio-turn-detector"
+    )
+
+    session = _build_session(
+        proc=SimpleNamespace(userdata={"vad": "silero-vad"}),
+        selected_voice="voice_agent_Male_Phone_1",
+        state=object(),
+    )
+
+    tts = session.kwargs["tts"]
+
+    assert tts.kwargs["audio_format"] == "pcm"
+
+
 def test_room_options_enable_text_input_when_round_allows_it():
     options = _build_room_options(allow_text_input=True)
 
