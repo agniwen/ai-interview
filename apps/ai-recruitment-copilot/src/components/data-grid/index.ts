@@ -2,7 +2,7 @@
 // Public API for the DataGrid component family.
 // Filled in as each part is built.
 
-export { PINNED_CELL_CLASS, getPinningStyles } from "./parts/pinned-cell";
+export { getPinningStyles } from "./parts/pinned-cell";
 export { selectColumn } from "./columns/select-column";
 export { textColumn, type TextColumnOptions } from "./columns/text-column";
 export { dateColumn, type DateColumnOptions } from "./columns/date-column";

@@ -294,11 +294,11 @@ function InterviewManagementPage() {
           const previewable = isPreviewableResumeDocumentInput({ fileName: r.resumeFileName });
           const previewTitle = r.resumeFileName ?? "查看简历";
           return (
-            <div className="flex min-w-0 items-start gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               {r.hasResumeFile && previewable ? (
                 <button
                   aria-label={previewTitle}
-                  className="group/pdf mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="group/pdf inline-flex size-8 shrink-0 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -316,7 +316,7 @@ function InterviewManagementPage() {
                 <span
                   aria-disabled="true"
                   aria-label="暂无可预览简历"
-                  className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
+                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
                   title="暂无可预览简历"
                 >
                   <ResumeDocumentFileIcon className="size-8" kind={documentKind} />

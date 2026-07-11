@@ -7,6 +7,7 @@ import { ResumeEducationDisplayLine } from "@/components/features/resume/resume-
 import { DataField } from "@/components/features/display/data-field";
 import { DataFields } from "@/components/features/display/data-fields";
 import { EmptyValue } from "@/components/features/display/empty-value";
+import { Frame, FramePanel } from "@/components/ui/frame";
 import type { ExperienceItemType } from "@/components/features/resume/work-experience";
 import { WorkExperience } from "@/components/features/resume/work-experience";
 
@@ -169,7 +170,7 @@ function EducationExperienceList({
   }
 
   return (
-    <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+    <Frame className="grid grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] gap-1 *:[[data-slot=frame-panel]+[data-slot=frame-panel]]:mt-0">
       {educationExperiences.map((education, index) => {
         const educationItem = formatResumeEducationItem(education) ?? {
           level: null,
@@ -178,8 +179,8 @@ function EducationExperienceList({
         };
         const period = cleanText(education.period) ?? cleanText(education.graduationYear);
         return (
-          <li
-            className="flex h-full min-w-0 flex-col rounded-xl border border-muted/60 bg-muted/30 px-4 py-3"
+          <FramePanel
+            className="flex min-w-0 flex-col p-3"
             key={`${education.school ?? "education"}-${index}`}
           >
             <ResumeEducationDisplayLine
@@ -193,14 +194,12 @@ function EducationExperienceList({
               </p>
             ) : null}
             {period ? (
-              <span className="mt-auto pt-2 text-muted-foreground text-xs tabular-nums">
-                {period}
-              </span>
+              <span className="pt-2 text-muted-foreground text-xs tabular-nums">{period}</span>
             ) : null}
-          </li>
+          </FramePanel>
         );
       })}
-    </ul>
+    </Frame>
   );
 }
 

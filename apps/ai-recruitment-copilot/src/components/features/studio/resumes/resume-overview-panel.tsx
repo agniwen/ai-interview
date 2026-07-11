@@ -29,12 +29,11 @@ import { EmptyValue } from "@/components/features/display/empty-value";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@arc/shared/utils";
 import type { ReactNode } from "react";
 import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart } from "recharts";
-
-const REVIEW_SURFACE_CLASS = "rounded-2xl border border-muted/60 bg-muted/20 p-6";
 
 const DIMENSION_LABELS = RESUME_REVIEW_DIMENSIONS;
 
@@ -221,10 +220,10 @@ function ResumeOverviewAiScoreSection({
 
 function ReviewSectionHeader({ action, title }: { action?: ReactNode; title: string }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <h3 className="font-medium text-sm">{title}</h3>
+    <FrameHeader className="flex-row flex-wrap items-center justify-between gap-3">
+      <FrameTitle>{title}</FrameTitle>
       {action ? <div className="flex flex-wrap items-center gap-2">{action}</div> : null}
-    </div>
+    </FrameHeader>
   );
 }
 
@@ -243,15 +242,21 @@ function DimensionScoreItem({ dimension }: { dimension: ReviewDimensionDisplay }
   );
 }
 
-function DimensionScoreGroup({ dimensions }: { dimensions: ReviewDimensionDisplay[] }) {
+function DimensionScoreGroup({
+  className,
+  dimensions,
+}: {
+  className?: string;
+  dimensions: ReviewDimensionDisplay[];
+}) {
   return (
-    <div className={cn("space-y-4", REVIEW_SURFACE_CLASS)}>
+    <FramePanel className={cn("space-y-4", className)}>
       {dimensions.map((dimension, index) => (
         <div className={cn(index > 0 ? "border-t border-border/50 pt-4" : "")} key={dimension.key}>
           <DimensionScoreItem dimension={dimension} />
         </div>
       ))}
-    </div>
+    </FramePanel>
   );
 }
 
@@ -299,7 +304,7 @@ function BiasScanSection({
   review: ResumeReviewLoose;
 }) {
   return (
-    <section className="space-y-4">
+    <Frame className="h-full">
       <ReviewSectionHeader
         action={
           <>
@@ -311,8 +316,8 @@ function BiasScanSection({
         }
         title="偏差扫描"
       />
-      <ScrollArea className="h-[28rem] rounded-2xl border border-muted/60 bg-muted/20">
-        <div className="px-5 md:px-6">
+      <FramePanel className="flex-1">
+        <ScrollArea className="h-[24rem]">
           {review.biasScan.items.length > 0 ? (
             <ul className="divide-y divide-border/50">
               {review.biasScan.items.map((item, index) => (
@@ -328,9 +333,9 @@ function BiasScanSection({
           ) : (
             <p className="py-5 text-muted-foreground text-sm">未发现关键偏差</p>
           )}
-        </div>
-      </ScrollArea>
-    </section>
+        </ScrollArea>
+      </FramePanel>
+    </Frame>
   );
 }
 
@@ -344,42 +349,44 @@ function ReviewSummaryHero({
   summaryAction?: ReactNode;
 }) {
   return (
-    <section className={REVIEW_SURFACE_CLASS}>
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_12rem] lg:items-start">
-        <div className="min-w-0 space-y-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-muted-foreground text-xs">推荐建议</span>
-            <Badge variant={actionVariant(review.nextStep.action)}>
-              {resumeReviewActionLabel[review.nextStep.action]}
-            </Badge>
-            <Badge variant="outline">{review.levelRecommendation.level}</Badge>
-          </div>
-          <div className="space-y-2">
-            <h3 className="font-semibold text-base leading-7">{review.overall.conclusion}</h3>
-            <p className="text-muted-foreground text-sm leading-6">
-              {review.overall.scoreRationale}
-            </p>
-          </div>
-          <div className="grid gap-5 md:grid-cols-2">
-            <div className="min-w-0 space-y-1">
-              <div className="text-muted-foreground text-xs">下一步行动</div>
-              <p className="text-sm leading-6">{review.nextStep.rationale}</p>
+    <Frame>
+      <ReviewSectionHeader action={summaryAction} title="综合评价" />
+      <FramePanel>
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_12rem] lg:items-start">
+          <div className="min-w-0 space-y-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-muted-foreground text-xs">推荐建议</span>
+              <Badge variant={actionVariant(review.nextStep.action)}>
+                {resumeReviewActionLabel[review.nextStep.action]}
+              </Badge>
+              <Badge variant="outline">{review.levelRecommendation.level}</Badge>
             </div>
-            <div className="min-w-0 space-y-1">
-              <div className="text-muted-foreground text-xs">团队定位</div>
-              <p className="text-sm leading-6">{review.teamPositioning.suggestion}</p>
+            <div className="space-y-2">
+              <h3 className="font-semibold text-base leading-7">{review.overall.conclusion}</h3>
+              <p className="text-muted-foreground text-sm leading-6">
+                {review.overall.scoreRationale}
+              </p>
             </div>
+            <div className="grid gap-5 md:grid-cols-2">
+              <div className="min-w-0 space-y-1">
+                <div className="text-muted-foreground text-xs">下一步行动</div>
+                <p className="text-sm leading-6">{review.nextStep.rationale}</p>
+              </div>
+              <div className="min-w-0 space-y-1">
+                <div className="text-muted-foreground text-xs">团队定位</div>
+                <p className="text-sm leading-6">{review.teamPositioning.suggestion}</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex min-w-0 flex-col items-start gap-5 lg:items-end lg:text-right">
+            <div className="font-semibold text-7xl tabular-nums leading-none tracking-tighter">
+              {baseScore ?? <EmptyValue />}
+            </div>
+            <div className="-mt-3 text-muted-foreground text-xs">综合评分 / 100</div>
           </div>
         </div>
-        <div className="flex min-w-0 flex-col items-start gap-5 lg:items-end lg:text-right">
-          {summaryAction ? <div>{summaryAction}</div> : null}
-          <div className="font-semibold text-7xl tabular-nums leading-none tracking-tighter">
-            {baseScore ?? <EmptyValue />}
-          </div>
-          <div className="-mt-3 text-muted-foreground text-xs">综合评分 / 100</div>
-        </div>
-      </div>
-    </section>
+      </FramePanel>
+    </Frame>
   );
 }
 
@@ -405,65 +412,79 @@ export function ResumeReviewStructuredView({
     <div className="w-full space-y-6">
       <ReviewSummaryHero baseScore={baseScore} review={review} summaryAction={summaryAction} />
 
-      <section className="space-y-4">
+      <Frame>
         <ReviewSectionHeader
           action={<span className="text-muted-foreground text-xs">0-100</span>}
           title="维度评分"
         />
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className={cn("flex min-w-0 items-center justify-center", REVIEW_SURFACE_CLASS)}>
+        <div className="grid gap-1 lg:grid-cols-2">
+          <FramePanel className="flex min-w-0 items-center justify-center lg:rounded-tr-[2px] lg:rounded-br-[2px] lg:rounded-bl-[2px] lg:before:rounded-tr-[1px] lg:before:rounded-br-[1px] lg:before:rounded-bl-[1px]">
             <DimensionRadarChart dimensions={dimensionScores} />
-          </div>
-          {dimensionScoreGroups.map((group) => (
+          </FramePanel>
+          {dimensionScoreGroups.map((group, index) => (
             <DimensionScoreGroup
+              className={cn(
+                index === 0 &&
+                  "lg:rounded-tl-[2px] lg:rounded-br-[2px] lg:rounded-bl-[2px] lg:before:rounded-tl-[1px] lg:before:rounded-br-[1px] lg:before:rounded-bl-[1px]",
+                index === 1 &&
+                  "lg:rounded-tl-[2px] lg:rounded-tr-[2px] lg:rounded-br-[2px] lg:before:rounded-tl-[1px] lg:before:rounded-tr-[1px] lg:before:rounded-br-[1px]",
+                index === 2 &&
+                  "lg:rounded-tl-[2px] lg:rounded-tr-[2px] lg:rounded-bl-[2px] lg:before:rounded-tl-[1px] lg:before:rounded-tr-[1px] lg:before:rounded-bl-[1px]",
+              )}
               dimensions={group}
               key={group.map((dimension) => dimension.key).join("-")}
             />
           ))}
         </div>
-      </section>
+      </Frame>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="space-y-4">
+        <Frame className="h-full">
           <ReviewSectionHeader title="优点" />
-          <ScrollArea className="h-[28rem] rounded-2xl border border-muted/60 bg-muted/20">
-            <div className="px-5 md:px-6">
+          <FramePanel className="flex-1">
+            <ScrollArea className="h-[24rem]">
               <ReviewPointList items={review.strengths} tone="positive" />
-            </div>
-          </ScrollArea>
-        </section>
+            </ScrollArea>
+          </FramePanel>
+        </Frame>
 
-        <section className="space-y-4">
+        <Frame className="h-full">
           <ReviewSectionHeader title="缺点" />
-          <ScrollArea className="h-[28rem] rounded-2xl border border-muted/60 bg-muted/20">
-            <div className="px-5 md:px-6">
+          <FramePanel className="flex-1">
+            <ScrollArea className="h-[24rem]">
               <ReviewPointList items={review.weaknesses} tone="negative" />
-            </div>
-          </ScrollArea>
-        </section>
+            </ScrollArea>
+          </FramePanel>
+        </Frame>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <BiasScanSection biasCounts={biasCounts} review={review} />
-        {screeningResultSlot ? <div className="min-w-0">{screeningResultSlot}</div> : null}
+        {screeningResultSlot ? (
+          <div className="h-full min-w-0 [&>[data-slot=frame]]:h-full">{screeningResultSlot}</div>
+        ) : null}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <section className={cn("space-y-4", REVIEW_SURFACE_CLASS)}>
+        <Frame className="h-full">
           <ReviewSectionHeader title="团队定位建议" />
-          <div className="space-y-2 text-sm leading-6">
-            <p className="font-medium">{review.teamPositioning.suggestion}</p>
-            <p className="text-muted-foreground">{review.teamPositioning.rationale}</p>
-          </div>
-        </section>
+          <FramePanel className="flex-1">
+            <div className="space-y-2 text-sm leading-6">
+              <p className="font-medium">{review.teamPositioning.suggestion}</p>
+              <p className="text-muted-foreground">{review.teamPositioning.rationale}</p>
+            </div>
+          </FramePanel>
+        </Frame>
 
-        <section className={cn("space-y-4", REVIEW_SURFACE_CLASS)}>
+        <Frame className="h-full">
           <ReviewSectionHeader title="职级建议" />
-          <div className="space-y-2 text-sm leading-6">
-            <Badge variant="outline">{review.levelRecommendation.level}</Badge>
-            <p className="text-muted-foreground">{review.levelRecommendation.rationale}</p>
-          </div>
-        </section>
+          <FramePanel className="flex-1">
+            <div className="space-y-2 text-sm leading-6">
+              <Badge variant="outline">{review.levelRecommendation.level}</Badge>
+              <p className="text-muted-foreground">{review.levelRecommendation.rationale}</p>
+            </div>
+          </FramePanel>
+        </Frame>
       </div>
     </div>
   );

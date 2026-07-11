@@ -72,7 +72,7 @@
   --radius: 0.875rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.28 0.04 254);
-  --card: #fafafa;
+  --card: var(--background);
   --card-foreground: oklch(0.28 0.04 254);
   --popover: #fafafa;
   --popover-foreground: oklch(0.28 0.04 254);

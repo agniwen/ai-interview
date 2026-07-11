@@ -35,6 +35,7 @@ const buttonVariants = cva(
           "border bg-background shadow-xs/5 before:shadow-[0_1px_--theme(--color-black/4%)] hover:bg-accent hover:text-accent-foreground active:shadow-none dark:border-input dark:bg-input/30 dark:before:shadow-[0_-1px_--theme(--color-white/6%)] dark:hover:bg-input/50",
         secondary:
           "border border-primary/20 bg-secondary text-secondary-foreground shadow-xs/5 inset-shadow-[0_1px_--theme(--color-white/10%)] hover:bg-secondary/80 active:inset-shadow-[0_1px_--theme(--color-black/4%)]",
+        text: "border border-transparent bg-transparent text-foreground shadow-none hover:border-transparent hover:bg-transparent hover:text-foreground active:scale-100",
       },
     },
   },

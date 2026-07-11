@@ -132,7 +132,7 @@ export function PdfPreviewButton({
         onClick={() => setOpen(true)}
         size="sm"
         type="button"
-        variant="outline"
+        variant="ghost"
       >
         <IconEye className="size-3.5" />
         {label}

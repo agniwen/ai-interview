@@ -102,7 +102,7 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
                 onClick={() => void action.onClick(record)}
                 size="sm"
                 title={reason ?? action.label}
-                variant="ghost"
+                variant="text"
               >
                 {action.label}
               </Button>
@@ -117,7 +117,7 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
                     className="h-8 pl-2.5 pr-0 text-xs"
                     size="sm"
                     title="更多操作"
-                    variant="ghost"
+                    variant="text"
                   >
                     更多
                   </Button>

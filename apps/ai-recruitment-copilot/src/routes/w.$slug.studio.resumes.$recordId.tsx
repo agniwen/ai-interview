@@ -341,11 +341,6 @@ function RecruiterResumeDetailPage() {
               : undefined
           }
           onUpdated={invalidateAll}
-          onViewRoundDetail={(roundId) => {
-            setInterviewDetailDefaultTab("reports");
-            setInterviewRoundDetailId(roundId);
-            setInterviewDetailDialogOpen(true);
-          }}
           recordId={recordId}
           shell={({ body, description, headerExtra, title }) => (
             <div className="flex min-w-0 flex-col gap-5">

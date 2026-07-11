@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Frame, FrameHeader, FramePanel } from "@/components/ui/frame";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type DetailSkeletonMode = "interview" | "resume";
@@ -162,25 +163,27 @@ export function FormsSkeleton() {
 
 export function InterviewResultOverviewSkeleton() {
   return (
-    <div className="h-full rounded-2xl bg-muted/20 border-muted/60 border p-5 ">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <Frame className="h-full">
+      <FrameHeader className="flex-row flex-wrap items-center justify-between gap-3">
         <Skeleton className="h-5 w-20" />
         <Skeleton className="h-6 w-20" />
-      </div>
-      <div className="mt-5 grid gap-x-8 gap-y-4 sm:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <div className="min-w-0" key={index}>
-            <Skeleton className="h-3 w-12" />
-            <Skeleton className="mt-2 h-5 w-20" />
-          </div>
-        ))}
-      </div>
-      <div className="mt-5 space-y-2 border-border/50 border-t pt-5">
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-11/12" />
-        <Skeleton className="h-4 w-2/3" />
-      </div>
-    </div>
+      </FrameHeader>
+      <FramePanel className="flex-1">
+        <div className="grid gap-x-8 gap-y-4 sm:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div className="min-w-0" key={index}>
+              <Skeleton className="h-3 w-12" />
+              <Skeleton className="mt-2 h-5 w-20" />
+            </div>
+          ))}
+        </div>
+        <div className="mt-5 flex flex-col gap-2 border-border/50 border-t pt-5">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-11/12" />
+          <Skeleton className="h-4 w-2/3" />
+        </div>
+      </FramePanel>
+    </Frame>
   );
 }
 

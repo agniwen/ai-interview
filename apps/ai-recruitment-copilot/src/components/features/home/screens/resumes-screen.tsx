@@ -13,7 +13,6 @@ import {
 // - DataGrid: AlignUI table primitives，Toolbar 在外面 (filters 左 + button 右)
 // Purpose: simplified Studio resume library mock, mirroring the real components 1:1.
 
-import { Fragment } from "react";
 import { PdfFileIcon } from "@/components/features/pdf/pdf-file-icon";
 import {
   Table,
@@ -22,7 +21,6 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  TableRowDivider,
 } from "@/components/ui/table";
 import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
@@ -570,7 +568,7 @@ function LifecycleBadge({ row }: { row: ResumeRow }) {
 
 function ResumeTable() {
   return (
-    <Table className="table-fixed">
+    <Table className="table-fixed" variant="card">
       <TableHeader>
         <TableRow>
           <TableHead aria-label="选择" className="w-12">
@@ -589,89 +587,86 @@ function ResumeTable() {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {RESUMES.map((r, index) => (
-          <Fragment key={r.name}>
-            <TableRow key={r.name}>
-              <TableCell aria-label="选择简历">
-                <span
-                  aria-hidden="true"
-                  className="inline-block size-4 rounded-[3px] border border-foreground/30"
-                />
-              </TableCell>
-              <TableCell aria-label={`候选人：${r.name}`}>
-                <div className="flex min-w-0 items-start gap-2">
-                  {r.hasPdf ? (
-                    <span
-                      aria-label="查看简历 PDF"
-                      className="group/pdf mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-muted"
-                    >
-                      <PdfFileIcon className="size-8 opacity-80 transition-transform duration-200 group-hover/pdf:scale-105" />
-                    </span>
-                  ) : (
-                    <span
-                      aria-disabled="true"
-                      aria-label="暂无简历 PDF"
-                      className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
-                    >
-                      <PdfFileIcon className="size-8" />
-                    </span>
-                  )}
-                  <div className="min-w-0">
-                    <div className="truncate font-medium text-foreground underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60">
-                      {r.name}
-                    </div>
-                    <div className="truncate text-muted-foreground text-xs underline decoration-muted-foreground/20 underline-offset-4 hover:decoration-muted-foreground/60">
-                      {r.email}
-                    </div>
+        {RESUMES.map((r) => (
+          <TableRow key={r.name}>
+            <TableCell aria-label="选择简历">
+              <span
+                aria-hidden="true"
+                className="inline-block size-4 rounded-[3px] border border-foreground/30"
+              />
+            </TableCell>
+            <TableCell aria-label={`候选人：${r.name}`}>
+              <div className="flex min-w-0 items-start gap-2">
+                {r.hasPdf ? (
+                  <span
+                    aria-label="查看简历 PDF"
+                    className="group/pdf mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-muted"
+                  >
+                    <PdfFileIcon className="size-8 opacity-80 transition-transform duration-200 group-hover/pdf:scale-105" />
+                  </span>
+                ) : (
+                  <span
+                    aria-disabled="true"
+                    aria-label="暂无简历 PDF"
+                    className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
+                  >
+                    <PdfFileIcon className="size-8" />
+                  </span>
+                )}
+                <div className="min-w-0">
+                  <div className="truncate font-medium text-foreground underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60">
+                    {r.name}
+                  </div>
+                  <div className="truncate text-muted-foreground text-xs underline decoration-muted-foreground/20 underline-offset-4 hover:decoration-muted-foreground/60">
+                    {r.email}
                   </div>
                 </div>
-              </TableCell>
-              <TableCell>
-                <span className="block truncate underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60">
-                  {r.jobDepartment} / {r.jobLink}
+              </div>
+            </TableCell>
+            <TableCell>
+              <span className="block truncate underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60">
+                {r.jobDepartment} / {r.jobLink}
+              </span>
+            </TableCell>
+            <TableCell>
+              <LifecycleBadge row={r} />
+            </TableCell>
+            <TableCell aria-label={`创建人：${r.creator}`}>
+              <div className="flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="size-5 rounded-full bg-gradient-to-br from-primary/15 to-primary/30"
+                />
+                <span>{r.creator}</span>
+              </div>
+            </TableCell>
+            <TableCell className="text-muted-foreground tabular-nums">{r.createdAt}</TableCell>
+            <TableCell className="text-muted-foreground tabular-nums">
+              {r.lastInterviewAt}
+            </TableCell>
+            <TableCell>
+              <div className="flex items-center justify-end gap-0.5">
+                <span
+                  aria-label="查看简历"
+                  className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
+                >
+                  查看
                 </span>
-              </TableCell>
-              <TableCell>
-                <LifecycleBadge row={r} />
-              </TableCell>
-              <TableCell aria-label={`创建人：${r.creator}`}>
-                <div className="flex items-center gap-2">
-                  <span
-                    aria-hidden="true"
-                    className="size-5 rounded-full bg-gradient-to-br from-primary/15 to-primary/30"
-                  />
-                  <span>{r.creator}</span>
-                </div>
-              </TableCell>
-              <TableCell className="text-muted-foreground tabular-nums">{r.createdAt}</TableCell>
-              <TableCell className="text-muted-foreground tabular-nums">
-                {r.lastInterviewAt}
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center justify-end gap-0.5">
-                  <span
-                    aria-label="查看简历"
-                    className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
-                  >
-                    查看
-                  </span>
-                  <span
-                    aria-label="编辑简历"
-                    className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
-                  >
-                    编辑
-                  </span>
-                  <span
-                    aria-label="更多简历操作"
-                    className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
-                  >
-                    更多
-                  </span>
-                </div>
-              </TableCell>
-            </TableRow>
-            {index < RESUMES.length - 1 ? <TableRowDivider /> : null}
-          </Fragment>
+                <span
+                  aria-label="编辑简历"
+                  className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
+                >
+                  编辑
+                </span>
+                <span
+                  aria-label="更多简历操作"
+                  className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
+                >
+                  更多
+                </span>
+              </div>
+            </TableCell>
+          </TableRow>
         ))}
       </TableBody>
     </Table>

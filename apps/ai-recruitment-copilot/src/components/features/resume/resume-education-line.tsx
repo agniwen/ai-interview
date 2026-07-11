@@ -34,18 +34,29 @@ export function EducationLevelTag({ level }: { level: string | null | undefined 
 export function ResumeEducationDisplayLine({
   className,
   item,
+  levelDisplay = "badge",
   majorLayout = "inline",
 }: {
   className?: string;
   item: ResumeEducationDisplayItem;
+  levelDisplay?: "badge" | "suffix";
   majorLayout?: "block" | "inline";
 }) {
+  const levelLabel = item.level?.trim();
+  const levelSuffix =
+    levelDisplay === "suffix" && levelLabel ? (
+      <span className="font-normal text-muted-foreground">（{levelLabel}）</span>
+    ) : null;
+
   if (majorLayout === "block") {
     return (
       <span className={cn("inline-flex min-w-0 flex-col items-start gap-1.5", className)}>
         <span className="inline-flex min-w-0 items-center gap-1.5">
-          <EducationLevelTag level={item.level} />
-          <span className="min-w-0 wrap-break-word font-medium">{item.school}</span>
+          {levelDisplay === "badge" ? <EducationLevelTag level={item.level} /> : null}
+          <span className="min-w-0 wrap-break-word font-medium">
+            {item.school}
+            {levelSuffix}
+          </span>
         </span>
         {item.major ? (
           <span className="min-w-0 wrap-break-word text-muted-foreground">{item.major}</span>
@@ -56,8 +67,11 @@ export function ResumeEducationDisplayLine({
 
   return (
     <span className={cn("inline-flex min-w-0 flex-wrap items-center gap-1.5", className)}>
-      <EducationLevelTag level={item.level} />
-      <span className="min-w-0 wrap-break-word font-medium">{item.school}</span>
+      {levelDisplay === "badge" ? <EducationLevelTag level={item.level} /> : null}
+      <span className="min-w-0 wrap-break-word font-medium">
+        {item.school}
+        {levelSuffix}
+      </span>
       {item.major ? (
         <span className="min-w-0 wrap-break-word text-muted-foreground">· {item.major}</span>
       ) : null}

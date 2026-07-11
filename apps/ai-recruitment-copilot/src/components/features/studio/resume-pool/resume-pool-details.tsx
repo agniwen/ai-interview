@@ -34,6 +34,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Modal } from "@/components/ui/modal";
+import { Separator } from "@/components/ui/separator";
 import { fetchResumePoolItem } from "@/lib/client/api";
 
 import {
@@ -226,7 +227,7 @@ function ResumePoolHighlightRow({
   value: ReactNode;
 }) {
   return (
-    <div className="rounded-md border-muted/60 border bg-muted/30 px-2.5 py-2">
+    <div className="py-2">
       <div className="flex items-center gap-1.5 text-muted-foreground">
         <Icon className="size-3.5 shrink-0" />
         <span className="text-xs">{label}</span>
@@ -250,7 +251,7 @@ export function ResumePoolCardHighlights({ record }: { record: ResumePoolListRec
       <ul className="flex flex-col gap-1">
         {educationItems.map((item) => (
           <li key={`${item.level ?? "education"}-${item.school}-${item.major ?? ""}`}>
-            <ResumeEducationDisplayLine item={item} />
+            <ResumeEducationDisplayLine item={item} levelDisplay="suffix" />
           </li>
         ))}
       </ul>
@@ -283,7 +284,8 @@ export function ResumePoolCardHighlights({ record }: { record: ResumePoolListRec
   }
 
   return (
-    <div className="flex flex-col gap-1.5 border-border/70 border-t pt-3 text-xs">
+    <div className="text-xs">
+      <Separator />
       {rows.map((row) => (
         <ResumePoolHighlightRow
           icon={row.icon}
@@ -292,6 +294,7 @@ export function ResumePoolCardHighlights({ record }: { record: ResumePoolListRec
           value={row.value}
         />
       ))}
+      <Separator />
     </div>
   );
 }
@@ -407,7 +410,7 @@ export function ResumePoolCardActions({
   }
 
   return (
-    <CardFooter className="flex items-center gap-2 px-3">
+    <CardFooter className="flex items-center gap-2 p-3 pt-0">
       {canImport ? (
         <Button
           aria-label={importActionState.label}
@@ -540,8 +543,8 @@ export function ResumePoolCard({
   }
 
   return (
-    <Card className="w-full gap-3 rounded-md py-3">
-      <CardHeader className="flex flex-row items-center gap-2 px-3">
+    <Card className="w-full rounded-md">
+      <CardHeader className="flex flex-row items-center gap-2 p-3 pb-0">
         {documentIcon}
         <div className="min-w-0 flex-1">
           <CardTitle className="text-sm leading-5">
@@ -569,7 +572,7 @@ export function ResumePoolCard({
           />
         ) : null}
       </CardHeader>
-      <CardContent className="flex flex-col gap-3 px-3 text-xs">
+      <CardContent className="flex flex-col gap-3 p-3 text-xs">
         <div className="flex flex-col gap-1.5 text-muted-foreground">
           <div className="flex min-w-0 items-center gap-1.5">
             <IconBriefcase2 className="size-3.5 shrink-0" />

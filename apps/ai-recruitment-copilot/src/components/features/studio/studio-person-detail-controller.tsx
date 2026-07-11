@@ -71,6 +71,60 @@ import {
   updateAllowTextInput,
 } from "./studio-person-detail-sections";
 import { StudioPersonDetailView } from "./studio-person-detail-view";
+
+interface UnifiedRecord {
+  id: string;
+  candidateName: string;
+  candidateEmail: string | null;
+  candidatePhone: string | null;
+  targetRole: string | null;
+  jobDescriptionName: string | null;
+  resumeFileName: string | null;
+  resumeParseStatus?: ResumeLibraryDetail["resumeParseStatus"];
+  resumeProfile: ResumeLibraryDetail["resumeProfile"];
+  notes: string | null;
+  hasResumeFile: boolean;
+  creatorName: string | null;
+  resumeStorageKey?: string | null;
+  interviewQuestions?: StudioInterviewRoundDetail["candidate"]["interviewQuestions"];
+  pipelineStage?: ResumeLibraryDetail["pipelineStage"];
+  outcome?: ResumeLibraryDetail["outcome"];
+  roundId?: string;
+  roundLabel?: string;
+  roundScheduledAt?: string | null;
+  roundStatus?: StudioInterviewRoundDetail["status"];
+  roundInterviewLink?: string;
+  roundAllowTextInput?: boolean;
+  roundHasReport?: boolean;
+}
+
+function toUnifiedRoundRecord(round: StudioInterviewRoundDetail): UnifiedRecord {
+  return {
+    candidateEmail: round.candidate.candidateEmail,
+    candidateName: round.candidate.candidateName,
+    candidatePhone: round.candidate.candidatePhone,
+    creatorName: round.candidate.creatorName,
+    hasResumeFile: Boolean(round.candidate.resumeStorageKey),
+    id: round.candidate.id,
+    interviewQuestions: round.candidate.interviewQuestions,
+    jobDescriptionName: round.candidate.jobDescriptionName,
+    notes: round.candidate.notes,
+    outcome: round.candidate.outcome,
+    pipelineStage: round.candidate.pipelineStage,
+    resumeFileName: round.candidate.resumeFileName,
+    resumeProfile: round.candidate.resumeProfile ?? null,
+    resumeStorageKey: round.candidate.resumeStorageKey,
+    roundAllowTextInput: round.allowTextInput,
+    roundHasReport: round.hasReport,
+    roundId: round.id,
+    roundInterviewLink: round.interviewLink,
+    roundLabel: round.roundLabel,
+    roundScheduledAt: round.scheduledAt,
+    roundStatus: round.status,
+    targetRole: round.candidate.targetRole,
+  };
+}
+
 export function useStudioPersonDetailController({
   recordId,
   roundId,
@@ -81,7 +135,6 @@ export function useStudioPersonDetailController({
   layoutMode = "modal",
   onUpdated,
   onLaunchInterview,
-  onViewRoundDetail,
   onClose,
   onRequestClose,
   onRequestReactivate,
@@ -258,6 +311,50 @@ export function useStudioPersonDetailController({
     queryKey: ["studio-resume-rounds", slug, effectiveRecordId, accessMode] as const,
     refetchOnWindowFocus: true,
   });
+  const latestCandidateRoundId = mode === "resume" ? (candidateRounds.at(-1)?.id ?? null) : null;
+  const shouldLoadResumeInterviewResult =
+    enabled && mode === "resume" && activeTab === "rounds" && !!latestCandidateRoundId;
+  const { data: latestCandidateRoundReports = [], isLoading: isCandidateRoundReportsLoading } =
+    useQuery({
+      enabled: shouldLoadResumeInterviewResult,
+      queryFn: () =>
+        isPublic
+          ? fetchPublicInterviewRoundReports(latestCandidateRoundId as string)
+          : fetchStudioInterviewRoundReports(slug, latestCandidateRoundId as string),
+      queryKey: [
+        "studio-interview-round-reports",
+        slug,
+        latestCandidateRoundId,
+        accessMode,
+      ] as const,
+      refetchOnWindowFocus: true,
+    });
+  const { data: resumeInterviewRound, isLoading: isResumeInterviewRoundLoading } = useQuery({
+    enabled: shouldLoadResumeInterviewResult,
+    queryFn: () =>
+      isPublic
+        ? fetchPublicInterviewRound(latestCandidateRoundId as string)
+        : fetchStudioInterviewRound(slug, latestCandidateRoundId as string),
+    queryKey: ["studio-interview-round", slug, latestCandidateRoundId, accessMode] as const,
+    refetchOnWindowFocus: true,
+  });
+  const {
+    data: resumeInterviewFormSubmissions = [],
+    isLoading: isResumeInterviewFormSubmissionsLoading,
+  } = useQuery({
+    enabled: shouldLoadResumeInterviewResult,
+    queryFn: () =>
+      isPublic
+        ? fetchPublicInterviewRoundFormSubmissions(latestCandidateRoundId as string)
+        : fetchStudioInterviewRoundFormSubmissions(slug, latestCandidateRoundId as string),
+    queryKey: [
+      "studio-interview-round-form-submissions",
+      slug,
+      latestCandidateRoundId,
+      accessMode,
+    ] as const,
+    refetchOnWindowFocus: true,
+  });
   const { data: candidateTimeline, isLoading: isTimelineLoading } = useQuery({
     enabled:
       enabled && !!effectiveRecordId && mode === "resume" && !isPublic && activeTab === "overview",
@@ -268,62 +365,22 @@ export function useStudioPersonDetailController({
     queryKey: ["studio-resumes", slug, "timeline", effectiveRecordId, accessMode] as const,
     refetchOnWindowFocus: true,
   });
-  const roundEmailSummaryRoundIds = mode === "interview" && round?.id ? [round.id] : [];
+  let resultRoundId: string | null = null;
+  if (mode === "interview") {
+    resultRoundId = round?.id ?? null;
+  } else if (shouldLoadResumeInterviewResult) {
+    resultRoundId = latestCandidateRoundId;
+  }
+  const roundEmailSummaryRoundIds = canUseManagementActions && resultRoundId ? [resultRoundId] : [];
   const roundEmailSummaryQuery = useRoundEmailSummary(slug, roundEmailSummaryRoundIds);
-  const roundEmailSummary = round?.id ? roundEmailSummaryQuery.data?.[round.id] : undefined;
+  const roundEmailSummary = resultRoundId
+    ? roundEmailSummaryQuery.data?.[resultRoundId]
+    : undefined;
   const isLoading =
     mode === "interview" ? isResolvingRoundId || isInterviewLoading : isResumeLoading;
-  interface UnifiedRecord {
-    id: string;
-    candidateName: string;
-    candidateEmail: string | null;
-    candidatePhone: string | null;
-    targetRole: string | null;
-    jobDescriptionName: string | null;
-    resumeFileName: string | null;
-    resumeParseStatus?: ResumeLibraryDetail["resumeParseStatus"];
-    resumeProfile: ResumeLibraryDetail["resumeProfile"];
-    notes: string | null;
-    hasResumeFile: boolean;
-    creatorName: string | null;
-    resumeStorageKey?: string | null;
-    interviewQuestions?: StudioInterviewRoundDetail["candidate"]["interviewQuestions"];
-    pipelineStage?: ResumeLibraryDetail["pipelineStage"];
-    outcome?: ResumeLibraryDetail["outcome"];
-    roundId?: string;
-    roundLabel?: string;
-    roundScheduledAt?: string | null;
-    roundStatus?: StudioInterviewRoundDetail["status"];
-    roundInterviewLink?: string;
-    roundAllowTextInput?: boolean;
-    roundHasReport?: boolean;
-  }
   let record: UnifiedRecord | null = null;
   if (mode === "interview" && round) {
-    record = {
-      candidateEmail: round.candidate.candidateEmail,
-      candidateName: round.candidate.candidateName,
-      candidatePhone: round.candidate.candidatePhone,
-      creatorName: round.candidate.creatorName,
-      hasResumeFile: Boolean(round.candidate.resumeStorageKey),
-      id: round.candidate.id,
-      interviewQuestions: round.candidate.interviewQuestions,
-      jobDescriptionName: round.candidate.jobDescriptionName,
-      notes: round.candidate.notes,
-      outcome: round.candidate.outcome,
-      pipelineStage: round.candidate.pipelineStage,
-      resumeFileName: round.candidate.resumeFileName,
-      resumeProfile: round.candidate.resumeProfile ?? null,
-      resumeStorageKey: round.candidate.resumeStorageKey,
-      roundAllowTextInput: round.allowTextInput,
-      roundHasReport: round.hasReport,
-      roundId: round.id,
-      roundInterviewLink: round.interviewLink,
-      roundLabel: round.roundLabel,
-      roundScheduledAt: round.scheduledAt,
-      roundStatus: round.status,
-      targetRole: round.candidate.targetRole,
-    };
+    record = toUnifiedRoundRecord(round);
   } else if (mode === "resume" && resumeRecord) {
     record = {
       candidateEmail: resumeRecord.candidateEmail,
@@ -343,6 +400,9 @@ export function useStudioPersonDetailController({
       targetRole: resumeRecord.targetRole,
     };
   }
+  const resumeInterviewResultRecord = resumeInterviewRound
+    ? toUnifiedRoundRecord(resumeInterviewRound)
+    : null;
   useEffect(() => {
     if (optimisticPipelineStage && record?.pipelineStage === optimisticPipelineStage) {
       setOptimisticPipelineStage(null);
@@ -418,7 +478,6 @@ export function useStudioPersonDetailController({
     }
     dispatchUi({ id: targetRoundId, type: "updatingRoundChanged" });
     const error = await updateAllowTextInput({
-      effectiveRoundId,
       next,
       queryClient,
       slug,
@@ -438,7 +497,6 @@ export function useStudioPersonDetailController({
     }
     dispatchUi({ id: targetRoundId, type: "resettingRoundChanged" });
     const error = await resetInterviewRound({
-      effectiveRoundId,
       queryClient,
       slug,
       targetRoundId,
@@ -469,10 +527,27 @@ export function useStudioPersonDetailController({
   const latestEvaluationSummary = getEvaluationSummary(
     latestReport?.evaluationCriteriaResults as Record<string, unknown> | undefined,
   );
+  const latestCandidateRoundReport = latestCandidateRoundReports[0] ?? null;
+  const latestCandidateRoundEvaluationSummary = getEvaluationSummary(
+    latestCandidateRoundReport?.evaluationCriteriaResults as Record<string, unknown> | undefined,
+  );
+  const isResumeInterviewResultLoading =
+    isRoundsLoading ||
+    (!!latestCandidateRoundId &&
+      (isCandidateRoundReportsLoading ||
+        isResumeInterviewRoundLoading ||
+        isResumeInterviewFormSubmissionsLoading));
   const { formItems, interviewItems } = getCollectedCandidateInfoItems({
     evaluation: latestReport?.evaluationCriteriaResults as Record<string, unknown> | undefined,
     formSubmissions,
   });
+  const { formItems: resumeInterviewFormItems, interviewItems: resumeInterviewItems } =
+    getCollectedCandidateInfoItems({
+      evaluation: latestCandidateRoundReport?.evaluationCriteriaResults as
+        | Record<string, unknown>
+        | undefined,
+      formSubmissions: resumeInterviewFormSubmissions,
+    });
   const isRoundCompleted = record?.roundStatus === "completed";
   const canResetAiRound =
     Boolean(record?.roundId) && !isPublic && record?.pipelineStage === "ai_interview";
@@ -549,9 +624,9 @@ export function useStudioPersonDetailController({
       </span>
     );
   let description: ReactNode = renderHeaderDescription({ isLoading, round });
-  if (mode === "resume") {
+  if (mode === "resume" || (mode === "interview" && layoutMode === "modal")) {
     const linkedJobDescriptionName = record?.jobDescriptionName?.trim();
-    description = linkedJobDescriptionName ? `${linkedJobDescriptionName}` : "暂未关联岗位";
+    description = linkedJobDescriptionName || "暂未关联岗位";
   }
   const resumePreviewUrl = (() => {
     if (!record?.hasResumeFile) {
@@ -760,15 +835,17 @@ export function useStudioPersonDetailController({
     isPublic,
     isReassessingResume,
     isReportsLoading,
+    isResumeInterviewResultLoading,
     isRoundCompleted,
     isRoundsLoading,
     isTimelineLoading,
+    latestCandidateRoundEvaluationSummary,
+    latestCandidateRoundReport,
     latestEvaluationSummary,
     latestReport,
     metadataReport,
     mode,
     onRequestClose,
-    onViewRoundDetail,
     pendingResetSubmissionId,
     record,
     recordId,
@@ -777,6 +854,9 @@ export function useStudioPersonDetailController({
     reports,
     resettingRoundId,
     resettingSubmissionId,
+    resumeInterviewFormItems,
+    resumeInterviewItems,
+    resumeInterviewResultRecord,
     resumePreviewUrl,
     resumeRecord,
     round,

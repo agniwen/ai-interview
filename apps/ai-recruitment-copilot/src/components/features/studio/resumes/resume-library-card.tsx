@@ -7,6 +7,7 @@ import { TimeDisplay } from "@/components/features/display/time-display";
 import { ResumeLifecycleBadge } from "@/components/features/studio/resumes/resume-lifecycle-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardPanel } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { describeResumeProgress } from "@arc/shared/studio-resumes";
 import type {
@@ -340,9 +341,9 @@ function ResumeLibraryCardComponent({
 
   return (
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
-    <article
+    <Card
       className={cn(
-        "relative rounded-2xl border border-input bg-background bg-clip-padding p-4 shadow-xs/5 transition-colors before:pointer-events-none before:absolute before:inset-0 before:rounded-[inherit] before:shadow-[0_1px_--theme(--color-black/4%)] hover:border-border/80 hover:bg-muted/30 dark:bg-input/30 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
+        "transition-colors hover:border-border hover:bg-muted/30 dark:bg-input/30",
         selected && "border-primary/40 bg-primary/5 hover:bg-primary/5 hover:border-primary/60",
       )}
       onClick={(event) => {
@@ -351,6 +352,7 @@ function ResumeLibraryCardComponent({
         }
         onOpenDetail(record, "overview");
       }}
+      render={<article />}
     >
       <button
         aria-label={`${selected ? "取消选择" : "选择"} ${record.candidateName}`}
@@ -364,7 +366,7 @@ function ResumeLibraryCardComponent({
         }}
         type="button"
       />
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
+      <CardPanel className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
         <div className="flex min-w-0 gap-3">
           <Checkbox
             aria-label={`选择 ${record.candidateName}`}
@@ -482,8 +484,8 @@ function ResumeLibraryCardComponent({
           onTransition={onTransition}
           record={record}
         />
-      </div>
-    </article>
+      </CardPanel>
+    </Card>
   );
 }
 

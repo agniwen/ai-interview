@@ -1,7 +1,7 @@
-/* oxlint-disable no-explicit-any no-nested-ternary complexity -- tab body has explicit loading/empty/content branches. */
+/* oxlint-disable no-explicit-any no-nested-ternary complexity max-lines -- tab body has explicit loading/empty/content branches and card compositions. */
 "use client";
 
-import { IconArrowBackUp, IconEye, IconLoader2, IconMessage2 } from "@tabler/icons-react";
+import { IconArrowBackUp, IconLoader2, IconMessage2 } from "@tabler/icons-react";
 import Markdown from "react-markdown";
 import { cn } from "@arc/shared/utils";
 import { env } from "@/env/client";
@@ -22,6 +22,9 @@ import {
 import { AnimatedHeight } from "@/components/features/motion/animated-height";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardAction, CardHeader, CardPanel, CardTitle } from "@/components/ui/card";
+import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { TabsContent } from "@/components/ui/tabs";
@@ -33,11 +36,10 @@ import {
   FormsSkeleton,
   InterviewResultOverviewSkeleton,
   ReportsSkeleton,
-  RoundsSkeleton,
   SummaryMetric,
 } from "./studio-person-detail-skeletons";
 import { toAbsoluteUrl } from "@/lib/client/clipboard";
-import { scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
+import { pipelineStageMeta, scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
 import { AgentInstructionsPanel } from "./interviews/agent-instructions-panel";
 import { RoundEmailAction } from "./interviews/round-email/round-email-action";
 import { InterviewLinkQrButton } from "./interviews/interview-link-qr-button";
@@ -75,9 +77,269 @@ import { ReportMetadataButton } from "./studio-person-detail-metadata";
 import type { StudioPersonDetailViewModel } from "./studio-person-detail-controller";
 import { StudioPersonDetailQuestionsTab } from "./studio-person-detail-questions";
 
+function InterviewResultFrame({
+  evaluationSummary,
+  report,
+}: {
+  evaluationSummary: StudioPersonDetailViewModel["latestEvaluationSummary"];
+  report: StudioPersonDetailViewModel["latestReport"];
+}) {
+  return (
+    <Frame className="h-full">
+      <FrameHeader className="flex-row items-center justify-between gap-3">
+        <FrameTitle>面试结果</FrameTitle>
+        <div>
+          <Badge variant={report ? getReportBadgeVariant(report.status) : "outline"}>
+            {report ? formatReportStatus(report.status) : "暂无报告"}
+          </Badge>
+        </div>
+      </FrameHeader>
+      <FramePanel className="flex-1">
+        <div className="grid gap-x-8 gap-y-4 sm:grid-cols-3">
+          <SummaryMetric
+            label="评分"
+            value={
+              evaluationSummary.overallScore === null
+                ? "—"
+                : `${evaluationSummary.overallScore} / 100`
+            }
+          />
+          <SummaryMetric
+            label="建议"
+            value={
+              evaluationSummary.recommendation ? (
+                <Badge variant={resolveRecommendationVariant(evaluationSummary.recommendation)}>
+                  {evaluationSummary.recommendation}
+                </Badge>
+              ) : (
+                "待生成"
+              )
+            }
+          />
+          <SummaryMetric
+            label="对话"
+            value={report ? `${report.userTurnCount} 次候选人回复` : "候选人完成后生成"}
+          />
+        </div>
+        <div className="mt-5 border-border/50 border-t pt-5 text-muted-foreground text-sm leading-6">
+          <Markdown>
+            {compactText(
+              evaluationSummary.overallAssessment ?? report?.transcriptSummary ?? null,
+              "候选人完成面试后，这里会优先显示结论、评分和关键摘要。",
+            )}
+          </Markdown>
+        </div>
+      </FramePanel>
+    </Frame>
+  );
+}
+
+function InterviewResultTabContent({
+  evaluationSummary,
+  formItems,
+  interviewItems,
+  isFormSubmissionsLoading,
+  isReportsLoading,
+  model,
+  record,
+  report,
+}: {
+  evaluationSummary: StudioPersonDetailViewModel["latestEvaluationSummary"];
+  formItems: StudioPersonDetailViewModel["formItems"];
+  interviewItems: StudioPersonDetailViewModel["interviewItems"];
+  isFormSubmissionsLoading: boolean;
+  isReportsLoading: boolean;
+  model: StudioPersonDetailViewModel;
+  record: NonNullable<StudioPersonDetailViewModel["record"]>;
+  report: StudioPersonDetailViewModel["latestReport"];
+}) {
+  const {
+    canUseManagementActions,
+    handleResetRound,
+    handleToggleAllowTextInput,
+    isPublic,
+    resettingRoundId,
+    resumePreviewUrl,
+    roundEmailSummary,
+    slug,
+    updatingRoundId,
+  } = model;
+  const resultAiStageLockedReason =
+    record.pipelineStage &&
+    record.pipelineStage !== "screening" &&
+    record.pipelineStage !== "ai_interview"
+      ? `候选人已进入「${pipelineStageMeta[record.pipelineStage].label}」阶段，AI 面试相关操作已锁定。如需修改请先回退阶段或重新激活。`
+      : null;
+  const resultIsRoundLive =
+    record.roundStatus === "in_progress" || record.roundStatus === "interrupted";
+  const resultRoundActionDisabledReason = resultIsRoundLive
+    ? "面试正在进行中，结束后才能发送或复制链接。"
+    : resultAiStageLockedReason;
+  const resultIsRoundCompleted = record.roundStatus === "completed";
+  const showRoundActions = canUseManagementActions && !isPublic;
+  const canResetResultRound =
+    showRoundActions && Boolean(record.roundId) && record.pipelineStage === "ai_interview";
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="grid gap-6 xl:grid-cols-2">
+        {isReportsLoading ? (
+          <InterviewResultOverviewSkeleton />
+        ) : (
+          <InterviewResultFrame evaluationSummary={evaluationSummary} report={report} />
+        )}
+        <Frame className="h-full">
+          <FrameHeader>
+            <FrameTitle>候选人信息</FrameTitle>
+          </FrameHeader>
+          <FramePanel className="flex-1">
+            <CandidateBasicInfoView
+              candidateEmail={record.candidateEmail}
+              candidateName={record.candidateName}
+              candidatePhone={record.candidatePhone}
+              creatorName={record.creatorName}
+              hasResumeFile={record.hasResumeFile}
+              jobDescriptionName={record.jobDescriptionName}
+              pdfPreviewUrl={resumePreviewUrl}
+              resumeFileName={record.resumeFileName}
+              targetRole={record.targetRole}
+            />
+          </FramePanel>
+        </Frame>
+      </div>
+
+      {record.roundId ? (
+        <Frame>
+          <FrameHeader>
+            <FrameTitle>轮次概览</FrameTitle>
+          </FrameHeader>
+          <FramePanel className="flex flex-col gap-4">
+            {resultAiStageLockedReason ? (
+              <p className="rounded-xl bg-muted/30 px-3 py-2 text-muted-foreground text-xs leading-5">
+                {resultAiStageLockedReason}
+              </p>
+            ) : null}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-sm">{record.roundLabel}</span>
+                {record.roundStatus ? (
+                  <Badge variant={scheduleEntryStatusMeta[record.roundStatus].tone}>
+                    {scheduleEntryStatusMeta[record.roundStatus].label}
+                  </Badge>
+                ) : null}
+              </div>
+              <div className="flex items-center gap-2">
+                {record.roundScheduledAt ? (
+                  <TimeDisplay
+                    className="shrink-0 text-muted-foreground text-xs"
+                    options={DATE_TIME_DISPLAY_OPTIONS}
+                    value={record.roundScheduledAt}
+                  />
+                ) : (
+                  <span className="text-muted-foreground text-xs">未排期</span>
+                )}
+                {showRoundActions && record.roundId && !resultIsRoundCompleted ? (
+                  <RoundEmailAction
+                    candidateEmail={record.candidateEmail}
+                    lockedReason={resultRoundActionDisabledReason}
+                    roundId={record.roundId}
+                    slug={slug}
+                    summary={roundEmailSummary}
+                  />
+                ) : null}
+                {showRoundActions && record.roundInterviewLink && !resultIsRoundCompleted ? (
+                  <InterviewLinkQrButton
+                    candidateName={record.candidateName}
+                    disabled={Boolean(resultRoundActionDisabledReason)}
+                    url={toAbsoluteUrl(record.roundInterviewLink)}
+                  />
+                ) : null}
+              </div>
+            </div>
+            {showRoundActions ? (
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <Field className="w-auto max-w-full gap-0">
+                  <FieldContent>
+                    <div className="flex items-center gap-2">
+                      <FieldLabel htmlFor={`round-allow-text-input-${record.roundId}`}>
+                        允许面试者文本输入
+                      </FieldLabel>
+                      <Switch
+                        checked={record.roundAllowTextInput ?? false}
+                        className="shrink-0"
+                        disabled={
+                          record.roundStatus === "completed" || updatingRoundId === record.roundId
+                        }
+                        id={`round-allow-text-input-${record.roundId}`}
+                        onCheckedChange={(next) =>
+                          void handleToggleAllowTextInput(record.roundId as string, next)
+                        }
+                      />
+                    </div>
+                    <FieldDescription className="text-xs">
+                      关闭时面试界面文字输入框被禁用，仅支持语音作答。
+                    </FieldDescription>
+                  </FieldContent>
+                </Field>
+                {canResetResultRound ? (
+                  <div className="flex shrink-0 justify-end sm:border-l sm:border-border/50 sm:pl-4">
+                    <Button
+                      disabled={resettingRoundId === record.roundId}
+                      onClick={() => void handleResetRound(record.roundId as string)}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      <IconArrowBackUp className="size-3.5" />
+                      {resettingRoundId === record.roundId ? "重置中..." : "重置轮次"}
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </FramePanel>
+        </Frame>
+      ) : null}
+
+      <section className="xl:col-span-2">
+        {isFormSubmissionsLoading || isReportsLoading ? (
+          <FormsSkeleton />
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2">
+            <Frame className="h-full">
+              <FrameHeader className="flex-row items-center gap-2 px-4 py-3">
+                <FrameTitle>表单题</FrameTitle>
+                <Badge variant="outline">共{formItems.length}题</Badge>
+              </FrameHeader>
+              <FramePanel className="flex-1 p-4">
+                <CollectedCandidateInfoList emptyLabel="暂无表单答复" items={formItems} />
+              </FramePanel>
+            </Frame>
+            <Frame className="h-full">
+              <FrameHeader className="flex-row items-center gap-2 px-4 py-3">
+                <FrameTitle>面试题</FrameTitle>
+                <Badge variant="outline">共{interviewItems.length}题</Badge>
+              </FrameHeader>
+              <FramePanel className="flex-1 p-4">
+                <CollectedCandidateInfoList emptyLabel="暂无面试题" items={interviewItems} />
+              </FramePanel>
+            </Frame>
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h3 className="font-medium text-sm">简历评价</h3>
+        <div className="text-muted-foreground text-sm leading-6">
+          <Markdown>{truncateText(record.notes) || "暂无简历评价"}</Markdown>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailViewModel }) {
   const {
-    aiStageLockedReason,
     bodyLayoutClassName,
     canCreateHumanInterview,
     canCreateOffer,
@@ -85,7 +347,6 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
     canDeleteOffer,
     canReadHumanInterview,
     canReadOffer,
-    canResetAiRound,
     canUpdateHumanInterview,
     canUpdateOffer,
     canUseManagementActions,
@@ -100,43 +361,36 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
     formItems,
     formSubmissions,
     handleReassessResume,
-    handleResetRound,
-    handleToggleAllowTextInput,
     interviewItems,
-    isAiStageLocked,
     isFormSubmissionsLoading,
     isLoading,
     isPublic,
     isReassessingResume,
     isReportsLoading,
-    isRoundCompleted,
-    isRoundsLoading,
+    isResumeInterviewResultLoading,
     isTimelineLoading,
     latestEvaluationSummary,
+    latestCandidateRoundEvaluationSummary,
+    latestCandidateRoundReport,
     latestReport,
     mode,
     onRequestClose,
-    onViewRoundDetail,
     record,
     reportTranscriptStats,
     reports,
-    resettingRoundId,
     resettingSubmissionId,
-    resumePreviewUrl,
     resumeRecord,
+    resumeInterviewFormItems,
+    resumeInterviewItems,
+    resumeInterviewResultRecord,
     round,
-    roundActionDisabledReason,
-    roundActionLockedReason,
-    roundEmailSummary,
     selectedEvidence,
     setActiveTab,
     setMetadataReport,
     showTimelineRail,
-    slug,
     tabContentRootRef,
     tabVisibilityRecord,
     totalDisplayTurnCount,
-    updatingRoundId,
     visibleInterviewQuestions,
   } = model;
   const body = isLoading ? (
@@ -158,208 +412,17 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                   onViewAiScore={() => setActiveTab("ai-analysis")}
                 />
               ) : (
-                <div className="grid gap-8 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-                  {isReportsLoading ? (
-                    <InterviewResultOverviewSkeleton />
-                  ) : (
-                    <section className="h-full rounded-2xl bg-muted/20 border-muted/60 border p-5">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <h3 className="font-medium text-sm">面试结果</h3>
-                        <Badge
-                          variant={
-                            latestReport ? getReportBadgeVariant(latestReport.status) : "outline"
-                          }
-                        >
-                          {latestReport ? formatReportStatus(latestReport.status) : "暂无报告"}
-                        </Badge>
-                      </div>
-                      <div className="mt-5 grid gap-x-8 gap-y-4 sm:grid-cols-3">
-                        <SummaryMetric
-                          label="评分"
-                          value={
-                            latestEvaluationSummary.overallScore === null
-                              ? "—"
-                              : `${latestEvaluationSummary.overallScore} / 100`
-                          }
-                        />
-                        <SummaryMetric
-                          label="建议"
-                          value={
-                            latestEvaluationSummary.recommendation ? (
-                              <Badge
-                                variant={resolveRecommendationVariant(
-                                  latestEvaluationSummary.recommendation,
-                                )}
-                              >
-                                {latestEvaluationSummary.recommendation}
-                              </Badge>
-                            ) : (
-                              "待生成"
-                            )
-                          }
-                        />
-                        <SummaryMetric
-                          label="对话"
-                          value={
-                            latestReport
-                              ? `${latestReport.userTurnCount} 次候选人回复`
-                              : "候选人完成后生成"
-                          }
-                        />
-                      </div>
-                      <div className="mt-5 border-border/50 border-t pt-5 text-muted-foreground text-sm leading-6">
-                        <Markdown>
-                          {compactText(
-                            latestEvaluationSummary.overallAssessment ??
-                              latestReport?.transcriptSummary ??
-                              null,
-                            "候选人完成面试后，这里会优先显示结论、评分和关键摘要。",
-                          )}
-                        </Markdown>
-                      </div>
-                    </section>
-                  )}
-                  <section className="h-full space-y-4  rounded-2xl bg-muted/20 border-muted/60 border p-5">
-                    <h3 className="font-medium text-sm">候选人信息</h3>
-                    <div>
-                      <CandidateBasicInfoView
-                        candidateEmail={record.candidateEmail}
-                        candidateName={record.candidateName}
-                        candidatePhone={record.candidatePhone}
-                        creatorName={record.creatorName}
-                        hasResumeFile={record.hasResumeFile}
-                        jobDescriptionName={record.jobDescriptionName}
-                        pdfPreviewUrl={resumePreviewUrl}
-                        resumeFileName={record.resumeFileName}
-                        targetRole={record.targetRole}
-                      />
-                    </div>
-                  </section>
-                </div>
+                <InterviewResultTabContent
+                  evaluationSummary={latestEvaluationSummary}
+                  formItems={formItems}
+                  interviewItems={interviewItems}
+                  isFormSubmissionsLoading={isFormSubmissionsLoading}
+                  isReportsLoading={isReportsLoading}
+                  model={model}
+                  record={record}
+                  report={latestReport}
+                />
               )}
-              {/* 轮次概览（面试模式专属）/ Round overview (interview mode only) */}
-              {mode === "interview" && record.roundId ? (
-                <section className="space-y-4 border-t border-border/50 pt-6">
-                  <h3 className="font-medium text-sm">轮次概览</h3>
-                  {isAiStageLocked ? (
-                    <p className="rounded-xl bg-muted/30 px-3 py-2 text-muted-foreground text-xs leading-5">
-                      {aiStageLockedReason}
-                    </p>
-                  ) : null}
-                  <div className="space-y-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">{record.roundLabel}</span>
-                        {record.roundStatus ? (
-                          <Badge variant={scheduleEntryStatusMeta[record.roundStatus].tone}>
-                            {scheduleEntryStatusMeta[record.roundStatus].label}
-                          </Badge>
-                        ) : null}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {record.roundScheduledAt ? (
-                          <TimeDisplay
-                            className="shrink-0 text-muted-foreground text-xs"
-                            options={DATE_TIME_DISPLAY_OPTIONS}
-                            value={record.roundScheduledAt}
-                          />
-                        ) : (
-                          <span className="text-muted-foreground text-xs">未排期</span>
-                        )}
-                        {record.roundId && !isPublic && !isRoundCompleted ? (
-                          <RoundEmailAction
-                            candidateEmail={record.candidateEmail}
-                            lockedReason={roundActionDisabledReason}
-                            roundId={record.roundId}
-                            slug={slug}
-                            summary={roundEmailSummary}
-                          />
-                        ) : null}
-                        {record.roundInterviewLink && !isPublic && !isRoundCompleted ? (
-                          <InterviewLinkQrButton
-                            candidateName={record.candidateName}
-                            disabled={Boolean(roundActionDisabledReason)}
-                            url={toAbsoluteUrl(record.roundInterviewLink as string)}
-                          />
-                        ) : null}
-                      </div>
-                    </div>
-                    {isPublic ? null : (
-                      <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/30 px-4 py-3 border border-muted/60">
-                        <div className="min-w-0">
-                          {/* 允许面试者文本输入 / Allow candidate text input */}
-                          <p className="font-medium text-sm">允许面试者文本输入</p>
-                          <p className="mt-0.5 text-muted-foreground text-xs">
-                            关闭时面试界面文字输入框被禁用，仅支持语音作答。
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            checked={record.roundAllowTextInput ?? false}
-                            disabled={
-                              record.roundStatus === "completed" ||
-                              updatingRoundId === record.roundId
-                            }
-                            onCheckedChange={(next) =>
-                              void handleToggleAllowTextInput(record.roundId as string, next)
-                            }
-                          />
-                          {canResetAiRound ? (
-                            <Button
-                              disabled={resettingRoundId === record.roundId}
-                              onClick={() => void handleResetRound(record.roundId as string)}
-                              size="sm"
-                              type="button"
-                              variant="outline"
-                            >
-                              <IconArrowBackUp className="size-3.5" />
-                              {resettingRoundId === record.roundId ? "重置中..." : "重置轮次"}
-                            </Button>
-                          ) : null}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </section>
-              ) : null}
-              {mode === "interview" ? (
-                <section className="xl:col-span-2 border-border/50 border-t pt-6">
-                  <div className="mb-4">
-                    <h3 className="font-medium text-sm">候选人收集信息</h3>
-                  </div>
-                  {isFormSubmissionsLoading || isReportsLoading ? (
-                    <FormsSkeleton />
-                  ) : (
-                    <div className="grid gap-x-6 gap-y-8 md:grid-cols-2">
-                      <div>
-                        <div className="mb-3 flex items-center gap-2">
-                          <h4 className="font-medium text-sm">表单题</h4>
-                          <Badge variant="outline">共{formItems.length}题</Badge>
-                        </div>
-                        <CollectedCandidateInfoList emptyLabel="暂无表单答复" items={formItems} />
-                      </div>
-                      <div>
-                        <div className="mb-3 flex items-center gap-2">
-                          <h4 className="font-medium text-sm">面试题</h4>
-                          <Badge variant="outline">共{interviewItems.length}题</Badge>
-                        </div>
-                        <CollectedCandidateInfoList
-                          emptyLabel="暂无面试题"
-                          items={interviewItems}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </section>
-              ) : null}
-              {mode === "interview" ? (
-                <section className="space-y-3 border-t border-border/50 pt-6">
-                  <h3 className="font-medium text-sm">简历评价</h3>
-                  <div className="text-muted-foreground text-sm leading-6">
-                    <Markdown>{truncateText(record.notes) || "暂无简历评价"}</Markdown>
-                  </div>
-                </section>
-              ) : null}
             </div>
           </TabsContent>
           {mode === "resume" ? (
@@ -418,13 +481,15 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                     </div>
                     {reports.length > 0 ? <KeywordHighlightLegend /> : null}
                     {reports.length === 0 ? (
-                      <div className="flex min-h-60 flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/30 px-6 py-10 text-center">
-                        <IconMessage2 className="size-8 text-muted-foreground" />
-                        <p className="mt-4 font-medium text-sm">暂无面试报告</p>
-                        <p className="mt-2 max-w-xl text-muted-foreground text-sm leading-normal">
-                          候选人开始并结束语音面试后，这里会展示逐场面试的总结、状态和完整对话记录。
-                        </p>
-                      </div>
+                      <Card>
+                        <CardPanel className="flex min-h-60 flex-col items-center justify-center text-center">
+                          <IconMessage2 className="size-8 text-muted-foreground" />
+                          <p className="mt-4 font-medium text-sm">暂无面试报告</p>
+                          <p className="mt-2 max-w-xl text-muted-foreground text-sm leading-normal">
+                            候选人开始并结束语音面试后，这里会展示逐场面试的总结、状态和完整对话记录。
+                          </p>
+                        </CardPanel>
+                      </Card>
                     ) : (
                       <Accordion
                         className="space-y-4"
@@ -487,98 +552,110 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                               <AccordionContent className="bg-muted/25 px-5 pt-4 pb-5">
                                 <div className="grid gap-4  lg:grid-cols-[minmax(0,1fr)_minmax(400px,1fr)]">
                                   <div className="space-y-4">
-                                    <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
-                                      <h4 className="font-medium text-sm">最终总结</h4>
-                                      <div className="mt-3 text-muted-foreground text-sm leading-6">
-                                        <HighlightedText
-                                          text={report.transcriptSummary ?? "暂无总结。"}
-                                        />
-                                      </div>
-                                      {report.latestError ? (
-                                        <div className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-sm">
-                                          {report.latestError}
+                                    <Card>
+                                      <CardHeader>
+                                        <CardTitle className="text-sm">最终总结</CardTitle>
+                                      </CardHeader>
+                                      <CardPanel>
+                                        <div className="text-muted-foreground text-sm leading-6">
+                                          <HighlightedText
+                                            text={report.transcriptSummary ?? "暂无总结。"}
+                                          />
                                         </div>
-                                      ) : null}
-                                    </section>
-                                    <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
-                                      <h4 className="font-medium text-sm">评估指标</h4>
-                                      <ScrollArea className="mt-4 max-h-[420px] pr-1">
-                                        <EvaluationResults
-                                          data={
-                                            (report.evaluationCriteriaResults as Record<
-                                              string,
-                                              unknown
-                                            >) ?? {}
-                                          }
-                                          onEvidenceSelect={handleEvidenceSelect}
-                                        />
-                                      </ScrollArea>
-                                    </section>
-                                    <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
-                                      <div className="flex flex-wrap items-center justify-between gap-3">
-                                        <h4 className="font-medium text-sm">会话概览</h4>
-                                        <ReportMetadataButton
-                                          disabled={!snapshotMetadata}
-                                          label=""
-                                          onClick={() => setMetadataReport(report)}
-                                          visible={canViewReportMetadata}
-                                        />
-                                      </div>
-                                      <div className="mt-3 grid gap-x-8 gap-y-4 text-sm md:grid-cols-2">
-                                        <DetailRow
-                                          label="会话 ID"
-                                          value={
-                                            <span className="break-all">
-                                              {report.conversationId}
-                                            </span>
-                                          }
-                                        />
-                                        <DetailRow
-                                          label="开始时间"
-                                          value={
-                                            <TimeDisplay
-                                              options={DATE_TIME_DISPLAY_OPTIONS}
-                                              value={startedAt}
-                                            />
-                                          }
-                                        />
-                                        <DetailRow
-                                          label="结束时间"
-                                          value={
-                                            <TimeDisplay
-                                              options={DATE_TIME_DISPLAY_OPTIONS}
-                                              value={endedAt}
-                                            />
-                                          }
-                                        />
-                                        <DetailRow
-                                          label="消息统计"
-                                          value={`共 ${displayTurnCount} 条 · 候选人 ${displayUserTurnCount} 条 · 面试官 ${displayAgentTurnCount} 条`}
-                                        />
-                                        <DetailRow
-                                          label="同步时间"
-                                          value={
-                                            <TimeDisplay
-                                              options={DATE_TIME_DISPLAY_OPTIONS}
-                                              value={report.lastSyncedAt}
-                                            />
-                                          }
-                                        />
-                                        <DetailRow
-                                          label="Webhook"
-                                          value={
-                                            report.webhookReceivedAt ? (
+                                        {report.latestError ? (
+                                          <div className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-sm">
+                                            {report.latestError}
+                                          </div>
+                                        ) : null}
+                                      </CardPanel>
+                                    </Card>
+                                    <Card>
+                                      <CardHeader>
+                                        <CardTitle className="text-sm">评估指标</CardTitle>
+                                      </CardHeader>
+                                      <CardPanel>
+                                        <ScrollArea className="max-h-[420px] pr-1">
+                                          <EvaluationResults
+                                            data={
+                                              (report.evaluationCriteriaResults as Record<
+                                                string,
+                                                unknown
+                                              >) ?? {}
+                                            }
+                                            onEvidenceSelect={handleEvidenceSelect}
+                                          />
+                                        </ScrollArea>
+                                      </CardPanel>
+                                    </Card>
+                                    <Card>
+                                      <CardHeader>
+                                        <CardTitle className="text-sm">会话概览</CardTitle>
+                                        <CardAction>
+                                          <ReportMetadataButton
+                                            disabled={!snapshotMetadata}
+                                            label=""
+                                            onClick={() => setMetadataReport(report)}
+                                            visible={canViewReportMetadata}
+                                          />
+                                        </CardAction>
+                                      </CardHeader>
+                                      <CardPanel>
+                                        <div className="grid gap-x-8 gap-y-4 text-sm md:grid-cols-2">
+                                          <DetailRow
+                                            label="会话 ID"
+                                            value={
+                                              <span className="break-all">
+                                                {report.conversationId}
+                                              </span>
+                                            }
+                                          />
+                                          <DetailRow
+                                            label="开始时间"
+                                            value={
                                               <TimeDisplay
                                                 options={DATE_TIME_DISPLAY_OPTIONS}
-                                                value={report.webhookReceivedAt}
+                                                value={startedAt}
                                               />
-                                            ) : (
-                                              "未收到"
-                                            )
-                                          }
-                                        />
-                                      </div>
-                                    </section>
+                                            }
+                                          />
+                                          <DetailRow
+                                            label="结束时间"
+                                            value={
+                                              <TimeDisplay
+                                                options={DATE_TIME_DISPLAY_OPTIONS}
+                                                value={endedAt}
+                                              />
+                                            }
+                                          />
+                                          <DetailRow
+                                            label="消息统计"
+                                            value={`共 ${displayTurnCount} 条 · 候选人 ${displayUserTurnCount} 条 · 面试官 ${displayAgentTurnCount} 条`}
+                                          />
+                                          <DetailRow
+                                            label="同步时间"
+                                            value={
+                                              <TimeDisplay
+                                                options={DATE_TIME_DISPLAY_OPTIONS}
+                                                value={report.lastSyncedAt}
+                                              />
+                                            }
+                                          />
+                                          <DetailRow
+                                            label="Webhook"
+                                            value={
+                                              report.webhookReceivedAt ? (
+                                                <TimeDisplay
+                                                  options={DATE_TIME_DISPLAY_OPTIONS}
+                                                  value={report.webhookReceivedAt}
+                                                />
+                                              ) : (
+                                                "未收到"
+                                              )
+                                            }
+                                          />
+                                        </div>
+                                      </CardPanel>
+                                    </Card>
                                     {env.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING ? (
                                       <RecordingPlayer
                                         accessMode={isPublic ? "public" : "authed"}
@@ -587,24 +664,22 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                                         recordId={effectiveRoundId ?? ""}
                                         seekToSecs={activeEvidence?.timeInCallSecs ?? null}
                                         status={report.recordingStatus}
-                                        surface="section"
                                       />
                                     ) : null}
-                                    <InterviewMetricsPanel
-                                      metrics={report.metrics ?? {}}
-                                      surface="section"
-                                    />
+                                    <InterviewMetricsPanel metrics={report.metrics ?? {}} />
                                   </div>
                                   <div className="lg:relative">
-                                    <section className="flex h-[480px] flex-col overflow-hidden rounded-xl border border-border/60 bg-background p-4 shadow-sm lg:absolute lg:inset-0 lg:h-auto">
-                                      <h4 className="shrink-0 pb-2 font-medium text-sm">
-                                        对话记录
-                                      </h4>
-                                      <ConversationTranscript
-                                        activeTurnIndex={activeEvidence?.turnIndex ?? null}
-                                        turns={report.turns}
-                                      />
-                                    </section>
+                                    <Card className="h-[480px] overflow-hidden lg:absolute lg:inset-0 lg:h-auto">
+                                      <CardHeader className="shrink-0">
+                                        <CardTitle className="text-sm">对话记录</CardTitle>
+                                      </CardHeader>
+                                      <CardPanel className="flex min-h-0 flex-col overflow-hidden">
+                                        <ConversationTranscript
+                                          activeTurnIndex={activeEvidence?.turnIndex ?? null}
+                                          turns={report.turns}
+                                        />
+                                      </CardPanel>
+                                    </Card>
                                   </div>
                                 </div>
                               </AccordionContent>
@@ -626,88 +701,30 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
           ) : null}
           {mode === "resume" && shouldShowAiInterviewTab(tabVisibilityRecord) ? (
             <TabsContent value="rounds">
-              <section className="space-y-4">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="font-medium text-sm">AI 面试轮次</h3>
-                  <span className="text-muted-foreground text-xs">
-                    共 {candidateRounds.length} 轮
-                  </span>
-                </div>
-                {isAiStageLocked ? (
-                  <p className="rounded-xl bg-muted/30 px-3 py-2 text-muted-foreground text-xs leading-5">
-                    {aiStageLockedReason}
-                  </p>
-                ) : null}
-                {/* oxlint-disable-next-line no-nested-ternary -- 三态：loading / empty / list */}
-                {isRoundsLoading ? (
-                  <RoundsSkeleton />
-                ) : /* oxlint-disable-next-line no-nested-ternary -- Secondary branch renders empty-state or list. */
+              <section>
+                {/* oxlint-disable-next-line no-nested-ternary -- 三态：loading / empty / result */}
+                {isResumeInterviewResultLoading ? (
+                  <DetailBodySkeleton mode="interview" />
+                ) : /* oxlint-disable-next-line no-nested-ternary -- Secondary branch renders empty-state or result. */
                 candidateRounds.length === 0 ? (
                   <p className="text-muted-foreground text-sm leading-normal">
                     该候选人还没有发起面试。在招聘台点「保存并发起面试」即可创建。
                   </p>
+                ) : resumeInterviewResultRecord ? (
+                  <InterviewResultTabContent
+                    evaluationSummary={latestCandidateRoundEvaluationSummary}
+                    formItems={resumeInterviewFormItems}
+                    interviewItems={resumeInterviewItems}
+                    isFormSubmissionsLoading={false}
+                    isReportsLoading={false}
+                    model={model}
+                    record={resumeInterviewResultRecord}
+                    report={latestCandidateRoundReport}
+                  />
                 ) : (
-                  <div className="flex flex-col gap-3">
-                    {candidateRounds.map((entry) => {
-                      const statusMeta = scheduleEntryStatusMeta[entry.status];
-                      const fullLink = toAbsoluteUrl(entry.interviewLink);
-                      const isEntryLive =
-                        entry.status === "in_progress" || entry.status === "interrupted";
-                      const entryActionDisabledReason = isEntryLive
-                        ? roundActionLockedReason
-                        : aiStageLockedReason;
-                      return (
-                        <article
-                          className="rounded-xl bg-muted/30 px-4 py-3 border-muted/60 border"
-                          key={entry.id}
-                        >
-                          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="wrap-break-word font-medium text-sm">
-                                {entry.roundLabel}
-                              </span>
-                              <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
-                              {entry.hasReport ? <Badge variant="outline">已有报告</Badge> : null}
-                            </div>
-                          </div>
-                          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="text-muted-foreground text-xs">
-                              {entry.scheduledAt ? (
-                                <TimeDisplay
-                                  options={DATE_TIME_DISPLAY_OPTIONS}
-                                  value={entry.scheduledAt}
-                                />
-                              ) : (
-                                "未排期"
-                              )}
-                            </div>
-                            <div className="flex flex-wrap items-center justify-end gap-2">
-                              {/* 中文：仅在调用方提供回调时显示「查看详情」；不提供时避免渲染无用按钮。
-                              English: Only render 查看详情 when the caller supplies a callback; skip it otherwise. */}
-                              {onViewRoundDetail ? (
-                                <Button
-                                  className="flex-1 sm:flex-none"
-                                  onClick={() => onViewRoundDetail(entry.id)}
-                                  size="sm"
-                                  type="button"
-                                  variant="ghost"
-                                >
-                                  <IconEye className="size-3.5" />
-                                  查看详情
-                                </Button>
-                              ) : null}
-                              <InterviewLinkQrButton
-                                candidateName={record.candidateName}
-                                className="flex-1 sm:flex-none"
-                                disabled={Boolean(entryActionDisabledReason)}
-                                url={fullLink}
-                              />
-                            </div>
-                          </div>
-                        </article>
-                      );
-                    })}
-                  </div>
+                  <p className="text-muted-foreground text-sm leading-normal">
+                    未找到该 AI 面试的详情数据。
+                  </p>
                 )}
               </section>
             </TabsContent>

@@ -50,17 +50,9 @@ export function getPinningStyles<TData>(
   };
 }
 
-/**
- * className for pinned body cells. Pinned cells need an opaque base because
- * they sit above horizontally-scrolled content, then mirror the row hover and
- * selected states from the table primitives.
- */
-export const PINNED_CELL_CLASS =
-  "bg-background transition-colors group-hover/row:bg-muted group-data-[state=selected]/row:bg-muted";
-
 export const PINNED_HEADER_CLASS = "bg-muted";
 
 /**
- * Sticky header cells use the same muted surface as the AlignUI-style header.
+ * Sticky header cells keep the same muted surface as the Coss CardFrame table header.
  */
 export const STICKY_HEADER_CLASS = "sticky top-0 z-2 bg-muted";

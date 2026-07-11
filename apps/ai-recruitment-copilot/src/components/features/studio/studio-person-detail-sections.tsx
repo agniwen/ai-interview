@@ -22,6 +22,7 @@ import {
 } from "@/lib/client/api";
 
 import { Badge } from "@/components/ui/badge";
+import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { countDisplayInterviewTurns } from "@arc/shared/interview-transcript-turns";
@@ -143,11 +144,7 @@ export function CollectedCandidateInfoList({
   emptyLabel: string;
 }) {
   if (items.length === 0) {
-    return (
-      <div className="rounded-xl border border-dashed border-border/70 bg-muted/30 px-4 py-8 text-center text-muted-foreground text-sm">
-        {emptyLabel}
-      </div>
-    );
+    return <div className="py-8 text-center text-muted-foreground text-sm">{emptyLabel}</div>;
   }
 
   return (
@@ -228,39 +225,51 @@ export function ResumeAiAnalysisPlaceholder({
 
   if (status === "queued" || status === "processing") {
     return (
-      <section className="space-y-3 rounded-2xl border border-muted/60 bg-muted/20 p-5">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-medium text-sm">简历筛选 · 分析中</h3>
-          <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
-        </div>
-        <p className="text-muted-foreground text-sm leading-6">
-          系统正在基于绑定岗位生成 AI评分，完成后会自动展示在这里。
-        </p>
-      </section>
+      <Frame>
+        <FrameHeader className="flex-row items-center justify-between gap-3">
+          <FrameTitle>简历筛选 · 分析中</FrameTitle>
+          <div>
+            <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
+          </div>
+        </FrameHeader>
+        <FramePanel>
+          <p className="text-muted-foreground text-sm leading-6">
+            系统正在基于绑定岗位生成 AI评分，完成后会自动展示在这里。
+          </p>
+        </FramePanel>
+      </Frame>
     );
   }
 
   if (status === "failed") {
     return (
-      <section className="space-y-3 rounded-2xl border border-muted/60 bg-muted/20 p-5">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-medium text-sm">AI评分失败</h3>
-          <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
-        </div>
-        <p className="text-muted-foreground text-sm leading-6">
-          {resumeRecord?.resumeReviewError ?? "AI评分生成失败，请稍后重试。"}
-        </p>
-      </section>
+      <Frame>
+        <FrameHeader className="flex-row items-center justify-between gap-3">
+          <FrameTitle>AI评分失败</FrameTitle>
+          <div>
+            <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
+          </div>
+        </FrameHeader>
+        <FramePanel>
+          <p className="text-muted-foreground text-sm leading-6">
+            {resumeRecord?.resumeReviewError ?? "AI评分生成失败，请稍后重试。"}
+          </p>
+        </FramePanel>
+      </Frame>
     );
   }
 
   return (
-    <section className="space-y-4 rounded-2xl border border-muted/60 bg-muted/20 p-6">
-      <h3 className="font-medium text-sm">AI评分</h3>
-      <div className="text-muted-foreground text-sm leading-6">
-        <Markdown>{truncateText(resumeRecord?.notes) || "暂无 AI评分结果"}</Markdown>
-      </div>
-    </section>
+    <Frame>
+      <FrameHeader>
+        <FrameTitle>AI评分</FrameTitle>
+      </FrameHeader>
+      <FramePanel>
+        <div className="text-muted-foreground text-sm leading-6">
+          <Markdown>{truncateText(resumeRecord?.notes) || "暂无 AI评分结果"}</Markdown>
+        </div>
+      </FramePanel>
+    </Frame>
   );
 }
 
@@ -322,10 +331,10 @@ export function ResumeScreeningResultPanel({
       .map(({ rule }) => rule) ?? [];
 
   return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="font-medium text-sm">岗位规则检查</h3>
-        <div className="flex flex-wrap items-center gap-2">
+    <Frame className="h-full">
+      <FrameHeader className="flex-row flex-wrap items-center justify-between gap-3">
+        <FrameTitle>岗位规则检查</FrameTitle>
+        <div className="flex flex-wrap gap-2">
           {result ? (
             <Badge variant={recommendationMeta[result.recommendation].variant}>
               {recommendationMeta[result.recommendation].label}
@@ -335,18 +344,18 @@ export function ResumeScreeningResultPanel({
           )}
           {resumeRecord?.resumeScreeningStale ? <Badge variant="warning">规则已更新</Badge> : null}
         </div>
-      </div>
-      {resumeRecord?.resumeScreeningError ? (
-        <p className="text-destructive text-sm">{resumeRecord.resumeScreeningError}</p>
-      ) : null}
-      {resumeRecord?.resumeScreeningStale ? (
-        <p className="text-muted-foreground text-sm leading-6">
-          当前检查结果基于旧版岗位规则生成，重新评估会同时更新规则检查和系统简历评价。
-        </p>
-      ) : null}
-      {sortedRuleResults.length ? (
-        <ScrollArea className="h-[28rem] rounded-2xl border border-muted/60 bg-muted/20">
-          <div className="px-5 md:px-6">
+      </FrameHeader>
+      <FramePanel className="flex-1">
+        {resumeRecord?.resumeScreeningError ? (
+          <p className="mb-4 text-destructive text-sm">{resumeRecord.resumeScreeningError}</p>
+        ) : null}
+        {resumeRecord?.resumeScreeningStale ? (
+          <p className="mb-4 text-muted-foreground text-sm leading-6">
+            当前检查结果基于旧版岗位规则生成，重新评估会同时更新规则检查和系统简历评价。
+          </p>
+        ) : null}
+        {sortedRuleResults.length ? (
+          <ScrollArea className="h-[24rem]">
             <ul className="divide-y divide-border/50">
               {sortedRuleResults.map((rule) => (
                 <li className="py-4 text-sm leading-6" key={rule.ruleId}>
@@ -372,14 +381,14 @@ export function ResumeScreeningResultPanel({
                 </li>
               ))}
             </ul>
-          </div>
-        </ScrollArea>
-      ) : (
-        <p className="flex h-[28rem] items-center justify-center rounded-2xl border border-muted/60 bg-muted/20 p-5 text-muted-foreground text-sm leading-6">
-          {result?.policyEmpty ? "该岗位未启用具体筛选规则。" : "暂无规则检查结果。"}
-        </p>
-      )}
-    </section>
+          </ScrollArea>
+        ) : (
+          <p className="flex h-[24rem] items-center justify-center text-muted-foreground text-sm leading-6">
+            {result?.policyEmpty ? "该岗位未启用具体筛选规则。" : "暂无规则检查结果。"}
+          </p>
+        )}
+      </FramePanel>
+    </Frame>
   );
 }
 
@@ -423,13 +432,11 @@ export async function resetInterviewFormSubmission({
 }
 
 export async function updateAllowTextInput({
-  effectiveRoundId,
   next,
   queryClient,
   slug,
   targetRoundId,
 }: {
-  effectiveRoundId: string | null;
   next: boolean;
   queryClient: QueryClient;
   slug: string;
@@ -438,7 +445,7 @@ export async function updateAllowTextInput({
   try {
     await updateStudioInterviewRound(slug, targetRoundId, { allowTextInput: next });
     await queryClient.invalidateQueries({
-      queryKey: ["studio-interview-round", slug, effectiveRoundId],
+      queryKey: ["studio-interview-round", slug, targetRoundId],
     });
     return null;
   } catch (error) {
@@ -447,12 +454,10 @@ export async function updateAllowTextInput({
 }
 
 export async function resetInterviewRound({
-  effectiveRoundId,
   queryClient,
   slug,
   targetRoundId,
 }: {
-  effectiveRoundId: string | null;
   queryClient: QueryClient;
   slug: string;
   targetRoundId: string;
@@ -460,7 +465,7 @@ export async function resetInterviewRound({
   try {
     await resetStudioInterviewRound(slug, targetRoundId);
     await queryClient.invalidateQueries({
-      queryKey: ["studio-interview-round", slug, effectiveRoundId],
+      queryKey: ["studio-interview-round", slug, targetRoundId],
     });
     return null;
   } catch (error) {

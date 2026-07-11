@@ -4,7 +4,6 @@ import { IconChevronDown, IconFileText, IconPlus, IconSearch } from "@tabler/ico
 // Toolbar (search + departmentId/interviewerId multi-select) + AlignUI DataGrid table + 新建岗位按钮
 // Purpose: simplified Studio job-descriptions management mock, 1:1 with real components.
 
-import { Fragment } from "react";
 import {
   Table,
   TableBody,
@@ -12,7 +11,6 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  TableRowDivider,
 } from "@/components/ui/table";
 import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
@@ -304,7 +302,7 @@ const JOBS: JobRow[] = [
 
 function JobsTable() {
   return (
-    <Table>
+    <Table variant="card">
       <TableHeader>
         <TableRow>
           <TableHead>岗位名</TableHead>
@@ -317,65 +315,60 @@ function JobsTable() {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {JOBS.map((j, index) => (
-          <Fragment key={j.name}>
-            <TableRow key={j.name}>
-              <TableCell aria-label={`岗位：${j.name}`}>
-                <div className="flex items-center gap-2.5">
-                  <span
-                    aria-hidden="true"
-                    className="grid size-7 place-items-center rounded-md bg-foreground/[0.05] text-foreground/70"
-                  >
-                    <IconFileText className="size-3.5" />
-                  </span>
-                  <span className="truncate font-medium">{j.name}</span>
+        {JOBS.map((j) => (
+          <TableRow key={j.name}>
+            <TableCell aria-label={`岗位：${j.name}`}>
+              <div className="flex items-center gap-2.5">
+                <span
+                  aria-hidden="true"
+                  className="grid size-7 place-items-center rounded-md bg-foreground/[0.05] text-foreground/70"
+                >
+                  <IconFileText className="size-3.5" />
+                </span>
+                <span className="truncate font-medium">{j.name}</span>
+              </div>
+            </TableCell>
+            <TableCell className="text-foreground/80">{j.department}</TableCell>
+            <TableCell aria-label={`面试官：${j.interviewers.join("、")}`}>
+              <div className="flex items-center gap-2">
+                <div className="flex">
+                  {j.interviewers.slice(0, 3).map((name, idx) => (
+                    <span
+                      aria-hidden="true"
+                      className="-ml-1.5 size-6 rounded-full bg-gradient-to-br from-primary/15 to-primary/30 ring-2 ring-background first:ml-0"
+                      key={`${j.name}-${name}-${idx}`}
+                    />
+                  ))}
                 </div>
-              </TableCell>
-              <TableCell className="text-foreground/80">{j.department}</TableCell>
-              <TableCell aria-label={`面试官：${j.interviewers.join("、")}`}>
-                <div className="flex items-center gap-2">
-                  <div className="flex">
-                    {j.interviewers.slice(0, 3).map((name, idx) => (
-                      <span
-                        aria-hidden="true"
-                        className="-ml-1.5 size-6 rounded-full bg-gradient-to-br from-primary/15 to-primary/30 ring-2 ring-background first:ml-0"
-                        key={`${j.name}-${name}-${idx}`}
-                      />
-                    ))}
-                  </div>
-                  <span className="truncate text-foreground/80">{j.interviewers.join("、")}</span>
-                </div>
-              </TableCell>
-              <TableCell className="text-muted-foreground tabular-nums">{j.formCount}</TableCell>
-              <TableCell className="text-muted-foreground tabular-nums">
-                {j.questionCount}
-              </TableCell>
-              <TableCell className="text-muted-foreground tabular-nums">{j.createdAt}</TableCell>
-              <TableCell>
-                <div className="flex items-center justify-end gap-0.5">
-                  <span
-                    aria-label="编辑岗位"
-                    className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
-                  >
-                    编辑
-                  </span>
-                  <span
-                    aria-label="删除岗位"
-                    className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
-                  >
-                    删除
-                  </span>
-                  <span
-                    aria-label="更多岗位操作"
-                    className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
-                  >
-                    更多
-                  </span>
-                </div>
-              </TableCell>
-            </TableRow>
-            {index < JOBS.length - 1 ? <TableRowDivider /> : null}
-          </Fragment>
+                <span className="truncate text-foreground/80">{j.interviewers.join("、")}</span>
+              </div>
+            </TableCell>
+            <TableCell className="text-muted-foreground tabular-nums">{j.formCount}</TableCell>
+            <TableCell className="text-muted-foreground tabular-nums">{j.questionCount}</TableCell>
+            <TableCell className="text-muted-foreground tabular-nums">{j.createdAt}</TableCell>
+            <TableCell>
+              <div className="flex items-center justify-end gap-0.5">
+                <span
+                  aria-label="编辑岗位"
+                  className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
+                >
+                  编辑
+                </span>
+                <span
+                  aria-label="删除岗位"
+                  className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
+                >
+                  删除
+                </span>
+                <span
+                  aria-label="更多岗位操作"
+                  className="inline-flex h-7 items-center rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
+                >
+                  更多
+                </span>
+              </div>
+            </TableCell>
+          </TableRow>
         ))}
       </TableBody>
     </Table>

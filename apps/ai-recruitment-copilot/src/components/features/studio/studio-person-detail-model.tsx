@@ -172,7 +172,6 @@ export interface StudioPersonDetailControllerProps {
   }) => void;
   onRequestReactivate?: (input: { id: string; candidateName: string | null }) => void;
   onUpdated?: () => void;
-  onViewRoundDetail?: (roundId: string) => void;
   recordId?: string | null;
   roundId?: string | null;
   shell: (slots: StudioPersonDetailSlots) => ReactNode;
