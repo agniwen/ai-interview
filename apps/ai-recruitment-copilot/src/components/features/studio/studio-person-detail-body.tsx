@@ -189,7 +189,7 @@ function InterviewResultTabContent({
           <InterviewResultFrame evaluationSummary={evaluationSummary} report={report} />
         )}
         <Frame className="h-full">
-          <FrameHeader>
+          <FrameHeader className="flex-row flex-wrap items-center justify-between   ">
             <FrameTitle>候选人信息</FrameTitle>
           </FrameHeader>
           <FramePanel className="flex-1">
@@ -307,7 +307,7 @@ function InterviewResultTabContent({
         ) : (
           <div className="grid gap-6 md:grid-cols-2">
             <Frame className="h-full">
-              <FrameHeader className="flex-row items-center gap-2 px-4 py-3">
+              <FrameHeader className="flex-row items-center gap-2  ">
                 <FrameTitle>表单题</FrameTitle>
                 <Badge variant="outline">共{formItems.length}题</Badge>
               </FrameHeader>
@@ -316,7 +316,7 @@ function InterviewResultTabContent({
               </FramePanel>
             </Frame>
             <Frame className="h-full">
-              <FrameHeader className="flex-row items-center gap-2 px-4 py-3">
+              <FrameHeader className="flex-row items-center gap-2  ">
                 <FrameTitle>面试题</FrameTitle>
                 <Badge variant="outline">共{interviewItems.length}题</Badge>
               </FrameHeader>
