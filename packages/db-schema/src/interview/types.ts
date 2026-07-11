@@ -94,6 +94,16 @@ export const resumeProfileSchema = z.object({
  */
 export const generatedInterviewQuestionSchema = z.object({
   difficulty: z.enum(["easy", "medium", "hard"]).describe("题目难度分层"),
+  evaluationFocus: nonEmptyStringSchema
+    .max(500)
+    .describe("本题要考核的核心意图或能力点，例如项目真实性、技术深度、沟通表达")
+    .nullable()
+    .optional(),
+  followUpDirections: nonEmptyStringSchema
+    .max(1000)
+    .describe("面试官可参考的追问方向，围绕候选人回答继续深挖，不要写标准答案")
+    .nullable()
+    .optional(),
   question: nonEmptyStringSchema.describe(
     "单道面试题，必须与候选人目标岗位和简历相关，并使用候选人的主要语言",
   ),
@@ -124,6 +134,8 @@ export type GeneratedInterviewQuestion = z.infer<typeof generatedInterviewQuesti
 export interface InterviewQuestion {
   order: number;
   difficulty: GeneratedInterviewQuestion["difficulty"];
+  evaluationFocus?: string | null;
+  followUpDirections?: string | null;
   question: string;
 }
 

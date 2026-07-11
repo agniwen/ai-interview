@@ -13,7 +13,6 @@ WORKDIR /repo
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/ai-recruitment-copilot-worker/package.json apps/ai-recruitment-copilot-worker/
 COPY apps/ai-recruitment-copilot-backend/package.json apps/ai-recruitment-copilot-backend/
-COPY packages/adapter-feishu/package.json packages/adapter-feishu/
 COPY packages/db-schema/package.json packages/db-schema/
 COPY packages/resume-parse-queue/package.json packages/resume-parse-queue/
 COPY packages/shared/package.json packages/shared/
@@ -28,8 +27,6 @@ COPY apps/ai-recruitment-copilot-worker/tsconfig.json apps/ai-recruitment-copilo
 COPY apps/ai-recruitment-copilot-worker/src apps/ai-recruitment-copilot-worker/src
 COPY apps/ai-recruitment-copilot-backend/tsconfig.json apps/ai-recruitment-copilot-backend/
 COPY apps/ai-recruitment-copilot-backend/src apps/ai-recruitment-copilot-backend/src
-COPY packages/adapter-feishu/tsconfig.json packages/adapter-feishu/
-COPY packages/adapter-feishu/src packages/adapter-feishu/src
 COPY packages/db-schema/tsconfig.json packages/db-schema/
 COPY packages/db-schema/src packages/db-schema/src
 COPY packages/resume-parse-queue/tsconfig.json packages/resume-parse-queue/

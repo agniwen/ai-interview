@@ -1,13 +1,13 @@
 "use client";
 
+import { IconArrowBackUp, IconLoader2, IconPencil } from "@tabler/icons-react";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import type { ResumeReview } from "@arc/shared/resume-review";
 import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { useStore, useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
-import { LoaderCircleIcon, PencilIcon, RotateCcwIcon } from "@/components/icons/hugeicons";
+
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CandidateFormFields } from "@/components/features/candidate/candidate-form-fields";
@@ -61,6 +61,8 @@ interface StudioPersonEditDialogProps {
   recordId: string | null;
   /** 保存成功后回调。Callback on success. */
   onUpdated?: () => void;
+  /** 面试模式下打开候选人资料编辑。Open candidate profile editing from interview mode. */
+  onEditResumeRecord?: (recordId: string) => void;
 }
 
 function ResumeEditSkeleton() {
@@ -119,6 +121,7 @@ function getFirstResumeEditErrorMessage(meta: Record<string, { errors?: unknown[
     "targetRole",
     "jobDescriptionId",
     "resumeEvaluationStatus",
+    "hrResumeAssessment",
     "notes",
   ];
   for (const field of fieldOrder) {
@@ -128,6 +131,53 @@ function getFirstResumeEditErrorMessage(meta: Record<string, { errors?: unknown[
     }
   }
   return "请检查简历信息后再保存";
+}
+
+function getScoringPreviewScore(value: unknown): number | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+  const score = (value as { baseScore?: unknown }).baseScore;
+  return typeof score === "number" && Number.isFinite(score) ? score : null;
+}
+
+function ResumeReviewGenerationProgress({
+  progressStatus,
+  progressTools,
+  scoringPreview,
+}: {
+  progressStatus: string;
+  progressTools: { done: boolean; name: string }[];
+  scoringPreview: unknown;
+}) {
+  if (!(progressStatus || progressTools.length > 0 || scoringPreview)) {
+    return null;
+  }
+
+  const score = getScoringPreviewScore(scoringPreview);
+  return (
+    <Card className="gap-0 rounded-md py-0" data-testid="resume-review-generation-progress">
+      <CardContent className="space-y-2 bg-muted/30 px-3 py-2 text-sm">
+        {progressStatus ? <p className="font-medium text-foreground">{progressStatus}</p> : null}
+        {progressTools.length > 0 ? (
+          <div className="flex flex-wrap gap-2 text-xs">
+            {progressTools.map((tool) => (
+              <span
+                className="inline-flex items-center gap-1 rounded-md border bg-background px-2 py-1"
+                key={tool.name}
+              >
+                {tool.done ? null : <IconLoader2 className="size-3 animate-spin" />}
+                <span className={tool.done ? "text-muted-foreground" : "text-foreground"}>
+                  {tool.name}
+                </span>
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {score === null ? null : <p className="text-muted-foreground text-xs">评分预览：{score}</p>}
+      </CardContent>
+    </Card>
+  );
 }
 
 function mergeTargetRole(targetRoles: string[], targetRole: string) {
@@ -166,6 +216,7 @@ function createResumeEditFormValues(
     candidateEmail: detail.candidateEmail ?? "",
     candidateName: detail.candidateName,
     candidatePhone: detail.candidatePhone ?? "",
+    hrResumeAssessment: detail.hrResumeAssessment ?? "",
     jobDescriptionId: detail.jobDescriptionId ?? "",
     notes: detail.notes ?? "",
     resumeEvaluationStatus: detail.resumeEvaluationStatus ?? "unreviewed",
@@ -249,6 +300,7 @@ function ResumeEditBody({
       formData.append("candidatePhone", value.candidatePhone);
       formData.append("targetRole", value.targetRole);
       formData.append("jobDescriptionId", value.jobDescriptionId);
+      formData.append("hrResumeAssessment", value.hrResumeAssessment);
       formData.append("notes", value.notes);
       formData.append("resumeEvaluationStatus", value.resumeEvaluationStatus);
       if (resumeFile) {
@@ -282,7 +334,10 @@ function ResumeEditBody({
   const {
     cancel: cancelReviewGeneration,
     isGenerating: isReviewGenerating,
+    progressStatus: reviewGenerationProgressStatus,
+    progressTools: reviewGenerationProgressTools,
     regenerate: regenerateReview,
+    scoringPreview: reviewGenerationScoringPreview,
   } = useResumeReviewRegeneration({
     onDraftChange: (review) => form.setFieldValue("notes", review),
     onGenerated: (result) => {
@@ -378,7 +433,7 @@ function ResumeEditBody({
             form="resume-edit-form"
             type="submit"
           >
-            {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+            {isSubmitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
             保存
           </Button>
         </>
@@ -411,7 +466,16 @@ function ResumeEditBody({
             disabled={isSubmitting || isResumeLocked}
             existingResumeFileName={query.data?.resumeFileName ?? null}
             form={form}
-            notesDisabled={isReviewGenerating}
+            notesDisabled
+            notesEditorLeadingContent={
+              isReviewGenerating ? (
+                <ResumeReviewGenerationProgress
+                  progressStatus={reviewGenerationProgressStatus}
+                  progressTools={reviewGenerationProgressTools}
+                  scoringPreview={reviewGenerationScoringPreview}
+                />
+              ) : null
+            }
             notesLabelAction={
               <Button
                 disabled={
@@ -427,9 +491,9 @@ function ResumeEditBody({
                 variant="ghost"
               >
                 {isReviewGenerating ? (
-                  <LoaderCircleIcon className="animate-spin" data-icon="inline-start" />
+                  <IconLoader2 className="animate-spin" data-icon="inline-start" />
                 ) : (
-                  <RotateCcwIcon data-icon="inline-start" />
+                  <IconArrowBackUp data-icon="inline-start" />
                 )}
                 {isReviewGenerating ? "取消生成" : "重新生成"}
               </Button>
@@ -476,9 +540,9 @@ function InterviewEditBody({
   onOpenChange,
   recordId,
   onUpdated,
+  onEditResumeRecord,
 }: Omit<StudioPersonEditDialogProps, "mode">) {
   const slug = useWorkspaceSlug();
-  const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
@@ -511,10 +575,11 @@ function InterviewEditBody({
     setFormValues(createInterviewRoundFormValues(round));
   }, [round]);
 
-  // 当前轮次状态决定 allowTextInput 是否可改 + 重置按钮是否展示。
-  // The current round status gates whether allowTextInput is editable and
-  // whether the reset button is visible.
+  // 当前轮次状态决定 allowTextInput 是否可改；AI 面试阶段内均可重置轮次。
+  // The current round status gates whether allowTextInput is editable; reset
+  // is available throughout the AI interview pipeline stage.
   const isRoundCompleted = round?.status === "completed";
+  const canResetRound = round?.candidate.pipelineStage === "ai_interview";
   const statusMeta = round ? scheduleEntryStatusMeta[round.status] : null;
 
   async function handleSubmit(e: React.FormEvent) {
@@ -560,11 +625,11 @@ function InterviewEditBody({
   return (
     <>
       <Modal
-        description="编辑轮次排期、文本输入设置和备注。状态由系统流转，只读展示；候选人基础信息请在简历库编辑。"
+        description="编辑轮次排期、文本输入设置和备注。状态由系统流转，只读展示；候选人基础信息请在招聘台编辑。"
         footer={
           isLoading ? undefined : (
             <div className="flex w-full flex-wrap items-center justify-end gap-2">
-              {isRoundCompleted ? (
+              {canResetRound ? (
                 <Button
                   disabled={isResetting || isSubmitting}
                   onClick={() => setResetConfirmOpen(true)}
@@ -572,15 +637,15 @@ function InterviewEditBody({
                   variant="outline"
                 >
                   {isResetting ? (
-                    <LoaderCircleIcon className="size-4 animate-spin" />
+                    <IconLoader2 className="size-4 animate-spin" />
                   ) : (
-                    <RotateCcwIcon className="size-3.5" />
+                    <IconArrowBackUp className="size-3.5" />
                   )}
                   重置面试
                 </Button>
               ) : null}
               <Button disabled={isSubmitting || isResetting} form="edit-round-form" type="submit">
-                {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+                {isSubmitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
                 保存更新
               </Button>
             </div>
@@ -599,24 +664,17 @@ function InterviewEditBody({
             <Card className="gap-0 rounded-lg py-0">
               <CardContent className="flex flex-col gap-3 bg-muted/20 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-muted-foreground text-sm leading-normal">
-                  候选人身份字段、关联岗位、简历和简历评价统一在简历库维护。
+                  候选人身份字段、关联岗位、简历和简历评价统一在招聘台维护。
                 </p>
                 {round?.candidate.id ? (
                   <Button
                     className="shrink-0"
-                    onClick={() => {
-                      void navigate({
-                        params: { slug },
-                        search: { recordId: round.candidate.id },
-                        to: "/w/$slug/studio/resumes",
-                      });
-                      onOpenChange(false);
-                    }}
+                    onClick={() => onEditResumeRecord?.(round.candidate.id)}
                     size="sm"
                     type="button"
                     variant="outline"
                   >
-                    <PencilIcon className="size-3.5" />
+                    <IconPencil className="size-3.5" />
                     编辑候选人资料
                   </Button>
                 ) : null}
@@ -686,7 +744,7 @@ function InterviewEditBody({
           <AlertDialogHeader>
             <AlertDialogTitle>重置这轮 AI 面试？</AlertDialogTitle>
             <AlertDialogDescription>
-              轮次会回到待开始状态，候选人需要重新进入面试。请确认当前报告和对话记录不再作为本轮结果使用。
+              轮次会回到待开始状态，当前会话锚点和题目快照会重新生成，候选人需要重新进入面试。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -705,7 +763,7 @@ function InterviewEditBody({
 // ---------------------------------------------------------------------------
 
 /**
- * 统一的候选人记录编辑对话框，mode="resume" 编辑简历库，mode="interview" 编辑 AI 面试。
+ * 统一的候选人记录编辑对话框，mode="resume" 编辑招聘台，mode="interview" 编辑 AI 面试。
  * Unified edit dialog: mode="resume" edits a resume library record,
  * mode="interview" edits an AI interview record.
  */

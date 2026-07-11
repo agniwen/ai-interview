@@ -58,3 +58,6 @@ __pycache__/
 .pnpm-store
 .worktrees/
 .output
+
+.claude/worktrees/
+.eval/

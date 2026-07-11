@@ -1,24 +1,25 @@
+"use client";
+
+import {
+  IconArrowBackUp,
+  IconArrowForwardUp,
+  IconBold,
+  IconCode,
+  IconH1,
+  IconH2,
+  IconH3,
+  IconItalic,
+  IconList,
+  IconListNumbers,
+} from "@tabler/icons-react";
 // 中文：顶部工具栏。第一行是 编辑/预览/Raw 的 segmented 切换（三等分占满宽度）；
 // 第二行仅在编辑模式渲染精简后的格式化按钮，针对 prompt 写作场景保留必需项。
 // English: top toolbar. Row 1 is the edit/preview/raw segmented switcher
 // (full-width, 3 equal cells). Row 2 (formatting) renders only in edit mode
 // and is trimmed to what's actually useful for prompt authoring.
-"use client";
-
 import { useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
-import {
-  BoldIcon,
-  CodeIcon,
-  Heading1Icon,
-  Heading2Icon,
-  Heading3Icon,
-  ItalicIcon,
-  ListIcon,
-  ListOrderedIcon,
-  RedoIcon,
-  UndoIcon,
-} from "@/components/icons/hugeicons";
+
 import { Button } from "@/components/ui/button";
 import { cn } from "@arc/shared/utils";
 import type { EditorMode } from "./use-markdown-editor";
@@ -103,14 +104,14 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
             disabled={editDisabled}
             onClick={() => editor?.chain().focus().undo().run()}
           >
-            <UndoIcon className="size-4" />
+            <IconArrowBackUp className="size-4" />
           </IconBtn>
           <IconBtn
             aria-label="重做"
             disabled={editDisabled}
             onClick={() => editor?.chain().focus().redo().run()}
           >
-            <RedoIcon className="size-4" />
+            <IconArrowForwardUp className="size-4" />
           </IconBtn>
           <Divider />
           <IconBtn
@@ -119,7 +120,7 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
             disabled={editDisabled}
             onClick={() => editor?.chain().focus().toggleBold().run()}
           >
-            <BoldIcon className="size-4" />
+            <IconBold className="size-4" />
           </IconBtn>
           <IconBtn
             active={activeState?.italic}
@@ -127,7 +128,7 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
             disabled={editDisabled}
             onClick={() => editor?.chain().focus().toggleItalic().run()}
           >
-            <ItalicIcon className="size-4" />
+            <IconItalic className="size-4" />
           </IconBtn>
           <IconBtn
             active={activeState?.code}
@@ -135,7 +136,7 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
             disabled={editDisabled}
             onClick={() => editor?.chain().focus().toggleCode().run()}
           >
-            <CodeIcon className="size-4" />
+            <IconCode className="size-4" />
           </IconBtn>
           <Divider />
           <IconBtn
@@ -144,7 +145,7 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
             disabled={editDisabled}
             onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
           >
-            <Heading1Icon className="size-4" />
+            <IconH1 className="size-4" />
           </IconBtn>
           <IconBtn
             active={activeState?.h2}
@@ -152,7 +153,7 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
             disabled={editDisabled}
             onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
           >
-            <Heading2Icon className="size-4" />
+            <IconH2 className="size-4" />
           </IconBtn>
           <IconBtn
             active={activeState?.h3}
@@ -160,7 +161,7 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
             disabled={editDisabled}
             onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
           >
-            <Heading3Icon className="size-4" />
+            <IconH3 className="size-4" />
           </IconBtn>
           <Divider />
           <IconBtn
@@ -169,7 +170,7 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
             disabled={editDisabled}
             onClick={() => editor?.chain().focus().toggleBulletList().run()}
           >
-            <ListIcon className="size-4" />
+            <IconList className="size-4" />
           </IconBtn>
           <IconBtn
             active={activeState?.orderedList}
@@ -177,7 +178,7 @@ export function MarkdownEditorToolbar({ editor, mode, onModeChange, disabled }: 
             disabled={editDisabled}
             onClick={() => editor?.chain().focus().toggleOrderedList().run()}
           >
-            <ListOrderedIcon className="size-4" />
+            <IconListNumbers className="size-4" />
           </IconBtn>
         </div>
       )}

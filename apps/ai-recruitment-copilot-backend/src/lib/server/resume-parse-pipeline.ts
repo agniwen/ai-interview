@@ -1,22 +1,32 @@
 // End-to-end deterministic resume parsing pipeline.
 // Runs Qwen-VL OCR on every page of the PDF, then extracts structured
-// candidate info via a single generateText / parseJsonOutput call.
+// candidate info via a schema-constrained Mastra agent call.
 
 import { setTimeout as delay } from "node:timers/promises";
-import { generateText } from "ai";
-import { XMLParser } from "fast-xml-parser";
 import { convert as htmlToText } from "html-to-text";
-import JSZip from "jszip";
 import mammoth from "mammoth";
 import pLimit from "p-limit";
 import pRetry from "p-retry";
-import { parseJsonOutput } from "@arc/ai-recruitment-copilot-backend/server/agents/json-output";
-import { createAlibabaProvider } from "@arc/ai-recruitment-copilot-backend/server/agents/provider";
+import {
+  generateStructuredWithMastraAgent,
+  resumeStructuredAgent,
+} from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
 import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
 import { getResumeDocumentKind } from "@arc/shared/resume-documents";
-import { getRequiredEnv } from "./env";
 import { convertLegacyOfficeToOoxml } from "./office-conversion";
+import {
+  collectOfficeXmlText as collectXmlTextByLocalName,
+  extractOfficeXmlText as extractXmlText,
+  findFirstOfficeXmlDescendant as findFirstDescendant,
+  getFirstOfficeXmlChild as getFirstChild,
+  getOfficeXmlChildren as getChildren,
+  loadOfficeZip as loadZip,
+  officeXmlLocalName as localName,
+  parseOfficeXml as parseXml,
+  readOfficeXmlAttribute as readAttribute,
+  readOfficeZipText as readZipText,
+} from "./office-xml";
 import { rasterizePdfWithMeta } from "./pdf-rasterize";
 import { isQwenOcrConfigured, qwenVlOcr } from "./qwen-ocr";
 
@@ -28,6 +38,7 @@ const DEFAULT_OCR_RETRY_DELAY_MS = 1000;
 const OFFICE_TEXT_MAX_CHARS = 80_000;
 const XLSX_MAX_SHEETS = 8;
 const XLSX_MAX_ROWS_PER_SHEET = 200;
+const OCR_PAGE_TEXT_PREVIEW_MAX_CHARS = 300;
 
 const STRUCTURED_INSTRUCTIONS = `你是一名简历解析助手。给你一段简历文本，请严格按照下方 JSON 结构输出结构化候选人档案。
 
@@ -70,7 +81,8 @@ const STRUCTURED_INSTRUCTIONS = `你是一名简历解析助手。给你一段�
 - 只输出 JSON 本身，不要任何额外解释文字，不要使用 Markdown 代码块。
 - 无法从简历中确认的字段返回 null 或空数组，禁止编造。
 - personalStrengths 必须有简历依据。
-- skills / links / schools / targetRoles / personalStrengths 去重；skills 最多 18 项，其余最多 6 项。
+- skills 是候选人掌握技能的全集，必须汇总简历中所有有依据的技能来源：技能/专业技能栏、项目经历、工作经历、项目 techStack、职责描述、工具平台、框架语言、数据库、中间件、云服务、设计/办公/协作工具等；不要因为数量多而截断 skills。
+- links / schools / targetRoles / personalStrengths 去重且最多 6 项。
 - educationExperiences 按简历原文顺序输出所有教育经历；每段尽量提取 school / degree / major / period / graduationYear / educationLevel / summary。
 - 如果教育经历只有学校名，也要输出一条记录，其余无法确认字段为 null。
 - schools 仍输出去重学校名列表，用于摘要兼容；顶层 degree / major / graduationYear / education 表示最高学历或最主要学历。
@@ -102,6 +114,7 @@ export interface ResumeDocumentInput {
   bytes: Uint8Array;
   fileName?: string;
   mediaType?: string;
+  onProgress?: (event: ResumeParseProgressEvent) => void;
 }
 
 export interface ParsedResumeOcr {
@@ -114,13 +127,30 @@ export interface ParsedResumeFast extends ParsedResumeOcr {
   structured: ResumeParserStructured;
 }
 
-const xmlParser = new XMLParser({
-  attributeNamePrefix: "@_",
-  ignoreAttributes: false,
-  parseAttributeValue: false,
-  parseTagValue: false,
-  trimValues: false,
-});
+export type ResumeParseProgressEvent =
+  | {
+      renderedPages: number;
+      totalPages: number;
+      type: "document.pages.ready";
+    }
+  | {
+      page: number;
+      totalPages: number;
+      type: "ocr.page.started";
+    }
+  | {
+      charCount: number;
+      page: number;
+      textPreview: string;
+      totalPages: number;
+      type: "ocr.page.completed";
+    }
+  | {
+      outputChars: number;
+      renderedPages: number;
+      totalPages: number;
+      type: "ocr.completed";
+    };
 
 function clipForStructured(text: string): string {
   if (text.length <= STRUCTURED_TEXT_MAX_CHARS) {
@@ -146,6 +176,17 @@ function normalizeExtractedText(text: string): string {
       .filter(Boolean)
       .join("\n"),
   );
+}
+
+function emitResumeParseProgress(
+  onProgress: ResumeDocumentInput["onProgress"] | undefined,
+  event: ResumeParseProgressEvent,
+) {
+  onProgress?.(event);
+}
+
+function toOcrTextPreview(text: string) {
+  return text.trim().replaceAll(/\s+/g, " ").slice(0, OCR_PAGE_TEXT_PREVIEW_MAX_CHARS);
 }
 
 function inferImageMediaType(input: { fileName?: string; mediaType?: string }): string {
@@ -246,137 +287,8 @@ function restoreOcrRetryError(error: unknown): never {
   throw error;
 }
 
-function parseXml(xml: string): unknown {
-  return xmlParser.parse(xml);
-}
-
-function localName(name: string): string {
-  return name.includes(":") ? (name.split(":").pop() ?? name) : name;
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function asArray(value: unknown): unknown[] {
-  if (value === undefined || value === null) {
-    return [];
-  }
-  return Array.isArray(value) ? value : [value];
-}
-
-function getChildren(node: unknown, childLocalName: string): unknown[] {
-  if (!isRecord(node)) {
-    return [];
-  }
-  const results: unknown[] = [];
-  for (const [key, value] of Object.entries(node)) {
-    if (key.startsWith("@_")) {
-      continue;
-    }
-    if (localName(key) === childLocalName) {
-      results.push(...asArray(value));
-    }
-  }
-  return results;
-}
-
-function getFirstChild(node: unknown, childLocalName: string): unknown {
-  return getChildren(node, childLocalName)[0];
-}
-
-function findFirstDescendant(node: unknown, descendantLocalName: string): unknown {
-  if (Array.isArray(node)) {
-    for (const item of node) {
-      const found = findFirstDescendant(item, descendantLocalName);
-      if (found !== undefined) {
-        return found;
-      }
-    }
-    return undefined;
-  }
-  if (!isRecord(node)) {
-    return undefined;
-  }
-  for (const [key, value] of Object.entries(node)) {
-    if (key.startsWith("@_")) {
-      continue;
-    }
-    if (localName(key) === descendantLocalName) {
-      return value;
-    }
-    const found = findFirstDescendant(value, descendantLocalName);
-    if (found !== undefined) {
-      return found;
-    }
-  }
-  return undefined;
-}
-
-function readAttribute(node: unknown, attributeName: string): string | null {
-  if (!isRecord(node)) {
-    return null;
-  }
-  const direct = node[`@_${attributeName}`];
-  if (typeof direct === "string") {
-    return direct;
-  }
-  for (const [key, value] of Object.entries(node)) {
-    if (
-      key.startsWith("@_") &&
-      localName(key.slice(2)) === attributeName &&
-      typeof value === "string"
-    ) {
-      return value;
-    }
-  }
-  return null;
-}
-
-function collectXmlTextByLocalName(node: unknown, textLocalName: string, output: string[]): void {
-  if (typeof node === "string" || typeof node === "number") {
-    return;
-  }
-  if (Array.isArray(node)) {
-    for (const item of node) {
-      collectXmlTextByLocalName(item, textLocalName, output);
-    }
-    return;
-  }
-  if (!isRecord(node)) {
-    return;
-  }
-  for (const [key, value] of Object.entries(node)) {
-    if (key.startsWith("@_")) {
-      continue;
-    }
-    if (localName(key) === textLocalName) {
-      for (const textNode of asArray(value)) {
-        if (typeof textNode === "string" || typeof textNode === "number") {
-          output.push(String(textNode));
-        } else if (isRecord(textNode) && typeof textNode["#text"] === "string") {
-          output.push(textNode["#text"]);
-        }
-      }
-      continue;
-    }
-    collectXmlTextByLocalName(value, textLocalName, output);
-  }
-}
-
-function extractXmlText(xml: string, textLocalName = "t"): string[] {
-  const texts: string[] = [];
-  collectXmlTextByLocalName(parseXml(xml), textLocalName, texts);
-  return texts.map((text) => text.trim()).filter(Boolean);
-}
-
-function loadZip(bytes: Uint8Array): Promise<JSZip> {
-  return JSZip.loadAsync(Buffer.from(bytes));
-}
-
-async function readZipText(zip: JSZip, path: string): Promise<string | null> {
-  const file = zip.file(path);
-  return file ? await file.async("string") : null;
 }
 
 async function extractDocxText(bytes: Uint8Array): Promise<ParsedResumeOcr> {
@@ -616,7 +528,24 @@ async function extractImageText(input: ResumeDocumentInput): Promise<ParsedResum
 
   const mediaType = inferImageMediaType(input);
   const startedAt = nowMs();
+  emitResumeParseProgress(input.onProgress, {
+    renderedPages: 1,
+    totalPages: 1,
+    type: "document.pages.ready",
+  });
+  emitResumeParseProgress(input.onProgress, {
+    page: 1,
+    totalPages: 1,
+    type: "ocr.page.started",
+  });
   const text = await qwenVlOcrWithRetry(Buffer.from(input.bytes), 1, mediaType);
+  emitResumeParseProgress(input.onProgress, {
+    charCount: text.length,
+    page: 1,
+    textPreview: toOcrTextPreview(text),
+    totalPages: 1,
+    type: "ocr.page.completed",
+  });
   devOcrLog("image ocr completed", {
     bytes: input.bytes.byteLength,
     duration: formatDuration(startedAt),
@@ -628,36 +557,38 @@ async function extractImageText(input: ResumeDocumentInput): Promise<ParsedResum
     throw new Error("Qwen OCR returned empty text for the image resume.");
   }
 
+  emitResumeParseProgress(input.onProgress, {
+    outputChars: text.length,
+    renderedPages: 1,
+    totalPages: 1,
+    type: "ocr.completed",
+  });
   return { pageCount: 1, text, textSource: "qwen-ocr" };
 }
 
 export async function generateResumeStructured(text: string): Promise<ResumeParserStructured> {
   const startedAt = nowMs();
-  const provider = createAlibabaProvider({ enableThinking: false });
-  const modelId = getRequiredEnv("ALIBABA_STRUCTURED_MODEL");
   devOcrLog("structured start", {
-    baseUrl: getRequiredEnv("ALIBABA_BASE_URL"),
     inputChars: text.length,
-    model: modelId,
   });
-  const { text: rawOutput } = await generateText({
+  const output = await generateStructuredWithMastraAgent({
+    agent: resumeStructuredAgent,
     // 中文简历每字约 1 token，加上 projectExperiences/workExperiences 等结构开销，
     // 项目/经历较多的简历输出会很长，给到 16384 留足余量避免 summary 中途截断。
     // Chinese resumes use ~1 token per character; with verbose project / work
     // experience summaries the output can be very long, so allow 16384 to leave
     // headroom and avoid truncating mid-string.
     maxOutputTokens: 16_384,
-    model: provider(modelId),
     prompt: `${STRUCTURED_INSTRUCTIONS}\n\n简历文本：\n${clipForStructured(text)}`,
+    schema: structuredSchema,
     temperature: 0,
   });
   devOcrLog("structured completed", {
     duration: formatDuration(startedAt),
     inputChars: text.length,
-    model: modelId,
-    outputChars: rawOutput.length,
+    outputChars: JSON.stringify(output).length,
   });
-  return parseJsonOutput(rawOutput, structuredSchema, "resume-parse-pipeline");
+  return output;
 }
 
 /**
@@ -667,7 +598,10 @@ export async function generateResumeStructured(text: string): Promise<ResumePars
  * OCR-only path: rasterize + Qwen-VL OCR. Returns plain text & page count;
  * callers run structured extraction separately when they actually need it.
  */
-export async function parseResumeOcrOnly(bytes: Uint8Array): Promise<ParsedResumeOcr> {
+export async function parseResumeOcrOnly(
+  bytes: Uint8Array,
+  options: { onProgress?: ResumeDocumentInput["onProgress"] } = {},
+): Promise<ParsedResumeOcr> {
   const totalStartedAt = nowMs();
   if (!isQwenOcrConfigured()) {
     throw new Error("Qwen OCR is not configured (missing ALIBABA_API_KEY).");
@@ -681,6 +615,11 @@ export async function parseResumeOcrOnly(bytes: Uint8Array): Promise<ParsedResum
     pageCount,
     renderedPages: pages.length,
     renderedSizes: pages.map((page) => page.byteLength),
+  });
+  emitResumeParseProgress(options.onProgress, {
+    renderedPages: pages.length,
+    totalPages: pageCount,
+    type: "document.pages.ready",
   });
 
   if (pages.length === 0) {
@@ -697,12 +636,24 @@ export async function parseResumeOcrOnly(bytes: Uint8Array): Promise<ParsedResum
     pages.map((png, index) =>
       limitOcrPage(async () => {
         const pageStartedAt = nowMs();
+        emitResumeParseProgress(options.onProgress, {
+          page: index + 1,
+          totalPages: pageCount,
+          type: "ocr.page.started",
+        });
         const text = await qwenVlOcrWithRetry(png, index + 1);
         devOcrLog("page completed", {
           chars: text.length,
           duration: formatDuration(pageStartedAt),
           page: index + 1,
           pngBytes: png.byteLength,
+        });
+        emitResumeParseProgress(options.onProgress, {
+          charCount: text.length,
+          page: index + 1,
+          textPreview: toOcrTextPreview(text),
+          totalPages: pageCount,
+          type: "ocr.page.completed",
         });
         return text;
       }),
@@ -713,6 +664,12 @@ export async function parseResumeOcrOnly(bytes: Uint8Array): Promise<ParsedResum
     duration: formatDuration(ocrStartedAt),
     outputChars: text.length,
     pages: pages.length,
+  });
+  emitResumeParseProgress(options.onProgress, {
+    outputChars: text.length,
+    renderedPages: pages.length,
+    totalPages: pageCount,
+    type: "ocr.completed",
   });
 
   if (text.trim().length === 0) {
@@ -736,7 +693,7 @@ export function extractResumeDocumentText(input: ResumeDocumentInput): Promise<P
 
   switch (kind) {
     case "pdf": {
-      return parseResumeOcrOnly(input.bytes);
+      return parseResumeOcrOnly(input.bytes, { onProgress: input.onProgress });
     }
     case "doc": {
       return convertLegacyOfficeToOoxml({

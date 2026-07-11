@@ -1,33 +1,34 @@
+import {
+  IconBuilding,
+  IconChevronRight,
+  IconClipboardList,
+  IconFileText,
+  IconLayoutSidebarLeftCollapse,
+  IconListCheck,
+  IconMoon,
+  IconPlus,
+  IconRobot,
+  IconSelector,
+  IconSettings,
+  IconTrash,
+  IconUser,
+  IconUserCircle,
+  IconUserCog,
+  IconUsers,
+  IconX,
+} from "@tabler/icons-react";
 // 用途：复刻真实 Studio 壳（shadcn Sidebar variant="inset"）。所有尺寸严格按真实组件：
 // --sidebar-width 18rem (288px) · --header-height 3rem (48px) · SidebarMenuButton h-8
 // SidebarGroup p-2 · SidebarGroupLabel h-8 px-2 text-xs/70 · TabsList h-9 p-[3px] bg-muted。
 // Purpose: 1:1 mirror of the real Studio sidebar+inset layout. Width / heights /
 // classes match the actual shadcn primitives the production app uses.
-import {
-  BotIcon,
-  Building2Icon,
-  ChevronRightIcon,
-  ChevronsUpDownIcon,
-  ClipboardListIcon,
-  FileTextIcon,
-  ListChecksIcon,
-  MoonIcon,
-  PanelLeftIcon,
-  PlusIcon,
-  SettingsIcon,
-  Trash2Icon,
-  UserCircleIcon,
-  UserCogIcon,
-  UserIcon,
-  UsersIcon,
-  XIcon,
-} from "@/components/icons/hugeicons";
+
 import type { ReactNode } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@arc/shared/utils";
 
 interface NavItem {
-  icon: typeof BotIcon;
+  icon: typeof IconRobot;
   label: string;
 }
 
@@ -41,31 +42,31 @@ interface NavGroup {
 export const STUDIO_NAV_GROUPS: NavGroup[] = [
   {
     items: [
-      { icon: UsersIcon, label: "简历库" },
-      { icon: BotIcon, label: "AI 面试" },
+      { icon: IconUsers, label: "招聘" },
+      { icon: IconRobot, label: "AI 面试" },
     ],
     label: "工作台",
   },
   {
     items: [
-      { icon: Building2Icon, label: "部门管理" },
-      { icon: UserCircleIcon, label: "面试官管理" },
-      { icon: FileTextIcon, label: "在招岗位管理" },
+      { icon: IconBuilding, label: "部门管理" },
+      { icon: IconUserCircle, label: "面试官管理" },
+      { icon: IconFileText, label: "岗位设置" },
     ],
     label: "招聘配置",
   },
   {
     items: [
-      { icon: ClipboardListIcon, label: "面试表单" },
-      { icon: ListChecksIcon, label: "面试题" },
+      { icon: IconClipboardList, label: "面试表单" },
+      { icon: IconListCheck, label: "面试题" },
     ],
     label: "题库",
   },
   {
     items: [
-      { icon: UserIcon, label: "我的信息" },
-      { icon: UserCogIcon, label: "工作区管理" },
-      { icon: SettingsIcon, label: "系统设置" },
+      { icon: IconUser, label: "我的信息" },
+      { icon: IconUserCog, label: "工作区管理" },
+      { icon: IconSettings, label: "系统设置" },
     ],
     label: "系统配置",
   },
@@ -73,15 +74,15 @@ export const STUDIO_NAV_GROUPS: NavGroup[] = [
 
 // ─────────────────── Tabs (real shadcn Tabs default variant) ───────────────────
 interface SidebarTabsProps {
-  active: "chat" | "studio";
+  active: "agent" | "chat" | "studio";
 }
 
 function SidebarTabs({ active }: SidebarTabsProps) {
   return (
     // 对齐 Tabs default variant：bg-muted + h-9 + p-[3px] + rounded-lg + 子项 shadow-sm
     // Matches Tabs default variant: bg-muted h-9 p-[3px] rounded-lg; active gets shadow-sm
-    <div className="inline-flex h-9 w-full items-center justify-center rounded-lg bg-muted p-[3px] text-muted-foreground">
-      {(["chat", "studio"] as const).map((value) => {
+    <div className="inline-flex h-9 w-full items-center justify-center rounded-lg bg-muted/60 p-[3px] text-muted-foreground">
+      {(["agent", "studio"] as const).map((value) => {
         const isActive = value === active;
         return (
           <span
@@ -91,7 +92,7 @@ function SidebarTabs({ active }: SidebarTabsProps) {
             )}
             key={value}
           >
-            {value === "chat" ? "Chat" : "Studio"}
+            {value === "agent" ? "Agent" : "Studio"}
           </span>
         );
       })}
@@ -131,7 +132,7 @@ export function StudioNav({ activeLabel }: StudioNavProps) {
                     className={cn(
                       "flex h-8 w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm",
                       active
-                        ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                        ? "bg-background font-medium text-sidebar-accent-foreground"
                         : "text-sidebar-foreground",
                     )}
                   >
@@ -171,7 +172,7 @@ export function ChatNav() {
         <div className="flex items-center justify-between px-2 pt-1 pb-2">
           <span className="font-medium text-sidebar-foreground/70 text-xs">最近会话</span>
           <span className="grid size-6 place-items-center rounded-md text-sidebar-foreground/60">
-            <PlusIcon className="size-3.5" />
+            <IconPlus className="size-3.5" />
           </span>
         </div>
         <ul className="flex w-full min-w-0 flex-col gap-0.5">
@@ -181,7 +182,7 @@ export function ChatNav() {
                 className={cn(
                   "flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm",
                   c.active
-                    ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                    ? "bg-background font-medium text-sidebar-accent-foreground"
                     : "text-sidebar-foreground",
                 )}
               >
@@ -218,7 +219,7 @@ function SidebarUserSection() {
             <p className="truncate font-medium text-sm">郭靖</p>
             <p className="truncate text-muted-foreground text-xs">Workspace</p>
           </div>
-          <ChevronsUpDownIcon className="size-4 shrink-0 text-muted-foreground" />
+          <IconSelector className="size-4 shrink-0 text-muted-foreground" />
         </div>
       </div>
     </div>
@@ -244,7 +245,7 @@ function BreadcrumbBar({ crumbs }: { crumbs: BreadcrumbCrumb[] }) {
     >
       {crumbs.map((c, i) => (
         <span className="inline-flex items-center gap-2.5" key={c.label}>
-          {i > 0 ? <ChevronRightIcon className="size-3.5" /> : null}
+          {i > 0 ? <IconChevronRight className="size-3.5" /> : null}
           <span className={c.current ? "font-normal text-foreground" : ""}>{c.label}</span>
         </span>
       ))}
@@ -258,7 +259,7 @@ function WorkspaceSwitcher() {
   return (
     <span className="flex h-8 items-center gap-2 rounded-md px-2.5 font-normal text-sm">
       <span className="truncate">Workspace</span>
-      <ChevronsUpDownIcon className="size-4 opacity-60" />
+      <IconSelector className="size-4 opacity-60" />
     </span>
   );
 }
@@ -268,7 +269,7 @@ function ThemeToggleButton() {
   // Real: ghost icon-sm button with sun/moon swap
   return (
     <span className="grid size-8 place-items-center rounded-md">
-      <MoonIcon className="size-4" />
+      <IconMoon className="size-4" />
     </span>
   );
 }
@@ -278,7 +279,7 @@ function SidebarTriggerButton() {
   // Real: ghost icon button (size-7) with PanelLeft, inset header gives -ml-1
   return (
     <span className="-ml-1 grid size-7 place-items-center rounded-md text-muted-foreground">
-      <PanelLeftIcon className="size-4" />
+      <IconLayoutSidebarLeftCollapse className="size-4" />
     </span>
   );
 }
@@ -314,14 +315,14 @@ function InsetHeader({ breadcrumb, actions, className }: InsetHeaderProps) {
 
 // ─────────────────── Re-exports used by some screens ───────────────────
 export const Icons = {
-  Plus: PlusIcon,
-  Trash: Trash2Icon,
-  X: XIcon,
+  Plus: IconPlus,
+  Trash: IconTrash,
+  X: IconX,
 };
 
 // ─────────────────── App shell ───────────────────
 interface AppShellProps {
-  tab?: "chat" | "studio";
+  tab?: "agent" | "chat" | "studio";
   sidebar: ReactNode;
   breadcrumb: BreadcrumbCrumb[];
   headerActions?: ReactNode;
@@ -349,7 +350,7 @@ export function AppShell({
   return (
     // 真实外层：has-data-[variant=inset]:bg-sidebar
     // inset 自身是 bg-background，四周露出的底色与 sidebar 保持一致。
-    <div className="flex h-full w-full bg-sidebar text-foreground">
+    <div className="flex h-full w-full bg-sidebar/70 text-foreground">
       <aside
         // 真实 sidebar 外层：p-2 group-data-[collapsible=icon]:w-... 在 inset 变体下；
         // 内层是 bg-sidebar (light) / dark:bg-sidebar 的 sidebar 列。
@@ -357,7 +358,7 @@ export function AppShell({
         // Width: --sidebar-width = calc(0.25rem * 72) = 18rem = 288px
         className="flex w-[288px] shrink-0 flex-col p-2"
       >
-        <div className="flex h-full w-full flex-col bg-sidebar text-sidebar-foreground">
+        <div className="flex h-full w-full flex-col  text-sidebar-foreground">
           {/* SidebarHeader: gap-3 (AppSidebar override) flex flex-col gap-2 p-2 */}
           <div className="flex shrink-0 flex-col gap-3 p-2">
             <SidebarTabs active={tab} />

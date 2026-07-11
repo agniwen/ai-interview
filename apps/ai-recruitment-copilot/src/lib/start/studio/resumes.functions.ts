@@ -7,6 +7,7 @@ import {
   workspaceAccessHasPermission,
 } from "@/lib/start/auth-session.server";
 import { workspaceDataGridInputSchema } from "@/lib/start/server-fn-validators";
+import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import { loadStudioResumesData } from "./resumes.server";
 
 export interface ResumeFilters extends Record<string, string> {
@@ -35,7 +36,9 @@ export type StudioResumesServerState =
 export type StudioResumesState = StudioResumesServerState;
 
 export const loadStudioResumesState = createServerFn({ method: "GET" })
-  .validator(workspaceDataGridInputSchema(resumeFiltersSchema))
+  .validator(
+    workspaceDataGridInputSchema(resumeFiltersSchema).extend({ prefetchList: z.boolean() }),
+  )
   .handler(async ({ data }): Promise<StudioResumesServerState> => {
     const access = await resolveWorkspaceAccessFromRequest(data.slug);
     if (access.status !== "ready") {
@@ -49,13 +52,20 @@ export const loadStudioResumesState = createServerFn({ method: "GET" })
     if (!canReadResumes) {
       return { status: "not_found" };
     }
+    const visibilityScope = data.prefetchList
+      ? await resolveRecruitingVisibilityScope({
+          currentRole: access.member.role,
+          organizationId: access.workspace.id,
+          userId: access.user.id,
+        })
+      : undefined;
 
     return {
       ...(await loadStudioResumesData({
+        prefetchList: data.prefetchList,
         query: data.query,
         slug: data.slug,
-        userId: access.user.id,
-        userRole: access.member.role,
+        visibilityScope,
         workspaceId: access.workspace.id,
       })),
       status: "ready",

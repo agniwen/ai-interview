@@ -198,7 +198,7 @@ export const uploadsRouter = factory
     const bytesForParse = new Uint8Array(original);
 
     // 上传与文本抽取并行：S3 失败致命；文本抽取失败记录后由后续 LLM 调用兜底。
-    // chat 路径不在这里跑结构化抽取 —— 结构化由简历库的 storeInterviewResume
+    // chat 路径不在这里跑结构化抽取 —— 结构化由招聘台的 storeInterviewResume
     // 或聊天里的 suggest_job_description 工具按需触发，命中同 hash 时复用并回填。
     // S3 upload + text extraction in parallel. S3 failure is fatal; extraction
     // failure is logged and falls back at LLM call time.
@@ -260,10 +260,9 @@ export const uploadsRouter = factory
         attachmentId,
         parsedPageCount: parseOutcome.status === "fulfilled" ? parseOutcome.value.pageCount : null,
         parsedStatus: parseFields.parsedStatus,
-        // text-only：响应里 structured 总为 null；前端 ParsedResumeButton 与
-        // chat-message-item 已兼容这种形态。
-        // Text-only path: structured is always null in the response; the
-        // ParsedResumeButton and chat-message-item already handle this case.
+        // text-only：响应里 structured 总为 null；附件预览和历史消息烘焙路径需要兼容这种形态。
+        // Text-only path: structured is always null in the response; attachment preview
+        // and historical message baking paths need to tolerate it.
         parsedStructured: null,
         parsedText: parseOutcome.status === "fulfilled" ? parseOutcome.value.text : null,
         parsedTextSource:

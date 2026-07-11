@@ -1,16 +1,17 @@
+import {
+  IconArrowUp,
+  IconDownload,
+  IconPlus,
+  IconSettings,
+  IconSparkles,
+} from "@tabler/icons-react";
 // 用途：landing 用「简历筛选 Chat」简化版 UI，1:1 对齐真实组件：
 // - ChatHeader: SidebarInsetHeader 面包屑 "简历筛选助手" + bg-background/60 backdrop-blur-md
 // - QuickSuggestions: max-w-5xl px-3 + "快速提问" 标签 + 圆角 pill (rounded-2xl border-border/70 bg-card/70)
 // - Message: user 气泡 (bg-white border rounded-2xl px-3 py-2 max-w-[88%]) / assistant 无气泡铺满
 // - PDF 卡: rounded-lg border bg-card p-3 + filename + (预览/查看结构化/一键入库) 三按钮行 border-t pt-3
 // - Composer: PromptInput rounded-[1.3rem] + footer tools (+/settings/download/model) + submit
-import {
-  ArrowUpIcon,
-  DownloadIcon,
-  PlusIcon,
-  SettingsIcon,
-  SparklesIcon,
-} from "@/components/icons/hugeicons";
+
 import type { ReactNode } from "react";
 import { AppShell, ChatNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
@@ -126,7 +127,7 @@ function PdfFileIcon({ className }: { className?: string }) {
 
 function PdfAttachmentCard({ filename }: { filename: string }) {
   // 真实 ChatMessageItem PDF 卡: flex w-full flex-col gap-3 rounded-lg border bg-card p-3 hover:bg-accent/30
-  // 内容: filename + mediaType + (PdfPreviewButton | ParsedResumeButton | ResumeImportButton) border-t pt-3
+  // 内容: filename + mediaType + 预览操作。
   return (
     <div className="flex w-[280px] flex-col gap-3 rounded-lg border bg-card p-3">
       <div className="flex min-w-0 items-center gap-3">
@@ -267,7 +268,7 @@ function ModelPickerChip() {
   // 对齐 ModelPicker 简化: 显示当前 model 名 + chevron
   return (
     <span className="flex h-8 items-center gap-1.5 rounded-md border border-input bg-transparent px-2.5 text-foreground/80 text-xs">
-      <SparklesIcon className="size-3.5" />
+      <IconSparkles className="size-3.5" />
       <span className="font-medium">claude-opus-4-7</span>
     </span>
   );
@@ -291,13 +292,13 @@ function Composer() {
         <div className="flex items-center justify-between gap-1 px-2 pb-2">
           <div className="flex min-w-0 items-center gap-1">
             <ComposerToolButton>
-              <PlusIcon className="size-4" />
+              <IconPlus className="size-4" />
             </ComposerToolButton>
             <ComposerToolButton>
-              <SettingsIcon className="size-4" />
+              <IconSettings className="size-4" />
             </ComposerToolButton>
             <ComposerToolButton>
-              <DownloadIcon className="size-4" />
+              <IconDownload className="size-4" />
             </ComposerToolButton>
             <ModelPickerChip />
           </div>
@@ -307,7 +308,7 @@ function Composer() {
             </span>
             {/* PromptInputSubmit: rounded-full bg-primary/80 size-9 */}
             <span className="grid size-9 place-items-center rounded-full bg-primary/80 text-primary-foreground">
-              <ArrowUpIcon className="size-4" />
+              <IconArrowUp className="size-4" />
             </span>
           </div>
         </div>
@@ -337,7 +338,7 @@ export function ChatScreen({ className }: { className?: string }) {
         breadcrumb={BREADCRUMB}
         headerClassName="bg-background/60 backdrop-blur-md"
         sidebar={<ChatNav />}
-        tab="chat"
+        tab="agent"
       >
         <ChatContent />
       </AppShell>

@@ -10,6 +10,6 @@ export const Route = createFileRoute("/chat")({
   loader: async () =>
     await redirectToActiveWorkspace({
       callbackPath: "/chat",
-      getDestination: (slug) => `/w/${slug}/chat`,
+      getDestination: (slug) => `/w/${slug}/agent`,
     }),
 });

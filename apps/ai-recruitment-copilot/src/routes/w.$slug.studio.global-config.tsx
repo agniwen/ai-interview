@@ -10,7 +10,11 @@ function StudioGlobalConfigRoute() {
     return null;
   }
 
-  return <GlobalConfigForm initial={state.initial} />;
+  return (
+    <div className="mx-auto w-full max-w-[96rem]">
+      <GlobalConfigForm initial={state.initial} />
+    </div>
+  );
 }
 
 export const Route = createFileRoute("/w/$slug/studio/global-config")({

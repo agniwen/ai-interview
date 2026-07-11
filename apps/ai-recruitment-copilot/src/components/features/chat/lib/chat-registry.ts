@@ -87,7 +87,7 @@ export function getOrCreateChat(
     sendAutomaticallyWhen: ({ messages }) =>
       lastAssistantMessageIsCompleteWithToolCalls({ messages }) ||
       lastAssistantMessageIsCompleteWithApprovalResponses({ messages }),
-    transport: createChatTransport(chatId),
+    transport: createChatTransport(chatId, slug),
   });
 
   chats.set(chatId, chat);
@@ -96,6 +96,10 @@ export function getOrCreateChat(
 
 export function hasChat(chatId: string): boolean {
   return chats.has(chatId);
+}
+
+export function removeChat(chatId: string): void {
+  chats.delete(chatId);
 }
 
 export function subscribeChatFinish(listener: FinishListener): () => void {

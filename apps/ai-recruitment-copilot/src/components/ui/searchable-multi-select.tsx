@@ -1,6 +1,6 @@
 "use client";
 
-import { XIcon } from "@/components/icons/hugeicons";
+import { IconX } from "@tabler/icons-react";
 import { useId, useMemo } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -18,7 +18,10 @@ import {
   useComboboxAnchor,
 } from "@/components/ui/combobox";
 import type { SearchableSelectOption } from "@/components/ui/searchable-select";
-import { filterSearchableOption } from "@/components/ui/searchable-select";
+import {
+  filterSearchableOption,
+  handleScrollableListWheel,
+} from "@/components/ui/searchable-select";
 import { cn } from "@arc/shared/utils";
 
 // =====================================================================
@@ -151,9 +154,13 @@ export function SearchableMultiSelect({
             }}
           </ComboboxValue>
         </ComboboxChips>
-        <ComboboxContent anchor={anchorRef} className="min-w-72">
+        <ComboboxContent
+          anchor={anchorRef}
+          className="min-w-72"
+          collisionAvoidance={{ side: "flip", align: "shift", fallbackAxisSide: "none" }}
+        >
           <ComboboxEmpty>{emptyMessage}</ComboboxEmpty>
-          <ComboboxList>
+          <ComboboxList onWheelCapture={handleScrollableListWheel}>
             {(option: SearchableSelectOption) => (
               <ComboboxItem disabled={option.disabled} key={option.value} value={option}>
                 {option.avatarUrl !== undefined ? (
@@ -189,7 +196,7 @@ export function SearchableMultiSelect({
                 onClick={() => remove(item.value)}
                 type="button"
               >
-                <XIcon className="size-3" />
+                <IconX className="size-3" />
               </button>
             </Badge>
           ))}

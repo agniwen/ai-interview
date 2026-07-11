@@ -1,17 +1,18 @@
-// 用途：landing 用「Studio › 简历库」简化版 UI。对齐真实组件：
+import {
+  IconChevronDown,
+  IconChevronRight,
+  IconCloudUpload,
+  IconFilterX,
+  IconPlus,
+  IconRefresh,
+  IconSearch,
+} from "@tabler/icons-react";
+// 用途：landing 用「Studio › 招聘台」简化版 UI。对齐真实组件：
 // - PageHeader: <h1 class="text-2xl"> + <p class="text-muted-foreground text-sm">
 // - ResumeLibraryCharts: 3 张 shadcn chart card，顶部含指标分栏
 // - DataGrid: AlignUI table primitives，Toolbar 在外面 (filters 左 + button 右)
 // Purpose: simplified Studio resume library mock, mirroring the real components 1:1.
-import {
-  ChevronDownIcon,
-  ChevronRightIcon,
-  FilterXIcon,
-  PlusIcon,
-  RefreshCwIcon,
-  SearchIcon,
-  UploadCloudIcon,
-} from "@/components/icons/hugeicons";
+
 import { Fragment } from "react";
 import { PdfFileIcon } from "@/components/features/pdf/pdf-file-icon";
 import {
@@ -27,7 +28,7 @@ import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
 import { ScreenFrame } from "./screen-frame";
 
-const BREADCRUMB: BreadcrumbCrumb[] = [{ label: "Studio" }, { current: true, label: "简历库" }];
+const BREADCRUMB: BreadcrumbCrumb[] = [{ label: "Studio" }, { current: true, label: "招聘" }];
 
 // ─────────────────── shared mini Card ───────────────────
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -362,7 +363,7 @@ function FilterSelectChip({ label }: { label: string }) {
   return (
     <span className="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-sm shadow-xs sm:w-auto sm:min-w-45">
       <span className="truncate text-muted-foreground">{label}</span>
-      <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground opacity-50" />
+      <IconChevronDown className="size-4 shrink-0 text-muted-foreground opacity-50" />
     </span>
   );
 }
@@ -396,7 +397,7 @@ function ResumeToolbar() {
     <div className="flex flex-wrap items-start gap-3">
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="relative min-w-[15rem]">
-          <SearchIcon className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
+          <IconSearch className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
           <div className="flex h-9 w-full items-center rounded-md border border-input bg-background pr-9 pl-9 text-muted-foreground text-sm shadow-xs">
             搜索候选人、邮箱、电话、简历名或目标岗位
           </div>
@@ -406,24 +407,24 @@ function ResumeToolbar() {
       </div>
       <div className="flex min-w-fit shrink-0 flex-wrap items-center gap-2 sm:flex-nowrap">
         <ToolbarIconButton label="刷新">
-          <RefreshCwIcon className="size-4" />
+          <IconRefresh className="size-4" />
         </ToolbarIconButton>
         <ToolbarIconButton disabled label="重置筛选">
-          <FilterXIcon className="size-4" />
+          <IconFilterX className="size-4" />
         </ToolbarIconButton>
         <div className="flex flex-wrap gap-2">
           <button
             className="flex h-9 items-center gap-1.5 rounded-md border border-input bg-background px-3 font-medium text-sm shadow-xs"
             type="button"
           >
-            <UploadCloudIcon className="size-4" />
+            <IconCloudUpload className="size-4" />
             批量上传
           </button>
           <button
             className="flex h-9 items-center gap-1.5 rounded-md bg-primary/80 px-3 font-medium text-primary-foreground text-sm shadow-xs"
             type="button"
           >
-            <PlusIcon className="size-4" />
+            <IconPlus className="size-4" />
             新建简历记录
           </button>
         </div>
@@ -561,7 +562,7 @@ function LifecycleBadge({ row }: { row: ResumeRow }) {
         aria-hidden="true"
         className="ml-auto flex size-4 shrink-0 items-center justify-center rounded-full border border-current/25 bg-current/10 opacity-70 transition-all duration-200 group-hover/lifecycle:scale-110 group-hover/lifecycle:bg-current/15 group-hover/lifecycle:opacity-100"
       >
-        <ChevronRightIcon className="size-3 transition-transform duration-200 group-hover/lifecycle:scale-110" />
+        <IconChevronRight className="size-3 transition-transform duration-200 group-hover/lifecycle:scale-110" />
       </span>
     </button>
   );
@@ -684,7 +685,7 @@ function ResumesContent() {
     <div className="flex flex-col gap-6 px-6 py-6">
       <PageHeader
         description="沉淀候选人档案、简历 PDF、岗位匹配和流程进展，筛选到面试推进都能从这里接上。"
-        title="简历库"
+        title="招聘"
       />
       <ChartsRow />
       <PipelineStageTabs />
@@ -699,7 +700,7 @@ function ResumesContent() {
 export function ResumesScreen({ className }: { className?: string }) {
   return (
     <ScreenFrame className={className}>
-      <AppShell breadcrumb={BREADCRUMB} sidebar={<StudioNav activeLabel="简历库" />} tab="studio">
+      <AppShell breadcrumb={BREADCRUMB} sidebar={<StudioNav activeLabel="招聘" />} tab="studio">
         <ResumesContent />
       </AppShell>
     </ScreenFrame>

@@ -1,3 +1,4 @@
+import { IconFileText, IconPlus, IconSparkles } from "@tabler/icons-react";
 import { HydrationBoundary, useQueryClient } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
 import {
@@ -24,10 +25,11 @@ import type {
   JobDescriptionMetrics,
   JobDescriptionRecord,
 } from "@arc/shared/job-descriptions";
+import { createDefaultResumeScreeningPolicy } from "@arc/shared/job-descriptions";
 import type { PaginatedJobDescriptionResult } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { JobDescriptionCharts } from "@/components/features/studio/job-descriptions/job-description-charts";
 import { ScopedResumesModal } from "@/components/features/studio/scoped-resumes-modal";
-import { FileTextIcon, PlusIcon, SparklesIcon } from "@/components/icons/hugeicons";
+
 import { useCallback, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -56,6 +58,7 @@ import { JobDescriptionAiCreateDialog } from "@/components/features/studio/job-d
 import { JobDescriptionTalentRecommendationsDialog } from "@/components/features/studio/job-descriptions/job-description-talent-recommendations-dialog";
 import { createJobDescriptionReferralLink } from "@/lib/client/api";
 import { copyTextToClipboard } from "@/lib/client/clipboard";
+import { useHasPermission } from "@/hooks/use-has-permission";
 import { toast } from "sonner";
 
 function JobDescriptionManagementPage({
@@ -81,6 +84,10 @@ function JobDescriptionManagementPage({
   const [createDraftSessionId, setCreateDraftSessionId] = useState(0);
   const [aiCreateOpen, setAiCreateOpen] = useState(false);
   const [copyingReferralIds, setCopyingReferralIds] = useState<Set<string>>(() => new Set());
+  const canCreateJobDescription = useHasPermission("jd", "create");
+  const canUpdateJobDescription = useHasPermission("jd", "update");
+  const canDeleteJobDescription = useHasPermission("jd", "delete");
+  const canReadResumeLibrary = useHasPermission("resumeLibrary", "read");
 
   const fetchJobDescriptions = useCallback(
     async (params: {
@@ -178,6 +185,9 @@ function JobDescriptionManagementPage({
     name: string;
     prompt: string;
   }) {
+    if (!canCreateJobDescription) {
+      return;
+    }
     setCreateDraft({
       allowCrossDepartmentInterviewers: false,
       departmentId,
@@ -185,6 +195,7 @@ function JobDescriptionManagementPage({
       interviewerIds: [],
       name,
       prompt,
+      resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
     });
     setCreateDraftSessionId((id) => id + 1);
     crud.setEditingRecord(null);
@@ -218,6 +229,9 @@ function JobDescriptionManagementPage({
   } else if (crud.editingRecord) {
     editorDialogKey = `edit-${crud.editingRecord.id}`;
   }
+  const canOpenEditorDialog = crud.editingRecord
+    ? canUpdateJobDescription
+    : canCreateJobDescription;
 
   const columns = useMemo(
     () => [
@@ -268,6 +282,11 @@ function JobDescriptionManagementPage({
           if (r.resumeCount === 0) {
             return <span className="text-muted-foreground text-sm">关联了 0 个简历</span>;
           }
+          if (!canReadResumeLibrary) {
+            return (
+              <span className="text-muted-foreground text-sm">关联了 {r.resumeCount} 个简历</span>
+            );
+          }
           return (
             <Button
               className="h-auto p-0 font-medium text-primary"
@@ -302,6 +321,7 @@ function JobDescriptionManagementPage({
             onClick: (r) => {
               setRecommendationScope({ id: r.id, name: r.name });
             },
+            show: () => canReadResumeLibrary,
           },
           {
             disabled: (r) => copyingReferralIds.has(r.id),
@@ -314,19 +334,21 @@ function JobDescriptionManagementPage({
             onClick: (r) => {
               void crud.openEdit(r);
             },
+            show: () => canUpdateJobDescription,
           },
         ],
         menu: [
           {
             label: "删除",
             onClick: (r) => crud.setDeleteRecord(r),
+            show: () => canDeleteJobDescription,
             variant: "destructive",
           },
         ],
       }),
     ],
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-    [copyingReferralIds],
+    [canDeleteJobDescription, canReadResumeLibrary, canUpdateJobDescription, copyingReferralIds],
   );
 
   const filtersConfig = useMemo(
@@ -365,10 +387,10 @@ function JobDescriptionManagementPage({
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="mx-auto w-full max-w-[96rem] space-y-6">
         <PageHeader
           description="按岗位组织候选人、面试官和面试数据，让招聘进展和团队分工都落到同一处。"
-          title="在招岗位"
+          title="岗位设置"
         />
 
         <ClientOnly fallback={<Skeleton className="h-80 w-full" />}>
@@ -384,7 +406,7 @@ function JobDescriptionManagementPage({
               <Empty className="border-border">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
-                    <FileTextIcon className="size-5" />
+                    <IconFileText className="size-5" />
                   </EmptyMedia>
                   <EmptyTitle>请先创建部门和面试官</EmptyTitle>
                   <EmptyDescription>
@@ -396,99 +418,107 @@ function JobDescriptionManagementPage({
               <Empty className="border-border">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
-                    <FileTextIcon className="size-5" />
+                    <IconFileText className="size-5" />
                   </EmptyMedia>
                   <EmptyTitle>还没有在招岗位</EmptyTitle>
                   <EmptyDescription>
                     创建在招岗位之后即可在面试记录中引用，并带上面试官 prompt 与音色。
                   </EmptyDescription>
                 </EmptyHeader>
-                <EmptyContent className="flex items-center justify-center">
-                  <ButtonGroup>
-                    <Button
-                      disabled={missingRefs}
-                      onClick={() => {
-                        setCreateDraft(null);
-                        crud.openCreate();
-                      }}
-                    >
-                      <PlusIcon className="size-4" />
-                      新建在招岗位
-                    </Button>
-                    <Button
-                      aria-label="AI 创建在招岗位"
-                      disabled={missingRefs}
-                      onClick={() => setAiCreateOpen(true)}
-                      size="icon"
-                      title="AI 创建在招岗位"
-                      type="button"
-                    >
-                      <SparklesIcon className="size-4" />
-                    </Button>
-                  </ButtonGroup>
-                </EmptyContent>
+                {canCreateJobDescription ? (
+                  <EmptyContent className="flex items-center justify-center">
+                    <ButtonGroup>
+                      <Button
+                        disabled={missingRefs}
+                        onClick={() => {
+                          setCreateDraft(null);
+                          crud.openCreate();
+                        }}
+                      >
+                        <IconPlus className="size-4" />
+                        新建在招岗位
+                      </Button>
+                      <Button
+                        aria-label="AI 创建在招岗位"
+                        disabled={missingRefs}
+                        onClick={() => setAiCreateOpen(true)}
+                        size="icon"
+                        title="AI 创建在招岗位"
+                        type="button"
+                      >
+                        <IconSparkles className="size-4" />
+                      </Button>
+                    </ButtonGroup>
+                  </EmptyContent>
+                ) : null}
               </Empty>
             )
           }
           filters={filtersConfig}
           getRowId={(r) => r.id}
           toolbarRight={
-            <ButtonGroup className="flex-1 sm:flex-none">
-              <Button
-                className="flex-1 sm:flex-none"
-                disabled={missingRefs}
-                onClick={() => {
-                  setCreateDraft(null);
-                  crud.openCreate();
-                }}
-              >
-                <PlusIcon className="size-4" />
-                新建在招岗位
-              </Button>
-              <Button
-                aria-label="AI 创建在招岗位"
-                disabled={missingRefs}
-                onClick={() => setAiCreateOpen(true)}
-                size="icon"
-                title="AI 创建在招岗位"
-                type="button"
-              >
-                <SparklesIcon className="size-4" />
-              </Button>
-            </ButtonGroup>
+            canCreateJobDescription ? (
+              <ButtonGroup className="flex-1 sm:flex-none">
+                <Button
+                  className="flex-1 sm:flex-none"
+                  disabled={missingRefs}
+                  onClick={() => {
+                    setCreateDraft(null);
+                    crud.openCreate();
+                  }}
+                >
+                  <IconPlus className="size-4" />
+                  新建在招岗位
+                </Button>
+                <Button
+                  aria-label="AI 创建在招岗位"
+                  disabled={missingRefs}
+                  onClick={() => setAiCreateOpen(true)}
+                  size="icon"
+                  title="AI 创建在招岗位"
+                  type="button"
+                >
+                  <IconSparkles className="size-4" />
+                </Button>
+              </ButtonGroup>
+            ) : null
           }
         />
       </div>
 
-      <JobDescriptionAiCreateDialog
-        departments={departments}
-        onGenerated={handleAiGenerated}
-        onOpenChange={setAiCreateOpen}
-        open={aiCreateOpen}
-      />
+      {canCreateJobDescription ? (
+        <JobDescriptionAiCreateDialog
+          departments={departments}
+          onGenerated={handleAiGenerated}
+          onOpenChange={setAiCreateOpen}
+          open={aiCreateOpen}
+        />
+      ) : null}
 
-      <JobDescriptionFormDialog
-        departments={departments}
-        initialDraft={createDraft}
-        interviewers={interviewers}
-        key={editorDialogKey}
-        onOpenChange={onFormOpenChange}
-        onSaved={invalidateJobDescriptionData}
-        open={crud.formDialogOpen}
-        record={crud.editingRecord}
-      />
+      {canOpenEditorDialog ? (
+        <JobDescriptionFormDialog
+          departments={departments}
+          initialDraft={createDraft}
+          interviewers={interviewers}
+          key={editorDialogKey}
+          onOpenChange={onFormOpenChange}
+          onSaved={invalidateJobDescriptionData}
+          open={crud.formDialogOpen}
+          record={crud.editingRecord}
+        />
+      ) : null}
 
       <EntityDeleteDialog
         confirmDisabled={(record) => record.resumeCount > 0}
         description={(record) => {
           if (record.resumeCount > 0) {
-            return `当前有 ${record.resumeCount} 条简历关联到岗位「${record.name}」，无法删除；请先到简历库取消关联或删除这些候选人。`;
+            return `当前有 ${record.resumeCount} 条简历关联到岗位「${record.name}」，无法删除；请先到招聘台取消关联或删除这些候选人。`;
           }
           return `即将删除岗位：${record.name}，引用该岗位的面试记录的关联岗位字段会被清空。`;
         }}
         onClose={() => crud.setDeleteRecord(null)}
         onConfirm={crud.handleDelete}
-        record={crud.deleteRecord}
+        record={canDeleteJobDescription ? crud.deleteRecord : null}
         title="确认删除这个在招岗位？"
       />
 
@@ -499,7 +529,7 @@ function JobDescriptionManagementPage({
             setResumesScope(null);
           }
         }}
-        open={resumesScope !== null}
+        open={canReadResumeLibrary && resumesScope !== null}
       />
 
       <JobDescriptionTalentRecommendationsDialog
@@ -509,7 +539,7 @@ function JobDescriptionManagementPage({
             setRecommendationScope(null);
           }
         }}
-        open={recommendationScope !== null}
+        open={canReadResumeLibrary && recommendationScope !== null}
       />
     </>
   );
@@ -580,7 +610,7 @@ function StudioJobDescriptionsRoute() {
 export const Route = createFileRoute("/w/$slug/studio/job-descriptions")({
   component: StudioJobDescriptionsRoute,
   head: () => ({
-    meta: [{ title: "在招岗位管理" }],
+    meta: [{ title: "岗位设置" }],
   }),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {

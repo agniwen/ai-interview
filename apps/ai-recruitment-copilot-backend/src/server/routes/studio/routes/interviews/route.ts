@@ -1,134 +1,39 @@
-import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { zValidator } from "@hono/zod-validator";
+import { studioInterviewCollectionRouter } from "./collection-route";
+import { studioInterviewDetailRouter } from "./detail-route";
+import { studioInterviewHumanRouter } from "./human-route";
 import { and, eq, inArray, notExists } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import { createRequestWorkspaceAuthorizer } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import {
-  candidateFormSubmission,
-  interviewAuditLog,
-  studioInterview,
-  studioInterviewSchedule,
-} from "@arc/db-schema/schema";
+import { interviewAuditLog, studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
 import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
-import {
-  buildAgentInstructions,
-  resolveClosingPrompt,
-  resolveOpeningPrompt,
-} from "@arc/shared/interview/agent-instructions";
 import { parseCsvParam } from "@arc/shared/csv";
 import {
   candidateExpectationsMetaSchema,
   candidateOutcomeSchema,
   closedMetaSchema,
-  humanInterviewMeetingInputSchema,
-  humanInterviewRoundInputSchema,
-  nullableInstantDateTimeInputSchema,
-  humanInterviewRoundOutcomeSchema,
-  offerDraftInputSchema,
-  offerResponseInputSchema,
-  parseResumePayloadInput,
-  parseScheduleEntriesInput,
   pipelineStageSchema,
-  scheduleEntryStatusSchema,
-  studioInterviewFormSchema,
-  toNullableString,
 } from "@arc/db-schema/studio-interviews";
-import {
-  analyzeResumeFile,
-  generateInterviewQuestionsForProfile,
-  parseResumeFastToProfile,
-} from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
-import { resolveCandidateQuestionGenerationEnabled } from "@arc/shared/interview/candidate-question-generation-config";
-import { loadSubmissionsByInterview } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/submissions";
-import {
-  autoBindApplicableTemplates,
-  ensureApplicableBindings,
-  loadInterviewQuestionTemplateBindings,
-  refreshInterviewBindingsToLatest,
-  replaceInterviewBindings,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/bindings";
-import {
-  createInterviewContextSnapshot,
-  flattenPresetQuestionsFromContextSnapshot,
-  loadOrCreateActiveInterviewContextSnapshot,
-  refreshInterviewContextSnapshot,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
-import {
-  cancelHumanInterviewRoundWithMeetings,
-  completeHumanInterviewRound,
-  createHumanInterviewRound,
-  editHumanInterviewRound,
-  EditRoundError,
-  listHumanInterviewRounds,
-  maybeAdvanceToHumanInterview,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/human-interview-rounds";
-import {
-  createHumanInterviewMeeting,
-  deleteHumanInterviewMeeting,
-  endHumanInterviewMeeting,
-  endHumanInterviewMeetingsByRound,
-  HumanInterviewMeetingError,
-  isHumanInterviewMeetingAfterValidUntil,
-  isHumanInterviewMeetingBeforeScheduledStart,
-  issueHumanInterviewMeetingLinks,
-  listHumanInterviewMeetings,
-  loadHumanInterviewMeetingById,
-  markHumanInterviewMeetingInProgress,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/human-interview-meetings";
-import {
-  deleteHumanInterviewLiveKitRoom,
-  HumanInterviewLiveKitConfigError,
-  signHumanInterviewMeetingToken,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/utils/human-interview-livekit";
-import {
-  cancelOfferDraft,
-  createOfferDraft,
-  editOfferDraft,
-  listOfferDrafts,
-  maybeAdvanceToOffer,
-  OfferDraftError,
-  respondOfferDraft,
-  sendOfferDraft,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/offer-drafts";
+import { refreshInterviewContextSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
-import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
-import { jobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
-import { syncResumeSkills } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
 import {
   loadInterviewRoundDetail,
   queryPaginatedInterviewRounds,
-  resolveCandidateIdForRound,
-  resolveRoundIdFromRecordId,
   summarizeInterviewRoundCounts,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-rounds";
-import { recordingsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/routes/recordings/route";
-import { reportsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/routes/reports/route";
 import { roundEmailsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/routes/round-emails/route";
-import {
-  buildTokenErrorResponse,
-  buildScheduleRows,
-  loadRecordById,
-  normalizeResumeFile,
-  resolveResumeUploadStorage,
-  toBadRequest,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import {
   cacheTags,
   invalidateStudioInterviewCaches,
   safeUpdateTag,
 } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
-import { getObjectBytes, getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
-import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
-import {
-  parseResumeCreateDedupPolicy,
-  resolveResumeCreateDedupConflict,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/dedup";
-import { resolveCandidateTransitionPatch } from "./utils/candidate-transition";
+import { transitionCandidateStage } from "./utils/candidate-stage-transition";
 
 const dedupCheckInputSchema = z.object({
   email: z.string().trim().max(200).nullable().optional(),
@@ -152,6 +57,7 @@ const transitionInputSchema = z
     closedReason: z.string().trim().max(500, "结案原因不能超过 500 字").optional().nullable(),
     outcome: candidateOutcomeSchema.optional(),
     pipelineStage: pipelineStageSchema,
+    reactivationReason: z.string().trim().max(500, "重新激活原因不能超过 500 字").optional(),
   })
   .refine(
     (v) => {
@@ -173,25 +79,17 @@ const transitionInputSchema = z
   .refine((v) => v.pipelineStage === "closed" || !v.closedMeta, {
     message: "closedMeta 仅在结案时允许。",
     path: ["closedMeta"],
+  })
+  .refine((v) => v.pipelineStage !== "closed" || !v.reactivationReason, {
+    message: "reactivationReason 仅在重新激活时允许。",
+    path: ["reactivationReason"],
   });
 
-// 真人复面：「标记完成」的 input。outcome 必填，score / feedback 可选。
+// 真人复面：「标记完成」的 input。outcome / feedback 必填，score 可选。
 // Human interview "mark complete" input. Outcome required.
-const completeHumanRoundSchema = z.object({
-  feedback: z.string().trim().max(5000).nullable().optional(),
-  outcome: humanInterviewRoundOutcomeSchema,
-  score: z.number().int().min(0).max(100).nullable().optional(),
-});
 
 // 真人复面：「取消」的 input。reason 可选，便于后续审计 / 通知候选人。
 // Human interview "cancel" input; reason optional.
-const cancelHumanRoundSchema = z.object({
-  reason: z.string().trim().max(500).nullable().optional(),
-});
-
-const humanMeetingTokenInputSchema = z.object({
-  interviewerId: z.string().trim().min(1).optional(),
-});
 
 function loadVisibilityScope(
   organizationId: string,
@@ -325,897 +223,9 @@ export const studioInterviewsRouter = factory
     },
   )
   // oxlint-disable-next-line complexity -- CRUD handler orchestrates parse → validate → persist in one flow.
-  .post("/", requirePermission("interview", "create"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    try {
-      const formData = await c.req.formData();
-      const resume = normalizeResumeFile(formData.get("resume"));
-      const parsedScheduleEntries = parseScheduleEntriesInput(formData.get("scheduleEntries"));
-      const parsedResumePayload = parseResumePayloadInput(formData.get("resumePayload"));
-      const manualQuestionsRaw = toNullableString(formData.get("manualInterviewQuestions"));
-      const manualInterviewQuestions = manualQuestionsRaw
-        ? (JSON.parse(
-            manualQuestionsRaw,
-          ) as (typeof studioInterview.$inferSelect)["interviewQuestions"])
-        : null;
 
-      const input = studioInterviewFormSchema.safeParse({
-        candidateEmail: toNullableString(formData.get("candidateEmail")) ?? "",
-        candidateName: toNullableString(formData.get("candidateName")) ?? "",
-        candidatePhone: toNullableString(formData.get("candidatePhone")) ?? "",
-        jobDescriptionId: toNullableString(formData.get("jobDescriptionId")),
-        notes: toNullableString(formData.get("notes")) ?? "",
-        scheduleEntries: parsedScheduleEntries,
-        status: toNullableString(formData.get("status")) ?? "ready",
-        targetRole: toNullableString(formData.get("targetRole")) ?? "",
-      });
-
-      if (!input.success) {
-        return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
-      }
-
-      if (resume && !c.var.user) {
-        return c.json({ error: "Unauthorized" }, 401);
-      }
-      if (input.data.jobDescriptionId) {
-        const ok = await jobDescriptionIdsExist([input.data.jobDescriptionId], activeOrg.id);
-        if (!ok) {
-          return c.json({ error: "所选在招岗位不存在。" }, 400);
-        }
-      }
-
-      const now = new Date();
-      const candidateQuestionGenerationEnabled = resolveCandidateQuestionGenerationEnabled(
-        process.env,
-      );
-      const interviewRecordId = crypto.randomUUID();
-      const uploadResult = await resolveResumeUploadStorage({
-        interviewRecordId,
-        organizationId: activeOrg.id,
-        parsedResumePayload,
-        resume,
-        userId: c.var.user?.id,
-      });
-      const resumeStorageKey = uploadResult?.storageKey ?? null;
-      const resumeContentHash = uploadResult?.contentHash ?? null;
-      let resumeText = parsedResumePayload?.resumeText ?? uploadResult?.resumeText ?? null;
-
-      // 解析复用顺序：客户端预解析 > 注册表缓存命中 > 现场跑完整 analyzeResumeFile。
-      // Reuse order: client-prebaked → registry cache → server full analysis.
-      let analysis = parsedResumePayload;
-      if (!analysis && resume) {
-        if (uploadResult?.cachedResumeProfile) {
-          const interviewQuestions = candidateQuestionGenerationEnabled
-            ? await generateInterviewQuestionsForProfile(uploadResult.cachedResumeProfile)
-            : [];
-          analysis = {
-            fileName: resume.name,
-            interviewQuestions,
-            resumeProfile: uploadResult.cachedResumeProfile,
-            resumeText: uploadResult.resumeText,
-          };
-        } else if (candidateQuestionGenerationEnabled) {
-          analysis = await analyzeResumeFile(resume);
-          ({ resumeText } = analysis);
-        } else {
-          const parsed = await parseResumeFastToProfile(resume);
-          resumeText = parsed.parsedText;
-          analysis = {
-            fileName: resume.name,
-            interviewQuestions: [],
-            resumeProfile: parsed.resumeProfile,
-            resumeText,
-          };
-        }
-      }
-      const dedupConflict = await resolveResumeCreateDedupConflict({
-        candidateEmail: input.data.candidateEmail || null,
-        candidateName: input.data.candidateName || null,
-        candidatePhone: input.data.candidatePhone || null,
-        dedupPolicy: parseResumeCreateDedupPolicy(formData.get("dedupPolicy")),
-        organizationId: activeOrg.id,
-        resumeProfile: analysis?.resumeProfile ?? null,
-      });
-      if (dedupConflict) {
-        return c.json(dedupConflict, 409);
-      }
-      const record = {
-        candidateEmail: input.data.candidateEmail || null,
-        candidateName: input.data.candidateName || analysis?.resumeProfile.name || "未命名候选人",
-        candidatePhone: input.data.candidatePhone || analysis?.resumeProfile.phone || null,
-        createdAt: now,
-        createdBy: c.var.user?.id ?? null,
-        id: interviewRecordId,
-        interviewQuestions: analysis?.interviewQuestions ?? manualInterviewQuestions ?? [],
-        jobDescriptionId: input.data.jobDescriptionId || null,
-        notes: input.data.notes || null,
-        organizationId: activeOrg.id,
-        // 从 AI 面试页面直接创建：起步就在 ai_interview 阶段。
-        // Created from the AI interview page → record starts at ai_interview.
-        pipelineStage: "ai_interview" as const,
-        resumeContentHash,
-        resumeFileName: analysis?.fileName ?? resume?.name ?? null,
-        resumeProfile: analysis?.resumeProfile ?? null,
-        resumeStorageKey,
-        resumeText,
-        status: input.data.status,
-        targetRole: input.data.targetRole || analysis?.resumeProfile.targetRoles[0] || null,
-        updatedAt: now,
-      } satisfies typeof studioInterview.$inferInsert;
-      const scheduleRows = buildScheduleRows(
-        activeOrg.id,
-        interviewRecordId,
-        input.data.scheduleEntries,
-        now,
-        undefined,
-        c.var.user?.id ?? null,
-      );
-
-      await db.transaction(async (tx) => {
-        await tx.insert(studioInterview).values(record);
-        await tx.insert(studioInterviewSchedule).values(scheduleRows);
-        await autoBindApplicableTemplates(tx, interviewRecordId, record.jobDescriptionId);
-        await createInterviewContextSnapshot(tx, {
-          createdAt: now,
-          createdBy: c.var.user?.id ?? null,
-          interviewRecordId,
-          reason: "create",
-          scheduleEntryId: scheduleRows[0]?.id ?? null,
-        });
-        await syncResumeSkills(tx, {
-          interviewId: interviewRecordId,
-          organizationId: activeOrg.id,
-          skills: analysis?.resumeProfile.skills,
-        });
-      });
-
-      invalidateStudioInterviewCaches(activeOrg.id);
-      if (analysis?.resumeProfile) {
-        await enqueueResumeSemanticIndexJobBestEffort({
-          organizationId: activeOrg.id,
-          sourceId: interviewRecordId,
-          sourceType: "studio_interview",
-        });
-      }
-      // POST / 返回新建轮次的完整 detail，供简历库 onCreated 直接使用。
-      // Return the first round's full detail so the resume library onCreated can use it directly.
-      const firstRoundId = scheduleRows[0]?.id;
-      if (!firstRoundId) {
-        return c.json({ error: "未生成面试轮次。" }, 400);
-      }
-      const detail = await loadInterviewRoundDetail(firstRoundId, activeOrg.id);
-      return c.json(detail, 201);
-    } catch (error) {
-      const result = toBadRequest(error);
-      return c.json({ error: result.error }, { status: result.status as ContentfulStatusCode });
-    }
-  })
-  .get(
-    "/resolve",
-    requirePermission("interview", "read"),
-    zValidator(
-      "query",
-      z.object({ id: z.string().trim().min(1) }),
-      jsonValidatorError("查询参数无效。"),
-    ),
-    async (c) => {
-      // 兼容历史链接：传入 id 既可能是 roundId,也可能是 candidateId
-      // (studio_interview.id),统一解析成 roundId。命中失败返回 404。
-      // Back-compat resolver: external id can be either a roundId or a
-      // legacy candidateId (studio_interview.id). Returns 404 on miss.
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const { id } = c.req.valid("query");
-      const visibilityScope = await loadVisibilityScope(
-        activeOrg.id,
-        c.var.member?.role,
-        c.var.user?.id,
-      );
-      const roundId = await resolveRoundIdFromRecordId(id, activeOrg.id);
-      const visibleRoundId = roundId
-        ? await resolveCandidateIdForRound(roundId, activeOrg.id, visibilityScope)
-        : null;
-      if (!roundId || !visibleRoundId) {
-        return c.json({ error: "记录不存在。" }, 404);
-      }
-      return c.json({ roundId }, 200);
-    },
-  )
-  // ── 真人复面会议 endpoints ──
-  // 静态路径必须放在 `/:id` 前面，否则会被当作 roundId 命中详情路由。
-  // Static routes must stay before `/:id`; otherwise Hono treats the segment as a roundId.
-  .get(
-    "/human-interview-meetings",
-    requirePermission("interview", "read"),
-    zValidator(
-      "query",
-      z.object({
-        interviewRecordId: z.string().trim().optional(),
-      }),
-      jsonValidatorError("查询参数无效。"),
-    ),
-    async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const { interviewRecordId } = c.req.valid("query");
-      const meetings = await listHumanInterviewMeetings({
-        interviewRecordId,
-        organizationId: activeOrg.id,
-      });
-      return c.json(meetings, 200);
-    },
-  )
-  .post(
-    "/human-interview-meetings",
-    requirePermission("interview", "update"),
-    zValidator(
-      "json",
-      humanInterviewMeetingInputSchema,
-      jsonValidatorError("真人复面会议参数无效。"),
-    ),
-    async (c) => {
-      const { activeOrg, user } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      try {
-        const created = await createHumanInterviewMeeting({
-          createdBy: user?.id ?? null,
-          input: c.req.valid("json"),
-          organizationId: activeOrg.id,
-        });
-        invalidateStudioInterviewCaches(activeOrg.id);
-        return c.json(created, 200);
-      } catch (error) {
-        if (error instanceof HumanInterviewMeetingError) {
-          return c.json({ error: error.message }, error.status);
-        }
-        throw error;
-      }
-    },
-  )
-  .post(
-    "/human-interview-meetings/:meetingId/links",
-    requirePermission("interview", "update"),
-    async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      try {
-        const links = await issueHumanInterviewMeetingLinks({
-          meetingId: c.req.param("meetingId"),
-          organizationId: activeOrg.id,
-        });
-        return c.json(links, 200);
-      } catch (error) {
-        if (error instanceof HumanInterviewMeetingError) {
-          return c.json({ error: error.message }, error.status);
-        }
-        throw error;
-      }
-    },
-  )
-  .post(
-    "/human-interview-meetings/:meetingId/livekit-token",
-    requirePermission("interview", "read"),
-    zValidator("json", humanMeetingTokenInputSchema, jsonValidatorError("会议入场参数无效。")),
-    async (c) => {
-      const { activeOrg, user } = c.var;
-      if (!activeOrg || !user) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-
-      const meeting = await loadHumanInterviewMeetingById(c.req.param("meetingId"), activeOrg.id);
-      if (!meeting) {
-        return c.json({ error: "真人复面会议不存在。" }, 404);
-      }
-      if (meeting.status === "cancelled" || meeting.status === "ended") {
-        return c.json({ error: "该真人复面会议已结束或取消。" }, 403);
-      }
-      if (
-        meeting.status === "scheduled" &&
-        isHumanInterviewMeetingBeforeScheduledStart(meeting.scheduledAt)
-      ) {
-        return c.json({ error: "未到入会时间，面试开始前 5 分钟可进入会议。" }, 403);
-      }
-      if (isHumanInterviewMeetingAfterValidUntil(meeting.validUntil)) {
-        return c.json({ error: "该真人复面会议已超过有效时间。" }, 403);
-      }
-
-      const { interviewerId } = c.req.valid("json");
-      const resolvedInterviewerId = interviewerId ?? user.id;
-      if (resolvedInterviewerId !== user.id) {
-        return c.json({ error: "请使用本人账号打开该面试官链接。" }, 403);
-      }
-
-      const meetingInterviewer = meeting.interviewers.find(
-        (item) => item.id === resolvedInterviewerId,
-      );
-      if (!meetingInterviewer) {
-        return c.json({ error: "你不是该会议的面试官。" }, 403);
-      }
-      if (!meeting.liveKitRoomName) {
-        return c.json({ error: "会议房间尚未初始化。" }, 409);
-      }
-
-      try {
-        const token = await signHumanInterviewMeetingToken({
-          canPublish: meetingInterviewer.role !== "observer",
-          metadata: {
-            human_interview_meeting_id: meeting.id,
-            participant_role: meetingInterviewer.role,
-            participant_type: "interviewer",
-            user_id: meetingInterviewer.id,
-          },
-          participantIdentity: `interviewer_${meetingInterviewer.id}`,
-          participantName: meetingInterviewer.name,
-          participantRole: meetingInterviewer.role,
-          roomName: meeting.liveKitRoomName,
-        });
-        await markHumanInterviewMeetingInProgress(meeting.id);
-        return c.json(token, 200);
-      } catch (error) {
-        if (error instanceof HumanInterviewLiveKitConfigError) {
-          return c.json(buildTokenErrorResponse(), 500);
-        }
-        return c.json(
-          {
-            detail: error instanceof Error ? error.message : "Unknown error",
-            error: "Failed to sign LiveKit token.",
-          },
-          500,
-        );
-      }
-    },
-  )
-  .post(
-    "/human-interview-meetings/:meetingId/end",
-    requirePermission("interview", "update"),
-    async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      try {
-        const roomName = await endHumanInterviewMeeting({
-          meetingId: c.req.param("meetingId"),
-          organizationId: activeOrg.id,
-        });
-        try {
-          await deleteHumanInterviewLiveKitRoom(roomName);
-        } catch (error) {
-          if (!(error instanceof HumanInterviewLiveKitConfigError)) {
-            console.warn("failed to delete livekit human interview room", error);
-          }
-        }
-        invalidateStudioInterviewCaches(activeOrg.id);
-        return c.json({ ok: true }, 200);
-      } catch (error) {
-        if (error instanceof HumanInterviewMeetingError) {
-          return c.json({ error: error.message }, error.status);
-        }
-        throw error;
-      }
-    },
-  )
-  .delete(
-    "/human-interview-meetings/:meetingId",
-    requirePermission("interview", "update"),
-    async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      try {
-        const roomName = await deleteHumanInterviewMeeting({
-          meetingId: c.req.param("meetingId"),
-          organizationId: activeOrg.id,
-        });
-        try {
-          await deleteHumanInterviewLiveKitRoom(roomName);
-        } catch (error) {
-          if (!(error instanceof HumanInterviewLiveKitConfigError)) {
-            console.warn("failed to delete livekit human interview room", error);
-          }
-        }
-        invalidateStudioInterviewCaches(activeOrg.id);
-        return c.json({ ok: true }, 200);
-      } catch (error) {
-        if (error instanceof HumanInterviewMeetingError) {
-          return c.json({ error: error.message }, error.status);
-        }
-        throw error;
-      }
-    },
-  )
-  .get(
-    "/human-interview-meetings/:meetingId",
-    requirePermission("interview", "read"),
-    async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const meeting = await loadHumanInterviewMeetingById(c.req.param("meetingId"), activeOrg.id);
-      if (!meeting) {
-        return c.json({ error: "真人复面会议不存在。" }, 404);
-      }
-      return c.json(meeting, 200);
-    },
-  )
-  .get("/:id", requirePermission("interview", "read"), async (c) => {
-    // `:id` 现为 roundId；返回 StudioInterviewRoundDetail（round + 候选人快照）。
-    // `:id` is now roundId; returns StudioInterviewRoundDetail (round + candidate snapshot).
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    // roundId
-    const id = c.req.param("id");
-    const visibilityScope = await loadVisibilityScope(
-      activeOrg.id,
-      c.var.member?.role,
-      c.var.user?.id,
-    );
-    const detail = await loadInterviewRoundDetail(id, activeOrg.id, visibilityScope);
-
-    if (!detail) {
-      return c.json({ error: "记录不存在。" }, 404);
-    }
-
-    return c.json(detail, 200);
-  })
-  .get("/:id/resume", requirePermission("interview", "read"), async (c) => {
-    // `:id` 为 roundId；通过 resolveCandidateIdForRound 找到候选人再读简历。
-    // `:id` is roundId; resolve candidateId to read the resume.
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    // roundId
-    const id = c.req.param("id");
-    const visibilityScope = await loadVisibilityScope(
-      activeOrg.id,
-      c.var.member?.role,
-      c.var.user?.id,
-    );
-    const candidateId = await resolveCandidateIdForRound(id, activeOrg.id, visibilityScope);
-    if (!candidateId) {
-      return c.json({ error: "记录不存在。" }, 404);
-    }
-
-    const existing = await loadRecordById(candidateId, activeOrg.id);
-
-    if (!existing) {
-      return c.json({ error: "记录不存在。" }, 404);
-    }
-
-    if (!existing.resumeStorageKey) {
-      return c.json({ error: "该候选人没有可预览的简历文件。" }, 404);
-    }
-
-    const object = await getObjectStream(existing.resumeStorageKey);
-    if (!object) {
-      return c.json({ error: "简历文件已不可用。" }, 404);
-    }
-
-    const filename = existing.resumeFileName || "resume.pdf";
-    return new Response(object.body, {
-      headers: {
-        "Cache-Control": "private, max-age=300",
-        "Content-Disposition": `inline; filename="${encodeURIComponent(filename)}"`,
-        "Content-Type": object.contentType ?? "application/octet-stream",
-        ...(object.contentLength !== undefined && {
-          "Content-Length": String(object.contentLength),
-        }),
-      },
-    });
-  })
-  .get("/:id/resume-preview.pdf", requirePermission("interview", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const id = c.req.param("id");
-    const visibilityScope = await loadVisibilityScope(
-      activeOrg.id,
-      c.var.member?.role,
-      c.var.user?.id,
-    );
-    const candidateId = await resolveCandidateIdForRound(id, activeOrg.id, visibilityScope);
-    if (!candidateId) {
-      return c.json({ error: "记录不存在。" }, 404);
-    }
-
-    const existing = await loadRecordById(candidateId, activeOrg.id);
-    if (!existing) {
-      return c.json({ error: "记录不存在。" }, 404);
-    }
-    if (!existing.resumeStorageKey) {
-      return c.json({ error: "该候选人没有可预览的简历文件。" }, 404);
-    }
-
-    const object = await getObjectBytes(existing.resumeStorageKey);
-    if (!object) {
-      return c.json({ error: "简历文件已不可用。" }, 404);
-    }
-
-    return createPptxPreviewPdfResponse({
-      bytes: object.bytes,
-      cacheKey: existing.resumeStorageKey,
-      fileName: existing.resumeFileName,
-      mediaType: object.contentType,
-    });
-  })
-  // oxlint-disable-next-line complexity -- Route handler performs auth, round resolution, snapshot loading, and preview rendering in one request.
-  .get("/:id/agent-instructions", requirePermission("interview", "read"), async (c) => {
-    // `:id` 为 roundId；通过 resolveCandidateIdForRound 解析候选人再生成指令。
-    // `:id` is roundId; resolve candidateId before building agent instructions.
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    // roundId
-    const id = c.req.param("id");
-    const visibilityScope = await loadVisibilityScope(
-      activeOrg.id,
-      c.var.member?.role,
-      c.var.user?.id,
-    );
-    const candidateId = await resolveCandidateIdForRound(id, activeOrg.id, visibilityScope);
-    if (!candidateId) {
-      return c.json({ error: "记录不存在。" }, 404);
-    }
-    const existing = await loadRecordById(candidateId, activeOrg.id);
-
-    if (!existing) {
-      return c.json({ error: "记录不存在。" }, 404);
-    }
-
-    const contextSnapshot = await loadOrCreateActiveInterviewContextSnapshot({
-      createdBy: c.var.user?.id ?? null,
-      interviewRecordId: candidateId,
-      reason: "create",
-      scheduleEntryId: id,
-    });
-    const snapshotPayload = contextSnapshot.payload;
-    const jobDescriptionPresetQuestions =
-      flattenPresetQuestionsFromContextSnapshot(snapshotPayload);
-
-    const candidateName = snapshotPayload.candidate.candidateName?.trim() || "候选人";
-    const targetRole = snapshotPayload.jobDescription?.name?.trim() || "未指定岗位";
-    const openingPrompt = resolveOpeningPrompt(
-      snapshotPayload.globalConfig.openingInstructions ?? "",
-      candidateName,
-      targetRole,
-    );
-    const closingPrompt = resolveClosingPrompt(
-      snapshotPayload.globalConfig.closingInstructions ?? "",
-      candidateName,
-      targetRole,
-    );
-
-    const baseContext = {
-      candidateName: snapshotPayload.candidate.candidateName,
-      companyContext: snapshotPayload.globalConfig.companyContext ?? "",
-      interviewQuestions: snapshotPayload.personalizedQuestions,
-      jobDescriptionPresetQuestions,
-      jobDescriptionPrompt: snapshotPayload.jobDescription?.prompt ?? null,
-      resumeProfile: snapshotPayload.candidate.resumeProfile,
-      targetRole: snapshotPayload.jobDescription?.name ?? null,
-    } as const;
-
-    const variants =
-      snapshotPayload.interviewers.length > 0
-        ? snapshotPayload.interviewers.map((person) => ({
-            closingPrompt,
-            instructions: buildAgentInstructions({
-              ...baseContext,
-              interviewerPrompt: person.prompt,
-            }),
-            interviewerName: person.name,
-            openingPrompt,
-          }))
-        : [
-            {
-              closingPrompt,
-              instructions: buildAgentInstructions({
-                ...baseContext,
-                interviewerPrompt: null,
-              }),
-              interviewerName: null,
-              openingPrompt,
-            },
-          ];
-
-    return c.json({ variants }, 200);
-  })
-  .route("/:id/reports", reportsRouter)
-  .route("/:id/recordings", recordingsRouter)
-  .get("/:id/form-submissions", requirePermission("interview", "read"), async (c) => {
-    // `:id` 为 roundId；表单与 candidateId 绑定，通过解析后传给查询。
-    // `:id` is roundId; form submissions are keyed by candidateId — resolve it first.
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const roundId = c.req.param("id");
-    const visibilityScope = await loadVisibilityScope(
-      activeOrg.id,
-      c.var.member?.role,
-      c.var.user?.id,
-    );
-    const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id, visibilityScope);
-    if (!candidateId) {
-      return c.json({ error: "记录不存在。" }, 404);
-    }
-
-    const submissions = await loadSubmissionsByInterview(candidateId);
-    return c.json({ submissions }, 200);
-  })
-  .delete(
-    "/:id/form-submissions/:submissionId",
-    requirePermission("interview", "update"),
-    async (c) => {
-      // `:id` 为 roundId；candidateFormSubmission 以 candidateId 为 FK。
-      // `:id` is roundId; candidateFormSubmission uses candidateId as FK.
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const roundId = c.req.param("id");
-      const submissionId = c.req.param("submissionId");
-
-      const visibilityScope = await loadVisibilityScope(
-        activeOrg.id,
-        c.var.member?.role,
-        c.var.user?.id,
-      );
-      const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id, visibilityScope);
-      if (!candidateId) {
-        return c.json({ error: "记录不存在。" }, 404);
-      }
-
-      const result = await db
-        .delete(candidateFormSubmission)
-        .where(
-          and(
-            eq(candidateFormSubmission.id, submissionId),
-            eq(candidateFormSubmission.interviewRecordId, candidateId),
-          ),
-        )
-        .returning({ id: candidateFormSubmission.id });
-
-      if (result.length === 0) {
-        return c.json({ error: "答卷不存在或已被重置。" }, 404);
-      }
-
-      return c.json({ success: true }, 200);
-    },
-  )
-  .patch(
-    "/:id",
-    requirePermission("interview", "update"),
-    zValidator(
-      "json",
-      z.object({
-        allowTextInput: z.boolean().optional(),
-        notes: z.string().trim().max(1000).optional().or(z.literal("")),
-        scheduledAt: nullableInstantDateTimeInputSchema,
-        status: scheduleEntryStatusSchema.optional(),
-      }),
-      jsonValidatorError("请求参数无效。"),
-    ),
-    async (c) => {
-      // 轮次级 PATCH：仅更新 round 字段（allowTextInput / notes / scheduledAt / status）。
-      // Round-level PATCH: updates only round fields (allowTextInput / notes / scheduledAt / status).
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const roundId = c.req.param("id");
-      const body = c.req.valid("json");
-      const visibilityScope = await loadVisibilityScope(
-        activeOrg.id,
-        c.var.member?.role,
-        c.var.user?.id,
-      );
-      const existingRound = await loadInterviewRoundDetail(roundId, activeOrg.id, visibilityScope);
-      if (!existingRound) {
-        return c.json({ error: "记录不存在。" }, 404);
-      }
-
-      // 服务端 AI 阶段守卫：候选人已超过 AI 面试阶段后，禁止改 schedule entry 字段。
-      // UI 已禁用按钮（aiStageLockedReason），但仍要服务端兜底防止绕过 UI 调用。
-      // Server-side AI-stage guard: once the candidate is past AI interview,
-      // schedule-entry mutations are rejected even if a client bypasses the UI.
-      const [parent] = await db
-        .select({ pipelineStage: studioInterview.pipelineStage })
-        .from(studioInterviewSchedule)
-        .innerJoin(
-          studioInterview,
-          eq(studioInterview.id, studioInterviewSchedule.interviewRecordId),
-        )
-        .where(
-          and(
-            eq(studioInterviewSchedule.id, roundId),
-            eq(studioInterviewSchedule.organizationId, activeOrg.id),
-          ),
-        )
-        .limit(1);
-      if (!parent) {
-        return c.json({ error: "记录不存在。" }, 404);
-      }
-      if (parent.pipelineStage !== "screening" && parent.pipelineStage !== "ai_interview") {
-        return c.json(
-          {
-            error: "候选人已不在 AI 面试阶段，无法修改面试轮次。如需修改请先回退阶段或重新激活。",
-          },
-          409,
-        );
-      }
-
-      const update: Partial<typeof studioInterviewSchedule.$inferInsert> = {
-        updatedAt: new Date(),
-      };
-      if (body.allowTextInput !== undefined) {
-        update.allowTextInput = body.allowTextInput;
-      }
-      if (body.notes !== undefined) {
-        update.notes = body.notes || null;
-      }
-      if (body.scheduledAt !== undefined) {
-        update.scheduledAt =
-          body.scheduledAt && body.scheduledAt.length > 0 ? new Date(body.scheduledAt) : null;
-      }
-      if (body.status !== undefined) {
-        update.status = body.status;
-      }
-
-      const result = await db
-        .update(studioInterviewSchedule)
-        .set(update)
-        .where(
-          and(
-            eq(studioInterviewSchedule.id, roundId),
-            eq(studioInterviewSchedule.organizationId, activeOrg.id),
-          ),
-        )
-        .returning({ id: studioInterviewSchedule.id });
-
-      if (result.length === 0) {
-        return c.json({ error: "记录不存在。" }, 404);
-      }
-
-      invalidateStudioInterviewCaches(activeOrg.id);
-      const detail = await loadInterviewRoundDetail(roundId, activeOrg.id, visibilityScope);
-      return c.json(detail, 200);
-    },
-  )
-  .get("/:id/question-template-bindings", requirePermission("interview", "read"), async (c) => {
-    // `:id` 为 roundId；绑定以 candidateId（interviewRecordId）为 FK。
-    // `:id` is roundId; bindings use candidateId (interviewRecordId) as FK.
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const roundId = c.req.param("id");
-    const visibilityScope = await loadVisibilityScope(
-      activeOrg.id,
-      c.var.member?.role,
-      c.var.user?.id,
-    );
-    const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id, visibilityScope);
-    if (!candidateId) {
-      return c.json({ error: "记录不存在。" }, 404);
-    }
-    // 懒绑定：确保此面试记录的适用模板全部挂上。
-    // Lazy-bind so applicable templates created *after* this interview show
-    // up in the section UI without requiring manual re-attach.
-    await ensureApplicableBindings(candidateId);
-    const data = await loadInterviewQuestionTemplateBindings(candidateId);
-    return c.json(data, 200);
-  })
-  .post("/:id/context-snapshot/refresh", requirePermission("interview", "update"), async (c) => {
-    // Explicit operator action: refresh this interview's frozen runtime
-    // context to current templates/config. Ordinary template edits do not
-    // affect existing snapshots.
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const roundId = c.req.param("id");
-    const visibilityScope = await loadVisibilityScope(
-      activeOrg.id,
-      c.var.member?.role,
-      c.var.user?.id,
-    );
-    const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id, visibilityScope);
-    if (!candidateId) {
-      return c.json({ error: "记录不存在。" }, 404);
-    }
-
-    const now = new Date();
-    const operatorId = c.var.user?.id ?? null;
-    const snapshot = await db.transaction(async (tx) => {
-      const refreshed = await refreshInterviewContextSnapshot(tx, {
-        createdAt: now,
-        createdBy: operatorId,
-        interviewRecordId: candidateId,
-        reason: "manual_refresh",
-        scheduleEntryId: roundId,
-      });
-      await tx.insert(interviewAuditLog).values({
-        action: "context_snapshot_refresh",
-        createdAt: now,
-        detail: {
-          snapshotId: refreshed.id,
-          snapshotVersion: refreshed.version,
-        },
-        id: crypto.randomUUID(),
-        interviewRecordId: candidateId,
-        operatorId,
-        organizationId: activeOrg.id,
-        scheduleEntryId: roundId,
-      });
-      return refreshed;
-    });
-
-    invalidateStudioInterviewCaches(activeOrg.id);
-    return c.json({ snapshot }, 200);
-  })
-  .put(
-    "/:id/question-template-bindings",
-    requirePermission("interview", "update"),
-    zValidator(
-      "json",
-      z.object({ enabledTemplateIds: z.array(z.string().min(1)) }),
-      jsonValidatorError("请求参数缺失。"),
-    ),
-    async (c) => {
-      // `:id` 为 roundId；绑定以 candidateId（interviewRecordId）为 FK。
-      // `:id` is roundId; bindings use candidateId (interviewRecordId) as FK.
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const roundId = c.req.param("id");
-      const visibilityScope = await loadVisibilityScope(
-        activeOrg.id,
-        c.var.member?.role,
-        c.var.user?.id,
-      );
-      const candidateId = await resolveCandidateIdForRound(roundId, activeOrg.id, visibilityScope);
-      if (!candidateId) {
-        return c.json({ error: "记录不存在。" }, 404);
-      }
-      const existing = await loadRecordById(candidateId, activeOrg.id);
-      if (!existing) {
-        return c.json({ error: "记录不存在。" }, 404);
-      }
-
-      const { enabledTemplateIds } = c.req.valid("json");
-      await db.transaction(async (tx) => {
-        await replaceInterviewBindings(
-          tx,
-          candidateId,
-          enabledTemplateIds,
-          existing.jobDescriptionId,
-        );
-      });
-
-      const data = await loadInterviewQuestionTemplateBindings(candidateId);
-      return c.json(data, 200);
-    },
-  )
+  .route("/", studioInterviewCollectionRouter)
+  .route("/", studioInterviewDetailRouter)
   .post("/:id/reset", requirePermission("interview", "update"), async (c) => {
     // 平铺版重置：`:id` = roundId，保留绑定刷新 + 审计日志 + livekit 锚点清空。
     // Flat reset endpoint: `:id` = roundId; preserves binding refresh, audit log, and livekit anchor clearing.
@@ -1250,16 +260,11 @@ export const studioInterviewsRouter = factory
     if (!scheduleRow) {
       return c.json({ error: "记录不存在。" }, 404);
     }
-    if (scheduleRow.status !== "completed") {
-      return c.json({ error: "只能重置已结束的轮次。" }, 400);
-    }
-
     const candidateId = scheduleRow.interviewRecordId;
     const [candidateRow] = await db
       .select({
         jobDescriptionId: studioInterview.jobDescriptionId,
         pipelineStage: studioInterview.pipelineStage,
-        status: studioInterview.status,
       })
       .from(studioInterview)
       .where(eq(studioInterview.id, candidateId))
@@ -1267,12 +272,14 @@ export const studioInterviewsRouter = factory
     if (!candidateRow) {
       return c.json({ error: "候选人记录不存在。" }, 404);
     }
-    // 已结案的候选人不可直接 reset 轮次；HR 需要先「重新激活」再操作。
-    // 这样避免 outcome=rejected/hired 还能默默被 reset 改回 in_progress。
-    // Closed candidates must be reactivated before any round can be reset;
-    // prevents silently clobbering an outcome the HR already finalized.
-    if (candidateRow.pipelineStage === "closed") {
-      return c.json({ error: "已结案的候选人请先重新激活再重置轮次。" }, 400);
+    // 只要候选人仍在 AI 面试阶段，任意状态的 AI 轮次都可重置；阶段推进后禁止绕过 UI 回滚。
+    // Any round status can be reset while the candidate is still in AI interview;
+    // once the pipeline advances, reject bypass attempts server-side.
+    if (candidateRow.pipelineStage !== "ai_interview") {
+      return c.json(
+        { error: "候选人已不在 AI 面试阶段，无法重置面试轮次。如需修改请先回退阶段或重新激活。" },
+        409,
+      );
     }
 
     const now = new Date();
@@ -1295,16 +302,15 @@ export const studioInterviewsRouter = factory
         })
         .where(eq(studioInterviewSchedule.id, roundId));
 
-      if (candidateRow.status === "completed") {
-        await tx
-          .update(studioInterview)
-          .set({ status: "in_progress", updatedAt: now })
-          .where(eq(studioInterview.id, candidateId));
-      }
-
-      // 重置即「以当下为准」：把题库模板绑定的快照刷新到最新版本。
-      // Reset = "snapshot to now": refresh template bindings to the latest version.
-      await refreshInterviewBindingsToLatest(tx, candidateId, candidateRow.jobDescriptionId);
+      // 重置即「以当下为准」：刷新题库模板绑定并创建新版 runtime context snapshot。
+      // Reset = "snapshot to now": refresh bindings and freeze a new runtime context.
+      const refreshedSnapshot = await refreshInterviewContextSnapshot(tx, {
+        createdAt: now,
+        createdBy: operatorId,
+        interviewRecordId: candidateId,
+        reason: "reset",
+        scheduleEntryId: roundId,
+      });
 
       await tx.insert(interviewAuditLog).values({
         action: "round_reset",
@@ -1313,6 +319,8 @@ export const studioInterviewsRouter = factory
           previousConversationId,
           previousStatus,
           roundLabel: scheduleRow.roundLabel,
+          snapshotId: refreshedSnapshot.id,
+          snapshotVersion: refreshedSnapshot.version,
         },
         id: crypto.randomUUID(),
         interviewRecordId: candidateId,
@@ -1341,70 +349,29 @@ export const studioInterviewsRouter = factory
       const candidateId = c.req.param("id");
       const operatorId = c.var.user?.id ?? null;
       const input = c.req.valid("json");
-
-      const now = new Date();
-
-      // 事务 + FOR UPDATE：读 + 计算 closedMeta merge + 写 + 审计 全部串行化。
-      // 防止两个 HR 同时 close / reactivate 时 closedMeta.previousStage 写错。
-      // Transaction + FOR UPDATE: serialize read → merge → write → audit so
-      // concurrent close/reactivate calls can't mangle closedMeta.previousStage.
-      const result = await db.transaction(async (tx) => {
-        const [existing] = await tx
-          .select({
-            closedMeta: studioInterview.closedMeta,
-            outcome: studioInterview.outcome,
-            pipelineStage: studioInterview.pipelineStage,
-          })
-          .from(studioInterview)
-          .where(
-            and(
-              eq(studioInterview.id, candidateId),
-              eq(studioInterview.organizationId, activeOrg.id),
-            ),
-          )
-          .for("update")
-          .limit(1);
-        if (!existing) {
-          return { kind: "not_found" as const };
-        }
-        // 同态写入直接 200，避免无谓审计噪音。
-        // No-op writes short-circuit to keep the audit log clean.
-        if (
-          existing.pipelineStage === input.pipelineStage &&
-          existing.outcome === (input.outcome ?? "in_pipeline")
-        ) {
-          return { kind: "noop" as const };
-        }
-
-        const transition = resolveCandidateTransitionPatch({ existing, input, now });
-
-        await tx
-          .update(studioInterview)
-          .set(transition.patch)
-          .where(eq(studioInterview.id, candidateId));
-
-        await tx.insert(interviewAuditLog).values({
-          action: "candidate_transition",
-          createdAt: now,
-          detail: {
-            ...transition.auditDetail,
-          },
-          id: crypto.randomUUID(),
-          interviewRecordId: candidateId,
-          operatorId,
-          organizationId: activeOrg.id,
-          scheduleEntryId: null,
-        });
-        return { kind: "ok" as const };
+      const authorize = createRequestWorkspaceAuthorizer({
+        headers: c.req.raw.headers,
+        memberRole: c.var.member?.role,
+        organizationId: activeOrg.id,
+        userId: c.var.user?.id,
+      });
+      const result = await transitionCandidateStage({
+        authorize,
+        candidateId,
+        input,
+        operatorId,
+        organizationId: activeOrg.id,
+        provenance: { kind: "manual" },
       });
 
+      if (result.kind === "forbidden") {
+        return c.json({ message: "Forbidden" }, 403);
+      }
       if (result.kind === "not_found") {
         return c.json({ error: "候选人记录不存在。" }, 404);
       }
-      // noop 路径不写库也不刷缓存，但仍返回 200 让客户端把请求当作成功完成。
-      // No-op path skips cache invalidation but still returns 200 to clients.
-      if (result.kind === "ok") {
-        invalidateStudioInterviewCaches(activeOrg.id);
+      if (result.kind === "invalid") {
+        return c.json({ error: result.message }, 400);
       }
       return c.json({ ok: true }, 200);
     },
@@ -1466,325 +433,8 @@ export const studioInterviewsRouter = factory
   // 历史遗留——下次重构时统一改成 `/:recordId/...`。
   // Note: `:id` here = interview record id (candidate-level), unlike `/:id/reset`
   // which treats `:id` as roundId. Historical mismatch; clean up next refactor.
-  .get("/:id/human-interview-rounds", requirePermission("interview", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const recordId = c.req.param("id");
-    const rounds = await listHumanInterviewRounds(recordId, activeOrg.id);
-    return c.json(rounds, 200);
-  })
-  .post(
-    "/:id/human-interview-rounds",
-    requirePermission("interview", "update"),
-    zValidator(
-      "json",
-      humanInterviewRoundInputSchema,
-      jsonValidatorError("真人复面轮次参数无效。"),
-    ),
-    async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const recordId = c.req.param("id");
 
-      // 候选人必须存在、归属当前组织、且未结案（已结案需先重新激活）。
-      // Candidate must exist, belong to active org, and not be closed.
-      const [candidate] = await db
-        .select({ id: studioInterview.id, pipelineStage: studioInterview.pipelineStage })
-        .from(studioInterview)
-        .where(
-          and(eq(studioInterview.id, recordId), eq(studioInterview.organizationId, activeOrg.id)),
-        )
-        .limit(1);
-      if (!candidate) {
-        return c.json({ error: "候选人记录不存在。" }, 404);
-      }
-      if (candidate.pipelineStage === "closed") {
-        return c.json({ error: "已结案的候选人请先重新激活。" }, 400);
-      }
-
-      const input = c.req.valid("json");
-      const created = await createHumanInterviewRound({
-        input: {
-          ...input,
-          format: "online",
-          location: null,
-          meetingUrl: null,
-        },
-        interviewRecordId: recordId,
-        organizationId: activeOrg.id,
-      });
-      // 创建第一轮时自动把 pipelineStage 推进到 human_interview（screening/ai_interview 等才推）。
-      // Auto-advance pipelineStage when the first round goes in.
-      await maybeAdvanceToHumanInterview(recordId, activeOrg.id);
-      invalidateStudioInterviewCaches(activeOrg.id);
-      return c.json(created, 200);
-    },
-  )
-  .patch(
-    "/:id/human-interview-rounds/:roundId",
-    requirePermission("interview", "update"),
-    zValidator(
-      "json",
-      humanInterviewRoundInputSchema
-        .partial()
-        .extend({ validUntil: nullableInstantDateTimeInputSchema }),
-      jsonValidatorError("真人复面轮次参数无效。"),
-    ),
-    async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const roundId = c.req.param("roundId");
-      const input = c.req.valid("json");
-      try {
-        const updated = await editHumanInterviewRound({
-          input,
-          organizationId: activeOrg.id,
-          roundId,
-        });
-        invalidateStudioInterviewCaches(activeOrg.id);
-        return c.json(updated, 200);
-      } catch (error) {
-        if (error instanceof EditRoundError) {
-          return c.json({ error: error.message }, error.status);
-        }
-        throw error;
-      }
-    },
-  )
-  .post(
-    "/:id/human-interview-rounds/:roundId/complete",
-    requirePermission("interview", "update"),
-    zValidator("json", completeHumanRoundSchema, jsonValidatorError("标记完成参数无效。")),
-    async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const roundId = c.req.param("roundId");
-      const { outcome, score, feedback } = c.req.valid("json");
-      try {
-        const updated = await completeHumanInterviewRound({
-          feedback,
-          organizationId: activeOrg.id,
-          outcome,
-          roundId,
-          score,
-        });
-        const roomNames = await endHumanInterviewMeetingsByRound({
-          organizationId: activeOrg.id,
-          roundId,
-        });
-        await Promise.all(
-          roomNames.map(async (roomName) => {
-            try {
-              await deleteHumanInterviewLiveKitRoom(roomName);
-            } catch (error) {
-              if (!(error instanceof HumanInterviewLiveKitConfigError)) {
-                console.warn("failed to delete livekit human interview room", error);
-              }
-            }
-          }),
-        );
-        invalidateStudioInterviewCaches(activeOrg.id);
-        return c.json(updated, 200);
-      } catch (error) {
-        if (error instanceof EditRoundError) {
-          return c.json({ error: error.message }, error.status);
-        }
-        throw error;
-      }
-    },
-  )
-  .post(
-    "/:id/human-interview-rounds/:roundId/cancel",
-    requirePermission("interview", "update"),
-    zValidator("json", cancelHumanRoundSchema, jsonValidatorError("取消参数无效。")),
-    async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const roundId = c.req.param("roundId");
-      const { reason } = c.req.valid("json");
-      try {
-        const { deletedLiveKitRoomNames, round: updated } =
-          await cancelHumanInterviewRoundWithMeetings({
-            organizationId: activeOrg.id,
-            reason,
-            roundId,
-          });
-        for (const roomName of deletedLiveKitRoomNames) {
-          try {
-            await deleteHumanInterviewLiveKitRoom(roomName);
-          } catch (error) {
-            if (!(error instanceof HumanInterviewLiveKitConfigError)) {
-              console.warn("failed to delete livekit human interview room", error);
-            }
-          }
-        }
-        invalidateStudioInterviewCaches(activeOrg.id);
-        return c.json(updated, 200);
-      } catch (error) {
-        if (error instanceof EditRoundError) {
-          return c.json({ error: error.message }, error.status);
-        }
-        throw error;
-      }
-    },
-  )
-  // ── Offer 草稿 endpoints ──
-  // `:id` 同上：interviewRecordId（候选人级）。/ `:id` = candidate id.
-  .get("/:id/offer-drafts", requirePermission("interview", "read"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const recordId = c.req.param("id");
-    const drafts = await listOfferDrafts(recordId, activeOrg.id);
-    return c.json(drafts, 200);
-  })
-  .post(
-    "/:id/offer-drafts",
-    requirePermission("interview", "update"),
-    zValidator(
-      "json",
-      offerDraftInputSchema.extend({
-        sendImmediately: z.boolean().optional(),
-      }),
-      jsonValidatorError("Offer 参数无效。"),
-    ),
-    async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const recordId = c.req.param("id");
-
-      const [candidate] = await db
-        .select({ id: studioInterview.id, pipelineStage: studioInterview.pipelineStage })
-        .from(studioInterview)
-        .where(
-          and(eq(studioInterview.id, recordId), eq(studioInterview.organizationId, activeOrg.id)),
-        )
-        .limit(1);
-      if (!candidate) {
-        return c.json({ error: "候选人记录不存在。" }, 404);
-      }
-      if (candidate.pipelineStage === "closed") {
-        return c.json({ error: "已结案的候选人请先重新激活。" }, 400);
-      }
-
-      const { sendImmediately, ...input } = c.req.valid("json");
-      const created = await createOfferDraft({
-        input,
-        interviewRecordId: recordId,
-        organizationId: activeOrg.id,
-        sendImmediately,
-      });
-      await maybeAdvanceToOffer(recordId, activeOrg.id);
-      invalidateStudioInterviewCaches(activeOrg.id);
-      return c.json(created, 200);
-    },
-  )
-  .patch(
-    "/:id/offer-drafts/:draftId",
-    requirePermission("interview", "update"),
-    zValidator("json", offerDraftInputSchema.partial(), jsonValidatorError("Offer 参数无效。")),
-    async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const draftId = c.req.param("draftId");
-      const input = c.req.valid("json");
-      try {
-        const updated = await editOfferDraft({
-          draftId,
-          input,
-          organizationId: activeOrg.id,
-        });
-        invalidateStudioInterviewCaches(activeOrg.id);
-        return c.json(updated, 200);
-      } catch (error) {
-        if (error instanceof OfferDraftError) {
-          return c.json({ error: error.message }, error.status);
-        }
-        throw error;
-      }
-    },
-  )
-  .post("/:id/offer-drafts/:draftId/send", requirePermission("interview", "update"), async (c) => {
-    const { activeOrg } = c.var;
-    if (!activeOrg) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    const draftId = c.req.param("draftId");
-    try {
-      const updated = await sendOfferDraft(draftId, activeOrg.id);
-      invalidateStudioInterviewCaches(activeOrg.id);
-      return c.json(updated, 200);
-    } catch (error) {
-      if (error instanceof OfferDraftError) {
-        return c.json({ error: error.message }, error.status);
-      }
-      throw error;
-    }
-  })
-  .post(
-    "/:id/offer-drafts/:draftId/respond",
-    requirePermission("interview", "update"),
-    zValidator("json", offerResponseInputSchema, jsonValidatorError("响应参数无效。")),
-    async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const draftId = c.req.param("draftId");
-      const { response, candidateCounter } = c.req.valid("json");
-      try {
-        const updated = await respondOfferDraft({
-          candidateCounter,
-          draftId,
-          organizationId: activeOrg.id,
-          response,
-        });
-        invalidateStudioInterviewCaches(activeOrg.id);
-        return c.json(updated, 200);
-      } catch (error) {
-        if (error instanceof OfferDraftError) {
-          return c.json({ error: error.message }, error.status);
-        }
-        throw error;
-      }
-    },
-  )
-  .post(
-    "/:id/offer-drafts/:draftId/cancel",
-    requirePermission("interview", "update"),
-    async (c) => {
-      const { activeOrg } = c.var;
-      if (!activeOrg) {
-        return c.json({ message: "Unauthorized" }, 401);
-      }
-      const draftId = c.req.param("draftId");
-      try {
-        const updated = await cancelOfferDraft(draftId, activeOrg.id);
-        invalidateStudioInterviewCaches(activeOrg.id);
-        return c.json(updated, 200);
-      } catch (error) {
-        if (error instanceof OfferDraftError) {
-          return c.json({ error: error.message }, error.status);
-        }
-        throw error;
-      }
-    },
-  )
+  .route("/", studioInterviewHumanRouter)
   .delete("/:id", requirePermission("interview", "delete"), async (c) => {
     // 轮次级删除：`:id` = roundId。/ Round-level delete: `:id` = roundId.
     const { activeOrg } = c.var;

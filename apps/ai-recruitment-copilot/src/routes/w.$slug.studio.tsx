@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { Outlet, createFileRoute, notFound, redirect } from "@tanstack/react-router";
 import { PendingOutlet } from "@/components/layout/pending-outlet";
 import { SiteHeader } from "@/components/features/studio/site-header";
+import { StudioHeaderProvider } from "@/components/features/studio/studio-header-context";
+import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
 import { StudioSidebarSlots } from "@/components/features/studio/studio-sidebar-slots";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset } from "@/components/ui/sidebar";
@@ -49,17 +51,21 @@ async function findFirstAllowedStudioPath(slug: string) {
 
 function StudioLayout({ children }: { children: ReactNode }) {
   return (
-    <>
+    <StudioHeaderProvider>
       <StudioSidebarSlots />
       <SidebarInset className="h-dvh overflow-hidden md:h-[calc(100dvh-1.5rem)] border border-border">
-        <ScrollArea className="@container/main min-h-0 flex-1 bg-background" scrollbars="never">
+        <ScrollArea
+          className="@container/main min-h-0 flex-1 bg-background"
+          scrollRestorationId={STUDIO_MAIN_SCROLL_RESTORATION_ID}
+          scrollbars="never"
+        >
           <SiteHeader />
           <PendingOutlet className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:px-6 md:py-6">
             {children}
           </PendingOutlet>
         </ScrollArea>
       </SidebarInset>
-    </>
+    </StudioHeaderProvider>
   );
 }
 

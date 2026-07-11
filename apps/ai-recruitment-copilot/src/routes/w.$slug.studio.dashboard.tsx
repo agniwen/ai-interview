@@ -481,7 +481,11 @@ function RecruitingDashboardPage({ metrics }: { metrics: RecruitingDashboardMetr
   const aiStarted = metrics.resume.conversion.withInterview;
 
   return (
-    <div className="flex flex-col gap-4 md:gap-6">
+    <div className="mx-auto w-full max-w-[96rem] flex flex-col gap-4 md:gap-6">
+      <PageHeader
+        title="数据看板"
+        description="从候选人漏斗、待办队列、招聘活动、岗位分布和 Offer 状态观察当前招聘运营。"
+      />
       <StudioSummaryCards
         items={[
           {
@@ -558,15 +562,7 @@ function StudioDashboardRoute() {
     return null;
   }
 
-  return (
-    <>
-      <PageHeader
-        title="数据看板"
-        description="从候选人漏斗、待办队列、招聘活动、岗位分布和 Offer 状态观察当前招聘运营。"
-      />
-      <RecruitingDashboardPage metrics={state.metrics} />
-    </>
-  );
+  return <RecruitingDashboardPage metrics={state.metrics} />;
 }
 
 export const Route = createFileRoute("/w/$slug/studio/dashboard")({

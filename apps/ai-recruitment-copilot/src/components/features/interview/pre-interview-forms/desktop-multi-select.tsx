@@ -1,5 +1,6 @@
 "use client";
 
+import { IconCheck, IconChevronDown } from "@tabler/icons-react";
 /**
  * 桌面端多选下拉：用 Popover + 内嵌列表实现，触发器外观与 `<SelectTrigger>` 一致，
  * 让多选与单选在同一页面里视觉对齐。
@@ -9,7 +10,7 @@
  */
 
 import type { CandidateFormTemplateSnapshot } from "@arc/db-schema/candidate-forms";
-import { CheckIcon, ChevronDownIcon } from "@/components/icons/hugeicons";
+
 import { useMemo, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@arc/shared/utils";
@@ -53,33 +54,35 @@ export function DesktopMultiSelect({
 
   return (
     <Popover onOpenChange={setOpen} open={open}>
-      <PopoverTrigger asChild>
-        <button
-          aria-expanded={open}
-          className={cn(
-            "flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-left text-sm shadow-xs transition-[color,box-shadow]",
-            "data-[invalid=true]:border-destructive data-[invalid=true]:ring-[3px] data-[invalid=true]:ring-destructive/20",
-            "focus-visible:border-ring focus-visible:outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring/50",
-          )}
-          data-invalid={invalid ? true : undefined}
-          id={inputId}
-          type="button"
-        >
-          <span
+      <PopoverTrigger
+        render={
+          <button
+            aria-expanded={open}
             className={cn(
-              "min-w-0 flex-1 truncate",
-              selected.size === 0 ? "text-muted-foreground" : "",
+              "flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-left text-sm shadow-xs transition-[color,box-shadow]",
+              "data-[invalid=true]:border-destructive data-[invalid=true]:ring-[3px] data-[invalid=true]:ring-destructive/20",
+              "focus-visible:border-ring focus-visible:outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring/50",
             )}
+            data-invalid={invalid ? true : undefined}
+            id={inputId}
+            type="button"
           >
-            {triggerLabel}
-          </span>
-          <ChevronDownIcon className="size-4 shrink-0 opacity-50" />
-        </button>
-      </PopoverTrigger>
+            <span
+              className={cn(
+                "min-w-0 flex-1 truncate",
+                selected.size === 0 ? "text-muted-foreground" : "",
+              )}
+            >
+              {triggerLabel}
+            </span>
+            <IconChevronDown className="size-4 shrink-0 opacity-50" />
+          </button>
+        }
+      />
       <PopoverContent
         align="start"
-        className="w-(--radix-popover-trigger-width) min-w-56 p-1"
-        onOpenAutoFocus={(event) => event.preventDefault()}
+        className="w-(--anchor-width) min-w-56 p-1"
+        initialFocus={false}
       >
         <p className="px-2 pt-1 pb-1.5 text-muted-foreground text-xs">可多选</p>
         <div className="max-h-64 overflow-y-auto">
@@ -95,7 +98,7 @@ export function DesktopMultiSelect({
                 onClick={() => toggle(option.value)}
                 type="button"
               >
-                <CheckIcon
+                <IconCheck
                   className={cn(
                     "size-4 shrink-0 text-primary",
                     checked ? "opacity-100" : "opacity-0",

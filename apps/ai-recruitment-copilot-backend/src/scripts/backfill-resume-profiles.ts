@@ -270,22 +270,15 @@ async function findCachedParsedText(db: Database, record: BackfillRecord) {
 }
 
 async function generateEducationExperiences(text: string): Promise<ResumeEducationExperience[]> {
-  const [{ generateText }, { createAlibabaProvider }, { getRequiredEnv }, { parseJsonOutput }] =
-    await Promise.all([
-      import("ai"),
-      import("@arc/ai-recruitment-copilot-backend/server/agents/provider"),
-      import("@arc/ai-recruitment-copilot-backend/lib/server/env"),
-      import("@arc/ai-recruitment-copilot-backend/server/agents/json-output"),
-    ]);
-  const provider = createAlibabaProvider({ enableThinking: false });
-  const modelId = getRequiredEnv("ALIBABA_STRUCTURED_MODEL");
-  const { text: rawOutput } = await generateText({
+  const { generateStructuredWithMastraAgent, resumeEducationBackfillAgent } =
+    await import("@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators");
+  const parsed = await generateStructuredWithMastraAgent({
+    agent: resumeEducationBackfillAgent,
     maxOutputTokens: 4096,
-    model: provider(modelId),
     prompt: `${EDUCATION_BACKFILL_INSTRUCTIONS}\n\n简历文本：\n${clipForStructured(text)}`,
+    schema: educationBackfillSchema,
     temperature: 0,
   });
-  const parsed = parseJsonOutput(rawOutput, educationBackfillSchema, "resume-education-backfill");
   return normalizeEducationExperiences(parsed.educationExperiences);
 }
 

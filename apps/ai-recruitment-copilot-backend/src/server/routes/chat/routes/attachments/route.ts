@@ -1,12 +1,65 @@
 import { getObjectBytes, getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
-import { getUserAttachment } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments";
+import { generateResumeStructured } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline";
+import { projectAttachmentToResumeProfile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-parser-agent";
+import {
+  getUserAttachment,
+  updateStructuredByHash,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
+import { resolveJobDescriptionMatchBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/match-job-description";
+import { listAllJobDescriptions } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
 
 const PREVIEW_SUFFIX = "-preview.pdf";
 
 export const attachmentsRouter = factory
   .createApp()
+  .post("/:id/match-job-description", async (c) => {
+    const { activeOrg, user } = c.var;
+    if (!user || !activeOrg) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const attachment = await getUserAttachment(user.id, activeOrg.id, c.req.param("id"));
+    if (!attachment) {
+      return c.json({ error: "Not Found" }, 404);
+    }
+
+    let resumeProfile = attachment.parsedStructured
+      ? projectAttachmentToResumeProfile(attachment.parsedStructured)
+      : null;
+    if (!resumeProfile && attachment.parsedText?.trim()) {
+      const structured = await generateResumeStructured(attachment.parsedText);
+      if (attachment.contentHash) {
+        await updateStructuredByHash(attachment.contentHash, structured);
+      }
+      resumeProfile = projectAttachmentToResumeProfile(structured);
+    }
+
+    if (!resumeProfile) {
+      return c.json({ error: "简历解析缓存不可用，请重新上传简历后再试。" }, 422);
+    }
+
+    try {
+      const jobDescriptions = await listAllJobDescriptions(activeOrg.id);
+      const match = await resolveJobDescriptionMatchBestEffort({
+        jobDescriptions,
+        resumeProfile,
+      });
+      return c.json(match, 200);
+    } catch (error) {
+      return c.json(
+        createInternalErrorResponse({
+          context: { organizationId: activeOrg.id },
+          error,
+          operation: "chat-attachment-job-description-match",
+          publicMessage: "在招岗位匹配失败。",
+        }),
+        500,
+      );
+    }
+  })
   .get("/:previewId", async (c, next) => {
     const previewId = c.req.param("previewId");
     if (!previewId.endsWith(PREVIEW_SUFFIX)) {

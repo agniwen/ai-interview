@@ -1,15 +1,15 @@
-// 用途：Bento 风格的能力分区，主特性卡 + 宽窄不一的 tile，承载招聘场景的核心能力
-// Purpose: Bento-style capability section — featured tile + varied-size tiles for headline capabilities.
 "use client";
 
 import {
-  ClipboardListIcon,
-  GaugeIcon,
-  MessageSquareTextIcon,
-  RadioIcon,
-  ShieldCheckIcon,
-  SparklesIcon,
-} from "@/components/icons/hugeicons";
+  IconClipboardList,
+  IconGauge,
+  IconMessage2,
+  IconRadio,
+  IconShieldCheck,
+  IconSparkles,
+} from "@tabler/icons-react";
+// 用途：Bento 风格的能力分区，主特性卡 + 宽窄不一的 tile，承载招聘场景的核心能力
+// Purpose: Bento-style capability section — featured tile + varied-size tiles for headline capabilities.
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import { FadeContent } from "@/components/react-bits/fade-content";
 import { cn } from "@arc/shared/utils";
@@ -269,7 +269,7 @@ interface BentoConfig extends Omit<BentoTileProps, "className"> {
 
 const tiles: BentoConfig[] = [
   {
-    Icon: MessageSquareTextIcon,
+    Icon: IconMessage2,
     description:
       "围绕岗位语境追问候选人亮点与风险，AI 持续根据回答继续深挖，而不是简单的关键词匹配。",
     span: "lg:col-span-2 lg:row-span-2",
@@ -277,7 +277,7 @@ const tiles: BentoConfig[] = [
     visual: <ChatBubblesVisual />,
   },
   {
-    Icon: ClipboardListIcon,
+    Icon: IconClipboardList,
     description: "在工作台维护岗位、JD、面试官人设、面试问题，全局复用。",
     layout: "split",
     span: "lg:col-span-2",
@@ -285,21 +285,21 @@ const tiles: BentoConfig[] = [
     visual: <WorkbenchVisual />,
   },
   {
-    Icon: SparklesIcon,
+    Icon: IconSparkles,
     description: "AI 自动追问、记录节奏与停顿，沉淀完整对话上下文。",
     span: "lg:col-span-1",
     title: "智能追问",
     visual: <FollowUpVisual />,
   },
   {
-    Icon: RadioIcon,
+    Icon: IconRadio,
     description: "一键发起实时语音模拟面试，候选人通过链接即可参与。",
     span: "lg:col-span-1",
     title: "实时语音面试",
     visual: <LiveVoiceVisual />,
   },
   {
-    Icon: GaugeIcon,
+    Icon: IconGauge,
     description: "结构化展示候选人亮点、风险、推荐度，团队判断有共同依据。",
     layout: "split",
     span: "lg:col-span-2",
@@ -307,7 +307,7 @@ const tiles: BentoConfig[] = [
     visual: <ScoreVisual />,
   },
   {
-    Icon: ShieldCheckIcon,
+    Icon: IconShieldCheck,
     description: "简历内容与面试录音仅用于本次评估，不会用于训练模型。",
     layout: "split",
     span: "lg:col-span-2",

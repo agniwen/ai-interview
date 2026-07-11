@@ -34,7 +34,6 @@ export interface CandidateInterviewView {
   id: string;
   candidateName: string;
   targetRole: string | null;
-  status: string;
   resumeProfile: ResumeProfile | null;
   interviewQuestions: InterviewQuestion[];
   currentRoundId: string | null;
@@ -151,7 +150,6 @@ export function buildCandidateInterviewView(
     id: string;
     candidateName: string;
     targetRole: string | null;
-    status: string;
     resumeProfile: ResumeProfile | null;
     interviewQuestions: InterviewQuestion[];
   },
@@ -172,7 +170,6 @@ export function buildCandidateInterviewView(
     id: record.id,
     interviewQuestions: record.interviewQuestions,
     resumeProfile: record.resumeProfile,
-    status: record.status,
     targetRole: record.targetRole,
   };
 }

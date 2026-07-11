@@ -95,15 +95,15 @@
   --chart-3: oklch(0.8 0.09 254);
   --chart-4: oklch(0.87 0.05 254);
   --chart-5: oklch(0.5 0.16 254);
-  --sidebar: #fafaf9;
+  --sidebar: #f7f7f7;
   /* --sidebar: oklch(0.985 0 0); */
-  --sidebar-foreground: oklch(0.28 0.04 254);
-  --sidebar-primary: oklch(0.62 0.17 254);
-  --sidebar-primary-foreground: oklch(0.99 0.005 254);
-  --sidebar-accent: oklch(0.96 0.018 254);
-  --sidebar-accent-foreground: oklch(0.36 0.05 254);
-  --sidebar-border: oklch(0.92 0.012 254);
-  --sidebar-ring: oklch(0.644 0.164 254);
+  --sidebar-foreground: oklch(0.28 0 0);
+  --sidebar-primary: oklch(0.3 0 0);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.95 0 0);
+  --sidebar-accent-foreground: oklch(0.24 0 0);
+  --sidebar-border: oklch(0.88 0 0);
+  --sidebar-ring: oklch(0.55 0 0);
 }
 
 .dark {
@@ -130,7 +130,7 @@
   --chart-3: oklch(0.45 0.09 254);
   --chart-4: oklch(0.85 0.05 254);
   --chart-5: oklch(0.55 0.06 254);
-  --sidebar: oklch(0.18 0.016 254);
+  --sidebar: #0e151e;
   --sidebar-foreground: oklch(0.97 0.006 254);
   --sidebar-primary: oklch(0.62 0.1 254);
   --sidebar-primary-foreground: oklch(0.97 0.006 254);
@@ -156,6 +156,7 @@
        Vars under `@theme inline` are inlined into utilities only — they aren't
        emitted as :root custom properties. Use the `font-sans` utility instead. */
     @apply font-sans text-foreground;
+    font-optical-sizing: auto;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     touch-action: manipulation;
@@ -195,16 +196,18 @@
     @apply text-sm text-foreground;
     font-weight: 500;
     line-height: 1.4;
+    letter-spacing: 0.01em;
   }
   .bg-app {
-    background-image: linear-gradient(
+    @apply bg-sidebar;
+    /* background-color: #f7f7f7; */
+    /* background-image: linear-gradient(
       270deg,
       rgba(255, 59, 0, 0.1) 0%,
       rgba(246, 0, 157, 0.1) 38%,
       rgba(151, 62, 198, 0.2) 71%,
       rgba(0, 142, 255, 0.2) 100%
-    );
-    opacity: 1;
+    ); */
   }
 
   ::selection {
@@ -237,6 +240,15 @@
     background: oklch(0.45 0 0 / 65%);
     background-clip: content-box;
   }
+}
+
+/* Apple §12 — saturate(180%) on all translucent surfaces.
+   Without it, backdrop-blur desaturates the content underneath and the
+   material reads as flat gray. Tailwind v4 composes backdrop-filter from
+   --tw-backdrop-* variables, so setting --tw-backdrop-saturate here
+   augments every backdrop-blur-* utility without editing each call site. */
+[class*="backdrop-blur"]:not([class*="backdrop-blur-none"]) {
+  --tw-backdrop-saturate: saturate(180%);
 }
 
 /* kami section title — 左侧 2.5px 墨蓝竖条 + 字重 500 标题，
@@ -281,6 +293,8 @@
   }
 }
 
+/* Apple §14 — reduced motion ≠ no feedback: preserve short opacity/color
+   transitions for comprehension, drop transform/position-based motion. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -288,7 +302,28 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    transition-duration: 200ms !important;
+    transition-property:
+      opacity, color, background-color, border-color, outline-color, fill, stroke !important;
+  }
+}
+
+/* Apple §14 — make translucent surfaces frostier/solid: drop the blur. */
+@media (prefers-reduced-transparency: reduce) {
+  [class*="backdrop-blur"]:not([class*="backdrop-blur-none"]) {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
+/* Apple §14 — near-solid backgrounds with a defined contrasting border. */
+@media (prefers-contrast: more) {
+  [class*="backdrop-blur"]:not([class*="backdrop-blur-none"]) {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    outline: 1px solid var(--border) !important;
+    outline-offset: -1px !important;
   }
 }
 

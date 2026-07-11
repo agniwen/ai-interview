@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, count, eq, inArray, notInArray } from "drizzle-orm";
+import { and, count, eq, inArray, ne } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
@@ -11,9 +11,11 @@ import {
   studioInterview,
 } from "@arc/db-schema/schema";
 import { jobDescriptionFormSchema, jobDescriptionUpdateSchema } from "@arc/shared/job-descriptions";
+import { computeResumeScreeningPolicyHash } from "@arc/shared/resume-screening";
 import type { ReferralLinkCreateResult } from "@arc/shared/referrals";
 import { validateJobDescriptionInterviewerDepartments } from "@arc/shared/job-description-interviewers";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import {
   listAllJobDescriptions,
@@ -23,6 +25,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { cacheTags, safeUpdateTag } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import { generateJobDescriptionFromPrompt } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/utils/ai-job-description-generate";
+import { generateResumeScreeningPolicyFromJobDescription } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/utils/resume-screening-policy-generate";
 import {
   buildJobDescriptionCodeCandidates,
   pickAvailableJobDescriptionCode,
@@ -35,6 +38,12 @@ const generateJobDescriptionBodySchema = z.object({
   departmentName: z.string().trim().max(120).optional(),
   jobName: z.string().trim().max(120).optional(),
   prompt: z.string().trim().min(1, "请填写 AI 填写指令").max(2000),
+});
+
+const generateResumeScreeningPolicyBodySchema = z.object({
+  description: z.string().trim().max(500).optional(),
+  name: z.string().trim().max(120).optional(),
+  prompt: z.string().trim().min(1, "请先填写岗位 Prompt").max(10_000),
 });
 
 async function validateReferences(
@@ -147,7 +156,15 @@ export const jobDescriptionsRouter = factory
         });
         return c.json(result, 200);
       } catch (error) {
-        return c.json({ error: error instanceof Error ? error.message : "AI 生成失败。" }, 500);
+        return c.json(
+          createInternalErrorResponse({
+            context: { organizationId: activeOrg.id },
+            error,
+            operation: "job-description-ai-generate",
+            publicMessage: "AI 生成失败。",
+          }),
+          500,
+        );
       }
     },
   )
@@ -211,10 +228,44 @@ export const jobDescriptionsRouter = factory
       usedRows.map((row) => row.code),
     );
     if (!code) {
-      return c.json({ error: "当前分钟岗位编码已用尽，请稍后重试。" }, 409);
+      return c.json({ error: "岗位编码候选已用尽，请重试。" }, 409);
     }
     return c.json({ code }, 200);
   })
+  .post(
+    "/generate-screening-policy",
+    requirePermission("jd", "update"),
+    zValidator(
+      "json",
+      generateResumeScreeningPolicyBodySchema,
+      jsonValidatorError("请求参数无效。"),
+    ),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const input = c.req.valid("json");
+      try {
+        const policy = await generateResumeScreeningPolicyFromJobDescription({
+          description: input.description ?? null,
+          name: input.name ?? null,
+          prompt: input.prompt,
+        });
+        return c.json({ policy }, 200);
+      } catch (error) {
+        return c.json(
+          createInternalErrorResponse({
+            context: { organizationId: activeOrg.id },
+            error,
+            operation: "job-description-screening-policy-generate",
+            publicMessage: "筛选规则生成失败。",
+          }),
+          500,
+        );
+      }
+    },
+  )
   .post(
     "/",
     requirePermission("jd", "create"),
@@ -225,6 +276,9 @@ export const jobDescriptionsRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       const input = c.req.valid("json");
+      const resumeScreeningPolicyHash = computeResumeScreeningPolicyHash(
+        input.resumeScreeningPolicy,
+      );
       const interviewerIds = dedupeInterviewerIds(input.interviewerIds);
       if (interviewerIds.length === 0) {
         return c.json({ error: "请至少选择一位面试官。" }, 400);
@@ -268,6 +322,9 @@ export const jobDescriptionsRouter = factory
           // data; new rows always store an empty array.
           presetQuestions: [],
           prompt: input.prompt.trim(),
+          resumeScreeningPolicy: input.resumeScreeningPolicy,
+          resumeScreeningPolicyHash,
+          resumeScreeningPolicyVersion: input.resumeScreeningPolicy.version,
           updatedAt: now,
         } satisfies typeof jobDescription.$inferSelect;
 
@@ -294,7 +351,7 @@ export const jobDescriptionsRouter = factory
         }
       }
 
-      return c.json({ error: "当前分钟岗位编码已用尽，请稍后重试。" }, 409);
+      return c.json({ error: "岗位编码候选已用尽，请重试。" }, 409);
     },
   )
   .post("/:id/referral-link", requirePermission("jd", "read"), async (c) => {
@@ -385,6 +442,14 @@ export const jobDescriptionsRouter = factory
       }
 
       const input = c.req.valid("json");
+      const nextPolicyHash = computeResumeScreeningPolicyHash(input.resumeScreeningPolicy);
+      const existingPolicyHash =
+        existing.resumeScreeningPolicyHash ??
+        computeResumeScreeningPolicyHash(existing.resumeScreeningPolicy);
+      const policyChanged = nextPolicyHash !== existingPolicyHash;
+      const nextPolicyVersion = policyChanged
+        ? existing.resumeScreeningPolicyVersion + 1
+        : existing.resumeScreeningPolicyVersion;
       const interviewerIds = dedupeInterviewerIds(input.interviewerIds);
       if (interviewerIds.length === 0) {
         return c.json({ error: "请至少选择一位面试官。" }, 400);
@@ -408,6 +473,12 @@ export const jobDescriptionsRouter = factory
         ...(!existing.code && input.code ? { code: input.code } : {}),
         name: input.name.trim(),
         prompt: input.prompt.trim(),
+        resumeScreeningPolicy: {
+          ...input.resumeScreeningPolicy,
+          version: nextPolicyVersion,
+        },
+        resumeScreeningPolicyHash: nextPolicyHash,
+        resumeScreeningPolicyVersion: nextPolicyVersion,
         updatedAt: now,
       };
       try {
@@ -462,16 +533,13 @@ export const jobDescriptionsRouter = factory
       .select({ count: count() })
       .from(studioInterview)
       .where(
-        and(
-          eq(studioInterview.jobDescriptionId, id),
-          notInArray(studioInterview.status, ["archived"]),
-        ),
+        and(eq(studioInterview.jobDescriptionId, id), ne(studioInterview.pipelineStage, "closed")),
       );
     const resumeCount = resumeRow?.count ?? 0;
     if (resumeCount > 0) {
       return c.json(
         {
-          error: `当前有 ${resumeCount} 条简历关联到该在招岗位，无法删除；请先在简历库中调整或删除这些候选人。`,
+          error: `当前有 ${resumeCount} 条简历关联到该在招岗位，无法删除；请先在招聘台中调整或删除这些候选人。`,
         },
         409,
       );

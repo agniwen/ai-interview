@@ -22,9 +22,9 @@ const selectVariants = cva(
   [
     "rounded-l-none shadow-none pl-2 ",
     "text-foreground hover:text-muted-foreground",
-    "peer-data-[state=on]/track:bg-muted peer-data-[state=on]/track:hover:bg-foreground/10",
-    "peer-data-[state=off]/track:text-destructive",
-    "peer-data-[state=off]/track:focus-visible:border-destructive peer-data-[state=off]/track:focus-visible:ring-destructive/30",
+    "data-[track-state=on]:bg-muted data-[track-state=on]:hover:bg-foreground/10",
+    "data-[track-state=off]:text-destructive data-[track-state=off]:hover:text-destructive",
+    "data-[track-state=off]:focus-visible:border-destructive data-[track-state=off]:focus-visible:ring-destructive/30",
     "[&_svg]:opacity-100",
   ],
   {
@@ -40,27 +40,27 @@ const selectVariants = cva(
       variant: {
         default: [
           "border-none",
-          "peer-data-[state=off]/track:bg-destructive/10",
-          "peer-data-[state=off]/track:hover:bg-destructive/15",
-          "peer-data-[state=off]/track:[&_svg]:text-destructive!",
+          "data-[track-state=off]:bg-destructive/10",
+          "data-[track-state=off]:hover:bg-destructive/15",
+          "data-[track-state=off]:[&_svg]:text-destructive!",
 
-          "dark:peer-data-[state=on]/track:bg-accent",
-          "dark:peer-data-[state=on]/track:hover:bg-foreground/10",
-          "dark:peer-data-[state=off]/track:bg-destructive/10",
-          "dark:peer-data-[state=off]/track:hover:bg-destructive/15",
+          "dark:data-[track-state=on]:bg-accent",
+          "dark:data-[track-state=on]:hover:bg-foreground/10",
+          "dark:data-[track-state=off]:bg-destructive/10",
+          "dark:data-[track-state=off]:hover:bg-destructive/15",
         ],
         outline: [
           "border border-l-0",
-          "peer-data-[state=off]/track:border-destructive/20",
-          "peer-data-[state=off]/track:bg-destructive/10",
-          "peer-data-[state=off]/track:hover:bg-destructive/15",
-          "peer-data-[state=off]/track:[&_svg]:text-destructive!",
-          "peer-data-[state=on]/track:hover:border-foreground/12",
+          "data-[track-state=off]:border-destructive/20",
+          "data-[track-state=off]:bg-destructive/10",
+          "data-[track-state=off]:hover:bg-destructive/15",
+          "data-[track-state=off]:[&_svg]:text-destructive!",
+          "data-[track-state=on]:hover:border-foreground/12",
 
-          "dark:peer-data-[state=off]/track:bg-destructive/10",
-          "dark:peer-data-[state=off]/track:hover:bg-destructive/15",
-          "dark:peer-data-[state=on]/track:bg-accent",
-          "dark:peer-data-[state=on]/track:hover:bg-foreground/10",
+          "dark:data-[track-state=off]:bg-destructive/10",
+          "dark:data-[track-state=off]:hover:bg-destructive/15",
+          "dark:data-[track-state=on]:bg-accent",
+          "dark:data-[track-state=on]:hover:bg-foreground/10",
         ],
       },
     },
@@ -162,6 +162,13 @@ function TrackDeviceSelect({
     onActiveDeviceChange?.(deviceId);
   };
 
+  const handleSelectedDeviceChange = (deviceId: string | null) => {
+    if (!deviceId) {
+      return;
+    }
+    handleActiveDeviceChange(deviceId);
+  };
+
   const filteredDevices = useMemo(() => devices.filter((d) => d.deviceId !== ""), [devices]);
 
   if (filteredDevices.length < 2) {
@@ -173,14 +180,14 @@ function TrackDeviceSelect({
       open={open}
       value={activeDeviceId}
       onOpenChange={handleOpenChange}
-      onValueChange={handleActiveDeviceChange}
+      onValueChange={handleSelectedDeviceChange}
     >
       <SelectTrigger className={cn(selectVariants({ size, variant }), className)} {...props}>
         {size !== "sm" && (
           <SelectValue className="font-mono text-sm" placeholder={`Select a ${kind}`} />
         )}
       </SelectTrigger>
-      <SelectContent position="popper">
+      <SelectContent alignItemWithTrigger={false} sideOffset={4}>
         {filteredDevices.map((device) => (
           <SelectItem key={device.deviceId} value={device.deviceId} className="font-mono text-xs">
             {device.label}
@@ -307,6 +314,7 @@ export function AgentTrackControl({
           size="sm"
           kind={kind}
           variant={variant}
+          data-track-state={pressed ? "on" : "off"}
           requestPermissions={false}
           onMediaDeviceError={onMediaDeviceError}
           onActiveDeviceChange={onActiveDeviceChange}

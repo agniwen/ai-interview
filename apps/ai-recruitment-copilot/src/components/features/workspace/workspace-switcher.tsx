@@ -1,8 +1,9 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { IconPlus, IconSelector } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { Plus, SelectChevronsUpDownIcon } from "@/components/icons/hugeicons";
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,12 +40,11 @@ function resolveSwitchTarget(currentPath: string, nextSlug: string): string {
 
 /**
  * Sidebar inset header 里的工作区切换器。列出当前用户所在所有 workspace,
- * 点击切换会把 router 推到对应 slug 的 root,layout 里再 setActiveOrganization。
+ * 点击切换只改变 URL；URL slug 是后端本次请求的唯一工作区上下文。
  * "创建新工作区"入口打开 modal,无需跳转。
  */
 export function WorkspaceSwitcher() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const currentSlug = useWorkspaceSlug();
   const [createOpen, setCreateOpen] = useState(false);
@@ -64,12 +64,14 @@ export function WorkspaceSwitcher() {
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button className="gap-2 font-normal" size="sm" variant="ghost">
-            <span className="truncate">{label}</span>
-            <SelectChevronsUpDownIcon className="h-4 w-4 opacity-60" />
-          </Button>
-        </DropdownMenuTrigger>
+        <DropdownMenuTrigger
+          render={
+            <Button className="gap-2 font-normal" size="sm" variant="ghost">
+              <span className="truncate">{label}</span>
+              <IconSelector className="h-4 w-4 opacity-60" />
+            </Button>
+          }
+        />
         <DropdownMenuContent align="end" className="w-56">
           {orgs.length === 0 ? (
             <DropdownMenuItem disabled>暂无可切换的工作区</DropdownMenuItem>
@@ -77,36 +79,17 @@ export function WorkspaceSwitcher() {
             orgs.map((o) => (
               <DropdownMenuItem
                 className={o.slug === currentSlug ? "bg-accent" : ""}
+                closeOnClick={false}
                 disabled={switching}
                 key={o.id}
-                onSelect={(e) => {
+                onClick={() => {
                   if (o.slug === currentSlug) {
                     return;
                   }
-                  // 先把 active org cookie 切到目标 workspace，再硬导航。
-                  // 不能反过来：layout.tsx 里 setActiveOrganization 用的是 React cache 的 session,
-                  // 同请求里写 Set-Cookie 也"看不见"——本次 server-render 还是用旧 active org，
-                  // 表现为切换后 page 数据"慢一拍"（要再刷一次才生效）。
-                  // 这里同步等 setActive 写好 cookie，浏览器再发的请求自带新 active id，
-                  // server 端 getCurrentSession / resolveActiveOrganization 一次性拿到正确 org。
-                  // Set the active-org cookie BEFORE navigating. Doing it on the server
-                  // inside the new layout doesn't work in the same render because
-                  // getCurrentSession is React-cached and already memoized the old
-                  // session — manifests as "the page lags one switch behind".
-                  // Awaiting setActive here makes the next request carry the new
-                  // active-id, so the server resolves the right org on first read.
-                  e.preventDefault();
                   setSwitching(true);
                   void (async () => {
                     try {
-                      await queryClient.cancelQueries();
-                      try {
-                        await authClient.organization.setActive({ organizationId: o.id });
-                      } catch (error) {
-                        console.error("[workspace-switch] setActive failed", error);
-                      }
                       await navigate({ href: resolveSwitchTarget(pathname, o.slug) });
-                      await queryClient.invalidateQueries({ queryKey: ["organizations"] });
                     } finally {
                       setSwitching(false);
                     }
@@ -119,14 +102,13 @@ export function WorkspaceSwitcher() {
           )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onSelect={(e) => {
-              // 阻止默认关闭,等 dropdown 自然收起后再让 Dialog 接管焦点。
-              // Prevent the default close so Radix doesn't fight Dialog for focus.
-              e.preventDefault();
+            closeOnClick={false}
+            onClick={() => {
+              // Keep menu focus from competing with the dialog while it takes over.
               setCreateOpen(true);
             }}
           >
-            <Plus className="mr-2 h-4 w-4" />
+            <IconPlus className="mr-2 h-4 w-4" />
             创建新工作区
           </DropdownMenuItem>
         </DropdownMenuContent>

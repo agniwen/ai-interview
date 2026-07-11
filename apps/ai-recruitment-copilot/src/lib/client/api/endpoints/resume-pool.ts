@@ -7,6 +7,7 @@ import type {
 } from "@arc/shared/resume-pool";
 import type { ResumePoolScope } from "@arc/db-schema/schema";
 import { rpc } from "@/lib/client/rpc";
+import type { DedupMatchRecord } from "./studio-interviews";
 import { apiFetch } from "../client";
 import { rpcFetch } from "../rpc-fetch";
 
@@ -19,7 +20,7 @@ export function fetchResumePoolItems(
       param: { slug },
       query: { scope },
     }),
-    "加载简历广场失败",
+    "加载人才库失败",
   );
 }
 
@@ -43,12 +44,24 @@ export function fetchResumePoolItem(slug: string, id: string): Promise<ResumePoo
   );
 }
 
+export function fetchResumePoolDuplicateMatches(
+  slug: string,
+  id: string,
+): Promise<{ matches: DedupMatchRecord[] }> {
+  return rpcFetch<{ matches: DedupMatchRecord[] }>(
+    rpc.api.w[":slug"].studio["resume-pool"][":id"]["duplicate-matches"].$get({
+      param: { id, slug },
+    }),
+    "加载疑似重复简历失败",
+  );
+}
+
 export function publishResumePoolItem(slug: string, id: string): Promise<ResumePoolListRecord> {
   return rpcFetch<ResumePoolListRecord>(
     rpc.api.w[":slug"].studio["resume-pool"][":id"].publish.$post({
       param: { id, slug },
     }),
-    "推送到简历广场失败",
+    "推送到公共简历池失败",
   );
 }
 

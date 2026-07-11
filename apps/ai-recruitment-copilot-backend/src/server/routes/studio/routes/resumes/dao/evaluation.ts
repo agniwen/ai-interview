@@ -14,11 +14,17 @@ export type ResumeEvaluationMutationResult =
 async function insertEvaluationAudit(
   tx: Tx,
   input: {
-    action: "resume_evaluation_submitted" | "resume_evaluation_updated";
+    action:
+      | "resume_evaluation_reset_for_job_change"
+      | "resume_evaluation_submitted"
+      | "resume_evaluation_updated";
     fromStatus: ResumeEvaluationStatus | null;
     interviewRecordId: string;
+    nextJobDescriptionId?: string | null;
     operatorId: string | null;
     organizationId: string;
+    previousJobDescriptionId?: string | null;
+    reason?: string;
     toStatus: ResumeEvaluationStatus | null;
   },
 ) {
@@ -27,12 +33,73 @@ async function insertEvaluationAudit(
     createdAt: new Date(),
     detail: {
       fromStatus: input.fromStatus,
+      nextJobDescriptionId: input.nextJobDescriptionId,
+      previousJobDescriptionId: input.previousJobDescriptionId,
+      reason: input.reason,
       toStatus: input.toStatus,
     },
     id: crypto.randomUUID(),
     interviewRecordId: input.interviewRecordId,
     operatorId: input.operatorId,
     organizationId: input.organizationId,
+  });
+}
+
+export async function resetResumeEvaluationForJobChange(input: {
+  id: string;
+  nextJobDescriptionId: string | null;
+  operatorId: string | null;
+  organizationId: string;
+  previousJobDescriptionId: string | null;
+  previousStatus: ResumeEvaluationStatus;
+}): Promise<ResumeEvaluationMutationResult> {
+  const now = new Date();
+  return await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select({ resumeEvaluationStatus: studioInterview.resumeEvaluationStatus })
+      .from(studioInterview)
+      .where(
+        and(
+          eq(studioInterview.id, input.id),
+          eq(studioInterview.organizationId, input.organizationId),
+        ),
+      )
+      .for("update")
+      .limit(1);
+
+    if (!existing) {
+      return { status: "not_found" };
+    }
+    if (!existing.resumeEvaluationStatus) {
+      return { currentStatus: null, status: "unchanged" };
+    }
+
+    await tx
+      .update(studioInterview)
+      .set({
+        resumeEvaluationStatus: null,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(studioInterview.id, input.id),
+          eq(studioInterview.organizationId, input.organizationId),
+        ),
+      );
+
+    await insertEvaluationAudit(tx, {
+      action: "resume_evaluation_reset_for_job_change",
+      fromStatus: existing.resumeEvaluationStatus,
+      interviewRecordId: input.id,
+      nextJobDescriptionId: input.nextJobDescriptionId,
+      operatorId: input.operatorId,
+      organizationId: input.organizationId,
+      previousJobDescriptionId: input.previousJobDescriptionId,
+      reason: "岗位变更后需重新评估",
+      toStatus: null,
+    });
+
+    return { currentStatus: null, status: "updated" };
   });
 }
 

@@ -1,16 +1,14 @@
+import { IconChevronDown, IconFileText, IconX } from "@tabler/icons-react";
 // 用途：process step 1 简化版 UI——「新建在招岗位」Dialog 叠在 JD 管理页之上。
 // 对齐 JobDescriptionFormDialog 的字段：岗位名称 / 部门 / 面试官（multi） / 简要描述 / 岗位 Prompt。
 // Purpose: simplified UI of the "新建在招岗位" dialog overlaying the JD list page.
 // Mirrors JobDescriptionFormDialog fields: name / department / interviewers / description / prompt.
-import { ChevronDownIcon, FileTextIcon, XIcon } from "@/components/icons/hugeicons";
+
 import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
 import { ScreenFrame } from "./screen-frame";
 
-const BREADCRUMB: BreadcrumbCrumb[] = [
-  { label: "Studio" },
-  { current: true, label: "在招岗位管理" },
-];
+const BREADCRUMB: BreadcrumbCrumb[] = [{ label: "Studio" }, { current: true, label: "岗位设置" }];
 
 function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
   return (
@@ -41,7 +39,7 @@ function Select({ placeholder, value }: { placeholder?: string; value?: string }
       ) : (
         <span className="text-muted-foreground/70">{placeholder}</span>
       )}
-      <ChevronDownIcon className="size-3.5 text-muted-foreground" strokeWidth={1.75} />
+      <IconChevronDown className="size-3.5 text-muted-foreground" strokeWidth={1.75} />
     </div>
   );
 }
@@ -57,11 +55,11 @@ function MultiSelectInterviewers() {
         >
           <span className="size-3.5 rounded-full bg-gradient-to-br from-primary/15 to-primary/30" />
           {p}
-          <XIcon className="size-3 text-muted-foreground" strokeWidth={1.75} />
+          <IconX className="size-3 text-muted-foreground" strokeWidth={1.75} />
         </span>
       ))}
       <span className="ml-auto pr-1 text-muted-foreground/70">选择面试官…</span>
-      <ChevronDownIcon className="size-3.5 text-muted-foreground" strokeWidth={1.75} />
+      <IconChevronDown className="size-3.5 text-muted-foreground" strokeWidth={1.75} />
     </div>
   );
 }
@@ -109,7 +107,7 @@ function JdFormDialog() {
         <div>
           <div className="flex items-center gap-2">
             <span className="grid size-7 place-items-center rounded-md bg-primary/5 text-primary/75">
-              <FileTextIcon className="size-4" strokeWidth={1.75} />
+              <IconFileText className="size-4" strokeWidth={1.75} />
             </span>
             <h2 className="font-semibold text-[16px]">新建在招岗位</h2>
           </div>
@@ -118,7 +116,7 @@ function JdFormDialog() {
           </p>
         </div>
         <span className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-foreground/[0.04]">
-          <XIcon className="size-4" strokeWidth={1.75} />
+          <IconX className="size-4" strokeWidth={1.75} />
         </span>
       </div>
 
@@ -169,7 +167,7 @@ function DimmedJobsBackground() {
   return (
     <div className="flex flex-col gap-6 px-6 py-6 opacity-50">
       <header className="flex flex-col gap-1.5">
-        <h1 className="text-[22px] leading-tight">在招岗位管理</h1>
+        <h1 className="text-[22px] leading-tight">岗位设置</h1>
         <p className="text-[12px] text-muted-foreground">
           维护岗位 JD、面试官与题库，所有评估共用同一份岗位语境。
         </p>
@@ -213,7 +211,7 @@ export function JdSetupScreen({ className }: { className?: string }) {
       <AppShell
         bodyClassName="bg-background"
         breadcrumb={BREADCRUMB}
-        sidebar={<StudioNav activeLabel="在招岗位管理" />}
+        sidebar={<StudioNav activeLabel="岗位设置" />}
         tab="studio"
       >
         <JdSetupContent />

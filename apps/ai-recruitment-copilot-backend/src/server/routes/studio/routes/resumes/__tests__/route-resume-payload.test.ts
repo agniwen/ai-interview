@@ -76,7 +76,6 @@ describe("loadResumeDetail interviewQuestions surfacing", () => {
         workExperiences: [],
         workYears: null,
       },
-      status: "draft",
       updatedAt: NOW,
     });
 
@@ -95,7 +94,6 @@ describe("loadResumeDetail interviewQuestions surfacing", () => {
       id: recordId,
       interviewQuestions: [],
       organizationId: ORG,
-      status: "draft",
       updatedAt: NOW,
     });
 

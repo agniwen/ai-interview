@@ -57,7 +57,9 @@ function PlatformMailIngestAccountsRoute() {
 
   return (
     <HydrationBoundary state={state.dehydratedState as unknown as DehydratedState}>
-      <PlatformMailIngestAccountsGrid />
+      <div className="container mx-auto">
+        <PlatformMailIngestAccountsGrid />
+      </div>
     </HydrationBoundary>
   );
 }

@@ -1,64 +1,67 @@
 import { dehydrate } from "@tanstack/react-query";
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
-import { buildDataGridQueryKey } from "@/components/data-grid/query-contract";
+import { buildInfiniteDataGridQueryKey } from "@/components/data-grid/query-contract";
 import type { JsonValue } from "@/lib/start/server-function-types";
 import { parseCsvParam } from "@arc/shared/csv";
 import { createQueryClient } from "@arc/shared/query-client";
-import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
+import {
+  RESUME_LIBRARY_INFINITE_PAGE_SIZE,
+  resumeLibrarySortIds,
+} from "@arc/shared/studio-resumes";
+import type { PaginatedResumeLibraryResult, ResumeLibrarySortId } from "@arc/shared/studio-resumes";
+import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import { loadResumeLibraryMetrics } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/metrics";
 import { listResumeRecords } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
 import type { ResumeFilters } from "./resumes.functions";
 
-type ResumeSortColumn = "createdAt" | "candidateName" | "updatedAt";
-
-function normalizeResumeSortColumn(value: string | undefined): ResumeSortColumn | undefined {
-  if (value === "createdAt" || value === "candidateName" || value === "updatedAt") {
-    return value;
-  }
-  return undefined;
-}
-
 export async function loadStudioResumesData({
+  prefetchList,
   query,
   slug,
-  userId,
-  userRole,
+  visibilityScope,
   workspaceId,
 }: {
+  prefetchList: boolean;
   query: DataGridQueryState<ResumeFilters>;
   slug: string;
-  userId: string;
-  userRole: string;
+  visibilityScope?: RecruitingVisibilityScope;
   workspaceId: string;
 }) {
-  const metrics = await loadResumeLibraryMetrics(workspaceId);
-  const visibilityScope = await resolveRecruitingVisibilityScope({
-    currentRole: userRole,
-    organizationId: workspaceId,
-    userId,
-  });
   const queryClient = createQueryClient();
-  await queryClient.prefetchQuery({
-    queryFn: () =>
-      listResumeRecords(
-        workspaceId,
-        {
-          creatorIds: parseCsvParam(query.filters.creatorIds),
-          jobDescriptionIds: parseCsvParam(query.filters.jdIds),
-          pipelineStages: parseCsvParam(query.filters.stage),
-          search: query.search,
-          skills: parseCsvParam(query.filters.skills),
-        },
-        {
-          page: query.page,
-          pageSize: query.pageSize,
-          sortBy: normalizeResumeSortColumn(query.sortBy),
-          sortOrder: query.sortOrder,
-        },
-        visibilityScope,
-      ),
-    queryKey: buildDataGridQueryKey(["studio-resumes", slug], query),
-  });
+  if (prefetchList && !visibilityScope) {
+    throw new Error("Resume list prefetch requires a recruiting visibility scope.");
+  }
+  const sortBy = resumeLibrarySortIds.includes(query.sortBy as ResumeLibrarySortId)
+    ? (query.sortBy as ResumeLibrarySortId)
+    : undefined;
+  const listPrefetch =
+    prefetchList && visibilityScope
+      ? queryClient.prefetchInfiniteQuery({
+          getNextPageParam: (lastPage: PaginatedResumeLibraryResult) =>
+            lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
+          initialPageParam: 1,
+          queryFn: ({ pageParam }) =>
+            listResumeRecords(
+              workspaceId,
+              {
+                creatorIds: parseCsvParam(query.filters.creatorIds),
+                jobDescriptionIds: parseCsvParam(query.filters.jdIds),
+                pipelineStages: parseCsvParam(query.filters.stage),
+                search: query.search || undefined,
+                skills: parseCsvParam(query.filters.skills),
+              },
+              {
+                page: Number(pageParam),
+                pageSize: RESUME_LIBRARY_INFINITE_PAGE_SIZE,
+                sortBy,
+                sortOrder: query.sortOrder,
+              },
+              visibilityScope,
+            ),
+          queryKey: buildInfiniteDataGridQueryKey(["studio-resumes", slug], { ...query, sortBy }),
+        })
+      : Promise.resolve();
+  const [metrics] = await Promise.all([loadResumeLibraryMetrics(workspaceId), listPrefetch]);
 
   return {
     dehydratedState: structuredClone(dehydrate(queryClient)) as unknown as JsonValue,

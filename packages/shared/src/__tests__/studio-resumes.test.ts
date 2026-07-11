@@ -100,6 +100,17 @@ describe("describeResumeProgress", () => {
     ).toEqual({ label: "简历筛选 · 待处理", tone: "outline" });
   });
 
+  it("screening with queued review → 简历筛选 · 分析中", () => {
+    expect(
+      describeResumeProgress({
+        outcome: "in_pipeline",
+        pipelineStage: "screening",
+        resumeReviewStatus: "queued",
+        stageProgress: EMPTY,
+      }),
+    ).toEqual({ label: "简历筛选 · 分析中", tone: "warning" });
+  });
+
   it("ai_interview 无排期 → 未排期", () => {
     expect(
       describeResumeProgress({
@@ -234,6 +245,7 @@ describe("describeResumeProgress", () => {
               status: "pending",
             },
             completedRounds: 0,
+            completedRoundsMissingFeedback: 0,
             failedRounds: 0,
             passedRounds: 0,
             totalRounds: 2,
@@ -264,6 +276,7 @@ describe("describeResumeProgress", () => {
               status: "pending",
             },
             completedRounds: 0,
+            completedRoundsMissingFeedback: 0,
             failedRounds: 0,
             passedRounds: 0,
             totalRounds: 1,
@@ -287,6 +300,7 @@ describe("describeResumeProgress", () => {
           humanInterview: {
             activeRound: null,
             completedRounds: 2,
+            completedRoundsMissingFeedback: 0,
             failedRounds: 0,
             passedRounds: 2,
             totalRounds: 2,

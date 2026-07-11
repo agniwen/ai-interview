@@ -1,13 +1,14 @@
+import {
+  IconBuilding,
+  IconDeviceFloppy,
+  IconInbox,
+  IconMail,
+  IconTrash,
+  IconUser,
+} from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  Building2Icon,
-  InboxIcon,
-  MailIcon,
-  SaveIcon,
-  Trash2Icon,
-  UserIcon,
-} from "@/components/icons/hugeicons";
+
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { PermissionGate } from "@/components/features/permission/permission-gate";
@@ -142,7 +143,7 @@ function ProfileFields({
         <FieldLabel htmlFor="profile-name">姓名</FieldLabel>
         <InputGroup>
           <InputGroupAddon>
-            <UserIcon />
+            <IconUser />
           </InputGroupAddon>
           <InputGroupInput
             id="profile-name"
@@ -175,7 +176,7 @@ function ProfileFields({
         <FieldLabel htmlFor="profile-email">登录邮箱</FieldLabel>
         <InputGroup data-disabled>
           <InputGroupAddon>
-            <MailIcon />
+            <IconMail />
           </InputGroupAddon>
           <InputGroupInput id="profile-email" disabled readOnly value={email} />
         </InputGroup>
@@ -205,7 +206,7 @@ function OrganizationCard({ currentRole, currentSlug, organizations }: Organizat
       <CardContent className="flex flex-col gap-4">
         <div className="flex items-center gap-3 rounded-md border bg-muted/30 p-4">
           <div className="flex size-12 shrink-0 items-center justify-center rounded-md bg-background text-muted-foreground shadow-xs">
-            <Building2Icon />
+            <IconBuilding />
           </div>
           <div className="min-w-0 flex-1">
             <p className="font-medium">已加入 {organizations.length} 个工作区</p>
@@ -304,7 +305,11 @@ function ProfileCard({
 
         <div className="flex justify-end">
           <Button disabled={pending || isPending || !dirty} onClick={onSave}>
-            {pending ? <Spinner data-icon="inline-start" /> : <SaveIcon data-icon="inline-start" />}
+            {pending ? (
+              <Spinner data-icon="inline-start" />
+            ) : (
+              <IconDeviceFloppy data-icon="inline-start" />
+            )}
             {pending ? "保存中" : "保存修改"}
           </Button>
         </div>
@@ -464,7 +469,7 @@ function MailIngestAccountCard() {
     <Card className="rounded-lg">
       <CardHeader>
         <CardTitle>简历邮箱采集</CardTitle>
-        <CardDescription>轮询 Boss 直聘简历邮件，自动加入你的私有简历库解析队列。</CardDescription>
+        <CardDescription>轮询 Boss 直聘简历邮件，自动加入你的私有招聘台解析队列。</CardDescription>
       </CardHeader>
       <CardContent>
         <form
@@ -477,7 +482,7 @@ function MailIngestAccountCard() {
           <div className="flex items-center justify-between gap-4 rounded-md border bg-muted/30 p-4">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-background text-muted-foreground">
-                <InboxIcon />
+                <IconInbox />
               </div>
               <div className="min-w-0">
                 <p className="font-medium text-sm">
@@ -624,7 +629,7 @@ function MailIngestAccountCard() {
                 {deleting ? (
                   <Spinner data-icon="inline-start" />
                 ) : (
-                  <Trash2Icon data-icon="inline-start" />
+                  <IconTrash data-icon="inline-start" />
                 )}
                 删除
               </Button>
@@ -633,7 +638,7 @@ function MailIngestAccountCard() {
               {saving ? (
                 <Spinner data-icon="inline-start" />
               ) : (
-                <SaveIcon data-icon="inline-start" />
+                <IconDeviceFloppy data-icon="inline-start" />
               )}
               保存配置
             </Button>
@@ -693,7 +698,7 @@ function MyProfilePage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="mx-auto w-full max-w-[96rem] flex flex-col gap-6">
       <PageHeader
         title="我的信息"
         description="更新你在工作区里的展示姓名和头像，方便同事识别每一次配置和操作。"

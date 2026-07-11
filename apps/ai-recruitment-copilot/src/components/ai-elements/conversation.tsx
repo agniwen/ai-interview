@@ -1,8 +1,8 @@
 "use client";
 
+import { IconArrowDown, IconDownload } from "@tabler/icons-react";
 import type { ComponentProps } from "react";
 
-import { ArrowDownIcon, DownloadIcon } from "@/components/icons/hugeicons";
 import { useCallback } from "react";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 import { Button } from "@/components/ui/button";
@@ -76,7 +76,7 @@ export function ConversationScrollButton({ className, ...props }: ConversationSc
     !isAtBottom && (
       <Button
         className={cn(
-          "absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full border-border/70 bg-background/85 shadow-xs backdrop-blur-sm hover:bg-accent/60",
+          "absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full border-border/40 bg-background/80 shadow-xs backdrop-blur-sm hover:bg-accent/60",
           className,
         )}
         onClick={handleScrollToBottom}
@@ -85,7 +85,7 @@ export function ConversationScrollButton({ className, ...props }: ConversationSc
         variant="outline"
         {...props}
       >
-        <ArrowDownIcon className="size-4" />
+        <IconArrowDown className="size-4" />
       </Button>
     )
   );
@@ -143,7 +143,7 @@ export function ConversationDownload({
       {...props}
       ref={ref}
       className={cn(
-        "absolute top-4 right-4 rounded-full border-border/70 bg-background/85 shadow-xs backdrop-blur-sm hover:bg-accent/60",
+        "absolute top-4 right-4 rounded-full border-border/40 bg-background/80 shadow-xs backdrop-blur-sm hover:bg-accent/60",
         className,
       )}
       onClick={handleDownload}
@@ -151,7 +151,7 @@ export function ConversationDownload({
       type="button"
       variant={variant}
     >
-      {children ?? <DownloadIcon className="size-4" />}
+      {children ?? <IconDownload className="size-4" />}
     </Button>
   );
 }

@@ -45,7 +45,7 @@ export function Faq() {
       <Accordion
         className="mt-10 w-full"
         defaultValue={["faq-0", "faq-1", "faq-2", "faq-3", "faq-4"]}
-        type="multiple"
+        multiple
       >
         {faqs.map((item, index) => (
           <AccordionItem

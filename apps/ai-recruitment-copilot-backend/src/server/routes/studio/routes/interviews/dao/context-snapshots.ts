@@ -61,6 +61,8 @@ export interface CreateInterviewContextSnapshotOptions {
 export interface ContextSnapshotPresetQuestion {
   content: string;
   difficulty: InterviewQuestionTemplateDifficulty;
+  evaluationFocus?: string | null;
+  followUpDirections?: string | null;
 }
 
 export function buildInterviewContextSnapshotPayload(
@@ -390,7 +392,12 @@ export function flattenPresetQuestionsFromContextSnapshot(
     for (const question of questions) {
       const content = question.content.trim();
       if (content) {
-        out.push({ content, difficulty: question.difficulty });
+        out.push({
+          content,
+          difficulty: question.difficulty,
+          evaluationFocus: question.evaluationFocus ?? null,
+          followUpDirections: question.followUpDirections ?? null,
+        });
       }
     }
   }

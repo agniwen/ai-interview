@@ -1,9 +1,9 @@
 "use client";
 
+import { IconCheck, IconCopy } from "@tabler/icons-react";
 import type { ComponentProps, CSSProperties, HTMLAttributes } from "react";
 import type { BundledLanguage, BundledTheme, HighlighterGeneric, ThemedToken } from "shiki";
 
-import { CheckIcon, CopyIcon } from "@/components/icons/hugeicons";
 import {
   createContext,
   memo,
@@ -472,7 +472,7 @@ export function CodeBlockCopyButton({
     [],
   );
 
-  const Icon = isCopied ? CheckIcon : CopyIcon;
+  const Icon = isCopied ? IconCheck : IconCopy;
 
   return (
     <Button

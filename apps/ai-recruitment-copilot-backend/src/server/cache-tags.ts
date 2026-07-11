@@ -79,7 +79,7 @@ export function safeUpdateTag(tag: string) {
 }
 
 /**
- * AI 面试与简历库共用同一张 studioInterview 表。任一侧写入后必须同时失效两个
+ * AI 面试与招聘台共用同一张 studioInterview 表。任一侧写入后必须同时失效两个
  * cache tag，否则另一个页面会读到旧投影。集中在此处避免调用方漏掉一个。
  * 两个 tag 都需要按 org 维度隔离。
  *

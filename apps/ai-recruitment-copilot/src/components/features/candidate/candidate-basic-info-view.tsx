@@ -1,14 +1,17 @@
 "use client";
 
+import { IconUpload } from "@tabler/icons-react";
 import type { ReactNode } from "react";
-import { UploadIcon } from "@/components/icons/hugeicons";
+
 import { Button } from "@/components/ui/button";
+import { DataField } from "@/components/features/display/data-field";
+import { DataFields } from "@/components/features/display/data-fields";
 import { ResumeDocumentFileIcon } from "@/components/features/resume/resume-document-file-icon";
 import { ResumeDocumentPreviewButton } from "@/components/features/resume/resume-document-preview-button";
 import { getResumeDocumentKind, resumeDocumentFormats } from "@arc/shared/resume-documents";
 
 /**
- * 简历库与 AI 面试详情共用的"候选人基础信息卡片"。
+ * 招聘台与 AI 面试详情共用的"候选人基础信息卡片"。
  * 只读展示候选人身份维度的字段，附带可选简历预览按钮与 footer 操作槽。
  *
  * Read-only candidate basic-info card shared between the resume library detail
@@ -33,15 +36,6 @@ export interface CandidateBasicInfoViewProps {
   /** 卡片底部的可选操作区（例如「编辑候选人信息」跳转按钮）。 */
   footer?: ReactNode;
   className?: string;
-}
-
-function Row({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <span className="text-muted-foreground text-xs">{label}</span>
-      <div className="mt-1 min-w-0 break-words text-sm leading-6">{value}</div>
-    </div>
-  );
 }
 
 function renderText(value: string | null) {
@@ -75,15 +69,16 @@ export function CandidateBasicInfoView({
 
   return (
     <div className={className}>
-      <section className="grid gap-x-8 gap-y-4 md:grid-cols-2">
-        <Row label="姓名" value={renderText(candidateName)} />
-        <Row label="邮箱" value={renderText(candidateEmail)} />
-        <Row label="电话" value={renderText(candidatePhone)} />
-        <Row label="目标岗位" value={renderText(targetRole)} />
-        <Row label="关联岗位" value={renderText(jobDescriptionName)} />
-        <Row label="创建人" value={renderText(creatorName)} />
-        <Row
+      <DataFields columns={2}>
+        <DataField label="姓名" value={candidateName} />
+        <DataField kind="email" label="邮箱" value={candidateEmail} />
+        <DataField kind="phone" label="电话" value={candidatePhone} />
+        <DataField label="目标岗位" value={targetRole} />
+        <DataField label="关联岗位" value={jobDescriptionName} />
+        <DataField label="创建人" value={creatorName} />
+        <DataField
           label="简历文件"
+          span="full"
           value={
             <div className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/30 px-3 py-2 border border-muted/60">
               <ResumeDocumentFileIcon
@@ -115,7 +110,7 @@ export function CandidateBasicInfoView({
                     type="button"
                     variant="outline"
                   >
-                    <UploadIcon className="size-3.5" />
+                    <IconUpload className="size-3.5" />
                     替换
                   </Button>
                 ) : null}
@@ -123,7 +118,7 @@ export function CandidateBasicInfoView({
             </div>
           }
         />
-      </section>
+      </DataFields>
 
       {footer ? <div className="mt-4 flex items-center justify-end gap-2">{footer}</div> : null}
     </div>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import { env } from "@/env/client";
 import { authClient } from "@/lib/client/auth-client";
 
 interface WatermarkUser {
@@ -25,7 +26,7 @@ export function buildWatermarkContent(user: WatermarkUser): [string, string] {
   return [nickname, `ID: ${maskWatermarkUserId(user.id)}`];
 }
 
-export function AppWatermark() {
+function EnabledAppWatermark() {
   const { data: session, isPending } = authClient.useSession();
   const user = session?.user;
   const content = useMemo(() => {
@@ -87,4 +88,12 @@ export function AppWatermark() {
   }, [content]);
 
   return null;
+}
+
+export function AppWatermark() {
+  if (!env.NEXT_PUBLIC_ENABLE_WATERMARK) {
+    return null;
+  }
+
+  return <EnabledAppWatermark />;
 }

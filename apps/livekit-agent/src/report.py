@@ -1,16 +1,18 @@
 import asyncio
-import json
 import logging
 import os
 import time
 
 import httpx
 
+from agent_config import resolve_agent_name
+from dispatch_context import InterviewDispatchContext
+
 logger = logging.getLogger("agent")
 
 
 async def send_report(
-    interview_context: dict,
+    interview_context: InterviewDispatchContext,
     room_name: str,
     turns: list[dict],
     call_successful: str,
@@ -38,9 +40,9 @@ async def send_report(
 
     payload = {
         "conversationId": room_name,
-        "interviewRecordId": interview_context.get("interview_record_id", ""),
-        "scheduleEntryId": interview_context.get("round_id", ""),
-        "agentId": "giaogiao",
+        "interviewRecordId": interview_context.session.interview_record_id,
+        "scheduleEntryId": interview_context.session.round_id,
+        "agentId": resolve_agent_name(),
         "status": "completed",
         "callSuccessful": call_successful,
         "transcript": turns,
@@ -76,7 +78,12 @@ async def send_report(
                 if resp.status_code < 300:
                     logger.info("report sent successfully: %s turns", len(turns))
                     return
-                logger.error("report API returned %d: %s", resp.status_code, resp.text)
+                logger.error(
+                    "report API returned %d: conversation_id=%s interview_record_id=%s",
+                    resp.status_code,
+                    room_name,
+                    interview_context.session.interview_record_id,
+                )
             except Exception:
                 logger.exception("failed to send report (attempt %d)", attempt + 1)
 
@@ -84,6 +91,12 @@ async def send_report(
                 await asyncio.sleep(backoff_seconds[attempt])
 
     logger.error(
-        "report send failed after retries, payload: %s",
-        json.dumps(payload, ensure_ascii=False)[:2000],
+        "report send failed after retries: conversation_id=%s "
+        "interview_record_id=%s schedule_entry_id=%s turn_count=%d "
+        "close_reason=%s",
+        room_name,
+        interview_context.session.interview_record_id,
+        interview_context.session.round_id,
+        len(turns),
+        close_reason,
     )

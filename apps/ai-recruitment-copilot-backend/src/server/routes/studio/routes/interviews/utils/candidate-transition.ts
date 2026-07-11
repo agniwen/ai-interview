@@ -1,7 +1,13 @@
-import type { studioInterview } from "@arc/db-schema/schema";
-import type { CandidateOutcome, ClosedMeta, PipelineStage } from "@arc/db-schema/studio-interviews";
-
-type LegacyCandidateStatus = typeof studioInterview.$inferInsert.status;
+import type {
+  CandidateOutcome,
+  ClosedMeta,
+  PipelineStage,
+  ResumeEvaluationStatus,
+} from "@arc/db-schema/studio-interviews";
+import {
+  canApplyCandidatePipelineEvent,
+  getCandidatePipelineEventForTargetStage,
+} from "@arc/shared/candidate-pipeline-machine";
 
 export interface CandidateTransitionExisting {
   closedMeta: ClosedMeta | null;
@@ -14,6 +20,7 @@ export interface CandidateTransitionInput {
   closedReason?: string | null;
   outcome?: CandidateOutcome;
   pipelineStage: PipelineStage;
+  reactivationReason?: string;
 }
 
 export interface CandidateTransitionPatch {
@@ -26,7 +33,7 @@ export interface CandidateTransitionPatch {
   offerSentAt?: Date | null;
   outcome: CandidateOutcome;
   pipelineStage: PipelineStage;
-  status?: LegacyCandidateStatus;
+  resumeEvaluationStatus?: ResumeEvaluationStatus | null;
   updatedAt: Date;
   writtenTestScheduledAt?: Date | null;
   writtenTestScore?: string | null;
@@ -37,8 +44,62 @@ export interface CandidateTransitionAuditDetail {
   fromOutcome: CandidateOutcome;
   fromStage: PipelineStage;
   reason: string | null;
+  reactivationReason: string | null;
   toOutcome: CandidateOutcome;
   toStage: PipelineStage;
+}
+
+export function getCandidateReactivationError({
+  from,
+  reactivationReason,
+  to,
+}: {
+  from: PipelineStage;
+  reactivationReason?: string;
+  to: PipelineStage;
+}): string | null {
+  if (from === "closed" && to !== "closed" && !reactivationReason?.trim()) {
+    return "请填写重新激活原因。";
+  }
+  return null;
+}
+
+export function getCandidateStageTransitionError({
+  from,
+  hasJobDescription,
+  humanInterviewReadyForOffer,
+  to,
+}: {
+  from: PipelineStage;
+  hasJobDescription: boolean;
+  humanInterviewReadyForOffer: boolean;
+  to: PipelineStage;
+}): string | null {
+  if (from === to) {
+    return null;
+  }
+  if (to === "closed") {
+    return null;
+  }
+  if (to === "human_interview" && !hasJobDescription) {
+    return "请先绑定在招岗位后再安排真人面试";
+  }
+
+  const event = getCandidatePipelineEventForTargetStage({ from, to });
+  if (!event) {
+    return "当前招聘阶段不能直接推进到目标阶段。";
+  }
+  const canApply = canApplyCandidatePipelineEvent(
+    { humanInterviewReadyForOffer, stage: from },
+    event,
+  );
+  if (canApply) {
+    return null;
+  }
+  if (from === "human_interview" && to === "offer") {
+    return "请先完成所有真人面试轮次，并补全每轮面试评价";
+  }
+  return "当前招聘阶段不能直接推进到目标阶段。";
 }
 
 export function resolveCandidateTransitionPatch({
@@ -59,7 +120,6 @@ export function resolveCandidateTransitionPatch({
   let closedAt: Date | null | undefined;
   let closedReason: string | null | undefined;
   let closedMeta: ClosedMeta | null | undefined;
-  let legacyStatus: LegacyCandidateStatus | undefined;
   let humanInterviewScheduledAt: Date | null | undefined;
   let humanInterviewerId: string | null | undefined;
   let offerSentAt: Date | null | undefined;
@@ -75,7 +135,6 @@ export function resolveCandidateTransitionPatch({
       ...input.closedMeta,
       previousStage: existing.pipelineStage,
     };
-    legacyStatus = "archived";
   } else if (wasClosed) {
     closedAt = null;
     closedReason = null;
@@ -86,7 +145,6 @@ export function resolveCandidateTransitionPatch({
     offerAcceptedAt = null;
     writtenTestScheduledAt = null;
     writtenTestScore = null;
-    legacyStatus = "ready";
   }
 
   const outcome = input.outcome ?? "in_pipeline";
@@ -100,7 +158,7 @@ export function resolveCandidateTransitionPatch({
     offerSentAt,
     outcome,
     pipelineStage: input.pipelineStage,
-    status: legacyStatus,
+    resumeEvaluationStatus: wasClosed && !isClosing ? null : undefined,
     updatedAt: now,
     writtenTestScheduledAt,
     writtenTestScore,
@@ -111,6 +169,7 @@ export function resolveCandidateTransitionPatch({
       closedMeta: closedMeta ?? null,
       fromOutcome: existing.outcome,
       fromStage: existing.pipelineStage,
+      reactivationReason: wasClosed && !isClosing ? (input.reactivationReason ?? null) : null,
       reason: input.closedReason ?? null,
       toOutcome: outcome,
       toStage: input.pipelineStage,

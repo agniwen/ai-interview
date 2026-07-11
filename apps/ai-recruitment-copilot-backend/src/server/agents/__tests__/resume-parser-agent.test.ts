@@ -61,6 +61,24 @@ describe("projectAttachmentToResumeProfile", () => {
     expect(result?.educationExperiences).toEqual(MINIMAL_STRUCTURED.educationExperiences);
   });
 
+  it("includes project tech stacks in the projected top-level skills", () => {
+    const result = projectAttachmentToResumeProfile({
+      ...MINIMAL_STRUCTURED,
+      projectExperiences: [
+        {
+          name: "招聘系统",
+          period: "2024",
+          role: "前端负责人",
+          summary: "负责候选人筛选模块",
+          techStack: ["React", "TypeScript", "Kubernetes"],
+        },
+      ],
+      skills: ["TypeScript"],
+    });
+
+    expect(result?.skills).toEqual(["TypeScript", "React", "Kubernetes"]);
+  });
+
   it("defaults education experiences to an empty list for legacy cached structured data", () => {
     const { educationExperiences: _educationExperiences, ...legacyStructured } = MINIMAL_STRUCTURED;
     const result = projectAttachmentToResumeProfile(legacyStructured);

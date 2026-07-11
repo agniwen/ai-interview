@@ -17,9 +17,7 @@ export function NotFoundPage({ compact = false }: { compact?: boolean }) {
           链接可能已经失效，或者你当前没有对应资源的访问权限。
         </p>
         <div className="mt-8">
-          <Button asChild variant="outline">
-            <Link to="/">回到首页</Link>
-          </Button>
+          <Button nativeButton={false} render={<Link to="/">回到首页</Link>} variant="outline" />
         </div>
       </div>
     </main>

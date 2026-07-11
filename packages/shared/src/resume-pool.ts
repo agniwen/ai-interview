@@ -1,7 +1,8 @@
 import { z } from "zod";
-import type { ResumeParseStatus, StudioInterviewStatus } from "@arc/db-schema/studio-interviews";
+import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ResumeEducationDisplayItem } from "./resume-education";
+import type { ResumeDuplicateMatchSummary } from "./resume-duplicates";
 import type { ResumePoolScope, ResumePoolStatus } from "@arc/db-schema/schema";
 
 export const resumePoolScopeSchema = z.enum(["private", "public"]);
@@ -72,6 +73,7 @@ export interface ResumePoolListRecord {
   updatedAt: string;
   importedResumeRecordId: string | null;
   importedAt: string | null;
+  duplicateMatch: ResumeDuplicateMatchSummary | null;
 }
 
 export interface ResumePoolDetail extends ResumePoolListRecord {
@@ -104,7 +106,7 @@ export interface ResumePoolImportDuplicateMatchRecord {
     skillRole?: number;
     workProject?: number;
   };
-  status: StudioInterviewStatus;
+  status: "active" | "archived";
   targetRole: string | null;
 }
 
@@ -118,6 +120,6 @@ export type ResumePoolImportResult =
   | ResumePoolImportSuccessResult;
 
 export const resumePoolScopeMeta: Record<ResumePoolScope, { label: string }> = {
-  private: { label: "私有简历" },
-  public: { label: "简历广场" },
+  private: { label: "私有简历池" },
+  public: { label: "公共简历池" },
 };

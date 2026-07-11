@@ -1,7 +1,6 @@
 "use client";
 
-import { Upload01Icon } from "@hugeicons/core-free-icons";
-import { FileUpIcon } from "@/components/icons/hugeicons";
+import { IconFileUpload, IconUpload } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -51,8 +50,8 @@ function validateResumeFiles(files: File[]) {
 
 export function ResumeUploadEntryDialog({
   disabled = false,
-  description = `选择 1 份简历会创建单条记录；选择多份会进入批量上传流程。支持 ${supportedResumeDocumentLabel}。`,
-  fileUploadDescription = `可选择 1 份或多份简历文件；多份将进入批量上传，最多 ${MAX_BULK_BATCH_SIZE} 份。`,
+  description = `选择 1 份或多份简历都会进入后台上传任务。支持 ${supportedResumeDocumentLabel}。`,
+  fileUploadDescription = `可选择 1 份或多份简历文件；上传后将在后台解析入库，最多 ${MAX_BULK_BATCH_SIZE} 份。`,
   fileUploadTitle = "请选择 1 份或多份简历文件",
   open,
   onMultipleFilesPicked,
@@ -109,7 +108,7 @@ export function ResumeUploadEntryDialog({
     >
       <FileUpload
         accept={supportedResumeDocumentAccept}
-        acceptedFileTypes={[{ icon: Upload01Icon, label: supportedResumeDocumentLabel }]}
+        acceptedFileTypes={[{ icon: IconUpload, label: supportedResumeDocumentLabel }]}
         ariaLabel="选择要上传的简历文件"
         browseLabel="选择简历文件"
         description={fileUploadDescription}
@@ -145,7 +144,7 @@ export function ResumeUploadEntryButton({
       title={disabled ? "正在上传文件" : undefined}
       type="button"
     >
-      <FileUpIcon className="size-4" />
+      <IconFileUpload className="size-4" />
       新建简历记录
     </Button>
   );

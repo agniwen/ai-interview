@@ -3,6 +3,18 @@ import { serve } from "@hono/node-server";
 import { resolveStandaloneServerConfig } from "./standalone/config";
 import { loadStandaloneEnv } from "./standalone/env";
 
+async function startFeishuBotsIfEnabled(): Promise<(() => Promise<void>) | null> {
+  if (process.env.FEISHU_BOT_ENABLED !== "true") {
+    return null;
+  }
+
+  const { initializeFeishuBots, shutdownFeishuBots } =
+    await import("./server/routes/feishu/utils/bot");
+  await initializeFeishuBots();
+  console.info("[backend] Feishu bot websocket connections initialized");
+  return shutdownFeishuBots;
+}
+
 async function main() {
   loadStandaloneEnv();
 
@@ -17,10 +29,14 @@ async function main() {
   });
   const closeServer = promisify(server.close.bind(server));
   console.info(`[backend] listening on http://${hostname}:${port}`);
+  const stopFeishuBots = await startFeishuBotsIfEnabled();
 
   const shutdown = (signal: NodeJS.Signals) => {
     void (async () => {
       try {
+        if (stopFeishuBots) {
+          await stopFeishuBots();
+        }
         await closeServer();
         process.exit(0);
       } catch (error) {

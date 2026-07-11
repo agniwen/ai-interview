@@ -1,19 +1,20 @@
 "use client";
 
-// 「发起 AI 面试」弹窗：在简历库内直接为既有候选人触发出题 + 编辑 + 落库。
-// 开弹窗时拉简历详情拿 resumeProfile，自动跑 /api/interview/generate-questions
+import { IconLoader2 } from "@tabler/icons-react";
+// 「发起 AI 面试」弹窗：在招聘台内直接为既有候选人触发出题 + 编辑 + 落库。
+// 开弹窗时拉简历详情拿 resumeProfile，自动跑工作区范围的 generate-questions
 // 把题目灌进 useInterviewForm；用户可在 InterviewQuestionsFields 内增删改，
 // 「发起」时 POST /studio/resumes/:id/launch-interview，由调用方收到 round
 // detail 后打开 AI 面试详情弹窗。
 //
 // "Launch AI interview" dialog. On open, fetches the resume detail to obtain
-// the resumeProfile, then streams /api/interview/generate-questions to fill an
+// the resumeProfile, then streams the workspace-scoped generate-questions route to fill an
 // editable InterviewQuestionsFields. Submitting calls launchInterviewFromResume
 // and hands the returned round detail back to the parent so it can open the AI
 // interview detail dialog in place.
 
 import { useForm } from "@tanstack/react-form";
-import { LoaderCircleIcon } from "@/components/icons/hugeicons";
+
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -26,7 +27,7 @@ import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { env } from "@/env/client";
 import { fetchStudioResume, launchInterviewFromResume } from "@/lib/client/api";
-import { readNdjsonStream } from "@/lib/client/ndjson-stream";
+import { readAiRunEventStream } from "@/lib/client/ai-run-event-stream";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
@@ -41,7 +42,7 @@ interface LaunchFormValues {
 
 const EMPTY_FORM_VALUES: LaunchFormValues = { interviewQuestions: [] };
 
-// 简历库的「发起 AI 面试」只编辑题目，所以走最小化的 useForm；不要复用
+// 招聘台的「发起 AI 面试」只编辑题目，所以走最小化的 useForm；不要复用
 // AI 面试侧的 useInterviewForm —— 它绑了 studioInterviewClientFormSchema，
 // 会因为本弹窗里没有候选人姓名 / JD / 排期字段而静默 invalid 阻塞提交。
 //
@@ -51,6 +52,8 @@ const EMPTY_FORM_VALUES: LaunchFormValues = { interviewQuestions: [] };
 function normalizeInterviewQuestions(values: InterviewQuestion[]): InterviewQuestion[] {
   return values.map((question, index) => ({
     ...question,
+    evaluationFocus: question.evaluationFocus?.trim() || null,
+    followUpDirections: question.followUpDirections?.trim() || null,
     order: index + 1,
     question: question.question.trim(),
   }));
@@ -65,22 +68,23 @@ interface LaunchInterviewDialogProps {
 }
 
 /**
- * 流式调 /api/interview/generate-questions，等到 result 事件取出 questions。
+ * 流式调工作区范围内的 generate-questions，等到 result 事件取出 questions。
  * 失败时抛 Error 让调用方统一 toast。
- * Stream /api/interview/generate-questions and pluck `interviewQuestions` from
+ * Stream the workspace-scoped generate-questions route and pluck `interviewQuestions` from
  * the terminal result event; throws on stream-side errors so the caller can
  * toast uniformly.
  */
 async function streamGenerateQuestions(
+  slug: string,
   resumeProfile: ResumeProfile,
   signal: AbortSignal,
 ): Promise<InterviewQuestion[] | null> {
   // 用 hc 客户端调流式接口：URL 常量化 + body 类型推断走 zValidator schema；
-  // body 自己 await 拿 Response 后用 readNdjsonStream 读流（rpcFetch 会消费整个 body）。
+  // body 自己 await 拿 Response 后用 readAiRunEventStream 读流（rpcFetch 会消费整个 body）。
   // Streaming via hc: URL + body types come from the zValidator schema. Consume
   // the stream manually because rpcFetch would parse the whole body.
-  const response = await rpc.api.interview["generate-questions"].$post(
-    { json: { resumeProfile } },
+  const response = await rpc.api.w[":slug"].interview["generate-questions"].$post(
+    { json: { resumeProfile }, param: { slug } },
     { init: { signal } },
   );
   if (!response.ok) {
@@ -91,14 +95,14 @@ async function streamGenerateQuestions(
   let questions: InterviewQuestion[] | null = null;
   let streamError: string | null = null;
 
-  await readNdjsonStream<AnalysisStreamEvent>(
+  await readAiRunEventStream<AnalysisStreamEvent>(
     response,
     (event) => {
-      if (event.type === "result") {
-        const data = event.data as { interviewQuestions?: InterviewQuestion[] };
-        questions = data.interviewQuestions ?? null;
-      } else if (event.type === "error") {
-        streamError = event.message;
+      if (event.type === "run.completed") {
+        const data = event.output as { interviewQuestions?: InterviewQuestion[] } | undefined;
+        questions = data?.interviewQuestions ?? null;
+      } else if (event.type === "run.failed") {
+        streamError = event.error.message;
       }
     },
     signal,
@@ -195,7 +199,7 @@ export function LaunchInterviewDialog({
         }
 
         setIsGenerating(true);
-        const questions = await streamGenerateQuestions(profile, abortController.signal);
+        const questions = await streamGenerateQuestions(slug, profile, abortController.signal);
         if (cancelled || abortController.signal.aborted) {
           return;
         }
@@ -226,7 +230,7 @@ export function LaunchInterviewDialog({
   const isBusy = isGenerating || submitting;
 
   return (
-    // 与简历库详情弹窗对齐：Tabs 包住整个 Modal，TabsList 放进 headerExtra；
+    // 与招聘台详情弹窗对齐：Tabs 包住整个 Modal，TabsList 放进 headerExtra；
     // TabsContent 走 AnimatedHeight，切换时高度平滑过渡。
     // Mirror the detail dialog: Tabs wraps Modal, TabsList sits in headerExtra,
     // and AnimatedHeight gives the body a smooth height transition on switch.
@@ -302,7 +306,7 @@ export function LaunchInterviewDialog({
               取消
             </Button>
             <Button disabled={isBusy} onClick={() => void form.handleSubmit()} type="button">
-              {submitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+              {submitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
               发起
             </Button>
           </div>
@@ -324,6 +328,8 @@ export function LaunchInterviewDialog({
                 contentPlaceholder="输入面试题目"
                 createItem={(sortIndex) => ({
                   difficulty: "easy",
+                  evaluationFocus: "",
+                  followUpDirections: "",
                   order: sortIndex + 1,
                   question: "",
                 })}
@@ -359,7 +365,7 @@ export function LaunchInterviewDialog({
               initial={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
             >
-              <LoaderCircleIcon className="size-7 animate-spin text-muted-foreground" />
+              <IconLoader2 className="size-7 animate-spin text-muted-foreground" />
               <p className="font-medium text-foreground text-sm">正在生成面试题…</p>
               <p className="text-muted-foreground text-xs">
                 生成完成后可在下方继续编辑，再点「发起」入库。

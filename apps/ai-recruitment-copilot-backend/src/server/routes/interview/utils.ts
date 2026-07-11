@@ -23,7 +23,7 @@ import { generateResumeStructured } from "@arc/ai-recruitment-copilot-backend/li
 import { getResumeDocumentExtension } from "@arc/shared/resume-documents";
 import {
   flattenPresetQuestionsFromContextSnapshot,
-  loadOrCreateActiveInterviewContextSnapshot,
+  loadActiveInterviewContextSnapshot,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
 import { sha256HexOfBytes } from "@arc/shared/file-hash";
 import {
@@ -31,6 +31,7 @@ import {
   putObjectBytes,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { isResumeParseCacheEnabled } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-cache-policy";
+import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
 
 export type StudioInterviewRow = typeof studioInterview.$inferSelect;
 export type StudioInterviewScheduleRow = typeof studioInterviewSchedule.$inferSelect;
@@ -47,14 +48,12 @@ export async function loadCandidateInterviewRecord(id: string, roundId: string) 
     .limit(1);
 
   // 候选人侧入口的 stage 守卫：
-  // - legacy `status='archived'` 是历史回退（迁移期保留）。
   // - 新模型用 `pipelineStage='closed'` 表示已结案（rejected / hired / withdrawn / archived）。
   //   结案后不应允许候选人继续打开面试页/拿 token。
   // Candidate-side stage guard:
-  // - legacy `status='archived'` is the pre-migration fallback.
   // - new model uses `pipelineStage='closed'` for any terminal verdict; once
   //   closed, the candidate must not be able to load the interview view.
-  if (!record || record.status === "archived" || record.pipelineStage === "closed") {
+  if (!record || record.pipelineStage === "closed") {
     return null;
   }
 
@@ -65,12 +64,10 @@ export async function loadCandidateInterviewRecord(id: string, roundId: string) 
 
   const view = buildCandidateInterviewView(record, sortScheduleEntries(scheduleEntries), roundId);
 
-  const contextSnapshot = await loadOrCreateActiveInterviewContextSnapshot({
-    createdBy: null,
-    interviewRecordId: id,
-    reason: "create",
-    scheduleEntryId: view.currentRoundId ?? roundId,
-  });
+  const contextSnapshot = await loadActiveInterviewContextSnapshot(id);
+  if (!contextSnapshot) {
+    return null;
+  }
   const { payload } = contextSnapshot;
   const jobDescriptionPresetQuestions = flattenPresetQuestionsFromContextSnapshot(payload);
 
@@ -90,7 +87,6 @@ export async function loadScheduleEntriesForRedirect(id: string) {
     .select({
       id: studioInterview.id,
       pipelineStage: studioInterview.pipelineStage,
-      status: studioInterview.status,
     })
     .from(studioInterview)
     .where(eq(studioInterview.id, id))
@@ -98,7 +94,7 @@ export async function loadScheduleEntriesForRedirect(id: string) {
 
   // 与 loadCandidateInterviewRecord 同步的 stage 守卫；详见上方注释。
   // Mirrors the guard in loadCandidateInterviewRecord above.
-  if (!record || record.status === "archived" || record.pipelineStage === "closed") {
+  if (!record || record.pipelineStage === "closed") {
     return null;
   }
 
@@ -537,7 +533,6 @@ export function serializeRecord(
     resumeFileName: record.resumeFileName,
     resumeProfile: record.resumeProfile as StudioCandidateRecord["resumeProfile"],
     resumeStorageKey: record.resumeStorageKey,
-    status: record.status,
     targetRole: record.targetRole,
     updatedAt: record.updatedAt instanceof Date ? record.updatedAt.toISOString() : record.updatedAt,
   };
@@ -573,7 +568,16 @@ export async function loadRecordById(id: string, organizationId?: string) {
 
 export function toBadRequest(error: unknown) {
   if (error instanceof ResumeAnalysisError) {
-    return { error: error.message, stage: error.stage, status: 500 };
+    return {
+      ...createInternalErrorResponse({
+        context: { stage: error.stage },
+        error,
+        operation: "resume-analysis",
+        publicMessage: "简历解析失败，请稍后重试。",
+      }),
+      stage: error.stage,
+      status: 500,
+    };
   }
 
   if (error instanceof Error) {

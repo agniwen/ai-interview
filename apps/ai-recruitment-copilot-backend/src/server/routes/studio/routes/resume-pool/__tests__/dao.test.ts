@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
@@ -6,6 +6,7 @@ import {
   mailIngestMessage,
   member,
   organization,
+  resumeDuplicateMatch,
   resumePoolImport,
   resumePoolItem,
   resumeUploadBatch,
@@ -26,6 +27,8 @@ import {
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
 import { deleteResumeSemanticIndexBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/lifecycle";
+import { cloneResumeSemanticIndexFromPoolToInterview } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/clone";
+import { deleteFixtureResumePoolItems } from "../../../../../../test-utils/db-fixture-cleanup";
 
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue", () => ({
   enqueueResumeSemanticIndexJobBestEffort: vi.fn(),
@@ -37,6 +40,10 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-se
 
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/lifecycle", () => ({
   deleteResumeSemanticIndexBestEffort: vi.fn(),
+}));
+
+vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/clone", () => ({
+  cloneResumeSemanticIndexFromPoolToInterview: vi.fn(),
 }));
 
 const ORG_A = "resume_pool_org_a";
@@ -102,10 +109,15 @@ async function cleanup() {
   await db.delete(mailIngestAccount).where(eq(mailIngestAccount.id, "resume_pool_mail_account"));
   await db.delete(resumeUploadBatchItem).where(eq(resumeUploadBatchItem.organizationId, ORG_A));
   await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_A));
+  await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_A));
+  await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_B));
   await db.delete(resumePoolImport).where(eq(resumePoolImport.organizationId, ORG_A));
   await db.delete(resumePoolImport).where(eq(resumePoolImport.organizationId, ORG_B));
-  await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_A));
-  await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_B));
+  // Match pool rows by org/user before deleting parents (SET NULL FKs).
+  await deleteFixtureResumePoolItems({
+    organizationIds: [ORG_A, ORG_B],
+    userIds: [USER_A, USER_B],
+  });
   await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_A));
   await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_B));
   await db.delete(member).where(eq(member.userId, USER_A));
@@ -164,6 +176,7 @@ beforeEach(() => {
   vi.mocked(enqueueResumeSemanticIndexJobBestEffort).mockClear();
   vi.mocked(findSemanticResumeDuplicates).mockResolvedValue([]);
   vi.mocked(deleteResumeSemanticIndexBestEffort).mockClear();
+  vi.mocked(cloneResumeSemanticIndexFromPoolToInterview).mockResolvedValue();
 });
 
 function basePoolInput(overrides: Partial<Parameters<typeof createResumePoolItem>[0]> = {}) {
@@ -244,6 +257,64 @@ describe("queryResumePoolItems", () => {
       schools: ["华南农业大学", "长沙理工大学"],
     });
     expect(record?.masteredSkills).toEqual(["React", "TypeScript"]);
+  });
+
+  it("includes active duplicate match summary for private pool items", async () => {
+    const id = await createResumePoolItem(
+      basePoolInput({
+        contentHash: "hash-resume-pool-duplicate-summary",
+        resumeFileName: "candidate-duplicate-summary.pdf",
+      }),
+    );
+    await db.insert(resumeDuplicateMatch).values([
+      {
+        embeddingVersion: "test-v1",
+        id: "resume_pool_duplicate_active",
+        level: "medium",
+        matchedSourceId: "existing_resume_record",
+        matchedSourceType: "studio_interview",
+        organizationId: ORG_A,
+        reasons: ["项目经历相似"],
+        score: 88,
+        sourceId: id,
+        sourceType: "resume_pool_item",
+        status: "active",
+      },
+      {
+        embeddingVersion: "test-v1",
+        id: "resume_pool_duplicate_dismissed",
+        level: "high",
+        matchedSourceId: "dismissed_resume_record",
+        matchedSourceType: "studio_interview",
+        organizationId: ORG_A,
+        reasons: ["已忽略"],
+        score: 93,
+        sourceId: id,
+        sourceType: "resume_pool_item",
+        status: "dismissed",
+      },
+    ]);
+
+    try {
+      const result = await queryResumePoolItems({
+        organizationId: ORG_A,
+        scope: "private",
+        userId: USER_A,
+      });
+      expect(result.records.find((item) => item.id === id)?.duplicateMatch).toEqual({
+        count: 1,
+        highestLevel: "medium",
+      });
+
+      const detail = await loadResumePoolItem({
+        organizationId: ORG_A,
+        poolItemId: id,
+        userId: USER_A,
+      });
+      expect(detail?.duplicateMatch).toEqual({ count: 1, highestLevel: "medium" });
+    } finally {
+      await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_A));
+    }
   });
 
   it("includes uploader organization and user display names", async () => {
@@ -442,9 +513,9 @@ describe("publishPrivatePoolItem", () => {
 });
 
 describe("importPoolItemToResumeLibrary", () => {
-  it("returns full semantic duplicate details before importing when check policy finds matches", async () => {
+  it("returns duplicate matches without admitting a Resume Record under check policy", async () => {
     const publicId = await createResumePoolItem(basePoolInput({ scope: "public" }));
-    vi.mocked(findSemanticResumeDuplicates).mockResolvedValueOnce([
+    const matches: Awaited<ReturnType<typeof findSemanticResumeDuplicates>> = [
       {
         candidateEmail: "dup@example.com",
         candidateName: "重复候选人",
@@ -461,10 +532,11 @@ describe("importPoolItemToResumeLibrary", () => {
           skillRole: 0.86,
           workProject: 0.94,
         },
-        status: "draft",
+        status: "active",
         targetRole: "前端工程师",
       },
-    ]);
+    ];
+    vi.mocked(findSemanticResumeDuplicates).mockResolvedValueOnce(matches);
 
     const result = await importPoolItemToResumeLibrary({
       dedupPolicy: "check",
@@ -474,30 +546,15 @@ describe("importPoolItemToResumeLibrary", () => {
       poolItemId: publicId,
     });
 
-    expect(result).toEqual({
-      matches: [
-        {
-          candidateEmail: "dup@example.com",
-          candidateName: "重复候选人",
-          candidatePhone: "13900139000",
-          conflictingSignals: ["邮箱不同"],
-          createdAt: "2026-06-21T09:00:00.000Z",
-          id: "dup_resume_record",
-          jobDescriptionName: "高级前端工程师",
-          level: "high",
-          score: 92,
-          semanticReasons: ["工作/项目经历语义高度相似"],
-          similarity: {
-            resumeOverview: 0.9,
-            skillRole: 0.86,
-            workProject: 0.94,
-          },
-          status: "draft",
-          targetRole: "前端工程师",
-        },
-      ],
-      status: "duplicate_found",
-    });
+    expect(result).toEqual({ matches, status: "duplicate_found" });
+    const records = await db
+      .select()
+      .from(studioInterview)
+      .where(eq(studioInterview.resumeSourcePoolItemId, publicId));
+    if (result.status !== "duplicate_found") {
+      throw new Error("expected duplicate result");
+    }
+    expect(records).toHaveLength(0);
   });
 
   it("imports a public item into the current organization's resume library", async () => {
@@ -531,11 +588,69 @@ describe("importPoolItemToResumeLibrary", () => {
       .where(eq(resumePoolImport.importedResumeRecordId, result.resumeRecordId));
     expect(imports).toHaveLength(1);
     expect(imports[0]?.organizationId).toBe(ORG_B);
-    expect(enqueueResumeSemanticIndexJobBestEffort).toHaveBeenCalledWith({
-      organizationId: ORG_B,
-      sourceId: result.resumeRecordId,
-      sourceType: "studio_interview",
+    expect(cloneResumeSemanticIndexFromPoolToInterview).toHaveBeenCalledWith({
+      poolItemId: publicId,
+      resumeRecordId: result.resumeRecordId,
+      sourceOrganizationId: ORG_A,
+      targetOrganizationId: ORG_B,
     });
+    expect(enqueueResumeSemanticIndexJobBestEffort).not.toHaveBeenCalled();
+  });
+
+  it("keeps a failed admission retryable and reuses its Resume Record", async () => {
+    const publicId = await createResumePoolItem(
+      basePoolInput({
+        contentHash: "hash-resume-pool-clone-failure",
+        resumeFileName: "candidate-clone-failure.pdf",
+        scope: "public",
+      }),
+    );
+    vi.mocked(cloneResumeSemanticIndexFromPoolToInterview).mockRejectedValueOnce(
+      new Error("clone failed"),
+    );
+
+    await expect(
+      importPoolItemToResumeLibrary({
+        dedupPolicy: "force",
+        importedBy: USER_B,
+        jobDescriptionId: null,
+        organizationId: ORG_B,
+        poolItemId: publicId,
+      }),
+    ).rejects.toThrow("clone failed");
+
+    const records = await db
+      .select()
+      .from(studioInterview)
+      .where(eq(studioInterview.resumeSourcePoolItemId, publicId));
+    const imports = await db
+      .select()
+      .from(resumePoolImport)
+      .where(eq(resumePoolImport.poolItemId, publicId));
+    expect(records).toHaveLength(1);
+    expect(records[0]?.resumeParseStatus).toBe("failed");
+    expect(records[0]?.resumeParseError).toBe("clone failed");
+    expect(imports).toHaveLength(1);
+
+    const retried = await importPoolItemToResumeLibrary({
+      dedupPolicy: "force",
+      importedBy: USER_B,
+      jobDescriptionId: null,
+      organizationId: ORG_B,
+      poolItemId: publicId,
+    });
+    expect(retried.status).toBe("imported");
+    if (retried.status !== "imported") {
+      throw new Error("expected import success");
+    }
+    expect(retried.resumeRecordId).toBe(records[0]?.id);
+    const retriedRecords = await db
+      .select()
+      .from(studioInterview)
+      .where(eq(studioInterview.resumeSourcePoolItemId, publicId));
+    expect(retriedRecords).toHaveLength(1);
+    expect(retriedRecords[0]?.resumeParseStatus).toBe("ready");
+    expect(retriedRecords[0]?.resumeParseError).toBeNull();
   });
 
   it("rejects importing another user's private item", async () => {
@@ -566,6 +681,34 @@ describe("deleteOwnPoolItem", () => {
     if (imported.status !== "imported") {
       throw new Error("expected import success");
     }
+    await db.insert(resumeDuplicateMatch).values([
+      {
+        embeddingVersion: "test-v1",
+        id: "resume_pool_delete_duplicate_source",
+        level: "medium",
+        matchedSourceId: imported.resumeRecordId,
+        matchedSourceType: "studio_interview",
+        organizationId: ORG_A,
+        reasons: ["人才库记录匹配招聘台记录"],
+        score: 88,
+        sourceId: privateId,
+        sourceType: "resume_pool_item",
+        status: "active",
+      },
+      {
+        embeddingVersion: "test-v1",
+        id: "resume_pool_delete_duplicate_target",
+        level: "high",
+        matchedSourceId: privateId,
+        matchedSourceType: "resume_pool_item",
+        organizationId: ORG_A,
+        reasons: ["招聘台记录匹配人才库记录"],
+        score: 93,
+        sourceId: imported.resumeRecordId,
+        sourceType: "studio_interview",
+        status: "active",
+      },
+    ]);
 
     await deleteOwnPoolItem({
       organizationId: ORG_A,
@@ -579,6 +722,19 @@ describe("deleteOwnPoolItem", () => {
       sourceId: privateId,
       sourceType: "resume_pool_item",
     });
+    const duplicateRows = await db
+      .select()
+      .from(resumeDuplicateMatch)
+      .where(
+        and(
+          eq(resumeDuplicateMatch.organizationId, ORG_A),
+          or(
+            eq(resumeDuplicateMatch.sourceId, privateId),
+            eq(resumeDuplicateMatch.matchedSourceId, privateId),
+          ),
+        ),
+      );
+    expect(duplicateRows).toHaveLength(0);
 
     const [record] = await db
       .select()

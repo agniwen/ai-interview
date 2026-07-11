@@ -1,28 +1,24 @@
 "use client";
 
-import type { LucideIcon } from "@/components/icons/hugeicons";
+import {
+  IconAlertTriangle,
+  IconMessage2,
+  IconMicrophone,
+  IconMicrophoneOff,
+  IconUserCheck,
+  IconVideo,
+  IconVolume2,
+} from "@tabler/icons-react";
 import type { CandidateInterviewView } from "@arc/shared/interview/interview-record";
 import { useAgent, useSession } from "@livekit/components-react";
 import { ConnectionState, DisconnectReason, RoomEvent, TokenSource } from "livekit-client";
-import {
-  CheckCircle2Icon,
-  MessageSquareTextIcon,
-  MicIcon,
-  MicOffIcon,
-  RefreshCwIcon,
-  TriangleAlertIcon,
-  UserCheckIcon,
-  VideoIcon,
-  Volume2Icon,
-  WifiIcon,
-} from "@/components/icons/hugeicons";
+
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AgentSessionProvider } from "@/components/agents-ui/agent-session-provider";
 import { AgentSessionView_01 } from "@/components/agents-ui/blocks/agent-session-view-01";
 import { StartAudioButton } from "@/components/agents-ui/start-audio-button";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -37,6 +33,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { env } from "@/env/client";
 import { rpc } from "@/lib/client/rpc";
 import { InterviewTimer } from "./interview-timer";
+import { DevicePreflightCard } from "./interview-device-preflight";
+import { RuleItem } from "./interview-rule-item";
 import { PreInterviewFormsView } from "./pre-interview-forms-view";
 
 function AgentSpeechTimer() {
@@ -133,231 +131,6 @@ function resolveSubheading({
   return buildSubheading({ questionCount, roundLabel, targetRole });
 }
 
-function RuleItem({
-  icon: Icon,
-  title,
-  description,
-}: {
-  icon: LucideIcon;
-  title: string;
-  description: string;
-}) {
-  return (
-    <li className="flex gap-3 py-4 sm:gap-4 sm:py-5">
-      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground sm:size-4.5" />
-      <div className="flex flex-col gap-1">
-        <div className="font-medium text-sm sm:text-base">{title}</div>
-        <p className="text-muted-foreground text-xs leading-normal sm:text-sm">{description}</p>
-      </div>
-    </li>
-  );
-}
-
-type DeviceCheckStatus = "idle" | "checking" | "passed" | "warning" | "failed";
-
-interface DeviceCheckResult {
-  camera: DeviceCheckStatus;
-  microphone: DeviceCheckStatus;
-  network: DeviceCheckStatus;
-  message: string | null;
-}
-
-function stopStream(stream: MediaStream) {
-  for (const track of stream.getTracks()) {
-    track.stop();
-  }
-}
-
-function formatMediaError(error: unknown) {
-  if (!(error instanceof Error)) {
-    return "设备不可用";
-  }
-  if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
-    return "浏览器权限未允许";
-  }
-  if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
-    return "未找到可用设备";
-  }
-  if (error.name === "NotReadableError") {
-    return "设备可能被其他应用占用";
-  }
-  return error.message || "设备不可用";
-}
-
-async function checkMediaDevice(constraints: MediaStreamConstraints) {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    stopStream(stream);
-    return { ok: true, reason: null };
-  } catch (error) {
-    return { ok: false, reason: formatMediaError(error) };
-  }
-}
-
-function DeviceCheckBadge({ status }: { status: DeviceCheckStatus }) {
-  switch (status) {
-    case "checking": {
-      return <Badge variant="info">检测中</Badge>;
-    }
-    case "passed": {
-      return <Badge variant="success">正常</Badge>;
-    }
-    case "warning": {
-      return <Badge variant="warning">需留意</Badge>;
-    }
-    case "failed": {
-      return <Badge variant="destructive">异常</Badge>;
-    }
-    default: {
-      return <Badge variant="outline">未检测</Badge>;
-    }
-  }
-}
-
-function DeviceCheckItem({
-  detail,
-  icon: Icon,
-  status,
-  title,
-}: {
-  detail: string;
-  icon: LucideIcon;
-  status: DeviceCheckStatus;
-  title: string;
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-background/70 p-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Icon className="size-4 text-muted-foreground" />
-          <span className="font-medium text-sm">{title}</span>
-        </div>
-        <DeviceCheckBadge status={status} />
-      </div>
-      <p className="mt-2 text-muted-foreground text-xs leading-normal">{detail}</p>
-    </div>
-  );
-}
-
-function DevicePreflightCard({ recordingEnabled }: { recordingEnabled: boolean }) {
-  const [checking, setChecking] = useState(false);
-  const [result, setResult] = useState<DeviceCheckResult>({
-    camera: "idle",
-    message: null,
-    microphone: "idle",
-    network: "idle",
-  });
-
-  const runChecks = useCallback(async () => {
-    setChecking(true);
-    setResult({
-      camera: recordingEnabled ? "checking" : "idle",
-      message: "正在检测设备状态...",
-      microphone: "checking",
-      network: navigator.onLine ? "checking" : "failed",
-    });
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setResult({
-        camera: "failed",
-        message: "当前浏览器不支持媒体设备检测，请换用新版 Chrome、Edge 或 Safari。",
-        microphone: "failed",
-        network: navigator.onLine ? "passed" : "failed",
-      });
-      setChecking(false);
-      return;
-    }
-
-    const [microphone, camera] = await Promise.all([
-      checkMediaDevice({
-        audio: { autoGainControl: true, echoCancellation: true, noiseSuppression: true },
-      }),
-      recordingEnabled
-        ? checkMediaDevice({ video: true })
-        : Promise.resolve({ ok: true, reason: null }),
-    ]);
-
-    const networkStatus = navigator.onLine ? "passed" : "failed";
-    const message = (() => {
-      if (!microphone.ok) {
-        return `麦克风不可用：${microphone.reason}。可以先检查权限，或使用「静音开始」进入文字沟通。`;
-      }
-      if (recordingEnabled && !camera.ok) {
-        return `摄像头暂不可用：${camera.reason}。面试仍可继续，但录像可能只有音频。`;
-      }
-      if (networkStatus === "failed") {
-        return "浏览器报告当前离线，请恢复网络后再开始。";
-      }
-      return "设备检测通过，可以开始面试。";
-    })();
-
-    let cameraStatus: DeviceCheckStatus = "idle";
-    if (recordingEnabled) {
-      cameraStatus = camera.ok ? "passed" : "warning";
-    }
-
-    setResult({
-      camera: cameraStatus,
-      message,
-      microphone: microphone.ok ? "passed" : "failed",
-      network: networkStatus,
-    });
-    setChecking(false);
-  }, [recordingEnabled]);
-
-  return (
-    <section className="mt-6 rounded-2xl border border-border bg-background/70 p-4 backdrop-blur">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-medium text-sm">设备检测</h2>
-          <p className="mt-1 text-muted-foreground text-xs leading-normal">
-            {recordingEnabled
-              ? "开始前可快速确认麦克风、摄像头和网络状态。"
-              : "开始前可快速确认麦克风和网络状态。"}
-          </p>
-        </div>
-        <Button disabled={checking} onClick={runChecks} size="sm" type="button" variant="outline">
-          {checking ? (
-            <RefreshCwIcon className="size-4 animate-spin" />
-          ) : (
-            <CheckCircle2Icon className="size-4" />
-          )}
-          检测设备
-        </Button>
-      </div>
-      <div
-        className={
-          recordingEnabled ? "mt-4 grid gap-2 sm:grid-cols-3" : "mt-4 grid gap-2 sm:grid-cols-2"
-        }
-      >
-        <DeviceCheckItem
-          detail="确认浏览器可采集你的声音。"
-          icon={MicIcon}
-          status={result.microphone}
-          title="麦克风"
-        />
-        {recordingEnabled ? (
-          <DeviceCheckItem
-            detail="确认摄像头可用于面试录像。"
-            icon={VideoIcon}
-            status={result.camera}
-            title="摄像头"
-          />
-        ) : null}
-        <DeviceCheckItem
-          detail="读取浏览器当前联网状态。"
-          icon={WifiIcon}
-          status={result.network}
-          title="网络"
-        />
-      </div>
-      <p className="mt-3 min-h-8 text-muted-foreground text-xs leading-normal">
-        {result.message ?? "\u00A0"}
-      </p>
-    </section>
-  );
-}
-
 function InterviewNoticeDialog({
   acknowledged,
   isLoadingStatus,
@@ -397,29 +170,29 @@ function InterviewNoticeDialog({
         <ul className="divide-y divide-border/60 border-border border-y">
           <RuleItem
             description="建议佩戴耳机并在网络稳定的地方作答。若环境嘈杂，可选择「静音开始」，以文字方式与面试官沟通。"
-            icon={Volume2Icon}
+            icon={IconVolume2}
             title="保持安静的环境"
           />
           <RuleItem
             description="等面试官提完问题再作答，答完等下一题。请围绕问题展开，结合具体项目与经历说明。"
-            icon={MessageSquareTextIcon}
+            icon={IconMessage2}
             title="一次只答一题"
           />
           <RuleItem
             description="保持严肃与尊重；连续答非所问或跳过题目会影响评分，必要时面试官会结束面试。"
-            icon={UserCheckIcon}
+            icon={IconUserCheck}
             title="认真作答"
           />
           {recordingEnabled ? (
             <RuleItem
               description="面试将通过摄像头全程录制，开始后请保持摄像头开启，期间不能关闭。"
-              icon={VideoIcon}
+              icon={IconVideo}
               title="保持摄像头录制"
             />
           ) : null}
           <RuleItem
             description="尽量不要刷新页面或关闭标签页。如遇网络中断，请在 3 分钟内回到本页面，可继续之前的对话；超过 3 分钟本轮将自动结束。"
-            icon={TriangleAlertIcon}
+            icon={IconAlertTriangle}
             title="保持稳定连接"
           />
         </ul>
@@ -436,9 +209,9 @@ function InterviewNoticeDialog({
         <DialogFooter>
           <Button disabled={startDisabled} onClick={onConfirm} type="button">
             {startOptions.muted ? (
-              <MicOffIcon className="size-4" />
+              <IconMicrophoneOff className="size-4" />
             ) : (
-              <MicIcon className="size-4" />
+              <IconMicrophone className="size-4" />
             )}
             {startLabel}
           </Button>
@@ -537,7 +310,7 @@ function WaitingView({
                 size="lg"
                 variant="outline"
               >
-                <MicOffIcon className="size-4" />
+                <IconMicrophoneOff className="size-4" />
                 {mutedLabel}
               </Button>
               <Button
@@ -546,7 +319,7 @@ function WaitingView({
                 onClick={() => openNotice()}
                 size="lg"
               >
-                <MicIcon className="size-4" />
+                <IconMicrophone className="size-4" />
                 {primaryLabel}
               </Button>
             </div>
@@ -562,7 +335,7 @@ function WaitingView({
                 onClick={() => openNotice({ muted: true })}
                 variant="outline"
               >
-                <MicOffIcon className="size-4" />
+                <IconMicrophoneOff className="size-4" />
                 {mutedLabel}
               </Button>
               <Button
@@ -570,7 +343,7 @@ function WaitingView({
                 disabled={startDisabled}
                 onClick={() => openNotice()}
               >
-                <MicIcon className="size-4" />
+                <IconMicrophone className="size-4" />
                 {primaryLabel}
               </Button>
             </div>
@@ -999,7 +772,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
       <StartAudioButton label="开始通话" />
       <Toaster
         position="top-center"
-        icons={{ warning: <TriangleAlertIcon className="size-4" /> }}
+        icons={{ warning: <IconAlertTriangle className="size-4" /> }}
       />
     </AgentSessionProvider>
   );

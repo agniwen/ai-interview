@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardListIcon, Loader2Icon } from "@/components/icons/hugeicons";
+import { IconClipboardList, IconLoader2 } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { rpc } from "@/lib/client/rpc";
@@ -191,7 +191,7 @@ export function PreInterviewFormsView({
           <div className="mx-auto flex w-full max-w-2xl flex-col px-5 pt-12  sm:px-2 sm:pt-20 md:pt-16">
             <section className="mb-8">
               <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-primary text-xs">
-                <ClipboardListIcon className="size-3.5" />
+                <IconClipboardList className="size-3.5" />
                 开始前的面试表单
               </div>
               <h1 className="text-2xl tracking-tight sm:text-3xl">开始前请先填写面试表单</h1>
@@ -202,7 +202,7 @@ export function PreInterviewFormsView({
 
             {loading ? (
               <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground text-sm">
-                <Loader2Icon className="size-4 animate-spin" />
+                <IconLoader2 className="size-4 animate-spin" />
                 正在检查面试表单填写情况
               </div>
             ) : null}
@@ -233,7 +233,7 @@ export function PreInterviewFormsView({
                     onClick={() => void handleSubmitAll()}
                     size="lg"
                   >
-                    {submitting ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                    {submitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
                     提交并继续
                   </Button>
                 </div>

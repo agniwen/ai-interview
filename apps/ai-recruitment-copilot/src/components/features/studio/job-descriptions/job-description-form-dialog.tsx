@@ -1,11 +1,17 @@
+/* oxlint-disable complexity -- root form coordinates validation and extracted subforms. */
 "use client";
 
+import { IconLoader2 } from "@tabler/icons-react";
 import type { CandidateFormTemplateListRecord } from "@arc/db-schema/candidate-forms";
 import type { DepartmentRecord } from "@arc/shared/departments";
 import type { InterviewerListRecord } from "@arc/shared/interviewers";
 import type { InterviewQuestionTemplateListRecord } from "@arc/db-schema/interview-question-templates";
-import { jobDescriptionFormSchema } from "@arc/shared/job-descriptions";
+import {
+  createDefaultResumeScreeningPolicy,
+  jobDescriptionFormSchema,
+} from "@arc/shared/job-descriptions";
 import type { JobDescriptionFormValues, JobDescriptionRecord } from "@arc/shared/job-descriptions";
+import type { ResumeScreeningPolicy } from "@arc/shared/resume-screening";
 import {
   buildJobDescriptionInterviewerOptions,
   filterInterviewerIdsByDepartment,
@@ -15,15 +21,9 @@ import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useQuery } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
-import {
-  ClipboardListIcon,
-  ExternalLinkIcon,
-  ListChecksIcon,
-  LoaderCircleIcon,
-} from "@/components/icons/hugeicons";
+
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { AnimatedHeight } from "@/components/features/motion/animated-height";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,10 +44,17 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
+import { ResumeScreeningPolicyFields } from "./job-description-screening-fields";
+import {
+  LinkedFormsList,
+  LinkedInterviewQuestionTemplatesList,
+} from "./job-description-linked-resources";
 
 const NAME_MAX_LENGTH = 120;
 const DESCRIPTION_MAX_LENGTH = 500;
 const PROMPT_MAX_LENGTH = 10_000;
+
+type JobDescriptionFormTab = "basic" | "screening" | "interview-questions" | "forms";
 
 export function emptyJobDescriptionFormValues(): JobDescriptionFormValues {
   return {
@@ -58,6 +65,7 @@ export function emptyJobDescriptionFormValues(): JobDescriptionFormValues {
     interviewerIds: [],
     name: "",
     prompt: "",
+    resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
   };
 }
 
@@ -70,6 +78,7 @@ function toFormValues(record: JobDescriptionRecord): JobDescriptionFormValues {
     interviewerIds: [...record.interviewerIds],
     name: record.name,
     prompt: record.prompt,
+    resumeScreeningPolicy: record.resumeScreeningPolicy,
   };
 }
 
@@ -93,7 +102,6 @@ function normalizeDepartmentId(value: string | null): string {
   return value ?? "";
 }
 
-// oxlint-disable-next-line complexity -- Dialog hosts tabs, queries, validation, and form submission together.
 export function JobDescriptionFormDialog({
   initialDraft,
   open,
@@ -115,7 +123,8 @@ export function JobDescriptionFormDialog({
   const isEdit = record !== null;
   const codeLocked = Boolean(record?.code);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
-  const [activeTab, setActiveTab] = useState<"basic" | "interview-questions" | "forms">("basic");
+  const [isGeneratingScreeningPolicy, setIsGeneratingScreeningPolicy] = useState(false);
+  const [activeTab, setActiveTab] = useState<JobDescriptionFormTab>("basic");
   const resolvedInitialValues = useMemo(() => {
     if (record) {
       return toDepartmentScopedFormValues(record, interviewers);
@@ -187,6 +196,7 @@ export function JobDescriptionFormDialog({
         interviewerIds: value.interviewerIds,
         name: value.name.trim(),
         prompt: value.prompt.trim(),
+        resumeScreeningPolicy: value.resumeScreeningPolicy,
       };
 
       const response = isEdit
@@ -220,9 +230,13 @@ export function JobDescriptionFormDialog({
         "description",
         "prompt",
       ];
+      const screeningFields = ["resumeScreeningPolicy"];
       const hasBasicError = basicFields.some((key) => (meta[key]?.errors?.length ?? 0) > 0);
+      const hasScreeningError = screeningFields.some((key) => (meta[key]?.errors?.length ?? 0) > 0);
       if (hasBasicError) {
         setActiveTab("basic");
+      } else if (hasScreeningError) {
+        setActiveTab("screening");
       }
     },
     validators: { onSubmit: jobDescriptionFormSchema },
@@ -274,11 +288,43 @@ export function JobDescriptionFormDialog({
     }
   }
 
+  async function handleGenerateScreeningPolicy() {
+    const { values } = form.store.state;
+    if (!values.prompt.trim()) {
+      toast.error("请先填写岗位 Prompt");
+      return;
+    }
+    setIsGeneratingScreeningPolicy(true);
+    try {
+      const response = await rpc.api.w[":slug"].studio["job-descriptions"][
+        "generate-screening-policy"
+      ].$post({
+        json: {
+          description: values.description?.trim() || undefined,
+          name: values.name.trim() || undefined,
+          prompt: values.prompt.trim(),
+        },
+        param: { slug },
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        policy?: ResumeScreeningPolicy;
+      } | null;
+      if (!response.ok || !payload?.policy) {
+        toast.error(payload?.error ?? "筛选规则生成失败");
+        return;
+      }
+      form.setFieldValue("resumeScreeningPolicy", payload.policy);
+      toast.success(
+        payload.policy.rules.length > 0 ? "已生成筛选规则草稿" : "JD 中未发现明确筛选规则",
+      );
+    } finally {
+      setIsGeneratingScreeningPolicy(false);
+    }
+  }
+
   return (
-    <Tabs
-      onValueChange={(value) => setActiveTab(value as "basic" | "interview-questions" | "forms")}
-      value={activeTab}
-    >
+    <Tabs onValueChange={(value) => setActiveTab(value as JobDescriptionFormTab)} value={activeTab}>
       <Modal
         open={open}
         onOpenChange={onOpenChange}
@@ -288,6 +334,7 @@ export function JobDescriptionFormDialog({
         headerExtra={
           <TabsList className="mt-2">
             <TabsTrigger value="basic">基本信息</TabsTrigger>
+            <TabsTrigger value="screening">筛选规则</TabsTrigger>
             {isEdit ? <TabsTrigger value="interview-questions">面试题</TabsTrigger> : null}
             {isEdit ? <TabsTrigger value="forms">面试表单</TabsTrigger> : null}
           </TabsList>
@@ -302,7 +349,7 @@ export function JobDescriptionFormDialog({
               form="job-description-form"
               type="submit"
             >
-              {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+              {isSubmitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
               {isEdit ? "保存" : "创建"}
             </Button>
           </>
@@ -561,6 +608,18 @@ export function JobDescriptionFormDialog({
                 </form.Field>
               </FieldGroup>
             </TabsContent>
+            <TabsContent value="screening">
+              <form.Field name="resumeScreeningPolicy">
+                {(field) => (
+                  <ResumeScreeningPolicyFields
+                    isGenerating={isGeneratingScreeningPolicy}
+                    onGenerateFromJobDescription={handleGenerateScreeningPolicy}
+                    onChange={field.handleChange}
+                    policy={field.state.value}
+                  />
+                )}
+              </form.Field>
+            </TabsContent>
             {isEdit ? (
               <TabsContent value="interview-questions">
                 {/* oxlint-disable-next-line no-use-before-define */}
@@ -585,163 +644,5 @@ export function JobDescriptionFormDialog({
         </form>
       </Modal>
     </Tabs>
-  );
-}
-
-function LinkedFormsList({
-  isLoading,
-  jobDescriptionId,
-  templates,
-}: {
-  isLoading: boolean;
-  jobDescriptionId: string;
-  templates: CandidateFormTemplateListRecord[];
-}) {
-  const slug = useWorkspaceSlug();
-  const newTemplateHref = `/w/${slug}/studio/forms?jobDescriptionId=${encodeURIComponent(jobDescriptionId)}`;
-
-  return (
-    <div className="mt-4 space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-medium text-sm">岗位关联的面试表单</p>
-          <p className="mt-1 text-muted-foreground text-xs">
-            候选人进入面试前需要填写下列表单；全局面试表单在「面试表单」菜单中维护。
-          </p>
-        </div>
-        <Button asChild size="sm" type="button" variant="outline">
-          <a href={newTemplateHref} target="_blank" rel="noreferrer">
-            <ExternalLinkIcon className="size-3.5" />
-            管理表单
-          </a>
-        </Button>
-      </div>
-
-      {isLoading ? (
-        <Card className="gap-0 rounded-xl border-dashed py-0">
-          <CardContent className="bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
-            正在加载关联表单…
-          </CardContent>
-        </Card>
-      ) : null}
-      {!isLoading && templates.length === 0 ? (
-        <Card className="gap-0 rounded-xl border-dashed py-0">
-          <CardContent className="bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
-            暂无该岗位专属的面试表单。
-          </CardContent>
-        </Card>
-      ) : null}
-      {!isLoading && templates.length > 0 ? (
-        <div className="flex flex-col gap-2">
-          {templates.map((template) => (
-            <Card className="gap-0 rounded-xl py-0" key={template.id}>
-              <CardContent className="p-0">
-                <a
-                  className="flex items-start justify-between gap-3 bg-muted/20 p-3 transition-colors hover:bg-muted/40"
-                  href={`/w/${slug}/studio/forms?templateId=${template.id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <div className="flex min-w-0 items-start gap-3">
-                    <ClipboardListIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-sm">{template.title}</p>
-                      {template.description ? (
-                        <p className="mt-0.5 line-clamp-2 text-muted-foreground text-xs">
-                          {template.description}
-                        </p>
-                      ) : null}
-                      <p className="mt-1 text-muted-foreground text-xs">
-                        {template.questionCount} 题 · {template.submissionCount} 份答复
-                      </p>
-                    </div>
-                  </div>
-                  <Badge variant="outline">岗位专属</Badge>
-                </a>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function LinkedInterviewQuestionTemplatesList({
-  isLoading,
-  jobDescriptionId,
-  templates,
-}: {
-  isLoading: boolean;
-  jobDescriptionId: string;
-  templates: InterviewQuestionTemplateListRecord[];
-}) {
-  const slug = useWorkspaceSlug();
-  const newTemplateHref = `/w/${slug}/studio/interview-questions?jobDescriptionId=${encodeURIComponent(jobDescriptionId)}`;
-
-  return (
-    <div className="mt-4 space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-medium text-sm">岗位关联的面试题</p>
-          <p className="mt-1 text-muted-foreground text-xs">
-            面试创建时会自动绑定到下列面试题的最新版本；全局面试题在「面试题」菜单中维护。
-          </p>
-        </div>
-        <Button asChild size="sm" type="button" variant="outline">
-          <a href={newTemplateHref} target="_blank" rel="noreferrer">
-            <ExternalLinkIcon className="size-3.5" />
-            管理模版
-          </a>
-        </Button>
-      </div>
-
-      {isLoading ? (
-        <Card className="gap-0 rounded-xl border-dashed py-0">
-          <CardContent className="bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
-            正在加载关联模版…
-          </CardContent>
-        </Card>
-      ) : null}
-      {!isLoading && templates.length === 0 ? (
-        <Card className="gap-0 rounded-xl border-dashed py-0">
-          <CardContent className="bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
-            暂无该岗位专属的面试题。
-          </CardContent>
-        </Card>
-      ) : null}
-      {!isLoading && templates.length > 0 ? (
-        <div className="flex flex-col gap-2">
-          {templates.map((template) => (
-            <Card className="gap-0 rounded-xl py-0" key={template.id}>
-              <CardContent className="p-0">
-                <a
-                  className="flex items-start justify-between gap-3 bg-muted/20 p-3 transition-colors hover:bg-muted/40"
-                  href={`/w/${slug}/studio/interview-questions?templateId=${template.id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <div className="flex min-w-0 items-start gap-3">
-                    <ListChecksIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-sm">{template.title}</p>
-                      {template.description ? (
-                        <p className="mt-0.5 line-clamp-2 text-muted-foreground text-xs">
-                          {template.description}
-                        </p>
-                      ) : null}
-                      <p className="mt-1 text-muted-foreground text-xs">
-                        {template.questionCount} 题 · {template.bindingCount} 个面试已绑定
-                      </p>
-                    </div>
-                  </div>
-                  <Badge variant="outline">岗位专属</Badge>
-                </a>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : null}
-    </div>
   );
 }

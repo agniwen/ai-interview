@@ -1,8 +1,9 @@
 "use client";
 
+import { IconArrowLeft, IconArrowRight } from "@tabler/icons-react";
 import type { UseEmblaCarouselType } from "embla-carousel-react";
 import useEmblaCarousel from "embla-carousel-react";
-import { ArrowLeft, ArrowRight } from "@/components/icons/hugeicons";
+
 import * as React from "react";
 
 import { Button } from "@/components/ui/button";
@@ -89,10 +90,10 @@ function Carousel({
 
   const handleKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
-      if (event.key === "ArrowLeft") {
+      if (event.key === "IconArrowLeft") {
         event.preventDefault();
         scrollPrev();
-      } else if (event.key === "ArrowRight") {
+      } else if (event.key === "IconArrowRight") {
         event.preventDefault();
         scrollNext();
       }
@@ -202,7 +203,7 @@ function CarouselPrevious({
       onClick={scrollPrev}
       {...props}
     >
-      <ArrowLeft />
+      <IconArrowLeft />
       <span className="sr-only">Previous slide</span>
     </Button>
   );
@@ -232,7 +233,7 @@ function CarouselNext({
       onClick={scrollNext}
       {...props}
     >
-      <ArrowRight />
+      <IconArrowRight />
       <span className="sr-only">Next slide</span>
     </Button>
   );

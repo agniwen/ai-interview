@@ -19,6 +19,23 @@ describe("buildAgentInstructions", () => {
     expect(out).not.toContain("全程使用中文交流");
   });
 
+  it("does not include company-question handoff wording", () => {
+    const out = buildAgentInstructions({
+      candidateName: "Alex",
+      companyContext: "",
+      interviewQuestions: [],
+      interviewerPrompt: "",
+      jobDescriptionPresetQuestions: [],
+      jobDescriptionPrompt: "",
+      resumeProfile: null,
+      targetRole: "Backend Engineer",
+    });
+
+    expect(out).not.toContain("## 公司情况问答");
+    expect(out).not.toContain("后续面试流程");
+    expect(out).not.toContain("其他面试官");
+  });
+
   it("instructs the agent to skip resume-derived supplementary questions when none exist", () => {
     const out = buildAgentInstructions({
       candidateName: "Alex",
@@ -62,5 +79,39 @@ describe("buildAgentInstructions", () => {
     expect(out).toContain('不得超过 [medium] 题"最多两次追问"的上限');
     expect(out).not.toContain("[medium] 题: 仅可针对关键细节追问一次");
     expect(out).not.toContain('不得超过 [medium] 题"仅一次追问"的上限');
+  });
+
+  it("includes question metadata as internal guidance", () => {
+    const out = buildAgentInstructions({
+      candidateName: "Alex",
+      companyContext: "",
+      interviewQuestions: [
+        {
+          difficulty: "hard",
+          evaluationFocus: "验证系统设计权衡",
+          followUpDirections: "追问容量估算和降级策略",
+          order: 1,
+          question: "如果核心服务不可用，你会如何设计降级方案？",
+        },
+      ],
+      interviewerPrompt: "",
+      jobDescriptionPresetQuestions: [
+        {
+          content: "请介绍一次线上故障排查经历。",
+          difficulty: "medium",
+          evaluationFocus: "验证排障方法和复盘能力",
+          followUpDirections: "追问定位链路、监控信号和后续预防措施",
+        },
+      ],
+      jobDescriptionPrompt: "",
+      resumeProfile: null,
+      targetRole: "Backend Engineer",
+    });
+
+    expect(out).toContain("考核点：验证排障方法和复盘能力");
+    expect(out).toContain("追问方向：追问定位链路、监控信号和后续预防措施");
+    expect(out).toContain("考核点：验证系统设计权衡");
+    expect(out).toContain("追问方向：追问容量估算和降级策略");
+    expect(out).toContain("考核点和追问方向仅供你内部参考，提问时不要念出来");
   });
 });

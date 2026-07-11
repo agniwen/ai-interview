@@ -20,8 +20,6 @@ import type {
   PaginatedStudioInterviewRoundsResult,
   StudioInterviewRoundDetail,
 } from "@arc/shared/studio-interview-rounds";
-// DedupMatchRecord 依赖 StudioInterviewStatus。
-// DedupMatchRecord depends on StudioInterviewStatus.
 import type {
   CandidateExpectationsMeta,
   CandidateOutcome,
@@ -32,8 +30,8 @@ import type {
   OfferDraftInput,
   PipelineStage,
   ScheduleEntryStatus,
-  StudioInterviewStatus,
 } from "@arc/db-schema/studio-interviews";
+import type { ResumeSemanticSourceType } from "@arc/db-schema/schema";
 import type {
   HumanInterviewMeetingLinkBundle,
   HumanInterviewMeetingRecord,
@@ -50,12 +48,13 @@ import { rpcFetch } from "../rpc-fetch";
  */
 export interface DedupMatchRecord {
   id: string;
+  sourceType?: ResumeSemanticSourceType;
   candidateName: string;
   candidateEmail: string | null;
   candidatePhone: string | null;
   targetRole: string | null;
   jobDescriptionName: string | null;
-  status: StudioInterviewStatus;
+  status: "active" | "archived";
   createdAt: string;
   conflictingSignals?: string[];
   level?: "high" | "low" | "medium";
@@ -306,6 +305,7 @@ export interface TransitionInterviewInput {
   // closedMeta partial：仅在 pipelineStage='closed' 时允许传；previousStage 由服务端写。
   // Partial closedMeta; previousStage is server-controlled.
   closedMeta?: Omit<Partial<ClosedMeta>, "previousStage">;
+  reactivationReason?: string;
 }
 
 export async function transitionInterviewRecord(
@@ -493,7 +493,7 @@ export function completeHumanInterviewRound(
   slug: string,
   candidateId: string,
   roundId: string,
-  input: { outcome: HumanInterviewRoundOutcome; score?: number | null; feedback?: string | null },
+  input: { outcome: HumanInterviewRoundOutcome; score?: number | null; feedback: string },
 ): Promise<HumanInterviewRoundRecord> {
   return rpcFetch<HumanInterviewRoundRecord>(
     rpc.api.w[":slug"].studio.interviews[":id"]["human-interview-rounds"][

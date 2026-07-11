@@ -15,9 +15,8 @@ export function selectColumn<TData>(): ColumnDef<TData> {
     header: ({ table }) => (
       <Checkbox
         aria-label="全选当前页"
-        checked={
-          table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")
-        }
+        checked={table.getIsAllPageRowsSelected()}
+        indeterminate={!table.getIsAllPageRowsSelected() && table.getIsSomePageRowsSelected()}
         onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
       />
     ),

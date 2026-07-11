@@ -1,144 +1,194 @@
-import type { UIMessage } from "ai";
+import type { ModelMessage, UIMessage } from "ai";
+import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
 import { zValidator } from "@hono/zod-validator";
-import { resolveChatModelId } from "@arc/ai-recruitment-copilot-backend/server/agents/chat-models.config";
+import { toAISdkStream } from "@mastra/ai-sdk";
+import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
+import { legacyUiMessageToArcMessage } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/adapters/arc-message-adapter";
+import { createRecruitingCopilotAgent } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/recruiting-copilot-agent";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
-import { bakeParsedResumesIntoMessage } from "@arc/ai-recruitment-copilot-backend/server/routes/resume/bake-parsed-resume";
-import { inlineAttachmentsForModel } from "@arc/ai-recruitment-copilot-backend/server/routes/resume/inline-attachments";
+import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import { resumeChatRequestSchema } from "@arc/ai-recruitment-copilot-backend/server/routes/resume/schema";
-import { runResumeScreening } from "@arc/ai-recruitment-copilot-backend/server/routes/resume/screening";
 import {
   checkConversationOwner,
   deleteMessagesFromId,
   upsertChatMessage,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat";
+import { loadResumeRecordFocus } from "./dao";
+import { resolveRecruitingCopilotFocus } from "./focus";
+import { validateClientChatMessages } from "./messages";
+
+function latestUserMessage(messages: UIMessage[]) {
+  return [...messages]
+    .toReversed()
+    .find(
+      (message): message is UIMessage =>
+        typeof message === "object" && message !== null && message.role === "user",
+    );
+}
+
+function messageText(message: UIMessage) {
+  return message.parts
+    .filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join("\n")
+    .trim();
+}
+
+function toModelMessages(messages: UIMessage[]): ModelMessage[] {
+  return messages
+    .map((message): ModelMessage | null => {
+      const content = messageText(message);
+      if (!content) {
+        return null;
+      }
+      return { content, role: message.role };
+    })
+    .filter((message): message is ModelMessage => message !== null);
+}
+
+async function persistChatMessage({
+  chatId,
+  message,
+  orgId,
+}: {
+  chatId: string;
+  message: UIMessage;
+  orgId: string;
+}) {
+  await upsertChatMessage({
+    conversationId: chatId,
+    message: legacyUiMessageToArcMessage(message),
+    organizationId: orgId,
+  });
+}
+
+async function prepareConversationMessages({
+  chatId,
+  conversationOwned,
+  messageId,
+  messages,
+  orgId,
+  trigger,
+}: {
+  chatId?: string;
+  conversationOwned: boolean;
+  messageId?: string;
+  messages: UIMessage[];
+  orgId: string;
+  trigger?: "regenerate-message" | "submit-message";
+}): Promise<{ error: string } | { messages: UIMessage[] }> {
+  let preparedMessages = messages;
+  if (trigger === "regenerate-message" && messageId) {
+    const cutoff = preparedMessages.findIndex((message) => message.id === messageId);
+    if (cutoff !== -1) {
+      preparedMessages = preparedMessages.slice(0, cutoff);
+    }
+    if (conversationOwned && chatId) {
+      try {
+        await deleteMessagesFromId({ conversationId: chatId, messageId });
+      } catch (error) {
+        console.error("[copilot-chat] failed to prune messages on regenerate", error);
+        return { error: "无法重新生成这条消息，请稍后重试。" };
+      }
+    }
+  }
+
+  if (conversationOwned && chatId) {
+    const latestUser = latestUserMessage(preparedMessages);
+    if (latestUser) {
+      try {
+        await persistChatMessage({ chatId, message: latestUser, orgId });
+      } catch (error) {
+        console.error("[copilot-chat] failed to persist user message", error);
+        return { error: "消息保存失败，请稍后重试。" };
+      }
+    }
+  }
+
+  return { messages: preparedMessages };
+}
 
 export const resumeChatRouter = factory
   .createApp()
+  .use("*", requirePermission("chat", "create"))
   .post("/", zValidator("json", resumeChatRequestSchema), async (c) => {
-    const {
-      chatId,
-      enableThinking,
-      jobDescription,
-      messages: rawMessages,
-      model,
-      trigger,
-      messageId,
-    } = c.req.valid("json");
+    const { chatId, focus, messages: rawMessages, trigger, messageId } = c.req.valid("json");
 
-    const resolvedModel = resolveChatModelId(model);
     const userId = c.var.user?.id;
-    // 从 session 解出 orgId,供 upsertChatMessage / runResumeScreening 共用
-    // (chat_message.organization_id NOT NULL)。session 没有活跃 org 时直接拒,
-    // 不再用 "org_default" 兜底——那样消息会被盖到一个假 org 上。
-    // Resolve orgId from the session. chat_message.organization_id is NOT NULL,
-    // and we used to fall back to "org_default" which silently tagged messages
-    // with a fake org — reject instead so the caller knows session is unbound.
-    const orgId = (c.var.session as { activeOrganizationId?: string | null } | null)
-      ?.activeOrganizationId;
-    if (!orgId) {
-      return c.json({ error: "No active workspace" }, 400);
+    const orgId = c.var.activeOrg?.id;
+    if (!(orgId && userId)) {
+      return c.json({ error: "Workspace context is required" }, 403);
     }
 
-    const conversationOwned =
-      userId && chatId ? (await checkConversationOwner(userId, chatId, orgId)) === "ok" : false;
-
-    // On regenerate, drop the assistant message being replaced (and anything
-    // after it) so the LLM does not see its own prior reply and "continue"
-    // from there. `DefaultChatTransport` sends the full message list along
-    // with `trigger`/`messageId`, expecting the server to slice.
-    let messages = rawMessages as UIMessage[];
-    if (trigger === "regenerate-message" && messageId) {
-      const cutoff = messages.findIndex((m) => (m as UIMessage).id === messageId);
-      if (cutoff !== -1) {
-        messages = messages.slice(0, cutoff);
-      }
-      if (conversationOwned && chatId) {
-        try {
-          await deleteMessagesFromId({ conversationId: chatId, messageId });
-        } catch (error) {
-          console.error("[resume] failed to prune messages on regenerate", error);
-        }
-      }
+    const validatedMessages = await validateClientChatMessages(rawMessages);
+    if ("error" in validatedMessages) {
+      return c.json({ error: validatedMessages.error }, 400);
     }
-
-    // Persist the latest user message up front (fire-and-forget) so a
-    // refresh mid-stream still shows what the user just sent. Run on every
-    // trigger — `upsertChatMessage` is idempotent, and skipping on
-    // regenerate would drop the user row if the original submit's
-    // fire-and-forget persist never landed.
-    if (conversationOwned && chatId) {
-      const latestUser = [...messages]
-        .toReversed()
-        .find(
-          (m): m is UIMessage =>
-            typeof m === "object" && m !== null && (m as UIMessage).role === "user",
-        );
-      if (latestUser) {
-        void (async () => {
-          try {
-            const baked = userId
-              ? await bakeParsedResumesIntoMessage(orgId, userId, latestUser)
-              : latestUser;
-            await upsertChatMessage({
-              conversationId: chatId,
-              message: baked,
-              organizationId: orgId,
-            });
-          } catch (error) {
-            console.error("[resume] failed to persist user message", error);
-          }
-        })();
-      }
-    }
-
-    // Bake the parsed resume info into the in-memory message list too so the
-    // screening agent sees the same shape that's about to be persisted.
-    let bakedMessages = messages;
-    if (userId) {
-      bakedMessages = await Promise.all(
-        messages.map((m) => bakeParsedResumesIntoMessage(orgId, userId, m)),
-      );
-    }
-
-    const messagesForModel = userId
-      ? await inlineAttachmentsForModel(orgId, userId, bakedMessages)
-      : bakedMessages;
-
-    const result = await runResumeScreening({
-      enableThinking,
-      jobDescription,
-      messages: messagesForModel,
-      modelId: resolvedModel,
-      orgId,
-      userId: userId ?? null,
+    const visibilityScope = await resolveRecruitingVisibilityScope({
+      currentRole: c.var.member?.role,
+      organizationId: orgId,
+      userId,
     });
+    const resolvedFocus = await resolveRecruitingCopilotFocus(
+      { focus, organizationId: orgId, visibilityScope },
+      { loadResumeRecord: loadResumeRecordFocus },
+    );
+    if (resolvedFocus?.kind === "not_found") {
+      return c.json({ error: "候选人记录不存在或不属于当前 workspace。" }, 404);
+    }
 
-    return result.toUIMessageStreamResponse({
-      // Required for the SDK to emit a response-message id on the stream —
-      // without it, `responseMessage.id` is undefined and the DB insert fails
-      // (id is the primary key). Use pre-inline messages so the ids match
-      // what the client sees.
-      generateMessageId: () => crypto.randomUUID(),
-      onEnd: async ({ responseMessage }) => {
-        if (!conversationOwned || !chatId) {
+    const conversationOwned = chatId
+      ? (await checkConversationOwner(userId, chatId, orgId)) === "ok"
+      : false;
+
+    const preparedConversation = await prepareConversationMessages({
+      chatId,
+      conversationOwned,
+      messageId,
+      messages: validatedMessages.messages,
+      orgId,
+      trigger,
+    });
+    if ("error" in preparedConversation) {
+      return c.json({ error: preparedConversation.error }, 500);
+    }
+    const { messages } = preparedConversation;
+
+    const agent = createRecruitingCopilotAgent({
+      focus: resolvedFocus ?? undefined,
+      organizationId: orgId,
+      visibilityScope,
+    });
+    const agentStream = await agent.stream(toModelMessages(messages));
+    const stream = createUIMessageStream<UIMessage>({
+      execute: ({ writer }) => {
+        writer.merge(
+          toAISdkStream(agentStream, {
+            from: "agent",
+            sendReasoning: false,
+            sendSources: true,
+            version: "v6",
+          }),
+        );
+      },
+      generateId: () => crypto.randomUUID(),
+      onError: () => "招聘 Copilot 暂时无法响应，请稍后重试。",
+      onFinish: async ({ responseMessage }) => {
+        if (!(conversationOwned && chatId)) {
           return;
         }
         if (!responseMessage.id) {
-          console.error("[resume] response message has no id, skipping persist");
+          console.error("[copilot-chat] response message has no id, skipping persist");
           return;
         }
         try {
-          await upsertChatMessage({
-            conversationId: chatId,
-            message: responseMessage,
-            organizationId: orgId,
-          });
+          await persistChatMessage({ chatId, message: responseMessage, orgId });
         } catch (error) {
-          console.error("[resume] failed to persist assistant message", error);
+          console.error("[copilot-chat] failed to persist assistant message", error);
         }
       },
       originalMessages: messages,
-      sendReasoning: enableThinking !== false,
-      sendSources: true,
     });
+
+    return createUIMessageStreamResponse({ stream });
   });

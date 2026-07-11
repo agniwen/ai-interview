@@ -1,11 +1,12 @@
 "use client";
 
+import { IconLoader2, IconMessage2, IconSend } from "@tabler/icons-react";
 import type { MotionProps } from "motion/react";
 import type { ComponentProps } from "react";
 import type { UseInputControlsProps } from "@/hooks/agents-ui/use-agent-control-bar";
 import { useAgent, useChat } from "@livekit/components-react";
 import { Track } from "livekit-client";
-import { Loader, MessageSquareTextIcon, SendHorizontal } from "@/components/icons/hugeicons";
+
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { AgentDisconnectButton } from "@/components/agents-ui/agent-disconnect-button";
@@ -176,7 +177,7 @@ function AgentChatInput({
         onClick={handleButtonClick}
         className="self-end disabled:cursor-not-allowed"
       >
-        {isSending ? <Loader className="animate-spin" /> : <SendHorizontal />}
+        {isSending ? <IconLoader2 className="animate-spin" /> : <IconSend />}
       </Button>
     </div>
   );
@@ -463,7 +464,7 @@ export function AgentControlBar({
                 variant: variant === "outline" ? "outline" : "default",
               })}
             >
-              <MessageSquareTextIcon />
+              <IconMessage2 />
             </Toggle>
           )}
         </div>
@@ -471,18 +472,20 @@ export function AgentControlBar({
         {/* Disconnect */}
         {visibleControls.leave && (
           <Dialog>
-            <DialogTrigger asChild>
-              <AgentDisconnectButton
-                disabled={!isConnected}
-                className={cn(
-                  variant === "livekit" &&
-                    "bg-destructive/10 dark:bg-destructive/10 text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/20 focus:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/4 rounded-full font-mono text-xs font-bold tracking-wider",
-                )}
-              >
-                <span className="hidden md:inline">结束面试</span>
-                <span className="inline md:hidden">结束</span>
-              </AgentDisconnectButton>
-            </DialogTrigger>
+            <DialogTrigger
+              render={
+                <AgentDisconnectButton
+                  disabled={!isConnected}
+                  className={cn(
+                    variant === "livekit" &&
+                      "bg-destructive/10 dark:bg-destructive/10 text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/20 focus:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/4 rounded-full font-mono text-xs font-bold tracking-wider",
+                  )}
+                >
+                  <span className="hidden md:inline">结束面试</span>
+                  <span className="inline md:hidden">结束</span>
+                </AgentDisconnectButton>
+              }
+            />
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>确认结束面试</DialogTitle>
@@ -491,14 +494,14 @@ export function AgentControlBar({
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
-                <DialogClose asChild>
-                  <Button variant="outline">继续面试</Button>
-                </DialogClose>
-                <DialogClose asChild>
-                  <Button onClick={onDisconnect} variant="destructive">
-                    确认结束
-                  </Button>
-                </DialogClose>
+                <DialogClose render={<Button variant="outline">继续面试</Button>} />
+                <DialogClose
+                  render={
+                    <Button onClick={onDisconnect} variant="destructive">
+                      确认结束
+                    </Button>
+                  }
+                />
               </DialogFooter>
             </DialogContent>
           </Dialog>

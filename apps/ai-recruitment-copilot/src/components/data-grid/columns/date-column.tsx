@@ -1,5 +1,6 @@
+import { IconArrowsUpDown } from "@tabler/icons-react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpDownIcon } from "@/components/icons/hugeicons";
+
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
 import { Button } from "@/components/ui/button";
 
@@ -35,7 +36,7 @@ export function dateColumn<TData>(opts: DateColumnOptions<TData>): ColumnDef<TDa
             variant="ghost"
           >
             {opts.title}
-            <ArrowUpDownIcon className="size-3.5" />
+            <IconArrowsUpDown className="size-3.5" />
           </Button>
         )
       : opts.title,

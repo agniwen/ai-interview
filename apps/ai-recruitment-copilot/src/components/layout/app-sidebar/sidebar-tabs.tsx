@@ -1,16 +1,11 @@
 "use client";
 
 import { useNavigate, useRouterState } from "@tanstack/react-router";
+import { useGlimm } from "glimm/react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { authClient } from "@/lib/client/auth-client";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
-type SidebarTabValue = "chat" | "studio";
-
-// 从 pathname 解析当前 workspace slug;非 /w/[slug]/* 路径返回 null。
-function extractWorkspaceSlug(pathname: string): string | null {
-  const match = pathname.match(/^\/w\/([^/]+)(?:\/|$)/);
-  return match?.[1] ?? null;
-}
+type SidebarTabValue = "agent" | "studio";
 
 function resolveActiveTab(pathname: string): SidebarTabValue | null {
   if (!pathname.startsWith("/w/")) {
@@ -19,8 +14,8 @@ function resolveActiveTab(pathname: string): SidebarTabValue | null {
   if (pathname.includes("/studio")) {
     return "studio";
   }
-  if (pathname.includes("/chat")) {
-    return "chat";
+  if (pathname.includes("/agent") || pathname.includes("/chat")) {
+    return "agent";
   }
   return null;
 }
@@ -28,24 +23,23 @@ function resolveActiveTab(pathname: string): SidebarTabValue | null {
 export function SidebarTabs() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const navigate = useNavigate();
-  const activeOrganization = authClient.useActiveOrganization();
+  const { sweep } = useGlimm();
   const activeTab = resolveActiveTab(pathname);
-  const slug = extractWorkspaceSlug(pathname) ?? activeOrganization.data?.slug ?? null;
+  const slug = useWorkspaceSlug();
 
   const handleChange = (value: string) => {
-    // 缺 slug 时无法构造路径——回到根路径让根路由解析活跃 workspace。
-    // Without a slug we can't build the target — fall back to root and let
-    // src/routes/index.tsx redirect to the active workspace.
-    if (!slug) {
-      void navigate({ to: "/" });
-      return;
-    }
-
     const nextTab = value as SidebarTabValue;
-    const target = nextTab === "chat" ? `/w/${slug}/chat` : `/w/${slug}/studio/resumes`;
+    const target = nextTab === "agent" ? `/w/${slug}/agent` : `/w/${slug}/studio/resumes`;
 
     if (target !== pathname) {
-      void navigate({ to: target });
+      void sweep(
+        () => {
+          navigate({ to: target });
+        },
+        {
+          direction: nextTab === "agent" ? "rtl" : "ltr",
+        },
+      ).done;
     }
   };
 
@@ -58,10 +52,10 @@ export function SidebarTabs() {
       activationMode="manual"
       className="w-full group-data-[collapsible=icon]:hidden"
       onValueChange={handleChange}
-      value={activeTab ?? "chat"}
+      value={activeTab ?? "agent"}
     >
-      <TabsList className="w-full  bg-sidebar/60  select-none">
-        <TabsTrigger value="chat">Chat</TabsTrigger>
+      <TabsList className="w-full dark:bg-sidebar/60  select-none">
+        <TabsTrigger value="agent">Agent</TabsTrigger>
         <TabsTrigger value="studio">Studio</TabsTrigger>
       </TabsList>
     </Tabs>

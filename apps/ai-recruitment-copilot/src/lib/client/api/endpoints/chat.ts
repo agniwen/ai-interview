@@ -67,6 +67,20 @@ export interface PatchConversationPayload {
   resumeImports?: Record<string, string>;
 }
 
+export interface RecruitingActionProposal {
+  explanation: string;
+  id: string;
+  payload: Record<string, unknown>;
+  title: string;
+  type: "bind_candidate_to_job" | "advance_candidate_stage" | "generate_interview_questions";
+}
+
+export interface ConfirmRecruitingActionResult {
+  actionType?: RecruitingActionProposal["type"];
+  message: string;
+  status: "executed" | "failed" | "noop";
+}
+
 /**
  * 上传附件后的返回结构。
  * Upload-attachment response. When the file is a resume PDF, the server runs
@@ -183,6 +197,20 @@ export async function upsertChatMessageOnServer(
       param: { id: conversationId, slug },
     }),
     "保存消息失败",
+  );
+}
+
+export async function confirmRecruitingAction(
+  slug: string,
+  conversationId: string,
+  proposal: RecruitingActionProposal,
+): Promise<ConfirmRecruitingActionResult> {
+  return await rpcFetch<ConfirmRecruitingActionResult>(
+    rpc.api.w[":slug"].chat.conversations[":id"].actions.confirm.$post({
+      json: { proposal: proposal as never },
+      param: { id: conversationId, slug },
+    }),
+    "确认动作失败",
   );
 }
 

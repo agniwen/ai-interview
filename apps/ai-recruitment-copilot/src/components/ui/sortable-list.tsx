@@ -1,5 +1,6 @@
 "use client";
 
+import { IconGripVertical } from "@tabler/icons-react";
 import type { Announcements, DragEndEvent, ScreenReaderInstructions } from "@dnd-kit/core";
 import type { ReactNode } from "react";
 import {
@@ -21,7 +22,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVerticalIcon } from "@/components/icons/hugeicons";
+
 import { memo, useCallback, useState } from "react";
 import { cn } from "@arc/shared/utils";
 
@@ -228,7 +229,7 @@ type SortableDragHandleProps = SortableItemRenderArgs["handleProps"] & {
 
 /**
  * Pre-styled grip handle. Spread the `handleProps` from `SortableItem` onto
- * it. Uses `GripVerticalIcon` by default.
+ * it. Uses `IconGripVertical` by default.
  */
 export function SortableDragHandle({
   className,
@@ -244,7 +245,7 @@ export function SortableDragHandle({
       type="button"
       {...handleProps}
     >
-      {children ?? <GripVerticalIcon className="size-4" />}
+      {children ?? <IconGripVertical className="size-4" />}
     </button>
   );
 }

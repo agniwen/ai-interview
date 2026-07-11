@@ -1,7 +1,8 @@
 "use client";
 
+import { IconMessage2 } from "@tabler/icons-react";
 import type { PersistedInterviewTurn } from "@arc/db-schema/interview-session";
-import { MessageSquareTextIcon } from "@/components/icons/hugeicons";
+
 import { useEffect, useMemo, useRef } from "react";
 import {
   Conversation,
@@ -14,6 +15,8 @@ import { Message, MessageContent } from "@/components/ai-elements/message";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
 import { coalescePersistedInterviewTurns } from "@arc/shared/interview-transcript-turns";
 import { cn } from "@arc/shared/utils";
+import { HighlightedText } from "./keyword-highlight/highlighted-text";
+import { useKeywordHighlight } from "./keyword-highlight/context";
 
 interface ConversationTranscriptProps {
   turns: PersistedInterviewTurn[];
@@ -28,6 +31,7 @@ export function ConversationTranscript({
 }: ConversationTranscriptProps) {
   const turnRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const displayTurns = useMemo(() => coalescePersistedInterviewTurns(turns), [turns]);
+  const { enabledCategories } = useKeywordHighlight();
 
   useEffect(() => {
     if (activeTurnIndex === null || activeTurnIndex === undefined) {
@@ -41,7 +45,7 @@ export function ConversationTranscript({
       <ConversationEmptyState
         className={className}
         description="本次面试还未收到对话内容。"
-        icon={<MessageSquareTextIcon className="size-6" />}
+        icon={<IconMessage2 className="size-6" />}
         title="暂无对话记录"
       />
     );
@@ -83,12 +87,12 @@ export function ConversationTranscript({
                   className={cn(
                     isUser
                       ? undefined
-                      : "group-[.is-assistant]:w-fit group-[.is-assistant]:max-w-[88%] group-[.is-assistant]:rounded-2xl group-[.is-assistant]:border group-[.is-assistant]:border-border/70 group-[.is-assistant]:bg-muted/40 group-[.is-assistant]:px-3 group-[.is-assistant]:py-2",
+                      : "group-[.is-assistant]:w-fit group-[.is-assistant]:max-w-[88%] group-[.is-assistant]:rounded-2xl group-[.is-assistant]:border group-[.is-assistant]:border-muted/60 group-[.is-assistant]:bg-muted/30 group-[.is-assistant]:px-3 group-[.is-assistant]:py-2",
                     isActive && "ring-2 ring-primary/40 ring-offset-2 ring-offset-background",
                   )}
                 >
                   {isUser ? (
-                    <span className="whitespace-pre-wrap">{turn.message}</span>
+                    <HighlightedText enabledCategories={enabledCategories} text={turn.message} />
                   ) : (
                     <Markdown>{turn.message}</Markdown>
                   )}

@@ -7,9 +7,7 @@ import type {
   CandidateTimelineEventMeta,
   CandidateTimelineEventTone,
   CandidateTimelineResponse,
-  ResumeEvaluationStatus,
 } from "@arc/shared/studio-resumes";
-import { describeResumeEvaluationStatus } from "@arc/shared/studio-resumes";
 import {
   candidateFormSubmission,
   candidateFormTemplate,
@@ -29,8 +27,8 @@ import {
   pipelineStageMeta,
   scheduleEntryStatusMeta,
 } from "@arc/db-schema/studio-interviews";
-import type { CandidateOutcome, PipelineStage } from "@arc/db-schema/studio-interviews";
 import { loadResumeDetail } from "./resumes";
+import { auditDescription, auditTitle, auditTone, stageLabel } from "./timeline-audit";
 
 type TimeValue = Date | string | null | undefined;
 
@@ -105,6 +103,7 @@ function addEvent(
     return;
   }
   events.push({
+    actorImage: input.actorImage,
     actorName: input.actorName,
     description: input.description,
     id: input.id,
@@ -116,102 +115,14 @@ function addEvent(
   });
 }
 
-function isPipelineStage(value: unknown): value is PipelineStage {
-  return typeof value === "string" && Object.hasOwn(pipelineStageMeta, value);
-}
-
-function isCandidateOutcome(value: unknown): value is CandidateOutcome {
-  return typeof value === "string" && Object.hasOwn(candidateOutcomeMeta, value);
-}
-
-function stageLabel(value: unknown): string {
-  return isPipelineStage(value) ? pipelineStageMeta[value].label : "未知阶段";
-}
-
-function outcomeLabel(value: unknown): string {
-  return isCandidateOutcome(value) ? candidateOutcomeMeta[value].label : "进行中";
-}
-
-function isResumeEvaluationStatus(value: unknown): value is ResumeEvaluationStatus | null {
-  return value === null || value === "pass" || value === "fail";
-}
-
-function resumeEvaluationLabel(value: unknown): string {
-  return isResumeEvaluationStatus(value) ? describeResumeEvaluationStatus(value).label : "未知状态";
-}
-
-function auditDescription(detail: Record<string, unknown>, action: string): string | null {
-  if (action === "candidate_transition") {
-    const from = stageLabel(detail.fromStage);
-    const to = stageLabel(detail.toStage);
-    const outcome = outcomeLabel(detail.toOutcome);
-    return `${from} -> ${to}，结论：${outcome}`;
-  }
-  if (action === "round_reset") {
-    const roundLabel = typeof detail.roundLabel === "string" ? detail.roundLabel : "AI 面试轮次";
-    return `${roundLabel} 已重置为待开始`;
-  }
-  if (action === "agent_report_received") {
-    const turnCount = typeof detail.turnCount === "number" ? detail.turnCount : null;
-    return turnCount === null ? "AI 面试报告已同步" : `AI 面试报告已同步，共 ${turnCount} 条转写`;
-  }
-  if (action === "resume_evaluation_submitted") {
-    return `评估结果：${resumeEvaluationLabel(detail.toStatus)}`;
-  }
-  if (action === "resume_evaluation_updated") {
-    return `评估状态：${resumeEvaluationLabel(detail.fromStatus)} -> ${resumeEvaluationLabel(detail.toStatus)}`;
-  }
-  return null;
-}
-
-function auditTitle(action: string): string {
-  switch (action) {
-    case "candidate_transition": {
-      return "候选人阶段流转";
-    }
-    case "round_reset": {
-      return "AI 面试轮次重置";
-    }
-    case "agent_report_received": {
-      return "AI 报告已接收";
-    }
-    case "resume_evaluation_submitted": {
-      return "简历评估已提交";
-    }
-    case "resume_evaluation_updated": {
-      return "简历评估状态变更";
-    }
-    default: {
-      return "系统操作";
-    }
-  }
-}
-
-function auditTone(action: string): CandidateTimelineEventTone {
-  if (action === "candidate_transition") {
-    return "info";
-  }
-  if (action === "round_reset") {
-    return "warning";
-  }
-  if (action === "agent_report_received") {
-    return "success";
-  }
-  if (action === "resume_evaluation_submitted") {
-    return "info";
-  }
-  if (action === "resume_evaluation_updated") {
-    return "info";
-  }
-  return "muted";
-}
-
 function loadTimelineRows(interviewRecordId: string, organizationId: string) {
   return Promise.all([
     db
       .select({
         allowTextInput: studioInterviewSchedule.allowTextInput,
         createdAt: studioInterviewSchedule.createdAt,
+        creatorImage: user.image,
+        creatorName: user.name,
         disconnectedAt: studioInterviewSchedule.disconnectedAt,
         id: studioInterviewSchedule.id,
         roundLabel: studioInterviewSchedule.roundLabel,
@@ -222,6 +133,7 @@ function loadTimelineRows(interviewRecordId: string, organizationId: string) {
         updatedAt: studioInterviewSchedule.updatedAt,
       })
       .from(studioInterviewSchedule)
+      .leftJoin(user, eq(studioInterviewSchedule.createdBy, user.id))
       .where(
         and(
           eq(studioInterviewSchedule.interviewRecordId, interviewRecordId),
@@ -342,6 +254,7 @@ function loadTimelineRows(interviewRecordId: string, organizationId: string) {
     db
       .select({
         action: interviewAuditLog.action,
+        actorImage: user.image,
         actorName: user.name,
         createdAt: interviewAuditLog.createdAt,
         detail: interviewAuditLog.detail,
@@ -380,6 +293,39 @@ function notificationTone(status: string): CandidateTimelineEventTone {
   return "muted";
 }
 
+function auditDetailString(detail: Record<string, unknown>, key: string): string | null {
+  const value = detail[key];
+  return typeof value === "string" && value ? value : null;
+}
+
+function buildOperatorAuditedActionKeys(
+  auditLogs: { action: string; actorName: string | null; detail: Record<string, unknown> | null }[],
+) {
+  const keys = new Set<string>();
+  for (const log of auditLogs) {
+    if (!log.actorName) {
+      continue;
+    }
+    const detail = log.detail ?? {};
+    const entityId =
+      auditDetailString(detail, "roundId") ??
+      auditDetailString(detail, "draftId") ??
+      auditDetailString(detail, "toStage");
+    if (entityId) {
+      keys.add(`${log.action}:${entityId}`);
+    }
+  }
+  return keys;
+}
+
+function hasOperatorAuditedAction(
+  keys: Set<string>,
+  action: string,
+  entityId: string | null | undefined,
+) {
+  return Boolean(entityId && keys.has(`${action}:${entityId}`));
+}
+
 // oxlint-disable-next-line complexity -- Timeline composition touches each event source once so audit coverage stays explicit.
 export async function loadCandidateTimeline(
   interviewRecordId: string,
@@ -403,8 +349,10 @@ export async function loadCandidateTimeline(
   ] = await loadTimelineRows(interviewRecordId, organizationId);
 
   const events: CandidateTimelineEvent[] = [];
+  const operatorAuditedActionKeys = buildOperatorAuditedActionKeys(auditLogs);
 
   addEvent(events, {
+    actorImage: candidate.creatorImage,
     actorName: candidate.creatorName,
     description:
       candidate.jobDescriptionName || candidate.targetRole
@@ -421,8 +369,12 @@ export async function loadCandidateTimeline(
     tone: "default",
   });
 
-  if (candidate.closedAt) {
+  if (
+    candidate.closedAt &&
+    !hasOperatorAuditedAction(operatorAuditedActionKeys, "candidate_transition", "closed")
+  ) {
     addEvent(events, {
+      actorImage: null,
       actorName: null,
       description: candidate.closedReason,
       id: `candidate:${candidate.id}:closed`,
@@ -445,7 +397,8 @@ export async function loadCandidateTimeline(
   for (const round of aiRounds) {
     const statusMeta = scheduleEntryStatusMeta[round.status];
     addEvent(events, {
-      actorName: null,
+      actorImage: round.creatorImage,
+      actorName: round.creatorName,
       description: `${round.roundLabel} 已创建，当前状态：${statusMeta.label}`,
       id: `ai-round:${round.id}:created`,
       kind: "ai_interview",
@@ -459,6 +412,7 @@ export async function loadCandidateTimeline(
       tone: "info",
     });
     addEvent(events, {
+      actorImage: null,
       actorName: null,
       description: `${round.roundLabel} 已设置候选人进场时间`,
       id: `ai-round:${round.id}:scheduled`,
@@ -469,6 +423,7 @@ export async function loadCandidateTimeline(
       tone: "info",
     });
     addEvent(events, {
+      actorImage: null,
       actorName: null,
       description: `${round.roundLabel} 候选人已进入语音面试`,
       id: `ai-round:${round.id}:started`,
@@ -480,6 +435,7 @@ export async function loadCandidateTimeline(
     });
     if (round.status === "completed") {
       addEvent(events, {
+        actorImage: null,
         actorName: null,
         description: `${round.roundLabel} 已结束`,
         id: `ai-round:${round.id}:completed`,
@@ -492,6 +448,7 @@ export async function loadCandidateTimeline(
     }
     if (round.status === "interrupted") {
       addEvent(events, {
+        actorImage: null,
         actorName: null,
         description: `${round.roundLabel} 出现断连或中断`,
         id: `ai-round:${round.id}:interrupted`,
@@ -506,6 +463,7 @@ export async function loadCandidateTimeline(
 
   for (const conversation of conversations) {
     addEvent(events, {
+      actorImage: null,
       actorName: null,
       description: "候选人与 AI 面试官开始通话",
       id: `conversation:${conversation.conversationId}:started`,
@@ -519,6 +477,7 @@ export async function loadCandidateTimeline(
       tone: "warning",
     });
     addEvent(events, {
+      actorImage: null,
       actorName: null,
       description: conversation.transcriptSummary ?? "AI 面试通话与报告已同步",
       id: `conversation:${conversation.conversationId}:synced`,
@@ -536,6 +495,7 @@ export async function loadCandidateTimeline(
 
   for (const submission of formSubmissions) {
     addEvent(events, {
+      actorImage: null,
       actorName: null,
       description: submission.title ? `表单：${submission.title}` : "候选人提交了面试前表单",
       id: `form:${submission.id}`,
@@ -548,31 +508,55 @@ export async function loadCandidateTimeline(
   }
 
   for (const round of humanRounds) {
-    addEvent(events, {
-      actorName: null,
-      description: `${round.label} 已创建`,
-      id: `human-round:${round.id}:created`,
-      kind: "human_interview",
-      metadata: compactMeta([
-        textMeta("轮次", round.label),
-        textMeta("状态", translatedLabel(round.status, HUMAN_INTERVIEW_ROUND_STATUS_LABEL)),
-      ]),
-      occurredAt: round.createdAt,
-      title: "创建真人复面",
-      tone: "info",
-    });
-    addEvent(events, {
-      actorName: null,
-      description: `${round.label} 已设置面试时间`,
-      id: `human-round:${round.id}:scheduled`,
-      kind: "human_interview",
-      metadata: compactMeta([textMeta("轮次", round.label)]),
-      occurredAt: round.scheduledAt,
-      title: "真人复面已排期",
-      tone: "info",
-    });
-    if (round.completedAt) {
+    const hasCreatedAudit = hasOperatorAuditedAction(
+      operatorAuditedActionKeys,
+      "human_interview_round_created",
+      round.id,
+    );
+    const hasUpdatedAudit = hasOperatorAuditedAction(
+      operatorAuditedActionKeys,
+      "human_interview_round_updated",
+      round.id,
+    );
+    if (!hasCreatedAudit) {
       addEvent(events, {
+        actorImage: null,
+        actorName: null,
+        description: `${round.label} 已创建`,
+        id: `human-round:${round.id}:created`,
+        kind: "human_interview",
+        metadata: compactMeta([
+          textMeta("轮次", round.label),
+          textMeta("状态", translatedLabel(round.status, HUMAN_INTERVIEW_ROUND_STATUS_LABEL)),
+        ]),
+        occurredAt: round.createdAt,
+        title: "创建真人复面",
+        tone: "info",
+      });
+    }
+    if (!(hasCreatedAudit || hasUpdatedAudit)) {
+      addEvent(events, {
+        actorImage: null,
+        actorName: null,
+        description: `${round.label} 已设置面试时间`,
+        id: `human-round:${round.id}:scheduled`,
+        kind: "human_interview",
+        metadata: compactMeta([textMeta("轮次", round.label)]),
+        occurredAt: round.scheduledAt,
+        title: "真人复面已排期",
+        tone: "info",
+      });
+    }
+    if (
+      round.completedAt &&
+      !hasOperatorAuditedAction(
+        operatorAuditedActionKeys,
+        "human_interview_round_completed",
+        round.id,
+      )
+    ) {
+      addEvent(events, {
+        actorImage: null,
         actorName: null,
         description: round.outcome
           ? `${round.label} 完成，结果：${humanInterviewRoundOutcomeMeta[round.outcome].label}`
@@ -592,8 +576,16 @@ export async function loadCandidateTimeline(
         tone: round.outcome === "pass" ? "success" : "muted",
       });
     }
-    if (round.cancelledAt) {
+    if (
+      round.cancelledAt &&
+      !hasOperatorAuditedAction(
+        operatorAuditedActionKeys,
+        "human_interview_round_cancelled",
+        round.id,
+      )
+    ) {
       addEvent(events, {
+        actorImage: null,
         actorName: null,
         description: `${round.label} 已取消`,
         id: `human-round:${round.id}:cancelled`,
@@ -608,52 +600,72 @@ export async function loadCandidateTimeline(
 
   for (const draft of offerDrafts) {
     const statusMeta = offerDraftStatusMeta[draft.status];
-    addEvent(events, {
-      actorName: null,
-      description: `${draft.position} Offer v${draft.version} 已创建`,
-      id: `offer:${draft.id}:created`,
-      kind: "offer",
-      metadata: compactMeta([
-        textMeta("职位", draft.position),
-        textMeta("版本", `v${draft.version}`),
-        textMeta("币种", draft.currency),
-      ]),
-      occurredAt: draft.createdAt,
-      title: "创建 Offer",
-      tone: "info",
-    });
-    addEvent(events, {
-      actorName: null,
-      description: `Offer v${draft.version} 已发送，当前状态：${statusMeta.label}`,
-      id: `offer:${draft.id}:sent`,
-      kind: "offer",
-      metadata: compactMeta([
-        textMeta("职位", draft.position),
-        textMeta("版本", `v${draft.version}`),
-        textMeta("状态", statusMeta.label),
-      ]),
-      occurredAt: draft.sentAt,
-      title: "Offer 已发送",
-      tone: "info",
-    });
-    addEvent(events, {
-      actorName: null,
-      description: `候选人对 Offer v${draft.version} 的反馈：${statusMeta.label}`,
-      id: `offer:${draft.id}:response`,
-      kind: "offer",
-      metadata: compactMeta([
-        textMeta("职位", draft.position),
-        textMeta("版本", `v${draft.version}`),
-        textMeta("状态", statusMeta.label),
-      ]),
-      occurredAt: draft.responseAt,
-      title: "候选人回复 Offer",
-      tone: draft.status === "accepted" ? "success" : "warning",
-    });
+    const hasCreatedAudit = hasOperatorAuditedAction(
+      operatorAuditedActionKeys,
+      "offer_draft_created",
+      draft.id,
+    );
+    if (!hasCreatedAudit) {
+      addEvent(events, {
+        actorImage: null,
+        actorName: null,
+        description: `${draft.position} Offer v${draft.version} 已创建`,
+        id: `offer:${draft.id}:created`,
+        kind: "offer",
+        metadata: compactMeta([
+          textMeta("职位", draft.position),
+          textMeta("版本", `v${draft.version}`),
+          textMeta("币种", draft.currency),
+        ]),
+        occurredAt: draft.createdAt,
+        title: "创建 Offer",
+        tone: "info",
+      });
+    }
+    if (
+      !(
+        hasCreatedAudit ||
+        hasOperatorAuditedAction(operatorAuditedActionKeys, "offer_draft_sent", draft.id)
+      )
+    ) {
+      addEvent(events, {
+        actorImage: null,
+        actorName: null,
+        description: `Offer v${draft.version} 已发送，当前状态：${statusMeta.label}`,
+        id: `offer:${draft.id}:sent`,
+        kind: "offer",
+        metadata: compactMeta([
+          textMeta("职位", draft.position),
+          textMeta("版本", `v${draft.version}`),
+          textMeta("状态", statusMeta.label),
+        ]),
+        occurredAt: draft.sentAt,
+        title: "Offer 已发送",
+        tone: "info",
+      });
+    }
+    if (!hasOperatorAuditedAction(operatorAuditedActionKeys, "offer_draft_responded", draft.id)) {
+      addEvent(events, {
+        actorImage: null,
+        actorName: null,
+        description: `候选人对 Offer v${draft.version} 的反馈：${statusMeta.label}`,
+        id: `offer:${draft.id}:response`,
+        kind: "offer",
+        metadata: compactMeta([
+          textMeta("职位", draft.position),
+          textMeta("版本", `v${draft.version}`),
+          textMeta("状态", statusMeta.label),
+        ]),
+        occurredAt: draft.responseAt,
+        title: "候选人回复 Offer",
+        tone: draft.status === "accepted" ? "success" : "warning",
+      });
+    }
   }
 
   for (const log of emailLogs) {
     addEvent(events, {
+      actorImage: null,
       actorName: null,
       description: log.status === "sent" ? log.subject : (log.errorMessage ?? "邮件发送失败"),
       id: `email:${log.id}`,
@@ -671,6 +683,7 @@ export async function loadCandidateTimeline(
 
   for (const notification of notifications) {
     addEvent(events, {
+      actorImage: null,
       actorName: null,
       description: notification.error ?? "AI 面试报告通知状态更新",
       id: `notification:${notification.id}`,
@@ -692,16 +705,24 @@ export async function loadCandidateTimeline(
       continue;
     }
     addEvent(events, {
+      actorImage: log.actorImage,
       actorName: log.actorName,
       description,
       id: `audit:${log.id}`,
       kind: "audit",
       metadata: compactMeta([
-        textMeta("动作", auditTitle(log.action)),
+        textMeta("动作", auditTitle(log.action, log.detail ?? {})),
         textMeta("轮次 ID", log.scheduleEntryId),
+        textMeta(
+          "重新激活原因",
+          log.action === "candidate_transition" &&
+            typeof log.detail?.reactivationReason === "string"
+            ? log.detail.reactivationReason
+            : null,
+        ),
       ]),
       occurredAt: log.createdAt,
-      title: auditTitle(log.action),
+      title: auditTitle(log.action, log.detail ?? {}),
       tone: auditTone(log.action),
     });
   }

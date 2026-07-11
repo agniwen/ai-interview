@@ -1,6 +1,6 @@
 "use client";
 
-import { TimerIcon } from "@/components/icons/hugeicons";
+import { IconClockHour3 } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { cn } from "@arc/shared/utils";
 
@@ -55,7 +55,7 @@ export function InterviewTimer({
         className,
       )}
     >
-      <TimerIcon className="size-3.5 text-muted-foreground" />
+      <IconClockHour3 className="size-3.5 text-muted-foreground" />
       <span>{formatElapsed(elapsedSeconds)}</span>
     </div>
   );

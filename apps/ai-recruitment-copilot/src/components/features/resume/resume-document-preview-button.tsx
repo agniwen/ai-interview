@@ -1,7 +1,7 @@
 "use client";
 
-import { EyeIcon } from "@/components/icons/hugeicons";
-import type { ReactNode } from "react";
+import { IconEye } from "@tabler/icons-react";
+import type { ReactElement } from "react";
 import { Suspense, lazy, useState } from "react";
 import { PdfPreviewButton } from "@/components/features/pdf/pdf-preview-button";
 import type { ResumeDocumentPreviewKind } from "@/components/features/resume/resume-document-preview-dialog";
@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getResumeDocumentKind } from "@arc/shared/resume-documents";
 import { cn } from "@arc/shared/utils";
-export { getPptxPreviewPdfUrl } from "./resume-document-preview-url";
 
 const ResumeDocumentPreviewDialog = lazy(async () => {
   const mod = await import("@/components/features/resume/resume-document-preview-dialog");
@@ -18,7 +17,7 @@ const ResumeDocumentPreviewDialog = lazy(async () => {
 
 export type PreviewableResumeDocumentKind = ResumeDocumentPreviewKind;
 export const UNSUPPORTED_RESUME_DOCUMENT_PREVIEW_TOOLTIP =
-  "该格式不支持预览，仅 PDF、DOCX、PPTX、XLSX、图片格式支持预览。";
+  "该格式暂不支持预览，仅 PDF、DOCX、XLSX、图片格式支持预览。";
 
 export function getPreviewableResumeDocumentKind(input: {
   fileName?: string | null;
@@ -29,7 +28,7 @@ export function getPreviewableResumeDocumentKind(input: {
     mediaType: input.mediaType ?? undefined,
   });
 
-  if (kind === "pdf" || kind === "docx" || kind === "pptx" || kind === "xlsx" || kind === "image") {
+  if (kind === "pdf" || kind === "docx" || kind === "xlsx" || kind === "image") {
     return kind;
   }
 
@@ -43,10 +42,10 @@ export function isPreviewableResumeDocumentInput(input: {
   return getPreviewableResumeDocumentKind(input) !== null;
 }
 
-export function UnsupportedResumeDocumentPreviewTooltip({ children }: { children: ReactNode }) {
+export function UnsupportedResumeDocumentPreviewTooltip({ children }: { children: ReactElement }) {
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipTrigger render={children} />
       <TooltipContent>{UNSUPPORTED_RESUME_DOCUMENT_PREVIEW_TOOLTIP}</TooltipContent>
     </Tooltip>
   );
@@ -98,7 +97,7 @@ export function ResumeDocumentPreviewButton({
         type="button"
         variant="outline"
       >
-        <EyeIcon className="size-3.5" />
+        <IconEye className="size-3.5" />
         {label}
       </Button>
       {open && !disabled ? (

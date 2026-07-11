@@ -1,7 +1,8 @@
 "use client";
 
+import { IconLoader2, IconMail } from "@tabler/icons-react";
 import type { RoundEmailSummary } from "@arc/db-schema/round-email-log";
-import { Loader2Icon, MailIcon } from "@/components/icons/hugeicons";
+
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -57,9 +58,9 @@ export function RoundEmailAction({
       variant="ghost"
     >
       {mutation.isPending ? (
-        <Loader2Icon className="size-4 animate-spin" />
+        <IconLoader2 className="size-4 animate-spin" />
       ) : (
-        <MailIcon className="size-4" />
+        <IconMail className="size-4" />
       )}
       <span className="ml-1">{hasSent ? "重发" : "发送邮件"}</span>
       {hasSent ? (
@@ -82,9 +83,7 @@ export function RoundEmailAction({
     if (locked) {
       return (
         <Tooltip>
-          <TooltipTrigger asChild>
-            <span>{button}</span>
-          </TooltipTrigger>
+          <TooltipTrigger render={<span>{button}</span>} />
           <TooltipContent>{lockedReason}</TooltipContent>
         </Tooltip>
       );
@@ -93,9 +92,7 @@ export function RoundEmailAction({
     if (missingEmail) {
       return (
         <Tooltip>
-          <TooltipTrigger asChild>
-            <span>{button}</span>
-          </TooltipTrigger>
+          <TooltipTrigger render={<span>{button}</span>} />
           <TooltipContent>请先在面试信息中填写候选人邮箱</TooltipContent>
         </Tooltip>
       );
@@ -113,20 +110,26 @@ export function RoundEmailAction({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{hasSent ? "确认重发？" : "确认发送邮件？"}</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div>
-                将发送邮件到 <strong>{candidateEmail}</strong>
-                {hasSent && lastSentAt ? (
-                  <>
-                    。该轮次已发送过 {count} 次，最近一次：
-                    <TimeDisplay as="span" options={DATE_TIME_DISPLAY_OPTIONS} value={lastSentAt} />
-                    。
-                  </>
-                ) : (
-                  "。"
-                )}
-              </div>
-            </AlertDialogDescription>
+            <AlertDialogDescription
+              render={
+                <div>
+                  将发送邮件到 <strong>{candidateEmail}</strong>
+                  {hasSent && lastSentAt ? (
+                    <>
+                      。该轮次已发送过 {count} 次，最近一次：
+                      <TimeDisplay
+                        as="span"
+                        options={DATE_TIME_DISPLAY_OPTIONS}
+                        value={lastSentAt}
+                      />
+                      。
+                    </>
+                  ) : (
+                    "。"
+                  )}
+                </div>
+              }
+            />
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={mutation.isPending}>取消</AlertDialogCancel>
@@ -144,7 +147,7 @@ export function RoundEmailAction({
                 }
               }}
             >
-              {mutation.isPending ? <Loader2Icon className="mr-1 size-4 animate-spin" /> : null}
+              {mutation.isPending ? <IconLoader2 className="mr-1 size-4 animate-spin" /> : null}
               {hasSent ? "重发" : "发送"}
             </AlertDialogAction>
           </AlertDialogFooter>

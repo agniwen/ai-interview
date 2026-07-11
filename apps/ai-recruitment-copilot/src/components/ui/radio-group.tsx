@@ -1,18 +1,15 @@
 "use client";
 
-import { CircleIcon } from "@/components/icons/hugeicons";
-import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
-import * as React from "react";
+import { IconCircle } from "@tabler/icons-react";
+import { Radio as RadioPrimitive } from "@base-ui/react/radio";
+import { RadioGroup as RadioGroupPrimitive } from "@base-ui/react/radio-group";
 
 import { cossControlOverlayClass } from "@/components/ui/coss-style";
 import { cn } from "@arc/shared/utils";
 
-function RadioGroup({
-  className,
-  ...props
-}: React.ComponentProps<typeof RadioGroupPrimitive.Root>) {
+function RadioGroup({ className, ...props }: RadioGroupPrimitive.Props) {
   return (
-    <RadioGroupPrimitive.Root
+    <RadioGroupPrimitive
       data-slot="radio-group"
       className={cn("grid gap-3", className)}
       {...props}
@@ -20,27 +17,24 @@ function RadioGroup({
   );
 }
 
-function RadioGroupItem({
-  className,
-  ...props
-}: React.ComponentProps<typeof RadioGroupPrimitive.Item>) {
+function RadioGroupItem({ className, ...props }: RadioPrimitive.Root.Props) {
   return (
-    <RadioGroupPrimitive.Item
+    <RadioPrimitive.Root
       data-slot="radio-group-item"
       className={cn(
         cossControlOverlayClass,
-        "relative aspect-square size-4 shrink-0 rounded-full border border-input bg-background bg-clip-padding text-primary shadow-xs/5 transition-[color,box-shadow] outline-none before:rounded-full focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none disabled:before:shadow-none aria-invalid:border-destructive aria-invalid:ring-destructive/20 aria-invalid:before:shadow-none data-[state=checked]:before:shadow-none dark:bg-input/30 dark:aria-invalid:ring-destructive/40",
+        "relative inline-flex aspect-square size-4 shrink-0 items-center justify-center rounded-full border border-input bg-background bg-clip-padding align-middle text-primary shadow-xs/5 transition-[color,box-shadow] outline-none before:rounded-full focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 data-disabled:cursor-not-allowed data-disabled:opacity-50 data-disabled:shadow-none data-disabled:before:shadow-none aria-invalid:border-destructive aria-invalid:ring-destructive/20 aria-invalid:before:shadow-none data-checked:before:shadow-none dark:bg-input/30 dark:aria-invalid:ring-destructive/40",
         className,
       )}
       {...props}
     >
-      <RadioGroupPrimitive.Indicator
+      <RadioPrimitive.Indicator
         data-slot="radio-group-indicator"
         className="relative z-10 flex items-center justify-center"
       >
-        <CircleIcon className="absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 fill-primary" />
-      </RadioGroupPrimitive.Indicator>
-    </RadioGroupPrimitive.Item>
+        <IconCircle className="absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 fill-primary" />
+      </RadioPrimitive.Indicator>
+    </RadioPrimitive.Root>
   );
 }
 

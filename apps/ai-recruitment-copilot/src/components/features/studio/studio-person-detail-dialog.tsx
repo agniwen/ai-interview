@@ -14,6 +14,7 @@ import type { StudioPersonDetailMode, StudioPersonDetailTab } from "./studio-per
 export function StudioPersonDetailDialog({
   open,
   onOpenChange,
+  onOpenChangeComplete,
   onUpdated,
   onEdit,
   onLaunchInterview,
@@ -27,6 +28,7 @@ export function StudioPersonDetailDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onOpenChangeComplete?: (open: boolean) => void;
   /** 轮次级写操作（toggle / reset）成功后调用。/ Called after a round-level write (toggle / reset). */
   onUpdated?: () => void;
   onEdit?: (recordId: string) => void;
@@ -105,6 +107,7 @@ export function StudioPersonDetailDialog({
           footer={mode === "resume" ? footer : undefined}
           headerExtra={headerExtra}
           onOpenChange={onOpenChange}
+          onOpenChangeComplete={onOpenChangeComplete}
           open={open}
           size={modalSize ?? (mode === "resume" ? "2xl" : "full")}
           title={title}

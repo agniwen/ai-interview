@@ -1,8 +1,9 @@
-// 用途：landing 用「Studio › 在招岗位管理」简化版 UI。对齐真实 JobDescriptionManagementPage：
+import { IconChevronDown, IconFileText, IconPlus, IconSearch } from "@tabler/icons-react";
+// 用途：landing 用「Studio › 岗位设置」简化版 UI。对齐真实 JobDescriptionManagementPage：
 // PageHeader (text-2xl + text-sm muted) + JobDescriptionCharts (3 张 Card) +
 // Toolbar (search + departmentId/interviewerId multi-select) + AlignUI DataGrid table + 新建岗位按钮
 // Purpose: simplified Studio job-descriptions management mock, 1:1 with real components.
-import { ChevronDownIcon, FileTextIcon, PlusIcon, SearchIcon } from "@/components/icons/hugeicons";
+
 import { Fragment } from "react";
 import {
   Table,
@@ -17,10 +18,7 @@ import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
 import { ScreenFrame } from "./screen-frame";
 
-const BREADCRUMB: BreadcrumbCrumb[] = [
-  { label: "Studio" },
-  { current: true, label: "在招岗位管理" },
-];
+const BREADCRUMB: BreadcrumbCrumb[] = [{ label: "Studio" }, { current: true, label: "岗位设置" }];
 
 // ─────────────── Card primitives ───────────────
 // 真实 ui/card.tsx 是 py-6 gap-6，在 landing 缩放画布里偏高；这里整体收一档
@@ -212,7 +210,7 @@ function MultiSelectChip({ label }: { label: string }) {
   return (
     <span className="flex h-9 items-center gap-2 rounded-md border border-input bg-transparent px-3 text-sm">
       <span className="text-muted-foreground">{label}</span>
-      <ChevronDownIcon className="size-4 opacity-50" />
+      <IconChevronDown className="size-4 opacity-50" />
     </span>
   );
 }
@@ -222,7 +220,7 @@ function JobsToolbar() {
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative min-w-[15rem]">
-          <SearchIcon className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
+          <IconSearch className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground" />
           <div className="flex h-9 w-full items-center rounded-md border border-input bg-transparent pl-9 pr-3 text-muted-foreground text-sm">
             搜索岗位名称
           </div>
@@ -235,7 +233,7 @@ function JobsToolbar() {
           className="flex h-9 items-center gap-1.5 rounded-md bg-primary/80 px-3 font-medium text-primary-foreground text-sm"
           type="button"
         >
-          <PlusIcon className="size-4" />
+          <IconPlus className="size-4" />
           新建在招岗位
         </button>
       </div>
@@ -328,7 +326,7 @@ function JobsTable() {
                     aria-hidden="true"
                     className="grid size-7 place-items-center rounded-md bg-foreground/[0.05] text-foreground/70"
                   >
-                    <FileTextIcon className="size-3.5" />
+                    <IconFileText className="size-3.5" />
                   </span>
                   <span className="truncate font-medium">{j.name}</span>
                 </div>
@@ -389,7 +387,7 @@ function JobsContent() {
     <div className="flex flex-col gap-6 px-6 py-6">
       <PageHeader
         description="维护岗位 JD、面试官与题库，所有简历筛选和面试评估共用同一份岗位语境。"
-        title="在招岗位管理"
+        title="岗位设置"
       />
       <ChartsRow />
       <div className="space-y-4">
@@ -403,11 +401,7 @@ function JobsContent() {
 export function JobsScreen({ className }: { className?: string }) {
   return (
     <ScreenFrame className={className}>
-      <AppShell
-        breadcrumb={BREADCRUMB}
-        sidebar={<StudioNav activeLabel="在招岗位管理" />}
-        tab="studio"
-      >
+      <AppShell breadcrumb={BREADCRUMB} sidebar={<StudioNav activeLabel="岗位设置" />} tab="studio">
         <JobsContent />
       </AppShell>
     </ScreenFrame>

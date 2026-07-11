@@ -36,3 +36,14 @@ export const updateMailIngestAccountSchema = createMailIngestAccountSchema
   .extend({
     password: nonEmptyString.optional(),
   });
+
+export const listMailMessagesQuerySchema = z.object({
+  jdBindStatus: z.enum(["bound", "unmatched", "ambiguous", "fallback"]).optional(),
+  keyword: z.string().trim().min(1).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  receivedFrom: z.coerce.date().optional(),
+  receivedTo: z.coerce.date().optional(),
+  skipReason: z.enum(["no_supported_attachment"]).optional(),
+  status: z.enum(["processing", "queued", "skipped", "failed"]).optional(),
+});

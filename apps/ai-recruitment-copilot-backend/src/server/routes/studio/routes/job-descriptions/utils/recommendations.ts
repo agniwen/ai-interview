@@ -1,4 +1,4 @@
-import { and, eq, inArray, notInArray } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import type {
   JobDescriptionTalentRecommendation,
   JobDescriptionTalentRecommendationResult,
@@ -52,6 +52,33 @@ interface VectorScores {
   resumeOverview?: number;
   skillRole?: number;
   workProject?: number;
+}
+
+export interface FacetSimilarity {
+  resumeOverview?: number;
+  skillRole?: number;
+  workProject?: number;
+}
+
+export interface CoreRankedEntry {
+  // 完整候选记录，供生产 DTO 复用
+  candidate: RecommendationCandidateRecord;
+  candidateId: string;
+  score: number;
+  similarity: FacetSimilarity;
+}
+
+export interface ScoreCoreResult {
+  loadedIds: Set<string>;
+  ranked: CoreRankedEntry[];
+  retrievedIds: Set<string>;
+}
+
+export interface ScoreCoreInput {
+  // 排除绑定该 JD 的候选，但豁免这些 id；不传=不因绑定排除
+  excludeLinkedExceptIds?: Set<string>;
+  jobDescription: RecommendJobDescription;
+  organizationId: string;
 }
 
 interface RecommendCandidatesInput {
@@ -227,6 +254,45 @@ function toRecommendation(
   };
 }
 
+export async function scoreCandidatesForJobDescription(
+  input: ScoreCoreInput,
+  // oxlint-disable-next-line no-use-before-define -- default dependency factory stays below the public function.
+  deps: RecommendationDeps = createDefaultRecommendationDeps(),
+): Promise<ScoreCoreResult> {
+  const chunks = buildJobRecommendationQueryTexts(input.jobDescription);
+  const embedded = await deps.embed({
+    ...deps.embeddingConfig,
+    chunks,
+  });
+  const resultGroups = await Promise.all(
+    embedded.map((chunk) =>
+      deps.vectorStore.searchSimilarResumes({
+        chunkType: chunk.chunkType,
+        embedding: chunk.embedding,
+        limit: SEARCH_LIMIT_BY_CHUNK[chunk.chunkType],
+        organizationId: input.organizationId,
+        sourceTypes: ["studio_interview"],
+      }),
+    ),
+  );
+  const bySource = mergeVectorScores(resultGroups.flat());
+  const retrievedIds = new Set(bySource.keys());
+  const candidates = await deps.loadCandidates(input.organizationId, [...bySource.keys()]);
+  const loadedIds = new Set(candidates.map((c) => c.id));
+  const exempt = input.excludeLinkedExceptIds;
+  const ranked = candidates
+    .filter(
+      (c) =>
+        !(exempt && c.currentJobDescriptionId === input.jobDescription.id && !exempt.has(c.id)),
+    )
+    .flatMap((c): CoreRankedEntry[] => {
+      const s = bySource.get(c.id);
+      return s ? [{ candidate: c, candidateId: c.id, score: weightedScore(s), similarity: s }] : [];
+    })
+    .toSorted((a, b) => b.score - a.score);
+  return { loadedIds, ranked, retrievedIds };
+}
+
 export async function recommendCandidatesForJobDescription(
   input: RecommendCandidatesInput,
   // oxlint-disable-next-line no-use-before-define -- default dependency factory stays below the public function.
@@ -244,25 +310,15 @@ export async function recommendCandidatesForJobDescription(
     };
   }
 
-  const chunks = buildJobRecommendationQueryTexts(input.jobDescription);
-  const embedded = await deps.embed({
-    ...deps.embeddingConfig,
-    chunks,
-  });
   await deps.vectorStore.ensureCollection();
-  const resultGroups = await Promise.all(
-    embedded.map((chunk) =>
-      deps.vectorStore.searchSimilarResumes({
-        chunkType: chunk.chunkType,
-        embedding: chunk.embedding,
-        limit: SEARCH_LIMIT_BY_CHUNK[chunk.chunkType],
-        organizationId: input.organizationId,
-        sourceTypes: ["studio_interview"],
-      }),
-    ),
+  const core = await scoreCandidatesForJobDescription(
+    {
+      excludeLinkedExceptIds: input.excludeAlreadyLinked ? new Set<string>() : undefined,
+      jobDescription: input.jobDescription,
+      organizationId: input.organizationId,
+    },
+    deps,
   );
-  const bySource = mergeVectorScores(resultGroups.flat());
-  const candidates = await deps.loadCandidates(input.organizationId, [...bySource.keys()]);
   const jdText = [
     input.jobDescription.name,
     input.jobDescription.description,
@@ -270,28 +326,14 @@ export async function recommendCandidatesForJobDescription(
   ]
     .filter((value): value is string => typeof value === "string")
     .join("\n");
-  const recommendations = candidates
-    .filter(
-      (candidate) =>
-        !(
-          input.excludeAlreadyLinked &&
-          candidate.currentJobDescriptionId === input.jobDescription.id
-        ),
-    )
-    .flatMap((candidate): JobDescriptionTalentRecommendation[] => {
-      const scores = bySource.get(candidate.id);
-      if (!scores) {
-        return [];
-      }
-      return [toRecommendation(candidate, scores, jdText)];
-    })
-    .filter((candidate) => candidate.score >= 55)
-    .toSorted((a, b) => b.score - a.score)
-    .slice(0, input.limit);
+  const recommendations = core.ranked
+    .filter((r) => r.score >= 55)
+    .slice(0, input.limit)
+    .map((r) => toRecommendation(r.candidate, r.similarity, jdText));
 
   return {
     candidates: recommendations,
-    diagnostics: { vectorHitCount: bySource.size },
+    diagnostics: { vectorHitCount: core.retrievedIds.size },
     jobDescription: {
       id: input.jobDescription.id,
       name: input.jobDescription.name,
@@ -300,7 +342,7 @@ export async function recommendCandidatesForJobDescription(
   };
 }
 
-function createDefaultRecommendationDeps(): RecommendationDeps {
+export function createDefaultRecommendationDeps(): RecommendationDeps {
   const embeddingConfig = getResumeEmbeddingConfig();
   const semanticConfig = getResumeSemanticIndexConfig();
   return {
@@ -321,9 +363,24 @@ function createDefaultRecommendationDeps(): RecommendationDeps {
   };
 }
 
-async function loadRecommendationCandidates(
+// 生产默认排除已结案候选(pipelineStage='closed')；评测走 includeClosed=true
+// 让 leave-one-out 反事实里的结案正例仍可加载打分(与 excludeLinkedExceptIds 豁免同理)。
+export function recommendationCandidateWhere(
   organizationId: string,
   ids: string[],
+  includeClosed: boolean,
+) {
+  return and(
+    eq(studioInterview.organizationId, organizationId),
+    inArray(studioInterview.id, ids),
+    includeClosed ? undefined : ne(studioInterview.pipelineStage, "closed"),
+  );
+}
+
+export async function loadRecommendationCandidates(
+  organizationId: string,
+  ids: string[],
+  opts: { includeClosed?: boolean } = {},
 ): Promise<RecommendationCandidateRecord[]> {
   if (ids.length === 0) {
     return [];
@@ -352,13 +409,7 @@ async function loadRecommendationCandidates(
         eq(jobDescription.organizationId, studioInterview.organizationId),
       ),
     )
-    .where(
-      and(
-        eq(studioInterview.organizationId, organizationId),
-        inArray(studioInterview.id, ids),
-        notInArray(studioInterview.status, ["archived"]),
-      ),
-    );
+    .where(recommendationCandidateWhere(organizationId, ids, opts.includeClosed ?? false));
 
   return rows.map((row) => ({
     ...row,

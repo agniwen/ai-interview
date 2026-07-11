@@ -1,5 +1,6 @@
 "use client";
 
+import { IconLoader2 } from "@tabler/icons-react";
 import type { DepartmentRecord } from "@arc/shared/departments";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
@@ -10,7 +11,7 @@ import { Modal } from "@/components/ui/modal";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
-import { LoaderCircleIcon } from "@/components/icons/hugeicons";
+
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -121,7 +122,7 @@ export function JobDescriptionAiCreateDialog({
             onClick={() => void handleGenerate()}
             type="button"
           >
-            {generating ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+            {generating ? <IconLoader2 className="size-4 animate-spin" /> : null}
             {generating ? "生成内容中…" : "生成岗位内容"}
           </Button>
         </>

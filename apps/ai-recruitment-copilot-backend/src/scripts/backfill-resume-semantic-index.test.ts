@@ -4,6 +4,7 @@ import {
   parseSemanticBackfillConcurrency,
   parseSemanticBackfillTarget,
   resolveSemanticBackfillPoolScope,
+  resolveSemanticBackfillTarget,
   runResumeSemanticBackfillRecords,
   serializeSemanticBackfillLog,
 } from "./backfill-resume-semantic-index";
@@ -42,6 +43,16 @@ describe("resume semantic index backfill helpers", () => {
     expect(resolveSemanticBackfillPoolScope("pool")).toBeNull();
     expect(resolveSemanticBackfillPoolScope("all")).toBeNull();
     expect(resolveSemanticBackfillPoolScope("studio")).toBeNull();
+  });
+
+  it("allows dedicated scripts to default to pool backfills while preserving explicit overrides", () => {
+    expect(resolveSemanticBackfillTarget({ defaultTarget: "pool" })).toBe("pool");
+    expect(
+      resolveSemanticBackfillTarget({
+        defaultTarget: "pool",
+        rawTarget: "public_pool",
+      }),
+    ).toBe("public_pool");
   });
 
   it("runs no more than the configured number of indexing tasks at once", async () => {

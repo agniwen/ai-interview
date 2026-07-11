@@ -1,5 +1,6 @@
 "use client";
 
+import { IconLoader2, IconPlayerPlay } from "@tabler/icons-react";
 /**
  * 面试单轮录像回放组件.
  * 仅在用户点击"加载录像"时才请求预签名 URL, 避免列表打开就批量 sign 增加 S3 调用.
@@ -9,7 +10,6 @@
  * presign request per round.
  */
 
-import { Loader2Icon, PlayIcon } from "@/components/icons/hugeicons";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -138,9 +138,9 @@ export function RecordingPlayer({
         {!url && (
           <Button disabled={loading} onClick={loadUrl} size="sm" variant="outline">
             {loading ? (
-              <Loader2Icon className="size-4 animate-spin" />
+              <IconLoader2 className="size-4 animate-spin" />
             ) : (
-              <PlayIcon className="size-4" />
+              <IconPlayerPlay className="size-4" />
             )}
             <span className="ml-1">加载录像</span>
           </Button>

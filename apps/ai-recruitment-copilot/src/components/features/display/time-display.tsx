@@ -1,8 +1,10 @@
 "use client";
 
+import { IconCalendar } from "@tabler/icons-react";
 import dayjs from "dayjs";
-import { CalendarIcon } from "@/components/icons/hugeicons";
+
 import { useMemo } from "react";
+import { cn } from "@arc/shared/utils";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -81,7 +83,7 @@ export function formatTimeDisplayTooltipRows(value: TimeValue) {
 export function TimeDisplay({
   value,
   emptyText = "待定",
-  pendingText = "--",
+  pendingText = "—",
   options = DATE_TIME_DISPLAY_OPTIONS,
   as = "time",
   className,
@@ -95,6 +97,7 @@ export function TimeDisplay({
   className?: string;
 }) {
   const isHydrated = useHydrated();
+  const hasDateValue = normalizeDate(value) !== null;
   const dateTime = useMemo(() => getDateTimeAttribute(value), [value]);
   const tooltipRows = useMemo(
     () => (isHydrated ? formatTimeDisplayTooltipRows(value) : []),
@@ -115,9 +118,9 @@ export function TimeDisplay({
   }, [emptyText, isHydrated, options, pendingText, value]);
 
   const content = (
-    <span className={className}>
+    <span className={cn((!isHydrated || !hasDateValue) && "opacity-60", className)}>
       <span className="inline-flex items-center gap-1 whitespace-nowrap align-baseline">
-        <CalendarIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+        <IconCalendar aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
         {as === "span" ? (
           <span className="whitespace-nowrap">{text}</span>
         ) : (
@@ -135,7 +138,7 @@ export function TimeDisplay({
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{content}</TooltipTrigger>
+      <TooltipTrigger render={content} />
       <TooltipContent className="min-w-48 px-3 py-2" side="top">
         <div className="grid gap-1">
           {tooltipRows.map((row) => (

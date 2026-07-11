@@ -158,6 +158,8 @@ function buildFullTextInput(
     jobDescription: context.jobDescription,
     personalizedQuestions: context.personalizedQuestions.map((question) => ({
       difficulty: question.difficulty,
+      evaluationFocus: question.evaluationFocus ?? null,
+      followUpDirections: question.followUpDirections ?? null,
       order: question.order,
       question: question.question,
     })),
@@ -166,6 +168,8 @@ function buildFullTextInput(
       questions: template.snapshot.questions.map((question) => ({
         content: question.content,
         difficulty: question.difficulty,
+        evaluationFocus: question.evaluationFocus ?? null,
+        followUpDirections: question.followUpDirections ?? null,
         questionId: question.id,
       })),
       templateId: template.templateId,

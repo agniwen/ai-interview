@@ -1,6 +1,6 @@
 "use client";
 
-import { LoaderCircleIcon } from "@/components/icons/hugeicons";
+import { IconLoader2 } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -92,7 +92,7 @@ export function EmailPasswordSignInForm({
       <Button className="w-full gap-2" disabled={submitting} size="lg" type="submit">
         {submitting ? (
           <>
-            <LoaderCircleIcon className="size-4 animate-spin" />
+            <IconLoader2 className="size-4 animate-spin" />
             登录中…
           </>
         ) : (

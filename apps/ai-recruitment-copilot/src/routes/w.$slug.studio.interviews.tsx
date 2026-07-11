@@ -1,3 +1,4 @@
+import { IconRobot, IconTrash } from "@tabler/icons-react";
 import { HydrationBoundary, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
 import {
@@ -8,10 +9,10 @@ import {
   redirect,
   useLoaderData,
   useNavigate,
+  useParams,
+  useRouterState,
   useSearch,
 } from "@tanstack/react-router";
-import type { DataGridQueryState } from "@/components/data-grid/query-contract";
-import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import { loadStudioInterviewsState } from "@/lib/start/studio/interviews.functions";
 import type { StudioInterviewsState } from "@/lib/start/studio/interviews.functions";
 import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
@@ -27,7 +28,7 @@ import type {
   StudioInterviewRoundListRecord,
 } from "@arc/shared/studio-interview-rounds";
 import { pipelineStageMeta, scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
-import { BotIcon, Trash2Icon } from "@/components/icons/hugeicons";
+
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -72,10 +73,19 @@ import {
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
+import {
+  copyInterviewLink,
+  copyPublicInterviewLink,
+} from "@/components/features/studio/interviews/interview-link-actions";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
 import { JobDescriptionViewDialog } from "@/components/features/studio/interviews/job-description-view-dialog";
+import { useHasPermission } from "@/hooks/use-has-permission";
+import {
+  coerceStudioInterviewsSearch,
+  parseStudioInterviewsQuery,
+} from "@/lib/client/studio-interviews-search";
+import type { SearchParamsRecord } from "@/lib/client/studio-interviews-search";
 
 const ResumeDocumentPreviewDialog = lazy(async () => {
   const mod = await import("@/components/features/resume/resume-document-preview-dialog");
@@ -118,60 +128,14 @@ function aiStageLockedReason(row: StudioInterviewRoundListRecord): string | null
   return `候选人已进入「${pipelineStageMeta[row.pipelineStage].label}」阶段，AI 面试相关操作已锁定。如需修改请先回退阶段或重新激活。`;
 }
 
-// 复制面试链接：直接读 row.interviewLink，无需扫描 scheduleEntries。
-// Copy interview link: read row.interviewLink directly, no scheduleEntries scan needed.
-async function copyInterviewLink(record: StudioInterviewRoundListRecord) {
-  const fullLink = toAbsoluteUrl(record.interviewLink);
-  try {
-    const result = await copyTextToClipboard(fullLink);
-    if (result === "copied") {
-      toast.success("面试链接已复制");
-      return;
-    }
-    if (result === "manual") {
-      toast.info("已弹出链接，请手动复制");
-      return;
-    }
-    if (result === "failed") {
-      throw new Error("copy-failed");
-    }
-  } catch {
-    toast.error("复制失败，请手动复制");
-  }
-}
-
-// 复制「公共访问链接」：候选人面试详情的免登录页 /r/[roundId]，给招聘经理或外部
-// 干系人查看完整面试快照（候选人信息、简历 PDF、评估报告、录像）。任何拿到链接
-// 的人都能访问，不做 token 校验。
-//
-// Copy the public-access link: /r/[roundId] — a no-auth view of the full
-// interview snapshot (candidate, resume, reports, recording) intended for
-// hiring managers / external stakeholders. Anyone with the URL can view it.
-async function copyPublicLink(record: StudioInterviewRoundListRecord) {
-  const fullLink = toAbsoluteUrl(`/r/${record.id}`);
-  try {
-    const result = await copyTextToClipboard(fullLink);
-    if (result === "copied") {
-      toast.success("公共访问链接已复制");
-      return;
-    }
-    if (result === "manual") {
-      toast.info("已弹出链接，请手动复制");
-      return;
-    }
-    if (result === "failed") {
-      throw new Error("copy-failed");
-    }
-  } catch {
-    toast.error("复制失败，请手动复制");
-  }
-}
-
 function InterviewManagementPage() {
   const slug = useWorkspaceSlug();
   const navigate = useNavigate();
   const routeSearch = useSearch({ from: "/w/$slug/studio/interviews" });
   const queryClient = useQueryClient();
+  const canUpdateInterview = useHasPermission("interview", "update");
+  const canDeleteInterview = useHasPermission("interview", "delete");
+  const canReadJobDescriptions = useHasPermission("jd", "read");
 
   // 拉取轮次列表（含分页 / 搜索 / 状态过滤）。
   // Fetch the round list with pagination / search / status filtering.
@@ -254,6 +218,7 @@ function InterviewManagementPage() {
   const [detailRoundId, setDetailRoundId] = useState<string | null>(null);
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
   const [editRecordId, setEditRecordId] = useState<string | null>(null);
+  const [resumeEditRecordId, setResumeEditRecordId] = useState<string | null>(null);
   const detailOpen = detailRoundId !== null || detailRecordId !== null;
   function closeDetail() {
     setDetailRoundId(null);
@@ -304,9 +269,9 @@ function InterviewManagementPage() {
     }
   }, [navigate, routeSearch, slug]);
 
-  // 删除 / 重置 / 切轮次状态等写操作不仅影响 AI 面试列表，也会改变简历库的
+  // 删除 / 重置 / 切轮次状态等写操作不仅影响 AI 面试列表，也会改变招聘台的
   // hasInterviewRounds 标记和简历详情弹窗里的「AI 面试」tab，所以同步失效
-  // studio-resumes / studio-resume-rounds，确保用户切回简历库立即看到更新。
+  // studio-resumes / studio-resume-rounds，确保用户切回招聘台立即看到更新。
   //
   // Writes on this page (delete / reset / round toggle) can flip
   // hasInterviewRounds on the resume-library row and the resume detail
@@ -322,7 +287,7 @@ function InterviewManagementPage() {
   // Column definitions: round-keyed; candidate info shown as snapshot columns.
   const columns = useMemo(
     () => [
-      selectColumn<StudioInterviewRoundListRecord>(),
+      ...(canDeleteInterview ? [selectColumn<StudioInterviewRoundListRecord>()] : []),
       customColumn<StudioInterviewRoundListRecord>({
         cell: (r) => {
           const documentKind = getResumeDocumentFileIconKind({ fileName: r.resumeFileName });
@@ -333,7 +298,7 @@ function InterviewManagementPage() {
               {r.hasResumeFile && previewable ? (
                 <button
                   aria-label={previewTitle}
-                  className="group/pdf mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="group/pdf mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -390,7 +355,13 @@ function InterviewManagementPage() {
             ? [r.jobDescriptionDepartmentName, r.jobDescriptionName].filter(Boolean).join(" / ")
             : null;
 
-          return label ? (
+          if (!label) {
+            return <span className="text-muted-foreground">—</span>;
+          }
+          if (!canReadJobDescriptions) {
+            return <span className="truncate text-left">{label}</span>;
+          }
+          return (
             <button
               className="truncate text-left underline decoration-foreground/20 underline-offset-4 hover:decoration-foreground/60"
               onClick={() => r.jobDescriptionId && setViewJobDescriptionId(r.jobDescriptionId)}
@@ -398,8 +369,6 @@ function InterviewManagementPage() {
             >
               {label}
             </button>
-          ) : (
-            <span className="text-muted-foreground">—</span>
           );
         },
         key: "jobDescriptionName",
@@ -463,6 +432,7 @@ function InterviewManagementPage() {
             disabledReason: aiStageLockedReason,
             label: "编辑",
             onClick: (r) => setEditRecordId(r.id),
+            show: () => canUpdateInterview,
           },
         ],
         menu: [
@@ -474,17 +444,18 @@ function InterviewManagementPage() {
           },
           {
             label: "复制公共访问链接",
-            onClick: (r) => void copyPublicLink(r),
+            onClick: (r) => void copyPublicInterviewLink(r),
           },
           {
             label: "删除",
             onClick: (r) => setDeleteRecord(r),
+            show: () => canDeleteInterview,
             variant: "destructive",
           },
         ],
       }),
     ],
-    [],
+    [canDeleteInterview, canReadJobDescriptions, canUpdateInterview],
   );
 
   // 状态过滤选项：对应 round 级状态枚举。
@@ -564,7 +535,7 @@ function InterviewManagementPage() {
   // 删除单条：目前以 roundId 调用旧 candidateId 端点，T5 修正前暂时会 404。
   // Delete single: calling old candidateId endpoint with roundId for now — will 404 until T5.
   async function handleDelete() {
-    if (!deleteRecord) {
+    if (!(deleteRecord && canDeleteInterview)) {
       return;
     }
     try {
@@ -578,6 +549,9 @@ function InterviewManagementPage() {
   }
 
   async function handleBulkDelete() {
+    if (!canDeleteInterview) {
+      return;
+    }
     const ids = Object.keys(grid.rowSelection).filter((id) => grid.rowSelection[id]);
     if (ids.length === 0) {
       return;
@@ -598,7 +572,7 @@ function InterviewManagementPage() {
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="mx-auto w-full max-w-[96rem] space-y-6">
         <PageHeader
           title="AI 面试"
           description="查看每一轮语音面试的排期、最近进展、简历和报告，让候选人状态一眼可追。"
@@ -607,36 +581,46 @@ function InterviewManagementPage() {
           {...grid.bind}
           columns={columns}
           getRowId={(r) => r.id}
-          columnPinning={{ left: ["select", "candidateName"], right: ["actions"] }}
+          columnPinning={{
+            left: canDeleteInterview ? ["select", "candidateName"] : ["candidateName"],
+            right: ["actions"],
+          }}
           filters={filtersConfig}
           headerExtra={stats}
-          bulkActions={({ selectedIds }) => (
-            <Button
-              className="flex-1 sm:flex-none"
-              onClick={() => setBulkDeleteOpen(true)}
-              variant="destructive"
-            >
-              <Trash2Icon className="size-4" />
-              批量删除 ({selectedIds.length})
-            </Button>
-          )}
+          bulkActions={
+            canDeleteInterview
+              ? ({ selectedIds }) => (
+                  <Button
+                    className="flex-1 sm:flex-none"
+                    onClick={() => setBulkDeleteOpen(true)}
+                    variant="destructive"
+                  >
+                    <IconTrash className="size-4" />
+                    批量删除 ({selectedIds.length})
+                  </Button>
+                )
+              : undefined
+          }
           empty={
             <Empty className="border-border">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <BotIcon className="size-5" />
+                  <IconRobot className="size-5" />
                 </EmptyMedia>
                 <EmptyTitle>还没有候选人面试记录</EmptyTitle>
                 <EmptyDescription>
-                  请前往简历库新建简历记录，选择「保存并发起面试」即可创建面试。
+                  请前往招聘台新建简历记录，选择「保存并发起面试」即可创建面试。
                 </EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
-                <Button asChild>
-                  <Link params={{ slug }} to="/w/$slug/studio/resumes">
-                    前往简历库
-                  </Link>
-                </Button>
+                <Button
+                  nativeButton={false}
+                  render={
+                    <Link params={{ slug }} to="/w/$slug/studio/resumes">
+                      前往招聘台
+                    </Link>
+                  }
+                />
               </EmptyContent>
             </Empty>
           }
@@ -657,17 +641,28 @@ function InterviewManagementPage() {
       />
 
       {/* 编辑 dialog：T5 修正写入路径。/ Edit dialog: T5 fixes the write path. */}
+      {canUpdateInterview ? (
+        <StudioPersonEditDialog
+          mode="interview"
+          onEditResumeRecord={setResumeEditRecordId}
+          onOpenChange={(open) => !open && setEditRecordId(null)}
+          onUpdated={invalidateAll}
+          open={editRecordId !== null}
+          recordId={editRecordId}
+        />
+      ) : null}
+
       <StudioPersonEditDialog
-        mode="interview"
-        onOpenChange={(open) => !open && setEditRecordId(null)}
+        mode="resume"
+        onOpenChange={(open) => !open && setResumeEditRecordId(null)}
         onUpdated={invalidateAll}
-        open={editRecordId !== null}
-        recordId={editRecordId}
+        open={resumeEditRecordId !== null}
+        recordId={resumeEditRecordId}
       />
 
       <AlertDialog
         onOpenChange={(open) => !open && setDeleteRecord(null)}
-        open={deleteRecord !== null}
+        open={canDeleteInterview && deleteRecord !== null}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -686,7 +681,7 @@ function InterviewManagementPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog onOpenChange={setBulkDeleteOpen} open={bulkDeleteOpen}>
+      <AlertDialog onOpenChange={setBulkDeleteOpen} open={canDeleteInterview && bulkDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -737,65 +732,25 @@ function InterviewManagementPage() {
         : null}
 
       <JobDescriptionViewDialog
-        jobDescriptionId={viewJobDescriptionId}
+        jobDescriptionId={canReadJobDescriptions ? viewJobDescriptionId : null}
         onOpenChange={(open) => !open && setViewJobDescriptionId(null)}
       />
     </>
   );
 }
 
-interface InterviewFilters extends Record<string, string> {
-  creatorIds: string;
-  status: string;
-}
-
-type SearchParamsPrimitive = boolean | number | string;
-type SearchParamsRecord = Record<
-  string,
-  SearchParamsPrimitive | SearchParamsPrimitive[] | undefined
->;
-
-function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord {
-  const out: SearchParamsRecord = {};
-  for (const [key, value] of Object.entries(search)) {
-    if (typeof value === "string") {
-      out[key] = value;
-      continue;
-    }
-    if (typeof value === "number" || typeof value === "boolean") {
-      out[key] = value;
-      continue;
-    }
-    if (Array.isArray(value)) {
-      out[key] = value.filter(
-        (item): item is boolean | number | string =>
-          typeof item === "string" || typeof item === "number" || typeof item === "boolean",
-      );
-    }
-  }
-  return out;
-}
-
-function parseInterviewQuery(
-  searchParams: SearchParamsRecord,
-): DataGridQueryState<InterviewFilters> {
-  return parseDataGridSearchParams(searchParams, {
-    allowedSortIds: ["scheduledAt", "createdAt", "candidateName", "roundLabel"],
-    defaultSorting: [{ desc: true, id: "createdAt" }],
-    initialFilters: { creatorIds: "", status: "" },
-  });
-}
-
 function StudioInterviewsRoute() {
   const state = useLoaderData({
     from: "/w/$slug/studio/interviews",
   }) as unknown as StudioInterviewsState;
+  const { slug } = useParams({ from: "/w/$slug/studio/interviews" });
+  const pathname = useRouterState({ select: (routerState) => routerState.location.pathname });
 
   if (state.status !== "ready") {
     return null;
   }
 
-  if (!state.isListRoute) {
+  if (pathname !== `/w/${slug}/studio/interviews`) {
     return <Outlet />;
   }
 
@@ -816,14 +771,15 @@ export const Route = createFileRoute("/w/$slug/studio/interviews")({
       location: { pathname: string; search: SearchParamsRecord };
       params: { slug: string };
     };
-    const query = parseInterviewQuery(location.search);
+    const isListRoute = location.pathname === `/w/${params.slug}/studio/interviews`;
+    const query = parseStudioInterviewsQuery(location.search);
     await requireStudioPageAccess({
       action: "interviews",
       pathname: `/w/${params.slug}/studio/interviews`,
       slug: params.slug,
     });
     const state = (await loadStudioInterviewsState({
-      data: { query, slug: params.slug },
+      data: { prefetchList: isListRoute, query, slug: params.slug },
     })) as StudioInterviewsState;
     if (state.status === "unauthenticated") {
       throw redirect({
@@ -833,11 +789,8 @@ export const Route = createFileRoute("/w/$slug/studio/interviews")({
     if (state.status === "not_found") {
       throw notFound();
     }
-    return {
-      ...state,
-      isListRoute: location.pathname === `/w/${params.slug}/studio/interviews`,
-    };
+    return state;
   },
   shouldReload: false,
-  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
+  validateSearch: (search: Record<string, unknown>) => coerceStudioInterviewsSearch(search),
 });

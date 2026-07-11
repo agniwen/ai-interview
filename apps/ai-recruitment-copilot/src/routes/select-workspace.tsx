@@ -1,4 +1,4 @@
-import { ArrowRightIcon, PlusIcon } from "@/components/icons/hugeicons";
+import { IconArrowRight, IconPlus } from "@tabler/icons-react";
 import { createFileRoute, redirect, useLoaderData } from "@tanstack/react-router";
 import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
@@ -77,7 +77,7 @@ function SelectWorkspaceRoute() {
                       </p>
                       <p className="truncate text-muted-foreground text-xs">{organization.slug}</p>
                     </div>
-                    <ArrowRightIcon
+                    <IconArrowRight
                       aria-hidden="true"
                       className="size-4 shrink-0 text-muted-foreground transition-all duration-200 group-hover:translate-x-1 group-hover:text-foreground"
                     />
@@ -106,7 +106,7 @@ function SelectWorkspaceRoute() {
               size="lg"
               variant={organizations.length === 0 ? "default" : "outline"}
             >
-              <PlusIcon className="size-4" />
+              <IconPlus className="size-4" />
               创建新工作区
             </Button>
           }

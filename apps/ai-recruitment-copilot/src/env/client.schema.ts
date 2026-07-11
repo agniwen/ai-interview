@@ -19,6 +19,7 @@ export function createClientEnv(runtimeEnv: Record<string, string | boolean | nu
       NEXT_PUBLIC_ENABLE_CANDIDATE_SPECIFIC_INTERVIEW_QUESTIONS: defaultTrueBooleanStringSchema,
       NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: booleanStringSchema,
       NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING: defaultTrueBooleanStringSchema,
+      NEXT_PUBLIC_ENABLE_WATERMARK: defaultTrueBooleanStringSchema,
     },
     clientPrefix: "NEXT_PUBLIC_",
     emptyStringAsUndefined: true,
@@ -30,6 +31,7 @@ export function createClientEnv(runtimeEnv: Record<string, string | boolean | nu
         runtimeEnv.NEXT_PUBLIC_ENABLE_CANDIDATE_SPECIFIC_INTERVIEW_QUESTIONS,
       NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: runtimeEnv.NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN,
       NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING: runtimeEnv.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING,
+      NEXT_PUBLIC_ENABLE_WATERMARK: runtimeEnv.NEXT_PUBLIC_ENABLE_WATERMARK,
     },
   });
 }

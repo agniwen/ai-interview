@@ -97,7 +97,6 @@ beforeAll(async () => {
       id: INTERVIEW_A1,
       interviewQuestions: [],
       organizationId: ORG_A,
-      status: "draft",
       updatedAt: NOW,
     },
     {
@@ -106,7 +105,6 @@ beforeAll(async () => {
       id: INTERVIEW_A2,
       interviewQuestions: [],
       organizationId: ORG_A,
-      status: "draft",
       updatedAt: NOW,
     },
     {
@@ -115,7 +113,6 @@ beforeAll(async () => {
       id: INTERVIEW_B1,
       interviewQuestions: [],
       organizationId: ORG_B,
-      status: "draft",
       updatedAt: NOW,
     },
   ]);
@@ -271,7 +268,7 @@ describe("syncResumeSkills", () => {
     });
   });
 
-  it("caps at 18 skills per interview", async () => {
+  it("keeps every distinct skill for one candidate", async () => {
     const many = Array.from({ length: 30 }, (_, i) => `skill-${i.toString().padStart(2, "0")}`);
     await db.transaction((tx) =>
       syncResumeSkills(tx, {
@@ -282,10 +279,10 @@ describe("syncResumeSkills", () => {
     );
 
     const stored = await loadNormalizedSkills(INTERVIEW_A1);
-    expect(stored).toHaveLength(18);
+    expect(stored).toHaveLength(30);
     expect(stored).toContain("skill-00");
-    expect(stored).toContain("skill-17");
-    expect(stored).not.toContain("skill-18");
+    expect(stored).toContain("skill-18");
+    expect(stored).toContain("skill-29");
   });
 });
 
@@ -371,7 +368,6 @@ describe("DELETE trigger keeps canonical counts in sync", () => {
       id: cascadeId,
       interviewQuestions: [],
       organizationId: ORG_A,
-      status: "draft",
       updatedAt: NOW,
     });
     await db.transaction((tx) =>

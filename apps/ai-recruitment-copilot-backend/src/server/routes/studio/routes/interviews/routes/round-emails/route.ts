@@ -135,7 +135,7 @@ export const roundEmailsRouter = factory
           subject,
           toEmail: row.candidateEmail,
         });
-        return c.json({ error: `邮件发送失败：${message}`, logId: log.id }, 500);
+        return c.json({ error: "邮件发送失败，请稍后重试。", logId: log.id }, 500);
       }
 
       // Resend 返回错误时写入 failed 日志并返回 400。

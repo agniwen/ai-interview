@@ -1,8 +1,10 @@
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { z } from "zod";
-import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
-import { createResumeAgent } from "./resume-agent";
+import {
+  generateStructuredWithMastraAgent,
+  jobDescriptionMatchAgent,
+} from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
 
 const MATCH_INSTRUCTIONS = `你是一名招聘匹配助手。你会收到候选人的结构化简历信息与一份在招岗位候选列表，请从中挑选与候选人最匹配的一个。
 
@@ -26,34 +28,6 @@ const matchResultSchema = z.object({
   jobDescriptionId: z.string().trim().min(1),
   reason: z.string().trim().min(1),
 });
-
-const JSON_BLOCK_RE = /```(?:json)?\s*([\s\S]*?)\s*```/;
-
-function parseMatchOutput(text: string) {
-  const trimmed = text.trim();
-  const blockMatch = JSON_BLOCK_RE.exec(trimmed);
-  const candidates = blockMatch ? [blockMatch[1], trimmed] : [trimmed];
-
-  for (const candidate of candidates) {
-    const start = candidate.indexOf("{");
-    const end = candidate.lastIndexOf("}");
-    if (start === -1 || end === -1) {
-      continue;
-    }
-
-    try {
-      const raw = JSON.parse(candidate.slice(start, end + 1));
-      const parsed = matchResultSchema.safeParse(raw);
-      if (parsed.success) {
-        return parsed.data;
-      }
-    } catch {
-      // try next candidate
-    }
-  }
-
-  return null;
-}
 
 function summarizeJobDescription(jd: JobDescriptionListRecord) {
   const departmentPrefix = jd.departmentName ? `${jd.departmentName} / ` : "";
@@ -114,31 +88,20 @@ export async function matchJobDescriptionForResume(
     return { jobDescriptionId: candidates[0].id, reason: "候选岗位只有一个，默认选择。" };
   }
 
-  const modelId = getRequiredEnv("ALIBABA_STRUCTURED_MODEL");
-  const agent = createResumeAgent({
-    enableThinking: false,
-    instructions: MATCH_INSTRUCTIONS,
-    modelId,
-    temperature: 0,
-    tools: {},
-  });
-
   const candidateBlock = candidates.map(summarizeJobDescription).join("\n\n");
   const resumeBlock = summarizeResumeProfile(resumeProfile);
 
-  const prompt = `候选人信息：\n${resumeBlock}\n\n候选在招岗位列表：\n${candidateBlock}\n\n请从上面的 id 中挑选一个最匹配的，并按规定 JSON 结构输出。`;
+  const output = await generateStructuredWithMastraAgent({
+    agent: jobDescriptionMatchAgent,
+    prompt: `${MATCH_INSTRUCTIONS}\n\n候选人信息：\n${resumeBlock}\n\n候选在招岗位列表：\n${candidateBlock}\n\n请从上面的 id 中挑选一个最匹配的，并按规定 JSON 结构输出。`,
+    schema: matchResultSchema,
+    temperature: 0,
+  });
 
-  const { text } = await agent.generate({ prompt });
-  const parsed = parseMatchOutput(text);
-
-  if (!parsed) {
-    return null;
-  }
-
-  const matched = candidates.find((jd) => jd.id === parsed.jobDescriptionId);
+  const matched = candidates.find((jd) => jd.id === output.jobDescriptionId);
   if (!matched) {
     return null;
   }
 
-  return { jobDescriptionId: matched.id, reason: parsed.reason };
+  return { jobDescriptionId: matched.id, reason: output.reason };
 }

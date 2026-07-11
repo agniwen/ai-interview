@@ -1,16 +1,17 @@
+import {
+  IconDeviceDesktopOff,
+  IconDeviceDesktopUp,
+  IconLoader2,
+  IconMicrophone,
+  IconMicrophoneOff,
+  IconVideo,
+  IconVideoOff,
+} from "@tabler/icons-react";
 import type { VariantProps } from "class-variance-authority";
 import type { ComponentProps } from "react";
 import { cva } from "class-variance-authority";
 import { Track } from "livekit-client";
-import {
-  LoaderIcon,
-  MicIcon,
-  MicOffIcon,
-  MonitorOffIcon,
-  MonitorUpIcon,
-  VideoIcon,
-  VideoOffIcon,
-} from "@/components/icons/hugeicons";
+
 import { Fragment, useMemo, useState } from "react";
 import { Toggle } from "@/components/ui/toggle";
 import { cn } from "@arc/shared/utils";
@@ -27,19 +28,19 @@ export const agentTrackToggleVariants = cva(["size-9"], {
     },
     variant: {
       default: [
-        "data-[state=off]:bg-destructive/10 data-[state=off]:text-destructive",
-        "data-[state=off]:hover:bg-destructive/15",
-        "data-[state=off]:focus-visible:ring-destructive/30",
-        "data-[state=on]:bg-accent data-[state=on]:text-accent-foreground",
-        "data-[state=on]:hover:bg-foreground/10",
+        "bg-destructive/10 text-destructive",
+        "hover:bg-destructive/15",
+        "focus-visible:ring-destructive/30",
+        "data-pressed:bg-accent data-pressed:text-accent-foreground",
+        "data-pressed:hover:bg-foreground/10",
       ],
       outline: [
-        "data-[state=off]:bg-destructive/10 data-[state=off]:text-destructive data-[state=off]:border-destructive/20",
-        "data-[state=off]:hover:bg-destructive/15 data-[state=off]:hover:text-destructive",
-        "data-[state=off]:focus:text-destructive",
-        "data-[state=off]:focus-visible:border-destructive data-[state=off]:focus-visible:ring-destructive/30",
-        "data-[state=on]:hover:bg-foreground/10 data-[state=on]:hover:border-foreground/12",
-        "dark:data-[state=on]:hover:bg-foreground/10",
+        "border-destructive/20 bg-destructive/10 text-destructive",
+        "hover:bg-destructive/15 hover:text-destructive",
+        "focus:text-destructive",
+        "focus-visible:border-destructive focus-visible:ring-destructive/30",
+        "data-pressed:hover:border-foreground/12 data-pressed:hover:bg-foreground/10",
+        "dark:data-pressed:hover:bg-foreground/10",
       ],
     },
   },
@@ -47,18 +48,18 @@ export const agentTrackToggleVariants = cva(["size-9"], {
 
 function getSourceIcon(source: Track.Source, enabled: boolean, pending = false) {
   if (pending) {
-    return LoaderIcon;
+    return IconLoader2;
   }
 
   switch (source) {
     case Track.Source.Microphone: {
-      return enabled ? MicIcon : MicOffIcon;
+      return enabled ? IconMicrophone : IconMicrophoneOff;
     }
     case Track.Source.Camera: {
-      return enabled ? VideoIcon : VideoOffIcon;
+      return enabled ? IconVideo : IconVideoOff;
     }
     case Track.Source.ScreenShare: {
-      return enabled ? MonitorUpIcon : MonitorOffIcon;
+      return enabled ? IconDeviceDesktopUp : IconDeviceDesktopOff;
     }
     default: {
       return Fragment;
@@ -70,7 +71,7 @@ function getSourceIcon(source: Track.Source, enabled: boolean, pending = false) 
  * Props for the AgentTrackToggle component.
  */
 export type AgentTrackToggleProps = VariantProps<typeof agentTrackToggleVariants> &
-  ComponentProps<"button"> & {
+  Omit<ComponentProps<"button">, "value"> & {
     /**
      * The size of the toggle.
      */

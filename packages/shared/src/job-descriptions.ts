@@ -1,13 +1,18 @@
 import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
 import { z } from "zod";
 import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
+import {
+  createDefaultResumeScreeningPolicy,
+  resumeScreeningPolicySchema,
+} from "./resume-screening";
+import type { ResumeScreeningPolicy } from "./resume-screening";
 import type { ResumePoolProfileHighlights } from "./resume-pool";
 
 export const jobDescriptionCodeSchema = z
   .string()
   .trim()
   .transform((value) => value.toUpperCase())
-  .refine((value) => value === "" || /^[A-Z0-9]{12,23}$/.test(value), "岗位编码格式无效")
+  .refine((value) => value === "" || /^[A-Z0-9]{7}$/.test(value), "岗位编码格式无效")
   .transform((value) => value || undefined)
   .optional();
 
@@ -22,6 +27,7 @@ export const jobDescriptionBaseSchema = z.object({
     .max(20, "最多只能选择 20 位面试官"),
   name: z.string().trim().min(1, "请输入岗位名称").max(120, "岗位名称不能超过 120 个字符"),
   prompt: z.string().trim().min(1, "请输入岗位 prompt").max(10_000, "prompt 不能超过 10000 字"),
+  resumeScreeningPolicy: resumeScreeningPolicySchema,
 });
 
 export const jobDescriptionFormSchema = jobDescriptionBaseSchema;
@@ -29,6 +35,8 @@ export const jobDescriptionUpdateSchema = jobDescriptionBaseSchema;
 
 export type JobDescriptionFormValues = z.infer<typeof jobDescriptionFormSchema>;
 export type JobDescriptionUpdateValues = z.infer<typeof jobDescriptionUpdateSchema>;
+
+export { createDefaultResumeScreeningPolicy };
 
 export interface JobDescriptionInterviewerSummary {
   id: string;
@@ -47,6 +55,9 @@ export interface JobDescriptionRecord {
   /** @deprecated Replaced by interview-question-templates. Read for legacy data only. */
   presetQuestions: string[];
   prompt: string;
+  resumeScreeningPolicy: ResumeScreeningPolicy;
+  resumeScreeningPolicyHash: string | null;
+  resumeScreeningPolicyVersion: number;
   createdBy: string | null;
   createdAt: string | Date;
   updatedAt: string | Date;

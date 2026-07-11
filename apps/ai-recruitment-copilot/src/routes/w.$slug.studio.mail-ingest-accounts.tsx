@@ -1,15 +1,21 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { IconInbox } from "@tabler/icons-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { InboxIcon } from "@/components/icons/hugeicons";
+
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { actionsColumn, customColumn, DataGrid, useDataGridState } from "@/components/data-grid";
 import type { DataGridFetchParams, DataGridFetchResult } from "@/components/data-grid";
 import { MemberCell } from "@/components/data-grid/cells/member-cell";
 import { TimeDisplay } from "@/components/features/display/time-display";
+import { MailIngestLogDrawer } from "@/components/features/studio/mail-ingest/mail-ingest-log-drawer";
 import { PageHeader } from "@/components/features/studio/page-header";
-import { getWorkspaceRoleLabel } from "@/components/features/studio/members/role-display";
-import type { WorkspaceRole } from "@/components/features/studio/members/role-display";
+import {
+  WORKSPACE_ROLES,
+  buildWorkspaceRoleOptions,
+} from "@/components/features/studio/members/role-display";
+import type { DynamicWorkspaceRoleDisplay } from "@/components/features/studio/members/role-display";
+import { sortDynamicWorkspaceRolesByCreatedAt } from "@/components/features/studio/members/workspace-role-permissions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +45,7 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
+import { authClient } from "@/lib/client/auth-client";
 import { rpcFetch } from "@/lib/client/api";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import {
@@ -54,7 +61,7 @@ import {
 } from "@/lib/client/mail-ingest-providers";
 import type { MailIngestProviderId } from "@/lib/client/mail-ingest-providers";
 import { rpc } from "@/lib/client/rpc";
-import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { useWorkspaceId, useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 const DEFAULT_MAIL_INGEST_PROVIDER = getMailIngestProvider(DEFAULT_MAIL_INGEST_PROVIDER_ID);
 const DEFAULT_FORM = {
@@ -91,6 +98,13 @@ interface MailIngestAccountRecord {
 
 interface ManagedMailIngestRow {
   account: MailIngestAccountRecord | null;
+  lastRunFailed: number | null;
+  lastRunMatched: number | null;
+  lastRunQueued: number | null;
+  lastRunReceived: number | null;
+  lastRunSubjectSkipped: number | null;
+  messageCount: number;
+  problemCount: number;
   user: {
     email: string;
     id: string;
@@ -126,13 +140,6 @@ function buildNewForm(user: ManagedMailIngestRow["user"]): MailIngestFormState {
     userId: user.id,
     username: user.email,
   };
-}
-
-function getRoleLabel(role: string) {
-  if (role === "admin" || role === "member" || role === "owner") {
-    return getWorkspaceRoleLabel(role as WorkspaceRole);
-  }
-  return role;
 }
 
 function buildInitialForm(row: ManagedMailIngestRow): MailIngestFormState {
@@ -176,6 +183,31 @@ function toPayload(form: MailIngestFormState) {
     subjectKeyword: form.subjectKeyword.trim() || "boss直聘",
     username: form.username.trim(),
   };
+}
+
+export function renderMessageBadge(
+  row: {
+    account: { emailAddress: string; id: string } | null;
+    messageCount: number;
+    problemCount: number;
+  },
+  onSelect: (accountId: string) => void,
+) {
+  if (!row.account) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  const { account } = row;
+  return (
+    <button
+      aria-label={`查看 ${account.emailAddress} 的入库记录`}
+      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-sm hover:bg-muted focus-visible:outline-2"
+      onClick={() => onSelect(account.id)}
+      type="button"
+    >
+      <span>{row.messageCount}</span>
+      {row.problemCount > 0 ? <span className="text-destructive">·{row.problemCount}</span> : null}
+    </button>
+  );
 }
 
 function MailIngestAccountDialog({
@@ -417,8 +449,24 @@ function MailIngestAccountDialog({
 
 function ManagedMailIngestPage() {
   const slug = useWorkspaceSlug();
+  const workspaceId = useWorkspaceId();
   const canManageMailIngestAccounts = useHasPermission("mailIngestAccount", "manage");
   const [editingRow, setEditingRow] = useState<ManagedMailIngestRow | null>(null);
+  const { data: dynamicWorkspaceRoles = [] } = useQuery({
+    enabled: canManageMailIngestAccounts,
+    queryFn: async () => {
+      const { data, error } = await authClient.organization.listRoles({
+        query: { organizationId: workspaceId },
+      });
+      if (error) {
+        throw new Error(error.message ?? "加载自定义角色失败");
+      }
+      return (data ?? []) as (DynamicWorkspaceRoleDisplay & { createdAt: Date | string })[];
+    },
+    queryKey: ["workspace-dynamic-roles", workspaceId],
+    refetchOnWindowFocus: false,
+    select: sortDynamicWorkspaceRolesByCreatedAt,
+  });
 
   function fetchMailIngestRows(
     params: DataGridFetchParams<Record<string, never>>,
@@ -443,6 +491,37 @@ function ManagedMailIngestPage() {
     queryFn: fetchMailIngestRows,
     queryKeyBase: ["managed-mail-ingest-accounts", slug],
   });
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+
+  const selectedRow =
+    selectedAccountId === null
+      ? null
+      : (grid.data.records.find((r) => r.account?.id === selectedAccountId) ?? null);
+
+  const selectedLogAccount = selectedRow?.account
+    ? {
+        emailAddress: selectedRow.account.emailAddress,
+        id: selectedRow.account.id,
+        lastCheckedAt: selectedRow.account.lastCheckedAt,
+        lastError: selectedRow.account.lastError,
+        lastRunFailed: selectedRow.lastRunFailed,
+        lastRunMatched: selectedRow.lastRunMatched,
+        lastRunQueued: selectedRow.lastRunQueued,
+        lastRunReceived: selectedRow.lastRunReceived,
+        lastRunSubjectSkipped: selectedRow.lastRunSubjectSkipped,
+      }
+    : null;
+  const roleLabelByValue = useMemo(() => {
+    const roles = [...WORKSPACE_ROLES, ...dynamicWorkspaceRoles.map((role) => role.role)].filter(
+      (role, index, list) => list.indexOf(role) === index,
+    );
+    return new Map(
+      buildWorkspaceRoleOptions(roles, dynamicWorkspaceRoles).map((role) => [
+        role.value,
+        role.label,
+      ]),
+    );
+  }, [dynamicWorkspaceRoles]);
 
   const columns = useMemo(
     () => [
@@ -468,19 +547,32 @@ function ManagedMailIngestPage() {
       }),
       customColumn<ManagedMailIngestRow>({
         cell: (row) => (
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={row.user.role === "owner" ? "default" : "outline"}>
-              {getRoleLabel(row.user.role)}
-            </Badge>
-            {row.account ? (
-              <Badge variant={row.account.enabled ? "success" : "outline"}>
-                {row.account.enabled ? "启用" : "停用"}
-              </Badge>
-            ) : null}
-          </div>
+          <Badge variant={row.user.role === "owner" ? "default" : "outline"}>
+            {roleLabelByValue.get(row.user.role) ?? row.user.role}
+          </Badge>
         ),
+        key: "role",
+        title: "角色",
+      }),
+      customColumn<ManagedMailIngestRow>({
+        cell: (row) => {
+          let statusLabel = "未配置";
+          if (row.account?.enabled) {
+            statusLabel = "启用";
+          } else if (row.account) {
+            statusLabel = "停用";
+          }
+          return (
+            <Badge variant={row.account?.enabled ? "success" : "outline"}>{statusLabel}</Badge>
+          );
+        },
         key: "status",
         title: "状态",
+      }),
+      customColumn<ManagedMailIngestRow>({
+        cell: (row) => renderMessageBadge(row, setSelectedAccountId),
+        key: "messageLog",
+        title: "入库记录",
       }),
       customColumn<ManagedMailIngestRow>({
         cell: (row) =>
@@ -541,11 +633,11 @@ function ManagedMailIngestPage() {
         ],
       }),
     ],
-    [canManageMailIngestAccounts],
+    [canManageMailIngestAccounts, roleLabelByValue],
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="mx-auto w-full max-w-[96rem] flex flex-col gap-6">
       <PageHeader
         title="邮箱监听"
         description="管理员查看全工作区配置，其他成员仅查看和维护自己的监听账号。"
@@ -559,7 +651,7 @@ function ManagedMailIngestPage() {
           <Empty className="border-border">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <InboxIcon />
+                <IconInbox />
               </EmptyMedia>
               <EmptyTitle>{grid.search ? "没有匹配的邮箱监听配置" : "暂无工作区成员"}</EmptyTitle>
               <EmptyDescription>
@@ -579,6 +671,18 @@ function ManagedMailIngestPage() {
           },
         ]}
         getRowId={(row) => `${row.user.id}:${row.account?.id ?? "empty"}`}
+      />
+
+      <MailIngestLogDrawer
+        account={selectedLogAccount}
+        key={selectedAccountId ?? "none"}
+        onOpenChange={(next) => {
+          if (!next) {
+            setSelectedAccountId(null);
+          }
+        }}
+        open={selectedAccountId !== null && selectedLogAccount !== null}
+        slug={slug}
       />
 
       <MailIngestAccountDialog

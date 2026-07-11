@@ -24,6 +24,8 @@ export function InterviewQuestionsFields({
       contentPlaceholder="输入面试题目"
       createItem={(sortIndex) => ({
         difficulty: "easy",
+        evaluationFocus: "",
+        followUpDirections: "",
         order: sortIndex + 1,
         question: "",
       })}

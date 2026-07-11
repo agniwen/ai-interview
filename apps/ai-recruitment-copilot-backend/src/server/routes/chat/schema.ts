@@ -1,4 +1,10 @@
 import { z } from "zod";
+import {
+  candidateOutcomeSchema,
+  closedMetaSchema,
+  pipelineStageSchema,
+  studioInterviewQuestionClientSchema,
+} from "@arc/db-schema/studio-interviews";
 import { isSupportedResumeDocumentInput } from "@arc/shared/resume-documents";
 
 export const jobDescriptionConfigSchema = z.union([
@@ -40,6 +46,68 @@ export const patchConversationSchema = z.object({
   jobDescriptionConfig: jobDescriptionConfigSchema.nullable().optional(),
   resumeImports: z.record(z.string(), z.string()).optional(),
   title: z.string().optional(),
+});
+
+const recruitingActionBaseSchema = z.object({
+  explanation: z.string().trim().min(1).max(600),
+  id: z.string().min(1),
+  title: z.string().trim().min(1).max(120),
+});
+
+export const confirmRecruitingActionSchema = z.object({
+  proposal: z.discriminatedUnion("type", [
+    recruitingActionBaseSchema.extend({
+      payload: z.object({
+        jobDescriptionId: z.string().min(1).nullable(),
+        resumeRecordId: z.string().min(1),
+      }),
+      type: z.literal("bind_candidate_to_job"),
+    }),
+    recruitingActionBaseSchema.extend({
+      payload: z
+        .object({
+          closedMeta: closedMetaSchema.omit({ previousStage: true }).partial().optional(),
+          closedReason: z.string().trim().max(500).optional().nullable(),
+          outcome: candidateOutcomeSchema.optional(),
+          pipelineStage: pipelineStageSchema,
+          reactivationReason: z.string().trim().max(500).optional(),
+          resumeRecordId: z.string().min(1),
+        })
+        .refine(
+          (v) => {
+            if (v.pipelineStage === "closed") {
+              return v.outcome !== undefined && v.outcome !== "in_pipeline";
+            }
+            return v.outcome === undefined || v.outcome === "in_pipeline";
+          },
+          {
+            message:
+              "结案阶段必须指定一个终态 outcome（hired/rejected/withdrawn/archived）；非结案阶段 outcome 必须为 in_pipeline。",
+            path: ["outcome"],
+          },
+        )
+        .refine((v) => v.pipelineStage === "closed" || !v.closedReason, {
+          message: "closedReason 仅在结案时允许。",
+          path: ["closedReason"],
+        })
+        .refine((v) => v.pipelineStage === "closed" || !v.closedMeta, {
+          message: "closedMeta 仅在结案时允许。",
+          path: ["closedMeta"],
+        })
+        .refine((v) => v.pipelineStage !== "closed" || !v.reactivationReason, {
+          message: "reactivationReason 仅在重新激活时允许。",
+          path: ["reactivationReason"],
+        }),
+      type: z.literal("advance_candidate_stage"),
+    }),
+    recruitingActionBaseSchema.extend({
+      payload: z.object({
+        interviewQuestions: z.array(studioInterviewQuestionClientSchema).max(50).optional(),
+        resumeRecordId: z.string().min(1),
+      }),
+      type: z.literal("generate_interview_questions"),
+    }),
+  ]),
 });
 
 export const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024;

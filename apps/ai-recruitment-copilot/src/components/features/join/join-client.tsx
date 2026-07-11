@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
-import { authClient } from "@/lib/client/auth-client";
 
 interface JoinClientProps {
   code: string;
@@ -28,8 +27,7 @@ export function JoinClient({ code, initialRole, workspace }: JoinClientProps) {
         organizationSlug: string;
         status: "joined" | "already_member";
       }>(rpc.api.join[":code"].accept.$post({ param: { code } }), "加入工作区失败");
-      await authClient.organization.setActive({ organizationId: result.organizationId });
-      await navigate({ search: { goto: "chat" }, to: "/" });
+      await navigate({ href: `/w/${result.organizationSlug}/agent` });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "加入工作区失败");
       setAccepting(false);

@@ -1,17 +1,17 @@
 "use client";
 
+import {
+  IconFileText,
+  IconMusic,
+  IconPaperclip,
+  IconPhoto,
+  IconVideo,
+  IconWorld,
+  IconX,
+} from "@tabler/icons-react";
 import type { FileUIPart, SourceDocumentUIPart } from "ai";
 import type { ComponentProps, HTMLAttributes, ReactNode } from "react";
 
-import {
-  FileTextIcon,
-  GlobeIcon,
-  ImageIcon,
-  Music2Icon,
-  PaperclipIcon,
-  VideoIcon,
-  XIcon,
-} from "@/components/icons/hugeicons";
 import { createContext, use, useCallback, useMemo } from "react";
 import { ResumeDocumentFileIcon } from "@/components/features/resume/resume-document-file-icon";
 import { Button } from "@/components/ui/button";
@@ -36,13 +36,13 @@ export type AttachmentMediaCategory =
 
 export type AttachmentVariant = "grid" | "inline" | "list";
 
-const mediaCategoryIcons: Record<AttachmentMediaCategory, typeof ImageIcon> = {
-  audio: Music2Icon,
-  document: FileTextIcon,
-  image: ImageIcon,
-  source: GlobeIcon,
-  unknown: PaperclipIcon,
-  video: VideoIcon,
+const mediaCategoryIcons: Record<AttachmentMediaCategory, typeof IconPhoto> = {
+  audio: IconMusic,
+  document: IconFileText,
+  image: IconPhoto,
+  source: IconWorld,
+  unknown: IconPaperclip,
+  video: IconVideo,
 };
 
 export function PdfFileIcon({ className }: { className?: string }) {
@@ -245,7 +245,7 @@ export function AttachmentPreview({ fallbackIcon, className, ...props }: Attachm
 
   const iconSize = variant === "inline" ? "size-3" : "size-4";
 
-  const renderIcon = (Icon: typeof ImageIcon) => (
+  const renderIcon = (Icon: typeof IconPhoto) => (
     <Icon className={cn(iconSize, "text-muted-foreground")} />
   );
 
@@ -373,7 +373,7 @@ export function AttachmentRemove({
       variant="ghost"
       {...props}
     >
-      {children ?? <XIcon />}
+      {children ?? <IconX />}
       <span className="sr-only">{label}</span>
     </Button>
   );
@@ -385,12 +385,8 @@ export function AttachmentRemove({
 
 export type AttachmentHoverCardProps = ComponentProps<typeof HoverCard>;
 
-export function AttachmentHoverCard({
-  openDelay = 0,
-  closeDelay = 0,
-  ...props
-}: AttachmentHoverCardProps) {
-  return <HoverCard closeDelay={closeDelay} openDelay={openDelay} {...props} />;
+export function AttachmentHoverCard(props: AttachmentHoverCardProps) {
+  return <HoverCard {...props} />;
 }
 
 export type AttachmentHoverCardTriggerProps = ComponentProps<typeof HoverCardTrigger>;

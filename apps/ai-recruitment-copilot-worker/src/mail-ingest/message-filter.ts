@@ -1,5 +1,7 @@
 import { isSupportedResumeDocumentInput } from "@arc/shared/resume-documents";
 
+const JOB_CODE_IN_SUBJECT_PATTERN = /(^|[^A-Za-z0-9])(?<code>[A-Za-z0-9]{7})(?=$|[^A-Za-z0-9])/g;
+
 export interface MailAttachmentLike {
   content: Buffer;
   contentDisposition?: string | false;
@@ -39,6 +41,20 @@ export function isMatchingResumeMailSubject(subject: string | undefined, keyword
   return Boolean(
     normalizedSubject && normalizedKeyword && normalizedSubject.includes(normalizedKeyword),
   );
+}
+
+export function extractJobCodesFromSubject(subject: string | null | undefined): string[] {
+  if (!subject) {
+    return [];
+  }
+  const codes = new Set<string>();
+  for (const match of subject.toUpperCase().matchAll(JOB_CODE_IN_SUBJECT_PATTERN)) {
+    const code = match.groups?.code;
+    if (code) {
+      codes.add(code.toUpperCase());
+    }
+  }
+  return [...codes];
 }
 
 export function selectSupportedResumeAttachments(

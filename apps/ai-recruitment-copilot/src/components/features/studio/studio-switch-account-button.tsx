@@ -1,6 +1,6 @@
 "use client";
 
-import { LoaderCircleIcon, LogOutIcon } from "@/components/icons/hugeicons";
+import { IconLoader2, IconLogout } from "@tabler/icons-react";
 import { useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -29,9 +29,9 @@ export function StudioSwitchAccountButton() {
       variant="outline"
     >
       {isSubmitting ? (
-        <LoaderCircleIcon className="size-4 animate-spin" />
+        <IconLoader2 className="size-4 animate-spin" />
       ) : (
-        <LogOutIcon className="size-4" />
+        <IconLogout className="size-4" />
       )}
       切换账号
     </Button>

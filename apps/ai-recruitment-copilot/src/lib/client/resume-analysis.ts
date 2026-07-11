@@ -7,7 +7,7 @@ import { createDefaultScheduleEntry } from "@arc/db-schema/studio-interviews";
 import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
 import type { ResumeLibraryFormValues } from "@arc/shared/studio-resumes";
 import type { ResumeReview } from "@arc/shared/resume-review";
-import { readNdjsonStream } from "./ndjson-stream";
+import { readAiRunEventStream } from "./ai-run-event-stream";
 import { rpc } from "./rpc";
 
 export interface ParsedResumeResult {
@@ -22,15 +22,18 @@ export interface JobDescriptionMatchResult {
 }
 
 export interface StreamRequestOptions {
+  progress?: boolean;
   signal?: AbortSignal;
   onEvent?: (event: AnalysisStreamEvent) => void;
 }
 
 export interface GenerateResumeReviewOptions {
   jobDescriptionId?: string | null;
+  onEvent?: (event: AnalysisStreamEvent) => void;
   onDraftChange?: (review: string) => void;
   resumeProfile: ResumeProfile;
   signal?: AbortSignal;
+  workspaceSlug: string;
 }
 
 export interface GenerateResumeReviewResult {
@@ -41,17 +44,24 @@ export interface GenerateResumeReviewResult {
 export type ResumeCreateDedupPolicy = "check" | "force";
 
 export async function parseResumeFile(
+  workspaceSlug: string,
   file: File,
   options: StreamRequestOptions = {},
 ): Promise<ParsedResumeResult> {
   const formData = new FormData();
   formData.append("resume", file);
+  if (options.progress) {
+    formData.append("progress", "1");
+  }
 
-  const response = await fetch("/api/interview/parse-resume", {
-    body: formData,
-    method: "POST",
-    signal: options.signal,
-  });
+  const response = await fetch(
+    `/api/w/${encodeURIComponent(workspaceSlug)}/interview/parse-resume`,
+    {
+      body: formData,
+      method: "POST",
+      signal: options.signal,
+    },
+  );
 
   if (!response.ok) {
     const errBody = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -61,15 +71,15 @@ export async function parseResumeFile(
   let result: ParsedResumeResult | null = null;
   let streamError: string | null = null;
 
-  await readNdjsonStream<AnalysisStreamEvent>(
+  await readAiRunEventStream<AnalysisStreamEvent>(
     response,
     (event) => {
       options.onEvent?.(event);
-      if (event.type === "result") {
-        result = event.data as ParsedResumeResult;
+      if (event.type === "run.completed") {
+        result = event.output as ParsedResumeResult;
       }
-      if (event.type === "error") {
-        streamError = event.message;
+      if (event.type === "run.failed") {
+        streamError = event.error.message;
       }
     },
     options.signal,
@@ -87,12 +97,41 @@ export async function parseResumeFile(
 }
 
 export async function matchJobDescriptionForResume(
+  workspaceSlug: string,
   resumeProfile: ResumeProfile,
   options: { signal?: AbortSignal } = {},
 ): Promise<JobDescriptionMatchResult | null> {
-  const response = await rpc.api.interview["match-job-description"].$post(
-    { json: { resumeProfile } },
+  const response = await rpc.api.w[":slug"].interview["match-job-description"].$post(
+    { json: { resumeProfile }, param: { slug: workspaceSlug } },
     { init: { signal: options.signal } },
+  );
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = (await response.json().catch(() => null)) as {
+    matchedId?: string | null;
+    reason?: string | null;
+  } | null;
+
+  return {
+    matchedId: payload?.matchedId ?? null,
+    reason: payload?.reason ?? null,
+  };
+}
+
+export async function matchJobDescriptionForChatAttachment(
+  workspaceSlug: string,
+  attachmentId: string,
+  options: { signal?: AbortSignal } = {},
+): Promise<JobDescriptionMatchResult | null> {
+  const response = await fetch(
+    `/api/w/${workspaceSlug}/chat/attachments/${attachmentId}/match-job-description`,
+    {
+      method: "POST",
+      signal: options.signal,
+    },
   );
 
   if (!response.ok) {
@@ -112,12 +151,17 @@ export async function matchJobDescriptionForResume(
 
 export async function generateResumeReview({
   jobDescriptionId,
+  onEvent,
   onDraftChange,
   resumeProfile,
   signal,
+  workspaceSlug,
 }: GenerateResumeReviewOptions): Promise<GenerateResumeReviewResult | null> {
-  const response = await rpc.api.interview["generate-review"].$post(
-    { json: { jobDescriptionId: jobDescriptionId || null, resumeProfile } },
+  const response = await rpc.api.w[":slug"].interview["generate-review"].$post(
+    {
+      json: { jobDescriptionId: jobDescriptionId || null, resumeProfile },
+      param: { slug: workspaceSlug },
+    },
     { init: { signal } },
   );
 
@@ -130,25 +174,86 @@ export async function generateResumeReview({
   let result: GenerateResumeReviewResult | null = null;
   let streamError: string | null = null;
 
-  await readNdjsonStream<AnalysisStreamEvent>(
+  await readAiRunEventStream<AnalysisStreamEvent>(
     response,
     (event) => {
       if (signal?.aborted) {
         return;
       }
-      if (event.type === "text-delta") {
+      onEvent?.(event);
+      if (event.type === "step.delta") {
         draft += event.text;
         onDraftChange?.(draft);
       }
-      if (event.type === "result") {
-        const data = event.data as Partial<GenerateResumeReviewResult>;
+      if (event.type === "run.completed") {
+        const data = event.output as Partial<GenerateResumeReviewResult>;
         if (data.review && data.structuredReview) {
           result = { review: data.review, structuredReview: data.structuredReview };
           onDraftChange?.(result.review);
         }
       }
-      if (event.type === "error") {
-        streamError = event.message;
+      if (event.type === "run.failed") {
+        streamError = event.error.message;
+      }
+    },
+    signal,
+  );
+
+  if (signal?.aborted) {
+    return null;
+  }
+  if (streamError) {
+    throw new Error(streamError);
+  }
+
+  return result ?? null;
+}
+
+export async function generateResumeReviewMarkdownFirst({
+  jobDescriptionId,
+  onEvent,
+  onDraftChange,
+  resumeProfile,
+  signal,
+  workspaceSlug,
+}: GenerateResumeReviewOptions): Promise<GenerateResumeReviewResult | null> {
+  const response = await rpc.api.w[":slug"].interview["generate-review-markdown-stream"].$post(
+    {
+      json: { jobDescriptionId: jobDescriptionId || null, resumeProfile },
+      param: { slug: workspaceSlug },
+    },
+    { init: { signal } },
+  );
+
+  if (!response.ok) {
+    const errBody = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(errBody?.error ?? "简历评价生成失败");
+  }
+
+  let draft = "";
+  let result: GenerateResumeReviewResult | null = null;
+  let streamError: string | null = null;
+
+  await readAiRunEventStream<AnalysisStreamEvent>(
+    response,
+    (event) => {
+      if (signal?.aborted) {
+        return;
+      }
+      onEvent?.(event);
+      if (event.type === "step.delta") {
+        draft += event.text;
+        onDraftChange?.(draft);
+      }
+      if (event.type === "run.completed") {
+        const data = event.output as Partial<GenerateResumeReviewResult>;
+        if (data.review && data.structuredReview) {
+          result = { review: data.review, structuredReview: data.structuredReview };
+          onDraftChange?.(result.review);
+        }
+      }
+      if (event.type === "run.failed") {
+        streamError = event.error.message;
       }
     },
     signal,
@@ -182,15 +287,20 @@ export function formValuesFromResumeProfile(
   resumeProfile: ResumeProfile,
   overrides: Partial<ResumeLibraryFormValues> = {},
 ): ResumeLibraryFormValues {
-  return {
+  const values = {
     candidateEmail: resumeProfile.email ?? "",
     candidateName: resumeProfile.name || "未命名候选人",
     candidatePhone: resumeProfile.phone ?? "",
+    hrResumeAssessment: "",
     jobDescriptionId: "",
     notes: "",
-    resumeEvaluationStatus: "unreviewed",
+    resumeEvaluationStatus: "unreviewed" as const,
     targetRole: resumeProfile.targetRoles[0] ?? "",
     ...overrides,
+  };
+  return {
+    ...values,
+    hrResumeAssessment: values.hrResumeAssessment ?? "",
   };
 }
 
@@ -232,7 +342,6 @@ export function buildSaveAndStartResumeFormData(
   options: { dedupPolicy?: ResumeCreateDedupPolicy; resumeReview?: ResumeReview | null } = {},
 ): FormData {
   const fd = buildSaveOnlyResumeFormData(value, file, resumePayload, options);
-  fd.append("status", "ready");
   fd.append("scheduleEntries", JSON.stringify([createDefaultScheduleEntry()]));
   return fd;
 }

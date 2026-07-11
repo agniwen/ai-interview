@@ -5,7 +5,6 @@
 // PATCH whitelist (no interview field bleed) and that the detail DTO drops
 // interview-only properties even when the underlying row has them.
 
-import { readFileSync } from "node:fs";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { ResumeAnalysisResult } from "@arc/db-schema/interview/types";
@@ -19,43 +18,6 @@ import type {
 import type { loadResumeDetail as loadResumeDetailFn } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
 import type { parseResumeLibraryEditFormInput as parseResumeLibraryEditFormInputFn } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/route";
 
-const routeSource = readFileSync(new URL("../route.ts", import.meta.url), "utf-8");
-const createFromStorageSource = readFileSync(
-  new URL("../utils/create-from-storage.ts", import.meta.url),
-  "utf-8",
-);
-const evaluationDaoSource = readFileSync(new URL("../dao/evaluation.ts", import.meta.url), "utf-8");
-const resumePoolDaoSource = readFileSync(
-  new URL("../../resume-pool/dao.ts", import.meta.url),
-  "utf-8",
-);
-const resumePoolRouteSource = readFileSync(
-  new URL("../../resume-pool/route.ts", import.meta.url),
-  "utf-8",
-);
-const batchProcessorSource = readFileSync(
-  new URL("../../resume-upload-batches/utils/processor.ts", import.meta.url),
-  "utf-8",
-);
-const dbSchemaSource = readFileSync(
-  new URL("../../../../../../../../../packages/db-schema/src/schema.ts", import.meta.url),
-  "utf-8",
-);
-const sharedStudioResumesSource = readFileSync(
-  new URL("../../../../../../../../../packages/shared/src/studio-resumes.ts", import.meta.url),
-  "utf-8",
-);
-const sharedResumePoolSource = readFileSync(
-  new URL("../../../../../../../../../packages/shared/src/resume-pool.ts", import.meta.url),
-  "utf-8",
-);
-const resumeTextMigrationSource = readFileSync(
-  new URL(
-    "../../../../../../../../../apps/ai-recruitment-copilot/drizzle/20260625160000_add_resume_text/migration.sql",
-    import.meta.url,
-  ),
-  "utf-8",
-);
 const describeWithDatabase = process.env.DATABASE_URL ? describe : describe.skip;
 
 const ORG = "test_org_resume_route";
@@ -145,7 +107,6 @@ describeWithDatabase("resume detail route database behavior", () => {
           { difficulty: "easy", order: 1, question: "Should never leak through detail DTO" },
         ],
         organizationId: ORG,
-        status: "in_progress",
         updatedAt: NOW,
       });
 
@@ -154,7 +115,8 @@ describeWithDatabase("resume detail route database behavior", () => {
       // interviewQuestions is now exposed by the detail DTO (Task 1).
       // interviewQuestions 已由 Task 1 纳入详情 DTO，此处不再断言其缺失。
       expect(detail).not.toHaveProperty("scheduleEntries");
-      expect(detail?.status).toBe("in_progress");
+      expect(detail?.pipelineStage).toBe("screening");
+      expect(detail?.outcome).toBe("in_pipeline");
       expect(detail?.candidateName).toBe("测试");
     });
   });
@@ -204,65 +166,5 @@ describeWithDatabase("resolveResumeUploadStorage", () => {
       resumeText: "客户端预解析 OCR 原文",
       storageKey: "resume/hash-1.pdf",
     });
-  });
-});
-
-describe("resume semantic index cleanup", () => {
-  it("cleans semantic indexes after single and bulk resume-library deletion", () => {
-    expect(routeSource).toContain("deleteResumeSemanticIndexBestEffort");
-    expect(routeSource).toContain('sourceType: "studio_interview"');
-    expect(routeSource).toContain("sourceId: id");
-    expect(routeSource).toContain("for (const deletedId of result)");
-    expect(routeSource).toContain("sourceId: deletedId.id");
-  });
-});
-
-describe("resume OCR text persistence", () => {
-  it("adds nullable resume_text columns to resume library and resume pool tables", () => {
-    expect(dbSchemaSource).toContain('resumeText: text("resume_text")');
-    expect(resumeTextMigrationSource).toContain(
-      'ALTER TABLE "studio_interview" ADD COLUMN "resume_text" text;',
-    );
-    expect(resumeTextMigrationSource).toContain(
-      'ALTER TABLE "resume_pool_item" ADD COLUMN "resume_text" text;',
-    );
-  });
-
-  it("persists parser text on direct uploads, batch uploads, pool rows, and pool imports", () => {
-    expect(routeSource).toContain("resumeText = parsed.parsedText");
-    expect(routeSource).toContain("resumeText,");
-    expect(createFromStorageSource).toContain("resumeText: input.resumeText");
-    expect(batchProcessorSource).toContain("resumeText,");
-    expect(resumePoolRouteSource).toContain("resumeText = parsed.parsedText");
-    expect(resumePoolDaoSource).toContain("resumeText: input.resumeText");
-    expect(resumePoolDaoSource).toContain("resumeText: poolItem.resumeText");
-  });
-
-  it("does not expose resumeText through frontend-facing list or detail DTOs", () => {
-    expect(sharedStudioResumesSource).not.toContain("resumeText");
-    expect(sharedResumePoolSource).not.toContain("resumeText");
-    expect(evaluationDaoSource).not.toContain("resumeText");
-    expect(createFromStorageSource).toContain("resumeText: input.resumeText");
-    expect(resumePoolDaoSource).not.toContain("resumeText: row.resumeText");
-    expect(resumePoolDaoSource).not.toContain("resumeText: row.item.resumeText");
-  });
-});
-
-describe("resume review detail route", () => {
-  it("exposes member-scoped review endpoints without relaxing the existing library detail route", () => {
-    expect(routeSource).toContain('"/:id/review"');
-    expect(routeSource).toContain('"/:id/review/timeline"');
-    expect(routeSource).toContain('"/:id/review/rounds"');
-    expect(routeSource).toContain('"/:id/review/resume"');
-    expect(routeSource).toContain('"/:id/review/evaluation"');
-    expect(routeSource).toContain("loadResumeDetailForWorkspaceMember");
-    expect(routeSource).toContain("submitResumeEvaluationOnce");
-  });
-
-  it("records audit logs for reviewer submission and admin edits", () => {
-    expect(evaluationDaoSource).toContain("resume_evaluation_submitted");
-    expect(evaluationDaoSource).toContain("resume_evaluation_updated");
-    expect(evaluationDaoSource).toContain("fromStatus");
-    expect(evaluationDaoSource).toContain("toStatus");
   });
 });

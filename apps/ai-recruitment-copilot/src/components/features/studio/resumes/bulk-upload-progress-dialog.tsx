@@ -1,12 +1,12 @@
 "use client";
 
 import {
-  CheckCircle2Icon,
-  CircleIcon,
-  LoaderCircleIcon,
-  SkipForwardIcon,
-  XCircleIcon,
-} from "@/components/icons/hugeicons";
+  IconCircle,
+  IconCircleCheck,
+  IconCircleX,
+  IconLoader2,
+  IconPlayerSkipForward,
+} from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -63,18 +63,18 @@ function itemStatusLabel(
 // Renders the appropriate row icon for each item status.
 function ItemIcon({ status }: { status: BulkResumeBatchItemDto["status"] }) {
   if (status === "processing") {
-    return <LoaderCircleIcon className="size-4 animate-spin text-muted-foreground" />;
+    return <IconLoader2 className="size-4 animate-spin text-muted-foreground" />;
   }
   if (status === "succeeded") {
-    return <CheckCircle2Icon className="size-4 text-emerald-500" />;
+    return <IconCircleCheck className="size-4 text-emerald-500" />;
   }
   if (status === "failed") {
-    return <XCircleIcon className="size-4 text-destructive" />;
+    return <IconCircleX className="size-4 text-destructive" />;
   }
   if (status === "duplicate_skipped") {
-    return <SkipForwardIcon className="size-4 text-amber-500" />;
+    return <IconPlayerSkipForward className="size-4 text-amber-500" />;
   }
-  return <CircleIcon className="size-4 text-muted-foreground" />;
+  return <IconCircle className="size-4 text-muted-foreground" />;
 }
 
 function duplicateMatchesText(snapshot: unknown): string | null {
@@ -148,7 +148,7 @@ export function BulkUploadProgressDialog({
       return "正在上传文件…";
     }
     if (phase === "processing") {
-      return target === "resume_pool" ? "正在加入简历广场" : "正在批量入库";
+      return target === "resume_pool" ? "正在加入人才库" : "正在批量入库";
     }
     if (phase === "paused") {
       return "已暂停";

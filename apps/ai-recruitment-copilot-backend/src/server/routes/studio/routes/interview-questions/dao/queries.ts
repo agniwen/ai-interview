@@ -449,6 +449,8 @@ export function mapQuestionRow(
     content: row.content,
     createdAt: serializeDate(row.createdAt),
     difficulty: row.difficulty,
+    evaluationFocus: row.evaluationFocus,
+    followUpDirections: row.followUpDirections,
     id: row.id,
     sortOrder: row.sortOrder,
     templateId: row.templateId,

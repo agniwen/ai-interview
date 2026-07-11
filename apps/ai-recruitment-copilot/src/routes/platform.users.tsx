@@ -57,7 +57,9 @@ function PlatformUsersRoute() {
 
   return (
     <HydrationBoundary state={state.dehydratedState as unknown as DehydratedState}>
-      <UsersGrid />
+      <div className="container mx-auto">
+        <UsersGrid />
+      </div>
     </HydrationBoundary>
   );
 }

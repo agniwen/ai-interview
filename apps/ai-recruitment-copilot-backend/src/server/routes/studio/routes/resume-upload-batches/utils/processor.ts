@@ -8,11 +8,9 @@ import {
 } from "@arc/db-schema/schema";
 import type { ProcessNextResult } from "@arc/shared/bulk-resume-upload";
 import { getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
-import {
-  generateResumeReview,
-  parseResumeBytesToProfile,
-} from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
+import { parseResumeBytesToProfile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import type { ResumeReviewGenerationResult } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
+import type { ResumeScreeningResult } from "@arc/shared/resume-screening";
 import { isResumeParseCacheEnabled } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-cache-policy";
 import {
   claimNextPendingItem,
@@ -28,10 +26,7 @@ import {
   findAttachmentByStorageKey,
   updateParseResultByHash,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments";
-import {
-  listAllJobDescriptions,
-  loadJobDescriptionById,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import { listAllJobDescriptions } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import {
   createResumePoolItem,
   markResumePoolItemParsed,
@@ -40,6 +35,19 @@ import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backe
 import { syncResumeSkills } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
+import { replaceDuplicateMatchesForSource } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
+import { generateResumeReviewBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-generation";
+import { completeResumePoolReadinessWithDefaultAdapters } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/utils/readiness";
+import {
+  BatchItemCancelledError,
+  assertBatchItemNotCancelled,
+  getClaimMissRetryError,
+  isBatchItemCancelled,
+  isBatchItemCancelledError,
+  loadClaimMissSnapshot,
+} from "./processor-claims";
+
+export { getClaimMissRetryError } from "./processor-claims";
 
 const ERROR_MESSAGE_MAX = 500;
 
@@ -61,78 +69,7 @@ function elapsed(startedAt: number): number {
 type ItemRow = Awaited<ReturnType<typeof claimNextPendingItem>>;
 type BatchRow = typeof resumeUploadBatch.$inferSelect;
 type ParsedResume = Awaited<ReturnType<typeof parseResumeBytesToProfile>>;
-
-class BatchItemCancelledError extends Error {
-  readonly batchId: string;
-  readonly itemId: string;
-
-  constructor(batchId: string, itemId: string) {
-    super("简历上传任务已取消。");
-    this.name = "BatchItemCancelledError";
-    this.batchId = batchId;
-    this.itemId = itemId;
-  }
-}
-
-async function loadClaimMissSnapshot(itemId: string) {
-  const [row] = await db
-    .select({
-      batchId: resumeUploadBatchItem.batchId,
-      startedAt: resumeUploadBatchItem.startedAt,
-      status: resumeUploadBatchItem.status,
-    })
-    .from(resumeUploadBatchItem)
-    .where(eq(resumeUploadBatchItem.id, itemId))
-    .limit(1);
-  return row ?? null;
-}
-
-async function isBatchItemCancelled(batchId: string, itemId: string): Promise<boolean> {
-  const [row] = await db
-    .select({
-      batchStatus: resumeUploadBatch.status,
-      itemStatus: resumeUploadBatchItem.status,
-    })
-    .from(resumeUploadBatchItem)
-    .innerJoin(resumeUploadBatch, eq(resumeUploadBatch.id, resumeUploadBatchItem.batchId))
-    .where(and(eq(resumeUploadBatchItem.id, itemId), eq(resumeUploadBatchItem.batchId, batchId)))
-    .limit(1);
-  return !row || row.batchStatus === "cancelled" || row.itemStatus === "cancelled";
-}
-
-async function assertBatchItemNotCancelled(batchId: string, itemId: string): Promise<void> {
-  if (await isBatchItemCancelled(batchId, itemId)) {
-    throw new BatchItemCancelledError(batchId, itemId);
-  }
-}
-
-type ClaimMissSnapshot = {
-  batchId: string;
-  startedAt: Date | null;
-  status: string;
-} | null;
-
-const CLAIM_MISS_NOOP_STATUSES = new Set([
-  "cancelled",
-  "duplicate_skipped",
-  "failed",
-  "processing",
-  "succeeded",
-]);
-
-export function getClaimMissRetryError(snapshot: ClaimMissSnapshot, itemId: string): Error | null {
-  if (!snapshot) {
-    return new Error(
-      `简历解析任务 ${itemId} 未找到对应上传项；请检查 worker 的 DATABASE_URL 是否与 Web/API 一致。`,
-    );
-  }
-  if (CLAIM_MISS_NOOP_STATUSES.has(snapshot.status)) {
-    return null;
-  }
-  return new Error(
-    `简历解析任务 ${itemId} 未能 claim 上传项（当前状态：${snapshot.status}），将交由队列重试。`,
-  );
-}
+type DuplicateMatches = Awaited<ReturnType<typeof findSemanticResumeDuplicates>>;
 
 // 拿到 resumeProfile 的两条路径：
 //   1) 命中注册表 → 投影 parsedStructured（零额外调用）
@@ -206,6 +143,7 @@ async function upsertParsedResumeRecord({
   notes,
   organizationId,
   resumeReview,
+  resumeScreeningResult,
   resumeProfile,
   resumeText,
   userId,
@@ -215,6 +153,7 @@ async function upsertParsedResumeRecord({
   notes: string | null;
   organizationId: string;
   resumeReview: ResumeReviewGenerationResult["structuredReview"] | null;
+  resumeScreeningResult: ResumeScreeningResult | null;
   resumeProfile: ParsedResume["resumeProfile"];
   resumeText: string | null;
   userId: string;
@@ -236,6 +175,11 @@ async function upsertParsedResumeRecord({
       resumeFileName: item.originalFileName,
       resumeProfile,
       resumeReview,
+      resumeReviewError: resumeReview ? null : "AI 分析生成失败。",
+      resumeReviewStatus: resumeReview ? "ready" : "failed",
+      resumeScreeningError: resumeScreeningResult ? null : "AI 分析生成失败。",
+      resumeScreeningResult,
+      resumeScreeningStatus: resumeScreeningResult ? "ready" : "failed",
       resumeText,
       storageKey: item.storageKey,
       targetRole: null,
@@ -267,6 +211,13 @@ async function upsertParsedResumeRecord({
         resumeParsedAt: now,
         resumeProfile,
         resumeReview,
+        resumeReviewError: resumeReview ? null : "AI 分析生成失败。",
+        resumeReviewGeneratedAt: resumeReview ? now : null,
+        resumeReviewStatus: resumeReview ? "ready" : "failed",
+        resumeScreeningError: resumeScreeningResult ? null : "AI 分析生成失败。",
+        resumeScreeningEvaluatedAt: resumeScreeningResult ? now : null,
+        resumeScreeningResult,
+        resumeScreeningStatus: resumeScreeningResult ? "ready" : "failed",
         resumeStorageKey: item.storageKey,
         resumeText,
         targetRole: resumeProfile?.targetRoles?.[0] ?? null,
@@ -289,52 +240,35 @@ async function upsertParsedResumeRecord({
   return recordId;
 }
 
-async function buildJobDescriptionReviewContext(
-  organizationId: string,
-  jobDescriptionId: string | null,
-): Promise<string | null> {
-  if (!jobDescriptionId) {
-    return null;
-  }
-  const jd = await loadJobDescriptionById(organizationId, jobDescriptionId);
-  if (!jd) {
-    return null;
-  }
-  return [
-    `岗位名称：${jd.name}`,
-    jd.description ? `岗位描述：${jd.description}` : null,
-    `岗位 Prompt：\n${jd.prompt}`,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-}
-
 async function generateReviewForParsedResume(input: {
   itemId: string;
   jobDescriptionId: string | null;
   organizationId: string;
   resumeProfile: ParsedResume["resumeProfile"];
-}): Promise<ResumeReviewGenerationResult | null> {
+  resumeText: string | null;
+}): Promise<(ResumeReviewGenerationResult & { screeningResult: ResumeScreeningResult }) | null> {
   try {
     const startedAt = Date.now();
     logStep("review.generate.start", {
       hasJobDescription: Boolean(input.jobDescriptionId),
       itemId: input.itemId,
     });
-    const jobDescription = await buildJobDescriptionReviewContext(
-      input.organizationId,
-      input.jobDescriptionId,
-    );
-    const review = await generateResumeReview({
-      jobDescription,
+    const review = await generateResumeReviewBestEffort({
+      jobDescriptionId: input.jobDescriptionId,
+      logPrefix: "[bulk-upload]",
+      organizationId: input.organizationId,
       resumeProfile: input.resumeProfile,
+      resumeText: input.resumeText,
     });
+    if (!review) {
+      return null;
+    }
     logStep("review.generate.done", {
       durationMs: elapsed(startedAt),
       itemId: input.itemId,
       reviewChars: review.review.length,
     });
-    return review.review ? review : null;
+    return review;
   } catch (error) {
     console.error("[bulk-upload] resume review generation failed:", error);
     logStep("review.generate.error", {
@@ -345,34 +279,72 @@ async function generateReviewForParsedResume(input: {
   }
 }
 
-async function findDuplicateSkipSnapshot(input: {
+async function resolveJobDescriptionId(input: {
   batchRow: BatchRow;
   itemId: string;
   organizationId: string;
   resumeProfile: ParsedResume["resumeProfile"];
-}) {
-  const shouldSkipDuplicates =
-    input.batchRow.dedupPolicy === "skip" &&
-    (input.batchRow.target !== "resume_pool" || input.batchRow.resumePoolScope === "private");
-  if (!shouldSkipDuplicates) {
+}): Promise<string | null> {
+  if (input.batchRow.jdMode === "bind") {
+    return input.batchRow.jobDescriptionId;
+  }
+  if (input.batchRow.jdMode !== "auto" || !input.resumeProfile) {
     return null;
   }
+  try {
+    const jdStartedAt = Date.now();
+    logStep("jd.match.start", { itemId: input.itemId });
+    const jds = await listAllJobDescriptions(input.organizationId);
+    const match = await matchJobDescriptionForResume(input.resumeProfile, jds);
+    const jobDescriptionId = match?.jobDescriptionId ?? null;
+    await assertBatchItemNotCancelled(input.batchRow.id, input.itemId);
+    logStep("jd.match.done", {
+      candidateCount: jds.length,
+      durationMs: elapsed(jdStartedAt),
+      itemId: input.itemId,
+      matched: Boolean(jobDescriptionId),
+    });
+    return jobDescriptionId;
+  } catch (error) {
+    if (error instanceof BatchItemCancelledError) {
+      throw error;
+    }
+    // 自动匹配失败不算致命错误：简历仍然入库，只是不绑定岗位。
+    // Auto-match failure is non-fatal: the resume still gets imported, just without a JD.
+    console.error("[bulk-upload] auto JD match failed:", error);
+    return null;
+  }
+}
 
+async function findDuplicateMatches(input: {
+  batchRow: BatchRow;
+  itemId: string;
+  organizationId: string;
+  resumeProfile: ParsedResume["resumeProfile"];
+  userId: string;
+}): Promise<DuplicateMatches> {
   const dedupStartedAt = Date.now();
   logStep("dedup.start", { itemId: input.itemId });
+  const shouldIncludePrivatePool =
+    input.batchRow.target === "resume_pool" && input.batchRow.resumePoolScope === "private";
   const matches = await findSemanticResumeDuplicates({
     email: input.resumeProfile?.email ?? null,
     name: input.resumeProfile?.name ?? null,
     organizationId: input.organizationId,
     phone: input.resumeProfile?.phone ?? null,
+    poolOwnerUserId: shouldIncludePrivatePool ? input.userId : undefined,
+    poolScope: shouldIncludePrivatePool ? "private" : undefined,
     resumeProfile: input.resumeProfile,
+    sourceTypes: shouldIncludePrivatePool
+      ? ["studio_interview", "resume_pool_item"]
+      : ["studio_interview"],
   });
   logStep("dedup.done", {
     durationMs: elapsed(dedupStartedAt),
     itemId: input.itemId,
     matchCount: matches.length,
   });
-  return matches.length > 0 ? matches : null;
+  return matches;
 }
 
 // S3 から PDF を取得してパースし、作成すべき studio_interview の情報を返す。
@@ -383,10 +355,9 @@ async function fetchAndParse(
   organizationId: string,
   userId: string,
 ): Promise<{
+  duplicateMatches: DuplicateMatches;
   succeededPoolItemId: string | null;
   succeededRecordId: string | null;
-  dedupSnapshot: unknown;
-  isDuplicateSkip: boolean;
 }> {
   if (!item.storageKey || item.storageKey.length === 0) {
     // 防御性检查：理论上 Zod + chat_attachment notNull 都已校验，但兜底一次
@@ -400,21 +371,32 @@ async function fetchAndParse(
   const { resumeProfile, resumeText } = await resolveResumeProfile(item);
   await assertBatchItemNotCancelled(batchRow.id, item.id);
 
-  const dedupSnapshot = await findDuplicateSkipSnapshot({
+  const duplicateMatches = await findDuplicateMatches({
+    batchRow,
+    itemId: item.id,
+    organizationId,
+    resumeProfile,
+    userId,
+  });
+  await assertBatchItemNotCancelled(batchRow.id, item.id);
+
+  const jobDescriptionId = await resolveJobDescriptionId({
     batchRow,
     itemId: item.id,
     organizationId,
     resumeProfile,
   });
+  const shouldGenerateReview = batchRow.target !== "resume_pool" || Boolean(jobDescriptionId);
+  const reviewResult = shouldGenerateReview
+    ? await generateReviewForParsedResume({
+        itemId: item.id,
+        jobDescriptionId,
+        organizationId,
+        resumeProfile,
+        resumeText,
+      })
+    : null;
   await assertBatchItemNotCancelled(batchRow.id, item.id);
-  if (dedupSnapshot) {
-    return {
-      dedupSnapshot,
-      isDuplicateSkip: true,
-      succeededPoolItemId: null,
-      succeededRecordId: null,
-    };
-  }
 
   if (batchRow.target === "resume_pool") {
     let { poolItemId } = item;
@@ -422,8 +404,11 @@ async function fetchAndParse(
     if (poolItemId) {
       await markResumePoolItemParsed({
         actorId: userId,
+        jobDescriptionId,
+        notes: reviewResult?.review ?? null,
         organizationId,
         poolItemId,
+        resumeParseStatus: "processing",
         resumeProfile,
         resumeText,
       });
@@ -434,10 +419,11 @@ async function fetchAndParse(
         candidatePhone: null,
         contentHash: item.contentHash,
         createdBy: userId,
-        jobDescriptionId: batchRow.jdMode === "bind" ? batchRow.jobDescriptionId : null,
-        notes: null,
+        jobDescriptionId,
+        notes: reviewResult?.review ?? null,
         organizationId,
         resumeFileName: item.originalFileName,
+        resumeParseStatus: "processing",
         resumeProfile,
         resumeText,
         scope: batchRow.resumePoolScope ?? "private",
@@ -445,61 +431,18 @@ async function fetchAndParse(
         targetRole: null,
       });
     }
+    await completeResumePoolReadinessWithDefaultAdapters({
+      duplicateMatches,
+      organizationId,
+      poolItemId,
+    });
     return {
-      dedupSnapshot: null,
-      isDuplicateSkip: false,
+      duplicateMatches,
       succeededPoolItemId: poolItemId,
       succeededRecordId: null,
     };
   }
 
-  // jdMode 分支：
-  //   "bind" → 直接用 batch.jobDescriptionId
-  //   "auto" → 复用已解析的 resumeProfile + 全部在招岗位，调用 matchJobDescriptionForResume
-  //            agent 选一个最匹配的；只有 0 个候选岗位或 agent 无匹配时回退到 null
-  //   "none" → 不绑定
-  // 注意：auto 路径不会重新解析 PDF，沿用上面 parseResumeFastToProfile 的结果。
-  //
-  // jdMode dispatch:
-  //   "bind" → use batch.jobDescriptionId verbatim
-  //   "auto" → reuse the already-parsed resumeProfile to run the JD-match agent
-  //            against this org's JD list; falls back to null when there are no
-  //            JDs or the agent returns no match
-  //   "none" → no JD binding
-  // The auto path does NOT re-parse the PDF — it reuses the profile parsed above.
-  let jobDescriptionId: string | null = null;
-  if (batchRow.jdMode === "bind") {
-    ({ jobDescriptionId } = batchRow);
-  } else if (batchRow.jdMode === "auto" && resumeProfile) {
-    try {
-      const jdStartedAt = Date.now();
-      logStep("jd.match.start", { itemId: item.id });
-      const jds = await listAllJobDescriptions(organizationId);
-      const match = await matchJobDescriptionForResume(resumeProfile, jds);
-      jobDescriptionId = match?.jobDescriptionId ?? null;
-      await assertBatchItemNotCancelled(batchRow.id, item.id);
-      logStep("jd.match.done", {
-        candidateCount: jds.length,
-        durationMs: elapsed(jdStartedAt),
-        itemId: item.id,
-        matched: Boolean(jobDescriptionId),
-      });
-    } catch (error) {
-      if (error instanceof BatchItemCancelledError) {
-        throw error;
-      }
-      // 自动匹配失败不算致命错误：简历仍然入库，只是不绑定岗位。
-      // Auto-match failure is non-fatal: the resume still gets imported, just without a JD.
-      console.error("[bulk-upload] auto JD match failed:", error);
-    }
-  }
-  const reviewResult = await generateReviewForParsedResume({
-    itemId: item.id,
-    jobDescriptionId,
-    organizationId,
-    resumeProfile,
-  });
-  await assertBatchItemNotCancelled(batchRow.id, item.id);
   const succeededRecordId = await upsertParsedResumeRecord({
     item,
     jobDescriptionId,
@@ -507,12 +450,18 @@ async function fetchAndParse(
     organizationId,
     resumeProfile,
     resumeReview: reviewResult?.structuredReview ?? null,
+    resumeScreeningResult: reviewResult?.screeningResult ?? null,
     resumeText,
     userId,
   });
+  await replaceDuplicateMatchesForSource({
+    matches: duplicateMatches,
+    organizationId,
+    sourceId: succeededRecordId,
+    sourceType: "studio_interview",
+  });
   return {
-    dedupSnapshot: null,
-    isDuplicateSkip: false,
+    duplicateMatches,
     succeededPoolItemId: null,
     succeededRecordId,
   };
@@ -524,9 +473,7 @@ async function writeOutcome(
   item: NonNullable<ItemRow>,
   batchId: string,
   outcome: {
-    dedupSnapshot: unknown;
     errorMessage: string | null;
-    isDuplicateSkip: boolean;
     succeededPoolItemId: string | null;
     succeededRecordId: string | null;
   },
@@ -535,8 +482,6 @@ async function writeOutcome(
   let outcomeStatus = "succeeded";
   if (outcome.errorMessage) {
     outcomeStatus = "failed";
-  } else if (outcome.isDuplicateSkip) {
-    outcomeStatus = "duplicate_skipped";
   }
   logStep("outcome.write.start", {
     batchId,
@@ -570,23 +515,6 @@ async function writeOutcome(
         .update(resumeUploadBatchItem)
         .set({ errorMessage: outcome.errorMessage, finishedAt: now, status: "failed" })
         .where(eq(resumeUploadBatchItem.id, item.id));
-    } else if (outcome.isDuplicateSkip) {
-      if (item.resumeRecordId) {
-        await tx.delete(studioInterview).where(eq(studioInterview.id, item.resumeRecordId));
-      }
-      if (item.poolItemId) {
-        await tx.delete(resumePoolItem).where(eq(resumePoolItem.id, item.poolItemId));
-      }
-      await tx
-        .update(resumeUploadBatchItem)
-        .set({
-          dedupMatchSnapshot: outcome.dedupSnapshot as never,
-          finishedAt: now,
-          poolItemId: null,
-          resumeRecordId: null,
-          status: "duplicate_skipped",
-        })
-        .where(eq(resumeUploadBatchItem.id, item.id));
     } else {
       await tx
         .update(resumeUploadBatchItem)
@@ -618,6 +546,10 @@ async function writeOutcome(
   });
 }
 
+function isTerminalBatchStatus(status: string): boolean {
+  return status === "completed" || status === "cancelled";
+}
+
 async function loadCancelledProcessResult(
   item: NonNullable<ItemRow>,
   batchRow: BatchRow,
@@ -637,7 +569,7 @@ async function loadCancelledProcessResult(
   });
   return {
     batch: detail.batch,
-    done: detail.batch.status === "completed" || detail.batch.status === "cancelled",
+    done: isTerminalBatchStatus(detail.batch.status),
     item: updatedItem,
   };
 }
@@ -654,15 +586,11 @@ async function processClaimedItem(
     target: batchRow.target,
   });
   let outcome: {
-    dedupSnapshot: unknown;
     errorMessage: string | null;
-    isDuplicateSkip: boolean;
     succeededPoolItemId: string | null;
     succeededRecordId: string | null;
   } = {
-    dedupSnapshot: null,
     errorMessage: null,
-    isDuplicateSkip: false,
     succeededPoolItemId: null,
     succeededRecordId: null,
   };
@@ -672,7 +600,7 @@ async function processClaimedItem(
     await assertBatchItemNotCancelled(batchRow.id, item.id);
     outcome = { ...outcome, ...result };
   } catch (error) {
-    if (error instanceof BatchItemCancelledError) {
+    if (isBatchItemCancelledError(error)) {
       return loadCancelledProcessResult(item, batchRow, startedAt);
     }
     outcome.errorMessage = truncate(error instanceof Error ? error.message : String(error));
@@ -683,13 +611,18 @@ async function processClaimedItem(
     });
   }
 
+  // Cancel can land after parse/error handling but before outcome write — never
+  // overwrite cancelled items with succeeded/failed, and signal the worker to stop.
+  if (await isBatchItemCancelled(batchRow.id, item.id)) {
+    return loadCancelledProcessResult(item, batchRow, startedAt);
+  }
+
   await writeOutcome(item, batchRow.id, outcome);
-  const indexedSourceId = outcome.succeededRecordId ?? outcome.succeededPoolItemId;
-  if (!(outcome.errorMessage || indexedSourceId === null)) {
+  if (!(outcome.errorMessage || outcome.succeededRecordId === null)) {
     await enqueueResumeSemanticIndexJobBestEffort({
       organizationId: batchRow.organizationId,
-      sourceId: indexedSourceId,
-      sourceType: outcome.succeededRecordId ? "studio_interview" : "resume_pool_item",
+      sourceId: outcome.succeededRecordId,
+      sourceType: "studio_interview",
     });
   }
 
@@ -709,7 +642,8 @@ async function processClaimedItem(
   });
   return {
     batch: detail.batch,
-    done: detail.batch.status === "completed",
+    // cancelled batches are also terminal — worker must not keep polling items.
+    done: isTerminalBatchStatus(detail.batch.status),
     item: updatedItem,
   };
 }
@@ -816,7 +750,11 @@ export async function processNextItem(
       const fresh = await loadBatchDetail(batchId, organizationId, userId);
       return { batch: fresh?.batch ?? detail.batch, done: true, item: null };
     }
-    return { batch: detail.batch, done: detail.batch.status === "completed", item: null };
+    return {
+      batch: detail.batch,
+      done: isTerminalBatchStatus(detail.batch.status),
+      item: null,
+    };
   }
 
   return processClaimedItem(claimed.item, claimed.batchRow);

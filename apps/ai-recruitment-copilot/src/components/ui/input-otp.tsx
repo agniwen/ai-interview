@@ -1,7 +1,8 @@
 "use client";
 
+import { IconMinus } from "@tabler/icons-react";
 import { OTPInput, OTPInputContext } from "input-otp";
-import { MinusIcon } from "@/components/icons/hugeicons";
+
 import * as React from "react";
 
 import { cossControlOverlayClass } from "@/components/ui/coss-style";
@@ -64,7 +65,7 @@ function InputOTPSlot({
 function InputOTPSeparator({ ...props }: React.ComponentProps<"div">) {
   return (
     <div data-slot="input-otp-separator" role="separator" {...props}>
-      <MinusIcon />
+      <IconMinus />
     </div>
   );
 }

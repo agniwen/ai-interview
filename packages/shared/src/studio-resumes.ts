@@ -1,10 +1,12 @@
 import { z } from "zod";
 import type { ResumeAnalysisResult, ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ResumeReview } from "@arc/db-schema/resume-review";
+import type { ResumeDuplicateMatchSummary } from "./resume-duplicates";
 import {
   resumeEvaluationStatusMeta,
   resumeEvaluationStatusSchema,
   resumeParseStatusMeta,
+  resumeReviewStatusMeta,
 } from "@arc/db-schema/studio-interviews";
 import type {
   CandidateExpectationsMeta,
@@ -16,9 +18,11 @@ import type {
   PipelineStage,
   ResumeEvaluationStatus,
   ResumeParseStatus,
+  ResumeReviewStatus,
+  ResumeScreeningStatus,
   ScheduleEntryStatus,
-  StudioInterviewStatus,
 } from "@arc/db-schema/studio-interviews";
+import type { ResumeScreeningResult } from "./resume-screening";
 
 /**
  * AI 面试阶段的派生进度：从 studio_interview_schedule 聚合。
@@ -44,6 +48,7 @@ export interface AiInterviewProgress {
 export interface HumanInterviewProgress {
   totalRounds: number;
   completedRounds: number;
+  completedRoundsMissingFeedback: number;
   passedRounds: number;
   failedRounds: number;
   activeRound: {
@@ -85,8 +90,21 @@ export interface ResumeStageProgress {
   offer: OfferProgress | null;
 }
 
+export interface ResumeLibraryProfileSnapshotLine {
+  period: string | null;
+  primary: string;
+  secondary: string | null;
+}
+
+export interface ResumeLibraryProfileSnapshot {
+  education: ResumeLibraryProfileSnapshotLine[];
+  educationHasMore: boolean;
+  work: ResumeLibraryProfileSnapshotLine[];
+  workHasMore: boolean;
+}
+
 /**
- * 简历库列表行 DTO。AI 面试列表的精简投影：去掉 status / interviewQuestions /
+ * 招聘台列表行 DTO。AI 面试列表的精简投影：去掉 status / interviewQuestions /
  * scheduleEntries 等面试态字段，只保留候选人 / 简历 / 创建者维度。
  *
  * Resume library list row. A trimmed projection of the interview list — interview
@@ -100,27 +118,35 @@ export interface ResumeLibraryListRecord {
   candidatePhone: string | null;
   targetRole: string | null;
   notes: string | null;
+  hrResumeAssessment: string | null;
+  hrResumeAssessmentUpdatedAt: string | null;
+  hrResumeAssessmentUpdatedBy: string | null;
   jobDescriptionId: string | null;
   jobDescriptionDepartmentName: string | null;
   jobDescriptionName: string | null;
   resumeFileName: string | null;
   resumeContentHash: string | null;
   resumeEvaluationStatus: ResumeEvaluationStatus | null;
-  resumeReview: ResumeReview | null;
+  resumeReviewError: string | null;
+  resumeReviewGeneratedAt: string | null;
+  resumeReviewQueuedAt: string | null;
+  resumeReviewStatus: ResumeReviewStatus;
+  resumeScreeningError: string | null;
+  resumeScreeningEvaluatedAt: string | null;
+  resumeScreeningResult: ResumeScreeningResult | null;
+  resumeScreeningStatus: ResumeScreeningStatus;
+  resumeScreeningStale: boolean;
+  resumeSummary: string | null;
   resumeParsedAt: string | null;
   resumeParseError: string | null;
   resumeParseStatus: ResumeParseStatus;
+  resumeSkills: string[];
+  resumeProfileSnapshot: ResumeLibraryProfileSnapshot;
   hasResumeFile: boolean;
+  duplicateMatch: ResumeDuplicateMatchSummary | null;
   // 是否已存在至少一个 AI 面试轮次（studioInterviewSchedule）。
   // Whether this candidate already has at least one AI interview round.
   hasInterviewRounds: boolean;
-  /**
-   * @deprecated Use `pipelineStage` + `outcome` + `stageProgress` instead.
-   * 仍然返回是因为线上旧代码可能读取；新代码请不要消费。
-   * Returned for backwards compatibility with prod code; new consumers must
-   * not read this field.
-   */
-  status: StudioInterviewStatus;
   // 候选人所在 pipeline 阶段（screening / written_test / ai_interview /
   // human_interview / offer / closed）。
   pipelineStage: PipelineStage;
@@ -158,13 +184,14 @@ export interface ResumeLibraryListRecord {
 }
 
 /**
- * 单条详情 DTO：列表字段 + resumeProfile 结构化简历 + interviewQuestions。
+ * 单条详情 DTO：列表字段 + interviewQuestions。
  *
- * Detail DTO: list fields plus the structured `resumeProfile` and any
- * `interviewQuestions` generated during upload (may be empty for legacy rows).
+ * Detail DTO: list fields plus any `interviewQuestions` generated during upload
+ * (may be empty for legacy rows).
  */
 export interface ResumeLibraryDetail extends ResumeLibraryListRecord {
   resumeProfile: ResumeProfile | null;
+  resumeReview: ResumeReview | null;
   interviewQuestions: ResumeAnalysisResult["interviewQuestions"];
 }
 
@@ -254,7 +281,7 @@ function describeOffer(p: OfferProgress | null): Description {
 
 /**
  * 把（pipelineStage, outcome, stageProgress）一句话翻译成 UI 想展示的进度文本 + tone。
- * 单一来源——简历库列表、详情面板、卡片视图都从这里拿，避免文案各处分叉。
+ * 单一来源——招聘台列表、详情面板、卡片视图都从这里拿，避免文案各处分叉。
  *
  * Reduce (pipelineStage, outcome, stageProgress) to a single display string +
  * tone for the resume library "面试进度" cell, detail panel, and elsewhere.
@@ -263,13 +290,20 @@ export function describeResumeProgress(record: {
   pipelineStage: PipelineStage;
   outcome: CandidateOutcome;
   resumeParseStatus?: ResumeParseStatus;
+  resumeReviewStatus?: ResumeReviewStatus;
   stageProgress: ResumeStageProgress;
 }): { label: string; tone: "success" | "warning" | "info" | "outline" } {
-  const { pipelineStage, outcome, resumeParseStatus, stageProgress } = record;
+  const { pipelineStage, outcome, resumeParseStatus, resumeReviewStatus, stageProgress } = record;
 
   if (resumeParseStatus && resumeParseStatus !== "ready") {
     const meta = resumeParseStatusMeta[resumeParseStatus];
     return { label: meta.label, tone: meta.tone };
+  }
+  if (
+    pipelineStage === "screening" &&
+    (resumeReviewStatus === "queued" || resumeReviewStatus === "processing")
+  ) {
+    return { label: "简历筛选 · 分析中", tone: "warning" };
   }
 
   // closed 阶段：用 outcome 决定标签和色调。
@@ -323,6 +357,10 @@ export interface PaginatedResumeLibraryResult {
   totalPages: number;
 }
 
+export const RESUME_LIBRARY_INFINITE_PAGE_SIZE = 20;
+export const resumeLibrarySortIds = ["createdAt", "candidateName", "updatedAt"] as const;
+export type ResumeLibrarySortId = (typeof resumeLibrarySortIds)[number];
+
 export function canEditResumeRecord(status: ResumeParseStatus): boolean {
   return status === "ready";
 }
@@ -369,6 +407,10 @@ export function describeResumeEvaluationStatus(status: ResumeEvaluationStatus | 
   return resumeEvaluationStatusMeta[status];
 }
 
+export function describeResumeReviewStatus(status: ResumeReviewStatus) {
+  return resumeReviewStatusMeta[status];
+}
+
 export type CandidateTimelineEventKind =
   | "candidate"
   | "stage"
@@ -401,6 +443,7 @@ export interface CandidateTimelineEvent {
   description: string | null;
   occurredAt: string;
   actorName: string | null;
+  actorImage: string | null;
   metadata: CandidateTimelineEventMeta[];
 }
 
@@ -436,6 +479,7 @@ export const resumeLibraryFormSchema = z.object({
     }),
   candidateName: z.string().trim().max(120, "候选人姓名不能超过 120 个字符"),
   candidatePhone: z.string().trim().max(40, "联系电话不能超过 40 个字符"),
+  hrResumeAssessment: z.string().trim().max(2000, "HR 评价不能超过 2000 字"),
   jobDescriptionId: z.string().trim().min(1, "请选择关联在招岗位").max(100, "关联在招岗位无效"),
   notes: z.string().trim().max(2000, "备注不能超过 2000 字"),
   resumeEvaluationStatus: resumeEvaluationStatusFormValueSchema,
@@ -457,6 +501,7 @@ export function createResumeLibraryFormValues(): ResumeLibraryFormValues {
     candidateEmail: "",
     candidateName: "",
     candidatePhone: "",
+    hrResumeAssessment: "",
     jobDescriptionId: "",
     notes: "",
     resumeEvaluationStatus: "unreviewed",
@@ -465,7 +510,7 @@ export function createResumeLibraryFormValues(): ResumeLibraryFormValues {
 }
 
 /**
- * 简历库页头部 chart 的聚合数据。
+ * 招聘台页头部 chart 的聚合数据。
  * - byPipeline：按 pipelineStage × outcome 分组的候选人数；outcome='archived' 排除。
  * - dailyAdded：近 30 天每日新增；服务端只返回有数据的日期，零填充由客户端补。
  * - conversion：是否已发起 AI 面试的对比（archived 排除）。

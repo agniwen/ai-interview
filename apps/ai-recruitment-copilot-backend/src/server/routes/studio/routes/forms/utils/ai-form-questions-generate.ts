@@ -1,12 +1,13 @@
-import { generateObject } from "ai";
 import { z } from "zod";
 import {
   candidateFormQuestionTypeSchema,
   DEFAULT_DISPLAY_MODE,
 } from "@arc/db-schema/candidate-forms";
 import type { CandidateFormQuestionInput } from "@arc/db-schema/candidate-forms";
-import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
-import { createAlibabaProvider } from "@arc/ai-recruitment-copilot-backend/server/agents/provider";
+import {
+  formQuestionAgent,
+  generateStructuredWithMastraAgent,
+} from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
 import {
   formatCandidatesLabel,
   formatCandidatesResumeContext,
@@ -119,9 +120,6 @@ export async function generateFormQuestionsFromPrompt(options: {
   templateDescription: string | null;
   templateTitle: string;
 }): Promise<CandidateFormQuestionInput[]> {
-  const provider = createAlibabaProvider({ enableThinking: false });
-  const modelId = getRequiredEnv("ALIBABA_STRUCTURED_MODEL");
-
   const candidateContext = formatCandidatesLabel(options.candidates);
 
   const prompt = FORM_QUESTIONS_PROMPT.replace("{hrPrompt}", options.hrPrompt.trim())
@@ -133,12 +131,12 @@ export async function generateFormQuestionsFromPrompt(options: {
 
   let object: z.infer<typeof generationSchema>;
   try {
-    ({ object } = await generateObject({
-      model: provider(modelId),
+    object = await generateStructuredWithMastraAgent({
+      agent: formQuestionAgent,
       prompt,
       schema: generationSchema,
       temperature: 0.3,
-    }));
+    });
   } catch (error) {
     if (error instanceof Error && error.message.includes("did not match schema")) {
       throw new Error("AI 生成的题目数量或格式不符合要求，请调整指令（最多 25 道题）后重试。", {

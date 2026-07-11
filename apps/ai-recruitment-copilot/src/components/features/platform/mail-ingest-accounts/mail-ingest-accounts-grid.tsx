@@ -1,7 +1,8 @@
 "use client";
 
+import { IconBuilding, IconInbox } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Building2Icon, InboxIcon } from "@/components/icons/hugeicons";
+
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { actionsColumn, customColumn, DataGrid, useDataGridState } from "@/components/data-grid";
@@ -465,7 +466,7 @@ export function PlatformMailIngestAccountsGrid() {
       customColumn<PlatformMailIngestAccountRow>({
         cell: (row) => (
           <div className="flex min-w-0 items-center gap-2">
-            <Building2Icon className="size-4 shrink-0 text-muted-foreground" />
+            <IconBuilding className="size-4 shrink-0 text-muted-foreground" />
             <div className="min-w-0">
               <p className="truncate font-medium text-sm">{row.organization.name}</p>
               <p className="truncate text-muted-foreground text-xs">{row.organization.slug}</p>
@@ -497,17 +498,25 @@ export function PlatformMailIngestAccountsGrid() {
       }),
       customColumn<PlatformMailIngestAccountRow>({
         cell: (row) => (
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={row.user.role === "owner" ? "default" : "outline"}>
-              {roleLabel(row.user.role)}
-            </Badge>
-            {row.account ? (
-              <Badge variant={row.account.enabled ? "success" : "outline"}>
-                {row.account.enabled ? "启用" : "停用"}
-              </Badge>
-            ) : null}
-          </div>
+          <Badge variant={row.user.role === "owner" ? "default" : "outline"}>
+            {roleLabel(row.user.role)}
+          </Badge>
         ),
+        key: "role",
+        title: "角色",
+      }),
+      customColumn<PlatformMailIngestAccountRow>({
+        cell: (row) => {
+          let statusLabel = "未配置";
+          if (row.account?.enabled) {
+            statusLabel = "启用";
+          } else if (row.account) {
+            statusLabel = "停用";
+          }
+          return (
+            <Badge variant={row.account?.enabled ? "success" : "outline"}>{statusLabel}</Badge>
+          );
+        },
         key: "status",
         title: "状态",
       }),
@@ -583,7 +592,7 @@ export function PlatformMailIngestAccountsGrid() {
           <Empty className="border-border">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <InboxIcon />
+                <IconInbox />
               </EmptyMedia>
               <EmptyTitle>{grid.search ? "没有匹配的邮箱监听配置" : "暂无邮箱监听数据"}</EmptyTitle>
               <EmptyDescription>

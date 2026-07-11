@@ -1,8 +1,9 @@
 "use client";
 
+import { IconUpload } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
-import { Upload01Icon } from "@hugeicons/core-free-icons";
+
 import { JobDescriptionSelectField } from "@/components/features/studio/interviews/job-description-select-field";
 import { MarkdownEditor } from "@/components/features/markdown-editor";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -28,7 +29,7 @@ import {
 
 /**
  * 候选人/简历字段公共表单组件。TanStack Form 受控。
- * 用于简历库的上传 / 编辑弹窗（以及未来需要采集候选人信息的任何场景）。
+ * 用于招聘台的上传 / 编辑弹窗（以及未来需要采集候选人信息的任何场景）。
  *
  * Shared candidate / resume fields, TanStack-Form-controlled. Used by the
  * resume library upload + edit dialogs (and any future flow that needs to
@@ -95,6 +96,8 @@ export interface CandidateFormFieldsProps {
   disabled?: boolean;
   /** 简历评价 label 右侧动作，例如“重新生成”。 */
   notesLabelAction?: ReactNode;
+  /** 简历评价编辑器上方内容，例如自动生成进度。 */
+  notesEditorLeadingContent?: ReactNode;
   /** 仅禁用简历评价编辑器；用于自动生成过程中防止手动录入。 */
   notesDisabled?: boolean;
   /** false 时只显示简历文件字段；用于新建弹窗解析完成前的初始状态。 */
@@ -227,6 +230,78 @@ function ResumeEvaluationStatusField({
   );
 }
 
+function CandidateAssessmentFields({
+  disabled,
+  form,
+  notesDisabled,
+  notesEditorLeadingContent,
+  notesLabelAction,
+}: {
+  disabled?: boolean;
+  form: CandidateFormApi;
+  notesDisabled: boolean;
+  notesEditorLeadingContent?: ReactNode;
+  notesLabelAction?: ReactNode;
+}) {
+  return (
+    <>
+      <form.Field name="hrResumeAssessment">
+        {(field) => {
+          const errors = toFieldErrors(field.state.meta.errors);
+          return (
+            <Field>
+              <FieldLabel htmlFor={field.name}>HR 评价</FieldLabel>
+              <FieldContent className="gap-2">
+                <MarkdownEditor
+                  aria-invalid={!!errors?.length}
+                  disabled={disabled}
+                  id={field.name}
+                  maxLength={NOTES_MAX_LENGTH}
+                  minHeight={120}
+                  onBlur={field.handleBlur}
+                  onChange={field.handleChange}
+                  placeholder="记录人工判断、补充观察或后续跟进重点"
+                  value={field.state.value}
+                />
+                <FieldError errors={errors} />
+              </FieldContent>
+            </Field>
+          );
+        }}
+      </form.Field>
+
+      <form.Field name="notes">
+        {(field) => {
+          const errors = toFieldErrors(field.state.meta.errors);
+          return (
+            <Field>
+              <div className="flex items-center gap-2">
+                <FieldLabel htmlFor={field.name}>系统简历评价</FieldLabel>
+                {notesLabelAction}
+              </div>
+              <FieldContent className="gap-2">
+                {notesEditorLeadingContent}
+                <MarkdownEditor
+                  aria-invalid={!!errors?.length}
+                  disabled={disabled || notesDisabled}
+                  id={field.name}
+                  maxLength={NOTES_MAX_LENGTH}
+                  minHeight={180}
+                  onBlur={field.handleBlur}
+                  onChange={field.handleChange}
+                  placeholder="对候选人简历的评价、来源、业务线、关注点等"
+                  value={field.state.value}
+                />
+                <FieldError errors={errors} />
+              </FieldContent>
+            </Field>
+          );
+        }}
+      </form.Field>
+    </>
+  );
+}
+
 export function CandidateFormFields({
   form,
   resumeFile,
@@ -239,6 +314,7 @@ export function CandidateFormFields({
   requireCandidateName = false,
   disabled,
   notesLabelAction,
+  notesEditorLeadingContent,
   notesDisabled = false,
   showDetails = true,
   showResumeEvaluationStatus = false,
@@ -288,7 +364,7 @@ export function CandidateFormFields({
         <FieldContent className="gap-2">
           <FileUpload
             accept={supportedResumeDocumentAccept}
-            acceptedFileTypes={[{ icon: Upload01Icon, label: supportedResumeDocumentLabel }]}
+            acceptedFileTypes={[{ icon: IconUpload, label: supportedResumeDocumentLabel }]}
             browseLabel={resumeFile ? "重新选择简历" : "选择简历"}
             className="w-full"
             description={resumeUploadCopy.description}
@@ -436,33 +512,13 @@ export function CandidateFormFields({
       ) : null}
 
       {showDetails ? (
-        <form.Field name="notes">
-          {(field) => {
-            const errors = toFieldErrors(field.state.meta.errors);
-            return (
-              <Field>
-                <div className="flex items-center gap-2">
-                  <FieldLabel htmlFor={field.name}>简历评价</FieldLabel>
-                  {notesLabelAction}
-                </div>
-                <FieldContent className="gap-2">
-                  <MarkdownEditor
-                    aria-invalid={!!errors?.length}
-                    disabled={disabled || notesDisabled}
-                    id={field.name}
-                    maxLength={NOTES_MAX_LENGTH}
-                    minHeight={180}
-                    onBlur={field.handleBlur}
-                    onChange={field.handleChange}
-                    placeholder="对候选人简历的评价、来源、业务线、关注点等"
-                    value={field.state.value}
-                  />
-                  <FieldError errors={errors} />
-                </FieldContent>
-              </Field>
-            );
-          }}
-        </form.Field>
+        <CandidateAssessmentFields
+          disabled={disabled}
+          form={form}
+          notesDisabled={notesDisabled}
+          notesEditorLeadingContent={notesEditorLeadingContent}
+          notesLabelAction={notesLabelAction}
+        />
       ) : null}
     </div>
   );

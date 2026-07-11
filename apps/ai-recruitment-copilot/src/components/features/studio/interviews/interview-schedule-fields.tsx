@@ -1,14 +1,15 @@
 "use client";
 
+import {
+  IconArrowBackUp,
+  IconCalendarEvent,
+  IconLock,
+  IconPlus,
+  IconTrash,
+} from "@tabler/icons-react";
 import type { InterviewFormApi } from "./interview-form";
 import type { ScheduleEntryStatus } from "@arc/db-schema/studio-interviews";
-import {
-  CalendarDaysIcon,
-  LockIcon,
-  PlusIcon,
-  RotateCcwIcon,
-  Trash2Icon,
-} from "@/components/icons/hugeicons";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,19 +59,18 @@ export function InterviewScheduleFields({
               {/* 新增轮次功能暂未开放，禁用按钮并通过 tooltip 提示。
                   Add-round is gated; show a "feature in progress" tooltip on the disabled button. */}
               <Tooltip>
-                <TooltipTrigger asChild>
-                  {/* tabIndex={0} 让外层 span 可聚焦：disabled 按钮不触发 pointer/focus 事件，
-                      没有这个键盘用户就看不到 tooltip。是 Radix 官方推荐的 a11y 兜底写法。 */}
-                  {/* tabIndex={0} keeps the wrapper focusable so keyboard users still see the
-                      tooltip — disabled <button> elements don't fire pointer/focus events. */}
-                  {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex */}
-                  <span className="shrink-0 self-start" tabIndex={0}>
-                    <Button disabled size="sm" type="button" variant="outline">
-                      <PlusIcon className="size-4" />
-                      新增轮次
-                    </Button>
-                  </span>
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    // tabIndex keeps the wrapper focusable so keyboard users still see the tooltip.
+                    // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+                    <span className="shrink-0 self-start" tabIndex={0}>
+                      <Button disabled size="sm" type="button" variant="outline">
+                        <IconPlus className="size-4" />
+                        新增轮次
+                      </Button>
+                    </span>
+                  }
+                />
                 <TooltipContent>功能开发中</TooltipContent>
               </Tooltip>
             </div>
@@ -81,10 +81,10 @@ export function InterviewScheduleFields({
                 const isLocked = entryStatus === "completed" || entryStatus === "in_progress";
                 const statusMeta = entryStatus ? scheduleEntryStatusMeta[entryStatus] : undefined;
                 const isLastEntry = index === scheduleEntriesField.state.value.length - 1;
-                // 仅在最后一轮且状态为「已结束」时显示重置按钮，与详情 dialog 保持一致。
-                // Show reset only on the last completed round, mirroring the detail dialog.
-                const canResetRound =
-                  !!entry.id && isLastEntry && entryStatus === "completed" && !!onResetRound;
+                // 仅在最后一轮显示重置按钮；是否允许重置由父级按 AI 面试阶段决定。
+                // Show reset only on the last round; the parent gates availability
+                // by the AI interview pipeline stage.
+                const canResetRound = !!entry.id && isLastEntry && !!onResetRound;
                 const isResetting = !!entry.id && resettingRoundId === entry.id;
 
                 return (
@@ -100,7 +100,7 @@ export function InterviewScheduleFields({
                         ) : null}
                         {isLocked ? (
                           <span className="flex items-center gap-1 text-muted-foreground text-xs">
-                            <LockIcon className="size-3" />
+                            <IconLock className="size-3" />
                             不可编辑
                           </span>
                         ) : null}
@@ -118,7 +118,7 @@ export function InterviewScheduleFields({
                             type="button"
                             variant="outline"
                           >
-                            <RotateCcwIcon className="size-3.5" />
+                            <IconArrowBackUp className="size-3.5" />
                             {isResetting ? "重置中..." : "重置轮次"}
                           </Button>
                         ) : null}
@@ -129,7 +129,7 @@ export function InterviewScheduleFields({
                           type="button"
                           variant="ghost"
                         >
-                          <Trash2Icon className="size-4" />
+                          <IconTrash className="size-4" />
                         </Button>
                       </div>
                     </div>
@@ -174,7 +174,7 @@ export function InterviewScheduleFields({
                               <FieldLabel htmlFor={field.name}>面试时间</FieldLabel>
                               <FieldContent className="gap-2">
                                 <div className="relative">
-                                  <CalendarDaysIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                                  <IconCalendarEvent className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                                   <Input
                                     aria-invalid={!!errors?.length}
                                     className="w-full pl-9"

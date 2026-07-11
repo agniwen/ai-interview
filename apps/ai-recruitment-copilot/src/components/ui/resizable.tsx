@@ -1,6 +1,6 @@
 "use client";
 
-import { GripVerticalIcon } from "@/components/icons/hugeicons";
+import { IconGripVertical } from "@tabler/icons-react";
 import * as ResizablePrimitive from "react-resizable-panels";
 
 import { cn } from "@arc/shared/utils";
@@ -37,7 +37,7 @@ function ResizableHandle({
     >
       {withHandle && (
         <div className="z-10 flex h-4 w-3 items-center justify-center rounded-xs border bg-border">
-          <GripVerticalIcon className="size-2.5" />
+          <IconGripVertical className="size-2.5" />
         </div>
       )}
     </ResizablePrimitive.Separator>

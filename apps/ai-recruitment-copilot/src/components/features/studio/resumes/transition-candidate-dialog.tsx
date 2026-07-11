@@ -3,14 +3,14 @@
 /* oxlint-disable no-use-before-define -- helper components defined below export */
 // 「标记结案」/「重新激活」二合一对话框。
 //   - mode='close'：HR 选 outcome（录用/淘汰/撤回/归档）+ 可选的录用 / 淘汰细节
-//   - mode='reactivate'：读 closedMeta.previousStage，把候选人恢复到上一个非 closed 阶段
+//   - mode='reactivate'：HR 填写原因并选择恢复到哪个非 closed 阶段
 // 内部 fetch 候选人详情（React Query 缓存复用 detail 面板的数据）拿到 closedMeta /
 // candidate name；调用方只传 id 即可。
 //
 // Close & reactivate combined dialog. In close mode HR picks an outcome and
-// fills outcome-specific details. In reactivate mode the dialog reads
-// closedMeta.previousStage and restores the candidate there. Candidate detail
-// is fetched via React Query and shares cache with the detail panel.
+// fills outcome-specific details. In reactivate mode HR enters a reason and
+// chooses which non-closed stage to restore to. Candidate detail is fetched via
+// React Query and shares cache with the detail panel.
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -44,6 +44,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 // 结案可选的 4 个终态——in_pipeline 在 close 流程里不合法。
@@ -54,6 +61,53 @@ const CLOSE_OUTCOMES: Exclude<CandidateOutcome, "in_pipeline">[] = [
   "withdrawn",
   "archived",
 ];
+
+type ReactivateTargetStage = Extract<
+  PipelineStage,
+  "screening" | "ai_interview" | "human_interview" | "offer"
+>;
+
+const REACTIVATE_TARGET_STAGES: ReactivateTargetStage[] = [
+  "screening",
+  "ai_interview",
+  "human_interview",
+  "offer",
+];
+
+const REACTIVATE_TARGET_STAGE_INDEX = new Map(
+  REACTIVATE_TARGET_STAGES.map((stage, index) => [stage, index]),
+);
+
+function getReachedReactivateStageIndex(
+  resume: Awaited<ReturnType<typeof fetchStudioResume>> | undefined,
+): number {
+  let reached = 0;
+  const previousStage = resume?.closedMeta?.previousStage;
+  if (previousStage && REACTIVATE_TARGET_STAGE_INDEX.has(previousStage as ReactivateTargetStage)) {
+    reached = Math.max(
+      reached,
+      REACTIVATE_TARGET_STAGE_INDEX.get(previousStage as ReactivateTargetStage) ?? 0,
+    );
+  }
+  if (resume?.hasInterviewRounds || resume?.stageProgress.aiInterview) {
+    reached = Math.max(reached, REACTIVATE_TARGET_STAGE_INDEX.get("ai_interview") ?? 0);
+  }
+  if (resume?.stageProgress.humanInterview) {
+    reached = Math.max(reached, REACTIVATE_TARGET_STAGE_INDEX.get("human_interview") ?? 0);
+  }
+  if (resume?.stageProgress.offer) {
+    reached = Math.max(reached, REACTIVATE_TARGET_STAGE_INDEX.get("offer") ?? 0);
+  }
+  return reached;
+}
+
+function isReactivateTargetStageEnabled(
+  stage: ReactivateTargetStage,
+  resume: Awaited<ReturnType<typeof fetchStudioResume>> | undefined,
+): boolean {
+  const stageIndex = REACTIVATE_TARGET_STAGE_INDEX.get(stage) ?? 0;
+  return stageIndex <= getReachedReactivateStageIndex(resume);
+}
 
 interface TransitionCandidateDialogProps {
   open: boolean;
@@ -384,20 +438,34 @@ function ReactivateDialog({
 }: Omit<TransitionCandidateDialogProps, "mode" | "initialOutcome">) {
   const slug = useWorkspaceSlug();
   const queryClient = useQueryClient();
-
-  // 读 closedMeta.previousStage 决定回到哪个阶段；缺失就 fallback 到 ai_interview。
-  // Read previousStage from closedMeta; fallback to ai_interview when missing.
-  const { data: resume, isLoading } = useQuery({
+  const { data: resume } = useQuery({
     enabled: open && !!candidate?.id,
     queryFn: () => fetchStudioResume(slug, candidate?.id ?? ""),
     queryKey: ["studio-resumes", slug, "detail", candidate?.id],
   });
-  const targetStage: PipelineStage = resume?.closedMeta?.previousStage ?? "ai_interview";
 
+  const [reactivationReason, setReactivationReason] = useState("");
+  const [targetStage, setTargetStage] = useState<ReactivateTargetStage>("screening");
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setReactivationReason("");
+      setTargetStage("screening");
+    }
+  }, [open]);
 
   async function handleConfirm() {
     if (!candidate) {
+      return;
+    }
+    const trimmedReason = reactivationReason.trim();
+    if (!trimmedReason) {
+      toast.error("请填写重新激活原因");
+      return;
+    }
+    if (!isReactivateTargetStageEnabled(targetStage, resume)) {
+      toast.error("请选择候选人已走过的招聘阶段");
       return;
     }
     setSubmitting(true);
@@ -405,6 +473,7 @@ function ReactivateDialog({
       await transitionInterviewRecord(slug, candidate.id, {
         outcome: "in_pipeline",
         pipelineStage: targetStage,
+        reactivationReason: trimmedReason,
       });
       toast.success(`已重新激活，回到「${pipelineStageMeta[targetStage].label}」`);
       await queryClient.invalidateQueries({
@@ -430,25 +499,61 @@ function ReactivateDialog({
         <DialogHeader>
           <DialogTitle>重新激活：{candidateLabel}</DialogTitle>
           <DialogDescription>
-            {isLoading ? (
-              "正在加载阶段信息…"
-            ) : (
-              <>
-                将从「已结案」恢复到「
-                <span className="font-medium text-foreground">
-                  {pipelineStageMeta[targetStage].label}
-                </span>
-                」阶段。已存在的轮次 / Offer 记录会保留。
-              </>
-            )}
+            选择恢复到哪个招聘阶段。确认后简历评估会重置为「未评估」，已存在的轮次 / Offer
+            记录会保留。
           </DialogDescription>
         </DialogHeader>
+
+        <div className="grid gap-4 py-2">
+          <div className="grid gap-1.5">
+            <Label className="text-sm" htmlFor="reactivation-target-stage">
+              回退阶段
+            </Label>
+            <Select
+              onValueChange={(value) => setTargetStage(value as ReactivateTargetStage)}
+              value={targetStage}
+            >
+              <SelectTrigger className="w-full" id="reactivation-target-stage">
+                <SelectValue>{pipelineStageMeta[targetStage].label}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {REACTIVATE_TARGET_STAGES.map((stage) => (
+                  <SelectItem
+                    disabled={!isReactivateTargetStageEnabled(stage, resume)}
+                    key={stage}
+                    value={stage}
+                  >
+                    {pipelineStageMeta[stage].label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label className="text-sm" htmlFor="reactivation-reason">
+              激活原因
+            </Label>
+            <Textarea
+              id="reactivation-reason"
+              maxLength={500}
+              onChange={(event) => setReactivationReason(event.target.value)}
+              placeholder="说明为什么需要重新进入招聘流程"
+              required
+              rows={3}
+              value={reactivationReason}
+            />
+          </div>
+        </div>
 
         <DialogFooter>
           <Button disabled={submitting} onClick={() => onOpenChange(false)} variant="outline">
             取消
           </Button>
-          <Button disabled={submitting || isLoading || !candidate} onClick={handleConfirm}>
+          <Button
+            disabled={submitting || !candidate || !reactivationReason.trim()}
+            onClick={handleConfirm}
+          >
             {submitting ? "处理中…" : "确认重新激活"}
           </Button>
         </DialogFooter>

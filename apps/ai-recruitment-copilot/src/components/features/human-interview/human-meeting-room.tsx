@@ -1,5 +1,17 @@
 "use client";
 
+import {
+  IconDeviceDesktopUp,
+  IconLoader2,
+  IconLogin,
+  IconMicrophone,
+  IconMicrophoneOff,
+  IconPhoneOff,
+  IconPlayerStop,
+  IconUsers,
+  IconVideo,
+  IconVideoOff,
+} from "@tabler/icons-react";
 /* oxlint-disable no-use-before-define -- exported room wrapper stays above local stage helpers. */
 
 import {
@@ -9,31 +21,14 @@ import {
   RoomAudioRenderer,
   TrackLoop,
   TrackToggle,
-  useMediaDeviceSelect,
   useRoomContext,
   useTrackRefContext,
   useParticipants,
   useTracks,
 } from "@livekit/components-react";
 import type { TrackReferenceOrPlaceholder } from "@livekit/components-react";
-import {
-  AudioLinesIcon,
-  CheckIcon,
-  ChevronDownIcon,
-  CircleStopIcon,
-  Loader2Icon,
-  LogInIcon,
-  MicOffIcon,
-  MicIcon,
-  MonitorUpIcon,
-  PhoneOffIcon,
-  UsersIcon,
-  VideoOffIcon,
-  VideoIcon,
-  WandSparklesIcon,
-} from "@/components/icons/hugeicons";
-import { ConnectionState, LocalAudioTrack, RoomEvent, Track } from "livekit-client";
-import type { Room } from "livekit-client";
+
+import { ConnectionState, RoomEvent, Track } from "livekit-client";
 import type { MouseEvent } from "react";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -54,15 +49,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { createVoiceEffectProcessor } from "./human-voice-effects";
-import type { VoiceEffectId } from "./human-voice-effects";
+import { MicrophoneDeviceMenu, VoiceEffectMenu } from "./human-meeting-audio-controls";
 
 type HumanMeetingRoomProps =
   | {
@@ -125,14 +112,6 @@ const interviewerRoleLabel = {
   interviewer: "面试官",
   observer: "旁听",
 } as const;
-const voiceEffectOptions = [
-  { id: "none", label: "原声" },
-  { id: "warmLight", label: "轻微低沉" },
-  { id: "warmDeep", label: "稳重低沉" },
-  { id: "phoneClear", label: "清晰电话音" },
-  { id: "robotLight", label: "轻机器人" },
-  { id: "cartoonHigh", label: "卡通高音" },
-] satisfies { id: VoiceEffectId; label: string }[];
 const EARLY_JOIN_WINDOW_MS = 5 * 60 * 1000;
 const dateTimeFormatter = new Intl.DateTimeFormat("zh-CN", {
   day: "2-digit",
@@ -393,8 +372,8 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
     return (
       <main className="flex min-h-dvh items-center justify-center bg-background px-4 py-10">
         <section className="w-full max-w-lg space-y-6 text-center">
-          <div className="mx-auto flex size-14 items-center justify-center rounded-full border border-border/70 bg-muted/40">
-            <VideoIcon className="size-6 text-foreground" />
+          <div className="mx-auto flex size-14 items-center justify-center rounded-full border border-muted/60 bg-muted/30">
+            <IconVideo className="size-6 text-foreground" />
           </div>
           <div className="space-y-2">
             <h1 className="font-semibold text-2xl tracking-normal">{getRoomTitle(props)}</h1>
@@ -417,9 +396,9 @@ export function HumanMeetingRoom(props: HumanMeetingRoomProps) {
             size="lg"
           >
             {isJoining ? (
-              <Loader2Icon className="size-4 animate-spin" />
+              <IconLoader2 className="size-4 animate-spin" />
             ) : (
-              <LogInIcon className="size-4" />
+              <IconLogin className="size-4" />
             )}
             {joinButtonText}
           </Button>
@@ -543,7 +522,7 @@ function HumanMeetingStage({
           <p className="text-white/60 text-xs">{participantName}</p>
         </div>
         <div className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-white/70 text-xs">
-          <UsersIcon className="size-3.5" />
+          <IconUsers className="size-3.5" />
           {participants.length}
         </div>
       </header>
@@ -570,8 +549,8 @@ function HumanMeetingStage({
               showIcon={false}
               source={Track.Source.Microphone}
             >
-              <MicIcon className="toggle-on size-4" />
-              <MicOffIcon className="toggle-off size-4" />
+              <IconMicrophone className="toggle-on size-4" />
+              <IconMicrophoneOff className="toggle-off size-4" />
               <span className="toggle-on">麦克风</span>
               <span className="toggle-off">已静音</span>
             </TrackToggle>
@@ -582,8 +561,8 @@ function HumanMeetingStage({
               showIcon={false}
               source={Track.Source.Camera}
             >
-              <VideoIcon className="toggle-on size-4" />
-              <VideoOffIcon className="toggle-off size-4" />
+              <IconVideo className="toggle-on size-4" />
+              <IconVideoOff className="toggle-off size-4" />
               <span className="toggle-on">摄像头</span>
               <span className="toggle-off">摄像头已关</span>
             </TrackToggle>
@@ -592,7 +571,7 @@ function HumanMeetingStage({
               showIcon={false}
               source={Track.Source.ScreenShare}
             >
-              <MonitorUpIcon className="size-4" />
+              <IconDeviceDesktopUp className="size-4" />
               共享屏幕
             </TrackToggle>
           </>
@@ -605,15 +584,15 @@ function HumanMeetingStage({
             type="button"
           >
             {isEnding ? (
-              <Loader2Icon className="size-4 animate-spin" />
+              <IconLoader2 className="size-4 animate-spin" />
             ) : (
-              <CircleStopIcon className="size-4" />
+              <IconPlayerStop className="size-4" />
             )}
             {isEnding ? "结束中…" : "结束会议"}
           </button>
         ) : null}
         <DisconnectButton className={leaveButtonClass}>
-          <PhoneOffIcon className="size-4" />
+          <IconPhoneOff className="size-4" />
           离开
         </DisconnectButton>
       </footer>
@@ -628,166 +607,13 @@ function HumanMeetingStage({
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isEnding}>取消</AlertDialogCancel>
             <AlertDialogAction disabled={isEnding} onClick={handleEndConfirm} variant="destructive">
-              {isEnding ? <Loader2Icon className="size-4 animate-spin" /> : null}
+              {isEnding ? <IconLoader2 className="size-4 animate-spin" /> : null}
               确认结束
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  );
-}
-
-function getDeviceLabel(device: MediaDeviceInfo, index: number): string {
-  if (device.label) {
-    return device.label;
-  }
-  if (device.deviceId === "default") {
-    return "系统默认麦克风";
-  }
-  return `麦克风 ${index + 1}`;
-}
-
-function MicrophoneDeviceMenu() {
-  const { activeDeviceId, devices, setActiveMediaDevice } = useMediaDeviceSelect({
-    kind: "audioinput",
-    requestPermissions: false,
-  });
-  const selectedDevice = devices.find((device) => device.deviceId === activeDeviceId);
-  const selectedLabel = selectedDevice
-    ? getDeviceLabel(selectedDevice, devices.indexOf(selectedDevice))
-    : "系统默认麦克风";
-
-  async function handleSelect(deviceId: string) {
-    try {
-      await setActiveMediaDevice(deviceId);
-      toast.success("已切换麦克风");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "切换麦克风失败");
-    }
-  }
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className={deviceButtonClass} type="button">
-          <MicIcon className="size-4" />
-          <span className="max-w-36 truncate">{selectedLabel}</span>
-          <ChevronDownIcon className="size-3.5 opacity-70" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="center" className="w-72" side="top">
-        <DropdownMenuGroup>
-          {devices.length === 0 ? (
-            <DropdownMenuItem disabled>未检测到麦克风</DropdownMenuItem>
-          ) : (
-            devices.map((device, index) => (
-              <DropdownMenuItem
-                className="flex items-center justify-between gap-2"
-                key={device.deviceId}
-                onSelect={() => void handleSelect(device.deviceId)}
-              >
-                <span className="truncate">{getDeviceLabel(device, index)}</span>
-                {device.deviceId === activeDeviceId ? (
-                  <CheckIcon className="size-4 shrink-0" />
-                ) : null}
-              </DropdownMenuItem>
-            ))
-          )}
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function getVoiceEffectLabel(effect: VoiceEffectId): string {
-  return voiceEffectOptions.find((option) => option.id === effect)?.label ?? "原声";
-}
-
-function getLocalMicrophoneTrack(room: Room): LocalAudioTrack | null {
-  const publication = room.localParticipant.getTrackPublication(Track.Source.Microphone);
-  return publication?.track instanceof LocalAudioTrack ? publication.track : null;
-}
-
-async function getOrCreateLocalMicrophoneTrack(room: Room): Promise<LocalAudioTrack> {
-  const existingTrack = getLocalMicrophoneTrack(room);
-  if (existingTrack) {
-    return existingTrack;
-  }
-  const publication = await room.localParticipant.setMicrophoneEnabled(true, {
-    deviceId: "default",
-  });
-  if (publication?.track instanceof LocalAudioTrack) {
-    return publication.track;
-  }
-  const nextTrack = getLocalMicrophoneTrack(room);
-  if (nextTrack) {
-    return nextTrack;
-  }
-  throw new Error("未找到本地麦克风");
-}
-
-function VoiceEffectMenu() {
-  const room = useRoomContext();
-  const [selectedEffect, setSelectedEffect] = useState<VoiceEffectId>("none");
-  const [isApplying, setIsApplying] = useState(false);
-  const selectedLabel = getVoiceEffectLabel(selectedEffect);
-
-  async function handleSelect(effect: VoiceEffectId) {
-    if (isApplying || effect === selectedEffect) {
-      return;
-    }
-    setIsApplying(true);
-    try {
-      if (effect === "none") {
-        await getLocalMicrophoneTrack(room)?.stopProcessor();
-        setSelectedEffect("none");
-        toast.success("已恢复原声");
-        return;
-      }
-
-      const track = await getOrCreateLocalMicrophoneTrack(room);
-      await track.setProcessor(createVoiceEffectProcessor(effect));
-      setSelectedEffect(effect);
-      toast.success(`已启用${getVoiceEffectLabel(effect)}`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "开启声音效果失败");
-    } finally {
-      setIsApplying(false);
-    }
-  }
-
-  let triggerIcon = <AudioLinesIcon className="size-4" />;
-  if (isApplying) {
-    triggerIcon = <Loader2Icon className="size-4 animate-spin" />;
-  } else if (selectedEffect !== "none") {
-    triggerIcon = <WandSparklesIcon className="size-4" />;
-  }
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className={deviceButtonClass} disabled={isApplying} type="button">
-          {triggerIcon}
-          <span>{selectedLabel}</span>
-          <ChevronDownIcon className="size-3.5 opacity-70" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="center" className="w-44" side="top">
-        <DropdownMenuGroup>
-          {voiceEffectOptions.map((option) => (
-            <DropdownMenuItem
-              className="flex items-center justify-between gap-2"
-              key={option.id}
-              onSelect={() => void handleSelect(option.id)}
-            >
-              <span>{option.label}</span>
-              {option.id === selectedEffect ? <CheckIcon className="size-4 shrink-0" /> : null}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 
@@ -829,9 +655,6 @@ const controlButtonClass =
   "inline-flex h-9 items-center gap-2 rounded-md border border-white/15 bg-white/10 px-3 text-sm text-white transition hover:bg-white/15";
 
 const mediaToggleButtonClass = `${controlButtonClass} [&[data-lk-enabled='true']_.toggle-off]:hidden [&[data-lk-enabled='false']_.toggle-on]:hidden`;
-
-const deviceButtonClass =
-  "inline-flex h-9 max-w-48 items-center gap-2 rounded-md border border-white/15 bg-white/10 px-3 text-sm text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60";
 
 const leaveButtonClass =
   "inline-flex h-9 items-center gap-2 rounded-md border border-red-400/40 bg-red-500 px-3 text-sm text-white transition hover:bg-red-500/90";

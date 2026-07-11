@@ -1,5 +1,6 @@
 "use client";
 
+import { IconLoader2 } from "@tabler/icons-react";
 import type {
   InterviewQuestionTemplateInput,
   InterviewQuestionTemplateRecord,
@@ -8,7 +9,7 @@ import type {
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { rpc } from "@/lib/client/rpc";
 import { useForm, useStore } from "@tanstack/react-form";
-import { LoaderCircleIcon } from "@/components/icons/hugeicons";
+
 import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -37,7 +38,16 @@ export function emptyInterviewQuestionTemplateValues(): InterviewQuestionTemplat
   return {
     description: "",
     jobDescriptionIds: [],
-    questions: [{ content: "", difficulty: "easy", id: crypto.randomUUID(), sortOrder: 0 }],
+    questions: [
+      {
+        content: "",
+        difficulty: "easy",
+        evaluationFocus: "",
+        followUpDirections: "",
+        id: crypto.randomUUID(),
+        sortOrder: 0,
+      },
+    ],
     scope: "global",
     title: "",
   };
@@ -50,6 +60,8 @@ function toFormValues(record: InterviewQuestionTemplateRecord): InterviewQuestio
     questions: record.questions.map((question, index) => ({
       content: question.content,
       difficulty: question.difficulty ?? "easy",
+      evaluationFocus: question.evaluationFocus ?? "",
+      followUpDirections: question.followUpDirections ?? "",
       id: question.id,
       sortOrder: index,
     })),
@@ -96,6 +108,8 @@ export function InterviewQuestionTemplateEditorDialog({
         questions: value.questions.map((question, index) => ({
           content: question.content.trim(),
           difficulty: question.difficulty,
+          evaluationFocus: question.evaluationFocus?.trim() || "",
+          followUpDirections: question.followUpDirections?.trim() || "",
           id: question.id,
           sortOrder: index,
         })),
@@ -126,6 +140,9 @@ export function InterviewQuestionTemplateEditorDialog({
 
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
   const currentScope = useStore(form.store, (state) => state.values.scope);
+  const questionListErrors = useStore(form.store, (state) =>
+    toFieldErrors(state.fieldMeta.questions?.errors),
+  );
 
   useEffect(() => {
     if (open) {
@@ -147,7 +164,7 @@ export function InterviewQuestionTemplateEditorDialog({
             取消
           </Button>
           <Button disabled={isSubmitting} form="interview-question-template-form" type="submit">
-            {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+            {isSubmitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
             {isEdit ? "保存" : "创建"}
           </Button>
         </>
@@ -298,12 +315,15 @@ export function InterviewQuestionTemplateEditorDialog({
               createItem={(sortIndex) => ({
                 content: "",
                 difficulty: "easy",
+                evaluationFocus: "",
+                followUpDirections: "",
                 id: crypto.randomUUID(),
                 sortOrder: sortIndex,
               })}
               form={form}
               resetKey={record?.id ?? "new"}
             />
+            <FieldError errors={questionListErrors} />
           </div>
         </div>
       </form>

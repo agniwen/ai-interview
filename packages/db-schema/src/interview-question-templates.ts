@@ -17,6 +17,8 @@ export const INTERVIEW_QUESTION_DIFFICULTY_OPTIONS = [
 export const interviewQuestionTemplateQuestionInputSchema = z.object({
   content: z.string().trim().min(1, "题目不能为空").max(1000, "题目不能超过 1000 字"),
   difficulty: interviewQuestionTemplateDifficultySchema,
+  evaluationFocus: z.string().trim().max(500, "考核点不能超过 500 字").nullable().optional(),
+  followUpDirections: z.string().trim().max(1000, "追问方向不能超过 1000 字").nullable().optional(),
   id: z.string().trim().min(1).optional(),
   sortOrder: z.number().int().min(0),
 });
@@ -31,7 +33,7 @@ export const interviewQuestionTemplateSchema = z
     jobDescriptionIds: z.array(z.string().trim().min(1)).max(50, "最多绑定 50 个岗位"),
     questions: z
       .array(interviewQuestionTemplateQuestionInputSchema)
-      .min(1, "至少需要一道题目")
+      .min(1, "请至少保留一道题目")
       .max(100, "最多 100 道题目"),
     scope: interviewQuestionTemplateScopeSchema,
     title: z.string().trim().min(1, "请输入模板标题").max(120, "标题不能超过 120 字"),
@@ -68,6 +70,8 @@ export interface InterviewQuestionTemplateQuestionRecord {
   templateId: string;
   content: string;
   difficulty: InterviewQuestionTemplateDifficulty;
+  evaluationFocus: string | null;
+  followUpDirections: string | null;
   sortOrder: number;
   createdAt: string | Date;
   updatedAt: string | Date;
@@ -111,6 +115,8 @@ export interface InterviewQuestionTemplateSnapshotQuestion {
   id: string;
   content: string;
   difficulty: InterviewQuestionTemplateDifficulty;
+  evaluationFocus?: string | null;
+  followUpDirections?: string | null;
   sortOrder: number;
 }
 
@@ -157,6 +163,8 @@ export function buildTemplateSnapshot(params: {
     questions: sortedQuestions.map((question) => ({
       content: question.content,
       difficulty: question.difficulty,
+      evaluationFocus: question.evaluationFocus,
+      followUpDirections: question.followUpDirections,
       id: question.id,
       sortOrder: question.sortOrder,
     })),

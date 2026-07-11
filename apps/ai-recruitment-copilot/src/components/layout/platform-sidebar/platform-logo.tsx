@@ -1,7 +1,8 @@
 "use client";
 
+import { IconShield } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
-import { ShieldIcon } from "@/components/icons/hugeicons";
+
 import { useSidebar } from "@/components/ui/sidebar";
 
 export function PlatformLogo() {
@@ -10,7 +11,7 @@ export function PlatformLogo() {
 
   return (
     <Link className="flex items-center gap-2 px-2 py-1" to="/platform">
-      <ShieldIcon className="size-6 shrink-0 text-primary" />
+      <IconShield className="size-6 shrink-0 text-primary" />
       {!isCollapsed && <span className="truncate font-semibold text-lg">Platform</span>}
     </Link>
   );

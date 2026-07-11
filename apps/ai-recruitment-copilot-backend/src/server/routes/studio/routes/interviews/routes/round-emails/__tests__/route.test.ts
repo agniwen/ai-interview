@@ -138,7 +138,6 @@ beforeAll(async () => {
     createdAt: NOW,
     id: INTERVIEW_WITH_EMAIL,
     organizationId: ORG,
-    status: "ready",
     updatedAt: NOW,
   });
 
@@ -148,7 +147,6 @@ beforeAll(async () => {
     createdAt: NOW,
     id: INTERVIEW_NO_EMAIL,
     organizationId: ORG,
-    status: "ready",
     updatedAt: NOW,
   });
 
@@ -276,6 +274,8 @@ describe("POST /:roundId/send", () => {
 
       const body = (await res.json()) as { error: string; logId: string };
       expect(body.logId).toBeTruthy();
+      expect(body.error).toBe("邮件发送失败，请稍后重试。");
+      expect(body.error).not.toContain("RESEND_API_KEY");
 
       // 验证 DB 中有 status='failed' 且 errorMessage 包含 'RESEND_API_KEY' 的日志。
       // Assert DB has a failed log with the env error message.

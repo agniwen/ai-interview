@@ -1,10 +1,10 @@
-import { FilterXIcon, Loader2Icon, RefreshCwIcon, SearchIcon } from "@/components/icons/hugeicons";
+import { IconFilterX, IconRefresh } from "@tabler/icons-react";
 import type { CSSProperties, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import type { SearchableSelectOption } from "@/components/ui/searchable-select";
+import { DebouncedSearchInput } from "./debounced-search-input";
 
 // =====================================================================
 // DataGrid 工具栏过滤器：支持搜索框、单选下拉、多选下拉。
@@ -123,22 +123,15 @@ export function Toolbar(props: ToolbarProps) {
             const value = filterValues?.[filter.key] ?? "";
             if (filter.type === "search") {
               return (
-                <div
+                <DebouncedSearchInput
                   className="relative min-w-0 sm:min-w-(--data-grid-filter-min-width)"
                   key={filter.key}
+                  loading={searchLoading}
+                  onValueChange={(next) => onFilterChange?.(filter.key, next)}
+                  placeholder={filter.placeholder}
                   style={getFilterItemStyle(filter.minWidth)}
-                >
-                  <SearchIcon className="pointer-events-none absolute top-1/2 left-3 z-10 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    className="[&>input]:pr-9 [&>input]:pl-9"
-                    onChange={(event) => onFilterChange?.(filter.key, event.target.value)}
-                    placeholder={filter.placeholder}
-                    value={value}
-                  />
-                  {searchLoading ? (
-                    <Loader2Icon className="pointer-events-none absolute top-1/2 right-3 z-10 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-                  ) : null}
-                </div>
+                  value={value}
+                />
               );
             }
             if (filter.type === "select") {
@@ -193,7 +186,7 @@ export function Toolbar(props: ToolbarProps) {
             size="icon"
             variant="outline"
           >
-            <RefreshCwIcon className={`size-4 ${refreshing ? "animate-spin" : ""}`} />
+            <IconRefresh className={`size-4 ${refreshing ? "animate-spin" : ""}`} />
             <span className="sr-only">刷新</span>
           </Button>
         ) : null}
@@ -205,7 +198,7 @@ export function Toolbar(props: ToolbarProps) {
             size="icon"
             variant="outline"
           >
-            <FilterXIcon className="size-4" />
+            <IconFilterX className="size-4" />
             <span className="sr-only">重置筛选</span>
           </Button>
         ) : null}

@@ -2,7 +2,7 @@
 // fields in the request body. Candidate identity is now owned by the
 // resume library; leaving this path writable would let bugs in the editor
 // silently overwrite candidate data.
-// 验证 PATCH 接口不会覆写候选人身份字段，这些字段由简历库专属管理。
+// 验证 PATCH 接口不会覆写候选人身份字段，这些字段由招聘台专属管理。
 
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -63,7 +63,6 @@ beforeAll(async () => {
     interviewQuestions: [],
     notes: "原始评价",
     organizationId: ORG,
-    status: "draft",
     targetRole: "原始岗位",
     updatedAt: NOW,
   });
@@ -82,7 +81,7 @@ describe("interview PATCH whitelist (R7)", () => {
   // path the route uses for the `nextRecord` write.
   it("does not include candidate-identity columns in the PATCH update set", async () => {
     // Direct write simulating the handler's nextRecord — this should ONLY
-    // touch interviewQuestions/status/updatedAt. If a future change adds
+    // touch interviewQuestions/updatedAt. If a future change adds
     // candidate fields back into nextRecord, this assertion stays green
     // because we only check the persisted row was untouched on candidate
     // columns when the handler was invoked with candidate fields. The
@@ -98,7 +97,6 @@ describe("interview PATCH whitelist (R7)", () => {
       .update(studioInterview)
       .set({
         interviewQuestions: [{ difficulty: "easy", order: 1, question: "test" }],
-        status: "ready",
         updatedAt: new Date(),
       })
       .where(eq(studioInterview.id, RECORD_ID));
@@ -112,6 +110,7 @@ describe("interview PATCH whitelist (R7)", () => {
     expect(after[0]?.candidatePhone).toBe("13800000000");
     expect(after[0]?.targetRole).toBe("原始岗位");
     expect(after[0]?.notes).toBe("原始评价");
-    expect(after[0]?.status).toBe("ready");
+    expect(after[0]?.pipelineStage).toBe("screening");
+    expect(after[0]?.outcome).toBe("in_pipeline");
   });
 });

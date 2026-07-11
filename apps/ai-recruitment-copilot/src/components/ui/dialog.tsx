@@ -1,7 +1,7 @@
 "use client";
 
-import { XIcon } from "@/components/icons/hugeicons";
-import { Dialog as DialogPrimitive } from "radix-ui";
+import { IconX } from "@tabler/icons-react";
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 
@@ -21,7 +21,7 @@ function useResponsiveDialog() {
   return React.useContext(ResponsiveDialogContext);
 }
 
-function Dialog(props: React.ComponentProps<typeof DialogPrimitive.Root>) {
+function Dialog(props: DialogPrimitive.Root.Props) {
   const isMobile = useIsMobile();
   const contextValue = React.useMemo(() => ({ isMobile }), [isMobile]);
 
@@ -39,8 +39,20 @@ function Dialog(props: React.ComponentProps<typeof DialogPrimitive.Root>) {
   );
 }
 
-function DialogTrigger(props: React.ComponentProps<typeof DialogPrimitive.Trigger>) {
+function DialogTrigger({ render, ...props }: DialogPrimitive.Trigger.Props) {
   const { isMobile } = useResponsiveDialog();
+
+  if (isMobile && React.isValidElement(render)) {
+    return (
+      <DrawerPrimitive.Trigger
+        asChild
+        data-slot="dialog-trigger"
+        {...(props as React.ComponentProps<typeof DrawerPrimitive.Trigger>)}
+      >
+        {render}
+      </DrawerPrimitive.Trigger>
+    );
+  }
 
   return isMobile ? (
     <DrawerPrimitive.Trigger
@@ -48,11 +60,11 @@ function DialogTrigger(props: React.ComponentProps<typeof DialogPrimitive.Trigge
       {...(props as React.ComponentProps<typeof DrawerPrimitive.Trigger>)}
     />
   ) : (
-    <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />
+    <DialogPrimitive.Trigger data-slot="dialog-trigger" render={render} {...props} />
   );
 }
 
-function DialogPortal(props: React.ComponentProps<typeof DialogPrimitive.Portal>) {
+function DialogPortal(props: DialogPrimitive.Portal.Props) {
   const { isMobile } = useResponsiveDialog();
 
   return isMobile ? (
@@ -65,8 +77,20 @@ function DialogPortal(props: React.ComponentProps<typeof DialogPrimitive.Portal>
   );
 }
 
-function DialogClose(props: React.ComponentProps<typeof DialogPrimitive.Close>) {
+function DialogClose({ render, ...props }: DialogPrimitive.Close.Props) {
   const { isMobile } = useResponsiveDialog();
+
+  if (isMobile && React.isValidElement(render)) {
+    return (
+      <DrawerPrimitive.Close
+        asChild
+        data-slot="dialog-close"
+        {...(props as React.ComponentProps<typeof DrawerPrimitive.Close>)}
+      >
+        {render}
+      </DrawerPrimitive.Close>
+    );
+  }
 
   return isMobile ? (
     <DrawerPrimitive.Close
@@ -74,17 +98,14 @@ function DialogClose(props: React.ComponentProps<typeof DialogPrimitive.Close>) 
       {...(props as React.ComponentProps<typeof DrawerPrimitive.Close>)}
     />
   ) : (
-    <DialogPrimitive.Close data-slot="dialog-close" {...props} />
+    <DialogPrimitive.Close data-slot="dialog-close" render={render} {...props} />
   );
 }
 
-function DialogOverlay({
-  className,
-  ...props
-}: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
+function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) {
   const { isMobile } = useResponsiveDialog();
   const overlayClassName = cn(
-    "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 backdrop-blur-xs bg-background/80",
+    "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 fixed inset-0 z-50 backdrop-blur-xs bg-background/80 duration-200",
     className,
   );
 
@@ -95,7 +116,7 @@ function DialogOverlay({
       {...(props as React.ComponentProps<typeof DrawerPrimitive.Overlay>)}
     />
   ) : (
-    <DialogPrimitive.Overlay data-slot="dialog-overlay" className={overlayClassName} {...props} />
+    <DialogPrimitive.Backdrop data-slot="dialog-overlay" className={overlayClassName} {...props} />
   );
 }
 
@@ -103,11 +124,13 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  initialFocus,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content> & {
+}: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean;
 }) {
   const { isMobile } = useResponsiveDialog();
+  const popupRef = React.useRef<HTMLDivElement | null>(null);
 
   if (isMobile) {
     return (
@@ -139,15 +162,18 @@ function DialogContent({
 
   return (
     <DialogPrimitive.Portal data-slot="dialog-portal">
-      <DialogPrimitive.Overlay
+      <DialogPrimitive.Backdrop
         data-slot="dialog-overlay"
-        className="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 backdrop-blur-xs bg-background/80"
+        className="data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 fixed inset-0 z-50 backdrop-blur-xs bg-background/80 duration-200"
       />
-      <DialogPrimitive.Content
+      <DialogPrimitive.Popup
+        ref={popupRef}
         data-slot="dialog-content"
+        initialFocus={initialFocus ?? popupRef}
+        tabIndex={-1}
         className={cn(
           cossModalSurfaceClass,
-          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg p-6 duration-200 outline-none sm:max-w-lg",
+          "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg p-6 duration-200 outline-none sm:max-w-lg",
           className,
         )}
         {...props}
@@ -156,13 +182,13 @@ function DialogContent({
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className="ring-offset-background focus:ring-ring data-popup-open:bg-accent data-popup-open:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
           >
-            <XIcon />
+            <IconX />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>
         )}
-      </DialogPrimitive.Content>
+      </DialogPrimitive.Popup>
     </DialogPrimitive.Portal>
   );
 }
@@ -214,17 +240,22 @@ function DialogFooter({
     >
       <ButtonSizeProvider size="lg">
         {children}
-        {showCloseButton && (
-          <DialogClose asChild>
-            <Button variant="outline">Close</Button>
-          </DialogClose>
-        )}
+        {showCloseButton &&
+          (isMobile ? (
+            <DrawerPrimitive.Close asChild>
+              <Button variant="outline">Close</Button>
+            </DrawerPrimitive.Close>
+          ) : (
+            <DialogPrimitive.Close render={<Button variant="outline" />}>
+              Close
+            </DialogPrimitive.Close>
+          ))}
       </ButtonSizeProvider>
     </div>
   );
 }
 
-function DialogTitle({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) {
+function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   const { isMobile } = useResponsiveDialog();
   const titleClassName = cn("text-lg leading-none font-semibold", className);
 
@@ -239,10 +270,7 @@ function DialogTitle({ className, ...props }: React.ComponentProps<typeof Dialog
   );
 }
 
-function DialogDescription({
-  className,
-  ...props
-}: React.ComponentProps<typeof DialogPrimitive.Description>) {
+function DialogDescription({ className, ...props }: DialogPrimitive.Description.Props) {
   const { isMobile } = useResponsiveDialog();
   const descriptionClassName = cn("text-muted-foreground text-sm", className);
 

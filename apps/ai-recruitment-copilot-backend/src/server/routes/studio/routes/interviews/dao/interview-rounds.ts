@@ -25,6 +25,7 @@ import {
   user,
 } from "@arc/db-schema/schema";
 import { buildInterviewLink } from "@arc/shared/interview/interview-record";
+import { deriveJdRequiredSkills } from "@arc/shared/resume-screening";
 import { scheduleEntryStatusSchema } from "@arc/db-schema/studio-interviews";
 import type { ScheduleEntryStatus } from "@arc/db-schema/studio-interviews";
 import type {
@@ -304,7 +305,7 @@ export function listInterviewRounds(
 
 /**
  * 按候选人取所有面试轮次（按 sortOrder 升序）。
- * 用于简历库详情弹窗里的「AI 面试」tab。
+ * 用于招聘台详情弹窗里的「AI 面试」tab。
  *
  * List all rounds for a given candidate, sorted by sortOrder asc. Used by the
  * resume library detail dialog's "AI 面试" tab.
@@ -448,6 +449,21 @@ export async function loadInterviewRoundDetail(
     return null;
   }
 
+  let jdRequiredSkills: string[] = [];
+  if (candidate.jobDescriptionId) {
+    const [jdRow] = await db
+      .select({ policy: jobDescription.resumeScreeningPolicy })
+      .from(jobDescription)
+      .where(
+        and(
+          eq(jobDescription.id, candidate.jobDescriptionId),
+          eq(jobDescription.organizationId, organizationId),
+        ),
+      )
+      .limit(1);
+    jdRequiredSkills = deriveJdRequiredSkills(jdRow?.policy ?? null);
+  }
+
   const [reportRow] = await db
     .select({ id: interviewConversation.conversationId })
     .from(interviewConversation)
@@ -463,6 +479,7 @@ export async function loadInterviewRoundDetail(
     hasReport: Boolean(reportRow),
     id: row.id,
     interviewLink: buildInterviewLink(row.candidateId, row.id),
+    jdRequiredSkills,
     notes: row.notes,
     roundLabel: row.roundLabel,
     scheduledAt: serializeDate(row.scheduledAt),

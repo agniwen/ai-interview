@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ReactNode, WheelEvent } from "react";
 import { useEffect, useId, useMemo, useState } from "react";
 
 import {
@@ -53,6 +53,10 @@ export interface SearchableSelectProps {
   clearable?: boolean;
   /** 触发器额外样式（高度 / 宽度等） / Extra trigger className. */
   triggerClassName?: string;
+  /** 下拉列表额外样式 / Extra option list className. */
+  listClassName?: string;
+  /** 下拉弹出方向 / Dropdown side relative to the input. */
+  contentSide?: "bottom" | "top";
   /** 触发器 id（关联 label） / Trigger id, for label htmlFor association. */
   id?: string;
   /** 自定义触发器内显示已选项 / Custom render for the selected label inside trigger. */
@@ -71,6 +75,22 @@ function filterSearchableOption(option: SearchableSelectOption, query: string) {
   return getOptionSearchText(option).toLocaleLowerCase().includes(normalizedQuery);
 }
 
+export function handleScrollableListWheel(event: WheelEvent<HTMLDivElement>) {
+  const list = event.currentTarget;
+
+  if (list.scrollHeight <= list.clientHeight || event.deltaY === 0) {
+    return;
+  }
+
+  const previousScrollTop = list.scrollTop;
+  list.scrollTop += event.deltaY;
+
+  if (list.scrollTop !== previousScrollTop) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+}
+
 export function SearchableSelect({
   value,
   onChange,
@@ -81,6 +101,8 @@ export function SearchableSelect({
   disabled,
   clearable = false,
   triggerClassName,
+  listClassName,
+  contentSide = "bottom",
   id,
 }: SearchableSelectProps) {
   const [inputValue, setInputValue] = useState("");
@@ -136,9 +158,16 @@ export function SearchableSelect({
         placeholder={placeholder}
         showClear={clearable}
       />
-      <ComboboxContent className="min-w-72">
+      <ComboboxContent
+        className="min-w-72"
+        collisionAvoidance={{ side: "flip", align: "shift", fallbackAxisSide: "none" }}
+        side={contentSide}
+      >
         <ComboboxEmpty>{emptyMessage}</ComboboxEmpty>
-        <ComboboxList>
+        <ComboboxList
+          className={cn("max-h-72 overflow-y-auto", listClassName)}
+          onWheelCapture={handleScrollableListWheel}
+        >
           {(option: SearchableSelectOption) => (
             <ComboboxItem disabled={option.disabled} key={option.value} value={option}>
               <div className="flex min-w-0 flex-col leading-tight">

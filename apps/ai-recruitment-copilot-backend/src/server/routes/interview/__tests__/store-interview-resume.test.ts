@@ -3,6 +3,7 @@
 // storeInterviewResume 三个分支的单元测试：注册表命中 / 未命中两步成功 / 未命中 parse 失败 / 未命中 S3 失败。
 // Unit tests for the three branches of storeInterviewResume: registry hit / miss both succeed / miss parse fail / miss S3 fail.
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { ResumeAnalysisError } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 
 const mocks = vi.hoisted(() => ({
   buildAttachmentKeyByHash: vi.fn(),
@@ -32,11 +33,11 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline", 
 vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent", () => ({
   // ResumeAnalysisError 必须真实存在，因为函数内部 instanceof 它。
   // ResumeAnalysisError must be a real class because the function uses instanceof.
-  ResumeAnalysisError: class ResumeAnalysisError extends Error {
+  ResumeAnalysisError: class MockResumeAnalysisError extends Error {
     stage: string;
     constructor(message: string, stage: string) {
       super(message);
-      this.name = "ResumeAnalysisError";
+      this.name = "MockResumeAnalysisError";
       this.stage = stage;
     }
   },
@@ -69,7 +70,7 @@ vi.mock(
   "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots",
   () => ({
     flattenPresetQuestionsFromContextSnapshot: vi.fn(),
-    loadOrCreateActiveInterviewContextSnapshot: vi.fn(),
+    loadActiveInterviewContextSnapshot: vi.fn(),
   }),
 );
 
@@ -78,6 +79,7 @@ import {
   resolveResumeUploadStorage,
   storeInterviewResume,
   storeResumeObjectOnly,
+  toBadRequest,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
 
 const HASH = "a".repeat(64);
@@ -88,6 +90,26 @@ function makeFile(content = "pdf-bytes") {
     type: "application/pdf",
   });
 }
+
+describe("toBadRequest", () => {
+  it("logs resume analysis failures without exposing their message", () => {
+    const error = new ResumeAnalysisError(
+      "postgres://user:secret@private-host/database",
+      "resume-parsing",
+    );
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    expect(toBadRequest(error)).toEqual({
+      error: "简历解析失败，请稍后重试。",
+      stage: "resume-parsing",
+      status: 500,
+    });
+    expect(consoleError).toHaveBeenCalledWith("[resume-analysis] failed", {
+      error,
+      stage: "resume-parsing",
+    });
+  });
+});
 
 describe("storeInterviewResume", () => {
   const originalDisableCache = process.env.RESUME_PARSE_DISABLE_CACHE;

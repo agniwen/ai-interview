@@ -1,6 +1,6 @@
 "use client";
 
-import { PlusIcon, Trash2Icon } from "@/components/icons/hugeicons";
+import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { cossControlOverlayClass } from "@/components/ui/coss-style";
 import { FieldError } from "@/components/ui/field";
@@ -45,6 +45,8 @@ interface SortableQuestionListEditorProps {
   createItem: (sortIndex: number) => Record<string, unknown>;
   contentMaxLength?: number;
   contentPlaceholder?: string;
+  evaluationFocusMaxLength?: number;
+  followUpDirectionsMaxLength?: number;
   emptyTitle?: string;
   emptyDescription?: string;
   disabled?: boolean;
@@ -71,6 +73,8 @@ function QuestionListBody({
   createItem,
   contentMaxLength,
   contentPlaceholder = "请输入题目内容…",
+  evaluationFocusMaxLength = 500,
+  followUpDirectionsMaxLength = 1000,
   emptyTitle = "暂无面试题",
   emptyDescription = "添加面试官在面试中按顺序必问的题目，可单独标注难度。",
   disabled,
@@ -108,7 +112,7 @@ function QuestionListBody({
           type="button"
           variant="outline"
         >
-          <PlusIcon className="size-4" />
+          <IconPlus className="size-4" />
           添加题目
         </Button>
       </div>
@@ -116,7 +120,7 @@ function QuestionListBody({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
       <SortableList
         ids={ids}
         onReorder={(from, to) => {
@@ -196,12 +200,12 @@ function QuestionListBody({
                         type="button"
                         variant="ghost"
                       >
-                        <Trash2Icon className="size-3.5" />
+                        <IconTrash className="size-3.5" />
                       </Button>
                     </div>
                   </div>
 
-                  {/* Bottom: textarea only */}
+                  {/* Bottom: question and interview guidance fields */}
                   <form.Field name={`${arrayFieldName}[${index}].${contentFieldName}`}>
                     {/* oxlint-disable-next-line no-explicit-any */}
                     {(subField: any) => {
@@ -218,7 +222,7 @@ function QuestionListBody({
                           >
                             <TextareaControl
                               aria-invalid={!!errors?.length}
-                              className="min-h-14 max-h-40 resize-none bg-transparent p-1 pb-6 text-sm shadow-none placeholder:text-muted-foreground/50 dark:bg-transparent"
+                              className="h-24 resize-none overflow-y-auto bg-transparent p-1 pb-6 text-sm shadow-none placeholder:text-muted-foreground/50 dark:bg-transparent"
                               disabled={disabled}
                               maxLength={contentMaxLength}
                               onBlur={subField.handleBlur}
@@ -239,6 +243,96 @@ function QuestionListBody({
                       );
                     }}
                   </form.Field>
+
+                  <div className="flex flex-col gap-2">
+                    <form.Field name={`${arrayFieldName}[${index}].evaluationFocus`}>
+                      {/* oxlint-disable-next-line no-explicit-any */}
+                      {(subField: any) => {
+                        const errors = toFieldErrors(subField.state.meta.errors);
+                        return (
+                          <div
+                            data-invalid={hasFieldErrors(subField.state.meta.errors) || undefined}
+                          >
+                            <label
+                              className="mb-1 block font-medium text-muted-foreground text-xs"
+                              htmlFor={`${arrayFieldName}-${index}-evaluationFocus`}
+                            >
+                              考核点
+                            </label>
+                            <div
+                              className={cn(
+                                "relative rounded-md border border-border bg-background/50 transition-colors focus-within:border-ring",
+                                errors?.length &&
+                                  "border-destructive focus-within:border-destructive",
+                              )}
+                            >
+                              <TextareaControl
+                                aria-invalid={!!errors?.length}
+                                className="h-20 resize-none overflow-y-auto bg-transparent p-2 pb-6 text-xs shadow-none placeholder:text-muted-foreground/50 dark:bg-transparent"
+                                disabled={disabled}
+                                id={`${arrayFieldName}-${index}-evaluationFocus`}
+                                maxLength={evaluationFocusMaxLength}
+                                onBlur={subField.handleBlur}
+                                onChange={(event) => subField.handleChange(event.target.value)}
+                                placeholder="例如：验证项目真实性和技术深度"
+                                rows={2}
+                                value={subField.state.value ?? ""}
+                              />
+                              <TextareaCounter
+                                maxLength={evaluationFocusMaxLength}
+                                value={subField.state.value}
+                              />
+                            </div>
+                            <FieldError errors={errors} />
+                          </div>
+                        );
+                      }}
+                    </form.Field>
+
+                    <form.Field name={`${arrayFieldName}[${index}].followUpDirections`}>
+                      {/* oxlint-disable-next-line no-explicit-any */}
+                      {(subField: any) => {
+                        const errors = toFieldErrors(subField.state.meta.errors);
+                        return (
+                          <div
+                            data-invalid={hasFieldErrors(subField.state.meta.errors) || undefined}
+                          >
+                            <label
+                              className="mb-1 block font-medium text-muted-foreground text-xs"
+                              htmlFor={`${arrayFieldName}-${index}-followUpDirections`}
+                            >
+                              追问方向
+                            </label>
+                            <div
+                              className={cn(
+                                "relative rounded-md border border-border bg-background/50 transition-colors focus-within:border-ring",
+                                errors?.length &&
+                                  "border-destructive focus-within:border-destructive",
+                              )}
+                            >
+                              <TextareaControl
+                                aria-invalid={!!errors?.length}
+                                className="h-20 resize-none overflow-y-auto bg-transparent p-2 pb-6 text-xs shadow-none placeholder:text-muted-foreground/50 dark:bg-transparent"
+                                disabled={disabled}
+                                id={`${arrayFieldName}-${index}-followUpDirections`}
+                                maxLength={followUpDirectionsMaxLength}
+                                onBlur={subField.handleBlur}
+                                onChange={(event) => subField.handleChange(event.target.value)}
+                                placeholder="例如：追问具体负责范围、关键取舍、失败复盘"
+                                rows={2}
+                                value={subField.state.value ?? ""}
+                              />
+                              <TextareaCounter
+                                maxLength={followUpDirectionsMaxLength}
+                                value={subField.state.value}
+                              />
+                            </div>
+                            <FieldError errors={errors} />
+                          </div>
+                        );
+                      }}
+                    </form.Field>
+                  </div>
                 </div>
               )}
             </SortableItem>
@@ -254,7 +348,7 @@ function QuestionListBody({
         type="button"
         variant="outline"
       >
-        <PlusIcon className="size-4" />
+        <IconPlus className="size-4" />
         添加题目
       </Button>
     </div>

@@ -71,6 +71,20 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in GitHub Issues for `agniwen/ai-interview`; external PRs are not a triage request surface. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The triage label vocabulary uses the default five labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Domain documentation uses the single-context layout: root `CONTEXT.md` and `docs/adr/`. See `docs/agents/domain.md`.
+
 ## Project Overview
 
 AI-powered voice interview/resume screening application. Chinese-first locale — agent instructions and interview prompts are in Simplified Chinese.
@@ -80,7 +94,7 @@ AI-powered voice interview/resume screening application. Chinese-first locale �
 - **Web app** (`apps/ai-recruitment-copilot/`): TanStack Start + React 19, TanStack Router, TanStack Query, Vite/Nitro, shadcn/ui + Tailwind CSS v4. It mounts the Hono backend at `/api` for integrated web runs.
 - **Backend app** (`apps/ai-recruitment-copilot-backend/`): Hono API runtime, Drizzle ORM + PostgreSQL, Better Auth. It can be mounted by the web app at `/api` or started as a standalone Node app.
 - **Voice agent** (`apps/livekit-agent/`): Python LiveKit Agents SDK with OpenAI / Google / ElevenLabs / Minimax plugins, Silero VAD, turn-detector
-- **Monorepo**: pnpm workspace + Turborepo at the root; shared packages in `packages/` (`@arc/shared` — shared types, schemas, and isomorphic utilities; `@arc/db-schema` — Drizzle schema/relations + DB-adjacent shared types; `@arc/adapter-feishu` — Feishu chat adapter). Workspace packages are scoped under `@arc/*`.
+- **Monorepo**: pnpm workspace + Turborepo at the root; shared packages in `packages/` (`@arc/shared` — shared types, schemas, and isomorphic utilities; `@arc/db-schema` — Drizzle schema/relations + DB-adjacent shared types). Workspace packages are scoped under `@arc/*`.
 
 Two separate package managers: **pnpm** for web, **uv** for Python agent. Do not mix them.
 
@@ -126,6 +140,12 @@ Either run via turbo from the root, or directly:
 - `make install` — full setup: web deps + agent + model downloads
 - `make dev` — run web + agent in parallel
 - `make agent-console` — terminal chat without web
+
+## Frontend Route Layout (`apps/ai-recruitment-copilot/src/routes/`)
+
+Keep `src/routes/` limited to TanStack Router route modules: route declarations, route-level loaders, search validation, and thin page composition. Do not place reusable components, page sections, hooks, state models, dialog groups, list renderers, or other helper modules in `src/routes/`, including files hidden from route generation with a `-` prefix. Put feature-owned UI and client state under `src/components/features/<feature>/`; put reusable client utilities under `src/lib/client/` and TanStack Start server helpers under `src/lib/start/`.
+
+Route modules should import feature components and remain the routing boundary rather than growing into page implementations or state containers.
 
 ## Server Route Layout (`apps/ai-recruitment-copilot-backend/src/server/routes/`)
 

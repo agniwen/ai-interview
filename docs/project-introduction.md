@@ -21,7 +21,7 @@ AI Recruitment Copilot 是一个面向招聘团队的 AI 面试与简历筛选�
 
 - 作为 HR，我可以创建工作区、邀请成员、管理部门和成员角色，让不同招聘同学在同一套候选人池中协作。
 - 作为 HR，我可以维护在招岗位、岗位说明、面试官、题库、候选人表单和全局面试配置，保证不同轮次的面试口径一致。
-- 作为 HR，我可以批量上传简历，系统会解析 PDF、抽取候选人信息、生成简历评价，并把候选人放入简历库。
+- 作为 HR，我可以批量上传简历，系统会解析 PDF、抽取候选人信息、生成简历评价，并把候选人放入招聘台。
 - 作为 HR，我可以给候选人安排 AI 面试或人工面试，发送邀请链接，并在后台看到状态、报告、录音和时间线。
 - 作为 HR，我可以把候选人从 AI 面试推进到人工面试、Offer 或淘汰，并保留过程记录。
 
@@ -49,7 +49,7 @@ AI Recruitment Copilot 是一个面向招聘团队的 AI 面试与简历筛选�
 入口主要在 `apps/ai-recruitment-copilot/src/routes/w.$slug.studio.*.tsx`。
 
 - 数据看板：展示候选人漏斗、最近活动、岗位分布、Offer 状态等招聘指标。
-- 简历库：管理候选人资料、简历 PDF、解析结果、评价摘要、候选人时间线和当前环节。
+- 招聘台：管理候选人资料、简历 PDF、解析结果、评价摘要、候选人时间线和当前环节。
 - AI 面试：管理面试轮次、排期、状态、报告、录音、候选人详情和证据跳转。
 - 人工面试：支持人工面试会议、有效期、面试官绑定和 LiveKit 房间能力。
 - 在招岗位：维护岗位说明、部门、关联面试官和简历关联。
@@ -135,7 +135,6 @@ flowchart LR
 - `apps/livekit-agent/`：Python 语音面试 agent。
 - `packages/db-schema/`：Drizzle schema、relations、数据库相邻类型。
 - `packages/shared/`：纯类型、Zod schema、同构工具。
-- `packages/adapter-feishu/`：飞书适配层。
 - `packages/resume-parse-queue/`：简历解析队列共享定义。
 
 ### 前端：TanStack Start + Router + Query
@@ -224,7 +223,7 @@ AI 能力不是一个单点模型调用，而分布在多个业务节点：
 
 4 月底有一组 DataGrid 相关提交：列工厂、分页、工具栏、URL 状态、多个 Studio 页面迁移。后续又不断优化表格筛选、排序、密度和可访问性。
 
-这背后的产品原因是：招聘后台大部分核心操作发生在列表中，例如简历库、面试列表、题库、岗位、部门、成员。统一表格不是视觉洁癖，而是降低 HR 重复学习成本。
+这背后的产品原因是：招聘后台大部分核心操作发生在列表中，例如招聘台、面试列表、题库、岗位、部门、成员。统一表格不是视觉洁癖，而是降低 HR 重复学习成本。
 
 ### 3. 从单组织到多组织/工作区协作
 
@@ -234,7 +233,7 @@ AI 能力不是一个单点模型调用，而分布在多个业务节点：
 
 ### 4. 从同步简历处理到后台队列
 
-简历解析先支持聊天附件和 OCR，后续增加批量上传、简历库、解析预览、缓存、后台 worker、Redis/BullMQ 队列和 OCR retry。
+简历解析先支持聊天附件和 OCR，后续增加批量上传、招聘台、解析预览、缓存、后台 worker、Redis/BullMQ 队列和 OCR retry。
 
 产品原因很直接：单份简历可以同步等待，多份简历批量上传时必须异步化，否则 HR 会卡在上传页面，也很难处理失败重试。
 
@@ -295,7 +294,7 @@ Agent 历史里能看到 STT 模型切换、VAD 调整、长回答保护、候�
 ### 产品同学优先看
 
 - `apps/ai-recruitment-copilot/src/routes/w.$slug.studio.dashboard.tsx`：招聘数据看板。
-- `apps/ai-recruitment-copilot/src/routes/w.$slug.studio.resumes.tsx`：简历库。
+- `apps/ai-recruitment-copilot/src/routes/w.$slug.studio.resumes.tsx`：招聘台。
 - `apps/ai-recruitment-copilot/src/routes/w.$slug.studio.interviews.tsx`：AI 面试列表。
 - `apps/ai-recruitment-copilot/src/routes/w.$slug.studio.interviews.$roundId.tsx`：面试详情。
 - `packages/db-schema/src/schema.ts`：候选人、轮次、人工面试、Offer、表单、题库等核心业务对象。
@@ -311,7 +310,7 @@ Agent 历史里能看到 STT 模型切换、VAD 调整、长回答保护、候�
 - `department`：招聘部门。
 - `interviewer`：AI 面试官配置，包括部门和音色。
 - `jobDescription`：在招岗位和岗位说明。
-- `studioInterview`：候选人主档案/简历库记录。
+- `studioInterview`：候选人主档案/招聘台记录。
 - `studioInterviewSchedule`：AI 面试轮次或排期。
 - `interviewConversation` / `interviewConversationTurn`：面试会话和逐轮转写。
 - `studioHumanInterviewRound` / `studioHumanInterviewMeeting`：人工面试轮次和会议。

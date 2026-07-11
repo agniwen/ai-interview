@@ -1,8 +1,9 @@
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { zValidator } from "@hono/zod-validator";
-import { generateText } from "ai";
-import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
-import { withDevTools } from "@arc/ai-recruitment-copilot-backend/server/agents/devtools";
+import { getMastraModelApiKey } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/models";
+import {
+  generateTextWithMastraAgent,
+  titleAgent,
+} from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { resumeTitleRequestSchema } from "@arc/ai-recruitment-copilot-backend/server/routes/resume/schema";
 import { sanitizeTitle } from "@arc/ai-recruitment-copilot-backend/server/routes/resume/utils/title";
@@ -12,34 +13,19 @@ export const titleRouter = factory
   .post("/", zValidator("json", resumeTitleRequestSchema), async (c) => {
     const { hasFiles, text } = c.req.valid("json");
 
-    const apiKey = process.env.ALIBABA_API_KEY;
-
-    if (!apiKey) {
+    if (!getMastraModelApiKey()) {
       return c.json(
         {
-          error: "Missing ALIBABA_API_KEY. Please configure your environment variables.",
+          error:
+            "Missing ALIBABA_API_KEY or ALIBABA_CODING_PLAN_API_KEY. Please configure your environment variables.",
         },
         500,
       );
     }
 
-    const baseURL = getRequiredEnv("ALIBABA_BASE_URL");
-
-    const provider = createOpenAICompatible({
-      apiKey,
-      baseURL,
-      name: "alibaba",
-      transformRequestBody: (body) => ({
-        ...body,
-        enable_thinking: false,
-      }),
-    });
-
-    const modelId = getRequiredEnv("ALIBABA_FAST_MODEL");
-
     try {
-      const { text: titleText } = await generateText({
-        model: withDevTools(provider(modelId)),
+      const titleText = await generateTextWithMastraAgent({
+        agent: titleAgent,
         prompt: `你是会话标题助手。请根据用户第一条消息的意图生成一个中文标题。
 要求:
 - 只输出标题，不要任何解释

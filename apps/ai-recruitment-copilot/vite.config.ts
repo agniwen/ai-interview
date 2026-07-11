@@ -49,15 +49,23 @@ export default defineConfig({
       pages: [
         {
           path: "/",
-          prerender: { enabled: true, outputPath: "/index.html" },
+          // The home loader is request-scoped and Nitro prerender currently leaves
+          // Rolldown workers alive after crawling this route.
+          prerender: { enabled: false, outputPath: "/index.html" },
         },
       ],
       prerender: {
         autoStaticPathsDiscovery: false,
         crawlLinks: false,
-        enabled: true,
+        enabled: false,
       },
       router: {
+        // Ignore non-route artifacts under `src/routes` so colocated tests
+        // (or future helpers) never become pages. Defaults already skip names
+        // prefixed with `-`; this also drops `__tests__` / `__test__` dirs and
+        // `*.test.*` / `*.spec.*` files even without that prefix.
+        // See: https://tanstack.com/router/latest/docs/api/file-based-routing
+        routeFileIgnorePattern: "(__tests__|__test__|\\.test\\.|\\.spec\\.)",
         routesDirectory: "routes",
       },
       server: {

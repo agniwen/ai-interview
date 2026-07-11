@@ -1,5 +1,15 @@
 "use client";
 
+import {
+  IconCircleDot,
+  IconListCheck,
+  IconLoader2,
+  IconPlus,
+  IconSettings2,
+  IconSquareCheck,
+  IconTrash,
+  IconTypeface,
+} from "@tabler/icons-react";
 /* oxlint-disable eslint(no-use-before-define) jsx-a11y(prefer-tag-over-role) */
 /* eslint-disable no-use-before-define, jsx-a11y/prefer-tag-over-role */
 
@@ -15,18 +25,7 @@ import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useForm, useStore } from "@tanstack/react-form";
-import {
-  CheckSquareIcon,
-  ChevronDownIcon,
-  CircleDotIcon,
-  ListChecksIcon,
-  LoaderCircleIcon,
-  PlusIcon,
-  Settings2Icon,
-  Trash2Icon,
-  TypeIcon,
-  XIcon,
-} from "@/components/icons/hugeicons";
+
 import type { KeyboardEvent, MouseEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -44,11 +43,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { SortableDragHandle, SortableItem, SortableList } from "@/components/ui/sortable-list";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -59,13 +56,9 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { cn } from "@arc/shared/utils";
-import {
-  candidateFormTemplateSchema,
-  DEFAULT_DISPLAY_MODE,
-  DISPLAY_MODES_BY_TYPE,
-} from "@arc/db-schema/candidate-forms";
-import { useSortableItemIds } from "@/hooks/use-sortable-item-ids";
+import { candidateFormTemplateSchema, DEFAULT_DISPLAY_MODE } from "@arc/db-schema/candidate-forms";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
+import { QuestionConfigPanel, QuestionPreview } from "./form-template-question-config";
 
 const DISPLAY_MODE_LABELS: Record<CandidateFormDisplayMode, string> = {
   checkbox: "复选框",
@@ -83,27 +76,24 @@ const QUESTION_TYPE_LABELS: Record<CandidateFormQuestionType, string> = {
 
 const QUESTION_TYPE_META: Record<
   CandidateFormQuestionType,
-  { description: string; icon: typeof CircleDotIcon }
+  { description: string; icon: typeof IconCircleDot }
 > = {
   multi: {
     description: "候选人可选择多个答案",
-    icon: CheckSquareIcon,
+    icon: IconSquareCheck,
   },
   single: {
     description: "候选人只能选择一个答案",
-    icon: CircleDotIcon,
+    icon: IconCircleDot,
   },
   text: {
     description: "候选人填写文本内容",
-    icon: TypeIcon,
+    icon: IconTypeface,
   },
 };
 
 const TITLE_MAX_LENGTH = 120;
 const DESCRIPTION_MAX_LENGTH = 1000;
-const QUESTION_LABEL_MAX_LENGTH = 500;
-const QUESTION_HELPER_MAX_LENGTH = 500;
-const OPTION_TEXT_MAX_LENGTH = 200;
 
 function makeDefaultQuestion(
   sortOrder: number,
@@ -266,7 +256,7 @@ export function CandidateFormTemplateEditorDialog({
             取消
           </Button>
           <Button disabled={isSubmitting} form="form-template-form" type="submit">
-            {isSubmitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+            {isSubmitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
             {isEdit ? "保存" : "创建"}
           </Button>
         </>
@@ -517,7 +507,7 @@ function QuestionBuilderBody({
         <Card className="max-w-sm gap-0 rounded-lg border-dashed py-0">
           <CardContent className="px-5 py-6 text-center">
             <div className="mx-auto flex size-10 items-center justify-center rounded-md bg-muted text-muted-foreground">
-              <ListChecksIcon className="size-5" />
+              <IconListCheck className="size-5" />
             </div>
             <p className="mt-3 font-medium text-sm">题目需要在 PC 端编辑</p>
             <p className="mt-1 text-muted-foreground text-xs leading-relaxed">
@@ -530,7 +520,7 @@ function QuestionBuilderBody({
       <div className="hidden h-[58vh] min-h-[460px] max-h-[876px] flex-none grid-cols-[220px_minmax(0,1fr)_360px] overflow-hidden md:grid">
         <aside className="flex min-h-0 flex-col gap-3 border-r bg-background px-4 py-4">
           <div className="flex items-center gap-2">
-            <PlusIcon className="size-4 text-muted-foreground" />
+            <IconPlus className="size-4 text-muted-foreground" />
             <h3 className="font-medium text-sm">题目类型</h3>
           </div>
           <div className="flex flex-col gap-2">
@@ -557,7 +547,7 @@ function QuestionBuilderBody({
                   </span>
                   <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/60 opacity-0 backdrop-blur-[1px] transition-opacity group-focus-visible:opacity-100 group-hover:opacity-100">
                     <span className="inline-flex items-center gap-1.5 rounded-md bg-primary px-2 py-1 font-medium text-primary-foreground text-xs shadow-xs">
-                      <PlusIcon className="size-3.5" />
+                      <IconPlus className="size-3.5" />
                       点击添加
                     </span>
                   </span>
@@ -570,7 +560,7 @@ function QuestionBuilderBody({
         <section className="flex min-h-0 flex-col bg-muted/20">
           <div className="flex shrink-0 items-center justify-between border-b bg-background px-5 py-3">
             <div className="flex items-center gap-2">
-              <ListChecksIcon className="size-4 text-muted-foreground" />
+              <IconListCheck className="size-4 text-muted-foreground" />
               <h3 className="font-medium text-sm">预览画布</h3>
             </div>
             <span className="text-muted-foreground text-xs">共 {items.length} 道</span>
@@ -614,7 +604,7 @@ function QuestionBuilderBody({
 
         <aside className="flex min-h-0 flex-col border-l bg-background">
           <div className="flex shrink-0 items-center gap-2 border-b px-4 py-3">
-            <Settings2Icon className="size-4 text-muted-foreground" />
+            <IconSettings2 className="size-4 text-muted-foreground" />
             <h3 className="font-medium text-sm">题目配置</h3>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
@@ -756,436 +746,9 @@ function QuestionCanvasCard({
           type="button"
           variant="ghost"
         >
-          <Trash2Icon className="size-4" />
+          <IconTrash className="size-4" />
         </Button>
       </div>
     </div>
-  );
-}
-
-function QuestionPreview({ question }: { question: CandidateFormQuestionInput }) {
-  if (question.type === "single" && question.displayMode === "select") {
-    return <PreviewSelect placeholder="请选择" />;
-  }
-
-  if (question.type === "multi" && question.displayMode === "select") {
-    return <PreviewSelect placeholder="请选择，可多选" />;
-  }
-
-  if (question.type === "text") {
-    if (question.displayMode === "textarea") {
-      return (
-        <div className="relative min-h-24 rounded-md border border-input bg-background px-3 py-2 text-muted-foreground text-sm shadow-xs">
-          请输入你的回答…
-          <span className="absolute right-3 bottom-2 text-muted-foreground/70 text-xs">0/5000</span>
-        </div>
-      );
-    }
-
-    return (
-      <div className="flex h-9 items-center rounded-md border border-input bg-background px-3 text-muted-foreground text-sm shadow-xs">
-        请输入你的回答…
-      </div>
-    );
-  }
-
-  if (question.options.length === 0) {
-    return (
-      <div className="rounded-md border border-dashed bg-muted/20 px-3 py-3 text-muted-foreground text-xs">
-        暂无选项
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-1.5">
-      {question.options.map((option) => (
-        <div
-          className="flex min-h-11 items-center gap-3 rounded-md border border-transparent px-3 py-2 font-normal transition-colors hover:bg-accent"
-          key={option.value}
-        >
-          <span
-            className={cn(
-              "size-4 shrink-0 border border-primary/40 bg-background",
-              question.type === "multi" ? "rounded-[4px]" : "rounded-full",
-            )}
-          />
-          <span className="min-w-0 flex-1 truncate text-sm">{option.label || option.value}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function PreviewSelect({ placeholder }: { placeholder: string }) {
-  return (
-    <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-muted-foreground text-sm shadow-xs">
-      <span>{placeholder}</span>
-      <ChevronDownIcon className="size-4 shrink-0 opacity-50" />
-    </div>
-  );
-}
-
-function QuestionConfigPanel({
-  form,
-  index,
-  onRemove,
-}: {
-  form: TemplateFormApi;
-  index: number;
-  onRemove?: () => void;
-}) {
-  // form.reset / setFieldValue 把 questions 整段替换的过渡帧里，store selector 可能
-  // 读到 state.values.questions === undefined 或者新数组比当前 index 短。
-  // 三个 selector 都先把 questions 本身兜成 [] 再 index，再用 ?? fallback——
-  // 避免抛错被 useStore 吞掉后返回上次的 stale value，进而让下游 lookup 拿到非法 key。
-  // During a form.reset / setFieldValue race the questions array can briefly be
-  // undefined or shorter than `index`. Default questions to [] before indexing
-  // so the selector never throws (a thrown selector causes useStore to return a
-  // stale value, which can later index DISPLAY_MODES_BY_TYPE with garbage).
-  const questionType = useStore(
-    form.store,
-    // oxlint-disable-next-line no-explicit-any
-    (state: any) =>
-      ((state.values.questions ?? [])[index]?.type ?? "single") as CandidateFormQuestionType,
-  );
-
-  const questionId = useStore(
-    form.store,
-    // oxlint-disable-next-line no-explicit-any
-    (state: any) => ((state.values.questions ?? [])[index]?.id ?? "") as string,
-  );
-
-  const displayMode = useStore(
-    form.store,
-    // oxlint-disable-next-line no-explicit-any
-    (state: any) =>
-      ((state.values.questions ?? [])[index]?.displayMode ??
-        DEFAULT_DISPLAY_MODE[questionType]) as CandidateFormDisplayMode,
-  );
-
-  // questionType 理论上一定是合法枚举值，但旧数据 / schema 漂移可能塞入非法字符串。
-  // lookup 失败时退回 [] 让 Select 渲染空 dropdown 而不是炸掉整个题目编辑器。
-  // questionType is constrained to the enum in theory, but legacy rows /
-  // schema drift could leak invalid strings. Fall back to [] so the Select
-  // renders an empty dropdown instead of crashing the row.
-  const allowedDisplayModes = useMemo(
-    () => (DISPLAY_MODES_BY_TYPE[questionType] ?? []) as readonly CandidateFormDisplayMode[],
-    [questionType],
-  );
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="font-medium text-sm">第 {index + 1} 题</p>
-          <p className="text-muted-foreground text-xs">编辑题干、展示方式和选项。</p>
-        </div>
-        <Button
-          aria-label="删除题目"
-          className="size-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-          disabled={!onRemove}
-          onClick={onRemove}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <Trash2Icon className="size-4" />
-        </Button>
-      </div>
-
-      <div className="grid gap-3">
-        <form.Field name={`questions[${index}].type`}>
-          {/* oxlint-disable-next-line no-explicit-any */}
-          {(field: any) => (
-            <Field>
-              <FieldLabel>题目类型</FieldLabel>
-              <FieldContent>
-                <Select
-                  onValueChange={(value) => {
-                    const nextType = value as CandidateFormQuestionType;
-                    if (nextType === field.state.value) {
-                      return;
-                    }
-                    // Type change invalidates the previous display mode and any
-                    // stored options — replace the whole question atomically so
-                    // sibling Field subscriptions (displayMode/options) pick up
-                    // the new defaults in the same render cycle.
-                    const current = form.getFieldValue(
-                      `questions[${index}]`,
-                    ) as CandidateFormQuestionInput;
-                    form.setFieldValue(`questions[${index}]`, {
-                      ...current,
-                      displayMode: DEFAULT_DISPLAY_MODE[nextType],
-                      options:
-                        nextType === "text"
-                          ? []
-                          : [
-                              { label: "选项 1", value: "option_1" },
-                              { label: "选项 2", value: "option_2" },
-                            ],
-                      type: nextType,
-                    });
-                  }}
-                  value={field.state.value}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(QUESTION_TYPE_LABELS) as CandidateFormQuestionType[]).map(
-                      (type) => (
-                        <SelectItem key={type} value={type}>
-                          {QUESTION_TYPE_LABELS[type]}
-                        </SelectItem>
-                      ),
-                    )}
-                  </SelectContent>
-                </Select>
-              </FieldContent>
-            </Field>
-          )}
-        </form.Field>
-
-        <Field>
-          <FieldLabel>展示方式</FieldLabel>
-          <FieldContent>
-            <Select
-              key={questionType}
-              onValueChange={(value) =>
-                form.setFieldValue(
-                  `questions[${index}].displayMode`,
-                  value as CandidateFormDisplayMode,
-                )
-              }
-              value={displayMode}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {allowedDisplayModes.map((mode) => (
-                  <SelectItem key={mode} value={mode}>
-                    {DISPLAY_MODE_LABELS[mode]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FieldContent>
-        </Field>
-
-        <form.Field name={`questions[${index}].required`}>
-          {/* oxlint-disable-next-line no-explicit-any */}
-          {(field: any) => (
-            <Field className="items-start">
-              <FieldLabel>必填</FieldLabel>
-              <FieldContent>
-                <div className="flex h-9 items-center gap-2">
-                  <Switch
-                    checked={field.state.value}
-                    id={`q-${index}-required`}
-                    onCheckedChange={(checked) => field.handleChange(checked)}
-                  />
-                  <Label className="text-sm" htmlFor={`q-${index}-required`}>
-                    {field.state.value ? "必填" : "选填"}
-                  </Label>
-                </div>
-              </FieldContent>
-            </Field>
-          )}
-        </form.Field>
-      </div>
-
-      <form.Field name={`questions[${index}].label`}>
-        {/* oxlint-disable-next-line no-explicit-any */}
-        {(field: any) => {
-          const errors = toFieldErrors(field.state.meta.errors);
-          return (
-            <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-              <FieldLabel>题目文本</FieldLabel>
-              <FieldContent className="gap-2">
-                <div className="relative">
-                  <Textarea
-                    aria-invalid={!!errors?.length}
-                    className="max-h-40 min-h-20 resize-none pb-6"
-                    maxLength={QUESTION_LABEL_MAX_LENGTH}
-                    onBlur={field.handleBlur}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    placeholder="请输入题目"
-                    rows={3}
-                    value={field.state.value}
-                  />
-                  <TextareaCounter
-                    maxLength={QUESTION_LABEL_MAX_LENGTH}
-                    value={field.state.value}
-                  />
-                </div>
-                <FieldError errors={errors} />
-              </FieldContent>
-            </Field>
-          );
-        }}
-      </form.Field>
-
-      <form.Field name={`questions[${index}].helperText`}>
-        {/* oxlint-disable-next-line no-explicit-any */}
-        {(field: any) => (
-          <Field>
-            <FieldLabel>提示（可选）</FieldLabel>
-            <FieldContent>
-              <Input
-                maxLength={QUESTION_HELPER_MAX_LENGTH}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-                placeholder="给候选人一点补充说明"
-                value={field.state.value ?? ""}
-              />
-            </FieldContent>
-          </Field>
-        )}
-      </form.Field>
-
-      {questionType === "text" ? null : (
-        // oxlint-disable-next-line no-use-before-define
-        <OptionsEditor form={form} index={index} questionId={questionId} />
-      )}
-    </div>
-  );
-}
-
-function OptionsEditor({
-  form,
-  index,
-  questionId,
-}: {
-  form: TemplateFormApi;
-  index: number;
-  questionId: string;
-}) {
-  return (
-    <form.Field mode="array" name={`questions[${index}].options`}>
-      {/* oxlint-disable-next-line no-explicit-any */}
-      {(field: any) => (
-        // oxlint-disable-next-line no-use-before-define
-        <OptionsList field={field} form={form} index={index} questionId={questionId} />
-      )}
-    </form.Field>
-  );
-}
-
-function OptionsList({
-  field,
-  form,
-  index,
-  questionId,
-}: {
-  // oxlint-disable-next-line no-explicit-any
-  field: any;
-  form: TemplateFormApi;
-  index: number;
-  questionId: string;
-}) {
-  // tanstack-form 数组字段在 modal 关闭 / 题目类型切换的过渡帧里会短暂返回 undefined
-  // （父字段 questions[index] 被整体替换时，options 子字段还在 mount 状态下抢渲染一次）。
-  // 用 ?? [] 兜底避免 .length 抛错——值为 undefined 时整个 SortableList 渲染空数组也无副作用。
-  // The array field briefly returns undefined during modal close / question-type
-  // swap (parent questions[index] is replaced wholesale while this child field is
-  // still mounted for one render). Default to [] so `.length` doesn't throw; an
-  // empty SortableList renders harmlessly during that transient frame.
-  const items = (field.state.value ?? []) as { value: string; label: string }[];
-  const errors = toFieldErrors(field.state.meta.errors);
-  const {
-    ids: optionIds,
-    move: moveId,
-    push: pushId,
-    remove: removeId,
-  } = useSortableItemIds(items.length, questionId);
-
-  return (
-    <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-      <FieldLabel>选项</FieldLabel>
-      <FieldContent className="gap-2">
-        <SortableList
-          ids={optionIds}
-          onReorder={(from, to) => {
-            field.moveValue(from, to);
-            moveId(from, to);
-          }}
-        >
-          {items.map((_item, optionIndex) => {
-            const id = optionIds[optionIndex];
-            if (!id) {
-              return null;
-            }
-            return (
-              <SortableItem id={id} key={id}>
-                {({ handleProps }) => (
-                  <div className="flex items-center gap-2">
-                    <SortableDragHandle {...handleProps} aria-label="拖动以调整选项顺序" />
-                    <form.Field name={`questions[${index}].options[${optionIndex}].label`}>
-                      {/* oxlint-disable-next-line no-explicit-any */}
-                      {(subField: any) => (
-                        <Input
-                          className="flex-1"
-                          maxLength={OPTION_TEXT_MAX_LENGTH}
-                          onBlur={subField.handleBlur}
-                          onChange={(event) => subField.handleChange(event.target.value)}
-                          placeholder="显示文字"
-                          value={subField.state.value}
-                        />
-                      )}
-                    </form.Field>
-                    <form.Field name={`questions[${index}].options[${optionIndex}].value`}>
-                      {/* oxlint-disable-next-line no-explicit-any */}
-                      {(subField: any) => (
-                        <Input
-                          className="w-32 font-mono text-xs"
-                          maxLength={OPTION_TEXT_MAX_LENGTH}
-                          onBlur={subField.handleBlur}
-                          onChange={(event) => subField.handleChange(event.target.value)}
-                          placeholder="value"
-                          value={subField.state.value}
-                        />
-                      )}
-                    </form.Field>
-                    <Button
-                      aria-label="删除选项"
-                      className="size-8 shrink-0"
-                      disabled={items.length <= 2}
-                      onClick={() => {
-                        field.removeValue(optionIndex);
-                        removeId(optionIndex);
-                      }}
-                      size="icon"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <XIcon className="size-4" />
-                    </Button>
-                  </div>
-                )}
-              </SortableItem>
-            );
-          })}
-        </SortableList>
-        <Button
-          className="self-start"
-          onClick={() => {
-            field.pushValue({
-              label: `选项 ${items.length + 1}`,
-              value: `option_${items.length + 1}`,
-            });
-            pushId();
-          }}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          <PlusIcon className="size-4" />
-          添加选项
-        </Button>
-        <FieldError errors={errors} />
-      </FieldContent>
-    </Field>
   );
 }

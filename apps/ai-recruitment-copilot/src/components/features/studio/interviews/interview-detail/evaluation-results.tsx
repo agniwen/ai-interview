@@ -1,6 +1,11 @@
+"use client";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { resolveRecommendationVariant } from "./helpers";
+import { HighlightedText } from "./keyword-highlight/highlighted-text";
+import { useKeywordHighlight } from "./keyword-highlight/context";
+import type { KeywordCategory } from "@arc/shared/answer-keywords";
 
 export interface EvidenceQuote {
   quote?: string;
@@ -50,7 +55,7 @@ function KeyValueEntries({ entries }: { entries: Record<string, unknown> }) {
       {items.map(([key, value]) => (
         <div className="border-border/50 border-t pt-3 text-sm" key={key}>
           <p className="font-medium">{key}</p>
-          <p className="mt-1 break-words text-muted-foreground leading-6">
+          <p className="mt-1 wrap-break-word text-muted-foreground leading-6">
             {typeof value === "string" ? value : JSON.stringify(value)}
           </p>
         </div>
@@ -60,9 +65,11 @@ function KeyValueEntries({ entries }: { entries: Record<string, unknown> }) {
 }
 
 function EvidenceList({
+  enabledCategories,
   evidence,
   onEvidenceSelect,
 }: {
+  enabledCategories: Set<KeywordCategory>;
   evidence: EvidenceQuote[];
   onEvidenceSelect?: (evidence: EvidenceQuote) => void;
 }) {
@@ -82,7 +89,15 @@ function EvidenceList({
           type="button"
           variant="outline"
         >
-          <span className="min-w-0 flex-1 truncate">“{item.quote}”</span>
+          <span className="min-w-0 flex-1 truncate">
+            “
+            <HighlightedText
+              className="whitespace-normal"
+              enabledCategories={enabledCategories}
+              text={item.quote ?? ""}
+            />
+            ”
+          </span>
           {typeof item.timeInCallSecs === "number" ? (
             <span className="shrink-0 text-muted-foreground tabular-nums">
               {item.timeInCallSecs}s
@@ -108,6 +123,8 @@ export function EvaluationResults({
   data: Record<string, unknown>;
   onEvidenceSelect?: (evidence: EvidenceQuote) => void;
 }) {
+  const { enabledCategories } = useKeywordHighlight();
+
   if (!data || Object.keys(data).length === 0) {
     return <p className="text-muted-foreground text-sm">暂无结构化结果。</p>;
   }
@@ -132,7 +149,9 @@ export function EvaluationResults({
         </div>
       )}
       {data.overallAssessment && (
-        <p className="text-muted-foreground text-sm leading-normal">{data.overallAssessment}</p>
+        <p className="text-muted-foreground text-sm leading-normal">
+          <HighlightedText enabledCategories={enabledCategories} text={data.overallAssessment} />
+        </p>
       )}
       {data.questions.length > 0 && (
         <div className="flex flex-col">
@@ -149,10 +168,16 @@ export function EvaluationResults({
                 </span>
               </div>
               {q.assessment && (
-                <p className="mt-1.5 text-muted-foreground leading-normal">{q.assessment}</p>
+                <p className="mt-1.5 text-muted-foreground leading-normal">
+                  <HighlightedText enabledCategories={enabledCategories} text={q.assessment} />
+                </p>
               )}
               {Array.isArray(q.evidence) ? (
-                <EvidenceList evidence={q.evidence} onEvidenceSelect={onEvidenceSelect} />
+                <EvidenceList
+                  enabledCategories={enabledCategories}
+                  evidence={q.evidence}
+                  onEvidenceSelect={onEvidenceSelect}
+                />
               ) : null}
             </div>
           ))}

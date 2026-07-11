@@ -1,114 +1,91 @@
 "use client";
 
-import type { ChatStatus, FileUIPart, UIMessage } from "ai";
-import type { JobDescriptionConfig } from "@arc/db-schema/job-description-config";
 import { useChat } from "@ai-sdk/react";
+import { AssistantRuntimeProvider } from "@assistant-ui/react";
+import { useAISDKRuntime } from "@assistant-ui/react-ai-sdk";
+import { IconRefresh, IconX } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
-import { useAtom, useAtomValue } from "jotai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  NewRecruitingThread,
+  RecruitingCopilotContextProvider,
+  RecruitingThread,
+  RecruitingToolRenderers,
+} from "@/components/assistant-ui/recruiting-thread";
+import { Button } from "@/components/ui/button";
 import {
   fetchConversation,
   patchConversation,
   requestResumeChatTitle,
   upsertConversation as upsertConversationOnServer,
 } from "@/lib/client/api";
-import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { authClient } from "@/lib/client/auth-client";
-import { chatModelByIdAtom, DRAFT_CHAT_KEY } from "./atoms/model";
-import { thinkingModeAtom } from "./atoms/thinking";
-import { useChatModelsQuery } from "./lib/use-chat-models";
-import { resolveEffectiveModel } from "./lib/resolve-effective-model";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { CHAT_EVENTS, notifyConversationsChanged } from "./lib/chat-events";
 import { setChatMeta } from "./lib/chat-meta";
 import { getOrCreateChat, hasChat } from "./lib/chat-registry";
-import { useJobDescriptionConfig } from "./lib/use-job-description-config";
-import { useJobDescriptionOptionsQuery } from "./lib/use-job-description-options";
-import { useResumeImports } from "./lib/use-resume-imports";
-import { ChatRuntimeProvider } from "./chat-runtime-context";
-import type { SendMessageInput } from "./chat-runtime-context";
-import { Composer } from "./composer/composer";
-import { QuickSuggestions } from "./composer/quick-suggestions";
-import { ComposerInputProvider } from "./composer-input-context";
-import { ConversationView } from "./conversation-view";
-import { ErrorBanner } from "./error-banner";
-import { JobDescriptionDialog } from "./job-description-dialog";
 
 const NEW_CHAT_TITLE = "新对话";
 const GENERATING_CHAT_TITLE = "生成中...";
 const MAX_CHAT_TITLE_LENGTH = 28;
 
-function getConversationTitleFromMessages(
-  messages: UIMessage[],
-  fallbackTitle: string = NEW_CHAT_TITLE,
-) {
-  const firstUserMessage = messages.find((message) => message.role === "user");
-  if (!firstUserMessage) {
-    return fallbackTitle;
-  }
-  const text = firstUserMessage.parts
-    .filter((p): p is Extract<UIMessage["parts"][number], { type: "text" }> => p.type === "text")
-    .map((part) => part.text.trim())
-    .filter(Boolean)
-    .join(" ")
-    .trim();
-  if (text.length > 0) {
-    return text.slice(0, MAX_CHAT_TITLE_LENGTH);
-  }
-  if (firstUserMessage.parts.some((p) => p.type === "file")) {
-    return "含附件对话";
-  }
-  return fallbackTitle;
+function getConversationTitleFromText(text: string) {
+  const title = text.trim().replaceAll(/\s+/g, " ").slice(0, MAX_CHAT_TITLE_LENGTH);
+  return title || NEW_CHAT_TITLE;
 }
 
-// eslint-disable-next-line complexity -- Top-level shell owns many pieces of orchestration state.
+function ChatErrorBar({
+  error,
+  historyErrorMessage,
+  onClearError,
+  onRetry,
+}: {
+  error: Error | undefined;
+  historyErrorMessage: string | null;
+  onClearError: () => void;
+  onRetry: () => void;
+}) {
+  if (!error && !historyErrorMessage) {
+    return null;
+  }
+  return (
+    <div className="border-t px-4 py-2">
+      <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-sm">
+        <span className="min-w-0 flex-1">
+          {historyErrorMessage ?? "请求失败，这一步没有完成。"}
+        </span>
+        {error ? (
+          <>
+            <Button onClick={onRetry} size="sm" type="button" variant="outline">
+              <IconRefresh className="size-3.5" />
+              重试
+            </Button>
+            <Button
+              aria-label="关闭错误"
+              onClick={onClearError}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <IconX className="size-3.5" />
+            </Button>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export default function ChatWorkspace({ initialSessionId }: { initialSessionId: string | null }) {
   const slug = useWorkspaceSlug();
   const navigate = useNavigate();
   const { data: session } = authClient.useSession();
-  const thinkingMode = useAtomValue(thinkingModeAtom);
-  const [chatModelByChatId, setChatModelByChatId] = useAtom(chatModelByIdAtom);
-
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isHistoryReady, setIsHistoryReady] = useState(false);
   const [shouldNormalizeSessionPath, setShouldNormalizeSessionPath] = useState(false);
   const [historyErrorMessage, setHistoryErrorMessage] = useState<string | null>(null);
-  const [uploadErrorMessage, setUploadErrorMessage] = useState<string | null>(null);
-  // Tracks whether we expect a model response right now. Set optimistically in
-  // the submit path (before the SDK status transitions) and kept in sync via
-  // the effect below so the send/stop button stays stable during the agent
-  // loop's brief `ready` gaps between auto-submitted steps.
-  const [hasPendingResponse, setHasPendingResponse] = useState(false);
-  // Explicit user stop — lets us force the UI back to idle even if the SDK
-  // status gets stuck (some abort paths on iOS/Safari leave it on `streaming`).
-  const [userStopped, setUserStopped] = useState(false);
+  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
 
-  // 抽出的状态切片：JD 配置 / 简历导入映射。
-  // Extracted state slices: JD config + resume-import mapping.
-  const {
-    config: jobDescriptionConfig,
-    setConfig: setJobDescriptionConfig,
-    text: jobDescriptionText,
-    label: jobDescriptionLabel,
-    hasJobDescription,
-    isDialogOpen: isJobDescriptionDialogOpen,
-    setIsDialogOpen: setIsJobDescriptionDialogOpen,
-    openDialog: openJobDescriptionDialog,
-    save: saveJobDescription,
-    clear: clearJobDescription,
-  } = useJobDescriptionConfig();
-  const {
-    map: resumeImports,
-    replaceAll: replaceResumeImports,
-    reset: resetResumeImports,
-    markImported: handleResumeImported,
-    markMissing: handleResumeImportMissing,
-  } = useResumeImports();
-
-  const userName = session?.user?.name ?? "用户";
-
-  // Guards `sendMessageToChat` from re-entry on rapid double-clicks. Released
-  // after a short delay — by then the SDK status has moved to submitted and
-  // the submit button is disabled.
   const submitDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () => () => {
@@ -119,108 +96,26 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
     [],
   );
 
-  // 当前 session 的模型选择：先按 chatId 从 atom map 取，再用 /models 的最新列表
-  // 通过同一个 `resolveEffectiveModel` 兜底，保证发出去的 model 和 picker 显示一致。
-  // Atom 由 picker 的 useEffect 异步纠正；这里再做一次同步级联，避免那个一帧间隙
-  // 期间 transport 用旧值的尴尬场景。
-  // Per-session model: read by chatId, then run the same cascade against the
-  // latest /models list. The picker reconciles the atom asynchronously; doing
-  // the cascade here too guarantees the *sent* model matches what the picker
-  // displays, even during the one-render gap before the atom settles.
-  const { data: modelsData } = useChatModelsQuery();
-  const rawSessionModel = activeConversationId
-    ? (chatModelByChatId[activeConversationId] ?? "")
-    : "";
-  const sessionModel = useMemo(() => {
-    if (!modelsData) {
-      return rawSessionModel;
-    }
-    return resolveEffectiveModel({
-      defaultId: modelsData.defaultId,
-      models: modelsData.models,
-      raw: rawSessionModel,
-    });
-  }, [modelsData, rawSessionModel]);
-
-  // Push latest JD + thinking mode + session model into the registry for every
-  // active conversation, so the transport body always reflects the user's
-  // current settings — including when the stream is running in the background.
-  useEffect(() => {
-    if (!activeConversationId) {
-      return;
-    }
-    setChatMeta(activeConversationId, {
-      enableThinking: thinkingMode,
-      jobDescription: jobDescriptionText,
-      model: sessionModel,
-    });
-  }, [activeConversationId, jobDescriptionText, sessionModel, thinkingMode]);
-
-  // Resolve the Chat instance for this conversation from the module-level
-  // registry. The instance outlives ChatWorkspace's mount — stream state is
-  // owned by the registry, not the component — so navigating away does not
-  // abort the request. When `activeConversationId` is null (the empty
-  // `/chat` shell) we hand useChat an empty init; it stands up a throwaway
-  // internal Chat that never gets dispatched against.
   const boundChat = useMemo(
     () => (activeConversationId ? getOrCreateChat(activeConversationId, slug) : null),
     [activeConversationId, slug],
   );
 
-  const { addToolOutput, messages, setMessages, status, stop, error, regenerate, clearError } =
-    useChat(
-      boundChat
-        ? {
-            chat: boundChat,
-            experimental_throttle: 50,
-          }
-        : { experimental_throttle: 50 },
-    );
+  const chatHelpers = useChat(
+    boundChat ? { chat: boundChat, experimental_throttle: 50 } : { experimental_throttle: 50 },
+  );
+  const runtime = useAISDKRuntime(chatHelpers, { joinStrategy: "none" });
+  const { clearError, error, messages, regenerate, setMessages, status } = chatHelpers;
+  const isStreaming = status === "submitted" || status === "streaming";
 
-  // When the user starts a new conversation (boundChat goes null), useChat
-  // doesn't automatically clear its internal messages array — the throwaway
-  // internal Chat reuses state. Force-clear so the prior conversation's
-  // messages don't bleed into the empty shell.
   useEffect(() => {
     if (!boundChat) {
       setMessages([]);
     }
   }, [boundChat, setMessages]);
 
-  // Keep the latest messages reachable from callbacks without making
-  // `messages` itself a dep — otherwise every streamed chunk would re-create
-  // ensureConversation / sendMessageToChat / handleContinueAfterError, which
-  // in turn would churn ActionsContext value and re-render the composer.
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
-
-  const isChatInFlight = (status === "submitted" || status === "streaming") && !userStopped;
-  let effectiveStatus: ChatStatus = status;
-  if (userStopped) {
-    effectiveStatus = "ready";
-  } else if (hasPendingResponse) {
-    effectiveStatus = "streaming";
-  }
-  const isStreaming = effectiveStatus === "submitted" || effectiveStatus === "streaming";
-  const latestMessage = messages.at(-1);
-  const showAssistantThinkingBubble = isStreaming && latestMessage?.role === "user";
-
-  useEffect(() => {
-    if (isChatInFlight) {
-      setHasPendingResponse(true);
-      return;
-    }
-    if (status === "ready" || status === "error") {
-      setHasPendingResponse(false);
-      setUserStopped(false);
-    }
-  }, [isChatInFlight, status]);
-
-  const handleStop = useCallback(() => {
-    stop();
-    setHasPendingResponse(false);
-    setUserStopped(true);
-  }, [stop]);
 
   const updateSessionInUrl = useCallback(
     (sessionId: string | null) => {
@@ -231,14 +126,14 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
         void navigate({
           params: { sessionId, slug },
           replace: true,
-          to: "/w/$slug/chat/$sessionId",
+          to: "/w/$slug/agent/$sessionId",
         });
         return;
       }
       void navigate({
         params: { slug },
         replace: true,
-        to: "/w/$slug/chat",
+        to: "/w/$slug/agent",
       });
     },
     [initialSessionId, navigate, slug],
@@ -257,7 +152,7 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
         });
         notifyConversationsChanged();
       } catch {
-        // ignore — the derived title fallback on the server remains
+        setHistoryErrorMessage("会话已创建，但标题保存失败。");
       }
     },
     [slug],
@@ -269,170 +164,55 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
         return activeConversationId;
       }
       const id = crypto.randomUUID();
-      const now = Date.now();
-      const derivedTitle = withGeneratingTitle
-        ? GENERATING_CHAT_TITLE
-        : getConversationTitleFromMessages(messagesRef.current);
-
       await upsertConversationOnServer(slug, {
-        createdAt: now,
+        createdAt: Date.now(),
         id,
         isTitleGenerating: withGeneratingTitle ?? false,
-        jobDescription: jobDescriptionText,
-        jobDescriptionConfig,
-        resumeImports,
-        title: derivedTitle,
+        jobDescription: "",
+        jobDescriptionConfig: null,
+        resumeImports: {},
+        title: withGeneratingTitle ? GENERATING_CHAT_TITLE : NEW_CHAT_TITLE,
       });
+      setChatMeta(id, {});
       notifyConversationsChanged();
-
-      // Draft → 新 chatId 转移：把草稿槽里的值经同一份 cascade 解析后写到新 id 名下，
-      // 草稿如果是过期 id（picker 还没来得及自动纠正），这里先纠正再持久化，避免
-      // 首条消息用错模型的尴尬。
-      // Hand the draft slot off to the new chatId, but pipe it through the
-      // same cascade first so an obsolete draft (picker not corrected yet)
-      // doesn't leak into the first message.
-      const rawDraft = chatModelByChatId[DRAFT_CHAT_KEY] ?? "";
-      const effectiveDraft = modelsData
-        ? resolveEffectiveModel({
-            defaultId: modelsData.defaultId,
-            models: modelsData.models,
-            raw: rawDraft,
-          })
-        : rawDraft;
-      // 等于服务端默认就不存（让 atom 保持空，下次解析时仍然用 defaultId）。
-      // Skip writing when equal to the server default — empty atom means
-      // "use server default", same outcome with one fewer entry.
-      const persistDraft =
-        effectiveDraft && effectiveDraft !== modelsData?.defaultId ? effectiveDraft : "";
-
-      if (rawDraft) {
-        setChatModelByChatId((prev) => {
-          const { [DRAFT_CHAT_KEY]: _draft, ...rest } = prev;
-          return persistDraft ? { ...rest, [id]: persistDraft } : rest;
-        });
-      }
-
-      // Seed the registry's meta before the first request so transport.body()
-      // picks up the right JD / thinking mode / model even though the useEffect
-      // that normally syncs meta has not run yet for this new id.
-      setChatMeta(id, {
-        enableThinking: thinkingMode,
-        jobDescription: jobDescriptionText,
-        model: persistDraft,
-      });
       updateSessionInUrl(id);
       setActiveConversationId(id);
       return id;
     },
-    [
-      activeConversationId,
-      chatModelByChatId,
-      jobDescriptionConfig,
-      jobDescriptionText,
-      modelsData,
-      resumeImports,
-      setChatModelByChatId,
-      slug,
-      thinkingMode,
-      updateSessionInUrl,
-    ],
+    [activeConversationId, slug, updateSessionInUrl],
   );
 
-  const sendMessageToChat = useCallback(
-    async ({ files, text }: SendMessageInput) => {
+  const sendFirstMessage = useCallback(
+    async (text: string) => {
       if (submitDebounceRef.current !== null) {
         return;
       }
       submitDebounceRef.current = setTimeout(() => {
         submitDebounceRef.current = null;
       }, 300);
-
-      const isFirstMessageForNewConversation =
-        !activeConversationId && messagesRef.current.length === 0;
-      let conversationId: string | null = activeConversationId;
-
+      setIsCreatingConversation(true);
       try {
-        conversationId = await ensureConversation({
-          withGeneratingTitle: isFirstMessageForNewConversation,
-        });
+        const conversationId = await ensureConversation({ withGeneratingTitle: true });
         setHistoryErrorMessage(null);
+        await getOrCreateChat(conversationId, slug).sendMessage({ text });
+        void (async () => {
+          try {
+            const payload = await requestResumeChatTitle({ hasFiles: false, text });
+            await updateConversationTitle(
+              conversationId,
+              payload.title?.trim() || getConversationTitleFromText(text),
+            );
+          } catch {
+            await updateConversationTitle(conversationId, getConversationTitleFromText(text));
+          }
+        })();
       } catch {
         setHistoryErrorMessage("聊天记录保存失败，请稍后重试。");
-      }
-
-      if (isFirstMessageForNewConversation && conversationId) {
-        const firstMessageText = text.trim();
-        const titleConversationId = conversationId;
-        if (firstMessageText.length > 0) {
-          void (async () => {
-            try {
-              const payload = await requestResumeChatTitle({
-                hasFiles: Boolean(files?.length),
-                text: firstMessageText,
-              });
-              const title = payload.title?.trim() ?? null;
-              await updateConversationTitle(titleConversationId, title || NEW_CHAT_TITLE);
-            } catch {
-              await updateConversationTitle(titleConversationId, NEW_CHAT_TITLE);
-              setHistoryErrorMessage("会话已创建，但智能标题生成失败。已使用默认标题。");
-            }
-          })();
-        }
-      }
-
-      if (!conversationId) {
-        return;
-      }
-
-      // Optimistically flip UI into the "responding" state before `sendMessage`
-      // touches the SDK status — this is what masks the `ready → submitted`
-      // flicker at the start of each turn.
-      setHasPendingResponse(true);
-      setUserStopped(false);
-
-      // Bake any client-side parsed-resume data into the outgoing UIMessage as
-      // `data-resume-parsed` parts. With this in place, the request payload
-      // visible in DevTools already contains the OCR JSON — no server-side
-      // post-processing required.
-      const filesArr = files ?? [];
-      const hasParsed = filesArr.some((f) => f.parsed);
-
-      if (hasParsed) {
-        const parts: UIMessage["parts"] = [];
-        if (text.trim().length > 0) {
-          parts.push({ text, type: "text" });
-        }
-        for (const file of filesArr) {
-          parts.push({
-            filename: file.filename,
-            mediaType: file.mediaType,
-            type: "file",
-            url: file.url,
-          });
-          if (file.parsed) {
-            parts.push({
-              data: {
-                attachmentId: file.parsed.attachmentId,
-                filename: file.filename ?? "resume",
-                parsedPageCount: file.parsed.pageCount,
-                parsedStructured: file.parsed.structured,
-                parsedText: file.parsed.text,
-                parsedTextSource: file.parsed.textSource,
-              },
-              id: `parsed-${file.parsed.attachmentId}`,
-              type: "data-resume-parsed",
-            });
-          }
-        }
-        await getOrCreateChat(conversationId, slug).sendMessage({ parts });
-      } else {
-        await getOrCreateChat(conversationId, slug).sendMessage({
-          files: filesArr as FileUIPart[],
-          text,
-        });
+      } finally {
+        setIsCreatingConversation(false);
       }
     },
-    [activeConversationId, ensureConversation, slug, updateConversationTitle],
+    [ensureConversation, slug, updateConversationTitle],
   );
 
   const openConversation = useCallback(
@@ -444,7 +224,6 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
         setHistoryErrorMessage("无法加载聊天记录，请稍后重试。");
         return false;
       }
-
       if (!conversation) {
         if (shouldSyncUrl) {
           updateSessionInUrl(null);
@@ -454,53 +233,23 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
         setHistoryErrorMessage("未找到对应的会话记录，已回到新对话。");
         return false;
       }
-
       if (shouldSyncUrl) {
         updateSessionInUrl(id);
       }
-      // Hot instance (stream still running / just finished in the background)
-      // keeps its in-memory messages. Only cold-hydrate from the server when
-      // the registry has no entry — that's the first mount after a refresh.
       if (!hasChat(id)) {
         getOrCreateChat(id, slug, { initialMessages: conversation.messages });
       }
       setActiveConversationId(id);
       setHistoryErrorMessage(null);
-      // Prefer structured config; fall back to legacy text-only conversations
-      // by treating them as custom mode.
-      const legacyText = conversation.jobDescription.trim();
-      let hydratedConfig: JobDescriptionConfig | null = null;
-      if (conversation.jobDescriptionConfig) {
-        hydratedConfig = conversation.jobDescriptionConfig;
-      } else if (legacyText) {
-        hydratedConfig = { mode: "custom", text: conversation.jobDescription };
-      }
-      setJobDescriptionConfig(hydratedConfig);
-      replaceResumeImports(conversation.resumeImports ?? {});
-      setUploadErrorMessage(null);
-      setIsJobDescriptionDialogOpen(false);
       return true;
     },
-    [
-      replaceResumeImports,
-      setJobDescriptionConfig,
-      setIsJobDescriptionDialogOpen,
-      slug,
-      updateSessionInUrl,
-    ],
+    [slug, updateSessionInUrl],
   );
 
-  // Detaches the UI from the current conversation without aborting its
-  // in-flight stream — the registry keeps the Chat instance (and its fetch)
-  // alive in the background.
   const resetToNewConversation = useCallback(() => {
     setActiveConversationId(null);
-    setJobDescriptionConfig(null);
-    resetResumeImports();
-    setUploadErrorMessage(null);
     setHistoryErrorMessage(null);
-    setIsJobDescriptionDialogOpen(false);
-  }, [resetResumeImports, setJobDescriptionConfig, setIsJobDescriptionDialogOpen]);
+  }, []);
 
   const startNewConversation = useCallback(() => {
     resetToNewConversation();
@@ -545,202 +294,45 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
     return () => window.clearTimeout(timer);
   }, [activeConversationId, shouldNormalizeSessionPath, updateSessionInUrl]);
 
-  // Persist JD / resumeImports changes (user actions, not message stream).
-  // The message stream is persisted server-side via /api/resume/chat's onEnd
-  // plus a backup client write in the Chat registry's onFinish.
-  useEffect(() => {
-    if (!isHistoryReady || !activeConversationId) {
-      return;
-    }
-    const saveTimer = window.setTimeout(() => {
-      void (async () => {
-        try {
-          await patchConversation(slug, activeConversationId, {
-            jobDescription: jobDescriptionText,
-            jobDescriptionConfig,
-            resumeImports,
-          });
-        } catch {
-          setHistoryErrorMessage("岗位描述或简历导入保存失败，请稍后重试。");
-        }
-      })();
-    }, 400);
-    return () => window.clearTimeout(saveTimer);
-  }, [
-    activeConversationId,
-    isHistoryReady,
-    jobDescriptionConfig,
-    jobDescriptionText,
-    resumeImports,
-    slug,
-  ]);
-
-  const { refetch: refetchJobDescriptionOptions } = useJobDescriptionOptionsQuery();
-
-  const handleApplyJDConfirm = useCallback(
-    async (toolCallId: string, jobDescriptionId: string) => {
-      if (!toolCallId) {
-        return;
-      }
-      const result = await refetchJobDescriptionOptions();
-      const record = result.data?.find((item) => item.id === jobDescriptionId) ?? null;
-      if (!record) {
-        setHistoryErrorMessage("未找到该在招岗位，可能已被删除，请重新选择。");
-        await addToolOutput({
-          output: { action: "ignore" as const },
-          tool: "apply_job_description",
-          toolCallId,
-        });
-        return;
-      }
-      setJobDescriptionConfig({
-        departmentName: record.departmentName,
-        jobDescriptionId: record.id,
-        mode: "select",
-        name: record.name,
-        prompt: record.prompt,
-      });
-      await addToolOutput({
-        output: { action: "confirm" as const, jobDescriptionId },
-        tool: "apply_job_description",
-        toolCallId,
-      });
-    },
-    [addToolOutput, refetchJobDescriptionOptions, setJobDescriptionConfig],
-  );
-
-  const handleApplyJDIgnore = useCallback(
-    async (toolCallId: string) => {
-      if (!toolCallId) {
-        return;
-      }
-      await addToolOutput({
-        output: { action: "ignore" as const },
-        tool: "apply_job_description",
-        toolCallId,
-      });
-    },
-    [addToolOutput],
-  );
-
-  const regenerateLastReply = useCallback(
-    (messageId: string) => {
-      // Pass the explicit `messageId` so the server route can prune the old
-      // assistant row from the DB. Without it, the SDK still strips the
-      // assistant from local state but omits `messageId` from the request
-      // body, leaving the old row orphaned and resurfacing on reload.
-      void regenerate({ messageId });
-    },
-    [regenerate],
-  );
-
-  // When the agent loop errors mid-way, drop the failed step's half-written
-  // parts while keeping every previously completed step, then re-run.
-  // `clearError` alone only flips status to `ready` — it does not trigger
-  // `sendAutomaticallyWhen`, so we must call `regenerate` explicitly.
-  const handleContinueAfterError = useCallback(() => {
+  const retryLastReply = useCallback(() => {
     const lastMessage = messagesRef.current.at(-1);
-    if (!lastMessage || lastMessage.role !== "assistant") {
-      clearError();
-      void regenerate();
-      return;
-    }
-
-    let lastStepStartIndex = -1;
-    for (let i = lastMessage.parts.length - 1; i >= 0; i -= 1) {
-      if (lastMessage.parts[i]?.type === "step-start") {
-        lastStepStartIndex = i;
-        break;
-      }
-    }
-
-    // The first step itself failed (no earlier step-start to keep) — fall back
-    // to `regenerate`, which discards the half-written message and starts over.
-    // Pass the messageId so the server can prune the partially persisted row
-    // (chat-registry's onFinish writes a partial on isError) before inserting
-    // the fresh response — otherwise the orphan resurfaces on reload.
-    if (lastStepStartIndex <= 0) {
-      clearError();
+    clearError();
+    if (lastMessage?.role === "assistant") {
       void regenerate({ messageId: lastMessage.id });
       return;
     }
+    void regenerate();
+  }, [clearError, regenerate]);
 
-    const trimmedParts = lastMessage.parts.slice(0, lastStepStartIndex);
-    setMessages((prev) => {
-      if (prev.length === 0) {
-        return prev;
-      }
-      const next = [...prev];
-      const lastIndex = next.length - 1;
-      const lastEntry = next[lastIndex];
-      if (!lastEntry) {
-        return prev;
-      }
-      next[lastIndex] = { ...lastEntry, parts: trimmedParts };
-      return next;
-    });
-    clearError();
-    // Same DB-cleanup reason as above — the partially persisted assistant row
-    // must be removed even though we drop it locally via `setMessages`.
-    void regenerate({ messageId: lastMessage.id });
-  }, [clearError, regenerate, setMessages]);
+  if (!isHistoryReady) {
+    return (
+      <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+        加载中...
+      </div>
+    );
+  }
 
   return (
-    <div className="relative flex h-full w-full flex-col pb-4 pt-4 sm:pb-4 sm:pt-4">
-      <ChatRuntimeProvider
-        addToolOutput={addToolOutput}
-        chatId={activeConversationId}
-        clearError={clearError}
-        effectiveStatus={effectiveStatus}
-        error={error}
-        isStreaming={isStreaming}
-        messages={messages}
-        regenerate={regenerate}
-        sendMessage={sendMessageToChat}
-        setMessages={setMessages}
-        showAssistantThinkingBubble={Boolean(showAssistantThinkingBubble)}
-        stop={handleStop}
-      >
-        <ComposerInputProvider>
-          <QuickSuggestions />
-
-          <ConversationView
-            activeJobDescriptionId={
-              jobDescriptionConfig?.mode === "select" ? jobDescriptionConfig.jobDescriptionId : null
-            }
-            onApplyJDConfirm={handleApplyJDConfirm}
-            onApplyJDIgnore={handleApplyJDIgnore}
-            onRegenerate={regenerateLastReply}
-            onResumeImported={handleResumeImported}
-            onResumeImportMissing={handleResumeImportMissing}
-            resumeImports={resumeImports}
-            userName={userName}
-          />
-
-          <ErrorBanner
-            historyErrorMessage={historyErrorMessage}
-            onContinueAfterError={handleContinueAfterError}
-            uploadErrorMessage={uploadErrorMessage}
-          />
-
-          <Composer
-            hasJobDescription={hasJobDescription}
-            jobDescriptionLabel={jobDescriptionLabel}
-            onClearJobDescription={clearJobDescription}
-            onOpenJobDescriptionSettings={openJobDescriptionDialog}
-            onUploadErrorChange={setUploadErrorMessage}
-            uploadErrorMessage={uploadErrorMessage}
-          />
-        </ComposerInputProvider>
-      </ChatRuntimeProvider>
-
-      <JobDescriptionDialog
-        config={jobDescriptionConfig}
-        onClear={clearJobDescription}
-        onOpenChange={setIsJobDescriptionDialogOpen}
-        onSave={saveJobDescription}
-        open={isJobDescriptionDialogOpen}
-      />
+    <div className="relative flex h-full w-full flex-col">
+      <AssistantRuntimeProvider runtime={runtime}>
+        <RecruitingCopilotContextProvider conversationId={activeConversationId}>
+          <RecruitingToolRenderers />
+          {activeConversationId ? (
+            <RecruitingThread isRunning={isStreaming} />
+          ) : (
+            <NewRecruitingThread
+              disabled={isCreatingConversation || !session}
+              onSubmit={sendFirstMessage}
+            />
+          )}
+        </RecruitingCopilotContextProvider>
+        <ChatErrorBar
+          error={error}
+          historyErrorMessage={historyErrorMessage}
+          onClearError={clearError}
+          onRetry={retryLastReply}
+        />
+      </AssistantRuntimeProvider>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 // 在招岗位行点击"简历关联"列时弹出的弹窗：列出关联到该岗位的非归档候选人 / 简历。
 // 行内点击候选人姓名可弹出简历详情弹窗（StudioPersonDetailDialog mode="resume"），
-// 详情弹窗叠在本弹窗之上，关闭它不会影响外层；不支持新建 / 删除（仍在简历库主页面完成）。
+// 详情弹窗叠在本弹窗之上，关闭它不会影响外层；不支持新建 / 删除（仍在招聘台主页面完成）。
 //
 // 自管 page/pageSize（useModalPagination）以避开主表 URL key 冲突。
 //
@@ -190,7 +190,7 @@ export function ScopedResumesModal({
       </Modal>
 
       {/* 详情弹窗叠在外层弹窗之上；Radix Dialog 原生支持 stacking。
-          编辑 / 发起 AI 面试不在本上下文支持，跳转到简历库主页面继续。
+          编辑 / 发起 AI 面试不在本上下文支持，跳转到招聘台主页面继续。
           Detail dialog stacks on top of the scoped modal — Radix handles
           this natively. Edit / launch route back to the resume library
           since they need full context (PDF preview, bulk actions, etc.). */}

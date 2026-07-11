@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronsUpDown, Mic, MicOff } from "@/components/icons/hugeicons";
+import { IconCheck, IconMicrophone, IconMicrophoneOff, IconSelector } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -66,8 +66,7 @@ export function MicSelector({
       label: loading ? "加载中..." : "未检测到麦克风",
     };
 
-  const handleDeviceSelect = (deviceId: string, e?: React.MouseEvent) => {
-    e?.preventDefault();
+  const handleDeviceSelect = (deviceId: string) => {
     setSelectedDevice(deviceId);
     onValueChange?.(deviceId);
   };
@@ -91,22 +90,27 @@ export function MicSelector({
 
   return (
     <DropdownMenu onOpenChange={handleDropdownOpenChange}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className={cn("hover:bg-accent flex w-48 cursor-pointer items-center gap-1.5", className)}
-          disabled={loading || disabled}
-        >
-          {isMuted ? (
-            <MicOff className="h-4 w-4 flex-shrink-0" />
-          ) : (
-            <Mic className="h-4 w-4 flex-shrink-0" />
-          )}
-          <span className="flex-1 truncate text-left">{currentDevice.label}</span>
-          <ChevronsUpDown className="h-3 w-3 flex-shrink-0" />
-        </Button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn(
+              "hover:bg-accent flex w-48 cursor-pointer items-center gap-1.5",
+              className,
+            )}
+            disabled={loading || disabled}
+          >
+            {isMuted ? (
+              <IconMicrophoneOff className="h-4 w-4 flex-shrink-0" />
+            ) : (
+              <IconMicrophone className="h-4 w-4 flex-shrink-0" />
+            )}
+            <span className="flex-1 truncate text-left">{currentDevice.label}</span>
+            <IconSelector className="h-3 w-3 flex-shrink-0" />
+          </Button>
+        }
+      />
       <DropdownMenuContent align="center" side="top" className="w-72">
         {loading ? (
           <DropdownMenuItem disabled>加载设备中...</DropdownMenuItem>
@@ -119,12 +123,14 @@ export function MicSelector({
           devices.map((device) => (
             <DropdownMenuItem
               key={device.deviceId}
-              onClick={(e) => handleDeviceSelect(device.deviceId, e)}
-              onSelect={(e) => e.preventDefault()}
+              closeOnClick={false}
+              onClick={() => handleDeviceSelect(device.deviceId)}
               className="flex items-center justify-between"
             >
               <span className="truncate">{device.label}</span>
-              {selectedDevice === device.deviceId && <Check className="h-4 w-4 flex-shrink-0" />}
+              {selectedDevice === device.deviceId && (
+                <IconCheck className="h-4 w-4 flex-shrink-0" />
+              )}
             </DropdownMenuItem>
           ))
         )}
@@ -141,7 +147,11 @@ export function MicSelector({
                 }}
                 className="h-8 gap-2"
               >
-                {isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                {isMuted ? (
+                  <IconMicrophoneOff className="h-4 w-4" />
+                ) : (
+                  <IconMicrophone className="h-4 w-4" />
+                )}
                 <span className="text-sm">{isMuted ? "取消静音" : "静音"}</span>
               </Button>
               <div className="bg-accent ml-auto w-16 overflow-hidden rounded-md p-1.5">

@@ -1,6 +1,6 @@
 "use client";
 
-import { DownloadIcon, XIcon } from "@/components/icons/hugeicons";
+import { IconDownload, IconX } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -52,16 +52,21 @@ export function PdfPreviewDialog({
       title={filename ?? "简历预览"}
       headerExtra={
         <div className="flex items-center gap-2">
-          <Button asChild size="sm" type="button" variant="outline">
-            <a
-              aria-label="下载原文件"
-              download={resolvedDownloadFileName}
-              href={downloadUrl ?? url}
-            >
-              <DownloadIcon className="size-4" />
-              下载
-            </a>
-          </Button>
+          <Button
+            nativeButton={false}
+            render={
+              <a
+                aria-label="下载原文件"
+                download={resolvedDownloadFileName}
+                href={downloadUrl ?? url}
+              >
+                <IconDownload className="size-4" />
+                下载
+              </a>
+            }
+            size="sm"
+            variant="outline"
+          />
           <Button
             aria-label="关闭"
             onClick={() => onOpenChange(false)}
@@ -69,7 +74,7 @@ export function PdfPreviewDialog({
             type="button"
             variant="ghost"
           >
-            <XIcon className="size-4" />
+            <IconX className="size-4" />
           </Button>
         </div>
       }

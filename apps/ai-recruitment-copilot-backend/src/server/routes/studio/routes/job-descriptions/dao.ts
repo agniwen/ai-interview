@@ -4,8 +4,12 @@ import type {
   JobDescriptionMetrics,
   JobDescriptionRecord,
 } from "@arc/shared/job-descriptions";
+import {
+  createDefaultResumeScreeningPolicy,
+  resumeScreeningPolicySchema,
+} from "@arc/shared/resume-screening";
 import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
-import { and, asc, count, desc, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
@@ -48,6 +52,11 @@ const jobDescriptionPaginationSchema = makePaginationSchema(SORT_COLUMNS);
 export type JobDescriptionPaginationParams = PaginationParams<SortColumn>;
 
 export type PaginatedJobDescriptionResult = PaginatedResult<JobDescriptionListRecord>;
+
+function parseResumeScreeningPolicy(value: unknown) {
+  const parsedPolicy = resumeScreeningPolicySchema.safeParse(value);
+  return parsedPolicy.success ? parsedPolicy.data : createDefaultResumeScreeningPolicy();
+}
 
 function buildWhereConditions({
   organizationId,
@@ -154,6 +163,9 @@ function listJobDescriptionRows({
       name: jobDescription.name,
       presetQuestions: jobDescription.presetQuestions,
       prompt: jobDescription.prompt,
+      resumeScreeningPolicy: jobDescription.resumeScreeningPolicy,
+      resumeScreeningPolicyHash: jobDescription.resumeScreeningPolicyHash,
+      resumeScreeningPolicyVersion: jobDescription.resumeScreeningPolicyVersion,
       updatedAt: jobDescription.updatedAt,
     })
     .from(jobDescription)
@@ -255,7 +267,7 @@ async function loadResumeCountsForJobDescriptions(
     .where(
       and(
         inArray(studioInterview.jobDescriptionId, jobDescriptionIds),
-        notInArray(studioInterview.status, ["archived"]),
+        ne(studioInterview.pipelineStage, "closed"),
       ),
     )
     .groupBy(studioInterview.jobDescriptionId);
@@ -276,6 +288,7 @@ function toJobDescriptionListRecord(
   interviewers: JobDescriptionInterviewerSummary[],
   resumeCount: number,
 ): JobDescriptionListRecord {
+  const resumeScreeningPolicy = parseResumeScreeningPolicy(row.resumeScreeningPolicy);
   return {
     allowCrossDepartmentInterviewers: row.allowCrossDepartmentInterviewers,
     code: row.code,
@@ -291,6 +304,9 @@ function toJobDescriptionListRecord(
     presetQuestions: row.presetQuestions ?? [],
     prompt: row.prompt,
     resumeCount,
+    resumeScreeningPolicy,
+    resumeScreeningPolicyHash: row.resumeScreeningPolicyHash,
+    resumeScreeningPolicyVersion: row.resumeScreeningPolicyVersion,
     updatedAt: serializeDate(row.updatedAt),
   };
 }
@@ -416,6 +432,29 @@ export async function listAllJobDescriptions(
   );
 }
 
+export async function fetchJobDescriptionsByCodes(
+  organizationId: string,
+  codes: readonly string[],
+): Promise<{ code: string; id: string }[]> {
+  const normalizedCodes = uniq(codes.map((code) => code.trim().toUpperCase()).filter(Boolean));
+  if (normalizedCodes.length === 0) {
+    return [];
+  }
+  const rows = await db
+    .select({
+      code: jobDescription.code,
+      id: jobDescription.id,
+    })
+    .from(jobDescription)
+    .where(
+      and(
+        eq(jobDescription.organizationId, organizationId),
+        inArray(jobDescription.code, normalizedCodes),
+      ),
+    );
+  return rows.flatMap((row) => (row.code ? [{ code: row.code, id: row.id }] : []));
+}
+
 /**
  * 校验给定 ids 全部存在于 jobDescription 表。空数组视作合法。
  * Validate that every id in `ids` exists in jobDescription. Empty input is valid.
@@ -448,20 +487,11 @@ export async function loadJobDescriptionById(
   }
   const interviewersMap = await loadInterviewersForJobDescriptions([id]);
   const interviewers = interviewersMap.get(id) ?? [];
-  return {
-    allowCrossDepartmentInterviewers: row.allowCrossDepartmentInterviewers,
-    code: row.code,
-    createdAt: serializeDate(row.createdAt),
-    createdBy: row.createdBy,
-    departmentId: row.departmentId,
-    description: row.description,
-    id: row.id,
-    interviewerIds: interviewers.map((item) => item.id),
-    name: row.name,
-    presetQuestions: row.presetQuestions ?? [],
-    prompt: row.prompt,
-    updatedAt: serializeDate(row.updatedAt),
-  };
+  // eslint-disable-next-line no-use-before-define -- kept near public load functions for readability.
+  return serializeJobDescription(
+    row,
+    interviewers.map((item) => item.id),
+  );
 }
 
 // =========================================================================
@@ -492,7 +522,7 @@ async function loadCandidatesByJd(organizationId: string) {
       and(
         eq(studioInterview.jobDescriptionId, jobDescription.id),
         eq(studioInterview.organizationId, organizationId),
-        notInArray(studioInterview.status, ["archived"]),
+        ne(studioInterview.pipelineStage, "closed"),
       ),
     )
     .where(eq(jobDescription.organizationId, organizationId))
@@ -538,7 +568,7 @@ async function loadCompletionByJd(organizationId: string) {
     .where(
       and(
         eq(jobDescription.organizationId, organizationId),
-        notInArray(studioInterview.status, ["archived"]),
+        ne(studioInterview.pipelineStage, "closed"),
       ),
     )
     .groupBy(jobDescription.id, jobDescription.name)
@@ -556,11 +586,11 @@ async function loadCompletionByJd(organizationId: string) {
 
 async function loadLoadByInterviewer(organizationId: string) {
   // 通过 job_description_interviewer 关联到 studio_interview，
-  // 统计每位面试官当前 status ∈ {ready, in_progress} 的候选人数 DISTINCT 计数。
+  // 统计每位面试官已进入面试或 Offer 阶段的候选人数 DISTINCT 计数。
   // DISTINCT 是因为同一候选人可能落在多个 JD 的同一面试官关联上——但实际 schema
   // 是 1 候选人:1 JD，DISTINCT 主要做保险。
   // Walk interviewer → jobDescriptionInterviewer → studio_interview, counting
-  // active (ready / in_progress) candidates per interviewer. DISTINCT is a
+  // candidates in AI/human interview or offer stages per interviewer. DISTINCT is a
   // safety net — schema-wise a candidate maps to a single JD, so duplicates
   // shouldn't appear in practice.
   const rows = await db
@@ -579,7 +609,7 @@ async function loadLoadByInterviewer(organizationId: string) {
       and(
         eq(studioInterview.jobDescriptionId, jobDescriptionInterviewer.jobDescriptionId),
         eq(studioInterview.organizationId, organizationId),
-        inArray(studioInterview.status, ["ready", "in_progress"]),
+        inArray(studioInterview.pipelineStage, ["ai_interview", "human_interview", "offer"]),
       ),
     )
     .where(eq(interviewer.organizationId, organizationId))
@@ -607,7 +637,7 @@ async function queryJobDescriptionMetrics(organizationId: string): Promise<JobDe
 /**
  * 在招岗位管理页头部 chart 聚合的缓存入口。
  * cacheTag 与列表查询共用 `job-descriptions`，再额外打 `studio-resumes` —— 候选人维度
- * 数据也会驱动 candidatesByJd / completionByJd / loadByInterviewer，简历库写操作必须能拉到新值。
+ * 数据也会驱动 candidatesByJd / completionByJd / loadByInterviewer，招聘台写操作必须能拉到新值。
  *
  * Cached entry for the JD-management header charts. Carries both the
  * `job-descriptions` tag (list-query parity) and `studio-resumes` because the
@@ -621,6 +651,7 @@ export function serializeJobDescription(
   row: typeof jobDescription.$inferSelect,
   interviewerIds: string[],
 ): JobDescriptionRecord {
+  const resumeScreeningPolicy = parseResumeScreeningPolicy(row.resumeScreeningPolicy);
   return {
     allowCrossDepartmentInterviewers: row.allowCrossDepartmentInterviewers,
     code: row.code,
@@ -633,6 +664,9 @@ export function serializeJobDescription(
     name: row.name,
     presetQuestions: row.presetQuestions ?? [],
     prompt: row.prompt,
+    resumeScreeningPolicy,
+    resumeScreeningPolicyHash: row.resumeScreeningPolicyHash,
+    resumeScreeningPolicyVersion: row.resumeScreeningPolicyVersion,
     updatedAt: serializeDate(row.updatedAt),
   };
 }

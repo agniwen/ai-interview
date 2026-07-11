@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, ilike, isNull, lt, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, isNull, lt, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
@@ -9,24 +9,32 @@ import type {
   PaginatedResult,
   PaginationParams,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/db/pagination";
-import {
-  mailIngestAccount,
-  mailIngestMessage,
-  member,
-  organization,
-  user as userTable,
-} from "@arc/db-schema/schema";
-import type { MailIngestMessageStatus } from "@arc/db-schema/schema";
-import {
-  decryptMailIngestSecret,
-  encryptMailIngestSecret,
-} from "@arc/ai-recruitment-copilot-backend/lib/server/mail-ingest-crypto";
+import { mailIngestAccount, member, organization, user as userTable } from "@arc/db-schema/schema";
+import { encryptMailIngestSecret } from "@arc/ai-recruitment-copilot-backend/lib/server/mail-ingest-crypto";
 import type { createMailIngestAccountSchema, updateMailIngestAccountSchema } from "./schema";
 import type { MailIngestLoginConfig } from "./validation";
 import type { z } from "zod";
+import {
+  toMailIngestAccountDto,
+  toMailIngestLoginConfig,
+  toNullableMailIngestAccountDto,
+  toWorkerMailIngestAccount,
+} from "./dao/account-presenters";
+import type {
+  MailIngestAccountDto,
+  PlatformMailIngestAccountRow,
+  WorkerMailIngestAccount,
+  WorkspaceMailIngestAccountRow,
+} from "./dao/account-presenters";
+
+export type {
+  MailIngestAccountDto,
+  PlatformMailIngestAccountRow,
+  WorkerMailIngestAccount,
+  WorkspaceMailIngestAccountRow,
+} from "./dao/account-presenters";
 
 const MAIL_INGEST_ACCOUNT_LEASE_MS = 14 * 60 * 1000;
-const MAIL_INGEST_MESSAGE_PROCESSING_STALE_MS = 30 * 60 * 1000;
 const ERROR_MESSAGE_MAX = 500;
 const WORKSPACE_MAIL_INGEST_SORT_COLUMNS = [
   "userName",
@@ -35,7 +43,17 @@ const WORKSPACE_MAIL_INGEST_SORT_COLUMNS = [
   "lastCheckedAt",
 ] as const;
 
-type AccountRow = typeof mailIngestAccount.$inferSelect;
+export {
+  claimMailIngestMessageForProcessing,
+  listAccountMailMessages,
+  markMailIngestMessageSkipped,
+  updateMailIngestMessageResult,
+} from "./dao/messages";
+export type {
+  MailIngestMessageClaim,
+  MailMessageLogAttachment,
+  MailMessageLogRecord,
+} from "./dao/messages";
 type CreateAccountInput = z.infer<typeof createMailIngestAccountSchema>;
 type UpdateAccountInput = z.infer<typeof updateMailIngestAccountSchema>;
 type WorkspaceMailIngestSortColumn = (typeof WORKSPACE_MAIL_INGEST_SORT_COLUMNS)[number];
@@ -53,67 +71,6 @@ const workspaceMailIngestPaginationSchema = makePaginationSchema(
     defaultSortOrder: "asc",
   },
 );
-
-export interface MailIngestAccountDto {
-  createdAt: string;
-  emailAddress: string;
-  enabled: boolean;
-  failedMailbox: string;
-  hasPassword: boolean;
-  id: string;
-  imapHost: string;
-  imapPort: number;
-  imapSecure: boolean;
-  lastCheckedAt: string | null;
-  lastError: string | null;
-  listenStartAt: string | null;
-  mailbox: string;
-  processedMailbox: string;
-  subjectKeyword: string;
-  updatedAt: string;
-  username: string;
-}
-
-export interface WorkspaceMailIngestAccountRow {
-  account: MailIngestAccountDto | null;
-  user: {
-    email: string;
-    id: string;
-    image: string | null;
-    name: string;
-    role: string;
-  };
-}
-
-export interface PlatformMailIngestAccountRow extends WorkspaceMailIngestAccountRow {
-  organization: {
-    id: string;
-    name: string;
-    slug: string;
-  };
-}
-
-export interface WorkerMailIngestAccount {
-  dedupPolicy: AccountRow["dedupPolicy"];
-  emailAddress: string;
-  failedMailbox: string;
-  id: string;
-  imapHost: string;
-  imapPort: number;
-  imapSecure: boolean;
-  jdMode: AccountRow["jdMode"];
-  jobDescriptionId: string | null;
-  listenStartAt: Date | null;
-  mailbox: string;
-  organizationId: string;
-  password: string;
-  processedMailbox: string;
-  resumePoolScope: AccountRow["resumePoolScope"];
-  subjectKeyword: string;
-  target: AccountRow["target"];
-  userId: string;
-  username: string;
-}
 
 function truncateError(error: unknown): string {
   const parts = [error instanceof Error ? error.message : String(error)];
@@ -139,106 +96,6 @@ function parseNullableDate(value: string | null | undefined): Date | null | unde
     return null;
   }
   return new Date(value);
-}
-
-function toDto(row: AccountRow): MailIngestAccountDto {
-  return {
-    createdAt: row.createdAt.toISOString(),
-    emailAddress: row.emailAddress,
-    enabled: row.enabled,
-    failedMailbox: row.failedMailbox,
-    hasPassword: Boolean(row.encryptedPassword),
-    id: row.id,
-    imapHost: row.imapHost,
-    imapPort: row.imapPort,
-    imapSecure: row.imapSecure,
-    lastCheckedAt: row.lastCheckedAt?.toISOString() ?? null,
-    lastError: row.lastError,
-    listenStartAt: row.listenStartAt?.toISOString() ?? null,
-    mailbox: row.mailbox,
-    processedMailbox: row.processedMailbox,
-    subjectKeyword: row.subjectKeyword,
-    updatedAt: row.updatedAt.toISOString(),
-    username: row.username,
-  };
-}
-
-function toNullableAccountDto(row: {
-  accountCreatedAt: Date | null;
-  accountEmailAddress: string | null;
-  accountEnabled: boolean | null;
-  accountEncryptedPassword: string | null;
-  accountFailedMailbox: string | null;
-  accountId: string | null;
-  accountImapHost: string | null;
-  accountImapPort: number | null;
-  accountImapSecure: boolean | null;
-  accountLastCheckedAt: Date | null;
-  accountLastError: string | null;
-  accountListenStartAt: Date | null;
-  accountMailbox: string | null;
-  accountProcessedMailbox: string | null;
-  accountSubjectKeyword: string | null;
-  accountUpdatedAt: Date | null;
-  accountUsername: string | null;
-}): MailIngestAccountDto | null {
-  if (!row.accountId) {
-    return null;
-  }
-  return {
-    createdAt: (row.accountCreatedAt ?? new Date(0)).toISOString(),
-    emailAddress: row.accountEmailAddress ?? "",
-    enabled: row.accountEnabled ?? false,
-    failedMailbox: row.accountFailedMailbox ?? "",
-    hasPassword: Boolean(row.accountEncryptedPassword),
-    id: row.accountId,
-    imapHost: row.accountImapHost ?? "",
-    imapPort: row.accountImapPort ?? 0,
-    imapSecure: row.accountImapSecure ?? false,
-    lastCheckedAt: row.accountLastCheckedAt?.toISOString() ?? null,
-    lastError: row.accountLastError,
-    listenStartAt: row.accountListenStartAt?.toISOString() ?? null,
-    mailbox: row.accountMailbox ?? "",
-    processedMailbox: row.accountProcessedMailbox ?? "",
-    subjectKeyword: row.accountSubjectKeyword ?? "",
-    updatedAt: (row.accountUpdatedAt ?? new Date(0)).toISOString(),
-    username: row.accountUsername ?? "",
-  };
-}
-
-function toWorkerAccount(row: AccountRow): WorkerMailIngestAccount {
-  return {
-    dedupPolicy: row.dedupPolicy,
-    emailAddress: row.emailAddress,
-    failedMailbox: row.failedMailbox,
-    id: row.id,
-    imapHost: row.imapHost,
-    imapPort: row.imapPort,
-    imapSecure: row.imapSecure,
-    jdMode: row.jdMode,
-    jobDescriptionId: row.jobDescriptionId,
-    listenStartAt: row.listenStartAt,
-    mailbox: row.mailbox,
-    organizationId: row.organizationId,
-    password: decryptMailIngestSecret(row.encryptedPassword),
-    processedMailbox: row.processedMailbox,
-    resumePoolScope: row.resumePoolScope,
-    subjectKeyword: row.subjectKeyword,
-    target: row.target,
-    userId: row.userId,
-    username: row.username,
-  };
-}
-
-function toLoginConfig(row: AccountRow): MailIngestLoginConfig {
-  return {
-    imapHost: row.imapHost,
-    imapPort: row.imapPort,
-    imapSecure: row.imapSecure,
-    mailbox: row.mailbox,
-    password: decryptMailIngestSecret(row.encryptedPassword),
-    username: row.username,
-  };
 }
 
 export async function isWorkspaceMember({
@@ -270,7 +127,7 @@ export async function listMailIngestAccounts(
       ),
     )
     .orderBy(mailIngestAccount.createdAt);
-  return rows.map(toDto);
+  return rows.map(toMailIngestAccountDto);
 }
 
 function buildWorkspaceMailIngestFilters({
@@ -375,7 +232,14 @@ function listWorkspaceMailIngestAccountRows({
       accountSubjectKeyword: mailIngestAccount.subjectKeyword,
       accountUpdatedAt: mailIngestAccount.updatedAt,
       accountUsername: mailIngestAccount.username,
+      lastRunFailed: mailIngestAccount.lastRunFailed,
+      lastRunMatched: mailIngestAccount.lastRunMatched,
+      lastRunQueued: mailIngestAccount.lastRunQueued,
+      lastRunReceived: mailIngestAccount.lastRunReceived,
+      lastRunSubjectSkipped: mailIngestAccount.lastRunSubjectSkipped,
       memberRole: member.role,
+      messageCount: sql<number>`(select count(*)::int from mail_ingest_message where account_id = ${mailIngestAccount.id})`,
+      problemCount: sql<number>`(select count(*)::int from mail_ingest_message where account_id = ${mailIngestAccount.id} and status in ('failed','skipped'))`,
       userEmail: userTable.email,
       userId: userTable.id,
       userImage: userTable.image,
@@ -437,10 +301,17 @@ function listPlatformMailIngestAccountRows({
       accountSubjectKeyword: mailIngestAccount.subjectKeyword,
       accountUpdatedAt: mailIngestAccount.updatedAt,
       accountUsername: mailIngestAccount.username,
+      lastRunFailed: mailIngestAccount.lastRunFailed,
+      lastRunMatched: mailIngestAccount.lastRunMatched,
+      lastRunQueued: mailIngestAccount.lastRunQueued,
+      lastRunReceived: mailIngestAccount.lastRunReceived,
+      lastRunSubjectSkipped: mailIngestAccount.lastRunSubjectSkipped,
       memberRole: member.role,
+      messageCount: sql<number>`(select count(*)::int from mail_ingest_message where account_id = ${mailIngestAccount.id})`,
       organizationId: organization.id,
       organizationName: organization.name,
       organizationSlug: organization.slug,
+      problemCount: sql<number>`(select count(*)::int from mail_ingest_message where account_id = ${mailIngestAccount.id} and status in ('failed','skipped'))`,
       userEmail: userTable.email,
       userId: userTable.id,
       userImage: userTable.image,
@@ -521,7 +392,14 @@ function toWorkspaceMailIngestAccountRow(
   row: Awaited<ReturnType<typeof listWorkspaceMailIngestAccountRows>>[number],
 ): WorkspaceMailIngestAccountRow {
   return {
-    account: toNullableAccountDto(row),
+    account: toNullableMailIngestAccountDto(row),
+    lastRunFailed: row.lastRunFailed,
+    lastRunMatched: row.lastRunMatched,
+    lastRunQueued: row.lastRunQueued,
+    lastRunReceived: row.lastRunReceived,
+    lastRunSubjectSkipped: row.lastRunSubjectSkipped,
+    messageCount: row.messageCount,
+    problemCount: row.problemCount,
     user: {
       email: row.userEmail,
       id: row.userId,
@@ -663,7 +541,7 @@ export async function createMailIngestAccount({
       username: input.username,
     })
     .returning();
-  return toDto(row);
+  return toMailIngestAccountDto(row);
 }
 
 export async function getMailIngestAccountLoginConfig({
@@ -687,7 +565,22 @@ export async function getMailIngestAccountLoginConfig({
     .from(mailIngestAccount)
     .where(and(...filters))
     .limit(1);
-  return row ? toLoginConfig(row) : null;
+  return row ? toMailIngestLoginConfig(row) : null;
+}
+
+export async function mailIngestAccountExistsInOrg({
+  id,
+  organizationId,
+}: {
+  id: string;
+  organizationId: string;
+}): Promise<boolean> {
+  const [row] = await db
+    .select({ id: mailIngestAccount.id })
+    .from(mailIngestAccount)
+    .where(and(eq(mailIngestAccount.id, id), eq(mailIngestAccount.organizationId, organizationId)))
+    .limit(1);
+  return Boolean(row);
 }
 
 function buildAccountUpdateValues(input: UpdateAccountInput) {
@@ -742,7 +635,7 @@ export async function updateMailIngestAccount({
       ),
     )
     .returning();
-  return row ? toDto(row) : null;
+  return row ? toMailIngestAccountDto(row) : null;
 }
 
 export async function updateWorkspaceMailIngestAccount({
@@ -769,7 +662,7 @@ export async function updateWorkspaceMailIngestAccount({
     .set(buildAccountUpdateValues(input))
     .where(and(...filters))
     .returning();
-  return row ? toDto(row) : null;
+  return row ? toMailIngestAccountDto(row) : null;
 }
 
 export async function deleteMailIngestAccount({
@@ -803,7 +696,7 @@ export async function listEnabledMailIngestAccounts(
     .where(eq(mailIngestAccount.enabled, true))
     .orderBy(mailIngestAccount.lastCheckedAt)
     .limit(limit);
-  return rows.map(toWorkerAccount);
+  return rows.map(toWorkerMailIngestAccount);
 }
 
 export async function claimMailIngestAccount(accountId: string): Promise<boolean> {
@@ -828,133 +721,34 @@ export async function claimMailIngestAccount(accountId: string): Promise<boolean
 
 export async function finishMailIngestAccountRun(
   accountId: string,
-  error?: unknown,
+  opts?: {
+    error?: unknown;
+    counts?: {
+      received: number;
+      subjectSkipped: number;
+      matched: number;
+      queued: number;
+      failed: number;
+    };
+  },
 ): Promise<void> {
   const now = new Date();
   await db
     .update(mailIngestAccount)
     .set({
       lastCheckedAt: now,
-      lastError: error ? truncateError(error) : null,
+      lastError: opts?.error ? truncateError(opts.error) : null,
       pollingStartedAt: null,
       updatedAt: now,
+      ...(opts?.counts
+        ? {
+            lastRunFailed: opts.counts.failed,
+            lastRunMatched: opts.counts.matched,
+            lastRunQueued: opts.counts.queued,
+            lastRunReceived: opts.counts.received,
+            lastRunSubjectSkipped: opts.counts.subjectSkipped,
+          }
+        : {}),
     })
     .where(eq(mailIngestAccount.id, accountId));
-}
-
-export interface MailIngestMessageClaim {
-  id: string;
-  moveTo: "processed" | "failed" | null;
-  shouldProcess: boolean;
-  status: MailIngestMessageStatus;
-}
-
-export async function claimMailIngestMessageForProcessing(input: {
-  accountId: string;
-  fromAddress: string | null;
-  mailbox: string;
-  messageId: string | null;
-  receivedAt: Date | null;
-  subject: string | null;
-  uid: string;
-  uidValidity: string;
-}): Promise<MailIngestMessageClaim> {
-  const now = new Date();
-  const staleBefore = new Date(now.getTime() - MAIL_INGEST_MESSAGE_PROCESSING_STALE_MS);
-  const [row] = await db
-    .insert(mailIngestMessage)
-    .values({
-      accountId: input.accountId,
-      fromAddress: input.fromAddress,
-      id: crypto.randomUUID(),
-      mailbox: input.mailbox,
-      messageId: input.messageId,
-      processedAt: now,
-      receivedAt: input.receivedAt,
-      status: "processing",
-      subject: input.subject,
-      uid: input.uid,
-      uidValidity: input.uidValidity,
-    })
-    .onConflictDoNothing({
-      target: [
-        mailIngestMessage.accountId,
-        mailIngestMessage.mailbox,
-        mailIngestMessage.uidValidity,
-        mailIngestMessage.uid,
-      ],
-    })
-    .returning({ id: mailIngestMessage.id, status: mailIngestMessage.status });
-  if (row) {
-    return { id: row.id, moveTo: null, shouldProcess: true, status: row.status };
-  }
-
-  const [existing] = await db
-    .select({
-      id: mailIngestMessage.id,
-      processedAt: mailIngestMessage.processedAt,
-      status: mailIngestMessage.status,
-    })
-    .from(mailIngestMessage)
-    .where(
-      and(
-        eq(mailIngestMessage.accountId, input.accountId),
-        eq(mailIngestMessage.mailbox, input.mailbox),
-        eq(mailIngestMessage.uidValidity, input.uidValidity),
-        eq(mailIngestMessage.uid, input.uid),
-      ),
-    )
-    .limit(1);
-  if (!existing) {
-    throw new Error("邮件处理记录 claim 失败。");
-  }
-  if (existing.status !== "processing") {
-    return {
-      id: existing.id,
-      moveTo: existing.status === "failed" ? "failed" : "processed",
-      shouldProcess: false,
-      status: existing.status,
-    };
-  }
-
-  const [staleRow] = await db
-    .update(mailIngestMessage)
-    .set({
-      batchId: null,
-      errorMessage: null,
-      processedAt: now,
-      status: "processing",
-    })
-    .where(
-      and(
-        eq(mailIngestMessage.id, existing.id),
-        eq(mailIngestMessage.status, "processing"),
-        or(isNull(mailIngestMessage.processedAt), lt(mailIngestMessage.processedAt, staleBefore)),
-      ),
-    )
-    .returning({ id: mailIngestMessage.id, status: mailIngestMessage.status });
-  if (!staleRow) {
-    return {
-      id: existing.id,
-      moveTo: null,
-      shouldProcess: false,
-      status: existing.status,
-    };
-  }
-  return { id: staleRow.id, moveTo: null, shouldProcess: true, status: staleRow.status };
-}
-
-export async function updateMailIngestMessageResult(
-  id: string,
-  result: { batchId?: string | null; error?: unknown; status: MailIngestMessageStatus },
-): Promise<void> {
-  await db
-    .update(mailIngestMessage)
-    .set({
-      batchId: result.batchId ?? null,
-      errorMessage: result.error ? truncateError(result.error) : null,
-      processedAt: new Date(),
-      status: result.status,
-    })
-    .where(eq(mailIngestMessage.id, id));
 }

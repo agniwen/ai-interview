@@ -1,3 +1,4 @@
+import { IconAlertOctagon, IconCircleCheck } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createFileRoute,
@@ -9,7 +10,7 @@ import {
 import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
 import type { ResumeEvaluationStatus } from "@arc/shared/studio-resumes";
 import { describeResumeEvaluationStatus } from "@arc/shared/studio-resumes";
-import { CircleCheckIcon, OctagonXIcon } from "@/components/icons/hugeicons";
+
 import { StudioPersonDetailPanel } from "@/components/features/studio/studio-person-detail-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -67,7 +68,7 @@ function ResumeReviewEvaluationBar({
     <div className="fixed right-0 bottom-0 left-0 z-20 border-t bg-background/95 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur">
       <div className="mx-auto grid w-full max-w-md grid-cols-2 gap-2">
         <Button disabled={disabled} onClick={() => mutation.mutate("pass")} type="button">
-          <CircleCheckIcon className="size-4" />
+          <IconCircleCheck className="size-4" />
           评估通过
         </Button>
         <Button
@@ -76,7 +77,7 @@ function ResumeReviewEvaluationBar({
           type="button"
           variant="outline"
         >
-          <OctagonXIcon className="size-4" />
+          <IconAlertOctagon className="size-4" />
           评估不通过
         </Button>
       </div>
@@ -95,7 +96,7 @@ function ResumeReviewDetailContent({ recordId }: { recordId: string }) {
 
   return (
     <>
-      <main className="mx-auto flex w-full max-w-7xl flex-col px-4 pt-5 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
+      <main className="mx-auto flex w-full max-w-[96rem] flex-col px-4 pt-5 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
         <StudioPersonDetailPanel
           accessMode="review"
           layoutMode="page"

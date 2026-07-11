@@ -21,7 +21,6 @@ LiveKit worker entrypoint: one job == one interview session.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 import time
@@ -40,6 +39,7 @@ from livekit.agents import (
     JobContext,
     JobProcess,
     cli,
+    inference,
     room_io,
 )
 from livekit.agents import (
@@ -51,12 +51,15 @@ from livekit.plugins import (
     minimax,
     noise_cancellation,  # LiveKit Cloud only, disabled for self-hosted
     openai,
-    silero,
 )
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
+from agent_config import resolve_agent_name
+from dispatch_context import (
+    DispatchContextError,
+    InterviewDispatchContext,
+    parse_dispatch_context,
+)
 from interview_agent import INTERVIEW_FINAL_WRAP_SECONDS, InterviewAgent
-from prompts import pick_interviewer
 from recording import (
     start_room_recording,
     stop_recording,
@@ -67,6 +70,8 @@ from transcript_replay import replay_turns_to
 logger = logging.getLogger("agent")
 
 load_dotenv()
+
+AGENT_NAME = resolve_agent_name()
 
 
 # 本地 dev 时设置 INTERVIEW_DISABLE_NOISE_CANCELLATION=1 关掉噪声抑制. 默认
@@ -111,6 +116,12 @@ _HOT_RECONNECT_GRACE_SECONDS = 180
 # instead of blocking shutdown indefinitely (which would also delay egress stop).
 _TIMEOUT_REPLY_PLAYOUT_SECONDS = 20.0
 _WIND_DOWN_PLAYOUT_SECONDS = 15.0
+
+# User-turn-limit guardrail. The longest normal prompt in the interview script
+# asks for about 400 Chinese characters. Keep roughly 2x headroom plus pauses so
+# this remains an emergency brake, not the normal pacing mechanism.
+_USER_TURN_LIMIT_MAX_DURATION_SECONDS = 240.0
+_USER_TURN_LIMIT_MAX_WORDS = 1000
 
 
 # --------------------------------------------------------------------------- #
@@ -184,7 +195,7 @@ class SessionState:
     """
 
     lkapi: lkapi_module.LiveKitAPI
-    interview_context: dict[str, Any]
+    interview_context: InterviewDispatchContext
     recording_info: dict[str, Any]
     started_at: float
     turns: list[dict[str, Any]] = field(default_factory=list)
@@ -220,7 +231,7 @@ def prewarm(proc: JobProcess) -> None:
         候选人轻声"嗯/呃"等填充音 → STT 拿不到对应文本 → turn detector 误判
         句子已说完 → 用 min_delay=0.5s 立即回, 抢答风险高; 反向上长 user turn
         也跟这条相关 (filler 被 VAD 吞了, 句子断成多段累积).
-        min_silence 1.5s 与 turn detector + max_delay=5s 兜底协同, 是给真实
+        min_silence 1.5s 与 turn detector + max_delay=4s 兜底协同, 是给真实
         思考停顿的最小窗口. max_buffered_speech 提到 600s, 覆盖面试里
         长答场景; Silero 达到该上限后会忽略当前 speech input 的后续音频.
 
@@ -229,7 +240,8 @@ def prewarm(proc: JobProcess) -> None:
         saw deceptively "complete" text and either responded too fast or chained
         broken sentences into long user turns.
     """
-    proc.userdata["vad"] = silero.VAD.load(
+    proc.userdata["vad"] = inference.VAD(
+        model="silero",
         activation_threshold=0.5,
         min_speech_duration=0.05,
         min_silence_duration=1.5,
@@ -295,6 +307,7 @@ def _build_session(
             extra_body={"enable_thinking": False},
         ),
         tts=minimax.TTS(
+            audio_format="pcm",
             base_url="https://api.minimax.chat",
             voice=selected_voice,
         ),
@@ -302,16 +315,17 @@ def _build_session(
         userdata=state,
         preemptive_generation=False,
         turn_handling={
-            "turn_detection": MultilingualModel(),
+            # LiveKit Agents 1.6 audio turn detector uses acoustic + semantic
+            # cues and supersedes the deprecated text MultilingualModel.
+            "turn_detection": inference.TurnDetector(),
             "endpointing": {
                 "mode": "dynamic",
-                "min_delay": 1.5,
-                # 单轮 EOT 最长等 5s. 之前 8s 在结合候选人大量"嗯/呃"破碎
-                # 表达时, 会把一连串中途停顿累积成几分钟不关闭的 user turn,
-                # 期间 agent 完全沉默, 体感像模型卡死.
-                # Cap per-turn EOT at 5s — previously 8s chained filler-heavy
-                # pauses into multi-minute user turns of silent agent.
-                "max_delay": 5.0,
+                # Audio EOT is more accurate than the old text model, so we can
+                # lower latency while still leaving room for Chinese interview
+                # pauses. Official defaults are 0.3/2.5; keep a conservative
+                # floor/ceiling for candidate reflection time.
+                "min_delay": 1.0,
+                "max_delay": 4.0,
             },
             "interruption": {
                 "mode": "adaptive",
@@ -320,11 +334,15 @@ def _build_session(
                 "false_interruption_timeout": 2.0,
                 "resume_false_interruption": True,
             },
+            "user_turn_limit": {
+                "max_duration": _USER_TURN_LIMIT_MAX_DURATION_SECONDS,
+                "max_words": _USER_TURN_LIMIT_MAX_WORDS,
+            },
         },
     )
 
 
-def _build_room_options() -> room_io.RoomOptions:
+def _build_room_options(*, allow_text_input: bool) -> room_io.RoomOptions:
     """组装 RoomOptions: 噪声抑制选择器 + close_on_disconnect=False.
 
     Build RoomOptions. close_on_disconnect=False 关掉框架默认的"候选人断开
@@ -334,7 +352,7 @@ def _build_room_options() -> room_io.RoomOptions:
     lifecycle instead of the framework auto-closing on first drop.
     """
     return room_io.RoomOptions(
-        text_input=False,
+        text_input=allow_text_input,
         audio_input=room_io.AudioInputOptions(
             noise_cancellation=(
                 None if _DISABLE_NOISE_CANCELLATION else _pick_noise_cancellation
@@ -524,7 +542,7 @@ async def _on_session_end(ctx: JobContext) -> None:
 # --------------------------------------------------------------------------- #
 
 
-@server.rtc_session(agent_name="giaogiao", on_session_end=_on_session_end)
+@server.rtc_session(agent_name=AGENT_NAME, on_session_end=_on_session_end)
 async def my_agent(ctx: JobContext) -> None:
     """单次面试的主协程, 由 LiveKit worker 在每个 job 上调度.
 
@@ -539,45 +557,47 @@ async def my_agent(ctx: JobContext) -> None:
     # ---- 1) 候选人加入 + 元数据 + 录像 + 主考官选择 -------------------------
     # ---- 1) Wait for candidate, parse metadata, start recording, pick host
     participant = await ctx.wait_for_participant()
-    interview_context: dict[str, Any] = {}
-    if participant.metadata:
-        try:
-            interview_context = json.loads(participant.metadata)
-            logger.info(
-                "loaded interview context for %s",
-                interview_context.get("candidate_name", "unknown"),
-            )
-        except json.JSONDecodeError:
-            logger.warning("failed to parse participant metadata")
+    try:
+        interview_context = parse_dispatch_context(participant.metadata)
+    except DispatchContextError:
+        logger.exception("invalid interview dispatch metadata")
+        raise
+    logger.info(
+        "loaded interview dispatch context v%d for %s",
+        interview_context.schema_version,
+        interview_context.candidate.name,
+    )
 
-    # 录像: web 颁发 token 时在 metadata 里给出 recording_enabled /
-    # recording_file_key, 二者都满足才尝试启动 RoomCompositeEgress; 失败不影响
-    # 面试主流程. lkapi 在这里创建, 整个 job 生命周期共享一个实例.
-    # Recording: both flags must be present before we try egress; egress failure
-    # does not abort the interview. One lkapi instance shared for the whole job.
+    # 录像: versioned dispatch contract 中 recording.enabled / fileKey 二者都满足
+    # 才尝试启动 RoomCompositeEgress; 失败不影响面试主流程. lkapi 在这里创建,
+    # 整个 job 生命周期共享一个实例.
+    # Recording: both versioned contract fields must be present before egress;
+    # failure does not abort the interview. One lkapi instance is shared.
     lkapi = lkapi_module.LiveKitAPI()
     recording_info: dict[str, Any] = {}
-    if interview_context.get("recording_enabled") and interview_context.get(
-        "recording_file_key"
-    ):
+    if interview_context.recording.enabled and interview_context.recording.file_key:
         info = await start_room_recording(
             lkapi,
             room_name=ctx.room.name,
-            file_key=interview_context["recording_file_key"],
+            file_key=interview_context.recording.file_key,
         )
         if info is not None:
             recording_info = {
                 "egressId": info.egress_id,
-                "fileKey": interview_context["recording_file_key"],
+                "fileKey": interview_context.recording.file_key,
                 "status": "active",
             }
 
-    selected_interviewer = pick_interviewer(interview_context)
-    selected_voice = selected_interviewer.get("voice") or "voice_agent_Male_Phone_1"
-    if selected_interviewer:
+    selected_interviewer = interview_context.selected_interviewer
+    selected_voice = (
+        selected_interviewer.voice
+        if selected_interviewer and selected_interviewer.voice
+        else "voice_agent_Male_Phone_1"
+    )
+    if selected_interviewer is not None:
         logger.info(
             "selected interviewer: %s (voice=%s)",
-            selected_interviewer.get("name", "?"),
+            selected_interviewer.name,
             selected_voice,
         )
 
@@ -656,14 +676,16 @@ async def my_agent(ctx: JobContext) -> None:
 
             state.eager_stop_task = asyncio.create_task(_eager_stop_recording())
 
-    interview_agent = InterviewAgent(interview_context, selected_interviewer)
+    interview_agent = InterviewAgent(interview_context)
 
     # ---- 3) 启动 session ---------------------------------------------------
     # ---- 3) Start the session
     await session.start(
         agent=interview_agent,
         room=ctx.room,
-        room_options=_build_room_options(),
+        room_options=_build_room_options(
+            allow_text_input=interview_context.session.allow_text_input
+        ),
     )
 
     # 让 agent 的 elapsed clock 对齐 state.started_at, per-turn 时间提示才准.

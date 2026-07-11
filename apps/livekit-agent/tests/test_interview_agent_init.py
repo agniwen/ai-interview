@@ -1,6 +1,10 @@
+import json
+from types import SimpleNamespace
+
+import pytest
+
+from dispatch_context import parse_dispatch_context
 from interview_agent import (
-    DEFAULT_CLOSING_INSTRUCTIONS,
-    DEFAULT_OPENING_INSTRUCTIONS,
     INTERVIEW_FINAL_WRAP_SECONDS,
     INTERVIEW_HARD_GRACE_SECONDS,
     INTERVIEW_SOFT_WRAP_SECONDS,
@@ -8,76 +12,72 @@ from interview_agent import (
     InterviewAgent,
     _is_noise_transcript,
 )
-from prompts import apply_placeholders
 
 
-def _ctx(**overrides):
-    ctx = {
-        "candidate_name": "郭靖",
-        "target_role": "后端工程师",
-        "candidate_profile": {"skills": [], "workExperiences": []},
-        "interview_questions": [],
-        "job_description_preset_questions": [],
-        "job_description_prompt": "",
-        "global_company_context": "",
-        "global_opening_instructions": "",
-        "global_closing_instructions": "",
+def _ctx(
+    *,
+    candidate_name="郭靖",
+    target_role="后端工程师",
+    system="最终系统提示词",
+    opening="你好郭靖",
+    closing="再见郭靖",
+):
+    payload = {
+        "schemaVersion": 1,
+        "session": {
+            "allowTextInput": True,
+            "interviewRecordId": "record-1",
+            "roundId": "round-1",
+        },
+        "candidate": {"name": candidate_name, "targetRole": target_role},
+        "recording": {"enabled": False, "fileKey": None},
+        "selectedInterviewer": None,
+        "prompts": {
+            "system": system,
+            "opening": opening,
+            "closing": closing,
+        },
     }
-    ctx.update(overrides)
-    return ctx
+    return parse_dispatch_context(json.dumps(payload, ensure_ascii=False))
 
 
-def test_uses_custom_opening_when_provided():
-    custom = "用最热情的语气欢迎候选人，介绍你是 ACME 的面试官。"
-    a = InterviewAgent(_ctx(global_opening_instructions=custom))
-    assert a._opening_instructions == custom
+class _FakeSpeechHandle:
+    def __init__(self):
+        self.waited = False
+
+    async def wait_for_playout(self):
+        self.waited = True
 
 
-def test_falls_back_to_default_opening_when_empty():
-    a = InterviewAgent(_ctx(global_opening_instructions=""))
-    expected = apply_placeholders(DEFAULT_OPENING_INSTRUCTIONS, "郭靖", "后端工程师")
-    assert a._opening_instructions == expected
+class _FakeSession:
+    def __init__(self):
+        self.calls = []
+        self.handle = _FakeSpeechHandle()
+
+    def say(self, text, **kwargs):
+        self.calls.append((text, kwargs))
+        return self.handle
 
 
-def test_uses_custom_closing_when_provided():
-    custom = "感谢您的时间，再见。"
-    a = InterviewAgent(_ctx(global_closing_instructions=custom))
-    assert a._closing_instructions == custom
-
-
-def test_falls_back_to_default_closing_when_empty():
-    a = InterviewAgent(_ctx(global_closing_instructions=""))
-    assert a._closing_instructions == DEFAULT_CLOSING_INSTRUCTIONS
-
-
-def test_opening_substitutes_candidate_name_and_role_placeholders():
+def test_uses_final_prompts_from_dispatch_contract_without_rebuilding():
     a = InterviewAgent(
         _ctx(
-            global_opening_instructions="你好 {候选人姓名}，欢迎参加 {岗位} 的面试。",
-            candidate_name="李四",
-            target_role="前端工程师",
+            system="TS 生成的最终 system prompt",
+            opening="TS 生成的最终 opening prompt",
+            closing="TS 生成的最终 closing prompt",
         )
     )
-    assert a._opening_instructions == "你好 李四，欢迎参加 前端工程师 的面试。"
+
+    assert a.instructions == "TS 生成的最终 system prompt"
+    assert a._opening_instructions == "TS 生成的最终 opening prompt"
+    assert a._closing_instructions == "TS 生成的最终 closing prompt"
 
 
-def test_closing_substitutes_candidate_name_placeholder():
-    a = InterviewAgent(
-        _ctx(
-            global_closing_instructions="再见 {候选人姓名}，祝顺利。",
-            candidate_name="李四",
-        )
-    )
-    assert a._closing_instructions == "再见 李四，祝顺利。"
-
-
-def test_default_opening_substitutes_placeholders():
-    # 默认开场白本身含有占位符，应当被替换  # noqa: RUF003
+def test_uses_typed_candidate_fields_from_dispatch_contract():
     a = InterviewAgent(_ctx(candidate_name="王五", target_role="数据工程师"))
-    assert "王五" in a._opening_instructions
-    assert "数据工程师" in a._opening_instructions
-    assert "{候选人姓名}" not in a._opening_instructions
-    assert "{岗位}" not in a._opening_instructions
+
+    assert a._candidate_name == "王五"
+    assert a._target_role == "数据工程师"
 
 
 def test_default_timeline_warns_at_21_and_hard_cuts_at_25():
@@ -87,6 +87,33 @@ def test_default_timeline_warns_at_21_and_hard_cuts_at_25():
     assert INTERVIEW_FINAL_WRAP_SECONDS == 21 * 60
     assert a.time_limit_seconds == 24 * 60
     assert INTERVIEW_TIME_LIMIT_SECONDS + INTERVIEW_HARD_GRACE_SECONDS == 25 * 60
+
+
+@pytest.mark.asyncio
+async def test_user_turn_exceeded_uses_fixed_non_interruptible_cue(monkeypatch):
+    session = _FakeSession()
+    a = InterviewAgent(_ctx())
+    monkeypatch.setattr(
+        a,
+        "_get_activity_or_raise",
+        lambda: SimpleNamespace(session=session),
+    )
+
+    await a.on_user_turn_exceeded(
+        SimpleNamespace(
+            accumulated_word_count=601,
+            accumulated_transcript="我想继续展开讲很多项目细节。",
+        )
+    )
+
+    assert session.calls == [
+        (
+            "我先打断一下。为了控制面试时间，请用一两句话收个尾，"
+            "然后我们继续下一个问题。",
+            {"allow_interruptions": False},
+        )
+    ]
+    assert session.handle.waited is True
 
 
 def test_noise_transcript_filters_punctuation_only_text():

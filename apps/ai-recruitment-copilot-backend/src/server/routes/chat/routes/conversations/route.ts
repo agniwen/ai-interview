@@ -1,5 +1,7 @@
-import type { UIMessage } from "ai";
 import { zValidator } from "@hono/zod-validator";
+import { createRequestWorkspaceAuthorizer } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy";
+import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
+import { legacyUiMessageToArcMessage } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/adapters/arc-message-adapter";
 import {
   checkConversationOwner,
   deleteUserConversation,
@@ -10,10 +12,14 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat";
 import {
   patchConversationSchema,
+  confirmRecruitingActionSchema,
   upsertChatMessageSchema,
   upsertConversationSchema,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/schema";
+import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { confirmRecruitingAction } from "./actions";
+import { loadResumeDetail } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
 
 export const conversationsRouter = factory
   .createApp()
@@ -154,6 +160,58 @@ export const conversationsRouter = factory
     return c.json({ ok: true }, 200);
   })
   .post(
+    "/:id/actions/confirm",
+    requirePermission("resumeLibrary", "update"),
+    zValidator("json", confirmRecruitingActionSchema, jsonValidatorError("动作参数无效。")),
+    async (c) => {
+      const { user, activeOrg } = c.var;
+      if (!user) {
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+      if (!activeOrg) {
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+
+      const conversationId = c.req.param("id");
+      const owner = await checkConversationOwner(user.id, conversationId, activeOrg.id);
+      if (owner === "not_found") {
+        return c.json({ error: "Not Found" }, 404);
+      }
+      if (owner === "forbidden") {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      const { proposal } = c.req.valid("json");
+      const visibilityScope = await resolveRecruitingVisibilityScope({
+        currentRole: c.var.member?.role,
+        organizationId: activeOrg.id,
+        userId: user.id,
+      });
+      const visibleRecord = await loadResumeDetail(
+        proposal.payload.resumeRecordId,
+        activeOrg.id,
+        visibilityScope,
+      );
+      if (!visibleRecord) {
+        return c.json({ error: "Not Found" }, 404);
+      }
+      const authorize = createRequestWorkspaceAuthorizer({
+        headers: c.req.raw.headers,
+        memberRole: c.var.member?.role,
+        organizationId: activeOrg.id,
+        userId: user.id,
+      });
+      const result = await confirmRecruitingAction({
+        authorize,
+        operatorId: user.id,
+        organizationId: activeOrg.id,
+        proposal,
+      });
+      const status = result.status === "failed" ? 409 : 200;
+      return c.json(result, status);
+    },
+  )
+  .post(
     "/:id/messages",
     zValidator("json", upsertChatMessageSchema, jsonValidatorError("消息参数无效。")),
     async (c) => {
@@ -178,7 +236,7 @@ export const conversationsRouter = factory
       try {
         await upsertChatMessage({
           conversationId,
-          message: message as unknown as UIMessage,
+          message: legacyUiMessageToArcMessage(message),
           organizationId: activeOrg.id,
         });
       } catch (error) {

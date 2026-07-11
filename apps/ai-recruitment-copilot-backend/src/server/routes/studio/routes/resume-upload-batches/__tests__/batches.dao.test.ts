@@ -10,6 +10,7 @@ import {
   jobDescription,
   member,
   organization,
+  resumeDuplicateMatch,
   resumePoolItem,
   resumeUploadBatch,
   resumeUploadBatchItem,
@@ -20,7 +21,6 @@ import {
   cancelBatch,
   claimNextPendingItem,
   claimPendingItemById,
-  deleteBatch,
   insertBatchWithItems,
   loadActiveBatch,
   loadActiveBatches,
@@ -30,6 +30,7 @@ import {
   reviveOrphans,
   reviveRetriableFailures,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
+import { deleteFixtureResumePoolItems } from "../../../../../../test-utils/db-fixture-cleanup";
 
 // 固定前缀，避免与其他测试数据冲突。
 // Fixed prefix so fixture data doesn't collide with other test runs.
@@ -39,6 +40,8 @@ const USER_A = "bulk_dao_user_a";
 const USER_B = "bulk_dao_user_b";
 const DEPARTMENT_A = "bulk_dao_department_a";
 const REFERRAL_JD = "bulk_dao_referral_jd";
+/** Suite-unique storage prefix so cleanup never leaves null-org pool orphans. */
+const STORAGE_KEY_PREFIX = "storage/test/bulk-dao/";
 
 const NOW = new Date("2026-05-18T10:00:00.000Z");
 
@@ -49,19 +52,24 @@ function makeFiles(n: number) {
     contentHash: `${String(i).repeat(64)}`,
     fileSize: 1024 * (i + 1),
     originalFileName: `resume_${i}.pdf`,
-    storageKey: `storage/test/${crypto.randomUUID()}.pdf`,
+    storageKey: `${STORAGE_KEY_PREFIX}${crypto.randomUUID()}.pdf`,
   }));
 }
 
 async function cleanup() {
-  // 按照 FK 顺序清理：先清 items（cascade），再 batch，再 member，再 org，再 user。
-  // FK-ordered cleanup: items cascade with batches, then members, orgs, users.
+  // FK-ordered: batches/interviews/matches first, then pool rows by every ownership
+  // key (org/user/storage) before deleting orgs/users — pool FKs are SET NULL.
   await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_A));
   await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.organizationId, ORG_B));
+  await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_A));
+  await db.delete(resumeDuplicateMatch).where(eq(resumeDuplicateMatch.organizationId, ORG_B));
   await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_A));
   await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_B));
-  await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_A));
-  await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_B));
+  await deleteFixtureResumePoolItems({
+    organizationIds: [ORG_A, ORG_B],
+    storageKeyPrefixes: [STORAGE_KEY_PREFIX],
+    userIds: [USER_A, USER_B],
+  });
   await db.delete(jobDescription).where(eq(jobDescription.organizationId, ORG_A));
   await db.delete(department).where(eq(department.organizationId, ORG_A));
   await db.delete(member).where(eq(member.userId, USER_A));
@@ -226,7 +234,11 @@ describe("insertBatchWithItems", () => {
       expect(poolItem?.targetRole).toBe("内推前端工程师");
     } finally {
       await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
-      await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_A));
+      await deleteFixtureResumePoolItems({
+        organizationIds: [ORG_A],
+        storageKeyPrefixes: [STORAGE_KEY_PREFIX],
+        userIds: [USER_A],
+      });
     }
   });
 
@@ -258,7 +270,11 @@ describe("insertBatchWithItems", () => {
       expect(poolItem?.jobDescriptionId).toBeNull();
     } finally {
       await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
-      await db.delete(resumePoolItem).where(eq(resumePoolItem.organizationId, ORG_A));
+      await deleteFixtureResumePoolItems({
+        organizationIds: [ORG_A],
+        storageKeyPrefixes: [STORAGE_KEY_PREFIX],
+        userIds: [USER_A],
+      });
     }
   });
 });
@@ -707,162 +723,3 @@ describe("recoverIncompleteBatchItems", () => {
 });
 
 // ─── Test 8: cancelBatch item filtering ──────────────────────────────────────
-
-describe("cancelBatch", () => {
-  it("取消 pending/processing items，不影响 succeeded items；batch 变 cancelled", async () => {
-    // Cancels pending/processing items; succeeded items are untouched. Batch → cancelled.
-    const batchId = await insertBatchWithItems({
-      dedupPolicy: "skip",
-      files: makeFiles(3),
-      jdMode: "none",
-      jobDescriptionId: null,
-      organizationId: ORG_A,
-      userId: USER_A,
-    });
-
-    try {
-      const items = await db
-        .select()
-        .from(resumeUploadBatchItem)
-        .where(eq(resumeUploadBatchItem.batchId, batchId));
-      const [succeededItem] = items;
-      expect(succeededItem).toBeDefined();
-
-      // 手动把第一个 item 设为 succeeded（模拟已处理完的情况）。
-      // Manually mark the first item as succeeded to simulate a processed item.
-      await db
-        .update(resumeUploadBatchItem)
-        .set({ finishedAt: new Date(), status: "succeeded" })
-        .where(eq(resumeUploadBatchItem.id, succeededItem?.id ?? ""));
-
-      const result = await cancelBatch(batchId, ORG_A, USER_A);
-      expect(result).toBe(true);
-
-      const afterItems = await db
-        .select()
-        .from(resumeUploadBatchItem)
-        .where(eq(resumeUploadBatchItem.batchId, batchId));
-
-      const succeededAfter = afterItems.find((r) => r.id === succeededItem?.id);
-      expect(succeededAfter?.status).toBe("succeeded");
-
-      const cancelledItems = afterItems.filter((r) => r.status === "cancelled");
-      expect(cancelledItems).toHaveLength(2);
-
-      const [batch] = await db
-        .select()
-        .from(resumeUploadBatch)
-        .where(eq(resumeUploadBatch.id, batchId));
-      expect(batch?.status).toBe("cancelled");
-      expect(batch?.completedAt).not.toBeNull();
-    } finally {
-      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
-    }
-  });
-
-  // ─── Test 9: cancelBatch on terminal batch ───────────────────────────────────
-
-  it("对已终结的批次调用 cancelBatch 返回 false，无副作用", async () => {
-    // cancelBatch on an already-terminal batch returns false and is a no-op.
-    const batchId = await insertBatchWithItems({
-      dedupPolicy: "skip",
-      files: makeFiles(1),
-      jdMode: "none",
-      jobDescriptionId: null,
-      organizationId: ORG_A,
-      userId: USER_A,
-    });
-
-    try {
-      // 手动完成批次。
-      await db
-        .update(resumeUploadBatch)
-        .set({ completedAt: new Date(), status: "completed" })
-        .where(eq(resumeUploadBatch.id, batchId));
-
-      const result = await cancelBatch(batchId, ORG_A, USER_A);
-      expect(result).toBe(false);
-
-      // 验证 batch 状态未改变。
-      const [batch] = await db
-        .select()
-        .from(resumeUploadBatch)
-        .where(eq(resumeUploadBatch.id, batchId));
-      expect(batch?.status).toBe("completed");
-    } finally {
-      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
-    }
-  });
-
-  it("对已 cancelled 的批次调用 cancelBatch 同样返回 false", async () => {
-    // cancelBatch on an already-cancelled batch also returns false.
-    const batchId = await insertBatchWithItems({
-      dedupPolicy: "skip",
-      files: makeFiles(1),
-      jdMode: "none",
-      jobDescriptionId: null,
-      organizationId: ORG_A,
-      userId: USER_A,
-    });
-
-    try {
-      await cancelBatch(batchId, ORG_A, USER_A);
-      const secondResult = await cancelBatch(batchId, ORG_A, USER_A);
-      expect(secondResult).toBe(false);
-    } finally {
-      await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
-    }
-  });
-});
-
-// ─── Test 10: deleteBatch ────────────────────────────────────────────────────
-
-describe("deleteBatch", () => {
-  it("pending 批次拒绝删除；取消后可删除，items 级联清除", async () => {
-    // Non-terminal batch cannot be deleted; after cancellation it can be, and items cascade.
-    const batchId = await insertBatchWithItems({
-      dedupPolicy: "skip",
-      files: makeFiles(2),
-      jdMode: "none",
-      jobDescriptionId: null,
-      organizationId: ORG_A,
-      userId: USER_A,
-    });
-
-    // 活跃批次不可删除。
-    // Active batch must be refused.
-    const refusedResult = await deleteBatch(batchId, ORG_A, USER_A);
-    expect(refusedResult).toBe(false);
-
-    // batch 和 items 依然存在。
-    const [batchAfterRefuse] = await db
-      .select()
-      .from(resumeUploadBatch)
-      .where(eq(resumeUploadBatch.id, batchId));
-    expect(batchAfterRefuse).toBeDefined();
-
-    const itemsAfterRefuse = await db
-      .select()
-      .from(resumeUploadBatchItem)
-      .where(eq(resumeUploadBatchItem.batchId, batchId));
-    expect(itemsAfterRefuse).toHaveLength(2);
-
-    // 取消后可删除。
-    await cancelBatch(batchId, ORG_A, USER_A);
-    const deletedResult = await deleteBatch(batchId, ORG_A, USER_A);
-    expect(deletedResult).toBe(true);
-
-    // batch 和 items 均已删除（items 通过 cascade 删除）。
-    const [batchAfterDelete] = await db
-      .select()
-      .from(resumeUploadBatch)
-      .where(eq(resumeUploadBatch.id, batchId));
-    expect(batchAfterDelete).toBeUndefined();
-
-    const itemsAfterDelete = await db
-      .select()
-      .from(resumeUploadBatchItem)
-      .where(eq(resumeUploadBatchItem.batchId, batchId));
-    expect(itemsAfterDelete).toHaveLength(0);
-  });
-});

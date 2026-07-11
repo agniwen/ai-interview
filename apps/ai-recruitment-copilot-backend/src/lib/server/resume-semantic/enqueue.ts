@@ -9,15 +9,18 @@ export async function enqueueResumeSemanticIndexJobBestEffort(input: {
     return;
   }
   try {
+    const { prepareResumeSemanticIndexJob } = await import("./indexer");
+    const job = {
+      organizationId: input.organizationId,
+      sourceId: input.sourceId,
+      sourceType: input.sourceType,
+    };
+    if (!(await prepareResumeSemanticIndexJob(job))) {
+      return;
+    }
     const { enqueueResumeSemanticIndexJobs } =
       await import("@arc/resume-parse-queue/resume-semantic-index");
-    await enqueueResumeSemanticIndexJobs([
-      {
-        organizationId: input.organizationId,
-        sourceId: input.sourceId,
-        sourceType: input.sourceType,
-      },
-    ]);
+    await enqueueResumeSemanticIndexJobs([job]);
   } catch (error) {
     console.warn("[resume-semantic-index] enqueue failed", {
       error,

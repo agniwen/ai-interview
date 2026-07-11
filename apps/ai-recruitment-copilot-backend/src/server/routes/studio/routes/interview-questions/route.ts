@@ -9,6 +9,7 @@ import {
 } from "@arc/db-schema/schema";
 import { interviewQuestionTemplateSchema } from "@arc/db-schema/interview-question-templates";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import {
   listAllInterviewQuestionTemplates,
@@ -39,6 +40,8 @@ function normalizeQuestions(
     id?: string;
     content: string;
     difficulty: "easy" | "medium" | "hard";
+    evaluationFocus?: string | null;
+    followUpDirections?: string | null;
     sortOrder: number;
   }[],
   templateId: string,
@@ -48,6 +51,8 @@ function normalizeQuestions(
     content: question.content.trim(),
     createdAt: now,
     difficulty: question.difficulty,
+    evaluationFocus: question.evaluationFocus?.trim() || null,
+    followUpDirections: question.followUpDirections?.trim() || null,
     id: question.id?.trim() || crypto.randomUUID(),
     sortOrder: typeof question.sortOrder === "number" ? question.sortOrder : index,
     templateId,
@@ -112,7 +117,15 @@ export const interviewQuestionTemplatesRouter = factory
         });
         return c.json({ questions }, 200);
       } catch (error) {
-        return c.json({ error: error instanceof Error ? error.message : "AI 生成失败。" }, 500);
+        return c.json(
+          createInternalErrorResponse({
+            context: { organizationId: activeOrg.id },
+            error,
+            operation: "interview-question-template-ai-generate",
+            publicMessage: "AI 生成失败。",
+          }),
+          500,
+        );
       }
     },
   )

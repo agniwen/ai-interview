@@ -1,8 +1,9 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { IconMail } from "@tabler/icons-react";
+import type { ReactElement } from "react";
 import { useEffect, useState } from "react";
-import { MailIcon } from "@/components/icons/hugeicons";
+
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +28,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/client/auth-client";
+import { useWorkspaceId } from "@/lib/client/workspace-context";
 import {
   ASSIGNABLE_ROLES,
   buildWorkspaceRoleOptions,
@@ -40,7 +42,7 @@ interface InviteDialogProps {
   assignableRoleOptions?: readonly WorkspaceRoleOption[];
   assignableRoles?: readonly string[];
   /** 自定义触发节点；省略则用默认"邀请成员"按钮。 */
-  trigger?: ReactNode;
+  trigger?: ReactElement;
 }
 
 function getDefaultInviteRole(assignableRoles: readonly string[]): string {
@@ -52,6 +54,7 @@ export function InviteDialog({
   assignableRoles = ASSIGNABLE_ROLES,
   trigger,
 }: InviteDialogProps = {}) {
+  const workspaceId = useWorkspaceId();
   const roleOptions = assignableRoleOptions ?? buildWorkspaceRoleOptions(assignableRoles);
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
@@ -74,6 +77,7 @@ export function InviteDialog({
     setSubmitting(true);
     const { data, error } = await authClient.organization.inviteMember({
       email: trimmedEmail,
+      organizationId: workspaceId,
       role: role as "admin" | "member",
     });
     setSubmitting(false);
@@ -95,7 +99,7 @@ export function InviteDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger ?? <Button>邀请成员</Button>}</DialogTrigger>
+      <DialogTrigger render={trigger ?? <Button>邀请成员</Button>} />
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>邀请新成员</DialogTitle>
@@ -109,7 +113,7 @@ export function InviteDialog({
             <FieldLabel htmlFor="invite-email">成员邮箱</FieldLabel>
             <InputGroup>
               <InputGroupAddon>
-                <MailIcon />
+                <IconMail />
               </InputGroupAddon>
               <InputGroupInput
                 id="invite-email"
@@ -125,7 +129,15 @@ export function InviteDialog({
           </Field>
           <Field>
             <FieldLabel htmlFor="invite-role">工作区角色</FieldLabel>
-            <Select disabled={assignableRoles.length === 0} value={role} onValueChange={setRole}>
+            <Select
+              disabled={assignableRoles.length === 0}
+              value={role}
+              onValueChange={(nextRole) => {
+                if (nextRole) {
+                  setRole(nextRole);
+                }
+              }}
+            >
               <SelectTrigger className="w-full" id="invite-role">
                 <SelectValue />
               </SelectTrigger>
@@ -143,6 +155,9 @@ export function InviteDialog({
           </Field>
         </FieldGroup>
         <DialogFooter>
+          <Button onClick={() => setOpen(false)} type="button" variant="outline">
+            取消
+          </Button>
           <Button
             disabled={submitting || !email.trim() || !canInviteWithSelectedRole}
             onClick={onSubmit}

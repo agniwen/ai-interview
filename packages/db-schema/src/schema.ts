@@ -1,6 +1,6 @@
 /* oxlint-disable no-inline-comments -- `/* @__PURE__ *\/` is a bundler annotation, not a human comment. */
 
-import type { UIMessage } from "ai";
+import type { ArcMessage, ArcMessageRole } from "./ai-message";
 import type {
   CandidateFormDisplayMode,
   CandidateFormOption,
@@ -45,8 +45,9 @@ import type {
   PipelineStage,
   ResumeEvaluationStatus,
   ResumeParseStatus,
+  ResumeReviewStatus,
+  ResumeScreeningStatus,
   ScheduleEntryStatus,
-  StudioInterviewStatus,
 } from "./studio-interviews";
 import type { ResumeParserStructured } from "./resume-parser-schema";
 import type { ResumeReview } from "./resume-review";
@@ -416,6 +417,13 @@ export const studioInterview = pgTable(
     closedReason: text("closed_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    hrResumeAssessment: text("hr_resume_assessment"),
+    hrResumeAssessmentUpdatedAt: timestamp("hr_resume_assessment_updated_at", {
+      withTimezone: true,
+    }),
+    hrResumeAssessmentUpdatedBy: text("hr_resume_assessment_updated_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     // ⚠️ DEPRECATED — 真人复面信息现在落到 studioHumanInterviewRound 子表（多轮 + 多面试官）。
     // 这两列留着兜底但应用层不再写入。
     // Superseded by studioHumanInterviewRound subtable; not written anymore.
@@ -461,7 +469,22 @@ export const studioInterview = pgTable(
     resumeParsedAt: timestamp("resume_parsed_at", { withTimezone: true }),
     resumeProfile: jsonb("resume_profile").$type<ResumeProfile | null>(),
     resumeReview: jsonb("resume_review").$type<ResumeReview | null>(),
-    // 简历进入简历库的来源。直传 / 我的简历池 / 公共简历池 / 聊天入库 / API 入库。
+    resumeReviewError: text("resume_review_error"),
+    resumeReviewGeneratedAt: timestamp("resume_review_generated_at", { withTimezone: true }),
+    resumeReviewQueuedAt: timestamp("resume_review_queued_at", { withTimezone: true }),
+    resumeReviewRunId: text("resume_review_run_id"),
+    resumeReviewStatus: text("resume_review_status")
+      .$type<ResumeReviewStatus>()
+      .notNull()
+      .default("idle"),
+    resumeScreeningError: text("resume_screening_error"),
+    resumeScreeningEvaluatedAt: timestamp("resume_screening_evaluated_at", { withTimezone: true }),
+    resumeScreeningResult: jsonb("resume_screening_result").$type<Record<string, unknown> | null>(),
+    resumeScreeningStatus: text("resume_screening_status")
+      .$type<ResumeScreeningStatus>()
+      .notNull()
+      .default("idle"),
+    // 简历进入招聘台的来源。直传 / 我的简历池 / 公共简历池 / 聊天入库 / API 入库。
     // Source metadata for resume-library rows; keeps the existing workflow
     // intact while preserving provenance for pool imports.
     resumeSourceImportedAt: timestamp("resume_source_imported_at", { withTimezone: true }),
@@ -484,11 +507,6 @@ export const studioInterview = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
-    // ⚠️ DEPRECATED — 旧的 record 级 status，由 pipelineStage + outcome 替代。
-    // 共享数据库期间继续保留并被应用层 dual-write，待全部消费方下线后再 drop。
-    // Legacy single-axis status. Kept dual-written from app code while
-    // pipelineStage + outcome roll out across all consumers.
-    status: text("status").$type<StudioInterviewStatus>().notNull(),
     targetRole: text("target_role"),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
@@ -500,9 +518,6 @@ export const studioInterview = pgTable(
     writtenTestScore: text("written_test_score"),
   },
   (table) => [
-    // ⚠️ DEPRECATED — 旧的 status index，与旧列一并保留至 drop 阶段。
-    // Kept alongside the deprecated column until consumers fully migrate.
-    index("studio_interview_status_idx").on(table.status),
     // 新模型的索引：tabs 通常 WHERE pipeline_stage = ? AND outcome = ?。
     index("studio_interview_pipeline_stage_idx").on(table.pipelineStage),
     index("studio_interview_outcome_idx").on(table.outcome),
@@ -691,6 +706,9 @@ export const jobDescription = pgTable(
       }),
     presetQuestions: jsonb("preset_questions").$type<string[]>().notNull().default([]),
     prompt: text("prompt").notNull(),
+    resumeScreeningPolicy: jsonb("resume_screening_policy").$type<Record<string, unknown> | null>(),
+    resumeScreeningPolicyHash: text("resume_screening_policy_hash"),
+    resumeScreeningPolicyVersion: integer("resume_screening_policy_version").notNull().default(1),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
@@ -1236,9 +1254,13 @@ export const resumeUploadBatchItem = pgTable(
 
 export type MailIngestMessageStatus = "processing" | "queued" | "skipped" | "failed";
 
+export type MailIngestSkipReason = "no_supported_attachment";
+export type MailIngestJdBindStatus = "bound" | "unmatched" | "ambiguous" | "fallback";
+
 export type ResumeSemanticSourceType = "resume_pool_item" | "studio_interview";
 export type ResumeSemanticIndexStatus = "failed" | "indexed" | "pending" | "skipped" | "stale";
 export type ResumeSemanticDuplicateLevel = "high" | "low" | "medium";
+export type ResumeDuplicateMatchStatus = "active" | "confirmed" | "dismissed";
 
 export const resumeSemanticIndex = pgTable(
   "resume_semantic_index",
@@ -1298,10 +1320,28 @@ export const resumeDuplicateMatch = pgTable(
       .$type<string[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    similarity: jsonb("similarity").$type<{
+      resumeOverview?: number;
+      skillRole?: number;
+      workProject?: number;
+    }>(),
     sourceId: text("source_id").notNull(),
     sourceType: text("source_type").$type<ResumeSemanticSourceType>().notNull(),
+    status: text("status").$type<ResumeDuplicateMatchStatus>().notNull().default("active"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
   },
   (table) => [
+    uniqueIndex("resume_duplicate_match_source_target_version_uq").on(
+      table.organizationId,
+      table.sourceType,
+      table.sourceId,
+      table.matchedSourceType,
+      table.matchedSourceId,
+      table.embeddingVersion,
+    ),
     index("resume_duplicate_match_org_source_idx").on(
       table.organizationId,
       table.sourceType,
@@ -1309,6 +1349,7 @@ export const resumeDuplicateMatch = pgTable(
       table.createdAt,
     ),
     index("resume_duplicate_match_org_level_idx").on(table.organizationId, table.level),
+    index("resume_duplicate_match_org_status_idx").on(table.organizationId, table.status),
   ],
 );
 
@@ -1334,6 +1375,11 @@ export const mailIngestAccount = pgTable(
     }),
     lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
     lastError: text("last_error"),
+    lastRunFailed: integer("last_run_failed").notNull().default(0),
+    lastRunMatched: integer("last_run_matched").notNull().default(0),
+    lastRunQueued: integer("last_run_queued").notNull().default(0),
+    lastRunReceived: integer("last_run_received").notNull().default(0),
+    lastRunSubjectSkipped: integer("last_run_subject_skipped").notNull().default(0),
     listenStartAt: timestamp("listen_start_at", { withTimezone: true }),
     mailbox: text("mailbox").notNull().default("INBOX"),
     organizationId: text("organization_id")
@@ -1373,15 +1419,23 @@ export const mailIngestMessage = pgTable(
     accountId: text("account_id")
       .notNull()
       .references(() => mailIngestAccount.id, { onDelete: "cascade" }),
+    attachmentCount: integer("attachment_count"),
     batchId: text("batch_id").references(() => resumeUploadBatch.id, { onDelete: "set null" }),
+    boundJobDescriptionId: text("bound_job_description_id").references(() => jobDescription.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     errorMessage: text("error_message"),
+    extractedJobCodes: jsonb("extracted_job_codes").$type<string[]>(),
     fromAddress: text("from_address"),
     id: text("id").primaryKey(),
+    jdBindStatus: text("jd_bind_status").$type<MailIngestJdBindStatus>(),
     mailbox: text("mailbox").notNull(),
     messageId: text("message_id"),
     processedAt: timestamp("processed_at", { withTimezone: true }),
     receivedAt: timestamp("received_at", { withTimezone: true }),
+    resumeAttachmentCount: integer("resume_attachment_count"),
+    skipReason: text("skip_reason").$type<MailIngestSkipReason>(),
     status: text("status").$type<MailIngestMessageStatus>().notNull(),
     subject: text("subject"),
     uid: text("uid").notNull(),
@@ -1400,6 +1454,7 @@ export const mailIngestMessage = pgTable(
       table.createdAt,
     ),
     index("mail_ingest_message_batch_idx").on(table.batchId),
+    index("mail_ingest_message_account_received_idx").on(table.accountId, table.receivedAt.desc()),
   ],
 );
 
@@ -1534,7 +1589,7 @@ export const chatConversation = pgTable(
 export const chatMessage = pgTable(
   "chat_message",
   {
-    content: jsonb("content").$type<UIMessage>().notNull(),
+    content: jsonb("content").$type<ArcMessage>().notNull(),
     conversationId: text("conversation_id")
       .notNull()
       .references(() => chatConversation.id, { onDelete: "cascade" }),
@@ -1545,7 +1600,7 @@ export const chatMessage = pgTable(
       .references(() => organization.id, {
         onDelete: "cascade",
       }),
-    role: text("role").$type<UIMessage["role"]>().notNull(),
+    role: text("role").$type<ArcMessageRole>().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
@@ -1859,6 +1914,8 @@ export const interviewQuestionTemplateQuestion = pgTable(
       .$type<InterviewQuestionTemplateDifficulty>()
       .notNull()
       .default("easy"),
+    evaluationFocus: text("evaluation_focus"),
+    followUpDirections: text("follow_up_directions"),
     id: text("id").primaryKey(),
     sortOrder: integer("sort_order").notNull(),
     templateId: text("template_id")

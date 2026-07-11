@@ -2,6 +2,7 @@ import { z } from "zod";
 import { eq, sql, count, ilike, or, desc, asc } from "drizzle-orm";
 import { zValidator } from "@hono/zod-validator";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
 import { adminMiddleware } from "@arc/ai-recruitment-copilot-backend/server/middlewares/admin";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { organization, member, session, user } from "@arc/db-schema/schema";
@@ -12,6 +13,11 @@ import {
   RESUME_PARSE_JOB_LIST_STATES,
   RESUME_PARSE_QUEUE_NAME,
 } from "@arc/resume-parse-queue/resume-parse";
+import {
+  getResumeReviewGenerationQueueOverview,
+  listResumeReviewGenerationQueueJobs,
+  RESUME_REVIEW_GENERATION_QUEUE_NAME,
+} from "@arc/resume-parse-queue/resume-review-generation";
 import {
   createMailIngestAccount,
   getMailIngestAccountLoginConfig,
@@ -32,6 +38,13 @@ import {
   enrichResumeParseQueueJobs,
   filterEnrichedResumeParseQueueJobRecords,
 } from "./queue-details";
+import type { PlatformQueueJobsResult } from "./queue-details";
+import {
+  platformNotificationProviderFilterValues,
+  platformNotificationStatusFilterValues,
+  queryPaginatedPlatformNotifications,
+} from "./notifications";
+import { resendInterviewSummaryNotification } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/feishu-interview-notifications";
 
 // --- Organizations list ---
 const orgQuerySchema = z.object({
@@ -383,6 +396,46 @@ const platformUsers = factory
     );
   });
 
+const platformNotificationsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  providerId: z.enum(platformNotificationProviderFilterValues).default("all"),
+  search: z.string().optional(),
+  sortBy: z
+    .enum([
+      "createdAt",
+      "sentAt",
+      "updatedAt",
+      "status",
+      "providerId",
+      "candidateName",
+      "organizationName",
+    ])
+    .default("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  status: z.enum(platformNotificationStatusFilterValues).default("all"),
+});
+
+const platformNotifications = factory
+  .createApp()
+  .get(
+    "/notifications",
+    zValidator("query", platformNotificationsQuerySchema, jsonValidatorError("参数校验失败")),
+    async (c) => {
+      const result = await queryPaginatedPlatformNotifications(c.req.valid("query"));
+      return c.json(result, 200);
+    },
+  )
+  .post("/notifications/:id/resend", async (c) => {
+    try {
+      const result = await resendInterviewSummaryNotification(c.req.param("id"));
+      return c.json(result, 200);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "重新发送飞书通知失败";
+      return c.json({ error: message }, message === "通知记录不存在" ? 404 : 400);
+    }
+  });
+
 const mailIngestAccountsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(10),
@@ -435,9 +488,13 @@ const platformMailIngestAccounts = factory
         if (error instanceof MailIngestValidationError) {
           return c.json({ error: error.message }, 400);
         }
-        console.error("[platform-mail-ingest] create account failed:", error);
         return c.json(
-          { error: error instanceof Error ? error.message : "邮箱配置保存失败。" },
+          createInternalErrorResponse({
+            context: { organizationId, userId },
+            error,
+            operation: "platform-mail-ingest-create",
+            publicMessage: "邮箱配置保存失败。",
+          }),
           500,
         );
       }
@@ -471,9 +528,13 @@ const platformMailIngestAccounts = factory
         if (error instanceof MailIngestValidationError) {
           return c.json({ error: error.message }, 400);
         }
-        console.error("[platform-mail-ingest] update account failed:", error);
         return c.json(
-          { error: error instanceof Error ? error.message : "邮箱配置更新失败。" },
+          createInternalErrorResponse({
+            context: { accountId: c.req.param("id"), organizationId },
+            error,
+            operation: "platform-mail-ingest-update",
+            publicMessage: "邮箱配置更新失败。",
+          }),
           500,
         );
       }
@@ -560,21 +621,49 @@ async function listResumeParseQueueJobsWithDetailFilters(query: QueueJobsQuery) 
   };
 }
 
+async function listResumeReviewGenerationQueueJobsWithDetails(
+  query: QueueJobsQuery,
+): Promise<PlatformQueueJobsResult> {
+  const result = await listResumeReviewGenerationQueueJobs({
+    page: query.page,
+    pageSize: query.pageSize,
+    search: query.search,
+    state: query.state,
+  });
+
+  return {
+    ...result,
+    records: result.records.map((record) => ({
+      ...record,
+      organization: null,
+      resumeDetail: null,
+      triggeredBy: null,
+    })),
+  };
+}
+
 const platformQueues = factory
   .createApp()
   .get("/queues", async (c) => {
-    const overview = await getResumeParseQueueOverview();
-    return c.json({ records: [overview], total: 1 }, 200);
+    const records = await Promise.all([
+      getResumeParseQueueOverview(),
+      getResumeReviewGenerationQueueOverview(),
+    ]);
+    return c.json({ records, total: records.length }, 200);
   })
   .get(
     "/queues/:queueName/jobs",
     zValidator("query", queueJobsQuerySchema, jsonValidatorError("参数校验失败")),
     async (c) => {
       const queueName = c.req.param("queueName");
+      const query = c.req.valid("query");
+      if (queueName === RESUME_REVIEW_GENERATION_QUEUE_NAME) {
+        const result = await listResumeReviewGenerationQueueJobsWithDetails(query);
+        return c.json(result, 200);
+      }
       if (queueName !== RESUME_PARSE_QUEUE_NAME) {
         return c.json({ error: "队列不存在" }, 404);
       }
-      const query = c.req.valid("query");
       const result = await listResumeParseQueueJobsWithDetailFilters(query);
       return c.json(result, 200);
     },
@@ -585,6 +674,7 @@ export const platformRouter = factory
   .use(adminMiddleware)
   .route("/", platformQueues)
   .route("/", platformMailIngestAccounts)
+  .route("/", platformNotifications)
   .route("/", platformOrganizations)
   .route("/", organizationDetail)
   .route("/", platformUsers);

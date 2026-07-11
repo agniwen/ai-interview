@@ -88,7 +88,6 @@ beforeAll(async () => {
     interviewQuestions: [],
     organizationId: ORG,
     resumeProfile: null,
-    status: "ready",
     targetRole: "前端工程师",
     updatedAt: NOW,
   });
@@ -130,7 +129,6 @@ beforeAll(async () => {
     interviewQuestions: [],
     organizationId: ORG,
     resumeProfile: null,
-    status: "completed",
     targetRole: "后端工程师",
     updatedAt: NOW,
   });

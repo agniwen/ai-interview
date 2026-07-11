@@ -8,7 +8,12 @@ import {
 import {
   closeResumeSemanticIndexQueue,
   createResumeSemanticIndexWorker,
+  enqueueResumeSemanticIndexJobs,
 } from "@arc/resume-parse-queue/resume-semantic-index";
+import {
+  closeResumeReviewGenerationQueue,
+  createResumeReviewGenerationWorker,
+} from "@arc/resume-parse-queue/resume-review-generation";
 import { createWorkerApp } from "./app";
 import { resolveWorkerServerConfig } from "./config";
 import { getWorkerConnectionSummary, loadWorkerEnv } from "./env";
@@ -38,6 +43,20 @@ async function recoverIncompleteResumeParseJobs(): Promise<void> {
   });
 }
 
+async function recoverIncompleteResumeSemanticIndexJobs(): Promise<void> {
+  const { listRecoverableResumeSemanticIndexJobs } =
+    await import("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer");
+  const jobs = await listRecoverableResumeSemanticIndexJobs();
+  if (jobs.length === 0) {
+    console.info("[resume-semantic-index-worker] startup recovery found no pending sources");
+    return;
+  }
+  await enqueueResumeSemanticIndexJobs(jobs);
+  console.info("[resume-semantic-index-worker] startup recovery enqueued sources", {
+    count: jobs.length,
+  });
+}
+
 async function main() {
   const { hostname, port } = resolveWorkerServerConfig();
   const app = createWorkerApp();
@@ -58,21 +77,28 @@ async function main() {
 
   let worker: ReturnType<typeof createResumeParseWorker> | null = null;
   let semanticIndexWorker: ReturnType<typeof createResumeSemanticIndexWorker> | null = null;
+  let reviewGenerationWorker: ReturnType<typeof createResumeReviewGenerationWorker> | null = null;
   let mailIngestScheduler: MailIngestScheduler | null = null;
   if (isResumeParseQueueConfigured()) {
     await recoverIncompleteResumeParseJobs();
     worker = createResumeParseWorker(async ({ itemId }) => {
-      const { processBatchItem } =
-        await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/processor");
-      await processBatchItem(itemId);
+      const { runBulkResumeUploadWorkflow } =
+        await import("@arc/ai-recruitment-copilot-backend/server/agents/mastra/workflows/bulk-resume-upload-workflow");
+      await runBulkResumeUploadWorkflow({ itemId });
     });
     if (isResumeSemanticIndexEnabled()) {
+      await recoverIncompleteResumeSemanticIndexJobs();
       semanticIndexWorker = createResumeSemanticIndexWorker(async (payload) => {
         const { runResumeSemanticIndexJob } =
           await import("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer");
         await runResumeSemanticIndexJob(payload);
       });
     }
+    reviewGenerationWorker = createResumeReviewGenerationWorker(async (payload) => {
+      const { processResumeReviewGenerationJob } =
+        await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-worker");
+      await processResumeReviewGenerationJob(payload);
+    });
     mailIngestScheduler = startMailIngestScheduler();
   }
   if (!worker) {
@@ -92,8 +118,10 @@ async function main() {
         await closeServer();
         await worker?.close();
         await semanticIndexWorker?.close();
+        await reviewGenerationWorker?.close();
         await closeResumeParseQueue();
         await closeResumeSemanticIndexQueue();
+        await closeResumeReviewGenerationQueue();
         if (process.env.DATABASE_URL) {
           const { closeDatabase } =
             await import("@arc/ai-recruitment-copilot-backend/lib/server/db");

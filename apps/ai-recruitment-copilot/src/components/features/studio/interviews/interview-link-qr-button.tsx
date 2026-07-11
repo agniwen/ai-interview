@@ -1,7 +1,8 @@
 "use client";
 
+import { IconChevronDown, IconLink, IconQrcode, IconSend } from "@tabler/icons-react";
 import { snapdom } from "@zumer/snapdom";
-import { ChevronDownIcon, LinkIcon, QrCodeIcon, SendIcon } from "@/components/icons/hugeicons";
+
 import { QRCodeCanvas } from "qrcode.react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -143,23 +144,25 @@ export function InterviewLinkQrButton({
           type="button"
           variant="ghost"
         >
-          <LinkIcon className="size-3.5" />
+          <IconLink className="size-3.5" />
           复制链接
         </Button>
         <DropdownMenu modal={false}>
-          <DropdownMenuTrigger asChild>
-            <Button disabled={disabled} size="icon-sm" type="button" variant="ghost">
-              <ChevronDownIcon className="size-3.5" />
-              <span className="sr-only">打开分享选项</span>
-            </Button>
-          </DropdownMenuTrigger>
+          <DropdownMenuTrigger
+            render={
+              <Button disabled={disabled} size="icon-sm" type="button" variant="ghost">
+                <IconChevronDown className="size-3.5" />
+                <span className="sr-only">打开分享选项</span>
+              </Button>
+            }
+          />
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem disabled={isCopying} onClick={() => void copyQrImage()}>
-              <QrCodeIcon className="size-3.5" />
+              <IconQrcode className="size-3.5" />
               {isCopying ? "正在生成..." : "复制二维码"}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => void copyCandidateMessage()}>
-              <SendIcon className="size-3.5" />
+              <IconSend className="size-3.5" />
               复制给候选人
             </DropdownMenuItem>
           </DropdownMenuContent>

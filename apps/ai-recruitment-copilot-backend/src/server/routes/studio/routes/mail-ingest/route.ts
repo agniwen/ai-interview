@@ -1,11 +1,14 @@
 import { zValidator } from "@hono/zod-validator";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
 import {
   createMailIngestAccount,
   deleteMailIngestAccount,
   getMailIngestAccountLoginConfig,
   isWorkspaceMember,
+  listAccountMailMessages,
   listMailIngestAccounts,
+  mailIngestAccountExistsInOrg,
   queryPaginatedWorkspaceMailIngestAccounts,
   updateMailIngestAccount,
   updateWorkspaceMailIngestAccount,
@@ -13,6 +16,7 @@ import {
 import {
   createMailIngestAccountSchema,
   createManagedMailIngestAccountSchema,
+  listMailMessagesQuerySchema,
   managedMailIngestAccountListQuerySchema,
   updateMailIngestAccountSchema,
 } from "./schema";
@@ -80,9 +84,13 @@ export const mailIngestRouter = factory
         if (error instanceof MailIngestValidationError) {
           return c.json({ error: error.message }, 400);
         }
-        console.error("[mail-ingest] managed create account failed:", error);
         return c.json(
-          { error: error instanceof Error ? error.message : "邮箱配置保存失败。" },
+          createInternalErrorResponse({
+            context: { organizationId: activeOrg.id, userId },
+            error,
+            operation: "managed-mail-ingest-create",
+            publicMessage: "邮箱配置保存失败。",
+          }),
           500,
         );
       }
@@ -121,12 +129,42 @@ export const mailIngestRouter = factory
         if (error instanceof MailIngestValidationError) {
           return c.json({ error: error.message }, 400);
         }
-        console.error("[mail-ingest] managed update account failed:", error);
         return c.json(
-          { error: error instanceof Error ? error.message : "邮箱配置更新失败。" },
+          createInternalErrorResponse({
+            context: { accountId: c.req.param("id"), organizationId: activeOrg.id },
+            error,
+            operation: "managed-mail-ingest-update",
+            publicMessage: "邮箱配置更新失败。",
+          }),
           500,
         );
       }
+    },
+  )
+  .get(
+    "/managed/:id/messages",
+    requirePermission("mailIngestAccount", "manage"),
+    zValidator("query", listMailMessagesQuerySchema, jsonValidatorError("查询参数不合法")),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!activeOrg || !user) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const accountId = c.req.param("id");
+      const exists = await mailIngestAccountExistsInOrg({
+        id: accountId,
+        organizationId: activeOrg.id,
+      });
+      if (!exists) {
+        return c.json({ error: "邮箱配置不存在。" }, 404);
+      }
+      const q = c.req.valid("query");
+      const result = await listAccountMailMessages({
+        accountId,
+        organizationId: activeOrg.id,
+        ...q,
+      });
+      return c.json(result, 200);
     },
   )
   .get("/", requirePermission("mailIngestAccount", "read"), async (c) => {
@@ -158,9 +196,13 @@ export const mailIngestRouter = factory
         if (error instanceof MailIngestValidationError) {
           return c.json({ error: error.message }, 400);
         }
-        console.error("[mail-ingest] create account failed:", error);
         return c.json(
-          { error: error instanceof Error ? error.message : "邮箱配置保存失败。" },
+          createInternalErrorResponse({
+            context: { organizationId: activeOrg.id, userId: user.id },
+            error,
+            operation: "mail-ingest-create",
+            publicMessage: "邮箱配置保存失败。",
+          }),
           500,
         );
       }
@@ -201,9 +243,13 @@ export const mailIngestRouter = factory
         if (error instanceof MailIngestValidationError) {
           return c.json({ error: error.message }, 400);
         }
-        console.error("[mail-ingest] update account failed:", error);
         return c.json(
-          { error: error instanceof Error ? error.message : "邮箱配置更新失败。" },
+          createInternalErrorResponse({
+            context: { accountId: c.req.param("id"), organizationId: activeOrg.id },
+            error,
+            operation: "mail-ingest-update",
+            publicMessage: "邮箱配置更新失败。",
+          }),
           500,
         );
       }
@@ -223,4 +269,31 @@ export const mailIngestRouter = factory
       return c.json({ error: "邮箱配置不存在。" }, 404);
     }
     return c.json({ ok: true }, 200);
-  });
+  })
+  .get(
+    "/:id/messages",
+    requirePermission("mailIngestAccount", "read"),
+    zValidator("query", listMailMessagesQuerySchema, jsonValidatorError("查询参数不合法")),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!activeOrg || !user) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const accountId = c.req.param("id");
+      const existing = await getMailIngestAccountLoginConfig({
+        id: accountId,
+        organizationId: activeOrg.id,
+        userId: user.id,
+      });
+      if (!existing) {
+        return c.json({ error: "邮箱配置不存在。" }, 404);
+      }
+      const q = c.req.valid("query");
+      const result = await listAccountMailMessages({
+        accountId,
+        organizationId: activeOrg.id,
+        ...q,
+      });
+      return c.json(result, 200);
+    },
+  );

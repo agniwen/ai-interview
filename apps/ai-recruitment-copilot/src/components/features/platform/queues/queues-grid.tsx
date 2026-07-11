@@ -1,13 +1,12 @@
 "use client";
 
 import {
-  ActivityIcon,
-  Building2Icon,
-  DatabaseIcon,
-  ListChecksIcon,
-  ServerIcon,
-} from "@/components/icons/hugeicons";
-import type { ComponentProps } from "react";
+  IconActivity,
+  IconBuilding,
+  IconDatabase,
+  IconListCheck,
+  IconServer,
+} from "@tabler/icons-react";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -34,11 +33,31 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { formatBytes } from "@arc/shared/utils/format";
+import {
+  batchStatusMeta,
+  formatCount,
+  formatDuration,
+  formatJson,
+  getInitials,
+  getJobDataSummary,
+  normalizeParseStatusFilter,
+  normalizeStateFilter,
+  normalizeUploadStatusFilter,
+  resumeParseStatusMeta,
+  stateLabel,
+  stateVariant,
+  uploadItemStatusMeta,
+} from "./queues-grid-model";
 
 const DEFAULT_QUEUE_NAME = "resume-parse";
+const PLATFORM_QUEUE_OPTIONS = [
+  { label: "简历解析", value: "resume-parse" },
+  { label: "AI分析", value: "resume-review-generation" },
+] as const;
 const DEFAULT_FILTERS = {
   parseStatus: "all",
   queue: DEFAULT_QUEUE_NAME,
@@ -78,9 +97,6 @@ const PARSE_STATUS_FILTER_OPTIONS = [
 ] as const;
 
 type QueueFilters = typeof DEFAULT_FILTERS;
-type JobStateFilter = (typeof JOB_STATE_OPTIONS)[number]["value"];
-type UploadStatusFilter = (typeof UPLOAD_STATUS_FILTER_OPTIONS)[number]["value"];
-type ParseStatusFilter = (typeof PARSE_STATUS_FILTER_OPTIONS)[number]["value"];
 
 interface QueueCounts {
   active: number;
@@ -195,161 +211,13 @@ interface QueueJobsResult {
   totalPages: number;
 }
 
-function formatCount(value: number): string {
-  return new Intl.NumberFormat("zh-CN").format(value);
-}
-
-function formatJson(value: unknown): string {
-  return JSON.stringify(value, null, 2) ?? "null";
-}
-
-function getInitials(name?: string | null, email?: string | null): string {
-  const source = (name ?? email ?? "").trim();
-  if (!source) {
-    return "U";
-  }
-  const words = source.split(/\s+/).filter(Boolean);
-  if (words.length >= 2) {
-    return `${words[0]?.[0] ?? ""}${words[1]?.[0] ?? ""}`.toUpperCase();
-  }
-  return source.slice(0, 2).toUpperCase();
-}
-
-function formatDuration(start: string | null, end: string | null): string {
-  if (!start || !end) {
-    return "—";
-  }
-  const ms = new Date(end).getTime() - new Date(start).getTime();
-  if (!Number.isFinite(ms) || ms < 0) {
-    return "—";
-  }
-  if (ms < 1000) {
-    return `${ms}ms`;
-  }
-  return `${(ms / 1000).toFixed(1)}s`;
-}
-
-function stateLabel(state: string): string {
-  return JOB_STATE_OPTIONS.find((option) => option.value === state)?.label ?? state;
-}
-
-function normalizeStateFilter(value: string): JobStateFilter {
-  return JOB_STATE_OPTIONS.some((option) => option.value === value)
-    ? (value as JobStateFilter)
-    : "all";
-}
-
-function normalizeUploadStatusFilter(value: string): UploadStatusFilter {
-  return UPLOAD_STATUS_FILTER_OPTIONS.some((option) => option.value === value)
-    ? (value as UploadStatusFilter)
-    : "all";
-}
-
-function normalizeParseStatusFilter(value: string): ParseStatusFilter {
-  return PARSE_STATUS_FILTER_OPTIONS.some((option) => option.value === value)
-    ? (value as ParseStatusFilter)
-    : "all";
-}
-
-function stateVariant(state: string): ComponentProps<typeof Badge>["variant"] {
-  if (state === "completed") {
-    return "success";
-  }
-  if (state === "failed") {
-    return "danger";
-  }
-  if (state === "active") {
-    return "info";
-  }
-  if (state === "delayed" || state === "waiting-children") {
-    return "warning";
-  }
-  return "outline";
-}
-
-function uploadItemStatusMeta(
-  status: string,
-  target: string,
-): { label: string; variant: ComponentProps<typeof Badge>["variant"] } {
-  if (status === "pending") {
-    return { label: "排队中", variant: "outline" };
-  }
-  if (status === "processing") {
-    return { label: "处理中", variant: "info" };
-  }
-  if (status === "succeeded") {
-    return { label: target === "resume_pool" ? "已加入" : "已入库", variant: "success" };
-  }
-  if (status === "failed") {
-    return { label: "失败", variant: "danger" };
-  }
-  if (status === "duplicate_skipped") {
-    return { label: "已跳过", variant: "warning" };
-  }
-  if (status === "cancelled") {
-    return { label: "已取消", variant: "outline" };
-  }
-  return { label: status || "未知", variant: "outline" };
-}
-
-function resumeParseStatusMeta(status: string | null): {
-  label: string;
-  variant: ComponentProps<typeof Badge>["variant"];
-} {
-  if (status === "ready") {
-    return { label: "已解析", variant: "success" };
-  }
-  if (status === "processing") {
-    return { label: "解析中", variant: "info" };
-  }
-  if (status === "failed") {
-    return { label: "解析失败", variant: "danger" };
-  }
-  if (status === "queued" || status === "unparsed") {
-    return { label: "未解析", variant: "outline" };
-  }
-  return { label: status || "—", variant: "outline" };
-}
-
-function batchStatusMeta(status: string): {
-  label: string;
-  variant: ComponentProps<typeof Badge>["variant"];
-} {
-  if (status === "running") {
-    return { label: "运行中", variant: "info" };
-  }
-  if (status === "completed") {
-    return { label: "已完成", variant: "success" };
-  }
-  if (status === "cancelled") {
-    return { label: "已取消", variant: "outline" };
-  }
-  if (status === "pending") {
-    return { label: "待开始", variant: "outline" };
-  }
-  return { label: status || "未知", variant: "outline" };
-}
-
-function getJobDataSummary(data: unknown): string {
-  if (!data || typeof data !== "object") {
-    return "—";
-  }
-  const maybeRecord = data as Record<string, unknown>;
-  const itemId = typeof maybeRecord.itemId === "string" ? maybeRecord.itemId : null;
-  const batchId = typeof maybeRecord.batchId === "string" ? maybeRecord.batchId : null;
-  if (itemId && batchId) {
-    return `${itemId} / ${batchId}`;
-  }
-  return itemId ?? batchId ?? "—";
-}
-
 function QueueOrganizationCell({ organization }: { organization: QueueJobRecord["organization"] }) {
   if (!organization) {
     return <span className="text-muted-foreground text-sm">—</span>;
   }
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <Building2Icon className="size-4 shrink-0 text-muted-foreground" />
+      <IconBuilding className="size-4 shrink-0 text-muted-foreground" />
       <div className="min-w-0">
         <p className="truncate font-medium text-sm">{organization.name}</p>
         <p className="truncate text-muted-foreground text-xs">{organization.slug}</p>
@@ -459,7 +327,7 @@ function UploadTaskStatusPanel({
         <DetailField label="目标岗位" value={detail.targetRole} />
         <DetailField
           label="目标位置"
-          value={detail.batch.target === "resume_pool" ? "简历广场" : "简历库"}
+          value={detail.batch.target === "resume_pool" ? "人才库" : "招聘台"}
         />
       </div>
 
@@ -473,7 +341,7 @@ function UploadTaskStatusPanel({
       {errorMessage ? (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
           <p className="font-medium text-destructive text-xs">错误信息</p>
-          <p className="mt-1 break-words text-destructive text-sm">{errorMessage}</p>
+          <p className="mt-1 wrap-break-word text-destructive text-sm">{errorMessage}</p>
         </div>
       ) : null}
     </div>
@@ -533,7 +401,7 @@ export function QueueOverview({ overview }: { overview: QueueOverviewRecord | nu
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex size-10 items-center justify-center rounded-lg border bg-background">
-            <ListChecksIcon />
+            <IconListCheck />
           </div>
           <div className="min-w-0">
             <h1 className="truncate font-semibold text-xl">{overview.displayName}</h1>
@@ -542,13 +410,13 @@ export function QueueOverview({ overview }: { overview: QueueOverviewRecord | nu
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={overview.redis ? "success" : "danger"}>
-            <DatabaseIcon />
+            <IconDatabase />
             {overview.redis
               ? `${overview.redis.host}:${overview.redis.port}/${overview.redis.db}`
               : "Redis 未配置"}
           </Badge>
           <Badge variant={overview.workersCount > 0 ? "success" : "warning"}>
-            <ServerIcon />
+            <IconServer />
             {overview.workersCount} workers
           </Badge>
         </div>
@@ -567,7 +435,7 @@ export function QueueOverview({ overview }: { overview: QueueOverviewRecord | nu
         <div className="flex flex-wrap gap-2">
           {overview.workers.slice(0, 8).map((worker) => (
             <Badge key={worker.id ?? worker.addr} variant="secondary">
-              <ServerIcon />
+              <IconServer />
               {worker.addr ?? worker.id ?? "unknown"} · idle {worker.idle ?? "?"}s
             </Badge>
           ))}
@@ -632,18 +500,23 @@ export function QueuesGrid() {
     staleTime: 5000,
   });
 
-  const queueOptions = useMemo(
-    () =>
-      (overviewQuery.data?.records ?? []).map((queue) => ({
-        label: queue.displayName,
-        value: queue.name,
-      })),
-    [overviewQuery.data?.records],
-  );
-  const selectedQueue =
-    overviewQuery.data?.records.find((queue) => queue.name === DEFAULT_QUEUE_NAME) ??
-    overviewQuery.data?.records[0] ??
-    null;
+  const queueOptions = useMemo(() => {
+    const records = overviewQuery.data?.records ?? [];
+    if (records.length === 0) {
+      return [...PLATFORM_QUEUE_OPTIONS];
+    }
+    const seen = new Set<string>();
+    return [
+      ...records.map((queue) => {
+        seen.add(queue.name);
+        return {
+          label: queue.displayName,
+          value: queue.name,
+        };
+      }),
+      ...PLATFORM_QUEUE_OPTIONS.filter((queue) => !seen.has(queue.value)),
+    ];
+  }, [overviewQuery.data?.records]);
 
   const fetchJobs = useMemo(
     () =>
@@ -680,6 +553,13 @@ export function QueuesGrid() {
     refetchOnWindowFocus: false,
     staleTime: 5000,
   });
+  const selectedQueueName = grid.filters.queue || DEFAULT_QUEUE_NAME;
+  const selectedQueue =
+    overviewQuery.data?.records.find((queue) => queue.name === selectedQueueName) ??
+    overviewQuery.data?.records.find((queue) => queue.name === DEFAULT_QUEUE_NAME) ??
+    overviewQuery.data?.records[0] ??
+    null;
+  const isResumeParseQueue = selectedQueueName === DEFAULT_QUEUE_NAME;
 
   function refreshAll() {
     grid.invalidate();
@@ -715,28 +595,34 @@ export function QueuesGrid() {
         key: "state",
         title: "状态",
       }),
-      customColumn<QueueJobRecord>({
-        cell: (record) => {
-          if (!record.resumeDetail) {
-            return <span className="text-muted-foreground">—</span>;
-          }
-          const status = uploadItemStatusMeta(
-            record.resumeDetail.itemStatus,
-            record.resumeDetail.batch.target,
-          );
-          return <Badge variant={status.variant}>{status.label}</Badge>;
-        },
-        key: "uploadTaskStatus",
-        title: "上传任务状态",
-      }),
-      customColumn<QueueJobRecord>({
-        cell: (record) => {
-          const status = resumeParseStatusMeta(record.resumeDetail?.resumeParseStatus ?? null);
-          return <Badge variant={status.variant}>{status.label}</Badge>;
-        },
-        key: "resumeParseStatus",
-        title: "解析状态",
-      }),
+      ...(isResumeParseQueue
+        ? [
+            customColumn<QueueJobRecord>({
+              cell: (record) => {
+                if (!record.resumeDetail) {
+                  return <span className="text-muted-foreground">—</span>;
+                }
+                const status = uploadItemStatusMeta(
+                  record.resumeDetail.itemStatus,
+                  record.resumeDetail.batch.target,
+                );
+                return <Badge variant={status.variant}>{status.label}</Badge>;
+              },
+              key: "uploadTaskStatus",
+              title: "上传任务状态",
+            }),
+            customColumn<QueueJobRecord>({
+              cell: (record) => {
+                const status = resumeParseStatusMeta(
+                  record.resumeDetail?.resumeParseStatus ?? null,
+                );
+                return <Badge variant={status.variant}>{status.label}</Badge>;
+              },
+              key: "resumeParseStatus",
+              title: "解析状态",
+            }),
+          ]
+        : []),
       customColumn<QueueJobRecord>({
         cell: (record) => <QueueOrganizationCell organization={record.organization} />,
         key: "organization",
@@ -794,11 +680,25 @@ export function QueuesGrid() {
         ],
       }),
     ],
-    [],
+    [isResumeParseQueue],
   );
 
   return (
     <div className="flex flex-col gap-6">
+      <Tabs
+        activationMode="manual"
+        onValueChange={(value) => grid.setFilter("queue", value)}
+        value={selectedQueueName}
+      >
+        <TabsList>
+          {queueOptions.map((queue) => (
+            <TabsTrigger key={queue.value} value={queue.value}>
+              {queue.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+
       <QueueOverview overview={selectedQueue} />
 
       <DataGrid<QueueJobRecord>
@@ -809,7 +709,7 @@ export function QueuesGrid() {
           <Empty className="border-border">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <ActivityIcon />
+                <IconActivity />
               </EmptyMedia>
               <EmptyTitle>没有队列任务</EmptyTitle>
               <EmptyDescription>当前筛选条件下没有任务记录。</EmptyDescription>
@@ -824,32 +724,27 @@ export function QueuesGrid() {
             type: "search",
           },
           {
-            key: "queue",
-            options:
-              queueOptions.length > 0
-                ? queueOptions
-                : [{ label: "简历解析", value: DEFAULT_QUEUE_NAME }],
-            placeholder: "选择队列",
-            type: "select",
-          },
-          {
             key: "state",
             options: [...JOB_STATE_OPTIONS],
             placeholder: "任务状态",
             type: "select",
           },
-          {
-            key: "uploadStatus",
-            options: [...UPLOAD_STATUS_FILTER_OPTIONS],
-            placeholder: "上传任务状态",
-            type: "select",
-          },
-          {
-            key: "parseStatus",
-            options: [...PARSE_STATUS_FILTER_OPTIONS],
-            placeholder: "解析状态",
-            type: "select",
-          },
+          ...(isResumeParseQueue
+            ? [
+                {
+                  key: "uploadStatus",
+                  options: [...UPLOAD_STATUS_FILTER_OPTIONS],
+                  placeholder: "上传任务状态",
+                  type: "select" as const,
+                },
+                {
+                  key: "parseStatus",
+                  options: [...PARSE_STATUS_FILTER_OPTIONS],
+                  placeholder: "解析状态",
+                  type: "select" as const,
+                },
+              ]
+            : []),
         ]}
         getRowId={(record) => record.id}
         onRefresh={refreshAll}

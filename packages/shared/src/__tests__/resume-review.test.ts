@@ -20,27 +20,27 @@ const REVIEW: ResumeReview = {
   },
   dimensions: {
     educationBackground: {
-      rationale: "学历层次满足要求",
+      rationale: "本科计算机相关背景符合岗位预期",
       score: 80,
     },
     experienceRelevance: {
-      rationale: "行业背景和技术栈吻合",
+      rationale: "前端业务领域和技术栈吻合",
       score: 90,
     },
     potential: {
-      rationale: "成长曲线和技术广度较好",
+      rationale: "经历体现持续学习和工程广度",
       score: 88,
     },
     projectMatch: {
-      rationale: "项目复杂度与岗位对应",
+      rationale: "核心项目复杂度和岗位要求对应",
       score: 82,
     },
     skillMatch: {
-      rationale: "技能与岗位高度匹配",
+      rationale: "核心技能与 JD 高度匹配",
       score: 92,
     },
     stability: {
-      rationale: "在职时长合理",
+      rationale: "职业经历较连贯，但部分成果上下文仍需核实",
       score: 78,
     },
   },
@@ -59,7 +59,7 @@ const REVIEW: ResumeReview = {
     conclusion: "候选人与前端工程师岗位匹配度较高，但成果可信度需要面试核实。",
     scoreRationale: "基于六维度按 35/25/15/10/8/7 加权得出基础分 88（不含历史面试加权）",
   },
-  schemaVersion: 2,
+  schemaVersion: 4,
   strengths: [
     {
       evidence: "简历提到主导 B 端系统前端重构",
@@ -96,7 +96,7 @@ describe("resume review schema", () => {
 });
 
 describe("computeResumeReviewBaseScore", () => {
-  it("weights six dimensions by 35/25/15/10/8/7", () => {
+  it("weights the product six-dimension framework by 35/25/15/10/8/7", () => {
     const score = computeResumeReviewBaseScore(REVIEW.dimensions);
     expect(score).toBe(
       Math.round(92 * 0.35 + 90 * 0.25 + 82 * 0.15 + 80 * 0.1 + 88 * 0.08 + 78 * 0.07),
@@ -105,7 +105,7 @@ describe("computeResumeReviewBaseScore", () => {
 });
 
 describe("getResumeReviewBaseScore", () => {
-  it("reads v2 baseScore", () => {
+  it("reads v4 baseScore", () => {
     expect(getResumeReviewBaseScore(REVIEW)).toBe(88);
   });
 
@@ -135,7 +135,7 @@ describe("getResumeReviewDimension", () => {
 
   it("returns null for legacy v1 dimension keys", () => {
     const v1Dimensions = {
-      impactAndResults: { rationale: "...", score: 80 },
+      roleFit: { rationale: "...", score: 80 },
     };
     const v1Like = { ...REVIEW, dimensions: v1Dimensions } as unknown as typeof REVIEW;
     expect(getResumeReviewDimension(v1Like, "skillMatch")).toBeNull();

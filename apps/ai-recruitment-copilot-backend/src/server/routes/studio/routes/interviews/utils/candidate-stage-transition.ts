@@ -1,0 +1,154 @@
+import { and, eq } from "drizzle-orm";
+import type { WorkspaceAuthorizer } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy";
+import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import { invalidateStudioInterviewCaches } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
+import {
+  getHumanInterviewOfferReadinessError,
+  loadHumanInterviewRoundReadiness,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/human-interview-rounds";
+import { interviewAuditLog, studioInterview } from "@arc/db-schema/schema";
+import {
+  getCandidateReactivationError,
+  getCandidateStageTransitionError,
+  resolveCandidateTransitionPatch,
+} from "./candidate-transition";
+import type { CandidateTransitionInput } from "./candidate-transition";
+
+export type CandidateStageTransitionProvenance =
+  | { kind: "manual" }
+  | {
+      kind: "workspace_recruiting_copilot";
+      proposalId: string;
+      proposalTitle: string;
+    };
+
+export type CandidateStageTransitionResult =
+  | { kind: "forbidden" }
+  | { kind: "not_found" }
+  | { kind: "invalid"; message: string }
+  | { kind: "noop" }
+  | { kind: "ok" };
+
+function resolveTargetStagePermission(target: CandidateTransitionInput["pipelineStage"]) {
+  if (target === "human_interview") {
+    return { action: "create", resource: "humanInterview" } as const;
+  }
+  if (target === "offer") {
+    return { action: "create", resource: "offer" } as const;
+  }
+  return null;
+}
+
+export async function transitionCandidateStage(command: {
+  authorize: WorkspaceAuthorizer;
+  candidateId: string;
+  input: CandidateTransitionInput;
+  operatorId: string | null;
+  organizationId: string;
+  provenance: CandidateStageTransitionProvenance;
+}): Promise<CandidateStageTransitionResult> {
+  const targetPermission = resolveTargetStagePermission(command.input.pipelineStage);
+  if (targetPermission && !(await command.authorize(targetPermission))) {
+    return { kind: "forbidden" };
+  }
+
+  const now = new Date();
+  const result = await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select({
+        closedMeta: studioInterview.closedMeta,
+        jobDescriptionId: studioInterview.jobDescriptionId,
+        outcome: studioInterview.outcome,
+        pipelineStage: studioInterview.pipelineStage,
+      })
+      .from(studioInterview)
+      .where(
+        and(
+          eq(studioInterview.id, command.candidateId),
+          eq(studioInterview.organizationId, command.organizationId),
+        ),
+      )
+      .for("update")
+      .limit(1);
+    if (!existing) {
+      return { kind: "not_found" } as const;
+    }
+
+    const reactivationError = getCandidateReactivationError({
+      from: existing.pipelineStage,
+      reactivationReason: command.input.reactivationReason,
+      to: command.input.pipelineStage,
+    });
+    if (reactivationError) {
+      return { kind: "invalid", message: reactivationError } as const;
+    }
+
+    let humanInterviewOfferReadinessError: string | null = null;
+    let humanInterviewReadyForOffer = false;
+    if (existing.pipelineStage === "human_interview" && command.input.pipelineStage === "offer") {
+      const readiness = await loadHumanInterviewRoundReadiness(
+        command.candidateId,
+        command.organizationId,
+        tx,
+      );
+      humanInterviewOfferReadinessError = getHumanInterviewOfferReadinessError(readiness);
+      humanInterviewReadyForOffer = !humanInterviewOfferReadinessError;
+    }
+    const stageTransitionError = getCandidateStageTransitionError({
+      from: existing.pipelineStage,
+      hasJobDescription: Boolean(existing.jobDescriptionId),
+      humanInterviewReadyForOffer,
+      to: command.input.pipelineStage,
+    });
+    if (stageTransitionError) {
+      return {
+        kind: "invalid",
+        message: humanInterviewOfferReadinessError ?? stageTransitionError,
+      } as const;
+    }
+
+    if (
+      existing.pipelineStage === command.input.pipelineStage &&
+      existing.outcome === (command.input.outcome ?? "in_pipeline")
+    ) {
+      return { kind: "noop" } as const;
+    }
+
+    const transition = resolveCandidateTransitionPatch({
+      existing,
+      input: command.input,
+      now,
+    });
+    await tx
+      .update(studioInterview)
+      .set(transition.patch)
+      .where(eq(studioInterview.id, command.candidateId));
+    const provenanceDetail =
+      command.provenance.kind === "workspace_recruiting_copilot"
+        ? {
+            copilotActionProposalId: command.provenance.proposalId,
+            copilotActionTitle: command.provenance.proposalTitle,
+            source: "workspace_recruiting_copilot" as const,
+          }
+        : {};
+    await tx.insert(interviewAuditLog).values({
+      action: "candidate_transition",
+      createdAt: now,
+      detail: {
+        ...transition.auditDetail,
+        ...provenanceDetail,
+      },
+      id: crypto.randomUUID(),
+      interviewRecordId: command.candidateId,
+      operatorId: command.operatorId,
+      organizationId: command.organizationId,
+      scheduleEntryId: null,
+    });
+    return { kind: "ok" } as const;
+  });
+
+  if (result.kind === "ok") {
+    invalidateStudioInterviewCaches(command.organizationId);
+  }
+  return result;
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2Icon, UsersIcon } from "@/components/icons/hugeicons";
+import { IconBuilding, IconUsers } from "@tabler/icons-react";
 import { useCallback, useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -183,7 +183,7 @@ export function OrgDetailDialog({
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Building2Icon className="size-5" />
+            <IconBuilding className="size-5" />
             {org?.name ?? "加载中..."}
           </DialogTitle>
           <DialogDescription>
@@ -196,7 +196,7 @@ export function OrgDetailDialog({
             <span>创建于 {formatDateOnly(org.createdAt)}</span>
             <Separator orientation="vertical" className="h-4" />
             <span className="flex items-center gap-1">
-              <UsersIcon className="size-4" />
+              <IconUsers className="size-4" />
               {members?.total ?? 0} 成员
             </span>
           </div>

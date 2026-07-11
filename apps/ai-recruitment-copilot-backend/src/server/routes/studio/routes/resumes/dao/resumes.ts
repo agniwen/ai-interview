@@ -2,6 +2,7 @@ import { and, arrayContains, asc, count, eq, ilike, inArray, or, sql } from "dri
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import { listActiveDuplicateMatchCounts } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
 import {
   buildOrderBy,
   calcTotalPages,
@@ -20,23 +21,18 @@ import {
   studioOfferDraft,
   user,
 } from "@arc/db-schema/schema";
-import {
-  candidateOutcomeValues,
-  pipelineStageValues,
-  studioInterviewStatusMeta,
-} from "@arc/db-schema/studio-interviews";
-import type {
-  CandidateOutcome,
-  PipelineStage,
-  StudioInterviewStatus,
-} from "@arc/db-schema/studio-interviews";
+import { candidateOutcomeValues, pipelineStageValues } from "@arc/db-schema/studio-interviews";
+import type { CandidateOutcome, PipelineStage } from "@arc/db-schema/studio-interviews";
 import type {
   PaginatedResumeLibraryResult,
   ResumeLibraryDetail,
   ResumeLibraryListRecord,
   ResumeStageProgress,
 } from "@arc/shared/studio-resumes";
+import type { ResumeDuplicateMatchSummary } from "@arc/shared/resume-duplicates";
+import { resumeScreeningResultSchema } from "@arc/shared/resume-screening";
 import { normalizeSkill } from "./skills";
+import { buildResumeProfileSnapshot } from "./resume-profile-snapshot";
 
 const SORT_COLUMNS = ["createdAt", "candidateName", "updatedAt"] as const;
 
@@ -58,8 +54,6 @@ const filtersSchema = z.object({
   pipelineStages: z.array(z.string()).max(10).optional().nullable(),
   search: z.string().trim().max(120).optional().nullable(),
   skills: z.array(z.string()).max(20).optional().nullable(),
-  // @deprecated 旧 status 过滤，由 pipelineStages + outcomes 取代；保留以兼容旧调用方。
-  statuses: z.array(z.string()).max(10).optional().nullable(),
 });
 
 type Pagination = z.infer<typeof paginationSchema>;
@@ -112,13 +106,6 @@ function buildCreatorIdsCondition(creatorIds: string[] | null | undefined) {
   return filtered.length > 0 ? inArray(studioInterview.createdBy, filtered) : null;
 }
 
-function buildStatusesCondition(statuses: string[] | null | undefined) {
-  const filtered = (statuses ?? []).filter((s): s is StudioInterviewStatus =>
-    Object.hasOwn(studioInterviewStatusMeta, s),
-  );
-  return filtered.length > 0 ? inArray(studioInterview.status, filtered) : null;
-}
-
 function buildStagesCondition(stages: string[] | null | undefined) {
   const filtered = (stages ?? []).filter((s): s is PipelineStage =>
     pipelineStageValues.includes(s as PipelineStage),
@@ -143,7 +130,6 @@ function buildWhere(organizationId: string, filters?: ResumeQueryFilters) {
     buildSkillsCondition(filters?.skills),
     buildJdIdsCondition(filters?.jobDescriptionIds),
     buildCreatorIdsCondition(filters?.creatorIds),
-    buildStatusesCondition(filters?.statuses),
     buildStagesCondition(filters?.pipelineStages),
     buildOutcomesCondition(filters?.outcomes),
   ].filter((c) => c !== null);
@@ -163,26 +149,84 @@ const SELECTED_COLUMNS = {
   creatorImage: user.image,
   creatorName: user.name,
   creatorOrganizationName: user.feishuTenantName,
+  hrResumeAssessment: studioInterview.hrResumeAssessment,
+  hrResumeAssessmentUpdatedAt: studioInterview.hrResumeAssessmentUpdatedAt,
+  hrResumeAssessmentUpdatedBy: studioInterview.hrResumeAssessmentUpdatedBy,
   humanInterviewScheduledAt: studioInterview.humanInterviewScheduledAt,
   humanInterviewerId: studioInterview.humanInterviewerId,
   id: studioInterview.id,
   jobDescriptionDepartmentName: department.name,
   jobDescriptionId: studioInterview.jobDescriptionId,
   jobDescriptionName: jobDescription.name,
+  jobDescriptionResumeScreeningPolicyHash: jobDescription.resumeScreeningPolicyHash,
   notes: studioInterview.notes,
   offerAcceptedAt: studioInterview.offerAcceptedAt,
   offerSentAt: studioInterview.offerSentAt,
   outcome: studioInterview.outcome,
   pipelineStage: studioInterview.pipelineStage,
   resumeContentHash: studioInterview.resumeContentHash,
+  resumeEducationExperiences:
+    sql<unknown>`${studioInterview.resumeProfile}->'educationExperiences'`.as(
+      "resume_education_experiences",
+    ),
+  resumeEducationGraduationYear: sql<
+    string | null
+  >`${studioInterview.resumeProfile}->'educationExperiences'->0->>'graduationYear'`.as(
+    "resume_education_graduation_year",
+  ),
+  resumeEducationLevel: sql<
+    string | null
+  >`${studioInterview.resumeProfile}->'educationExperiences'->0->>'educationLevel'`.as(
+    "resume_education_level",
+  ),
+  resumeEducationMajor: sql<
+    string | null
+  >`${studioInterview.resumeProfile}->'educationExperiences'->0->>'major'`.as(
+    "resume_education_major",
+  ),
+  resumeEducationPeriod: sql<
+    string | null
+  >`${studioInterview.resumeProfile}->'educationExperiences'->0->>'period'`.as(
+    "resume_education_period",
+  ),
+  resumeEducationSchool: sql<
+    string | null
+  >`${studioInterview.resumeProfile}->'educationExperiences'->0->>'school'`.as(
+    "resume_education_school",
+  ),
   resumeEvaluationStatus: studioInterview.resumeEvaluationStatus,
   resumeFileName: studioInterview.resumeFileName,
   resumeParseError: studioInterview.resumeParseError,
   resumeParseStatus: studioInterview.resumeParseStatus,
   resumeParsedAt: studioInterview.resumeParsedAt,
-  resumeReview: studioInterview.resumeReview,
+  resumeReviewConclusion: sql<
+    string | null
+  >`${studioInterview.resumeReview}->'overall'->>'conclusion'`.as("resume_review_conclusion"),
+  resumeReviewError: studioInterview.resumeReviewError,
+  resumeReviewGeneratedAt: studioInterview.resumeReviewGeneratedAt,
+  resumeReviewQueuedAt: studioInterview.resumeReviewQueuedAt,
+  resumeReviewStatus: studioInterview.resumeReviewStatus,
+  resumeSchool: sql<string | null>`${studioInterview.resumeProfile}->'schools'->>0`.as(
+    "resume_school",
+  ),
+  resumeScreeningError: studioInterview.resumeScreeningError,
+  resumeScreeningEvaluatedAt: studioInterview.resumeScreeningEvaluatedAt,
+  resumeScreeningResult: studioInterview.resumeScreeningResult,
+  resumeScreeningStatus: studioInterview.resumeScreeningStatus,
+  resumeSkills: sql<unknown>`${studioInterview.resumeProfile}->'skills'`.as("resume_skills"),
   resumeStorageKey: studioInterview.resumeStorageKey,
-  status: studioInterview.status,
+  resumeWorkCompany: sql<
+    string | null
+  >`${studioInterview.resumeProfile}->'workExperiences'->0->>'company'`.as("resume_work_company"),
+  resumeWorkExperiences: sql<unknown>`${studioInterview.resumeProfile}->'workExperiences'`.as(
+    "resume_work_experiences",
+  ),
+  resumeWorkPeriod: sql<
+    string | null
+  >`${studioInterview.resumeProfile}->'workExperiences'->0->>'period'`.as("resume_work_period"),
+  resumeWorkRole: sql<
+    string | null
+  >`${studioInterview.resumeProfile}->'workExperiences'->0->>'role'`.as("resume_work_role"),
   targetRole: studioInterview.targetRole,
   updatedAt: studioInterview.updatedAt,
   writtenTestScheduledAt: studioInterview.writtenTestScheduledAt,
@@ -248,6 +292,12 @@ const EMPTY_DERIVED_FIELDS: ResumeDerivedFields = {
   stageProgress: EMPTY_STAGE_PROGRESS,
 };
 
+function toDuplicateMatchSummary(
+  value: { count: number; highestLevel: "high" | "low" | "medium" | null } | undefined,
+): ResumeDuplicateMatchSummary | null {
+  return value && value.count > 0 ? { count: value.count, highestLevel: value.highestLevel } : null;
+}
+
 function serializeStageProgressTimestamp(value: Date | string | null): string | null {
   if (value === null) {
     return null;
@@ -257,6 +307,33 @@ function serializeStageProgressTimestamp(value: Date | string | null): string | 
   }
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toISOString();
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function buildResumeSkills(value: unknown) {
+  const seen = new Set<string>();
+  return toStringArray(value)
+    .map((item) => item.trim())
+    .filter((item) => {
+      const key = item.toLowerCase();
+      if (!item || seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 6);
+}
+
+function parseResumeScreeningResult(value: unknown) {
+  const parsed = resumeScreeningResultSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
 // 批量组装 4 类派生字段，集中在一个函数里避免在分页行上重复 correlated subquery。
@@ -294,6 +371,7 @@ async function loadResumeDerivedFields(
       ),
     db
       .select({
+        feedback: studioHumanInterviewRound.feedback,
         id: studioHumanInterviewRound.id,
         interviewRecordId: studioHumanInterviewRound.interviewRecordId,
         label: studioHumanInterviewRound.label,
@@ -390,6 +468,9 @@ async function loadResumeDerivedFields(
           }
         : null,
       completedRounds: countedRows.filter((row) => row.status === "completed").length,
+      completedRoundsMissingFeedback: countedRows.filter(
+        (row) => row.status === "completed" && !row.feedback?.trim(),
+      ).length,
       failedRounds: countedRows.filter(
         (row) => row.status === "completed" && row.outcome === "fail",
       ).length,
@@ -442,8 +523,18 @@ async function loadResumeDerivedFields(
   return result;
 }
 
-function toRecord(row: Row, derived?: ResumeDerivedFields): ResumeLibraryListRecord {
+function toRecord(
+  row: Row,
+  derived?: ResumeDerivedFields,
+  duplicateMatch?: ResumeDuplicateMatchSummary | null,
+): ResumeLibraryListRecord {
   const resolvedDerived = derived ?? EMPTY_DERIVED_FIELDS;
+  const resumeScreeningResult = parseResumeScreeningResult(row.resumeScreeningResult);
+  const resumeScreeningStale = Boolean(
+    resumeScreeningResult?.policyHash &&
+    row.jobDescriptionResumeScreeningPolicyHash &&
+    resumeScreeningResult.policyHash !== row.jobDescriptionResumeScreeningPolicyHash,
+  );
   return {
     candidateEmail: row.candidateEmail,
     candidateExpectationsMeta: row.candidateExpectationsMeta,
@@ -457,8 +548,12 @@ function toRecord(row: Row, derived?: ResumeDerivedFields): ResumeLibraryListRec
     creatorImage: row.creatorImage,
     creatorName: row.creatorName,
     creatorOrganizationName: row.creatorOrganizationName,
+    duplicateMatch: duplicateMatch ?? null,
     hasInterviewRounds: resolvedDerived.hasInterviewRounds,
     hasResumeFile: Boolean(row.resumeStorageKey),
+    hrResumeAssessment: row.hrResumeAssessment,
+    hrResumeAssessmentUpdatedAt: serializeDate(row.hrResumeAssessmentUpdatedAt),
+    hrResumeAssessmentUpdatedBy: row.hrResumeAssessmentUpdatedBy,
     humanInterviewScheduledAt: serializeDate(row.humanInterviewScheduledAt),
     humanInterviewerId: row.humanInterviewerId,
     id: row.id,
@@ -477,9 +572,19 @@ function toRecord(row: Row, derived?: ResumeDerivedFields): ResumeLibraryListRec
     resumeParseError: row.resumeParseError,
     resumeParseStatus: row.resumeParseStatus,
     resumeParsedAt: serializeDate(row.resumeParsedAt),
-    resumeReview: row.resumeReview,
+    resumeProfileSnapshot: buildResumeProfileSnapshot(row),
+    resumeReviewError: row.resumeReviewError,
+    resumeReviewGeneratedAt: serializeDate(row.resumeReviewGeneratedAt),
+    resumeReviewQueuedAt: serializeDate(row.resumeReviewQueuedAt),
+    resumeReviewStatus: row.resumeReviewStatus,
+    resumeScreeningError: row.resumeScreeningError,
+    resumeScreeningEvaluatedAt: serializeDate(row.resumeScreeningEvaluatedAt),
+    resumeScreeningResult,
+    resumeScreeningStale,
+    resumeScreeningStatus: row.resumeScreeningStatus,
+    resumeSkills: buildResumeSkills(row.resumeSkills),
+    resumeSummary: row.resumeReviewConclusion ?? row.notes?.trim() ?? null,
     stageProgress: resolvedDerived.stageProgress,
-    status: row.status,
     targetRole: row.targetRole,
     updatedAt: serializeDate(row.updatedAt),
     writtenTestScheduledAt: serializeDate(row.writtenTestScheduledAt),
@@ -494,7 +599,6 @@ export async function queryPaginatedResumeRecords(
     creatorIds?: string[] | null;
     skills?: string[] | null;
     jobDescriptionIds?: string[] | null;
-    statuses?: string[] | null;
     pipelineStages?: string[] | null;
     outcomes?: string[] | null;
   },
@@ -525,12 +629,26 @@ export async function queryPaginatedResumeRecords(
     db.select({ count: count() }).from(studioInterview).where(where),
   ]);
 
-  const derivedFields = await loadResumeDerivedFields(rows.map((row) => row.id));
+  const recordIds = rows.map((row) => row.id);
+  const [derivedFields, duplicateMatches] = await Promise.all([
+    loadResumeDerivedFields(recordIds),
+    listActiveDuplicateMatchCounts({
+      organizationId,
+      sourceIds: recordIds,
+      sourceType: "studio_interview",
+    }),
+  ]);
   const total = countRow?.count ?? 0;
   return {
     page: parsedPagination.page,
     pageSize: parsedPagination.pageSize,
-    records: rows.map((row) => toRecord(row, derivedFields.get(row.id))),
+    records: rows.map((row) =>
+      toRecord(
+        row,
+        derivedFields.get(row.id),
+        toDuplicateMatchSummary(duplicateMatches.get(row.id)),
+      ),
+    ),
     total,
     totalPages: calcTotalPages(total, parsedPagination.pageSize),
   };
@@ -546,7 +664,6 @@ export function listResumeRecords(
     creatorIds?: string[] | null;
     skills?: string[] | null;
     jobDescriptionIds?: string[] | null;
-    statuses?: string[] | null;
     pipelineStages?: string[] | null;
     outcomes?: string[] | null;
   },
@@ -581,6 +698,7 @@ export async function loadResumeDetail(
       ...SELECTED_COLUMNS,
       interviewQuestions: studioInterview.interviewQuestions,
       resumeProfile: studioInterview.resumeProfile,
+      resumeReview: studioInterview.resumeReview,
     })
     .from(studioInterview)
     .leftJoin(user, eq(studioInterview.createdBy, user.id))
@@ -605,12 +723,24 @@ export async function loadResumeDetail(
     return null;
   }
 
-  const { resumeProfile, interviewQuestions, ...rest } = row;
-  const derivedFields = await loadResumeDerivedFields([rest.id]);
+  const { interviewQuestions, resumeProfile, resumeReview, ...rest } = row;
+  const [derivedFields, duplicateMatches] = await Promise.all([
+    loadResumeDerivedFields([rest.id]),
+    listActiveDuplicateMatchCounts({
+      organizationId,
+      sourceIds: [rest.id],
+      sourceType: "studio_interview",
+    }),
+  ]);
   return {
-    ...toRecord(rest, derivedFields.get(rest.id)),
+    ...toRecord(
+      rest,
+      derivedFields.get(rest.id),
+      toDuplicateMatchSummary(duplicateMatches.get(rest.id)),
+    ),
     interviewQuestions: interviewQuestions ?? [],
     resumeProfile,
+    resumeReview,
   };
 }
 

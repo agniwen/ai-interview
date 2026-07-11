@@ -1,8 +1,10 @@
 import { Hono } from "hono";
+import { bearerAuth } from "hono/bearer-auth";
 import {
   getResumeParseQueueStats,
   isResumeParseQueueConfigured,
 } from "@arc/resume-parse-queue/resume-parse";
+import { getResumeReviewGenerationQueueStats } from "@arc/resume-parse-queue/resume-review-generation";
 import { getResumeParseReadinessIssue } from "./parse-config";
 
 async function pingDatabase(): Promise<void> {
@@ -29,18 +31,28 @@ export function createWorkerApp() {
       await getResumeParseQueueStats();
       return c.json({ ok: true }, 200);
     } catch (error) {
-      return c.json(
-        {
-          ok: false,
-          reason: error instanceof Error ? error.message : String(error),
-        },
-        503,
-      );
+      console.error("[worker] readiness check failed", error);
+      return c.json({ ok: false, reason: "Dependency check failed" }, 503);
     }
   });
 
+  app.use(
+    "/queues/*",
+    bearerAuth({
+      verifyToken: (token) => {
+        const expected = process.env.WORKER_DIAGNOSTICS_SECRET?.trim();
+        return Boolean(expected) && token === expected;
+      },
+    }),
+  );
+
   app.get("/queues/resume-parse/stats", async (c) => {
     const stats = await getResumeParseQueueStats();
+    return c.json(stats, 200);
+  });
+
+  app.get("/queues/resume-review-generation/stats", async (c) => {
+    const stats = await getResumeReviewGenerationQueueStats();
     return c.json(stats, 200);
   });
 

@@ -17,7 +17,7 @@ export function DetailRow({
     <div className="min-w-0">
       <span className="text-muted-foreground text-xs">{label}</span>
       <span
-        className={`mt-1 block min-w-0 break-words text-foreground text-sm leading-6 ${
+        className={`mt-1 block min-w-0 wrap-break-word text-foreground text-sm leading-6 ${
           valueClassName ?? ""
         }`}
       >

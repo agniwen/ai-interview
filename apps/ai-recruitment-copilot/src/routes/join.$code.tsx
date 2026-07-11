@@ -12,7 +12,7 @@ import { codeInputSchema } from "@/lib/start/server-fn-validators";
 type JoinRouteState =
   | { status: "invalid" }
   | { code: string; status: "login_required" }
-  | { status: "already_member" }
+  | { status: "already_member"; workspaceSlug: string }
   | {
       code: string;
       initialRole: string;
@@ -47,11 +47,7 @@ const getJoinRouteState = createServerFn({ method: "GET" })
     }
 
     if (preview.alreadyMember) {
-      await auth.api.setActiveOrganization({
-        body: { organizationId: preview.workspace.id },
-        headers: requestHeaders,
-      });
-      return { status: "already_member" };
+      return { status: "already_member", workspaceSlug: preview.workspace.slug };
     }
 
     return {
@@ -89,7 +85,7 @@ export const Route = createFileRoute("/join/$code")({
     }
 
     if (state.status === "already_member") {
-      throw redirect({ href: "/?goto=chat" });
+      throw redirect({ href: `/w/${state.workspaceSlug}/agent` });
     }
 
     return state;

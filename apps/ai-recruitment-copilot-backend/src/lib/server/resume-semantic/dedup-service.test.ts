@@ -101,7 +101,7 @@ describe("findSemanticResumeDuplicates", () => {
               id: "candidate-semantic",
               jobDescriptionName: null,
               resumeProfile: queryProfile,
-              status: "ready",
+              status: "archived",
               targetRole: "全栈工程师",
             },
           ]),
@@ -129,7 +129,76 @@ describe("findSemanticResumeDuplicates", () => {
     });
     expect(ensureCollection).toHaveBeenCalledTimes(1);
     expect(matches[0]?.score).toBeGreaterThanOrEqual(92);
+    expect(matches[0]?.status).toBe("archived");
     expect(matches[0]?.semanticReasons).toContain("工作/项目经历语义高度相似");
+  });
+
+  it("can match private resume pool items when requested", async () => {
+    const matches = await findSemanticResumeDuplicates(
+      {
+        email: queryProfile.email,
+        name: queryProfile.name,
+        organizationId: "org-1",
+        phone: queryProfile.phone,
+        resumeProfile: queryProfile,
+        sourceTypes: ["studio_interview", "resume_pool_item"],
+      },
+      {
+        embed: vi.fn(({ chunks }) =>
+          Promise.resolve(
+            chunks.map((chunk: { chunkType: string; text: string }, index: number) => ({
+              ...chunk,
+              embedding: [index, index + 1],
+            })),
+          ),
+        ),
+        embeddingConfig: {
+          apiKey: "key",
+          baseUrl: "https://dashscope.example/v1",
+          dimensions: 2,
+          model: "text-embedding-v4",
+        },
+        enabled: true,
+        loadCandidates: (_organizationId, sources) => {
+          expect(sources).toEqual([{ sourceId: "pool-candidate", sourceType: "resume_pool_item" }]);
+          return Promise.resolve([
+            {
+              candidateEmail: "pool@example.com",
+              candidateName: "私有简历候选人",
+              candidatePhone: null,
+              createdAt: "2026-01-02T00:00:00.000Z",
+              id: "pool-candidate",
+              jobDescriptionName: null,
+              resumeProfile: queryProfile,
+              sourceType: "resume_pool_item",
+              status: "active",
+              targetRole: "全栈工程师",
+            },
+          ]);
+        },
+        vectorStore: {
+          deleteResumeEmbeddings: vi.fn(),
+          ensureCollection: vi.fn(),
+          searchSimilarResumes: vi.fn(({ chunkType, sourceTypes }) => {
+            expect(sourceTypes).toEqual(["studio_interview", "resume_pool_item"]);
+            return Promise.resolve([
+              {
+                chunkType,
+                score: 0.96,
+                sourceId: "pool-candidate",
+                sourceType: "resume_pool_item" as const,
+              },
+            ]);
+          }),
+          upsertResumeEmbeddings: vi.fn(),
+        },
+      },
+    );
+
+    expect(matches[0]).toMatchObject({
+      id: "pool-candidate",
+      sourceType: "resume_pool_item",
+    });
   });
 
   it("returns no matches when vector search fails", async () => {

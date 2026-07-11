@@ -1,5 +1,5 @@
 /**
- * Studio 后台「简历库」API。映射到 `/api/w/:slug/studio/resumes/*`。
+ * Studio 后台「招聘台」API。映射到 `/api/w/:slug/studio/resumes/*`。
  * 文件上传 (POST/PATCH 带 resume File) 由对话框组件直接用 fetch + FormData，
  * 不在本文件内（与 studio-interviews 同样的约定）。
  *
@@ -33,8 +33,6 @@ export interface ResumeListParams {
   skills?: string[];
   /** 关联岗位 id 列表。 Job-description id filter (OR semantics). */
   jobDescriptionIds?: string[];
-  /** @deprecated 旧 status 过滤，由 pipelineStages + outcomes 取代。 */
-  statuses?: string[];
   /** pipeline 阶段过滤（任一匹配）。Pipeline stage filter (OR semantics). */
   pipelineStages?: string[];
   /** 候选人最终结论过滤（任一匹配）。Outcome filter (OR semantics). */
@@ -64,9 +62,6 @@ export function fetchStudioResumes(
         ...(params.skills && params.skills.length > 0 ? { skills: params.skills.join(",") } : {}),
         ...(params.jobDescriptionIds && params.jobDescriptionIds.length > 0
           ? { jdIds: params.jobDescriptionIds.join(",") }
-          : {}),
-        ...(params.statuses && params.statuses.length > 0
-          ? { statuses: params.statuses.join(",") }
           : {}),
         ...(params.pipelineStages && params.pipelineStages.length > 0
           ? { pipelineStages: params.pipelineStages.join(",") }
@@ -116,6 +111,18 @@ export function fetchStudioResume(slug: string, id: string): Promise<ResumeLibra
     rpc.api.w[":slug"].studio.resumes[":id"].$get({ param: { id, slug } }),
     "加载简历详情失败",
     { allow404: true },
+  );
+}
+
+export function fetchStudioResumeDuplicateMatches(
+  slug: string,
+  id: string,
+): Promise<{ matches: DedupMatchRecord[] }> {
+  return rpcFetch<{ matches: DedupMatchRecord[] }>(
+    rpc.api.w[":slug"].studio.resumes[":id"]["duplicate-matches"].$get({
+      param: { id, slug },
+    }),
+    "加载疑似重复简历失败",
   );
 }
 
@@ -209,7 +216,7 @@ export function fetchResumeDedup(
 }
 
 /**
- * 从简历库「发起 AI 面试」：把（可能被用户编辑过的）面试题写回该简历行，
+ * 从招聘台「发起 AI 面试」：把（可能被用户编辑过的）面试题写回该简历行，
  * 并创建一条默认排期。返回新建轮次的详情，供调用方直接打开面试详情弹窗。
  *
  * Launch an AI interview from a resume library row — writes the questions

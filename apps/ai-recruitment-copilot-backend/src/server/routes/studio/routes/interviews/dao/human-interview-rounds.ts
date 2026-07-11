@@ -5,7 +5,7 @@
 // round row and its interviewer junction stay consistent. Route handlers do
 // auth + zod validation, then call into these helpers.
 
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
@@ -21,8 +21,21 @@ import type {
   HumanInterviewRoundOutcome,
 } from "@arc/db-schema/studio-interviews";
 import type { HumanInterviewRoundRecord } from "@arc/shared/studio-pipeline-stages";
+import {
+  COMPLETED_HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE,
+  HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE,
+  humanInterviewFeedbackSchema,
+} from "../utils/human-interview-readiness";
+import type { HumanInterviewRoundReadiness } from "../utils/human-interview-readiness";
 
 export type { HumanInterviewRoundRecord };
+export {
+  COMPLETED_HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE,
+  HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE,
+  HUMAN_INTERVIEW_READY_FOR_OFFER_REQUIRED_MESSAGE,
+  getHumanInterviewOfferReadinessError,
+} from "../utils/human-interview-readiness";
+export type { HumanInterviewRoundReadiness } from "../utils/human-interview-readiness";
 
 // drizzle 事务 callback 参数类型；和 db 实例签名差一个 $client 字段，需要单独抽出来。
 // Inner-transaction type; drops the $client field that's on the top-level db.
@@ -33,8 +46,66 @@ type HumanInterviewRoundEditInput = Partial<HumanInterviewRoundInput> & {
   validUntil?: string | null;
 };
 
+export class EditRoundError extends Error {
+  readonly status: 400 | 404;
+  constructor(message: string, status: 400 | 404) {
+    super(message);
+    this.name = "EditRoundError";
+    this.status = status;
+  }
+}
+
 function serializeDate(value: Date | null): string | null {
   return value ? value.toISOString() : null;
+}
+
+function normalizeRequiredFeedback(value: string | null | undefined): string {
+  const result = humanInterviewFeedbackSchema.safeParse(value);
+  if (!result.success) {
+    throw new EditRoundError(
+      result.error.issues[0]?.message ?? HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE,
+      400,
+    );
+  }
+  return result.data;
+}
+
+export async function loadHumanInterviewRoundReadiness(
+  interviewRecordId: string,
+  organizationId: string,
+  executor: Pick<Tx, "select"> = db,
+): Promise<HumanInterviewRoundReadiness> {
+  const rows = await executor
+    .select({
+      feedback: studioHumanInterviewRound.feedback,
+      status: studioHumanInterviewRound.status,
+    })
+    .from(studioHumanInterviewRound)
+    .where(
+      and(
+        eq(studioHumanInterviewRound.interviewRecordId, interviewRecordId),
+        eq(studioHumanInterviewRound.organizationId, organizationId),
+        ne(studioHumanInterviewRound.status, "cancelled"),
+      ),
+    );
+
+  return {
+    completedRoundsMissingFeedback: rows.filter(
+      (row) => row.status === "completed" && !row.feedback?.trim(),
+    ).length,
+    pendingRounds: rows.filter((row) => row.status === "pending").length,
+    totalRounds: rows.length,
+  };
+}
+
+export async function assertCompletedHumanInterviewRoundsHaveFeedback(
+  interviewRecordId: string,
+  organizationId: string,
+): Promise<void> {
+  const readiness = await loadHumanInterviewRoundReadiness(interviewRecordId, organizationId);
+  if (readiness.completedRoundsMissingFeedback > 0) {
+    throw new EditRoundError(COMPLETED_HUMAN_INTERVIEW_FEEDBACK_REQUIRED_MESSAGE, 400);
+  }
 }
 
 // 把 query 结果（含 interviewer rows 数组）拍平成 DTO。
@@ -173,6 +244,8 @@ export async function createHumanInterviewRound({
   organizationId,
   input,
 }: CreateRoundOptions): Promise<HumanInterviewRoundRecord> {
+  await assertCompletedHumanInterviewRoundsHaveFeedback(interviewRecordId, organizationId);
+
   const id = crypto.randomUUID();
   const now = new Date();
   const scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : null;
@@ -223,15 +296,6 @@ export interface EditRoundOptions {
   roundId: string;
   organizationId: string;
   input: HumanInterviewRoundEditInput;
-}
-
-export class EditRoundError extends Error {
-  readonly status: 400 | 404;
-  constructor(message: string, status: 400 | 404) {
-    super(message);
-    this.name = "EditRoundError";
-    this.status = status;
-  }
 }
 
 function resolveScheduledAtInput(
@@ -372,10 +436,11 @@ export async function editHumanInterviewRound({
     if (existing.status === "completed") {
       // completed：只允许修订 feedback / score。
       // completed → feedback + score only.
+      const feedback = normalizeRequiredFeedback(input.feedback ?? existing.feedback);
       await tx
         .update(studioHumanInterviewRound)
         .set({
-          feedback: input.feedback ?? existing.feedback,
+          feedback,
           score: input.score ?? existing.score,
           updatedAt: now,
         })
@@ -448,6 +513,7 @@ export async function completeHumanInterviewRound({
   score,
   feedback,
 }: CompleteRoundOptions): Promise<HumanInterviewRoundRecord> {
+  const nextFeedback = normalizeRequiredFeedback(feedback);
   const existing = await loadRoundById(roundId, organizationId);
   if (!existing) {
     throw new EditRoundError("轮次不存在", 404);
@@ -460,7 +526,7 @@ export async function completeHumanInterviewRound({
     .update(studioHumanInterviewRound)
     .set({
       completedAt: now,
-      feedback: feedback ?? null,
+      feedback: nextFeedback,
       outcome,
       score: score ?? null,
       status: "completed",

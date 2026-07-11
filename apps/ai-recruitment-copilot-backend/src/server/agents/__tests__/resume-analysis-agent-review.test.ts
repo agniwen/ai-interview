@@ -6,24 +6,39 @@ import { formatResumeReviewMarkdown } from "@arc/shared/resume-review";
 const mocks = vi.hoisted(() => ({
   buildAttachmentKeyByHash: vi.fn(),
   createAttachment: vi.fn(),
-  createResumeAgent: vi.fn(),
+  extractResumeDocumentText: vi.fn(),
   findAttachmentByContentHash: vi.fn(),
   generateResumeStructured: vi.fn(),
+  generateStructuredWithMastraAgent: vi.fn(),
   parseResumeFast: vi.fn(),
   putObjectBytes: vi.fn(),
+  resumeHardFilterAgent: { id: "resume-hard-filter-agent" },
+  resumeReviewMarkdownAgent: { id: "resume-review-markdown-agent", stream: vi.fn() },
+  resumeReviewQualitativeAgent: { id: "resume-review-qualitative-agent" },
+  resumeReviewScoringAgent: { id: "resume-review-scoring-agent" },
   sha256HexOfBytes: vi.fn(),
+  streamTextWithMastraAgent: vi.fn(),
   updateStructuredByHash: vi.fn(),
 }));
 
-vi.mock("../resume-agent", () => ({
-  createResumeAgent: mocks.createResumeAgent,
-}));
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators",
+  () => ({
+    generateStructuredWithMastraAgent: mocks.generateStructuredWithMastraAgent,
+    resumeHardFilterAgent: mocks.resumeHardFilterAgent,
+    resumeReviewMarkdownAgent: mocks.resumeReviewMarkdownAgent,
+    resumeReviewQualitativeAgent: mocks.resumeReviewQualitativeAgent,
+    resumeReviewScoringAgent: mocks.resumeReviewScoringAgent,
+    streamTextWithMastraAgent: mocks.streamTextWithMastraAgent,
+  }),
+);
 vi.mock("@arc/shared/file-hash", () => ({ sha256HexOfBytes: mocks.sha256HexOfBytes }));
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
   buildAttachmentKeyByHash: mocks.buildAttachmentKeyByHash,
   putObjectBytes: mocks.putObjectBytes,
 }));
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline", () => ({
+  extractResumeDocumentText: mocks.extractResumeDocumentText,
   generateResumeStructured: mocks.generateResumeStructured,
   parseResumeFast: mocks.parseResumeFast,
 }));
@@ -34,7 +49,11 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachm
 }));
 
 // oxlint-disable-next-line import/first -- must follow vi.mock() for correct hoisting
-import { generateResumeReview } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
+import {
+  generateResumeReview,
+  streamGenerateResumeReviewMarkdownFirst,
+  streamGenerateResumeReview,
+} from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 
 const PROFILE: ResumeProfile = {
   age: null,
@@ -65,22 +84,6 @@ const PROFILE_WITH_DEGREE: ResumeProfile = {
       summary: null,
     },
   ],
-};
-
-// Agent 0 门槛提取输出（无硬性门槛）。
-const HARD_FILTER_PASS = {
-  minimumEducation: null,
-  minimumWorkYears: null,
-  requiredSkills: null,
-  semanticRequirements: ["有从零到一建设经验"],
-};
-
-// Agent 0 门槛提取输出（学历不达标）。
-const HARD_FILTER_FAIL = {
-  minimumEducation: "硕士",
-  minimumWorkYears: null,
-  requiredSkills: null,
-  semanticRequirements: null,
 };
 
 // Agent 1 定性输出 —— 不含 score / dimensions。
@@ -119,15 +122,15 @@ const QUALITATIVE_OUTPUT = {
   ],
 };
 
-// Agent 2 打分输出 —— 只含六维度。
+// Agent 2 打分输出 —— 只含产品六维评估框架。
 const SCORING_OUTPUT = {
   dimensions: {
-    educationBackground: { rationale: "本科计算机相关", score: 80 },
-    experienceRelevance: { rationale: "5 年前端经验与岗位层级吻合", score: 90 },
-    potential: { rationale: "工程化方向有成长性", score: 88 },
-    projectMatch: { rationale: "项目复杂度证据有限", score: 82 },
-    skillMatch: { rationale: "TypeScript/React 与岗位高度匹配", score: 92 },
-    stability: { rationale: "在职时长合理", score: 78 },
+    educationBackground: { rationale: "本科背景符合岗位预期", score: 80 },
+    experienceRelevance: { rationale: "前端业务经验与技术栈吻合", score: 90 },
+    potential: { rationale: "经历体现工程广度和学习能力", score: 88 },
+    projectMatch: { rationale: "核心项目复杂度和岗位要求对应", score: 82 },
+    skillMatch: { rationale: "TypeScript/React 与岗位核心技能高度匹配", score: 92 },
+    stability: { rationale: "职业经历较连贯，成果上下文仍需核实", score: 78 },
   },
 };
 
@@ -142,33 +145,65 @@ const EXPECTED_REVIEW: ResumeReview = {
     conclusion: "候选人与前端工程师岗位匹配度较高。",
     scoreRationale: "基于六维度按 35/25/15/10/8/7 加权得出基础分 88（不含历史面试加权）",
   },
-  schemaVersion: 2,
+  schemaVersion: 4,
   strengths: QUALITATIVE_OUTPUT.strengths,
   teamPositioning: QUALITATIVE_OUTPUT.teamPositioning,
   weaknesses: QUALITATIVE_OUTPUT.weaknesses,
 };
 
-// 三阶段 mock：Agent 0 (pass) → Agent 1 → Agent 2。
+// 两阶段 mock：Agent 1 → Agent 2。硬性筛选结果由上游 policy evaluator 传入。
 function mockThreeAgentPipeline() {
-  mocks.createResumeAgent
-    .mockReturnValueOnce({
-      generate: vi.fn().mockResolvedValue({ text: JSON.stringify(HARD_FILTER_PASS) }),
-    })
-    .mockReturnValueOnce({
-      generate: vi.fn().mockResolvedValue({ text: JSON.stringify(QUALITATIVE_OUTPUT) }),
-    })
-    .mockReturnValueOnce({
-      generate: vi.fn().mockResolvedValue({ text: JSON.stringify(SCORING_OUTPUT) }),
+  mocks.generateStructuredWithMastraAgent
+    .mockResolvedValueOnce(QUALITATIVE_OUTPUT)
+    .mockResolvedValueOnce(SCORING_OUTPUT);
+}
+
+function mockMarkdownStream(chunks: string[]) {
+  const textStream = async function* textStream() {
+    for (const chunk of chunks) {
+      yield chunk;
+    }
+  };
+  mocks.resumeReviewMarkdownAgent.stream.mockResolvedValueOnce({
+    textStream: textStream(),
+  });
+}
+
+async function readStreamEvents(stream: ReadableStream<Uint8Array>) {
+  const text = await new Response(stream).text();
+  return text
+    .split("\n\n")
+    .map((frame) => frame.trim())
+    .filter(Boolean)
+    .map((frame) => {
+      const data = frame
+        .split("\n")
+        .find((line) => line.startsWith("data: "))
+        ?.slice("data: ".length);
+      if (!data) {
+        throw new Error(`Missing SSE data frame: ${frame}`);
+      }
+      return JSON.parse(data) as { type: string; output?: unknown; stepId?: string };
     });
 }
 
 describe("generateResumeReview", () => {
   beforeEach(() => {
-    mocks.createResumeAgent.mockReset();
+    mocks.generateStructuredWithMastraAgent.mockReset();
+    mocks.resumeReviewMarkdownAgent.stream.mockReset();
+    mocks.streamTextWithMastraAgent.mockReset();
+    mocks.streamTextWithMastraAgent.mockImplementation(({ agent, prompt }) => ({
+      async *[Symbol.asyncIterator]() {
+        const result = await agent.stream(prompt);
+        for await (const chunk of result.textStream) {
+          yield chunk;
+        }
+      },
+    }));
+    vi.useRealTimers();
   });
 
-  it("runs three-agent pipeline (hard filter pass + qualitative + scoring) and assembles v2 review", async () => {
-    process.env.ALIBABA_STRUCTURED_MODEL = "qwen-test";
+  it("runs qualitative + scoring pipeline and assembles v4 review", async () => {
     mockThreeAgentPipeline();
 
     const result = await generateResumeReview({
@@ -179,48 +214,185 @@ describe("generateResumeReview", () => {
     expect(result.structuredReview).toEqual(EXPECTED_REVIEW);
     expect(result.structuredReview.overall.baseScore).toBe(88);
     expect(result.review).toBe(formatResumeReviewMarkdown(EXPECTED_REVIEW));
-    expect(mocks.createResumeAgent).toHaveBeenCalledTimes(3);
+    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledTimes(2);
+    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        agent: mocks.resumeReviewQualitativeAgent,
+        schema: expect.any(Object),
+      }),
+    );
+    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        agent: mocks.resumeReviewScoringAgent,
+        schema: expect.any(Object),
+      }),
+    );
   });
 
-  it("skips Agent 1/2 when hard filter fails (short-circuit reject)", async () => {
-    process.env.ALIBABA_STRUCTURED_MODEL = "qwen-test";
+  it("streams resume review workflow events as AiRun events", async () => {
+    mockThreeAgentPipeline();
 
-    // Agent 0 返回硕士门槛，候选人是本科 → 违反。
-    mocks.createResumeAgent.mockReturnValueOnce({
-      generate: vi.fn().mockResolvedValue({ text: JSON.stringify(HARD_FILTER_FAIL) }),
+    const events = await readStreamEvents(
+      streamGenerateResumeReview({
+        jobDescription: "岗位名称：前端工程师",
+        resumeProfile: PROFILE_WITH_DEGREE,
+      }),
+    );
+
+    expect(events).not.toContainEqual(
+      expect.objectContaining({ stepId: "hard-filter", type: "step.started" }),
+    );
+    expect(events).toContainEqual(
+      expect.objectContaining({ stepId: "compose-review", type: "step.completed" }),
+    );
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        artifactType: "resume.review.scoring",
+        stepId: "scoring",
+        type: "step.preview",
+      }),
+    );
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        stepId: "compose-review",
+        text: formatResumeReviewMarkdown(EXPECTED_REVIEW),
+        type: "step.delta",
+      }),
+    );
+    expect(events.find((event) => event.type === "run.completed")?.output).toMatchObject({
+      review: formatResumeReviewMarkdown(EXPECTED_REVIEW),
+      structuredReview: EXPECTED_REVIEW,
     });
+    expect(events.some((event) => event.type === "result" || event.type === "text-delta")).toBe(
+      false,
+    );
+  });
+
+  it("streams markdown first, then scores with the final markdown as context", async () => {
+    const markdown = "## 简历评价\n候选人与前端工程师岗位匹配度较高。";
+    mockMarkdownStream(["## 简历评价\n", "候选人与前端工程师岗位匹配度较高。"]);
+    mocks.generateStructuredWithMastraAgent
+      .mockResolvedValueOnce(QUALITATIVE_OUTPUT)
+      .mockResolvedValueOnce(SCORING_OUTPUT);
+
+    const events = await readStreamEvents(
+      streamGenerateResumeReviewMarkdownFirst({
+        jobDescription: "岗位名称：前端工程师",
+        resumeProfile: PROFILE_WITH_DEGREE,
+      }),
+    );
+
+    const deltaEvents = events.filter(
+      (event) => event.type === "step.delta" && event.stepId === "markdown-review",
+    ) as { text: string; type: string; stepId: string }[];
+    expect(deltaEvents.map((event) => event.text).join("")).toBe(markdown);
+
+    const firstDeltaIndex = events.findIndex(
+      (event) => event.type === "step.delta" && event.stepId === "markdown-review",
+    );
+    const scoringPreviewIndex = events.findIndex(
+      (event) => event.type === "step.preview" && event.stepId === "scoring",
+    );
+    expect(firstDeltaIndex).toBeGreaterThan(-1);
+    expect(scoringPreviewIndex).toBeGreaterThan(firstDeltaIndex);
+
+    expect(mocks.resumeReviewMarkdownAgent.stream).toHaveBeenCalledTimes(1);
+    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledTimes(2);
+    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        agent: mocks.resumeReviewQualitativeAgent,
+        prompt: expect.stringContaining(markdown),
+      }),
+    );
+    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        agent: mocks.resumeReviewScoringAgent,
+        prompt: expect.stringContaining(markdown),
+      }),
+    );
+    expect(events.find((event) => event.type === "run.completed")?.output).toMatchObject({
+      review: markdown,
+      structuredReview: EXPECTED_REVIEW,
+    });
+  });
+
+  it("injects current server time into resume review model prompts", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-02T03:04:05.000Z"));
+    mockThreeAgentPipeline();
+
+    await generateResumeReview({
+      jobDescription: "岗位名称：前端工程师",
+      resumeProfile: PROFILE_WITH_DEGREE,
+    });
+
+    for (const call of mocks.generateStructuredWithMastraAgent.mock.calls) {
+      expect(call[0]).toEqual(
+        expect.objectContaining({
+          prompt: expect.stringContaining("当前服务端时间（Asia/Shanghai）"),
+        }),
+      );
+      expect(call[0]).toEqual(
+        expect.objectContaining({
+          prompt: expect.stringContaining("2026年1月2日"),
+        }),
+      );
+    }
+  });
+
+  it("injects confirmed screening result into review prompts without running hard filter", async () => {
+    mockThreeAgentPipeline();
 
     const result = await generateResumeReview({
       jobDescription: "岗位要求硕士以上",
       resumeProfile: PROFILE_WITH_DEGREE,
+      screeningResult: {
+        policyEmpty: false,
+        policyEnabled: true,
+        policyHash: "abc123",
+        policyVersion: 2,
+        recommendation: "hold",
+        ruleResults: [
+          {
+            evidence: [],
+            label: "最低学历：硕士",
+            reason: "候选人学历未满足硕士及以上要求。",
+            ruleId: "minimum-education",
+            severity: "blocking",
+            status: "fail",
+            type: "field",
+          },
+        ],
+      },
     });
 
-    // 只调了 Agent 0，没调 Agent 1/2。
-    expect(mocks.createResumeAgent).toHaveBeenCalledTimes(1);
-    expect(result.structuredReview.overall.baseScore).toBe(0);
-    expect(result.structuredReview.nextStep.action).toBe("reject");
-    expect(result.structuredReview.biasScan.items).toHaveLength(1);
-    expect(result.structuredReview.biasScan.items[0].category).toBe("hard_gap");
-    expect(result.structuredReview.biasScan.items[0].description).toContain("学历不达标");
+    expect(result.structuredReview.overall.baseScore).toBe(88);
+    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledTimes(2);
+    expect(mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0]?.prompt).toContain(
+      "已确认的简历筛选结果",
+    );
+    expect(mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0]?.prompt).toContain(
+      "最低学历：硕士",
+    );
   });
 
   it("skips hard filter entirely when no JD is provided", async () => {
-    process.env.ALIBABA_STRUCTURED_MODEL = "qwen-test";
-
-    // 无 JD → Agent 0 跳过，只 mock Agent 1 + Agent 2。
-    mocks.createResumeAgent
-      .mockReturnValueOnce({
-        generate: vi.fn().mockResolvedValue({ text: JSON.stringify(QUALITATIVE_OUTPUT) }),
-      })
-      .mockReturnValueOnce({
-        generate: vi.fn().mockResolvedValue({ text: JSON.stringify(SCORING_OUTPUT) }),
-      });
+    mocks.generateStructuredWithMastraAgent
+      .mockResolvedValueOnce(QUALITATIVE_OUTPUT)
+      .mockResolvedValueOnce(SCORING_OUTPUT);
 
     const result = await generateResumeReview({
       resumeProfile: PROFILE,
     });
 
     expect(result.structuredReview.overall.baseScore).toBe(88);
-    expect(mocks.createResumeAgent).toHaveBeenCalledTimes(2);
+    expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledTimes(2);
+    const prompt = mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0]?.prompt;
+    expect(prompt).toContain("产品六维评分框架");
+    expect(prompt).not.toContain("岗位相关性维度");
   });
 });

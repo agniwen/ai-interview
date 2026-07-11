@@ -8,6 +8,11 @@ export type PermissionResource = keyof typeof statement;
 export type PermissionAction<R extends PermissionResource = PermissionResource> =
   (typeof statement)[R][number];
 export type PermissionRecord = Partial<Record<PermissionResource, string[]>>;
+interface DynamicWorkspaceRoleOrderKey {
+  createdAt?: Date | string | null;
+  id?: string;
+  role?: string;
+}
 
 export const BUILT_IN_WORKSPACE_ROLE_NAMES = new Set([
   "owner",
@@ -58,12 +63,12 @@ export const WORKSPACE_PERMISSION_GROUPS = [
       {
         actions: ["create", "read", "update", "delete"] as const,
         key: "resumeLibrary",
-        label: "简历库",
+        label: "招聘",
       },
       {
         actions: ["create", "read", "publish", "import", "delete"] as const,
         key: "resumePool",
-        label: "简历广场",
+        label: "人才库",
       },
       {
         actions: ["create", "read", "process", "cancel", "delete"] as const,
@@ -74,6 +79,16 @@ export const WORKSPACE_PERMISSION_GROUPS = [
         actions: ["create", "read", "update", "delete"] as const,
         key: "interview",
         label: "AI 面试",
+      },
+      {
+        actions: ["create", "read", "update", "delete"] as const,
+        key: "humanInterview",
+        label: "真人面试管理",
+      },
+      {
+        actions: ["create", "read", "update", "delete"] as const,
+        key: "offer",
+        label: "Offer 管理",
       },
       {
         actions: ["create", "read", "update", "delete"] as const,
@@ -177,18 +192,18 @@ const PAGE_PERMISSION_DESCRIPTIONS: Partial<Record<string, string>> = {
   interviews:
     "控制是否能在侧边栏看到并访问「AI 面试」页面；列表、详情、报告、录音、轮次和操作仍受「AI 面试」相关权限控制。",
   jobDescriptions:
-    "控制是否能在侧边栏看到并访问「在招岗位管理」页面；岗位列表、详情和增删改仍受「在招岗位」相关权限控制，推荐候选人还需要「简历库」查看权限。",
+    "控制是否能在侧边栏看到并访问「岗位设置」页面；岗位列表、详情和增删改仍受「在招岗位」相关权限控制，推荐候选人还需要「招聘台」查看权限。",
   mailIngestAccounts:
-    "控制是否能在侧边栏看到并访问「邮箱监听」页面；邮箱解析入库到简历广场的后续查看/导入仍受「简历库」相关权限控制。",
+    "控制是否能在侧边栏看到并访问「邮箱监听」页面；邮箱解析入库到人才库的后续查看/导入仍受「招聘台」相关权限控制。",
   me: "控制是否能访问「我的信息」页面；页面里的工作区成员资料调整仍受「成员管理」相关权限控制。",
   members:
     "控制是否能在侧边栏看到并访问「工作区管理」页面；成员角色、招聘组、邀请链接和工作区设置仍分别受成员、邀请和工作区设置权限控制。",
   permissions:
     "控制是否能在侧边栏看到并访问「权限管理」页面；实际修改角色权限仅工作区拥有者和管理员可执行。",
   resumePool:
-    "控制是否能在侧边栏看到并访问「简历广场」页面；未勾选时直接访问会进入 404。页面内数据接口仍受「简历广场」业务权限控制。",
+    "控制是否能在侧边栏看到并访问「人才库」页面；未勾选时直接访问会进入 404。页面内数据接口仍受「人才库」业务权限控制。",
   resumes:
-    "控制是否能在侧边栏看到并访问「简历库」页面；未勾选时直接访问会进入 404。简历库数据接口仍受「简历库」业务权限控制，上传批次有独立权限。",
+    "控制是否能在侧边栏看到并访问「招聘台」页面；未勾选时直接访问会进入 404。招聘台数据接口仍受「招聘台」业务权限控制，上传批次有独立权限。",
 };
 
 const RESOURCE_ACTION_DESCRIPTIONS: Partial<Record<PermissionResource, Record<string, string>>> = {
@@ -217,6 +232,12 @@ const RESOURCE_ACTION_DESCRIPTIONS: Partial<Record<PermissionResource, Record<st
     read: "允许加载「系统设置」里的全局配置。",
     update: "允许保存「系统设置」里的公司信息、面试配置等全局配置。",
   },
+  humanInterview: {
+    create: "允许将候选人推进到真人复面，并新建真人复面轮次或视频会议。",
+    delete: "允许取消真人复面轮次，或删除尚未开始的真人复面会议。",
+    read: "允许查看真人复面阶段页签、轮次、会议和入场链接。",
+    update: "允许调整真人复面时间、结束会议、标记完成并录入面试评价。",
+  },
   interview: {
     create: "允许在「AI 面试」页面创建面试记录或从候选人流程发起新的 AI 面试。",
     delete: "允许删除 AI 面试记录及相关轮次数据。",
@@ -234,9 +255,9 @@ const RESOURCE_ACTION_DESCRIPTIONS: Partial<Record<PermissionResource, Record<st
     create: "允许在「工作区管理」中创建邀请链接或成员邀请记录。",
   },
   jd: {
-    create: "允许在「在招岗位管理」页面新增岗位。",
+    create: "允许在「岗位设置」页面新增岗位。",
     delete: "允许删除在招岗位。",
-    read: "允许加载岗位列表、全部岗位选项、岗位详情、岗位编码生成和推荐链接；推荐候选人接口还同时需要「简历库」查看权限。",
+    read: "允许加载岗位列表、全部岗位选项、岗位详情、岗位编码生成和推荐链接；推荐候选人接口还同时需要「招聘台」查看权限。",
     update: "允许编辑岗位描述、招聘要求、关联配置和发布状态。",
   },
   mailIngestAccount: {
@@ -253,6 +274,12 @@ const RESOURCE_ACTION_DESCRIPTIONS: Partial<Record<PermissionResource, Record<st
     update:
       "允许调整成员角色，并管理招聘组、组成员、组内角色和成员所属组；实际可调整范围仍受服务端角色规则限制。",
   },
+  offer: {
+    create: "允许将候选人推进到 Offer，并新建 Offer 草稿。",
+    delete: "允许撤回已创建或已发送的 Offer。",
+    read: "允许查看 Offer 阶段页签和 Offer 版本记录。",
+    update: "允许编辑 Offer 草稿、发送 Offer，并记录候选人响应。",
+  },
   organization: {
     update: "允许修改工作区基础设置，例如工作区名称；不包含成员、角色和邀请管理。",
   },
@@ -263,17 +290,17 @@ const RESOURCE_ACTION_DESCRIPTIONS: Partial<Record<PermissionResource, Record<st
     update: "允许编辑、归档/恢复题目模板和模板版本内容。",
   },
   resumeLibrary: {
-    create: "允许上传或创建「简历库」候选人记录；从简历广场导入简历库也需要该权限。",
-    delete: "允许删除和批量删除「简历库」候选人记录。",
-    read: "允许加载「简历库」列表、详情、时间线、AI 面试轮次、简历文件/预览、技能建议和去重检查；在招岗位里的推荐候选人接口也需要该权限。",
-    update: "允许编辑「简历库」候选人资料、替换/解析简历，并从简历库发起 AI 面试。",
+    create: "允许上传或创建「招聘台」候选人记录；从人才库导入招聘台也需要该权限。",
+    delete: "允许删除和批量删除「招聘台」候选人记录。",
+    read: "允许加载「招聘台」列表、详情、时间线、AI 面试轮次、简历文件/预览、技能建议和去重检查；在招岗位里的推荐候选人接口也需要该权限。",
+    update: "允许编辑「招聘台」候选人资料、替换/解析简历，并从招聘台发起 AI 面试。",
   },
   resumePool: {
-    create: "允许在「简历广场」上传私有或公开简历。",
-    delete: "允许删除自己在「简历广场」中的私有记录。",
-    import: "允许从「简历广场」发起导入；真正写入简历库还同时需要「简历库」新增权限。",
-    publish: "允许把自己的私有简历发布到公开「简历广场」。",
-    read: "允许加载「简历广场」列表、详情、简历文件和预览。",
+    create: "允许在「人才库」上传私有或公开简历。",
+    delete: "允许删除自己在「人才库」中的私有记录。",
+    import: "允许从「人才库」发起导入；真正写入招聘台还同时需要「招聘台」新增权限。",
+    publish: "允许把自己的私有简历发布到公开「人才库」。",
+    read: "允许加载「人才库」列表、详情、简历文件和预览。",
   },
   resumeUploadBatch: {
     cancel: "允许取消正在处理或暂停中的上传批次。",
@@ -387,13 +414,29 @@ export function buildPermissionHeaderGroups(items: PermissionItem[]): Permission
   return groups;
 }
 
+const LEGACY_MANAGE_PERMISSION_REPLACEMENTS: Partial<Record<PermissionResource, string[]>> = {
+  humanInterview: ["create", "read", "update", "delete"],
+  offer: ["create", "read", "update", "delete"],
+};
+
+function normalizeLegacyPermissionActions(
+  resource: PermissionResource,
+  actions: readonly string[] | undefined,
+): string[] {
+  const replacement = LEGACY_MANAGE_PERMISSION_REPLACEMENTS[resource];
+  if (!replacement || !actions?.includes("manage")) {
+    return actions ? [...new Set(actions)] : [];
+  }
+  return [...new Set([...actions.filter((action) => action !== "manage"), ...replacement])];
+}
+
 export function copyPermissionRecord(
   permission: PermissionRecord | null | undefined,
 ): PermissionRecord {
   return Object.fromEntries(
     Object.entries(permission ?? {}).map(([resource, actions]) => [
       resource,
-      actions ? [...new Set(actions)] : [],
+      normalizeLegacyPermissionActions(resource as PermissionResource, actions),
     ]),
   ) as PermissionRecord;
 }
@@ -431,6 +474,26 @@ export function readRoleDeleteError(error: unknown): string {
     return ROLE_ASSIGNED_TO_MEMBERS_MESSAGE;
   }
   return message ?? "删除角色失败";
+}
+
+function readCreatedAtTime(value: Date | string | null | undefined): number {
+  if (!value) {
+    return Number.POSITIVE_INFINITY;
+  }
+  const time = value instanceof Date ? value.getTime() : new Date(value).getTime();
+  return Number.isFinite(time) ? time : Number.POSITIVE_INFINITY;
+}
+
+export function sortDynamicWorkspaceRolesByCreatedAt<T extends DynamicWorkspaceRoleOrderKey>(
+  roles: readonly T[],
+): T[] {
+  return [...roles].toSorted((left, right) => {
+    const byCreatedAt = readCreatedAtTime(left.createdAt) - readCreatedAtTime(right.createdAt);
+    if (byCreatedAt !== 0) {
+      return byCreatedAt;
+    }
+    return (left.id ?? left.role ?? "").localeCompare(right.id ?? right.role ?? "");
+  });
 }
 
 export function normalizeDynamicRoleName(value: string): string {
