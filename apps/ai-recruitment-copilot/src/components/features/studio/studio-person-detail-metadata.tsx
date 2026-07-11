@@ -323,7 +323,7 @@ export function MetadataTextBlock({ label, value }: { label: string; value: stri
   return (
     <div className="flex flex-col gap-2">
       <span className="font-medium text-muted-foreground text-xs">{label}</span>
-      <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-muted/50 p-3 text-foreground text-xs leading-5">
+      <pre className="max-h-80 overflow-auto whitespace-pre-wrap wrap-break-word rounded-lg bg-muted/50 p-3 text-foreground text-xs leading-5">
         {value.trim() || "暂无"}
       </pre>
     </div>

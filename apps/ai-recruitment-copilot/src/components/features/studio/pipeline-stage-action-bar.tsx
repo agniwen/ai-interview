@@ -17,12 +17,21 @@ import {
 // component is presentation-only and stateless.
 
 import type { ComponentProps, ReactNode } from "react";
+import { useState } from "react";
 import { pipelineStageMeta } from "@arc/db-schema/studio-interviews";
-import type { PipelineStage } from "@arc/db-schema/studio-interviews";
+import type { PipelineStage, ScheduleEntryStatus } from "@arc/db-schema/studio-interviews";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { CandidatePipelineEvent } from "@arc/shared/candidate-pipeline-machine";
 import { canApplyCandidatePipelineEvent } from "@arc/shared/candidate-pipeline-machine";
@@ -40,6 +49,12 @@ export interface PipelineStageActionBarProps {
   // 已完成真人复面是否都填写了评价。
   // Whether every completed human interview round has feedback.
   humanInterviewFeedbackComplete?: boolean;
+  aiRoundReset?: {
+    isResetting: boolean;
+    onReset: () => void;
+    roundLabel: string;
+    status: ScheduleEntryStatus;
+  };
   // 推进到指定阶段的回调（仅 stage 跳变，无元数据）。
   // Advance to a target stage (no metadata).
   onAdvance: (target: PipelineStage) => void;
@@ -62,6 +77,7 @@ export function PipelineStageActionBar({
   hasJobDescription = true,
   humanInterviewDone,
   humanInterviewFeedbackComplete,
+  aiRoundReset,
   onAdvance,
   onRequestClose,
   onRequestReactivate,
@@ -78,7 +94,12 @@ export function PipelineStageActionBar({
     pipelineStage,
   });
   const groupedPrimaryAction = pipelineStage === "closed" ? null : primaryAction;
-  const hasPrimaryActions = Boolean(groupedPrimaryAction) || actions.right.length > 0;
+  const aiRoundResetAction =
+    pipelineStage === "ai_interview" && aiRoundReset ? (
+      <AiRoundResetAction {...aiRoundReset} />
+    ) : null;
+  const hasPrimaryActions =
+    Boolean(groupedPrimaryAction) || Boolean(aiRoundResetAction) || actions.right.length > 0;
   const canClose = pipelineStage !== "closed";
 
   return (
@@ -93,6 +114,7 @@ export function PipelineStageActionBar({
       {hasPrimaryActions ? (
         <ButtonGroup className="flex-wrap justify-end">
           {groupedPrimaryAction}
+          {aiRoundResetAction}
           {actions.right}
         </ButtonGroup>
       ) : null}
@@ -109,6 +131,90 @@ export function PipelineStageActionBar({
         </Button>
       ) : null}
     </div>
+  );
+}
+
+export function getAiRoundResetBehavior(status: ScheduleEntryStatus) {
+  if (status === "pending") {
+    return "direct" as const;
+  }
+  if (status === "completed") {
+    return "confirm" as const;
+  }
+  return "disabled" as const;
+}
+
+function AiRoundResetAction({
+  isResetting,
+  onReset,
+  roundLabel,
+  status,
+}: NonNullable<PipelineStageActionBarProps["aiRoundReset"]>) {
+  const [open, setOpen] = useState(false);
+  const behavior = getAiRoundResetBehavior(status);
+  const buttonLabel = isResetting ? "重置中..." : "重置面试轮次";
+
+  if (behavior === "direct") {
+    return (
+      <Button disabled={isResetting} onClick={onReset} size="sm" type="button">
+        <IconArrowBackUp />
+        {buttonLabel}
+      </Button>
+    );
+  }
+
+  if (behavior === "disabled") {
+    return (
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button disabled size="sm" type="button">
+              <IconArrowBackUp />
+              重置面试轮次
+            </Button>
+          }
+        />
+        <TooltipContent>面试进行中，暂时不能重置轮次</TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <Popover onOpenChange={setOpen} open={open}>
+      <PopoverTrigger
+        render={
+          <Button disabled={isResetting} size="sm" type="button">
+            <IconArrowBackUp />
+            {buttonLabel}
+          </Button>
+        }
+      />
+      <PopoverContent align="end" className="w-80" side="top" sideOffset={8}>
+        <PopoverHeader>
+          <PopoverTitle>确定重置{roundLabel}？</PopoverTitle>
+          <PopoverDescription>
+            该轮面试已经完成。重置后会回到待进场状态，候选人需要重新完成本轮面试。
+          </PopoverDescription>
+        </PopoverHeader>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button onClick={() => setOpen(false)} size="sm" type="button" variant="outline">
+            取消
+          </Button>
+          <Button
+            disabled={isResetting}
+            onClick={() => {
+              onReset();
+              setOpen(false);
+            }}
+            size="sm"
+            type="button"
+            variant="destructive"
+          >
+            确认重置
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

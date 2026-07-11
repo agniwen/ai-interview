@@ -698,7 +698,7 @@ function MyProfilePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[96em] flex flex-col gap-6">
+    <div className="mx-auto w-full max-w-[96rem] flex flex-col gap-6">
       <PageHeader
         title="我的信息"
         description="更新你在工作区里的展示姓名和头像，方便同事识别每一次配置和操作。"

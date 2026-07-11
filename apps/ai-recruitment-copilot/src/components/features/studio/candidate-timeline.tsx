@@ -185,14 +185,14 @@ function ActivityPreview({ event, text }: { event: CandidateTimelineEvent; text:
     descriptionContent = shouldRenderDescriptionAsMarkdown(event) ? (
       <MarkdownView
         className={cn(
-          "max-h-60 min-w-0 max-w-full overflow-auto break-words text-muted-foreground text-sm",
+          "max-h-60 min-w-0 max-w-full overflow-auto wrap-break-word text-muted-foreground text-sm",
           "[&_*]:max-w-full [&_a]:break-all [&_code]:break-all",
           "[&_p]:my-1 [&_p]:leading-normal [&_pre]:whitespace-pre-wrap",
         )}
         content={truncateMarkdown(event.description, AI_REPORT_DESCRIPTION_MAX_LENGTH)}
       />
     ) : (
-      <p className="max-h-40 overflow-auto break-words text-muted-foreground text-sm leading-relaxed">
+      <p className="max-h-40 overflow-auto wrap-break-word text-muted-foreground text-sm leading-relaxed">
         {event.description}
       </p>
     );
@@ -215,7 +215,7 @@ function ActivityPreview({ event, text }: { event: CandidateTimelineEvent; text:
             {event.metadata.map((item) => (
               <div className="grid grid-cols-[4rem_1fr] gap-2" key={`${event.id}:${item.label}`}>
                 <dt className="text-muted-foreground">{item.label}</dt>
-                <dd className="min-w-0 break-words font-medium">{item.value}</dd>
+                <dd className="min-w-0 wrap-break-word font-medium">{item.value}</dd>
               </div>
             ))}
           </dl>

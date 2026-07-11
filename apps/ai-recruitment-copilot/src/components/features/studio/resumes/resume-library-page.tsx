@@ -478,7 +478,7 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
 
   return (
     <>
-      <div className="mx-auto w-full max-w-[96em] space-y-6">
+      <div className="mx-auto w-full max-w-[96rem] space-y-6">
         <PageHeader
           title="招聘"
           description="沉淀候选人档案、简历 PDF、岗位匹配和流程进展，筛选到面试推进都能从这里接上。"

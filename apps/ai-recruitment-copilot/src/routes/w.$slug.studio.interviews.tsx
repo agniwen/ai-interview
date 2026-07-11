@@ -298,7 +298,7 @@ function InterviewManagementPage() {
               {r.hasResumeFile && previewable ? (
                 <button
                   aria-label={previewTitle}
-                  className="group/pdf mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="group/pdf mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -572,7 +572,7 @@ function InterviewManagementPage() {
 
   return (
     <>
-      <div className="mx-auto w-full max-w-[96em] space-y-6">
+      <div className="mx-auto w-full max-w-[96rem] space-y-6">
         <PageHeader
           title="AI 面试"
           description="查看每一轮语音面试的排期、最近进展、简历和报告，让候选人状态一眼可追。"

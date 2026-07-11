@@ -1,4 +1,4 @@
-/* oxlint-disable complexity -- detail controller coordinates query and command state. */
+/* oxlint-disable complexity max-lines -- detail controller coordinates query and command state. */
 "use client";
 
 import { IconExternalLink, IconRobot } from "@tabler/icons-react";
@@ -94,6 +94,7 @@ export function useStudioPersonDetailController({
   const canUseManagementActions = accessMode === "authed";
   const canViewReportMetadata = accessMode === "authed";
   const hasReadHumanInterviewPermission = useHasPermission("humanInterview", "read");
+  const hasUpdateInterviewPermission = useHasPermission("interview", "update");
   const hasCreateHumanInterviewPermission = useHasPermission("humanInterview", "create");
   const hasUpdateHumanInterviewPermission = useHasPermission("humanInterview", "update");
   const hasDeleteHumanInterviewPermission = useHasPermission("humanInterview", "delete");
@@ -102,6 +103,7 @@ export function useStudioPersonDetailController({
   const hasUpdateOfferPermission = useHasPermission("offer", "update");
   const hasDeleteOfferPermission = useHasPermission("offer", "delete");
   const canReadHumanInterview = canUseManagementActions && hasReadHumanInterviewPermission;
+  const canUpdateInterview = canUseManagementActions && hasUpdateInterviewPermission;
   const canCreateHumanInterview = canUseManagementActions && hasCreateHumanInterviewPermission;
   const canUpdateHumanInterview = canUseManagementActions && hasUpdateHumanInterviewPermission;
   const canDeleteHumanInterview = canUseManagementActions && hasDeleteHumanInterviewPermission;
@@ -445,6 +447,9 @@ export function useStudioPersonDetailController({
       toast.error(error);
     } else {
       toast.success("轮次已重置为待开始");
+      await queryClient.invalidateQueries({
+        queryKey: ["studio-resume-rounds", slug, effectiveRecordId, accessMode],
+      });
       onUpdated?.();
     }
     dispatchUi({ id: null, type: "resettingRoundChanged" });
@@ -532,10 +537,10 @@ export function useStudioPersonDetailController({
   const resumeTitle = record?.candidateName?.trim() || cachedResumeCandidateName || "候选人详情";
   const title =
     mode === "resume" ? (
-      <span className="break-words">{resumeTitle}</span>
+      <span className="wrap-break-word">{resumeTitle}</span>
     ) : (
       <span className="flex flex-wrap items-center gap-3">
-        <span className="break-words">{record?.candidateName ?? "候选人详情"}</span>
+        <span className="wrap-break-word">{record?.candidateName ?? "候选人详情"}</span>
         {record?.roundStatus ? (
           <Badge variant={scheduleEntryStatusMeta[record.roundStatus].tone}>
             {scheduleEntryStatusMeta[record.roundStatus].label}
@@ -546,9 +551,7 @@ export function useStudioPersonDetailController({
   let description: ReactNode = renderHeaderDescription({ isLoading, round });
   if (mode === "resume") {
     const linkedJobDescriptionName = record?.jobDescriptionName?.trim();
-    description = linkedJobDescriptionName
-      ? `关联岗位：${linkedJobDescriptionName}`
-      : "暂未关联岗位";
+    description = linkedJobDescriptionName ? `${linkedJobDescriptionName}` : "暂未关联岗位";
   }
   const resumePreviewUrl = (() => {
     if (!record?.hasResumeFile) {
@@ -564,6 +567,7 @@ export function useStudioPersonDetailController({
     return `/api/w/${slug}/studio/${mode === "resume" ? "resumes" : "interviews"}/${previewRecordId}/resume`;
   })();
   const actionBarPipelineStage = visiblePipelineStage ?? record?.pipelineStage;
+  const actionBarAiRound = candidateRounds.at(-1);
   const actionBar =
     mode === "resume" &&
     record &&
@@ -580,6 +584,20 @@ export function useStudioPersonDetailController({
           resumeRecord?.stageProgress.humanInterview &&
           resumeRecord.stageProgress.humanInterview.completedRoundsMissingFeedback === 0,
         )}
+        aiRoundReset={
+          layoutMode === "page" &&
+          actionBarPipelineStage === "ai_interview" &&
+          !isRoundsLoading &&
+          canUpdateInterview &&
+          actionBarAiRound
+            ? {
+                isResetting: resettingRoundId === actionBarAiRound.id,
+                onReset: () => void handleResetRound(actionBarAiRound.id),
+                roundLabel: actionBarAiRound.roundLabel,
+                status: actionBarAiRound.status,
+              }
+            : undefined
+        }
         canCreateHumanInterview={canCreateHumanInterview}
         canCreateOffer={canCreateOffer}
         hasJobDescription={Boolean(resumeRecord?.jobDescriptionId)}

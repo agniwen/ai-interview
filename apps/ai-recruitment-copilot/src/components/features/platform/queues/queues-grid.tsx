@@ -341,7 +341,7 @@ function UploadTaskStatusPanel({
       {errorMessage ? (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
           <p className="font-medium text-destructive text-xs">错误信息</p>
-          <p className="mt-1 break-words text-destructive text-sm">{errorMessage}</p>
+          <p className="mt-1 wrap-break-word text-destructive text-sm">{errorMessage}</p>
         </div>
       ) : null}
     </div>

@@ -185,15 +185,15 @@ export function CollectedCandidateInfoList({
                             <p
                               className={
                                 item.kind === "interview"
-                                  ? "line-clamp-2 cursor-help text-muted-foreground leading-6 break-words"
-                                  : "line-clamp-2 cursor-help text-foreground leading-6 break-words"
+                                  ? "line-clamp-2 cursor-help text-muted-foreground leading-6 wrap-break-word"
+                                  : "line-clamp-2 cursor-help text-foreground leading-6 wrap-break-word"
                               }
                             >
                               “{answer}”
                             </p>
                           }
                         />
-                        <TooltipContent className="max-w-[min(32rem,calc(100vw-2rem))] whitespace-pre-wrap break-words leading-6">
+                        <TooltipContent className="max-w-[min(32rem,calc(100vw-2rem))] whitespace-pre-wrap wrap-break-word leading-6">
                           {answer}
                         </TooltipContent>
                       </Tooltip>

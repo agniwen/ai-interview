@@ -225,7 +225,7 @@ function InterviewerManagementPage({ departments }: { departments: DepartmentRec
 
   return (
     <>
-      <div className="mx-auto w-full max-w-[96em] space-y-6">
+      <div className="mx-auto w-full max-w-[96rem] space-y-6">
         <PageHeader
           description="维护不同部门的 AI 面试官、追问风格和声音，让每个岗位都能匹配合适的面试方式。"
           title="面试官"

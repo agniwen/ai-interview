@@ -271,7 +271,7 @@ function Prose({ className, ...props }: ComponentProps<"div">) {
         "[&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5",
         "[&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5",
         "[&_li]:my-1 [&_li]:pl-1",
-        "[&_a]:break-words [&_a]:text-foreground [&_a]:underline [&_a]:decoration-current/30 [&_a]:underline-offset-3",
+        "[&_a]:wrap-break-word [&_a]:text-foreground [&_a]:underline [&_a]:decoration-current/30 [&_a]:underline-offset-3",
         "[&_code]:rounded-md [&_code]:border [&_code]:bg-muted/50 [&_code]:px-1 [&_code]:py-px [&_code]:font-normal [&_code]:text-sm",
         "[&_strong]:font-medium [&_strong]:text-foreground",
         "[&_blockquote]:my-2 [&_blockquote]:border-l [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground",

@@ -36,7 +36,7 @@ function InterviewRoundDetailPage({ slug, roundId }: { slug: string; roundId: st
       }}
       recordId={roundId}
       shell={({ body, description, headerExtra, title }) => (
-        <div className="mx-auto w-full max-w-[96em] flex flex-col gap-4">
+        <div className="mx-auto w-full max-w-[96rem] flex flex-col gap-4">
           <div className="flex flex-col gap-3">
             <div>
               <Button

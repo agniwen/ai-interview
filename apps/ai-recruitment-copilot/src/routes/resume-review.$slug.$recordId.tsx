@@ -96,7 +96,7 @@ function ResumeReviewDetailContent({ recordId }: { recordId: string }) {
 
   return (
     <>
-      <main className="mx-auto flex w-full max-w-7xl flex-col px-4 pt-5 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
+      <main className="mx-auto flex w-full max-w-[96rem] flex-col px-4 pt-5 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
         <StudioPersonDetailPanel
           accessMode="review"
           layoutMode="page"

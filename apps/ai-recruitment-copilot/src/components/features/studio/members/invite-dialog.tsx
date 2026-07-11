@@ -155,6 +155,9 @@ export function InviteDialog({
           </Field>
         </FieldGroup>
         <DialogFooter>
+          <Button onClick={() => setOpen(false)} type="button" variant="outline">
+            取消
+          </Button>
           <Button
             disabled={submitting || !email.trim() || !canInviteWithSelectedRole}
             onClick={onSubmit}

@@ -407,7 +407,7 @@ export function ResumePoolPage() {
 
   return (
     <>
-      <div className="mx-auto w-full max-w-[96em] space-y-6">
+      <div className="mx-auto w-full max-w-[96rem] space-y-6">
         <PageHeader
           className="max-w-3xl"
           title="人才库"

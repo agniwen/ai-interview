@@ -20,6 +20,7 @@ import type { DedupMatchRecord } from "@/lib/client/api";
 import { formatDate } from "@arc/shared/utils/time";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
+import { EmptyValue } from "@/components/features/display/empty-value";
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -98,15 +99,15 @@ function ResumePoolMatchDetailDialog({
         <div className="grid gap-x-6 gap-y-3 rounded-md border bg-muted/20 p-4 text-sm sm:grid-cols-2">
           <div>
             <span className="text-muted-foreground">目标岗位</span>
-            <p className="mt-1 font-medium">{detail.targetRole ?? "—"}</p>
+            <p className="mt-1 font-medium">{detail.targetRole ?? <EmptyValue />}</p>
           </div>
           <div>
             <span className="text-muted-foreground">邮箱</span>
-            <p className="mt-1 break-all font-medium">{detail.candidateEmail ?? "—"}</p>
+            <p className="mt-1 break-all font-medium">{detail.candidateEmail ?? <EmptyValue />}</p>
           </div>
           <div>
             <span className="text-muted-foreground">电话</span>
-            <p className="mt-1 break-all font-medium">{detail.candidatePhone ?? "—"}</p>
+            <p className="mt-1 break-all font-medium">{detail.candidatePhone ?? <EmptyValue />}</p>
           </div>
           <div>
             <span className="text-muted-foreground">状态</span>
@@ -187,11 +188,11 @@ export function ResumeDedupMatchList({ matches }: { matches: DedupMatchRecord[] 
               <div className="mt-3 grid gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
                 <div className="flex gap-2">
                   <span className="text-muted-foreground">邮箱</span>
-                  <span className="break-all">{match.candidateEmail ?? "—"}</span>
+                  <span className="break-all">{match.candidateEmail ?? <EmptyValue />}</span>
                 </div>
                 <div className="flex gap-2">
                   <span className="text-muted-foreground">电话</span>
-                  <span className="break-all">{match.candidatePhone ?? "—"}</span>
+                  <span className="break-all">{match.candidatePhone ?? <EmptyValue />}</span>
                 </div>
                 <div className="flex gap-2">
                   <span className="text-muted-foreground">创建时间</span>

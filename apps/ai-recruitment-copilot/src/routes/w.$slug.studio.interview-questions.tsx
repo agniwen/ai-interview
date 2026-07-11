@@ -433,7 +433,7 @@ function InterviewQuestionTemplateManagementPage({
 
   return (
     <>
-      <div className="mx-auto w-full max-w-[96em] space-y-6">
+      <div className="mx-auto w-full max-w-[96rem] space-y-6">
         <PageHeader
           description="沉淀常用必问题，按全局或岗位复用，让每一轮面试都有稳定的问题基线。"
           title="面试题库"

@@ -34,16 +34,32 @@ export function EducationLevelTag({ level }: { level: string | null | undefined 
 export function ResumeEducationDisplayLine({
   className,
   item,
+  majorLayout = "inline",
 }: {
   className?: string;
   item: ResumeEducationDisplayItem;
+  majorLayout?: "block" | "inline";
 }) {
+  if (majorLayout === "block") {
+    return (
+      <span className={cn("inline-flex min-w-0 flex-col items-start gap-1.5", className)}>
+        <span className="inline-flex min-w-0 items-center gap-1.5">
+          <EducationLevelTag level={item.level} />
+          <span className="min-w-0 wrap-break-word font-medium">{item.school}</span>
+        </span>
+        {item.major ? (
+          <span className="min-w-0 wrap-break-word text-muted-foreground">{item.major}</span>
+        ) : null}
+      </span>
+    );
+  }
+
   return (
     <span className={cn("inline-flex min-w-0 flex-wrap items-center gap-1.5", className)}>
       <EducationLevelTag level={item.level} />
-      <span className="min-w-0 break-words font-medium">{item.school}</span>
+      <span className="min-w-0 wrap-break-word font-medium">{item.school}</span>
       {item.major ? (
-        <span className="min-w-0 break-words text-muted-foreground">· {item.major}</span>
+        <span className="min-w-0 wrap-break-word text-muted-foreground">· {item.major}</span>
       ) : null}
     </span>
   );

@@ -27,6 +27,7 @@ import {
 } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { Badge } from "@/components/ui/badge";
+import { EmptyValue } from "@/components/features/display/empty-value";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -225,9 +226,7 @@ function ExpectationField({ label, value }: { label: string; value: string | nul
   return (
     <div>
       <dt className="text-muted-foreground text-xs">{label}</dt>
-      <dd className="mt-0.5 text-foreground text-sm">
-        {value || <span className="text-muted-foreground">—</span>}
-      </dd>
+      <dd className="mt-0.5 text-foreground text-sm">{value || <EmptyValue />}</dd>
     </div>
   );
 }
@@ -491,9 +490,7 @@ function ReadonlyOfferField({
   return (
     <div className={`min-w-0 ${className ?? ""}`}>
       <dt className="text-muted-foreground text-xs">{label}</dt>
-      <dd className="mt-0.5 break-words text-foreground text-sm">
-        {value || <span className="text-muted-foreground">—</span>}
-      </dd>
+      <dd className="mt-0.5 wrap-break-word text-foreground text-sm">{value || <EmptyValue />}</dd>
     </div>
   );
 }

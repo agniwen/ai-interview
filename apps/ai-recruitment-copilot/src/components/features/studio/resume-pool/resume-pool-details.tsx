@@ -69,7 +69,7 @@ function DetailSummaryItem({ children, label }: { label: string; children: React
   return (
     <div className="min-w-0">
       <dt className="text-muted-foreground text-xs">{label}</dt>
-      <dd className="mt-1 min-w-0 break-words font-medium text-sm leading-6">{children}</dd>
+      <dd className="mt-1 min-w-0 wrap-break-word font-medium text-sm leading-6">{children}</dd>
     </div>
   );
 }
@@ -231,7 +231,9 @@ function ResumePoolHighlightRow({
         <Icon className="size-3.5 shrink-0" />
         <span className="text-xs">{label}</span>
       </div>
-      <div className="mt-1 whitespace-pre-wrap break-words text-foreground leading-5">{value}</div>
+      <div className="mt-1 whitespace-pre-wrap wrap-break-word text-foreground leading-5">
+        {value}
+      </div>
     </div>
   );
 }

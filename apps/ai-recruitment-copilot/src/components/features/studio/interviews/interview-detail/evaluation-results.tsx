@@ -55,7 +55,7 @@ function KeyValueEntries({ entries }: { entries: Record<string, unknown> }) {
       {items.map(([key, value]) => (
         <div className="border-border/50 border-t pt-3 text-sm" key={key}>
           <p className="font-medium">{key}</p>
-          <p className="mt-1 break-words text-muted-foreground leading-6">
+          <p className="mt-1 wrap-break-word text-muted-foreground leading-6">
             {typeof value === "string" ? value : JSON.stringify(value)}
           </p>
         </div>

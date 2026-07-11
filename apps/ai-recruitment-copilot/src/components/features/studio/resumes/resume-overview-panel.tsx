@@ -23,6 +23,9 @@ import {
   resumeReviewBiasCategoryLabel,
 } from "@arc/shared/resume-review";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
+import { DataField } from "@/components/features/display/data-field";
+import { DataFields } from "@/components/features/display/data-fields";
+import { EmptyValue } from "@/components/features/display/empty-value";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
@@ -32,22 +35,6 @@ import type { ReactNode } from "react";
 import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart } from "recharts";
 
 const REVIEW_SURFACE_CLASS = "rounded-2xl border border-muted/60 bg-muted/20 p-6";
-
-function textOrDash(value: string | number | null | undefined) {
-  if (value === null || value === undefined || value === "") {
-    return "—";
-  }
-  return String(value);
-}
-
-function SummaryItem({ label, value }: { label: string; value: string | number | null }) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-muted-foreground text-xs">{label}</dt>
-      <dd className="mt-1 min-w-0 truncate font-medium text-sm leading-6">{textOrDash(value)}</dd>
-    </div>
-  );
-}
 
 const DIMENSION_LABELS = RESUME_REVIEW_DIMENSIONS;
 
@@ -185,7 +172,7 @@ function ResumeOverviewAiScoreSection({
           <h3 className="font-medium text-sm">AI评分</h3>
           {review ? (
             <Badge variant={actionVariant(review.nextStep.action)}>
-              {resumeReviewActionLabel[review.nextStep.action]}
+              建议{resumeReviewActionLabel[review.nextStep.action]}
             </Badge>
           ) : (
             <Badge variant="outline">未生成</Badge>
@@ -202,7 +189,7 @@ function ResumeOverviewAiScoreSection({
             <div className="min-w-0 space-y-1.5">
               <div className="text-muted-foreground text-xs">综合评分</div>
               <div className="font-semibold text-4xl tabular-nums leading-none tracking-tight">
-                {baseScore ?? "—"}
+                {baseScore ?? <EmptyValue />}
               </div>
             </div>
             {/* {review ? <Badge variant="outline">{review.levelRecommendation.level}</Badge> : null} */}
@@ -387,7 +374,7 @@ function ReviewSummaryHero({
         <div className="flex min-w-0 flex-col items-start gap-5 lg:items-end lg:text-right">
           {summaryAction ? <div>{summaryAction}</div> : null}
           <div className="font-semibold text-7xl tabular-nums leading-none tracking-tighter">
-            {baseScore ?? "—"}
+            {baseScore ?? <EmptyValue />}
           </div>
           <div className="-mt-3 text-muted-foreground text-xs">综合评分 / 100</div>
         </div>
@@ -495,18 +482,25 @@ export function ResumeOverviewPanel({
     <div className="space-y-8">
       <ResumeOverviewAiScoreSection detail={detail} onViewAiScore={onViewAiScore} />
 
-      <section className="space-y-6 border-border/50 border-t pt-6">
-        <dl className="grid gap-x-8 gap-y-4 md:grid-cols-2">
-          <SummaryItem label="关联岗位" value={detail.jobDescriptionName} />
-          <SummaryItem label="简历评估" value={resumeEvaluation.label} />
-        </dl>
+      <section className="border-border/50 border-t pt-6">
+        <DataFields columns={3} density="compact" label="候选人信息">
+          <DataField label="姓名" value={detail.resumeProfile?.name} />
+          <DataField
+            label="关联岗位"
+            value={detail.jobDescriptionName}
+            valueClassName="font-medium"
+          />
+          <DataField label="简历评估" value={resumeEvaluation.label} valueClassName="font-medium" />
+          <DataField label="性别" value={detail.resumeProfile?.gender} />
+          <DataField kind="number" label="年龄" value={detail.resumeProfile?.age} />
+          <DataField kind="number" label="工作年限" value={detail.resumeProfile?.workYears} />
+          <DataField kind="email" label="邮箱" value={detail.resumeProfile?.email} />
+          <DataField kind="phone" label="电话" value={detail.resumeProfile?.phone} />
+        </DataFields>
       </section>
 
-      <section className="space-y-4 border-t border-border/50 pt-6">
-        <h3 className="font-medium text-sm">结构化信息</h3>
-        <div>
-          <ResumeProfileView profile={detail.resumeProfile ?? null} />
-        </div>
+      <section className="border-t border-border/50 pt-6">
+        <ResumeProfileView profile={detail.resumeProfile ?? null} showBasicInfo={false} />
       </section>
     </div>
   );

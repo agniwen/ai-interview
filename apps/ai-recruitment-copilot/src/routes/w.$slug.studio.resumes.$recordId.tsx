@@ -85,7 +85,7 @@ function getRecruiterResumeDocumentTitle(candidateName: string | null | undefine
 
 function RecruiterResumeDetailSkeleton() {
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-5">
+    <main className="mx-auto flex w-full max-w-[96rem] flex-col gap-5">
       <div className="flex min-w-0 flex-col gap-5">
         <header className="flex min-w-0 flex-col gap-4 border-border/70 border-b pb-4">
           <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -278,7 +278,7 @@ function RecruiterResumeDetailPage() {
 
   return (
     <>
-      <main className="mx-auto flex w-full max-w-7xl flex-col gap-5">
+      <main className="mx-auto flex w-full max-w-[96rem] flex-col gap-5">
         <StudioPersonDetailPanel
           accessMode="authed"
           defaultTab={defaultTab}

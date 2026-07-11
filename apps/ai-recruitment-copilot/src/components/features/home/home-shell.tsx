@@ -43,7 +43,7 @@ export default function HomeShell() {
         <main className="relative flex w-full flex-col items-stretch" id="main-content">
           {/* Hero 区不再占满首屏，让下方 ProductShot 露出约一半（Notion 风格）
               Hero no longer fills the viewport; lets ProductShot peek up like Notion's hero. */}
-          <div className="mx-auto flex w-full max-w-7xl flex-col items-center px-5 pt-16 sm:px-8 sm:pt-20 lg:pt-24">
+          <div className="mx-auto flex w-full max-w-[96rem] flex-col items-center px-5 pt-16 sm:px-8 sm:pt-20 lg:pt-24">
             <Hero
               isPending={isPending}
               onResumeFiltering={onResumeFiltering}
