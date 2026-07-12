@@ -2,11 +2,11 @@ import { dehydrate } from "@tanstack/react-query";
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { buildDataGridQueryKey } from "@/components/data-grid/query-contract";
 import type { JsonValue } from "@/lib/start/server-function-types";
-import { queryPaginatedPlatformNotifications } from "@arc/ai-recruitment-copilot-backend/server/routes/platform/notifications";
+import { queryPaginatedPlatformNotifications } from "@arc/ai-recruitment-copilot-backend/server/routes/platform/routes/notifications/dao";
 import type {
   PlatformNotificationProviderFilter,
   PlatformNotificationStatusFilter,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/platform/notifications";
+} from "@arc/ai-recruitment-copilot-backend/server/routes/platform/routes/notifications/dao";
 import { createQueryClient } from "@arc/shared/query-client";
 
 export interface PlatformNotificationFilters extends Record<string, string> {

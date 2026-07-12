@@ -392,16 +392,27 @@ async function ensureFeishuBotInitialized(providerId: FeishuProviderId): Promise
   return entry;
 }
 
-export async function initializeFeishuBots(): Promise<void> {
-  await Promise.all(
-    FEISHU_PROVIDER_IDS.map((providerId) => ensureFeishuBotInitialized(providerId)),
-  );
-}
-
 export async function shutdownFeishuBots(): Promise<void> {
   const entries = [...cached.values()];
   await Promise.all(entries.map(({ bot }) => bot.shutdown()));
   cached.clear();
+}
+
+export async function initializeFeishuBots(): Promise<void> {
+  try {
+    await Promise.all(
+      FEISHU_PROVIDER_IDS.map((providerId) => ensureFeishuBotInitialized(providerId)),
+    );
+  } catch (initializationError) {
+    try {
+      await shutdownFeishuBots();
+    } catch (shutdownError) {
+      throw new Error("Feishu bot initialization failed and rollback was incomplete.", {
+        cause: shutdownError,
+      });
+    }
+    throw initializationError;
+  }
 }
 
 export async function postFeishuDirectMessage(

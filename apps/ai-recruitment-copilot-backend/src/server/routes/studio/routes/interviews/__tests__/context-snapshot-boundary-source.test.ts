@@ -50,7 +50,7 @@ describe("interview context snapshot creation boundary", () => {
       ),
     );
 
-    expect(launchInterviewSource).toContain("loadOrCreateActiveInterviewContextSnapshot");
+    expect(launchInterviewSource).toContain("launchAiInterviewRound");
     expect(interviewsCollectionRouteSource).toContain("createInterviewContextSnapshot(tx");
     expect(interviewsRouteSource).toContain("refreshInterviewContextSnapshot(tx");
     expect(interviewsDetailRouteSource).toContain("refreshInterviewContextSnapshot(tx");
