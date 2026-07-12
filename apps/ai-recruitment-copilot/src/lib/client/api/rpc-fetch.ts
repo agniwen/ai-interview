@@ -6,6 +6,19 @@ import { ApiError } from "./errors";
 // hc returns ClientResponse subtypes; this alias keeps the rpcFetch signature compact.
 type RpcCall = Promise<ClientResponse<unknown>>;
 
+function extractRpcErrorMessage(data: unknown): string | null {
+  if (!data || typeof data !== "object") {
+    return null;
+  }
+  if ("error" in data && typeof data.error === "string") {
+    return data.error;
+  }
+  if ("message" in data && typeof data.message === "string") {
+    return data.message;
+  }
+  return null;
+}
+
 /**
  * 把 hc/rpc 的调用结果解码成 JSON：基于 Hono 官方 `parseResponse` 包装一层，
  * 失败时把 {@link DetailedError} 转成本项目统一的 {@link ApiError}（带中文兜底
@@ -44,10 +57,7 @@ export async function rpcFetch<T>(
       return null;
     }
     const data = (error.detail as { data?: unknown } | undefined)?.data ?? null;
-    const serverMessage =
-      data && typeof data === "object" && "error" in data && typeof data.error === "string"
-        ? data.error
-        : null;
+    const serverMessage = extractRpcErrorMessage(data);
     throw new ApiError(serverMessage ?? errorFallback, {
       cause: error,
       payload: data,

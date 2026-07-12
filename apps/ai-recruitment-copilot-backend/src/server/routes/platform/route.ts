@@ -39,12 +39,7 @@ import {
   filterEnrichedResumeParseQueueJobRecords,
 } from "./queue-details";
 import type { PlatformQueueJobsResult } from "./queue-details";
-import {
-  platformNotificationProviderFilterValues,
-  platformNotificationStatusFilterValues,
-  queryPaginatedPlatformNotifications,
-} from "./notifications";
-import { resendInterviewSummaryNotification } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/feishu-interview-notifications";
+import { platformNotificationsRouter } from "./routes/notifications/route";
 
 // --- Organizations list ---
 const orgQuerySchema = z.object({
@@ -396,46 +391,6 @@ const platformUsers = factory
     );
   });
 
-const platformNotificationsQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  providerId: z.enum(platformNotificationProviderFilterValues).default("all"),
-  search: z.string().optional(),
-  sortBy: z
-    .enum([
-      "createdAt",
-      "sentAt",
-      "updatedAt",
-      "status",
-      "providerId",
-      "candidateName",
-      "organizationName",
-    ])
-    .default("createdAt"),
-  sortOrder: z.enum(["asc", "desc"]).default("desc"),
-  status: z.enum(platformNotificationStatusFilterValues).default("all"),
-});
-
-const platformNotifications = factory
-  .createApp()
-  .get(
-    "/notifications",
-    zValidator("query", platformNotificationsQuerySchema, jsonValidatorError("参数校验失败")),
-    async (c) => {
-      const result = await queryPaginatedPlatformNotifications(c.req.valid("query"));
-      return c.json(result, 200);
-    },
-  )
-  .post("/notifications/:id/resend", async (c) => {
-    try {
-      const result = await resendInterviewSummaryNotification(c.req.param("id"));
-      return c.json(result, 200);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "重新发送飞书通知失败";
-      return c.json({ error: message }, message === "通知记录不存在" ? 404 : 400);
-    }
-  });
-
 const mailIngestAccountsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(10),
@@ -674,7 +629,7 @@ export const platformRouter = factory
   .use(adminMiddleware)
   .route("/", platformQueues)
   .route("/", platformMailIngestAccounts)
-  .route("/", platformNotifications)
+  .route("/notifications", platformNotificationsRouter)
   .route("/", platformOrganizations)
   .route("/", organizationDetail)
   .route("/", platformUsers);
