@@ -4,6 +4,7 @@ import { createFileRoute, useParams, useRouter } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { StudioPersonDetailPanel } from "@/components/features/studio/studio-person-detail-panel";
+import { InterviewDetailPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 
 // 候选人面试详情独立页 —— 走 StudioPersonDetailPanel 的 page-shell 形态。
 // 顶部一行返回按钮 + 标题 + tabs 与简历预览,主体撑满剩余空间。所有数据获取
@@ -78,4 +79,5 @@ export const Route = createFileRoute("/w/$slug/studio/interviews/$roundId")({
   head: () => ({
     meta: [{ title: "面试详情" }],
   }),
+  pendingComponent: InterviewDetailPageSkeleton,
 });

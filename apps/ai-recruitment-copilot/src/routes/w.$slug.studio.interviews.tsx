@@ -17,6 +17,7 @@ import { loadStudioInterviewsState } from "@/lib/start/studio/interviews.functio
 import type { StudioInterviewsState } from "@/lib/start/studio/interviews.functions";
 import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
 import { PageHeader } from "@/components/features/studio/page-header";
+import { StudioTablePageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { StudioSummaryCards } from "@/components/features/studio/studio-summary-cards";
 import {
   bulkDeleteStudioInterviewRounds,
@@ -791,6 +792,7 @@ export const Route = createFileRoute("/w/$slug/studio/interviews")({
     }
     return state;
   },
+  pendingComponent: () => <StudioTablePageSkeleton filterCount={3} label="AI 面试" summary />,
   shouldReload: false,
   validateSearch: (search: Record<string, unknown>) => coerceStudioInterviewsSearch(search),
 });

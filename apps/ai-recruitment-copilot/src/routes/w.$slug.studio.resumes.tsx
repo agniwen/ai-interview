@@ -14,6 +14,7 @@ import type { StudioResumesState } from "@/lib/start/studio/resumes.functions";
 import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
 
 import { StudioResumeFloatingChat } from "@/components/features/studio/studio-resume-floating-chat";
+import { RecruitingPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 
 import { ResumeLibraryPage } from "@/components/features/studio/resumes/resume-library-page";
 import {
@@ -74,6 +75,7 @@ export const Route = createFileRoute("/w/$slug/studio/resumes")({
     }
     return state;
   },
+  pendingComponent: RecruitingPageSkeleton,
   shouldReload: false,
   validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });

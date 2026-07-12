@@ -16,6 +16,7 @@ import { loadStudioInterviewQuestionsState } from "@/lib/start/studio/interview-
 import type { StudioInterviewQuestionsState } from "@/lib/start/studio/interview-questions.functions";
 import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
 import { PageHeader } from "@/components/features/studio/page-header";
+import { StudioTablePageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import type {
@@ -659,6 +660,7 @@ export const Route = createFileRoute("/w/$slug/studio/interview-questions")({
     }
     return state;
   },
+  pendingComponent: () => <StudioTablePageSkeleton filterCount={3} label="面试题" />,
   shouldReload: false,
   validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });

@@ -14,6 +14,7 @@ import { loadStudioDepartmentsState } from "@/lib/start/studio/departments.funct
 import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
 import type { StudioDepartmentsState } from "@/lib/start/studio/departments.functions";
 import { PageHeader } from "@/components/features/studio/page-header";
+import { StudioTablePageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
 import { ScopedInterviewersModal } from "@/components/features/studio/scoped-interviewers-modal";
 import { ScopedJobDescriptionsModal } from "@/components/features/studio/scoped-job-descriptions-modal";
@@ -397,6 +398,7 @@ export const Route = createFileRoute("/w/$slug/studio/departments")({
     }
     return state;
   },
+  pendingComponent: () => <StudioTablePageSkeleton label="部门管理" />,
   shouldReload: false,
   validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });
