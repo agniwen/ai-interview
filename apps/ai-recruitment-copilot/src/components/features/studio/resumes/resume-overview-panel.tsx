@@ -220,7 +220,7 @@ function ResumeOverviewAiScoreSection({
 
 function ReviewSectionHeader({ action, title }: { action?: ReactNode; title: string }) {
   return (
-    <FrameHeader className="flex-row flex-wrap items-center justify-between gap-3 ">
+    <FrameHeader className="flex-row flex-wrap items-center justify-between gap-3 h-10 ">
       <FrameTitle>{title}</FrameTitle>
       {action ? <div className="flex flex-wrap items-center gap-2">{action}</div> : null}
     </FrameHeader>
