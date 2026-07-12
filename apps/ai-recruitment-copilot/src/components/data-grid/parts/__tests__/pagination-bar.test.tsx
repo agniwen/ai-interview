@@ -22,8 +22,8 @@ describe("PaginationBar", () => {
     expect(html).toContain('data-slot="pagination-content"');
     expect(html).toContain("w-full justify-center");
     expect(html).toContain("sm:w-auto sm:justify-start");
-    expect(html).toContain("Previous");
-    expect(html).toContain("Next");
+    expect(html).toContain("上一页");
+    expect(html).toContain("下一页");
     expect(html).toContain("More pages");
     expect(html).toContain('aria-current="page"');
     expect(html).toContain('aria-label="第 5 页"');
