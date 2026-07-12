@@ -1,5 +1,5 @@
-import Markdown from "react-markdown";
 import { DIFFICULTY_LABEL } from "@arc/shared/interview-question-difficulty";
+import { MarkdownView } from "@/components/features/display/markdown-view";
 import { TabsContent } from "@/components/ui/tabs";
 import { truncateText } from "./interviews/interview-detail/helpers";
 
@@ -30,9 +30,10 @@ export function StudioPersonDetailQuestionsTab({
                     {DIFFICULTY_LABEL[question.difficulty] ?? question.difficulty}
                   </span>
                 </div>
-                <div className="mt-2 text-sm leading-normal">
-                  <Markdown>{truncateText(question.question)}</Markdown>
-                </div>
+                <MarkdownView
+                  className="mt-2 text-sm leading-normal"
+                  content={truncateText(question.question)}
+                />
               </article>
             ))
           ) : (

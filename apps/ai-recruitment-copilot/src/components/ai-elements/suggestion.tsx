@@ -11,7 +11,12 @@ export type SuggestionsProps = ComponentProps<typeof ScrollArea>;
 
 export function Suggestions({ className, children, ...props }: SuggestionsProps) {
   return (
-    <ScrollArea className="group/suggestions w-full overflow-x-auto whitespace-nowrap" {...props}>
+    <ScrollArea
+      className="group/suggestions w-full overflow-x-auto whitespace-nowrap"
+      orientation="horizontal"
+      scrollFade
+      {...props}
+    >
       <div className={cn("flex w-max flex-nowrap items-center gap-2", className)}>{children}</div>
       <ScrollBar
         className="opacity-0 transition-opacity duration-200 group-hover/suggestions:opacity-100 group-focus-within/suggestions:opacity-100"

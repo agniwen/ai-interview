@@ -2,11 +2,11 @@
 "use client";
 
 import { IconArrowBackUp, IconLoader2, IconMessage2 } from "@tabler/icons-react";
-import Markdown from "react-markdown";
 import { cn } from "@arc/shared/utils";
 import { env } from "@/env/client";
 
 import { CandidateBasicInfoView } from "@/components/features/candidate/candidate-basic-info-view";
+import { MarkdownView } from "@/components/features/display/markdown-view";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
 import {
   ResumeOverviewPanel,
@@ -121,14 +121,13 @@ function InterviewResultFrame({
             value={report ? `${report.userTurnCount} 次候选人回复` : "候选人完成后生成"}
           />
         </div>
-        <div className="mt-5 border-border/50 border-t pt-5 text-muted-foreground text-sm leading-6">
-          <Markdown>
-            {compactText(
-              evaluationSummary.overallAssessment ?? report?.transcriptSummary ?? null,
-              "候选人完成面试后，这里会优先显示结论、评分和关键摘要。",
-            )}
-          </Markdown>
-        </div>
+        <MarkdownView
+          className="mt-5 border-border/50 border-t pt-5 text-muted-foreground text-sm leading-6"
+          content={compactText(
+            evaluationSummary.overallAssessment ?? report?.transcriptSummary ?? null,
+            "候选人完成面试后，这里会优先显示结论、评分和关键摘要。",
+          )}
+        />
       </FramePanel>
     </Frame>
   );
@@ -330,9 +329,10 @@ function InterviewResultTabContent({
 
       <section className="space-y-3">
         <h3 className="font-medium text-sm">简历评价</h3>
-        <div className="text-muted-foreground text-sm leading-6">
-          <Markdown>{truncateText(record.notes) || "暂无简历评价"}</Markdown>
-        </div>
+        <MarkdownView
+          className="text-muted-foreground text-sm leading-6"
+          content={truncateText(record.notes) || "暂无简历评价"}
+        />
       </section>
     </div>
   );
@@ -540,13 +540,14 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                                       <Badge variant="outline">{report.callSuccessful}</Badge>
                                     ) : null}
                                   </div>
-                                  <div className="mt-2 h-20 line-clamp-4 text-muted-foreground text-sm leading-5 group-data-[panel-open]:hidden [&_p]:m-0">
-                                    <Markdown>
-                                      {report.transcriptSummary ??
-                                        report.latestError ??
-                                        "暂无总结，等待后续同步。"}
-                                    </Markdown>
-                                  </div>
+                                  <MarkdownView
+                                    className="mt-2 h-20 line-clamp-4 text-muted-foreground text-sm leading-5 group-data-[panel-open]:hidden [&_p]:m-0"
+                                    content={
+                                      report.transcriptSummary ??
+                                      report.latestError ??
+                                      "暂无总结，等待后续同步。"
+                                    }
+                                  />
                                 </div>
                               </AccordionTrigger>
                               <AccordionContent className="bg-muted/25 px-5 pt-4 pb-5">
@@ -574,7 +575,7 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                                         <CardTitle className="text-sm">评估指标</CardTitle>
                                       </CardHeader>
                                       <CardPanel>
-                                        <ScrollArea className="max-h-[420px] pr-1">
+                                        <ScrollArea className="max-h-[420px] pr-1" scrollFade>
                                           <EvaluationResults
                                             data={
                                               (report.evaluationCriteriaResults as Record<

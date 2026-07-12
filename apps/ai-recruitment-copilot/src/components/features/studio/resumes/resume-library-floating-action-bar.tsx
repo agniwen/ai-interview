@@ -54,7 +54,7 @@ export function ResumeLibraryFloatingActionBar({
           <div
             className={`pointer-events-auto w-full max-w-lg overflow-hidden rounded-md p-1 ${FLOATING_ACTION_LIST_CLASS}`}
           >
-            <ScrollArea className="max-h-[7.75rem]" scrollbars="leave">
+            <ScrollArea className="max-h-[7.75rem]" scrollFade scrollbars="leave">
               {selectedItems.map((item) => (
                 <div
                   className="group grid min-h-10 grid-cols-[minmax(0,1fr)_minmax(6rem,13rem)_auto] items-center gap-2 rounded-sm px-2.5 py-1 text-xs transition-colors hover:bg-muted/55"

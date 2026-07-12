@@ -32,14 +32,7 @@ function ScrollArea({
   viewportRef,
   ...props
 }: ScrollAreaProps) {
-  if (
-    viewportClassName ||
-    viewportProps ||
-    viewportRef ||
-    orientation ||
-    scrollbarGutter ||
-    scrollFade
-  ) {
+  if (viewportClassName || viewportProps || viewportRef || orientation || scrollbarGutter) {
     const { className: innerClassName, style: innerStyle, ...innerProps } = viewportProps ?? {};
 
     return (
@@ -53,8 +46,7 @@ function ScrollArea({
           className={cn(
             "h-full w-full min-w-0 overflow-auto",
             orientation === "horizontal" && "overflow-x-auto overflow-y-hidden",
-            scrollFade &&
-              "mask-b-from-90% mask-b-to-100% [mask-repeat:no-repeat] [mask-size:100%_100%]",
+            scrollFade && (orientation === "horizontal" ? "scroll-fade-x" : "scroll-fade"),
             viewportClassName,
             innerClassName,
           )}
@@ -71,17 +63,18 @@ function ScrollArea({
   }
 
   const events: EventListeners | undefined =
-    scrollRestorationId || externalEvents
+    scrollFade || scrollRestorationId || externalEvents
       ? {
           ...externalEvents,
           initialized: (instance) => {
             externalEvents?.initialized?.(instance);
-            if (!scrollRestorationId) {
-              return;
+            const { viewport } = instance.elements();
+            if (scrollFade) {
+              viewport.classList.add("scroll-fade");
             }
-            instance
-              .elements()
-              .viewport.setAttribute("data-scroll-restoration-id", scrollRestorationId);
+            if (scrollRestorationId) {
+              viewport.setAttribute("data-scroll-restoration-id", scrollRestorationId);
+            }
           },
         }
       : undefined;

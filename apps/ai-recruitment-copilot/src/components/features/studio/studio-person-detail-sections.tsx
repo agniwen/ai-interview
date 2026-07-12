@@ -9,7 +9,6 @@
 // and the full-page route version share one implementation. Callers control
 // chrome via shell — Modal, full-page layout, or any custom frame.
 
-import Markdown from "react-markdown";
 import type { CandidateFormSubmissionWithSnapshot } from "@arc/db-schema/candidate-forms";
 import { describeResumeReviewStatus } from "@arc/shared/studio-resumes";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
@@ -22,6 +21,7 @@ import {
 } from "@/lib/client/api";
 
 import { Badge } from "@/components/ui/badge";
+import { MarkdownView } from "@/components/features/display/markdown-view";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -265,9 +265,10 @@ export function ResumeAiAnalysisPlaceholder({
         <FrameTitle>AI评分</FrameTitle>
       </FrameHeader>
       <FramePanel>
-        <div className="text-muted-foreground text-sm leading-6">
-          <Markdown>{truncateText(resumeRecord?.notes) || "暂无 AI评分结果"}</Markdown>
-        </div>
+        <MarkdownView
+          className="text-muted-foreground text-sm leading-6"
+          content={truncateText(resumeRecord?.notes) || "暂无 AI评分结果"}
+        />
       </FramePanel>
     </Frame>
   );
@@ -355,7 +356,7 @@ export function ResumeScreeningResultPanel({
           </p>
         ) : null}
         {sortedRuleResults.length ? (
-          <ScrollArea className="h-[24rem]">
+          <ScrollArea className="h-[24rem]" scrollFade>
             <ul className="divide-y divide-border/50">
               {sortedRuleResults.map((rule) => (
                 <li className="py-4 text-sm leading-6" key={rule.ruleId}>

@@ -37,7 +37,7 @@ export function FrameHeader({
 }: React.ComponentProps<"header">): React.ReactElement {
   return (
     <header
-      className={cn("flex flex-col h-8 px-4", className)}
+      className={cn("flex flex-row items-center h-8 px-4", className)}
       data-slot="frame-panel-header"
       {...props}
     />

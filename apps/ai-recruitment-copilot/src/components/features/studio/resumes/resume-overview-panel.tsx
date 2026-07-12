@@ -317,7 +317,7 @@ function BiasScanSection({
         title="偏差扫描"
       />
       <FramePanel className="flex-1">
-        <ScrollArea className="h-[24rem]">
+        <ScrollArea className="h-[24rem]" scrollFade>
           {review.biasScan.items.length > 0 ? (
             <ul className="divide-y divide-border/50">
               {review.biasScan.items.map((item, index) => (
@@ -442,7 +442,7 @@ export function ResumeReviewStructuredView({
         <Frame className="h-full">
           <ReviewSectionHeader title="优点" />
           <FramePanel className="flex-1">
-            <ScrollArea className="h-[24rem]">
+            <ScrollArea className="h-[24rem]" scrollFade>
               <ReviewPointList items={review.strengths} tone="positive" />
             </ScrollArea>
           </FramePanel>
@@ -451,7 +451,7 @@ export function ResumeReviewStructuredView({
         <Frame className="h-full">
           <ReviewSectionHeader title="缺点" />
           <FramePanel className="flex-1">
-            <ScrollArea className="h-[24rem]">
+            <ScrollArea className="h-[24rem]" scrollFade>
               <ReviewPointList items={review.weaknesses} tone="negative" />
             </ScrollArea>
           </FramePanel>
