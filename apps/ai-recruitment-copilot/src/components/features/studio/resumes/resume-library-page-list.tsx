@@ -3,10 +3,9 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { canDeleteResumeRecord } from "@arc/shared/studio-resumes";
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
-import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
 import type { ToolbarFilterConfig } from "@/components/data-grid";
 import { Toolbar } from "@/components/data-grid/parts/toolbar";
 import { Button } from "@/components/ui/button";
@@ -18,13 +17,13 @@ import { ResumeLibraryFloatingActionBar } from "@/components/features/studio/res
 import { Skeleton } from "@/components/ui/skeleton";
 
 import {
-  RESUME_LIBRARY_CARD_ESTIMATED_SIZE,
   formatResumeLibraryJobDescriptionLabel,
-  findVerticalScrollParent,
   resumeLibraryScrollRestoreSnapshot,
   setResumeLibraryScrollRestoreSnapshot,
+  useResumeLibraryCardHeight,
   useResumeLibraryInitialScrollRestore,
   useResumeLibraryResizeScrollRestore,
+  useResumeLibraryScrollElement,
 } from "./resume-library-page-model";
 import type { ResumeLibraryGridState } from "./resume-library-page-model";
 interface ResumeLibraryCardListProps {
@@ -101,7 +100,9 @@ export function ResumeLibraryCardList({
   const listRootRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const restoreSnapshotRef = useRef(resumeLibraryScrollRestoreSnapshot.current);
-  const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null);
+  const scrollElement = useResumeLibraryScrollElement(listRootRef);
+  const cardHeight = useResumeLibraryCardHeight();
+  const { setRowSelection } = grid;
   const initialScrollRestore = useResumeLibraryInitialScrollRestore(restoreSnapshotRef);
   const getVirtualItemKey = useCallback(
     (index: number) => records[index]?.id ?? `resume-placeholder-${index}`,
@@ -109,14 +110,16 @@ export function ResumeLibraryCardList({
   );
   const virtualizer = useVirtualizer<HTMLElement, HTMLElement>({
     count: records.length,
-    estimateSize: () => RESUME_LIBRARY_CARD_ESTIMATED_SIZE,
+    estimateSize: () => cardHeight,
     getItemKey: getVirtualItemKey,
     getScrollElement: () => scrollElement,
     initialMeasurementsCache: initialScrollRestore.initialMeasurementsCache,
     initialOffset: initialScrollRestore.initialOffset,
     overscan: 6,
-    useAnimationFrameWithResizeObserver: true,
   });
+  useEffect(() => {
+    virtualizer.measure();
+  }, [cardHeight, virtualizer]);
   const virtualItems = virtualizer.getVirtualItems();
   const selectedIds = useMemo(
     () => Object.keys(grid.bind.rowSelection).filter((id) => grid.bind.rowSelection[id]),
@@ -125,6 +128,12 @@ export function ResumeLibraryCardList({
   const selectedRows = useMemo(
     () => records.filter((record) => grid.bind.rowSelection[record.id]),
     [records, grid.bind.rowSelection],
+  );
+  const handleSelectionChange = useCallback(
+    (recordId: string, checked: boolean) => {
+      setRowSelection((previous) => ({ ...previous, [recordId]: checked }));
+    },
+    [setRowSelection],
   );
   const selectedItems = useMemo(
     () =>
@@ -161,17 +170,6 @@ export function ResumeLibraryCardList({
     },
     [onOpenDetail, scrollElement, virtualizer],
   );
-
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      setScrollElement(
-        document.querySelector<HTMLElement>(
-          `[data-scroll-restoration-id="${STUDIO_MAIN_SCROLL_RESTORATION_ID}"]`,
-        ) ?? findVerticalScrollParent(listRootRef.current),
-      );
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [records.length]);
 
   useEffect(() => {
     const node = loadMoreRef.current;
@@ -229,8 +227,10 @@ export function ResumeLibraryCardList({
                 data-index={virtualRow.index}
                 data-resume-record-id={record.id}
                 key={virtualRow.key}
-                ref={virtualizer.measureElement}
-                style={{ transform: `translateY(${virtualRow.start}px)` }}
+                style={{
+                  height: virtualRow.size,
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
               >
                 <ResumeLibraryCard
                   canCreateChat={canCreateChat}
@@ -246,9 +246,7 @@ export function ResumeLibraryCardList({
                   onLaunchInterview={onLaunchInterview}
                   onOpenDetail={handleOpenDetail}
                   onPreviewResume={onPreviewResume}
-                  onSelectChange={(checked) =>
-                    grid.setRowSelection((prev) => ({ ...prev, [record.id]: checked }))
-                  }
+                  onSelectChange={handleSelectionChange}
                   onShowDuplicateMatches={onShowDuplicateMatches}
                   onTransition={onTransition}
                   onViewJobDescription={onViewJobDescription}

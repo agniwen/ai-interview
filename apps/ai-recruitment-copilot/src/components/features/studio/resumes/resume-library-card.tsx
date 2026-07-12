@@ -285,8 +285,8 @@ function renderResumeCardProfileSnapshotMoreRow(key: string) {
 }
 
 function ResumeCardProfileSnapshot({ snapshot }: { snapshot: ResumeLibraryProfileSnapshot }) {
-  const workLines = snapshot.work.slice(0, 3);
-  const educationLines = snapshot.education.slice(0, 3);
+  const workLines = snapshot.work.slice(0, snapshot.workHasMore ? 2 : 3);
+  const educationLines = snapshot.education.slice(0, snapshot.educationHasMore ? 2 : 3);
   const hasWorkGroup = workLines.length > 0 || snapshot.workHasMore;
   const hasEducationGroup = educationLines.length > 0 || snapshot.educationHasMore;
 
@@ -337,13 +337,13 @@ function ResumeLibraryCardComponent({
   const { jobDescriptionId } = record;
   const jobDescriptionTextClass =
     "block w-full max-w-full min-w-0 truncate text-left underline decoration-transparent underline-offset-2 transition-colors hover:decoration-foreground/40";
-  const toggleSelected = () => onSelectChange(!selected);
+  const toggleSelected = () => onSelectChange(record.id, !selected);
 
   return (
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <Card
       className={cn(
-        "transition-colors hover:border-border hover:bg-muted/30 dark:bg-input/30",
+        "h-full overflow-hidden transition-colors hover:border-border hover:bg-muted/30 dark:bg-input/30",
         selected && "border-primary/40 bg-primary/5 hover:bg-primary/5 hover:border-primary/60",
       )}
       onClick={(event) => {
@@ -376,7 +376,7 @@ function ResumeLibraryCardComponent({
             onClick={(event) => {
               event.stopPropagation();
             }}
-            onCheckedChange={(value) => onSelectChange(Boolean(value))}
+            onCheckedChange={(value) => onSelectChange(record.id, Boolean(value))}
           />
           <div className="mt-0.5 size-12 shrink-0 overflow-hidden rounded-full">
             <Avvvatars radius={48} size={48} style="shape" value={getResumeAvatarValue(record)} />
@@ -453,7 +453,7 @@ function ResumeLibraryCardComponent({
                 ) : null}
 
                 {skills.length > 0 ? (
-                  <div className="mt-3 flex flex-wrap gap-1.5">
+                  <div className="mt-3 flex max-h-14 flex-wrap gap-1.5 overflow-hidden">
                     {skills.map((item) => (
                       <Badge className="max-w-52 truncate" key={item} variant="secondary">
                         {item}
@@ -489,15 +489,4 @@ function ResumeLibraryCardComponent({
   );
 }
 
-export const ResumeLibraryCard = memo(
-  ResumeLibraryCardComponent,
-  (prev, next) =>
-    prev.canCreateChat === next.canCreateChat &&
-    prev.canCreateInterview === next.canCreateInterview &&
-    prev.canDeleteResumeLibrary === next.canDeleteResumeLibrary &&
-    prev.canUpdateResumeLibrary === next.canUpdateResumeLibrary &&
-    prev.currentMemberRole === next.currentMemberRole &&
-    prev.currentUserId === next.currentUserId &&
-    prev.record === next.record &&
-    prev.selected === next.selected,
-);
+export const ResumeLibraryCard = memo(ResumeLibraryCardComponent);

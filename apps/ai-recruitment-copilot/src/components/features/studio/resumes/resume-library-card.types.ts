@@ -16,7 +16,7 @@ export interface ResumeLibraryCardProps {
   onLaunchInterview: (record: ResumeLibraryListRecord) => void;
   onOpenDetail: (record: ResumeLibraryListRecord, tab?: ResumeDetailDefaultTab) => void;
   onPreviewResume: (record: ResumeLibraryListRecord) => void;
-  onSelectChange: (checked: boolean) => void;
+  onSelectChange: (recordId: string, checked: boolean) => void;
   onShowDuplicateMatches: (record: ResumeLibraryListRecord) => void;
   onTransition: (record: ResumeLibraryListRecord, mode: "close" | "reactivate") => void;
   onViewJobDescription: (id: string) => void;

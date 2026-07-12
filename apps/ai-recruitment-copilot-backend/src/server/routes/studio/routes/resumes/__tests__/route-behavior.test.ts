@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   loadOrCreateActiveInterviewContextSnapshot: vi.fn(),
   loadResumeDetail: vi.fn(),
   loadResumeDetailForWorkspaceMember: vi.fn(),
+  queryPaginatedResumeRecords: vi.fn(),
   removeImportedInterviewFromConversations: vi.fn(),
   replaceDuplicateMatchesForSource: vi.fn(),
   resetResumeEvaluationForJobChange: vi.fn(),
@@ -64,7 +65,7 @@ vi.mock(
   () => ({
     loadResumeDetail: mocks.loadResumeDetail,
     loadResumeDetailForWorkspaceMember: mocks.loadResumeDetailForWorkspaceMember,
-    queryPaginatedResumeRecords: vi.fn(),
+    queryPaginatedResumeRecords: mocks.queryPaginatedResumeRecords,
   }),
 );
 vi.mock(
@@ -195,6 +196,13 @@ describe("resumeLibraryRouter behavior", () => {
     mocks.jobDescriptionIdsExist.mockResolvedValue(true);
     mocks.buildScheduleRows.mockReturnValue([SCHEDULE_ROW]);
     mocks.loadInterviewRoundDetail.mockResolvedValue({ id: SCHEDULE_ROW.id });
+    mocks.queryPaginatedResumeRecords.mockResolvedValue({
+      page: 2,
+      pageSize: 20,
+      records: [],
+      total: 1103,
+      totalPages: 56,
+    });
     // oxlint-disable-next-line promise/prefer-await-to-callbacks -- Drizzle transactions use a callback API.
     mocks.transaction.mockImplementation((callback) => {
       const tx = {
@@ -214,6 +222,19 @@ describe("resumeLibraryRouter behavior", () => {
       // oxlint-disable-next-line promise/prefer-await-to-callbacks -- invoke the supplied transaction callback.
       return callback(tx);
     });
+  });
+
+  it("passes a known total to later list pages", async () => {
+    const response = await makeApp().request("/resumes?page=2&pageSize=20&knownTotal=1103");
+
+    expect(response.status).toBe(200);
+    expect(mocks.queryPaginatedResumeRecords).toHaveBeenCalledWith(
+      ORGANIZATION_ID,
+      expect.any(Object),
+      expect.objectContaining({ page: "2", pageSize: "20" }),
+      { kind: "all" },
+      1103,
+    );
   });
 
   it("persists duplicate matches after creating a resume-library record", async () => {

@@ -81,6 +81,7 @@ export const resumeLibraryReadRouter = factory
       z.object({
         creatorIds: z.string().optional(),
         jdIds: z.string().optional(),
+        knownTotal: z.coerce.number().int().min(0).max(10_000_000).optional(),
         outcomes: z.string().optional(),
         page: z.string().optional(),
         pageSize: z.string().optional(),
@@ -120,6 +121,7 @@ export const resumeLibraryReadRouter = factory
           sortOrder: q.sortOrder,
         },
         visibilityScope,
+        q.knownTotal,
       );
       return c.json(result, 200);
     },

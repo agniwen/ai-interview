@@ -118,27 +118,12 @@ export interface ResumeLibraryListRecord {
   candidatePhone: string | null;
   targetRole: string | null;
   notes: string | null;
-  hrResumeAssessment: string | null;
-  hrResumeAssessmentUpdatedAt: string | null;
-  hrResumeAssessmentUpdatedBy: string | null;
   jobDescriptionId: string | null;
   jobDescriptionDepartmentName: string | null;
   jobDescriptionName: string | null;
   resumeFileName: string | null;
-  resumeContentHash: string | null;
-  resumeEvaluationStatus: ResumeEvaluationStatus | null;
-  resumeReviewError: string | null;
-  resumeReviewGeneratedAt: string | null;
-  resumeReviewQueuedAt: string | null;
   resumeReviewStatus: ResumeReviewStatus;
-  resumeScreeningError: string | null;
-  resumeScreeningEvaluatedAt: string | null;
-  resumeScreeningResult: ResumeScreeningResult | null;
-  resumeScreeningStatus: ResumeScreeningStatus;
-  resumeScreeningStale: boolean;
   resumeSummary: string | null;
-  resumeParsedAt: string | null;
-  resumeParseError: string | null;
   resumeParseStatus: ResumeParseStatus;
   resumeSkills: string[];
   resumeProfileSnapshot: ResumeLibraryProfileSnapshot;
@@ -157,21 +142,6 @@ export interface ResumeLibraryListRecord {
   // Derived progress for the current stage; only ai_interview produces
   // schedule data today, others are placeholders.
   stageProgress: ResumeStageProgress;
-  // 阶段元数据（可空，按阶段写入）。Stage metadata, written on stage transitions.
-  writtenTestScheduledAt: string | null;
-  writtenTestScore: string | null;
-  humanInterviewScheduledAt: string | null;
-  humanInterviewerId: string | null;
-  offerSentAt: string | null;
-  offerAcceptedAt: string | null;
-  closedAt: string | null;
-  closedReason: string | null;
-  // 候选人期望（薪资 / 入职日等），Offer 阶段用。
-  // Candidate expectations JSON populated during the offer flow.
-  candidateExpectationsMeta: CandidateExpectationsMeta | null;
-  // 结案元数据（outcome 详情 + previousStage）。
-  // Closed-stage details + previousStage for reactivation.
-  closedMeta: ClosedMeta | null;
   createdAt: string;
   updatedAt: string;
   // 最近一次面试时间（AI 轮次或真人轮次的 max scheduledAt），无任何轮次则为 null。
@@ -180,7 +150,6 @@ export interface ResumeLibraryListRecord {
   createdBy: string | null;
   creatorName: string | null;
   creatorImage: string | null;
-  creatorOrganizationName: string | null;
 }
 
 /**
@@ -190,8 +159,34 @@ export interface ResumeLibraryListRecord {
  * (may be empty for legacy rows).
  */
 export interface ResumeLibraryDetail extends ResumeLibraryListRecord {
+  candidateExpectationsMeta: CandidateExpectationsMeta | null;
+  closedAt: string | null;
+  closedMeta: ClosedMeta | null;
+  closedReason: string | null;
+  creatorOrganizationName: string | null;
+  hrResumeAssessment: string | null;
+  hrResumeAssessmentUpdatedAt: string | null;
+  hrResumeAssessmentUpdatedBy: string | null;
+  humanInterviewerId: string | null;
+  humanInterviewScheduledAt: string | null;
   resumeProfile: ResumeProfile | null;
   resumeReview: ResumeReview | null;
+  resumeContentHash: string | null;
+  resumeEvaluationStatus: ResumeEvaluationStatus | null;
+  resumeParsedAt: string | null;
+  resumeParseError: string | null;
+  resumeReviewError: string | null;
+  resumeReviewGeneratedAt: string | null;
+  resumeReviewQueuedAt: string | null;
+  resumeScreeningError: string | null;
+  resumeScreeningEvaluatedAt: string | null;
+  resumeScreeningResult: ResumeScreeningResult | null;
+  resumeScreeningStale: boolean;
+  resumeScreeningStatus: ResumeScreeningStatus;
+  offerAcceptedAt: string | null;
+  offerSentAt: string | null;
+  writtenTestScheduledAt: string | null;
+  writtenTestScore: string | null;
   interviewQuestions: ResumeAnalysisResult["interviewQuestions"];
 }
 

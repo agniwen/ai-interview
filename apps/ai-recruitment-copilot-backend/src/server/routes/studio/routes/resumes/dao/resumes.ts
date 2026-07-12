@@ -233,6 +233,44 @@ const SELECTED_COLUMNS = {
   writtenTestScore: studioInterview.writtenTestScore,
 } as const;
 
+// 列表只取卡片、筛选结果和轻量操作实际需要的字段；评价详情、错误信息及阶段元数据
+// 由详情接口按需读取，避免每一页重复传输大块 JSON。
+const LIST_SELECTED_COLUMNS = {
+  candidateEmail: SELECTED_COLUMNS.candidateEmail,
+  candidateName: SELECTED_COLUMNS.candidateName,
+  candidatePhone: SELECTED_COLUMNS.candidatePhone,
+  createdAt: SELECTED_COLUMNS.createdAt,
+  createdBy: SELECTED_COLUMNS.createdBy,
+  creatorImage: SELECTED_COLUMNS.creatorImage,
+  creatorName: SELECTED_COLUMNS.creatorName,
+  id: SELECTED_COLUMNS.id,
+  jobDescriptionDepartmentName: SELECTED_COLUMNS.jobDescriptionDepartmentName,
+  jobDescriptionId: SELECTED_COLUMNS.jobDescriptionId,
+  jobDescriptionName: SELECTED_COLUMNS.jobDescriptionName,
+  notes: SELECTED_COLUMNS.notes,
+  outcome: SELECTED_COLUMNS.outcome,
+  pipelineStage: SELECTED_COLUMNS.pipelineStage,
+  resumeEducationExperiences: SELECTED_COLUMNS.resumeEducationExperiences,
+  resumeEducationGraduationYear: SELECTED_COLUMNS.resumeEducationGraduationYear,
+  resumeEducationLevel: SELECTED_COLUMNS.resumeEducationLevel,
+  resumeEducationMajor: SELECTED_COLUMNS.resumeEducationMajor,
+  resumeEducationPeriod: SELECTED_COLUMNS.resumeEducationPeriod,
+  resumeEducationSchool: SELECTED_COLUMNS.resumeEducationSchool,
+  resumeFileName: SELECTED_COLUMNS.resumeFileName,
+  resumeParseStatus: SELECTED_COLUMNS.resumeParseStatus,
+  resumeReviewConclusion: SELECTED_COLUMNS.resumeReviewConclusion,
+  resumeReviewStatus: SELECTED_COLUMNS.resumeReviewStatus,
+  resumeSchool: SELECTED_COLUMNS.resumeSchool,
+  resumeSkills: SELECTED_COLUMNS.resumeSkills,
+  resumeStorageKey: SELECTED_COLUMNS.resumeStorageKey,
+  resumeWorkCompany: SELECTED_COLUMNS.resumeWorkCompany,
+  resumeWorkExperiences: SELECTED_COLUMNS.resumeWorkExperiences,
+  resumeWorkPeriod: SELECTED_COLUMNS.resumeWorkPeriod,
+  resumeWorkRole: SELECTED_COLUMNS.resumeWorkRole,
+  targetRole: SELECTED_COLUMNS.targetRole,
+  updatedAt: SELECTED_COLUMNS.updatedAt,
+} as const;
+
 type Row = Awaited<ReturnType<typeof selectRows>>[number];
 
 function selectRows({
@@ -248,7 +286,7 @@ function selectRows({
   const offset = (page - 1) * pageSize;
 
   return db
-    .select(SELECTED_COLUMNS)
+    .select(LIST_SELECTED_COLUMNS)
     .from(studioInterview)
     .leftJoin(user, eq(studioInterview.createdBy, user.id))
     .leftJoin(
@@ -529,66 +567,34 @@ function toRecord(
   duplicateMatch?: ResumeDuplicateMatchSummary | null,
 ): ResumeLibraryListRecord {
   const resolvedDerived = derived ?? EMPTY_DERIVED_FIELDS;
-  const resumeScreeningResult = parseResumeScreeningResult(row.resumeScreeningResult);
-  const resumeScreeningStale = Boolean(
-    resumeScreeningResult?.policyHash &&
-    row.jobDescriptionResumeScreeningPolicyHash &&
-    resumeScreeningResult.policyHash !== row.jobDescriptionResumeScreeningPolicyHash,
-  );
   return {
     candidateEmail: row.candidateEmail,
-    candidateExpectationsMeta: row.candidateExpectationsMeta,
     candidateName: row.candidateName,
     candidatePhone: row.candidatePhone,
-    closedAt: serializeDate(row.closedAt),
-    closedMeta: row.closedMeta,
-    closedReason: row.closedReason,
     createdAt: serializeDate(row.createdAt),
     createdBy: row.createdBy,
     creatorImage: row.creatorImage,
     creatorName: row.creatorName,
-    creatorOrganizationName: row.creatorOrganizationName,
     duplicateMatch: duplicateMatch ?? null,
     hasInterviewRounds: resolvedDerived.hasInterviewRounds,
     hasResumeFile: Boolean(row.resumeStorageKey),
-    hrResumeAssessment: row.hrResumeAssessment,
-    hrResumeAssessmentUpdatedAt: serializeDate(row.hrResumeAssessmentUpdatedAt),
-    hrResumeAssessmentUpdatedBy: row.hrResumeAssessmentUpdatedBy,
-    humanInterviewScheduledAt: serializeDate(row.humanInterviewScheduledAt),
-    humanInterviewerId: row.humanInterviewerId,
     id: row.id,
     jobDescriptionDepartmentName: row.jobDescriptionDepartmentName,
     jobDescriptionId: row.jobDescriptionId,
     jobDescriptionName: row.jobDescriptionName,
     lastInterviewAt: resolvedDerived.lastInterviewAt,
     notes: row.notes,
-    offerAcceptedAt: serializeDate(row.offerAcceptedAt),
-    offerSentAt: serializeDate(row.offerSentAt),
     outcome: row.outcome,
     pipelineStage: row.pipelineStage,
-    resumeContentHash: row.resumeContentHash,
-    resumeEvaluationStatus: row.resumeEvaluationStatus,
     resumeFileName: row.resumeFileName,
-    resumeParseError: row.resumeParseError,
     resumeParseStatus: row.resumeParseStatus,
-    resumeParsedAt: serializeDate(row.resumeParsedAt),
     resumeProfileSnapshot: buildResumeProfileSnapshot(row),
-    resumeReviewError: row.resumeReviewError,
-    resumeReviewGeneratedAt: serializeDate(row.resumeReviewGeneratedAt),
-    resumeReviewQueuedAt: serializeDate(row.resumeReviewQueuedAt),
     resumeReviewStatus: row.resumeReviewStatus,
-    resumeScreeningError: row.resumeScreeningError,
-    resumeScreeningEvaluatedAt: serializeDate(row.resumeScreeningEvaluatedAt),
-    resumeScreeningResult,
-    resumeScreeningStale,
-    resumeScreeningStatus: row.resumeScreeningStatus,
     resumeSkills: buildResumeSkills(row.resumeSkills),
     resumeSummary: row.resumeReviewConclusion ?? row.notes?.trim() ?? null,
     stageProgress: resolvedDerived.stageProgress,
     targetRole: row.targetRole,
     updatedAt: serializeDate(row.updatedAt),
-    writtenTestScheduledAt: serializeDate(row.writtenTestScheduledAt),
-    writtenTestScore: row.writtenTestScore,
   };
 }
 
@@ -604,6 +610,7 @@ export async function queryPaginatedResumeRecords(
   },
   pagination?: Record<string, unknown>,
   visibilityScope?: RecruitingVisibilityScope,
+  knownTotal?: number,
 ): Promise<PaginatedResumeLibraryResult> {
   const parsedFilters = filtersSchema.parse(filters ?? {});
   const parsedPagination = paginationSchema.parse(pagination ?? {});
@@ -620,13 +627,20 @@ export async function queryPaginatedResumeRecords(
   };
   const where = buildWhere(organizationId, scopedFilters);
 
-  const [rows, [countRow]] = await Promise.all([
+  const totalPromise =
+    knownTotal === undefined
+      ? (async () => {
+          const [row] = await db.select({ count: count() }).from(studioInterview).where(where);
+          return row?.count ?? 0;
+        })()
+      : Promise.resolve(knownTotal);
+  const [rows, total] = await Promise.all([
     selectRows({
       filters: scopedFilters,
       organizationId,
       pagination: parsedPagination,
     }),
-    db.select({ count: count() }).from(studioInterview).where(where),
+    totalPromise,
   ]);
 
   const recordIds = rows.map((row) => row.id);
@@ -638,7 +652,6 @@ export async function queryPaginatedResumeRecords(
       sourceType: "studio_interview",
     }),
   ]);
-  const total = countRow?.count ?? 0;
   return {
     page: parsedPagination.page,
     pageSize: parsedPagination.pageSize,
@@ -724,6 +737,7 @@ export async function loadResumeDetail(
   }
 
   const { interviewQuestions, resumeProfile, resumeReview, ...rest } = row;
+  const resumeScreeningResult = parseResumeScreeningResult(rest.resumeScreeningResult);
   const [derivedFields, duplicateMatches] = await Promise.all([
     loadResumeDerivedFields([rest.id]),
     listActiveDuplicateMatchCounts({
@@ -738,9 +752,39 @@ export async function loadResumeDetail(
       derivedFields.get(rest.id),
       toDuplicateMatchSummary(duplicateMatches.get(rest.id)),
     ),
+    candidateExpectationsMeta: rest.candidateExpectationsMeta,
+    closedAt: serializeDate(rest.closedAt),
+    closedMeta: rest.closedMeta,
+    closedReason: rest.closedReason,
+    creatorOrganizationName: rest.creatorOrganizationName,
+    hrResumeAssessment: rest.hrResumeAssessment,
+    hrResumeAssessmentUpdatedAt: serializeDate(rest.hrResumeAssessmentUpdatedAt),
+    hrResumeAssessmentUpdatedBy: rest.hrResumeAssessmentUpdatedBy,
+    humanInterviewScheduledAt: serializeDate(rest.humanInterviewScheduledAt),
+    humanInterviewerId: rest.humanInterviewerId,
     interviewQuestions: interviewQuestions ?? [],
+    offerAcceptedAt: serializeDate(rest.offerAcceptedAt),
+    offerSentAt: serializeDate(rest.offerSentAt),
+    resumeContentHash: rest.resumeContentHash,
+    resumeEvaluationStatus: rest.resumeEvaluationStatus,
+    resumeParseError: rest.resumeParseError,
+    resumeParsedAt: serializeDate(rest.resumeParsedAt),
     resumeProfile,
     resumeReview,
+    resumeReviewError: rest.resumeReviewError,
+    resumeReviewGeneratedAt: serializeDate(rest.resumeReviewGeneratedAt),
+    resumeReviewQueuedAt: serializeDate(rest.resumeReviewQueuedAt),
+    resumeScreeningError: rest.resumeScreeningError,
+    resumeScreeningEvaluatedAt: serializeDate(rest.resumeScreeningEvaluatedAt),
+    resumeScreeningResult,
+    resumeScreeningStale: Boolean(
+      resumeScreeningResult?.policyHash &&
+      rest.jobDescriptionResumeScreeningPolicyHash &&
+      resumeScreeningResult.policyHash !== rest.jobDescriptionResumeScreeningPolicyHash,
+    ),
+    resumeScreeningStatus: rest.resumeScreeningStatus,
+    writtenTestScheduledAt: serializeDate(rest.writtenTestScheduledAt),
+    writtenTestScore: rest.writtenTestScore,
   };
 }
 

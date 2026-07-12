@@ -24,6 +24,8 @@ import { rpcFetch } from "../rpc-fetch";
 import type { DedupMatchRecord } from "./studio-interviews";
 
 export interface ResumeListParams {
+  /** 已知的列表总数；后续分页用于跳过重复 COUNT。 */
+  knownTotal?: number;
   page?: number;
   pageSize?: number;
   search?: string;
@@ -55,6 +57,7 @@ export function fetchStudioResumes(
       query: {
         ...(params.page === undefined ? {} : { page: String(params.page) }),
         ...(params.pageSize === undefined ? {} : { pageSize: String(params.pageSize) }),
+        ...(params.knownTotal === undefined ? {} : { knownTotal: String(params.knownTotal) }),
         ...(params.search ? { search: params.search } : {}),
         ...(params.creatorIds && params.creatorIds.length > 0
           ? { creatorIds: params.creatorIds.join(",") }

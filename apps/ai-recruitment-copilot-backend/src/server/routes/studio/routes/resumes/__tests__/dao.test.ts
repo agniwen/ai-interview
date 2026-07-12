@@ -217,10 +217,25 @@ describe("queryPaginatedResumeRecords", () => {
     }
     expect(sample).not.toHaveProperty("interviewQuestions");
     expect(sample).not.toHaveProperty("scheduleEntries");
+    expect(sample).not.toHaveProperty("resumeScreeningResult");
+    expect(sample).not.toHaveProperty("hrResumeAssessment");
     expect(sample.pipelineStage).toBeTypeOf("string");
     expect(sample.outcome).toBeTypeOf("string");
     expect(sample.hasResumeFile).toBeTypeOf("boolean");
     expect(typeof sample.createdAt).toBe("string");
+  });
+
+  it("reuses a known total for later pages", async () => {
+    const result = await queryPaginatedResumeRecords(
+      ORG_A,
+      undefined,
+      { page: 2, pageSize: 1 },
+      undefined,
+      99,
+    );
+
+    expect(result.total).toBe(99);
+    expect(result.totalPages).toBe(99);
   });
 
   it("includes active duplicate match summary for resume library rows", async () => {

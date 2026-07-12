@@ -199,6 +199,7 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
         fetchStudioResumes(slug, {
           creatorIds: parseCsvParam(params.filters.creatorIds),
           jobDescriptionIds: parseCsvParam(params.filters.jdIds),
+          knownTotal: params.knownTotal,
           page: params.page,
           pageSize: params.pageSize,
           pipelineStages: parseCsvParam(params.filters.stage),
@@ -270,13 +271,19 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
     activeSortOrder = activeSort.desc ? "desc" : "asc";
   }
   const resumeLibraryListQuery = useInfiniteQuery({
-    getNextPageParam: (lastPage: PaginatedResumeLibraryResult) =>
-      lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
-    initialPageParam: 1,
+    getNextPageParam: (
+      lastPage: PaginatedResumeLibraryResult,
+      allPages: PaginatedResumeLibraryResult[],
+    ) =>
+      lastPage.page < lastPage.totalPages
+        ? { knownTotal: allPages[0]?.total, page: lastPage.page + 1 }
+        : undefined,
+    initialPageParam: { knownTotal: undefined as number | undefined, page: 1 },
     queryFn: ({ pageParam }) =>
       fetcher({
         filters: grid.filters,
-        page: Number(pageParam),
+        knownTotal: pageParam.knownTotal,
+        page: pageParam.page,
         pageSize: RESUME_LIBRARY_INFINITE_PAGE_SIZE,
         search: grid.deferredSearch,
         sortBy: activeSort?.id,
