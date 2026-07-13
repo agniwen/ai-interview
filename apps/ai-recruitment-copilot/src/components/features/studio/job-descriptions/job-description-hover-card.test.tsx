@@ -77,6 +77,9 @@ describe("JobDescriptionHoverCard", () => {
     await vi.waitFor(() => {
       expect(rpcFetchMock).toHaveBeenCalledTimes(1);
       expect(document.body.textContent).toContain("负责产品前端研发");
+      expect(document.body.querySelector('[data-slot="hover-card-content"]')?.classList).toContain(
+        "bg-background",
+      );
       const scrollAreas = document.body.querySelectorAll('[data-slot="scroll-area"]');
       expect(scrollAreas).toHaveLength(2);
       expect(scrollAreas[0]?.classList).toContain("[--scroll-fade-reveal:1rem]");
