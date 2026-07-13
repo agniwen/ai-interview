@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { buildResumeSemanticTexts } from "./text-builders";
+import { buildJobDescriptionSemanticTexts, buildResumeSemanticTexts } from "./text-builders";
 import { hashResumeProfileForSemanticIndex } from "./profile-hash";
 
 const baseProfile: ResumeProfile = {
@@ -61,6 +61,39 @@ describe("buildResumeSemanticTexts", () => {
     expect(chunks[1]?.text).toContain("招聘系统重构");
     expect(chunks[2]?.text).toContain("TypeScript");
     expect(chunks[2]?.text).toContain("全栈工程师");
+  });
+});
+
+describe("buildJobDescriptionSemanticTexts", () => {
+  it("从 JD 生成 3 个 chunk，覆盖 name/department/description/prompt", () => {
+    const chunks = buildJobDescriptionSemanticTexts({
+      departmentName: "算法组",
+      description: "负责推荐系统",
+      id: "jd-1",
+      name: "推荐算法工程师",
+      prompt: "考察向量检索经验",
+    });
+    expect(chunks.map((c) => c.chunkType)).toEqual([
+      "resume_overview",
+      "work_project",
+      "skill_role",
+    ]);
+    expect(chunks[0].text).toContain("推荐算法工程师");
+    expect(chunks[0].text).toContain("算法组");
+    expect(chunks[2].text).toContain("考察向量检索经验");
+  });
+
+  it("description/prompt 全空时 work_project chunk 仍为非空 header(不产生空串)", () => {
+    const chunks = buildJobDescriptionSemanticTexts({
+      departmentName: null,
+      description: null,
+      id: "jd-2",
+      name: "产品经理",
+      prompt: "",
+    });
+    const workProject = chunks.find((c) => c.chunkType === "work_project");
+    expect(workProject?.text).toBe("## 职责和业务场景");
+    expect(workProject?.text).not.toBe("");
   });
 });
 

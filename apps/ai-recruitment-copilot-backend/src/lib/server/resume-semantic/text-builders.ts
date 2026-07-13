@@ -56,6 +56,55 @@ function latestWork(profile: ResumeProfile) {
   return profile.workExperiences[0] ?? null;
 }
 
+export interface JobDescriptionSemanticInput {
+  departmentName: string | null;
+  description: string | null;
+  id: string;
+  name: string;
+  prompt: string;
+}
+
+// JD 侧沿用旧 recommendations.ts 的语义：section 恒非空(空 body 也返回 `## 标题`),
+// 避免空字符串流入 embedding API。
+function sectionOrHeader(title: string, lines: (string | null)[]): string {
+  return section(title, lines) ?? `## ${title}`;
+}
+
+export function buildJobDescriptionSemanticTexts(
+  jd: JobDescriptionSemanticInput,
+): ResumeSemanticTextChunk[] {
+  const name = cleanText(jd.name);
+  const departmentName = cleanText(jd.departmentName);
+  const description = cleanText(jd.description);
+  const prompt = cleanText(jd.prompt);
+
+  return [
+    {
+      chunkType: "resume_overview",
+      text: sectionOrHeader("岗位概览", [
+        name ? `岗位名称：${name}` : null,
+        departmentName ? `所属部门：${departmentName}` : null,
+        description ? `岗位描述：${description}` : null,
+      ]),
+    },
+    {
+      chunkType: "work_project",
+      text: sectionOrHeader("职责和业务场景", [
+        description ? `业务描述：${description}` : null,
+        prompt ? `面试官提示：${prompt}` : null,
+      ]),
+    },
+    {
+      chunkType: "skill_role",
+      text: sectionOrHeader("岗位和技能要求", [
+        name ? `目标岗位：${name}` : null,
+        prompt ? `能力要求：${prompt}` : null,
+        description ? `补充描述：${description}` : null,
+      ]),
+    },
+  ];
+}
+
 export function buildResumeSemanticTexts(profile: ResumeProfile): ResumeSemanticTextChunk[] {
   const recentWork = latestWork(profile);
   const educationSummary = profile.educationExperiences?.map((item) =>

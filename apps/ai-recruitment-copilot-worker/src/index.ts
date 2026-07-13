@@ -89,6 +89,12 @@ async function main() {
     if (isResumeSemanticIndexEnabled()) {
       await recoverIncompleteResumeSemanticIndexJobs();
       semanticIndexWorker = createResumeSemanticIndexWorker(async (payload) => {
+        if (payload.sourceType === "job_description") {
+          const { runJdSemanticIndexJob } =
+            await import("@arc/ai-recruitment-copilot-backend/lib/server/jd-semantic/indexer");
+          await runJdSemanticIndexJob(payload as Parameters<typeof runJdSemanticIndexJob>[0]);
+          return;
+        }
         const { runResumeSemanticIndexJob } =
           await import("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer");
         await runResumeSemanticIndexJob(payload);

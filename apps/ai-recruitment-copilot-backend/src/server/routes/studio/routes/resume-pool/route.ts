@@ -23,6 +23,7 @@ import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backen
 import { listDuplicateMatchesForSource } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
 import { completeResumePoolReadinessWithDefaultAdapters } from "./utils/readiness";
 import {
+  bindResumePoolItemJobDescription,
   createResumePoolItem,
   deleteOwnPoolItem,
   importPoolItemToResumeLibrary,
@@ -30,7 +31,9 @@ import {
   publishPrivatePoolItem,
   queryResumePoolItems,
 } from "./dao";
+import { resumePoolRecommendationsRouter } from "./routes/recommendations/route";
 import {
+  resumePoolBindSchema,
   resumePoolCreateInputSchema,
   resumePoolImportInputSchema,
   resumePoolListQuerySchema,
@@ -344,4 +347,54 @@ export const resumePoolRouter = factory
         return c.json({ error: error instanceof Error ? error.message : "入库失败。" }, 400);
       }
     },
-  );
+  )
+  .post(
+    "/:id/bind",
+    requirePermission("resumePool", "import"),
+    requirePermission("jd", "read"),
+    zValidator("json", resumePoolBindSchema, jsonValidatorError("请求参数无效。")),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!activeOrg || !user) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const { jobDescriptionId } = c.req.valid("json");
+      const item = await loadResumePoolItem({
+        organizationId: activeOrg.id,
+        poolItemId: c.req.param("id"),
+        userId: user.id,
+      });
+      if (!item) {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
+      const [jd] = await db
+        .select({ id: jobDescription.id })
+        .from(jobDescription)
+        .where(
+          and(
+            eq(jobDescription.id, jobDescriptionId),
+            eq(jobDescription.organizationId, activeOrg.id),
+          ),
+        )
+        .limit(1);
+      if (!jd) {
+        return c.json({ error: "所选在招岗位不存在。" }, 400);
+      }
+      const bound = await bindResumePoolItemJobDescription({
+        actorId: user.id,
+        jobDescriptionId,
+        organizationId: activeOrg.id,
+        poolItemId: item.id,
+      });
+      if (!bound) {
+        return c.json({ error: "该简历已绑定岗位。" }, 409);
+      }
+      const updated = await loadResumePoolItem({
+        organizationId: activeOrg.id,
+        poolItemId: item.id,
+        userId: user.id,
+      });
+      return c.json(updated, 200);
+    },
+  )
+  .route("/:id/recommendations", resumePoolRecommendationsRouter);

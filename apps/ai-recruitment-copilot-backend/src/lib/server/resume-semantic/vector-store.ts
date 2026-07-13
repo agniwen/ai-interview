@@ -1,6 +1,6 @@
 import type { ResumeSemanticChunkType } from "./text-builders";
 
-export type ResumeSemanticSourceType = "resume_pool_item" | "studio_interview";
+export type ResumeSemanticSourceType = "resume_pool_item" | "studio_interview" | "job_description";
 export type ResumeVectorPayloadStatus = "active" | "archived";
 
 export interface ResumeEmbeddingChunk {

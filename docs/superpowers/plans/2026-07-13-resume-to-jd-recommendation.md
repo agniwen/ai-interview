@@ -899,14 +899,20 @@ git commit -m "feat(shared): add JobDescriptionRecommendation DTO for resume->JD
 
 镜像 `job-descriptions/utils/recommendations.ts` 的 `scoreCandidatesForJobDescription` / `recommendCandidatesForJobDescription`，方向翻转。**组织隔离在召回时**（`searchSimilarResumes({ organizationId, sourceTypes:["job_description"] })`）；**删除兜底在展示 join 时**（`loadJobDescriptionsForDisplay` 查 DB，行不存在即掉出）。简历向量优先 `loadResumeEmbeddings`（真复用），未索引时**现场 embed 带超时**。
 
+**本 Task 先抽取共享打分工具**（决策：抽共享 helper，避免两侧逻辑漂移 / 评审判重复）：把 `recommendations.ts` 里的 `SEARCH_LIMIT_BY_CHUNK`、`mergeVectorScores`、`weightedScore`、`VectorScores` 抽到新建 `resume-semantic/scoring.ts`，`recommendations.ts` 改为 import（删本地副本），`jd-recommendations.ts` 也 import。`mergeVectorScores` 参数化 sourceType（JD 侧传 `"job_description"`，候选人侧传 `"studio_interview"`）。**不得逐字复制这三段逻辑。**
+
 **Files:**
 
+- Create: `apps/ai-recruitment-copilot-backend/src/lib/server/resume-semantic/scoring.ts`（共享 `SEARCH_LIMIT_BY_CHUNK` / `mergeVectorScores(results, sourceType)` / `weightedScore` / `VectorScores`）
+- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/job-descriptions/utils/recommendations.ts`（删本地三段、改 import `scoring.ts`，`mergeVectorScores(..., "studio_interview")`）
 - Create: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resume-pool/utils/jd-recommendations.ts`
+- Test: `apps/ai-recruitment-copilot-backend/src/lib/server/resume-semantic/scoring.test.ts`（新，测 merge 参数化 + 权重）
 - Test: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resume-pool/utils/jd-recommendations.test.ts`
 
 **Interfaces:**
 
-- Consumes: `loadResumeEmbeddings`/`searchSimilarResumes`（`QdrantResumeVectorStore`）, `buildResumeSemanticTexts`, `embedResumeSemanticTexts`, `getResumeEmbeddingConfig`, `getResumeSemanticIndexConfig`, `isResumeSemanticIndexEnabled`, `JobDescriptionRecommendationResult`(B1)。
+- Consumes: `loadResumeEmbeddings`/`searchSimilarResumes`（`QdrantResumeVectorStore`）, `buildResumeSemanticTexts`, `embedResumeSemanticTexts`, `getResumeEmbeddingConfig`, `getResumeSemanticIndexConfig`, `isResumeSemanticIndexEnabled`, `JobDescriptionRecommendationResult`(B1), **`SEARCH_LIMIT_BY_CHUNK`/`mergeVectorScores`/`weightedScore`（本 Task 新建的 `scoring.ts`）**。
+- Produces（除下方推荐函数外，另导出共享 `scoring.ts`）: `SEARCH_LIMIT_BY_CHUNK`、`mergeVectorScores(results: ResumeVectorSearchResult[], sourceType: ResumeSemanticSourceType): Map<string, VectorScores>`、`weightedScore(scores: VectorScores): number`。
 - Produces:
 
   ```ts
@@ -927,6 +933,12 @@ git commit -m "feat(shared): add JobDescriptionRecommendation DTO for resume->JD
   ```
 
   `deps` 镜像 `RecommendationDeps`，另加 `loadResumeChunks(input): Promise<ResumeStoredEmbeddingChunk[]>`（默认 `vectorStore.loadResumeEmbeddings`）、`enqueueResumeReindex(input: { organizationId: string; sourceId: string }): Promise<void>`（默认 best-effort 入队 resume_pool_item 重索引，供 fallback 用）、`countIndexedJdVectors(organizationId: string): Promise<number>`（默认查 resume_semantic_index 已索引 JD 行数，供 `indexing(b)` 判定）与 `loadJobDescriptionsForDisplay(orgId, ids): Promise<JobDescriptionDisplayRow[]>`。测试的 `depsWith` 需补 `enqueueResumeReindex`/`countIndexedJdVectors` 的 `vi.fn`，并在「现场 embed 回退」断言 `enqueueResumeReindex` 被调用。
+
+- [ ] **Step 0: 抽取共享 `scoring.ts`（先做，含护栏）** —
+  1. 新建 `resume-semantic/scoring.ts`，从 `recommendations.ts:108-112/157-183` 迁入 `SEARCH_LIMIT_BY_CHUNK`、`VectorScores`、`mergeVectorScores`、`weightedScore`；`mergeVectorScores` 签名改 `(results, expectedSourceType)`，guard 用参数 `if (r.sourceType !== expectedSourceType) continue`。
+  2. 写 `scoring.test.ts`：`mergeVectorScores` 按传入 sourceType 过滤（传 `"job_description"` 只并 JD 命中）、`weightedScore` 权重（0.9/0.8/0.7→82）。
+  3. 改 `recommendations.ts`：删本地三段，import `scoring.ts`，调用处 `mergeVectorScores(results, "studio_interview")`。
+  4. 跑 `pnpm --filter @arc/ai-recruitment-copilot-backend test scoring recommendations` → **两者皆绿**（recommendations.test.ts 无回归 = 抽取正确的护栏）。
 
 - [ ] **Step 1: 写失败测试** — 镜像 `recommendations.test.ts` 的 `depsWith` 工厂，`searchSimilarResumes` 返回 `sourceType:"job_description"`。覆盖用例：
   1. 加权：per-chunk skill_role=0.9/work_project=0.8/resume_overview=0.7 → `score===82`；`status:"ready"`。
@@ -1067,11 +1079,11 @@ Expected: FAIL（模块不存在）
     3. 取简历向量：`const stored = await deps.loadResumeChunks({ embeddingVersion, organizationId, sourceId: resume.id, sourceType:"resume_pool_item" })`。
     4. fallback：`stored` 空 → **入队后台补索引**（`deps.enqueueResumeReindex({ organizationId, sourceId: resume.id })`，默认实现 = `enqueueResumeSemanticIndexJobBestEffort({ ..., sourceType:"resume_pool_item" })`，兑现 ADR「已排队后台补索引」）；随后若无 `profile` 直接 `status:"indexing"`；否则 `withTimeout(deps.embed({ ...embeddingConfig, chunks: buildResumeSemanticTexts(profile) }), JD_REC_EMBED_TIMEOUT_MS)`（模块内常量 `= 3000`，与 ADR 一致），超时/失败 catch → `status:"indexing"`。得到 `chunkEmbeddings: { chunkType, embedding }[]`。
     5. 对 3 个 chunk `Promise.all` 调 `deps.vectorStore.searchSimilarResumes({ chunkType, embedding, limit: SEARCH_LIMIT_BY_CHUNK[chunkType], organizationId, sourceTypes:["job_description"] })`。
-    6. `mergeVectorScores`（复制 recommendations.ts:157-174，把 guard 改成 `!== "job_description" → continue`）→ `weightedScore`（同权重）→ `retrievedIds`。
+    6. `mergeVectorScores(results, "job_description")`（来自共享 `scoring.ts`，sourceType 参数化）→ `weightedScore`（共享）→ `retrievedIds`。
     7. `filter(score>=55)` → 排序 `toSorted((a,b)=>b.score-a.score || a.jdId.localeCompare(b.jdId))`（分数降序，同分 JD id 升序，确定性）→ 取**全部**过阈值 id（不预截断）传 `loadJobDescriptionsForDisplay(org, ids)`（org-scoped）→ 按上面排序保留 DB 有行的 → **再** `.slice(0, topN)` → map 成 `JobDescriptionRecommendation`（`buildReasons` facet 话术、`description` 截断摘要）。**存在性过滤必须在 slice 之前**（ADR 硬约束），否则已删 JD 占位会让返回少于 topN。
     8. `indexing(b)` 判定：若 `retrievedIds.size === 0`（0 命中），查 `deps.countIndexedJdVectors(organizationId)`（默认 = `select count(*) from resume_semantic_index where org=? and sourceType='job_description' and status='indexed'`）；计数为 0 → `status:"indexing"`（本组织 JD 未回填）；计数>0 → `status:"ready"` 空结果（确实无匹配）。区分二者是 ADR 要求。
     9. return `{ diagnostics:{ filteredByThreshold, vectorHitCount: retrievedIds.size }, recommendations, resume:{ id }, status }`。
-  - `SEARCH_LIMIT_BY_CHUNK`、`weightedScore`、`mergeVectorScores` 从 recommendations.ts 复制（DRY 上可后续共享，本 Task 先内联，避免跨 route 依赖）。
+  - `SEARCH_LIMIT_BY_CHUNK`、`weightedScore`、`mergeVectorScores` **从共享 `scoring.ts` import**（本 Task Step 0 已抽取，两侧共用，不重复）。抽取时先跑 `recommendations.test.ts` 确认候选人侧无回归（它是抽取正确性的护栏）。
   - `buildReasons(similarity)`：facet 命中 → `["技能与岗位要求相似","职责/项目经验匹配","整体画像匹配"]` 中对应项（skillRole/workProject/resumeOverview 有分即加）。
   - `createDefaultJdRecommendationDeps`：`enabled = isResumeSemanticIndexEnabled() && Boolean(cfg.qdrantUrl) && Boolean(embeddingConfig.apiKey)`；`vectorStore = new QdrantResumeVectorStore({...cfg})`；`loadResumeChunks = (i)=>store.loadResumeEmbeddings(i)`；`enqueueResumeReindex = (i)=>enqueueResumeSemanticIndexJobBestEffort({ organizationId: i.organizationId, sourceId: i.sourceId, sourceType:"resume_pool_item" })`；`countIndexedJdVectors = (org)=>db.$count 查 resume_semantic_index where org + sourceType='job_description' + status='indexed'`；`loadJobDescriptionsForDisplay` 查 `jobDescription` leftJoin `department` where org + `inArray(id, ids)`。
 
@@ -1083,8 +1095,8 @@ Expected: PASS（全部用例）
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resume-pool/utils/jd-recommendations.ts apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resume-pool/utils/jd-recommendations.test.ts
-git commit -m "feat(resume-pool): add resume->JD recommendation scoring kernel"
+git add apps/ai-recruitment-copilot-backend/src/lib/server/resume-semantic/scoring.ts apps/ai-recruitment-copilot-backend/src/lib/server/resume-semantic/scoring.test.ts apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/job-descriptions/utils/recommendations.ts apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resume-pool/utils/jd-recommendations.ts apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resume-pool/utils/jd-recommendations.test.ts
+git commit -m "feat(resume-pool): add resume->JD recommendation scoring kernel with shared scoring helpers"
 ```
 
 ## Task B3: 推荐端点
@@ -1406,5 +1418,5 @@ git commit -m "feat(resume-pool): embed JD recommendations panel with one-click 
 ## Self-Review 记录
 
 - **ADR 覆盖**：决策 1（JD 进向量库）→A1–A5；决策 2（旁路/worker 分流）→A4/A5/A7；决策 3（详情页入口）→B4/B6；决策 4（一键回填 `resumePoolItem.jobDescriptionId`）→**B5 新增 `POST /:id/bind` + B6 前端**（选项 A）；决策 5（已绑定不展示）→B4 `enabled:!bound`（gate 读 pool item 自身 jobDescriptionId，与 B5 回填目标一致）。数据流索引时→A5/A8；查询时→B2。组件清单队列/schema→A4/A7；后端 lib→A3/A5/A6；route→A8/B3/B5；打分内核→B2；Shared DTO→B1；前端→B4/B6；存量回填→A9。边界与失效（disabled/indexing/删除兜底/可观测性/回退补索引）→B2 用例 + A6 日志。测试三类→A5/B2/B3/B5。
-- **偏离 ADR 处（已在正文标注）**：(1) 无需新建 JD vector store 类，直接复用 `QdrantResumeVectorStore`；(2) hash 增加 `departmentName`（回写 ADR）；(3) **绑定=选项 A 新增 `POST /:id/bind`**（ADR 决策 4 误以为 `jobDescriptionMode:"bind"` 回填 pool item，实为 import 入库；已核实并回写 ADR）；(4) 权限内联而非 `.use()`；(5) `perChunkLimit` 落地为现有 `SEARCH_LIMIT_BY_CHUNK` 常量、检索参数名为 `limit`（回写 ADR）；(6) `markSemanticIndex*` 未导出，改用 `upsertResumeSemanticIndexState`。
+- **偏离 ADR 处（已在正文标注）**：(1) 无需新建 JD vector store 类，直接复用 `QdrantResumeVectorStore`；(2) hash 增加 `departmentName`（回写 ADR）；(3) **绑定=选项 A 新增 `POST /:id/bind`**（ADR 决策 4 误以为 `jobDescriptionMode:"bind"` 回填 pool item，实为 import 入库；已核实并回写 ADR）；(4) 权限内联而非 `.use()`；(5) `perChunkLimit` 落地为现有 `SEARCH_LIMIT_BY_CHUNK` 常量、检索参数名为 `limit`（回写 ADR）；(6) `markSemanticIndex*` 未导出，改用 `upsertResumeSemanticIndexState`；(7) 打分工具（`SEARCH_LIMIT_BY_CHUNK`/`mergeVectorScores`/`weightedScore`）**抽到共享 `resume-semantic/scoring.ts`**、两侧 import（用户定夺：抽共享 helper 而非复制），B2 Step 0 完成抽取。
 - **类型一致性**：`sourceType:"job_description"` 贯穿 A1/A4/A5/A6/A7；`JobDescriptionRecommendationResult` 由 B1 定义、B2/B3/B4 消费；`JobDescriptionSemanticInput` 由 A2 定义、A3/A5 消费。

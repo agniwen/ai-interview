@@ -48,6 +48,7 @@ import {
   uploaderOrganizationLabel,
   uploaderUserLabel,
 } from "./resume-pool-page-model";
+import { ResumePoolRecommendationsPanel } from "./resume-pool-recommendations-panel";
 
 const RESUME_POOL_CARD_SKILL_LIMIT = 18;
 
@@ -368,6 +369,9 @@ export function ResumePoolDetailDialog({
             }
             resumeProfile={resumeProfile}
           />
+          {detailQuery.data ? (
+            <ResumePoolRecommendationsPanel detail={detailQuery.data} slug={slug} />
+          ) : null}
           <ResumePoolStructuredInfoPanel
             detail={detail}
             isLoading={detailQuery.isLoading}

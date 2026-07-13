@@ -125,3 +125,20 @@ export interface JobDescriptionTalentRecommendationResult {
   };
   status: "disabled" | "ready";
 }
+
+export interface JobDescriptionRecommendation {
+  departmentName: string | null;
+  description: string | null;
+  id: string;
+  name: string;
+  reasons: string[];
+  score: number;
+  similarity: { resumeOverview?: number; skillRole?: number; workProject?: number };
+}
+
+export interface JobDescriptionRecommendationResult {
+  diagnostics: { eligibleCount: number; vectorHitCount: number };
+  recommendations: JobDescriptionRecommendation[];
+  resume: { id: string };
+  status: "disabled" | "ready" | "already_matched" | "indexing";
+}

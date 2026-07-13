@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   mailIngestMessage,
@@ -101,6 +101,13 @@ export interface DeleteOwnPoolItemInput {
   organizationId: string;
   poolItemId: string;
   userId: string;
+}
+
+export interface BindResumePoolItemJobDescriptionInput {
+  actorId: string | null;
+  jobDescriptionId: string;
+  organizationId: string;
+  poolItemId: string;
 }
 
 function normalizeSkills(skills: readonly string[] | null | undefined): string[] {
@@ -735,5 +742,39 @@ export async function deleteOwnPoolItem(input: DeleteOwnPoolItemInput): Promise<
     organizationId: input.organizationId,
     sourceId: input.poolItemId,
     sourceType: "resume_pool_item",
+  });
+}
+
+/**
+ * Bind a pool item to a job description exactly once. The WHERE clause only
+ * matches rows that are not yet bound, so concurrent calls race on the same
+ * UPDATE: the first writer wins and the second updates zero rows.
+ */
+export async function bindResumePoolItemJobDescription(
+  input: BindResumePoolItemJobDescriptionInput,
+): Promise<boolean> {
+  return await db.transaction(async (tx) => {
+    const updated = await tx
+      .update(resumePoolItem)
+      .set({ jobDescriptionId: input.jobDescriptionId, updatedAt: new Date() })
+      .where(
+        and(
+          eq(resumePoolItem.id, input.poolItemId),
+          eq(resumePoolItem.organizationId, input.organizationId),
+          isNull(resumePoolItem.jobDescriptionId),
+        ),
+      )
+      .returning({ id: resumePoolItem.id });
+    if (updated.length === 0) {
+      return false;
+    }
+    await writeResumePoolEvent(tx, {
+      actorId: input.actorId,
+      organizationId: input.organizationId,
+      payload: { jobDescriptionId: input.jobDescriptionId },
+      poolItemId: input.poolItemId,
+      type: "bound",
+    });
+    return true;
   });
 }
