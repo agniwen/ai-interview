@@ -15,7 +15,7 @@ export const RESUME_SEMANTIC_INDEX_JOB_NAME = "index-resume-semantic";
 export const resumeSemanticIndexJobSchema = z.object({
   organizationId: z.string().min(1),
   sourceId: z.string().min(1),
-  sourceType: z.enum(["studio_interview", "resume_pool_item"]),
+  sourceType: z.enum(["studio_interview", "resume_pool_item", "job_description"]),
 });
 
 export type ResumeSemanticIndexJobData = z.infer<typeof resumeSemanticIndexJobSchema>;

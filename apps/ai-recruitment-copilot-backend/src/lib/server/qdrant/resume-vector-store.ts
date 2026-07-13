@@ -124,8 +124,10 @@ function isChunkType(value: unknown): value is ResumeSemanticChunkType {
   return value === "resume_overview" || value === "work_project" || value === "skill_role";
 }
 
-function isSourceType(value: unknown): value is ResumeSemanticSourceType {
-  return value === "studio_interview" || value === "resume_pool_item";
+export function isSourceType(value: unknown): value is ResumeSemanticSourceType {
+  return (
+    value === "studio_interview" || value === "resume_pool_item" || value === "job_description"
+  );
 }
 
 function isPayloadStatus(value: unknown): value is ResumeStoredEmbeddingChunk["status"] {
