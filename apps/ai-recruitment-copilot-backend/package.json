@@ -14,6 +14,7 @@
   },
   "scripts": {
     "backfill:interview-snapshots": "tsx src/scripts/backfill-interview-snapshots.ts",
+    "backfill:jd-semantic-index": "tsx src/scripts/backfill-jd-semantic-index.ts",
     "backfill:resume-profiles": "tsx src/scripts/backfill-resume-profiles.ts",
     "backfill:resume-pool-semantic-index": "tsx src/scripts/backfill-resume-pool-semantic-index.ts",
     "backfill:resume-semantic-index": "tsx src/scripts/backfill-resume-semantic-index.ts",
