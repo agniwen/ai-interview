@@ -90,6 +90,11 @@ export default defineConfig({
             "cache-control": "no-cache",
           },
         },
+        "/api/app-version": {
+          headers: {
+            "cache-control": "no-store",
+          },
+        },
         "/assets/**": {
           headers: {
             "cache-control": "public, max-age=31536000, immutable",

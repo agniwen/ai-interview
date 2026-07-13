@@ -3,6 +3,7 @@ import {
   formatResumeEducationItem,
   sortResumeEducationExperiences,
 } from "@arc/shared/resume-education";
+import { cn } from "@arc/shared/utils";
 import { ResumeEducationDisplayLine } from "@/components/features/resume/resume-education-line";
 import { DataField } from "@/components/features/display/data-field";
 import { DataFields } from "@/components/features/display/data-fields";
@@ -170,7 +171,14 @@ function EducationExperienceList({
   }
 
   return (
-    <Frame className="grid grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] gap-1 *:[[data-slot=frame-panel]+[data-slot=frame-panel]]:mt-0">
+    <Frame
+      className={cn(
+        "grid w-full gap-1 *:[[data-slot=frame-panel]+[data-slot=frame-panel]]:mt-0",
+        educationExperiences.length === 1
+          ? "grid-cols-1 lg:max-w-[33.333333%]"
+          : "grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]",
+      )}
+    >
       {educationExperiences.map((education, index) => {
         const educationItem = formatResumeEducationItem(education) ?? {
           level: null,
@@ -180,7 +188,18 @@ function EducationExperienceList({
         const period = cleanText(education.period) ?? cleanText(education.graduationYear);
         return (
           <FramePanel
-            className="flex min-w-0 flex-col p-3"
+            className={cn(
+              "flex min-w-0 flex-col p-3",
+              educationExperiences.length > 1 &&
+                index === 0 &&
+                "rounded-r-[2px] before:rounded-r-[1px]",
+              index > 0 &&
+                index < educationExperiences.length - 1 &&
+                "rounded-[2px] before:rounded-[1px]",
+              educationExperiences.length > 1 &&
+                index === educationExperiences.length - 1 &&
+                "rounded-l-[2px] before:rounded-l-[1px]",
+            )}
             key={`${education.school ?? "education"}-${index}`}
           >
             <ResumeEducationDisplayLine

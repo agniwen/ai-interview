@@ -2,6 +2,7 @@ import { Outlet, createFileRoute, notFound, redirect, useLoaderData } from "@tan
 import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
 import { GlimmProvider } from "glimm/react";
 import { BackgroundStreamToaster } from "@/components/features/chat/background-stream-toaster";
+import { AppVersionProvider } from "@/components/features/app-version/app-version-provider";
 import { AppSidebarShell } from "@/components/layout/app-sidebar/app-sidebar-shell";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 import { getWorkspaceAccessState } from "@/lib/start/auth-session";
@@ -14,18 +15,20 @@ function WorkspaceRoute() {
   }
 
   return (
-    <WorkspaceSlugProvider
-      id={state.workspace.id}
-      memberRole={state.member.role}
-      slug={state.workspace.slug}
-    >
-      <GlimmProvider palette="azure">
-        <AppSidebarShell>
-          <Outlet />
-        </AppSidebarShell>
-      </GlimmProvider>
-      <BackgroundStreamToaster />
-    </WorkspaceSlugProvider>
+    <AppVersionProvider>
+      <WorkspaceSlugProvider
+        id={state.workspace.id}
+        memberRole={state.member.role}
+        slug={state.workspace.slug}
+      >
+        <GlimmProvider palette="azure">
+          <AppSidebarShell>
+            <Outlet />
+          </AppSidebarShell>
+        </GlimmProvider>
+        <BackgroundStreamToaster />
+      </WorkspaceSlugProvider>
+    </AppVersionProvider>
   );
 }
 

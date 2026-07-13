@@ -18,6 +18,7 @@ function renderFields() {
     root.render(
       <DataFields columns={3} density="compact" label="候选人信息">
         <DataField kind="email" label="邮箱" value="candidate@example.com" />
+        <DataField kind="phone" label="联系电话" value="13800138000" />
         <DataField kind="number" label="工作年限" value={12_345} />
         <DataField kind="boolean" label="已入库" value={false} />
         <DataField label="电话" span="full" value={null} />
@@ -35,6 +36,12 @@ describe("DataField", () => {
     expect(host.querySelector('a[href="mailto:candidate@example.com"]')?.textContent).toBe(
       "candidate@example.com",
     );
+    const emailLink = host.querySelector('a[href="mailto:candidate@example.com"]');
+    const phoneLink = host.querySelector('a[href="tel:13800138000"]');
+    expect(emailLink?.className).not.toMatch(/(^|\s)underline(\s|$)/);
+    expect(emailLink?.className).toContain("hover:underline");
+    expect(phoneLink?.className).not.toMatch(/(^|\s)underline(\s|$)/);
+    expect(phoneLink?.className).toContain("hover:underline");
     expect(host.textContent).toContain("12,345");
     expect(host.textContent).toContain("否");
     expect(host.textContent).toContain("—");
