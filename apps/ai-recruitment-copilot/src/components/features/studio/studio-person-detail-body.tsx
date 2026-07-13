@@ -588,75 +588,77 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                                         </ScrollArea>
                                       </CardPanel>
                                     </Card>
-                                    <Card>
-                                      <CardHeader>
-                                        <CardTitle className="text-sm">会话概览</CardTitle>
-                                        <CardAction>
-                                          <ReportMetadataButton
-                                            disabled={!snapshotMetadata}
-                                            label=""
-                                            onClick={() => setMetadataReport(report)}
-                                            visible={canViewReportMetadata}
-                                          />
-                                        </CardAction>
-                                      </CardHeader>
-                                      <CardPanel>
-                                        <div className="grid gap-x-8 gap-y-4 text-sm md:grid-cols-2">
-                                          <DetailRow
-                                            label="会话 ID"
-                                            value={
-                                              <span className="break-all">
-                                                {report.conversationId}
-                                              </span>
-                                            }
-                                          />
-                                          <DetailRow
-                                            label="开始时间"
-                                            value={
-                                              <TimeDisplay
-                                                options={DATE_TIME_DISPLAY_OPTIONS}
-                                                value={startedAt}
-                                              />
-                                            }
-                                          />
-                                          <DetailRow
-                                            label="结束时间"
-                                            value={
-                                              <TimeDisplay
-                                                options={DATE_TIME_DISPLAY_OPTIONS}
-                                                value={endedAt}
-                                              />
-                                            }
-                                          />
-                                          <DetailRow
-                                            label="消息统计"
-                                            value={`共 ${displayTurnCount} 条 · 候选人 ${displayUserTurnCount} 条 · 面试官 ${displayAgentTurnCount} 条`}
-                                          />
-                                          <DetailRow
-                                            label="同步时间"
-                                            value={
-                                              <TimeDisplay
-                                                options={DATE_TIME_DISPLAY_OPTIONS}
-                                                value={report.lastSyncedAt}
-                                              />
-                                            }
-                                          />
-                                          <DetailRow
-                                            label="Webhook"
-                                            value={
-                                              report.webhookReceivedAt ? (
+                                    {env.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS ? (
+                                      <Card>
+                                        <CardHeader>
+                                          <CardTitle className="text-sm">会话概览</CardTitle>
+                                          <CardAction>
+                                            <ReportMetadataButton
+                                              disabled={!snapshotMetadata}
+                                              label=""
+                                              onClick={() => setMetadataReport(report)}
+                                              visible={canViewReportMetadata}
+                                            />
+                                          </CardAction>
+                                        </CardHeader>
+                                        <CardPanel>
+                                          <div className="grid gap-x-8 gap-y-4 text-sm md:grid-cols-2">
+                                            <DetailRow
+                                              label="会话 ID"
+                                              value={
+                                                <span className="break-all">
+                                                  {report.conversationId}
+                                                </span>
+                                              }
+                                            />
+                                            <DetailRow
+                                              label="开始时间"
+                                              value={
                                                 <TimeDisplay
                                                   options={DATE_TIME_DISPLAY_OPTIONS}
-                                                  value={report.webhookReceivedAt}
+                                                  value={startedAt}
                                                 />
-                                              ) : (
-                                                "未收到"
-                                              )
-                                            }
-                                          />
-                                        </div>
-                                      </CardPanel>
-                                    </Card>
+                                              }
+                                            />
+                                            <DetailRow
+                                              label="结束时间"
+                                              value={
+                                                <TimeDisplay
+                                                  options={DATE_TIME_DISPLAY_OPTIONS}
+                                                  value={endedAt}
+                                                />
+                                              }
+                                            />
+                                            <DetailRow
+                                              label="消息统计"
+                                              value={`共 ${displayTurnCount} 条 · 候选人 ${displayUserTurnCount} 条 · 面试官 ${displayAgentTurnCount} 条`}
+                                            />
+                                            <DetailRow
+                                              label="同步时间"
+                                              value={
+                                                <TimeDisplay
+                                                  options={DATE_TIME_DISPLAY_OPTIONS}
+                                                  value={report.lastSyncedAt}
+                                                />
+                                              }
+                                            />
+                                            <DetailRow
+                                              label="Webhook"
+                                              value={
+                                                report.webhookReceivedAt ? (
+                                                  <TimeDisplay
+                                                    options={DATE_TIME_DISPLAY_OPTIONS}
+                                                    value={report.webhookReceivedAt}
+                                                  />
+                                                ) : (
+                                                  "未收到"
+                                                )
+                                              }
+                                            />
+                                          </div>
+                                        </CardPanel>
+                                      </Card>
+                                    ) : null}
                                     {env.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING ? (
                                       <RecordingPlayer
                                         accessMode={isPublic ? "public" : "authed"}
@@ -667,7 +669,9 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                                         status={report.recordingStatus}
                                       />
                                     ) : null}
-                                    <InterviewMetricsPanel metrics={report.metrics ?? {}} />
+                                    {env.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS ? (
+                                      <InterviewMetricsPanel metrics={report.metrics ?? {}} />
+                                    ) : null}
                                   </div>
                                   <div className="lg:relative">
                                     <Card className="h-[480px] overflow-hidden lg:absolute lg:inset-0 lg:h-auto">

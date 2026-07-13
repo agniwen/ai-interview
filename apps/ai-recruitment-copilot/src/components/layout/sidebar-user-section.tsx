@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
 import { FeishuSignInButton } from "@/components/features/auth/feishu-sign-in-button";
+import { TimeDisplay } from "@/components/features/display/time-display";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { authClient } from "@/lib/client/auth-client";
+import { BUILD_TIME } from "@/lib/client/build-info";
 
 const WHITESPACE_REGEX = /\s+/;
 
@@ -98,6 +100,10 @@ export function SidebarUserSection({
               {organizationName ? (
                 <p className="truncate text-muted-foreground text-xs">{organizationName}</p>
               ) : null}
+              <p className="flex items-center gap-1 text-muted-foreground text-xs">
+                <span>更新于</span>
+                <TimeDisplay as="span" value={BUILD_TIME} />
+              </p>
             </DropdownMenuLabel>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
@@ -149,6 +155,10 @@ export function SidebarUserSection({
               {organizationName ? (
                 <p className="truncate text-muted-foreground text-xs">{organizationName}</p>
               ) : null}
+              <p className="flex items-center gap-1 text-muted-foreground text-xs">
+                <span>更新于</span>
+                <TimeDisplay as="span" value={BUILD_TIME} />
+              </p>
             </DropdownMenuLabel>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />

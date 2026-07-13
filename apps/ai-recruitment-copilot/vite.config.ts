@@ -13,8 +13,12 @@ const requireFromBullmq = createRequire(requireFromQueuePackage.resolve("bullmq/
 const tslibEsmEntry = requireFromBullmq.resolve("tslib/tslib.es6.mjs");
 const bullmqDependencyPathPattern =
   /[/\\]node_modules[/\\](?:\.pnpm[/\\])?bullmq@|[/\\]node_modules[/\\]bullmq[/\\]/;
+const buildTime = new Date().toISOString();
 
 export default defineConfig({
+  define: {
+    __ARC_BUILD_TIME__: JSON.stringify(buildTime),
+  },
   envPrefix: ["NEXT_PUBLIC_"],
   optimizeDeps: {
     include: [
