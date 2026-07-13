@@ -105,9 +105,11 @@ function JobDescriptionRecommendationCard({
 
 export function ResumePoolRecommendationsPanel({
   detail,
+  onBound,
   slug,
 }: {
   detail: ResumePoolDetail;
+  onBound?: () => void;
   slug: string;
 }) {
   const bound = Boolean(detail.jobDescriptionId);
@@ -141,6 +143,8 @@ export function ResumePoolRecommendationsPanel({
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["resume-pool", "detail", slug, detail.id] });
       void queryClient.invalidateQueries({ queryKey: ["resume-pool", slug] });
+      // 直接通知父级关闭弹窗，不依赖详情 refetch 翻转 bound（refetch 慢/失败时也能关）。
+      onBound?.();
     },
   });
 

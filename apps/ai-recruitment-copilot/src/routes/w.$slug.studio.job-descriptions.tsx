@@ -177,6 +177,8 @@ function JobDescriptionManagementPage({
   useEffect(() => {
     const targetId = deepLinkSearch.jobDescriptionId;
     if (typeof targetId !== "string" || targetId.length === 0) {
+      // 参数已清空：重置去重标记，允许之后再次深链到同一个岗位。
+      openedDeepLinkRef.current = null;
       return;
     }
     if (openedDeepLinkRef.current === targetId) {

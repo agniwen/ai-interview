@@ -87,7 +87,6 @@ function ResumePoolDetailSummaryPanel({
   detail,
   isError,
   isLoading,
-  jobDescriptionName,
   onOpenDuplicateMatches,
   onRequestRecommendations,
   resumeProfile,
@@ -96,7 +95,6 @@ function ResumePoolDetailSummaryPanel({
   detail: ResumePoolDetailLike;
   isError: boolean;
   isLoading: boolean;
-  jobDescriptionName: string | null;
   onOpenDuplicateMatches?: () => void;
   onRequestRecommendations: () => void;
   resumeProfile: ResumePoolProfile;
@@ -139,23 +137,33 @@ function ResumePoolDetailSummaryPanel({
       <dl className="grid gap-x-8 gap-y-4 md:grid-cols-3">
         <DetailSummaryItem label="目标岗位">{textOrDash(detail.targetRole)}</DetailSummaryItem>
         <DetailSummaryItem label="关联岗位">
-          {detail.jobDescriptionId ? (
-            <Link
-              className="underline decoration-muted-foreground/20 underline-offset-4 hover:decoration-muted-foreground/60"
-              params={{ slug }}
-              search={{ jobDescriptionId: detail.jobDescriptionId }}
-              to="/w/$slug/studio/job-descriptions"
-            >
-              {jobDescriptionName ?? "查看岗位"}
-            </Link>
-          ) : (
-            <span className="inline-flex items-center gap-2">
-              <span>—</span>
-              <Button onClick={onRequestRecommendations} size="xs" variant="outline">
-                推荐
-              </Button>
-            </span>
-          )}
+          {(() => {
+            // 岗位名已按当前组织过滤：有名字=本组织可见的岗位，才做深链；
+            // 有 jobDescriptionId 但无名字=绑定到了当前组织不可见的岗位（公共池跨组织），仅提示不跳转。
+            if (detail.jobDescriptionName) {
+              return (
+                <Link
+                  className="underline decoration-muted-foreground/20 underline-offset-4 hover:decoration-muted-foreground/60"
+                  params={{ slug }}
+                  search={{ jobDescriptionId: detail.jobDescriptionId ?? undefined }}
+                  to="/w/$slug/studio/job-descriptions"
+                >
+                  {detail.jobDescriptionName}
+                </Link>
+              );
+            }
+            if (detail.jobDescriptionId) {
+              return <span className="text-muted-foreground/60">已关联岗位</span>;
+            }
+            return (
+              <span className="inline-flex items-center gap-2">
+                <span>—</span>
+                <Button onClick={onRequestRecommendations} size="xs" variant="outline">
+                  推荐
+                </Button>
+              </span>
+            );
+          })()}
         </DetailSummaryItem>
         <DetailSummaryItem label="来源">{sourceLabel(detail)}</DetailSummaryItem>
         <DetailSummaryItem label="上传组织">{uploaderOrganizationLabel(detail)}</DetailSummaryItem>
@@ -406,7 +414,6 @@ export function ResumePoolDetailDialog({
               detail={detail}
               isError={detailQuery.isError}
               isLoading={detailQuery.isLoading}
-              jobDescriptionName={detailQuery.data?.jobDescriptionName ?? null}
               onOpenDuplicateMatches={
                 record && onOpenDuplicateMatches ? () => onOpenDuplicateMatches(record) : undefined
               }
@@ -429,7 +436,11 @@ export function ResumePoolDetailDialog({
         title="推荐岗位"
       >
         {detailQuery.data ? (
-          <ResumePoolRecommendationsPanel detail={detailQuery.data} slug={slug} />
+          <ResumePoolRecommendationsPanel
+            detail={detailQuery.data}
+            onBound={() => setRecommendationsOpen(false)}
+            slug={slug}
+          />
         ) : null}
       </Modal>
     </>
@@ -638,20 +649,27 @@ export function ResumePoolCard({
           </div>
           <div className="flex min-w-0 items-center gap-1.5">
             <IconLink className="size-3.5 shrink-0" />
-            {record.jobDescriptionId ? (
-              <Link
-                className="truncate underline decoration-muted-foreground/20 underline-offset-4 hover:decoration-muted-foreground/60"
-                onClick={(event) => event.stopPropagation()}
-                params={{ slug }}
-                search={{ jobDescriptionId: record.jobDescriptionId }}
-                title={record.jobDescriptionName ?? undefined}
-                to="/w/$slug/studio/job-descriptions"
-              >
-                {record.jobDescriptionName ?? "查看岗位"}
-              </Link>
-            ) : (
-              <span className="truncate text-muted-foreground/60">未关联岗位</span>
-            )}
+            {(() => {
+              if (record.jobDescriptionName) {
+                return (
+                  <Link
+                    className="truncate underline decoration-muted-foreground/20 underline-offset-4 hover:decoration-muted-foreground/60"
+                    onClick={(event) => event.stopPropagation()}
+                    params={{ slug }}
+                    search={{ jobDescriptionId: record.jobDescriptionId ?? undefined }}
+                    title={record.jobDescriptionName}
+                    to="/w/$slug/studio/job-descriptions"
+                  >
+                    {record.jobDescriptionName}
+                  </Link>
+                );
+              }
+              return (
+                <span className="truncate text-muted-foreground/60">
+                  {record.jobDescriptionId ? "已关联岗位" : "未关联岗位"}
+                </span>
+              );
+            })()}
           </div>
           <ResumePoolCardUploaderMeta record={record} />
         </div>

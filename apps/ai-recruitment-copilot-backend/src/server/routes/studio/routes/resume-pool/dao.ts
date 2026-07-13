@@ -33,6 +33,7 @@ import { deleteResumeSemanticIndexBestEffort } from "@arc/ai-recruitment-copilot
 import { cloneResumeSemanticIndexFromPoolToInterview } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/clone";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { normalizeSkill } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
+import { loadBoundJobDescriptionName } from "./dao/job-description-name";
 import { EMPTY_UPLOADER_META, toResumePoolDetail, toResumePoolListRecord } from "./dao/presenters";
 import type { PoolUploaderMeta } from "./dao/presenters";
 import { admitResumePoolItem } from "./utils/admission";
@@ -421,7 +422,13 @@ export async function queryResumePoolItems(
     .from(resumePoolItem)
     .leftJoin(organization, eq(resumePoolItem.organizationId, organization.id))
     .leftJoin(user, eq(resumePoolItem.createdBy, user.id))
-    .leftJoin(jobDescription, eq(resumePoolItem.jobDescriptionId, jobDescription.id))
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(resumePoolItem.jobDescriptionId, jobDescription.id),
+        eq(jobDescription.organizationId, input.organizationId),
+      ),
+    )
     .where(where)
     .orderBy(desc(resumePoolItem.createdAt))
     .limit(100);
@@ -459,29 +466,16 @@ export async function loadResumePoolItem(input: {
   if (!row) {
     return null;
   }
-  const [importRow, uploaderMeta, duplicateMatches] = await Promise.all([
+  const [importRow, uploaderMeta, duplicateMatches, jobDescriptionName] = await Promise.all([
     loadImportForOrg(row.id, input.organizationId),
     loadUploaderMeta(row.id),
     loadPoolDuplicateMatches({
       organizationId: input.organizationId,
       rows: [row],
     }),
+    loadBoundJobDescriptionName(row.jobDescriptionId, input.organizationId),
   ]);
   const sourceChannels = await loadSourceChannels([row.id]);
-  let jobDescriptionName: string | null = null;
-  if (row.jobDescriptionId) {
-    const [jd] = await db
-      .select({ name: jobDescription.name })
-      .from(jobDescription)
-      .where(
-        and(
-          eq(jobDescription.id, row.jobDescriptionId),
-          eq(jobDescription.organizationId, input.organizationId),
-        ),
-      )
-      .limit(1);
-    jobDescriptionName = jd?.name ?? null;
-  }
   return toResumePoolDetail(
     row,
     importRow,
