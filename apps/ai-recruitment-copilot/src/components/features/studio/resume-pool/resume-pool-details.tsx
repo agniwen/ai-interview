@@ -6,15 +6,18 @@ import {
   IconBuilding,
   IconDatabase,
   IconGitBranch,
+  IconLink,
   IconLoader2,
   IconSchool,
   IconSend,
   IconTrash,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import type { ResumePoolScope } from "@arc/db-schema/schema";
 import type { ResumePoolDetail, ResumePoolListRecord } from "@arc/shared/resume-pool";
 
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { MemberCell } from "@/components/data-grid/cells/member-cell";
 import { TimeDisplay } from "@/components/features/display/time-display";
@@ -36,6 +39,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Modal } from "@/components/ui/modal";
 import { Separator } from "@/components/ui/separator";
 import { fetchResumePoolItem } from "@/lib/client/api";
+import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 import {
   duplicateMatchBadge,
@@ -83,14 +87,20 @@ function ResumePoolDetailSummaryPanel({
   detail,
   isError,
   isLoading,
+  jobDescriptionName,
   onOpenDuplicateMatches,
+  onRequestRecommendations,
   resumeProfile,
+  slug,
 }: {
   detail: ResumePoolDetailLike;
   isError: boolean;
   isLoading: boolean;
+  jobDescriptionName: string | null;
   onOpenDuplicateMatches?: () => void;
+  onRequestRecommendations: () => void;
   resumeProfile: ResumePoolProfile;
+  slug: string;
 }) {
   const skills = resumeProfile?.skills.slice(0, 8) ?? detail.skillsNormalized.slice(0, 8);
   const strengths = resumeProfile?.personalStrengths.slice(0, 3) ?? [];
@@ -128,6 +138,25 @@ function ResumePoolDetailSummaryPanel({
 
       <dl className="grid gap-x-8 gap-y-4 md:grid-cols-3">
         <DetailSummaryItem label="目标岗位">{textOrDash(detail.targetRole)}</DetailSummaryItem>
+        <DetailSummaryItem label="关联岗位">
+          {detail.jobDescriptionId ? (
+            <Link
+              className="underline decoration-muted-foreground/20 underline-offset-4 hover:decoration-muted-foreground/60"
+              params={{ slug }}
+              search={{ jobDescriptionId: detail.jobDescriptionId }}
+              to="/w/$slug/studio/job-descriptions"
+            >
+              {jobDescriptionName ?? "查看岗位"}
+            </Link>
+          ) : (
+            <span className="inline-flex items-center gap-2">
+              <span>—</span>
+              <Button onClick={onRequestRecommendations} size="xs" variant="outline">
+                推荐
+              </Button>
+            </span>
+          )}
+        </DetailSummaryItem>
         <DetailSummaryItem label="来源">{sourceLabel(detail)}</DetailSummaryItem>
         <DetailSummaryItem label="上传组织">{uploaderOrganizationLabel(detail)}</DetailSummaryItem>
         <DetailSummaryItem label={sourceActorLabel(detail)}>
@@ -349,37 +378,61 @@ export function ResumePoolDetailDialog({
   });
   const detail: ResumePoolDetail | ResumePoolListRecord | null = detailQuery.data ?? record;
   const resumeProfile = detailQuery.data?.resumeProfile ?? null;
+  const [recommendationsOpen, setRecommendationsOpen] = useState(false);
+  const bound = Boolean(detailQuery.data?.jobDescriptionId);
+  // 切换到另一份简历时关闭推荐弹窗，避免状态残留
+  useEffect(() => {
+    setRecommendationsOpen(false);
+  }, [itemId]);
+  // 绑定成功后（简历变为已关联）自动关闭推荐弹窗，让用户看到更新后的「关联岗位」字段
+  useEffect(() => {
+    if (recommendationsOpen && bound) {
+      setRecommendationsOpen(false);
+    }
+  }, [recommendationsOpen, bound]);
 
   return (
-    <Modal
-      description={record?.resumeFileName ?? undefined}
-      onOpenChange={onOpenChange}
-      open={record !== null}
-      size="2xl"
-      title={record ? getCandidateTitleWithId(record) : "候选人详情"}
-    >
-      {detail ? (
-        <div className="space-y-8">
-          <ResumePoolDetailSummaryPanel
-            detail={detail}
-            isError={detailQuery.isError}
-            isLoading={detailQuery.isLoading}
-            onOpenDuplicateMatches={
-              record && onOpenDuplicateMatches ? () => onOpenDuplicateMatches(record) : undefined
-            }
-            resumeProfile={resumeProfile}
-          />
-          {detailQuery.data ? (
-            <ResumePoolRecommendationsPanel detail={detailQuery.data} slug={slug} />
-          ) : null}
-          <ResumePoolStructuredInfoPanel
-            detail={detail}
-            isLoading={detailQuery.isLoading}
-            resumeProfile={resumeProfile}
-          />
-        </div>
-      ) : null}
-    </Modal>
+    <>
+      <Modal
+        description={record?.resumeFileName ?? undefined}
+        onOpenChange={onOpenChange}
+        open={record !== null}
+        size="2xl"
+        title={record ? getCandidateTitleWithId(record) : "候选人详情"}
+      >
+        {detail ? (
+          <div className="space-y-8">
+            <ResumePoolDetailSummaryPanel
+              detail={detail}
+              isError={detailQuery.isError}
+              isLoading={detailQuery.isLoading}
+              jobDescriptionName={detailQuery.data?.jobDescriptionName ?? null}
+              onOpenDuplicateMatches={
+                record && onOpenDuplicateMatches ? () => onOpenDuplicateMatches(record) : undefined
+              }
+              onRequestRecommendations={() => setRecommendationsOpen(true)}
+              resumeProfile={resumeProfile}
+              slug={slug}
+            />
+            <ResumePoolStructuredInfoPanel
+              detail={detail}
+              isLoading={detailQuery.isLoading}
+              resumeProfile={resumeProfile}
+            />
+          </div>
+        ) : null}
+      </Modal>
+      <Modal
+        onOpenChange={setRecommendationsOpen}
+        open={recommendationsOpen}
+        size="xl"
+        title="推荐岗位"
+      >
+        {detailQuery.data ? (
+          <ResumePoolRecommendationsPanel detail={detailQuery.data} slug={slug} />
+        ) : null}
+      </Modal>
+    </>
   );
 }
 
@@ -497,6 +550,7 @@ export function ResumePoolCard({
   onDelete: (record: ResumePoolListRecord) => void;
   onSelectionChange: (record: ResumePoolListRecord, selected: boolean) => void;
 }) {
+  const slug = useWorkspaceSlug();
   const title = getCandidateDisplayTitle(record);
   const previewLabel = record.resumeFileName ?? "查看简历";
   const skills = record.masteredSkills.slice(0, RESUME_POOL_CARD_SKILL_LIMIT);
@@ -581,6 +635,23 @@ export function ResumePoolCard({
           <div className="flex min-w-0 items-center gap-1.5">
             <IconBriefcase2 className="size-3.5 shrink-0" />
             <span className="truncate">{record.targetRole || "未填写目标岗位"}</span>
+          </div>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <IconLink className="size-3.5 shrink-0" />
+            {record.jobDescriptionId ? (
+              <Link
+                className="truncate underline decoration-muted-foreground/20 underline-offset-4 hover:decoration-muted-foreground/60"
+                onClick={(event) => event.stopPropagation()}
+                params={{ slug }}
+                search={{ jobDescriptionId: record.jobDescriptionId }}
+                title={record.jobDescriptionName ?? undefined}
+                to="/w/$slug/studio/job-descriptions"
+              >
+                {record.jobDescriptionName ?? "查看岗位"}
+              </Link>
+            ) : (
+              <span className="truncate text-muted-foreground/60">未关联岗位</span>
+            )}
           </div>
           <ResumePoolCardUploaderMeta record={record} />
         </div>
