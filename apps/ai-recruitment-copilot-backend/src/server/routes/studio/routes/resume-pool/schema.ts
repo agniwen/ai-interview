@@ -21,3 +21,7 @@ export const resumePoolImportInputSchema = resumePoolImportSchema
   }));
 
 export const resumePoolCreateInputSchema = resumePoolCreateSchema;
+
+export const resumePoolBindSchema = z.object({
+  jobDescriptionId: z.string().trim().min(1),
+});

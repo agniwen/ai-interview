@@ -1011,6 +1011,7 @@ export type ResumePoolEventType =
   | "parsed"
   | "published"
   | "imported"
+  | "bound"
   | "archived"
   | "restored";
 
