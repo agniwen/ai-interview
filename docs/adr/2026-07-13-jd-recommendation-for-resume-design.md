@@ -16,12 +16,12 @@
 | 推荐岗位（本功能） | 组织里真实存在的 JD 实体                        | 系统按语义匹配度排出的 Top-N 真实岗位             | 输出/建议                    |
 | 匹配绑定           | `resume_pool_item.jobDescriptionId`（FK，可空） | 简历真正落到某个 JD 上；为空 = 未匹配             | 最终动作                     |
 
-目标岗位（`targetRoles`）已经通过 `buildResumeSemanticTexts` 进入简历向量的 `skill_role` / `resume_overview` chunk，因此推荐时**天然被隐含考虑**，本期不做额外的目标岗位字面加权。
+目标岗位（`targetRoles`）已经通过 `buildResumeSemanticTexts` 进入简历向量的 `skill_role` / `resume_overview` chunk，因此推荐时**天然被隐含考虑**，本期不做额外的目标岗位字面加权。（注：DB 列名是单数 `targetRole`（`studioInterview`/`resumePoolItem` 各一列），进入语义 profile 后表现为复数列表字段 `targetRoles`——两处指同一概念的不同层，非笔误。）
 
 ## 核心设计决策
 
 1. **JD 也进向量库**：把 JD 用与现有「JD→候选人」相同的 3 个 chunk（`buildJobRecommendationQueryTexts`）索引进**同一个 Qdrant collection** `resume_semantic_v1`，靠 payload `sourceType` 区分。推荐从此变成一次对称的向量搜索，请求时不再 embed JD，两侧向量都复用。
-2. **JD 索引走独立旁路**：不改动现有简历 indexer。新增薄的 JD 语义索引模块，复用 embedding / 向量库 / `resume_semantic_index` 状态表 / queue 管道。worker 按 `sourceType` 分流——简历**业务处理路径**（`runResumeSemanticIndexJob`）不动；共享 queue schema enum 与 worker 分流点做**加法式扩展**（非"零改动"，而是"简历业务逻辑零回归"）。
+2. **JD 索引走独立旁路**：不改动现有简历 indexer。新增薄的 JD 语义索引模块，复用 embedding / 向量库 / `resume_semantic_index` 状态表 / queue 管道。worker 按 `sourceType` 分流——简历**业务处理路径**（`runResumeSemanticIndexJob`）不动；共享 queue schema enum 与 worker 分流点做**加法式扩展**（非"零改动"，而是"简历业务逻辑零回归"）。**无需 DB migration**：全 schema 零 `pgEnum`，`sourceType` 与 `resumePoolEvent.type` 皆为 `text().$type<...>()`，加值即 TS 联合拓宽；状态行复用 `resume_semantic_index`（`organizationId` 列、`resume_semantic_index_org_status_idx` 索引均已存在）。
 3. **入口=简历详情页按需推荐**：本期不做批量视图、不做列表内联标签。
 4. **动作=一键回填 `resumePoolItem.jobDescriptionId`**：新增轻量端点 `POST /:id/bind`（仅 UPDATE 该列 + 校验 JD 属组织 + 写 resumePoolEvent）。**注意**：现有 `POST /:id/import` 的 `jobDescriptionMode:"bind"` 写的是 `studioInterview.jobDescriptionId`（新建人才库记录 + review 生成 + 去重），**不碰 pool item 自身的 jobDescriptionId**，语义是"入库开筛"而非"打标签"，且不满足决策 5 的隐藏 gate；故不复用它，另建纯绑定端点（见 plan Task B5）。
 5. **已绑定简历不显示推荐**：详情页 `jobDescriptionId` 非空时不展示推荐面板，也不提供重推入口。
@@ -32,7 +32,7 @@
 - `embedResumeSemanticTexts`、`getResumeEmbeddingConfig`、`getResumeSemanticIndexConfig`。
 - `buildJobRecommendationQueryTexts(jd)`（现有 JD→chunk 函数，目前是 `recommendations.ts` 私有函数，需抽到共享位置供索引旁路与打分内核共用，避免重复）。
 - `QdrantResumeVectorStore`：`loadResumeEmbeddings` / `searchSimilarResumes`（`sourceTypes` 过滤）/ `deleteResumeEmbeddings` / `upsertResumeEmbeddings` 均已具备。point id 以 `sourceType:sourceId:chunkType:embeddingVersion` 派生，跨类天然命名空间隔离；upsert/delete 均按 `sourceType`+`sourceId` 双重限定，不会误伤另一类向量。
-- `resume_semantic_index` 状态表与 `upsertResumeSemanticIndexState` upsert helper。唯一键为 `(sourceType, sourceId, embeddingVersion)`，已含 `sourceType`，JD 与简历同 ID 也不冲突，复用该表安全。
+- `resume_semantic_index` 状态表与 `upsertResumeSemanticIndexState` upsert helper。唯一键为 `(sourceType, sourceId, embeddingVersion)`，已含 `sourceType`，JD 与简历同 ID 也不冲突，复用该表安全。该表已有 `organizationId`（notNull，onDelete cascade）与 `resume_semantic_index_org_status_idx`(organizationId, status) / `resume_semantic_index_org_source_idx` 索引，故 `indexing(b)` 判定与组织隔离直接落在既有列/索引上，**无需加列或建索引**。
 - 打分权重：`skillRole*0.45 + workProject*0.35 + resumeOverview*0.2`，×100 floored；阈值 55（facet 字段名 `skillRole`/`workProject`/`resumeOverview` 对应 chunk 类型 `skill_role`/`work_project`/`resume_overview`）。
 - 队列 `resume-semantic-index`（queue/worker/入队去重）。
 - `loadResumePoolItem` DAO + `writeResumePoolEvent`（新绑定端点复用它们回填 `resumePoolItem.jobDescriptionId`）。
@@ -48,7 +48,7 @@ JD 建/改 → buildJobRecommendationQueryTexts(jd) → 3 chunk
 JD 删   → deleteResumeEmbeddings(job_description, id) + 删状态行
 ```
 
-- 变更检测：按 JD 内容 hash（`name` + `departmentName` + `description` + `prompt`——凡进入语义向量的字段都要覆盖；`departmentName` 进了 `resume_overview` chunk，故必须纳入，否则改部门不会触发重索引），内容未变则跳过（镜像简历 `profileHash` 的语义）。hash 只覆盖影响**语义向量**的字段；组织归属、删除与否等"是否可推荐"维度不进 hash，改由查询时的组织隔离（召回）+ 存在性兜底（DB join）实时裁决，无需重索引。
+- 变更检测：按 JD 内容 hash（`name` + `departmentName` + `description` + `prompt`——凡进入语义向量的字段都要覆盖；`departmentName` 进了 `resume_overview` chunk，故必须纳入，否则改部门不会触发重索引），内容未变则跳过（镜像简历 `profileHash` 的语义）。hash 只覆盖影响**语义向量**的字段；组织归属、删除与否等"是否可推荐"维度不进 hash，改由查询时的组织隔离（召回）+ 存在性兜底（DB join）实时裁决，无需重索引。**hash 字段须与 `buildJobRecommendationQueryTexts` 的实际输入全集保持一致**（当前即 `name`/`departmentName`/`description`/`prompt`）；为防二者漂移（改了 chunk 构造器却漏改 hash → 改内容不重索引），加一条一致性测试：断言 hash 消费的字段集 ⊇ 构造器消费的字段集。
 - 入队为 best-effort：Redis/队列未配置或语义索引未启用时静默跳过，不阻断 JD 的 CRUD。
 
 ### 查询时（详情页点「推荐岗位」）
@@ -94,7 +94,7 @@ JD 删   → deleteResumeEmbeddings(job_description, id) + 删状态行
   - 删除兜底：`job_description` 硬删除模型、无招聘状态列，展示 join 时行不存在即掉出（数据流第 4 步）；无需状态过滤。
   - 已绑定（`jobDescriptionId` 非空）：**确定返回** `{ status:"already_matched", recommendations:[] }`（唯一契约，不用"空结果 or already_matched"二义），前端据此不显示面板（服务端幂等防御，即使前端不触发也成立）。
   - 权限：`requirePermission("resumePool","read")` + `requirePermission("jd","read")`（入口与数据对象是 resume-pool 详情页的 pool item，故用 `resumePool` 而非 `resumeLibrary`）。
-- 一键回填（新端点，选项 A）：`POST /:id/bind`，body `{ jobDescriptionId }`。校验 JD 属当前组织且存在（照抄 import handler 的 JD 校验），UPDATE `resumePoolItem.jobDescriptionId` + 写 `resumePoolEvent`。权限 `requirePermission("resumePool","import")` + `requirePermission("jd","read")`。与 import（入库开筛）解耦。
+- 一键回填（新端点，选项 A）：`POST /:id/bind`，body `{ jobDescriptionId }`。校验 JD 属当前组织且存在（照抄 import handler 的 JD 校验），UPDATE `resumePoolItem.jobDescriptionId` + 写 `resumePoolEvent`。**事务边界**：JD 存在/属组织校验、条件 UPDATE（`WHERE jobDescriptionId IS NULL` 兜底 bind-once，命中 0 行→409）、`resumePoolEvent` 写入须在**同一事务**内，避免"已绑定但事件缺失"或"校验通过后 JD 被并发删除"的竞态。权限 `requirePermission("resumePool","import")` + `requirePermission("jd","read")`。与 import（入库开筛）解耦。
 
 ### 打分内核
 
@@ -123,7 +123,7 @@ JD 删   → deleteResumeEmbeddings(job_description, id) + 删状态行
 ## 边界与失效
 
 - **未启用语义索引**：`isResumeSemanticIndexEnabled()` + qdrant/embedding 配置门槛任一不满足 → 端点 `status:"disabled"`，前端灰态。
-- **简历未索引**：查询时回退现场 embed，**带固定超时 `JD_REC_EMBED_TIMEOUT_MS = 3000`（3s，常量、本期不做可配）**——外部 embedding 服务超时/限流时不硬等，超时即返回 `status:"indexing"` 并已入队后台补索引（`enqueueResumeSemanticIndexJobBestEffort` sourceType=resume_pool_item），避免详情页接口被拖垮或失败放大。
+- **简历未索引**：查询时回退现场 embed，**带固定超时 `JD_REC_EMBED_TIMEOUT_MS = 3000`（3s，常量、本期不做可配）**——外部 embedding 服务超时/限流时不硬等，超时即入队后台补索引（`enqueueResumeSemanticIndexJobBestEffort` sourceType=resume_pool_item）。**出口态收敛**：仅当入队确实落队才返回 `status:"indexing"`；若队列未配置/不可达导致 best-effort 入队为 no-op，则返回 `status:"disabled"`（前端灰态，比无限 spinner 诚实）并打结构化日志——否则用户会永远卡 `indexing` 重试无果（无出口态）。既不拖垮详情页接口，也不制造死循环。
 - **JD 改了未及时重索引**：内容 hash + 入队；worker 消费前短暂沿用旧向量（可接受）。
 - **已绑定简历**：不显示推荐、无重推入口（决策 5）。
 - **JD 删除**：删除时 best-effort 删向量 + 状态行（清理，减少召回浪费）；但"不推荐已删岗位"的**正确性由查询时 DB 存在性 join 保证**（数据流第 4 步），不依赖向量删除成功，故删除失败被静默跳过也安全。
