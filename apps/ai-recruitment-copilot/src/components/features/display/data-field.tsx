@@ -37,7 +37,10 @@ function renderValue({
 
   if (kind === "email" && typeof value === "string") {
     return (
-      <a className="break-all" href={`mailto:${value}`}>
+      <a
+        className="break-all underline-offset-4 hover:underline focus-visible:underline"
+        href={`mailto:${value}`}
+      >
         {value}
       </a>
     );
@@ -46,7 +49,7 @@ function renderValue({
   if (kind === "phone" && typeof value === "string") {
     return (
       <a
-        className="underline decoration-muted-foreground/20 underline-offset-4 hover:decoration-muted-foreground/60"
+        className="underline-offset-4 hover:underline focus-visible:underline"
         href={`tel:${value}`}
       >
         {value}

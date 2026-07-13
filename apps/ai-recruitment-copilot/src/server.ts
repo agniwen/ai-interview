@@ -84,6 +84,11 @@ function isReadinessRequest(request: Request) {
   return pathname === "/api/ready";
 }
 
+function isAppVersionRequest(request: Request) {
+  const { pathname } = new URL(request.url);
+  return pathname === "/api/app-version";
+}
+
 function isOgImageRequest(request: Request) {
   const { pathname } = new URL(request.url);
   return pathname === "/og.png";
@@ -103,6 +108,13 @@ export default createServerEntry({
 
     if (isOgImageRequest(request)) {
       return createOgImageResponse();
+    }
+
+    if (isAppVersionRequest(request)) {
+      if (options === undefined) {
+        return startHandler.fetch(request);
+      }
+      return startHandler.fetch(request, options);
     }
 
     startFeishuBotsIfEnabled();

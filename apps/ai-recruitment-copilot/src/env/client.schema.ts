@@ -26,6 +26,7 @@ export function createClientEnv(runtimeEnv: Record<string, string | boolean | nu
       NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS: defaultFalseBooleanStringSchema,
       NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING: defaultTrueBooleanStringSchema,
       NEXT_PUBLIC_ENABLE_WATERMARK: defaultTrueBooleanStringSchema,
+      NEXT_PUBLIC_FORCE_APP_UPDATE_NOTICE: defaultFalseBooleanStringSchema,
     },
     clientPrefix: "NEXT_PUBLIC_",
     emptyStringAsUndefined: true,
@@ -40,6 +41,7 @@ export function createClientEnv(runtimeEnv: Record<string, string | boolean | nu
         runtimeEnv.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS,
       NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING: runtimeEnv.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING,
       NEXT_PUBLIC_ENABLE_WATERMARK: runtimeEnv.NEXT_PUBLIC_ENABLE_WATERMARK,
+      NEXT_PUBLIC_FORCE_APP_UPDATE_NOTICE: runtimeEnv.NEXT_PUBLIC_FORCE_APP_UPDATE_NOTICE,
     },
   });
 }

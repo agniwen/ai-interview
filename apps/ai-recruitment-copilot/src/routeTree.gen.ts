@@ -32,6 +32,7 @@ import { Route as JoinCodeRouteImport } from './routes/join.$code'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as InterviewIdRouteImport } from './routes/interview.$id'
 import { Route as HumanInterviewInviteTokenRouteImport } from './routes/human-interview.$inviteToken'
+import { Route as ApiAppVersionRouteImport } from './routes/api.app-version'
 import { Route as WSlugStudioRouteImport } from './routes/w.$slug.studio'
 import { Route as WSlugChatRouteImport } from './routes/w.$slug.chat'
 import { Route as WSlugAgentRouteImport } from './routes/w.$slug.agent'
@@ -178,6 +179,11 @@ const HumanInterviewInviteTokenRoute =
     path: '/human-interview/$inviteToken',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiAppVersionRoute = ApiAppVersionRouteImport.update({
+  id: '/api/app-version',
+  path: '/api/app-version',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WSlugStudioRoute = WSlugStudioRouteImport.update({
   id: '/studio',
   path: '/studio',
@@ -336,6 +342,7 @@ export interface FileRoutesByFullPath {
   '/platform': typeof PlatformRouteWithChildren
   '/select-workspace': typeof SelectWorkspaceRoute
   '/wait': typeof WaitRoute
+  '/api/app-version': typeof ApiAppVersionRoute
   '/human-interview/$inviteToken': typeof HumanInterviewInviteTokenRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
@@ -389,6 +396,7 @@ export interface FileRoutesByTo {
   '/platform': typeof PlatformRouteWithChildren
   '/select-workspace': typeof SelectWorkspaceRoute
   '/wait': typeof WaitRoute
+  '/api/app-version': typeof ApiAppVersionRoute
   '/human-interview/$inviteToken': typeof HumanInterviewInviteTokenRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
@@ -441,6 +449,7 @@ export interface FileRoutesById {
   '/platform': typeof PlatformRouteWithChildren
   '/select-workspace': typeof SelectWorkspaceRoute
   '/wait': typeof WaitRoute
+  '/api/app-version': typeof ApiAppVersionRoute
   '/human-interview/$inviteToken': typeof HumanInterviewInviteTokenRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
@@ -496,6 +505,7 @@ export interface FileRouteTypes {
     | '/platform'
     | '/select-workspace'
     | '/wait'
+    | '/api/app-version'
     | '/human-interview/$inviteToken'
     | '/interview/$id'
     | '/invite/$token'
@@ -549,6 +559,7 @@ export interface FileRouteTypes {
     | '/platform'
     | '/select-workspace'
     | '/wait'
+    | '/api/app-version'
     | '/human-interview/$inviteToken'
     | '/interview/$id'
     | '/invite/$token'
@@ -600,6 +611,7 @@ export interface FileRouteTypes {
     | '/platform'
     | '/select-workspace'
     | '/wait'
+    | '/api/app-version'
     | '/human-interview/$inviteToken'
     | '/interview/$id'
     | '/invite/$token'
@@ -654,6 +666,7 @@ export interface RootRouteChildren {
   PlatformRoute: typeof PlatformRouteWithChildren
   SelectWorkspaceRoute: typeof SelectWorkspaceRoute
   WaitRoute: typeof WaitRoute
+  ApiAppVersionRoute: typeof ApiAppVersionRoute
   HumanInterviewInviteTokenRoute: typeof HumanInterviewInviteTokenRoute
   InviteTokenRoute: typeof InviteTokenRoute
   JoinCodeRoute: typeof JoinCodeRoute
@@ -828,6 +841,13 @@ declare module '@tanstack/react-router' {
       path: '/human-interview/$inviteToken'
       fullPath: '/human-interview/$inviteToken'
       preLoaderRoute: typeof HumanInterviewInviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/app-version': {
+      id: '/api/app-version'
+      path: '/api/app-version'
+      fullPath: '/api/app-version'
+      preLoaderRoute: typeof ApiAppVersionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/w/$slug/studio': {
@@ -1203,6 +1223,7 @@ const rootRouteChildren: RootRouteChildren = {
   PlatformRoute: PlatformRouteWithChildren,
   SelectWorkspaceRoute: SelectWorkspaceRoute,
   WaitRoute: WaitRoute,
+  ApiAppVersionRoute: ApiAppVersionRoute,
   HumanInterviewInviteTokenRoute: HumanInterviewInviteTokenRoute,
   InviteTokenRoute: InviteTokenRoute,
   JoinCodeRoute: JoinCodeRoute,

@@ -10,6 +10,18 @@ AI Recruitment Copilot is a Chinese-first recruiting workspace for resume intake
 
 ### Workspace and Access
 
+**Application Release**:
+A deployed web application build identified independently from the browser tab that is currently open.
+_Avoid_: Page version, cache version
+
+**Stale Client**:
+An open browser tab whose loaded application release is older than the latest application release known to the system.
+_Avoid_: Broken page, cached user
+
+**Update Notice**:
+A non-blocking prompt that tells a stale client a newer application release is available and offers an explicit refresh action.
+_Avoid_: Forced upgrade, maintenance notice
+
 **Workspace**:
 The tenant boundary where a recruiting team manages candidates, job descriptions, interviews, members, and settings.
 _Avoid_: Tenant, organization, company account

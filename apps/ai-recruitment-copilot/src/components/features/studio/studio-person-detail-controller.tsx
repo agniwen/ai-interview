@@ -35,6 +35,7 @@ import type { ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { ResumeDocumentPreviewButton } from "@/components/features/resume/resume-document-preview-button";
+import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -78,6 +79,7 @@ interface UnifiedRecord {
   candidateEmail: string | null;
   candidatePhone: string | null;
   targetRole: string | null;
+  jobDescriptionId: string | null;
   jobDescriptionName: string | null;
   resumeFileName: string | null;
   resumeParseStatus?: ResumeLibraryDetail["resumeParseStatus"];
@@ -107,6 +109,7 @@ function toUnifiedRoundRecord(round: StudioInterviewRoundDetail): UnifiedRecord 
     hasResumeFile: Boolean(round.candidate.resumeStorageKey),
     id: round.candidate.id,
     interviewQuestions: round.candidate.interviewQuestions,
+    jobDescriptionId: round.candidate.jobDescriptionId,
     jobDescriptionName: round.candidate.jobDescriptionName,
     notes: round.candidate.notes,
     outcome: round.candidate.outcome,
@@ -390,6 +393,7 @@ export function useStudioPersonDetailController({
       hasResumeFile: resumeRecord.hasResumeFile,
       id: resumeRecord.id,
       interviewQuestions: resumeRecord.interviewQuestions,
+      jobDescriptionId: resumeRecord.jobDescriptionId,
       jobDescriptionName: resumeRecord.jobDescriptionName,
       notes: resumeRecord.notes,
       outcome: resumeRecord.outcome,
@@ -626,7 +630,12 @@ export function useStudioPersonDetailController({
   let description: ReactNode = renderHeaderDescription({ isLoading, round });
   if (mode === "resume" || (mode === "interview" && layoutMode === "modal")) {
     const linkedJobDescriptionName = record?.jobDescriptionName?.trim();
-    description = linkedJobDescriptionName || "暂未关联岗位";
+    description = (
+      <JobDescriptionHoverCard
+        jobDescriptionId={record?.jobDescriptionId}
+        name={linkedJobDescriptionName}
+      />
+    );
   }
   const resumePreviewUrl = (() => {
     if (!record?.hasResumeFile) {
@@ -712,7 +721,7 @@ export function useStudioPersonDetailController({
     headerExtra = <DetailHeaderSkeleton mode={mode} />;
   } else if (record) {
     headerExtra = (
-      <div className="mt-2 flex flex-col items-stretch gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+      <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <TabsList className="mt-0 w-full sm:w-auto">
           <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="overview">
             {mode === "interview" ? "结果" : "概览"}
