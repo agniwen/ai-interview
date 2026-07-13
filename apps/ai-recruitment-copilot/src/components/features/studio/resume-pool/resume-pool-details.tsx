@@ -96,7 +96,7 @@ function ResumePoolDetailSummaryPanel({
   const note = detail.notes?.trim();
 
   return (
-    <section className="space-y-6 rounded-2xl bg-muted/20 ">
+    <section className="space-y-6 rounded-2xl">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
