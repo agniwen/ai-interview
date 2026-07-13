@@ -6,7 +6,8 @@ import type {
   JobDescriptionRecommendationResult,
 } from "@arc/shared/job-descriptions";
 import type { ResumePoolDetail } from "@arc/shared/resume-pool";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +20,7 @@ import {
 } from "@/components/ui/empty";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { rpcFetch } from "@/lib/client/api";
+import { bindResumePoolItem, isApiError, rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 
 function RecommendationsSkeleton() {
@@ -42,10 +43,14 @@ function RecommendationsSkeleton() {
 }
 
 function JobDescriptionRecommendationCard({
+  disabled,
+  matching,
   onMatch,
   recommendation,
 }: {
-  onMatch?: (jobDescriptionId: string) => void;
+  disabled: boolean;
+  matching: boolean;
+  onMatch: (jobDescriptionId: string) => void;
   recommendation: JobDescriptionRecommendation;
 }) {
   return (
@@ -84,11 +89,13 @@ function JobDescriptionRecommendationCard({
       <CardFooter className="border-muted/60 border-t px-3 py-3">
         <Button
           className="w-full"
-          onClick={() => onMatch?.(recommendation.id)}
+          disabled={disabled}
+          onClick={() => onMatch(recommendation.id)}
           size="sm"
           type="button"
           variant="outline"
         >
+          {matching ? <IconLoader2 className="size-4 animate-spin" /> : null}
           匹配到此岗位
         </Button>
       </CardFooter>
@@ -98,14 +105,13 @@ function JobDescriptionRecommendationCard({
 
 export function ResumePoolRecommendationsPanel({
   detail,
-  onMatch,
   slug,
 }: {
   detail: ResumePoolDetail;
-  onMatch?: (jobDescriptionId: string) => void;
   slug: string;
 }) {
   const bound = Boolean(detail.jobDescriptionId);
+  const queryClient = useQueryClient();
   const query = useQuery({
     enabled: !bound,
     queryFn: (): Promise<JobDescriptionRecommendationResult> =>
@@ -120,12 +126,44 @@ export function ResumePoolRecommendationsPanel({
     staleTime: 60 * 1000,
   });
 
+  const bindMutation = useMutation({
+    mutationFn: (jobDescriptionId: string) => bindResumePoolItem(slug, detail.id, jobDescriptionId),
+    onError: (error) => {
+      if (isApiError(error) && error.status === 409) {
+        toast.error("该简历已绑定岗位");
+        void queryClient.invalidateQueries({
+          queryKey: ["resume-pool", "detail", slug, detail.id],
+        });
+        return;
+      }
+      toast.error("绑定失败");
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["resume-pool", "detail", slug, detail.id] });
+      void queryClient.invalidateQueries({ queryKey: ["resume-pool", slug] });
+    },
+  });
+
   if (bound) {
     return null;
   }
 
   if (query.isLoading) {
     return <RecommendationsSkeleton />;
+  }
+
+  if (query.isError) {
+    return (
+      <Empty className="border-border">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <IconFileSearch className="size-5" />
+          </EmptyMedia>
+          <EmptyTitle>推荐加载失败</EmptyTitle>
+          <EmptyDescription>请稍后重试。</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
   }
 
   const { data } = query;
@@ -182,8 +220,10 @@ export function ResumePoolRecommendationsPanel({
     <div className="space-y-3">
       {data.recommendations.map((recommendation) => (
         <JobDescriptionRecommendationCard
+          disabled={bindMutation.isPending}
           key={recommendation.id}
-          onMatch={onMatch}
+          matching={bindMutation.isPending && bindMutation.variables === recommendation.id}
+          onMatch={(jobDescriptionId) => bindMutation.mutate(jobDescriptionId)}
           recommendation={recommendation}
         />
       ))}

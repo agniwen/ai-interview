@@ -44,6 +44,20 @@ export function fetchResumePoolItem(slug: string, id: string): Promise<ResumePoo
   );
 }
 
+export function bindResumePoolItem(
+  slug: string,
+  id: string,
+  jobDescriptionId: string,
+): Promise<ResumePoolDetail> {
+  return rpcFetch<ResumePoolDetail>(
+    rpc.api.w[":slug"].studio["resume-pool"][":id"].bind.$post({
+      json: { jobDescriptionId },
+      param: { id, slug },
+    }),
+    "绑定岗位失败",
+  );
+}
+
 export function fetchResumePoolDuplicateMatches(
   slug: string,
   id: string,
