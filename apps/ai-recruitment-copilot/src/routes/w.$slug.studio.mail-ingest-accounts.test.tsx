@@ -2,7 +2,10 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { renderMessageBadge } from "./w.$slug.studio.mail-ingest-accounts";
+import {
+  renderMessageBadge,
+  shouldRenderMailIngestOutlet,
+} from "./w.$slug.studio.mail-ingest-accounts";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -83,5 +86,14 @@ describe("renderMessageBadge", () => {
     act(() => {
       root.unmount();
     });
+  });
+});
+
+describe("mail ingest account route", () => {
+  it("renders its child outlet on the account detail URL", () => {
+    expect(
+      shouldRenderMailIngestOutlet("/w/acme/studio/mail-ingest-accounts/account-1", "acme"),
+    ).toBe(true);
+    expect(shouldRenderMailIngestOutlet("/w/acme/studio/mail-ingest-accounts", "acme")).toBe(false);
   });
 });

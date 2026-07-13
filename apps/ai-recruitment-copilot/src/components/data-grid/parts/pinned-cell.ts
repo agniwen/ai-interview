@@ -50,9 +50,11 @@ export function getPinningStyles<TData>(
   };
 }
 
-export const PINNED_HEADER_CLASS = "bg-muted";
+const OPAQUE_HEADER_SURFACE = "bg-[color-mix(in_srgb,var(--card)_28%,var(--muted)_72%)]";
+
+export const PINNED_HEADER_CLASS = OPAQUE_HEADER_SURFACE;
 
 /**
- * Sticky header cells keep the same muted surface as the Coss CardFrame table header.
+ * Sticky header cells use the opaque equivalent of the table header surface.
  */
-export const STICKY_HEADER_CLASS = "sticky top-0 z-2 bg-muted";
+export const STICKY_HEADER_CLASS = `sticky top-0 z-2 ${OPAQUE_HEADER_SURFACE}`;

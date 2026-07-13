@@ -5,6 +5,7 @@ import {
   createMailIngestAccount,
   deleteMailIngestAccount,
   getMailIngestAccountLoginConfig,
+  getWorkspaceMailIngestAccount,
   isWorkspaceMember,
   listAccountMailMessages,
   listMailIngestAccounts,
@@ -141,6 +142,17 @@ export const mailIngestRouter = factory
       }
     },
   )
+  .get("/managed/:id", requirePermission("mailIngestAccount", "manage"), async (c) => {
+    const { activeOrg, user } = c.var;
+    if (!activeOrg || !user) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const row = await getWorkspaceMailIngestAccount(activeOrg.id, c.req.param("id"));
+    if (!row?.account) {
+      return c.json({ error: "邮箱配置不存在。" }, 404);
+    }
+    return c.json(row, 200);
+  })
   .get(
     "/managed/:id/messages",
     requirePermission("mailIngestAccount", "manage"),
