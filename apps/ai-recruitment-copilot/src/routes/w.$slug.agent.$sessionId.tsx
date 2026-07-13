@@ -1,4 +1,5 @@
 import { createFileRoute, useParams } from "@tanstack/react-router";
+import { ChatPageSkeleton } from "@/components/features/chat/chat-page-skeleton";
 import ChatWorkspace from "@/components/features/chat/chat-workspace";
 
 function AgentSessionRoute() {
@@ -9,4 +10,5 @@ function AgentSessionRoute() {
 
 export const Route = createFileRoute("/w/$slug/agent/$sessionId")({
   component: AgentSessionRoute,
+  pendingComponent: ChatPageSkeleton,
 });

@@ -10,10 +10,10 @@ import utc from "dayjs/plugin/utc";
 import { useCallback, useEffect, useState } from "react";
 import {
   SidebarBodyPortalContent,
-  SidebarFooterPortalContent,
   SidebarHeaderPortalContent,
 } from "@/components/layout/app-sidebar/portals";
-import { SidebarUserSection } from "@/components/layout/sidebar-user-section";
+import { SidebarSlotTransition } from "@/components/layout/app-sidebar/sidebar-slot-transition";
+import type { SidebarSlotDirection } from "@/components/layout/app-sidebar/sidebar-slot-transition";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -365,7 +365,7 @@ function ChatSidebarBody({
                     render={
                       <Link
                         className={cn(
-                          "block cursor-default rounded-md px-1.5 py-1.5 transition-colors",
+                          "block cursor-default rounded-md px-1.5 py-1.5 transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100",
                           isActive ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/60",
                         )}
                         params={{ sessionId: conversation.id, slug }}
@@ -412,7 +412,7 @@ function ChatSidebarBody({
           <li key={conversation.id}>
             <div
               className={cn(
-                "group/session-item flex cursor-default items-center gap-1 rounded-md border border-transparent px-1 py-0.5 transition-colors",
+                "group/session-item flex cursor-default items-center gap-1 rounded-md border border-transparent px-1 py-0.5 transition-[background-color,border-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] has-[a:active]:scale-[0.98] motion-reduce:transition-none motion-reduce:has-[a:active]:scale-100",
                 isActive && !editMode
                   ? "border-sidebar-border/80 bg-sidebar-accent"
                   : "hover:bg-sidebar-accent/60",
@@ -441,11 +441,16 @@ function ChatSidebarBody({
   );
 }
 
-export function ChatSidebarSlots() {
+export function ChatSidebarSlots({
+  active,
+  direction,
+}: {
+  active: boolean;
+  direction: SidebarSlotDirection;
+}) {
   const navigate = useNavigate();
   const slug = useWorkspaceSlug();
-  const chatRoot = `/w/${slug}/agent`;
-  const { setOpenMobile, isMobile, state } = useSidebar();
+  const { setOpenMobile, isMobile } = useSidebar();
   const [conversations, setConversations] = useState<ConversationListItem[]>([]);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deletingConversationId, setDeletingConversationId] = useState<string | null>(null);
@@ -483,6 +488,10 @@ export function ChatSidebarSlots() {
   }, [isMobile, navigate, setOpenMobile, slug]);
 
   useEffect(() => {
+    if (!active) {
+      return;
+    }
+
     const initialTimerId = window.setTimeout(() => {
       void refreshConversationList();
     }, 0);
@@ -514,13 +523,28 @@ export function ChatSidebarSlots() {
       window.removeEventListener(CHAT_EVENTS.conversationsChanged, handleListChanged);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [refreshConversationList]);
+  }, [active, refreshConversationList]);
 
   useEffect(() => {
+    if (!active) {
+      return;
+    }
+
     setNow(Date.now());
     const intervalId = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(intervalId);
-  }, []);
+  }, [active]);
+
+  useEffect(() => {
+    if (active) {
+      return;
+    }
+
+    setBulkConfirmOpen(false);
+    setDeleteTargetId(null);
+    setEditMode(false);
+    setSelectedIds(new Set());
+  }, [active]);
 
   const toggleEditMode = useCallback(() => {
     setEditMode((prev) => {
@@ -599,63 +623,65 @@ export function ChatSidebarSlots() {
   return (
     <>
       <SidebarHeaderPortalContent>
-        <ChatSidebarHeader
-          editMode={editMode}
-          isBulkDeleting={isBulkDeleting}
-          onBulkDelete={() => setBulkConfirmOpen(true)}
-          onNewConversation={handleStartNewConversation}
-          onToggleEditMode={toggleEditMode}
-          selectedCount={selectedIds.size}
-        />
+        <SidebarSlotTransition
+          active={active}
+          direction={direction}
+          panelKey="agent-sidebar-header"
+        >
+          <ChatSidebarHeader
+            editMode={editMode}
+            isBulkDeleting={isBulkDeleting}
+            onBulkDelete={() => setBulkConfirmOpen(true)}
+            onNewConversation={handleStartNewConversation}
+            onToggleEditMode={toggleEditMode}
+            selectedCount={selectedIds.size}
+          />
+        </SidebarSlotTransition>
       </SidebarHeaderPortalContent>
 
       <SidebarBodyPortalContent>
-        <ChatSidebarBody
-          activeSessionId={activeSessionId}
-          conversations={conversations}
-          deleteTargetId={deleteTargetId}
-          deletingConversationId={deletingConversationId}
-          editMode={editMode}
-          now={now}
-          onConfirmDelete={(conversation) => void confirmDelete(conversation)}
-          onDeleteOpenChange={handleDeleteOpenChange}
-          onToggleSelect={handleToggleSelect}
-          selectedIds={selectedIds}
-          slug={slug}
-        />
+        <SidebarSlotTransition active={active} direction={direction} panelKey="agent-sidebar-body">
+          <ChatSidebarBody
+            activeSessionId={activeSessionId}
+            conversations={conversations}
+            deleteTargetId={deleteTargetId}
+            deletingConversationId={deletingConversationId}
+            editMode={editMode}
+            now={now}
+            onConfirmDelete={(conversation) => void confirmDelete(conversation)}
+            onDeleteOpenChange={handleDeleteOpenChange}
+            onToggleSelect={handleToggleSelect}
+            selectedIds={selectedIds}
+            slug={slug}
+          />
+        </SidebarSlotTransition>
       </SidebarBodyPortalContent>
 
-      <SidebarFooterPortalContent>
-        <SidebarUserSection
-          callbackURL={chatRoot}
-          collapsed={state === "collapsed"}
-          showHomeLink={false}
-        />
-      </SidebarFooterPortalContent>
-
-      <AlertDialog onOpenChange={setBulkConfirmOpen} open={bulkConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认批量删除 {selectedIds.size} 条聊天记录？</AlertDialogTitle>
-            <AlertDialogDescription>
-              删除后将无法恢复。所选会话的全部消息也会一并移除。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isBulkDeleting}>取消</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={isBulkDeleting}
-              onClick={(event) => {
-                event.preventDefault();
-                void handleBulkDelete();
-              }}
-              variant="destructive"
-            >
-              {isBulkDeleting ? "正在删除…" : `删除 ${selectedIds.size} 条`}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {active ? (
+        <AlertDialog onOpenChange={setBulkConfirmOpen} open={bulkConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>确认批量删除 {selectedIds.size} 条聊天记录？</AlertDialogTitle>
+              <AlertDialogDescription>
+                删除后将无法恢复。所选会话的全部消息也会一并移除。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isBulkDeleting}>取消</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={isBulkDeleting}
+                onClick={(event) => {
+                  event.preventDefault();
+                  void handleBulkDelete();
+                }}
+                variant="destructive"
+              >
+                {isBulkDeleting ? "正在删除…" : `删除 ${selectedIds.size} 条`}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      ) : null}
     </>
   );
 }

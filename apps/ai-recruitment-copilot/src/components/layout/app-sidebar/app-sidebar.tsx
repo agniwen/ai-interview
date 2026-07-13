@@ -19,11 +19,11 @@ type AppSidebarProps = ComponentProps<typeof Sidebar>;
 export function AppSidebar({ ...props }: AppSidebarProps) {
   return (
     <Sidebar collapsible="icon" variant="inset" {...props}>
-      <SidebarHeader className="gap-3">
+      <SidebarHeader className="relative gap-3 overflow-x-clip">
         <SidebarTabs />
         <SidebarHeaderPortalTarget className="contents" />
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="relative overflow-x-hidden">
         <SidebarBodyPortalTarget className="contents" />
         <SidebarSlotHydrationFallback>
           <SidebarBodySkeleton />

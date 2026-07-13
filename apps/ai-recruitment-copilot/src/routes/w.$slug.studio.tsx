@@ -3,8 +3,8 @@ import { Outlet, createFileRoute, notFound, redirect } from "@tanstack/react-rou
 import { PendingOutlet } from "@/components/layout/pending-outlet";
 import { SiteHeader } from "@/components/features/studio/site-header";
 import { StudioHeaderProvider } from "@/components/features/studio/studio-header-context";
+import { RecruitingPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
-import { StudioSidebarSlots } from "@/components/features/studio/studio-sidebar-slots";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { getStudioPageAccessState } from "@/lib/start/auth-session";
@@ -52,7 +52,6 @@ async function findFirstAllowedStudioPath(slug: string) {
 function StudioLayout({ children }: { children: ReactNode }) {
   return (
     <StudioHeaderProvider>
-      <StudioSidebarSlots />
       <SidebarInset className="h-dvh overflow-hidden md:h-[calc(100dvh-1.5rem)] border border-border">
         <ScrollArea
           className="@container/main min-h-0 flex-1 bg-background"
@@ -73,6 +72,14 @@ function StudioShellRoute() {
   return (
     <StudioLayout>
       <Outlet />
+    </StudioLayout>
+  );
+}
+
+function StudioPendingRoute() {
+  return (
+    <StudioLayout>
+      <RecruitingPageSkeleton />
     </StudioLayout>
   );
 }
@@ -124,4 +131,5 @@ export const Route = createFileRoute("/w/$slug/studio")({
 
     return null;
   },
+  pendingComponent: StudioPendingRoute,
 });

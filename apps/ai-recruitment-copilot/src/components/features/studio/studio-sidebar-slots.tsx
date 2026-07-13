@@ -18,11 +18,9 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import {
-  SidebarBodyPortalContent,
-  SidebarFooterPortalContent,
-} from "@/components/layout/app-sidebar/portals";
-import { SidebarUserSection } from "@/components/layout/sidebar-user-section";
+import { SidebarBodyPortalContent } from "@/components/layout/app-sidebar/portals";
+import { SidebarSlotTransition } from "@/components/layout/app-sidebar/sidebar-slot-transition";
+import type { SidebarSlotDirection } from "@/components/layout/app-sidebar/sidebar-slot-transition";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -30,7 +28,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
 } from "@/components/ui/sidebar";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { useWorkspaceMemberRole, useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -194,7 +191,7 @@ function SidebarNavItem({ item, active, href }: { item: NavItem; active: boolean
   return (
     <SidebarMenuItem key={item.path}>
       <SidebarMenuButton
-        className="cursor-default select-none"
+        className="cursor-default select-none transition-[width,height,padding,background-color,border-color,color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] data-[active=false]:opacity-90 data-[active=false]:hover:opacity-100 motion-reduce:transition-none motion-reduce:active:scale-100"
         isActive={active}
         render={
           <Link to={href}>
@@ -208,10 +205,9 @@ function SidebarNavItem({ item, active, href }: { item: NavItem; active: boolean
   );
 }
 
-export function StudioSidebarSlots() {
+function StudioSidebarNavigation() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const slug = useWorkspaceSlug();
-  const { state } = useSidebar();
 
   // 把 nav 表里的 /studio/* 路径包成当前 workspace 的 /w/[slug]/studio/* 链接；
   // 没有 slug (理论上 StudioSidebarSlots 只在 workspace 路由下渲染) 时退回根路径,
@@ -222,35 +218,37 @@ export function StudioSidebarSlots() {
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
-  return (
-    <>
-      <SidebarBodyPortalContent>
-        {navGroups.map((group) => (
-          <SidebarGroup className="hidden has-[[data-sidebar=menu-item]]:flex" key={group.label}>
-            <SidebarGroupLabel className="select-none">{group.label}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {group.items.map((item) => (
-                  <SidebarNavItem
-                    key={item.path}
-                    item={item}
-                    active={isActive(item.path)}
-                    href={buildHref(item.path)}
-                  />
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
-      </SidebarBodyPortalContent>
+  return navGroups.map((group) => (
+    <SidebarGroup className="hidden has-[[data-sidebar=menu-item]]:flex" key={group.label}>
+      <SidebarGroupLabel className="select-none">{group.label}</SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {group.items.map((item) => (
+            <SidebarNavItem
+              key={item.path}
+              item={item}
+              active={isActive(item.path)}
+              href={buildHref(item.path)}
+            />
+          ))}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  ));
+}
 
-      <SidebarFooterPortalContent>
-        <SidebarUserSection
-          callbackURL={buildHref("/studio")}
-          collapsed={state === "collapsed"}
-          showHomeLink={false}
-        />
-      </SidebarFooterPortalContent>
-    </>
+export function StudioSidebarSlots({
+  active,
+  direction,
+}: {
+  active: boolean;
+  direction: SidebarSlotDirection;
+}) {
+  return (
+    <SidebarBodyPortalContent>
+      <SidebarSlotTransition active={active} direction={direction} panelKey="studio-sidebar-body">
+        <StudioSidebarNavigation />
+      </SidebarSlotTransition>
+    </SidebarBodyPortalContent>
   );
 }

@@ -46,9 +46,9 @@ import { RecruitingContextPanel } from "./recruiting-context-panel";
 import {
   activeThreadStyle,
   composerSendButtonClass,
-  emptyThreadStyle,
   useRecruitingCopilotContext,
 } from "./recruiting-copilot-context";
+import { emptyThreadStyle } from "./recruiting-thread-layout";
 import type {
   CandidateSummaryCard,
   CopilotCitation,

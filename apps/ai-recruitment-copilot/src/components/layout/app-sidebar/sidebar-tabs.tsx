@@ -1,30 +1,15 @@
 "use client";
 
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { useGlimm } from "glimm/react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-
-type SidebarTabValue = "agent" | "studio";
-
-function resolveActiveTab(pathname: string): SidebarTabValue | null {
-  if (!pathname.startsWith("/w/")) {
-    return null;
-  }
-  if (pathname.includes("/studio")) {
-    return "studio";
-  }
-  if (pathname.includes("/agent") || pathname.includes("/chat")) {
-    return "agent";
-  }
-  return null;
-}
+import { resolveSidebarTab } from "./sidebar-slot-transition";
+import type { SidebarTabValue } from "./sidebar-slot-transition";
 
 export function SidebarTabs() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const navigate = useNavigate();
-  const { sweep } = useGlimm();
-  const activeTab = resolveActiveTab(pathname);
+  const activeTab = resolveSidebarTab(pathname);
   const slug = useWorkspaceSlug();
 
   const handleChange = (value: string) => {
@@ -32,14 +17,7 @@ export function SidebarTabs() {
     const target = nextTab === "agent" ? `/w/${slug}/agent` : `/w/${slug}/studio/resumes`;
 
     if (target !== pathname) {
-      void sweep(
-        () => {
-          navigate({ to: target });
-        },
-        {
-          direction: nextTab === "agent" ? "rtl" : "ltr",
-        },
-      ).done;
+      void navigate({ to: target });
     }
   };
 

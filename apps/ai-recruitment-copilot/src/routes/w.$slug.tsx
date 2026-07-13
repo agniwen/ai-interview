@@ -1,6 +1,5 @@
 import { Outlet, createFileRoute, notFound, redirect, useLoaderData } from "@tanstack/react-router";
 import { NO_ACCESS_WORKSPACE_ROLE } from "@arc/shared/permissions";
-import { GlimmProvider } from "glimm/react";
 import { BackgroundStreamToaster } from "@/components/features/chat/background-stream-toaster";
 import { AppVersionProvider } from "@/components/features/app-version/app-version-provider";
 import { AppSidebarShell } from "@/components/layout/app-sidebar/app-sidebar-shell";
@@ -21,11 +20,9 @@ function WorkspaceRoute() {
         memberRole={state.member.role}
         slug={state.workspace.slug}
       >
-        <GlimmProvider palette="azure">
-          <AppSidebarShell>
-            <Outlet />
-          </AppSidebarShell>
-        </GlimmProvider>
+        <AppSidebarShell>
+          <Outlet />
+        </AppSidebarShell>
         <BackgroundStreamToaster />
       </WorkspaceSlugProvider>
     </AppVersionProvider>

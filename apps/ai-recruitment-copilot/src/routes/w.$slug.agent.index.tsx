@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ChatPageSkeleton } from "@/components/features/chat/chat-page-skeleton";
 import ChatWorkspace from "@/components/features/chat/chat-workspace";
 
 function AgentIndexRoute() {
@@ -16,4 +17,5 @@ export const Route = createFileRoute("/w/$slug/agent/")({
       { title: "招聘 Copilot | Agent" },
     ],
   }),
+  pendingComponent: ChatPageSkeleton,
 });
