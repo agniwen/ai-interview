@@ -101,7 +101,7 @@ describe("recommendJobDescriptionsForResume", () => {
     expect(res.status).toBe("ready");
     expect(res.recommendations).toEqual([]);
     expect(res.diagnostics.vectorHitCount).toBe(1);
-    expect(res.diagnostics.filteredByThreshold).toBe(0);
+    expect(res.diagnostics.eligibleCount).toBe(0);
   });
 
   it("topN 截断：3 个过阈值 JD，topN=1 只返回 1 个", async () => {
@@ -112,7 +112,7 @@ describe("recommendJobDescriptionsForResume", () => {
     const res = await call(deps, { topN: 1 });
     expect(res.status).toBe("ready");
     expect(res.recommendations).toHaveLength(1);
-    expect(res.diagnostics.filteredByThreshold).toBe(3);
+    expect(res.diagnostics.eligibleCount).toBe(3);
   });
 
   it("组织隔离：检索带 organizationId + sourceTypes:['job_description']", async () => {

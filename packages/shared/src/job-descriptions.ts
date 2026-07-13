@@ -137,7 +137,7 @@ export interface JobDescriptionRecommendation {
 }
 
 export interface JobDescriptionRecommendationResult {
-  diagnostics: { filteredByThreshold: number; vectorHitCount: number };
+  diagnostics: { eligibleCount: number; vectorHitCount: number };
   recommendations: JobDescriptionRecommendation[];
   resume: { id: string };
   status: "disabled" | "ready" | "already_matched" | "indexing";

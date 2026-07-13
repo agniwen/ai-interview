@@ -25,7 +25,7 @@ const USER_ID = "user_recommendations_route";
 const POOL_ITEM_ID = "pool-item-recommendations";
 
 const STUB_RESULT = {
-  diagnostics: { filteredByThreshold: 2, vectorHitCount: 3 },
+  diagnostics: { eligibleCount: 2, vectorHitCount: 3 },
   recommendations: [],
   resume: { id: POOL_ITEM_ID },
   status: "ready" as const,

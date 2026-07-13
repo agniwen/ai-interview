@@ -151,7 +151,7 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 function indexingResult(resumeId: string): JobDescriptionRecommendationResult {
   return {
-    diagnostics: { filteredByThreshold: 0, vectorHitCount: 0 },
+    diagnostics: { eligibleCount: 0, vectorHitCount: 0 },
     recommendations: [],
     resume: { id: resumeId },
     status: "indexing",
@@ -203,7 +203,7 @@ export async function recommendJobDescriptionsForResume(
 ): Promise<JobDescriptionRecommendationResult> {
   if (!deps.enabled) {
     return {
-      diagnostics: { filteredByThreshold: 0, vectorHitCount: 0 },
+      diagnostics: { eligibleCount: 0, vectorHitCount: 0 },
       recommendations: [],
       resume: { id: input.resume.id },
       status: "disabled",
@@ -211,7 +211,7 @@ export async function recommendJobDescriptionsForResume(
   }
   if (input.resume.jobDescriptionId) {
     return {
-      diagnostics: { filteredByThreshold: 0, vectorHitCount: 0 },
+      diagnostics: { eligibleCount: 0, vectorHitCount: 0 },
       recommendations: [],
       resume: { id: input.resume.id },
       status: "already_matched",
@@ -267,7 +267,7 @@ export async function recommendJobDescriptionsForResume(
       return indexingResult(input.resume.id);
     }
     return {
-      diagnostics: { filteredByThreshold: 0, vectorHitCount: 0 },
+      diagnostics: { eligibleCount: 0, vectorHitCount: 0 },
       recommendations: [],
       resume: { id: input.resume.id },
       status: "ready",
@@ -278,7 +278,7 @@ export async function recommendJobDescriptionsForResume(
 
   return {
     diagnostics: {
-      filteredByThreshold: core.ranked.length,
+      eligibleCount: core.ranked.length,
       vectorHitCount: core.retrievedIds.size,
     },
     recommendations,

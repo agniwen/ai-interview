@@ -67,7 +67,7 @@ const baseDetail = {
 } as unknown as ResumePoolDetail;
 
 const readyResult = {
-  diagnostics: { filteredByThreshold: 0, vectorHitCount: 1 },
+  diagnostics: { eligibleCount: 0, vectorHitCount: 1 },
   recommendations: [
     {
       departmentName: "研发部",
@@ -130,7 +130,7 @@ describe("ResumePoolRecommendationsPanel", () => {
 
   it("renders the disabled hint when semantic indexing is disabled", async () => {
     rpcFetchMock.mockResolvedValue({
-      diagnostics: { filteredByThreshold: 0, vectorHitCount: 0 },
+      diagnostics: { eligibleCount: 0, vectorHitCount: 0 },
       recommendations: [],
       resume: { id: "resume-1" },
       status: "disabled",
@@ -149,7 +149,7 @@ describe("ResumePoolRecommendationsPanel", () => {
 
   it("renders the indexing hint while the job description / resume index is processing", async () => {
     rpcFetchMock.mockResolvedValue({
-      diagnostics: { filteredByThreshold: 0, vectorHitCount: 0 },
+      diagnostics: { eligibleCount: 0, vectorHitCount: 0 },
       recommendations: [],
       resume: { id: "resume-1" },
       status: "indexing",
@@ -200,7 +200,7 @@ describe("ResumePoolRecommendationsPanel", () => {
 
   it("distinguishes no-hit from filtered-out empty states using diagnostics", async () => {
     rpcFetchMock.mockResolvedValue({
-      diagnostics: { filteredByThreshold: 0, vectorHitCount: 0 },
+      diagnostics: { eligibleCount: 0, vectorHitCount: 0 },
       recommendations: [],
       resume: { id: "resume-1" },
       status: "ready",
@@ -219,7 +219,7 @@ describe("ResumePoolRecommendationsPanel", () => {
 
   it("shows the filtered-by-threshold empty state when hits existed but none qualified", async () => {
     rpcFetchMock.mockResolvedValue({
-      diagnostics: { filteredByThreshold: 5, vectorHitCount: 5 },
+      diagnostics: { eligibleCount: 5, vectorHitCount: 5 },
       recommendations: [],
       resume: { id: "resume-1" },
       status: "ready",
@@ -238,7 +238,7 @@ describe("ResumePoolRecommendationsPanel", () => {
 
   it("renders nothing when the resume is already matched", async () => {
     rpcFetchMock.mockResolvedValue({
-      diagnostics: { filteredByThreshold: 0, vectorHitCount: 0 },
+      diagnostics: { eligibleCount: 0, vectorHitCount: 0 },
       recommendations: [],
       resume: { id: "resume-1" },
       status: "already_matched",
