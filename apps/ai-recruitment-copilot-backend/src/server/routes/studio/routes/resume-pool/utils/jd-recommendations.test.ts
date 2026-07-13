@@ -33,6 +33,7 @@ const depsWith = (opts: {
   enabled?: boolean;
   embed?: () => Promise<unknown>;
   indexedJdCount?: number;
+  queueConfigured?: boolean;
 }) => ({
   countIndexedJdVectors: vi.fn(() => Promise.resolve(opts.indexedJdCount ?? 1)),
   embed:
@@ -44,6 +45,7 @@ const depsWith = (opts: {
   embeddingVersion: "v1",
   enabled: opts.enabled ?? true,
   enqueueResumeReindex: vi.fn(() => Promise.resolve()),
+  isReindexQueueConfigured: vi.fn(() => opts.queueConfigured ?? true),
   loadJobDescriptionsForDisplay: vi.fn((_org: string, ids: string[]) =>
     Promise.resolve(ids.filter((id) => (opts.displayIds ?? ids).includes(id)).map(jdRow)),
   ),
@@ -198,6 +200,24 @@ describe("recommendJobDescriptionsForResume", () => {
     const res = await call(deps);
     expect(deps.countIndexedJdVectors).toHaveBeenCalledWith("org-1");
     expect(res.status).toBe("ready");
+    expect(res.recommendations).toEqual([]);
+  });
+
+  it("队列未配置 + embed 超时 → disabled（出口态收敛，不再死循环）", async () => {
+    const deps = depsWith({
+      chunks: [],
+      embed: () => Promise.reject(new Error("timeout")),
+      queueConfigured: false,
+    });
+    const res = await call(deps);
+    expect(res.status).toBe("disabled");
+    expect(res.recommendations).toEqual([]);
+  });
+
+  it("队列未配置 + indexing(b)（0 命中 + 本组织 JD 未回填）→ disabled", async () => {
+    const deps = depsWith({ hitIds: [], indexedJdCount: 0, queueConfigured: false });
+    const res = await call(deps);
+    expect(res.status).toBe("disabled");
     expect(res.recommendations).toEqual([]);
   });
 });

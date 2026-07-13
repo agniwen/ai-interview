@@ -14,6 +14,7 @@ import {
   isResumeSemanticIndexEnabled,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/embedding";
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
+import { isResumeParseQueueConfigured } from "@arc/resume-parse-queue/resume-parse";
 import { getResumeSemanticIndexConfig } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer";
 import {
   SEARCH_LIMIT_BY_CHUNK,
@@ -79,6 +80,7 @@ export interface JdRecommendationDeps {
   embeddingVersion: string;
   enabled: boolean;
   enqueueResumeReindex: (input: { organizationId: string; sourceId: string }) => Promise<void>;
+  isReindexQueueConfigured: () => boolean;
   loadJobDescriptionsForDisplay: (
     organizationId: string,
     ids: string[],
@@ -158,6 +160,32 @@ function indexingResult(resumeId: string): JobDescriptionRecommendationResult {
   };
 }
 
+function disabledResult(resumeId: string): JobDescriptionRecommendationResult {
+  return {
+    diagnostics: { eligibleCount: 0, vectorHitCount: 0 },
+    recommendations: [],
+    resume: { id: resumeId },
+    status: "disabled",
+  };
+}
+
+// 出口态收敛：`indexing` 仅在补索引队列能真正落队时才是可自愈的等待态。
+// 队列未配置/不可达时后台补索引是 no-op，若仍回 indexing 用户会永久卡重试（无出口态）。
+function pendingResult(
+  deps: Pick<JdRecommendationDeps, "isReindexQueueConfigured">,
+  resumeId: string,
+  reason: string,
+): JobDescriptionRecommendationResult {
+  if (!deps.isReindexQueueConfigured()) {
+    console.warn(
+      "[jd-recommendations] 语义补索引队列未配置，返回 disabled 而非 indexing（避免死循环）",
+      { reason, resumeId },
+    );
+    return disabledResult(resumeId);
+  }
+  return indexingResult(resumeId);
+}
+
 export async function scoreJobDescriptionsForResume(
   input: ScoreJdCoreInput,
   // oxlint-disable-next-line no-use-before-define -- default dependency factory stays below the public function.
@@ -202,12 +230,7 @@ export async function recommendJobDescriptionsForResume(
   deps: JdRecommendationDeps = createDefaultJdRecommendationDeps(),
 ): Promise<JobDescriptionRecommendationResult> {
   if (!deps.enabled) {
-    return {
-      diagnostics: { eligibleCount: 0, vectorHitCount: 0 },
-      recommendations: [],
-      resume: { id: input.resume.id },
-      status: "disabled",
-    };
+    return disabledResult(input.resume.id);
   }
   if (input.resume.jobDescriptionId) {
     return {
@@ -232,7 +255,7 @@ export async function recommendJobDescriptionsForResume(
       sourceId: input.resume.id,
     });
     if (!input.resume.profile) {
-      return indexingResult(input.resume.id);
+      return pendingResult(deps, input.resume.id, "resume_unindexed_no_profile");
     }
     try {
       const embedded = await withTimeout(
@@ -247,7 +270,7 @@ export async function recommendJobDescriptionsForResume(
         embedding: chunk.embedding,
       }));
     } catch {
-      return indexingResult(input.resume.id);
+      return pendingResult(deps, input.resume.id, "resume_embed_timeout");
     }
   } else {
     chunkEmbeddings = stored.map((chunk) => ({
@@ -264,7 +287,7 @@ export async function recommendJobDescriptionsForResume(
   if (core.retrievedIds.size === 0) {
     const indexedJdCount = await deps.countIndexedJdVectors(input.organizationId);
     if (indexedJdCount === 0) {
-      return indexingResult(input.resume.id);
+      return pendingResult(deps, input.resume.id, "jd_vectors_absent");
     }
     return {
       diagnostics: { eligibleCount: 0, vectorHitCount: 0 },
@@ -345,6 +368,7 @@ export function createDefaultJdRecommendationDeps(): JdRecommendationDeps {
         sourceId: input.sourceId,
         sourceType: "resume_pool_item",
       }),
+    isReindexQueueConfigured: isResumeParseQueueConfigured,
     loadJobDescriptionsForDisplay,
     loadResumeChunks: (loadInput) => vectorStore.loadResumeEmbeddings(loadInput),
     vectorStore,
