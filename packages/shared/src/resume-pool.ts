@@ -59,6 +59,7 @@ export interface ResumePoolListRecord {
   targetRole: string | null;
   notes: string | null;
   jobDescriptionId: string | null;
+  jobDescriptionName: string | null;
   resumeFileName: string | null;
   resumeStorageKey: string | null;
   resumeContentHash: string | null;

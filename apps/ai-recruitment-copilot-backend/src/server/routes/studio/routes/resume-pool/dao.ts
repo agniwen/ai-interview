@@ -1,6 +1,7 @@
 import { and, count, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
+  jobDescription,
   mailIngestMessage,
   organization,
   resumePoolEvent,
@@ -411,6 +412,7 @@ export async function queryResumePoolItems(
   const rows = await db
     .select({
       item: resumePoolItem,
+      jobDescriptionName: jobDescription.name,
       uploaderEmail: user.email,
       uploaderImage: user.image,
       uploaderName: user.name,
@@ -419,6 +421,7 @@ export async function queryResumePoolItems(
     .from(resumePoolItem)
     .leftJoin(organization, eq(resumePoolItem.organizationId, organization.id))
     .leftJoin(user, eq(resumePoolItem.createdBy, user.id))
+    .leftJoin(jobDescription, eq(resumePoolItem.jobDescriptionId, jobDescription.id))
     .where(where)
     .orderBy(desc(resumePoolItem.createdAt))
     .limit(100);
@@ -440,6 +443,7 @@ export async function queryResumePoolItems(
         uploaderMetaFromRow(row),
         sourceChannels.get(row.item.id) ?? null,
         duplicateMatches.get(row.item.id) ?? null,
+        row.jobDescriptionName ?? null,
       ),
     ),
     total: totalRow?.total ?? 0,
@@ -464,12 +468,27 @@ export async function loadResumePoolItem(input: {
     }),
   ]);
   const sourceChannels = await loadSourceChannels([row.id]);
+  let jobDescriptionName: string | null = null;
+  if (row.jobDescriptionId) {
+    const [jd] = await db
+      .select({ name: jobDescription.name })
+      .from(jobDescription)
+      .where(
+        and(
+          eq(jobDescription.id, row.jobDescriptionId),
+          eq(jobDescription.organizationId, input.organizationId),
+        ),
+      )
+      .limit(1);
+    jobDescriptionName = jd?.name ?? null;
+  }
   return toResumePoolDetail(
     row,
     importRow,
     uploaderMeta,
     sourceChannels.get(row.id) ?? null,
     duplicateMatches.get(row.id) ?? null,
+    jobDescriptionName,
   );
 }
 

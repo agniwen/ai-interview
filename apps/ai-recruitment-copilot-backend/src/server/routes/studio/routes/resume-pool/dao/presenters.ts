@@ -88,6 +88,7 @@ export function toResumePoolListRecord(
   uploaderMeta: PoolUploaderMeta = EMPTY_UPLOADER_META,
   sourceChannel: ResumePoolSourceChannel | null = null,
   duplicateMatch: ResumeDuplicateMatchSummary | null = null,
+  jobDescriptionName: string | null = null,
 ): ResumePoolListRecord {
   return {
     candidateEmail: row.candidateEmail,
@@ -100,6 +101,7 @@ export function toResumePoolListRecord(
     importedAt: importRow ? importRow.importedAt.toISOString() : null,
     importedResumeRecordId: importRow?.resumeRecordId ?? null,
     jobDescriptionId: row.jobDescriptionId,
+    jobDescriptionName,
     masteredSkills: buildMasteredSkills(row.resumeProfile),
     notes: row.notes,
     organizationId: row.organizationId,
@@ -135,9 +137,17 @@ export function toResumePoolDetail(
   uploaderMeta: PoolUploaderMeta = EMPTY_UPLOADER_META,
   sourceChannel: ResumePoolSourceChannel | null = null,
   duplicateMatch: ResumeDuplicateMatchSummary | null = null,
+  jobDescriptionName: string | null = null,
 ): ResumePoolDetail {
   return {
-    ...toResumePoolListRecord(row, importRow, uploaderMeta, sourceChannel, duplicateMatch),
+    ...toResumePoolListRecord(
+      row,
+      importRow,
+      uploaderMeta,
+      sourceChannel,
+      duplicateMatch,
+      jobDescriptionName,
+    ),
     resumeProfile: row.resumeProfile,
   };
 }

@@ -224,7 +224,15 @@ describe("POST /:id/bind", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).not.toBeNull();
-    expect((body as { jobDescriptionId: string | null })?.jobDescriptionId).toBe(JD_A);
+    expect(
+      (body as { jobDescriptionId: string | null; jobDescriptionName: string | null })
+        ?.jobDescriptionId,
+    ).toBe(JD_A);
+    // 详情 DTO 现在带出关联岗位名，供简历详情页「关联岗位」字段展示。
+    expect(
+      (body as { jobDescriptionId: string | null; jobDescriptionName: string | null })
+        ?.jobDescriptionName,
+    ).toBe("前端工程师");
 
     const [row] = await db.select().from(resumePoolItem).where(eq(resumePoolItem.id, poolItemId));
     expect(row?.jobDescriptionId).toBe(JD_A);
