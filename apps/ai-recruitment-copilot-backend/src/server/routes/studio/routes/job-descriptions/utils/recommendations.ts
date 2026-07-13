@@ -13,6 +13,12 @@ import {
   isResumeSemanticIndexEnabled,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/embedding";
 import { getResumeSemanticIndexConfig } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer";
+import {
+  SEARCH_LIMIT_BY_CHUNK,
+  mergeVectorScores,
+  weightedScore,
+} from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/scoring";
+import type { VectorScores } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/scoring";
 import { buildJobDescriptionSemanticTexts } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/text-builders";
 import type {
   JobDescriptionSemanticInput,
@@ -20,7 +26,6 @@ import type {
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/text-builders";
 import type {
   ResumeEmbeddingChunk,
-  ResumeVectorSearchResult,
   ResumeVectorStore,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/vector-store";
 import {
@@ -44,12 +49,6 @@ interface RecommendationCandidateRecord {
   resumeProfile: ResumeProfile | null;
   skillsNormalized: string[];
   targetRole: string | null;
-}
-
-interface VectorScores {
-  resumeOverview?: number;
-  skillRole?: number;
-  workProject?: number;
 }
 
 export interface FacetSimilarity {
@@ -101,40 +100,6 @@ interface RecommendationDeps {
     ids: string[],
   ) => Promise<RecommendationCandidateRecord[]>;
   vectorStore: ResumeVectorStore;
-}
-
-const SEARCH_LIMIT_BY_CHUNK = {
-  resume_overview: 40,
-  skill_role: 50,
-  work_project: 50,
-} as const satisfies Record<ResumeSemanticTextChunk["chunkType"], number>;
-
-function mergeVectorScores(results: ResumeVectorSearchResult[]): Map<string, VectorScores> {
-  const map = new Map<string, VectorScores>();
-  for (const result of results) {
-    if (result.sourceType !== "studio_interview") {
-      continue;
-    }
-    const current = map.get(result.sourceId) ?? {};
-    if (result.chunkType === "resume_overview") {
-      current.resumeOverview = Math.max(current.resumeOverview ?? 0, result.score);
-    } else if (result.chunkType === "work_project") {
-      current.workProject = Math.max(current.workProject ?? 0, result.score);
-    } else {
-      current.skillRole = Math.max(current.skillRole ?? 0, result.score);
-    }
-    map.set(result.sourceId, current);
-  }
-  return map;
-}
-
-function weightedScore(scores: VectorScores): number {
-  return Math.floor(
-    ((scores.skillRole ?? 0) * 0.45 +
-      (scores.workProject ?? 0) * 0.35 +
-      (scores.resumeOverview ?? 0) * 0.2) *
-      100,
-  );
 }
 
 function normalizeSkill(value: string): string {
@@ -230,7 +195,7 @@ export async function scoreCandidatesForJobDescription(
       }),
     ),
   );
-  const bySource = mergeVectorScores(resultGroups.flat());
+  const bySource = mergeVectorScores(resultGroups.flat(), "studio_interview");
   const retrievedIds = new Set(bySource.keys());
   const candidates = await deps.loadCandidates(input.organizationId, [...bySource.keys()]);
   const loadedIds = new Set(candidates.map((c) => c.id));
