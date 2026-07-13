@@ -27,4 +27,13 @@ describe("resume semantic index queue payload", () => {
       }),
     ).toBe("studio_interview-candidate-1");
   });
+
+  it("accepts job_description sourceType", () => {
+    const parsed = resumeSemanticIndexJobSchema.parse({
+      organizationId: "org-1",
+      sourceId: "jd-1",
+      sourceType: "job_description",
+    });
+    expect(parsed.sourceType).toBe("job_description");
+  });
 });
