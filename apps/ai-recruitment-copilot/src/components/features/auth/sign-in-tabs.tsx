@@ -1,12 +1,40 @@
 "use client";
 
+import type { Variants } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AnimatedHeight } from "@/components/features/motion/animated-height";
 import { env } from "@/env/client";
 import { EmailPasswordSignInForm } from "./email-password-sign-in-form";
 import { FeishuSignInButton } from "./feishu-sign-in-button";
 import { GoogleSignInButton } from "./google-sign-in-button";
 
 const SHOW_GOOGLE_LOGIN = env.NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN;
+const PANEL_OFFSET = 20;
+
+type SignInTab = "feishu" | "oauth" | "password";
+type SlideDirection = -1 | 1;
+
+interface PanelMotionContext {
+  direction: SlideDirection;
+  reduceMotion: boolean;
+}
+
+const panelVariants = {
+  center: {
+    opacity: 1,
+    transform: "translateX(0px)",
+  },
+  enter: ({ direction, reduceMotion }: PanelMotionContext) => ({
+    opacity: reduceMotion ? 1 : 0,
+    transform: reduceMotion ? "translateX(0px)" : `translateX(${direction * PANEL_OFFSET}px)`,
+  }),
+  exit: ({ direction, reduceMotion }: PanelMotionContext) => ({
+    opacity: reduceMotion ? 1 : 0,
+    transform: reduceMotion ? "translateX(0px)" : `translateX(${-direction * PANEL_OFFSET}px)`,
+  }),
+} satisfies Variants;
 
 interface SignInTabsProps {
   /** 登录成功后跳转目标 / Where to navigate once signed in. */
@@ -19,10 +47,48 @@ export function SignInTabs({ callbackURL }: SignInTabsProps) {
   // Google and Feishu are mutually exclusive: enabling Google hides Feishu and
   // vice versa; password sign-in is always present. The default tab falls back
   // to whichever of the two is currently visible.
-  const defaultValue = SHOW_GOOGLE_LOGIN ? "oauth" : "feishu";
+  const defaultValue: SignInTab = SHOW_GOOGLE_LOGIN ? "oauth" : "feishu";
+  const [activeTab, setActiveTab] = useState<SignInTab>(defaultValue);
+  const [direction, setDirection] = useState<SlideDirection>(1);
+  const reduceMotion = Boolean(useReducedMotion());
+  const motionContext = { direction, reduceMotion } satisfies PanelMotionContext;
+
+  function handleValueChange(value: string) {
+    const nextTab = value as SignInTab;
+    setDirection(nextTab === "password" ? 1 : -1);
+    setActiveTab(nextTab);
+  }
+
+  function renderActivePanel() {
+    if (activeTab === "password") {
+      return (
+        <TabsContent className="mt-4" value="password">
+          <EmailPasswordSignInForm callbackURL={callbackURL} />
+        </TabsContent>
+      );
+    }
+    if (SHOW_GOOGLE_LOGIN) {
+      return (
+        <TabsContent className="mt-4" value="oauth">
+          <GoogleSignInButton callbackURL={callbackURL} />
+        </TabsContent>
+      );
+    }
+    return (
+      <TabsContent className="mt-4 space-y-3" value="feishu">
+        <FeishuSignInButton callbackURL={callbackURL} />
+        <FeishuSignInButton
+          callbackURL={callbackURL}
+          label="极光 HR 飞书登录"
+          providerId="feishu-jiguang-hr"
+          variant="default"
+        />
+      </TabsContent>
+    );
+  }
 
   return (
-    <Tabs className="w-full" defaultValue={defaultValue}>
+    <Tabs className="w-full" onValueChange={handleValueChange} value={activeTab}>
       <TabsList className="grid w-full grid-cols-2">
         {SHOW_GOOGLE_LOGIN ? (
           <TabsTrigger value="oauth">Google 登录</TabsTrigger>
@@ -31,24 +97,27 @@ export function SignInTabs({ callbackURL }: SignInTabsProps) {
         )}
         <TabsTrigger value="password">账号密码登录</TabsTrigger>
       </TabsList>
-      {SHOW_GOOGLE_LOGIN ? (
-        <TabsContent className="mt-4" value="oauth">
-          <GoogleSignInButton callbackURL={callbackURL} />
-        </TabsContent>
-      ) : (
-        <TabsContent className="mt-4 space-y-3" value="feishu">
-          <FeishuSignInButton callbackURL={callbackURL} />
-          <FeishuSignInButton
-            callbackURL={callbackURL}
-            label="极光 HR 飞书登录"
-            providerId="feishu-jiguang-hr"
-            variant="default"
-          />
-        </TabsContent>
-      )}
-      <TabsContent className="mt-4" value="password">
-        <EmailPasswordSignInForm callbackURL={callbackURL} />
-      </TabsContent>
+      <AnimatedHeight animateOnMobile>
+        <div className="relative">
+          <AnimatePresence custom={motionContext} initial={false} mode="popLayout">
+            <motion.div
+              animate="center"
+              custom={motionContext}
+              exit="exit"
+              initial="enter"
+              key={activeTab}
+              transition={
+                reduceMotion
+                  ? { duration: 0 }
+                  : { duration: 0.18, ease: [0.23, 1, 0.32, 1] as const }
+              }
+              variants={panelVariants}
+            >
+              {renderActivePanel()}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </AnimatedHeight>
     </Tabs>
   );
 }

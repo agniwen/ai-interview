@@ -248,8 +248,9 @@
    Without it, backdrop-blur desaturates the content underneath and the
    material reads as flat gray. Tailwind v4 composes backdrop-filter from
    --tw-backdrop-* variables, so setting --tw-backdrop-saturate here
-   augments every backdrop-blur-* utility without editing each call site. */
-[class*="backdrop-blur"]:not([class*="backdrop-blur-none"]) {
+   augments every backdrop-blur-* utility without editing each call site.
+   Individual surfaces can opt out with backdrop-saturate-100. */
+[class*="backdrop-blur"]:not([class*="backdrop-blur-none"]):not(.backdrop-saturate-100) {
   --tw-backdrop-saturate: saturate(180%);
 }
 

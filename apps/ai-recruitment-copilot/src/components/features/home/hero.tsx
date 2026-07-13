@@ -9,7 +9,6 @@ import { SplitText } from "@/components/react-bits/split-text";
 import { Button } from "@/components/ui/button";
 
 interface HeroProps {
-  isPending: boolean;
   onResumeFiltering: () => void;
   onWorkbench: () => void;
 }
@@ -23,7 +22,7 @@ interface HeroProps {
 const BRAND_MARK_CLASS =
   "mb-3 block font-mono font-medium text-base text-primary uppercase tracking-[0.22em] sm:mb-4 sm:text-base lg:text-lg";
 
-export function Hero({ isPending, onResumeFiltering, onWorkbench }: HeroProps) {
+export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
   const reducedMotion = useReducedMotion();
 
   return (
@@ -70,7 +69,6 @@ export function Hero({ isPending, onResumeFiltering, onWorkbench }: HeroProps) {
         <div className="inline-flex items-stretch">
           <Button
             className="group h-11 min-w-[12em] gap-0 rounded-l-xl rounded-r-none border-primary/40 bg-primary/20! px-8 text-sm  hover:bg-primary/40! sm:h-12 sm:px-10 sm:text-base"
-            disabled={isPending}
             onClick={onResumeFiltering}
             type="button"
             variant="outline"
@@ -82,7 +80,6 @@ export function Hero({ isPending, onResumeFiltering, onWorkbench }: HeroProps) {
           </Button>
           <Button
             className="group h-11 min-w-[12em] gap-0 rounded-l-none rounded-r-xl border-background bg-background/60 px-8 text-sm  hover:bg-background/80 sm:h-12 sm:px-10 sm:text-base"
-            disabled={isPending}
             onClick={onWorkbench}
             type="button"
             variant="outline"
