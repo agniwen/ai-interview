@@ -13,7 +13,11 @@ import {
   isResumeSemanticIndexEnabled,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/embedding";
 import { getResumeSemanticIndexConfig } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer";
-import type { ResumeSemanticTextChunk } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/text-builders";
+import { buildJobDescriptionSemanticTexts } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/text-builders";
+import type {
+  JobDescriptionSemanticInput,
+  ResumeSemanticTextChunk,
+} from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/text-builders";
 import type {
   ResumeEmbeddingChunk,
   ResumeVectorSearchResult,
@@ -24,13 +28,7 @@ import {
   buildProfileHighlights,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao";
 
-interface RecommendJobDescription {
-  departmentName: string | null;
-  description: string | null;
-  id: string;
-  name: string;
-  prompt: string;
-}
+export type RecommendJobDescription = JobDescriptionSemanticInput;
 
 interface RecommendationCandidateRecord {
   candidateEmail: string | null;
@@ -110,49 +108,6 @@ const SEARCH_LIMIT_BY_CHUNK = {
   skill_role: 50,
   work_project: 50,
 } as const satisfies Record<ResumeSemanticTextChunk["chunkType"], number>;
-
-function cleanText(value: string | null | undefined): string | null {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed.replaceAll(/\s+/g, " ") : null;
-}
-
-function section(title: string, lines: (string | null)[]): string {
-  const body = lines.filter((line): line is string => typeof line === "string");
-  return [`## ${title}`, ...body].join("\n");
-}
-
-function buildJobRecommendationQueryTexts(jd: RecommendJobDescription): ResumeSemanticTextChunk[] {
-  const name = cleanText(jd.name);
-  const departmentName = cleanText(jd.departmentName);
-  const description = cleanText(jd.description);
-  const prompt = cleanText(jd.prompt);
-
-  return [
-    {
-      chunkType: "resume_overview",
-      text: section("岗位概览", [
-        name ? `岗位名称：${name}` : null,
-        departmentName ? `所属部门：${departmentName}` : null,
-        description ? `岗位描述：${description}` : null,
-      ]),
-    },
-    {
-      chunkType: "work_project",
-      text: section("职责和业务场景", [
-        description ? `业务描述：${description}` : null,
-        prompt ? `面试官提示：${prompt}` : null,
-      ]),
-    },
-    {
-      chunkType: "skill_role",
-      text: section("岗位和技能要求", [
-        name ? `目标岗位：${name}` : null,
-        prompt ? `能力要求：${prompt}` : null,
-        description ? `补充描述：${description}` : null,
-      ]),
-    },
-  ];
-}
 
 function mergeVectorScores(results: ResumeVectorSearchResult[]): Map<string, VectorScores> {
   const map = new Map<string, VectorScores>();
@@ -259,7 +214,7 @@ export async function scoreCandidatesForJobDescription(
   // oxlint-disable-next-line no-use-before-define -- default dependency factory stays below the public function.
   deps: RecommendationDeps = createDefaultRecommendationDeps(),
 ): Promise<ScoreCoreResult> {
-  const chunks = buildJobRecommendationQueryTexts(input.jobDescription);
+  const chunks = buildJobDescriptionSemanticTexts(input.jobDescription);
   const embedded = await deps.embed({
     ...deps.embeddingConfig,
     chunks,
