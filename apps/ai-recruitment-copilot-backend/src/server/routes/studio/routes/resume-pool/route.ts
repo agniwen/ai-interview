@@ -30,6 +30,7 @@ import {
   publishPrivatePoolItem,
   queryResumePoolItems,
 } from "./dao";
+import { resumePoolRecommendationsRouter } from "./routes/recommendations/route";
 import {
   resumePoolCreateInputSchema,
   resumePoolImportInputSchema,
@@ -344,4 +345,5 @@ export const resumePoolRouter = factory
         return c.json({ error: error instanceof Error ? error.message : "入库失败。" }, 400);
       }
     },
-  );
+  )
+  .route("/:id/recommendations", resumePoolRecommendationsRouter);
