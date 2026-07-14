@@ -9,10 +9,11 @@ import { ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Control } from "react-hook-form";
 import { Controller, useWatch } from "react-hook-form";
+import { omitRecordKey } from "@/components/features/mastra-studio/upstream/domains/agents/utils/record";
 
 import { useAgents } from "../../../hooks/use-agents";
 import type { AgentFormValues, EntityConfig } from "../utils/form-validation";
-import { EntityAccordionItem } from "@/components/features/mastra-studio/upstream/domains/cms";
+import { EntityAccordionItem } from "@/components/features/mastra-studio/upstream/domains/cms/components/entity-accordion-item/entity-accordion-item";
 import { SectionTitle } from "@/components/features/mastra-studio/upstream/domains/cms/components/section/section-title";
 
 interface AgentsSectionProps {
@@ -86,9 +87,7 @@ export function AgentsSection({
           };
 
           const handleRemove = (agentId: string) => {
-            const newValue = { ...field.value };
-            delete newValue[agentId];
-            field.onChange(newValue);
+            field.onChange(omitRecordKey(field.value ?? {}, agentId));
           };
 
           return (

@@ -1,11 +1,10 @@
 import { CopyButton } from "@mastra/playground-ui/components/CopyButton";
 import { Txt } from "@mastra/playground-ui/components/Txt";
-import { jsonSchemaToZod } from "@mastra/schema-compat/json-to-zod";
 import { useMemo } from "react";
 import { parse } from "superjson";
 import { useSchemaRequestContext } from "../context/schema-request-context";
 import { RequestContextLabel } from "./request-context-label";
-import { DynamicForm } from "@/components/features/mastra-studio/upstream/lib/form";
+import { DynamicForm } from "@/components/features/mastra-studio/upstream/lib/form/dynamic-form";
 import { resolveSerializedZodOutput } from "@/components/features/mastra-studio/upstream/lib/form/utils";
 
 export interface RequestContextSchemaFormProps {
@@ -37,8 +36,10 @@ export const RequestContextSchemaForm = ({
   // Parse the schema
   const zodSchema = useMemo(() => {
     try {
-      const jsonSchema = parse(requestContextSchema) as Parameters<typeof jsonSchemaToZod>[0];
-      return resolveSerializedZodOutput(jsonSchemaToZod(jsonSchema));
+      const jsonSchema = parse(requestContextSchema) as Parameters<
+        typeof resolveSerializedZodOutput
+      >[0];
+      return resolveSerializedZodOutput(jsonSchema);
     } catch (error) {
       console.error("Failed to parse requestContextSchema:", error);
       return null;
@@ -62,7 +63,7 @@ export const RequestContextSchemaForm = ({
 
       <DynamicForm
         schema={zodSchema}
-        onSubmit={setSchemaValues}
+        onSubmit={(values) => setSchemaValues(values as Record<string, unknown>)}
         submitButtonLabel="Save"
         defaultValues={schemaValues}
       />

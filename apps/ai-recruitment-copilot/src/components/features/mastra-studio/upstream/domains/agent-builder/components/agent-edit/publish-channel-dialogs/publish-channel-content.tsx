@@ -69,6 +69,48 @@ export function PublishChannelContent({
     connect(agentId);
   };
 
+  let statusContent;
+  if (platform.isConfigured) {
+    statusContent = activeInstallation ? (
+      <>
+        Connected <span className="text-neutral6">{platform.name}</span> to{" "}
+        <span className="text-neutral6">Mastra</span>
+      </>
+    ) : (
+      copy.notConnected(platform.name)
+    );
+  } else {
+    statusContent = copy.notConfigured(platform.name);
+  }
+
+  let footerAction;
+  if (platform.isConfigured) {
+    footerAction = activeInstallation ? (
+      <Button
+        variant="default"
+        onClick={onDisconnectRequest}
+        data-testid={`publish-channel-dialog-${platform.id}-disconnect`}
+      >
+        Disconnect
+      </Button>
+    ) : (
+      <Button
+        variant="default"
+        onClick={handleConnect}
+        disabled={isConnecting}
+        data-testid={`publish-channel-dialog-${platform.id}-connect`}
+      >
+        {isConnecting ? "Connecting…" : copy.connectLabel}
+      </Button>
+    );
+  } else {
+    footerAction = (
+      <Button variant="default" onClick={onClose}>
+        Close
+      </Button>
+    );
+  }
+
   return (
     <>
       <DialogHeader>
@@ -82,43 +124,11 @@ export function PublishChannelContent({
 
       <DialogBody>
         <Txt variant="ui-sm" className="text-neutral3">
-          {!platform.isConfigured ? (
-            copy.notConfigured(platform.name)
-          ) : activeInstallation ? (
-            <>
-              Connected <span className="text-neutral6">{platform.name}</span> to{" "}
-              <span className="text-neutral6">Mastra</span>
-            </>
-          ) : (
-            copy.notConnected(platform.name)
-          )}
+          {statusContent}
         </Txt>
       </DialogBody>
 
-      <DialogFooter>
-        {platform.isConfigured && activeInstallation ? (
-          <Button
-            variant="default"
-            onClick={onDisconnectRequest}
-            data-testid={`publish-channel-dialog-${platform.id}-disconnect`}
-          >
-            Disconnect
-          </Button>
-        ) : platform.isConfigured ? (
-          <Button
-            variant="default"
-            onClick={handleConnect}
-            disabled={isConnecting}
-            data-testid={`publish-channel-dialog-${platform.id}-connect`}
-          >
-            {isConnecting ? "Connecting…" : copy.connectLabel}
-          </Button>
-        ) : (
-          <Button variant="default" onClick={onClose}>
-            Close
-          </Button>
-        )}
-      </DialogFooter>
+      <DialogFooter>{footerAction}</DialogFooter>
     </>
   );
 }

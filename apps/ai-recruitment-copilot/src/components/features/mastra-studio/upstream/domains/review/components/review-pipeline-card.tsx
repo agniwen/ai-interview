@@ -78,6 +78,23 @@ export function ReviewPipelineCard({
 
   const hasData = data.length > 0;
 
+  let cardContent: React.ReactNode;
+  if (isLoading) {
+    cardContent = <MetricsCard.Loading />;
+  } else if (isError) {
+    cardContent = <MetricsCard.Error message="Failed to load review data" />;
+  } else {
+    cardContent = (
+      <MetricsCard.Content>
+        {hasData ? (
+          <HorizontalBars data={data} segments={SEGMENTS} maxVal={maxVal} fmt={String} />
+        ) : (
+          <MetricsCard.NoData message="No items have been sent to review yet" />
+        )}
+      </MetricsCard.Content>
+    );
+  }
+
   return (
     <MetricsCard>
       <MetricsCard.TopBar>
@@ -89,24 +106,7 @@ export function ReviewPipelineCard({
           <MetricsCard.Summary value={String(totalInPipeline)} label="Items in pipeline" />
         )}
       </MetricsCard.TopBar>
-      {isLoading ? (
-        <MetricsCard.Loading />
-      ) : isError ? (
-        <MetricsCard.Error message="Failed to load review data" />
-      ) : (
-        <MetricsCard.Content>
-          {!hasData ? (
-            <MetricsCard.NoData message="No items have been sent to review yet" />
-          ) : (
-            <HorizontalBars
-              data={data}
-              segments={SEGMENTS}
-              maxVal={maxVal}
-              fmt={(v) => String(v)}
-            />
-          )}
-        </MetricsCard.Content>
-      )}
+      {cardContent}
     </MetricsCard>
   );
 }

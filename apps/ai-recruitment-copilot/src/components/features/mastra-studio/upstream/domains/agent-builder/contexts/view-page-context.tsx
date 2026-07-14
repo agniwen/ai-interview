@@ -64,7 +64,8 @@ export const ViewPageProvider = ({
   const isOwner = !storedAgent.authorId || currentUserId === storedAgent.authorId;
   const isPublishable = storedAgent.visibility === "public";
   const canModify = canWrite && isOwner;
-  const hasBrowser = features.browser && storedAgent.browser != null;
+  const hasBrowser =
+    features.browser && storedAgent.browser !== null && storedAgent.browser !== undefined;
   const threadId = currentUserId ? `${currentUserId}-${agentId}` : agentId;
 
   const onModeToggle = useMemo(
@@ -103,7 +104,6 @@ export const ViewPageProvider = ({
   );
 };
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const useViewPage = (): ViewPageContextValue => {
   const ctx = useContext(ViewPageContext);
   if (!ctx) {

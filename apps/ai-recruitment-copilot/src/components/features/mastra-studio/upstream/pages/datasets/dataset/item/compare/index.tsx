@@ -51,10 +51,77 @@ function itemToText(item: DatasetItem): string {
   );
 }
 
+function parseItemIds(value: string | null): string[] {
+  return value ? value.split(",").filter(Boolean) : [];
+}
+
+function CompareItemColumn({
+  datasetId,
+  itemId,
+  LinkComponent,
+  idx,
+  itemIds,
+  onItemChange,
+  showContent = true,
+}: {
+  datasetId: string;
+  itemId: string;
+  LinkComponent: ReturnType<typeof useLinkComponent>["Link"];
+  idx: number;
+  itemIds: string[];
+  showContent?: boolean;
+  onItemChange: (newItemId: string) => void;
+}) {
+  const { data: item, isLoading } = useDatasetItem(datasetId, itemId);
+  const { data: allItems } = useDatasetItems(datasetId);
+  const otherItemIds = new Set(itemIds.filter((_, i) => i !== idx));
+  const options = (allItems ?? []).map((i: { id: string }) => ({
+    disabled: otherItemIds.has(i.id),
+    label: i.id,
+    value: i.id,
+  }));
+  let columnContent = (
+    <div className="text-neutral4 text-sm">Item {itemId.slice(0, 8)} not found</div>
+  );
+  if (isLoading) {
+    columnContent = <div className="text-neutral4 text-sm">Loading...</div>;
+  } else if (item) {
+    columnContent = (
+      <>
+        <DatasetItemHeader item={item} />
+        <DatasetItemContent item={item} Link={LinkComponent} />
+      </>
+    );
+  }
+  return (
+    <Column>
+      <Column.Toolbar className="flex gap-4">
+        <Select name={`compare-item-${idx}`} value={itemId} onValueChange={onItemChange}>
+          <SelectTrigger aria-label="Item">
+            <SelectValue placeholder="Select item" />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value} disabled={option.disabled}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button as={LinkComponent} to={`/datasets/${datasetId}/items/${itemId}`}>
+          <History />
+          Versions
+        </Button>
+      </Column.Toolbar>
+      {showContent && <Column.Content>{columnContent}</Column.Content>}
+    </Column>
+  );
+}
+
 function DatasetItemsComparePage() {
   const { datasetId } = useParams<{ datasetId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const itemIds = searchParams.get("items")?.split(",").filter(Boolean) ?? [];
+  const itemIds = parseItemIds(searchParams.get("items"));
   const { data: dataset, error } = useDataset(datasetId ?? "");
   const { Link: FrameworkLink } = useLinkComponent();
   const [isDiffView, setIsDiffView] = useState<boolean>(false);
@@ -147,7 +214,7 @@ function DatasetItemsComparePage() {
                 <CompareItemColumn
                   datasetId={datasetId}
                   itemId={itemId}
-                  Link={FrameworkLink}
+                  LinkComponent={FrameworkLink}
                   idx={idx}
                   itemIds={itemIds}
                   showContent={!isDiffView}
@@ -157,7 +224,7 @@ function DatasetItemsComparePage() {
                     setSearchParams({ items: newIds.join(",") });
                   }}
                 />
-                {idx == 0 && <div className={cn("bg-surface5 w-[3px] shrink-0 mx-[1.5vw]")}></div>}
+                {idx === 0 && <div className={cn("bg-surface5 w-[3px] shrink-0 mx-[1.5vw]")} />}
               </Fragment>
             ))}
           </Columns>
@@ -167,72 +234,6 @@ function DatasetItemsComparePage() {
         </div>
       </div>
     </MainContentLayout>
-  );
-}
-
-function CompareItemColumn({
-  datasetId,
-  itemId,
-  Link,
-  idx,
-  itemIds,
-  onItemChange,
-  showContent = true,
-}: {
-  datasetId: string;
-  itemId: string;
-  Link: ReturnType<typeof useLinkComponent>["Link"];
-  idx: number;
-  itemIds: string[];
-  showContent?: boolean;
-  onItemChange: (newItemId: string) => void;
-}) {
-  const { data: item, isLoading } = useDatasetItem(datasetId, itemId);
-  const { data: allItems } = useDatasetItems(datasetId);
-
-  const otherItemIds = new Set(itemIds.filter((_, i) => i !== idx));
-  const options = (allItems ?? []).map((i: { id: string }) => ({
-    disabled: otherItemIds.has(i.id),
-    label: i.id,
-    value: i.id,
-  }));
-
-  return (
-    <Column>
-      <Column.Toolbar className="flex gap-4">
-        <Select name={`compare-item-${idx}`} value={itemId} onValueChange={onItemChange}>
-          <SelectTrigger aria-label="Item">
-            <SelectValue placeholder="Select item" />
-          </SelectTrigger>
-          <SelectContent>
-            {options.map((option) => (
-              <SelectItem key={option.value} value={option.value} disabled={option.disabled}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button as={Link} to={`/datasets/${datasetId}/items/${itemId}`}>
-          <History />
-          Versions
-        </Button>
-      </Column.Toolbar>
-
-      {showContent && (
-        <Column.Content>
-          {isLoading ? (
-            <div className="text-neutral4 text-sm">Loading...</div>
-          ) : !item ? (
-            <div className="text-neutral4 text-sm">Item {itemId.slice(0, 8)} not found</div>
-          ) : (
-            <>
-              <DatasetItemHeader item={item} />
-              <DatasetItemContent item={item} Link={Link} />
-            </>
-          )}
-        </Column.Content>
-      )}
-    </Column>
   );
 }
 

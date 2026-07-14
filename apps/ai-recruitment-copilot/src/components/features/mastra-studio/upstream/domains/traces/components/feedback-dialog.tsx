@@ -33,6 +33,57 @@ function formatValue(fb: FeedbackRecord): string {
   return String(fb.value ?? "-");
 }
 
+function buildFeedbackData(feedback?: FeedbackRecord) {
+  const data = [
+    {
+      key: "timestamp",
+      label: "Created at",
+      value: feedback?.timestamp
+        ? format(new Date(feedback.timestamp), "MMM d, h:mm:ss aaa")
+        : "n/a",
+    },
+    {
+      key: "type",
+      label: "Type",
+      value: feedback?.feedbackType ?? "n/a",
+    },
+    {
+      key: "value",
+      label: "Value",
+      value: feedback ? formatValue(feedback) : "n/a",
+    },
+  ];
+
+  if (feedback?.comment) {
+    data.push({ key: "comment", label: "Comment", value: feedback.comment });
+  }
+
+  data.push({
+    key: "source",
+    label: "Source",
+    value: feedback?.feedbackSource ?? feedback?.source ?? "n/a",
+  });
+
+  if (feedback?.feedbackUserId) {
+    data.push({ key: "userId", label: "User", value: feedback.feedbackUserId });
+  }
+  if (feedback?.traceId) {
+    data.push({ key: "traceId", label: "Trace ID", value: feedback.traceId });
+  }
+  if (feedback?.spanId) {
+    data.push({ key: "spanId", label: "Span ID", value: feedback.spanId });
+  }
+
+  return data;
+}
+
+function getMetadataString(feedback?: FeedbackRecord) {
+  if (!feedback?.metadata || Object.keys(feedback.metadata).length === 0) {
+    return;
+  }
+  return JSON.stringify(feedback.metadata, null, 2);
+}
+
 export function FeedbackDialog({
   feedback,
   isOpen,
@@ -40,10 +91,7 @@ export function FeedbackDialog({
   onNext,
   onPrevious,
 }: FeedbackDialogProps) {
-  const metadataStr =
-    feedback?.metadata && Object.keys(feedback.metadata).length > 0
-      ? JSON.stringify(feedback.metadata, null, 2)
-      : undefined;
+  const metadataStr = getMetadataString(feedback);
 
   return (
     <SideDialog
@@ -74,68 +122,7 @@ export function FeedbackDialog({
         </SideDialog.Header>
 
         <Sections>
-          <KeyValueList
-            data={[
-              {
-                key: "timestamp",
-                label: "Created at",
-                value: feedback?.timestamp
-                  ? format(new Date(feedback.timestamp), "MMM d, h:mm:ss aaa")
-                  : "n/a",
-              },
-              {
-                key: "type",
-                label: "Type",
-                value: feedback?.feedbackType ?? "n/a",
-              },
-              {
-                key: "value",
-                label: "Value",
-                value: feedback ? formatValue(feedback) : "n/a",
-              },
-              ...(feedback?.comment
-                ? [
-                    {
-                      key: "comment",
-                      label: "Comment",
-                      value: feedback.comment,
-                    },
-                  ]
-                : []),
-              {
-                key: "source",
-                label: "Source",
-                value: feedback?.feedbackSource ?? feedback?.source ?? "n/a",
-              },
-              ...(feedback?.feedbackUserId
-                ? [
-                    {
-                      key: "userId",
-                      label: "User",
-                      value: feedback.feedbackUserId,
-                    },
-                  ]
-                : []),
-              ...(feedback?.traceId
-                ? [
-                    {
-                      key: "traceId",
-                      label: "Trace ID",
-                      value: feedback.traceId,
-                    },
-                  ]
-                : []),
-              ...(feedback?.spanId
-                ? [
-                    {
-                      key: "spanId",
-                      label: "Span ID",
-                      value: feedback.spanId,
-                    },
-                  ]
-                : []),
-            ]}
-          />
+          <KeyValueList data={buildFeedbackData(feedback)} />
 
           {metadataStr && (
             <SideDialog.CodeSection

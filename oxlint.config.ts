@@ -12,7 +12,6 @@ export default defineConfig({
     "**/src/components/ui/**",
     "**/src/components/react-bits/**",
     "**/src/components/spell-ui/**",
-    "apps/ai-recruitment-copilot/src/components/features/mastra-studio/upstream/**",
     "apps/ai-recruitment-copilot/src/routeTree.gen.ts",
     "apps/ai-recruitment-copilot-worker/dist/**",
   ],

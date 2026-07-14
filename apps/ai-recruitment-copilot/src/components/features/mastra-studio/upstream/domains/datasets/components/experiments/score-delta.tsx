@@ -12,20 +12,27 @@ interface ScoreDeltaProps {
  * Shows arrow direction and delta value in neutral color.
  */
 export function ScoreDelta({ delta }: ScoreDeltaProps) {
-  const arrow =
-    delta > 0 ? (
+  let arrow = null;
+  let sign = "";
+  if (delta > 0) {
+    arrow = (
       <Chip size="small" color="green" intensity="muted">
         <ArrowUpIcon />
       </Chip>
-    ) : delta < 0 ? (
+    );
+    sign = "+ ";
+  } else if (delta < 0) {
+    arrow = (
       <Chip size="small" color="red" intensity="muted">
         <ArrowDownIcon />
       </Chip>
-    ) : null;
+    );
+    sign = "- ";
+  }
 
   return (
     <span className={cn("font-mono text-sm text-neutral4 min-w-20")}>
-      <span className="w-3 inline-block">{delta > 0 ? "+ " : delta < 0 ? "- " : ""}</span>
+      <span className="w-3 inline-block">{sign}</span>
       {Math.abs(delta).toFixed(2)}&nbsp;{arrow}
     </span>
   );

@@ -40,7 +40,8 @@ interface ParsedObservation {
 
 interface ParsedDateBlock {
   date: string;
-  relativeTime?: string; // e.g., "(3 days ago)"
+  // For example, "(3 days ago)".
+  relativeTime?: string;
   observations: ParsedObservation[];
 }
 
@@ -58,7 +59,7 @@ interface ParsedObservations {
 /**
  * Parse a single observation line
  */
-function parseObservationLine(line: string, isNested: boolean = false): ParsedObservation | null {
+function parseObservationLine(line: string, isNested = false): ParsedObservation | null {
   // Match: * 🔴 (14:30) Content or * -> nested content
   const trimmed = line.trim();
 
@@ -121,25 +122,20 @@ function parseObservationLine(line: string, isNested: boolean = false): ParsedOb
   return null;
 }
 
+const extractTaggedContent = (raw: string, tag: string) => {
+  const match = raw.match(new RegExp(`<${tag}>\\s*([\\s\\S]*?)\\s*</${tag}>`));
+  return match?.[1]?.trim();
+};
+
 /**
  * Parse the raw observations string into structured data
  */
 function parseObservations(raw: string): ParsedObservations {
   const result: ParsedObservations = {
+    currentTask: extractTaggedContent(raw, "current-task"),
+    suggestedResponse: extractTaggedContent(raw, "suggested-response"),
     threads: [],
   };
-
-  // Extract current-task if present
-  const currentTaskMatch = raw.match(/<current-task>\s*([\s\S]*?)\s*<\/current-task>/);
-  if (currentTaskMatch) {
-    result.currentTask = currentTaskMatch[1].trim();
-  }
-
-  // Extract suggested-response if present
-  const suggestedMatch = raw.match(/<suggested-response>\s*([\s\S]*?)\s*<\/suggested-response>/);
-  if (suggestedMatch) {
-    result.suggestedResponse = suggestedMatch[1].trim();
-  }
 
   // Extract observations content
   const observationsMatch = raw.match(/<observations>\s*([\s\S]*?)\s*<\/observations>/);
@@ -231,6 +227,19 @@ function parseObservations(raw: string): ParsedObservations {
   return result;
 }
 
+const getObservationColors = (observation: ParsedObservation, useInheritedTextColor?: boolean) => {
+  if (useInheritedTextColor) {
+    return { bgColor: "", priorityColor: "" };
+  }
+  if (observation.priority) {
+    return {
+      bgColor: PRIORITY_BG[observation.priority],
+      priorityColor: PRIORITY_COLORS[observation.priority],
+    };
+  }
+  return { bgColor: "", priorityColor: "text-muted-foreground" };
+};
+
 /**
  * Render a single observation
  */
@@ -242,16 +251,7 @@ function ObservationItem({
   useInheritedTextColor?: boolean;
 }) {
   // When useInheritedTextColor is true, don't apply priority colors - inherit from parent
-  const priorityColor = useInheritedTextColor
-    ? ""
-    : observation.priority
-      ? PRIORITY_COLORS[observation.priority]
-      : "text-muted-foreground";
-  const bgColor = useInheritedTextColor
-    ? ""
-    : observation.priority
-      ? PRIORITY_BG[observation.priority]
-      : "";
+  const { bgColor, priorityColor } = getObservationColors(observation, useInheritedTextColor);
 
   // Get a subtle left border color based on priority (using blue shades for visual hierarchy)
   const borderColor = observation.priority

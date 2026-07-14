@@ -43,17 +43,77 @@ interface EditOptions {
 
 export type UseAgentCmsFormOptions = CreateOptions | EditOptions;
 
+function getFormMode(options: UseAgentCmsFormOptions) {
+  if (options.mode === "create") {
+    return {
+      agentId: undefined,
+      editorConfig: undefined,
+      hasStoredOverride: false,
+      isCodeAgentOverride: false,
+      isEdit: false,
+    };
+  }
+  return {
+    agentId: options.agentId,
+    editorConfig: options.editorConfig,
+    hasStoredOverride: Boolean(options.hasStoredOverride),
+    isCodeAgentOverride: Boolean(options.isCodeAgentOverride),
+    isEdit: true,
+  };
+}
+
+function getFieldOwnership(
+  isCodeAgentOverride: boolean,
+  editorConfig: AgentEditorConfig | undefined,
+) {
+  const editableByDefault = !isCodeAgentOverride || editorConfig === undefined;
+  const hasEditorConfig = editorConfig !== false;
+  return {
+    ownsInstructions: editableByDefault || (hasEditorConfig && editorConfig?.instructions === true),
+    ownsToolDescriptions:
+      editableByDefault ||
+      (hasEditorConfig &&
+        (editorConfig?.tools === true ||
+          (typeof editorConfig?.tools === "object" && editorConfig.tools.description === true))),
+    ownsTools: editableByDefault || (hasEditorConfig && editorConfig?.tools === true),
+  };
+}
+
+function getRegistryTools(values: AgentFormValues): Record<string, EntityConfig> {
+  const mcpToolNames = new Set<string>();
+  for (const client of values.mcpClients ?? []) {
+    for (const name of Object.keys(client.selectedTools ?? {})) {
+      mcpToolNames.add(name);
+    }
+  }
+  const registryTools: Record<string, EntityConfig> = {};
+  for (const [name, config] of Object.entries(values.tools ?? {})) {
+    if (!mcpToolNames.has(name)) {
+      registryTools[name] = config;
+    }
+  }
+  return registryTools;
+}
+
+async function getMcpClientsParam(
+  values: AgentFormValues,
+  client: ReturnType<typeof useMastraClient>,
+) {
+  const clients = values.mcpClients ?? [];
+  const ids = await collectMCPClientIds(clients, client);
+  return Object.fromEntries(
+    ids.map((id, index) => [id, { tools: clients[index]?.selectedTools ?? {} }]),
+  );
+}
+
 export function useAgentCmsForm(options: UseAgentCmsFormOptions) {
   const client = useMastraClient();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
 
+  const { agentId, editorConfig, hasStoredOverride, isCodeAgentOverride } = getFormMode(options);
   const isEdit = options.mode === "edit";
-  const agentId = isEdit ? options.agentId : undefined;
-  const isCodeAgentOverride = isEdit && !!options.isCodeAgentOverride;
-  const hasStoredOverride = isEdit && !!options.hasStoredOverride;
-  const editorConfig = isEdit ? options.editorConfig : undefined;
 
   // Derive which fields are owned by the user (vs by code). These flags MUST mirror the server's
   // getCodeAgentOwnership (packages/server/src/server/handlers/stored-agents.ts): on save the server
@@ -71,20 +131,10 @@ export function useAgentCmsForm(options: UseAgentCmsFormOptions) {
   // The missing `undefined` case was the bug (for both instructions and tools): the old
   // `=== true`-only checks made an editor-unset code agent send an empty instructions array and
   // drop tool edits on save, wiping changes the server would have kept.
-  const ownsInstructions =
-    !isCodeAgentOverride ||
-    editorConfig === undefined ||
-    (editorConfig !== false && editorConfig?.instructions === true);
-  const ownsTools =
-    !isCodeAgentOverride ||
-    editorConfig === undefined ||
-    (editorConfig !== false && editorConfig?.tools === true);
-  const ownsToolDescriptions =
-    !isCodeAgentOverride ||
-    editorConfig === undefined ||
-    (editorConfig !== false &&
-      (editorConfig?.tools === true ||
-        (typeof editorConfig?.tools === "object" && editorConfig.tools.description === true)));
+  const { ownsInstructions, ownsToolDescriptions, ownsTools } = getFieldOwnership(
+    isCodeAgentOverride,
+    editorConfig,
+  );
 
   // Track whether we've already created a stored override for a code agent in this session
   const [overrideCreated, setOverrideCreated] = useState(false);
@@ -119,8 +169,9 @@ export function useAgentCmsForm(options: UseAgentCmsFormOptions) {
       return;
     }
 
-    Promise.all(ids.map((id) => client.getStoredMCPClient(id).details()))
-      .then((results) => {
+    void (async () => {
+      try {
+        const results = await Promise.all(ids.map((id) => client.getStoredMCPClient(id).details()));
         const mcpClientValues = results.map((r) => ({
           description: r.description,
           id: r.id,
@@ -139,10 +190,10 @@ export function useAgentCmsForm(options: UseAgentCmsFormOptions) {
           }
         }
         form.setValue("tools", next, { shouldDirty: false });
-      })
-      .catch(() => {
+      } catch {
         // Silently ignore — clients may have been deleted
-      });
+      }
+    })();
   });
 
   useEffect(() => {
@@ -157,47 +208,25 @@ export function useAgentCmsForm(options: UseAgentCmsFormOptions) {
     async (values: AgentFormValues) => {
       // Code agent overrides: only send fields that are editable (instructions, tools, variables)
       if (isCodeAgentOverride) {
-        // Collect all MCP tool names
-        const mcpToolNames = new Set<string>();
-        for (const c of values.mcpClients ?? []) {
-          for (const name of Object.keys(c.selectedTools ?? {})) {
-            mcpToolNames.add(name);
-          }
-        }
-
-        // Registry tools = form.tools minus MCP tools
-        const registryTools: Record<string, EntityConfig> = {};
-        for (const [name, config] of Object.entries(values.tools ?? {})) {
-          if (!mcpToolNames.has(name)) {
-            registryTools[name] = config;
-          }
-        }
-
-        // Create pending MCP clients in parallel and collect IDs
-        const mcpClientIds = await collectMCPClientIds(values.mcpClients ?? [], client);
-        const mcpClientsParam = Object.fromEntries(
-          mcpClientIds.map((id, index) => {
-            const selectedTools = values.mcpClients?.[index]?.selectedTools ?? {};
-            return [id, { tools: selectedTools }];
-          }),
-        );
+        const registryTools = getRegistryTools(values);
+        const mcpClientsParam = await getMcpClientsParam(values, client);
 
         // Only send fields the user actually owns. The server will also strip
         // unowned fields as a defense-in-depth measure, but doing it here too
         // avoids sending empty/stale payloads on every save.
         return {
-          // name and model are required by the create schema — pass the code agent's values through.
-          // applyStoredOverrides will NOT apply these fields for code agent overrides.
-          name: values.name,
-          model: values.model,
-          // Variables (requestContextSchema) are always editable for code agents.
-          requestContextSchema: values.variables
-            ? Object.fromEntries(Object.entries(values.variables))
-            : undefined,
           // Instructions: when the user owns them, send the edited blocks.
           // When they don't, still send an empty array (CREATE schema requires it),
           // the server drops it for unowned fields based on editorConfig.
           instructions: ownsInstructions ? mapInstructionBlocksToApi(values.instructionBlocks) : [],
+          // name and model are required by the create schema — pass the code agent's values through.
+          // applyStoredOverrides will NOT apply these fields for code agent overrides.
+          model: values.model,
+          name: values.name,
+          // Variables (requestContextSchema) are always editable for code agents.
+          requestContextSchema: values.variables
+            ? Object.fromEntries(Object.entries(values.variables))
+            : undefined,
           // Tools: send when the user owns membership OR descriptions.
           // Server enforces what gets persisted (and rejects membership changes
           // in descriptions-only mode).
@@ -217,30 +246,8 @@ export function useAgentCmsForm(options: UseAgentCmsFormOptions) {
         await Promise.all(mcpClientsToDelete.map((id) => client.getStoredMCPClient(id).delete()));
       }
 
-      // Collect all MCP tool names
-      const mcpToolNames = new Set<string>();
-      for (const c of values.mcpClients ?? []) {
-        for (const name of Object.keys(c.selectedTools ?? {})) {
-          mcpToolNames.add(name);
-        }
-      }
-
-      // Registry tools = form.tools minus MCP tools
-      const registryTools: Record<string, EntityConfig> = {};
-      for (const [name, config] of Object.entries(values.tools ?? {})) {
-        if (!mcpToolNames.has(name)) {
-          registryTools[name] = config;
-        }
-      }
-
-      // Create pending MCP clients in parallel and collect IDs
-      const mcpClientIds = await collectMCPClientIds(values.mcpClients ?? [], client);
-      const mcpClientsParam = Object.fromEntries(
-        mcpClientIds.map((id, index) => {
-          const selectedTools = values.mcpClients?.[index]?.selectedTools ?? {};
-          return [id, { tools: selectedTools }];
-        }),
-      );
+      const registryTools = getRegistryTools(values);
+      const mcpClientsParam = await getMcpClientsParam(values, client);
 
       return {
         agents: values.agents && Object.keys(values.agents).length > 0 ? values.agents : undefined,
@@ -402,7 +409,7 @@ export function useAgentCmsForm(options: UseAgentCmsFormOptions) {
             const versionsResponse = await client
               .getStoredAgent(options.agentId)
               .listVersions({ orderBy: { direction: "DESC", field: "createdAt" }, perPage: 1 });
-            const latestVersion = versionsResponse.versions[0];
+            const [latestVersion] = versionsResponse.versions;
             if (latestVersion) {
               await client.getStoredAgent(options.agentId).activateVersion(latestVersion.id);
             }
@@ -415,7 +422,7 @@ export function useAgentCmsForm(options: UseAgentCmsFormOptions) {
                 .listVersions({ orderBy: { direction: "DESC", field: "createdAt" }, perPage: 1 }),
             ]);
 
-            const latestVersion = versionsResponse.versions[0];
+            const [latestVersion] = versionsResponse.versions;
             if (!latestVersion || latestVersion.id === agentDetails.activeVersionId) {
               toast.error("No draft changes to publish. Save a draft first.");
               return;

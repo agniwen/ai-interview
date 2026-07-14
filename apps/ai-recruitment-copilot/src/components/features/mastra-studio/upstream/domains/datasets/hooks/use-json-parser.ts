@@ -51,8 +51,9 @@ export function useJSONParser() {
         items: validation.items,
         rawData: data,
       };
-    } catch (error) {
-      const parseError = error instanceof Error ? error : new Error("Failed to parse JSON file");
+    } catch (caughtError) {
+      const parseError =
+        caughtError instanceof Error ? caughtError : new Error("Failed to parse JSON file");
       setError(parseError);
       throw parseError;
     } finally {

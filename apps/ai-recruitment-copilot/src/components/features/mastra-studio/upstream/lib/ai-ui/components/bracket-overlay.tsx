@@ -4,6 +4,77 @@ type OmType = "observation" | "reflection";
 
 const HIGHLIGHT_BADGE_PADDING = 12;
 
+interface HighlightPosition {
+  cycleId: string;
+  omType: OmType;
+  state:
+    | "loading"
+    | "complete"
+    | "failed"
+    | "disconnected"
+    | "buffering"
+    | "buffering-complete"
+    | "buffering-failed"
+    | "activated";
+  top: number;
+  height: number;
+}
+
+function findPreviousBadge(
+  badges: HTMLElement[],
+  currentIndex: number,
+  omType: OmType,
+): HTMLElement | null {
+  for (let j = currentIndex - 1; j >= 0; j -= 1) {
+    const badge = badges[j];
+    if (badge.dataset.omState === "failed") {
+      continue;
+    }
+    if (omType === "observation" || badge.dataset.omType === "reflection") {
+      return badge;
+    }
+  }
+  return null;
+}
+
+function getStateColor(state: HighlightPosition["state"]): string {
+  const colors: Record<HighlightPosition["state"], string> = {
+    activated: "rgba(34, 197, 94, 0.4)",
+    buffering: "rgba(156, 163, 175, 0.45)",
+    "buffering-complete": "rgba(156, 163, 175, 0.45)",
+    "buffering-failed": "rgba(239, 68, 68, 0.4)",
+    complete: "rgba(34, 197, 94, 0.4)",
+    disconnected: "rgba(234, 179, 8, 0.4)",
+    failed: "rgba(239, 68, 68, 0.4)",
+    loading: "rgba(59, 130, 246, 0.4)",
+  };
+  return colors[state];
+}
+
+function HighlightBlock({
+  highlight,
+  visible,
+}: {
+  highlight: HighlightPosition;
+  visible: boolean;
+}) {
+  const color = getStateColor(highlight.state);
+  const isBufferingState = highlight.state.startsWith("buffering");
+
+  return (
+    <div
+      className="absolute left-0 right-0 transition-opacity duration-200"
+      style={{
+        border: `2px ${isBufferingState ? "dashed" : "solid"} ${color}`,
+        borderRadius: "0.5rem",
+        height: highlight.height,
+        opacity: visible ? 1 : 0,
+        top: highlight.top,
+      }}
+    />
+  );
+}
+
 /**
  * Renders absolutely-positioned background highlights behind messages that have
  * been observed by Observational Memory.
@@ -53,7 +124,7 @@ export function BracketOverlay({
 
     const newHighlights: HighlightPosition[] = [];
 
-    for (let i = 0; i < badges.length; i++) {
+    for (let i = 0; i < badges.length; i += 1) {
       const badge = badges[i];
       const cycleId = badge.dataset.omBadge || "";
       const state = (badge.dataset.omState || "complete") as HighlightPosition["state"];
@@ -64,14 +135,10 @@ export function BracketOverlay({
       // Find the anchor point (top of the highlight).
       // - Observations: bottom of the previous badge (any type)
       // - Reflections: bottom of the previous reflection badge
-      let top: number;
       const anchorBadge = findPreviousBadge(badges, i, omType);
-      if (anchorBadge) {
-        top =
-          anchorBadge.getBoundingClientRect().bottom + HIGHLIGHT_BADGE_PADDING - containerRect.top;
-      } else {
-        top = 0;
-      }
+      const top = anchorBadge
+        ? anchorBadge.getBoundingClientRect().bottom + HIGHLIGHT_BADGE_PADDING - containerRect.top
+        : 0;
 
       // Keep a little visual padding around the marker without measuring layout margins.
       const bottom = badgeRect.bottom + HIGHLIGHT_BADGE_PADDING - containerRect.top;
@@ -174,111 +241,4 @@ export function BracketOverlay({
       })}
     </div>
   );
-}
-
-/**
- * Find the previous badge to anchor the highlight's top edge.
- * - Observations anchor to the previous badge of any type (excluding failed ones).
- * - Reflections anchor to the previous successful reflection badge only (skipping failed reflections).
- */
-function findPreviousBadge(
-  badges: HTMLElement[],
-  currentIndex: number,
-  omType: OmType,
-): HTMLElement | null {
-  for (let j = currentIndex - 1; j >= 0; j--) {
-    const badge = badges[j];
-    const badgeState = badge.dataset.omState;
-
-    // Skip failed badges - they shouldn't be used as anchors
-    if (badgeState === "failed") {
-      continue;
-    }
-
-    if (omType === "observation") {
-      // Observations anchor to any previous non-failed badge
-      return badge;
-    }
-    // Reflections anchor only to previous successful reflections
-    if (badge.dataset.omType === "reflection") {
-      return badge;
-    }
-  }
-  return null;
-}
-
-interface HighlightPosition {
-  cycleId: string;
-  omType: OmType;
-  state:
-    | "loading"
-    | "complete"
-    | "failed"
-    | "disconnected"
-    | "buffering"
-    | "buffering-complete"
-    | "buffering-failed"
-    | "activated";
-  /** Top position relative to the container (in px) */
-  top: number;
-  /** Height of the highlight block (in px) */
-  height: number;
-}
-
-function HighlightBlock({
-  highlight,
-  visible,
-}: {
-  highlight: HighlightPosition;
-  visible: boolean;
-}) {
-  const color = getStateColor(highlight.state);
-  const isBufferingState = highlight.state.startsWith("buffering");
-
-  return (
-    <div
-      className="absolute left-0 right-0 transition-opacity duration-200"
-      style={{
-        border: `2px ${isBufferingState ? "dashed" : "solid"} ${color}`,
-        borderRadius: "0.5rem",
-        height: highlight.height,
-        opacity: visible ? 1 : 0,
-        top: highlight.top,
-      }}
-    />
-  );
-}
-
-function getStateColor(state: HighlightPosition["state"]): string {
-  switch (state) {
-    case "complete": {
-      return "rgba(34, 197, 94, 0.4)";
-    }
-    case "loading": {
-      return "rgba(59, 130, 246, 0.4)";
-    }
-    case "failed": {
-      return "rgba(239, 68, 68, 0.4)";
-    }
-    case "disconnected": {
-      return "rgba(234, 179, 8, 0.4)";
-    }
-    // Buffering states use a neutral bracket so they don't overpower the message content.
-    case "buffering": {
-      return "rgba(156, 163, 175, 0.45)";
-    }
-    case "buffering-complete": {
-      return "rgba(156, 163, 175, 0.45)";
-    }
-    case "buffering-failed": {
-      return "rgba(239, 68, 68, 0.4)";
-    }
-    // Activation state uses green — same as sync observation/reflection 'complete'
-    case "activated": {
-      return "rgba(34, 197, 94, 0.4)";
-    }
-    default: {
-      return "rgba(34, 197, 94, 0.4)";
-    }
-  }
 }

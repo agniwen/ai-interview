@@ -18,6 +18,25 @@ export interface ExperimentResultsListProps {
   onToggleSelect?: (resultId: string) => void;
 }
 
+/** Format unknown value for display. */
+function formatValue(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  return JSON.stringify(value, null, 2);
+}
+
+/** Truncate string to max length. */
+function truncate(str: string, max: number): string {
+  if (str.length <= max) {
+    return str;
+  }
+  return `${str.slice(0, max - 1)}...`;
+}
+
 /**
  * List component for experiment results - controlled by parent for selection state.
  */
@@ -75,9 +94,8 @@ export function ExperimentResultsList({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="flex items-center justify-center w-10 relative bg-transparent h-full">
-                        <div
-                          role="img"
-                          aria-label={hasError ? "Error" : "Success"}
+                        <span
+                          aria-hidden
                           className={cn(
                             "w-2 h-2 rounded-full",
                             hasError ? "bg-red-700" : "bg-green-600",
@@ -102,14 +120,14 @@ export function ExperimentResultsList({
                       height="compact"
                       className="font-mono text-neutral3 text-ui-smd"
                     >
-                      {score != null ? score.score.toFixed(3) : "-"}
+                      {score === undefined ? "-" : score.score.toFixed(3)}
                     </DataList.Cell>
                   );
                 })}
               </>
             );
 
-            if (!hasSelection) {
+            if (!selectedIds || !onToggleSelect) {
               return (
                 <DataList.RowButton
                   key={result.id}
@@ -124,8 +142,8 @@ export function ExperimentResultsList({
             return (
               <DataList.RowWrapper key={result.id}>
                 <DataList.SelectCell
-                  checked={selectedIds!.has(result.id)}
-                  onToggle={() => onToggleSelect!(result.id)}
+                  checked={selectedIds.has(result.id)}
+                  onToggle={() => onToggleSelect(result.id)}
                   aria-label={`Select result ${result.itemId}`}
                 />
                 <DataList.RowButton
@@ -149,23 +167,4 @@ export function ExperimentResultsList({
       )}
     </DataList>
   );
-}
-
-/** Format unknown value for display */
-function formatValue(value: unknown): string {
-  if (value === null || value === undefined) {
-    return "-";
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  return JSON.stringify(value, null, 2);
-}
-
-/** Truncate string to max length */
-function truncate(str: string, max: number): string {
-  if (str.length <= max) {
-    return str;
-  }
-  return `${str.slice(0, max - 1)}...`;
 }

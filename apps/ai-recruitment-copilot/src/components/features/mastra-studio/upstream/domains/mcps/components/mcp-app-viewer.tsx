@@ -136,9 +136,9 @@ export function McpAppViewer({
   );
 
   const handleMessage = useCallback(
-    async (params: { role: string; content: { type: string; text?: string }[] }) => {
+    (params: { role: string; content: { type: string; text?: string }[] }) => {
       if (!onSendMessage) {
-        return {};
+        return Promise.resolve({});
       }
       const text = params.content
         ?.filter((block) => block.type === "text")
@@ -147,16 +147,16 @@ export function McpAppViewer({
       if (text) {
         onSendMessage(text);
       }
-      return {};
+      return Promise.resolve({});
     },
     [onSendMessage],
   );
 
-  const handleOpenLink = useCallback(async (params: { url: string }) => {
+  const handleOpenLink = useCallback((params: { url: string }) => {
     if (typeof params.url === "string") {
       window.open(params.url, "_blank", "noopener,noreferrer");
     }
-    return {};
+    return Promise.resolve({});
   }, []);
 
   const handleSizeChanged = useCallback((params: { width?: number; height?: number }) => {

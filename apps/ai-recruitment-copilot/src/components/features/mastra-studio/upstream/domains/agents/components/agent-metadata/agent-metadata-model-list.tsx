@@ -1,4 +1,8 @@
-import type { DropResult, DroppableProvided } from "@hello-pangea/dnd";
+import type {
+  DraggableProvidedDragHandleProps,
+  DropResult,
+  DroppableProvided,
+} from "@hello-pangea/dnd";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
 import type {
   GetAgentResponse,
@@ -23,88 +27,6 @@ export interface AgentMetadataModelListProps {
   modelList: AgentMetadataModelListType;
   updateModelInModelList: AgentMetadataModelListItemProps["updateModelInModelList"];
   reorderModelList: (params: ReorderModelListParams) => void;
-}
-
-export const AgentMetadataModelList = ({
-  modelList,
-  updateModelInModelList,
-  reorderModelList,
-}: AgentMetadataModelListProps) => {
-  const [modelConfigs, setModelConfigs] = useState(() => modelList);
-  const hasMultipleModels = modelConfigs.length > 1;
-  const enabledCount = modelConfigs.filter((m) => m.enabled !== false).length;
-
-  const handleDragEnd = (result: DropResult) => {
-    if (!result.destination) {
-      return;
-    }
-
-    const items = [...modelConfigs];
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
-
-    setModelConfigs(items);
-    reorderModelList({ reorderedModelIds: items.map((item) => item.id) });
-  };
-
-  const updateModel = (params: UpdateModelInModelListParams) => {
-    setModelConfigs((prev) =>
-      prev.map((modelConfig) =>
-        modelConfig.id === params.modelConfigId
-          ? {
-              ...modelConfig,
-              enabled: params.enabled ?? modelConfig.enabled,
-              maxRetries: params.maxRetries ?? modelConfig.maxRetries,
-              model: {
-                modelId: params.model?.modelId ?? modelConfig.model.modelId,
-                modelVersion: modelConfig.model.modelVersion,
-                provider: params.model?.provider ?? modelConfig.model.provider,
-              },
-            }
-          : modelConfig,
-      ),
-    );
-    return updateModelInModelList(params);
-  };
-
-  return (
-    <DragDropContext onDragEnd={handleDragEnd}>
-      <Droppable droppableId="model-list">
-        {(provided: DroppableProvided) => (
-          <div {...provided.droppableProps} ref={provided.innerRef} className="flex flex-col gap-2">
-            {modelConfigs.map((modelConfig, index) => (
-              <Draggable key={modelConfig.id} draggableId={modelConfig.id} index={index}>
-                {(provided) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.draggableProps}
-                    style={provided.draggableProps.style}
-                  >
-                    <AgentMetadataModelListItem
-                      modelConfig={modelConfig}
-                      updateModelInModelList={updateModel}
-                      showDragHandle={hasMultipleModels}
-                      dragHandleProps={provided.dragHandleProps}
-                      isLastEnabled={modelConfig.enabled !== false && enabledCount === 1}
-                    />
-                  </div>
-                )}
-              </Draggable>
-            ))}
-            {provided.placeholder}
-          </div>
-        )}
-      </Droppable>
-    </DragDropContext>
-  );
-};
-
-interface AgentMetadataModelListItemProps {
-  modelConfig: AgentMetadataModelListType[number];
-  updateModelInModelList: (params: UpdateModelInModelListParams) => Promise<{ message: string }>;
-  showDragHandle: boolean;
-  dragHandleProps?: any;
-  isLastEnabled: boolean;
 }
 
 const AgentMetadataModelListItem = ({
@@ -166,3 +88,85 @@ const AgentMetadataModelListItem = ({
     </div>
   );
 };
+
+export const AgentMetadataModelList = ({
+  modelList,
+  updateModelInModelList,
+  reorderModelList,
+}: AgentMetadataModelListProps) => {
+  const [modelConfigs, setModelConfigs] = useState(() => modelList);
+  const hasMultipleModels = modelConfigs.length > 1;
+  const enabledCount = modelConfigs.filter((m) => m.enabled !== false).length;
+
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) {
+      return;
+    }
+
+    const items = [...modelConfigs];
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    setModelConfigs(items);
+    reorderModelList({ reorderedModelIds: items.map((item) => item.id) });
+  };
+
+  const updateModel = (params: UpdateModelInModelListParams) => {
+    setModelConfigs((prev) =>
+      prev.map((modelConfig) =>
+        modelConfig.id === params.modelConfigId
+          ? {
+              ...modelConfig,
+              enabled: params.enabled ?? modelConfig.enabled,
+              maxRetries: params.maxRetries ?? modelConfig.maxRetries,
+              model: {
+                modelId: params.model?.modelId ?? modelConfig.model.modelId,
+                modelVersion: modelConfig.model.modelVersion,
+                provider: params.model?.provider ?? modelConfig.model.provider,
+              },
+            }
+          : modelConfig,
+      ),
+    );
+    return updateModelInModelList(params);
+  };
+
+  return (
+    <DragDropContext onDragEnd={handleDragEnd}>
+      <Droppable droppableId="model-list">
+        {(provided: DroppableProvided) => (
+          <div {...provided.droppableProps} ref={provided.innerRef} className="flex flex-col gap-2">
+            {modelConfigs.map((modelConfig, index) => (
+              <Draggable key={modelConfig.id} draggableId={modelConfig.id} index={index}>
+                {(draggableProvided) => (
+                  <div
+                    ref={draggableProvided.innerRef}
+                    {...draggableProvided.draggableProps}
+                    style={draggableProvided.draggableProps.style}
+                  >
+                    <AgentMetadataModelListItem
+                      modelConfig={modelConfig}
+                      updateModelInModelList={updateModel}
+                      showDragHandle={hasMultipleModels}
+                      dragHandleProps={draggableProvided.dragHandleProps}
+                      isLastEnabled={modelConfig.enabled !== false && enabledCount === 1}
+                    />
+                  </div>
+                )}
+              </Draggable>
+            ))}
+            {provided.placeholder}
+          </div>
+        )}
+      </Droppable>
+    </DragDropContext>
+  );
+};
+
+interface AgentMetadataModelListItemProps {
+  modelConfig: AgentMetadataModelListType[number];
+  updateModelInModelList: (params: UpdateModelInModelListParams) => Promise<{ message: string }>;
+  showDragHandle: boolean;
+  dragHandleProps?: DraggableProvidedDragHandleProps | null;
+  isLastEnabled: boolean;
+}

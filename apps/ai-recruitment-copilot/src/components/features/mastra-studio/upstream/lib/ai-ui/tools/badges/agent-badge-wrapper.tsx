@@ -10,11 +10,11 @@ import type { MessageMetadata } from "@/components/features/mastra-studio/upstre
 interface SubAgentToolResult {
   toolName: string;
   toolCallId: string;
-  result: any;
-  args: any;
+  result: unknown;
+  args: Record<string, unknown>;
 }
 
-interface AgentBadgeWrapperProps extends Omit<ToolApprovalButtonsProps, "toolCalled"> {
+export interface AgentBadgeWrapperProps extends Omit<ToolApprovalButtonsProps, "toolCalled"> {
   agentId: string;
   result?: {
     childMessages?: AgentMessage[];
@@ -24,10 +24,37 @@ interface AgentBadgeWrapperProps extends Omit<ToolApprovalButtonsProps, "toolCal
     text?: string;
   };
   metadata?: MessageMetadata;
-  suspendPayload?: any;
+  suspendPayload?: unknown;
   toolCalled?: boolean;
   isComplete?: boolean;
+  renderToolMessage: React.ComponentProps<typeof AgentBadge>["renderToolMessage"];
 }
+
+const resolveAgentMessages = (
+  result: AgentBadgeWrapperProps["result"],
+  fetchedMessages: AgentMessage[],
+) => {
+  if (result?.childMessages?.length) {
+    return result.childMessages;
+  }
+  if (result?.subAgentToolResults?.length) {
+    const messages: AgentMessage[] = result.subAgentToolResults.map((toolResult) => ({
+      args: toolResult.args,
+      toolCallId: toolResult.toolCallId,
+      toolName: toolResult.toolName,
+      toolOutput: toolResult.result,
+      type: "tool",
+    }));
+    if (result.text) {
+      messages.push({ content: result.text, type: "text" });
+    }
+    return messages;
+  }
+  if (result?.text) {
+    return [{ content: result.text, type: "text" } satisfies AgentMessage];
+  }
+  return fetchedMessages;
+};
 
 export const AgentBadgeWrapper = ({
   agentId,
@@ -40,6 +67,7 @@ export const AgentBadgeWrapper = ({
   suspendPayload,
   toolCalled,
   isComplete,
+  renderToolMessage,
 }: AgentBadgeWrapperProps) => {
   const shouldFetchAgentMessages = Boolean(
     result?.subAgentThreadId && !result.text && !result.subAgentToolResults?.length,
@@ -60,29 +88,10 @@ export const AgentBadgeWrapper = ({
   // 1. childMessages (built during live streaming by toUIMessageFromAgent)
   // 2. subAgentToolResults (from backend tool-result, available after approval or on refresh)
   // 3. resolveToChildMessages (fetched from subagent thread via API)
-  let childMessages = result?.childMessages?.length ? result.childMessages : undefined;
-
-  if (!childMessages && result?.subAgentToolResults?.length) {
-    const toolMessages: AgentMessage[] = result.subAgentToolResults.map((tr) => ({
-      args: tr.args,
-      toolCallId: tr.toolCallId,
-      toolName: tr.toolName,
-      toolOutput: tr.result,
-      type: "tool" as const,
-    }));
-    if (result.text) {
-      toolMessages.push({ content: result.text, type: "text" as const });
-    }
-    childMessages = toolMessages;
-  }
-
-  if (!childMessages && result?.text) {
-    childMessages = [{ content: result.text, type: "text" as const }];
-  }
-
-  if (!childMessages) {
-    childMessages = resolveToChildMessages(convertedMessages) as AgentMessage[];
-  }
+  const childMessages = resolveAgentMessages(
+    result,
+    resolveToChildMessages(convertedMessages) as AgentMessage[],
+  );
 
   const hasStreamingChildMessages = Boolean(result && Object.hasOwn(result, "childMessages"));
 
@@ -99,6 +108,7 @@ export const AgentBadgeWrapper = ({
       suspendPayload={suspendPayload}
       toolCalled={toolCalled}
       isComplete={isComplete}
+      renderToolMessage={renderToolMessage}
     />
   );
 };

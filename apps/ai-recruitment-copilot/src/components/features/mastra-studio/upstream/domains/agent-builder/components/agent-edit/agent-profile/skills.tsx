@@ -9,41 +9,6 @@ interface SkillsProps {
   availableSkills?: StoredSkillResponse[];
 }
 
-export const Skills = ({ editable = true, availableSkills = [] }: SkillsProps) => {
-  const { setValue, getValues, watch } = useFormContext<AgentBuilderEditFormValues>();
-  const selected = watch("skills") ?? {};
-
-  const toggle = (id: string, next: boolean) => {
-    const current = getValues("skills") ?? {};
-    setValue("skills", { ...current, [id]: next }, { shouldDirty: true });
-  };
-
-  return (
-    <div className="h-full min-h-0 overflow-y-auto py-2">
-      {availableSkills.length === 0 ? (
-        <SkillEmptyState />
-      ) : (
-        <ul className="flex flex-col">
-          {availableSkills.map((skill) => {
-            const isChecked = Boolean(selected[skill.id]);
-
-            return (
-              <li key={skill.id}>
-                <SkillItem
-                  skill={skill}
-                  editable={editable}
-                  onToggle={toggle}
-                  isChecked={isChecked}
-                />
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
-  );
-};
-
 interface SkillItemProps {
   skill: StoredSkillResponse;
   editable: boolean;
@@ -83,3 +48,38 @@ const SkillEmptyState = () => (
     </Txt>
   </div>
 );
+
+export const Skills = ({ editable = true, availableSkills = [] }: SkillsProps) => {
+  const { setValue, getValues, watch } = useFormContext<AgentBuilderEditFormValues>();
+  const selected = watch("skills") ?? {};
+
+  const toggle = (id: string, next: boolean) => {
+    const current = getValues("skills") ?? {};
+    setValue("skills", { ...current, [id]: next }, { shouldDirty: true });
+  };
+
+  return (
+    <div className="h-full min-h-0 overflow-y-auto py-2">
+      {availableSkills.length === 0 ? (
+        <SkillEmptyState />
+      ) : (
+        <ul className="flex flex-col">
+          {availableSkills.map((skill) => {
+            const isChecked = Boolean(selected[skill.id]);
+
+            return (
+              <li key={skill.id}>
+                <SkillItem
+                  skill={skill}
+                  editable={editable}
+                  onToggle={toggle}
+                  isChecked={isChecked}
+                />
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+};

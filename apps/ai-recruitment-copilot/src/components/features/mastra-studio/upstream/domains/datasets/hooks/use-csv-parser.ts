@@ -30,43 +30,44 @@ export function useCSVParser() {
     try {
       const useWorker = file.size > WORKER_THRESHOLD;
 
-      return await new Promise<ParsedCSV>((resolve, reject) => {
-        Papa.parse<Record<string, string>>(file, {
-          complete: (results: Papa.ParseResult<Record<string, string>>) => {
-            // Extract headers from first row fields or meta
-            const headers = results.meta.fields ?? [];
+      const { promise, reject, resolve } = Promise.withResolvers<ParsedCSV>();
+      Papa.parse<Record<string, string>>(file, {
+        complete: (results: Papa.ParseResult<Record<string, string>>) => {
+          // Extract headers from first row fields or meta
+          const headers = results.meta.fields ?? [];
 
-            // Process each row through JSON cell parser
-            const allWarnings: string[] = [];
-            const processedData = results.data.map((row: Record<string, string>, index: number) => {
-              const parsed = parseRow(row);
+          // Process each row through JSON cell parser
+          const allWarnings: string[] = [];
+          const processedData = results.data.map((row: Record<string, string>, index: number) => {
+            const parsed = parseRow(row);
 
-              // Prefix warnings with row number
-              parsed.warnings.forEach((w) => {
-                allWarnings.push(`Row ${index + 2}: ${w}`);
-              });
+            // Prefix warnings with row number
+            for (const w of parsed.warnings) {
+              allWarnings.push(`Row ${index + 2}: ${w}`);
+            }
 
-              return parsed.data;
-            });
+            return parsed.data;
+          });
 
-            resolve({
-              data: processedData,
-              errors: results.errors,
-              headers,
-              warnings: allWarnings,
-            });
-          },
-          dynamicTyping: false,
-          error: (err: Error) => {
-            reject(new Error(err.message));
-          },
-          header: true,
-          skipEmptyLines: "greedy",
-          worker: useWorker,
-        });
+          resolve({
+            data: processedData,
+            errors: results.errors,
+            headers,
+            warnings: allWarnings,
+          });
+        },
+        dynamicTyping: false,
+        error: (err: Error) => {
+          reject(new Error(err.message));
+        },
+        header: true,
+        skipEmptyLines: "greedy",
+        worker: useWorker,
       });
-    } catch (error) {
-      const parseError = error instanceof Error ? error : new Error("Failed to parse CSV");
+      return await promise;
+    } catch (caughtError) {
+      const parseError =
+        caughtError instanceof Error ? caughtError : new Error("Failed to parse CSV");
       setError(parseError);
       throw parseError;
     } finally {

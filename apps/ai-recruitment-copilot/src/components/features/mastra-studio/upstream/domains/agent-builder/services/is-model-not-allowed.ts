@@ -25,18 +25,18 @@ export function isModelNotAllowedError(err: unknown): ModelNotAllowedDetails | n
     return null;
   }
   const body = candidate.body as { error?: { code?: unknown } } | undefined;
-  const code = body?.error?.code;
-  if (code !== MODEL_NOT_ALLOWED_CODE) {
+  const errorBody = body?.error;
+  if (errorBody?.code !== MODEL_NOT_ALLOWED_CODE) {
     return null;
   }
-  const errorBody = body!.error as {
+  const details = errorBody as {
     message?: string;
     attempted?: { provider?: string; modelId?: string };
     offendingLabel?: string;
   };
   return {
-    attempted: errorBody.attempted,
-    message: errorBody.message || candidate.message || "Model not allowed by admin policy",
-    offendingLabel: errorBody.offendingLabel,
+    attempted: details.attempted,
+    message: details.message || candidate.message || "Model not allowed by admin policy",
+    offendingLabel: details.offendingLabel,
   };
 }

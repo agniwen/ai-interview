@@ -81,7 +81,7 @@ export const useConnectChannelAction = (platform: string, opts: { onClose?: () =
             switch (result.type) {
               case "oauth": {
                 window.location.href = result.authorizationUrl;
-                return;
+                break;
               }
               case "deep_link": {
                 const popup = window.open(result.url, "_blank", "noopener,noreferrer");
@@ -89,11 +89,14 @@ export const useConnectChannelAction = (platform: string, opts: { onClose?: () =
                   toast.error("Popup blocked — please allow popups and try again");
                 }
                 onClose?.();
-                return;
+                break;
               }
               case "immediate": {
                 onClose?.();
-                return;
+                break;
+              }
+              default: {
+                break;
               }
             }
           },

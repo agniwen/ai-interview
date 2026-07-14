@@ -4,7 +4,7 @@ import { PanelSeparator } from "@mastra/playground-ui/resize/separator";
 import { useEffect, useRef } from "react";
 import { Panel, useDefaultLayout, Group } from "react-resizable-panels";
 import type { PanelImperativeHandle } from "react-resizable-panels";
-import { useMemoryTimeline } from "../context";
+import { useMemoryTimeline } from "../context/use-memory-timeline";
 
 export interface AgentLayoutProps {
   agentId: string;

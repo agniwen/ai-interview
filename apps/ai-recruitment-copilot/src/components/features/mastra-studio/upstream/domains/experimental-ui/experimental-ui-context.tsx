@@ -63,7 +63,10 @@ export function ExperimentalUIProvider({
   React.useLayoutEffect(() => {
     const initial: Record<string, string> = {};
     for (const exp of experiments) {
-      const valid = validVariantsMap.get(exp.key)!;
+      const valid = validVariantsMap.get(exp.key);
+      if (!valid) {
+        continue;
+      }
       initial[exp.key] = readStoredVariant(exp.key, valid);
     }
     setVariants(initial);

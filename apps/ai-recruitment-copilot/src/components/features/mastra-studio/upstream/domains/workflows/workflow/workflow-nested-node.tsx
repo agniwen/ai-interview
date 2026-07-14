@@ -1,18 +1,19 @@
 import type { SerializedStepFlowEntry } from "@mastra/core/workflows";
-import { Badge } from "@mastra/playground-ui/components/Badge";
 import { Txt } from "@mastra/playground-ui/components/Txt";
-import { CheckIcon } from "@mastra/playground-ui/icons/CheckIcon";
-import { CrossIcon } from "@mastra/playground-ui/icons/CrossIcon";
-import { Icon } from "@mastra/playground-ui/icons/Icon";
 import { cn } from "@mastra/playground-ui/utils/cn";
 import { Handle, Position } from "@xyflow/react";
 import type { NodeProps, Node } from "@xyflow/react";
-import { CircleDashed, HourglassIcon, Loader2, PauseIcon, ShieldAlert } from "lucide-react";
 
 import { useCurrentRun } from "../context/use-current-run";
+import type { Step } from "../context/use-current-run";
 import { useWorkflowStepDetail } from "../context/workflow-step-detail-context";
 import { Clock } from "./workflow-clock";
-import { BADGE_COLORS, BADGE_ICONS, getNodeBadgeInfo } from "./workflow-node-badges";
+import { getNodeBadgeInfo } from "./workflow-node-badges";
+import {
+  WorkflowForeachProgress,
+  WorkflowNestedNodeBadges,
+  WorkflowNodeStatusIcon,
+} from "./workflow-node-parts";
 import { WorkflowStepActionBar } from "./workflow-step-action-bar";
 
 export type NestedNode = Node<
@@ -35,6 +36,76 @@ export type NestedNode = Node<
 export interface WorkflowNestedNodeProps {
   parentWorkflowName?: string;
   stepsFlow: Record<string, string[]>;
+}
+
+function WorkflowNestedNodeContent({
+  description,
+  displayStatus,
+  fullLabel,
+  isForEachNode,
+  label,
+  mapConfig,
+  showNestedGraph,
+  step,
+  stepGraph,
+  stepId,
+  stepKey,
+  stepsFlow,
+}: {
+  description?: string;
+  displayStatus?: string;
+  fullLabel: string;
+  isForEachNode: boolean;
+  label: string;
+  mapConfig?: string;
+  showNestedGraph: (data: {
+    fullStep: string;
+    label: string;
+    stepGraph: SerializedStepFlowEntry[];
+  }) => void;
+  step?: Step;
+  stepGraph: SerializedStepFlowEntry[];
+  stepId?: string;
+  stepKey: string;
+  stepsFlow: Record<string, string[]>;
+}) {
+  const isTripwire = displayStatus === "tripwire";
+  return (
+    <>
+      <div className={cn("flex items-center gap-2 px-3", !description && "pb-2")}>
+        <WorkflowNodeStatusIcon hasStep={Boolean(step)} status={displayStatus} />
+        <Txt
+          variant="ui-lg"
+          className="text-neutral6 font-medium inline-flex items-center gap-1 justify-between w-full"
+        >
+          {label} {step?.startedAt && <Clock startedAt={step.startedAt} endedAt={step.endedAt} />}
+        </Txt>
+      </div>
+      {description && (
+        <Txt variant="ui-sm" className="text-neutral3 px-3 pb-2">
+          {description}
+        </Txt>
+      )}
+      {isForEachNode && step?.foreachProgress && (
+        <WorkflowForeachProgress progress={step.foreachProgress} />
+      )}
+      <WorkflowStepActionBar
+        error={step?.error}
+        input={step?.input}
+        mapConfig={mapConfig}
+        onShowNestedGraph={() => showNestedGraph({ fullStep: fullLabel, label, stepGraph })}
+        output={step?.output}
+        resumeData={step?.resumeData}
+        status={displayStatus as never}
+        stepId={stepId}
+        stepKey={stepKey}
+        stepName={label}
+        stepsFlow={stepsFlow}
+        suspendOutput={step?.suspendOutput}
+        tripwire={isTripwire ? step?.tripwire : undefined}
+      />
+    </>
+  );
 }
 
 export function WorkflowNestedNode({
@@ -96,122 +167,25 @@ export function WorkflowNestedNode({
         )}
       >
         {hasSpecialBadge && (
-          <div className="px-3 pt-2 pb-1 flex gap-1.5 flex-wrap">
-            {canSuspend && (
-              <Badge
-                icon={
-                  <BADGE_ICONS.suspend
-                    className="text-current"
-                    style={{ color: BADGE_COLORS.suspend }}
-                  />
-                }
-              >
-                SUSPEND/RESUME
-              </Badge>
-            )}
-            {isParallel && (
-              <Badge
-                icon={
-                  <BADGE_ICONS.parallel
-                    className="text-current"
-                    style={{ color: BADGE_COLORS.parallel }}
-                  />
-                }
-              >
-                PARALLEL
-              </Badge>
-            )}
-            {isNestedWorkflow && (
-              <Badge
-                icon={
-                  <BADGE_ICONS.workflow
-                    className="text-current"
-                    style={{ color: BADGE_COLORS.workflow }}
-                  />
-                }
-              >
-                WORKFLOW
-              </Badge>
-            )}
-            {isForEachNode && (
-              <Badge
-                icon={
-                  <BADGE_ICONS.forEach
-                    className="text-current"
-                    style={{ color: BADGE_COLORS.forEach }}
-                  />
-                }
-              >
-                FOREACH
-              </Badge>
-            )}
-            {isMapNode && (
-              <Badge
-                icon={
-                  <BADGE_ICONS.map className="text-current" style={{ color: BADGE_COLORS.map }} />
-                }
-              >
-                MAP
-              </Badge>
-            )}
-          </div>
+          <WorkflowNestedNodeBadges
+            canSuspend={canSuspend}
+            isForEachNode={isForEachNode}
+            isMapNode={isMapNode}
+            isNestedWorkflow={isNestedWorkflow}
+            isParallel={isParallel}
+          />
         )}
-        <div className={cn("flex items-center gap-2 px-3", !description && "pb-2")}>
-          <Icon>
-            {displayStatus === "failed" && <CrossIcon className="text-accent2" />}
-            {displayStatus === "success" && <CheckIcon className="text-accent1" />}
-            {displayStatus === "tripwire" && <ShieldAlert className="text-amber-400" />}
-            {displayStatus === "suspended" && <PauseIcon className="text-accent3" />}
-            {displayStatus === "waiting" && <HourglassIcon className="text-accent5" />}
-            {displayStatus === "running" && <Loader2 className="text-accent6 animate-spin" />}
-            {!step && <CircleDashed className="text-neutral2" />}
-          </Icon>
-
-          <Txt
-            variant="ui-lg"
-            className="text-neutral6 font-medium inline-flex items-center gap-1 justify-between w-full"
-          >
-            {label} {step?.startedAt && <Clock startedAt={step.startedAt} endedAt={step.endedAt} />}
-          </Txt>
-        </div>
-
-        {description && (
-          <Txt variant="ui-sm" className="text-neutral3 px-3 pb-2">
-            {description}
-          </Txt>
-        )}
-
-        {isForEachNode && step?.foreachProgress && (
-          <div className="px-3 pb-2 flex items-center gap-2">
-            <div className="flex-1 h-1.5 bg-surface1 rounded-full overflow-hidden">
-              <div
-                className={cn(
-                  "h-full rounded-full transition-all duration-300",
-                  step.foreachProgress.iterationStatus === "failed" ? "bg-accent2" : "bg-accent1",
-                )}
-                style={{
-                  width: `${step.foreachProgress.totalCount > 0 ? (step.foreachProgress.completedCount / step.foreachProgress.totalCount) * 100 : 0}%`,
-                }}
-              />
-            </div>
-            <Txt variant="ui-xs" className="text-neutral3 whitespace-nowrap">
-              {step.foreachProgress.completedCount} / {step.foreachProgress.totalCount}
-            </Txt>
-          </div>
-        )}
-
-        <WorkflowStepActionBar
-          stepName={label}
-          stepId={stepId}
-          input={step?.input}
-          resumeData={step?.resumeData}
-          output={step?.output}
-          suspendOutput={step?.suspendOutput}
-          error={step?.error}
-          tripwire={isTripwire ? step?.tripwire : undefined}
+        <WorkflowNestedNodeContent
+          description={description}
+          displayStatus={displayStatus}
+          fullLabel={fullLabel}
+          isForEachNode={isForEachNode}
+          label={label}
           mapConfig={mapConfig}
-          onShowNestedGraph={() => showNestedGraph({ fullStep: fullLabel, label, stepGraph })}
-          status={displayStatus}
+          showNestedGraph={showNestedGraph}
+          step={step}
+          stepGraph={stepGraph}
+          stepId={stepId}
           stepKey={stepKey}
           stepsFlow={stepsFlow}
         />

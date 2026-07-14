@@ -28,6 +28,29 @@ export interface UseBuilderAgentAccessResult {
   agentFeatures: AgentFeatureFlags | undefined;
 }
 
+function resolveDenialReason({
+  error,
+  hasAgentFeature,
+  hasRequiredPermissions,
+  isBuilderEnabled,
+}: {
+  error: unknown;
+  hasAgentFeature: boolean;
+  hasRequiredPermissions: boolean;
+  isBuilderEnabled: boolean;
+}): DenialReason {
+  if (!hasRequiredPermissions) {
+    return "permission-denied";
+  }
+  if (error) {
+    return "error";
+  }
+  if (!isBuilderEnabled || !hasAgentFeature) {
+    return "not-configured";
+  }
+  return null;
+}
+
 export function useBuilderAgentAccess(): UseBuilderAgentAccessResult {
   const { hasAnyPermission, hasPermission, rbacEnabled } = usePermissions();
 
@@ -57,13 +80,12 @@ export function useBuilderAgentAccess(): UseBuilderAgentAccessResult {
   const hasAgentFeature = builderSettings?.features?.agent !== undefined;
   const canAccessAgentBuilder = hasRequiredPermissions && isBuilderEnabled && hasAgentFeature;
 
-  const denialReason: DenialReason = !hasRequiredPermissions
-    ? "permission-denied"
-    : error
-      ? "error"
-      : !isBuilderEnabled || !hasAgentFeature
-        ? "not-configured"
-        : null;
+  const denialReason = resolveDenialReason({
+    error,
+    hasAgentFeature,
+    hasRequiredPermissions,
+    isBuilderEnabled,
+  });
 
   return {
     agentFeatures: builderSettings?.features?.agent as AgentFeatureFlags | undefined,

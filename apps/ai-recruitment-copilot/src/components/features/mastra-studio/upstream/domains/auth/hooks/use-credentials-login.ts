@@ -66,7 +66,10 @@ export async function makeCredentialsLoginRequest(
 ): Promise<CredentialsLoginResponse> {
   const { baseUrl = "", apiPrefix, headers: clientHeaders = {} } = client.options || {};
   const raw = (apiPrefix ?? "/api").trim();
-  const normalized = raw === "" ? "" : raw.startsWith("/") ? raw : `/${raw}`;
+  let normalized = raw;
+  if (raw !== "" && !raw.startsWith("/")) {
+    normalized = `/${raw}`;
+  }
   const prefix = normalized.replace(/\/+$/, "");
 
   // Generic Mastra auth endpoint - works with any credentials provider

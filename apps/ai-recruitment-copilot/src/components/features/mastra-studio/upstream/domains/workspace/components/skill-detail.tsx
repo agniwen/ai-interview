@@ -52,7 +52,98 @@ function getSourceInfo(source: SkillSource): {
         path: source.mastraPath,
       };
     }
+    default: {
+      throw new Error("Unsupported skill source");
+    }
   }
+}
+
+/**
+ * Format a value for display, handling strings, objects, and arrays.
+ */
+function formatDisplayValue(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map((v) => (typeof v === "string" ? v : JSON.stringify(v))).join(", ");
+  }
+  if (typeof value === "object" && value !== null) {
+    // For objects, show a compact summary
+    const keys = Object.keys(value);
+    if (keys.length === 0) {
+      return "{}";
+    }
+    if (keys.length === 1) {
+      const [key] = keys;
+      const val = (value as Record<string, unknown>)[key];
+      if (Array.isArray(val)) {
+        return `${key}: ${val.join(", ")}`;
+      }
+      return `${key}: ${formatDisplayValue(val)}`;
+    }
+    return `{${keys.join(", ")}}`;
+  }
+  return String(value);
+}
+
+function MetadataCard({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: unknown;
+  icon?: React.ReactNode;
+}) {
+  const displayValue = formatDisplayValue(value);
+  return (
+    <div className="p-3 rounded-lg bg-surface3">
+      <p className="text-xs text-neutral3 mb-1">{label}</p>
+      <div className="flex items-center gap-1.5">
+        {icon && <span className="text-neutral4">{icon}</span>}
+        <p className="text-sm font-medium text-neutral5 truncate" title={displayValue}>
+          {displayValue}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function CollapsibleSection({
+  title,
+  isExpanded,
+  onToggle,
+  headerAction,
+  children,
+}: {
+  title: string;
+  isExpanded: boolean;
+  onToggle: () => void;
+  headerAction?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="border border-border1 rounded-lg overflow-hidden min-w-0">
+      <div className="flex items-center bg-surface3 hover:bg-surface4 transition-colors">
+        <button onClick={onToggle} className="flex items-center gap-2 flex-1 px-4 py-3">
+          {isExpanded ? (
+            <ChevronDown className="h-4 w-4 text-neutral3" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-neutral3" />
+          )}
+          <span className="text-sm font-medium text-neutral5">{title}</span>
+        </button>
+        {headerAction && <div className="pr-3">{headerAction}</div>}
+      </div>
+      {isExpanded && (
+        <div className="p-4 bg-surface2 overflow-x-auto w-0 min-w-full">{children}</div>
+      )}
+    </div>
+  );
 }
 
 export function SkillDetail({ skill, rawSkillMd, onReferenceClick }: SkillDetailProps) {
@@ -94,7 +185,7 @@ export function SkillDetail({ skill, rawSkillMd, onReferenceClick }: SkillDetail
           icon={<FolderOpen className="h-3.5 w-3.5" />}
         />
         {skill.license && <MetadataCard label="License" value={skill.license} />}
-        {skill.compatibility != null && (
+        {skill.compatibility !== null && (
           <MetadataCard label="Compatibility" value={skill.compatibility} />
         )}
         <MetadataCard
@@ -214,94 +305,6 @@ export function SkillDetail({ skill, rawSkillMd, onReferenceClick }: SkillDetail
           Path: <code className="px-1 py-0.5 rounded bg-surface4">{skill.path}</code>
         </p>
       </div>
-    </div>
-  );
-}
-
-/**
- * Format a value for display, handling strings, objects, and arrays.
- */
-function formatDisplayValue(value: unknown): string {
-  if (typeof value === "string") {
-    return value;
-  }
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-  if (Array.isArray(value)) {
-    return value.map((v) => (typeof v === "string" ? v : JSON.stringify(v))).join(", ");
-  }
-  if (typeof value === "object" && value !== null) {
-    // For objects, show a compact summary
-    const keys = Object.keys(value);
-    if (keys.length === 0) {
-      return "{}";
-    }
-    if (keys.length === 1) {
-      const key = keys[0];
-      const val = (value as Record<string, unknown>)[key];
-      if (Array.isArray(val)) {
-        return `${key}: ${val.join(", ")}`;
-      }
-      return `${key}: ${formatDisplayValue(val)}`;
-    }
-    return `{${keys.join(", ")}}`;
-  }
-  return String(value);
-}
-
-function MetadataCard({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: unknown;
-  icon?: React.ReactNode;
-}) {
-  const displayValue = formatDisplayValue(value);
-  return (
-    <div className="p-3 rounded-lg bg-surface3">
-      <p className="text-xs text-neutral3 mb-1">{label}</p>
-      <div className="flex items-center gap-1.5">
-        {icon && <span className="text-neutral4">{icon}</span>}
-        <p className="text-sm font-medium text-neutral5 truncate" title={displayValue}>
-          {displayValue}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function CollapsibleSection({
-  title,
-  isExpanded,
-  onToggle,
-  headerAction,
-  children,
-}: {
-  title: string;
-  isExpanded: boolean;
-  onToggle: () => void;
-  headerAction?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="border border-border1 rounded-lg overflow-hidden min-w-0">
-      <div className="flex items-center bg-surface3 hover:bg-surface4 transition-colors">
-        <button onClick={onToggle} className="flex items-center gap-2 flex-1 px-4 py-3">
-          {isExpanded ? (
-            <ChevronDown className="h-4 w-4 text-neutral3" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-neutral3" />
-          )}
-          <span className="text-sm font-medium text-neutral5">{title}</span>
-        </button>
-        {headerAction && <div className="pr-3">{headerAction}</div>}
-      </div>
-      {isExpanded && (
-        <div className="p-4 bg-surface2 overflow-x-auto w-0 min-w-full">{children}</div>
-      )}
     </div>
   );
 }

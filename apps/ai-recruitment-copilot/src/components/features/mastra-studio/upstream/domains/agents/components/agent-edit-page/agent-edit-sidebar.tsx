@@ -21,16 +21,16 @@ import type { RefObject } from "react";
 import { Controller, useWatch } from "react-hook-form";
 import type { UseFormReturn } from "react-hook-form";
 
-import {
-  ToolsSection,
-  WorkflowsSection,
-  AgentsSection,
-  ScorersSection,
-  MemorySection,
-} from "./sections";
+import { AgentsSection } from "./sections/agents-section";
+import { MemorySection } from "./sections/memory-section";
+import { ScorersSection } from "./sections/scorers-section";
+import { ToolsSection } from "./sections/tools-section";
+import { WorkflowsSection } from "./sections/workflows-section";
 import type { AgentFormValues } from "./utils/form-validation";
-import { SectionHeader } from "@/components/features/mastra-studio/upstream/domains/cms";
-import { LLMProviders, LLMModels } from "@/components/features/mastra-studio/upstream/domains/llm";
+import { SectionHeader } from "@/components/features/mastra-studio/upstream/domains/cms/components/section/section-header";
+import { LLMModels } from "@/components/features/mastra-studio/upstream/domains/llm/components/llm-models";
+import { LLMProviders } from "@/components/features/mastra-studio/upstream/domains/llm/components/llm-providers";
+import { resolveConditional } from "../../utils/conditional";
 
 function RecursiveFieldRenderer({
   field,
@@ -170,7 +170,13 @@ export function AgentEditSidebar({
                   error={!!errors.name}
                   disabled={readOnly}
                 />
-                {errors.name && <span className="text-xs text-accent2">{errors.name.message}</span>}
+                {resolveConditional(
+                  errors.name,
+                  (conditionValue) => (
+                    <span className="text-xs text-accent2">{conditionValue.message}</span>
+                  ),
+                  () => null,
+                )}
               </div>
 
               {/* Description */}
@@ -186,8 +192,12 @@ export function AgentEditSidebar({
                   error={!!errors.description}
                   disabled={readOnly}
                 />
-                {errors.description && (
-                  <span className="text-xs text-accent2">{errors.description.message}</span>
+                {resolveConditional(
+                  errors.description,
+                  (conditionValue) => (
+                    <span className="text-xs text-accent2">{conditionValue.message}</span>
+                  ),
+                  () => null,
                 )}
               </div>
 
@@ -209,8 +219,12 @@ export function AgentEditSidebar({
                     </div>
                   )}
                 />
-                {errors.model?.provider && (
-                  <span className="text-xs text-accent2">{errors.model.provider.message}</span>
+                {resolveConditional(
+                  errors.model?.provider,
+                  (providerError) => (
+                    <span className="text-xs text-accent2">{providerError.message}</span>
+                  ),
+                  () => null,
                 )}
               </div>
 
@@ -233,8 +247,12 @@ export function AgentEditSidebar({
                     </div>
                   )}
                 />
-                {errors.model?.name && (
-                  <span className="text-xs text-accent2">{errors.model.name.message}</span>
+                {resolveConditional(
+                  errors.model?.name,
+                  (nameError) => (
+                    <span className="text-xs text-accent2">{nameError.message}</span>
+                  ),
+                  () => null,
                 )}
               </div>
             </div>
@@ -316,24 +334,33 @@ export function AgentEditSidebar({
       </Tabs>
 
       {/* Sticky footer with Create/Update Agent button */}
-      {!readOnly && (
-        <div className="shrink-0 p-4">
-          <Button variant="primary" onClick={onPublish} disabled={isSubmitting} className="w-full">
-            {isSubmitting ? (
-              <>
-                <Spinner className="h-4 w-4" />
-                {mode === "edit" ? "Updating..." : "Creating..."}
-              </>
-            ) : (
-              <>
-                <Icon>
-                  <Check />
-                </Icon>
-                {mode === "edit" ? "Update agent" : "Create agent"}
-              </>
-            )}
-          </Button>
-        </div>
+      {resolveConditional(
+        !readOnly,
+        () => (
+          <div className="shrink-0 p-4">
+            <Button
+              variant="primary"
+              onClick={onPublish}
+              disabled={isSubmitting}
+              className="w-full"
+            >
+              {isSubmitting ? (
+                <>
+                  <Spinner className="h-4 w-4" />
+                  {mode === "edit" ? "Updating..." : "Creating..."}
+                </>
+              ) : (
+                <>
+                  <Icon>
+                    <Check />
+                  </Icon>
+                  {mode === "edit" ? "Update agent" : "Create agent"}
+                </>
+              )}
+            </Button>
+          </div>
+        ),
+        () => null,
       )}
     </div>
   );

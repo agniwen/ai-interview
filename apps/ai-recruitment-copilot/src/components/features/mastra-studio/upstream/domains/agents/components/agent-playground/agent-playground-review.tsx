@@ -1,33 +1,20 @@
-import { Badge } from "@mastra/playground-ui/components/Badge";
 import { Button } from "@mastra/playground-ui/components/Button";
-import { Checkbox } from "@mastra/playground-ui/components/Checkbox";
 import { Column, Columns } from "@mastra/playground-ui/components/Columns";
 import { DataList } from "@mastra/playground-ui/components/DataList";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogBody,
-  DialogFooter,
-} from "@mastra/playground-ui/components/Dialog";
 import { DropdownMenu } from "@mastra/playground-ui/components/DropdownMenu";
-import { Label } from "@mastra/playground-ui/components/Label";
 import { Spinner } from "@mastra/playground-ui/components/Spinner";
-import { Textarea } from "@mastra/playground-ui/components/Textarea";
 import { Txt } from "@mastra/playground-ui/components/Txt";
 import { Icon } from "@mastra/playground-ui/icons/Icon";
 import { cn } from "@mastra/playground-ui/utils/cn";
 import { toast } from "@mastra/playground-ui/utils/toast";
 import { useMastraClient } from "@mastra/react";
+import type { UpdateDatasetParams } from "@mastra/client-js";
 import {
   CheckCircle,
   ChevronDown,
   FilterIcon,
   GaugeIcon,
   Sparkles,
-  ThumbsDown,
-  ThumbsUp,
   Trash2,
   XIcon,
 } from "lucide-react";
@@ -39,28 +26,13 @@ import { useCompletedItems } from "../../hooks/use-completed-items";
 import { useReviewItems } from "../../hooks/use-review-items";
 import { useDatasetMutations } from "@/components/features/mastra-studio/upstream/domains/datasets/hooks/use-dataset-mutations";
 import { useDatasets } from "@/components/features/mastra-studio/upstream/domains/datasets/hooks/use-datasets";
-import {
-  LLMProviders,
-  LLMModels,
-  cleanProviderId,
-} from "@/components/features/mastra-studio/upstream/domains/llm";
-import {
-  BulkTagPicker,
-  ProposalTag,
-} from "@/components/features/mastra-studio/upstream/domains/review/components";
+import { BulkTagPicker } from "@/components/features/mastra-studio/upstream/domains/review/components";
 import { ReviewItemPanel } from "@/components/features/mastra-studio/upstream/domains/review/components/review-item-panel";
-
-function truncateInput(value: unknown, max: number): string {
-  if (typeof value === "string") {
-    return value.length > max ? `${value.slice(0, max)}...` : value;
-  }
-  try {
-    const str = JSON.stringify(value);
-    return str.length > max ? `${str.slice(0, max)}...` : str;
-  } catch {
-    return String(value);
-  }
-}
+import { resolveConditional } from "../../utils/conditional";
+import { isTruthy } from "../../utils/truthiness";
+import { getDatasetTags, stringifyValue } from "./agent-playground-review-helpers";
+import { ReviewDialogs } from "./agent-playground-review-dialogs";
+import { ReviewItemRows } from "./agent-playground-review-item-rows";
 
 interface AgentPlaygroundReviewProps {
   agentId: string;
@@ -125,8 +97,8 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
     const datasetIds = new Set(items.map((i) => i.datasetId).filter(Boolean));
     const vocab = new Set<string>();
     for (const ds of datasets) {
-      if (datasetIds.has(ds.id) && Array.isArray((ds as any).tags)) {
-        for (const t of (ds as any).tags) {
+      if (datasetIds.has(ds.id)) {
+        for (const t of getDatasetTags(ds)) {
           vocab.add(t);
         }
       }
@@ -149,12 +121,12 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
       const datasetIds = new Set(items.map((i) => i.datasetId).filter(Boolean));
       for (const ds of datasets) {
         if (datasetIds.has(ds.id)) {
-          const existingTags: string[] = Array.isArray((ds as any).tags) ? (ds as any).tags : [];
+          const existingTags = getDatasetTags(ds);
           if (!existingTags.includes(tag)) {
             updateDataset.mutate({
               datasetId: ds.id,
               tags: [...existingTags, tag],
-            } as any);
+            } satisfies UpdateDatasetParams);
           }
         }
       }
@@ -193,12 +165,7 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
       const result = await client.clusterFailures({
         availableTags: datasetTagVocabulary.length > 0 ? datasetTagVocabulary : undefined,
         items: targetItems.map((item) => ({
-          error:
-            typeof item.error === "string"
-              ? item.error
-              : item.error
-                ? JSON.stringify(item.error)
-                : undefined,
+          error: stringifyValue(item.error),
           existingTags: item.tags.length > 0 ? item.tags : undefined,
           id: item.id,
           input: item.input,
@@ -210,12 +177,12 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
       });
 
       const proposals = (result.proposedTags ?? [])
-        .filter((p: any) => p.tags.length > 0)
-        .map((p: any) => ({
+        .filter((proposal) => proposal.tags.length > 0)
+        .map((proposal) => ({
           accepted: true,
-          itemId: p.itemId,
-          reason: (p.reason as string) || "",
-          tags: p.tags as string[],
+          itemId: proposal.itemId,
+          reason: proposal.reason || "",
+          tags: proposal.tags,
         }));
 
       if (proposals.length > 0) {
@@ -258,7 +225,7 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
     const tagCount = allNewTags.size;
     const itemCount = accepted.length;
     toast.success(
-      `Applied ${tagCount} tag${tagCount !== 1 ? "s" : ""} to ${itemCount} item${itemCount !== 1 ? "s" : ""}`,
+      `Applied ${tagCount} tag${isTruthy(tagCount !== 1) ? "s" : ""} to ${itemCount} item${isTruthy(itemCount !== 1) ? "s" : ""}`,
     );
     setShowProposalDialog(false);
     setProposedAssignments([]);
@@ -292,10 +259,10 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (activeTagFilter) {
-      count++;
+      count += 1;
     }
     if (showCompleted) {
-      count++;
+      count += 1;
     }
     return count;
   }, [activeTagFilter, showCompleted]);
@@ -423,187 +390,29 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
 
   return (
     <>
-      {/* Analyze configuration dialog */}
-      <Dialog open={showAnalyzeDialog} onOpenChange={setShowAnalyzeDialog}>
-        <DialogContent ref={analyzeContentRef} className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              Analyze {analyzeMode === "untagged" ? "Untagged" : "Selected"} Items
-            </DialogTitle>
-          </DialogHeader>
-          <DialogBody>
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <Label>Model</Label>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-[160px]">
-                    <LLMProviders
-                      value={analyzeProvider}
-                      onValueChange={(value) => {
-                        const cleaned = cleanProviderId(value);
-                        setAnalyzeProvider(cleaned);
-                        setAnalyzeModel("");
-                      }}
-                      size="sm"
-                      container={analyzeContentRef}
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <LLMModels
-                      llmId={analyzeProvider}
-                      value={analyzeModel}
-                      onValueChange={setAnalyzeModel}
-                      size="sm"
-                      container={analyzeContentRef}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <Label>Items</Label>
-                <Txt variant="ui-sm" className="text-neutral4">
-                  {analyzeMode === "untagged"
-                    ? `${untaggedCount} untagged item${untaggedCount !== 1 ? "s" : ""}`
-                    : `${selectedItemIds.size} selected item${selectedItemIds.size !== 1 ? "s" : ""}`}
-                </Txt>
-              </div>
-
-              <div className="space-y-1">
-                <Label>Instructions (optional)</Label>
-                <Textarea
-                  value={analyzePrompt}
-                  onChange={(e) => setAnalyzePrompt(e.target.value)}
-                  placeholder="e.g., Focus on tool usage failures, pay attention to whether the agent hallucinated..."
-                  rows={3}
-                  disabled={isAnalyzing}
-                />
-                <Txt variant="ui-xs" className="text-neutral2">
-                  Guide the LLM on what to look for when tagging items
-                </Txt>
-              </div>
-            </div>
-          </DialogBody>
-          <DialogFooter className="px-6">
-            <Button
-              variant="ghost"
-              onClick={() => setShowAnalyzeDialog(false)}
-              disabled={isAnalyzing}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="default"
-              onClick={handleAnalyze}
-              disabled={isAnalyzing || !analyzeProvider || !analyzeModel}
-            >
-              {isAnalyzing ? (
-                <>
-                  <Spinner className="mr-2" />
-                  Analyzing...
-                </>
-              ) : (
-                "Analyze"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Proposal confirmation dialog */}
-      <Dialog open={showProposalDialog} onOpenChange={setShowProposalDialog}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Proposed Tag Assignments</DialogTitle>
-            {analysisModelId && (
-              <Txt variant="ui-xs" className="text-neutral3 mt-1">
-                Analyzed by <span className="font-medium text-neutral4">{analysisModelId}</span>
-              </Txt>
-            )}
-          </DialogHeader>
-          <DialogBody className="max-h-[400px] overflow-y-auto space-y-2">
-            {proposedAssignments.map((proposal, idx) => {
-              const item = items.find((i) => i.id === proposal.itemId);
-              const inputStr =
-                typeof item?.input === "string"
-                  ? item.input
-                  : item?.input
-                    ? JSON.stringify(item.input)
-                    : "";
-              return (
-                <div
-                  key={proposal.itemId}
-                  className={cn(
-                    "flex items-start gap-2 p-2 rounded-md border border-border1",
-                    proposal.accepted ? "bg-surface1" : "bg-surface1 opacity-50",
-                  )}
-                >
-                  <Checkbox
-                    checked={proposal.accepted}
-                    onCheckedChange={(checked) => {
-                      setProposedAssignments((prev) =>
-                        prev.map((p, i) => (i === idx ? { ...p, accepted: !!checked } : p)),
-                      );
-                    }}
-                    className="mt-1"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <Txt variant="ui-xs" className="text-neutral4 truncate block">
-                      {inputStr || `Item ${proposal.itemId.slice(0, 8)}`}
-                    </Txt>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {proposal.tags.map((tag, tagIdx) => (
-                        <ProposalTag
-                          key={`${tag}-${tagIdx}`}
-                          tag={tag}
-                          onRename={(newTag) =>
-                            setProposedAssignments((prev) =>
-                              prev.map((p, i) =>
-                                i === idx
-                                  ? {
-                                      ...p,
-                                      tags: p.tags.map((t, j) => (j === tagIdx ? newTag : t)),
-                                    }
-                                  : p,
-                              ),
-                            )
-                          }
-                          onRemove={() =>
-                            setProposedAssignments((prev) =>
-                              prev.map((p, i) =>
-                                i === idx
-                                  ? { ...p, tags: p.tags.filter((_, j) => j !== tagIdx) }
-                                  : p,
-                              ),
-                            )
-                          }
-                        />
-                      ))}
-                    </div>
-                    {proposal.reason && (
-                      <Txt variant="ui-xs" className="text-neutral3 mt-1 italic">
-                        {proposal.reason}
-                      </Txt>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </DialogBody>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowProposalDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="default"
-              onClick={handleAcceptProposals}
-              disabled={proposedAssignments.filter((p) => p.accepted).length === 0}
-            >
-              Accept {proposedAssignments.filter((p) => p.accepted).length} proposals
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ReviewDialogs
+        analysisModelId={analysisModelId}
+        analyzeContentRef={analyzeContentRef}
+        analyzeMode={analyzeMode}
+        analyzeModel={analyzeModel}
+        analyzePrompt={analyzePrompt}
+        analyzeProvider={analyzeProvider}
+        handleAcceptProposals={handleAcceptProposals}
+        handleAnalyze={handleAnalyze}
+        isAnalyzing={isAnalyzing}
+        items={items}
+        proposedAssignments={proposedAssignments}
+        selectedItemCount={selectedItemIds.size}
+        setAnalyzeModel={setAnalyzeModel}
+        setAnalyzePrompt={setAnalyzePrompt}
+        setAnalyzeProvider={setAnalyzeProvider}
+        setProposedAssignments={setProposedAssignments}
+        setShowAnalyzeDialog={setShowAnalyzeDialog}
+        setShowProposalDialog={setShowProposalDialog}
+        showAnalyzeDialog={showAnalyzeDialog}
+        showProposalDialog={showProposalDialog}
+        untaggedCount={untaggedCount}
+      />
 
       {/* Main layout: toolbar + List + Detail Panel */}
       <Columns className={cn("p-4", featuredItem ? "grid-cols-[1fr_1fr]" : "")}>
@@ -616,14 +425,18 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
                   <Button variant="outline" size="md">
                     <FilterIcon />
                     Filter
-                    {activeFilterCount > 0 && (
-                      <span
-                        className={cn(
-                          "ml-0.5 inline-flex items-center justify-center rounded-full bg-accent1/50 text-neutral5 text-ui-sm w-5 h-5",
-                        )}
-                      >
-                        {activeFilterCount}
-                      </span>
+                    {resolveConditional(
+                      activeFilterCount > 0,
+                      () => (
+                        <span
+                          className={cn(
+                            "ml-0.5 inline-flex items-center justify-center rounded-full bg-accent1/50 text-neutral5 text-ui-sm w-5 h-5",
+                          )}
+                        >
+                          {activeFilterCount}
+                        </span>
+                      ),
+                      () => null,
                     )}
                   </Button>
                 </DropdownMenu.Trigger>
@@ -632,8 +445,12 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
                   <DropdownMenu.Sub>
                     <DropdownMenu.SubTrigger>
                       Status
-                      {showCompleted && (
-                        <span className={cn("ml-auto text-ui-sm text-accent1")}>1</span>
+                      {resolveConditional(
+                        showCompleted,
+                        () => (
+                          <span className={cn("ml-auto text-ui-sm text-accent1")}>1</span>
+                        ),
+                        () => null,
                       )}
                     </DropdownMenu.SubTrigger>
                     <DropdownMenu.SubContent>
@@ -664,8 +481,12 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
                   <DropdownMenu.Sub>
                     <DropdownMenu.SubTrigger>
                       Tags
-                      {activeTagFilter && (
-                        <span className={cn("ml-auto text-ui-sm text-accent1")}>1</span>
+                      {resolveConditional(
+                        activeTagFilter,
+                        () => (
+                          <span className={cn("ml-auto text-ui-sm text-accent1")}>1</span>
+                        ),
+                        () => null,
                       )}
                     </DropdownMenu.SubTrigger>
                     <DropdownMenu.SubContent>
@@ -676,18 +497,22 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
                       >
                         All tags
                       </DropdownMenu.CheckboxItem>
-                      {untaggedCount > 0 && (
-                        <DropdownMenu.CheckboxItem
-                          checked={activeTagFilter === "__untagged__"}
-                          onCheckedChange={() =>
-                            setActiveTagFilter(
-                              activeTagFilter === "__untagged__" ? null : "__untagged__",
-                            )
-                          }
-                          onSelect={(e) => e.preventDefault()}
-                        >
-                          Untagged
-                        </DropdownMenu.CheckboxItem>
+                      {resolveConditional(
+                        untaggedCount > 0,
+                        () => (
+                          <DropdownMenu.CheckboxItem
+                            checked={activeTagFilter === "__untagged__"}
+                            onCheckedChange={() =>
+                              setActiveTagFilter(
+                                activeTagFilter === "__untagged__" ? null : "__untagged__",
+                              )
+                            }
+                            onSelect={(e) => e.preventDefault()}
+                          >
+                            Untagged
+                          </DropdownMenu.CheckboxItem>
+                        ),
+                        () => null,
                       )}
                       {tagCounts.map(([tag]) => (
                         <DropdownMenu.CheckboxItem
@@ -704,302 +529,232 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
                     </DropdownMenu.SubContent>
                   </DropdownMenu.Sub>
 
-                  {activeFilterCount > 0 && (
-                    <>
-                      <DropdownMenu.Separator />
-                      <DropdownMenu.Item
-                        onSelect={() => {
-                          setActiveTagFilter(null);
-                          setShowCompleted(false);
-                          setFeaturedItemId(null);
-                        }}
-                      >
-                        <XIcon />
-                        Clear all filters
-                      </DropdownMenu.Item>
-                    </>
+                  {resolveConditional(
+                    activeFilterCount > 0,
+                    () => (
+                      <>
+                        <DropdownMenu.Separator />
+                        <DropdownMenu.Item
+                          onSelect={() => {
+                            setActiveTagFilter(null);
+                            setShowCompleted(false);
+                            setFeaturedItemId(null);
+                          }}
+                        >
+                          <XIcon />
+                          Clear all filters
+                        </DropdownMenu.Item>
+                      </>
+                    ),
+                    () => null,
                   )}
                 </DropdownMenu.Content>
               </DropdownMenu>
 
-              {activeFilterCount > 0 && (
-                <Button
-                  variant="outline"
-                  size="md"
-                  onClick={() => {
-                    setActiveTagFilter(null);
-                    setShowCompleted(false);
-                    setFeaturedItemId(null);
-                  }}
-                >
-                  <XIcon />
-                  Reset
-                </Button>
+              {resolveConditional(
+                activeFilterCount > 0,
+                () => (
+                  <Button
+                    variant="outline"
+                    size="md"
+                    onClick={() => {
+                      setActiveTagFilter(null);
+                      setShowCompleted(false);
+                      setFeaturedItemId(null);
+                    }}
+                  >
+                    <XIcon />
+                    Reset
+                  </Button>
+                ),
+                () => null,
               )}
             </div>
 
             {/* Actions (right) */}
             <div className="flex items-center gap-2">
-              {!showCompleted && selectedItemIds.size > 0 && (
-                <>
-                  <BulkTagPicker
-                    selectedCount={selectedItemIds.size}
-                    vocabulary={datasetTagVocabulary}
-                    onApplyTag={handleBulkTag}
-                    onRemoveTag={handleBulkRemoveTag}
-                    onNewTag={(tag) => handleBulkTag(tag)}
-                  />
+              {resolveConditional(
+                !showCompleted && selectedItemIds.size > 0,
+                () => (
+                  <>
+                    <BulkTagPicker
+                      selectedCount={selectedItemIds.size}
+                      vocabulary={datasetTagVocabulary}
+                      onApplyTag={handleBulkTag}
+                      onRemoveTag={handleBulkRemoveTag}
+                      onNewTag={(tag) => handleBulkTag(tag)}
+                    />
 
-                  <DropdownMenu>
-                    <DropdownMenu.Trigger asChild>
-                      <Button disabled={isAnalyzing}>
-                        {isAnalyzing ? (
-                          <Spinner className="w-4 h-4" />
-                        ) : (
+                    <DropdownMenu>
+                      <DropdownMenu.Trigger asChild>
+                        <Button disabled={isAnalyzing}>
+                          {isAnalyzing ? (
+                            <Spinner className="w-4 h-4" />
+                          ) : (
+                            <Icon size="sm">
+                              <ChevronDown />
+                            </Icon>
+                          )}
+                          Actions
+                        </Button>
+                      </DropdownMenu.Trigger>
+                      <DropdownMenu.Content align="end">
+                        <DropdownMenu.Item onSelect={handleBulkComplete}>
                           <Icon size="sm">
-                            <ChevronDown />
+                            <CheckCircle />
                           </Icon>
-                        )}
-                        Actions
-                      </Button>
-                    </DropdownMenu.Trigger>
-                    <DropdownMenu.Content align="end">
-                      <DropdownMenu.Item onSelect={handleBulkComplete}>
-                        <Icon size="sm">
-                          <CheckCircle />
-                        </Icon>
-                        Complete
-                      </DropdownMenu.Item>
-                      <DropdownMenu.Item onSelect={handleBulkRemove}>
-                        <Icon size="sm">
-                          <Trash2 />
-                        </Icon>
-                        Remove
-                      </DropdownMenu.Item>
-                      <DropdownMenu.Separator />
-                      <DropdownMenu.Item
-                        disabled={selectedItemIds.size === 0}
-                        onSelect={() => openAnalyzeDialog("selected")}
-                      >
-                        <Icon size="sm">
-                          <Sparkles />
-                        </Icon>
-                        Analyze selected
-                      </DropdownMenu.Item>
-                      <DropdownMenu.Item
-                        disabled={untaggedCount === 0}
-                        onSelect={() => openAnalyzeDialog("untagged")}
-                      >
-                        <Icon size="sm">
-                          <Sparkles />
-                        </Icon>
-                        Analyze untagged
-                      </DropdownMenu.Item>
-                    </DropdownMenu.Content>
-                  </DropdownMenu>
-                </>
+                          Complete
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Item onSelect={handleBulkRemove}>
+                          <Icon size="sm">
+                            <Trash2 />
+                          </Icon>
+                          Remove
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Separator />
+                        <DropdownMenu.Item
+                          disabled={selectedItemIds.size === 0}
+                          onSelect={() => openAnalyzeDialog("selected")}
+                        >
+                          <Icon size="sm">
+                            <Sparkles />
+                          </Icon>
+                          Analyze selected
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Item
+                          disabled={untaggedCount === 0}
+                          onSelect={() => openAnalyzeDialog("untagged")}
+                        >
+                          <Icon size="sm">
+                            <Sparkles />
+                          </Icon>
+                          Analyze untagged
+                        </DropdownMenu.Item>
+                      </DropdownMenu.Content>
+                    </DropdownMenu>
+                  </>
+                ),
+                () => null,
               )}
 
-              {onCreateScorer && filteredItems.length > 0 && !showCompleted && (
-                <Button
-                  variant="outline"
-                  size="md"
-                  onClick={() => {
-                    onCreateScorer(
-                      filteredItems.map((item) => ({
-                        input: item.input,
-                        output: item.output,
-                      })),
-                    );
-                  }}
-                >
-                  <Icon size="sm">
-                    <GaugeIcon />
-                  </Icon>
-                  Create Scorer
-                </Button>
+              {resolveConditional(
+                onCreateScorer,
+                (createScorer) =>
+                  resolveConditional(
+                    filteredItems.length > 0 && !showCompleted,
+                    () => (
+                      <Button
+                        variant="outline"
+                        size="md"
+                        onClick={() => {
+                          createScorer(
+                            filteredItems.map((item) => ({
+                              input: item.input,
+                              output: item.output,
+                            })),
+                          );
+                        }}
+                      >
+                        <Icon size="sm">
+                          <GaugeIcon />
+                        </Icon>
+                        Create Scorer
+                      </Button>
+                    ),
+                    () => null,
+                  ),
+                () => null,
               )}
             </div>
           </Column.Toolbar>
 
-          {isLoadingDisplay ? (
-            <div className="flex-1 flex items-center justify-center">
-              <Spinner className="h-4 w-4" />
-            </div>
-          ) : displayItems.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center px-8">
-                <Txt variant="ui-sm" className="text-neutral3 block">
-                  {showCompleted ? "No completed reviews yet" : "No items to review"}
-                </Txt>
-                <Txt variant="ui-xs" className="text-neutral3 mt-2 block">
-                  {showCompleted
-                    ? "Items marked as complete will appear here for auditing."
-                    : "When you identify failures in experiment results, send them here to annotate, cluster, and create scorers from failure patterns."}
-                </Txt>
+          {resolveConditional(
+            isLoadingDisplay,
+            () => (
+              <div className="flex-1 flex items-center justify-center">
+                <Spinner className="h-4 w-4" />
               </div>
-            </div>
-          ) : (
-            <DataList columns={gridColumns} className="min-w-0">
-              <DataList.Top hasLeadingCell>
-                {!showCompleted ? (
-                  <DataList.TopSelectCell
-                    checked={isAllSelected ? true : isSomeSelected ? "indeterminate" : false}
-                    onToggle={() => toggleSelectAll()}
-                    aria-label="Select all"
-                  />
-                ) : (
-                  <DataList.TopCell>&nbsp;</DataList.TopCell>
-                )}
-                <DataList.TopCells colStart={2}>
-                  <DataList.TopCell>Input</DataList.TopCell>
-                  <DataList.TopCell>Comment</DataList.TopCell>
-                  <DataList.TopCell>Tags</DataList.TopCell>
-                  <DataList.TopCell>Rating</DataList.TopCell>
-                  <DataList.TopCell>Scores</DataList.TopCell>
-                </DataList.TopCells>
-              </DataList.Top>
-
-              {displayItems.map((item) => {
-                const scoreEntries = item.scores ? Object.entries(item.scores) : [];
-                const isFeatured = featuredItemId === item.id;
-
-                const rowCells = (
-                  <>
-                    {/* Input preview */}
-                    <DataList.Cell height="compact" className="min-w-0 text-neutral4">
-                      <span className="block truncate">{truncateInput(item.input, 80)}</span>
-                    </DataList.Cell>
-
-                    {/* Comment preview */}
-                    <DataList.Cell height="compact" className="min-w-0">
-                      {item.comment ? (
-                        <Txt variant="ui-xs" className="text-neutral3 truncate">
-                          {item.comment}
-                        </Txt>
-                      ) : (
-                        <Txt variant="ui-xs" className="text-neutral2">
-                          —
-                        </Txt>
-                      )}
-                    </DataList.Cell>
-
-                    {/* Tags */}
-                    <DataList.Cell height="compact" className="min-w-0">
-                      {item.tags.length > 0 ? (
-                        <Txt variant="ui-xs" className="text-neutral4 truncate">
-                          {item.tags.join(", ")}
-                        </Txt>
-                      ) : (
-                        <Txt variant="ui-xs" className="text-neutral2">
-                          —
-                        </Txt>
-                      )}
-                    </DataList.Cell>
-
-                    {/* Rating */}
-                    <DataList.Cell height="compact">
-                      {item.rating === "positive" && (
-                        <Icon size="sm" className="text-positive1">
-                          <ThumbsUp />
-                        </Icon>
-                      )}
-                      {item.rating === "negative" && (
-                        <Icon size="sm" className="text-negative1">
-                          <ThumbsDown />
-                        </Icon>
-                      )}
-                      {!item.rating && (
-                        <Txt variant="ui-xs" className="text-neutral2">
-                          —
-                        </Txt>
-                      )}
-                    </DataList.Cell>
-
-                    {/* Scores */}
-                    <DataList.Cell height="compact">
-                      {scoreEntries.length > 0 ? (
-                        <span className="flex items-center gap-1">
-                          <Icon size="sm" className="text-neutral3">
-                            <GaugeIcon />
-                          </Icon>
-                          <Txt variant="ui-xs" className="text-neutral4 font-mono">
-                            {scoreEntries[0][1].toFixed(2)}
-                          </Txt>
-                          {scoreEntries.length > 1 && (
-                            <Badge variant="default">+{scoreEntries.length - 1}</Badge>
-                          )}
-                        </span>
-                      ) : (
-                        <Txt variant="ui-xs" className="text-neutral2">
-                          —
-                        </Txt>
-                      )}
-                    </DataList.Cell>
-                  </>
-                );
-
-                return (
-                  <DataList.RowWrapper key={item.id}>
-                    {!showCompleted ? (
-                      <DataList.SelectCell
-                        checked={selectedItemIds.has(item.id)}
-                        onToggle={() => toggleSelect(item.id)}
-                        aria-label={`Select item ${item.id}`}
+            ),
+            () =>
+              displayItems.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center px-8">
+                    <Txt variant="ui-sm" className="text-neutral3 block">
+                      {showCompleted ? "No completed reviews yet" : "No items to review"}
+                    </Txt>
+                    <Txt variant="ui-xs" className="text-neutral3 mt-2 block">
+                      {showCompleted
+                        ? "Items marked as complete will appear here for auditing."
+                        : "When you identify failures in experiment results, send them here to annotate, cluster, and create scorers from failure patterns."}
+                    </Txt>
+                  </div>
+                </div>
+              ) : (
+                <DataList columns={gridColumns} className="min-w-0">
+                  <DataList.Top hasLeadingCell>
+                    {isTruthy(!showCompleted) ? (
+                      <DataList.TopSelectCell
+                        checked={resolveConditional(
+                          isAllSelected,
+                          () => true,
+                          () => (isSomeSelected ? "indeterminate" : false),
+                        )}
+                        onToggle={() => toggleSelectAll()}
+                        aria-label="Select all"
                       />
                     ) : (
-                      <DataList.Cell height="compact" className="justify-items-center px-4">
-                        <div
-                          role="img"
-                          aria-label={item.error ? "Error" : "Success"}
-                          title={item.error ? "Error" : "Success"}
-                          className={cn(
-                            "w-2 h-2 rounded-full",
-                            item.error ? "bg-red-700" : "bg-green-600",
-                          )}
-                        />
-                      </DataList.Cell>
+                      <DataList.TopCell>&nbsp;</DataList.TopCell>
                     )}
-                    <DataList.RowButton
-                      flushLeft
-                      colStart={2}
-                      featured={isFeatured}
-                      onClick={() => handleRowClick(item.id)}
-                    >
-                      {rowCells}
-                    </DataList.RowButton>
-                  </DataList.RowWrapper>
-                );
-              })}
-            </DataList>
+                    <DataList.TopCells colStart={2}>
+                      <DataList.TopCell>Input</DataList.TopCell>
+                      <DataList.TopCell>Comment</DataList.TopCell>
+                      <DataList.TopCell>Tags</DataList.TopCell>
+                      <DataList.TopCell>Rating</DataList.TopCell>
+                      <DataList.TopCell>Scores</DataList.TopCell>
+                    </DataList.TopCells>
+                  </DataList.Top>
+                  <ReviewItemRows
+                    featuredItemId={featuredItemId}
+                    handleRowClick={handleRowClick}
+                    items={displayItems}
+                    selectedItemIds={selectedItemIds}
+                    showCompleted={showCompleted}
+                    toggleSelect={toggleSelect}
+                  />
+                </DataList>
+              ),
           )}
         </Column>
 
         {/* Detail panel */}
-        {featuredItem && (
-          <ReviewItemPanel
-            item={featuredItem}
-            isCompleted={showCompleted}
-            tagVocabulary={datasetTagVocabulary}
-            onRate={(rating) => rateItem(featuredItem.id, rating)}
-            onSetTags={(tags) => {
-              setItemTags(featuredItem.id, tags);
-              for (const t of tags) {
-                if (!datasetTagVocabulary.includes(t)) {
-                  syncTagToDataset(t);
+        {resolveConditional(
+          featuredItem,
+          (conditionValue) => (
+            <ReviewItemPanel
+              item={conditionValue}
+              isCompleted={showCompleted}
+              tagVocabulary={datasetTagVocabulary}
+              onRate={(rating) => rateItem(conditionValue.id, rating)}
+              onSetTags={(tags) => {
+                setItemTags(conditionValue.id, tags);
+                for (const t of tags) {
+                  if (!datasetTagVocabulary.includes(t)) {
+                    syncTagToDataset(t);
+                  }
                 }
-              }
-            }}
-            onComment={(comment) => commentItem(featuredItem.id, comment)}
-            onRemove={() => removeItem(featuredItem.id)}
-            onComplete={async () => {
-              await completeItem(featuredItem.id);
-              void refetchCompleted();
-            }}
-            onPrevious={toPreviousItem}
-            onNext={toNextItem}
-            onClose={() => setFeaturedItemId(null)}
-          />
+              }}
+              onComment={(comment) => commentItem(conditionValue.id, comment)}
+              onRemove={() => removeItem(conditionValue.id)}
+              onComplete={async () => {
+                await completeItem(conditionValue.id);
+                void refetchCompleted();
+              }}
+              onPrevious={toPreviousItem}
+              onNext={toNextItem}
+              onClose={() => setFeaturedItemId(null)}
+            />
+          ),
+          () => null,
         )}
       </Columns>
     </>

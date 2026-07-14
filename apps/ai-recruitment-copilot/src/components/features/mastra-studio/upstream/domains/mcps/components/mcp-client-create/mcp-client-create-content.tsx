@@ -60,9 +60,7 @@ export function MCPClientCreateContent({
   const handleToggleTool = useCallback((toolName: string, description?: string) => {
     setSelectedTools((prev) => {
       if (toolName in prev) {
-        const next = { ...prev };
-        delete next[toolName];
-        return next;
+        return Object.fromEntries(Object.entries(prev).filter(([name]) => name !== toolName));
       }
       return { ...prev, [toolName]: { description } };
     });
@@ -95,6 +93,12 @@ export function MCPClientCreateContent({
     }
 
     const values = form.getValues();
+    const environment: Record<string, string> = {};
+    for (const { key, value } of values.env) {
+      if (key.trim()) {
+        environment[key.trim()] = value;
+      }
+    }
 
     const serverConfig: Record<string, StoredMCPServerConfig> = {
       [values.serverName]: {
@@ -110,15 +114,7 @@ export function MCPClientCreateContent({
                 .map((a) => a.trim())
                 .filter(Boolean),
               command: values.command,
-              env: values.env.reduce(
-                (acc, { key, value }) => {
-                  if (key.trim()) {
-                    acc[key.trim()] = value;
-                  }
-                  return acc;
-                },
-                {} as Record<string, string>,
-              ),
+              env: environment,
             }),
       },
     };

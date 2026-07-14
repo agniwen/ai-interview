@@ -22,7 +22,7 @@ interface TraceAsItemDialogProps {
 }
 
 function getInitialInput(traceDetails?: SpanRecord): string {
-  if (traceDetails?.input == null) {
+  if (traceDetails?.input === null || traceDetails?.input === undefined) {
     return "{}";
   }
 
@@ -61,7 +61,12 @@ export function TraceAsItemDialog({
 
   const { data: trajectory, isLoading: isTrajectoryLoading } = useQuery({
     enabled: isOpen && !!traceId,
-    queryFn: () => client.getTraceTrajectory(traceId!),
+    queryFn: () => {
+      if (!traceId) {
+        throw new Error("A trace ID is required to load its trajectory");
+      }
+      return client.getTraceTrajectory(traceId);
+    },
     queryKey: ["trace-trajectory", traceId],
   });
 
@@ -72,10 +77,15 @@ export function TraceAsItemDialog({
           {
             ordering: "relaxed",
             steps: trajectory.steps.map((step) => {
-              const { name, stepType, children, ...rest } = step as Record<string, unknown>;
+              const {
+                name,
+                stepType,
+                children: _children,
+                ...rest
+              } = step as Record<string, unknown>;
               const expected: Record<string, unknown> = { name, stepType };
               for (const [k, v] of Object.entries(rest)) {
-                if (v != null && k !== "durationMs" && k !== "metadata") {
+                if (v !== null && v !== undefined && k !== "durationMs" && k !== "metadata") {
                   expected[k] = v;
                 }
               }
@@ -95,7 +105,9 @@ export function TraceAsItemDialog({
     <SaveAsDatasetItemDialog
       initialInput={getInitialInput(traceDetails)}
       initialGroundTruth={
-        traceDetails?.output != null ? JSON.stringify(traceDetails.output, null, 2) : ""
+        traceDetails?.output === null || traceDetails?.output === undefined
+          ? ""
+          : JSON.stringify(traceDetails.output, null, 2)
       }
       initialTrajectory={initialTrajectory}
       trajectoryLoading={isTrajectoryLoading}

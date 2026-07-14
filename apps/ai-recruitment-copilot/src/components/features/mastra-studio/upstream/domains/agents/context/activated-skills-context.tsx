@@ -28,9 +28,7 @@ export function ActivatedSkillsProvider({ children }: ActivatedSkillsProviderPro
       if (prev.has(skillName)) {
         return prev;
       }
-      const next = new Set(prev);
-      next.add(skillName);
-      return next;
+      return new Set([...prev, skillName]);
     });
   }, []);
 
@@ -67,10 +65,16 @@ export function ActivatedSkillsProvider({ children }: ActivatedSkillsProviderPro
 }
 
 const FALLBACK_CONTEXT: ActivatedSkillsContextValue = {
-  activateSkill: () => {},
+  activateSkill: () => {
+    /* empty */
+  },
   activatedSkills: new Set<string>(),
-  clearActivatedSkills: () => {},
-  deactivateSkill: () => {},
+  clearActivatedSkills: () => {
+    /* empty */
+  },
+  deactivateSkill: () => {
+    /* empty */
+  },
   isSkillActivated: () => false,
 };
 

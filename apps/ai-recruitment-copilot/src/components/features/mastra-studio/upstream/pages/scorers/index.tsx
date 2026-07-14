@@ -4,12 +4,10 @@ import { PermissionDenied } from "@mastra/playground-ui/components/PermissionDen
 import { SessionExpired } from "@mastra/playground-ui/components/SessionExpired";
 import { is401UnauthorizedError, is403ForbiddenError } from "@mastra/playground-ui/utils/errors";
 import { useState } from "react";
-import {
-  ScorersToolbar,
-  useScorers,
-} from "@/components/features/mastra-studio/upstream/domains/scores";
+import { ScorersToolbar } from "@/components/features/mastra-studio/upstream/domains/scores/components/scorers-list/scorers-toolbar";
 import { NoScorersInfo } from "@/components/features/mastra-studio/upstream/domains/scores/components/scorers-list/no-scorers-info";
 import { ScorersList } from "@/components/features/mastra-studio/upstream/domains/scores/components/scorers-list/scorers-list";
+import { useScorers } from "@/components/features/mastra-studio/upstream/domains/scores/hooks/use-scorers";
 
 export default function Scorers() {
   const { data: scorers = {}, isLoading, error } = useScorers();

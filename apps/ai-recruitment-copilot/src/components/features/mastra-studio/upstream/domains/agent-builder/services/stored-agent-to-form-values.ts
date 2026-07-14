@@ -53,20 +53,27 @@ export function isConditionalStoredModel(model: StoredAgent["model"] | undefined
   return Array.isArray(model);
 }
 
+function getAvatarUrl(storedAgent: StoredAgent | null | undefined): string | undefined {
+  const metadata = storedAgent?.metadata;
+  if (!metadata || typeof metadata !== "object" || !("avatarUrl" in metadata)) {
+    return undefined;
+  }
+  return metadata.avatarUrl as string | undefined;
+}
+
+function hasBrowserConfig(storedAgent: StoredAgent | null | undefined): boolean {
+  return storedAgent?.browser !== null && storedAgent?.browser !== undefined;
+}
+
 export function storedAgentToFormValues(
   storedAgent: StoredAgent | null | undefined,
 ): AgentBuilderEditFormValues {
-  const avatarUrl =
-    storedAgent?.metadata &&
-    typeof storedAgent.metadata === "object" &&
-    "avatarUrl" in storedAgent.metadata
-      ? (storedAgent.metadata.avatarUrl as string | undefined)
-      : undefined;
+  const avatarUrl = getAvatarUrl(storedAgent);
 
   return {
     agents: Object.fromEntries(Object.keys(storedAgent?.agents ?? {}).map((k) => [k, true])),
     avatarUrl,
-    browserEnabled: storedAgent?.browser != null,
+    browserEnabled: hasBrowserConfig(storedAgent),
     description: storedAgent?.description ?? "",
     instructions: typeof storedAgent?.instructions === "string" ? storedAgent.instructions : "",
     model: extractStaticModel(storedAgent?.model),

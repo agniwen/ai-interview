@@ -195,7 +195,12 @@ export function DatasetPageTabs({
             featuredItemId={featuredItemId}
             onItemSelect={handleItemSelect}
             onItemClose={handleItemClose}
-            onAddClick={onAddItemClick ?? (() => {})}
+            onAddClick={
+              onAddItemClick ??
+              (() => {
+                /* empty */
+              })
+            }
             onImportClick={() => setImportDialogOpen(true)}
             onImportJsonClick={() => setImportJsonDialogOpen(true)}
             onBulkDeleteClick={handleBulkDeleteClick}
@@ -263,7 +268,7 @@ export function DatasetPageTabs({
             <AlertDialog.Title>Delete Items</AlertDialog.Title>
             <AlertDialog.Description>
               Are you sure you want to delete {itemIdsToDelete.length} item
-              {itemIdsToDelete.length !== 1 ? "s" : ""}? This action cannot be undone.
+              {itemIdsToDelete.length === 1 ? "" : "s"}? This action cannot be undone.
             </AlertDialog.Description>
           </AlertDialog.Header>
           <AlertDialog.Footer>

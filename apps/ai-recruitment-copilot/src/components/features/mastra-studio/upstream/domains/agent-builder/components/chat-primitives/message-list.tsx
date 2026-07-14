@@ -81,6 +81,19 @@ export const MessageList = ({
     isRunning &&
     !isLoadingEmpty &&
     (lastMessage?.role !== "assistant" || !hasStreamingPart(lastMessage));
+  let content: ReactNode = (
+    <div className="flex flex-col gap-6">
+      {messages.map((message) => (
+        <MessageRow key={message.id} message={message} />
+      ))}
+      {showPending && <PendingIndicator testId="agent-builder-chat-pending" />}
+    </div>
+  );
+  if (showSkeleton) {
+    content = <MessagesSkeleton testId={skeletonTestId} />;
+  } else if (showEmpty) {
+    content = emptyState;
+  }
 
   return (
     <div
@@ -88,18 +101,7 @@ export const MessageList = ({
       className="flex-1 min-h-0 overflow-y-auto py-6 px-6"
       style={{ viewTransitionName: "agent-builder-messages" }}
     >
-      {showSkeleton ? (
-        <MessagesSkeleton testId={skeletonTestId} />
-      ) : showEmpty ? (
-        emptyState
-      ) : (
-        <div className="flex flex-col gap-6">
-          {messages.map((message) => (
-            <MessageRow key={message.id} message={message} />
-          ))}
-          {showPending && <PendingIndicator testId="agent-builder-chat-pending" />}
-        </div>
-      )}
+      {content}
     </div>
   );
 };

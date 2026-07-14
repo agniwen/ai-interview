@@ -46,11 +46,15 @@ export const useExistingConnections = (
 
   return useQuery({
     enabled,
-    queryFn: () =>
-      client.getToolProvider(providerId!).listConnections({
-        toolkit: toolkit!,
+    queryFn: () => {
+      if (!providerId || !toolkit) {
+        return { items: [] };
+      }
+      return client.getToolProvider(providerId).listConnections({
+        toolkit,
         ...(scopeToSelf && callerAuthorId ? { authorId: callerAuthorId } : {}),
-      }),
+      });
+    },
     queryKey: scopeToSelf
       ? ["tool-integration-connections", providerId, toolkit, callerAuthorId]
       : ["tool-integration-connections", providerId, toolkit],

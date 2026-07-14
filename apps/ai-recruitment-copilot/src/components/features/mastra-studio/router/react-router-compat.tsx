@@ -11,8 +11,12 @@ import {
 } from "@tanstack/react-router";
 import { forwardRef, useCallback, useEffect, useMemo } from "react";
 import type { AnchorHTMLAttributes, ComponentProps } from "react";
-
-export const MASTRA_STUDIO_ROUTE_BASE = "/platform/mastra-studio";
+import {
+  addMastraStudioBase,
+  isMastraStudioPath,
+  MASTRA_STUDIO_ROUTE_BASE,
+  removeMastraStudioBase,
+} from "./studio-route-path";
 
 const EXTERNAL_URL = /^(?:[a-z][a-z\d+.-]*:|\/\/)/i;
 
@@ -50,40 +54,12 @@ function isExternalUrl(to: string) {
   return EXTERNAL_URL.test(to);
 }
 
-export function isMastraStudioPath(pathname: string) {
-  return (
-    pathname === MASTRA_STUDIO_ROUTE_BASE || pathname.startsWith(`${MASTRA_STUDIO_ROUTE_BASE}/`)
-  );
-}
-
-export function addMastraStudioBase(path: string) {
-  if (
-    !path ||
-    path === "." ||
-    path.startsWith("./") ||
-    path.startsWith("../") ||
-    path.startsWith("?") ||
-    path.startsWith("#") ||
-    isExternalUrl(path) ||
-    isMastraStudioPath(path)
-  ) {
-    return path;
-  }
-
-  if (path === "/") {
-    return MASTRA_STUDIO_ROUTE_BASE;
-  }
-
-  return path.startsWith("/") ? `${MASTRA_STUDIO_ROUTE_BASE}${path}` : path;
-}
-
-export function removeMastraStudioBase(pathname: string) {
-  if (!isMastraStudioPath(pathname)) {
-    return pathname;
-  }
-
-  return pathname.slice(MASTRA_STUDIO_ROUTE_BASE.length) || "/";
-}
+export {
+  addMastraStudioBase,
+  isMastraStudioPath,
+  MASTRA_STUDIO_ROUTE_BASE,
+  removeMastraStudioBase,
+};
 
 function useEmbeddedStudioPath() {
   return useTanStackLocation({

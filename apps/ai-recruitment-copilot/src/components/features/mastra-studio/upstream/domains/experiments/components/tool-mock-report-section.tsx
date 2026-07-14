@@ -21,6 +21,23 @@ function formatArgs(args: unknown): string {
   }
 }
 
+function outcomeClass(outcome: ReportRow["outcome"]): string {
+  switch (outcome) {
+    case "served": {
+      return "bg-accent1/10 text-accent1";
+    }
+    case "live": {
+      return "bg-orange-500/10 text-orange-400";
+    }
+    case "unconsumed": {
+      return "bg-neutral3/10 text-neutral4";
+    }
+    default: {
+      return "";
+    }
+  }
+}
+
 /**
  * Diagnostics panel for item-level tool mocks on an experiment result.
  *
@@ -85,18 +102,4 @@ export function ToolMockReportSection({ report }: ToolMockReportSectionProps) {
       </div>
     </div>
   );
-}
-
-function outcomeClass(outcome: ReportRow["outcome"]): string {
-  switch (outcome) {
-    case "served": {
-      return "bg-accent1/10 text-accent1";
-    }
-    case "live": {
-      return "bg-orange-500/10 text-orange-400";
-    }
-    case "unconsumed": {
-      return "bg-neutral3/10 text-neutral4";
-    }
-  }
 }

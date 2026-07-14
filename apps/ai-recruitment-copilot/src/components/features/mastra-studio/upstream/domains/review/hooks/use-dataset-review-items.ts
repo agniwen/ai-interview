@@ -12,7 +12,7 @@ export const useDatasetReviewItems = (datasetId: string) => {
   const experiments = experimentsData?.experiments;
 
   return useQuery({
-    enabled: Boolean(datasetId) && Boolean(experiments) && experiments!.length > 0,
+    enabled: Boolean(datasetId) && Boolean(experiments?.length),
     queryFn: async () => {
       if (!experiments || experiments.length === 0) {
         return [] as ReviewItem[];
@@ -64,7 +64,7 @@ export const useDatasetCompletedItems = (datasetId: string) => {
   const experiments = experimentsData?.experiments;
 
   return useQuery({
-    enabled: Boolean(datasetId) && Boolean(experiments) && experiments!.length > 0,
+    enabled: Boolean(datasetId) && Boolean(experiments?.length),
     queryFn: async () => {
       if (!experiments || experiments.length === 0) {
         return [] as ReviewItem[];

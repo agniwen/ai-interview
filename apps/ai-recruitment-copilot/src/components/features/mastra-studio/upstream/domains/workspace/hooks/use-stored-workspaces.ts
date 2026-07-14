@@ -15,7 +15,7 @@ export const useStoredWorkspaces = (
 
   return useQuery({
     enabled: options?.enabled !== false,
-    queryFn: async (): Promise<ListStoredWorkspacesResponse> => client.listStoredWorkspaces(params),
+    queryFn: (): Promise<ListStoredWorkspacesResponse> => client.listStoredWorkspaces(params),
     queryKey: ["stored-workspaces", params],
   });
 };

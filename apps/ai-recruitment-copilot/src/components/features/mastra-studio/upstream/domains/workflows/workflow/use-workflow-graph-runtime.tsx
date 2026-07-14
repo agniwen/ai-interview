@@ -23,6 +23,47 @@ import type {
 const getScopedStepId = (stepId: string | undefined, workflowName?: string) =>
   stepId && workflowName ? `${workflowName}.${stepId}` : stepId;
 
+function withEdgeStatus(edge: WorkflowGraphEdge, isFinished: boolean): WorkflowGraphEdge {
+  return {
+    ...edge,
+    animated: isFinished ? false : edge.animated,
+    data: { ...edge.data, edgeStatus: isFinished ? "success" : "idle" },
+    style: {
+      ...edge.style,
+      stroke: isFinished ? "#22c55e" : "#8e8e8e",
+      strokeDasharray: isFinished ? "none" : edge.style?.strokeDasharray,
+    },
+    type: WORKFLOW_DATA_EDGE_TYPE,
+  };
+}
+
+function isEdgeFinished({
+  boundaryPayload,
+  conditionNode,
+  nextStepBypassed,
+  nextStepStatus,
+  previousStepSucceeded,
+  workflowSucceeded,
+}: {
+  boundaryPayload?: "workflow-input" | "workflow-output";
+  conditionNode?: boolean;
+  nextStepBypassed: boolean;
+  nextStepStatus?: string;
+  previousStepSucceeded: boolean;
+  workflowSucceeded: boolean;
+}) {
+  if (boundaryPayload === "workflow-output") {
+    return workflowSucceeded;
+  }
+  if (boundaryPayload === "workflow-input") {
+    return Boolean(nextStepStatus) && nextStepStatus !== "skipped";
+  }
+  if (conditionNode) {
+    return Boolean(nextStepStatus) && nextStepStatus !== "skipped" && !nextStepBypassed;
+  }
+  return previousStepSucceeded && nextStepStatus !== "skipped" && !nextStepBypassed;
+}
+
 export const useWorkflowGraphRuntime = ({
   edges,
   workflowName,
@@ -51,15 +92,18 @@ export const useWorkflowGraphRuntime = ({
     );
     const isStepSuccess = (stepId: string) =>
       steps[getScopedStepId(stepId, workflowName) ?? ""]?.status === "success";
-    return (stepId: string | undefined) =>
-      Boolean(stepId) &&
-      isBranchArmBypassed({
+    return (stepId: string | undefined) => {
+      if (!stepId) {
+        return false;
+      }
+      return isBranchArmBypassed({
         conditionalStepIds,
         isStepSuccess,
-        stepId: stepId!,
+        stepId,
         stepSuccessors,
         stepsFlow,
       });
+    };
   }, [stepsFlow, stepGraph, workflowRun.workflow?.stepGraph, steps, workflowName]);
   const nodeTypes = useMemo(
     () => ({
@@ -91,82 +135,15 @@ export const useWorkflowGraphRuntime = ({
         // stays `undefined`. Treat such a bypassed arm like an explicitly skipped step
         // so edges feeding it stay neutral.
         const nextStepBypassed = isArmBypassed(edge.data?.nextStepId);
-        // The boundary edge into the End node carries no step ids; it should light
-        // green once the whole workflow run has finished successfully.
-        if (edge.data?.boundaryPayload === "workflow-output") {
-          const isFinishedEdge = workflowSucceeded;
-
-          return {
-            ...edge,
-            animated: isFinishedEdge ? false : edge.animated,
-            data: { ...edge.data, edgeStatus: isFinishedEdge ? "success" : "idle" },
-            style: {
-              ...edge.style,
-              stroke: isFinishedEdge ? "#22c55e" : "#8e8e8e",
-              strokeDasharray: isFinishedEdge ? "none" : edge.style?.strokeDasharray,
-            },
-            type: WORKFLOW_DATA_EDGE_TYPE,
-          };
-        }
-        // The Start boundary edge has no predecessor step. It turns green once the
-        // first step exists in run state, which means workflow input reached that step.
-        if (edge.data?.boundaryPayload === "workflow-input") {
-          const firstStepStarted = Boolean(nextStepStatus) && nextStepStatus !== "skipped";
-
-          return {
-            ...edge,
-            animated: firstStepStarted ? false : edge.animated,
-            data: { ...edge.data, edgeStatus: firstStepStarted ? "success" : "idle" },
-            style: {
-              ...edge.style,
-              stroke: firstStepStarted ? "#22c55e" : "#8e8e8e",
-              strokeDasharray: firstStepStarted ? "none" : edge.style?.strokeDasharray,
-            },
-            type: WORKFLOW_DATA_EDGE_TYPE,
-          };
-        }
-        // A conditional arm edge must only light when that specific arm was actually taken — i.e.
-        // the arm step has run (any status other than the un-taken `skipped`). Lighting it purely
-        // off the shared predecessor would falsely show the un-taken branch as active, since both
-        // arms share the same (successful) condition predecessor.
-        if (edge.data?.conditionNode) {
-          const armTaken =
-            Boolean(nextStepStatus) && nextStepStatus !== "skipped" && !nextStepBypassed;
-          const isFinishedEdge = armTaken;
-
-          return {
-            ...edge,
-            animated: isFinishedEdge ? false : edge.animated,
-            data: { ...edge.data, edgeStatus: isFinishedEdge ? "success" : "idle" },
-            style: {
-              ...edge.style,
-              stroke: isFinishedEdge ? "#22c55e" : "#8e8e8e",
-              strokeDasharray: isFinishedEdge ? "none" : edge.style?.strokeDasharray,
-            },
-            type: WORKFLOW_DATA_EDGE_TYPE,
-          };
-        }
-        // A normal edge is green when data flowed out of a successful predecessor; the next step's
-        // own running/idle state does not matter, so the taken path stays continuous mid-run. The
-        // only suppression is an explicitly `skipped` next step (the un-taken arm of a resolved
-        // conditional reached through a non-condition edge).
-        const isFinishedEdge =
-          previousStepSucceeded && nextStepStatus !== "skipped" && !nextStepBypassed;
-
-        return {
-          ...edge,
-          animated: isFinishedEdge ? false : edge.animated,
-          data: {
-            ...edge.data,
-            edgeStatus: isFinishedEdge ? "success" : "idle",
-          },
-          style: {
-            ...edge.style,
-            stroke: isFinishedEdge ? "#22c55e" : "#8e8e8e",
-            strokeDasharray: isFinishedEdge ? "none" : edge.style?.strokeDasharray,
-          },
-          type: WORKFLOW_DATA_EDGE_TYPE,
-        };
+        const isFinished = isEdgeFinished({
+          boundaryPayload: edge.data?.boundaryPayload,
+          conditionNode: edge.data?.conditionNode,
+          nextStepBypassed,
+          nextStepStatus,
+          previousStepSucceeded,
+          workflowSucceeded,
+        });
+        return withEdgeStatus(edge, isFinished);
       }),
     [edges, steps, workflowName, workflowSucceeded, isArmBypassed],
   );

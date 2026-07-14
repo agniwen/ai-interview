@@ -9,6 +9,48 @@ interface ToolCardProps {
   onToggle: (item: AgentTool, next: boolean) => void;
 }
 
+function renderToolFooter({
+  connectionLabels,
+  item,
+  isIntegration,
+  needsConnection,
+}: {
+  connectionLabels: string[];
+  item: AgentTool;
+  isIntegration: boolean;
+  needsConnection: boolean;
+}) {
+  if (!isIntegration) {
+    return;
+  }
+  if (needsConnection) {
+    return (
+      <Txt
+        variant="ui-xs"
+        className="flex h-7 items-center text-neutral3"
+        data-testid={`tool-card-requires-connection-${item.type}-${item.id}`}
+      >
+        Requires connection
+      </Txt>
+    );
+  }
+  if (connectionLabels.length === 0) {
+    return <div className="h-7" />;
+  }
+  return (
+    <div
+      className="flex min-h-7 flex-wrap items-center gap-2"
+      data-testid={`tool-card-connections-${item.type}-${item.id}`}
+    >
+      {connectionLabels.map((label) => (
+        <Badge key={label} className="h-auto py-0.5 text-[10px]">
+          {label}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
 /**
  * A single tool tile. Connections are managed per-toolkit in the left filter
  * pane, not per-tool, so the card only signals selectability. When an
@@ -21,7 +63,7 @@ export const ToolCard = ({ item, editable, onToggle }: ToolCardProps) => {
   const isIntegration = item.type === "integration" && !!item.providerId && !!item.toolkit;
   const needsConnection = isIntegration && item.hasConnection === false;
   const connectionLabels = item.connectionLabels ?? [];
-  const hasConnectionBadges = isIntegration && !needsConnection && connectionLabels.length > 0;
+  const footer = renderToolFooter({ connectionLabels, isIntegration, item, needsConnection });
 
   return (
     <AgentSelectableCard
@@ -33,32 +75,7 @@ export const ToolCard = ({ item, editable, onToggle }: ToolCardProps) => {
       ariaLabel={item.name}
       testId={`tool-card-${item.type}-${item.id}`}
       checkTestId={`tool-card-check-${item.type}-${item.id}`}
-      footer={
-        isIntegration ? (
-          needsConnection ? (
-            <Txt
-              variant="ui-xs"
-              className="flex h-7 items-center text-neutral3"
-              data-testid={`tool-card-requires-connection-${item.type}-${item.id}`}
-            >
-              Requires connection
-            </Txt>
-          ) : hasConnectionBadges ? (
-            <div
-              className="flex min-h-7 flex-wrap items-center gap-2"
-              data-testid={`tool-card-connections-${item.type}-${item.id}`}
-            >
-              {connectionLabels.map((label) => (
-                <Badge key={label} className="h-auto py-0.5 text-[10px]">
-                  {label}
-                </Badge>
-              ))}
-            </div>
-          ) : (
-            <div className="h-7" />
-          )
-        ) : undefined
-      }
+      footer={footer}
     />
   );
 };

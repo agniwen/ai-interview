@@ -1,4 +1,5 @@
 import { jsonLanguage } from "@codemirror/lang-json";
+import type { TimeTravelParams } from "@mastra/client-js";
 import { useCodemirrorTheme } from "@mastra/playground-ui/components/CodeEditor";
 import {
   Collapsible,
@@ -16,7 +17,6 @@ import { useCopyToClipboard } from "@mastra/playground-ui/hooks/use-copy-to-clip
 import { Icon } from "@mastra/playground-ui/icons/Icon";
 import { cn } from "@mastra/playground-ui/utils/cn";
 import { formatJSON, isValidJson } from "@mastra/playground-ui/utils/formatting";
-import { jsonSchemaToZod } from "@mastra/schema-compat/json-to-zod";
 import CodeMirror from "@uiw/react-codemirror";
 import { Braces, ChevronDown, CopyIcon, EyeIcon, EyeOffIcon } from "lucide-react";
 import { useContext, useMemo, useState } from "react";
@@ -48,6 +48,11 @@ const prettyJson = (value: unknown) => {
     return "{}";
   }
 };
+
+function parseOptionalJsonValue<T>(value: string): T | undefined {
+  const parsed: unknown = value.trim() ? JSON.parse(value) : {};
+  return Object.keys(parsed as object).length > 0 ? (parsed as T) : undefined;
+}
 
 const JsonField = ({
   label,
@@ -251,10 +256,14 @@ export const WorkflowTimeTravelForm = ({
     try {
       const parsed = parse(stepDefinition.inputSchema);
       const zodStateSchema = workflow?.stateSchema
-        ? resolveSerializedZodOutput(jsonSchemaToZod(parse(workflow.stateSchema)))
+        ? resolveSerializedZodOutput(
+            parse(workflow.stateSchema) as Parameters<typeof resolveSerializedZodOutput>[0],
+          )
         : null;
 
-      const zodStepSchema = resolveSerializedZodOutput(jsonSchemaToZod(parsed as any));
+      const zodStepSchema = resolveSerializedZodOutput(
+        parsed as Parameters<typeof resolveSerializedZodOutput>[0],
+      );
 
       const schemaToUse = zodStateSchema
         ? z.object({
@@ -269,25 +278,26 @@ export const WorkflowTimeTravelForm = ({
     }
   }, [stepDefinition?.inputSchema, workflow?.stateSchema]);
 
-  const handleSubmit = async (data: Record<string, any>) => {
+  const handleSubmit = (submittedData: unknown) => {
     setFormError(null);
     setIsSubmitting(true);
 
     try {
-      const parsedResume = resumeData.trim() ? JSON.parse(resumeData) : {};
-      const parsedContext = contextValue.trim() ? JSON.parse(contextValue) : {};
-      const parsedNestedContext = nestedContextValue.trim() ? JSON.parse(nestedContextValue) : {};
-      const { initialState, inputData: dataInputData } = data ?? {};
-      const inputData = workflow?.stateSchema ? dataInputData : data;
+      const parsedResume = parseOptionalJsonValue<TimeTravelParams["resumeData"]>(resumeData);
+      const parsedContext = parseOptionalJsonValue<TimeTravelParams["context"]>(contextValue);
+      const parsedNestedContext =
+        parseOptionalJsonValue<TimeTravelParams["nestedStepsContext"]>(nestedContextValue);
+      const submittedRecord = (submittedData ?? {}) as Record<string, unknown>;
+      const { initialState, inputData: dataInputData } = submittedRecord;
+      const submittedInputData = workflow?.stateSchema ? dataInputData : submittedData;
 
       const payload = {
-        context: Object.keys(parsedContext)?.length > 0 ? parsedContext : undefined,
-        initialState,
-        inputData,
-        nestedStepsContext:
-          Object.keys(parsedNestedContext)?.length > 0 ? parsedNestedContext : undefined,
+        context: parsedContext,
+        initialState: initialState as TimeTravelParams["initialState"],
+        inputData: submittedInputData as TimeTravelParams["inputData"],
+        nestedStepsContext: parsedNestedContext,
         requestContext,
-        resumeData: Object.keys(parsedResume)?.length > 0 ? parsedResume : undefined,
+        resumeData: parsedResume,
         runId: prevRunId,
         step: stepKey,
         workflowId,

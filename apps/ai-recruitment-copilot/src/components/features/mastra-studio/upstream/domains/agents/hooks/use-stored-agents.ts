@@ -4,7 +4,7 @@ import type {
   ListStoredAgentsParams,
 } from "@mastra/client-js";
 import { useMastraClient } from "@mastra/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { isModelNotAllowedError } from "@/components/features/mastra-studio/upstream/domains/agent-builder/services/is-model-not-allowed";
 import { usePlaygroundStore } from "@/components/features/mastra-studio/upstream/store/playground-store";
 
@@ -64,7 +64,10 @@ export const useStoredAgentDependents = (agentId?: string, options?: { enabled?:
 
   return useQuery({
     enabled,
-    queryFn: () => client.getStoredAgent(agentId!).dependents(requestContext),
+    queryFn:
+      enabled && agentId
+        ? () => client.getStoredAgent(agentId).dependents(requestContext)
+        : skipToken,
     queryKey: ["stored-agent-dependents", agentId, requestContext],
     retry: false,
   });

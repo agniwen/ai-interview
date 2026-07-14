@@ -49,7 +49,7 @@ export const WorkflowConditionCardView = ({
       )}
     >
       <Collapsible
-        open={!isCollapsible ? true : isOpen}
+        open={isCollapsible ? isOpen : true}
         onOpenChange={(_open: boolean) => {
           if (isCollapsible) {
             onOpenChange(_open);

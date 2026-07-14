@@ -38,253 +38,6 @@ export interface ItemDetailDialogProps {
  * Side dialog showing full details of a single dataset item.
  * Includes navigation to next/previous items and sections for Input, Ground Truth, and Metadata.
  */
-export function ItemDetailDialog({
-  datasetId,
-  item,
-  items,
-  isOpen,
-  onClose,
-  onItemChange,
-  dialogLevel = 1,
-}: ItemDetailDialogProps) {
-  const { updateItem, deleteItem } = useDatasetMutations();
-
-  // Edit mode state
-  const [isEditing, setIsEditing] = useState(false);
-  const [inputValue, setInputValue] = useState("");
-  const [groundTruthValue, setGroundTruthValue] = useState("");
-  const [metadataValue, setMetadataValue] = useState("");
-  const [trajectoryValue, setTrajectoryValue] = useState("");
-  const [requestContextValue, setRequestContextValue] = useState("");
-
-  // Delete confirmation state
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  // Reset form state when item changes (navigation or prop update)
-  useEffect(() => {
-    if (item) {
-      setInputValue(JSON.stringify(item.input, null, 2));
-      setGroundTruthValue(item.groundTruth ? JSON.stringify(item.groundTruth, null, 2) : "");
-      setMetadataValue(item.metadata ? JSON.stringify(item.metadata, null, 2) : "");
-      setTrajectoryValue(
-        item.expectedTrajectory ? JSON.stringify(item.expectedTrajectory, null, 2) : "",
-      );
-      setRequestContextValue(
-        item.requestContext ? JSON.stringify(item.requestContext, null, 2) : "",
-      );
-      setIsEditing(false); // Exit edit mode on item change
-      setShowDeleteConfirm(false); // Reset delete state on item change
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item?.id]);
-
-  if (!item) {
-    return null;
-  }
-
-  // Navigation handlers - return function or undefined to enable/disable buttons
-  const toNextItem = (): (() => void) | undefined => {
-    const currentIndex = items.findIndex((i) => i.id === item.id);
-    if (currentIndex !== -1 && currentIndex < items.length - 1) {
-      return () => onItemChange(items[currentIndex + 1].id);
-    }
-    return undefined;
-  };
-
-  const toPreviousItem = (): (() => void) | undefined => {
-    const currentIndex = items.findIndex((i) => i.id === item.id);
-    if (currentIndex > 0) {
-      return () => onItemChange(items[currentIndex - 1].id);
-    }
-    return undefined;
-  };
-
-  // Form handlers
-  const handleSave = async () => {
-    // Validate input JSON
-    let parsedInput: unknown;
-    try {
-      parsedInput = JSON.parse(inputValue);
-    } catch {
-      toast.error("Input must be valid JSON");
-      return;
-    }
-
-    // Parse groundTruth if provided
-    let parsedGroundTruth: unknown | undefined;
-    if (groundTruthValue.trim()) {
-      try {
-        parsedGroundTruth = JSON.parse(groundTruthValue);
-      } catch {
-        toast.error("Ground Truth must be valid JSON");
-        return;
-      }
-    }
-
-    // Parse metadata if provided
-    let parsedMetadata: Record<string, unknown> | undefined;
-    if (metadataValue.trim()) {
-      try {
-        parsedMetadata = JSON.parse(metadataValue);
-      } catch {
-        toast.error("Metadata must be valid JSON");
-        return;
-      }
-    }
-
-    // Parse expectedTrajectory: empty string means explicitly clear (null), omitted means keep existing
-    let parsedTrajectory: unknown | null = null;
-    if (trajectoryValue.trim()) {
-      try {
-        parsedTrajectory = JSON.parse(trajectoryValue);
-      } catch {
-        toast.error("Expected Trajectory must be valid JSON");
-        return;
-      }
-    }
-
-    // Parse requestContext if provided
-    let parsedRequestContext: Record<string, unknown> | undefined;
-    if (requestContextValue.trim()) {
-      try {
-        parsedRequestContext = JSON.parse(requestContextValue);
-      } catch {
-        toast.error("Request Context must be valid JSON");
-        return;
-      }
-    }
-
-    try {
-      await updateItem.mutateAsync({
-        datasetId,
-        expectedTrajectory: parsedTrajectory,
-        groundTruth: parsedGroundTruth,
-        input: parsedInput,
-        itemId: item.id,
-        metadata: parsedMetadata,
-        requestContext: parsedRequestContext,
-      });
-
-      toast.success("Item updated successfully");
-      setIsEditing(false);
-    } catch (error) {
-      toast.error(
-        `Failed to update item: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
-    }
-  };
-
-  const handleCancel = () => {
-    // Reset to original values
-    setInputValue(JSON.stringify(item.input, null, 2));
-    setGroundTruthValue(item.groundTruth ? JSON.stringify(item.groundTruth, null, 2) : "");
-    setMetadataValue(item.metadata ? JSON.stringify(item.metadata, null, 2) : "");
-    setTrajectoryValue(
-      item.expectedTrajectory ? JSON.stringify(item.expectedTrajectory, null, 2) : "",
-    );
-    setRequestContextValue(item.requestContext ? JSON.stringify(item.requestContext, null, 2) : "");
-    setIsEditing(false);
-  };
-
-  const handleEdit = () => {
-    setIsEditing(true);
-  };
-
-  const handleDelete = () => {
-    setShowDeleteConfirm(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    try {
-      await deleteItem.mutateAsync({ datasetId, itemId: item.id });
-      toast.success("Item deleted successfully");
-      setShowDeleteConfirm(false);
-      onClose(); // Close the SideDialog after successful deletion
-    } catch (error) {
-      toast.error(
-        `Failed to delete item: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
-    }
-  };
-
-  return (
-    <SideDialog
-      dialogTitle="Dataset Item"
-      dialogDescription={`Item: ${item.id}`}
-      isOpen={isOpen}
-      onClose={onClose}
-      level={dialogLevel}
-    >
-      <SideDialog.Top>
-        <TextAndIcon>
-          <HashIcon /> {getShortId(item.id)}
-        </TextAndIcon>
-        |
-        <SideDialog.Nav onNext={toNextItem()} onPrevious={toPreviousItem()} />
-        {!isEditing && (
-          <div className="ml-auto flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleEdit}>
-              <Icon>
-                <Pencil />
-              </Icon>
-              Edit
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleDelete}>
-              <Icon>
-                <Trash2 />
-              </Icon>
-              Delete
-            </Button>
-          </div>
-        )}
-      </SideDialog.Top>
-
-      <SideDialog.Content>
-        {isEditing ? (
-          <EditModeContent
-            inputValue={inputValue}
-            setInputValue={setInputValue}
-            groundTruthValue={groundTruthValue}
-            setGroundTruthValue={setGroundTruthValue}
-            metadataValue={metadataValue}
-            setMetadataValue={setMetadataValue}
-            trajectoryValue={trajectoryValue}
-            setTrajectoryValue={setTrajectoryValue}
-            requestContextValue={requestContextValue}
-            setRequestContextValue={setRequestContextValue}
-            onSave={handleSave}
-            onCancel={handleCancel}
-            isSaving={updateItem.isPending}
-          />
-        ) : (
-          <ReadOnlyContent item={item} />
-        )}
-      </SideDialog.Content>
-
-      {/* Delete confirmation - uses portal, renders above SideDialog */}
-      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <AlertDialog.Content>
-          <AlertDialog.Header>
-            <AlertDialog.Title>Delete Item</AlertDialog.Title>
-            <AlertDialog.Description>
-              Are you sure you want to delete this item? This action cannot be undone.
-            </AlertDialog.Description>
-          </AlertDialog.Header>
-          <AlertDialog.Footer>
-            <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-            <AlertDialog.Action onClick={handleDeleteConfirm}>
-              {deleteItem.isPending ? "Deleting..." : "Yes, Delete"}
-            </AlertDialog.Action>
-          </AlertDialog.Footer>
-        </AlertDialog.Content>
-      </AlertDialog>
-    </SideDialog>
-  );
-}
-
-/**
- * Read-only view of the dataset item details
- */
 function ReadOnlyContent({ item }: { item: DatasetItem }) {
   const metadataDisplay = item.metadata ? JSON.stringify(item.metadata, null, 2) : null;
   const trajectoryDisplay = item.expectedTrajectory
@@ -313,7 +66,7 @@ function ReadOnlyContent({ item }: { item: DatasetItem }) {
               label: "Created",
               value: format(new Date(item.createdAt), "MMM d, yyyy h:mm aaa"),
             },
-            ...(item.datasetVersion != null
+            ...(item.datasetVersion !== null && item.datasetVersion !== undefined
               ? [
                   {
                     key: "version",
@@ -468,3 +221,254 @@ function EditModeContent({
     </>
   );
 }
+
+export function ItemDetailDialog({
+  datasetId,
+  item,
+  items,
+  isOpen,
+  onClose,
+  onItemChange,
+  dialogLevel = 1,
+}: ItemDetailDialogProps) {
+  const { updateItem, deleteItem } = useDatasetMutations();
+
+  // Edit mode state
+  const [isEditing, setIsEditing] = useState(false);
+  const [inputValue, setInputValue] = useState("");
+  const [groundTruthValue, setGroundTruthValue] = useState("");
+  const [metadataValue, setMetadataValue] = useState("");
+  const [trajectoryValue, setTrajectoryValue] = useState("");
+  const [requestContextValue, setRequestContextValue] = useState("");
+
+  // Delete confirmation state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Reset form state when item changes (navigation or prop update)
+  useEffect(() => {
+    if (item) {
+      setInputValue(JSON.stringify(item.input, null, 2));
+      setGroundTruthValue(item.groundTruth ? JSON.stringify(item.groundTruth, null, 2) : "");
+      setMetadataValue(item.metadata ? JSON.stringify(item.metadata, null, 2) : "");
+      setTrajectoryValue(
+        item.expectedTrajectory ? JSON.stringify(item.expectedTrajectory, null, 2) : "",
+      );
+      setRequestContextValue(
+        item.requestContext ? JSON.stringify(item.requestContext, null, 2) : "",
+      );
+      // Exit edit mode on item change
+      setIsEditing(false);
+      // Reset delete state on item change
+      setShowDeleteConfirm(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item?.id]);
+
+  if (!item) {
+    return null;
+  }
+
+  // Navigation handlers - return function or undefined to enable/disable buttons
+  const toNextItem = (): (() => void) | undefined => {
+    const currentIndex = items.findIndex((i) => i.id === item.id);
+    if (currentIndex !== -1 && currentIndex < items.length - 1) {
+      return () => onItemChange(items[currentIndex + 1].id);
+    }
+    return undefined;
+  };
+
+  const toPreviousItem = (): (() => void) | undefined => {
+    const currentIndex = items.findIndex((i) => i.id === item.id);
+    if (currentIndex > 0) {
+      return () => onItemChange(items[currentIndex - 1].id);
+    }
+    return undefined;
+  };
+
+  // Form handlers
+  const handleSave = async () => {
+    // Validate input JSON
+    let parsedInput: unknown;
+    try {
+      parsedInput = JSON.parse(inputValue);
+    } catch {
+      toast.error("Input must be valid JSON");
+      return;
+    }
+
+    // Parse groundTruth if provided
+    let parsedGroundTruth: unknown | undefined;
+    if (groundTruthValue.trim()) {
+      try {
+        parsedGroundTruth = JSON.parse(groundTruthValue);
+      } catch {
+        toast.error("Ground Truth must be valid JSON");
+        return;
+      }
+    }
+
+    // Parse metadata if provided
+    let parsedMetadata: Record<string, unknown> | undefined;
+    if (metadataValue.trim()) {
+      try {
+        parsedMetadata = JSON.parse(metadataValue);
+      } catch {
+        toast.error("Metadata must be valid JSON");
+        return;
+      }
+    }
+
+    // Parse expectedTrajectory: empty string means explicitly clear (null), omitted means keep existing
+    let parsedTrajectory: unknown | null = null;
+    if (trajectoryValue.trim()) {
+      try {
+        parsedTrajectory = JSON.parse(trajectoryValue);
+      } catch {
+        toast.error("Expected Trajectory must be valid JSON");
+        return;
+      }
+    }
+
+    // Parse requestContext if provided
+    let parsedRequestContext: Record<string, unknown> | undefined;
+    if (requestContextValue.trim()) {
+      try {
+        parsedRequestContext = JSON.parse(requestContextValue);
+      } catch {
+        toast.error("Request Context must be valid JSON");
+        return;
+      }
+    }
+
+    try {
+      await updateItem.mutateAsync({
+        datasetId,
+        expectedTrajectory: parsedTrajectory,
+        groundTruth: parsedGroundTruth,
+        input: parsedInput,
+        itemId: item.id,
+        metadata: parsedMetadata,
+        requestContext: parsedRequestContext,
+      });
+
+      toast.success("Item updated successfully");
+      setIsEditing(false);
+    } catch (error) {
+      toast.error(
+        `Failed to update item: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    }
+  };
+
+  const handleCancel = () => {
+    // Reset to original values
+    setInputValue(JSON.stringify(item.input, null, 2));
+    setGroundTruthValue(item.groundTruth ? JSON.stringify(item.groundTruth, null, 2) : "");
+    setMetadataValue(item.metadata ? JSON.stringify(item.metadata, null, 2) : "");
+    setTrajectoryValue(
+      item.expectedTrajectory ? JSON.stringify(item.expectedTrajectory, null, 2) : "",
+    );
+    setRequestContextValue(item.requestContext ? JSON.stringify(item.requestContext, null, 2) : "");
+    setIsEditing(false);
+  };
+
+  const handleEdit = () => {
+    setIsEditing(true);
+  };
+
+  const handleDelete = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      await deleteItem.mutateAsync({ datasetId, itemId: item.id });
+      toast.success("Item deleted successfully");
+      setShowDeleteConfirm(false);
+      // Close the SideDialog after successful deletion
+      onClose();
+    } catch (error) {
+      toast.error(
+        `Failed to delete item: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    }
+  };
+
+  return (
+    <SideDialog
+      dialogTitle="Dataset Item"
+      dialogDescription={`Item: ${item.id}`}
+      isOpen={isOpen}
+      onClose={onClose}
+      level={dialogLevel}
+    >
+      <SideDialog.Top>
+        <TextAndIcon>
+          <HashIcon /> {getShortId(item.id)}
+        </TextAndIcon>
+        |
+        <SideDialog.Nav onNext={toNextItem()} onPrevious={toPreviousItem()} />
+        {!isEditing && (
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleEdit}>
+              <Icon>
+                <Pencil />
+              </Icon>
+              Edit
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleDelete}>
+              <Icon>
+                <Trash2 />
+              </Icon>
+              Delete
+            </Button>
+          </div>
+        )}
+      </SideDialog.Top>
+
+      <SideDialog.Content>
+        {isEditing ? (
+          <EditModeContent
+            inputValue={inputValue}
+            setInputValue={setInputValue}
+            groundTruthValue={groundTruthValue}
+            setGroundTruthValue={setGroundTruthValue}
+            metadataValue={metadataValue}
+            setMetadataValue={setMetadataValue}
+            trajectoryValue={trajectoryValue}
+            setTrajectoryValue={setTrajectoryValue}
+            requestContextValue={requestContextValue}
+            setRequestContextValue={setRequestContextValue}
+            onSave={handleSave}
+            onCancel={handleCancel}
+            isSaving={updateItem.isPending}
+          />
+        ) : (
+          <ReadOnlyContent item={item} />
+        )}
+      </SideDialog.Content>
+
+      {/* Delete confirmation - uses portal, renders above SideDialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialog.Content>
+          <AlertDialog.Header>
+            <AlertDialog.Title>Delete Item</AlertDialog.Title>
+            <AlertDialog.Description>
+              Are you sure you want to delete this item? This action cannot be undone.
+            </AlertDialog.Description>
+          </AlertDialog.Header>
+          <AlertDialog.Footer>
+            <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+            <AlertDialog.Action onClick={handleDeleteConfirm}>
+              {deleteItem.isPending ? "Deleting..." : "Yes, Delete"}
+            </AlertDialog.Action>
+          </AlertDialog.Footer>
+        </AlertDialog.Content>
+      </AlertDialog>
+    </SideDialog>
+  );
+}
+
+/**
+ * Read-only view of the dataset item details
+ */

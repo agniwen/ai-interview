@@ -33,6 +33,7 @@ export function ProposalTag({
     return (
       <span className="inline-flex items-center gap-0.5 bg-surface3 border border-border1 rounded-md px-1">
         <input
+          aria-label={`Rename ${tag}`}
           ref={inputRef}
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}

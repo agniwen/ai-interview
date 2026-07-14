@@ -41,11 +41,14 @@ export const CustomAutoFormField: React.FC<{
   );
 
   if (field.type === "array") {
-    FieldComponent = CustomArrayField;
+    FieldComponent = (props) => <CustomArrayField {...props} renderField={CustomAutoFormField} />;
   } else if (field.type === "object") {
-    FieldComponent = CustomObjectField;
+    FieldComponent = (props) => <CustomObjectField {...props} renderField={CustomAutoFormField} />;
   } else if (field.type in formComponents) {
-    FieldComponent = formComponents[field.type as keyof typeof formComponents]!;
+    const configuredComponent = formComponents[field.type as keyof typeof formComponents];
+    if (configuredComponent) {
+      FieldComponent = configuredComponent;
+    }
   } else if ("fallback" in formComponents) {
     FieldComponent = formComponents.fallback;
   }

@@ -92,7 +92,7 @@ export const AgentPrimitivesProvider = ({ agentId, children }: AgentPrimitivesPr
 
   const value = useMemo<AgentPrimitivesValue>(
     () => ({
-      agentId: agentId!,
+      agentId,
       agentsData: agentsData ?? {},
       availableSkills,
       availableWorkspaces,
@@ -124,7 +124,6 @@ export const AgentPrimitivesProvider = ({ agentId, children }: AgentPrimitivesPr
   );
 };
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const useAgentPrimitives = (): AgentPrimitivesValue => {
   const ctx = useContext(AgentPrimitivesContext);
   if (!ctx) {

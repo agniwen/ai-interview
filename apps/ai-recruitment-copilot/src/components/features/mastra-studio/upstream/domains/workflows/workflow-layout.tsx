@@ -63,7 +63,7 @@ export const WorkflowLayout = ({ children }: { children: React.ReactNode }) => {
               <div className="h-full min-h-0">
                 <WorkflowHeader workflowName={workflow?.name || ""} workflowId={workflowId} />
                 <WorkflowLayoutUI
-                  workflowId={workflowId!}
+                  workflowId={workflowId}
                   leftSlot={<WorkflowInformation workflowId={workflowId} initialRunId={runId} />}
                 >
                   {children}

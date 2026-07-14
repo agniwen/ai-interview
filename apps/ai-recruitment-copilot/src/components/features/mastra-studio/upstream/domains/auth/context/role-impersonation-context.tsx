@@ -26,7 +26,6 @@ export interface RoleImpersonationState {
   isSwitching: boolean;
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const RoleImpersonationContext = createContext<RoleImpersonationState | null>(null);
 
 interface ImpersonationMutationResult {
@@ -84,7 +83,6 @@ export function RoleImpersonationProvider({ children }: { children: ReactNode })
   );
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export function useRoleImpersonation(): RoleImpersonationState {
   const ctx = useContext(RoleImpersonationContext);
   if (!ctx) {
@@ -94,8 +92,12 @@ export function useRoleImpersonation(): RoleImpersonationState {
       impersonatedRole: null,
       isImpersonating: false,
       isSwitching: false,
-      startImpersonation: async () => {},
-      stopImpersonation: () => {},
+      startImpersonation: async () => {
+        /* empty */
+      },
+      stopImpersonation: () => {
+        /* empty */
+      },
     };
   }
 

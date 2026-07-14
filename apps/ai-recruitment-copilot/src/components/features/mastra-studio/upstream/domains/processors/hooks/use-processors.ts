@@ -87,7 +87,7 @@ export const useExecuteProcessor = () => {
       messages,
       agentId,
     }: ExecuteProcessorParams): Promise<ExecuteProcessorResponse> =>
-      client.getProcessor(processorId).execute({
+      await client.getProcessor(processorId).execute({
         agentId,
         messages,
         phase,

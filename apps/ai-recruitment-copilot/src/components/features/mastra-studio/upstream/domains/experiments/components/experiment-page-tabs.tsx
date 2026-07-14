@@ -38,6 +38,113 @@ export interface ExperimentPageTabsProps {
   hasNextPage?: boolean;
 }
 
+function getResultPanelRow(resultCollapsed: boolean, hasAnotherPanel: boolean): string {
+  if (resultCollapsed) {
+    return "auto";
+  }
+  return hasAnotherPanel ? "2fr" : "1fr";
+}
+
+function getRightColumnGridRows({
+  featuredScore,
+  featuredSpanId,
+  featuredTraceId,
+  resultCollapsed,
+  scoreCollapsed,
+  traceCollapsed,
+}: {
+  featuredScore: boolean;
+  featuredSpanId: boolean;
+  featuredTraceId: boolean;
+  resultCollapsed: boolean;
+  scoreCollapsed: boolean;
+  traceCollapsed: boolean;
+}): string {
+  const rows = [getResultPanelRow(resultCollapsed, featuredScore || featuredTraceId)];
+  if (featuredScore) {
+    rows.push(scoreCollapsed ? "auto" : "3fr");
+  }
+  if (featuredTraceId) {
+    rows.push(traceCollapsed ? "auto" : "3fr");
+  }
+  if (featuredTraceId && featuredSpanId) {
+    rows.push("3fr");
+  }
+  return rows.join(" ");
+}
+
+function getResultNavigation(
+  results: DatasetExperimentResult[],
+  featuredResult: DatasetExperimentResult | null,
+  selectResult: (resultId: string | null) => void,
+) {
+  if (!featuredResult) {
+    return { next: undefined, previous: undefined };
+  }
+  const currentIndex = results.findIndex((result) => result.id === featuredResult.id);
+  const next =
+    currentIndex !== -1 && currentIndex < results.length - 1
+      ? () => selectResult(results[currentIndex + 1].id)
+      : undefined;
+  const previous = currentIndex > 0 ? () => selectResult(results[currentIndex - 1].id) : undefined;
+  return { next, previous };
+}
+
+function ExperimentResultsSelection({
+  clearSelection,
+  flagForReview,
+  isFlagging,
+  isLoading,
+  resultsCount,
+  selectLoadedFailed,
+  selectedIds,
+}: {
+  clearSelection: () => void;
+  flagForReview: (resultIds: string[]) => Promise<void>;
+  isFlagging: boolean;
+  isLoading: boolean;
+  resultsCount: number;
+  selectLoadedFailed: () => void;
+  selectedIds: Set<string>;
+}) {
+  if (selectedIds.size > 0) {
+    return (
+      <div className="flex items-center gap-2 px-4 py-2 bg-surface3">
+        <Txt variant="ui-xs" className="text-neutral5 font-medium">
+          {selectedIds.size} selected
+        </Txt>
+        <div className="flex-1" />
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={isFlagging}
+          onClick={() => flagForReview([...selectedIds])}
+        >
+          <Icon size="sm">
+            <ClipboardCheck />
+          </Icon>
+          Flag for Review
+        </Button>
+        <Button variant="ghost" size="sm" onClick={clearSelection}>
+          Clear
+        </Button>
+      </div>
+    );
+  }
+
+  if (resultsCount > 0 && !isLoading) {
+    return (
+      <div className="flex items-center gap-2 px-4 py-2">
+        <Button variant="ghost" size="sm" onClick={selectLoadedFailed}>
+          Select loaded failures
+        </Button>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 /**
  * Master-detail layout for experiment results.
  * Shows results list on left, result detail panel on right when a result is selected.
@@ -100,7 +207,7 @@ export function ExperimentPageTabs({
               resultId,
               status: "needs-review",
             });
-            flagged++;
+            flagged += 1;
             flaggedIds.add(resultId);
           } catch {
             // continue on individual failures
@@ -175,28 +282,7 @@ export function ExperimentPageTabs({
     selectResult(null);
   };
 
-  // Navigation handlers - return function or undefined to enable/disable buttons
-  const toNextResult = (): (() => void) | undefined => {
-    if (!featuredResult) {
-      return undefined;
-    }
-    const currentIndex = results.findIndex((r) => r.id === featuredResult.id);
-    if (currentIndex !== -1 && currentIndex < results.length - 1) {
-      return () => selectResult(results[currentIndex + 1].id);
-    }
-    return undefined;
-  };
-
-  const toPreviousResult = (): (() => void) | undefined => {
-    if (!featuredResult) {
-      return undefined;
-    }
-    const currentIndex = results.findIndex((r) => r.id === featuredResult.id);
-    if (currentIndex > 0) {
-      return () => selectResult(results[currentIndex - 1].id);
-    }
-    return undefined;
-  };
+  const resultNavigation = getResultNavigation(results, featuredResult, selectResult);
 
   const featuredResultScores = featuredResult
     ? scoresByExperimentId?.[featuredResult.itemId]
@@ -254,25 +340,14 @@ export function ExperimentPageTabs({
   // Row template for the right-side panel column. Collapsed rows shrink to `auto`
   // so the panel only takes its header height (mirrors the trace page's behavior).
   // Stack order: Result → Score (if any) → Trace (if any) → Span (if any).
-  const rightColumnGridRows = (() => {
-    const rows: string[] = [];
-    const showScore = !!featuredScore;
-    const showTrace = !!featuredTraceId;
-
-    // Result row: 2fr when something else is below; 1fr when it's the only panel.
-    rows.push(resultCollapsed ? "auto" : showScore || showTrace ? "2fr" : "1fr");
-    if (showScore) {
-      rows.push(scoreCollapsed ? "auto" : "3fr");
-    }
-    if (showTrace) {
-      rows.push(traceCollapsed ? "auto" : "3fr");
-    }
-    if (showTrace && featuredSpanId) {
-      rows.push("3fr");
-    }
-
-    return rows.join(" ");
-  })();
+  const rightColumnGridRows = getRightColumnGridRows({
+    featuredScore: Boolean(featuredScore),
+    featuredSpanId: Boolean(featuredSpanId),
+    featuredTraceId: Boolean(featuredTraceId),
+    resultCollapsed,
+    scoreCollapsed,
+    traceCollapsed,
+  });
 
   const resultsListColumns = useMemo(
     () => [
@@ -317,35 +392,15 @@ export function ExperimentPageTabs({
 
       <TabContent value="results" className="grid grid-rows-[auto_1fr] overflow-hidden mt-2">
         <div className="mb-4">
-          {selectedIds.size > 0 && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-surface3">
-              <Txt variant="ui-xs" className="text-neutral5 font-medium">
-                {selectedIds.size} selected
-              </Txt>
-              <div className="flex-1" />
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={isFlagging}
-                onClick={() => flagForReview([...selectedIds])}
-              >
-                <Icon size="sm">
-                  <ClipboardCheck />
-                </Icon>
-                Flag for Review
-              </Button>
-              <Button variant="ghost" size="sm" onClick={clearSelection}>
-                Clear
-              </Button>
-            </div>
-          )}
-          {results.length > 0 && selectedIds.size === 0 && !isLoading && (
-            <div className="flex items-center gap-2 px-4 py-2">
-              <Button variant="ghost" size="sm" onClick={selectLoadedFailed}>
-                Select loaded failures
-              </Button>
-            </div>
-          )}
+          <ExperimentResultsSelection
+            clearSelection={clearSelection}
+            flagForReview={flagForReview}
+            isFlagging={isFlagging}
+            isLoading={isLoading}
+            resultsCount={results.length}
+            selectLoadedFailed={selectLoadedFailed}
+            selectedIds={selectedIds}
+          />
         </div>
         <div
           className={cn(
@@ -381,8 +436,8 @@ export function ExperimentPageTabs({
               <ExperimentResultPanel
                 result={featuredResult}
                 scores={featuredResultScores}
-                onPrevious={toPreviousResult()}
-                onNext={toNextResult()}
+                onPrevious={resultNavigation.previous}
+                onNext={resultNavigation.next}
                 onClose={handleClose}
                 onScoreClick={handleScoreClick}
                 featuredScoreId={featuredScoreId}

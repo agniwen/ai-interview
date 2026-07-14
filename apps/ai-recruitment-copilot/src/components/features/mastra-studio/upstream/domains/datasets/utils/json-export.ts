@@ -26,7 +26,7 @@ export function exportItemsToJSON(items: DatasetItem[], filename: string): void 
 
   document.body.append(link);
   link.click();
-  document.body.removeChild(link);
+  link.remove();
 
   URL.revokeObjectURL(url);
 }

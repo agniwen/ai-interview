@@ -29,15 +29,16 @@ export function DatasetHealthCard({ experiments, isLoading, isError }: DatasetHe
 
     for (const exp of experiments) {
       const key = exp.targetId;
-      if (!targetMap.has(key)) {
-        targetMap.set(key, {
+      let entry = targetMap.get(key);
+      if (!entry) {
+        entry = {
           agentDatasets: new Set(),
           scorerDatasets: new Set(),
           targetType: exp.targetType,
           workflowDatasets: new Set(),
-        });
+        };
+        targetMap.set(key, entry);
       }
-      const entry = targetMap.get(key)!;
       const dsId = exp.datasetId ?? "unknown";
       if (exp.targetType === "agent") {
         entry.agentDatasets.add(dsId);
@@ -61,19 +62,39 @@ export function DatasetHealthCard({ experiments, isLoading, isError }: DatasetHe
       }))
       .filter((b) => b.values.some((v) => v > 0));
 
-    const max = bars.reduce(
-      (m, b) =>
-        Math.max(
-          m,
-          b.values.reduce((a, v) => a + v, 0),
-        ),
-      0,
-    );
+    let max = 0;
+    for (const bar of bars) {
+      let total = 0;
+      for (const value of bar.values) {
+        total += value;
+      }
+      max = Math.max(max, total);
+    }
 
     return { barData: bars, maxVal: max, segments: segs };
   }, [experiments]);
 
   const hasData = barData.length > 0;
+  const isEmpty = !hasData;
+  let cardContent = (
+    <MetricsCard.Content>
+      {isEmpty ? (
+        <MetricsCard.NoData message="No experiments have been run yet" />
+      ) : (
+        <HorizontalBars
+          data={barData}
+          segments={segments}
+          maxVal={maxVal}
+          fmt={(n: number) => `${n} dataset${n === 1 ? "" : "s"}`}
+        />
+      )}
+    </MetricsCard.Content>
+  );
+  if (isLoading) {
+    cardContent = <MetricsCard.Loading />;
+  } else if (isError) {
+    cardContent = <MetricsCard.Error message="Failed to load experiment data" />;
+  }
 
   return (
     <MetricsCard>
@@ -83,24 +104,7 @@ export function DatasetHealthCard({ experiments, isLoading, isError }: DatasetHe
           description="Number of distinct datasets used to evaluate each target."
         />
       </MetricsCard.TopBar>
-      {isLoading ? (
-        <MetricsCard.Loading />
-      ) : isError ? (
-        <MetricsCard.Error message="Failed to load experiment data" />
-      ) : (
-        <MetricsCard.Content>
-          {!hasData ? (
-            <MetricsCard.NoData message="No experiments have been run yet" />
-          ) : (
-            <HorizontalBars
-              data={barData}
-              segments={segments}
-              maxVal={maxVal}
-              fmt={(n: number) => `${n} dataset${n !== 1 ? "s" : ""}`}
-            />
-          )}
-        </MetricsCard.Content>
-      )}
+      {cardContent}
     </MetricsCard>
   );
 }

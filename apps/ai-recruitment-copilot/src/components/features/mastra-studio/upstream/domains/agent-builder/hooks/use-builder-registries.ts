@@ -40,7 +40,7 @@ export function useBuilderRegistries(options?: { enabled?: boolean }) {
 export function useSearchBuilderRegistry(registryId: string | undefined) {
   const client = useMastraClient();
   return useMutation({
-    mutationFn: async (query: string): Promise<BuilderRegistrySearchResponse> => {
+    mutationFn: (query: string): Promise<BuilderRegistrySearchResponse> => {
       if (!registryId) {
         throw new Error("Registry ID is required");
       }
@@ -110,9 +110,7 @@ export function useInstallBuilderRegistrySkill(registryId: string | undefined) {
   const client = useMastraClient();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (
-      body: BuilderRegistryInstallBody,
-    ): Promise<BuilderRegistryInstallResponse> => {
+    mutationFn: (body: BuilderRegistryInstallBody): Promise<BuilderRegistryInstallResponse> => {
       if (!registryId) {
         throw new Error("Registry ID is required");
       }

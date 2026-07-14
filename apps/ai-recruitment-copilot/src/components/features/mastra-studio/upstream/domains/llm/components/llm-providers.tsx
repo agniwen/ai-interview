@@ -9,10 +9,8 @@ import { useFilteredProviders } from "../hooks/use-filtered-providers";
 import { useLLMProviders } from "../hooks/use-llm-providers";
 import { cleanProviderId, findProviderById } from "../utils";
 import { ProviderLogo } from "./provider-logo";
-import {
-  useBuilderFilteredProviders,
-  useBuilderModelPolicy,
-} from "@/components/features/mastra-studio/upstream/domains/agent-builder";
+import { useBuilderFilteredProviders } from "@/components/features/mastra-studio/upstream/domains/agent-builder/hooks/use-builder-filtered-models";
+import { useBuilderModelPolicy } from "@/components/features/mastra-studio/upstream/domains/agent-builder/hooks/use-builder-settings";
 
 export interface LLMProvidersProps {
   value: string;

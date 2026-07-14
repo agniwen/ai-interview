@@ -17,7 +17,7 @@ import { BrowserSessionProvider } from "@/components/features/mastra-studio/upst
 import { BrowserToolCallsProvider } from "@/components/features/mastra-studio/upstream/domains/agents/context/browser-tool-calls-context";
 import { useAgent } from "@/components/features/mastra-studio/upstream/domains/agents/hooks/use-agent";
 import { buildAgentDefaultSettings } from "@/components/features/mastra-studio/upstream/domains/agents/utils/agent-default-settings";
-import { ThreadInputProvider } from "@/components/features/mastra-studio/upstream/domains/conversation/context/ThreadInputContext";
+import { ThreadInputProvider } from "@/components/features/mastra-studio/upstream/domains/conversation/context/thread-input-provider";
 import {
   useMemory,
   useThreads,
@@ -25,11 +25,24 @@ import {
 import { TracingSettingsProvider } from "@/components/features/mastra-studio/upstream/domains/observability/context/tracing-settings-context";
 import { SchemaRequestContextProvider } from "@/components/features/mastra-studio/upstream/domains/request-context/context/schema-request-context";
 
+const AgentSessionLoadingSkeleton = () => (
+  <MainContentLayout>
+    <SessionHeader />
+    <div
+      className="grid overflow-y-auto relative h-full pt-6"
+      data-testid="agent-session-skeleton"
+      aria-busy="true"
+    >
+      <AgentChatLoadingSkeleton />
+    </div>
+  </MainContentLayout>
+);
+
 function AgentSession() {
   const { agentId, threadId } = useParams();
   const [searchParams] = useSearchParams();
-  const { data: agent, isLoading: isAgentLoading } = useAgent(agentId!);
-  const { data: memory } = useMemory(agentId!);
+  const { data: agent, isLoading: isAgentLoading } = useAgent(agentId);
+  const { data: memory } = useMemory(agentId);
   const navigate = useNavigate();
   const isNewThread = threadId === "new";
 
@@ -39,9 +52,9 @@ function AgentSession() {
   const hasMemory = Boolean(memory?.result);
 
   const { refetch: refreshThreads } = useThreads({
-    agentId: agentId!,
+    agentId,
     isMemoryEnabled: hasMemory,
-    resourceId: agentId!,
+    resourceId: agentId,
   });
 
   useEffect(() => {
@@ -78,14 +91,14 @@ function AgentSession() {
   };
 
   return (
-    <TracingSettingsProvider entityId={agentId!} entityType="agent">
-      <AgentSettingsProvider agentId={agentId!} defaultSettings={defaultSettings}>
+    <TracingSettingsProvider entityId={agentId} entityType="agent">
+      <AgentSettingsProvider agentId={agentId} defaultSettings={defaultSettings}>
         <SchemaRequestContextProvider>
-          <WorkingMemoryProvider agentId={agentId!} threadId={actualThreadId} resourceId={agentId!}>
+          <WorkingMemoryProvider agentId={agentId} threadId={actualThreadId} resourceId={agentId}>
             <BrowserToolCallsProvider key={`browser-${agentId}-${actualThreadId}`}>
               <BrowserSessionProvider
                 key={`session-${agentId}-${actualThreadId}`}
-                agentId={agentId!}
+                agentId={agentId}
                 threadId={actualThreadId}
                 enabled={Boolean(agent?.browserTools?.length)}
               >
@@ -97,7 +110,7 @@ function AgentSession() {
                         <div className="grid overflow-y-auto relative h-full pt-6">
                           <AgentChat
                             key={actualThreadId}
-                            agentId={agentId!}
+                            agentId={agentId}
                             agentName={agent?.name}
                             modelVersion={agent?.modelVersion}
                             supportsMemory={agent?.supportsMemory}
@@ -124,16 +137,3 @@ function AgentSession() {
 }
 
 export default AgentSession;
-
-const AgentSessionLoadingSkeleton = () => (
-  <MainContentLayout>
-    <SessionHeader />
-    <div
-      className="grid overflow-y-auto relative h-full pt-6"
-      data-testid="agent-session-skeleton"
-      aria-busy="true"
-    >
-      <AgentChatLoadingSkeleton />
-    </div>
-  </MainContentLayout>
-);

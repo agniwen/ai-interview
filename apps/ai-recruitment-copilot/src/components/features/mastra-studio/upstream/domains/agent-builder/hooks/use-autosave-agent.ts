@@ -44,7 +44,7 @@ export function useAutosaveAgent({
   }, []);
 
   const performSave = useCallback(async () => {
-    const seq = ++requestSeqRef.current;
+    const seq = (requestSeqRef.current += 1);
     const values = latestValuesRef.current;
     clearSavedTimer();
     setStatus("saving");

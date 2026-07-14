@@ -8,7 +8,7 @@ import {
   extractSkillLicense,
 } from "../components/agent-cms-pages/skill-file-tree-utils";
 import type { InMemoryFileNode } from "../components/agent-edit-page/utils/form-validation";
-import { usePermissions } from "@/components/features/mastra-studio/upstream/domains/auth/hooks";
+import { usePermissions } from "@/components/features/mastra-studio/upstream/domains/auth/hooks/use-permissions";
 import { useWriteWorkspaceFile } from "@/components/features/mastra-studio/upstream/domains/workspace/hooks";
 
 interface UpdateSkillParams {

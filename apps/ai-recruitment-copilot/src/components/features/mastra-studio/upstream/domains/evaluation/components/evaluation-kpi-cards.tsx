@@ -1,5 +1,6 @@
 import type { DatasetExperiment, DatasetRecord, GetScorerResponse } from "@mastra/client-js";
 import { MetricsKpiCard } from "@mastra/playground-ui/components/MetricsKpiCard";
+import type { ReactNode } from "react";
 
 interface EvaluationKpiCardsProps {
   scorers?: Record<string, GetScorerResponse>;
@@ -35,6 +36,33 @@ function computeExperimentComparison(experiments?: DatasetExperiment[]) {
   return { changePct: Math.round(changePct * 10) / 10, prevValue: String(prevCount) };
 }
 
+interface EvaluationKpiValueProps {
+  children?: ReactNode;
+  isLoading?: boolean;
+  noChangeMessage?: string;
+  value?: number | null;
+}
+
+function EvaluationKpiValue({
+  children,
+  isLoading,
+  noChangeMessage,
+  value,
+}: EvaluationKpiValueProps) {
+  if (isLoading) {
+    return <MetricsKpiCard.Loading />;
+  }
+  if (value === null || value === undefined) {
+    return <MetricsKpiCard.NoData />;
+  }
+  return (
+    <>
+      <MetricsKpiCard.Value>{String(value)}</MetricsKpiCard.Value>
+      {children ?? <MetricsKpiCard.NoChange message={noChangeMessage} />}
+    </>
+  );
+}
+
 export function EvaluationKpiCards({
   scorers,
   datasets,
@@ -53,7 +81,11 @@ export function EvaluationKpiCards({
   const totalExperiments = experiments?.length;
 
   const avgScoreChange =
-    avgScore != null && prevAvgScore != null && prevAvgScore !== 0
+    avgScore !== null &&
+    avgScore !== undefined &&
+    prevAvgScore !== null &&
+    prevAvgScore !== undefined &&
+    prevAvgScore !== 0
       ? {
           changePct: Math.round(((avgScore - prevAvgScore) / prevAvgScore) * 100 * 10) / 10,
           prevValue: String(prevAvgScore),
@@ -66,90 +98,59 @@ export function EvaluationKpiCards({
     <>
       <MetricsKpiCard>
         <MetricsKpiCard.Label>Total Scorers</MetricsKpiCard.Label>
-        {isLoadingScorers ? (
-          <MetricsKpiCard.Loading />
-        ) : totalScorers != null ? (
-          <>
-            <MetricsKpiCard.Value>{String(totalScorers)}</MetricsKpiCard.Value>
-            <MetricsKpiCard.NoChange message="Static count" />
-          </>
-        ) : (
-          <MetricsKpiCard.NoData />
-        )}
+        <EvaluationKpiValue
+          isLoading={isLoadingScorers}
+          noChangeMessage="Static count"
+          value={totalScorers}
+        />
       </MetricsKpiCard>
 
       <MetricsKpiCard>
         <MetricsKpiCard.Label>Total Datasets</MetricsKpiCard.Label>
-        {isLoadingDatasets ? (
-          <MetricsKpiCard.Loading />
-        ) : totalDatasets != null ? (
-          <>
-            <MetricsKpiCard.Value>{String(totalDatasets)}</MetricsKpiCard.Value>
-            <MetricsKpiCard.NoChange message="Static count" />
-          </>
-        ) : (
-          <MetricsKpiCard.NoData />
-        )}
+        <EvaluationKpiValue
+          isLoading={isLoadingDatasets}
+          noChangeMessage="Static count"
+          value={totalDatasets}
+        />
       </MetricsKpiCard>
 
       <MetricsKpiCard>
         <MetricsKpiCard.Label>Avg Score</MetricsKpiCard.Label>
-        {isLoadingScores ? (
-          <MetricsKpiCard.Loading />
-        ) : avgScore != null ? (
-          <>
-            <MetricsKpiCard.Value>{String(avgScore)}</MetricsKpiCard.Value>
-            {avgScoreChange ? (
-              <MetricsKpiCard.Change
-                changePct={avgScoreChange.changePct}
-                prevValue={avgScoreChange.prevValue}
-              />
-            ) : (
-              <MetricsKpiCard.NoChange />
-            )}
-          </>
-        ) : (
-          <MetricsKpiCard.NoData />
-        )}
+        <EvaluationKpiValue isLoading={isLoadingScores} value={avgScore}>
+          {avgScoreChange ? (
+            <MetricsKpiCard.Change
+              changePct={avgScoreChange.changePct}
+              prevValue={avgScoreChange.prevValue}
+            />
+          ) : (
+            <MetricsKpiCard.NoChange />
+          )}
+        </EvaluationKpiValue>
       </MetricsKpiCard>
 
       <MetricsKpiCard>
         <MetricsKpiCard.Label>Total Experiments</MetricsKpiCard.Label>
-        {isLoadingExperiments ? (
-          <MetricsKpiCard.Loading />
-        ) : totalExperiments != null ? (
-          <>
-            <MetricsKpiCard.Value>{String(totalExperiments)}</MetricsKpiCard.Value>
-            {expComparison ? (
-              <MetricsKpiCard.Change
-                changePct={expComparison.changePct}
-                prevValue={expComparison.prevValue}
-              />
-            ) : (
-              <MetricsKpiCard.NoChange />
-            )}
-          </>
-        ) : (
-          <MetricsKpiCard.NoData />
-        )}
+        <EvaluationKpiValue isLoading={isLoadingExperiments} value={totalExperiments}>
+          {expComparison ? (
+            <MetricsKpiCard.Change
+              changePct={expComparison.changePct}
+              prevValue={expComparison.prevValue}
+            />
+          ) : (
+            <MetricsKpiCard.NoChange />
+          )}
+        </EvaluationKpiValue>
       </MetricsKpiCard>
 
       <MetricsKpiCard>
         <MetricsKpiCard.Label>Needs Review</MetricsKpiCard.Label>
-        {isLoadingReview ? (
-          <MetricsKpiCard.Loading />
-        ) : totalNeedsReview != null ? (
-          <>
-            <MetricsKpiCard.Value>{String(totalNeedsReview)}</MetricsKpiCard.Value>
-            {totalNeedsReview > 0 ? (
-              <MetricsKpiCard.NoChange message="items pending review" />
-            ) : (
-              <MetricsKpiCard.NoChange message="All caught up" />
-            )}
-          </>
-        ) : (
-          <MetricsKpiCard.NoData />
-        )}
+        <EvaluationKpiValue
+          isLoading={isLoadingReview}
+          noChangeMessage={
+            totalNeedsReview && totalNeedsReview > 0 ? "items pending review" : "All caught up"
+          }
+          value={totalNeedsReview}
+        />
       </MetricsKpiCard>
     </>
   );

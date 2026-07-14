@@ -11,7 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@mastra/playground-ui/c
 import { Icon } from "@mastra/playground-ui/icons/Icon";
 import { KeyRound } from "lucide-react";
 import { useState } from "react";
-import { RequestContextSchemaForm } from "@/components/features/mastra-studio/upstream/domains/request-context";
+import { RequestContextSchemaForm } from "@/components/features/mastra-studio/upstream/domains/request-context/components/request-context-schema-form";
 
 export interface WorkflowRequestContextDialogProps {
   requestContextSchema: string;

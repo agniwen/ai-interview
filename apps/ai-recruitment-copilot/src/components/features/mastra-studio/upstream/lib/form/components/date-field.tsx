@@ -8,7 +8,7 @@ import { CalendarIcon } from "lucide-react";
 import React, { useState, useEffect } from "react";
 
 export const DateField: React.FC<AutoFormFieldProps> = ({ inputProps, field, error, id }) => {
-  const { key, ...props } = inputProps;
+  const { key: _key, ...props } = inputProps;
   const [value, setValue] = useState<Date | undefined>();
   const [open, setOpen] = useState(false);
 

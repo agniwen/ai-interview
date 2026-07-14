@@ -2,7 +2,7 @@ import { Button } from "@mastra/playground-ui/components/Button";
 import { cn } from "@mastra/playground-ui/utils/cn";
 import { Star } from "lucide-react";
 import type { MouseEvent } from "react";
-import { useBuilderAgentFeatures } from "@/components/features/mastra-studio/upstream/domains/agent-builder";
+import { useBuilderAgentFeatures } from "@/components/features/mastra-studio/upstream/domains/agent-builder/hooks/use-builder-agent-features";
 import { useToggleStoredAgentFavorite } from "@/components/features/mastra-studio/upstream/domains/agent-builder/hooks/use-stored-agent-favorite";
 import { useAuthCapabilities } from "@/components/features/mastra-studio/upstream/domains/auth/hooks/use-auth-capabilities";
 import { isAuthenticated } from "@/components/features/mastra-studio/upstream/domains/auth/types";

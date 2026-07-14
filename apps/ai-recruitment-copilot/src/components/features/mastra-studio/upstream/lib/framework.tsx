@@ -69,7 +69,9 @@ const LinkComponentContext = createContext<{
   Link: forwardRef<HTMLAnchorElement, LinkComponentProps>(function DefaultLink(_props, _ref) {
     return null;
   }),
-  navigate: () => {},
+  navigate: () => {
+    /* empty */
+  },
   paths: {
     agentLink: () => "",
     agentNewThreadLink: () => "",
@@ -128,7 +130,6 @@ export const LinkComponentProvider = ({
   </LinkComponentContext.Provider>
 );
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const useLinkComponent = () => {
   const ctx = useContext(LinkComponentContext);
 

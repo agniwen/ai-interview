@@ -8,7 +8,9 @@ export async function collectMCPClientIds(
   mcpClients: MCPClientEntry[],
   client: MastraClient,
 ): Promise<string[]> {
-  const existingIds = mcpClients.filter((c) => c.id).map((c) => c.id!);
+  const existingIds = mcpClients
+    .map((mcpClient) => mcpClient.id)
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
   const newIds = await Promise.all(
     mcpClients
       .filter((c) => !c.id)

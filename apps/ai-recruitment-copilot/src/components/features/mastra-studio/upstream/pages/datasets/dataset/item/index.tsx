@@ -26,6 +26,7 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { useState, useMemo } from "react";
+import type { ReactNode } from "react";
 import { useParams, useNavigate } from "@/components/features/mastra-studio/router/compat";
 import {
   DatasetItemContent,
@@ -38,8 +39,102 @@ import { useDatasetMutations } from "@/components/features/mastra-studio/upstrea
 import { useDataset } from "@/components/features/mastra-studio/upstream/domains/datasets/hooks/use-datasets";
 import { useLinkComponent } from "@/components/features/mastra-studio/upstream/lib/framework";
 
+type JsonParseResult<T> = { ok: true; value: T } | { ok: false };
+
+function parseJson<T>(value: string, errorMessage: string): JsonParseResult<T> {
+  try {
+    return { ok: true, value: JSON.parse(value) as T };
+  } catch {
+    toast.error(errorMessage);
+    return { ok: false };
+  }
+}
+
+function parseOptionalJson<T>(value: string, errorMessage: string): JsonParseResult<T | undefined> {
+  return value.trim() ? parseJson<T>(value, errorMessage) : { ok: true, value: undefined };
+}
+
+function parseChangedJson<T>(
+  changed: boolean,
+  value: string,
+  errorMessage: string,
+): JsonParseResult<T | undefined> {
+  return changed ? parseOptionalJson<T>(value, errorMessage) : { ok: true, value: undefined };
+}
+
+function parseToolMocks(
+  changed: boolean,
+  value: string,
+): JsonParseResult<DatasetItemToolMock[] | undefined> {
+  const result = parseChangedJson<unknown>(changed, value, "Tool Mocks must be valid JSON");
+  if (!result.ok || result.value === undefined) {
+    return result as JsonParseResult<undefined>;
+  }
+  if (!Array.isArray(result.value)) {
+    toast.error("Tool Mocks must be a JSON array");
+    return { ok: false };
+  }
+  return { ok: true, value: result.value as DatasetItemToolMock[] };
+}
+
+function normalizeRouteParam(value: string | undefined): string {
+  return value ?? "";
+}
+
+function hasItemVersions(
+  datasetId: string | undefined,
+  itemId: string | undefined,
+  versions: DatasetItemVersion[] | undefined,
+): boolean {
+  return Boolean(datasetId && itemId && versions && versions.length > 0);
+}
+
+function getItemPageState({
+  error,
+  isLoading,
+  hasVersions,
+}: {
+  error: unknown;
+  isLoading: boolean;
+  hasVersions: boolean;
+}): ReactNode | undefined {
+  if (error && is401UnauthorizedError(error)) {
+    return (
+      <MainContentLayout>
+        <div className="flex h-full items-center justify-center">
+          <SessionExpired />
+        </div>
+      </MainContentLayout>
+    );
+  }
+  if (error && is403ForbiddenError(error)) {
+    return (
+      <MainContentLayout>
+        <div className="flex h-full items-center justify-center">
+          <PermissionDenied resource="datasets" />
+        </div>
+      </MainContentLayout>
+    );
+  }
+  if (isLoading) {
+    return null;
+  }
+  if (!hasVersions) {
+    return (
+      <MainContentLayout>
+        <MainContentContent>
+          <div className="text-neutral3 p-4">Item not found</div>
+        </MainContentContent>
+      </MainContentLayout>
+    );
+  }
+  return undefined;
+}
+
 function DatasetItemPage() {
   const { datasetId, itemId } = useParams<{ datasetId: string; itemId: string }>();
+  const resolvedDatasetId = normalizeRouteParam(datasetId);
+  const resolvedItemId = normalizeRouteParam(itemId);
   const { Link: FrameworkLink } = useLinkComponent();
   const navigate = useNavigate();
 
@@ -48,9 +143,9 @@ function DatasetItemPage() {
     data: versions,
     isLoading: isVersionsLoading,
     error,
-  } = useDatasetItemVersions(datasetId ?? "", itemId ?? "");
+  } = useDatasetItemVersions(resolvedDatasetId, resolvedItemId);
   const { updateItem, deleteItem } = useDatasetMutations();
-  const { data: dataset } = useDataset(datasetId ?? "");
+  const { data: dataset } = useDataset(resolvedDatasetId);
 
   // Derive item state from versions
   const latestVersion = versions?.[0] ?? null;
@@ -84,7 +179,7 @@ function DatasetItemPage() {
         ? JSON.stringify(latestVersion.toolMocks, null, 2)
         : "",
       trajectory:
-        latestVersion.expectedTrajectory != null
+        latestVersion.expectedTrajectory !== null && latestVersion.expectedTrajectory !== undefined
           ? JSON.stringify(latestVersion.expectedTrajectory, null, 2)
           : "",
     };
@@ -132,7 +227,8 @@ function DatasetItemPage() {
   };
 
   // Check if viewing an old version
-  const isViewingOldVersion = !isDeleted && selectedVersion != null;
+  const isViewingOldVersion =
+    !isDeleted && selectedVersion !== null && selectedVersion !== undefined;
 
   const handleEditClick = () => {
     if (!isViewingOldVersion) {
@@ -152,73 +248,54 @@ function DatasetItemPage() {
     }
 
     // Parse and validate input JSON
-    let parsedInput: unknown;
-    try {
-      parsedInput = JSON.parse(inputValue);
-    } catch {
-      toast.error("Input must be valid JSON");
+    const inputResult = parseJson<unknown>(inputValue, "Input must be valid JSON");
+    if (!inputResult.ok) {
       return;
     }
+    const parsedInput = inputResult.value;
 
-    // Parse groundTruth if provided
-    let parsedGroundTruth: unknown | undefined;
-    if (groundTruthValue.trim()) {
-      try {
-        parsedGroundTruth = JSON.parse(groundTruthValue);
-      } catch {
-        toast.error("Ground Truth must be valid JSON");
-        return;
-      }
+    const groundTruthResult = parseOptionalJson<unknown>(
+      groundTruthValue,
+      "Ground Truth must be valid JSON",
+    );
+    if (!groundTruthResult.ok) {
+      return;
     }
-
-    // Parse metadata if provided
-    let parsedMetadata: Record<string, unknown> | undefined;
-    if (metadataValue.trim()) {
-      try {
-        parsedMetadata = JSON.parse(metadataValue);
-      } catch {
-        toast.error("Metadata must be valid JSON");
-        return;
-      }
+    const parsedGroundTruth = groundTruthResult.value;
+    const metadataResult = parseOptionalJson<Record<string, unknown>>(
+      metadataValue,
+      "Metadata must be valid JSON",
+    );
+    if (!metadataResult.ok) {
+      return;
     }
-
-    let parsedTrajectory: unknown | undefined;
+    const parsedMetadata = metadataResult.value;
     const trajectoryChanged = trajectoryValue !== formDefaults.trajectory;
-    if (trajectoryChanged && trajectoryValue.trim()) {
-      try {
-        parsedTrajectory = JSON.parse(trajectoryValue);
-      } catch {
-        toast.error("Expected Trajectory must be valid JSON");
-        return;
-      }
+    const trajectoryResult = parseChangedJson<unknown>(
+      trajectoryChanged,
+      trajectoryValue,
+      "Expected Trajectory must be valid JSON",
+    );
+    if (!trajectoryResult.ok) {
+      return;
     }
-
-    let parsedToolMocks: DatasetItemToolMock[] | undefined;
+    const parsedTrajectory = trajectoryResult.value;
     const toolMocksChanged = toolMocksValue !== formDefaults.toolMocks;
-    if (toolMocksChanged && toolMocksValue.trim()) {
-      try {
-        const parsed = JSON.parse(toolMocksValue);
-        if (!Array.isArray(parsed)) {
-          toast.error("Tool Mocks must be a JSON array");
-          return;
-        }
-        parsedToolMocks = parsed as DatasetItemToolMock[];
-      } catch {
-        toast.error("Tool Mocks must be valid JSON");
-        return;
-      }
+    const toolMocksResult = parseToolMocks(toolMocksChanged, toolMocksValue);
+    if (!toolMocksResult.ok) {
+      return;
     }
-
-    let parsedRequestContext: Record<string, unknown> | undefined;
+    const parsedToolMocks = toolMocksResult.value;
     const requestContextChanged = requestContextValue !== formDefaults.requestContext;
-    if (requestContextChanged && requestContextValue.trim()) {
-      try {
-        parsedRequestContext = JSON.parse(requestContextValue);
-      } catch {
-        toast.error("Request Context must be valid JSON");
-        return;
-      }
+    const requestContextResult = parseChangedJson<Record<string, unknown>>(
+      requestContextChanged,
+      requestContextValue,
+      "Request Context must be valid JSON",
+    );
+    if (!requestContextResult.ok) {
+      return;
     }
+    const parsedRequestContext = requestContextResult.value;
 
     try {
       await updateItem.mutateAsync({
@@ -233,9 +310,9 @@ function DatasetItemPage() {
       });
       toast.success("Item updated successfully");
       setIsEditing(false);
-    } catch (error) {
+    } catch (mutationError) {
       toast.error(
-        `Failed to update item: ${error instanceof Error ? error.message : "Unknown error"}`,
+        `Failed to update item: ${mutationError instanceof Error ? mutationError.message : "Unknown error"}`,
       );
     }
   };
@@ -251,7 +328,7 @@ function DatasetItemPage() {
         latestVersion.metadata ? JSON.stringify(latestVersion.metadata, null, 2) : "",
       );
       setTrajectoryValue(
-        latestVersion.expectedTrajectory != null
+        latestVersion.expectedTrajectory !== null && latestVersion.expectedTrajectory !== undefined
           ? JSON.stringify(latestVersion.expectedTrajectory, null, 2)
           : "",
       );
@@ -274,9 +351,9 @@ function DatasetItemPage() {
       toast.success("Item deleted successfully");
       setDeleteDialogOpen(false);
       void navigate(`/datasets/${datasetId}`);
-    } catch (error) {
+    } catch (mutationError) {
       toast.error(
-        `Failed to delete item: ${error instanceof Error ? error.message : "Unknown error"}`,
+        `Failed to delete item: ${mutationError instanceof Error ? mutationError.message : "Unknown error"}`,
       );
     }
   };
@@ -299,43 +376,44 @@ function DatasetItemPage() {
       }
     : null;
 
-  if (error && is401UnauthorizedError(error)) {
-    return (
-      <MainContentLayout>
-        <div className="flex h-full items-center justify-center">
-          <SessionExpired />
-        </div>
-      </MainContentLayout>
+  const pageState = getItemPageState({
+    error,
+    hasVersions: hasItemVersions(datasetId, itemId, versions),
+    isLoading: isVersionsLoading,
+  });
+  if (pageState !== undefined) {
+    return pageState;
+  }
+
+  let itemContent = displayItem ? (
+    <DatasetItemContent item={displayItem} Link={FrameworkLink} />
+  ) : (
+    <div className="text-neutral4 text-sm">Item data not available</div>
+  );
+  if (isEditing) {
+    itemContent = (
+      <EditModeContent
+        inputValue={inputValue}
+        setInputValue={setInputValue}
+        groundTruthValue={groundTruthValue}
+        setGroundTruthValue={setGroundTruthValue}
+        metadataValue={metadataValue}
+        setMetadataValue={setMetadataValue}
+        trajectoryValue={trajectoryValue}
+        setTrajectoryValue={setTrajectoryValue}
+        toolMocksValue={toolMocksValue}
+        setToolMocksValue={setToolMocksValue}
+        requestContextValue={requestContextValue}
+        setRequestContextValue={setRequestContextValue}
+        validationErrors={null}
+        onSave={handleSave}
+        onCancel={handleCancel}
+        isSaving={updateItem.isPending}
+      />
     );
   }
 
-  if (error && is403ForbiddenError(error)) {
-    return (
-      <MainContentLayout>
-        <div className="flex h-full items-center justify-center">
-          <PermissionDenied resource="datasets" />
-        </div>
-      </MainContentLayout>
-    );
-  }
-
-  // Wait for versions to load
-  if (isVersionsLoading) {
-    return null;
-  }
-
-  // No versions = item never existed
-  if (!datasetId || !itemId || !versions || versions.length === 0) {
-    return (
-      <MainContentLayout>
-        <MainContentContent>
-          <div className="text-neutral3 p-4">Item not found</div>
-        </MainContentContent>
-      </MainContentLayout>
-    );
-  }
-
-  return (
+  const renderPage = () => (
     <>
       <MainContentLayout>
         <div className="h-full overflow-hidden px-6 pb-4">
@@ -411,37 +489,16 @@ function DatasetItemPage() {
                   </Notice>
                 )}
 
-                {isEditing ? (
-                  <EditModeContent
-                    inputValue={inputValue}
-                    setInputValue={setInputValue}
-                    groundTruthValue={groundTruthValue}
-                    setGroundTruthValue={setGroundTruthValue}
-                    metadataValue={metadataValue}
-                    setMetadataValue={setMetadataValue}
-                    trajectoryValue={trajectoryValue}
-                    setTrajectoryValue={setTrajectoryValue}
-                    toolMocksValue={toolMocksValue}
-                    setToolMocksValue={setToolMocksValue}
-                    requestContextValue={requestContextValue}
-                    setRequestContextValue={setRequestContextValue}
-                    validationErrors={null}
-                    onSave={handleSave}
-                    onCancel={handleCancel}
-                    isSaving={updateItem.isPending}
-                  />
-                ) : displayItem ? (
-                  <DatasetItemContent item={displayItem} Link={FrameworkLink} />
-                ) : (
-                  <div className="text-neutral4 text-sm">Item data not available</div>
-                )}
+                {itemContent}
               </Column>
               {!isEditing && (
                 <Column>
                   <DatasetItemVersionsPanel
                     datasetId={datasetId}
                     itemId={itemId}
-                    onClose={() => {}}
+                    onClose={() => {
+                      /* empty */
+                    }}
                     onVersionSelect={handleVersionSelect}
                     onCompareVersionsClick={(versionIds: string[]) => {
                       void navigate(
@@ -476,6 +533,7 @@ function DatasetItemPage() {
       </AlertDialog>
     </>
   );
+  return renderPage();
 }
 
 export { DatasetItemPage };

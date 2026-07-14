@@ -15,7 +15,8 @@ export const useDatasetItem = (datasetId: string, itemId: string) => {
     enabled: Boolean(datasetId) && Boolean(itemId),
     queryFn: () => client.getDatasetItem(datasetId, itemId),
     queryKey: ["dataset-item", datasetId, itemId],
-    retry: false, // Don't retry 404s for deleted items
+    // Don't retry 404s for deleted items
+    retry: false,
   });
 };
 
@@ -69,11 +70,12 @@ export const useDatasetItems = (datasetId: string, search?: string, version?: nu
   const items = query.data?.pages.flatMap((page) => page?.items ?? []) ?? [];
   const total = query.data?.pages[0]?.pagination?.total;
 
+  const { fetchNextPage, hasNextPage, isFetchingNextPage } = query;
   useEffect(() => {
-    if (isEndOfListInView && query.hasNextPage && !query.isFetchingNextPage) {
-      void query.fetchNextPage();
+    if (isEndOfListInView && hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage();
     }
-  }, [isEndOfListInView, query.hasNextPage, query.isFetchingNextPage]);
+  }, [fetchNextPage, hasNextPage, isEndOfListInView, isFetchingNextPage]);
 
   return { ...query, data: items, setEndOfListElement, total };
 };

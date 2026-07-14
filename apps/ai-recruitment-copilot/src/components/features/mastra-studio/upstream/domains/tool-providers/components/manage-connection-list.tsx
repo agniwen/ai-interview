@@ -26,31 +26,30 @@ export const ManageConnectionList = ({
 }: ManageConnectionListProps) => (
   <>
     <DialogBody data-testid={`${testIdPrefix}-list`}>
-      <div className="flex flex-col gap-2" role="list">
+      <ul className="flex flex-col gap-2">
         {connections.map((connection) => (
-          <Entity
-            key={connection.connectionId}
-            className="relative items-center rounded-lg px-2 py-2 transition-colors hover:bg-surface4"
-          >
-            <EntityContent className="min-w-0">
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => onSelect(connection.connectionId)}
-                data-testid={`${testIdPrefix}-list-item-${connection.connectionId}`}
-                className="flex w-full items-center justify-between gap-2 text-left outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-accent1"
-              >
-                <EntityName className="truncate">
-                  {connection.label?.trim() || "Unnamed connection"}
-                </EntityName>
-                <Icon className="shrink-0 text-neutral3">
-                  <ChevronRight />
-                </Icon>
-              </button>
-            </EntityContent>
-          </Entity>
+          <li key={connection.connectionId}>
+            <Entity className="relative items-center rounded-lg px-2 py-2 transition-colors hover:bg-surface4">
+              <EntityContent className="min-w-0">
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onSelect(connection.connectionId)}
+                  data-testid={`${testIdPrefix}-list-item-${connection.connectionId}`}
+                  className="flex w-full items-center justify-between gap-2 text-left outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-accent1"
+                >
+                  <EntityName className="truncate">
+                    {connection.label?.trim() || "Unnamed connection"}
+                  </EntityName>
+                  <Icon className="shrink-0 text-neutral3">
+                    <ChevronRight />
+                  </Icon>
+                </button>
+              </EntityContent>
+            </Entity>
+          </li>
         ))}
-      </div>
+      </ul>
     </DialogBody>
     {onAddConnection && (
       <DialogFooter>

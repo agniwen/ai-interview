@@ -142,7 +142,7 @@ export function useLogout() {
   const client = useMastraClient();
   const queryClient = useQueryClient();
 
-  return useMutation<LogoutResponse, Error, void>({
+  return useMutation<LogoutResponse, Error, undefined>({
     mutationFn: () => makeLogoutRequest(client),
     onSuccess: () => {
       // Invalidate all auth-related queries

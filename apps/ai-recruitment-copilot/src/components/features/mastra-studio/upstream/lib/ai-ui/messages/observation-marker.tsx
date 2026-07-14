@@ -24,53 +24,10 @@ interface ObservationMarkerProps {
  * Renders an inline observation marker in the chat history.
  * Shows different states: in-progress, completed, or failed.
  */
-export const ObservationMarker = ({
-  part,
-  onObservationComplete,
-  onObservationFailed,
-}: ObservationMarkerProps) => {
-  // Trigger callbacks in useEffect to avoid calling during render
-  useEffect(() => {
-    if (part.type === "data-om-observation-end" && onObservationComplete) {
-      onObservationComplete(part.data);
-    }
-    if (part.type === "data-om-observation-failed" && onObservationFailed) {
-      onObservationFailed(part.data);
-    }
-  }, [part, onObservationComplete, onObservationFailed]);
-
-  if (part.type === "data-om-observation-start") {
-    return <ObservationStartMarker data={part.data} />;
-  }
-
-  if (part.type === "data-om-observation-end") {
-    return <ObservationEndMarker data={part.data} />;
-  }
-
-  if (part.type === "data-om-observation-failed") {
-    return <ObservationFailedMarker data={part.data} />;
-  }
-
-  // Buffering markers
-  if (part.type === "data-om-buffering-start") {
-    return <BufferingStartMarker data={part.data} />;
-  }
-
-  if (part.type === "data-om-buffering-end") {
-    return <BufferingEndMarker data={part.data} />;
-  }
-
-  if (part.type === "data-om-buffering-failed") {
-    return <BufferingFailedMarker data={part.data} />;
-  }
-
-  return null;
-};
-
 /**
  * Shows observation in progress.
  */
-const ObservationStartMarker = ({ data }: { data: DataOmObservationStartPart["data"] }) => {
+function ObservationStartMarker({ data }: { data: DataOmObservationStartPart["data"] }) {
   const tokensK = (data.tokensToObserve / 1000).toFixed(1);
 
   return (
@@ -86,14 +43,14 @@ const ObservationStartMarker = ({ data }: { data: DataOmObservationStartPart["da
       <span>Observing {tokensK}k tokens...</span>
     </div>
   );
-};
+}
 
 /**
  * Shows observation completed successfully.
  */
 const hasExtractedValue = (value: unknown) => value !== undefined && value !== null && value !== "";
 
-const ObservationEndMarker = ({ data }: { data: DataOmObservationEndPart["data"] }) => {
+function ObservationEndMarker({ data }: { data: DataOmObservationEndPart["data"] }) {
   const tokensK = (data.tokensObserved / 1000).toFixed(1);
   const compressionRatio =
     data.tokensObserved > 0
@@ -120,12 +77,12 @@ const ObservationEndMarker = ({ data }: { data: DataOmObservationEndPart["data"]
       </span>
     </div>
   );
-};
+}
 
 /**
  * Shows observation failed.
  */
-const ObservationFailedMarker = ({ data }: { data: DataOmObservationFailedPart["data"] }) => {
+function ObservationFailedMarker({ data }: { data: DataOmObservationFailedPart["data"] }) {
   const tokensK = (data.tokensAttempted / 1000).toFixed(1);
 
   return (
@@ -142,12 +99,12 @@ const ObservationFailedMarker = ({ data }: { data: DataOmObservationFailedPart["
       <span>Observation failed ({tokensK}k tokens)</span>
     </div>
   );
-};
+}
 
 /**
  * Shows async buffering in progress.
  */
-const BufferingStartMarker = ({ data }: { data: DataOmBufferingStartPart["data"] }) => {
+function BufferingStartMarker({ data }: { data: DataOmBufferingStartPart["data"] }) {
   const tokensK = (data.tokensToBuffer / 1000).toFixed(1);
   const label =
     data.operationType === "reflection" ? "Buffering reflection" : "Buffering observations";
@@ -168,12 +125,12 @@ const BufferingStartMarker = ({ data }: { data: DataOmBufferingStartPart["data"]
       </span>
     </div>
   );
-};
+}
 
 /**
  * Shows async buffering completed.
  */
-const BufferingEndMarker = ({ data }: { data: DataOmBufferingEndPart["data"] }) => {
+function BufferingEndMarker({ data }: { data: DataOmBufferingEndPart["data"] }) {
   const tokensK = (data.tokensBuffered / 1000).toFixed(1);
   const compressionRatio =
     data.tokensBuffered > 0
@@ -200,25 +157,62 @@ const BufferingEndMarker = ({ data }: { data: DataOmBufferingEndPart["data"] }) 
       </span>
     </div>
   );
-};
+}
 
 /**
  * Shows async buffering failed.
  */
-const BufferingFailedMarker = ({ data }: { data: DataOmBufferingFailedPart["data"] }) => (
-  <div
-    className={cn(
-      "inline-flex items-center gap-1.5 px-2 py-1 my-1 rounded-md",
-      "bg-red-500/10 border border-dashed border-red-500/40 text-red-600 dark:text-red-400",
-      "text-ui-xs leading-ui-xs",
-    )}
-    data-testid="om-buffering-failed"
-    title={data.error}
-  >
-    <XCircle className="h-3 w-3" />
-    <span>Buffering failed</span>
-  </div>
-);
+function BufferingFailedMarker({ data }: { data: DataOmBufferingFailedPart["data"] }) {
+  return (
+    <div
+      className={cn(
+        "inline-flex items-center gap-1.5 px-2 py-1 my-1 rounded-md",
+        "bg-red-500/10 border border-dashed border-red-500/40 text-red-600 dark:text-red-400",
+        "text-ui-xs leading-ui-xs",
+      )}
+      data-testid="om-buffering-failed"
+      title={data.error}
+    >
+      <XCircle className="h-3 w-3" />
+      <span>Buffering failed</span>
+    </div>
+  );
+}
+
+export const ObservationMarker = ({
+  part,
+  onObservationComplete,
+  onObservationFailed,
+}: ObservationMarkerProps) => {
+  useEffect(() => {
+    if (part.type === "data-om-observation-end" && onObservationComplete) {
+      onObservationComplete(part.data);
+    }
+    if (part.type === "data-om-observation-failed" && onObservationFailed) {
+      onObservationFailed(part.data);
+    }
+  }, [part, onObservationComplete, onObservationFailed]);
+
+  if (part.type === "data-om-observation-start") {
+    return <ObservationStartMarker data={part.data} />;
+  }
+  if (part.type === "data-om-observation-end") {
+    return <ObservationEndMarker data={part.data} />;
+  }
+  if (part.type === "data-om-observation-failed") {
+    return <ObservationFailedMarker data={part.data} />;
+  }
+  if (part.type === "data-om-buffering-start") {
+    return <BufferingStartMarker data={part.data} />;
+  }
+  if (part.type === "data-om-buffering-end") {
+    return <BufferingEndMarker data={part.data} />;
+  }
+  if (part.type === "data-om-buffering-failed") {
+    return <BufferingFailedMarker data={part.data} />;
+  }
+  return null;
+};
 
 /**
  * Compact inline indicator for observation (alternative display).

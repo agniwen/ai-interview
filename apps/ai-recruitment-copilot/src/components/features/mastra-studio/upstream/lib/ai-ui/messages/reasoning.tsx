@@ -29,11 +29,11 @@ export const Reasoning = ({ text, redacted }: ReasoningProps) => {
         <Badge icon={<BrainIcon />}>{isCollapsed ? "Show" : "Hide"} reasoning</Badge>
       </button>
 
-      {!isCollapsed ? (
+      {isCollapsed ? null : (
         <div className="rounded-lg bg-surface4 p-2 border border-border-1">
           <pre className="whitespace-pre-wrap text-ui-sm leading-ui-sm text-neutral6">{body}</pre>
         </div>
-      ) : null}
+      )}
     </div>
   );
 };

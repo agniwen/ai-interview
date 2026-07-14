@@ -20,12 +20,12 @@ export interface ReasoningPartRendererProps {
  * toggle over an empty box.
  */
 export const ReasoningPartRenderer = ({ part }: ReasoningPartRendererProps) => {
-  const reasoningText =
-    "text" in part && typeof part.text === "string"
-      ? part.text
-      : "reasoning" in part && typeof part.reasoning === "string"
-        ? part.reasoning
-        : "";
+  let reasoningText = "";
+  if ("text" in part && typeof part.text === "string") {
+    reasoningText = part.text;
+  } else if ("reasoning" in part && typeof part.reasoning === "string") {
+    reasoningText = part.reasoning;
+  }
 
   const redacted = "redacted" in part && part.redacted === true;
   const isStreaming = "state" in part && part.state === "streaming";

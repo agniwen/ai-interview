@@ -32,6 +32,10 @@ export interface ProcessorDetailPanelProps {
   processor: ProcessorDetail;
 }
 
+interface ProcessorInformationProps {
+  processor: ProcessorDetail;
+}
+
 const PHASE_LABELS: Record<ProcessorPhase, string> = {
   input: "Input - Process input messages before LLM (once at start)",
   inputStep: "Input Step - Process at each agentic loop step",
@@ -40,40 +44,36 @@ const PHASE_LABELS: Record<ProcessorPhase, string> = {
   outputStream: "Output Stream - Process streaming chunks",
 };
 
-export function ProcessorPanel({ processorId }: ProcessorPanelProps) {
-  const { data: processor, isLoading, error } = useProcessor(processorId);
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "An error occurred";
+}
 
-  useEffect(() => {
-    if (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to load processor";
-      toast.error(`Error loading processor: ${errorMessage}`);
-    }
-  }, [error]);
-
-  if (isLoading) {
-    return (
-      <div className="p-6">
-        <Skeleton className="h-8 w-48 mb-4" />
-        <Skeleton className="h-32 w-full" />
+function ProcessorInformation({ processor }: ProcessorInformationProps) {
+  return (
+    <div className="px-5 pt-5 pb-4 border-b border-border1">
+      <Txt variant="header-md" className="text-neutral1 mb-2">
+        {processor.name || processor.id}
+      </Txt>
+      {processor.name && processor.name !== processor.id && (
+        <Txt variant="ui-sm" className="text-neutral4 mb-3">
+          {processor.id}
+        </Txt>
+      )}
+      <div className="flex flex-wrap gap-1 mt-3">
+        {processor.phases.map((phase) => (
+          <Badge key={phase} variant="default">
+            {phase}
+          </Badge>
+        ))}
       </div>
-    );
-  }
-
-  if (error) {
-    return null;
-  }
-
-  if (!processor) {
-    return (
-      <div className="py-12 text-center px-6">
-        <Txt variant="header-md" className="text-neutral3">
-          Processor not found
+      <div className="mt-3">
+        <Txt variant="ui-xs" className="text-neutral4">
+          Attached to {processor.configurations.length} agent
+          {processor.configurations.length === 1 ? "" : "s"}
         </Txt>
       </div>
-    );
-  }
-
-  return <ProcessorDetailPanel processor={processor} />;
+    </div>
+  );
 }
 
 function ProcessorDetailPanel({ processor }: ProcessorDetailPanelProps) {
@@ -125,8 +125,8 @@ function ProcessorDetailPanel({ processor }: ProcessorDetailPanelProps) {
       if (!response.success && response.error) {
         setErrorString(response.error);
       }
-    } catch (error: any) {
-      setErrorString(error.message || "An error occurred");
+    } catch (error: unknown) {
+      setErrorString(getErrorMessage(error));
     }
   };
 
@@ -139,7 +139,7 @@ function ProcessorDetailPanel({ processor }: ProcessorDetailPanelProps) {
 
         <div className="p-5 space-y-5">
           <div className="space-y-2">
-            <Txt as="label" variant="ui-sm" className="text-neutral3">
+            <Txt as="span" variant="ui-sm" className="text-neutral3">
               Phase
             </Txt>
             <Select
@@ -164,7 +164,7 @@ function ProcessorDetailPanel({ processor }: ProcessorDetailPanelProps) {
 
           {processor.configurations.length > 1 && (
             <div className="space-y-2">
-              <Txt as="label" variant="ui-sm" className="text-neutral3">
+              <Txt as="span" variant="ui-sm" className="text-neutral3">
                 Agent Configuration
               </Txt>
               <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
@@ -182,11 +182,10 @@ function ProcessorDetailPanel({ processor }: ProcessorDetailPanelProps) {
             </div>
           )}
 
-          <div className="space-y-2">
-            <Txt as="label" htmlFor={formId} variant="ui-sm" className="text-neutral3">
-              Test Message
-            </Txt>
+          <label htmlFor={formId} className="block space-y-2 text-ui-sm text-neutral3">
+            <span>Test Message</span>
             <textarea
+              aria-label="Test Message"
               id={formId}
               value={testMessage}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
@@ -196,7 +195,7 @@ function ProcessorDetailPanel({ processor }: ProcessorDetailPanelProps) {
               rows={4}
               className="w-full bg-transparent border border-border1 rounded-md p-3 text-ui-sm text-neutral6 placeholder:text-neutral3 focus:outline-hidden focus:ring-2 focus:ring-accent1"
             />
-          </div>
+          </label>
 
           <Button
             onClick={handleExecute}
@@ -254,34 +253,37 @@ function ProcessorDetailPanel({ processor }: ProcessorDetailPanelProps) {
   );
 }
 
-interface ProcessorInformationProps {
-  processor: ProcessorDetail;
-}
+export function ProcessorPanel({ processorId }: ProcessorPanelProps) {
+  const { data: processor, isLoading, error } = useProcessor(processorId);
 
-function ProcessorInformation({ processor }: ProcessorInformationProps) {
-  return (
-    <div className="px-5 pt-5 pb-4 border-b border-border1">
-      <Txt variant="header-md" className="text-neutral1 mb-2">
-        {processor.name || processor.id}
-      </Txt>
-      {processor.name && processor.name !== processor.id && (
-        <Txt variant="ui-sm" className="text-neutral4 mb-3">
-          {processor.id}
-        </Txt>
-      )}
-      <div className="flex flex-wrap gap-1 mt-3">
-        {processor.phases.map((phase) => (
-          <Badge key={phase} variant="default">
-            {phase}
-          </Badge>
-        ))}
+  useEffect(() => {
+    if (error) {
+      toast.error(`Error loading processor: ${getErrorMessage(error)}`);
+    }
+  }, [error]);
+
+  if (isLoading) {
+    return (
+      <div className="p-6">
+        <Skeleton className="h-8 w-48 mb-4" />
+        <Skeleton className="h-32 w-full" />
       </div>
-      <div className="mt-3">
-        <Txt variant="ui-xs" className="text-neutral4">
-          Attached to {processor.configurations.length} agent
-          {processor.configurations.length !== 1 ? "s" : ""}
+    );
+  }
+
+  if (error) {
+    return null;
+  }
+
+  if (!processor) {
+    return (
+      <div className="py-12 text-center px-6">
+        <Txt variant="header-md" className="text-neutral3">
+          Processor not found
         </Txt>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return <ProcessorDetailPanel processor={processor} />;
 }

@@ -1,5 +1,5 @@
 import { Button } from "@mastra/playground-ui/components/Button";
-import { useSSOLogin } from "../hooks";
+import { useSSOLogin } from "../hooks/use-auth-actions";
 import type { LoginConfig, SSOConfig } from "../types";
 
 export interface LoginButtonProps {

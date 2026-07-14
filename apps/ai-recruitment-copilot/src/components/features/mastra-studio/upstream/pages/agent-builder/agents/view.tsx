@@ -23,41 +23,44 @@ import type { StoredAgent } from "@/components/features/mastra-studio/upstream/d
 import { useStoredAgent } from "@/components/features/mastra-studio/upstream/domains/agents/hooks/use-stored-agents";
 import { useCurrentUser } from "@/components/features/mastra-studio/upstream/domains/auth/hooks/use-current-user";
 
-export default function AgentBuilderAgentView() {
-  const { id: agentId } = useParams<{ id: string }>();
-  const { data: storedAgent, isLoading: isStoredAgentLoading } = useStoredAgent(agentId, {
-    status: "draft",
-  });
-  const { data: currentUser, isLoading: isCurrentUserLoading } = useCurrentUser();
-  const { canWrite } = useBuilderAgentAccess();
-  useChannelConnectToast();
-
-  if (!agentId) {
-    return null;
-  } // dead branch, agentId is forced to exist in this specific oute
-
-  if (isStoredAgentLoading || isCurrentUserLoading) {
-    return <AgentBuilderAgentViewSkeleton />;
-  }
-  if (!storedAgent) {
-    return <Navigate to="/agent-builder/agents" replace />;
-  }
-
-  return (
-    <ViewPageProvider
-      agentId={agentId}
-      storedAgent={storedAgent}
-      currentUserId={currentUser?.id}
-      canWrite={canWrite}
-    >
-      <ViewPageForm storedAgent={storedAgent} />
-    </ViewPageProvider>
-  );
-}
-
 interface ViewPageFormProps {
   storedAgent: StoredAgent;
 }
+
+const ViewTopBarSlot = () => {
+  const { canModify, onModeToggle, isOwner, agentId, agent } = useViewPage();
+  const isRunning = useStreamRunning();
+
+  return (
+    <ViewTopBar
+      mode={canModify ? "test" : undefined}
+      onModeToggle={onModeToggle}
+      modeToggleDisabled={isRunning}
+      mobileMenu={
+        isOwner && (
+          <AgentBuilderMobileMenu
+            agentId={agentId}
+            showEditAgent
+            showDelete
+            agentName={agent.name}
+            disabled={isRunning}
+          />
+        )
+      }
+    />
+  );
+};
+
+const ViewPageBody = memo(function ViewPageBody({ hasBrowser }: { hasBrowser: boolean }) {
+  const topBar = useMemo(() => <ViewTopBarSlot />, []);
+  const chat = useMemo(() => <AgentChatPanelChat hasBrowser={hasBrowser} />, [hasBrowser]);
+  const browserOverlay = useMemo(
+    () => (hasBrowser ? <BrowserViewPanel /> : undefined),
+    [hasBrowser],
+  );
+
+  return <AgentBuilderViewLayout topBar={topBar} chat={chat} browserOverlay={browserOverlay} />;
+});
 
 const ViewPageForm = ({ storedAgent }: ViewPageFormProps) => {
   const { hasBrowser, agentId, threadId } = useViewPage();
@@ -87,43 +90,41 @@ const ViewPageForm = ({ storedAgent }: ViewPageFormProps) => {
   );
 };
 
-const ViewPageBody = memo(function ViewPageBody({ hasBrowser }: { hasBrowser: boolean }) {
-  const topBar = useMemo(() => <ViewTopBarSlot />, []);
-  const chat = useMemo(() => <AgentChatPanelChat hasBrowser={hasBrowser} />, [hasBrowser]);
-  const browserOverlay = useMemo(
-    () => (hasBrowser ? <BrowserViewPanel /> : undefined),
-    [hasBrowser],
-  );
-
-  return <AgentBuilderViewLayout topBar={topBar} chat={chat} browserOverlay={browserOverlay} />;
-});
-
-const ViewTopBarSlot = () => {
-  const { canModify, onModeToggle, isOwner, agentId, agent } = useViewPage();
-  const isRunning = useStreamRunning();
-
-  return (
-    <ViewTopBar
-      mode={canModify ? "test" : undefined}
-      onModeToggle={onModeToggle}
-      modeToggleDisabled={isRunning}
-      mobileMenu={
-        isOwner && (
-          <AgentBuilderMobileMenu
-            agentId={agentId}
-            showEditAgent
-            showDelete
-            agentName={agent.name}
-            disabled={isRunning}
-          />
-        )
-      }
-    />
-  );
-};
-
 const AgentBuilderAgentViewSkeleton = () => (
   <div className="h-screen w-screen flex items-center justify-center">
     <Spinner />
   </div>
 );
+
+export default function AgentBuilderAgentView() {
+  const { id: agentId } = useParams<{ id: string }>();
+  const { data: storedAgent, isLoading: isStoredAgentLoading } = useStoredAgent(agentId, {
+    status: "draft",
+  });
+  const { data: currentUser, isLoading: isCurrentUserLoading } = useCurrentUser();
+  const { canWrite } = useBuilderAgentAccess();
+  useChannelConnectToast();
+
+  if (!agentId) {
+    // Dead branch because this route always includes an agent ID.
+    return null;
+  }
+
+  if (isStoredAgentLoading || isCurrentUserLoading) {
+    return <AgentBuilderAgentViewSkeleton />;
+  }
+  if (!storedAgent) {
+    return <Navigate to="/agent-builder/agents" replace />;
+  }
+
+  return (
+    <ViewPageProvider
+      agentId={agentId}
+      storedAgent={storedAgent}
+      currentUserId={currentUser?.id}
+      canWrite={canWrite}
+    >
+      <ViewPageForm storedAgent={storedAgent} />
+    </ViewPageProvider>
+  );
+}

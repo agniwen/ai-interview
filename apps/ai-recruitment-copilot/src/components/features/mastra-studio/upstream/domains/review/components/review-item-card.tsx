@@ -36,6 +36,108 @@ function formatUnknown(value: unknown): string {
   }
 }
 
+function getScoreVariant(score: number): "success" | "warning" | "error" {
+  if (score >= 0.7) {
+    return "success";
+  }
+  return score >= 0.4 ? "warning" : "error";
+}
+
+function ReviewItemExpanded({
+  isCompleted,
+  item,
+  onComment,
+}: {
+  isCompleted?: boolean;
+  item: ReviewItem;
+  onComment: (comment: string) => void;
+}) {
+  const [localComment, setLocalComment] = useState(item.comment || "");
+  const [commentSaved, setCommentSaved] = useState(false);
+  return (
+    <div className="mt-3 space-y-3 border-t border-border1 pt-3">
+      {item.experimentId && (
+        <div className="flex items-center gap-1.5">
+          <Txt variant="ui-xs" className="text-neutral3">
+            Experiment:
+          </Txt>
+          <code className="text-[10px] font-mono text-neutral4 bg-surface2 px-1.5 py-0.5 rounded">
+            {item.experimentId.slice(0, 8)}
+          </code>
+        </div>
+      )}
+      <div>
+        <Txt variant="ui-xs" className="text-neutral3 block font-semibold mb-1">
+          Input
+        </Txt>
+        <pre className="text-xs text-neutral5 whitespace-pre-wrap bg-surface2 rounded p-2 overflow-auto max-h-40">
+          {formatUnknown(item.input)}
+        </pre>
+      </div>
+      {item.output !== undefined && item.output !== null && (
+        <div>
+          <Txt variant="ui-xs" className="text-neutral3 block font-semibold mb-1">
+            Output
+          </Txt>
+          <pre className="text-xs text-neutral5 whitespace-pre-wrap bg-surface2 rounded p-2 overflow-auto max-h-40">
+            {formatUnknown(item.output)}
+          </pre>
+        </div>
+      )}
+      {Boolean(item.error) && (
+        <div>
+          <Txt variant="ui-xs" className="text-neutral3 block font-semibold mb-1">
+            Error
+          </Txt>
+          <pre className="text-xs text-negative1 whitespace-pre-wrap bg-surface2 rounded p-2 overflow-auto max-h-20">
+            {formatUnknown(item.error)}
+          </pre>
+        </div>
+      )}
+      {isCompleted ? (
+        item.comment && (
+          <div>
+            <Txt variant="ui-xs" className="text-neutral3 block font-semibold mb-1">
+              Comment
+            </Txt>
+            <Txt variant="ui-xs" className="text-neutral4 block">
+              {item.comment}
+            </Txt>
+          </div>
+        )
+      ) : (
+        <div>
+          <Txt variant="ui-xs" className="text-neutral3 block font-semibold mb-1">
+            Comment
+          </Txt>
+          <Textarea
+            value={localComment}
+            onChange={(event) => {
+              setLocalComment(event.target.value);
+              setCommentSaved(false);
+            }}
+            onBlur={() => {
+              if (localComment !== (item.comment || "")) {
+                onComment(localComment);
+                setCommentSaved(true);
+                setTimeout(() => setCommentSaved(false), 1500);
+              }
+            }}
+            placeholder="Add a note about this item..."
+            rows={2}
+            className="text-xs"
+          />
+          {commentSaved && (
+            <Txt variant="ui-xs" className="text-positive1 mt-0.5">
+              Saved
+            </Txt>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ReviewItemCard({
   item,
   isExpanded,
@@ -63,9 +165,6 @@ export function ReviewItemCard({
   onComplete?: () => void | Promise<void>;
   tagVocabulary: string[];
 }) {
-  const [localComment, setLocalComment] = useState(item.comment || "");
-  const [commentSaved, setCommentSaved] = useState(false);
-
   const inputPreview = (() => {
     try {
       if (typeof item.input === "string") {
@@ -93,6 +192,7 @@ export function ReviewItemCard({
           </Icon>
         ) : (
           <input
+            aria-label={`Select review item ${item.id}`}
             type="checkbox"
             checked={isSelected}
             onChange={onToggleSelect}
@@ -168,10 +268,7 @@ export function ReviewItemCard({
                 {Object.entries(item.scores)
                   .slice(0, 2)
                   .map(([name, score]) => (
-                    <Badge
-                      key={name}
-                      variant={score >= 0.7 ? "success" : score >= 0.4 ? "warning" : "error"}
-                    >
+                    <Badge key={name} variant={getScoreVariant(score)}>
                       {name}: {typeof score === "number" ? score.toFixed(2) : score}
                     </Badge>
                   ))}
@@ -202,88 +299,8 @@ export function ReviewItemCard({
         </div>
       </TooltipProvider>
 
-      {/* Expanded: full input/output + comment */}
       {isExpanded && (
-        <div className="mt-3 space-y-3 border-t border-border1 pt-3">
-          {item.experimentId && (
-            <div className="flex items-center gap-1.5">
-              <Txt variant="ui-xs" className="text-neutral3">
-                Experiment:
-              </Txt>
-              <code className="text-[10px] font-mono text-neutral4 bg-surface2 px-1.5 py-0.5 rounded">
-                {item.experimentId.slice(0, 8)}
-              </code>
-            </div>
-          )}
-          <div>
-            <Txt variant="ui-xs" className="text-neutral3 block font-semibold mb-1">
-              Input
-            </Txt>
-            <pre className="text-xs text-neutral5 whitespace-pre-wrap bg-surface2 rounded p-2 overflow-auto max-h-40">
-              {formatUnknown(item.input)}
-            </pre>
-          </div>
-          {item.output !== undefined && item.output !== null && (
-            <div>
-              <Txt variant="ui-xs" className="text-neutral3 block font-semibold mb-1">
-                Output
-              </Txt>
-              <pre className="text-xs text-neutral5 whitespace-pre-wrap bg-surface2 rounded p-2 overflow-auto max-h-40">
-                {formatUnknown(item.output)}
-              </pre>
-            </div>
-          )}
-          {Boolean(item.error) && (
-            <div>
-              <Txt variant="ui-xs" className="text-neutral3 block font-semibold mb-1">
-                Error
-              </Txt>
-              <pre className="text-xs text-negative1 whitespace-pre-wrap bg-surface2 rounded p-2 overflow-auto max-h-20">
-                {formatUnknown(item.error)}
-              </pre>
-            </div>
-          )}
-          {/* Comment */}
-          {!isCompleted && (
-            <div>
-              <Txt variant="ui-xs" className="text-neutral3 block font-semibold mb-1">
-                Comment
-              </Txt>
-              <Textarea
-                value={localComment}
-                onChange={(e) => {
-                  setLocalComment(e.target.value);
-                  setCommentSaved(false);
-                }}
-                onBlur={() => {
-                  if (localComment !== (item.comment || "")) {
-                    onComment(localComment);
-                    setCommentSaved(true);
-                    setTimeout(() => setCommentSaved(false), 1500);
-                  }
-                }}
-                placeholder="Add a note about this item..."
-                rows={2}
-                className="text-xs"
-              />
-              {commentSaved && (
-                <Txt variant="ui-xs" className="text-positive1 mt-0.5">
-                  Saved
-                </Txt>
-              )}
-            </div>
-          )}
-          {isCompleted && item.comment && (
-            <div>
-              <Txt variant="ui-xs" className="text-neutral3 block font-semibold mb-1">
-                Comment
-              </Txt>
-              <Txt variant="ui-xs" className="text-neutral4 block">
-                {item.comment}
-              </Txt>
-            </div>
-          )}
-        </div>
+        <ReviewItemExpanded isCompleted={isCompleted} item={item} onComment={onComment} />
       )}
     </div>
   );

@@ -9,7 +9,6 @@ import {
 import { Txt } from "@mastra/playground-ui/components/Txt";
 import { Icon } from "@mastra/playground-ui/icons/Icon";
 import { cn } from "@mastra/playground-ui/utils/cn";
-import { jsonSchemaToZod } from "@mastra/schema-compat/json-to-zod";
 import { ChevronRight, CirclePause, MoveDownLeft, MoveUpRight, Play } from "lucide-react";
 import { useState } from "react";
 import { parse } from "superjson";
@@ -23,8 +22,8 @@ import { resolveSerializedZodOutput } from "@/components/features/mastra-studio/
 export interface ResumeStepParams {
   stepId: string | string[];
   runId: string;
-  suspendPayload: any;
-  resumeData: any;
+  suspendPayload: unknown;
+  resumeData: unknown;
   isLoading: boolean;
 }
 
@@ -53,64 +52,6 @@ function getPayloadLabel(payload: unknown, fallback: string): string {
   return fallback;
 }
 
-export function WorkflowSuspendedSteps({
-  suspendedSteps,
-  workflow,
-  isStreaming,
-  onResume,
-}: WorkflowSuspendedStepsProps) {
-  if (isStreaming || suspendedSteps.length === 0) {
-    return null;
-  }
-
-  return (
-    <div
-      className="space-y-5 rounded-lg border border-border1 bg-surface4 p-5"
-      data-testid="workflow-suspended-steps"
-    >
-      <div className="flex items-center justify-between gap-3">
-        <Txt as="p" variant="ui-md" className="flex items-center gap-2 text-neutral6 font-semibold">
-          <Icon>
-            <CirclePause />
-          </Icon>
-          Step suspended
-        </Txt>
-        <Badge variant="warning">Needs input</Badge>
-      </div>
-
-      {suspendedSteps.map((step, index) => {
-        const stepDefinition = workflow.allSteps[step.stepId];
-        if (!stepDefinition || stepDefinition.isWorkflow) {
-          return null;
-        }
-
-        const stepSchema = stepDefinition?.resumeSchema
-          ? resolveSerializedZodOutput(jsonSchemaToZod(parse(stepDefinition.resumeSchema)))
-          : z.record(z.string(), z.any());
-
-        return (
-          <SuspendedStepCard
-            key={`${step.runId}-${step.stepId}-${index}`}
-            step={step}
-            stepSchema={stepSchema}
-            description={stepDefinition.description}
-            isStreaming={isStreaming}
-            onResume={onResume}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
-interface SuspendedStepCardProps {
-  step: SuspendedStep;
-  stepSchema: z.ZodSchema;
-  description?: string;
-  isStreaming: boolean;
-  onResume: (step: ResumeStepParams) => void;
-}
-
 function SuspendedStepCard({
   step,
   stepSchema,
@@ -133,7 +74,7 @@ function SuspendedStepCard({
         )}
       </div>
 
-      {step.suspendPayload && (
+      {Boolean(step.suspendPayload) && (
         <div className="space-y-2">
           <Txt as="p" variant="ui-sm" className="flex items-center gap-2 text-neutral3">
             <Icon>
@@ -163,7 +104,9 @@ function SuspendedStepCard({
             <CollapsibleContent>
               <div data-testid="suspended-payload" className="pt-2">
                 <CodeEditor
-                  data={step.suspendPayload}
+                  value={
+                    JSON.stringify(step.suspendPayload, null, 2) ?? String(step.suspendPayload)
+                  }
                   className="w-full overflow-x-auto p-2"
                   showCopyButton={false}
                 />
@@ -206,4 +149,66 @@ function SuspendedStepCard({
       </div>
     </div>
   );
+}
+
+export function WorkflowSuspendedSteps({
+  suspendedSteps,
+  workflow,
+  isStreaming,
+  onResume,
+}: WorkflowSuspendedStepsProps) {
+  if (isStreaming || suspendedSteps.length === 0) {
+    return null;
+  }
+
+  return (
+    <div
+      className="space-y-5 rounded-lg border border-border1 bg-surface4 p-5"
+      data-testid="workflow-suspended-steps"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <Txt as="p" variant="ui-md" className="flex items-center gap-2 text-neutral6 font-semibold">
+          <Icon>
+            <CirclePause />
+          </Icon>
+          Step suspended
+        </Txt>
+        <Badge variant="warning">Needs input</Badge>
+      </div>
+
+      {suspendedSteps.map((step, index) => {
+        const stepDefinition = workflow.allSteps[step.stepId];
+        if (!stepDefinition || stepDefinition.isWorkflow) {
+          return null;
+        }
+
+        const stepSchema = stepDefinition?.resumeSchema
+          ? resolveSerializedZodOutput(
+              parse(stepDefinition.resumeSchema) as Parameters<
+                typeof resolveSerializedZodOutput
+              >[0],
+            )
+          : z.record(z.string(), z.any());
+
+        return (
+          <SuspendedStepCard
+            key={`${step.runId}-${step.stepId}-${index}`}
+            step={step}
+            stepSchema={stepSchema}
+            description={stepDefinition.description}
+            isStreaming={isStreaming}
+            onResume={onResume}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+interface SuspendedStepCardProps {
+  step: SuspendedStep;
+  stepSchema: z.ZodSchema;
+  description?: string;
+  isStreaming: boolean;
+  onResume: (step: ResumeStepParams) => void;
 }

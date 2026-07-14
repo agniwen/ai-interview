@@ -179,9 +179,20 @@ export const WizardProvider = ({
   return <WizardContext.Provider value={value}>{children}</WizardContext.Provider>;
 };
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const useWizard = (): WizardContextValue => {
   const ctx = useContext(WizardContext);
 
-  return ctx ?? { isLast: false, next: () => {}, prev: () => {}, step: "end", steps: [] };
+  return (
+    ctx ?? {
+      isLast: false,
+      next: () => {
+        /* empty */
+      },
+      prev: () => {
+        /* empty */
+      },
+      step: "end",
+      steps: [],
+    }
+  );
 };

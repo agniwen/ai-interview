@@ -30,7 +30,6 @@ export interface CodeModeBadgeProps extends Omit<ToolApprovalButtonsProps, "tool
  * A Code Mode call has a single string `code` argument, and — once it has run —
  * a result matching `CodeModeResult` (`success: boolean` plus `result`/`logs`/`error`).
  */
-// eslint-disable-next-line react-refresh/only-export-components
 export const getCodeModeCall = (
   args: Record<string, unknown> | string,
   result: unknown,
@@ -75,7 +74,8 @@ export const CodeModeBadge = ({
 }: CodeModeBadgeProps) => {
   const logs = result?.logs ?? [];
   const error = result?.error;
-  const hasResultValue = result !== undefined && result.result !== undefined;
+  const resultValue = result?.result;
+  const hasResultValue = resultValue !== undefined;
 
   const toolCalled = toolCalledProp ?? result !== undefined;
 
@@ -85,17 +85,19 @@ export const CodeModeBadge = ({
   const [formattedCode, setFormattedCode] = useState(code);
   useEffect(() => {
     let cancelled = false;
-    formatTypeScript(code)
-      .then((pretty) => {
+    const formatCode = async () => {
+      try {
+        const pretty = await formatTypeScript(code);
         if (!cancelled) {
           setFormattedCode(pretty);
         }
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) {
           setFormattedCode(code);
         }
-      });
+      }
+    };
+    void formatCode();
     return () => {
       cancelled = true;
     };
@@ -133,16 +135,16 @@ export const CodeModeBadge = ({
         {hasResultValue && (
           <div>
             <p className="font-medium pb-2">Result</p>
-            {typeof result!.result === "string" ? (
+            {typeof resultValue === "string" ? (
               <pre
                 className="whitespace-pre bg-surface4 p-4 rounded-md overflow-x-auto"
                 data-testid="code-mode-result"
               >
-                {result!.result as string}
+                {resultValue}
               </pre>
             ) : (
               <CodeEditor
-                data={result!.result as Record<string, unknown>}
+                data={resultValue as Record<string, unknown>}
                 data-testid="code-mode-result"
               />
             )}

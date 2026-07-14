@@ -44,11 +44,89 @@ interface ParsedArgs {
 export interface FileTreeBadgeProps extends Omit<ToolApprovalButtonsProps, "toolCalled"> {
   toolName: string;
   args: Record<string, unknown> | string;
-  result: any;
+  result: unknown;
   metadata?: MessageMetadata;
   toolCalled?: boolean;
   dataParts?: readonly DataMessagePart[];
 }
+
+const parseArgs = (args: FileTreeBadgeProps["args"]): ParsedArgs => {
+  try {
+    return typeof args === "object" ? (args as ParsedArgs) : JSON.parse(args);
+  } catch {
+    return { path: "." };
+  }
+};
+
+const buildArgsDisplay = (args: ParsedArgs) => {
+  const display: string[] = [];
+  if (args.maxDepth !== undefined && args.maxDepth !== 3) {
+    display.push(`depth: ${args.maxDepth}`);
+  }
+  if (args.showHidden) {
+    display.push("hidden");
+  }
+  if (args.dirsOnly) {
+    display.push("dirs only");
+  }
+  if (args.exclude) {
+    display.push(`exclude: ${args.exclude}`);
+  }
+  if (args.extension) {
+    display.push(`ext: ${args.extension}`);
+  }
+  return display;
+};
+
+const parseTreeResult = (result: unknown) => {
+  if (typeof result !== "string" || !result) {
+    return { summary: "", treeOutput: "" };
+  }
+  const separator = result.lastIndexOf("\n\n");
+  return separator === -1
+    ? { summary: "", treeOutput: result }
+    : { summary: result.slice(separator + 2), treeOutput: result.slice(0, separator) };
+};
+
+const isWorkspaceMetadataPart = (part: DataMessagePart, toolCallId: string) => {
+  if (part.type !== "data" || part.name !== "workspace-metadata") {
+    return false;
+  }
+  return (
+    typeof part.data === "object" &&
+    part.data !== null &&
+    "toolCallId" in part.data &&
+    part.data.toolCallId === toolCallId
+  );
+};
+
+const copyTreeOutput = (
+  treeOutput: string,
+  isCopied: boolean,
+  copyToClipboard: (value: string) => void,
+) => {
+  if (treeOutput && !isCopied) {
+    copyToClipboard(treeOutput);
+  }
+};
+
+const ArgsSummary = ({ values }: { values: string[] }) =>
+  values.length > 0 ? (
+    <span className="text-neutral4 font-normal ml-1">({values.join(", ")})</span>
+  ) : null;
+
+const CollapsedSummary = ({
+  isCollapsed,
+  hasResult,
+  summary,
+}: {
+  isCollapsed: boolean;
+  hasResult: boolean;
+  summary: string;
+}) =>
+  isCollapsed && hasResult && summary ? (
+    <span className="text-neutral6 text-xs">{summary}</span>
+  ) : null;
 
 export const FileTreeBadge = ({
   toolName,
@@ -74,68 +152,29 @@ export const FileTreeBadge = ({
   const { Link } = useLinkComponent();
 
   // Parse args
-  let parsedArgs: ParsedArgs = { path: "." };
-  try {
-    parsedArgs = typeof args === "object" ? (args as ParsedArgs) : JSON.parse(args);
-  } catch {
-    // ignore
-  }
+  const parsedArgs = parseArgs(args);
 
   const { path = ".", maxDepth, showHidden, dirsOnly, exclude, extension } = parsedArgs;
 
   // Build args display string
-  const argsDisplay: string[] = [];
-  if (maxDepth !== undefined && maxDepth !== 3) {
-    argsDisplay.push(`depth: ${maxDepth}`);
-  }
-  if (showHidden) {
-    argsDisplay.push("hidden");
-  }
-  if (dirsOnly) {
-    argsDisplay.push("dirs only");
-  }
-  if (exclude) {
-    argsDisplay.push(`exclude: ${exclude}`);
-  }
-  if (extension) {
-    argsDisplay.push(`ext: ${extension}`);
-  }
+  const argsDisplay = buildArgsDisplay({ dirsOnly, exclude, extension, maxDepth, showHidden });
 
   // Get tree output + summary from result string: "tree\n\nsummary"
-  let treeOutput = "";
-  let summary = "";
-  if (typeof result === "string" && result) {
-    const lastDoubleNewline = result.lastIndexOf("\n\n");
-    if (lastDoubleNewline !== -1) {
-      treeOutput = result.slice(0, lastDoubleNewline);
-      summary = result.slice(lastDoubleNewline + 2);
-    } else {
-      treeOutput = result;
-    }
-  }
+  const { treeOutput, summary } = parseTreeResult(result);
 
   const hasResult = !!treeOutput;
   const toolCalled = toolCalledProp ?? hasResult;
 
   // Extract filesystem metadata from message data parts (via writer.custom), scoped to this tool call
   const workspaceMetadata = useMemo(
-    () =>
-      (dataParts ?? []).find(
-        (part) =>
-          part.type === "data" &&
-          part.name === "workspace-metadata" &&
-          part.data?.toolCallId === toolCallId,
-      ),
+    () => (dataParts ?? []).find((part) => isWorkspaceMetadataPart(part, toolCallId)),
     [dataParts, toolCallId],
   );
 
   const wsMeta = workspaceMetadata?.data as WorkspaceMetadata | undefined;
 
   const onCopy = () => {
-    if (!treeOutput || isCopied) {
-      return;
-    }
-    copyToClipboard(treeOutput);
+    copyTreeOutput(treeOutput, isCopied, copyToClipboard);
   };
 
   return (
@@ -154,9 +193,7 @@ export const FileTreeBadge = ({
           </Icon>
           <Badge icon={<FolderTree className="text-accent6" size={16} />}>
             List Files <span className="text-neutral6 font-normal ml-1">{path}</span>
-            {argsDisplay.length > 0 && (
-              <span className="text-neutral4 font-normal ml-1">({argsDisplay.join(", ")})</span>
-            )}
+            <ArgsSummary values={argsDisplay} />
           </Badge>
         </button>
 
@@ -176,9 +213,7 @@ export const FileTreeBadge = ({
         )}
 
         {/* Summary - show in header when collapsed */}
-        {isCollapsed && hasResult && summary && (
-          <span className="text-neutral6 text-xs">{summary}</span>
-        )}
+        <CollapsedSummary isCollapsed={isCollapsed} hasResult={hasResult} summary={summary} />
       </div>
 
       {/* Content area */}

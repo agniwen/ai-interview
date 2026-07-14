@@ -9,7 +9,7 @@ export const CodeDialogContent = ({
   data,
   language = "auto",
 }: {
-  data: any;
+  data: unknown;
   language?: "json" | "javascript" | "auto";
 }) => {
   const theme = useCodemirrorTheme();

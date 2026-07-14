@@ -18,7 +18,7 @@ import type { UseFormReturn } from "react-hook-form";
 
 import type { PromptBlockFormValues } from "./utils/form-validation";
 import { useStoredAgents } from "@/components/features/mastra-studio/upstream/domains/agents/hooks/use-stored-agents";
-import { SectionHeader } from "@/components/features/mastra-studio/upstream/domains/cms";
+import { SectionHeader } from "@/components/features/mastra-studio/upstream/domains/cms/components/section/section-header";
 import { useLinkComponent } from "@/components/features/mastra-studio/upstream/lib/framework";
 
 function RecursiveFieldRenderer({
@@ -85,18 +85,31 @@ interface PromptBlockEditSidebarProps {
   blockId?: string;
 }
 
-export function PromptBlockEditSidebar({
-  form,
-  onPublish,
-  onSaveDraft,
-  isSubmitting = false,
-  isSavingDraft = false,
-  isDirty = false,
-  hasDraft = false,
-  mode = "create",
-  formResetKey = 0,
-  blockId,
-}: PromptBlockEditSidebarProps) {
+function normalizeSidebarProps(props: PromptBlockEditSidebarProps) {
+  return {
+    ...props,
+    formResetKey: props.formResetKey ?? 0,
+    hasDraft: props.hasDraft ?? false,
+    isDirty: props.isDirty ?? false,
+    isSavingDraft: props.isSavingDraft ?? false,
+    isSubmitting: props.isSubmitting ?? false,
+    mode: props.mode ?? "create",
+  };
+}
+
+export function PromptBlockEditSidebar(props: PromptBlockEditSidebarProps) {
+  const {
+    form,
+    onPublish,
+    onSaveDraft,
+    isSubmitting,
+    isSavingDraft,
+    isDirty,
+    hasDraft,
+    mode,
+    formResetKey,
+    blockId,
+  } = normalizeSidebarProps(props);
   const {
     register,
     control,

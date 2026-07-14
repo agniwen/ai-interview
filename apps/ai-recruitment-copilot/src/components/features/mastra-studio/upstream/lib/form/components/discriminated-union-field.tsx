@@ -3,6 +3,46 @@ import type { AutoFormFieldProps } from "@autoform/react";
 import { useFormContext } from "react-hook-form";
 import { CustomAutoFormField } from "./custom-auto-form-field";
 
+function createLiteralField(literalSchemas: ParsedField[]) {
+  const [firstLiteralSchema] = literalSchemas;
+  if (!firstLiteralSchema) {
+    return;
+  }
+
+  const options: [string, string][] = [];
+  for (const literal of literalSchemas) {
+    for (const literalValue of literal.fieldConfig?.customData?.literalValues ?? []) {
+      options.push([literalValue, literalValue]);
+    }
+  }
+  return {
+    default: firstLiteralSchema.default,
+    description: firstLiteralSchema.description,
+    fieldConfig: firstLiteralSchema.fieldConfig,
+    key: firstLiteralSchema.key,
+    options,
+    required: firstLiteralSchema.required,
+    type: "select",
+  };
+}
+
+function collectVariantFields(schemas: ParsedField[]) {
+  const fields: Record<string, ParsedField[]> = {};
+  for (const candidateSchema of schemas) {
+    const literalSchema = candidateSchema.schema?.find(
+      (candidate: ParsedField) => candidate.fieldConfig?.customData?.isLiteral,
+    );
+    const literalSchemaValue = literalSchema?.fieldConfig?.customData?.literalValues?.[0];
+    if (literalSchemaValue) {
+      fields[literalSchemaValue] =
+        candidateSchema.schema?.filter(
+          (candidate: ParsedField) => candidate.key !== literalSchema.key,
+        ) ?? [];
+    }
+  }
+  return fields;
+}
+
 export const DiscriminatedUnionField: React.FC<AutoFormFieldProps> = ({ field, path }) => {
   const { watch } = useFormContext();
   const fullPath = path.join(".");
@@ -10,45 +50,15 @@ export const DiscriminatedUnionField: React.FC<AutoFormFieldProps> = ({ field, p
   const allSchemas = field.schema?.flatMap((schema: ParsedField) => schema.schema || []) || [];
   const literalSchemas =
     allSchemas?.filter((schema: ParsedField) => schema.fieldConfig?.customData?.isLiteral) || [];
-  const firstLiteralSchema = literalSchemas[0];
-  const literalSchemaField = literalSchemas?.reduce(
-    (acc, schema) => {
-      const optionValues: [string, string][] = (
-        schema.fieldConfig?.customData?.literalValues ?? []
-      ).map((value: string) => [value, value]);
-      acc.options?.push(...optionValues);
-      return acc;
-    },
-    {
-      default: firstLiteralSchema.default,
-      description: firstLiteralSchema.description,
-      fieldConfig: firstLiteralSchema.fieldConfig,
-      key: firstLiteralSchema.key,
-      options: [] as [string, string][],
-      required: firstLiteralSchema.required,
-      type: "select",
-    },
-  );
+  const literalSchemaField = createLiteralField(literalSchemas);
+  if (!literalSchemaField) {
+    return null;
+  }
+  const otherFieldSchemas = collectVariantFields(field.schema ?? []);
 
-  const otherFieldSchemas = field.schema?.reduce(
-    (acc, schema) => {
-      const literalSchema = schema.schema?.find(
-        (schema: ParsedField) => schema.fieldConfig?.customData?.isLiteral,
-      );
-      const literalSchemaValue = literalSchema?.fieldConfig?.customData?.literalValues?.[0];
-      const otherSchemas =
-        schema.schema?.filter((schema: ParsedField) => schema.key !== literalSchema?.key) ?? [];
-      if (literalSchemaValue) {
-        acc[literalSchemaValue] = otherSchemas;
-      }
-      return acc;
-    },
-    {} as Record<string, ParsedField[]>,
-  );
-
-  const andFieldSchemas = field.schema?.filter((schema) => {
-    const literalSchema = schema.schema?.find(
-      (schema: ParsedField) => schema.fieldConfig?.customData?.isLiteral,
+  const andFieldSchemas = field.schema?.filter((candidateSchema) => {
+    const literalSchema = candidateSchema.schema?.find(
+      (candidate: ParsedField) => candidate.fieldConfig?.customData?.isLiteral,
     );
     return !literalSchema;
   });
@@ -64,19 +74,19 @@ export const DiscriminatedUnionField: React.FC<AutoFormFieldProps> = ({ field, p
       />
       {literalFieldValue &&
         otherFieldSchemas?.[literalFieldValue] &&
-        otherFieldSchemas[literalFieldValue].map((schema: ParsedField) => (
+        otherFieldSchemas[literalFieldValue].map((candidate: ParsedField) => (
           <CustomAutoFormField
-            key={`${fullPath}.${schema.key}`}
-            field={schema}
-            path={[...path, schema.key]}
+            key={`${fullPath}.${candidate.key}`}
+            field={candidate}
+            path={[...path, candidate.key]}
           />
         ))}
       {andFieldSchemas &&
-        andFieldSchemas.map((schema: ParsedField) => (
+        andFieldSchemas.map((candidate: ParsedField) => (
           <CustomAutoFormField
-            key={`${fullPath}.${schema.key}`}
-            field={schema}
-            path={[...path, schema.key]}
+            key={`${fullPath}.${candidate.key}`}
+            field={candidate}
+            path={[...path, candidate.key]}
           />
         ))}
     </div>

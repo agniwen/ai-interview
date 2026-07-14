@@ -11,6 +11,37 @@ import type { OmCycleParts, OmCycleViewModel, OmIndexablePart } from "./om-types
  */
 const OM_TOOL_NAME = "mastra-memory-om-observation";
 
+interface FlexiblePartData extends Record<string, unknown> {
+  cycleId?: string;
+  disconnectedAt?: string;
+  operationType?: string;
+}
+
+interface FlexibleMessagePart extends Record<string, unknown> {
+  args?: Record<string, unknown>;
+  data?: FlexiblePartData;
+  metadata?: Record<string, unknown> & { omData?: Record<string, unknown> };
+  toolName?: string;
+  type: string;
+}
+
+interface BufferRecord extends Record<string, unknown> {
+  bufferedObservationChunks?: BufferRecord[];
+  bufferedReflection?: unknown;
+  bufferedReflectionInputTokens?: unknown;
+  bufferedReflectionTokens?: unknown;
+  cycleId?: string;
+  extractedValues?: Record<string, unknown>;
+  extractionFailures?: { error: string; slug: string }[];
+  messageTokens?: unknown;
+  observations?: unknown;
+  tokenCount?: unknown;
+}
+
+function asFlexiblePart(part: unknown): FlexibleMessagePart {
+  return part as FlexibleMessagePart;
+}
+
 const OM_TYPE_TO_KEY = {
   "data-om-activation": "activation",
   "data-om-buffering-end": "bufferingEnd",
@@ -73,16 +104,21 @@ const hasExtractedValues = (value: unknown): value is Record<string, unknown> =>
 const hasExtractionFailures = (value: unknown): value is { slug: string; error: string }[] =>
   Array.isArray(value) && value.length > 0;
 
-const getExtractionData = (data: any) => ({
-  ...(hasExtractedValues(data?.extractedValues) ? { extractedValues: data.extractedValues } : {}),
-  ...(hasExtractionFailures(data?.extractionFailures)
-    ? { extractionFailures: data.extractionFailures }
-    : {}),
-});
+const getExtractionData = (data: unknown) => {
+  const source = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+  return {
+    ...(hasExtractedValues(source.extractedValues)
+      ? { extractedValues: source.extractedValues }
+      : {}),
+    ...(hasExtractionFailures(source.extractionFailures)
+      ? { extractionFailures: source.extractionFailures }
+      : {}),
+  };
+};
 
-const hasExtractionData = (data: any) => Object.keys(getExtractionData(data)).length > 0;
+const hasExtractionData = (data: unknown) => Object.keys(getExtractionData(data)).length > 0;
 
-const mergeCachedExtractionData = (part: OmIndexablePart | undefined, cachedData: any) => {
+const mergeCachedExtractionData = (part: OmIndexablePart | undefined, cachedData: unknown) => {
   if (!part?.data || !cachedData) {
     return part;
   }
@@ -187,24 +223,29 @@ const normalizeObservationCycle = (
   const isFailed = !!cycle.failed;
   const isComplete = !!cycle.end;
   const isDisconnected = !!startData.disconnectedAt || (isComplete && !!endData?.disconnectedAt);
-  const status = isFailed
-    ? "failed"
-    : isDisconnected
-      ? "disconnected"
-      : isComplete
-        ? "observed"
-        : "observing";
+  let status: OmCycleViewModel["status"] = "observing";
+  if (isFailed) {
+    status = "failed";
+  } else if (isDisconnected) {
+    status = "disconnected";
+  } else if (isComplete) {
+    status = "observed";
+  }
+
+  let state = "loading";
+  if (isFailed) {
+    state = "failed";
+  } else if (isDisconnected) {
+    state = "disconnected";
+  } else if (isComplete) {
+    state = "complete";
+  }
+
   const omData = {
     ...startData,
     ...(isComplete ? endData : {}),
     ...(isFailed ? failedData : {}),
-    _state: isFailed
-      ? "failed"
-      : isDisconnected
-        ? "disconnected"
-        : isComplete
-          ? "complete"
-          : "loading",
+    _state: state,
   };
 
   return {
@@ -240,15 +281,16 @@ const normalizeBufferingCycle = (
   const isActivated = !!cycle.activation;
   const isComplete = !!cycle.bufferingEnd;
   const isDisconnected = !!startData.disconnectedAt;
-  const status = isFailed
-    ? "buffering-failed"
-    : isDisconnected
-      ? "disconnected"
-      : isComplete
-        ? "buffering-complete"
-        : isActivated
-          ? "activated"
-          : "buffering";
+  let status: OmCycleViewModel["status"] = "buffering";
+  if (isFailed) {
+    status = "buffering-failed";
+  } else if (isDisconnected) {
+    status = "disconnected";
+  } else if (isComplete) {
+    status = "buffering-complete";
+  } else if (isActivated) {
+    status = "activated";
+  }
   const omData: Record<string, unknown> = {
     ...startData,
     ...(isComplete ? endData : {}),
@@ -305,26 +347,26 @@ const toDynamicOmToolPart = (
   cycleId: string,
   type: "observation" | "buffering",
   viewModel: OmCycleViewModel,
-) => ({
-  input: viewModel.omData,
-  output: viewModel.isLoading
-    ? undefined
-    : {
-        omData: viewModel.omData,
-        status:
-          type === "observation"
-            ? viewModel.status === "failed"
-              ? "failed"
-              : viewModel.status === "disconnected"
-                ? "disconnected"
-                : "complete"
-            : viewModel.status,
-      },
-  state: viewModel.isLoading ? "input-available" : "output-available",
-  toolCallId: `om-${type}-${cycleId}`,
-  toolName: OM_TOOL_NAME,
-  type: "dynamic-tool",
-});
+) => {
+  let outputStatus: string = viewModel.status;
+  if (type === "observation") {
+    outputStatus = "complete";
+    if (viewModel.status === "failed") {
+      outputStatus = "failed";
+    } else if (viewModel.status === "disconnected") {
+      outputStatus = "disconnected";
+    }
+  }
+
+  return {
+    input: viewModel.omData,
+    output: viewModel.isLoading ? undefined : { omData: viewModel.omData, status: outputStatus },
+    state: viewModel.isLoading ? "input-available" : "output-available",
+    toolCallId: `om-${type}-${cycleId}`,
+    toolName: OM_TOOL_NAME,
+    type: "dynamic-tool",
+  };
+};
 
 const hasTerminalPart = (cycle: OmCycleParts | undefined, type: "observation" | "buffering") =>
   type === "observation"
@@ -338,6 +380,79 @@ const isTerminalPartForType = (partType: string, type: "observation" | "bufferin
       partType === "data-om-buffering-failed" ||
       partType === "data-om-activation";
 
+const convertStartPart = (
+  cycleId: string,
+  type: "observation" | "buffering",
+  messageOmParts: Map<string, OmCycleParts>,
+  globalOmParts: Map<string, OmCycleParts>,
+) => {
+  const messageCycle = messageOmParts.get(cycleId);
+  if (!messageCycle) {
+    return;
+  }
+
+  const globalCycle = globalOmParts.get(cycleId);
+  const isolatedCycle =
+    type === "observation"
+      ? { start: messageCycle.start }
+      : { bufferingStart: messageCycle.bufferingStart };
+  const cycle = hasTerminalPart(globalCycle, type) ? (globalCycle ?? messageCycle) : isolatedCycle;
+  const viewModel = normalizeOmCycle(cycleId, cycle, type);
+  return viewModel ? toDynamicOmToolPart(cycleId, type, viewModel) : undefined;
+};
+
+const convertTerminalPart = (
+  cycleId: string,
+  partType: string,
+  type: "observation" | "buffering",
+  messageOmParts: Map<string, OmCycleParts>,
+  globalOmParts: Map<string, OmCycleParts>,
+) => {
+  const messageCycle = messageOmParts.get(cycleId);
+  const cycle = globalOmParts.get(cycleId);
+  const hasStart =
+    type === "observation"
+      ? messageCycle?.start || cycle?.start
+      : messageCycle?.bufferingStart || cycle?.bufferingStart;
+  if (hasStart || !cycle) {
+    return;
+  }
+
+  const activationAlreadyFinished =
+    type === "buffering" &&
+    partType === "data-om-activation" &&
+    (messageCycle?.bufferingEnd || messageCycle?.bufferingFailed);
+  if (activationAlreadyFinished) {
+    return;
+  }
+
+  const viewModel = normalizeOmCycle(cycleId, cycle, type);
+  return viewModel ? toDynamicOmToolPart(cycleId, type, viewModel) : undefined;
+};
+
+const convertOmPart = (
+  part: MastraDBMessage["content"]["parts"][number],
+  messageOmParts: Map<string, OmCycleParts>,
+  globalOmParts: Map<string, OmCycleParts>,
+) => {
+  const cycleId = asFlexiblePart(part).data?.cycleId;
+  const partType = part.type as string;
+
+  if (partType === "data-om-observation-start" && typeof cycleId === "string") {
+    return convertStartPart(cycleId, "observation", messageOmParts, globalOmParts);
+  }
+  if (partType === "data-om-buffering-start" && typeof cycleId === "string") {
+    return convertStartPart(cycleId, "buffering", messageOmParts, globalOmParts);
+  }
+  if (typeof cycleId === "string" && isTerminalPartForType(partType, "observation")) {
+    return convertTerminalPart(cycleId, partType, "observation", messageOmParts, globalOmParts);
+  }
+  if (typeof cycleId === "string" && isTerminalPartForType(partType, "buffering")) {
+    return convertTerminalPart(cycleId, partType, "buffering", messageOmParts, globalOmParts);
+  }
+  return partType.startsWith("data-om-") ? undefined : part;
+};
+
 export const convertOmPartsInMastraMessage = (
   message: MastraDBMessage,
   globalOmParts: Map<string, OmCycleParts>,
@@ -350,78 +465,12 @@ export const convertOmPartsInMastraMessage = (
     message.content.parts,
     new Map<string, OmCycleParts>(),
   );
-  const convertedParts: any[] = [];
+  const convertedParts: unknown[] = [];
 
   for (const part of message.content.parts) {
-    const cycleId = (part as any).data?.cycleId;
-    const partType = part.type as string;
-
-    if (partType === "data-om-observation-start" && cycleId) {
-      const messageCycle = messageOmParts.get(cycleId);
-      const globalCycle = globalOmParts.get(cycleId);
-      if (!messageCycle) {
-        continue;
-      }
-      const cycle = hasTerminalPart(globalCycle, "observation")
-        ? (globalCycle ?? messageCycle)
-        : { start: messageCycle.start };
-      const viewModel = normalizeOmCycle(cycleId, cycle, "observation");
-      if (!viewModel) {
-        continue;
-      }
-      convertedParts.push(toDynamicOmToolPart(cycleId, "observation", viewModel));
-    } else if (partType === "data-om-buffering-start" && cycleId) {
-      const messageCycle = messageOmParts.get(cycleId);
-      const globalCycle = globalOmParts.get(cycleId);
-      if (!messageCycle) {
-        continue;
-      }
-      const cycle = hasTerminalPart(globalCycle, "buffering")
-        ? (globalCycle ?? messageCycle)
-        : { bufferingStart: messageCycle.bufferingStart };
-      const viewModel = normalizeOmCycle(cycleId, cycle, "buffering");
-      if (!viewModel) {
-        continue;
-      }
-      convertedParts.push(toDynamicOmToolPart(cycleId, "buffering", viewModel));
-    } else if (cycleId && isTerminalPartForType(partType, "observation")) {
-      const messageCycle = messageOmParts.get(cycleId);
-      const cycle = globalOmParts.get(cycleId);
-      if (messageCycle?.start || cycle?.start) {
-        continue;
-      }
-      if (!cycle) {
-        continue;
-      }
-      const viewModel = normalizeOmCycle(cycleId, cycle, "observation");
-      if (!viewModel) {
-        continue;
-      }
-      convertedParts.push(toDynamicOmToolPart(cycleId, "observation", viewModel));
-    } else if (cycleId && isTerminalPartForType(partType, "buffering")) {
-      const messageCycle = messageOmParts.get(cycleId);
-      const cycle = globalOmParts.get(cycleId);
-      if (messageCycle?.bufferingStart || cycle?.bufferingStart) {
-        continue;
-      }
-      if (
-        partType === "data-om-activation" &&
-        (messageCycle?.bufferingEnd || messageCycle?.bufferingFailed)
-      ) {
-        continue;
-      }
-      if (!cycle) {
-        continue;
-      }
-      const viewModel = normalizeOmCycle(cycleId, cycle, "buffering");
-      if (!viewModel) {
-        continue;
-      }
-      convertedParts.push(toDynamicOmToolPart(cycleId, "buffering", viewModel));
-    } else if (partType?.startsWith("data-om-")) {
-      continue;
-    } else {
-      convertedParts.push(part);
+    const convertedPart = convertOmPart(part, messageOmParts, globalOmParts);
+    if (convertedPart) {
+      convertedParts.push(convertedPart);
     }
   }
 
@@ -446,7 +495,10 @@ export const convertOmPartsInMastraMessage = (
 
 const mapAssistantParts = (
   messages: MastraDBMessage[],
-  mapParts: (parts: any[]) => { parts: any[]; changed: boolean },
+  mapParts: (parts: FlexibleMessagePart[]) => {
+    parts: FlexibleMessagePart[];
+    changed: boolean;
+  },
 ): MastraDBMessage[] =>
   messages.map((msg) => {
     if (msg.role !== "assistant") {
@@ -457,7 +509,7 @@ const mapAssistantParts = (
       return msg;
     }
 
-    const { parts: nextParts, changed } = mapParts(parts as any[]);
+    const { parts: nextParts, changed } = mapParts(parts.map(asFlexiblePart));
     if (!changed) {
       return msg;
     }
@@ -479,7 +531,8 @@ const collectTerminalCycleIds = (messages: MastraDBMessage[]) => {
       continue;
     }
 
-    for (const part of parts as any[]) {
+    for (const rawPart of parts) {
+      const part = asFlexiblePart(rawPart);
       const cycleId = part?.data?.cycleId;
       if (!cycleId) {
         continue;
@@ -502,6 +555,49 @@ const collectTerminalCycleIds = (messages: MastraDBMessage[]) => {
   return { activatedBuffering, buffering, observation };
 };
 
+function disconnectStartPart(
+  part: FlexibleMessagePart,
+  terminalCycleIds: Set<string>,
+): { changed: boolean; part: FlexibleMessagePart } {
+  const cycleId = part.data?.cycleId;
+  if (typeof cycleId !== "string" || part.data?.disconnectedAt || terminalCycleIds.has(cycleId)) {
+    return { changed: false, part };
+  }
+
+  return {
+    changed: true,
+    part: {
+      ...part,
+      data: { ...part.data, _state: "disconnected", disconnectedAt: new Date().toISOString() },
+    },
+  };
+}
+
+function disconnectToolPart(part: FlexibleMessagePart): {
+  changed: boolean;
+  part: FlexibleMessagePart;
+} {
+  if (part.type !== "tool-call" || part.toolName !== OM_TOOL_NAME) {
+    return { changed: false, part };
+  }
+
+  const omData = part.metadata?.omData || part.args;
+  if (omData?.completedAt || omData?.failedAt || omData?.disconnectedAt) {
+    return { changed: false, part };
+  }
+
+  return {
+    changed: true,
+    part: {
+      ...part,
+      metadata: {
+        ...part.metadata,
+        omData: { ...omData, _state: "disconnected", disconnectedAt: new Date().toISOString() },
+      },
+    },
+  };
+}
+
 /**
  * Mark in-progress OM markers as disconnected when a stream is interrupted
  * (user cancel, network error, process exit). Preserves the original part type so
@@ -516,52 +612,17 @@ export const markOmMarkersAsDisconnected = (messages: MastraDBMessage[]): Mastra
 
   return mapAssistantParts(messages, (parts) => {
     let changed = false;
-    const nextParts = parts.map((part: any) => {
-      // Raw start markers (keep original type for badge anchoring).
+    const nextParts = parts.map((part) => {
+      let result: { changed: boolean; part: FlexibleMessagePart };
       if (part.type === "data-om-observation-start") {
-        const cycleId = part.data?.cycleId;
-        if (!cycleId || part.data?.disconnectedAt || terminalCycleIds.observation.has(cycleId)) {
-          return part;
-        }
-
-        changed = true;
-        return {
-          ...part,
-          data: { ...part.data, _state: "disconnected", disconnectedAt: new Date().toISOString() },
-        };
+        result = disconnectStartPart(part, terminalCycleIds.observation);
+      } else if (part.type === "data-om-buffering-start") {
+        result = disconnectStartPart(part, disconnectedBufferingCycleIds);
+      } else {
+        result = disconnectToolPart(part);
       }
-
-      if (part.type === "data-om-buffering-start") {
-        const cycleId = part.data?.cycleId;
-        if (!cycleId || part.data?.disconnectedAt || disconnectedBufferingCycleIds.has(cycleId)) {
-          return part;
-        }
-
-        changed = true;
-        return {
-          ...part,
-          data: { ...part.data, _state: "disconnected", disconnectedAt: new Date().toISOString() },
-        };
-      }
-      // Already-converted tool-call format still in a loading state.
-      if (part.type === "tool-call" && part.toolName === OM_TOOL_NAME) {
-        const omData = part.metadata?.omData || part.args;
-        if (!omData?.completedAt && !omData?.failedAt && !omData?.disconnectedAt) {
-          changed = true;
-          return {
-            ...part,
-            metadata: {
-              ...part.metadata,
-              omData: {
-                ...omData,
-                _state: "disconnected",
-                disconnectedAt: new Date().toISOString(),
-              },
-            },
-          };
-        }
-      }
-      return part;
+      changed ||= result.changed;
+      return result.part;
     });
     return { changed, parts: nextParts };
   });
@@ -582,7 +643,8 @@ export const hasInProgressBufferingMarkers = (messages: MastraDBMessage[]) => {
       continue;
     }
 
-    for (const part of parts as any[]) {
+    for (const rawPart of parts) {
+      const part = asFlexiblePart(rawPart);
       const cycleId = part?.data?.cycleId;
       if (
         part.type === "data-om-buffering-start" &&
@@ -609,9 +671,9 @@ export const hasInProgressBufferingMarkers = (messages: MastraDBMessage[]) => {
 
 export const injectBufferingEnds = (
   messages: MastraDBMessage[],
-  record?: any,
+  record?: BufferRecord | null,
 ): MastraDBMessage[] => {
-  const chunksByCycleId = new Map<string, any>();
+  const chunksByCycleId = new Map<string, BufferRecord>();
   const terminalCycleIds = collectTerminalCycleIds(messages).buffering;
 
   if (record?.bufferedObservationChunks) {
@@ -623,7 +685,7 @@ export const injectBufferingEnds = (
   }
 
   return mapAssistantParts(messages, (parts) => {
-    const newParts: any[] = [];
+    const newParts: FlexibleMessagePart[] = [];
     let changed = false;
 
     for (const part of parts) {
@@ -658,7 +720,7 @@ export const injectBufferingEnds = (
         const { cycleId } = part.data;
         const opType = part.data.operationType;
 
-        const endData: Record<string, any> = {
+        const endData: Record<string, unknown> = {
           completedAt: new Date().toISOString(),
           cycleId,
           operationType: opType,
@@ -705,7 +767,8 @@ export const scanOmInitialState = (
     if (!Array.isArray(parts)) {
       continue;
     }
-    for (const part of parts as any[]) {
+    for (const rawPart of parts) {
+      const part = asFlexiblePart(rawPart);
       if (part?.type === "data-om-activation" && part?.data?.cycleId) {
         activatedCycleIds.push(part.data.cycleId);
       }

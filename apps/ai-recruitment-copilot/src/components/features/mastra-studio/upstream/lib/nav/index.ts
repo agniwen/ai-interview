@@ -5,8 +5,6 @@ import type {
   RouteHeaderHandle,
 } from "@/components/features/mastra-studio/upstream/lib/route-header";
 
-export * from "./nav-items";
-
 type NavCrumbOverrides = Partial<Pick<CrumbDef, "id" | "label" | "heading" | "to" | "icon">>;
 
 /** Crumb derived from the nav registry — guarantees icon/label parity with the sidebar. */

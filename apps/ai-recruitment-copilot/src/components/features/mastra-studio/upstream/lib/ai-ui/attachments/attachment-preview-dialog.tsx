@@ -16,7 +16,29 @@ interface PdfEntryProps {
 
 const ctaClassName = "h-full w-full flex items-center justify-center";
 
-export const PdfEntry = ({ data, url }: PdfEntryProps) => {
+interface PdfPreviewDialogProps {
+  data: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function PdfPreviewDialog({ data, open, onOpenChange }: PdfPreviewDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>PDF preview</DialogTitle>
+          <DialogDescription>Preview of the PDF document</DialogDescription>
+        </DialogHeader>
+        <DialogBody>
+          {open && <iframe title="PDF document preview" src={data} width="100%" height="600px" />}
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function PdfEntry({ data, url }: PdfEntryProps) {
   const [open, setOpen] = useState(false);
 
   if (url) {
@@ -36,25 +58,7 @@ export const PdfEntry = ({ data, url }: PdfEntryProps) => {
       <PdfPreviewDialog data={data} open={open} onOpenChange={setOpen} />
     </>
   );
-};
-
-interface PdfPreviewDialogProps {
-  data: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
 }
-
-export const PdfPreviewDialog = ({ data, open, onOpenChange }: PdfPreviewDialogProps) => (
-  <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent className="max-w-4xl">
-      <DialogHeader>
-        <DialogTitle>PDF preview</DialogTitle>
-        <DialogDescription>Preview of the PDF document</DialogDescription>
-      </DialogHeader>
-      <DialogBody>{open && <iframe src={data} width="100%" height="600px"></iframe>}</DialogBody>
-    </DialogContent>
-  </Dialog>
-);
 
 interface FileChipEntryProps {
   /** Display label (usually the filename or URL). */
@@ -108,46 +112,76 @@ interface ImageEntryProps {
   src: string;
 }
 
-export const ImageEntry = ({ src }: ImageEntryProps) => {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <>
-      <button onClick={() => setOpen(true)} type="button" className={ctaClassName}>
-        <img
-          src={src}
-          className="object-cover aspect-ratio max-h-[140px] max-w-[320px]"
-          alt="Preview"
-        />
-      </button>
-      <ImagePreviewDialog src={src} open={open} onOpenChange={setOpen} />
-    </>
-  );
-};
-
 interface ImagePreviewDialogProps {
   src: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export const ImagePreviewDialog = ({ src, open, onOpenChange }: ImagePreviewDialogProps) => (
-  <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent className="max-w-4xl">
-      <DialogHeader>
-        <DialogTitle>Image preview</DialogTitle>
-        <DialogDescription>Preview of the image</DialogDescription>
-      </DialogHeader>
-      <DialogBody>{open && <img src={src} alt="Image" />}</DialogBody>
-    </DialogContent>
-  </Dialog>
-);
+export function ImagePreviewDialog({ src, open, onOpenChange }: ImagePreviewDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>Image preview</DialogTitle>
+          <DialogDescription>Preview of the image</DialogDescription>
+        </DialogHeader>
+        <DialogBody>
+          {open && (
+            <div
+              aria-label="Image preview"
+              className="h-[70vh] w-full bg-contain bg-center bg-no-repeat"
+              style={{ backgroundImage: `url(${src})` }}
+            />
+          )}
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function ImageEntry({ src }: ImageEntryProps) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <button onClick={() => setOpen(true)} type="button" className={ctaClassName}>
+        <span
+          aria-label="Attachment preview"
+          style={{ backgroundImage: `url(${src})` }}
+          className="block size-full bg-cover bg-center"
+        />
+      </button>
+      <ImagePreviewDialog src={src} open={open} onOpenChange={setOpen} />
+    </>
+  );
+}
 
 interface TxtEntryProps {
   data: string;
 }
 
-export const TxtEntry = ({ data }: TxtEntryProps) => {
+interface TxtPreviewDialogProps {
+  data: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function TxtPreviewDialog({ data, open, onOpenChange }: TxtPreviewDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl h-[80vh]">
+        <DialogHeader>
+          <DialogTitle>Text preview</DialogTitle>
+          <DialogDescription>Preview of the text file</DialogDescription>
+        </DialogHeader>
+        <DialogBody>{open && <div className="whitespace-pre-wrap">{data}</div>}</DialogBody>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function TxtEntry({ data }: TxtEntryProps) {
   const [open, setOpen] = useState(false);
 
   // assistant-ui wraps txt related files with something like <attachment name=text.txt>
@@ -162,22 +196,4 @@ export const TxtEntry = ({ data }: TxtEntryProps) => {
       <TxtPreviewDialog data={formattedContent} open={open} onOpenChange={setOpen} />
     </>
   );
-};
-
-interface TxtPreviewDialogProps {
-  data: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
 }
-
-export const TxtPreviewDialog = ({ data, open, onOpenChange }: TxtPreviewDialogProps) => (
-  <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent className="max-w-4xl h-[80vh]">
-      <DialogHeader>
-        <DialogTitle>Text preview</DialogTitle>
-        <DialogDescription>Preview of the text file</DialogDescription>
-      </DialogHeader>
-      <DialogBody>{open && <div className="whitespace-pre-wrap">{data}</div>}</DialogBody>
-    </DialogContent>
-  </Dialog>
-);

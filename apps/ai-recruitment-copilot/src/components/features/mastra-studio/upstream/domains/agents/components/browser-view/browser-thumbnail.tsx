@@ -5,6 +5,7 @@ import { Monitor, ChevronUp, ChevronDown, Maximize2, X } from "lucide-react";
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useBrowserFrame, useBrowserSession } from "../../context/browser-session-context";
 import { useBrowserToolCalls } from "../../context/browser-tool-calls-context";
+import { OptimizedImage } from "../../utils/optimized-image";
 import { BrowserToolCallItem } from "./browser-tool-call-item";
 import { BrowserViewFrame } from "./browser-view-frame";
 
@@ -110,7 +111,11 @@ export function BrowserThumbnail({ agentName = "Agent" }: BrowserThumbnailProps)
         {/* Thumbnail preview */}
         <div className="relative shrink-0 w-24 h-14 bg-surface3 rounded-md overflow-hidden border border-border1">
           {hasFrame ? (
-            <img ref={imgRef} alt="Browser preview" className="w-full h-full object-cover" />
+            <OptimizedImage
+              ref={imgRef}
+              alt="Browser preview"
+              className="w-full h-full object-cover"
+            />
           ) : (
             <div className="flex items-center justify-center w-full h-full">
               <Monitor className="h-5 w-5 text-neutral3" />

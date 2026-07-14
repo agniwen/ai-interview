@@ -3,7 +3,15 @@ import { Skeleton } from "@mastra/playground-ui/components/Skeleton";
 import { cn } from "@mastra/playground-ui/utils/cn";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { useState, useMemo } from "react";
-import { useMemoryConfig } from "@/components/features/mastra-studio/upstream/domains/memory/hooks";
+import { useMemoryConfig } from "@/components/features/mastra-studio/upstream/domains/memory/hooks/use-memory";
+import { resolveConditional } from "../../utils/conditional";
+
+function formatMessageRange(value: number | { before: number; after: number } | undefined): string {
+  if (typeof value === "object") {
+    return `${value.before || 1} before, ${value.after || 1} after`;
+  }
+  return value === undefined ? "1 before, 1 after" : `${value} before, ${value} after`;
+}
 
 interface MemoryConfigSection {
   title: string;
@@ -72,11 +80,14 @@ function MemoryConfigValue({
       <span
         className={cn(
           "text-xs font-medium px-2 py-0.5 rounded",
-          value
-            ? badge === "info"
-              ? "dark:bg-blue-500/20 dark:text-blue-400 bg-blue-500/10 text-blue-600"
-              : "dark:bg-green-500/20 dark:text-green-400 bg-green-500/10 text-green-600"
-            : "dark:bg-red-500/20 dark:text-red-400 bg-red-500/10 text-red-600",
+          resolveConditional(
+            value,
+            () =>
+              badge === "info"
+                ? "dark:bg-blue-500/20 dark:text-blue-400 bg-blue-500/10 text-blue-600"
+                : "dark:bg-green-500/20 dark:text-green-400 bg-green-500/10 text-green-600",
+            () => "dark:bg-red-500/20 dark:text-red-400 bg-red-500/10 text-red-600",
+          ),
         )}
       >
         {value ? "Yes" : "No"}
@@ -95,6 +106,87 @@ function MemoryConfigValue({
   return <span className="text-xs text-neutral3">{value}</span>;
 }
 
+function getInfoBadge(enabled: boolean | undefined): MemoryConfigBadge | undefined {
+  if (enabled) {
+    return "info";
+  }
+  return undefined;
+}
+
+function buildGeneralSection(config: DisplayMemoryConfig): MemoryConfigSection {
+  return {
+    items: [
+      { badge: "success", label: "Memory Enabled", value: true },
+      { label: "Last Messages", value: config.lastMessages || 0 },
+      {
+        badge: getInfoBadge(config.generateTitle),
+        label: "Auto-generate Titles",
+        value: Boolean(config.generateTitle),
+      },
+    ],
+    title: "General",
+  };
+}
+
+function buildSemanticSection(
+  semanticRecall: DisplayMemoryConfig["semanticRecall"],
+): MemoryConfigSection | undefined {
+  if (!semanticRecall) {
+    return undefined;
+  }
+  const config = typeof semanticRecall === "object" ? semanticRecall : ({} as SemanticRecall);
+  return {
+    items: [
+      { badge: "success", label: "Enabled", value: true },
+      { label: "Scope", value: config.scope || "resource" },
+      { label: "Top K Results", value: config.topK || 4 },
+      { label: "Message Range", value: formatMessageRange(config.messageRange) },
+    ],
+    title: "Semantic Recall",
+  };
+}
+
+type ObservationalMemoryConfig = Exclude<DisplayMemoryConfig["observationalMemory"], boolean>;
+
+function buildObservationalSection(
+  observationalMemory: DisplayMemoryConfig["observationalMemory"],
+): MemoryConfigSection | undefined {
+  if (!observationalMemory) {
+    return undefined;
+  }
+  const config: ObservationalMemoryConfig =
+    typeof observationalMemory === "object" ? observationalMemory : {};
+  if (config.enabled === false) {
+    return undefined;
+  }
+  const observationModel = config.observationModel || config.model || config.observation?.model;
+  const reflectionModel = config.reflectionModel || config.model || config.reflection?.model;
+  const items: MemoryConfigSection["items"] = [
+    { badge: "success", label: "Enabled", value: true },
+    { label: "Scope", value: config.scope || "thread" },
+    { label: "Message Tokens", value: formatThreshold(config.observation?.messageTokens) },
+    { label: "Observation Tokens", value: formatThreshold(config.reflection?.observationTokens) },
+  ];
+  if (observationModel) {
+    items.push({ label: "Observation Model", value: String(observationModel) });
+  }
+  if (reflectionModel) {
+    items.push({ label: "Reflection Model", value: String(reflectionModel) });
+  }
+  return { items, title: "Observational Memory" };
+}
+
+function buildConfigSections(config: DisplayMemoryConfig | undefined): MemoryConfigSection[] {
+  if (!config) {
+    return [];
+  }
+  return [
+    buildGeneralSection(config),
+    buildSemanticSection(config.semanticRecall),
+    buildObservationalSection(config.observationalMemory),
+  ].filter((section): section is MemoryConfigSection => section !== undefined);
+}
+
 export const AgentMemoryConfig = ({ agentId }: AgentMemoryConfigProps) => {
   const { data, isLoading } = useMemoryConfig(agentId);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
@@ -102,105 +194,7 @@ export const AgentMemoryConfig = ({ agentId }: AgentMemoryConfigProps) => {
   );
 
   const config = data?.config as DisplayMemoryConfig | undefined;
-  const configSections: MemoryConfigSection[] = useMemo(() => {
-    if (!config) {
-      return [];
-    }
-
-    // Memory is enabled if we have a config
-    const memoryEnabled = !!config;
-
-    const sections: MemoryConfigSection[] = [
-      {
-        items: [
-          {
-            badge: memoryEnabled ? "success" : undefined,
-            label: "Memory Enabled",
-            value: memoryEnabled,
-          },
-          { label: "Last Messages", value: config.lastMessages || 0 },
-          {
-            badge: config.generateTitle ? "info" : undefined,
-            label: "Auto-generate Titles",
-            value: !!config.generateTitle,
-          },
-        ],
-        title: "General",
-      },
-    ];
-
-    // Semantic Recall section
-    if (config.semanticRecall) {
-      const enabled = Boolean(config.semanticRecall);
-      const semanticRecall =
-        typeof config.semanticRecall === "object" ? config.semanticRecall : ({} as SemanticRecall);
-
-      sections.push({
-        items: [
-          { badge: enabled ? "success" : undefined, label: "Enabled", value: enabled },
-          ...(enabled
-            ? [
-                { label: "Scope", value: semanticRecall.scope || "resource" },
-                { label: "Top K Results", value: semanticRecall.topK || 4 },
-                {
-                  label: "Message Range",
-                  value:
-                    typeof semanticRecall.messageRange === "object"
-                      ? `${semanticRecall.messageRange.before || 1} before, ${semanticRecall.messageRange.after || 1} after`
-                      : semanticRecall.messageRange !== undefined
-                        ? `${semanticRecall.messageRange} before, ${semanticRecall.messageRange} after`
-                        : "1 before, 1 after",
-                },
-              ]
-            : []),
-        ],
-        title: "Semantic Recall",
-      });
-    }
-
-    // Observational Memory section
-    const omConfig = config.observationalMemory;
-    const isOmConfigObject = omConfig !== null && typeof omConfig === "object";
-    const isObservationalMemoryEnabled =
-      omConfig === true || (isOmConfigObject && omConfig.enabled !== false);
-
-    if (isObservationalMemoryEnabled) {
-      const observationModel = isOmConfigObject
-        ? omConfig.observationModel || omConfig.model || omConfig.observation?.model
-        : undefined;
-      const reflectionModel = isOmConfigObject
-        ? omConfig.reflectionModel || omConfig.model || omConfig.reflection?.model
-        : undefined;
-
-      sections.push({
-        items: [
-          { badge: "success", label: "Enabled", value: true },
-          { label: "Scope", value: isOmConfigObject ? omConfig.scope || "thread" : "thread" },
-          {
-            label: "Message Tokens",
-            value: formatThreshold(
-              isOmConfigObject ? omConfig.observation?.messageTokens : undefined,
-            ),
-          },
-          {
-            label: "Observation Tokens",
-            value: formatThreshold(
-              isOmConfigObject ? omConfig.reflection?.observationTokens : undefined,
-            ),
-          },
-          ...(observationModel
-            ? [{ label: "Observation Model", value: String(observationModel) }]
-            : []),
-          ...(reflectionModel
-            ? [{ label: "Reflection Model", value: String(reflectionModel) }]
-            : []),
-        ],
-        title: "Observational Memory",
-      });
-    }
-
-    return sections;
-  }, [config]);
+  const configSections = useMemo(() => buildConfigSections(config), [config]);
 
   const toggleSection = (title: string) => {
     const newExpanded = new Set(expandedSections);

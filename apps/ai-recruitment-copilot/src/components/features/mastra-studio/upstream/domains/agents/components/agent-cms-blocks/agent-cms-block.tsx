@@ -28,7 +28,7 @@ import type {
   InlineInstructionBlock,
 } from "../agent-edit-page/utils/form-validation";
 import { AgentCMSRefBlock } from "./agent-cms-ref-block";
-import { DisplayConditionsDialog } from "@/components/features/mastra-studio/upstream/domains/cms";
+import { DisplayConditionsDialog } from "@/components/features/mastra-studio/upstream/domains/cms/components/display-conditions/display-conditions-dialog";
 import { useStoredPromptBlockMutations } from "@/components/features/mastra-studio/upstream/domains/prompt-blocks";
 
 export interface AgentCMSBlockProps {

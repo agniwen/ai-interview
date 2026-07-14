@@ -56,33 +56,141 @@ function versionToText(version: DatasetItemVersion): string {
   );
 }
 
+function parseVersionNumbers(value: string | null): number[] {
+  if (!value) {
+    return [];
+  }
+  return value
+    .split(",")
+    .map(Number)
+    .filter((version) => !Number.isNaN(version) && version > 0);
+}
+
+function normalizeRouteParam(value: string | undefined): string {
+  return value ?? "";
+}
+
+function getComparedVersion(versionNumbers: number[], index: number): number {
+  return versionNumbers[index] ?? 0;
+}
+
+function CompareVersionColumn({
+  datasetId,
+  itemId,
+  datasetVersion,
+  latestVersion,
+  allVersions,
+  versionNumbers,
+  LinkComponent,
+  idx,
+  showContent = true,
+  onVersionChange,
+}: {
+  datasetId: string;
+  itemId: string;
+  datasetVersion: number;
+  latestVersion?: number;
+  allVersions: DatasetItemVersion[];
+  versionNumbers: number[];
+  LinkComponent: ReturnType<typeof useLinkComponent>["Link"];
+  idx: number;
+  showContent?: boolean;
+  onVersionChange: (newVersion: number) => void;
+}) {
+  const { data: version, isLoading } = useDatasetItemVersion(
+    datasetId,
+    itemId,
+    datasetVersion,
+    latestVersion,
+  );
+  const otherVersionNumbers = new Set(versionNumbers.filter((_, i) => i !== idx));
+  const options = allVersions.map((v) => {
+    const date = typeof v.updatedAt === "string" ? new Date(v.updatedAt) : v.updatedAt;
+    return {
+      disabled: otherVersionNumbers.has(v.datasetVersion),
+      label: (
+        <>
+          <b>v. {v.datasetVersion}</b> - {format(date, "MMM d, yyyy h:mm a")}
+          {v.isLatest ? (
+            <Chip color="blue" size="small">
+              Latest
+            </Chip>
+          ) : null}
+        </>
+      ),
+      value: String(v.datasetVersion),
+    };
+  });
+  const displayItem = version
+    ? {
+        createdAt: version.createdAt,
+        datasetId,
+        datasetVersion: version.datasetVersion,
+        groundTruth: version.groundTruth,
+        id: version.id,
+        input: version.input,
+        metadata: version.metadata,
+        updatedAt: version.updatedAt,
+      }
+    : null;
+  let columnContent = (
+    <div className="text-neutral4 text-sm">Version {datasetVersion} not found</div>
+  );
+  if (isLoading) {
+    columnContent = <div className="text-neutral4 text-sm">Loading...</div>;
+  } else if (version && displayItem) {
+    columnContent = <DatasetItemContent item={displayItem} Link={LinkComponent} />;
+  }
+  return (
+    <Column>
+      <Column.Toolbar className="grid gap-4 grid-cols-[auto_1fr]">
+        <HistoryIcon className="w-6 h-6 opacity-50" />
+        <Select
+          name={`compare-version-${idx}`}
+          value={String(datasetVersion)}
+          onValueChange={(val: string) => onVersionChange(Number(val))}
+        >
+          <SelectTrigger aria-label="Version" className="w-full">
+            <SelectValue placeholder="Select version" />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value} disabled={option.disabled}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Column.Toolbar>
+      {showContent && <Column.Content>{columnContent}</Column.Content>}
+    </Column>
+  );
+}
+
 function DatasetItemVersionsComparePage() {
   const { datasetId, itemId } = useParams<{ datasetId: string; itemId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const [isDiffView, setIsDiffView] = useState<boolean>(false);
+  const resolvedDatasetId = normalizeRouteParam(datasetId);
+  const resolvedItemId = normalizeRouteParam(itemId);
 
   // ?ids=2,5 — direct dataset version numbers
-  const versionNumbers =
-    searchParams
-      .get("ids")
-      ?.split(",")
-      .map(Number)
-      .filter((n) => !isNaN(n) && n > 0) ?? [];
+  const versionNumbers = parseVersionNumbers(searchParams.get("ids"));
 
-  const { data: dataset, error } = useDataset(datasetId ?? "");
+  const { data: dataset, error } = useDataset(resolvedDatasetId);
   const { Link: FrameworkLink } = useLinkComponent();
-  const { data: allVersions } = useDatasetItemVersions(datasetId ?? "", itemId ?? "");
+  const { data: allVersions } = useDatasetItemVersions(resolvedDatasetId, resolvedItemId);
 
   const { data: versionA } = useDatasetItemVersion(
-    datasetId ?? "",
-    itemId ?? "",
-    versionNumbers[0] ?? 0,
+    resolvedDatasetId,
+    resolvedItemId,
+    getComparedVersion(versionNumbers, 0),
     dataset?.version,
   );
   const { data: versionB } = useDatasetItemVersion(
-    datasetId ?? "",
-    itemId ?? "",
-    versionNumbers[1] ?? 0,
+    resolvedDatasetId,
+    resolvedItemId,
+    getComparedVersion(versionNumbers, 1),
     dataset?.version,
   );
 
@@ -178,7 +286,7 @@ function DatasetItemVersionsComparePage() {
                   latestVersion={dataset?.version}
                   allVersions={allVersions ?? []}
                   versionNumbers={versionNumbers}
-                  Link={FrameworkLink}
+                  LinkComponent={FrameworkLink}
                   idx={idx}
                   showContent={!isDiffView}
                   onVersionChange={(newVersion: number) => {
@@ -197,105 +305,6 @@ function DatasetItemVersionsComparePage() {
         </div>
       </div>
     </MainContentLayout>
-  );
-}
-
-function CompareVersionColumn({
-  datasetId,
-  itemId,
-  datasetVersion,
-  latestVersion,
-  allVersions,
-  versionNumbers,
-  Link,
-  idx,
-  showContent = true,
-  onVersionChange,
-}: {
-  datasetId: string;
-  itemId: string;
-  datasetVersion: number;
-  latestVersion?: number;
-  allVersions: DatasetItemVersion[];
-  versionNumbers: number[];
-  Link: ReturnType<typeof useLinkComponent>["Link"];
-  idx: number;
-  showContent?: boolean;
-  onVersionChange: (newVersion: number) => void;
-}) {
-  const { data: version, isLoading } = useDatasetItemVersion(
-    datasetId,
-    itemId,
-    datasetVersion,
-    latestVersion,
-  );
-
-  const otherVersionNumbers = new Set(versionNumbers.filter((_, i) => i !== idx));
-  const options = allVersions.map((v) => {
-    const date = typeof v.updatedAt === "string" ? new Date(v.updatedAt) : v.updatedAt;
-    return {
-      disabled: otherVersionNumbers.has(v.datasetVersion),
-      label: (
-        <>
-          <b>v. {v.datasetVersion}</b> - {format(date, "MMM d, yyyy h:mm a")}
-          {v.isLatest ? (
-            <Chip color="blue" size="small">
-              Latest
-            </Chip>
-          ) : null}
-        </>
-      ),
-      value: String(v.datasetVersion),
-    };
-  });
-
-  const displayItem = version
-    ? {
-        createdAt: version.createdAt,
-        datasetId,
-        datasetVersion: version.datasetVersion,
-        groundTruth: version.groundTruth,
-        id: version.id,
-        input: version.input,
-        metadata: version.metadata,
-        updatedAt: version.updatedAt,
-      }
-    : null;
-
-  return (
-    <Column>
-      <Column.Toolbar className="grid gap-4 grid-cols-[auto_1fr]">
-        <HistoryIcon className="w-6 h-6 opacity-50" />
-        <Select
-          name={`compare-version-${idx}`}
-          value={String(datasetVersion)}
-          onValueChange={(val: string) => onVersionChange(Number(val))}
-        >
-          <SelectTrigger aria-label="Version" className="w-full">
-            <SelectValue placeholder="Select version" />
-          </SelectTrigger>
-          <SelectContent>
-            {options.map((option) => (
-              <SelectItem key={option.value} value={option.value} disabled={option.disabled}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Column.Toolbar>
-
-      {showContent && (
-        <Column.Content>
-          {isLoading ? (
-            <div className="text-neutral4 text-sm">Loading...</div>
-          ) : !version || !displayItem ? (
-            <div className="text-neutral4 text-sm">Version {datasetVersion} not found</div>
-          ) : (
-            <DatasetItemContent item={displayItem} Link={Link} />
-          )}
-        </Column.Content>
-      )}
-    </Column>
   );
 }
 

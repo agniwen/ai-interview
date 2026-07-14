@@ -108,11 +108,14 @@ export function TemplateForm({
                 This model will be used by the workflow to process and install the template
               </p>
 
+              {/* The template context stays open after a model selection. */}
               <AgentMetadataModelSwitcher
                 defaultProvider={defaultModelProvider || ""}
                 defaultModel={defaultModelId || ""}
                 updateModel={onModelUpdate || (() => Promise.resolve({ message: "Updated" }))}
-                closeEditor={() => {}} // No need to close in template context
+                closeEditor={() => {
+                  /* empty */
+                }}
                 autoSave={true}
                 selectProviderPlaceholder="Provider"
               />

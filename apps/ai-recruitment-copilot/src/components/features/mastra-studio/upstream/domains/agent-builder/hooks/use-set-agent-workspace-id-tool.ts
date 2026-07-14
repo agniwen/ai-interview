@@ -37,11 +37,11 @@ export function useSetAgentWorkspaceIdTool({
       description: `Set the workspace the agent should belong to. Only use ids from the available workspaces list.${
         availableWorkspacesBlock
       }`,
-      execute: async (inputData: any) => {
-        if (typeof inputData?.workspaceId === "string" && inputData.workspaceId.length > 0) {
+      execute: (inputData: { workspaceId: string }) => {
+        if (inputData.workspaceId.length > 0) {
           formMethods.setValue("workspaceId", inputData.workspaceId, { shouldDirty: true });
         }
-        return { success: true };
+        return Promise.resolve({ success: true });
       },
       id: SET_AGENT_WORKSPACE_ID_TOOL_NAME,
       inputSchema: z.object({

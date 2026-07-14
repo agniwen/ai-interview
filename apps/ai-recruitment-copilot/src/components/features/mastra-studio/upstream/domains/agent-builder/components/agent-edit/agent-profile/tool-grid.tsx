@@ -22,6 +22,18 @@ interface ToolGridProps {
   onToggle: (item: AgentTool, next: boolean) => void;
 }
 
+interface ToolListEmptyStateProps {
+  details: ReactNode;
+}
+
+export const ToolListEmptyState = ({ details }: ToolListEmptyStateProps) => (
+  <div className="flex min-h-0 items-center justify-center px-3 py-6">
+    <Txt variant="ui-md" className="text-neutral3">
+      {details}
+    </Txt>
+  </div>
+);
+
 /**
  * Right pane of the tool picker: search box, "Show only selected" toggle, and
  * the responsive grid of tool cards (or the empty state).
@@ -64,7 +76,7 @@ export const ToolGrid = ({
           </InputGroup>
         </div>
 
-        <label
+        <div
           data-testid="tools-only-selected-filter"
           className={cn(
             "inline-flex items-center gap-2 text-ui-xs text-neutral3 select-none cursor-pointer",
@@ -72,6 +84,7 @@ export const ToolGrid = ({
           )}
         >
           <Checkbox
+            aria-label="Show only selected tools"
             checked={onlySelected}
             onCheckedChange={(value) => onOnlySelectedChange(value === true)}
             disabled={!editable}
@@ -80,7 +93,7 @@ export const ToolGrid = ({
             className="h-3 w-3 shadow-none [&_svg]:h-2.5 [&_svg]:w-2.5 data-[state=checked]:shadow-none"
           />
           <span>Show only selected</span>
-        </label>
+        </div>
       </div>
 
       {tools.length === 0 ? (
@@ -100,15 +113,3 @@ export const ToolGrid = ({
     </div>
   );
 };
-
-interface ToolListEmptyStateProps {
-  details: ReactNode;
-}
-
-export const ToolListEmptyState = ({ details }: ToolListEmptyStateProps) => (
-  <div className="flex min-h-0 items-center justify-center px-3 py-6">
-    <Txt variant="ui-md" className="text-neutral3">
-      {details}
-    </Txt>
-  </div>
-);

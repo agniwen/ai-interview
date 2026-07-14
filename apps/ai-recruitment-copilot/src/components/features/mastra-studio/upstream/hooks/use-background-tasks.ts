@@ -94,7 +94,7 @@ export function useBackgroundTaskStream(
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const readerRef = useRef<ReadableStreamDefaultReader<any> | null>(null);
+  const readerRef = useRef<ReadableStreamDefaultReader<EventType> | null>(null);
   const connectSeqRef = useRef(0);
 
   const runningTasks = useMemo(
@@ -113,7 +113,16 @@ export function useBackgroundTaskStream(
   );
 
   const cleanup = useCallback(() => {
-    readerRef.current?.cancel().catch(() => {});
+    const reader = readerRef.current;
+    if (reader) {
+      void (async () => {
+        try {
+          await reader.cancel();
+        } catch {
+          // The stream may already be closed.
+        }
+      })();
+    }
     readerRef.current = null;
     abortRef.current?.abort();
     abortRef.current = null;
@@ -121,7 +130,7 @@ export function useBackgroundTaskStream(
   }, []);
 
   const connect = useCallback(async () => {
-    const seq = ++connectSeqRef.current;
+    const seq = (connectSeqRef.current += 1);
     cleanup();
     setError(null);
 
@@ -168,11 +177,13 @@ export function useBackgroundTaskStream(
           }));
         }
       }
-    } catch (error: any) {
-      if (error?.name !== "AbortError") {
-        if (seq === connectSeqRef.current) {
-          setError(error instanceof Error ? error : new Error(String(error)));
-        }
+    } catch (connectionError) {
+      const isAbortError =
+        connectionError instanceof Error && connectionError.name === "AbortError";
+      if (!isAbortError && seq === connectSeqRef.current) {
+        setError(
+          connectionError instanceof Error ? connectionError : new Error(String(connectionError)),
+        );
       }
     } finally {
       if (seq === connectSeqRef.current) {
@@ -200,20 +211,9 @@ export function useBackgroundTaskStream(
   }, [connect]);
 
   const clearCompletedAndFailedTasks = () => {
-    setTasks((prev) => {
-      const newTasks = { ...prev };
-      Object.values(newTasks).forEach((task) => {
-        if (
-          task.status === "completed" ||
-          task.status === "failed" ||
-          task.status === "cancelled" ||
-          task.status === "timed_out"
-        ) {
-          delete newTasks[task.taskId];
-        }
-      });
-      return newTasks;
-    });
+    setTasks((previous) =>
+      Object.fromEntries(Object.entries(previous).filter(([, task]) => task.status === "running")),
+    );
   };
 
   return {
@@ -229,7 +229,7 @@ export function useBackgroundTaskStream(
   };
 }
 
-export const useGetBackgroundTaskById = (backgroundTaskId: string, enabled: boolean = true) => {
+export const useGetBackgroundTaskById = (backgroundTaskId: string, enabled = true) => {
   const client = useMastraClient();
   return useQuery({
     enabled,

@@ -2,7 +2,7 @@ import type { Provider } from "@mastra/client-js";
 import { useMastraClient } from "@mastra/react";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { useAllModels } from "@/components/features/mastra-studio/upstream/domains/llm";
+import { useAllModels } from "@/components/features/mastra-studio/upstream/domains/llm/hooks/use-filtered-models";
 import type { ModelInfo } from "@/components/features/mastra-studio/upstream/domains/llm/hooks/use-filtered-models";
 
 /**

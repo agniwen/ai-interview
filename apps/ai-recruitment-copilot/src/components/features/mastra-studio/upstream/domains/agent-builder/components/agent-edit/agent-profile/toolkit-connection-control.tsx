@@ -53,7 +53,7 @@ const dedupeLabels = (
     const key = () => label.toLocaleLowerCase();
     let suffix = 2;
     while (seen.has(key())) {
-      const tag = ` ${suffix++}`;
+      const tag = ` ${(suffix += 1)}`;
       label = `${label.slice(0, MAX_LABEL_LENGTH - tag.length)}${tag}`;
     }
     seen.add(key());
@@ -69,7 +69,10 @@ const pinsEqual = (
     return false;
   }
   return a.every((pin, index) => {
-    const other = b[index]!;
+    const other = b[index];
+    if (!other) {
+      return false;
+    }
     return (
       pin.connectionId === other.connectionId &&
       pin.toolkit === other.toolkit &&

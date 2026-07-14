@@ -15,6 +15,16 @@ export interface AskUserBadgeProps {
   result: AskUserResult | undefined;
 }
 
+const getQuestionSubtitle = (
+  options: AskUserSuspendPayload["options"],
+  mode: AskUserSuspendPayload["selectionMode"],
+) => {
+  if (!options?.length) {
+    return "free text";
+  }
+  return mode === "multi_select" ? "multiple choice" : "single choice";
+};
+
 export const AskUserBadge = ({ toolCallId, suspendPayload, result }: AskUserBadgeProps) => {
   const { approveToolcall, isRunning, toolCallApprovals } = useToolCall();
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
@@ -23,11 +33,7 @@ export const AskUserBadge = ({ toolCallId, suspendPayload, result }: AskUserBadg
   const { question, options, selectionMode } = suspendPayload;
   const resolvedMode = options?.length ? (selectionMode ?? "single_select") : undefined;
   const isAnswered = !!result || toolCallApprovals?.[toolCallId]?.status === "approved";
-  const subtitle = !options?.length
-    ? "free text"
-    : resolvedMode === "multi_select"
-      ? "multiple choice"
-      : "single choice";
+  const subtitle = getQuestionSubtitle(options, resolvedMode);
 
   const handleOptionSelect = useCallback(
     (label: string) => {
@@ -110,7 +116,7 @@ export const AskUserBadge = ({ toolCallId, suspendPayload, result }: AskUserBadg
             {question}
           </Txt>
 
-          {isAnswered && result != null && (
+          {isAnswered && result !== undefined && (
             <div className="flex items-center gap-2 rounded-md border border-border1 bg-surface4 px-3 py-2">
               <Icon>
                 <Check className="text-notice-success-fg" />

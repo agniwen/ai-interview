@@ -15,11 +15,9 @@ export function useSetAgentDescriptionTool() {
       createTool({
         description:
           "Set the agent description. Use this for a short, human-readable summary of what this agent does. Shown to users when browsing agents. Keep it concise (one sentence).",
-        execute: async (inputData: any) => {
-          if (typeof inputData?.description === "string") {
-            formMethods.setValue("description", inputData.description, { shouldDirty: true });
-          }
-          return { success: true };
+        execute: (inputData: { description: string }) => {
+          formMethods.setValue("description", inputData.description, { shouldDirty: true });
+          return Promise.resolve({ success: true });
         },
         id: SET_AGENT_DESCRIPTION_TOOL_NAME,
         inputSchema: z.object({

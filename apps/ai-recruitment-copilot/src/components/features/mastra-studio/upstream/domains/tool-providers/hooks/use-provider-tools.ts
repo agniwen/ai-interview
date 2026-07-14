@@ -9,7 +9,12 @@ export const useProviderTools = (
 
   return useQuery({
     enabled: !!providerId,
-    queryFn: () => client.getToolProvider(providerId!).listTools(params),
+    queryFn: () => {
+      if (!providerId) {
+        return { data: [] };
+      }
+      return client.getToolProvider(providerId).listTools(params);
+    },
     queryKey: ["tool-provider-tools", providerId, params?.toolkit, params?.search],
   });
 };

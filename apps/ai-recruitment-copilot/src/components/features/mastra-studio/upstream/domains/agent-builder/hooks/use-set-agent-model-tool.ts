@@ -4,8 +4,8 @@ import { useFormContext } from "react-hook-form";
 import { z } from "zod/v4";
 
 import type { AgentBuilderEditFormValues } from "@/components/features/mastra-studio/upstream/domains/agent-builder/schemas";
-import { cleanProviderId } from "@/components/features/mastra-studio/upstream/domains/llm";
-import type { ModelInfo } from "@/components/features/mastra-studio/upstream/domains/llm";
+import type { ModelInfo } from "@/components/features/mastra-studio/upstream/domains/llm/hooks/use-filtered-models";
+import { cleanProviderId } from "@/components/features/mastra-studio/upstream/domains/llm/utils";
 
 export const SET_AGENT_MODEL_TOOL_NAME = "set-agent-model";
 
@@ -30,7 +30,8 @@ export function useSetAgentModelTool({ availableModels }: UseSetAgentModelToolAr
     if (modelSchemas.length === 0) {
       modelSchema = z.object({ name: z.string().min(1), provider: z.string().min(1) });
     } else if (modelSchemas.length === 1) {
-      modelSchema = modelSchemas[0];
+      const [onlyModelSchema] = modelSchemas;
+      modelSchema = onlyModelSchema ?? z.never();
     } else {
       modelSchema = z.union(
         modelSchemas as [
@@ -55,20 +56,25 @@ export function useSetAgentModelTool({ availableModels }: UseSetAgentModelToolAr
       description: `Set the model used by the agent. Only use a provider/name pair from the available models list.${
         availableModelsBlock
       }`,
-      execute: async (inputData: any) => {
+      execute: (inputData: { model: unknown }) => {
+        const modelInput = inputData.model;
         if (
-          typeof inputData?.model?.provider === "string" &&
-          inputData.model.provider.length > 0 &&
-          typeof inputData.model.name === "string" &&
-          inputData.model.name.length > 0
+          modelInput &&
+          typeof modelInput === "object" &&
+          "provider" in modelInput &&
+          typeof modelInput.provider === "string" &&
+          modelInput.provider.length > 0 &&
+          "name" in modelInput &&
+          typeof modelInput.name === "string" &&
+          modelInput.name.length > 0
         ) {
           formMethods.setValue(
             "model",
-            { name: inputData.model.name, provider: cleanProviderId(inputData.model.provider) },
+            { name: modelInput.name, provider: cleanProviderId(modelInput.provider) },
             { shouldDirty: true },
           );
         }
-        return { success: true };
+        return Promise.resolve({ success: true });
       },
       id: SET_AGENT_MODEL_TOOL_NAME,
       inputSchema: z.object({

@@ -10,7 +10,9 @@ import { RefreshCcwIcon, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { useWorkingMemory } from "../../context/agent-working-memory-context";
 import { CodeDisplay } from "./code-display";
-import { useMemoryConfig } from "@/components/features/mastra-studio/upstream/domains/memory/hooks";
+import { useMemoryConfig } from "@/components/features/mastra-studio/upstream/domains/memory/hooks/use-memory";
+import { isTruthy } from "../../utils/truthiness";
+import { resolveConditional } from "../../utils/conditional";
 
 interface AgentWorkingMemoryProps {
   agentId: string;
@@ -58,40 +60,52 @@ export const AgentWorkingMemory = ({ agentId }: AgentWorkingMemoryProps) => {
       <div>
         <div className="flex items-center gap-2 mb-2">
           <h3 className="text-sm font-medium text-neutral5">Working Memory</h3>
-          {isWorkingMemoryEnabled && workingMemorySource && (
-            <span
-              className={cn(
-                "text-xs font-medium px-2 py-0.5 rounded",
-                workingMemorySource === "resource"
-                  ? "bg-purple-500/20 text-purple-400"
-                  : "bg-blue-500/20 text-blue-400",
-              )}
-              title={
-                workingMemorySource === "resource"
-                  ? "Shared across all threads for this agent"
-                  : "Specific to this conversation thread"
-              }
-            >
-              {workingMemorySource}
-            </span>
+          {resolveConditional(
+            isWorkingMemoryEnabled && workingMemorySource,
+            () => (
+              <span
+                className={cn(
+                  "text-xs font-medium px-2 py-0.5 rounded",
+                  workingMemorySource === "resource"
+                    ? "bg-purple-500/20 text-purple-400"
+                    : "bg-blue-500/20 text-blue-400",
+                )}
+                title={
+                  workingMemorySource === "resource"
+                    ? "Shared across all threads for this agent"
+                    : "Specific to this conversation thread"
+                }
+              >
+                {workingMemorySource}
+              </span>
+            ),
+            () => null,
           )}
         </div>
-        {isWorkingMemoryEnabled && !threadExists && (
-          <p className="text-xs text-neutral3">
-            Send a message to the agent to enable working memory.
-          </p>
+        {resolveConditional(
+          isWorkingMemoryEnabled && !threadExists,
+          () => (
+            <p className="text-xs text-neutral3">
+              Send a message to the agent to enable working memory.
+            </p>
+          ),
+          () => null,
         )}
       </div>
 
       {isWorkingMemoryEnabled ? (
         <>
-          {!isEditing ? (
+          {isTruthy(!isEditing) ? (
             <>
               {workingMemoryData ? (
                 <>
                   {workingMemoryData.trim().startsWith("{") ? (
                     <CodeDisplay
-                      content={workingMemoryData || ""}
+                      content={resolveConditional(
+                        workingMemoryData,
+                        (conditionValue) => conditionValue,
+                        () => "",
+                      )}
                       isCopied={isCopied}
                       onCopy={handleCopy}
                       className="bg-surface3 text-sm font-mono min-h-[150px] border border-border1 rounded-lg"
@@ -113,10 +127,14 @@ export const AgentWorkingMemory = ({ agentId }: AgentWorkingMemoryProps) => {
                             <div className="pointer-events-none">
                               <MarkdownRenderer>{workingMemoryData}</MarkdownRenderer>
                             </div>
-                            {isCopied && (
-                              <span className="absolute top-2 right-2 z-20 text-ui-xs px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-500 pointer-events-none">
-                                Copied!
-                              </span>
+                            {resolveConditional(
+                              isCopied,
+                              () => (
+                                <span className="absolute top-2 right-2 z-20 text-ui-xs px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-500 pointer-events-none">
+                                  Copied!
+                                </span>
+                              ),
+                              () => null,
                             )}
                             <span className="absolute top-2 right-2 z-20 text-ui-xs px-1.5 py-0.5 rounded-full bg-surface3 text-neutral4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                               Click to copy
@@ -144,9 +162,9 @@ export const AgentWorkingMemory = ({ agentId }: AgentWorkingMemoryProps) => {
             />
           )}
           <div className="flex gap-2">
-            {!isEditing ? (
+            {isTruthy(!isEditing) ? (
               <>
-                {!threadExists ? (
+                {isTruthy(!threadExists) ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -197,7 +215,10 @@ export const AgentWorkingMemory = ({ agentId }: AgentWorkingMemoryProps) => {
                 </Button>
                 <Button
                   onClick={() => {
-                    setEditState({ source: workingMemoryData, value: workingMemoryData ?? "" });
+                    setEditState({
+                      source: workingMemoryData,
+                      value: workingMemoryData ?? "",
+                    });
                     setIsEditing(false);
                   }}
                   disabled={isUpdating}

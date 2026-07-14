@@ -13,12 +13,15 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useDebouncedCallback } from "use-debounce";
 
 import type { RefInstructionBlock } from "../agent-edit-page/utils/form-validation";
+import { isDefined } from "../../utils/presence";
 import { useStoredAgents } from "@/components/features/mastra-studio/upstream/domains/agents/hooks/use-stored-agents";
 import {
   useStoredPromptBlock,
   useStoredPromptBlockMutations,
 } from "@/components/features/mastra-studio/upstream/domains/prompt-blocks";
 import { useLinkComponent } from "@/components/features/mastra-studio/upstream/lib/framework";
+import { resolveConditional } from "../../utils/conditional";
+import { isTruthy } from "../../utils/truthiness";
 
 export interface AgentCMSRefBlockProps {
   index: number;
@@ -63,7 +66,7 @@ const RefBlockContent = ({
 
   // Sync from server on first load (or when promptBlockId changes)
   useEffect(() => {
-    if (promptBlock?.content != null && !hasInitialized.current && !hasUserEdited.current) {
+    if (isDefined(promptBlock?.content) && !hasInitialized.current && !hasUserEdited.current) {
       setLocalContent(promptBlock.content);
       hasInitialized.current = true;
     }
@@ -98,7 +101,13 @@ const RefBlockContent = ({
         return false;
       }
       return instructions.some(
-        (instr: any) => instr.type === "prompt_block_ref" && instr.id === block.promptBlockId,
+        (instruction) =>
+          typeof instruction === "object" &&
+          instruction !== null &&
+          "type" in instruction &&
+          instruction.type === "prompt_block_ref" &&
+          "id" in instruction &&
+          instruction.id === block.promptBlockId,
       );
     });
   }, [storedAgentsData?.agents, block.promptBlockId]);
@@ -126,119 +135,131 @@ const RefBlockContent = ({
 
       {/* Content area with left accent border */}
       <div className="border-l-2 border-accent3/30 pl-3">
-        {isLoading ? (
-          <div className="flex items-center gap-2 text-neutral3 py-3">
-            <Spinner className="h-4 w-4" />
-            <Txt variant="ui-sm">Loading prompt block...</Txt>
-          </div>
-        ) : promptBlock ? (
-          <>
-            {/* Sync-block header — always visible, with Popover on caret */}
-            <div className="flex items-center gap-1.5 py-1 px-1 -ml-1">
-              <Txt variant="ui-xs" className="text-neutral3 truncate">
-                {promptBlock.name}
-              </Txt>
-              {!readOnly && (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label={`Open actions for ${promptBlock.name}`}
-                      className="ml-auto rounded p-0.5 hover:bg-surface4/50 transition-colors duration-150 text-neutral3 hover:text-neutral5"
-                    >
-                      <Icon className="h-3! w-3!">
-                        <ChevronDown />
-                      </Icon>
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent align="end" className="w-[280px] p-0">
-                    <div className="p-3 border-b border-border1">
-                      <Txt variant="ui-sm" className="font-medium text-neutral6">
-                        {promptBlock.name}
-                      </Txt>
-                      {promptBlock.description && (
-                        <Txt variant="ui-xs" className="text-neutral3 mt-0.5 line-clamp-2">
-                          {promptBlock.description}
-                        </Txt>
-                      )}
-                    </div>
-                    <div className="p-1">
-                      <button
-                        type="button"
-                        className="flex items-center gap-2 w-full px-2 py-1.5 text-left rounded hover:bg-surface4/50 transition-colors text-neutral5 text-ui-xs"
-                        onClick={() => navigate(paths.cmsPromptBlockEditLink(block.promptBlockId))}
-                      >
-                        <Icon className="h-3.5! w-3.5! text-neutral3">
-                          <ExternalLink />
-                        </Icon>
-                        Open original
-                      </button>
-                      {onDereference && (
-                        <button
-                          type="button"
-                          className="flex items-center gap-2 w-full px-2 py-1.5 text-left rounded hover:bg-surface4/50 transition-colors text-neutral5 text-ui-xs"
-                          onClick={() => {
-                            debouncedSave.flush();
-                            onDereference(localContent);
-                          }}
-                        >
-                          <Icon className="h-3.5! w-3.5! text-neutral3">
-                            <X />
-                          </Icon>
-                          De-reference block
-                        </button>
-                      )}
-                      {onDelete && (
-                        <button
-                          type="button"
-                          className="flex items-center gap-2 w-full px-2 py-1.5 text-left rounded hover:bg-surface4/50 transition-colors text-error text-ui-xs"
-                          onClick={onDelete}
-                        >
-                          <Icon className="h-3.5! w-3.5!">
-                            <X />
-                          </Icon>
-                          Remove block
-                        </button>
-                      )}
-                    </div>
-                    {usedByAgents.length > 0 && (
-                      <div className="border-t border-border1 p-3">
-                        <Txt variant="ui-xs" className="text-neutral3 mb-1.5">
-                          Used by {usedByAgents.length} agent{usedByAgents.length !== 1 ? "s" : ""}
-                        </Txt>
-                        <div className="flex flex-col gap-1">
-                          {usedByAgents.map((agent) => (
-                            <Txt key={agent.id} variant="ui-xs" className="text-neutral5 truncate">
-                              {agent.name}
-                            </Txt>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </PopoverContent>
-                </Popover>
-              )}
+        {resolveConditional(
+          isLoading,
+          () => (
+            <div className="flex items-center gap-2 text-neutral3 py-3">
+              <Spinner className="h-4 w-4" />
+              <Txt variant="ui-sm">Loading prompt block...</Txt>
             </div>
+          ),
+          () =>
+            promptBlock ? (
+              <>
+                {/* Sync-block header — always visible, with Popover on caret */}
+                <div className="flex items-center gap-1.5 py-1 px-1 -ml-1">
+                  <Txt variant="ui-xs" className="text-neutral3 truncate">
+                    {promptBlock.name}
+                  </Txt>
+                  {!readOnly && (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label={`Open actions for ${promptBlock.name}`}
+                          className="ml-auto rounded p-0.5 hover:bg-surface4/50 transition-colors duration-150 text-neutral3 hover:text-neutral5"
+                        >
+                          <Icon className="h-3! w-3!">
+                            <ChevronDown />
+                          </Icon>
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="w-[280px] p-0">
+                        <div className="p-3 border-b border-border1">
+                          <Txt variant="ui-sm" className="font-medium text-neutral6">
+                            {promptBlock.name}
+                          </Txt>
+                          {promptBlock.description && (
+                            <Txt variant="ui-xs" className="text-neutral3 mt-0.5 line-clamp-2">
+                              {promptBlock.description}
+                            </Txt>
+                          )}
+                        </div>
+                        <div className="p-1">
+                          <button
+                            type="button"
+                            className="flex items-center gap-2 w-full px-2 py-1.5 text-left rounded hover:bg-surface4/50 transition-colors text-neutral5 text-ui-xs"
+                            onClick={() =>
+                              navigate(paths.cmsPromptBlockEditLink(block.promptBlockId))
+                            }
+                          >
+                            <Icon className="h-3.5! w-3.5! text-neutral3">
+                              <ExternalLink />
+                            </Icon>
+                            Open original
+                          </button>
+                          {onDereference && (
+                            <button
+                              type="button"
+                              className="flex items-center gap-2 w-full px-2 py-1.5 text-left rounded hover:bg-surface4/50 transition-colors text-neutral5 text-ui-xs"
+                              onClick={() => {
+                                debouncedSave.flush();
+                                onDereference(localContent);
+                              }}
+                            >
+                              <Icon className="h-3.5! w-3.5! text-neutral3">
+                                <X />
+                              </Icon>
+                              De-reference block
+                            </button>
+                          )}
+                          {onDelete && (
+                            <button
+                              type="button"
+                              className="flex items-center gap-2 w-full px-2 py-1.5 text-left rounded hover:bg-surface4/50 transition-colors text-error text-ui-xs"
+                              onClick={onDelete}
+                            >
+                              <Icon className="h-3.5! w-3.5!">
+                                <X />
+                              </Icon>
+                              Remove block
+                            </button>
+                          )}
+                        </div>
+                        {usedByAgents.length > 0 && (
+                          <div className="border-t border-border1 p-3">
+                            <Txt variant="ui-xs" className="text-neutral3 mb-1.5">
+                              Used by {usedByAgents.length} agent
+                              {isTruthy(usedByAgents.length !== 1) ? "s" : ""}
+                            </Txt>
+                            <div className="flex flex-col gap-1">
+                              {usedByAgents.map((agent) => (
+                                <Txt
+                                  key={agent.id}
+                                  variant="ui-xs"
+                                  className="text-neutral5 truncate"
+                                >
+                                  {agent.name}
+                                </Txt>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                </div>
 
-            {/* Editable content */}
-            <CodeEditor
-              value={localContent}
-              onChange={handleContentChange}
-              placeholder="Referenced block is empty..."
-              variant="embedded"
-              className="min-h-12"
-              language="markdown"
-              highlightVariables
-              showCopyButton={false}
-              schema={schema}
-              lineNumbers={false}
-              editable={!readOnly}
-            />
-          </>
-        ) : (
-          <div className="flex items-center gap-2 text-warning py-3">
-            <Txt variant="ui-sm">Prompt block not found (ID: {block.promptBlockId})</Txt>
-          </div>
+                {/* Editable content */}
+                <CodeEditor
+                  value={localContent}
+                  onChange={handleContentChange}
+                  placeholder="Referenced block is empty..."
+                  variant="embedded"
+                  className="min-h-12"
+                  language="markdown"
+                  highlightVariables
+                  showCopyButton={false}
+                  schema={schema}
+                  lineNumbers={false}
+                  editable={!readOnly}
+                />
+              </>
+            ) : (
+              <div className="flex items-center gap-2 text-warning py-3">
+                <Txt variant="ui-sm">Prompt block not found (ID: {block.promptBlockId})</Txt>
+              </div>
+            ),
         )}
       </div>
     </div>

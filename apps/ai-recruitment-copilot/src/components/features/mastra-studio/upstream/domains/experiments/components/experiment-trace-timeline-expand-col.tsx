@@ -12,6 +12,35 @@ interface ExperimentTraceTimelineExpandColProps {
   numOfChildren?: number;
 }
 
+interface ExpandButtonProps {
+  onClick?: () => void;
+  children?: React.ReactNode;
+  className?: string;
+}
+
+function ExpandButton({ onClick, children, className }: ExpandButtonProps) {
+  return (
+    <button type="button" onClick={onClick} className={cn("h-full", className)}>
+      <div
+        className={cn(
+          "flex items-center gap-[0.1rem] text-ui-sm text-neutral5 border border-border1 pl-2 pr-1 rounded-lg transition-all",
+          "hover:text-yellow-500",
+          "[&>svg]:shrink-0 [&>svg]:opacity-80 [&>svg]:w-4 [&>svg]:h-4 [&>svg]:transition-all",
+        )}
+      >
+        {children}
+      </div>
+    </button>
+  );
+}
+
+function getExpandIcon(isExpanded?: boolean, allDescendantsExpanded?: boolean) {
+  if (!isExpanded) {
+    return <ChevronDownIcon />;
+  }
+  return allDescendantsExpanded ? <ChevronsUpIcon /> : <ChevronUpIcon />;
+}
+
 export function ExperimentTraceTimelineExpandCol({
   isSelected,
   isFaded,
@@ -33,15 +62,7 @@ export function ExperimentTraceTimelineExpandCol({
         <div className="flex gap-1">
           <ExpandButton onClick={() => toggleChildren?.()}>
             {allDescendantsExpanded ? totalDescendants : numOfChildren}{" "}
-            {isExpanded ? (
-              allDescendantsExpanded ? (
-                <ChevronsUpIcon />
-              ) : (
-                <ChevronUpIcon />
-              )
-            ) : (
-              <ChevronDownIcon />
-            )}
+            {getExpandIcon(isExpanded, allDescendantsExpanded)}
           </ExpandButton>
 
           {totalDescendants > (numOfChildren ?? 0) && !allDescendantsExpanded && (
@@ -52,27 +73,5 @@ export function ExperimentTraceTimelineExpandCol({
         </div>
       ) : null}
     </div>
-  );
-}
-
-interface ExpandButtonProps {
-  onClick?: () => void;
-  children?: React.ReactNode;
-  className?: string;
-}
-
-function ExpandButton({ onClick, children, className }: ExpandButtonProps) {
-  return (
-    <button onClick={onClick} className={cn("h-full", className)}>
-      <div
-        className={cn(
-          "flex items-center gap-[0.1rem] text-ui-sm text-neutral5 border border-border1 pl-2 pr-1 rounded-lg transition-all",
-          "hover:text-yellow-500",
-          "[&>svg]:shrink-0 [&>svg]:opacity-80 [&>svg]:w-4 [&>svg]:h-4 [&>svg]:transition-all",
-        )}
-      >
-        {children}
-      </div>
-    </button>
   );
 }

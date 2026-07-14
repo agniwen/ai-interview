@@ -91,7 +91,7 @@ export interface ChatProps {
   initialMessages?: MastraDBMessage[];
   refreshThreadList?: () => void;
   settings?: AgentSettingsType;
-  requestContext?: Record<string, any>;
+  requestContext?: Record<string, unknown>;
   onInputChange?: (value: string) => void;
   modelList?: GetAgentResponse["modelList"];
 }
@@ -122,7 +122,8 @@ export interface Span {
   kind: number;
   status: SpanStatus;
   events: SpanEvent[];
-  links: any[]; // You might want to type this more specifically if you have link structure
+  // Link structure is provider-specific.
+  links: unknown[];
   attributes: Record<string, string | number | boolean | null>;
   startTime: number;
   endTime: number;
@@ -143,7 +144,7 @@ export interface RefinedTrace {
 
 export interface StreamChunk {
   type: string;
-  payload: any;
+  payload: unknown;
   runId: string;
   from: "AGENT" | "WORKFLOW";
 }

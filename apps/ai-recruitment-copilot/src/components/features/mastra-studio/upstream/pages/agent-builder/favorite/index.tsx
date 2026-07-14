@@ -25,6 +25,28 @@ import { useCurrentUser } from "@/components/features/mastra-studio/upstream/dom
 
 type Tab = "agents" | "skills";
 
+const renderError = (error: Error, resource: string) => {
+  if (is401UnauthorizedError(error)) {
+    return (
+      <div className="flex items-center justify-center pt-10">
+        <SessionExpired />
+      </div>
+    );
+  }
+  if (is403ForbiddenError(error)) {
+    return (
+      <div className="flex items-center justify-center pt-10">
+        <PermissionDenied resource={resource} />
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center justify-center pt-10">
+      <ErrorState title={`Failed to load favorite ${resource}`} message={error.message} />
+    </div>
+  );
+};
+
 export default function AgentBuilderFavoritePage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -59,28 +81,6 @@ export default function AgentBuilderFavoritePage() {
 
   const agents = agentsData?.agents ?? [];
   const skills = skillsData?.skills ?? [];
-
-  const renderError = (error: Error, resource: string) => {
-    if (is401UnauthorizedError(error)) {
-      return (
-        <div className="flex items-center justify-center pt-10">
-          <SessionExpired />
-        </div>
-      );
-    }
-    if (is403ForbiddenError(error)) {
-      return (
-        <div className="flex items-center justify-center pt-10">
-          <PermissionDenied resource={resource} />
-        </div>
-      );
-    }
-    return (
-      <div className="flex items-center justify-center pt-10">
-        <ErrorState title={`Failed to load favorite ${resource}`} message={error.message} />
-      </div>
-    );
-  };
 
   const body = (() => {
     if (tab === "agents") {

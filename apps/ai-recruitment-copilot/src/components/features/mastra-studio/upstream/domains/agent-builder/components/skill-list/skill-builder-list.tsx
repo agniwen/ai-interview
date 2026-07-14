@@ -74,6 +74,16 @@ export function SkillBuilderList({
                     return null;
                   }
                   const isCopy = origin.type === "library-copy";
+                  let originLabel = "imported";
+                  let originTooltip = "Imported from external registry";
+                  if (isCopy) {
+                    originLabel = "copied";
+                    originTooltip = `Copied from "${origin.sourceSkillName}"`;
+                  }
+                  if (origin.type === "skills-sh") {
+                    originLabel = "skills.sh";
+                    originTooltip = `Imported from ${origin.owner}/${origin.repo}`;
+                  }
                   return (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -87,20 +97,10 @@ export function SkillBuilderList({
                           ) : (
                             <DownloadIcon className="h-2.5 w-2.5" />
                           )}
-                          {origin.type === "skills-sh"
-                            ? "skills.sh"
-                            : isCopy
-                              ? "copied"
-                              : "imported"}
+                          {originLabel}
                         </span>
                       </TooltipTrigger>
-                      <TooltipContent>
-                        {origin.type === "skills-sh"
-                          ? `Imported from ${origin.owner}/${origin.repo}`
-                          : isCopy
-                            ? `Copied from "${origin.sourceSkillName}"`
-                            : "Imported from external registry"}
-                      </TooltipContent>
+                      <TooltipContent>{originTooltip}</TooltipContent>
                     </Tooltip>
                   );
                 })()}

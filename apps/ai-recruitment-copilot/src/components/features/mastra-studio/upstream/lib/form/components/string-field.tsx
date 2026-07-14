@@ -3,7 +3,7 @@ import { Input } from "@mastra/playground-ui/components/Input";
 import React from "react";
 
 export const StringField: React.FC<AutoFormFieldProps> = ({ inputProps, error, field, id }) => {
-  const { key, ...props } = inputProps;
+  const { key: _key, ...props } = inputProps;
 
   return (
     <Input

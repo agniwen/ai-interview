@@ -13,18 +13,6 @@ export interface DatasetItemPageProps {
 }
 
 /**
- * Page component for displaying a single dataset item's details.
- * Read-only view showing input, ground truth, and metadata.
- */
-export function DatasetItemPage({ item }: DatasetItemPageProps) {
-  return (
-    <div className="h-full overflow-y-auto p-6">
-      <DatasetItemContent item={item} />
-    </div>
-  );
-}
-
-/**
  * Read-only view of the dataset item details
  */
 function DatasetItemContent({ item }: { item: DatasetItem }) {
@@ -52,7 +40,7 @@ function DatasetItemContent({ item }: { item: DatasetItem }) {
               label: "Created",
               value: format(new Date(item.createdAt), "MMM d, yyyy h:mm aaa"),
             },
-            ...(item.datasetVersion != null
+            ...(item.datasetVersion !== null && item.datasetVersion !== undefined
               ? [
                   {
                     key: "version",
@@ -91,6 +79,14 @@ function DatasetItemContent({ item }: { item: DatasetItem }) {
         )}
       </Sections>
     </>
+  );
+}
+
+export function DatasetItemPage({ item }: DatasetItemPageProps) {
+  return (
+    <div className="h-full overflow-y-auto p-6">
+      <DatasetItemContent item={item} />
+    </div>
   );
 }
 

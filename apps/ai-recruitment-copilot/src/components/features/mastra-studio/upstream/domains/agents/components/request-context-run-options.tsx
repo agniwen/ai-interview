@@ -3,16 +3,16 @@ import { ScrollArea } from "@mastra/playground-ui/components/ScrollArea";
 import { Txt } from "@mastra/playground-ui/components/Txt";
 import { Icon } from "@mastra/playground-ui/icons/Icon";
 import { cn } from "@mastra/playground-ui/utils/cn";
-import { jsonSchemaToZod } from "@mastra/schema-compat/json-to-zod";
 import { FileJson, FormInput } from "lucide-react";
 import { useMemo, useState } from "react";
+import type { ComponentProps } from "react";
 
 import { useOptionalAgentEditFormContext } from "../context/agent-edit-form-context";
 import { RequestContext } from "./request-context";
 import { RequestContextLabel } from "@/components/features/mastra-studio/upstream/domains/request-context/components/request-context-label";
 import { RequestContextSchemaForm } from "@/components/features/mastra-studio/upstream/domains/request-context/components/request-context-schema-form";
 import { useSchemaRequestContext } from "@/components/features/mastra-studio/upstream/domains/request-context/context/schema-request-context";
-import { DynamicForm } from "@/components/features/mastra-studio/upstream/lib/form";
+import { DynamicForm } from "@/components/features/mastra-studio/upstream/lib/form/dynamic-form";
 import { resolveSerializedZodOutput } from "@/components/features/mastra-studio/upstream/lib/form/utils";
 
 interface AgentRequestContextRunOptionsProps {
@@ -52,7 +52,7 @@ function VariablesRequestContextForm({
   const zodSchema = useMemo(() => {
     try {
       return resolveSerializedZodOutput(
-        jsonSchemaToZod(variablesSchema as Parameters<typeof jsonSchemaToZod>[0]),
+        variablesSchema as Parameters<typeof resolveSerializedZodOutput>[0],
       );
     } catch (error) {
       console.error("Failed to parse variables schema:", error);
@@ -78,8 +78,8 @@ function VariablesRequestContextForm({
       </div>
 
       <DynamicForm
-        schema={zodSchema}
-        onSubmit={setSchemaValues}
+        schema={zodSchema as ComponentProps<typeof DynamicForm>["schema"]}
+        onSubmit={(values) => setSchemaValues(values as Record<string, unknown>)}
         submitButtonLabel="Save"
         defaultValues={schemaValues}
       />
@@ -139,6 +139,22 @@ export function AgentRequestContextRunOptionsBody({
 
   const hasVariables = hasSchemaProperties(variables);
   const hasSchemaForm = Boolean(requestContextSchema) || hasVariables;
+  let formContent = null;
+  if (requestContextSchema) {
+    formContent = (
+      <RequestContextSchemaForm
+        requestContextSchema={requestContextSchema}
+        labelTooltip={requestContextTooltip}
+      />
+    );
+  } else if (hasVariables) {
+    formContent = (
+      <VariablesRequestContextForm
+        variablesSchema={variables}
+        labelTooltip={requestContextTooltip}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -149,17 +165,7 @@ export function AgentRequestContextRunOptionsBody({
           </div>
 
           {mode === "form" ? (
-            requestContextSchema ? (
-              <RequestContextSchemaForm
-                requestContextSchema={requestContextSchema}
-                labelTooltip={requestContextTooltip}
-              />
-            ) : hasVariables ? (
-              <VariablesRequestContextForm
-                variablesSchema={variables}
-                labelTooltip={requestContextTooltip}
-              />
-            ) : null
+            formContent
           ) : (
             <RequestContext
               editorClassName={freeformEditorClassName}

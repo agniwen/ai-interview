@@ -118,15 +118,11 @@ const WorkflowTimelineRow = ({
   return (
     <div
       key={`timeline-item-${row.stepId}-${index}`}
-      role="button"
-      tabIndex={0}
       data-testid="workflow-timeline-row"
       data-workflow-step-key={row.stepId}
       data-workflow-step-active={isSelected ? "true" : undefined}
       data-workflow-step-hovered={isHovered ? "true" : undefined}
       data-workflow-step-nested={row.isNestedEntry ? "true" : undefined}
-      aria-pressed={isSelected}
-      aria-disabled={!canSelect}
       onMouseEnter={() => {
         if (canSelect) {
           onHoverStep(row.stepId);
@@ -136,19 +132,6 @@ const WorkflowTimelineRow = ({
         if (canSelect) {
           onHoverStep(null);
         }
-      }}
-      onClick={() => {
-        if (canSelect) {
-          onSelectStep(row.stepId);
-        }
-      }}
-      onKeyDown={(event) => {
-        if (!canSelect || (event.key !== "Enter" && event.key !== " ")) {
-          return;
-        }
-
-        event.preventDefault();
-        onSelectStep(row.stepId);
       }}
       className={cn(
         "grid grid-cols-[auto_auto_auto_minmax(0,10rem)_minmax(0,1fr)_auto_5rem] items-center gap-2 rounded-md border border-transparent px-2 py-1 text-left transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-accent1",
@@ -183,13 +166,15 @@ const WorkflowTimelineRow = ({
       <div className="flex overflow-hidden">
         <WorkflowCardBadges indicators={indicators} className="shrink-0" />
       </div>
-      <Txt
-        as="span"
-        variant="ui-sm"
-        className="block min-w-0 max-w-full justify-self-stretch overflow-hidden text-ellipsis whitespace-nowrap text-left text-neutral6"
+      <button
+        type="button"
+        disabled={!canSelect}
+        aria-pressed={isSelected}
+        onClick={() => onSelectStep(row.stepId)}
+        className="block min-w-0 max-w-full justify-self-stretch overflow-hidden text-ellipsis whitespace-nowrap text-left text-sm text-neutral6 disabled:cursor-default"
       >
         {titleCase(row.stepId)}
-      </Txt>
+      </button>
       <div className="relative h-2 min-w-0 rounded bg-surface4">
         <div
           data-testid="workflow-timeline-bar"

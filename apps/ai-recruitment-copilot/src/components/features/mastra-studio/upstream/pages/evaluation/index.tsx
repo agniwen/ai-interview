@@ -15,11 +15,13 @@ import {
   useReviewSummary,
 } from "@/components/features/mastra-studio/upstream/domains/review";
 import { computeReviewTotals } from "@/components/features/mastra-studio/upstream/domains/review/review-maps";
-import {
-  useScoreMetrics,
-  useScorers,
-} from "@/components/features/mastra-studio/upstream/domains/scores";
+import { useScoreMetrics } from "@/components/features/mastra-studio/upstream/domains/scores/hooks/use-score-metrics";
+import { useScorers } from "@/components/features/mastra-studio/upstream/domains/scores/hooks/use-scorers";
 import { ScoresOverTimeCard } from "@/components/features/mastra-studio/upstream/domains/scores/components/scores-over-time-card";
+
+function getFirstError(errors: (Error | null)[]): Error | null {
+  return errors.find((error) => error !== null) ?? null;
+}
 
 export default function Evaluation() {
   const { data: scorers, isLoading: isLoadingScorers, error: errorScorers } = useScorers();
@@ -47,8 +49,13 @@ export default function Evaluation() {
 
   const reviewTotals = useMemo(() => computeReviewTotals(reviewSummary), [reviewSummary]);
 
-  const error =
-    errorScorers || errorDatasets || errorExperiments || errorScores || errorReviewSummary;
+  const error = getFirstError([
+    errorScorers,
+    errorDatasets,
+    errorExperiments,
+    errorScores,
+    errorReviewSummary,
+  ]);
 
   if (error && is401UnauthorizedError(error)) {
     return (

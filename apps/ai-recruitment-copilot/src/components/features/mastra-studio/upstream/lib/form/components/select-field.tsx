@@ -15,17 +15,17 @@ export const SelectField: React.FC<AutoFormFieldProps> = ({
   id,
   value,
 }) => {
-  const { key, ...props } = inputProps;
+  const { key: _key, ...props } = inputProps;
 
   return (
     <Select
       {...props}
       value={value}
-      onValueChange={(value) => {
+      onValueChange={(selectedValue) => {
         const syntheticEvent = {
           target: {
             name: inputProps.name,
-            value,
+            value: selectedValue,
           },
         } as React.ChangeEvent<HTMLInputElement>;
         props.onChange(syntheticEvent);
@@ -35,8 +35,8 @@ export const SelectField: React.FC<AutoFormFieldProps> = ({
         <SelectValue placeholder="Select an option" />
       </SelectTrigger>
       <SelectContent>
-        {(field.options || []).map(([key, label]) => (
-          <SelectItem key={key} value={key}>
+        {(field.options || []).map(([optionKey, label]) => (
+          <SelectItem key={optionKey} value={optionKey}>
             {label}
           </SelectItem>
         ))}

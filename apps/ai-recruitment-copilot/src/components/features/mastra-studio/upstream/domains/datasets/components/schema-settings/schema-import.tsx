@@ -128,6 +128,25 @@ export function SchemaImport({ schemaType, onImport }: SchemaImportProps) {
     !schemaLoading &&
     !(schemaType === "input" ? workflowSchema?.inputSchema : workflowSchema?.outputSchema);
 
+  let workflowItems = workflowOptions.map(([id, wf]) => (
+    <SelectItem key={id} value={id}>
+      {wf.name || id}
+    </SelectItem>
+  ));
+  if (workflowsLoading) {
+    workflowItems = [
+      <SelectItem key="loading" value="__loading__" disabled>
+        Loading...
+      </SelectItem>,
+    ];
+  } else if (workflowOptions.length === 0) {
+    workflowItems = [
+      <SelectItem key="empty" value="__empty__" disabled>
+        No workflows
+      </SelectItem>,
+    ];
+  }
+
   return (
     <div className="flex items-center gap-2">
       {/* Source type selector */}
@@ -147,23 +166,7 @@ export function SchemaImport({ schemaType, onImport }: SchemaImportProps) {
           <SelectTrigger size="sm" className="w-40">
             <SelectValue placeholder="Select..." />
           </SelectTrigger>
-          <SelectContent>
-            {workflowsLoading ? (
-              <SelectItem value="__loading__" disabled>
-                Loading...
-              </SelectItem>
-            ) : workflowOptions.length === 0 ? (
-              <SelectItem value="__empty__" disabled>
-                No workflows
-              </SelectItem>
-            ) : (
-              workflowOptions.map(([id, wf]) => (
-                <SelectItem key={id} value={id}>
-                  {wf.name || id}
-                </SelectItem>
-              ))
-            )}
-          </SelectContent>
+          <SelectContent>{workflowItems}</SelectContent>
         </Select>
       )}
 

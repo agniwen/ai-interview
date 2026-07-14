@@ -42,6 +42,51 @@ function getWorkspaceSearchResultFileId(result: SearchResult): string {
   return result.id.replace(/#chunk-\d+$/, "");
 }
 
+interface WorkspaceSearchResultItemProps {
+  result: SearchResult;
+  rank: number;
+  onClick?: () => void;
+}
+
+function WorkspaceSearchResultItem({ result, rank, onClick }: WorkspaceSearchResultItemProps) {
+  const scorePercent = Math.min(100, Math.max(0, result.score * 100));
+  const fileId = getWorkspaceSearchResultFileId(result);
+
+  return (
+    <li className="border-t border-border1 first:border-t-0">
+      <button
+        onClick={onClick}
+        className="w-full px-4 py-3 text-left hover:bg-surface5 transition-colors flex gap-3"
+      >
+        <span className="text-xs text-neutral3 tabular-nums w-4 shrink-0">{rank}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <FolderOpen className="h-3.5 w-3.5 text-neutral4 shrink-0" />
+            <span className="font-mono text-sm text-neutral6 truncate">{fileId}</span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <div className="w-12 h-1 rounded-full bg-surface2 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-accent1"
+                  style={{ width: `${scorePercent}%` }}
+                />
+              </div>
+              <span className="text-ui-xs text-neutral3 tabular-nums">
+                {result.score.toFixed(2)}
+              </span>
+            </div>
+          </div>
+          <p className="text-xs text-neutral4 line-clamp-2">{result.content}</p>
+          {result.lineRange && (
+            <p className="text-xs text-neutral3 mt-1">
+              Lines {result.lineRange.start}–{result.lineRange.end}
+            </p>
+          )}
+        </div>
+      </button>
+    </li>
+  );
+}
+
 export function SearchWorkspacePanel({
   onSearch,
   isSearching,
@@ -108,7 +153,7 @@ export function SearchWorkspacePanel({
               max={50}
               value={topK}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setTopK(Number.parseInt(e.target.value) || 5)
+                setTopK(Number.parseInt(e.target.value, 10) || 5)
               }
               className="w-14 h-10 text-center bg-surface2 border-border1"
               title="Number of results"
@@ -156,7 +201,7 @@ export function SearchWorkspacePanel({
         <div className="border-t border-border1">
           <div className="px-4 py-2 flex items-center justify-between text-xs">
             <span className="text-neutral4">
-              {searchResults.results.length} result{searchResults.results.length !== 1 ? "s" : ""}{" "}
+              {searchResults.results.length} result{searchResults.results.length === 1 ? "" : "s"}{" "}
               for "<span className="text-neutral6">{searchResults.query}</span>"
             </span>
             <span className={`px-1.5 py-0.5 rounded ${modeConfig[searchResults.mode].color}`}>
@@ -186,51 +231,6 @@ export function SearchWorkspacePanel({
   );
 }
 
-interface WorkspaceSearchResultItemProps {
-  result: SearchResult;
-  rank: number;
-  onClick?: () => void;
-}
-
-function WorkspaceSearchResultItem({ result, rank, onClick }: WorkspaceSearchResultItemProps) {
-  const scorePercent = Math.min(100, Math.max(0, result.score * 100));
-  const fileId = getWorkspaceSearchResultFileId(result);
-
-  return (
-    <li className="border-t border-border1 first:border-t-0">
-      <button
-        onClick={onClick}
-        className="w-full px-4 py-3 text-left hover:bg-surface5 transition-colors flex gap-3"
-      >
-        <span className="text-xs text-neutral3 tabular-nums w-4 shrink-0">{rank}</span>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <FolderOpen className="h-3.5 w-3.5 text-neutral4 shrink-0" />
-            <span className="font-mono text-sm text-neutral6 truncate">{fileId}</span>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <div className="w-12 h-1 rounded-full bg-surface2 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-accent1"
-                  style={{ width: `${scorePercent}%` }}
-                />
-              </div>
-              <span className="text-ui-xs text-neutral3 tabular-nums">
-                {result.score.toFixed(2)}
-              </span>
-            </div>
-          </div>
-          <p className="text-xs text-neutral4 line-clamp-2">{result.content}</p>
-          {result.lineRange && (
-            <p className="text-xs text-neutral3 mt-1">
-              Lines {result.lineRange.start}–{result.lineRange.end}
-            </p>
-          )}
-        </div>
-      </button>
-    </li>
-  );
-}
-
 // =============================================================================
 // Skills Search Panel
 // =============================================================================
@@ -240,92 +240,6 @@ export interface SearchSkillsPanelProps {
   results: SkillSearchResult[];
   isSearching: boolean;
   onResultClick?: (result: SkillSearchResult) => void;
-}
-
-export function SearchSkillsPanel({
-  onSearch,
-  results,
-  isSearching,
-  onResultClick,
-}: SearchSkillsPanelProps) {
-  const [query, setQuery] = useState("");
-  const [topK, setTopK] = useState(5);
-  const [includeReferences, setIncludeReferences] = useState(true);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) {
-      return;
-    }
-    onSearch({ includeReferences, query: query.trim(), topK });
-  };
-
-  return (
-    <div className="space-y-4">
-      {/* Search Form */}
-      <form onSubmit={handleSearch} className="space-y-3">
-        <div className="flex gap-2">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral3" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search across skills..."
-              className="w-full pl-10 pr-4 py-2 rounded-lg bg-surface3 border border-border1 text-sm text-neutral6 placeholder:text-neutral3 focus:outline-hidden focus:ring-2 focus:ring-accent1"
-            />
-          </div>
-          <Button type="submit" disabled={!query.trim() || isSearching}>
-            {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
-          </Button>
-        </div>
-
-        <div className="flex items-center gap-4 text-sm">
-          <label className="flex items-center gap-2 text-neutral4">
-            <span>Results:</span>
-            <select
-              value={topK}
-              onChange={(e) => setTopK(Number(e.target.value))}
-              className="px-2 py-1 rounded bg-surface3 border border-border1 text-neutral5"
-            >
-              <option value={3}>3</option>
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-            </select>
-          </label>
-
-          <label className="flex items-center gap-2 text-neutral4 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={includeReferences}
-              onChange={(e) => setIncludeReferences(e.target.checked)}
-              className="rounded border-border1 bg-surface3"
-            />
-            <span>Include references</span>
-          </label>
-        </div>
-      </form>
-
-      {/* Results */}
-      {results.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-sm font-medium text-neutral5">
-            Found {results.length} result{results.length !== 1 ? "s" : ""}
-          </h3>
-          <div className="space-y-2">
-            {results.map((result, index) => (
-              <SkillSearchResultCard
-                key={`${result.skillName}-${result.source}-${index}`}
-                result={result}
-                onClick={() => onResultClick?.(result)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
 }
 
 function SkillSearchResultCard({
@@ -339,6 +253,7 @@ function SkillSearchResultCard({
 
   return (
     <button
+      aria-label={`Open ${result.skillName} search result`}
       onClick={onClick}
       className="w-full p-4 rounded-lg bg-surface3 border border-border1 hover:border-accent1/50 text-left transition-colors"
     >
@@ -368,5 +283,94 @@ function SkillSearchResultCard({
         </div>
       </div>
     </button>
+  );
+}
+
+export function SearchSkillsPanel({
+  onSearch,
+  results,
+  isSearching,
+  onResultClick,
+}: SearchSkillsPanelProps) {
+  const [query, setQuery] = useState("");
+  const [topK, setTopK] = useState(5);
+  const [includeReferences, setIncludeReferences] = useState(true);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!query.trim()) {
+      return;
+    }
+    onSearch({ includeReferences, query: query.trim(), topK });
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Search Form */}
+      <form onSubmit={handleSearch} className="space-y-3">
+        <div className="flex gap-2">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral3" />
+            <input
+              aria-label="Search skills"
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search across skills..."
+              className="w-full pl-10 pr-4 py-2 rounded-lg bg-surface3 border border-border1 text-sm text-neutral6 placeholder:text-neutral3 focus:outline-hidden focus:ring-2 focus:ring-accent1"
+            />
+          </div>
+          <Button type="submit" disabled={!query.trim() || isSearching}>
+            {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-4 text-sm">
+          <label className="flex items-center gap-2 text-neutral4">
+            <span>Results:</span>
+            <select
+              aria-label="Number of skill search results"
+              value={topK}
+              onChange={(e) => setTopK(Number(e.target.value))}
+              className="px-2 py-1 rounded bg-surface3 border border-border1 text-neutral5"
+            >
+              <option value={3}>3</option>
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+            </select>
+          </label>
+
+          <label className="flex items-center gap-2 text-neutral4 cursor-pointer">
+            <input
+              aria-label="Include skill references"
+              type="checkbox"
+              checked={includeReferences}
+              onChange={(e) => setIncludeReferences(e.target.checked)}
+              className="rounded border-border1 bg-surface3"
+            />
+            <span>Include references</span>
+          </label>
+        </div>
+      </form>
+
+      {/* Results */}
+      {results.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-neutral5">
+            Found {results.length} result{results.length === 1 ? "" : "s"}
+          </h3>
+          <div className="space-y-2">
+            {results.map((result, index) => (
+              <SkillSearchResultCard
+                key={`${result.skillName}-${result.source}-${index}`}
+                result={result}
+                onClick={() => onResultClick?.(result)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

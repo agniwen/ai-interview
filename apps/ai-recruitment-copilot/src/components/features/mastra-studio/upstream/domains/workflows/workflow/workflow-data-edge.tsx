@@ -26,6 +26,31 @@ export interface WorkflowDataEdgeProps extends EdgeProps<WorkflowDataEdgeModel> 
 const getScopedStepId = (stepId: string | undefined, workflowName?: string) =>
   stepId && workflowName ? `${workflowName}.${stepId}` : stepId;
 
+function resolveEdgeOutput({
+  boundaryPayload,
+  previousStepOutput,
+  previousStepSuspendOutput,
+  workflowInput,
+  workflowOutput,
+}: {
+  boundaryPayload?: WorkflowDataEdgeData["boundaryPayload"];
+  previousStepOutput?: unknown;
+  previousStepSuspendOutput?: unknown;
+  workflowInput?: unknown;
+  workflowOutput?: unknown;
+}) {
+  if (boundaryPayload === "workflow-input") {
+    return { label: "Workflow input", output: workflowInput ?? undefined };
+  }
+  if (boundaryPayload === "workflow-output") {
+    return { label: "Workflow output", output: workflowOutput };
+  }
+  return {
+    label: undefined,
+    output: previousStepOutput ?? previousStepSuspendOutput,
+  };
+}
+
 const WorkflowDataEdgeComponent = (props: WorkflowDataEdgeProps) => {
   const { steps } = useCurrentRun();
   const workflowRun = useContext(WorkflowRunContext);
@@ -35,20 +60,13 @@ const WorkflowDataEdgeComponent = (props: WorkflowDataEdgeProps) => {
   const workflowInput = workflowRun.payload ?? workflowRun.result?.input;
   const workflowOutput =
     workflowRun.result?.status === "success" ? workflowRun.result.result : undefined;
-  const output =
-    data?.boundaryPayload === "workflow-input"
-      ? workflowInput === null
-        ? undefined
-        : workflowInput
-      : data?.boundaryPayload === "workflow-output"
-        ? workflowOutput
-        : (previousStep?.output ?? previousStep?.suspendOutput);
-  const outputLabel =
-    data?.boundaryPayload === "workflow-input"
-      ? "Workflow input"
-      : data?.boundaryPayload === "workflow-output"
-        ? "Workflow output"
-        : undefined;
+  const { label: outputLabel, output } = resolveEdgeOutput({
+    boundaryPayload: data?.boundaryPayload,
+    previousStepOutput: previousStep?.output,
+    previousStepSuspendOutput: previousStep?.suspendOutput,
+    workflowInput,
+    workflowOutput,
+  });
   const [edgePath, labelX, labelY] = getBezierPath(props);
 
   return (

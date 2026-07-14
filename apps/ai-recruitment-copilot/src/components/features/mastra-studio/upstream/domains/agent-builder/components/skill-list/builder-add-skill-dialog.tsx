@@ -15,6 +15,7 @@ import { SkillIcon } from "@mastra/playground-ui/icons/SkillIcon";
 import { cn } from "@mastra/playground-ui/utils/cn";
 import { Check, Download, ExternalLink, Github, Loader2, Package, Search } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { useDebouncedCallback } from "use-debounce";
 
 import {
@@ -48,11 +49,62 @@ function parseSkillSource(topSource: string): { owner: string; repo: string } | 
   if (parts.length < 2) {
     return null;
   }
-  return { owner: parts[0]!, repo: parts[1]! };
+  const [owner, repo] = parts;
+  return owner && repo ? { owner, repo } : null;
 }
 
 function getSkillUniqueId(skill: BuilderRegistrySkillSummary): string {
   return `${skill.topSource}/${skill.name}`;
+}
+
+function renderPreviewContent(isLoading: boolean, previewContent: string | undefined): ReactNode {
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-neutral3" />
+      </div>
+    );
+  }
+  if (previewContent) {
+    return (
+      <ScrollArea className="flex-1">
+        <div className="p-4">
+          <MarkdownRenderer>{previewContent}</MarkdownRenderer>
+        </div>
+      </ScrollArea>
+    );
+  }
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center text-neutral4">
+      <Package className="h-8 w-8 mb-2" />
+      <p className="text-sm">Preview unavailable</p>
+    </div>
+  );
+}
+
+function renderInstallButtonContent(isPending: boolean, isInstalled: boolean): ReactNode {
+  if (isPending) {
+    return (
+      <>
+        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+        Installing...
+      </>
+    );
+  }
+  if (isInstalled) {
+    return (
+      <>
+        <Check className="h-4 w-4 mr-2" />
+        Already installed
+      </>
+    );
+  }
+  return (
+    <>
+      <Download className="h-4 w-4 mr-2" />
+      Install
+    </>
+  );
 }
 
 // =============================================================================
@@ -160,8 +212,8 @@ export function BuilderAddSkillDialog({
       });
       onInstalled?.(result.storedSkillId);
       onOpenChange(false);
-    } catch (error: any) {
-      const message: string = error?.message ?? "Install failed";
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Install failed";
       // Detect 409 from the stringified error body. The collision case is the
       // only one we need to upgrade into a navigation hint.
       if (/409/.test(message) || /already exists/i.test(message)) {
@@ -214,74 +266,78 @@ export function BuilderAddSkillDialog({
                 {hasSearchResults ? "Search results" : "Popular skills"}
               </div>
               <ScrollArea className="flex-1 border border-border1 rounded-lg">
-                {isLoadingPopular || isSearching ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-neutral3" />
-                  </div>
-                ) : displaySkills.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-neutral4">
-                    <Package className="h-8 w-8 mb-2" />
-                    <p className="text-sm">
-                      {hasSearchResults ? "No skills found" : "No skills available"}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="p-2 space-y-1">
-                    {displaySkills.map((skill) => {
-                      const skillUniqueId = getSkillUniqueId(skill);
-                      const isInstalled = installedSkillIds.includes(skill.name);
-                      const selectedUniqueId = selectedSkill
-                        ? getSkillUniqueId(selectedSkill)
-                        : null;
-                      return (
-                        <button
-                          key={skillUniqueId}
-                          onClick={() => setSelectedSkill(skill)}
-                          className={cn(
-                            "w-full text-left px-3 py-2 rounded-md transition-colors",
-                            "hover:bg-surface4",
-                            selectedUniqueId === skillUniqueId &&
-                              "bg-surface5 border border-accent1",
-                          )}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-sm text-neutral6 truncate">
-                                  {skill.name}
-                                </span>
-                                {isInstalled && (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-accent1/20 text-accent1">
-                                    <Check className="h-2.5 w-2.5" />
-                                    Installed
+                {(() => {
+                  if (isLoadingPopular || isSearching) {
+                    return (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-neutral3" />
+                      </div>
+                    );
+                  }
+                  if (displaySkills.length === 0) {
+                    return (
+                      <div className="flex flex-col items-center justify-center py-8 text-neutral4">
+                        <Package className="h-8 w-8 mb-2" />
+                        <p className="text-sm">
+                          {hasSearchResults ? "No skills found" : "No skills available"}
+                        </p>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="p-2 space-y-1">
+                      {displaySkills.map((skill) => {
+                        const skillUniqueId = getSkillUniqueId(skill);
+                        const isInstalled = installedSkillIds.includes(skill.name);
+                        const selectedUniqueId = selectedSkill
+                          ? getSkillUniqueId(selectedSkill)
+                          : null;
+                        return (
+                          <button
+                            aria-label={`Select skill ${skill.name}`}
+                            key={skillUniqueId}
+                            onClick={() => setSelectedSkill(skill)}
+                            className={cn(
+                              "w-full text-left px-3 py-2 rounded-md transition-colors",
+                              "hover:bg-surface4",
+                              selectedUniqueId === skillUniqueId &&
+                                "bg-surface5 border border-accent1",
+                            )}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-sm text-neutral6 truncate">
+                                    {skill.name}
                                   </span>
-                                )}
+                                  {isInstalled && (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-accent1/20 text-accent1">
+                                      <Check className="h-2.5 w-2.5" />
+                                      Installed
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-neutral4 truncate">
+                                  {skill.topSource}
+                                </div>
                               </div>
-                              <div className="text-xs text-neutral4 truncate">
-                                {skill.topSource}
+                              <div className="flex items-center gap-1 text-xs text-neutral3 shrink-0">
+                                <Download className="h-3 w-3" />
+                                <span>{skill.installs.toLocaleString()}</span>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1 text-xs text-neutral3 shrink-0">
-                              <Download className="h-3 w-3" />
-                              <span>{skill.installs.toLocaleString()}</span>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </ScrollArea>
             </div>
 
             {/* Preview pane */}
             <div className="w-1/2 flex flex-col min-h-0 border border-border1 rounded-lg overflow-hidden">
-              {!selectedSkill ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-neutral4">
-                  <Package className="h-8 w-8 mb-2" />
-                  <p className="text-sm">Select a skill to preview</p>
-                </div>
-              ) : (
+              {selectedSkill ? (
                 <>
                   <div className="p-4 border-b border-border1 bg-surface3">
                     <div className="flex items-start gap-3">
@@ -317,23 +373,13 @@ export function BuilderAddSkillDialog({
                     </div>
                   </div>
 
-                  {isLoadingPreview ? (
-                    <div className="flex-1 flex items-center justify-center">
-                      <Loader2 className="h-6 w-6 animate-spin text-neutral3" />
-                    </div>
-                  ) : previewContent ? (
-                    <ScrollArea className="flex-1">
-                      <div className="p-4">
-                        <MarkdownRenderer>{previewContent}</MarkdownRenderer>
-                      </div>
-                    </ScrollArea>
-                  ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-neutral4">
-                      <Package className="h-8 w-8 mb-2" />
-                      <p className="text-sm">Preview unavailable</p>
-                    </div>
-                  )}
+                  {renderPreviewContent(isLoadingPreview, previewContent)}
                 </>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center text-neutral4">
+                  <Package className="h-8 w-8 mb-2" />
+                  <p className="text-sm">Select a skill to preview</p>
+                </div>
               )}
             </div>
           </div>
@@ -355,22 +401,7 @@ export function BuilderAddSkillDialog({
                   disabled={!parsedSource || installMutation.isPending || isSelectedInstalled}
                   data-testid="builder-install-skill-button"
                 >
-                  {installMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Installing...
-                    </>
-                  ) : isSelectedInstalled ? (
-                    <>
-                      <Check className="h-4 w-4 mr-2" />
-                      Already installed
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4 mr-2" />
-                      Install
-                    </>
-                  )}
+                  {renderInstallButtonContent(installMutation.isPending, isSelectedInstalled)}
                 </Button>
               </div>
             </div>

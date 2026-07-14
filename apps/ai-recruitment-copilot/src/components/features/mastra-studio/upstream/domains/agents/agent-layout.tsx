@@ -13,6 +13,7 @@ import { GenerationProvider } from "@/components/features/mastra-studio/upstream
 import { cleanProviderId } from "@/components/features/mastra-studio/upstream/domains/llm/utils";
 import { TracingSettingsProvider } from "@/components/features/mastra-studio/upstream/domains/observability/context/tracing-settings-context";
 import { SchemaRequestContextProvider } from "@/components/features/mastra-studio/upstream/domains/request-context/context/schema-request-context";
+import { resolveConditional } from "./utils/conditional";
 
 export const AgentLayout = ({ children }: { children: React.ReactNode }) => {
   const { agentId } = useParams();
@@ -24,24 +25,33 @@ export const AgentLayout = ({ children }: { children: React.ReactNode }) => {
   const showPlayground = isCmsAvailable && isExperimentalFeatures;
   const showObservability = hasObservability && isExperimentalFeatures;
 
-  const { data: agent } = useAgent(agentId!);
+  const { data: agent } = useAgent(agentId);
 
   const defaultProvider = cleanProviderId(agent?.provider ?? "");
   const defaultModel = agent?.modelId ?? "";
   const requestContextSchema = agent?.requestContextSchema;
 
   // Settings has no tab pill, so it maps to 'none' and the bar stays unhighlighted.
-  const activeTab: AgentPageTab | "none" = location.pathname.includes("/editor")
-    ? "versions"
-    : location.pathname.includes("/evaluate")
-      ? "evaluate"
-      : location.pathname.includes("/review")
-        ? "review"
-        : location.pathname.includes("/traces")
-          ? "traces"
-          : location.pathname.includes("/settings")
-            ? "none"
-            : "chat";
+  const activeTab: AgentPageTab | "none" = resolveConditional(
+    location.pathname.includes("/editor"),
+    () => "versions",
+    () =>
+      resolveConditional(
+        location.pathname.includes("/evaluate"),
+        () => "evaluate",
+        () =>
+          resolveConditional(
+            location.pathname.includes("/review"),
+            () => "review",
+            () =>
+              resolveConditional(
+                location.pathname.includes("/traces"),
+                () => "traces",
+                () => (location.pathname.includes("/settings") ? "none" : "chat"),
+              ),
+          ),
+      ),
+  );
 
   const showTopBarRunOptions =
     (activeTab === "evaluate" || activeTab === "review") && (showPlayground || showObservability);
@@ -49,7 +59,7 @@ export const AgentLayout = ({ children }: { children: React.ReactNode }) => {
   const content = (
     <MainContentLayout>
       <AgentPageTabs
-        agentId={agentId!}
+        agentId={agentId}
         activeTab={activeTab}
         showPlayground={showPlayground}
         showObservability={showObservability}
@@ -64,7 +74,7 @@ export const AgentLayout = ({ children }: { children: React.ReactNode }) => {
   );
 
   return (
-    <TracingSettingsProvider entityId={agentId!} entityType="agent">
+    <TracingSettingsProvider entityId={agentId} entityType="agent">
       <SchemaRequestContextProvider>
         <PlaygroundModelProvider defaultProvider={defaultProvider} defaultModel={defaultModel}>
           <GenerationProvider>

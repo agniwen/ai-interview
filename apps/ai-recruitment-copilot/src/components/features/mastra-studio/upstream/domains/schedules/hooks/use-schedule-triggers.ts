@@ -26,21 +26,21 @@ export const useScheduleTriggers = (scheduleId: string | undefined) => {
       }
       // triggers come back ordered by actualFireAt desc; cursor for next page
       // is the oldest timestamp on the current page (exclusive upper bound).
-      return lastPage.triggers.at(-1)!.actualFireAt;
+      return lastPage.triggers.at(-1)?.actualFireAt;
     },
     initialPageParam: undefined as number | undefined,
     queryFn: async ({ pageParam }): Promise<ScheduleTriggersPage> => {
       if (!scheduleId) {
         return { triggers: [] as ScheduleTriggerResponse[] };
       }
-      return client.listScheduleTriggers(scheduleId, {
+      return await client.listScheduleTriggers(scheduleId, {
         limit: PER_PAGE,
         toActualFireAt: pageParam,
       });
     },
     queryKey: ["schedule-triggers", scheduleId],
-    refetchInterval: (query) => {
-      const triggers = query.state.data?.pages.flatMap((p) => p.triggers) ?? [];
+    refetchInterval: (queryState) => {
+      const triggers = queryState.state.data?.pages.flatMap((p) => p.triggers) ?? [];
       const hasActive = triggers.some((t) => {
         if (!t.run) {
           return t.outcome === "published";

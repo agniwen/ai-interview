@@ -1,5 +1,4 @@
 import type { GetWorkflowResponse, TimeTravelParams } from "@mastra/client-js";
-import { jsonSchemaToZod } from "@mastra/schema-compat/json-to-zod";
 import { useCallback, useContext, useMemo } from "react";
 import { parse } from "superjson";
 import { z } from "zod3";
@@ -21,10 +20,18 @@ import type { ResumeStepParams } from "./workflow-suspended-steps";
 import { useMergedRequestContext } from "@/components/features/mastra-studio/upstream/domains/request-context/context/schema-request-context";
 import { resolveSerializedZodOutput } from "@/components/features/mastra-studio/upstream/lib/form/utils";
 
+function buildSuccessContext(input: Record<string, unknown>) {
+  const context: NonNullable<TimeTravelParams["context"]> = {};
+  for (const stepId of Object.keys(input)) {
+    context[stepId] = { output: input[stepId], status: "success" };
+  }
+  return context;
+}
+
 export interface SuspendedStep {
   stepId: string;
   runId: string;
-  suspendPayload: any;
+  suspendPayload: unknown;
   workflow?: GetWorkflowResponse;
   isLoading: boolean;
 }
@@ -53,10 +60,14 @@ export function useWorkflowSchemas(workflow?: GetWorkflowResponse) {
     const stateSchema = workflow?.stateSchema;
 
     const zodInputSchema = triggerSchema
-      ? resolveSerializedZodOutput(jsonSchemaToZod(parse(triggerSchema)))
+      ? resolveSerializedZodOutput(
+          parse(triggerSchema) as Parameters<typeof resolveSerializedZodOutput>[0],
+        )
       : null;
     const zodStateSchema = stateSchema
-      ? resolveSerializedZodOutput(jsonSchemaToZod(parse(stateSchema)))
+      ? resolveSerializedZodOutput(
+          parse(stateSchema) as Parameters<typeof resolveSerializedZodOutput>[0],
+        )
       : null;
 
     return {
@@ -64,7 +75,7 @@ export function useWorkflowSchemas(workflow?: GetWorkflowResponse) {
       zodSchemaToUse: zodStateSchema
         ? z.object({
             initialState: zodStateSchema.optional(),
-            inputData: zodInputSchema,
+            inputData: zodInputSchema ?? z.record(z.string(), z.unknown()),
           })
         : zodInputSchema,
     };
@@ -209,7 +220,6 @@ export function useNextPerStep() {
     if (nextStepKey && (stepsFlow[nextStepKey]?.length ?? 0) === 0) {
       return { hasMultiSteps: false, input: result?.input ?? payload };
     }
-    return;
   }, [nextStepKey, stepsFlow, steps, result?.input, payload, isStepBypassed]);
 
   const isLastStep = useMemo(
@@ -237,24 +247,21 @@ export function useNextPerStep() {
       const isNestedWorkflowStep = nestedWorkflowStepIds.has(nextStepKey);
       const runToFinish = isContinueRun || isNestedWorkflowStep || isLastStep;
 
-      const payload = {
-        runId,
-        workflowId,
-        step: nextStepKey,
-        inputData: stepPayload.hasMultiSteps ? undefined : stepPayload.input,
+      const stepRunPayload: Parameters<typeof timeTravelWorkflowStream>[0] = {
+        inputData: stepPayload.hasMultiSteps
+          ? undefined
+          : (stepPayload.input as TimeTravelParams["inputData"]),
+        perStep: !runToFinish,
         requestContext,
+        runId,
+        step: nextStepKey,
+        workflowId,
         // Drive per-step explicitly off the paused-run intent rather than the in-memory
         // debugMode flag. On the :runId page debugMode starts false, so omitting perStep
         // would let timeTravelStream default to a full run instead of re-pausing.
-        perStep: !runToFinish,
         ...(stepPayload.hasMultiSteps
           ? {
-              context: Object.keys(stepPayload.input).reduce<
-                NonNullable<TimeTravelParams["context"]>
-              >((acc, stepId) => {
-                acc[stepId] = { output: stepPayload.input[stepId], status: "success" };
-                return acc;
-              }, {}),
+              context: buildSuccessContext(stepPayload.input as Record<string, unknown>),
             }
           : {}),
       };
@@ -263,7 +270,7 @@ export function useNextPerStep() {
         setDebugMode(false);
       }
 
-      void timeTravelWorkflowStream(payload);
+      void timeTravelWorkflowStream(stepRunPayload);
     },
     [
       nextStepKey,
@@ -302,7 +309,7 @@ export function useResumeWorkflow() {
 
       await resumeWorkflow({
         requestContext,
-        resumeData,
+        resumeData: resumeData as Record<string, unknown>,
         runId: run.runId,
         step: stepId,
         workflowId,

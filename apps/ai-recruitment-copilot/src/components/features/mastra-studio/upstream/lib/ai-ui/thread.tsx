@@ -39,23 +39,19 @@ import "./thread.css";
 import { SaveFullConversationAction } from "./messages/dataset-save-action";
 import { MessageRow } from "./messages/message-row";
 import { TaskPanel } from "./task-panel";
-import {
-  BrowserThumbnail,
-  useBrowserSession,
-} from "@/components/features/mastra-studio/upstream/domains/agents";
+import { BrowserThumbnail } from "@/components/features/mastra-studio/upstream/domains/agents/components/browser-view/browser-thumbnail";
+import { useBrowserSession } from "@/components/features/mastra-studio/upstream/domains/agents/context/browser-session-context";
 import { ComposerModelSettings } from "@/components/features/mastra-studio/upstream/domains/agents/components/composer-model-settings";
 import {
   ComposerModelSwitcher,
   ComposerModelWarning,
 } from "@/components/features/mastra-studio/upstream/domains/agents/components/composer-model-switcher";
 import { usePermissions } from "@/components/features/mastra-studio/upstream/domains/auth/hooks/use-permissions";
-import { useThreadInput } from "@/components/features/mastra-studio/upstream/domains/conversation";
-import {
-  useVoiceCall,
-  VoiceCallButton,
-  VoiceCallPanel,
-} from "@/components/features/mastra-studio/upstream/domains/voice";
-import type { VoiceCallControls } from "@/components/features/mastra-studio/upstream/domains/voice";
+import { useThreadInput } from "@/components/features/mastra-studio/upstream/domains/conversation/context/use-thread-input";
+import { VoiceCallButton } from "@/components/features/mastra-studio/upstream/domains/voice/components/voice-call-button";
+import { VoiceCallPanel } from "@/components/features/mastra-studio/upstream/domains/voice/components/voice-call-panel";
+import { useVoiceCall } from "@/components/features/mastra-studio/upstream/domains/voice/hooks/use-voice-call";
+import type { VoiceCallControls } from "@/components/features/mastra-studio/upstream/domains/voice/types";
 import { usePlaygroundStore } from "@/components/features/mastra-studio/upstream/store/playground-store";
 
 const SKELETON_DELAY_MS = 300;
@@ -132,133 +128,38 @@ export interface ThreadProps {
   refreshThreadList?: () => Promise<void> | void;
 }
 
-export const Thread = ({
-  agentName,
-  agentId,
-  threadId,
-  hasModelList,
-  hideModelSwitcher,
-  runOptionsSlot,
-  refreshThreadList,
-}: ThreadProps) => {
-  const areaRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
-  useAutoscroll(areaRef, { enabled: true });
-
-  const messages = useChatMessages();
-  const { isRunning } = useChatRunning();
-  const { requestContext } = usePlaygroundStore();
-  const { isSpeaking, readAloud, stop: stopSpeaking } = useReadAloud(agentId, requestContext);
-
-  const { hasSession, viewMode } = useBrowserSession();
-  const showThumbnailInChat = hasSession && (viewMode === "collapsed" || viewMode === "expanded");
-
-  const isEmpty = messages.length === 0;
-  const lastMessage = messages.at(-1);
-  const showPending =
-    isRunning && (lastMessage?.role !== "assistant" || !hasStreamingPart(lastMessage));
-  const delayedPending = useDelayedFlag(showPending, SKELETON_DELAY_MS);
-  const threadRailTurns = useMemo(() => buildThreadRailTurns(messages), [messages]);
-  const threadRailAnchorIds = useMemo(
-    () => new Set(threadRailTurns.map((turn) => turn.messageId)),
-    [threadRailTurns],
-  );
-
-  return (
-    <ComposerAttachmentsProvider>
-      <MessageScrollerProvider>
-        <div
-          className="group/thread grid grid-rows-[1fr_auto] h-full overflow-y-auto"
-          data-testid="thread-wrapper"
-        >
-          <MessageScroller>
-            <MessageScrollerViewport
-              ref={areaRef}
-              className="overflow-y-scroll h-full"
-              style={{ overflowAnchor: "none" }}
-            >
-              {isEmpty ? (
-                <ThreadWelcome agentName={agentName} />
-              ) : (
-                <div
-                  data-testid="thread-rail-container"
-                  className="thread-rail-container relative min-h-full"
-                >
-                  <ThreadRailLayer turns={threadRailTurns} />
-                  <div
-                    ref={messagesContainerRef}
-                    data-testid="thread-message-column"
-                    className="relative max-w-3xl w-full mx-auto px-4 pb-7 group-has-[[data-attachments-row]]/thread:pb-24"
-                  >
-                    <BracketOverlay containerRef={messagesContainerRef} />
-                    <MessageScrollerContent className="flex flex-col gap-6 py-6">
-                      {messages.map((message) => {
-                        // Prefer the optimistic `clientMessageId` as the React key so the
-                        // user row keeps a stable identity when `data-user-message`
-                        // reconciliation swaps `message.id` to the server signal id. A
-                        // changing key would unmount/remount the row and shift the
-                        // trailing pending indicator. Falls back to `message.id` for
-                        // messages without a correlation key (assistant, reloaded).
-                        const messageKey = getClientMessageKey(message);
-                        return (
-                          <MessageScrollerItem
-                            key={messageKey}
-                            messageId={message.id}
-                            scrollAnchor={threadRailAnchorIds.has(message.id)}
-                          >
-                            <MessageRow
-                              message={message}
-                              hasModelList={hasModelList}
-                              isSpeaking={isSpeaking}
-                              onReadAloud={readAloud}
-                              onStopSpeaking={stopSpeaking}
-                            />
-                          </MessageScrollerItem>
-                        );
-                      })}
-                      {delayedPending && <PendingIndicator />}
-                    </MessageScrollerContent>
-
-                    {!isRunning && <SaveFullConversationAction />}
-                  </div>
-                </div>
-              )}
-            </MessageScrollerViewport>
-            <MessageScrollerButton className="z-30" />
-          </MessageScroller>
-
-          {showThumbnailInChat && agentId && threadId && (
-            <div className="mb-2 max-w-3xl w-full mx-auto px-4">
-              <BrowserThumbnail agentName={agentName} />
-            </div>
-          )}
-
-          <TaskPanel />
-
-          <Composer
-            agentId={agentId}
-            threadId={threadId}
-            hasModelList={hasModelList}
-            hideModelSwitcher={hideModelSwitcher}
-            runOptionsSlot={runOptionsSlot}
-            refreshThreadList={refreshThreadList}
-          />
-        </div>
-      </MessageScrollerProvider>
-    </ComposerAttachmentsProvider>
-  );
-};
-
 export interface ThreadWelcomeProps {
   agentName?: string;
 }
 
-const ThreadWelcome = ({ agentName }: ThreadWelcomeProps) => (
-  <div className="flex w-full grow flex-col items-center pt-[15vh]">
-    <Avatar name={agentName || "Agent"} size="lg" />
-    <p className="mt-4 font-medium">How can I help you today?</p>
-  </div>
-);
+function ThreadWelcome({ agentName }: ThreadWelcomeProps) {
+  return (
+    <div className="flex w-full grow flex-col items-center pt-[15vh]">
+      <Avatar name={agentName || "Agent"} size="lg" />
+      <p className="mt-4 font-medium">How can I help you today?</p>
+    </div>
+  );
+}
+
+function CircleStopIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="text-neutral3 hover:text-neutral6"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <rect width="6" height="6" x="9" y="9" rx="1" />
+    </svg>
+  );
+}
 
 interface ComposerProps {
   agentId?: string;
@@ -269,14 +170,181 @@ interface ComposerProps {
   refreshThreadList?: () => Promise<void> | void;
 }
 
-const Composer = ({
+const ComposerGradientColumn = ({ className }: { className?: string }) => (
+  <div className={cn("flex h-full w-full flex-col -space-y-3", className)}>
+    <div className="w-full flex-1 bg-accent1 blur-xl" />
+    <div className="w-full flex-1 bg-accent1Dark blur-xl" />
+    <div className="w-full flex-1 bg-accent1 blur-xl" />
+    <div className="w-full flex-1 bg-accent1Darker blur-xl" />
+  </div>
+);
+
+function ComposerSendingGradient({ pulseKey }: { pulseKey: number }) {
+  if (pulseKey === 0) {
+    return null;
+  }
+  return (
+    <div
+      key={pulseKey}
+      aria-hidden
+      className="composer-sending pointer-events-none absolute -left-[10%] top-0 z-0 flex h-10 w-[120%] transform-gpu"
+    >
+      <ComposerGradientColumn />
+      <ComposerGradientColumn className="-translate-y-2" />
+      <ComposerGradientColumn />
+    </div>
+  );
+}
+
+const SpeechInput = ({
+  agentId,
+  onTranscript,
+}: {
+  agentId?: string;
+  onTranscript: (text: string) => void;
+}) => {
+  const { requestContext } = usePlaygroundStore();
+  const { start, stop, isListening, transcript } = useSpeechRecognition({
+    agentId,
+    requestContext,
+  });
+
+  useEffect(() => {
+    if (!transcript) {
+      return;
+    }
+    startTransition(() => onTranscript(transcript));
+  }, [onTranscript, transcript]);
+
+  return (
+    <Button
+      variant="default"
+      size="icon-md"
+      type="button"
+      tooltip={isListening ? "Stop dictation" : "Start dictation"}
+      onClick={() => (isListening ? stop() : start())}
+    >
+      {isListening ? (
+        <CircleStopIcon />
+      ) : (
+        <Mic className="h-5 w-5 text-neutral3 hover:text-neutral6" />
+      )}
+    </Button>
+  );
+};
+
+interface ComposerSendButtonProps {
+  canExecute?: boolean;
+  isEmpty: boolean;
+  isRunning: boolean;
+  canSendWhileStreaming: boolean;
+  onCancel: () => void;
+}
+
+function ComposerSendButton({
+  canExecute = true,
+  isEmpty,
+  isRunning,
+  canSendWhileStreaming,
+  onCancel,
+}: ComposerSendButtonProps) {
+  // While streaming and not allowed to send mid-stream, the only action is cancel.
+  if (isRunning && !canSendWhileStreaming) {
+    return (
+      <Button variant="default" size="icon-md" type="button" tooltip="Cancel" onClick={onCancel}>
+        <CircleStopIcon />
+      </Button>
+    );
+  }
+
+  return (
+    <>
+      <Button
+        type="submit"
+        variant="default"
+        size="icon-md"
+        tooltip={canExecute ? "Send" : "No permission to execute"}
+        className="rounded-full border border-border1 bg-surface5"
+        disabled={!canExecute || isEmpty}
+      >
+        <ArrowUp className="h-6 w-6 text-neutral3 hover:text-neutral6" />
+      </Button>
+      {isRunning && (
+        <Button variant="default" size="icon-md" type="button" tooltip="Cancel" onClick={onCancel}>
+          <CircleStopIcon />
+        </Button>
+      )}
+    </>
+  );
+}
+
+interface ComposerActionRowProps {
+  canExecute?: boolean;
+  agentId?: string;
+  showModelSwitcher?: boolean;
+  runOptionsSlot?: React.ReactNode;
+  isEmpty: boolean;
+  isRunning: boolean;
+  canSendWhileStreaming: boolean;
+  onCancel: () => void;
+  onSetText: (text: string) => void;
+  voiceCall?: VoiceCallControls;
+}
+
+function ComposerActionRow({
+  canExecute = true,
+  agentId,
+  showModelSwitcher,
+  runOptionsSlot,
+  isEmpty,
+  isRunning,
+  canSendWhileStreaming,
+  onCancel,
+  onSetText,
+  voiceCall,
+}: ComposerActionRowProps) {
+  return (
+    <div className="flex flex-wrap-reverse justify-between items-center gap-2 px-1.5 pb-1.5">
+      {((showModelSwitcher && agentId) || runOptionsSlot) && (
+        <div className="flex items-center gap-1.5 shrink-0 max-w-full">
+          {showModelSwitcher && agentId && (
+            <>
+              <div className="rounded-full bg-surface3 border border-border1 transition-colors duration-normal focus-within:border-border2">
+                <ComposerModelSwitcher agentId={agentId} />
+              </div>
+              <ComposerModelSettings agentId={agentId} />
+            </>
+          )}
+          {runOptionsSlot}
+        </div>
+      )}
+
+      <div className="flex shrink-0 items-center gap-1.5">
+        <ButtonsGroup spacing="close">
+          {canExecute && <AttachFilePopover />}
+          {canExecute && <SpeechInput agentId={agentId} onTranscript={onSetText} />}
+          {canExecute && agentId && voiceCall && <VoiceCallButton voiceCall={voiceCall} />}
+        </ButtonsGroup>
+        <ComposerSendButton
+          canExecute={canExecute}
+          isEmpty={isEmpty}
+          isRunning={isRunning}
+          canSendWhileStreaming={canSendWhileStreaming}
+          onCancel={onCancel}
+        />
+      </div>
+    </div>
+  );
+}
+
+function Composer({
   agentId,
   threadId,
   hasModelList,
   hideModelSwitcher,
   runOptionsSlot,
   refreshThreadList,
-}: ComposerProps) => {
+}: ComposerProps) {
   const { threadInput: text, setThreadInput } = useThreadInput(threadId);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const send = useChatSend();
@@ -322,7 +390,7 @@ const Composer = ({
 
         <div
           className="relative overflow-hidden bg-surface3 rounded-[22px] border border-border2/40 mt-auto max-w-3xl w-full mx-auto transition-colors duration-normal focus-within:border-border2 @container"
-          onClick={(e) => {
+          onPointerDown={(e) => {
             if (e.target === e.currentTarget) {
               textareaRef.current?.focus();
             }
@@ -334,6 +402,7 @@ const Composer = ({
                 height and fades the clipped edges once the content overflows. */}
             <ScrollArea maxHeight="212px">
               <textarea
+                aria-label="Message"
                 ref={textareaRef}
                 value={text}
                 autoFocus={false}
@@ -387,187 +456,106 @@ const Composer = ({
       </form>
     </div>
   );
-};
-
-const ComposerGradientColumn = ({ className }: { className?: string }) => (
-  <div className={cn("flex h-full w-full flex-col -space-y-3", className)}>
-    <div className="w-full flex-1 bg-accent1 blur-xl" />
-    <div className="w-full flex-1 bg-accent1Dark blur-xl" />
-    <div className="w-full flex-1 bg-accent1 blur-xl" />
-    <div className="w-full flex-1 bg-accent1Darker blur-xl" />
-  </div>
-);
-
-const ComposerSendingGradient = ({ pulseKey }: { pulseKey: number }) => {
-  if (pulseKey === 0) {
-    return null;
-  }
-  return (
-    <div
-      key={pulseKey}
-      aria-hidden
-      className="composer-sending pointer-events-none absolute -left-[10%] top-0 z-0 flex h-10 w-[120%] transform-gpu"
-    >
-      <ComposerGradientColumn />
-      <ComposerGradientColumn className="-translate-y-2" />
-      <ComposerGradientColumn />
-    </div>
-  );
-};
-
-const SpeechInput = ({
-  agentId,
-  onTranscript,
-}: {
-  agentId?: string;
-  onTranscript: (text: string) => void;
-}) => {
-  const { requestContext } = usePlaygroundStore();
-  const { start, stop, isListening, transcript } = useSpeechRecognition({
-    agentId,
-    requestContext,
-  });
-
-  useEffect(() => {
-    if (!transcript) {
-      return;
-    }
-    startTransition(() => onTranscript(transcript));
-  }, [onTranscript, transcript]);
-
-  return (
-    <Button
-      variant="default"
-      size="icon-md"
-      type="button"
-      tooltip={isListening ? "Stop dictation" : "Start dictation"}
-      onClick={() => (isListening ? stop() : start())}
-    >
-      {isListening ? (
-        <CircleStopIcon />
-      ) : (
-        <Mic className="h-5 w-5 text-neutral3 hover:text-neutral6" />
-      )}
-    </Button>
-  );
-};
-
-interface ComposerActionRowProps {
-  canExecute?: boolean;
-  agentId?: string;
-  showModelSwitcher?: boolean;
-  runOptionsSlot?: React.ReactNode;
-  isEmpty: boolean;
-  isRunning: boolean;
-  canSendWhileStreaming: boolean;
-  onCancel: () => void;
-  onSetText: (text: string) => void;
-  voiceCall?: VoiceCallControls;
 }
 
-const ComposerActionRow = ({
-  canExecute = true,
+export const Thread = ({
+  agentName,
   agentId,
-  showModelSwitcher,
+  threadId,
+  hasModelList,
+  hideModelSwitcher,
   runOptionsSlot,
-  isEmpty,
-  isRunning,
-  canSendWhileStreaming,
-  onCancel,
-  onSetText,
-  voiceCall,
-}: ComposerActionRowProps) => (
-  <div className="flex flex-wrap-reverse justify-between items-center gap-2 px-1.5 pb-1.5">
-    {((showModelSwitcher && agentId) || runOptionsSlot) && (
-      <div className="flex items-center gap-1.5 shrink-0 max-w-full">
-        {showModelSwitcher && agentId && (
-          <>
-            <div className="rounded-full bg-surface3 border border-border1 transition-colors duration-normal focus-within:border-border2">
-              <ComposerModelSwitcher agentId={agentId} />
-            </div>
-            <ComposerModelSettings agentId={agentId} />
-          </>
-        )}
-        {runOptionsSlot}
-      </div>
-    )}
+  refreshThreadList,
+}: ThreadProps) => {
+  const areaRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  useAutoscroll(areaRef, { enabled: true });
 
-    <div className="flex shrink-0 items-center gap-1.5">
-      <ButtonsGroup spacing="close">
-        {canExecute && <AttachFilePopover />}
-        {canExecute && <SpeechInput agentId={agentId} onTranscript={onSetText} />}
-        {canExecute && agentId && voiceCall && <VoiceCallButton voiceCall={voiceCall} />}
-      </ButtonsGroup>
-      <ComposerSendButton
-        canExecute={canExecute}
-        isEmpty={isEmpty}
-        isRunning={isRunning}
-        canSendWhileStreaming={canSendWhileStreaming}
-        onCancel={onCancel}
-      />
-    </div>
-  </div>
-);
-
-interface ComposerSendButtonProps {
-  canExecute?: boolean;
-  isEmpty: boolean;
-  isRunning: boolean;
-  canSendWhileStreaming: boolean;
-  onCancel: () => void;
-}
-
-const ComposerSendButton = ({
-  canExecute = true,
-  isEmpty,
-  isRunning,
-  canSendWhileStreaming,
-  onCancel,
-}: ComposerSendButtonProps) => {
-  // While streaming and not allowed to send mid-stream, the only action is cancel.
-  if (isRunning && !canSendWhileStreaming) {
-    return (
-      <Button variant="default" size="icon-md" type="button" tooltip="Cancel" onClick={onCancel}>
-        <CircleStopIcon />
-      </Button>
-    );
-  }
+  const messages = useChatMessages();
+  const { isRunning } = useChatRunning();
+  const { requestContext } = usePlaygroundStore();
+  const { isSpeaking, readAloud, stop: stopSpeaking } = useReadAloud(agentId, requestContext);
+  const { hasSession, viewMode } = useBrowserSession();
+  const showThumbnailInChat = hasSession && (viewMode === "collapsed" || viewMode === "expanded");
+  const isEmpty = messages.length === 0;
+  const lastMessage = messages.at(-1);
+  const showPending =
+    isRunning && (lastMessage?.role !== "assistant" || !hasStreamingPart(lastMessage));
+  const delayedPending = useDelayedFlag(showPending, SKELETON_DELAY_MS);
+  const threadRailTurns = useMemo(() => buildThreadRailTurns(messages), [messages]);
+  const threadRailAnchorIds = useMemo(
+    () => new Set(threadRailTurns.map((turn) => turn.messageId)),
+    [threadRailTurns],
+  );
 
   return (
-    <>
-      <Button
-        type="submit"
-        variant="default"
-        size="icon-md"
-        tooltip={canExecute ? "Send" : "No permission to execute"}
-        className="rounded-full border border-border1 bg-surface5"
-        disabled={!canExecute || isEmpty}
-      >
-        <ArrowUp className="h-6 w-6 text-neutral3 hover:text-neutral6" />
-      </Button>
-      {isRunning && (
-        <Button variant="default" size="icon-md" type="button" tooltip="Cancel" onClick={onCancel}>
-          <CircleStopIcon />
-        </Button>
-      )}
-    </>
+    <ComposerAttachmentsProvider>
+      <MessageScrollerProvider>
+        <div
+          className="group/thread grid grid-rows-[1fr_auto] h-full overflow-y-auto"
+          data-testid="thread-wrapper"
+        >
+          <MessageScroller>
+            <MessageScrollerViewport
+              ref={areaRef}
+              className="overflow-y-scroll h-full"
+              style={{ overflowAnchor: "none" }}
+            >
+              {isEmpty ? (
+                <ThreadWelcome agentName={agentName} />
+              ) : (
+                <div
+                  data-testid="thread-rail-container"
+                  className="thread-rail-container relative min-h-full"
+                >
+                  <ThreadRailLayer turns={threadRailTurns} />
+                  <div
+                    ref={messagesContainerRef}
+                    data-testid="thread-message-column"
+                    className="relative max-w-3xl w-full mx-auto px-4 pb-7 group-has-[[data-attachments-row]]/thread:pb-24"
+                  >
+                    <BracketOverlay containerRef={messagesContainerRef} />
+                    <MessageScrollerContent className="flex flex-col gap-6 py-6">
+                      {messages.map((message) => (
+                        <MessageScrollerItem
+                          key={getClientMessageKey(message)}
+                          messageId={message.id}
+                          scrollAnchor={threadRailAnchorIds.has(message.id)}
+                        >
+                          <MessageRow
+                            message={message}
+                            hasModelList={hasModelList}
+                            isSpeaking={isSpeaking}
+                            onReadAloud={readAloud}
+                            onStopSpeaking={stopSpeaking}
+                          />
+                        </MessageScrollerItem>
+                      ))}
+                      {delayedPending && <PendingIndicator />}
+                    </MessageScrollerContent>
+                    {!isRunning && <SaveFullConversationAction />}
+                  </div>
+                </div>
+              )}
+            </MessageScrollerViewport>
+            <MessageScrollerButton className="z-30" />
+          </MessageScroller>
+          {showThumbnailInChat && agentId && threadId && (
+            <div className="mb-2 max-w-3xl w-full mx-auto px-4">
+              <BrowserThumbnail agentName={agentName} />
+            </div>
+          )}
+          <TaskPanel />
+          <Composer
+            agentId={agentId}
+            threadId={threadId}
+            hasModelList={hasModelList}
+            hideModelSwitcher={hideModelSwitcher}
+            runOptionsSlot={runOptionsSlot}
+            refreshThreadList={refreshThreadList}
+          />
+        </div>
+      </MessageScrollerProvider>
+    </ComposerAttachmentsProvider>
   );
 };
-
-const CircleStopIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className="text-neutral3 hover:text-neutral6"
-  >
-    <circle cx="12" cy="12" r="10" />
-    <rect width="6" height="6" x="9" y="9" rx="1" />
-  </svg>
-);

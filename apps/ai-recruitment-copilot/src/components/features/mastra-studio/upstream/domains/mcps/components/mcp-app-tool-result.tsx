@@ -39,7 +39,7 @@ export function McpAppToolResult({
   });
 
   const handleToolCall = useCallback(
-    async (toolName: string, args: Record<string, unknown>) => {
+    (toolName: string, args: Record<string, unknown>) => {
       const tool = client.getMcpServerTool(appInfo.serverId, toolName);
       return tool.execute({ data: args });
     },

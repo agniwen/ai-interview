@@ -1,4 +1,4 @@
-import { useMastraPackages } from "@/components/features/mastra-studio/upstream/domains/configuration";
+import { useMastraPackages } from "@/components/features/mastra-studio/upstream/domains/configuration/hooks/use-mastra-packages";
 
 export const useIsCmsAvailable = () => {
   const { data, isLoading: isLoadingPackages } = useMastraPackages();

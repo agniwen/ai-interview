@@ -16,8 +16,12 @@ export interface TracingSettingsContextType {
 
 export const TracingSettingsContext = createContext<TracingSettingsContextType>({
   entityType: undefined,
-  resetAll: () => {},
-  setSettings: () => {},
+  resetAll: () => {
+    /* empty */
+  },
+  setSettings: () => {
+    /* empty */
+  },
   settings: undefined,
 });
 

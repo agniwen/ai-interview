@@ -9,7 +9,7 @@ import type {
   VoiceCallStatus,
   VoiceCaptionSegment,
 } from "../types";
-import { useStudioConfig } from "@/components/features/mastra-studio/upstream/domains/configuration";
+import { useStudioConfig } from "@/components/features/mastra-studio/upstream/domains/configuration/context/studio-config-state";
 
 const AGENT_STATE_ATTRIBUTE = "lk.agent.state";
 const TRANSCRIPTION_TOPIC = "lk.transcription";
@@ -139,11 +139,11 @@ export const useVoiceCall = ({
     try {
       // Custom API routes mount at the server root, outside the /api prefix.
       const response = await fetch(`${baseUrl}/voice/livekit/connection-details`, {
-        method: "POST",
-        headers: { ...headers, "content-type": "application/json" },
         // resourceId matches the sidebar's thread listing (resourceId === agentId), so
         // the call's thread and messages land where Studio reads them.
         body: JSON.stringify({ agentId, resourceId: agentId, threadId }),
+        headers: { ...headers, "content-type": "application/json" },
+        method: "POST",
         signal: abortController.signal,
       });
       if (superseded()) {
@@ -221,7 +221,9 @@ export const useVoiceCall = ({
       setStatus("active");
       // The worker creates the call's thread on session start; show it in the sidebar.
       refreshThread();
-      await Promise.resolve(onCallStartedRef.current?.()).catch(() => {});
+      await Promise.resolve(onCallStartedRef.current?.()).catch(() => {
+        /* empty */
+      });
     } catch (error) {
       // Aborted by cleanup() (stop/unmount) or otherwise superseded — not a real failure.
       if (abortController.signal.aborted || superseded()) {

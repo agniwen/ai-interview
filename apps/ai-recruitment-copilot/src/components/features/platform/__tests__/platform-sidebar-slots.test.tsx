@@ -10,6 +10,13 @@ const routerMocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   pathname: "/platform/organizations",
 }));
+const commandMocks = vi.hoisted(() => ({
+  setOpen: vi.fn(),
+}));
+
+vi.mock("@/components/features/mastra-studio/upstream/lib/command", () => ({
+  useNavigationCommand: () => ({ setOpen: commandMocks.setOpen }),
+}));
 
 vi.mock("@tanstack/react-router", async () => {
   const React = await import("react");
@@ -59,16 +66,19 @@ vi.mock("@/components/ui/sidebar", async () => {
       React.createElement("h2", null, children),
     SidebarMenu: Element,
     SidebarMenuButton: ({
+      children,
       isActive,
       render,
       tooltip,
+      ...props
     }: {
+      children?: React.ReactNode;
       isActive: boolean;
-      render: React.ReactElement;
+      render?: React.ReactElement;
       tooltip: string;
-    }) =>
-      React.cloneElement(render, {
-        "aria-label": tooltip,
+    } & React.ButtonHTMLAttributes<HTMLButtonElement>) =>
+      React.cloneElement(render ?? React.createElement("button", props, children), {
+        "aria-label": props["aria-label"] ?? tooltip,
         "data-active": String(isActive),
       } as React.HTMLAttributes<HTMLElement>),
     SidebarMenuItem: Element,
@@ -121,6 +131,7 @@ afterEach(async () => {
   }
   roots.length = 0;
   routerMocks.navigate.mockReset();
+  commandMocks.setOpen.mockReset();
   routerMocks.pathname = "/platform/organizations";
   document.body.innerHTML = "";
 });
@@ -162,6 +173,7 @@ describe("PlatformSidebarSlots", () => {
     expect(document.body.textContent).toContain("MCP Servers");
     expect(document.body.textContent).toContain("Settings");
     expect(document.body.textContent).toContain("Resources");
+    expect(document.body.textContent).toContain("Search");
     expect(document.body.textContent).not.toContain("所有工作区");
     expect(document.querySelector("button[data-active='true']")?.textContent).toBe("Mastra");
     const agentsLink = document.querySelector<HTMLAnchorElement>(
@@ -169,6 +181,12 @@ describe("PlatformSidebarSlots", () => {
     );
     expect(agentsLink).not.toBeNull();
     expect(agentsLink?.dataset.active).toBe("true");
+
+    const searchButton = document.querySelector<HTMLButtonElement>(
+      "button[aria-label='Search and navigate']",
+    );
+    act(() => searchButton?.click());
+    expect(commandMocks.setOpen).toHaveBeenCalledWith(true);
 
     const manageTab = [...document.querySelectorAll("button")].find(
       (button) => button.textContent === "Manage",

@@ -3,43 +3,77 @@ import { useWatch } from "react-hook-form";
 import type { Control } from "react-hook-form";
 
 import type { AgentFormValues } from "../agent-edit-page/utils/form-validation";
+import { resolveConditional } from "../../utils/conditional";
 
 function pluralize(count: number, singular: string): string {
-  return `${count} ${singular}${count === 1 ? "" : "s"}`;
+  return `${count} ${singular}${resolveConditional(
+    count === 1,
+    () => "",
+    () => "s",
+  )}`;
+}
+
+function describeCount(count: number, empty: string, singular: string): string {
+  return resolveConditional(
+    count,
+    () => pluralize(count, singular),
+    () => empty,
+  );
+}
+
+function countInstructionBlocks(values: AgentFormValues): number {
+  return resolveConditional(
+    values.instructionBlocks,
+    (blocks) =>
+      blocks.filter((block) => {
+        if (block.type === "prompt_block_ref") {
+          return true;
+        }
+        return block.type === "prompt_block" && Boolean(block.content?.trim());
+      }).length,
+    () => 0,
+  );
+}
+
+function describeIdentity(values: {
+  name?: string;
+  model?: { provider?: string; name?: string };
+}): string {
+  if (!values.name || !values.model?.provider || !values.model?.name) {
+    return "Required";
+  }
+  return values.name;
 }
 
 export function useSidebarDescriptions(control: Control<AgentFormValues>) {
   const values = useWatch({ control });
 
   return useMemo(() => {
-    const identity =
-      !values.name || !values.model?.provider || !values.model?.name ? "Required" : values.name;
+    const identity = describeIdentity(values);
 
-    const blockCount = (values.instructionBlocks ?? []).filter(
-      (b) => b.type === "prompt_block_ref" || (b.type === "prompt_block" && b.content?.trim()),
-    ).length;
-    const instructions = blockCount === 0 ? "Required" : pluralize(blockCount, "block");
+    const blockCount = countInstructionBlocks(values as AgentFormValues);
+    const instructions = describeCount(blockCount, "Required", "block");
 
     const toolCount =
       Object.keys(values.tools ?? {}).length + Object.keys(values.integrationTools ?? {}).length;
-    const tools = toolCount === 0 ? "None selected" : pluralize(toolCount, "tool");
+    const tools = describeCount(toolCount, "None selected", "tool");
 
     const agentCount = Object.keys(values.agents ?? {}).length;
-    const agents = agentCount === 0 ? "None selected" : pluralize(agentCount, "agent");
+    const agents = describeCount(agentCount, "None selected", "agent");
 
     const scorerCount = Object.keys(values.scorers ?? {}).length;
-    const scorers = scorerCount === 0 ? "None selected" : pluralize(scorerCount, "scorer");
+    const scorers = describeCount(scorerCount, "None selected", "scorer");
 
     const workflowCount = Object.keys(values.workflows ?? {}).length;
-    const workflows = workflowCount === 0 ? "None selected" : pluralize(workflowCount, "workflow");
+    const workflows = describeCount(workflowCount, "None selected", "workflow");
 
-    const memory = values.memory?.enabled ? "Enabled" : "Disabled";
+    const memory = resolveConditional(values.memory?.enabled, () => "Enabled", () => "Disabled");
 
     const skillCount = Object.keys(values.skills ?? {}).length;
-    const skills = skillCount === 0 ? "None selected" : pluralize(skillCount, "skill");
+    const skills = describeCount(skillCount, "None selected", "skill");
 
     const variableCount = Object.keys(values.variables?.properties ?? {}).length;
-    const variables = variableCount === 0 ? "None defined" : pluralize(variableCount, "variable");
+    const variables = describeCount(variableCount, "None defined", "variable");
 
     return {
       agents: { description: agents, done: agentCount > 0 },

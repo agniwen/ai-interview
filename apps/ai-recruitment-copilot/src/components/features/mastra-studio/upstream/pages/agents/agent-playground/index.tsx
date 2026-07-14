@@ -18,13 +18,81 @@ import type { AgentDataSource } from "@/components/features/mastra-studio/upstre
 import { useEditorSource } from "@/components/features/mastra-studio/upstream/domains/configuration/hooks/use-editor-source";
 import { useMemory } from "@/components/features/mastra-studio/upstream/domains/memory/hooks/use-memory";
 import { useMastraPlatform } from "@/components/features/mastra-studio/upstream/lib/mastra-platform/hooks/use-mastra-platform";
+import { resolveConditional } from "../../../domains/agents/utils/conditional";
+import { firstDefined } from "../../../domains/agents/utils/presence";
+import { allTruthy, anyTruthy } from "../../../domains/agents/utils/truthiness";
+
+function getVersionCount(versions: unknown[] | undefined): number {
+  if (!versions) {
+    return 0;
+  }
+  return versions.length;
+}
+
+function getOpenPrTitle(canOpenPr: boolean): string | undefined {
+  if (canOpenPr) {
+    return "Open a pull request for these JSON changes";
+  }
+  return undefined;
+}
+
+function getCodeAgentFlags(
+  codeAgent: { source?: string; editor?: unknown } | null | undefined,
+  editorSource: string | undefined,
+) {
+  const isCodeAgentOverride = codeAgent?.source === "code";
+  const isCodeSourceAgent = allTruthy(isCodeAgentOverride, editorSource === "code");
+  const isCodeAgentEditable = anyTruthy(!isCodeAgentOverride, codeAgent?.editor !== false);
+  return {
+    isCodeAgentEditable,
+    isCodeAgentOverride,
+    isCodeSourceAgent,
+    showCodeModeActions: allTruthy(isCodeSourceAgent, isCodeAgentEditable),
+  };
+}
+
+function getVersionFlags({
+  latestVersionId,
+  activeVersionId,
+  selectedVersionId,
+  hasVersionData,
+}: {
+  latestVersionId: string | undefined;
+  activeVersionId: string | undefined;
+  selectedVersionId: string | null;
+  hasVersionData: boolean;
+}) {
+  const isViewingVersion = allTruthy(selectedVersionId, hasVersionData);
+  return {
+    hasDraft: allTruthy(latestVersionId, latestVersionId !== activeVersionId),
+    isViewingPreviousVersion: allTruthy(isViewingVersion, selectedVersionId !== latestVersionId),
+    isViewingVersion,
+  };
+}
+
+function getOptionalString(value: string | null | undefined): string | undefined {
+  if (value === null) {
+    return undefined;
+  }
+  return value;
+}
+
+function getViewedVersionId(
+  isViewingPreviousVersion: boolean,
+  selectedVersionId: string | null,
+): string | undefined {
+  if (!isViewingPreviousVersion) {
+    return undefined;
+  }
+  return getOptionalString(selectedVersionId);
+}
 
 function AgentPlayground() {
   const { agentId } = useParams();
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
 
-  const { data: codeAgent, isLoading: isLoadingCodeAgent, error } = useAgent(agentId!);
-  const { data: memory } = useMemory(agentId!);
+  const { data: codeAgent, isLoading: isLoadingCodeAgent, error } = useAgent(agentId);
+  const { data: memory } = useMemory(agentId);
   const editorSource = useEditorSource();
   const { isMastraPlatform, mastraPlatformApiEndpoint, mastraPlatformProjectId } =
     useMastraPlatform();
@@ -36,38 +104,39 @@ function AgentPlayground() {
   });
 
   // Only fetch stored agent details when versions exist (avoids 404 for code-only agents)
-  const hasVersions = (versionsData?.versions?.length ?? 0) > 0;
-  const { data: storedAgent, isLoading: isLoadingStoredAgent } = useStoredAgent(agentId!, {
+  const versions = versionsData?.versions;
+  const hasVersions = getVersionCount(versions) > 0;
+  const { data: storedAgent, isLoading: isLoadingStoredAgent } = useStoredAgent(agentId, {
     enabled: hasVersions,
     status: "draft",
   });
 
-  const isCodeAgentOverride = codeAgent?.source === "code";
-  const isCodeSourceAgent = isCodeAgentOverride && editorSource === "code";
-  const isCodeAgentEditable = !isCodeAgentOverride || codeAgent?.editor !== false;
-  const showCodeModeActions = isCodeSourceAgent && isCodeAgentEditable;
-  const canOpenPr =
-    showCodeModeActions &&
-    isMastraPlatform &&
-    !!mastraPlatformApiEndpoint &&
-    !!mastraPlatformProjectId;
-  const openPrTitle = canOpenPr ? "Open a pull request for these JSON changes" : undefined;
-  const isLoading = isLoadingCodeAgent || (hasVersions && isLoadingStoredAgent);
+  const { isCodeAgentEditable, isCodeAgentOverride, isCodeSourceAgent, showCodeModeActions } =
+    getCodeAgentFlags(codeAgent, editorSource);
+  const canOpenPr = allTruthy(
+    showCodeModeActions,
+    isMastraPlatform,
+    mastraPlatformApiEndpoint,
+    mastraPlatformProjectId,
+  );
+  const openPrTitle = getOpenPrTitle(canOpenPr);
+  const isLoading = anyTruthy(isLoadingCodeAgent, allTruthy(hasVersions, isLoadingStoredAgent));
   const hasMemory = Boolean(memory?.result);
 
   // Fetch version data when a specific version is selected
   const { data: versionData } = useAgentVersion({
-    agentId: agentId ?? "",
-    versionId: selectedVersionId ?? "",
+    agentId: firstDefined(agentId, "") as string,
+    versionId: firstDefined(selectedVersionId, "") as string,
   });
 
   const activeVersionId = storedAgent?.activeVersionId;
-  const latestVersion = versionsData?.versions?.[0];
-  const hasDraft = !!(latestVersion && latestVersion.id !== activeVersionId);
-
-  // Determine if viewing a previous (non-latest) version
-  const isViewingVersion = !!selectedVersionId && !!versionData;
-  const isViewingPreviousVersion = isViewingVersion && selectedVersionId !== latestVersion?.id;
+  const latestVersion = versions?.[0];
+  const { hasDraft, isViewingPreviousVersion, isViewingVersion } = getVersionFlags({
+    activeVersionId,
+    hasVersionData: Boolean(versionData),
+    latestVersionId: latestVersion?.id,
+    selectedVersionId,
+  });
 
   // Switch data source based on selected version
   const dataSource = useMemo<AgentDataSource>(() => {
@@ -93,22 +162,24 @@ function AgentPlayground() {
     isSavingDraft,
     isDirty,
   } = useAgentCmsForm({
-    agentId: agentId ?? "",
+    agentId: firstDefined(agentId, "") as string,
     dataSource,
     editorConfig: codeAgent?.editor,
     hasStoredOverride: isCodeAgentOverride && !!storedAgent,
     isCodeAgentOverride,
     mode: "edit",
-    onSuccess: () => {},
+    onSuccess: () => {
+      /* empty */
+    },
     saveSuccessMessage: isCodeSourceAgent ? "Saved to filesystem" : undefined,
   });
 
   const handlePublishVersion = useCallback(async () => {
-    if (isViewingPreviousVersion && selectedVersionId) {
-      await handlePublish(selectedVersionId);
-    } else {
-      await handlePublish();
-    }
+    await resolveConditional(
+      allTruthy(isViewingPreviousVersion, selectedVersionId),
+      () => handlePublish(selectedVersionId as string),
+      () => handlePublish(),
+    );
   }, [handlePublish, isViewingPreviousVersion, selectedVersionId]);
 
   const handleOpenPrClick = useCallback(async () => {
@@ -172,24 +243,32 @@ function AgentPlayground() {
       handleSaveDraft={handleSaveDraft}
       isCodeAgentOverride={isCodeAgentOverride}
       isCodeSourceAgent={isCodeSourceAgent}
-      readOnly={isViewingPreviousVersion || !isCodeAgentEditable}
+      readOnly={resolveConditional(
+        isViewingPreviousVersion,
+        () => isViewingPreviousVersion,
+        () => !isCodeAgentEditable,
+      )}
       editorConfig={codeAgent?.editor}
     >
       <AgentPlaygroundView
-        agentId={agentId!}
+        agentId={agentId}
         agentName={codeAgent?.name}
         modelVersion={codeAgent?.modelVersion}
-        agentVersionId={isViewingPreviousVersion ? (selectedVersionId ?? undefined) : undefined}
+        agentVersionId={getViewedVersionId(isViewingPreviousVersion, selectedVersionId)}
         hasMemory={hasMemory}
         activeVersionId={activeVersionId}
-        selectedVersionId={selectedVersionId ?? undefined}
+        selectedVersionId={getOptionalString(selectedVersionId)}
         latestVersionId={latestVersion?.id}
         onVersionSelect={handleVersionSelect}
         isDirty={isDirty}
         isSavingDraft={isSavingDraft}
         isPublishing={isSubmitting}
         hasDraft={hasDraft}
-        readOnly={isViewingPreviousVersion || !isCodeAgentEditable}
+        readOnly={resolveConditional(
+          isViewingPreviousVersion,
+          () => isViewingPreviousVersion,
+          () => !isCodeAgentEditable,
+        )}
         isCodeSourceAgent={isCodeSourceAgent}
         showCodeModeActions={showCodeModeActions}
         canOpenPr={canOpenPr}

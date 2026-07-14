@@ -59,7 +59,7 @@ export function JSONPreviewTable({ items, maxRows = 5 }: JSONPreviewTableProps) 
 
       {hiddenCount > 0 && (
         <div className="bg-surface2 px-3 py-2 text-xs text-neutral4 text-center border-t border-border1">
-          +{hiddenCount} more item{hiddenCount !== 1 ? "s" : ""}
+          +{hiddenCount} more item{hiddenCount === 1 ? "" : "s"}
         </div>
       )}
     </div>

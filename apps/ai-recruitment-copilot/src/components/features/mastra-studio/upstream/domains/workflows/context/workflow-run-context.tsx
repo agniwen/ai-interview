@@ -1,16 +1,28 @@
 import type { TimeTravelParams } from "@mastra/client-js";
-import type { WorkflowRunState, WorkflowStreamResult } from "@mastra/core/workflows";
+import type {
+  Step,
+  StepResult,
+  WorkflowRunState,
+  WorkflowStreamResult,
+} from "@mastra/core/workflows";
 import { createContext } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { WorkflowTriggerProps } from "../workflow/workflow-trigger";
 
-export type WorkflowRunStreamResult = WorkflowStreamResult<any, any, any, any>;
+type BroadWorkflowStep = Step<string, unknown, unknown>;
+type BroadStepResult = StepResult<unknown, unknown, unknown, unknown>;
+export type WorkflowRunStreamResult = WorkflowStreamResult<
+  unknown,
+  unknown,
+  unknown,
+  BroadWorkflowStep[]
+> & { steps: Record<string, BroadStepResult> };
 
 export type WorkflowRunContextType = {
   result: WorkflowRunStreamResult | null;
   setResult: Dispatch<SetStateAction<WorkflowRunStreamResult | null>>;
-  payload: any;
-  setPayload: Dispatch<SetStateAction<any>>;
+  payload: unknown;
+  setPayload: Dispatch<SetStateAction<unknown>>;
   clearData: () => void;
   snapshot?: WorkflowRunState;
   runId?: string;

@@ -3,7 +3,7 @@ import { SessionExpired } from "@mastra/playground-ui/components/SessionExpired"
 import { Spinner } from "@mastra/playground-ui/components/Spinner";
 import { is401UnauthorizedError, is403ForbiddenError } from "@mastra/playground-ui/utils/errors";
 import { useParams } from "@/components/features/mastra-studio/router/compat";
-import { AgentPlaygroundReview } from "@/components/features/mastra-studio/upstream/domains/agents/components/agent-playground";
+import { AgentPlaygroundReview } from "@/components/features/mastra-studio/upstream/domains/agents/components/agent-playground/agent-playground-review";
 import { useAgent } from "@/components/features/mastra-studio/upstream/domains/agents/hooks/use-agent";
 import { useLinkComponent } from "@/components/features/mastra-studio/upstream/lib/framework";
 
@@ -11,7 +11,7 @@ function AgentReview() {
   const { agentId } = useParams();
   const { navigate } = useLinkComponent();
 
-  const { data: codeAgent, isLoading, error } = useAgent(agentId!);
+  const { data: codeAgent, isLoading, error } = useAgent(agentId);
 
   if (error && is401UnauthorizedError(error)) {
     return (
@@ -46,7 +46,7 @@ function AgentReview() {
     navigate(`/agents/${agentId}/evaluate`);
   };
 
-  return <AgentPlaygroundReview agentId={agentId!} onCreateScorer={handleCreateScorer} />;
+  return <AgentPlaygroundReview agentId={agentId} onCreateScorer={handleCreateScorer} />;
 }
 
 export default AgentReview;

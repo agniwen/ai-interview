@@ -29,15 +29,12 @@ export const RecordField: React.FC<AutoFormFieldProps> = ({ inputProps, field })
 
   const updateForm = React.useCallback(
     (newPairs: KeyValuePair[]) => {
-      const newValue = newPairs.reduce(
-        (acc, pair) => {
-          if (pair.key) {
-            acc[pair.key] = pair.value;
-          }
-          return acc;
-        },
-        {} as Record<string, string>,
-      );
+      const newValue: Record<string, string> = {};
+      for (const pair of newPairs) {
+        if (pair.key) {
+          newValue[pair.key] = pair.value;
+        }
+      }
 
       onChange?.({
         target: { name: inputProps.name, value: newValue },
@@ -46,9 +43,9 @@ export const RecordField: React.FC<AutoFormFieldProps> = ({ inputProps, field })
     [onChange, inputProps.name],
   );
 
-  const handleChange = (id: string, field: "key" | "value", newValue: string) => {
+  const handleChange = (id: string, property: "key" | "value", newValue: string) => {
     setPairs((prev) =>
-      prev.map((pair) => (pair.id === id ? { ...pair, [field]: newValue } : pair)),
+      prev.map((pair) => (pair.id === id ? { ...pair, [property]: newValue } : pair)),
     );
   };
 

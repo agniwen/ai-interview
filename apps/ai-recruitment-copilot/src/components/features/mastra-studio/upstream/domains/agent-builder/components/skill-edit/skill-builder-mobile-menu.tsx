@@ -20,42 +20,6 @@ export interface SkillBuilderMobileMenuProps {
   disabled?: boolean;
 }
 
-export function SkillBuilderMobileMenu({
-  skillId,
-  showSetVisibility = false,
-  showDelete = false,
-  skillName = "",
-  disabled = false,
-}: SkillBuilderMobileMenuProps) {
-  if (!showSetVisibility && !showDelete) {
-    return null;
-  }
-
-  return (
-    <div className="lg:hidden" data-testid="skill-builder-mobile-menu">
-      <DropdownMenu>
-        <DropdownMenu.Trigger asChild>
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            tooltip="More actions"
-            data-testid="skill-builder-mobile-menu-trigger"
-          >
-            <MoreVerticalIcon />
-          </Button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Content align="end">
-          {showSetVisibility && <VisibilityMenuItem skillId={skillId} disabled={disabled} />}
-          {showSetVisibility && showDelete && <DropdownMenu.Separator />}
-          {showDelete && (
-            <DeleteSkillMenuItem skillId={skillId} skillName={skillName} disabled={disabled} />
-          )}
-        </DropdownMenu.Content>
-      </DropdownMenu>
-    </div>
-  );
-}
-
 interface VisibilityMenuItemProps {
   skillId: string;
   disabled: boolean;
@@ -96,5 +60,41 @@ function VisibilityMenuItem({ skillId, disabled }: VisibilityMenuItemProps) {
       )}
       {dialog}
     </>
+  );
+}
+
+export function SkillBuilderMobileMenu({
+  skillId,
+  showSetVisibility = false,
+  showDelete = false,
+  skillName = "",
+  disabled = false,
+}: SkillBuilderMobileMenuProps) {
+  if (!showSetVisibility && !showDelete) {
+    return null;
+  }
+
+  return (
+    <div className="lg:hidden" data-testid="skill-builder-mobile-menu">
+      <DropdownMenu>
+        <DropdownMenu.Trigger asChild>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            tooltip="More actions"
+            data-testid="skill-builder-mobile-menu-trigger"
+          >
+            <MoreVerticalIcon />
+          </Button>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Content align="end">
+          {showSetVisibility && <VisibilityMenuItem skillId={skillId} disabled={disabled} />}
+          {showSetVisibility && showDelete && <DropdownMenu.Separator />}
+          {showDelete && (
+            <DeleteSkillMenuItem skillId={skillId} skillName={skillName} disabled={disabled} />
+          )}
+        </DropdownMenu.Content>
+      </DropdownMenu>
+    </div>
   );
 }

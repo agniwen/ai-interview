@@ -45,9 +45,51 @@ function truncateValue(value: unknown, maxLength = 100): string {
 
 function formatDate(date: Date): string {
   const dayMonth = isToday(date) ? "Today" : format(date, "MMM dd");
-  const year = !isThisYear(date) ? format(date, "yyyy") : "";
+  const year = isThisYear(date) ? "" : format(date, "yyyy");
   const time = format(date, "'at' h:mm aaa");
   return `${dayMonth} ${year} ${time}`.replaceAll(/\s+/g, " ").trim();
+}
+
+interface EmptyDatasetItemListProps {
+  onAddClick: () => void;
+  onImportClick?: () => void;
+  onImportJsonClick?: () => void;
+}
+
+function EmptyDatasetItemList({
+  onAddClick,
+  onImportClick,
+  onImportJsonClick,
+}: EmptyDatasetItemListProps) {
+  return (
+    <div className="flex h-full items-center justify-center py-12">
+      <EmptyState
+        iconSlot={<Plus className="w-8 h-8 text-neutral3" />}
+        titleSlot="No items yet"
+        descriptionSlot="Add items to this dataset to use them in experiment runs."
+        actionSlot={
+          <ButtonsGroup>
+            <Button onClick={onAddClick} size="md">
+              <Plus />
+              Add Single Item
+            </Button>
+            {onImportClick && (
+              <Button onClick={onImportClick} size="md">
+                <Upload />
+                Import CSV
+              </Button>
+            )}
+            {onImportJsonClick && (
+              <Button onClick={onImportJsonClick} size="md">
+                <FileJson />
+                Import JSON
+              </Button>
+            )}
+          </ButtonsGroup>
+        }
+      />
+    </div>
+  );
 }
 
 export function DatasetItemsList({
@@ -97,14 +139,14 @@ export function DatasetItemsList({
     }
   };
 
-  const handleToggleSelection = (id: string, shiftKey: boolean, allIds: string[]) => {
+  const handleToggleSelection = (id: string, shiftKey: boolean, orderedIds: string[]) => {
     if (maxSelection && !selectedIds.has(id) && selectedIds.size >= maxSelection) {
       // Drop most recent selection, keep oldest + add new one
       const [first] = [...selectedIds];
       onSelectAll([first, id]);
       return;
     }
-    onToggleSelection(id, shiftKey, allIds);
+    onToggleSelection(id, shiftKey, orderedIds);
   };
 
   const gridColumns = [isSelectionActive ? "auto" : "", ...columns.map((c) => c.size)]
@@ -207,47 +249,5 @@ export function DatasetItemsList({
         </>
       )}
     </DataList>
-  );
-}
-
-interface EmptyDatasetItemListProps {
-  onAddClick: () => void;
-  onImportClick?: () => void;
-  onImportJsonClick?: () => void;
-}
-
-function EmptyDatasetItemList({
-  onAddClick,
-  onImportClick,
-  onImportJsonClick,
-}: EmptyDatasetItemListProps) {
-  return (
-    <div className="flex h-full items-center justify-center py-12">
-      <EmptyState
-        iconSlot={<Plus className="w-8 h-8 text-neutral3" />}
-        titleSlot="No items yet"
-        descriptionSlot="Add items to this dataset to use them in experiment runs."
-        actionSlot={
-          <ButtonsGroup>
-            <Button onClick={onAddClick} size="md">
-              <Plus />
-              Add Single Item
-            </Button>
-            {onImportClick && (
-              <Button onClick={onImportClick} size="md">
-                <Upload />
-                Import CSV
-              </Button>
-            )}
-            {onImportJsonClick && (
-              <Button onClick={onImportJsonClick} size="md">
-                <FileJson />
-                Import JSON
-              </Button>
-            )}
-          </ButtonsGroup>
-        }
-      />
-    </div>
   );
 }

@@ -6,7 +6,7 @@ export const useExperimentTrace = (traceId: string | null | undefined) => {
 
   return useQuery({
     enabled: !!traceId,
-    queryFn: async () => {
+    queryFn: () => {
       if (!traceId) {
         throw new Error("Trace ID is required");
       }

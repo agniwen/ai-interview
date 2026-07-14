@@ -21,7 +21,8 @@ export function isAnthropicModelWithSamplingRestriction(
   // Model IDs like: claude-sonnet-4-5, claude-haiku-4-5, claude-4-5-sonnet, etc.
   if (!modelId) {
     return true;
-  } // Default to restricted for anthropic if no modelId
+    // Default to restricted for anthropic if no modelId
+  }
   const lowerModelId = modelId.toLowerCase();
 
   // Check for version 4.5+ patterns specifically
@@ -30,8 +31,10 @@ export function isAnthropicModelWithSamplingRestriction(
   // Patterns: claude-*-4-5, claude-haiku-4-5, claude-sonnet-4-5, claude-opus-4-5
   // Also future versions: 5-0, 5-5, 6-0, etc.
   const is45OrNewer =
-    /[^0-9]4[.-]5/.test(lowerModelId) || // Matches 4-5 or 4.5 but not 34-5
-    /[^0-9][5-9][.-]\d/.test(lowerModelId); // Matches 5-0, 6-0, etc. for future versions
+    // Matches 4-5 or 4.5 but not 34-5
+    /[^0-9]4[.-]5/.test(lowerModelId) ||
+    // Matches 5-0, 6-0, etc. for future versions
+    /[^0-9][5-9][.-]\d/.test(lowerModelId);
 
   return is45OrNewer;
 }

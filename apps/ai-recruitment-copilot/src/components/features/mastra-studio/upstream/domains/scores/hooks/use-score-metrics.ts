@@ -1,6 +1,6 @@
 import { useMastraClient } from "@mastra/react";
 import { useQuery } from "@tanstack/react-query";
-import { useMergedRequestContext } from "@/components/features/mastra-studio/upstream/domains/request-context";
+import { useMergedRequestContext } from "@/components/features/mastra-studio/upstream/domains/request-context/context/schema-request-context";
 
 export interface ScorerSummary {
   scorer: string;
@@ -13,6 +13,53 @@ export interface ScorerSummary {
 export interface ScoresOverTimePoint {
   time: string;
   [scorer: string]: string | number;
+}
+
+function getOrCreateValues(map: Map<string, number[]>, key: string): number[] {
+  const existing = map.get(key);
+  if (existing) {
+    return existing;
+  }
+  const values: number[] = [];
+  map.set(key, values);
+  return values;
+}
+
+function getOrCreateScorerMap(
+  map: Map<number, Map<string, number[]>>,
+  bucket: number,
+): Map<string, number[]> {
+  const existing = map.get(bucket);
+  if (existing) {
+    return existing;
+  }
+  const scorerMap = new Map<string, number[]>();
+  map.set(bucket, scorerMap);
+  return scorerMap;
+}
+
+function getBucketSize(rangeMs: number): number {
+  if (rangeMs < 3_600_000) {
+    return 60_000;
+  }
+  if (rangeMs < 86_400_000) {
+    return 3_600_000;
+  }
+  return 86_400_000;
+}
+
+function getTimeLabel(date: Date, isMultiDay: boolean): string {
+  const time = date.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    hour12: false,
+    minute: "2-digit",
+  });
+  return isMultiDay
+    ? `${date.toLocaleDateString("en-US", {
+        day: "numeric",
+        month: "short",
+      })} ${time}`
+    : time;
 }
 
 export function useScoreMetrics() {
@@ -47,7 +94,7 @@ export function useScoreMetrics() {
       );
 
       const allScores: { scorerId: string; score: number; timestamp: string }[] = [];
-      for (let i = 0; i < scorerIds.length; i++) {
+      for (let i = 0; i < scorerIds.length; i += 1) {
         const scores = allResults[i]?.scores ?? [];
         for (const s of scores) {
           allScores.push({
@@ -79,10 +126,7 @@ export function useScoreMetrics() {
       // Group by scorer for summary (uses all scores)
       const byScorer = new Map<string, number[]>();
       for (const s of allScores) {
-        if (!byScorer.has(s.scorerId)) {
-          byScorer.set(s.scorerId, []);
-        }
-        byScorer.get(s.scorerId)!.push(s.score);
+        getOrCreateValues(byScorer, s.scorerId).push(s.score);
       }
 
       const summaryData: ScorerSummary[] = [...byScorer.entries()].map(([scorer, vals]) => ({
@@ -101,10 +145,7 @@ export function useScoreMetrics() {
       if (prevScores.length > 0) {
         const prevByScorer = new Map<string, number[]>();
         for (const s of prevScores) {
-          if (!prevByScorer.has(s.scorerId)) {
-            prevByScorer.set(s.scorerId, []);
-          }
-          prevByScorer.get(s.scorerId)!.push(s.score);
+          getOrCreateValues(prevByScorer, s.scorerId).push(s.score);
         }
         const prevScorerAvgs = [...prevByScorer.values()].map(
           (vals) => vals.reduce((a, b) => a + b, 0) / vals.length,
@@ -117,27 +158,14 @@ export function useScoreMetrics() {
       // Pick bucket size based on data range: minutes, hours, or days
       const timestamps = allScores.map((s) => new Date(s.timestamp).getTime());
       const rangeMs = Math.max(...timestamps) - Math.min(...timestamps);
-      let bucketMs: number;
-      if (rangeMs < 3_600_000) {
-        bucketMs = 60_000; // < 1 hour: minute buckets
-      } else if (rangeMs < 86_400_000) {
-        bucketMs = 3_600_000; // < 1 day: hour buckets
-      } else {
-        bucketMs = 86_400_000; // multi-day: day buckets
-      }
+      const bucketMs = getBucketSize(rangeMs);
 
       const bucketMap = new Map<number, Map<string, number[]>>();
       for (const s of allScores) {
         const ts = new Date(s.timestamp);
         const bucket = Math.floor(ts.getTime() / bucketMs) * bucketMs;
-        if (!bucketMap.has(bucket)) {
-          bucketMap.set(bucket, new Map());
-        }
-        const scorerMap = bucketMap.get(bucket)!;
-        if (!scorerMap.has(s.scorerId)) {
-          scorerMap.set(s.scorerId, []);
-        }
-        scorerMap.get(s.scorerId)!.push(s.score);
+        const scorerMap = getOrCreateScorerMap(bucketMap, bucket);
+        getOrCreateValues(scorerMap, s.scorerId).push(s.score);
       }
 
       const sortedBuckets = [...bucketMap.entries()].toSorted(([a], [b]) => a - b);
@@ -148,25 +176,7 @@ export function useScoreMetrics() {
 
       const overTimeData: ScoresOverTimePoint[] = sortedBuckets.map(([bucket, scorerMap]) => {
         const d = new Date(bucket);
-        let timeLabel: string;
-        if (spanDays > 1) {
-          // Multi-day: show "Mar 20 14:00"
-          timeLabel = `${d.toLocaleDateString("en-US", {
-            day: "numeric",
-            month: "short",
-          })} ${d.toLocaleTimeString("en-US", {
-            hour: "2-digit",
-            hour12: false,
-            minute: "2-digit",
-          })}`;
-        } else {
-          // Single day: just show time
-          timeLabel = d.toLocaleTimeString("en-US", {
-            hour: "2-digit",
-            hour12: false,
-            minute: "2-digit",
-          });
-        }
+        const timeLabel = getTimeLabel(d, spanDays > 1);
         const point: ScoresOverTimePoint = { time: timeLabel };
         for (const name of scorerNames) {
           const vals = scorerMap.get(name);

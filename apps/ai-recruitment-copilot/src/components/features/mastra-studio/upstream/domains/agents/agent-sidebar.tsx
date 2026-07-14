@@ -16,7 +16,7 @@ export function AgentSidebar({
   const { paths, navigate } = useLinkComponent();
 
   const handleDelete = async (deleteId: string) => {
-    await mutateAsync({ agentId, threadId: deleteId! });
+    await mutateAsync({ agentId, threadId: deleteId });
     if (deleteId === threadId) {
       navigate(paths.agentNewThreadLink(agentId));
     }

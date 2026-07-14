@@ -20,7 +20,7 @@ import { GaugeIcon, Folder, Globe } from "lucide-react";
 import { useActivatedSkills } from "../../context/activated-skills-context";
 import { useAgent } from "../../hooks/use-agent";
 import { useReorderModelList, useUpdateModelInModelList } from "../../hooks/use-agents";
-import { extractPrompt } from "../../utils/extractPrompt";
+import { extractPrompt } from "../../utils/extract-prompt";
 import {
   AgentMetadataList,
   AgentMetadataListEmpty,
@@ -30,10 +30,11 @@ import { AgentMetadataModelList } from "./agent-metadata-model-list";
 import { AgentMetadataSection } from "./agent-metadata-section";
 import { AgentMetadataWrapper } from "./agent-metadata-wrapper";
 import { useIsCmsAvailable } from "@/components/features/mastra-studio/upstream/domains/cms/hooks/use-is-cms-available";
-import { useScorers } from "@/components/features/mastra-studio/upstream/domains/scores";
+import { useScorers } from "@/components/features/mastra-studio/upstream/domains/scores/hooks/use-scorers";
 import { WORKSPACE_TOOLS_PREFIX } from "@/components/features/mastra-studio/upstream/domains/workspace/constants";
 import { LoadingBadge } from "@/components/features/mastra-studio/upstream/lib/ai-ui/tools/badges/loading-badge";
 import { useLinkComponent } from "@/components/features/mastra-studio/upstream/lib/framework";
+import { resolveConditional } from "../../utils/conditional";
 
 export interface AgentMetadataProps {
   agentId: string;
@@ -65,276 +66,93 @@ export const AgentMetadataNetworkList = ({ agents }: AgentMetadataNetworkListPro
   );
 };
 
-export const AgentMetadata = ({ agentId }: AgentMetadataProps) => {
-  const { data: agent, isLoading } = useAgent(agentId);
-  const { mutate: reorderModelList } = useReorderModelList(agentId);
-  const { mutateAsync: updateModelInModelList } = useUpdateModelInModelList(agentId);
-  const codemirrorTheme = useCodemirrorTheme();
-  const { isCmsAvailable, isLoading: isCmsLoading } = useIsCmsAvailable();
+export const AgentMetadataCombinedProcessorList = ({
+  inputProcessors,
+  outputProcessors,
+}: AgentMetadataCombinedProcessorListProps) => {
+  const { Link, paths } = useLinkComponent();
 
-  if (isLoading) {
-    return <Skeleton className="h-full" />;
+  if (inputProcessors.length === 0 && outputProcessors.length === 0) {
+    return <AgentMetadataListEmpty>No processors</AgentMetadataListEmpty>;
   }
 
-  if (!agent) {
-    return <div>Agent not found</div>;
-  }
-
-  const networkAgentsMap = agent.agents ?? {};
-  const networkAgents = Object.keys(networkAgentsMap).map((key) => ({
-    ...networkAgentsMap[key],
-    id: key,
-  }));
-
-  const agentTools = agent.tools ?? {};
-  const tools = Object.keys(agentTools).map((key) => agentTools[key]);
-
-  const agentWorkflows = agent.workflows ?? {};
-  const workflows = Object.keys(agentWorkflows).map((key) => ({ id: key, ...agentWorkflows[key] }));
-
-  const skills = agent.skills ?? [];
-  const workspaceTools = agent.workspaceTools ?? [];
-  const browserTools = agent.browserTools ?? [];
-  const { workspaceId } = agent;
-  const inputProcessors = agent.inputProcessors ?? [];
-  const outputProcessors = agent.outputProcessors ?? [];
+  // Use the first processor's ID for the link (they're grouped into a single workflow per type)
+  const inputProcessorId = inputProcessors[0]?.id;
+  const outputProcessorId = outputProcessors[0]?.id;
 
   return (
-    <AgentMetadataWrapper>
-      {agent?.description && (
-        <AgentMetadataSection title="Description">
-          <p className="text-sm text-neutral6">{agent.description}</p>
-        </AgentMetadataSection>
+    <AgentMetadataList>
+      {inputProcessors.length > 0 && inputProcessorId && (
+        <AgentMetadataListItem>
+          <Link
+            href={`${paths.workflowLink(inputProcessorId)}/graph`}
+            data-testid="processor-badge"
+          >
+            <Badge icon={<ProcessorIcon className="text-accent4" />}>input</Badge>
+          </Link>
+        </AgentMetadataListItem>
       )}
-      {agent.modelList && (
-        <AgentMetadataSection title="Models">
-          <AgentMetadataModelList
-            modelList={agent.modelList}
-            updateModelInModelList={updateModelInModelList}
-            reorderModelList={reorderModelList}
-          />
-        </AgentMetadataSection>
+      {outputProcessors.length > 0 && outputProcessorId && (
+        <AgentMetadataListItem>
+          <Link
+            href={`${paths.workflowLink(outputProcessorId)}/graph`}
+            data-testid="processor-badge"
+          >
+            <Badge icon={<ProcessorIcon className="text-accent5" />}>output</Badge>
+          </Link>
+        </AgentMetadataListItem>
       )}
-
-      {networkAgents.length > 0 && (
-        <AgentMetadataSection
-          title="Agents"
-          hint={{
-            link: "https://mastra.ai/en/docs/agents/overview",
-            title: "Agents documentation",
-          }}
-        >
-          <AgentMetadataNetworkList agents={networkAgents} />
-        </AgentMetadataSection>
-      )}
-
-      <AgentMetadataSection
-        title="Tools"
-        hint={{
-          link: "https://mastra.ai/en/docs/agents/using-tools-and-mcp",
-          title: "Using Tools and MCP documentation",
-        }}
-      >
-        <AgentMetadataToolList tools={tools} agentId={agentId} />
-      </AgentMetadataSection>
-
-      <AgentMetadataSection
-        title="Workflows"
-        hint={{
-          link: "https://mastra.ai/en/docs/workflows/overview",
-          title: "Workflows documentation",
-        }}
-      >
-        <AgentMetadataWorkflowList workflows={workflows} />
-      </AgentMetadataSection>
-
-      <AgentMetadataSection
-        title="Skills"
-        hint={{
-          link: "https://mastra.ai/en/docs/workspace/skills",
-          title: "Skills documentation",
-        }}
-      >
-        <AgentMetadataSkillList skills={skills} agentId={agentId} workspaceId={workspaceId} />
-      </AgentMetadataSection>
-
-      {workspaceTools.length > 0 && (
-        <AgentMetadataSection
-          title="Workspace Tools"
-          hint={{
-            link: "https://mastra.ai/en/reference/workspace/workspace-class#agent-tools",
-            title: "Workspace tools documentation",
-          }}
-        >
-          <AgentMetadataWorkspaceToolsList tools={workspaceTools} />
-        </AgentMetadataSection>
-      )}
-
-      {browserTools.length > 0 && (
-        <AgentMetadataSection
-          title="Browser Tools"
-          hint={{
-            link: "https://mastra.ai/en/docs/agents/adding-browser-control",
-            title: "Browser tools documentation",
-          }}
-        >
-          <AgentMetadataBrowserToolsList tools={browserTools} />
-        </AgentMetadataSection>
-      )}
-
-      {(inputProcessors.length > 0 || outputProcessors.length > 0) && (
-        <AgentMetadataSection
-          title="Processors"
-          hint={{
-            link: "https://mastra.ai/docs/agents/processors",
-            title: "Processors documentation",
-          }}
-        >
-          <AgentMetadataCombinedProcessorList
-            inputProcessors={inputProcessors}
-            outputProcessors={outputProcessors}
-          />
-        </AgentMetadataSection>
-      )}
-
-      <AgentMetadataSection title="Scorers">
-        <AgentMetadataScorerList entityId={agent.name} entityType="AGENT" />
-      </AgentMetadataSection>
-      <AgentMetadataSection title="System Prompt">
-        <CodeMirror
-          className="border border-border1 rounded-md"
-          value={extractPrompt(agent.instructions)}
-          editable={false}
-          extensions={[
-            markdown({ base: markdownLanguage, codeLanguages }),
-            EditorView.lineWrapping,
-          ]}
-          theme={codemirrorTheme}
-        />
-        {!isCmsLoading && !isCmsAvailable && (
-          <Notice variant="warning" title="Read-only">
-            <Notice.Message>
-              To edit the system prompt in Studio, add{" "}
-              <code className="font-medium">@mastra/editor</code> to your project. See the{" "}
-              <a
-                href="https://mastra.ai/docs/editor/overview"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline"
-              >
-                documentation
-              </a>
-              .
-            </Notice.Message>
-          </Notice>
-        )}
-      </AgentMetadataSection>
-    </AgentMetadataWrapper>
+    </AgentMetadataList>
   );
 };
 
-export interface AgentMetadataToolListProps {
-  tools: GetToolResponse[];
-  agentId: string;
-}
-
-export const AgentMetadataToolList = ({ tools, agentId }: AgentMetadataToolListProps) => {
-  const { Link, paths } = useLinkComponent();
-
+export const AgentMetadataBrowserToolsList = ({ tools }: AgentMetadataBrowserToolsListProps) => {
   if (tools.length === 0) {
-    return <AgentMetadataListEmpty>No tools</AgentMetadataListEmpty>;
+    return <AgentMetadataListEmpty>No browser tools</AgentMetadataListEmpty>;
   }
 
   return (
     <AgentMetadataList>
       {tools.map((tool) => (
-        <AgentMetadataListItem key={tool.id}>
-          <Link href={paths.agentToolLink(agentId, tool.id)} data-testid="tool-badge">
-            <Badge icon={<ToolsIcon className="text-accent6" />}>{tool.id}</Badge>
-          </Link>
+        <AgentMetadataListItem key={tool}>
+          <Badge icon={<Globe className="h-3 w-3 text-cyan-500" />}>{tool}</Badge>
         </AgentMetadataListItem>
       ))}
     </AgentMetadataList>
   );
 };
 
-export interface AgentMetadataWorkflowListProps {
-  workflows: ({ id: string } & GetWorkflowResponse)[];
+/**
+ * Format a workspace tool name for display.
+ * Converts "mastra_workspace_read_file" to "read_file"
+ */
+function formatWorkspaceToolName(toolName: string): string {
+  const prefix = `${WORKSPACE_TOOLS_PREFIX}_`;
+  if (toolName.startsWith(prefix)) {
+    return toolName.slice(prefix.length);
+  }
+  return toolName;
 }
 
-export const AgentMetadataWorkflowList = ({ workflows }: AgentMetadataWorkflowListProps) => {
-  const { Link, paths } = useLinkComponent();
-
-  if (workflows.length === 0) {
-    return <AgentMetadataListEmpty>No workflows</AgentMetadataListEmpty>;
+export const AgentMetadataWorkspaceToolsList = ({
+  tools,
+}: AgentMetadataWorkspaceToolsListProps) => {
+  if (tools.length === 0) {
+    return <AgentMetadataListEmpty>No workspace tools</AgentMetadataListEmpty>;
   }
 
   return (
     <AgentMetadataList>
-      {workflows.map((workflow) => (
-        <AgentMetadataListItem key={workflow.id}>
-          <Link href={paths.workflowLink(workflow.id)} data-testid="workflow-badge">
-            <Badge icon={<WorkflowIcon className="text-accent3" />}>{workflow.name}</Badge>
-          </Link>
+      {tools.map((tool) => (
+        <AgentMetadataListItem key={tool}>
+          <Badge icon={<Folder className="h-3 w-3 text-accent1" />}>
+            {formatWorkspaceToolName(tool)}
+          </Badge>
         </AgentMetadataListItem>
       ))}
     </AgentMetadataList>
   );
 };
-
-interface AgentMetadataScorerListProps {
-  entityId: string;
-  entityType: string;
-}
-
-export const AgentMetadataScorerList = ({ entityId, entityType }: AgentMetadataScorerListProps) => {
-  const { Link, paths } = useLinkComponent();
-  const { data: scorers = {}, isLoading } = useScorers();
-
-  const scorerList = Object.keys(scorers)
-    .filter((scorerKey) => {
-      const scorer = scorers[scorerKey];
-      if (entityType === "AGENT") {
-        return scorer.agentNames?.includes?.(entityId);
-      }
-
-      return scorer.workflowIds.includes(entityId);
-    })
-    .map((scorerKey) => ({ ...scorers[scorerKey], id: scorerKey }));
-
-  if (isLoading) {
-    return <LoadingBadge />;
-  }
-
-  if (scorerList.length === 0) {
-    return <AgentMetadataListEmpty>No Scorers</AgentMetadataListEmpty>;
-  }
-
-  return (
-    <AgentMetadataList>
-      {scorerList.map((scorer) => (
-        <AgentMetadataListItem key={scorer.id}>
-          <Link href={paths.scorerLink(scorer.id)} data-testid="scorer-badge">
-            <Badge icon={<GaugeIcon className="text-neutral3" />}>
-              {scorer.scorer.config.name}
-            </Badge>
-          </Link>
-        </AgentMetadataListItem>
-      ))}
-    </AgentMetadataList>
-  );
-};
-
-export interface AgentMetadataSkillListProps {
-  skills: {
-    name: string;
-    description: string;
-    license?: string;
-    path: string;
-  }[];
-  agentId: string;
-  workspaceId?: string;
-}
 
 export const AgentMetadataSkillList = ({
   skills,
@@ -397,103 +215,315 @@ export const AgentMetadataSkillList = ({
   );
 };
 
-export interface AgentMetadataWorkspaceToolsListProps {
-  tools: string[];
-}
+export const AgentMetadataScorerList = ({ entityId, entityType }: AgentMetadataScorerListProps) => {
+  const { Link, paths } = useLinkComponent();
+  const { data: scorers = {}, isLoading } = useScorers();
 
-/**
- * Format a workspace tool name for display.
- * Converts "mastra_workspace_read_file" to "read_file"
- */
-function formatWorkspaceToolName(toolName: string): string {
-  const prefix = `${WORKSPACE_TOOLS_PREFIX}_`;
-  if (toolName.startsWith(prefix)) {
-    return toolName.slice(prefix.length);
+  const scorerList = Object.keys(scorers)
+    .filter((scorerKey) => {
+      const scorer = scorers[scorerKey];
+      if (entityType === "AGENT") {
+        return scorer.agentNames?.includes?.(entityId);
+      }
+
+      return scorer.workflowIds.includes(entityId);
+    })
+    .map((scorerKey) => ({ ...scorers[scorerKey], id: scorerKey }));
+
+  if (isLoading) {
+    return <LoadingBadge />;
   }
-  return toolName;
-}
 
-export const AgentMetadataWorkspaceToolsList = ({
-  tools,
-}: AgentMetadataWorkspaceToolsListProps) => {
-  if (tools.length === 0) {
-    return <AgentMetadataListEmpty>No workspace tools</AgentMetadataListEmpty>;
+  if (scorerList.length === 0) {
+    return <AgentMetadataListEmpty>No Scorers</AgentMetadataListEmpty>;
   }
 
   return (
     <AgentMetadataList>
-      {tools.map((tool) => (
-        <AgentMetadataListItem key={tool}>
-          <Badge icon={<Folder className="h-3 w-3 text-accent1" />}>
-            {formatWorkspaceToolName(tool)}
-          </Badge>
+      {scorerList.map((scorer) => (
+        <AgentMetadataListItem key={scorer.id}>
+          <Link href={paths.scorerLink(scorer.id)} data-testid="scorer-badge">
+            <Badge icon={<GaugeIcon className="text-neutral3" />}>
+              {scorer.scorer.config.name}
+            </Badge>
+          </Link>
         </AgentMetadataListItem>
       ))}
     </AgentMetadataList>
   );
 };
+
+export const AgentMetadataWorkflowList = ({ workflows }: AgentMetadataWorkflowListProps) => {
+  const { Link, paths } = useLinkComponent();
+
+  if (workflows.length === 0) {
+    return <AgentMetadataListEmpty>No workflows</AgentMetadataListEmpty>;
+  }
+
+  return (
+    <AgentMetadataList>
+      {workflows.map((workflow) => (
+        <AgentMetadataListItem key={workflow.id}>
+          <Link href={paths.workflowLink(workflow.id)} data-testid="workflow-badge">
+            <Badge icon={<WorkflowIcon className="text-accent3" />}>{workflow.name}</Badge>
+          </Link>
+        </AgentMetadataListItem>
+      ))}
+    </AgentMetadataList>
+  );
+};
+
+export const AgentMetadataToolList = ({ tools, agentId }: AgentMetadataToolListProps) => {
+  const { Link, paths } = useLinkComponent();
+
+  if (tools.length === 0) {
+    return <AgentMetadataListEmpty>No tools</AgentMetadataListEmpty>;
+  }
+
+  return (
+    <AgentMetadataList>
+      {tools.map((tool) => (
+        <AgentMetadataListItem key={tool.id}>
+          <Link href={paths.agentToolLink(agentId, tool.id)} data-testid="tool-badge">
+            <Badge icon={<ToolsIcon className="text-accent6" />}>{tool.id}</Badge>
+          </Link>
+        </AgentMetadataListItem>
+      ))}
+    </AgentMetadataList>
+  );
+};
+
+export const AgentMetadata = ({ agentId }: AgentMetadataProps) => {
+  const { data: agent, isLoading } = useAgent(agentId);
+  const { mutate: reorderModelList } = useReorderModelList(agentId);
+  const { mutateAsync: updateModelInModelList } = useUpdateModelInModelList(agentId);
+  const codemirrorTheme = useCodemirrorTheme();
+  const { isCmsAvailable, isLoading: isCmsLoading } = useIsCmsAvailable();
+
+  if (isLoading) {
+    return <Skeleton className="h-full" />;
+  }
+
+  if (!agent) {
+    return <div>Agent not found</div>;
+  }
+
+  const networkAgentsMap = agent.agents ?? {};
+  const networkAgents = Object.keys(networkAgentsMap).map((key) => ({
+    ...networkAgentsMap[key],
+    id: key,
+  }));
+
+  const agentTools = agent.tools ?? {};
+  const tools = Object.keys(agentTools).map((key) => agentTools[key]);
+
+  const agentWorkflows = agent.workflows ?? {};
+  const workflows = Object.keys(agentWorkflows).map((key) => ({ id: key, ...agentWorkflows[key] }));
+
+  const skills = agent.skills ?? [];
+  const workspaceTools = agent.workspaceTools ?? [];
+  const browserTools = agent.browserTools ?? [];
+  const { workspaceId } = agent;
+  const inputProcessors = agent.inputProcessors ?? [];
+  const outputProcessors = agent.outputProcessors ?? [];
+
+  return (
+    <AgentMetadataWrapper>
+      {resolveConditional(
+        agent?.description,
+        () => (
+          <AgentMetadataSection title="Description">
+            <p className="text-sm text-neutral6">{agent.description}</p>
+          </AgentMetadataSection>
+        ),
+        () => null,
+      )}
+      {resolveConditional(
+        agent.modelList,
+        (conditionValue) => (
+          <AgentMetadataSection title="Models">
+            <AgentMetadataModelList
+              modelList={conditionValue}
+              updateModelInModelList={updateModelInModelList}
+              reorderModelList={reorderModelList}
+            />
+          </AgentMetadataSection>
+        ),
+        () => null,
+      )}
+
+      {resolveConditional(
+        networkAgents.length > 0,
+        () => (
+          <AgentMetadataSection
+            title="Agents"
+            hint={{
+              link: "https://mastra.ai/en/docs/agents/overview",
+              title: "Agents documentation",
+            }}
+          >
+            <AgentMetadataNetworkList agents={networkAgents} />
+          </AgentMetadataSection>
+        ),
+        () => null,
+      )}
+
+      <AgentMetadataSection
+        title="Tools"
+        hint={{
+          link: "https://mastra.ai/en/docs/agents/using-tools-and-mcp",
+          title: "Using Tools and MCP documentation",
+        }}
+      >
+        <AgentMetadataToolList tools={tools} agentId={agentId} />
+      </AgentMetadataSection>
+
+      <AgentMetadataSection
+        title="Workflows"
+        hint={{
+          link: "https://mastra.ai/en/docs/workflows/overview",
+          title: "Workflows documentation",
+        }}
+      >
+        <AgentMetadataWorkflowList workflows={workflows} />
+      </AgentMetadataSection>
+
+      <AgentMetadataSection
+        title="Skills"
+        hint={{
+          link: "https://mastra.ai/en/docs/workspace/skills",
+          title: "Skills documentation",
+        }}
+      >
+        <AgentMetadataSkillList skills={skills} agentId={agentId} workspaceId={workspaceId} />
+      </AgentMetadataSection>
+
+      {resolveConditional(
+        workspaceTools.length > 0,
+        () => (
+          <AgentMetadataSection
+            title="Workspace Tools"
+            hint={{
+              link: "https://mastra.ai/en/reference/workspace/workspace-class#agent-tools",
+              title: "Workspace tools documentation",
+            }}
+          >
+            <AgentMetadataWorkspaceToolsList tools={workspaceTools} />
+          </AgentMetadataSection>
+        ),
+        () => null,
+      )}
+
+      {resolveConditional(
+        browserTools.length > 0,
+        () => (
+          <AgentMetadataSection
+            title="Browser Tools"
+            hint={{
+              link: "https://mastra.ai/en/docs/agents/adding-browser-control",
+              title: "Browser tools documentation",
+            }}
+          >
+            <AgentMetadataBrowserToolsList tools={browserTools} />
+          </AgentMetadataSection>
+        ),
+        () => null,
+      )}
+
+      {resolveConditional(
+        inputProcessors.length > 0,
+        (conditionValue) => conditionValue,
+        () =>
+          outputProcessors.length > 0 && (
+            <AgentMetadataSection
+              title="Processors"
+              hint={{
+                link: "https://mastra.ai/docs/agents/processors",
+                title: "Processors documentation",
+              }}
+            >
+              <AgentMetadataCombinedProcessorList
+                inputProcessors={inputProcessors}
+                outputProcessors={outputProcessors}
+              />
+            </AgentMetadataSection>
+          ),
+      )}
+
+      <AgentMetadataSection title="Scorers">
+        <AgentMetadataScorerList entityId={agent.name} entityType="AGENT" />
+      </AgentMetadataSection>
+      <AgentMetadataSection title="System Prompt">
+        <CodeMirror
+          className="border border-border1 rounded-md"
+          value={extractPrompt(agent.instructions)}
+          editable={false}
+          extensions={[
+            markdown({ base: markdownLanguage, codeLanguages }),
+            EditorView.lineWrapping,
+          ]}
+          theme={codemirrorTheme}
+        />
+        {resolveConditional(
+          !isCmsLoading && !isCmsAvailable,
+          () => (
+            <Notice variant="warning" title="Read-only">
+              <Notice.Message>
+                To edit the system prompt in Studio, add{" "}
+                <code className="font-medium">@mastra/editor</code> to your project. See the{" "}
+                <a
+                  href="https://mastra.ai/docs/editor/overview"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline"
+                >
+                  documentation
+                </a>
+                .
+              </Notice.Message>
+            </Notice>
+          ),
+          () => null,
+        )}
+      </AgentMetadataSection>
+    </AgentMetadataWrapper>
+  );
+};
+
+export interface AgentMetadataToolListProps {
+  tools: GetToolResponse[];
+  agentId: string;
+}
+
+export interface AgentMetadataWorkflowListProps {
+  workflows: ({ id: string } & GetWorkflowResponse)[];
+}
+
+interface AgentMetadataScorerListProps {
+  entityId: string;
+  entityType: string;
+}
+
+export interface AgentMetadataSkillListProps {
+  skills: {
+    name: string;
+    description: string;
+    license?: string;
+    path: string;
+  }[];
+  agentId: string;
+  workspaceId?: string;
+}
+
+export interface AgentMetadataWorkspaceToolsListProps {
+  tools: string[];
+}
 
 export interface AgentMetadataBrowserToolsListProps {
   tools: string[];
 }
 
-export const AgentMetadataBrowserToolsList = ({ tools }: AgentMetadataBrowserToolsListProps) => {
-  if (tools.length === 0) {
-    return <AgentMetadataListEmpty>No browser tools</AgentMetadataListEmpty>;
-  }
-
-  return (
-    <AgentMetadataList>
-      {tools.map((tool) => (
-        <AgentMetadataListItem key={tool}>
-          <Badge icon={<Globe className="h-3 w-3 text-cyan-500" />}>{tool}</Badge>
-        </AgentMetadataListItem>
-      ))}
-    </AgentMetadataList>
-  );
-};
-
 export interface AgentMetadataCombinedProcessorListProps {
   inputProcessors: { id: string; name: string }[];
   outputProcessors: { id: string; name: string }[];
 }
-
-export const AgentMetadataCombinedProcessorList = ({
-  inputProcessors,
-  outputProcessors,
-}: AgentMetadataCombinedProcessorListProps) => {
-  const { Link, paths } = useLinkComponent();
-
-  if (inputProcessors.length === 0 && outputProcessors.length === 0) {
-    return <AgentMetadataListEmpty>No processors</AgentMetadataListEmpty>;
-  }
-
-  // Use the first processor's ID for the link (they're grouped into a single workflow per type)
-  const inputProcessorId = inputProcessors[0]?.id;
-  const outputProcessorId = outputProcessors[0]?.id;
-
-  return (
-    <AgentMetadataList>
-      {inputProcessors.length > 0 && inputProcessorId && (
-        <AgentMetadataListItem>
-          <Link
-            href={`${paths.workflowLink(inputProcessorId)}/graph`}
-            data-testid="processor-badge"
-          >
-            <Badge icon={<ProcessorIcon className="text-accent4" />}>input</Badge>
-          </Link>
-        </AgentMetadataListItem>
-      )}
-      {outputProcessors.length > 0 && outputProcessorId && (
-        <AgentMetadataListItem>
-          <Link
-            href={`${paths.workflowLink(outputProcessorId)}/graph`}
-            data-testid="processor-badge"
-          >
-            <Badge icon={<ProcessorIcon className="text-accent5" />}>output</Badge>
-          </Link>
-        </AgentMetadataListItem>
-      )}
-    </AgentMetadataList>
-  );
-};

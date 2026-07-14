@@ -24,6 +24,26 @@ interface MetricsToolbarProps {
   autoFocusFilterFieldId?: string;
 }
 
+function isNonDefaultFilter(token: PropertyFilterToken, fields: PropertyFilterField[]): boolean {
+  const field = fields.find((candidate) => candidate.id === token.fieldId);
+  if (!field) {
+    return false;
+  }
+  if (field.kind === "text") {
+    return typeof token.value === "string" && token.value.trim() !== "";
+  }
+  if (field.kind === "pick-multi") {
+    if (field.multi) {
+      return Array.isArray(token.value) && token.value.length > 0;
+    }
+    return typeof token.value === "string" && token.value !== "" && token.value !== "Any";
+  }
+  if (field.kind === "multi-select") {
+    return Array.isArray(token.value) && token.value.length > 0;
+  }
+  return false;
+}
+
 export function MetricsToolbar({
   onClear,
   onRemoveAll,
@@ -59,24 +79,4 @@ export function MetricsToolbar({
       )}
     </div>
   );
-}
-
-function isNonDefaultFilter(token: PropertyFilterToken, fields: PropertyFilterField[]): boolean {
-  const field = fields.find((f) => f.id === token.fieldId);
-  if (!field) {
-    return false;
-  }
-  if (field.kind === "text") {
-    return typeof token.value === "string" && token.value.trim() !== "";
-  }
-  if (field.kind === "pick-multi") {
-    if (field.multi) {
-      return Array.isArray(token.value) && token.value.length > 0;
-    }
-    return typeof token.value === "string" && token.value !== "" && token.value !== "Any";
-  }
-  if (field.kind === "multi-select") {
-    return Array.isArray(token.value) && token.value.length > 0;
-  }
-  return false;
 }

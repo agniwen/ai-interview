@@ -34,7 +34,8 @@ export const AgentChat = ({
   const { data, isLoading: isMessagesLoading } = useAgentMessages({
     agentId,
     memory: memory ?? false,
-    threadId: isNewThread ? undefined : threadId!, // Prevent fetching when thread is new,
+    // Prevent fetching when thread is new,
+    threadId: isNewThread ? undefined : threadId,
   });
 
   // Handle scrolling to message after navigation

@@ -11,7 +11,7 @@ export const useCompletedItems = (agentId: string) => {
   const { data: experiments } = useAgentExperiments(agentId);
 
   return useQuery({
-    enabled: Boolean(agentId) && Boolean(experiments) && experiments!.length > 0,
+    enabled: Boolean(agentId) && (experiments?.length ?? 0) > 0,
     queryFn: async () => {
       if (!experiments || experiments.length === 0) {
         return [] as ReviewItem[];

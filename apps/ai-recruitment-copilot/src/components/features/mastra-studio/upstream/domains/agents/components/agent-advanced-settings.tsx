@@ -15,6 +15,8 @@ import CodeMirror from "@uiw/react-codemirror";
 import { Braces, CopyIcon, SaveIcon, CheckIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAgentSettings } from "@/components/features/mastra-studio/upstream/domains/agents/context/agent-context";
+import { resolveConditional } from "../utils/conditional";
+import { firstDefined } from "../utils/presence";
 
 export interface AgentAdvancedSettingsBodyProps {
   canEdit?: boolean;
@@ -30,7 +32,8 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
 
   const { handleCopy } = useCopyToClipboard({ text: providerOptionsValue });
 
-  const providerOptionsStr = JSON.stringify(settings?.modelSettings?.providerOptions ?? {});
+  const modelSettings = settings?.modelSettings;
+  const providerOptionsStr = JSON.stringify(firstDefined(modelSettings?.providerOptions, {}));
 
   useEffect(() => {
     const run = async () => {
@@ -56,14 +59,14 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
     setProviderOptionsValue(formatted);
   };
 
-  const saveProviderOptions = async () => {
+  const saveProviderOptions = () => {
     try {
       setError(null);
       const parsedContext = JSON.parse(providerOptionsValue);
       setSettings({
         ...settings,
         modelSettings: {
-          ...settings?.modelSettings,
+          ...modelSettings,
           providerOptions: parsedContext,
         },
       });
@@ -72,8 +75,8 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
       setTimeout(() => {
         setSaved(false);
       }, 1000);
-    } catch (error) {
-      console.error("error", error);
+    } catch (parseError) {
+      console.error("error", parseError);
       setError("Invalid JSON");
     }
   };
@@ -140,7 +143,11 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
               id="top-k"
               type="number"
               readOnly={!canEdit}
-              value={settings?.modelSettings?.topK || ""}
+              value={resolveConditional(
+                settings?.modelSettings?.topK,
+                (conditionValue) => conditionValue,
+                () => "",
+              )}
               onChange={(e) =>
                 setSettings({
                   ...settings,
@@ -161,7 +168,11 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
               id="max-tokens"
               type="number"
               readOnly={!canEdit}
-              value={settings?.modelSettings?.maxTokens || ""}
+              value={resolveConditional(
+                settings?.modelSettings?.maxTokens,
+                (conditionValue) => conditionValue,
+                () => "",
+              )}
               onChange={(e) =>
                 setSettings({
                   ...settings,
@@ -182,7 +193,11 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
               id="max-steps"
               type="number"
               readOnly={!canEdit}
-              value={settings?.modelSettings?.maxSteps || ""}
+              value={resolveConditional(
+                settings?.modelSettings?.maxSteps,
+                (conditionValue) => conditionValue,
+                () => "",
+              )}
               onChange={(e) =>
                 setSettings({
                   ...settings,
@@ -203,7 +218,11 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
               id="max-retries"
               type="number"
               readOnly={!canEdit}
-              value={settings?.modelSettings?.maxRetries || ""}
+              value={resolveConditional(
+                settings?.modelSettings?.maxRetries,
+                (conditionValue) => conditionValue,
+                () => "",
+              )}
               onChange={(e) =>
                 setSettings({
                   ...settings,
@@ -224,7 +243,11 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
               id="seed"
               type="number"
               readOnly={!canEdit}
-              value={settings?.modelSettings?.seed || ""}
+              value={resolveConditional(
+                settings?.modelSettings?.seed,
+                (conditionValue) => conditionValue,
+                () => "",
+              )}
               onChange={(e) =>
                 setSettings({
                   ...settings,
@@ -277,20 +300,40 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
                 <TooltipContent>Copy Provider Options</TooltipContent>
               </Tooltip>
 
-              {canEdit && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={saveProviderOptions}
-                      className={buttonClass}
-                      aria-label="Save Provider Options"
-                    >
-                      <Icon>{saved ? <CheckIcon /> : <SaveIcon />}</Icon>
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>{saved ? "Saved" : "Save Provider Options"}</TooltipContent>
-                </Tooltip>
+              {resolveConditional(
+                canEdit,
+                () => (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={saveProviderOptions}
+                        className={buttonClass}
+                        aria-label="Save Provider Options"
+                      >
+                        <Icon>
+                          {resolveConditional(
+                            saved,
+                            () => (
+                              <CheckIcon />
+                            ),
+                            () => (
+                              <SaveIcon />
+                            ),
+                          )}
+                        </Icon>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {resolveConditional(
+                        saved,
+                        () => "Saved",
+                        () => "Save Provider Options",
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                ),
+                () => null,
               )}
             </div>
           </div>
@@ -302,10 +345,14 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
             readOnly={!canEdit}
             className="h-dropdown-max-height overflow-scroll rounded-lg border bg-transparent shadow-sm transition-colors p-2"
           />
-          {error && (
-            <Txt variant="ui-md" className="text-accent2">
-              {error}
-            </Txt>
+          {resolveConditional(
+            error,
+            (conditionValue) => (
+              <Txt variant="ui-md" className="text-accent2">
+                {conditionValue}
+              </Txt>
+            ),
+            () => null,
           )}
         </div>
       </div>

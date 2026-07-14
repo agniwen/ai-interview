@@ -55,6 +55,198 @@ interface ScoreDialogProps {
   usageContext?: "scorerPage" | "SpanDialog";
 }
 
+interface ScoreDialogTopProps {
+  onNext?: () => void;
+  onPrevious?: () => void;
+  onSave: () => void;
+  score?: ScoreRowData;
+  scorerName?: string;
+  usageContext: NonNullable<ScoreDialogProps["usageContext"]>;
+}
+
+function ScoreDialogTop({
+  onNext,
+  onPrevious,
+  onSave,
+  score,
+  scorerName,
+  usageContext,
+}: ScoreDialogTopProps) {
+  return (
+    <SideDialog.Top>
+      {usageContext === "scorerPage" && (
+        <TextAndIcon>
+          <GaugeIcon /> {scorerName}
+        </TextAndIcon>
+      )}
+      {usageContext === "SpanDialog" && (
+        <>
+          <TextAndIcon>
+            <EyeIcon /> {getShortId(score?.traceId)}
+          </TextAndIcon>
+          {score?.spanId && (
+            <>
+              ›
+              <TextAndIcon>
+                <ChevronsLeftRightEllipsisIcon />
+                {getShortId(score.spanId)}
+              </TextAndIcon>
+            </>
+          )}
+        </>
+      )}
+      ›
+      <TextAndIcon>
+        <CalculatorIcon />
+        {getShortId(score?.id)}
+      </TextAndIcon>
+      |
+      <SideDialog.Nav onNext={onNext} onPrevious={onPrevious} />
+      <Button size="lg" className="ml-auto mr-8" disabled={!score} onClick={onSave}>
+        <Icon>
+          <SaveIcon />
+        </Icon>
+        Save as Dataset Item
+      </Button>
+    </SideDialog.Top>
+  );
+}
+
+function getPromptValue(value: string | undefined, isCodeBased: boolean): string {
+  if (value) {
+    return value;
+  }
+  return isCodeBased ? "N/A — code-based scorer does not use prompts" : "N/A — step not configured";
+}
+
+interface ScoreSectionsProps {
+  isCodeBased: boolean;
+  score?: ScoreRowData;
+}
+
+function ScoreSections({ isCodeBased, score }: ScoreSectionsProps) {
+  const reasonFallback = isCodeBased
+    ? "N/A — code-based scorer does not generate a reason"
+    : "N/A — step not configured";
+
+  return (
+    <>
+      <SideDialog.CodeSection
+        title={`Score: ${Number.isNaN(score?.score) ? "n/a" : score?.score}`}
+        icon={<GaugeIcon />}
+        codeStr={score?.reason || reasonFallback}
+        simplified={true}
+      />
+      <SideDialog.CodeSection
+        title="Input"
+        icon={<FileInputIcon />}
+        codeStr={JSON.stringify(score?.input || null, null, 2)}
+      />
+      <SideDialog.CodeSection
+        title="Output"
+        icon={<FileOutputIcon />}
+        codeStr={JSON.stringify(score?.output || null, null, 2)}
+      />
+      <SideDialog.CodeSection
+        title="Preprocess Prompt"
+        icon={<ReceiptText />}
+        codeStr={getPromptValue(score?.preprocessPrompt, isCodeBased)}
+        simplified={true}
+      />
+      <SideDialog.CodeSection
+        title="Analyze Prompt"
+        icon={<ReceiptText />}
+        codeStr={getPromptValue(score?.analyzePrompt, isCodeBased)}
+        simplified={true}
+      />
+      <SideDialog.CodeSection
+        title="Generate Score Prompt"
+        icon={<ReceiptText />}
+        codeStr={getPromptValue(score?.generateScorePrompt, isCodeBased)}
+        simplified={true}
+      />
+      <SideDialog.CodeSection
+        title="Generate Reason Prompt"
+        icon={<ReceiptText />}
+        codeStr={getPromptValue(score?.generateReasonPrompt, isCodeBased)}
+        simplified={true}
+      />
+    </>
+  );
+}
+
+interface ScoreMetadataProps {
+  computeTraceLink: ScoreDialogProps["computeTraceLink"];
+  score?: ScoreRowData;
+  usageContext: NonNullable<ScoreDialogProps["usageContext"]>;
+}
+
+function formatCreatedAt(score?: ScoreRowData): string {
+  return score?.createdAt ? format(new Date(score.createdAt), "MMM d, h:mm:ss aaa") : "n/a";
+}
+
+function ScoreMetadata({ computeTraceLink, score, usageContext }: ScoreMetadataProps) {
+  const { Link, paths } = useLinkComponent();
+  const scorerDetailHref =
+    score?.scorerId && score.entityId
+      ? `${paths.scorerLink(score.scorerId)}?entity=${encodeURIComponent(score.entityId)}&scoreId=${encodeURIComponent(score.id)}`
+      : undefined;
+
+  if (usageContext === "SpanDialog") {
+    return (
+      <KeyValueList
+        data={[
+          {
+            key: "scorer-name",
+            label: "Scorer",
+            value: scorerDetailHref ? (
+              <Link href={scorerDetailHref}>{(score?.scorer?.name as string) || "-"}</Link>
+            ) : (
+              (score?.scorer?.name as string) || "-"
+            ),
+          },
+          {
+            key: "date",
+            label: "Created at",
+            value: formatCreatedAt(score),
+          },
+        ]}
+      />
+    );
+  }
+
+  return (
+    <KeyValueList
+      data={[
+        {
+          key: "date",
+          label: "Created at",
+          value: formatCreatedAt(score),
+        },
+        {
+          key: "traceId",
+          label: "Trace ID",
+          value: score?.traceId ? (
+            <Link href={computeTraceLink(score.traceId)}>{score.traceId}</Link>
+          ) : (
+            "n/a"
+          ),
+        },
+        {
+          key: "spanId",
+          label: "Span ID",
+          value:
+            score?.traceId && score.spanId ? (
+              <Link href={computeTraceLink(score.traceId, score.spanId)}>{score.spanId}</Link>
+            ) : (
+              "n/a"
+            ),
+        },
+      ]}
+    />
+  );
+}
+
 export function ScoreDialog({
   score,
   scorerName,
@@ -67,12 +259,7 @@ export function ScoreDialog({
   usageContext = "scorerPage",
 }: ScoreDialogProps) {
   const [datasetDialogOpen, setDatasetDialogOpen] = useState(false);
-  const { Link, paths } = useLinkComponent();
   const isCodeBased = isCodeBasedScorer(score);
-  const scorerDetailHref =
-    score?.scorerId && score?.entityId
-      ? `${paths.scorerLink(score.scorerId)}?entity=${encodeURIComponent(score.entityId)}&scoreId=${encodeURIComponent(score.id)}`
-      : undefined;
 
   return (
     <>
@@ -83,47 +270,14 @@ export function ScoreDialog({
         onClose={onClose}
         level={dialogLevel}
       >
-        <SideDialog.Top>
-          {usageContext === "scorerPage" && (
-            <TextAndIcon>
-              <GaugeIcon /> {scorerName}
-            </TextAndIcon>
-          )}
-          {usageContext === "SpanDialog" && (
-            <>
-              <TextAndIcon>
-                <EyeIcon /> {getShortId(score?.traceId)}
-              </TextAndIcon>
-              {score?.spanId && (
-                <>
-                  ›
-                  <TextAndIcon>
-                    <ChevronsLeftRightEllipsisIcon />
-                    {getShortId(score?.spanId)}
-                  </TextAndIcon>
-                </>
-              )}
-            </>
-          )}
-          ›
-          <TextAndIcon>
-            <CalculatorIcon />
-            {getShortId(score?.id)}
-          </TextAndIcon>
-          |
-          <SideDialog.Nav onNext={onNext} onPrevious={onPrevious} />
-          <Button
-            size="lg"
-            className="ml-auto mr-8"
-            disabled={!score}
-            onClick={() => setDatasetDialogOpen(true)}
-          >
-            <Icon>
-              <SaveIcon />
-            </Icon>
-            Save as Dataset Item
-          </Button>
-        </SideDialog.Top>
+        <ScoreDialogTop
+          onNext={onNext}
+          onPrevious={onPrevious}
+          onSave={() => setDatasetDialogOpen(true)}
+          score={score}
+          scorerName={scorerName}
+          usageContext={usageContext}
+        />
 
         <SideDialog.Content>
           <SideDialog.Header>
@@ -136,129 +290,12 @@ export function ScoreDialog({
           </SideDialog.Header>
 
           <Sections>
-            <KeyValueList
-              data={[
-                ...(usageContext === "SpanDialog"
-                  ? [
-                      {
-                        key: "scorer-name",
-                        label: "Scorer",
-                        value: scorerDetailHref ? (
-                          <Link href={scorerDetailHref}>
-                            {(score?.scorer?.name as string) || "-"}
-                          </Link>
-                        ) : (
-                          (score?.scorer?.name as string) || "-"
-                        ),
-                      },
-                    ]
-                  : []),
-                {
-                  key: "date",
-                  label: "Created at",
-                  value: score?.createdAt
-                    ? format(new Date(score?.createdAt), "MMM d, h:mm:ss aaa")
-                    : "n/a",
-                },
-                ...(usageContext !== "SpanDialog"
-                  ? [
-                      {
-                        key: "traceId",
-                        label: "Trace ID",
-                        value: score?.traceId ? (
-                          <Link href={computeTraceLink(score?.traceId)}>{score?.traceId}</Link>
-                        ) : (
-                          "n/a"
-                        ),
-                      },
-                      {
-                        key: "spanId",
-                        label: "Span ID",
-                        value:
-                          score?.traceId && score?.spanId ? (
-                            <Link href={computeTraceLink(score?.traceId, score?.spanId)}>
-                              {score?.spanId}
-                            </Link>
-                          ) : (
-                            "n/a"
-                          ),
-                      },
-                    ]
-                  : []),
-              ]}
+            <ScoreMetadata
+              computeTraceLink={computeTraceLink}
+              score={score}
+              usageContext={usageContext}
             />
-
-            <SideDialog.CodeSection
-              title={`Score: ${Number.isNaN(score?.score) ? "n/a" : score?.score}`}
-              icon={<GaugeIcon />}
-              codeStr={
-                score?.reason ||
-                (isCodeBased
-                  ? "N/A — code-based scorer does not generate a reason"
-                  : "N/A — step not configured")
-              }
-              simplified={true}
-            />
-
-            <SideDialog.CodeSection
-              title="Input"
-              icon={<FileInputIcon />}
-              codeStr={JSON.stringify(score?.input || null, null, 2)}
-            />
-
-            <SideDialog.CodeSection
-              title="Output"
-              icon={<FileOutputIcon />}
-              codeStr={JSON.stringify(score?.output || null, null, 2)}
-            />
-
-            <SideDialog.CodeSection
-              title="Preprocess Prompt"
-              icon={<ReceiptText />}
-              codeStr={
-                score?.preprocessPrompt ||
-                (isCodeBased
-                  ? "N/A — code-based scorer does not use prompts"
-                  : "N/A — step not configured")
-              }
-              simplified={true}
-            />
-
-            <SideDialog.CodeSection
-              title="Analyze Prompt"
-              icon={<ReceiptText />}
-              codeStr={
-                score?.analyzePrompt ||
-                (isCodeBased
-                  ? "N/A — code-based scorer does not use prompts"
-                  : "N/A — step not configured")
-              }
-              simplified={true}
-            />
-
-            <SideDialog.CodeSection
-              title="Generate Score Prompt"
-              icon={<ReceiptText />}
-              codeStr={
-                score?.generateScorePrompt ||
-                (isCodeBased
-                  ? "N/A — code-based scorer does not use prompts"
-                  : "N/A — step not configured")
-              }
-              simplified={true}
-            />
-
-            <SideDialog.CodeSection
-              title="Generate Reason Prompt"
-              icon={<ReceiptText />}
-              codeStr={
-                score?.generateReasonPrompt ||
-                (isCodeBased
-                  ? "N/A — code-based scorer does not use prompts"
-                  : "N/A — step not configured")
-              }
-              simplified={true}
-            />
+            <ScoreSections isCodeBased={isCodeBased} score={score} />
           </Sections>
         </SideDialog.Content>
       </SideDialog>

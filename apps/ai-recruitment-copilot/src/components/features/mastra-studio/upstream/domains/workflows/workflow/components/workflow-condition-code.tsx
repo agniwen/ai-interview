@@ -25,7 +25,8 @@ export const WorkflowConditionCode = ({ condition, onOpen }: WorkflowConditionCo
       language="javascript"
     >
       {({ className, style, tokens, getLineProps, getTokenProps }) => (
-        <pre
+        <button
+          type="button"
           className={cn(
             "relative font-mono p-3 w-full cursor-pointer rounded-lg text-xs bg-surface4! whitespace-pre-wrap wrap-break-word",
             className,
@@ -41,7 +42,7 @@ export const WorkflowConditionCode = ({ condition, onOpen }: WorkflowConditionCo
               ))}
             </div>
           ))}
-        </pre>
+        </button>
       )}
     </Highlight>
   </div>

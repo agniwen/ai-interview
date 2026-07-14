@@ -1,13 +1,13 @@
 import { flushSync } from "react-dom";
 
-export const startViewTransition = (callback: () => void) => {
+export const startViewTransition = (updatePage: () => void) => {
   if ("startViewTransition" in document) {
     document.startViewTransition(() => {
       flushSync(() => {
-        callback();
+        updatePage();
       });
     });
   } else {
-    callback();
+    updatePage();
   }
 };

@@ -19,6 +19,7 @@ export function useEmbedders() {
       return data;
     },
     queryKey: ["embedders"],
-    staleTime: 30_000, // Cache for 30 seconds
+    // Cache for 30 seconds.
+    staleTime: 30_000,
   });
 }

@@ -40,26 +40,13 @@ export function SelectedToolList({ providerId, selectedTools, onToggle }: Select
     <ScrollArea className="h-full">
       <div className="flex flex-col gap-1 p-3">
         {tools.map((tool) => (
-          <div
+          <button
+            type="button"
             key={tool.id}
-            role={onToggle ? "button" : undefined}
-            tabIndex={onToggle ? 0 : undefined}
+            disabled={!onToggle}
             onClick={onToggle ? () => onToggle(tool.id, tool.description) : undefined}
-            onKeyDown={
-              onToggle
-                ? (e) => {
-                    if (e.target !== e.currentTarget) {
-                      return;
-                    }
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      onToggle(tool.id, tool.description);
-                    }
-                  }
-                : undefined
-            }
             className={cn(
-              "flex items-start gap-3 rounded-md px-3 py-2.5 bg-surface4",
+              "flex w-full items-start gap-3 rounded-md bg-surface4 px-3 py-2.5 text-left",
               onToggle && "cursor-pointer",
             )}
           >
@@ -83,7 +70,7 @@ export function SelectedToolList({ providerId, selectedTools, onToggle }: Select
                 </Txt>
               )}
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </ScrollArea>

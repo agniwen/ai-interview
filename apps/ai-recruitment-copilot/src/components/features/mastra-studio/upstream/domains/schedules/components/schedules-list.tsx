@@ -14,6 +14,32 @@ export interface SchedulesListProps {
 
 const COLUMNS = "minmax(0, 1.2fr) minmax(0, 1.4fr) minmax(0, 1fr) auto auto auto";
 
+function renderLastRun(schedule: ScheduleResponse) {
+  if (schedule.lastRun) {
+    return (
+      <span className="inline-flex items-center gap-2 whitespace-nowrap">
+        <WorkflowRunStatusInline status={schedule.lastRun.status} />
+        <span
+          className="text-neutral4 text-ui-sm"
+          title={formatScheduleTimestamp(schedule.lastFireAt)}
+        >
+          {schedule.lastFireAt ? formatRelativeTime(schedule.lastFireAt) : ""}
+        </span>
+      </span>
+    );
+  }
+
+  if (schedule.lastFireAt) {
+    return (
+      <span className="whitespace-nowrap" title={formatScheduleTimestamp(schedule.lastFireAt)}>
+        {formatRelativeTime(schedule.lastFireAt)}
+      </span>
+    );
+  }
+
+  return <span className="text-neutral4">Never</span>;
+}
+
 export function SchedulesList({ schedules, isLoading, search = "" }: SchedulesListProps) {
   const { paths, Link } = useLinkComponent();
 
@@ -73,25 +99,7 @@ export function SchedulesList({ schedules, isLoading, search = "" }: SchedulesLi
               {formatRelativeTime(s.nextFireAt)}
             </span>
           </DataList.Cell>
-          <DataList.Cell height="compact">
-            {s.lastRun ? (
-              <span className="inline-flex items-center gap-2 whitespace-nowrap">
-                <WorkflowRunStatusInline status={s.lastRun.status} />
-                <span
-                  className="text-neutral4 text-ui-sm"
-                  title={formatScheduleTimestamp(s.lastFireAt)}
-                >
-                  {s.lastFireAt ? formatRelativeTime(s.lastFireAt) : ""}
-                </span>
-              </span>
-            ) : s.lastFireAt ? (
-              <span className="whitespace-nowrap" title={formatScheduleTimestamp(s.lastFireAt)}>
-                {formatRelativeTime(s.lastFireAt)}
-              </span>
-            ) : (
-              <span className="text-neutral4">Never</span>
-            )}
-          </DataList.Cell>
+          <DataList.Cell height="compact">{renderLastRun(s)}</DataList.Cell>
         </DataList.RowLink>
       ))}
     </DataList>

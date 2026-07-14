@@ -3,7 +3,7 @@ import { toast } from "@mastra/playground-ui/utils/toast";
 import { useMastraClient } from "@mastra/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { useMergedRequestContext } from "@/components/features/mastra-studio/upstream/domains/request-context";
+import { useMergedRequestContext } from "@/components/features/mastra-studio/upstream/domains/request-context/context/schema-request-context";
 
 import type { MemorySearchParams } from "@/components/features/mastra-studio/upstream/types/memory";
 
@@ -13,11 +13,13 @@ export const useMemory = (agentId?: string) => {
 
   return useQuery({
     enabled: Boolean(agentId),
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    // 10 minutes.
+    gcTime: 10 * 60 * 1000,
     queryFn: () => (agentId ? client.getMemoryStatus(agentId, requestContext) : null),
     queryKey: ["memory", agentId, requestContext],
     retry: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes,
+    // 5 minutes.
+    staleTime: 5 * 60 * 1000,
   });
 };
 
@@ -27,12 +29,14 @@ export const useMemoryConfig = (agentId?: string) => {
 
   return useQuery({
     enabled: Boolean(agentId),
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    // 10 minutes.
+    gcTime: 10 * 60 * 1000,
     queryFn: () => (agentId ? client.getMemoryConfig({ agentId, requestContext }) : null),
     queryKey: ["memory", "config", agentId, requestContext],
     refetchOnWindowFocus: false,
     retry: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes,
+    // 5 minutes.
+    staleTime: 5 * 60 * 1000,
   });
 };
 
@@ -43,7 +47,12 @@ export const useThread = ({ threadId, agentId }: { threadId?: string; agentId?: 
   return useQuery({
     enabled: Boolean(threadId) && threadId !== "new" && Boolean(agentId),
     gcTime: 10 * 60 * 1000,
-    queryFn: () => client.getMemoryThread({ agentId, threadId: threadId! }).get({ requestContext }),
+    queryFn: () => {
+      if (!threadId) {
+        return null;
+      }
+      return client.getMemoryThread({ agentId, threadId }).get({ requestContext });
+    },
     queryKey: ["memory", "thread", threadId, agentId, requestContext],
     refetchOnWindowFocus: false,
     retry: false,
@@ -115,7 +124,7 @@ export const useMemorySearch = ({
   const requestContext = useMergedRequestContext();
   const client = useMastraClient();
   return useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       searchQuery,
       memoryConfig,
     }: {
@@ -139,7 +148,7 @@ export const useCloneThread = () => {
   const requestContext = useMergedRequestContext();
 
   return useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       threadId,
       agentId,
       title,
@@ -187,9 +196,11 @@ export const useObservationalMemory = ({
 
   return useQuery<GetObservationalMemoryResponse | null>({
     enabled: enabled && Boolean(agentId) && (Boolean(resourceId) || Boolean(threadId)),
-    gcTime: 5 * 60 * 1000, // 5 minutes
-    placeholderData: (previousData) => previousData, // Keep previous data during refetch to prevent skeleton flash
-    queryFn: async () => {
+    // 5 minutes.
+    gcTime: 5 * 60 * 1000,
+    // Keep previous data during refetch to prevent skeleton flash.
+    placeholderData: (previousData) => previousData,
+    queryFn: () => {
       if (!resourceId && !threadId) {
         return null;
       }
@@ -201,10 +212,12 @@ export const useObservationalMemory = ({
       });
     },
     queryKey: ["observational-memory", agentId, resourceId, threadId, requestContext],
-    refetchInterval: isActive ? 2000 : false, // Poll every 2 seconds when active
+    // Poll every 2 seconds when active.
+    refetchInterval: isActive ? 2000 : false,
     refetchOnWindowFocus: false,
     retry: false,
-    staleTime: isActive ? 1000 : 30 * 1000, // 1 second when active, 30 seconds otherwise
+    // 1 second when active, 30 seconds otherwise.
+    staleTime: isActive ? 1000 : 30 * 1000,
   });
 };
 
@@ -230,8 +243,10 @@ export const useMemoryWithOMStatus = ({
 
   const query = useQuery<GetMemoryStatusResponse | null>({
     enabled: Boolean(agentId),
-    gcTime: 5 * 60 * 1000, // 5 minutes
-    placeholderData: (previousData) => previousData, // Keep previous data during refetch to prevent skeleton flash
+    // 5 minutes.
+    gcTime: 5 * 60 * 1000,
+    // Keep previous data during refetch to prevent skeleton flash.
+    placeholderData: (previousData) => previousData,
     queryFn: () =>
       agentId
         ? client.getMemoryStatus(agentId, requestContext, {
@@ -240,10 +255,12 @@ export const useMemoryWithOMStatus = ({
           })
         : null,
     queryKey: ["memory-status", agentId, resourceId, threadId, requestContext],
-    refetchInterval: isActive && pollWhenActive ? 2000 : false, // Poll every 2 seconds when active
+    // Poll every 2 seconds when active.
+    refetchInterval: isActive && pollWhenActive ? 2000 : false,
     refetchOnWindowFocus: false,
     retry: false,
-    staleTime: isActive && pollWhenActive ? 1000 : 30 * 1000, // 1 second when active, 30 seconds otherwise
+    // 1 second when active, 30 seconds otherwise.
+    staleTime: isActive && pollWhenActive ? 1000 : 30 * 1000,
   });
 
   // Update isActive state when data changes

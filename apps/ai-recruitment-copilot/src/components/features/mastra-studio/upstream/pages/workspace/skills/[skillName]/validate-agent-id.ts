@@ -6,7 +6,7 @@ export function validateAgentId(
   decodedAgentId: string | null,
   cachedAgents: Record<string, unknown> | null | undefined,
 ): string | null {
-  if (decodedAgentId == null || cachedAgents == null) {
+  if (decodedAgentId === null || cachedAgents === null || cachedAgents === undefined) {
     return null;
   }
   return decodedAgentId in cachedAgents ? decodedAgentId : null;

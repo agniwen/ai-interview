@@ -18,75 +18,24 @@ import { useAuthCapabilities } from "@/components/features/mastra-studio/upstrea
 import { useCurrentUser } from "@/components/features/mastra-studio/upstream/domains/auth/hooks/use-current-user";
 import { usePermissions } from "@/components/features/mastra-studio/upstream/domains/auth/hooks/use-permissions";
 
-export default function AgentBuilderSkillsEdit() {
-  const { id } = useParams<{ id: string }>();
-  const { hasPermission, rbacEnabled } = usePermissions();
-  const canWrite = !rbacEnabled || hasPermission("stored-skills:write");
-  const { data: storedSkill, isLoading: isStoredSkillLoading } = useStoredSkill(id);
-  const { data: currentUser, isLoading: isCurrentUserLoading } = useCurrentUser();
-  const initialUserMessage = useStarterUserMessage();
-
-  const isOwner = !storedSkill?.authorId || currentUser?.id === storedSkill.authorId;
-  const isOwnershipLoading = Boolean(storedSkill?.authorId) && isCurrentUserLoading;
-  const isReady = Boolean(id) && !isStoredSkillLoading && !isOwnershipLoading;
-
-  if (!isReady) {
-    return <AgentBuilderSkillEditSkeleton />;
-  }
-
-  if (!storedSkill) {
-    return <Navigate to="/agent-builder/skills" replace />;
-  }
-
-  if (!canWrite || !isOwner) {
-    return <Navigate to={`/agent-builder/skills/${id}/view`} replace />;
-  }
-
-  return (
-    <AgentBuilderSkillEditPage
-      id={id!}
-      storedSkill={storedSkill}
-      initialUserMessage={initialUserMessage}
-    />
-  );
-}
-
 const AgentBuilderSkillEditSkeleton = () => (
   <div className="h-screen w-screen flex items-center justify-center">
     <Spinner />
   </div>
 );
 
-interface PageProps {
-  id: string;
-  storedSkill: NonNullable<ReturnType<typeof useStoredSkill>["data"]>;
-  initialUserMessage: string | undefined;
-}
-
-const AgentBuilderSkillEditPage = ({ id, storedSkill, initialUserMessage }: PageProps) => {
-  const formMethods = useForm<SkillEditFormValues>({
-    defaultValues: {
-      description: storedSkill.description ?? "",
-      instructions: storedSkill.instructions ?? "",
-      name: storedSkill.name ?? "",
-      visibility: storedSkill.visibility ?? "private",
-      workspaceId: undefined,
-    },
-  });
-
-  return (
-    <FormProvider {...formMethods}>
-      <AgentColorProvider agentId={id}>
-        <AgentBuilderSkillEditReady id={id} initialUserMessage={initialUserMessage} />
-      </AgentColorProvider>
-    </FormProvider>
-  );
-};
-
 interface ReadyProps {
   id: string;
   initialUserMessage: string | undefined;
 }
+
+const VisibilitySelectConnected = ({ skillId }: { skillId: string }) => {
+  const { data: capabilities } = useAuthCapabilities();
+  if (!capabilities?.enabled) {
+    return null;
+  }
+  return <VisibilitySelect skillId={skillId} />;
+};
 
 const AgentBuilderSkillEditReady = ({ id, initialUserMessage }: ReadyProps) => {
   const formMethods = useFormContext<SkillEditFormValues>();
@@ -193,10 +142,61 @@ const AgentBuilderSkillEditReady = ({ id, initialUserMessage }: ReadyProps) => {
   );
 };
 
-const VisibilitySelectConnected = ({ skillId }: { skillId: string }) => {
-  const { data: capabilities } = useAuthCapabilities();
-  if (!capabilities?.enabled) {
-    return null;
-  }
-  return <VisibilitySelect skillId={skillId} />;
+interface PageProps {
+  id: string;
+  storedSkill: NonNullable<ReturnType<typeof useStoredSkill>["data"]>;
+  initialUserMessage: string | undefined;
+}
+
+const AgentBuilderSkillEditPage = ({ id, storedSkill, initialUserMessage }: PageProps) => {
+  const formMethods = useForm<SkillEditFormValues>({
+    defaultValues: {
+      description: storedSkill.description ?? "",
+      instructions: storedSkill.instructions ?? "",
+      name: storedSkill.name ?? "",
+      visibility: storedSkill.visibility ?? "private",
+      workspaceId: undefined,
+    },
+  });
+
+  return (
+    <FormProvider {...formMethods}>
+      <AgentColorProvider agentId={id}>
+        <AgentBuilderSkillEditReady id={id} initialUserMessage={initialUserMessage} />
+      </AgentColorProvider>
+    </FormProvider>
+  );
 };
+
+export default function AgentBuilderSkillsEdit() {
+  const { id } = useParams<{ id: string }>();
+  const { hasPermission, rbacEnabled } = usePermissions();
+  const canWrite = !rbacEnabled || hasPermission("stored-skills:write");
+  const { data: storedSkill, isLoading: isStoredSkillLoading } = useStoredSkill(id);
+  const { data: currentUser, isLoading: isCurrentUserLoading } = useCurrentUser();
+  const initialUserMessage = useStarterUserMessage();
+
+  const isOwner = !storedSkill?.authorId || currentUser?.id === storedSkill.authorId;
+  const isOwnershipLoading = Boolean(storedSkill?.authorId) && isCurrentUserLoading;
+  const isReady = Boolean(id) && !isStoredSkillLoading && !isOwnershipLoading;
+
+  if (!isReady || !id) {
+    return <AgentBuilderSkillEditSkeleton />;
+  }
+
+  if (!storedSkill) {
+    return <Navigate to="/agent-builder/skills" replace />;
+  }
+
+  if (!canWrite || !isOwner) {
+    return <Navigate to={`/agent-builder/skills/${id}/view`} replace />;
+  }
+
+  return (
+    <AgentBuilderSkillEditPage
+      id={id}
+      storedSkill={storedSkill}
+      initialUserMessage={initialUserMessage}
+    />
+  );
+}

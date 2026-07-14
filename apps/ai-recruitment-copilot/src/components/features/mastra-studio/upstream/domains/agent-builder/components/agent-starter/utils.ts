@@ -7,6 +7,9 @@ export interface StarterModel extends Record<string, unknown> {
   name: string;
 }
 
+export const truncateName = (prompt: string): string =>
+  prompt.length <= 20 ? prompt : `${prompt.slice(0, 20)}…`;
+
 /**
  * Picks a model the server will accept for the new agent. The starter has to
  * commit to *some* model up front (visibility/persistence happens before the
@@ -29,7 +32,7 @@ export const resolveStarterModel = (
     return { name: policy.default.modelId, provider: policy.default.provider };
   }
 
-  const first = allowedModels[0];
+  const [first] = allowedModels;
 
   if (first) {
     return { name: first.model, provider: first.provider };
@@ -55,6 +58,3 @@ export const isPlaceholderAgentName = (
   }
   return name === truncateName(originalPrompt);
 };
-
-export const truncateName = (prompt: string): string =>
-  prompt.length <= 20 ? prompt : `${prompt.slice(0, 20)}…`;

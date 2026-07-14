@@ -10,7 +10,7 @@ import { useBuilderAgentAccess } from "@/components/features/mastra-studio/upstr
 import { useBuilderAgentFeatures } from "@/components/features/mastra-studio/upstream/domains/agent-builder/hooks/use-builder-agent-features";
 import { AuthStatus } from "@/components/features/mastra-studio/upstream/domains/auth/components/auth-status";
 import { ImpersonationBanner } from "@/components/features/mastra-studio/upstream/domains/auth/components/impersonation-banner";
-import { useAuthCapabilities } from "@/components/features/mastra-studio/upstream/domains/auth/hooks";
+import { useAuthCapabilities } from "@/components/features/mastra-studio/upstream/domains/auth/hooks/use-auth-capabilities";
 import { usePermissions } from "@/components/features/mastra-studio/upstream/domains/auth/hooks/use-permissions";
 import { isAuthenticated } from "@/components/features/mastra-studio/upstream/domains/auth/types";
 import { useLinkComponent } from "@/components/features/mastra-studio/upstream/lib/framework";
@@ -73,65 +73,65 @@ export function AgentBuilderSidebar({ forceExpanded = false }: AgentBuilderSideb
     return result;
   }, [features.skills, canManageSkills, canUseFavorites]);
 
-  return (
-    <MainSidebar className="h-full">
-      {!forceExpanded && (
-        <div className="pt-3 mb-4">
-          {state === "collapsed" ? (
-            <div className="flex flex-col gap-3 items-center">
-              <div className="relative grid place-items-center size-9">
-                <Link
-                  href="/agents"
-                  aria-label="Back to Mastra Studio"
-                  className={cn(
-                    "transition-opacity duration-150",
-                    !isMobile && "group-hover/sidebar:opacity-0",
-                  )}
-                >
-                  <LogoWithoutText className="h-[1.5rem] w-[1.5rem] shrink-0" />
-                </Link>
-                {!isMobile && (
-                  <div className="absolute inset-0 opacity-0 transition-opacity duration-150 group-hover/sidebar:opacity-100">
-                    <MainSidebar.Trigger />
-                  </div>
-                )}
-              </div>
-              {isUserAuthenticated && <AuthStatus />}
+  let sidebarHeader = (
+    <span className="flex items-center gap-2 pl-3 pr-2">
+      <Link
+        href="/agents"
+        aria-label="Back to Mastra Studio"
+        className="flex items-center gap-2 rounded-sm hover:opacity-80 min-w-0"
+      >
+        <LogoWithoutText className="h-[1.5rem] w-[1.5rem] shrink-0" />
+        <span className="font-display text-sm whitespace-nowrap truncate">Mastra Studio</span>
+      </Link>
+      {!isMobile && <MainSidebar.Trigger />}
+    </span>
+  );
+  if (isUserAuthenticated) {
+    sidebarHeader = (
+      <span className="flex items-center justify-between pl-3 pr-2">
+        <span className="flex items-center gap-2 flex-1 min-w-0">
+          <Link
+            href="/agents"
+            aria-label="Back to Mastra Studio"
+            className="flex items-center gap-2 rounded-sm hover:opacity-80 min-w-0"
+          >
+            <LogoWithoutText className="h-[1.5rem] w-[1.5rem] shrink-0" />
+            <span className="font-display text-sm whitespace-nowrap truncate">Mastra Studio</span>
+          </Link>
+          {!isMobile && <MainSidebar.Trigger />}
+        </span>
+        <AuthStatus />
+      </span>
+    );
+  }
+  if (state === "collapsed") {
+    sidebarHeader = (
+      <div className="flex flex-col gap-3 items-center">
+        <div className="relative grid place-items-center size-9">
+          <Link
+            href="/agents"
+            aria-label="Back to Mastra Studio"
+            className={cn(
+              "transition-opacity duration-150",
+              !isMobile && "group-hover/sidebar:opacity-0",
+            )}
+          >
+            <LogoWithoutText className="h-[1.5rem] w-[1.5rem] shrink-0" />
+          </Link>
+          {!isMobile && (
+            <div className="absolute inset-0 opacity-0 transition-opacity duration-150 group-hover/sidebar:opacity-100">
+              <MainSidebar.Trigger />
             </div>
-          ) : isUserAuthenticated ? (
-            <span className="flex items-center justify-between pl-3 pr-2">
-              <span className="flex items-center gap-2 flex-1 min-w-0">
-                <Link
-                  href="/agents"
-                  aria-label="Back to Mastra Studio"
-                  className="flex items-center gap-2 rounded-sm hover:opacity-80 min-w-0"
-                >
-                  <LogoWithoutText className="h-[1.5rem] w-[1.5rem] shrink-0" />
-                  <span className="font-display text-sm whitespace-nowrap truncate">
-                    Mastra Studio
-                  </span>
-                </Link>
-                {!isMobile && <MainSidebar.Trigger />}
-              </span>
-              <AuthStatus />
-            </span>
-          ) : (
-            <span className="flex items-center gap-2 pl-3 pr-2">
-              <Link
-                href="/agents"
-                aria-label="Back to Mastra Studio"
-                className="flex items-center gap-2 rounded-sm hover:opacity-80 min-w-0"
-              >
-                <LogoWithoutText className="h-[1.5rem] w-[1.5rem] shrink-0" />
-                <span className="font-display text-sm whitespace-nowrap truncate">
-                  Mastra Studio
-                </span>
-              </Link>
-              {!isMobile && <MainSidebar.Trigger />}
-            </span>
           )}
         </div>
-      )}
+        {isUserAuthenticated && <AuthStatus />}
+      </div>
+    );
+  }
+
+  return (
+    <MainSidebar className="h-full">
+      {!forceExpanded && <div className="pt-3 mb-4">{sidebarHeader}</div>}
 
       <ImpersonationBanner />
 

@@ -36,7 +36,8 @@ export function useAgentSettingsState({
         modelSettings: {
           ...defaultSettings.modelSettings,
           ...parsed?.modelSettings,
-          ...defaultSettingsProp?.modelSettings, // Code defaults win
+          // Code defaults win
+          ...defaultSettingsProp?.modelSettings,
         },
       };
       setSettingsState(mergedSettings);

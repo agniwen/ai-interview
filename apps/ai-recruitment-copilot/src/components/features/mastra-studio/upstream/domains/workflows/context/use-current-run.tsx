@@ -22,7 +22,7 @@ export interface ForeachProgress {
   totalCount: number;
   currentIndex: number;
   iterationStatus: "success" | "failed" | "suspended";
-  iterationOutput?: any;
+  iterationOutput?: unknown;
 }
 
 type StepStatus = Extract<
@@ -31,16 +31,16 @@ type StepStatus = Extract<
 >;
 
 export interface Step {
-  error?: any;
+  error?: unknown;
   tripwire?: TripwireData;
   startedAt: number;
   endedAt?: number;
   status: StepStatus;
-  output?: any;
-  input?: any;
-  resumeData?: any;
-  suspendOutput?: any;
-  suspendPayload?: any;
+  output?: unknown;
+  input?: unknown;
+  resumeData?: unknown;
+  suspendOutput?: unknown;
+  suspendPayload?: unknown;
   foreachProgress?: ForeachProgress;
   duration?: number;
   date?: Date;
@@ -56,39 +56,44 @@ interface UseCurrentRunReturnType {
   runId?: string;
 }
 
+function readOptional<T>(value: Record<string, unknown>, key: string): T | undefined {
+  return key in value ? (value[key] as T) : undefined;
+}
+
+function toCurrentStep(value: Record<string, unknown>): Step {
+  const tripwire = readOptional<TripwireData>(value, "tripwire");
+  const hasTripwire = value.status === "failed" && Boolean(tripwire);
+
+  return {
+    canSuspend: readOptional(value, "canSuspend"),
+    date: readOptional(value, "date"),
+    duration: readOptional(value, "duration"),
+    endedAt: readOptional(value, "endedAt"),
+    error: hasTripwire ? undefined : readOptional(value, "error"),
+    foreachProgress: readOptional(value, "foreachProgress"),
+    input: value.payload,
+    isForEach: readOptional(value, "isForEach"),
+    isParallel: readOptional(value, "isParallel"),
+    mapConfig: readOptional(value, "mapConfig"),
+    output: readOptional(value, "output"),
+    resumeData: readOptional(value, "resumePayload"),
+    startedAt: typeof value.startedAt === "number" ? value.startedAt : Date.now(),
+    status: value.status as StepStatus,
+    stepGraph: readOptional(value, "stepGraph"),
+    suspendOutput: readOptional(value, "suspendOutput"),
+    suspendPayload: readOptional(value, "suspendPayload"),
+    tripwire: hasTripwire ? tripwire : undefined,
+  };
+}
+
 export const useCurrentRun = (): UseCurrentRunReturnType => {
   const context = useContext(WorkflowRunContext);
 
   const workflowCurrentSteps = context.result?.steps ?? {};
-  const steps = Object.entries(workflowCurrentSteps).reduce((acc, [key, value]: [string, any]) => {
-    // Check if this is a tripwire (failed step with tripwire property)
-    const hasTripwire = "tripwire" in value && value.tripwire;
-
-    return {
-      ...acc,
-      [key]: {
-        // Don't include error when tripwire is present - tripwire takes precedence
-        error: hasTripwire ? undefined : "error" in value ? value.error : undefined,
-        tripwire: hasTripwire ? value.tripwire : undefined,
-        startedAt: value.startedAt,
-        endedAt: "endedAt" in value ? value.endedAt : undefined,
-        status: value.status,
-        output: "output" in value ? value.output : undefined,
-        input: value.payload,
-        resumeData: "resumePayload" in value ? value.resumePayload : undefined,
-        suspendOutput: "suspendOutput" in value ? value.suspendOutput : undefined,
-        suspendPayload: "suspendPayload" in value ? value.suspendPayload : undefined,
-        foreachProgress: "foreachProgress" in value ? value.foreachProgress : undefined,
-        duration: "duration" in value ? value.duration : undefined,
-        date: "date" in value ? value.date : undefined,
-        isForEach: "isForEach" in value ? value.isForEach : undefined,
-        mapConfig: "mapConfig" in value ? value.mapConfig : undefined,
-        canSuspend: "canSuspend" in value ? value.canSuspend : undefined,
-        isParallel: "isParallel" in value ? value.isParallel : undefined,
-        stepGraph: "stepGraph" in value ? value.stepGraph : undefined,
-      },
-    };
-  }, {});
+  const steps: Record<string, Step> = {};
+  for (const [key, value] of Object.entries(workflowCurrentSteps)) {
+    steps[key] = toCurrentStep(value as Record<string, unknown>);
+  }
 
   return { runId: context.runId, steps };
 };

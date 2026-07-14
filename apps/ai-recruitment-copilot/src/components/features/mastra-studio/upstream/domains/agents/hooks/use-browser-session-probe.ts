@@ -58,7 +58,7 @@ export function useBrowserSessionProbe({
   const client = useMastraClient();
 
   return useQuery<BrowserSessionProbe>({
-    queryKey: browserSessionProbeQueryKey(agentId, threadId),
+    enabled: enabled && Boolean(agentId),
     queryFn: async () => {
       if (!agentId) {
         return { hasSession: false, screencastAvailable: false };
@@ -74,13 +74,13 @@ export function useBrowserSessionProbe({
         throw error;
       }
     },
-    enabled: enabled && Boolean(agentId),
+    queryKey: browserSessionProbeQueryKey(agentId, threadId),
     // No polling: the probe fires once on mount, on window focus, and is
     // updated via `setQueriesData` from `tool-fallback.tsx` when a browser
     // tool call transitions. This avoids idle 5s polls and lets the probe
     // flip to `hasSession: true` the instant a tool call is seen.
     refetchOnWindowFocus: true,
-    staleTime: 0,
     retry: 1,
+    staleTime: 0,
   });
 }

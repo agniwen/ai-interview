@@ -53,6 +53,27 @@ function formatDriftValue(driftMs: number): string {
 const DRIFT_WARN_MIN_MS = 30_000;
 const DRIFT_WARN_MAX_MS = 5 * 60_000;
 
+function renderTriggerStatus(trigger: ScheduleTriggerResponse, isPublishFailure: boolean) {
+  if (isPublishFailure) {
+    return (
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-ui-sm text-accent2">
+        <AlertTriangleIcon size={14} />
+        publish failed
+      </span>
+    );
+  }
+
+  if (trigger.run) {
+    return <WorkflowRunStatusInline status={trigger.run.status} />;
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-ui-sm text-neutral3">
+      pending
+    </span>
+  );
+}
+
 export function ScheduleTriggersList({
   triggers,
   isLoading,
@@ -115,18 +136,7 @@ export function ScheduleTriggersList({
 
             <DataList.Cell height="compact">
               <span className="inline-flex items-center gap-2">
-                {isPublishFailure ? (
-                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-ui-sm text-accent2">
-                    <AlertTriangleIcon size={14} />
-                    publish failed
-                  </span>
-                ) : t.run ? (
-                  <WorkflowRunStatusInline status={t.run.status} />
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-ui-sm text-neutral3">
-                    pending
-                  </span>
-                )}
+                {renderTriggerStatus(t, isPublishFailure)}
                 {errorMessage ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -169,17 +179,19 @@ export function ScheduleTriggersList({
           </>
         );
 
-        return isLinked ? (
-          <DataList.RowLink
-            key={rowKey}
-            to={paths.workflowRunLink(workflowId!, t.runId!)}
-            LinkComponent={Link}
-          >
-            {cells}
-          </DataList.RowLink>
-        ) : (
-          <DataList.RowStatic key={rowKey}>{cells}</DataList.RowStatic>
-        );
+        if (isLinked && workflowId && t.runId) {
+          return (
+            <DataList.RowLink
+              key={rowKey}
+              to={paths.workflowRunLink(workflowId, t.runId)}
+              LinkComponent={Link}
+            >
+              {cells}
+            </DataList.RowLink>
+          );
+        }
+
+        return <DataList.RowStatic key={rowKey}>{cells}</DataList.RowStatic>;
       })}
       <DataList.NextPageLoading
         isLoading={isFetchingNextPage}

@@ -11,25 +11,16 @@ import {
 } from "@mastra/playground-ui/components/Dialog";
 import { ScrollArea } from "@mastra/playground-ui/components/ScrollArea";
 import { Spinner } from "@mastra/playground-ui/components/Spinner";
-import { Textarea } from "@mastra/playground-ui/components/Textarea";
 import { Txt } from "@mastra/playground-ui/components/Txt";
 import { Icon } from "@mastra/playground-ui/icons/Icon";
 import { cn } from "@mastra/playground-ui/utils/cn";
 import { toast } from "@mastra/playground-ui/utils/toast";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  Play,
-  Sparkles,
-  Clock,
-  ChevronRight,
-  ChevronDown,
-  Pencil,
-  Save,
-  X,
-  Trash2,
-} from "lucide-react";
+import { Play, Sparkles, Clock, ChevronRight, ChevronDown, X } from "lucide-react";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { formatVersionLabel } from "./format-version-label";
+import { ExpandedItemEditor } from "./dataset-item-editor";
+import { isDefined } from "../../utils/presence";
 import { useAgentVersions } from "@/components/features/mastra-studio/upstream/domains/agents/hooks/use-agent-versions";
 import { useDatasetExperiments } from "@/components/features/mastra-studio/upstream/domains/datasets/hooks/use-dataset-experiments";
 import { useDatasetItems } from "@/components/features/mastra-studio/upstream/domains/datasets/hooks/use-dataset-items";
@@ -37,6 +28,7 @@ import { useDatasetMutations } from "@/components/features/mastra-studio/upstrea
 import { useDatasetVersions } from "@/components/features/mastra-studio/upstream/domains/datasets/hooks/use-dataset-versions";
 import { useMergedRequestContext } from "@/components/features/mastra-studio/upstream/domains/request-context/context/schema-request-context";
 import { useScorers } from "@/components/features/mastra-studio/upstream/domains/scores/hooks/use-scorers";
+import { resolveConditional } from "../../utils/conditional";
 
 interface DatasetDetailViewProps {
   agentId: string;
@@ -81,10 +73,24 @@ function getExpectedTrajectoryLabel(expectedTrajectory: unknown): string {
 const TAG_COLORS = ["blue", "green", "purple", "orange", "cyan", "pink", "red", "yellow"] as const;
 function getTagColor(tag: string): (typeof TAG_COLORS)[number] {
   let hash = 0;
-  for (let i = 0; i < tag.length; i++) {
-    hash = ((hash << 5) - hash + (tag.codePointAt(i) ?? 0)) | 0;
+  for (let i = 0; i < tag.length; i += 1) {
+    hash = (hash * 31 + (tag.codePointAt(i) ?? 0)) % 2_147_483_647;
   }
   return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length] ?? TAG_COLORS[0];
+}
+
+function ExperimentStatusDot({ status }: { status: string }) {
+  const color = resolveConditional(
+    status === "completed",
+    () => "bg-positive1",
+    () =>
+      resolveConditional(
+        status === "running",
+        () => "bg-warning1",
+        () => (status === "failed" ? "bg-negative1" : "bg-neutral3"),
+      ),
+  );
+  return <div className={cn("w-2 h-2 rounded-full shrink-0", color)} />;
 }
 
 export function DatasetDetailView({
@@ -115,7 +121,7 @@ export function DatasetDetailView({
   const { data: allScorers } = useScorers();
   const { updateDataset } = useDatasetMutations();
 
-  const attachedScorerIds = useMemo(() => new Set(datasetScorerIds ?? []), [datasetScorerIds]);
+  const attachedScorerIds = useMemo(() => new Set(datasetScorerIds), [datasetScorerIds]);
 
   const attachedScorerEntries = useMemo(() => {
     if (!allScorers) {
@@ -194,17 +200,20 @@ export function DatasetDetailView({
           ? datasetTargetType
           : "agent";
       // targetIds may come as a JSON string from some storage backends
-      const parsedTargetIds = Array.isArray(datasetTargetIds)
-        ? datasetTargetIds
-        : typeof datasetTargetIds === "string"
-          ? (() => {
-              try {
-                return JSON.parse(datasetTargetIds);
-              } catch {
-                return [];
-              }
-            })()
-          : [];
+      const parsedTargetIds = resolveConditional(
+        Array.isArray(datasetTargetIds),
+        () => datasetTargetIds,
+        () =>
+          typeof datasetTargetIds === "string"
+            ? (() => {
+                try {
+                  return JSON.parse(datasetTargetIds);
+                } catch {
+                  return [];
+                }
+              })()
+            : [],
+      );
       const expTargetId =
         expTargetType !== "agent" && parsedTargetIds[0] ? parsedTargetIds[0] : agentId;
       await triggerExperiment.mutateAsync({
@@ -253,19 +262,27 @@ export function DatasetDetailView({
             <Txt variant="ui-sm" className="text-neutral5 font-medium block truncate">
               {datasetName}
             </Txt>
-            {datasetDescription && (
-              <Txt variant="ui-xs" className="text-neutral3 block mt-0.5 truncate">
-                {datasetDescription}
-              </Txt>
+            {resolveConditional(
+              datasetDescription,
+              (conditionValue) => (
+                <Txt variant="ui-xs" className="text-neutral3 block mt-0.5 truncate">
+                  {conditionValue}
+                </Txt>
+              ),
+              () => null,
             )}
-            {datasetTags.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-1.5">
-                {datasetTags.map((tag) => (
-                  <Chip key={tag} color={getTagColor(tag)} size="small">
-                    {tag}
-                  </Chip>
-                ))}
-              </div>
+            {resolveConditional(
+              datasetTags.length > 0,
+              () => (
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  {datasetTags.map((tag) => (
+                    <Chip key={tag} color={getTagColor(tag)} size="small">
+                      {tag}
+                    </Chip>
+                  ))}
+                </div>
+              ),
+              () => null,
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -279,7 +296,11 @@ export function DatasetDetailView({
               variant="primary"
               size="sm"
               onClick={handleRunExperiment}
-              disabled={items.length === 0 || isRunning}
+              disabled={resolveConditional(
+                items.length === 0,
+                (conditionValue) => conditionValue,
+                () => isRunning,
+              )}
             >
               {isRunning ? (
                 <>
@@ -317,35 +338,39 @@ export function DatasetDetailView({
               size="sm"
             />
           </div>
-          {isAgentTarget && (
-            <div className="flex-1 min-w-0">
-              <Txt variant="ui-xs" className="text-neutral3 mb-1 block">
-                Agent version
-              </Txt>
-              <div className="flex items-center gap-1">
-                <Combobox
-                  options={[
-                    { label: "Current", value: "" },
-                    ...agentVersions.map((v) => ({
-                      description: v.changeMessage ?? undefined,
-                      label: `v${v.versionNumber}`,
-                      value: v.id,
-                    })),
-                  ]}
-                  value={selectedAgentVersion}
-                  onValueChange={setSelectedAgentVersion}
-                  placeholder="Current"
-                  size="sm"
-                />
-                {(selectedAgentVersion || agentVersions[0]?.id) && (
-                  <CopyButton
-                    content={selectedAgentVersion || agentVersions[0]?.id}
-                    tooltip="Copy version ID"
+          {resolveConditional(
+            isAgentTarget,
+            () => (
+              <div className="flex-1 min-w-0">
+                <Txt variant="ui-xs" className="text-neutral3 mb-1 block">
+                  Agent version
+                </Txt>
+                <div className="flex items-center gap-1">
+                  <Combobox
+                    options={[
+                      { label: "Current", value: "" },
+                      ...agentVersions.map((v) => ({
+                        description: v.changeMessage ?? undefined,
+                        label: `v${v.versionNumber}`,
+                        value: v.id,
+                      })),
+                    ]}
+                    value={selectedAgentVersion}
+                    onValueChange={setSelectedAgentVersion}
+                    placeholder="Current"
                     size="sm"
                   />
-                )}
+                  {(selectedAgentVersion || agentVersions[0]?.id) && (
+                    <CopyButton
+                      content={selectedAgentVersion || agentVersions[0]?.id}
+                      tooltip="Copy version ID"
+                      size="sm"
+                    />
+                  )}
+                </div>
               </div>
-            </div>
+            ),
+            () => null,
           )}
         </div>
       </div>
@@ -371,21 +396,34 @@ export function DatasetDetailView({
                   Scorers ({attachedScorerEntries.length})
                 </Txt>
               </button>
-              {unattachedScorerEntries.length > 0 && (
-                <div className="pr-2">
-                  <Button variant="ghost" size="sm" onClick={() => setShowAttachScorerDialog(true)}>
-                    Attach
-                  </Button>
-                </div>
+              {resolveConditional(
+                unattachedScorerEntries.length > 0,
+                () => (
+                  <div className="pr-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowAttachScorerDialog(true)}
+                    >
+                      Attach
+                    </Button>
+                  </div>
+                ),
+                () => null,
               )}
             </div>
-            {!scorersCollapsed &&
-              (attachedScorerEntries.length === 0 ? (
-                <div className="px-4 py-4 text-center">
-                  <Txt variant="ui-xs" className="text-neutral3">
-                    No scorers attached to this dataset.
-                  </Txt>
-                  {unattachedScorerEntries.length > 0 && (
+            {resolveConditional(
+              !scorersCollapsed,
+              () => attachedScorerEntries.length === 0,
+              () => null,
+            ) ? (
+              <div className="px-4 py-4 text-center">
+                <Txt variant="ui-xs" className="text-neutral3">
+                  No scorers attached to this dataset.
+                </Txt>
+                {resolveConditional(
+                  unattachedScorerEntries.length > 0,
+                  () => (
                     <div className="mt-2">
                       <Button
                         variant="outline"
@@ -395,36 +433,38 @@ export function DatasetDetailView({
                         Attach a scorer
                       </Button>
                     </div>
-                  )}
-                </div>
-              ) : (
-                <div className="divide-y divide-border1">
-                  {attachedScorerEntries.map(([id, scorer]) => {
-                    const name = (scorer as { scorer?: { name?: string } }).scorer?.name || id;
-                    return (
-                      <div
-                        key={id}
-                        className="flex items-center justify-between px-4 py-1.5 hover:bg-surface3 transition-colors group"
+                  ),
+                  () => null,
+                )}
+              </div>
+            ) : (
+              <div className="divide-y divide-border1">
+                {attachedScorerEntries.map(([id, scorer]) => {
+                  const name = (scorer as { scorer?: { name?: string } }).scorer?.name || id;
+                  return (
+                    <div
+                      key={id}
+                      className="flex items-center justify-between px-4 py-1.5 hover:bg-surface3 transition-colors group"
+                    >
+                      <Txt variant="ui-xs" className="text-neutral5 truncate">
+                        {name}
+                      </Txt>
+                      <button
+                        type="button"
+                        onClick={() => handleDetachScorer(id)}
+                        aria-label={`Detach "${name}" from this dataset`}
+                        className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity text-neutral3 hover:text-red-500 p-0.5"
+                        title="Detach scorer"
                       >
-                        <Txt variant="ui-xs" className="text-neutral5 truncate">
-                          {name}
-                        </Txt>
-                        <button
-                          type="button"
-                          onClick={() => handleDetachScorer(id)}
-                          aria-label={`Detach "${name}" from this dataset`}
-                          className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity text-neutral3 hover:text-red-500 p-0.5"
-                          title="Detach scorer"
-                        >
-                          <Icon size="sm">
-                            <X />
-                          </Icon>
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
+                        <Icon size="sm">
+                          <X />
+                        </Icon>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Items section (collapsible) */}
@@ -441,50 +481,57 @@ export function DatasetDetailView({
                 Items ({items.length})
               </Txt>
             </button>
-            {!itemsCollapsed &&
-              (items.length === 0 ? (
-                <div className="px-4 py-6 text-center">
-                  <Txt variant="ui-xs" className="text-neutral3">
-                    No items yet. Use Generate to create test data.
-                  </Txt>
-                </div>
-              ) : (
-                <div className="divide-y divide-border1">
-                  {items.map((item) => {
-                    const isExpanded = expandedItemId === item.id;
-                    return (
-                      <div key={item.id}>
-                        <button
-                          type="button"
-                          onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
-                          className="w-full text-left px-4 py-2 hover:bg-surface3 transition-colors flex items-start gap-2"
-                        >
-                          <Icon size="sm" className="text-neutral3 mt-0.5 shrink-0">
-                            {isExpanded ? <ChevronDown /> : <ChevronRight />}
-                          </Icon>
-                          <div className="flex-1 min-w-0 flex items-center gap-2">
-                            <Txt variant="ui-xs" className="text-neutral5 block truncate flex-1">
-                              {truncateValue(item.input)}
-                            </Txt>
-                            {item.expectedTrajectory != null && (
-                              <Chip size="small" color="purple">
-                                {getExpectedTrajectoryLabel(item.expectedTrajectory)}
-                              </Chip>
-                            )}
-                          </div>
-                        </button>
-                        {isExpanded && <ExpandedItemEditor datasetId={datasetId} item={item} />}
-                      </div>
-                    );
-                  })}
-                  <div ref={setEndOfListElement} />
-                  {isFetchingNextPage && (
+            {resolveConditional(
+              !itemsCollapsed,
+              () => items.length === 0,
+              () => null,
+            ) ? (
+              <div className="px-4 py-6 text-center">
+                <Txt variant="ui-xs" className="text-neutral3">
+                  No items yet. Use Generate to create test data.
+                </Txt>
+              </div>
+            ) : (
+              <div className="divide-y divide-border1">
+                {items.map((item) => {
+                  const isExpanded = expandedItemId === item.id;
+                  return (
+                    <div key={item.id}>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
+                        className="w-full text-left px-4 py-2 hover:bg-surface3 transition-colors flex items-start gap-2"
+                      >
+                        <Icon size="sm" className="text-neutral3 mt-0.5 shrink-0">
+                          {isExpanded ? <ChevronDown /> : <ChevronRight />}
+                        </Icon>
+                        <div className="flex-1 min-w-0 flex items-center gap-2">
+                          <Txt variant="ui-xs" className="text-neutral5 block truncate flex-1">
+                            {truncateValue(item.input)}
+                          </Txt>
+                          {isDefined(item.expectedTrajectory) && (
+                            <Chip size="small" color="purple">
+                              {getExpectedTrajectoryLabel(item.expectedTrajectory)}
+                            </Chip>
+                          )}
+                        </div>
+                      </button>
+                      {isExpanded && <ExpandedItemEditor datasetId={datasetId} item={item} />}
+                    </div>
+                  );
+                })}
+                <div ref={setEndOfListElement} />
+                {resolveConditional(
+                  isFetchingNextPage,
+                  () => (
                     <div className="flex items-center justify-center py-2">
                       <Spinner className="h-3 w-3" />
                     </div>
-                  )}
-                </div>
-              ))}
+                  ),
+                  () => null,
+                )}
+              </div>
+            )}
           </div>
 
           {/* Past runs section (collapsible) */}
@@ -504,45 +551,48 @@ export function DatasetDetailView({
                 Past Runs ({datasetExperiments.length})
               </Txt>
             </button>
-            {!runsCollapsed &&
-              (datasetExperiments.length === 0 ? (
-                <div className="px-4 py-4 text-center">
-                  <Txt variant="ui-xs" className="text-neutral3">
-                    No experiment runs yet
-                  </Txt>
-                </div>
-              ) : (
-                <div className="divide-y divide-border1">
-                  {datasetExperiments.map((exp) => (
-                    <button
-                      key={exp.id}
-                      type="button"
-                      onClick={() => onViewExperiment(exp.id)}
-                      className="w-full text-left px-4 py-2 hover:bg-surface3 transition-colors flex items-center gap-2"
-                    >
-                      <ExperimentStatusDot status={exp.status} />
-                      <div className="flex-1 min-w-0">
-                        <Txt variant="ui-xs" className="text-neutral5 block">
-                          {exp.startedAt ? formatTimestamp(exp.startedAt) : "Unknown"}
-                        </Txt>
-                        <Txt variant="ui-xs" className="text-neutral3">
-                          {exp.succeededCount}/{exp.totalItems} passed
-                          {exp.datasetVersion != null &&
-                            ` · ${formatVersionLabel("Dataset", exp.datasetVersion)}`}
-                          {exp.agentVersion &&
-                            (() => {
-                              const av = agentVersions.find((v) => v.id === exp.agentVersion);
-                              return ` · ${formatVersionLabel("Agent", av ? av.versionNumber : exp.agentVersion)}`;
-                            })()}
-                        </Txt>
-                      </div>
-                      <Icon size="sm" className="text-neutral3">
-                        <ChevronRight />
-                      </Icon>
-                    </button>
-                  ))}
-                </div>
-              ))}
+            {resolveConditional(
+              !runsCollapsed,
+              () => datasetExperiments.length === 0,
+              () => null,
+            ) ? (
+              <div className="px-4 py-4 text-center">
+                <Txt variant="ui-xs" className="text-neutral3">
+                  No experiment runs yet
+                </Txt>
+              </div>
+            ) : (
+              <div className="divide-y divide-border1">
+                {datasetExperiments.map((exp) => (
+                  <button
+                    key={exp.id}
+                    type="button"
+                    onClick={() => onViewExperiment(exp.id)}
+                    className="w-full text-left px-4 py-2 hover:bg-surface3 transition-colors flex items-center gap-2"
+                  >
+                    <ExperimentStatusDot status={exp.status} />
+                    <div className="flex-1 min-w-0">
+                      <Txt variant="ui-xs" className="text-neutral5 block">
+                        {exp.startedAt ? formatTimestamp(exp.startedAt) : "Unknown"}
+                      </Txt>
+                      <Txt variant="ui-xs" className="text-neutral3">
+                        {exp.succeededCount}/{exp.totalItems} passed
+                        {isDefined(exp.datasetVersion) &&
+                          ` · ${formatVersionLabel("Dataset", exp.datasetVersion)}`}
+                        {exp.agentVersion &&
+                          (() => {
+                            const av = agentVersions.find((v) => v.id === exp.agentVersion);
+                            return ` · ${formatVersionLabel("Agent", av ? av.versionNumber : exp.agentVersion)}`;
+                          })()}
+                      </Txt>
+                    </div>
+                    <Icon size="sm" className="text-neutral3">
+                      <ChevronRight />
+                    </Icon>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </ScrollArea>
       </div>
@@ -569,6 +619,7 @@ export function DatasetDetailView({
             ) : (
               <div className="space-y-2">
                 <input
+                  aria-label="Search scorers"
                   type="text"
                   placeholder="Search scorers..."
                   value={attachScorerSearch}
@@ -613,252 +664,4 @@ export function DatasetDetailView({
       </Dialog>
     </div>
   );
-}
-
-function formatValue(value: unknown): string {
-  if (value === undefined || value === null) {
-    return "";
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  return JSON.stringify(value, null, 2);
-}
-
-function ExpandedItemEditor({
-  datasetId,
-  item,
-}: {
-  datasetId: string;
-  item: {
-    id: string;
-    input: unknown;
-    groundTruth?: unknown;
-    expectedTrajectory?: unknown;
-    source?: unknown;
-  };
-}) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
-  const [inputValue, setInputValue] = useState("");
-  const [groundTruthValue, setGroundTruthValue] = useState("");
-  const [trajectoryValue, setTrajectoryValue] = useState("");
-  const { updateItem, deleteItem } = useDatasetMutations();
-
-  const startEditing = useCallback(() => {
-    setInputValue(formatValue(item.input));
-    setGroundTruthValue(formatValue(item.groundTruth));
-    setTrajectoryValue(formatValue(item.expectedTrajectory));
-    setIsEditing(true);
-  }, [item.input, item.groundTruth, item.expectedTrajectory]);
-
-  const cancelEditing = useCallback(() => {
-    setIsEditing(false);
-  }, []);
-
-  const handleDelete = useCallback(async () => {
-    try {
-      await deleteItem.mutateAsync({ datasetId, itemId: item.id });
-      toast.success("Item deleted");
-    } catch (error) {
-      toast.error(`Failed to delete: ${error instanceof Error ? error.message : "Unknown error"}`);
-    }
-  }, [deleteItem, datasetId, item.id]);
-
-  const handleSave = useCallback(async () => {
-    let parsedInput: unknown;
-    try {
-      parsedInput = JSON.parse(inputValue);
-    } catch {
-      parsedInput = inputValue;
-    }
-
-    let parsedGroundTruth: unknown | undefined;
-    if (groundTruthValue.trim()) {
-      try {
-        parsedGroundTruth = JSON.parse(groundTruthValue);
-      } catch {
-        parsedGroundTruth = groundTruthValue;
-      }
-    }
-
-    let parsedTrajectory: unknown | undefined;
-    if (trajectoryValue.trim()) {
-      try {
-        parsedTrajectory = JSON.parse(trajectoryValue);
-      } catch {
-        parsedTrajectory = trajectoryValue;
-      }
-    }
-
-    try {
-      await updateItem.mutateAsync({
-        datasetId,
-        expectedTrajectory: parsedTrajectory,
-        groundTruth: parsedGroundTruth,
-        input: parsedInput,
-        itemId: item.id,
-      });
-      toast.success("Item updated");
-      setIsEditing(false);
-    } catch (error) {
-      toast.error(`Failed to update: ${error instanceof Error ? error.message : "Unknown error"}`);
-    }
-  }, [inputValue, groundTruthValue, trajectoryValue, datasetId, item.id, updateItem]);
-
-  if (isEditing) {
-    return (
-      <div className="px-4 pb-3 pl-10 space-y-2">
-        <div>
-          <Txt variant="ui-xs" className="text-neutral3 font-medium">
-            Input
-          </Txt>
-          <Textarea
-            value={inputValue}
-            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInputValue(e.target.value)}
-            className="mt-1 font-mono text-xs"
-            rows={4}
-          />
-        </div>
-        <div>
-          <Txt variant="ui-xs" className="text-neutral3 font-medium">
-            Ground Truth
-          </Txt>
-          <Textarea
-            value={groundTruthValue}
-            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-              setGroundTruthValue(e.target.value)
-            }
-            className="mt-1 font-mono text-xs"
-            rows={3}
-            placeholder="Optional"
-          />
-        </div>
-        <div>
-          <Txt variant="ui-xs" className="text-neutral3 font-medium">
-            Expected Trajectory (JSON)
-          </Txt>
-          <Textarea
-            value={trajectoryValue}
-            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-              setTrajectoryValue(e.target.value)
-            }
-            className="mt-1 font-mono text-xs"
-            rows={3}
-            placeholder="Optional — JSON trajectory expectation"
-          />
-        </div>
-        <div className="flex items-center gap-2 pt-1">
-          <Button variant="primary" size="sm" onClick={handleSave} disabled={updateItem.isPending}>
-            {updateItem.isPending ? (
-              <Spinner className="h-3 w-3" />
-            ) : (
-              <Icon size="sm">
-                <Save />
-              </Icon>
-            )}
-            Save
-          </Button>
-          <Button variant="ghost" size="sm" onClick={cancelEditing}>
-            <Icon size="sm">
-              <X />
-            </Icon>
-            Cancel
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="px-4 pb-3 pl-10 space-y-2">
-      <div>
-        <Txt variant="ui-xs" className="text-neutral3 font-medium">
-          Input
-        </Txt>
-        <pre className="text-xs text-neutral5 bg-surface1 rounded px-2 py-1.5 overflow-x-auto whitespace-pre-wrap wrap-break-word max-h-48 overflow-y-auto mt-1">
-          {formatValue(item.input)}
-        </pre>
-      </div>
-      {item.groundTruth !== undefined && item.groundTruth !== null && (
-        <div>
-          <Txt variant="ui-xs" className="text-neutral3 font-medium">
-            Ground Truth
-          </Txt>
-          <pre className="text-xs text-neutral5 bg-surface1 rounded px-2 py-1.5 overflow-x-auto whitespace-pre-wrap wrap-break-word max-h-48 overflow-y-auto mt-1">
-            {formatValue(item.groundTruth)}
-          </pre>
-        </div>
-      )}
-      {item.expectedTrajectory != null && (
-        <div>
-          <Txt variant="ui-xs" className="text-neutral3 font-medium">
-            Expected Trajectory
-          </Txt>
-          <pre className="text-xs text-neutral5 bg-surface1 rounded px-2 py-1.5 overflow-x-auto whitespace-pre-wrap break-words max-h-48 overflow-y-auto mt-1">
-            {formatValue(item.expectedTrajectory)}
-          </pre>
-        </div>
-      )}
-      <div className="flex items-center gap-2 pt-1">
-        <Button variant="ghost" size="sm" onClick={startEditing}>
-          <Icon size="sm">
-            <Pencil />
-          </Icon>
-          Edit
-        </Button>
-        {isConfirmingDelete ? (
-          <>
-            <Txt variant="ui-xs" className="text-negative1 font-medium">
-              Delete this item?
-            </Txt>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleDelete}
-              disabled={deleteItem.isPending}
-              className="text-negative1 hover:text-negative1"
-            >
-              {deleteItem.isPending ? <Spinner className="h-3 w-3" /> : "Yes"}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setIsConfirmingDelete(false)}>
-              No
-            </Button>
-          </>
-        ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsConfirmingDelete(true)}
-            className="text-neutral2 hover:text-negative1"
-          >
-            <Icon size="sm">
-              <Trash2 />
-            </Icon>
-            Delete
-          </Button>
-        )}
-        {item.source != null && (
-          <Txt variant="ui-xs" className="text-neutral2">
-            Source:{" "}
-            {typeof item.source === "object" && item.source !== null && "type" in item.source
-              ? String((item.source as unknown as Record<string, unknown>).type)
-              : "manual"}
-          </Txt>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ExperimentStatusDot({ status }: { status: string }) {
-  const color =
-    status === "completed"
-      ? "bg-positive1"
-      : status === "running"
-        ? "bg-warning1"
-        : status === "failed"
-          ? "bg-negative1"
-          : "bg-neutral3";
-  return <div className={cn("w-2 h-2 rounded-full shrink-0", color)} />;
 }

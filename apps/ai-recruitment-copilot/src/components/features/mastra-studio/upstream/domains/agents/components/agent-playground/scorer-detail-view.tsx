@@ -22,6 +22,19 @@ interface ScorerDetailViewProps {
   onViewDataset?: (datasetId: string) => void;
 }
 
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-2">
+      <Txt variant="ui-xs" className="text-neutral3 w-24 shrink-0">
+        {label}
+      </Txt>
+      <Txt variant="ui-xs" className="text-neutral5 break-all">
+        {value}
+      </Txt>
+    </div>
+  );
+}
+
 export function ScorerDetailView({
   scorerId,
   scorerData,
@@ -162,19 +175,6 @@ export function ScorerDetailView({
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-start gap-2">
-      <Txt variant="ui-xs" className="text-neutral3 w-24 shrink-0">
-        {label}
-      </Txt>
-      <Txt variant="ui-xs" className="text-neutral5 break-all">
-        {value}
-      </Txt>
     </div>
   );
 }

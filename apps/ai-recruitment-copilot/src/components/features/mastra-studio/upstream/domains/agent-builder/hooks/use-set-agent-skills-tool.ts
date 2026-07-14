@@ -31,18 +31,16 @@ export function useSetAgentSkillsTool({ availableSkills }: UseSetAgentSkillsTool
       description: `Attach existing skills to the agent. Each entry MUST include both \`id\` (from the available skills list) and \`name\` (a concise Title Case display label). Use the separate \`createSkillTool\` tool to create NEW skills.${
         availableSkillsBlock
       }`,
-      execute: async (inputData: any) => {
-        if (Array.isArray(inputData?.skills)) {
-          const validSkillIds = new Set(availableSkills.map((s) => s.id));
-          const skills: Record<string, true> = {};
-          for (const entry of inputData.skills) {
-            if (entry && typeof entry.id === "string" && validSkillIds.has(entry.id)) {
-              skills[entry.id] = true;
-            }
+      execute: (inputData: { skills: { id: string; name: string }[] }) => {
+        const validSkillIds = new Set(availableSkills.map((s) => s.id));
+        const skills: Record<string, true> = {};
+        for (const entry of inputData.skills) {
+          if (validSkillIds.has(entry.id)) {
+            skills[entry.id] = true;
           }
-          formMethods.setValue("skills", skills, { shouldDirty: true });
         }
-        return { success: true };
+        formMethods.setValue("skills", skills, { shouldDirty: true });
+        return Promise.resolve({ success: true });
       },
       id: SET_AGENT_SKILLS_TOOL_NAME,
       inputSchema: z.object({

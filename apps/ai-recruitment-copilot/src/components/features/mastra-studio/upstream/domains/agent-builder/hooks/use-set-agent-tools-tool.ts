@@ -31,8 +31,8 @@ export function useSetAgentToolsTool({ availableAgentTools }: UseSetAgentToolsTo
       description: `Set the tools, agents, and workflows enabled on the agent. Each entry MUST include both \`id\` (from the available tools list) and \`name\` (a concise Title Case display label, e.g. "Web Search"). The \`name\` is shown to the user in chat.${
         availableToolsBlock
       }`,
-      execute: async (inputData: any) => {
-        if (Array.isArray(inputData?.tools)) {
+      execute: (inputData: { tools: { id: string; name: string }[] }) => {
+        if (Array.isArray(inputData.tools)) {
           const { tools, agents, workflows, toolProvidersFragment } = routeToolInputToFormKeys(
             availableAgentTools,
             inputData.tools,
@@ -66,7 +66,7 @@ export function useSetAgentToolsTool({ availableAgentTools }: UseSetAgentToolsTo
           }
           formMethods.setValue("toolProviders", nextProviders as never, { shouldDirty: true });
         }
-        return { success: true };
+        return Promise.resolve({ success: true });
       },
       id: SET_AGENT_TOOLS_TOOL_NAME,
       inputSchema: z.object({

@@ -105,34 +105,6 @@ interface AgentChatPanelChatProps {
   hasBrowser?: boolean;
 }
 
-export const AgentChatPanelChat = ({ hasBrowser = false }: AgentChatPanelChatProps) => {
-  const isRunning = useStreamRunning();
-  const send = useStreamSend();
-  const { draft, setDraft, trimmed, handleFormSubmit, handleKeyDown } = useChatDraft({
-    onSubmit: send,
-  });
-
-  return (
-    <div className="flex h-full min-h-0 flex-col">
-      <AgentChatMessageList onStarterPromptSelect={setDraft} />
-      {hasBrowser && <BrowserThumbnailSlot />}
-      <ChatComposer
-        draft={draft}
-        onDraftChange={setDraft}
-        onSubmit={handleFormSubmit}
-        onKeyDown={handleKeyDown}
-        disabled={isRunning}
-        isRunning={isRunning}
-        canSubmit={trimmed.length > 0 && !isRunning}
-        placeholder="Message your agent…"
-        inputTestId="agent-builder-agent-chat-input"
-        submitTestId="agent-builder-agent-chat-submit"
-        containerTestId="agent-builder-agent-chat-composer"
-      />
-    </div>
-  );
-};
-
 /** Shows the browser thumbnail when a session is active and not in modal mode */
 const BrowserThumbnailSlot = () => {
   const { hasSession, viewMode } = useBrowserSession();
@@ -199,6 +171,7 @@ const AgentChatMessageList = ({ onStarterPromptSelect }: AgentChatMessageListPro
           <div className="grid w-full max-w-2xl grid-cols-1 gap-5 sm:grid-cols-2">
             {STARTER_PROMPTS.map((starterPrompt, index) => (
               <button
+                aria-label={`Use starter prompt: ${starterPrompt.title}`}
                 key={starterPrompt.title}
                 type="button"
                 onClick={() => onStarterPromptSelect(starterPrompt.prompt)}
@@ -229,5 +202,33 @@ const AgentChatMessageList = ({ onStarterPromptSelect }: AgentChatMessageListPro
         </div>
       }
     />
+  );
+};
+
+export const AgentChatPanelChat = ({ hasBrowser = false }: AgentChatPanelChatProps) => {
+  const isRunning = useStreamRunning();
+  const send = useStreamSend();
+  const { draft, setDraft, trimmed, handleFormSubmit, handleKeyDown } = useChatDraft({
+    onSubmit: send,
+  });
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <AgentChatMessageList onStarterPromptSelect={setDraft} />
+      {hasBrowser && <BrowserThumbnailSlot />}
+      <ChatComposer
+        draft={draft}
+        onDraftChange={setDraft}
+        onSubmit={handleFormSubmit}
+        onKeyDown={handleKeyDown}
+        disabled={isRunning}
+        isRunning={isRunning}
+        canSubmit={trimmed.length > 0 && !isRunning}
+        placeholder="Message your agent…"
+        inputTestId="agent-builder-agent-chat-input"
+        submitTestId="agent-builder-agent-chat-submit"
+        containerTestId="agent-builder-agent-chat-composer"
+      />
+    </div>
   );
 };

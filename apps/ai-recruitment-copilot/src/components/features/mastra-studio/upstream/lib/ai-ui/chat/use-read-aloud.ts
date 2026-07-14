@@ -27,19 +27,19 @@ export const useReadAloud = (agentId?: string, requestContext?: VoiceRequestCont
         cancelled = true;
       };
     }
-    const agent = client.getAgent(agentId);
-    void agent.voice
-      .getSpeakers(requestContext)
-      .then((speakers) => {
+    const loadSpeakers = async () => {
+      try {
+        const speakers = await client.getAgent(agentId).voice.getSpeakers(requestContext);
         if (!cancelled) {
           setHasAgentVoice(speakers.length > 0);
         }
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) {
           setHasAgentVoice(false);
         }
-      });
+      }
+    };
+    void loadSpeakers();
     return () => {
       cancelled = true;
     };
@@ -81,8 +81,8 @@ export const useReadAloud = (agentId?: string, requestContext?: VoiceRequestCont
 
       if (typeof window !== "undefined" && window.speechSynthesis) {
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.onend = () => setIsSpeaking(false);
-        utterance.onerror = () => setIsSpeaking(false);
+        utterance.addEventListener("end", () => setIsSpeaking(false));
+        utterance.addEventListener("error", () => setIsSpeaking(false));
         window.speechSynthesis.speak(utterance);
         return;
       }

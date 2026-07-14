@@ -5,7 +5,8 @@ import { Loader2, Settings, X } from "lucide-react";
 import { useState } from "react";
 import { Link } from "@/components/features/mastra-studio/router/compat";
 
-import { useAuthCapabilities, useLogout } from "../hooks";
+import { useAuthCapabilities } from "../hooks/use-auth-capabilities";
+import { useLogout } from "../hooks/use-auth-actions";
 import { useRoleImpersonation } from "../hooks/use-role-impersonation";
 import { isAuthenticated } from "../types";
 import type { AuthenticatedUser, CurrentUser } from "../types";

@@ -8,7 +8,14 @@ import { useProcessor } from "@/components/features/mastra-studio/upstream/domai
 
 export function Processor() {
   const { processorId } = useParams();
-  const { data: processor, isLoading, error } = useProcessor(processorId!);
+  const resolvedProcessorId = processorId ?? "";
+  const {
+    data: processor,
+    isLoading,
+    error,
+  } = useProcessor(resolvedProcessorId, {
+    enabled: Boolean(resolvedProcessorId),
+  });
 
   // 401 check - session expired
   if (error && is401UnauthorizedError(error)) {
@@ -30,7 +37,7 @@ export function Processor() {
 
   // If this is a workflow processor, redirect to the workflow graph UI
   if (!isLoading && processor?.isWorkflow) {
-    return <Navigate to={`/workflows/${processorId}/graph`} replace />;
+    return <Navigate to={`/workflows/${resolvedProcessorId}/graph`} replace />;
   }
 
   if (isLoading) {
@@ -44,7 +51,7 @@ export function Processor() {
 
   return (
     <div className="h-full w-full overflow-y-hidden">
-      <ProcessorPanel processorId={processorId!} />
+      <ProcessorPanel processorId={resolvedProcessorId} />
     </div>
   );
 }

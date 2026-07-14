@@ -11,7 +11,7 @@ export const useSchedule = (scheduleId: string | undefined) => {
       if (!scheduleId) {
         throw new Error("scheduleId is required");
       }
-      return client.getSchedule(scheduleId);
+      return await client.getSchedule(scheduleId);
     },
     queryKey: ["schedule", scheduleId],
   });

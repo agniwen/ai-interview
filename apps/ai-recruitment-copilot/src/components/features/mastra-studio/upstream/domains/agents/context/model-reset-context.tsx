@@ -12,8 +12,12 @@ export function useModelReset() {
   // Return a no-op implementation if context is not available
   if (!context) {
     return {
-      registerResetFn: () => {},
-      triggerReset: () => {},
+      registerResetFn: () => {
+        /* empty */
+      },
+      triggerReset: () => {
+        /* empty */
+      },
     };
   }
   return context;

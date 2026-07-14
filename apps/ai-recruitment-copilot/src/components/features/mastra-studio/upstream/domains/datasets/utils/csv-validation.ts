@@ -3,7 +3,6 @@
  * Validates mapped data before import, including schema validation
  */
 
-import { jsonSchemaToZod } from "@mastra/schema-compat/json-to-zod";
 import type { ZodSchema, ZodError, ZodIssue } from "zod3";
 import { resolveSerializedZodOutput } from "@/components/features/mastra-studio/upstream/lib/form/utils";
 
@@ -32,7 +31,8 @@ export interface FieldError {
 
 /** Validation result for a single row */
 export interface RowValidationResult {
-  rowNumber: number; // 1-indexed, +1 for header
+  // 1-indexed, +1 for header
+  rowNumber: number;
   field: "input" | "groundTruth";
   errors: FieldError[];
   data: unknown;
@@ -52,8 +52,9 @@ export interface CsvValidationResult {
  * Uses existing resolveSerializedZodOutput from lib/form/utils.
  */
 function compileSchema(jsonSchema: Record<string, unknown>): ZodSchema {
-  const zodString = jsonSchemaToZod(jsonSchema);
-  return resolveSerializedZodOutput(zodString);
+  return resolveSerializedZodOutput(
+    jsonSchema as Parameters<typeof resolveSerializedZodOutput>[0],
+  ) as ZodSchema;
 }
 
 /**
@@ -62,9 +63,9 @@ function compileSchema(jsonSchema: Record<string, unknown>): ZodSchema {
 function formatErrors(error: ZodError): FieldError[] {
   return error.issues.slice(0, 5).map((issue: ZodIssue) => ({
     // Convert Zod path array to JSON Pointer string
-    path: issue.path.length > 0 ? `/${issue.path.join("/")}` : "/",
     code: issue.code,
     message: issue.message,
+    path: issue.path.length > 0 ? `/${issue.path.join("/")}` : "/",
   }));
 }
 
@@ -101,9 +102,10 @@ export function validateCsvRows(
   const invalidRows: CsvValidationResult["invalidRows"] = [];
   let invalidCount = 0;
 
-  for (let i = 0; i < rows.length; i++) {
+  for (let i = 0; i < rows.length; i += 1) {
     const row = rows[i];
-    const rowNumber = i + 2; // +1 for 0-index, +1 for header row
+    // +1 for 0-index, +1 for header row
+    const rowNumber = i + 2;
     let isValid = true;
     let rowInvalidDetails: RowValidationResult | null = null;
 
@@ -144,7 +146,7 @@ export function validateCsvRows(
     if (isValid) {
       validRows.push({ rowNumber, ...row });
     } else {
-      invalidCount++;
+      invalidCount += 1;
       if (rowInvalidDetails) {
         invalidRows.push(rowInvalidDetails);
       }
@@ -183,13 +185,14 @@ export function validateMappedData(
     errors.push({
       column: "",
       message: "At least one column must be mapped to input",
-      row: 0, // Header-level error,
+      // Header-level error,
+      row: 0,
     });
     return { errors, valid: false };
   }
 
   // Validate each row
-  for (let i = 0; i < data.length; i++) {
+  for (let i = 0; i < data.length; i += 1) {
     const row = data[i];
     // Row numbers: 1-indexed + 1 for header (first data row is 2)
     const rowNumber = i + 2;

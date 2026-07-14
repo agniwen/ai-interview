@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 
 import type { PromptBlockFormValues } from "./utils/form-validation";
 
-const promptBlockFormResolver: Resolver<PromptBlockFormValues> = async (values) => {
+const promptBlockFormResolver: Resolver<PromptBlockFormValues> = (values) => {
   const errors: Record<string, { type: string; message: string }> = {};
 
   if (!values.name || values.name.trim() === "") {

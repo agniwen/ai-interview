@@ -39,83 +39,6 @@ const packageManagerCommands: Record<PackageManager, string> = {
 const versionBadgeClassName =
   "inline-flex h-[1.375rem] items-center rounded-full bg-sidebar-nav-active px-2.5 font-sans text-ui-xs font-semibold leading-none tracking-normal text-black/80 tabular-nums whitespace-nowrap dark:text-neutral6";
 
-export const MastraVersionFooter = ({ collapsed }: MastraVersionFooterProps) => {
-  const { data, isLoading: isLoadingPackages } = useMastraPackages();
-  const installedPackages = data?.packages ?? [];
-
-  const {
-    packages: packageUpdates,
-    isLoading: isLoadingUpdates,
-    outdatedCount,
-    deprecatedCount,
-  } = usePackageUpdates(installedPackages);
-
-  const [packageManager, setPackageManager] = useState<PackageManager>("pnpm");
-
-  // Don't render anything when the sidebar is collapsed
-  if (collapsed) {
-    return null;
-  }
-
-  // Only show version footer in dev mode
-  if (!data?.isDev) {
-    return null;
-  }
-
-  if (isLoadingPackages) {
-    return (
-      <div className="flex items-center justify-end gap-2 px-3 h-9">
-        <div className="animate-pulse h-[1.125rem] w-20 bg-surface4 rounded-full" />
-      </div>
-    );
-  }
-
-  const mastraCorePackage = installedPackages.find(
-    (pkg: { name: string }) => pkg.name === "@mastra/core",
-  );
-
-  if (!mastraCorePackage && installedPackages.length === 0) {
-    return null;
-  }
-
-  const mainVersion = mastraCorePackage?.version ?? installedPackages[0]?.version ?? "";
-
-  const updateCommand = generateUpdateCommand(packageUpdates, packageManager);
-
-  return (
-    <Dialog>
-      <div className="flex px-3 py-1.5">
-        <DialogTrigger asChild>
-          <button
-            type="button"
-            className="flex rounded-lg p-1 hover:bg-sidebar-nav-hover transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-accent1 focus-visible:shadow-focus-ring"
-          >
-            <span className="relative inline-flex">
-              {(isLoadingUpdates || outdatedCount > 0 || deprecatedCount > 0) && (
-                <span className="absolute -right-1.5 -top-1.5 flex items-center gap-1">
-                  {isLoadingUpdates && <Spinner className="size-3 text-neutral3" />}
-                  {outdatedCount > 0 && <CountBadge count={outdatedCount} variant="warning" />}
-                  {deprecatedCount > 0 && <CountBadge count={deprecatedCount} variant="error" />}
-                </span>
-              )}
-              <span className={versionBadgeClassName}>v{mainVersion}</span>
-            </span>
-          </button>
-        </DialogTrigger>
-      </div>
-      <PackagesModalContent
-        packages={packageUpdates}
-        isLoadingUpdates={isLoadingUpdates}
-        outdatedCount={outdatedCount}
-        deprecatedCount={deprecatedCount}
-        updateCommand={updateCommand}
-        packageManager={packageManager}
-        onPackageManagerChange={setPackageManager}
-      />
-    </Dialog>
-  );
-};
-
 function generateUpdateCommand(
   packages: PackageUpdateInfo[],
   packageManager: PackageManager,
@@ -170,6 +93,49 @@ export interface PackagesModalContentProps {
   onPackageManagerChange: (pm: PackageManager) => void;
 }
 
+function getPackageVersionClass(pkg: PackageUpdateInfo) {
+  if (pkg.isDeprecated) {
+    return "text-red-500";
+  }
+
+  if (pkg.isOutdated) {
+    return "text-yellow-500";
+  }
+
+  return "";
+}
+
+function renderStatusSummary({
+  deprecatedCount,
+  isLoadingUpdates,
+  outdatedCount,
+}: Pick<PackagesModalContentProps, "deprecatedCount" | "isLoadingUpdates" | "outdatedCount">) {
+  if (isLoadingUpdates) {
+    return <span className="text-neutral3">Checking for updates...</span>;
+  }
+
+  if (outdatedCount === 0 && deprecatedCount === 0) {
+    return <span className="text-accent1">✓ All packages are up to date</span>;
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      {outdatedCount > 0 && (
+        <span className="flex items-center gap-1.5">
+          <StatusBadge value={outdatedCount} variant="warning" />
+          <span>package{outdatedCount === 1 ? "" : "s"} outdated</span>
+        </span>
+      )}
+      {deprecatedCount > 0 && (
+        <span className="flex items-center gap-1.5">
+          <StatusBadge value={deprecatedCount} variant="error" />
+          <span>package{deprecatedCount === 1 ? "" : "s"} deprecated</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
 const PackagesModalContent = ({
   packages,
   isLoadingUpdates,
@@ -193,26 +159,7 @@ const PackagesModalContent = ({
       <DialogBody>
         {/* Status summary */}
         <div className="flex items-center justify-between gap-3 text-sm text-neutral3 py-2">
-          {isLoadingUpdates ? (
-            <span className="text-neutral3">Checking for updates...</span>
-          ) : !hasUpdates ? (
-            <span className="text-accent1">✓ All packages are up to date</span>
-          ) : (
-            <div className="flex items-center gap-3">
-              {outdatedCount > 0 && (
-                <span className="flex items-center gap-1.5">
-                  <StatusBadge value={outdatedCount} variant="warning" />
-                  <span>package{outdatedCount !== 1 ? "s" : ""} outdated</span>
-                </span>
-              )}
-              {deprecatedCount > 0 && (
-                <span className="flex items-center gap-1.5">
-                  <StatusBadge value={deprecatedCount} variant="error" />
-                  <span>package{deprecatedCount !== 1 ? "s" : ""} deprecated</span>
-                </span>
-              )}
-            </div>
-          )}
+          {renderStatusSummary({ deprecatedCount, isLoadingUpdates, outdatedCount })}
           <CopyButton
             content={packagesText}
             copyMessage="Copied package versions!"
@@ -244,16 +191,7 @@ const PackagesModalContent = ({
                   {pkg.isOutdated || pkg.isDeprecated ? (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span
-                          className={cn(
-                            "cursor-help",
-                            pkg.isDeprecated
-                              ? "text-red-500"
-                              : pkg.isOutdated
-                                ? "text-yellow-500"
-                                : "",
-                          )}
-                        >
+                        <span className={cn("cursor-help", getPackageVersionClass(pkg))}>
                           {pkg.version}
                         </span>
                       </TooltipTrigger>
@@ -310,6 +248,82 @@ const PackagesModalContent = ({
         )}
       </DialogBody>
     </DialogContent>
+  );
+};
+
+export const MastraVersionFooter = ({ collapsed }: MastraVersionFooterProps) => {
+  const { data, isLoading: isLoadingPackages } = useMastraPackages();
+  const installedPackages = data?.packages ?? [];
+
+  const {
+    packages: packageUpdates,
+    isLoading: isLoadingUpdates,
+    outdatedCount,
+    deprecatedCount,
+  } = usePackageUpdates(installedPackages);
+
+  const [packageManager, setPackageManager] = useState<PackageManager>("pnpm");
+
+  // Don't render anything when the sidebar is collapsed.
+  if (collapsed) {
+    return null;
+  }
+
+  // Only show version footer in dev mode.
+  if (!data?.isDev) {
+    return null;
+  }
+
+  if (isLoadingPackages) {
+    return (
+      <div className="flex items-center justify-end gap-2 px-3 h-9">
+        <div className="animate-pulse h-[1.125rem] w-20 bg-surface4 rounded-full" />
+      </div>
+    );
+  }
+
+  const mastraCorePackage = installedPackages.find(
+    (pkg: { name: string }) => pkg.name === "@mastra/core",
+  );
+
+  if (!mastraCorePackage && installedPackages.length === 0) {
+    return null;
+  }
+
+  const mainVersion = mastraCorePackage?.version ?? installedPackages[0]?.version ?? "";
+  const updateCommand = generateUpdateCommand(packageUpdates, packageManager);
+
+  return (
+    <Dialog>
+      <div className="flex px-3 py-1.5">
+        <DialogTrigger asChild>
+          <button
+            type="button"
+            className="flex rounded-lg p-1 hover:bg-sidebar-nav-hover transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-accent1 focus-visible:shadow-focus-ring"
+          >
+            <span className="relative inline-flex">
+              {(isLoadingUpdates || outdatedCount > 0 || deprecatedCount > 0) && (
+                <span className="absolute -right-1.5 -top-1.5 flex items-center gap-1">
+                  {isLoadingUpdates && <Spinner className="size-3 text-neutral3" />}
+                  {outdatedCount > 0 && <CountBadge count={outdatedCount} variant="warning" />}
+                  {deprecatedCount > 0 && <CountBadge count={deprecatedCount} variant="error" />}
+                </span>
+              )}
+              <span className={versionBadgeClassName}>v{mainVersion}</span>
+            </span>
+          </button>
+        </DialogTrigger>
+      </div>
+      <PackagesModalContent
+        packages={packageUpdates}
+        isLoadingUpdates={isLoadingUpdates}
+        outdatedCount={outdatedCount}
+        deprecatedCount={deprecatedCount}
+        updateCommand={updateCommand}
+        packageManager={packageManager}
+        onPackageManagerChange={setPackageManager}
+      />
+    </Dialog>
   );
 };
 

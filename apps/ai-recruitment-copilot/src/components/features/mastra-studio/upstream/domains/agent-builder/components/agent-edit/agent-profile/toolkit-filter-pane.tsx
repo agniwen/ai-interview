@@ -63,15 +63,14 @@ const ToolkitFilterRow = memo(
             data-testid={`${TEST_ID_PREFIX}-filter-checkbox-${item.id}`}
             className="h-3.5 w-3.5 shrink-0 shadow-none [&_svg]:h-2.5 [&_svg]:w-2.5 data-[state=checked]:shadow-none"
           />
-          {item.icon && (
-            <img
-              src={item.icon}
-              alt=""
-              aria-hidden
+          {item.icon ? (
+            <span
+              aria-hidden="true"
               data-testid={`${TEST_ID_PREFIX}-filter-icon-${item.id}`}
-              className="h-4 w-4 shrink-0 rounded object-contain"
+              className="h-4 w-4 shrink-0 rounded bg-contain bg-center bg-no-repeat"
+              style={{ backgroundImage: `url(${JSON.stringify(item.icon)})` }}
             />
-          )}
+          ) : null}
           <span className="truncate">{item.label}</span>
         </label>
         {providerId && (

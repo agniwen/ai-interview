@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 
 import type { ScorerFormValues } from "./utils/form-validation";
 
-const scorerFormResolver: Resolver<ScorerFormValues> = async (values) => {
+const scorerFormResolver: Resolver<ScorerFormValues> = (values) => {
   const errors: Record<string, { type: string; message: string }> = {};
 
   if (!values.name || values.name.trim() === "") {

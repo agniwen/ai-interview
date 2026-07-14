@@ -13,6 +13,7 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { usePermissions } from "@/components/features/mastra-studio/upstream/domains/auth/hooks/use-permissions";
 import { useLinkComponent } from "@/components/features/mastra-studio/upstream/lib/framework";
+import { resolveConditional } from "../utils/conditional";
 
 export interface ChatThreadsProps {
   threads: StorageThreadType[];
@@ -22,6 +23,51 @@ export interface ChatThreadsProps {
   resourceType: "agent" | "network";
   embedded?: boolean;
 }
+
+const formatDay = (date: Date) => {
+  const options: Intl.DateTimeFormatOptions = {
+    day: "numeric",
+    hour: "numeric",
+    hour12: true,
+    minute: "numeric",
+    month: "short",
+    second: "numeric",
+  };
+  return new Date(date).toLocaleString("en-us", options).replace(",", " at");
+};
+
+function isDefaultThreadName(name: string): boolean {
+  const defaultPattern = /^New Thread \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
+  return defaultPattern.test(name);
+}
+
+function ThreadTitle({ title, id, createdAt }: { title?: string; id?: string; createdAt?: Date }) {
+  const titleText = resolveConditional(
+    title && !isDefaultThreadName(title),
+    () => title,
+    () => (createdAt ? formatDay(createdAt) : `Thread ${id ? id.slice(-5) : ""}`),
+  );
+
+  return <span className="block truncate">{titleText}</span>;
+}
+
+const DeleteThreadDialog = ({ open, onOpenChange, onDelete }: DeleteThreadDialogProps) => (
+  <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog.Content>
+      <AlertDialog.Header>
+        <AlertDialog.Title>Are you absolutely sure?</AlertDialog.Title>
+        <AlertDialog.Description>
+          This action cannot be undone. This will permanently delete your chat and remove it from
+          our servers.
+        </AlertDialog.Description>
+      </AlertDialog.Header>
+      <AlertDialog.Footer>
+        <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+        <AlertDialog.Action onClick={onDelete}>Continue</AlertDialog.Action>
+      </AlertDialog.Footer>
+    </AlertDialog.Content>
+  </AlertDialog>
+);
 
 export const ChatThreads = ({
   threads,
@@ -101,48 +147,3 @@ interface DeleteThreadDialogProps {
   onOpenChange: (n: boolean) => void;
   onDelete: () => void;
 }
-const DeleteThreadDialog = ({ open, onOpenChange, onDelete }: DeleteThreadDialogProps) => (
-  <AlertDialog open={open} onOpenChange={onOpenChange}>
-    <AlertDialog.Content>
-      <AlertDialog.Header>
-        <AlertDialog.Title>Are you absolutely sure?</AlertDialog.Title>
-        <AlertDialog.Description>
-          This action cannot be undone. This will permanently delete your chat and remove it from
-          our servers.
-        </AlertDialog.Description>
-      </AlertDialog.Header>
-      <AlertDialog.Footer>
-        <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-        <AlertDialog.Action onClick={onDelete}>Continue</AlertDialog.Action>
-      </AlertDialog.Footer>
-    </AlertDialog.Content>
-  </AlertDialog>
-);
-
-function isDefaultThreadName(name: string): boolean {
-  const defaultPattern = /^New Thread \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
-  return defaultPattern.test(name);
-}
-
-function ThreadTitle({ title, id, createdAt }: { title?: string; id?: string; createdAt?: Date }) {
-  const titleText =
-    title && !isDefaultThreadName(title)
-      ? title
-      : createdAt
-        ? formatDay(createdAt)
-        : `Thread ${id ? id.substring(id.length - 5) : ""}`;
-
-  return <span className="block truncate">{titleText}</span>;
-}
-
-const formatDay = (date: Date) => {
-  const options: Intl.DateTimeFormatOptions = {
-    day: "numeric",
-    hour: "numeric",
-    hour12: true,
-    minute: "numeric",
-    month: "short",
-    second: "numeric",
-  };
-  return new Date(date).toLocaleString("en-us", options).replace(",", " at");
-};

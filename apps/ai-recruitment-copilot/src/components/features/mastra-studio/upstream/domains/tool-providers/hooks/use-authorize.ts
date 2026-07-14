@@ -39,6 +39,12 @@ export interface AuthorizeResult {
 const DEFAULT_POLL_INTERVAL_MS = 2000;
 const DEFAULT_TIMEOUT_MS = 5 * 60_000;
 
+function wait(delayMs: number): Promise<null> {
+  const { promise, resolve } = Promise.withResolvers<null>();
+  setTimeout(() => resolve(null), delayMs);
+  return promise;
+}
+
 export interface UseAuthorizeOptions {
   pollIntervalMs?: number;
   timeoutMs?: number;
@@ -64,7 +70,7 @@ export const useAuthorize = (options: UseAuthorizeOptions = {}) => {
         toolkit,
         ...(normalizedConnectionId ? { connectionId: normalizedConnectionId } : {}),
         ...(config ? { config } : {}),
-        ...(label !== undefined ? { label } : {}),
+        ...(label === undefined ? {} : { label }),
         ...(scope ? { scope } : {}),
       });
 
@@ -75,7 +81,7 @@ export const useAuthorize = (options: UseAuthorizeOptions = {}) => {
 
       const start = Date.now();
       while (Date.now() - start < timeoutMs) {
-        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+        await wait(pollIntervalMs);
         const { status } = await integration.getAuthStatus(authId);
         if (status === "completed" || status === "failed") {
           try {

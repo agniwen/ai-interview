@@ -76,7 +76,7 @@ export function BulkTraceReviewDialog({
 
   const handleSubmit = async () => {
     const parsed = [];
-    for (let i = 0; i < items.length; i++) {
+    for (let i = 0; i < items.length; i += 1) {
       const item = items[i];
       let parsedInput: unknown;
       try {
@@ -120,7 +120,7 @@ export function BulkTraceReviewDialog({
     try {
       await batchInsertItems.mutateAsync({ datasetId, items: parsed });
       toast.success(
-        `Added ${parsed.length} item${parsed.length !== 1 ? "s" : ""} to "${datasetName}"`,
+        `Added ${parsed.length} item${parsed.length === 1 ? "" : "s"} to "${datasetName}"`,
       );
       onClose();
     } catch {
@@ -135,13 +135,13 @@ export function BulkTraceReviewDialog({
   return (
     <SideDialog
       dialogTitle="Review items before adding to dataset"
-      dialogDescription={`Reviewing ${total} item${total !== 1 ? "s" : ""} for dataset "${datasetName}"`}
+      dialogDescription={`Reviewing ${total} item${total === 1 ? "" : "s"} for dataset "${datasetName}"`}
       isOpen={isOpen}
       onClose={onClose}
       level={1}
     >
       <SideDialog.Top>
-        <DatabaseIcon className="size-4" /> Review {total} item{total !== 1 ? "s" : ""} →{" "}
+        <DatabaseIcon className="size-4" /> Review {total} item{total === 1 ? "" : "s"} →{" "}
         {datasetName}
       </SideDialog.Top>
 
@@ -225,7 +225,7 @@ export function BulkTraceReviewDialog({
               ) : (
                 <>
                   <DatabaseIcon className="size-4" />
-                  Add all {total} item{total !== 1 ? "s" : ""}
+                  Add all {total} item{total === 1 ? "" : "s"}
                 </>
               )}
             </Button>

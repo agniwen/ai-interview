@@ -57,9 +57,9 @@ export function validateToolProviders(
   for (const [providerId, config] of Object.entries(providers)) {
     for (const [toolkit, connections] of Object.entries(config.connections ?? {})) {
       const seenConnectionIds = new Map<string, number>();
-      connections.forEach((connection, index) => {
+      for (const [index, connection] of connections.entries()) {
         if (connection.scope === "caller-supplied") {
-          return;
+          continue;
         }
         if (seenConnectionIds.has(connection.connectionId)) {
           ctx.addIssue({
@@ -70,7 +70,7 @@ export function validateToolProviders(
         } else {
           seenConnectionIds.set(connection.connectionId, index);
         }
-      });
+      }
     }
 
     // Every selected tool must have at least one connection on its toolkit.

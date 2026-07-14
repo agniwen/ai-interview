@@ -2,22 +2,22 @@ import { Loader2 } from "lucide-react";
 
 const TOOL_DISPLAY_NAMES: Record<string, string> = {
   // AgentBrowser tools
-  browser_navigate: "Navigating",
-  browser_goto: "Navigating",
   browser_click: "Clicking",
-  browser_type: "Typing",
-  browser_scroll: "Scrolling",
-  browser_screenshot: "Capturing",
-  browser_snapshot: "Reading page",
   browser_close: "Closing",
+  browser_goto: "Navigating",
+  browser_navigate: "Navigating",
+  browser_screenshot: "Capturing",
+  browser_scroll: "Scrolling",
   browser_select: "Selecting",
+  browser_snapshot: "Reading page",
+  browser_type: "Typing",
   // StagehandBrowser tools
-  stagehand_navigate: "Navigating",
   stagehand_act: "Acting",
+  stagehand_close: "Closing",
   stagehand_extract: "Extracting",
+  stagehand_navigate: "Navigating",
   stagehand_observe: "Observing",
   stagehand_screenshot: "Capturing",
-  stagehand_close: "Closing",
 };
 
 export interface AgentBusyOverlayProps {

@@ -1,6 +1,16 @@
 import type { DatasetItem } from "@mastra/client-js";
 import Papa from "papaparse";
 
+function formatValue(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  return JSON.stringify(value);
+}
+
 /**
  * Export dataset items to CSV and trigger download
  * Columns: input, groundTruth, createdAt
@@ -31,26 +41,7 @@ export function exportItemsToCSV(items: DatasetItem[], filename: string): void {
 
   document.body.append(link);
   link.click();
-  document.body.removeChild(link);
+  link.remove();
 
   URL.revokeObjectURL(url);
-}
-
-/**
- * Format value for CSV cell
- * - string: keep as-is
- * - null/undefined: empty string
- * - object/array: JSON stringify
- */
-function formatValue(value: unknown): string {
-  if (value === null || value === undefined) {
-    return "";
-  }
-
-  if (typeof value === "string") {
-    return value;
-  }
-
-  // Object or array: JSON stringify
-  return JSON.stringify(value);
 }

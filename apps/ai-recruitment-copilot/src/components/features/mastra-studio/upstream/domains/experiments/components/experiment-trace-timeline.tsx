@@ -24,10 +24,6 @@ export function ExperimentTraceTimeline({
   setExpandedSpanIds,
   featuredSpanIds,
 }: ExperimentTraceTimelineProps) {
-  const overallLatency = hierarchicalSpans?.[0]?.latency || 0;
-  const overallStartTime = hierarchicalSpans?.[0]?.startTime || "";
-  const overallEndTime = hierarchicalSpans?.[0]?.endTime || "";
-
   return (
     <>
       {isLoading ? (
@@ -54,9 +50,6 @@ export function ExperimentTraceTimeline({
               span={span}
               onSpanClick={onSpanClick}
               selectedSpanId={selectedSpanId}
-              overallLatency={overallLatency}
-              overallStartTime={overallStartTime}
-              overallEndTime={overallEndTime}
               fadedTypes={fadedTypes}
               featuredSpanIds={featuredSpanIds}
               expandedSpanIds={expandedSpanIds}

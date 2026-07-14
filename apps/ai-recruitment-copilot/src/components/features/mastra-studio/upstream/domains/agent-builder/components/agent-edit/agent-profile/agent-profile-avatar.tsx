@@ -48,10 +48,10 @@ export const AgentProfileAvatar = ({ disabled = false }: AgentProfileAvatarProps
         <>
           <button
             type="button"
+            aria-label="Choose agent avatar"
             onClick={() => fileInputRef.current?.click()}
             disabled={disabled}
             className="relative rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral3 disabled:cursor-not-allowed disabled:opacity-60"
-            aria-label="Upload avatar"
             data-testid="agent-configure-avatar-trigger"
           >
             <Avatar
@@ -67,6 +67,7 @@ export const AgentProfileAvatar = ({ disabled = false }: AgentProfileAvatarProps
             </span>
           </button>
           <input
+            aria-label="Upload agent avatar"
             ref={fileInputRef}
             type="file"
             accept="image/*"

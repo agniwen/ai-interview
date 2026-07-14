@@ -2,21 +2,25 @@ import { parseSchema, getDefaultValues } from "@autoform/core";
 import type { AutoFormProps } from "@autoform/react";
 import { AutoFormProvider } from "@autoform/react";
 import { useEffect, useMemo, useCallback } from "react";
-import type { DefaultValues } from "react-hook-form";
+import type { DefaultValues, FieldValues, Path } from "react-hook-form";
 import { useForm, FormProvider } from "react-hook-form";
 import { CustomAutoFormField } from "./components/custom-auto-form-field";
 import { removeEmptyValues } from "./utils";
 
-export function CustomAutoForm<T extends Record<string, any>>({
+export function CustomAutoForm<T extends FieldValues>({
   schema,
-  onSubmit = () => {},
+  onSubmit = () => {
+    /* empty */
+  },
   defaultValues,
   values,
   children,
   uiComponents,
   formComponents,
   withSubmit = false,
-  onFormInit = () => {},
+  onFormInit = () => {
+    /* empty */
+  },
   formProps = {},
 }: AutoFormProps<T>) {
   // Memoize parsed schema to prevent re-parsing on every render
@@ -43,11 +47,11 @@ export function CustomAutoForm<T extends Record<string, any>>({
         await onSubmit(validationResult.data, methods);
       } else {
         methods.clearErrors();
-        let isFocused: boolean = false;
-        validationResult.errors?.forEach((error) => {
+        let isFocused = false;
+        for (const error of validationResult.errors ?? []) {
           const path = error.path.join(".");
           methods.setError(
-            path as any,
+            path as Path<T>,
             {
               message: error.message,
               type: "custom",
@@ -60,12 +64,12 @@ export function CustomAutoForm<T extends Record<string, any>>({
           // For some custom errors, zod adds the final element twice for some reason
           const correctedPath = error.path?.slice?.(0, -1);
           if (correctedPath?.length > 0) {
-            methods.setError(correctedPath.join(".") as any, {
+            methods.setError(correctedPath.join(".") as Path<T>, {
               message: error.message,
               type: "custom",
             });
           }
-        });
+        }
       }
     },
     [schema, onSubmit, methods],

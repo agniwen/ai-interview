@@ -27,6 +27,18 @@ import { useTraceLightSpans } from "@mastra/playground-ui/domains/traces/hooks/u
 import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "@/components/features/mastra-studio/router/compat";
 
+function hasContentFilters(url: ReturnType<typeof useLogsUrlState>): boolean {
+  return Boolean(url.selectedEntityOption) || url.filterTokens.length > 0;
+}
+
+function shouldShowNoLogs(
+  logsLength: number,
+  isLoading: boolean,
+  contentFiltersApplied: boolean,
+): boolean {
+  return logsLength === 0 && !isLoading && !contentFiltersApplied;
+}
+
 export default function LogsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const url = useLogsUrlState(searchParams, setSearchParams);
@@ -172,9 +184,9 @@ export default function LogsPage() {
     );
   }
 
-  const contentFiltersApplied = !!url.selectedEntityOption || url.filterTokens.length > 0;
+  const contentFiltersApplied = hasContentFilters(url);
 
-  if (logs.length === 0 && !isLoadingLogs && !contentFiltersApplied) {
+  if (shouldShowNoLogs(logs.length, isLoadingLogs, contentFiltersApplied)) {
     return (
       <PageLayout width="wide" height="full">
         {pageTopArea}

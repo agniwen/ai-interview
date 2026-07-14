@@ -1,8 +1,8 @@
 import { CodeEditor } from "@mastra/playground-ui/components/CodeEditor";
 import { AgentIcon } from "@mastra/playground-ui/icons/AgentIcon";
 import React from "react";
+import type { ReactNode } from "react";
 import Markdown from "react-markdown9";
-import { ToolCard } from "../tool-card";
 import { BackgroundTaskMetadataDialogTrigger } from "./background-task-metadata-dialog";
 import { BadgeWrapper } from "./badge-wrapper";
 import { NetworkChoiceMetadataDialogTrigger } from "./network-choice-metadata-dialog";
@@ -18,10 +18,10 @@ interface TextMessage {
 interface ToolMessage {
   type: "tool";
   toolName: string;
-  toolOutput?: any;
-  args?: any;
+  toolOutput?: unknown;
+  args?: Record<string, unknown>;
   toolCallId: string;
-  result?: any;
+  result?: unknown;
 }
 
 export type AgentMessage = TextMessage | ToolMessage;
@@ -30,11 +30,53 @@ export interface AgentBadgeProps extends Omit<ToolApprovalButtonsProps, "toolCal
   agentId: string;
   messages: AgentMessage[];
   metadata?: MessageMetadata;
-  suspendPayload?: any;
+  suspendPayload?: unknown;
   toolCalled?: boolean;
   isComplete?: boolean;
   keepOpenForStreamingChildMessages?: boolean;
+  renderToolMessage: (message: ToolMessage, metadata: MessageMetadata) => ReactNode;
 }
+
+const supportsToolMetadata = (metadata?: MessageMetadata) =>
+  metadata?.mode === "stream" || metadata?.mode === "network" || metadata?.mode === "generate";
+
+const renderExtraInfo = (metadata: MessageMetadata | undefined, toolCallId: string) => {
+  if (metadata?.mode === "network") {
+    const { routingDecision } = metadata;
+    return (
+      <NetworkChoiceMetadataDialogTrigger
+        selectionReason={routingDecision?.selectionReason ?? metadata.selectionReason ?? ""}
+        input={
+          (routingDecision ?? metadata.agentInput) as string | Record<string, unknown> | undefined
+        }
+      />
+    );
+  }
+  const bgEntry = metadata?.backgroundTasks?.[toolCallId];
+  return bgEntry?.taskId && bgEntry.startedAt ? (
+    <BackgroundTaskMetadataDialogTrigger backgroundTask={bgEntry} />
+  ) : null;
+};
+
+const AgentMessages = ({
+  messages,
+  metadata,
+  renderToolMessage,
+}: {
+  messages: AgentMessage[];
+  metadata: MessageMetadata;
+  renderToolMessage: AgentBadgeProps["renderToolMessage"];
+}) => (
+  <>
+    {messages.map((message, index) =>
+      message.type === "text" ? (
+        <Markdown key={index}>{message.content}</Markdown>
+      ) : (
+        <React.Fragment key={index}>{renderToolMessage(message, metadata)}</React.Fragment>
+      ),
+    )}
+  </>
+);
 
 export const AgentBadge = ({
   agentId,
@@ -48,28 +90,15 @@ export const AgentBadge = ({
   toolCalled: toolCalledProp,
   isComplete = false,
   keepOpenForStreamingChildMessages = false,
+  renderToolMessage,
 }: AgentBadgeProps) => {
-  const routingDecision = metadata?.mode === "network" ? metadata.routingDecision : undefined;
-  const selectionReason =
-    metadata?.mode === "network"
-      ? (routingDecision?.selectionReason ?? metadata.selectionReason)
-      : undefined;
-  const agentNetworkInput =
-    metadata?.mode === "network" ? (routingDecision ?? metadata.agentInput) : undefined;
-
-  const parentRequireApprovalMetadata =
-    metadata?.mode === "stream" || metadata?.mode === "network" || metadata?.mode === "generate"
+  const childMetadata: MessageMetadata = {
+    mode: "stream",
+    requireApprovalMetadata: supportsToolMetadata(metadata)
       ? metadata?.requireApprovalMetadata
-      : undefined;
-  const parentSuspendedTools =
-    metadata?.mode === "stream" || metadata?.mode === "network" || metadata?.mode === "generate"
-      ? metadata?.suspendedTools
-      : undefined;
-
-  const bgEntry =
-    (metadata?.mode === "stream" || metadata?.mode === "generate") && metadata?.backgroundTasks
-      ? metadata.backgroundTasks[toolCallId]
-      : undefined;
+      : undefined,
+    suspendedTools: supportsToolMetadata(metadata) ? metadata?.suspendedTools : undefined,
+  };
 
   const allChildToolsComplete =
     messages.length > 0 &&
@@ -80,11 +109,7 @@ export const AgentBadge = ({
       return message.toolOutput !== undefined;
     });
 
-  let toolCalled = allChildToolsComplete;
-
-  if (isNetwork) {
-    toolCalled = toolCalledProp ?? allChildToolsComplete;
-  }
+  const toolCalled = isNetwork ? (toolCalledProp ?? allChildToolsComplete) : allChildToolsComplete;
 
   const shouldCollapseContent =
     isComplete && !toolApprovalMetadata && !keepOpenForStreamingChildMessages;
@@ -95,7 +120,10 @@ export const AgentBadge = ({
         {suspendPayload}
       </pre>
     ) : (
-      <CodeEditor data={suspendPayload} data-testid="tool-suspend-payload" />
+      <CodeEditor
+        data={suspendPayload as Record<string, unknown> | Record<string, unknown>[] | undefined}
+        data-testid="tool-suspend-payload"
+      />
     );
 
   return (
@@ -104,52 +132,15 @@ export const AgentBadge = ({
       icon={<AgentIcon className="text-accent1" />}
       title={agentId}
       initialCollapsed={shouldCollapseContent}
-      extraInfo={
-        metadata?.mode === "network" ? (
-          <NetworkChoiceMetadataDialogTrigger
-            selectionReason={selectionReason ?? ""}
-            input={agentNetworkInput as string | Record<string, unknown> | undefined}
-          />
-        ) : bgEntry?.taskId && bgEntry?.startedAt ? (
-          <BackgroundTaskMetadataDialogTrigger backgroundTask={bgEntry} />
-        ) : null
-      }
+      extraInfo={renderExtraInfo(metadata, toolCallId)}
     >
-      {messages.map((message, index) => {
-        if (message.type === "text") {
-          return <Markdown key={index}>{message.content}</Markdown>;
-        }
+      <AgentMessages
+        messages={messages}
+        metadata={childMetadata}
+        renderToolMessage={renderToolMessage}
+      />
 
-        let result;
-
-        try {
-          result =
-            typeof message.toolOutput === "string"
-              ? JSON.parse(message.toolOutput)
-              : message.toolOutput;
-        } catch {
-          result = message.toolOutput;
-        }
-
-        return (
-          <React.Fragment key={index}>
-            <ToolCard
-              toolName={message.toolName}
-              input={message.args}
-              output={result}
-              state="output-available"
-              toolCallId={message.toolCallId}
-              metadata={{
-                mode: "stream",
-                requireApprovalMetadata: parentRequireApprovalMetadata,
-                suspendedTools: parentSuspendedTools,
-              }}
-            />
-          </React.Fragment>
-        );
-      })}
-
-      {suspendPayloadSlot !== undefined && suspendPayload && (
+      {suspendPayloadSlot !== undefined && Boolean(suspendPayload) && (
         <div>
           <p className="font-medium pb-2">Agent suspend payload</p>
           {suspendPayloadSlot}

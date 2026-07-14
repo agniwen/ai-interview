@@ -2,6 +2,7 @@ import { CodeEditor } from "@mastra/playground-ui/components/CodeEditor";
 import { Combobox } from "@mastra/playground-ui/components/Combobox";
 import { Txt } from "@mastra/playground-ui/components/Txt";
 import { useState, useCallback, useMemo } from "react";
+import { OptimizedImage } from "../../utils/optimized-image";
 
 import type { InMemoryFileNode } from "../agent-edit-page/utils/form-validation";
 import { SkillFileTree } from "./skill-file-tree";
@@ -90,7 +91,6 @@ export function SkillFolder({
     if (selectedFileName.endsWith(".json")) {
       return "json";
     }
-    return;
   }, [selectedFileName]);
 
   const isFileSelected = selectedFileId !== null && selectedFileContent !== undefined;
@@ -128,7 +128,7 @@ export function SkillFolder({
           <>
             {isImage ? (
               <div className="flex items-center justify-center flex-1 p-4 bg-surface2">
-                <img
+                <OptimizedImage
                   src={selectedFileContent}
                   alt={selectedFileName}
                   className="max-w-full max-h-dropdown-max-height rounded-md object-contain"

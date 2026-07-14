@@ -60,7 +60,10 @@ export function ComparisonItemsList({
                           const baselineScore = baselineResult?.scores[scorerId] ?? null;
                           const contenderScore = contenderResult?.scores[scorerId] ?? null;
                           const delta =
-                            baselineScore != null && contenderScore != null
+                            baselineScore !== null &&
+                            baselineScore !== undefined &&
+                            contenderScore !== null &&
+                            contenderScore !== undefined
                               ? contenderScore - baselineScore
                               : null;
 
@@ -69,7 +72,7 @@ export function ComparisonItemsList({
                               key={scorerId}
                               className="flex items-center gap-5 justify-center font-mono"
                             >
-                              {delta != null ? (
+                              {delta !== null && delta !== undefined ? (
                                 <>
                                   <span className="flex items-center text-neutral2 min-w-24">
                                     {baselineScore?.toFixed(2)} → {contenderScore?.toFixed(2)}

@@ -65,141 +65,71 @@ const PERIOD_PARAM = "period";
 const DATE_FROM_PARAM = "dateFrom";
 const DATE_TO_PARAM = "dateTo";
 
-export default function Metrics() {
-  const [searchParams, setSearchParams] = useSearchParams();
+function MetricsStorageContent({
+  isInMemory,
+  isLoading,
+  supportsMetrics,
+}: {
+  isInMemory: boolean;
+  isLoading: boolean;
+  supportsMetrics: boolean;
+}) {
+  if (isLoading) {
+    return null;
+  }
 
-  const urlPreset = searchParams.get(PERIOD_PARAM);
-  const preset: DatePreset = isValidPreset(urlPreset) ? urlPreset : "24h";
-
-  // Concrete from/to bounds only apply to the 'custom' preset; relative presets
-  // derive their window from the preset alone.
-  const customRange = useMemo<DateRange | undefined>(() => {
-    if (preset !== "custom") {
-      return;
-    }
-    const parseBound = (raw: string | null) => {
-      if (!raw) {
-        return;
-      }
-      const date = new Date(raw);
-      return Number.isNaN(date.getTime()) ? undefined : date;
-    };
-    const from = parseBound(searchParams.get(DATE_FROM_PARAM));
-    const to = parseBound(searchParams.get(DATE_TO_PARAM));
-    if (!from && !to) {
-      return;
-    }
-    return { from, to };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preset, searchParams.toString()]);
-
-  // Derive tokens straight from the URL. Memoized on a stable digest so the
-  // array identity only changes when the URL actually changes — this prevents
-  // a feedback loop where `searchParams` is mutated and immediately parsed
-  // back into a new tokens reference.
-  const filterTokens = useMemo(
-    () => getMetricsPropertyFilterTokens(searchParams),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [searchParams.toString()],
-  );
-
-  const handlePresetChange = useCallback(
-    (next: DatePreset) => {
-      setSearchParams(
-        (prev) => {
-          const params = new URLSearchParams(prev);
-          if (next === "24h") {
-            params.delete(PERIOD_PARAM);
-          } else {
-            params.set(PERIOD_PARAM, next);
+  if (!supportsMetrics) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <EmptyState
+          iconSlot={<CircleSlashIcon />}
+          titleSlot="Metrics are not available with your current storage"
+          descriptionSlot="Metrics require ClickHouse, DuckDB, Postgres v-next, Spanner, or in-memory storage for observability. Other relational databases (LibSQL, MSSQL) and document stores (MongoDB) do not support metrics collection. To enable metrics on an existing project, switch the observability storage in the Mastra configuration."
+          actionSlot={
+            <Button
+              variant="ghost"
+              as="a"
+              href="https://mastra.ai/docs/observability/metrics/overview"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Metrics Documentation <ExternalLinkIcon />
+            </Button>
           }
-          if (next !== "custom") {
-            params.delete(DATE_FROM_PARAM);
-            params.delete(DATE_TO_PARAM);
-          }
-          return params;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
-
-  const handleCustomRangeChange = useCallback(
-    (range: DateRange | undefined) => {
-      setSearchParams(
-        (prev) => {
-          const params = new URLSearchParams(prev);
-          if (range?.from) {
-            params.set(DATE_FROM_PARAM, range.from.toISOString());
-          } else {
-            params.delete(DATE_FROM_PARAM);
-          }
-          if (range?.to) {
-            params.set(DATE_TO_PARAM, range.to.toISOString());
-          } else {
-            params.delete(DATE_TO_PARAM);
-          }
-          return params;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
-
-  const handleFilterTokensChange = useCallback(
-    (nextTokens: PropertyFilterToken[]) => {
-      setSearchParams(
-        (prev) => {
-          const params = new URLSearchParams(prev);
-          applyMetricsPropertyFilterTokens(params, nextTokens);
-          return params;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
-
-  // Hydrate saved filters on first mount if URL is filter-clean.
-  const hydratedRef = useRef(false);
-  useEffect(() => {
-    if (hydratedRef.current) {
-      return;
-    }
-    hydratedRef.current = true;
-    if (hasAnyMetricsFilterParams(searchParams)) {
-      return;
-    }
-    const saved = loadMetricsFiltersFromStorage();
-    if (!saved) {
-      return;
-    }
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        for (const [key, value] of saved) {
-          next.append(key, value);
-        }
-        return next;
-      },
-      { replace: true },
+        />
+      </div>
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }
 
   return (
-    <MetricsProvider
-      preset={preset}
-      filterTokens={filterTokens}
-      onPresetChange={handlePresetChange}
-      onFilterTokensChange={handleFilterTokensChange}
-      customRange={customRange}
-      onCustomRangeChange={handleCustomRangeChange}
-    >
-      <MetricsContent />
-    </MetricsProvider>
+    <div className="grid gap-8 content-start pb-10">
+      {isInMemory && (
+        <Notice variant="info" title="Metrics are not persisted">
+          <Notice.Message>
+            This project uses in-memory storage for observability. Metrics will be lost on every
+            server restart. For persistent metrics, switch the observability storage to ClickHouse,
+            DuckDB, Postgres v-next, or Spanner.
+          </Notice.Message>
+        </Notice>
+      )}
+
+      <MetricsFlexGrid>
+        <AgentRunsKpiCard />
+        <ModelCostKpiCard />
+        <TotalTokensKpiCard />
+        <ActiveThreadsKpiCard />
+        <ActiveResourcesKpiCard />
+      </MetricsFlexGrid>
+
+      <MetricsFlexGrid>
+        <ModelUsageCostCard />
+        <TokenUsageByAgentCard />
+        <TokenUsageTimelineCard />
+        <MemoryCard />
+        <TracesVolumeCard />
+        <LatencyCard />
+      </MetricsFlexGrid>
+    </div>
   );
 }
 
@@ -342,55 +272,148 @@ function MetricsContent() {
         />
       </PageLayout.TopArea>
 
-      {isPackagesLoading ? null : !supportsMetrics ? (
-        <div className="flex h-full items-center justify-center">
-          <EmptyState
-            iconSlot={<CircleSlashIcon />}
-            titleSlot="Metrics are not available with your current storage"
-            descriptionSlot="Metrics require ClickHouse, DuckDB, Postgres v-next, Spanner, or in-memory storage for observability. Other relational databases (LibSQL, MSSQL) and document stores (MongoDB) do not support metrics collection. To enable metrics on an existing project, switch the observability storage in the Mastra configuration."
-            actionSlot={
-              <Button
-                variant="ghost"
-                as="a"
-                href="https://mastra.ai/docs/observability/metrics/overview"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Metrics Documentation <ExternalLinkIcon />
-              </Button>
-            }
-          />
-        </div>
-      ) : (
-        <div className="grid gap-8 content-start pb-10">
-          {isInMemory && (
-            <Notice variant="info" title="Metrics are not persisted">
-              <Notice.Message>
-                This project uses in-memory storage for observability. Metrics will be lost on every
-                server restart. For persistent metrics, switch the observability storage to
-                ClickHouse, DuckDB, Postgres v-next, or Spanner.
-              </Notice.Message>
-            </Notice>
-          )}
-
-          <MetricsFlexGrid>
-            <AgentRunsKpiCard />
-            <ModelCostKpiCard />
-            <TotalTokensKpiCard />
-            <ActiveThreadsKpiCard />
-            <ActiveResourcesKpiCard />
-          </MetricsFlexGrid>
-
-          <MetricsFlexGrid>
-            <ModelUsageCostCard />
-            <TokenUsageByAgentCard />
-            <TokenUsageTimelineCard />
-            <MemoryCard />
-            <TracesVolumeCard />
-            <LatencyCard />
-          </MetricsFlexGrid>
-        </div>
-      )}
+      <MetricsStorageContent
+        isInMemory={isInMemory}
+        isLoading={isPackagesLoading}
+        supportsMetrics={supportsMetrics}
+      />
     </PageLayout>
+  );
+}
+
+export default function Metrics() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchParamsDigest = searchParams.toString();
+
+  const urlPreset = searchParams.get(PERIOD_PARAM);
+  const preset: DatePreset = isValidPreset(urlPreset) ? urlPreset : "24h";
+
+  // Concrete from/to bounds only apply to the 'custom' preset; relative presets
+  // derive their window from the preset alone.
+  const customRange = useMemo<DateRange | undefined>(() => {
+    if (preset !== "custom") {
+      return;
+    }
+    const parseBound = (raw: string | null) => {
+      if (!raw) {
+        return;
+      }
+      const date = new Date(raw);
+      return Number.isNaN(date.getTime()) ? undefined : date;
+    };
+    const currentSearchParams = new URLSearchParams(searchParamsDigest);
+    const from = parseBound(currentSearchParams.get(DATE_FROM_PARAM));
+    const to = parseBound(currentSearchParams.get(DATE_TO_PARAM));
+    if (!from && !to) {
+      return;
+    }
+    return { from, to };
+  }, [preset, searchParamsDigest]);
+
+  // Derive tokens straight from the URL. Memoized on a stable digest so the
+  // array identity only changes when the URL actually changes — this prevents
+  // a feedback loop where `searchParams` is mutated and immediately parsed
+  // back into a new tokens reference.
+  const filterTokens = useMemo(
+    () => getMetricsPropertyFilterTokens(new URLSearchParams(searchParamsDigest)),
+    [searchParamsDigest],
+  );
+
+  const handlePresetChange = useCallback(
+    (next: DatePreset) => {
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev);
+          if (next === "24h") {
+            params.delete(PERIOD_PARAM);
+          } else {
+            params.set(PERIOD_PARAM, next);
+          }
+          if (next !== "custom") {
+            params.delete(DATE_FROM_PARAM);
+            params.delete(DATE_TO_PARAM);
+          }
+          return params;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const handleCustomRangeChange = useCallback(
+    (range: DateRange | undefined) => {
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev);
+          if (range?.from) {
+            params.set(DATE_FROM_PARAM, range.from.toISOString());
+          } else {
+            params.delete(DATE_FROM_PARAM);
+          }
+          if (range?.to) {
+            params.set(DATE_TO_PARAM, range.to.toISOString());
+          } else {
+            params.delete(DATE_TO_PARAM);
+          }
+          return params;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const handleFilterTokensChange = useCallback(
+    (nextTokens: PropertyFilterToken[]) => {
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev);
+          applyMetricsPropertyFilterTokens(params, nextTokens);
+          return params;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  // Hydrate saved filters on first mount if URL is filter-clean.
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    if (hydratedRef.current) {
+      return;
+    }
+    hydratedRef.current = true;
+    if (hasAnyMetricsFilterParams(searchParams)) {
+      return;
+    }
+    const saved = loadMetricsFiltersFromStorage();
+    if (!saved) {
+      return;
+    }
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        for (const [key, value] of saved) {
+          next.append(key, value);
+        }
+        return next;
+      },
+      { replace: true },
+    );
+  }, [searchParams, setSearchParams]);
+
+  return (
+    <MetricsProvider
+      preset={preset}
+      filterTokens={filterTokens}
+      onPresetChange={handlePresetChange}
+      onFilterTokensChange={handleFilterTokensChange}
+      customRange={customRange}
+      onCustomRangeChange={handleCustomRangeChange}
+    >
+      <MetricsContent />
+    </MetricsProvider>
   );
 }

@@ -69,6 +69,20 @@ export default function SchedulePage() {
 
   const workflowId = schedule?.workflowId;
   const agentId = schedule?.agentId;
+  let scheduleTarget: React.ReactNode = "—";
+  if (workflowId) {
+    scheduleTarget = (
+      <Link to={paths.workflowLink(workflowId)} className="text-accent1 hover:underline">
+        {workflowId}
+      </Link>
+    );
+  } else if (agentId) {
+    scheduleTarget = (
+      <Link to={paths.agentLink(agentId)} className="text-accent1 hover:underline">
+        {agentId}
+      </Link>
+    );
+  }
 
   return (
     <PageLayout>
@@ -110,19 +124,7 @@ export default function SchedulePage() {
       {schedule ? (
         <div className="grid gap-6 h-full overflow-hidden grid-cols-[minmax(0,20rem)_1fr]">
           <div className="flex flex-col gap-4 border border-border1 rounded-md p-4 h-fit">
-            <MetaItem label={agentId ? "Agent" : "Workflow"}>
-              {workflowId ? (
-                <Link to={paths.workflowLink(workflowId)} className="text-accent1 hover:underline">
-                  {workflowId}
-                </Link>
-              ) : agentId ? (
-                <Link to={paths.agentLink(agentId)} className="text-accent1 hover:underline">
-                  {agentId}
-                </Link>
-              ) : (
-                "—"
-              )}
-            </MetaItem>
+            <MetaItem label={agentId ? "Agent" : "Workflow"}>{scheduleTarget}</MetaItem>
             <MetaItem label="Cron">
               <code className="font-mono text-ui-md">{schedule.cron}</code>
               {schedule.timezone ? (

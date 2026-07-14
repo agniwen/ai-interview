@@ -48,8 +48,7 @@ export function WorkflowInputTypeToggle({
           <button
             key={option.value}
             type="button"
-            role="radio"
-            aria-checked={isActive}
+            aria-pressed={isActive}
             aria-label={option.label}
             disabled={disabled}
             onClick={() => onChange(option.value)}

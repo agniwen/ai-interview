@@ -22,12 +22,13 @@ export type ColumnMapping = Record<string, FieldType>;
  */
 export function useColumnMapping(headers: string[]) {
   // Initialize all columns as 'ignore' by default
-  const [mapping, setMapping] = useState<ColumnMapping>(() =>
-    headers.reduce<ColumnMapping>((acc, header) => {
-      acc[header] = "ignore";
-      return acc;
-    }, {}),
-  );
+  const [mapping, setMapping] = useState<ColumnMapping>(() => {
+    const initialMapping: ColumnMapping = {};
+    for (const header of headers) {
+      initialMapping[header] = "ignore";
+    }
+    return initialMapping;
+  });
 
   // Track previous headers to avoid infinite loops from [] !== []
   const prevHeadersRef = useRef<string[]>([]);
@@ -58,12 +59,11 @@ export function useColumnMapping(headers: string[]) {
 
   // Reset all columns to 'ignore'
   const resetMapping = useCallback(() => {
-    setMapping(
-      headers.reduce<ColumnMapping>((acc, header) => {
-        acc[header] = "ignore";
-        return acc;
-      }, {}),
-    );
+    const reset: ColumnMapping = {};
+    for (const header of headers) {
+      reset[header] = "ignore";
+    }
+    setMapping(reset);
   }, [headers]);
 
   // Check if at least one column is mapped to 'input'

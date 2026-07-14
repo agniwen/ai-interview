@@ -25,7 +25,6 @@ export const AttachFilePopover = () => {
     input.hidden = true;
 
     const cleanup = () => {
-      window.removeEventListener("focus", onWindowFocus);
       input.remove();
     };
 
@@ -33,16 +32,19 @@ export const AttachFilePopover = () => {
     // the element in the DOM. The window regains focus when the OS dialog closes
     // either way, so use that as a fallback — deferred so a successful pick's
     // `change` event runs (and reads `files`) before we remove the input.
-    const onWindowFocus = () => setTimeout(cleanup, 0);
+    const onWindowFocus = () => {
+      window.removeEventListener("focus", onWindowFocus);
+      setTimeout(cleanup, 0);
+    };
 
-    input.onchange = (e) => {
+    input.addEventListener("change", (e) => {
       const fileList = (e.target as HTMLInputElement).files;
       if (fileList && fileList.length > 0) {
         addFiles(fileList);
         setOpen(false);
       }
       cleanup();
-    };
+    });
 
     document.body.append(input);
     window.addEventListener("focus", onWindowFocus);

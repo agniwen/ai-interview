@@ -21,10 +21,18 @@ export interface ApprovalContextValue {
 
 export const StreamRunningContext = createContext<RunningContextValue>({ isRunning: false });
 export const StreamMessagesContext = createContext<MessagesContextValue>({ messages: [] });
-export const StreamSendContext = createContext<SendContextValue>({ send: () => {} });
+export const StreamSendContext = createContext<SendContextValue>({
+  send: () => {
+    /* empty */
+  },
+});
 export const StreamApprovalContext = createContext<ApprovalContextValue>({
-  approveToolCall: () => {},
-  declineToolCall: () => {},
+  approveToolCall: () => {
+    /* empty */
+  },
+  declineToolCall: () => {
+    /* empty */
+  },
 });
 
 export const useStreamRunning = (): boolean => useContext(StreamRunningContext).isRunning;
@@ -51,7 +59,7 @@ export const useStreamRetry = (): (() => void) | null => {
   const send = useStreamSend();
 
   const lastUserText = (() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
       const message = messages[i];
       if (message.role !== "user") {
         continue;

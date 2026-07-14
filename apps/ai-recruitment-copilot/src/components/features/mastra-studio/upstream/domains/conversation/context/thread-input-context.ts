@@ -12,5 +12,7 @@ export const resolveThreadInputKey = (threadId?: string) => threadId || FALLBACK
 
 export const ThreadInputContext = createContext<ThreadInputContextValue>({
   getThreadInput: () => "",
-  setThreadInputForThread: () => {},
+  setThreadInputForThread: () => {
+    /* empty */
+  },
 });

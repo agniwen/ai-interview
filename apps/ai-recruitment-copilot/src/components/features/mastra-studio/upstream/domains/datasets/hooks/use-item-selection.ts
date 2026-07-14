@@ -37,17 +37,15 @@ export function useItemSelection(): ItemSelectionState {
             const start = Math.min(lastIndex, currentIndex);
             const end = Math.max(lastIndex, currentIndex);
 
-            for (let i = start; i <= end; i++) {
+            for (let i = start; i <= end; i += 1) {
               next.add(allIds[i]);
             }
           }
-        } else {
+        } else if (next.has(id)) {
           // Single toggle
-          if (next.has(id)) {
-            next.delete(id);
-          } else {
-            next.add(id);
-          }
+          next.delete(id);
+        } else {
+          next.add(id);
         }
 
         return next;

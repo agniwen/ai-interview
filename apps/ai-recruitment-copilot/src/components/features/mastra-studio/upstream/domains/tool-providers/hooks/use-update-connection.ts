@@ -20,7 +20,7 @@ export const useUpdateConnection = () => {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ providerId, connectionId, label }: UpdateConnectionArgs) => {
+    mutationFn: ({ providerId, connectionId, label }: UpdateConnectionArgs) => {
       const integration = client.getToolProvider(providerId);
       return integration.updateConnection(connectionId, { label });
     },

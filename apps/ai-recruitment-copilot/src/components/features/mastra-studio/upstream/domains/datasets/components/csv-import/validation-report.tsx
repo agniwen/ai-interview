@@ -9,6 +9,24 @@ interface ValidationReportProps {
   className?: string;
 }
 
+function ValidationRow({ row }: { row: RowValidationResult }) {
+  const errorMessage = row.errors[0]?.message || "Validation failed";
+  const errorPath = row.errors[0]?.path || "/";
+
+  return (
+    <tr className="border-t">
+      <td className="px-2 py-1 text-muted-foreground">{row.rowNumber}</td>
+      <td className="px-2 py-1">
+        <code className="text-xs bg-muted px-1 rounded">
+          {row.field}
+          {errorPath === "/" ? "" : errorPath}
+        </code>
+      </td>
+      <td className="px-2 py-1 text-destructive">{errorMessage}</td>
+    </tr>
+  );
+}
+
 /**
  * Shows validation results after schema validation of CSV rows.
  * Displays count of valid/invalid rows and a table of failures.
@@ -21,7 +39,7 @@ export function ValidationReport({ result, className }: ValidationReportProps) {
     return (
       <div className={cn("flex items-center gap-2 text-sm text-success", className)}>
         <CheckCircleIcon className="w-4 h-4" />
-        All {totalRows} row{totalRows !== 1 ? "s" : ""} valid
+        All {totalRows} row{totalRows === 1 ? "" : "s"} valid
       </div>
     );
   }
@@ -63,26 +81,5 @@ export function ValidationReport({ result, className }: ValidationReportProps) {
         </table>
       </div>
     </div>
-  );
-}
-
-/**
- * Single row in the validation failure table.
- */
-function ValidationRow({ row }: { row: RowValidationResult }) {
-  const errorMessage = row.errors[0]?.message || "Validation failed";
-  const errorPath = row.errors[0]?.path || "/";
-
-  return (
-    <tr className="border-t">
-      <td className="px-2 py-1 text-muted-foreground">{row.rowNumber}</td>
-      <td className="px-2 py-1">
-        <code className="text-xs bg-muted px-1 rounded">
-          {row.field}
-          {errorPath !== "/" ? errorPath : ""}
-        </code>
-      </td>
-      <td className="px-2 py-1 text-destructive">{errorMessage}</td>
-    </tr>
   );
 }

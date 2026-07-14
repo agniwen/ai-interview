@@ -40,7 +40,9 @@ export const TracingRunOptions = ({
   let strValue = "{}";
   try {
     strValue = JSON.stringify(settings?.tracingOptions, null, 2);
-  } catch {}
+  } catch {
+    strValue = "{}";
+  }
 
   return (
     <div className={cn("px-5 py-2", !hideTitle && "space-y-2", className)}>

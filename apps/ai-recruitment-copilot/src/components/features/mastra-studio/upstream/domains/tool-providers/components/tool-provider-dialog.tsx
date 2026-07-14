@@ -1,6 +1,6 @@
 import { Button } from "@mastra/playground-ui/components/Button";
 import { SideDialog } from "@mastra/playground-ui/components/SideDialog";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useState } from "react";
 
 import { SelectedToolList } from "./selected-tool-list";
 import { ToolList } from "./tool-list";
@@ -22,7 +22,7 @@ export function ToolProviderDialog({
   const [selectedToolkit, setSelectedToolkit] = useState<string | undefined>();
   const [localSelection, setLocalSelection] = useState<Map<string, string>>(new Map());
 
-  useEffect(() => {
+  const resetSelection = useEffectEvent(() => {
     setSelectedToolkit(undefined);
 
     if (provider && selectedToolIds) {
@@ -36,7 +36,10 @@ export function ToolProviderDialog({
     } else {
       setLocalSelection(new Map());
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally resets only when the dialog opens for a different provider
+  });
+
+  useEffect(() => {
+    resetSelection();
   }, [provider?.id]);
 
   const handleToggle = useCallback((toolId: string, description: string) => {
@@ -64,6 +67,10 @@ export function ToolProviderDialog({
   );
 
   const selectionCount = localSelection.size;
+  const selectionLabel =
+    selectionCount === 0
+      ? "Add tools"
+      : `Add ${selectionCount} tool${selectionCount === 1 ? "" : "s"}`;
 
   return (
     <SideDialog
@@ -77,9 +84,7 @@ export function ToolProviderDialog({
         <SideDialog.Heading>{provider?.name}</SideDialog.Heading>
         {onSubmit && (
           <Button variant="primary" size="sm" onClick={handleSubmit}>
-            {selectionCount > 0
-              ? `Add ${selectionCount} tool${selectionCount !== 1 ? "s" : ""}`
-              : "Add tools"}
+            {selectionLabel}
           </Button>
         )}
       </SideDialog.Header>

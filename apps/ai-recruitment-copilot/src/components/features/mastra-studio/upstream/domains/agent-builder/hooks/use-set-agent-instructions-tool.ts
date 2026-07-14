@@ -16,29 +16,26 @@ export function useSetAgentInstructionsTool() {
       createTool({
         description:
           "Set the agent instructions (its system prompt). Use this when the user provides or revises the body of guidance the agent should follow. Prefer a few focused paragraphs or compact bullet groups, target 1,200–2,000 characters, and stay under 2,500 characters unless the user explicitly needs more detail.",
-        execute: async (inputData: any) => {
-          if (typeof inputData?.instructions !== "string") {
-            return { success: true };
-          }
+        execute: (inputData: { instructions: string }) => {
           const value = inputData.instructions;
           const currentLength = value.length;
           if (currentLength > MAX_GENERATED_INSTRUCTIONS_CHARS) {
-            return {
+            return Promise.resolve({
               currentLength,
               limit: MAX_GENERATED_INSTRUCTIONS_CHARS,
               message:
                 "Rejected because the instructions are too long. Nothing was persisted. Rewrite as 2–4 short paragraphs or compact bullet groups, targeting 1,200–2,000 characters, and call set-agent-instructions once more.",
               rejected: true,
               success: false,
-            };
+            });
           }
           formMethods.setValue("instructions", value, { shouldDirty: true });
-          return {
+          return Promise.resolve({
             currentLength,
             finalLength: currentLength,
             rejected: false,
             success: true,
-          };
+          });
         },
         id: SET_AGENT_INSTRUCTIONS_TOOL_NAME,
         inputSchema: z.object({

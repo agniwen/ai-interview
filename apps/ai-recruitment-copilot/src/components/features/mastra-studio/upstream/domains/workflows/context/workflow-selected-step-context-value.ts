@@ -11,6 +11,10 @@ export interface WorkflowSelectedStepContextType {
 export const WorkflowSelectedStepContext = createContext<WorkflowSelectedStepContextType>({
   hoverStepId: null,
   selectedStepId: null,
-  setHoverStepId: () => {},
-  setSelectedStepId: () => {},
+  setHoverStepId: () => {
+    /* empty */
+  },
+  setSelectedStepId: () => {
+    /* empty */
+  },
 });

@@ -16,10 +16,10 @@ export function computeTraceStatus(span: {
   error?: unknown;
   endedAt?: Date | string | null;
 }): TraceStatus {
-  if (span.error != null) {
+  if (span.error !== null && span.error !== undefined) {
     return TraceStatus.ERROR;
   }
-  if (span.endedAt == null) {
+  if (span.endedAt === null || span.endedAt === undefined) {
     return TraceStatus.RUNNING;
   }
   return TraceStatus.SUCCESS;

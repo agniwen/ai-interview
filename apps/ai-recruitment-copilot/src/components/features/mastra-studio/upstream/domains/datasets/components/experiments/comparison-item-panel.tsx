@@ -49,6 +49,7 @@ export function ComparisonItemPanel({
   const baselineResult = item.results[baselineId];
   const contenderResult = item.results[contenderId];
   const inBoth = Boolean(baselineResult && contenderResult);
+  const isComparisonUnavailable = !inBoth;
 
   const scorerIds = new Set<string>();
   if (baselineResult) {
@@ -88,7 +89,7 @@ export function ComparisonItemPanel({
           </MainHeader.Column>
         </MainHeader>
 
-        {!inBoth ? (
+        {isComparisonUnavailable ? (
           <Notice variant="warning" title="Comparison not available">
             <Notice.Message>
               {(() => {
@@ -97,7 +98,8 @@ export function ComparisonItemPanel({
                 return (
                   <>
                     The {missingIn} experiment was run against dataset
-                    {version != null ? ` v. ${version}` : ""}, which does not contain this item.
+                    {version === null || version === undefined ? "" : ` v. ${version}`}, which does
+                    not contain this item.
                   </>
                 );
               })()}
@@ -114,7 +116,10 @@ export function ComparisonItemPanel({
                       const baselineScore = baselineResult?.scores[scorerId] ?? null;
                       const contenderScore = contenderResult?.scores[scorerId] ?? null;
                       const delta =
-                        baselineScore != null && contenderScore != null
+                        baselineScore !== null &&
+                        baselineScore !== undefined &&
+                        contenderScore !== null &&
+                        contenderScore !== undefined
                           ? contenderScore - baselineScore
                           : null;
 
@@ -126,10 +131,15 @@ export function ComparisonItemPanel({
                           <span className="text-sm text-neutral5 font-medium">{scorerId}</span>
                           <div className="flex items-center gap-4">
                             <span className="text-sm text-neutral3">
-                              {baselineScore != null ? baselineScore.toFixed(3) : "-"} →{" "}
-                              {contenderScore != null ? contenderScore.toFixed(3) : "-"}
+                              {baselineScore === null || baselineScore === undefined
+                                ? "-"
+                                : baselineScore.toFixed(3)}{" "}
+                              →{" "}
+                              {contenderScore === null || contenderScore === undefined
+                                ? "-"
+                                : contenderScore.toFixed(3)}
                             </span>
-                            {delta != null && <ScoreDelta delta={delta} />}
+                            {delta !== null && delta !== undefined && <ScoreDelta delta={delta} />}
                           </div>
                         </div>
                       );

@@ -32,7 +32,7 @@ function DatasetCompareVersionsPage() {
       .get("ids")
       ?.split(",")
       .map(Number)
-      .filter((n) => !isNaN(n) && n > 0) ?? [];
+      .filter((n) => !Number.isNaN(n) && n > 0) ?? [];
   const navigate = useNavigate();
   const { data: dataset, error } = useDataset(datasetId ?? "");
 

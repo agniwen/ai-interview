@@ -65,7 +65,9 @@ export function useAuthCapabilities() {
   return useQuery<AuthCapabilities>({
     queryFn: () => makeAuthCapabilitiesRequest(client),
     queryKey: ["auth", "capabilities"],
-    retry: false, // Don't retry auth requests
-    staleTime: 60 * 1000, // Cache for 1 minute
+    // Don't retry auth requests.
+    retry: false,
+    // Cache for 1 minute.
+    staleTime: 60 * 1000,
   });
 }

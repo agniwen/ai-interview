@@ -26,7 +26,7 @@ export const useFilteredProviders = (
     const popularProviders = ["openai", "anthropic", "google", "openrouter", "netlify"];
 
     const getPopularityIndex = (providerId: string) => {
-      const cleanId = providerId.toLowerCase().split(".")[0];
+      const [cleanId] = providerId.toLowerCase().split(".");
       const index = popularProviders.indexOf(cleanId);
       return index === -1 ? popularProviders.length : index;
     };

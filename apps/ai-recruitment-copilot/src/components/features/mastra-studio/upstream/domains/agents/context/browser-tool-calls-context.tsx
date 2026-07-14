@@ -45,10 +45,9 @@ export function BrowserToolCallsProvider({ children }: { children: ReactNode }) 
       if (existing && existing.result === entry.result && existing.status === entry.status) {
         return prev;
       }
-      const next = new Map(prev);
       // Preserve original timestamp on upsert
-      next.set(entry.toolCallId, existing ? { ...entry, timestamp: existing.timestamp } : entry);
-      return next;
+      const nextEntry = existing ? { ...entry, timestamp: existing.timestamp } : entry;
+      return new Map([...prev, [entry.toolCallId, nextEntry]]);
     });
   }, []);
 

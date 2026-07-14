@@ -25,6 +25,9 @@ import { useSamplingRestriction } from "../hooks/use-sampling-restriction";
 import { AgentAdvancedSettingsBody } from "./agent-advanced-settings";
 import { usePermissions } from "@/components/features/mastra-studio/upstream/domains/auth/hooks/use-permissions";
 import { useMemory } from "@/components/features/mastra-studio/upstream/domains/memory/hooks/use-memory";
+import { resolveConditional } from "../utils/conditional";
+import { withDefault } from "../utils/presence";
+import { allTruthy, anyTruthy, isTruthy } from "../utils/truthiness";
 
 export interface ComposerModelSettingsProps {
   agentId: string;
@@ -37,8 +40,8 @@ interface NetworkRadioProps {
 }
 
 const NetworkRadio = ({ hasMemory, hasSubAgents, disabled }: NetworkRadioProps) => {
-  const isNetworkAvailable = hasMemory && hasSubAgents;
-  const itemDisabled = disabled || !isNetworkAvailable;
+  const isNetworkAvailable = allTruthy(hasMemory, hasSubAgents);
+  const itemDisabled = anyTruthy(disabled, !isNetworkAvailable);
 
   const radio = (
     <div className="flex items-center gap-2">
@@ -87,8 +90,55 @@ interface StreamSubscriptionRadioProps {
   disabled: boolean;
 }
 
+interface RadioModelSettings {
+  chatWithNetwork?: boolean;
+  chatWithGenerate?: boolean;
+  chatWithLegacyStream?: boolean;
+  chatWithGenerateLegacy?: boolean;
+}
+
+function getRadioValue({
+  hasAgent,
+  isSupportedModel,
+  modelSettings,
+  supportsThreadSubscription,
+}: {
+  hasAgent: boolean;
+  isSupportedModel: boolean;
+  modelSettings: RadioModelSettings | undefined;
+  supportsThreadSubscription: boolean;
+}): string | undefined {
+  if (!hasAgent) {
+    return undefined;
+  }
+  if (!isSupportedModel) {
+    return resolveConditional(
+      modelSettings?.chatWithGenerateLegacy,
+      () => "generateLegacy",
+      () => "streamLegacy",
+    );
+  }
+  if (modelSettings?.chatWithNetwork) {
+    return "network";
+  }
+  if (modelSettings?.chatWithGenerate) {
+    return "generate";
+  }
+  if (anyTruthy(modelSettings?.chatWithLegacyStream, !supportsThreadSubscription)) {
+    return "stream";
+  }
+  return "streamSubscription";
+}
+
+function formatOptionalNumber(value: number | undefined): number | string {
+  if (value === undefined) {
+    return "n/a";
+  }
+  return value;
+}
+
 const StreamSubscriptionRadio = ({ supported, disabled }: StreamSubscriptionRadioProps) => {
-  const itemDisabled = disabled || !supported;
+  const itemDisabled = anyTruthy(disabled, !supported);
 
   const radio = (
     <div className="flex items-center gap-2">
@@ -133,6 +183,7 @@ export const ComposerModelSettings = ({ agentId }: ComposerModelSettingsProps) =
   const [popoverOpen, setPopoverOpen] = useState(false);
 
   const canEditSettings = canEdit("agents");
+  const modelSettings = settings?.modelSettings;
 
   const { hasSamplingRestriction } = useSamplingRestriction({
     modelId: agent?.modelId,
@@ -141,40 +192,29 @@ export const ComposerModelSettings = ({ agentId }: ComposerModelSettingsProps) =
     settings,
   });
 
-  if (!isLoading && !agent) {
+  if (allTruthy(!isLoading, !agent)) {
     return null;
   }
 
   const hasMemory = Boolean(memory?.result);
-  const hasSubAgents = Boolean(agent && Object.keys(agent.agents || {}).length > 0);
+  const hasSubAgents =
+    Object.keys(withDefault<Record<string, { id: string; name: string }>>(agent?.agents, {}))
+      .length > 0;
   const modelVersion = agent?.modelVersion;
-  const isSupportedModel = modelVersion === "v2" || modelVersion === "v3";
+  const isSupportedModel = anyTruthy(modelVersion === "v2", modelVersion === "v3");
   const supportsThreadSubscription = agent?.supportsMemory !== false;
 
-  let radioValue: string | undefined;
+  const radioValue = getRadioValue({
+    hasAgent: Boolean(agent),
+    isSupportedModel,
+    modelSettings,
+    supportsThreadSubscription,
+  });
 
-  if (agent) {
-    if (isSupportedModel) {
-      if (settings?.modelSettings?.chatWithNetwork) {
-        radioValue = "network";
-      } else if (settings?.modelSettings?.chatWithGenerate) {
-        radioValue = "generate";
-      } else if (settings?.modelSettings?.chatWithLegacyStream || !supportsThreadSubscription) {
-        radioValue = "stream";
-      } else {
-        radioValue = "streamSubscription";
-      }
-    } else {
-      radioValue = settings?.modelSettings?.chatWithGenerateLegacy
-        ? "generateLegacy"
-        : "streamLegacy";
-    }
-  }
-
-  const showSamplingBanner =
-    hasSamplingRestriction &&
-    (settings?.modelSettings?.temperature !== undefined ||
-      settings?.modelSettings?.topP !== undefined);
+  const showSamplingBanner = anyTruthy(
+    allTruthy(hasSamplingRestriction, modelSettings?.temperature !== undefined),
+    modelSettings?.topP !== undefined,
+  );
 
   return (
     <>
@@ -204,7 +244,11 @@ export const ComposerModelSettings = ({ agentId }: ComposerModelSettingsProps) =
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-80 p-4">
-          {isLoading || isMemoryLoading ? (
+          {resolveConditional(
+            isLoading,
+            (conditionValue) => conditionValue,
+            () => isMemoryLoading,
+          ) ? (
             <Skeleton className="h-40 w-full" data-testid="composer-model-settings-skeleton" />
           ) : (
             <section className="space-y-5 @container">
@@ -217,7 +261,7 @@ export const ComposerModelSettings = ({ agentId }: ComposerModelSettingsProps) =
                     setSettings({
                       ...settings,
                       modelSettings: {
-                        ...settings?.modelSettings,
+                        ...modelSettings,
                         chatWithGenerate: value === "generate",
                         chatWithGenerateLegacy: value === "generateLegacy",
                         chatWithLegacyStream: value === "stream",
@@ -227,84 +271,108 @@ export const ComposerModelSettings = ({ agentId }: ComposerModelSettingsProps) =
                   }
                   className="flex flex-col gap-3"
                 >
-                  {!isSupportedModel && (
-                    <div className="flex items-center gap-2">
-                      <RadioGroupItem
-                        value="generateLegacy"
-                        id="generateLegacy"
-                        className="text-neutral6"
+                  {resolveConditional(
+                    !isSupportedModel,
+                    () => (
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem
+                          value="generateLegacy"
+                          id="generateLegacy"
+                          className="text-neutral6"
+                          disabled={!canEditSettings}
+                        />
+                        <Label className="text-neutral6 text-ui-md" htmlFor="generateLegacy">
+                          Generate (Legacy)
+                        </Label>
+                      </div>
+                    ),
+                    () => null,
+                  )}
+                  {resolveConditional(
+                    isSupportedModel,
+                    () => (
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem
+                          value="generate"
+                          id="generate"
+                          className="text-neutral6"
+                          disabled={!canEditSettings}
+                        />
+                        <Label className="text-neutral6 text-ui-md" htmlFor="generate">
+                          Generate
+                        </Label>
+                      </div>
+                    ),
+                    () => null,
+                  )}
+                  {resolveConditional(
+                    !isSupportedModel,
+                    () => (
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem
+                          value="streamLegacy"
+                          id="streamLegacy"
+                          className="text-neutral6"
+                          disabled={!canEditSettings}
+                        />
+                        <Label className="text-neutral6 text-ui-md" htmlFor="streamLegacy">
+                          Stream (Legacy)
+                        </Label>
+                      </div>
+                    ),
+                    () => null,
+                  )}
+                  {resolveConditional(
+                    isSupportedModel,
+                    () => (
+                      <StreamSubscriptionRadio
+                        supported={supportsThreadSubscription}
                         disabled={!canEditSettings}
                       />
-                      <Label className="text-neutral6 text-ui-md" htmlFor="generateLegacy">
-                        Generate (Legacy)
-                      </Label>
-                    </div>
+                    ),
+                    () => null,
                   )}
-                  {isSupportedModel && (
-                    <div className="flex items-center gap-2">
-                      <RadioGroupItem
-                        value="generate"
-                        id="generate"
-                        className="text-neutral6"
+                  {resolveConditional(
+                    isSupportedModel,
+                    () => (
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem
+                          value="stream"
+                          id="stream"
+                          className="text-neutral6"
+                          disabled={!canEditSettings}
+                        />
+                        <Label className="text-neutral6 text-ui-md" htmlFor="stream">
+                          Stream
+                        </Label>
+                      </div>
+                    ),
+                    () => null,
+                  )}
+                  {resolveConditional(
+                    isSupportedModel,
+                    () => (
+                      <NetworkRadio
+                        hasMemory={hasMemory}
+                        hasSubAgents={hasSubAgents}
                         disabled={!canEditSettings}
                       />
-                      <Label className="text-neutral6 text-ui-md" htmlFor="generate">
-                        Generate
-                      </Label>
-                    </div>
-                  )}
-                  {!isSupportedModel && (
-                    <div className="flex items-center gap-2">
-                      <RadioGroupItem
-                        value="streamLegacy"
-                        id="streamLegacy"
-                        className="text-neutral6"
-                        disabled={!canEditSettings}
-                      />
-                      <Label className="text-neutral6 text-ui-md" htmlFor="streamLegacy">
-                        Stream (Legacy)
-                      </Label>
-                    </div>
-                  )}
-                  {isSupportedModel && (
-                    <StreamSubscriptionRadio
-                      supported={supportsThreadSubscription}
-                      disabled={!canEditSettings}
-                    />
-                  )}
-                  {isSupportedModel && (
-                    <div className="flex items-center gap-2">
-                      <RadioGroupItem
-                        value="stream"
-                        id="stream"
-                        className="text-neutral6"
-                        disabled={!canEditSettings}
-                      />
-                      <Label className="text-neutral6 text-ui-md" htmlFor="stream">
-                        Stream
-                      </Label>
-                    </div>
-                  )}
-                  {isSupportedModel && (
-                    <NetworkRadio
-                      hasMemory={hasMemory}
-                      hasSubAgents={hasSubAgents}
-                      disabled={!canEditSettings}
-                    />
+                    ),
+                    () => null,
                   )}
                 </RadioGroup>
               </Entry>
 
               <Entry label="Require Tool Approval">
                 <Checkbox
-                  checked={settings?.modelSettings?.requireToolApproval}
+                  checked={modelSettings?.requireToolApproval}
                   disabled={!canEditSettings}
                   onCheckedChange={(value) =>
                     canEditSettings &&
                     setSettings({
                       ...settings,
                       modelSettings: {
-                        ...settings?.modelSettings,
+                        ...modelSettings,
                         requireToolApproval: value as boolean,
                       },
                     })
@@ -312,24 +380,28 @@ export const ComposerModelSettings = ({ agentId }: ComposerModelSettingsProps) =
                 />
               </Entry>
 
-              {showSamplingBanner && (
-                <div
-                  className="flex items-center gap-2 text-xs text-neutral3 bg-surface3 rounded px-3 py-2"
-                  data-testid="sampling-restriction-banner"
-                >
-                  <Info className="w-3.5 h-3.5 shrink-0" />
-                  <span>
-                    {settings?.modelSettings?.temperature !== undefined
-                      ? "Claude 4.5+ models only accept Temperature OR Top P. Clear Temperature to use Top P."
-                      : "Claude 4.5+ models only accept Temperature OR Top P. Setting Temperature will clear Top P."}
-                  </span>
-                </div>
+              {resolveConditional(
+                showSamplingBanner,
+                () => (
+                  <div
+                    className="flex items-center gap-2 text-xs text-neutral3 bg-surface3 rounded px-3 py-2"
+                    data-testid="sampling-restriction-banner"
+                  >
+                    <Info className="w-3.5 h-3.5 shrink-0" />
+                    <span>
+                      {isTruthy(modelSettings?.temperature !== undefined)
+                        ? "Claude 4.5+ models only accept Temperature OR Top P. Clear Temperature to use Top P."
+                        : "Claude 4.5+ models only accept Temperature OR Top P. Setting Temperature will clear Top P."}
+                    </span>
+                  </div>
+                ),
+                () => null,
               )}
 
               <Entry label="Temperature">
                 <div className="flex flex-row justify-between items-center gap-2">
                   <Slider
-                    value={[settings?.modelSettings?.temperature ?? -0.1]}
+                    value={[withDefault(modelSettings?.temperature, -0.1)]}
                     max={1}
                     min={-0.1}
                     step={0.1}
@@ -339,14 +411,14 @@ export const ComposerModelSettings = ({ agentId }: ComposerModelSettingsProps) =
                       setSettings({
                         ...settings,
                         modelSettings: {
-                          ...settings?.modelSettings,
+                          ...modelSettings,
                           temperature: value[0] < 0 ? undefined : value[0],
                         },
                       })
                     }
                   />
                   <Txt as="p" variant="ui-sm" className="text-neutral3">
-                    {settings?.modelSettings?.temperature ?? "n/a"}
+                    {formatOptionalNumber(modelSettings?.temperature)}
                   </Txt>
                 </div>
               </Entry>
@@ -360,18 +432,18 @@ export const ComposerModelSettings = ({ agentId }: ComposerModelSettingsProps) =
                       setSettings({
                         ...settings,
                         modelSettings: {
-                          ...settings?.modelSettings,
+                          ...modelSettings,
                           topP: value[0] < 0 ? undefined : value[0],
                         },
                       })
                     }
-                    value={[settings?.modelSettings?.topP ?? -0.1]}
+                    value={[withDefault(modelSettings?.topP, -0.1)]}
                     max={1}
                     min={-0.1}
                     step={0.1}
                   />
                   <Txt as="p" variant="ui-sm" className="text-neutral3">
-                    {settings?.modelSettings?.topP ?? "n/a"}
+                    {formatOptionalNumber(modelSettings?.topP)}
                   </Txt>
                 </div>
               </Entry>

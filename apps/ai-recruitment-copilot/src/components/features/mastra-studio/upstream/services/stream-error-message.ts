@@ -55,7 +55,7 @@ export const buildStreamErrorMessage = (chunk: StreamErrorChunk): MastraDBMessag
     typeof (errorValue as { message?: unknown }).message === "string"
   ) {
     text = (errorValue as { message: string }).message;
-  } else if (errorValue == null) {
+  } else if (errorValue === null || errorValue === undefined) {
     text = "Unknown error";
   } else {
     try {

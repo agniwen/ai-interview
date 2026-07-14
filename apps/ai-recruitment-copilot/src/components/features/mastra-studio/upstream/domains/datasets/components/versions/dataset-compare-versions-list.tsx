@@ -120,11 +120,24 @@ export function DatasetCompareVersionsList({
             const itemA = itemsAMap.get(id);
             const itemB = itemsBMap.get(id);
             const status = getStatus(itemA, itemB);
+            const hasChanged = status !== "same";
+            let itemAVariant: keyof typeof versionInfoConfig | undefined;
+            if (itemB === undefined && isANewer) {
+              itemAVariant = "added";
+            } else if (status === "changed" && isANewer) {
+              itemAVariant = "changed";
+            }
+            let itemBVariant: keyof typeof versionInfoConfig | undefined;
+            if (itemA === undefined && isANewer === false) {
+              itemBVariant = "added";
+            } else if (status === "changed" && isANewer === false) {
+              itemBVariant = "changed";
+            }
 
             return (
               <ItemList.Row key={id} columns={columns}>
                 <ItemList.IdCell id={id} isShortened={false} />
-                {status !== "same" ? (
+                {hasChanged ? (
                   <>
                     {itemA?.datasetVersion ? (
                       <ItemList.LinkCell
@@ -132,13 +145,7 @@ export function DatasetCompareVersionsList({
                         href={`/datasets/${datasetId}/items/${id}`}
                         className="gap-2"
                       >
-                        {!itemB && isANewer ? (
-                          <VersionInfo variant="added" version={itemA.datasetVersion} />
-                        ) : status === "changed" && isANewer ? (
-                          <VersionInfo variant="changed" version={itemA.datasetVersion} />
-                        ) : (
-                          <VersionInfo version={itemA.datasetVersion} />
-                        )}
+                        <VersionInfo variant={itemAVariant} version={itemA.datasetVersion} />
                       </ItemList.LinkCell>
                     ) : (
                       <ItemList.Cell className={"justify-center flex  items-center"}>
@@ -156,20 +163,14 @@ export function DatasetCompareVersionsList({
                         href={`/datasets/${datasetId}/items/${id}`}
                         className="gap-2"
                       >
-                        {!itemA && !isANewer ? (
-                          <VersionInfo variant="added" version={itemB.datasetVersion} />
-                        ) : status === "changed" && !isANewer ? (
-                          <VersionInfo variant="changed" version={itemB.datasetVersion} />
-                        ) : (
-                          <VersionInfo version={itemB.datasetVersion} />
-                        )}
+                        <VersionInfo variant={itemBVariant} version={itemB.datasetVersion} />
                       </ItemList.LinkCell>
                     ) : (
                       <ItemList.Cell className={"justify-center flex items-center"}>
                         <EmptyCell
                           red={!isANewer}
                           tooltip={
-                            !isANewer ? "Deleted in this version" : "Not present in this version"
+                            isANewer ? "Not present in this version" : "Deleted in this version"
                           }
                         />
                       </ItemList.Cell>

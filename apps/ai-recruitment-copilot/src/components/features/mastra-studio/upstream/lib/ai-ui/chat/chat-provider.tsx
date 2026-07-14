@@ -20,9 +20,10 @@ import type {
   TasksContextValue,
 } from "./chat-context";
 import { useChatSendHandler } from "./use-chat-send-handler";
-import { useObservationalMemoryContext } from "@/components/features/mastra-studio/upstream/domains/agents/context";
+import { useObservationalMemoryContext } from "@/components/features/mastra-studio/upstream/domains/agents/context/agent-observational-memory-context";
+import type { OmProgressData } from "@/components/features/mastra-studio/upstream/domains/agents/context/agent-observational-memory-context";
 import { useWorkingMemory } from "@/components/features/mastra-studio/upstream/domains/agents/context/agent-working-memory-context";
-import { useMemoryConfig } from "@/components/features/mastra-studio/upstream/domains/memory/hooks";
+import { useMemoryConfig } from "@/components/features/mastra-studio/upstream/domains/memory/hooks/use-memory";
 import { useTracingSettings } from "@/components/features/mastra-studio/upstream/domains/observability/context/tracing-settings-context";
 import { getCanSendWhileStreaming } from "@/components/features/mastra-studio/upstream/services/mastra-runtime-state";
 import {
@@ -86,9 +87,9 @@ export function ChatProvider({
       return;
     }
     const ctx = new RequestContext();
-    Object.entries(requestContext ?? {}).forEach(([key, value]) => {
+    for (const [key, value] of Object.entries(requestContext ?? {})) {
       ctx.set(key, value);
-    });
+    }
     if (agentVersionId) {
       ctx.set("agentVersionId", agentVersionId);
     }
@@ -154,8 +155,8 @@ export function ChatProvider({
   );
 
   const handleProgressUpdate = useCallback(
-    (data: any) => {
-      if (data.threadId && data.threadId !== threadId) {
+    (data: OmProgressData | undefined) => {
+      if (!data || (data.threadId && data.threadId !== threadId)) {
         return;
       }
       setStreamProgress({
@@ -198,7 +199,7 @@ export function ChatProvider({
   );
 
   const handleActivation = useCallback(
-    (data: any) => {
+    (data: { cycleId?: string } | undefined) => {
       const cycleId = data?.cycleId;
       if (cycleId) {
         markCycleIdActivated(cycleId);
@@ -234,7 +235,7 @@ export function ChatProvider({
       markCycleIdActivated(cycleId);
     }
     if (lastProgress) {
-      handleProgressUpdate(lastProgress);
+      handleProgressUpdate(lastProgress as unknown as OmProgressData);
     }
   }, [handleProgressUpdate, initialMessages, markCycleIdActivated]);
 
@@ -244,20 +245,25 @@ export function ChatProvider({
     }
 
     let cancelled = false;
-    baseClient
-      .awaitBufferStatus({ agentId, resourceId: agentId, threadId })
-      .then((result) => {
+    const reconcileBuffering = async () => {
+      try {
+        const result = await baseClient.awaitBufferStatus({
+          agentId,
+          resourceId: agentId,
+          threadId,
+        });
         if (cancelled) {
           return;
         }
         setMessages((prev) => injectBufferingEnds(prev, result?.record));
-      })
-      .catch(() => {
+      } catch {
         if (cancelled) {
           return;
         }
         setMessages((prev) => markOmMarkersAsDisconnected(prev));
-      });
+      }
+    };
+    void reconcileBuffering();
 
     return () => {
       cancelled = true;

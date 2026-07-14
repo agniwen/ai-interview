@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import type { ExperimentUISpan } from "../types";
 import { getSpanDescendantIds } from "../utils/get-span-descendant-ids";
 import { getExperimentSpanTypeUi } from "./experiment-trace-shared";
@@ -11,11 +11,7 @@ interface ExperimentTraceTimelineSpanProps {
   onSpanClick?: (id: string) => void;
   selectedSpanId?: string;
   isLastChild?: boolean;
-  overallLatency?: number;
-  overallStartTime?: string;
-  overallEndTime?: string;
   fadedTypes?: string[];
-  searchPhrase?: string;
   featuredSpanIds?: string[];
   expandedSpanIds?: string[];
   setExpandedSpanIds?: React.Dispatch<React.SetStateAction<string[]>>;
@@ -27,11 +23,7 @@ export function ExperimentTraceTimelineSpan({
   onSpanClick,
   selectedSpanId,
   isLastChild,
-  overallLatency,
-  overallStartTime,
-  overallEndTime: _overallEndTime,
   fadedTypes,
-  searchPhrase,
   featuredSpanIds,
   expandedSpanIds,
   setExpandedSpanIds,
@@ -49,8 +41,23 @@ export function ExperimentTraceTimelineSpan({
     fadedTypes && fadedTypes.length > 0 ? fadedTypes.includes(spanUI?.typePrefix || "") : false;
   const isFaded = isFadedByType || isFadedBySearch;
 
+  const toggleChildren = useCallback(() => {
+    if (!setExpandedSpanIds || !expandedSpanIds) {
+      return;
+    }
+
+    if (isExpanded) {
+      const idsToRemove = new Set([span.id, ...allDescendantIds]);
+      setExpandedSpanIds(expandedSpanIds.filter((id) => !idsToRemove.has(id)));
+    } else {
+      setExpandedSpanIds([...expandedSpanIds, span.id]);
+    }
+  }, [allDescendantIds, expandedSpanIds, isExpanded, setExpandedSpanIds, span.id]);
+
   useEffect(() => {
-    isRootSpan && setExpandedSpanIds?.([span.id]);
+    if (isRootSpan) {
+      setExpandedSpanIds?.([span.id]);
+    }
   }, [isRootSpan, span.id, setExpandedSpanIds]);
 
   useEffect(() => {
@@ -63,20 +70,7 @@ export function ExperimentTraceTimelineSpan({
     if (!isExpanded && hasFeaturedChildren) {
       toggleChildren();
     }
-  }, [featuredSpanIds, span.spans, span.id, isExpanded, setExpandedSpanIds, expandedSpanIds]);
-
-  const toggleChildren = () => {
-    if (!setExpandedSpanIds || !expandedSpanIds) {
-      return;
-    }
-
-    if (isExpanded) {
-      const idsToRemove = new Set([span.id, ...allDescendantIds]);
-      setExpandedSpanIds(expandedSpanIds.filter((id) => !idsToRemove.has(id)));
-    } else {
-      setExpandedSpanIds([...expandedSpanIds, span.id]);
-    }
-  };
+  }, [featuredSpanIds, isExpanded, span.spans, toggleChildren]);
 
   const expandAllDescendants = () => {
     if (!setExpandedSpanIds || !expandedSpanIds) {
@@ -151,7 +145,7 @@ export function ExperimentTraceTimelineSpan({
       {hasChildren &&
         isExpanded &&
         span.spans?.map((childSpan: ExperimentUISpan, idx: number, array: ExperimentUISpan[]) => {
-          const isLastChild = idx === array.length - 1;
+          const childIsLast = idx === array.length - 1;
 
           return (
             <ExperimentTraceTimelineSpan
@@ -160,11 +154,8 @@ export function ExperimentTraceTimelineSpan({
               depth={depth + 1}
               onSpanClick={onSpanClick}
               selectedSpanId={selectedSpanId}
-              isLastChild={isLastChild}
-              overallLatency={overallLatency}
-              overallStartTime={overallStartTime}
+              isLastChild={childIsLast}
               fadedTypes={fadedTypes}
-              searchPhrase={searchPhrase}
               expandedSpanIds={expandedSpanIds}
               setExpandedSpanIds={setExpandedSpanIds}
               featuredSpanIds={featuredSpanIds}

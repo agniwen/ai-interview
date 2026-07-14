@@ -24,9 +24,16 @@ export function ActionsMenu({
 }: ActionsMenuProps) {
   const [open, setOpen] = useState(false);
 
-  // Invoke callback and close popover
-  const handleAction = (callback: () => void) => {
-    callback();
+  const handleExport = () => {
+    onExportClick();
+    setOpen(false);
+  };
+  const handleCreateDataset = () => {
+    onCreateDatasetClick();
+    setOpen(false);
+  };
+  const handleDelete = () => {
+    onDeleteClick();
     setOpen(false);
   };
 
@@ -45,7 +52,7 @@ export function ActionsMenu({
             variant="ghost"
             size="sm"
             className="w-full justify-start gap-2"
-            onClick={() => handleAction(onExportClick)}
+            onClick={handleExport}
           >
             <Icon>
               <Download className="w-4 h-4" />
@@ -56,7 +63,7 @@ export function ActionsMenu({
             variant="ghost"
             size="sm"
             className="w-full justify-start gap-2"
-            onClick={() => handleAction(onCreateDatasetClick)}
+            onClick={handleCreateDataset}
           >
             <Icon>
               <FolderPlus className="w-4 h-4" />
@@ -67,7 +74,7 @@ export function ActionsMenu({
             variant="ghost"
             size="sm"
             className="w-full justify-start gap-2 text-red-500 hover:text-red-400"
-            onClick={() => handleAction(onDeleteClick)}
+            onClick={handleDelete}
           >
             <Icon>
               <Trash2 className="w-4 h-4" />

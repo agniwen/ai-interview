@@ -6,7 +6,7 @@ import {
 import { AgentIcon } from "@mastra/playground-ui/icons/AgentIcon";
 import { truncateString } from "@mastra/playground-ui/utils/truncate-string";
 import { useMemo } from "react";
-import { prepareToolsTable } from "@/components/features/mastra-studio/upstream/domains/tools/utils/prepareToolsTable";
+import { prepareToolsTable } from "@/components/features/mastra-studio/upstream/domains/tools/utils/prepare-tools-table";
 import { useLinkComponent } from "@/components/features/mastra-studio/upstream/lib/framework";
 
 export interface ToolsListProps {

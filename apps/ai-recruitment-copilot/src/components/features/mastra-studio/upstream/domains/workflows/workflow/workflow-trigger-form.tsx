@@ -17,8 +17,8 @@ import { WorkflowInputData } from "./workflow-input-data";
 export interface WorkflowTriggerFormProps {
   zodSchema: ZodSchema | null;
   isStreaming: boolean;
-  onExecute: (data: any) => void;
-  defaultValues?: any;
+  onExecute: (data: unknown) => void;
+  defaultValues?: unknown;
   isViewingRun?: boolean;
   isReadOnly?: boolean;
   disableSubmit?: boolean;

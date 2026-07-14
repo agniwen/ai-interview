@@ -33,7 +33,9 @@ describe("Mastra Studio TanStack integration", () => {
     expect(route).toContain("MastraStudioRouteRoot");
     expect(route).toContain("pendingComponent");
     expect(route).toContain("ssr: false");
-    expect(sidebar).toContain('path: "/platform/mastra-studio/agents"');
+    expect(sidebar).toContain("mainNav");
+    expect(sidebar).toContain("bottomNav");
+    expect(sidebar).toContain("MastraSidebarSearch");
     expect(tabs).toContain('value="manage">Manage');
     expect(tabs).toContain('value="mastra">Mastra');
   });

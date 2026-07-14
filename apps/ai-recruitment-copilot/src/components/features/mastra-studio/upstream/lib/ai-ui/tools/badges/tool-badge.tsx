@@ -21,13 +21,31 @@ const JsonCodeBlock = ({ value, testId }: { value: unknown; testId: string }) =>
 export interface ToolBadgeProps extends Omit<ToolApprovalButtonsProps, "toolCalled"> {
   toolName: string;
   args: Record<string, unknown> | string;
-  result: any;
+  result: unknown;
   metadata?: MessageMetadata;
   toolOutput: { toolId: string }[];
-  suspendPayload?: any;
+  suspendPayload?: unknown;
   toolCalled?: boolean;
   withoutArgs?: boolean;
 }
+
+const renderToolExtraInfo = (metadata: MessageMetadata | undefined, toolCallId: string) => {
+  if (metadata?.mode === "network") {
+    const { routingDecision } = metadata;
+    return (
+      <NetworkChoiceMetadataDialogTrigger
+        selectionReason={routingDecision?.selectionReason ?? metadata.selectionReason ?? ""}
+        input={
+          (routingDecision ?? metadata.agentInput) as string | Record<string, unknown> | undefined
+        }
+      />
+    );
+  }
+  const backgroundTask = metadata?.backgroundTasks?.[toolCallId];
+  return backgroundTask?.taskId && backgroundTask.startedAt ? (
+    <BackgroundTaskMetadataDialogTrigger backgroundTask={backgroundTask} />
+  ) : null;
+};
 
 export const ToolBadge = ({
   toolName,
@@ -72,40 +90,21 @@ export const ToolBadge = ({
         {suspendPayload}
       </pre>
     ) : (
-      <CodeEditor data={suspendPayload} data-testid="tool-suspend-payload" />
+      <CodeEditor
+        data={suspendPayload as Record<string, unknown> | Record<string, unknown>[] | undefined}
+        data-testid="tool-suspend-payload"
+      />
     );
 
-  const routingDecision = metadata?.mode === "network" ? metadata.routingDecision : undefined;
-  const selectionReason =
-    metadata?.mode === "network"
-      ? (routingDecision?.selectionReason ?? metadata.selectionReason)
-      : undefined;
-  const agentNetworkInput =
-    metadata?.mode === "network" ? (routingDecision ?? metadata.agentInput) : undefined;
-
   const toolCalled = toolCalledProp ?? (result || toolOutput.length > 0);
-
-  const bgEntry =
-    (metadata?.mode === "stream" || metadata?.mode === "generate") && metadata?.backgroundTasks
-      ? metadata.backgroundTasks[toolCallId]
-      : undefined;
 
   return (
     <BadgeWrapper
       data-testid="tool-badge"
       icon={<ToolsIcon className="text-accent6" />}
       title={toolName}
-      extraInfo={
-        metadata?.mode === "network" ? (
-          <NetworkChoiceMetadataDialogTrigger
-            selectionReason={selectionReason || ""}
-            input={agentNetworkInput as string | Record<string, unknown> | undefined}
-          />
-        ) : bgEntry?.taskId && bgEntry?.startedAt ? (
-          <BackgroundTaskMetadataDialogTrigger backgroundTask={bgEntry} />
-        ) : null
-      }
-      initialCollapsed={!!!(toolApprovalMetadata ?? suspendPayload)}
+      extraInfo={renderToolExtraInfo(metadata, toolCallId)}
+      initialCollapsed={!(toolApprovalMetadata ?? suspendPayload)}
     >
       <div className="space-y-4">
         {withoutArgs ? null : (
@@ -115,14 +114,14 @@ export const ToolBadge = ({
           </div>
         )}
 
-        {suspendPayloadSlot !== undefined && suspendPayload && (
+        {suspendPayloadSlot !== undefined && Boolean(suspendPayload) && (
           <div>
             <p className="font-medium pb-2">Tool suspend payload</p>
             {suspendPayloadSlot}
           </div>
         )}
 
-        {resultSlot !== undefined && result && (
+        {resultSlot !== undefined && Boolean(result) && (
           <div>
             <p className="font-medium pb-2">Tool result</p>
             {resultSlot}
@@ -140,7 +139,7 @@ export const ToolBadge = ({
         )}
 
         <ToolApprovalButtons
-          toolCalled={toolCalled}
+          toolCalled={Boolean(toolCalled)}
           toolCallId={toolCallId}
           toolApprovalMetadata={toolApprovalMetadata}
           toolName={toolName}

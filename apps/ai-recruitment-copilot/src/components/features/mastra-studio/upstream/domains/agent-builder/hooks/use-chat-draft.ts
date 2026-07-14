@@ -5,6 +5,13 @@ interface UseChatDraftArgs {
   onSubmit: (trimmed: string) => void;
 }
 
+const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+  if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+    e.preventDefault();
+    e.currentTarget.form?.requestSubmit();
+  }
+};
+
 export const useChatDraft = ({ onSubmit }: UseChatDraftArgs) => {
   const [draft, setDraft] = useState("");
   const trimmed = draft.trim();
@@ -16,13 +23,6 @@ export const useChatDraft = ({ onSubmit }: UseChatDraftArgs) => {
     }
     onSubmit(trimmed);
     setDraft("");
-  };
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-      e.preventDefault();
-      e.currentTarget.form?.requestSubmit();
-    }
   };
 
   return { draft, handleFormSubmit, handleKeyDown, setDraft, trimmed };

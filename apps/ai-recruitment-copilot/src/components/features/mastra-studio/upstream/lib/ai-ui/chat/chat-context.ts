@@ -49,10 +49,16 @@ export interface TasksContextValue {
 export const ChatMessagesContext = createContext<MessagesContextValue>({ messages: [] });
 export const ChatRunningContext = createContext<RunningContextValue>({
   canSendWhileStreaming: false,
-  cancelRun: () => {},
+  cancelRun: () => {
+    /* empty */
+  },
   isRunning: false,
 });
-export const ChatSendContext = createContext<SendContextValue>({ send: () => {} });
+export const ChatSendContext = createContext<SendContextValue>({
+  send: () => {
+    /* empty */
+  },
+});
 export const ChatTasksContext = createContext<TasksContextValue>({ tasks: [] });
 
 export const useChatMessages = (): MastraDBMessage[] => useContext(ChatMessagesContext).messages;

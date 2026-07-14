@@ -15,11 +15,11 @@ export function useSetAgentNameTool() {
       createTool({
         description:
           "Set the agent name. Use this when the user provides or revises a short, human-readable name for the agent being built.",
-        execute: async (inputData: any) => {
-          if (typeof inputData?.name === "string" && inputData.name.length > 0) {
+        execute: (inputData: { name: string }) => {
+          if (inputData.name.length > 0) {
             formMethods.setValue("name", inputData.name, { shouldDirty: true });
           }
-          return { success: true };
+          return Promise.resolve({ success: true });
         },
         id: SET_AGENT_NAME_TOOL_NAME,
         inputSchema: z.object({

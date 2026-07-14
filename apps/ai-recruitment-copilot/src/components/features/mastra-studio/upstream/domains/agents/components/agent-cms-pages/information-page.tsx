@@ -6,9 +6,12 @@ import { Textarea } from "@mastra/playground-ui/components/Textarea";
 import { Controller } from "react-hook-form";
 
 import { useAgentEditFormContext } from "../../context/agent-edit-form-context";
-import { SectionHeader } from "@/components/features/mastra-studio/upstream/domains/cms";
-import { SubSectionHeader } from "@/components/features/mastra-studio/upstream/domains/cms/components/section/section-header";
-import { LLMProviders, LLMModels } from "@/components/features/mastra-studio/upstream/domains/llm";
+import {
+  SectionHeader,
+  SubSectionHeader,
+} from "@/components/features/mastra-studio/upstream/domains/cms/components/section/section-header";
+import { LLMModels } from "@/components/features/mastra-studio/upstream/domains/llm/components/llm-models";
+import { LLMProviders } from "@/components/features/mastra-studio/upstream/domains/llm/components/llm-providers";
 
 export function InformationPage() {
   const { form, readOnly } = useAgentEditFormContext();

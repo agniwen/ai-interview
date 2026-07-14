@@ -23,8 +23,6 @@ export const WorkflowCardBadges = ({ indicators, className }: WorkflowCardIndica
           <Tooltip key={`badge-${indicator.id}`}>
             <TooltipTrigger asChild>
               <span
-                role="img"
-                tabIndex={0}
                 aria-label={indicator.label}
                 data-testid={`workflow-card-indicator-${indicator.id}`}
                 className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-neutral5 focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-accent1"

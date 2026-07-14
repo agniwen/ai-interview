@@ -7,6 +7,7 @@ import { useCloseBrowser } from "../hooks/use-close-browser";
 import { createBrowserFrameStore } from "./browser-frame-store";
 import { BrowserFrameStoreContext, BrowserSessionContext } from "./browser-session-context";
 import type { BrowserViewMode } from "./browser-session-context";
+import { isTruthy } from "../utils/truthiness";
 
 export interface BrowserSessionProviderProps {
   children: ReactNode;
@@ -162,16 +163,16 @@ export function BrowserSessionProvider({
     if (!shouldConnectRef.current) {
       return;
     }
-    const agentId = agentIdRef.current;
-    const threadId = threadIdRef.current;
-    if (!agentId || !threadId) {
+    const currentAgentId = agentIdRef.current;
+    const currentThreadId = threadIdRef.current;
+    if (!currentAgentId || !currentThreadId) {
       return;
     }
 
     // Skip if already connected/connecting to the same agent/thread
     if (
-      currentConnectionRef.current?.agentId === agentId &&
-      currentConnectionRef.current?.threadId === threadId &&
+      currentConnectionRef.current?.agentId === currentAgentId &&
+      currentConnectionRef.current?.threadId === currentThreadId &&
       wsRef.current?.readyState === WebSocket.OPEN
     ) {
       return;
@@ -186,12 +187,15 @@ export function BrowserSessionProvider({
     }
 
     // Track what we're connecting to
-    currentConnectionRef.current = { agentId, threadId };
+    currentConnectionRef.current = {
+      agentId: currentAgentId,
+      threadId: currentThreadId,
+    };
 
     setStatusState("connecting");
 
     const wsUrl = getEmbeddedMastraWebSocketUrl(
-      `/browser/${encodeURIComponent(agentId)}/stream?threadId=${encodeURIComponent(threadId)}`,
+      `/browser/${encodeURIComponent(currentAgentId)}/stream?threadId=${encodeURIComponent(currentThreadId)}`,
     );
 
     try {
@@ -199,12 +203,12 @@ export function BrowserSessionProvider({
       intentionalCloseRef.current = false;
       wsRef.current = ws;
 
-      ws.onopen = () => {
+      ws.addEventListener("open", () => {
         setStatusState("connected");
         reconnectAttemptRef.current = 0;
-      };
+      });
 
-      ws.onmessage = (event) => {
+      ws.addEventListener("message", (event) => {
         const data = event.data as string;
 
         // Check if message is JSON (status/error messages start with '{')
@@ -243,6 +247,9 @@ export function BrowserSessionProvider({
                   setHasSession(false);
                   break;
                 }
+                default: {
+                  break;
+                }
               }
             }
 
@@ -261,16 +268,16 @@ export function BrowserSessionProvider({
           // Plain text is base64 frame data
           frameStoreRef.current.setFrame(data);
           // Ensure we're in streaming status when receiving frames
-          setStatusState((prev) => (prev !== "streaming" ? "streaming" : prev));
+          setStatusState((prev) => (isTruthy(prev !== "streaming") ? "streaming" : prev));
           setHasSession(true);
         }
-      };
+      });
 
-      ws.onerror = () => {
+      ws.addEventListener("error", () => {
         // Error event doesn't provide useful info, wait for close
-      };
+      });
 
-      ws.onclose = (event) => {
+      ws.addEventListener("close", (event) => {
         // Ignore close events from superseded sockets
         if (wsRef.current !== ws) {
           return;
@@ -304,7 +311,7 @@ export function BrowserSessionProvider({
           // Clean remote close — no retry, just mark disconnected.
           setStatusState("disconnected");
         }
-      };
+      });
     } catch {
       setStatusState("error");
     }
@@ -391,7 +398,8 @@ export function BrowserSessionProvider({
       endSession,
       hasSession,
       hide,
-      isActive: hasSession, // backward compat - reflects session activity, not view mode
+      // backward compat - reflects session activity, not view mode
+      isActive: hasSession,
       isClosing,
       isPanelOpen: viewMode === "modal",
       sendMessage,

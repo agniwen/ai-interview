@@ -18,7 +18,7 @@ import type { UseFormReturn } from "react-hook-form";
 
 import { MCPServerCombobox } from "../mcp-server-combobox";
 import type { MCPClientFormValues } from "./use-mcp-client-form";
-import { SectionHeader } from "@/components/features/mastra-studio/upstream/domains/cms";
+import { SectionHeader } from "@/components/features/mastra-studio/upstream/domains/cms/components/section/section-header";
 
 interface MCPClientFormSidebarProps {
   form: UseFormReturn<MCPClientFormValues>;
@@ -276,12 +276,12 @@ export function MCPClientFormSidebar({
           {!readOnly &&
             (() => {
               const isDisabled = serverType !== "http" || !url.trim() || isTryingConnect;
-              const tooltipContent =
-                serverType !== "http"
-                  ? "Only available for HTTP servers"
-                  : !url.trim()
-                    ? "Enter a URL first"
-                    : undefined;
+              let tooltipContent: string | undefined;
+              if (serverType === "http") {
+                tooltipContent = url.trim() ? undefined : "Enter a URL first";
+              } else {
+                tooltipContent = "Only available for HTTP servers";
+              }
 
               return tooltipContent ? (
                 <Button

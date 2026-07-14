@@ -21,15 +21,91 @@ import type { RuleGroup } from "@mastra/playground-ui/utils/rule-engine";
 import { SearchIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useWatch } from "react-hook-form";
+import { omitRecordKey } from "@/components/features/mastra-studio/upstream/domains/agents/utils/record";
 
 import type { ScorerConfig } from "../../components/agent-edit-page/utils/form-validation";
 import { useAgentEditFormContext } from "../../context/agent-edit-form-context";
+import { DisplayConditionsDialog } from "@/components/features/mastra-studio/upstream/domains/cms/components/display-conditions/display-conditions-dialog";
 import {
   SectionHeader,
-  DisplayConditionsDialog,
-} from "@/components/features/mastra-studio/upstream/domains/cms";
-import { SubSectionHeader } from "@/components/features/mastra-studio/upstream/domains/cms/components/section/section-header";
+  SubSectionHeader,
+} from "@/components/features/mastra-studio/upstream/domains/cms/components/section/section-header";
 import { useScorers } from "@/components/features/mastra-studio/upstream/domains/scores/hooks/use-scorers";
+
+function ScorerConfigPanel({
+  scorerId,
+  samplingConfig,
+  onSamplingChange,
+  readOnly = false,
+}: ScorerConfigPanelProps) {
+  const samplingType = samplingConfig?.type || "none";
+
+  const handleTypeChange = (type: string) => {
+    if (type === "none") {
+      onSamplingChange();
+    } else if (type === "ratio") {
+      onSamplingChange({ rate: 0.1, type: "ratio" });
+    }
+  };
+
+  const handleRateChange = (rate: number) => {
+    if (samplingConfig?.type === "ratio") {
+      onSamplingChange({ rate, type: "ratio" });
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor={`sampling-type-${scorerId}`} className="text-xs text-neutral4">
+          Sampling
+        </Label>
+        <RadioGroup
+          id={`sampling-type-${scorerId}`}
+          value={samplingType}
+          onValueChange={handleTypeChange}
+          className="flex flex-col gap-2"
+          disabled={readOnly}
+        >
+          <div className="flex items-center gap-2">
+            <RadioGroupItem value="none" id={`${scorerId}-none`} disabled={readOnly} />
+            <Label htmlFor={`${scorerId}-none`} className="text-ui-xs text-neutral5 cursor-pointer">
+              None (evaluate all)
+            </Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <RadioGroupItem value="ratio" id={`${scorerId}-ratio`} disabled={readOnly} />
+            <Label
+              htmlFor={`${scorerId}-ratio`}
+              className="text-ui-xs text-neutral5 cursor-pointer"
+            >
+              Ratio (percentage)
+            </Label>
+          </div>
+        </RadioGroup>
+
+        {samplingType === "ratio" && (
+          <div className="flex flex-col gap-1.5 mt-2">
+            <Label htmlFor={`rate-${scorerId}`} className="text-xs text-neutral4">
+              Sample Rate (0-1)
+            </Label>
+            <Input
+              id={`rate-${scorerId}`}
+              type="number"
+              min="0"
+              max="1"
+              step="0.1"
+              value={samplingConfig?.rate ?? 0.1}
+              onChange={(e) => handleRateChange(Number.parseFloat(e.target.value))}
+              className="h-8"
+              disabled={readOnly}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function ScorersPage() {
   const { form, readOnly } = useAgentEditFormContext();
@@ -63,8 +139,7 @@ export function ScorersPage() {
   const handleValueChange = (scorerId: string) => {
     const isSet = selectedScorers?.[scorerId] !== undefined;
     if (isSet) {
-      const next = { ...selectedScorers };
-      delete next[scorerId];
+      const next = omitRecordKey(selectedScorers, scorerId);
       form.setValue("scorers", next, { shouldDirty: true });
     } else {
       form.setValue(
@@ -162,6 +237,7 @@ export function ScorersPage() {
                         <EntityName>{scorer.label}</EntityName>
                         <EntityDescription>
                           <input
+                            aria-label={`${scorer.label} description`}
                             type="text"
                             disabled={isDisabled}
                             className={cn(
@@ -224,79 +300,4 @@ interface ScorerConfigPanelProps {
   samplingConfig?: ScorerConfig["sampling"];
   onSamplingChange: (config?: ScorerConfig["sampling"]) => void;
   readOnly?: boolean;
-}
-
-function ScorerConfigPanel({
-  scorerId,
-  samplingConfig,
-  onSamplingChange,
-  readOnly = false,
-}: ScorerConfigPanelProps) {
-  const samplingType = samplingConfig?.type || "none";
-
-  const handleTypeChange = (type: string) => {
-    if (type === "none") {
-      onSamplingChange();
-    } else if (type === "ratio") {
-      onSamplingChange({ rate: 0.1, type: "ratio" });
-    }
-  };
-
-  const handleRateChange = (rate: number) => {
-    if (samplingConfig?.type === "ratio") {
-      onSamplingChange({ rate, type: "ratio" });
-    }
-  };
-
-  return (
-    <div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={`sampling-type-${scorerId}`} className="text-xs text-neutral4">
-          Sampling
-        </Label>
-        <RadioGroup
-          id={`sampling-type-${scorerId}`}
-          value={samplingType}
-          onValueChange={handleTypeChange}
-          className="flex flex-col gap-2"
-          disabled={readOnly}
-        >
-          <div className="flex items-center gap-2">
-            <RadioGroupItem value="none" id={`${scorerId}-none`} disabled={readOnly} />
-            <Label htmlFor={`${scorerId}-none`} className="text-ui-xs text-neutral5 cursor-pointer">
-              None (evaluate all)
-            </Label>
-          </div>
-          <div className="flex items-center gap-2">
-            <RadioGroupItem value="ratio" id={`${scorerId}-ratio`} disabled={readOnly} />
-            <Label
-              htmlFor={`${scorerId}-ratio`}
-              className="text-ui-xs text-neutral5 cursor-pointer"
-            >
-              Ratio (percentage)
-            </Label>
-          </div>
-        </RadioGroup>
-
-        {samplingType === "ratio" && (
-          <div className="flex flex-col gap-1.5 mt-2">
-            <Label htmlFor={`rate-${scorerId}`} className="text-xs text-neutral4">
-              Sample Rate (0-1)
-            </Label>
-            <Input
-              id={`rate-${scorerId}`}
-              type="number"
-              min="0"
-              max="1"
-              step="0.1"
-              value={samplingConfig?.rate ?? 0.1}
-              onChange={(e) => handleRateChange(Number.parseFloat(e.target.value))}
-              className="h-8"
-              disabled={readOnly}
-            />
-          </div>
-        )}
-      </div>
-    </div>
-  );
 }

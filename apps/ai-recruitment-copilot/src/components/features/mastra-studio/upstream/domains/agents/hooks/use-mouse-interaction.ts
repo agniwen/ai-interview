@@ -167,14 +167,16 @@ export function useMouseInteraction(options: UseMouseInteractionOptions): void {
     let rafId: number | null = null;
     let lastMoveTime = 0;
     let pendingMoveEvent: MouseEvent | null = null;
-    const FRAME_INTERVAL = 1000 / 30; // ~33.33ms for 30fps cap
+    // ~33.33ms for 30fps cap
+    const FRAME_INTERVAL = 1000 / 30;
 
     function handleMouseMove(e: MouseEvent): void {
       pendingMoveEvent = e;
 
       if (rafId !== null) {
         return;
-      } // already scheduled
+        // already scheduled
+      }
 
       rafId = requestAnimationFrame((now) => {
         rafId = null;

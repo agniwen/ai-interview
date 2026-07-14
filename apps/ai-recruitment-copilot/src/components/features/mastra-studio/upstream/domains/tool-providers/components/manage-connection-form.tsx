@@ -79,7 +79,14 @@ export const ManageConnectionForm = ({
             aria-hidden
           >
             {iconUrl ? (
-              <img src={iconUrl} alt="" className="size-8 object-contain" />
+              <svg className="size-8" aria-hidden>
+                <image
+                  href={iconUrl}
+                  width="100%"
+                  height="100%"
+                  preserveAspectRatio="xMidYMid meet"
+                />
+              </svg>
             ) : (
               <Icon size="lg" className="text-neutral3">
                 <Link2 />

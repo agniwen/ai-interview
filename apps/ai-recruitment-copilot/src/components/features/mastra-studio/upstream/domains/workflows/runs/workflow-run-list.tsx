@@ -50,6 +50,29 @@ function formatRunInput(snapshot: unknown): string | null {
   }
 }
 
+interface DeleteRunDialogProps {
+  open: boolean;
+  onOpenChange: (n: boolean) => void;
+  onDelete: () => void;
+}
+const DeleteRunDialog = ({ open, onOpenChange, onDelete }: DeleteRunDialogProps) => (
+  <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog.Content>
+      <AlertDialog.Header>
+        <AlertDialog.Title>Are you absolutely sure?</AlertDialog.Title>
+        <AlertDialog.Description>
+          This action cannot be undone. This will permanently delete the workflow run and remove it
+          from our servers.
+        </AlertDialog.Description>
+      </AlertDialog.Header>
+      <AlertDialog.Footer>
+        <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+        <AlertDialog.Action onClick={onDelete}>Continue</AlertDialog.Action>
+      </AlertDialog.Footer>
+    </AlertDialog.Content>
+  </AlertDialog>
+);
+
 export const WorkflowRecentRuns = ({ workflowId, runId }: WorkflowRecentRunsProps) => {
   const [deleteRunId, setDeleteRunId] = useState<string | null>(null);
   const { canDelete } = usePermissions();
@@ -65,9 +88,9 @@ export const WorkflowRecentRuns = ({ workflowId, runId }: WorkflowRecentRunsProp
   } = useWorkflowRuns(workflowId);
   const { mutateAsync: deleteRun } = useDeleteWorkflowRun(workflowId);
 
-  const handleDelete = async (runId: string) => {
+  const handleDelete = async (targetRunId: string) => {
     try {
-      await deleteRun({ runId });
+      await deleteRun({ runId: targetRunId });
       setDeleteRunId(null);
       navigate(paths.workflowLink(workflowId));
     } catch {
@@ -172,26 +195,3 @@ export const WorkflowRecentRuns = ({ workflowId, runId }: WorkflowRecentRunsProp
     </>
   );
 };
-
-interface DeleteRunDialogProps {
-  open: boolean;
-  onOpenChange: (n: boolean) => void;
-  onDelete: () => void;
-}
-const DeleteRunDialog = ({ open, onOpenChange, onDelete }: DeleteRunDialogProps) => (
-  <AlertDialog open={open} onOpenChange={onOpenChange}>
-    <AlertDialog.Content>
-      <AlertDialog.Header>
-        <AlertDialog.Title>Are you absolutely sure?</AlertDialog.Title>
-        <AlertDialog.Description>
-          This action cannot be undone. This will permanently delete the workflow run and remove it
-          from our servers.
-        </AlertDialog.Description>
-      </AlertDialog.Header>
-      <AlertDialog.Footer>
-        <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-        <AlertDialog.Action onClick={onDelete}>Continue</AlertDialog.Action>
-      </AlertDialog.Footer>
-    </AlertDialog.Content>
-  </AlertDialog>
-);

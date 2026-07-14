@@ -40,6 +40,16 @@ interface ConversationPanelProviderProps {
 const BUILDER_AGENT_ID = "builder-agent";
 const getBuilderThreadId = (agentId: string) => `agent-builder-${agentId}`;
 
+interface ConversationContextValue {
+  isLoading: boolean;
+  agentId: string;
+}
+
+const ConversationContext = createContext<ConversationContextValue>({
+  agentId: "",
+  isLoading: false,
+});
+
 export const ConversationPanelProvider = ({
   initialUserMessage,
   isFreshThread = false,
@@ -138,35 +148,6 @@ export const ConversationPanelProvider = ({
   );
 };
 
-interface ConversationContextValue {
-  isLoading: boolean;
-  agentId: string;
-}
-
-const ConversationContext = createContext<ConversationContextValue>({
-  agentId: "",
-  isLoading: false,
-});
-
-export const ConversationPanelChat = () => (
-  <div className="flex h-full min-h-0 flex-col">
-    <ConversationMessageList />
-    <ConversationComposer />
-  </div>
-);
-
-interface ConversationPanelProps extends Omit<ConversationPanelProviderProps, "children"> {}
-
-/**
- * Combined provider + chat. Useful for tests and any single-pane consumer that
- * does not need to expose `isRunning` to surrounding layout slots.
- */
-export const ConversationPanel = (props: ConversationPanelProps) => (
-  <ConversationPanelProvider {...props}>
-    <ConversationPanelChat />
-  </ConversationPanelProvider>
-);
-
 const ConversationMessageList = () => {
   const messages = useStreamMessages();
   const isRunning = useStreamRunning();
@@ -207,3 +188,22 @@ const ConversationComposer = () => {
     />
   );
 };
+
+export const ConversationPanelChat = () => (
+  <div className="flex h-full min-h-0 flex-col">
+    <ConversationMessageList />
+    <ConversationComposer />
+  </div>
+);
+
+type ConversationPanelProps = Omit<ConversationPanelProviderProps, "children">;
+
+/**
+ * Combined provider + chat. Useful for tests and any single-pane consumer that
+ * does not need to expose `isRunning` to surrounding layout slots.
+ */
+export const ConversationPanel = (props: ConversationPanelProps) => (
+  <ConversationPanelProvider {...props}>
+    <ConversationPanelChat />
+  </ConversationPanelProvider>
+);

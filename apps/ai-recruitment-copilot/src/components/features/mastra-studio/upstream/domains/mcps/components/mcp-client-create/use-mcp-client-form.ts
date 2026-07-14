@@ -26,7 +26,7 @@ export const useMCPClientForm = (defaultValues?: Partial<MCPClientFormValues>) =
       url: "",
       ...defaultValues,
     },
-    resolver: async (values) => {
+    resolver: (values) => {
       const errors: Record<string, { type: string; message: string }> = {};
 
       if (!values.name.trim()) {

@@ -9,7 +9,7 @@ import { WorkflowIcon } from "@mastra/playground-ui/icons/WorkflowIcon";
 import { truncateString } from "@mastra/playground-ui/utils/truncate-string";
 import { useMastraClient } from "@mastra/react";
 import { useMemo } from "react";
-import { useMCPServerTools } from "../../hooks/useMCPServerTools";
+import { useMCPServerTools } from "../../hooks/use-mcp-server-tools";
 import { useLinkComponent } from "@/components/features/mastra-studio/upstream/lib/framework";
 
 type McpServer = McpServerListResponse["servers"][number];

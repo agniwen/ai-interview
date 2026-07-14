@@ -9,15 +9,17 @@ import {
 import { Brain, ExternalLink, Info } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { getObservationWindowTokens } from "./lib/observation-window";
-import {
-  useMemoryTimeline,
-  useObservationalMemoryContext,
-} from "@/components/features/mastra-studio/upstream/domains/agents/context";
+import type { OmAgentConfig } from "./lib/observation-window";
+import { useObservationalMemoryContext } from "@/components/features/mastra-studio/upstream/domains/agents/context/agent-observational-memory-context";
+import { useMemoryTimeline } from "@/components/features/mastra-studio/upstream/domains/agents/context/use-memory-timeline";
 import {
   useObservationalMemory,
   useMemoryWithOMStatus,
   useMemoryConfig,
-} from "@/components/features/mastra-studio/upstream/domains/memory/hooks";
+} from "@/components/features/mastra-studio/upstream/domains/memory/hooks/use-memory";
+import { resolveConditional } from "../../utils/conditional";
+import { firstDefined } from "../../utils/presence";
+import { allTruthy, anyTruthy } from "../../utils/truthiness";
 
 // Format tokens helper
 const formatTokens = (n: number) => {
@@ -48,7 +50,6 @@ const getModelLabel = (model: unknown, modelRouting?: { upTo: number; model: str
   if (modelRouting?.length) {
     return "Auto (tiered)";
   }
-  return;
 };
 
 type ThresholdValue = number | { min: number; max: number };
@@ -106,6 +107,48 @@ const useElapsedTime = (isActive: boolean) => {
   return state.isActive === isActive ? state.elapsed : 0;
 };
 
+function getProgressDisplay({
+  value,
+  max,
+  label,
+  isActive,
+  baseThreshold,
+  totalBudget,
+}: {
+  value: number;
+  max: number;
+  label: string;
+  isActive: boolean;
+  baseThreshold?: number;
+  totalBudget?: number;
+}) {
+  const isAdaptive = allTruthy(baseThreshold !== undefined, totalBudget !== undefined);
+  const percentage = resolveConditional(
+    max > 0,
+    () => Math.min(100, Math.max(0, (value / max) * 100)),
+    () => 0,
+  );
+  const isProcessing = allTruthy(isActive, percentage >= 100);
+  return {
+    activeText: resolveConditional(
+      label === "Messages",
+      () => "observing",
+      () => "reflecting",
+    ),
+    barColor: getBarColor(percentage),
+    isAdaptive,
+    isProcessing,
+    percentage,
+    showAdaptiveLabel: allTruthy(
+      isAdaptive,
+      percentage >= 100,
+      !isProcessing,
+      baseThreshold,
+      value < (firstDefined<number>(baseThreshold, 0) as number),
+    ),
+  };
+}
+
 // Progress bar component with percent label inside bar
 const ProgressBar = ({
   value,
@@ -123,19 +166,14 @@ const ProgressBar = ({
   isActive?: boolean;
   model?: string;
   modelRouting?: { upTo: number; model: string }[];
-  baseThreshold?: number; // When adaptive, shows the configured base threshold
-  totalBudget?: number; // Total shared budget in adaptive mode
+  // When adaptive, shows the configured base threshold
+  baseThreshold?: number;
+  // Total shared budget in adaptive mode
+  totalBudget?: number;
 }) => {
-  const isAdaptive = baseThreshold !== undefined && totalBudget !== undefined;
-  const percentage = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
-  const barColor = getBarColor(percentage);
-  const elapsed = useElapsedTime(isActive && percentage >= 100);
-  const isProcessing = isActive && percentage >= 100;
-  const activeText = label === "Messages" ? "observing" : "reflecting";
-
-  // Show "adaptive" when at 100% due to adaptive mode but still below configured threshold
-  const showAdaptiveLabel =
-    isAdaptive && percentage >= 100 && !isProcessing && baseThreshold && value < baseThreshold;
+  const { activeText, barColor, isAdaptive, isProcessing, percentage, showAdaptiveLabel } =
+    getProgressDisplay({ baseThreshold, isActive, label, max, totalBudget, value });
+  const elapsed = useElapsedTime(isProcessing);
 
   // When processing: use blue observing badge style (bg-blue-500/10 text-blue-600)
   const containerBg = isProcessing ? "bg-transparent" : "bg-surface4";
@@ -169,7 +207,13 @@ const ProgressBar = ({
               <div className="space-y-0.5">
                 <div>
                   <span className="text-neutral4">Model:</span>{" "}
-                  <span className="text-neutral5">{model || "not configured"}</span>
+                  <span className="text-neutral5">
+                    {resolveConditional(
+                      model,
+                      (conditionValue) => conditionValue,
+                      () => "not configured",
+                    )}
+                  </span>
                 </div>
                 {modelRouting?.length ? (
                   <div>
@@ -190,14 +234,23 @@ const ProgressBar = ({
                     </span>
                   </div>
                 )}
-                {isAdaptive && totalBudget && (
-                  <div>
-                    <span className="text-neutral4">Mode:</span>{" "}
-                    <span className="text-amber-400">Adaptive</span>{" "}
-                    <span className="text-neutral4">
-                      ({formatTokens(totalBudget)} shared budget)
-                    </span>
-                  </div>
+                {resolveConditional(
+                  isAdaptive,
+                  () =>
+                    resolveConditional(
+                      totalBudget,
+                      (budget) => (
+                        <div>
+                          <span className="text-neutral4">Mode:</span>{" "}
+                          <span className="text-amber-400">Adaptive</span>{" "}
+                          <span className="text-neutral4">
+                            ({formatTokens(budget)} shared budget)
+                          </span>
+                        </div>
+                      ),
+                      () => null,
+                    ),
+                  () => null,
                 )}
               </div>
             </div>
@@ -215,21 +268,21 @@ const ProgressBar = ({
           <span
             className={`absolute inset-0 flex items-center ${isProcessing ? "justify-start pl-2" : "justify-center"} text-[10px] font-medium ${textColor} pointer-events-none`}
           >
-            {isProcessing
-              ? `${activeText} ${elapsed.toFixed(1)}s`
-              : showAdaptiveLabel
-                ? "adaptive"
-                : `${Math.round(percentage)}%`}
+            {resolveConditional(
+              isProcessing,
+              () => `${activeText} ${elapsed.toFixed(1)}s`,
+              () => (showAdaptiveLabel ? "adaptive" : `${Math.round(percentage)}%`),
+            )}
           </span>
           <span
             className={`absolute inset-0 flex items-center ${isProcessing ? "justify-start pl-2" : "justify-center"} text-[10px] font-medium ${textColorFilled} pointer-events-none`}
             style={{ clipPath: `inset(0 ${100 - percentage}% 0 0)` }}
           >
-            {isProcessing
-              ? `${activeText} ${elapsed.toFixed(1)}s`
-              : showAdaptiveLabel
-                ? "adaptive"
-                : `${Math.round(percentage)}%`}
+            {resolveConditional(
+              isProcessing,
+              () => `${activeText} ${elapsed.toFixed(1)}s`,
+              () => (showAdaptiveLabel ? "adaptive" : `${Math.round(percentage)}%`),
+            )}
           </span>
         </div>
 
@@ -241,25 +294,36 @@ const ProgressBar = ({
           <span className={isProcessing ? "text-blue-500" : "text-neutral4"}>
             /{formatTokens(max)}
           </span>
-          {isAdaptive && totalBudget && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="text-amber-400 cursor-help">({formatTokens(baseThreshold)})</span>
-              </TooltipTrigger>
-              <TooltipContent
-                side="top"
-                className="max-w-xs bg-surface3 border border-border1 text-foreground"
-              >
-                <div className="text-xs">
-                  <span className="text-amber-400">{formatTokens(baseThreshold)}</span>
-                  <span className="text-neutral4"> is the configured threshold. </span>
-                  <span className="text-neutral5">
-                    Adaptive mode shares a {formatTokens(totalBudget)} token budget between messages
-                    and observations.
-                  </span>
-                </div>
-              </TooltipContent>
-            </Tooltip>
+          {resolveConditional(
+            isAdaptive,
+            () =>
+              resolveConditional(
+                totalBudget,
+                (budget) => (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-amber-400 cursor-help">
+                        ({formatTokens(baseThreshold ?? max)})
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="top"
+                      className="max-w-xs bg-surface3 border border-border1 text-foreground"
+                    >
+                      <div className="text-xs">
+                        <span className="text-amber-400">{formatTokens(baseThreshold ?? max)}</span>
+                        <span className="text-neutral4"> is the configured threshold. </span>
+                        <span className="text-neutral5">
+                          Adaptive mode shares a {formatTokens(budget)} token budget between
+                          messages and observations.
+                        </span>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                ),
+                () => null,
+              ),
+            () => null,
           )}
         </span>
       </div>
@@ -361,6 +425,138 @@ interface AgentObservationalMemoryProps {
   threadId?: string;
 }
 
+interface MemoryStatusData {
+  observationalMemory?: {
+    enabled?: boolean;
+    isObserving?: boolean;
+    isReflecting?: boolean;
+    lastObservedAt?: string | Date;
+  };
+}
+
+function getActivityStatus({
+  statusData,
+  isObservingFromStream,
+  isReflectingFromStream,
+}: {
+  statusData: MemoryStatusData | null | undefined;
+  isObservingFromStream: boolean;
+  isReflectingFromStream: boolean;
+}) {
+  const status = statusData?.observationalMemory;
+  const lastObservedAt = status?.lastObservedAt;
+  const stale = resolveConditional(
+    lastObservedAt,
+    (timestamp) => Date.now() - new Date(timestamp).getTime() > 2 * 60 * 1000,
+    () => true,
+  );
+  const hasStreamActivity = anyTruthy(isObservingFromStream, isReflectingFromStream);
+  const isObservingFromServer = allTruthy(!stale, !hasStreamActivity, status?.isObserving);
+  const isReflectingFromServer = allTruthy(!stale, !hasStreamActivity, status?.isReflecting);
+  const isObserving = anyTruthy(isObservingFromStream, isObservingFromServer);
+  const isReflecting = anyTruthy(isReflectingFromStream, isReflectingFromServer);
+  return { isActive: anyTruthy(isObserving, isReflecting), isObserving, isReflecting };
+}
+
+interface AgentOmConfig extends OmAgentConfig {
+  enabled: boolean;
+  model?: unknown;
+  observationModel?: string;
+  reflectionModel?: string;
+  observationModelRouting?: ModelRouting;
+  reflectionModelRouting?: ModelRouting;
+  observation?: OmAgentConfig["observation"] & { model?: string; routing?: ModelRouting };
+  reflection?: OmAgentConfig["reflection"] & { model?: string; routing?: ModelRouting };
+}
+
+interface RecordOmConfig {
+  observation?: { messageTokens?: number; model?: string; routing?: ModelRouting };
+  reflection?: { observationTokens?: number; model?: string; routing?: ModelRouting };
+  observationModel?: string;
+  reflectionModel?: string;
+  observationModelRouting?: ModelRouting;
+  reflectionModelRouting?: ModelRouting;
+}
+
+function getObservationModelConfig(
+  recordConfig: RecordOmConfig | undefined,
+  agentConfig: AgentOmConfig | undefined,
+) {
+  const recordObservation = recordConfig?.observation;
+  const agentObservation = agentConfig?.observation;
+  const routing = firstDefined(
+    recordConfig?.observationModelRouting,
+    recordObservation?.routing,
+    agentConfig?.observationModelRouting,
+    agentObservation?.routing,
+  );
+  return {
+    observationModel: getModelLabel(
+      firstDefined(
+        recordConfig?.observationModel,
+        recordObservation?.model,
+        agentConfig?.observationModel,
+        agentConfig?.model,
+        agentObservation?.model,
+      ),
+      routing,
+    ),
+    observationModelRouting: routing,
+  };
+}
+
+function getReflectionModelConfig(
+  recordConfig: RecordOmConfig | undefined,
+  agentConfig: AgentOmConfig | undefined,
+) {
+  const recordReflection = recordConfig?.reflection;
+  const agentReflection = agentConfig?.reflection;
+  const routing = firstDefined(
+    recordConfig?.reflectionModelRouting,
+    recordReflection?.routing,
+    agentConfig?.reflectionModelRouting,
+    agentReflection?.routing,
+  );
+  return {
+    reflectionModel: getModelLabel(
+      firstDefined(
+        recordConfig?.reflectionModel,
+        recordReflection?.model,
+        agentConfig?.reflectionModel,
+        agentConfig?.model,
+        agentReflection?.model,
+      ),
+      routing,
+    ),
+    reflectionModelRouting: routing,
+  };
+}
+
+function getModelConfig(
+  recordConfig: RecordOmConfig | undefined,
+  agentConfig: AgentOmConfig | undefined,
+) {
+  return {
+    ...getObservationModelConfig(recordConfig, agentConfig),
+    ...getReflectionModelConfig(recordConfig, agentConfig),
+  };
+}
+
+function getAdaptiveConfig(agentConfig: AgentOmConfig | undefined) {
+  const isAdaptive = allTruthy(
+    agentConfig?.messageTokens !== undefined,
+    typeof agentConfig?.messageTokens !== "number",
+  );
+  if (!isAdaptive) {
+    return { baseMessageTokens: undefined, baseObservationTokens: undefined, totalBudget: 0 };
+  }
+  return {
+    baseMessageTokens: getBaseThresholdValue(agentConfig?.messageTokens, 30_000),
+    baseObservationTokens: getBaseThresholdValue(agentConfig?.observationTokens, 40_000),
+    totalBudget: getThresholdValue(agentConfig?.messageTokens, 30_000),
+  };
+}
+
 export const AgentObservationalMemory = ({
   agentId,
   resourceId,
@@ -383,7 +579,11 @@ export const AgentObservationalMemory = ({
   // streamProgress is intentionally retained across thread switches (for reload
   // display), so scope it to the current thread here — otherwise the bars keep
   // showing (and get "stuck" on) the previous thread's streamed token counts.
-  const liveProgress = streamProgress?.threadId === threadId ? streamProgress : null;
+  const liveProgress = resolveConditional(
+    streamProgress?.threadId === threadId,
+    () => streamProgress,
+    () => null,
+  );
 
   // Get OM config to get thresholds
   const { data: configData } = useMemoryConfig(agentId);
@@ -395,32 +595,15 @@ export const AgentObservationalMemory = ({
     threadId,
   });
 
-  // Check if OM is actively observing/reflecting
-  // The streaming context is the source of truth for active operations.
-  // Server flags (isObserving/isReflecting) can be stale if process crashed mid-operation.
-  // We only use server flags as a fallback when:
-  // 1. lastObservedAt is recent (within 2 minutes), AND
-  // 2. We're on a fresh page load (no stream context yet)
-  const STALE_OBSERVATION_THRESHOLD_MS = 2 * 60 * 1000; // 2 minutes
-  const serverLastObservedAt = statusData?.observationalMemory?.lastObservedAt;
-  const isServerStatusStale = serverLastObservedAt
-    ? Date.now() - new Date(serverLastObservedAt).getTime() > STALE_OBSERVATION_THRESHOLD_MS
-    : true; // If no lastObservedAt, consider it stale
-
-  // Stream context is the primary source of truth
-  // Only fall back to server status if not stale AND no stream activity has been detected yet
-  const hasHadStreamActivity = isObservingFromStream || isReflectingFromStream;
-  const isObservingFromServer =
-    !isServerStatusStale &&
-    !hasHadStreamActivity &&
-    (statusData?.observationalMemory?.isObserving || false);
-  const isReflectingFromServer =
-    !isServerStatusStale &&
-    !hasHadStreamActivity &&
-    (statusData?.observationalMemory?.isReflecting || false);
-  const isObserving = isObservingFromStream || isObservingFromServer;
-  const isReflecting = isReflectingFromStream || isReflectingFromServer;
-  const isOMActive = isObserving || isReflecting;
+  const {
+    isObserving,
+    isReflecting,
+    isActive: isOMActive,
+  } = getActivityStatus({
+    isObservingFromStream,
+    isReflectingFromStream,
+    statusData,
+  });
 
   // Get OM record and history (polls when active)
   const { data: omData, isLoading: isOMLoading } = useObservationalMemory({
@@ -431,8 +614,8 @@ export const AgentObservationalMemory = ({
     threadId,
   });
 
-  const isLoading = isStatusLoading || isOMLoading;
-  const isEnabled = statusData?.observationalMemory?.enabled ?? false;
+  const isLoading = anyTruthy(isStatusLoading, isOMLoading);
+  const isEnabled = Boolean(statusData?.observationalMemory?.enabled);
   const record = omData?.record;
 
   // Extract threshold values - try multiple sources in priority order:
@@ -464,69 +647,12 @@ export const AgentObservationalMemory = ({
         reflectionModelRouting?: { upTo: number; model: string }[];
       };
     }
-  )?.observationalMemory;
-  const recordConfig = record?.config as
-    | {
-        observation?: {
-          messageTokens?: number;
-          model?: string;
-          routing?: { upTo: number; model: string }[];
-        };
-        reflection?: {
-          observationTokens?: number;
-          model?: string;
-          routing?: { upTo: number; model: string }[];
-        };
-        observationModel?: string;
-        reflectionModel?: string;
-        observationModelRouting?: { upTo: number; model: string }[];
-        reflectionModelRouting?: { upTo: number; model: string }[];
-      }
-    | undefined;
-
-  const observationModelRouting =
-    recordConfig?.observationModelRouting ??
-    recordConfig?.observation?.routing ??
-    omAgentConfig?.observationModelRouting ??
-    omAgentConfig?.observation?.routing;
-  const reflectionModelRouting =
-    recordConfig?.reflectionModelRouting ??
-    recordConfig?.reflection?.routing ??
-    omAgentConfig?.reflectionModelRouting ??
-    omAgentConfig?.reflection?.routing;
-
-  // Extract model names from config
-  const observationModel = getModelLabel(
-    recordConfig?.observationModel ??
-      recordConfig?.observation?.model ??
-      omAgentConfig?.observationModel ??
-      omAgentConfig?.model ??
-      omAgentConfig?.observation?.model,
-    observationModelRouting,
-  );
-  const reflectionModel = getModelLabel(
-    recordConfig?.reflectionModel ??
-      recordConfig?.reflection?.model ??
-      omAgentConfig?.reflectionModel ??
-      omAgentConfig?.model ??
-      omAgentConfig?.reflection?.model,
-    reflectionModelRouting,
-  );
-
-  // Check if adaptive mode is enabled (threshold is an object with min/max)
-  const isAdaptiveMode =
-    omAgentConfig?.messageTokens !== undefined && typeof omAgentConfig.messageTokens !== "number";
-
-  // Get total budget for adaptive mode (stored as max in message tokens threshold)
-  const totalBudget = isAdaptiveMode ? getThresholdValue(omAgentConfig?.messageTokens, 30_000) : 0;
-
-  // Base thresholds (configured values, before adaptive adjustment)
-  const baseMessageTokens = isAdaptiveMode
-    ? getBaseThresholdValue(omAgentConfig?.messageTokens, 30_000)
-    : undefined;
-  const baseObservationTokens = isAdaptiveMode
-    ? getBaseThresholdValue(omAgentConfig?.observationTokens, 40_000)
-    : undefined;
+  )?.observationalMemory as AgentOmConfig | undefined;
+  const recordConfig = record?.config as RecordOmConfig | undefined;
+  const { observationModel, observationModelRouting, reflectionModel, reflectionModelRouting } =
+    getModelConfig(recordConfig, omAgentConfig);
+  const { baseMessageTokens, baseObservationTokens, totalBudget } =
+    getAdaptiveConfig(omAgentConfig);
 
   // Priority: streamProgress > recordConfig > agentConfig > defaults.
   // Shared with the timeline panel so both UIs derive identical token counts/thresholds.
@@ -570,7 +696,7 @@ export const AgentObservationalMemory = ({
       <Button
         size="sm"
         className="w-full justify-center gap-2"
-        onClick={() => (isDetailViewOpen ? closeDetailView() : openDetailView())}
+        onClick={() => resolveConditional(isDetailViewOpen, closeDetailView, openDetailView)}
       >
         <Brain className="h-3.5 w-3.5" />
         Analyze Observations

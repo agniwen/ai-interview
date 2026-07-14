@@ -17,41 +17,39 @@ import type { LucideIcon } from "lucide-react";
 
 // Badge colors for different node types
 export const BADGE_COLORS = {
-  sleep: "#A855F7", // Purple
-  forEach: "#F97316", // Orange
-  map: "#F97316", // Orange
-  parallel: "#3B82F6", // Blue
-  suspend: "#EC4899", // Pink
-  after: "#14B8A6", // Teal
-  workflow: "#8B5CF6", // Purple
-  // Condition colors
-  when: "#ECB047", // Orange
-  dountil: "#8B5CF6", // Purple
-  dowhile: "#06B6D4", // Cyan
-  until: "#F59E0B", // Amber
-  while: "#10B981", // Green
-  if: "#3B82F6", // Blue
-  else: "#6B7280", // Gray
+  after: "#14B8A6",
+  dountil: "#8B5CF6",
+  dowhile: "#06B6D4",
+  else: "#6B7280",
+  forEach: "#F97316",
+  if: "#3B82F6",
+  map: "#F97316",
+  parallel: "#3B82F6",
+  sleep: "#A855F7",
+  suspend: "#EC4899",
+  until: "#F59E0B",
+  when: "#ECB047",
+  while: "#10B981",
+  workflow: "#8B5CF6",
 } as const;
 
 // Badge icons for different node types
 export const BADGE_ICONS = {
-  sleep: Timer,
-  sleepUntil: CalendarClock,
-  forEach: List,
-  map: List,
-  parallel: Workflow,
-  suspend: PlayCircle,
   after: Clock,
-  workflow: Layers,
-  // Condition icons
-  when: Network,
   dountil: Repeat1,
   dowhile: Repeat,
-  until: Timer,
-  while: RefreshCw,
-  if: GitBranch,
   else: CornerDownRight,
+  forEach: List,
+  if: GitBranch,
+  map: List,
+  parallel: Workflow,
+  sleep: Timer,
+  sleepUntil: CalendarClock,
+  suspend: PlayCircle,
+  until: Timer,
+  when: Network,
+  while: RefreshCw,
+  workflow: Layers,
 } as const;
 
 export interface ConditionIconConfig {
@@ -103,7 +101,7 @@ export const getNodeBadgeInfo = (data: {
   mapConfig?: string;
   canSuspend?: boolean;
   isParallel?: boolean;
-  stepGraph?: any;
+  stepGraph?: unknown;
 }): NodeBadgeInfo => {
   const isSleepNode = Boolean(data.duration || data.date);
   const isForEachNode = Boolean(data.isForEach);

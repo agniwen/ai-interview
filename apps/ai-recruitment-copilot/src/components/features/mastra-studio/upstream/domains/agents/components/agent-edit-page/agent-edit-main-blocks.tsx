@@ -2,9 +2,9 @@ import { Blocks } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
 import { Controller } from "react-hook-form";
 
-import { AgentCMSBlocks } from "../agent-cms-blocks";
+import { AgentCMSBlocks } from "../agent-cms-blocks/agent-cms-blocks";
 import type { AgentFormValues } from "./utils/form-validation";
-import { SectionHeader } from "@/components/features/mastra-studio/upstream/domains/cms";
+import { SectionHeader } from "@/components/features/mastra-studio/upstream/domains/cms/components/section/section-header";
 
 interface AgentEditMainProps {
   form: UseFormReturn<AgentFormValues>;

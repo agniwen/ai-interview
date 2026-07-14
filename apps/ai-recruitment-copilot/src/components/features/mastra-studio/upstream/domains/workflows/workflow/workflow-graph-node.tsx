@@ -66,7 +66,7 @@ const WorkflowStepCard = ({
       isSelected={isSelected}
       isWaiting={isWaiting}
       isHovered={isHovered}
-      onHoverChange={(isHovered) => setHoverStepId(isHovered ? stepKey : null)}
+      onHoverChange={(hovered) => setHoverStepId(hovered ? stepKey : null)}
       duration={data.duration}
       date={data.date}
       isForEach={data.isForEach}

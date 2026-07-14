@@ -2,6 +2,15 @@ import { AlertDialog } from "@mastra/playground-ui/components/AlertDialog";
 import { Button } from "@mastra/playground-ui/components/Button";
 import { CopyButton } from "@mastra/playground-ui/components/CopyButton";
 import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@mastra/playground-ui/components/Dialog";
+import { Input } from "@mastra/playground-ui/components/Input";
+import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -198,7 +207,8 @@ function getErrorMessage(error: Error): string {
   const jsonStart = message.lastIndexOf(" - {");
   if (jsonStart !== -1) {
     try {
-      const jsonStr = message.slice(jsonStart + 3); // Skip " - "
+      // Skip " - "
+      const jsonStr = message.slice(jsonStart + 3);
       const parsed = JSON.parse(jsonStr);
       if (parsed.error) {
         return parsed.error;
@@ -264,6 +274,71 @@ function Breadcrumb({ path, onNavigate }: BreadcrumbProps) {
   );
 }
 
+function FileListState({
+  children,
+  error,
+  isLoading,
+  isRoot,
+  isEmpty,
+}: {
+  children: React.ReactNode;
+  error?: Error | null;
+  isEmpty: boolean;
+  isLoading: boolean;
+  isRoot: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-neutral3" />
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="py-12 px-4 text-center">
+        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-500/10 mb-4">
+          <AlertCircle className="h-6 w-6 text-red-400" />
+        </div>
+        <p className="text-sm text-neutral6 font-medium mb-1">Failed to load directory</p>
+        <p className="text-xs text-neutral4 max-w-sm mx-auto">{getErrorMessage(error)}</p>
+      </div>
+    );
+  }
+  if (isEmpty) {
+    return (
+      <div className="py-12 text-center text-neutral4 text-sm">
+        {isRoot ? "Workspace is empty" : "Directory is empty"}
+      </div>
+    );
+  }
+  return children;
+}
+
+function MountBadge({ entry }: { entry: FileEntry }) {
+  const mountLabel = entry.mount?.displayName || entry.mount?.provider;
+  if (!entry.mount || !mountLabel) {
+    return null;
+  }
+  const isError = entry.mount.status === "error";
+  const badge = (
+    <span
+      className={`text-xs px-1.5 py-0.5 rounded ${isError ? "text-red-400 bg-red-400/10" : "text-neutral3 bg-surface4"}`}
+    >
+      {mountLabel}
+    </span>
+  );
+  if (!entry.mount.description) {
+    return badge;
+  }
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{badge}</TooltipTrigger>
+      <TooltipContent>{entry.mount.description}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 // =============================================================================
 // File Browser Component
 // =============================================================================
@@ -283,6 +358,8 @@ export function FileBrowser({
   isDeleting,
 }: FileBrowserProps) {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [isCreateDirectoryOpen, setIsCreateDirectoryOpen] = useState(false);
+  const [newDirectoryName, setNewDirectoryName] = useState("");
 
   // Sort entries: directories first, then alphabetically
   const sortedEntries = [...entries].toSorted((a, b) => {
@@ -334,13 +411,7 @@ export function FileBrowser({
               size="md"
               disabled={isCreatingDirectory}
               aria-label="Create directory"
-              onClick={() => {
-                const name = prompt("Directory name:");
-                if (name) {
-                  const fullPath = isRoot ? name : `${currentPath}/${name}`;
-                  void onCreateDirectory(fullPath);
-                }
-              }}
+              onClick={() => setIsCreateDirectoryOpen(true)}
             >
               {isCreatingDirectory ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -359,23 +430,12 @@ export function FileBrowser({
 
       {/* File List */}
       <div className="max-h-[400px] overflow-auto">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-neutral3" />
-          </div>
-        ) : error ? (
-          <div className="py-12 px-4 text-center">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-500/10 mb-4">
-              <AlertCircle className="h-6 w-6 text-red-400" />
-            </div>
-            <p className="text-sm text-neutral6 font-medium mb-1">Failed to load directory</p>
-            <p className="text-xs text-neutral4 max-w-sm mx-auto">{getErrorMessage(error)}</p>
-          </div>
-        ) : sortedEntries.length === 0 ? (
-          <div className="py-12 text-center text-neutral4 text-sm">
-            {isRoot ? "Workspace is empty" : "Directory is empty"}
-          </div>
-        ) : (
+        <FileListState
+          error={error}
+          isEmpty={sortedEntries.length === 0}
+          isLoading={isLoading}
+          isRoot={isRoot}
+        >
           <TooltipProvider>
             <ul>
               {/* Parent directory link */}
@@ -394,7 +454,6 @@ export function FileBrowser({
                 </li>
               )}
               {sortedEntries.map((entry) => {
-                const mountLabel = entry.mount?.displayName || entry.mount?.provider;
                 const isError = entry.mount?.status === "error";
 
                 return (
@@ -410,7 +469,7 @@ export function FileBrowser({
                         {entry.mount && isError && (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <span tabIndex={0} className="flex items-center">
+                              <span className="flex items-center">
                                 <AlertCircle className="h-4 w-4 text-red-400" />
                               </span>
                             </TooltipTrigger>
@@ -420,27 +479,7 @@ export function FileBrowser({
                             </TooltipContent>
                           </Tooltip>
                         )}
-                        {entry.mount &&
-                          mountLabel &&
-                          (entry.mount.description ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span
-                                  tabIndex={0}
-                                  className={`text-xs px-1.5 py-0.5 rounded ${isError ? "text-red-400 bg-red-400/10" : "text-neutral3 bg-surface4"}`}
-                                >
-                                  {mountLabel}
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent>{entry.mount.description}</TooltipContent>
-                            </Tooltip>
-                          ) : (
-                            <span
-                              className={`text-xs px-1.5 py-0.5 rounded ${isError ? "text-red-400 bg-red-400/10" : "text-neutral3 bg-surface4"}`}
-                            >
-                              {mountLabel}
-                            </span>
-                          ))}
+                        <MountBadge entry={entry} />
                         {entry.type === "file" && entry.size !== undefined && (
                           <span className="text-xs text-neutral3 tabular-nums">
                             {formatBytes(entry.size)}
@@ -462,7 +501,7 @@ export function FileBrowser({
               })}
             </ul>
           </TooltipProvider>
-        )}
+        </FileListState>
       </div>
 
       {/* Delete Confirmation */}
@@ -497,6 +536,43 @@ export function FileBrowser({
           </AlertDialog.Footer>
         </AlertDialog.Content>
       </AlertDialog>
+      <Dialog open={isCreateDirectoryOpen} onOpenChange={setIsCreateDirectoryOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create directory</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            <Input
+              aria-label="Directory name"
+              autoFocus
+              placeholder="Directory name"
+              value={newDirectoryName}
+              onChange={(event) => setNewDirectoryName(event.target.value)}
+            />
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="default" onClick={() => setIsCreateDirectoryOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              disabled={!newDirectoryName.trim() || isCreatingDirectory}
+              onClick={async () => {
+                if (!onCreateDirectory) {
+                  return;
+                }
+                const name = newDirectoryName.trim();
+                const fullPath = isRoot ? name : `${currentPath}/${name}`;
+                await onCreateDirectory(fullPath);
+                setNewDirectoryName("");
+                setIsCreateDirectoryOpen(false);
+              }}
+            >
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -584,6 +660,50 @@ export interface FileViewerProps {
   onClose?: () => void;
 }
 
+function FileViewerContent({
+  content,
+  fileName,
+  isImage,
+  isLoading,
+  language,
+  mimeType,
+}: {
+  content: string;
+  fileName: string;
+  isImage: boolean;
+  isLoading: boolean;
+  language: string | null;
+  mimeType?: string;
+}) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-neutral3" />
+      </div>
+    );
+  }
+  if (isImage) {
+    return (
+      <div className="p-4 flex items-center justify-center">
+        <object
+          aria-label={fileName}
+          data={`data:${mimeType || "image/png"};base64,${btoa(content)}`}
+          type={mimeType || "image/png"}
+          className="max-w-full max-h-[400px] object-contain"
+        />
+      </div>
+    );
+  }
+  if (language) {
+    return <HighlightedCode content={content} language={language} />;
+  }
+  return (
+    <pre className="p-4 text-sm text-neutral5 whitespace-pre-wrap font-mono overflow-x-auto">
+      {content}
+    </pre>
+  );
+}
+
 export function FileViewer({ path, content, isLoading, mimeType, onClose }: FileViewerProps) {
   const fileName = path.split("/").pop() || path;
   const ext = fileName.split(".").pop()?.toLowerCase();
@@ -612,25 +732,14 @@ export function FileViewer({ path, content, isLoading, mimeType, onClose }: File
 
       {/* Content */}
       <div className="max-h-[500px] overflow-auto h-full" style={{ backgroundColor: "black" }}>
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-neutral3" />
-          </div>
-        ) : isImage ? (
-          <div className="p-4 flex items-center justify-center">
-            <img
-              src={`data:${mimeType || "image/png"};base64,${btoa(content)}`}
-              alt={fileName}
-              className="max-w-full max-h-[400px] object-contain"
-            />
-          </div>
-        ) : language ? (
-          <HighlightedCode content={content} language={language} />
-        ) : (
-          <pre className="p-4 text-sm text-neutral5 whitespace-pre-wrap font-mono overflow-x-auto">
-            {content}
-          </pre>
-        )}
+        <FileViewerContent
+          content={content}
+          fileName={fileName}
+          isImage={isImage}
+          isLoading={isLoading}
+          language={language}
+          mimeType={mimeType}
+        />
       </div>
     </div>
   );

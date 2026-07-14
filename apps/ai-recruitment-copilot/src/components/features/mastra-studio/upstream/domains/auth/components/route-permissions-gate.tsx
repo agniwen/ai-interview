@@ -37,6 +37,28 @@ export interface RoutePermissionsGateProps {
   baseUrl: string;
 }
 
+interface GateInvalidBaseUrlProps {
+  error: Error;
+  baseUrl: string;
+}
+
+const GateInvalidBaseUrl = ({ error, baseUrl }: GateInvalidBaseUrlProps) => {
+  const messages = [
+    `Studio could not reach the ARC Mastra server at ${baseUrl}. Check that the integrated server is running.`,
+    `Error: ${error.message}`,
+  ];
+
+  return (
+    <div className="flex h-full w-full items-center justify-center">
+      <ErrorState
+        title="Failed to load studio"
+        message={messages.join("\n\n")}
+        action={<Button onClick={() => window.location.reload()}>Refresh</Button>}
+      />
+    </div>
+  );
+};
+
 export function RoutePermissionsGate({ children, baseUrl }: RoutePermissionsGateProps) {
   const { patterns, isLoading, error } = usePermissionPatterns();
 
@@ -67,25 +89,3 @@ export function RoutePermissionsGate({ children, baseUrl }: RoutePermissionsGate
 
   return <>{children}</>;
 }
-
-interface GateInvalidBaseUrlProps {
-  error: Error;
-  baseUrl: string;
-}
-
-const GateInvalidBaseUrl = ({ error, baseUrl }: GateInvalidBaseUrlProps) => {
-  const messages = [
-    `Studio could not reach the ARC Mastra server at ${baseUrl}. Check that the integrated server is running.`,
-    `Error: ${error.message}`,
-  ];
-
-  return (
-    <div className="flex h-full w-full items-center justify-center">
-      <ErrorState
-        title="Failed to load studio"
-        message={messages.join("\n\n")}
-        action={<Button onClick={() => window.location.reload()}>Refresh</Button>}
-      />
-    </div>
-  );
-};

@@ -26,7 +26,7 @@ export function useCopySkill() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (params: CopySkillParams): Promise<StoredSkillResponse> => {
+    mutationFn: (params: CopySkillParams): Promise<StoredSkillResponse> => {
       const { source, name } = params;
       const description = params.description ?? source.description ?? "";
 
@@ -38,17 +38,19 @@ export function useCopySkill() {
       };
 
       return client.createStoredSkill({
-        name,
         description,
-        visibility: "private",
+        ...(source.files === null || source.files === undefined ? {} : { files: source.files }),
         instructions: source.instructions,
-        // Optional fields may come back as null from the source; the create
-        // schema only accepts an object/array or omitted, so drop nulls.
-        ...(source.license != null ? { license: source.license } : {}),
-        ...(source.files != null ? { files: source.files } : {}),
+        ...(source.license === null || source.license === undefined
+          ? {}
+          : { license: source.license }),
         metadata: {
           origin: { ...origin, copiedAt: new Date().toISOString() },
         },
+        name,
+        // Optional fields may come back as null from the source; the create
+        // schema only accepts an object/array or omitted, so drop nulls.
+        visibility: "private",
       });
     },
     onError: (error) => {

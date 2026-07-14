@@ -12,6 +12,25 @@ interface ProviderLogoProps {
   style?: CSSProperties;
 }
 
+function getFallbackProviderIcon(id: string): string {
+  const iconMap: Record<string, string> = {
+    anthropic: "anthropic.messages",
+    deepseek: "deepseek",
+    fireworks_ai: "fireworks",
+    google: "GOOGLE",
+    groq: "GROQ",
+    mastra: "mastra",
+    mistral: "mistral",
+    netlify: "netlify",
+    openai: "openai.chat",
+    openrouter: "openrouter",
+    perplexity: "perplexity",
+    together: "together",
+    xai: "X_GROK",
+  };
+  return iconMap[id] || "DEFAULT";
+}
+
 /**
  * Component to display provider logos from models.dev
  * Falls back to local icons if the logo fails to load
@@ -30,26 +49,6 @@ export const ProviderLogo = ({
   // Clean up provider ID for models.dev (remove special characters like slashes)
   const cleanProviderId = cleanedProviderId.replaceAll("/", "-").toLowerCase();
 
-  // Get fallback icon from our existing mapping
-  const getFallbackProviderIcon = (id: string): string => {
-    const iconMap: Record<string, string> = {
-      anthropic: "anthropic.messages",
-      deepseek: "deepseek",
-      fireworks_ai: "fireworks",
-      google: "GOOGLE",
-      groq: "GROQ",
-      mastra: "mastra",
-      mistral: "mistral",
-      netlify: "netlify",
-      openai: "openai.chat",
-      openrouter: "openrouter",
-      perplexity: "perplexity",
-      together: "together",
-      xai: "X_GROK",
-    };
-    return iconMap[id] || "DEFAULT";
-  };
-
   const fallbackIcon = getFallbackProviderIcon(cleanedProviderId);
   const isGateway = ["netlify", "mastra"].includes(cleanProviderId);
 
@@ -67,14 +66,11 @@ export const ProviderLogo = ({
   }
 
   return (
-    <img
-      src={`https://models.dev/logos/${cleanProviderId}.svg`}
-      alt={`${providerId} logo`}
+    <svg
       width={size}
       height={size}
       className={cn("shrink-0 dark:brightness-0 dark:invert", className)}
-      onError={() => setImageError(true)}
-      loading="lazy"
+      viewBox={`0 0 ${size} ${size}`}
       style={{
         height: `${size}px`,
         minHeight: `${size}px`,
@@ -83,6 +79,14 @@ export const ProviderLogo = ({
         opacity: 0.9,
         width: `${size}px`,
       }}
-    />
+    >
+      <title>{providerId} logo</title>
+      <image
+        height={size}
+        href={`https://models.dev/logos/${cleanProviderId}.svg`}
+        onError={() => setImageError(true)}
+        width={size}
+      />
+    </svg>
   );
 };

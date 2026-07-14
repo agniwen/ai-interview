@@ -27,12 +27,12 @@ export function useCreateSkillTool({ availableWorkspaces = [] }: UseCreateSkillT
     const workspaceIds = availableWorkspaces.map((w) => w.id);
     const hasWorkspaces = workspaceIds.length > 0;
 
-    const workspaceField =
-      workspaceIds.length > 1
-        ? z.enum(workspaceIds as [string, ...string[]])
-        : hasWorkspaces
-          ? z.enum(workspaceIds as [string, ...string[]]).optional()
-          : z.string().optional();
+    let workspaceField: z.ZodType<string | undefined> = z.string().optional();
+    if (workspaceIds.length > 1) {
+      workspaceField = z.enum(workspaceIds as [string, ...string[]]);
+    } else if (hasWorkspaces) {
+      workspaceField = z.enum(workspaceIds as [string, ...string[]]).optional();
+    }
 
     const inputSchema = z.object({
       description: z.string().min(1),
@@ -54,16 +54,17 @@ export function useCreateSkillTool({ availableWorkspaces = [] }: UseCreateSkillT
         `Provide \`name\`, \`description\`, and \`instructions\` (markdown body for SKILL.md). ` +
         `Optionally provide \`workspaceId\` (required when more than one workspace is available) and \`visibility\` (defaults to "private"). ` +
         `On success the new skill is added to the agent's selected skills.${workspacesBlock}`,
-      execute: async (inputData: any) => {
-        const { name, description, instructions, visibility } = inputData ?? {};
+      execute: async (inputData: unknown) => {
+        const parsedInput = inputSchema.parse(inputData);
+        const { description, instructions, name, visibility } = parsedInput;
 
         let workspaceId: string | undefined =
-          typeof inputData?.workspaceId === "string" && inputData.workspaceId.length > 0
-            ? inputData.workspaceId
+          typeof parsedInput.workspaceId === "string" && parsedInput.workspaceId.length > 0
+            ? parsedInput.workspaceId
             : undefined;
 
         if (!workspaceId && availableWorkspaces.length === 1) {
-          workspaceId = availableWorkspaces[0].id;
+          workspaceId = availableWorkspaces[0]?.id;
         }
 
         if (!workspaceId) {

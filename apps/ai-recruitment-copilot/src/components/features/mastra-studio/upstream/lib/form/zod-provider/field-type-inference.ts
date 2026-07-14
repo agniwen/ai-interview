@@ -8,7 +8,40 @@ import {
   getLiteralValue,
 } from "./compat";
 
-export function inferFieldType(schema: any, fieldConfig?: FieldConfig): string {
+const STANDARD_FIELD_TYPES: Record<string, string> = {
+  ZodArray: "array",
+  ZodBoolean: "boolean",
+  ZodDiscriminatedUnion: "discriminated-union",
+  ZodEnum: "select",
+  ZodIntersection: "object",
+  ZodNativeEnum: "select",
+  ZodNumber: "number",
+  ZodObject: "object",
+  ZodRecord: "record",
+};
+
+function isLiteralSchema(value: unknown) {
+  const constructorName =
+    value && typeof value === "object" ? value.constructor.name.slice(1) : undefined;
+  const def = getDef(value);
+  return (
+    constructorName === "ZodLiteral" || def?.typeName === "ZodLiteral" || def?.type === "literal"
+  );
+}
+
+function inferUnionType(schema: unknown) {
+  const options = getUnionOptions(schema);
+  if (!options) {
+    return "union";
+  }
+  const hasLiteral = options.every((option: unknown) => {
+    const shape = getShape(option);
+    return shape ? Object.values(shape).some(isLiteralSchema) : false;
+  });
+  return hasLiteral ? "discriminated-union" : "union";
+}
+
+export function inferFieldType(schema: unknown, fieldConfig?: FieldConfig): string {
   if (fieldConfig?.fieldType) {
     return fieldConfig.fieldType;
   }
@@ -20,19 +53,12 @@ export function inferFieldType(schema: any, fieldConfig?: FieldConfig): string {
     typeof def?.type === "string"
       ? `Zod${def.type.charAt(0).toUpperCase()}${def.type.slice(1)}`
       : undefined;
-  const typeName = def?.typeName ?? v4Type ?? constructorName;
+  const rawTypeName = def?.typeName ?? v4Type ?? constructorName;
+  const typeName = typeof rawTypeName === "string" ? rawTypeName : undefined;
 
-  if (typeName === "ZodObject") {
-    return "object";
-  }
-  if (typeName === "ZodIntersection") {
-    return "object";
-  }
-  if (typeName === "ZodNumber") {
-    return "number";
-  }
-  if (typeName === "ZodBoolean") {
-    return "boolean";
+  const standardType = typeName ? STANDARD_FIELD_TYPES[typeName] : undefined;
+  if (standardType) {
+    return standardType;
   }
 
   if (typeName === "ZodString") {
@@ -43,45 +69,8 @@ export function inferFieldType(schema: any, fieldConfig?: FieldConfig): string {
     return "string";
   }
 
-  if (typeName === "ZodEnum") {
-    return "select";
-  }
-  // ZodNativeEnum is not supported in zod@v4, this makes it backwards compatible with zod@v3
-  if (typeName === "ZodNativeEnum") {
-    return "select";
-  }
-  if (typeName === "ZodArray") {
-    return "array";
-  }
-  if (typeName === "ZodRecord") {
-    return "record";
-  }
-
   if (typeName === "ZodUnion") {
-    const options = getUnionOptions(schema);
-    if (options) {
-      const hasLiteral = options.every((option: any) => {
-        const optShape = getShape(option);
-        if (optShape) {
-          return Object.values(optShape).some((value: any) => {
-            const vName = value?.constructor?.name?.slice(1);
-            const vDef = getDef(value);
-            return (
-              vName === "ZodLiteral" || vDef?.typeName === "ZodLiteral" || vDef?.type === "literal"
-            );
-          });
-        }
-        return false;
-      });
-      if (hasLiteral) {
-        return "discriminated-union";
-      }
-    }
-    return "union";
-  }
-
-  if (typeName === "ZodDiscriminatedUnion") {
-    return "discriminated-union";
+    return inferUnionType(schema);
   }
 
   if (typeName === "ZodLiteral") {
@@ -95,5 +84,6 @@ export function inferFieldType(schema: any, fieldConfig?: FieldConfig): string {
     return "string";
   }
 
-  return "string"; // Default to string for unknown types
+  // Default to string for unknown types.
+  return "string";
 }

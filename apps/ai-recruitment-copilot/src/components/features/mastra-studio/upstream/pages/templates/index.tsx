@@ -16,14 +16,14 @@ export default function Templates() {
   const [selectedProvider, setSelectedProvider] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState<string>("");
 
-  const tagOptions = [{ label: "Any tag", value: "all" }];
-  (tags || []).forEach((tag) => {
-    tagOptions.push({ label: tag, value: tag });
-  });
-  const providerOptions = [{ label: "Any provider", value: "all" }];
-  (providers || []).forEach((provider) => {
-    providerOptions.push({ label: provider, value: provider });
-  });
+  const tagOptions = [
+    { label: "Any tag", value: "all" },
+    ...(tags || []).map((tag) => ({ label: tag, value: tag })),
+  ];
+  const providerOptions = [
+    { label: "Any provider", value: "all" },
+    ...(providers || []).map((provider) => ({ label: provider, value: provider })),
+  ];
 
   const handleFilterChange = (value: string, filter: string) => {
     if (filter === "tag") {

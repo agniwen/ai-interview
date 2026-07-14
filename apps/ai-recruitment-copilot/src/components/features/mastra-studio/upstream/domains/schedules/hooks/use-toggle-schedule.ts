@@ -19,8 +19,8 @@ export const useToggleSchedule = (scheduleId: string | undefined) => {
         throw new Error("scheduleId is required");
       }
       return action === "pause"
-        ? client.pauseSchedule(scheduleId)
-        : client.resumeSchedule(scheduleId);
+        ? await client.pauseSchedule(scheduleId)
+        : await client.resumeSchedule(scheduleId);
     },
     onError: (error) => {
       toast.error(error.message);

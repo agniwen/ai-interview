@@ -37,18 +37,24 @@ export const useToolSelection = () => {
         const { toolkit } = item;
         const { description } = item;
         writeIntegration(item.providerId, (existing) => {
-          const tools = { ...existing.tools };
+          let tools = { ...existing.tools };
           if (next) {
             tools[slug] = { toolkit, ...(description ? { description } : {}) };
           } else {
-            delete tools[slug];
+            tools = Object.fromEntries(
+              Object.entries(tools).filter(([toolSlug]) => toolSlug !== slug),
+            );
           }
           return { ...existing, connections: { ...existing.connections }, tools };
         });
         return;
       }
-      const fieldName =
-        item.type === "agent" ? "agents" : item.type === "workflow" ? "workflows" : "tools";
+      let fieldName: "agents" | "tools" | "workflows" = "tools";
+      if (item.type === "agent") {
+        fieldName = "agents";
+      } else if (item.type === "workflow") {
+        fieldName = "workflows";
+      }
       const current = getValues(fieldName) ?? {};
       setValue(fieldName, { ...current, [item.id]: next }, { shouldDirty: true });
     },

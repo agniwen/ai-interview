@@ -6,7 +6,7 @@ export const useLLMProviders = () => {
   const client = useMastraClient();
 
   return useQuery<ListAgentsModelProvidersResponse>({
-    queryFn: async () => client.listAgentsModelProviders(),
+    queryFn: async () => await client.listAgentsModelProviders(),
     queryKey: ["llm-providers"],
     retry: false,
   });

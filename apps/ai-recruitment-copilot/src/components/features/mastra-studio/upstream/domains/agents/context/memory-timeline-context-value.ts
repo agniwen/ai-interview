@@ -16,9 +16,15 @@ export interface MemoryTimelineContextValue {
 export const MemoryTimelineContext = createContext<MemoryTimelineContextValue | null>(null);
 
 export const NOOP_MEMORY_TIMELINE_VALUE: MemoryTimelineContextValue = {
-  closePanel: () => {},
+  closePanel: () => {
+    /* empty */
+  },
   isPanelOpen: false,
-  openPanel: () => {},
+  openPanel: () => {
+    /* empty */
+  },
   selectedTimestamp: null,
-  setSelectedTimestamp: () => {},
+  setSelectedTimestamp: () => {
+    /* empty */
+  },
 };

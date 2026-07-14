@@ -6,13 +6,13 @@ import { useAgent } from "../hooks/use-agent";
 import { useUpdateAgentModel } from "../hooks/use-agents";
 import { useBuilderModelPolicy } from "@/components/features/mastra-studio/upstream/domains/agent-builder";
 import { useAgentBuilderAllowedModels } from "@/components/features/mastra-studio/upstream/domains/agent-builder/hooks/use-agent-builder-allowed-models";
+import { LLMModels } from "@/components/features/mastra-studio/upstream/domains/llm/components/llm-models";
+import { LLMProviders } from "@/components/features/mastra-studio/upstream/domains/llm/components/llm-providers";
+import { useLLMProviders } from "@/components/features/mastra-studio/upstream/domains/llm/hooks/use-llm-providers";
 import {
-  LLMProviders,
-  LLMModels,
-  useLLMProviders,
   cleanProviderId,
   findProviderById,
-} from "@/components/features/mastra-studio/upstream/domains/llm";
+} from "@/components/features/mastra-studio/upstream/domains/llm/utils";
 
 // Triggers stay transparent; the wrapper owns the shared pill border/background.
 const COMPOSER_TRIGGER_CLASS = [
@@ -88,12 +88,14 @@ export const ComposerModelSwitcher = ({ agentId }: ComposerModelSwitcherProps) =
 
   // Admin locked the picker — surface a non-interactive chip instead.
   if (policy.active && policy.pickerVisible === false) {
+    const lockedProvider = policy.default?.provider;
+    const lockedModel = policy.default?.modelId;
+    const selectedLabel =
+      selectedProvider && selectedModel
+        ? `${selectedProvider}/${selectedModel}`
+        : "Locked by admin";
     const lockedLabel =
-      policy.default && policy.default.provider && policy.default.modelId
-        ? `${policy.default.provider}/${policy.default.modelId}`
-        : selectedProvider && selectedModel
-          ? `${selectedProvider}/${selectedModel}`
-          : "Locked by admin";
+      lockedProvider && lockedModel ? `${lockedProvider}/${lockedModel}` : selectedLabel;
     return (
       <div
         className="flex items-center gap-1.5 rounded-md border border-border1 bg-surface3 px-2 py-1 text-ui-xs text-neutral6"

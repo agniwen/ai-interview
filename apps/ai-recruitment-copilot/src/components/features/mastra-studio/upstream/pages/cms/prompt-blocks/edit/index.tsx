@@ -130,7 +130,7 @@ function CmsPromptBlocksEditForm({
       const versionsResponse = await client
         .getStoredPromptBlock(blockId)
         .listVersions({ orderBy: { direction: "DESC" }, perPage: 1 });
-      const latestVersion = versionsResponse.versions[0];
+      const [latestVersion] = versionsResponse.versions;
       if (!latestVersion) {
         throw new Error("No version found to publish");
       }

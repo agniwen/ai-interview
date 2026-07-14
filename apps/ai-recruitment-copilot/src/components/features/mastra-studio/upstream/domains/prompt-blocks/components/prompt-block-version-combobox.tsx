@@ -24,6 +24,16 @@ export interface PromptBlockVersionComboboxProps {
   activeVersionId?: string;
 }
 
+function getVersionBadge(isPublished: boolean, isDraft: boolean) {
+  if (isPublished) {
+    return <Badge variant="success">Published</Badge>;
+  }
+
+  if (isDraft) {
+    return <Badge variant="info">Draft</Badge>;
+  }
+}
+
 export function PromptBlockVersionCombobox({
   blockId,
   value,
@@ -54,11 +64,7 @@ export function PromptBlockVersionCombobox({
 
       return {
         description: formatTimestamp(version.createdAt),
-        end: isPublished ? (
-          <Badge variant="success">Published</Badge>
-        ) : isDraft ? (
-          <Badge variant="info">Draft</Badge>
-        ) : undefined,
+        end: getVersionBadge(isPublished, isDraft),
         label: `v${version.versionNumber}`,
         value: version.id,
       };

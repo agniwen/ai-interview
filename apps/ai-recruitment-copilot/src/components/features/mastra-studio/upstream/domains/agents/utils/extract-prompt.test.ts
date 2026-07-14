@@ -1,12 +1,10 @@
 import type { AgentInstructions } from "@mastra/core/agent";
 import { describe, expect, it } from "vitest";
-import { extractPrompt } from "./extractPrompt";
+import { extractPrompt } from "./extract-prompt";
 
 describe("extractPrompt", () => {
   it("normalizes string instructions", () => {
-    expect(extractPrompt("  You are a helpful assistant  ")).toBe(
-      "You are a helpful assistant",
-    );
+    expect(extractPrompt("  You are a helpful assistant  ")).toBe("You are a helpful assistant");
   });
 
   it("extracts object instructions", () => {

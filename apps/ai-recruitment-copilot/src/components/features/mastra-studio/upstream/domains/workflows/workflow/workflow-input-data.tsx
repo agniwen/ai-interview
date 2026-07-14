@@ -22,7 +22,7 @@ import type { ZodSchema } from "zod3";
 
 import { WorkflowInputTypeToggle } from "./workflow-input-type-toggle";
 import type { WorkflowInputType } from "./workflow-input-type-toggle";
-import { DynamicForm } from "@/components/features/mastra-studio/upstream/lib/form";
+import { DynamicForm } from "@/components/features/mastra-studio/upstream/lib/form/dynamic-form";
 
 type InputType = WorkflowInputType;
 
@@ -42,10 +42,10 @@ type WorkflowSubmitRowProps = Pick<
 
 export interface WorkflowInputDataProps {
   schema: ZodSchema;
-  defaultValues?: any;
+  defaultValues?: unknown;
   isSubmitLoading: boolean;
   submitButtonLabel: string;
-  onSubmit: (data: any) => void;
+  onSubmit: (data: unknown) => void;
   withoutSubmit?: boolean;
   isReadOnly?: boolean;
   disableSubmit?: boolean;
@@ -65,158 +65,6 @@ export interface WorkflowInputDataProps {
   inputTypeLabel?: string;
   hideHeading?: boolean;
 }
-
-export const WorkflowInputData = ({
-  schema,
-  defaultValues,
-  withoutSubmit,
-  isReadOnly,
-  disableSubmit,
-  isSubmitLoading,
-  submitButtonLabel,
-  onSubmit,
-  children,
-  isProcessorWorkflow,
-  submitActions,
-  leftActions,
-  heading,
-  headingSlot,
-  collapsible = true,
-  headingClassName,
-  submitButtonClassName,
-  submitButtonIcon,
-  submitButtonVariant,
-  submitButtonFullWidth,
-  hideInputTypeLabel,
-  inputTypeLabel = "Run input",
-  hideHeading,
-}: WorkflowInputDataProps) => {
-  const [type, setType] = useState<InputType>(isProcessorWorkflow ? "simple" : "form");
-  const processorInputKey = useMemo(
-    () =>
-      JSON.stringify({
-        message: getDefaultProcessorMessage(defaultValues),
-        phase: getDefaultProcessorPhase(defaultValues),
-      }),
-    [defaultValues],
-  );
-
-  const defaultHeading = (
-    <Txt as="span" variant="ui-md" className={cn("text-neutral5 font-semibold", headingClassName)}>
-      {heading ?? (withoutSubmit ? "Run input" : "Trigger a run")}
-    </Txt>
-  );
-  const inputTypeToggle = (
-    <WorkflowInputTypeToggle
-      value={type}
-      onChange={setType}
-      disabled={isSubmitLoading}
-      includeSimple={isProcessorWorkflow}
-      compact={!collapsible && !hideHeading}
-    />
-  );
-
-  const body = (
-    <>
-      {!hideInputTypeLabel && (
-        <div className="flex justify-between gap-3 py-3 px-5">
-          <Txt as="p" variant="ui-sm" className="text-neutral3">
-            {inputTypeLabel}
-          </Txt>
-          {!collapsible && !hideHeading && <div className="shrink-0">{inputTypeToggle}</div>}
-        </div>
-      )}
-
-      <div className="px-5">
-        {(collapsible || hideHeading || hideInputTypeLabel) && (
-          <div className="pb-4">{inputTypeToggle}</div>
-        )}
-
-        <div
-          className={cn("pb-4", {
-            "opacity-50 pointer-events-none": isSubmitLoading,
-          })}
-        >
-          {type === "simple" && isProcessorWorkflow ? (
-            <WorkflowProcessorInput
-              key={processorInputKey}
-              schema={schema}
-              defaultValues={defaultValues}
-              isSubmitLoading={isSubmitLoading}
-              submitButtonLabel={submitButtonLabel}
-              submitButtonClassName={submitButtonClassName}
-              onSubmit={onSubmit}
-              withoutSubmit={withoutSubmit}
-              isReadOnly={isReadOnly}
-              disableSubmit={disableSubmit}
-              submitActions={submitActions}
-              leftActions={leftActions}
-            >
-              {children}
-            </WorkflowProcessorInput>
-          ) : type === "form" ? (
-            <WorkflowFormInput
-              schema={schema}
-              defaultValues={defaultValues}
-              isSubmitLoading={isSubmitLoading}
-              submitButtonLabel={submitButtonLabel}
-              submitButtonClassName={submitButtonClassName}
-              submitButtonIcon={submitButtonIcon}
-              submitButtonVariant={submitButtonVariant}
-              submitButtonFullWidth={submitButtonFullWidth}
-              onSubmit={onSubmit}
-              withoutSubmit={withoutSubmit}
-              isReadOnly={isReadOnly}
-              disableSubmit={disableSubmit}
-              submitActions={submitActions}
-              leftActions={leftActions}
-            >
-              {children}
-            </WorkflowFormInput>
-          ) : (
-            <WorkflowJsonInput
-              schema={schema}
-              defaultValues={defaultValues}
-              isSubmitLoading={isSubmitLoading}
-              submitButtonLabel={submitButtonLabel}
-              submitButtonClassName={submitButtonClassName}
-              onSubmit={onSubmit}
-              withoutSubmit={withoutSubmit}
-              isReadOnly={isReadOnly}
-              disableSubmit={disableSubmit}
-              submitActions={submitActions}
-              leftActions={leftActions}
-            >
-              {children}
-            </WorkflowJsonInput>
-          )}
-        </div>
-      </div>
-    </>
-  );
-
-  if (!collapsible) {
-    return (
-      <>
-        {!hideHeading && (
-          <div className="border-b border-border1/50 pb-3">{headingSlot ?? defaultHeading}</div>
-        )}
-        <div>{body}</div>
-      </>
-    );
-  }
-
-  return (
-    <Collapsible defaultOpen>
-      <CollapsibleTrigger className="flex w-full items-center gap-2 pb-3 text-left">
-        <ChevronRight className="h-4 w-4 shrink-0 text-neutral3" />
-        {headingSlot ?? defaultHeading}
-      </CollapsibleTrigger>
-
-      <CollapsibleContent>{body}</CollapsibleContent>
-    </Collapsible>
-  );
-};
 
 const WorkflowSubmitRow = ({
   isSubmitLoading,
@@ -318,10 +166,10 @@ const WorkflowJsonInput = ({
 
     try {
       const result = schema.safeParse(JSON.parse(inputData));
-      if (!result.success) {
-        setErrors(result.error.issues.map((e) => `[${e.path.join(".")}] ${e.message}`));
-      } else {
+      if (result.success) {
         onSubmit(result.data);
+      } else {
+        setErrors(result.error.issues.map((e) => `[${e.path.join(".")}] ${e.message}`));
       }
     } catch {
       setErrors(["Invalid JSON provided"]);
@@ -390,15 +238,17 @@ const PROCESSOR_PHASES = [
 const DEFAULT_PROCESSOR_MESSAGE = "Hello, this is a test message.";
 const DEFAULT_PROCESSOR_PHASE = "input";
 
-function getDefaultProcessorMessage(defaultValues: any) {
-  const textPart = defaultValues?.messages?.[0]?.content?.parts?.find(
-    (part: any) => part?.type === "text",
-  );
+function getDefaultProcessorMessage(defaultValues: unknown) {
+  const values = defaultValues as {
+    messages?: { content?: { parts?: { type?: string; text?: unknown }[] } }[];
+  };
+  const textPart = values.messages?.[0]?.content?.parts?.find((part) => part.type === "text");
   return typeof textPart?.text === "string" ? textPart.text : DEFAULT_PROCESSOR_MESSAGE;
 }
 
-function getDefaultProcessorPhase(defaultValues: any) {
-  return typeof defaultValues?.phase === "string" ? defaultValues.phase : DEFAULT_PROCESSOR_PHASE;
+function getDefaultProcessorPhase(defaultValues: unknown) {
+  const phase = (defaultValues as { phase?: unknown } | null)?.phase;
+  return typeof phase === "string" ? phase : DEFAULT_PROCESSOR_PHASE;
 }
 
 const WorkflowProcessorInput = ({
@@ -446,10 +296,10 @@ const WorkflowProcessorInput = ({
 
     try {
       const result = schema.safeParse(data);
-      if (!result.success) {
-        setErrors(result.error.issues.map((e) => `[${e.path.join(".")}] ${e.message}`));
-      } else {
+      if (result.success) {
         onSubmit(result.data);
+      } else {
+        setErrors(result.error.issues.map((e) => `[${e.path.join(".")}] ${e.message}`));
       }
     } catch {
       setErrors(["Error processing input"]);
@@ -474,7 +324,7 @@ const WorkflowProcessorInput = ({
       )}
 
       <div className="space-y-2">
-        <Txt as="label" variant="ui-sm" className="text-neutral3">
+        <Txt as="div" variant="ui-sm" className="text-neutral3">
           Phase
         </Txt>
         <Select value={phase} onValueChange={setPhase} disabled={isReadOnly}>
@@ -499,6 +349,7 @@ const WorkflowProcessorInput = ({
           Test Message
         </Txt>
         <textarea
+          aria-label="Test Message"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Enter a test message..."
@@ -524,5 +375,180 @@ const WorkflowProcessorInput = ({
         />
       )}
     </div>
+  );
+};
+
+function WorkflowInputControl({
+  children,
+  defaultValues,
+  disableSubmit,
+  isProcessorWorkflow,
+  isReadOnly,
+  isSubmitLoading,
+  leftActions,
+  onSubmit,
+  processorInputKey,
+  schema,
+  submitActions,
+  submitButtonClassName,
+  submitButtonFullWidth,
+  submitButtonIcon,
+  submitButtonLabel,
+  submitButtonVariant,
+  type,
+  withoutSubmit,
+}: WorkflowInputDataProps & { processorInputKey: string; type: InputType }) {
+  const sharedProps = {
+    defaultValues,
+    disableSubmit,
+    isReadOnly,
+    isSubmitLoading,
+    leftActions,
+    onSubmit,
+    schema,
+    submitActions,
+    submitButtonClassName,
+    submitButtonLabel,
+    withoutSubmit,
+  };
+  if (type === "simple" && isProcessorWorkflow) {
+    return (
+      <WorkflowProcessorInput key={processorInputKey} {...sharedProps}>
+        {children}
+      </WorkflowProcessorInput>
+    );
+  }
+  if (type === "form") {
+    return (
+      <WorkflowFormInput
+        {...sharedProps}
+        submitButtonFullWidth={submitButtonFullWidth}
+        submitButtonIcon={submitButtonIcon}
+        submitButtonVariant={submitButtonVariant}
+      >
+        {children}
+      </WorkflowFormInput>
+    );
+  }
+  return <WorkflowJsonInput {...sharedProps}>{children}</WorkflowJsonInput>;
+}
+
+export const WorkflowInputData = ({
+  schema,
+  defaultValues,
+  withoutSubmit,
+  isReadOnly,
+  disableSubmit,
+  isSubmitLoading,
+  submitButtonLabel,
+  onSubmit,
+  children,
+  isProcessorWorkflow,
+  submitActions,
+  leftActions,
+  heading,
+  headingSlot,
+  collapsible = true,
+  headingClassName,
+  submitButtonClassName,
+  submitButtonIcon,
+  submitButtonVariant,
+  submitButtonFullWidth,
+  hideInputTypeLabel,
+  inputTypeLabel = "Run input",
+  hideHeading,
+}: WorkflowInputDataProps) => {
+  const [type, setType] = useState<InputType>(isProcessorWorkflow ? "simple" : "form");
+  const processorInputKey = useMemo(
+    () =>
+      JSON.stringify({
+        message: getDefaultProcessorMessage(defaultValues),
+        phase: getDefaultProcessorPhase(defaultValues),
+      }),
+    [defaultValues],
+  );
+
+  const defaultHeading = (
+    <Txt as="span" variant="ui-md" className={cn("text-neutral5 font-semibold", headingClassName)}>
+      {heading ?? (withoutSubmit ? "Run input" : "Trigger a run")}
+    </Txt>
+  );
+  const inputTypeToggle = (
+    <WorkflowInputTypeToggle
+      value={type}
+      onChange={setType}
+      disabled={isSubmitLoading}
+      includeSimple={isProcessorWorkflow}
+      compact={!collapsible && !hideHeading}
+    />
+  );
+
+  const body = (
+    <>
+      {!hideInputTypeLabel && (
+        <div className="flex justify-between gap-3 py-3 px-5">
+          <Txt as="p" variant="ui-sm" className="text-neutral3">
+            {inputTypeLabel}
+          </Txt>
+          {!collapsible && !hideHeading && <div className="shrink-0">{inputTypeToggle}</div>}
+        </div>
+      )}
+
+      <div className="px-5">
+        {(collapsible || hideHeading || hideInputTypeLabel) && (
+          <div className="pb-4">{inputTypeToggle}</div>
+        )}
+
+        <div
+          className={cn("pb-4", {
+            "opacity-50 pointer-events-none": isSubmitLoading,
+          })}
+        >
+          <WorkflowInputControl
+            defaultValues={defaultValues}
+            disableSubmit={disableSubmit}
+            isProcessorWorkflow={isProcessorWorkflow}
+            isReadOnly={isReadOnly}
+            isSubmitLoading={isSubmitLoading}
+            leftActions={leftActions}
+            onSubmit={onSubmit}
+            processorInputKey={processorInputKey}
+            schema={schema}
+            submitActions={submitActions}
+            submitButtonClassName={submitButtonClassName}
+            submitButtonFullWidth={submitButtonFullWidth}
+            submitButtonIcon={submitButtonIcon}
+            submitButtonLabel={submitButtonLabel}
+            submitButtonVariant={submitButtonVariant}
+            type={type}
+            withoutSubmit={withoutSubmit}
+          >
+            {children}
+          </WorkflowInputControl>
+        </div>
+      </div>
+    </>
+  );
+
+  if (!collapsible) {
+    return (
+      <>
+        {!hideHeading && (
+          <div className="border-b border-border1/50 pb-3">{headingSlot ?? defaultHeading}</div>
+        )}
+        <div>{body}</div>
+      </>
+    );
+  }
+
+  return (
+    <Collapsible defaultOpen>
+      <CollapsibleTrigger className="flex w-full items-center gap-2 pb-3 text-left">
+        <ChevronRight className="h-4 w-4 shrink-0 text-neutral3" />
+        {headingSlot ?? defaultHeading}
+      </CollapsibleTrigger>
+
+      <CollapsibleContent>{body}</CollapsibleContent>
+    </Collapsible>
   );
 };

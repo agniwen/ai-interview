@@ -16,6 +16,88 @@ interface ScoresOverTimeCardProps {
   isError: boolean;
 }
 
+interface ScoresCardContentProps {
+  hasData: boolean;
+  isError: boolean;
+  isLoading: boolean;
+  overTimeData: ScoresOverTimePoint[];
+  series: {
+    aggregate: (points: Record<string, unknown>[]) => { suffix: string; value: string };
+    color: string;
+    dataKey: string;
+    label: string;
+  }[];
+  summaryData: ScorerSummary[];
+}
+
+function ScoresCardContent({
+  hasData,
+  isError,
+  isLoading,
+  overTimeData,
+  series,
+  summaryData,
+}: ScoresCardContentProps) {
+  if (isLoading) {
+    return <MetricsCard.Loading />;
+  }
+  if (isError) {
+    return <MetricsCard.Error message="Failed to load scores data" />;
+  }
+  if (!hasData) {
+    return (
+      <MetricsCard.Content>
+        <MetricsCard.NoData message="No scores data yet" />
+      </MetricsCard.Content>
+    );
+  }
+
+  return (
+    <MetricsCard.Content>
+      <Tabs defaultTab="over-time" className="overflow-visible">
+        <TabList>
+          <Tab value="over-time">Over Time</Tab>
+          <Tab value="summary">Summary</Tab>
+        </TabList>
+        <TabContent value="over-time">
+          {overTimeData.length > 0 ? (
+            <MetricsLineChart data={overTimeData} series={series} yDomain={[0, 1]} />
+          ) : (
+            <MetricsCard.NoData message="No time series data yet" />
+          )}
+        </TabContent>
+        <TabContent value="summary">
+          <DataList
+            columns="auto auto auto auto auto"
+            className="max-h-80"
+            mask={{ left: false }}
+            stickyHeaderBackground="tinted"
+          >
+            <DataList.Top>
+              <DataList.TopCell sticky="start">Scorer</DataList.TopCell>
+              <DataList.TopCell className="justify-end text-right">Avg</DataList.TopCell>
+              <DataList.TopCell className="justify-end text-right">Min</DataList.TopCell>
+              <DataList.TopCell className="justify-end text-right">Max</DataList.TopCell>
+              <DataList.TopCell className="justify-end text-right">Count</DataList.TopCell>
+            </DataList.Top>
+            {summaryData.map((row) => (
+              <DataList.RowStatic key={row.scorer}>
+                <DataList.RowHeaderCell height="compact" className="text-ui-sm">
+                  {row.scorer}
+                </DataList.RowHeaderCell>
+                <DataList.NumberCell highlight>{row.avg.toFixed(2)}</DataList.NumberCell>
+                <DataList.NumberCell>{row.min.toFixed(2)}</DataList.NumberCell>
+                <DataList.NumberCell>{row.max.toFixed(2)}</DataList.NumberCell>
+                <DataList.NumberCell>{row.count.toLocaleString()}</DataList.NumberCell>
+              </DataList.RowStatic>
+            ))}
+          </DataList>
+        </TabContent>
+      </Tabs>
+    </MetricsCard.Content>
+  );
+}
+
 export function ScoresOverTimeCard({
   summaryData,
   overTimeData,
@@ -54,63 +136,19 @@ export function ScoresOverTimeCard({
         />
         {hasData && (
           <MetricsCard.Summary
-            value={avgScore != null ? `avg ${avgScore}` : "—"}
+            value={avgScore === null ? "—" : `avg ${avgScore}`}
             label="Across all scorers"
           />
         )}
       </MetricsCard.TopBar>
-      {isLoading ? (
-        <MetricsCard.Loading />
-      ) : isError ? (
-        <MetricsCard.Error message="Failed to load scores data" />
-      ) : (
-        <MetricsCard.Content>
-          {!hasData ? (
-            <MetricsCard.NoData message="No scores data yet" />
-          ) : (
-            <Tabs defaultTab="over-time" className="overflow-visible">
-              <TabList>
-                <Tab value="over-time">Over Time</Tab>
-                <Tab value="summary">Summary</Tab>
-              </TabList>
-              <TabContent value="over-time">
-                {overTimeData.length > 0 ? (
-                  <MetricsLineChart data={overTimeData} series={series} yDomain={[0, 1]} />
-                ) : (
-                  <MetricsCard.NoData message="No time series data yet" />
-                )}
-              </TabContent>
-              <TabContent value="summary">
-                <DataList
-                  columns="auto auto auto auto auto"
-                  className="max-h-80"
-                  mask={{ left: false }}
-                  stickyHeaderBackground="tinted"
-                >
-                  <DataList.Top>
-                    <DataList.TopCell sticky="start">Scorer</DataList.TopCell>
-                    <DataList.TopCell className="justify-end text-right">Avg</DataList.TopCell>
-                    <DataList.TopCell className="justify-end text-right">Min</DataList.TopCell>
-                    <DataList.TopCell className="justify-end text-right">Max</DataList.TopCell>
-                    <DataList.TopCell className="justify-end text-right">Count</DataList.TopCell>
-                  </DataList.Top>
-                  {summaryData.map((row) => (
-                    <DataList.RowStatic key={row.scorer}>
-                      <DataList.RowHeaderCell height="compact" className="text-ui-sm">
-                        {row.scorer}
-                      </DataList.RowHeaderCell>
-                      <DataList.NumberCell highlight>{row.avg.toFixed(2)}</DataList.NumberCell>
-                      <DataList.NumberCell>{row.min.toFixed(2)}</DataList.NumberCell>
-                      <DataList.NumberCell>{row.max.toFixed(2)}</DataList.NumberCell>
-                      <DataList.NumberCell>{row.count.toLocaleString()}</DataList.NumberCell>
-                    </DataList.RowStatic>
-                  ))}
-                </DataList>
-              </TabContent>
-            </Tabs>
-          )}
-        </MetricsCard.Content>
-      )}
+      <ScoresCardContent
+        hasData={hasData}
+        isError={isError}
+        isLoading={isLoading}
+        overTimeData={overTimeData}
+        series={series}
+        summaryData={summaryData}
+      />
     </MetricsCard>
   );
 }

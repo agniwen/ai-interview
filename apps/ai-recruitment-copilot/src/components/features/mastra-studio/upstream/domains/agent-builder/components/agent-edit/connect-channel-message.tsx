@@ -31,6 +31,69 @@ export function ConnectChannelMessage({ platformId, agentId }: ConnectChannelMes
     connect(agentId);
   };
 
+  let statusBadge = null;
+  if (platform.isConfigured) {
+    if (installation) {
+      statusBadge = (
+        <StatusBadge variant="success" size="sm">
+          Connected
+        </StatusBadge>
+      );
+    }
+  } else {
+    statusBadge = (
+      <StatusBadge variant="warning" size="sm">
+        Not configured
+      </StatusBadge>
+    );
+  }
+
+  let actionButton;
+  if (platform.isConfigured) {
+    if (installation) {
+      actionButton = (
+        <Button
+          size="sm"
+          variant="default"
+          onClick={() => setDialogOpen(true)}
+          data-testid={`agent-builder-chat-connect-channel-${platformId}-button`}
+        >
+          Manage
+        </Button>
+      );
+    } else {
+      let connectLabel = `Connect ${platform.name}`;
+      if (platformId === "slack") {
+        connectLabel = "Continue with Slack";
+      }
+      if (isConnecting) {
+        connectLabel = "Connecting…";
+      }
+      actionButton = (
+        <Button
+          size="sm"
+          variant="default"
+          onClick={handleConnect}
+          disabled={isConnecting}
+          data-testid={`agent-builder-chat-connect-channel-${platformId}-button`}
+        >
+          {connectLabel}
+        </Button>
+      );
+    }
+  } else {
+    actionButton = (
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled
+        data-testid={`agent-builder-chat-connect-channel-${platformId}-button`}
+      >
+        Not configured
+      </Button>
+    );
+  }
+
   return (
     <>
       <div
@@ -41,49 +104,8 @@ export function ConnectChannelMessage({ platformId, agentId }: ConnectChannelMes
         <Txt variant="ui-md" className="flex-1 text-neutral4" as="div">
           {platform.name}
         </Txt>
-        {!platform.isConfigured ? (
-          <StatusBadge variant="warning" size="sm">
-            Not configured
-          </StatusBadge>
-        ) : installation ? (
-          <StatusBadge variant="success" size="sm">
-            Connected
-          </StatusBadge>
-        ) : null}
-
-        {!platform.isConfigured ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled
-            data-testid={`agent-builder-chat-connect-channel-${platformId}-button`}
-          >
-            Not configured
-          </Button>
-        ) : installation ? (
-          <Button
-            size="sm"
-            variant="default"
-            onClick={() => setDialogOpen(true)}
-            data-testid={`agent-builder-chat-connect-channel-${platformId}-button`}
-          >
-            Manage
-          </Button>
-        ) : (
-          <Button
-            size="sm"
-            variant="default"
-            onClick={handleConnect}
-            disabled={isConnecting}
-            data-testid={`agent-builder-chat-connect-channel-${platformId}-button`}
-          >
-            {isConnecting
-              ? "Connecting…"
-              : platformId === "slack"
-                ? "Continue with Slack"
-                : `Connect ${platform.name}`}
-          </Button>
-        )}
+        {statusBadge}
+        {actionButton}
       </div>
 
       {dialogOpen ? (

@@ -19,6 +19,7 @@ import { useCallback, useRef, useState } from "react";
 
 import type { InMemoryFileNode } from "../agent-edit-page/utils/form-validation";
 import { STRUCTURAL_IDS } from "./skill-file-tree-utils";
+import { resolveConditional } from "../../utils/conditional";
 
 export interface SkillFileTreeProps {
   files: InMemoryFileNode[];
@@ -330,7 +331,7 @@ export function SkillFileTree({
       }
 
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.addEventListener("load", () => {
         const base64 = reader.result as string;
         const newNode: InMemoryFileNode = {
           content: base64,
@@ -340,7 +341,7 @@ export function SkillFileTree({
         };
         onChange(insertNode(files, "assets", newNode));
         onSelectFile(newNode.id);
-      };
+      });
       reader.readAsDataURL(file);
 
       // Reset so the same file can be picked again
@@ -404,6 +405,7 @@ export function SkillFileTree({
   return (
     <TooltipProvider>
       <input
+        aria-label="Upload skill image"
         ref={imageInputRef}
         type="file"
         accept="image/*"
@@ -428,117 +430,135 @@ export function SkillFileTree({
               <Tree.Label>LICENSE.md</Tree.Label>
             </Tree.File>
 
-            {referencesFolder && (
-              <Tree.Folder
-                open={openFolders.references}
-                onOpenChange={(open: boolean) => setFolderOpen("references", open)}
-              >
-                <Tree.FolderTrigger
-                  actions={
-                    !readOnly && (
-                      <FolderActions
-                        onAddFile={() => handleAddFile("references")}
-                        onAddFolder={() => handleAddFolder("references")}
-                      />
-                    )
-                  }
+            {resolveConditional(
+              referencesFolder,
+              (conditionValue) => (
+                <Tree.Folder
+                  open={openFolders.references}
+                  onOpenChange={(open: boolean) => setFolderOpen("references", open)}
                 >
-                  <Tree.Icon>{getFolderIcon(openFolders.references)}</Tree.Icon>
-                  <Tree.Label>references</Tree.Label>
-                </Tree.FolderTrigger>
-                <Tree.FolderContent>
-                  <UserNodeList
-                    nodes={referencesFolder.children ?? []}
-                    readOnly={readOnly}
-                    openFolders={openFolders}
-                    pendingInput={pendingInput}
-                    onRemove={handleRemove}
-                    onAddFile={handleAddFile}
-                    onAddFolder={handleAddFolder}
-                    onFolderOpenChange={setFolderOpen}
-                    onInputSubmit={handleInputSubmit}
-                    onInputCancel={handleInputCancel}
-                  />
-                  {pendingInput?.parentId === "references" && (
-                    <Tree.Input
-                      type={pendingInput.type === "folder" ? "folder" : "file"}
-                      placeholder={pendingInput.type === "folder" ? "folder name" : "filename.ext"}
-                      onSubmit={handleInputSubmit}
-                      onCancel={handleInputCancel}
+                  <Tree.FolderTrigger
+                    actions={
+                      !readOnly && (
+                        <FolderActions
+                          onAddFile={() => handleAddFile("references")}
+                          onAddFolder={() => handleAddFolder("references")}
+                        />
+                      )
+                    }
+                  >
+                    <Tree.Icon>{getFolderIcon(openFolders.references)}</Tree.Icon>
+                    <Tree.Label>references</Tree.Label>
+                  </Tree.FolderTrigger>
+                  <Tree.FolderContent>
+                    <UserNodeList
+                      nodes={conditionValue.children ?? []}
+                      readOnly={readOnly}
+                      openFolders={openFolders}
+                      pendingInput={pendingInput}
+                      onRemove={handleRemove}
+                      onAddFile={handleAddFile}
+                      onAddFolder={handleAddFolder}
+                      onFolderOpenChange={setFolderOpen}
+                      onInputSubmit={handleInputSubmit}
+                      onInputCancel={handleInputCancel}
                     />
-                  )}
-                </Tree.FolderContent>
-              </Tree.Folder>
+                    {pendingInput?.parentId === "references" && (
+                      <Tree.Input
+                        type={pendingInput.type === "folder" ? "folder" : "file"}
+                        placeholder={
+                          pendingInput.type === "folder" ? "folder name" : "filename.ext"
+                        }
+                        onSubmit={handleInputSubmit}
+                        onCancel={handleInputCancel}
+                      />
+                    )}
+                  </Tree.FolderContent>
+                </Tree.Folder>
+              ),
+              () => null,
             )}
 
-            {scriptsFolder && (
-              <Tree.Folder
-                open={openFolders.scripts}
-                onOpenChange={(open: boolean) => setFolderOpen("scripts", open)}
-              >
-                <Tree.FolderTrigger
-                  actions={
-                    !readOnly && (
-                      <FolderActions
-                        onAddFile={() => handleAddFile("scripts")}
-                        onAddFolder={() => handleAddFolder("scripts")}
-                      />
-                    )
-                  }
+            {resolveConditional(
+              scriptsFolder,
+              (conditionValue) => (
+                <Tree.Folder
+                  open={openFolders.scripts}
+                  onOpenChange={(open: boolean) => setFolderOpen("scripts", open)}
                 >
-                  <Tree.Icon>{getFolderIcon(openFolders.scripts)}</Tree.Icon>
-                  <Tree.Label>scripts</Tree.Label>
-                </Tree.FolderTrigger>
-                <Tree.FolderContent>
-                  <UserNodeList
-                    nodes={scriptsFolder.children ?? []}
-                    readOnly={readOnly}
-                    openFolders={openFolders}
-                    pendingInput={pendingInput}
-                    onRemove={handleRemove}
-                    onAddFile={handleAddFile}
-                    onAddFolder={handleAddFolder}
-                    onFolderOpenChange={setFolderOpen}
-                    onInputSubmit={handleInputSubmit}
-                    onInputCancel={handleInputCancel}
-                  />
-                  {pendingInput?.parentId === "scripts" && (
-                    <Tree.Input
-                      type={pendingInput.type === "folder" ? "folder" : "file"}
-                      placeholder={pendingInput.type === "folder" ? "folder name" : "filename.ext"}
-                      onSubmit={handleInputSubmit}
-                      onCancel={handleInputCancel}
+                  <Tree.FolderTrigger
+                    actions={
+                      !readOnly && (
+                        <FolderActions
+                          onAddFile={() => handleAddFile("scripts")}
+                          onAddFolder={() => handleAddFolder("scripts")}
+                        />
+                      )
+                    }
+                  >
+                    <Tree.Icon>{getFolderIcon(openFolders.scripts)}</Tree.Icon>
+                    <Tree.Label>scripts</Tree.Label>
+                  </Tree.FolderTrigger>
+                  <Tree.FolderContent>
+                    <UserNodeList
+                      nodes={conditionValue.children ?? []}
+                      readOnly={readOnly}
+                      openFolders={openFolders}
+                      pendingInput={pendingInput}
+                      onRemove={handleRemove}
+                      onAddFile={handleAddFile}
+                      onAddFolder={handleAddFolder}
+                      onFolderOpenChange={setFolderOpen}
+                      onInputSubmit={handleInputSubmit}
+                      onInputCancel={handleInputCancel}
                     />
-                  )}
-                </Tree.FolderContent>
-              </Tree.Folder>
+                    {pendingInput?.parentId === "scripts" && (
+                      <Tree.Input
+                        type={pendingInput.type === "folder" ? "folder" : "file"}
+                        placeholder={
+                          pendingInput.type === "folder" ? "folder name" : "filename.ext"
+                        }
+                        onSubmit={handleInputSubmit}
+                        onCancel={handleInputCancel}
+                      />
+                    )}
+                  </Tree.FolderContent>
+                </Tree.Folder>
+              ),
+              () => null,
             )}
 
-            {assetsFolder && (
-              <Tree.Folder
-                open={openFolders.assets}
-                onOpenChange={(open: boolean) => setFolderOpen("assets", open)}
-              >
-                <Tree.FolderTrigger
-                  actions={
-                    !readOnly && <FolderAddAction tooltip="Add image" onClick={handleAddImage} />
-                  }
+            {resolveConditional(
+              assetsFolder,
+              (conditionValue) => (
+                <Tree.Folder
+                  open={openFolders.assets}
+                  onOpenChange={(open: boolean) => setFolderOpen("assets", open)}
                 >
-                  <Tree.Icon>{getFolderIcon(openFolders.assets)}</Tree.Icon>
-                  <Tree.Label>assets</Tree.Label>
-                </Tree.FolderTrigger>
-                <Tree.FolderContent>
-                  {(assetsFolder.children ?? [])
-                    .filter((n) => !STRUCTURAL_IDS.has(n.id))
-                    .map((node) => (
-                      <Tree.File key={node.id} id={node.id}>
-                        <Tree.Icon>{getFileIcon(node.name)}</Tree.Icon>
-                        <Tree.Label>{node.name}</Tree.Label>
-                        {!readOnly && <FileDeleteAction nodeId={node.id} onRemove={handleRemove} />}
-                      </Tree.File>
-                    ))}
-                </Tree.FolderContent>
-              </Tree.Folder>
+                  <Tree.FolderTrigger
+                    actions={
+                      !readOnly && <FolderAddAction tooltip="Add image" onClick={handleAddImage} />
+                    }
+                  >
+                    <Tree.Icon>{getFolderIcon(openFolders.assets)}</Tree.Icon>
+                    <Tree.Label>assets</Tree.Label>
+                  </Tree.FolderTrigger>
+                  <Tree.FolderContent>
+                    {(conditionValue.children ?? [])
+                      .filter((n) => !STRUCTURAL_IDS.has(n.id))
+                      .map((node) => (
+                        <Tree.File key={node.id} id={node.id}>
+                          <Tree.Icon>{getFileIcon(node.name)}</Tree.Icon>
+                          <Tree.Label>{node.name}</Tree.Label>
+                          {!readOnly && (
+                            <FileDeleteAction nodeId={node.id} onRemove={handleRemove} />
+                          )}
+                        </Tree.File>
+                      ))}
+                  </Tree.FolderContent>
+                </Tree.Folder>
+              ),
+              () => null,
             )}
           </Tree.FolderContent>
         </Tree.Folder>

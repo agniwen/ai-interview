@@ -53,7 +53,9 @@ export function ExperimentsList({
 
   const datasetMap = useMemo(() => {
     const map = new Map<string, string>();
-    datasets?.forEach((ds) => map.set(ds.id, ds.name));
+    for (const dataset of datasets ?? []) {
+      map.set(dataset.id, dataset.name);
+    }
     return map;
   }, [datasets]);
 

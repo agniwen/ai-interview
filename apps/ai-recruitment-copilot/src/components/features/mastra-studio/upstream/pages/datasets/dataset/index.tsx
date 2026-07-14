@@ -44,8 +44,80 @@ function DatasetPageShell({ children }: { children?: ReactNode }) {
   );
 }
 
+function getRunExperimentLabel(activeVersion: number | null | undefined): string {
+  return activeVersion === null || activeVersion === undefined
+    ? "Run Experiment"
+    : `Run on v${activeVersion}`;
+}
+
+function shouldDisableExperimentTrigger(isLoading: boolean, itemCount: number): boolean {
+  return isLoading ? false : itemCount === 0;
+}
+
+function getDatasetPageState({
+  datasetId,
+  dataset,
+  error,
+  isLoading,
+}: {
+  datasetId: string;
+  dataset: unknown;
+  error: unknown;
+  isLoading: boolean;
+}): ReactNode | undefined {
+  if (isLoading) {
+    return null;
+  }
+  if (error && is401UnauthorizedError(error)) {
+    return (
+      <DatasetPageShell>
+        <SessionExpired />
+      </DatasetPageShell>
+    );
+  }
+  if (error && is403ForbiddenError(error)) {
+    return (
+      <DatasetPageShell>
+        <PermissionDenied resource="datasets" />
+      </DatasetPageShell>
+    );
+  }
+  if ((error && is404NotFoundError(error)) || (!error && !dataset)) {
+    return (
+      <DatasetPageShell>
+        <EmptyState
+          iconSlot={<DatabaseIcon />}
+          titleSlot="Dataset not found"
+          descriptionSlot={`No dataset with id "${datasetId}".`}
+          actionSlot={
+            <Button as={Link} to="/datasets">
+              <ArrowLeft />
+              Back to Datasets
+            </Button>
+          }
+        />
+      </DatasetPageShell>
+    );
+  }
+  if (error) {
+    return (
+      <DatasetPageShell>
+        <ErrorState
+          title="Failed to load dataset"
+          message={
+            error instanceof Error
+              ? error.message
+              : "An unexpected error occurred. Please try again."
+          }
+        />
+      </DatasetPageShell>
+    );
+  }
+  return undefined;
+}
+
 function DatasetPage() {
-  const { datasetId } = useParams()! as { datasetId: string };
+  const { datasetId } = useParams<{ datasetId: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { activeVersion } = useDatasetItemsUrlState(searchParams, setSearchParams);
@@ -68,59 +140,20 @@ function DatasetPage() {
     undefined,
     activeVersion,
   );
-  const disableExperimentTrigger = !isUnfilteredLoading && unfilteredItems.length === 0;
+  const disableExperimentTrigger = shouldDisableExperimentTrigger(
+    isUnfilteredLoading,
+    unfilteredItems.length,
+  );
+  const runExperimentLabel = getRunExperimentLabel(activeVersion);
 
-  if (isDatasetLoading) {
-    return null;
-  } // Let the DatasetPageTabs handle the loading state to avoid layout shift when loading the dataset for the edit dialog
-
-  if (error && is401UnauthorizedError(error)) {
-    return (
-      <DatasetPageShell>
-        <SessionExpired />
-      </DatasetPageShell>
-    );
-  }
-
-  if (error && is403ForbiddenError(error)) {
-    return (
-      <DatasetPageShell>
-        <PermissionDenied resource="datasets" />
-      </DatasetPageShell>
-    );
-  }
-
-  if ((error && is404NotFoundError(error)) || (!isDatasetLoading && !error && !dataset)) {
-    return (
-      <DatasetPageShell>
-        <EmptyState
-          iconSlot={<DatabaseIcon />}
-          titleSlot="Dataset not found"
-          descriptionSlot={`No dataset with id "${datasetId}".`}
-          actionSlot={
-            <Button as={Link} to="/datasets">
-              <ArrowLeft />
-              Back to Datasets
-            </Button>
-          }
-        />
-      </DatasetPageShell>
-    );
-  }
-
-  if (error) {
-    return (
-      <DatasetPageShell>
-        <ErrorState
-          title="Failed to load dataset"
-          message={
-            error instanceof Error
-              ? error.message
-              : "An unexpected error occurred. Please try again."
-          }
-        />
-      </DatasetPageShell>
-    );
+  const pageState = getDatasetPageState({
+    dataset,
+    datasetId,
+    error,
+    isLoading: isDatasetLoading,
+  });
+  if (pageState !== undefined) {
+    return pageState;
   }
 
   const handleExperimentSuccess = (experimentId: string) => {
@@ -159,7 +192,7 @@ function DatasetPage() {
                         <div className="pointer-events-none opacity-50" inert aria-disabled="true">
                           <Button variant="primary">
                             <Play />
-                            {activeVersion != null ? `Run on v${activeVersion}` : "Run Experiment"}
+                            {runExperimentLabel}
                           </Button>
                         </div>
                       </span>
@@ -171,7 +204,7 @@ function DatasetPage() {
                 ) : (
                   <Button variant="primary" onClick={() => setExperimentDialogOpen(true)}>
                     <Play />
-                    {activeVersion != null ? `Run on v${activeVersion}` : "Run Experiment"}
+                    {runExperimentLabel}
                   </Button>
                 )}
                 <DropdownMenu>

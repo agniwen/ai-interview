@@ -34,7 +34,7 @@ export const useToggleStoredSkillFavorite = (skillId?: string) => {
   const { requestContext } = usePlaygroundStore();
 
   return useMutation<FavoriteToggleResponse, Error, { favorited: boolean }, FavoriteContext>({
-    mutationFn: async ({ favorited }) => {
+    mutationFn: ({ favorited }) => {
       if (!skillId) {
         throw new Error("skillId is required to toggle favorite");
       }

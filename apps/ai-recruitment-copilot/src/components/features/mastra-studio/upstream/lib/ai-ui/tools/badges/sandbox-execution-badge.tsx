@@ -59,11 +59,137 @@ const getStatusColor = (status?: string) => {
 export interface SandboxExecutionBadgeProps extends Omit<ToolApprovalButtonsProps, "toolCalled"> {
   toolName: string;
   args: Record<string, unknown> | string;
-  result: any;
+  result: unknown;
   metadata?: MessageMetadata;
   toolCalled?: boolean;
   dataParts?: readonly DataMessagePart[];
 }
+
+const getPartData = (part?: DataMessagePart) =>
+  typeof part?.data === "object" && part.data !== null
+    ? (part.data as Record<string, unknown>)
+    : undefined;
+
+const isScopedPart = (part: DataMessagePart, toolCallId: string) =>
+  getPartData(part)?.toolCallId === toolCallId;
+
+const getCommandDisplay = (
+  toolName: string,
+  args: SandboxExecutionBadgeProps["args"],
+  command?: string,
+) => {
+  try {
+    const parsed = (typeof args === "object" ? args : JSON.parse(args)) as Record<string, unknown>;
+    if (toolName === WORKSPACE_TOOLS.SANDBOX.EXECUTE_COMMAND) {
+      return typeof parsed.command === "string" ? parsed.command : "";
+    }
+    if (
+      toolName === WORKSPACE_TOOLS.SANDBOX.GET_PROCESS_OUTPUT ||
+      toolName === WORKSPACE_TOOLS.SANDBOX.KILL_PROCESS
+    ) {
+      return command ?? `PID ${String(parsed.pid)}`;
+    }
+    return "";
+  } catch {
+    return toolName;
+  }
+};
+
+const getDisplayName = (toolName: string) => {
+  const names: Record<string, string> = {
+    [WORKSPACE_TOOLS.SANDBOX.EXECUTE_COMMAND]: "Execute Command",
+    [WORKSPACE_TOOLS.SANDBOX.GET_PROCESS_OUTPUT]: "Get Process Output",
+    [WORKSPACE_TOOLS.SANDBOX.KILL_PROCESS]: "Kill Process",
+  };
+  return names[toolName] ?? toolName;
+};
+
+const ExecutionStatus = ({
+  isRunning,
+  elapsedTime,
+  exitCode,
+  exitSuccess,
+  wasKilled,
+  executionTime,
+}: {
+  isRunning: boolean;
+  elapsedTime: number;
+  exitCode?: number;
+  exitSuccess?: boolean;
+  wasKilled?: boolean;
+  executionTime?: number;
+}) => {
+  if (isRunning) {
+    return (
+      <>
+        <span className="flex items-center gap-1.5 text-xs text-accent6">
+          <span className="w-1.5 h-1.5 bg-accent6 rounded-full animate-pulse" />
+          <span className="animate-pulse">running</span>
+        </span>
+        <span className="text-neutral6 text-xs tabular-nums">{elapsedTime}ms</span>
+      </>
+    );
+  }
+  let outcome = null;
+  if (exitCode !== undefined) {
+    if (exitSuccess) {
+      outcome = <CheckIcon className="text-green-400" size={14} />;
+    } else if (wasKilled) {
+      outcome = (
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-500/20 text-orange-400">
+          killed
+        </span>
+      );
+    } else {
+      outcome = (
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-500/20 text-red-400">
+          exit {exitCode}
+        </span>
+      );
+    }
+  }
+  return (
+    <>
+      {outcome}
+      {executionTime === undefined ? null : (
+        <span className="text-neutral6 text-xs">{executionTime}ms</span>
+      )}
+    </>
+  );
+};
+
+const getSandboxRunState = (dataParts: DataMessagePart[], toolCallId: string, result: unknown) => {
+  const sandboxChunks = dataParts.filter(
+    (chunk) =>
+      (chunk.name === "sandbox-stdout" || chunk.name === "sandbox-stderr") &&
+      isScopedPart(chunk, toolCallId),
+  );
+  const workspaceMetaPart = dataParts.find(
+    (chunk) => chunk.name === "workspace-metadata" && isScopedPart(chunk, toolCallId),
+  );
+  const exitChunk = dataParts.find(
+    (chunk) => chunk.name === "sandbox-exit" && isScopedPart(chunk, toolCallId),
+  );
+  const exitData = getPartData(exitChunk);
+  const streamingContent = sandboxChunks
+    .map((chunk) => getPartData(chunk)?.output)
+    .filter((output): output is string => typeof output === "string")
+    .join("");
+  const isStreamingComplete = Boolean(exitChunk) || typeof result === "string";
+  const hasStarted = Boolean(workspaceMetaPart);
+  return {
+    execMeta: getPartData(workspaceMetaPart) as WorkspaceMetadata | undefined,
+    executionTime: exitData?.executionTimeMs as number | undefined,
+    exitCode: exitData?.exitCode as number | undefined,
+    exitSuccess: exitData?.success as boolean | undefined,
+    firstChunkTime: getPartData(sandboxChunks[0])?.timestamp as number | undefined,
+    hasStarted,
+    isRunning: hasStarted && !isStreamingComplete,
+    isStreamingComplete,
+    outputContent: streamingContent || (typeof result === "string" ? result : ""),
+    wasKilled: exitData?.killed as boolean | undefined,
+  };
+};
 
 // Hook for live elapsed time while running
 const useElapsedTime = (isRunning: boolean, startTime?: number) => {
@@ -184,83 +310,34 @@ export const SandboxExecutionBadge = ({
 
   // Command info emitted by get_process_output (so we can show the original command)
   const commandChunk = dataParts.find(
-    (chunk) => chunk.name === "sandbox-command" && chunk.data?.toolCallId === toolCallId,
+    (chunk) => chunk.name === "sandbox-command" && isScopedPart(chunk, toolCallId),
   );
 
   // Parse args to get command info
-  let commandDisplay = "";
-  try {
-    const parsedArgs = typeof args === "object" ? args : JSON.parse(args);
-    if (toolName === WORKSPACE_TOOLS.SANDBOX.EXECUTE_COMMAND) {
-      commandDisplay = parsedArgs.command || "";
-    } else if (
-      toolName === WORKSPACE_TOOLS.SANDBOX.GET_PROCESS_OUTPUT ||
-      toolName === WORKSPACE_TOOLS.SANDBOX.KILL_PROCESS
-    ) {
-      // Prefer the original command from streaming data, fall back to PID
-      const cmd = commandChunk?.data?.command as string | undefined;
-      commandDisplay = cmd || `PID ${parsedArgs.pid}`;
-    }
-  } catch {
-    commandDisplay = toolName;
-  }
-
-  // Sandbox stdout/stderr chunks scoped to this tool call
-  const sandboxChunks = dataParts.filter(
-    (chunk) =>
-      (chunk.name === "sandbox-stdout" || chunk.name === "sandbox-stderr") &&
-      chunk.data?.toolCallId === toolCallId,
+  const commandData = getPartData(commandChunk);
+  const commandDisplay = getCommandDisplay(
+    toolName,
+    args,
+    typeof commandData?.command === "string" ? commandData.command : undefined,
   );
 
-  // Workspace metadata emitted first — scoped to this tool call
-  const workspaceMetaPart = dataParts.find(
-    (chunk) => chunk.name === "workspace-metadata" && chunk.data?.toolCallId === toolCallId,
-  );
-  const execMeta = workspaceMetaPart?.data as WorkspaceMetadata | undefined;
-
-  // Exit chunk scoped to this tool call
-  const exitChunk = dataParts.find(
-    (chunk) => chunk.name === "sandbox-exit" && chunk.data?.toolCallId === toolCallId,
-  ) as
-    | {
-        name: string;
-        data: { exitCode: number; success: boolean; executionTimeMs?: number; killed?: boolean };
-      }
-    | undefined;
-
-  // Streaming is complete if we have exit chunk or a final result
-  const isStreamingComplete = !!exitChunk || typeof result === "string";
-
-  const hasStarted = !!workspaceMetaPart; // metadata is emitted at tool start
-  const isRunning = hasStarted && !isStreamingComplete;
+  const {
+    execMeta,
+    executionTime,
+    exitCode,
+    exitSuccess,
+    firstChunkTime,
+    hasStarted,
+    isRunning,
+    isStreamingComplete,
+    outputContent,
+    wasKilled,
+  } = getSandboxRunState(dataParts, toolCallId, result);
   const toolCalled = toolCalledProp ?? (isStreamingComplete || hasStarted);
 
-  // Get exit info from data chunks
-  const exitCode = exitChunk?.data?.exitCode;
-  const exitSuccess = exitChunk?.data?.success;
-  const executionTime = exitChunk?.data?.executionTimeMs;
-  const wasKilled = exitChunk?.data?.killed;
-
-  // Combine streaming output into a single string
-  const streamingContent = sandboxChunks.map((chunk) => chunk.data?.output || "").join("");
-
-  // During a live session, prefer the full streaming output the user watched build up.
-  // After hydration from storage (no streaming chunks available), fall back to the
-  // truncated tool result. With transient stdout/stderr chunks, streaming data won't
-  // survive a page refresh, so the result is the only option on reload.
-  const outputContent = streamingContent || (typeof result === "string" ? result : "");
-
-  const displayName =
-    toolName === WORKSPACE_TOOLS.SANDBOX.EXECUTE_COMMAND
-      ? "Execute Command"
-      : toolName === WORKSPACE_TOOLS.SANDBOX.GET_PROCESS_OUTPUT
-        ? "Get Process Output"
-        : toolName === WORKSPACE_TOOLS.SANDBOX.KILL_PROCESS
-          ? "Kill Process"
-          : toolName;
+  const displayName = getDisplayName(toolName);
 
   // Get start time from first streaming chunk for live timer
-  const firstChunkTime = sandboxChunks[0]?.data?.timestamp as number | undefined;
   const elapsedTime = useElapsedTime(isRunning, firstChunkTime);
 
   const onCopy = () => {
@@ -301,33 +378,14 @@ export const SandboxExecutionBadge = ({
 
         {/* Status area */}
         <div className="flex items-center gap-2">
-          {isRunning ? (
-            <>
-              <span className="flex items-center gap-1.5 text-xs text-accent6">
-                <span className="w-1.5 h-1.5 bg-accent6 rounded-full animate-pulse" />
-                <span className="animate-pulse">running</span>
-              </span>
-              <span className="text-neutral6 text-xs tabular-nums">{elapsedTime}ms</span>
-            </>
-          ) : (
-            <>
-              {exitCode !== undefined &&
-                (exitSuccess ? (
-                  <CheckIcon className="text-green-400" size={14} />
-                ) : wasKilled ? (
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-500/20 text-orange-400">
-                    killed
-                  </span>
-                ) : (
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-500/20 text-red-400">
-                    exit {exitCode}
-                  </span>
-                ))}
-              {executionTime !== undefined && (
-                <span className="text-neutral6 text-xs">{executionTime}ms</span>
-              )}
-            </>
-          )}
+          <ExecutionStatus
+            isRunning={isRunning}
+            elapsedTime={elapsedTime}
+            exitCode={exitCode}
+            exitSuccess={exitSuccess}
+            wasKilled={wasKilled}
+            executionTime={executionTime}
+          />
         </div>
       </div>
 

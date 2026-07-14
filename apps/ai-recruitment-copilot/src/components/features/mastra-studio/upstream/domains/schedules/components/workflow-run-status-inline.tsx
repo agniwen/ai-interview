@@ -6,23 +6,6 @@ export interface WorkflowRunStatusInlineProps {
   status: WorkflowRunStatus;
 }
 
-/**
- * Compact inline run status — icon + colored label, no chip background.
- * Used in dense schedule rows + trigger history rows where filled badges
- * compete with surrounding text.
- */
-export function WorkflowRunStatusInline({ status }: WorkflowRunStatusInlineProps) {
-  const { icon, color } = getStatusVisual(status);
-  return (
-    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap text-ui-sm ${color}`}>
-      <span className="inline-flex shrink-0 items-center" aria-hidden>
-        {icon}
-      </span>
-      <span>{status}</span>
-    </span>
-  );
-}
-
 function getStatusVisual(status: WorkflowRunStatus): { icon: React.ReactNode; color: string } {
   switch (status) {
     case "success": {
@@ -48,4 +31,21 @@ function getStatusVisual(status: WorkflowRunStatus): { icon: React.ReactNode; co
       return { color: "text-neutral3", icon: null };
     }
   }
+}
+
+/**
+ * Compact inline run status — icon + colored label, no chip background.
+ * Used in dense schedule rows + trigger history rows where filled badges
+ * compete with surrounding text.
+ */
+export function WorkflowRunStatusInline({ status }: WorkflowRunStatusInlineProps) {
+  const { icon, color } = getStatusVisual(status);
+  return (
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap text-ui-sm ${color}`}>
+      <span className="inline-flex shrink-0 items-center" aria-hidden>
+        {icon}
+      </span>
+      <span>{status}</span>
+    </span>
+  );
 }

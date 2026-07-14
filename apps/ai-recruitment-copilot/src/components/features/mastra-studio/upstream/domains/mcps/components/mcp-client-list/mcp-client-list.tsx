@@ -50,13 +50,18 @@ function mcpClientToFormValues(mcpClient: {
   };
 }
 
+function withoutTools<T>(tools: Record<string, T>, names: Iterable<string>): Record<string, T> {
+  const omittedNames = new Set(names);
+  return Object.fromEntries(Object.entries(tools).filter(([name]) => !omittedNames.has(name)));
+}
+
 export function MCPClientList() {
   const { form, readOnly } = useAgentEditFormContext();
   const mcpClients = useWatch({ control: form.control, name: "mcpClients" }) ?? [];
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [viewIndex, setViewIndex] = useState<number | null>(null);
 
-  const viewingClient = viewIndex !== null ? mcpClients[viewIndex] : null;
+  const viewingClient = viewIndex === null ? null : mcpClients[viewIndex];
   const isViewingPersisted = Boolean(viewingClient?.id);
   const viewFormValues = useMemo(
     () => (viewingClient ? mcpClientToFormValues(viewingClient) : null),
@@ -97,12 +102,9 @@ export function MCPClientList() {
     const oldClient = current[viewIndex];
 
     const currentTools = form.getValues("tools") ?? {};
-    const next = { ...currentTools };
+    const next = withoutTools(currentTools, Object.keys(oldClient?.selectedTools ?? {}));
 
     // Remove old MCP tools
-    for (const name of Object.keys(oldClient?.selectedTools ?? {})) {
-      delete next[name];
-    }
     // Add new MCP tools
     for (const [name, toolConfig] of Object.entries(config.selectedTools)) {
       next[name] = { description: toolConfig.description };
@@ -121,10 +123,7 @@ export function MCPClientList() {
 
     if (removed?.selectedTools) {
       const currentTools = form.getValues("tools") ?? {};
-      const next = { ...currentTools };
-      for (const name of Object.keys(removed.selectedTools)) {
-        delete next[name];
-      }
+      const next = withoutTools(currentTools, Object.keys(removed.selectedTools));
       form.setValue("tools", next, { shouldDirty: true });
     }
 
@@ -206,7 +205,7 @@ export function MCPClientList() {
                     <EntityName>{mcpClient.name}</EntityName>
                     <EntityDescription>
                       {mcpClient.description ||
-                        `${serverCount} server${serverCount !== 1 ? "s" : ""} configured`}
+                        `${serverCount} server${serverCount === 1 ? "" : "s"} configured`}
                     </EntityDescription>
                   </EntityContent>
 

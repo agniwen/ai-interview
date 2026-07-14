@@ -3,7 +3,7 @@ import type { UseFormReturn } from "react-hook-form";
 import { Controller } from "react-hook-form";
 
 import type { ScorerFormValues } from "./utils/form-validation";
-import { SectionHeader } from "@/components/features/mastra-studio/upstream/domains/cms";
+import { SectionHeader } from "@/components/features/mastra-studio/upstream/domains/cms/components/section/section-header";
 
 interface ScorerEditMainProps {
   form: UseFormReturn<ScorerFormValues>;

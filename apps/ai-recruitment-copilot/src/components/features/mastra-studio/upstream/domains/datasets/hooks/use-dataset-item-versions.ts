@@ -77,7 +77,10 @@ export const useDatasetItemVersion = (
         id: v.id,
         input: v.input,
         isDeleted: v.isDeleted ?? false,
-        isLatest: latestVersion != null ? datasetVersion === latestVersion : false,
+        isLatest:
+          latestVersion !== null && latestVersion !== undefined
+            ? datasetVersion === latestVersion
+            : false,
         metadata: v.metadata,
         toolMocks: v.toolMocks,
         updatedAt: v.updatedAt,

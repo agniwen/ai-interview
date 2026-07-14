@@ -112,5 +112,8 @@ export const resolveWorkflowGraphStep = (flow: SerializedStepFlowEntry): Resolve
         kind: "sleep-until-step",
       };
     }
+    default: {
+      throw new Error(`Unsupported workflow step type: ${(flow as { type?: string }).type}`);
+    }
   }
 };

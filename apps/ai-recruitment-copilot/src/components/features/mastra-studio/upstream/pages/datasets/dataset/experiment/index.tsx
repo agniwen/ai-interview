@@ -28,6 +28,13 @@ function ExperimentPageShell({ children }: { children?: ReactNode }) {
   );
 }
 
+function isMissingExperiment(error: unknown, isLoading: boolean, experiment: unknown): boolean {
+  return (
+    (Boolean(error) && is404NotFoundError(error)) ||
+    (!isLoading && !error && experiment === undefined)
+  );
+}
+
 function DatasetExperimentPage() {
   const { datasetId, experimentId } = useParams<{ datasetId: string; experimentId: string }>();
 
@@ -35,7 +42,7 @@ function DatasetExperimentPage() {
     data: experiment,
     isLoading: experimentLoading,
     error: experimentError,
-  } = useDatasetExperiment(datasetId!, experimentId!);
+  } = useDatasetExperiment(datasetId ?? "", experimentId ?? "");
 
   const {
     data: results,
@@ -44,8 +51,8 @@ function DatasetExperimentPage() {
     isFetchingNextPage,
     hasNextPage,
   } = useDatasetExperimentResults({
-    datasetId: datasetId!,
-    experimentId: experimentId!,
+    datasetId: datasetId ?? "",
+    experimentId: experimentId ?? "",
     experimentStatus: experiment?.status,
   });
 
@@ -54,7 +61,8 @@ function DatasetExperimentPage() {
   }
   if (experimentLoading) {
     return null;
-  } // Avoid layout shift on initial load
+    // Avoid layout shift on initial load
+  }
 
   if (experimentError && is401UnauthorizedError(experimentError)) {
     return (
@@ -72,10 +80,7 @@ function DatasetExperimentPage() {
     );
   }
 
-  if (
-    (experimentError && is404NotFoundError(experimentError)) ||
-    (!experimentLoading && !experimentError && !experiment)
-  ) {
+  if (isMissingExperiment(experimentError, experimentLoading, experiment)) {
     return (
       <ExperimentPageShell>
         <EmptyState
@@ -108,15 +113,19 @@ function DatasetExperimentPage() {
     );
   }
 
+  if (!experiment) {
+    return null;
+  }
+
   return (
     <PageLayout height="full">
-      <ExperimentTopArea experiment={experiment!} />
+      <ExperimentTopArea experiment={experiment} />
 
       <PageLayout.MainArea>
         <ExperimentPageTabs
           experimentId={experimentId}
           datasetId={datasetId}
-          experimentStatus={experiment!.status}
+          experimentStatus={experiment.status}
           results={results ?? []}
           isLoading={resultsLoading}
           setEndOfListElement={setEndOfListElement}

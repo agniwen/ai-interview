@@ -5,9 +5,12 @@ import type { CurrentUser } from "../types";
 import { fetchWithRefresh } from "./fetch-with-refresh";
 
 export class CurrentUserError extends Error {
-  constructor(public readonly status: number) {
+  readonly status: number;
+
+  constructor(status: number) {
     super(`Failed to fetch current user: ${status}`);
     this.name = "CurrentUserError";
+    this.status = status;
   }
 }
 
@@ -64,6 +67,7 @@ export function useCurrentUser() {
     },
     queryKey: ["auth", "me"],
     retry: false,
-    staleTime: 60 * 1000, // Cache for 1 minute,
+    // Cache for 1 minute.
+    staleTime: 60 * 1000,
   });
 }

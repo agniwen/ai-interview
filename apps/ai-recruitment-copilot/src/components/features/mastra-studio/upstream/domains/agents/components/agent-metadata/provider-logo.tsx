@@ -1,5 +1,6 @@
 import { Icon } from "@mastra/playground-ui/icons/Icon";
 import { useState } from "react";
+import { OptimizedImage } from "../../utils/optimized-image";
 import { providerMapToIcon } from "../provider-map-icon";
 import { cleanProviderId as cleanProviderIdUtil } from "./utils";
 
@@ -7,6 +8,26 @@ interface ProviderLogoProps {
   providerId: string;
   className?: string;
   size?: number;
+}
+
+const FALLBACK_PROVIDER_ICONS: Record<string, string> = {
+  anthropic: "anthropic.messages",
+  deepseek: "deepseek",
+  fireworks_ai: "fireworks",
+  google: "GOOGLE",
+  groq: "GROQ",
+  mastra: "mastra",
+  mistral: "mistral",
+  netlify: "netlify",
+  openai: "openai.chat",
+  openrouter: "openrouter",
+  perplexity: "perplexity",
+  together: "together",
+  xai: "X_GROK",
+};
+
+function getFallbackProviderIcon(id: string): string {
+  return FALLBACK_PROVIDER_ICONS[id] || "DEFAULT";
 }
 
 /**
@@ -23,25 +44,6 @@ export const ProviderLogo = ({ providerId, className = "", size = 20 }: Provider
   const cleanProviderId = cleanedProviderId.replaceAll("/", "-").toLowerCase();
 
   // Get fallback icon from our existing mapping
-  const getFallbackProviderIcon = (id: string): string => {
-    const iconMap: Record<string, string> = {
-      anthropic: "anthropic.messages",
-      deepseek: "deepseek",
-      fireworks_ai: "fireworks",
-      google: "GOOGLE",
-      groq: "GROQ",
-      mastra: "mastra",
-      mistral: "mistral",
-      netlify: "netlify",
-      openai: "openai.chat",
-      openrouter: "openrouter",
-      perplexity: "perplexity",
-      together: "together",
-      xai: "X_GROK",
-    };
-    return iconMap[id] || "DEFAULT";
-  };
-
   const fallbackIcon = getFallbackProviderIcon(cleanedProviderId);
   const isGateway = ["netlify", "mastra"].includes(cleanProviderId);
 
@@ -56,7 +58,7 @@ export const ProviderLogo = ({ providerId, className = "", size = 20 }: Provider
   }
 
   return (
-    <img
+    <OptimizedImage
       src={`https://models.dev/logos/${cleanProviderId}.svg`}
       alt={`${providerId} logo`}
       width={size}

@@ -14,7 +14,10 @@ export async function fetchRolePermissionsRequest(
 ): Promise<RolePermissionsResponse> {
   const { baseUrl = "", apiPrefix, headers: clientHeaders = {} } = client.options || {};
   const raw = (apiPrefix ?? "/api").trim();
-  const normalized = raw === "" ? "" : raw.startsWith("/") ? raw : `/${raw}`;
+  let normalized = raw;
+  if (raw !== "" && !raw.startsWith("/")) {
+    normalized = `/${raw}`;
+  }
   const prefix = normalized.replace(/\/+$/, "");
 
   const response = await fetch(

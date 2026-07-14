@@ -68,8 +68,9 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
         },
       }));
 
-      generateFn({ agentContext, count, datasetId, modelId, prompt })
-        .then((result) => {
+      const runGeneration = async () => {
+        try {
+          const result = await generateFn({ agentContext, count, datasetId, modelId, prompt });
           const items = result.items ?? [];
           setTasks((prev) => {
             const task = prev[datasetId];
@@ -89,8 +90,7 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
               [datasetId]: { ...task, items, status: "review-ready" },
             };
           });
-        })
-        .catch((error) => {
+        } catch (error) {
           const message = error instanceof Error ? error.message : "Unknown error";
           toast.error(`Generation failed: ${message}`);
           setTasks((prev) => {
@@ -100,14 +100,13 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
             }
             return {
               ...prev,
-              [datasetId]: {
-                ...task,
-                error: message,
-                status: "error",
-              },
+              [datasetId]: { ...task, error: message, status: "error" },
             };
           });
-        });
+        }
+      };
+
+      void runGeneration();
     },
     [],
   );

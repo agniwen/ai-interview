@@ -78,6 +78,27 @@ function ActionsMenu({
   );
 }
 
+type SelectionMode =
+  | "idle"
+  | "export"
+  | "export-json"
+  | "create-dataset"
+  | "add-to-dataset"
+  | "delete"
+  | "compare-items";
+
+function getSelectionActionLabel(mode: SelectionMode): string {
+  const labels: Partial<Record<SelectionMode, string>> = {
+    "add-to-dataset": "Add Items to a Dataset",
+    "compare-items": "Compare Items",
+    "create-dataset": "Create a new Dataset with Items",
+    delete: "Delete Items",
+    export: "Export Items as CSV",
+    "export-json": "Export Items as JSON",
+  };
+  return labels[mode] ?? "";
+}
+
 export interface DatasetItemsToolbarProps {
   // Normal mode actions
   onAddClick: () => void;
@@ -100,14 +121,7 @@ export interface DatasetItemsToolbarProps {
   selectedCount: number;
   onExecuteAction: () => void;
   onCancelSelection: () => void;
-  selectionMode:
-    | "idle"
-    | "export"
-    | "export-json"
-    | "create-dataset"
-    | "add-to-dataset"
-    | "delete"
-    | "compare-items";
+  selectionMode: SelectionMode;
 
   // Versions panel
   onVersionsClick: () => void;
@@ -139,6 +153,21 @@ export function DatasetItemsToolbar({
   isVersionsPanelOpen,
   isViewingOldVersion,
 }: DatasetItemsToolbarProps) {
+  let selectionTooltip: string | undefined;
+  if (selectionMode === "compare-items" && selectedCount <= 2) {
+    selectionTooltip = "Select 2 items to compare";
+  } else if (selectedCount === 0) {
+    selectionTooltip = "Select at least one item";
+  }
+  const isCompareMode = selectionMode === "compare-items";
+  const isSelectionInvalid = isCompareMode ? selectedCount !== 2 : selectedCount === 0;
+  const showSelectionTooltip = isCompareMode ? selectedCount < 2 : selectedCount === 0;
+  const selectionLabel = isCompareMode ? "of 2 items selected" : "items selected";
+  const selectionActionLabel = getSelectionActionLabel(selectionMode);
+  const canShowAddActions = !isItemPanelOpen && !isViewingOldVersion;
+  const canShowActionsMenu = hasItems && !isViewingOldVersion;
+  const canShowVersions = !isItemPanelOpen && !isVersionsPanelOpen;
+
   if (isSelectionActive) {
     return (
       <Column.Toolbar className="">
@@ -157,48 +186,18 @@ export function DatasetItemsToolbar({
           <Tooltip>
             <TooltipTrigger asChild>
               <div className="text-sm text-neutral3 flex items-center gap-2">
-                <Chip
-                  size="large"
-                  color={
-                    (selectionMode === "compare-items" && selectedCount < 2) || selectedCount === 0
-                      ? "red"
-                      : "green"
-                  }
-                >
+                <Chip size="large" color={showSelectionTooltip ? "red" : "green"}>
                   {selectedCount}
                 </Chip>
-                <span>
-                  {selectionMode === "compare-items" ? "of 2 items selected" : "items selected"}
-                </span>
+                <span>{selectionLabel}</span>
                 <MoveRightIcon />
               </div>
             </TooltipTrigger>
-            {((selectionMode === "compare-items" && selectedCount < 2) || selectedCount === 0) && (
-              <TooltipContent>
-                {selectionMode === "compare-items"
-                  ? selectedCount <= 2
-                    ? "Select 2 items to compare"
-                    : undefined
-                  : selectedCount === 0
-                    ? "Select at least one item"
-                    : undefined}
-              </TooltipContent>
-            )}
+            {showSelectionTooltip && <TooltipContent>{selectionTooltip}</TooltipContent>}
           </Tooltip>
           <ButtonsGroup>
-            <Button
-              variant="primary"
-              disabled={
-                selectionMode === "compare-items" ? selectedCount !== 2 : selectedCount === 0
-              }
-              onClick={onExecuteAction}
-            >
-              {selectionMode === "compare-items" && "Compare Items"}
-              {selectionMode === "export" && "Export Items as CSV"}
-              {selectionMode === "export-json" && "Export Items as JSON"}
-              {selectionMode === "create-dataset" && "Create a new Dataset with Items"}
-              {selectionMode === "add-to-dataset" && "Add Items to a Dataset"}
-              {selectionMode === "delete" && "Delete Items"}
+            <Button variant="primary" disabled={isSelectionInvalid} onClick={onExecuteAction}>
+              {selectionActionLabel}
             </Button>
             <Button onClick={onCancelSelection}>Cancel</Button>
           </ButtonsGroup>
@@ -221,7 +220,7 @@ export function DatasetItemsToolbar({
       />
 
       <ButtonsGroup>
-        {!isItemPanelOpen && !isViewingOldVersion && (
+        {canShowAddActions && (
           <ButtonsGroup spacing="close">
             <Button onClick={onAddClick}>
               <Plus /> Add Item
@@ -244,7 +243,7 @@ export function DatasetItemsToolbar({
           </ButtonsGroup>
         )}
 
-        {hasItems && !isViewingOldVersion && (
+        {canShowActionsMenu && (
           <ActionsMenu
             onExportClick={onExportClick}
             onExportJsonClick={onExportJsonClick}
@@ -255,7 +254,7 @@ export function DatasetItemsToolbar({
           />
         )}
 
-        {!isItemPanelOpen && !isVersionsPanelOpen && (
+        {canShowVersions && (
           <Button onClick={onVersionsClick} aria-label="View versions">
             <History className="w-4 h-4" />
             Versions

@@ -75,29 +75,30 @@ const ImageAttachmentThumbnail = ({ attachment }: { attachment: ComposerAttachme
 const AttachmentThumbnail = ({ attachment }: { attachment: ComposerAttachment }) => {
   const { remove } = useComposerAttachments();
 
+  let preview = <ComposerTxtAttachment file={attachment.file} />;
+  if (attachment.kind === "image") {
+    preview = <ImageAttachmentThumbnail attachment={attachment} />;
+  } else if (attachment.kind === "pdf") {
+    preview = <ComposerPdfAttachment attachment={attachment} />;
+  } else if (attachment.kind === "video") {
+    preview = (
+      <FileChipEntry
+        name={attachment.name}
+        url={
+          attachment.isUrl && isBrowserFetchableUrl(attachment.name) ? attachment.name : undefined
+        }
+        contentType={attachment.contentType}
+      />
+    );
+  }
+
   return (
     <div className="relative">
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
             <div className="overflow-hidden size-16 rounded-lg bg-surface3 border border-border1 ">
-              {attachment.kind === "image" ? (
-                <ImageAttachmentThumbnail attachment={attachment} />
-              ) : attachment.kind === "pdf" ? (
-                <ComposerPdfAttachment attachment={attachment} />
-              ) : attachment.kind === "video" ? (
-                <FileChipEntry
-                  name={attachment.name}
-                  url={
-                    attachment.isUrl && isBrowserFetchableUrl(attachment.name)
-                      ? attachment.name
-                      : undefined
-                  }
-                  contentType={attachment.contentType}
-                />
-              ) : (
-                <ComposerTxtAttachment file={attachment.file} />
-              )}
+              {preview}
             </div>
           </TooltipTrigger>
           <TooltipContent side="top">{attachment.name}</TooltipContent>

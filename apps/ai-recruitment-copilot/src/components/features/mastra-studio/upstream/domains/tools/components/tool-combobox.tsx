@@ -60,22 +60,22 @@ export function ToolCombobox({
   const allTools = new Map<string, { id: string }>();
 
   // Get tools from agents
-  Object.values(agents).forEach((agent) => {
+  for (const agent of Object.values(agents)) {
     if (agent.tools) {
-      Object.values(agent.tools).forEach((tool) => {
+      for (const tool of Object.values(agent.tools)) {
         if (!allTools.has(tool.id)) {
           allTools.set(tool.id, tool);
         }
-      });
+      }
     }
-  });
+  }
 
   // Get standalone/discovered tools
-  Object.values(tools).forEach((tool) => {
+  for (const tool of Object.values(tools)) {
     if (!allTools.has(tool.id)) {
       allTools.set(tool.id, tool);
     }
-  });
+  }
 
   const toolOptions = [...allTools.values()].map((tool) => ({
     label: tool.id,

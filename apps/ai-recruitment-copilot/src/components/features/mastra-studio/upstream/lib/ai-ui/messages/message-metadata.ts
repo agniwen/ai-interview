@@ -25,7 +25,7 @@ export interface BackgroundTaskEntry {
 export interface ToolApprovalMetadata {
   toolCallId: string;
   toolName: string;
-  args: Record<string, any>;
+  args: Record<string, unknown>;
   runId?: string;
 }
 

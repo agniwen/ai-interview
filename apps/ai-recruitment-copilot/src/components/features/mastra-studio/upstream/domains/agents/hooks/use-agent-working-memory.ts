@@ -2,7 +2,7 @@ import { useMastraClient } from "@mastra/react";
 import { useState, useEffect, useCallback } from "react";
 import { usePlaygroundStore } from "@/components/features/mastra-studio/upstream/store/playground-store";
 
-function parseJsonString(jsonString: string): any {
+function parseJsonString(jsonString: string): string {
   try {
     return JSON.stringify(JSON.parse(jsonString), null, 2);
   } catch {
@@ -29,13 +29,18 @@ export function useAgentWorkingMemory(agentId: string, threadId: string, resourc
         return;
       }
       const res = await client.getWorkingMemory({ agentId, requestContext, resourceId, threadId });
-      const { workingMemory, source, workingMemoryTemplate, threadExists } = res as {
+      const {
+        workingMemory,
+        source,
+        workingMemoryTemplate,
+        threadExists: responseThreadExists,
+      } = res as {
         workingMemory: string | null;
         source: "thread" | "resource";
         workingMemoryTemplate: { content: string; format: "json" | "markdown" };
         threadExists: boolean;
       };
-      setThreadExists(threadExists);
+      setThreadExists(responseThreadExists);
       setWorkingMemoryData(workingMemory);
       setWorkingMemorySource(source);
       setWorkingMemoryFormat(workingMemoryTemplate?.format || "markdown");
@@ -58,7 +63,7 @@ export function useAgentWorkingMemory(agentId: string, threadId: string, resourc
     } finally {
       setIsLoading(false);
     }
-  }, [agentId, threadId, resourceId]);
+  }, [agentId, client, requestContext, resourceId, threadId]);
 
   useEffect(() => {
     void refetch();

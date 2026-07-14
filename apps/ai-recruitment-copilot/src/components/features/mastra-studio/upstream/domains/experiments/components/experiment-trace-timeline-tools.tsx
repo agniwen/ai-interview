@@ -49,14 +49,13 @@ export function ExperimentTraceTimelineTools({
     onLegendClick?.(type);
   };
 
-  useEffect(() => {
-    handleSearchPhraseChange(localSearchPhrase);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localSearchPhrase, onSearchPhraseChange]);
-
   const handleSearchPhraseChange = useThrottledCallback((value: string) => {
     onSearchPhraseChange?.(value);
   }, 1000);
+
+  useEffect(() => {
+    handleSearchPhraseChange(localSearchPhrase);
+  }, [handleSearchPhraseChange, localSearchPhrase]);
 
   return (
     <div className="flex gap-3 items-center justify-between">
@@ -85,7 +84,7 @@ export function ExperimentTraceTimelineTools({
                 className={isFaded ? "opacity-40" : ""}
                 style={{
                   backgroundColor: spanUI?.bgColor,
-                  color: !isFaded ? spanUI?.color : undefined,
+                  color: isFaded ? undefined : spanUI?.color,
                 }}
               >
                 {spanUI?.icon && <Icon>{spanUI.icon}</Icon>}

@@ -4,12 +4,11 @@ import { Container } from "./shared";
 
 interface TemplateFailureProps {
   errorMsg?: string;
-  validationErrors?: any[];
+  validationErrors?: { message?: string; type?: string }[];
 }
 
 export function TemplateFailure({ errorMsg, validationErrors }: TemplateFailureProps) {
-  const errorString =
-    typeof errorMsg === "string" ? errorMsg : errorMsg != null ? String(errorMsg) : undefined;
+  const errorString = errorMsg;
   const isSchemaError = errorString?.includes("Invalid schema for function");
   const isValidationError =
     errorString?.includes("validation issue") || (validationErrors && validationErrors.length > 0);

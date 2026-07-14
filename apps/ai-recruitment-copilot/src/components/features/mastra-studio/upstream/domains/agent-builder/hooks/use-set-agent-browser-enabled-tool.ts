@@ -15,11 +15,9 @@ export function useSetAgentBrowserEnabledTool() {
       createTool({
         description:
           "Enable or disable browser access for the agent. Set `browserEnabled` to true to let the agent browse the web.",
-        execute: async (inputData: any) => {
-          if (typeof inputData?.browserEnabled === "boolean") {
-            formMethods.setValue("browserEnabled", inputData.browserEnabled, { shouldDirty: true });
-          }
-          return { success: true };
+        execute: (inputData: { browserEnabled: boolean }) => {
+          formMethods.setValue("browserEnabled", inputData.browserEnabled, { shouldDirty: true });
+          return Promise.resolve({ success: true });
         },
         id: SET_AGENT_BROWSER_ENABLED_TOOL_NAME,
         inputSchema: z.object({

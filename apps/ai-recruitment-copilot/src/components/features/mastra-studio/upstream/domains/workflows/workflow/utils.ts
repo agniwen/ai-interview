@@ -1,6 +1,5 @@
 import Dagre from "@dagrejs/dagre";
 import type { Workflow, SerializedStepFlowEntry } from "@mastra/core/workflows";
-import type { Node } from "@xyflow/react";
 import { MarkerType } from "@xyflow/react";
 import type { WorkflowDataEdgeModel } from "./workflow-data-edge";
 import {
@@ -80,7 +79,7 @@ export type Condition =
           | "trigger";
         path: string;
       };
-      query: Record<string, any>;
+      query: Record<string, unknown>;
       conj?: "and" | "or" | "not";
       fnString?: never;
     }
@@ -92,6 +91,12 @@ export type Condition =
       conj?: never;
     };
 
+const capitalizeWords = (value: string) =>
+  value
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+
 const formatMappingLabel = (
   stepId: string,
   prevStepIds: string[],
@@ -101,12 +106,6 @@ const formatMappingLabel = (
   if (!stepId.startsWith("mapping_")) {
     return stepId;
   }
-
-  const capitalizeWords = (str: string) =>
-    str
-      .split(" ")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
 
   const formatStepName = (id: string) => {
     // Remove common prefixes and clean up
@@ -134,18 +133,21 @@ const getLayoutedElements = (nodes: WorkflowGraphNode[], edges: WorkflowGraphEdg
   const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
   g.setGraph({ rankdir: "TB" });
 
-  edges.forEach((edge) => g.setEdge(edge.source, edge.target));
-  nodes.forEach((node) =>
+  for (const edge of edges) {
+    g.setEdge(edge.source, edge.target);
+  }
+  for (const node of nodes) {
     g.setNode(node.id, {
       ...node,
       ...getNodeSize(node),
-    }),
-  );
+    });
+  }
 
   Dagre.layout(g);
 
-  const fullWidth = g.graph()?.width ? g.graph().width! / 2 : 0;
-  const fullHeight = g.graph()?.height ? g.graph().height! / 2 : 0;
+  const graph = g.graph();
+  const fullWidth = graph?.width ? graph.width / 2 : 0;
+  const fullHeight = graph?.height ? graph.height / 2 : 0;
 
   return {
     edges,
@@ -189,22 +191,19 @@ export type WStep = Record<
     id: string;
     description: string;
     workflowId?: string;
-    stepGraph?: any;
-    stepSubscriberGraph?: any;
+    stepGraph?: unknown;
+    stepSubscriberGraph?: unknown;
   }
 >;
 
-const getStepNodeAndEdge = ({
-  stepFlow,
-  xIndex,
-  yIndex,
-  prevNodeIds,
-  prevStepIds,
-  nextStepFlow,
-  condition,
-  allPrevNodeIds,
-}: {
-  stepFlow: SerializedStepFlowEntry;
+interface StepNodeAndEdgeResult {
+  nodes: WorkflowStepNode[];
+  edges: WorkflowGraphEdge[];
+  nextPrevNodeIds: string[];
+  nextPrevStepIds: string[];
+}
+
+interface StepGraphContext {
   xIndex: number;
   yIndex: number;
   prevNodeIds: string[];
@@ -212,384 +211,451 @@ const getStepNodeAndEdge = ({
   nextStepFlow?: SerializedStepFlowEntry;
   condition?: { id: string; fn: string };
   allPrevNodeIds: Set<string>;
-}): {
-  nodes: WorkflowStepNode[];
-  edges: WorkflowGraphEdge[];
-  nextPrevNodeIds: string[];
-  nextPrevStepIds: string[];
-} => {
-  let nextNodeIds: string[] = [];
-  let nextStepIds: string[] = [];
+}
+
+interface NextStepReferences {
+  nodeIds: string[];
+  stepIds: string[];
+}
+
+type BuildStepGraph = (
+  input: StepGraphContext & { stepFlow: SerializedStepFlowEntry },
+) => StepNodeAndEdgeResult;
+
+const getUniqueStepId = (stepId: string, yIndex: number, allPrevNodeIds: Set<string>): string =>
+  allPrevNodeIds.has(getWorkflowNodeId(stepId)) ? `${stepId}-${yIndex}` : stepId;
+
+const getNextStepReferences = ({
+  nextStepFlow,
+  yIndex,
+  allPrevNodeIds,
+}: Pick<StepGraphContext, "nextStepFlow" | "yIndex" | "allPrevNodeIds">): NextStepReferences => {
+  if (!nextStepFlow) {
+    return { nodeIds: [], stepIds: [] };
+  }
+
   if (
-    nextStepFlow?.type === "step" ||
-    nextStepFlow?.type === "foreach" ||
-    nextStepFlow?.type === "loop"
+    nextStepFlow.type === "step" ||
+    nextStepFlow.type === "foreach" ||
+    nextStepFlow.type === "loop"
   ) {
-    const nextStepId = allPrevNodeIds.has(getWorkflowNodeId(nextStepFlow.step.id))
-      ? `${nextStepFlow.step.id}-${yIndex + 1}`
-      : nextStepFlow.step.id;
-    nextNodeIds = [getWorkflowNodeId(nextStepId)];
-    nextStepIds = [nextStepFlow.step.id];
-  }
-  if (nextStepFlow?.type === "sleep" || nextStepFlow?.type === "sleepUntil") {
-    const nextStepId = allPrevNodeIds.has(getWorkflowNodeId(nextStepFlow.id))
-      ? `${nextStepFlow.id}-${yIndex + 1}`
-      : nextStepFlow.id;
-    nextNodeIds = [getWorkflowNodeId(nextStepId)];
-    nextStepIds = [nextStepFlow.id];
-  }
-  if (nextStepFlow?.type === "parallel") {
-    nextNodeIds =
-      nextStepFlow?.steps.map((step) => {
-        const stepId = step.step.id;
-        const nextStepId = allPrevNodeIds.has(getWorkflowNodeId(stepId))
-          ? `${stepId}-${yIndex + 1}`
-          : stepId;
-        return getWorkflowNodeId(nextStepId);
-      }) || [];
-    nextStepIds = nextStepFlow?.steps.map((step) => step.step.id) || [];
-  }
-  if (nextStepFlow?.type === "conditional") {
-    nextNodeIds =
-      nextStepFlow?.serializedConditions.map((cond) => getWorkflowConditionNodeId(cond.id)) || [];
-    nextStepIds = nextStepFlow?.steps?.map((step) => step.step.id) || [];
+    const stepId = nextStepFlow.step.id;
+    const uniqueStepId = getUniqueStepId(stepId, yIndex + 1, allPrevNodeIds);
+    return { nodeIds: [getWorkflowNodeId(uniqueStepId)], stepIds: [stepId] };
   }
 
-  if (stepFlow.type === "step" || stepFlow.type === "foreach") {
-    const hasGraph = stepFlow.step.component === "WORKFLOW";
-    const rawNodeId = allPrevNodeIds.has(getWorkflowNodeId(stepFlow.step.id))
-      ? `${stepFlow.step.id}-${yIndex}`
-      : stepFlow.step.id;
-    const nodeId = getWorkflowNodeId(rawNodeId);
-    const conditionNodes: WorkflowStepNode[] = condition
-      ? [
-          {
-            data: {
-              conditions: [{ fnString: condition.fn, type: "when" }],
-              isLarge: true,
-              label: condition.id,
-              nextStepId: stepFlow.step.id,
-              nodeRole: "condition",
-              previousStepId: prevStepIds.at(-1),
-              withoutBottomHandle: !nextNodeIds.length,
-              withoutTopHandle: !prevNodeIds.length,
-              workflowStep: conditionWorkflowStep(condition),
-            },
-            id: getWorkflowConditionNodeId(condition.id),
-            position: { x: xIndex * 300, y: yIndex * 100 },
-            type: WORKFLOW_STEP_NODE_TYPE,
-          },
-        ]
-      : [];
-    const nodes: WorkflowStepNode[] = [
-      ...conditionNodes,
-      {
-        data: {
-          canSuspend: stepFlow.step.canSuspend,
-          description: stepFlow.step.description,
-          isForEach: stepFlow.type === "foreach",
-          label: formatMappingLabel(stepFlow.step.id, prevStepIds, nextStepIds),
-          mapConfig: stepFlow.step.mapConfig,
-          metadata: stepFlow.step.metadata,
-          stepGraph: hasGraph ? stepFlow.step.serializedStepFlow : undefined,
-          stepId: stepFlow.step.id,
-          withoutBottomHandle: !nextNodeIds.length,
-          withoutTopHandle: condition ? false : !prevNodeIds.length,
-          workflowStep: resolveWorkflowGraphStep(stepFlow),
-        },
-        id: nodeId,
-        position: { x: xIndex * 300, y: (yIndex + (condition ? 1 : 0)) * 100 },
-        type: WORKFLOW_STEP_NODE_TYPE,
-      },
-    ];
-    const edges: WorkflowGraphEdge[] = [
-      ...(condition
-        ? [
-            ...(prevNodeIds || []).map((prevNodeId, i) => ({
-              data: {
-                conditionNode: true,
-                nextStepId: stepFlow.step.id,
-                previousStepId: prevStepIds[i],
-              },
-              id: getWorkflowEdgeId(
-                prevNodeId,
-                getWorkflowConditionNodeId(condition.id),
-                "condition",
-              ),
-              source: prevNodeId,
-              target: getWorkflowConditionNodeId(condition.id),
-              ...defaultEdgeOptions,
-            })),
-            {
-              data: {
-                conditionNode: true,
-                nextStepId: stepFlow.step.id,
-                previousStepId: prevStepIds.at(-1),
-              },
-              id: getWorkflowEdgeId(getWorkflowConditionNodeId(condition.id), nodeId, "condition"),
-              source: getWorkflowConditionNodeId(condition.id),
-              target: nodeId,
-              ...defaultEdgeOptions,
-            },
-          ]
-        : (prevNodeIds || []).map((prevNodeId, i) => ({
-            data: { nextStepId: stepFlow.step.id, previousStepId: prevStepIds[i] },
-            id: getWorkflowEdgeId(prevNodeId, nodeId),
-            source: prevNodeId,
-            target: nodeId,
-            ...defaultEdgeOptions,
-          }))),
-      ...(nextNodeIds || []).map((nextNodeId, i) => ({
-        data: { nextStepId: nextStepIds[i], previousStepId: stepFlow.step.id },
-        id: getWorkflowEdgeId(nodeId, nextNodeId),
-        source: nodeId,
-        target: nextNodeId,
-        ...defaultEdgeOptions,
-      })),
-    ];
-    return { edges, nextPrevNodeIds: [nodeId], nextPrevStepIds: [stepFlow.step.id], nodes };
+  if (nextStepFlow.type === "sleep" || nextStepFlow.type === "sleepUntil") {
+    const uniqueStepId = getUniqueStepId(nextStepFlow.id, yIndex + 1, allPrevNodeIds);
+    return { nodeIds: [getWorkflowNodeId(uniqueStepId)], stepIds: [nextStepFlow.id] };
   }
 
-  if (stepFlow.type === "sleep" || stepFlow.type === "sleepUntil") {
-    const rawNodeId = allPrevNodeIds.has(getWorkflowNodeId(stepFlow.id))
-      ? `${stepFlow.id}-${yIndex}`
-      : stepFlow.id;
-    const nodeId = getWorkflowNodeId(rawNodeId);
-    const conditionNodes: WorkflowStepNode[] = condition
-      ? [
-          {
-            data: {
-              conditions: [{ fnString: condition.fn, type: "when" }],
-              isLarge: true,
-              label: condition.id,
-              nextStepId: stepFlow.id,
-              nodeRole: "condition",
-              previousStepId: prevStepIds.at(-1),
-              withoutBottomHandle: !nextNodeIds.length,
-              withoutTopHandle: false,
-              workflowStep: conditionWorkflowStep(condition),
-            },
-            id: getWorkflowConditionNodeId(condition.id),
-            position: { x: xIndex * 300, y: yIndex * 100 },
-            type: WORKFLOW_STEP_NODE_TYPE,
-          },
-        ]
-      : [];
-    const nodes: WorkflowStepNode[] = [
-      ...conditionNodes,
-      {
-        data: {
-          label: stepFlow.id,
-          stepId: stepFlow.id,
-          withoutBottomHandle: !nextNodeIds.length,
-          withoutTopHandle: condition ? false : !prevNodeIds.length,
-          workflowStep: resolveWorkflowGraphStep(stepFlow),
-          ...(stepFlow.type === "sleepUntil"
-            ? { date: stepFlow.date }
-            : { duration: stepFlow.duration }),
-        },
-        id: nodeId,
-        position: { x: xIndex * 300, y: (yIndex + (condition ? 1 : 0)) * 100 },
-        type: WORKFLOW_STEP_NODE_TYPE,
-      },
-    ];
-    const edges: WorkflowGraphEdge[] = [
-      ...(!prevNodeIds.length
-        ? []
-        : condition
-          ? [
-              ...prevNodeIds.map((prevNodeId, i) => ({
-                data: {
-                  conditionNode: true,
-                  nextStepId: stepFlow.id,
-                  previousStepId: prevStepIds[i],
-                },
-                id: getWorkflowEdgeId(
-                  prevNodeId,
-                  getWorkflowConditionNodeId(condition.id),
-                  "condition",
-                ),
-                source: prevNodeId,
-                target: getWorkflowConditionNodeId(condition.id),
-                ...defaultEdgeOptions,
-              })),
-              {
-                data: {
-                  conditionNode: true,
-                  nextStepId: stepFlow.id,
-                  previousStepId: prevStepIds[prevStepIds.length - 1],
-                },
-                id: getWorkflowEdgeId(
-                  getWorkflowConditionNodeId(condition.id),
-                  nodeId,
-                  "condition",
-                ),
-                source: getWorkflowConditionNodeId(condition.id),
-                target: nodeId,
-                ...defaultEdgeOptions,
-              },
-            ]
-          : prevNodeIds.map((prevNodeId, i) => ({
-              data: { nextStepId: stepFlow.id, previousStepId: prevStepIds[i] },
-              id: getWorkflowEdgeId(prevNodeId, nodeId),
-              source: prevNodeId,
-              target: nodeId,
-              ...defaultEdgeOptions,
-            }))),
-      ...(!nextNodeIds.length
-        ? []
-        : nextNodeIds.map((nextNodeId, i) => ({
-            data: { nextStepId: nextStepIds[i], previousStepId: stepFlow.id },
-            id: getWorkflowEdgeId(nodeId, nextNodeId),
-            source: nodeId,
-            target: nextNodeId,
-            ...defaultEdgeOptions,
-          }))),
-    ];
-    return { edges, nextPrevNodeIds: [nodeId], nextPrevStepIds: [stepFlow.id], nodes };
-  }
-
-  if (stepFlow.type === "loop") {
-    const { step: _step, serializedCondition, loopType } = stepFlow;
-    const nodeId = getWorkflowNodeId(_step.id);
-    const conditionNodeId = getWorkflowConditionNodeId(serializedCondition.id);
-    const nodes: WorkflowStepNode[] = [
-      {
-        data: {
-          canSuspend: _step.canSuspend,
-          description: _step.description,
-          label: _step.id,
-          metadata: _step.metadata,
-          stepGraph: _step.component === "WORKFLOW" ? _step.serializedStepFlow : undefined,
-          stepId: _step.id,
-          withoutBottomHandle: false,
-          withoutTopHandle: !prevNodeIds.length,
-          workflowStep: resolveWorkflowGraphStep(stepFlow),
-        },
-        id: nodeId,
-        position: { x: xIndex * 300, y: yIndex * 100 },
-        type: WORKFLOW_STEP_NODE_TYPE,
-      },
-      {
-        data: {
-          label: serializedCondition.id,
-          workflowStep: conditionWorkflowStep(serializedCondition),
-          nodeRole: "condition",
-          // conditionStepId: _step.id,
-          previousStepId: _step.id,
-          nextStepId: nextStepIds[0],
-          withoutTopHandle: false,
-          withoutBottomHandle: !nextNodeIds.length,
-          isLarge: true,
-          conditions: [{ fnString: serializedCondition.fn, type: loopType }],
-        },
-        id: conditionNodeId,
-        position: { x: xIndex * 300, y: (yIndex + 1) * 100 },
-        type: WORKFLOW_STEP_NODE_TYPE,
-      },
-    ];
-
-    const edges: WorkflowGraphEdge[] = [
-      ...(!prevNodeIds.length
-        ? []
-        : prevNodeIds.map((prevNodeId, i) => ({
-            data: { nextStepId: _step.id, previousStepId: prevStepIds[i] },
-            id: getWorkflowEdgeId(prevNodeId, nodeId),
-            source: prevNodeId,
-            target: nodeId,
-            ...defaultEdgeOptions,
-          }))),
-      {
-        data: { nextStepId: nextStepIds[0], previousStepId: _step.id },
-        id: getWorkflowEdgeId(nodeId, conditionNodeId, "condition"),
-        source: nodeId,
-        target: conditionNodeId,
-        ...defaultEdgeOptions,
-      },
-      ...(!nextNodeIds.length
-        ? []
-        : nextNodeIds.map((nextNodeId, i) => ({
-            data: { nextStepId: nextStepIds[i], previousStepId: _step.id },
-            id: getWorkflowEdgeId(conditionNodeId, nextNodeId, "condition"),
-            source: conditionNodeId,
-            target: nextNodeId,
-            ...defaultEdgeOptions,
-          }))),
-    ];
-
-    return { edges, nextPrevNodeIds: [conditionNodeId], nextPrevStepIds: [_step.id], nodes };
-  }
-
-  if (stepFlow.type === "parallel") {
-    const nodes: WorkflowStepNode[] = [];
-    const edges: WorkflowGraphEdge[] = [];
-    const nextPrevStepIds: string[] = [];
-    stepFlow.steps.forEach((_stepFlow, index) => {
-      const {
-        nodes: _nodes,
-        edges: _edges,
-        nextPrevStepIds: _nextPrevStepIds,
-      } = getStepNodeAndEdge({
-        allPrevNodeIds,
-        nextStepFlow,
-        prevNodeIds,
-        prevStepIds,
-        stepFlow: _stepFlow,
-        xIndex: index,
-        yIndex,
-      });
-      // Mark nodes as part of parallel execution
-      const markedNodes: WorkflowStepNode[] = _nodes.map((node) => ({
-        ...node,
-        data: {
-          ...node.data,
-          isParallel: true,
-        },
-      }));
-      nodes.push(...markedNodes);
-      edges.push(..._edges);
-      nextPrevStepIds.push(..._nextPrevStepIds);
-    });
-
-    return { edges, nextPrevNodeIds: nodes.map((node) => node.id), nextPrevStepIds, nodes };
-  }
-
-  if (stepFlow.type === "conditional") {
-    const nodes: WorkflowStepNode[] = [];
-    const edges: WorkflowGraphEdge[] = [];
-    const nextPrevStepIds: string[] = [];
-    stepFlow.steps.forEach((_stepFlow, index) => {
-      const {
-        nodes: _nodes,
-        edges: _edges,
-        nextPrevStepIds: _nextPrevStepIds,
-      } = getStepNodeAndEdge({
-        allPrevNodeIds,
-        condition: stepFlow.serializedConditions[index],
-        nextStepFlow,
-        prevNodeIds,
-        prevStepIds,
-        stepFlow: _stepFlow,
-        xIndex: index,
-        yIndex,
-      });
-      nodes.push(..._nodes);
-      edges.push(..._edges);
-      nextPrevStepIds.push(..._nextPrevStepIds);
-    });
-
+  if (nextStepFlow.type === "parallel") {
     return {
-      edges,
-      nextPrevNodeIds: nodes
-        .filter(({ data }) => data.nodeRole !== "condition")
-        .map((node) => node.id),
-      nextPrevStepIds,
-      nodes,
+      nodeIds: nextStepFlow.steps.map(({ step }) =>
+        getWorkflowNodeId(getUniqueStepId(step.id, yIndex + 1, allPrevNodeIds)),
+      ),
+      stepIds: nextStepFlow.steps.map(({ step }) => step.id),
     };
   }
 
-  return { edges: [], nextPrevNodeIds: [], nextPrevStepIds: [], nodes: [] };
+  if (nextStepFlow.type === "conditional") {
+    return {
+      nodeIds: nextStepFlow.serializedConditions.map(({ id }) => getWorkflowConditionNodeId(id)),
+      stepIds: nextStepFlow.steps.map(({ step }) => step.id),
+    };
+  }
+
+  return { nodeIds: [], stepIds: [] };
 };
+
+const createConditionNode = ({
+  condition,
+  nextStepId,
+  previousStepId,
+  withoutBottomHandle,
+  withoutTopHandle,
+  xIndex,
+  yIndex,
+}: {
+  condition: { id: string; fn: string };
+  nextStepId: string;
+  previousStepId: string | undefined;
+  withoutBottomHandle: boolean;
+  withoutTopHandle: boolean;
+  xIndex: number;
+  yIndex: number;
+}): WorkflowStepNode => ({
+  data: {
+    conditions: [{ fnString: condition.fn, type: "when" }],
+    isLarge: true,
+    label: condition.id,
+    nextStepId,
+    nodeRole: "condition",
+    previousStepId,
+    withoutBottomHandle,
+    withoutTopHandle,
+    workflowStep: conditionWorkflowStep(condition),
+  },
+  id: getWorkflowConditionNodeId(condition.id),
+  position: { x: xIndex * 300, y: yIndex * 100 },
+  type: WORKFLOW_STEP_NODE_TYPE,
+});
+
+const createStepEdges = ({
+  condition,
+  connectConditionWithoutPrevious,
+  nextNodeIds,
+  nextStepIds,
+  nodeId,
+  prevNodeIds,
+  prevStepIds,
+  stepId,
+}: {
+  condition: { id: string; fn: string } | undefined;
+  connectConditionWithoutPrevious: boolean;
+  nextNodeIds: string[];
+  nextStepIds: string[];
+  nodeId: string;
+  prevNodeIds: string[];
+  prevStepIds: string[];
+  stepId: string;
+}): WorkflowGraphEdge[] => {
+  const edges: WorkflowGraphEdge[] = [];
+  const conditionNodeId = condition ? getWorkflowConditionNodeId(condition.id) : undefined;
+
+  for (const [index, previousNodeId] of prevNodeIds.entries()) {
+    const target = conditionNodeId ?? nodeId;
+    edges.push({
+      data: {
+        ...(condition ? { conditionNode: true } : {}),
+        nextStepId: stepId,
+        previousStepId: prevStepIds[index],
+      },
+      id: getWorkflowEdgeId(previousNodeId, target, condition ? "condition" : "step"),
+      source: previousNodeId,
+      target,
+      ...defaultEdgeOptions,
+    });
+  }
+
+  if (conditionNodeId && (connectConditionWithoutPrevious || prevNodeIds.length > 0)) {
+    edges.push({
+      data: {
+        conditionNode: true,
+        nextStepId: stepId,
+        previousStepId: prevStepIds.at(-1),
+      },
+      id: getWorkflowEdgeId(conditionNodeId, nodeId, "condition"),
+      source: conditionNodeId,
+      target: nodeId,
+      ...defaultEdgeOptions,
+    });
+  }
+
+  for (const [index, nextNodeId] of nextNodeIds.entries()) {
+    edges.push({
+      data: { nextStepId: nextStepIds[index], previousStepId: stepId },
+      id: getWorkflowEdgeId(nodeId, nextNodeId),
+      source: nodeId,
+      target: nextNodeId,
+      ...defaultEdgeOptions,
+    });
+  }
+
+  return edges;
+};
+
+const createLinearStepGraph = (
+  stepFlow: Extract<SerializedStepFlowEntry, { type: "step" | "foreach" }>,
+  context: StepGraphContext,
+  nextSteps: NextStepReferences,
+): StepNodeAndEdgeResult => {
+  const { allPrevNodeIds, condition, prevNodeIds, prevStepIds, xIndex, yIndex } = context;
+  const { nodeIds: nextNodeIds, stepIds: nextStepIds } = nextSteps;
+  const stepId = stepFlow.step.id;
+  const nodeId = getWorkflowNodeId(getUniqueStepId(stepId, yIndex, allPrevNodeIds));
+  const nodes: WorkflowStepNode[] = [];
+
+  if (condition) {
+    nodes.push(
+      createConditionNode({
+        condition,
+        nextStepId: stepId,
+        previousStepId: prevStepIds.at(-1),
+        withoutBottomHandle: nextNodeIds.length === 0,
+        withoutTopHandle: prevNodeIds.length === 0,
+        xIndex,
+        yIndex,
+      }),
+    );
+  }
+
+  nodes.push({
+    data: {
+      canSuspend: stepFlow.step.canSuspend,
+      description: stepFlow.step.description,
+      isForEach: stepFlow.type === "foreach",
+      label: formatMappingLabel(stepId, prevStepIds, nextStepIds),
+      mapConfig: stepFlow.step.mapConfig,
+      metadata: stepFlow.step.metadata,
+      stepGraph:
+        stepFlow.step.component === "WORKFLOW" ? stepFlow.step.serializedStepFlow : undefined,
+      stepId,
+      withoutBottomHandle: nextNodeIds.length === 0,
+      withoutTopHandle: condition ? false : prevNodeIds.length === 0,
+      workflowStep: resolveWorkflowGraphStep(stepFlow),
+    },
+    id: nodeId,
+    position: { x: xIndex * 300, y: (yIndex + (condition ? 1 : 0)) * 100 },
+    type: WORKFLOW_STEP_NODE_TYPE,
+  });
+
+  return {
+    edges: createStepEdges({
+      condition,
+      connectConditionWithoutPrevious: true,
+      nextNodeIds,
+      nextStepIds,
+      nodeId,
+      prevNodeIds,
+      prevStepIds,
+      stepId,
+    }),
+    nextPrevNodeIds: [nodeId],
+    nextPrevStepIds: [stepId],
+    nodes,
+  };
+};
+
+const createSleepStepGraph = (
+  stepFlow: Extract<SerializedStepFlowEntry, { type: "sleep" | "sleepUntil" }>,
+  context: StepGraphContext,
+  nextSteps: NextStepReferences,
+): StepNodeAndEdgeResult => {
+  const { allPrevNodeIds, condition, prevNodeIds, prevStepIds, xIndex, yIndex } = context;
+  const { nodeIds: nextNodeIds, stepIds: nextStepIds } = nextSteps;
+  const stepId = stepFlow.id;
+  const nodeId = getWorkflowNodeId(getUniqueStepId(stepId, yIndex, allPrevNodeIds));
+  const nodes: WorkflowStepNode[] = [];
+
+  if (condition) {
+    nodes.push(
+      createConditionNode({
+        condition,
+        nextStepId: stepId,
+        previousStepId: prevStepIds.at(-1),
+        withoutBottomHandle: nextNodeIds.length === 0,
+        withoutTopHandle: false,
+        xIndex,
+        yIndex,
+      }),
+    );
+  }
+
+  const timingData =
+    stepFlow.type === "sleepUntil" ? { date: stepFlow.date } : { duration: stepFlow.duration };
+  nodes.push({
+    data: {
+      label: stepId,
+      stepId,
+      withoutBottomHandle: nextNodeIds.length === 0,
+      withoutTopHandle: condition ? false : prevNodeIds.length === 0,
+      workflowStep: resolveWorkflowGraphStep(stepFlow),
+      ...timingData,
+    },
+    id: nodeId,
+    position: { x: xIndex * 300, y: (yIndex + (condition ? 1 : 0)) * 100 },
+    type: WORKFLOW_STEP_NODE_TYPE,
+  });
+
+  return {
+    edges: createStepEdges({
+      condition,
+      connectConditionWithoutPrevious: false,
+      nextNodeIds,
+      nextStepIds,
+      nodeId,
+      prevNodeIds,
+      prevStepIds,
+      stepId,
+    }),
+    nextPrevNodeIds: [nodeId],
+    nextPrevStepIds: [stepId],
+    nodes,
+  };
+};
+
+const createLoopStepGraph = (
+  stepFlow: Extract<SerializedStepFlowEntry, { type: "loop" }>,
+  context: StepGraphContext,
+  nextSteps: NextStepReferences,
+): StepNodeAndEdgeResult => {
+  const { prevNodeIds, prevStepIds, xIndex, yIndex } = context;
+  const { nodeIds: nextNodeIds, stepIds: nextStepIds } = nextSteps;
+  const { loopType, serializedCondition, step } = stepFlow;
+  const nodeId = getWorkflowNodeId(step.id);
+  const conditionNodeId = getWorkflowConditionNodeId(serializedCondition.id);
+  const nodes: WorkflowStepNode[] = [
+    {
+      data: {
+        canSuspend: step.canSuspend,
+        description: step.description,
+        label: step.id,
+        metadata: step.metadata,
+        stepGraph: step.component === "WORKFLOW" ? step.serializedStepFlow : undefined,
+        stepId: step.id,
+        withoutBottomHandle: false,
+        withoutTopHandle: prevNodeIds.length === 0,
+        workflowStep: resolveWorkflowGraphStep(stepFlow),
+      },
+      id: nodeId,
+      position: { x: xIndex * 300, y: yIndex * 100 },
+      type: WORKFLOW_STEP_NODE_TYPE,
+    },
+    {
+      data: {
+        conditions: [{ fnString: serializedCondition.fn, type: loopType }],
+        isLarge: true,
+        label: serializedCondition.id,
+        nextStepId: nextStepIds[0],
+        nodeRole: "condition",
+        previousStepId: step.id,
+        withoutBottomHandle: nextNodeIds.length === 0,
+        withoutTopHandle: false,
+        workflowStep: conditionWorkflowStep(serializedCondition),
+      },
+      id: conditionNodeId,
+      position: { x: xIndex * 300, y: (yIndex + 1) * 100 },
+      type: WORKFLOW_STEP_NODE_TYPE,
+    },
+  ];
+  const edges: WorkflowGraphEdge[] = [];
+
+  for (const [index, previousNodeId] of prevNodeIds.entries()) {
+    edges.push({
+      data: { nextStepId: step.id, previousStepId: prevStepIds[index] },
+      id: getWorkflowEdgeId(previousNodeId, nodeId),
+      source: previousNodeId,
+      target: nodeId,
+      ...defaultEdgeOptions,
+    });
+  }
+
+  edges.push({
+    data: { nextStepId: nextStepIds[0], previousStepId: step.id },
+    id: getWorkflowEdgeId(nodeId, conditionNodeId, "condition"),
+    source: nodeId,
+    target: conditionNodeId,
+    ...defaultEdgeOptions,
+  });
+
+  for (const [index, nextNodeId] of nextNodeIds.entries()) {
+    edges.push({
+      data: { nextStepId: nextStepIds[index], previousStepId: step.id },
+      id: getWorkflowEdgeId(conditionNodeId, nextNodeId, "condition"),
+      source: conditionNodeId,
+      target: nextNodeId,
+      ...defaultEdgeOptions,
+    });
+  }
+
+  return {
+    edges,
+    nextPrevNodeIds: [conditionNodeId],
+    nextPrevStepIds: [step.id],
+    nodes,
+  };
+};
+
+const createParallelStepGraph = (
+  stepFlow: Extract<SerializedStepFlowEntry, { type: "parallel" }>,
+  context: StepGraphContext,
+  buildStepGraph: BuildStepGraph,
+): StepNodeAndEdgeResult => {
+  const nodes: WorkflowStepNode[] = [];
+  const edges: WorkflowGraphEdge[] = [];
+  const nextPrevStepIds: string[] = [];
+
+  for (const [index, childStepFlow] of stepFlow.steps.entries()) {
+    const result = buildStepGraph({
+      ...context,
+      condition: undefined,
+      stepFlow: childStepFlow,
+      xIndex: index,
+    });
+    nodes.push(
+      ...result.nodes.map((node) => ({
+        ...node,
+        data: { ...node.data, isParallel: true },
+      })),
+    );
+    edges.push(...result.edges);
+    nextPrevStepIds.push(...result.nextPrevStepIds);
+  }
+
+  return {
+    edges,
+    nextPrevNodeIds: nodes.map((node) => node.id),
+    nextPrevStepIds,
+    nodes,
+  };
+};
+
+const createConditionalStepGraph = (
+  stepFlow: Extract<SerializedStepFlowEntry, { type: "conditional" }>,
+  context: StepGraphContext,
+  buildStepGraph: BuildStepGraph,
+): StepNodeAndEdgeResult => {
+  const nodes: WorkflowStepNode[] = [];
+  const edges: WorkflowGraphEdge[] = [];
+  const nextPrevStepIds: string[] = [];
+
+  for (const [index, childStepFlow] of stepFlow.steps.entries()) {
+    const result = buildStepGraph({
+      ...context,
+      condition: stepFlow.serializedConditions[index],
+      stepFlow: childStepFlow,
+      xIndex: index,
+    });
+    nodes.push(...result.nodes);
+    edges.push(...result.edges);
+    nextPrevStepIds.push(...result.nextPrevStepIds);
+  }
+
+  return {
+    edges,
+    nextPrevNodeIds: nodes
+      .filter(({ data }) => data.nodeRole !== "condition")
+      .map((node) => node.id),
+    nextPrevStepIds,
+    nodes,
+  };
+};
+
+function getStepNodeAndEdge({
+  stepFlow,
+  ...context
+}: StepGraphContext & { stepFlow: SerializedStepFlowEntry }): StepNodeAndEdgeResult {
+  const nextSteps = getNextStepReferences(context);
+
+  if (stepFlow.type === "step" || stepFlow.type === "foreach") {
+    return createLinearStepGraph(stepFlow, context, nextSteps);
+  }
+  if (stepFlow.type === "sleep" || stepFlow.type === "sleepUntil") {
+    return createSleepStepGraph(stepFlow, context, nextSteps);
+  }
+  if (stepFlow.type === "loop") {
+    return createLoopStepGraph(stepFlow, context, nextSteps);
+  }
+  if (stepFlow.type === "parallel") {
+    return createParallelStepGraph(stepFlow, context, getStepNodeAndEdge);
+  }
+  if (stepFlow.type === "conditional") {
+    return createConditionalStepGraph(stepFlow, context, getStepNodeAndEdge);
+  }
+
+  return { edges: [], nextPrevNodeIds: [], nextPrevStepIds: [], nodes: [] };
+}
 
 export const constructNodesAndEdges = ({
   stepGraph,
@@ -611,7 +677,7 @@ export const constructNodesAndEdges = ({
   let prevStepIds: string[] = [];
   const allPrevNodeIds = new Set<string>();
 
-  for (let index = 0; index < stepGraph.length; index++) {
+  for (let index = 0; index < stepGraph.length; index += 1) {
     const {
       nodes: _nodes,
       edges: _edges,
@@ -702,247 +768,14 @@ export const constructNodesAndEdges = ({
   return { edges: layoutedEdges, nodes: layoutedNodes };
 };
 
-export const buildStepsFlow = (edges: WorkflowGraphEdge[]): Record<string, string[]> =>
-  edges.reduce(
-    (acc, edge) => {
-      if (!edge.data || edge.data.boundaryPayload) {
-        return acc;
-      }
-
-      const stepId = edge.data?.nextStepId;
-      const prevStepId = edge.data?.previousStepId;
-
-      if (!stepId || !prevStepId) {
-        return acc;
-      }
-
-      return {
-        ...acc,
-        [stepId]: [...new Set([...(acc[stepId] || []), prevStepId])],
-      };
-    },
-    {} as Record<string, string[]>,
-  );
-
-/**
- * Invert the predecessor map (step -> its predecessors) into a successor map
- * (step -> the steps that depend on it). Branch arms feed the same downstream
- * join node, so this lets us detect arms that were never taken once a sibling
- * on the same join has already succeeded.
- */
-export const buildStepSuccessors = (
-  stepsFlow: Record<string, string[]>,
-): Record<string, string[]> =>
-  Object.entries(stepsFlow).reduce(
-    (acc, [stepId, prevStepIds]) => {
-      for (const prevStepId of prevStepIds) {
-        acc[prevStepId] = [...new Set([...(acc[prevStepId] || []), stepId])];
-      }
-      return acc;
-    },
-    {} as Record<string, string[]>,
-  );
-
-/**
- * Walk the serialized step graph to flag two special kinds of step:
- * - `conditionalStepIds`: arms of a conditional entry. Only these can be
- *   "bypassed" — when one branch arm is selected, the others never run.
- *   Parallel arms also share a downstream join, but every parallel arm must
- *   run, so they are deliberately NOT collected here.
- * - `nestedWorkflowStepIds`: steps whose component is a nested workflow. From
- *   the parent's perspective a nested workflow is a single atomic step.
- */
-export const collectGraphStepFlags = (
-  stepGraph: SerializedStepFlowEntry[] | undefined,
-): { conditionalStepIds: Set<string>; nestedWorkflowStepIds: Set<string> } => {
-  const conditionalStepIds = new Set<string>();
-  const nestedWorkflowStepIds = new Set<string>();
-
-  const visit = (entry: SerializedStepFlowEntry | undefined) => {
-    if (!entry) {
-      return;
-    }
-    if (entry.type === "step" || entry.type === "foreach" || entry.type === "loop") {
-      if (entry.step?.component === "WORKFLOW" && entry.step?.id) {
-        nestedWorkflowStepIds.add(entry.step.id);
-      }
-    }
-    if (entry.type === "conditional") {
-      for (const child of entry.steps) {
-        conditionalStepIds.add(child.step.id);
-        visit(child);
-      }
-    }
-    if (entry.type === "parallel") {
-      for (const child of entry.steps) {
-        visit(child);
-      }
-    }
-  };
-
-  for (const entry of stepGraph ?? []) {
-    visit(entry);
-  }
-
-  return { conditionalStepIds, nestedWorkflowStepIds };
-};
-
-type StepStatusLookup = (stepId: string) => boolean;
-
-/**
- * A conditional branch arm is "bypassed" when one of its successors (a join
- * such as a post-branch map) already has another predecessor that succeeded.
- * That means a sibling arm was the one selected by the condition, so this arm
- * will never run and must be skipped — otherwise per-step execution stalls on
- * it forever. Parallel arms are excluded via `conditionalStepIds`, because
- * every parallel arm is expected to run even though they share a join.
- */
-export const isBranchArmBypassed = ({
-  stepId,
-  conditionalStepIds,
-  stepSuccessors,
-  stepsFlow,
-  isStepSuccess,
-}: {
-  stepId: string;
-  conditionalStepIds: Set<string>;
-  stepSuccessors: Record<string, string[]>;
-  stepsFlow: Record<string, string[]>;
-  isStepSuccess: StepStatusLookup;
-}): boolean => {
-  if (!conditionalStepIds.has(stepId)) {
-    return false;
-  }
-  const successors = stepSuccessors[stepId] ?? [];
-  return successors.some((successorId) =>
-    (stepsFlow[successorId] ?? []).some((sib) => sib !== stepId && isStepSuccess(sib)),
-  );
-};
-
-/**
- * The next step to advance is the first step in graph order that has not yet
- * succeeded and was not bypassed by a conditional branch decision.
- */
-export const selectNextStepKey = ({
-  stepNodesInOrder,
-  isStepSuccess,
-  isStepBypassed,
-}: {
-  stepNodesInOrder: string[];
-  isStepSuccess: StepStatusLookup;
-  isStepBypassed: StepStatusLookup;
-}): string | undefined =>
-  stepNodesInOrder.find((stepId) => !isStepSuccess(stepId) && !isStepBypassed(stepId));
-
-/**
- * A step is the last runnable one when no later step in graph order still needs
- * to run (ignoring bypassed branch arms). The final advance must finish the run
- * instead of pausing again, otherwise the workflow ends in a 'paused' state and
- * the user never sees the run's end output.
- */
-export const isLastRunnableStep = ({
-  nextStepKey,
-  stepNodesInOrder,
-  isStepSuccess,
-  isStepBypassed,
-}: {
-  nextStepKey: string | undefined;
-  stepNodesInOrder: string[];
-  isStepSuccess: StepStatusLookup;
-  isStepBypassed: StepStatusLookup;
-}): boolean => {
-  if (!nextStepKey) {
-    return false;
-  }
-  const nextIndex = stepNodesInOrder.indexOf(nextStepKey);
-  return stepNodesInOrder
-    .slice(nextIndex + 1)
-    .every((stepId) => isStepSuccess(stepId) || isStepBypassed(stepId));
-};
-
-/**
- * True when every predecessor step has succeeded. A join is only runnable once all of its
- * parallel arms have produced an output; a skipped or still-running arm makes it false.
- * An empty predecessor set is vacuously resolved (callers handle the no-predecessor case
- * separately before consulting this predicate).
- */
-/**
- * A join is ready when every predecessor is accounted for: it either succeeded
- * (it produced an output to forward) or it was bypassed (a dead conditional-branch
- * arm that will never run). A still-running or pending arm leaves the join unresolved.
- * Parallel arms are never bypassed, so a paused parallel join only resolves once all
- * arms succeed.
- */
-export const allPredecessorsResolved = (
-  previousSteps: string[],
-  steps: Record<string, { status?: string }> | undefined,
-  isBypassed: (stepId: string) => boolean = () => false,
-): boolean =>
-  previousSteps.every((stepId) => steps?.[stepId]?.status === "success" || isBypassed(stepId));
-
-/**
- * Resolve the graph node that represents a given step id. Default/parallel nodes
- * carry `data.stepId`; condition nodes fall back to `data.label`. Returns
- * undefined when no node matches (e.g. before React Flow has laid out the graph).
- */
-export const findFocusNode = (nodes: Node[], stepId: string): Node | undefined =>
-  nodes.find((node) => (node.data?.stepId ?? node.data?.label) === stepId);
-
-/**
- * Build the input payload for the next step from its resolved predecessors:
- * - A join with multiple predecessors yields a keyed map of each succeeded
- *   predecessor's output (`hasMultiSteps`); bypassed dead branch arms are excluded.
- * - A single predecessor yields its output directly.
- * Returns undefined when the step has no predecessor, or when any predecessor is
- * still unresolved (not succeeded and not bypassed) — e.g. a paused parallel join
- * where only some arms have finished.
- */
-export const buildNextStepInput = ({
-  nextStepKey,
-  stepsFlow,
-  steps,
-  isStepBypassed = () => false,
-}: {
-  nextStepKey: string | undefined;
-  stepsFlow: Record<string, string[]>;
-  steps: Record<string, { status?: string; output?: any }> | undefined;
-  isStepBypassed?: (stepId: string) => boolean;
-}): { hasMultiSteps: boolean; input: any } | undefined => {
-  if (!nextStepKey) {
-    return undefined;
-  }
-  const previousSteps = stepsFlow?.[nextStepKey] ?? [];
-  if (previousSteps.length === 0) {
-    return undefined;
-  }
-
-  if (previousSteps.length > 1) {
-    // A join can only run once every predecessor is accounted for. A still-running or pending
-    // arm leaves the input incomplete, so the step is not runnable yet — return undefined rather
-    // than a partial map (which would wrongly enable "Run next step", e.g. on a paused parallel
-    // join where only one arm has finished). Bypassed dead branch arms are excluded from the map.
-    if (!allPredecessorsResolved(previousSteps, steps, isStepBypassed)) {
-      return undefined;
-    }
-
-    return {
-      hasMultiSteps: true,
-      input: previousSteps
-        .filter((stepId) => steps?.[stepId]?.status === "success")
-        .reduce<Record<string, unknown>>((acc, stepId) => {
-          acc[stepId] = steps?.[stepId]?.output;
-          return acc;
-        }, {}),
-    };
-  }
-
-  const prevStepId = previousSteps[0];
-  if (steps?.[prevStepId]?.status === "success") {
-    return {
-      hasMultiSteps: false,
-      input: steps?.[prevStepId]?.output,
-    };
-  }
-
-  return undefined;
-};
+export {
+  allPredecessorsResolved,
+  buildNextStepInput,
+  buildStepSuccessors,
+  buildStepsFlow,
+  collectGraphStepFlags,
+  findFocusNode,
+  isBranchArmBypassed,
+  isLastRunnableStep,
+  selectNextStepKey,
+} from "./workflow-step-flow-utils";

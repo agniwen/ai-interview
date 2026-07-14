@@ -56,12 +56,11 @@ export function computeReviewTotals(reviewSummary: ReviewSummary): ReviewTotals 
   if (!reviewSummary?.counts) {
     return { complete: 0, inPipeline: 0, needsReview: 0 };
   }
-  return reviewSummary.counts.reduce<ReviewTotals>(
-    (acc, c) => ({
-      complete: acc.complete + c.complete,
-      inPipeline: acc.inPipeline + c.needsReview + c.complete,
-      needsReview: acc.needsReview + c.needsReview,
-    }),
-    { complete: 0, inPipeline: 0, needsReview: 0 },
-  );
+  const totals = { complete: 0, inPipeline: 0, needsReview: 0 };
+  for (const count of reviewSummary.counts) {
+    totals.complete += count.complete;
+    totals.inPipeline += count.needsReview + count.complete;
+    totals.needsReview += count.needsReview;
+  }
+  return totals;
 }

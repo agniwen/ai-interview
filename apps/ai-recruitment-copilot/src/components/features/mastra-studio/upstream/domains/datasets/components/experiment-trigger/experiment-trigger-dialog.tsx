@@ -11,7 +11,6 @@ import {
 } from "@mastra/playground-ui/components/Dialog";
 import { Label } from "@mastra/playground-ui/components/Label";
 import { Spinner } from "@mastra/playground-ui/components/Spinner";
-import { jsonSchemaToZod } from "@mastra/schema-compat/json-to-zod";
 import { format } from "date-fns";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -19,7 +18,7 @@ import { useDatasetMutations } from "../../hooks/use-dataset-mutations";
 import { ScorerSelector } from "./scorer-selector";
 import type { TargetType } from "./target-selector";
 import { TargetSelector } from "./target-selector";
-import { DynamicForm } from "@/components/features/mastra-studio/upstream/lib/form";
+import { DynamicForm } from "@/components/features/mastra-studio/upstream/lib/form/dynamic-form";
 import { resolveSerializedZodOutput } from "@/components/features/mastra-studio/upstream/lib/form/utils";
 
 export interface ExperimentTriggerDialogProps {
@@ -45,7 +44,7 @@ function RequestContextForm({
   const zodSchema = useMemo(() => {
     try {
       return resolveSerializedZodOutput(
-        jsonSchemaToZod(requestContextSchema as Parameters<typeof jsonSchemaToZod>[0]),
+        requestContextSchema as Parameters<typeof resolveSerializedZodOutput>[0],
       );
     } catch (error) {
       console.error("Failed to parse requestContextSchema:", error);
@@ -57,12 +56,18 @@ function RequestContextForm({
     return <p className="text-sm text-destructive">Failed to parse request context schema</p>;
   }
 
+  const handleValuesChange = (values: unknown) => {
+    if (typeof values === "object" && values !== null && !Array.isArray(values)) {
+      onChange(values as Record<string, unknown>);
+    }
+  };
+
   return (
     <div className="space-y-2">
       <Label>Request Context</Label>
       <DynamicForm
         schema={zodSchema}
-        onValuesChange={onChange}
+        onValuesChange={handleValuesChange}
         className="[&_button[type=submit]]:hidden"
       />
     </div>
@@ -194,9 +199,9 @@ export function ExperimentTriggerDialog({
             />
           )}
 
-          {hasSchema ? (
+          {requestContextSchema ? (
             <RequestContextForm
-              requestContextSchema={requestContextSchema!}
+              requestContextSchema={requestContextSchema}
               onChange={setRequestContextValues}
             />
           ) : (

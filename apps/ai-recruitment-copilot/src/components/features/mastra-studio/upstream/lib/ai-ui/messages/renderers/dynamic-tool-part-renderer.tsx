@@ -25,7 +25,7 @@ export const DynamicToolPartRenderer = ({
   return (
     <ToolCard
       toolName={toolName}
-      input={part.input}
+      input={part.input as Record<string, unknown> | undefined}
       output={part.output}
       toolCallId={part.toolCallId ?? ""}
       state={part.state}

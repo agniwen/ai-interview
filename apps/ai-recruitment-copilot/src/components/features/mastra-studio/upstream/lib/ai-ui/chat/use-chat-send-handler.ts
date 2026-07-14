@@ -1,14 +1,17 @@
 import type { MastraDBMessage } from "@mastra/core/agent/message-list";
 import { RequestContext } from "@mastra/core/di";
+import type { TracingOptions } from "@mastra/core/observability";
 import { memoryStatusQueryKey } from "@mastra/playground-ui/domains/memory/hooks/use-memory-status";
 import { memoryThreadMessagesQueryKey } from "@mastra/playground-ui/domains/memory/hooks/use-memory-thread-messages";
 import { observationalMemoryQueryKey } from "@mastra/playground-ui/domains/memory/hooks/use-observational-memory";
+import type { useChat } from "@mastra/react";
 import { useMastraClient } from "@mastra/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
 import type { ChatSendArgs } from "./chat-context";
+import type { OmProgressData } from "@/components/features/mastra-studio/upstream/domains/agents/context/agent-observational-memory-context";
 import { injectBufferingEnds } from "@/components/features/mastra-studio/upstream/services/om-parts-converter";
 import {
   buildMaxStepsStreamErrorMessage,
@@ -27,11 +30,11 @@ type OmStreamChunk =
   | {
       type: "data-om-status";
       data?: {
-        windows?: unknown;
-        recordId?: string;
-        threadId?: string;
-        stepNumber?: number;
-        generationCount?: number;
+        windows: OmProgressData["windows"];
+        recordId: string;
+        threadId: string;
+        stepNumber: number;
+        generationCount: number;
       };
     }
   | { type: "data-om-activation"; data?: { operationType?: string; cycleId?: string } };
@@ -67,7 +70,7 @@ interface SendDeps {
   chatWithGenerate?: boolean;
   maxSteps?: number;
   isOMEnabled: boolean;
-  tracingOptions?: unknown;
+  tracingOptions?: TracingOptions;
 }
 
 interface UseChatSendHandlerArgs {
@@ -80,19 +83,19 @@ interface UseChatSendHandlerArgs {
   chatWithGenerate?: boolean;
   maxSteps?: number;
   isOMEnabled: boolean;
-  tracingOptions?: unknown;
+  tracingOptions?: TracingOptions;
   threadSignalsUnsupportedRef: { current: boolean };
   isRunningStream: boolean;
-  sendMessage: (args: any) => Promise<void>;
+  sendMessage: ReturnType<typeof useChat>["sendMessage"];
   cancelRun?: () => void;
   setMessages: Dispatch<SetStateAction<MastraDBMessage[]>>;
   setStreamErrors: Dispatch<SetStateAction<MastraDBMessage[]>>;
-  refreshThreadList?: () => void | Promise<void>;
-  refreshWorkingMemory?: () => void | Promise<unknown>;
+  refreshThreadList?: () => unknown;
+  refreshWorkingMemory?: () => unknown;
   handleObservationStart: (operationType?: string) => void;
-  handleProgressUpdate: (data: any) => void;
+  handleProgressUpdate: (data: Extract<OmStreamChunk, { type: "data-om-status" }>["data"]) => void;
   refreshObservationalMemory: (operationType?: string) => void;
-  handleActivation: (data: any) => void;
+  handleActivation: (data: Extract<OmStreamChunk, { type: "data-om-activation" }>["data"]) => void;
   resetObservationalMemoryStreamState: () => void;
   /** Signal the memory timeline panel to refetch (mirrors left OM sidebar freshness). */
   signalTimelineRefresh: () => void;
@@ -100,21 +103,35 @@ interface UseChatSendHandlerArgs {
 
 const buildRequestContext = (deps: SendDeps) => {
   const requestContextInstance = new RequestContext();
-  Object.entries(deps.requestContext ?? {}).forEach(([key, value]) => {
+  for (const [key, value] of Object.entries(deps.requestContext ?? {})) {
     requestContextInstance.set(key, value);
-  });
+  }
   if (deps.agentVersionId) {
     requestContextInstance.set("agentVersionId", deps.agentVersionId);
   }
   return requestContextInstance;
 };
 
-const didUpdateWorkingMemory = (chunk: any) =>
-  (chunk.type === "tool-result" || chunk.type === "tool-execution-end") &&
-  chunk.payload?.toolName === "updateWorkingMemory" &&
-  typeof chunk.payload.result === "object" &&
-  "success" in chunk.payload.result! &&
-  chunk.payload.result?.success;
+interface ToolStreamChunk {
+  type?: string;
+  payload?: {
+    toolName?: string;
+    result?: unknown;
+  };
+}
+
+const didUpdateWorkingMemory = (value: unknown) => {
+  const chunk = value as ToolStreamChunk;
+  const result = chunk.payload?.result;
+  return (
+    (chunk.type === "tool-result" || chunk.type === "tool-execution-end") &&
+    chunk.payload?.toolName === "updateWorkingMemory" &&
+    typeof result === "object" &&
+    result !== null &&
+    "success" in result &&
+    Boolean(result.success)
+  );
+};
 
 export const useChatSendHandler = ({
   agentId,
@@ -197,17 +214,26 @@ export const useChatSendHandler = ({
       if (!currentThreadId || !sendDepsRef.current.isOMEnabled) {
         return;
       }
-      baseClient
-        .awaitBufferStatus({ agentId, resourceId: agentId, threadId: currentThreadId })
-        .then((result) => {
+      const finishBuffering = async () => {
+        try {
+          const result = await baseClient.awaitBufferStatus({
+            agentId,
+            resourceId: agentId,
+            threadId: currentThreadId,
+          });
           setMessages((prev) => injectBufferingEnds(prev, result?.record));
-          void queryClient.invalidateQueries({ queryKey: ["observational-memory", agentId] });
-          void queryClient.invalidateQueries({ queryKey: ["memory-status", agentId] });
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ["observational-memory", agentId] }),
+            queryClient.invalidateQueries({ queryKey: ["memory-status", agentId] }),
+          ]);
           // Refetch the panel again once buffering completes, so any records that
           // only landed after awaitBufferStatus resolved are reflected immediately.
           refreshTimelinePanel(currentThreadId);
-        })
-        .catch(() => {});
+        } catch {
+          // Buffer completion is opportunistic; the next query refresh recovers it.
+        }
+      };
+      void finishBuffering();
     },
     [agentId, baseClient, queryClient, refreshTimelinePanel, setMessages],
   );
@@ -262,12 +288,12 @@ export const useChatSendHandler = ({
             message,
             mode: "network",
             modelSettings: deps.modelSettingsArgs,
-            onNetworkChunk: async (chunk: any) => {
+            onNetworkChunk: async (chunk) => {
               if (didUpdateWorkingMemory(chunk)) {
                 void refreshWorkingMemory?.();
               }
               if (chunk.type === "network-execution-event-step-finish") {
-                void refreshThreadList?.();
+                await refreshThreadList?.();
               }
               handleHandledChunk(asHandledStreamChunk(chunk));
             },
@@ -296,7 +322,7 @@ export const useChatSendHandler = ({
             message,
             mode: "stream",
             modelSettings: deps.modelSettingsArgs,
-            onChunk: async (chunk: any) => {
+            onChunk: async (chunk) => {
               if (chunk.type === "finish") {
                 if (isMaxStepsFinishChunk(chunk)) {
                   setStreamErrors((prev) => [
@@ -327,9 +353,9 @@ export const useChatSendHandler = ({
         }, 500);
         refreshTimelinePanel(deps.threadId);
         completeObservationalMemoryBuffering(deps.threadId);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Error occurred in ChatProvider", error);
-        if (error.name === "AbortError") {
+        if (error instanceof Error && error.name === "AbortError") {
           return;
         }
         setStreamErrors((prev) => [
@@ -355,7 +381,7 @@ export const useChatSendHandler = ({
     ],
   );
 
-  const cancel = useCallback(async () => {
+  const cancel = useCallback(() => {
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
     resetObservationalMemoryStreamState();

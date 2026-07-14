@@ -95,7 +95,7 @@ export const useDatasetMutations = () => {
 
   // @deprecated - use batchDeleteItems mutation instead
   const deleteItems = useMutation({
-    mutationFn: async ({ datasetId, itemIds }: { datasetId: string; itemIds: string[] }) =>
+    mutationFn: ({ datasetId, itemIds }: { datasetId: string; itemIds: string[] }) =>
       client.batchDeleteDatasetItems({ datasetId, itemIds }),
     onSuccess: (_, variables) => {
       void queryClient.invalidateQueries({ queryKey: ["dataset-items", variables.datasetId] });

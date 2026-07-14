@@ -27,22 +27,17 @@ import { usePlaygroundModel } from "../../context/playground-model-context";
 import { useDatasetExperimentResults } from "@/components/features/mastra-studio/upstream/domains/datasets/hooks/use-dataset-experiments";
 import { useDatasetMutations } from "@/components/features/mastra-studio/upstream/domains/datasets/hooks/use-dataset-mutations";
 import { useStoredScorerMutations } from "@/components/features/mastra-studio/upstream/domains/scores/hooks/use-stored-scorers";
-
-interface TestItem {
-  input: unknown;
-  output: unknown;
-  expectedDirection: "high" | "low";
-  label?: string;
-}
-
-export interface ScorerMiniEditorProps {
-  onBack: () => void;
-  onSaved?: (scorerId: string) => void;
-  initialItems?: { input: unknown; output: unknown; error: unknown; itemId: string }[];
-  prefillTestItems?: { input: unknown; output: unknown; expectedDirection?: string }[];
-  editScorerId?: string;
-  editScorerData?: Record<string, unknown>;
-}
+import { resolveConditional } from "../../utils/conditional";
+import { firstDefined } from "../../utils/presence";
+import { allTruthy, isTruthy } from "../../utils/truthiness";
+import {
+  findLinkedDatasetId,
+  getFallbackScorerValues,
+  loadLinkedTestItems,
+  resolveScorerModel,
+  validateScorerFields,
+} from "./scorer-mini-editor-helpers";
+import type { ScorerMiniEditorProps, TestItem } from "./scorer-mini-editor-helpers";
 
 export function ScorerMiniEditor({
   onBack,
@@ -93,85 +88,43 @@ export function ScorerMiniEditor({
     if (!editScorerId) {
       return;
     }
-    setIsLoadingScorer(true);
-    client
-      .getStoredScorer(editScorerId)
-      .details(undefined, { status: "draft" })
-      .then(async (data) => {
-        setName(data.name || editScorerId);
-        setInstructions(data.instructions || "");
-        setScoreMin(data.scoreRange?.min ?? 0);
-        setScoreMax(data.scoreRange?.max ?? 1);
+    const loadScorer = async () => {
+      setIsLoadingScorer(true);
+      try {
+        const data = await client
+          .getStoredScorer(editScorerId)
+          .details(undefined, { status: "draft" });
+        setName(firstDefined(data.name, editScorerId) as string);
+        setInstructions(firstDefined(data.instructions, "") as string);
+        setScoreMin(firstDefined<number>(data.scoreRange?.min, 0) as number);
+        setScoreMax(firstDefined<number>(data.scoreRange?.max, 1) as number);
         if (data.model) {
           setScorerModel(`${data.model.provider}/${data.model.name}`);
         }
         // Find linked dataset with targetType='scorer'
-        let linkedDatasetId: string | null = null;
-        try {
-          const { datasets: allDs } = await client.listDatasets({ perPage: 200 });
-          const linked = allDs.find((ds) => {
-            if (ds.targetType !== "scorer") {
-              return false;
-            }
-            const ids = Array.isArray(ds.targetIds)
-              ? ds.targetIds
-              : typeof ds.targetIds === "string"
-                ? (() => {
-                    try {
-                      return JSON.parse(ds.targetIds);
-                    } catch {
-                      return [];
-                    }
-                  })()
-                : [];
-            return ids.includes(editScorerId);
-          });
-          if (linked) {
-            linkedDatasetId = linked.id;
-          }
-        } catch {
-          // Ignore
-        }
+        const linkedDatasetId = await findLinkedDatasetId(client, editScorerId);
 
         if (linkedDatasetId) {
           setScorerDatasetId(linkedDatasetId);
-          // Load existing test items from the linked dataset
-          try {
-            const { items } = await client.listDatasetItems(linkedDatasetId, { perPage: 200 });
-            const mapped: TestItem[] = items.map((item) => {
-              const inp = item.input as Record<string, unknown> | undefined;
-              const gt = item.groundTruth as Record<string, unknown> | undefined;
-              const md = item.metadata as Record<string, unknown> | undefined;
-              return {
-                expectedDirection: (gt?.expectedDirection === "low" ? "low" : "high") as
-                  | "high"
-                  | "low",
-                input: inp?.input ?? "",
-                label: (md?.label as string) || undefined,
-                output: inp?.output ?? "",
-              };
-            });
-            setTestItems(mapped);
-          } catch {
-            // Dataset may have been deleted — items just stay empty
+          const linkedItems = await loadLinkedTestItems(client, linkedDatasetId);
+          if (linkedItems) {
+            setTestItems(linkedItems);
           }
         }
-      })
-      .catch(() => {
+      } catch {
         // Fallback: try to extract from the list-scorers response data
-        const editScorer = editScorerData?.scorer as Record<string, unknown> | undefined;
-        const editConfig = editScorer?.config as Record<string, unknown> | undefined;
-        const editJudge = editConfig?.judge as Record<string, unknown> | undefined;
-        setName((editConfig?.name as string) || (editScorerData?.name as string) || editScorerId);
-        setInstructions(
-          (editJudge?.instructions as string) || (editConfig?.instructions as string) || "",
-        );
-        if (editJudge?.model) {
-          setScorerModel(editJudge.model as string);
+        const fallback = getFallbackScorerValues(editScorerData, editScorerId);
+        setName(fallback.name as string);
+        setInstructions(fallback.instructions as string);
+        if (fallback.model) {
+          setScorerModel(fallback.model);
         }
-      })
-      .finally(() => setIsLoadingScorer(false));
-  }, [editScorerId]);
+      } finally {
+        setIsLoadingScorer(false);
+      }
+    };
+    void loadScorer();
+  }, [client, editScorerData, editScorerId]);
 
   const { provider, model } = usePlaygroundModel();
   const { createStoredScorer, updateStoredScorer } = useStoredScorerMutations(
@@ -203,31 +156,22 @@ export function ScorerMiniEditor({
   };
 
   const handleSave = useCallback(async () => {
-    if (!name.trim()) {
-      toast.error("Please enter a scorer name");
-      return;
-    }
-    if (!instructions.trim()) {
-      toast.error("Please enter scorer instructions");
+    if (!validateScorerFields(name, instructions)) {
       return;
     }
 
     // Parse model: either from the scorer's own model field or the global playground model
-    let saveProvider = provider;
-    let saveModelName = model;
-    if (scorerModel) {
-      const parts = scorerModel.split("/");
-      if (parts.length >= 2) {
-        saveProvider = parts[0]!;
-        saveModelName = parts.slice(1).join("/");
-      }
-    }
+    const { model: saveModelName, provider: saveProvider } = resolveScorerModel(
+      scorerModel,
+      provider,
+      model,
+    );
     if (!saveProvider || !saveModelName) {
       toast.error("Please select a model");
       return;
     }
 
-    const existingId = editScorerId || savedScorerId;
+    const existingId = firstDefined(editScorerId, savedScorerId);
     setIsSaving(true);
     try {
       if (existingId) {
@@ -240,7 +184,7 @@ export function ScorerMiniEditor({
 
         // Sync test dataset items
         let datasetId = scorerDatasetId;
-        if (!datasetId && testItems.length > 0) {
+        if (allTruthy(!datasetId, testItems.length > 0)) {
           // Create dataset linked to this scorer
           const dataset = await createDataset.mutateAsync({
             description: `Test dataset for scorer "${name.trim()}". Items with known-good and known-bad examples to verify scoring accuracy.`,
@@ -406,12 +350,23 @@ export function ScorerMiniEditor({
           Back
         </Button>
         <Txt as="h3" variant="header-sm" className="ml-2">
-          {isEditing || savedScorerId ? "Edit Scorer" : "New Scorer"}
+          {resolveConditional(
+            isEditing,
+            (conditionValue) => conditionValue,
+            () => savedScorerId,
+          )
+            ? "Edit Scorer"
+            : "New Scorer"}
         </Txt>
-        {(isEditing || savedScorerId) && (
-          <Badge variant="success" className="ml-2">
-            Saved
-          </Badge>
+        {resolveConditional(
+          isEditing,
+          (conditionValue) => conditionValue,
+          () =>
+            savedScorerId && (
+              <Badge variant="success" className="ml-2">
+                Saved
+              </Badge>
+            ),
         )}
       </div>
 
@@ -430,7 +385,11 @@ export function ScorerMiniEditor({
                   placeholder="e.g. Relevance Scorer"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  disabled={isEditing || !!savedScorerId}
+                  disabled={resolveConditional(
+                    isEditing,
+                    (conditionValue) => conditionValue,
+                    () => !!savedScorerId,
+                  )}
                 />
               </div>
 
@@ -438,7 +397,15 @@ export function ScorerMiniEditor({
                 <Label>Model</Label>
                 <Input
                   placeholder="e.g. openai/gpt-4o-mini"
-                  value={scorerModel || (provider && model ? `${provider}/${model}` : "")}
+                  value={
+                    resolveConditional(
+                      scorerModel,
+                      (conditionValue) => conditionValue,
+                      () => provider && model,
+                    )
+                      ? `${provider}/${model}`
+                      : ""
+                  }
                   onChange={(e) => setScorerModel(e.target.value)}
                 />
                 <Txt variant="ui-sm" className="text-icon3">
@@ -492,10 +459,15 @@ export function ScorerMiniEditor({
                   <Txt variant="ui-sm" className="text-icon3 mt-0.5">
                     Add known-good and known-bad examples to verify your scorer
                   </Txt>
-                  {scorerDatasetId && (
-                    <Txt variant="ui-xs" className="text-icon3 mt-1">
-                      Linked dataset · {testItems.length} item{testItems.length !== 1 ? "s" : ""}
-                    </Txt>
+                  {resolveConditional(
+                    scorerDatasetId,
+                    () => (
+                      <Txt variant="ui-xs" className="text-icon3 mt-1">
+                        Linked dataset · {testItems.length} item
+                        {isTruthy(testItems.length !== 1) ? "s" : ""}
+                      </Txt>
+                    ),
+                    () => null,
                   )}
                 </div>
                 <Button variant="outline" size="sm" onClick={addTestItem}>
@@ -506,13 +478,17 @@ export function ScorerMiniEditor({
                 </Button>
               </div>
 
-              {testItems.length === 0 && (
-                <div className="border border-dashed border-border1 rounded-lg p-6 text-center">
-                  <Txt variant="ui-sm" className="text-icon3">
-                    No test items yet. Add items with expected scoring direction to verify your
-                    scorer works correctly.
-                  </Txt>
-                </div>
+              {resolveConditional(
+                testItems.length === 0,
+                () => (
+                  <div className="border border-dashed border-border1 rounded-lg p-6 text-center">
+                    <Txt variant="ui-sm" className="text-icon3">
+                      No test items yet. Add items with expected scoring direction to verify your
+                      scorer works correctly.
+                    </Txt>
+                  </div>
+                ),
+                () => null,
               )}
 
               {testItems.map((item, index) => {
@@ -526,20 +502,31 @@ export function ScorerMiniEditor({
                   : null;
                 const resultError = matchingResult?.error;
 
-                const isCorrectDirection =
-                  resultScore !== null && resultScore !== undefined
-                    ? item.expectedDirection === "high"
+                let isCorrectDirection: boolean | null = null;
+                if (typeof resultScore === "number") {
+                  isCorrectDirection =
+                    item.expectedDirection === "high"
                       ? resultScore >= (scoreMax - scoreMin) / 2 + scoreMin
-                      : resultScore < (scoreMax - scoreMin) / 2 + scoreMin
-                    : null;
+                      : resultScore < (scoreMax - scoreMin) / 2 + scoreMin;
+                }
+                const formattedScore =
+                  typeof resultScore === "number" ? resultScore.toFixed(3) : "—";
 
                 return (
                   <div
                     key={index}
                     className={cn(
                       "border border-border1 rounded-lg p-3 space-y-3",
-                      isCorrectDirection === true && "border-success/50 bg-success/5",
-                      isCorrectDirection === false && "border-error/50 bg-error/5",
+                      resolveConditional(
+                        isCorrectDirection === true,
+                        () => "border-success/50 bg-success/5",
+                        () => null,
+                      ),
+                      resolveConditional(
+                        isCorrectDirection === false,
+                        () => "border-error/50 bg-error/5",
+                        () => null,
+                      ),
                     )}
                   >
                     <div className="flex items-center justify-between">
@@ -547,7 +534,13 @@ export function ScorerMiniEditor({
                         <Txt variant="ui-sm" className="font-medium">
                           Item {index + 1}
                         </Txt>
-                        {item.label && <Badge variant="default">{item.label}</Badge>}
+                        {resolveConditional(
+                          item.label,
+                          (conditionValue) => (
+                            <Badge variant="default">{conditionValue}</Badge>
+                          ),
+                          () => null,
+                        )}
                         <button
                           className={cn(
                             "px-2 py-0.5 rounded text-xs font-medium transition-colors",
@@ -567,10 +560,14 @@ export function ScorerMiniEditor({
                         </button>
                       </div>
                       <div className="flex items-center gap-2">
-                        {isCorrectDirection !== null && (
-                          <Icon className={isCorrectDirection ? "text-success" : "text-error"}>
-                            {isCorrectDirection ? <CheckCircle2 /> : <XCircle />}
-                          </Icon>
+                        {resolveConditional(
+                          isCorrectDirection !== null,
+                          () => (
+                            <Icon className={isCorrectDirection ? "text-success" : "text-error"}>
+                              {isCorrectDirection ? <CheckCircle2 /> : <XCircle />}
+                            </Icon>
+                          ),
+                          () => null,
                         )}
                         <Button variant="ghost" size="sm" onClick={() => removeTestItem(index)}>
                           <Icon>
@@ -616,28 +613,32 @@ export function ScorerMiniEditor({
                     </div>
 
                     {/* Test result for this item */}
-                    {(resultScore !== null || resultError) && (
-                      <div className="flex items-center gap-3 pt-2 border-t border-border1">
-                        {resultError ? (
-                          <div className="flex items-center gap-1.5 text-error">
-                            <Icon size="sm">
-                              <AlertCircle />
-                            </Icon>
-                            <Txt variant="ui-xs">Error: {String(resultError)}</Txt>
-                          </div>
-                        ) : (
-                          <>
-                            <Txt variant="ui-sm" className="font-mono font-medium">
-                              Score: {resultScore?.toFixed(3)}
-                            </Txt>
-                            {resultReason && (
-                              <Txt variant="ui-xs" className="text-icon3 truncate flex-1">
-                                {resultReason}
+                    {resolveConditional(
+                      typeof resultScore === "number" || resultError,
+                      () => (
+                        <div className="flex items-center gap-3 pt-2 border-t border-border1">
+                          {resultError ? (
+                            <div className="flex items-center gap-1.5 text-error">
+                              <Icon size="sm">
+                                <AlertCircle />
+                              </Icon>
+                              <Txt variant="ui-xs">Error: {String(resultError)}</Txt>
+                            </div>
+                          ) : (
+                            <>
+                              <Txt variant="ui-sm" className="font-mono font-medium">
+                                Score: {formattedScore}
                               </Txt>
-                            )}
-                          </>
-                        )}
-                      </div>
+                              {resultReason && (
+                                <Txt variant="ui-xs" className="text-icon3 truncate flex-1">
+                                  {resultReason}
+                                </Txt>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      ),
+                      () => null,
                     )}
                   </div>
                 );
@@ -645,55 +646,57 @@ export function ScorerMiniEditor({
             </div>
 
             {/* Summary of test results */}
-            {experimentResults.length > 0 && (
-              <div className="border border-border1 rounded-lg p-3">
-                <div className="flex items-center gap-3">
-                  <Txt variant="ui-sm" className="font-medium">
-                    Test Results:
-                  </Txt>
-                  {(() => {
-                    let correct = 0;
-                    let incorrect = 0;
-                    let errors = 0;
-                    experimentResults.forEach(
-                      (result: { output: unknown; error: string | null }, i: number) => {
-                        const item = testItems[i];
+            {resolveConditional(
+              experimentResults.length > 0,
+              () => (
+                <div className="border border-border1 rounded-lg p-3">
+                  <div className="flex items-center gap-3">
+                    <Txt variant="ui-sm" className="font-medium">
+                      Test Results:
+                    </Txt>
+                    {(() => {
+                      let correct = 0;
+                      let incorrect = 0;
+                      let errors = 0;
+                      for (const [index, result] of experimentResults.entries()) {
+                        const item = testItems[index];
                         if (!item) {
-                          return;
+                          continue;
                         }
                         if (result.error) {
-                          errors++;
-                          return;
+                          errors += 1;
+                          continue;
                         }
                         const score = (result.output as { score?: number })?.score;
                         if (score === null || score === undefined) {
-                          return;
+                          continue;
                         }
                         const mid = (scoreMax - scoreMin) / 2 + scoreMin;
                         const isCorrect =
                           item.expectedDirection === "high" ? score >= mid : score < mid;
                         if (isCorrect) {
-                          correct++;
+                          correct += 1;
                         } else {
-                          incorrect++;
+                          incorrect += 1;
                         }
-                      },
-                    );
-                    return (
-                      <>
-                        {correct > 0 && <Badge variant="success">{correct} correct</Badge>}
-                        {incorrect > 0 && <Badge variant="error">{incorrect} incorrect</Badge>}
-                        {errors > 0 && <Badge variant="default">{errors} errors</Badge>}
-                      </>
-                    );
-                  })()}
+                      }
+                      return (
+                        <>
+                          {correct > 0 && <Badge variant="success">{correct} correct</Badge>}
+                          {incorrect > 0 && <Badge variant="error">{incorrect} incorrect</Badge>}
+                          {errors > 0 && <Badge variant="default">{errors} errors</Badge>}
+                        </>
+                      );
+                    })()}
+                  </div>
+                  <Txt variant="ui-xs" className="text-icon3 mt-1">
+                    {experimentResults.length < testItems.length
+                      ? "Still processing..."
+                      : "All items scored. Tweak instructions and re-run to improve accuracy."}
+                  </Txt>
                 </div>
-                <Txt variant="ui-xs" className="text-icon3 mt-1">
-                  {experimentResults.length < testItems.length
-                    ? "Still processing..."
-                    : "All items scored. Tweak instructions and re-run to improve accuracy."}
-                </Txt>
-              </div>
+              ),
+              () => null,
             )}
           </div>
         )}
@@ -701,80 +704,91 @@ export function ScorerMiniEditor({
 
       {/* Action bar */}
       <div className="flex items-center gap-2 px-4 py-3 border-t border-border1">
-        {isEditing ? (
-          <>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleSave}
-              disabled={isSaving || !instructions.trim()}
-            >
-              {isSaving ? (
-                <Spinner className="mr-1.5" />
-              ) : (
-                <Icon>
-                  <Save />
-                </Icon>
-              )}
-              Save Changes
-            </Button>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleRunTest}
-              disabled={isRunningTest || testItems.length === 0}
-            >
-              {isRunningTest ? (
-                <Spinner className="mr-1.5" />
-              ) : (
-                <Icon>
-                  <Play />
-                </Icon>
-              )}
-              Run Test
-            </Button>
-          </>
-        ) : !savedScorerId ? (
-          <Button
-            variant="default"
-            size="sm"
-            onClick={handleSave}
-            disabled={isSaving || !name.trim() || !instructions.trim()}
-          >
-            {isSaving ? (
-              <Spinner className="mr-1.5" />
+        {resolveConditional(
+          isEditing,
+          () => (
+            <>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleSave}
+                disabled={isSaving || !instructions.trim()}
+              >
+                {isSaving ? (
+                  <Spinner className="mr-1.5" />
+                ) : (
+                  <Icon>
+                    <Save />
+                  </Icon>
+                )}
+                Save Changes
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleRunTest}
+                disabled={isRunningTest || testItems.length === 0}
+              >
+                {isRunningTest ? (
+                  <Spinner className="mr-1.5" />
+                ) : (
+                  <Icon>
+                    <Play />
+                  </Icon>
+                )}
+                Run Test
+              </Button>
+            </>
+          ),
+          () =>
+            isTruthy(!savedScorerId) ? (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleSave}
+                disabled={isSaving || !name.trim() || !instructions.trim()}
+              >
+                {isSaving ? (
+                  <Spinner className="mr-1.5" />
+                ) : (
+                  <Icon>
+                    <Save />
+                  </Icon>
+                )}
+                {testItems.length > 0 ? "Save with Test Dataset" : "Save & Attach"}
+              </Button>
             ) : (
-              <Icon>
-                <Save />
-              </Icon>
-            )}
-            {testItems.length > 0 ? "Save with Test Dataset" : "Save & Attach"}
-          </Button>
-        ) : (
-          <>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleRunTest}
-              disabled={isRunningTest || testItems.length === 0}
-            >
-              {isRunningTest ? (
-                <Spinner className="mr-1.5" />
-              ) : (
-                <Icon>
-                  <Play />
-                </Icon>
-              )}
-              Run Test
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleSave} disabled={isSaving}>
-              {isSaving ? <Spinner className="mr-1.5" /> : null}
-              Update & Re-save
-            </Button>
-          </>
+              <>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleRunTest}
+                  disabled={isRunningTest || testItems.length === 0}
+                >
+                  {isRunningTest ? (
+                    <Spinner className="mr-1.5" />
+                  ) : (
+                    <Icon>
+                      <Play />
+                    </Icon>
+                  )}
+                  Run Test
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleSave} disabled={isSaving}>
+                  {isSaving ? <Spinner className="mr-1.5" /> : null}
+                  Update & Re-save
+                </Button>
+              </>
+            ),
         )}
         <Button variant="ghost" size="sm" onClick={onBack} className="ml-auto">
-          {isEditing || savedScorerId ? "Done" : "Cancel"}
+          {resolveConditional(
+            isEditing,
+            (conditionValue) => conditionValue,
+            () => savedScorerId,
+          )
+            ? "Done"
+            : "Cancel"}
         </Button>
       </div>
     </div>

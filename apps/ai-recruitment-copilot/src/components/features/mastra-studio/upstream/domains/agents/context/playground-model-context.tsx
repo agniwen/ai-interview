@@ -29,13 +29,13 @@ export function PlaygroundModelProvider({
     if (defaultProvider && !provider) {
       setProvider(defaultProvider);
     }
-  }, [defaultProvider]);
+  }, [defaultProvider, provider]);
 
   useEffect(() => {
     if (defaultModel && !model) {
       setModel(defaultModel);
     }
-  }, [defaultModel]);
+  }, [defaultModel, model]);
 
   return (
     <PlaygroundModelContext.Provider value={{ model, provider, setModel, setProvider }}>

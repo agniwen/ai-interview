@@ -86,22 +86,22 @@ export function ColumnMappingStep({ headers, mapping, onMappingChange }: ColumnM
 
                     {columnsInZone.map((column, index) => (
                       <Draggable key={column} draggableId={column} index={index}>
-                        {(provided, snapshot) => {
+                        {(dragProvided, dragSnapshot) => {
                           const child = (
                             <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              style={provided.draggableProps.style}
+                              ref={dragProvided.innerRef}
+                              {...dragProvided.draggableProps}
+                              style={dragProvided.draggableProps.style}
                               className={`
                                 inline-flex items-center gap-1.5 px-2.5 py-1.5
                                 rounded-md text-sm font-medium
                                 bg-surface2 text-neutral1
                                 transition-all
-                                ${snapshot.isDragging ? "shadow-lg ring-2 ring-accent1/30" : "hover:bg-surface3"}
+                                ${dragSnapshot.isDragging ? "shadow-lg ring-2 ring-accent1/30" : "hover:bg-surface3"}
                               `}
                             >
                               <span
-                                {...provided.dragHandleProps}
+                                {...dragProvided.dragHandleProps}
                                 className="text-neutral4 cursor-grab active:cursor-grabbing"
                               >
                                 <Icon>
@@ -114,7 +114,7 @@ export function ColumnMappingStep({ headers, mapping, onMappingChange }: ColumnM
 
                           // Keep the drag preview inside Studio's scoped theme while escaping
                           // the dialog's scrollable layout.
-                          if (snapshot.isDragging && portalContainer) {
+                          if (dragSnapshot.isDragging && portalContainer) {
                             return createPortal(child, portalContainer);
                           }
 

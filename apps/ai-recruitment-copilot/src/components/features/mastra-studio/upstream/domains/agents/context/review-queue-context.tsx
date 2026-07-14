@@ -174,21 +174,23 @@ export function ReviewQueueProvider({ children }: { children: ReactNode }) {
       const item = items.find((i) => i.id === id);
       // Persist rating via feedback API (skip when rating is cleared)
       if (item?.traceId && rating !== undefined) {
-        client
-          .createFeedback({
-            feedback: {
-              experimentId: item.experimentId ?? undefined,
-              feedbackSource: "studio",
-              feedbackType: "rating",
-              source: "studio",
-              sourceId: item.id,
-              traceId: item.traceId,
-              value: rating === "positive" ? 1 : -1,
-            },
-          })
-          .catch(() => {
+        void (async () => {
+          try {
+            await client.createFeedback({
+              feedback: {
+                experimentId: item.experimentId ?? undefined,
+                feedbackSource: "studio",
+                feedbackType: "rating",
+                source: "studio",
+                sourceId: item.id,
+                traceId: item.traceId,
+                value: rating === "positive" ? 1 : -1,
+              },
+            });
+          } catch {
             // Silently fail
-          });
+          }
+        })();
       }
       setItems((prev) => prev.map((i) => (i.id === id ? { ...i, rating } : i)));
     },
@@ -200,22 +202,25 @@ export function ReviewQueueProvider({ children }: { children: ReactNode }) {
       const item = items.find((i) => i.id === id);
       // Persist comment via feedback API if we have a traceId
       if (item?.traceId) {
-        client
-          .createFeedback({
-            feedback: {
-              comment,
-              experimentId: item.experimentId ?? undefined,
-              feedbackSource: "studio",
-              feedbackType: "comment",
-              source: "studio",
-              sourceId: item.id, // experiment result ID
-              traceId: item.traceId,
-              value: comment,
-            },
-          })
-          .catch(() => {
+        void (async () => {
+          try {
+            await client.createFeedback({
+              feedback: {
+                comment,
+                experimentId: item.experimentId ?? undefined,
+                feedbackSource: "studio",
+                feedbackType: "comment",
+                source: "studio",
+                // experiment result ID
+                sourceId: item.id,
+                traceId: item.traceId,
+                value: comment,
+              },
+            });
+          } catch {
             // Silently fail — local state is still updated
-          });
+          }
+        })();
       }
       setItems((prev) => prev.map((i) => (i.id === id ? { ...i, comment } : i)));
     },

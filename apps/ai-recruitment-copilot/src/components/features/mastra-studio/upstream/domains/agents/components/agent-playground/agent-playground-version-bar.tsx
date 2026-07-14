@@ -35,6 +35,7 @@ import {
 import { useMemo, useState, useCallback } from "react";
 
 import { useAgentVersions } from "../../hooks/use-agent-versions";
+import { resolveConditional } from "../../utils/conditional";
 
 interface AgentPlaygroundVersionBarProps {
   agentId: string;
@@ -98,7 +99,7 @@ export function AgentPlaygroundVersionBar({
   });
 
   const versions = useMemo(() => data?.versions ?? [], [data?.versions]);
-  const latestVersion = versions[0];
+  const [latestVersion] = versions;
 
   const activeVersion = activeVersionId
     ? versions.find((v) => v.id === activeVersionId)
@@ -114,15 +115,20 @@ export function AgentPlaygroundVersionBar({
 
         return {
           description: v.changeMessage || undefined,
-          end: isCodeSourceAgent ? (
-            <Badge variant={isPublished ? "success" : "info"}>
-              {isPublished ? "Current" : "Saved"}
-            </Badge>
-          ) : isPublished ? (
-            <Badge variant="success">Published</Badge>
-          ) : isDraftVersion ? (
-            <Badge variant="info">Draft</Badge>
-          ) : undefined,
+          end: resolveConditional(
+            isCodeSourceAgent,
+            () => (
+              <Badge variant={isPublished ? "success" : "info"}>
+                {isPublished ? "Current" : "Saved"}
+              </Badge>
+            ),
+            () =>
+              resolveConditional(
+                isPublished,
+                () => <Badge variant="success">Published</Badge>,
+                () => (isDraftVersion ? <Badge variant="info">Draft</Badge> : undefined),
+              ),
+          ),
           label: `${isCodeSourceAgent ? "Save" : "v"}${v.versionNumber} - ${formatTimestamp(v.createdAt)}`,
           value: v.id,
         };
@@ -150,119 +156,124 @@ export function AgentPlaygroundVersionBar({
   return {
     actionBar: (
       <div className="flex items-center justify-end px-3 py-2 border-t border-border1 bg-surface3">
-        {showCodeModeActions ? (
-          <ButtonsGroup className="flex-wrap justify-end">
-            <Button variant="default" size="md" onClick={() => void onDownloadJson?.()}>
-              <Icon size="sm">
-                <Download />
-              </Icon>
-              Download JSON
-            </Button>
-            {canOpenPr ? (
-              <Button
-                variant="primary"
-                size="md"
-                onClick={() => void onOpenPr?.()}
-                title={openPrTitle}
-              >
+        {resolveConditional(
+          showCodeModeActions,
+          () => (
+            <ButtonsGroup className="flex-wrap justify-end">
+              <Button variant="default" size="md" onClick={() => void onDownloadJson?.()}>
                 <Icon size="sm">
-                  <GitPullRequest />
+                  <Download />
                 </Icon>
-                Open PR
+                Download JSON
               </Button>
-            ) : (
-              <Button
-                variant="primary"
-                size="md"
-                onClick={() => void onSaveDraft()}
-                disabled={saveDisabled}
-              >
-                {isSavingDraft ? (
-                  <>
-                    <Spinner className="size-3.5" />
-                    Saving&hellip;
-                  </>
-                ) : (
-                  <>
-                    <Icon size="sm">
-                      <Save />
-                    </Icon>
-                    Save to filesystem
-                  </>
-                )}
-              </Button>
-            )}
-          </ButtonsGroup>
-        ) : readOnly && !isViewingPreviousVersion ? null : (
-          <ButtonsGroup className="flex-wrap justify-end">
-            <ButtonsGroup spacing="close">
-              <Button
-                variant="default"
-                size="md"
-                onClick={() => onSaveDraft()}
-                disabled={saveDisabled}
-              >
-                {isSavingDraft ? (
-                  <>
-                    <Spinner className="size-3.5" />
-                    Saving&hellip;
-                  </>
-                ) : (
-                  <>
-                    <Icon size="sm">
-                      <Save />
-                    </Icon>
-                    Save New Version
-                  </>
-                )}
-              </Button>
-              <DropdownMenu>
-                <DropdownMenu.Trigger asChild>
+              {canOpenPr ? (
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={() => void onOpenPr?.()}
+                  title={openPrTitle}
+                >
+                  <Icon size="sm">
+                    <GitPullRequest />
+                  </Icon>
+                  Open PR
+                </Button>
+              ) : (
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={() => void onSaveDraft()}
+                  disabled={saveDisabled}
+                >
+                  {isSavingDraft ? (
+                    <>
+                      <Spinner className="size-3.5" />
+                      Saving&hellip;
+                    </>
+                  ) : (
+                    <>
+                      <Icon size="sm">
+                        <Save />
+                      </Icon>
+                      Save to filesystem
+                    </>
+                  )}
+                </Button>
+              )}
+            </ButtonsGroup>
+          ),
+          () =>
+            readOnly && !isViewingPreviousVersion ? null : (
+              <ButtonsGroup className="flex-wrap justify-end">
+                <ButtonsGroup spacing="close">
                   <Button
                     variant="default"
                     size="md"
+                    onClick={() => onSaveDraft()}
                     disabled={saveDisabled}
-                    aria-label="More save options"
                   >
-                    <ChevronDown className="size-3.5" />
+                    {isSavingDraft ? (
+                      <>
+                        <Spinner className="size-3.5" />
+                        Saving&hellip;
+                      </>
+                    ) : (
+                      <>
+                        <Icon size="sm">
+                          <Save />
+                        </Icon>
+                        Save New Version
+                      </>
+                    )}
                   </Button>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Content align="end">
-                  <DropdownMenu.Item onSelect={() => setShowMessageDialog(true)}>
-                    <Icon size="sm">
-                      <MessageSquare />
-                    </Icon>
-                    Save with message
-                  </DropdownMenu.Item>
-                </DropdownMenu.Content>
-              </DropdownMenu>
-            </ButtonsGroup>
+                  <DropdownMenu>
+                    <DropdownMenu.Trigger asChild>
+                      <Button
+                        variant="default"
+                        size="md"
+                        disabled={saveDisabled}
+                        aria-label="More save options"
+                      >
+                        <ChevronDown className="size-3.5" />
+                      </Button>
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Content align="end">
+                      <DropdownMenu.Item onSelect={() => setShowMessageDialog(true)}>
+                        <Icon size="sm">
+                          <MessageSquare />
+                        </Icon>
+                        Save with message
+                      </DropdownMenu.Item>
+                    </DropdownMenu.Content>
+                  </DropdownMenu>
+                </ButtonsGroup>
 
-            <Button
-              variant="primary"
-              size="md"
-              onClick={onPublish}
-              disabled={
-                isViewingPreviousVersion
-                  ? selectedVersionId === activeVersionId || isPublishing || isSavingDraft
-                  : readOnly || !hasDraft || isPublishing || isSavingDraft
-              }
-            >
-              {isPublishing ? (
-                <>
-                  <Spinner className="size-3.5" />
-                  Publishing&hellip;
-                </>
-              ) : (
-                <>
-                  <Icon size="sm">
-                    <Check />
-                  </Icon>
-                  {isViewingPreviousVersion ? "Publish This Version" : "Publish"}
-                </>
-              )}
-            </Button>
-          </ButtonsGroup>
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={onPublish}
+                  disabled={
+                    isViewingPreviousVersion
+                      ? selectedVersionId === activeVersionId || isPublishing || isSavingDraft
+                      : readOnly || !hasDraft || isPublishing || isSavingDraft
+                  }
+                >
+                  {isPublishing ? (
+                    <>
+                      <Spinner className="size-3.5" />
+                      Publishing&hellip;
+                    </>
+                  ) : (
+                    <>
+                      <Icon size="sm">
+                        <Check />
+                      </Icon>
+                      {isViewingPreviousVersion ? "Publish This Version" : "Publish"}
+                    </>
+                  )}
+                </Button>
+              </ButtonsGroup>
+            ),
         )}
 
         {/* Change message dialog */}
@@ -330,7 +341,13 @@ export function AgentPlaygroundVersionBar({
           </Txt>
         )}
 
-        {currentValue && <CopyButton content={currentValue} tooltip="Copy version ID" size="sm" />}
+        {resolveConditional(
+          currentValue,
+          (conditionValue) => (
+            <CopyButton content={conditionValue} tooltip="Copy version ID" size="sm" />
+          ),
+          () => null,
+        )}
 
         <HoverPopover>
           <PopoverTrigger asChild>
@@ -352,8 +369,20 @@ export function AgentPlaygroundVersionBar({
         </HoverPopover>
 
         <div className="flex items-center gap-2 ml-auto shrink-0">
-          {readOnly && <Badge variant="warning">Read-only</Badge>}
-          {!readOnly && hasDraft && !isCodeSourceAgent && <Badge variant="info">Unpublished</Badge>}
+          {resolveConditional(
+            readOnly,
+            () => (
+              <Badge variant="warning">Read-only</Badge>
+            ),
+            () => null,
+          )}
+          {resolveConditional(
+            !readOnly && hasDraft && !isCodeSourceAgent,
+            () => (
+              <Badge variant="info">Unpublished</Badge>
+            ),
+            () => null,
+          )}
         </div>
       </div>
     ),

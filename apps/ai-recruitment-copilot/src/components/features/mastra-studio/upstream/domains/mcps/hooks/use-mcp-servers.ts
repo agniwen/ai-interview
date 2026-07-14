@@ -9,9 +9,8 @@ export const useMCPServers = () => {
 
   return useQuery({
     queryFn: async () => {
-      const mcpServers: McpServerListResponse["servers"] = (
-        await client.getMcpServers(requestContext)
-      ).servers;
+      const response = await client.getMcpServers(requestContext);
+      const mcpServers: McpServerListResponse["servers"] = response.servers;
       return mcpServers;
     },
     queryKey: ["mcp-servers"],

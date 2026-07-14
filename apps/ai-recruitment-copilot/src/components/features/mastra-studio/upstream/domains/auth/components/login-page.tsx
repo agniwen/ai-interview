@@ -20,6 +20,142 @@ export interface LoginPageProps {
   errorMessage?: string | null;
 }
 
+interface CredentialsFormProps {
+  email: string;
+  error: Error | null;
+  isPending: boolean;
+  isSignIn: boolean;
+  name: string;
+  onEmailChange: (value: string) => void;
+  onNameChange: (value: string) => void;
+  onPasswordChange: (value: string) => void;
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  onToggleMode: () => void;
+  password: string;
+  signUpEnabled: boolean;
+}
+
+function getCredentialsSubmitLabel(isPending: boolean, isSignIn: boolean): string {
+  if (isPending) {
+    return isSignIn ? "Signing in..." : "Creating account...";
+  }
+  return isSignIn ? "Sign in" : "Create account";
+}
+
+function CredentialsForm({
+  email,
+  error,
+  isPending,
+  isSignIn,
+  name,
+  onEmailChange,
+  onNameChange,
+  onPasswordChange,
+  onSubmit,
+  onToggleMode,
+  password,
+  signUpEnabled,
+}: CredentialsFormProps) {
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      {!isSignIn && (
+        <div className="space-y-2">
+          <label htmlFor="name" className="block text-sm text-neutral4">
+            Name
+          </label>
+          <Input
+            id="name"
+            type="text"
+            value={name}
+            onChange={(event) => onNameChange(event.target.value)}
+            placeholder="Your name"
+            variant="default"
+            size="lg"
+          />
+        </div>
+      )}
+      <div className="space-y-2">
+        <label htmlFor="email" className="block text-sm text-neutral4">
+          Email
+        </label>
+        <Input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(event) => onEmailChange(event.target.value)}
+          placeholder="you@example.com"
+          required
+          variant="default"
+          size="lg"
+        />
+      </div>
+      <div className="space-y-2">
+        <label htmlFor="password" className="block text-sm text-neutral4">
+          Password
+        </label>
+        <Input
+          id="password"
+          type="password"
+          value={password}
+          onChange={(event) => onPasswordChange(event.target.value)}
+          placeholder={isSignIn ? "Enter your password" : "Create a password"}
+          required
+          variant="default"
+          size="lg"
+        />
+      </div>
+      {error && (
+        <div className="rounded-md bg-red-500/10 p-3 text-sm text-red-400">{error.message}</div>
+      )}
+      <Button type="submit" disabled={isPending} className="w-full" size="lg">
+        {getCredentialsSubmitLabel(isPending, isSignIn)}
+      </Button>
+      {signUpEnabled && (
+        <div className="text-center text-sm">
+          <span className="text-neutral3">
+            {isSignIn ? "Don't have an account? " : "Already have an account? "}
+          </span>
+          <button type="button" onClick={onToggleMode} className="text-neutral6 hover:underline">
+            {isSignIn ? "Sign up" : "Sign in"}
+          </button>
+        </div>
+      )}
+    </form>
+  );
+}
+
+interface SSOSectionProps {
+  hasCredentials: boolean;
+  isPending: boolean;
+  onLogin: () => void;
+  sso?: SSOConfig;
+}
+
+function SSOSection({ hasCredentials, isPending, onLogin, sso }: SSOSectionProps) {
+  if (!sso) {
+    return null;
+  }
+
+  return (
+    <>
+      {hasCredentials && (
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-border1" />
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="bg-surface1 px-2 text-neutral3">or continue with</span>
+          </div>
+        </div>
+      )}
+      <Button onClick={onLogin} disabled={isPending} className="w-full" size="lg" variant="outline">
+        {sso.icon && <span className="mr-2">{sso.icon}</span>}
+        {isPending ? "Redirecting..." : sso.text || "Sign in"}
+      </Button>
+    </>
+  );
+}
+
 /**
  * Login page component.
  *
@@ -86,9 +222,11 @@ export function LoginPage({
   const hasSSO = login.type === "sso" || login.type === "both";
   const hasCredentials = login.type === "credentials" || login.type === "both";
   const sso = login.sso as SSOConfig | undefined;
-  const signUpEnabled = login.signUpEnabled !== false; // defaults to true
+  // Sign-up defaults to enabled.
+  const signUpEnabled = login.signUpEnabled !== false;
 
-  const isSignIn = mode === "signin" || !signUpEnabled; // force signin mode if signup disabled
+  // Force sign-in mode if sign-up is disabled.
+  const isSignIn = mode === "signin" || !signUpEnabled;
   const isPending = isSignIn ? isLoginPending : isSignUpPending;
   const error = isSignIn ? loginError : signUpError;
 
@@ -145,105 +283,29 @@ export function LoginPage({
       errorBanner={errorBanner}
     >
       {hasCredentials && (
-        <form onSubmit={handleCredentialsSubmit} className="space-y-4">
-          {!isSignIn && (
-            <div className="space-y-2">
-              <label htmlFor="name" className="block text-sm text-neutral4">
-                Name
-              </label>
-              <Input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your name"
-                variant="default"
-                size="lg"
-              />
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <label htmlFor="email" className="block text-sm text-neutral4">
-              Email
-            </label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              required
-              variant="default"
-              size="lg"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor="password" className="block text-sm text-neutral4">
-              Password
-            </label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={isSignIn ? "Enter your password" : "Create a password"}
-              required
-              variant="default"
-              size="lg"
-            />
-          </div>
-
-          {error && (
-            <div className="rounded-md bg-red-500/10 p-3 text-sm text-red-400">{error.message}</div>
-          )}
-
-          <Button type="submit" disabled={isPending} className="w-full" size="lg">
-            {isPending
-              ? isSignIn
-                ? "Signing in..."
-                : "Creating account..."
-              : isSignIn
-                ? "Sign in"
-                : "Create account"}
-          </Button>
-
-          {signUpEnabled && (
-            <div className="text-center text-sm">
-              <span className="text-neutral3">
-                {isSignIn ? "Don't have an account? " : "Already have an account? "}
-              </span>
-              <button type="button" onClick={toggleMode} className="text-neutral6 hover:underline">
-                {isSignIn ? "Sign up" : "Sign in"}
-              </button>
-            </div>
-          )}
-        </form>
+        <CredentialsForm
+          email={email}
+          error={error}
+          isPending={isPending}
+          isSignIn={isSignIn}
+          name={name}
+          onEmailChange={setEmail}
+          onNameChange={setName}
+          onPasswordChange={setPassword}
+          onSubmit={handleCredentialsSubmit}
+          onToggleMode={toggleMode}
+          password={password}
+          signUpEnabled={signUpEnabled}
+        />
       )}
 
-      {hasSSO && hasCredentials && (
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-border1" />
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="bg-surface1 px-2 text-neutral3">or continue with</span>
-          </div>
-        </div>
-      )}
-
-      {hasSSO && sso && (
-        <Button
-          onClick={handleSSOLogin}
-          disabled={isSSOPending}
-          className="w-full"
-          size="lg"
-          variant="outline"
-        >
-          {sso.icon && <span className="mr-2">{sso.icon}</span>}
-          {isSSOPending ? "Redirecting..." : sso.text || "Sign in"}
-        </Button>
+      {hasSSO && (
+        <SSOSection
+          hasCredentials={hasCredentials}
+          isPending={isSSOPending}
+          onLogin={handleSSOLogin}
+          sso={sso}
+        />
       )}
     </LoginLayout>
   );

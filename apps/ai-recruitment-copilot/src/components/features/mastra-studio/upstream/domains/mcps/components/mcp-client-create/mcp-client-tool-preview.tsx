@@ -23,6 +23,78 @@ interface MCPClientToolPreviewProps {
   onDescriptionChange?: (toolName: string, description: string) => void;
 }
 
+function EmptyState({ children }: { children: React.ReactNode }) {
+  return <div className="flex items-center justify-center h-full p-8 text-center">{children}</div>;
+}
+
+function ToolList({
+  tools,
+  selectedTools = {},
+  onToggleTool,
+  onDescriptionChange,
+}: {
+  tools: { name: string; description?: string }[];
+  selectedTools?: Record<string, { description?: string }>;
+  onToggleTool?: (toolName: string, description?: string) => void;
+  onDescriptionChange?: (toolName: string, description: string) => void;
+}) {
+  const selectedCount = Object.keys(selectedTools).length;
+
+  return (
+    <div className="p-5 overflow-y-auto">
+      <div className="text-neutral6 flex gap-2 items-center">
+        <Icon size="lg" className="bg-surface4 rounded-md p-1">
+          <McpServerIcon />
+        </Icon>
+        <Txt variant="header-md" as="h2" className="font-medium">
+          Available Tools ({selectedCount}/{tools.length} selected)
+        </Txt>
+      </div>
+
+      <div className="flex flex-col gap-2 pt-6">
+        {tools.map((tool) => {
+          const isSelected = tool.name in selectedTools;
+          const isDisabled = !onDescriptionChange || !isSelected;
+
+          return (
+            <Entity key={tool.name}>
+              <EntityIcon>
+                <ToolsIcon className="group-hover/entity:text-accent6" />
+              </EntityIcon>
+              <EntityContent>
+                <EntityName>{tool.name}</EntityName>
+                <EntityDescription>
+                  <input
+                    type="text"
+                    aria-label={`${tool.name} description`}
+                    disabled={isDisabled}
+                    className={cn(
+                      "border border-transparent appearance-none block w-full text-neutral3 bg-transparent",
+                      !isDisabled && "border-border1 border-dashed",
+                    )}
+                    value={
+                      isSelected
+                        ? (selectedTools[tool.name]?.description ?? tool.description ?? "")
+                        : (tool.description ?? "")
+                    }
+                    onChange={(e) => onDescriptionChange?.(tool.name, e.target.value)}
+                  />
+                </EntityDescription>
+              </EntityContent>
+              {onToggleTool && (
+                <Switch
+                  checked={isSelected}
+                  onCheckedChange={() => onToggleTool(tool.name, tool.description)}
+                />
+              )}
+            </Entity>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function MCPClientToolPreview({
   serverType,
   url,
@@ -88,77 +160,6 @@ export function MCPClientToolPreview({
           onDescriptionChange={onDescriptionChange}
         />
       )}
-    </div>
-  );
-}
-
-function EmptyState({ children }: { children: React.ReactNode }) {
-  return <div className="flex items-center justify-center h-full p-8 text-center">{children}</div>;
-}
-
-function ToolList({
-  tools,
-  selectedTools = {},
-  onToggleTool,
-  onDescriptionChange,
-}: {
-  tools: { name: string; description?: string }[];
-  selectedTools?: Record<string, { description?: string }>;
-  onToggleTool?: (toolName: string, description?: string) => void;
-  onDescriptionChange?: (toolName: string, description: string) => void;
-}) {
-  const selectedCount = Object.keys(selectedTools).length;
-
-  return (
-    <div className="p-5 overflow-y-auto">
-      <div className="text-neutral6 flex gap-2 items-center">
-        <Icon size="lg" className="bg-surface4 rounded-md p-1">
-          <McpServerIcon />
-        </Icon>
-        <Txt variant="header-md" as="h2" className="font-medium">
-          Available Tools ({selectedCount}/{tools.length} selected)
-        </Txt>
-      </div>
-
-      <div className="flex flex-col gap-2 pt-6">
-        {tools.map((tool) => {
-          const isSelected = tool.name in selectedTools;
-          const isDisabled = !onDescriptionChange || !isSelected;
-
-          return (
-            <Entity key={tool.name}>
-              <EntityIcon>
-                <ToolsIcon className="group-hover/entity:text-accent6" />
-              </EntityIcon>
-              <EntityContent>
-                <EntityName>{tool.name}</EntityName>
-                <EntityDescription>
-                  <input
-                    type="text"
-                    disabled={isDisabled}
-                    className={cn(
-                      "border border-transparent appearance-none block w-full text-neutral3 bg-transparent",
-                      !isDisabled && "border-border1 border-dashed",
-                    )}
-                    value={
-                      isSelected
-                        ? (selectedTools[tool.name]?.description ?? tool.description ?? "")
-                        : (tool.description ?? "")
-                    }
-                    onChange={(e) => onDescriptionChange?.(tool.name, e.target.value)}
-                  />
-                </EntityDescription>
-              </EntityContent>
-              {onToggleTool && (
-                <Switch
-                  checked={isSelected}
-                  onCheckedChange={() => onToggleTool(tool.name, tool.description)}
-                />
-              )}
-            </Entity>
-          );
-        })}
-      </div>
     </div>
   );
 }

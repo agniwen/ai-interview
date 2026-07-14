@@ -89,6 +89,7 @@ export function ProviderToolkitSelector({
         </label>
         <input
           id="label-input"
+          aria-label="Connection label"
           type="text"
           className="border rounded px-2 py-1 w-full"
           placeholder="My personal Gmail"

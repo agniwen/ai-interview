@@ -79,19 +79,22 @@ export function DatasetExperimentsComparison({
       for (const item of comparison.items) {
         const scoreA = item.results[baselineId]?.scores[scorerId];
         const scoreB = item.results[contenderId]?.scores[scorerId];
-        if (scoreA != null) {
+        if (scoreA !== null && scoreA !== undefined) {
           sumA += scoreA;
-          countA++;
+          countA += 1;
         }
-        if (scoreB != null) {
+        if (scoreB !== null && scoreB !== undefined) {
           sumB += scoreB;
-          countB++;
+          countB += 1;
         }
       }
 
       const avgA = countA > 0 ? sumA / countA : null;
       const avgB = countB > 0 ? sumB / countB : null;
-      const delta = avgA != null && avgB != null ? avgB - avgA : null;
+      const delta =
+        avgA !== null && avgA !== undefined && avgB !== null && avgB !== undefined
+          ? avgB - avgA
+          : null;
 
       return { avgA, avgB, delta, scorerId };
     });
@@ -107,7 +110,7 @@ export function DatasetExperimentsComparison({
   const comparisonColumns = useMemo(
     () => [
       { label: "Item ID", name: "itemId", size: "8rem" },
-      ...(!featuredItemId ? scorerIds.map((id) => ({ label: id, name: id, size: "1fr" })) : []),
+      ...(featuredItemId ? [] : scorerIds.map((id) => ({ label: id, name: id, size: "1fr" }))),
     ],
     [scorerIds, featuredItemId],
   );
@@ -232,13 +235,13 @@ export function DatasetExperimentsComparison({
                 <ItemList.Row key={scorerId} columns={scorerSummaryColumns}>
                   <ItemList.TextCell>{scorerId}</ItemList.TextCell>
                   <ItemList.TextCell className="text-center font-mono">
-                    {avgA != null ? avgA.toFixed(3) : "-"}
+                    {avgA !== null && avgA !== undefined ? avgA.toFixed(3) : "-"}
                   </ItemList.TextCell>
                   <ItemList.TextCell className="text-center font-mono">
-                    {avgB != null ? avgB.toFixed(3) : "-"}
+                    {avgB !== null && avgB !== undefined ? avgB.toFixed(3) : "-"}
                   </ItemList.TextCell>
                   <ItemList.TextCell className="flex justify-center">
-                    {delta != null ? <ScoreDelta delta={delta} /> : "-"}
+                    {delta !== null && delta !== undefined ? <ScoreDelta delta={delta} /> : "-"}
                   </ItemList.TextCell>
                 </ItemList.Row>
               ))}

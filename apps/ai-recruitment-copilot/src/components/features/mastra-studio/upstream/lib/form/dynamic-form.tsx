@@ -5,17 +5,17 @@ import { cn } from "@mastra/playground-ui/utils/cn";
 import { Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useCallback, useMemo } from "react";
-import type { UseFormReturn } from "react-hook-form";
+import type { FieldValues, UseFormReturn } from "react-hook-form";
 import { z } from "zod3";
 import { AutoForm } from "./auto-form";
 import { CustomZodProvider } from "./zod-provider";
 import { getShape, getIntersection } from "./zod-provider/compat";
 
 interface DynamicFormProps {
-  schema: any;
-  onSubmit?: (values: any) => void | Promise<void>;
-  onValuesChange?: (values: any) => void;
-  defaultValues?: any;
+  schema: z.ZodTypeAny;
+  onSubmit?: (values: unknown) => void | Promise<void>;
+  onValuesChange?: (values: unknown) => void;
+  defaultValues?: unknown;
   isSubmitLoading?: boolean;
   submitButtonLabel?: string;
   submitButtonClassName?: string;
@@ -44,8 +44,25 @@ function isEmptyZodObject(schema: unknown): boolean {
   return false;
 }
 
-function isZodObjectLike(schema: any): boolean {
+function isZodObjectLike(schema: unknown): boolean {
   return getShape(schema) !== undefined;
+}
+
+function unwrapFormValues(values: FieldValues, isNotZodObject: boolean) {
+  if (!isNotZodObject) {
+    return values;
+  }
+  return Object.hasOwn(values, "\u200B") ? values["\u200B"] : {};
+}
+
+function normalizeSchema(schema: z.ZodTypeAny, isNotZodObject: boolean) {
+  if (isEmptyZodObject(schema)) {
+    return z.object({});
+  }
+  if (isNotZodObject) {
+    return z.object({ "\u200B": schema });
+  }
+  return schema;
 }
 
 export function DynamicForm({
@@ -67,7 +84,7 @@ export function DynamicForm({
   leftActions,
 }: DynamicFormProps) {
   const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
-  const formRef = useRef<UseFormReturn<any> | null>(null);
+  const formRef = useRef<UseFormReturn<FieldValues> | null>(null);
   const isNotZodObject = !isZodObjectLike(schema);
   const onValuesChangeRef = useRef(onValuesChange);
   onValuesChangeRef.current = onValuesChange;
@@ -80,7 +97,7 @@ export function DynamicForm({
   );
 
   const subscribeToValues = useCallback(
-    (form: UseFormReturn<any>) => {
+    (form: UseFormReturn<FieldValues>) => {
       subscriptionRef.current?.unsubscribe();
       subscriptionRef.current = null;
 
@@ -89,11 +106,7 @@ export function DynamicForm({
       }
 
       subscriptionRef.current = form.watch((values) => {
-        const normalizedValues = isNotZodObject
-          ? values && Object.hasOwn(values, "\u200B")
-            ? values["\u200B"]
-            : {}
-          : values;
+        const normalizedValues = unwrapFormValues(values, isNotZodObject);
         onValuesChangeRef.current?.(normalizedValues);
       });
     },
@@ -109,7 +122,7 @@ export function DynamicForm({
   }, [shouldSubscribeToValues, subscribeToValues]);
 
   const handleFormInit = useCallback(
-    (form: UseFormReturn<any>) => {
+    (form: UseFormReturn<FieldValues>) => {
       formRef.current = form;
       subscribeToValues(form);
     },
@@ -121,20 +134,7 @@ export function DynamicForm({
       return null;
     }
 
-    const normalizeSchema = (s: any) => {
-      if (isEmptyZodObject(s)) {
-        return z.object({});
-      }
-      if (isNotZodObject) {
-        // using a non-printable character to avoid conflicts with the form data
-        return z.object({
-          "\u200B": s,
-        });
-      }
-      return s;
-    };
-
-    return new CustomZodProvider(normalizeSchema(schema) as any);
+    return new CustomZodProvider(normalizeSchema(schema, isNotZodObject));
   }, [schema, isNotZodObject]);
 
   const uiComponents = useMemo(
@@ -202,23 +202,16 @@ export function DynamicForm({
     [className],
   );
 
-  const normalizedDefaultValues = useMemo(
-    () =>
-      isNotZodObject
-        ? defaultValues === undefined
-          ? undefined
-          : { "\u200B": defaultValues }
-        : (defaultValues as any),
-    [isNotZodObject, defaultValues],
-  );
+  const normalizedDefaultValues = useMemo(() => {
+    if (!isNotZodObject) {
+      return defaultValues as FieldValues | undefined;
+    }
+    return defaultValues === undefined ? undefined : { "\u200B": defaultValues };
+  }, [isNotZodObject, defaultValues]);
 
   const handleSubmit = useCallback(
-    async (values: any) => {
-      const normalizedValues = isNotZodObject
-        ? values && Object.hasOwn(values, "\u200B")
-          ? values["\u200B"]
-          : {}
-        : values;
+    async (values: FieldValues) => {
+      const normalizedValues = unwrapFormValues(values, isNotZodObject);
       await onSubmit?.(normalizedValues);
     },
     [onSubmit, isNotZodObject],

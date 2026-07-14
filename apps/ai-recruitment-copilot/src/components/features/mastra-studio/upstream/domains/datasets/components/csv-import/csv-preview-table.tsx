@@ -84,7 +84,7 @@ export function CSVPreviewTable({ headers, data, maxRows = 5 }: CSVPreviewTableP
       <div className="text-xs text-neutral4">
         {displayData.length < totalRows
           ? `Showing ${displayData.length} of ${totalRows} rows`
-          : `${totalRows} row${totalRows !== 1 ? "s" : ""}`}
+          : `${totalRows} row${totalRows === 1 ? "" : "s"}`}
       </div>
     </div>
   );

@@ -7,10 +7,10 @@ export function getSpanDescendantIds(span: ExperimentUISpan): string[] {
 
   const descendantIds: string[] = [];
 
-  span.spans.forEach((childSpan) => {
+  for (const childSpan of span.spans) {
     descendantIds.push(childSpan.id);
     descendantIds.push(...getSpanDescendantIds(childSpan));
-  });
+  }
 
   return descendantIds;
 }

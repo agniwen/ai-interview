@@ -77,6 +77,7 @@ export function CSVUploadStep({ onFileSelect, isParsing, error }: CSVUploadStepP
     <div className="flex flex-col gap-3">
       {/* Hidden file input */}
       <input
+        aria-label="Upload CSV file"
         ref={inputRef}
         type="file"
         accept=".csv"
@@ -86,7 +87,8 @@ export function CSVUploadStep({ onFileSelect, isParsing, error }: CSVUploadStepP
       />
 
       {/* Dropzone */}
-      <div
+      <button
+        type="button"
         onClick={handleClick}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -123,7 +125,7 @@ export function CSVUploadStep({ onFileSelect, isParsing, error }: CSVUploadStepP
             </div>
           </>
         )}
-      </div>
+      </button>
 
       {/* Error message */}
       {error && <div className="text-sm text-accent2">{error}</div>}

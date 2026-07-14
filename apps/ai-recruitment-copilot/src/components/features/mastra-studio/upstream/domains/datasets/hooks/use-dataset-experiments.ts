@@ -110,7 +110,7 @@ export const useDatasetExperimentResults = ({
       return lastPageParam + 1;
     },
     initialPageParam: 0,
-    queryFn: async ({ pageParam }): Promise<DatasetExperimentResultsPage> =>
+    queryFn: ({ pageParam }): Promise<DatasetExperimentResultsPage> =>
       client.listDatasetExperimentResults(datasetId, experimentId, {
         page: pageParam,
         perPage: RESULTS_PER_PAGE,
@@ -121,11 +121,12 @@ export const useDatasetExperimentResults = ({
     select: (data) => data.pages.flatMap((page) => page?.results ?? []),
   });
 
+  const { fetchNextPage, hasNextPage, isFetchingNextPage } = query;
   useEffect(() => {
-    if (isEndOfListInView && query.hasNextPage && !query.isFetchingNextPage) {
-      void query.fetchNextPage();
+    if (isEndOfListInView && hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage();
     }
-  }, [isEndOfListInView, query.hasNextPage, query.isFetchingNextPage]);
+  }, [fetchNextPage, hasNextPage, isEndOfListInView, isFetchingNextPage]);
 
   return { ...query, setEndOfListElement };
 };
@@ -152,7 +153,7 @@ export const useScoresByExperimentId = (
         if (!response.pagination.hasMore) {
           break;
         }
-        page++;
+        page += 1;
       }
 
       const grouped: Record<string, ClientScoreRowData[]> = {};

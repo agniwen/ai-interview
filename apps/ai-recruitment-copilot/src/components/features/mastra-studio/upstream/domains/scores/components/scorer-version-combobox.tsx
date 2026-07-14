@@ -24,6 +24,16 @@ export interface ScorerVersionComboboxProps {
   activeVersionId?: string;
 }
 
+function getVersionBadge(isPublished: boolean, isDraft: boolean) {
+  let badge;
+  if (isPublished) {
+    badge = <Badge variant="success">Published</Badge>;
+  } else if (isDraft) {
+    badge = <Badge variant="info">Draft</Badge>;
+  }
+  return badge;
+}
+
 export function ScorerVersionCombobox({
   scorerId,
   value,
@@ -54,11 +64,7 @@ export function ScorerVersionCombobox({
 
       return {
         description: formatTimestamp(version.createdAt),
-        end: isPublished ? (
-          <Badge variant="success">Published</Badge>
-        ) : isDraft ? (
-          <Badge variant="info">Draft</Badge>
-        ) : undefined,
+        end: getVersionBadge(isPublished, isDraft),
         label: `v${version.versionNumber}`,
         value: version.id,
       };

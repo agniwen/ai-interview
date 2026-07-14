@@ -16,30 +16,6 @@ import { useStoredSkills } from "@/components/features/mastra-studio/upstream/do
 import { useCurrentUser } from "@/components/features/mastra-studio/upstream/domains/auth/hooks/use-current-user";
 import { usePermissions } from "@/components/features/mastra-studio/upstream/domains/auth/hooks/use-permissions";
 
-export default function AgentBuilderSkillsView() {
-  const { id } = useParams<{ id: string }>();
-  const { data: storedSkill, isLoading: isStoredSkillLoading } = useStoredSkill(id);
-  const { data: currentUser, isLoading: isCurrentUserLoading } = useCurrentUser();
-
-  const isOwner = !storedSkill?.authorId || currentUser?.id === storedSkill.authorId;
-  const isOwnershipLoading = Boolean(storedSkill?.authorId) && isCurrentUserLoading;
-  const isReady = Boolean(id) && !isStoredSkillLoading && !isOwnershipLoading;
-
-  if (!isReady) {
-    return <AgentBuilderSkillViewSkeleton />;
-  }
-
-  if (!storedSkill) {
-    return <Navigate to="/agent-builder/skills" replace />;
-  }
-
-  if (isOwner) {
-    return <Navigate to={`/agent-builder/skills/${id}/edit`} replace />;
-  }
-
-  return <AgentBuilderSkillViewPage skill={storedSkill} />;
-}
-
 const AgentBuilderSkillViewSkeleton = () => (
   <div className="h-screen w-screen flex items-center justify-center">
     <Spinner />
@@ -142,3 +118,27 @@ const AgentBuilderSkillViewPage = ({ skill }: PageProps) => {
     </div>
   );
 };
+
+export default function AgentBuilderSkillsView() {
+  const { id } = useParams<{ id: string }>();
+  const { data: storedSkill, isLoading: isStoredSkillLoading } = useStoredSkill(id);
+  const { data: currentUser, isLoading: isCurrentUserLoading } = useCurrentUser();
+
+  const isOwner = !storedSkill?.authorId || currentUser?.id === storedSkill.authorId;
+  const isOwnershipLoading = Boolean(storedSkill?.authorId) && isCurrentUserLoading;
+  const isReady = Boolean(id) && !isStoredSkillLoading && !isOwnershipLoading;
+
+  if (!isReady) {
+    return <AgentBuilderSkillViewSkeleton />;
+  }
+
+  if (!storedSkill) {
+    return <Navigate to="/agent-builder/skills" replace />;
+  }
+
+  if (isOwner) {
+    return <Navigate to={`/agent-builder/skills/${id}/edit`} replace />;
+  }
+
+  return <AgentBuilderSkillViewPage skill={storedSkill} />;
+}

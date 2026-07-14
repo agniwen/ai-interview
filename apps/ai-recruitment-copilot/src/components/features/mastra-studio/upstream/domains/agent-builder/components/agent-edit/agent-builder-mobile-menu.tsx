@@ -25,85 +25,6 @@ export interface AgentBuilderMobileMenuProps {
   disabled?: boolean;
 }
 
-export function AgentBuilderMobileMenu({
-  agentId,
-  showSetVisibility = false,
-  showDelete = false,
-  showViewAgent = false,
-  showEditAgent = false,
-  agentName,
-  disabled = false,
-}: AgentBuilderMobileMenuProps) {
-  const navigate = useNavigate();
-  const canDelete = showDelete && Boolean(agentId) && Boolean(agentName);
-  const canSetVisibility = showSetVisibility && Boolean(agentId);
-  const canViewAgent = showViewAgent && Boolean(agentId);
-  const canEditAgent = showEditAgent && Boolean(agentId);
-
-  if (!canSetVisibility && !canDelete && !canViewAgent && !canEditAgent) {
-    return null;
-  }
-
-  return (
-    <div className="lg:hidden" data-testid="agent-builder-mobile-menu">
-      <DropdownMenu>
-        <DropdownMenu.Trigger asChild>
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            tooltip="More actions"
-            data-testid="agent-builder-mobile-menu-trigger"
-          >
-            <MoreVerticalIcon />
-          </Button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Content align="end">
-          {canViewAgent && (
-            <DropdownMenu.Item
-              data-testid="agent-builder-mobile-menu-view-agent"
-              disabled={disabled}
-              onSelect={() => {
-                void navigate(`/agent-builder/agents/${agentId}/view`, { viewTransition: true });
-              }}
-            >
-              <EyeIcon />
-              <span>View agent</span>
-            </DropdownMenu.Item>
-          )}
-          {canEditAgent && (
-            <DropdownMenu.Item
-              data-testid="agent-builder-mobile-menu-edit-agent"
-              disabled={disabled}
-              onSelect={() => {
-                void navigate(`/agent-builder/agents/${agentId}/edit`, { viewTransition: true });
-              }}
-            >
-              <PencilIcon />
-              <span>Edit agent</span>
-            </DropdownMenu.Item>
-          )}
-          {(canViewAgent || canEditAgent) && (canSetVisibility || canDelete) && (
-            <DropdownMenu.Separator />
-          )}
-          {canSetVisibility && (
-            <VisibilityMenuItem agentId={agentId as string} disabled={disabled} />
-          )}
-          {canDelete && (
-            <>
-              {canSetVisibility && <DropdownMenu.Separator />}
-              <DeleteAgentMenuItem
-                agentId={agentId as string}
-                agentName={agentName as string}
-                disabled={disabled}
-              />
-            </>
-          )}
-        </DropdownMenu.Content>
-      </DropdownMenu>
-    </div>
-  );
-}
-
 interface VisibilityMenuItemProps {
   agentId: string;
   disabled: boolean;
@@ -144,5 +65,111 @@ function VisibilityMenuItem({ agentId, disabled }: VisibilityMenuItemProps) {
       )}
       {dialog}
     </>
+  );
+}
+
+interface AgentBuilderMenuContentProps {
+  agentId: string;
+  agentName: string;
+  canDelete: boolean;
+  canEditAgent: boolean;
+  canSetVisibility: boolean;
+  canViewAgent: boolean;
+  disabled: boolean;
+}
+
+function AgentBuilderMenuContent({
+  agentId,
+  agentName,
+  canDelete,
+  canEditAgent,
+  canSetVisibility,
+  canViewAgent,
+  disabled,
+}: AgentBuilderMenuContentProps) {
+  const navigate = useNavigate();
+
+  return (
+    <DropdownMenu.Content align="end">
+      {canViewAgent && (
+        <DropdownMenu.Item
+          data-testid="agent-builder-mobile-menu-view-agent"
+          disabled={disabled}
+          onSelect={() => {
+            void navigate(`/agent-builder/agents/${agentId}/view`, { viewTransition: true });
+          }}
+        >
+          <EyeIcon />
+          <span>View agent</span>
+        </DropdownMenu.Item>
+      )}
+      {canEditAgent && (
+        <DropdownMenu.Item
+          data-testid="agent-builder-mobile-menu-edit-agent"
+          disabled={disabled}
+          onSelect={() => {
+            void navigate(`/agent-builder/agents/${agentId}/edit`, { viewTransition: true });
+          }}
+        >
+          <PencilIcon />
+          <span>Edit agent</span>
+        </DropdownMenu.Item>
+      )}
+      {(canViewAgent || canEditAgent) && (canSetVisibility || canDelete) && (
+        <DropdownMenu.Separator />
+      )}
+      {canSetVisibility && <VisibilityMenuItem agentId={agentId} disabled={disabled} />}
+      {canDelete && (
+        <>
+          {canSetVisibility && <DropdownMenu.Separator />}
+          <DeleteAgentMenuItem agentId={agentId} agentName={agentName} disabled={disabled} />
+        </>
+      )}
+    </DropdownMenu.Content>
+  );
+}
+
+export function AgentBuilderMobileMenu({
+  agentId,
+  showSetVisibility = false,
+  showDelete = false,
+  showViewAgent = false,
+  showEditAgent = false,
+  agentName,
+  disabled = false,
+}: AgentBuilderMobileMenuProps) {
+  const canDelete = showDelete && Boolean(agentId) && Boolean(agentName);
+  const canSetVisibility = showSetVisibility && Boolean(agentId);
+  const canViewAgent = showViewAgent && Boolean(agentId);
+  const canEditAgent = showEditAgent && Boolean(agentId);
+
+  if (!canSetVisibility && !canDelete && !canViewAgent && !canEditAgent) {
+    return null;
+  }
+
+  return (
+    <div className="lg:hidden" data-testid="agent-builder-mobile-menu">
+      <DropdownMenu>
+        <DropdownMenu.Trigger asChild>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            tooltip="More actions"
+            data-testid="agent-builder-mobile-menu-trigger"
+          >
+            <MoreVerticalIcon />
+          </Button>
+        </DropdownMenu.Trigger>
+        <AgentBuilderMenuContent
+          agentId={agentId ?? ""}
+          agentName={agentName ?? ""}
+          canDelete={canDelete}
+          canEditAgent={canEditAgent}
+          canSetVisibility={canSetVisibility}
+          canViewAgent={canViewAgent}
+          disabled={disabled}
+        />
+      </DropdownMenu>
+    </div>
   );
 }

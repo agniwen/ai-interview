@@ -14,7 +14,7 @@ export const useTimeDiff = ({ startedAt, endedAt }: UseTimeDiffProps) => {
 
     // Once the run has ended, stop ticking — completed dialogs would otherwise
     // re-render every 100ms forever.
-    if (endedAt != null) {
+    if (endedAt !== undefined) {
       return;
     }
 
@@ -25,7 +25,7 @@ export const useTimeDiff = ({ startedAt, endedAt }: UseTimeDiffProps) => {
     return () => clearInterval(interval);
   }, [startedAt, endedAt]);
 
-  const timeDiff = endedAt != null ? endedAt - startedAt : time - startedAt;
+  const timeDiff = endedAt === undefined ? time - startedAt : endedAt - startedAt;
 
   return timeDiff;
 };

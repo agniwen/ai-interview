@@ -105,7 +105,9 @@ async function getTemplateRepo({
 
   if (!template) {
     if (owner === "mastra-ai" && repoOrSlug.startsWith("template-")) {
-      const templateRepo = templates.find((template) => `template-${template.slug}` === repoOrSlug);
+      const templateRepo = templates.find(
+        (candidate) => `template-${candidate.slug}` === repoOrSlug,
+      );
       if (templateRepo) {
         return templateRepo;
       }
@@ -137,21 +139,18 @@ async function getTemplateRepoEnvVars({
 
   if (envResponse.ok) {
     const envContent = await envResponse.text();
-    const envVars = envContent.split("\n").reduce(
-      (acc, line) => {
-        if (!line || line.startsWith("#")) {
-          return acc;
-        } // Skip empty lines and comments
+    const envVars: Record<string, string> = {};
+    for (const line of envContent.split("\n")) {
+      // Skip empty lines and comments.
+      if (!line || line.startsWith("#")) {
+        continue;
+      }
 
-        const [key, value] = line.split("=");
-
-        if (key) {
-          acc[key] = [...value]?.every((item) => item === "*") ? "" : value?.replaceAll('"', "");
-        }
-        return acc;
-      },
-      {} as Record<string, string>,
-    );
+      const [key, value = ""] = line.split("=");
+      if (key) {
+        envVars[key] = [...value].every((item) => item === "*") ? "" : value.replaceAll('"', "");
+      }
+    }
 
     return envVars;
   }
@@ -213,7 +212,7 @@ const normalizeError = (error: unknown): string => {
   if (typeof error === "string") {
     return error;
   }
-  if (error == null) {
+  if (error === null || error === undefined) {
     return "Unknown error";
   }
   if (error instanceof Error) {
@@ -231,217 +230,243 @@ const normalizeError = (error: unknown): string => {
   return String(error);
 };
 
-// Helper function to process template installation records (like workflows' sanitizeWorkflowWatchResult)
-const processTemplateInstallRecord = (
-  record: { type: string; payload: any; runId?: string; eventTimestamp?: string },
-  currentState: any,
-  workflowInfo?: any,
-): { newState: any } => {
-  let newState = { ...currentState };
+export interface TemplateWorkflowStep extends Record<string, unknown> {
+  description?: string;
+  error?: unknown;
+  id?: string;
+  output?: unknown;
+  status?: string;
+}
 
-  // Initialize steps if not present or empty
-  const hasSteps =
-    newState.payload?.workflowState?.steps &&
-    Object.keys(newState.payload.workflowState.steps).length > 0;
-  if (!hasSteps && workflowInfo?.allSteps) {
-    newState.payload = {
-      ...newState.payload,
+export interface TemplateWorkflowInfo {
+  allSteps?: Record<string, TemplateWorkflowStep>;
+}
+
+interface TemplateInstallPayload extends Record<string, unknown> {
+  description?: string;
+  error?: unknown;
+  id?: string;
+  output?: unknown;
+  runId?: string;
+  status?: string;
+}
+
+interface TemplateInstallRecord {
+  eventTimestamp?: string;
+  payload: TemplateInstallPayload;
+  runId?: string;
+  type: string;
+}
+
+export interface TemplateWorkflowState extends Record<string, unknown> {
+  status?: string;
+  steps: Record<string, TemplateWorkflowStep>;
+}
+
+export interface TemplateInstallState extends Record<string, unknown> {
+  error?: string;
+  payload: {
+    currentStep?: TemplateWorkflowStep | null;
+    workflowState: TemplateWorkflowState;
+  };
+  phase?: string;
+  runId?: string;
+  status?: string;
+}
+
+function createPendingSteps(workflowInfo?: TemplateWorkflowInfo) {
+  const steps: Record<string, TemplateWorkflowStep> = {};
+  for (const [stepId, step] of Object.entries(workflowInfo?.allSteps ?? {})) {
+    steps[stepId] = {
+      description: step.description,
+      id: step.id ?? stepId,
+      status: "pending",
+    };
+  }
+  return steps;
+}
+
+function ensureWorkflowSteps(
+  state: TemplateInstallState,
+  workflowInfo?: TemplateWorkflowInfo,
+): TemplateInstallState {
+  if (Object.keys(state.payload.workflowState.steps).length > 0 || !workflowInfo?.allSteps) {
+    return state;
+  }
+  return {
+    ...state,
+    payload: {
+      ...state.payload,
       workflowState: {
-        ...newState.payload?.workflowState,
-        steps: Object.keys(workflowInfo.allSteps).reduce((acc, stepId) => {
-          acc[stepId] = {
-            description: workflowInfo.allSteps[stepId].description,
-            id: stepId,
-            status: "pending",
-          };
-          return acc;
-        }, {} as any),
+        ...state.payload.workflowState,
+        steps: createPendingSteps(workflowInfo),
       },
-    };
+    },
+  };
+}
+
+function applyStepStart(
+  state: TemplateInstallState,
+  payload: TemplateInstallPayload,
+): TemplateInstallState {
+  const stepId = payload.id;
+  if (!stepId) {
+    return state;
   }
-
-  // Handle different event types
-  // Support both legacy ('start') and VNext ('workflow-start') formats
-  if (record.type === "start" || record.type === "workflow-start") {
-    // Pre-populate all workflow steps from workflowInfo if available
-    const initialSteps: any = {};
-    if (workflowInfo?.allSteps) {
-      Object.entries(workflowInfo.allSteps).forEach(([stepId, stepData]: [string, any]) => {
-        initialSteps[stepId] = {
-          description: stepData.description,
-          id: stepData.id,
-          status: "pending",
-        };
-      });
-    }
-
-    const runId = record.runId || record.payload?.runId;
-
-    newState = {
-      ...newState,
-      eventTimestamp: new Date().toISOString(),
-      payload: {
-        currentStep: null,
-        workflowState: {
-          status: "running",
-          steps: initialSteps,
+  const runningStep = { id: stepId, startTime: new Date(), status: "running", ...payload };
+  return {
+    ...state,
+    payload: {
+      ...state.payload,
+      currentStep: runningStep,
+      workflowState: {
+        ...state.payload.workflowState,
+        steps: {
+          ...state.payload.workflowState.steps,
+          [stepId]: { ...state.payload.workflowState.steps[stepId], ...runningStep },
         },
       },
-      phase: "initializing",
-      runId,
-      status: "running",
-    };
-  }
+    },
+    phase: "processing",
+  };
+}
 
-  // Support both legacy ('step-start') and VNext ('workflow-step-start') formats
-  if (record.type === "step-start" || record.type === "workflow-step-start") {
-    const stepId = record.payload.id;
-    newState = {
-      ...newState,
-      payload: {
-        ...newState.payload,
-        currentStep: {
-          id: stepId,
-          startTime: new Date(),
-          status: "running",
-          ...record.payload,
-        },
-        workflowState: {
-          ...newState.payload.workflowState,
-          steps: {
-            ...newState.payload.workflowState.steps,
-            [stepId]: {
-              ...newState.payload.workflowState.steps[stepId],
-              startTime: new Date(),
-              status: "running",
-              ...record.payload,
-            },
-          },
+function applyStepResult(
+  state: TemplateInstallState,
+  payload: TemplateInstallPayload,
+): TemplateInstallState {
+  const stepId = payload.id;
+  if (!stepId) {
+    return state;
+  }
+  const completedStep = {
+    endTime: new Date(),
+    error: payload.error,
+    output: payload.output,
+    status: payload.status,
+  };
+  let nextState: TemplateInstallState = {
+    ...state,
+    payload: {
+      ...state.payload,
+      currentStep: { ...state.payload.currentStep, ...completedStep },
+      workflowState: {
+        ...state.payload.workflowState,
+        steps: {
+          ...state.payload.workflowState.steps,
+          [stepId]: { ...state.payload.workflowState.steps[stepId], ...completedStep },
         },
       },
-      phase: "processing",
-    };
-  }
+    },
+  };
 
-  // Support both legacy ('step-result') and VNext ('workflow-step-result') formats
-  if (record.type === "step-result" || record.type === "workflow-step-result") {
-    const stepId = record.payload.id;
-    const { status } = record.payload;
-    const hasError = record.payload.error;
-    newState = {
-      ...newState,
-      payload: {
-        ...newState.payload,
-        currentStep: {
-          ...newState.payload.currentStep,
-          endTime: new Date(),
-          error: record.payload.error,
-          output: record.payload.output,
-          status: record.payload.status,
-        },
-        workflowState: {
-          ...newState.payload.workflowState,
-          steps: {
-            ...newState.payload.workflowState.steps,
-            [stepId]: {
-              ...newState.payload.workflowState.steps[stepId],
-              endTime: new Date(),
-              error: record.payload.error,
-              output: record.payload.output,
-              status: record.payload.status,
-            },
-          },
-        },
-      },
-    };
-
-    // If this step failed, also set workflow-level error state
-    if (status === "failed" && hasError) {
-      const errorString = normalizeError(hasError);
-      newState = {
-        ...newState,
-        error: errorString,
-        errorTimestamp: new Date(),
-        failedStep: {
-          description: record.payload.description || stepId,
-          error: errorString,
-          id: stepId,
-        },
-        payload: {
-          ...newState.payload,
-          workflowState: {
-            ...newState.payload.workflowState,
-            status: "failed",
-          },
-        },
-        phase: "error",
-        status: "failed",
-      };
-    }
-  }
-
-  // Support both legacy ('step-finish') and VNext ('workflow-step-finish') formats
-  if (record.type === "step-finish" || record.type === "workflow-step-finish") {
-    newState = {
-      ...newState,
-      payload: {
-        ...newState.payload,
-        currentStep: null,
-      },
-    };
-  }
-
-  // Support both legacy ('finish') and VNext ('workflow-finish') formats
-  if (record.type === "finish" || record.type === "workflow-finish") {
-    // Don't override error states - if we're already in error phase, stay there
-    if (newState.phase === "error" || newState.status === "failed") {
-      newState = {
-        ...newState,
-        // Keep existing status, phase, error, failedStep
-        completedAt: new Date(),
-      };
-    } else {
-      // Normal completion flow
-      newState = {
-        ...newState,
-        completedAt: new Date(),
-        payload: {
-          ...newState.payload,
-          currentStep: null,
-          workflowState: {
-            ...newState.payload.workflowState,
-            status: record.payload.status || "completed",
-          },
-        },
-        phase: "completed",
-        status: record.payload.status || "completed",
-      };
-    }
-  }
-
-  if (record.type === "error") {
-    const errorStr = normalizeError(record.payload.error);
-    newState = {
-      ...newState,
-      error: errorStr,
+  if (payload.status === "failed" && payload.error) {
+    const error = normalizeError(payload.error);
+    nextState = {
+      ...nextState,
+      error,
       errorTimestamp: new Date(),
+      failedStep: { description: payload.description || stepId, error, id: stepId },
       payload: {
-        ...newState.payload,
-        workflowState: {
-          ...newState.payload.workflowState,
-          status: "failed",
-        },
+        ...nextState.payload,
+        workflowState: { ...nextState.payload.workflowState, status: "failed" },
       },
       phase: "error",
       status: "failed",
     };
   }
+  return nextState;
+}
 
-  return { newState };
+function applyFinish(
+  state: TemplateInstallState,
+  payload: TemplateInstallPayload,
+): TemplateInstallState {
+  if (state.phase === "error" || state.status === "failed") {
+    return { ...state, completedAt: new Date() };
+  }
+  const status = payload.status || "completed";
+  return {
+    ...state,
+    completedAt: new Date(),
+    payload: {
+      ...state.payload,
+      currentStep: null,
+      workflowState: { ...state.payload.workflowState, status },
+    },
+    phase: "completed",
+    status,
+  };
+}
+
+function applyError(
+  state: TemplateInstallState,
+  payload: TemplateInstallPayload,
+): TemplateInstallState {
+  const error = normalizeError(payload.error);
+  return {
+    ...state,
+    error,
+    errorTimestamp: new Date(),
+    payload: {
+      ...state.payload,
+      workflowState: { ...state.payload.workflowState, status: "failed" },
+    },
+    phase: "error",
+    status: "failed",
+  };
+}
+
+const processTemplateInstallRecord = (
+  record: TemplateInstallRecord,
+  currentState: TemplateInstallState,
+  workflowInfo?: TemplateWorkflowInfo,
+): { newState: TemplateInstallState } => {
+  const state = ensureWorkflowSteps(currentState, workflowInfo);
+  switch (record.type) {
+    case "start":
+    case "workflow-start": {
+      return {
+        newState: {
+          ...state,
+          eventTimestamp: new Date().toISOString(),
+          payload: {
+            currentStep: null,
+            workflowState: { status: "running", steps: createPendingSteps(workflowInfo) },
+          },
+          phase: "initializing",
+          runId: record.runId || record.payload.runId,
+          status: "running",
+        },
+      };
+    }
+    case "step-start":
+    case "workflow-step-start": {
+      return { newState: applyStepStart(state, record.payload) };
+    }
+    case "step-result":
+    case "workflow-step-result": {
+      return { newState: applyStepResult(state, record.payload) };
+    }
+    case "step-finish":
+    case "workflow-step-finish": {
+      return { newState: { ...state, payload: { ...state.payload, currentStep: null } } };
+    }
+    case "finish":
+    case "workflow-finish": {
+      return { newState: applyFinish(state, record.payload) };
+    }
+    case "error": {
+      return { newState: applyError(state, record.payload) };
+    }
+    default: {
+      return { newState: state };
+    }
+  }
 };
 
 // Shared localStorage helpers for template installation state
-const saveTemplateStateToLocalStorage = (runId: string, state: any) => {
+const saveTemplateStateToLocalStorage = (runId: string, state: TemplateInstallState) => {
   try {
     localStorage.setItem(
       `template-install-${runId}`,
@@ -456,11 +481,21 @@ const saveTemplateStateToLocalStorage = (runId: string, state: any) => {
 };
 
 // Shared helper for processing template installation streams (streamlined)
-const useTemplateStreamProcessor = (workflowInfo?: any, runId?: string) => {
-  const [streamResult, setStreamResult] = useState<any>({});
+const createInitialInstallState = (runId?: string): TemplateInstallState => ({
+  eventTimestamp: new Date().toISOString(),
+  payload: { currentStep: null, workflowState: { steps: {} } },
+  phase: "running",
+  runId,
+});
+
+const useTemplateStreamProcessor = (workflowInfo?: TemplateWorkflowInfo, runId?: string) => {
+  const [streamResult, setStreamResult] = useState<Partial<TemplateInstallState>>({});
   const [isStreaming, setIsStreaming] = useState(false);
 
-  const processStream = async (stream: any, initialRunId?: string) => {
+  const processStream = async (
+    stream: ReadableStream<TemplateInstallRecord>,
+    initialRunId?: string,
+  ) => {
     setIsStreaming(true);
     setStreamResult({});
 
@@ -470,18 +505,8 @@ const useTemplateStreamProcessor = (workflowInfo?: any, runId?: string) => {
 
     const reader = stream.getReader();
 
-    // Initialize minimal state - don't set immediately, let events drive the state
-    let currentState: any = {
-      eventTimestamp: new Date().toISOString(),
-      payload: {
-        currentStep: null,
-        workflowState: {
-          steps: {},
-        },
-      },
-      phase: "running",
-      runId: initialRunId || runId,
-    };
+    // Do not publish this minimal state until an event arrives.
+    let currentState = createInitialInstallState(initialRunId || runId);
 
     try {
       while (true) {
@@ -495,8 +520,8 @@ const useTemplateStreamProcessor = (workflowInfo?: any, runId?: string) => {
         setStreamResult(newState);
 
         // Save to localStorage for refresh recovery (same as watch)
-        if (value.runId || initialRunId || runId) {
-          const effectiveRunId = value.runId || initialRunId || runId;
+        const effectiveRunId = value.runId || initialRunId || runId;
+        if (effectiveRunId) {
           saveTemplateStateToLocalStorage(effectiveRunId, newState);
         }
       }
@@ -527,7 +552,46 @@ const useTemplateStreamProcessor = (workflowInfo?: any, runId?: string) => {
   };
 };
 
-export const useStreamTemplateInstall = (workflowInfo?: any) => {
+interface ErrorDetails {
+  code?: unknown;
+  message?: string;
+  name?: string;
+}
+
+function getErrorDetails(error: unknown): ErrorDetails {
+  if (error instanceof Error) {
+    return { message: error.message, name: error.name };
+  }
+  if (!error || typeof error !== "object") {
+    return {};
+  }
+  const value = error as Record<string, unknown>;
+  return {
+    code: value.code,
+    message: typeof value.message === "string" ? value.message : undefined,
+    name: typeof value.name === "string" ? value.name : undefined,
+  };
+}
+
+function isNetworkFailure(error: unknown) {
+  const details = getErrorDetails(error);
+  return (
+    details.message?.includes("Failed to fetch") ||
+    details.message?.includes("NetworkError") ||
+    details.message?.includes("network error") ||
+    details.message?.includes("fetch") ||
+    details.code === "NETWORK_ERROR" ||
+    details.name === "TypeError"
+  );
+}
+
+function wait(delay: number) {
+  const { promise, resolve } = Promise.withResolvers<null>();
+  setTimeout(() => resolve(null), delay);
+  return promise;
+}
+
+export const useStreamTemplateInstall = (workflowInfo?: TemplateWorkflowInfo) => {
   const client = useMastraClient();
   const { streamResult, isStreaming, processStream } = useTemplateStreamProcessor(workflowInfo);
 
@@ -543,7 +607,7 @@ export const useStreamTemplateInstall = (workflowInfo?: any) => {
     }) => {
       const maxRetries = 3;
 
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
         try {
           const template = client.getAgentBuilderAction("merge-template");
           const requestContext = new RequestContext();
@@ -553,15 +617,9 @@ export const useStreamTemplateInstall = (workflowInfo?: any) => {
 
           // If we get here, the stream completed successfully
           return;
-        } catch (error: any) {
+        } catch (error) {
           console.error(`💥 [streamInstall] Attempt ${attempt} failed:`, error);
-          const isNetworkError =
-            error?.message?.includes("Failed to fetch") ||
-            error?.message?.includes("NetworkError") ||
-            error?.message?.includes("network error") ||
-            error?.message?.includes("fetch") ||
-            error?.code === "NETWORK_ERROR" ||
-            error?.name === "TypeError";
+          const isNetworkError = isNetworkFailure(error);
 
           console.warn(`Stream attempt ${attempt}/${maxRetries} failed:`, error);
 
@@ -597,16 +655,17 @@ export const useStreamTemplateInstall = (workflowInfo?: any) => {
  * Hook for observing template installation with full replay capability.
  * Uses observeStream() which replays cached execution from beginning, then continues live.
  */
-export const useObserveStreamTemplateInstall = (workflowInfo?: any) => {
+export const useObserveStreamTemplateInstall = (workflowInfo?: TemplateWorkflowInfo) => {
   const client = useMastraClient();
   const { streamResult, isStreaming, processStream } = useTemplateStreamProcessor(workflowInfo);
 
   const observeInstall = useMutation({
     mutationFn: async ({ runId }: { runId: string }) => {
       const maxRetries = 3;
-      const retryDelay = 2000; // 2 seconds
+      // Two seconds keeps hot-reload recovery responsive without hammering the server.
+      const retryDelay = 2000;
 
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
         try {
           // Initialize state - but observeStream will replay full history
           // so we don't need to rely on localStorage as fallback
@@ -618,15 +677,9 @@ export const useObserveStreamTemplateInstall = (workflowInfo?: any) => {
 
           // If we get here, the observe stream completed successfully
           return;
-        } catch (error: any) {
+        } catch (error) {
           console.error(`💥 [observeInstall] Attempt ${attempt} failed:`, error);
-          const isNetworkError =
-            error?.message?.includes("Failed to fetch") ||
-            error?.message?.includes("NetworkError") ||
-            error?.message?.includes("network error") ||
-            error?.message?.includes("fetch") ||
-            error?.code === "NETWORK_ERROR" ||
-            error?.name === "TypeError";
+          const isNetworkError = isNetworkFailure(error);
 
           console.warn(`ObserveStream attempt ${attempt}/${maxRetries} failed:`, error);
 
@@ -634,8 +687,8 @@ export const useObserveStreamTemplateInstall = (workflowInfo?: any) => {
             console.info(
               `🔄 ObserveStream network error detected (likely hot reload), retrying in ${retryDelay}ms... (attempt ${attempt + 1}/${maxRetries})`,
             );
-            await new Promise((resolve) => setTimeout(resolve, retryDelay));
-            continue; // Retry
+            await wait(retryDelay);
+            continue;
           }
 
           // If it's not a network error or we've exhausted retries, throw

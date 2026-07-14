@@ -10,13 +10,14 @@ export function useWorkflowSchema(workflowId: string | null) {
 
   return useQuery({
     enabled: !!workflowId,
-    queryFn: async () => {
+    queryFn: () => {
       if (!workflowId) {
         throw new Error("No workflow selected");
       }
       return client.getWorkflow(workflowId).getSchema();
     },
     queryKey: ["workflow-schema", workflowId],
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    // Cache for 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 }

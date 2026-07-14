@@ -16,6 +16,18 @@ async function refreshSession(baseUrl: string, apiPrefix: string): Promise<boole
   }
 }
 
+async function refreshSessionAndReset(
+  baseUrl: string,
+  apiPrefix: string,
+  reset: () => void,
+): Promise<boolean> {
+  try {
+    return await refreshSession(baseUrl, apiPrefix);
+  } finally {
+    reset();
+  }
+}
+
 /**
  * Fetch wrapper that automatically attempts to refresh the session on 401 errors.
  *
@@ -52,7 +64,7 @@ export async function fetchWithRefresh(
   }
 
   if (!refreshPromise) {
-    refreshPromise = refreshSession(baseUrl, "/api").finally(() => {
+    refreshPromise = refreshSessionAndReset(baseUrl, "/api", () => {
       refreshPromise = null;
     });
   }
@@ -74,7 +86,7 @@ export async function fetchWithRefresh(
  * @param apiPrefix - The API prefix (defaults to '/api')
  * @returns A fetch-compatible function that handles 401 refresh
  */
-export function createFetchWithRefresh(baseUrl: string, apiPrefix: string = "/api"): typeof fetch {
+export function createFetchWithRefresh(baseUrl: string, apiPrefix = "/api"): typeof fetch {
   let localRefreshPromise: Promise<boolean> | null = null;
 
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
@@ -93,7 +105,7 @@ export function createFetchWithRefresh(baseUrl: string, apiPrefix: string = "/ap
     }
 
     if (!localRefreshPromise) {
-      localRefreshPromise = refreshSession(baseUrl, apiPrefix).finally(() => {
+      localRefreshPromise = refreshSessionAndReset(baseUrl, apiPrefix, () => {
         localRefreshPromise = null;
       });
     }

@@ -26,7 +26,7 @@ export const useExecuteMCPTool = (serverId: string, toolId: string) => {
   const client = useMastraClient();
 
   return useMutation({
-    mutationFn: (data: any) => {
+    mutationFn: (data: unknown) => {
       const instance = client.getMcpServerTool(serverId, toolId);
       return instance.execute({ data, requestContext: requestContext as RequestContext });
     },

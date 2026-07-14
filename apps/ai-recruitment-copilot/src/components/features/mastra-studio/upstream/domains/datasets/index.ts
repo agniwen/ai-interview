@@ -1,28 +1,52 @@
 // Query hooks
-export * from "./hooks/use-datasets";
-export * from "./hooks/use-dataset-items";
-export * from "./hooks/use-dataset-item-versions";
-export * from "./hooks/use-dataset-experiments";
-export * from "./hooks/use-experiments";
-export * from "./hooks/use-compare-experiments";
-export * from "./hooks/use-dataset-versions";
+export { useDataset, useDatasets } from "./hooks/use-datasets";
+export { useDatasetItem, useDatasetItems } from "./hooks/use-dataset-items";
+export {
+  useDatasetItemVersion,
+  useDatasetItemVersions,
+  type DatasetItemVersion,
+} from "./hooks/use-dataset-item-versions";
+export {
+  useDatasetExperiment,
+  useDatasetExperimentResults,
+  useDatasetExperiments,
+  useScoresByExperimentId,
+  type DatasetExperimentsFilters,
+} from "./hooks/use-dataset-experiments";
+export { useExperiments } from "./hooks/use-experiments";
+export { useCompareExperiments } from "./hooks/use-compare-experiments";
+export { useDatasetVersions, type DatasetVersion } from "./hooks/use-dataset-versions";
 
 // Mutation hooks
-export * from "./hooks/use-dataset-mutations";
+export { useDatasetMutations } from "./hooks/use-dataset-mutations";
 
 // CSV import utilities
-export * from "./hooks/use-csv-parser";
-export * from "./utils/csv-validation";
-export * from "./utils/json-cell-parser";
+export { useCSVParser, type ParsedCSV } from "./hooks/use-csv-parser";
+export {
+  validateCsvRows,
+  validateMappedData,
+  type ColumnMapping,
+  type CsvValidationResult,
+  type FieldError,
+  type RowValidationResult,
+  type ValidationError,
+  type ValidationResult,
+} from "./utils/csv-validation";
+export { parseJSONCell, parseRow, type ParsedCell, type ParsedRow } from "./utils/json-cell-parser";
 
 // JSON import utilities
-export * from "./hooks/use-json-parser";
-export * from "./utils/json-validation";
+export { useJSONParser, type ParsedJSON } from "./hooks/use-json-parser";
+export {
+  validateJSONData,
+  type ImportableItem,
+  type JSONValidationError,
+  type JSONValidationResult,
+} from "./utils/json-validation";
 
 // Selection and export utilities
-export * from "./hooks/use-item-selection";
-export * from "./utils/csv-export";
-export * from "./utils/json-export";
+export { useItemSelection, type ItemSelectionState } from "./hooks/use-item-selection";
+export { exportItemsToCSV } from "./utils/csv-export";
+export { exportItemsToJSON } from "./utils/json-export";
 
 // Components
 export { DatasetsList, type DatasetsListProps } from "./components/datasets-list/datasets-list";

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { useLinkComponent } from "@/components/features/mastra-studio/upstream/lib/framework";
+import { isTruthy } from "../utils/truthiness";
 
 /** Tabs that render a pill in the bar. Routes without a pill (e.g. settings) pass `'none'`. */
 export type AgentPageTab = "chat" | "versions" | "evaluate" | "review" | "traces";
@@ -73,11 +74,13 @@ function AgentTab({
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <span tabIndex={0} className="inline-flex">
-            <Tab value={value} disabled className="px-3 py-2.5">
-              {tabContent}
-            </Tab>
-          </span>
+          <button
+            type="button"
+            aria-disabled="true"
+            className="inline-flex px-3 py-2.5 text-neutral3"
+          >
+            {tabContent}
+          </button>
         </TooltipTrigger>
         {disabledReason && <TooltipContent side="bottom">{disabledReason}</TooltipContent>}
       </Tooltip>
@@ -101,13 +104,13 @@ export function AgentPageTabs({
 }: AgentPageTabsProps) {
   const { navigate } = useLinkComponent();
 
-  const playgroundDisabledReason = !showPlayground ? (
+  const playgroundDisabledReason = isTruthy(!showPlayground) ? (
     <p>
       Configure <code>@mastra/editor</code> to use the Editor.{" "}
       <DocsLink href="https://mastra.ai/docs/editor/overview">Learn more</DocsLink>
     </p>
   ) : undefined;
-  const observabilityDisabledReason = !showObservability ? (
+  const observabilityDisabledReason = isTruthy(!showObservability) ? (
     <p>
       Add <code>@mastra/observability</code> to enable this tab.{" "}
       <DocsLink href="https://mastra.ai/docs/observability/overview">Learn more</DocsLink>

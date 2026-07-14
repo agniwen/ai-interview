@@ -17,6 +17,29 @@ import type {
   SearchResponse,
 } from "../types";
 
+interface WorkspaceApi {
+  info(): Promise<WorkspaceInfo>;
+  listFiles(path: string, recursive?: boolean): Promise<FileListResponse>;
+  readFile(path: string, encoding?: string): Promise<FileReadResponse>;
+  stat(path: string): Promise<FileStatResponse>;
+  writeFile(path: string, content: string, options: Record<string, unknown>): Promise<unknown>;
+  delete(path: string, options: Record<string, unknown>): Promise<unknown>;
+  mkdir(path: string, recursive?: boolean): Promise<unknown>;
+  search(params: Omit<SearchWorkspaceParams, "workspaceId">): Promise<SearchResponse>;
+  index(params: {
+    path: string;
+    content: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<unknown>;
+}
+
+interface WorkspaceClient {
+  getWorkspace(workspaceId?: string): WorkspaceApi;
+  listWorkspaces(): Promise<WorkspacesListResponse>;
+}
+
+const getWorkspaceClient = (client: unknown) => client as WorkspaceClient;
+
 function getParentPath(path: string): string {
   return path.split("/").slice(0, -1).join("/") || (path.startsWith("/") ? "/" : ".");
 }
@@ -33,14 +56,14 @@ export const useWorkspaceInfo = (workspaceId?: string) => {
 
   return useQuery({
     enabled: !!workspaceId && isWorkspaceV1Supported(client),
-    queryFn: async (): Promise<WorkspaceInfo> => {
+    queryFn: (): Promise<WorkspaceInfo> => {
       if (!isWorkspaceV1Supported(client)) {
         throw new Error("Workspace v1 not supported by core or client");
       }
       if (!workspaceId) {
         throw new Error("workspaceId is required");
       }
-      const workspace = (client as any).getWorkspace(workspaceId);
+      const workspace = getWorkspaceClient(client).getWorkspace(workspaceId);
       return workspace.info();
     },
     queryKey: ["workspace", "info", workspaceId],
@@ -56,11 +79,11 @@ export const useWorkspaces = () => {
   const client = useMastraClient();
 
   return useQuery({
-    queryFn: async (): Promise<WorkspacesListResponse> => {
+    queryFn: (): Promise<WorkspacesListResponse> => {
       if (!isWorkspaceV1Supported(client)) {
         throw new Error("Workspace v1 not supported by core or client");
       }
-      return (client as any).listWorkspaces();
+      return getWorkspaceClient(client).listWorkspaces();
     },
     queryKey: ["workspaces"],
     retry: shouldRetryWorkspaceQuery,
@@ -83,14 +106,14 @@ export const useWorkspaceFiles = (
       !!path &&
       !!options?.workspaceId &&
       isWorkspaceV1Supported(client),
-    queryFn: async (): Promise<FileListResponse> => {
+    queryFn: (): Promise<FileListResponse> => {
       if (!isWorkspaceV1Supported(client)) {
         throw new Error("Workspace v1 not supported by core or client");
       }
       if (!options?.workspaceId) {
         throw new Error("workspaceId is required");
       }
-      const workspace = (client as any).getWorkspace(options.workspaceId);
+      const workspace = getWorkspaceClient(client).getWorkspace(options.workspaceId);
       return workspace.listFiles(path, options?.recursive);
     },
     queryKey: ["workspace", "files", path, options?.recursive, options?.workspaceId],
@@ -110,14 +133,14 @@ export const useWorkspaceFile = (
       !!path &&
       !!options?.workspaceId &&
       isWorkspaceV1Supported(client),
-    queryFn: async (): Promise<FileReadResponse> => {
+    queryFn: (): Promise<FileReadResponse> => {
       if (!isWorkspaceV1Supported(client)) {
         throw new Error("Workspace v1 not supported by core or client");
       }
       if (!options?.workspaceId) {
         throw new Error("workspaceId is required");
       }
-      const workspace = (client as any).getWorkspace(options.workspaceId);
+      const workspace = getWorkspaceClient(client).getWorkspace(options.workspaceId);
       return workspace.readFile(path, options?.encoding);
     },
     queryKey: ["workspace", "file", path, options?.workspaceId],
@@ -137,14 +160,14 @@ export const useWorkspaceFileStat = (
       !!path &&
       !!options?.workspaceId &&
       isWorkspaceV1Supported(client),
-    queryFn: async (): Promise<FileStatResponse> => {
+    queryFn: (): Promise<FileStatResponse> => {
       if (!isWorkspaceV1Supported(client)) {
         throw new Error("Workspace v1 not supported by core or client");
       }
       if (!options?.workspaceId) {
         throw new Error("workspaceId is required");
       }
-      const workspace = (client as any).getWorkspace(options.workspaceId);
+      const workspace = getWorkspaceClient(client).getWorkspace(options.workspaceId);
       return workspace.stat(path);
     },
     queryKey: ["workspace", "stat", path, options?.workspaceId],
@@ -157,11 +180,11 @@ export const useWriteWorkspaceFile = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (params: WriteFileParams) => {
+    mutationFn: (params: WriteFileParams) => {
       if (!isWorkspaceV1Supported(client)) {
         throw new Error("Workspace v1 not supported by core or client");
       }
-      const workspace = (client as any).getWorkspace(params.workspaceId);
+      const workspace = getWorkspaceClient(client).getWorkspace(params.workspaceId);
       return workspace.writeFile(params.path, params.content, {
         encoding: params.encoding,
         recursive: params.recursive ?? true,
@@ -190,7 +213,7 @@ export const useWriteWorkspaceFileFromFile = () => {
         new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCodePoint(byte), ""),
       );
 
-      const workspace = (client as any).getWorkspace(params.workspaceId);
+      const workspace = getWorkspaceClient(client).getWorkspace(params.workspaceId);
       return workspace.writeFile(params.path, base64, {
         encoding: "base64",
         recursive: params.recursive ?? true,
@@ -209,7 +232,7 @@ export const useDeleteWorkspaceFile = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (params: {
+    mutationFn: (params: {
       path: string;
       recursive?: boolean;
       force?: boolean;
@@ -218,7 +241,7 @@ export const useDeleteWorkspaceFile = () => {
       if (!isWorkspaceV1Supported(client)) {
         throw new Error("Workspace v1 not supported by core or client");
       }
-      const workspace = (client as any).getWorkspace(params.workspaceId);
+      const workspace = getWorkspaceClient(client).getWorkspace(params.workspaceId);
       return workspace.delete(params.path, {
         force: params.force,
         recursive: params.recursive,
@@ -237,11 +260,11 @@ export const useCreateWorkspaceDirectory = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (params: { path: string; recursive?: boolean; workspaceId?: string }) => {
+    mutationFn: (params: { path: string; recursive?: boolean; workspaceId?: string }) => {
       if (!isWorkspaceV1Supported(client)) {
         throw new Error("Workspace v1 not supported by core or client");
       }
-      const workspace = (client as any).getWorkspace(params.workspaceId);
+      const workspace = getWorkspaceClient(client).getWorkspace(params.workspaceId);
       return workspace.mkdir(params.path, params.recursive);
     },
     onSuccess: (_, variables) => {
@@ -259,11 +282,11 @@ export const useSearchWorkspace = () => {
   const client = useMastraClient();
 
   return useMutation({
-    mutationFn: async (params: SearchWorkspaceParams): Promise<SearchResponse> => {
+    mutationFn: (params: SearchWorkspaceParams): Promise<SearchResponse> => {
       if (!isWorkspaceV1Supported(client)) {
         throw new Error("Workspace v1 not supported by core or client");
       }
-      const workspace = (client as any).getWorkspace(params.workspaceId);
+      const workspace = getWorkspaceClient(client).getWorkspace(params.workspaceId);
       return workspace.search({
         minScore: params.minScore,
         mode: params.mode,
@@ -278,7 +301,7 @@ export const useIndexWorkspaceContent = () => {
   const client = useMastraClient();
 
   return useMutation({
-    mutationFn: async (params: {
+    mutationFn: (params: {
       workspaceId: string;
       path: string;
       content: string;
@@ -287,7 +310,7 @@ export const useIndexWorkspaceContent = () => {
       if (!isWorkspaceV1Supported(client)) {
         throw new Error("Workspace v1 not supported by core or client");
       }
-      const workspace = (client as any).getWorkspace(params.workspaceId);
+      const workspace = getWorkspaceClient(client).getWorkspace(params.workspaceId);
       return workspace.index({
         content: params.content,
         metadata: params.metadata,

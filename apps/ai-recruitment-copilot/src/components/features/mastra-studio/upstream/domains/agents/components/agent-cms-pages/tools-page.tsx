@@ -16,13 +16,18 @@ import type { RuleGroup } from "@mastra/playground-ui/utils/rule-engine";
 import { PlusIcon, XIcon } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import { useWatch } from "react-hook-form";
+import {
+  omitRecordKey,
+  omitRecordKeysWithPrefix,
+} from "@/components/features/mastra-studio/upstream/domains/agents/utils/record";
 
 import { useAgentEditFormContext } from "../../context/agent-edit-form-context";
-import { DisplayConditionsDialog } from "@/components/features/mastra-studio/upstream/domains/cms";
+import { DisplayConditionsDialog } from "@/components/features/mastra-studio/upstream/domains/cms/components/display-conditions/display-conditions-dialog";
 import { SubSectionHeader } from "@/components/features/mastra-studio/upstream/domains/cms/components/section/section-header";
 import { MCPClientList } from "@/components/features/mastra-studio/upstream/domains/mcps/components/mcp-client-list";
 import { IntegrationToolsSection } from "@/components/features/mastra-studio/upstream/domains/tool-providers/components";
 import { useTools } from "@/components/features/mastra-studio/upstream/domains/tools/hooks/use-all-tools";
+import { resolveConditional } from "../../utils/conditional";
 
 export function ToolsPage() {
   const { form, readOnly, isCodeAgentOverride, editorConfig } = useAgentEditFormContext();
@@ -34,10 +39,10 @@ export function ToolsPage() {
   const toolsConfig = editorConfig === false ? false : editorConfig?.tools;
   const descriptionsOnly =
     isCodeAgentOverride && typeof toolsConfig === "object" && toolsConfig.description === true;
-  const isToolsLocked = isCodeAgentOverride && (editorConfig === false || toolsConfig === false);
+  const isToolsLocked = (isCodeAgentOverride && editorConfig === false) || toolsConfig === false;
   const canEditToolMembership = !readOnly && !descriptionsOnly && !isToolsLocked;
   const canEditToolDescriptions =
-    !readOnly && !isToolsLocked && (!isCodeAgentOverride || toolsConfig !== false);
+    (!readOnly && !isToolsLocked && !isCodeAgentOverride) || toolsConfig !== false;
   // MCP clients and integration tools are tool-membership additions, so they
   // are hidden whenever tool membership cannot be edited (locked or descriptions-only).
   const hideToolMembershipSections = isToolsLocked || descriptionsOnly;
@@ -68,8 +73,7 @@ export function ToolsPage() {
   const handleValueChange = (toolId: string) => {
     const isSet = selectedTools?.[toolId] !== undefined;
     if (isSet) {
-      const next = { ...selectedTools };
-      delete next[toolId];
+      const next = omitRecordKey(selectedTools, toolId);
       form.setValue("tools", next, { shouldDirty: true });
     } else {
       form.setValue(
@@ -106,18 +110,12 @@ export function ToolsPage() {
   };
 
   const handleIntegrationToolsSubmit = useCallback(
-    (providerId: string, tools: Map<string, string>) => {
-      const next = { ...selectedIntegrationTools };
-
+    (providerId: string, submittedTools: Map<string, string>) => {
       // Remove all tools from this provider
-      for (const key of Object.keys(next)) {
-        if (key.startsWith(`${providerId}:`)) {
-          delete next[key];
-        }
-      }
+      const next = omitRecordKeysWithPrefix(selectedIntegrationTools ?? {}, `${providerId}:`);
 
       // Add selected tools, preserving existing config (rules) if available
-      for (const [id, description] of tools) {
+      for (const [id, description] of submittedTools) {
         next[id] = selectedIntegrationTools?.[id] || { description };
       }
 
@@ -131,7 +129,11 @@ export function ToolsPage() {
       selectedToolIds.map((id) => {
         const existing = options.find((opt) => opt.value === id);
         return (
-          existing || { description: selectedTools?.[id]?.description || "", label: id, value: id }
+          existing || {
+            description: selectedTools?.[id]?.description || "",
+            label: id,
+            value: id,
+          }
         );
       }),
     [options, selectedToolIds, selectedTools],
@@ -199,69 +201,95 @@ export function ToolsPage() {
   return (
     <ScrollArea className="h-full">
       <div className="flex flex-col gap-6 pt-4">
-        {isToolsLocked && (
-          <Notice variant="info" title="Tools are owned by code">
-            <Notice.Message>
-              This code-defined agent has disabled tools editing from Studio. Update the agent
-              definition in code to change its tools.
-            </Notice.Message>
-          </Notice>
+        {resolveConditional(
+          isToolsLocked,
+          () => (
+            <Notice variant="info" title="Tools are owned by code">
+              <Notice.Message>
+                This code-defined agent has disabled tools editing from Studio. Update the agent
+                definition in code to change its tools.
+              </Notice.Message>
+            </Notice>
+          ),
+          () => null,
         )}
-        {!isToolsLocked && descriptionsOnly && (
-          <Notice variant="info" title="Tool membership is owned by code">
-            <Notice.Message>
-              This code-defined agent only allows editing tool descriptions from Studio. Update the
-              agent definition in code to add or remove tools.
-            </Notice.Message>
-          </Notice>
+        {resolveConditional(
+          !isToolsLocked && descriptionsOnly,
+          () => (
+            <Notice variant="info" title="Tool membership is owned by code">
+              <Notice.Message>
+                This code-defined agent only allows editing tool descriptions from Studio. Update
+                the agent definition in code to add or remove tools.
+              </Notice.Message>
+            </Notice>
+          ),
+          () => null,
         )}
         <SubSectionRoot>
           <Section.Header>
             <SubSectionHeader title="Tools" icon={<ToolsIcon />} />
 
-            {canEditToolMembership && unselectedOptions.length > 0 && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm">
-                    <Icon size="sm">
-                      <PlusIcon />
-                    </Icon>
-                    Add Tools
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-80 p-0 pt-4 max-h-72 overflow-y-auto">
-                  {unselectedOptions.map((tool) => (
-                    <button
-                      key={tool.value}
-                      type="button"
-                      onClick={() => handleAddTool(tool.value)}
-                      className="flex flex-col gap-0.5 w-full text-left px-3 py-2.5 hover:bg-white/10 focus:bg-white/10 transition-colors focus-visible:outline-hidden focus-visible:ring-0"
-                    >
-                      <span className="text-ui-md font-normal text-neutral5">{tool.label}</span>
-                      {tool.description && (
-                        <span className="text-ui-xs text-neutral3">{tool.description}</span>
-                      )}
-                    </button>
-                  ))}
-                </PopoverContent>
-              </Popover>
+            {resolveConditional(
+              canEditToolMembership && unselectedOptions.length > 0,
+              () => (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <Icon size="sm">
+                        <PlusIcon />
+                      </Icon>
+                      Add Tools
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-80 p-0 pt-4 max-h-72 overflow-y-auto">
+                    {unselectedOptions.map((tool) => (
+                      <button
+                        key={tool.value}
+                        type="button"
+                        onClick={() => handleAddTool(tool.value)}
+                        className="flex flex-col gap-0.5 w-full text-left px-3 py-2.5 hover:bg-white/10 focus:bg-white/10 transition-colors focus-visible:outline-hidden focus-visible:ring-0"
+                      >
+                        <span className="text-ui-md font-normal text-neutral5">{tool.label}</span>
+                        {tool.description && (
+                          <span className="text-ui-xs text-neutral3">{tool.description}</span>
+                        )}
+                      </button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+              ),
+              () => null,
             )}
           </Section.Header>
 
-          {selectedOptions.length > 0 && (
-            <div className="flex flex-col gap-1">
-              {selectedOptions.map((tool) => renderToolEntity(tool))}
-            </div>
+          {resolveConditional(
+            selectedOptions.length > 0,
+            () => (
+              <div className="flex flex-col gap-1">
+                {selectedOptions.map((tool) => renderToolEntity(tool))}
+              </div>
+            ),
+            () => null,
           )}
         </SubSectionRoot>
 
-        {!hideToolMembershipSections && <MCPClientList />}
+        {resolveConditional(
+          !hideToolMembershipSections,
+          () => (
+            <MCPClientList />
+          ),
+          () => null,
+        )}
 
-        {!hideToolMembershipSections && (
-          <IntegrationToolsSection
-            selectedToolIds={selectedIntegrationTools}
-            onSubmitTools={canEditToolMembership ? handleIntegrationToolsSubmit : undefined}
-          />
+        {resolveConditional(
+          !hideToolMembershipSections,
+          () => (
+            <IntegrationToolsSection
+              selectedToolIds={selectedIntegrationTools}
+              onSubmitTools={canEditToolMembership ? handleIntegrationToolsSubmit : undefined}
+            />
+          ),
+          () => null,
         )}
       </div>
     </ScrollArea>

@@ -8,7 +8,8 @@ import { convertWorkflowRunStateToStreamResult } from "../utils";
 import { WorkflowRunContext } from "./workflow-run-context";
 import type { WorkflowRunContextType, WorkflowRunStreamResult } from "./workflow-run-context";
 import { useTracingSettings } from "@/components/features/mastra-studio/upstream/domains/observability/context/tracing-settings-context";
-import { useWorkflow, useWorkflowRun } from "@/components/features/mastra-studio/upstream/hooks";
+import { useWorkflowRun } from "@/components/features/mastra-studio/upstream/hooks/use-workflow-runs";
+import { useWorkflow } from "@/components/features/mastra-studio/upstream/hooks/use-workflows";
 
 function getRunTimestamp(value: Date | string | number | undefined): number | undefined {
   if (!value) {
@@ -100,17 +101,14 @@ export function WorkflowRunProvider({
   const [result, setResult] = useState<WorkflowRunStreamResult | null>(() =>
     snapshot ? convertWorkflowRunStateToStreamResult(snapshot) : null,
   );
-  const [payload, setPayload] = useState<any>(() => snapshot?.context?.input ?? null);
+  const [payload, setPayload] = useState<unknown>(() => snapshot?.context?.input ?? null);
   const [runId, setRunId] = useState<string>(() => initialRunId ?? "");
   const routeRunIdRef = useRef(initialRunId ?? snapshot?.runId ?? "");
   const [isRunning, setIsRunning] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
 
-  const refetchExecResultInterval = isRunning
-    ? undefined
-    : ["success", "failed", "canceled", "bailed"].includes(result?.status ?? "")
-      ? undefined
-      : 5000;
+  const isRunComplete = ["success", "failed", "canceled", "bailed"].includes(result?.status ?? "");
+  const refetchExecResultInterval = isRunning || isRunComplete ? undefined : 5000;
 
   const { isLoading: isLoadingRunExecutionResult, data: runExecutionResult } = useWorkflowRun(
     workflowId,

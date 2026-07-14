@@ -23,7 +23,7 @@ import {
   useSetAgentWorkspaceIdTool,
 } from "./use-set-agent-workspace-id-tool";
 import type { AgentTool } from "@/components/features/mastra-studio/upstream/domains/agent-builder/types/agent-tool";
-import type { ModelInfo } from "@/components/features/mastra-studio/upstream/domains/llm";
+import type { ModelInfo } from "@/components/features/mastra-studio/upstream/domains/llm/hooks/use-filtered-models";
 
 export interface AvailableWorkspace {
   id: string;

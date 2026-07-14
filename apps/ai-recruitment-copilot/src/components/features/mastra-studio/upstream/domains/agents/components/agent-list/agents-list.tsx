@@ -9,7 +9,7 @@ import { ToolsIcon } from "@mastra/playground-ui/icons/ToolsIcon";
 import { WorkflowIcon } from "@mastra/playground-ui/icons/WorkflowIcon";
 import { truncateString } from "@mastra/playground-ui/utils/truncate-string";
 import { useMemo } from "react";
-import { extractPrompt } from "../../utils/extractPrompt";
+import { extractPrompt } from "../../utils/extract-prompt";
 import { ProviderLogo } from "../agent-metadata/provider-logo";
 import { useLinkComponent } from "@/components/features/mastra-studio/upstream/lib/framework";
 

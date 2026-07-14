@@ -18,14 +18,15 @@ import type { RuleGroup } from "@mastra/playground-ui/utils/rule-engine";
 import { SearchIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useWatch } from "react-hook-form";
+import { omitRecordKey } from "@/components/features/mastra-studio/upstream/domains/agents/utils/record";
 
 import { useAgentEditFormContext } from "../../context/agent-edit-form-context";
 import { useAgents } from "../../hooks/use-agents";
+import { DisplayConditionsDialog } from "@/components/features/mastra-studio/upstream/domains/cms/components/display-conditions/display-conditions-dialog";
 import {
   SectionHeader,
-  DisplayConditionsDialog,
-} from "@/components/features/mastra-studio/upstream/domains/cms";
-import { SubSectionHeader } from "@/components/features/mastra-studio/upstream/domains/cms/components/section/section-header";
+  SubSectionHeader,
+} from "@/components/features/mastra-studio/upstream/domains/cms/components/section/section-header";
 
 export function AgentsPage() {
   const { form, readOnly, agentId: currentAgentId } = useAgentEditFormContext();
@@ -66,8 +67,7 @@ export function AgentsPage() {
   const handleValueChange = (agentId: string) => {
     const isSet = selectedAgents?.[agentId] !== undefined;
     if (isSet) {
-      const next = { ...selectedAgents };
-      delete next[agentId];
+      const next = omitRecordKey(selectedAgents, agentId);
       form.setValue("agents", next, { shouldDirty: true });
     } else {
       form.setValue(
@@ -148,6 +148,7 @@ export function AgentsPage() {
                       <EntityName>{agent.label}</EntityName>
                       <EntityDescription>
                         <input
+                          aria-label={`${agent.label} description`}
                           type="text"
                           disabled={isDisabled}
                           className={cn(

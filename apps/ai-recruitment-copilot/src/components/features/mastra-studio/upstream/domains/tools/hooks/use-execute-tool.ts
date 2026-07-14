@@ -13,13 +13,13 @@ export const useExecuteTool = () => {
       requestContext: playgroundRequestContext,
     }: {
       toolId: string;
-      input: any;
-      requestContext?: Record<string, any>;
+      input: unknown;
+      requestContext?: Record<string, unknown>;
     }) => {
       const requestContext = new RequestContext();
-      Object.entries(playgroundRequestContext ?? {}).forEach(([key, value]) => {
+      for (const [key, value] of Object.entries(playgroundRequestContext ?? {})) {
         requestContext.set(key, value);
-      });
+      }
 
       try {
         const tool = client.getTool(toolId);

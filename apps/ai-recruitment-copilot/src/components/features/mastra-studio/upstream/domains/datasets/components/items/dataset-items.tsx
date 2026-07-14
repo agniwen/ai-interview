@@ -104,8 +104,10 @@ export function DatasetItems({
   }, [clearSelectionTrigger]);
 
   const isViewingOldVersion =
-    activeDatasetVersion != null &&
-    currentDatasetVersion != null &&
+    activeDatasetVersion !== null &&
+    activeDatasetVersion !== undefined &&
+    currentDatasetVersion !== null &&
+    currentDatasetVersion !== undefined &&
     activeDatasetVersion !== currentDatasetVersion;
 
   const handleItemClick = (itemId: string) => {
@@ -174,8 +176,18 @@ export function DatasetItems({
     <>
       <DatasetItemsToolbar
         onAddClick={onAddClick}
-        onImportClick={onImportClick ?? (() => {})}
-        onImportJsonClick={onImportJsonClick ?? (() => {})}
+        onImportClick={
+          onImportClick ??
+          (() => {
+            /* empty */
+          })
+        }
+        onImportJsonClick={
+          onImportJsonClick ??
+          (() => {
+            /* empty */
+          })
+        }
         onExportClick={() => handleSelectionModeChange("export")}
         onExportJsonClick={() => handleSelectionModeChange("export-json")}
         onCreateDatasetClick={() => handleSelectionModeChange("create-dataset")}
@@ -196,19 +208,21 @@ export function DatasetItems({
         isViewingOldVersion={isViewingOldVersion}
       />
 
-      {isViewingOldVersion && activeDatasetVersion != null && (
-        <Notice
-          variant="warning"
-          title="Previous version"
-          action={
-            <Notice.Button onClick={() => handleVersionChange(null)}>
-              <ArrowRightToLineIcon /> Return to the latest version
-            </Notice.Button>
-          }
-        >
-          <Notice.Message>Viewing version v{activeDatasetVersion}</Notice.Message>
-        </Notice>
-      )}
+      {isViewingOldVersion &&
+        activeDatasetVersion !== null &&
+        activeDatasetVersion !== undefined && (
+          <Notice
+            variant="warning"
+            title="Previous version"
+            action={
+              <Notice.Button onClick={() => handleVersionChange(null)}>
+                <ArrowRightToLineIcon /> Return to the latest version
+              </Notice.Button>
+            }
+          >
+            <Notice.Message>Viewing version v{activeDatasetVersion}</Notice.Message>
+          </Notice>
+        )}
 
       <DatasetItemsList
         items={items}

@@ -80,16 +80,7 @@ export const StudioConfigProvider = ({
     }
 
     return setConfig({ apiPrefix: undefined, baseUrl: "", headers: urlHeaders, isLoading: false });
-  }, [
-    instanceStatus,
-    endpoint,
-    defaultApiPrefix,
-    isStatusLoading,
-    error,
-    urlHeaders,
-  ]);
+  }, [instanceStatus, endpoint, defaultApiPrefix, isStatusLoading, error, urlHeaders]);
 
-  return (
-    <StudioConfigContext.Provider value={config}>{children}</StudioConfigContext.Provider>
-  );
+  return <StudioConfigContext.Provider value={config}>{children}</StudioConfigContext.Provider>;
 };

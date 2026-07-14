@@ -28,7 +28,9 @@ import { BrowserToolCallsProvider } from "@/components/features/mastra-studio/up
 import { MemoryTimelineProvider } from "@/components/features/mastra-studio/upstream/domains/agents/context/memory-timeline-context";
 import { useAgent } from "@/components/features/mastra-studio/upstream/domains/agents/hooks/use-agent";
 import { buildAgentDefaultSettings } from "@/components/features/mastra-studio/upstream/domains/agents/utils/agent-default-settings";
-import { ThreadInputProvider } from "@/components/features/mastra-studio/upstream/domains/conversation/context/ThreadInputContext";
+import { resolveConditional } from "@/components/features/mastra-studio/upstream/domains/agents/utils/conditional";
+import { firstDefined } from "@/components/features/mastra-studio/upstream/domains/agents/utils/presence";
+import { ThreadInputProvider } from "@/components/features/mastra-studio/upstream/domains/conversation/context/thread-input-provider";
 import {
   useMemory,
   useThreads,
@@ -44,8 +46,8 @@ const supportsViewTransitions =
 function Agent({ view = "chat" }: { view?: "chat" | "settings" }) {
   const { agentId, threadId } = useParams();
   const [searchParams] = useSearchParams();
-  const { data: agent, isLoading: isAgentLoading, error } = useAgent(agentId!);
-  const { data: memory } = useMemory(agentId!);
+  const { data: agent, isLoading: isAgentLoading, error } = useAgent(agentId);
+  const { data: memory } = useMemory(agentId);
   const navigate = useNavigate();
   const isSettingsView = view === "settings";
   const isNewThread = threadId === "new";
@@ -61,11 +63,11 @@ function Agent({ view = "chat" }: { view?: "chat" | "settings" }) {
     data: threads,
     isLoading: isThreadsLoading,
     refetch: refreshThreads,
-  } = useThreads({ agentId: agentId!, isMemoryEnabled: hasMemory, resourceId: agentId! });
+  } = useThreads({ agentId, isMemoryEnabled: hasMemory, resourceId: agentId });
 
   const sidebarThreads = useMemo(
     () =>
-      (threads || []).map((thread) => ({
+      (threads ?? []).map((thread) => ({
         ...thread,
         createdAt: new Date(thread.createdAt),
         updatedAt: new Date(thread.updatedAt),
@@ -82,7 +84,7 @@ function Agent({ view = "chat" }: { view?: "chat" | "settings" }) {
     void navigate(`/agents/${agentId}/chat/new`);
   }, [isSettingsView, threadId, agentId, navigate]);
 
-  const messageId = searchParams.get("messageId") ?? undefined;
+  const messageId = firstDefined(searchParams.get("messageId"));
 
   const defaultSettings = useMemo(() => buildAgentDefaultSettings(agent), [agent]);
 
@@ -105,7 +107,7 @@ function Agent({ view = "chat" }: { view?: "chat" | "settings" }) {
   }
 
   if (isAgentLoading) {
-    return <AgentViewLoadingSkeleton agentId={agentId!} view={view} />;
+    return <AgentViewLoadingSkeleton agentId={agentId} view={view} />;
   }
 
   if (!agent) {
@@ -116,7 +118,11 @@ function Agent({ view = "chat" }: { view?: "chat" | "settings" }) {
     return null;
   }
 
-  const actualThreadId = isNewThread ? newThreadId : (threadId ?? newThreadId);
+  const actualThreadId = resolveConditional(
+    isNewThread,
+    () => newThreadId,
+    () => firstDefined(threadId, newThreadId) as string,
+  );
 
   const handleRefreshThreadList = async () => {
     await refreshThreads();
@@ -127,14 +133,14 @@ function Agent({ view = "chat" }: { view?: "chat" | "settings" }) {
   };
 
   return (
-    <AgentSettingsProvider agentId={agentId!} defaultSettings={defaultSettings}>
+    <AgentSettingsProvider agentId={agentId} defaultSettings={defaultSettings}>
       <SchemaRequestContextProvider>
-        <WorkingMemoryProvider agentId={agentId!} threadId={actualThreadId!} resourceId={agentId!}>
+        <WorkingMemoryProvider agentId={agentId} threadId={actualThreadId} resourceId={agentId}>
           <BrowserToolCallsProvider key={`browser-${agentId}-${actualThreadId}`}>
             <BrowserSessionProvider
               key={`session-${agentId}-${actualThreadId}`}
-              agentId={agentId!}
-              threadId={actualThreadId!}
+              agentId={agentId}
+              threadId={actualThreadId}
               enabled={Boolean(agent?.browserTools?.length)}
             >
               <ThreadInputProvider>
@@ -142,51 +148,57 @@ function Agent({ view = "chat" }: { view?: "chat" | "settings" }) {
                   <MemoryTimelineProvider key={`memory-timeline-${agentId}-${actualThreadId}`}>
                     <ActivatedSkillsProvider key={`${agentId}-${actualThreadId}`}>
                       <AgentChatShell
-                        agentId={agentId!}
+                        agentId={agentId}
                         view={view}
                         leftDrawerLabel="Open threads and memory"
-                        leftSlot={
-                          isThreadsLoading ? (
+                        leftSlot={resolveConditional(
+                          isThreadsLoading,
+                          () => (
                             <AgentSidebarLoadingSkeleton />
-                          ) : (
+                          ),
+                          () => (
                             <AgentSidebar
-                              agentId={agentId!}
-                              threadId={actualThreadId!}
+                              agentId={agentId}
+                              threadId={actualThreadId}
                               threads={sidebarThreads}
                             />
-                          )
-                        }
+                          ),
+                        )}
                         browserOverlay={<BrowserViewPanel />}
                       >
                         <div
                           key={view}
-                          className={
-                            supportsViewTransitions
-                              ? "min-h-0 overflow-hidden"
-                              : "agent-view-enter min-h-0 overflow-hidden"
-                          }
+                          className={resolveConditional(
+                            supportsViewTransitions,
+                            () => "min-h-0 overflow-hidden",
+                            () => "agent-view-enter min-h-0 overflow-hidden",
+                          )}
                         >
-                          {isSettingsView ? (
-                            <AgentSettingsView agentId={agentId!} />
-                          ) : (
-                            <AgentChat
-                              key={actualThreadId!}
-                              agentId={agentId!}
-                              agentName={agent?.name}
-                              modelVersion={agent?.modelVersion}
-                              supportsMemory={agent?.supportsMemory}
-                              threadId={actualThreadId!}
-                              memory={hasMemory}
-                              refreshThreadList={handleRefreshThreadList}
-                              modelList={agent?.modelList}
-                              messageId={messageId}
-                              isNewThread={isNewThread}
-                              runOptionsSlot={
-                                <ComposerRunOptions
-                                  requestContextSchema={agent?.requestContextSchema}
-                                />
-                              }
-                            />
+                          {resolveConditional(
+                            isSettingsView,
+                            () => (
+                              <AgentSettingsView agentId={agentId} />
+                            ),
+                            () => (
+                              <AgentChat
+                                key={actualThreadId}
+                                agentId={agentId}
+                                agentName={agent?.name}
+                                modelVersion={agent?.modelVersion}
+                                supportsMemory={agent?.supportsMemory}
+                                threadId={actualThreadId}
+                                memory={hasMemory}
+                                refreshThreadList={handleRefreshThreadList}
+                                modelList={agent?.modelList}
+                                messageId={messageId}
+                                isNewThread={isNewThread}
+                                runOptionsSlot={
+                                  <ComposerRunOptions
+                                    requestContextSchema={agent?.requestContextSchema}
+                                  />
+                                }
+                              />
+                            ),
                           )}
                         </div>
                       </AgentChatShell>

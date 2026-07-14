@@ -7,13 +7,14 @@ import { useState, useEffect, useMemo } from "react";
 import { useModelReset } from "../../context/model-reset-context";
 import { useBuilderModelPolicy } from "@/components/features/mastra-studio/upstream/domains/agent-builder";
 import { useAgentBuilderAllowedModels } from "@/components/features/mastra-studio/upstream/domains/agent-builder/hooks/use-agent-builder-allowed-models";
+import { LLMModels } from "@/components/features/mastra-studio/upstream/domains/llm/components/llm-models";
+import { LLMProviders } from "@/components/features/mastra-studio/upstream/domains/llm/components/llm-providers";
+import { useLLMProviders } from "@/components/features/mastra-studio/upstream/domains/llm/hooks/use-llm-providers";
 import {
-  LLMProviders,
-  LLMModels,
-  useLLMProviders,
   cleanProviderId,
   findProviderById,
-} from "@/components/features/mastra-studio/upstream/domains/llm";
+} from "@/components/features/mastra-studio/upstream/domains/llm/utils";
+import { resolveConditional } from "../../utils/conditional";
 
 export interface AgentMetadataModelSwitcherProps {
   defaultProvider: string;
@@ -95,7 +96,7 @@ export const AgentMetadataModelSwitcher = ({
 
   // Register reset callback with context
   useEffect(() => {
-    const resetIfIncomplete = () => {
+    const resetIfIncomplete = async () => {
       // Don't reset if either picker is currently open
       if (providerOpen || modelOpen) {
         return;
@@ -114,12 +115,14 @@ export const AgentMetadataModelSwitcher = ({
         const resolvedOriginalProvider = findProviderById(providers, originalProvider);
         const fullOriginalProviderId = resolvedOriginalProvider?.id || originalProvider;
         if (fullOriginalProviderId && originalModel) {
-          updateModel({
-            modelId: originalModel,
-            provider: fullOriginalProviderId as UpdateModelParams["provider"],
-          }).catch((error) => {
+          try {
+            await updateModel({
+              modelId: originalModel,
+              provider: fullOriginalProviderId as UpdateModelParams["provider"],
+            });
+          } catch (error) {
             console.error("Failed to reset model:", error);
-          });
+          }
         }
       }
     };
@@ -175,12 +178,14 @@ export const AgentMetadataModelSwitcher = ({
 
   // Admin locked the picker — surface a non-interactive chip instead.
   if (policy.active && policy.pickerVisible === false) {
+    const lockedProvider = policy.default?.provider;
+    const lockedModel = policy.default?.modelId;
+    const selectedLabel =
+      selectedProvider && selectedModel
+        ? `${selectedProvider}/${selectedModel}`
+        : "Locked by admin";
     const lockedLabel =
-      policy.default && policy.default.provider && policy.default.modelId
-        ? `${policy.default.provider}/${policy.default.modelId}`
-        : selectedProvider && selectedModel
-          ? `${selectedProvider}/${selectedModel}`
-          : "Locked by admin";
+      lockedProvider && lockedModel ? `${lockedProvider}/${lockedModel}` : selectedLabel;
     return (
       <div
         className="flex items-center gap-2 rounded-md border border-border1 bg-surface3 px-3 py-2"
@@ -235,38 +240,51 @@ export const AgentMetadataModelSwitcher = ({
         </Button>
       </div>
 
-      {stale && (
-        <div className="pt-2 p-2" data-testid="agent-metadata-model-stale-warning">
-          <Notice variant="warning" title="Model not allowed">
-            <Notice.Message>
-              <code className="px-1 py-0.5 bg-yellow-100 dark:bg-yellow-900/50 rounded">
-                {selectedProvider}/{selectedModel}
-              </code>{" "}
-              is no longer allowed by the admin policy. Pick a different model to save changes.
-            </Notice.Message>
-          </Notice>
-        </div>
+      {resolveConditional(
+        stale,
+        () => (
+          <div className="pt-2 p-2" data-testid="agent-metadata-model-stale-warning">
+            <Notice variant="warning" title="Model not allowed">
+              <Notice.Message>
+                <code className="px-1 py-0.5 bg-yellow-100 dark:bg-yellow-900/50 rounded">
+                  {selectedProvider}/{selectedModel}
+                </code>{" "}
+                is no longer allowed by the admin policy. Pick a different model to save changes.
+              </Notice.Message>
+            </Notice>
+          </div>
+        ),
+        () => null,
       )}
 
       {/* Show warning if selected provider is not connected */}
-      {currentProvider && !currentProvider.connected && (
-        <div className="pt-2 p-2">
-          <Notice variant="warning" title="Provider not connected">
-            <Notice.Message>
-              Set the{" "}
-              <code className="px-1 py-0.5 bg-yellow-100 dark:bg-yellow-900/50 rounded">
-                {Array.isArray(currentProvider.envVar)
-                  ? currentProvider.envVar.join(", ")
-                  : currentProvider.envVar}
-              </code>{" "}
-              environment{" "}
-              {Array.isArray(currentProvider.envVar) && currentProvider.envVar.length > 1
-                ? "variables"
-                : "variable"}{" "}
-              to use this provider.
-            </Notice.Message>
-          </Notice>
-        </div>
+      {resolveConditional(
+        currentProvider,
+        (provider) =>
+          resolveConditional(
+            !provider.connected,
+            () => (
+              <div className="pt-2 p-2">
+                <Notice variant="warning" title="Provider not connected">
+                  <Notice.Message>
+                    Set the{" "}
+                    <code className="px-1 py-0.5 bg-yellow-100 dark:bg-yellow-900/50 rounded">
+                      {Array.isArray(provider.envVar)
+                        ? provider.envVar.join(", ")
+                        : provider.envVar}
+                    </code>{" "}
+                    environment{" "}
+                    {Array.isArray(provider.envVar) && provider.envVar.length > 1
+                      ? "variables"
+                      : "variable"}{" "}
+                    to use this provider.
+                  </Notice.Message>
+                </Notice>
+              </div>
+            ),
+            () => null,
+          ),
+        () => null,
       )}
     </div>
   );

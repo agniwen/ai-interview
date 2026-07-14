@@ -2,7 +2,7 @@ import { ScrollArea } from "@mastra/playground-ui/components/ScrollArea";
 import { Controller } from "react-hook-form";
 
 import { useAgentEditFormContext } from "../../context/agent-edit-form-context";
-import { AgentCMSBlocks } from "../agent-cms-blocks";
+import { AgentCMSBlocks } from "../agent-cms-blocks/agent-cms-blocks";
 
 export function InstructionBlocksPage() {
   const { form, readOnly } = useAgentEditFormContext();

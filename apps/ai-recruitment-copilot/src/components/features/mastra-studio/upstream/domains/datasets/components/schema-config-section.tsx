@@ -24,6 +24,40 @@ import { useWorkflows } from "@/components/features/mastra-studio/upstream/domai
 type SourceType = "custom" | "agent" | "workflow" | "scorer";
 type ScorerTargetType = "agent" | "custom";
 
+function getSourceKey(
+  sourceType: SourceType,
+  selectedWorkflow: string | null,
+  scorerTargetType: ScorerTargetType,
+): string {
+  if (sourceType === "workflow") {
+    return `workflow:${selectedWorkflow}`;
+  }
+  if (sourceType === "scorer") {
+    return `scorer:${scorerTargetType}`;
+  }
+  return sourceType;
+}
+
+function isSchemaEnabled(schema: Record<string, unknown> | null | undefined): boolean {
+  return schema !== null && schema !== undefined;
+}
+
+function isEmptyObjectSchema(schema: Record<string, unknown> | null | undefined): boolean {
+  if (!schema || schema.type !== "object") {
+    return false;
+  }
+  return Object.keys((schema.properties as Record<string, unknown> | undefined) ?? {}).length === 0;
+}
+
+function shouldPopulateSchema(
+  sourceSchema: JSONSchema7 | null,
+  isEnabled: boolean,
+  sourceChanged: boolean,
+  isEmpty: boolean,
+): boolean {
+  return Boolean(sourceSchema) && isEnabled && (sourceChanged || isEmpty);
+}
+
 interface SchemaConfigSectionProps {
   inputSchema: Record<string, unknown> | null | undefined;
   outputSchema: Record<string, unknown> | null | undefined;
@@ -117,17 +151,12 @@ export function SchemaConfigSection({
     if (sourceType === "custom") {
       return;
     }
-    if (!sourceSchemas.inputSchema && !sourceSchemas.outputSchema) {
+    if (sourceSchemas.inputSchema === null && sourceSchemas.outputSchema === null) {
       return;
     }
 
     // Create a key representing the current source selection
-    const currentSourceKey =
-      sourceType === "workflow"
-        ? `workflow:${selectedWorkflow}`
-        : sourceType === "scorer"
-          ? `scorer:${scorerTargetType}`
-          : sourceType;
+    const currentSourceKey = getSourceKey(sourceType, selectedWorkflow, scorerTargetType);
 
     // Check if source changed (not just initial render)
     const sourceChanged =
@@ -139,24 +168,26 @@ export function SchemaConfigSection({
       return;
     }
 
-    const isInputEnabled = inputSchema !== null && inputSchema !== undefined;
-    const isOutputEnabled = outputSchema !== null && outputSchema !== undefined;
+    const isInputEnabled = isSchemaEnabled(inputSchema);
+    const isOutputEnabled = isSchemaEnabled(outputSchema);
 
     // Check if schemas are empty (for initial population when toggling on)
-    const isInputEmpty =
-      inputSchema &&
-      inputSchema.type === "object" &&
-      Object.keys(inputSchema.properties || {}).length === 0;
-    const isOutputEmpty =
-      outputSchema &&
-      outputSchema.type === "object" &&
-      Object.keys(outputSchema.properties || {}).length === 0;
+    const isInputEmpty = isEmptyObjectSchema(inputSchema);
+    const isOutputEmpty = isEmptyObjectSchema(outputSchema);
 
     // Populate if: source changed and schema is enabled, OR schema is enabled but empty
-    const shouldPopulateInput =
-      sourceSchemas.inputSchema && isInputEnabled && (sourceChanged || isInputEmpty);
-    const shouldPopulateOutput =
-      sourceSchemas.outputSchema && isOutputEnabled && (sourceChanged || isOutputEmpty);
+    const shouldPopulateInput = shouldPopulateSchema(
+      sourceSchemas.inputSchema,
+      isInputEnabled,
+      sourceChanged,
+      isInputEmpty,
+    );
+    const shouldPopulateOutput = shouldPopulateSchema(
+      sourceSchemas.outputSchema,
+      isOutputEnabled,
+      sourceChanged,
+      isOutputEmpty,
+    );
 
     if (shouldPopulateInput || shouldPopulateOutput) {
       onChange({
@@ -204,6 +235,25 @@ export function SchemaConfigSection({
     }
   };
 
+  let workflowItems = workflowOptions.map(([id, wf]) => (
+    <SelectItem key={id} value={id}>
+      {wf.name || id}
+    </SelectItem>
+  ));
+  if (workflowsLoading) {
+    workflowItems = [
+      <SelectItem key="loading" value="__loading__" disabled>
+        Loading...
+      </SelectItem>,
+    ];
+  } else if (workflowOptions.length === 0) {
+    workflowItems = [
+      <SelectItem key="empty" value="__empty__" disabled>
+        No workflows
+      </SelectItem>,
+    ];
+  }
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium text-neutral4 hover:text-neutral5 w-full py-2">
@@ -230,14 +280,16 @@ export function SchemaConfigSection({
 
         {/* Source selector */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-neutral4">Import From</label>
+          <label htmlFor="schema-import-source" className="text-sm font-medium text-neutral4">
+            Import From
+          </label>
           <div className="flex items-center gap-2">
             <Select
               value={sourceType}
               onValueChange={(v) => handleSourceChange(v as SourceType)}
               disabled={disabled}
             >
-              <SelectTrigger size="sm" className="w-40">
+              <SelectTrigger id="schema-import-source" size="sm" className="w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -258,23 +310,7 @@ export function SchemaConfigSection({
                 <SelectTrigger size="sm" className="w-48">
                   <SelectValue placeholder="Select workflow..." />
                 </SelectTrigger>
-                <SelectContent>
-                  {workflowsLoading ? (
-                    <SelectItem value="__loading__" disabled>
-                      Loading...
-                    </SelectItem>
-                  ) : workflowOptions.length === 0 ? (
-                    <SelectItem value="__empty__" disabled>
-                      No workflows
-                    </SelectItem>
-                  ) : (
-                    workflowOptions.map(([id, wf]) => (
-                      <SelectItem key={id} value={id}>
-                        {wf.name || id}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
+                <SelectContent>{workflowItems}</SelectContent>
               </Select>
             )}
 

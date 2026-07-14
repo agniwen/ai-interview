@@ -42,6 +42,8 @@ import { useAuthCapabilities } from "@/components/features/mastra-studio/upstrea
 import { useDefaultVisibility } from "@/components/features/mastra-studio/upstream/domains/auth/hooks/use-default-visibility";
 import { useWorkspaceInfo } from "@/components/features/mastra-studio/upstream/domains/workspace/hooks";
 import { useStoredWorkspaces } from "@/components/features/mastra-studio/upstream/domains/workspace/hooks/use-stored-workspaces";
+import { resolveConditional } from "../../utils/conditional";
+import { allTruthy, anyTruthy, isTruthy } from "../../utils/truthiness";
 
 type DialogMode = "simple" | "advanced";
 
@@ -110,10 +112,10 @@ export function SkillEditDialog({
   }, [builderSettings]);
 
   const isExistingSkill = !!skill;
-  const isOwner = !skill || !currentUserId || skill.authorId === currentUserId;
-  const isViewMode = isExistingSkill && !isEditing;
-  const isReadOnly = isViewMode || !isOwner;
-  const hasFields = !!(name.trim() || description.trim() || instructions.trim());
+  const isOwner = anyTruthy(!skill, !currentUserId, skill?.authorId === currentUserId);
+  const isViewMode = allTruthy(isExistingSkill, !isEditing);
+  const isReadOnly = anyTruthy(isViewMode, !isOwner);
+  const hasFields = [name, description, instructions].some((value) => Boolean(value.trim()));
 
   // Reset state when dialog opens/closes or skill changes
   useEffect(() => {
@@ -126,7 +128,8 @@ export function SkillEditDialog({
         setInstructions(skill.instructions ?? "");
         setIsEditing(false);
         setMode("simple");
-        setShowForm(true); // Always show form for existing skills
+        // Always show form for existing skills
+        setShowForm(true);
         if (skill.files?.length) {
           setFiles(skill.files as InMemoryFileNode[]);
         } else {
@@ -138,8 +141,9 @@ export function SkillEditDialog({
           );
         }
         setWorkspaceId(
-          builderDefaultWorkspaceId ??
-            (workspaceOptions.length === 1 ? workspaceOptions[0].value : ""),
+          (builderDefaultWorkspaceId ?? workspaceOptions.length === 1)
+            ? workspaceOptions[0].value
+            : "",
         );
       } else {
         // Create mode — start chat-first
@@ -148,13 +152,15 @@ export function SkillEditDialog({
         setVisibility(defaultVisibility);
         setInstructions("");
         setWorkspaceId(
-          builderDefaultWorkspaceId ??
-            (workspaceOptions.length === 1 ? workspaceOptions[0].value : ""),
+          (builderDefaultWorkspaceId ?? workspaceOptions.length === 1)
+            ? workspaceOptions[0].value
+            : "",
         );
         setFiles([]);
         setIsEditing(false);
         setMode("simple");
-        setShowForm(false); // Hide form until agent fills or user expands
+        // Hide form until agent fills or user expands
+        setShowForm(false);
       }
       prevNameRef.current = "";
       setChatSessionKey(nanoid());
@@ -177,7 +183,8 @@ export function SkillEditDialog({
         }
         return prev;
       });
-      return currentInstructions; // don't change instructions
+      // don't change instructions
+      return currentInstructions;
     });
     prevNameRef.current = newName;
   }, []);
@@ -271,9 +278,13 @@ export function SkillEditDialog({
     onClose,
   ]);
 
-  const isPending = createSkill.isPending || updateSkill.isPending;
+  const isPending = anyTruthy(createSkill.isPending, updateSkill.isPending);
 
-  const dialogTitle = isExistingSkill ? (isEditing ? "Edit Skill" : "Skill Details") : "Add Skill";
+  const dialogTitle = resolveConditional(
+    isExistingSkill,
+    () => (isEditing ? "Edit Skill" : "Skill Details"),
+    () => "Add Skill",
+  );
 
   return (
     <SideDialog
@@ -288,70 +299,104 @@ export function SkillEditDialog({
       <SideDialog.Top>
         <span className="flex-1 flex items-center gap-2">
           {dialogTitle}
-          {isViewMode && skill?.visibility === "private" && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="text-neutral3 shrink-0" aria-label="Private skill">
-                  <Icon size="sm">
-                    <LockIcon />
-                  </Icon>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>Only visible to you</TooltipContent>
-            </Tooltip>
+          {resolveConditional(
+            allTruthy(isViewMode, skill?.visibility === "private"),
+            () => (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-neutral3 shrink-0" aria-label="Private skill">
+                    <Icon size="sm">
+                      <LockIcon />
+                    </Icon>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Only visible to you</TooltipContent>
+              </Tooltip>
+            ),
+            () => null,
           )}
         </span>
         <div className="flex items-center gap-2 mr-6">
-          {isViewMode && isOwner && (
-            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-              <Pencil className="h-3.5 w-3.5" /> Edit
-            </Button>
-          )}
-          {isViewMode && !isOwner && onCopy && skill && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="sm" onClick={() => onCopy(skill)}>
-                  <CopyIcon className="h-3.5 w-3.5" /> Copy
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Make your own private copy you can edit</TooltipContent>
-            </Tooltip>
-          )}
-          {!isReadOnly && (
-            <>
-              {authEnabled && (
-                <Select
-                  value={visibility}
-                  onValueChange={(next) => setVisibility(next as "private" | "public")}
-                >
-                  <SelectTrigger size="sm" aria-label="Visibility" className="w-fit gap-1.5">
-                    <SelectValue placeholder="Visibility" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="private">
-                      <span className="flex items-center gap-2">
-                        <LockIcon className="h-3.5 w-3.5" />
-                        Private
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="public">
-                      <span className="flex items-center gap-2">
-                        <Globe className="h-3.5 w-3.5" />
-                        Public
-                      </span>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleSave}
-                disabled={!name.trim() || isPending}
-              >
-                {isPending ? "Saving..." : isExistingSkill ? "Save" : "Create"}
+          {resolveConditional(
+            allTruthy(isViewMode, isOwner),
+            () => (
+              <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                <Pencil className="h-3.5 w-3.5" /> Edit
               </Button>
-            </>
+            ),
+            () => null,
+          )}
+          {resolveConditional(
+            onCopy,
+            (copySkill) =>
+              resolveConditional(
+                allTruthy(isViewMode, !isOwner),
+                () =>
+                  resolveConditional(
+                    skill,
+                    (skillToCopy) => (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => copySkill(skillToCopy)}
+                          >
+                            <CopyIcon className="h-3.5 w-3.5" /> Copy
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Make your own private copy you can edit</TooltipContent>
+                      </Tooltip>
+                    ),
+                    () => null,
+                  ),
+                () => null,
+              ),
+            () => null,
+          )}
+          {resolveConditional(
+            !isReadOnly,
+            () => (
+              <>
+                {authEnabled && (
+                  <Select
+                    value={visibility}
+                    onValueChange={(next) => setVisibility(next as "private" | "public")}
+                  >
+                    <SelectTrigger size="sm" aria-label="Visibility" className="w-fit gap-1.5">
+                      <SelectValue placeholder="Visibility" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="private">
+                        <span className="flex items-center gap-2">
+                          <LockIcon className="h-3.5 w-3.5" />
+                          Private
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="public">
+                        <span className="flex items-center gap-2">
+                          <Globe className="h-3.5 w-3.5" />
+                          Public
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={!name.trim() || isPending}
+                >
+                  {resolveConditional(
+                    isPending,
+                    () => "Saving...",
+                    () => (isExistingSkill ? "Save" : "Create"),
+                  )}
+                </Button>
+              </>
+            ),
+            () => null,
           )}
         </div>
       </SideDialog.Top>
@@ -395,15 +440,19 @@ export function SkillEditDialog({
                   Hide skill details
                 </button>
 
-                {isAdmin && (!hasFilesystem || !workspaceId) && (
-                  <div className="mb-4 flex items-start gap-2 rounded-lg bg-yellow-500/10 p-3 text-xs text-yellow-600">
-                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                    <span>
-                      {!workspaceId
-                        ? "No workspace available. The skill will be saved to the database only."
-                        : "No workspace filesystem configured. The skill will be saved to the database only."}
-                    </span>
-                  </div>
+                {resolveConditional(
+                  allTruthy(isAdmin, anyTruthy(!hasFilesystem, !workspaceId)),
+                  () => (
+                    <div className="mb-4 flex items-start gap-2 rounded-lg bg-yellow-500/10 p-3 text-xs text-yellow-600">
+                      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                      <span>
+                        {isTruthy(!workspaceId)
+                          ? "No workspace available. The skill will be saved to the database only."
+                          : "No workspace filesystem configured. The skill will be saved to the database only."}
+                      </span>
+                    </div>
+                  ),
+                  () => null,
                 )}
 
                 {mode === "simple" ? (
@@ -417,52 +466,60 @@ export function SkillEditDialog({
                       onInstructionsChange={handleInstructionsChange}
                     />
 
-                    {isAdmin && (
-                      <button
-                        onClick={() => {
-                          // Ensure file tree has latest instructions before switching
-                          const hasStructure = files.some((n) => n.id === "root");
-                          if (!hasStructure && name.trim()) {
-                            setFiles(
-                              instructions
-                                ? updateNodeContent(
-                                    createInitialStructure(name),
-                                    "skill-md",
-                                    instructions,
-                                  )
-                                : createInitialStructure(name),
-                            );
-                          } else if (hasStructure && instructions) {
-                            setFiles((prev) => updateNodeContent(prev, "skill-md", instructions));
-                          }
-                          setMode("advanced");
-                        }}
-                        className="mt-3 flex items-center gap-1.5 text-xs text-neutral3 hover:text-neutral5 transition-colors"
-                      >
-                        <Settings2 className="h-3.5 w-3.5" />
-                        Advanced mode
-                        <ChevronRight className="h-3 w-3" />
-                      </button>
+                    {resolveConditional(
+                      isAdmin,
+                      () => (
+                        <button
+                          onClick={() => {
+                            // Ensure file tree has latest instructions before switching
+                            const hasStructure = files.some((n) => n.id === "root");
+                            if (!hasStructure && name.trim()) {
+                              setFiles(
+                                instructions
+                                  ? updateNodeContent(
+                                      createInitialStructure(name),
+                                      "skill-md",
+                                      instructions,
+                                    )
+                                  : createInitialStructure(name),
+                              );
+                            } else if (hasStructure && instructions) {
+                              setFiles((prev) => updateNodeContent(prev, "skill-md", instructions));
+                            }
+                            setMode("advanced");
+                          }}
+                          className="mt-3 flex items-center gap-1.5 text-xs text-neutral3 hover:text-neutral5 transition-colors"
+                        >
+                          <Settings2 className="h-3.5 w-3.5" />
+                          Advanced mode
+                          <ChevronRight className="h-3 w-3" />
+                        </button>
+                      ),
+                      () => null,
                     )}
                   </>
                 ) : (
                   <>
-                    {isAdmin && (
-                      <button
-                        onClick={() => {
-                          // Pull SKILL.md edits back into the simple form
-                          const extracted = extractSkillInstructions(files);
-                          if (extracted) {
-                            setInstructions(extracted);
-                          }
-                          setMode("simple");
-                        }}
-                        className="mb-3 flex items-center gap-1.5 text-xs text-neutral3 hover:text-neutral5 transition-colors"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                        Simple mode
-                        <ChevronRight className="h-3 w-3" />
-                      </button>
+                    {resolveConditional(
+                      isAdmin,
+                      () => (
+                        <button
+                          onClick={() => {
+                            // Pull SKILL.md edits back into the simple form
+                            const extracted = extractSkillInstructions(files);
+                            if (extracted) {
+                              setInstructions(extracted);
+                            }
+                            setMode("simple");
+                          }}
+                          className="mb-3 flex items-center gap-1.5 text-xs text-neutral3 hover:text-neutral5 transition-colors"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Simple mode
+                          <ChevronRight className="h-3 w-3" />
+                        </button>
+                      ),
+                      () => null,
                     )}
                     <SkillFolder
                       files={files}

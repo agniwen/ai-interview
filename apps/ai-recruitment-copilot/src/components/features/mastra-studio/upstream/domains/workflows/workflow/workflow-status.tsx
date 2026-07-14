@@ -30,49 +30,6 @@ export interface WorkflowStatusProps {
   tripwire?: TripwireInfo;
 }
 
-export const WorkflowStatus = ({ stepId, status, result, tripwire }: WorkflowStatusProps) => {
-  const [isTripwireExpanded, setIsTripwireExpanded] = useState(false);
-
-  const isTripwire = status === "tripwire";
-  const hasTripwireMetadata = Boolean(
-    tripwire &&
-    (tripwire.retry !== undefined ||
-      tripwire.metadata !== undefined ||
-      tripwire.processorId !== undefined),
-  );
-
-  return (
-    <WorkflowCard
-      header={
-        <div className="flex items-center gap-3">
-          <Icon>
-            {status === "success" && <CheckIcon className="text-accent1" />}
-            {status === "failed" && <CrossIcon className="text-accent2" />}
-            {status === "tripwire" && <ShieldAlert className="text-amber-400" />}
-            {status === "suspended" && <CirclePause className="text-accent3" />}
-            {status === "waiting" && <HourglassIcon className="text-accent5" />}
-            {status === "running" && <Loader2 className="text-accent6 animate-spin" />}
-          </Icon>
-          <Txt as="span" variant="ui-lg" className="text-neutral6 font-medium">
-            {stepId.charAt(0).toUpperCase() + stepId.slice(1)}
-          </Txt>
-        </div>
-      }
-    >
-      {isTripwire && tripwire ? (
-        <TripwireDetails
-          tripwire={tripwire}
-          isExpanded={isTripwireExpanded}
-          onToggleExpand={() => setIsTripwireExpanded(!isTripwireExpanded)}
-          hasMetadata={hasTripwireMetadata}
-        />
-      ) : (
-        <CodeEditor data={result} />
-      )}
-    </WorkflowCard>
-  );
-};
-
 interface TripwireDetailsProps {
   tripwire: TripwireInfo;
   isExpanded: boolean;
@@ -156,3 +113,46 @@ const TripwireDetails = ({
     )}
   </div>
 );
+
+export const WorkflowStatus = ({ stepId, status, result, tripwire }: WorkflowStatusProps) => {
+  const [isTripwireExpanded, setIsTripwireExpanded] = useState(false);
+
+  const isTripwire = status === "tripwire";
+  const hasTripwireMetadata = Boolean(
+    tripwire &&
+    (tripwire.retry !== undefined ||
+      tripwire.metadata !== undefined ||
+      tripwire.processorId !== undefined),
+  );
+
+  return (
+    <WorkflowCard
+      header={
+        <div className="flex items-center gap-3">
+          <Icon>
+            {status === "success" && <CheckIcon className="text-accent1" />}
+            {status === "failed" && <CrossIcon className="text-accent2" />}
+            {status === "tripwire" && <ShieldAlert className="text-amber-400" />}
+            {status === "suspended" && <CirclePause className="text-accent3" />}
+            {status === "waiting" && <HourglassIcon className="text-accent5" />}
+            {status === "running" && <Loader2 className="text-accent6 animate-spin" />}
+          </Icon>
+          <Txt as="span" variant="ui-lg" className="text-neutral6 font-medium">
+            {stepId.charAt(0).toUpperCase() + stepId.slice(1)}
+          </Txt>
+        </div>
+      }
+    >
+      {isTripwire && tripwire ? (
+        <TripwireDetails
+          tripwire={tripwire}
+          isExpanded={isTripwireExpanded}
+          onToggleExpand={() => setIsTripwireExpanded(!isTripwireExpanded)}
+          hasMetadata={hasTripwireMetadata}
+        />
+      ) : (
+        <CodeEditor data={result} />
+      )}
+    </WorkflowCard>
+  );
+};

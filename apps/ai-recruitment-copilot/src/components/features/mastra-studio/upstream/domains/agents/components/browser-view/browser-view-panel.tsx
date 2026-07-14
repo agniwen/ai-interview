@@ -62,7 +62,7 @@ function getStatusBadgeConfig(status: StreamStatus): {
 export function BrowserViewPanel() {
   const { viewMode, status, currentUrl, hide, closeBrowser } = useBrowserSession();
   const isModal = viewMode === "modal";
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
   useRestoreFocus(isModal, dialogRef);
 
   const handleOpenExternal = () => {
@@ -114,12 +114,17 @@ export function BrowserViewPanel() {
         "bg-black/60 backdrop-blur-sm transition-opacity duration-200",
         isModal ? "opacity-100" : "opacity-0 pointer-events-none",
       )}
-      onClick={handleBackdropClick}
       aria-hidden={!isModal}
     >
-      <div
+      <button
+        type="button"
+        aria-label="Minimize browser view"
+        className="absolute inset-0"
+        onClick={handleBackdropClick}
+      />
+      <dialog
+        open={isModal}
         ref={dialogRef}
-        role="dialog"
         aria-modal="true"
         aria-label="Browser view"
         tabIndex={-1}
@@ -129,7 +134,6 @@ export function BrowserViewPanel() {
           "transition-transform duration-200 outline-none",
           isModal ? "scale-100" : "scale-95",
         )}
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Header with URL bar and controls */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-border1 shrink-0">
@@ -179,7 +183,7 @@ export function BrowserViewPanel() {
             <BrowserToolCallHistory />
           </div>
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }

@@ -26,6 +26,13 @@ const formatRelativeTime = (date: Date): string => {
   return date.toLocaleDateString();
 };
 
+const truncateContent = (content: string, maxLength = 100) => {
+  if (content.length <= maxLength) {
+    return content;
+  }
+  return `${content.slice(0, maxLength)}...`;
+};
+
 interface MemorySearchProps {
   searchMemory: (query: string) => Promise<MemorySearchResponse>;
   onResultClick?: (messageId: string, threadId?: string) => void;
@@ -67,9 +74,9 @@ export const MemorySearch = ({
         const response = await searchMemory(searchQuery);
         setResults(response.results);
         setIsOpen((prev) => prev || response.results.length > 0);
-      } catch (error) {
+      } catch (searchError) {
         setError("Failed to search memory");
-        console.error("Memory search error:", error);
+        console.error("Memory search error:", searchError);
       } finally {
         setIsSearching(false);
       }
@@ -99,7 +106,8 @@ export const MemorySearch = ({
           lastSearchTimeRef.current = now;
         } else {
           // Otherwise, set a timeout for the remaining time
-          setIsSearching(true); // Show searching state while debouncing
+          // Show searching state while debouncing.
+          setIsSearching(true);
           pendingSearchRef.current = value;
           const remainingTime = 500 - timeSinceLastSearch;
           searchTimeoutRef.current = setTimeout(() => {
@@ -187,7 +195,8 @@ export const MemorySearch = ({
           lastSearchTimeRef.current = now;
         } else {
           // Otherwise, set a timeout for the remaining time
-          setIsSearching(true); // Show searching state while debouncing
+          // Show searching state while debouncing.
+          setIsSearching(true);
           pendingSearchRef.current = chatInputValue;
           const remainingTime = 500 - timeSinceLastSearch;
           searchTimeoutRef.current = setTimeout(() => {
@@ -211,7 +220,7 @@ export const MemorySearch = ({
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [chatInputValue]);
+  }, [chatInputValue, handleSearch, query]);
 
   const handleResultClick = (messageId: string, threadId?: string) => {
     onResultClick?.(messageId, threadId);
@@ -227,12 +236,32 @@ export const MemorySearch = ({
     }
   };
 
-  const truncateContent = (content: string, maxLength: number = 100) => {
-    if (content.length <= maxLength) {
-      return content;
-    }
-    return `${content.substring(0, maxLength)}...`;
-  };
+  let searchStatus: React.ReactNode = null;
+  if (error) {
+    searchStatus = (
+      <div className="p-4 text-center">
+        <Txt variant="ui-sm" className="text-red-500">
+          {error}
+        </Txt>
+      </div>
+    );
+  } else if (isSearching && results.length === 0) {
+    searchStatus = (
+      <div className="p-4 text-center">
+        <Txt variant="ui-sm" className="text-neutral3">
+          Searching...
+        </Txt>
+      </div>
+    );
+  } else if (results.length === 0) {
+    searchStatus = (
+      <div className="p-4 text-center">
+        <Txt variant="ui-sm" className="text-neutral3">
+          No results found for "{query}"
+        </Txt>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("flex flex-col h-full", className)} ref={dropdownRef}>
@@ -259,25 +288,8 @@ export const MemorySearch = ({
       {/* Search results dropdown */}
       {(isOpen || (query && (isSearching || results.length === 0))) && (
         <div className="mt-2 flex-1 bg-surface3 border border-border1 rounded-lg shadow-lg overflow-y-auto">
-          {error ? (
-            <div className="p-4 text-center">
-              <Txt variant="ui-sm" className="text-red-500">
-                {error}
-              </Txt>
-            </div>
-          ) : isSearching && results.length === 0 ? (
-            <div className="p-4 text-center">
-              <Txt variant="ui-sm" className="text-neutral3">
-                Searching...
-              </Txt>
-            </div>
-          ) : results.length === 0 ? (
-            <div className="p-4 text-center">
-              <Txt variant="ui-sm" className="text-neutral3">
-                No results found for "{query}"
-              </Txt>
-            </div>
-          ) : (
+          {searchStatus}
+          {results.length > 0 && !error && (
             <div className="py-2">
               {results.map((result) => (
                 <button
@@ -326,9 +338,9 @@ export const MemorySearch = ({
                                 variant="ui-xs"
                                 className={cn(
                                   "truncate max-w-[150px]",
-                                  result.threadId !== currentThreadId
-                                    ? "text-blue-400 font-medium"
-                                    : "text-neutral3",
+                                  result.threadId === currentThreadId
+                                    ? "text-neutral3"
+                                    : "text-blue-400 font-medium",
                                 )}
                                 title={result.threadTitle}
                               >

@@ -77,6 +77,7 @@ export function JSONUploadStep({ onFileSelect, isParsing, error }: JSONUploadSte
     <div className="flex flex-col gap-3">
       {/* Hidden file input */}
       <input
+        aria-label="Upload JSON file"
         ref={inputRef}
         type="file"
         accept=".json"
@@ -86,7 +87,8 @@ export function JSONUploadStep({ onFileSelect, isParsing, error }: JSONUploadSte
       />
 
       {/* Dropzone */}
-      <div
+      <button
+        type="button"
         onClick={handleClick}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -123,7 +125,7 @@ export function JSONUploadStep({ onFileSelect, isParsing, error }: JSONUploadSte
             </div>
           </>
         )}
-      </div>
+      </button>
 
       {/* Error message */}
       {error && <div className="text-sm text-accent2">{error}</div>}

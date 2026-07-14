@@ -51,9 +51,10 @@ export function validateJSONData(data: unknown): JSONValidationResult {
   }
 
   // Validate each item
-  for (let i = 0; i < data.length; i++) {
+  for (let i = 0; i < data.length; i += 1) {
     const item = data[i];
-    const itemNum = i + 1; // 1-indexed for user display
+    // 1-indexed for user display
+    const itemNum = i + 1;
 
     // Check: must be an object
     if (typeof item !== "object" || item === null || Array.isArray(item)) {
@@ -83,14 +84,17 @@ export function validateJSONData(data: unknown): JSONValidationResult {
     }
 
     // Check: metadata must be an object if present
-    if ("metadata" in item && item.metadata !== undefined && item.metadata !== null) {
-      if (typeof item.metadata !== "object" || Array.isArray(item.metadata)) {
-        errors.push({
-          index: itemNum,
-          message: `Item ${itemNum} has invalid 'metadata' field (must be an object)`,
-        });
-        continue;
-      }
+    if (
+      "metadata" in item &&
+      item.metadata !== undefined &&
+      item.metadata !== null &&
+      (typeof item.metadata !== "object" || Array.isArray(item.metadata))
+    ) {
+      errors.push({
+        index: itemNum,
+        message: `Item ${itemNum} has invalid 'metadata' field (must be an object)`,
+      });
+      continue;
     }
 
     // Item is valid, add to items array

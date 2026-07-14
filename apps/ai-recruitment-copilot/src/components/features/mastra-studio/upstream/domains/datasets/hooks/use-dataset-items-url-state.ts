@@ -108,7 +108,7 @@ export function useDatasetItemsUrlState(
       setSearchParams(
         (prev) => {
           const params = new URLSearchParams(prev);
-          if (next == null) {
+          if (next === null || next === undefined) {
             params.delete(VERSION_PARAM);
           } else {
             params.set(VERSION_PARAM, String(next));
@@ -126,10 +126,10 @@ export function useDatasetItemsUrlState(
       setSearchParams(
         (prev) => {
           const params = new URLSearchParams(prev);
-          if (!next) {
-            params.delete(PANEL_PARAM);
-          } else {
+          if (next) {
             params.set(PANEL_PARAM, next);
+          } else {
+            params.delete(PANEL_PARAM);
           }
           return params;
         },

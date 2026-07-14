@@ -29,7 +29,7 @@ function ValidationErrors({
         <p key={idx} className="text-xs text-destructive">
           <code className="bg-destructive/10 px-1 rounded">
             {field}
-            {err.path !== "/" ? err.path : ""}
+            {err.path === "/" ? "" : err.path}
           </code>
           : {err.message}
         </p>

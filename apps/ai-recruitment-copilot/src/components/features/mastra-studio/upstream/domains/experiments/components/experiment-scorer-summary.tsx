@@ -33,7 +33,7 @@ export function ExperimentScorerSummary({
           scorerTotals[score.scorerId] = { count: 0, sum: 0 };
         }
         scorerTotals[score.scorerId].sum += score.score;
-        scorerTotals[score.scorerId].count++;
+        scorerTotals[score.scorerId].count += 1;
       }
     }
 
@@ -56,7 +56,7 @@ export function ExperimentScorerSummary({
     if (isRunning) {
       title = "Experiment in progress";
       description = "Summary metrics will appear here once the experiment completes.";
-    } else if (!hasLoadedScores) {
+    } else if (hasLoadedScores === false) {
       title = "Loading scores";
       description = "Fetching scorer results…";
     } else {

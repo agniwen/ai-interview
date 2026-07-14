@@ -27,7 +27,7 @@ export function JSONValidationSummary({ errors, maxErrors = 5 }: JSONValidationS
           <AlertTriangle className="w-4 h-4" />
         </Icon>
         <span className="font-medium text-sm">
-          {errors.length} validation error{errors.length !== 1 ? "s" : ""}
+          {errors.length} validation error{errors.length === 1 ? "" : "s"}
         </span>
       </div>
 
@@ -42,7 +42,7 @@ export function JSONValidationSummary({ errors, maxErrors = 5 }: JSONValidationS
 
       {hiddenCount > 0 && (
         <div className="text-xs text-accent2/60 mt-2">
-          +{hiddenCount} more error{hiddenCount !== 1 ? "s" : ""}
+          +{hiddenCount} more error{hiddenCount === 1 ? "" : "s"}
         </div>
       )}
     </div>

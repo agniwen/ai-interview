@@ -13,12 +13,11 @@ export interface VoiceCallPanelProps {
 }
 
 const lastSegmentByRole = (segments: VoiceCaptionSegment[], role: "user" | "agent") => {
-  for (let i = segments.length - 1; i >= 0; i--) {
+  for (let i = segments.length - 1; i >= 0; i -= 1) {
     if (segments[i]?.role === role) {
       return segments[i];
     }
   }
-  return;
 };
 
 export const VoiceCallPanel = ({ voiceCall }: VoiceCallPanelProps) => {

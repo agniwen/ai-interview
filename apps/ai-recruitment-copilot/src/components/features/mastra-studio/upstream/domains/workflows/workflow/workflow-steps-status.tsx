@@ -54,17 +54,17 @@ export function WorkflowStepsStatus({ steps, workflowResult }: WorkflowStepsStat
 
           // Build tripwire info from step or workflow-level result
           // TripwireData is aligned with core schema: { reason, retry?, metadata?, processorId? }
-          const tripwireInfo =
-            step.status === "failed" && step.tripwire
-              ? step.tripwire
-              : workflowResult?.status === "tripwire"
-                ? {
-                    metadata: workflowResult?.tripwire?.metadata,
-                    processorId: workflowResult?.tripwire?.processorId,
-                    reason: workflowResult?.tripwire?.reason,
-                    retry: workflowResult?.tripwire?.retry,
-                  }
-                : undefined;
+          let tripwireInfo;
+          if (step.status === "failed" && step.tripwire) {
+            tripwireInfo = step.tripwire;
+          } else if (workflowResult?.status === "tripwire") {
+            tripwireInfo = {
+              metadata: workflowResult.tripwire?.metadata,
+              processorId: workflowResult.tripwire?.processorId,
+              reason: workflowResult.tripwire?.reason,
+              retry: workflowResult.tripwire?.retry,
+            };
+          }
 
           // Show tripwire status for failed steps with tripwire info
           const displayStatus = step.status === "failed" && step.tripwire ? "tripwire" : status;

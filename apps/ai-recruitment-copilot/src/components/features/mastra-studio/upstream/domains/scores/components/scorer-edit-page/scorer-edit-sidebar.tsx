@@ -12,8 +12,9 @@ import { Controller, useWatch } from "react-hook-form";
 import type { UseFormReturn } from "react-hook-form";
 
 import type { ScorerFormValues } from "./utils/form-validation";
-import { SectionHeader } from "@/components/features/mastra-studio/upstream/domains/cms";
-import { LLMProviders, LLMModels } from "@/components/features/mastra-studio/upstream/domains/llm";
+import { SectionHeader } from "@/components/features/mastra-studio/upstream/domains/cms/components/section/section-header";
+import { LLMModels } from "@/components/features/mastra-studio/upstream/domains/llm/components/llm-models";
+import { LLMProviders } from "@/components/features/mastra-studio/upstream/domains/llm/components/llm-providers";
 
 interface ScorerEditSidebarProps {
   form: UseFormReturn<ScorerFormValues>;

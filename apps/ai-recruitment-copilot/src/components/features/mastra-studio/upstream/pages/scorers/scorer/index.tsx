@@ -24,8 +24,88 @@ import {
 import { useWorkflows } from "@/components/features/mastra-studio/upstream/domains/workflows/hooks/use-workflows";
 import { RouteHeaderActions } from "@/components/features/mastra-studio/upstream/lib/route-header";
 
+type ScorerPageState = "content" | "empty" | "error" | "forbidden" | "unauthorized";
+
+function getScoreEntityFilter(option: EntityOptions | undefined) {
+  return {
+    entityId: option?.value === "all" ? undefined : option?.value,
+    entityType: option?.type === "ALL" ? undefined : option?.type,
+  };
+}
+
+function getErrorMessage(...errors: unknown[]): string {
+  for (const error of errors) {
+    if (error instanceof Error) {
+      return error.message;
+    }
+  }
+  return "An unexpected error occurred";
+}
+
+function getScorerPageState({
+  agentsError,
+  hasFilterApplied,
+  hasNoScores,
+  scorerError,
+  workflowsError,
+}: {
+  agentsError: unknown;
+  hasFilterApplied: boolean;
+  hasNoScores: boolean;
+  scorerError: unknown;
+  workflowsError: unknown;
+}): ScorerPageState {
+  if (
+    is401UnauthorizedError(scorerError) ||
+    is401UnauthorizedError(agentsError) ||
+    is401UnauthorizedError(workflowsError)
+  ) {
+    return "unauthorized";
+  }
+  if (scorerError && is403ForbiddenError(scorerError)) {
+    return "forbidden";
+  }
+  if (scorerError || agentsError || workflowsError) {
+    return "error";
+  }
+  if (hasNoScores && !hasFilterApplied) {
+    return "empty";
+  }
+  return "content";
+}
+
+function ScorerEmptyContent({ message, state }: { message: string; state: ScorerPageState }) {
+  switch (state) {
+    case "unauthorized": {
+      return <SessionExpired />;
+    }
+    case "forbidden": {
+      return <PermissionDenied resource="scorers" />;
+    }
+    case "error": {
+      return <ErrorState title="Failed to load scorer" message={message} />;
+    }
+    default: {
+      return <NoScoresInfo />;
+    }
+  }
+}
+
+function ScorerHeaderActions({ isStored, scorerId }: { isStored: boolean; scorerId: string }) {
+  if (!isStored) {
+    return null;
+  }
+  return (
+    <RouteHeaderActions owner="scorer-detail">
+      <Button variant="default" as={Link} to={`/cms/scorers/${scorerId}/edit`} size="sm">
+        <PencilIcon /> Edit
+      </Button>
+    </RouteHeaderActions>
+  );
+}
+
 export default function Scorer() {
-  const { scorerId } = useParams()! as { scorerId: string };
+  const { scorerId } = useParams() as { scorerId: string };
   const [searchParams, setSearchParams] = useSearchParams();
   const scoreIdFromUrl = searchParams.get("scoreId") ?? undefined;
   const [selectedScoreId, setSelectedScoreId] = useState<string | undefined>(scoreIdFromUrl);
@@ -35,10 +115,11 @@ export default function Scorer() {
     value: "all",
   });
 
-  const { scorer, error: scorerError } = useScorer(scorerId!);
+  const { scorer, error: scorerError } = useScorer(scorerId);
 
   const { data: agents = {}, isLoading: isLoadingAgents, error: agentsError } = useAgents();
   const { isLoading: isLoadingWorkflows, error: workflowsError } = useWorkflows();
+  const entityFilter = getScoreEntityFilter(selectedEntityOption);
   const {
     data: scores = [],
     isLoading: isLoadingScores,
@@ -47,8 +128,7 @@ export default function Scorer() {
     hasNextPage,
     setEndOfListElement,
   } = useScoresByScorerId({
-    entityId: selectedEntityOption?.value === "all" ? undefined : selectedEntityOption?.value,
-    entityType: selectedEntityOption?.type === "ALL" ? undefined : selectedEntityOption?.type,
+    ...entityFilter,
     scorerId,
   });
 
@@ -86,9 +166,11 @@ export default function Scorer() {
   // Sync URL entity to state (treat missing ?entity as 'all' so browser back/forward resets the filter)
   const entityName = searchParams.get("entity") ?? "all";
   const matchedEntityOption = entityOptions.find((option) => option.value === entityName);
-  if (matchedEntityOption && matchedEntityOption.value !== selectedEntityOption?.value) {
-    setSelectedEntityOption(matchedEntityOption);
-  }
+  useEffect(() => {
+    if (matchedEntityOption && matchedEntityOption.value !== selectedEntityOption?.value) {
+      setSelectedEntityOption(matchedEntityOption);
+    }
+  }, [matchedEntityOption, selectedEntityOption?.value]);
 
   useEffect(() => {
     if (scorerError) {
@@ -145,8 +227,7 @@ export default function Scorer() {
     }
 
     setSelectedScoreId(urlScoreId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, scores]);
+  }, [scores, searchParams, selectedScoreId]);
 
   const handleScoreClick = useCallback(
     (id: string) => {
@@ -168,51 +249,27 @@ export default function Scorer() {
     return null;
   }
 
-  const isUnauthorized =
-    is401UnauthorizedError(scorerError) ||
-    is401UnauthorizedError(agentsError) ||
-    is401UnauthorizedError(workflowsError);
-
-  const isForbidden = scorerError && is403ForbiddenError(scorerError);
-
-  const hasOtherError =
-    !isUnauthorized && !isForbidden && (scorerError || agentsError || workflowsError);
-
   const hasNoScores = !isLoadingScores && scores.length === 0;
   const hasFilterApplied = selectedEntityOption?.value !== "all";
+  const pageState = getScorerPageState({
+    agentsError,
+    hasFilterApplied,
+    hasNoScores,
+    scorerError,
+    workflowsError,
+  });
+  const scorerHeaderActions = (
+    <ScorerHeaderActions isStored={scorer.scorer?.source === "stored"} scorerId={scorerId} />
+  );
 
-  const scorerHeaderActions =
-    scorer?.scorer?.source === "stored" ? (
-      <RouteHeaderActions owner="scorer-detail">
-        <Button variant="default" as={Link} to={`/cms/scorers/${scorerId}/edit`} size="sm">
-          <PencilIcon /> Edit
-        </Button>
-      </RouteHeaderActions>
-    ) : null;
-
-  const showEmptyState =
-    isUnauthorized || isForbidden || hasOtherError || (hasNoScores && !hasFilterApplied);
-
-  if (showEmptyState) {
-    const errorMessage =
-      (scorerError instanceof Error ? scorerError.message : undefined) ??
-      (agentsError instanceof Error ? agentsError.message : undefined) ??
-      (workflowsError instanceof Error ? workflowsError.message : undefined) ??
-      "An unexpected error occurred";
+  if (pageState !== "content") {
+    const errorMessage = getErrorMessage(scorerError, agentsError, workflowsError);
 
     return (
       <PageLayout width="wide" height="full">
         {scorerHeaderActions}
         <PageLayout.MainArea isCentered>
-          {isUnauthorized ? (
-            <SessionExpired />
-          ) : isForbidden ? (
-            <PermissionDenied resource="scorers" />
-          ) : hasOtherError ? (
-            <ErrorState title="Failed to load scorer" message={errorMessage} />
-          ) : (
-            <NoScoresInfo />
-          )}
+          <ScorerEmptyContent message={errorMessage} state={pageState} />
         </PageLayout.MainArea>
       </PageLayout>
     );

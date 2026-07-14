@@ -111,7 +111,7 @@ export function JSONImportDialog({
 
     if (importResult && importResult.success > 0) {
       toast.success(
-        `Imported ${importResult.success} item${importResult.success !== 1 ? "s" : ""}`,
+        `Imported ${importResult.success} item${importResult.success === 1 ? "" : "s"}`,
       );
     }
 
@@ -171,7 +171,7 @@ export function JSONImportDialog({
               <>
                 <div className="text-sm text-neutral4">
                   Found {parsedJSON.items.length} valid item
-                  {parsedJSON.items.length !== 1 ? "s" : ""} to import.
+                  {parsedJSON.items.length === 1 ? "" : "s"} to import.
                 </div>
                 <JSONPreviewTable items={parsedJSON.items} maxRows={5} />
               </>
@@ -201,17 +201,20 @@ export function JSONImportDialog({
             <div className="text-center">
               <div className="text-lg font-medium text-neutral1">Import Complete</div>
               <div className="text-sm text-neutral4 mt-1">
-                {importResult?.success ?? 0} item{importResult?.success !== 1 ? "s" : ""} imported
+                {importResult?.success ?? 0} item{importResult?.success === 1 ? "" : "s"} imported
                 {importResult && importResult.errors > 0 && (
                   <span className="text-accent2">
                     {" "}
-                    ({importResult.errors} error{importResult.errors !== 1 ? "s" : ""})
+                    ({importResult.errors} error{importResult.errors === 1 ? "" : "s"})
                   </span>
                 )}
               </div>
             </div>
           </div>
         );
+      }
+      default: {
+        return null;
       }
     }
   };
@@ -228,7 +231,7 @@ export function JSONImportDialog({
           <>
             <Button onClick={() => setStep("upload")}>Back</Button>
             <Button variant="primary" onClick={handleImport} disabled={!canImport}>
-              Import {parsedJSON?.items.length ?? 0} Item{parsedJSON?.items.length !== 1 ? "s" : ""}
+              Import {parsedJSON?.items.length ?? 0} Item{parsedJSON?.items.length === 1 ? "" : "s"}
             </Button>
           </>
         );
@@ -236,7 +239,8 @@ export function JSONImportDialog({
 
       case "importing": {
         return null;
-      } // Cancel button is in the content
+        // Cancel button is in the content
+      }
 
       case "complete": {
         return (
@@ -244,6 +248,9 @@ export function JSONImportDialog({
             Done
           </Button>
         );
+      }
+      default: {
+        return null;
       }
     }
   };

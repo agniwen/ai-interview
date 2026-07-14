@@ -49,69 +49,16 @@ function itemLabel(item: { id: string; input: unknown }): string {
   return preview ? `${shortId} — ${preview}` : shortId;
 }
 
-export function AddTraceMocksToItemDialog({
-  traceId,
-  isOpen,
-  onClose,
-  level = 2,
-}: AddTraceMocksToItemDialogProps) {
-  const client = useMastraClient();
-
-  const { data: trajectory, isLoading: isTrajectoryLoading } = useQuery({
-    enabled: isOpen && !!traceId,
-    queryFn: () => client.getTraceTrajectory(traceId!),
-    queryKey: ["trace-trajectory", traceId],
-  });
-
-  const derivedMocks: DatasetItemToolMock[] = trajectory?.steps
-    ? collectToolMocks(trajectory.steps)
-    : [];
-  const initialMocksJson = derivedMocks.length > 0 ? JSON.stringify(derivedMocks, null, 2) : "";
-
-  return (
-    <SideDialog
-      dialogTitle="Add Tool Mocks to Item"
-      dialogDescription="Append trace-derived tool mocks to an existing dataset item"
-      isOpen={isOpen}
-      onClose={onClose}
-      level={level}
-    >
-      <SideDialog.Top>
-        <TextAndIcon>
-          <EyeIcon /> {getShortId(traceId)}
-        </TextAndIcon>
-        ›
-        <TextAndIcon>
-          <WrenchIcon /> Add Tool Mocks to Item
-        </TextAndIcon>
-      </SideDialog.Top>
-
-      <SideDialog.Content>
-        <SideDialog.Header>
-          <SideDialog.Heading>
-            <WrenchIcon /> Add Tool Mocks to Item
-          </SideDialog.Heading>
-        </SideDialog.Header>
-
-        {isTrajectoryLoading ? (
-          <div className="px-2 py-4 text-sm text-neutral4">Loading tool calls from trace...</div>
-        ) : (
-          // Remount when the source trace changes so the form's useState seeds
-          // from the freshly derived mocks — no state-reset effect needed.
-          <AddTraceMocksForm
-            key={traceId ?? "no-trace"}
-            initialMocksJson={initialMocksJson}
-            onClose={onClose}
-          />
-        )}
-      </SideDialog.Content>
-    </SideDialog>
-  );
-}
-
 interface AddTraceMocksFormProps {
   initialMocksJson: string;
   onClose: () => void;
+}
+
+function getItemPlaceholder(selectedDatasetId: string, isItemsLoading: boolean): string {
+  if (!selectedDatasetId) {
+    return "Select a dataset first";
+  }
+  return isItemsLoading ? "Loading items..." : "Select an item";
 }
 
 function AddTraceMocksForm({ initialMocksJson, onClose }: AddTraceMocksFormProps) {
@@ -235,15 +182,7 @@ function AddTraceMocksForm({ initialMocksJson, onClose }: AddTraceMocksFormProps
           disabled={!selectedDatasetId || isItemsLoading}
         >
           <SelectTrigger id="target-item">
-            <SelectValue
-              placeholder={
-                !selectedDatasetId
-                  ? "Select a dataset first"
-                  : isItemsLoading
-                    ? "Loading items..."
-                    : "Select an item"
-              }
-            />
+            <SelectValue placeholder={getItemPlaceholder(selectedDatasetId, isItemsLoading)} />
           </SelectTrigger>
           <SelectContent>
             {items.length === 0 ? (
@@ -292,5 +231,70 @@ function AddTraceMocksForm({ initialMocksJson, onClose }: AddTraceMocksFormProps
         </Button>
       </div>
     </form>
+  );
+}
+
+export function AddTraceMocksToItemDialog({
+  traceId,
+  isOpen,
+  onClose,
+  level = 2,
+}: AddTraceMocksToItemDialogProps) {
+  const client = useMastraClient();
+
+  const { data: trajectory, isLoading: isTrajectoryLoading } = useQuery({
+    enabled: isOpen && !!traceId,
+    queryFn: () => {
+      if (!traceId) {
+        throw new Error("A trace ID is required to load its trajectory");
+      }
+      return client.getTraceTrajectory(traceId);
+    },
+    queryKey: ["trace-trajectory", traceId],
+  });
+
+  const derivedMocks: DatasetItemToolMock[] = trajectory?.steps
+    ? collectToolMocks(trajectory.steps)
+    : [];
+  const initialMocksJson = derivedMocks.length > 0 ? JSON.stringify(derivedMocks, null, 2) : "";
+
+  return (
+    <SideDialog
+      dialogTitle="Add Tool Mocks to Item"
+      dialogDescription="Append trace-derived tool mocks to an existing dataset item"
+      isOpen={isOpen}
+      onClose={onClose}
+      level={level}
+    >
+      <SideDialog.Top>
+        <TextAndIcon>
+          <EyeIcon /> {getShortId(traceId)}
+        </TextAndIcon>
+        ›
+        <TextAndIcon>
+          <WrenchIcon /> Add Tool Mocks to Item
+        </TextAndIcon>
+      </SideDialog.Top>
+
+      <SideDialog.Content>
+        <SideDialog.Header>
+          <SideDialog.Heading>
+            <WrenchIcon /> Add Tool Mocks to Item
+          </SideDialog.Heading>
+        </SideDialog.Header>
+
+        {isTrajectoryLoading ? (
+          <div className="px-2 py-4 text-sm text-neutral4">Loading tool calls from trace...</div>
+        ) : (
+          // Remount when the source trace changes so the form's useState seeds
+          // from the freshly derived mocks — no state-reset effect needed.
+          <AddTraceMocksForm
+            key={traceId ?? "no-trace"}
+            initialMocksJson={initialMocksJson}
+            onClose={onClose}
+          />
+        )}
+      </SideDialog.Content>
+    </SideDialog>
   );
 }

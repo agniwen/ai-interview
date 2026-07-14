@@ -212,6 +212,13 @@ export function SaveAsDatasetItemDialog({
     onClose();
   };
 
+  let saveButtonLabel = "Save Item";
+  if (addItem.isPending) {
+    saveButtonLabel = "Saving...";
+  } else if (trajectoryLoading) {
+    saveButtonLabel = "Loading...";
+  }
+
   return (
     <SideDialog
       dialogTitle="Save as Dataset Item"
@@ -317,7 +324,7 @@ export function SaveAsDatasetItemDialog({
                 datasets.length === 0
               }
             >
-              {addItem.isPending ? "Saving..." : trajectoryLoading ? "Loading..." : "Save Item"}
+              {saveButtonLabel}
             </Button>
           </div>
         </form>

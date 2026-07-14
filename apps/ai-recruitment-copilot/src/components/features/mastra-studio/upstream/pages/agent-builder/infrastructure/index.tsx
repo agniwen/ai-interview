@@ -87,176 +87,192 @@ export const AgentBuilderInfrastructure = () => {
           title="Agent Builder Infrastructure"
           description="Deployment-level defaults Agent Builder applies when users create or run builder agents."
         >
-          {!canViewInfrastructure ? (
-            <Txt variant="ui-sm" className="text-neutral3">
-              You do not have permission to view Agent Builder infrastructure.
-            </Txt>
-          ) : isLoading ? (
-            <Txt variant="ui-sm" className="text-neutral3">
-              Loading infrastructure configuration…
-            </Txt>
-          ) : error || !data ? (
-            <Txt variant="ui-sm" className="text-neutral3">
-              Infrastructure configuration unavailable.
-            </Txt>
-          ) : (
-            <div className="flex flex-col gap-6">
-              <div className="flex flex-col gap-2">
-                <div className="flex flex-col gap-1">
-                  <Txt variant="ui-md" className="font-medium">
-                    Channels
-                  </Txt>
-                  <Txt variant="ui-xs" className="text-neutral3">
-                    Configured channel providers available to Agent Builder publish/share flows.
-                    Unconfigured providers are omitted until their required environment/config is
-                    present.
-                  </Txt>
-                </div>
-                {data.channels.providers.length === 0 ? (
-                  <EmptyRow message="No configured channel providers for Agent Builder." />
-                ) : (
-                  <ul className="flex flex-col gap-2">
-                    {data.channels.providers.map((provider) => (
-                      <li key={provider.id} className="rounded-md border border-border1 px-3 py-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex flex-col gap-1">
-                            <Txt variant="ui-sm" className="font-medium">
-                              {titleCase(provider.name)}
-                            </Txt>
-                            <Txt variant="ui-xs" className="text-neutral3">
-                              Provider ID: {provider.id}
-                            </Txt>
+          {(() => {
+            if (!canViewInfrastructure) {
+              return (
+                <Txt variant="ui-sm" className="text-neutral3">
+                  You do not have permission to view Agent Builder infrastructure.
+                </Txt>
+              );
+            }
+            if (isLoading) {
+              return (
+                <Txt variant="ui-sm" className="text-neutral3">
+                  Loading infrastructure configuration…
+                </Txt>
+              );
+            }
+            if (error || !data) {
+              return (
+                <Txt variant="ui-sm" className="text-neutral3">
+                  Infrastructure configuration unavailable.
+                </Txt>
+              );
+            }
+            return (
+              <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-1">
+                    <Txt variant="ui-md" className="font-medium">
+                      Channels
+                    </Txt>
+                    <Txt variant="ui-xs" className="text-neutral3">
+                      Configured channel providers available to Agent Builder publish/share flows.
+                      Unconfigured providers are omitted until their required environment/config is
+                      present.
+                    </Txt>
+                  </div>
+                  {data.channels.providers.length === 0 ? (
+                    <EmptyRow message="No configured channel providers for Agent Builder." />
+                  ) : (
+                    <ul className="flex flex-col gap-2">
+                      {data.channels.providers.map((provider) => (
+                        <li
+                          key={provider.id}
+                          className="rounded-md border border-border1 px-3 py-3"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex flex-col gap-1">
+                              <Txt variant="ui-sm" className="font-medium">
+                                {titleCase(provider.name)}
+                              </Txt>
+                              <Txt variant="ui-xs" className="text-neutral3">
+                                Provider ID: {provider.id}
+                              </Txt>
+                            </div>
+                            <StatusBadge
+                              ok={provider.isConfigured}
+                              label={provider.isConfigured ? "Configured" : "Not configured"}
+                            />
                           </div>
-                          <StatusBadge
-                            ok={provider.isConfigured}
-                            label={provider.isConfigured ? "Configured" : "Not configured"}
-                          />
-                        </div>
-                        <div className="mt-3 grid grid-cols-1 gap-3 border-t border-border1 pt-3 sm:grid-cols-2">
-                          <Detail
-                            label="Registered by"
-                            value={`${titleCase(provider.name)} provider`}
-                          />
-                          <Detail label="Provider routes" value={provider.routeCount} />
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <div className="flex flex-col gap-1">
-                  <Txt variant="ui-md" className="font-medium">
-                    Browser
-                  </Txt>
-                  <Txt variant="ui-xs" className="text-neutral3">
-                    Browser automation provider configured for builder agents. The card shows the
-                    selected provider and only non-default options explicitly passed in
-                    configuration.
-                  </Txt>
+                          <div className="mt-3 grid grid-cols-1 gap-3 border-t border-border1 pt-3 sm:grid-cols-2">
+                            <Detail
+                              label="Registered by"
+                              value={`${titleCase(provider.name)} provider`}
+                            />
+                            <Detail label="Provider routes" value={provider.routeCount} />
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
-                {!data.browser.provider ? (
-                  <EmptyRow message="No browser configured." />
-                ) : (
+
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-1">
+                    <Txt variant="ui-md" className="font-medium">
+                      Browser
+                    </Txt>
+                    <Txt variant="ui-xs" className="text-neutral3">
+                      Browser automation provider configured for builder agents. The card shows the
+                      selected provider and only non-default options explicitly passed in
+                      configuration.
+                    </Txt>
+                  </div>
+                  {data.browser.provider ? (
+                    <div className="rounded-md border border-border1 px-3 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-col gap-1">
+                          <Txt variant="ui-sm" className="font-medium">
+                            {titleCase(data.browser.provider)}
+                          </Txt>
+                        </div>
+                        <StatusBadge
+                          ok={data.browser.registered}
+                          label={
+                            data.browser.registered ? "Provider available" : "Provider missing"
+                          }
+                        />
+                      </div>
+                      {data.browser.env ? (
+                        <div className="mt-3 grid grid-cols-1 gap-3 border-t border-border1 pt-3 sm:grid-cols-2">
+                          <Detail label="Environment" value={titleCase(data.browser.env)} />
+                        </div>
+                      ) : null}
+                      <ConfigDetails entries={data.browser.config} />
+                    </div>
+                  ) : (
+                    <EmptyRow message="No browser configured." />
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-1">
+                    <Txt variant="ui-md" className="font-medium">
+                      Registries
+                    </Txt>
+                    <Txt variant="ui-xs" className="text-neutral3">
+                      External skill registries available to import skills into the workspace.
+                    </Txt>
+                  </div>
                   <div className="rounded-md border border-border1 px-3 py-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex flex-col gap-1">
                         <Txt variant="ui-sm" className="font-medium">
-                          {titleCase(data.browser.provider)}
+                          skills.sh
+                        </Txt>
+                        <Txt variant="ui-xs" className="text-neutral3">
+                          GitHub-backed public skills registry.
                         </Txt>
                       </div>
                       <StatusBadge
-                        ok={data.browser.registered}
-                        label={data.browser.registered ? "Provider available" : "Provider missing"}
+                        ok={data.registries?.skillsSh?.enabled ?? false}
+                        label={data.registries?.skillsSh?.enabled ? "Enabled" : "Disabled"}
                       />
                     </div>
-                    {data.browser.env ? (
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-1">
+                    <Txt variant="ui-md" className="font-medium">
+                      Workspace
+                    </Txt>
+                    <Txt variant="ui-xs" className="text-neutral3">
+                      Workspace config used for generated files and sandbox execution. This reports
+                      the builder workspace only, not agent-specific runtime workspaces.
+                    </Txt>
+                  </div>
+                  {data.workspace.type ? (
+                    <div className="rounded-md border border-border1 px-3 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <Txt variant="ui-sm" className="font-medium">
+                          {data.workspace.workspaceId ?? data.workspace.name ?? "Inline workspace"}
+                        </Txt>
+                        <div className="flex gap-2">
+                          <StatusBadge ok={data.workspace.hasFilesystem} label="Filesystem" />
+                          <StatusBadge ok={data.workspace.hasSandbox} label="Sandbox" />
+                        </div>
+                      </div>
                       <div className="mt-3 grid grid-cols-1 gap-3 border-t border-border1 pt-3 sm:grid-cols-2">
-                        <Detail label="Environment" value={titleCase(data.browser.env)} />
+                        <Detail
+                          label="Config type"
+                          value={
+                            data.workspace.type === "id" ? "Registered workspace" : "Inline config"
+                          }
+                        />
+                        {data.workspace.workspaceId ? (
+                          <Detail label="Workspace ID" value={data.workspace.workspaceId} />
+                        ) : null}
+                        <Detail label="Name" value={data.workspace.name} />
+                        <Detail
+                          label="Filesystem provider"
+                          value={titleCase(data.workspace.filesystemProvider)}
+                        />
+                        <Detail
+                          label="Sandbox provider"
+                          value={titleCase(data.workspace.sandboxProvider)}
+                        />
                       </div>
-                    ) : null}
-                    <ConfigDetails entries={data.browser.config} />
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <div className="flex flex-col gap-1">
-                  <Txt variant="ui-md" className="font-medium">
-                    Registries
-                  </Txt>
-                  <Txt variant="ui-xs" className="text-neutral3">
-                    External skill registries available to import skills into the workspace.
-                  </Txt>
-                </div>
-                <div className="rounded-md border border-border1 px-3 py-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex flex-col gap-1">
-                      <Txt variant="ui-sm" className="font-medium">
-                        skills.sh
-                      </Txt>
-                      <Txt variant="ui-xs" className="text-neutral3">
-                        GitHub-backed public skills registry.
-                      </Txt>
+                      <ConfigDetails entries={data.workspace.config} />
                     </div>
-                    <StatusBadge
-                      ok={data.registries?.skillsSh?.enabled ?? false}
-                      label={data.registries?.skillsSh?.enabled ? "Enabled" : "Disabled"}
-                    />
-                  </div>
+                  ) : (
+                    <EmptyRow message="No workspace configured." />
+                  )}
                 </div>
               </div>
-
-              <div className="flex flex-col gap-2">
-                <div className="flex flex-col gap-1">
-                  <Txt variant="ui-md" className="font-medium">
-                    Workspace
-                  </Txt>
-                  <Txt variant="ui-xs" className="text-neutral3">
-                    Workspace config used for generated files and sandbox execution. This reports
-                    the builder workspace only, not agent-specific runtime workspaces.
-                  </Txt>
-                </div>
-                {!data.workspace.type ? (
-                  <EmptyRow message="No workspace configured." />
-                ) : (
-                  <div className="rounded-md border border-border1 px-3 py-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <Txt variant="ui-sm" className="font-medium">
-                        {data.workspace.workspaceId ?? data.workspace.name ?? "Inline workspace"}
-                      </Txt>
-                      <div className="flex gap-2">
-                        <StatusBadge ok={data.workspace.hasFilesystem} label="Filesystem" />
-                        <StatusBadge ok={data.workspace.hasSandbox} label="Sandbox" />
-                      </div>
-                    </div>
-                    <div className="mt-3 grid grid-cols-1 gap-3 border-t border-border1 pt-3 sm:grid-cols-2">
-                      <Detail
-                        label="Config type"
-                        value={
-                          data.workspace.type === "id" ? "Registered workspace" : "Inline config"
-                        }
-                      />
-                      {data.workspace.workspaceId ? (
-                        <Detail label="Workspace ID" value={data.workspace.workspaceId} />
-                      ) : null}
-                      <Detail label="Name" value={data.workspace.name} />
-                      <Detail
-                        label="Filesystem provider"
-                        value={titleCase(data.workspace.filesystemProvider)}
-                      />
-                      <Detail
-                        label="Sandbox provider"
-                        value={titleCase(data.workspace.sandboxProvider)}
-                      />
-                    </div>
-                    <ConfigDetails entries={data.workspace.config} />
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </SectionCard>
       </PageLayout.MainArea>
     </PageLayout>

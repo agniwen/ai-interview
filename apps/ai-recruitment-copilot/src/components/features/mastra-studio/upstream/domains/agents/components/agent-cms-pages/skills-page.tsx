@@ -17,11 +17,13 @@ import { Switch } from "@mastra/playground-ui/components/Switch";
 import { Plus, Drill, SearchIcon } from "lucide-react";
 import { useState } from "react";
 import { useWatch } from "react-hook-form";
+import { omitRecordKey } from "@/components/features/mastra-studio/upstream/domains/agents/utils/record";
 
 import { useAgentEditFormContext } from "../../context/agent-edit-form-context";
 import { useStoredSkills } from "../../hooks/use-stored-skills";
 import { SkillEditDialog } from "./skill-edit-dialog";
-import { SectionHeader } from "@/components/features/mastra-studio/upstream/domains/cms";
+import { SectionHeader } from "@/components/features/mastra-studio/upstream/domains/cms/components/section/section-header";
+import { isTruthy } from "../../utils/truthiness";
 
 export function SkillsPage() {
   const { form, readOnly } = useAgentEditFormContext();
@@ -44,8 +46,7 @@ export function SkillsPage() {
     const currentSkills = form.getValues("skills") ?? {};
     const isSelected = currentSkills[skillId] !== undefined;
     if (isSelected) {
-      const next = { ...currentSkills };
-      delete next[skillId];
+      const next = omitRecordKey(currentSkills, skillId);
       form.setValue("skills", next);
     } else {
       form.setValue("skills", {
@@ -127,7 +128,7 @@ export function SkillsPage() {
               titleSlot="No skills available"
               descriptionSlot="Create a skill to give your agent specialized knowledge."
               actionSlot={
-                !readOnly ? (
+                isTruthy(!readOnly) ? (
                   <Button onClick={() => setDialogOpen(true)}>
                     <Plus />
                     Add a skill

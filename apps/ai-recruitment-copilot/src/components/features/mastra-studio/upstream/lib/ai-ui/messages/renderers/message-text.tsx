@@ -73,14 +73,14 @@ export const MessageText = ({ text, metadata }: MessageTextProps) => {
   if (trimmedText.startsWith("__ERROR__:")) {
     return (
       <Notice variant="destructive" title="Error">
-        <Notice.Message>{trimmedText.substring("__ERROR__:".length)}</Notice.Message>
+        <Notice.Message>{trimmedText.slice("__ERROR__:".length)}</Notice.Message>
       </Notice>
     );
   }
   if (trimmedText.startsWith("Error:")) {
     return (
       <Notice variant="destructive" title="Error">
-        <Notice.Message>{trimmedText.substring("Error:".length).trim()}</Notice.Message>
+        <Notice.Message>{trimmedText.slice("Error:".length).trim()}</Notice.Message>
       </Notice>
     );
   }

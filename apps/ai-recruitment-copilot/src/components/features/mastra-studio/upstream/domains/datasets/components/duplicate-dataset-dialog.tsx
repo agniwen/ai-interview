@@ -94,7 +94,7 @@ export function DuplicateDatasetDialog({
 
         const totalFetched = (page + 1) * perPage;
         hasMore = items.length > 0 && totalFetched < (response.pagination?.total || 0);
-        page++;
+        page += 1;
       }
 
       // Create the new dataset
@@ -107,7 +107,7 @@ export function DuplicateDatasetDialog({
 
       // Copy items to new dataset
       setProgress({ current: 0, phase: "copying", total: allItems.length });
-      for (let i = 0; i < allItems.length; i++) {
+      for (let i = 0; i < allItems.length; i += 1) {
         const item = allItems[i];
         await addItem.mutateAsync({
           datasetId: dataset.id,
@@ -141,7 +141,8 @@ export function DuplicateDatasetDialog({
   const handleCancel = () => {
     if (isDuplicating) {
       return;
-    } // Prevent cancel during duplication
+      // Prevent cancel during duplication
+    }
     setName("");
     setDescription("");
     onOpenChange(false);

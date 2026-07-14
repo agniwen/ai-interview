@@ -5,14 +5,12 @@ import { useEffect } from "react";
 
 import { getObservationWindowTokens } from "./lib/observation-window";
 import type { OmAgentConfig } from "./lib/observation-window";
-import {
-  useMemoryTimeline,
-  useObservationalMemoryContext,
-} from "@/components/features/mastra-studio/upstream/domains/agents/context";
+import { useObservationalMemoryContext } from "@/components/features/mastra-studio/upstream/domains/agents/context/agent-observational-memory-context";
+import { useMemoryTimeline } from "@/components/features/mastra-studio/upstream/domains/agents/context/use-memory-timeline";
 import {
   useMemoryConfig,
   useThread,
-} from "@/components/features/mastra-studio/upstream/domains/memory/hooks";
+} from "@/components/features/mastra-studio/upstream/domains/memory/hooks/use-memory";
 
 export interface MemoryDetailViewProps {
   agentId: string;

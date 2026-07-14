@@ -4,7 +4,7 @@ import { isPlaceholderAgentName } from "../components/agent-starter/utils";
 import type { useBuilderAgentFeatures } from "../hooks/use-builder-agent-features";
 import type { AgentBuilderEditFormValues } from "../schemas";
 import type { AgentTool } from "../types/agent-tool";
-import type { ModelInfo } from "@/components/features/mastra-studio/upstream/domains/llm";
+import type { ModelInfo } from "@/components/features/mastra-studio/upstream/domains/llm/hooks/use-filtered-models";
 
 export interface AvailableWorkspaceLike {
   id: string;
@@ -89,6 +89,30 @@ const renderInstructions = (value: string | undefined): string => {
 const renderField = (label: string, value: string, directive: string): string =>
   `- ${label}: ${value}\n  ${directive}`;
 
+function renderModelField(
+  model: AgentBuilderEditFormValues["model"],
+  availableModels: ModelInfo[],
+): string {
+  if (!model?.provider || !model.name) {
+    return renderField(
+      "Model",
+      NOT_SET_TEXT,
+      "Call set-agent-model once with a provider/name pair from the available models list. Prefer a strong model for coding/reasoning, a cheaper/faster one for simple high-volume tasks.",
+    );
+  }
+
+  const known = availableModels.some(
+    (availableModel) =>
+      availableModel.provider === model.provider && availableModel.model === model.name,
+  );
+  const label = `${model.provider}/${model.name}`;
+  return renderField(
+    "Model",
+    known ? label : `${label} (not in available models list)`,
+    "Already set by the form. Do not call set-agent-model unless the user explicitly asks to change the model.",
+  );
+}
+
 /**
  * Renders the form's current state plus a per-field directive telling the
  * builder LLM whether to call the corresponding setter. All rules about which
@@ -109,13 +133,12 @@ export function buildFormSnapshotInstructions(
     starterUserMessage,
   } = options;
 
-  const lines: string[] = [];
-  lines.push("## Current agent configuration (authoritative)");
-  lines.push("");
-  lines.push(
+  const lines: string[] = [
+    "## Current agent configuration (authoritative)",
+    "",
     "Trust these values as ground truth. Call each setter at most once per turn, with the final value. Do not re-call a setter to confirm a value the snapshot already shows. Skip any field not listed below — its feature is disabled.",
-  );
-  lines.push("");
+    "",
+  ];
 
   // Name. The starter persists a truncated copy of the user's prompt as a
   // placeholder so the agent has *some* name in the list view. When the
@@ -188,28 +211,7 @@ export function buildFormSnapshotInstructions(
 
   // Model
   if (features.model) {
-    if (values.model && values.model.provider && values.model.name) {
-      const known = availableModels.find(
-        (m) => m.provider === values.model!.provider && m.model === values.model!.name,
-      );
-      const label = `${values.model.provider}/${values.model.name}`;
-      const value = known ? label : `${label} (not in available models list)`;
-      lines.push(
-        renderField(
-          "Model",
-          value,
-          "Already set by the form. Do not call set-agent-model unless the user explicitly asks to change the model.",
-        ),
-      );
-    } else {
-      lines.push(
-        renderField(
-          "Model",
-          NOT_SET_TEXT,
-          "Call set-agent-model once with a provider/name pair from the available models list. Prefer a strong model for coding/reasoning, a cheaper/faster one for simple high-volume tasks.",
-        ),
-      );
-    }
+    lines.push(renderModelField(values.model, availableModels));
   }
 
   // Workspace

@@ -22,26 +22,33 @@ export interface AgentBuilderRootLayoutProps {
   paths: LinkComponentProviderProps["paths"];
 }
 
-export const AgentBuilderRootLayout = ({ paths }: AgentBuilderRootLayoutProps) => {
-  const location = useLocation();
-  const { data: authCapabilities, isLoading } = useAuthCapabilities();
+function AccessDeniedScreen() {
+  const { isImpersonating, impersonatedRole, stopImpersonation } = useRoleImpersonation();
 
-  if (isLoading) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center">
-        <Spinner />
+  return (
+    <div className="flex h-screen items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <EmptyState
+          iconSlot={<LockIcon />}
+          titleSlot="Access Denied"
+          descriptionSlot="You don't have permission to access the Agent Builder."
+        />
+        <div className="flex items-center gap-2">
+          <Button as="a" href="/agents" variant="outline" size="sm">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to Studio
+          </Button>
+          {isImpersonating && (
+            <Button variant="default" size="sm" onClick={stopImpersonation}>
+              <Eye className="h-3.5 w-3.5" />
+              Exit {impersonatedRole?.name} preview
+            </Button>
+          )}
+        </div>
       </div>
-    );
-  }
-
-  if (authCapabilities?.enabled && !isAuthenticated(authCapabilities)) {
-    const redirectPath = `${location.pathname}${location.search}${location.hash}`;
-    const url = `/login?redirect=${encodeURIComponent(redirectPath)}`;
-    return <Navigate to={url} replace />;
-  }
-
-  return <AgentBuilderPermissionsGuard paths={paths} />;
-};
+    </div>
+  );
+}
 
 const AgentBuilderPermissionsGuard = ({ paths }: AgentBuilderRootLayoutProps) => {
   const navigate = useNavigate();
@@ -106,30 +113,23 @@ const AgentBuilderPermissionsGuard = ({ paths }: AgentBuilderRootLayoutProps) =>
   );
 };
 
-function AccessDeniedScreen() {
-  const { isImpersonating, impersonatedRole, stopImpersonation } = useRoleImpersonation();
+export const AgentBuilderRootLayout = ({ paths }: AgentBuilderRootLayoutProps) => {
+  const location = useLocation();
+  const { data: authCapabilities, isLoading } = useAuthCapabilities();
 
-  return (
-    <div className="flex h-screen items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        <EmptyState
-          iconSlot={<LockIcon />}
-          titleSlot="Access Denied"
-          descriptionSlot="You don't have permission to access the Agent Builder."
-        />
-        <div className="flex items-center gap-2">
-          <Button as="a" href="/agents" variant="outline" size="sm">
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back to Studio
-          </Button>
-          {isImpersonating && (
-            <Button variant="default" size="sm" onClick={stopImpersonation}>
-              <Eye className="h-3.5 w-3.5" />
-              Exit {impersonatedRole?.name} preview
-            </Button>
-          )}
-        </div>
+  if (isLoading) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center">
+        <Spinner />
       </div>
-    </div>
-  );
-}
+    );
+  }
+
+  if (authCapabilities?.enabled && !isAuthenticated(authCapabilities)) {
+    const redirectPath = `${location.pathname}${location.search}${location.hash}`;
+    const url = `/login?redirect=${encodeURIComponent(redirectPath)}`;
+    return <Navigate to={url} replace />;
+  }
+
+  return <AgentBuilderPermissionsGuard paths={paths} />;
+};

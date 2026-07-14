@@ -29,6 +29,74 @@ function ExperimentPageShell({ children }: { children?: ReactNode }) {
   );
 }
 
+interface ExperimentFallbackOptions {
+  datasetId: string;
+  experiment?: { id: string };
+  experimentError: unknown;
+  experimentId?: string;
+  experimentLoading: boolean;
+  experimentsListLoading: boolean;
+}
+
+function getExperimentFallback({
+  datasetId,
+  experiment,
+  experimentError,
+  experimentId,
+  experimentLoading,
+  experimentsListLoading,
+}: ExperimentFallbackOptions): ReactNode | undefined {
+  if (!experimentId || experimentsListLoading || experimentLoading) {
+    return null;
+  }
+  if (experimentError && is401UnauthorizedError(experimentError)) {
+    return (
+      <ExperimentPageShell>
+        <SessionExpired />
+      </ExperimentPageShell>
+    );
+  }
+  if (experimentError && is403ForbiddenError(experimentError)) {
+    return (
+      <ExperimentPageShell>
+        <PermissionDenied resource="datasets" />
+      </ExperimentPageShell>
+    );
+  }
+  if ((experimentError && is404NotFoundError(experimentError)) || !datasetId || !experiment) {
+    return (
+      <ExperimentPageShell>
+        <EmptyState
+          iconSlot={<PlayCircle />}
+          titleSlot="Experiment not found"
+          descriptionSlot={`No experiment with id "${experimentId}".`}
+          actionSlot={
+            <Button as={Link} to="/experiments">
+              <ArrowLeft />
+              Back to Experiments
+            </Button>
+          }
+        />
+      </ExperimentPageShell>
+    );
+  }
+  if (experimentError) {
+    return (
+      <ExperimentPageShell>
+        <ErrorState
+          title="Failed to load experiment"
+          message={
+            experimentError instanceof Error
+              ? experimentError.message
+              : "An unexpected error occurred. Please try again."
+          }
+        />
+      </ExperimentPageShell>
+    );
+  }
+  return undefined;
+}
+
 function ExperimentPage() {
   const { experimentId } = useParams<{ experimentId: string }>();
 
@@ -55,78 +123,30 @@ function ExperimentPage() {
     experimentStatus: experiment?.status,
   });
 
-  if (!experimentId) {
+  const fallback = getExperimentFallback({
+    datasetId,
+    experiment,
+    experimentError,
+    experimentId,
+    experimentLoading,
+    experimentsListLoading,
+  });
+  if (fallback !== undefined) {
+    return fallback;
+  }
+  if (!experiment || !experimentId) {
     return null;
-  }
-  if (experimentsListLoading || experimentLoading) {
-    return null;
-  } // Avoid layout shift on initial load
-
-  if (experimentError && is401UnauthorizedError(experimentError)) {
-    return (
-      <ExperimentPageShell>
-        <SessionExpired />
-      </ExperimentPageShell>
-    );
-  }
-
-  if (experimentError && is403ForbiddenError(experimentError)) {
-    return (
-      <ExperimentPageShell>
-        <PermissionDenied resource="datasets" />
-      </ExperimentPageShell>
-    );
-  }
-
-  // Not found: either an explicit 404 from the dataset/experiment fetch, or the
-  // experimentId isn't present in the full experiments listing (so we can't
-  // resolve a datasetId for it).
-  if (
-    (experimentError && is404NotFoundError(experimentError)) ||
-    (!experimentsListLoading && !datasetId) ||
-    (!experimentLoading && !experimentError && !experiment)
-  ) {
-    return (
-      <ExperimentPageShell>
-        <EmptyState
-          iconSlot={<PlayCircle />}
-          titleSlot="Experiment not found"
-          descriptionSlot={`No experiment with id "${experimentId}".`}
-          actionSlot={
-            <Button as={Link} to="/experiments">
-              <ArrowLeft />
-              Back to Experiments
-            </Button>
-          }
-        />
-      </ExperimentPageShell>
-    );
-  }
-
-  if (experimentError) {
-    return (
-      <ExperimentPageShell>
-        <ErrorState
-          title="Failed to load experiment"
-          message={
-            experimentError instanceof Error
-              ? experimentError.message
-              : "An unexpected error occurred. Please try again."
-          }
-        />
-      </ExperimentPageShell>
-    );
   }
 
   return (
     <PageLayout height="full">
-      <ExperimentTopArea experiment={experiment!} />
+      <ExperimentTopArea experiment={experiment} />
 
       <PageLayout.MainArea>
         <ExperimentPageTabs
           experimentId={experimentId}
           datasetId={datasetId}
-          experimentStatus={experiment!.status}
+          experimentStatus={experiment.status}
           results={results ?? []}
           isLoading={resultsLoading}
           setEndOfListElement={setEndOfListElement}

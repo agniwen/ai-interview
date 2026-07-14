@@ -50,15 +50,19 @@ export const EditPageProvider = ({
     useAgentPrimitives();
   const features = useFeatures();
 
+  if (!agentId) {
+    throw new Error("EditPageProvider requires an agent id");
+  }
+
   // Gate publishing on the *saved* visibility — unsaved form edits should not unlock publishing.
   const canPublishToChannel = isOwner && storedAgent.visibility === "public";
   const isFreshThread = initialUserMessage !== undefined;
 
-  const autosave = useAutosaveAgent({ agentId: agentId!, availableAgentTools, availableSkills });
+  const autosave = useAutosaveAgent({ agentId, availableAgentTools, availableSkills });
 
   const value = useMemo<EditPageContextValue>(
     () => ({
-      agentId: agentId!,
+      agentId,
       autosave,
       availableAgentTools,
       availableSkills,
@@ -84,7 +88,7 @@ export const EditPageProvider = ({
   return (
     <EditPageContext.Provider value={value}>
       <ConversationPanelProvider
-        agentId={agentId!}
+        agentId={agentId}
         features={features}
         availableAgentTools={availableAgentTools}
         availableWorkspaces={availableWorkspaces}
@@ -99,7 +103,6 @@ export const EditPageProvider = ({
   );
 };
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const useEditPage = (): EditPageContextValue => {
   const ctx = useContext(EditPageContext);
   if (!ctx) {

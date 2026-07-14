@@ -25,7 +25,7 @@ export function ExperimentResultTracePanel({
   onClose,
 }: ExperimentResultTracePanelProps) {
   const { data: traceData, isLoading } = useExperimentTrace(traceId);
-  const traceSpans = traceData?.spans ?? [];
+  const traceSpans = useMemo(() => traceData?.spans ?? [], [traceData?.spans]);
 
   const [searchPhrase, setSearchPhrase] = useState("");
   const [fadedSpanTypes, setFadedSpanTypes] = useState<string[]>([]);

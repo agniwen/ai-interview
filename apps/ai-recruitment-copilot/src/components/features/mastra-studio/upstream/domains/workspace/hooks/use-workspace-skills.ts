@@ -10,6 +10,24 @@ import type {
   SearchSkillsParams,
 } from "../types";
 
+interface WorkspaceSkillApi {
+  details(): Promise<Skill>;
+  listReferences(): Promise<ListReferencesResponse>;
+  getReference(path: string): Promise<GetReferenceResponse>;
+}
+
+interface WorkspaceSkillsApi {
+  listSkills(): Promise<ListSkillsResponse>;
+  getSkill(name: string, path?: string): WorkspaceSkillApi;
+  searchSkills(params: SearchSkillsParams): Promise<SearchSkillsResponse>;
+}
+
+interface WorkspaceSkillsClient {
+  getWorkspace(workspaceId: string): WorkspaceSkillsApi;
+}
+
+const getWorkspaceSkillsClient = (client: unknown) => client as WorkspaceSkillsClient;
+
 // =============================================================================
 // Skills Hooks (via Workspace API)
 // =============================================================================
@@ -22,14 +40,14 @@ export const useWorkspaceSkills = (options?: { workspaceId?: string }) => {
 
   return useQuery({
     enabled: !!options?.workspaceId && isWorkspaceV1Supported(client),
-    queryFn: async (): Promise<ListSkillsResponse> => {
+    queryFn: (): Promise<ListSkillsResponse> => {
       if (!isWorkspaceV1Supported(client)) {
         throw new Error("Workspace v1 not supported by core or client");
       }
       if (!options?.workspaceId) {
         throw new Error("workspaceId is required");
       }
-      const workspace = (client as any).getWorkspace(options.workspaceId);
+      const workspace = getWorkspaceSkillsClient(client).getWorkspace(options.workspaceId);
       return workspace.listSkills();
     },
     queryKey: ["workspace", "skills", options?.workspaceId],
@@ -52,14 +70,14 @@ export const useWorkspaceSkill = (
       !!skillName &&
       !!options?.workspaceId &&
       isWorkspaceV1Supported(client),
-    queryFn: async (): Promise<Skill> => {
+    queryFn: (): Promise<Skill> => {
       if (!isWorkspaceV1Supported(client)) {
         throw new Error("Workspace v1 not supported by core or client");
       }
       if (!options?.workspaceId) {
         throw new Error("workspaceId is required");
       }
-      const workspace = (client as any).getWorkspace(options.workspaceId);
+      const workspace = getWorkspaceSkillsClient(client).getWorkspace(options.workspaceId);
       const skill = workspace.getSkill(skillName, options?.path);
       return skill.details();
     },
@@ -83,14 +101,14 @@ export const useWorkspaceSkillReferences = (
       !!skillName &&
       !!options?.workspaceId &&
       isWorkspaceV1Supported(client),
-    queryFn: async (): Promise<ListReferencesResponse> => {
+    queryFn: (): Promise<ListReferencesResponse> => {
       if (!isWorkspaceV1Supported(client)) {
         throw new Error("Workspace v1 not supported by core or client");
       }
       if (!options?.workspaceId) {
         throw new Error("workspaceId is required");
       }
-      const workspace = (client as any).getWorkspace(options.workspaceId);
+      const workspace = getWorkspaceSkillsClient(client).getWorkspace(options.workspaceId);
       const skill = workspace.getSkill(skillName, options?.path);
       return skill.listReferences();
     },
@@ -116,14 +134,14 @@ export const useWorkspaceSkillReference = (
       !!referencePath &&
       !!options?.workspaceId &&
       isWorkspaceV1Supported(client),
-    queryFn: async (): Promise<GetReferenceResponse> => {
+    queryFn: (): Promise<GetReferenceResponse> => {
       if (!isWorkspaceV1Supported(client)) {
         throw new Error("Workspace v1 not supported by core or client");
       }
       if (!options?.workspaceId) {
         throw new Error("workspaceId is required");
       }
-      const workspace = (client as any).getWorkspace(options.workspaceId);
+      const workspace = getWorkspaceSkillsClient(client).getWorkspace(options.workspaceId);
       const skill = workspace.getSkill(skillName, options?.path);
       return skill.getReference(referencePath);
     },
@@ -147,11 +165,11 @@ export const useSearchWorkspaceSkills = () => {
   const client = useMastraClient();
 
   return useMutation({
-    mutationFn: async (params: SearchSkillsParams): Promise<SearchSkillsResponse> => {
+    mutationFn: (params: SearchSkillsParams): Promise<SearchSkillsResponse> => {
       if (!isWorkspaceV1Supported(client)) {
         throw new Error("Workspace v1 not supported by core or client");
       }
-      const workspace = (client as any).getWorkspace(params.workspaceId);
+      const workspace = getWorkspaceSkillsClient(client).getWorkspace(params.workspaceId);
       return workspace.searchSkills(params);
     },
   });
@@ -181,14 +199,14 @@ export const useAgentSkill = (
       !!skillName &&
       !!options?.workspaceId &&
       isWorkspaceV1Supported(client),
-    queryFn: async (): Promise<Skill> => {
+    queryFn: (): Promise<Skill> => {
       if (!isWorkspaceV1Supported(client)) {
         throw new Error("Workspace v1 not supported by core or client");
       }
       if (!options?.workspaceId) {
         throw new Error("workspaceId is required");
       }
-      const workspace = (client as any).getWorkspace(options.workspaceId);
+      const workspace = getWorkspaceSkillsClient(client).getWorkspace(options.workspaceId);
       const skill = workspace.getSkill(skillName, options?.path);
       return skill.details();
     },

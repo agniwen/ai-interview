@@ -6,7 +6,12 @@ export const useToolkits = (providerId: string | null) => {
 
   return useQuery({
     enabled: !!providerId,
-    queryFn: () => client.getToolProvider(providerId!).listToolkits(),
+    queryFn: () => {
+      if (!providerId) {
+        return { data: [] };
+      }
+      return client.getToolProvider(providerId).listToolkits();
+    },
     queryKey: ["tool-provider-toolkits", providerId],
   });
 };

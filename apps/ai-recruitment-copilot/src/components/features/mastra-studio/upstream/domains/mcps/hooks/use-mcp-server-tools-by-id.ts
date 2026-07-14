@@ -7,7 +7,10 @@ export const useMCPServerToolsById = (serverId: string | null) => {
   return useQuery({
     enabled: Boolean(serverId),
     queryFn: async () => {
-      const response = await client.getMcpServerTools(serverId!);
+      if (!serverId) {
+        return {};
+      }
+      const response = await client.getMcpServerTools(serverId);
       return Object.fromEntries(response.tools.map((tool) => [tool.id, tool]));
     },
     queryKey: ["mcpserver-tools", serverId],

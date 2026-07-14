@@ -22,12 +22,34 @@ import { useMemorySidebarTab } from "./use-memory-sidebar-tab";
 import "../agent-view-transition.css";
 import { ChatThreads } from "@/components/features/mastra-studio/upstream/domains/agents/components/chat-threads";
 import { SidebarPanel } from "@/components/features/mastra-studio/upstream/domains/agents/components/sidebar-panel";
-import {
-  useMemoryTimeline,
-  useObservationalMemoryContext,
-} from "@/components/features/mastra-studio/upstream/domains/agents/context";
+import { useObservationalMemoryContext } from "@/components/features/mastra-studio/upstream/domains/agents/context/agent-observational-memory-context";
+import { useMemoryTimeline } from "@/components/features/mastra-studio/upstream/domains/agents/context/use-memory-timeline";
 
 import { useMemory } from "@/components/features/mastra-studio/upstream/domains/memory/hooks/use-memory";
+import { allTruthy, anyTruthy, isTruthy } from "../../utils/truthiness";
+import { resolveConditional } from "../../utils/conditional";
+
+function parseCssNumber(value: string): number {
+  const parsed = Number.parseFloat(value);
+  if (Number.isNaN(parsed)) {
+    return 0;
+  }
+  return parsed;
+}
+
+function getWindowPercent(window: { tokens: number; threshold: number } | undefined) {
+  if (!window || window.threshold <= 0) {
+    return;
+  }
+  return Math.min(100, Math.round((window.tokens / window.threshold) * 100));
+}
+
+function getPaddingBottom(hasMemory: boolean, offset: number): number | undefined {
+  if (!hasMemory || offset === 0) {
+    return undefined;
+  }
+  return offset;
+}
 
 export interface MemorySidebarProps {
   agentId: string;
@@ -101,18 +123,6 @@ function MemorySidebarSkeleton() {
 
 // SidebarPanel is the single layout shell; the body picks the view with guard
 // clauses and returns bare content — see structure-early-return-render-branches.
-export function MemorySidebar({ agentId, threadId, threads, onDelete }: MemorySidebarProps) {
-  return (
-    <SidebarPanel>
-      <MemorySidebarBody
-        agentId={agentId}
-        threadId={threadId}
-        threads={threads}
-        onDelete={onDelete}
-      />
-    </SidebarPanel>
-  );
-}
 
 function MemorySidebarBody({ agentId, threadId, threads, onDelete }: MemorySidebarProps) {
   // Derive memory state from the shared (React Query deduped) hook instead of
@@ -132,20 +142,20 @@ function MemorySidebarBody({ agentId, threadId, threads, onDelete }: MemorySideb
   const memoryCardButtonRef = useRef<HTMLButtonElement>(null);
   const [collapsedCardSize, setCollapsedCardSize] = useState({ height: 0, offset: 0 });
 
-  const showMemoryDetail = observationalOn && isPanelOpen;
+  const showMemoryDetail = allTruthy(observationalOn, isPanelOpen);
 
   // streamProgress is intentionally retained across thread switches (for reload
   // display), so only trust it for the thread this card belongs to — otherwise the
   // collapsed bar keeps the previous thread's percentage.
-  const messagesWindow =
-    streamProgress?.threadId === threadId ? streamProgress.windows?.active?.messages : undefined;
-  const observationPercent =
-    messagesWindow && messagesWindow.threshold > 0
-      ? Math.min(100, Math.round((messagesWindow.tokens / messagesWindow.threshold) * 100))
-      : undefined;
+  const messagesWindow = resolveConditional(
+    streamProgress?.threadId === threadId,
+    () => streamProgress?.windows?.active?.messages,
+    () => null,
+  );
+  const observationPercent = getWindowPercent(messagesWindow ?? undefined);
 
   useLayoutEffect(() => {
-    if (showMemory || showMemoryDetail || !hasMemory) {
+    if (anyTruthy(showMemory, showMemoryDetail, !hasMemory)) {
       return;
     }
 
@@ -157,15 +167,19 @@ function MemorySidebarBody({ agentId, threadId, threads, onDelete }: MemorySideb
 
     const updateCollapsedSize = () => {
       const shellStyles = getComputedStyle(shell);
-      const borderTop = Number.parseFloat(shellStyles.borderTopWidth) || 0;
-      const borderBottom = Number.parseFloat(shellStyles.borderBottomWidth) || 0;
-      const marginTop = Number.parseFloat(shellStyles.marginTop) || 0;
-      const marginBottom = Number.parseFloat(shellStyles.marginBottom) || 0;
+      const borderTop = parseCssNumber(shellStyles.borderTopWidth);
+      const borderBottom = parseCssNumber(shellStyles.borderBottomWidth);
+      const marginTop = parseCssNumber(shellStyles.marginTop);
+      const marginBottom = parseCssNumber(shellStyles.marginBottom);
       const height = Math.ceil(button.getBoundingClientRect().height + borderTop + borderBottom);
       const offset = Math.ceil(height + marginTop + marginBottom);
 
       setCollapsedCardSize((current) =>
-        current.height === height && current.offset === offset ? current : { height, offset },
+        resolveConditional(
+          allTruthy(current.height === height, current.offset === offset),
+          () => current,
+          () => ({ height, offset }),
+        ),
       );
     };
 
@@ -206,17 +220,37 @@ function MemorySidebarBody({ agentId, threadId, threads, onDelete }: MemorySideb
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <div
-          aria-hidden={showMemory && hasMemory}
-          inert={showMemory && hasMemory ? true : undefined}
+          aria-hidden={Boolean(
+            resolveConditional(
+              showMemory,
+              () => hasMemory,
+              () => null,
+            ),
+          )}
+          inert={
+            resolveConditional(
+              showMemory,
+              () => hasMemory,
+              () => null,
+            )
+              ? true
+              : undefined
+          }
           data-testid="memory-sidebar-thread-layer"
           className={cn(
             "memory-sidebar-thread-layer absolute inset-0 flex min-h-0 flex-col overflow-hidden",
-            showMemory && hasMemory ? "pointer-events-none opacity-0" : "opacity-100",
+            resolveConditional(
+              showMemory,
+              () => hasMemory,
+              () => null,
+            )
+              ? "pointer-events-none opacity-0"
+              : "opacity-100",
           )}
         >
           <div
             className="min-h-0 flex-1 overflow-hidden"
-            style={{ paddingBottom: hasMemory ? collapsedCardSize.offset || undefined : undefined }}
+            style={{ paddingBottom: getPaddingBottom(hasMemory, collapsedCardSize.offset) }}
           >
             {hasMemory ? (
               <ChatThreads
@@ -289,7 +323,7 @@ function MemorySidebarBody({ agentId, threadId, threads, onDelete }: MemorySideb
                     icon={MessageSquare}
                     label="recent messages"
                     tooltip={
-                      lastMessages !== undefined
+                      isTruthy(lastMessages !== undefined)
                         ? `Keeps the last ${lastMessages} messages in context`
                         : "Recent message history is off"
                     }
@@ -333,7 +367,7 @@ function MemorySidebarBody({ agentId, threadId, threads, onDelete }: MemorySideb
                 </span>
               </TooltipProvider>
 
-              {observationPercent !== undefined ? (
+              {typeof observationPercent === "number" ? (
                 <span className="mt-2 block h-1 w-full overflow-hidden rounded-full bg-surface5">
                   <span
                     className={cn(
@@ -346,10 +380,14 @@ function MemorySidebarBody({ agentId, threadId, threads, onDelete }: MemorySideb
               ) : null}
             </button>
 
-            {showMemory && (
-              <div className="memory-card-content min-h-0 flex-1 overflow-y-auto border-t border-border1">
-                <AgentMemory agentId={agentId} threadId={threadId} memoryType={memoryType} />
-              </div>
+            {resolveConditional(
+              showMemory,
+              () => (
+                <div className="memory-card-content min-h-0 flex-1 overflow-y-auto border-t border-border1">
+                  <AgentMemory agentId={agentId} threadId={threadId} memoryType={memoryType} />
+                </div>
+              ),
+              () => null,
             )}
           </div>
         ) : null}
@@ -357,5 +395,18 @@ function MemorySidebarBody({ agentId, threadId, threads, onDelete }: MemorySideb
 
       <AgentCapabilitiesFooter agentId={agentId} />
     </div>
+  );
+}
+
+export function MemorySidebar({ agentId, threadId, threads, onDelete }: MemorySidebarProps) {
+  return (
+    <SidebarPanel>
+      <MemorySidebarBody
+        agentId={agentId}
+        threadId={threadId}
+        threads={threads}
+        onDelete={onDelete}
+      />
+    </SidebarPanel>
   );
 }

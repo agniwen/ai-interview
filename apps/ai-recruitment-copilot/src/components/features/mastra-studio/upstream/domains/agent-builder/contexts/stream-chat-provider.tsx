@@ -90,12 +90,12 @@ export const StreamChatProvider = ({
           // ~2,000 we see mid-stream JSON truncation surface as an OpenAI
           // server_error on the next request.
           maxTokens: 5000,
-          temperature: 1,
           providerOptions: {
             openai: {
               reasoningEffort: "low",
             },
           },
+          temperature: 1,
         },
         requestContext,
         threadId: threadIdRef.current,

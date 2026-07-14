@@ -18,13 +18,14 @@ import type { RuleGroup } from "@mastra/playground-ui/utils/rule-engine";
 import { SearchIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useWatch } from "react-hook-form";
+import { omitRecordKey } from "@/components/features/mastra-studio/upstream/domains/agents/utils/record";
 
 import { useAgentEditFormContext } from "../../context/agent-edit-form-context";
+import { DisplayConditionsDialog } from "@/components/features/mastra-studio/upstream/domains/cms/components/display-conditions/display-conditions-dialog";
 import {
   SectionHeader,
-  DisplayConditionsDialog,
-} from "@/components/features/mastra-studio/upstream/domains/cms";
-import { SubSectionHeader } from "@/components/features/mastra-studio/upstream/domains/cms/components/section/section-header";
+  SubSectionHeader,
+} from "@/components/features/mastra-studio/upstream/domains/cms/components/section/section-header";
 import { useWorkflows } from "@/components/features/mastra-studio/upstream/domains/workflows/hooks/use-workflows";
 
 export function WorkflowsPage() {
@@ -57,8 +58,7 @@ export function WorkflowsPage() {
   const handleValueChange = (workflowId: string) => {
     const isSet = selectedWorkflows?.[workflowId] !== undefined;
     if (isSet) {
-      const next = { ...selectedWorkflows };
-      delete next[workflowId];
+      const next = omitRecordKey(selectedWorkflows, workflowId);
       form.setValue("workflows", next, { shouldDirty: true });
     } else {
       form.setValue(
@@ -140,6 +140,7 @@ export function WorkflowsPage() {
                       <EntityName>{workflow.label}</EntityName>
                       <EntityDescription>
                         <input
+                          aria-label={`${workflow.label} description`}
                           type="text"
                           disabled={isDisabled}
                           className={cn(

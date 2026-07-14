@@ -1,54 +1,54 @@
 import { CodeEditor } from "@mastra/playground-ui/components/CodeEditor";
 import { cn } from "@mastra/playground-ui/utils/cn";
-import { ChevronRight, Check, X, Loader2 } from "lucide-react";
+import { Check, ChevronRight, Loader2, X } from "lucide-react";
 import { useState } from "react";
 import type { BrowserToolCallEntry } from "../../context/browser-tool-calls-context";
 
 const TOOL_DISPLAY_NAMES: Record<string, string> = {
   // AgentBrowser tools
-  browser_goto: "Go to",
-  browser_click: "Click",
-  browser_type: "Type",
-  browser_scroll: "Scroll",
-  browser_snapshot: "Snapshot",
-  browser_close: "Close",
-  browser_select: "Select",
-  browser_press: "Press",
-  browser_hover: "Hover",
   browser_back: "Back",
+  browser_click: "Click",
+  browser_close: "Close",
   browser_dialog: "Dialog",
-  browser_wait: "Wait",
-  browser_tabs: "Tabs",
   browser_drag: "Drag",
   browser_evaluate: "Evaluate",
+  browser_goto: "Go to",
+  browser_hover: "Hover",
+  browser_press: "Press",
+  browser_scroll: "Scroll",
+  browser_select: "Select",
+  browser_snapshot: "Snapshot",
+  browser_tabs: "Tabs",
+  browser_type: "Type",
+  browser_wait: "Wait",
   // StagehandBrowser tools
-  stagehand_navigate: "Navigate",
   stagehand_act: "Act",
-  stagehand_extract: "Extract",
-  stagehand_observe: "Observe",
   stagehand_close: "Close",
+  stagehand_extract: "Extract",
+  stagehand_navigate: "Navigate",
+  stagehand_observe: "Observe",
   stagehand_tabs: "Tabs",
 };
 
 const KEY_ARG_MAP: Record<string, string> = {
   // AgentBrowser tools
-  browser_goto: "url",
   browser_click: "ref",
-  browser_type: "text",
-  browser_scroll: "direction",
   browser_close: "reason",
-  browser_select: "value",
-  browser_press: "key",
-  browser_hover: "ref",
   browser_dialog: "action",
-  browser_wait: "time",
-  browser_tabs: "action",
   browser_drag: "sourceRef",
   browser_evaluate: "expression",
+  browser_goto: "url",
+  browser_hover: "ref",
+  browser_press: "key",
+  browser_scroll: "direction",
+  browser_select: "value",
+  browser_tabs: "action",
+  browser_type: "text",
+  browser_wait: "time",
   // StagehandBrowser tools
-  stagehand_navigate: "url",
   stagehand_act: "action",
   stagehand_extract: "instruction",
+  stagehand_navigate: "url",
   stagehand_observe: "instruction",
   stagehand_tabs: "action",
 };
@@ -76,6 +76,23 @@ function getKeyArgSummary(toolName: string, args: Record<string, unknown>): stri
 
 interface BrowserToolCallItemProps {
   entry: BrowserToolCallEntry;
+}
+
+function StatusDot({ status }: { status: BrowserToolCallEntry["status"] }) {
+  switch (status) {
+    case "pending": {
+      return <Loader2 className="h-3 w-3 text-neutral4 animate-spin shrink-0" />;
+    }
+    case "complete": {
+      return <Check className="h-3 w-3 text-green-500 shrink-0" />;
+    }
+    case "error": {
+      return <X className="h-3 w-3 text-red-500 shrink-0" />;
+    }
+    default: {
+      return null;
+    }
+  }
 }
 
 export function BrowserToolCallItem({ entry }: BrowserToolCallItemProps) {
@@ -136,18 +153,4 @@ export function BrowserToolCallItem({ entry }: BrowserToolCallItemProps) {
       )}
     </div>
   );
-}
-
-function StatusDot({ status }: { status: BrowserToolCallEntry["status"] }) {
-  switch (status) {
-    case "pending": {
-      return <Loader2 className="h-3 w-3 text-neutral4 animate-spin shrink-0" />;
-    }
-    case "complete": {
-      return <Check className="h-3 w-3 text-green-500 shrink-0" />;
-    }
-    case "error": {
-      return <X className="h-3 w-3 text-red-500 shrink-0" />;
-    }
-  }
 }

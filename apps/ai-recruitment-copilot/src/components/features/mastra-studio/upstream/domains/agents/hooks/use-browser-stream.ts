@@ -1,18 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getEmbeddedMastraWebSocketUrl } from "@/components/features/mastra-studio/mastra-studio-config";
+import { isTruthy } from "../utils/truthiness";
 
 /**
  * Connection status for the browser screencast stream
  */
 export type StreamStatus =
-  | "idle" // Not connected
-  | "connecting" // WebSocket connecting
-  | "connected" // WebSocket open, waiting for stream
-  | "browser_starting" // Browser launching
-  | "streaming" // Receiving frames
-  | "browser_closed" // Browser session closed explicitly
-  | "disconnected" // Connection lost
-  | "error"; // Error state
+  // Not connected
+  | "idle"
+  // WebSocket connecting
+  | "connecting"
+  // WebSocket open, waiting for stream
+  | "connected"
+  // Browser launching
+  | "browser_starting"
+  // Receiving frames
+  | "streaming"
+  // Browser session closed explicitly
+  | "browser_closed"
+  // Connection lost
+  | "disconnected"
+  // Error state
+  | "error";
 
 interface UseBrowserStreamOptions {
   agentId: string;
@@ -103,14 +112,14 @@ export function useBrowserStream(options: UseBrowserStreamOptions): UseBrowserSt
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
-      ws.onopen = () => {
+      ws.addEventListener("open", () => {
         setStatus("connected");
         setError(null);
         // Reset reconnect attempts on successful connection
         reconnectAttemptRef.current = 0;
-      };
+      });
 
-      ws.onmessage = (event) => {
+      ws.addEventListener("message", (event) => {
         const data = event.data as string;
 
         // Check if message is JSON (status/error messages start with '{')
@@ -169,16 +178,16 @@ export function useBrowserStream(options: UseBrowserStreamOptions): UseBrowserSt
           // Plain text is base64 frame data
           onFrameRef.current?.(data);
           // Ensure we're in streaming status when receiving frames
-          setStatus((prev) => (prev !== "streaming" ? "streaming" : prev));
+          setStatus((prev) => (isTruthy(prev !== "streaming") ? "streaming" : prev));
         }
-      };
+      });
 
-      ws.onerror = () => {
+      ws.addEventListener("error", () => {
         // Error event doesn't provide useful info, wait for close
         setError("WebSocket error occurred");
-      };
+      });
 
-      ws.onclose = (event) => {
+      ws.addEventListener("close", (event) => {
         wsRef.current = null;
 
         // Don't reconnect if intentionally closed or max attempts reached
@@ -198,10 +207,12 @@ export function useBrowserStream(options: UseBrowserStreamOptions): UseBrowserSt
         } else {
           setStatus("idle");
         }
-      };
-    } catch (error) {
+      });
+    } catch (connectionError) {
       setStatus("error");
-      setError(error instanceof Error ? error.message : "Failed to create WebSocket");
+      setError(
+        connectionError instanceof Error ? connectionError.message : "Failed to create WebSocket",
+      );
     }
   }, [agentId, threadId, enabled, maxReconnectAttempts, clearReconnectTimeout]);
 

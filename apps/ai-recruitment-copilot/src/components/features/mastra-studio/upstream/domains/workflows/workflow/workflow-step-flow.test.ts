@@ -1,10 +1,6 @@
 import type { SerializedStepFlowEntry } from "@mastra/core/workflows";
 import { describe, expect, it } from "vitest";
-import {
-  buildStepSuccessors,
-  collectGraphStepFlags,
-  selectNextStepKey,
-} from "./utils";
+import { buildStepSuccessors, collectGraphStepFlags, selectNextStepKey } from "./utils";
 
 describe("workflow step flow", () => {
   it("builds a deduplicated successor map", () => {

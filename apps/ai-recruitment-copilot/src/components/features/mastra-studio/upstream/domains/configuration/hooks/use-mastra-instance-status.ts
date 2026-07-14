@@ -5,7 +5,7 @@ export interface UseMastraInstanceStatusResponse {
 }
 
 const getMastraInstanceStatus = async (
-  endpoint: string = "http://localhost:4111",
+  endpoint = "http://localhost:4111",
   headers?: Record<string, string>,
 ): Promise<UseMastraInstanceStatusResponse> => {
   try {
@@ -18,7 +18,7 @@ const getMastraInstanceStatus = async (
 };
 
 export const useMastraInstanceStatus = (
-  endpoint: string = "http://localhost:4111",
+  endpoint = "http://localhost:4111",
   headers?: Record<string, string>,
 ) =>
   useQuery({

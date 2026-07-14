@@ -11,186 +11,15 @@ import type { AgentBuilderEditFormValues } from "../../../schemas";
 import { AgentSelectableCard } from "../agent-selectable-card";
 import { FilterableList } from "./filterable-list";
 import { TwoPanePickerSkeleton } from "./two-pane-picker-skeleton";
-import { useBuilderModelPolicy } from "@/components/features/mastra-studio/upstream/domains/agent-builder";
+import { useBuilderModelPolicy } from "@/components/features/mastra-studio/upstream/domains/agent-builder/hooks/use-builder-settings";
 import { useAgentBuilderAllowedModels } from "@/components/features/mastra-studio/upstream/domains/agent-builder/hooks/use-agent-builder-allowed-models";
-import {
-  ProviderLogo,
-  cleanProviderId,
-} from "@/components/features/mastra-studio/upstream/domains/llm";
+import { ProviderLogo } from "@/components/features/mastra-studio/upstream/domains/llm/components/provider-logo";
 import type { ModelInfo } from "@/components/features/mastra-studio/upstream/domains/llm/hooks/use-filtered-models";
+import { cleanProviderId } from "@/components/features/mastra-studio/upstream/domains/llm/utils";
 
 export interface Modelprops {
   editable?: boolean;
 }
-
-export const Models = ({ editable = true }: Modelprops) => {
-  const policy = useBuilderModelPolicy();
-  const locked = policy.active && policy.pickerVisible === false;
-
-  if (locked) {
-    const policyProvider = policy.default?.provider;
-    const policyModelId = policy.default?.modelId;
-
-    return (
-      <div className="px-6 py-6">
-        <LockedModelChip provider={policyProvider} modelId={policyModelId} />
-      </div>
-    );
-  }
-
-  return (
-    <div className="h-full min-h-0 overflow-hidden" data-testid="model-detail-picker">
-      <ModelPicker disabled={!editable} />
-    </div>
-  );
-};
-
-interface ModelPickerProps {
-  disabled?: boolean;
-}
-
-interface ProviderEntry {
-  providerId: string;
-  providerName: string;
-}
-
-const ModelPicker = ({ disabled = false }: ModelPickerProps) => {
-  const { setValue, control } = useFormContext<AgentBuilderEditFormValues>();
-  const model = useWatch({ control, name: "model" });
-  const policy = useBuilderModelPolicy();
-  const { models: policyAllowedModels, isLoading } = useAgentBuilderAllowedModels();
-
-  const [search, setSearch] = useState("");
-  const [selectedProviders, setSelectedProviders] = useState<Set<string> | null>(null);
-
-  const providerOptions = useMemo<ProviderEntry[]>(() => {
-    const seen = new Map<string, string>();
-    for (const m of policyAllowedModels) {
-      const id = cleanProviderId(m.provider);
-      if (!seen.has(id)) {
-        seen.set(id, m.providerName);
-      }
-    }
-    return [...seen.entries()]
-      .map(([providerId, providerName]) => ({ providerId, providerName }))
-      .toSorted((a, b) => a.providerName.localeCompare(b.providerName));
-  }, [policyAllowedModels]);
-
-  const isProviderChecked = (providerId: string) =>
-    selectedProviders === null || selectedProviders.has(providerId);
-
-  const handleToggleProvider = (providerId: string) => {
-    setSelectedProviders((prev) => {
-      const base = prev ?? new Set(providerOptions.map((p) => p.providerId));
-      const next = new Set(base);
-      if (next.has(providerId)) {
-        next.delete(providerId);
-      } else {
-        next.add(providerId);
-      }
-      return next;
-    });
-  };
-
-  const handleSelectAllProviders = () => {
-    setSelectedProviders(new Set(providerOptions.map((p) => p.providerId)));
-  };
-
-  const handleClearAllProviders = () => {
-    setSelectedProviders(new Set());
-  };
-
-  const providerFilterItems = useMemo(
-    () =>
-      providerOptions.map(({ providerId, providerName }) => ({
-        icon: <ProviderLogo providerId={providerId} size={18} />,
-        id: providerId,
-        label: providerName,
-      })),
-    [providerOptions],
-  );
-
-  if (isLoading) {
-    return <TwoPanePickerSkeleton testId="model-card-picker-loading" />;
-  }
-
-  const provider = cleanProviderId(model?.provider ?? "");
-  const modelId = model?.name ?? "";
-
-  const isSet = Boolean(provider && modelId);
-  const isAllowed = policyAllowedModels.some(
-    (m) => cleanProviderId(m.provider) === provider && m.model === modelId,
-  );
-  const isStale = isSet && policy.active && !isAllowed;
-
-  const groups = groupModelsByProvider(policyAllowedModels, selectedProviders, search, provider);
-  const allProvidersUnchecked = selectedProviders !== null && selectedProviders.size === 0;
-
-  return (
-    <div className="h-full min-h-0 overflow-hidden">
-      <div
-        className="grid h-full min-h-0 grid-cols-[280px_minmax(0,1fr)] overflow-hidden"
-        data-testid="model-card-picker"
-      >
-        {providerOptions.length > 0 && (
-          <FilterableList
-            title="Providers"
-            items={providerFilterItems}
-            isChecked={isProviderChecked}
-            onToggle={handleToggleProvider}
-            onSelectAll={handleSelectAllProviders}
-            onClearAll={handleClearAllProviders}
-            disabled={disabled}
-            testIdPrefix="models-provider"
-          />
-        )}
-
-        <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-6 px-6 py-6">
-          <div
-            data-testid="model-card-picker-search"
-            className="shrink-0 max-w-[30ch] rounded-full bg-surface3"
-          >
-            <InputGroup variant="outline" size="lg">
-              <InputGroupAddon align="inline-start">
-                <SearchIcon />
-              </InputGroupAddon>
-              <InputGroupInput
-                type="search"
-                aria-label="Search models"
-                placeholder="Search models or providers..."
-                onChange={(event) => setSearch(event.target.value)}
-              />
-            </InputGroup>
-          </div>
-
-          {groups.length === 0 ? (
-            <div className="flex min-h-0 items-center justify-center">
-              <Txt variant="ui-md" className="text-neutral3">
-                {search.trim()
-                  ? `No models match "${search.trim()}"`
-                  : allProvidersUnchecked
-                    ? "Select at least one provider to see models"
-                    : "No models available"}
-              </Txt>
-            </div>
-          ) : (
-            <ModelGroups
-              groups={groups}
-              selectedProvider={provider}
-              selectedModel={modelId}
-              disabled={disabled}
-              onChange={(provider, model) =>
-                setValue("model", { name: model, provider }, { shouldDirty: true })
-              }
-            />
-          )}
-        </div>
-      </div>
-
-      {isStale && <StaleWarning provider={provider} modelId={modelId} />}
-    </div>
-  );
-};
 
 interface ModelGroup {
   providerId: string;
@@ -345,3 +174,178 @@ function groupModelsByProvider(
     return a.providerName.localeCompare(b.providerName);
   });
 }
+
+interface ModelPickerProps {
+  disabled?: boolean;
+}
+
+interface ProviderEntry {
+  providerId: string;
+  providerName: string;
+}
+
+const ModelPicker = ({ disabled = false }: ModelPickerProps) => {
+  const { setValue, control } = useFormContext<AgentBuilderEditFormValues>();
+  const model = useWatch({ control, name: "model" });
+  const policy = useBuilderModelPolicy();
+  const { models: policyAllowedModels, isLoading } = useAgentBuilderAllowedModels();
+
+  const [search, setSearch] = useState("");
+  const [selectedProviders, setSelectedProviders] = useState<Set<string> | null>(null);
+
+  const providerOptions = useMemo<ProviderEntry[]>(() => {
+    const seen = new Map<string, string>();
+    for (const m of policyAllowedModels) {
+      const id = cleanProviderId(m.provider);
+      if (!seen.has(id)) {
+        seen.set(id, m.providerName);
+      }
+    }
+    return [...seen.entries()]
+      .map(([providerId, providerName]) => ({ providerId, providerName }))
+      .toSorted((a, b) => a.providerName.localeCompare(b.providerName));
+  }, [policyAllowedModels]);
+
+  const isProviderChecked = (providerId: string) =>
+    selectedProviders === null || selectedProviders.has(providerId);
+
+  const handleToggleProvider = (providerId: string) => {
+    setSelectedProviders((prev) => {
+      const base = prev ?? new Set(providerOptions.map((p) => p.providerId));
+      const next = new Set(base);
+      if (next.has(providerId)) {
+        next.delete(providerId);
+      } else {
+        next.add(providerId);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAllProviders = () => {
+    setSelectedProviders(new Set(providerOptions.map((p) => p.providerId)));
+  };
+
+  const handleClearAllProviders = () => {
+    setSelectedProviders(new Set());
+  };
+
+  const providerFilterItems = useMemo(
+    () =>
+      providerOptions.map(({ providerId, providerName }) => ({
+        icon: <ProviderLogo providerId={providerId} size={18} />,
+        id: providerId,
+        label: providerName,
+      })),
+    [providerOptions],
+  );
+
+  if (isLoading) {
+    return <TwoPanePickerSkeleton testId="model-card-picker-loading" />;
+  }
+
+  const provider = cleanProviderId(model?.provider ?? "");
+  const modelId = model?.name ?? "";
+
+  const isSet = Boolean(provider && modelId);
+  const isAllowed = policyAllowedModels.some(
+    (m) => cleanProviderId(m.provider) === provider && m.model === modelId,
+  );
+  const isStale = isSet && policy.active && !isAllowed;
+
+  const groups = groupModelsByProvider(policyAllowedModels, selectedProviders, search, provider);
+  const allProvidersUnchecked = selectedProviders !== null && selectedProviders.size === 0;
+  let emptyMessage = allProvidersUnchecked
+    ? "Select at least one provider to see models"
+    : "No models available";
+  if (search.trim()) {
+    emptyMessage = `No models match "${search.trim()}"`;
+  }
+
+  return (
+    <div className="h-full min-h-0 overflow-hidden">
+      <div
+        className="grid h-full min-h-0 grid-cols-[280px_minmax(0,1fr)] overflow-hidden"
+        data-testid="model-card-picker"
+      >
+        {providerOptions.length > 0 && (
+          <FilterableList
+            title="Providers"
+            items={providerFilterItems}
+            isChecked={isProviderChecked}
+            onToggle={handleToggleProvider}
+            onSelectAll={handleSelectAllProviders}
+            onClearAll={handleClearAllProviders}
+            disabled={disabled}
+            testIdPrefix="models-provider"
+          />
+        )}
+
+        <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-6 px-6 py-6">
+          <div
+            data-testid="model-card-picker-search"
+            className="shrink-0 max-w-[30ch] rounded-full bg-surface3"
+          >
+            <InputGroup variant="outline" size="lg">
+              <InputGroupAddon align="inline-start">
+                <SearchIcon />
+              </InputGroupAddon>
+              <InputGroupInput
+                type="search"
+                aria-label="Search models"
+                placeholder="Search models or providers..."
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </InputGroup>
+          </div>
+
+          {groups.length === 0 ? (
+            <div className="flex min-h-0 items-center justify-center">
+              <Txt variant="ui-md" className="text-neutral3">
+                {emptyMessage}
+              </Txt>
+            </div>
+          ) : (
+            <ModelGroups
+              groups={groups}
+              selectedProvider={provider}
+              selectedModel={modelId}
+              disabled={disabled}
+              onChange={(nextProvider, nextModel) =>
+                setValue(
+                  "model",
+                  { name: nextModel, provider: nextProvider },
+                  { shouldDirty: true },
+                )
+              }
+            />
+          )}
+        </div>
+      </div>
+
+      {isStale && <StaleWarning provider={provider} modelId={modelId} />}
+    </div>
+  );
+};
+
+export const Models = ({ editable = true }: Modelprops) => {
+  const policy = useBuilderModelPolicy();
+  const locked = policy.active && policy.pickerVisible === false;
+
+  if (locked) {
+    const policyProvider = policy.default?.provider;
+    const policyModelId = policy.default?.modelId;
+
+    return (
+      <div className="px-6 py-6">
+        <LockedModelChip provider={policyProvider} modelId={policyModelId} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full min-h-0 overflow-hidden" data-testid="model-detail-picker">
+      <ModelPicker disabled={!editable} />
+    </div>
+  );
+};

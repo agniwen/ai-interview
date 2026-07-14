@@ -1,10 +1,8 @@
 import { Button } from "@mastra/playground-ui/components/Button";
 import { ArrowLeftIcon } from "lucide-react";
 import { Navigate, useNavigate } from "@/components/features/mastra-studio/router/compat";
-import {
-  useBuilderAgentAccess,
-  useBuilderAgentFeatures,
-} from "@/components/features/mastra-studio/upstream/domains/agent-builder";
+import { useBuilderAgentAccess } from "@/components/features/mastra-studio/upstream/domains/agent-builder/hooks/use-builder-agent-access";
+import { useBuilderAgentFeatures } from "@/components/features/mastra-studio/upstream/domains/agent-builder/hooks/use-builder-agent-features";
 import { AgentBuilderStarter } from "@/components/features/mastra-studio/upstream/domains/agent-builder/components/agent-starter/agent-builder-starter";
 import { useAgentBuilderAllowedModels } from "@/components/features/mastra-studio/upstream/domains/agent-builder/hooks/use-agent-builder-allowed-models";
 import { useAgents } from "@/components/features/mastra-studio/upstream/domains/agents/hooks/use-agents";

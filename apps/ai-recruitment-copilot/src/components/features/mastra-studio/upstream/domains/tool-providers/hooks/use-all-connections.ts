@@ -65,12 +65,12 @@ export const useAllConnections = (options?: UseAllConnectionsOptions) => {
   // 2. Flatten to (providerId, toolkit) pairs.
   const pairs = useMemo(() => {
     const out: { providerId: string; toolkit: string }[] = [];
-    providers.forEach((provider, idx) => {
+    for (const [idx, provider] of providers.entries()) {
       const toolkits = toolkitsQueries[idx]?.data?.data ?? [];
       for (const toolkit of toolkits) {
         out.push({ providerId: provider.id, toolkit: toolkit.slug });
       }
-    });
+    }
     return out;
   }, [providers, toolkitsQueries]);
 
@@ -105,10 +105,10 @@ export const useAllConnections = (options?: UseAllConnectionsOptions) => {
       string,
       { connectionId: string; label?: string | null; status?: string }[]
     >();
-    pairs.forEach((pair, idx) => {
+    for (const [idx, pair] of pairs.entries()) {
       const items = connectionsQueries[idx]?.data?.items ?? [];
       map.set(`${pair.providerId}:${pair.toolkit}`, items);
-    });
+    }
     return map;
   }, [pairs, connectionsQueries]);
 

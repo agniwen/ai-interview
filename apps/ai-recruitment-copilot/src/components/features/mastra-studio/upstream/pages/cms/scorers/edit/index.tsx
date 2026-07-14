@@ -13,7 +13,7 @@ import { AgentEditLayout } from "@/components/features/mastra-studio/upstream/do
 import {
   useStoredScorer,
   useStoredScorerMutations,
-} from "@/components/features/mastra-studio/upstream/domains/scores";
+} from "@/components/features/mastra-studio/upstream/domains/scores/hooks/use-stored-scorers";
 import { ScorerEditMain } from "@/components/features/mastra-studio/upstream/domains/scores/components/scorer-edit-page/scorer-edit-main";
 import { ScorerEditSidebar } from "@/components/features/mastra-studio/upstream/domains/scores/components/scorer-edit-page/scorer-edit-sidebar";
 import { useScorerEditForm } from "@/components/features/mastra-studio/upstream/domains/scores/components/scorer-edit-page/use-scorer-edit-form";
@@ -141,7 +141,7 @@ function CmsScorersEditForm({
       const versionsResponse = await client
         .getStoredScorer(scorerId)
         .listVersions({ orderBy: { direction: "DESC" }, perPage: 1 });
-      const latestVersion = versionsResponse.versions[0];
+      const [latestVersion] = versionsResponse.versions;
       if (latestVersion) {
         await client.getStoredScorer(scorerId).activateVersion(latestVersion.id);
       }

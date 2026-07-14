@@ -97,7 +97,7 @@ export function useSkillBuilderTools(
           "Update the skill form fields. Call this tool to set or change the name, description, or instructions of the skill being created or edited. " +
           "You can update any combination of fields in a single call — omit fields you do not want to change. " +
           'The "instructions" field should be detailed markdown content describing the skill\'s purpose, workflow, rules, and tone.',
-        execute: async (input: any) => {
+        execute: (input) => {
           const cb = callbacksRef.current;
           if (typeof input?.name === "string") {
             cb.onNameChange(input.name);
@@ -108,7 +108,7 @@ export function useSkillBuilderTools(
           if (typeof input?.instructions === "string") {
             cb.onInstructionsChange(input.instructions);
           }
-          return { success: true };
+          return Promise.resolve({ success: true });
         },
         id: SKILL_BUILDER_TOOL_NAME,
         inputSchema: z.object({
@@ -129,7 +129,8 @@ export function useSkillBuilderTools(
         }),
         outputSchema: z.object({ success: z.boolean() }),
       }),
-    [], // callbacks accessed via ref, stable tool identity
+    // callbacks accessed via ref, stable tool identity
+    [],
   );
 
   const readerTool = useMemo(
@@ -138,13 +139,13 @@ export function useSkillBuilderTools(
         description:
           "Read the current skill form values. Call this before making changes so you know what the user has on screen. " +
           "Returns the current name, description, and instructions (markdown).",
-        execute: async () => {
+        execute: () => {
           const state = formStateRef.current;
-          return {
+          return Promise.resolve({
             description: state.description || "",
             instructions: state.instructions || "",
             name: state.name || "",
-          };
+          });
         },
         id: SKILL_READER_TOOL_NAME,
         inputSchema: z.object({}),

@@ -7,12 +7,12 @@ interface SchemaRequestContextState {
    * Current values from the schema-driven request context form.
    * These values are specific to the entity (agent/workflow) with a requestContextSchema.
    */
-  schemaValues: Record<string, any>;
+  schemaValues: Record<string, unknown>;
 
   /**
    * Update the schema values. Called by RequestContextSchemaForm when form values change.
    */
-  setSchemaValues: (values: Record<string, any>) => void;
+  setSchemaValues: (values: Record<string, unknown>) => void;
 
   /**
    * Clear the schema values. Called when navigating away from an entity with a schema.
@@ -24,9 +24,9 @@ export const SchemaRequestContext = createContext<SchemaRequestContextState | nu
 
 export function SchemaRequestContextProvider({ children }: { children: ReactNode }) {
   const { requestContext } = usePlaygroundStore();
-  const [schemaValues, setSchemaValuesState] = useState<Record<string, any>>(requestContext);
+  const [schemaValues, setSchemaValuesState] = useState<Record<string, unknown>>(requestContext);
 
-  const setSchemaValues = (values: Record<string, any>) => setSchemaValuesState(values);
+  const setSchemaValues = (values: Record<string, unknown>) => setSchemaValuesState(values);
 
   const clearSchemaValues = () => {
     setSchemaValuesState({});

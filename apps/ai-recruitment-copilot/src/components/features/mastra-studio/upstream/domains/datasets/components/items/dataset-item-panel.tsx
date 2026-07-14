@@ -105,9 +105,12 @@ export function DatasetItemPanel({
       setRequestContextValue(
         item.requestContext ? JSON.stringify(item.requestContext, null, 2) : "",
       );
-      setIsEditing(false); // Exit edit mode on item change
-      setShowDeleteConfirm(false); // Reset delete state on item change
-      setValidationErrors(null); // Reset validation errors on item change
+      // Exit edit mode on item change
+      setIsEditing(false);
+      // Reset delete state on item change
+      setShowDeleteConfirm(false);
+      // Reset validation errors on item change
+      setValidationErrors(null);
     }
     // Intentionally depends on item.id only — re-running on every new `item` object
     // reference would clobber in-progress edits whenever the parent refetches.
@@ -256,7 +259,8 @@ export function DatasetItemPanel({
       await deleteItem.mutateAsync({ datasetId, itemId: item.id });
       toast.success("Item deleted successfully");
       setShowDeleteConfirm(false);
-      onClose(); // Close the panel after successful deletion
+      // Close the panel after successful deletion
+      onClose();
     } catch (error) {
       toast.error(
         `Failed to delete item: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -374,7 +378,7 @@ export function DatasetItemPanel({
                   icon={<FileOutputIcon />}
                   codeStr={JSON.stringify(item.groundTruth ?? null, null, 2)}
                 />
-                {item.expectedTrajectory != null && (
+                {item.expectedTrajectory !== null && item.expectedTrajectory !== undefined && (
                   <DataPanel.CodeSection
                     title="Expected Trajectory"
                     icon={<RouteIcon />}
@@ -386,7 +390,7 @@ export function DatasetItemPanel({
                   icon={<WrenchIcon />}
                   codeStr={JSON.stringify(item.toolMocks ?? [], null, 2)}
                 />
-                {item.requestContext != null && (
+                {item.requestContext !== null && item.requestContext !== undefined && (
                   <DataPanel.CodeSection
                     title="Request Context"
                     icon={<BracesIcon />}

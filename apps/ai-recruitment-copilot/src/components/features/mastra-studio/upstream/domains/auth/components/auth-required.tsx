@@ -54,7 +54,7 @@ export function AuthRequired({
   }
 
   // User is not authenticated - show login prompt
-  const redirectUri = typeof window !== "undefined" ? window.location.href : undefined;
+  const redirectUri = typeof window === "undefined" ? undefined : window.location.href;
 
   // No login capability available - show auth required message without login option
   if (!capabilities.login) {

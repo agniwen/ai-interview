@@ -8,6 +8,13 @@ export type AgentExperiment = Omit<DatasetExperiment, "datasetId"> & {
   datasetName: string;
 };
 
+function getStartedAtTime(startedAt: AgentExperiment["startedAt"]): number {
+  if (!startedAt) {
+    return 0;
+  }
+  return startedAt instanceof Date ? startedAt.getTime() : new Date(startedAt).getTime();
+}
+
 /**
  * Hook to fetch all experiments relevant to a specific agent across all datasets.
  * Includes experiments targeting the agent directly and experiments targeting attached scorers.
@@ -48,13 +55,6 @@ export const useAgentExperiments = (agentId: string, attachedScorerIds: string[]
           }
         }),
       );
-
-      const getStartedAtTime = (startedAt: AgentExperiment["startedAt"]) => {
-        if (!startedAt) {
-          return 0;
-        }
-        return startedAt instanceof Date ? startedAt.getTime() : new Date(startedAt).getTime();
-      };
 
       return results
         .flat()

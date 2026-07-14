@@ -1,4 +1,5 @@
 "use client";
+import type { DatasetRecord } from "@mastra/client-js";
 import { Button } from "@mastra/playground-ui/components/Button";
 import { ButtonsGroup } from "@mastra/playground-ui/components/ButtonsGroup";
 import { DropdownMenu } from "@mastra/playground-ui/components/DropdownMenu";
@@ -18,7 +19,7 @@ import {
 } from "lucide-react";
 
 export interface DatasetHeaderProps {
-  dataset?: any;
+  dataset?: DatasetRecord;
   isLoading?: boolean;
   onEditClick?: () => void;
   onDuplicateClick?: () => void;
@@ -45,6 +46,43 @@ export function DatasetHeader({
   onExperimentClick,
   className,
 }: DatasetHeaderProps) {
+  let experimentAction: React.ReactNode = null;
+  if (experimentTriggerSlot) {
+    experimentAction = disableExperimentTrigger ? (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="cursor-not-allowed">
+            <div className="pointer-events-none opacity-50" inert aria-disabled="true">
+              {experimentTriggerSlot}
+            </div>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>Add items to the dataset before running an experiment</TooltipContent>
+      </Tooltip>
+    ) : (
+      experimentTriggerSlot
+    );
+  } else if (onExperimentClick) {
+    experimentAction = disableExperimentTrigger ? (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="cursor-not-allowed">
+            <Button disabled tabIndex={-1}>
+              <Play />
+              Run Experiment
+            </Button>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>Add items to the dataset before running an experiment</TooltipContent>
+      </Tooltip>
+    ) : (
+      <Button onClick={onExperimentClick}>
+        <Play />
+        Run Experiment
+      </Button>
+    );
+  }
+
   return (
     <MainHeader className={className}>
       <MainHeader.Column>
@@ -66,45 +104,7 @@ export function DatasetHeader({
       </MainHeader.Column>
       <MainHeader.Column>
         <ButtonsGroup>
-          {experimentTriggerSlot ? (
-            disableExperimentTrigger ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="cursor-not-allowed">
-                    <div className="pointer-events-none opacity-50" inert aria-disabled="true">
-                      {experimentTriggerSlot}
-                    </div>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Add items to the dataset before running an experiment
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              experimentTriggerSlot
-            )
-          ) : onExperimentClick ? (
-            disableExperimentTrigger ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="cursor-not-allowed">
-                    <Button disabled tabIndex={-1}>
-                      <Play />
-                      Run Experiment
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Add items to the dataset before running an experiment
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <Button onClick={onExperimentClick}>
-                <Play />
-                Run Experiment
-              </Button>
-            )
-          ) : null}
+          {experimentAction}
           <DropdownMenu>
             <DropdownMenu.Trigger asChild>
               <Button size="lg" aria-label="Dataset actions menu">

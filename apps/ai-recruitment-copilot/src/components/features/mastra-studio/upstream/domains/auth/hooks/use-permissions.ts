@@ -172,13 +172,9 @@ export function usePermissions(): UsePermissionsResult {
   };
 
   return {
-    roles,
-    permissions,
-    isLoading,
-    isAuthenticated: !!authenticated,
-    rbacEnabled,
-
-    hasPermission: (permission: string) => checkPermission(permission),
+    canDelete: (resource: string) => checkPermission(`${resource}:delete`),
+    canEdit: (resource: string) => checkPermission(`${resource}:write`),
+    canExecute: (resource: string) => checkPermission(`${resource}:execute`),
 
     hasAllPermissions: (requiredPermissions: string[]) => {
       if (!rbacEnabled && !isImpersonating) {
@@ -194,18 +190,18 @@ export function usePermissions(): UsePermissionsResult {
       return requiredPermissions.some((p) => checkHasPermission(permissions, p));
     },
 
+    hasPermission: (permission: string) => checkPermission(permission),
+
     hasRole: (role: string) => {
       if (!rbacEnabled && !isImpersonating) {
         return true;
       }
       return roles.includes(role);
     },
-
-    // Convenience methods for common permission patterns
-    canEdit: (resource: string) => checkPermission(`${resource}:write`),
-
-    canDelete: (resource: string) => checkPermission(`${resource}:delete`),
-
-    canExecute: (resource: string) => checkPermission(`${resource}:execute`),
+    isAuthenticated: !!authenticated,
+    isLoading,
+    permissions,
+    rbacEnabled,
+    roles,
   };
 }

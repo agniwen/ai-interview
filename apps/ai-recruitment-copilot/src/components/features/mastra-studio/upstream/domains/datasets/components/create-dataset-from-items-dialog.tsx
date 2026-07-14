@@ -53,7 +53,7 @@ export function CreateDatasetFromItemsDialog({
       })) as { id: string };
 
       // Copy items to new dataset
-      for (let i = 0; i < items.length; i++) {
+      for (let i = 0; i < items.length; i += 1) {
         const item = items[i];
         await addItem.mutateAsync({
           datasetId: dataset.id,
@@ -90,7 +90,8 @@ export function CreateDatasetFromItemsDialog({
   const handleCancel = () => {
     if (isCreating) {
       return;
-    } // Prevent cancel during creation
+      // Prevent cancel during creation
+    }
     setName("");
     setDescription("");
     onOpenChange(false);
@@ -130,7 +131,7 @@ export function CreateDatasetFromItemsDialog({
             </div>
 
             <p className="text-sm text-muted-foreground">
-              {items.length} item{items.length !== 1 ? "s" : ""} will be copied to the new dataset
+              {items.length} item{items.length === 1 ? "" : "s"} will be copied to the new dataset
             </p>
 
             {isCreating && (

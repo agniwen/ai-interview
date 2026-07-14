@@ -5,10 +5,8 @@ import type { UseFormReturn } from "react-hook-form";
 import { Controller, useWatch } from "react-hook-form";
 
 import type { PromptBlockFormValues } from "./utils/form-validation";
-import {
-  DisplayConditionsDialog,
-  SectionHeader,
-} from "@/components/features/mastra-studio/upstream/domains/cms";
+import { DisplayConditionsDialog } from "@/components/features/mastra-studio/upstream/domains/cms/components/display-conditions/display-conditions-dialog";
+import { SectionHeader } from "@/components/features/mastra-studio/upstream/domains/cms/components/section/section-header";
 
 interface PromptBlockEditMainProps {
   form: UseFormReturn<PromptBlockFormValues>;

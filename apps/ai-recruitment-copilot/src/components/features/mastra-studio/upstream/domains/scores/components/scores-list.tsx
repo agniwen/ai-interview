@@ -63,9 +63,9 @@ export function ScoresList({
   const selectedIdx = selectedScore ? (scores?.indexOf(selectedScore) ?? -1) : -1;
 
   const handlePrevious =
-    selectedIdx > 0
+    selectedIdx > 0 && scores
       ? () => {
-          const prev = scores![selectedIdx - 1];
+          const prev = scores[selectedIdx - 1];
           setInternalSelectedId(prev.id);
           onScoreClick?.(prev.id);
         }

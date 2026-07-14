@@ -15,6 +15,7 @@ import { Trash2, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Control } from "react-hook-form";
 import { Controller, useWatch } from "react-hook-form";
+import { omitRecordKey } from "@/components/features/mastra-studio/upstream/domains/agents/utils/record";
 
 import type { AgentFormValues, ScorerConfig } from "../utils/form-validation";
 import { SectionTitle } from "@/components/features/mastra-studio/upstream/domains/cms/components/section/section-title";
@@ -23,145 +24,6 @@ import { useScorers } from "@/components/features/mastra-studio/upstream/domains
 interface ScorersSectionProps {
   control: Control<AgentFormValues>;
   error?: string;
-  readOnly?: boolean;
-}
-
-export function ScorersSection({ control, error, readOnly = false }: ScorersSectionProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const { data: scorers, isLoading } = useScorers();
-  const selectedScorers = useWatch({ control, name: "scorers" });
-  const count = Object.keys(selectedScorers || {}).length;
-
-  const options = useMemo(() => {
-    if (!scorers) {
-      return [];
-    }
-    return Object.entries(scorers).map(([id, scorer]) => ({
-      description:
-        (scorer as { scorer?: { config?: { description?: string } } }).scorer?.config
-          ?.description || "",
-      label: (scorer as { scorer?: { config?: { name?: string } } }).scorer?.config?.name || id,
-      value: id,
-    }));
-  }, [scorers]);
-
-  const getOriginalDescription = (id: string): string => {
-    const option = options.find((opt) => opt.value === id);
-    return option?.description || "";
-  };
-
-  return (
-    <div className="rounded-md border border-border1 bg-surface2">
-      <Controller
-        name="scorers"
-        control={control}
-        render={({ field }) => {
-          const selectedScorers = field.value || {};
-          const selectedIds = Object.keys(selectedScorers);
-          const selectedOptions = options.filter((opt) => selectedIds.includes(opt.value));
-
-          const handleValueChange = (newIds: string[]) => {
-            const newScorers: Record<string, ScorerConfig> = {};
-            for (const id of newIds) {
-              newScorers[id] = selectedScorers[id] || {
-                description: getOriginalDescription(id),
-              };
-            }
-            field.onChange(newScorers);
-          };
-
-          const handleDescriptionChange = (scorerId: string, description: string) => {
-            field.onChange({
-              ...selectedScorers,
-              [scorerId]: { ...selectedScorers[scorerId], description },
-            });
-          };
-
-          const handleSamplingChange = (
-            scorerId: string,
-            samplingConfig: ScorerConfig["sampling"] | undefined,
-          ) => {
-            field.onChange({
-              ...selectedScorers,
-              [scorerId]: { ...selectedScorers[scorerId], sampling: samplingConfig },
-            });
-          };
-
-          const handleRemove = (scorerId: string) => {
-            const newScorers = { ...selectedScorers };
-            delete newScorers[scorerId];
-            field.onChange(newScorers);
-          };
-
-          return (
-            <>
-              <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-                <div className="flex items-center justify-between p-3 bg-surface3">
-                  <CollapsibleTrigger className="flex items-center gap-1 w-full">
-                    <ChevronRight className="h-4 w-4 text-neutral3" />
-                    <SectionTitle icon={<JudgeIcon className="text-neutral3" />}>
-                      Scorers
-                      {count > 0 && <span className="text-neutral3 font-normal">({count})</span>}
-                    </SectionTitle>
-                  </CollapsibleTrigger>
-                </div>
-
-                <CollapsibleContent>
-                  <div className="p-3 border-t border-border1">
-                    <div className="flex flex-col gap-2">
-                      <Combobox
-                        multiple
-                        options={options}
-                        value={selectedIds}
-                        onValueChange={handleValueChange}
-                        placeholder="Select scorers..."
-                        searchPlaceholder="Search scorers..."
-                        emptyText="No scorers available"
-                        disabled={isLoading || readOnly}
-                        error={error}
-                      />
-
-                      {selectedOptions.length > 0 && (
-                        <div className="flex flex-col gap-3 mt-2">
-                          {selectedOptions.map((scorer) => (
-                            <ScorerConfigPanel
-                              key={scorer.value}
-                              scorerId={scorer.value}
-                              scorerName={scorer.label}
-                              description={selectedScorers[scorer.value]?.description || ""}
-                              samplingConfig={selectedScorers[scorer.value]?.sampling}
-                              onDescriptionChange={(desc) =>
-                                handleDescriptionChange(scorer.value, desc)
-                              }
-                              onSamplingChange={(config) =>
-                                handleSamplingChange(scorer.value, config)
-                              }
-                              onRemove={() => handleRemove(scorer.value)}
-                              readOnly={readOnly}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            </>
-          );
-        }}
-      />
-    </div>
-  );
-}
-
-interface ScorerConfigPanelProps {
-  scorerId: string;
-  scorerName: string;
-  description: string;
-  samplingConfig?: ScorerConfig["sampling"];
-  onDescriptionChange: (description: string) => void;
-  onSamplingChange: (config?: ScorerConfig["sampling"]) => void;
-  onRemove: () => void;
   readOnly?: boolean;
 }
 
@@ -269,4 +131,141 @@ function ScorerConfigPanel({
       </div>
     </div>
   );
+}
+
+export function ScorersSection({ control, error, readOnly = false }: ScorersSectionProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const { data: scorers, isLoading } = useScorers();
+  const selectedScorers = useWatch({ control, name: "scorers" });
+  const count = Object.keys(selectedScorers || {}).length;
+
+  const options = useMemo(() => {
+    if (!scorers) {
+      return [];
+    }
+    return Object.entries(scorers).map(([id, scorer]) => ({
+      description:
+        (scorer as { scorer?: { config?: { description?: string } } }).scorer?.config
+          ?.description || "",
+      label: (scorer as { scorer?: { config?: { name?: string } } }).scorer?.config?.name || id,
+      value: id,
+    }));
+  }, [scorers]);
+
+  const getOriginalDescription = (id: string): string => {
+    const option = options.find((opt) => opt.value === id);
+    return option?.description || "";
+  };
+
+  return (
+    <div className="rounded-md border border-border1 bg-surface2">
+      <Controller
+        name="scorers"
+        control={control}
+        render={({ field }) => {
+          const fieldScorers = field.value || {};
+          const selectedIds = Object.keys(fieldScorers);
+          const selectedOptions = options.filter((opt) => selectedIds.includes(opt.value));
+
+          const handleValueChange = (newIds: string[]) => {
+            const newScorers: Record<string, ScorerConfig> = {};
+            for (const id of newIds) {
+              newScorers[id] = fieldScorers[id] || {
+                description: getOriginalDescription(id),
+              };
+            }
+            field.onChange(newScorers);
+          };
+
+          const handleDescriptionChange = (scorerId: string, description: string) => {
+            field.onChange({
+              ...fieldScorers,
+              [scorerId]: { ...fieldScorers[scorerId], description },
+            });
+          };
+
+          const handleSamplingChange = (
+            scorerId: string,
+            samplingConfig: ScorerConfig["sampling"] | undefined,
+          ) => {
+            field.onChange({
+              ...fieldScorers,
+              [scorerId]: { ...fieldScorers[scorerId], sampling: samplingConfig },
+            });
+          };
+
+          const handleRemove = (scorerId: string) => {
+            field.onChange(omitRecordKey(fieldScorers, scorerId));
+          };
+
+          return (
+            <>
+              <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+                <div className="flex items-center justify-between p-3 bg-surface3">
+                  <CollapsibleTrigger className="flex items-center gap-1 w-full">
+                    <ChevronRight className="h-4 w-4 text-neutral3" />
+                    <SectionTitle icon={<JudgeIcon className="text-neutral3" />}>
+                      Scorers
+                      {count > 0 && <span className="text-neutral3 font-normal">({count})</span>}
+                    </SectionTitle>
+                  </CollapsibleTrigger>
+                </div>
+
+                <CollapsibleContent>
+                  <div className="p-3 border-t border-border1">
+                    <div className="flex flex-col gap-2">
+                      <Combobox
+                        multiple
+                        options={options}
+                        value={selectedIds}
+                        onValueChange={handleValueChange}
+                        placeholder="Select scorers..."
+                        searchPlaceholder="Search scorers..."
+                        emptyText="No scorers available"
+                        disabled={isLoading || readOnly}
+                        error={error}
+                      />
+
+                      {selectedOptions.length > 0 && (
+                        <div className="flex flex-col gap-3 mt-2">
+                          {selectedOptions.map((scorer) => (
+                            <ScorerConfigPanel
+                              key={scorer.value}
+                              scorerId={scorer.value}
+                              scorerName={scorer.label}
+                              description={fieldScorers[scorer.value]?.description || ""}
+                              samplingConfig={fieldScorers[scorer.value]?.sampling}
+                              onDescriptionChange={(desc) =>
+                                handleDescriptionChange(scorer.value, desc)
+                              }
+                              onSamplingChange={(config) =>
+                                handleSamplingChange(scorer.value, config)
+                              }
+                              onRemove={() => handleRemove(scorer.value)}
+                              readOnly={readOnly}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </>
+          );
+        }}
+      />
+    </div>
+  );
+}
+
+interface ScorerConfigPanelProps {
+  scorerId: string;
+  scorerName: string;
+  description: string;
+  samplingConfig?: ScorerConfig["sampling"];
+  onDescriptionChange: (description: string) => void;
+  onSamplingChange: (config?: ScorerConfig["sampling"]) => void;
+  onRemove: () => void;
+  readOnly?: boolean;
 }

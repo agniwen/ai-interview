@@ -22,6 +22,27 @@ export interface DatasetItemVersionsPanelProps {
 /**
  * Panel showing dataset item version history.
  */
+function DatasetItemVersionsListSkeleton() {
+  return (
+    <ItemList>
+      <ItemList.Header columns={[{ label: "Item Version History", name: "version", size: "1fr" }]}>
+        <ItemList.HeaderCol>Item Version History</ItemList.HeaderCol>
+      </ItemList.Header>
+      <ItemList.Items>
+        {Array.from({ length: 3 }).map((_, index) => (
+          <ItemList.Row key={index}>
+            <ItemList.RowButton
+              columns={[{ label: "Item Version History", name: "version", size: "1fr" }]}
+            >
+              <ItemList.TextCell isLoading>Loading...</ItemList.TextCell>
+            </ItemList.RowButton>
+          </ItemList.Row>
+        ))}
+      </ItemList.Items>
+    </ItemList>
+  );
+}
+
 export function DatasetItemVersionsPanel({
   datasetId,
   itemId,
@@ -39,7 +60,7 @@ export function DatasetItemVersionsPanel({
   };
 
   const isVersionSelected = (version: DatasetItemVersion): boolean => {
-    if (activeVersion == null) {
+    if (activeVersion === null || activeVersion === undefined) {
       return version.isLatest;
     }
     return version.datasetVersion === activeVersion;
@@ -86,7 +107,7 @@ export function DatasetItemVersionsPanel({
               variant="primary"
               disabled={selectedIds.size !== 2}
               onClick={handleExecuteCompare}
-              tooltip={selectedIds.size !== 2 ? "Check 2 versions to compare" : undefined}
+              tooltip={selectedIds.size === 2 ? undefined : "Check 2 versions to compare"}
               className="grow"
             >
               Compare
@@ -130,7 +151,6 @@ export function DatasetItemVersionsPanel({
                         <Checkbox
                           checked={selectedIds.has(versionKey)}
                           disabled={item.isDeleted}
-                          onCheckedChange={() => {}}
                           onClick={(e) => {
                             e.stopPropagation();
                             if (!item.isDeleted) {
@@ -163,26 +183,5 @@ export function DatasetItemVersionsPanel({
         </ItemList>
       )}
     </Column>
-  );
-}
-
-function DatasetItemVersionsListSkeleton() {
-  return (
-    <ItemList>
-      <ItemList.Header columns={[{ label: "Item Version History", name: "version", size: "1fr" }]}>
-        <ItemList.HeaderCol>Item Version History</ItemList.HeaderCol>
-      </ItemList.Header>
-      <ItemList.Items>
-        {Array.from({ length: 3 }).map((_, index) => (
-          <ItemList.Row key={index}>
-            <ItemList.RowButton
-              columns={[{ label: "Item Version History", name: "version", size: "1fr" }]}
-            >
-              <ItemList.TextCell isLoading>Loading...</ItemList.TextCell>
-            </ItemList.RowButton>
-          </ItemList.Row>
-        ))}
-      </ItemList.Items>
-    </ItemList>
   );
 }

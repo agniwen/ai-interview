@@ -2,8 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface Ripple {
   id: number;
-  x: number; // CSS px relative to container
-  y: number; // CSS px relative to container
+  // CSS px relative to container
+  x: number;
+  // CSS px relative to container
+  y: number;
 }
 
 interface UseClickRippleOptions {
@@ -88,7 +90,7 @@ export function useClickRipple(options: UseClickRippleOptions): UseClickRippleRe
         if (prev.length >= MAX_RIPPLES) {
           return prev;
         }
-        const id = ++idRef.current;
+        const id = (idRef.current += 1);
         return [...prev, { id, x: relX, y: relY }];
       });
     }

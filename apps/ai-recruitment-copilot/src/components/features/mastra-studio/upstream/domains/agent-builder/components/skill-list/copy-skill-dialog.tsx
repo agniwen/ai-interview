@@ -20,7 +20,7 @@ function suggestCopyName(sourceName: string, existingNames: string[]): string {
   if (!existingNames.includes(base)) {
     return base;
   }
-  for (let i = 2; i < 100; i++) {
+  for (let i = 2; i < 100; i += 1) {
     const candidate = `${sourceName}-copy-${i}`;
     if (!existingNames.includes(candidate)) {
       return candidate;

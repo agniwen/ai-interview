@@ -32,12 +32,28 @@ export interface DatasetsListProps {
 const COLUMNS = "auto 1fr auto 5rem 9rem 10rem 7rem 8rem";
 
 function getDatasetRowLayout(hasExperimentsAction: boolean, hasReviewAction: boolean) {
+  let rowLinkColEnd = -1;
+  if (hasExperimentsAction) {
+    rowLinkColEnd = -3;
+  } else if (hasReviewAction) {
+    rowLinkColEnd = -2;
+  }
   return {
-    rowLinkColEnd: hasExperimentsAction ? -3 : hasReviewAction ? -2 : -1,
+    rowLinkColEnd,
     showExperimentsPlaceholder: !hasExperimentsAction,
     showReviewPlaceholderAfterExperiments: hasExperimentsAction && !hasReviewAction,
     showReviewPlaceholderInLink: !hasExperimentsAction && !hasReviewAction,
   };
+}
+
+function getExperimentsChipColor(successPct: number | null): "green" | "yellow" | "red" {
+  if (successPct !== null && successPct >= 70) {
+    return "green";
+  }
+  if (successPct !== null && successPct >= 40) {
+    return "yellow";
+  }
+  return "red";
 }
 
 function TargetTypeIcon({ type }: { type: DatasetTargetType }) {
@@ -137,17 +153,32 @@ export function DatasetsList({
       </EntityList.Top>
 
       {filteredData.map((ds) => {
-        const experimentsChipColor: "green" | "yellow" | "red" =
-          ds.successPct !== null && ds.successPct >= 70
-            ? "green"
-            : ds.successPct !== null && ds.successPct >= 40
-              ? "yellow"
-              : "red";
+        const experimentsChipColor = getExperimentsChipColor(ds.successPct);
 
         const review = reviewByDataset?.get(ds.id);
         const tags = Array.isArray(ds.tags) ? (ds.tags as string[]) : [];
         const hasExperimentsAction = ds.experimentCount > 0;
         const rowLayout = getDatasetRowLayout(hasExperimentsAction, Boolean(review));
+        let reviewAction = null;
+        if (review) {
+          reviewAction = (
+            <Button
+              as={Link}
+              to={`${paths.datasetLink(ds.id)}?tab=review`}
+              variant="ghost"
+              size="sm"
+              className="w-full  rounded-lg h-full p-0!"
+            >
+              {review.needsReview > 0 ? (
+                <Chip color="yellow">{review.needsReview} pending</Chip>
+              ) : (
+                <Chip color="green">{review.complete} reviewed</Chip>
+              )}
+            </Button>
+          );
+        } else if (rowLayout.showReviewPlaceholderAfterExperiments) {
+          reviewAction = <EntityList.Cell className="justify-center" />;
+        }
 
         return (
           <EntityList.RowWrapper key={ds.id}>
@@ -216,23 +247,7 @@ export function DatasetsList({
               </Button>
             ) : null}
 
-            {review ? (
-              <Button
-                as={Link}
-                to={`${paths.datasetLink(ds.id)}?tab=review`}
-                variant="ghost"
-                size="sm"
-                className="w-full  rounded-lg h-full p-0!"
-              >
-                {review.needsReview > 0 ? (
-                  <Chip color="yellow">{review.needsReview} pending</Chip>
-                ) : (
-                  <Chip color="green">{review.complete} reviewed</Chip>
-                )}
-              </Button>
-            ) : rowLayout.showReviewPlaceholderAfterExperiments ? (
-              <EntityList.Cell className="justify-center" />
-            ) : null}
+            {reviewAction}
           </EntityList.RowWrapper>
         );
       })}

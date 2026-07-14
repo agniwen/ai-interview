@@ -2,7 +2,7 @@ import type { BuilderModelPolicy, Provider } from "@mastra/client-js";
 import { useMemo } from "react";
 import type { ModelInfo } from "../../llm/hooks/use-filtered-models";
 import { useAgentBuilderAllowedModels } from "./use-agent-builder-allowed-models";
-import { cleanProviderId } from "@/components/features/mastra-studio/upstream/domains/llm";
+import { cleanProviderId } from "@/components/features/mastra-studio/upstream/domains/llm/utils";
 
 /**
  * Build a `Set` of `provider:model` keys that the active builder policy allows.

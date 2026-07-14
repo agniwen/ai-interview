@@ -4,7 +4,7 @@ import { toast } from "@mastra/playground-ui/utils/toast";
 import { useMastraClient } from "@mastra/react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { useMergedRequestContext } from "@/components/features/mastra-studio/upstream/domains/request-context";
+import { useMergedRequestContext } from "@/components/features/mastra-studio/upstream/domains/request-context/context/schema-request-context";
 
 const SCORES_PER_PAGE = 25;
 
@@ -19,10 +19,7 @@ function getScoresNextPageParam(
   _allPages: unknown,
   lastPageParam: number,
 ) {
-  if (lastPage?.pagination?.hasMore) {
-    return lastPageParam + 1;
-  }
-  return;
+  return lastPage?.pagination?.hasMore ? lastPageParam + 1 : undefined;
 }
 
 function selectFlatScores(data: { pages: ListScoresResponse[] }) {
@@ -78,7 +75,7 @@ export const useScorer = (scorerId: string) => {
   const client = useMastraClient();
   const [scorer, setScorer] = useState<GetScorerResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const [scorerError, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     const fetchScorer = async () => {
@@ -101,7 +98,7 @@ export const useScorer = (scorerId: string) => {
     void fetchScorer();
   }, [scorerId, client]);
 
-  return { error, isLoading, scorer };
+  return { error: scorerError, isLoading, scorer };
 };
 
 export const useScorers = () => {

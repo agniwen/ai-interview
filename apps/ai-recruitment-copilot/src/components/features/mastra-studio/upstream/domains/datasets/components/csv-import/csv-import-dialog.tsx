@@ -41,6 +41,68 @@ interface ImportResult {
   errors: number;
 }
 
+function CSVValidationStep({
+  result,
+  hasSchema,
+}: {
+  result: CsvValidationResult;
+  hasSchema: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="text-sm text-neutral4">
+        {hasSchema
+          ? "Rows have been validated against the dataset schema."
+          : "Ready to import. No schema validation required."}
+      </div>
+      {result.invalidCount > 0 ? (
+        <div className="p-3 bg-warning/10 border border-warning/30 rounded-md">
+          <div className="flex items-center gap-2 text-warning font-medium">
+            <span className="text-lg">⚠</span>
+            {result.invalidCount} row{result.invalidCount === 1 ? "" : "s"} will be skipped
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">
+            {result.validCount} of {result.totalRows} rows will be imported
+          </p>
+        </div>
+      ) : (
+        <div className="p-3 bg-success/10 border border-success/30 rounded-md">
+          <div className="flex items-center gap-2 text-success font-medium">
+            <span className="text-lg">✓</span>
+            All {result.totalRows} row{result.totalRows === 1 ? " is" : "s are"} valid
+          </div>
+        </div>
+      )}
+      {result.validCount === 0 && (
+        <p className="text-sm text-destructive">
+          No valid rows to import. Please fix the data or adjust the schema.
+        </p>
+      )}
+      {result.invalidCount > 0 && <ValidationReport result={result} />}
+    </div>
+  );
+}
+
+function ImportCompleteStep({ result }: { result: ImportResult | null }) {
+  return (
+    <div className="flex flex-col items-center gap-4 py-8">
+      <div className="text-4xl">{result && result.errors === 0 ? "✓" : "⚠"}</div>
+      <div className="text-center">
+        <div className="text-lg font-medium text-neutral1">Import Complete</div>
+        <div className="text-sm text-neutral4 mt-1">
+          {result?.success ?? 0} item{result?.success === 1 ? "" : "s"} imported
+          {result && result.errors > 0 && (
+            <span className="text-accent2">
+              {" "}
+              ({result.errors} error{result.errors === 1 ? "" : "s"})
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Multi-step dialog for importing CSV data into a dataset.
  * Flow: upload -> preview -> mapping -> import -> complete
@@ -115,11 +177,12 @@ export function CSVImportDialog({
     }
 
     // Check each row for missing input values
-    data.forEach((row: Record<string, unknown>, index: number) => {
-      const rowNum = index + 2; // 1-indexed + header row
+    for (const [index, row] of data.entries()) {
+      // 1-indexed + header row
+      const rowNum = index + 2;
 
       // Check if all input columns have values
-      inputColumns.forEach((col: string) => {
+      for (const col of inputColumns) {
         const value = row[col];
         if (value === null || value === undefined || value === "") {
           errors.push({
@@ -128,8 +191,8 @@ export function CSVImportDialog({
             row: rowNum,
           });
         }
-      });
-    });
+      }
+    }
 
     return errors;
   }, [parsedCSV, columnMapping]);
@@ -139,13 +202,15 @@ export function CSVImportDialog({
     (row: Record<string, unknown>, mapping: ColumnMapping, headers: string[]) => {
       // Get input value(s)
       const inputColumns = headers.filter((h) => mapping[h] === "input");
-      const input =
-        inputColumns.length === 1
-          ? row[inputColumns[0]]
-          : inputColumns.reduce<Record<string, unknown>>((acc, col) => {
-              acc[col] = row[col];
-              return acc;
-            }, {});
+      const selectColumns = (columns: string[]) => {
+        const selected: Record<string, unknown> = {};
+        for (const column of columns) {
+          selected[column] = row[column];
+        }
+        return selected;
+      };
+      const [inputColumn] = inputColumns;
+      const input = inputColumns.length === 1 ? row[inputColumn] : selectColumns(inputColumns);
 
       // Get ground truth value(s)
       const groundTruthColumns = headers.filter((h) => mapping[h] === "groundTruth");
@@ -153,20 +218,14 @@ export function CSVImportDialog({
       if (groundTruthColumns.length === 1) {
         groundTruth = row[groundTruthColumns[0]];
       } else if (groundTruthColumns.length > 1) {
-        groundTruth = groundTruthColumns.reduce<Record<string, unknown>>((acc, col) => {
-          acc[col] = row[col];
-          return acc;
-        }, {});
+        groundTruth = selectColumns(groundTruthColumns);
       }
 
       // Get metadata value(s)
       const metadataColumns = headers.filter((h) => mapping[h] === "metadata");
       let metadata: Record<string, unknown> | undefined;
       if (metadataColumns.length > 0) {
-        metadata = metadataColumns.reduce<Record<string, unknown>>((acc, col) => {
-          acc[col] = row[col];
-          return acc;
-        }, {});
+        metadata = selectColumns(metadataColumns);
       }
 
       return { groundTruth, input, metadata };
@@ -267,10 +326,10 @@ export function CSVImportDialog({
         if (originalRow) {
           const metadataColumns = headers.filter((h) => mapping[h] === "metadata");
           if (metadataColumns.length > 0) {
-            metadata = metadataColumns.reduce<Record<string, unknown>>((acc, col) => {
-              acc[col] = originalRow[col];
-              return acc;
-            }, {});
+            metadata = {};
+            for (const column of metadataColumns) {
+              metadata[column] = originalRow[column];
+            }
           }
         }
       }
@@ -297,11 +356,11 @@ export function CSVImportDialog({
       const skipped = schemaValidation?.invalidCount ?? 0;
       if (skipped > 0) {
         toast.success(
-          `Imported ${importResult.success} row${importResult.success !== 1 ? "s" : ""} (${skipped} skipped)`,
+          `Imported ${importResult.success} row${importResult.success === 1 ? "" : "s"} (${skipped} skipped)`,
         );
       } else {
         toast.success(
-          `Imported ${importResult.success} row${importResult.success !== 1 ? "s" : ""}`,
+          `Imported ${importResult.success} row${importResult.success === 1 ? "" : "s"}`,
         );
       }
     }
@@ -395,46 +454,10 @@ export function CSVImportDialog({
 
       case "validation": {
         return schemaValidation ? (
-          <div className="flex flex-col gap-4">
-            <div className="text-sm text-neutral4">
-              {dataset?.inputSchema || dataset?.groundTruthSchema
-                ? "Rows have been validated against the dataset schema."
-                : "Ready to import. No schema validation required."}
-            </div>
-
-            {/* Prominent validation summary banner */}
-            {schemaValidation.invalidCount > 0 ? (
-              <div className="p-3 bg-warning/10 border border-warning/30 rounded-md">
-                <div className="flex items-center gap-2 text-warning font-medium">
-                  <span className="text-lg">⚠</span>
-                  {schemaValidation.invalidCount} row
-                  {schemaValidation.invalidCount !== 1 ? "s" : ""} will be skipped
-                </div>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {schemaValidation.validCount} of {schemaValidation.totalRows} rows will be
-                  imported
-                </p>
-              </div>
-            ) : (
-              <div className="p-3 bg-success/10 border border-success/30 rounded-md">
-                <div className="flex items-center gap-2 text-success font-medium">
-                  <span className="text-lg">✓</span>
-                  All {schemaValidation.totalRows} row
-                  {schemaValidation.totalRows !== 1 ? "s are" : " is"} valid
-                </div>
-              </div>
-            )}
-
-            {/* No valid rows warning */}
-            {schemaValidation.validCount === 0 && (
-              <p className="text-sm text-destructive">
-                No valid rows to import. Please fix the data or adjust the schema.
-              </p>
-            )}
-
-            {/* Detailed validation report (only show table if there are invalid rows) */}
-            {schemaValidation.invalidCount > 0 && <ValidationReport result={schemaValidation} />}
-          </div>
+          <CSVValidationStep
+            result={schemaValidation}
+            hasSchema={Boolean(dataset?.inputSchema || dataset?.groundTruthSchema)}
+          />
         ) : null;
       }
 
@@ -453,23 +476,10 @@ export function CSVImportDialog({
       }
 
       case "complete": {
-        return (
-          <div className="flex flex-col items-center gap-4 py-8">
-            <div className="text-4xl">{importResult && importResult.errors === 0 ? "✓" : "⚠"}</div>
-            <div className="text-center">
-              <div className="text-lg font-medium text-neutral1">Import Complete</div>
-              <div className="text-sm text-neutral4 mt-1">
-                {importResult?.success ?? 0} item{importResult?.success !== 1 ? "s" : ""} imported
-                {importResult && importResult.errors > 0 && (
-                  <span className="text-accent2">
-                    {" "}
-                    ({importResult.errors} error{importResult.errors !== 1 ? "s" : ""})
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        );
+        return <ImportCompleteStep result={importResult} />;
+      }
+      default: {
+        return null;
       }
     }
   };
@@ -517,8 +527,8 @@ export function CSVImportDialog({
               disabled={!schemaValidation || schemaValidation.validCount === 0}
             >
               {schemaValidation?.invalidCount
-                ? `Import ${schemaValidation.validCount} Valid Row${schemaValidation.validCount !== 1 ? "s" : ""}`
-                : `Import ${schemaValidation?.totalRows ?? 0} Row${schemaValidation?.totalRows !== 1 ? "s" : ""}`}
+                ? `Import ${schemaValidation.validCount} Valid Row${schemaValidation.validCount === 1 ? "" : "s"}`
+                : `Import ${schemaValidation?.totalRows ?? 0} Row${schemaValidation?.totalRows === 1 ? "" : "s"}`}
             </Button>
           </>
         );
@@ -526,7 +536,8 @@ export function CSVImportDialog({
 
       case "importing": {
         return null;
-      } // Cancel button is in the content
+        // Cancel button is in the content
+      }
 
       case "complete": {
         return (
@@ -534,6 +545,9 @@ export function CSVImportDialog({
             Done
           </Button>
         );
+      }
+      default: {
+        return null;
       }
     }
   };

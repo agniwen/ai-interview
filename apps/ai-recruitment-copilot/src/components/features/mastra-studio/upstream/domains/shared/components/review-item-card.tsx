@@ -21,6 +21,122 @@ function formatUnknown(value: unknown): string {
   }
 }
 
+function ReviewTags({
+  isCompleted,
+  item,
+  onSetTags,
+  tagVocabulary,
+}: {
+  isCompleted: boolean;
+  item: ReviewItem;
+  onSetTags: (tags: string[]) => void;
+  tagVocabulary: string[];
+}) {
+  if (isCompleted) {
+    if (item.tags.length === 0) {
+      return null;
+    }
+    return (
+      <div className="flex items-center gap-1 flex-wrap">
+        {item.tags.map((tag) => (
+          <Badge key={tag} variant="default">
+            {tag}
+          </Badge>
+        ))}
+      </div>
+    );
+  }
+
+  return <TagPicker tags={item.tags} vocabulary={tagVocabulary} onSetTags={onSetTags} />;
+}
+
+function ReviewComment({
+  isCompleted,
+  item,
+  localComment,
+  onComment,
+  setCommentSaved,
+  setLocalComment,
+}: {
+  isCompleted: boolean;
+  item: ReviewItem;
+  localComment: string;
+  onComment: (comment: string) => void;
+  setCommentSaved: (saved: boolean) => void;
+  setLocalComment: (comment: string) => void;
+}) {
+  if (isCompleted) {
+    if (item.comment) {
+      return (
+        <Txt variant="ui-xs" className="text-neutral4">
+          {item.comment}
+        </Txt>
+      );
+    }
+    return (
+      <Txt variant="ui-xs" className="text-neutral2 italic">
+        No comment
+      </Txt>
+    );
+  }
+
+  return (
+    <Textarea
+      value={localComment}
+      onChange={(event) => {
+        setLocalComment(event.target.value);
+        setCommentSaved(false);
+      }}
+      onBlur={() => {
+        if (localComment !== (item.comment || "")) {
+          onComment(localComment);
+          setCommentSaved(true);
+          setTimeout(() => setCommentSaved(false), 2000);
+        }
+      }}
+      placeholder="What went wrong? How should this be handled?"
+      rows={2}
+    />
+  );
+}
+
+function ReviewRatingButtons({
+  isCompleted,
+  item,
+  onRate,
+}: {
+  isCompleted: boolean;
+  item: ReviewItem;
+  onRate: (rating: "positive" | "negative" | undefined) => void;
+}) {
+  return (
+    <div className="flex items-center gap-0.5 mr-1">
+      <Button
+        tooltip="Good — this result is acceptable"
+        variant={item.rating === "positive" ? "default" : "ghost"}
+        size="sm"
+        onClick={() => onRate(item.rating === "positive" ? undefined : "positive")}
+        disabled={isCompleted}
+      >
+        <Icon size="sm" className={item.rating === "positive" ? "text-positive1" : ""}>
+          <ThumbsUp />
+        </Icon>
+      </Button>
+      <Button
+        tooltip="Bad — this result is wrong"
+        variant={item.rating === "negative" ? "default" : "ghost"}
+        size="sm"
+        onClick={() => onRate(item.rating === "negative" ? undefined : "negative")}
+        disabled={isCompleted}
+      >
+        <Icon size="sm" className={item.rating === "negative" ? "text-negative1" : ""}>
+          <ThumbsDown />
+        </Icon>
+      </Button>
+    </div>
+  );
+}
+
 export function ReviewItemCard({
   item,
   isExpanded,
@@ -85,6 +201,7 @@ export function ReviewItemCard({
           </Icon>
         ) : (
           <input
+            aria-label="Select review item"
             type="checkbox"
             checked={isSelected}
             onChange={onToggleSelect}
@@ -110,46 +227,16 @@ export function ReviewItemCard({
       <TooltipProvider delayDuration={200}>
         <div className="flex items-center gap-2 mt-2">
           {/* Rating: thumbs up / down */}
-          <div className="flex items-center gap-0.5 mr-1">
-            <Button
-              tooltip="Good — this result is acceptable"
-              variant={item.rating === "positive" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => onRate(item.rating === "positive" ? undefined : "positive")}
-              disabled={isCompleted}
-            >
-              <Icon size="sm" className={item.rating === "positive" ? "text-positive1" : ""}>
-                <ThumbsUp />
-              </Icon>
-            </Button>
-            <Button
-              tooltip="Bad — this result is wrong"
-              variant={item.rating === "negative" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => onRate(item.rating === "negative" ? undefined : "negative")}
-              disabled={isCompleted}
-            >
-              <Icon size="sm" className={item.rating === "negative" ? "text-negative1" : ""}>
-                <ThumbsDown />
-              </Icon>
-            </Button>
-          </div>
+          <ReviewRatingButtons isCompleted={Boolean(isCompleted)} item={item} onRate={onRate} />
 
           {/* Tags */}
           <div className="flex-1 min-w-0">
-            {isCompleted ? (
-              item.tags.length > 0 ? (
-                <div className="flex items-center gap-1 flex-wrap">
-                  {item.tags.map((t) => (
-                    <Badge key={t} variant="default">
-                      {t}
-                    </Badge>
-                  ))}
-                </div>
-              ) : null
-            ) : (
-              <TagPicker tags={item.tags} vocabulary={tagVocabulary} onSetTags={onSetTags} />
-            )}
+            <ReviewTags
+              isCompleted={Boolean(isCompleted)}
+              item={item}
+              onSetTags={onSetTags}
+              tagVocabulary={tagVocabulary}
+            />
           </div>
 
           {!isCompleted && (
@@ -241,34 +328,14 @@ export function ReviewItemCard({
                 </Txt>
               )}
             </div>
-            {isCompleted ? (
-              item.comment ? (
-                <Txt variant="ui-xs" className="text-neutral4">
-                  {item.comment}
-                </Txt>
-              ) : (
-                <Txt variant="ui-xs" className="text-neutral2 italic">
-                  No comment
-                </Txt>
-              )
-            ) : (
-              <Textarea
-                value={localComment}
-                onChange={(e) => {
-                  setLocalComment(e.target.value);
-                  setCommentSaved(false);
-                }}
-                onBlur={() => {
-                  if (localComment !== (item.comment || "")) {
-                    onComment(localComment);
-                    setCommentSaved(true);
-                    setTimeout(() => setCommentSaved(false), 2000);
-                  }
-                }}
-                placeholder="What went wrong? How should this be handled?"
-                rows={2}
-              />
-            )}
+            <ReviewComment
+              isCompleted={Boolean(isCompleted)}
+              item={item}
+              localComment={localComment}
+              onComment={onComment}
+              setCommentSaved={setCommentSaved}
+              setLocalComment={setLocalComment}
+            />
           </div>
         </div>
       )}

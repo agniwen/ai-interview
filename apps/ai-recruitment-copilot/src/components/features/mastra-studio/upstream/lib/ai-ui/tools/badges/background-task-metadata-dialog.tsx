@@ -16,7 +16,7 @@ import { useTimeDiff } from "../../hooks/use-time-diff";
 import {
   useGetBackgroundTaskById,
   useBackgroundTaskStream,
-} from "@/components/features/mastra-studio/upstream/hooks";
+} from "@/components/features/mastra-studio/upstream/hooks/use-background-tasks";
 
 interface BackgroundTaskMetadataProps {
   backgroundTaskTaskId: string;
@@ -26,6 +26,13 @@ interface BackgroundTaskMetadataProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+const getEndedAt = (completedAt?: Date, suspendedAt?: Date) => {
+  if (completedAt) {
+    return new Date(completedAt).getTime();
+  }
+  return suspendedAt ? new Date(suspendedAt).getTime() : undefined;
+};
 
 const BackgroundTaskMetadata = ({
   backgroundTaskTaskId,
@@ -45,18 +52,14 @@ const BackgroundTaskMetadata = ({
   });
 
   const timeDiff = useTimeDiff({
-    endedAt: backgroundTaskCompletedAt
-      ? new Date(backgroundTaskCompletedAt).getTime()
-      : backgroundTaskSuspendedAt
-        ? new Date(backgroundTaskSuspendedAt).getTime()
-        : undefined,
+    endedAt: getEndedAt(backgroundTaskCompletedAt, backgroundTaskSuspendedAt),
     startedAt: new Date(backgroundTaskStartedAt).getTime(),
   });
 
   const backgroundTask = task || tasks[backgroundTaskTaskId];
 
   const args = backgroundTask?.args;
-  const result = backgroundTask?.result as any;
+  const result = backgroundTask?.result;
   const suspendPayload = backgroundTask?.suspendPayload;
 
   let argSlot = null;
@@ -80,7 +83,9 @@ const BackgroundTaskMetadata = ({
     typeof result === "string" ? (
       <pre className="whitespace-pre bg-surface4 p-4 rounded-md overflow-x-auto">{result}</pre>
     ) : (
-      <CodeEditor data={result} />
+      <CodeEditor
+        data={result as Record<string, unknown> | Record<string, unknown>[] | undefined}
+      />
     );
 
   const suspendPayloadSlot =
@@ -113,14 +118,14 @@ const BackgroundTaskMetadata = ({
             {argSlot}
           </div>
 
-          {suspendPayloadSlot !== undefined && suspendPayload && (
+          {suspendPayloadSlot !== undefined && Boolean(suspendPayload) && (
             <div className="space-y-2">
               <Txt className="text-neutral3">Background Task Suspend Data</Txt>
               {suspendPayloadSlot}
             </div>
           )}
 
-          {resultSlot !== undefined && result && (
+          {resultSlot !== undefined && Boolean(result) && (
             <div className="space-y-2">
               <Txt className="text-neutral3">Background Task Result</Txt>
               {resultSlot}

@@ -94,10 +94,9 @@ export const transformIntegrationToolsForApi = (
     const providerId = compositeKey.slice(0, separatorIndex);
     const toolSlug = compositeKey.slice(separatorIndex + 1);
 
-    if (!result[providerId]) {
-      result[providerId] = { tools: {} };
-    }
-    result[providerId].tools![toolSlug] = { description: config.description, rules: config.rules };
+    const providerConfig = (result[providerId] ??= { tools: {} });
+    const providerTools = (providerConfig.tools ??= {});
+    providerTools[toolSlug] = { description: config.description, rules: config.rules };
   }
   return result;
 };
@@ -382,6 +381,48 @@ type ObservationalMemoryForm = NonNullable<
   NonNullable<AgentFormValues["memory"]>["observationalMemory"]
 >;
 
+function buildObservationConfig(om: ObservationalMemoryForm, model: string | undefined) {
+  const config = om.observation;
+  const hasConfig = [
+    model,
+    config?.messageTokens,
+    config?.maxTokensPerBatch,
+    config?.bufferTokens !== undefined,
+    config?.bufferActivation !== undefined,
+    config?.blockAfter !== undefined,
+  ].some(Boolean);
+  if (!hasConfig) {
+    return;
+  }
+  return {
+    blockAfter: config?.blockAfter,
+    bufferActivation: config?.bufferActivation,
+    bufferTokens: config?.bufferTokens,
+    maxTokensPerBatch: config?.maxTokensPerBatch,
+    messageTokens: config?.messageTokens,
+    model,
+  };
+}
+
+function buildReflectionConfig(om: ObservationalMemoryForm, model: string | undefined) {
+  const config = om.reflection;
+  const hasConfig = [
+    model,
+    config?.observationTokens,
+    config?.blockAfter !== undefined,
+    config?.bufferActivation !== undefined,
+  ].some(Boolean);
+  if (!hasConfig) {
+    return;
+  }
+  return {
+    blockAfter: config?.blockAfter,
+    bufferActivation: config?.bufferActivation,
+    model,
+    observationTokens: config?.observationTokens,
+  };
+}
+
 /**
  * Build the API representation of observational memory from form values.
  *
@@ -418,47 +459,19 @@ export const buildObservationalMemoryForApi = (
 
   const modelId = joinModelId(om.model);
 
-  const obsModelId = joinModelId(om.observation?.model);
-  const observation =
-    obsModelId ||
-    om.observation?.messageTokens ||
-    om.observation?.maxTokensPerBatch ||
-    om.observation?.bufferTokens !== undefined ||
-    om.observation?.bufferActivation !== undefined ||
-    om.observation?.blockAfter !== undefined
-      ? {
-          blockAfter: om.observation?.blockAfter,
-          bufferActivation: om.observation?.bufferActivation,
-          bufferTokens: om.observation?.bufferTokens,
-          maxTokensPerBatch: om.observation?.maxTokensPerBatch,
-          messageTokens: om.observation?.messageTokens,
-          model: obsModelId,
-        }
-      : undefined;
-
-  const refModelId = joinModelId(om.reflection?.model);
-  const reflection =
-    refModelId ||
-    om.reflection?.observationTokens ||
-    om.reflection?.blockAfter !== undefined ||
-    om.reflection?.bufferActivation !== undefined
-      ? {
-          blockAfter: om.reflection?.blockAfter,
-          bufferActivation: om.reflection?.bufferActivation,
-          model: refModelId,
-          observationTokens: om.reflection?.observationTokens,
-        }
-      : undefined;
-
-  return modelId || om.scope || om.shareTokenBudget || observation || reflection
-    ? {
-        model: modelId,
-        observation,
-        reflection,
-        scope: om.scope,
-        shareTokenBudget: om.shareTokenBudget,
-      }
-    : true;
+  const observation = buildObservationConfig(om, joinModelId(om.observation?.model));
+  const reflection = buildReflectionConfig(om, joinModelId(om.reflection?.model));
+  const hasConfig = [modelId, om.scope, om.shareTokenBudget, observation, reflection].some(Boolean);
+  if (!hasConfig) {
+    return true;
+  }
+  return {
+    model: modelId,
+    observation,
+    reflection,
+    scope: om.scope,
+    shareTokenBudget: om.shareTokenBudget,
+  };
 };
 
 type ApiObservationalMemory =

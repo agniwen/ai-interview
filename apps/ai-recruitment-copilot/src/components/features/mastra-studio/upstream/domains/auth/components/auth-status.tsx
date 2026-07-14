@@ -1,4 +1,4 @@
-import { useAuthCapabilities } from "../hooks";
+import { useAuthCapabilities } from "../hooks/use-auth-capabilities";
 import { isAuthenticated } from "../types";
 import { LoginButton } from "./login-button";
 import { UserMenu } from "./user-menu";
@@ -49,7 +49,7 @@ export function AuthStatus({ className }: AuthStatusProps) {
   return (
     <LoginButton
       config={capabilities.login}
-      redirectUri={typeof window !== "undefined" ? window.location.href : undefined}
+      redirectUri={typeof window === "undefined" ? undefined : window.location.href}
       className={className}
     />
   );

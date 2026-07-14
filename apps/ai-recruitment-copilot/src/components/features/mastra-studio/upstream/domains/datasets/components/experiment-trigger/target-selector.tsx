@@ -32,23 +32,23 @@ export function TargetSelector({
   const { data: scorers, isLoading: scorersLoading } = useScorers();
 
   // Get list of targets based on selected type
-  const targetOptions =
-    targetType === "agent"
-      ? Object.entries(agents ?? {}).map(([id, agent]) => ({
-          label: agent.name ?? id,
-          value: id,
-        }))
-      : targetType === "workflow"
-        ? Object.entries(workflows ?? {}).map(([id, workflow]) => ({
-            label: workflow.name ?? id,
-            value: id,
-          }))
-        : targetType === "scorer"
-          ? Object.entries(scorers ?? {}).map(([id, scorer]) => ({
-              label: scorer.scorer?.config?.name ?? id,
-              value: id,
-            }))
-          : [];
+  let targetOptions: { label: string; value: string }[] = [];
+  if (targetType === "agent") {
+    targetOptions = Object.entries(agents ?? {}).map(([id, agent]) => ({
+      label: agent.name ?? id,
+      value: id,
+    }));
+  } else if (targetType === "workflow") {
+    targetOptions = Object.entries(workflows ?? {}).map(([id, workflow]) => ({
+      label: workflow.name ?? id,
+      value: id,
+    }));
+  } else if (targetType === "scorer") {
+    targetOptions = Object.entries(scorers ?? {}).map(([id, scorer]) => ({
+      label: scorer.scorer?.config?.name ?? id,
+      value: id,
+    }));
+  }
 
   const isTargetsLoading =
     (targetType === "agent" && agentsLoading) ||
@@ -61,8 +61,12 @@ export function TargetSelector({
     setTargetId("");
   };
 
-  const targetLabel =
-    targetType === "agent" ? "Agent" : targetType === "workflow" ? "Workflow" : "Scorer";
+  let targetLabel = "Scorer";
+  if (targetType === "agent") {
+    targetLabel = "Agent";
+  } else if (targetType === "workflow") {
+    targetLabel = "Workflow";
+  }
 
   return (
     <div className="grid gap-6">

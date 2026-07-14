@@ -10,25 +10,45 @@ interface TimelineSpan {
   parentSpanId?: string | null;
 }
 
+function sortSpansByStartTime(spans: ExperimentUISpan[]): ExperimentUISpan[] {
+  return spans.toSorted(
+    (first, second) => new Date(first.startTime).getTime() - new Date(second.startTime).getTime(),
+  );
+}
+
+function sortNestedSpans(items: ExperimentUISpan[]): void {
+  for (const span of items) {
+    if (span.spans && span.spans.length > 0) {
+      span.spans = sortSpansByStartTime(span.spans);
+      sortNestedSpans(span.spans);
+    }
+  }
+}
+
+function getOverallEndDate(spans: TimelineSpan[]): Date | null {
+  let overallEndDate: Date | null = null;
+  for (const span of spans) {
+    const endDate = span.endedAt ? new Date(span.endedAt) : undefined;
+    if (endDate && (!overallEndDate || endDate > overallEndDate)) {
+      overallEndDate = endDate;
+    }
+  }
+  return overallEndDate;
+}
+
 export const formatTraceSpans = (spans: TimelineSpan[]): ExperimentUISpan[] => {
   if (!spans || spans.length === 0) {
     return [];
   }
 
-  const overallEndDate = spans.reduce(
-    (latest, span) => {
-      const endDate = span?.endedAt ? new Date(span.endedAt) : undefined;
-      return endDate && (!latest || endDate > latest) ? endDate : latest;
-    },
-    null as Date | null,
-  );
+  const overallEndDate = getOverallEndDate(spans);
 
   // Create a map for quick lookup of spans by spanId
   const spanMap = new Map<string, ExperimentUISpan>();
   const rootSpans: ExperimentUISpan[] = [];
 
   // First pass: create ExperimentUISpan objects and initialize spans array
-  spans.forEach((spanRecord) => {
+  for (const spanRecord of spans) {
     const startDate = new Date(spanRecord.startedAt);
     const endDate = spanRecord.endedAt ? new Date(spanRecord.endedAt) : undefined;
 
@@ -44,13 +64,16 @@ export const formatTraceSpans = (spans: TimelineSpan[]): ExperimentUISpan[] => {
     };
 
     spanMap.set(spanRecord.spanId, uiSpan);
-  });
+  }
 
   // Second pass: organize into tree structure
-  spans.forEach((spanRecord) => {
-    const uiSpan = spanMap.get(spanRecord.spanId)!;
+  for (const spanRecord of spans) {
+    const uiSpan = spanMap.get(spanRecord.spanId);
+    if (!uiSpan) {
+      continue;
+    }
 
-    if (spanRecord?.parentSpanId == null) {
+    if (spanRecord.parentSpanId === null || spanRecord.parentSpanId === undefined) {
       if (overallEndDate && uiSpan.endTime && overallEndDate > new Date(uiSpan.endTime)) {
         uiSpan.endTime = overallEndDate.toISOString();
         const overallEndTime = new Date(overallEndDate).getTime();
@@ -61,27 +84,14 @@ export const formatTraceSpans = (spans: TimelineSpan[]): ExperimentUISpan[] => {
     } else {
       const parent = spanMap.get(spanRecord.parentSpanId);
       if (parent) {
-        parent.spans!.push(uiSpan);
+        parent.spans = [...(parent.spans ?? []), uiSpan];
       } else {
         rootSpans.push(uiSpan);
       }
     }
-  });
-
-  const sortSpansByStartTime = (spans: ExperimentUISpan[]): ExperimentUISpan[] =>
-    spans.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  }
 
   const sortedRootSpans = sortSpansByStartTime(rootSpans);
-
-  const sortNestedSpans = (spans: ExperimentUISpan[]): void => {
-    spans.forEach((span) => {
-      if (span.spans && span.spans.length > 0) {
-        span.spans = sortSpansByStartTime(span.spans);
-        sortNestedSpans(span.spans);
-      }
-    });
-  };
-
   sortNestedSpans(sortedRootSpans);
 
   return sortedRootSpans;

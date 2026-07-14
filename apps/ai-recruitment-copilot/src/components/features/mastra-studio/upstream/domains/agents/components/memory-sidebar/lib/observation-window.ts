@@ -1,5 +1,6 @@
 import type { GetObservationalMemoryResponse } from "@mastra/client-js";
-import type { OmProgressData } from "@/components/features/mastra-studio/upstream/domains/agents/context";
+import type { OmProgressData } from "@/components/features/mastra-studio/upstream/domains/agents/context/agent-observational-memory-context";
+import { firstDefined } from "../../../utils/presence";
 
 type ThresholdValue = number | { min: number; max: number };
 type ObservationalMemoryRecord = NonNullable<GetObservationalMemoryResponse["record"]>;
@@ -23,6 +24,22 @@ export interface ObservationWindowTokens {
   messageThreshold: number;
   observationTokens: number;
   observationThreshold: number;
+}
+
+function getLiveMessageThreshold(progress: OmProgressData | null | undefined) {
+  return progress?.windows?.active?.messages?.threshold;
+}
+
+function getLiveObservationThreshold(progress: OmProgressData | null | undefined) {
+  return progress?.windows?.active?.observations?.threshold;
+}
+
+function getLiveMessageTokens(progress: OmProgressData | null | undefined) {
+  return progress?.windows?.active?.messages?.tokens;
+}
+
+function getLiveObservationTokens(progress: OmProgressData | null | undefined) {
+  return progress?.windows?.active?.observations?.tokens;
 }
 
 export const getThresholdValue = (
@@ -56,20 +73,28 @@ export function getObservationWindowTokens({
 }): ObservationWindowTokens {
   const recordConfig = record?.config as OmRecordConfig | undefined;
 
-  const messageThreshold =
-    liveProgress?.windows?.active?.messages?.threshold ??
-    recordConfig?.observation?.messageTokens ??
-    getThresholdValue(agentConfig?.messageTokens, 30_000);
+  const messageThreshold = firstDefined(
+    getLiveMessageThreshold(liveProgress),
+    recordConfig?.observation?.messageTokens,
+    getThresholdValue(agentConfig?.messageTokens, 30_000),
+  ) as number;
 
-  const observationThreshold =
-    liveProgress?.windows?.active?.observations?.threshold ??
-    recordConfig?.reflection?.observationTokens ??
-    getThresholdValue(agentConfig?.observationTokens, 40_000);
+  const observationThreshold = firstDefined(
+    getLiveObservationThreshold(liveProgress),
+    recordConfig?.reflection?.observationTokens,
+    getThresholdValue(agentConfig?.observationTokens, 40_000),
+  ) as number;
 
-  const messageTokens =
-    liveProgress?.windows?.active?.messages?.tokens ?? record?.pendingMessageTokens ?? 0;
-  const observationTokens =
-    liveProgress?.windows?.active?.observations?.tokens ?? record?.observationTokenCount ?? 0;
+  const messageTokens = firstDefined(
+    getLiveMessageTokens(liveProgress),
+    record?.pendingMessageTokens,
+    0,
+  ) as number;
+  const observationTokens = firstDefined(
+    getLiveObservationTokens(liveProgress),
+    record?.observationTokenCount,
+    0,
+  ) as number;
 
   return { messageThreshold, messageTokens, observationThreshold, observationTokens };
 }

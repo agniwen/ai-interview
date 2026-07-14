@@ -35,7 +35,7 @@ export function ScoresTools({
         size="md"
         options={entityOptions || []}
         onValueChange={(val: string) => {
-          const entity = entityOptions?.find((entity) => entity.value === val);
+          const entity = entityOptions?.find((option) => option.value === val);
           if (entity) {
             onEntityChange(entity);
           }

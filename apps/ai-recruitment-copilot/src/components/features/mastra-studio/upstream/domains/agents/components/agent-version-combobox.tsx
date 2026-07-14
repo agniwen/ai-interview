@@ -2,6 +2,7 @@ import { Badge } from "@mastra/playground-ui/components/Badge";
 import { Combobox } from "@mastra/playground-ui/components/Combobox";
 import type { ComboboxProps } from "@mastra/playground-ui/components/Combobox";
 import { useAgentVersions } from "../hooks/use-agent-versions";
+import { resolveConditional } from "../utils/conditional";
 
 function formatTimestamp(isoString: string): string {
   const date = new Date(isoString);
@@ -62,11 +63,11 @@ export function AgentVersionCombobox({
 
       return {
         description,
-        end: isPublished ? (
-          <Badge variant="success">Published</Badge>
-        ) : isDraft ? (
-          <Badge variant="info">Draft</Badge>
-        ) : undefined,
+        end: resolveConditional(
+          isPublished,
+          () => <Badge variant="success">Published</Badge>,
+          () => (isDraft ? <Badge variant="info">Draft</Badge> : undefined),
+        ),
         label: `v${version.versionNumber}`,
         value: version.id,
       };

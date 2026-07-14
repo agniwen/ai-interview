@@ -64,7 +64,7 @@ export function AddItemsToDatasetDialog({
 
     try {
       // Add items to selected dataset
-      for (let i = 0; i < items.length; i++) {
+      for (let i = 0; i < items.length; i += 1) {
         const item = items[i];
         await addItem.mutateAsync({
           datasetId: selectedDatasetId,
@@ -77,7 +77,7 @@ export function AddItemsToDatasetDialog({
 
       const targetDataset = datasets.find((d: DatasetRecord) => d.id === selectedDatasetId);
       toast.success(
-        `Added ${items.length} item${items.length !== 1 ? "s" : ""} to "${targetDataset?.name}"`,
+        `Added ${items.length} item${items.length === 1 ? "" : "s"} to "${targetDataset?.name}"`,
       );
 
       // Reset form
@@ -99,7 +99,8 @@ export function AddItemsToDatasetDialog({
   const handleCancel = () => {
     if (isAdding) {
       return;
-    } // Prevent cancel during operation
+      // Prevent cancel during operation
+    }
     setSelectedDatasetId("");
     onOpenChange(false);
   };
@@ -143,7 +144,7 @@ export function AddItemsToDatasetDialog({
             </div>
 
             <p className="text-sm text-muted-foreground">
-              {items.length} item{items.length !== 1 ? "s" : ""} will be copied to the selected
+              {items.length} item{items.length === 1 ? "" : "s"} will be copied to the selected
               dataset
             </p>
 

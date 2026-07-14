@@ -58,7 +58,12 @@ export const AgentProfileTabs = ({
   const twoPaneTabContentClassName = "h-full min-h-0 !py-0";
   const isEditable = !disabled;
 
-  const defaultTab = modelTabEnabled ? "model" : toolsTabEnabled ? "tools" : "instructions";
+  let defaultTab = "instructions";
+  if (modelTabEnabled) {
+    defaultTab = "model";
+  } else if (toolsTabEnabled) {
+    defaultTab = "tools";
+  }
 
   return (
     <div className="h-full min-h-0 overflow-hidden" data-testid="agent-profile-tabs">

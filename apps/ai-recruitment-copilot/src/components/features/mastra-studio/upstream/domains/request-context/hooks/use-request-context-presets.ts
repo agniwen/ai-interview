@@ -2,10 +2,17 @@ import { useMemo } from "react";
 
 export type RequestContextPresets = Record<string, Record<string, unknown>>;
 
+interface MastraRequestContextWindow extends Window {
+  MASTRA_REQUEST_CONTEXT_PRESETS?: string;
+}
+
 export function useRequestContextPresets(): RequestContextPresets | null {
   return useMemo(() => {
-    const presetsStr =
-      typeof window !== "undefined" ? (window as any).MASTRA_REQUEST_CONTEXT_PRESETS : undefined;
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    const presetsStr = (window as MastraRequestContextWindow).MASTRA_REQUEST_CONTEXT_PRESETS;
 
     if (!presetsStr || presetsStr === "%%MASTRA_REQUEST_CONTEXT_PRESETS%%") {
       return null;

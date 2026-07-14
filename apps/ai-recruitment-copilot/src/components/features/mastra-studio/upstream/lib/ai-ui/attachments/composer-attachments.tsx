@@ -44,15 +44,9 @@ const kindForContentType = (contentType: string): ComposerAttachmentKind => {
 };
 
 let attachmentCounter = 0;
-const nextId = () => `att-${Date.now()}-${++attachmentCounter}`;
+const nextId = () => `att-${Date.now()}-${(attachmentCounter += 1)}`;
 
-const fileToText = (file: File): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
-    reader.onerror = () => reject(reader.error);
-    reader.readAsText(file);
-  });
+const fileToText = (file: File): Promise<string> => file.text();
 
 const toAttachment = (file: File): ComposerAttachment => {
   const isUrl = isRemoteUrl(file.name);
@@ -149,7 +143,7 @@ export const ComposerAttachmentsProvider = ({ children }: { children: ReactNode 
   const clear = useCallback(() => setAttachments([]), []);
 
   const toCoreUserMessages = useCallback(
-    async () => Promise.all(attachments.map(attachmentToCoreUserMessage)),
+    () => Promise.all(attachments.map(attachmentToCoreUserMessage)),
     [attachments],
   );
 

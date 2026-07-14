@@ -195,14 +195,6 @@ export interface DatasetSaveActionProps {
   messageText: string;
 }
 
-export function DatasetSaveAction({ messageText }: DatasetSaveActionProps) {
-  const ctx = useDatasetSaveContext();
-  if (!ctx?.enabled) {
-    return null;
-  }
-  return <DatasetSaveActionInner messageText={messageText} />;
-}
-
 function DatasetSaveActionInner({ messageText }: DatasetSaveActionProps) {
   const ctx = useDatasetSaveContext();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -235,20 +227,23 @@ function DatasetSaveActionInner({ messageText }: DatasetSaveActionProps) {
   );
 }
 
-/**
- * Button shown at the bottom of the thread to save the full conversation history.
- * Only renders when dataset save context is enabled (test chat mode).
- */
-export function SaveFullConversationAction() {
+export function DatasetSaveAction({ messageText }: DatasetSaveActionProps) {
   const ctx = useDatasetSaveContext();
   if (!ctx?.enabled) {
     return null;
   }
-  return <SaveFullConversationInner />;
+  return <DatasetSaveActionInner messageText={messageText} />;
 }
 
-function SaveFullConversationInner() {
-  const ctx = useDatasetSaveContext()!;
+/**
+ * Button shown at the bottom of the thread to save the full conversation history.
+ * Only renders when dataset save context is enabled (test chat mode).
+ */
+function SaveFullConversationInner({
+  ctx,
+}: {
+  ctx: NonNullable<ReturnType<typeof useDatasetSaveContext>>;
+}) {
   const client = useMastraClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [input, setInput] = useState("");
@@ -312,4 +307,12 @@ function SaveFullConversationInner() {
       />
     </>
   );
+}
+
+export function SaveFullConversationAction() {
+  const ctx = useDatasetSaveContext();
+  if (!ctx?.enabled) {
+    return null;
+  }
+  return <SaveFullConversationInner ctx={ctx} />;
 }

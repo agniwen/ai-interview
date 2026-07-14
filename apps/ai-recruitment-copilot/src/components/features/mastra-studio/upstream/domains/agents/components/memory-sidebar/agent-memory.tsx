@@ -5,16 +5,17 @@ import { ExternalLink, Copy } from "lucide-react";
 import { useCallback } from "react";
 import { AgentObservationalMemory } from "./agent-observational-memory";
 import { AgentWorkingMemory } from "./agent-working-memory";
-import { useThreadInput } from "@/components/features/mastra-studio/upstream/domains/conversation";
+import { useThreadInput } from "@/components/features/mastra-studio/upstream/domains/conversation/context/use-thread-input";
 import {
   useMemoryConfig,
   useMemorySearch,
   useCloneThread,
   useMemoryWithOMStatus,
   useThread,
-} from "@/components/features/mastra-studio/upstream/domains/memory/hooks";
+} from "@/components/features/mastra-studio/upstream/domains/memory/hooks/use-memory";
 import { MemorySearch } from "@/components/features/mastra-studio/upstream/lib/ai-ui/memory-search";
 import { useLinkComponent } from "@/components/features/mastra-studio/upstream/lib/framework";
+import { resolveConditional } from "../../utils/conditional";
 
 interface AgentMemoryProps {
   agentId: string;
@@ -107,109 +108,130 @@ export function AgentMemory({ agentId, threadId, memoryType }: AgentMemoryProps)
   return (
     <div className="flex flex-col min-w-0">
       {/* Clone Thread Section */}
-      {threadId && (
-        <div className="p-4 border-b border-border1">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-neutral5">Clone Thread</h3>
-              <p className="text-xs text-neutral3 mt-1">Create a copy of this conversation</p>
+      {resolveConditional(
+        threadId,
+        () => (
+          <div className="p-4 border-b border-border1">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-neutral5">Clone Thread</h3>
+                <p className="text-xs text-neutral3 mt-1">Create a copy of this conversation</p>
+              </div>
+              <Button onClick={handleCloneThread} disabled={isCloning}>
+                <Copy className="w-4 h-4 mr-2" />
+                {isCloning ? "Cloning..." : "Clone"}
+              </Button>
             </div>
-            <Button onClick={handleCloneThread} disabled={isCloning}>
-              <Copy className="w-4 h-4 mr-2" />
-              {isCloning ? "Cloning..." : "Clone"}
-            </Button>
           </div>
-        </div>
+        ),
+        () => null,
       )}
 
       {/* Observational Memory Section - moved above Semantic Recall */}
-      {isOMEnabled && (
-        <div className="border-b border-border1 min-w-0 overflow-hidden">
-          <AgentObservationalMemory
-            agentId={agentId}
-            resourceId={effectiveResourceId}
-            threadId={threadId}
-          />
-        </div>
+      {resolveConditional(
+        isOMEnabled,
+        () => (
+          <div className="border-b border-border1 min-w-0 overflow-hidden">
+            <AgentObservationalMemory
+              agentId={agentId}
+              resourceId={effectiveResourceId}
+              threadId={threadId}
+            />
+          </div>
+        ),
+        () => null,
       )}
 
       {/* Memory Search Section - hidden for gateway memory */}
-      {!isGatewayMemory && (
-        <div className="p-4 border-b border-border1">
-          <div className="mb-2">
-            <div className="flex items-center gap-2 mb-2">
-              <h3 className="text-sm font-medium text-neutral5">Semantic Recall</h3>
-              {searchMemoryData?.searchScope && (
-                <span
-                  className={cn(
-                    "text-xs font-medium px-2 py-0.5 rounded",
-                    searchScope === "resource"
-                      ? "bg-purple-500/20 text-purple-400"
-                      : "bg-blue-500/20 text-blue-400",
-                  )}
-                  title={
-                    searchScope === "resource"
-                      ? "Searching across all threads"
-                      : "Searching within current thread only"
-                  }
+      {resolveConditional(
+        !isGatewayMemory,
+        () => (
+          <div className="p-4 border-b border-border1">
+            <div className="mb-2">
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="text-sm font-medium text-neutral5">Semantic Recall</h3>
+                {searchMemoryData?.searchScope && (
+                  <span
+                    className={cn(
+                      "text-xs font-medium px-2 py-0.5 rounded",
+                      searchScope === "resource"
+                        ? "bg-purple-500/20 text-purple-400"
+                        : "bg-blue-500/20 text-blue-400",
+                    )}
+                    title={
+                      searchScope === "resource"
+                        ? "Searching across all threads"
+                        : "Searching within current thread only"
+                    }
+                  >
+                    {searchScope}
+                  </span>
+                )}
+              </div>
+            </div>
+            {isSemanticRecallEnabled ? (
+              <MemorySearch
+                searchMemory={(query) =>
+                  searchMemory({ memoryConfig: { lastMessages: 0 }, searchQuery: query })
+                }
+                onResultClick={handleResultClick}
+                currentThreadId={threadId}
+                className="w-full"
+                chatInputValue={chatInputValue}
+              />
+            ) : (
+              <div className="bg-surface3 border border-border1 rounded-lg p-4">
+                <p className="text-sm text-neutral3 mb-3">
+                  Semantic recall is not enabled for this agent. Enable it to search through
+                  conversation history.
+                </p>
+                <a
+                  href="https://mastra.ai/en/docs/memory/semantic-recall"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
                 >
-                  {searchScope}
-                </span>
-              )}
-            </div>
+                  Learn about semantic recall
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            )}
           </div>
-          {isSemanticRecallEnabled ? (
-            <MemorySearch
-              searchMemory={(query) =>
-                searchMemory({ memoryConfig: { lastMessages: 0 }, searchQuery: query })
-              }
-              onResultClick={handleResultClick}
-              currentThreadId={threadId}
-              className="w-full"
-              chatInputValue={chatInputValue}
-            />
-          ) : (
-            <div className="bg-surface3 border border-border1 rounded-lg p-4">
-              <p className="text-sm text-neutral3 mb-3">
-                Semantic recall is not enabled for this agent. Enable it to search through
-                conversation history.
-              </p>
-              <a
-                href="https://mastra.ai/en/docs/memory/semantic-recall"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
-              >
-                Learn about semantic recall
-                <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
-          )}
-        </div>
+        ),
+        () => null,
       )}
 
       {/* Working Memory Section - hidden for gateway memory */}
-      {!isGatewayMemory && (
-        <div>
-          <AgentWorkingMemory agentId={agentId} />
-        </div>
+      {resolveConditional(
+        !isGatewayMemory,
+        () => (
+          <div>
+            <AgentWorkingMemory agentId={agentId} />
+          </div>
+        ),
+        () => null,
       )}
 
       {/* Gateway Memory indicator */}
-      {isGatewayMemory && (
-        <div className="p-4 border-b border-border1">
-          <div className="bg-surface3 border border-border1 rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-medium px-2 py-0.5 rounded bg-green-500/20 text-green-400">
-                Gateway
-              </span>
-              <h3 className="text-sm font-medium text-neutral5">Memory Gateway</h3>
+      {resolveConditional(
+        isGatewayMemory,
+        () => (
+          <div className="p-4 border-b border-border1">
+            <div className="bg-surface3 border border-border1 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-medium px-2 py-0.5 rounded bg-green-500/20 text-green-400">
+                  Gateway
+                </span>
+                <h3 className="text-sm font-medium text-neutral5">Memory Gateway</h3>
+              </div>
+              <p className="text-xs text-neutral3">
+                Memory is managed by the Memory Gateway. Threads and observations are stored
+                remotely.
+              </p>
             </div>
-            <p className="text-xs text-neutral3">
-              Memory is managed by the Memory Gateway. Threads and observations are stored remotely.
-            </p>
           </div>
-        </div>
+        ),
+        () => null,
       )}
     </div>
   );

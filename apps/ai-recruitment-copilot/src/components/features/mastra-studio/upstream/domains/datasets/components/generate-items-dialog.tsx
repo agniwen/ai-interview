@@ -22,11 +22,9 @@ import { useState, useCallback, useRef } from "react";
 import { useGenerationTasks } from "../context/generation-context";
 import { useDatasetMutations } from "../hooks/use-dataset-mutations";
 import { usePlaygroundModel } from "@/components/features/mastra-studio/upstream/domains/agents/context/playground-model-context";
-import {
-  LLMProviders,
-  LLMModels,
-  cleanProviderId,
-} from "@/components/features/mastra-studio/upstream/domains/llm";
+import { LLMModels } from "@/components/features/mastra-studio/upstream/domains/llm/components/llm-models";
+import { LLMProviders } from "@/components/features/mastra-studio/upstream/domains/llm/components/llm-providers";
+import { cleanProviderId } from "@/components/features/mastra-studio/upstream/domains/llm/utils";
 
 interface GeneratedItem {
   input: unknown;
@@ -62,6 +60,21 @@ function buildDefaultPrompt(agentContext?: AgentContext): string {
   }
   parts.push("Include edge cases, typical usage, and adversarial inputs.");
   return parts.join(" ");
+}
+
+function formatItemPreview(input: unknown): string {
+  if (typeof input === "string") {
+    return input.slice(0, 80);
+  }
+  if (typeof input === "object" && input !== null) {
+    const obj = input as Record<string, unknown>;
+    const [first] = Object.values(obj);
+    if (typeof first === "string") {
+      return first.slice(0, 80);
+    }
+    return JSON.stringify(input).slice(0, 80);
+  }
+  return String(input).slice(0, 80);
 }
 
 /**
@@ -170,7 +183,7 @@ export function GenerateConfigDialog({
                 max={50}
                 value={count}
                 onChange={(e) =>
-                  setCount(Math.max(1, Math.min(50, Number.parseInt(e.target.value) || 1)))
+                  setCount(Math.max(1, Math.min(50, Number.parseInt(e.target.value, 10) || 1)))
                 }
               />
             </div>
@@ -412,7 +425,7 @@ export function GenerateReviewDialog({
                   <Icon>
                     <Plus />
                   </Icon>
-                  Add {selectedIndices.size} Item{selectedIndices.size !== 1 ? "s" : ""}
+                  Add {selectedIndices.size} Item{selectedIndices.size === 1 ? "" : "s"}
                 </>
               )}
             </Button>
@@ -425,18 +438,3 @@ export function GenerateReviewDialog({
 
 /** Keep the old export name as an alias for backward compat in agent-playground-datasets.tsx */
 export { GenerateConfigDialog as GenerateItemsDialog };
-
-function formatItemPreview(input: unknown): string {
-  if (typeof input === "string") {
-    return input.slice(0, 80);
-  }
-  if (typeof input === "object" && input !== null) {
-    const obj = input as Record<string, unknown>;
-    const first = Object.values(obj)[0];
-    if (typeof first === "string") {
-      return first.slice(0, 80);
-    }
-    return JSON.stringify(input).slice(0, 80);
-  }
-  return String(input).slice(0, 80);
-}

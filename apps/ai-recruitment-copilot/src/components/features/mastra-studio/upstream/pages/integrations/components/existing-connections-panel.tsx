@@ -105,6 +105,49 @@ interface ExistingConnectionsPanelProps {
   onDisconnect: (connectionId: string) => void;
 }
 
+function ConnectionsContent({
+  connections,
+  disconnectPending,
+  error,
+  groupedByAuthor,
+  isAdmin,
+  isLoading,
+  onDisconnect,
+  providerId,
+  toolkit,
+}: Omit<ExistingConnectionsPanelProps, "disconnectError">) {
+  if (!providerId || !toolkit) {
+    return <p className="text-gray-500">Pick a provider and toolkit to list connections.</p>;
+  }
+  if (isLoading) {
+    return <p className="text-gray-500">Loading…</p>;
+  }
+  if (error) {
+    return <p className="text-red-600">{String(error)}</p>;
+  }
+  if (connections.length === 0) {
+    return <p className="text-gray-500">No connections.</p>;
+  }
+  if (groupedByAuthor) {
+    return (
+      <ConnectionGroups
+        groups={groupedByAuthor}
+        isAdmin={isAdmin}
+        disconnectPending={disconnectPending}
+        onDisconnect={onDisconnect}
+      />
+    );
+  }
+  return (
+    <ConnectionList
+      connections={connections}
+      isAdmin={isAdmin}
+      disconnectPending={disconnectPending}
+      onDisconnect={onDisconnect}
+    />
+  );
+}
+
 export function ExistingConnectionsPanel({
   providerId,
   toolkit,
@@ -120,29 +163,17 @@ export function ExistingConnectionsPanel({
   return (
     <div className="space-y-2 border rounded p-4">
       <h2 className="text-lg font-semibold">Existing connections</h2>
-      {!providerId || !toolkit ? (
-        <p className="text-gray-500">Pick a provider and toolkit to list connections.</p>
-      ) : isLoading ? (
-        <p className="text-gray-500">Loading…</p>
-      ) : error ? (
-        <p className="text-red-600">{String(error)}</p>
-      ) : connections.length === 0 ? (
-        <p className="text-gray-500">No connections.</p>
-      ) : groupedByAuthor ? (
-        <ConnectionGroups
-          groups={groupedByAuthor}
-          isAdmin={isAdmin}
-          disconnectPending={disconnectPending}
-          onDisconnect={onDisconnect}
-        />
-      ) : (
-        <ConnectionList
-          connections={connections}
-          isAdmin={isAdmin}
-          disconnectPending={disconnectPending}
-          onDisconnect={onDisconnect}
-        />
-      )}
+      <ConnectionsContent
+        connections={connections}
+        disconnectPending={disconnectPending}
+        error={error}
+        groupedByAuthor={groupedByAuthor}
+        isAdmin={isAdmin}
+        isLoading={isLoading}
+        onDisconnect={onDisconnect}
+        providerId={providerId}
+        toolkit={toolkit}
+      />
       {disconnectError ? <p className="text-red-600">{String(disconnectError)}</p> : null}
     </div>
   );

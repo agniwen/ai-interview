@@ -4,6 +4,7 @@ import { AgentIcon } from "@mastra/playground-ui/icons/AgentIcon";
 import { ToolsIcon } from "@mastra/playground-ui/icons/ToolsIcon";
 import { BrainIcon, TagIcon, WorkflowIcon } from "lucide-react";
 import { useEffect, useState } from "react";
+import type { ComponentProps } from "react";
 import {
   Link,
   useParams,
@@ -23,22 +24,158 @@ import {
   useGetTemplateInstallRun,
   useObserveStreamTemplateInstall,
 } from "@/components/features/mastra-studio/upstream/hooks/use-templates";
+import type { TemplateInstallState } from "@/components/features/mastra-studio/upstream/hooks/use-templates";
 import { cn } from "@/components/features/mastra-studio/upstream/lib/utils";
 
+interface TemplateValidationError {
+  message?: string;
+  type?: string;
+}
+
+interface TemplateInstallRunData {
+  snapshot?: {
+    result?: {
+      error?: unknown;
+      message?: unknown;
+      success?: boolean;
+      validationResults?: {
+        errors?: TemplateValidationError[];
+        remainingErrors: number;
+        valid: boolean;
+      };
+    };
+    status?: string;
+  };
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isTemplateValidationError(error: unknown): error is TemplateValidationError {
+  return Boolean(error && typeof error === "object");
+}
+
+function getStreamValidationErrors(
+  result: Partial<TemplateInstallState>,
+): TemplateValidationError[] | undefined {
+  const { validationResults } = result;
+  if (!validationResults || typeof validationResults !== "object") {
+    return;
+  }
+  const { errors } = validationResults as Record<string, unknown>;
+  return Array.isArray(errors) ? errors.filter(isTemplateValidationError) : undefined;
+}
+
+type TemplateData = NonNullable<ReturnType<typeof useTemplateRepo>["data"]>;
+
+function buildTemplateInfoData(template?: TemplateData) {
+  return [
+    {
+      icon: <ToolsIcon />,
+      key: "tools",
+      label: "Tools",
+      value: template?.tools?.length ? template.tools.join(", ") : "n/a",
+    },
+    {
+      icon: <AgentIcon />,
+      key: "agents",
+      label: "Agents",
+      value: template?.agents?.length ? template.agents.join(", ") : "n/a",
+    },
+    {
+      icon: <WorkflowIcon />,
+      key: "workflows",
+      label: "Workflows",
+      value: template?.workflows?.length ? template.workflows.join(", ") : "n/a",
+    },
+    {
+      icon: <BrainIcon />,
+      key: "providers",
+      label: "Providers",
+      value: template?.supportedProviders?.length ? template.supportedProviders.join(", ") : "n/a",
+    },
+    {
+      icon: <TagIcon />,
+      key: "tags",
+      label: "Tags",
+      value: template?.tags?.length ? template.tags.join(", ") : "n/a",
+    },
+  ];
+}
+
+function getTemplateRepoName(template: TemplateData | undefined, templateSlug: string): string {
+  if (!template?.githubUrl) {
+    return `template-${templateSlug}`;
+  }
+  return new URL(template.githubUrl).pathname.split("/")[2] ?? `template-${templateSlug}`;
+}
+
+function TemplateContent({
+  completedRunValidationErrors,
+  failure,
+  fallbackValidationErrors,
+  formProps,
+  installationProps,
+  installedEntities,
+  isObserving,
+  isStreaming,
+  success,
+  template,
+}: {
+  completedRunValidationErrors: TemplateValidationError[];
+  failure: string | null;
+  fallbackValidationErrors?: TemplateValidationError[];
+  formProps: ComponentProps<typeof TemplateForm>;
+  installationProps: Omit<ComponentProps<typeof TemplateInstallation>, "name">;
+  installedEntities: ComponentProps<typeof TemplateSuccess>["installedEntities"];
+  isObserving: boolean;
+  isStreaming: boolean;
+  success: boolean;
+  template?: TemplateData;
+}) {
+  if (!template) {
+    return null;
+  }
+  const validationErrors =
+    completedRunValidationErrors.length > 0
+      ? completedRunValidationErrors
+      : fallbackValidationErrors;
+
+  return (
+    <>
+      {(isStreaming || isObserving) && (
+        <TemplateInstallation name={template.title} {...installationProps} />
+      )}
+      {success && (
+        <TemplateSuccess
+          name={template.title}
+          installedEntities={installedEntities}
+          linkComponent={Link}
+        />
+      )}
+      {failure && <TemplateFailure errorMsg={failure} validationErrors={validationErrors} />}
+      {!isStreaming && !isObserving && !success && !failure && <TemplateForm {...formProps} />}
+    </>
+  );
+}
+
 export default function Template() {
-  const { templateSlug } = useParams()! as { templateSlug: string };
+  const { templateSlug } = useParams() as { templateSlug: string };
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedProvider, setSelectedProvider] = useState<string>("");
   const [selectedModelProvider, setSelectedModelProvider] = useState<string>("");
   const [selectedModelId, setSelectedModelId] = useState<string>("");
-  const [variables, setVariables] = useState({});
+  const [variables, setVariables] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<string[]>([]);
   const [failure, setFailure] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [currentRunId, setCurrentRunId] = useState<string>("");
   const [hasAutoResumed, setHasAutoResumed] = useState(false);
   const [isFreshInstall, setIsFreshInstall] = useState(false);
-  const [completedRunValidationErrors, setCompletedRunValidationErrors] = useState<any[]>([]);
+  const [completedRunValidationErrors, setCompletedRunValidationErrors] = useState<
+    TemplateValidationError[]
+  >([]);
 
   const { data: template, isLoading: isLoadingTemplate } = useTemplateRepo({
     owner: "mastra-ai",
@@ -51,9 +188,7 @@ export default function Template() {
   const { data: templateEnvVars, isLoading: isLoadingEnvVars } = useTemplateRepoEnvVars({
     branch,
     owner: "mastra-ai",
-    repo: template?.githubUrl
-      ? new URL(template.githubUrl).pathname.split("/")[2]
-      : `template-${templateSlug}`,
+    repo: getTemplateRepoName(template, templateSlug),
   });
 
   // Fetch agent builder workflow info for step pre-population
@@ -76,38 +211,42 @@ export default function Template() {
       console.info("🔄 Checking completed run after hot reload:", { runId });
 
       setCurrentRunId(runId);
-
-      getTemplateInstallRun({ runId })
-        .then((runData: any) => {
+      const checkCompletedRun = async () => {
+        try {
+          const runData = (await getTemplateInstallRun({ runId })) as TemplateInstallRunData;
           const { snapshot } = runData;
 
-          if (snapshot?.status === "success" && snapshot?.result?.success) {
+          if (snapshot?.status === "success" && snapshot.result?.success) {
             setSuccess(true);
-          } else if (snapshot?.result?.success === false) {
-            // Check if this is a validation error with specific validation results
-            const hasValidationResults =
-              snapshot?.result?.validationResults &&
-              !snapshot?.result?.validationResults?.valid &&
-              snapshot?.result?.validationResults?.remainingErrors > 0;
-
-            if (hasValidationResults) {
-              const { remainingErrors, errors } = snapshot.result.validationResults;
-              const errorMessage = `Template installation completed but ${remainingErrors} validation issue${remainingErrors > 1 ? "s" : ""} remain unresolved.`;
-              setFailure(errorMessage);
-              setCompletedRunValidationErrors(errors || []);
-            } else {
-              const errorValue =
-                snapshot?.result?.message ||
-                snapshot?.result?.error ||
-                "Template installation failed";
-              setFailure(typeof errorValue === "string" ? errorValue : String(errorValue));
-            }
+            return;
           }
-        })
-        .catch((error) => {
+          if (snapshot?.result?.success !== false) {
+            return;
+          }
+
+          const { validationResults } = snapshot.result;
+          if (
+            validationResults &&
+            !validationResults.valid &&
+            validationResults.remainingErrors > 0
+          ) {
+            const issueSuffix = validationResults.remainingErrors > 1 ? "s" : "";
+            setFailure(
+              `Template installation completed but ${validationResults.remainingErrors} validation issue${issueSuffix} remain unresolved.`,
+            );
+            setCompletedRunValidationErrors(validationResults.errors || []);
+            return;
+          }
+
+          const errorValue =
+            snapshot.result.message || snapshot.result.error || "Template installation failed";
+          setFailure(typeof errorValue === "string" ? errorValue : String(errorValue));
+        } catch (error) {
           console.error("❌ Failed to fetch run details:", error);
           setFailure("Failed to retrieve installation status after reload");
-        });
+        }
+      };
+      void checkCompletedRun();
     }
   }, [searchParams, success, failure, isStreaming, isObserving, getTemplateInstallRun]);
 
@@ -129,43 +268,33 @@ export default function Template() {
       workflowInfo
     ) {
       setCurrentRunId(runId);
-      setHasAutoResumed(true); // Prevent multiple auto-resume attempts
+      // Prevent multiple auto-resume attempts.
+      setHasAutoResumed(true);
 
-      // Check if the run exists and start watching
-      try {
-        getTemplateInstallRun({ runId })
-          .then((runData: any) => {
-            const { snapshot } = runData;
-
-            if (snapshot?.status === "running") {
-              // Use observeStream for better recovery - replays full execution from cache
-              return observeInstall.mutateAsync({ runId });
-            }
-          })
-          .then(() => {
-            // Clean up URL parameters after successful resume
-            setSearchParams((prev) => {
-              const newParams = new URLSearchParams(prev);
-              newParams.delete("resume");
-              return newParams;
-            });
-          })
-          .catch((error: any) => {
-            console.error("❌ Failed to resume template installation:", error);
-
-            // If run doesn't exist or failed to watch, show error
-            if (error.message?.includes("404") || error.message?.includes("not found")) {
-              setFailure(
-                "Template installation run not found. It may have expired or been completed.",
-              );
-            } else {
-              setFailure("Failed to resume template installation. Please try again.");
-            }
+      const resumeInstall = async () => {
+        try {
+          const runData = (await getTemplateInstallRun({ runId })) as TemplateInstallRunData;
+          if (runData.snapshot?.status === "running") {
+            await observeInstall.mutateAsync({ runId });
+          }
+          setSearchParams((prev) => {
+            const newParams = new URLSearchParams(prev);
+            newParams.delete("resume");
+            return newParams;
           });
-      } catch (error) {
-        console.error("❌ Auto-resume failed with error:", error);
-        setFailure("Failed to resume template installation. Please refresh and try again.");
-      }
+        } catch (error) {
+          console.error("❌ Failed to resume template installation:", error);
+          const message = getErrorMessage(error);
+          if (message.includes("404") || message.includes("not found")) {
+            setFailure(
+              "Template installation run not found. It may have expired or been completed.",
+            );
+            return;
+          }
+          setFailure("Failed to resume template installation. Please try again.");
+        }
+      };
+      void resumeInstall();
     }
   }, [
     searchParams,
@@ -187,55 +316,8 @@ export default function Template() {
     { label: "Google", value: "google" },
   ];
 
-  const templateInfoData = [
-    {
-      icon: <ToolsIcon />,
-      key: "tools",
-      label: "Tools",
-      value: template?.tools?.length ? template.tools.map((tool) => tool).join(", ") : "n/a",
-    },
-    {
-      icon: <AgentIcon />,
-      key: "agents",
-      label: "Agents",
-      value: template?.agents?.length ? template.agents.map((agent) => agent).join(", ") : "n/a",
-    },
-    {
-      icon: <WorkflowIcon />,
-      key: "workflows",
-      label: "Workflows",
-      value: template?.workflows?.length
-        ? template.workflows.map((workflow) => workflow).join(", ")
-        : "n/a",
-    },
-    {
-      icon: <BrainIcon />,
-      key: "providers",
-      label: "Providers",
-      value: template?.supportedProviders?.length ? template.supportedProviders.join(", ") : "n/a",
-    },
-    {
-      icon: <TagIcon />,
-      key: "tags",
-      label: "Tags",
-      value: template?.tags?.length ? template.tags.join(", ") : "n/a",
-    },
-  ];
-
-  // mock of installed entities
-  // In a real application, this data would be fetched from the server or derived from the template installation process
-  // For now, we are just simulating the installation of three entities: a tool,
-  const installedEntities = [
-    {
-      ...templateInfoData[0],
-    },
-    {
-      ...templateInfoData[1],
-    },
-    {
-      ...templateInfoData[2],
-    },
-  ].filter((entity) => entity.value !== "n/a");
+  const templateInfoData = buildTemplateInfoData(template);
+  const installedEntities = templateInfoData.slice(0, 3).filter((entity) => entity.value !== "n/a");
 
   useEffect(() => {
     if (templateEnvVars) {
@@ -243,41 +325,36 @@ export default function Template() {
     }
   }, [templateEnvVars]);
 
+  const workflowPhase = streamResult?.phase ?? observeStreamResult?.phase;
+  const workflowError = streamResult?.error ?? observeStreamResult?.error;
+
   // Monitor for workflow errors — only react to phase/error changes, not full object identity
   useEffect(() => {
-    const result = streamResult || observeStreamResult;
-
-    if (result?.phase === "error" && result?.error) {
-      setFailure(typeof result.error === "string" ? result.error : String(result.error));
+    if (workflowPhase === "error" && workflowError) {
+      setFailure(typeof workflowError === "string" ? workflowError : String(workflowError));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    streamResult?.phase,
-    streamResult?.error,
-    observeStreamResult?.phase,
-    observeStreamResult?.error,
-  ]);
+  }, [workflowError, workflowPhase]);
 
   const handleProviderChange = (value: string) => {
     setSelectedProvider(value);
   };
 
-  const handleModelUpdate = async (params: { provider: string; modelId: string }) => {
+  const handleModelUpdate = (params: { provider: string; modelId: string }) => {
     setSelectedModelProvider(params.provider);
     setSelectedModelId(params.modelId);
-    return { message: "Model updated successfully" };
+    return Promise.resolve({ message: "Model updated successfully" });
   };
 
   const handleInstallTemplate = async () => {
-    const errors = Object.entries(variables).reduce((acc, [key, value]) => {
+    const missingVariables: string[] = [];
+    for (const [key, value] of Object.entries(variables)) {
       if (value === "") {
-        acc.push(key);
+        missingVariables.push(key);
       }
-      return acc;
-    }, [] as string[]);
+    }
 
-    if (errors.length > 0) {
-      setErrors(errors);
+    if (missingVariables.length > 0) {
+      setErrors(missingVariables);
       return;
     }
 
@@ -286,7 +363,8 @@ export default function Template() {
       setFailure(null);
       setSuccess(false);
       setCurrentRunId("");
-      setIsFreshInstall(true); // Mark as fresh install to prevent watch trigger
+      // Prevent the auto-resume watcher from starting for this fresh install.
+      setIsFreshInstall(true);
 
       try {
         const repo = template.githubUrl || `https://github.com/mastra-ai/template-${template.slug}`;
@@ -321,9 +399,10 @@ export default function Template() {
             provider: selectedModelProvider,
           },
         });
-      } catch (error: any) {
-        setIsFreshInstall(false); // Reset fresh install flag on error
-        setFailure(error?.message || "Template installation failed");
+      } catch (error) {
+        // Allow a later retry to use the resume watcher again.
+        setIsFreshInstall(false);
+        setFailure(getErrorMessage(error) || "Template installation failed");
         console.error("Template installation failed", error);
       }
     }
@@ -344,6 +423,30 @@ export default function Template() {
     }));
   };
 
+  const formProps: ComponentProps<typeof TemplateForm> = {
+    defaultModelId: selectedModelId,
+    defaultModelProvider: selectedModelProvider,
+    errors,
+    handleInstallTemplate,
+    handleVariableChange,
+    isInstalling: isCreatingRun,
+    isLoadingEnvVars: isLoadingEnvVars || isLoadingWorkflow,
+    onModelUpdate: handleModelUpdate,
+    onProviderChange: handleProviderChange,
+    providerOptions,
+    selectedProvider,
+    setErrors,
+    setVariables,
+    variables,
+  };
+  const installationProps: Omit<ComponentProps<typeof TemplateInstallation>, "name"> = {
+    runId: currentRunId,
+    streamResult: isObserving ? observeStreamResult : streamResult,
+    workflowInfo,
+  };
+  const fallbackValidationErrors =
+    getStreamValidationErrors(streamResult) ?? getStreamValidationErrors(observeStreamResult);
+
   return (
     <MainContentLayout>
       <div className={cn("w-full lg:px-12 h-full overflow-y-scroll")}>
@@ -357,57 +460,18 @@ export default function Template() {
             infoData={templateInfoData}
             templateSlug={templateSlug}
           />
-          {template && (
-            <>
-              {(isStreaming || isObserving) && (
-                <TemplateInstallation
-                  name={template.title}
-                  streamResult={isObserving ? observeStreamResult : streamResult}
-                  runId={currentRunId}
-                  workflowInfo={workflowInfo}
-                />
-              )}
-
-              {success && (
-                <TemplateSuccess
-                  name={template.title}
-                  installedEntities={installedEntities}
-                  linkComponent={Link}
-                />
-              )}
-
-              {failure && (
-                <TemplateFailure
-                  errorMsg={failure}
-                  validationErrors={
-                    completedRunValidationErrors.length > 0
-                      ? completedRunValidationErrors
-                      : streamResult?.validationResults?.errors ||
-                        observeStreamResult?.validationResults?.errors
-                  }
-                />
-              )}
-
-              {!isStreaming && !isObserving && !success && !failure && (
-                <TemplateForm
-                  providerOptions={providerOptions}
-                  selectedProvider={selectedProvider}
-                  onProviderChange={handleProviderChange}
-                  variables={variables}
-                  setVariables={setVariables}
-                  errors={errors}
-                  setErrors={setErrors}
-                  handleInstallTemplate={handleInstallTemplate}
-                  handleVariableChange={handleVariableChange}
-                  isLoadingEnvVars={isLoadingEnvVars || isLoadingWorkflow}
-                  isInstalling={isCreatingRun}
-                  defaultModelProvider={selectedModelProvider}
-                  defaultModelId={selectedModelId}
-                  onModelUpdate={handleModelUpdate}
-                />
-              )}
-            </>
-          )}
+          <TemplateContent
+            completedRunValidationErrors={completedRunValidationErrors}
+            failure={failure}
+            fallbackValidationErrors={fallbackValidationErrors}
+            formProps={formProps}
+            installationProps={installationProps}
+            installedEntities={installedEntities}
+            isObserving={isObserving}
+            isStreaming={isStreaming}
+            success={success}
+            template={template}
+          />
         </div>
       </div>
     </MainContentLayout>

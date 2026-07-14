@@ -3,33 +3,6 @@ import type { ReactNode } from "react";
 import { AgentLayout } from "./agent-layout";
 import { SidebarPanel } from "./sidebar-panel";
 
-export function AgentViewLoadingSkeleton({
-  agentId,
-  view,
-}: {
-  agentId: string;
-  view: "chat" | "settings";
-}) {
-  return (
-    <AgentLayout
-      agentId={agentId}
-      leftDrawerLabel="Open threads and memory"
-      leftSlot={<AgentSidebarLoadingSkeleton />}
-    >
-      <div
-        className="grid grid-rows-[auto_1fr] h-full min-h-0"
-        data-testid="agent-route-skeleton"
-        aria-busy="true"
-      >
-        <AgentViewHeaderLoadingSkeleton />
-        <div className="min-h-0 overflow-hidden">
-          {view === "settings" ? <AgentSettingsLoadingSkeleton /> : <AgentChatLoadingSkeleton />}
-        </div>
-      </div>
-    </AgentLayout>
-  );
-}
-
 function AgentViewHeaderLoadingSkeleton() {
   return (
     <div className="flex items-center justify-between gap-2 pr-3 max-lg:py-2">
@@ -44,6 +17,12 @@ function AgentViewHeaderLoadingSkeleton() {
         <Skeleton className="h-9 w-24 rounded-lg" />
       </div>
     </div>
+  );
+}
+
+function SidebarLoadingRow({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex h-9 w-full min-w-0 items-center gap-2 rounded-xl px-3">{children}</div>
   );
 }
 
@@ -88,12 +67,6 @@ export function AgentSidebarLoadingSkeleton() {
         </div>
       </div>
     </SidebarPanel>
-  );
-}
-
-function SidebarLoadingRow({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex h-9 w-full min-w-0 items-center gap-2 rounded-xl px-3">{children}</div>
   );
 }
 
@@ -145,5 +118,32 @@ function AgentSettingsLoadingSkeleton() {
         <Skeleton className="h-24 w-5/6 rounded-lg" />
       </div>
     </div>
+  );
+}
+
+export function AgentViewLoadingSkeleton({
+  agentId,
+  view,
+}: {
+  agentId: string;
+  view: "chat" | "settings";
+}) {
+  return (
+    <AgentLayout
+      agentId={agentId}
+      leftDrawerLabel="Open threads and memory"
+      leftSlot={<AgentSidebarLoadingSkeleton />}
+    >
+      <div
+        className="grid grid-rows-[auto_1fr] h-full min-h-0"
+        data-testid="agent-route-skeleton"
+        aria-busy="true"
+      >
+        <AgentViewHeaderLoadingSkeleton />
+        <div className="min-h-0 overflow-hidden">
+          {view === "settings" ? <AgentSettingsLoadingSkeleton /> : <AgentChatLoadingSkeleton />}
+        </div>
+      </div>
+    </AgentLayout>
   );
 }

@@ -38,6 +38,49 @@ const baseColumns = [
 
 const columnsWithActions = [...baseColumns, { label: "", size: "auto" }] as const;
 
+interface SkillsNotConfiguredProps {
+  onAddSkill?: () => void;
+}
+
+export function SkillsNotConfigured({ onAddSkill }: SkillsNotConfiguredProps) {
+  return (
+    <div className="grid place-items-center py-16">
+      <div className="flex flex-col items-center text-center max-w-md">
+        <div className="p-4 rounded-full bg-surface4 mb-4">
+          <SkillIcon className="h-8 w-8 text-neutral3" />
+        </div>
+        <h2 className="text-lg font-medium text-neutral6 mb-2">Skills Not Configured</h2>
+        <p className="text-sm text-neutral4 mb-6">
+          No skills are configured in the workspace. Add SKILL.md files to your skills directory to
+          discover and manage agent skills.
+        </p>
+        <div className="flex gap-3">
+          {onAddSkill && (
+            <Button size="lg" variant="default" onClick={onAddSkill}>
+              <Icon>
+                <Plus className="h-4 w-4" />
+              </Icon>
+              Add Skill from skills.sh
+            </Button>
+          )}
+          <Button
+            size="lg"
+            variant="default"
+            as="a"
+            href="https://mastra.ai/en/docs/workspace/skills"
+            target="_blank"
+          >
+            <Icon>
+              <BookOpen className="h-4 w-4" />
+            </Icon>
+            Learn about Skills
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function SkillsTable({
   skills,
   isLoading,
@@ -170,48 +213,3 @@ export function SkillsTable({
     </div>
   );
 }
-
-interface SkillsNotConfiguredProps {
-  onAddSkill?: () => void;
-}
-
-function SkillsNotConfigured({ onAddSkill }: SkillsNotConfiguredProps) {
-  return (
-    <div className="grid place-items-center py-16">
-      <div className="flex flex-col items-center text-center max-w-md">
-        <div className="p-4 rounded-full bg-surface4 mb-4">
-          <SkillIcon className="h-8 w-8 text-neutral3" />
-        </div>
-        <h2 className="text-lg font-medium text-neutral6 mb-2">Skills Not Configured</h2>
-        <p className="text-sm text-neutral4 mb-6">
-          No skills are configured in the workspace. Add SKILL.md files to your skills directory to
-          discover and manage agent skills.
-        </p>
-        <div className="flex gap-3">
-          {onAddSkill && (
-            <Button size="lg" variant="default" onClick={onAddSkill}>
-              <Icon>
-                <Plus className="h-4 w-4" />
-              </Icon>
-              Add Skill from skills.sh
-            </Button>
-          )}
-          <Button
-            size="lg"
-            variant="default"
-            as="a"
-            href="https://mastra.ai/en/docs/workspace/skills"
-            target="_blank"
-          >
-            <Icon>
-              <BookOpen className="h-4 w-4" />
-            </Icon>
-            Learn about Skills
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export { SkillsNotConfigured };

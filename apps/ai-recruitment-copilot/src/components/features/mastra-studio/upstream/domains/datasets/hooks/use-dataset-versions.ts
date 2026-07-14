@@ -26,14 +26,10 @@ export const useDatasetVersions = (datasetId: string) => {
   return useInfiniteQuery<DatasetVersionsPage, Error, DatasetVersion[], readonly unknown[], number>(
     {
       enabled: Boolean(datasetId),
-      getNextPageParam: (lastPage, _, lastPageParam) => {
-        if (lastPage?.pagination?.hasMore) {
-          return lastPageParam + 1;
-        }
-        return;
-      },
+      getNextPageParam: (lastPage, _, lastPageParam) =>
+        lastPage?.pagination?.hasMore ? lastPageParam + 1 : undefined,
       initialPageParam: 0,
-      queryFn: async ({ pageParam }): Promise<DatasetVersionsPage> =>
+      queryFn: ({ pageParam }): Promise<DatasetVersionsPage> =>
         client.listDatasetVersions(datasetId, { page: pageParam, perPage: PER_PAGE }),
       queryKey: ["dataset-versions", datasetId],
       select: (data) =>

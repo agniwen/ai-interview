@@ -13,6 +13,38 @@ export interface ReferenceViewerDialogProps {
   error?: string;
 }
 
+function ReferenceDialogContent({
+  content,
+  error,
+  isLoading,
+}: Pick<ReferenceViewerDialogProps, "content" | "error" | "isLoading">) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-6 w-6 border-2 border-accent1 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <p className="text-red-400 mb-2">Failed to load reference</p>
+        <p className="text-sm text-neutral3">{error}</p>
+      </div>
+    );
+  }
+  if (content) {
+    return (
+      <pre className="whitespace-pre-wrap text-sm text-neutral5 font-mono bg-surface3 p-4 rounded-lg overflow-auto">
+        {content}
+      </pre>
+    );
+  }
+  return (
+    <div className="flex items-center justify-center py-12 text-neutral3">No content available</div>
+  );
+}
+
 export function ReferenceViewerDialog({
   open,
   onOpenChange,
@@ -41,16 +73,16 @@ export function ReferenceViewerDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div
+      <button
+        aria-label="Close reference viewer"
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={() => onOpenChange(false)}
       />
 
       {/* Dialog */}
-      <div
+      <dialog
+        open
         className="relative w-full max-w-4xl max-h-[85vh] mx-4 bg-surface2 rounded-xl border border-border1 shadow-2xl flex flex-col overflow-hidden"
-        role="dialog"
-        aria-modal="true"
         aria-labelledby="reference-viewer-title"
         onKeyDown={(e) => {
           if (e.key === "Escape") {
@@ -99,26 +131,9 @@ export function ReferenceViewerDialog({
 
         {/* Content */}
         <div className="flex-1 overflow-auto p-6">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="h-6 w-6 border-2 border-accent1 border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : error ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <p className="text-red-400 mb-2">Failed to load reference</p>
-              <p className="text-sm text-neutral3">{error}</p>
-            </div>
-          ) : content ? (
-            <pre className="whitespace-pre-wrap text-sm text-neutral5 font-mono bg-surface3 p-4 rounded-lg overflow-auto">
-              {content}
-            </pre>
-          ) : (
-            <div className="flex items-center justify-center py-12 text-neutral3">
-              No content available
-            </div>
-          )}
+          <ReferenceDialogContent content={content} error={error} isLoading={isLoading} />
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }

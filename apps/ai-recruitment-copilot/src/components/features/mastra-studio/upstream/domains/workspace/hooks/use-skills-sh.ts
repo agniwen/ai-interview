@@ -59,7 +59,8 @@ export const usePopularSkillsSh = (workspaceId: string | undefined) => {
       });
     },
     queryKey: ["skills-sh", "popular", workspaceId],
-    staleTime: 5 * 60 * 1000, // 5 minutes,
+    // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 };
 
@@ -273,8 +274,7 @@ export function parseSkillSource(
     return null;
   }
 
-  const owner = parts[0];
-  const repo = parts[1];
+  const [owner, repo] = parts;
 
   // If there's a path in topSource, use it; otherwise use skill name
   let skillPath: string;

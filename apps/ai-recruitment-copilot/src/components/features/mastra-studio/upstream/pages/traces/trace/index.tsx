@@ -14,13 +14,14 @@ import type { SpanTab } from "@mastra/playground-ui/domains/traces/types";
 import { cn } from "@mastra/playground-ui/utils/cn";
 import { CircleGaugeIcon, SaveIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ComponentProps } from "react";
 import {
   useNavigate,
   useParams,
   useSearchParams,
 } from "@/components/features/mastra-studio/router/compat";
 import { TraceAsItemDialog } from "@/components/features/mastra-studio/upstream/domains/observability/components/trace-as-item-dialog";
-import { useScorers } from "@/components/features/mastra-studio/upstream/domains/scores";
+import { useScorers } from "@/components/features/mastra-studio/upstream/domains/scores/hooks/use-scorers";
 import { useTraceSpanScores } from "@/components/features/mastra-studio/upstream/domains/scores/hooks/use-trace-span-scores";
 import { ScoreDataPanel } from "@/components/features/mastra-studio/upstream/domains/traces/components/score-data-panel";
 import { SpanFeedbackList } from "@/components/features/mastra-studio/upstream/domains/traces/components/span-feedback-list";
@@ -29,16 +30,95 @@ import { SpanScoring } from "@/components/features/mastra-studio/upstream/domain
 import { useTraceFeedback } from "@/components/features/mastra-studio/upstream/domains/traces/hooks/use-trace-feedback";
 import { RouteHeaderActions } from "@/components/features/mastra-studio/upstream/lib/route-header";
 
+function getInitialSpanTab(tab: string | null): SpanTab {
+  if (tab === "scoring" || tab === "feedback") {
+    return tab;
+  }
+  return "details";
+}
+
+function getSpanEntityType(span: {
+  attributes?: Record<string, unknown> | null;
+  entityType?: EntityType | null;
+}): "Agent" | "Workflow" | undefined {
+  if (span.attributes?.agentId || span.entityType === EntityType.AGENT) {
+    return "Agent";
+  }
+  if (span.attributes?.workflowId || span.entityType === EntityType.WORKFLOW_RUN) {
+    return "Workflow";
+  }
+}
+
+type TraceRootSpan = ComponentProps<typeof TraceKeysAndValues>["rootSpan"];
+
+function TraceHeaderActions({
+  onEvaluate,
+  onSave,
+  rootSpan,
+}: {
+  onEvaluate: () => void;
+  onSave: () => void;
+  rootSpan?: TraceRootSpan;
+}) {
+  if (!rootSpan) {
+    return null;
+  }
+  return (
+    <RouteHeaderActions owner="trace-detail">
+      <ButtonsGroup>
+        <Button tooltip="Evaluate Trace" aria-label="Evaluate Trace" onClick={onEvaluate}>
+          <CircleGaugeIcon />
+          Evaluate
+        </Button>
+        <Button tooltip="Save as Dataset Item" aria-label="Save as Dataset Item" onClick={onSave}>
+          <SaveIcon />
+          Save
+        </Button>
+      </ButtonsGroup>
+    </RouteHeaderActions>
+  );
+}
+
+function TraceTopArea({ rootSpan }: { rootSpan?: TraceRootSpan }) {
+  if (!rootSpan) {
+    return null;
+  }
+  return (
+    <PageLayout.TopArea>
+      <PageLayout.Row>
+        <PageLayout.Column>
+          <TraceKeysAndValues rootSpan={rootSpan} numOfCol={3} />
+        </PageLayout.Column>
+      </PageLayout.Row>
+    </PageLayout.TopArea>
+  );
+}
+
+function isRootSpan(span: { parentSpanId?: string | null }): boolean {
+  return span.parentSpanId === null || span.parentSpanId === undefined;
+}
+
+function getTraceGridClass(featuredSpanId: string | null): string {
+  return featuredSpanId ? "grid-cols-[2fr_3fr]" : "grid-cols-[1fr]";
+}
+
+function getSpanGridClass(featuredScore: ScoreRowData | undefined): string {
+  return featuredScore ? "grid-rows-[1fr_1fr]" : "grid-rows-[1fr]";
+}
+
+function getOptionalSearchParam(searchParams: URLSearchParams, key: string): string | undefined {
+  return searchParams.get(key) || undefined;
+}
+
 export default function TracePage() {
-  const { traceId } = useParams()! as { traceId: string };
+  const { traceId } = useParams() as { traceId: string };
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const spanIdParam = searchParams.get("spanId") || undefined;
+  const spanIdParam = getOptionalSearchParam(searchParams, "spanId");
   const tabParam = searchParams.get("tab");
-  const initialSpanTab: SpanTab =
-    tabParam === "scoring" ? "scoring" : tabParam === "feedback" ? "feedback" : "details";
-  const scoreIdParam = searchParams.get("scoreId") || undefined;
+  const initialSpanTab = getInitialSpanTab(tabParam);
+  const scoreIdParam = getOptionalSearchParam(searchParams, "scoreId");
 
   const [featuredSpanId, setFeaturedSpanId] = useState<string | null>(spanIdParam ?? null);
   const [featuredScore, setFeaturedScore] = useState<ScoreRowData | undefined>();
@@ -52,7 +132,7 @@ export default function TracePage() {
     error: traceError,
   } = useTraceLightSpans(traceId);
   const lightSpans = useMemo(() => traceLight?.spans ?? [], [traceLight?.spans]);
-  const rootSpan = useMemo(() => lightSpans.find((s) => s.parentSpanId == null), [lightSpans]);
+  const rootSpan = useMemo(() => lightSpans.find(isRootSpan), [lightSpans]);
 
   const { data: spanDetailData, isLoading: isLoadingSpanDetail } = useSpanDetail(
     traceId,
@@ -176,40 +256,15 @@ export default function TracePage() {
     }
   }, [rootSpan, featuredSpanId, updateSearchParams]);
 
-  const traceHeaderActions = rootSpan ? (
-    <RouteHeaderActions owner="trace-detail">
-      <ButtonsGroup>
-        <Button tooltip="Evaluate Trace" aria-label="Evaluate Trace" onClick={handleEvaluateTrace}>
-          <CircleGaugeIcon />
-          Evaluate
-        </Button>
-        <Button
-          tooltip="Save as Dataset Item"
-          aria-label="Save as Dataset Item"
-          onClick={() => setDatasetDialogOpen(true)}
-        >
-          <SaveIcon />
-          Save
-        </Button>
-      </ButtonsGroup>
-    </RouteHeaderActions>
-  ) : null;
-
-  const traceTopAreaSharedContent = rootSpan ? (
-    <PageLayout.Row>
-      <PageLayout.Column>
-        <TraceKeysAndValues rootSpan={rootSpan} numOfCol={3} />
-      </PageLayout.Column>
-    </PageLayout.Row>
-  ) : null;
-
   if (traceError) {
     return (
       <PageLayout height="full">
-        {traceHeaderActions}
-        {traceTopAreaSharedContent && (
-          <PageLayout.TopArea>{traceTopAreaSharedContent}</PageLayout.TopArea>
-        )}
+        <TraceHeaderActions
+          rootSpan={rootSpan}
+          onEvaluate={handleEvaluateTrace}
+          onSave={() => setDatasetDialogOpen(true)}
+        />
+        <TraceTopArea rootSpan={rootSpan} />
         <PageLayout.MainArea isCentered>
           <TracesErrorContent
             error={traceError}
@@ -223,10 +278,12 @@ export default function TracePage() {
 
   return (
     <PageLayout>
-      {traceHeaderActions}
-      {traceTopAreaSharedContent && (
-        <PageLayout.TopArea>{traceTopAreaSharedContent}</PageLayout.TopArea>
-      )}
+      <TraceHeaderActions
+        rootSpan={rootSpan}
+        onEvaluate={handleEvaluateTrace}
+        onSave={() => setDatasetDialogOpen(true)}
+      />
+      <TraceTopArea rootSpan={rootSpan} />
 
       <TraceAsItemDialog
         rootSpanId={rootSpan?.spanId}
@@ -238,7 +295,7 @@ export default function TracePage() {
       <div
         className={cn(
           "grid h-full min-h-0 gap-4 overflow-hidden items-start mt-4",
-          featuredSpanId ? "grid-cols-[2fr_3fr]" : "grid-cols-[1fr]",
+          getTraceGridClass(featuredSpanId),
         )}
       >
         <TraceDataPanelView
@@ -256,7 +313,7 @@ export default function TracePage() {
           <div
             className={cn(
               "grid gap-4 max-h-full min-h-0 overflow-auto",
-              featuredScore ? "grid-rows-[1fr_1fr]" : "grid-rows-[1fr]",
+              getSpanGridClass(featuredScore),
             )}
           >
             <SpanDataPanelView
@@ -284,13 +341,7 @@ export default function TracePage() {
                     traceId={tid}
                     isTopLevelSpan={!span.parentSpanId}
                     spanId={sid}
-                    entityType={
-                      span.attributes?.agentId || span.entityType === EntityType.AGENT
-                        ? "Agent"
-                        : span.attributes?.workflowId || span.entityType === EntityType.WORKFLOW_RUN
-                          ? "Workflow"
-                          : undefined
-                    }
+                    entityType={getSpanEntityType(span)}
                     scorers={scorers}
                     isLoadingScorers={isLoadingScorers}
                   />

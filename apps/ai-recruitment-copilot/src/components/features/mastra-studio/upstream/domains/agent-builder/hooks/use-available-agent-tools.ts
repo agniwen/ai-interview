@@ -27,7 +27,7 @@ function filterByAllowlist<T>(data: Record<string, T>, allowed: Set<string>): Re
     // Server normalizes picker IDs to the response keys of each list endpoint,
     // so a direct `Object.keys(data)` match is sufficient.
     if (allowed.has(key)) {
-      out[key] = value!;
+      out[key] = value;
     }
   }
   return out;
@@ -86,19 +86,19 @@ export function useAvailableAgentTools({
     // Append integration rows after native items so existing ordering for
     // tools/agents/workflows is unchanged.
     const integration: AgentTool[] = integrationTools.map((item) => ({
-      // `id` namespaces by `providerId:toolSlug` so it can never collide with
-      // a native tool id (server-side native tool ids never contain `:`).
-      id: `${item.providerId}:${item.slug}`,
-      name: item.slug,
-      description: item.description,
-      isChecked: Boolean(toolProvidersFormValue?.[item.providerId]?.tools?.[item.slug]),
-      type: "integration",
-      providerId: item.providerId,
-      toolkit: item.toolkit,
-      hasConnection: hasConnection(item.providerId, item.toolkit),
       connectionLabels: getConnections(item.providerId, item.toolkit)
         .filter((connection) => connection.status === "active")
         .map((connection) => connection.label || connection.connectionId),
+      description: item.description,
+      hasConnection: hasConnection(item.providerId, item.toolkit),
+      // `id` namespaces by `providerId:toolSlug` so it can never collide with
+      // a native tool id (server-side native tool ids never contain `:`).
+      id: `${item.providerId}:${item.slug}`,
+      isChecked: Boolean(toolProvidersFormValue?.[item.providerId]?.tools?.[item.slug]),
+      name: item.slug,
+      providerId: item.providerId,
+      toolkit: item.toolkit,
+      type: "integration",
     }));
 
     return [...native, ...integration];

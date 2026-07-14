@@ -29,6 +29,284 @@ import { useLinkComponent } from "@/components/features/mastra-studio/upstream/l
 import { useMastraPlatform } from "@/components/features/mastra-studio/upstream/lib/mastra-platform/hooks/use-mastra-platform";
 import { RouteHeaderActions } from "@/components/features/mastra-studio/upstream/lib/route-header";
 
+function CodeModeActions({
+  canOpenPr,
+  disabled,
+  isEditable,
+  onDownload,
+  onOpenPr,
+  openPrTitle,
+}: {
+  canOpenPr: boolean;
+  disabled: boolean;
+  isEditable: boolean;
+  onDownload: () => void;
+  onOpenPr: () => void;
+  openPrTitle: string;
+}) {
+  if (!isEditable) {
+    return null;
+  }
+  return (
+    <>
+      <Button onClick={onDownload} disabled={disabled}>
+        <Download />
+        Download JSON
+      </Button>
+      <Button
+        variant="primary"
+        disabled={!canOpenPr || disabled}
+        title={openPrTitle}
+        onClick={onOpenPr}
+      >
+        <GitPullRequest />
+        Open PR
+      </Button>
+    </>
+  );
+}
+
+function SavePublishActions({
+  activeVersionId,
+  hasDraft,
+  isDirty,
+  isEditable,
+  isSavingDraft,
+  isSubmitting,
+  isViewingPreviousVersion,
+  onPublish,
+  onSaveDraft,
+  selectedVersionId,
+}: {
+  activeVersionId?: string;
+  hasDraft: boolean;
+  isDirty: boolean;
+  isEditable: boolean;
+  isSavingDraft: boolean;
+  isSubmitting: boolean;
+  isViewingPreviousVersion: boolean;
+  onPublish: () => void;
+  onSaveDraft: () => void;
+  selectedVersionId: string | null;
+}) {
+  if (!isEditable) {
+    return null;
+  }
+  const publishDisabled = isViewingPreviousVersion
+    ? selectedVersionId === activeVersionId || isSubmitting || isSavingDraft
+    : !hasDraft || isSubmitting || isSavingDraft;
+
+  return (
+    <>
+      <Button onClick={onSaveDraft} disabled={!isDirty || isSavingDraft || isSubmitting}>
+        {isSavingDraft ? (
+          <>
+            <Spinner className="h-4 w-4" />
+            Saving...
+          </>
+        ) : (
+          <>
+            <Save />
+            Save
+          </>
+        )}
+      </Button>
+      <Button variant="primary" onClick={onPublish} disabled={publishDisabled}>
+        {isSubmitting ? (
+          <>
+            <Spinner className="h-4 w-4" />
+            Publishing...
+          </>
+        ) : (
+          <>
+            <Check />
+            {isViewingPreviousVersion ? "Publish This Version" : "Publish"}
+          </>
+        )}
+      </Button>
+    </>
+  );
+}
+
+function AgentEditHeaderActions({
+  canOpenPr,
+  hasDraft,
+  isCodeAgentEditable,
+  isDirty,
+  isReady,
+  isSavingDraft,
+  isSubmitting,
+  isViewingPreviousVersion,
+  onDownload,
+  onOpenPr,
+  onPublish,
+  onSaveDraft,
+  openPrTitle,
+  selectedVersionId,
+  activeVersionId,
+  showCodeModeActions,
+}: {
+  activeVersionId?: string;
+  canOpenPr: boolean;
+  hasDraft: boolean;
+  isCodeAgentEditable: boolean;
+  isDirty: boolean;
+  isReady: boolean;
+  isSavingDraft: boolean;
+  isSubmitting: boolean;
+  isViewingPreviousVersion: boolean;
+  onDownload: () => void;
+  onOpenPr: () => void;
+  onPublish: () => void;
+  onSaveDraft: () => void;
+  openPrTitle: string;
+  selectedVersionId: string | null;
+  showCodeModeActions: boolean;
+}) {
+  if (!isReady) {
+    return null;
+  }
+  return (
+    <RouteHeaderActions owner="cms-agent-edit">
+      <div className="flex items-center gap-2">
+        {hasDraft && <Badge variant="info">Unpublished changes</Badge>}
+        {showCodeModeActions ? (
+          <CodeModeActions
+            canOpenPr={canOpenPr}
+            disabled={isSavingDraft || isSubmitting}
+            isEditable={isCodeAgentEditable}
+            onDownload={onDownload}
+            onOpenPr={onOpenPr}
+            openPrTitle={openPrTitle}
+          />
+        ) : (
+          <SavePublishActions
+            activeVersionId={activeVersionId}
+            hasDraft={hasDraft}
+            isDirty={isDirty}
+            isEditable={isCodeAgentEditable}
+            isSavingDraft={isSavingDraft}
+            isSubmitting={isSubmitting}
+            isViewingPreviousVersion={isViewingPreviousVersion}
+            onPublish={onPublish}
+            onSaveDraft={onSaveDraft}
+            selectedVersionId={selectedVersionId}
+          />
+        )}
+      </div>
+    </RouteHeaderActions>
+  );
+}
+
+function getAgentDataSource({
+  agent,
+  codeAgent,
+  isViewingVersion,
+  versionData,
+}: {
+  agent: ReturnType<typeof useStoredAgent>["data"] | null;
+  codeAgent: ReturnType<typeof useAgent>["data"];
+  isViewingVersion: boolean;
+  versionData: ReturnType<typeof useAgentVersion>["data"];
+}): AgentDataSource {
+  if (isViewingVersion && versionData) {
+    return versionData;
+  }
+  if (agent) {
+    return agent;
+  }
+  if (codeAgent) {
+    return mapAgentResponseToDataSource(codeAgent);
+  }
+  return {} as AgentDataSource;
+}
+
+function getAgentAvailability({
+  agent,
+  agentId,
+  codeAgent,
+  editorSource,
+  isCodeAgentOverride,
+  isLoading,
+}: {
+  agent: ReturnType<typeof useStoredAgent>["data"] | null;
+  agentId: string;
+  codeAgent: ReturnType<typeof useAgent>["data"];
+  editorSource: string;
+  isCodeAgentOverride: boolean;
+  isLoading: boolean;
+}) {
+  const isCodeAgentEditable = !isCodeAgentOverride || codeAgent?.editor !== false;
+  return {
+    isCodeAgentEditable,
+    isCodeAgentOverride,
+    isNotFound: !isLoading && !agent && !codeAgent,
+    isReady: !isLoading && Boolean(agentId) && Boolean(agent || codeAgent),
+    showCodeModeActions: isCodeAgentOverride && editorSource === "code",
+  };
+}
+
+function getOpenPrState({
+  isCodeAgentEditable,
+  isMastraPlatform,
+  mastraPlatformApiEndpoint,
+  mastraPlatformProjectId,
+}: {
+  isCodeAgentEditable: boolean;
+  isMastraPlatform: boolean;
+  mastraPlatformApiEndpoint?: string;
+  mastraPlatformProjectId?: string;
+}) {
+  const canOpenPr = Boolean(
+    isCodeAgentEditable && isMastraPlatform && mastraPlatformApiEndpoint && mastraPlatformProjectId,
+  );
+  return {
+    canOpenPr,
+    openPrTitle: canOpenPr
+      ? "Open a pull request with this agent override JSON"
+      : "Open PR is available on Mastra-hosted projects with GitHub App support",
+  };
+}
+
+function getAgentVersionState({
+  agent,
+  selectedVersionId,
+  versionData,
+  versionsData,
+}: {
+  agent: ReturnType<typeof useStoredAgent>["data"] | null;
+  selectedVersionId: string | null;
+  versionData: ReturnType<typeof useAgentVersion>["data"];
+  versionsData: ReturnType<typeof useAgentVersions>["data"];
+}) {
+  const activeVersionId = agent?.activeVersionId;
+  const [latestVersion] = versionsData?.versions ?? [];
+  const isViewingVersion = Boolean(selectedVersionId && versionData);
+  return {
+    activeVersionId,
+    hasDraft: Boolean(latestVersion && latestVersion.id !== activeVersionId),
+    isViewingPreviousVersion: Boolean(isViewingVersion && selectedVersionId !== latestVersion?.id),
+    isViewingVersion,
+    latestVersion,
+  };
+}
+
+function hasStoredVersions(versionsData: ReturnType<typeof useAgentVersions>["data"]): boolean {
+  return Boolean(versionsData?.versions?.length);
+}
+
+function isAgentLoading({
+  hasVersions,
+  isLoadingCodeAgent,
+  isLoadingStoredAgent,
+}: {
+  hasVersions: boolean;
+  isLoadingCodeAgent: boolean;
+  isLoadingStoredAgent: boolean;
+}): boolean {
+  return isLoadingCodeAgent || (hasVersions && isLoadingStoredAgent);
+}
+
 function EditFormContent({
   agentId,
   selectedVersionId,
@@ -154,7 +432,7 @@ function EditLayoutWrapper() {
   });
 
   // Only fetch stored agent details when versions exist (avoids 404 for code-only agents)
-  const hasVersions = (versionsData?.versions?.length ?? 0) > 0;
+  const hasVersions = hasStoredVersions(versionsData);
   const { data: storedAgent, isLoading: isLoadingStoredAgent } = useStoredAgent(agentId, {
     enabled: hasVersions,
     status: "draft",
@@ -168,7 +446,7 @@ function EditLayoutWrapper() {
     [codeAgent?.editor, isCodeAgentOverride],
   );
   const agent = storedAgent ?? null;
-  const isLoading = isLoadingCodeAgent || (hasVersions && isLoadingStoredAgent);
+  const isLoading = isAgentLoading({ hasVersions, isLoadingCodeAgent, isLoadingStoredAgent });
 
   // Redirect code agent overrides away from non-editable sections.
   const basePath = `/cms/agents/${agentId}/edit`;
@@ -182,8 +460,7 @@ function EditLayoutWrapper() {
       (section) => pathname === `${basePath}${section.pathSuffix}`,
     );
     if (isOnIdentityPage || !isAllowedPath) {
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
-      routerNavigate(`${basePath}${codeAgentOverrideSections[0].pathSuffix}${search}${hash}`, {
+      void routerNavigate(`${basePath}${codeAgentOverrideSections[0].pathSuffix}${search}${hash}`, {
         replace: true,
       });
     }
@@ -203,24 +480,12 @@ function EditLayoutWrapper() {
     versionId: selectedVersionId ?? "",
   });
 
-  const activeVersionId = agent?.activeVersionId;
-  const latestVersion = versionsData?.versions?.[0];
-  const hasDraft = !!(latestVersion && latestVersion.id !== activeVersionId);
-
-  const isViewingVersion = !!selectedVersionId && !!versionData;
-  const isViewingPreviousVersion = isViewingVersion && selectedVersionId !== latestVersion?.id;
-  const dataSource = useMemo<AgentDataSource>(() => {
-    if (isViewingVersion && versionData) {
-      return versionData;
-    }
-    if (agent) {
-      return agent;
-    }
-    if (codeAgent) {
-      return mapAgentResponseToDataSource(codeAgent);
-    }
-    return {} as AgentDataSource;
-  }, [isViewingVersion, versionData, agent, codeAgent]);
+  const { activeVersionId, hasDraft, isViewingPreviousVersion, isViewingVersion, latestVersion } =
+    getAgentVersionState({ agent, selectedVersionId, versionData, versionsData });
+  const dataSource = useMemo<AgentDataSource>(
+    () => getAgentDataSource({ agent, codeAgent, isViewingVersion, versionData }),
+    [isViewingVersion, versionData, agent, codeAgent],
+  );
 
   const {
     form,
@@ -242,11 +507,8 @@ function EditLayoutWrapper() {
   });
 
   const handlePublishVersion = useCallback(async () => {
-    if (isViewingPreviousVersion && selectedVersionId) {
-      await handlePublish(selectedVersionId);
-    } else {
-      await handlePublish();
-    }
+    const versionId = isViewingPreviousVersion ? (selectedVersionId ?? undefined) : undefined;
+    await handlePublish(versionId);
   }, [handlePublish, isViewingPreviousVersion, selectedVersionId]);
 
   const handleVersionSelect = useCallback(
@@ -260,99 +522,50 @@ function EditLayoutWrapper() {
     [setSearchParams],
   );
 
-  const isNotFound = !isLoading && !agent && !codeAgent;
-  const isReady = !isLoading && !!agentId && (!!agent || !!codeAgent);
-  const isCodeAgentEditable = !isCodeAgentOverride || codeAgent?.editor !== false;
   const editorSource = useEditorSource();
-  const showCodeModeActions = isCodeAgentOverride && editorSource === "code";
-  const canOpenPr =
-    isCodeAgentEditable &&
-    isMastraPlatform &&
-    !!mastraPlatformApiEndpoint &&
-    !!mastraPlatformProjectId;
-  const openPrTitle = canOpenPr
-    ? "Open a pull request with this agent override JSON"
-    : "Open PR is available on Mastra-hosted projects with GitHub App support";
+  const { isCodeAgentEditable, isNotFound, isReady, showCodeModeActions } = getAgentAvailability({
+    agent,
+    agentId,
+    codeAgent,
+    editorSource,
+    isCodeAgentOverride,
+    isLoading,
+  });
+  const { canOpenPr, openPrTitle } = getOpenPrState({
+    isCodeAgentEditable,
+    isMastraPlatform,
+    mastraPlatformApiEndpoint,
+    mastraPlatformProjectId,
+  });
 
   return (
     <MainContentLayout>
-      {isReady && (
-        <RouteHeaderActions owner="cms-agent-edit">
-          <div className="flex items-center gap-2">
-            {hasDraft && <Badge variant="info">Unpublished changes</Badge>}
-            {showCodeModeActions ? (
-              isCodeAgentEditable ? (
-                <>
-                  <Button
-                    onClick={() => void handleDownloadJson()}
-                    disabled={isSavingDraft || isSubmitting}
-                  >
-                    <Download />
-                    Download JSON
-                  </Button>
-                  <Button
-                    variant="primary"
-                    disabled={!canOpenPr || isSavingDraft || isSubmitting}
-                    title={openPrTitle}
-                    onClick={() => {
-                      if (!mastraPlatformApiEndpoint || !mastraPlatformProjectId) {
-                        return;
-                      }
-                      void handleOpenPr({
-                        platformApiEndpoint: mastraPlatformApiEndpoint,
-                        projectId: mastraPlatformProjectId,
-                      });
-                    }}
-                  >
-                    <GitPullRequest />
-                    Open PR
-                  </Button>
-                </>
-              ) : null
-            ) : !isCodeAgentEditable ? null : (
-              <>
-                <Button
-                  onClick={() => void handleSaveDraft()}
-                  disabled={!isDirty || isSavingDraft || isSubmitting}
-                >
-                  {isSavingDraft ? (
-                    <>
-                      <Spinner className="h-4 w-4" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save />
-                      Save
-                    </>
-                  )}
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={() => void handlePublishVersion()}
-                  disabled={
-                    isViewingPreviousVersion
-                      ? selectedVersionId === activeVersionId || isSubmitting || isSavingDraft
-                      : !hasDraft || isSubmitting || isSavingDraft
-                  }
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Spinner className="h-4 w-4" />
-                      Publishing...
-                    </>
-                  ) : (
-                    <>
-                      <Check />
-                      {isViewingPreviousVersion ? "Publish This Version" : "Publish"}
-                    </>
-                  )}
-                </Button>
-              </>
-            )}
-          </div>
-        </RouteHeaderActions>
-      )}
+      <AgentEditHeaderActions
+        activeVersionId={activeVersionId}
+        canOpenPr={canOpenPr}
+        hasDraft={hasDraft}
+        isCodeAgentEditable={isCodeAgentEditable}
+        isDirty={isDirty}
+        isReady={isReady}
+        isSavingDraft={isSavingDraft}
+        isSubmitting={isSubmitting}
+        isViewingPreviousVersion={isViewingPreviousVersion}
+        onDownload={() => void handleDownloadJson()}
+        onOpenPr={() => {
+          if (!mastraPlatformApiEndpoint || !mastraPlatformProjectId) {
+            return;
+          }
+          void handleOpenPr({
+            platformApiEndpoint: mastraPlatformApiEndpoint,
+            projectId: mastraPlatformProjectId,
+          });
+        }}
+        onPublish={() => void handlePublishVersion()}
+        onSaveDraft={() => void handleSaveDraft()}
+        openPrTitle={openPrTitle}
+        selectedVersionId={selectedVersionId}
+        showCodeModeActions={showCodeModeActions}
+      />
 
       {isNotFound ? (
         <>

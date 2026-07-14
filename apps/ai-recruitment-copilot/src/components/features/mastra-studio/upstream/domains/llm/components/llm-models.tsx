@@ -4,15 +4,14 @@ import { Skeleton } from "@mastra/playground-ui/components/Skeleton";
 import { useMemo } from "react";
 import { useAllModels, useFilteredModels } from "../hooks/use-filtered-models";
 import { useLLMProviders } from "../hooks/use-llm-providers";
-import {
-  useBuilderFilteredModels,
-  useBuilderModelPolicy,
-} from "@/components/features/mastra-studio/upstream/domains/agent-builder";
+import { useBuilderFilteredModels } from "@/components/features/mastra-studio/upstream/domains/agent-builder/hooks/use-builder-filtered-models";
+import { useBuilderModelPolicy } from "@/components/features/mastra-studio/upstream/domains/agent-builder/hooks/use-builder-settings";
 
 export interface LLMModelsProps {
   value: string;
   onValueChange: (value: string) => void;
-  llmId: string; // Provider ID to filter models
+  // Provider ID used to filter models.
+  llmId: string;
   variant?: ComboboxProps["variant"];
   size?: ComboboxProps["size"];
   className?: string;

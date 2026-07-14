@@ -23,6 +23,7 @@ import { useAgent } from "@/components/features/mastra-studio/upstream/domains/a
 import { useAgentVersions } from "@/components/features/mastra-studio/upstream/domains/agents/hooks/use-agent-versions";
 import { useIsCmsAvailable } from "@/components/features/mastra-studio/upstream/domains/cms/hooks/use-is-cms-available";
 import { useMemory } from "@/components/features/mastra-studio/upstream/domains/memory/hooks/use-memory";
+import { resolveConditional } from "../../utils/conditional";
 
 type CapabilityTone = "purple" | "amber" | "emerald" | "sky" | "cyan" | "orange";
 
@@ -151,7 +152,11 @@ function MemoryCapability({ agentId, view }: AgentCapabilityProps) {
   const { data: memory, isLoading } = useMemory(agentId);
   const enabled = hasConfiguredMemory(memory);
 
-  const settledStatus = enabled ? (memory?.memoryType === "gateway" ? "Gateway" : "On") : "Off";
+  const settledStatus = resolveConditional(
+    enabled,
+    () => (memory?.memoryType === "gateway" ? "Gateway" : "On"),
+    () => "Off",
+  );
   const status = isLoading ? "Checking" : settledStatus;
 
   return (
@@ -187,7 +192,11 @@ function EditorCapability({ agentId, view }: AgentCapabilityProps) {
     isAgentLoading || isCmsAvailabilityLoading || (enabled && versionsQuery.isLoading);
 
   const availableStatus = versionCount > 0 ? String(versionCount) : "Ready";
-  const settledStatus = enabled ? availableStatus : locked ? "Locked" : "Off";
+  const settledStatus = resolveConditional(
+    enabled,
+    () => availableStatus,
+    () => (locked ? "Locked" : "Off"),
+  );
   const status = isLoading ? "Checking" : settledStatus;
 
   const disabledDescription = locked

@@ -16,6 +16,4 @@ export function getRouteHeaderHeading(crumbs: CrumbDef[]) {
       return normalizedHeading;
     }
   }
-
-  return;
 }

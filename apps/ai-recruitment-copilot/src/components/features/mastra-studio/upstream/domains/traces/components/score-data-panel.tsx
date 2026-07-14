@@ -44,6 +44,14 @@ function buildDialogTitle(sectionTitle: string, icon: React.ReactNode, score: Sc
   );
 }
 
+function isDefined<T>(value: T | null | undefined): value is T {
+  return value !== null && value !== undefined;
+}
+
+function formatScore(score: number | null | undefined) {
+  return isDefined(score) && !Number.isNaN(score) ? score : "n/a";
+}
+
 export interface ScoreDataPanelProps {
   score: ScoreRowData;
   onClose: () => void;
@@ -79,7 +87,7 @@ export function ScoreDataPanel({ score, onClose, onPrevious, onNext }: ScoreData
 
         <DataPanel.Content>
           <DataKeysAndValues>
-            {score.scorer?.name != null && (
+            {isDefined(score.scorer?.name) && (
               <>
                 <DataKeysAndValues.Key>Scorer</DataKeysAndValues.Key>
                 <DataKeysAndValues.Value>{String(score.scorer.name)}</DataKeysAndValues.Value>
@@ -135,7 +143,7 @@ export function ScoreDataPanel({ score, onClose, onPrevious, onNext }: ScoreData
             >
               <GaugeIcon />
               <span className="">Score:</span>
-              <b className="font-mono text-neutral3">{`${score.score == null || Number.isNaN(score.score) ? "n/a" : score.score}`}</b>
+              <b className="font-mono text-neutral3">{formatScore(score.score)}</b>
             </div>
             <div className="text-ui-smd font-mono mt-2">
               {score.reason ||

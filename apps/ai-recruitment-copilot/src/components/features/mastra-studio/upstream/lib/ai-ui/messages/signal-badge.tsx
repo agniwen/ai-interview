@@ -116,6 +116,11 @@ function getTaskSignalData(signal: SignalData): TaskItem[] | undefined {
   return tasks;
 }
 
+const SignalText = ({ text }: { text: string }) =>
+  text ? (
+    <p className="mt-2 whitespace-pre-wrap break-words text-ui-sm leading-ui-md">{text}</p>
+  ) : null;
+
 export const SignalBadge = ({ signal: value }: SignalBadgeProps) => {
   if (!isSignalData(value)) {
     return null;
@@ -141,11 +146,7 @@ export const SignalBadge = ({ signal: value }: SignalBadgeProps) => {
               <p className="text-ui-sm leading-ui-sm font-medium text-neutral6">{state.id}</p>
               {state.mode ? <Pill>{state.mode}</Pill> : null}
             </div>
-            {text ? (
-              <p className="mt-2 whitespace-pre-wrap break-words text-ui-sm leading-ui-md">
-                {text}
-              </p>
-            ) : null}
+            <SignalText text={text} />
           </div>
         </div>
       </div>
@@ -172,11 +173,7 @@ export const SignalBadge = ({ signal: value }: SignalBadgeProps) => {
               {status ? <Pill>{status}</Pill> : null}
               {pending ? <Pill>{`${pending} pending`}</Pill> : null}
             </div>
-            {text ? (
-              <p className="mt-2 whitespace-pre-wrap break-words text-ui-sm leading-ui-md">
-                {text}
-              </p>
-            ) : null}
+            <SignalText text={text} />
           </div>
         </div>
       </div>
@@ -192,11 +189,7 @@ export const SignalBadge = ({ signal: value }: SignalBadgeProps) => {
             <p className="text-ui-sm leading-ui-sm font-medium text-neutral6">
               {value.tagName ?? "Signal"}
             </p>
-            {text ? (
-              <p className="mt-2 whitespace-pre-wrap break-words text-ui-sm leading-ui-md">
-                {text}
-              </p>
-            ) : null}
+            <SignalText text={text} />
           </div>
         </div>
       </div>

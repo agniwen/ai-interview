@@ -40,6 +40,121 @@ export interface ExperimentResultPanelProps {
   onCollapsedChange?: (collapsed: boolean) => void;
 }
 
+/** Format unknown value for display. */
+function formatValue(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  return JSON.stringify(value, null, 2);
+}
+
+function getStatusClass(status: string): string {
+  if (status === "needs-review") {
+    return "bg-orange-500/10 text-orange-400";
+  }
+  if (status === "complete") {
+    return "bg-accent1/10 text-accent1";
+  }
+  return "bg-neutral3/10 text-neutral4";
+}
+
+function getErrorValue(error: unknown): unknown {
+  if (error && typeof error === "object") {
+    return (error as Record<string, unknown>).message;
+  }
+  return error;
+}
+
+function ResultScores({
+  featuredScoreId,
+  onScoreClick,
+  scores,
+}: Pick<ExperimentResultPanelProps, "featuredScoreId" | "onScoreClick" | "scores">) {
+  if (!scores || scores.length === 0) {
+    return null;
+  }
+  return (
+    <DataList columns="1fr 1fr">
+      <DataList.Top>
+        <DataList.TopCell>Scorer</DataList.TopCell>
+        <DataList.TopCell>Score</DataList.TopCell>
+      </DataList.Top>
+      {scores.map((score) => (
+        <DataList.RowButton
+          key={score.id}
+          featured={featuredScoreId === score.id}
+          onClick={() => onScoreClick?.(score.id)}
+        >
+          <DataList.Cell height="compact">{score.scorerId}</DataList.Cell>
+          <DataList.MonoCell>{score.score.toFixed(3)}</DataList.MonoCell>
+        </DataList.RowButton>
+      ))}
+    </DataList>
+  );
+}
+
+interface ResultReviewSectionProps {
+  canFlag: boolean;
+  onFlag?: () => void;
+  onOpenInReview?: () => void;
+  status?: string;
+  tags: string[];
+}
+
+function ResultReviewSection({
+  canFlag,
+  onFlag,
+  onOpenInReview,
+  status,
+  tags,
+}: ResultReviewSectionProps) {
+  if (!status && tags.length === 0 && !canFlag) {
+    return null;
+  }
+  return (
+    <div className="grid gap-2">
+      <DataPanel.SectionHeading icon={<TagIcon />} className="mb-2">
+        Review
+      </DataPanel.SectionHeading>
+      {(status || tags.length > 0) && (
+        <div className="flex flex-wrap gap-2 items-center">
+          {status && (
+            <span
+              className={`text-xs px-2 py-0.5 rounded-full font-medium ${getStatusClass(status)}`}
+            >
+              {status}
+            </span>
+          )}
+          {tags.map((tag) => (
+            <span key={tag} className="text-xs px-2 py-0.5 rounded bg-surface4 text-neutral4">
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+      {canFlag && onFlag && (
+        <div>
+          <Button size="sm" onClick={onFlag}>
+            <ClipboardCheck />
+            Flag for Review
+          </Button>
+        </div>
+      )}
+      {status === "needs-review" && onOpenInReview && (
+        <div>
+          <Button size="sm" onClick={onOpenInReview}>
+            <ExternalLinkIcon />
+            Review
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ExperimentResultPanel({
   result,
   scores,
@@ -62,8 +177,10 @@ export function ExperimentResultPanel({
   const inputStr = formatValue(result?.input);
   const outputStr = formatValue(result?.output);
   const groundTruthStr = formatValue(result?.groundTruth);
-  const canFlag =
-    onFlagForReview && result.status !== "needs-review" && result.status !== "complete";
+  const canFlag = Boolean(
+    onFlagForReview && result.status !== "needs-review" && result.status !== "complete",
+  );
+  const handleFlag = onFlagForReview ? () => onFlagForReview(result.id) : undefined;
   const tags = Array.isArray(result.tags) ? result.tags : [];
 
   return (
@@ -115,85 +232,25 @@ export function ExperimentResultPanel({
 
             {hasError && (
               <Notice variant="destructive" title="Error">
-                <Notice.Message>
-                  {formatValue(
-                    result?.error && typeof result.error === "object"
-                      ? (result.error as Record<string, unknown>).message
-                      : result?.error,
-                  )}
-                </Notice.Message>
+                <Notice.Message>{formatValue(getErrorValue(result.error))}</Notice.Message>
               </Notice>
             )}
 
-            {scores && scores.length > 0 && (
-              <DataList columns="1fr 1fr">
-                <DataList.Top>
-                  <DataList.TopCell>Scorer</DataList.TopCell>
-                  <DataList.TopCell>Score</DataList.TopCell>
-                </DataList.Top>
-                {scores.map((score) => (
-                  <DataList.RowButton
-                    key={score.id}
-                    featured={featuredScoreId === score.id}
-                    onClick={() => onScoreClick?.(score.id)}
-                  >
-                    <DataList.Cell height="compact">{score.scorerId}</DataList.Cell>
-                    <DataList.MonoCell>{score.score.toFixed(3)}</DataList.MonoCell>
-                  </DataList.RowButton>
-                ))}
-              </DataList>
-            )}
+            <ResultScores
+              featuredScoreId={featuredScoreId}
+              onScoreClick={onScoreClick}
+              scores={scores}
+            />
 
             {result.toolMockReport && <ToolMockReportSection report={result.toolMockReport} />}
 
-            {(result.status || tags.length > 0 || canFlag) && (
-              <div className="grid gap-2">
-                <DataPanel.SectionHeading icon={<TagIcon />} className="mb-2">
-                  Review
-                </DataPanel.SectionHeading>
-                {(result.status || tags.length > 0) && (
-                  <div className="flex flex-wrap gap-2 items-center">
-                    {result.status && (
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          result.status === "needs-review"
-                            ? "bg-orange-500/10 text-orange-400"
-                            : result.status === "complete"
-                              ? "bg-accent1/10 text-accent1"
-                              : "bg-neutral3/10 text-neutral4"
-                        }`}
-                      >
-                        {result.status}
-                      </span>
-                    )}
-                    {tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="text-xs px-2 py-0.5 rounded bg-surface4 text-neutral4"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {canFlag && (
-                  <div>
-                    <Button size="sm" onClick={() => onFlagForReview!(result.id)}>
-                      <ClipboardCheck />
-                      Flag for Review
-                    </Button>
-                  </div>
-                )}
-                {result.status === "needs-review" && onOpenInReview && (
-                  <div>
-                    <Button size="sm" onClick={onOpenInReview}>
-                      <ExternalLinkIcon />
-                      Review
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
+            <ResultReviewSection
+              canFlag={canFlag}
+              onFlag={handleFlag}
+              onOpenInReview={onOpenInReview}
+              status={result.status ?? undefined}
+              tags={tags}
+            />
           </div>
 
           <div className="grid gap-3">
@@ -209,15 +266,4 @@ export function ExperimentResultPanel({
       )}
     </DataPanel>
   );
-}
-
-/** Format unknown value for display */
-function formatValue(value: unknown): string {
-  if (value === null || value === undefined) {
-    return "-";
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  return JSON.stringify(value, null, 2);
 }

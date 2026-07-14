@@ -1,5 +1,6 @@
-import type { AutoFormUIComponents } from "@autoform/react";
+import type { AutoFormFieldProps, AutoFormUIComponents } from "@autoform/react";
 import { useMemo } from "react";
+import type { FieldValues } from "react-hook-form";
 import { ArrayElementWrapper } from "./components/array-element-wrapper";
 import { ArrayWrapper } from "./components/array-wrapper";
 import { BooleanField } from "./components/boolean-field";
@@ -38,7 +39,7 @@ export const ShadcnAutoFormFieldComponents = {
 };
 export type FieldTypes = keyof typeof ShadcnAutoFormFieldComponents;
 
-export function AutoForm<T extends Record<string, any>>({
+export function AutoForm<T extends FieldValues>({
   uiComponents,
   formComponents,
   readOnly,
@@ -57,31 +58,31 @@ export function AutoForm<T extends Record<string, any>>({
       readOnly === undefined ? inputProps : { ...inputProps, readOnly };
 
     return {
-      boolean: (fieldProps: any) => (
+      boolean: (fieldProps: AutoFormFieldProps) => (
         <BooleanField {...fieldProps} inputProps={mergeInputProps(fieldProps.inputProps)} />
       ),
-      date: (fieldProps: any) => (
+      date: (fieldProps: AutoFormFieldProps) => (
         <DateField {...fieldProps} inputProps={mergeInputProps(fieldProps.inputProps)} />
       ),
-      "discriminated-union": (fieldProps: any) => (
+      "discriminated-union": (fieldProps: AutoFormFieldProps) => (
         <DiscriminatedUnionField
           {...fieldProps}
           inputProps={mergeInputProps(fieldProps.inputProps)}
         />
       ),
-      number: (fieldProps: any) => (
+      number: (fieldProps: AutoFormFieldProps) => (
         <NumberField {...fieldProps} inputProps={mergeInputProps(fieldProps.inputProps)} />
       ),
-      record: (fieldProps: any) => (
+      record: (fieldProps: AutoFormFieldProps) => (
         <RecordField {...fieldProps} inputProps={mergeInputProps(fieldProps.inputProps)} />
       ),
-      select: (fieldProps: any) => (
+      select: (fieldProps: AutoFormFieldProps) => (
         <SelectField {...fieldProps} inputProps={mergeInputProps(fieldProps.inputProps)} />
       ),
-      string: (fieldProps: any) => (
+      string: (fieldProps: AutoFormFieldProps) => (
         <StringField {...fieldProps} inputProps={mergeInputProps(fieldProps.inputProps)} />
       ),
-      union: (fieldProps: any) => (
+      union: (fieldProps: AutoFormFieldProps) => (
         <UnionField {...fieldProps} inputProps={mergeInputProps(fieldProps.inputProps)} />
       ),
       ...formComponents,

@@ -19,7 +19,7 @@ function AgentEvaluate() {
   const { agentId } = useParams();
   const { navigate } = useLinkComponent();
 
-  const { data: codeAgent, isLoading: isLoadingCodeAgent, error } = useAgent(agentId!);
+  const { data: codeAgent, isLoading: isLoadingCodeAgent, error } = useAgent(agentId);
 
   // Fetch versions first — this endpoint returns an empty array for code-only agents
   const { data: versionsData } = useAgentVersions({
@@ -29,7 +29,7 @@ function AgentEvaluate() {
 
   // Only fetch stored agent details when versions exist (avoids 404 for code-only agents)
   const hasVersions = (versionsData?.versions?.length ?? 0) > 0;
-  const { data: storedAgent, isLoading: isLoadingStoredAgent } = useStoredAgent(agentId!, {
+  const { data: storedAgent, isLoading: isLoadingStoredAgent } = useStoredAgent(agentId, {
     enabled: hasVersions,
     status: "draft",
   });
@@ -56,7 +56,9 @@ function AgentEvaluate() {
     hasStoredOverride: isCodeAgentOverride && !!storedAgent,
     isCodeAgentOverride,
     mode: "edit",
-    onSuccess: () => {},
+    onSuccess: () => {
+      /* empty */
+    },
   });
 
   // Check for pending scorer items from Review tab (via sessionStorage)
@@ -121,7 +123,7 @@ function AgentEvaluate() {
       readOnly={false}
     >
       <AgentPlaygroundEvaluate
-        agentId={agentId!}
+        agentId={agentId}
         onSwitchToReview={() => navigate(`/agents/${agentId}/review`)}
         pendingScorerItems={pendingScorerItems}
         onPendingScorerItemsConsumed={() => setPendingScorerItems(null)}

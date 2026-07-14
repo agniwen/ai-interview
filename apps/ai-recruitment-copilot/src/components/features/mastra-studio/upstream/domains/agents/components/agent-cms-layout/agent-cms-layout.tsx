@@ -1,5 +1,5 @@
 import { cn } from "@mastra/playground-ui/utils/cn";
-import { AgentCmsSidebar } from "../agent-cms-sidebar";
+import { AgentCmsSidebar } from "../agent-cms-sidebar/agent-cms-sidebar";
 import { AgentCmsBottomBar } from "./agent-cms-bottom-bar";
 
 interface AgentsCmsLayoutProps {

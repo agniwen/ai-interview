@@ -22,6 +22,27 @@ export interface DatasetVersionsPanelProps {
 /**
  * Panel showing dataset version history with optional compare selection.
  */
+function DatasetVersionsListSkeleton() {
+  return (
+    <ItemList>
+      <ItemList.Header>
+        <ItemList.HeaderCol>Dataset Version History</ItemList.HeaderCol>
+      </ItemList.Header>
+      <ItemList.Items>
+        {Array.from({ length: 3 }).map((_, index) => (
+          <ItemList.Row key={index}>
+            <ItemList.RowButton
+              columns={[{ label: "Dataset Version History", name: "version", size: "1fr" }]}
+            >
+              <ItemList.TextCell isLoading>Loading...</ItemList.TextCell>
+            </ItemList.RowButton>
+          </ItemList.Row>
+        ))}
+      </ItemList.Items>
+    </ItemList>
+  );
+}
+
 export function DatasetVersionsPanel({
   datasetId,
   onClose,
@@ -45,7 +66,7 @@ export function DatasetVersionsPanel({
   };
 
   const isVersionSelected = (version: DatasetVersion): boolean => {
-    if (activeVersion == null) {
+    if (activeVersion === null || activeVersion === undefined) {
       return version.isCurrent;
     }
     return version.version === activeVersion;
@@ -93,7 +114,7 @@ export function DatasetVersionsPanel({
               disabled={selectedKeys.size !== 2}
               onClick={handleExecuteCompare}
               tooltip={
-                selectedKeys.size !== 2 ? "Select two versions to enable comparison" : undefined
+                selectedKeys.size === 2 ? undefined : "Select two versions to enable comparison"
               }
               className="w-full"
             >
@@ -124,11 +145,13 @@ export function DatasetVersionsPanel({
               <ItemList.Items>
                 {versions?.map((item) => {
                   const key = String(item.version);
-                  const createdAtDate = item.createdAt
-                    ? typeof item.createdAt === "string"
-                      ? new Date(item.createdAt)
-                      : item.createdAt
-                    : null;
+                  let createdAtDate: Date | null = null;
+                  if (item.createdAt) {
+                    createdAtDate =
+                      typeof item.createdAt === "string"
+                        ? new Date(item.createdAt)
+                        : item.createdAt;
+                  }
 
                   return (
                     <ItemList.Row
@@ -139,7 +162,9 @@ export function DatasetVersionsPanel({
                         <ItemList.LabelCell>
                           <Checkbox
                             checked={selectedKeys.has(key)}
-                            onCheckedChange={() => {}}
+                            onCheckedChange={() => {
+                              /* empty */
+                            }}
                             onClick={(e) => {
                               e.stopPropagation();
                               handleToggleSelection(key);
@@ -186,26 +211,5 @@ export function DatasetVersionsPanel({
         )}
       </Column.Content>
     </Column>
-  );
-}
-
-function DatasetVersionsListSkeleton() {
-  return (
-    <ItemList>
-      <ItemList.Header>
-        <ItemList.HeaderCol>Dataset Version History</ItemList.HeaderCol>
-      </ItemList.Header>
-      <ItemList.Items>
-        {Array.from({ length: 3 }).map((_, index) => (
-          <ItemList.Row key={index}>
-            <ItemList.RowButton
-              columns={[{ label: "Dataset Version History", name: "version", size: "1fr" }]}
-            >
-              <ItemList.TextCell isLoading>Loading...</ItemList.TextCell>
-            </ItemList.RowButton>
-          </ItemList.Row>
-        ))}
-      </ItemList.Items>
-    </ItemList>
   );
 }

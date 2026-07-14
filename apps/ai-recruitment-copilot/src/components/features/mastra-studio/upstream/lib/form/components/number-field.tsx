@@ -3,7 +3,7 @@ import { Input } from "@mastra/playground-ui/components/Input";
 import React from "react";
 
 export const NumberField: React.FC<AutoFormFieldProps> = ({ inputProps, error, field, id }) => {
-  const { key, ...props } = inputProps;
+  const { key: _key, ...props } = inputProps;
 
   return (
     <Input
@@ -11,10 +11,10 @@ export const NumberField: React.FC<AutoFormFieldProps> = ({ inputProps, error, f
       type="number"
       className={error ? "border-accent2" : ""}
       {...props}
-      defaultValue={field.default !== undefined ? Number(field.default) : undefined}
+      defaultValue={field.default === undefined ? undefined : Number(field.default)}
       onChange={(e) => {
         const { value } = e.target;
-        if (value !== "" && !isNaN(Number(value))) {
+        if (value !== "" && !Number.isNaN(Number(value))) {
           props.onChange({
             target: { name: inputProps.name, value },
           });
@@ -22,7 +22,7 @@ export const NumberField: React.FC<AutoFormFieldProps> = ({ inputProps, error, f
       }}
       onBlur={(e) => {
         const { value } = e.target;
-        if (value !== "" && !isNaN(Number(value))) {
+        if (value !== "" && !Number.isNaN(Number(value))) {
           props.onChange({
             target: { name: inputProps.name, value: Number(value) },
           });

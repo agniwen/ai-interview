@@ -11,7 +11,7 @@ export interface ToolApprovalButtonsProps {
     | {
         toolCallId: string;
         toolName: string;
-        args: Record<string, any>;
+        args: Record<string, unknown>;
         runId?: string;
       }
     | undefined;

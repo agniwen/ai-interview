@@ -94,10 +94,12 @@ async function fetchPackageInfo(
 export function usePackageUpdates(packages: PackageInfo[]) {
   const queries = useQueries({
     queries: packages.map((pkg) => ({
-      gcTime: 1000 * 60 * 60 * 24, // 24 hours
+      // 24 hours.
+      gcTime: 1000 * 60 * 60 * 24,
       queryFn: () => fetchPackageInfo(pkg.name, pkg.version),
       queryKey: ["package-update", pkg.name, pkg.version],
-      staleTime: 1000 * 60 * 60, // 1 hour - latest versions don't change often
+      // One hour; latest versions do not change often.
+      staleTime: 1000 * 60 * 60,
     })),
   });
 

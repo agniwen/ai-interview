@@ -40,7 +40,8 @@ const WorkflowContent = ({ workflowId, workflow, isLoading }: WorkflowContentPro
 
 export const Workflow = () => {
   const { workflowId } = useParams();
-  const { data: workflow, isLoading, error } = useWorkflow(workflowId!);
+  const resolvedWorkflowId = workflowId ?? "";
+  const { data: workflow, isLoading, error } = useWorkflow(resolvedWorkflowId);
 
   // 401 check - session expired, needs re-authentication
   if (error && is401UnauthorizedError(error)) {
@@ -63,7 +64,7 @@ export const Workflow = () => {
   return (
     <WorkflowStepDetailProvider>
       <WorkflowContent
-        workflowId={workflowId!}
+        workflowId={resolvedWorkflowId}
         workflow={workflow ?? undefined}
         isLoading={isLoading}
       />

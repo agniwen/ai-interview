@@ -6,8 +6,8 @@ import { useMutation } from "@tanstack/react-query";
 export interface ExecuteToolInput {
   agentId: string;
   toolId: string;
-  input: any;
-  playgroundRequestContext?: Record<string, any>;
+  input: unknown;
+  playgroundRequestContext?: Record<string, unknown>;
 }
 
 export const useExecuteAgentTool = () => {
@@ -15,9 +15,9 @@ export const useExecuteAgentTool = () => {
   return useMutation({
     mutationFn: async ({ agentId, toolId, input, playgroundRequestContext }: ExecuteToolInput) => {
       const requestContext = new RequestContext();
-      Object.entries(playgroundRequestContext ?? {}).forEach(([key, value]) => {
+      for (const [key, value] of Object.entries(playgroundRequestContext ?? {})) {
         requestContext.set(key, value);
-      });
+      }
       try {
         const agent = client.getAgent(agentId);
         const response = await agent.executeTool(toolId, { data: input, requestContext });

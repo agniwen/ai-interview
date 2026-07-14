@@ -26,13 +26,25 @@ export interface DatasetExperimentsListProps {
 
 function formatDate(date: Date): string {
   const dayMonth = isToday(date) ? "Today" : format(date, "MMM dd");
-  const year = !isThisYear(date) ? format(date, "yyyy") : "";
+  const year = isThisYear(date) ? "" : format(date, "yyyy");
   const time = format(date, "'at' h:mm aaa");
   return `${dayMonth} ${year} ${time}`.replaceAll(/\s+/g, " ").trim();
 }
 
 function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function EmptyDatasetExperimentsList() {
+  return (
+    <div className="flex h-full items-center justify-center py-12">
+      <EmptyState
+        iconSlot={<Play className="w-8 h-8 text-neutral3" />}
+        titleSlot="No experiments yet"
+        descriptionSlot="Trigger an experiment to evaluate your dataset against an agent, workflow, or scorer."
+      />
+    </div>
+  );
 }
 
 export function DatasetExperimentsList({
@@ -156,17 +168,5 @@ export function DatasetExperimentsList({
         );
       })}
     </DataList>
-  );
-}
-
-function EmptyDatasetExperimentsList() {
-  return (
-    <div className="flex h-full items-center justify-center py-12">
-      <EmptyState
-        iconSlot={<Play className="w-8 h-8 text-neutral3" />}
-        titleSlot="No experiments yet"
-        descriptionSlot="Trigger an experiment to evaluate your dataset against an agent, workflow, or scorer."
-      />
-    </div>
   );
 }

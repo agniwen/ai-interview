@@ -143,18 +143,10 @@ export function normalizeWheelDelta(
  * @param event - Object with modifier key boolean properties
  */
 export function getModifiers(event: ModifierKeys): number {
-  let modifiers = 0;
-  if (event.altKey) {
-    modifiers |= 1;
-  }
-  if (event.ctrlKey) {
-    modifiers |= 2;
-  }
-  if (event.metaKey) {
-    modifiers |= 4;
-  }
-  if (event.shiftKey) {
-    modifiers |= 8;
-  }
-  return modifiers;
+  return (
+    Number(event.altKey) +
+    Number(event.ctrlKey) * 2 +
+    Number(event.metaKey) * 4 +
+    Number(event.shiftKey) * 8
+  );
 }

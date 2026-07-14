@@ -105,15 +105,27 @@ export function useObservationalMemoryContext() {
     // Return a no-op context if not wrapped in provider (graceful degradation)
     return {
       activatedCycleIds: new Set<string>(),
-      clearProgress: () => {},
+      clearProgress: () => {
+        /* empty */
+      },
       isObservingFromStream: false,
       isReflectingFromStream: false,
-      markCycleIdActivated: () => {},
+      markCycleIdActivated: () => {
+        /* empty */
+      },
       observationsUpdatedAt: 0,
-      setIsObservingFromStream: () => {},
-      setIsReflectingFromStream: () => {},
-      setStreamProgress: () => {},
-      signalObservationsUpdated: () => {},
+      setIsObservingFromStream: () => {
+        /* empty */
+      },
+      setIsReflectingFromStream: () => {
+        /* empty */
+      },
+      setStreamProgress: () => {
+        /* empty */
+      },
+      signalObservationsUpdated: () => {
+        /* empty */
+      },
       streamProgress: null,
     };
   }

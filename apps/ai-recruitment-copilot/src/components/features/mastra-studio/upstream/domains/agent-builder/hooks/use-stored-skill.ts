@@ -6,7 +6,12 @@ export function useStoredSkill(skillId: string | undefined) {
 
   return useQuery({
     enabled: !!skillId,
-    queryFn: () => client.getStoredSkill(skillId!).details(),
+    queryFn: () => {
+      if (!skillId) {
+        throw new Error("A skill id is required");
+      }
+      return client.getStoredSkill(skillId).details();
+    },
     queryKey: ["stored-skill", skillId],
   });
 }

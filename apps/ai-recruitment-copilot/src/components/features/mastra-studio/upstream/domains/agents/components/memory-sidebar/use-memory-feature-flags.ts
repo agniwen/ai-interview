@@ -1,5 +1,5 @@
 import type { GetMemoryConfigResponse } from "@mastra/client-js";
-import { useMemoryConfig } from "@/components/features/mastra-studio/upstream/domains/memory/hooks";
+import { useMemoryConfig } from "@/components/features/mastra-studio/upstream/domains/memory/hooks/use-memory";
 
 type LastMessagesConfig = NonNullable<GetMemoryConfigResponse["config"]>["lastMessages"];
 

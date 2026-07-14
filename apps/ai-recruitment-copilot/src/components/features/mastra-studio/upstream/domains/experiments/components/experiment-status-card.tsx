@@ -24,6 +24,54 @@ interface ExperimentStatusCardProps {
   isError: boolean;
 }
 
+interface StatusCounts {
+  completed: number;
+  failed: number;
+  pending: number;
+  running: number;
+}
+
+function getStatusCounts(map: Map<string, StatusCounts>, key: string): StatusCounts {
+  const existing = map.get(key);
+  if (existing) {
+    return existing;
+  }
+  const counts = { completed: 0, failed: 0, pending: 0, running: 0 };
+  map.set(key, counts);
+  return counts;
+}
+
+function ExperimentStatusContent({
+  data,
+  isError,
+  isLoading,
+  maxVal,
+}: {
+  data: { name: string; values: number[] }[];
+  isError: boolean;
+  isLoading: boolean;
+  maxVal: number;
+}) {
+  if (isLoading) {
+    return <MetricsCard.Loading />;
+  }
+  if (isError) {
+    return <MetricsCard.Error message="Failed to load experiments data" />;
+  }
+  if (data.length === 0) {
+    return (
+      <MetricsCard.Content>
+        <MetricsCard.NoData message="No experiments have been run yet" />
+      </MetricsCard.Content>
+    );
+  }
+  return (
+    <MetricsCard.Content>
+      <HorizontalBars data={data} segments={SEGMENTS} maxVal={maxVal} fmt={String} />
+    </MetricsCard.Content>
+  );
+}
+
 export function ExperimentStatusCard({
   experiments,
   datasets,
@@ -43,19 +91,13 @@ export function ExperimentStatusCard({
     }
 
     // Group experiments by dataset
-    const byDataset = new Map<
-      string,
-      { completed: number; running: number; pending: number; failed: number }
-    >();
+    const byDataset = new Map<string, StatusCounts>();
     for (const exp of experiments) {
       const key = exp.datasetId ?? "unknown";
-      if (!byDataset.has(key)) {
-        byDataset.set(key, { completed: 0, failed: 0, pending: 0, running: 0 });
-      }
-      const counts = byDataset.get(key)!;
+      const counts = getStatusCounts(byDataset, key);
       const status = exp.status as keyof typeof counts;
       if (status in counts) {
-        counts[status]++;
+        counts[status] += 1;
       }
     }
 
@@ -87,24 +129,12 @@ export function ExperimentStatusCard({
           <MetricsCard.Summary value={String(experiments?.length ?? 0)} label="Total experiments" />
         )}
       </MetricsCard.TopBar>
-      {isLoading ? (
-        <MetricsCard.Loading />
-      ) : isError ? (
-        <MetricsCard.Error message="Failed to load experiments data" />
-      ) : (
-        <MetricsCard.Content>
-          {!hasData ? (
-            <MetricsCard.NoData message="No experiments have been run yet" />
-          ) : (
-            <HorizontalBars
-              data={data}
-              segments={SEGMENTS}
-              maxVal={maxVal}
-              fmt={(v) => String(v)}
-            />
-          )}
-        </MetricsCard.Content>
-      )}
+      <ExperimentStatusContent
+        data={data}
+        isError={isError}
+        isLoading={isLoading}
+        maxVal={maxVal}
+      />
     </MetricsCard>
   );
 }

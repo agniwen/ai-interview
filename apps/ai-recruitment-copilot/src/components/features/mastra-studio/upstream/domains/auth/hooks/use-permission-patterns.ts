@@ -33,10 +33,10 @@ export const usePermissionPatterns = () => {
   );
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["permission-patterns"],
-    queryFn: () => client.getPermissionPatterns(),
     // Only fetch the pattern vocabulary when RBAC gating is in effect.
     enabled: rbacEnabled,
+    queryFn: () => client.getPermissionPatterns(),
+    queryKey: ["permission-patterns"],
     // The endpoint requires auth; on 403/401 we don't want React Query to
     // thrash with retries (which toggles isLoading and re-triggers redirect
     // guards). One attempt is enough — gating falls back to the user's
@@ -45,7 +45,7 @@ export const usePermissionPatterns = () => {
     staleTime: Infinity,
   });
 
-  const patterns = useMemo(() => new Set<PermissionPattern>(data?.patterns ?? []), [data]);
+  const patterns = useMemo(() => new Set<PermissionPattern>(data?.patterns), [data]);
 
   // While capabilities are resolving we don't yet know whether RBAC applies, so
   // report loading. Once RBAC is ruled out, this hook is never "loading".

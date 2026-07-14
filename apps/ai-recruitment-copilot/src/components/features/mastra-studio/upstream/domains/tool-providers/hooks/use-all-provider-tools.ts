@@ -43,12 +43,12 @@ export const useAllProviderTools = () => {
   // 2. Flatten to (providerId, serviceSlug) pairs.
   const servicePairs = useMemo(() => {
     const pairs: { providerId: string; toolkit: string }[] = [];
-    integrations.forEach((integration, idx) => {
+    for (const [idx, integration] of integrations.entries()) {
       const services = serviceQueries[idx]?.data?.data ?? [];
       for (const service of services) {
         pairs.push({ providerId: integration.id, toolkit: service.slug });
       }
-    });
+    }
     return pairs;
   }, [integrations, serviceQueries]);
 
@@ -70,7 +70,7 @@ export const useAllProviderTools = () => {
 
   const tools = useMemo<AvailableIntegrationTool[]>(() => {
     const out: AvailableIntegrationTool[] = [];
-    servicePairs.forEach((pair, idx) => {
+    for (const [idx, pair] of servicePairs.entries()) {
       const items = toolsQueries[idx]?.data?.data ?? [];
       for (const item of items) {
         const toolkit = (item as { toolkit?: string }).toolkit ?? pair.toolkit;
@@ -82,7 +82,7 @@ export const useAllProviderTools = () => {
           toolkit,
         });
       }
-    });
+    }
     return out;
   }, [servicePairs, toolsQueries]);
 

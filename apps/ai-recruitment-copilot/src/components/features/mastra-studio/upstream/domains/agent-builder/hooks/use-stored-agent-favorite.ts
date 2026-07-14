@@ -34,7 +34,7 @@ export const useToggleStoredAgentFavorite = (agentId?: string) => {
   const { requestContext } = usePlaygroundStore();
 
   return useMutation<FavoriteToggleResponse, Error, { favorited: boolean }, FavoriteContext>({
-    mutationFn: async ({ favorited }) => {
+    mutationFn: ({ favorited }) => {
       if (!agentId) {
         throw new Error("agentId is required to toggle favorite");
       }
