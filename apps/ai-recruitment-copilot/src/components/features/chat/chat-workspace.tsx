@@ -21,6 +21,7 @@ import {
 } from "@/lib/client/api";
 import { authClient } from "@/lib/client/auth-client";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { getVisibleConversationTitle, useSetChatHeaderTitle } from "./chat-header";
 import { ChatMessageListSkeleton, ChatPageSkeleton } from "./chat-page-skeleton";
 import { CHAT_EVENTS, notifyConversationsChanged } from "./lib/chat-events";
 import { setChatMeta } from "./lib/chat-meta";
@@ -81,6 +82,7 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
   const slug = useWorkspaceSlug();
   const navigate = useNavigate();
   const { data: session } = authClient.useSession();
+  const setSessionTitle = useSetChatHeaderTitle();
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isHistoryReady, setIsHistoryReady] = useState(false);
   const [shouldNormalizeSessionPath, setShouldNormalizeSessionPath] = useState(false);
@@ -151,12 +153,13 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
           isTitleGenerating: false,
           title: normalizedTitle,
         });
+        setSessionTitle({ sessionId: id, title: normalizedTitle });
         notifyConversationsChanged();
       } catch {
         setHistoryErrorMessage("会话已创建，但标题保存失败。");
       }
     },
-    [slug],
+    [setSessionTitle, slug],
   );
 
   const ensureConversation = useCallback(
@@ -174,13 +177,17 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
         resumeImports: {},
         title: withGeneratingTitle ? GENERATING_CHAT_TITLE : NEW_CHAT_TITLE,
       });
+      setSessionTitle({
+        sessionId: id,
+        title: withGeneratingTitle ? GENERATING_CHAT_TITLE : NEW_CHAT_TITLE,
+      });
       setChatMeta(id, {});
       notifyConversationsChanged();
       updateSessionInUrl(id);
       setActiveConversationId(id);
       return id;
     },
-    [activeConversationId, slug, updateSessionInUrl],
+    [activeConversationId, setSessionTitle, slug, updateSessionInUrl],
   );
 
   const sendFirstMessage = useCallback(
@@ -240,17 +247,19 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
       if (!hasChat(id)) {
         getOrCreateChat(id, slug, { initialMessages: conversation.messages });
       }
+      setSessionTitle({ sessionId: id, title: getVisibleConversationTitle(conversation) });
       setActiveConversationId(id);
       setHistoryErrorMessage(null);
       return true;
     },
-    [slug, updateSessionInUrl],
+    [setSessionTitle, slug, updateSessionInUrl],
   );
 
   const resetToNewConversation = useCallback(() => {
+    setSessionTitle(null);
     setActiveConversationId(null);
     setHistoryErrorMessage(null);
-  }, []);
+  }, [setSessionTitle]);
 
   const startNewConversation = useCallback(() => {
     resetToNewConversation();
