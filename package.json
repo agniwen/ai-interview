@@ -13,7 +13,7 @@
     "fix": "ultracite fix",
     "hooks": "lefthook install",
     "mastra:studio": "pnpm --filter @arc/ai-recruitment-copilot-backend studio:dev",
-    "mastra:studio:source": "MASTRA_API_PREFIX=/api/platform/mastra MASTRA_STUDIO_BASE_PATH=/internal/mastra-studio pnpm --dir ${MASTRA_STUDIO_SOURCE_DIR:-../mastra-studio} exec turbo run dev --filter ./packages/playground-ui --filter ./packages/playground --filter ./client-sdks/react --env-mode=loose",
+    "mastra:studio:source": "pnpm --filter @arc/mastra-studio dev",
     "backfill:interview-snapshots": "pnpm --filter @arc/ai-recruitment-copilot-backend backfill:interview-snapshots",
     "backfill:resume-pool-semantic-index": "pnpm --filter @arc/ai-recruitment-copilot-backend backfill:resume-pool-semantic-index",
     "backfill:resume-semantic-index": "pnpm --filter @arc/ai-recruitment-copilot-backend backfill:resume-semantic-index",

@@ -14,6 +14,7 @@ export default defineConfig({
     "**/src/components/spell-ui/**",
     "apps/ai-recruitment-copilot/src/routeTree.gen.ts",
     "apps/ai-recruitment-copilot-worker/dist/**",
+    "apps/mastra-studio/**",
   ],
   overrides: [
     {

@@ -5,6 +5,8 @@
 
 ## 结论
 
+> 决策更新：在确认需要修改 Studio 内部功能后，项目采用本文“源码集成”方案的收敛版本：只将 `packages/playground` 的 Apache-2.0 SPA 源码放入 `apps/mastra-studio`，并使用官方已发布依赖；不复制整个 Mastra monorepo，也不复制任何 `ee/` 目录。
+
 可以嵌入，而且官方已经考虑了这种场景：Studio 是连接 Mastra Server 的 React SPA；官方认证文档明确说明，外部应用“嵌入或链接 Studio”时可以通过 `auth_header` URL 参数交接授权令牌。[Studio deployment](https://mastra.ai/docs/studio/deployment)；[Studio auth：Pass a token through the URL](https://mastra.ai/docs/studio/auth#pass-a-token-through-the-url)
 
 但“可嵌入”不等于“有一个可安装的 `<MastraStudio />` React 组件”。`1.18.2` 的 Studio 源码位于上游 [`packages/playground`](https://github.com/mastra-ai/mastra/tree/mastra%401.18.2/packages/playground)，其包名是 `@internal/playground`，并标记为 `private: true`；公开导出也只有少量 framework/store/theme 工具，并未导出完整 Studio App。因此，官方稳定交付面是 **SPA 静态产物 + Mastra REST API**，不是供 TanStack Start 直接 import 的组件库。[package.json](https://github.com/mastra-ai/mastra/blob/mastra%401.18.2/packages/playground/package.json)；[exports.ts](https://github.com/mastra-ai/mastra/blob/mastra%401.18.2/packages/playground/src/exports.ts)

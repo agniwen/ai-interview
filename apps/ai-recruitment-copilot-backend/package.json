@@ -72,6 +72,7 @@
     "p-retry": "7.1.1",
     "postgres": "^3.4.9",
     "react": "catalog:",
+    "react-dom": "catalog:",
     "resend": "^6.12.3",
     "tsx": "^4.21.0",
     "zod": "catalog:"
