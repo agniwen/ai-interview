@@ -220,4 +220,15 @@ describe("recommendJobDescriptionsForResume", () => {
     expect(res.status).toBe("disabled");
     expect(res.recommendations).toEqual([]);
   });
+
+  it("命中岗位已被删除 → ready 空 + aboveThresholdCount>0，且打 GC 日志（存在性掉出）", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const res = await call(depsWith({ displayIds: [], hitIds: ["jd-1"] }));
+    expect(res.status).toBe("ready");
+    expect(res.recommendations).toEqual([]);
+    expect(res.diagnostics.aboveThresholdCount).toBe(1);
+    expect(res.diagnostics.eligibleCount).toBe(0);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("存在性 join"), expect.anything());
+    warn.mockRestore();
+  });
 });

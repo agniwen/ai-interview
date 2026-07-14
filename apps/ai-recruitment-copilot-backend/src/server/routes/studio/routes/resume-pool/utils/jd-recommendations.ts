@@ -153,7 +153,7 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 function indexingResult(resumeId: string): JobDescriptionRecommendationResult {
   return {
-    diagnostics: { eligibleCount: 0, vectorHitCount: 0 },
+    diagnostics: { aboveThresholdCount: 0, eligibleCount: 0, vectorHitCount: 0 },
     recommendations: [],
     resume: { id: resumeId },
     status: "indexing",
@@ -162,7 +162,7 @@ function indexingResult(resumeId: string): JobDescriptionRecommendationResult {
 
 function disabledResult(resumeId: string): JobDescriptionRecommendationResult {
   return {
-    diagnostics: { eligibleCount: 0, vectorHitCount: 0 },
+    diagnostics: { aboveThresholdCount: 0, eligibleCount: 0, vectorHitCount: 0 },
     recommendations: [],
     resume: { id: resumeId },
     status: "disabled",
@@ -190,7 +190,12 @@ export async function scoreJobDescriptionsForResume(
   input: ScoreJdCoreInput,
   // oxlint-disable-next-line no-use-before-define -- default dependency factory stays below the public function.
   deps: JdRecommendationDeps = createDefaultJdRecommendationDeps(),
-): Promise<{ loadedIds: Set<string>; ranked: JdRankedEntry[]; retrievedIds: Set<string> }> {
+): Promise<{
+  aboveThresholdCount: number;
+  loadedIds: Set<string>;
+  ranked: JdRankedEntry[];
+  retrievedIds: Set<string>;
+}> {
   const resultGroups = await Promise.all(
     input.chunkEmbeddings.map((chunk) =>
       deps.vectorStore.searchSimilarResumes({
@@ -221,7 +226,7 @@ export async function scoreJobDescriptionsForResume(
     return row ? [{ jdId: entry.jdId, row, score: entry.score, similarity: entry.similarity }] : [];
   });
 
-  return { loadedIds, ranked, retrievedIds };
+  return { aboveThresholdCount: aboveThreshold.length, loadedIds, ranked, retrievedIds };
 }
 
 export async function recommendJobDescriptionsForResume(
@@ -234,7 +239,7 @@ export async function recommendJobDescriptionsForResume(
   }
   if (input.resume.jobDescriptionId) {
     return {
-      diagnostics: { eligibleCount: 0, vectorHitCount: 0 },
+      diagnostics: { aboveThresholdCount: 0, eligibleCount: 0, vectorHitCount: 0 },
       recommendations: [],
       resume: { id: input.resume.id },
       status: "already_matched",
@@ -284,13 +289,22 @@ export async function recommendJobDescriptionsForResume(
     deps,
   );
 
+  const existenceDropped = core.aboveThresholdCount - core.ranked.length;
+  if (existenceDropped > 0) {
+    console.warn("[jd-recommendations] 命中岗位已被删除（存在性 join 掉出），疑似孤儿向量未清理", {
+      existenceDropped,
+      organizationId: input.organizationId,
+      resumeId: input.resume.id,
+    });
+  }
+
   if (core.retrievedIds.size === 0) {
     const indexedJdCount = await deps.countIndexedJdVectors(input.organizationId);
     if (indexedJdCount === 0) {
       return pendingResult(deps, input.resume.id, "jd_vectors_absent");
     }
     return {
-      diagnostics: { eligibleCount: 0, vectorHitCount: 0 },
+      diagnostics: { aboveThresholdCount: 0, eligibleCount: 0, vectorHitCount: 0 },
       recommendations: [],
       resume: { id: input.resume.id },
       status: "ready",
@@ -301,6 +315,7 @@ export async function recommendJobDescriptionsForResume(
 
   return {
     diagnostics: {
+      aboveThresholdCount: core.aboveThresholdCount,
       eligibleCount: core.ranked.length,
       vectorHitCount: core.retrievedIds.size,
     },

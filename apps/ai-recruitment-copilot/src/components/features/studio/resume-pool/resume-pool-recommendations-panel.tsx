@@ -204,17 +204,27 @@ export function ResumePoolRecommendationsPanel({
   }
 
   if (data.recommendations.length === 0) {
-    const noHits = data.diagnostics.vectorHitCount === 0;
+    const { vectorHitCount, aboveThresholdCount } = data.diagnostics;
+    let emptyTitle: string;
+    let emptyDescription: string;
+    if (vectorHitCount === 0) {
+      emptyTitle = "暂无命中";
+      emptyDescription = "未命中任何已索引岗位。";
+    } else if (aboveThresholdCount === 0) {
+      emptyTitle = "暂无合适岗位";
+      emptyDescription = "命中岗位相似度均未达到推荐阈值。";
+    } else {
+      emptyTitle = "岗位已下架";
+      emptyDescription = "匹配到的岗位已被删除或下架。";
+    }
     return (
       <Empty className="border-border">
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <IconFileSearch className="size-5" />
           </EmptyMedia>
-          <EmptyTitle>{noHits ? "暂无命中" : "暂无合适岗位"}</EmptyTitle>
-          <EmptyDescription>
-            {noHits ? "未命中任何已索引岗位。" : "命中岗位相似度均未达到推荐阈值。"}
-          </EmptyDescription>
+          <EmptyTitle>{emptyTitle}</EmptyTitle>
+          <EmptyDescription>{emptyDescription}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
