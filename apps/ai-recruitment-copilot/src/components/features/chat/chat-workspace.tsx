@@ -21,7 +21,7 @@ import {
 } from "@/lib/client/api";
 import { authClient } from "@/lib/client/auth-client";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { ChatPageSkeleton } from "./chat-page-skeleton";
+import { ChatMessageListSkeleton, ChatPageSkeleton } from "./chat-page-skeleton";
 import { CHAT_EVENTS, notifyConversationsChanged } from "./lib/chat-events";
 import { setChatMeta } from "./lib/chat-meta";
 import { getOrCreateChat, hasChat } from "./lib/chat-registry";
@@ -306,7 +306,7 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
   }, [clearError, regenerate]);
 
   if (!isHistoryReady) {
-    return <ChatPageSkeleton />;
+    return initialSessionId ? <ChatMessageListSkeleton /> : <ChatPageSkeleton />;
   }
 
   return (

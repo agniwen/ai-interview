@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Outlet, createFileRoute } from "@tanstack/react-router";
 import { ChatHeader } from "@/components/features/chat/chat-header";
-import { ChatPageSkeleton } from "@/components/features/chat/chat-page-skeleton";
+import { ChatPendingSkeleton } from "@/components/features/chat/chat-page-skeleton";
 import { PendingOutlet } from "@/components/layout/pending-outlet";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { cn } from "@arc/shared/utils/cn";
@@ -32,7 +32,7 @@ function AgentShellRoute() {
 function AgentPendingRoute() {
   return (
     <AgentLayout>
-      <ChatPageSkeleton />
+      <ChatPendingSkeleton />
     </AgentLayout>
   );
 }
