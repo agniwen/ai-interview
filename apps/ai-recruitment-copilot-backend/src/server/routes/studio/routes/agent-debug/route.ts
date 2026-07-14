@@ -1,5 +1,7 @@
 import { RequestContext } from "@mastra/core/request-context";
 import { zValidator } from "@hono/zod-validator";
+import { MAX_RESUME_FILE_SIZE_BYTES } from "@arc/shared/bulk-resume-upload";
+import { isSupportedResumeDocumentInput } from "@arc/shared/resume-documents";
 import { parseResumeFastToProfile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import { mastra } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/index";
 import { toMastraRequestContext } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/request-context";
@@ -32,6 +34,8 @@ const DEBUG_SAFE_WORKFLOW_KEYS = new Set([
   "resumeReviewWorkflow",
 ]);
 
+const RESUME_FILE_WORKFLOW_KEYS = new Set(["resumeAnalysisWorkflow", "resumeParseWorkflow"]);
+
 function createDebugRequestContext(c: Parameters<typeof getWorkspaceRequestContext>[0]) {
   const { organization, user } = getWorkspaceRequestContext(c);
   return new RequestContext(
@@ -46,7 +50,10 @@ function createDebugRequestContext(c: Parameters<typeof getWorkspaceRequestConte
 
 function stringifyJsonSafe(value: unknown): string {
   return (
-    JSON.stringify(value, (_key, item) => {
+    JSON.stringify(value, (key, item) => {
+      if (key === "bytesBase64") {
+        return "[redacted]";
+      }
       if (item instanceof Error) {
         return { message: item.message, name: item.name };
       }
@@ -80,6 +87,7 @@ export const agentDebugRouter = factory
     const workflows = listDebugSafeWorkflows().map(([key, workflow]) => ({
       description: workflow.description ?? "",
       id: workflow.id,
+      inputKind: RESUME_FILE_WORKFLOW_KEYS.has(key) ? "resume-file" : "json",
       inputSchema: workflow.inputSchema["~standard"].jsonSchema.input({
         target: "draft-2020-12",
       }),
@@ -135,6 +143,113 @@ export const agentDebugRouter = factory
             }),
             durationMs: Math.round(performance.now() - startedAt),
             stage: "agent-debug.agent-run",
+          },
+          500,
+        );
+      }
+    },
+  )
+  .post(
+    "/workflows/:key/run-file",
+    zValidator("param", agentDebugResourceParamsSchema, jsonValidatorError("资源标识无效。")),
+    async (c) => {
+      const { key } = c.req.valid("param");
+      const workflow = listDebugSafeWorkflows().find(([name]) => name === key)?.[1];
+      if (!workflow) {
+        return c.json({ error: "Workflow 不存在。" }, 404);
+      }
+      if (!RESUME_FILE_WORKFLOW_KEYS.has(key)) {
+        return c.json({ error: "该 Workflow 不支持文件输入。" }, 400);
+      }
+
+      const formData = await c.req.formData();
+      const resume = formData.get("resume");
+      if (!(resume instanceof File)) {
+        return c.json({ error: "缺少简历文件。" }, 400);
+      }
+      if (resume.size === 0) {
+        return c.json({ error: "简历文件不能为空。" }, 400);
+      }
+      if (resume.size > MAX_RESUME_FILE_SIZE_BYTES) {
+        return c.json({ error: "简历文件不能超过 20 MB。" }, 400);
+      }
+      if (!isSupportedResumeDocumentInput({ fileName: resume.name, mediaType: resume.type })) {
+        return c.json({ error: "不支持该简历文件格式。" }, 400);
+      }
+
+      const startedAt = performance.now();
+      let runId: string | undefined;
+      try {
+        const input = {
+          bytesBase64: Buffer.from(await resume.arrayBuffer()).toString("base64"),
+          fileName: resume.name,
+          mediaType: resume.type || undefined,
+        };
+        const validation = await workflow.inputSchema["~standard"].validate(input);
+        if (validation.issues) {
+          return c.json({ error: "文件无法转换为 Workflow 输入。" }, 400);
+        }
+
+        const run = await workflow.createRun();
+        ({ runId } = run);
+        const output = await run.start({
+          inputData: validation.value,
+          requestContext: createDebugRequestContext(c),
+          tracingOptions: {
+            hideInput: true,
+            hideOutput: true,
+            tags: ["agent-debug", "resume-file"],
+          },
+        });
+        if (output.status === "failed") {
+          return c.json(
+            {
+              ...createInternalErrorResponse({
+                error: output.error,
+                operation: "agent-debug-workflow-file-run",
+                publicMessage: "Workflow 调试运行失败。",
+              }),
+              durationMs: Math.round(performance.now() - startedAt),
+              runId,
+              stage: "agent-debug.workflow-file-run",
+              status: output.status,
+              traceId: output.traceId,
+            },
+            500,
+          );
+        }
+
+        let result: unknown = null;
+        if (output.status === "success") {
+          ({ result } = output);
+        } else if (output.status === "suspended") {
+          result = output.suspendPayload;
+        } else if (output.status === "tripwire") {
+          result = output.tripwire;
+        }
+
+        return c.json(
+          {
+            durationMs: Math.round(performance.now() - startedAt),
+            resultJson: stringifyJsonSafe(result),
+            runId: run.runId,
+            status: output.status,
+            stepsJson: stringifyJsonSafe(output.steps),
+            traceId: output.traceId,
+          },
+          200,
+        );
+      } catch (error) {
+        return c.json(
+          {
+            ...createInternalErrorResponse({
+              error,
+              operation: "agent-debug-workflow-file-run",
+              publicMessage: "Workflow 调试运行失败。",
+            }),
+            durationMs: Math.round(performance.now() - startedAt),
+            runId,
+            stage: "agent-debug.workflow-file-run",
           },
           500,
         );

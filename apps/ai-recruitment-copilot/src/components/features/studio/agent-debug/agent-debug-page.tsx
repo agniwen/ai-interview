@@ -1,5 +1,7 @@
 "use client";
 
+/* oxlint-disable max-lines -- this page intentionally composes the Agent, Workflow, and parser debug panels. */
+
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { IconAlertCircle, IconPlayerPlay } from "@tabler/icons-react";
 import { JsonEditor } from "@visual-json/react";
@@ -7,6 +9,8 @@ import type { JsonValue } from "@visual-json/react";
 import type { CSSProperties } from "react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { MAX_RESUME_FILE_SIZE_BYTES } from "@arc/shared/bulk-resume-upload";
+import { supportedResumeDocumentAccept } from "@arc/shared/resume-documents";
 
 import { PageHeader } from "@/components/features/studio/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -28,7 +32,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { isApiError, rpcFetch } from "@/lib/client/api";
+import { apiFetch, isApiError, rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 
@@ -52,6 +56,7 @@ interface AgentDebugResource {
 interface WorkflowDebugResource {
   description: string;
   id: string;
+  inputKind: "json" | "resume-file";
   inputSchema: JsonSchema;
   key: string;
   steps: string[];
@@ -91,9 +96,6 @@ interface ParserDebugResult {
   parsedStructured: JsonValue;
   resumeProfile: ResumeProfile;
 }
-
-const RESUME_ACCEPT =
-  ".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.html,.htm,.png,.jpg,.jpeg,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/html,image/png,image/jpeg";
 
 const visualJsonStyle = {
   "--vj-accent": "hsl(var(--primary))",
@@ -410,16 +412,31 @@ function WorkflowDebugger({
   const selected = resources.find((resource) => resource.key === selectedKey) ?? resources[0];
   const [draft, setDraft] = useState(() => workflowDraft(selected));
   const [draftError, setDraftError] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [fileResetKey, setFileResetKey] = useState(0);
   const [result, setResult] = useState<WorkflowRunResult | null>(null);
   const mutation = useMutation({
-    mutationFn: ({ input, key }: { input: unknown; key: string }) =>
-      rpcFetch<WorkflowRunResult>(
+    mutationFn: (
+      variables:
+        | { file: File; inputKind: "resume-file"; key: string }
+        | { input: unknown; inputKind: "json"; key: string },
+    ) => {
+      if (variables.inputKind === "resume-file") {
+        const formData = new FormData();
+        formData.append("resume", variables.file);
+        return apiFetch<WorkflowRunResult>(
+          `/api/w/${encodeURIComponent(slug)}/studio/agent-debug/workflows/${encodeURIComponent(variables.key)}/run-file`,
+          { body: formData, method: "POST" },
+        );
+      }
+      return rpcFetch<WorkflowRunResult>(
         rpc.api.w[":slug"].studio["agent-debug"].workflows[":key"].run.$post({
-          json: { input },
-          param: { key, slug },
+          json: { input: variables.input },
+          param: { key: variables.key, slug },
         }),
         "Workflow 调试运行失败",
-      ),
+      );
+    },
     onError: (error) => toast.error(errorMessage(error, "Workflow 调试运行失败")),
     onMutate: () => setResult(null),
     onSuccess: (data) => {
@@ -445,17 +462,32 @@ function WorkflowDebugger({
         <CardHeader>
           <CardTitle>Workflow 运行</CardTitle>
           <CardDescription>
-            根据 Workflow Input Schema 编辑 JSON，并查看各步骤输出。
+            {selected.inputKind === "resume-file"
+              ? "上传简历文件，执行已注册的真实 Workflow 并查看各步骤输出。"
+              : "根据 Workflow Input Schema 编辑 JSON，并查看各步骤输出。"}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form
             onSubmit={(event) => {
               event.preventDefault();
+              if (selected.inputKind === "resume-file") {
+                if (!file) {
+                  setDraftError("请选择一份简历文件。");
+                  return;
+                }
+                if (file.size > MAX_RESUME_FILE_SIZE_BYTES) {
+                  setDraftError("简历文件不能超过 20 MB。");
+                  return;
+                }
+                setDraftError(null);
+                mutation.mutate({ file, inputKind: "resume-file", key: selected.key });
+                return;
+              }
               try {
                 const input = JSON.parse(draft) as unknown;
                 setDraftError(null);
-                mutation.mutate({ input, key: selected.key });
+                mutation.mutate({ input, inputKind: "json", key: selected.key });
               } catch {
                 setDraftError("请输入合法的 JSON。");
               }
@@ -472,6 +504,8 @@ function WorkflowDebugger({
                     setSelectedKey(key);
                     setDraft(workflowDraft(resource));
                     setDraftError(null);
+                    setFile(null);
+                    setFileResetKey((current) => current + 1);
                     setResult(null);
                     mutation.reset();
                   }}
@@ -494,32 +528,65 @@ function WorkflowDebugger({
                 </FieldDescription>
               </Field>
               <Field data-invalid={Boolean(draftError)}>
-                <FieldLabel htmlFor="agent-debug-workflow-input">Input JSON</FieldLabel>
-                <Tabs defaultValue="input">
-                  <TabsList>
-                    <TabsTrigger value="input">输入</TabsTrigger>
-                    <TabsTrigger value="schema">Schema</TabsTrigger>
-                  </TabsList>
-                  <TabsContent className="pt-3" value="input">
-                    <Textarea
-                      aria-invalid={Boolean(draftError)}
-                      className="min-h-72 font-mono text-xs leading-5"
-                      id="agent-debug-workflow-input"
-                      spellCheck={false}
-                      value={draft}
-                      onChange={(event) => {
-                        setDraft(event.target.value);
+                {selected.inputKind === "resume-file" ? (
+                  <>
+                    <FieldLabel>简历文件</FieldLabel>
+                    <FileUpload
+                      accept={supportedResumeDocumentAccept}
+                      browseLabel="选择简历"
+                      description="PDF、Word、PPT、Excel、HTML 或图片，单文件 20 MB 内"
+                      disabled={mutation.isPending}
+                      draggingLabel="释放后选择"
+                      maxFiles={1}
+                      multiple={false}
+                      resetKey={fileResetKey}
+                      showBorderBeam={false}
+                      title={file ? file.name : "上传 Workflow 输入文件"}
+                      onFilesAccepted={(files) => {
+                        setFile(files[0] ?? null);
                         setDraftError(null);
                       }}
                     />
-                  </TabsContent>
-                  <TabsContent className="pt-3" value="schema">
-                    <VisualJsonPanel height={320} value={toJsonValue(selected.inputSchema)} />
-                  </TabsContent>
-                </Tabs>
+                    <FieldDescription>
+                      文件会转换为当前 Workflow 的 bytesBase64、fileName 和 mediaType 输入； Base64
+                      内容不会写入调试结果或 trace。
+                    </FieldDescription>
+                  </>
+                ) : (
+                  <>
+                    <FieldLabel htmlFor="agent-debug-workflow-input">Input JSON</FieldLabel>
+                    <Tabs defaultValue="input">
+                      <TabsList>
+                        <TabsTrigger value="input">输入</TabsTrigger>
+                        <TabsTrigger value="schema">Schema</TabsTrigger>
+                      </TabsList>
+                      <TabsContent className="pt-3" value="input">
+                        <Textarea
+                          aria-invalid={Boolean(draftError)}
+                          className="min-h-72 font-mono text-xs leading-5"
+                          id="agent-debug-workflow-input"
+                          spellCheck={false}
+                          value={draft}
+                          onChange={(event) => {
+                            setDraft(event.target.value);
+                            setDraftError(null);
+                          }}
+                        />
+                      </TabsContent>
+                      <TabsContent className="pt-3" value="schema">
+                        <VisualJsonPanel height={320} value={toJsonValue(selected.inputSchema)} />
+                      </TabsContent>
+                    </Tabs>
+                  </>
+                )}
                 <FieldError>{draftError}</FieldError>
               </Field>
-              <Button disabled={mutation.isPending} type="submit">
+              <Button
+                disabled={
+                  mutation.isPending || (selected.inputKind === "resume-file" && file === null)
+                }
+                type="submit"
+              >
                 {mutation.isPending ? (
                   <Spinner data-icon="inline-start" />
                 ) : (
@@ -626,7 +693,7 @@ function ResumeParserDebugger({ slug }: { slug: string }) {
     <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-4">
         <FileUpload
-          accept={RESUME_ACCEPT}
+          accept={supportedResumeDocumentAccept}
           browseLabel="选择简历"
           description="PDF、Word、PPT、Excel、HTML 或图片，单文件 20 MB 内"
           disabled={pending}

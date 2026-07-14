@@ -5,6 +5,7 @@ import { agentDebugRouter } from "../route";
 
 const mocks = vi.hoisted(() => ({
   agentGenerate: vi.fn(),
+  fileWorkflowStart: vi.fn(),
   parseResumeFastToProfile: vi.fn(),
   workflowStart: vi.fn(),
 }));
@@ -36,6 +37,24 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/mastra/index", () => 
         id: "bulk-resume-upload-workflow",
         inputSchema: z.object({ itemId: z.string() }),
         steps: { process: { id: "process" } },
+      },
+      resumeParseWorkflow: {
+        createRun: vi.fn(() =>
+          Promise.resolve({
+            runId: "resume-parse-run-1",
+            start: mocks.fileWorkflowStart,
+          }),
+        ),
+        description: "运行简历文件解析",
+        id: "resume-parse-workflow",
+        inputSchema: z.object({
+          bytesBase64: z.string(),
+          fileName: z.string(),
+          mediaType: z.string().optional(),
+        }),
+        steps: {
+          parse: { id: "parse" },
+        },
       },
       resumeReviewWorkflow: {
         createRun: vi.fn(() =>
@@ -112,6 +131,18 @@ describe("agentDebugRouter", () => {
       steps: { score: { output: { score: 88 }, status: "success" } },
       traceId: "workflow-trace-1",
     });
+    mocks.fileWorkflowStart.mockResolvedValue({
+      input: { fileName: "resume.pdf" },
+      result: { bytesBase64: "must-not-leak", structured: { name: "张三" } },
+      status: "success",
+      steps: {
+        parse: {
+          output: { bytesBase64: "must-not-leak", name: "张三" },
+          status: "success",
+        },
+      },
+      traceId: "resume-parse-trace-1",
+    });
   });
 
   it("GET /resources lists registered agents and workflows for admins", async () => {
@@ -129,8 +160,20 @@ describe("agentDebugRouter", () => {
       ],
       workflows: [
         {
+          description: "运行简历文件解析",
+          id: "resume-parse-workflow",
+          inputKind: "resume-file",
+          inputSchema: expect.objectContaining({
+            properties: expect.objectContaining({ fileName: expect.any(Object) }),
+            type: "object",
+          }),
+          key: "resumeParseWorkflow",
+          steps: ["parse"],
+        },
+        {
           description: "运行简历评价",
           id: "resume-review-workflow",
+          inputKind: "json",
           inputSchema: expect.objectContaining({
             properties: expect.objectContaining({ resumeId: expect.any(Object) }),
             type: "object",
@@ -151,7 +194,7 @@ describe("agentDebugRouter", () => {
     });
 
     const resourcesJson = await resources.json();
-    expect(resourcesJson.workflows).toHaveLength(1);
+    expect(resourcesJson.workflows).toHaveLength(2);
     expect(run.status).toBe(404);
     expect(mocks.workflowStart).not.toHaveBeenCalled();
   });
@@ -220,6 +263,77 @@ describe("agentDebugRouter", () => {
       }),
     );
     expect(mocks.workflowStart).not.toHaveBeenCalled();
+  });
+
+  it("POST /workflows/:key/run-file executes a file workflow with protected tracing", async () => {
+    const form = new FormData();
+    form.append("resume", new File(["resume"], "resume.pdf", { type: "application/pdf" }));
+
+    const res = await createApp("admin").request("/workflows/resumeParseWorkflow/run-file", {
+      body: form,
+      method: "POST",
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(
+      expect.objectContaining({
+        resultJson: JSON.stringify({ bytesBase64: "[redacted]", structured: { name: "张三" } }),
+        runId: "resume-parse-run-1",
+        status: "success",
+        stepsJson: JSON.stringify({
+          parse: {
+            output: { bytesBase64: "[redacted]", name: "张三" },
+            status: "success",
+          },
+        }),
+        traceId: "resume-parse-trace-1",
+      }),
+    );
+    expect(mocks.fileWorkflowStart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inputData: {
+          bytesBase64: Buffer.from("resume").toString("base64"),
+          fileName: "resume.pdf",
+          mediaType: "application/pdf",
+        },
+        tracingOptions: expect.objectContaining({ hideInput: true }),
+      }),
+    );
+    const options = mocks.fileWorkflowStart.mock.calls[0]?.[0];
+    expect(Object.fromEntries(options.requestContext.entries())).toEqual({
+      feature: "agent-debug",
+      userId: "user-1",
+      workspaceId: "workspace-1",
+      workspaceSlug: "default",
+    });
+  });
+
+  it("POST /workflows/:key/run-file rejects JSON workflows", async () => {
+    const form = new FormData();
+    form.append("resume", new File(["resume"], "resume.pdf", { type: "application/pdf" }));
+
+    const res = await createApp("admin").request("/workflows/resumeReviewWorkflow/run-file", {
+      body: form,
+      method: "POST",
+    });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "该 Workflow 不支持文件输入。" });
+    expect(mocks.fileWorkflowStart).not.toHaveBeenCalled();
+  });
+
+  it("POST /workflows/:key/run-file validates the resume file", async () => {
+    const form = new FormData();
+    form.append("resume", new File(["resume"], "resume.txt", { type: "text/plain" }));
+
+    const res = await createApp("admin").request("/workflows/resumeParseWorkflow/run-file", {
+      body: form,
+      method: "POST",
+    });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "不支持该简历文件格式。" });
+    expect(mocks.fileWorkflowStart).not.toHaveBeenCalled();
   });
 
   it("does not expose registered resources to non-admin members", async () => {
