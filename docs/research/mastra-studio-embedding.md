@@ -5,7 +5,7 @@
 
 ## 结论
 
-> 决策更新：在确认需要修改 Studio 内部功能后，项目采用本文“源码集成”方案的收敛版本：只将 `packages/playground` 的 Apache-2.0 SPA 源码放入 `apps/mastra-studio`，并使用官方已发布依赖；不复制整个 Mastra monorepo，也不复制任何 `ee/` 目录。
+> 最终决策更新：在确认需要共享 Platform 路由、导航和主题后，项目已将 `packages/playground` 的社区版运行时源码迁入宿主 `components/features/mastra-studio`，并改用 TanStack Router；不再保留 iframe 或独立 Studio 前端。本文其余内容是方案选择时的历史调查，当前开发方式以 `docs/mastra-studio-development.md` 为准。
 
 可以嵌入，而且官方已经考虑了这种场景：Studio 是连接 Mastra Server 的 React SPA；官方认证文档明确说明，外部应用“嵌入或链接 Studio”时可以通过 `auth_header` URL 参数交接授权令牌。[Studio deployment](https://mastra.ai/docs/studio/deployment)；[Studio auth：Pass a token through the URL](https://mastra.ai/docs/studio/auth#pass-a-token-through-the-url)
 

@@ -1,0 +1,33 @@
+import type { StorageThreadType } from "@mastra/core/memory";
+import { MemorySidebar } from "@/components/features/mastra-studio/upstream/domains/agents/components/memory-sidebar/memory-sidebar";
+import { useDeleteThread } from "@/components/features/mastra-studio/upstream/domains/memory/hooks/use-memory";
+import { useLinkComponent } from "@/components/features/mastra-studio/upstream/lib/framework";
+
+export function AgentSidebar({
+  agentId,
+  threadId,
+  threads,
+}: {
+  agentId: string;
+  threadId: string;
+  threads: StorageThreadType[];
+}) {
+  const { mutateAsync } = useDeleteThread();
+  const { paths, navigate } = useLinkComponent();
+
+  const handleDelete = async (deleteId: string) => {
+    await mutateAsync({ agentId, threadId: deleteId! });
+    if (deleteId === threadId) {
+      navigate(paths.agentNewThreadLink(agentId));
+    }
+  };
+
+  return (
+    <MemorySidebar
+      agentId={agentId}
+      threadId={threadId}
+      threads={threads}
+      onDelete={handleDelete}
+    />
+  );
+}

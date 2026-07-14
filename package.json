@@ -13,7 +13,6 @@
     "fix": "ultracite fix",
     "hooks": "lefthook install",
     "mastra:studio": "pnpm --filter @arc/ai-recruitment-copilot-backend studio:dev",
-    "mastra:studio:source": "pnpm --filter @arc/mastra-studio dev",
     "backfill:interview-snapshots": "pnpm --filter @arc/ai-recruitment-copilot-backend backfill:interview-snapshots",
     "backfill:resume-pool-semantic-index": "pnpm --filter @arc/ai-recruitment-copilot-backend backfill:resume-pool-semantic-index",
     "backfill:resume-semantic-index": "pnpm --filter @arc/ai-recruitment-copilot-backend backfill:resume-semantic-index",

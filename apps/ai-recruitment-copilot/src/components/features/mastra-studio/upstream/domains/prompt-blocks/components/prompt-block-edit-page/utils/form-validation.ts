@@ -1,0 +1,12 @@
+import type { JsonSchema } from "@mastra/playground-ui/utils/json-schema";
+import { z } from "zod3";
+
+export const promptBlockFormSchema = z.object({
+  content: z.string(),
+  description: z.string().max(500, "Description must be 500 characters or less"),
+  name: z.string().min(1, "Name is required").max(100, "Name must be 100 characters or less"),
+  rules: z.any().optional(),
+  variables: z.custom<JsonSchema>().optional(),
+});
+
+export type PromptBlockFormValues = z.infer<typeof promptBlockFormSchema>;

@@ -1,0 +1,133 @@
+import { PermissionDenied } from "@mastra/playground-ui/components/PermissionDenied";
+import { SessionExpired } from "@mastra/playground-ui/components/SessionExpired";
+import { Spinner } from "@mastra/playground-ui/components/Spinner";
+import { is401UnauthorizedError, is403ForbiddenError } from "@mastra/playground-ui/utils/errors";
+import { useMemo, useState } from "react";
+import { useParams } from "@/components/features/mastra-studio/router/compat";
+import { AgentPlaygroundEvaluate } from "@/components/features/mastra-studio/upstream/domains/agents/components/agent-playground/agent-playground-evaluate";
+import { AgentEditFormProvider } from "@/components/features/mastra-studio/upstream/domains/agents/context/agent-edit-form-context";
+import { useAgent } from "@/components/features/mastra-studio/upstream/domains/agents/hooks/use-agent";
+import { useAgentCmsForm } from "@/components/features/mastra-studio/upstream/domains/agents/hooks/use-agent-cms-form";
+import { useAgentVersions } from "@/components/features/mastra-studio/upstream/domains/agents/hooks/use-agent-versions";
+import { useStoredAgent } from "@/components/features/mastra-studio/upstream/domains/agents/hooks/use-stored-agents";
+import { mapAgentResponseToDataSource } from "@/components/features/mastra-studio/upstream/domains/agents/utils/compute-agent-initial-values";
+import type { AgentDataSource } from "@/components/features/mastra-studio/upstream/domains/agents/utils/compute-agent-initial-values";
+import { useEditorSource } from "@/components/features/mastra-studio/upstream/domains/configuration/hooks/use-editor-source";
+import { useLinkComponent } from "@/components/features/mastra-studio/upstream/lib/framework";
+
+function AgentEvaluate() {
+  const { agentId } = useParams();
+  const { navigate } = useLinkComponent();
+
+  const { data: codeAgent, isLoading: isLoadingCodeAgent, error } = useAgent(agentId!);
+
+  // Fetch versions first — this endpoint returns an empty array for code-only agents
+  const { data: versionsData } = useAgentVersions({
+    agentId,
+    params: { orderBy: { direction: "DESC" } },
+  });
+
+  // Only fetch stored agent details when versions exist (avoids 404 for code-only agents)
+  const hasVersions = (versionsData?.versions?.length ?? 0) > 0;
+  const { data: storedAgent, isLoading: isLoadingStoredAgent } = useStoredAgent(agentId!, {
+    enabled: hasVersions,
+    status: "draft",
+  });
+
+  const editorSource = useEditorSource();
+  const isCodeAgentOverride = codeAgent?.source === "code";
+  const isCodeSourceAgent = isCodeAgentOverride && editorSource === "code";
+  const isLoading = isLoadingCodeAgent || (hasVersions && isLoadingStoredAgent);
+
+  const dataSource = useMemo<AgentDataSource>(() => {
+    if (storedAgent) {
+      return storedAgent;
+    }
+    if (codeAgent) {
+      return mapAgentResponseToDataSource(codeAgent);
+    }
+    return {} as AgentDataSource;
+  }, [storedAgent, codeAgent]);
+
+  const { form, handlePublish, handleSaveDraft, isSubmitting, isSavingDraft } = useAgentCmsForm({
+    agentId: agentId ?? "",
+    dataSource,
+    editorConfig: codeAgent?.editor,
+    hasStoredOverride: isCodeAgentOverride && !!storedAgent,
+    isCodeAgentOverride,
+    mode: "edit",
+    onSuccess: () => {},
+  });
+
+  // Check for pending scorer items from Review tab (via sessionStorage)
+  const [pendingScorerItems, setPendingScorerItems] = useState<
+    | {
+        input: unknown;
+        output: unknown;
+      }[]
+    | null
+  >(() => {
+    const stored = sessionStorage.getItem(`pending-scorer-items-${agentId}`);
+    if (stored) {
+      sessionStorage.removeItem(`pending-scorer-items-${agentId}`);
+      try {
+        return JSON.parse(stored);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  if (error && is401UnauthorizedError(error)) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <SessionExpired />
+      </div>
+    );
+  }
+
+  if (error && is403ForbiddenError(error)) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <PermissionDenied resource="agents" />
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Spinner className="h-6 w-6" />
+      </div>
+    );
+  }
+
+  if (!codeAgent) {
+    return <div className="text-center py-4">Agent not found</div>;
+  }
+
+  return (
+    <AgentEditFormProvider
+      form={form}
+      mode="edit"
+      agentId={agentId}
+      isSubmitting={isSubmitting}
+      isSavingDraft={isSavingDraft}
+      handlePublish={handlePublish}
+      handleSaveDraft={handleSaveDraft}
+      isCodeAgentOverride={isCodeAgentOverride}
+      isCodeSourceAgent={isCodeSourceAgent}
+      readOnly={false}
+    >
+      <AgentPlaygroundEvaluate
+        agentId={agentId!}
+        onSwitchToReview={() => navigate(`/agents/${agentId}/review`)}
+        pendingScorerItems={pendingScorerItems}
+        onPendingScorerItemsConsumed={() => setPendingScorerItems(null)}
+      />
+    </AgentEditFormProvider>
+  );
+}
+
+export default AgentEvaluate;

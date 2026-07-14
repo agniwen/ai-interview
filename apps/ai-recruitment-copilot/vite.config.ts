@@ -1,6 +1,4 @@
 import { createRequire } from "node:module";
-import { request as httpRequest } from "node:http";
-import { request as httpsRequest } from "node:https";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import babel from "@rolldown/plugin-babel";
@@ -8,6 +6,10 @@ import viteReact, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
 import type { Plugin } from "vite";
+import {
+  isolateMastraPlaygroundCss,
+  isMastraPlaygroundStylesheet,
+} from "./src/components/features/mastra-studio/css/isolate-playground-css";
 
 const requireFromQueuePackage = createRequire(
   new URL("../../packages/resume-parse-queue/package.json", import.meta.url),
@@ -17,37 +19,16 @@ const tslibEsmEntry = requireFromBullmq.resolve("tslib/tslib.es6.mjs");
 const bullmqDependencyPathPattern =
   /[/\\]node_modules[/\\](?:\.pnpm[/\\])?bullmq@|[/\\]node_modules[/\\]bullmq[/\\]/;
 const buildTime = new Date().toISOString();
-const mastraStudioPath = "/internal/mastra-studio";
-const mastraStudioDevUrl = process.env.MASTRA_STUDIO_DEV_URL ?? "http://localhost:5173";
-
-const mastraStudioDevProxy = (): Plugin => ({
-  configureServer(server) {
-    server.middlewares.use(mastraStudioPath, (request, response, next) => {
-      if (!request.url) {
-        next();
-        return;
-      }
-
-      const upstreamUrl = new URL(`${mastraStudioPath}${request.url}`, mastraStudioDevUrl);
-      const sendRequest = upstreamUrl.protocol === "https:" ? httpsRequest : httpRequest;
-      const upstreamRequest = sendRequest(
-        upstreamUrl,
-        {
-          headers: { ...request.headers, host: upstreamUrl.host },
-          method: request.method,
-        },
-        (upstreamResponse) => {
-          response.writeHead(upstreamResponse.statusCode ?? 502, upstreamResponse.headers);
-          upstreamResponse.pipe(response);
-        },
-      );
-
-      upstreamRequest.on("error", next);
-      request.pipe(upstreamRequest);
-    });
-  },
+const mastraStudioCssIsolation = (): Plugin => ({
   enforce: "pre",
-  name: "arc-mastra-studio-dev-proxy",
+  name: "arc-mastra-studio-css-isolation",
+  transform(code, id) {
+    if (!isMastraPlaygroundStylesheet(id)) {
+      return null;
+    }
+
+    return { code: isolateMastraPlaygroundCss(code), map: null };
+  },
 });
 
 export default defineConfig({
@@ -62,17 +43,26 @@ export default defineConfig({
       "@tanstack/react-router",
       "@tanstack/react-router-ssr-query",
       "@tanstack/react-store",
+      "@radix-ui/react-visually-hidden",
       "better-auth/client/plugins",
       "better-auth/react",
       "clsx",
       "dayjs",
+      "react",
+      "react/compiler-runtime",
+      "react/jsx-runtime",
+      "react-day-picker",
+      "react-dom",
+      "react-dom/client",
       "sonner",
       "tailwind-merge",
       "zod",
+      "zustand",
+      "zustand/middleware",
     ],
   },
   plugins: [
-    mastraStudioDevProxy(),
+    mastraStudioCssIsolation(),
     {
       enforce: "pre",
       name: "arc-bullmq-tslib-esm",
@@ -145,5 +135,11 @@ export default defineConfig({
   server: {
     port: 3000,
     strictPort: true,
+  },
+  ssr: {
+    // Playground UI subpath exports import package-owned CSS. Keep the package
+    // in Vite's SSR graph so dev SSR transforms those imports instead of
+    // handing them to Node's native ESM loader.
+    noExternal: [/^@mastra\/playground-ui(?:\/|$)/],
   },
 });
