@@ -1,9 +1,12 @@
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { agentDebugRouter } from "../route";
 
 const mocks = vi.hoisted(() => ({
+  agentGenerate: vi.fn(),
   parseResumeFastToProfile: vi.fn(),
+  workflowStart: vi.fn(),
 }));
 
 vi.mock("@arc/ai-recruitment-copilot-backend/server/middlewares/permission", () => ({
@@ -16,11 +19,49 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent
   parseResumeFastToProfile: mocks.parseResumeFastToProfile,
 }));
 
+vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/mastra/index", () => ({
+  mastra: {
+    listAgents: () => ({
+      resumeStructuredAgent: {
+        generate: mocks.agentGenerate,
+        getDescription: () => "把简历原文抽取为结构化档案",
+        id: "resume-structured-agent",
+        name: "ResumeStructuredAgent",
+      },
+    }),
+    listWorkflows: () => ({
+      bulkResumeUploadWorkflow: {
+        createRun: vi.fn(),
+        description: "批量处理入库任务",
+        id: "bulk-resume-upload-workflow",
+        inputSchema: z.object({ itemId: z.string() }),
+        steps: { process: { id: "process" } },
+      },
+      resumeReviewWorkflow: {
+        createRun: vi.fn(() =>
+          Promise.resolve({
+            runId: "workflow-run-1",
+            start: mocks.workflowStart,
+          }),
+        ),
+        description: "运行简历评价",
+        id: "resume-review-workflow",
+        inputSchema: z.object({ resumeId: z.string() }),
+        steps: {
+          score: { id: "score" },
+        },
+      },
+    }),
+  },
+}));
+
 function createApp(role: string) {
   return factory
     .createApp()
     .use(async (c, next) => {
+      c.set("activeOrg", { id: "workspace-1", slug: "default" } as never);
       c.set("member", { role } as never);
+      c.set("user", { id: "user-1" } as never);
       await next();
     })
     .route("/", agentDebugRouter);
@@ -54,6 +95,144 @@ describe("agentDebugRouter", () => {
         workYears: 5,
       },
     });
+    mocks.agentGenerate.mockResolvedValue({
+      finishReason: "stop",
+      runId: "agent-run-1",
+      text: "已完成结构化抽取",
+      toolCalls: [],
+      toolResults: [],
+      totalUsage: { inputTokens: 120, outputTokens: 30, totalTokens: 150 },
+      traceId: "trace-1",
+      usage: { inputTokens: 120, outputTokens: 30, totalTokens: 150 },
+    });
+    mocks.workflowStart.mockResolvedValue({
+      input: { resumeId: "resume-1" },
+      result: { score: 88 },
+      status: "success",
+      steps: { score: { output: { score: 88 }, status: "success" } },
+      traceId: "workflow-trace-1",
+    });
+  });
+
+  it("GET /resources lists registered agents and workflows for admins", async () => {
+    const res = await createApp("admin").request("/resources");
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      agents: [
+        {
+          description: "把简历原文抽取为结构化档案",
+          id: "resume-structured-agent",
+          key: "resumeStructuredAgent",
+          name: "ResumeStructuredAgent",
+        },
+      ],
+      workflows: [
+        {
+          description: "运行简历评价",
+          id: "resume-review-workflow",
+          inputSchema: expect.objectContaining({
+            properties: expect.objectContaining({ resumeId: expect.any(Object) }),
+            type: "object",
+          }),
+          key: "resumeReviewWorkflow",
+          steps: ["score"],
+        },
+      ],
+    });
+  });
+
+  it("does not expose or execute workflows with database side effects", async () => {
+    const resources = await createApp("admin").request("/resources");
+    const run = await createApp("admin").request("/workflows/bulkResumeUploadWorkflow/run", {
+      body: JSON.stringify({ input: { itemId: "another-workspace-item" } }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const resourcesJson = await resources.json();
+    expect(resourcesJson.workflows).toHaveLength(1);
+    expect(run.status).toBe(404);
+    expect(mocks.workflowStart).not.toHaveBeenCalled();
+  });
+
+  it("POST /agents/:key/run executes a registered agent with workspace context", async () => {
+    const res = await createApp("admin").request("/agents/resumeStructuredAgent/run", {
+      body: JSON.stringify({ prompt: "提取这份简历" }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(
+      expect.objectContaining({
+        finishReason: "stop",
+        runId: "agent-run-1",
+        text: "已完成结构化抽取",
+        traceId: "trace-1",
+        usage: { inputTokens: 120, outputTokens: 30, totalTokens: 150 },
+      }),
+    );
+    const options = mocks.agentGenerate.mock.calls[0]?.[1];
+    expect(mocks.agentGenerate).toHaveBeenCalledWith("提取这份简历", expect.any(Object));
+    expect(Object.fromEntries(options.requestContext.entries())).toEqual({
+      feature: "agent-debug",
+      userId: "user-1",
+      workspaceId: "workspace-1",
+      workspaceSlug: "default",
+    });
+  });
+
+  it("POST /workflows/:key/run validates and executes workflow JSON", async () => {
+    const res = await createApp("owner").request("/workflows/resumeReviewWorkflow/run", {
+      body: JSON.stringify({ input: { resumeId: "resume-1" } }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(
+      expect.objectContaining({
+        resultJson: JSON.stringify({ score: 88 }),
+        runId: "workflow-run-1",
+        status: "success",
+        stepsJson: JSON.stringify({ score: { output: { score: 88 }, status: "success" } }),
+        traceId: "workflow-trace-1",
+      }),
+    );
+    expect(mocks.workflowStart).toHaveBeenCalledWith(
+      expect.objectContaining({ inputData: { resumeId: "resume-1" } }),
+    );
+  });
+
+  it("POST /workflows/:key/run returns schema issues before creating a run", async () => {
+    const res = await createApp("admin").request("/workflows/resumeReviewWorkflow/run", {
+      body: JSON.stringify({ input: { resumeId: 42 } }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual(
+      expect.objectContaining({
+        error: "Workflow 输入不符合 Input Schema。",
+        issues: expect.any(Array),
+      }),
+    );
+    expect(mocks.workflowStart).not.toHaveBeenCalled();
+  });
+
+  it("does not expose registered resources to non-admin members", async () => {
+    const resources = await createApp("member").request("/resources");
+    const run = await createApp("member").request("/agents/resumeStructuredAgent/run", {
+      body: JSON.stringify({ prompt: "test" }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    expect(resources.status).toBe(403);
+    expect(run.status).toBe(403);
+    expect(mocks.agentGenerate).not.toHaveBeenCalled();
   });
 
   it("POST /resume-parser-test rejects non-admin workspace members", async () => {
