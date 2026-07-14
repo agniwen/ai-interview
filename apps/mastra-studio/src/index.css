@@ -1,3 +1,4 @@
+@import "tailwindcss";
 @import "./fonts.css";
 /* Scan playground-ui dist for Tailwind classes used by consumed components */
 @source '../node_modules/@mastra/playground-ui';
