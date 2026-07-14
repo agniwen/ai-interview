@@ -32,6 +32,10 @@ ignoredBuiltDependencies:
   - msw
   - sharp
   - unrs-resolver
+packageExtensions:
+  "@mastra/deployer@1.50.1":
+    dependencies:
+      typescript: 6.0.3
 peerDependencyRules:
   allowedVersions:
     ai: ^6.0.219

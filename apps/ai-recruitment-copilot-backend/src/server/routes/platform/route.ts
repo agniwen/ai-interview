@@ -39,6 +39,7 @@ import {
   filterEnrichedResumeParseQueueJobRecords,
 } from "./queue-details";
 import type { PlatformQueueJobsResult } from "./queue-details";
+import { platformMastraRouter } from "./routes/mastra/route";
 import { platformNotificationsRouter } from "./routes/notifications/route";
 
 // --- Organizations list ---
@@ -627,6 +628,7 @@ const platformQueues = factory
 export const platformRouter = factory
   .createApp()
   .use(adminMiddleware)
+  .route("/mastra", platformMastraRouter)
   .route("/", platformQueues)
   .route("/", platformMailIngestAccounts)
   .route("/notifications", platformNotificationsRouter)

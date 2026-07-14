@@ -1,6 +1,13 @@
 "use client";
 
-import { IconBell, IconBuilding, IconInbox, IconListCheck, IconUsers } from "@tabler/icons-react";
+import {
+  IconBell,
+  IconBuilding,
+  IconInbox,
+  IconListCheck,
+  IconRobot,
+  IconUsers,
+} from "@tabler/icons-react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   SidebarBodyPortalContent,
@@ -48,6 +55,11 @@ const navItems: NavItem[] = [
     icon: IconListCheck,
     path: "/platform/queues",
     title: "队列任务",
+  },
+  {
+    icon: IconRobot,
+    path: "/platform/mastra-studio",
+    title: "Mastra Studio",
   },
 ];
 

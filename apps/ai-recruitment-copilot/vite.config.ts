@@ -1,10 +1,13 @@
 import { createRequire } from "node:module";
+import { request as httpRequest } from "node:http";
+import { request as httpsRequest } from "node:https";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import babel from "@rolldown/plugin-babel";
 import viteReact, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
+import type { Plugin } from "vite";
 
 const requireFromQueuePackage = createRequire(
   new URL("../../packages/resume-parse-queue/package.json", import.meta.url),
@@ -14,6 +17,38 @@ const tslibEsmEntry = requireFromBullmq.resolve("tslib/tslib.es6.mjs");
 const bullmqDependencyPathPattern =
   /[/\\]node_modules[/\\](?:\.pnpm[/\\])?bullmq@|[/\\]node_modules[/\\]bullmq[/\\]/;
 const buildTime = new Date().toISOString();
+const mastraStudioPath = "/internal/mastra-studio";
+const mastraStudioDevUrl = process.env.MASTRA_STUDIO_DEV_URL ?? "http://localhost:5173";
+
+const mastraStudioDevProxy = (): Plugin => ({
+  configureServer(server) {
+    server.middlewares.use(mastraStudioPath, (request, response, next) => {
+      if (!request.url) {
+        next();
+        return;
+      }
+
+      const upstreamUrl = new URL(`${mastraStudioPath}${request.url}`, mastraStudioDevUrl);
+      const sendRequest = upstreamUrl.protocol === "https:" ? httpsRequest : httpRequest;
+      const upstreamRequest = sendRequest(
+        upstreamUrl,
+        {
+          headers: { ...request.headers, host: upstreamUrl.host },
+          method: request.method,
+        },
+        (upstreamResponse) => {
+          response.writeHead(upstreamResponse.statusCode ?? 502, upstreamResponse.headers);
+          upstreamResponse.pipe(response);
+        },
+      );
+
+      upstreamRequest.on("error", next);
+      request.pipe(upstreamRequest);
+    });
+  },
+  enforce: "pre",
+  name: "arc-mastra-studio-dev-proxy",
+});
 
 export default defineConfig({
   define: {
@@ -37,6 +72,7 @@ export default defineConfig({
     ],
   },
   plugins: [
+    mastraStudioDevProxy(),
     {
       enforce: "pre",
       name: "arc-bullmq-tslib-esm",
