@@ -74,7 +74,7 @@ export function SidebarUserSection({
     content = collapsed ? (
       <div className="h-9 w-full animate-pulse rounded-md bg-muted" />
     ) : (
-      <div className="h-9 w-full animate-pulse rounded-full bg-muted" />
+      <div className="h-9 w-full animate-pulse rounded-md bg-muted" />
     );
   } else if (session?.user) {
     content = collapsed ? (
@@ -147,7 +147,7 @@ export function SidebarUserSection({
         <DropdownMenuTrigger
           render={
             <Button
-              className="h-12 w-full justify-start gap-2 rounded-full hover:bg-background active:scale-100"
+              className="h-12 w-full justify-start gap-2 hover:bg-background active:scale-100"
               type="button"
               variant="ghost"
             >

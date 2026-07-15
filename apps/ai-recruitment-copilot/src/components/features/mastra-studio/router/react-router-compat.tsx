@@ -98,7 +98,7 @@ export const Link = forwardRef<HTMLAnchorElement, LinkProps>(function Link(
   return (
     <TanStackLink
       {...(props as ComponentProps<typeof TanStackLink>)}
-      preload="intent"
+      preload={false}
       ref={ref}
       replace={replace}
       resetScroll={!preventScrollReset}

@@ -18,6 +18,10 @@
   --navigation-command-exit-delay: 80ms;
 }
 
+.navigation-command-surface-input [cmdk-input] {
+  background-color: transparent;
+}
+
 .navigation-command-surface-rail {
   --navigation-command-enter-delay: 60ms;
   --navigation-command-exit-delay: 40ms;
