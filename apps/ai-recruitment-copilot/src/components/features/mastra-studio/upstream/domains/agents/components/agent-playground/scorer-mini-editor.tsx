@@ -69,7 +69,7 @@ export function ScorerMiniEditor({
       return prefillTestItems.map((item, i) => ({
         expectedDirection: (item.expectedDirection === "high" ? "high" : "low") as "high" | "low",
         input: item.input,
-        label: `failure-${i + 1}`,
+        label: `失败-${i + 1}`,
         output: item.output,
       }));
     }
@@ -167,7 +167,7 @@ export function ScorerMiniEditor({
       model,
     );
     if (!saveProvider || !saveModelName) {
-      toast.error("Please select a model");
+      toast.error("请选择模型");
       return;
     }
 
@@ -187,8 +187,8 @@ export function ScorerMiniEditor({
         if (allTruthy(!datasetId, testItems.length > 0)) {
           // Create dataset linked to this scorer
           const dataset = await createDataset.mutateAsync({
-            description: `Test dataset for scorer "${name.trim()}". Items with known-good and known-bad examples to verify scoring accuracy.`,
-            name: `${name.trim()} — Test Dataset`,
+            description: `评分器“${name.trim()}”的测试数据集，包含已知正确和错误的示例，用于验证评分准确性。`,
+            name: `${name.trim()} — 测试数据集`,
             targetIds: [existingId],
             targetType: "scorer",
           });
@@ -224,7 +224,7 @@ export function ScorerMiniEditor({
         }
 
         onSaved?.(existingId);
-        toast.success("Scorer updated");
+        toast.success("评分器已更新");
       } else {
         // 1. Create the stored scorer first
         const result = await createStoredScorer.mutateAsync({
@@ -242,8 +242,8 @@ export function ScorerMiniEditor({
           // 2. Create test dataset linked to the scorer
           if (testItems.length > 0) {
             const dataset = await createDataset.mutateAsync({
-              description: `Test dataset for scorer "${name.trim()}". Items with known-good and known-bad examples to verify scoring accuracy.`,
-              name: `${name.trim()} — Test Dataset`,
+              description: `评分器“${name.trim()}”的测试数据集，包含已知正确和错误的示例，用于验证评分准确性。`,
+              name: `${name.trim()} — 测试数据集`,
               targetIds: [scorerId],
               targetType: "scorer",
             });
@@ -275,13 +275,11 @@ export function ScorerMiniEditor({
         }
 
         toast.success(
-          `Scorer saved${testItems.length > 0 ? " with test dataset" : ""}. ${testItems.length > 0 ? 'Click "Run Test" to verify scoring.' : ""}`,
+          `评分器已保存${testItems.length > 0 ? "，并已创建测试数据集。点击“运行测试”验证评分。" : "。"}`,
         );
       }
     } catch (error) {
-      toast.error(
-        `Failed to save scorer: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`保存评分器失败：${error instanceof Error ? error.message : "未知错误"}`);
     } finally {
       setIsSaving(false);
     }
@@ -309,11 +307,11 @@ export function ScorerMiniEditor({
 
   const handleRunTest = useCallback(async () => {
     if (!savedScorerId) {
-      toast.error("Save the scorer first before testing");
+      toast.error("请先保存评分器，再运行测试");
       return;
     }
     if (!scorerDatasetId) {
-      toast.error("No test dataset — add items and save first");
+      toast.error("尚无测试数据集，请先添加条目并保存");
       return;
     }
 
@@ -328,12 +326,10 @@ export function ScorerMiniEditor({
       const expId = (result as { experimentId?: string })?.experimentId;
       if (expId) {
         setTestExperimentId(expId);
-        toast.success("Scorer test started — results will appear below");
+        toast.success("评分器测试已启动，结果将显示在下方");
       }
     } catch (error) {
-      toast.error(
-        `Failed to run test: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`运行测试失败：${error instanceof Error ? error.message : "未知错误"}`);
     } finally {
       setIsRunningTest(false);
     }
@@ -347,7 +343,7 @@ export function ScorerMiniEditor({
           <Icon>
             <ArrowLeft />
           </Icon>
-          Back
+          返回
         </Button>
         <Txt as="h3" variant="header-sm" className="ml-2">
           {resolveConditional(
@@ -355,8 +351,8 @@ export function ScorerMiniEditor({
             (conditionValue) => conditionValue,
             () => savedScorerId,
           )
-            ? "Edit Scorer"
-            : "New Scorer"}
+            ? "编辑评分器"
+            : "新建评分器"}
         </Txt>
         {resolveConditional(
           isEditing,
@@ -364,7 +360,7 @@ export function ScorerMiniEditor({
           () =>
             savedScorerId && (
               <Badge variant="success" className="ml-2">
-                Saved
+                已保存
               </Badge>
             ),
         )}
@@ -373,16 +369,16 @@ export function ScorerMiniEditor({
       <ScrollArea className="flex-1">
         {isLoadingScorer ? (
           <div className="flex items-center justify-center p-8">
-            <Spinner className="mr-2" /> Loading scorer...
+            <Spinner className="mr-2" /> 正在加载评分器...
           </div>
         ) : (
           <div className="p-4 space-y-6">
             {/* Scorer Configuration */}
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Name</Label>
+                <Label>名称</Label>
                 <Input
-                  placeholder="e.g. Relevance Scorer"
+                  placeholder="例如：相关性评分器"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   disabled={resolveConditional(
@@ -394,9 +390,9 @@ export function ScorerMiniEditor({
               </div>
 
               <div className="space-y-2">
-                <Label>Model</Label>
+                <Label>模型</Label>
                 <Input
-                  placeholder="e.g. openai/gpt-4o-mini"
+                  placeholder="例如 openai/gpt-4o-mini"
                   value={
                     resolveConditional(
                       scorerModel,
@@ -409,14 +405,14 @@ export function ScorerMiniEditor({
                   onChange={(e) => setScorerModel(e.target.value)}
                 />
                 <Txt variant="ui-sm" className="text-icon3">
-                  Format: provider/model (e.g. openai/gpt-4o-mini)
+                  格式：提供商/模型（例如 openai/gpt-4o-mini）
                 </Txt>
               </div>
 
               <div className="space-y-2">
-                <Label>Instructions</Label>
+                <Label>指令</Label>
                 <Textarea
-                  placeholder="Describe what this scorer should evaluate. Be specific about what constitutes a good vs bad response..."
+                  placeholder="描述此评分器应评估的内容，并明确说明怎样的响应算好或差..."
                   value={instructions}
                   onChange={(e) => setInstructions(e.target.value)}
                   rows={6}
@@ -425,7 +421,7 @@ export function ScorerMiniEditor({
 
               <div className="flex gap-4">
                 <div className="space-y-2 flex-1">
-                  <Label>Min Score</Label>
+                  <Label>最低分</Label>
                   <Input
                     type="number"
                     min={-1000}
@@ -436,7 +432,7 @@ export function ScorerMiniEditor({
                   />
                 </div>
                 <div className="space-y-2 flex-1">
-                  <Label>Max Score</Label>
+                  <Label>最高分</Label>
                   <Input
                     type="number"
                     min={-1000}
@@ -454,17 +450,16 @@ export function ScorerMiniEditor({
               <div className="flex items-center justify-between">
                 <div>
                   <Txt variant="ui-md" className="font-medium">
-                    Test Items
+                    测试条目
                   </Txt>
                   <Txt variant="ui-sm" className="text-icon3 mt-0.5">
-                    Add known-good and known-bad examples to verify your scorer
+                    添加已知正确和错误的示例，以验证评分器
                   </Txt>
                   {resolveConditional(
                     scorerDatasetId,
                     () => (
                       <Txt variant="ui-xs" className="text-icon3 mt-1">
-                        Linked dataset · {testItems.length} item
-                        {isTruthy(testItems.length !== 1) ? "s" : ""}
+                        已关联数据集 · {testItems.length} 个条目
                       </Txt>
                     ),
                     () => null,
@@ -474,7 +469,7 @@ export function ScorerMiniEditor({
                   <Icon>
                     <Plus />
                   </Icon>
-                  Add Item
+                  添加条目
                 </Button>
               </div>
 
@@ -483,8 +478,7 @@ export function ScorerMiniEditor({
                 () => (
                   <div className="border border-dashed border-border1 rounded-lg p-6 text-center">
                     <Txt variant="ui-sm" className="text-icon3">
-                      No test items yet. Add items with expected scoring direction to verify your
-                      scorer works correctly.
+                      尚无测试条目。添加带有预期评分方向的条目，以验证评分器是否正常工作。
                     </Txt>
                   </div>
                 ),
@@ -532,7 +526,7 @@ export function ScorerMiniEditor({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Txt variant="ui-sm" className="font-medium">
-                          Item {index + 1}
+                          条目 {index + 1}
                         </Txt>
                         {resolveConditional(
                           item.label,
@@ -556,7 +550,7 @@ export function ScorerMiniEditor({
                             )
                           }
                         >
-                          Should score {item.expectedDirection}
+                          应获得{item.expectedDirection === "high" ? "高分" : "低分"}
                         </button>
                       </div>
                       <div className="flex items-center gap-2">
@@ -580,10 +574,10 @@ export function ScorerMiniEditor({
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <Txt variant="ui-xs" className="text-icon3 font-medium">
-                          Input
+                          输入
                         </Txt>
                         <Textarea
-                          placeholder="The user's question/input..."
+                          placeholder="用户的问题或输入..."
                           value={
                             typeof item.input === "string"
                               ? item.input
@@ -596,10 +590,10 @@ export function ScorerMiniEditor({
                       </div>
                       <div className="space-y-1">
                         <Txt variant="ui-xs" className="text-icon3 font-medium">
-                          Output (agent response)
+                          输出（智能体响应）
                         </Txt>
                         <Textarea
-                          placeholder="The agent's response..."
+                          placeholder="智能体的响应..."
                           value={
                             typeof item.output === "string"
                               ? item.output
@@ -622,12 +616,12 @@ export function ScorerMiniEditor({
                               <Icon size="sm">
                                 <AlertCircle />
                               </Icon>
-                              <Txt variant="ui-xs">Error: {String(resultError)}</Txt>
+                              <Txt variant="ui-xs">错误：{String(resultError)}</Txt>
                             </div>
                           ) : (
                             <>
                               <Txt variant="ui-sm" className="font-mono font-medium">
-                                Score: {formattedScore}
+                                得分：{formattedScore}
                               </Txt>
                               {resultReason && (
                                 <Txt variant="ui-xs" className="text-icon3 truncate flex-1">
@@ -652,7 +646,7 @@ export function ScorerMiniEditor({
                 <div className="border border-border1 rounded-lg p-3">
                   <div className="flex items-center gap-3">
                     <Txt variant="ui-sm" className="font-medium">
-                      Test Results:
+                      测试结果：
                     </Txt>
                     {(() => {
                       let correct = 0;
@@ -682,17 +676,17 @@ export function ScorerMiniEditor({
                       }
                       return (
                         <>
-                          {correct > 0 && <Badge variant="success">{correct} correct</Badge>}
-                          {incorrect > 0 && <Badge variant="error">{incorrect} incorrect</Badge>}
-                          {errors > 0 && <Badge variant="default">{errors} errors</Badge>}
+                          {correct > 0 && <Badge variant="success">{correct} 个正确</Badge>}
+                          {incorrect > 0 && <Badge variant="error">{incorrect} 个错误</Badge>}
+                          {errors > 0 && <Badge variant="default">{errors} 个异常</Badge>}
                         </>
                       );
                     })()}
                   </div>
                   <Txt variant="ui-xs" className="text-icon3 mt-1">
                     {experimentResults.length < testItems.length
-                      ? "Still processing..."
-                      : "All items scored. Tweak instructions and re-run to improve accuracy."}
+                      ? "仍在处理中..."
+                      : "所有条目均已评分。可调整指令并重新运行，以提高准确性。"}
                   </Txt>
                 </div>
               ),
@@ -721,7 +715,7 @@ export function ScorerMiniEditor({
                     <Save />
                   </Icon>
                 )}
-                Save Changes
+                保存更改
               </Button>
               <Button
                 variant="default"
@@ -736,7 +730,7 @@ export function ScorerMiniEditor({
                     <Play />
                   </Icon>
                 )}
-                Run Test
+                运行测试
               </Button>
             </>
           ),
@@ -755,7 +749,7 @@ export function ScorerMiniEditor({
                     <Save />
                   </Icon>
                 )}
-                {testItems.length > 0 ? "Save with Test Dataset" : "Save & Attach"}
+                {testItems.length > 0 ? "保存并创建测试数据集" : "保存并关联"}
               </Button>
             ) : (
               <>
@@ -772,11 +766,11 @@ export function ScorerMiniEditor({
                       <Play />
                     </Icon>
                   )}
-                  Run Test
+                  运行测试
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleSave} disabled={isSaving}>
                   {isSaving ? <Spinner className="mr-1.5" /> : null}
-                  Update & Re-save
+                  更新并重新保存
                 </Button>
               </>
             ),
@@ -787,8 +781,8 @@ export function ScorerMiniEditor({
             (conditionValue) => conditionValue,
             () => savedScorerId,
           )
-            ? "Done"
-            : "Cancel"}
+            ? "完成"
+            : "取消"}
         </Button>
       </div>
     </div>

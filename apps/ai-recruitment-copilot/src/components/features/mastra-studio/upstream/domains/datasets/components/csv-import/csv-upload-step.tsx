@@ -77,7 +77,7 @@ export function CSVUploadStep({ onFileSelect, isParsing, error }: CSVUploadStepP
     <div className="flex flex-col gap-3">
       {/* Hidden file input */}
       <input
-        aria-label="Upload CSV file"
+        aria-label="上传 CSV 文件"
         ref={inputRef}
         type="file"
         accept=".csv"
@@ -110,7 +110,7 @@ export function CSVUploadStep({ onFileSelect, isParsing, error }: CSVUploadStepP
         {isParsing ? (
           <>
             <Spinner />
-            <span className="text-sm text-neutral4">Parsing CSV...</span>
+            <span className="text-sm text-neutral4">正在解析 CSV...</span>
           </>
         ) : (
           <>
@@ -118,10 +118,8 @@ export function CSVUploadStep({ onFileSelect, isParsing, error }: CSVUploadStepP
               <Upload className="h-8 w-8" />
             </Icon>
             <div className="flex flex-col items-center gap-1">
-              <span className="text-sm font-medium text-neutral1">
-                Click to upload or drag and drop
-              </span>
-              <span className="text-xs text-neutral4">CSV files only</span>
+              <span className="text-sm font-medium text-neutral1">点击上传或拖放文件</span>
+              <span className="text-xs text-neutral4">仅支持 CSV 文件</span>
             </div>
           </>
         )}

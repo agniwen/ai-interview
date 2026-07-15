@@ -44,16 +44,16 @@ interface GateInvalidBaseUrlProps {
 
 const GateInvalidBaseUrl = ({ error, baseUrl }: GateInvalidBaseUrlProps) => {
   const messages = [
-    `Studio could not reach the ARC Mastra server at ${baseUrl}. Check that the integrated server is running.`,
-    `Error: ${error.message}`,
+    `Studio 无法连接 ${baseUrl} 上的 ARC Mastra 服务器。请检查集成服务器是否正在运行。`,
+    `错误：${error.message}`,
   ];
 
   return (
     <div className="flex h-full w-full items-center justify-center">
       <ErrorState
-        title="Failed to load studio"
+        title="Studio 加载失败"
         message={messages.join("\n\n")}
-        action={<Button onClick={() => window.location.reload()}>Refresh</Button>}
+        action={<Button onClick={() => window.location.reload()}>刷新</Button>}
       />
     </div>
   );
@@ -80,8 +80,7 @@ export function RoutePermissionsGate({ children, baseUrl }: RoutePermissionsGate
     for (const literal of ALL_SIDEBAR_PERMISSIONS) {
       if (!patterns.has(literal)) {
         throw new Error(
-          `Invalid permission pattern: "${literal}". It is not in the server's ` +
-            `PERMISSION_PATTERNS — check for a typo in route-permissions.ts.`,
+          `无效的权限模式：“${literal}”。服务器的 PERMISSION_PATTERNS 中不存在该模式，请检查 route-permissions.ts 是否拼写错误。`,
         );
       }
     }

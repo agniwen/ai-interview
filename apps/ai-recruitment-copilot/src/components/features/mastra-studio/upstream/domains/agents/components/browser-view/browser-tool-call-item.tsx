@@ -6,28 +6,28 @@ import type { BrowserToolCallEntry } from "../../context/browser-tool-calls-cont
 
 const TOOL_DISPLAY_NAMES: Record<string, string> = {
   // AgentBrowser tools
-  browser_back: "Back",
-  browser_click: "Click",
-  browser_close: "Close",
-  browser_dialog: "Dialog",
-  browser_drag: "Drag",
-  browser_evaluate: "Evaluate",
-  browser_goto: "Go to",
-  browser_hover: "Hover",
-  browser_press: "Press",
-  browser_scroll: "Scroll",
-  browser_select: "Select",
-  browser_snapshot: "Snapshot",
-  browser_tabs: "Tabs",
-  browser_type: "Type",
-  browser_wait: "Wait",
+  browser_back: "返回",
+  browser_click: "点击",
+  browser_close: "关闭",
+  browser_dialog: "对话框",
+  browser_drag: "拖动",
+  browser_evaluate: "执行脚本",
+  browser_goto: "前往",
+  browser_hover: "悬停",
+  browser_press: "按键",
+  browser_scroll: "滚动",
+  browser_select: "选择",
+  browser_snapshot: "快照",
+  browser_tabs: "标签页",
+  browser_type: "输入",
+  browser_wait: "等待",
   // StagehandBrowser tools
-  stagehand_act: "Act",
-  stagehand_close: "Close",
-  stagehand_extract: "Extract",
-  stagehand_navigate: "Navigate",
-  stagehand_observe: "Observe",
-  stagehand_tabs: "Tabs",
+  stagehand_act: "操作",
+  stagehand_close: "关闭",
+  stagehand_extract: "提取",
+  stagehand_navigate: "导航",
+  stagehand_observe: "观测",
+  stagehand_tabs: "标签页",
 };
 
 const KEY_ARG_MAP: Record<string, string> = {
@@ -130,13 +130,13 @@ export function BrowserToolCallItem({ entry }: BrowserToolCallItemProps) {
       {isExpanded && (
         <div className="px-3 pb-2 space-y-2">
           <div>
-            <p className="text-xs font-medium text-neutral4 pb-1">Arguments</p>
+            <p className="text-xs font-medium text-neutral4 pb-1">参数</p>
             <CodeEditor data={displayArgs} data-testid="browser-tool-args" />
           </div>
 
           {entry.result !== undefined && entry.result !== null && (
             <div>
-              <p className="text-xs font-medium text-neutral4 pb-1">Result</p>
+              <p className="text-xs font-medium text-neutral4 pb-1">结果</p>
               {typeof entry.result === "string" ? (
                 <pre className="whitespace-pre text-xs bg-surface4 p-2 rounded-md overflow-x-auto max-h-40 overflow-y-auto">
                   {entry.result}

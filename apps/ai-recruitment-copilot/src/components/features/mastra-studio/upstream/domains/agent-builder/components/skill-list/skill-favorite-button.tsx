@@ -45,10 +45,10 @@ export const SkillFavoriteButton = ({
   }
 
   const signedIn = capabilities ? isAuthenticated(capabilities) : false;
-  const label = isFavorited ? "Unstar skill" : "Star skill";
-  const disabledLabel = "Sign in to star this skill";
+  const label = isFavorited ? "取消收藏技能" : "收藏技能";
+  const disabledLabel = "登录后可收藏此技能";
   const hasCount = typeof favoriteCount === "number" && favoriteCount > 0;
-  const countLabel = favoriteCount === 1 ? "Star" : "Stars";
+  const countLabel = "收藏";
   const isDisabled = toggle.isPending || !signedIn;
 
   return (
@@ -82,7 +82,7 @@ export const SkillFavoriteButton = ({
               <span className="tabular-nums">{favoriteCount}</span> {countLabel}
             </>
           ) : (
-            "Star"
+            "收藏"
           )}
         </span>
       )}

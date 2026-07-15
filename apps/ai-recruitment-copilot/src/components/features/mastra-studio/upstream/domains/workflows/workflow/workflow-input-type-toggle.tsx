@@ -27,15 +27,15 @@ export function WorkflowInputTypeToggle({
 }: WorkflowInputTypeToggleProps) {
   const iconClassName = compact ? "h-3 w-3" : "h-4 w-4";
   const options: InputTypeOption[] = [
-    ...(includeSimple ? [{ label: "Simple", value: "simple" as const }] : []),
-    { icon: <FormInput className={iconClassName} />, label: "Form", value: "form" },
+    ...(includeSimple ? [{ label: "简易", value: "simple" as const }] : []),
+    { icon: <FormInput className={iconClassName} />, label: "表单", value: "form" },
     { icon: <Braces className={iconClassName} />, label: "JSON", value: "json" },
   ];
 
   return (
     <div
       role="radiogroup"
-      aria-label="Input type"
+      aria-label="输入类型"
       className={cn(
         "grid grid-flow-col auto-cols-fr gap-1 border border-border1 bg-surface3",
         compact ? "h-5 w-auto rounded-md p-0.5" : "w-full rounded-lg p-1",

@@ -45,7 +45,7 @@ export default function AgentBuilderCreate() {
             })
           }
           className="rounded-full"
-          tooltip="Agents list"
+          tooltip="智能体列表"
           data-testid="agent-builder-back-to-list"
         >
           <ArrowLeftIcon />

@@ -82,13 +82,13 @@ export function EditModeContent({
     <>
       <div className="mb-4">
         <h3 className="text-lg font-medium flex items-center gap-2">
-          <Pencil className="w-5 h-5" /> Edit Item
+          <Pencil className="w-5 h-5" /> 编辑数据项
         </h3>
       </div>
 
       <div className="space-y-6">
         <div className="space-y-2">
-          <Label>Input (JSON) *</Label>
+          <Label>输入（JSON）*</Label>
           <CodeEditor
             value={inputValue}
             onChange={setInputValue}
@@ -101,7 +101,7 @@ export function EditModeContent({
         </div>
 
         <div className="space-y-2">
-          <Label>Ground Truth (JSON, optional)</Label>
+          <Label>标准答案（JSON，可选）</Label>
           <CodeEditor
             value={groundTruthValue}
             onChange={setGroundTruthValue}
@@ -114,7 +114,7 @@ export function EditModeContent({
         </div>
 
         <div className="space-y-2">
-          <Label>Expected Trajectory (JSON, optional)</Label>
+          <Label>预期轨迹（JSON，可选）</Label>
           <CodeEditor
             value={trajectoryValue}
             onChange={setTrajectoryValue}
@@ -124,11 +124,11 @@ export function EditModeContent({
         </div>
 
         <div className="space-y-2">
-          <Label>Tool Mocks (JSON array, optional)</Label>
+          <Label>工具模拟（JSON 数组，可选）</Label>
           <p className="text-xs text-muted-foreground">
-            Ordered static mocks served in place of executing the tool. Each entry is{" "}
-            <code>{`{ "toolName", "args", "output" }`}</code>. Calling a mocked tool with
-            non-matching args fails the item; unmocked tools run live.
+            按顺序使用静态模拟代替实际执行工具。每个条目的格式为{" "}
+            <code>{`{ "toolName", "args", "output" }`}</code>。若模拟工具的调用参数不匹配，
+            数据项将失败；未模拟的工具仍会实际运行。
           </p>
           <CodeEditor
             value={toolMocksValue}
@@ -142,7 +142,7 @@ export function EditModeContent({
         </div>
 
         <div className="space-y-2">
-          <Label>Request Context (JSON, optional)</Label>
+          <Label>请求上下文（JSON，可选）</Label>
           <CodeEditor
             value={requestContextValue}
             onChange={setRequestContextValue}
@@ -152,7 +152,7 @@ export function EditModeContent({
         </div>
 
         <div className="space-y-2">
-          <Label>Metadata (JSON, optional)</Label>
+          <Label>元数据（JSON，可选）</Label>
           <CodeEditor
             value={metadataValue}
             onChange={setMetadataValue}
@@ -163,10 +163,10 @@ export function EditModeContent({
 
         <div className="flex gap-2 pt-4">
           <Button variant="primary" onClick={onSave} disabled={isSaving}>
-            {isSaving ? "Saving..." : "Save Changes"}
+            {isSaving ? "正在保存..." : "保存更改"}
           </Button>
           <Button onClick={onCancel} disabled={isSaving}>
-            Cancel
+            取消
           </Button>
         </div>
       </div>

@@ -47,8 +47,8 @@ export const AgentProfileDetails = ({
         type="text"
         value={draftName}
         onChange={(e) => handleDraftNameChange(e.target.value)}
-        placeholder="Untitled agent"
-        aria-label="Agent name"
+        placeholder="未命名智能体"
+        aria-label="智能体名称"
         disabled={disabled}
         data-testid="agent-configure-name"
         className="w-full max-w-sm rounded-lg px-3 py-1.5 text-ui-lg font-semibold text-neutral6 placeholder:text-neutral2 hover:bg-surface4 focus:bg-surface4 focus:outline-none disabled:cursor-not-allowed"
@@ -57,8 +57,8 @@ export const AgentProfileDetails = ({
       <textarea
         value={draftDescription}
         onChange={(e) => handleDraftDescriptionChange(e.target.value)}
-        placeholder="What is this agent for?"
-        aria-label="Description"
+        placeholder="此智能体用于做什么？"
+        aria-label="描述"
         disabled={disabled}
         data-testid="agent-configure-description"
         rows={2}

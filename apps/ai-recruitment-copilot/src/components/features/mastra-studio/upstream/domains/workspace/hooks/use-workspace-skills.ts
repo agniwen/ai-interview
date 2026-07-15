@@ -45,7 +45,7 @@ export const useWorkspaceSkills = (options?: { workspaceId?: string }) => {
         throw new Error("Workspace v1 not supported by core or client");
       }
       if (!options?.workspaceId) {
-        throw new Error("workspaceId is required");
+        throw new Error("必须提供工作区 ID");
       }
       const workspace = getWorkspaceSkillsClient(client).getWorkspace(options.workspaceId);
       return workspace.listSkills();
@@ -75,7 +75,7 @@ export const useWorkspaceSkill = (
         throw new Error("Workspace v1 not supported by core or client");
       }
       if (!options?.workspaceId) {
-        throw new Error("workspaceId is required");
+        throw new Error("必须提供工作区 ID");
       }
       const workspace = getWorkspaceSkillsClient(client).getWorkspace(options.workspaceId);
       const skill = workspace.getSkill(skillName, options?.path);
@@ -106,7 +106,7 @@ export const useWorkspaceSkillReferences = (
         throw new Error("Workspace v1 not supported by core or client");
       }
       if (!options?.workspaceId) {
-        throw new Error("workspaceId is required");
+        throw new Error("必须提供工作区 ID");
       }
       const workspace = getWorkspaceSkillsClient(client).getWorkspace(options.workspaceId);
       const skill = workspace.getSkill(skillName, options?.path);
@@ -139,7 +139,7 @@ export const useWorkspaceSkillReference = (
         throw new Error("Workspace v1 not supported by core or client");
       }
       if (!options?.workspaceId) {
-        throw new Error("workspaceId is required");
+        throw new Error("必须提供工作区 ID");
       }
       const workspace = getWorkspaceSkillsClient(client).getWorkspace(options.workspaceId);
       const skill = workspace.getSkill(skillName, options?.path);
@@ -204,7 +204,7 @@ export const useAgentSkill = (
         throw new Error("Workspace v1 not supported by core or client");
       }
       if (!options?.workspaceId) {
-        throw new Error("workspaceId is required");
+        throw new Error("必须提供工作区 ID");
       }
       const workspace = getWorkspaceSkillsClient(client).getWorkspace(options.workspaceId);
       const skill = workspace.getSkill(skillName, options?.path);

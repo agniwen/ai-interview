@@ -80,7 +80,7 @@ function SuspendedStepCard({
             <Icon>
               <MoveDownLeft />
             </Icon>
-            The step is asking
+            步骤正在请求输入
           </Txt>
 
           <Collapsible open={isPayloadOpen} onOpenChange={setIsPayloadOpen}>
@@ -121,14 +121,14 @@ function SuspendedStepCard({
           <Icon>
             <MoveUpRight />
           </Icon>
-          Your response
+          你的响应
         </Txt>
 
         <div className="-mx-5">
           <WorkflowInputData
             schema={stepSchema}
             isSubmitLoading={isStreaming}
-            submitButtonLabel="Resume"
+            submitButtonLabel="恢复"
             submitButtonIcon={<Play />}
             submitButtonFullWidth
             collapsible={false}
@@ -171,9 +171,9 @@ export function WorkflowSuspendedSteps({
           <Icon>
             <CirclePause />
           </Icon>
-          Step suspended
+          步骤已挂起
         </Txt>
-        <Badge variant="warning">Needs input</Badge>
+        <Badge variant="warning">需要输入</Badge>
       </div>
 
       {suspendedSteps.map((step, index) => {

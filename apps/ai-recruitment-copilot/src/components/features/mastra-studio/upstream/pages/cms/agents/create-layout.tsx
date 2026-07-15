@@ -29,14 +29,14 @@ function CreateLayoutWrapper() {
           {isSubmitting ? (
             <>
               <Spinner className="h-4 w-4" />
-              Creating...
+              正在创建...
             </>
           ) : (
             <>
               <Icon>
                 <Check />
               </Icon>
-              Create agent
+              创建智能体
             </>
           )}
         </Button>

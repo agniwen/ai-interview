@@ -111,7 +111,7 @@ function ExperimentResultsSelection({
     return (
       <div className="flex items-center gap-2 px-4 py-2 bg-surface3">
         <Txt variant="ui-xs" className="text-neutral5 font-medium">
-          {selectedIds.size} selected
+          {selectedIds.size} 已选择
         </Txt>
         <div className="flex-1" />
         <Button
@@ -123,10 +123,10 @@ function ExperimentResultsSelection({
           <Icon size="sm">
             <ClipboardCheck />
           </Icon>
-          Flag for Review
+          标记为待评审
         </Button>
         <Button variant="ghost" size="sm" onClick={clearSelection}>
-          Clear
+          清除
         </Button>
       </div>
     );
@@ -136,7 +136,7 @@ function ExperimentResultsSelection({
     return (
       <div className="flex items-center gap-2 px-4 py-2">
         <Button variant="ghost" size="sm" onClick={selectLoadedFailed}>
-          Select loaded failures
+          选择已加载的失败项
         </Button>
       </div>
     );
@@ -226,7 +226,7 @@ export function ExperimentPageTabs({
         });
       }
       if (flagged > 0) {
-        toast(`${flagged} result${flagged > 1 ? "s" : ""} flagged for review`);
+        toast(`已将 ${flagged} 个结果标记为待评审`);
       }
     },
     [datasetId, experimentId, isFlagging, updateExperimentResult],
@@ -351,9 +351,9 @@ export function ExperimentPageTabs({
 
   const resultsListColumns = useMemo(
     () => [
-      { label: "Item ID", name: "itemId", size: "7rem" },
-      { label: "Status", name: "status", size: "5rem" },
-      { label: "Input", name: "input", size: "minmax(15rem,1fr)" },
+      { label: "数据项 ID", name: "itemId", size: "7rem" },
+      { label: "状态", name: "status", size: "5rem" },
+      { label: "输入", name: "input", size: "minmax(15rem,1fr)" },
       ...scorerIds.map((id) => ({ label: id, name: id, size: "12rem" })),
     ],
     [scorerIds],
@@ -367,10 +367,10 @@ export function ExperimentPageTabs({
       className="grid grid-rows-[auto_1fr] h-full overflow-hidden"
     >
       <TabList>
-        <Tab value="summary">Summary</Tab>
-        <Tab value="results">Results</Tab>
+        <Tab value="summary">概览</Tab>
+        <Tab value="results">结果</Tab>
         <Tab value="reviews">
-          Reviews
+          评审
           {reviewCount > 0 && <Chip color="orange">{reviewCount}</Chip>}
         </Tab>
       </TabList>

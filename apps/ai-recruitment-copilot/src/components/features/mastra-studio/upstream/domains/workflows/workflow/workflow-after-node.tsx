@@ -39,7 +39,7 @@ export function WorkflowAfterNode({ data }: NodeProps<AfterNode>) {
             <BADGE_ICONS.after className="text-current" style={{ color: BADGE_COLORS.after }} />
           }
         >
-          AFTER
+          之后
         </Badge>
         <Icon>
           <ChevronDown

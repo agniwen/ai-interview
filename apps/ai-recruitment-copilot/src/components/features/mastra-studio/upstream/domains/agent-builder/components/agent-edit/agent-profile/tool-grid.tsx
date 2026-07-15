@@ -69,8 +69,8 @@ export const ToolGrid = ({
             </InputGroupAddon>
             <InputGroupInput
               type="search"
-              aria-label="Search tools"
-              placeholder="Search tools..."
+              aria-label="搜索工具"
+              placeholder="搜索工具..."
               onChange={(event) => onSearch(event.target.value)}
             />
           </InputGroup>
@@ -84,7 +84,7 @@ export const ToolGrid = ({
           )}
         >
           <Checkbox
-            aria-label="Show only selected tools"
+            aria-label="仅显示已选择的工具"
             checked={onlySelected}
             onCheckedChange={(value) => onOnlySelectedChange(value === true)}
             disabled={!editable}
@@ -92,7 +92,7 @@ export const ToolGrid = ({
             style={filterCheckboxStyle}
             className="h-3 w-3 shadow-none [&_svg]:h-2.5 [&_svg]:w-2.5 data-[state=checked]:shadow-none"
           />
-          <span>Show only selected</span>
+          <span>仅显示已选择</span>
         </div>
       </div>
 

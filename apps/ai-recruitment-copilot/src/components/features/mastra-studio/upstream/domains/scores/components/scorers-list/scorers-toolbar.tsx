@@ -99,22 +99,22 @@ export function ScorersToolbar({
           <InputGroupInput
             name="scorer-search"
             type="search"
-            aria-label="Search scorers"
-            placeholder="Filter by scorer name"
+            aria-label="搜索评分器"
+            placeholder="按评分器名称筛选"
             value={value}
             onChange={handleChange}
           />
           {value && (
             <InputGroupAddon align="inline-end">
-              <InputGroupButton aria-label="Clear search" onClick={handleClear}>
+              <InputGroupButton aria-label="清除搜索" onClick={handleClear}>
                 <XIcon />
               </InputGroupButton>
             </InputGroupAddon>
           )}
         </InputGroup>
         <Select value={sourceFilter} onValueChange={onSourceFilterChange}>
-          <SelectTrigger aria-label="Filter by source" className="rounded-full">
-            <SelectValue placeholder="All sources" />
+          <SelectTrigger aria-label="按来源筛选" className="rounded-full">
+            <SelectValue placeholder="全部来源" />
           </SelectTrigger>
           <SelectContent align="end">
             {SCORER_SOURCE_OPTIONS.map((option) => (
@@ -128,7 +128,7 @@ export function ScorersToolbar({
 
       {onReset && hasActiveFilters && (
         <Button onClick={handleReset} variant="outline">
-          <XIcon /> Reset
+          <XIcon /> 重置
         </Button>
       )}
     </div>

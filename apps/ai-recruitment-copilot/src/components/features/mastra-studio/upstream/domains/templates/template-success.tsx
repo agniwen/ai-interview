@@ -21,12 +21,12 @@ export function TemplateSuccess({ name, installedEntities }: TemplateSuccessProp
       )}
     >
       <PackageOpenIcon />
-      <h2 className="text-header-md">Done!</h2>
+      <h2 className="text-header-md">完成！</h2>
       <p className="text-ui-md text-center text-neutral3 ">
-        The <b className="text-neutral4">{name}</b> template has been successfully installed.
+        模板 <b className="text-neutral4">{name}</b> 已成功安装。
         {installedEntities && installedEntities.length > 0 && (
           <>
-            <br /> Installed entities are listed below.
+            <br /> 已安装的实体如下。
           </>
         )}
       </p>

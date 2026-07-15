@@ -29,11 +29,11 @@ export const AgentProfileLibraryStep = ({ agentId }: AgentProfileLibraryStepProp
 
   return (
     <AgentStepContainer
-      title="Add to your library"
-      description="Adding your agent to the library makes it visible to everyone in your workspace, so teammates can discover it, try it out, and copy it as a starting point for their own agents."
+      title="添加到你的库"
+      description="将智能体添加到库后，工作区中的所有人都可以发现和试用它，也可将其复制为构建自己智能体的起点。"
       cta={
         <Button onClick={handleContinue} disabled={isStreaming}>
-          Continue{" "}
+          继续{" "}
           <Icon>
             <ArrowRightIcon />
           </Icon>
@@ -55,7 +55,7 @@ export const AgentProfileLibraryStep = ({ agentId }: AgentProfileLibraryStepProp
             <Icon>
               <CheckIcon />
             </Icon>
-            Added to your library
+            已添加到你的库
           </p>
         ) : (
           <Button
@@ -64,12 +64,11 @@ export const AgentProfileLibraryStep = ({ agentId }: AgentProfileLibraryStepProp
             disabled={isStreaming}
             data-testid="agent-builder-library-add"
           >
-            Add to library
+            添加到库
           </Button>
         )}
         <p className="text-neutral3 max-w-md">
-          You can change this at any time from the agent&apos;s visibility settings — adding to the
-          library now is optional.
+          你可以随时在智能体的可见性设置中更改此选项，现在添加到库是可选操作。
         </p>
         {dialog}
       </div>

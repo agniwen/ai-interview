@@ -30,7 +30,7 @@ export function WorkflowGraph({ workflowId, workflow, isLoading }: WorkflowGraph
       <div className="grid h-full place-items-center">
         <div className="flex flex-col items-center gap-2">
           <AlertCircleIcon />
-          <div>We couldn&apos;t find {lodashTitleCase(workflowId)} workflow.</div>
+          <div>未找到 {lodashTitleCase(workflowId)} 工作流。</div>
         </div>
       </div>
     );

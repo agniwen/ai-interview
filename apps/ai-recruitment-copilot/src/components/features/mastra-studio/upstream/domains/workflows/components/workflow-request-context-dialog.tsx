@@ -30,7 +30,7 @@ export const WorkflowRequestContextDialog = ({
             type="button"
             variant="ghost"
             size="icon-md"
-            aria-label="Request Context"
+            aria-label="请求上下文"
             onClick={() => setOpen(true)}
           >
             <Icon>
@@ -38,14 +38,14 @@ export const WorkflowRequestContextDialog = ({
             </Icon>
           </Button>
         </TooltipTrigger>
-        <TooltipContent>Request Context</TooltipContent>
+        <TooltipContent>请求上下文</TooltipContent>
       </Tooltip>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Request Context</DialogTitle>
-            <DialogDescription>Set request context values for this workflow run</DialogDescription>
+            <DialogTitle>请求上下文</DialogTitle>
+            <DialogDescription>设置此次工作流运行的请求上下文值</DialogDescription>
           </DialogHeader>
           <DialogBody>
             <RequestContextSchemaForm requestContextSchema={requestContextSchema} />

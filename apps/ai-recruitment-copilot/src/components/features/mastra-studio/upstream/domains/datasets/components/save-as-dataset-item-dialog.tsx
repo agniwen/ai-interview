@@ -134,7 +134,7 @@ export function SaveAsDatasetItemDialog({
     e.preventDefault();
 
     if (!selectedDatasetId) {
-      toast.error("Please select a dataset");
+      toast.error("请选择数据集");
       return;
     }
 
@@ -142,7 +142,7 @@ export function SaveAsDatasetItemDialog({
     try {
       parsedInput = JSON.parse(input);
     } catch {
-      toast.error("Input must be valid JSON");
+      toast.error("输入必须是有效的 JSON");
       return;
     }
 
@@ -151,7 +151,7 @@ export function SaveAsDatasetItemDialog({
       try {
         parsedGroundTruth = JSON.parse(groundTruth);
       } catch {
-        toast.error("Ground Truth must be valid JSON");
+        toast.error("标准答案必须是有效的 JSON");
         return;
       }
     }
@@ -161,7 +161,7 @@ export function SaveAsDatasetItemDialog({
       try {
         parsedTrajectory = JSON.parse(expectedTrajectory);
       } catch {
-        toast.error("Expected Trajectory must be valid JSON");
+        toast.error("预期轨迹必须是有效的 JSON");
         return;
       }
     }
@@ -171,12 +171,12 @@ export function SaveAsDatasetItemDialog({
       try {
         const parsed = JSON.parse(toolMocks);
         if (!Array.isArray(parsed)) {
-          toast.error("Tool Mocks must be a JSON array");
+          toast.error("工具模拟必须是 JSON 数组");
           return;
         }
         parsedToolMocks = parsed as DatasetItemToolMock[];
       } catch {
-        toast.error("Tool Mocks must be valid JSON");
+        toast.error("工具模拟必须是有效的 JSON");
         return;
       }
     }
@@ -192,7 +192,7 @@ export function SaveAsDatasetItemDialog({
       });
 
       const targetDataset = datasets.find((d) => d.id === selectedDatasetId);
-      toast.success(`Item saved to "${targetDataset?.name}"`);
+      toast.success(`数据项已保存到“${targetDataset?.name}”`);
 
       setSelectedDatasetId("");
       setInput("{}");
@@ -201,9 +201,7 @@ export function SaveAsDatasetItemDialog({
       setToolMocks("");
       onClose();
     } catch (error) {
-      toast.error(
-        `Failed to save item: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`保存数据项失败：${error instanceof Error ? error.message : "未知错误"}`);
     }
   };
 
@@ -212,17 +210,17 @@ export function SaveAsDatasetItemDialog({
     onClose();
   };
 
-  let saveButtonLabel = "Save Item";
+  let saveButtonLabel = "保存数据项";
   if (addItem.isPending) {
-    saveButtonLabel = "Saving...";
+    saveButtonLabel = "正在保存...";
   } else if (trajectoryLoading) {
-    saveButtonLabel = "Loading...";
+    saveButtonLabel = "正在加载...";
   }
 
   return (
     <SideDialog
-      dialogTitle="Save as Dataset Item"
-      dialogDescription="Save data as a dataset item"
+      dialogTitle="保存为数据项"
+      dialogDescription="将数据保存为数据项"
       isOpen={isOpen}
       onClose={onClose}
       level={level}
@@ -230,35 +228,31 @@ export function SaveAsDatasetItemDialog({
       <SideDialog.Top>
         {breadcrumb}›
         <TextAndIcon>
-          <DatabaseIcon /> Save as Dataset Item
+          <DatabaseIcon /> 保存为数据项
         </TextAndIcon>
       </SideDialog.Top>
 
       <SideDialog.Content>
         <SideDialog.Header>
           <SideDialog.Heading>
-            <DatabaseIcon /> Save as Dataset Item
+            <DatabaseIcon /> 保存为数据项
           </SideDialog.Heading>
         </SideDialog.Header>
 
         <form onSubmit={handleSubmit} className="grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="target-dataset">Dataset *</Label>
+            <Label htmlFor="target-dataset">数据集 *</Label>
             <Select
               value={selectedDatasetId}
               onValueChange={setSelectedDatasetId}
               disabled={addItem.isPending || isDatasetsLoading}
             >
               <SelectTrigger id="target-dataset">
-                <SelectValue
-                  placeholder={isDatasetsLoading ? "Loading datasets..." : "Select a dataset"}
-                />
+                <SelectValue placeholder={isDatasetsLoading ? "正在加载数据集..." : "选择数据集"} />
               </SelectTrigger>
               <SelectContent>
                 {datasets.length === 0 ? (
-                  <div className="px-2 py-4 text-sm text-neutral4 text-center">
-                    No datasets available
-                  </div>
+                  <div className="px-2 py-4 text-sm text-neutral4 text-center">暂无可用数据集</div>
                 ) : (
                   datasets.map((dataset) => (
                     <SelectItem key={dataset.id} value={dataset.id}>
@@ -271,7 +265,7 @@ export function SaveAsDatasetItemDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="item-input">Input (JSON) *</Label>
+            <Label htmlFor="item-input">输入（JSON）*</Label>
             <CodeEditor
               value={input}
               onChange={handleInputChange}
@@ -281,7 +275,7 @@ export function SaveAsDatasetItemDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="item-ground-truth">Ground Truth (JSON, optional)</Label>
+            <Label htmlFor="item-ground-truth">标准答案（JSON，可选）</Label>
             <CodeEditor
               value={groundTruth}
               onChange={handleGroundTruthChange}
@@ -291,7 +285,7 @@ export function SaveAsDatasetItemDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="item-trajectory">Expected Trajectory (JSON, optional)</Label>
+            <Label htmlFor="item-trajectory">预期轨迹（JSON，可选）</Label>
             <CodeEditor
               value={expectedTrajectory}
               onChange={handleExpectedTrajectoryChange}
@@ -301,7 +295,7 @@ export function SaveAsDatasetItemDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="item-tool-mocks">Tool Mocks (JSON, optional)</Label>
+            <Label htmlFor="item-tool-mocks">工具模拟（JSON，可选）</Label>
             <CodeEditor
               value={toolMocks}
               onChange={handleToolMocksChange}
@@ -312,7 +306,7 @@ export function SaveAsDatasetItemDialog({
 
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={handleCancel}>
-              Cancel
+              取消
             </Button>
             <Button
               type="submit"

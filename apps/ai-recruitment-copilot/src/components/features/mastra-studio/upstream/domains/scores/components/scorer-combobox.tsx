@@ -19,9 +19,9 @@ export interface ScorerComboboxProps {
 export function ScorerCombobox({
   value,
   onValueChange,
-  placeholder = "Select a scorer...",
-  searchPlaceholder = "Search scorers...",
-  emptyText = "No scorers found.",
+  placeholder = "选择评分器...",
+  searchPlaceholder = "搜索评分器...",
+  emptyText = "未找到评分器。",
   className,
   disabled = false,
   variant,
@@ -31,8 +31,8 @@ export function ScorerCombobox({
 
   useEffect(() => {
     if (isError) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to load scorers";
-      toast.error(`Error loading scorers: ${errorMessage}`);
+      const errorMessage = error instanceof Error ? error.message : "加载评分器失败";
+      toast.error(`加载评分器时出错：${errorMessage}`);
     }
   }, [isError, error]);
 
@@ -54,7 +54,7 @@ export function ScorerCombobox({
       options={scorerOptions}
       value={value}
       onValueChange={handleValueChange}
-      placeholder={isLoading ? "Loading scorers..." : placeholder}
+      placeholder={isLoading ? "正在加载评分器..." : placeholder}
       searchPlaceholder={searchPlaceholder}
       emptyText={emptyText}
       className={className}

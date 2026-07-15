@@ -170,11 +170,11 @@ export function AgentPlaygroundEvaluate({
             });
           } catch (createError) {
             console.error("Failed to persist scorer change:", createError);
-            toast.error("Failed to save scorer changes");
+            toast.error("保存评分器更改失败");
           }
         } else {
           console.error("Failed to persist scorer change:", error);
-          toast.error("Failed to save scorer changes");
+          toast.error("保存评分器更改失败");
         }
       }
     },
@@ -323,8 +323,8 @@ export function AgentPlaygroundEvaluate({
         <div className="flex h-full items-center justify-center py-20">
           <EmptyState
             iconSlot={<FlaskConical className="size-10 text-neutral3" />}
-            titleSlot="No Experiments Yet"
-            descriptionSlot="Run experiments against your datasets to see results here."
+            titleSlot="尚无实验"
+            descriptionSlot="针对数据集运行实验后，可在此查看结果。"
           />
         </div>
       );
@@ -333,13 +333,13 @@ export function AgentPlaygroundEvaluate({
     return (
       <DataList columns="auto minmax(15rem,1fr) auto auto auto auto auto" className="min-w-0">
         <DataList.Top>
-          <DataList.TopCell>Experiment</DataList.TopCell>
-          <DataList.TopCell>Dataset</DataList.TopCell>
-          <DataList.TopCell>Status</DataList.TopCell>
-          <DataList.TopCell className="text-center">Items</DataList.TopCell>
-          <DataList.TopCell className="text-center">Succeeded</DataList.TopCell>
-          <DataList.TopCell className="text-center">Failed</DataList.TopCell>
-          <DataList.TopCell>Date</DataList.TopCell>
+          <DataList.TopCell>实验</DataList.TopCell>
+          <DataList.TopCell>数据集</DataList.TopCell>
+          <DataList.TopCell>状态</DataList.TopCell>
+          <DataList.TopCell className="text-center">条目</DataList.TopCell>
+          <DataList.TopCell className="text-center">成功</DataList.TopCell>
+          <DataList.TopCell className="text-center">失败</DataList.TopCell>
+          <DataList.TopCell>日期</DataList.TopCell>
         </DataList.Top>
 
         {filteredExperiments.map((exp) => {
@@ -365,7 +365,9 @@ export function AgentPlaygroundEvaluate({
               </DataList.Cell>
               <DataList.Cell height="compact">
                 <StatusBadge variant={STATUS_VARIANT[status] ?? "neutral"} withDot>
-                  {status}
+                  {{ completed: "已完成", failed: "失败", pending: "等待中", running: "运行中" }[
+                    status
+                  ] ?? status}
                 </StatusBadge>
               </DataList.Cell>
               <DataList.Cell height="compact" className="text-center">
@@ -397,8 +399,8 @@ export function AgentPlaygroundEvaluate({
         <div className="flex h-full items-center justify-center py-20">
           <EmptyState
             iconSlot={<Database className="size-10 text-neutral3" />}
-            titleSlot="No Datasets"
-            descriptionSlot="Create or attach a dataset to begin testing your agent."
+            titleSlot="尚无数据集"
+            descriptionSlot="创建或关联数据集，以开始测试智能体。"
           />
         </div>
       );
@@ -407,11 +409,11 @@ export function AgentPlaygroundEvaluate({
     return (
       <DataList columns="minmax(10rem,1fr) auto auto auto auto" className="min-w-0">
         <DataList.Top>
-          <DataList.TopCell>Name</DataList.TopCell>
-          <DataList.TopCell>Tags</DataList.TopCell>
-          <DataList.TopCell>Latest Experiment</DataList.TopCell>
-          <DataList.TopCell>Status</DataList.TopCell>
-          <DataList.TopCell>Updated</DataList.TopCell>
+          <DataList.TopCell>名称</DataList.TopCell>
+          <DataList.TopCell>标签</DataList.TopCell>
+          <DataList.TopCell>最新实验</DataList.TopCell>
+          <DataList.TopCell>状态</DataList.TopCell>
+          <DataList.TopCell>更新时间</DataList.TopCell>
         </DataList.Top>
 
         {filteredDatasets.map((ds) => {
@@ -447,7 +449,7 @@ export function AgentPlaygroundEvaluate({
                 {exp ? (
                   <ExperimentBadge experiment={exp} />
                 ) : (
-                  <span className="text-neutral2">No experiments</span>
+                  <span className="text-neutral2">尚无实验</span>
                 )}
               </DataList.Cell>
               <DataList.Cell height="compact">
@@ -457,14 +459,14 @@ export function AgentPlaygroundEvaluate({
                     <div className="flex items-center gap-1">
                       <Spinner className="size-3" />
                       <Txt variant="ui-xs" className="text-warning1">
-                        Generating...
+                        正在生成...
                       </Txt>
                     </div>
                   ),
                   () =>
                     genTask?.error ? (
                       <Txt variant="ui-xs" className="text-negative1">
-                        Failed
+                        失败
                       </Txt>
                     ) : (
                       <span className="text-neutral2">—</span>
@@ -489,8 +491,8 @@ export function AgentPlaygroundEvaluate({
         <div className="flex h-full items-center justify-center py-20">
           <EmptyState
             iconSlot={<GaugeIcon className="size-10 text-neutral3" />}
-            titleSlot="No Scorers Attached"
-            descriptionSlot="Attach or create a scorer to evaluate your agent's performance."
+            titleSlot="尚未关联评分器"
+            descriptionSlot="关联或创建评分器，以评估智能体的表现。"
           />
         </div>
       );
@@ -499,10 +501,10 @@ export function AgentPlaygroundEvaluate({
     return (
       <DataList columns="minmax(10rem,1fr) auto auto auto" className="min-w-0">
         <DataList.Top>
-          <DataList.TopCell>Name</DataList.TopCell>
-          <DataList.TopCell>Source</DataList.TopCell>
-          <DataList.TopCell>Description</DataList.TopCell>
-          <DataList.TopCell>Datasets</DataList.TopCell>
+          <DataList.TopCell>名称</DataList.TopCell>
+          <DataList.TopCell>来源</DataList.TopCell>
+          <DataList.TopCell>描述</DataList.TopCell>
+          <DataList.TopCell>数据集</DataList.TopCell>
         </DataList.Top>
 
         {filteredScorers.map(([id, scorer]) => {
@@ -525,7 +527,9 @@ export function AgentPlaygroundEvaluate({
                 <span className="block truncate">{name}</span>
               </DataList.Cell>
               <DataList.Cell height="compact">
-                <Badge variant={source === "code" ? "default" : "success"}>{source}</Badge>
+                <Badge variant={source === "code" ? "default" : "success"}>
+                  {source === "code" ? "代码" : "已存储"}
+                </Badge>
               </DataList.Cell>
               <DataList.Cell height="compact" className="min-w-0">
                 <span className="block truncate max-w-[200px]">
@@ -533,7 +537,7 @@ export function AgentPlaygroundEvaluate({
                 </span>
               </DataList.Cell>
               <DataList.Cell height="compact">
-                {linkedCount > 0 ? `${linkedCount} dataset${linkedCount > 1 ? "s" : ""}` : "—"}
+                {linkedCount > 0 ? `${linkedCount} 个数据集` : "—"}
               </DataList.Cell>
             </DataList.RowButton>
           );
@@ -572,9 +576,9 @@ export function AgentPlaygroundEvaluate({
       >
         <div className="flex items-center justify-between border-b border-border1">
           <TabList className="border-b-0">
-            <Tab value="experiments">Experiments</Tab>
-            <Tab value="datasets">Datasets</Tab>
-            <Tab value="scorers">Scorers</Tab>
+            <Tab value="experiments">实验</Tab>
+            <Tab value="datasets">数据集</Tab>
+            <Tab value="scorers">评分器</Tab>
           </TabList>
 
           {/* Tab-specific actions */}
@@ -586,12 +590,12 @@ export function AgentPlaygroundEvaluate({
                   {unattachedDatasets.length > 0 && (
                     <Button variant="ghost" size="sm" onClick={() => setShowAttachDialog(true)}>
                       <Paperclip className="size-3.5 mr-1" />
-                      Attach
+                      关联
                     </Button>
                   )}
                   <Button variant="ghost" size="sm" onClick={() => setShowCreateDialog(true)}>
                     <Plus className="size-3.5 mr-1" />
-                    Create
+                    创建
                   </Button>
                 </>
               ),
@@ -608,7 +612,7 @@ export function AgentPlaygroundEvaluate({
                       onClick={() => setShowAttachScorerDialog(true)}
                     >
                       <Paperclip className="size-3.5 mr-1" />
-                      Attach
+                      关联
                     </Button>
                   )}
                   <Button
@@ -617,7 +621,7 @@ export function AgentPlaygroundEvaluate({
                     onClick={() => setDetailView({ type: "new-scorer" })}
                   >
                     <Plus className="size-3.5 mr-1" />
-                    New
+                    新建
                   </Button>
                 </>
               ),
@@ -637,8 +641,8 @@ export function AgentPlaygroundEvaluate({
                 </InputGroupAddon>
                 <InputGroupInput
                   type="search"
-                  aria-label="Search experiments"
-                  placeholder="Search experiments..."
+                  aria-label="搜索实验"
+                  placeholder="搜索实验..."
                   onChange={(event) => setExperimentsSearch(event.target.value)}
                 />
               </InputGroup>
@@ -654,8 +658,8 @@ export function AgentPlaygroundEvaluate({
                 </InputGroupAddon>
                 <InputGroupInput
                   type="search"
-                  aria-label="Search datasets"
-                  placeholder="Search datasets..."
+                  aria-label="搜索数据集"
+                  placeholder="搜索数据集..."
                   onChange={(event) => setDatasetsSearch(event.target.value)}
                 />
               </InputGroup>
@@ -671,8 +675,8 @@ export function AgentPlaygroundEvaluate({
                 </InputGroupAddon>
                 <InputGroupInput
                   type="search"
-                  aria-label="Search scorers"
-                  placeholder="Search scorers..."
+                  aria-label="搜索评分器"
+                  placeholder="搜索评分器..."
                   onChange={(event) => setScorersSearch(event.target.value)}
                 />
               </InputGroup>

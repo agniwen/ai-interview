@@ -83,8 +83,8 @@ export function CSVPreviewTable({ headers, data, maxRows = 5 }: CSVPreviewTableP
       {/* Row count indicator */}
       <div className="text-xs text-neutral4">
         {displayData.length < totalRows
-          ? `Showing ${displayData.length} of ${totalRows} rows`
-          : `${totalRows} row${totalRows === 1 ? "" : "s"}`}
+          ? `显示 ${totalRows} 行中的 ${displayData.length} 行`
+          : `共 ${totalRows} 行`}
       </div>
     </div>
   );

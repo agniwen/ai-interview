@@ -64,7 +64,7 @@ export function CreateDatasetDialog({
     e.preventDefault();
 
     if (!name.trim()) {
-      toast.error("Dataset name is required");
+      toast.error("数据集名称为必填项");
       return;
     }
 
@@ -79,7 +79,7 @@ export function CreateDatasetDialog({
         targetType: effectiveTargetType,
       })) as { id: string };
 
-      toast.success("Dataset created successfully");
+      toast.success("数据集创建成功");
 
       // Reset form
       setName("");
@@ -94,9 +94,7 @@ export function CreateDatasetDialog({
       // Navigate to new dataset
       onSuccess?.(result.id);
     } catch (error) {
-      toast.error(
-        `Failed to create dataset: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`创建数据集失败：${error instanceof Error ? error.message : "未知错误"}`);
     }
   };
 
@@ -115,40 +113,40 @@ export function CreateDatasetDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Create Dataset</DialogTitle>
+          <DialogTitle>创建数据集</DialogTitle>
         </DialogHeader>
         <DialogBody className="max-h-[70vh] overflow-y-auto">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="dataset-name">Name *</Label>
+              <Label htmlFor="dataset-name">名称 *</Label>
               <Input
                 id="dataset-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Enter dataset name"
+                placeholder="输入数据集名称"
                 autoFocus
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="dataset-description">Description</Label>
+              <Label htmlFor="dataset-description">描述</Label>
               <Input
                 id="dataset-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Enter dataset description (optional)"
+                placeholder="输入数据集描述（可选）"
               />
             </div>
 
             {!isPreScoped && (
               <SelectFieldBlock
-                label="Target type"
+                label="目标类型"
                 name="dataset-target-type"
-                placeholder="Select a target type (optional)"
+                placeholder="选择目标类型（可选）"
                 options={[...DATASET_TARGET_TYPE_OPTIONS]}
                 value={selectedTargetType}
                 onValueChange={(value) => setSelectedTargetType(value as DatasetTargetType)}
-                helpText="What this dataset evaluates. Drives the Target column and the Target filter."
+                helpText="此数据集的评估对象，将用于目标列和目标筛选。"
                 disabled={createDataset.isPending}
               />
             )}
@@ -159,7 +157,7 @@ export function CreateDatasetDialog({
                 className="text-xs text-neutral3 hover:text-accent1 transition-colors"
                 onClick={() => setShowCustomSchema(true)}
               >
-                + Custom schema
+                + 自定义 Schema
               </button>
             ) : (
               <SchemaConfigSection
@@ -173,14 +171,14 @@ export function CreateDatasetDialog({
 
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" onClick={handleCancel}>
-                Cancel
+                取消
               </Button>
               <Button
                 type="submit"
                 variant="primary"
                 disabled={createDataset.isPending || !name.trim()}
               >
-                {createDataset.isPending ? "Creating..." : "Create Dataset"}
+                {createDataset.isPending ? "正在创建..." : "创建数据集"}
               </Button>
             </div>
           </form>

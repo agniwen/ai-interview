@@ -121,12 +121,12 @@ export function DatasetReviewList({
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center px-8">
           <Txt variant="ui-sm" className="text-neutral3 block">
-            {showCompleted ? "No completed reviews yet" : "No items to review"}
+            {showCompleted ? "暂无已完成的评审" : "暂无待评审的数据项"}
           </Txt>
           <Txt variant="ui-xs" className="text-neutral3 mt-2 block">
             {showCompleted
-              ? "Items marked as complete will appear here for auditing."
-              : "When experiment results are flagged for review, they will appear here."}
+              ? "标记为已完成的数据项会显示在此处，供后续审查。"
+              : "实验结果被标记为待评审后，会显示在此处。"}
           </Txt>
         </div>
       </div>
@@ -141,15 +141,15 @@ export function DatasetReviewList({
           <DataList.TopSelectCell
             checked={getSelectAllState(isAllSelected, isSomeSelected)}
             onToggle={onToggleSelectAll}
-            aria-label="Select all"
+            aria-label="全选"
           />
         )}
         <DataList.TopCells colStart={2}>
-          <DataList.TopCell>Input</DataList.TopCell>
-          <DataList.TopCell>Comment</DataList.TopCell>
-          <DataList.TopCell>Tags</DataList.TopCell>
-          <DataList.TopCell>Rating</DataList.TopCell>
-          <DataList.TopCell>Scores</DataList.TopCell>
+          <DataList.TopCell>输入</DataList.TopCell>
+          <DataList.TopCell>备注</DataList.TopCell>
+          <DataList.TopCell>标签</DataList.TopCell>
+          <DataList.TopCell>评级</DataList.TopCell>
+          <DataList.TopCell>得分</DataList.TopCell>
         </DataList.TopCells>
       </DataList.Top>
       {displayItems.map((item) => (
@@ -157,8 +157,8 @@ export function DatasetReviewList({
           {showCompleted ? (
             <DataList.Cell height="compact" className="justify-items-center px-4">
               <span
-                aria-label={item.error ? "Error" : "Success"}
-                title={item.error ? "Error" : "Success"}
+                aria-label={item.error ? "错误" : "成功"}
+                title={item.error ? "错误" : "成功"}
                 className={cn("w-2 h-2 rounded-full", item.error ? "bg-red-700" : "bg-green-600")}
               />
             </DataList.Cell>
@@ -166,7 +166,7 @@ export function DatasetReviewList({
             <DataList.SelectCell
               checked={selectedItemIds.has(item.id)}
               onToggle={() => onToggleSelect(item.id)}
-              aria-label={`Select item ${item.id}`}
+              aria-label={`选择条目 ${item.id}`}
             />
           )}
           <DataList.RowButton

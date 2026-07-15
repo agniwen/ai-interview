@@ -115,7 +115,7 @@ const formatMappingLabel = (
 
   const formatMultipleSteps = (ids: string[], isTarget: boolean) => {
     if (ids.length === 0) {
-      return isTarget ? "End" : "Start";
+      return isTarget ? "结束" : "开始";
     }
     if (ids.length === 1) {
       return formatStepName(ids[0]);
@@ -126,7 +126,7 @@ const formatMappingLabel = (
   const fromLabel = formatMultipleSteps(prevStepIds, false);
   const toLabel = formatMultipleSteps(nextStepIds, true);
 
-  return `${fromLabel} → ${toLabel} Map`;
+  return `${fromLabel} → ${toLabel} 映射`;
 };
 
 const getLayoutedElements = (nodes: WorkflowGraphNode[], edges: WorkflowGraphEdge[]) => {
@@ -721,14 +721,14 @@ export const constructNodesAndEdges = ({
 
   const graphNodes: WorkflowGraphNode[] = [
     {
-      data: { boundaryRole: "start", label: "Start" },
+      data: { boundaryRole: "start", label: "开始" },
       id: WORKFLOW_START_NODE_ID,
       position: { x: 0, y: 0 },
       type: WORKFLOW_BOUNDARY_NODE_TYPE,
     },
     ...nodes,
     {
-      data: { boundaryRole: "end", label: "End" },
+      data: { boundaryRole: "end", label: "结束" },
       id: WORKFLOW_END_NODE_ID,
       position: { x: 0, y: 0 },
       type: WORKFLOW_BOUNDARY_NODE_TYPE,

@@ -150,7 +150,7 @@ describe("PlatformSidebarSlots", () => {
     expect(document.body.textContent).toContain("所有工作区");
     expect(document.body.textContent).toContain("队列任务");
     expect(document.body.textContent).not.toContain("Agents");
-    expect(document.querySelector("button[data-active='true']")?.textContent).toBe("Manage");
+    expect(document.querySelector("button[data-active='true']")?.textContent).toBe("管理");
 
     const mastraTab = [...document.querySelectorAll("button")].find(
       (button) => button.textContent === "Mastra",
@@ -167,13 +167,13 @@ describe("PlatformSidebarSlots", () => {
     const { root } = await renderInAct(<PlatformSidebarSlots />);
     roots.push(root);
 
-    expect(document.body.textContent).toContain("Primitives");
-    expect(document.body.textContent).toContain("Evaluation");
-    expect(document.body.textContent).toContain("Observability");
-    expect(document.body.textContent).toContain("MCP Servers");
-    expect(document.body.textContent).toContain("Settings");
-    expect(document.body.textContent).toContain("Resources");
-    expect(document.body.textContent).toContain("Search");
+    expect(document.body.textContent).toContain("基础能力");
+    expect(document.body.textContent).toContain("评估");
+    expect(document.body.textContent).toContain("可观测性");
+    expect(document.body.textContent).toContain("MCP 服务器");
+    expect(document.body.textContent).toContain("设置");
+    expect(document.body.textContent).toContain("资源");
+    expect(document.body.textContent).toContain("搜索");
     expect(document.body.textContent).not.toContain("所有工作区");
     expect(document.querySelector("button[data-active='true']")?.textContent).toBe("Mastra");
     const agentsLink = document.querySelector<HTMLAnchorElement>(
@@ -183,13 +183,13 @@ describe("PlatformSidebarSlots", () => {
     expect(agentsLink?.dataset.active).toBe("true");
 
     const searchButton = document.querySelector<HTMLButtonElement>(
-      "button[aria-label='Search and navigate']",
+      "button[aria-label='搜索并导航']",
     );
     act(() => searchButton?.click());
     expect(commandMocks.setOpen).toHaveBeenCalledWith(true);
 
     const manageTab = [...document.querySelectorAll("button")].find(
-      (button) => button.textContent === "Manage",
+      (button) => button.textContent === "管理",
     );
     act(() => manageTab?.click());
 

@@ -71,7 +71,7 @@ function SkillPageContent({
       <MainContentLayout>
         {crumbs}
         <div className="flex h-full items-center justify-center">
-          <PermissionDenied resource="workspaces" />
+          <PermissionDenied resource="工作区" />
         </div>
       </MainContentLayout>
     );
@@ -82,9 +82,9 @@ function SkillPageContent({
         {crumbs}
         <div className="grid place-items-center h-full">
           <div className="text-center">
-            <p className="text-red-400 mb-2">Failed to load skill</p>
+            <p className="text-red-400 mb-2">加载技能失败</p>
             <p className="text-sm text-neutral3">
-              {error instanceof Error ? error.message : "Skill not found"}
+              {error instanceof Error ? error.message : "未找到技能"}
             </p>
           </div>
         </div>

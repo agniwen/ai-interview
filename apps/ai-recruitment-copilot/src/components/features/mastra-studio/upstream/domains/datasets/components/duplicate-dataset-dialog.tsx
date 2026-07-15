@@ -48,7 +48,7 @@ export function DuplicateDatasetDialog({
   // Pre-populate name when dialog opens
   useEffect(() => {
     if (open) {
-      setName(`${sourceDatasetName} (Copy)`);
+      setName(`${sourceDatasetName}（副本）`);
       setDescription(sourceDatasetDescription || "");
     }
   }, [open, sourceDatasetName, sourceDatasetDescription]);
@@ -57,7 +57,7 @@ export function DuplicateDatasetDialog({
     e.preventDefault();
 
     if (!name.trim()) {
-      toast.error("Dataset name is required");
+      toast.error("数据集名称为必填项");
       return;
     }
 
@@ -118,7 +118,7 @@ export function DuplicateDatasetDialog({
         setProgress({ current: i + 1, phase: "copying", total: allItems.length });
       }
 
-      toast.success(`Dataset duplicated with ${allItems.length} items`);
+      toast.success(`数据集复制成功，包含 ${allItems.length} 个数据项`);
 
       // Reset form
       setName("");
@@ -130,9 +130,7 @@ export function DuplicateDatasetDialog({
       // Navigate to new dataset
       onSuccess?.(dataset.id);
     } catch (error) {
-      toast.error(
-        `Failed to duplicate dataset: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`复制数据集失败：${error instanceof Error ? error.message : "未知错误"}`);
       setIsDuplicating(false);
       setProgress({ current: 0, phase: "idle", total: 0 });
     }
@@ -151,13 +149,13 @@ export function DuplicateDatasetDialog({
   const getProgressText = () => {
     switch (progress.phase) {
       case "fetching": {
-        return `Fetching items: ${progress.current}${progress.total > 0 ? ` / ${progress.total}` : ""}`;
+        return `正在获取数据项：${progress.current}${progress.total > 0 ? ` / ${progress.total}` : ""}`;
       }
       case "creating": {
-        return "Creating dataset...";
+        return "正在创建数据集...";
       }
       case "copying": {
-        return `Copying items: ${progress.current} / ${progress.total}`;
+        return `正在复制数据项：${progress.current} / ${progress.total}`;
       }
       default: {
         return "";
@@ -171,35 +169,35 @@ export function DuplicateDatasetDialog({
     <Dialog open={open} onOpenChange={isDuplicating ? undefined : onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Duplicate Dataset</DialogTitle>
+          <DialogTitle>复制数据集</DialogTitle>
         </DialogHeader>
         <DialogBody>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="dataset-name">Name *</Label>
+              <Label htmlFor="dataset-name">名称 *</Label>
               <Input
                 id="dataset-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Enter dataset name"
+                placeholder="输入数据集名称"
                 autoFocus
                 disabled={isDuplicating}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="dataset-description">Description</Label>
+              <Label htmlFor="dataset-description">描述</Label>
               <Input
                 id="dataset-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Enter dataset description (optional)"
+                placeholder="输入数据集描述（可选）"
                 disabled={isDuplicating}
               />
             </div>
 
             <p className="text-sm text-muted-foreground">
-              All items from &quot;{sourceDatasetName}&quot; will be copied to the new dataset
+              将把“{sourceDatasetName}”中的所有数据项复制到新数据集
             </p>
 
             {isDuplicating && (
@@ -216,10 +214,10 @@ export function DuplicateDatasetDialog({
 
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" onClick={handleCancel} disabled={isDuplicating}>
-                Cancel
+                取消
               </Button>
               <Button type="submit" variant="primary" disabled={isDuplicating || !name.trim()}>
-                {isDuplicating ? "Duplicating..." : "Duplicate Dataset"}
+                {isDuplicating ? "正在复制..." : "复制数据集"}
               </Button>
             </div>
           </form>

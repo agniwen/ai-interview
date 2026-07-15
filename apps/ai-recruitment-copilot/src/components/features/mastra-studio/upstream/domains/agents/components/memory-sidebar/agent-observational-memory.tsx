@@ -48,7 +48,7 @@ const getModelLabel = (model: unknown, modelRouting?: { upTo: number; model: str
     return model;
   }
   if (modelRouting?.length) {
-    return "Auto (tiered)";
+    return "自动（分层）";
   }
 };
 
@@ -131,9 +131,9 @@ function getProgressDisplay({
   const isProcessing = allTruthy(isActive, percentage >= 100);
   return {
     activeText: resolveConditional(
-      label === "Messages",
-      () => "observing",
-      () => "reflecting",
+      label === "消息",
+      () => "正在观测",
+      () => "正在反思",
     ),
     barColor: getBarColor(percentage),
     isAdaptive,
@@ -202,22 +202,22 @@ const ProgressBar = ({
           >
             <div className="text-xs space-y-1.5">
               <div className="font-medium text-neutral5">
-                {label === "Messages" ? "Observer" : "Reflector"} Settings
+                {label === "消息" ? "观测器" : "反思器"}设置
               </div>
               <div className="space-y-0.5">
                 <div>
-                  <span className="text-neutral4">Model:</span>{" "}
+                  <span className="text-neutral4">模型：</span>{" "}
                   <span className="text-neutral5">
                     {resolveConditional(
                       model,
                       (conditionValue) => conditionValue,
-                      () => "not configured",
+                      () => "未配置",
                     )}
                   </span>
                 </div>
                 {modelRouting?.length ? (
                   <div>
-                    <span className="text-neutral4">Routing:</span>
+                    <span className="text-neutral4">路由：</span>
                     <div className="mt-0.5 pl-2 space-y-0.5">
                       {modelRouting.map((route) => (
                         <div key={`${route.upTo}-${route.model}`} className="text-neutral5">
@@ -228,9 +228,9 @@ const ProgressBar = ({
                   </div>
                 ) : (
                   <div>
-                    <span className="text-neutral4">Threshold:</span>{" "}
+                    <span className="text-neutral4">阈值：</span>{" "}
                     <span className="text-neutral5">
-                      {formatTokens(baseThreshold ?? max)} tokens
+                      {formatTokens(baseThreshold ?? max)} Token
                     </span>
                   </div>
                 )}
@@ -241,11 +241,9 @@ const ProgressBar = ({
                       totalBudget,
                       (budget) => (
                         <div>
-                          <span className="text-neutral4">Mode:</span>{" "}
-                          <span className="text-amber-400">Adaptive</span>{" "}
-                          <span className="text-neutral4">
-                            ({formatTokens(budget)} shared budget)
-                          </span>
+                          <span className="text-neutral4">模式：</span>{" "}
+                          <span className="text-amber-400">自适应</span>{" "}
+                          <span className="text-neutral4">（共享预算 {formatTokens(budget)}）</span>
                         </div>
                       ),
                       () => null,
@@ -271,7 +269,7 @@ const ProgressBar = ({
             {resolveConditional(
               isProcessing,
               () => `${activeText} ${elapsed.toFixed(1)}s`,
-              () => (showAdaptiveLabel ? "adaptive" : `${Math.round(percentage)}%`),
+              () => (showAdaptiveLabel ? "自适应" : `${Math.round(percentage)}%`),
             )}
           </span>
           <span
@@ -281,7 +279,7 @@ const ProgressBar = ({
             {resolveConditional(
               isProcessing,
               () => `${activeText} ${elapsed.toFixed(1)}s`,
-              () => (showAdaptiveLabel ? "adaptive" : `${Math.round(percentage)}%`),
+              () => (showAdaptiveLabel ? "自适应" : `${Math.round(percentage)}%`),
             )}
           </span>
         </div>
@@ -312,10 +310,9 @@ const ProgressBar = ({
                     >
                       <div className="text-xs">
                         <span className="text-amber-400">{formatTokens(baseThreshold ?? max)}</span>
-                        <span className="text-neutral4"> is the configured threshold. </span>
+                        <span className="text-neutral4"> 是已配置的阈值。</span>
                         <span className="text-neutral5">
-                          Adaptive mode shares a {formatTokens(budget)} token budget between
-                          messages and observations.
+                          自适应模式会在消息和观测内容之间共享 {formatTokens(budget)} Token 预算。
                         </span>
                       </div>
                     </TooltipContent>
@@ -334,7 +331,7 @@ const ProgressBar = ({
 const ObservationalMemoryHeader = () => (
   <div className="flex items-center gap-2 mb-3">
     <Brain className="w-4 h-4 text-purple-400" />
-    <h3 className="text-sm font-medium text-neutral5">Observational Memory</h3>
+    <h3 className="text-sm font-medium text-neutral5">观测记忆</h3>
   </div>
 );
 
@@ -342,12 +339,11 @@ const ObservationalMemoryDisabled = () => (
   <div className="p-4">
     <div className="flex items-center gap-2 mb-3">
       <Brain className="w-4 h-4 text-neutral3" />
-      <h3 className="text-sm font-medium text-neutral5">Observational Memory</h3>
+      <h3 className="text-sm font-medium text-neutral5">观测记忆</h3>
     </div>
     <div className="bg-surface3 border border-border1 rounded-lg p-4">
       <p className="text-sm text-neutral3 mb-3">
-        Observational Memory is not enabled for this agent. Enable it to automatically extract and
-        maintain observations from conversations.
+        此智能体尚未启用观测记忆。启用后可自动从对话中提取并维护观测内容。
       </p>
       <a
         href="https://mastra.ai/en/docs/memory/observational-memory"
@@ -355,7 +351,7 @@ const ObservationalMemoryDisabled = () => (
         rel="noopener noreferrer"
         className="inline-flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
       >
-        Learn about Observational Memory
+        了解观测记忆
         <ExternalLink className="w-3 h-3" />
       </a>
     </div>
@@ -397,7 +393,7 @@ function ObservationalMemoryProgressBars({
         <ProgressBar
           value={pendingMessageTokens}
           max={messageTokensThreshold}
-          label="Messages"
+          label="消息"
           isActive={isObserving}
           model={observationModel}
           modelRouting={observationModelRouting}
@@ -407,7 +403,7 @@ function ObservationalMemoryProgressBars({
         <ProgressBar
           value={observationTokenCount}
           max={observationTokensThreshold}
-          label="Observations"
+          label="观测内容"
           isActive={isReflecting}
           baseThreshold={baseObservationTokens}
           model={reflectionModel}
@@ -699,7 +695,7 @@ export const AgentObservationalMemory = ({
         onClick={() => resolveConditional(isDetailViewOpen, closeDetailView, openDetailView)}
       >
         <Brain className="h-3.5 w-3.5" />
-        Analyze Observations
+        分析观测
       </Button>
     </div>
   );

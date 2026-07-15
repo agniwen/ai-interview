@@ -48,7 +48,7 @@ export function ScorerDetailView({
     return (
       <div className="flex items-center justify-center h-full">
         <Txt variant="ui-sm" className="text-neutral3">
-          Scorer not found
+          未找到评分器
         </Txt>
       </div>
     );
@@ -71,12 +71,12 @@ export function ScorerDetailView({
               </Txt>
               {isTrajectory && (
                 <Chip size="small" color="purple">
-                  trajectory
+                  轨迹
                 </Chip>
               )}
               {isCode && (
-                <span title="Defined in code — cannot be edited in the UI">
-                  <Badge variant="default">Code</Badge>
+                <span title="在代码中定义——无法在界面中编辑">
+                  <Badge variant="default">代码</Badge>
                 </span>
               )}
             </div>
@@ -92,7 +92,7 @@ export function ScorerDetailView({
                 <Icon size="sm">
                   <Pencil />
                 </Icon>
-                Edit
+                编辑
               </Button>
             )}
           </div>
@@ -102,10 +102,10 @@ export function ScorerDetailView({
         <div className="flex items-center justify-between py-2 px-3 bg-surface3 rounded-md">
           <div>
             <Txt variant="ui-xs" className="text-neutral5 block">
-              Run in experiments
+              在实验中运行
             </Txt>
             <Txt variant="ui-xs" className="text-neutral3 block mt-0.5">
-              When enabled, this scorer grades results for this agent
+              启用后，此评分器会为该智能体的实验结果评分
             </Txt>
           </div>
           <Switch checked={isAttached} onCheckedChange={onToggleAttach} />
@@ -119,15 +119,15 @@ export function ScorerDetailView({
             variant="ui-xs"
             className="text-neutral3 font-medium uppercase tracking-wider block mb-2"
           >
-            Details
+            详情
           </Txt>
           <div className="space-y-2">
             <DetailRow label="ID" value={scorerId} />
-            <DetailRow label="Type" value={isTrajectory ? "Trajectory" : "Agent"} />
-            <DetailRow label="Source" value={isCode ? "Code" : "Stored"} />
+            <DetailRow label="类型" value={isTrajectory ? "轨迹" : "智能体"} />
+            <DetailRow label="来源" value={isCode ? "代码" : "已存储"} />
             {scorerData.agentIds && scorerData.agentIds.length > 0 && (
               <DetailRow
-                label="Used by agents"
+                label="被智能体使用"
                 value={scorerData.agentNames?.join(", ") || scorerData.agentIds.join(", ")}
               />
             )}
@@ -140,7 +140,7 @@ export function ScorerDetailView({
               variant="ui-xs"
               className="text-neutral3 font-medium uppercase tracking-wider block mb-2"
             >
-              Datasets
+              数据集
             </Txt>
             <div className="space-y-1">
               {linkedDatasets.map((ds) =>
@@ -169,8 +169,7 @@ export function ScorerDetailView({
         {isCode && (
           <div className="p-3 bg-surface3 rounded-md">
             <Txt variant="ui-xs" className="text-neutral3">
-              This scorer is defined in code and cannot be edited in the UI. You can toggle whether
-              it runs in experiments for this agent.
+              此评分器在代码中定义，无法在界面中编辑。你可以切换它是否参与该智能体的实验。
             </Txt>
           </div>
         )}

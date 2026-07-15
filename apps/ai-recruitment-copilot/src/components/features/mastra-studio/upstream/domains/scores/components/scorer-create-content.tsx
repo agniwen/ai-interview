@@ -20,7 +20,7 @@ export function ScorerCreateContent({ onSuccess }: ScorerCreateContentProps) {
   const handlePublish = async () => {
     const isValid = await form.trigger();
     if (!isValid) {
-      toast.error("Please fill in all required fields");
+      toast.error("请填写所有必填项");
       return;
     }
 
@@ -42,12 +42,10 @@ export function ScorerCreateContent({ onSuccess }: ScorerCreateContentProps) {
       };
 
       const created = await createStoredScorer.mutateAsync(createParams);
-      toast.success("Scorer created successfully");
+      toast.success("评分器创建成功");
       onSuccess?.(created);
     } catch (error) {
-      toast.error(
-        `Failed to create scorer: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`创建评分器失败：${error instanceof Error ? error.message : "未知错误"}`);
     }
   };
 

@@ -66,7 +66,7 @@ export function ExperimentTraceTimelineNameCol({
 
 
 <div
-      aria-label={`View details for span ${span.name}`}
+      aria-label={`查看 Span ${span.name} 的详情`}
       className={cn(
         'rounded-md transition-colors flex opacity-80 min-h-12 items-center rounded-l-lg ',
         'mt-4 xl:mt-0',

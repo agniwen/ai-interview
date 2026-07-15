@@ -153,7 +153,7 @@ export const useVoiceCall = ({
         const body = (await response.json().catch(() => ({}))) as { error?: string };
         throw new Error(
           body.error ??
-            "LiveKit voice is not configured for this server. Add liveKitConnectionRoute() to server.apiRoutes and run a voice worker.",
+            "此服务器尚未配置 LiveKit 语音。请将 liveKitConnectionRoute() 添加到 server.apiRoutes，并运行语音工作进程。",
         );
       }
       const details = (await response.json()) as LiveKitConnectionDetails;
@@ -230,7 +230,7 @@ export const useVoiceCall = ({
         return;
       }
       cleanup();
-      toast.error(error instanceof Error ? error.message : "Failed to start the voice call.");
+      toast.error(error instanceof Error ? error.message : "发起语音通话失败。");
     }
   }, [agentId, baseUrl, cleanup, headers, refreshThread, scheduleThreadRefresh, status, threadId]);
 

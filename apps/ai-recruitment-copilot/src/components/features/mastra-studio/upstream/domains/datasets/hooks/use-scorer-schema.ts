@@ -7,11 +7,11 @@ const CONTENT_SCHEMA: JSONSchema7 = {
   anyOf: [
     { type: "string" },
     {
-      description: "Structured content (format 2 with parts)",
+      description: "结构化内容（格式 2，包含 parts）",
       type: "object",
     },
     {
-      description: "Content parts array",
+      description: "内容部分数组",
       items: { type: "object" },
       type: "array",
     },
@@ -34,17 +34,17 @@ const SCORER_RUN_INPUT_FOR_AGENT: JSONSchema7 = {
   description: "ScorerRunInputForAgent",
   properties: {
     inputMessages: {
-      description: "User input messages (MastraDBMessage[])",
+      description: "用户输入消息（MastraDBMessage[]）",
       items: MESSAGE_SCHEMA,
       type: "array",
     },
     rememberedMessages: {
-      description: "Messages from memory (MastraDBMessage[])",
+      description: "来自记忆的消息（MastraDBMessage[]）",
       items: MESSAGE_SCHEMA,
       type: "array",
     },
     systemMessages: {
-      description: "System messages (CoreMessage[])",
+      description: "系统消息（CoreMessage[]）",
       items: {
         properties: {
           content: CONTENT_SCHEMA,
@@ -67,7 +67,7 @@ const SCORER_RUN_INPUT_FOR_AGENT: JSONSchema7 = {
         },
         type: "array",
       },
-      description: "Tagged system messages (Record<string, CoreSystemMessage[]>)",
+      description: "带标签的系统消息（Record<string, CoreSystemMessage[]>）",
       type: "object",
     },
   },
@@ -92,22 +92,22 @@ const SCORER_RUN_OUTPUT_FOR_AGENT: JSONSchema7 = {
  */
 const SCORER_AGENT_INPUT_SCHEMA: JSONSchema7 = {
   $schema: "http://json-schema.org/draft-07/schema#",
-  description: "Scorer input for agent-type scorers (scoringInputSchema)",
+  description: "智能体类型评分器的输入（scoringInputSchema）",
   properties: {
     additionalContext: {
       additionalProperties: true,
-      description: "Additional context (optional)",
+      description: "附加上下文（可选）",
       type: "object",
     },
     input: SCORER_RUN_INPUT_FOR_AGENT,
     output: SCORER_RUN_OUTPUT_FOR_AGENT,
     requestContext: {
       additionalProperties: true,
-      description: "Request context (optional)",
+      description: "请求上下文（可选）",
       type: "object",
     },
     runId: {
-      description: "Run ID (optional)",
+      description: "运行 ID（可选）",
       type: "string",
     },
   },
@@ -122,26 +122,26 @@ const SCORER_AGENT_INPUT_SCHEMA: JSONSchema7 = {
  */
 const SCORER_CUSTOM_INPUT_SCHEMA: JSONSchema7 = {
   $schema: "http://json-schema.org/draft-07/schema#",
-  description: "Scorer input for custom scorers (scoringInputSchema)",
+  description: "自定义评分器的输入（scoringInputSchema）",
   properties: {
     additionalContext: {
       additionalProperties: true,
-      description: "Additional context (optional)",
+      description: "附加上下文（可选）",
       type: "object",
     },
     input: {
-      description: "Input to the entity being scored (any)",
+      description: "传递给被评分实体的输入（任意类型）",
     },
     output: {
-      description: "Output from the entity being scored (any)",
+      description: "被评分实体的输出（任意类型）",
     },
     requestContext: {
       additionalProperties: true,
-      description: "Request context (optional)",
+      description: "请求上下文（可选）",
       type: "object",
     },
     runId: {
-      description: "Run ID (optional)",
+      description: "运行 ID（可选）",
       type: "string",
     },
   },
@@ -155,7 +155,7 @@ const SCORER_CUSTOM_INPUT_SCHEMA: JSONSchema7 = {
  */
 const SCORER_OUTPUT_SCHEMA: JSONSchema7 = {
   $schema: "http://json-schema.org/draft-07/schema#",
-  description: "Scorer ground truth (any shape)",
+  description: "评分器标准答案（任意结构）",
 };
 
 /**

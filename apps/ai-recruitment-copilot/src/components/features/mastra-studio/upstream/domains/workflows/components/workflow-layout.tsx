@@ -42,12 +42,12 @@ export const WorkflowLayout = ({
       <div className="relative h-full w-full overflow-hidden">
         <div className="h-full w-full min-w-0 overflow-y-auto">{children}</div>
         {leftSlot && (
-          <PanelDrawer direction="left" label="Open left panel">
+          <PanelDrawer direction="left" label="打开左侧面板">
             {leftSlot}
           </PanelDrawer>
         )}
         {rightSlot && (
-          <PanelDrawer direction="right" label="Open right panel">
+          <PanelDrawer direction="right" label="打开右侧面板">
             {rightSlot}
           </PanelDrawer>
         )}

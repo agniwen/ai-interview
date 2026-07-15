@@ -64,10 +64,10 @@ export const SessionHeader = () => {
         <HeaderAction>
           <Select value={selectedPreset} onValueChange={handlePresetChange}>
             <SelectTrigger size="sm" className="w-[200px]">
-              <SelectValue placeholder="Select a preset..." />
+              <SelectValue placeholder="选择预设…" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={CUSTOM_PRESET_KEY}>Custom</SelectItem>
+              <SelectItem value={CUSTOM_PRESET_KEY}>自定义</SelectItem>
               {Object.keys(presets).map((key) => (
                 <SelectItem key={key} value={key}>
                   {key}

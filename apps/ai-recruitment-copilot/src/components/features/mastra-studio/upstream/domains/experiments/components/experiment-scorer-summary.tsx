@@ -11,9 +11,9 @@ export interface ExperimentScorerSummaryProps {
 }
 
 const columns = [
-  { label: "Scorer", name: "scorer", size: "1fr" },
-  { label: "Avg Score", name: "avg", size: "1fr" },
-  { label: "Items Scored", name: "count", size: "1fr" },
+  { label: "评分器", name: "scorer", size: "1fr" },
+  { label: "平均得分", name: "avg", size: "1fr" },
+  { label: "已评分数据项", name: "count", size: "1fr" },
 ];
 
 export function ExperimentScorerSummary({
@@ -54,15 +54,14 @@ export function ExperimentScorerSummary({
     let description: string;
 
     if (isRunning) {
-      title = "Experiment in progress";
-      description = "Summary metrics will appear here once the experiment completes.";
+      title = "实验正在运行";
+      description = "实验完成后将在此显示汇总指标。";
     } else if (hasLoadedScores === false) {
-      title = "Loading scores";
-      description = "Fetching scorer results…";
+      title = "正在加载得分";
+      description = "正在获取评分器结果…";
     } else {
-      title = "No scorers configured";
-      description =
-        "Add scorers when triggering an experiment to evaluate results and see summary metrics here.";
+      title = "未配置评分器";
+      description = "触发实验时添加评分器，即可评估结果并在此查看汇总指标。";
     }
 
     return (
@@ -79,9 +78,9 @@ export function ExperimentScorerSummary({
   return (
     <ItemList>
       <ItemList.Header columns={columns}>
-        <ItemList.HeaderCol>Scorer</ItemList.HeaderCol>
-        <ItemList.HeaderCol>Avg Score</ItemList.HeaderCol>
-        <ItemList.HeaderCol>Items Scored</ItemList.HeaderCol>
+        <ItemList.HeaderCol>评分器</ItemList.HeaderCol>
+        <ItemList.HeaderCol>平均得分</ItemList.HeaderCol>
+        <ItemList.HeaderCol>已评分数据项</ItemList.HeaderCol>
       </ItemList.Header>
 
       <ItemList.Scroller>

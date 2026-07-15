@@ -51,8 +51,8 @@ export function SpanScoring({
         { scorerName: selectedScorer, spanId, traceId },
         {
           onSuccess: () =>
-            toast.info("Scorer triggered", {
-              description: "Results will appear once scoring completes.",
+            toast.info("评分器已触发", {
+              description: "评分完成后将在此显示结果。",
             }),
         },
       );
@@ -63,11 +63,11 @@ export function SpanScoring({
     scorerList.find((s) => s.id === selectedScorer)?.description || "";
 
   if (scorers === undefined && !isLoadingScorers) {
-    return <Notice variant="destructive">Failed to load scorers.</Notice>;
+    return <Notice variant="destructive">加载评分器失败。</Notice>;
   }
 
   if (!isLoadingScorers && scorerList.length === 0) {
-    return <Notice variant="info">No eligible scorers have been defined to run.</Notice>;
+    return <Notice variant="info">尚未定义可运行的评分器。</Notice>;
   }
 
   return (
@@ -75,9 +75,9 @@ export function SpanScoring({
       <div className="grid gap-2">
         <SelectFieldBlock
           name="select-scorer"
-          label="Select scorer"
+          label="选择评分器"
           labelIsHidden={true}
-          placeholder="Select a scorer..."
+          placeholder="选择评分器..."
           options={scorerList.map((scorer) => ({
             label: scorer.name || scorer.id,
             value: scorer.id || scorer.name || "",
@@ -95,7 +95,7 @@ export function SpanScoring({
       </div>
 
       <Button disabled={!selectedScorer || isWaiting} onClick={handleStartScoring}>
-        {isPending ? "Starting..." : "Start Scoring"}
+        {isPending ? "正在启动..." : "开始评分"}
       </Button>
     </div>
   );

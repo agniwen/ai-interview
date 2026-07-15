@@ -98,7 +98,7 @@ export function MastraStudioHeader() {
               nativeButton={false}
               render={
                 <a
-                  aria-label={docs.label ?? "Documentation"}
+                  aria-label={docs.label ?? "文档"}
                   href={docs.href}
                   rel="noopener noreferrer"
                   target="_blank"
@@ -108,9 +108,7 @@ export function MastraStudioHeader() {
               variant="ghost"
             >
               <IconBook2 data-icon="inline-start" />
-              <span className="hidden max-w-48 truncate sm:inline">
-                {docs.label ?? "Documentation"}
-              </span>
+              <span className="hidden max-w-48 truncate sm:inline">{docs.label ?? "文档"}</span>
             </Button>
           ) : null}
         </>

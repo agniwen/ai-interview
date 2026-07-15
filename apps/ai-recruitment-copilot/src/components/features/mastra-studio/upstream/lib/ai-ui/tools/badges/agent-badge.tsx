@@ -142,7 +142,7 @@ export const AgentBadge = ({
 
       {suspendPayloadSlot !== undefined && Boolean(suspendPayload) && (
         <div>
-          <p className="font-medium pb-2">Agent suspend payload</p>
+          <p className="font-medium pb-2">智能体挂起载荷</p>
           {suspendPayloadSlot}
         </div>
       )}

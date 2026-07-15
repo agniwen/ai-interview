@@ -49,20 +49,20 @@ export function AgentSettingsView({ agentId }: AgentSettingsViewProps) {
                 <Icon size="sm">
                   <Settings2 />
                 </Icon>
-                General
+                通用
               </Tab>
               <Tab value="memory">
                 <Icon size="sm">
                   <Brain />
                 </Icon>
-                Memory
+                记忆
               </Tab>
               {hasChannels && (
                 <Tab value="channels">
                   <Icon size="sm">
                     <Radio />
                   </Icon>
-                  Channels
+                  渠道
                 </Tab>
               )}
             </TabList>

@@ -386,7 +386,7 @@ function ThreadSection({
               : "text-muted-foreground bg-muted/50",
           )}
         >
-          Thread {thread.threadId}
+          会话 {thread.threadId}
         </div>
       )}
       {thread.dateBlocks.map((block, i) => (
@@ -425,7 +425,7 @@ export function ObservationRenderer({
 
   if (parsed.threads.length === 0 && !parsed.currentTask && !parsed.suggestedResponse) {
     return (
-      <div className={cn("text-xs text-muted-foreground italic", className)}>No observations</div>
+      <div className={cn("text-xs text-muted-foreground italic", className)}>暂无观测结果</div>
     );
   }
 
@@ -448,7 +448,7 @@ export function ObservationRenderer({
       {showCurrentTask && parsed.currentTask && (
         <div className="mt-2 pt-2 border-t border-border">
           <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
-            Current Task
+            当前任务
           </div>
           <div className="text-xs text-foreground whitespace-pre-wrap">{parsed.currentTask}</div>
         </div>
@@ -457,7 +457,7 @@ export function ObservationRenderer({
       {showSuggestedResponse && parsed.suggestedResponse && (
         <div className="mt-2 pt-2 border-t border-border">
           <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
-            Suggested Response
+            建议回复
           </div>
           <div className="text-xs text-foreground/80 italic whitespace-pre-wrap">
             {parsed.suggestedResponse}

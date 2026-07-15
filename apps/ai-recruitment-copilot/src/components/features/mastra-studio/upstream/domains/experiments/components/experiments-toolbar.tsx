@@ -36,14 +36,14 @@ export function ExperimentsToolbar({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <ListSearch
-        label="Search experiments"
-        placeholder="Filter by experiment, dataset, or target"
+        label="搜索实验"
+        placeholder="按实验、数据集或目标筛选"
         value={search}
         onSearch={onSearchChange}
       />
       <ButtonsGroup>
         <SelectFieldBlock
-          label="Status"
+          label="状态"
           labelIsHidden
           name="filter-status"
           options={[...EXPERIMENT_STATUS_OPTIONS]}
@@ -52,7 +52,7 @@ export function ExperimentsToolbar({
           className="whitespace-nowrap"
         />
         <SelectFieldBlock
-          label="Dataset"
+          label="数据集"
           labelIsHidden
           name="filter-dataset"
           options={datasetOptions}
@@ -62,7 +62,7 @@ export function ExperimentsToolbar({
         />
         {onReset && hasActiveFilters && (
           <Button onClick={onReset} size="sm" variant="default">
-            <XIcon className="size-3" /> Reset
+            <XIcon className="size-3" /> 重置
           </Button>
         )}
       </ButtonsGroup>

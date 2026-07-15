@@ -71,7 +71,7 @@ function DatasetCompareVersionsPage() {
     return (
       <MainContentLayout>
         <div className="flex h-full items-center justify-center">
-          <PermissionDenied resource="datasets" />
+          <PermissionDenied resource="数据集" />
         </div>
       </MainContentLayout>
     );
@@ -82,7 +82,7 @@ function DatasetCompareVersionsPage() {
       <MainContentLayout>
         <MainContentContent>
           <div className="text-neutral4 text-center py-8">
-            <p>Select at least two versions to compare.</p>
+            <p>请至少选择两个版本进行对比。</p>
           </div>
         </MainContentContent>
       </MainContentLayout>
@@ -112,19 +112,19 @@ function DatasetCompareVersionsPage() {
           <MainHeader>
             <MainHeader.Column>
               <MainHeader.Title>
-                <ScaleIcon /> Compare Dataset Versions
+                <ScaleIcon /> 对比数据集版本
               </MainHeader.Title>
               <MainHeader.Description>
                 <TextAndIcon>
-                  <HistoryIcon /> Comparing {versionNumbers.length} versions of{" "}
-                  {dataset?.name || datasetId?.slice(0, 8)}
+                  <HistoryIcon /> 正在对比 {dataset?.name || datasetId?.slice(0, 8)} 的{" "}
+                  {versionNumbers.length} 个版本
                 </TextAndIcon>
               </MainHeader.Description>
             </MainHeader.Column>
             <MainHeader.Column>
               <Button as={Link} to={`/datasets/${datasetId}`}>
                 <ArrowLeft />
-                Back to Dataset
+                返回数据集
               </Button>
             </MainHeader.Column>
           </MainHeader>

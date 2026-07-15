@@ -14,7 +14,7 @@ export function ScorerEditMain({ form }: ScorerEditMainProps) {
 
   return (
     <div className="flex flex-col gap-3 h-full px-4">
-      <SectionHeader title="Instructions" subtitle="Write your scorer's system prompt." />
+      <SectionHeader title="指令" subtitle="编写评分器的系统提示词。" />
       <Controller
         name="instructions"
         control={control}
@@ -25,7 +25,7 @@ export function ScorerEditMain({ form }: ScorerEditMainProps) {
               onChange={field.onChange}
               language="markdown"
               showCopyButton={false}
-              placeholder="Enter scorer instructions..."
+              placeholder="输入评分器指令..."
               className="flex-1 min-h-[200px]"
             />
           </div>

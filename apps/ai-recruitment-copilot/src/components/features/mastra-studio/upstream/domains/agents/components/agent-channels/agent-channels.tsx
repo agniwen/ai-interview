@@ -37,7 +37,7 @@ function ChannelRow({ platform, agentId }: ChannelRowProps) {
   const handleDisconnect = () => {
     disconnect(agentId, {
       onError: (err: Error & { body?: { error?: string } }) => {
-        toast.error(err.body?.error || err.message || "Failed to disconnect channel");
+        toast.error(err.body?.error || err.message || "断开渠道连接失败");
       },
     });
   };
@@ -51,7 +51,7 @@ function ChannelRow({ platform, agentId }: ChannelRowProps) {
             <span className="truncate">{platform.name}</span>
             {activeInstallation ? (
               <Txt variant="ui-xs" className="text-neutral5 truncate">
-                {activeInstallation.displayName || "Workspace"}
+                {activeInstallation.displayName || "工作区"}
               </Txt>
             ) : null}
           </span>
@@ -67,13 +67,13 @@ function ChannelRow({ platform, agentId }: ChannelRowProps) {
               activeInstallation,
               () => (
                 <StatusBadge variant="success" size="sm">
-                  Connected
+                  已连接
                 </StatusBadge>
               ),
               () =>
                 isTruthy(!platform.isConfigured) ? (
                   <StatusBadge variant="warning" size="sm">
-                    Not configured
+                    未配置
                   </StatusBadge>
                 ) : null,
             ),
@@ -94,7 +94,7 @@ function ChannelRow({ platform, agentId }: ChannelRowProps) {
                   disabled={isDisconnecting}
                   className="shrink-0 text-[11px] text-neutral5 hover:text-accent2 transition-colors disabled:opacity-50"
                 >
-                  {isDisconnecting ? "Removing..." : "Remove"}
+                  {isDisconnecting ? "正在移除…" : "移除"}
                 </button>
               ),
               () =>
@@ -105,7 +105,7 @@ function ChannelRow({ platform, agentId }: ChannelRowProps) {
                     onClick={handleConnect}
                     disabled={isConnecting}
                   >
-                    {isConnecting ? "Connecting..." : "Connect"}
+                    {isConnecting ? "正在连接…" : "连接"}
                   </Button>
                 ) : null,
             ),
@@ -128,13 +128,13 @@ function ChannelsList({ platforms, isLoading, agentId, search }: ChannelsListPro
   return (
     <DataList columns={COLUMNS}>
       <DataList.Top>
-        <DataList.TopCell className="">Platform</DataList.TopCell>
-        <DataList.TopCell className="justify-end text-right">Status</DataList.TopCell>
+        <DataList.TopCell className="">平台</DataList.TopCell>
+        <DataList.TopCell className="justify-end text-right">状态</DataList.TopCell>
         <DataList.TopCell className="">{""}</DataList.TopCell>
       </DataList.Top>
 
       {filtered.length === 0 && search ? (
-        <DataList.NoMatch message="No channels match your search" />
+        <DataList.NoMatch message="没有与搜索条件匹配的渠道" />
       ) : null}
 
       {filtered.map((platform) => (
@@ -152,7 +152,7 @@ export const AgentChannels = ({ agentId }: AgentChannelsProps) => {
     return (
       <NoDataPageLayout>
         <Txt variant="ui-sm" className="text-neutral6">
-          No channel platforms configured.
+          尚未配置渠道平台。
         </Txt>
       </NoDataPageLayout>
     );
@@ -162,11 +162,7 @@ export const AgentChannels = ({ agentId }: AgentChannelsProps) => {
     <PageLayout>
       <PageLayout.TopArea>
         <div className="max-w-120">
-          <ListSearch
-            onSearch={setSearch}
-            label="Filter channels"
-            placeholder="Filter by platform name"
-          />
+          <ListSearch onSearch={setSearch} label="筛选渠道" placeholder="按平台名称筛选" />
         </div>
       </PageLayout.TopArea>
 

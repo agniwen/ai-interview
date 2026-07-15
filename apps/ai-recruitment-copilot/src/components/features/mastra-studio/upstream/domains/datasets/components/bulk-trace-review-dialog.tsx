@@ -82,7 +82,7 @@ export function BulkTraceReviewDialog({
       try {
         parsedInput = JSON.parse(item.input);
       } catch {
-        toast.error(`Item ${i + 1}: Input must be valid JSON`);
+        toast.error(`第 ${i + 1} 个数据项：输入必须是有效的 JSON`);
         setCurrentIndex(i);
         return;
       }
@@ -92,7 +92,7 @@ export function BulkTraceReviewDialog({
         try {
           parsedGroundTruth = JSON.parse(item.groundTruth);
         } catch {
-          toast.error(`Item ${i + 1}: Ground Truth must be valid JSON`);
+          toast.error(`第 ${i + 1} 个数据项：标准答案必须是有效的 JSON`);
           setCurrentIndex(i);
           return;
         }
@@ -103,7 +103,7 @@ export function BulkTraceReviewDialog({
         try {
           parsedTrajectory = JSON.parse(item.expectedTrajectory);
         } catch {
-          toast.error(`Item ${i + 1}: Expected Trajectory must be valid JSON`);
+          toast.error(`第 ${i + 1} 个数据项：预期轨迹必须是有效的 JSON`);
           setCurrentIndex(i);
           return;
         }
@@ -119,12 +119,10 @@ export function BulkTraceReviewDialog({
 
     try {
       await batchInsertItems.mutateAsync({ datasetId, items: parsed });
-      toast.success(
-        `Added ${parsed.length} item${parsed.length === 1 ? "" : "s"} to "${datasetName}"`,
-      );
+      toast.success(`已将 ${parsed.length} 个数据项添加到“${datasetName}”`);
       onClose();
     } catch {
-      toast.error("Failed to add items to dataset");
+      toast.error("向数据集添加数据项失败");
     }
   };
 
@@ -134,22 +132,21 @@ export function BulkTraceReviewDialog({
 
   return (
     <SideDialog
-      dialogTitle="Review items before adding to dataset"
-      dialogDescription={`Reviewing ${total} item${total === 1 ? "" : "s"} for dataset "${datasetName}"`}
+      dialogTitle="添加到数据集前确认数据项"
+      dialogDescription={`正在确认要添加到数据集“${datasetName}”的 ${total} 个数据项`}
       isOpen={isOpen}
       onClose={onClose}
       level={1}
     >
       <SideDialog.Top>
-        <DatabaseIcon className="size-4" /> Review {total} item{total === 1 ? "" : "s"} →{" "}
-        {datasetName}
+        <DatabaseIcon className="size-4" /> 确认 {total} 个数据项 → {datasetName}
       </SideDialog.Top>
 
       <SideDialog.Content>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Button
-              tooltip="Previous item"
+              tooltip="上一个数据项"
               variant="outline"
               size="icon-sm"
               disabled={currentIndex === 0}
@@ -161,7 +158,7 @@ export function BulkTraceReviewDialog({
               {currentIndex + 1} / {total}
             </Txt>
             <Button
-              tooltip="Next item"
+              tooltip="下一个数据项"
               variant="outline"
               size="icon-sm"
               disabled={currentIndex === total - 1}
@@ -171,19 +168,14 @@ export function BulkTraceReviewDialog({
             </Button>
           </div>
 
-          <Button
-            tooltip="Remove this item"
-            variant="ghost"
-            size="icon-sm"
-            onClick={removeCurrentItem}
-          >
+          <Button tooltip="移除此数据项" variant="ghost" size="icon-sm" onClick={removeCurrentItem}>
             <TrashIcon />
           </Button>
         </div>
 
         <div className="grid gap-4">
           <div className="grid gap-2">
-            <Label>Input (JSON) *</Label>
+            <Label>输入（JSON）*</Label>
             <CodeEditor
               value={currentItem.input}
               onChange={(v: string | undefined) => updateCurrentItem("input", v ?? "")}
@@ -193,7 +185,7 @@ export function BulkTraceReviewDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label>Ground Truth (JSON, optional)</Label>
+            <Label>标准答案（JSON，可选）</Label>
             <CodeEditor
               value={currentItem.groundTruth}
               onChange={(v: string | undefined) => updateCurrentItem("groundTruth", v ?? "")}
@@ -203,7 +195,7 @@ export function BulkTraceReviewDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label>Expected Trajectory (JSON, optional)</Label>
+            <Label>预期轨迹（JSON，可选）</Label>
             <CodeEditor
               value={currentItem.expectedTrajectory}
               onChange={(v: string | undefined) => updateCurrentItem("expectedTrajectory", v ?? "")}
@@ -214,18 +206,18 @@ export function BulkTraceReviewDialog({
 
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+              取消
             </Button>
             <Button variant="default" disabled={batchInsertItems.isPending} onClick={handleSubmit}>
               {batchInsertItems.isPending ? (
                 <>
                   <Loader2Icon className="size-4 animate-spin" />
-                  Adding...
+                  正在添加...
                 </>
               ) : (
                 <>
                   <DatabaseIcon className="size-4" />
-                  Add all {total} item{total === 1 ? "" : "s"}
+                  全部添加 {total} 个数据项
                 </>
               )}
             </Button>

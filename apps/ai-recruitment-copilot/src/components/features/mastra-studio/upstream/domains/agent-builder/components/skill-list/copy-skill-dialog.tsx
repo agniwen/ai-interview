@@ -54,14 +54,14 @@ export function CopySkillDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialog.Content>
         <AlertDialog.Header>
-          <AlertDialog.Title>Copy "{sourceName}"</AlertDialog.Title>
+          <AlertDialog.Title>复制“{sourceName}”</AlertDialog.Title>
           <AlertDialog.Description>
-            Creates a private copy in your skills that you can edit. The original stays untouched.
+            在你的技能中创建一个可编辑的私有副本，原技能不会受到影响。
           </AlertDialog.Description>
         </AlertDialog.Header>
         <div className="px-6 py-2">
           <label className="block text-ui-sm text-neutral4 mb-1.5" htmlFor="copy-skill-name">
-            New skill name
+            新技能名称
           </label>
           <Input
             id="copy-skill-name"
@@ -72,13 +72,11 @@ export function CopySkillDialog({
             data-testid="copy-skill-name-input"
           />
           {collides && (
-            <div className="mt-1.5 text-ui-xs text-red-400">
-              You already have a skill named "{trimmed}".
-            </div>
+            <div className="mt-1.5 text-ui-xs text-red-400">你已有名为“{trimmed}”的技能。</div>
           )}
         </div>
         <AlertDialog.Footer>
-          <AlertDialog.Cancel disabled={isPending}>Cancel</AlertDialog.Cancel>
+          <AlertDialog.Cancel disabled={isPending}>取消</AlertDialog.Cancel>
           <AlertDialog.Action
             disabled={!canSubmit}
             onClick={(e) => {
@@ -90,7 +88,7 @@ export function CopySkillDialog({
             }}
             data-testid="copy-skill-confirm"
           >
-            {isPending ? "Copying..." : "Copy skill"}
+            {isPending ? "正在复制..." : "复制技能"}
           </AlertDialog.Action>
         </AlertDialog.Footer>
       </AlertDialog.Content>

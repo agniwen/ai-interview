@@ -29,16 +29,16 @@ export const ViewTopBar = ({
   ownerActions,
   mobileMenu,
 }: ViewTopBarProps) => {
-  const toggleLabel = mode === "test" ? "Switch to Edit mode" : "Switch to View mode";
+  const toggleLabel = mode === "test" ? "切换到编辑模式" : "切换到查看模式";
 
   return (
     <div
       className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-4 pt-4 md:px-10"
       data-testid="agent-builder-view-top-bar"
     >
-      <Breadcrumb label="Agent navigation" className="min-w-0" listClassName="min-w-0">
+      <Breadcrumb label="智能体导航" className="min-w-0" listClassName="min-w-0">
         <Crumb as={Link} to="/agent-builder/agents" data-testid="agent-builder-back-to-list">
-          Agent list
+          智能体列表
         </Crumb>
         <Crumb as="span" isCurrent>
           <AgentBuilderTitle isLoading={false} />

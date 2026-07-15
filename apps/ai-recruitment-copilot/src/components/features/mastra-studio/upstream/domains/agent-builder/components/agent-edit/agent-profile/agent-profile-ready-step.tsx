@@ -51,10 +51,10 @@ export const AgentProfileReadyStep = () => {
       cta={
         <div className="relative z-[2] flex items-center justify-center gap-3">
           <Button variant="outline" onClick={handleReview} data-testid="agent-builder-ready-review">
-            Review my agent
+            检查我的智能体
           </Button>
           <Button variant="primary" onClick={handleTry} data-testid="agent-builder-ready-try">
-            Try my agent
+            试用我的智能体
           </Button>
         </div>
       }
@@ -65,10 +65,10 @@ export const AgentProfileReadyStep = () => {
             className="text-4xl font-semibold text-neutral6"
             data-testid="agent-builder-ready-heading"
           >
-            Your agent is ready
+            你的智能体已就绪
           </h2>
           <p className="text-neutral3 text-lg max-w-md">
-            You can review and fine-tune everything, or jump straight in and try it out.
+            你可以检查并微调所有配置，也可以直接开始试用。
           </p>
         </div>
       </div>

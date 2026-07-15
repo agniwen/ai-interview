@@ -30,7 +30,7 @@ function renderToolFooter({
         className="flex h-7 items-center text-neutral3"
         data-testid={`tool-card-requires-connection-${item.type}-${item.id}`}
       >
-        Requires connection
+        需要连接
       </Txt>
     );
   }
@@ -68,7 +68,7 @@ export const ToolCard = ({ item, editable, onToggle }: ToolCardProps) => {
   return (
     <AgentSelectableCard
       title={item.name}
-      subtitle={item.description || "No description provided"}
+      subtitle={item.description || "暂无描述"}
       isSelected={item.isChecked}
       disabled={!editable}
       onClick={() => onToggle(item, !item.isChecked)}

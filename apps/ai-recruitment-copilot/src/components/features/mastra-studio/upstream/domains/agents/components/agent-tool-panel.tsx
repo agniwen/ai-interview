@@ -34,8 +34,8 @@ export const AgentToolPanel = ({ toolId, agentId }: AgentToolPanelProps) => {
 
   useEffect(() => {
     if (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to load agent";
-      toast.error(`Error loading agent: ${errorMessage}`);
+      const errorMessage = error instanceof Error ? error.message : "加载智能体失败";
+      toast.error(`加载智能体失败：${errorMessage}`);
     }
   }, [error]);
 
@@ -77,7 +77,7 @@ export const AgentToolPanel = ({ toolId, agentId }: AgentToolPanelProps) => {
     return (
       <div className="py-12 text-center px-6">
         <Txt variant="header-md" className="text-neutral3">
-          Tool not found
+          未找到工具
         </Txt>
       </div>
     );
@@ -87,7 +87,7 @@ export const AgentToolPanel = ({ toolId, agentId }: AgentToolPanelProps) => {
     return (
       <div className="py-12 text-center px-6">
         <Txt variant="ui-sm" className="text-neutral3">
-          You don't have permission to execute tools.
+          你没有执行工具的权限。
         </Txt>
       </div>
     );

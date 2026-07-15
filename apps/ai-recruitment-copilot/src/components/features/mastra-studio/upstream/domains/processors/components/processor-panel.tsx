@@ -37,15 +37,15 @@ interface ProcessorInformationProps {
 }
 
 const PHASE_LABELS: Record<ProcessorPhase, string> = {
-  input: "Input - Process input messages before LLM (once at start)",
-  inputStep: "Input Step - Process at each agentic loop step",
-  outputResult: "Output Result - Process complete output after streaming",
-  outputStep: "Output Step - Process after each LLM response (before tools)",
-  outputStream: "Output Stream - Process streaming chunks",
+  input: "输入 - 在 LLM 之前处理输入消息（开始时执行一次）",
+  inputStep: "输入步骤 - 在每次智能体循环步骤中处理",
+  outputResult: "输出结果 - 在流式传输后处理完整输出",
+  outputStep: "输出步骤 - 在每次 LLM 响应后、工具调用前处理",
+  outputStream: "输出流 - 处理流式数据块",
 };
 
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "An error occurred";
+  return error instanceof Error ? error.message : "发生错误";
 }
 
 function ProcessorInformation({ processor }: ProcessorInformationProps) {
@@ -68,8 +68,7 @@ function ProcessorInformation({ processor }: ProcessorInformationProps) {
       </div>
       <div className="mt-3">
         <Txt variant="ui-xs" className="text-neutral4">
-          Attached to {processor.configurations.length} agent
-          {processor.configurations.length === 1 ? "" : "s"}
+          已关联 {processor.configurations.length} 个智能体
         </Txt>
       </div>
     </div>
@@ -86,7 +85,7 @@ function ProcessorDetailPanel({ processor }: ProcessorDetailPanelProps) {
   const [selectedAgentId, setSelectedAgentId] = useState<string>(
     processor.configurations[0]?.agentId || "",
   );
-  const [testMessage, setTestMessage] = useState("Hello, this is a test message.");
+  const [testMessage, setTestMessage] = useState("你好，这是一条测试消息。");
   const [result, setResult] = useState<ExecuteProcessorResponse | null>(null);
   const [errorString, setErrorString] = useState<string | undefined>();
 
@@ -140,14 +139,14 @@ function ProcessorDetailPanel({ processor }: ProcessorDetailPanelProps) {
         <div className="p-5 space-y-5">
           <div className="space-y-2">
             <Txt as="span" variant="ui-sm" className="text-neutral3">
-              Phase
+              阶段
             </Txt>
             <Select
               value={selectedPhase}
               onValueChange={(v) => setSelectedPhase(v as ProcessorPhase)}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select phase" />
+                <SelectValue placeholder="选择阶段" />
               </SelectTrigger>
               <SelectContent>
                 {processor.phases.map((phase) => (
@@ -165,11 +164,11 @@ function ProcessorDetailPanel({ processor }: ProcessorDetailPanelProps) {
           {processor.configurations.length > 1 && (
             <div className="space-y-2">
               <Txt as="span" variant="ui-sm" className="text-neutral3">
-                Agent Configuration
+                智能体配置
               </Txt>
               <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select agent" />
+                  <SelectValue placeholder="选择智能体" />
                 </SelectTrigger>
                 <SelectContent>
                   {processor.configurations.map((config) => (
@@ -183,15 +182,15 @@ function ProcessorDetailPanel({ processor }: ProcessorDetailPanelProps) {
           )}
 
           <label htmlFor={formId} className="block space-y-2 text-ui-sm text-neutral3">
-            <span>Test Message</span>
+            <span>测试消息</span>
             <textarea
-              aria-label="Test Message"
+              aria-label="测试消息"
               id={formId}
               value={testMessage}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
                 setTestMessage(e.target.value)
               }
-              placeholder="Enter a test message..."
+              placeholder="输入测试消息..."
               rows={4}
               className="w-full bg-transparent border border-border1 rounded-md p-3 text-ui-sm text-neutral6 placeholder:text-neutral3 focus:outline-hidden focus:ring-2 focus:ring-accent1"
             />
@@ -202,30 +201,30 @@ function ProcessorDetailPanel({ processor }: ProcessorDetailPanelProps) {
             disabled={executeProcessor.isPending || selectedPhase === "outputStream"}
             className="w-full"
           >
-            {executeProcessor.isPending ? "Running..." : "Run Processor"}
+            {executeProcessor.isPending ? "运行中..." : "运行处理器"}
           </Button>
 
           {selectedPhase === "outputStream" && (
             <Txt variant="ui-xs" className="text-accent6">
-              Output Stream phase cannot be executed directly. Use streaming instead.
+              输出流阶段无法直接执行，请改用流式传输。
             </Txt>
           )}
 
           {result && (
             <div className="space-y-2 pt-4 border-t border-border1">
               <Txt variant="ui-sm" className="text-neutral3">
-                Status
+                状态
               </Txt>
               <div className="flex items-center gap-2">
                 <Badge variant={result.success ? "success" : "error"}>
-                  {result.success ? "Success" : "Failed"}
+                  {result.success ? "成功" : "失败"}
                 </Badge>
-                {result.tripwire?.triggered && <Badge variant="info">Tripwire Triggered</Badge>}
+                {result.tripwire?.triggered && <Badge variant="info">已触发拦截器</Badge>}
               </div>
               {result.tripwire?.triggered && result.tripwire.reason && (
                 <div className="mt-2 p-3 bg-accent6Dark rounded-md border border-accent6/20">
                   <Txt variant="ui-sm" className="text-accent6 font-medium">
-                    Tripwire Reason
+                    拦截原因
                   </Txt>
                   <Txt variant="ui-sm" className="text-neutral3 mt-1">
                     {result.tripwire.reason}
@@ -238,7 +237,7 @@ function ProcessorDetailPanel({ processor }: ProcessorDetailPanelProps) {
       </div>
 
       <div className="absolute top-4 right-4 z-10">
-        <CopyButton content={resultCode} tooltip="Copy JSON result to clipboard" />
+        <CopyButton content={resultCode} tooltip="复制 JSON 结果到剪贴板" />
       </div>
 
       <div className="p-5 h-full relative overflow-x-auto overflow-y-auto">
@@ -258,7 +257,7 @@ export function ProcessorPanel({ processorId }: ProcessorPanelProps) {
 
   useEffect(() => {
     if (error) {
-      toast.error(`Error loading processor: ${getErrorMessage(error)}`);
+      toast.error(`加载处理器时出错：${getErrorMessage(error)}`);
     }
   }, [error]);
 
@@ -279,7 +278,7 @@ export function ProcessorPanel({ processorId }: ProcessorPanelProps) {
     return (
       <div className="py-12 text-center px-6">
         <Txt variant="header-md" className="text-neutral3">
-          Processor not found
+          未找到处理器
         </Txt>
       </div>
     );

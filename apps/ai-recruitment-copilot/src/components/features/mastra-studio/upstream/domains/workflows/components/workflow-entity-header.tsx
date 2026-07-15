@@ -35,16 +35,14 @@ export const WorkflowEntityHeader = ({ workflowId }: WorkflowEntityHeaderProps) 
                 </Badge>
               </button>
             </TooltipTrigger>
-            <TooltipContent>Copy Workflow ID for use in code</TooltipContent>
+            <TooltipContent>复制工作流 ID 以在代码中使用</TooltipContent>
           </Tooltip>
 
-          <Badge>
-            {stepsCount} step{stepsCount === 1 ? "" : "s"}
-          </Badge>
+          <Badge>{stepsCount} 个步骤</Badge>
 
           {workflow?.isProcessorWorkflow && (
             <Badge icon={<Cpu className="h-3 w-3" />} className="bg-violet-500/20 text-violet-400">
-              Processor
+              处理器
             </Badge>
           )}
         </div>

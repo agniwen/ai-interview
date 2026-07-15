@@ -184,7 +184,7 @@ const memoryConfigSchema = z
       return true;
     },
     {
-      message: "Semantic recall requires both vector and embedder to be configured",
+      message: "语义召回需要同时配置向量存储和嵌入模型",
       path: ["semanticRecall"],
     },
   );
@@ -201,9 +201,9 @@ const inMemoryFileNodeSchema: z.ZodType<InMemoryFileNode> = z.lazy(() =>
 
 export const agentFormSchema = z.object({
   agents: z.record(z.string(), entityConfigSchema).optional(),
-  description: z.string().max(500, "Description must be 500 characters or less").optional(),
+  description: z.string().max(500, "描述不能超过 500 个字符").optional(),
   instructionBlocks: z.array(instructionBlockSchema).optional(),
-  instructions: z.string().min(1, "Instructions are required"),
+  instructions: z.string().min(1, "指令为必填项"),
   integrationTools: z.record(z.string(), entityConfigSchema).optional(),
   mcpClients: z
     .array(
@@ -228,10 +228,10 @@ export const agentFormSchema = z.object({
   mcpClientsToDelete: z.array(z.string()).optional().default([]),
   memory: memoryConfigSchema.optional(),
   model: z.object({
-    name: z.string().min(1, "Model is required"),
-    provider: z.string().min(1, "Provider is required"),
+    name: z.string().min(1, "模型为必填项"),
+    provider: z.string().min(1, "提供商为必填项"),
   }),
-  name: z.string().min(1, "Name is required").max(100, "Name must be 100 characters or less"),
+  name: z.string().min(1, "名称为必填项").max(100, "名称不能超过 100 个字符"),
   scorers: z.record(z.string(), scorerConfigSchema).optional(),
   skills: z.record(z.string(), skillConfigSchema).optional().default({}),
   tools: z.record(z.string(), entityConfigSchema).optional(),

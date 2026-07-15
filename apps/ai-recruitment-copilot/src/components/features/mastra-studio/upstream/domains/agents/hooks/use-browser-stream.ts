@@ -184,7 +184,7 @@ export function useBrowserStream(options: UseBrowserStreamOptions): UseBrowserSt
 
       ws.addEventListener("error", () => {
         // Error event doesn't provide useful info, wait for close
-        setError("WebSocket error occurred");
+        setError("发生 WebSocket 错误");
       });
 
       ws.addEventListener("close", (event) => {
@@ -203,16 +203,14 @@ export function useBrowserStream(options: UseBrowserStreamOptions): UseBrowserSt
           }, delay);
         } else if (reconnectAttemptRef.current >= maxReconnectAttempts) {
           setStatus("error");
-          setError("Maximum reconnection attempts reached");
+          setError("已达到最大重连次数");
         } else {
           setStatus("idle");
         }
       });
     } catch (connectionError) {
       setStatus("error");
-      setError(
-        connectionError instanceof Error ? connectionError.message : "Failed to create WebSocket",
-      );
+      setError(connectionError instanceof Error ? connectionError.message : "创建 WebSocket 失败");
     }
   }, [agentId, threadId, enabled, maxReconnectAttempts, clearReconnectTimeout]);
 

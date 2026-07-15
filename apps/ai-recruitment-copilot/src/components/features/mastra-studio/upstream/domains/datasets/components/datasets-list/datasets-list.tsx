@@ -9,10 +9,12 @@ import { AgentIcon } from "@mastra/playground-ui/icons/AgentIcon";
 import { ProcessorIcon } from "@mastra/playground-ui/icons/ProcessorIcon";
 import { ScorersIcon } from "@mastra/playground-ui/icons/ScorersIcon";
 import { WorkflowIcon } from "@mastra/playground-ui/icons/WorkflowIcon";
+import { format } from "date-fns";
 import { useMemo } from "react";
 import type { DatasetTargetType } from "../target-type-options";
 import { getDatasetTargetTypes, matchesDatasetTargetFilter } from "./helpers";
 import { useLinkComponent } from "@/components/features/mastra-studio/upstream/lib/framework";
+import { getExperimentTargetTypeLabel } from "@/components/features/mastra-studio/upstream/domains/experiments/components/experiments-list-options";
 
 export interface DatasetsListProps {
   datasets: DatasetRecord[];
@@ -82,12 +84,7 @@ function formatDate(dateStr: string | Date | undefined | null): string {
     return "—";
   }
   const d = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
-  return d.toLocaleDateString("en-US", {
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short",
-  });
+  return format(d, "yyyy/MM/dd HH:mm");
 }
 
 export function DatasetsList({
@@ -142,14 +139,14 @@ export function DatasetsList({
   return (
     <EntityList columns={COLUMNS} variant="striped">
       <EntityList.Top>
-        <EntityList.TopCell>Name</EntityList.TopCell>
-        <EntityList.TopCell>Description</EntityList.TopCell>
-        <EntityList.TopCell>Tags</EntityList.TopCell>
-        <EntityList.TopCell>Version</EntityList.TopCell>
-        <EntityList.TopCell>Target</EntityList.TopCell>
-        <EntityList.TopCell>Last Updated</EntityList.TopCell>
-        <EntityList.TopCell>Experiments</EntityList.TopCell>
-        <EntityList.TopCell className="justify-center">Review</EntityList.TopCell>
+        <EntityList.TopCell>名称</EntityList.TopCell>
+        <EntityList.TopCell>描述</EntityList.TopCell>
+        <EntityList.TopCell>标签</EntityList.TopCell>
+        <EntityList.TopCell>版本</EntityList.TopCell>
+        <EntityList.TopCell>目标</EntityList.TopCell>
+        <EntityList.TopCell>最后更新</EntityList.TopCell>
+        <EntityList.TopCell>实验</EntityList.TopCell>
+        <EntityList.TopCell className="justify-center">评审</EntityList.TopCell>
       </EntityList.Top>
 
       {filteredData.map((ds) => {
@@ -170,9 +167,9 @@ export function DatasetsList({
               className="w-full  rounded-lg h-full p-0!"
             >
               {review.needsReview > 0 ? (
-                <Chip color="yellow">{review.needsReview} pending</Chip>
+                <Chip color="yellow">{review.needsReview} 等待中</Chip>
               ) : (
-                <Chip color="green">{review.complete} reviewed</Chip>
+                <Chip color="green">{review.complete} 已评审</Chip>
               )}
             </Button>
           );
@@ -216,7 +213,7 @@ export function DatasetsList({
                     {ds.targetTypes.map((type) => (
                       <span key={type} className="flex min-w-0 items-center gap-1 capitalize">
                         <TargetTypeIcon type={type} />
-                        <span className="truncate">{type}</span>
+                        <span className="truncate">{getExperimentTargetTypeLabel(type)}</span>
                       </span>
                     ))}
                   </span>

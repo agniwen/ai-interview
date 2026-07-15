@@ -20,7 +20,7 @@ export const ZoomSlider = forwardRef<HTMLDivElement, Omit<PanelProps, "children"
         )}
         {...props}
       >
-        <Button size="icon-sm" tooltip="Zoom out" onClick={() => zoomOut({ duration: 300 })}>
+        <Button size="icon-sm" tooltip="缩小" onClick={() => zoomOut({ duration: 300 })}>
           <Minus />
         </Button>
         <Slider
@@ -33,7 +33,7 @@ export const ZoomSlider = forwardRef<HTMLDivElement, Omit<PanelProps, "children"
             void zoomTo(values[0]);
           }}
         />
-        <Button size="icon-sm" tooltip="Zoom in" onClick={() => zoomIn({ duration: 300 })}>
+        <Button size="icon-sm" tooltip="放大" onClick={() => zoomIn({ duration: 300 })}>
           <Plus />
         </Button>
         <Button
@@ -45,7 +45,7 @@ export const ZoomSlider = forwardRef<HTMLDivElement, Omit<PanelProps, "children"
         </Button>
         <Button
           size="icon-sm"
-          tooltip="Fit view"
+          tooltip="适应视图"
           onClick={() => fitView({ duration: 300, maxZoom: 1 })}
         >
           <Maximize />

@@ -40,7 +40,7 @@ const formatValue = (value: unknown): string | undefined => {
 const getStateLabel = (signal: SignalData) => {
   const state = isRecord(signal.metadata?.state) ? signal.metadata.state : undefined;
   return {
-    id: formatValue(state?.id) ?? formatValue(signal.attributes?.id) ?? "State signal",
+    id: formatValue(state?.id) ?? formatValue(signal.attributes?.id) ?? "状态信号",
     mode: formatValue(state?.mode) ?? formatValue(signal.attributes?.mode),
   };
 };
@@ -48,14 +48,14 @@ const getStateLabel = (signal: SignalData) => {
 const getNotificationTitle = (signal: SignalData) => {
   const notification = getNotificationMetadata(signal);
   if (notification?.signal === "summary" || signal.tagName === "notification-summary") {
-    return "Notification summary";
+    return "通知摘要";
   }
   const source = notification?.source ?? formatValue(signal.attributes?.source);
   const kind = notification?.kind ?? formatValue(signal.attributes?.kind);
   if (source && kind) {
     return `${source} / ${kind}`;
   }
-  return source ?? kind ?? "Notification";
+  return source ?? kind ?? "通知";
 };
 
 const getToneClass = (priority: string | undefined) => {
@@ -171,7 +171,7 @@ export const SignalBadge = ({ signal: value }: SignalBadgeProps) => {
               </p>
               {priority ? <Pill>{priority}</Pill> : null}
               {status ? <Pill>{status}</Pill> : null}
-              {pending ? <Pill>{`${pending} pending`}</Pill> : null}
+              {pending ? <Pill>{`${pending} 条待处理`}</Pill> : null}
             </div>
             <SignalText text={text} />
           </div>
@@ -187,7 +187,7 @@ export const SignalBadge = ({ signal: value }: SignalBadgeProps) => {
           <Radio className="mt-0.5 h-4 w-4 shrink-0 text-icon3" />
           <div className="min-w-0 flex-1">
             <p className="text-ui-sm leading-ui-sm font-medium text-neutral6">
-              {value.tagName ?? "Signal"}
+              {value.tagName ?? "观测信号"}
             </p>
             <SignalText text={text} />
           </div>

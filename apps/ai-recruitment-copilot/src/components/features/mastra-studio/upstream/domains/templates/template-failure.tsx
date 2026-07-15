@@ -15,24 +15,24 @@ export function TemplateFailure({ errorMsg, validationErrors }: TemplateFailureP
 
   const getUserFriendlyMessage = () => {
     if (isValidationError) {
-      return "Template installation completed but some validation issues remain. The template may still be functional, but you should review and fix these issues.";
+      return "模板安装已完成，但仍有一些验证问题。模板可能仍可正常使用，建议检查并修复这些问题。";
     }
     if (isSchemaError) {
-      return "There was an issue with the AI model configuration. This may be related to the selected model or AI SDK version compatibility.";
+      return "AI 模型配置存在问题，可能与所选模型或 AI SDK 版本兼容性有关。";
     }
-    return "An unexpected error occurred during template installation.";
+    return "安装模板时发生意外错误。";
   };
 
   const getIconAndTitle = () => {
     if (isValidationError) {
       return {
         icon: <AlertTriangleIcon className="text-yellow-500" />,
-        title: "Template Installed with Warnings",
+        title: "模板已安装，但存在警告",
       };
     }
     return {
       icon: <FrownIcon />,
-      title: "Template Installation Failed",
+      title: "模板安装失败",
     };
   };
 
@@ -58,13 +58,13 @@ export function TemplateFailure({ errorMsg, validationErrors }: TemplateFailureP
       {validationErrors && validationErrors.length > 0 && (
         <details className="text-xs">
           <summary className="cursor-pointer text-neutral3 hover:text-neutral4 select-none text-center">
-            Show Validation Issues ({validationErrors.length})
+            显示验证问题（{validationErrors.length}）
           </summary>
           <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-800 rounded text-xs overflow-auto max-h-60 text-left space-y-2">
             {validationErrors.map((error, index) => (
               <div key={index} className="border-l-2 border-red-400 pl-2">
                 <div className="font-medium text-red-600 dark:text-red-400">
-                  {error.type === "typescript" ? "🔴 TypeScript Error" : "⚠️ Lint Error"}
+                  {error.type === "typescript" ? "🔴 TypeScript 错误" : "⚠️ Lint 错误"}
                 </div>
                 <div className="text-xs font-mono text-gray-700 dark:text-gray-300 mt-1 whitespace-pre-wrap wrap-break-word">
                   {error.message}
@@ -79,7 +79,7 @@ export function TemplateFailure({ errorMsg, validationErrors }: TemplateFailureP
       {errorString && !isValidationError && (
         <details className="text-xs">
           <summary className="cursor-pointer text-neutral3 hover:text-neutral4 select-none text-center">
-            Show Details
+            显示详情
           </summary>
           <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono overflow-auto max-h-60 text-left">
             <div className="whitespace-pre-wrap wrap-break-word">{errorString}</div>

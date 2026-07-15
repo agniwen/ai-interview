@@ -54,12 +54,12 @@ interface DisplayMemoryConfig {
 
 const formatThreshold = (threshold: number | { min: number; max: number } | undefined) => {
   if (threshold === undefined) {
-    return "Default";
+    return "默认";
   }
   if (typeof threshold === "number") {
-    return `${threshold.toLocaleString()} tokens`;
+    return `${threshold.toLocaleString()} Token`;
   }
-  return `${threshold.min.toLocaleString()}-${threshold.max.toLocaleString()} tokens`;
+  return `${threshold.min.toLocaleString()}–${threshold.max.toLocaleString()} Token`;
 };
 
 const badgeColors: Record<MemoryConfigBadge, string> = {
@@ -90,7 +90,7 @@ function MemoryConfigValue({
           ),
         )}
       >
-        {value ? "Yes" : "No"}
+        {value ? "是" : "否"}
       </span>
     );
   }
@@ -116,15 +116,15 @@ function getInfoBadge(enabled: boolean | undefined): MemoryConfigBadge | undefin
 function buildGeneralSection(config: DisplayMemoryConfig): MemoryConfigSection {
   return {
     items: [
-      { badge: "success", label: "Memory Enabled", value: true },
-      { label: "Last Messages", value: config.lastMessages || 0 },
+      { badge: "success", label: "已启用记忆", value: true },
+      { label: "最近消息", value: config.lastMessages || 0 },
       {
         badge: getInfoBadge(config.generateTitle),
-        label: "Auto-generate Titles",
+        label: "自动生成标题",
         value: Boolean(config.generateTitle),
       },
     ],
-    title: "General",
+    title: "常规",
   };
 }
 
@@ -137,12 +137,12 @@ function buildSemanticSection(
   const config = typeof semanticRecall === "object" ? semanticRecall : ({} as SemanticRecall);
   return {
     items: [
-      { badge: "success", label: "Enabled", value: true },
-      { label: "Scope", value: config.scope || "resource" },
-      { label: "Top K Results", value: config.topK || 4 },
-      { label: "Message Range", value: formatMessageRange(config.messageRange) },
+      { badge: "success", label: "已启用", value: true },
+      { label: "作用域", value: config.scope || "resource" },
+      { label: "Top K 结果数", value: config.topK || 4 },
+      { label: "消息范围", value: formatMessageRange(config.messageRange) },
     ],
-    title: "Semantic Recall",
+    title: "语义召回",
   };
 }
 
@@ -162,18 +162,18 @@ function buildObservationalSection(
   const observationModel = config.observationModel || config.model || config.observation?.model;
   const reflectionModel = config.reflectionModel || config.model || config.reflection?.model;
   const items: MemoryConfigSection["items"] = [
-    { badge: "success", label: "Enabled", value: true },
-    { label: "Scope", value: config.scope || "thread" },
-    { label: "Message Tokens", value: formatThreshold(config.observation?.messageTokens) },
-    { label: "Observation Tokens", value: formatThreshold(config.reflection?.observationTokens) },
+    { badge: "success", label: "已启用", value: true },
+    { label: "作用域", value: config.scope || "thread" },
+    { label: "消息 Token 数", value: formatThreshold(config.observation?.messageTokens) },
+    { label: "观测内容 Token 数", value: formatThreshold(config.reflection?.observationTokens) },
   ];
   if (observationModel) {
-    items.push({ label: "Observation Model", value: String(observationModel) });
+    items.push({ label: "观测模型", value: String(observationModel) });
   }
   if (reflectionModel) {
-    items.push({ label: "Reflection Model", value: String(reflectionModel) });
+    items.push({ label: "反思模型", value: String(reflectionModel) });
   }
-  return { items, title: "Observational Memory" };
+  return { items, title: "观测记忆" };
 }
 
 function buildConfigSections(config: DisplayMemoryConfig | undefined): MemoryConfigSection[] {
@@ -190,7 +190,7 @@ function buildConfigSections(config: DisplayMemoryConfig | undefined): MemoryCon
 export const AgentMemoryConfig = ({ agentId }: AgentMemoryConfigProps) => {
   const { data, isLoading } = useMemoryConfig(agentId);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(["General", "Semantic Recall"]),
+    new Set(["常规", "语义召回"]),
   );
 
   const config = data?.config as DisplayMemoryConfig | undefined;
@@ -217,15 +217,15 @@ export const AgentMemoryConfig = ({ agentId }: AgentMemoryConfigProps) => {
   if (!config || configSections.length === 0) {
     return (
       <div className="p-4">
-        <h3 className="text-sm font-medium text-neutral5 mb-3">Memory Configuration</h3>
-        <p className="text-xs text-neutral3">No memory configuration available</p>
+        <h3 className="text-sm font-medium text-neutral5 mb-3">记忆配置</h3>
+        <p className="text-xs text-neutral3">暂无记忆配置</p>
       </div>
     );
   }
 
   return (
     <div className="p-4">
-      <h3 className="text-sm font-medium text-neutral5 mb-3">Memory Configuration</h3>
+      <h3 className="text-sm font-medium text-neutral5 mb-3">记忆配置</h3>
       <div className="space-y-2">
         {configSections.map((section) => (
           <div key={section.title} className="border border-border1 rounded-lg bg-surface3">

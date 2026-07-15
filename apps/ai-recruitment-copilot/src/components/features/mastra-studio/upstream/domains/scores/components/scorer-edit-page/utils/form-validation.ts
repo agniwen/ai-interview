@@ -11,13 +11,13 @@ const samplingConfigSchema = z.discriminatedUnion("type", [
 
 export const scorerFormSchema = z.object({
   defaultSampling: samplingConfigSchema.optional(),
-  description: z.string().max(500, "Description must be 500 characters or less"),
+  description: z.string().max(500, "描述不能超过 500 个字符"),
   instructions: z.string(),
   model: z.object({
     name: z.string(),
     provider: z.string(),
   }),
-  name: z.string().min(1, "Name is required").max(100, "Name must be 100 characters or less"),
+  name: z.string().min(1, "名称为必填项").max(100, "名称不能超过 100 个字符"),
   scoreRange: z.object({
     max: z.number(),
     min: z.number(),

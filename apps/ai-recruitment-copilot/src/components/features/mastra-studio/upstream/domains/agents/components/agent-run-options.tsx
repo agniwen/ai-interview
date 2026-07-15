@@ -16,14 +16,14 @@ export function AgentRunOptionsContent({ requestContextSchema }: AgentRunOptions
     <ScrollArea className="w-full" maxHeight="min(600px, calc(100dvh - 8rem))">
       <div className="p-4 space-y-4">
         <Txt as="h3" variant="ui-md" className="text-neutral3">
-          Run options
+          运行选项
         </Txt>
 
         <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <section className="min-w-0">
             <AgentRequestContextRunOptionsBody
               requestContextSchema={requestContextSchema}
-              requestContextTooltip="Request context values are passed into experiments and test chats."
+              requestContextTooltip="请求上下文值会传递给实验和测试对话。"
               freeformEditorClassName={RUN_OPTIONS_EDITOR_HEIGHT}
             />
           </section>

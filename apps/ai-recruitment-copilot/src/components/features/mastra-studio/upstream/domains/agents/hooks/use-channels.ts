@@ -75,7 +75,7 @@ export const useConnectChannelAction = (platform: string, opts: { onClose?: () =
         { agentId },
         {
           onError: (err: Error & { body?: { error?: string } }) => {
-            toast.error(err.body?.error || err.message || "Failed to connect channel");
+            toast.error(err.body?.error || err.message || "连接渠道失败");
           },
           onSuccess: (result) => {
             switch (result.type) {
@@ -86,7 +86,7 @@ export const useConnectChannelAction = (platform: string, opts: { onClose?: () =
               case "deep_link": {
                 const popup = window.open(result.url, "_blank", "noopener,noreferrer");
                 if (!popup) {
-                  toast.error("Popup blocked — please allow popups and try again");
+                  toast.error("弹窗被拦截，请允许弹窗后重试");
                 }
                 onClose?.();
                 break;

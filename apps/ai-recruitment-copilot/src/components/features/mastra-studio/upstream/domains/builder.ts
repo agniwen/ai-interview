@@ -47,7 +47,7 @@ export function useBuilderFilteredModels(models: ModelInfo[], policy: BuilderMod
 
 export function isModelNotAllowedError(error: unknown) {
   if (error && typeof error === "object" && "code" in error && error.code === "MODEL_NOT_ALLOWED") {
-    return { message: error instanceof Error ? error.message : "Model is not allowed" };
+    return { message: error instanceof Error ? error.message : "不允许使用此模型" };
   }
 
   return null;

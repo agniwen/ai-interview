@@ -12,16 +12,14 @@ type Visibility = SkillEditFormValues["visibility"];
 
 const COPY: Record<Visibility, VisibilityCopy> = {
   private: {
-    description:
-      "Removing this skill from the library means your teammates will no longer be able to discover or use it. You will be the only person with access.",
-    title: "Remove this skill from your library?",
-    toast: "Skill removed from the library",
+    description: "从库中移除此技能后，团队成员将无法再发现或使用它，只有你可以访问。",
+    title: "从你的库中移除此技能？",
+    toast: "已从库中移除技能",
   },
   public: {
-    description:
-      "Adding this skill to the library means your teammates will be able to discover and use it.",
-    title: "Add this skill to your library?",
-    toast: "Skill added to the library",
+    description: "将此技能添加到库后，团队成员将能够发现并使用它。",
+    title: "将此技能添加到你的库？",
+    toast: "已将技能添加到库",
   },
 };
 

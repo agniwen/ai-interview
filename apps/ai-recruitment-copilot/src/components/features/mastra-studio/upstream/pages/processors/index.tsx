@@ -24,7 +24,7 @@ export function Processors() {
   if (error && is403ForbiddenError(error)) {
     return (
       <NoDataPageLayout>
-        <PermissionDenied resource="processors" />
+        <PermissionDenied resource="处理器" />
       </NoDataPageLayout>
     );
   }
@@ -32,7 +32,7 @@ export function Processors() {
   if (error) {
     return (
       <NoDataPageLayout>
-        <ErrorState title="Failed to load processors" message={error.message} />
+        <ErrorState title="加载处理器失败" message={error.message} />
       </NoDataPageLayout>
     );
   }
@@ -49,7 +49,7 @@ export function Processors() {
     <PageLayout>
       <PageLayout.TopArea>
         <div className="max-w-120">
-          <ListSearch onSearch={setSearch} label="Filter processors" placeholder="Filter by name" />
+          <ListSearch onSearch={setSearch} label="筛选处理器" placeholder="按名称筛选" />
         </div>
       </PageLayout.TopArea>
 

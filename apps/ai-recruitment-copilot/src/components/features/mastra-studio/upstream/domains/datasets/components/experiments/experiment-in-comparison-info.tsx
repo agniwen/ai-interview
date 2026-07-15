@@ -6,6 +6,7 @@ import { TextAndIcon } from "@mastra/playground-ui/components/Text";
 import { format } from "date-fns";
 import { LayersIcon, TargetIcon, CalendarIcon, ArrowRightIcon, ArrowLeftIcon } from "lucide-react";
 import { useLinkComponent } from "@/components/features/mastra-studio/upstream/lib/framework";
+import { getExperimentTargetTypeLabel } from "@/components/features/mastra-studio/upstream/domains/experiments/components/experiments-list-options";
 
 const typeConfig: Record<
   ExperimentInComparisonInfoProps["type"],
@@ -14,12 +15,12 @@ const typeConfig: Record<
   baseline: {
     color: "purple",
     customStyle: "items-end justify-items-end [&>div]:justify-end border-r-0 rounded-r-none",
-    label: "Baseline",
+    label: "基准",
   },
   contender: {
     color: "cyan",
     customStyle: "items-start justify-items-start [&>div]:justify-start border-l-0 rounded-l-none",
-    label: "Contender",
+    label: "对比项",
   },
 };
 
@@ -66,14 +67,15 @@ export function ExperimentInComparisonInfo({
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-ui-sm text-neutral3">
         <TextAndIcon>
-          <TargetIcon /> {experiment.targetType} / {experiment.targetId}
+          <TargetIcon /> {getExperimentTargetTypeLabel(experiment.targetType)} /{" "}
+          {experiment.targetId}
         </TextAndIcon>
         <TextAndIcon>
           <LayersIcon /> v{experiment.datasetVersion ?? "—"}
         </TextAndIcon>
         {createdAt && (
           <TextAndIcon>
-            <CalendarIcon /> {format(createdAt, "MMM d, yyyy HH:mm")}
+            <CalendarIcon /> {format(createdAt, "yyyy/MM/dd HH:mm")}
           </TextAndIcon>
         )}
       </div>

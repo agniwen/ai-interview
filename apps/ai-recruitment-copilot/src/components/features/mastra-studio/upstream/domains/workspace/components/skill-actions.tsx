@@ -17,7 +17,7 @@ export function SkillUpdateButton({ skillName, onUpdate, isUpdating }: SkillUpda
       variant="ghost"
       size="icon-md"
       disabled={isUpdating}
-      tooltip={`Update ${skillName}`}
+      tooltip={`更新 ${skillName}`}
       onClick={onUpdate}
     >
       {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
@@ -38,12 +38,7 @@ export function SkillRemoveButton({ skillName, onRemove, isRemoving }: SkillRemo
   return (
     <AlertDialog>
       <AlertDialog.Trigger asChild>
-        <Button
-          variant="ghost"
-          size="icon-md"
-          disabled={isRemoving}
-          tooltip={`Remove ${skillName}`}
-        >
+        <Button variant="ghost" size="icon-md" disabled={isRemoving} tooltip={`移除 ${skillName}`}>
           {isRemoving ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
@@ -53,14 +48,14 @@ export function SkillRemoveButton({ skillName, onRemove, isRemoving }: SkillRemo
       </AlertDialog.Trigger>
       <AlertDialog.Content>
         <AlertDialog.Header>
-          <AlertDialog.Title>Remove Skill</AlertDialog.Title>
+          <AlertDialog.Title>移除技能</AlertDialog.Title>
           <AlertDialog.Description>
-            Are you sure you want to remove the skill "{skillName}"? This action cannot be undone.
+            确定要移除技能“{skillName}”吗？此操作无法撤销。
           </AlertDialog.Description>
         </AlertDialog.Header>
         <AlertDialog.Footer>
-          <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-          <AlertDialog.Action onClick={onRemove}>Remove</AlertDialog.Action>
+          <AlertDialog.Cancel>取消</AlertDialog.Cancel>
+          <AlertDialog.Action onClick={onRemove}>移除</AlertDialog.Action>
         </AlertDialog.Footer>
       </AlertDialog.Content>
     </AlertDialog>

@@ -40,7 +40,7 @@ function ObservationStartMarker({ data }: { data: DataOmObservationStartPart["da
       data-testid="om-observation-start"
     >
       <Loader2 className="h-3 w-3 animate-spin" />
-      <span>Observing {tokensK}k tokens...</span>
+      <span>正在观测 {tokensK}k Token...</span>
     </div>
   );
 }
@@ -71,9 +71,9 @@ function ObservationEndMarker({ data }: { data: DataOmObservationEndPart["data"]
     >
       <CheckCircle2 className="h-3 w-3" />
       <span>
-        Observed {tokensK}k tokens → {compressionRatio}% compression ({durationSec}s)
-        {extractedCount > 0 ? ` · ${extractedCount} extracted` : ""}
-        {extractionFailureCount > 0 ? ` · ${extractionFailureCount} failed` : ""}
+        已观测 {tokensK}k Token → 压缩率 {compressionRatio}%（{durationSec} 秒）
+        {extractedCount > 0 ? ` · 已提取 ${extractedCount} 项` : ""}
+        {extractionFailureCount > 0 ? ` · ${extractionFailureCount} 项失败` : ""}
       </span>
     </div>
   );
@@ -96,7 +96,7 @@ function ObservationFailedMarker({ data }: { data: DataOmObservationFailedPart["
       title={data.error}
     >
       <XCircle className="h-3 w-3" />
-      <span>Observation failed ({tokensK}k tokens)</span>
+      <span>观测失败（{tokensK}k Token）</span>
     </div>
   );
 }
@@ -106,8 +106,7 @@ function ObservationFailedMarker({ data }: { data: DataOmObservationFailedPart["
  */
 function BufferingStartMarker({ data }: { data: DataOmBufferingStartPart["data"] }) {
   const tokensK = (data.tokensToBuffer / 1000).toFixed(1);
-  const label =
-    data.operationType === "reflection" ? "Buffering reflection" : "Buffering observations";
+  const label = data.operationType === "reflection" ? "正在缓冲反思内容" : "正在缓冲观测内容";
 
   return (
     <div
@@ -121,7 +120,7 @@ function BufferingStartMarker({ data }: { data: DataOmBufferingStartPart["data"]
       <Loader2 className="h-3 w-3 animate-spin" />
       <CloudCog className="h-3 w-3" />
       <span>
-        {label} ~{tokensK}k tokens...
+        {label}，约 {tokensK}k Token...
       </span>
     </div>
   );
@@ -151,9 +150,9 @@ function BufferingEndMarker({ data }: { data: DataOmBufferingEndPart["data"] }) 
     >
       <CloudCog className="h-3 w-3" />
       <span>
-        Buffered {tokensK}k tokens → {compressionRatio}% compression ({durationSec}s)
-        {extractedCount > 0 ? ` · ${extractedCount} extracted` : ""}
-        {extractionFailureCount > 0 ? ` · ${extractionFailureCount} failed` : ""}
+        已缓冲 {tokensK}k Token → 压缩率 {compressionRatio}%（{durationSec} 秒）
+        {extractedCount > 0 ? ` · 已提取 ${extractedCount} 项` : ""}
+        {extractionFailureCount > 0 ? ` · ${extractionFailureCount} 项失败` : ""}
       </span>
     </div>
   );
@@ -174,7 +173,7 @@ function BufferingFailedMarker({ data }: { data: DataOmBufferingFailedPart["data
       title={data.error}
     >
       <XCircle className="h-3 w-3" />
-      <span>Buffering failed</span>
+      <span>缓冲失败</span>
     </div>
   );
 }
@@ -221,7 +220,7 @@ export const ObservationMarker = ({
 export const ObservationIndicator = ({ part }: { part: OmObservationMarkerPart }) => {
   if (part.type === "data-om-observation-start") {
     return (
-      <span className="inline-flex items-center gap-1 text-accent1" title="Observing...">
+      <span className="inline-flex items-center gap-1 text-accent1" title="正在观测...">
         <Brain className="h-3 w-3" />
         <Loader2 className="h-2.5 w-2.5 animate-spin" />
       </span>
@@ -230,7 +229,7 @@ export const ObservationIndicator = ({ part }: { part: OmObservationMarkerPart }
 
   if (part.type === "data-om-observation-end") {
     return (
-      <span className="inline-flex items-center text-green-500" title="Observation complete">
+      <span className="inline-flex items-center text-green-500" title="观测完成">
         <Brain className="h-3 w-3" />
       </span>
     );
@@ -240,7 +239,7 @@ export const ObservationIndicator = ({ part }: { part: OmObservationMarkerPart }
     return (
       <span
         className="inline-flex items-center text-red-500"
-        title={`Observation failed: ${part.data.error}`}
+        title={`观测失败：${part.data.error}`}
       >
         <Brain className="h-3 w-3" />
       </span>

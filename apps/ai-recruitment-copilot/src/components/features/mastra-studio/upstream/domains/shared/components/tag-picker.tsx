@@ -59,7 +59,7 @@ export function TagPicker({
             className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] text-neutral3 hover:text-neutral5 hover:bg-surface3 transition-colors"
           >
             <Plus className="w-3 h-3" />
-            tag
+            标签
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-52 p-2" align="start">
@@ -68,7 +68,7 @@ export function TagPicker({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search or create tag..."
+            placeholder="搜索或创建标签..."
             className="h-7 text-xs mb-1"
             autoFocus
           />
@@ -89,12 +89,12 @@ export function TagPicker({
                 onClick={() => addTag(search.trim())}
                 className="w-full text-left px-2 py-1 text-xs rounded hover:bg-surface3 text-accent1"
               >
-                Create &quot;{search.trim()}&quot;
+                创建“{search.trim()}”
               </button>
             )}
             {filtered.length === 0 && !canCreate && (
               <Txt variant="ui-xs" className="text-neutral2 px-2 py-1">
-                {vocabulary.length === 0 ? "Type to create a tag" : "No matching tags"}
+                {vocabulary.length === 0 ? "输入内容以创建标签" : "没有匹配的标签"}
               </Txt>
             )}
           </div>

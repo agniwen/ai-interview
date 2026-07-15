@@ -71,14 +71,14 @@ const MobileInitialCtas = () => {
         onClick={() => navigate(`/agent-builder/agents/${agentId}/view`, { viewTransition: true })}
         data-testid="agent-builder-mobile-initial-cta-chat"
       >
-        Chat with my agent
+        与我的智能体对话
       </Button>
       <Button
         variant="outline"
         onClick={() => startViewTransition(() => next())}
         data-testid="agent-builder-mobile-initial-cta-config"
       >
-        See configuration
+        查看配置
       </Button>
     </div>
   );

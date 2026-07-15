@@ -109,7 +109,7 @@ const AttachmentThumbnail = ({ attachment }: { attachment: ComposerAttachment })
         variant="default"
         size="icon-sm"
         type="button"
-        tooltip="Remove file"
+        tooltip="移除文件"
         onClick={() => remove(attachment.id)}
         className="absolute -right-2 -top-2 text-neutral3 hover:text-neutral6 bg-surface1 hover:bg-surface2"
       >

@@ -8,7 +8,7 @@ export class CurrentUserError extends Error {
   readonly status: number;
 
   constructor(status: number) {
-    super(`Failed to fetch current user: ${status}`);
+    super(`获取当前用户失败：${status}`);
     this.name = "CurrentUserError";
     this.status = status;
   }

@@ -51,7 +51,7 @@ function CodeModeActions({
     <>
       <Button onClick={onDownload} disabled={disabled}>
         <Download />
-        Download JSON
+        下载 JSON
       </Button>
       <Button
         variant="primary"
@@ -60,7 +60,7 @@ function CodeModeActions({
         onClick={onOpenPr}
       >
         <GitPullRequest />
-        Open PR
+        创建 PR
       </Button>
     </>
   );
@@ -102,12 +102,12 @@ function SavePublishActions({
         {isSavingDraft ? (
           <>
             <Spinner className="h-4 w-4" />
-            Saving...
+            正在保存…
           </>
         ) : (
           <>
             <Save />
-            Save
+            保存
           </>
         )}
       </Button>
@@ -115,12 +115,12 @@ function SavePublishActions({
         {isSubmitting ? (
           <>
             <Spinner className="h-4 w-4" />
-            Publishing...
+            正在发布…
           </>
         ) : (
           <>
             <Check />
-            {isViewingPreviousVersion ? "Publish This Version" : "Publish"}
+            {isViewingPreviousVersion ? "发布此版本" : "发布"}
           </>
         )}
       </Button>
@@ -169,7 +169,7 @@ function AgentEditHeaderActions({
   return (
     <RouteHeaderActions owner="cms-agent-edit">
       <div className="flex items-center gap-2">
-        {hasDraft && <Badge variant="info">Unpublished changes</Badge>}
+        {hasDraft && <Badge variant="info">未发布的更改</Badge>}
         {showCodeModeActions ? (
           <CodeModeActions
             canOpenPr={canOpenPr}
@@ -263,8 +263,8 @@ function getOpenPrState({
   return {
     canOpenPr,
     openPrTitle: canOpenPr
-      ? "Open a pull request with this agent override JSON"
-      : "Open PR is available on Mastra-hosted projects with GitHub App support",
+      ? "使用此智能体覆盖 JSON 创建拉取请求"
+      : "创建 PR 仅适用于支持 GitHub App 的 Mastra 托管项目",
   };
 }
 
@@ -349,11 +349,11 @@ function EditFormContent({
   const isViewingPreviousVersion = isViewingVersion && selectedVersionId !== latestVersionId;
 
   const banner = isViewingPreviousVersion ? (
-    <Notice variant="info" title="This is a previous version" className="mb-4">
-      <Notice.Message>You are seeing a specific version of the agent.</Notice.Message>
+    <Notice variant="info" title="这是历史版本" className="mb-4">
+      <Notice.Message>你当前查看的是智能体的指定版本。</Notice.Message>
       <div className="flex items-center gap-2">
         <Button type="button" variant="default" size="sm" onClick={() => setSearchParams({})}>
-          View latest version
+          查看最新版本
         </Button>
         <Button
           type="button"
@@ -362,7 +362,7 @@ function EditFormContent({
           onClick={() => void handlePublish(selectedVersionId ?? undefined)}
           disabled={selectedVersionId === activeVersionId}
         >
-          Publish This Version
+          发布此版本
         </Button>
       </div>
     </Notice>
@@ -399,9 +399,9 @@ function EditFormContent({
     >
       {isEditorLocked ? (
         <div className="p-6">
-          <Notice variant="info" title="Editing disabled">
+          <Notice variant="info" title="编辑已停用">
             <Notice.Message>
-              This code-defined agent has disabled Studio editing with `editor: false`.
+              此代码定义的智能体已通过 `editor: false` 停用 Studio 编辑。
             </Notice.Message>
           </Notice>
         </div>
@@ -569,9 +569,7 @@ function EditLayoutWrapper() {
 
       {isNotFound ? (
         <>
-          <div className="flex items-center justify-center h-full text-neutral3">
-            Agent not found
-          </div>
+          <div className="flex items-center justify-center h-full text-neutral3">未找到智能体</div>
           <div className="hidden">
             <EditFormContent
               agentId={agentId ?? ""}

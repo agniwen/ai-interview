@@ -26,15 +26,15 @@ function DatasetVersionsListSkeleton() {
   return (
     <ItemList>
       <ItemList.Header>
-        <ItemList.HeaderCol>Dataset Version History</ItemList.HeaderCol>
+        <ItemList.HeaderCol>数据集版本历史</ItemList.HeaderCol>
       </ItemList.Header>
       <ItemList.Items>
         {Array.from({ length: 3 }).map((_, index) => (
           <ItemList.Row key={index}>
             <ItemList.RowButton
-              columns={[{ label: "Dataset Version History", name: "version", size: "1fr" }]}
+              columns={[{ label: "数据集版本历史", name: "version", size: "1fr" }]}
             >
-              <ItemList.TextCell isLoading>Loading...</ItemList.TextCell>
+              <ItemList.TextCell isLoading>正在加载...</ItemList.TextCell>
             </ItemList.RowButton>
           </ItemList.Row>
         ))}
@@ -108,26 +108,24 @@ export function DatasetVersionsPanel({
       {isSelectionActive ? (
         <Column.Toolbar className="grid justify-stretch gap-3 w-full">
           <ButtonsGroup>
-            <Button onClick={handleCancelSelection}>Cancel</Button>
+            <Button onClick={handleCancelSelection}>取消</Button>
             <Button
               variant="primary"
               disabled={selectedKeys.size !== 2}
               onClick={handleExecuteCompare}
-              tooltip={
-                selectedKeys.size === 2 ? undefined : "Select two versions to enable comparison"
-              }
+              tooltip={selectedKeys.size === 2 ? undefined : "请选择两个版本以启用对比"}
               className="w-full"
             >
-              <ArrowRightIcon /> Compare
+              <ArrowRightIcon /> 对比
             </Button>
           </ButtonsGroup>
         </Column.Toolbar>
       ) : (
         <Column.Toolbar>
           <Button onClick={handleCompareClick}>
-            <GitCompareIcon /> Compare Ver.
+            <GitCompareIcon /> 对比版本
           </Button>
-          <Button onClick={onClose} tooltip="Hide Versions Panel">
+          <Button onClick={onClose} tooltip="隐藏版本面板">
             <XIcon />
           </Button>
         </Column.Toolbar>
@@ -138,7 +136,7 @@ export function DatasetVersionsPanel({
         ) : (
           <ItemList>
             <ItemList.Header>
-              <ItemList.HeaderCol>Dataset Version History</ItemList.HeaderCol>
+              <ItemList.HeaderCol>数据集版本历史</ItemList.HeaderCol>
             </ItemList.Header>
 
             <ItemList.Scroller>
@@ -169,9 +167,9 @@ export function DatasetVersionsPanel({
                               e.stopPropagation();
                               handleToggleSelection(key);
                             }}
-                            aria-label={`Select version ${
+                            aria-label={`选择版本 ${
                               createdAtDate
-                                ? `v${item.version} — ${format(createdAtDate, "MMM d, yyyy HH:mm")}`
+                                ? `v${item.version} — ${format(createdAtDate, "yyyy/MM/dd HH:mm")}`
                                 : `v${item.version}`
                             }`}
                           />
@@ -180,9 +178,7 @@ export function DatasetVersionsPanel({
                       <ItemList.RowButton
                         item={item}
                         isFeatured={isVersionSelected(item)}
-                        columns={[
-                          { label: "Dataset Version History", name: "version", size: "1fr" },
-                        ]}
+                        columns={[{ label: "数据集版本历史", name: "version", size: "1fr" }]}
                         onClick={() => handleVersionClick(item)}
                         className="py-2"
                       >
@@ -203,7 +199,7 @@ export function DatasetVersionsPanel({
                   disabled={isFetchingNextPage}
                   className="w-full mt-2"
                 >
-                  {isFetchingNextPage ? "Loading..." : "Load More"}
+                  {isFetchingNextPage ? "正在加载..." : "加载更多"}
                 </Button>
               )}
             </ItemList.Scroller>

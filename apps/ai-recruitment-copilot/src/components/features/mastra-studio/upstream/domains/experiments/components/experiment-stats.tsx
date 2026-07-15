@@ -1,6 +1,7 @@
 import type { DatasetExperiment } from "@mastra/client-js";
 import { cn } from "@mastra/playground-ui/utils/cn";
 import { CheckIcon, ClockIcon, TimerIcon, XIcon } from "lucide-react";
+import { getExperimentStatusLabel } from "./experiments-list-options";
 
 export interface ExperimentStatsProps {
   experiment: DatasetExperiment;
@@ -37,7 +38,7 @@ export function ExperimentStats({ experiment, className }: ExperimentStatsProps)
         >
           {statusIconMap[status]}
         </span>
-        {experiment.status}
+        {getExperimentStatusLabel(experiment.status)}
       </div>
       <div
         className={cn(
@@ -47,17 +48,17 @@ export function ExperimentStats({ experiment, className }: ExperimentStatsProps)
         )}
       >
         <span>
-          Total: <b>{experiment.totalItems}</b>
+          总计： <b>{experiment.totalItems}</b>
         </span>
         <span>
-          Succeeded: <b>{experiment.succeededCount}</b>
+          成功： <b>{experiment.succeededCount}</b>
         </span>
         <span>
-          Failed: <b>{experiment.failedCount}</b>
+          失败： <b>{experiment.failedCount}</b>
         </span>
         {(status === "pending" || status === "running") && (
           <span>
-            Pending: <b>{pendingCount}</b>
+            等待中： <b>{pendingCount}</b>
           </span>
         )}
       </div>

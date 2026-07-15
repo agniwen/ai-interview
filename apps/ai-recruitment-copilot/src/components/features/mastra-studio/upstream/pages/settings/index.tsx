@@ -9,16 +9,16 @@ export const StudioSettingsPage = () => {
     <PageLayout width="narrow">
       <PageLayout.MainArea className="flex flex-col gap-5 mt-6">
         <SectionCard
-          title="Mastra Connection"
-          description="This embedded Studio uses the same Mastra instance as ARC. The connection is managed by the host application."
+          title="Mastra 连接"
+          description="此嵌入式 Studio 与 ARC 使用同一个 Mastra 实例，连接由宿主应用管理。"
         >
           <dl className="grid gap-3 text-sm">
             <div>
-              <dt className="text-neutral3">Instance URL</dt>
+              <dt className="text-neutral3">实例 URL</dt>
               <dd className="break-all text-neutral6">{baseUrl}</dd>
             </div>
             <div>
-              <dt className="text-neutral3">API prefix</dt>
+              <dt className="text-neutral3">API 前缀</dt>
               <dd className="break-all text-neutral6">{apiPrefix}</dd>
             </div>
           </dl>

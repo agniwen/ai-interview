@@ -15,7 +15,7 @@ export function AgentHeader({ agentId }: { agentId: string }) {
           <Icon>
             <AgentIcon />
           </Icon>
-          Agents
+          智能体
         </Crumb>
         <Crumb as="span" to="" isCurrent>
           <AgentCombobox value={agentId} variant="ghost" size="sm" />
@@ -31,7 +31,7 @@ export function AgentHeader({ agentId }: { agentId: string }) {
           size="md"
         >
           <DocsIcon />
-          Agents documentation
+          智能体文档
         </Button>
       </HeaderAction>
     </Header>

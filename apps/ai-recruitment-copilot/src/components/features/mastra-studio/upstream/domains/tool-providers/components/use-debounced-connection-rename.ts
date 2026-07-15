@@ -32,7 +32,7 @@ export const useDebouncedConnectionRename = ({
       {
         onSuccess: () => {
           savedLabelRef.current = label;
-          toast.success("Connection renamed");
+          toast.success("连接已重命名");
         },
       },
     );

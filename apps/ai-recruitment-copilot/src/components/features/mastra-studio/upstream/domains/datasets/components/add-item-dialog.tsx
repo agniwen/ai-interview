@@ -95,7 +95,7 @@ export function AddItemDialog({ datasetId, open, onOpenChange, onSuccess }: AddI
     try {
       parsedInput = JSON.parse(input);
     } catch {
-      toast.error("Input must be valid JSON");
+      toast.error("输入必须是有效的 JSON");
       return;
     }
 
@@ -105,7 +105,7 @@ export function AddItemDialog({ datasetId, open, onOpenChange, onSuccess }: AddI
       try {
         parsedGroundTruth = JSON.parse(groundTruth);
       } catch {
-        toast.error("Ground Truth must be valid JSON");
+        toast.error("标准答案必须是有效的 JSON");
         return;
       }
     }
@@ -115,7 +115,7 @@ export function AddItemDialog({ datasetId, open, onOpenChange, onSuccess }: AddI
       try {
         parsedTrajectory = JSON.parse(expectedTrajectory);
       } catch {
-        toast.error("Expected Trajectory must be valid JSON");
+        toast.error("预期轨迹必须是有效的 JSON");
         return;
       }
     }
@@ -126,12 +126,12 @@ export function AddItemDialog({ datasetId, open, onOpenChange, onSuccess }: AddI
       try {
         const parsed = JSON.parse(toolMocks);
         if (!Array.isArray(parsed)) {
-          toast.error("Tool Mocks must be a JSON array");
+          toast.error("工具模拟必须是 JSON 数组");
           return;
         }
         parsedToolMocks = parsed as DatasetItemToolMock[];
       } catch {
-        toast.error("Tool Mocks must be valid JSON");
+        toast.error("工具模拟必须是有效的 JSON");
         return;
       }
     }
@@ -142,7 +142,7 @@ export function AddItemDialog({ datasetId, open, onOpenChange, onSuccess }: AddI
       try {
         parsedRequestContext = JSON.parse(requestContext);
       } catch {
-        toast.error("Request Context must be valid JSON");
+        toast.error("请求上下文必须是有效的 JSON");
         return;
       }
     }
@@ -157,7 +157,7 @@ export function AddItemDialog({ datasetId, open, onOpenChange, onSuccess }: AddI
         toolMocks: parsedToolMocks,
       });
 
-      toast.success("Item added successfully");
+      toast.success("数据项添加成功");
       setValidationErrors(null);
 
       // Reset form
@@ -175,9 +175,7 @@ export function AddItemDialog({ datasetId, open, onOpenChange, onSuccess }: AddI
       if (schemaError) {
         setValidationErrors(schemaError);
       } else {
-        toast.error(
-          `Failed to add item: ${error instanceof Error ? error.message : "Unknown error"}`,
-        );
+        toast.error(`添加数据项失败：${error instanceof Error ? error.message : "未知错误"}`);
       }
     }
   };
@@ -220,12 +218,12 @@ export function AddItemDialog({ datasetId, open, onOpenChange, onSuccess }: AddI
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add Item</DialogTitle>
+          <DialogTitle>添加数据项</DialogTitle>
         </DialogHeader>
         <DialogBody>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="item-input">Input (JSON) *</Label>
+              <Label htmlFor="item-input">输入（JSON）*</Label>
               <CodeEditor
                 value={input}
                 onChange={handleInputChange}
@@ -238,7 +236,7 @@ export function AddItemDialog({ datasetId, open, onOpenChange, onSuccess }: AddI
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="item-ground-truth">Ground Truth (JSON, optional)</Label>
+              <Label htmlFor="item-ground-truth">标准答案（JSON，可选）</Label>
               <CodeEditor
                 value={groundTruth}
                 onChange={handleGroundTruthChange}
@@ -251,7 +249,7 @@ export function AddItemDialog({ datasetId, open, onOpenChange, onSuccess }: AddI
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="item-trajectory">Expected Trajectory (JSON, optional)</Label>
+              <Label htmlFor="item-trajectory">预期轨迹（JSON，可选）</Label>
               <CodeEditor
                 value={expectedTrajectory}
                 onChange={setExpectedTrajectory}
@@ -261,7 +259,7 @@ export function AddItemDialog({ datasetId, open, onOpenChange, onSuccess }: AddI
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="item-tool-mocks">Tool Mocks (JSON array, optional)</Label>
+              <Label htmlFor="item-tool-mocks">工具模拟（JSON 数组，可选）</Label>
               <CodeEditor
                 value={toolMocks}
                 onChange={handleToolMocksChange}
@@ -274,7 +272,7 @@ export function AddItemDialog({ datasetId, open, onOpenChange, onSuccess }: AddI
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="item-request-context">Request Context (JSON, optional)</Label>
+              <Label htmlFor="item-request-context">请求上下文（JSON，可选）</Label>
               <CodeEditor
                 value={requestContext}
                 onChange={setRequestContext}
@@ -285,10 +283,10 @@ export function AddItemDialog({ datasetId, open, onOpenChange, onSuccess }: AddI
 
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" onClick={handleCancel}>
-                Cancel
+                取消
               </Button>
               <Button type="submit" variant="primary" disabled={addItem.isPending}>
-                {addItem.isPending ? "Adding..." : "Add Item"}
+                {addItem.isPending ? "正在添加..." : "添加数据项"}
               </Button>
             </div>
           </form>

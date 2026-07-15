@@ -6,7 +6,7 @@ import { resolveConditional } from "../utils/conditional";
 
 function formatTimestamp(isoString: string): string {
   const date = new Date(isoString);
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString("zh-CN", {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
@@ -47,7 +47,7 @@ export function AgentVersionCombobox({
   const activeVersionNumber = activeVersion?.versionNumber;
 
   const options = [
-    { label: "Latest", value: "" },
+    { label: "最新", value: "" },
     ...versions.map((version) => {
       const isPublished = version.id === activeVersionId;
       const isDraft =
@@ -65,8 +65,8 @@ export function AgentVersionCombobox({
         description,
         end: resolveConditional(
           isPublished,
-          () => <Badge variant="success">Published</Badge>,
-          () => (isDraft ? <Badge variant="info">Draft</Badge> : undefined),
+          () => <Badge variant="success">已发布</Badge>,
+          () => (isDraft ? <Badge variant="info">草稿</Badge> : undefined),
         ),
         label: `v${version.versionNumber}`,
         value: version.id,
@@ -79,9 +79,9 @@ export function AgentVersionCombobox({
       options={options}
       value={value}
       onValueChange={onValueChange}
-      placeholder={isLoading ? "Loading versions..." : "Versions"}
-      searchPlaceholder="Search versions..."
-      emptyText="No versions found."
+      placeholder={isLoading ? "正在加载版本…" : "版本"}
+      searchPlaceholder="搜索版本…"
+      emptyText="未找到版本。"
       className={className}
       disabled={disabled || isLoading}
       variant={variant}

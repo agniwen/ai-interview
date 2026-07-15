@@ -82,13 +82,13 @@ export const RecordField: React.FC<AutoFormFieldProps> = ({ inputProps, field })
 
           <div className="space-y-2 pt-6">
             <Input
-              placeholder="Key"
+              placeholder="键"
               value={pair.key}
               onChange={(e) => handleChange(pair.id, "key", e.target.value)}
               onBlur={handleBlur}
             />
             <Input
-              placeholder="Value"
+              placeholder="值"
               value={pair.value}
               onChange={(e) => handleChange(pair.id, "value", e.target.value)}
               onBlur={handleBlur}
@@ -98,7 +98,7 @@ export const RecordField: React.FC<AutoFormFieldProps> = ({ inputProps, field })
       ))}
       <Button type="button" className="w-full" onClick={addPair}>
         <Plus className="mr-2 h-4 w-4" />
-        Add Key-Value Pair
+        添加键值对
       </Button>
     </div>
   );

@@ -109,15 +109,15 @@ function MastraSidebarSearch() {
     <SidebarMenu>
       <SidebarMenuItem>
         <SidebarMenuButton
-          aria-label="Search and navigate"
+          aria-label="搜索并导航"
           className="cursor-default select-none transition-[width,height,padding,background-color,border-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100"
           onClick={() => setOpen(true)}
           size="default"
-          tooltip="Search"
+          tooltip="搜索"
           variant="outline"
         >
           <IconSearch />
-          <span>Search</span>
+          <span>搜索</span>
           <Kbd className="ml-auto group-data-[collapsible=icon]:hidden">{commandShortcutLabel}</Kbd>
         </SidebarMenuButton>
       </SidebarMenuItem>

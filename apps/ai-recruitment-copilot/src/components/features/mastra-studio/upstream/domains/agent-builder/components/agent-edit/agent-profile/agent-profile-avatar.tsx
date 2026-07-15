@@ -35,7 +35,7 @@ export const AgentProfileAvatar = ({ disabled = false }: AgentProfileAvatarProps
       const { dataUrl } = await downscaleImageToDataUrl(file);
       setValue("avatarUrl", dataUrl, { shouldDirty: true });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to process avatar image");
+      toast.error(error instanceof Error ? error.message : "处理头像图片失败");
     }
   };
 
@@ -48,7 +48,7 @@ export const AgentProfileAvatar = ({ disabled = false }: AgentProfileAvatarProps
         <>
           <button
             type="button"
-            aria-label="Choose agent avatar"
+            aria-label="选择智能体头像"
             onClick={() => fileInputRef.current?.click()}
             disabled={disabled}
             className="relative rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral3 disabled:cursor-not-allowed disabled:opacity-60"
@@ -67,7 +67,7 @@ export const AgentProfileAvatar = ({ disabled = false }: AgentProfileAvatarProps
             </span>
           </button>
           <input
-            aria-label="Upload agent avatar"
+            aria-label="上传智能体头像"
             ref={fileInputRef}
             type="file"
             accept="image/*"

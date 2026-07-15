@@ -47,7 +47,7 @@ export const ManageConnectionForm = ({
       { connectionId, force: true, providerId },
       {
         onSuccess: () => {
-          toast.success("Connection disconnected");
+          toast.success("连接已断开");
           onDisconnected(connectionId);
         },
       },
@@ -63,14 +63,14 @@ export const ManageConnectionForm = ({
             variant="ghost"
             size="sm"
             onClick={onBack}
-            aria-label="Back to connections"
+            aria-label="返回连接列表"
             data-testid={`${testIdPrefix}-back`}
             className="-mt-1 -ml-1.5 w-fit text-neutral3"
           >
             <Icon>
               <ChevronLeft />
             </Icon>
-            Connections
+            连接
           </Button>
         )}
         <div className="flex flex-col items-center gap-4 text-center">
@@ -96,7 +96,7 @@ export const ManageConnectionForm = ({
 
           <div className="flex w-full flex-col items-center gap-1.5">
             <Txt variant="ui-xs" className="text-neutral3">
-              {integrationName} connection
+              {integrationName} 连接
             </Txt>
             <div className="relative w-full">
               <Input
@@ -109,15 +109,15 @@ export const ManageConnectionForm = ({
                   rename.scheduleRename(event.target.value);
                 }}
                 disabled={disabled || rename.isPending}
-                placeholder="Unnamed connection"
+                placeholder="未命名连接"
                 autoFocus
-                aria-label="Connection name"
+                aria-label="连接名称"
                 testId={`${testIdPrefix}-input`}
                 className="text-center"
               />
               {rename.isPending && (
                 <span className="absolute top-1/2 right-2 -translate-y-1/2">
-                  <Spinner size="sm" aria-label="Saving" data-testid={`${testIdPrefix}-saving`} />
+                  <Spinner size="sm" aria-label="正在保存" data-testid={`${testIdPrefix}-saving`} />
                 </span>
               )}
             </div>
@@ -135,7 +135,7 @@ export const ManageConnectionForm = ({
             disabled={disabled || disconnectConnection.isPending}
             data-testid={`${testIdPrefix}-disconnect`}
           >
-            Disconnect
+            断开连接
           </Button>
         </div>
       </DialogBody>
@@ -143,10 +143,10 @@ export const ManageConnectionForm = ({
       <AlertDialog open={confirmDisconnectOpen} onOpenChange={setConfirmDisconnectOpen}>
         <AlertDialog.Content data-testid={`${testIdPrefix}-disconnect-dialog`}>
           <AlertDialog.Header>
-            <AlertDialog.Title>Disconnect connection?</AlertDialog.Title>
+            <AlertDialog.Title>要断开连接吗？</AlertDialog.Title>
             <AlertDialog.Description>
-              Disconnecting revokes this authorized account and removes it from Mastra. Agents using
-              this connection will lose access. This can’t be undone.
+              断开连接会撤销此授权账户并将其从 Mastra
+              中移除。使用此连接的智能体将失去访问权限，且此操作无法撤销。
             </AlertDialog.Description>
           </AlertDialog.Header>
           {disconnectConnection.error ? (
@@ -159,7 +159,7 @@ export const ManageConnectionForm = ({
               data-testid={`${testIdPrefix}-disconnect-cancel`}
               disabled={disconnectConnection.isPending}
             >
-              Cancel
+              取消
             </AlertDialog.Cancel>
             <Button
               type="button"
@@ -168,7 +168,7 @@ export const ManageConnectionForm = ({
               disabled={disabled || disconnectConnection.isPending}
               data-testid={`${testIdPrefix}-disconnect-confirm`}
             >
-              {disconnectConnection.isPending ? "Disconnecting…" : "Disconnect"}
+              {disconnectConnection.isPending ? "正在断开…" : "断开连接"}
             </Button>
           </AlertDialog.Footer>
         </AlertDialog.Content>

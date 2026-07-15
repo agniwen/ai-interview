@@ -63,10 +63,9 @@ export function AuthRequired({
         <div className="flex flex-col items-center space-y-6 text-center">
           <LogoWithoutText className="h-16 w-16 opacity-50" />
           <div className="space-y-2">
-            <h2 className="text-xl font-semibold text-neutral6">Authentication Required</h2>
+            <h2 className="text-xl font-semibold text-neutral6">需要身份验证</h2>
             <p className="max-w-sm text-neutral3">
-              This page requires authentication, but no login method is configured. Please contact
-              your administrator.
+              此页面需要身份验证，但尚未配置登录方式。请联系管理员。
             </p>
           </div>
         </div>
@@ -88,8 +87,8 @@ export function AuthRequired({
       <div className="flex flex-col items-center space-y-6 text-center">
         <LogoWithoutText className="h-16 w-16 opacity-50" />
         <div className="space-y-2">
-          <h2 className="text-xl font-semibold text-neutral6">Sign in to continue</h2>
-          <p className="max-w-sm text-neutral3">You need to sign in to access this page.</p>
+          <h2 className="text-xl font-semibold text-neutral6">登录后继续</h2>
+          <p className="max-w-sm text-neutral3">你需要登录才能访问此页面。</p>
         </div>
         {capabilities.login.description && (
           <div className="flex items-start gap-2.5 rounded-md border border-border1 bg-surface2 p-3 text-left">
@@ -101,13 +100,13 @@ export function AuthRequired({
         {(capabilities.login.type === "credentials" || capabilities.login.type === "both") &&
           capabilities.login.signUpEnabled !== false && (
             <div className="text-sm">
-              <span className="text-neutral3">{"Don't have an account? "}</span>
+              <span className="text-neutral3">还没有账号？</span>
               <button
                 type="button"
                 onClick={handleSignUp}
                 className="text-neutral6 hover:underline"
               >
-                Sign up
+                注册
               </button>
             </div>
           )}

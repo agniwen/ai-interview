@@ -101,15 +101,15 @@ export function DatasetExperimentsComparison({
   }, [comparison, scorerIds, experimentIdA, experimentIdB]);
 
   const scorerSummaryColumns = [
-    { label: "Scorer", name: "scorer", size: "1fr" },
-    { label: "Baseline Avg", name: "baselineAvg", size: "1fr" },
-    { label: "Comparison Avg", name: "comparisonAvg", size: "1fr" },
-    { label: "Delta", name: "delta", size: "1fr" },
+    { label: "评分器", name: "scorer", size: "1fr" },
+    { label: "基准平均值", name: "baselineAvg", size: "1fr" },
+    { label: "对比项平均值", name: "comparisonAvg", size: "1fr" },
+    { label: "差值", name: "delta", size: "1fr" },
   ];
 
   const comparisonColumns = useMemo(
     () => [
-      { label: "Item ID", name: "itemId", size: "8rem" },
+      { label: "数据项 ID", name: "itemId", size: "8rem" },
       ...(featuredItemId ? [] : scorerIds.map((id) => ({ label: id, name: id, size: "1fr" }))),
     ],
     [scorerIds, featuredItemId],
@@ -158,14 +158,14 @@ export function DatasetExperimentsComparison({
 
   if (error) {
     return (
-      <Notice variant="warning" title="Error loading comparison">
-        <Notice.Message>{error instanceof Error ? error.message : "Unknown error"}</Notice.Message>
+      <Notice variant="warning" title="加载对比数据时出错">
+        <Notice.Message>{error instanceof Error ? error.message : "未知错误"}</Notice.Message>
       </Notice>
     );
   }
 
   if (!comparison || comparison.items.length === 0) {
-    return <div className="text-neutral4 text-sm text-center py-8">No comparison data</div>;
+    return <div className="text-neutral4 text-sm text-center py-8">暂无对比数据</div>;
   }
 
   const { baselineId } = comparison;
@@ -182,9 +182,9 @@ export function DatasetExperimentsComparison({
             <div className="relative z-1 bg-surface2 rounded-lg p-2">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button onClick={onSwap}>VS</Button>
+                  <Button onClick={onSwap}>对比</Button>
                 </TooltipTrigger>
-                <TooltipContent>Switch the order</TooltipContent>
+                <TooltipContent>交换顺序</TooltipContent>
               </Tooltip>
             </div>
           </div>
@@ -193,10 +193,10 @@ export function DatasetExperimentsComparison({
       )}
 
       {versionMismatch && (
-        <Notice variant="warning" title="Version mismatch">
+        <Notice variant="warning" title="版本不一致">
           <Notice.Message>
-            These experiments used different dataset versions (v{expA.datasetVersion} vs v
-            {expB.datasetVersion}). Results may not be directly comparable.
+            这些实验使用了不同的数据集版本（v{expA.datasetVersion} 与 v{expB.datasetVersion}
+            ），结果可能无法直接对比。
           </Notice.Message>
         </Notice>
       )}
@@ -205,28 +205,28 @@ export function DatasetExperimentsComparison({
       {scorerSummaries.length > 0 && (
         <ItemList>
           <ItemList.Header columns={scorerSummaryColumns}>
-            <ItemList.HeaderCol>Scorer</ItemList.HeaderCol>
+            <ItemList.HeaderCol>评分器</ItemList.HeaderCol>
             <ItemList.HeaderCol className="flex justify-center">
               <ChipsGroup>
                 <Chip color="purple" size="small" intensity="muted">
-                  Baseline
+                  基准
                 </Chip>
                 <Chip color="purple" size="small">
-                  Avg
+                  平均值
                 </Chip>
               </ChipsGroup>
             </ItemList.HeaderCol>
             <ItemList.HeaderCol className="flex justify-center">
               <ChipsGroup>
                 <Chip color="cyan" size="small" intensity="muted">
-                  Contender
+                  对比项
                 </Chip>
                 <Chip color="cyan" size="small">
-                  Avg
+                  平均值
                 </Chip>
               </ChipsGroup>
             </ItemList.HeaderCol>
-            <ItemList.HeaderCol className="flex justify-center">Delta</ItemList.HeaderCol>
+            <ItemList.HeaderCol className="flex justify-center">差值</ItemList.HeaderCol>
           </ItemList.Header>
 
           <ItemList.Scroller>

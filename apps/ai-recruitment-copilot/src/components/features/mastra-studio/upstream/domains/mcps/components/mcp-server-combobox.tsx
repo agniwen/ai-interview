@@ -20,9 +20,9 @@ export interface MCPServerComboboxProps {
 export function MCPServerCombobox({
   value,
   onValueChange,
-  placeholder = "Select an MCP server...",
-  searchPlaceholder = "Search MCP servers...",
-  emptyText = "No MCP servers found.",
+  placeholder = "选择 MCP 服务器...",
+  searchPlaceholder = "搜索 MCP 服务器...",
+  emptyText = "未找到 MCP 服务器。",
   className,
   disabled = false,
   variant,
@@ -33,8 +33,8 @@ export function MCPServerCombobox({
 
   useEffect(() => {
     if (isError) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to load MCP servers";
-      toast.error(`Error loading MCP servers: ${errorMessage}`);
+      const errorMessage = error instanceof Error ? error.message : "加载 MCP 服务器失败";
+      toast.error(`加载 MCP 服务器时出错：${errorMessage}`);
     }
   }, [isError, error]);
 
@@ -56,7 +56,7 @@ export function MCPServerCombobox({
       options={mcpServerOptions}
       value={value}
       onValueChange={handleValueChange}
-      placeholder={isLoading ? "Loading MCP servers..." : placeholder}
+      placeholder={isLoading ? "正在加载 MCP 服务器..." : placeholder}
       searchPlaceholder={searchPlaceholder}
       emptyText={emptyText}
       className={className}

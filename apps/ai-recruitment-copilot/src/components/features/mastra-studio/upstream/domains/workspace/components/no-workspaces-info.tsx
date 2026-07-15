@@ -6,11 +6,12 @@ export const NoWorkspacesInfo = () => (
   <div className="flex h-full items-center justify-center">
     <EmptyState
       iconSlot={<CircleSlashIcon />}
-      titleSlot="No Workspaces yet"
+      titleSlot="暂无工作区"
       descriptionSlot={
         <>
-          Add a workspace to your Mastra configuration to <br />
-          manage files, skills, and enable semantic search.
+          在 Mastra 配置中添加工作区，
+          <br />
+          以管理文件和技能并启用语义搜索。
         </>
       }
       actionSlot={
@@ -21,7 +22,7 @@ export const NoWorkspacesInfo = () => (
           target="_blank"
           rel="noopener noreferrer"
         >
-          Workspaces Documentation <ExternalLinkIcon />
+          工作区文档 <ExternalLinkIcon />
         </Button>
       }
     />

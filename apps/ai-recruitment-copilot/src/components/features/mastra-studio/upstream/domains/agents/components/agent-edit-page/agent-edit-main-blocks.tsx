@@ -19,11 +19,7 @@ export function AgentEditMainContentBlocks({
 
   return (
     <div className="grid grid-rows-[auto_1fr] gap-6 h-full px-4 pb-4">
-      <SectionHeader
-        title="Instruction blocks"
-        subtitle="Add instruction blocks to your agent."
-        icon={<Blocks />}
-      />
+      <SectionHeader title="指令块" subtitle="为智能体添加指令块。" icon={<Blocks />} />
 
       <div className="h-full overflow-y-auto">
         <Controller
@@ -34,7 +30,7 @@ export function AgentEditMainContentBlocks({
             <AgentCMSBlocks
               items={field.value ?? []}
               onChange={field.onChange}
-              placeholder="Enter content..."
+              placeholder="输入内容…"
               schema={schema}
             />
           )}

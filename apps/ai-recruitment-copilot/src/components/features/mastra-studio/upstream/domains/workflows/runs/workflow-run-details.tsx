@@ -67,7 +67,7 @@ export const WorkflowRunDetail = ({
     return (
       <div className="p-4">
         <Txt variant="ui-md" className="text-neutral6 text-center">
-          No previous run
+          暂无运行记录
         </Txt>
       </div>
     );

@@ -77,7 +77,7 @@ export function JSONUploadStep({ onFileSelect, isParsing, error }: JSONUploadSte
     <div className="flex flex-col gap-3">
       {/* Hidden file input */}
       <input
-        aria-label="Upload JSON file"
+        aria-label="上传 JSON 文件"
         ref={inputRef}
         type="file"
         accept=".json"
@@ -110,7 +110,7 @@ export function JSONUploadStep({ onFileSelect, isParsing, error }: JSONUploadSte
         {isParsing ? (
           <>
             <Spinner />
-            <span className="text-sm text-neutral4">Parsing JSON...</span>
+            <span className="text-sm text-neutral4">正在解析 JSON...</span>
           </>
         ) : (
           <>
@@ -118,10 +118,8 @@ export function JSONUploadStep({ onFileSelect, isParsing, error }: JSONUploadSte
               <FileJson className="h-8 w-8" />
             </Icon>
             <div className="flex flex-col items-center gap-1">
-              <span className="text-sm font-medium text-neutral1">
-                Click to upload or drag and drop
-              </span>
-              <span className="text-xs text-neutral4">JSON files only</span>
+              <span className="text-sm font-medium text-neutral1">点击上传或拖放文件</span>
+              <span className="text-xs text-neutral4">仅支持 JSON 文件</span>
             </div>
           </>
         )}
@@ -132,13 +130,13 @@ export function JSONUploadStep({ onFileSelect, isParsing, error }: JSONUploadSte
 
       {/* Format hint */}
       <div className="text-xs text-neutral4 bg-surface2 p-3 rounded-md">
-        <p className="font-medium mb-1">Expected format:</p>
+        <p className="font-medium mb-1">预期格式：</p>
         <pre className="text-[10px] overflow-x-auto">
           {`[
   {
-    "input": "Your input data",
-    "groundTruth": "Expected result (optional)",
-    "metadata": { "key": "value" } // optional
+    "input": "输入数据",
+    "groundTruth": "预期结果（可选）",
+    "metadata": { "key": "value" } // 可选
   }
 ]`}
         </pre>

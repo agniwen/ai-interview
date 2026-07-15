@@ -25,7 +25,7 @@ function DatasetItemContent({ item }: { item: DatasetItem }) {
     <>
       <div className="mb-4">
         <h3 className="text-lg font-medium flex items-center gap-2">
-          <FileInputIcon className="w-5 h-5" /> Dataset Item
+          <FileInputIcon className="w-5 h-5" /> 数据项
         </h3>
         <TextAndIcon>
           <HashIcon className="w-4 h-4" /> {item.id}
@@ -37,14 +37,14 @@ function DatasetItemContent({ item }: { item: DatasetItem }) {
           data={[
             {
               key: "createdAt",
-              label: "Created",
-              value: format(new Date(item.createdAt), "MMM d, yyyy h:mm aaa"),
+              label: "创建时间",
+              value: format(new Date(item.createdAt), "yyyy/MM/dd HH:mm"),
             },
             ...(item.datasetVersion !== null && item.datasetVersion !== undefined
               ? [
                   {
                     key: "version",
-                    label: "Version",
+                    label: "版本",
                     value: `v${item.datasetVersion}`,
                   },
                 ]
@@ -53,14 +53,14 @@ function DatasetItemContent({ item }: { item: DatasetItem }) {
         />
 
         <SideDialog.CodeSection
-          title="Input"
+          title="输入"
           icon={<FileInputIcon />}
           codeStr={JSON.stringify(item.input, null, 2)}
         />
 
         {item.groundTruth !== null && item.groundTruth !== undefined && (
           <SideDialog.CodeSection
-            title="Ground Truth"
+            title="标准答案"
             icon={<FileOutputIcon />}
             codeStr={JSON.stringify(item.groundTruth, null, 2)}
           />
@@ -68,14 +68,14 @@ function DatasetItemContent({ item }: { item: DatasetItem }) {
 
         {trajectoryDisplay && (
           <SideDialog.CodeSection
-            title="Expected Trajectory"
+            title="预期轨迹"
             icon={<RouteIcon />}
             codeStr={trajectoryDisplay}
           />
         )}
 
         {metadataDisplay && (
-          <SideDialog.CodeSection title="Metadata" icon={<TagIcon />} codeStr={metadataDisplay} />
+          <SideDialog.CodeSection title="元数据" icon={<TagIcon />} codeStr={metadataDisplay} />
         )}
       </Sections>
     </>

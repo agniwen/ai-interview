@@ -9,7 +9,7 @@ export const useSchedule = (scheduleId: string | undefined) => {
     enabled: !!scheduleId,
     queryFn: async () => {
       if (!scheduleId) {
-        throw new Error("scheduleId is required");
+        throw new Error("必须提供定时任务 ID");
       }
       return await client.getSchedule(scheduleId);
     },

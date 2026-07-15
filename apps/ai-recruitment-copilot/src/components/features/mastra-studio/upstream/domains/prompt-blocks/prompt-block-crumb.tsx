@@ -13,5 +13,5 @@ export function PromptBlockCrumb() {
     return <Skeleton className="h-5 w-36" />;
   }
 
-  return promptBlock?.name ?? "Prompt block not found";
+  return promptBlock?.name ?? "未找到提示词块";
 }

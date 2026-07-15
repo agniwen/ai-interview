@@ -10,11 +10,11 @@ export const NoDatasetsInfo = ({ onCreateClick }: NoDatasetsInfoProps = {}) => (
   <div className="flex h-full items-center justify-center">
     <EmptyState
       iconSlot={<CircleSlashIcon />}
-      titleSlot="No Datasets yet"
+      titleSlot="暂无数据集"
       descriptionSlot={
         <>
-          Create your first dataset to start evaluating <br />
-          your agents and workflows.
+          创建首个数据集，开始评估 <br />
+          智能体和工作流。
         </>
       }
       actionSlot={
@@ -22,7 +22,7 @@ export const NoDatasetsInfo = ({ onCreateClick }: NoDatasetsInfoProps = {}) => (
           {onCreateClick && (
             <Button variant="primary" onClick={onCreateClick}>
               <Plus />
-              Create Dataset
+              创建数据集
             </Button>
           )}
           <Button
@@ -32,7 +32,7 @@ export const NoDatasetsInfo = ({ onCreateClick }: NoDatasetsInfoProps = {}) => (
             target="_blank"
             rel="noopener noreferrer"
           >
-            Datasets Documentation <ExternalLinkIcon />
+            数据集文档 <ExternalLinkIcon />
           </Button>
         </div>
       }

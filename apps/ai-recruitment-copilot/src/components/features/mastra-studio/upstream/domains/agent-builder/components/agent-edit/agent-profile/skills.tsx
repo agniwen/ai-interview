@@ -44,7 +44,7 @@ const SkillItem = ({ skill, editable, onToggle, isChecked }: SkillItemProps) => 
 const SkillEmptyState = () => (
   <div className="flex items-center justify-center py-12">
     <Txt variant="ui-sm" className="text-neutral3">
-      No skills available in this project.
+      此项目中没有可用技能。
     </Txt>
   </div>
 );

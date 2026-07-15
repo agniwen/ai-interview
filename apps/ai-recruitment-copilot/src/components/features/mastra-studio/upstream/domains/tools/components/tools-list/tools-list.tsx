@@ -33,18 +33,18 @@ export function ToolsList({ tools, agents, isLoading, search = "" }: ToolsListPr
   return (
     <EntityList columns="auto 1fr auto" variant="striped">
       <EntityList.Top>
-        <EntityList.TopCell>Name</EntityList.TopCell>
-        <EntityList.TopCell>Description</EntityList.TopCell>
+        <EntityList.TopCell>名称</EntityList.TopCell>
+        <EntityList.TopCell>描述</EntityList.TopCell>
         <EntityList.TopCellSmart
-          long="Agents"
+          long="智能体"
           short={<AgentIcon />}
-          tooltip="Attached Agents"
+          tooltip="已关联的智能体"
           className="text-center"
         />
       </EntityList.Top>
 
       {filteredData.length === 0 && search ? (
-        <EntityList.NoMatch message="No Tools match your search" />
+        <EntityList.NoMatch message="没有符合搜索条件的工具" />
       ) : null}
 
       {filteredData.map((tool) => {

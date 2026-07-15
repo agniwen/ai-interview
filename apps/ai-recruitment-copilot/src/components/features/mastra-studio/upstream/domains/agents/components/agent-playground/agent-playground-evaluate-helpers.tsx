@@ -74,7 +74,7 @@ export function formatDate(dateStr: string | Date | undefined | null): string {
     return "—";
   }
   const d = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
-  return d.toLocaleDateString("en-US", {
+  return d.toLocaleDateString("zh-CN", {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
@@ -119,7 +119,7 @@ export function ExperimentBadge({ experiment }: { experiment: AgentExperiment })
     return (
       <div className="flex flex-col">
         <Txt variant="ui-xs" className="text-warning1">
-          {status === "running" ? "Running..." : "Pending..."}
+          {status === "running" ? "运行中..." : "等待中..."}
         </Txt>
         {versionLine}
       </div>
@@ -130,7 +130,7 @@ export function ExperimentBadge({ experiment }: { experiment: AgentExperiment })
     return (
       <div className="flex flex-col">
         <Txt variant="ui-xs" className="text-neutral3">
-          No results
+          暂无结果
         </Txt>
         {versionLine}
       </div>
@@ -147,7 +147,7 @@ export function ExperimentBadge({ experiment }: { experiment: AgentExperiment })
   return (
     <div className="flex flex-col">
       <Txt variant="ui-xs" className={colorClass}>
-        {succeededCount}/{totalItems} passed
+        {succeededCount}/{totalItems} 通过
       </Txt>
       {versionLine}
     </div>

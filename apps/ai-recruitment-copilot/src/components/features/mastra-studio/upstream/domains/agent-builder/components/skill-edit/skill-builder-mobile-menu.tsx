@@ -43,7 +43,7 @@ function VisibilityMenuItem({ skillId, disabled }: VisibilityMenuItemProps) {
           }}
         >
           <Globe />
-          <span>Add to library</span>
+          <span>添加到库</span>
         </DropdownMenu.Item>
       ) : (
         <DropdownMenu.Item
@@ -55,7 +55,7 @@ function VisibilityMenuItem({ skillId, disabled }: VisibilityMenuItemProps) {
           }}
         >
           <LockIcon />
-          <span>Remove from library</span>
+          <span>从库中移除</span>
         </DropdownMenu.Item>
       )}
       {dialog}
@@ -81,7 +81,7 @@ export function SkillBuilderMobileMenu({
           <Button
             size="icon-sm"
             variant="ghost"
-            tooltip="More actions"
+            tooltip="更多操作"
             data-testid="skill-builder-mobile-menu-trigger"
           >
             <MoreVerticalIcon />

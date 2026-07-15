@@ -68,7 +68,7 @@ export const ToolApprovalButtons = ({
   if (toolApprovalMetadata && !toolCalled) {
     return (
       <div>
-        <p className="font-medium pb-2">Approval required</p>
+        <p className="font-medium pb-2">需要审批</p>
         <div className="flex gap-2 items-center">
           <Button
             onClick={handleApprove}
@@ -78,7 +78,7 @@ export const ToolApprovalButtons = ({
             <Icon>
               <Check />
             </Icon>
-            Approve
+            批准
           </Button>
           <Button
             onClick={handleDecline}
@@ -88,7 +88,7 @@ export const ToolApprovalButtons = ({
             <Icon>
               <X />
             </Icon>
-            Decline
+            拒绝
           </Button>
         </div>
       </div>

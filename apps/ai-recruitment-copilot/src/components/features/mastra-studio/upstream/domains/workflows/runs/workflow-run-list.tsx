@@ -9,7 +9,6 @@ import {
 } from "@mastra/playground-ui/components/ThreadList";
 import { Txt } from "@mastra/playground-ui/components/Txt";
 import { Icon } from "@mastra/playground-ui/icons/Icon";
-import { formatDate } from "date-fns";
 import { useState } from "react";
 import { WorkflowRunStatusIcon } from "../components/workflow-run-status-icon";
 import { usePermissions } from "@/components/features/mastra-studio/upstream/domains/auth/hooks/use-permissions";
@@ -59,15 +58,14 @@ const DeleteRunDialog = ({ open, onOpenChange, onDelete }: DeleteRunDialogProps)
   <AlertDialog open={open} onOpenChange={onOpenChange}>
     <AlertDialog.Content>
       <AlertDialog.Header>
-        <AlertDialog.Title>Are you absolutely sure?</AlertDialog.Title>
+        <AlertDialog.Title>确定要删除吗？</AlertDialog.Title>
         <AlertDialog.Description>
-          This action cannot be undone. This will permanently delete the workflow run and remove it
-          from our servers.
+          此操作无法撤销。工作流运行记录将从服务器中永久删除。
         </AlertDialog.Description>
       </AlertDialog.Header>
       <AlertDialog.Footer>
-        <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-        <AlertDialog.Action onClick={onDelete}>Continue</AlertDialog.Action>
+        <AlertDialog.Cancel>取消</AlertDialog.Cancel>
+        <AlertDialog.Action onClick={onDelete}>继续</AlertDialog.Action>
       </AlertDialog.Footer>
     </AlertDialog.Content>
   </AlertDialog>
@@ -110,14 +108,12 @@ export const WorkflowRecentRuns = ({ workflowId, runId }: WorkflowRecentRunsProp
         <div>
           <div className="px-5 pb-2 pt-3 text-left">
             <Txt as="h2" variant="ui-md" className="text-neutral3">
-              Recent runs
+              最近运行记录
             </Txt>
           </div>
-          <ThreadList aria-label="Workflow runs" embedded>
+          <ThreadList aria-label="工作流运行记录" embedded>
             {actualRuns.length === 0 ? (
-              <ThreadListEmpty>
-                Your run history will appear here once you run the workflow
-              </ThreadListEmpty>
+              <ThreadListEmpty>运行工作流后，运行记录将显示在这里</ThreadListEmpty>
             ) : (
               <ThreadListItems>
                 {actualRuns.map((run) => {
@@ -131,7 +127,7 @@ export const WorkflowRecentRuns = ({ workflowId, runId }: WorkflowRecentRunsProp
                       to={paths.workflowRunLink(workflowId, run.runId)}
                       isActive={isActiveRun}
                       onDelete={canDeleteRun ? () => setDeleteRunId(run.runId) : undefined}
-                      deleteLabel="delete run"
+                      deleteLabel="删除运行记录"
                       className="h-auto min-h-0 items-stretch py-1"
                     >
                       <span className="flex w-full min-w-0 items-center gap-2.5 px-1 text-left">
@@ -152,7 +148,10 @@ export const WorkflowRecentRuns = ({ workflowId, runId }: WorkflowRecentRunsProp
                               typeof run.snapshot === "object" &&
                               run.snapshot.timestamp && (
                                 <span className="shrink-0 text-neutral3">
-                                  {formatDate(run.snapshot.timestamp, "MMM d, yyyy h:mm a")}
+                                  {new Intl.DateTimeFormat("zh-CN", {
+                                    dateStyle: "medium",
+                                    timeStyle: "short",
+                                  }).format(run.snapshot.timestamp)}
                                 </span>
                               )}
                           </span>

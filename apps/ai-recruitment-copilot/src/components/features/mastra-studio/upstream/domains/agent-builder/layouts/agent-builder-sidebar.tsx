@@ -17,31 +17,31 @@ import { useLinkComponent } from "@/components/features/mastra-studio/upstream/l
 
 const agentsLink: NavLink = {
   icon: <AgentIcon />,
-  name: "My agents",
+  name: "我的智能体",
   url: "/agent-builder/agents",
 };
 
 const favoritesLink: NavLink = {
   icon: <StarIcon />,
-  name: "Favorites",
+  name: "收藏",
   url: "/agent-builder/favorite",
 };
 
 const libraryLink: NavLink = {
   icon: <LibraryIcon />,
-  name: "Library",
+  name: "库",
   url: "/agent-builder/library",
 };
 
 const skillsLink: NavLink = {
   icon: <Blocks className="h-4 w-4" />,
-  name: "Skills",
+  name: "技能",
   url: "/agent-builder/skills",
 };
 
 const infrastructureLink: NavLink = {
   icon: <ServerCogIcon className="h-4 w-4" />,
-  name: "Infrastructure",
+  name: "基础设施",
   url: "/agent-builder/infrastructure",
 };
 
@@ -77,7 +77,7 @@ export function AgentBuilderSidebar({ forceExpanded = false }: AgentBuilderSideb
     <span className="flex items-center gap-2 pl-3 pr-2">
       <Link
         href="/agents"
-        aria-label="Back to Mastra Studio"
+        aria-label="返回 Mastra Studio"
         className="flex items-center gap-2 rounded-sm hover:opacity-80 min-w-0"
       >
         <LogoWithoutText className="h-[1.5rem] w-[1.5rem] shrink-0" />
@@ -92,7 +92,7 @@ export function AgentBuilderSidebar({ forceExpanded = false }: AgentBuilderSideb
         <span className="flex items-center gap-2 flex-1 min-w-0">
           <Link
             href="/agents"
-            aria-label="Back to Mastra Studio"
+            aria-label="返回 Mastra Studio"
             className="flex items-center gap-2 rounded-sm hover:opacity-80 min-w-0"
           >
             <LogoWithoutText className="h-[1.5rem] w-[1.5rem] shrink-0" />
@@ -110,7 +110,7 @@ export function AgentBuilderSidebar({ forceExpanded = false }: AgentBuilderSideb
         <div className="relative grid place-items-center size-9">
           <Link
             href="/agents"
-            aria-label="Back to Mastra Studio"
+            aria-label="返回 Mastra Studio"
             className={cn(
               "transition-opacity duration-150",
               !isMobile && "group-hover/sidebar:opacity-0",

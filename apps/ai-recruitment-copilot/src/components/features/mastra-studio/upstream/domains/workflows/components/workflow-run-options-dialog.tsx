@@ -24,7 +24,7 @@ export const WorkflowRunOptionsDialog = () => {
             type="button"
             variant="ghost"
             size="icon-md"
-            aria-label="Run Options"
+            aria-label="运行选项"
             onClick={() => setOpen(true)}
           >
             <Icon>
@@ -32,16 +32,14 @@ export const WorkflowRunOptionsDialog = () => {
             </Icon>
           </Button>
         </TooltipTrigger>
-        <TooltipContent>Run Options</TooltipContent>
+        <TooltipContent>运行选项</TooltipContent>
       </Tooltip>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Run Options</DialogTitle>
-            <DialogDescription>
-              Configure tracing and debug options for this workflow run
-            </DialogDescription>
+            <DialogTitle>运行选项</DialogTitle>
+            <DialogDescription>配置此次工作流运行的追踪和调试选项</DialogDescription>
           </DialogHeader>
           <DialogBody>
             <WorkflowTracingRunOptions onSaved={() => setOpen(false)} />

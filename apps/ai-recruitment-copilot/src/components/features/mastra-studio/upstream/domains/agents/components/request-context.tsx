@@ -78,7 +78,7 @@ export const RequestContext = ({
   useEffect(() => {
     const run = async () => {
       if (!isValidJson(requestContextStr)) {
-        toast.error("Invalid JSON");
+        toast.error("JSON 无效");
         return;
       }
 
@@ -109,10 +109,10 @@ export const RequestContext = ({
     try {
       const parsedContext = JSON.parse(requestContextValue);
       setRequestContext(parsedContext);
-      toast.success("Request context saved successfully");
+      toast.success("请求上下文已保存");
     } catch (error) {
       console.error("error", error);
-      toast.error("Invalid JSON");
+      toast.error("JSON 无效");
     }
   };
 
@@ -125,7 +125,7 @@ export const RequestContext = ({
 
   const formatRequestContext = async () => {
     if (!isValidJson(requestContextValue)) {
-      toast.error("Invalid JSON");
+      toast.error("JSON 无效");
       return;
     }
 
@@ -158,7 +158,7 @@ export const RequestContext = ({
       <div>
         <div className="flex items-center justify-between pb-2">
           <RequestContextLabel as="label" tooltip={labelTooltip}>
-            Request Context (JSON)
+            请求上下文（JSON）
           </RequestContextLabel>
 
           <div className="flex items-center gap-2">
@@ -170,7 +170,7 @@ export const RequestContext = ({
                   </Icon>
                 </button>
               </TooltipTrigger>
-              <TooltipContent>Format the Request Context JSON</TooltipContent>
+              <TooltipContent>格式化请求上下文 JSON</TooltipContent>
             </Tooltip>
 
             <Tooltip>
@@ -181,7 +181,7 @@ export const RequestContext = ({
                   </Icon>
                 </button>
               </TooltipTrigger>
-              <TooltipContent>Copy Request Context</TooltipContent>
+              <TooltipContent>复制请求上下文</TooltipContent>
             </Tooltip>
           </div>
         </div>
@@ -190,10 +190,10 @@ export const RequestContext = ({
           <div className="pb-3">
             <Select value={selectedPreset} onValueChange={handlePresetChange}>
               <SelectTrigger>
-                <SelectValue placeholder="Select a preset..." />
+                <SelectValue placeholder="选择预设…" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__custom__">Custom</SelectItem>
+                <SelectItem value="__custom__">自定义</SelectItem>
                 {Object.keys(presets).map((key) => (
                   <SelectItem key={key} value={key}>
                     {key}
@@ -222,7 +222,7 @@ export const RequestContext = ({
               variant="default"
               size="icon-md"
               type="button"
-              tooltip="Revert request context changes"
+              tooltip="撤销请求上下文更改"
               onClick={handleRevertRequestContext}
             >
               <X />
@@ -233,7 +233,7 @@ export const RequestContext = ({
             onClick={handleSaveRequestContext}
             disabled={!isRequestContextDirty}
           >
-            Save
+            保存
           </Button>
         </div>
       </div>
@@ -248,7 +248,7 @@ export const RequestContextWrapper = ({ children }: { children: ReactNode }) => 
     <div>
       <Notice
         variant="note"
-        title="Request context"
+        title="请求上下文"
         className="mb-5"
         action={
           <Notice.Button
@@ -259,15 +259,13 @@ export const RequestContextWrapper = ({ children }: { children: ReactNode }) => 
             <Icon>
               <ExternalLink />
             </Icon>
-            See documentation
+            查看文档
           </Notice.Button>
         }
       >
         <Notice.Message>
-          Mastra provides request context, which is a system based on dependency injection that
-          enables you to configure your agents and tools with runtime variables. If you find
-          yourself creating several different agents that do very similar things, request context
-          allows you to combine them into one agent.
+          Mastra 提供基于依赖注入的请求上下文，可使用运行时变量配置智能体和工具。
+          如果多个智能体执行的任务非常相似，可通过请求上下文将它们合并为一个智能体。
         </Notice.Message>
       </Notice>
       {children}

@@ -50,7 +50,7 @@ export function ToolsSection({ control, error, readOnly = false }: ToolsSectionP
         <CollapsibleTrigger className="flex items-center gap-1 w-full p-3 bg-surface3">
           <ChevronRight className="h-4 w-4 text-neutral3" />
           <SectionTitle icon={<ToolsIcon className="text-accent6" />}>
-            Tools{count > 0 && <span className="text-neutral3 font-normal">({count})</span>}
+            工具{count > 0 && <span className="text-neutral3 font-normal">({count})</span>}
           </SectionTitle>
         </CollapsibleTrigger>
         <CollapsibleContent>
@@ -99,9 +99,9 @@ export function ToolsSection({ control, error, readOnly = false }: ToolsSectionP
                       options={options}
                       value={selectedIds}
                       onValueChange={handleValueChange}
-                      placeholder="Select tools..."
-                      searchPlaceholder="Search tools..."
-                      emptyText="No tools available"
+                      placeholder="选择工具…"
+                      searchPlaceholder="搜索工具…"
+                      emptyText="暂无可用工具"
                       disabled={isLoading || readOnly}
                       error={error}
                     />

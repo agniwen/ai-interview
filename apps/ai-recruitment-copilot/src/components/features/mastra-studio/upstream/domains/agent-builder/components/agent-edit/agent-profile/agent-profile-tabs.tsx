@@ -72,12 +72,12 @@ export const AgentProfileTabs = ({
         className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden"
       >
         <TabList variant="line" sticky className="!bg-surface3 px-6" style={tabListStyle}>
-          {modelTabEnabled && <Tab value="model">Model</Tab>}
-          {toolsTabEnabled && <Tab value="tools">Tools</Tab>}
-          <Tab value="instructions">Instructions</Tab>
-          {skillsTabEnabled && <Tab value="skills">Skills</Tab>}
-          {browserTabEnabled && <Tab value="browser">Browser</Tab>}
-          {integrationsTabEnabled && <Tab value="integrations">Integrations</Tab>}
+          {modelTabEnabled && <Tab value="model">模型</Tab>}
+          {toolsTabEnabled && <Tab value="tools">工具</Tab>}
+          <Tab value="instructions">指令</Tab>
+          {skillsTabEnabled && <Tab value="skills">技能</Tab>}
+          {browserTabEnabled && <Tab value="browser">浏览器</Tab>}
+          {integrationsTabEnabled && <Tab value="integrations">集成</Tab>}
         </TabList>
 
         <div className="min-h-0 overflow-y-auto h-full">

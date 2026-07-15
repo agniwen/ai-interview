@@ -46,8 +46,8 @@ function DatasetPageShell({ children }: { children?: ReactNode }) {
 
 function getRunExperimentLabel(activeVersion: number | null | undefined): string {
   return activeVersion === null || activeVersion === undefined
-    ? "Run Experiment"
-    : `Run on v${activeVersion}`;
+    ? "运行实验"
+    : `在 v${activeVersion} 上运行`;
 }
 
 function shouldDisableExperimentTrigger(isLoading: boolean, itemCount: number): boolean {
@@ -78,7 +78,7 @@ function getDatasetPageState({
   if (error && is403ForbiddenError(error)) {
     return (
       <DatasetPageShell>
-        <PermissionDenied resource="datasets" />
+        <PermissionDenied resource="数据集" />
       </DatasetPageShell>
     );
   }
@@ -87,12 +87,12 @@ function getDatasetPageState({
       <DatasetPageShell>
         <EmptyState
           iconSlot={<DatabaseIcon />}
-          titleSlot="Dataset not found"
-          descriptionSlot={`No dataset with id "${datasetId}".`}
+          titleSlot="未找到数据集"
+          descriptionSlot={`未找到 ID 为“${datasetId}”的数据集。`}
           actionSlot={
             <Button as={Link} to="/datasets">
               <ArrowLeft />
-              Back to Datasets
+              返回数据集列表
             </Button>
           }
         />
@@ -103,12 +103,8 @@ function getDatasetPageState({
     return (
       <DatasetPageShell>
         <ErrorState
-          title="Failed to load dataset"
-          message={
-            error instanceof Error
-              ? error.message
-              : "An unexpected error occurred. Please try again."
-          }
+          title="加载数据集失败"
+          message={error instanceof Error ? error.message : "发生意外错误，请重试。"}
         />
       </DatasetPageShell>
     );
@@ -175,11 +171,11 @@ function DatasetPage() {
                 <p className="text-ui-smd text-neutral3 mb-1">{dataset.description}</p>
               )}
               <DataKeysAndValues numOfCol={2}>
-                <DataKeysAndValues.Key>Created at</DataKeysAndValues.Key>
+                <DataKeysAndValues.Key>创建时间</DataKeysAndValues.Key>
                 <DataKeysAndValues.Value>
-                  {dataset?.createdAt ? format(new Date(dataset.createdAt), "MMM d, yyyy") : ""}
+                  {dataset?.createdAt ? format(new Date(dataset.createdAt), "yyyy/MM/dd") : ""}
                 </DataKeysAndValues.Value>
-                <DataKeysAndValues.Key>Latest version</DataKeysAndValues.Key>
+                <DataKeysAndValues.Key>最新版本</DataKeysAndValues.Key>
                 <DataKeysAndValues.Value>v{dataset?.version ?? ""}</DataKeysAndValues.Value>
               </DataKeysAndValues>
             </PageLayout.Column>
@@ -197,9 +193,7 @@ function DatasetPage() {
                         </div>
                       </span>
                     </TooltipTrigger>
-                    <TooltipContent>
-                      Add items to the dataset before running an experiment
-                    </TooltipContent>
+                    <TooltipContent>请先向数据集添加数据项，再运行实验</TooltipContent>
                   </Tooltip>
                 ) : (
                   <Button variant="primary" onClick={() => setExperimentDialogOpen(true)}>
@@ -209,22 +203,22 @@ function DatasetPage() {
                 )}
                 <DropdownMenu>
                   <DropdownMenu.Trigger asChild>
-                    <Button size="lg" aria-label="Dataset actions menu">
+                    <Button size="lg" aria-label="数据集操作菜单">
                       <MoreVertical />
                     </Button>
                   </DropdownMenu.Trigger>
                   <DropdownMenu.Content align="end" className="w-48">
                     <DropdownMenu.Item onSelect={() => setEditDialogOpen(true)}>
-                      <Pencil /> Edit Dataset
+                      <Pencil /> 编辑数据集
                     </DropdownMenu.Item>
                     <DropdownMenu.Item onSelect={() => setDuplicateDialogOpen(true)}>
-                      <Copy /> Duplicate Dataset
+                      <Copy /> 复制数据集
                     </DropdownMenu.Item>
                     <DropdownMenu.Item
                       onSelect={() => setDeleteDialogOpen(true)}
                       className="text-red-500 focus:text-red-400"
                     >
-                      <Trash2 /> Delete Dataset
+                      <Trash2 /> 删除数据集
                     </DropdownMenu.Item>
                   </DropdownMenu.Content>
                 </DropdownMenu>

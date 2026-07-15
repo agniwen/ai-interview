@@ -31,7 +31,7 @@ export interface WorkflowStepNodeData extends Record<string, unknown> {
 export type WorkflowStepNode = Node<WorkflowStepNodeData, typeof WORKFLOW_STEP_NODE_TYPE>;
 
 export interface WorkflowBoundaryNodeData extends Record<string, unknown> {
-  label: "Start" | "End";
+  label: "开始" | "结束";
   boundaryRole: "start" | "end";
 }
 
@@ -113,7 +113,7 @@ export const resolveWorkflowGraphStep = (flow: SerializedStepFlowEntry): Resolve
       };
     }
     default: {
-      throw new Error(`Unsupported workflow step type: ${(flow as { type?: string }).type}`);
+      throw new Error(`不支持的工作流步骤类型：${(flow as { type?: string }).type}`);
     }
   }
 };

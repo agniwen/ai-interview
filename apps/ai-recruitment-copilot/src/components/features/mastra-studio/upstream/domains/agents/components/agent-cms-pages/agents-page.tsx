@@ -113,14 +113,14 @@ export function AgentsPage() {
       <div className="flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <SectionHeader
-            title="Sub-Agents"
-            subtitle={`Select sub-agents for this agent to delegate to.${count > 0 ? ` (${count} selected)` : ""}`}
+            title="子智能体"
+            subtitle={`选择此智能体可委派任务的子智能体。${count > 0 ? `（已选择 ${count} 个）` : ""}`}
           />
         </div>
 
         <SubSectionRoot>
           <Section.Header>
-            <SubSectionHeader title="Available Agents" icon={<AgentIcon />} />
+            <SubSectionHeader title="可用智能体" icon={<AgentIcon />} />
           </Section.Header>
 
           <InputGroup variant="outline">
@@ -129,8 +129,8 @@ export function AgentsPage() {
             </InputGroupAddon>
             <InputGroupInput
               type="search"
-              aria-label="Search agents"
-              placeholder="Search agents"
+              aria-label="搜索智能体"
+              placeholder="搜索智能体"
               onChange={(event) => setSearch(event.target.value)}
             />
           </InputGroup>
@@ -148,7 +148,7 @@ export function AgentsPage() {
                       <EntityName>{agent.label}</EntityName>
                       <EntityDescription>
                         <input
-                          aria-label={`${agent.label} description`}
+                          aria-label={`${agent.label} 的描述`}
                           type="text"
                           disabled={isDisabled}
                           className={cn(

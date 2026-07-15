@@ -6,7 +6,7 @@ import { useAgentVersions } from "../hooks/use-agent-versions";
 
 function formatTimestamp(isoString: string): string {
   const date = new Date(isoString);
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString("zh-CN", {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
@@ -44,7 +44,7 @@ export function AgentVersionPanel({
     <div className="h-full flex flex-col">
       <div className="px-3 py-3 border-b border-border1">
         <Txt variant="ui-sm" className="font-medium text-neutral5">
-          Version history
+          版本历史
         </Txt>
       </div>
 
@@ -52,7 +52,7 @@ export function AgentVersionPanel({
         {isLoading ? (
           <div className="px-3 py-4">
             <Txt variant="ui-xs" className="text-neutral2">
-              Loading versions...
+              正在加载版本...
             </Txt>
           </div>
         ) : (
@@ -81,8 +81,8 @@ export function AgentVersionPanel({
                       <Txt variant="ui-sm" className="text-inherit">
                         v{version.versionNumber}
                       </Txt>
-                      {isPublished && <Badge variant="success">Published</Badge>}
-                      {isDraft && <Badge variant="info">Draft</Badge>}
+                      {isPublished && <Badge variant="success">已发布</Badge>}
+                      {isDraft && <Badge variant="info">草稿</Badge>}
                     </div>
                     <Txt variant="ui-xs" className="text-neutral2 mt-0.5">
                       {formatTimestamp(version.createdAt)}

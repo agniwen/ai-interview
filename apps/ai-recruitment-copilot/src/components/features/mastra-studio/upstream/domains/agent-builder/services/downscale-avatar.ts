@@ -45,7 +45,7 @@ export async function downscaleImageToDataUrl(file: File): Promise<DownscaledAva
 
   const ctx = canvas.getContext("2d");
   if (!ctx) {
-    throw new Error("Canvas 2D context is not available");
+    throw new Error("Canvas 2D 上下文不可用");
   }
 
   // Center-crop to a square region from the source
@@ -62,7 +62,7 @@ export async function downscaleImageToDataUrl(file: File): Promise<DownscaledAva
   const decodedSize = estimateDataUrlBytes(dataUrl);
   if (decodedSize > AVATAR_MAX_BYTES) {
     throw new Error(
-      `Avatar is too large after downscaling (${Math.round(decodedSize / 1024)} KB). Try a smaller image.`,
+      `头像缩小后仍然过大（${Math.round(decodedSize / 1024)} KB），请尝试更小的图片。`,
     );
   }
 

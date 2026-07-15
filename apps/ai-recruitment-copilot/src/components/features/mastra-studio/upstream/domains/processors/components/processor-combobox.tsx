@@ -19,9 +19,9 @@ export interface ProcessorComboboxProps {
 export function ProcessorCombobox({
   value,
   onValueChange,
-  placeholder = "Select a processor...",
-  searchPlaceholder = "Search processors...",
-  emptyText = "No processors found.",
+  placeholder = "选择处理器...",
+  searchPlaceholder = "搜索处理器...",
+  emptyText = "未找到处理器。",
   className,
   disabled = false,
   variant,
@@ -31,8 +31,8 @@ export function ProcessorCombobox({
 
   useEffect(() => {
     if (isError) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to load processors";
-      toast.error(`Error loading processors: ${errorMessage}`);
+      const errorMessage = error instanceof Error ? error.message : "加载处理器失败";
+      toast.error(`加载处理器时出错：${errorMessage}`);
     }
   }, [isError, error]);
 
@@ -64,7 +64,7 @@ export function ProcessorCombobox({
       options={processorOptions}
       value={value}
       onValueChange={handleValueChange}
-      placeholder={isLoading ? "Loading processors..." : placeholder}
+      placeholder={isLoading ? "正在加载处理器..." : placeholder}
       searchPlaceholder={searchPlaceholder}
       emptyText={emptyText}
       className={className}

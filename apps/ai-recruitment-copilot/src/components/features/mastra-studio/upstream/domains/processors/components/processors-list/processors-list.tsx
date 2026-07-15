@@ -44,59 +44,59 @@ export function ProcessorsList({ processors, isLoading, search = "" }: Processor
   return (
     <EntityList columns="auto 1fr auto auto auto auto auto auto" variant="striped">
       <EntityList.Top>
-        <EntityList.TopCell>Name</EntityList.TopCell>
-        <EntityList.TopCell>Description</EntityList.TopCell>
+        <EntityList.TopCell>名称</EntityList.TopCell>
+        <EntityList.TopCell>描述</EntityList.TopCell>
         <EntityList.TopCellSmart
-          long="Input"
-          short="Input"
-          tooltip="Contains Input phase"
+          long="输入"
+          short="输入"
+          tooltip="包含输入阶段"
           className="text-center"
         />
         <EntityList.TopCellSmart
-          long="Input Step"
+          long="输入步骤"
           short={
             <>
-              <FileInput /> Step
+              <FileInput /> 步骤
             </>
           }
-          tooltip="Contains Input Step phase"
+          tooltip="包含输入步骤阶段"
           className="text-center"
         />
         <EntityList.TopCellSmart
-          long="Output Step"
+          long="输出步骤"
           short={
             <>
-              <FileOutput /> Step
+              <FileOutput /> 步骤
             </>
           }
-          tooltip="Contains Output Step phase"
+          tooltip="包含输出步骤阶段"
           className="text-center"
         />
         <EntityList.TopCellSmart
-          long="Output Stream"
+          long="输出流"
           short={
             <>
-              <FileOutput /> Stream
+              <FileOutput /> 流
             </>
           }
-          tooltip="Contains Output Stream phase"
+          tooltip="包含输出流阶段"
           className="text-center"
         />
         <EntityList.TopCellSmart
-          long="Output Result"
+          long="输出结果"
           short={
             <>
-              <FileOutput /> Result
+              <FileOutput /> 结果
             </>
           }
-          tooltip="Contains Output Result phase"
+          tooltip="包含输出结果阶段"
           className="text-center"
         />
-        <EntityList.TopCellSmart short="Used by" long="Used by Agents" className="text-center" />
+        <EntityList.TopCellSmart short="使用方" long="使用此项的智能体" className="text-center" />
       </EntityList.Top>
 
       {filteredData.length === 0 && search ? (
-        <EntityList.NoMatch message="No Processors match your search" />
+        <EntityList.NoMatch message="没有符合搜索条件的处理器" />
       ) : null}
 
       {filteredData.map((processor) => {

@@ -46,7 +46,7 @@ const AgentBuilderSkillViewPage = ({ skill }: PageProps) => {
           variant="ghost"
           onClick={() => navigate("/agent-builder/skills", { viewTransition: true })}
           className="rounded-full"
-          tooltip="Skills list"
+          tooltip="技能列表"
           data-testid="skill-view-back-button"
         >
           <ArrowLeftIcon />
@@ -72,7 +72,7 @@ const AgentBuilderSkillViewPage = ({ skill }: PageProps) => {
               data-testid="skill-view-copy-button"
             >
               <PlusIcon />
-              Copy to my skills
+              复制到我的技能
             </Button>
           )}
         </div>

@@ -97,9 +97,9 @@ const getCommandDisplay = (
 
 const getDisplayName = (toolName: string) => {
   const names: Record<string, string> = {
-    [WORKSPACE_TOOLS.SANDBOX.EXECUTE_COMMAND]: "Execute Command",
-    [WORKSPACE_TOOLS.SANDBOX.GET_PROCESS_OUTPUT]: "Get Process Output",
-    [WORKSPACE_TOOLS.SANDBOX.KILL_PROCESS]: "Kill Process",
+    [WORKSPACE_TOOLS.SANDBOX.EXECUTE_COMMAND]: "执行命令",
+    [WORKSPACE_TOOLS.SANDBOX.GET_PROCESS_OUTPUT]: "获取进程输出",
+    [WORKSPACE_TOOLS.SANDBOX.KILL_PROCESS]: "终止进程",
   };
   return names[toolName] ?? toolName;
 };
@@ -124,7 +124,7 @@ const ExecutionStatus = ({
       <>
         <span className="flex items-center gap-1.5 text-xs text-accent6">
           <span className="w-1.5 h-1.5 bg-accent6 rounded-full animate-pulse" />
-          <span className="animate-pulse">running</span>
+          <span className="animate-pulse">运行中</span>
         </span>
         <span className="text-neutral6 text-xs tabular-nums">{elapsedTime}ms</span>
       </>
@@ -137,13 +137,13 @@ const ExecutionStatus = ({
     } else if (wasKilled) {
       outcome = (
         <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-500/20 text-orange-400">
-          killed
+          已终止
         </span>
       );
     } else {
       outcome = (
         <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-500/20 text-red-400">
-          exit {exitCode}
+          退出码 {exitCode}
         </span>
       );
     }
@@ -250,7 +250,7 @@ const TerminalBlock = ({
             <Button
               variant="default"
               size="icon-sm"
-              tooltip="Copy output"
+              tooltip="复制输出"
               onClick={onCopy}
               className="shrink-0"
             >
@@ -278,7 +278,7 @@ const TerminalBlock = ({
         style={{ maxHeight }}
         className="overflow-x-auto overflow-y-auto p-3 text-sm text-neutral-300 font-mono whitespace-pre-wrap bg-black"
       >
-        {content || <span className="text-neutral6 italic">No output</span>}
+        {content || <span className="text-neutral6 italic">暂无输出</span>}
       </pre>
     </div>
   );

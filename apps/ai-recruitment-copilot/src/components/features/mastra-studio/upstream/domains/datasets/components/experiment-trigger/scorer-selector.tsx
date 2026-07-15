@@ -33,15 +33,15 @@ export function ScorerSelector({
 
   return (
     <div className="grid gap-2">
-      <Label>Scorers (Optional)</Label>
+      <Label>评分器（可选）</Label>
       <Combobox
         multiple
         options={options}
         value={selectedScorers}
         onValueChange={setSelectedScorers}
-        placeholder="Select scorers..."
-        searchPlaceholder="Search scorers..."
-        emptyText="No scorers available"
+        placeholder="选择评分器..."
+        searchPlaceholder="搜索评分器..."
+        emptyText="暂无可用评分器"
         disabled={disabled || isLoading}
         container={container}
       />

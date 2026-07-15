@@ -190,11 +190,11 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
         setProposedAssignments(proposals);
         setShowProposalDialog(true);
       } else {
-        toast.success("Analysis complete — no new tags proposed.");
+        toast.success("分析完成，未建议新标签。");
       }
     } catch (error) {
       console.error("Failed to analyze failures:", error);
-      toast.error("Analysis failed. Please try again.");
+      toast.error("分析失败，请重试。");
     } finally {
       setIsAnalyzing(false);
     }
@@ -224,9 +224,7 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
     }
     const tagCount = allNewTags.size;
     const itemCount = accepted.length;
-    toast.success(
-      `Applied ${tagCount} tag${isTruthy(tagCount !== 1) ? "s" : ""} to ${itemCount} item${isTruthy(itemCount !== 1) ? "s" : ""}`,
-    );
+    toast.success(`已将 ${tagCount} 个标签应用到 ${itemCount} 个条目`);
     setShowProposalDialog(false);
     setProposedAssignments([]);
   }, [proposedAssignments, items, setItemTags, syncTagToDataset]);
@@ -424,7 +422,7 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
                 <DropdownMenu.Trigger asChild>
                   <Button variant="outline" size="md">
                     <FilterIcon />
-                    Filter
+                    筛选
                     {resolveConditional(
                       activeFilterCount > 0,
                       () => (
@@ -444,7 +442,7 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
                   {/* Status */}
                   <DropdownMenu.Sub>
                     <DropdownMenu.SubTrigger>
-                      Status
+                      状态
                       {resolveConditional(
                         showCompleted,
                         () => (
@@ -462,7 +460,7 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
                         }}
                         onSelect={(e) => e.preventDefault()}
                       >
-                        Review Queue
+                        评审队列
                       </DropdownMenu.CheckboxItem>
                       <DropdownMenu.CheckboxItem
                         checked={showCompleted}
@@ -472,7 +470,7 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
                         }}
                         onSelect={(e) => e.preventDefault()}
                       >
-                        Completed
+                        已完成
                       </DropdownMenu.CheckboxItem>
                     </DropdownMenu.SubContent>
                   </DropdownMenu.Sub>
@@ -480,7 +478,7 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
                   {/* Tags */}
                   <DropdownMenu.Sub>
                     <DropdownMenu.SubTrigger>
-                      Tags
+                      标签
                       {resolveConditional(
                         activeTagFilter,
                         () => (
@@ -495,7 +493,7 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
                         onCheckedChange={() => setActiveTagFilter(null)}
                         onSelect={(e) => e.preventDefault()}
                       >
-                        All tags
+                        所有标签
                       </DropdownMenu.CheckboxItem>
                       {resolveConditional(
                         untaggedCount > 0,
@@ -509,7 +507,7 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
                             }
                             onSelect={(e) => e.preventDefault()}
                           >
-                            Untagged
+                            无标签
                           </DropdownMenu.CheckboxItem>
                         ),
                         () => null,
@@ -542,7 +540,7 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
                           }}
                         >
                           <XIcon />
-                          Clear all filters
+                          清除所有筛选项
                         </DropdownMenu.Item>
                       </>
                     ),
@@ -564,7 +562,7 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
                     }}
                   >
                     <XIcon />
-                    Reset
+                    重置
                   </Button>
                 ),
                 () => null,
@@ -595,7 +593,7 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
                               <ChevronDown />
                             </Icon>
                           )}
-                          Actions
+                          操作
                         </Button>
                       </DropdownMenu.Trigger>
                       <DropdownMenu.Content align="end">
@@ -603,13 +601,13 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
                           <Icon size="sm">
                             <CheckCircle />
                           </Icon>
-                          Complete
+                          完成
                         </DropdownMenu.Item>
                         <DropdownMenu.Item onSelect={handleBulkRemove}>
                           <Icon size="sm">
                             <Trash2 />
                           </Icon>
-                          Remove
+                          移除
                         </DropdownMenu.Item>
                         <DropdownMenu.Separator />
                         <DropdownMenu.Item
@@ -619,7 +617,7 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
                           <Icon size="sm">
                             <Sparkles />
                           </Icon>
-                          Analyze selected
+                          分析所选条目
                         </DropdownMenu.Item>
                         <DropdownMenu.Item
                           disabled={untaggedCount === 0}
@@ -628,7 +626,7 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
                           <Icon size="sm">
                             <Sparkles />
                           </Icon>
-                          Analyze untagged
+                          分析无标签条目
                         </DropdownMenu.Item>
                       </DropdownMenu.Content>
                     </DropdownMenu>
@@ -658,7 +656,7 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
                         <Icon size="sm">
                           <GaugeIcon />
                         </Icon>
-                        Create Scorer
+                        创建评分器
                       </Button>
                     ),
                     () => null,
@@ -680,12 +678,12 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
                 <div className="flex-1 flex items-center justify-center">
                   <div className="text-center px-8">
                     <Txt variant="ui-sm" className="text-neutral3 block">
-                      {showCompleted ? "No completed reviews yet" : "No items to review"}
+                      {showCompleted ? "尚无已完成的评审" : "没有待评审条目"}
                     </Txt>
                     <Txt variant="ui-xs" className="text-neutral3 mt-2 block">
                       {showCompleted
-                        ? "Items marked as complete will appear here for auditing."
-                        : "When you identify failures in experiment results, send them here to annotate, cluster, and create scorers from failure patterns."}
+                        ? "标记为已完成的条目会显示在此处，供后续审查。"
+                        : "在实验结果中发现失败项后，可将其发送到此处进行标注、聚类，并根据失败模式创建评分器。"}
                     </Txt>
                   </div>
                 </div>
@@ -700,17 +698,17 @@ export function AgentPlaygroundReview({ agentId, onCreateScorer }: AgentPlaygrou
                           () => (isSomeSelected ? "indeterminate" : false),
                         )}
                         onToggle={() => toggleSelectAll()}
-                        aria-label="Select all"
+                        aria-label="全选"
                       />
                     ) : (
                       <DataList.TopCell>&nbsp;</DataList.TopCell>
                     )}
                     <DataList.TopCells colStart={2}>
-                      <DataList.TopCell>Input</DataList.TopCell>
-                      <DataList.TopCell>Comment</DataList.TopCell>
-                      <DataList.TopCell>Tags</DataList.TopCell>
-                      <DataList.TopCell>Rating</DataList.TopCell>
-                      <DataList.TopCell>Scores</DataList.TopCell>
+                      <DataList.TopCell>输入</DataList.TopCell>
+                      <DataList.TopCell>评论</DataList.TopCell>
+                      <DataList.TopCell>标签</DataList.TopCell>
+                      <DataList.TopCell>评级</DataList.TopCell>
+                      <DataList.TopCell>得分</DataList.TopCell>
                     </DataList.TopCells>
                   </DataList.Top>
                   <ReviewItemRows

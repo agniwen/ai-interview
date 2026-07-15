@@ -68,7 +68,7 @@ const stripRequestIdSuffix = (message: string): string => {
 export const parseStreamErrorText = (raw: string): ParsedStreamError => {
   const trimmed = raw.trim();
   if (trimmed.length === 0) {
-    return { summary: "Something went wrong while building the agent." };
+    return { summary: "构建智能体时出现问题。" };
   }
 
   // Heuristic: JSON envelope likely shaped like

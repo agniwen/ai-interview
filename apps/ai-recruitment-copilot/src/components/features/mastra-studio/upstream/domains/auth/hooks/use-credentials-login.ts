@@ -86,7 +86,7 @@ export async function makeCredentialsLoginRequest(
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.message || data.error || "Invalid email or password");
+    throw new Error(data.message || data.error || "邮箱或密码错误");
   }
 
   return data;

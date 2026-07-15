@@ -28,7 +28,7 @@ export const useExecuteTool = () => {
 
         return response;
       } catch (error) {
-        toast.error("Error executing dev tool");
+        toast.error("执行开发工具时出错");
         console.error("Error executing dev tool:", error);
         throw error;
       }

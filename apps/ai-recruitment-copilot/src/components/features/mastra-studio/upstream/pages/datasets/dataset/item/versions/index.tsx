@@ -110,10 +110,10 @@ function CompareVersionColumn({
       disabled: otherVersionNumbers.has(v.datasetVersion),
       label: (
         <>
-          <b>v. {v.datasetVersion}</b> - {format(date, "MMM d, yyyy h:mm a")}
+          <b>v. {v.datasetVersion}</b> - {format(date, "yyyy/MM/dd HH:mm")}
           {v.isLatest ? (
             <Chip color="blue" size="small">
-              Latest
+              最新
             </Chip>
           ) : null}
         </>
@@ -133,11 +133,9 @@ function CompareVersionColumn({
         updatedAt: version.updatedAt,
       }
     : null;
-  let columnContent = (
-    <div className="text-neutral4 text-sm">Version {datasetVersion} not found</div>
-  );
+  let columnContent = <div className="text-neutral4 text-sm">版本 {datasetVersion} 未找到</div>;
   if (isLoading) {
-    columnContent = <div className="text-neutral4 text-sm">Loading...</div>;
+    columnContent = <div className="text-neutral4 text-sm">正在加载...</div>;
   } else if (version && displayItem) {
     columnContent = <DatasetItemContent item={displayItem} Link={LinkComponent} />;
   }
@@ -150,8 +148,8 @@ function CompareVersionColumn({
           value={String(datasetVersion)}
           onValueChange={(val: string) => onVersionChange(Number(val))}
         >
-          <SelectTrigger aria-label="Version" className="w-full">
-            <SelectValue placeholder="Select version" />
+          <SelectTrigger aria-label="版本" className="w-full">
+            <SelectValue placeholder="选择版本" />
           </SelectTrigger>
           <SelectContent>
             {options.map((option) => (
@@ -208,7 +206,7 @@ function DatasetItemVersionsComparePage() {
     return (
       <MainContentLayout>
         <div className="flex h-full items-center justify-center">
-          <PermissionDenied resource="datasets" />
+          <PermissionDenied resource="数据集" />
         </div>
       </MainContentLayout>
     );
@@ -219,7 +217,7 @@ function DatasetItemVersionsComparePage() {
       <MainContentLayout>
         <MainContentContent>
           <div className="text-neutral4 text-center py-8">
-            <p>Select at least two versions to compare.</p>
+            <p>请至少选择两个版本进行对比。</p>
           </div>
         </MainContentContent>
       </MainContentLayout>
@@ -231,7 +229,7 @@ function DatasetItemVersionsComparePage() {
       <RouteHeaderActions owner="dataset-item-versions-compare">
         <Button as={Link} to={`/datasets/${datasetId}/items/${itemId}`} variant="outline">
           <ArrowLeft />
-          Back to Item
+          返回数据项
         </Button>
       </RouteHeaderActions>
 
@@ -245,11 +243,11 @@ function DatasetItemVersionsComparePage() {
             <MainHeader.Column>
               <MainHeader.Title>
                 <GitCompareIcon />
-                Compare Dataset Item Versions
+                对比数据项版本
               </MainHeader.Title>
               <MainHeader.Description>
                 <TextAndIcon>
-                  Comparing {versionNumbers.length} versions of{" "}
+                  正在对比数据项的 {versionNumbers.length} 个版本：{" "}
                   <Link
                     to={`/datasets/${datasetId}/items/${itemId}`}
                     className="text-info1 hover:underline"
@@ -264,11 +262,11 @@ function DatasetItemVersionsComparePage() {
                 <Button variant="primary" onClick={() => setIsDiffView((v) => !v)}>
                   {isDiffView ? (
                     <>
-                      <ColumnsIcon /> Default View
+                      <ColumnsIcon /> 默认视图
                     </>
                   ) : (
                     <>
-                      <GitCompareArrowsIcon /> Diff View
+                      <GitCompareArrowsIcon /> 差异视图
                     </>
                   )}
                 </Button>

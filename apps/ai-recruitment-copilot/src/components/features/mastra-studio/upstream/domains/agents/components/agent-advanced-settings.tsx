@@ -38,7 +38,7 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
   useEffect(() => {
     const run = async () => {
       if (!isValidJson(providerOptionsStr)) {
-        setError("Invalid JSON");
+        setError("JSON 无效");
         return;
       }
 
@@ -52,7 +52,7 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
   const formatProviderOptions = async () => {
     setError(null);
     if (!isValidJson(providerOptionsValue)) {
-      setError("Invalid JSON");
+      setError("JSON 无效");
       return;
     }
     const formatted = await formatJSON(providerOptionsValue);
@@ -77,7 +77,7 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
       }, 1000);
     } catch (parseError) {
       console.error("error", parseError);
-      setError("Invalid JSON");
+      setError("JSON 无效");
     }
   };
 
@@ -89,7 +89,7 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
         <div className="grid grid-cols-1 gap-2 pb-2 @xs/advanced:grid-cols-2">
           <div className="space-y-1">
             <Txt as="label" className="text-neutral3" variant="ui-sm" htmlFor="frequency-penalty">
-              Frequency Penalty
+              频率惩罚
             </Txt>
             <Input
               id="frequency-penalty"
@@ -113,7 +113,7 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
 
           <div className="space-y-1">
             <Txt as="label" className="text-neutral3" variant="ui-sm" htmlFor="presence-penalty">
-              Presence Penalty
+              存在惩罚
             </Txt>
             <Input
               id="presence-penalty"
@@ -162,7 +162,7 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
 
           <div className="space-y-1">
             <Txt as="label" className="text-neutral3" variant="ui-sm" htmlFor="max-tokens">
-              Max Tokens
+              最大 Token 数
             </Txt>
             <Input
               id="max-tokens"
@@ -187,7 +187,7 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
 
           <div className="space-y-1">
             <Txt as="label" className="text-neutral3" variant="ui-sm" htmlFor="max-steps">
-              Max Steps
+              最大步骤数
             </Txt>
             <Input
               id="max-steps"
@@ -212,7 +212,7 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
 
           <div className="space-y-1">
             <Txt as="label" className="text-neutral3" variant="ui-sm" htmlFor="max-retries">
-              Max Retries
+              最大重试次数
             </Txt>
             <Input
               id="max-retries"
@@ -237,7 +237,7 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
 
           <div className="space-y-1">
             <Txt as="label" className="text-neutral3" variant="ui-sm" htmlFor="seed">
-              Seed
+              随机种子
             </Txt>
             <Input
               id="seed"
@@ -264,7 +264,7 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
         <div className="space-y-1">
           <div className="flex justify-between items-center">
             <Txt as="label" className="text-neutral3" variant="ui-sm" htmlFor="provider-options">
-              Provider Options
+              提供商选项
             </Txt>
 
             <div className="flex items-center gap-2">
@@ -274,14 +274,14 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
                     type="button"
                     onClick={formatProviderOptions}
                     className={buttonClass}
-                    aria-label="Format Provider Options"
+                    aria-label="格式化提供商选项"
                   >
                     <Icon>
                       <Braces />
                     </Icon>
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>Format the Provider Options JSON</TooltipContent>
+                <TooltipContent>格式化提供商选项 JSON</TooltipContent>
               </Tooltip>
 
               <Tooltip>
@@ -290,14 +290,14 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
                     type="button"
                     onClick={handleCopy}
                     className={buttonClass}
-                    aria-label="Copy Provider Options"
+                    aria-label="复制提供商选项"
                   >
                     <Icon>
                       <CopyIcon />
                     </Icon>
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>Copy Provider Options</TooltipContent>
+                <TooltipContent>复制提供商选项</TooltipContent>
               </Tooltip>
 
               {resolveConditional(
@@ -309,7 +309,7 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
                         type="button"
                         onClick={saveProviderOptions}
                         className={buttonClass}
-                        aria-label="Save Provider Options"
+                        aria-label="保存提供商选项"
                       >
                         <Icon>
                           {resolveConditional(
@@ -327,8 +327,8 @@ export const AgentAdvancedSettingsBody = ({ canEdit = true }: AgentAdvancedSetti
                     <TooltipContent>
                       {resolveConditional(
                         saved,
-                        () => "Saved",
-                        () => "Save Provider Options",
+                        () => "已保存",
+                        () => "保存提供商选项",
                       )}
                     </TooltipContent>
                   </Tooltip>

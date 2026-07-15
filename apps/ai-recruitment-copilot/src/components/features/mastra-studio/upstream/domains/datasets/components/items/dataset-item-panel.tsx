@@ -131,7 +131,7 @@ export function DatasetItemPanel({
     try {
       parsedInput = JSON.parse(inputValue);
     } catch {
-      toast.error("Input must be valid JSON");
+      toast.error("输入必须是有效的 JSON");
       return;
     }
 
@@ -141,7 +141,7 @@ export function DatasetItemPanel({
       try {
         parsedGroundTruth = JSON.parse(groundTruthValue);
       } catch {
-        toast.error("Ground Truth must be valid JSON");
+        toast.error("标准答案必须是有效的 JSON");
         return;
       }
     }
@@ -152,7 +152,7 @@ export function DatasetItemPanel({
       try {
         parsedMetadata = JSON.parse(metadataValue);
       } catch {
-        toast.error("Metadata must be valid JSON");
+        toast.error("元数据必须是有效的 JSON");
         return;
       }
     }
@@ -163,7 +163,7 @@ export function DatasetItemPanel({
       try {
         parsedTrajectory = JSON.parse(trajectoryValue);
       } catch {
-        toast.error("Expected Trajectory must be valid JSON");
+        toast.error("预期轨迹必须是有效的 JSON");
         return;
       }
     }
@@ -174,12 +174,12 @@ export function DatasetItemPanel({
       try {
         const parsed = JSON.parse(toolMocksValue);
         if (!Array.isArray(parsed)) {
-          toast.error("Tool Mocks must be a JSON array");
+          toast.error("工具模拟必须是 JSON 数组");
           return;
         }
         parsedToolMocks = parsed as DatasetItemToolMock[];
       } catch {
-        toast.error("Tool Mocks must be valid JSON");
+        toast.error("工具模拟必须是有效的 JSON");
         return;
       }
     } else {
@@ -192,7 +192,7 @@ export function DatasetItemPanel({
       try {
         parsedRequestContext = JSON.parse(requestContextValue);
       } catch {
-        toast.error("Request Context must be valid JSON");
+        toast.error("请求上下文必须是有效的 JSON");
         return;
       }
     }
@@ -209,7 +209,7 @@ export function DatasetItemPanel({
         toolMocks: parsedToolMocks,
       });
 
-      toast.success("Item updated successfully");
+      toast.success("数据项更新成功");
       setIsEditing(false);
       setValidationErrors(null);
     } catch (error) {
@@ -218,9 +218,7 @@ export function DatasetItemPanel({
       if (schemaError) {
         setValidationErrors(schemaError);
       } else {
-        toast.error(
-          `Failed to update item: ${error instanceof Error ? error.message : "Unknown error"}`,
-        );
+        toast.error(`更新数据项失败：${error instanceof Error ? error.message : "未知错误"}`);
       }
     }
   };
@@ -257,14 +255,12 @@ export function DatasetItemPanel({
   const handleDeleteConfirm = async () => {
     try {
       await deleteItem.mutateAsync({ datasetId, itemId: item.id });
-      toast.success("Item deleted successfully");
+      toast.success("数据项删除成功");
       setShowDeleteConfirm(false);
       // Close the panel after successful deletion
       onClose();
     } catch (error) {
-      toast.error(
-        `Failed to delete item: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`删除数据项失败：${error instanceof Error ? error.message : "未知错误"}`);
     }
   };
 
@@ -273,14 +269,14 @@ export function DatasetItemPanel({
       <DataPanel>
         <DataPanel.Header>
           <DataPanel.Heading>
-            Item <b># {item.id.length > 12 ? `${item.id.slice(0, 12)}…` : item.id}</b>
+            数据项 <b># {item.id.length > 12 ? `${item.id.slice(0, 12)}…` : item.id}</b>
           </DataPanel.Heading>
           <ButtonsGroup className="ml-auto shrink-0">
             <DataPanel.NextPrevNav
               onPrevious={onPrevious}
               onNext={onNext}
-              previousLabel="Previous item"
-              nextLabel="Next item"
+              previousLabel="上一个数据项"
+              nextLabel="下一个数据项"
             />
             {!isEditing && (
               <>
@@ -288,35 +284,35 @@ export function DatasetItemPanel({
                   as={Link}
                   href={`/datasets/${datasetId}/items/${item.id}`}
                   size="md"
-                  tooltip="Go to item versions history"
-                  aria-label="Go to item versions history"
+                  tooltip="前往数据项版本历史"
+                  aria-label="前往数据项版本历史"
                 >
                   <History />
                 </Button>
 
                 <DropdownMenu>
                   <DropdownMenu.Trigger asChild>
-                    <Button size="md" aria-label="Actions menu">
+                    <Button size="md" aria-label="操作菜单">
                       <EllipsisVerticalIcon />
                     </Button>
                   </DropdownMenu.Trigger>
                   <DropdownMenu.Content align="end" className="w-48">
                     <DropdownMenu.Item onSelect={() => setIsEditing(true)}>
                       <Pencil />
-                      Edit
+                      编辑
                     </DropdownMenu.Item>
                     <DropdownMenu.Item
                       onSelect={() => setShowDeleteConfirm(true)}
                       className="text-red-500 focus:text-red-400"
                     >
                       <Trash2 />
-                      Delete Item
+                      删除数据项
                     </DropdownMenu.Item>
                   </DropdownMenu.Content>
                 </DropdownMenu>
               </>
             )}
-            <DataPanel.CloseButton onClick={onClose} tooltip="Close detail panel" />
+            <DataPanel.CloseButton onClick={onClose} tooltip="关闭详情面板" />
           </ButtonsGroup>
         </DataPanel.Header>
 
@@ -343,25 +339,25 @@ export function DatasetItemPanel({
           ) : (
             <>
               <DataKeysAndValues>
-                <DataKeysAndValues.Key>Dataset Id</DataKeysAndValues.Key>
+                <DataKeysAndValues.Key>数据集 ID</DataKeysAndValues.Key>
                 <DataKeysAndValues.ValueWithCopyBtn
-                  copyTooltip="Copy Dataset Id to clipboard"
+                  copyTooltip="复制数据集 ID"
                   copyValue={item.datasetId}
                 >
                   {item.datasetId}
                 </DataKeysAndValues.ValueWithCopyBtn>
-                <DataKeysAndValues.Key>Version</DataKeysAndValues.Key>
+                <DataKeysAndValues.Key>版本</DataKeysAndValues.Key>
                 <DataKeysAndValues.Value>v{item.datasetVersion}</DataKeysAndValues.Value>
-                <DataKeysAndValues.Key>Created</DataKeysAndValues.Key>
+                <DataKeysAndValues.Key>创建时间</DataKeysAndValues.Key>
                 <DataKeysAndValues.Value>
-                  {format(new Date(item.createdAt), "MMM d, yyyy h:mm aaa")}
+                  {format(new Date(item.createdAt), "yyyy/MM/dd HH:mm")}
                 </DataKeysAndValues.Value>
                 {item.updatedAt &&
                   new Date(item.updatedAt).getTime() !== new Date(item.createdAt).getTime() && (
                     <>
-                      <DataKeysAndValues.Key>Updated</DataKeysAndValues.Key>
+                      <DataKeysAndValues.Key>更新时间</DataKeysAndValues.Key>
                       <DataKeysAndValues.Value>
-                        {format(new Date(item.updatedAt), "MMM d, yyyy h:mm aaa")}
+                        {format(new Date(item.updatedAt), "yyyy/MM/dd HH:mm")}
                       </DataKeysAndValues.Value>
                     </>
                   )}
@@ -369,36 +365,36 @@ export function DatasetItemPanel({
 
               <div className="grid gap-3 mt-3">
                 <DataPanel.CodeSection
-                  title="Input"
+                  title="输入"
                   icon={<FileInputIcon />}
                   codeStr={JSON.stringify(item.input ?? null, null, 2)}
                 />
                 <DataPanel.CodeSection
-                  title="Ground Truth"
+                  title="标准答案"
                   icon={<FileOutputIcon />}
                   codeStr={JSON.stringify(item.groundTruth ?? null, null, 2)}
                 />
                 {item.expectedTrajectory !== null && item.expectedTrajectory !== undefined && (
                   <DataPanel.CodeSection
-                    title="Expected Trajectory"
+                    title="预期轨迹"
                     icon={<RouteIcon />}
                     codeStr={JSON.stringify(item.expectedTrajectory, null, 2)}
                   />
                 )}
                 <DataPanel.CodeSection
-                  title="Tool Mocks"
+                  title="工具模拟"
                   icon={<WrenchIcon />}
                   codeStr={JSON.stringify(item.toolMocks ?? [], null, 2)}
                 />
                 {item.requestContext !== null && item.requestContext !== undefined && (
                   <DataPanel.CodeSection
-                    title="Request Context"
+                    title="请求上下文"
                     icon={<BracesIcon />}
                     codeStr={JSON.stringify(item.requestContext, null, 2)}
                   />
                 )}
                 <DataPanel.CodeSection
-                  title="Metadata"
+                  title="元数据"
                   icon={<TagIcon />}
                   codeStr={JSON.stringify(item.metadata ?? null, null, 2)}
                 />
@@ -412,15 +408,15 @@ export function DatasetItemPanel({
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialog.Content>
           <AlertDialog.Header>
-            <AlertDialog.Title>Delete Item</AlertDialog.Title>
+            <AlertDialog.Title>删除数据项</AlertDialog.Title>
             <AlertDialog.Description>
-              Are you sure you want to delete this item? This action cannot be undone.
+              确定要删除此数据项吗？此操作无法撤销。
             </AlertDialog.Description>
           </AlertDialog.Header>
           <AlertDialog.Footer>
-            <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+            <AlertDialog.Cancel>取消</AlertDialog.Cancel>
             <AlertDialog.Action onClick={handleDeleteConfirm}>
-              {deleteItem.isPending ? "Deleting..." : "Yes, Delete"}
+              {deleteItem.isPending ? "正在删除..." : "确认删除"}
             </AlertDialog.Action>
           </AlertDialog.Footer>
         </AlertDialog.Content>

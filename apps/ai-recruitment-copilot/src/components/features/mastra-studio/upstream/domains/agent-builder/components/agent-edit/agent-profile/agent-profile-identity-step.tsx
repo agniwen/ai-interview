@@ -26,7 +26,7 @@ export const AgentProfileIdentityStep = ({ avatar, details }: AgentProfileIdenti
     <AgentStepContainer
       cta={
         <Button onClick={handleContinue} disabled={isStreaming}>
-          Continue{" "}
+          继续{" "}
           <Icon>
             <ArrowRightIcon />
           </Icon>

@@ -49,7 +49,7 @@ export const useStoredPromptBlockMutations = (blockId?: string) => {
   const updateMutation = useMutation({
     mutationFn: (params: UpdateStoredPromptBlockParams) => {
       if (!blockId) {
-        throw new Error("blockId is required for update");
+        throw new Error("更新提示词块时 blockId 为必填项");
       }
       return client.getStoredPromptBlock(blockId).update(params, requestContext);
     },
@@ -65,7 +65,7 @@ export const useStoredPromptBlockMutations = (blockId?: string) => {
   const deleteMutation = useMutation({
     mutationFn: () => {
       if (!blockId) {
-        throw new Error("blockId is required for delete");
+        throw new Error("删除提示词块时 blockId 为必填项");
       }
       return client.getStoredPromptBlock(blockId).delete(requestContext);
     },

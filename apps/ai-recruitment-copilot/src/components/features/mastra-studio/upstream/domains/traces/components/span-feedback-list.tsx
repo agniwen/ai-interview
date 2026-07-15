@@ -5,11 +5,11 @@ import { useState } from "react";
 import { FeedbackDialog } from "./feedback-dialog";
 
 const feedbackListColumns = [
-  { label: "Source", size: "1fr" },
-  { label: "Date", size: "0.8fr" },
-  { label: "Time", size: "0.8fr" },
-  { label: "Value", size: "0.6fr" },
-  { label: "Comment", size: "2fr" },
+  { label: "来源", size: "1fr" },
+  { label: "日期", size: "0.8fr" },
+  { label: "时间", size: "0.8fr" },
+  { label: "值", size: "0.6fr" },
+  { label: "备注", size: "2fr" },
 ] as const;
 
 const gridColumns = feedbackListColumns.map((c) => c.size).join(" ");
@@ -84,11 +84,11 @@ export function SpanFeedbackList({
         </DataList.Top>
 
         {feedbackItems.length === 0 ? (
-          <DataList.NoMatch message="No feedback found" />
+          <DataList.NoMatch message="未找到反馈" />
         ) : (
           feedbackItems.map((fb, index) => {
             const ts = new Date(fb.timestamp);
-            const source = fb.feedbackUserId || fb.feedbackSource || "unknown";
+            const source = fb.feedbackUserId || fb.feedbackSource || "未知";
             return (
               <DataList.RowButton
                 key={`${fb.traceId}-${index}`}
@@ -96,7 +96,7 @@ export function SpanFeedbackList({
               >
                 <DataList.Cell height="compact">{source}</DataList.Cell>
                 <DataList.DateCell timestamp={ts} />
-                <DataList.Cell height="compact">{format(ts, "h:mm:ss aaa")}</DataList.Cell>
+                <DataList.Cell height="compact">{format(ts, "HH:mm:ss")}</DataList.Cell>
                 <DataList.Cell height="compact">{formatValue(fb)}</DataList.Cell>
                 <DataList.Cell height="compact">{formatComment(fb)}</DataList.Cell>
               </DataList.RowButton>

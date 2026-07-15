@@ -76,7 +76,7 @@ export function useAgentWorkingMemory(agentId: string, threadId: string, resourc
         try {
           JSON.parse(newMemory);
         } catch {
-          throw new Error("Invalid JSON working memory");
+          throw new Error("工作记忆的 JSON 格式无效");
         }
       }
       await client.updateWorkingMemory({

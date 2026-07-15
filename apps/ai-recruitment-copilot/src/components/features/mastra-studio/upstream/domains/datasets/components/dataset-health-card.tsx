@@ -50,9 +50,9 @@ export function DatasetHealthCard({ experiments, isLoading, isError }: DatasetHe
     }
 
     const segs = [
-      { color: CHART_COLORS.blue, label: "Agent datasets" },
-      { color: CHART_COLORS.purple, label: "Workflow datasets" },
-      { color: CHART_COLORS.orange, label: "Scorer datasets" },
+      { color: CHART_COLORS.blue, label: "智能体数据集" },
+      { color: CHART_COLORS.purple, label: "工作流数据集" },
+      { color: CHART_COLORS.orange, label: "评分器数据集" },
     ];
 
     const bars = [...targetMap.entries()]
@@ -79,13 +79,13 @@ export function DatasetHealthCard({ experiments, isLoading, isError }: DatasetHe
   let cardContent = (
     <MetricsCard.Content>
       {isEmpty ? (
-        <MetricsCard.NoData message="No experiments have been run yet" />
+        <MetricsCard.NoData message="尚未运行任何实验" />
       ) : (
         <HorizontalBars
           data={barData}
           segments={segments}
           maxVal={maxVal}
-          fmt={(n: number) => `${n} dataset${n === 1 ? "" : "s"}`}
+          fmt={(n: number) => `${n} 个数据集`}
         />
       )}
     </MetricsCard.Content>
@@ -93,15 +93,15 @@ export function DatasetHealthCard({ experiments, isLoading, isError }: DatasetHe
   if (isLoading) {
     cardContent = <MetricsCard.Loading />;
   } else if (isError) {
-    cardContent = <MetricsCard.Error message="Failed to load experiment data" />;
+    cardContent = <MetricsCard.Error message="加载实验数据失败" />;
   }
 
   return (
     <MetricsCard>
       <MetricsCard.TopBar>
         <MetricsCard.TitleAndDescription
-          title="Dataset Coverage by Target"
-          description="Number of distinct datasets used to evaluate each target."
+          title="按目标统计数据集覆盖情况"
+          description="用于评估各目标的不同数据集数量。"
         />
       </MetricsCard.TopBar>
       {cardContent}

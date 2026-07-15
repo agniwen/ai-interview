@@ -27,7 +27,7 @@ function Workflows() {
   if (error && is403ForbiddenError(error)) {
     return (
       <NoDataPageLayout>
-        <PermissionDenied resource="workflows" />
+        <PermissionDenied resource="工作流" />
       </NoDataPageLayout>
     );
   }
@@ -35,7 +35,7 @@ function Workflows() {
   if (error) {
     return (
       <NoDataPageLayout>
-        <ErrorState title="Failed to load workflows" message={error.message} />
+        <ErrorState title="加载工作流失败" message={error.message} />
       </NoDataPageLayout>
     );
   }
@@ -53,15 +53,11 @@ function Workflows() {
       <PageLayout.TopArea>
         <PageLayout.Row align="center" stack="responsive">
           <div className="max-w-120 flex-1">
-            <ListSearch
-              onSearch={setSearch}
-              label="Filter workflows"
-              placeholder="Filter by name or description"
-            />
+            <ListSearch onSearch={setSearch} label="筛选工作流" placeholder="按名称或描述筛选" />
           </div>
           <Button as={Link} to="/workflows/schedules" variant="primary" className="shrink-0">
             <CalendarClockIcon />
-            Schedules
+            定时任务
           </Button>
         </PageLayout.Row>
       </PageLayout.TopArea>

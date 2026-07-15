@@ -29,7 +29,7 @@ export function WorkflowHeader({
             <Icon>
               <CalendarClockIcon />
             </Icon>
-            Schedules ({scheduleCount})
+            定时任务（{scheduleCount}）
           </Button>
         )}
         <Button
@@ -40,7 +40,7 @@ export function WorkflowHeader({
           <Icon>
             <EyeIcon />
           </Icon>
-          Traces
+          追踪
         </Button>
         <Button
           as="a"
@@ -51,7 +51,7 @@ export function WorkflowHeader({
           size="sm"
         >
           <ApiIcon />
-          API endpoints
+          API 端点
         </Button>
       </div>
     </RouteHeaderActions>

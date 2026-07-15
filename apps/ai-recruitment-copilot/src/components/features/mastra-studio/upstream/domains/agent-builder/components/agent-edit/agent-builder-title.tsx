@@ -11,7 +11,7 @@ export const AgentBuilderTitle = ({ className, isLoading = false }: AgentBuilder
   const { control } = useFormContext<AgentBuilderEditFormValues>();
   const name = useWatch({ control, name: "name" });
 
-  const displayName = name && name.trim() ? name : "Untitled";
+  const displayName = name && name.trim() ? name : "未命名";
 
   return (
     <div className={className} data-testid="agent-builder-title">

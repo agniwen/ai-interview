@@ -49,7 +49,7 @@ export const Tools = ({ editable = true, availableAgentTools = [] }: ToolsProps)
     }
     return (
       <div className="px-6 py-6" data-testid="tools-empty-state">
-        <ToolListEmptyState details={"No tools available in this project"} />
+        <ToolListEmptyState details={"此项目中没有可用工具"} />
       </div>
     );
   }

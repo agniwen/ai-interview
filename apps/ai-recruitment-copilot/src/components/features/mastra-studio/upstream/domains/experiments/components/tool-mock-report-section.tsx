@@ -38,6 +38,23 @@ function outcomeClass(outcome: ReportRow["outcome"]): string {
   }
 }
 
+function getOutcomeLabel(outcome: ReportRow["outcome"]): string {
+  switch (outcome) {
+    case "served": {
+      return "已使用模拟";
+    }
+    case "live": {
+      return "实时调用";
+    }
+    case "unconsumed": {
+      return "未使用";
+    }
+    default: {
+      return outcome;
+    }
+  }
+}
+
 /**
  * Diagnostics panel for item-level tool mocks on an experiment result.
  *
@@ -63,21 +80,21 @@ export function ToolMockReportSection({ report }: ToolMockReportSectionProps) {
   return (
     <div className="grid gap-2" data-testid="tool-mock-report">
       <DataPanel.SectionHeading icon={<WrenchIcon />} className="mb-2">
-        Tool Mocks
+        工具模拟
       </DataPanel.SectionHeading>
 
       {failure && (
-        <Notice variant="destructive" title="Mock mismatch">
+        <Notice variant="destructive" title="模拟不匹配">
           <Notice.Message>
             <span className="block">
-              {`Tool "${failure.toolName}" was called with arguments that did not match an available mock (${failure.code}).`}
+              {`工具“${failure.toolName}”的调用参数与可用模拟不匹配（${failure.code}）。`}
             </span>
             <span className="mt-1 block font-mono text-xs">
-              Called with: {formatArgs(failure.args)}
+              调用参数： {formatArgs(failure.args)}
             </span>
             {unconsumed.length > 0 && (
               <span className="mt-1 block font-mono text-xs">
-                Unconsumed mocks: {unconsumed.map((u) => formatArgs(u.args)).join(", ")}
+                未使用的模拟： {unconsumed.map((u) => formatArgs(u.args)).join(", ")}
               </span>
             )}
           </Notice.Message>
@@ -95,7 +112,7 @@ export function ToolMockReportSection({ report }: ToolMockReportSectionProps) {
               <span className="ml-2 font-mono text-xs text-neutral3">{formatArgs(row.args)}</span>
             </span>
             <span className={`shrink-0 text-xs px-2 py-0.5 rounded ${outcomeClass(row.outcome)}`}>
-              {row.outcome}
+              {getOutcomeLabel(row.outcome)}
             </span>
           </div>
         ))}

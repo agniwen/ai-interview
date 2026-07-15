@@ -6,11 +6,11 @@ export const NoToolsInfo = () => (
   <div className="flex h-full items-center justify-center">
     <EmptyState
       iconSlot={<CircleSlashIcon />}
-      titleSlot="No Tools yet"
+      titleSlot="暂无工具"
       descriptionSlot={
         <>
-          Mastra tools are not configured yet. <br />
-          More information in the documentation.
+          尚未配置 Mastra 工具。 <br />
+          更多信息请参阅文档。
         </>
       }
       actionSlot={
@@ -21,7 +21,7 @@ export const NoToolsInfo = () => (
           target="_blank"
           rel="noopener noreferrer"
         >
-          Tools Documentation <ExternalLinkIcon />
+          工具文档 <ExternalLinkIcon />
         </Button>
       }
     />

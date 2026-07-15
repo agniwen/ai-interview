@@ -29,11 +29,11 @@ function parseTargetIds(value: unknown): string[] {
 
 export function validateScorerFields(name: string, instructions: string): boolean {
   if (!name.trim()) {
-    toast.error("Please enter a scorer name");
+    toast.error("请输入评分器名称");
     return false;
   }
   if (!instructions.trim()) {
-    toast.error("Please enter scorer instructions");
+    toast.error("请输入评分器指令");
     return false;
   }
   return true;

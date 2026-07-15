@@ -74,31 +74,31 @@ function buildTemplateInfoData(template?: TemplateData) {
     {
       icon: <ToolsIcon />,
       key: "tools",
-      label: "Tools",
+      label: "工具",
       value: template?.tools?.length ? template.tools.join(", ") : "n/a",
     },
     {
       icon: <AgentIcon />,
       key: "agents",
-      label: "Agents",
+      label: "智能体",
       value: template?.agents?.length ? template.agents.join(", ") : "n/a",
     },
     {
       icon: <WorkflowIcon />,
       key: "workflows",
-      label: "Workflows",
+      label: "工作流",
       value: template?.workflows?.length ? template.workflows.join(", ") : "n/a",
     },
     {
       icon: <BrainIcon />,
       key: "providers",
-      label: "Providers",
+      label: "提供商",
       value: template?.supportedProviders?.length ? template.supportedProviders.join(", ") : "n/a",
     },
     {
       icon: <TagIcon />,
       key: "tags",
-      label: "Tags",
+      label: "标签",
       value: template?.tags?.length ? template.tags.join(", ") : "n/a",
     },
   ];
@@ -230,20 +230,18 @@ export default function Template() {
             !validationResults.valid &&
             validationResults.remainingErrors > 0
           ) {
-            const issueSuffix = validationResults.remainingErrors > 1 ? "s" : "";
             setFailure(
-              `Template installation completed but ${validationResults.remainingErrors} validation issue${issueSuffix} remain unresolved.`,
+              `模板安装已完成，但仍有 ${validationResults.remainingErrors} 个验证问题未解决。`,
             );
             setCompletedRunValidationErrors(validationResults.errors || []);
             return;
           }
 
-          const errorValue =
-            snapshot.result.message || snapshot.result.error || "Template installation failed";
+          const errorValue = snapshot.result.message || snapshot.result.error || "模板安装失败";
           setFailure(typeof errorValue === "string" ? errorValue : String(errorValue));
         } catch (error) {
           console.error("❌ Failed to fetch run details:", error);
-          setFailure("Failed to retrieve installation status after reload");
+          setFailure("重新加载后无法获取安装状态");
         }
       };
       void checkCompletedRun();
@@ -286,12 +284,10 @@ export default function Template() {
           console.error("❌ Failed to resume template installation:", error);
           const message = getErrorMessage(error);
           if (message.includes("404") || message.includes("not found")) {
-            setFailure(
-              "Template installation run not found. It may have expired or been completed.",
-            );
+            setFailure("未找到模板安装运行记录，它可能已过期或已经完成。");
             return;
           }
-          setFailure("Failed to resume template installation. Please try again.");
+          setFailure("恢复模板安装失败，请重试。");
         }
       };
       void resumeInstall();
@@ -342,7 +338,7 @@ export default function Template() {
   const handleModelUpdate = (params: { provider: string; modelId: string }) => {
     setSelectedModelProvider(params.provider);
     setSelectedModelId(params.modelId);
-    return Promise.resolve({ message: "Model updated successfully" });
+    return Promise.resolve({ message: "模型已成功更新" });
   };
 
   const handleInstallTemplate = async () => {
@@ -402,7 +398,7 @@ export default function Template() {
       } catch (error) {
         // Allow a later retry to use the resume watcher again.
         setIsFreshInstall(false);
-        setFailure(getErrorMessage(error) || "Template installation failed");
+        setFailure(getErrorMessage(error) || "模板安装失败");
         console.error("Template installation failed", error);
       }
     }

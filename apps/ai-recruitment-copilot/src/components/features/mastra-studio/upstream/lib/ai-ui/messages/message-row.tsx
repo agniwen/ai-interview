@@ -174,8 +174,8 @@ const CopyButton = ({ text }: { text: string }) => {
     <Button
       variant="ghost"
       size="icon-xs"
-      tooltip="Copy"
-      aria-label="Copy"
+      tooltip="复制"
+      aria-label="复制"
       onClick={() => copyToClipboard(text)}
     >
       {isCopied ? <CheckIcon /> : <CopyIcon />}
@@ -210,8 +210,8 @@ const AssistantActionBar = ({
         <Button
           variant="ghost"
           size="icon-xs"
-          tooltip="Stop"
-          aria-label="Stop"
+          tooltip="停止"
+          aria-label="停止"
           onClick={() => onStopSpeaking?.()}
         >
           <StopCircleIcon />
@@ -220,8 +220,8 @@ const AssistantActionBar = ({
         <Button
           variant="ghost"
           size="icon-xs"
-          tooltip="Read aloud"
-          aria-label="Read aloud"
+          tooltip="朗读"
+          aria-label="朗读"
           onClick={() => onReadAloud?.(text)}
         >
           <AudioLinesIcon />

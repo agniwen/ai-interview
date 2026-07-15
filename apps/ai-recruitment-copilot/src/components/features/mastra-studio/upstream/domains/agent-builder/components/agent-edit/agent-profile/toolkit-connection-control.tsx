@@ -266,7 +266,7 @@ export const ToolkitConnectionControl = ({
         disabled={disabled || authorize.isPending}
         data-testid={`toolkit-connect-${testIdSuffix}`}
       >
-        {authorize.isPending ? "Connecting…" : "Connect"}
+        {authorize.isPending ? "正在连接…" : "连接"}
       </Button>
     );
   }
@@ -277,8 +277,8 @@ export const ToolkitConnectionControl = ({
         type="button"
         variant="ghost"
         size="icon-sm"
-        tooltip="Manage connection"
-        aria-label={`Manage ${toolkit} connection`}
+        tooltip="管理连接"
+        aria-label={`管理 ${toolkit} 连接`}
         onClick={() => setManageOpen(true)}
         disabled={disabled}
         data-testid={`toolkit-manage-${testIdSuffix}`}

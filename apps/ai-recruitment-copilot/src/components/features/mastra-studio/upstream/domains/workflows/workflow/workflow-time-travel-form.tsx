@@ -81,7 +81,7 @@ const JsonField = ({
       return;
     }
     if (!isValidJson(value)) {
-      setFieldError("Invalid JSON");
+      setFieldError("JSON 无效");
       return;
     }
 
@@ -89,7 +89,7 @@ const JsonField = ({
       const formatted = await formatJSON(value);
       onChange(formatted);
     } catch {
-      setFieldError("Unable to format JSON");
+      setFieldError("无法格式化 JSON");
     }
   };
 
@@ -99,7 +99,7 @@ const JsonField = ({
         <div className="border border-border1 rounded-lg bg-surface3 p-3 space-y-2">
           <div className="flex items-center gap-2">
             <Txt as="p" variant="ui-sm" className="text-neutral3">
-              Example {label}
+              {label}示例
             </Txt>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -107,14 +107,14 @@ const JsonField = ({
                   type="button"
                   onClick={handleCopyExample}
                   className={buttonClass}
-                  aria-label="Copy example JSON"
+                  aria-label="复制示例 JSON"
                 >
                   <Icon>
                     <CopyIcon />
                   </Icon>
                 </button>
               </TooltipTrigger>
-              <TooltipContent>Copy example JSON</TooltipContent>
+              <TooltipContent>复制示例 JSON</TooltipContent>
             </Tooltip>
           </div>
           <CodeMirror
@@ -148,14 +148,14 @@ const JsonField = ({
                   type="button"
                   onClick={handleFormat}
                   className={buttonClass}
-                  aria-label="Format JSON"
+                  aria-label="格式化 JSON"
                 >
                   <Icon>
                     <Braces />
                   </Icon>
                 </button>
               </TooltipTrigger>
-              <TooltipContent>Format JSON</TooltipContent>
+              <TooltipContent>格式化 JSON</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -163,14 +163,14 @@ const JsonField = ({
                   type="button"
                   onClick={handleCopy}
                   className={buttonClass}
-                  aria-label="Copy JSON"
+                  aria-label="复制 JSON"
                 >
                   <Icon>
                     <CopyIcon />
                   </Icon>
                 </button>
               </TooltipTrigger>
-              <TooltipContent>Copy JSON</TooltipContent>
+              <TooltipContent>复制 JSON</TooltipContent>
             </Tooltip>
             {exampleCode && (
               <Tooltip>
@@ -179,19 +179,19 @@ const JsonField = ({
                     type="button"
                     onClick={() => setIsExampleOpen(!isExampleOpen)}
                     className={buttonClass}
-                    aria-label={isExampleOpen ? `Hide example JSON` : `View example JSON`}
+                    aria-label={isExampleOpen ? "隐藏示例 JSON" : "查看示例 JSON"}
                   >
                     <Icon>{isExampleOpen ? <EyeOffIcon /> : <EyeIcon />}</Icon>
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>View example JSON</TooltipContent>
+                <TooltipContent>查看示例 JSON</TooltipContent>
               </Tooltip>
             )}
             <CollapsibleTrigger asChild>
               <button
                 type="button"
                 className={buttonClass}
-                aria-label={isOpen ? `Collapse ${label}` : `Expand ${label}`}
+                aria-label={isOpen ? `收起${label}` : `展开${label}`}
               >
                 <Icon className={cn("transition-transform", isOpen ? "rotate-0" : "-rotate-90")}>
                   <ChevronDown />
@@ -226,7 +226,7 @@ export const WorkflowTimeTravelForm = ({
   closeModal,
   isPerStepRun,
   isContinueRun,
-  buttonText = "Start time travel",
+  buttonText = "开始时间回溯",
   inputData,
 }: WorkflowTimeTravelFormProps) => {
   const {
@@ -313,7 +313,7 @@ export const WorkflowTimeTravelForm = ({
       closeModal();
     } catch (error) {
       console.error("Invalid JSON provided", error);
-      setFormError(error instanceof Error ? error.message : "Error time traveling workflow");
+      setFormError(error instanceof Error ? error.message : "工作流时间回溯时出错");
     } finally {
       setIsSubmitting(false);
     }
@@ -324,10 +324,10 @@ export const WorkflowTimeTravelForm = ({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <Txt as="p" variant="ui-lg" className="text-neutral3">
-            Input data
+            输入数据
           </Txt>
           <Txt variant="ui-xs" className="text-neutral3">
-            Step: {stepKey}
+            步骤：{stepKey}
           </Txt>
         </div>
 
@@ -342,16 +342,16 @@ export const WorkflowTimeTravelForm = ({
             {isPerStepRun || isContinueRun ? null : (
               <>
                 <JsonField
-                  label="Resume Data (JSON)"
+                  label="恢复数据（JSON）"
                   value={resumeData}
                   onChange={setResumeData}
-                  helperText="Provide any resume payloads that should be passed to the step."
+                  helperText="提供需要传递给该步骤的恢复数据。"
                 />
                 <JsonField
-                  label="Context (JSON)"
+                  label="上下文（JSON）"
                   value={contextValue}
                   onChange={setContextValue}
-                  helperText="Only include top level steps (no nested workflow steps) that are required in the time travel execution."
+                  helperText="仅包含时间回溯执行所需的顶层步骤，不含嵌套工作流步骤。"
                   exampleCode={prettyJson({
                     stepId: {
                       output: {
@@ -365,10 +365,10 @@ export const WorkflowTimeTravelForm = ({
                   })}
                 />
                 <JsonField
-                  label="Nested Step Context (JSON)"
+                  label="嵌套步骤上下文（JSON）"
                   value={nestedContextValue}
                   onChange={setNestedContextValue}
-                  helperText="Includes nested workflow steps that are required in the time travel execution."
+                  helperText="包含时间回溯执行所需的嵌套工作流步骤。"
                   exampleCode={prettyJson({
                     nestedWorkflowId: {
                       stepId: {

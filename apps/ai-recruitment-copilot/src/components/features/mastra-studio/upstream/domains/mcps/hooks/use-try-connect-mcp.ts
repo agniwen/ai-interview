@@ -27,7 +27,7 @@ async function parseResponse(response: Response): Promise<unknown> {
       }
     }
 
-    throw new Error("No data found in SSE response");
+    throw new Error("SSE 响应中没有数据");
   }
 
   return response.json();
@@ -61,7 +61,7 @@ async function connectAndListTools(
   });
 
   if (!initResponse.ok) {
-    throw new Error(`Initialize failed: ${initResponse.status} ${initResponse.statusText}`);
+    throw new Error(`初始化失败：${initResponse.status} ${initResponse.statusText}`);
   }
 
   const sessionId = initResponse.headers.get("Mcp-Session-Id");
@@ -98,7 +98,7 @@ async function connectAndListTools(
   });
 
   if (!toolsResponse.ok) {
-    throw new Error(`tools/list failed: ${toolsResponse.status} ${toolsResponse.statusText}`);
+    throw new Error(`获取工具列表失败：${toolsResponse.status} ${toolsResponse.statusText}`);
   }
 
   const toolsResult = (await parseResponse(toolsResponse)) as { result?: { tools?: McpTool[] } };

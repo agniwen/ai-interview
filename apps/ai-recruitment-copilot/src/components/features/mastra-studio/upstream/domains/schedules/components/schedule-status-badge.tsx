@@ -10,12 +10,17 @@ const STATUS_TEXT_COLOR: Record<ScheduleStatus, string> = {
   paused: "text-accent3",
 };
 
+const STATUS_LABEL: Record<ScheduleStatus, string> = {
+  active: "运行中",
+  paused: "已暂停",
+};
+
 /**
  * Compact inline status — colored dot + label, no chip background.
  */
 export const ScheduleStatusText = ({ status }: { status: ScheduleStatus }) => (
   <span className="inline-flex items-center gap-2 whitespace-nowrap">
     <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT_COLOR[status]}`} aria-hidden />
-    <span className={`text-ui-sm ${STATUS_TEXT_COLOR[status]}`}>{status}</span>
+    <span className={`text-ui-sm ${STATUS_TEXT_COLOR[status]}`}>{STATUS_LABEL[status]}</span>
   </span>
 );

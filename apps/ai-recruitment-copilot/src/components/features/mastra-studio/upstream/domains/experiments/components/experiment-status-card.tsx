@@ -11,10 +11,10 @@ const STATUS_COLORS = {
 };
 
 const SEGMENTS = [
-  { color: STATUS_COLORS.completed, label: "Completed" },
-  { color: STATUS_COLORS.running, label: "Running" },
-  { color: STATUS_COLORS.pending, label: "Pending" },
-  { color: STATUS_COLORS.failed, label: "Failed" },
+  { color: STATUS_COLORS.completed, label: "已完成" },
+  { color: STATUS_COLORS.running, label: "运行中" },
+  { color: STATUS_COLORS.pending, label: "等待中" },
+  { color: STATUS_COLORS.failed, label: "失败" },
 ];
 
 interface ExperimentStatusCardProps {
@@ -56,12 +56,12 @@ function ExperimentStatusContent({
     return <MetricsCard.Loading />;
   }
   if (isError) {
-    return <MetricsCard.Error message="Failed to load experiments data" />;
+    return <MetricsCard.Error message="加载实验数据失败" />;
   }
   if (data.length === 0) {
     return (
       <MetricsCard.Content>
-        <MetricsCard.NoData message="No experiments have been run yet" />
+        <MetricsCard.NoData message="尚未运行任何实验" />
       </MetricsCard.Content>
     );
   }
@@ -122,11 +122,11 @@ export function ExperimentStatusCard({
     <MetricsCard>
       <MetricsCard.TopBar>
         <MetricsCard.TitleAndDescription
-          title="Experiments by Dataset"
-          description="Experiment status breakdown per dataset."
+          title="按数据集查看实验"
+          description="按数据集统计实验状态。"
         />
         {hasData && (
-          <MetricsCard.Summary value={String(experiments?.length ?? 0)} label="Total experiments" />
+          <MetricsCard.Summary value={String(experiments?.length ?? 0)} label="实验总数" />
         )}
       </MetricsCard.TopBar>
       <ExperimentStatusContent

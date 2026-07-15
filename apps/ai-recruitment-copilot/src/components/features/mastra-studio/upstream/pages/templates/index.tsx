@@ -17,11 +17,11 @@ export default function Templates() {
   const [searchTerm, setSearchTerm] = useState<string>("");
 
   const tagOptions = [
-    { label: "Any tag", value: "all" },
+    { label: "全部标签", value: "all" },
     ...(tags || []).map((tag) => ({ label: tag, value: tag })),
   ];
   const providerOptions = [
-    { label: "Any provider", value: "all" },
+    { label: "全部提供商", value: "all" },
     ...(providers || []).map((provider) => ({ label: provider, value: provider })),
   ];
 
@@ -69,7 +69,7 @@ export default function Templates() {
           <Icon>
             <PackageIcon />
           </Icon>
-          Templates
+          模板
         </HeaderTitle>
       </Header>
 

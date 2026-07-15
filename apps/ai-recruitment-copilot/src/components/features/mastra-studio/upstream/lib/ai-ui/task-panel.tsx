@@ -50,9 +50,9 @@ export const TaskPanel = () => {
           {/* Header */}
           <div className="flex items-center gap-2 mb-2">
             <ListChecks className="h-4 w-4 shrink-0 text-accent6" />
-            <span className="text-ui-sm leading-ui-sm font-medium text-neutral6">Tasks</span>
+            <span className="text-ui-sm leading-ui-sm font-medium text-neutral6">任务</span>
             <span className="text-ui-xs leading-ui-xs text-neutral4 ml-auto tabular-nums">
-              {completed}/{total} completed
+              已完成 {completed}/{total}
             </span>
           </div>
 

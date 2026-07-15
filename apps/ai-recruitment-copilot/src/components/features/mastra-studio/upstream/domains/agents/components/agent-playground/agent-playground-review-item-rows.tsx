@@ -114,14 +114,14 @@ export function ReviewItemRows({
               <DataList.SelectCell
                 checked={selectedItemIds.has(item.id)}
                 onToggle={() => toggleSelect(item.id)}
-                aria-label={`Select item ${item.id}`}
+                aria-label={`选择条目 ${item.id}`}
               />
             ) : (
               <DataList.Cell height="compact" className="justify-items-center px-4">
-                <span className="sr-only">{item.error ? "Error" : "Success"}</span>
+                <span className="sr-only">{item.error ? "失败" : "成功"}</span>
                 <span
                   aria-hidden="true"
-                  title={item.error ? "Error" : "Success"}
+                  title={item.error ? "失败" : "成功"}
                   className={cn("w-2 h-2 rounded-full", item.error ? "bg-red-700" : "bg-green-600")}
                 />
               </DataList.Cell>

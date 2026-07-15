@@ -23,31 +23,31 @@ function getStatusBadgeConfig(status: StreamStatus): {
 } {
   switch (status) {
     case "idle": {
-      return { label: "Idle", pulse: false, variant: "neutral" };
+      return { label: "空闲", pulse: false, variant: "neutral" };
     }
     case "connecting": {
-      return { label: "Connecting", pulse: true, variant: "warning" };
+      return { label: "正在连接", pulse: true, variant: "warning" };
     }
     case "connected": {
-      return { label: "Connected", pulse: true, variant: "warning" };
+      return { label: "已连接", pulse: true, variant: "warning" };
     }
     case "browser_starting": {
-      return { label: "Starting", pulse: true, variant: "warning" };
+      return { label: "正在启动", pulse: true, variant: "warning" };
     }
     case "streaming": {
-      return { label: "Live", pulse: false, variant: "success" };
+      return { label: "实时", pulse: false, variant: "success" };
     }
     case "browser_closed": {
-      return { label: "Closed", pulse: false, variant: "neutral" };
+      return { label: "已关闭", pulse: false, variant: "neutral" };
     }
     case "disconnected": {
-      return { label: "Disconnected", pulse: true, variant: "error" };
+      return { label: "未连接", pulse: true, variant: "error" };
     }
     case "error": {
-      return { label: "Error", pulse: false, variant: "error" };
+      return { label: "错误", pulse: false, variant: "error" };
     }
     default: {
-      return { label: "Unknown", pulse: false, variant: "neutral" };
+      return { label: "未知", pulse: false, variant: "neutral" };
     }
   }
 }
@@ -79,7 +79,7 @@ export function BrowserViewHeader({
         <span
           className={cn("text-sm text-neutral4 truncate block", !url && "text-neutral3 italic")}
         >
-          {url || "No URL"}
+          {url || "无 URL"}
         </span>
       </div>
 
@@ -94,7 +94,7 @@ export function BrowserViewHeader({
           <button
             onClick={onTuck}
             className="p-1 rounded hover:bg-surface3 text-neutral3 hover:text-neutral6 transition-colors"
-            title="Minimize to pill"
+            title="最小化为悬浮条"
           >
             <Minus className="h-4 w-4" />
           </button>
@@ -105,7 +105,7 @@ export function BrowserViewHeader({
           <button
             onClick={onToggleCollapse}
             className="p-1 rounded hover:bg-surface3 text-neutral3 hover:text-neutral6 transition-colors"
-            title={isCollapsed ? "Expand browser view" : "Minimize browser view"}
+            title={isCollapsed ? "展开浏览器视图" : "最小化浏览器视图"}
           >
             {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
           </button>
@@ -116,7 +116,7 @@ export function BrowserViewHeader({
           <button
             onClick={onClose}
             className="p-1 rounded hover:bg-surface3 text-neutral3 hover:text-neutral6 transition-colors"
-            title="Close browser session"
+            title="关闭浏览器会话"
           >
             <X className="h-4 w-4" />
           </button>

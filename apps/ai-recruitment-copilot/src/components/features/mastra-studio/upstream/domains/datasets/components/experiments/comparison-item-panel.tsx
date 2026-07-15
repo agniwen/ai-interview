@@ -70,11 +70,11 @@ export function ComparisonItemPanel({
         <PrevNextNav
           onPrevious={onPrevious}
           onNext={onNext}
-          previousAriaLabel="Previous comparison item"
-          nextAriaLabel="Next comparison item"
+          previousAriaLabel="上一个对比数据项"
+          nextAriaLabel="下一个对比数据项"
         />
         <ButtonsGroup>
-          <Button onClick={onClose} aria-label="Close comparison detail panel">
+          <Button onClick={onClose} aria-label="关闭对比详情面板">
             <XIcon />
           </Button>
         </ButtonsGroup>
@@ -90,16 +90,16 @@ export function ComparisonItemPanel({
         </MainHeader>
 
         {isComparisonUnavailable ? (
-          <Notice variant="warning" title="Comparison not available">
+          <Notice variant="warning" title="无法进行对比">
             <Notice.Message>
               {(() => {
-                const missingIn = baselineResult ? "Contender" : "Baseline";
+                const missingIn = baselineResult ? "对比项" : "基准";
                 const version = baselineResult ? contenderVersion : baselineVersion;
                 return (
                   <>
-                    The {missingIn} experiment was run against dataset
-                    {version === null || version === undefined ? "" : ` v. ${version}`}, which does
-                    not contain this item.
+                    {missingIn}实验使用了数据集
+                    {version === null || version === undefined ? "" : `版本 ${version}`}
+                    ，其中不包含此数据项。
                   </>
                 );
               })()}
@@ -110,7 +110,7 @@ export function ComparisonItemPanel({
             <Sections>
               {sortedScorerIds.length > 0 && (
                 <div className="grid gap-3">
-                  <h4 className="text-sm font-medium text-neutral5">Scores</h4>
+                  <h4 className="text-sm font-medium text-neutral5">得分</h4>
                   <div className="grid gap-2">
                     {sortedScorerIds.map((scorerId) => {
                       const baselineScore = baselineResult?.scores[scorerId] ?? null;
@@ -151,7 +151,7 @@ export function ComparisonItemPanel({
               <SideDialog.CodeSection
                 title={
                   <>
-                    <Chip color="purple">Baseline </Chip> Experiment Output
+                    <Chip color="purple">基准 </Chip> 实验输出
                   </>
                 }
                 icon={<FileOutputIcon />}
@@ -160,19 +160,19 @@ export function ComparisonItemPanel({
               <SideDialog.CodeSection
                 title={
                   <>
-                    <Chip color="cyan">Contender </Chip> Experiment Output
+                    <Chip color="cyan">对比项 </Chip> 实验输出
                   </>
                 }
                 icon={<FileOutputIcon />}
                 codeStr={formatValue(contenderResult?.output)}
               />
               <SideDialog.CodeSection
-                title="Item Input"
+                title="数据项输入"
                 icon={<FileInputIcon />}
                 codeStr={formatValue(item.input)}
               />
               <SideDialog.CodeSection
-                title="Item Ground Truth"
+                title="数据项标准答案"
                 icon={<TargetIcon />}
                 codeStr={formatValue(item.groundTruth)}
               />

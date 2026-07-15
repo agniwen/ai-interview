@@ -101,7 +101,7 @@ function Agent({ view = "chat" }: { view?: "chat" | "settings" }) {
   if (error && is403ForbiddenError(error)) {
     return (
       <div className="flex h-full items-center justify-center">
-        <PermissionDenied resource="agents" />
+        <PermissionDenied resource="智能体" />
       </div>
     );
   }
@@ -111,7 +111,7 @@ function Agent({ view = "chat" }: { view?: "chat" | "settings" }) {
   }
 
   if (!agent) {
-    return <div className="text-center py-4">Agent not found</div>;
+    return <div className="text-center py-4">未找到智能体</div>;
   }
 
   if (!isSettingsView && !threadId) {
@@ -150,7 +150,7 @@ function Agent({ view = "chat" }: { view?: "chat" | "settings" }) {
                       <AgentChatShell
                         agentId={agentId}
                         view={view}
-                        leftDrawerLabel="Open threads and memory"
+                        leftDrawerLabel="打开会话和记忆"
                         leftSlot={resolveConditional(
                           isThreadsLoading,
                           () => (

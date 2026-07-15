@@ -80,7 +80,7 @@ export function ExperimentResultsList({
       </DataList.Top>
 
       {results.length === 0 ? (
-        <DataList.NoMatch message="No results yet" />
+        <DataList.NoMatch message="暂无结果" />
       ) : (
         <>
           {results.map((result) => {
@@ -103,7 +103,7 @@ export function ExperimentResultsList({
                         />
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent>{hasError ? "Error" : "Success"}</TooltipContent>
+                    <TooltipContent>{hasError ? "错误" : "成功"}</TooltipContent>
                   </Tooltip>
                 </DataList.Cell>
 
@@ -144,7 +144,7 @@ export function ExperimentResultsList({
                 <DataList.SelectCell
                   checked={selectedIds.has(result.id)}
                   onToggle={() => onToggleSelect(result.id)}
-                  aria-label={`Select result ${result.itemId}`}
+                  aria-label={`选择结果 ${result.itemId}`}
                 />
                 <DataList.RowButton
                   flushLeft

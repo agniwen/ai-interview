@@ -6,13 +6,12 @@ export const WorkspaceNotSupported = () => (
   <div className="flex h-full items-center justify-center">
     <EmptyState
       iconSlot={<CircleAlertIcon />}
-      titleSlot="Workspace Not Supported"
+      titleSlot="不支持工作区"
       descriptionSlot={
         <>
-          The workspace feature requires a newer version of{" "}
-          <code className="text-neutral5">@mastra/core</code>.
+          工作区功能需要更新版本的 <code className="text-neutral5">@mastra/core</code>。
           <br />
-          Please upgrade your dependencies to enable workspace functionality.
+          请升级依赖以启用工作区功能。
         </>
       }
       actionSlot={
@@ -23,7 +22,7 @@ export const WorkspaceNotSupported = () => (
           target="_blank"
           rel="noopener noreferrer"
         >
-          Workspaces Documentation <ExternalLinkIcon />
+          工作区文档 <ExternalLinkIcon />
         </Button>
       }
     />

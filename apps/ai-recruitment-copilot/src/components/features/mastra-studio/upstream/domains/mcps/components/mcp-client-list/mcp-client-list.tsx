@@ -144,14 +144,14 @@ export function MCPClientList() {
     <>
       <SubSectionRoot>
         <Section.Header>
-          <SubSectionHeader title="MCP Clients" icon={<LaptopMinimal />} />
+          <SubSectionHeader title="MCP 客户端" icon={<LaptopMinimal />} />
 
           {!readOnly && (
             <Button variant="ghost" size="sm" onClick={() => setIsCreateOpen(true)}>
               <Icon size="sm">
                 <PlusIcon />
               </Icon>
-              Add MCP Client
+              添加 MCP 客户端
             </Button>
           )}
         </Section.Header>
@@ -165,14 +165,14 @@ export function MCPClientList() {
                   <LaptopMinimal className="size-6" />
                 </div>
               }
-              titleSlot="No MCP clients configured yet."
-              descriptionSlot="Add one to get started."
+              titleSlot="尚未配置 MCP 客户端"
+              descriptionSlot="添加一个即可开始使用。"
               actionSlot={
                 <Button variant="outline" size="sm" onClick={() => setIsCreateOpen(true)}>
                   <Icon size="sm">
                     <PlusIcon />
                   </Icon>
-                  Add MCP Client
+                  添加 MCP 客户端
                 </Button>
               }
             />
@@ -204,8 +204,7 @@ export function MCPClientList() {
                   <EntityContent>
                     <EntityName>{mcpClient.name}</EntityName>
                     <EntityDescription>
-                      {mcpClient.description ||
-                        `${serverCount} server${serverCount === 1 ? "" : "s"} configured`}
+                      {mcpClient.description || `已配置 ${serverCount} 个服务器`}
                     </EntityDescription>
                   </EntityContent>
 
@@ -221,7 +220,7 @@ export function MCPClientList() {
                       <Icon>
                         <XIcon />
                       </Icon>
-                      Remove
+                      移除
                     </Button>
                   )}
                 </Entity>
@@ -234,11 +233,11 @@ export function MCPClientList() {
       <SideDialog
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        dialogTitle="Create a new MCP Client"
-        dialogDescription="Configure an MCP client with server connection details."
+        dialogTitle="创建 MCP 客户端"
+        dialogDescription="配置 MCP 客户端及服务器连接详情。"
       >
         <SideDialog.Top>
-          <SideDialog.Heading>Create a new MCP Client</SideDialog.Heading>
+          <SideDialog.Heading>创建 MCP 客户端</SideDialog.Heading>
         </SideDialog.Top>
         <MCPClientCreateContent onAdd={handleAdd} />
       </SideDialog>
@@ -246,13 +245,11 @@ export function MCPClientList() {
       <SideDialog
         isOpen={viewIndex !== null}
         onClose={() => setViewIndex(null)}
-        dialogTitle={viewingClient?.name ?? "MCP Client"}
-        dialogDescription={
-          isViewingPersisted ? "View MCP client configuration." : "Edit MCP client configuration."
-        }
+        dialogTitle={viewingClient?.name ?? "MCP 客户端"}
+        dialogDescription={isViewingPersisted ? "查看 MCP 客户端配置。" : "编辑 MCP 客户端配置。"}
       >
         <SideDialog.Top>
-          <SideDialog.Heading>{viewingClient?.name ?? "MCP Client"}</SideDialog.Heading>
+          <SideDialog.Heading>{viewingClient?.name ?? "MCP 客户端"}</SideDialog.Heading>
         </SideDialog.Top>
         {viewFormValues && (
           <MCPClientCreateContent
@@ -260,7 +257,7 @@ export function MCPClientList() {
             initialValues={viewFormValues}
             initialSelectedTools={viewingClient?.selectedTools}
             onAdd={readOnly ? undefined : handleUpdate}
-            submitLabel={isViewingPersisted ? "Update tool selection" : "Update MCP Client"}
+            submitLabel={isViewingPersisted ? "更新工具选择" : "更新 MCP 客户端"}
           />
         )}
       </SideDialog>

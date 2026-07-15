@@ -63,9 +63,9 @@ export default function IntegrationsPage() {
 
   return (
     <div className="p-6 max-w-3xl space-y-6 text-sm">
-      <h1 className="text-2xl font-semibold">Integrations</h1>
+      <h1 className="text-2xl font-semibold">集成</h1>
       <p className="text-gray-500">
-        Minimal page to verify the ToolProvider backend. Pick a provider and toolkit, then connect.
+        用于验证 ToolProvider 后端的基础页面。选择提供商和工具包后即可连接。
       </p>
 
       <ProviderToolkitSelector

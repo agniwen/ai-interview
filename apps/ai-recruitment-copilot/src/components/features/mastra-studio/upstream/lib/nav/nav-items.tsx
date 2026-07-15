@@ -42,119 +42,119 @@ export const mainNav: NavSection[] = [
     items: [
       {
         Icon: AgentIcon,
-        docs: { href: "https://mastra.ai/en/docs/agents/overview", label: "Agents documentation" },
+        docs: { href: "https://mastra.ai/en/docs/agents/overview", label: "智能体文档" },
         isOnMastraPlatform: true,
-        name: "Agents",
+        name: "智能体",
         url: "/agents",
       },
       {
         Icon: PromptIcon,
         docs: {
           href: "https://mastra.ai/en/docs/agents/agent-instructions#prompt-blocks",
-          label: "Prompts documentation",
+          label: "提示词文档",
         },
         isOnMastraPlatform: true,
-        name: "Prompts",
+        name: "提示词",
         url: "/prompts",
       },
       {
         Icon: WorkflowIcon,
         docs: {
           href: "https://mastra.ai/en/docs/workflows/overview",
-          label: "Workflows documentation",
+          label: "工作流文档",
         },
         isOnMastraPlatform: true,
-        name: "Workflows",
+        name: "工作流",
         url: "/workflows",
       },
       {
         Icon: ProcessorIcon,
         docs: {
           href: "https://mastra.ai/en/docs/agents/processors",
-          label: "Processors documentation",
+          label: "处理器文档",
         },
         isOnMastraPlatform: false,
-        name: "Processors",
+        name: "处理器",
         url: "/processors",
       },
       {
         Icon: McpServerIcon,
         docs: {
           href: "https://mastra.ai/en/docs/tools-mcp/mcp-overview",
-          label: "MCP documentation",
+          label: "MCP 文档",
         },
         isOnMastraPlatform: true,
-        name: "MCP Servers",
+        name: "MCP 服务器",
         url: "/mcps",
       },
       {
         Icon: ToolsIcon,
         docs: {
           href: "https://mastra.ai/en/docs/agents/using-tools-and-mcp",
-          label: "Tools documentation",
+          label: "工具文档",
         },
         isOnMastraPlatform: true,
-        name: "Tools",
+        name: "工具",
         url: "/tools",
       },
       {
         Icon: WorkspacesIcon,
         docs: {
           href: "https://mastra.ai/en/docs/workspace/overview",
-          label: "Workspaces documentation",
+          label: "工作区文档",
         },
         isOnMastraPlatform: true,
-        name: "Workspaces",
+        name: "工作区",
         url: "/workspaces",
       },
       {
         Icon: RequestContextIcon,
         isOnMastraPlatform: true,
-        name: "Request Context",
+        name: "请求上下文",
         url: "/request-context",
       },
     ],
     key: "primitives",
-    title: "Primitives",
+    title: "基础能力",
   },
   {
     items: [
       {
         Icon: HomeIcon,
         isOnMastraPlatform: true,
-        name: "Overview",
+        name: "概览",
         url: "/evaluation",
       },
       {
         Icon: ScorersIcon,
-        docs: { href: "https://mastra.ai/en/docs/evals/overview", label: "Scorers documentation" },
+        docs: { href: "https://mastra.ai/en/docs/evals/overview", label: "评分器文档" },
         isOnMastraPlatform: true,
-        name: "Scorers",
+        name: "评分器",
         url: "/scorers",
       },
       {
         Icon: DatasetsIcon,
         docs: {
           href: "https://mastra.ai/en/docs/evals/datasets/overview",
-          label: "Datasets documentation",
+          label: "数据集文档",
         },
         isOnMastraPlatform: true,
-        name: "Datasets",
+        name: "数据集",
         url: "/datasets",
       },
       {
         Icon: ExperimentsIcon,
         docs: {
           href: "https://mastra.ai/en/docs/evals/datasets/running-experiments",
-          label: "Experiments documentation",
+          label: "实验文档",
         },
         isOnMastraPlatform: true,
-        name: "Experiments",
+        name: "实验",
         url: "/experiments",
       },
     ],
     key: "evaluation",
-    title: "Evaluation",
+    title: "评估",
   },
   {
     items: [
@@ -162,10 +162,10 @@ export const mainNav: NavSection[] = [
         Icon: MetricsIcon,
         docs: {
           href: "https://mastra.ai/en/docs/observability/overview",
-          label: "Metrics documentation",
+          label: "指标文档",
         },
         isOnMastraPlatform: true,
-        name: "Metrics",
+        name: "指标",
         url: "/metrics",
       },
       {
@@ -173,39 +173,39 @@ export const mainNav: NavSection[] = [
         activePaths: ["/traces"],
         docs: {
           href: "https://mastra.ai/en/docs/observability/tracing/overview",
-          label: "Traces documentation",
+          label: "追踪文档",
         },
         isOnMastraPlatform: true,
-        name: "Traces",
+        name: "追踪",
         url: "/observability",
       },
       {
         Icon: LogsIcon,
         docs: {
           href: "https://mastra.ai/en/docs/observability/logging",
-          label: "Logs documentation",
+          label: "日志文档",
         },
         isOnMastraPlatform: true,
-        name: "Logs",
+        name: "日志",
         url: "/logs",
       },
     ],
     key: "observability",
-    title: "Observability",
+    title: "可观测性",
   },
 ];
 
 export const bottomNav: NavItem[] = [
-  { Icon: SettingsIcon, isOnMastraPlatform: false, name: "Settings", url: "/settings" },
-  { Icon: BookIcon, isOnMastraPlatform: true, name: "Resources", url: "/resources" },
+  { Icon: SettingsIcon, isOnMastraPlatform: false, name: "设置", url: "/settings" },
+  { Icon: BookIcon, isOnMastraPlatform: true, name: "资源", url: "/resources" },
 ];
 
 /** Section-level entries used to resolve breadcrumb label + icon for the overview routes. */
 export const sectionNav: NavItem[] = [
   {
     Icon: ExperimentsIcon,
-    docs: { href: "https://mastra.ai/en/docs/evals/overview", label: "Evaluation documentation" },
-    name: "Evaluation",
+    docs: { href: "https://mastra.ai/en/docs/evals/overview", label: "评估文档" },
+    name: "评估",
     url: "/evaluation",
   },
 ];

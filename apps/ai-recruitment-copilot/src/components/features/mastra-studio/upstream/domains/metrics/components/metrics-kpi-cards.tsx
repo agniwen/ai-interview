@@ -17,7 +17,7 @@ export function AgentRunsKpiCard() {
   const { data, isLoading, isError } = useAgentRunsKpiMetrics();
   return (
     <KpiCardView
-      label="Total Agent Runs"
+      label="智能体运行总数"
       value={isDefined(data?.value) ? data.value.toLocaleString() : null}
       prevValue={isDefined(data?.previousValue) ? data.previousValue.toLocaleString() : undefined}
       changePct={data?.changePercent ?? null}
@@ -31,7 +31,7 @@ export function ModelCostKpiCard() {
   const { data, isLoading, isError } = useModelCostKpiMetrics();
   return (
     <KpiCardView
-      label="Total Model Cost"
+      label="模型总成本"
       value={isDefined(data?.cost) ? formatCost(data.cost, data.costUnit) : null}
       prevValue={
         isDefined(data?.previousCost) ? formatCost(data.previousCost, data.costUnit) : undefined
@@ -47,7 +47,7 @@ export function TotalTokensKpiCard() {
   const { data, isLoading, isError } = useTotalTokensKpiMetrics();
   return (
     <KpiCardView
-      label="Total Tokens"
+      label="Token 总用量"
       value={isDefined(data?.value) ? formatCompact(data.value) : null}
       prevValue={isDefined(data?.previousValue) ? formatCompact(data.previousValue) : undefined}
       changePct={data?.changePercent ?? null}
@@ -61,7 +61,7 @@ export function ActiveThreadsKpiCard() {
   const { data, isLoading, isError } = useActiveThreadsKpiMetrics();
   return (
     <KpiCardView
-      label="Total Threads"
+      label="会话总数"
       value={isDefined(data?.value) ? formatCompact(data.value) : null}
       prevValue={isDefined(data?.previousValue) ? formatCompact(data.previousValue) : undefined}
       changePct={data?.changePercent ?? null}
@@ -75,7 +75,7 @@ export function ActiveResourcesKpiCard() {
   const { data, isLoading, isError } = useActiveResourcesKpiMetrics();
   return (
     <KpiCardView
-      label="Total Resources"
+      label="资源总数"
       value={isDefined(data?.value) ? formatCompact(data.value) : null}
       prevValue={isDefined(data?.previousValue) ? formatCompact(data.previousValue) : undefined}
       changePct={data?.changePercent ?? null}

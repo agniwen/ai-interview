@@ -223,7 +223,7 @@ function getErrorMessage(error: Error): string {
 
   // Check for common patterns
   if (message.includes("status: 404")) {
-    return "Directory not found";
+    return "未找到目录";
   }
 
   return message;
@@ -251,7 +251,7 @@ function Breadcrumb({ path, onNavigate }: BreadcrumbProps) {
       <button
         onClick={() => onNavigate(".")}
         className="p-1 rounded hover:bg-surface4 text-neutral5 hover:text-neutral6 transition-colors"
-        aria-label="Workspace root"
+        aria-label="工作区根目录"
       >
         <FolderOpen className="h-4 w-4" />
       </button>
@@ -300,7 +300,7 @@ function FileListState({
         <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-500/10 mb-4">
           <AlertCircle className="h-6 w-6 text-red-400" />
         </div>
-        <p className="text-sm text-neutral6 font-medium mb-1">Failed to load directory</p>
+        <p className="text-sm text-neutral6 font-medium mb-1">加载目录失败</p>
         <p className="text-xs text-neutral4 max-w-sm mx-auto">{getErrorMessage(error)}</p>
       </div>
     );
@@ -308,7 +308,7 @@ function FileListState({
   if (isEmpty) {
     return (
       <div className="py-12 text-center text-neutral4 text-sm">
-        {isRoot ? "Workspace is empty" : "Directory is empty"}
+        {isRoot ? "工作区为空" : "目录为空"}
       </div>
     );
   }
@@ -400,7 +400,7 @@ export function FileBrowser({
               size="md"
               onClick={onRefresh}
               disabled={isLoading}
-              aria-label="Refresh files"
+              aria-label="刷新文件"
             >
               <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
             </Button>
@@ -410,7 +410,7 @@ export function FileBrowser({
               variant="ghost"
               size="md"
               disabled={isCreatingDirectory}
-              aria-label="Create directory"
+              aria-label="创建目录"
               onClick={() => setIsCreateDirectoryOpen(true)}
             >
               {isCreatingDirectory ? (
@@ -421,7 +421,7 @@ export function FileBrowser({
             </Button>
           )}
           {onUpload && (
-            <Button variant="ghost" size="md" onClick={onUpload} aria-label="Upload files">
+            <Button variant="ghost" size="md" onClick={onUpload} aria-label="上传文件">
               <Upload className="h-4 w-4" />
             </Button>
           )}
@@ -474,8 +474,8 @@ export function FileBrowser({
                               </span>
                             </TooltipTrigger>
                             <TooltipContent className="max-w-xs">
-                              <span className="text-red-400">Error:</span>{" "}
-                              {entry.mount.error || "Failed to connect to this filesystem"}
+                              <span className="text-red-400">错误：</span>{" "}
+                              {entry.mount.error || "连接到此文件系统失败"}
                             </TooltipContent>
                           </Tooltip>
                         )}
@@ -489,7 +489,7 @@ export function FileBrowser({
                       {onDelete && !entry.mount && (
                         <button
                           onClick={() => handleDelete(entry)}
-                          aria-label={`Delete ${entry.name}`}
+                          aria-label={`删除 ${entry.name}`}
                           className="p-2 opacity-0 group-hover:opacity-100 hover:text-red-400 text-neutral3 transition-all"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -511,13 +511,13 @@ export function FileBrowser({
       >
         <AlertDialog.Content>
           <AlertDialog.Header>
-            <AlertDialog.Title>Delete Item</AlertDialog.Title>
+            <AlertDialog.Title>删除项目</AlertDialog.Title>
             <AlertDialog.Description>
-              Are you sure you want to delete "{deleteTarget}"? This action cannot be undone.
+              确定要删除“{deleteTarget}”吗？此操作无法撤销。
             </AlertDialog.Description>
           </AlertDialog.Header>
           <AlertDialog.Footer>
-            <AlertDialog.Cancel disabled={isDeleting}>Cancel</AlertDialog.Cancel>
+            <AlertDialog.Cancel disabled={isDeleting}>取消</AlertDialog.Cancel>
             <AlertDialog.Action
               disabled={isDeleting}
               onClick={async () => {
@@ -531,7 +531,7 @@ export function FileBrowser({
               }}
             >
               {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Delete
+              删除
             </AlertDialog.Action>
           </AlertDialog.Footer>
         </AlertDialog.Content>
@@ -539,20 +539,20 @@ export function FileBrowser({
       <Dialog open={isCreateDirectoryOpen} onOpenChange={setIsCreateDirectoryOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create directory</DialogTitle>
+            <DialogTitle>创建目录</DialogTitle>
           </DialogHeader>
           <DialogBody>
             <Input
-              aria-label="Directory name"
+              aria-label="目录名称"
               autoFocus
-              placeholder="Directory name"
+              placeholder="目录名称"
               value={newDirectoryName}
               onChange={(event) => setNewDirectoryName(event.target.value)}
             />
           </DialogBody>
           <DialogFooter>
             <Button variant="default" onClick={() => setIsCreateDirectoryOpen(false)}>
-              Cancel
+              取消
             </Button>
             <Button
               variant="primary"
@@ -568,7 +568,7 @@ export function FileBrowser({
                 setIsCreateDirectoryOpen(false);
               }}
             >
-              Create
+              创建
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -721,10 +721,10 @@ export function FileViewer({ path, content, isLoading, mimeType, onClose }: File
           <span className="text-sm font-medium text-neutral6">{fileName}</span>
         </div>
         <div className="flex items-center gap-2">
-          <CopyButton content={content} copyMessage="Copied file content" />
+          <CopyButton content={content} copyMessage="已复制文件内容" />
           {onClose && (
             <Button variant="ghost" size="md" onClick={onClose}>
-              Close
+              关闭
             </Button>
           )}
         </div>

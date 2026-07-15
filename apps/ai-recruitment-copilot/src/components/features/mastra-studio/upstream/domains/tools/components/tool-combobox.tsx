@@ -20,9 +20,9 @@ export interface ToolComboboxProps {
 export function ToolCombobox({
   value,
   onValueChange,
-  placeholder = "Select a tool...",
-  searchPlaceholder = "Search tools...",
-  emptyText = "No tools found.",
+  placeholder = "选择工具...",
+  searchPlaceholder = "搜索工具...",
+  emptyText = "未找到工具。",
   className,
   disabled = false,
   variant,
@@ -43,17 +43,15 @@ export function ToolCombobox({
 
   useEffect(() => {
     if (isErrorTools) {
-      const errorMessage =
-        errorTools instanceof Error ? errorTools.message : "Failed to load tools";
-      toast.error(`Error loading tools: ${errorMessage}`);
+      const errorMessage = errorTools instanceof Error ? errorTools.message : "加载工具失败";
+      toast.error(`加载工具时出错：${errorMessage}`);
     }
   }, [isErrorTools, errorTools]);
 
   useEffect(() => {
     if (isErrorAgents) {
-      const errorMessage =
-        errorAgents instanceof Error ? errorAgents.message : "Failed to load agents";
-      toast.error(`Error loading agents: ${errorMessage}`);
+      const errorMessage = errorAgents instanceof Error ? errorAgents.message : "加载智能体失败";
+      toast.error(`加载智能体时出错：${errorMessage}`);
     }
   }, [isErrorAgents, errorAgents]);
 
@@ -95,7 +93,7 @@ export function ToolCombobox({
       options={toolOptions}
       value={value}
       onValueChange={handleValueChange}
-      placeholder={isLoadingTools || isLoadingAgents ? "Loading tools..." : placeholder}
+      placeholder={isLoadingTools || isLoadingAgents ? "正在加载工具..." : placeholder}
       searchPlaceholder={searchPlaceholder}
       emptyText={emptyText}
       className={className}

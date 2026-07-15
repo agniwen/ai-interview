@@ -1,5 +1,6 @@
 import { useMastraClient } from "@mastra/react";
 import { useQuery } from "@tanstack/react-query";
+import { format } from "date-fns";
 import { useMergedRequestContext } from "@/components/features/mastra-studio/upstream/domains/request-context/context/schema-request-context";
 
 export interface ScorerSummary {
@@ -49,17 +50,7 @@ function getBucketSize(rangeMs: number): number {
 }
 
 function getTimeLabel(date: Date, isMultiDay: boolean): string {
-  const time = date.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    hour12: false,
-    minute: "2-digit",
-  });
-  return isMultiDay
-    ? `${date.toLocaleDateString("en-US", {
-        day: "numeric",
-        month: "short",
-      })} ${time}`
-    : time;
+  return format(date, isMultiDay ? "MM/dd HH:mm" : "HH:mm");
 }
 
 export function useScoreMetrics() {

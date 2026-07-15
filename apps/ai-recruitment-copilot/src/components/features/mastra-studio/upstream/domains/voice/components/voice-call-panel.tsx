@@ -2,10 +2,10 @@ import { cn } from "@mastra/playground-ui/utils/cn";
 import type { VoiceAgentState, VoiceCallControls, VoiceCaptionSegment } from "../types";
 
 const AGENT_STATE_LABELS: Record<VoiceAgentState, string> = {
-  initializing: "Connecting…",
-  listening: "Listening…",
-  speaking: "Speaking…",
-  thinking: "Thinking…",
+  initializing: "正在连接…",
+  listening: "正在聆听…",
+  speaking: "正在讲话…",
+  thinking: "正在思考…",
 };
 
 export interface VoiceCallPanelProps {
@@ -28,7 +28,7 @@ export const VoiceCallPanel = ({ voiceCall }: VoiceCallPanelProps) => {
   const lastUserCaption = lastSegmentByRole(voiceCall.captions, "user");
   const lastAgentCaption = lastSegmentByRole(voiceCall.captions, "agent");
   const stateLabel =
-    voiceCall.status === "connecting" ? "Connecting…" : AGENT_STATE_LABELS[voiceCall.agentState];
+    voiceCall.status === "connecting" ? "正在连接…" : AGENT_STATE_LABELS[voiceCall.agentState];
 
   return (
     <div

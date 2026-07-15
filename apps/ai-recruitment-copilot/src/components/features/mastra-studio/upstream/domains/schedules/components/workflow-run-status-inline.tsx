@@ -6,6 +6,16 @@ export interface WorkflowRunStatusInlineProps {
   status: WorkflowRunStatus;
 }
 
+const STATUS_LABELS: Partial<Record<WorkflowRunStatus, string>> = {
+  canceled: "已取消",
+  failed: "失败",
+  pending: "等待中",
+  running: "运行中",
+  success: "成功",
+  suspended: "已挂起",
+  waiting: "等待中",
+};
+
 function getStatusVisual(status: WorkflowRunStatus): { icon: React.ReactNode; color: string } {
   switch (status) {
     case "success": {
@@ -45,7 +55,7 @@ export function WorkflowRunStatusInline({ status }: WorkflowRunStatusInlineProps
       <span className="inline-flex shrink-0 items-center" aria-hidden>
         {icon}
       </span>
-      <span>{status}</span>
+      <span>{STATUS_LABELS[status] ?? status}</span>
     </span>
   );
 }

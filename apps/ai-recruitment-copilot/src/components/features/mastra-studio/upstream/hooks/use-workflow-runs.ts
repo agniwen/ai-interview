@@ -81,11 +81,11 @@ export const useDeleteWorkflowRun = (workflowId: string) => {
     mutationFn: ({ runId }: { runId: string }) =>
       client.getWorkflow(workflowId).deleteRunById(runId),
     onError: () => {
-      toast.error("Failed to delete workflow run");
+      toast.error("删除工作流运行记录失败");
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["workflow-runs", workflowId] });
-      toast.success("Workflow run deleted successfully");
+      toast.success("工作流运行记录已删除");
     },
   });
 };

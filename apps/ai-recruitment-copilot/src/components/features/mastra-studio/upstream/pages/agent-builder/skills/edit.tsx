@@ -91,7 +91,7 @@ const AgentBuilderSkillEditReady = ({ id, initialUserMessage }: ReadyProps) => {
 
   return (
     <SkillWorkspaceLayout
-      title={name || "Untitled skill"}
+      title={name || "未命名技能"}
       rightAside={
         <AutosaveIndicator
           status={autosave.status}
@@ -107,13 +107,13 @@ const AgentBuilderSkillEditReady = ({ id, initialUserMessage }: ReadyProps) => {
       mobileExtra={
         <SkillBuilderMobileMenu
           skillId={id}
-          skillName={name || "Untitled skill"}
+          skillName={name || "未命名技能"}
           showSetVisibility
           showDelete
         />
       }
       showForm={showForm}
-      deleteAction={<DeleteSkillPanelButton skillId={id} skillName={name || "Untitled skill"} />}
+      deleteAction={<DeleteSkillPanelButton skillId={id} skillName={name || "未命名技能"} />}
       chat={
         <SkillChatComposer
           sessionKey={sessionKey}

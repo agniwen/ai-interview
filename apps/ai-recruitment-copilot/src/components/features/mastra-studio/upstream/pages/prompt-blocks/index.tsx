@@ -35,7 +35,7 @@ export default function PromptBlocks() {
   if (error && is403ForbiddenError(error)) {
     return (
       <NoDataPageLayout>
-        <PermissionDenied resource="prompt blocks" />
+        <PermissionDenied resource="提示词块" />
       </NoDataPageLayout>
     );
   }
@@ -43,7 +43,7 @@ export default function PromptBlocks() {
   if (error) {
     return (
       <NoDataPageLayout>
-        <ErrorState title="Failed to load prompt blocks" message={error.message} />
+        <ErrorState title="加载提示词块失败" message={error.message} />
       </NoDataPageLayout>
     );
   }
@@ -61,11 +61,7 @@ export default function PromptBlocks() {
       <PageLayout.TopArea>
         <PageLayout.Row align="center" stack="responsive">
           <div className="max-w-120 flex-1">
-            <ListSearch
-              onSearch={setSearch}
-              label="Filter prompts"
-              placeholder="Filter by name or description"
-            />
+            <ListSearch onSearch={setSearch} label="筛选提示词" placeholder="按名称或描述筛选" />
           </div>
           {isCmsAvailable && (
             <Button
@@ -75,7 +71,7 @@ export default function PromptBlocks() {
               className="shrink-0"
             >
               <Plus />
-              Create Prompt
+              创建提示词
             </Button>
           )}
         </PageLayout.Row>

@@ -65,7 +65,7 @@ function PrivateVisibilityIcon() {
       <TooltipTrigger asChild>
         <span
           className="text-neutral3 shrink-0"
-          aria-label="Private agent"
+          aria-label="私有智能体"
           data-testid="agent-builder-private-visibility-icon"
         >
           <Icon size="sm">
@@ -73,7 +73,7 @@ function PrivateVisibilityIcon() {
           </Icon>
         </span>
       </TooltipTrigger>
-      <TooltipContent>Only visible to you</TooltipContent>
+      <TooltipContent>仅你可见</TooltipContent>
     </Tooltip>
   );
 }
@@ -104,8 +104,8 @@ export function AgentBuilderList({
       <div className="flex items-center justify-center pt-10">
         <EmptyState
           iconSlot={<SearchIcon className="h-8 w-8 text-neutral3" />}
-          titleSlot="No agents match your search"
-          descriptionSlot="Try a different name or description."
+          titleSlot="没有匹配搜索条件的智能体"
+          descriptionSlot="请尝试其他名称或描述。"
         />
       </div>
     );
@@ -132,7 +132,7 @@ export function AgentBuilderList({
               </div>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-ui-sm text-neutral3 line-clamp-1">
-                  {agent.description || "No description"}
+                  {agent.description || "暂无描述"}
                 </span>
               </div>
               <AuthorBadge agent={agent} className="mt-2 md:hidden" />

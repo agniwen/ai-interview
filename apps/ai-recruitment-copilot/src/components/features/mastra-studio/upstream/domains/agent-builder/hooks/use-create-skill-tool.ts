@@ -68,7 +68,7 @@ export function useCreateSkillTool({ availableWorkspaces = [] }: UseCreateSkillT
         }
 
         if (!workspaceId) {
-          return { error: "No workspace available for skill creation.", success: false };
+          return { error: "没有可用于创建技能的工作区。", success: false };
         }
 
         const initial = createInitialStructure(name);
@@ -93,7 +93,7 @@ export function useCreateSkillTool({ availableWorkspaces = [] }: UseCreateSkillT
           return { skillId: created.id, success: true };
         } catch (error) {
           return {
-            error: error instanceof Error ? error.message : "Failed to create skill",
+            error: error instanceof Error ? error.message : "创建技能失败",
             success: false,
           };
         }

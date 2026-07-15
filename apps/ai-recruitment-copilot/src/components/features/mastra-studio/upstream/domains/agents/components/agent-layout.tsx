@@ -25,8 +25,8 @@ export const AgentLayout = ({
   children,
   leftSlot,
   rightSlot,
-  leftDrawerLabel = "Open left panel",
-  rightDrawerLabel = "Open right panel",
+  leftDrawerLabel = "打开左侧面板",
+  rightDrawerLabel = "打开右侧面板",
   browserOverlay,
 }: AgentLayoutProps) => {
   const isMobile = useIsMobile();

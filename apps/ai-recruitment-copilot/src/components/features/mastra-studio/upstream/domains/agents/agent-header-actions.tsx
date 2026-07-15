@@ -18,7 +18,7 @@ export function AgentHeaderCreateAction() {
   }
   return (
     <RouteHeaderActions owner="agent-list">
-      <Button as={Link} to={createPath} tooltip="Create an agent" size="icon-sm">
+      <Button as={Link} to={createPath} tooltip="创建智能体" size="icon-sm">
         <Plus />
       </Button>
     </RouteHeaderActions>

@@ -24,11 +24,11 @@ const useDeleteAgentAction = ({ agentId }: UseDeleteAgentActionParams) => {
   const confirm = async () => {
     try {
       await deleteStoredAgent.mutateAsync();
-      toast.success("Agent deleted");
+      toast.success("智能体已删除");
       setOpen(false);
       void navigate("/agent-builder/agents", { viewTransition: true });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to delete agent");
+      toast.error(error instanceof Error ? error.message : "删除智能体失败");
     }
   };
 
@@ -63,10 +63,9 @@ const DeleteAgentDialog = ({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialog.Content data-testid="agent-builder-delete-agent-dialog">
         <AlertDialog.Header>
-          <AlertDialog.Title>Delete agent?</AlertDialog.Title>
+          <AlertDialog.Title>删除智能体？</AlertDialog.Title>
           <AlertDialog.Description>
-            This permanently deletes &quot;{agentName}&quot; and removes its conversation history.
-            This cannot be undone.
+            此操作会永久删除“{agentName}”及其对话历史，且无法撤销。
           </AlertDialog.Description>
         </AlertDialog.Header>
         <AlertDialog.Body className="pt-0">
@@ -74,7 +73,7 @@ const DeleteAgentDialog = ({
         </AlertDialog.Body>
         <AlertDialog.Footer>
           <AlertDialog.Cancel data-testid="agent-builder-delete-agent-cancel" disabled={isPending}>
-            Cancel
+            取消
           </AlertDialog.Cancel>
           <Button
             variant="primary"
@@ -86,7 +85,7 @@ const DeleteAgentDialog = ({
               onConfirm();
             }}
           >
-            {isPending ? "Deleting…" : "Delete agent"}
+            {isPending ? "正在删除…" : "删除智能体"}
           </Button>
         </AlertDialog.Footer>
       </AlertDialog.Content>
@@ -116,7 +115,7 @@ export const DeleteAgentPanelButton = ({
         variant="ghost"
         size="sm"
       >
-        Delete agent
+        删除智能体
       </Button>
       <DeleteAgentDialog
         open={open}
@@ -149,7 +148,7 @@ export const DeleteAgentMenuItem = ({
         }}
       >
         <Trash2 />
-        <span>Delete agent</span>
+        <span>删除智能体</span>
       </DropdownMenu.Item>
       <DeleteAgentDialog
         open={open}

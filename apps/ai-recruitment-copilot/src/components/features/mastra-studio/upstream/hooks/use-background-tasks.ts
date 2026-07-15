@@ -147,7 +147,7 @@ export function useBackgroundTaskStream(
       });
 
       if (!stream) {
-        setError(new Error("Stream connection failed"));
+        setError(new Error("流式连接失败"));
         return;
       }
 

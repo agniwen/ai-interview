@@ -92,7 +92,7 @@ function AgentEvaluate() {
   if (error && is403ForbiddenError(error)) {
     return (
       <div className="flex h-full items-center justify-center">
-        <PermissionDenied resource="agents" />
+        <PermissionDenied resource="智能体" />
       </div>
     );
   }
@@ -106,7 +106,7 @@ function AgentEvaluate() {
   }
 
   if (!codeAgent) {
-    return <div className="text-center py-4">Agent not found</div>;
+    return <div className="text-center py-4">未找到智能体</div>;
   }
 
   return (

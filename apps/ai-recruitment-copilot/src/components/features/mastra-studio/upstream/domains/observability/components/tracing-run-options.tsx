@@ -48,17 +48,17 @@ export const TracingRunOptions = ({
     <div className={cn("px-5 py-2", !hideTitle && "space-y-2", className)}>
       {!hideTitle && (
         <Txt as="h3" variant="ui-md" className="text-neutral3">
-          Tracing Options
+          追踪选项
         </Txt>
       )}
 
       {showEditorHeader && (
         <div className="flex items-center justify-between pb-2">
           <Txt as="label" variant="ui-md" className="text-neutral3">
-            Tracing Options (JSON)
+            追踪选项（JSON）
           </Txt>
           <Txt as="span" variant="ui-xs" className="text-neutral3">
-            Auto-applied on valid JSON
+            JSON 有效时自动应用
           </Txt>
         </div>
       )}

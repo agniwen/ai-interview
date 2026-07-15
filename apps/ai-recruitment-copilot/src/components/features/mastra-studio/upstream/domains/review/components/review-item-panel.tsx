@@ -99,13 +99,13 @@ export function ReviewItemPanel({
       {!isCompleted && (
         <div className="flex items-center gap-2">
           <Txt variant="ui-sm" className="text-neutral3">
-            Rating
+            评级
           </Txt>
           <ButtonsGroup spacing="close">
             <Button
               size="md"
               onClick={() => onRate(item.rating === "positive" ? undefined : "positive")}
-              aria-label="Rate positive"
+              aria-label="评为良好"
             >
               <Icon size="sm" className={item.rating === "positive" ? "text-positive1" : ""}>
                 <ThumbsUp />
@@ -114,7 +114,7 @@ export function ReviewItemPanel({
             <Button
               size="md"
               onClick={() => onRate(item.rating === "negative" ? undefined : "negative")}
-              aria-label="Rate negative"
+              aria-label="评为较差"
             >
               <Icon size="sm" className={item.rating === "negative" ? "text-negative1" : ""}>
                 <ThumbsDown />
@@ -123,7 +123,7 @@ export function ReviewItemPanel({
           </ButtonsGroup>
           {item.rating && (
             <Badge variant={item.rating === "positive" ? "success" : "error"}>
-              {item.rating === "positive" ? "Good" : "Bad"}
+              {item.rating === "positive" ? "良好" : "较差"}
             </Badge>
           )}
         </div>
@@ -132,10 +132,10 @@ export function ReviewItemPanel({
       {isCompleted && item.rating && (
         <div className="flex items-center gap-2">
           <Txt variant="ui-sm" className="text-neutral3">
-            Rating
+            评级
           </Txt>
           <Badge variant={item.rating === "positive" ? "success" : "error"}>
-            {item.rating === "positive" ? "Good" : "Bad"}
+            {item.rating === "positive" ? "良好" : "较差"}
           </Badge>
         </div>
       )}
@@ -143,7 +143,7 @@ export function ReviewItemPanel({
       {/* Tags */}
       <div className="flex flex-wrap gap-2">
         <Txt variant="ui-sm" className="text-neutral3 block mt-0">
-          Tags
+          标签
         </Txt>
         {isCompleted ? (
           <div className="flex gap-1 flex-wrap">
@@ -155,7 +155,7 @@ export function ReviewItemPanel({
               ))
             ) : (
               <Txt variant="ui-sm" className="text-neutral2">
-                No tags
+                无标签
               </Txt>
             )}
           </div>
@@ -168,7 +168,7 @@ export function ReviewItemPanel({
       {item.scores && Object.keys(item.scores).length > 0 && (
         <div>
           <Txt variant="ui-xs" className="text-neutral3 block mb-2">
-            Scores
+            得分
           </Txt>
           <div className="flex flex-wrap gap-2">
             {Object.entries(item.scores).map(([name, score]) => (
@@ -188,9 +188,9 @@ export function ReviewItemPanel({
 
       {item.experimentId && (
         <DataKeysAndValues>
-          <DataKeysAndValues.Key>Experiment Id</DataKeysAndValues.Key>
+          <DataKeysAndValues.Key>实验 ID</DataKeysAndValues.Key>
           <DataKeysAndValues.ValueWithCopyBtn
-            copyTooltip="Copy Experiment Id to clipboard"
+            copyTooltip="复制实验 ID 到剪贴板"
             copyValue={item.experimentId}
           >
             {item.experimentId}
@@ -204,21 +204,21 @@ export function ReviewItemPanel({
     <>
       <DataPanel>
         <DataPanel.Header>
-          <DataPanel.Heading>Review</DataPanel.Heading>
+          <DataPanel.Heading>评审</DataPanel.Heading>
           <ButtonsGroup className="ml-auto shrink-0">
             <DataPanel.NextPrevNav
               onPrevious={onPrevious}
               onNext={onNext}
-              previousLabel="Previous item"
-              nextLabel="Next item"
+              previousLabel="上一项"
+              nextLabel="下一项"
             />
             {!isCompleted && onComplete && (
-              <Button size="md" onClick={onComplete} aria-label="Mark as complete">
+              <Button size="md" onClick={onComplete} aria-label="标记为已完成">
                 <CheckCircle />
-                Complete
+                完成
               </Button>
             )}
-            <DataPanel.CloseButton onClick={onClose} tooltip="Close detail panel" />
+            <DataPanel.CloseButton onClick={onClose} tooltip="关闭详情面板" />
           </ButtonsGroup>
         </DataPanel.Header>
 
@@ -227,12 +227,12 @@ export function ReviewItemPanel({
 
           <div className="grid gap-3">
             <DataPanel.CodeSection
-              title="Input"
+              title="输入"
               icon={<FileInputIcon />}
               codeStr={formatUnknown(item.input ?? null)}
             />
             <DataPanel.CodeSection
-              title="Output"
+              title="输出"
               icon={<FileOutputIcon />}
               codeStr={formatUnknown(item.output ?? null)}
             />
@@ -242,7 +242,7 @@ export function ReviewItemPanel({
           {item.error !== null && (
             <div>
               <Txt variant="ui-xs" className="text-neutral3 block mb-1">
-                Error
+                错误
               </Txt>
               <pre className="text-ui-xs text-negative1 whitespace-pre-wrap wrap-break-word bg-surface2 rounded-md p-3 max-h-48 overflow-auto">
                 {formatUnknown(item.error)}
@@ -254,24 +254,24 @@ export function ReviewItemPanel({
           <div className="mt-4">
             <div className="flex items-center gap-2 mb-2">
               <Txt variant="ui-sm" className="uppercase tracking-widest text-neutral2">
-                Comment
+                备注
               </Txt>
               {commentSaved && (
                 <Txt variant="ui-xs" className="text-positive1">
-                  Saved
+                  已保存
                 </Txt>
               )}
             </div>
             {isCompleted ? (
               <Txt variant="ui-xs" className="text-neutral4 block">
-                {item.comment || "No comment"}
+                {item.comment || "无备注"}
               </Txt>
             ) : (
               <Textarea
                 value={localComment}
                 onChange={(e) => setLocalComment(e.target.value)}
                 onBlur={handleCommentBlur}
-                placeholder="Add notes about this item..."
+                placeholder="添加关于此数据项的备注…"
                 rows={3}
                 className="text-xs"
               />
@@ -284,12 +284,12 @@ export function ReviewItemPanel({
               {onComplete && (
                 <Button size="md" onClick={onComplete}>
                   <CheckCircle />
-                  Mark as complete
+                  标记为已完成
                 </Button>
               )}
               <Button variant="outline" size="md" onClick={() => setShowRemoveConfirm(true)}>
                 <Trash2 />
-                Remove
+                移除
               </Button>
             </div>
           )}
@@ -299,21 +299,20 @@ export function ReviewItemPanel({
       <AlertDialog open={showRemoveConfirm} onOpenChange={setShowRemoveConfirm}>
         <AlertDialog.Content>
           <AlertDialog.Header>
-            <AlertDialog.Title>Remove from Review</AlertDialog.Title>
+            <AlertDialog.Title>从评审中移除</AlertDialog.Title>
             <AlertDialog.Description>
-              This will remove the item from the review queue. The experiment result will remain but
-              will no longer be flagged for review.
+              此操作会将数据项移出评审队列。实验结果仍会保留，但不再标记为待评审。
             </AlertDialog.Description>
           </AlertDialog.Header>
           <AlertDialog.Footer>
-            <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+            <AlertDialog.Cancel>取消</AlertDialog.Cancel>
             <AlertDialog.Action
               onClick={() => {
                 onRemove();
                 setShowRemoveConfirm(false);
               }}
             >
-              Remove
+              移除
             </AlertDialog.Action>
           </AlertDialog.Footer>
         </AlertDialog.Content>

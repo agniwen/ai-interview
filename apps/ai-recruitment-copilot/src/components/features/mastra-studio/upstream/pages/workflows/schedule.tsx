@@ -54,7 +54,7 @@ export default function SchedulePage() {
   if (error && is403ForbiddenError(error)) {
     return (
       <NoDataPageLayout>
-        <PermissionDenied resource="schedules" />
+        <PermissionDenied resource="定时任务" />
       </NoDataPageLayout>
     );
   }
@@ -62,7 +62,7 @@ export default function SchedulePage() {
   if (error) {
     return (
       <NoDataPageLayout>
-        <ErrorState title="Failed to load schedule" message={error.message} />
+        <ErrorState title="加载定时任务失败" message={error.message} />
       </NoDataPageLayout>
     );
   }
@@ -91,11 +91,11 @@ export default function SchedulePage() {
           <PageLayout.Column className="flex justify-end gap-2">
             <Button as={Link} to={paths.schedulesLink()} variant="ghost">
               <ArrowLeftIcon />
-              Back to schedules
+              返回定时任务
             </Button>
             {workflowId ? (
               <Button as={Link} to={paths.workflowLink(workflowId)} variant="ghost">
-                Open workflow
+                打开工作流
               </Button>
             ) : null}
             {schedule ? (
@@ -107,12 +107,12 @@ export default function SchedulePage() {
                 {schedule.status === "active" ? (
                   <>
                     <PauseIcon />
-                    Pause
+                    暂停
                   </>
                 ) : (
                   <>
                     <PlayIcon />
-                    Resume
+                    恢复
                   </>
                 )}
               </Button>
@@ -124,17 +124,17 @@ export default function SchedulePage() {
       {schedule ? (
         <div className="grid gap-6 h-full overflow-hidden grid-cols-[minmax(0,20rem)_1fr]">
           <div className="flex flex-col gap-4 border border-border1 rounded-md p-4 h-fit">
-            <MetaItem label={agentId ? "Agent" : "Workflow"}>{scheduleTarget}</MetaItem>
+            <MetaItem label={agentId ? "智能体" : "工作流"}>{scheduleTarget}</MetaItem>
             <MetaItem label="Cron">
               <code className="font-mono text-ui-md">{schedule.cron}</code>
               {schedule.timezone ? (
                 <span className="text-neutral4 ml-2 text-ui-sm">{schedule.timezone}</span>
               ) : null}
             </MetaItem>
-            <MetaItem label="Status">
+            <MetaItem label="状态">
               <ScheduleStatusText status={schedule.status} />
             </MetaItem>
-            <MetaItem label="Next fire">
+            <MetaItem label="下次触发">
               <span title={formatScheduleTimestamp(schedule.nextFireAt)}>
                 {formatRelativeTime(schedule.nextFireAt)}
               </span>
@@ -143,10 +143,10 @@ export default function SchedulePage() {
 
           <div className="overflow-y-auto" data-testid="schedule-triggers-panel">
             <Txt variant="ui-md" className="mb-3">
-              Trigger history
+              触发历史
             </Txt>
             {triggersError ? (
-              <ErrorState title="Failed to load trigger history" message={triggersError.message} />
+              <ErrorState title="加载触发历史失败" message={triggersError.message} />
             ) : (
               <ScheduleTriggersList
                 triggers={triggers ?? []}

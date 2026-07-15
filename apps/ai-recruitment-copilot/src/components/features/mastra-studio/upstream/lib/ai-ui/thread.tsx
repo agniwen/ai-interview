@@ -135,8 +135,8 @@ export interface ThreadWelcomeProps {
 function ThreadWelcome({ agentName }: ThreadWelcomeProps) {
   return (
     <div className="flex w-full grow flex-col items-center pt-[15vh]">
-      <Avatar name={agentName || "Agent"} size="lg" />
-      <p className="mt-4 font-medium">How can I help you today?</p>
+      <Avatar name={agentName || "智能体"} size="lg" />
+      <p className="mt-4 font-medium">今天想让我帮你做什么？</p>
     </div>
   );
 }
@@ -221,7 +221,7 @@ const SpeechInput = ({
       variant="default"
       size="icon-md"
       type="button"
-      tooltip={isListening ? "Stop dictation" : "Start dictation"}
+      tooltip={isListening ? "停止语音输入" : "开始语音输入"}
       onClick={() => (isListening ? stop() : start())}
     >
       {isListening ? (
@@ -251,7 +251,7 @@ function ComposerSendButton({
   // While streaming and not allowed to send mid-stream, the only action is cancel.
   if (isRunning && !canSendWhileStreaming) {
     return (
-      <Button variant="default" size="icon-md" type="button" tooltip="Cancel" onClick={onCancel}>
+      <Button variant="default" size="icon-md" type="button" tooltip="取消" onClick={onCancel}>
         <CircleStopIcon />
       </Button>
     );
@@ -263,14 +263,14 @@ function ComposerSendButton({
         type="submit"
         variant="default"
         size="icon-md"
-        tooltip={canExecute ? "Send" : "No permission to execute"}
+        tooltip={canExecute ? "发送" : "没有执行权限"}
         className="rounded-full border border-border1 bg-surface5"
         disabled={!canExecute || isEmpty}
       >
         <ArrowUp className="h-6 w-6 text-neutral3 hover:text-neutral6" />
       </Button>
       {isRunning && (
-        <Button variant="default" size="icon-md" type="button" tooltip="Cancel" onClick={onCancel}>
+        <Button variant="default" size="icon-md" type="button" tooltip="取消" onClick={onCancel}>
           <CircleStopIcon />
         </Button>
       )}
@@ -402,16 +402,12 @@ function Composer({
                 height and fades the clipped edges once the content overflows. */}
             <ScrollArea maxHeight="212px">
               <textarea
-                aria-label="Message"
+                aria-label="消息"
                 ref={textareaRef}
                 value={text}
                 autoFocus={false}
                 className="field-sizing-content min-h-17 w-full text-ui-lg leading-ui-lg placeholder:text-neutral3 text-neutral6 bg-transparent focus:outline-hidden resize-none outline-hidden disabled:cursor-not-allowed disabled:opacity-50 px-3 pt-3 pb-2"
-                placeholder={
-                  canExecuteAgent
-                    ? "Enter your message..."
-                    : "You don't have permission to execute agents"
-                }
+                placeholder={canExecuteAgent ? "请输入消息..." : "你没有执行智能体的权限"}
                 onChange={(e) => {
                   setThreadInput(e.target.value);
                 }}

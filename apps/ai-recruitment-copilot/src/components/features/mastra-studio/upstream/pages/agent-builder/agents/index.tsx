@@ -62,13 +62,13 @@ export default function AgentBuilderAgentsPage() {
       if (is403ForbiddenError(error)) {
         return (
           <div className="flex items-center justify-center pt-10">
-            <PermissionDenied resource="agents" />
+            <PermissionDenied resource="智能体" />
           </div>
         );
       }
       return (
         <div className="flex items-center justify-center pt-10">
-          <ErrorState title="Failed to load agents" message={error.message} />
+          <ErrorState title="加载智能体失败" message={error.message} />
         </div>
       );
     }
@@ -78,12 +78,12 @@ export default function AgentBuilderAgentsPage() {
         <div className="flex items-center justify-center pt-16">
           <EmptyState
             iconSlot={<AgentIcon className="h-8 w-8 text-neutral3" />}
-            titleSlot="No agents yet"
-            descriptionSlot="Start building your first agent with the Agent Builder."
+            titleSlot="暂无智能体"
+            descriptionSlot="使用智能体构建器创建你的第一个智能体。"
             actionSlot={
               canWrite ? (
                 <Button as={FrameworkLink} to="/agent-builder/agents/create" variant="primary">
-                  <PlusIcon /> Create an agent
+                  <PlusIcon /> 创建智能体
                 </Button>
               ) : undefined
             }
@@ -101,9 +101,9 @@ export default function AgentBuilderAgentsPage() {
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-4">
           <PageHeader>
             <PageHeader.Title>
-              <AgentIcon /> My agents
+              <AgentIcon /> 我的智能体
             </PageHeader.Title>
-            <PageHeader.Description>Agents you've created.</PageHeader.Description>
+            <PageHeader.Description>你创建的智能体。</PageHeader.Description>
           </PageHeader>
           {agents.length > 0 && canWrite && (
             <div className="w-full shrink-0 md:w-auto">
@@ -113,17 +113,13 @@ export default function AgentBuilderAgentsPage() {
                 variant="primary"
                 className="w-full justify-center md:w-auto"
               >
-                <PlusIcon /> New agent
+                <PlusIcon /> 新建智能体
               </Button>
             </div>
           )}
         </div>
         <div className="max-w-120">
-          <ListSearch
-            onSearch={setSearch}
-            label="Filter agents"
-            placeholder="Filter by name or description"
-          />
+          <ListSearch onSearch={setSearch} label="筛选智能体" placeholder="按名称或描述筛选" />
         </div>
       </PageLayout.TopArea>
 

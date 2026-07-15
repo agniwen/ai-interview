@@ -24,10 +24,10 @@ export const AgentProfileToolsStep = () => {
 
   return (
     <AgentStepContainer
-      title="Available tools"
+      title="可用工具"
       description={
         <div className="flex items-center gap-2">
-          Selected tools:{" "}
+          已选工具：{" "}
           <Badge variant="default">
             <strong className="font-semibold text-neutral6">{selectedToolsCount}</strong>
           </Badge>
@@ -36,7 +36,7 @@ export const AgentProfileToolsStep = () => {
       contentClassName="overflow-hidden"
       cta={
         <Button onClick={handleContinue} disabled={isStreaming}>
-          Continue{" "}
+          继续{" "}
           <Icon>
             <ArrowRightIcon />
           </Icon>

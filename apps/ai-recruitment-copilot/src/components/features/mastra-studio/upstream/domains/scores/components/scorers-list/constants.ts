@@ -1,5 +1,5 @@
 export const SCORER_SOURCE_OPTIONS = [
-  { label: "All sources", value: "all" },
-  { label: "Code", value: "code" },
-  { label: "Stored", value: "stored" },
+  { label: "全部来源", value: "all" },
+  { label: "代码", value: "code" },
+  { label: "已存储", value: "stored" },
 ] as const;

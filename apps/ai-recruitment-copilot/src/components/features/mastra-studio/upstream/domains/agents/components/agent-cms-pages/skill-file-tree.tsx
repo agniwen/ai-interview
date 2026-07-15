@@ -136,10 +136,10 @@ function FolderActions({
 }) {
   return (
     <span className="flex opacity-0 group-hover:opacity-100">
-      <Button size="icon-sm" variant="ghost" tooltip="New file" onClick={onAddFile}>
+      <Button size="icon-sm" variant="ghost" tooltip="新建文件" onClick={onAddFile}>
         <Plus />
       </Button>
-      <Button size="icon-sm" variant="ghost" tooltip="New folder" onClick={onAddFolder}>
+      <Button size="icon-sm" variant="ghost" tooltip="新建文件夹" onClick={onAddFolder}>
         <FolderPlus />
       </Button>
     </span>
@@ -158,7 +158,7 @@ function FileDeleteAction({
       <Button
         size="icon-sm"
         variant="ghost"
-        tooltip="Delete file"
+        tooltip="删除文件"
         onClick={(e: MouseEvent<HTMLButtonElement>) => {
           e.stopPropagation();
           onRemove(nodeId);
@@ -211,7 +211,7 @@ function UserNodeList({
                     <Button
                       size="icon-sm"
                       variant="ghost"
-                      tooltip="New file"
+                      tooltip="新建文件"
                       onClick={() => onAddFile(node.id)}
                     >
                       <Plus />
@@ -219,7 +219,7 @@ function UserNodeList({
                     <Button
                       size="icon-sm"
                       variant="ghost"
-                      tooltip="New folder"
+                      tooltip="新建文件夹"
                       onClick={() => onAddFolder(node.id)}
                     >
                       <FolderPlus />
@@ -227,7 +227,7 @@ function UserNodeList({
                     <Button
                       size="icon-sm"
                       variant="ghost"
-                      tooltip="Delete folder"
+                      tooltip="删除文件夹"
                       onClick={(e: MouseEvent<HTMLButtonElement>) => {
                         e.stopPropagation();
                         onRemove(node.id);
@@ -405,7 +405,7 @@ export function SkillFileTree({
   return (
     <TooltipProvider>
       <input
-        aria-label="Upload skill image"
+        aria-label="上传技能图片"
         ref={imageInputRef}
         type="file"
         accept="image/*"
@@ -537,7 +537,7 @@ export function SkillFileTree({
                 >
                   <Tree.FolderTrigger
                     actions={
-                      !readOnly && <FolderAddAction tooltip="Add image" onClick={handleAddImage} />
+                      !readOnly && <FolderAddAction tooltip="添加图片" onClick={handleAddImage} />
                     }
                   >
                     <Tree.Icon>{getFolderIcon(openFolders.assets)}</Tree.Icon>

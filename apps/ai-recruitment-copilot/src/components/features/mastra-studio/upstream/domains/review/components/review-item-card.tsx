@@ -59,7 +59,7 @@ function ReviewItemExpanded({
       {item.experimentId && (
         <div className="flex items-center gap-1.5">
           <Txt variant="ui-xs" className="text-neutral3">
-            Experiment:
+            实验：
           </Txt>
           <code className="text-[10px] font-mono text-neutral4 bg-surface2 px-1.5 py-0.5 rounded">
             {item.experimentId.slice(0, 8)}
@@ -68,7 +68,7 @@ function ReviewItemExpanded({
       )}
       <div>
         <Txt variant="ui-xs" className="text-neutral3 block font-semibold mb-1">
-          Input
+          输入
         </Txt>
         <pre className="text-xs text-neutral5 whitespace-pre-wrap bg-surface2 rounded p-2 overflow-auto max-h-40">
           {formatUnknown(item.input)}
@@ -77,7 +77,7 @@ function ReviewItemExpanded({
       {item.output !== undefined && item.output !== null && (
         <div>
           <Txt variant="ui-xs" className="text-neutral3 block font-semibold mb-1">
-            Output
+            输出
           </Txt>
           <pre className="text-xs text-neutral5 whitespace-pre-wrap bg-surface2 rounded p-2 overflow-auto max-h-40">
             {formatUnknown(item.output)}
@@ -87,7 +87,7 @@ function ReviewItemExpanded({
       {Boolean(item.error) && (
         <div>
           <Txt variant="ui-xs" className="text-neutral3 block font-semibold mb-1">
-            Error
+            错误
           </Txt>
           <pre className="text-xs text-negative1 whitespace-pre-wrap bg-surface2 rounded p-2 overflow-auto max-h-20">
             {formatUnknown(item.error)}
@@ -98,7 +98,7 @@ function ReviewItemExpanded({
         item.comment && (
           <div>
             <Txt variant="ui-xs" className="text-neutral3 block font-semibold mb-1">
-              Comment
+              备注
             </Txt>
             <Txt variant="ui-xs" className="text-neutral4 block">
               {item.comment}
@@ -108,7 +108,7 @@ function ReviewItemExpanded({
       ) : (
         <div>
           <Txt variant="ui-xs" className="text-neutral3 block font-semibold mb-1">
-            Comment
+            备注
           </Txt>
           <Textarea
             value={localComment}
@@ -123,13 +123,13 @@ function ReviewItemExpanded({
                 setTimeout(() => setCommentSaved(false), 1500);
               }
             }}
-            placeholder="Add a note about this item..."
+            placeholder="添加关于此数据项的备注…"
             rows={2}
             className="text-xs"
           />
           {commentSaved && (
             <Txt variant="ui-xs" className="text-positive1 mt-0.5">
-              Saved
+              已保存
             </Txt>
           )}
         </div>
@@ -192,7 +192,7 @@ export function ReviewItemCard({
           </Icon>
         ) : (
           <input
-            aria-label={`Select review item ${item.id}`}
+            aria-label={`选择评审数据项 ${item.id}`}
             type="checkbox"
             checked={isSelected}
             onChange={onToggleSelect}
@@ -209,7 +209,7 @@ export function ReviewItemCard({
       {/* Error indicator */}
       {Boolean(item.error) && (
         <Txt variant="ui-xs" className="text-negative1 mt-1 block truncate">
-          Error: {typeof item.error === "string" ? item.error : String(item.error)}
+          错误：{typeof item.error === "string" ? item.error : String(item.error)}
         </Txt>
       )}
 
@@ -219,7 +219,7 @@ export function ReviewItemCard({
           {/* Rating: thumbs up / down */}
           <div className="flex items-center gap-0.5 mr-1">
             <Button
-              tooltip="Good — this result is acceptable"
+              tooltip="良好——此结果可以接受"
               variant={item.rating === "positive" ? "default" : "ghost"}
               size="sm"
               onClick={() => onRate(item.rating === "positive" ? undefined : "positive")}
@@ -231,7 +231,7 @@ export function ReviewItemCard({
             </Button>
 
             <Button
-              tooltip="Bad — this result needs fixing"
+              tooltip="较差——此结果需要修正"
               variant={item.rating === "negative" ? "default" : "ghost"}
               size="sm"
               onClick={() => onRate(item.rating === "negative" ? undefined : "negative")}
@@ -283,13 +283,13 @@ export function ReviewItemCard({
           {!isCompleted && (
             <div className="flex items-center gap-0.5">
               {onComplete && (
-                <Button tooltip="Mark as complete" variant="ghost" size="sm" onClick={onComplete}>
+                <Button tooltip="标记为已完成" variant="ghost" size="sm" onClick={onComplete}>
                   <Icon size="sm" className="text-positive1">
                     <CheckCircle />
                   </Icon>
                 </Button>
               )}
-              <Button tooltip="Remove from review" variant="ghost" size="sm" onClick={onRemove}>
+              <Button tooltip="从评审中移除" variant="ghost" size="sm" onClick={onRemove}>
                 <Icon size="sm" className="text-neutral2 hover:text-negative1">
                   <Trash2 />
                 </Icon>

@@ -27,7 +27,7 @@ export function ComposerRunOptions({ requestContextSchema }: ComposerRunOptionsP
           variant="default"
           size="icon-md"
           type="button"
-          tooltip="Run options"
+          tooltip="运行选项"
           data-testid="composer-run-options-trigger"
         >
           <Settings2 className="h-5 w-5 text-neutral3 hover:text-neutral6" />

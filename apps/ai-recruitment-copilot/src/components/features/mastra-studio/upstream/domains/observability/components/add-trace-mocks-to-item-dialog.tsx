@@ -56,9 +56,9 @@ interface AddTraceMocksFormProps {
 
 function getItemPlaceholder(selectedDatasetId: string, isItemsLoading: boolean): string {
   if (!selectedDatasetId) {
-    return "Select a dataset first";
+    return "请先选择数据集";
   }
-  return isItemsLoading ? "Loading items..." : "Select an item";
+  return isItemsLoading ? "正在加载数据项..." : "选择数据项";
 }
 
 function AddTraceMocksForm({ initialMocksJson, onClose }: AddTraceMocksFormProps) {
@@ -99,7 +99,7 @@ function AddTraceMocksForm({ initialMocksJson, onClose }: AddTraceMocksFormProps
     e.preventDefault();
 
     if (!selectedDatasetId || !selectedItemId) {
-      toast.error("Please select a dataset and an item");
+      toast.error("请选择数据集和数据项");
       return;
     }
 
@@ -108,21 +108,21 @@ function AddTraceMocksForm({ initialMocksJson, onClose }: AddTraceMocksFormProps
     try {
       const parsed = mocksJson.trim() ? JSON.parse(mocksJson) : [];
       if (!Array.isArray(parsed)) {
-        toast.error("Tool Mocks must be a JSON array");
+        toast.error("工具模拟必须是 JSON 数组");
         return;
       }
       parsedMocks = parsed as DatasetItemToolMock[];
     } catch {
-      toast.error("Tool Mocks must be valid JSON");
+      toast.error("工具模拟必须是有效的 JSON");
       return;
     }
     if (parsedMocks.length === 0) {
-      toast.error("There are no tool mocks to add");
+      toast.error("没有可添加的工具模拟");
       return;
     }
     // Guard against appending to a stale/unloaded item — require the authoritative item first.
     if (!selectedItem || selectedItem.id !== selectedItemId) {
-      toast.error("Item is still loading, please try again");
+      toast.error("数据项仍在加载，请稍后重试");
       return;
     }
 
@@ -135,34 +135,28 @@ function AddTraceMocksForm({ initialMocksJson, onClose }: AddTraceMocksFormProps
         itemId: selectedItemId,
         toolMocks: merged,
       });
-      toast.success(`Added ${parsedMocks.length} tool mock(s) to the item`);
+      toast.success(`已向数据项添加 ${parsedMocks.length} 个工具模拟`);
       onClose();
     } catch (error) {
-      toast.error(
-        `Failed to add tool mocks: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`添加工具模拟失败：${error instanceof Error ? error.message : "未知错误"}`);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="grid gap-4">
       <div className="grid gap-2">
-        <Label htmlFor="target-dataset">Dataset *</Label>
+        <Label htmlFor="target-dataset">数据集 *</Label>
         <Select
           value={selectedDatasetId}
           onValueChange={handleDatasetChange}
           disabled={isDatasetsLoading}
         >
           <SelectTrigger id="target-dataset">
-            <SelectValue
-              placeholder={isDatasetsLoading ? "Loading datasets..." : "Select a dataset"}
-            />
+            <SelectValue placeholder={isDatasetsLoading ? "正在加载数据集..." : "选择数据集"} />
           </SelectTrigger>
           <SelectContent>
             {datasets.length === 0 ? (
-              <div className="px-2 py-4 text-sm text-neutral4 text-center">
-                No datasets available
-              </div>
+              <div className="px-2 py-4 text-sm text-neutral4 text-center">暂无可用数据集</div>
             ) : (
               datasets.map((dataset) => (
                 <SelectItem key={dataset.id} value={dataset.id}>
@@ -175,7 +169,7 @@ function AddTraceMocksForm({ initialMocksJson, onClose }: AddTraceMocksFormProps
       </div>
 
       <div className="grid gap-2">
-        <Label htmlFor="target-item">Item *</Label>
+        <Label htmlFor="target-item">数据项 *</Label>
         <Select
           value={selectedItemId}
           onValueChange={setSelectedItemId}
@@ -186,7 +180,7 @@ function AddTraceMocksForm({ initialMocksJson, onClose }: AddTraceMocksFormProps
           </SelectTrigger>
           <SelectContent>
             {items.length === 0 ? (
-              <div className="px-2 py-4 text-sm text-neutral4 text-center">No items available</div>
+              <div className="px-2 py-4 text-sm text-neutral4 text-center">暂无可用数据项</div>
             ) : (
               items.map((item) => (
                 <SelectItem key={item.id} value={item.id}>
@@ -199,7 +193,7 @@ function AddTraceMocksForm({ initialMocksJson, onClose }: AddTraceMocksFormProps
       </div>
 
       <div className="grid gap-2">
-        <Label htmlFor="derived-mocks">Tool Mocks (JSON)</Label>
+        <Label htmlFor="derived-mocks">工具模拟（JSON）</Label>
         <CodeEditor
           value={mocksJson}
           onChange={setMocksJson}
@@ -207,13 +201,13 @@ function AddTraceMocksForm({ initialMocksJson, onClose }: AddTraceMocksFormProps
           className="min-h-[160px]"
         />
         <p className="text-xs text-neutral4">
-          Seeded from the trace&apos;s tool calls. Edit or remove entries before appending.
+          已根据追踪记录中的工具调用生成。追加前可编辑或移除条目。
         </p>
       </div>
 
       <div className="flex justify-end gap-2 pt-4">
         <Button type="button" variant="outline" onClick={onClose}>
-          Cancel
+          取消
         </Button>
         <Button
           type="submit"
@@ -227,7 +221,7 @@ function AddTraceMocksForm({ initialMocksJson, onClose }: AddTraceMocksFormProps
             selectedItem?.id !== selectedItemId
           }
         >
-          {updateItem.isPending ? "Adding..." : "Append Tool Mocks"}
+          {updateItem.isPending ? "正在添加..." : "追加工具模拟"}
         </Button>
       </div>
     </form>
@@ -246,7 +240,7 @@ export function AddTraceMocksToItemDialog({
     enabled: isOpen && !!traceId,
     queryFn: () => {
       if (!traceId) {
-        throw new Error("A trace ID is required to load its trajectory");
+        throw new Error("加载轨迹需要追踪 ID");
       }
       return client.getTraceTrajectory(traceId);
     },
@@ -260,8 +254,8 @@ export function AddTraceMocksToItemDialog({
 
   return (
     <SideDialog
-      dialogTitle="Add Tool Mocks to Item"
-      dialogDescription="Append trace-derived tool mocks to an existing dataset item"
+      dialogTitle="将工具模拟添加到数据项"
+      dialogDescription="将从追踪记录生成的工具模拟追加到现有数据项"
       isOpen={isOpen}
       onClose={onClose}
       level={level}
@@ -272,19 +266,19 @@ export function AddTraceMocksToItemDialog({
         </TextAndIcon>
         ›
         <TextAndIcon>
-          <WrenchIcon /> Add Tool Mocks to Item
+          <WrenchIcon /> 将工具模拟添加到数据项
         </TextAndIcon>
       </SideDialog.Top>
 
       <SideDialog.Content>
         <SideDialog.Header>
           <SideDialog.Heading>
-            <WrenchIcon /> Add Tool Mocks to Item
+            <WrenchIcon /> 将工具模拟添加到数据项
           </SideDialog.Heading>
         </SideDialog.Header>
 
         {isTrajectoryLoading ? (
-          <div className="px-2 py-4 text-sm text-neutral4">Loading tool calls from trace...</div>
+          <div className="px-2 py-4 text-sm text-neutral4">正在从追踪记录加载工具调用...</div>
         ) : (
           // Remount when the source trace changes so the form's useState seeds
           // from the freshly derived mocks — no state-reset effect needed.

@@ -35,7 +35,7 @@ export function PlatformSidebarTabs() {
       value={activeTab}
     >
       <TabsList className="w-full select-none dark:bg-sidebar/60">
-        <TabsTrigger value="manage">Manage</TabsTrigger>
+        <TabsTrigger value="manage">管理</TabsTrigger>
         <TabsTrigger value="mastra">Mastra</TabsTrigger>
       </TabsList>
     </Tabs>

@@ -62,7 +62,7 @@ export const AgentBuilderStarter = () => {
         viewTransition: true,
       });
     } catch {
-      toast.error("Failed to start a new agent");
+      toast.error("新建智能体失败");
     }
   };
 
@@ -93,7 +93,7 @@ export const AgentBuilderStarter = () => {
             lineHeight: 1.1,
           }}
         >
-          What should we build today?
+          今天想构建什么？
         </h1>
 
         <form
@@ -106,7 +106,7 @@ export const AgentBuilderStarter = () => {
             testId="agent-builder-starter-input"
             size="default"
             variant="unstyled"
-            placeholder="Describe the agent you want to build…"
+            placeholder="描述你想构建的智能体…"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -120,7 +120,7 @@ export const AgentBuilderStarter = () => {
               type="submit"
               variant="default"
               size="icon-md"
-              tooltip="Start building"
+              tooltip="开始构建"
               disabled={isSubmitBlocked}
               data-testid="agent-builder-starter-submit"
               className="rounded-full"

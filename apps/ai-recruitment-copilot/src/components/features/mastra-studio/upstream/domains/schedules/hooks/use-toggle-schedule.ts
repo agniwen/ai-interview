@@ -16,7 +16,7 @@ export const useToggleSchedule = (scheduleId: string | undefined) => {
   return useMutation<ScheduleResponse, Error, "pause" | "resume">({
     mutationFn: async (action) => {
       if (!scheduleId) {
-        throw new Error("scheduleId is required");
+        throw new Error("必须提供定时任务 ID");
       }
       return action === "pause"
         ? await client.pauseSchedule(scheduleId)
@@ -28,7 +28,7 @@ export const useToggleSchedule = (scheduleId: string | undefined) => {
     onSuccess: (_, action) => {
       void queryClient.invalidateQueries({ queryKey: ["schedule", scheduleId] });
       void queryClient.invalidateQueries({ queryKey: ["schedules"] });
-      toast.success(action === "pause" ? "Schedule paused" : "Schedule resumed");
+      toast.success(action === "pause" ? "定时任务已暂停" : "定时任务已恢复");
     },
   });
 };

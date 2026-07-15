@@ -13,18 +13,12 @@ export const NoPromptBlocksInfo = () => {
     <div className="flex h-full items-center justify-center">
       <EmptyState
         iconSlot={<CircleSlashIcon />}
-        titleSlot="No Prompts yet"
+        titleSlot="暂无提示词"
         descriptionSlot={
           canCreate ? (
-            <>
-              Create a reusable prompt block and reference it <br />
-              in your agent instructions.
-            </>
+            <>创建可复用的提示词块，并在智能体指令中引用。</>
           ) : (
-            <>
-              There are no prompt blocks yet. Prompt blocks are reusable <br />
-              content that can be referenced in your agent instructions.
-            </>
+            <>暂无提示词块。提示词块是可复用的内容，可在智能体指令中引用。</>
           )
         }
         actionSlot={
@@ -32,7 +26,7 @@ export const NoPromptBlocksInfo = () => {
             {canCreate && (
               <Button as={Link} to={paths.cmsPromptBlockCreateLink()} variant="primary">
                 <Plus />
-                Create Prompt
+                创建提示词
               </Button>
             )}
             <Button
@@ -42,7 +36,7 @@ export const NoPromptBlocksInfo = () => {
               target="_blank"
               rel="noopener noreferrer"
             >
-              Prompts Documentation <ExternalLinkIcon />
+              提示词文档 <ExternalLinkIcon />
             </Button>
           </div>
         }

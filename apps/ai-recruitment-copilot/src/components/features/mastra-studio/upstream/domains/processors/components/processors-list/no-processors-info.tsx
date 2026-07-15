@@ -6,8 +6,8 @@ export const NoProcessorsInfo = () => (
   <div className="flex h-full items-center justify-center">
     <EmptyState
       iconSlot={<CircleSlashIcon />}
-      titleSlot="No Processors yet"
-      descriptionSlot="Configure processors. Add input or output processors to your agents to transform messages."
+      titleSlot="暂无处理器"
+      descriptionSlot="配置处理器。为智能体添加输入或输出处理器以转换消息。"
       actionSlot={
         <Button
           variant="ghost"
@@ -16,7 +16,7 @@ export const NoProcessorsInfo = () => (
           target="_blank"
           rel="noopener noreferrer"
         >
-          Processors Documentation <ExternalLinkIcon />
+          处理器文档 <ExternalLinkIcon />
         </Button>
       }
     />

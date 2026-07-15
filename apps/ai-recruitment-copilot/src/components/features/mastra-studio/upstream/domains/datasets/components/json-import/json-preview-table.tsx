@@ -34,9 +34,9 @@ export function JSONPreviewTable({ items, maxRows = 5 }: JSONPreviewTableProps) 
         <thead>
           <tr className="bg-surface2 border-b border-border1">
             <th className="px-3 py-2 text-left font-medium text-neutral3 w-8">#</th>
-            <th className="px-3 py-2 text-left font-medium text-neutral3">Input</th>
-            <th className="px-3 py-2 text-left font-medium text-neutral3">Ground Truth</th>
-            <th className="px-3 py-2 text-left font-medium text-neutral3 w-24">Metadata</th>
+            <th className="px-3 py-2 text-left font-medium text-neutral3">输入</th>
+            <th className="px-3 py-2 text-left font-medium text-neutral3">标准答案</th>
+            <th className="px-3 py-2 text-left font-medium text-neutral3 w-24">元数据</th>
           </tr>
         </thead>
         <tbody>
@@ -50,7 +50,7 @@ export function JSONPreviewTable({ items, maxRows = 5 }: JSONPreviewTableProps) 
                 {truncateValue(item.groundTruth)}
               </td>
               <td className="px-3 py-2 text-neutral3 text-xs">
-                {item.metadata ? `${Object.keys(item.metadata).length} keys` : "-"}
+                {item.metadata ? `${Object.keys(item.metadata).length} 个键` : "-"}
               </td>
             </tr>
           ))}
@@ -59,7 +59,7 @@ export function JSONPreviewTable({ items, maxRows = 5 }: JSONPreviewTableProps) 
 
       {hiddenCount > 0 && (
         <div className="bg-surface2 px-3 py-2 text-xs text-neutral4 text-center border-t border-border1">
-          +{hiddenCount} more item{hiddenCount === 1 ? "" : "s"}
+          另有 {hiddenCount} 个数据项
         </div>
       )}
     </div>

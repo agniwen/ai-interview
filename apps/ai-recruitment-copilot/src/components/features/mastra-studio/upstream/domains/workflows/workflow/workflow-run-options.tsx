@@ -8,7 +8,7 @@ export const WorkflowRunOptions = () => {
   return (
     <>
       <Txt as="h3" variant="ui-md" className="text-neutral3">
-        Debug Mode
+        调试模式
       </Txt>
 
       <Checkbox checked={debugMode} onCheckedChange={(value) => setDebugMode(value as boolean)} />

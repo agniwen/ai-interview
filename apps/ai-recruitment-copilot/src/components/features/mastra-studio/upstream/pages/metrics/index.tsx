@@ -83,8 +83,8 @@ function MetricsStorageContent({
       <div className="flex h-full items-center justify-center">
         <EmptyState
           iconSlot={<CircleSlashIcon />}
-          titleSlot="Metrics are not available with your current storage"
-          descriptionSlot="Metrics require ClickHouse, DuckDB, Postgres v-next, Spanner, or in-memory storage for observability. Other relational databases (LibSQL, MSSQL) and document stores (MongoDB) do not support metrics collection. To enable metrics on an existing project, switch the observability storage in the Mastra configuration."
+          titleSlot="当前存储不支持指标"
+          descriptionSlot="指标需要使用 ClickHouse、DuckDB、Postgres v-next、Spanner 或内存存储作为可观测性存储。其他关系型数据库（LibSQL、MSSQL）和文档数据库（MongoDB）不支持指标采集。若要为现有项目启用指标，请在 Mastra 配置中切换可观测性存储。"
           actionSlot={
             <Button
               variant="ghost"
@@ -93,7 +93,7 @@ function MetricsStorageContent({
               target="_blank"
               rel="noopener noreferrer"
             >
-              Metrics Documentation <ExternalLinkIcon />
+              指标文档 <ExternalLinkIcon />
             </Button>
           }
         />
@@ -104,11 +104,10 @@ function MetricsStorageContent({
   return (
     <div className="grid gap-8 content-start pb-10">
       {isInMemory && (
-        <Notice variant="info" title="Metrics are not persisted">
+        <Notice variant="info" title="指标不会持久化">
           <Notice.Message>
-            This project uses in-memory storage for observability. Metrics will be lost on every
-            server restart. For persistent metrics, switch the observability storage to ClickHouse,
-            DuckDB, Postgres v-next, or Spanner.
+            此项目使用内存存储保存可观测性数据，服务器每次重启后指标都会丢失。如需持久保存指标，
+            请将可观测性存储切换为 ClickHouse、DuckDB、Postgres v-next 或 Spanner。
           </Notice.Message>
         </Notice>
       )}
@@ -184,13 +183,13 @@ function MetricsContent() {
   const handleSave = useCallback(() => {
     saveMetricsFiltersToStorage(searchParams);
     setHasSavedFilters(true);
-    toast.success("Filters setting for Metrics saved");
+    toast.success("已保存指标筛选设置");
   }, [searchParams]);
 
   const handleRemoveSaved = useCallback(() => {
     clearSavedMetricsFilters();
     setHasSavedFilters(false);
-    toast.success("Filters setting for Metrics cleared up");
+    toast.success("已清除指标筛选设置");
   }, []);
 
   const handleRemoveAll = useCallback(() => {
@@ -230,7 +229,7 @@ function MetricsContent() {
   if (error && is403ForbiddenError(error)) {
     return (
       <NoDataPageLayout>
-        <PermissionDenied resource="metrics" />
+        <PermissionDenied resource="指标" />
       </NoDataPageLayout>
     );
   }
@@ -238,7 +237,7 @@ function MetricsContent() {
   if (error) {
     return (
       <NoDataPageLayout>
-        <ErrorState title="Failed to load metrics" message={error.message} />
+        <ErrorState title="加载指标失败" message={error.message} />
       </NoDataPageLayout>
     );
   }

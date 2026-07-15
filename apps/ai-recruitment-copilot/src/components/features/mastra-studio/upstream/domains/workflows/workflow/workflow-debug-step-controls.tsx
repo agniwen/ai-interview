@@ -39,7 +39,7 @@ export function WorkflowDebugStepControls({ isStreaming }: WorkflowDebugStepCont
             <PlayIcon />
           </Icon>
         )}
-        Run next step
+        运行下一步骤
       </Button>
 
       <Button
@@ -52,7 +52,7 @@ export function WorkflowDebugStepControls({ isStreaming }: WorkflowDebugStepCont
         <Icon>
           <StepForwardIcon />
         </Icon>
-        Continue full run
+        继续完整运行
       </Button>
     </div>
   );

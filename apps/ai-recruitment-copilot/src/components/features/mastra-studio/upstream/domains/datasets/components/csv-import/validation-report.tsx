@@ -10,7 +10,7 @@ interface ValidationReportProps {
 }
 
 function ValidationRow({ row }: { row: RowValidationResult }) {
-  const errorMessage = row.errors[0]?.message || "Validation failed";
+  const errorMessage = row.errors[0]?.message || "验证失败";
   const errorPath = row.errors[0]?.path || "/";
 
   return (
@@ -38,8 +38,7 @@ export function ValidationReport({ result, className }: ValidationReportProps) {
   if (invalidCount === 0) {
     return (
       <div className={cn("flex items-center gap-2 text-sm text-success", className)}>
-        <CheckCircleIcon className="w-4 h-4" />
-        All {totalRows} row{totalRows === 1 ? "" : "s"} valid
+        <CheckCircleIcon className="w-4 h-4" />共 {totalRows} 行，全部有效
       </div>
     );
   }
@@ -49,11 +48,11 @@ export function ValidationReport({ result, className }: ValidationReportProps) {
       {/* Summary warning */}
       <div className="flex items-center gap-2 text-sm text-warning">
         <AlertTriangleIcon className="w-4 h-4" />
-        {invalidCount} of {totalRows} rows will be skipped (validation failed)
+        {totalRows} 行中有 {invalidCount} 行将因验证失败而被跳过
       </div>
 
       {validCount > 0 && (
-        <div className="text-sm text-muted-foreground">{validCount} rows will be imported</div>
+        <div className="text-sm text-muted-foreground">将导入 {validCount} 行</div>
       )}
 
       {/* Failing rows table */}
@@ -61,9 +60,9 @@ export function ValidationReport({ result, className }: ValidationReportProps) {
         <table className="w-full text-xs">
           <thead className="bg-muted sticky top-0">
             <tr>
-              <th className="px-2 py-1 text-left font-medium">Row</th>
-              <th className="px-2 py-1 text-left font-medium">Field</th>
-              <th className="px-2 py-1 text-left font-medium">Error</th>
+              <th className="px-2 py-1 text-left font-medium">行</th>
+              <th className="px-2 py-1 text-left font-medium">字段</th>
+              <th className="px-2 py-1 text-left font-medium">错误</th>
             </tr>
           </thead>
           <tbody>
@@ -73,7 +72,7 @@ export function ValidationReport({ result, className }: ValidationReportProps) {
             {invalidCount > invalidRows.length && (
               <tr>
                 <td colSpan={3} className="px-2 py-1 text-muted-foreground italic">
-                  ... and {invalidCount - invalidRows.length} more
+                  另有 {invalidCount - invalidRows.length} 行
                 </td>
               </tr>
             )}

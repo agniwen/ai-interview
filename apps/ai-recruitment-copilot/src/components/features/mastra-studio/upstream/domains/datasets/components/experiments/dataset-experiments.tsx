@@ -68,7 +68,7 @@ export function DatasetExperiments({
   };
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return <div>正在加载...</div>;
   }
 
   return (

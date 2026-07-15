@@ -1,17 +1,11 @@
 import { Badge } from "@mastra/playground-ui/components/Badge";
 import { Combobox } from "@mastra/playground-ui/components/Combobox";
 import type { ComboboxProps } from "@mastra/playground-ui/components/Combobox";
+import { format } from "date-fns";
 import { usePromptBlockVersions } from "../hooks/use-prompt-block-versions";
 
 function formatTimestamp(isoString: string): string {
-  const date = new Date(isoString);
-  return date.toLocaleString(undefined, {
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  return format(new Date(isoString), "yyyy/MM/dd HH:mm");
 }
 
 export interface PromptBlockVersionComboboxProps {
@@ -26,11 +20,11 @@ export interface PromptBlockVersionComboboxProps {
 
 function getVersionBadge(isPublished: boolean, isDraft: boolean) {
   if (isPublished) {
-    return <Badge variant="success">Published</Badge>;
+    return <Badge variant="success">已发布</Badge>;
   }
 
   if (isDraft) {
-    return <Badge variant="info">Draft</Badge>;
+    return <Badge variant="info">草稿</Badge>;
   }
 }
 
@@ -56,7 +50,7 @@ export function PromptBlockVersionCombobox({
   const activeVersionNumber = activeVersion?.versionNumber;
 
   const options = [
-    { label: "Latest", value: "" },
+    { label: "最新", value: "" },
     ...versions.map((version) => {
       const isPublished = version.id === activeVersionId;
       const isDraft =
@@ -76,9 +70,9 @@ export function PromptBlockVersionCombobox({
       options={options}
       value={value}
       onValueChange={onValueChange}
-      placeholder={isLoading ? "Loading versions..." : "Versions"}
-      searchPlaceholder="Search versions..."
-      emptyText="No versions found."
+      placeholder={isLoading ? "正在加载版本..." : "版本"}
+      searchPlaceholder="搜索版本..."
+      emptyText="未找到版本。"
       className={className}
       disabled={disabled || isLoading}
       variant={variant}

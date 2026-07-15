@@ -61,30 +61,30 @@ export function McpServersList({ mcpServers, isLoading, search = "" }: McpServer
   return (
     <EntityList columns="auto 1fr auto auto auto" variant="striped">
       <EntityList.Top>
-        <EntityList.TopCell>Name</EntityList.TopCell>
+        <EntityList.TopCell>名称</EntityList.TopCell>
         <EntityList.TopCell>URL</EntityList.TopCell>
         <EntityList.TopCellSmart
-          long="Agents"
+          long="智能体"
           short={<AgentIcon />}
-          tooltip="Agent Tools"
+          tooltip="智能体工具"
           className="text-center"
         />
         <EntityList.TopCellSmart
-          long="Tools"
+          long="工具"
           short={<ToolsIcon />}
-          tooltip="Tools"
+          tooltip="工具"
           className="text-center"
         />
         <EntityList.TopCellSmart
-          long="Workflows"
+          long="工作流"
           short={<WorkflowIcon />}
-          tooltip="Workflow Tools"
+          tooltip="工作流工具"
           className="text-center"
         />
       </EntityList.Top>
 
       {filteredData.length === 0 && search ? (
-        <EntityList.NoMatch message="No MCP Servers match your search" />
+        <EntityList.NoMatch message="没有符合搜索条件的 MCP 服务器" />
       ) : null}
 
       {filteredData.map((server) => (

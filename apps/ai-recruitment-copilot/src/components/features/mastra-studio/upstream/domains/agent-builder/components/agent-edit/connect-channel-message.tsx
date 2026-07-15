@@ -36,14 +36,14 @@ export function ConnectChannelMessage({ platformId, agentId }: ConnectChannelMes
     if (installation) {
       statusBadge = (
         <StatusBadge variant="success" size="sm">
-          Connected
+          已连接
         </StatusBadge>
       );
     }
   } else {
     statusBadge = (
       <StatusBadge variant="warning" size="sm">
-        Not configured
+        未配置
       </StatusBadge>
     );
   }
@@ -58,16 +58,16 @@ export function ConnectChannelMessage({ platformId, agentId }: ConnectChannelMes
           onClick={() => setDialogOpen(true)}
           data-testid={`agent-builder-chat-connect-channel-${platformId}-button`}
         >
-          Manage
+          管理
         </Button>
       );
     } else {
-      let connectLabel = `Connect ${platform.name}`;
+      let connectLabel = `连接 ${platform.name}`;
       if (platformId === "slack") {
-        connectLabel = "Continue with Slack";
+        connectLabel = "使用 Slack 继续";
       }
       if (isConnecting) {
-        connectLabel = "Connecting…";
+        connectLabel = "正在连接…";
       }
       actionButton = (
         <Button
@@ -89,7 +89,7 @@ export function ConnectChannelMessage({ platformId, agentId }: ConnectChannelMes
         disabled
         data-testid={`agent-builder-chat-connect-channel-${platformId}-button`}
       >
-        Not configured
+        未配置
       </Button>
     );
   }

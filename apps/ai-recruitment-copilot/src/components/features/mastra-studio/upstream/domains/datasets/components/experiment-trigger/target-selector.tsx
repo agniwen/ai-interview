@@ -15,9 +15,9 @@ export interface TargetSelectorProps {
 }
 
 const targetTypeOptions = [
-  { label: "Agent", value: "agent" },
-  { label: "Workflow", value: "workflow" },
-  { label: "Scorer", value: "scorer" },
+  { label: "智能体", value: "agent" },
+  { label: "工作流", value: "workflow" },
+  { label: "评分器", value: "scorer" },
 ];
 
 export function TargetSelector({
@@ -61,24 +61,24 @@ export function TargetSelector({
     setTargetId("");
   };
 
-  let targetLabel = "Scorer";
+  let targetLabel = "评分器";
   if (targetType === "agent") {
-    targetLabel = "Agent";
+    targetLabel = "智能体";
   } else if (targetType === "workflow") {
-    targetLabel = "Workflow";
+    targetLabel = "工作流";
   }
 
   return (
     <div className="grid gap-6">
       <div className="grid gap-2">
-        <Label>Target Type</Label>
+        <Label>目标类型</Label>
         <Combobox
           options={targetTypeOptions}
           value={targetType}
           onValueChange={handleTypeChange}
-          placeholder="Select target type"
-          searchPlaceholder="Search types..."
-          emptyText="No types available"
+          placeholder="选择目标类型"
+          searchPlaceholder="搜索类型..."
+          emptyText="暂无可用类型"
           container={container}
         />
       </div>
@@ -90,9 +90,9 @@ export function TargetSelector({
             options={targetOptions}
             value={targetId}
             onValueChange={setTargetId}
-            placeholder={`Select ${targetType}`}
-            searchPlaceholder="Search..."
-            emptyText="No targets available"
+            placeholder={`选择${targetLabel}`}
+            searchPlaceholder="搜索..."
+            emptyText="暂无可用目标"
             disabled={isTargetsLoading}
             container={container}
           />

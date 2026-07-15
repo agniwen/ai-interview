@@ -23,8 +23,8 @@ export function ItemPageToolbar({
     <div className="flex items-center justify-between">
       {/* Left side: Back button */}
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="md" onClick={onBack} aria-label="Back to dataset">
-          <ArrowLeft /> Back
+        <Button variant="outline" size="md" onClick={onBack} aria-label="返回数据集">
+          <ArrowLeft /> 返回
         </Button>
       </div>
 
@@ -34,12 +34,12 @@ export function ItemPageToolbar({
           <div className="flex items-center gap-[2px]">
             <Button variant="outline" size="md" onClick={onEdit}>
               <Pencil />
-              Edit
+              编辑
             </Button>
 
             <Popover open={open} onOpenChange={setOpen}>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="md" aria-label="Actions menu">
+                <Button variant="outline" size="md" aria-label="操作菜单">
                   <ChevronDownIcon />
                 </Button>
               </PopoverTrigger>
@@ -53,11 +53,11 @@ export function ItemPageToolbar({
                     onClick={onDelete}
                   >
                     <Trash2 />
-                    Delete Item
+                    删除数据项
                   </Button>
                   <Button variant="ghost" size="sm" className="w-full justify-start gap-2" disabled>
                     <Copy />
-                    Duplicate Item (Coming Soon)
+                    复制数据项（即将推出）
                   </Button>
                 </div>
               </PopoverContent>

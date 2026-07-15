@@ -38,6 +38,19 @@ export type ConditionNode = Node<
   "condition-node"
 >;
 
+const CONDITION_LABELS: Record<string, string> = {
+  and: "并且",
+  dountil: "执行直到",
+  dowhile: "执行当",
+  else: "否则",
+  if: "如果",
+  not: "非",
+  or: "或者",
+  until: "直到",
+  when: "当",
+  while: "当",
+};
+
 function WorkflowConditionItem({
   condition,
   index,
@@ -66,7 +79,7 @@ function WorkflowConditionItem({
           ) : null
         }
       >
-        {condition.conj?.toLocaleUpperCase() || "WHEN"}
+        {CONDITION_LABELS[condition.conj ?? "when"] ?? condition.conj ?? "当"}
       </Badge>
     );
 
@@ -80,7 +93,7 @@ function WorkflowConditionItem({
               {typeof condition.ref.step === "object" && condition.ref.step !== null
                 ? String((condition.ref.step as { id?: unknown }).id ?? "")
                 : String(condition.ref.step)}
-              's {condition.ref.path}{" "}
+              的 {condition.ref.path}{" "}
               {Object.entries(condition.query).map(([key, value]) => `${key} ${String(value)}`)}
             </Txt>
           </div>
@@ -121,8 +134,8 @@ function WorkflowConditionItem({
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
         <DialogContent className="max-w-[30rem]">
           <DialogHeader>
-            <DialogTitle className="sr-only">Condition Function</DialogTitle>
-            <DialogDescription>View the condition function code</DialogDescription>
+            <DialogTitle className="sr-only">条件函数</DialogTitle>
+            <DialogDescription>查看条件函数代码</DialogDescription>
           </DialogHeader>
           <DialogBody>
             <ScrollArea className="w-full" maxHeight="400px">

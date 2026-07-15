@@ -76,7 +76,7 @@ export const useAuthorize = (options: UseAuthorizeOptions = {}) => {
 
       const popup = openPopup(url);
       if (!popup) {
-        throw new Error("Popup blocked. Please allow popups for this site.");
+        throw new Error("弹出窗口已被拦截，请允许此网站打开弹出窗口。");
       }
 
       const start = Date.now();
@@ -98,7 +98,7 @@ export const useAuthorize = (options: UseAuthorizeOptions = {}) => {
       } catch {
         // ignore
       }
-      throw new Error("Authorization timed out");
+      throw new Error("授权超时");
     },
   });
 };

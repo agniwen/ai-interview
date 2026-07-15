@@ -95,14 +95,14 @@ const ScopeButton = ({
 );
 
 function getRouteValue(item: NavItem, sectionTitle?: string) {
-  return [item.name, item.url, sectionTitle, item.docs?.label, "path route navigate"]
+  return [item.name, item.url, sectionTitle, item.docs?.label, "页面 path route navigate"]
     .filter(Boolean)
     .join(" ");
 }
 
 function getRouteBadge(sectionTitle?: string) {
   if (!sectionTitle || sectionTitle === "Studio") {
-    return "Path";
+    return "页面";
   }
   return sectionTitle;
 }
@@ -185,7 +185,7 @@ const ShortcutResults = ({
   }
 
   return (
-    <CommandGroup heading="Shortcuts">
+    <CommandGroup heading="快捷操作">
       <NavigationCommandItem
         value="toggle sidebar collapse expand layout panel shortcut command b ctrl b"
         onSelect={() => {
@@ -193,9 +193,9 @@ const ShortcutResults = ({
           setOpen(false);
         }}
         icon={<PanelLeftIcon />}
-        title="Toggle Sidebar"
-        subtitle="Studio layout"
-        badge="Shortcut"
+        title="切换侧边栏"
+        subtitle="Studio 布局"
+        badge="快捷键"
         shortcut={
           <CommandShortcut className="flex items-center">
             <Kbd className="text-[10px]">{sidebarShortcutLabel}</Kbd>
@@ -225,7 +225,7 @@ const PathSectionResults = ({
               onSelect={() => handleSelect(item.url)}
               icon={<Icon />}
               title={item.name}
-              subtitle="Studio path"
+              subtitle="Studio 页面"
               path={item.url}
               badge={getRouteBadge(section.title)}
             />
@@ -252,7 +252,7 @@ const AgentResults = ({
   }
 
   return (
-    <CommandGroup heading="Agents">
+    <CommandGroup heading="智能体">
       {entries.map(([id, agent]) => (
         <NavigationCommandItem
           key={id}
@@ -260,9 +260,9 @@ const AgentResults = ({
           onSelect={() => handleSelect(paths.agentLink(id))}
           icon={<AgentIcon />}
           title={agent.name}
-          subtitle="Agent chat"
+          subtitle="智能体对话"
           path={paths.agentLink(id)}
-          badge="Agent"
+          badge="智能体"
         />
       ))}
     </CommandGroup>
@@ -285,7 +285,7 @@ const WorkflowResults = ({
   }
 
   return (
-    <CommandGroup heading="Workflows">
+    <CommandGroup heading="工作流">
       {entries.map(([id, workflow]) => (
         <NavigationCommandItem
           key={id}
@@ -293,9 +293,9 @@ const WorkflowResults = ({
           onSelect={() => handleSelect(paths.workflowLink(id))}
           icon={<WorkflowIcon />}
           title={workflow.name}
-          subtitle="Workflow graph"
+          subtitle="工作流图"
           path={paths.workflowLink(id)}
-          badge="Workflow"
+          badge="工作流"
         />
       ))}
     </CommandGroup>
@@ -318,7 +318,7 @@ const ToolResults = ({
   }
 
   return (
-    <CommandGroup heading="Tools">
+    <CommandGroup heading="工具">
       {entries.map(([id, tool]) => (
         <NavigationCommandItem
           key={id}
@@ -326,9 +326,9 @@ const ToolResults = ({
           onSelect={() => handleSelect(paths.toolLink(id))}
           icon={<ToolsIcon />}
           title={tool.id}
-          subtitle="Tool definition"
+          subtitle="工具定义"
           path={paths.toolLink(id)}
-          badge="Tool"
+          badge="工具"
         />
       ))}
     </CommandGroup>
@@ -351,7 +351,7 @@ const ProcessorResults = ({
   }
 
   return (
-    <CommandGroup heading="Processors">
+    <CommandGroup heading="处理器">
       {entries.map((processor) => {
         const displayName = processor.name || processor.id;
         const targetPath = processor.isWorkflow
@@ -364,9 +364,9 @@ const ProcessorResults = ({
             onSelect={() => handleSelect(targetPath)}
             icon={<Cpu />}
             title={displayName}
-            subtitle={processor.isWorkflow ? "Workflow processor" : "Processor"}
+            subtitle={processor.isWorkflow ? "工作流处理器" : "处理器"}
             path={targetPath}
-            badge="Processor"
+            badge="处理器"
           />
         );
       })}
@@ -390,7 +390,7 @@ const McpServerResults = ({
   }
 
   return (
-    <CommandGroup heading="MCP Servers">
+    <CommandGroup heading="MCP 服务器">
       {entries.map((server) => (
         <NavigationCommandItem
           key={server.id}
@@ -398,7 +398,7 @@ const McpServerResults = ({
           onSelect={() => handleSelect(paths.mcpServerLink(server.id))}
           icon={<McpServerIcon />}
           title={server.name}
-          subtitle="MCP server"
+          subtitle="MCP 服务器"
           path={paths.mcpServerLink(server.id)}
           badge="MCP"
         />
@@ -424,38 +424,38 @@ const ObservabilityResults = ({
 
   return (
     <>
-      <CommandGroup heading="Observability">
+      <CommandGroup heading="可观测性">
         <NavigationCommandItem
           value="observability traces telemetry signals /observability"
           onSelect={() => handleSelect("/observability")}
           icon={<EyeIcon />}
-          title="Traces"
-          subtitle="Runtime traces"
+          title="追踪"
+          subtitle="运行时追踪"
           path="/observability"
-          badge="Signal"
+          badge="观测信号"
         />
         <NavigationCommandItem
           value="metrics usage latency performance tokens /metrics"
           onSelect={() => handleSelect("/metrics")}
           icon={<GaugeIcon />}
-          title="Metrics"
-          subtitle="Runtime metrics"
+          title="指标"
+          subtitle="运行时指标"
           path="/metrics"
-          badge="Signal"
+          badge="观测信号"
         />
         <NavigationCommandItem
           value="logs events runtime /logs"
           onSelect={() => handleSelect("/logs")}
           icon={<EyeIcon />}
-          title="Logs"
-          subtitle="Runtime logs"
+          title="日志"
+          subtitle="运行时日志"
           path="/logs"
-          badge="Signal"
+          badge="观测信号"
         />
       </CommandGroup>
 
       {agentEntries.length > 0 && (
-        <CommandGroup heading="Agent Traces">
+        <CommandGroup heading="智能体追踪">
           {agentEntries.map(([id, agent]) => {
             const path = getObservabilityEntityPath(id);
 
@@ -466,9 +466,9 @@ const ObservabilityResults = ({
                 onSelect={() => handleSelect(path)}
                 icon={<EyeIcon />}
                 title={agent.name}
-                subtitle="Agent traces"
+                subtitle="智能体追踪"
                 path={path}
-                badge="Trace"
+                badge="追踪"
               />
             );
           })}
@@ -476,7 +476,7 @@ const ObservabilityResults = ({
       )}
 
       {workflowEntries.length > 0 && (
-        <CommandGroup heading="Workflow Traces">
+        <CommandGroup heading="工作流追踪">
           {workflowEntries.map(([id, workflow]) => {
             const path = getObservabilityEntityPath(workflow.name);
 
@@ -487,9 +487,9 @@ const ObservabilityResults = ({
                 onSelect={() => handleSelect(path)}
                 icon={<EyeIcon />}
                 title={workflow.name}
-                subtitle="Workflow traces"
+                subtitle="工作流追踪"
                 path={path}
-                badge="Trace"
+                badge="追踪"
               />
             );
           })}
@@ -515,7 +515,7 @@ const EvaluationResults = ({
   }
 
   return (
-    <CommandGroup heading="Scorers">
+    <CommandGroup heading="评分器">
       {entries.map(([id, scorer]) => {
         const name = scorer.scorer?.config?.name || scorer.scorer?.config?.id || id;
         return (
@@ -525,9 +525,9 @@ const EvaluationResults = ({
             onSelect={() => handleSelect(paths.scorerLink(id))}
             icon={<GaugeIcon />}
             title={name}
-            subtitle="Evaluation scorer"
+            subtitle="评估评分器"
             path={paths.scorerLink(id)}
-            badge="Scorer"
+            badge="评分器"
           />
         );
       })}
@@ -537,7 +537,7 @@ const EvaluationResults = ({
 
 const CommandFooter = () => (
   <div className="navigation-command-footer pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-end justify-between gap-3 px-4 pb-2 pt-5 text-ui-xs text-neutral3">
-    <span className="truncate">Studio search</span>
+    <span className="truncate">Studio 搜索</span>
     <span className="flex shrink-0 items-center gap-1.5">
       <Kbd className="min-w-5 px-1 text-[10px]">↑</Kbd>
       <Kbd className="min-w-5 px-1 text-[10px]">↓</Kbd>
@@ -627,7 +627,7 @@ export const NavigationCommand = () => {
             {
               Icon: PackageIcon,
               isOnMastraPlatform: false,
-              name: "Templates",
+              name: "模板",
               url: "/templates",
             },
           ]),
@@ -654,13 +654,13 @@ export const NavigationCommand = () => {
     observabilityCount;
 
   const scopeOptions: ScopeOption[] = [
-    { count: allCount, icon: <SearchIcon />, id: "all", label: "All" },
-    { count: pathCount, icon: <RouteIcon />, id: "paths", label: "Paths" },
-    { count: agentEntries.length, icon: <AgentIcon />, id: "agents", label: "Agents" },
-    { count: workflowEntries.length, icon: <WorkflowIcon />, id: "workflows", label: "Workflows" },
-    { count: toolingCount, icon: <Layers3Icon />, id: "tooling", label: "Tooling" },
-    { count: evaluationCount, icon: <GaugeIcon />, id: "evaluation", label: "Evaluation" },
-    { count: observabilityCount, icon: <EyeIcon />, id: "observability", label: "Signals" },
+    { count: allCount, icon: <SearchIcon />, id: "all", label: "全部" },
+    { count: pathCount, icon: <RouteIcon />, id: "paths", label: "页面" },
+    { count: agentEntries.length, icon: <AgentIcon />, id: "agents", label: "智能体" },
+    { count: workflowEntries.length, icon: <WorkflowIcon />, id: "workflows", label: "工作流" },
+    { count: toolingCount, icon: <Layers3Icon />, id: "tooling", label: "工具体系" },
+    { count: evaluationCount, icon: <GaugeIcon />, id: "evaluation", label: "评估" },
+    { count: observabilityCount, icon: <EyeIcon />, id: "observability", label: "观测信号" },
     { count: settingsCount, icon: <SlidersHorizontalIcon />, id: "settings", label: "Studio" },
   ];
 
@@ -698,8 +698,8 @@ export const NavigationCommand = () => {
     <CommandDialog
       open={open}
       onOpenChange={setOpen}
-      title="Mastra Studio Search"
-      description="Search Studio routes and runtime entities"
+      title="Mastra Studio 搜索"
+      description="搜索 Studio 页面和运行时实体"
       showOverlay
       overlayClassName="bg-surface1/40 backdrop-blur-none"
       contentClassName="navigation-command-popup max-w-[min(56rem,calc(100vw-2rem))] overflow-visible border-none bg-transparent p-0 shadow-none backdrop-blur-none sm:max-w-[min(56rem,calc(100vw-2rem))]"
@@ -713,7 +713,7 @@ export const NavigationCommand = () => {
       )}
     >
       <CommandInput
-        placeholder="Search Studio, agents, workflows, tools, paths..."
+        placeholder="搜索 Studio、智能体、工作流、工具和页面..."
         wrapperClassName="navigation-command-surface navigation-command-surface-input"
       />
 
@@ -732,7 +732,7 @@ export const NavigationCommand = () => {
               scrollAreaViewportClassName="navigation-command-scroll-viewport"
               className="navigation-command-list max-h-none rounded-none border-none bg-transparent shadow-none"
             >
-              <CommandEmpty>No matching results.</CommandEmpty>
+              <CommandEmpty>没有匹配的结果。</CommandEmpty>
               <ShortcutResults
                 sidebar={sidebar}
                 activeScope={activeScope}

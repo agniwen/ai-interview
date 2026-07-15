@@ -41,7 +41,7 @@ import { resolveConditional } from "../../utils/conditional";
 
 function formatTimestamp(dateStr: string | Date): string {
   const date = new Date(dateStr);
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString("zh-CN", {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
@@ -55,7 +55,7 @@ function ExperimentStatusBadge({ status }: { status: string }) {
       return (
         <Badge variant="success" className="gap-1">
           <CheckCircle className="h-3 w-3" />
-          completed
+          已完成
         </Badge>
       );
     }
@@ -63,7 +63,7 @@ function ExperimentStatusBadge({ status }: { status: string }) {
       return (
         <Badge variant="error" className="gap-1">
           <XCircle className="h-3 w-3" />
-          failed
+          失败
         </Badge>
       );
     }
@@ -71,7 +71,7 @@ function ExperimentStatusBadge({ status }: { status: string }) {
       return (
         <Badge variant="info" className="gap-1">
           <Loader2 className="h-3 w-3 animate-spin" />
-          running
+          运行中
         </Badge>
       );
     }
@@ -79,7 +79,7 @@ function ExperimentStatusBadge({ status }: { status: string }) {
       return (
         <Badge variant="default" className="gap-1">
           <Clock className="h-3 w-3" />
-          pending
+          等待中
         </Badge>
       );
     }
@@ -124,7 +124,7 @@ function normalizeToolCalls(raw: unknown): ParsedOutput["toolCalls"] {
           c.args && typeof c.args === "object" && !Array.isArray(c.args)
             ? (c.args as Record<string, unknown>)
             : {},
-        toolName: typeof c.toolName === "string" ? c.toolName : "Unknown tool",
+        toolName: typeof c.toolName === "string" ? c.toolName : "未知工具",
       },
     ];
   });
@@ -171,7 +171,7 @@ function TrajectoryStepsSection({ traceId }: { traceId: string }) {
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-purple-400 font-medium hover:text-purple-300">
         <ChevronRight className="h-3 w-3 shrink-0" />
-        Trajectory Steps
+        轨迹步骤
       </CollapsibleTrigger>
       <CollapsibleContent>
         {resolveConditional(
@@ -180,7 +180,7 @@ function TrajectoryStepsSection({ traceId }: { traceId: string }) {
             <div className="flex items-center gap-2 mt-1 px-3 py-2">
               <Spinner className="h-3 w-3" />
               <Txt variant="ui-xs" className="text-neutral3">
-                Loading trajectory...
+                正在加载轨迹...
               </Txt>
             </div>
           ),
@@ -189,7 +189,7 @@ function TrajectoryStepsSection({ traceId }: { traceId: string }) {
               isError,
               () => (
                 <Txt variant="ui-xs" className="text-red-400 mt-1 px-3 py-2">
-                  Failed to load trajectory steps
+                  加载轨迹步骤失败
                 </Txt>
               ),
               () =>
@@ -204,7 +204,7 @@ function TrajectoryStepsSection({ traceId }: { traceId: string }) {
                           {String(step.stepType || "step")}
                         </Chip>
                         <span className="text-neutral5 font-mono font-medium">
-                          {String(step.name || `Step ${i + 1}`)}
+                          {String(step.name || `步骤 ${i + 1}`)}
                         </span>
                         {typeof step.durationMs === "number" && (
                           <span className="text-neutral2 ml-auto">{step.durationMs}ms</span>
@@ -213,13 +213,13 @@ function TrajectoryStepsSection({ traceId }: { traceId: string }) {
                     ))}
                     {typeof trajectory.totalDurationMs === "number" && (
                       <Txt variant="ui-xs" className="text-neutral3 px-3 py-1">
-                        Total: {trajectory.totalDurationMs}ms
+                        总计：{trajectory.totalDurationMs}ms
                       </Txt>
                     )}
                   </div>
                 ) : (
                   <Txt variant="ui-xs" className="text-neutral2 mt-1 px-3 py-2">
-                    No trajectory steps found
+                    未找到轨迹步骤
                   </Txt>
                 ),
             ),
@@ -247,7 +247,7 @@ function ResultOutputSection({
       {parsed.text ? (
         <div className="space-y-1">
           <Txt variant="ui-xs" className="text-neutral3 font-medium">
-            Response
+            响应
           </Txt>
           <div className="text-sm text-neutral5 bg-surface1 rounded px-3 py-2 whitespace-pre-wrap wrap-break-word max-h-48 overflow-y-auto">
             {parsed.text}
@@ -259,7 +259,7 @@ function ResultOutputSection({
       {parsed.object && (
         <div className="space-y-1">
           <Txt variant="ui-xs" className="text-neutral3 font-medium">
-            Structured Output
+            结构化输出
           </Txt>
           <pre className="text-xs text-neutral4 bg-surface1 rounded px-3 py-2 overflow-x-auto whitespace-pre-wrap wrap-break-word max-h-48 overflow-y-auto">
             {JSON.stringify(parsed.object, null, 2)}
@@ -271,7 +271,7 @@ function ResultOutputSection({
       {parsed.toolCalls.length > 0 && (
         <div className="space-y-1">
           <Txt variant="ui-xs" className="text-neutral3 font-medium">
-            Tool Calls ({parsed.toolCalls.length})
+            工具调用（{parsed.toolCalls.length}）
           </Txt>
           <div className="space-y-1">
             {parsed.toolCalls.map((call, i) => (
@@ -295,14 +295,14 @@ function ResultOutputSection({
       {parsed.toolResults.length > 0 && (
         <div className="space-y-1">
           <Txt variant="ui-xs" className="text-neutral3 font-medium">
-            Tool Results ({parsed.toolResults.length})
+            工具结果（{parsed.toolResults.length}）
           </Txt>
           <div className="space-y-1">
             {parsed.toolResults.map((result, i) => (
               <Collapsible key={i}>
                 <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-neutral4 hover:text-neutral5 w-full text-left px-2 py-1 rounded bg-surface1">
                   <ChevronRight className="h-3 w-3 shrink-0" />
-                  <span className="font-mono">Result {i + 1}</span>
+                  <span className="font-mono">结果 {i + 1}</span>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <pre className="text-xs text-neutral4 bg-surface2 rounded px-3 py-2 ml-4 mt-1 overflow-x-auto whitespace-pre-wrap wrap-break-word max-h-32 overflow-y-auto">
@@ -319,11 +319,11 @@ function ResultOutputSection({
       {parsed.usage && (
         <div className="flex items-center gap-3">
           <Txt variant="ui-xs" className="text-neutral3 font-medium">
-            Usage
+            用量
           </Txt>
           <Txt variant="ui-xs" className="text-neutral2 font-mono">
-            {parsed.usage.promptTokens} prompt · {parsed.usage.completionTokens} completion ·{" "}
-            {parsed.usage.totalTokens} total
+            提示词 {parsed.usage.promptTokens} · 补全 {parsed.usage.completionTokens} · 总计{" "}
+            {parsed.usage.totalTokens}
           </Txt>
         </div>
       )}
@@ -332,12 +332,12 @@ function ResultOutputSection({
       {effectiveTraceId && (
         <div className="flex items-center gap-2">
           <Txt variant="ui-xs" className="text-neutral3 font-medium">
-            Trace
+            追踪记录
           </Txt>
           <Txt variant="ui-xs" className="text-neutral2 font-mono truncate">
             {effectiveTraceId}
           </Txt>
-          <CopyButton content={effectiveTraceId} tooltip="Copy trace ID" size="sm" />
+          <CopyButton content={effectiveTraceId} tooltip="复制追踪 ID" size="sm" />
           {onViewTrace && (
             <button
               type="button"
@@ -345,7 +345,7 @@ function ResultOutputSection({
               className="flex items-center gap-1 text-xs text-accent1 hover:text-accent2 transition-colors cursor-pointer"
             >
               <ExternalLink className="h-3 w-3" />
-              View Trace
+              查看追踪记录
             </button>
           )}
         </div>
@@ -355,7 +355,7 @@ function ResultOutputSection({
       {!parsed.text && !parsed.object && parsed.toolCalls.length === 0 && (
         <div className="space-y-1">
           <Txt variant="ui-xs" className="text-neutral3 font-medium">
-            Output
+            输出
           </Txt>
           <pre className="text-xs text-neutral4 bg-surface1 rounded px-3 py-2 overflow-x-auto whitespace-pre-wrap wrap-break-word max-h-48 overflow-y-auto">
             {formatResultValue(output)}
@@ -445,7 +445,7 @@ export function ExperimentResultsPanel({
           <Icon size="sm">
             <ArrowLeft />
           </Icon>
-          <Txt variant="ui-xs">Back</Txt>
+          <Txt variant="ui-xs">返回</Txt>
         </button>
         <div className="flex-1" />
         <ExperimentStatusBadge status={experiment.status} />
@@ -486,7 +486,7 @@ export function ExperimentResultsPanel({
       {selectedIds.size > 0 && (
         <div className="flex items-center gap-2 px-4 py-2 bg-surface3 border-b border-border1">
           <Txt variant="ui-xs" className="text-neutral5 font-medium">
-            {selectedIds.size} selected
+            已选择 {selectedIds.size} 项
           </Txt>
           <div className="flex-1" />
           {onCreateScorer && (
@@ -505,7 +505,7 @@ export function ExperimentResultsPanel({
               <Icon size="sm">
                 <Award />
               </Icon>
-              Create Scorer
+              创建评分器
             </Button>
           )}
           {onSendToReview && (
@@ -542,11 +542,11 @@ export function ExperimentResultsPanel({
               <Icon size="sm">
                 <ClipboardCheck />
               </Icon>
-              Send to Review
+              发送到评审
             </Button>
           )}
           <Button variant="ghost" size="sm" onClick={clearSelection}>
-            Clear
+            清除
           </Button>
         </div>
       )}
@@ -555,7 +555,7 @@ export function ExperimentResultsPanel({
       {results && results.length > 0 && selectedIds.size === 0 && (
         <div className="flex items-center gap-2 px-4 py-2 border-b border-border1">
           <Button variant="ghost" size="sm" onClick={selectAllFailed}>
-            Select all failures
+            选择所有失败项
           </Button>
         </div>
       )}
@@ -573,7 +573,7 @@ export function ExperimentResultsPanel({
             !results || results.length === 0 ? (
               <div className="px-4 py-8 text-center">
                 <Txt variant="ui-sm" className="text-neutral2">
-                  No results yet
+                  尚无结果
                 </Txt>
               </div>
             ) : (
@@ -597,7 +597,7 @@ export function ExperimentResultsPanel({
                           onCheckedChange={() => toggleItem(result.id)}
                         />
                         <Badge variant={hasError ? "error" : "success"}>
-                          {hasError ? "Error" : "Success"}
+                          {hasError ? "失败" : "成功"}
                         </Badge>
                         <Txt variant="ui-xs" className="text-neutral2 font-mono">
                           {result.itemId.slice(0, 8)}
@@ -627,7 +627,7 @@ export function ExperimentResultsPanel({
                         <Collapsible>
                           <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-purple-400 font-medium hover:text-purple-300">
                             <ChevronRight className="h-3 w-3 shrink-0" />
-                            Trajectory Score Details
+                            轨迹得分详情
                           </CollapsibleTrigger>
                           <CollapsibleContent>
                             <div className="mt-1 space-y-2">
@@ -665,7 +665,7 @@ export function ExperimentResultsPanel({
                       <Collapsible>
                         <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-neutral3 font-medium hover:text-neutral5">
                           <ChevronRight className="h-3 w-3 shrink-0" />
-                          Input
+                          输入
                         </CollapsibleTrigger>
                         <CollapsibleContent>
                           <pre className="text-xs text-neutral4 bg-surface1 rounded px-3 py-2 mt-1 overflow-x-auto whitespace-pre-wrap wrap-break-word max-h-32 overflow-y-auto">
@@ -679,7 +679,7 @@ export function ExperimentResultsPanel({
                         <div className="space-y-2">
                           <div className="space-y-1">
                             <Txt variant="ui-xs" className="text-red-400 font-medium">
-                              Error
+                              错误
                             </Txt>
                             <pre className="text-xs text-red-300 bg-surface1 rounded px-3 py-2 overflow-x-auto whitespace-pre-wrap wrap-break-word max-h-32 overflow-y-auto">
                               {formatResultValue(result.error)}
@@ -688,14 +688,14 @@ export function ExperimentResultsPanel({
                           {result.traceId && (
                             <div className="flex items-center gap-2">
                               <Txt variant="ui-xs" className="text-neutral3 font-medium">
-                                Trace
+                                追踪记录
                               </Txt>
                               <Txt variant="ui-xs" className="text-neutral2 font-mono truncate">
                                 {result.traceId}
                               </Txt>
                               <CopyButton
                                 content={result.traceId}
-                                tooltip="Copy trace ID"
+                                tooltip="复制追踪 ID"
                                 size="sm"
                               />
                               <button
@@ -704,7 +704,7 @@ export function ExperimentResultsPanel({
                                 className="flex items-center gap-1 text-xs text-accent1 hover:text-accent2 transition-colors cursor-pointer"
                               >
                                 <ExternalLink className="h-3 w-3" />
-                                View Trace
+                                查看追踪记录
                               </button>
                             </div>
                           )}
@@ -729,7 +729,7 @@ export function ExperimentResultsPanel({
                   {!hasNextPage && results.length > 0 && (
                     <div className="text-center py-2">
                       <Txt variant="ui-xs" className="text-neutral2">
-                        All results loaded
+                        已加载全部结果
                       </Txt>
                     </div>
                   )}

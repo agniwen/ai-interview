@@ -33,7 +33,7 @@ export function ExperimentTraceTimeline({
             "[&_svg]:w-[1.25em] [&_svg]:h-[1.25em] [&_svg]:opacity-50",
           )}
         >
-          <Spinner /> Loading Trace Timeline ...
+          <Spinner /> 正在加载追踪时间线...
         </div>
       ) : (
         <div

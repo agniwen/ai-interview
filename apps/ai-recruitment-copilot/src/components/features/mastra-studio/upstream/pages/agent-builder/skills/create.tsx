@@ -31,7 +31,7 @@ export default function AgentBuilderSkillsCreate() {
             })
           }
           className="rounded-full"
-          tooltip="Skills list"
+          tooltip="技能列表"
         >
           <ArrowLeftIcon />
         </Button>

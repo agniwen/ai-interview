@@ -29,7 +29,7 @@ export const AgentEntityHeader = ({ agentId }: AgentEntityHeaderProps) => {
             <button
               type="button"
               onClick={handleCopy}
-              aria-label="Copy Agent ID for use in code"
+              aria-label="复制智能体 ID 以用于代码"
               className="group/agent-title text-neutral6 flex min-w-0 max-w-full cursor-pointer items-center gap-2"
               data-testid="agent-entity-header-copy-id"
             >
@@ -52,7 +52,7 @@ export const AgentEntityHeader = ({ agentId }: AgentEntityHeaderProps) => {
               )}
             </button>
           </TooltipTrigger>
-          <TooltipContent>Copy Agent ID for use in code</TooltipContent>
+          <TooltipContent>复制智能体 ID 以用于代码</TooltipContent>
         </Tooltip>
       </div>
     </TooltipProvider>

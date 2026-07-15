@@ -59,13 +59,13 @@ export default function AgentBuilderLibraryPage() {
     if (is403ForbiddenError(error)) {
       return (
         <div className="flex items-center justify-center pt-10">
-          <PermissionDenied resource={tab} />
+          <PermissionDenied resource={tab === "agents" ? "智能体" : "技能"} />
         </div>
       );
     }
     return (
       <div className="flex items-center justify-center pt-10">
-        <ErrorState title="Failed to load the library" message={error.message} />
+        <ErrorState title="加载资源库失败" message={error.message} />
       </div>
     );
   };
@@ -83,8 +83,8 @@ export default function AgentBuilderLibraryPage() {
           <div className="flex items-center justify-center pt-16">
             <EmptyState
               iconSlot={<LibraryIcon className="h-8 w-8 text-neutral3" />}
-              titleSlot="No public agents yet"
-              descriptionSlot="Mark an agent as Public to share it with the team library."
+              titleSlot="暂无公开智能体"
+              descriptionSlot="将智能体设为公开，即可分享到团队资源库。"
             />
           </div>
         );
@@ -111,8 +111,8 @@ export default function AgentBuilderLibraryPage() {
         <div className="flex items-center justify-center pt-16">
           <EmptyState
             iconSlot={<SparklesIcon className="h-8 w-8 text-neutral3" />}
-            titleSlot="No public skills yet"
-            descriptionSlot="Mark a skill as Public to share it with the team library."
+            titleSlot="暂无公开技能"
+            descriptionSlot="将技能设为公开，即可分享到团队资源库。"
           />
         </div>
       );
@@ -136,12 +136,10 @@ export default function AgentBuilderLibraryPage() {
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-4">
             <PageHeader>
               <PageHeader.Title>
-                <LibraryIcon /> Library
+                <LibraryIcon /> 资源库
               </PageHeader.Title>
               <PageHeader.Description>
-                {tab === "agents"
-                  ? "Agents shared with the team library."
-                  : "Skills shared with the team library."}
+                {tab === "agents" ? "共享到团队资源库的智能体。" : "共享到团队资源库的技能。"}
               </PageHeader.Description>
             </PageHeader>
           </div>
@@ -156,7 +154,7 @@ export default function AgentBuilderLibraryPage() {
                       : "bg-surface2 text-neutral3 hover:text-neutral5"
                   }`}
                 >
-                  Agents
+                  智能体
                 </button>
                 <button
                   onClick={() => setTab("skills")}
@@ -166,16 +164,12 @@ export default function AgentBuilderLibraryPage() {
                       : "bg-surface2 text-neutral3 hover:text-neutral5"
                   }`}
                 >
-                  Skills
+                  技能
                 </button>
               </div>
             )}
             <div className="flex-1 max-w-120">
-              <ListSearch
-                onSearch={setSearch}
-                label="Filter library"
-                placeholder="Filter by name or description"
-              />
+              <ListSearch onSearch={setSearch} label="筛选资源库" placeholder="按名称或描述筛选" />
             </div>
           </div>
         </PageLayout.TopArea>

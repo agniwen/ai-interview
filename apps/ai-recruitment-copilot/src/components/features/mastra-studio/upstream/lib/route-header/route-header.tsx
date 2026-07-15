@@ -31,7 +31,7 @@ export function RouteHeader() {
     <Header border={false} className="h-10 min-h-10 gap-2 overflow-hidden px-2">
       {crumbs.length > 0 && (
         <Breadcrumb
-          label="Breadcrumb"
+          label="面包屑导航"
           className="min-w-0 flex-1 overflow-hidden"
           listClassName="min-w-0"
         >
@@ -69,11 +69,11 @@ export function RouteHeader() {
             rel="noopener noreferrer"
             variant="ghost"
             size="sm"
-            aria-label={docs.label ?? "Documentation"}
+            aria-label={docs.label ?? "文档"}
             className="min-w-0 max-w-[14rem]"
           >
             <DocsIcon />
-            <span className="min-w-0 truncate">{docs.label ?? "Documentation"}</span>
+            <span className="min-w-0 truncate">{docs.label ?? "文档"}</span>
           </Button>
         )}
       </div>

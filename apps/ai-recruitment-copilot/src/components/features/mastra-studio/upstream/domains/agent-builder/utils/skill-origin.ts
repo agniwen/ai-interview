@@ -74,7 +74,7 @@ export function formatSkillOriginLabel(origin: SkillOrigin): string {
       return `skills.sh · ${origin.owner}/${origin.repo}`;
     }
     case "library-copy": {
-      return `Copied from "${origin.sourceSkillName}"`;
+      return `复制自“${origin.sourceSkillName}”`;
     }
     default: {
       return "imported";

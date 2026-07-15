@@ -84,7 +84,7 @@ export const WorkflowTracingRunOptions = ({
   return (
     <div className="space-y-2 px-5 py-2">
       <Txt as="h3" variant="ui-md" className="text-neutral3">
-        Tracing Options
+        追踪选项
       </Txt>
 
       <CodeMirror
@@ -100,7 +100,7 @@ export const WorkflowTracingRunOptions = ({
 
       <div className="flex items-center justify-end">
         <Button type="button" onClick={handleSave}>
-          Save
+          保存
         </Button>
       </div>
     </div>

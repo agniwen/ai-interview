@@ -64,7 +64,7 @@ function VariablesRequestContextForm({
     return (
       <div className="p-4">
         <Txt variant="ui-sm" className="text-red-400">
-          Failed to parse request context schema
+          无法解析请求上下文 Schema
         </Txt>
       </div>
     );
@@ -73,14 +73,14 @@ function VariablesRequestContextForm({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <RequestContextLabel tooltip={labelTooltip}>Request Context</RequestContextLabel>
+        <RequestContextLabel tooltip={labelTooltip}>请求上下文</RequestContextLabel>
         <CopyButton content={localFormValuesStr} />
       </div>
 
       <DynamicForm
         schema={zodSchema as ComponentProps<typeof DynamicForm>["schema"]}
         onSubmit={(values) => setSchemaValues(values as Record<string, unknown>)}
-        submitButtonLabel="Save"
+        submitButtonLabel="保存"
         defaultValues={schemaValues}
       />
     </div>
@@ -108,7 +108,7 @@ function ModeSwitcher({
         <Icon size="sm">
           <FormInput />
         </Icon>
-        Form
+        表单
       </button>
       <button
         type="button"

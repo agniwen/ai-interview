@@ -81,8 +81,8 @@ function StepActionMenu(props: StepActionMenuProps) {
         <Button
           size="icon-sm"
           variant="ghost"
-          aria-label="Step actions"
-          title="Step actions"
+          aria-label="步骤操作"
+          title="步骤操作"
           className="nodrag nopan"
         >
           <MoreVerticalIcon />
@@ -92,13 +92,13 @@ function StepActionMenu(props: StepActionMenuProps) {
         {props.onShowNestedGraph && (
           <DropdownMenu.Item onSelect={props.handleNestedGraphClick}>
             <LayersIcon />
-            <span>{props.isNestedGraphOpen ? "Hide nested graph" : "View nested graph"}</span>
+            <span>{props.isNestedGraphOpen ? "隐藏嵌套图" : "查看嵌套图"}</span>
           </DropdownMenu.Item>
         )}
         {props.showTimeTravel && (
           <DropdownMenu.Item onSelect={() => props.setIsTimeTravelOpen(true)}>
             <Clock3Icon />
-            <span>Time travel</span>
+            <span>时间回溯</span>
           </DropdownMenu.Item>
         )}
         {props.showDebugMode && (
@@ -109,7 +109,7 @@ function StepActionMenu(props: StepActionMenuProps) {
               }
             >
               <PlayIcon />
-              <span>Run step</span>
+              <span>运行步骤</span>
             </DropdownMenu.Item>
             <DropdownMenu.Item
               onSelect={() =>
@@ -117,26 +117,26 @@ function StepActionMenu(props: StepActionMenuProps) {
               }
             >
               <StepForwardIcon />
-              <span>Continue run</span>
+              <span>继续运行</span>
             </DropdownMenu.Item>
           </>
         )}
         {props.mapConfig && (
           <DropdownMenu.Item onSelect={props.handleMapConfigClick}>
             <BracesIcon />
-            <span>{props.isMapConfigOpen ? "Hide map config" : "Map config"}</span>
+            <span>{props.isMapConfigOpen ? "隐藏映射配置" : "映射配置"}</span>
           </DropdownMenu.Item>
         )}
         {Boolean(props.resumeData) && (
           <DropdownMenu.Item onSelect={() => props.setIsResumeDataOpen(true)}>
             <RotateCcwIcon />
-            <span>Resume data</span>
+            <span>恢复数据</span>
           </DropdownMenu.Item>
         )}
         {Boolean(props.error) && (
           <DropdownMenu.Item onSelect={() => props.setIsErrorOpen(true)}>
             <AlertCircleIcon />
-            <span>Error</span>
+            <span>错误</span>
           </DropdownMenu.Item>
         )}
         {props.tripwire && (
@@ -145,7 +145,7 @@ function StepActionMenu(props: StepActionMenuProps) {
             className="text-amber-400"
           >
             <ShieldAlertIcon />
-            <span>Tripwire</span>
+            <span>拦截器</span>
           </DropdownMenu.Item>
         )}
       </DropdownMenu.Content>
@@ -237,15 +237,15 @@ function DebugStepDialogs({
       <Dialog open={isPerStepRunOpen} onOpenChange={setIsPerStepRunOpen}>
         <DialogContent className="max-w-4xl w-full">
           <DialogHeader>
-            <DialogTitle>Run step {stepKey}</DialogTitle>
-            <DialogDescription>Run a specific workflow step</DialogDescription>
+            <DialogTitle>运行步骤 {stepKey}</DialogTitle>
+            <DialogDescription>运行指定的工作流步骤</DialogDescription>
           </DialogHeader>
           <DialogBody className="max-h-[600px]">
             <WorkflowTimeTravelForm
               stepKey={stepKey}
               closeModal={() => setIsPerStepRunOpen(false)}
               isPerStepRun
-              buttonText="Run step"
+              buttonText="运行步骤"
               inputData={inputData}
             />
           </DialogBody>
@@ -254,15 +254,15 @@ function DebugStepDialogs({
       <Dialog open={isContinueRunOpen} onOpenChange={setIsContinueRunOpen}>
         <DialogContent className="max-w-4xl w-full">
           <DialogHeader>
-            <DialogTitle>Continue run {stepKey}</DialogTitle>
-            <DialogDescription>Continue the workflow run from this step</DialogDescription>
+            <DialogTitle>继续运行 {stepKey}</DialogTitle>
+            <DialogDescription>从此步骤继续工作流运行</DialogDescription>
           </DialogHeader>
           <DialogBody className="max-h-[600px]">
             <WorkflowTimeTravelForm
               stepKey={stepKey}
               closeModal={() => setIsContinueRunOpen(false)}
               isContinueRun
-              buttonText="Continue run"
+              buttonText="继续运行"
               inputData={inputData}
             />
           </DialogBody>
@@ -435,8 +435,8 @@ export const WorkflowStepActionBar = ({
         <Dialog open={isTimeTravelOpen} onOpenChange={setIsTimeTravelOpen}>
           <DialogContent className={dialogContentClass}>
             <DialogHeader>
-              <DialogTitle>Time travel to {stepKey}</DialogTitle>
-              <DialogDescription>Time travel to a specific workflow step</DialogDescription>
+              <DialogTitle>时间回溯到 {stepKey}</DialogTitle>
+              <DialogDescription>回溯到指定的工作流步骤</DialogDescription>
             </DialogHeader>
             <DialogBody className="max-h-[600px]">
               <WorkflowTimeTravelForm
@@ -463,8 +463,8 @@ export const WorkflowStepActionBar = ({
         <Dialog open={isResumeDataOpen} onOpenChange={setIsResumeDataOpen}>
           <DialogContent className={dialogContentClass}>
             <DialogHeader>
-              <DialogTitle>{stepName} resume data</DialogTitle>
-              <DialogDescription>View the resume data for this step</DialogDescription>
+              <DialogTitle>{stepName} 恢复数据</DialogTitle>
+              <DialogDescription>查看此步骤的恢复数据</DialogDescription>
             </DialogHeader>
             <DialogBody>
               <CodeDialogContent data={resumeData} />
@@ -477,8 +477,8 @@ export const WorkflowStepActionBar = ({
         <Dialog open={isErrorOpen} onOpenChange={setIsErrorOpen}>
           <DialogContent className={dialogContentClass}>
             <DialogHeader>
-              <DialogTitle>{stepName} error</DialogTitle>
-              <DialogDescription>View the error details for this step</DialogDescription>
+              <DialogTitle>{stepName} 错误</DialogTitle>
+              <DialogDescription>查看此步骤的错误详情</DialogDescription>
             </DialogHeader>
             <DialogBody>
               <CodeDialogContent data={error} />
@@ -491,8 +491,8 @@ export const WorkflowStepActionBar = ({
         <Dialog open={isTripwireOpen} onOpenChange={setIsTripwireOpen}>
           <DialogContent className={dialogContentClass}>
             <DialogHeader>
-              <DialogTitle>{stepName} tripwire</DialogTitle>
-              <DialogDescription>View the tripwire details for this step</DialogDescription>
+              <DialogTitle>{stepName} 拦截器</DialogTitle>
+              <DialogDescription>查看此步骤的拦截器详情</DialogDescription>
             </DialogHeader>
             <DialogBody>
               <CodeDialogContent

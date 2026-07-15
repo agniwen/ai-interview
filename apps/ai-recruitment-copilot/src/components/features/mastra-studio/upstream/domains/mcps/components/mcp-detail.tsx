@@ -69,7 +69,7 @@ const ToolEntry = ({ tool, serverId }: { tool: McpToolInfo; serverId: string }) 
             <Link ref={linkRef} href={paths.mcpServerToolLink(serverId, tool.id)}>
               {tool.id}
             </Link>
-            {isAppTool && <Badge className="text-[10px] py-0">App</Badge>}
+            {isAppTool && <Badge className="text-[10px] py-0">应用</Badge>}
           </span>
         </EntityName>
         <EntityDescription>{tool.description}</EntityDescription>
@@ -95,7 +95,7 @@ const McpToolList = ({ server }: { server: ServerInfo }) => {
         </Icon>
 
         <Txt variant="header-md" as="h2" className="font-medium">
-          Available Tools
+          可用工具
         </Txt>
       </div>
 
@@ -135,7 +135,7 @@ export const MCPDetail = ({ isLoading, server }: MCPDetailProps) => {
     return (
       <MainContentContent>
         <Txt as="h1" variant="header-md" className="text-neutral3 font-medium py-20 text-center">
-          Server not found
+          未找到服务器
         </Txt>
       </MainContentContent>
     );
@@ -155,31 +155,28 @@ export const MCPDetail = ({ isLoading, server }: MCPDetailProps) => {
             icon={<FolderIcon className="text-neutral6" />}
             className="rounded-r-sm text-neutral4!"
           >
-            Version
+            版本
           </Badge>
           <Badge className="rounded-l-sm text-neutral4!">{server.version_detail.version}</Badge>
         </div>
 
         <Txt className="text-neutral3 pb-4">
-          This MCP server can be accessed through multiple transport methods. Choose the one that
-          best fits your use case.
+          此 MCP 服务器支持多种传输方式，请选择最适合当前场景的方式。
         </Txt>
 
         <div className="flex flex-col gap-4">
           {/* HTTP Stream */}
           <div className="rounded-lg border border-border1 bg-surface3 p-4">
             <Badge icon={<span className="font-mono w-6 text-accent1 font-medium mr-1">HTTP</span>}>
-              Regular HTTP Endpoint
+              常规 HTTP 端点
             </Badge>
 
-            <Txt className="text-neutral3 pt-1 pb-2">
-              Use for stateless HTTP transport with streamable responses.
-            </Txt>
+            <Txt className="text-neutral3 pt-1 pb-2">用于支持流式响应的无状态 HTTP 传输。</Txt>
 
             <div className="flex items-start gap-2">
               <Txt className="px-2 py-1 bg-surface4 rounded-lg">{httpStreamUrl}</Txt>
               <div className="pt-1">
-                <CopyButton tooltip="Copy HTTP Stream URL" content={httpStreamUrl} />
+                <CopyButton tooltip="复制 HTTP 流 URL" content={httpStreamUrl} />
               </div>
             </div>
           </div>
@@ -187,15 +184,15 @@ export const MCPDetail = ({ isLoading, server }: MCPDetailProps) => {
           {/* SSE */}
           <div className="rounded-lg border border-border1 bg-surface3 p-4">
             <Badge icon={<span className="font-mono w-6 text-accent1 font-medium mr-1">SSE</span>}>
-              Server-Sent Events
+              服务器发送事件
             </Badge>
 
-            <Txt className="text-neutral3 pt-1 pb-2">Use for real-time communication via SSE.</Txt>
+            <Txt className="text-neutral3 pt-1 pb-2">用于通过 SSE 进行实时通信。</Txt>
 
             <div className="flex items-start gap-2">
               <Txt className="px-2 py-1 bg-surface4 rounded-lg">{sseUrl}</Txt>
               <div className="pt-1">
-                <CopyButton tooltip="Copy SSE URL" content={sseUrl} />
+                <CopyButton tooltip="复制 SSE URL" content={sseUrl} />
               </div>
             </div>
           </div>
@@ -203,17 +200,17 @@ export const MCPDetail = ({ isLoading, server }: MCPDetailProps) => {
           {/* Command Line */}
           <div className="rounded-lg border border-border1 bg-surface3 p-4">
             <Badge icon={<span className="font-mono w-6 text-accent1 font-medium mr-1">CLI</span>}>
-              Command Line
+              命令行
             </Badge>
 
             <Txt className="text-neutral3 pt-1 pb-2">
-              Use for local command-line access via npx and mcp-remote.
+              用于通过 npx 和 mcp-remote 从本地命令行访问。
             </Txt>
 
             <div className="flex items-start gap-2">
               <Txt className="px-2 py-1 bg-surface4 rounded-lg">{commandLineConfig}</Txt>
               <div className="pt-1">
-                <CopyButton tooltip="Copy Command Line Config" content={commandLineConfig} />
+                <CopyButton tooltip="复制命令行配置" content={commandLineConfig} />
               </div>
             </div>
           </div>

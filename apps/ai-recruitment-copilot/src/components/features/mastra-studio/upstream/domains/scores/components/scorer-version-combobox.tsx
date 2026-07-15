@@ -1,17 +1,11 @@
 import { Badge } from "@mastra/playground-ui/components/Badge";
 import { Combobox } from "@mastra/playground-ui/components/Combobox";
 import type { ComboboxProps } from "@mastra/playground-ui/components/Combobox";
+import { format } from "date-fns";
 import { useScorerVersions } from "../hooks/use-scorer-versions";
 
 function formatTimestamp(isoString: string): string {
-  const date = new Date(isoString);
-  return date.toLocaleDateString(undefined, {
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  return format(new Date(isoString), "yyyy/MM/dd HH:mm");
 }
 
 export interface ScorerVersionComboboxProps {
@@ -27,9 +21,9 @@ export interface ScorerVersionComboboxProps {
 function getVersionBadge(isPublished: boolean, isDraft: boolean) {
   let badge;
   if (isPublished) {
-    badge = <Badge variant="success">Published</Badge>;
+    badge = <Badge variant="success">已发布</Badge>;
   } else if (isDraft) {
-    badge = <Badge variant="info">Draft</Badge>;
+    badge = <Badge variant="info">草稿</Badge>;
   }
   return badge;
 }
@@ -56,7 +50,7 @@ export function ScorerVersionCombobox({
   const activeVersionNumber = activeVersion?.versionNumber;
 
   const options = [
-    { label: "Latest", value: "" },
+    { label: "最新", value: "" },
     ...versions.map((version) => {
       const isPublished = version.id === activeVersionId;
       const isDraft =
@@ -76,9 +70,9 @@ export function ScorerVersionCombobox({
       options={options}
       value={value}
       onValueChange={onValueChange}
-      placeholder={isLoading ? "Loading versions..." : "Versions"}
-      searchPlaceholder="Search versions..."
-      emptyText="No versions found."
+      placeholder={isLoading ? "正在加载版本..." : "版本"}
+      searchPlaceholder="搜索版本..."
+      emptyText="未找到版本。"
       className={className}
       disabled={disabled || isLoading}
       variant={variant}

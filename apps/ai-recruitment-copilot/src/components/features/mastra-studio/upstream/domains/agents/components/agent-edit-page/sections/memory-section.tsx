@@ -58,11 +58,11 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
         <CollapsibleTrigger className="flex items-center gap-1 w-full p-3 bg-surface3">
           <ChevronRight className="h-4 w-4 text-neutral3" />
           <SectionTitle icon={<MemoryIcon className="text-neutral3" />}>
-            Memory
+            记忆
             {resolveConditional(
               isEnabled,
               () => (
-                <span className="text-accent1 font-normal">(enabled)</span>
+                <span className="text-accent1 font-normal">（已启用）</span>
               ),
               () => null,
             )}
@@ -77,11 +77,9 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col gap-0.5">
                     <Label htmlFor="memory-enabled" className="text-sm text-neutral5">
-                      Enable Memory
+                      启用记忆
                     </Label>
-                    <span className="text-xs text-neutral3">
-                      Store and retrieve conversation history
-                    </span>
+                    <span className="text-xs text-neutral3">存储和检索对话历史</span>
                   </div>
                   <Switch
                     id="memory-enabled"
@@ -103,10 +101,10 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                     render={({ field }) => (
                       <div className="flex flex-col gap-1.5">
                         <Label htmlFor="memory-last-messages" className="text-xs text-neutral4">
-                          Last Messages
+                          最近消息
                         </Label>
                         <span className="text-xs text-neutral3">
-                          Number of recent messages to include in context
+                          要包含在上下文中的最近消息数量
                         </span>
                         <Input
                           id="memory-last-messages"
@@ -133,11 +131,9 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                       <div className="flex items-center justify-between">
                         <div className="flex flex-col gap-0.5">
                           <Label htmlFor="memory-semantic-recall" className="text-sm text-neutral5">
-                            Semantic Recall
+                            语义召回
                           </Label>
-                          <span className="text-xs text-neutral3">
-                            Enable semantic search in memory
-                          </span>
+                          <span className="text-xs text-neutral3">在记忆中启用语义搜索</span>
                         </div>
                         <Switch
                           id="memory-semantic-recall"
@@ -157,10 +153,10 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                         render={({ field }) => (
                           <div className="flex flex-col gap-1.5">
                             <Label htmlFor="memory-vector" className="text-xs text-neutral4">
-                              Vector Store
+                              向量存储
                             </Label>
                             <span className="text-xs text-neutral3">
-                              Select a vector store for semantic search
+                              选择用于语义搜索的向量存储
                             </span>
                             <Select
                               value={field.value ?? ""}
@@ -168,7 +164,7 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                               disabled={readOnly}
                             >
                               <SelectTrigger id="memory-vector" className="bg-surface3">
-                                <SelectValue placeholder="Select a vector store" />
+                                <SelectValue placeholder="选择向量存储" />
                               </SelectTrigger>
                               <SelectContent>
                                 {vectors.map((vector) => (
@@ -188,10 +184,10 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                         render={({ field }) => (
                           <div className="flex flex-col gap-1.5">
                             <Label htmlFor="memory-embedder" className="text-xs text-neutral4">
-                              Embedder Model
+                              嵌入模型
                             </Label>
                             <span className="text-xs text-neutral3">
-                              Select an embedding model for semantic search
+                              选择用于语义搜索的嵌入模型
                             </span>
                             <Select
                               value={field.value ?? ""}
@@ -199,7 +195,7 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                               disabled={readOnly}
                             >
                               <SelectTrigger id="memory-embedder" className="bg-surface3">
-                                <SelectValue placeholder="Select an embedder model" />
+                                <SelectValue placeholder="选择嵌入模型" />
                               </SelectTrigger>
                               <SelectContent>
                                 {embedders.map((embedder) => (
@@ -222,10 +218,10 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                       <div className="flex items-center justify-between">
                         <div className="flex flex-col gap-0.5">
                           <Label htmlFor="memory-read-only" className="text-sm text-neutral5">
-                            Read Only
+                            只读
                           </Label>
                           <span className="text-xs text-neutral3">
-                            Memory is read-only (no new messages stored)
+                            记忆为只读（不会存储新消息）
                           </span>
                         </div>
                         <Switch
@@ -245,11 +241,10 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                       <div className="flex items-center justify-between">
                         <div className="flex flex-col gap-0.5">
                           <Label htmlFor="memory-observational" className="text-sm text-neutral5">
-                            Observational Memory
+                            观测记忆
                           </Label>
                           <span className="text-xs text-neutral3">
-                            Automatically observe and reflect on conversations to build long-term
-                            memory
+                            自动观测并反思对话，以建立长期记忆
                           </span>
                         </div>
                         <Switch
@@ -265,9 +260,9 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                   {observationalMemoryEnabled && (
                     <div className="ml-2 pl-3 border-l-2 border-border1 flex flex-col gap-4">
                       <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs text-neutral4">Provider</Label>
+                        <Label className="text-xs text-neutral4">提供商</Label>
                         <span className="text-xs text-neutral3">
-                          Provider for the observer and reflector agents
+                          观测器和反思器智能体使用的提供商
                         </span>
                         <Controller
                           name="memory.observationalMemory.model.provider"
@@ -287,9 +282,9 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                       </div>
 
                       <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs text-neutral4">Model</Label>
+                        <Label className="text-xs text-neutral4">模型</Label>
                         <span className="text-xs text-neutral3">
-                          Model for the observer and reflector agents
+                          观测器和反思器智能体使用的模型
                         </span>
                         <Controller
                           name="memory.observationalMemory.model.name"
@@ -312,11 +307,10 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                         render={({ field }) => (
                           <div className="flex flex-col gap-1.5">
                             <Label htmlFor="memory-om-scope" className="text-xs text-neutral4">
-                              Scope
+                              作用域
                             </Label>
                             <span className="text-xs text-neutral3">
-                              Whether observations are scoped per thread or shared across all
-                              threads for a resource
+                              观测内容是按会话隔离，还是在同一资源的所有会话间共享
                             </span>
                             <Select
                               value={field.value ?? "thread"}
@@ -324,11 +318,11 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                               disabled={readOnly}
                             >
                               <SelectTrigger id="memory-om-scope" className="bg-surface3">
-                                <SelectValue placeholder="Select scope" />
+                                <SelectValue placeholder="选择作用域" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="thread">Thread</SelectItem>
-                                <SelectItem value="resource">Resource</SelectItem>
+                                <SelectItem value="thread">会话</SelectItem>
+                                <SelectItem value="resource">资源</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -345,10 +339,10 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                                 htmlFor="memory-om-share-budget"
                                 className="text-sm text-neutral5"
                               >
-                                Share Token Budget
+                                共享 Token 预算
                               </Label>
                               <span className="text-xs text-neutral3">
-                                Share token budget between observation and reflection
+                                在观测和反思之间共享 Token 预算
                               </span>
                             </div>
                             <Switch
@@ -367,14 +361,14 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                           <ChevronRight
                             className={`h-3 w-3 text-neutral3 transition-transform ${isObserverOpen ? "rotate-90" : ""}`}
                           />
-                          <Label className="text-sm text-neutral5 cursor-pointer">Observer</Label>
+                          <Label className="text-sm text-neutral5 cursor-pointer">观测器</Label>
                         </CollapsibleTrigger>
                         <CollapsibleContent>
                           <div className="ml-2 pl-3 border-l-2 border-border1 mt-2 flex flex-col gap-4">
                             <div className="flex flex-col gap-1.5">
-                              <Label className="text-xs text-neutral4">Provider Override</Label>
+                              <Label className="text-xs text-neutral4">提供商覆盖</Label>
                               <span className="text-xs text-neutral3">
-                                Override the default model provider for the observer
+                                覆盖观测器的默认模型提供商
                               </span>
                               <Controller
                                 name="memory.observationalMemory.observation.model.provider"
@@ -397,10 +391,8 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                             </div>
 
                             <div className="flex flex-col gap-1.5">
-                              <Label className="text-xs text-neutral4">Model Override</Label>
-                              <span className="text-xs text-neutral3">
-                                Override the default model for the observer
-                              </span>
+                              <Label className="text-xs text-neutral4">模型覆盖</Label>
+                              <span className="text-xs text-neutral3">覆盖观测器的默认模型</span>
                               <Controller
                                 name="memory.observationalMemory.observation.model.name"
                                 control={control}
@@ -425,11 +417,10 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                                     htmlFor="memory-om-obs-msg-tokens"
                                     className="text-xs text-neutral4"
                                   >
-                                    Message Tokens
+                                    消息 Token 数
                                   </Label>
                                   <span className="text-xs text-neutral3">
-                                    Token count of unobserved messages that triggers observation
-                                    (default: 30000)
+                                    触发观测的未观测消息 Token 数（默认：30000）
                                   </span>
                                   <Input
                                     id="memory-om-obs-msg-tokens"
@@ -458,11 +449,10 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                                     htmlFor="memory-om-obs-batch"
                                     className="text-xs text-neutral4"
                                   >
-                                    Max Tokens Per Batch
+                                    每批最大 Token 数
                                   </Label>
                                   <span className="text-xs text-neutral3">
-                                    Maximum tokens per batch when observing multiple threads
-                                    (default: 10000)
+                                    观测多个会话时每批的最大 Token 数（默认：10000）
                                   </span>
                                   <Input
                                     id="memory-om-obs-batch"
@@ -491,11 +481,11 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                                     htmlFor="memory-om-obs-buffer"
                                     className="text-xs text-neutral4"
                                   >
-                                    Buffer Tokens
+                                    缓冲 Token 数
                                   </Label>
                                   <span className="text-xs text-neutral3">
-                                    Token interval for async buffering (fraction of messageTokens or
-                                    absolute count, empty to use default 0.2, set 0 to disable)
+                                    异步缓冲的 Token 间隔（messageTokens 的比例或绝对数量；
+                                    留空使用默认值 0.2，设为 0 则停用）
                                   </span>
                                   <Input
                                     id="memory-om-obs-buffer"
@@ -529,10 +519,10 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                                     htmlFor="memory-om-obs-buf-act"
                                     className="text-xs text-neutral4"
                                   >
-                                    Buffer Activation
+                                    缓冲区激活比例
                                   </Label>
                                   <span className="text-xs text-neutral3">
-                                    Ratio (0-1) of buffered observations to activate (default: 0.8)
+                                    激活缓冲观测内容的比例（0–1，默认：0.8）
                                   </span>
                                   <Input
                                     id="memory-om-obs-buf-act"
@@ -562,11 +552,10 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                                     htmlFor="memory-om-obs-block"
                                     className="text-xs text-neutral4"
                                   >
-                                    Block After
+                                    阻塞阈值
                                   </Label>
                                   <span className="text-xs text-neutral3">
-                                    Multiplier or absolute token count for synchronous blocking
-                                    (default: 1.2)
+                                    同步阻塞的倍数或绝对 Token 数（默认：1.2）
                                   </span>
                                   <Input
                                     id="memory-om-obs-block"
@@ -595,14 +584,14 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                           <ChevronRight
                             className={`h-3 w-3 text-neutral3 transition-transform ${isReflectorOpen ? "rotate-90" : ""}`}
                           />
-                          <Label className="text-sm text-neutral5 cursor-pointer">Reflector</Label>
+                          <Label className="text-sm text-neutral5 cursor-pointer">反思器</Label>
                         </CollapsibleTrigger>
                         <CollapsibleContent>
                           <div className="ml-2 pl-3 border-l-2 border-border1 mt-2 flex flex-col gap-4">
                             <div className="flex flex-col gap-1.5">
-                              <Label className="text-xs text-neutral4">Provider Override</Label>
+                              <Label className="text-xs text-neutral4">提供商覆盖</Label>
                               <span className="text-xs text-neutral3">
-                                Override the default model provider for the reflector
+                                覆盖反思器的默认模型提供商
                               </span>
                               <Controller
                                 name="memory.observationalMemory.reflection.model.provider"
@@ -625,10 +614,8 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                             </div>
 
                             <div className="flex flex-col gap-1.5">
-                              <Label className="text-xs text-neutral4">Model Override</Label>
-                              <span className="text-xs text-neutral3">
-                                Override the default model for the reflector
-                              </span>
+                              <Label className="text-xs text-neutral4">模型覆盖</Label>
+                              <span className="text-xs text-neutral3">覆盖反思器的默认模型</span>
                               <Controller
                                 name="memory.observationalMemory.reflection.model.name"
                                 control={control}
@@ -653,11 +640,10 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                                     htmlFor="memory-om-ref-obs-tokens"
                                     className="text-xs text-neutral4"
                                   >
-                                    Observation Tokens
+                                    观测内容 Token 数
                                   </Label>
                                   <span className="text-xs text-neutral3">
-                                    Token count of observations that triggers reflection (default:
-                                    40000)
+                                    触发反思的观测内容 Token 数（默认：40000）
                                   </span>
                                   <Input
                                     id="memory-om-ref-obs-tokens"
@@ -686,11 +672,10 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                                     htmlFor="memory-om-ref-block"
                                     className="text-xs text-neutral4"
                                   >
-                                    Block After
+                                    阻塞阈值
                                   </Label>
                                   <span className="text-xs text-neutral3">
-                                    Multiplier or absolute token count for synchronous blocking
-                                    (default: 1.2)
+                                    同步阻塞的倍数或绝对 Token 数（默认：1.2）
                                   </span>
                                   <Input
                                     id="memory-om-ref-block"
@@ -719,10 +704,10 @@ export function MemorySection({ control, setValue, readOnly = false }: MemorySec
                                     htmlFor="memory-om-ref-buf-act"
                                     className="text-xs text-neutral4"
                                   >
-                                    Buffer Activation
+                                    缓冲区激活比例
                                   </Label>
                                   <span className="text-xs text-neutral3">
-                                    Ratio (0-1) controlling when async reflection buffering starts
+                                    控制异步反思缓冲何时开始的比例（0–1）
                                   </span>
                                   <Input
                                     id="memory-om-ref-buf-act"

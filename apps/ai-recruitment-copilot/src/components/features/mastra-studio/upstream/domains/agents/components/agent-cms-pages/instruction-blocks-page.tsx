@@ -20,7 +20,7 @@ export function InstructionBlocksPage() {
             <AgentCMSBlocks
               items={field.value ?? []}
               onChange={field.onChange}
-              placeholder="Enter content..."
+              placeholder="输入内容…"
               schema={schema}
               readOnly={readOnly}
             />

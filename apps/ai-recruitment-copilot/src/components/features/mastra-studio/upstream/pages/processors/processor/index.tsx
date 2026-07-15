@@ -30,7 +30,7 @@ export function Processor() {
   if (error && is403ForbiddenError(error)) {
     return (
       <div className="flex h-full items-center justify-center">
-        <PermissionDenied resource="processors" />
+        <PermissionDenied resource="处理器" />
       </div>
     );
   }

@@ -100,7 +100,7 @@ function LeftPanel({
 
       <div className="px-4 pt-3">
         <Txt variant="ui-sm" className="text-neutral3">
-          Edit your agent's system prompt, tools, and variables below.
+          在下方编辑智能体的系统提示词、工具和变量。
         </Txt>
       </div>
 
@@ -145,7 +145,7 @@ export function AgentPlaygroundView({
   return (
     <AgentLayout
       agentId={agentId}
-      leftDrawerLabel="Open configuration"
+      leftDrawerLabel="打开配置"
       leftSlot={
         <LeftPanel
           agentId={agentId}

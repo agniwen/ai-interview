@@ -64,7 +64,7 @@ export function validateToolProviders(
         if (seenConnectionIds.has(connection.connectionId)) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: `Connection "${connection.connectionId}" is already pinned to ${toolkit}`,
+            message: `连接“${connection.connectionId}”已固定到 ${toolkit}`,
             path: [...basePath, providerId, "connections", toolkit, index, "connectionId"],
           });
         } else {
@@ -79,7 +79,7 @@ export function validateToolProviders(
       if (bucket.length === 0) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: `Tool "${slug}" requires at least one connection for ${meta.toolkit}`,
+          message: `工具“${slug}”至少需要一个 ${meta.toolkit} 连接`,
           path: [...basePath, providerId, "tools", slug],
         });
       }

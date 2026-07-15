@@ -121,12 +121,10 @@ const ObservationStats = ({
   className: string;
 }) => (
   <div className={`flex gap-4 text-[11px] ${className}`}>
-    {tokensObserved ? <span>Input: {formatTokens(tokensObserved)}</span> : null}
-    {observationTokens ? <span>Output: {formatTokens(observationTokens)}</span> : null}
-    {compressionRatio && compressionRatio > 1 ? (
-      <span>Compression: {compressionRatio}x</span>
-    ) : null}
-    {durationMs ? <span>Duration: {(durationMs / 1000).toFixed(2)}s</span> : null}
+    {tokensObserved ? <span>输入：{formatTokens(tokensObserved)}</span> : null}
+    {observationTokens ? <span>输出：{formatTokens(observationTokens)}</span> : null}
+    {compressionRatio && compressionRatio > 1 ? <span>压缩比：{compressionRatio}x</span> : null}
+    {durationMs ? <span>耗时：{(durationMs / 1000).toFixed(2)} 秒</span> : null}
   </div>
 );
 
@@ -213,7 +211,7 @@ const ExtractedValuesPanel = ({
         ) : (
           <ChevronRight className="w-2.5 h-2.5" />
         )}
-        Extractions ({entries.length}){failures.length > 0 ? ` · ${failures.length} failed` : ""}
+        提取结果（{entries.length}）{failures.length > 0 ? ` · ${failures.length} 项失败` : ""}
       </button>
       {isExpanded && (
         <div className="mt-1 space-y-2">
@@ -302,8 +300,8 @@ export const ObservationMarkerBadge = ({
   const labelColor = "text-green-600";
   const bufferExpandedBgColor = "bg-surface2";
   const bufferExpandedBorderColor = "border-border-1";
-  const actionLabel = isReflection ? "Reflecting" : "Observing";
-  const completedLabel = isReflection ? "Reflected" : "Observed";
+  const actionLabel = isReflection ? "反思中" : "观测中";
+  const completedLabel = isReflection ? "已反思" : "已观测";
 
   // Render based on marker type
   const renderStart = () => {
@@ -322,7 +320,7 @@ export const ObservationMarkerBadge = ({
           <MarkerTypeIcon reflection={isReflection} />
           <span>
             {actionLabel}
-            {tokensToObserve ? ` ~${formatTokens(tokensToObserve)} tokens` : "..."}
+            {tokensToObserve ? ` ~${formatTokens(tokensToObserve)} Token` : "..."}
           </span>
         </div>
       </div>
@@ -371,7 +369,7 @@ export const ObservationMarkerBadge = ({
             <MarkerTypeIcon reflection={isReflection} />
             <span>
               {completedLabel} {optionalTokens(tokensObserved)}→{optionalTokens(observationTokens)}{" "}
-              tokens
+              Token
               {optionalRatio(compressionRatio)}
             </span>
           </button>
@@ -403,7 +401,7 @@ export const ObservationMarkerBadge = ({
                         ) : (
                           <ChevronRight className="w-2.5 h-2.5" />
                         )}
-                        {isReflection ? "Reflections" : "Observations"}
+                        {isReflection ? "反思结果" : "观测结果"}
                       </button>
                       {isObservationsExpanded && (
                         <div className="mt-1">
@@ -425,7 +423,7 @@ export const ObservationMarkerBadge = ({
                     ) : (
                       <ChevronRight className="w-2.5 h-2.5" />
                     )}
-                    Current Task
+                    当前任务
                   </button>
                   {isTaskExpanded && (
                     <div className="mt-1 text-[11px] text-foreground [&_code]:bg-black/10 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[10px]">
@@ -445,7 +443,7 @@ export const ObservationMarkerBadge = ({
                     ) : (
                       <ChevronRight className="w-2.5 h-2.5" />
                     )}
-                    Suggested Response
+                    建议回复
                   </button>
                   {isResponseExpanded && (
                     <div className="mt-1 text-[11px] text-foreground/80 italic [&_code]:bg-black/10 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[10px]">
@@ -468,7 +466,7 @@ export const ObservationMarkerBadge = ({
   };
 
   const renderDisconnected = () => {
-    const disconnectedLabel = isReflection ? "Reflection interrupted" : "Observation interrupted";
+    const disconnectedLabel = isReflection ? "反思已中断" : "观测已中断";
     const { tokensToObserve } = omData;
     return (
       <div
@@ -481,7 +479,7 @@ export const ObservationMarkerBadge = ({
           <Unplug className="w-3 h-3" />
           <span>
             {disconnectedLabel}
-            {tokensToObserve ? ` (~${formatTokens(tokensToObserve)} tokens)` : ""}
+            {tokensToObserve ? `（约 ${formatTokens(tokensToObserve)} Token）` : ""}
           </span>
         </div>
       </div>
@@ -490,7 +488,7 @@ export const ObservationMarkerBadge = ({
 
   const renderFailed = () => {
     const { error } = omData;
-    const failedLabel = isReflection ? "Reflection failed" : "Observation failed";
+    const failedLabel = isReflection ? "反思失败" : "观测失败";
     return (
       <div
         className="mb-3"
@@ -510,7 +508,7 @@ export const ObservationMarkerBadge = ({
 
           {isExpanded && error && (
             <div className="mt-1 ml-4 p-2 rounded-md bg-red-500/5 text-red-700 text-xs border border-red-500/10">
-              <span className="font-medium">Error:</span> {error}
+              <span className="font-medium">错误：</span> {error}
             </div>
           )}
         </div>
@@ -521,7 +519,7 @@ export const ObservationMarkerBadge = ({
   // Async buffering states - non-blocking background observation/reflection
   const renderBuffering = () => {
     const { tokensToBuffer } = omData;
-    const bufferingLabel = isReflection ? "Buffering reflection" : "Buffering observations";
+    const bufferingLabel = isReflection ? "正在缓冲反思" : "正在缓冲观测结果";
     return (
       <div
         className="mt-2 mb-8"
@@ -531,7 +529,7 @@ export const ObservationMarkerBadge = ({
       >
         <MarkerPill icon={<Loader2 className="animate-spin text-accent6" />}>
           {bufferingLabel}
-          {tokensToBuffer ? ` ~${formatTokens(tokensToBuffer)} tokens` : "..."}
+          {tokensToBuffer ? ` ~${formatTokens(tokensToBuffer)} Token` : "..."}
         </MarkerPill>
       </div>
     );
@@ -541,7 +539,7 @@ export const ObservationMarkerBadge = ({
     const { tokensBuffered } = omData;
     const { bufferedTokens } = omData;
     const { observations, extractedValues, extractionFailures } = omData;
-    const bufferedLabel = isReflection ? "Buffered reflection" : "Buffered observations";
+    const bufferedLabel = isReflection ? "已缓冲反思" : "已缓冲观测结果";
     const compressionRatio =
       tokensBuffered && bufferedTokens && bufferedTokens > 0
         ? Math.round(tokensBuffered / bufferedTokens)
@@ -571,7 +569,7 @@ export const ObservationMarkerBadge = ({
             icon={<ObservationIcon className="text-accent6" />}
           >
             {bufferedLabel} {tokensBuffered ? formatTokens(tokensBuffered) : "?"}→
-            {bufferedTokens ? formatTokens(bufferedTokens) : "?"} tokens
+            {bufferedTokens ? formatTokens(bufferedTokens) : "?"} Token
             {compressionRatio ? ` (-${compressionRatio}x)` : ""}
           </MarkerPill>
 
@@ -597,7 +595,7 @@ export const ObservationMarkerBadge = ({
 
   const renderBufferingFailed = () => {
     const { error } = omData;
-    const failedLabel = isReflection ? "Buffered reflection failed" : "Buffered observation failed";
+    const failedLabel = isReflection ? "缓冲反思失败" : "缓冲观测结果失败";
     return (
       <div
         className="mb-3"
@@ -617,7 +615,7 @@ export const ObservationMarkerBadge = ({
 
           {isExpanded && error && (
             <div className="mt-1 ml-4 p-2 rounded-md bg-red-500/5 text-red-700 text-xs border border-red-500/10">
-              <span className="font-medium">Error:</span> {error}
+              <span className="font-medium">错误：</span> {error}
             </div>
           )}
         </div>
@@ -631,7 +629,7 @@ export const ObservationMarkerBadge = ({
     const tokensActivated = omData.tokensActivated ?? 0;
     const observationTokens = omData.observationTokens ?? 0;
     const { observations } = omData;
-    const activatedLabel = isReflection ? "Reflected" : "Observed";
+    const activatedLabel = isReflection ? "已反思" : "已观测";
     const compressionRatio =
       tokensActivated && observationTokens && observationTokens > 0
         ? Math.round(tokensActivated / observationTokens)
@@ -664,7 +662,7 @@ export const ObservationMarkerBadge = ({
             <MarkerTypeIcon reflection={isReflection} />
             <span>
               {activatedLabel} {tokensActivated ? formatTokens(tokensActivated) : "?"}→
-              {observationTokens ? formatTokens(observationTokens) : "?"} tokens
+              {observationTokens ? formatTokens(observationTokens) : "?"} Token
               {compressionRatio ? ` (-${compressionRatio}x)` : ""}
             </span>
           </button>
@@ -674,10 +672,10 @@ export const ObservationMarkerBadge = ({
             >
               {/* Stats row */}
               <div className={`flex gap-4 text-[11px] ${labelColor}`}>
-                {tokensActivated > 0 && <span>Input: {formatTokens(tokensActivated)}</span>}
-                {observationTokens > 0 && <span>Output: {formatTokens(observationTokens)}</span>}
+                {tokensActivated > 0 && <span>输入：{formatTokens(tokensActivated)}</span>}
+                {observationTokens > 0 && <span>输出：{formatTokens(observationTokens)}</span>}
                 {compressionRatio && compressionRatio > 1 && (
-                  <span>Compression: {compressionRatio}x</span>
+                  <span>压缩比：{compressionRatio}x</span>
                 )}
               </div>
               {observations && (

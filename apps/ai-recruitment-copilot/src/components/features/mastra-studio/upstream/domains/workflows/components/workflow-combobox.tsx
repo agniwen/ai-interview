@@ -19,9 +19,9 @@ export interface WorkflowComboboxProps {
 export function WorkflowCombobox({
   value,
   onValueChange,
-  placeholder = "Select a workflow...",
-  searchPlaceholder = "Search workflows...",
-  emptyText = "No workflows found.",
+  placeholder = "选择工作流...",
+  searchPlaceholder = "搜索工作流...",
+  emptyText = "未找到工作流。",
   className,
   disabled = false,
   variant,
@@ -31,8 +31,8 @@ export function WorkflowCombobox({
 
   useEffect(() => {
     if (isError) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to load workflows";
-      toast.error(`Error loading workflows: ${errorMessage}`);
+      const errorMessage = error instanceof Error ? error.message : "加载工作流失败";
+      toast.error(`加载工作流时出错：${errorMessage}`);
     }
   }, [isError, error]);
 
@@ -54,7 +54,7 @@ export function WorkflowCombobox({
       options={workflowOptions}
       value={value}
       onValueChange={handleValueChange}
-      placeholder={isLoading ? "Loading workflows..." : placeholder}
+      placeholder={isLoading ? "正在加载工作流..." : placeholder}
       searchPlaceholder={searchPlaceholder}
       emptyText={emptyText}
       className={className}

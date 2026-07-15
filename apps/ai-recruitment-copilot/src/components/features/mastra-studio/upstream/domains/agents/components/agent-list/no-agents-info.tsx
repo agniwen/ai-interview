@@ -6,8 +6,8 @@ export const NoAgentsInfo = () => (
   <div className="flex h-full items-center justify-center ">
     <EmptyState
       iconSlot={<CircleSlashIcon />}
-      titleSlot="No Agents yet"
-      descriptionSlot="Configure agents in code to get started."
+      titleSlot="暂无智能体"
+      descriptionSlot="在代码中配置智能体即可开始使用。"
       actionSlot={
         <Button
           variant="ghost"
@@ -16,7 +16,7 @@ export const NoAgentsInfo = () => (
           target="_blank"
           rel="noopener noreferrer"
         >
-          Agents Documentation <ExternalLinkIcon />
+          智能体文档 <ExternalLinkIcon />
         </Button>
       }
     />

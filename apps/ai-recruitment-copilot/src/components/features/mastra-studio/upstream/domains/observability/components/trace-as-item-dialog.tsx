@@ -63,7 +63,7 @@ export function TraceAsItemDialog({
     enabled: isOpen && !!traceId,
     queryFn: () => {
       if (!traceId) {
-        throw new Error("A trace ID is required to load its trajectory");
+        throw new Error("加载轨迹需要追踪 ID");
       }
       return client.getTraceTrajectory(traceId);
     },

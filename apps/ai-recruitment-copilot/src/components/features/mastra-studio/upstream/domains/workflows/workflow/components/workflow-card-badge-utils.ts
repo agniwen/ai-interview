@@ -63,16 +63,16 @@ export interface WorkflowCardIndicator {
 }
 
 const CONDITION_LABELS: Record<string, string> = {
-  and: "And condition",
-  dountil: "Do until condition",
-  dowhile: "Do while condition",
-  else: "Else condition",
-  if: "If condition",
-  not: "Not condition",
-  or: "Or condition",
-  until: "Until condition",
-  when: "When condition",
-  while: "While condition",
+  and: "并且条件",
+  dountil: "执行直到条件",
+  dowhile: "执行当条件",
+  else: "否则条件",
+  if: "如果条件",
+  not: "非条件",
+  or: "或者条件",
+  until: "直到条件",
+  when: "当条件",
+  while: "当条件",
 };
 
 export const getConditionIconAndColor = (type?: string): ConditionIconConfig => {
@@ -120,7 +120,7 @@ export const getConditionIndicator = (type?: string): WorkflowCardIndicator | un
     color,
     icon,
     id: `condition-${type}`,
-    label: CONDITION_LABELS[type] ?? `${type} condition`,
+    label: CONDITION_LABELS[type] ?? `${type} 条件`,
   };
 };
 
@@ -180,7 +180,7 @@ export const getNodeIndicators = (props: WorkflowCardBadgesProps): WorkflowCardI
       color: BADGE_COLORS.sleep,
       icon: props.date ? BADGE_ICONS.sleepUntil : BADGE_ICONS.sleep,
       id: props.date ? "sleep-until" : "sleep",
-      label: props.date ? "Sleep until step" : "Sleep step",
+      label: props.date ? "休眠至指定时间步骤" : "休眠步骤",
     });
   }
 
@@ -189,7 +189,7 @@ export const getNodeIndicators = (props: WorkflowCardBadgesProps): WorkflowCardI
       color: BADGE_COLORS.suspend,
       icon: BADGE_ICONS.suspend,
       id: "suspend",
-      label: "Suspend/resume step",
+      label: "挂起/恢复步骤",
     });
   }
 
@@ -198,7 +198,7 @@ export const getNodeIndicators = (props: WorkflowCardBadgesProps): WorkflowCardI
       color: BADGE_COLORS.parallel,
       icon: BADGE_ICONS.parallel,
       id: "parallel",
-      label: "Parallel step",
+      label: "并行步骤",
     });
   }
 
@@ -207,7 +207,7 @@ export const getNodeIndicators = (props: WorkflowCardBadgesProps): WorkflowCardI
       color: BADGE_COLORS.workflow,
       icon: BADGE_ICONS.workflow,
       id: "workflow",
-      label: "Nested workflow step",
+      label: "嵌套工作流步骤",
     });
   }
 
@@ -216,7 +216,7 @@ export const getNodeIndicators = (props: WorkflowCardBadgesProps): WorkflowCardI
       color: BADGE_COLORS.forEach,
       icon: BADGE_ICONS.forEach,
       id: "foreach",
-      label: "Foreach step",
+      label: "逐项处理步骤",
     });
   }
 
@@ -225,7 +225,7 @@ export const getNodeIndicators = (props: WorkflowCardBadgesProps): WorkflowCardI
       color: BADGE_COLORS.map,
       icon: BADGE_ICONS.map,
       id: "map",
-      label: "Map step",
+      label: "映射步骤",
     });
   }
 

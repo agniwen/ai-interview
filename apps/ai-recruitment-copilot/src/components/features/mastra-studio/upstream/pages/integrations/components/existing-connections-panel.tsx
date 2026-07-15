@@ -16,9 +16,9 @@ function ConnectionRow({
       <div>
         <div className="font-mono text-xs">{connection.connectionId}</div>
         <div className="text-xs text-gray-500">
-          {connection.label ?? "(no label)"} · {connection.status}
+          {connection.label ?? "（无标签）"} · {connection.status}
           {connection.scope ? ` · ${connection.scope}` : ""}
-          {isAdmin && connection.authorId ? ` · author: ${connection.authorId}` : ""}
+          {isAdmin && connection.authorId ? ` · 所有者：${connection.authorId}` : ""}
         </div>
       </div>
       <button
@@ -27,7 +27,7 @@ function ConnectionRow({
         onClick={onDisconnect}
         disabled={disconnectPending}
       >
-        Disconnect
+        断开连接
       </button>
     </li>
   );
@@ -78,7 +78,7 @@ function ConnectionGroups({
             className="text-sm font-semibold text-gray-700"
             data-testid={`integration-author-group-${authorKey}`}
           >
-            {authorKey === "shared" ? "Shared" : `Owned by ${authorKey}`}
+            {authorKey === "shared" ? "共享" : `由 ${authorKey} 所有`}
           </h3>
           <ConnectionList
             connections={rows}
@@ -117,16 +117,16 @@ function ConnectionsContent({
   toolkit,
 }: Omit<ExistingConnectionsPanelProps, "disconnectError">) {
   if (!providerId || !toolkit) {
-    return <p className="text-gray-500">Pick a provider and toolkit to list connections.</p>;
+    return <p className="text-gray-500">请选择提供商和工具包以查看连接。</p>;
   }
   if (isLoading) {
-    return <p className="text-gray-500">Loading…</p>;
+    return <p className="text-gray-500">正在加载…</p>;
   }
   if (error) {
     return <p className="text-red-600">{String(error)}</p>;
   }
   if (connections.length === 0) {
-    return <p className="text-gray-500">No connections.</p>;
+    return <p className="text-gray-500">暂无连接。</p>;
   }
   if (groupedByAuthor) {
     return (
@@ -162,7 +162,7 @@ export function ExistingConnectionsPanel({
 }: ExistingConnectionsPanelProps) {
   return (
     <div className="space-y-2 border rounded p-4">
-      <h2 className="text-lg font-semibold">Existing connections</h2>
+      <h2 className="text-lg font-semibold">现有连接</h2>
       <ConnectionsContent
         connections={connections}
         disconnectPending={disconnectPending}

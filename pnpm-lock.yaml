@@ -43,6 +43,9 @@ overrides:
 
 packageExtensionsChecksum: sha256-dMPZibyDAh/vemSXDsrGBrdvuIeCNMTArCheuBn/Mbg=
 
+patchedDependencies:
+  '@mastra/playground-ui@40.0.1': d0a1975af7722c340c81524b41514729deccd06b89620f57e3cc4026e2164693
+
 importers:
 
   .:
@@ -175,7 +178,7 @@ importers:
         version: 1.22.2(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))
       '@mastra/playground-ui':
         specifier: 40.0.1
-        version: 40.0.1(@babel/runtime@7.29.7)(@codemirror/lint@6.9.7)(@codemirror/theme-one-dark@6.1.3)(@date-fns/tz@1.5.0)(@mastra/client-js@1.31.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(@mastra/memory@1.22.2(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3)))(@mastra/react@1.2.4(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(ai@6.0.219(zod@4.4.3))(express@5.2.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rxjs@7.8.2)(zod@4.4.3))(@tanstack/react-query@5.100.14(react@19.2.7))(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(codemirror@6.0.2)(immer@11.1.11)(lucide-react@0.522.0(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react-is@18.3.1)(react@19.2.7)(redux@5.0.1)(tailwindcss@4.3.0)(use-sync-external-store@1.6.0(react@19.2.7))
+        version: 40.0.1(patch_hash=d0a1975af7722c340c81524b41514729deccd06b89620f57e3cc4026e2164693)(@babel/runtime@7.29.7)(@codemirror/lint@6.9.7)(@codemirror/theme-one-dark@6.1.3)(@date-fns/tz@1.5.0)(@mastra/client-js@1.31.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(@mastra/memory@1.22.2(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3)))(@mastra/react@1.2.4(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(ai@6.0.219(zod@4.4.3))(express@5.2.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rxjs@7.8.2)(zod@4.4.3))(@tanstack/react-query@5.100.14(react@19.2.7))(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(codemirror@6.0.2)(immer@11.1.11)(lucide-react@0.522.0(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react-is@18.3.1)(react@19.2.7)(redux@5.0.1)(tailwindcss@4.3.0)(use-sync-external-store@1.6.0(react@19.2.7))
       '@mastra/react':
         specifier: 1.2.4
         version: 1.2.4(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(ai@6.0.219(zod@4.4.3))(express@5.2.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rxjs@7.8.2)(zod@4.4.3)
@@ -12645,8 +12648,8 @@ snapshots:
     transitivePeerDependencies:
       - pg-native
 
-  '@mastra/playground-ui@40.0.1(@babel/runtime@7.29.7)(@codemirror/lint@6.9.7)(@codemirror/theme-one-dark@6.1.3)(@date-fns/tz@1.5.0)(@mastra/client-js@1.31.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(@mastra/memory@1.22.2(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3)))(@mastra/react@1.2.4(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(ai@6.0.219(zod@4.4.3))(express@5.2.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rxjs@7.8.2)(zod@4.4.3))(@tanstack/react-query@5.100.14(react@19.2.7))(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(codemirror@6.0.2)(immer@11.1.11)(lucide-react@0.522.0(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react-is@18.3.1)(react@19.2.7)(redux@5.0.1)(tailwindcss@4.3.0)(use-sync-external-store@1.6.0(react@19.2.7))':
-    dependencies:
+  ? '@mastra/playground-ui@40.0.1(patch_hash=d0a1975af7722c340c81524b41514729deccd06b89620f57e3cc4026e2164693)(@babel/runtime@7.29.7)(@codemirror/lint@6.9.7)(@codemirror/theme-one-dark@6.1.3)(@date-fns/tz@1.5.0)(@mastra/client-js@1.31.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(@mastra/memory@1.22.2(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3)))(@mastra/react@1.2.4(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(ai@6.0.219(zod@4.4.3))(express@5.2.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rxjs@7.8.2)(zod@4.4.3))(@tanstack/react-query@5.100.14(react@19.2.7))(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(codemirror@6.0.2)(immer@11.1.11)(lucide-react@0.522.0(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react-is@18.3.1)(react@19.2.7)(redux@5.0.1)(tailwindcss@4.3.0)(use-sync-external-store@1.6.0(react@19.2.7))'
+  : dependencies:
       '@base-ui/react': 1.5.0(@date-fns/tz@1.5.0)(@types/react@19.2.17)(date-fns@4.4.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@codemirror/autocomplete': 6.20.3
       '@codemirror/lang-javascript': 6.2.5

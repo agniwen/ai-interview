@@ -106,30 +106,28 @@ export function usePublishAndConnectChannel(agentId: string): UsePublishAndConne
     try {
       await updateStoredAgent.mutateAsync({ visibility: "public" });
       formMethods.setValue("visibility", "public", { shouldDirty: false });
-      toast.success("Agent added to the library");
+      toast.success("智能体已添加到库");
       const request = pendingRequest;
       setConfirmOpen(false);
       setPendingRequest(null);
       runChannelAction(request);
     } catch (error) {
-      toast.error(
-        `Failed to add to library: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`添加到库失败：${error instanceof Error ? error.message : "未知错误"}`);
     }
   }, [pendingRequest, updateStoredAgent, formMethods, runChannelAction]);
 
-  const platformName = pendingRequest?.platform.name ?? "this channel";
+  const platformName = pendingRequest?.platform.name ?? "此渠道";
 
   const dialog = useMemo(
     () => (
       <Dialog open={confirmOpen} onOpenChange={(open) => !open && handleCancel()}>
         <DialogContent data-testid="agent-builder-publish-before-connect-dialog">
           <DialogHeader>
-            <DialogTitle>Add this agent to your library to connect {platformName}?</DialogTitle>
+            <DialogTitle>要将此智能体添加到库以连接 {platformName} 吗？</DialogTitle>
             <DialogDescription>
-              Connecting to {platformName} requires this agent to be in the library so your
-              teammates can use the bot. We&apos;ll add it to the library and then continue to{" "}
-              {platformName}.
+              连接 {platformName}{" "}
+              前需要将此智能体添加到库，以便团队成员使用该机器人。我们会先将其添加到库，然后继续连接
+              {platformName}。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -139,7 +137,7 @@ export function usePublishAndConnectChannel(agentId: string): UsePublishAndConne
               disabled={updateStoredAgent.isPending}
               data-testid="agent-builder-publish-before-connect-dialog-cancel"
             >
-              Cancel
+              取消
             </Button>
             <Button
               variant="default"
@@ -147,7 +145,7 @@ export function usePublishAndConnectChannel(agentId: string): UsePublishAndConne
               disabled={updateStoredAgent.isPending}
               data-testid="agent-builder-publish-before-connect-dialog-confirm"
             >
-              Add to library &amp; continue
+              添加到库并继续
             </Button>
           </DialogFooter>
         </DialogContent>

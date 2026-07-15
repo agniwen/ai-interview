@@ -25,7 +25,7 @@ export default function Scorers() {
   if (error && is403ForbiddenError(error)) {
     return (
       <NoDataPageLayout>
-        <PermissionDenied resource="scorers" />
+        <PermissionDenied resource="评分器" />
       </NoDataPageLayout>
     );
   }
@@ -33,7 +33,7 @@ export default function Scorers() {
   if (error) {
     return (
       <NoDataPageLayout>
-        <ErrorState title="Failed to load scorers" message={error.message} />
+        <ErrorState title="加载评分器失败" message={error.message} />
       </NoDataPageLayout>
     );
   }

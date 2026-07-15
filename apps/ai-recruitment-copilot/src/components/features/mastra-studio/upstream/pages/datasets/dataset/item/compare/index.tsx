@@ -81,10 +81,10 @@ function CompareItemColumn({
     value: i.id,
   }));
   let columnContent = (
-    <div className="text-neutral4 text-sm">Item {itemId.slice(0, 8)} not found</div>
+    <div className="text-neutral4 text-sm">数据项 {itemId.slice(0, 8)} 未找到</div>
   );
   if (isLoading) {
-    columnContent = <div className="text-neutral4 text-sm">Loading...</div>;
+    columnContent = <div className="text-neutral4 text-sm">正在加载...</div>;
   } else if (item) {
     columnContent = (
       <>
@@ -97,8 +97,8 @@ function CompareItemColumn({
     <Column>
       <Column.Toolbar className="flex gap-4">
         <Select name={`compare-item-${idx}`} value={itemId} onValueChange={onItemChange}>
-          <SelectTrigger aria-label="Item">
-            <SelectValue placeholder="Select item" />
+          <SelectTrigger aria-label="数据项">
+            <SelectValue placeholder="选择数据项" />
           </SelectTrigger>
           <SelectContent>
             {options.map((option) => (
@@ -110,7 +110,7 @@ function CompareItemColumn({
         </Select>
         <Button as={LinkComponent} to={`/datasets/${datasetId}/items/${itemId}`}>
           <History />
-          Versions
+          版本
         </Button>
       </Column.Toolbar>
       {showContent && <Column.Content>{columnContent}</Column.Content>}
@@ -143,7 +143,7 @@ function DatasetItemsComparePage() {
     return (
       <MainContentLayout>
         <div className="flex h-full items-center justify-center">
-          <PermissionDenied resource="datasets" />
+          <PermissionDenied resource="数据集" />
         </div>
       </MainContentLayout>
     );
@@ -154,7 +154,7 @@ function DatasetItemsComparePage() {
       <MainContentLayout>
         <MainContentContent>
           <div className="text-neutral4 text-center py-8">
-            <p>Select at least two items to compare.</p>
+            <p>请至少选择两个数据项进行对比。</p>
           </div>
         </MainContentContent>
       </MainContentLayout>
@@ -166,7 +166,7 @@ function DatasetItemsComparePage() {
       <RouteHeaderActions owner="dataset-items-compare">
         <Button as={Link} to={`/datasets/${datasetId}`} variant="outline">
           <ArrowLeft />
-          Back to Dataset
+          返回数据集
         </Button>
       </RouteHeaderActions>
 
@@ -180,11 +180,11 @@ function DatasetItemsComparePage() {
             <MainHeader.Column>
               <MainHeader.Title>
                 <GitCompareIcon />
-                Compare Dataset Items
+                对比数据项
               </MainHeader.Title>
               <MainHeader.Description>
                 <TextAndIcon>
-                  Comparing {itemIds.length} items of{" "}
+                  正在对比数据集中的 {itemIds.length} 个数据项：{" "}
                   <Link to={`/datasets/${datasetId}`} className="text-info1 hover:underline">
                     {dataset?.name || datasetId?.slice(0, 8)}
                   </Link>
@@ -196,11 +196,11 @@ function DatasetItemsComparePage() {
                 <Button variant="primary" onClick={() => setIsDiffView((v) => !v)}>
                   {isDiffView ? (
                     <>
-                      <ColumnsIcon /> Default View
+                      <ColumnsIcon /> 默认视图
                     </>
                   ) : (
                     <>
-                      <DiffIcon /> Diff View
+                      <DiffIcon /> 差异视图
                     </>
                   )}
                 </Button>

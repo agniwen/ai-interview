@@ -28,7 +28,7 @@ function ReferenceDialogContent({
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
-        <p className="text-red-400 mb-2">Failed to load reference</p>
+        <p className="text-red-400 mb-2">加载参考资料失败</p>
         <p className="text-sm text-neutral3">{error}</p>
       </div>
     );
@@ -40,9 +40,7 @@ function ReferenceDialogContent({
       </pre>
     );
   }
-  return (
-    <div className="flex items-center justify-center py-12 text-neutral3">No content available</div>
-  );
+  return <div className="flex items-center justify-center py-12 text-neutral3">暂无内容</div>;
 }
 
 export function ReferenceViewerDialog({
@@ -74,7 +72,7 @@ export function ReferenceViewerDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <button
-        aria-label="Close reference viewer"
+        aria-label="关闭参考资料查看器"
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={() => onOpenChange(false)}
       />
@@ -100,7 +98,7 @@ export function ReferenceViewerDialog({
               <h2 id="reference-viewer-title" className="text-base font-medium text-neutral6">
                 {referencePath}
               </h2>
-              <p className="text-xs text-neutral3">from {skillName}</p>
+              <p className="text-xs text-neutral3">来自 {skillName}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -117,11 +115,11 @@ export function ReferenceViewerDialog({
                   <Copy className="h-3.5 w-3.5" />
                 )}
               </Icon>
-              {isCopied ? "Copied!" : "Copy"}
+              {isCopied ? "已复制！" : "复制"}
             </Button>
             <button
               onClick={() => onOpenChange(false)}
-              aria-label="Close reference viewer"
+              aria-label="关闭参考资料查看器"
               className="p-2 rounded-lg hover:bg-surface4 text-neutral3 hover:text-neutral5 transition-colors"
             >
               <X className="h-4 w-4" />

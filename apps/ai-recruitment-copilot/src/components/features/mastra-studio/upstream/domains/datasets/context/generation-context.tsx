@@ -78,21 +78,19 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
               return prev;
             }
             if (items.length === 0) {
-              toast.info("Generation complete — no items were produced.");
+              toast.info("生成完成，但未生成任何数据项。");
               const { [datasetId]: _, ...rest } = prev;
               return rest;
             }
-            toast.success(
-              `Generated ${items.length} item${items.length > 1 ? "s" : ""}. Click the dataset to review.`,
-            );
+            toast.success(`已生成 ${items.length} 个数据项。点击数据集进行评审。`);
             return {
               ...prev,
               [datasetId]: { ...task, items, status: "review-ready" },
             };
           });
         } catch (error) {
-          const message = error instanceof Error ? error.message : "Unknown error";
-          toast.error(`Generation failed: ${message}`);
+          const message = error instanceof Error ? error.message : "未知错误";
+          toast.error(`生成失败：${message}`);
           setTasks((prev) => {
             const task = prev[datasetId];
             if (!task) {

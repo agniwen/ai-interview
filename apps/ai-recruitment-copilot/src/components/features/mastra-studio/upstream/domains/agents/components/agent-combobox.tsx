@@ -20,9 +20,9 @@ export interface AgentComboboxProps {
 export function AgentCombobox({
   value,
   onValueChange,
-  placeholder = "Select an agent...",
-  searchPlaceholder = "Search agents...",
-  emptyText = "No agents found.",
+  placeholder = "选择智能体…",
+  searchPlaceholder = "搜索智能体…",
+  emptyText = "未找到智能体。",
   className,
   disabled = false,
   variant,
@@ -33,8 +33,8 @@ export function AgentCombobox({
 
   useEffect(() => {
     if (isError) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to load agents";
-      toast.error(`Error loading agents: ${errorMessage}`);
+      const errorMessage = error instanceof Error ? error.message : "加载智能体失败";
+      toast.error(`加载智能体失败：${errorMessage}`);
     }
   }, [isError, error]);
 
@@ -56,7 +56,7 @@ export function AgentCombobox({
       options={agentOptions}
       value={value}
       onValueChange={handleValueChange}
-      placeholder={isLoading ? "Loading agents..." : placeholder}
+      placeholder={isLoading ? "正在加载智能体…" : placeholder}
       searchPlaceholder={searchPlaceholder}
       emptyText={emptyText}
       className={className}

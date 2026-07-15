@@ -12,19 +12,12 @@ const COPY: Record<
   }
 > = {
   delete: {
-    dependents: "This agent is used as a sub-agent by:",
-    hidden: (n) =>
-      n === 1
-        ? "1 other private agent also references this agent."
-        : `${n} other private agents also reference this agent.`,
+    dependents: "此智能体被以下智能体用作子智能体：",
+    hidden: (n) => `另有 ${n} 个私有智能体也引用了此智能体。`,
   },
   "make-private": {
-    dependents:
-      "Making this agent private may break the following agents that use it as a sub-agent:",
-    hidden: (n) =>
-      n === 1
-        ? "1 other private agent also references this agent and may stop working."
-        : `${n} other private agents also reference this agent and may stop working.`,
+    dependents: "将此智能体设为私有可能导致以下使用它作为子智能体的智能体无法正常工作：",
+    hidden: (n) => `另有 ${n} 个私有智能体也引用了此智能体，可能会停止工作。`,
   },
 };
 
@@ -70,7 +63,7 @@ export const AgentImpactWarnings = ({
           </ul>
           {overflow > 0 && (
             <p data-testid="agent-impact-dependents-more" className="mt-1 text-icon-3">
-              and {overflow} more
+              以及另外 {overflow} 个
             </p>
           )}
         </div>

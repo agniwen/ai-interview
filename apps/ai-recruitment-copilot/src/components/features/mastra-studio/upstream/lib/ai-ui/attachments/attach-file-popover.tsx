@@ -76,7 +76,7 @@ export const AttachFilePopover = () => {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="default" size="icon-md" type="button" tooltip="Add attachment">
+        <Button variant="default" size="icon-md" type="button" tooltip="添加附件">
           <PlusIcon className="h-5 w-5 text-neutral3 hover:text-neutral6" />
         </Button>
       </PopoverTrigger>
@@ -84,7 +84,7 @@ export const AttachFilePopover = () => {
         <form onSubmit={handleSubmit} className="flex flex-row items-end gap-2">
           <div className="w-full space-y-1">
             <Label htmlFor="url-attachment" className="text-neutral3 text-ui-md">
-              Public URL
+              公共 URL
             </Label>
             <Input
               type="text"
@@ -98,7 +98,7 @@ export const AttachFilePopover = () => {
             <Icon>
               <Link />
             </Icon>
-            Add
+            添加
           </Button>
         </form>
 
@@ -106,7 +106,7 @@ export const AttachFilePopover = () => {
 
         <div className="space-y-2">
           <Txt variant="ui-md" className="text-neutral3">
-            Or from your computer
+            或从电脑中选择
           </Txt>
           <button
             type="button"
@@ -114,7 +114,7 @@ export const AttachFilePopover = () => {
             className="w-full h-28 border border-border1 rounded-lg text-neutral3 border-dashed flex flex-col items-center justify-center gap-2 hover:bg-surface2 active:bg-surface3"
           >
             <CloudUpload className="size-8" />
-            <Txt variant="ui-lg">Add a local file</Txt>
+            <Txt variant="ui-lg">添加本地文件</Txt>
           </button>
         </div>
       </PopoverContent>

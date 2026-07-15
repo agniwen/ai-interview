@@ -20,7 +20,6 @@ import { cleanProviderId } from "@/components/features/mastra-studio/upstream/do
 import { ProposalTag } from "@/components/features/mastra-studio/upstream/domains/review/components";
 import type { useReviewQueue } from "../../context/review-queue-context";
 import { resolveConditional } from "../../utils/conditional";
-import { isTruthy } from "../../utils/truthiness";
 import { stringifyValue } from "./agent-playground-review-helpers";
 
 type ReviewItem = ReturnType<typeof useReviewQueue>["items"][number];
@@ -85,14 +84,12 @@ export function ReviewDialogs({
       <Dialog open={showAnalyzeDialog} onOpenChange={setShowAnalyzeDialog}>
         <DialogContent ref={analyzeContentRef} className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              Analyze {analyzeMode === "untagged" ? "Untagged" : "Selected"} Items
-            </DialogTitle>
+            <DialogTitle>分析{analyzeMode === "untagged" ? "无标签" : "所选"}条目</DialogTitle>
           </DialogHeader>
           <DialogBody>
             <div className="space-y-4">
               <div className="space-y-1">
-                <Label>Model</Label>
+                <Label>模型</Label>
                 <div className="flex items-center gap-1.5">
                   <div className="w-[160px]">
                     <LLMProviders
@@ -119,25 +116,25 @@ export function ReviewDialogs({
               </div>
 
               <div className="space-y-1">
-                <Label>Items</Label>
+                <Label>条目</Label>
                 <Txt variant="ui-sm" className="text-neutral4">
                   {analyzeMode === "untagged"
-                    ? `${untaggedCount} untagged item${isTruthy(untaggedCount !== 1) ? "s" : ""}`
-                    : `${selectedItemCount} selected item${isTruthy(selectedItemCount !== 1) ? "s" : ""}`}
+                    ? `${untaggedCount} 个无标签条目`
+                    : `${selectedItemCount} 个所选条目`}
                 </Txt>
               </div>
 
               <div className="space-y-1">
-                <Label>Instructions (optional)</Label>
+                <Label>指令（可选）</Label>
                 <Textarea
                   value={analyzePrompt}
                   onChange={(e) => setAnalyzePrompt(e.target.value)}
-                  placeholder="e.g., Focus on tool usage failures, pay attention to whether the agent hallucinated..."
+                  placeholder="例如：关注工具调用失败，并留意智能体是否产生幻觉..."
                   rows={3}
                   disabled={isAnalyzing}
                 />
                 <Txt variant="ui-xs" className="text-neutral2">
-                  Guide the LLM on what to look for when tagging items
+                  指导大语言模型在为条目添加标签时重点关注哪些内容
                 </Txt>
               </div>
             </div>
@@ -148,7 +145,7 @@ export function ReviewDialogs({
               onClick={() => setShowAnalyzeDialog(false)}
               disabled={isAnalyzing}
             >
-              Cancel
+              取消
             </Button>
             <Button
               variant="default"
@@ -162,10 +159,10 @@ export function ReviewDialogs({
               {isAnalyzing ? (
                 <>
                   <Spinner className="mr-2" />
-                  Analyzing...
+                  正在分析...
                 </>
               ) : (
-                "Analyze"
+                "分析"
               )}
             </Button>
           </DialogFooter>
@@ -176,12 +173,12 @@ export function ReviewDialogs({
       <Dialog open={showProposalDialog} onOpenChange={setShowProposalDialog}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Proposed Tag Assignments</DialogTitle>
+            <DialogTitle>建议的标签分配</DialogTitle>
             {resolveConditional(
               analysisModelId,
               (conditionValue) => (
                 <Txt variant="ui-xs" className="text-neutral3 mt-1">
-                  Analyzed by <span className="font-medium text-neutral4">{conditionValue}</span>
+                  分析模型：<span className="font-medium text-neutral4">{conditionValue}</span>
                 </Txt>
               ),
               () => null,
@@ -210,7 +207,7 @@ export function ReviewDialogs({
                   />
                   <div className="flex-1 min-w-0">
                     <Txt variant="ui-xs" className="text-neutral4 truncate block">
-                      {inputStr || `Item ${proposal.itemId.slice(0, 8)}`}
+                      {inputStr || `条目 ${proposal.itemId.slice(0, 8)}`}
                     </Txt>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {proposal.tags.map((tag, tagIdx) => (
@@ -253,14 +250,14 @@ export function ReviewDialogs({
           </DialogBody>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setShowProposalDialog(false)}>
-              Cancel
+              取消
             </Button>
             <Button
               variant="default"
               onClick={handleAcceptProposals}
               disabled={proposedAssignments.filter((p) => p.accepted).length === 0}
             >
-              Accept {proposedAssignments.filter((p) => p.accepted).length} proposals
+              接受 {proposedAssignments.filter((p) => p.accepted).length} 条建议
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -6,14 +6,18 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@mastra/playground-ui/c
 import { cn } from "@mastra/playground-ui/utils/cn";
 import { format, isThisYear, isToday } from "date-fns";
 import { Play } from "lucide-react";
+import {
+  getExperimentStatusLabel,
+  getExperimentTargetTypeLabel,
+} from "@/components/features/mastra-studio/upstream/domains/experiments/components/experiments-list-options";
 
 const experimentsListColumns = [
   { label: "ID", name: "experimentId", size: "7rem" },
-  { label: "Status", name: "status", size: "5rem" },
-  { label: "Type", name: "targetType", size: "6rem" },
-  { label: "Target", name: "target", size: "minmax(0,1fr)" },
-  { label: "Counts", name: "counts", size: "7rem" },
-  { label: "Created", name: "date", size: "10rem" },
+  { label: "状态", name: "status", size: "5rem" },
+  { label: "类型", name: "targetType", size: "6rem" },
+  { label: "目标", name: "target", size: "minmax(0,1fr)" },
+  { label: "数量", name: "counts", size: "7rem" },
+  { label: "创建时间", name: "date", size: "10rem" },
 ];
 
 export interface DatasetExperimentsListProps {
@@ -25,14 +29,10 @@ export interface DatasetExperimentsListProps {
 }
 
 function formatDate(date: Date): string {
-  const dayMonth = isToday(date) ? "Today" : format(date, "MMM dd");
+  const dayMonth = isToday(date) ? "今天" : format(date, "MM/dd");
   const year = isThisYear(date) ? "" : format(date, "yyyy");
-  const time = format(date, "'at' h:mm aaa");
+  const time = format(date, "HH:mm");
   return `${dayMonth} ${year} ${time}`.replaceAll(/\s+/g, " ").trim();
-}
-
-function capitalize(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function EmptyDatasetExperimentsList() {
@@ -40,8 +40,8 @@ function EmptyDatasetExperimentsList() {
     <div className="flex h-full items-center justify-center py-12">
       <EmptyState
         iconSlot={<Play className="w-8 h-8 text-neutral3" />}
-        titleSlot="No experiments yet"
-        descriptionSlot="Trigger an experiment to evaluate your dataset against an agent, workflow, or scorer."
+        titleSlot="暂无实验"
+        descriptionSlot="触发实验，使用智能体、工作流或评分器评估数据集。"
       />
     </div>
   );
@@ -103,11 +103,13 @@ export function DatasetExperimentsList({
                       />
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent>{capitalize(experiment.status)}</TooltipContent>
+                  <TooltipContent>{getExperimentStatusLabel(experiment.status)}</TooltipContent>
                 </Tooltip>
               )}
             </DataList.Cell>
-            <DataList.Cell height="compact">{experiment.targetType}</DataList.Cell>
+            <DataList.Cell height="compact">
+              {getExperimentTargetTypeLabel(experiment.targetType)}
+            </DataList.Cell>
             <DataList.Cell height="compact" className="min-w-0">
               <span className="block truncate">{experiment.targetId}</span>
             </DataList.Cell>
@@ -124,9 +126,9 @@ export function DatasetExperimentsList({
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {experiment.succeededCount} Succeeded
+                  {experiment.succeededCount} 成功
                   <br />
-                  {experiment.failedCount} Failed
+                  {experiment.failedCount} 失败
                 </TooltipContent>
               </Tooltip>
             </DataList.Cell>
@@ -154,7 +156,7 @@ export function DatasetExperimentsList({
             <DataList.SelectCell
               checked={isSelected}
               onToggle={() => onToggleSelection(experiment.id)}
-              aria-label={`Select experiment ${experiment.id}`}
+              aria-label={`选择实验 ${experiment.id}`}
             />
             <DataList.RowButton
               flushLeft

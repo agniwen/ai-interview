@@ -97,25 +97,25 @@ export function EvaluationKpiCards({
   return (
     <>
       <MetricsKpiCard>
-        <MetricsKpiCard.Label>Total Scorers</MetricsKpiCard.Label>
+        <MetricsKpiCard.Label>评分器总数</MetricsKpiCard.Label>
         <EvaluationKpiValue
           isLoading={isLoadingScorers}
-          noChangeMessage="Static count"
+          noChangeMessage="静态数量"
           value={totalScorers}
         />
       </MetricsKpiCard>
 
       <MetricsKpiCard>
-        <MetricsKpiCard.Label>Total Datasets</MetricsKpiCard.Label>
+        <MetricsKpiCard.Label>数据集总数</MetricsKpiCard.Label>
         <EvaluationKpiValue
           isLoading={isLoadingDatasets}
-          noChangeMessage="Static count"
+          noChangeMessage="静态数量"
           value={totalDatasets}
         />
       </MetricsKpiCard>
 
       <MetricsKpiCard>
-        <MetricsKpiCard.Label>Avg Score</MetricsKpiCard.Label>
+        <MetricsKpiCard.Label>平均得分</MetricsKpiCard.Label>
         <EvaluationKpiValue isLoading={isLoadingScores} value={avgScore}>
           {avgScoreChange ? (
             <MetricsKpiCard.Change
@@ -129,7 +129,7 @@ export function EvaluationKpiCards({
       </MetricsKpiCard>
 
       <MetricsKpiCard>
-        <MetricsKpiCard.Label>Total Experiments</MetricsKpiCard.Label>
+        <MetricsKpiCard.Label>实验总数</MetricsKpiCard.Label>
         <EvaluationKpiValue isLoading={isLoadingExperiments} value={totalExperiments}>
           {expComparison ? (
             <MetricsKpiCard.Change
@@ -143,11 +143,11 @@ export function EvaluationKpiCards({
       </MetricsKpiCard>
 
       <MetricsKpiCard>
-        <MetricsKpiCard.Label>Needs Review</MetricsKpiCard.Label>
+        <MetricsKpiCard.Label>待评审</MetricsKpiCard.Label>
         <EvaluationKpiValue
           isLoading={isLoadingReview}
           noChangeMessage={
-            totalNeedsReview && totalNeedsReview > 0 ? "items pending review" : "All caught up"
+            totalNeedsReview && totalNeedsReview > 0 ? "个数据项待评审" : "已全部处理"
           }
           value={totalNeedsReview}
         />

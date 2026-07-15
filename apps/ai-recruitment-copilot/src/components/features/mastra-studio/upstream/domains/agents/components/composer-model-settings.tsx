@@ -58,7 +58,7 @@ const NetworkRadio = ({ hasMemory, hasSubAgents, disabled }: NetworkRadioProps) 
         )}
         htmlFor="network"
       >
-        Network
+        网络
       </Label>
     </div>
   );
@@ -69,17 +69,17 @@ const NetworkRadio = ({ hasMemory, hasSubAgents, disabled }: NetworkRadioProps) 
 
   const requirements: string[] = [];
   if (!hasMemory) {
-    requirements.push("memory enabled");
+    requirements.push("已启用记忆");
   }
   if (!hasSubAgents) {
-    requirements.push("at least one sub-agent");
+    requirements.push("至少一个子智能体");
   }
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>{radio}</TooltipTrigger>
       <TooltipContent>
-        <p>Network is not available. Please make sure you have {requirements.join(" and ")}.</p>
+        <p>网络不可用。请确保{requirements.join("，并且")}。</p>
       </TooltipContent>
     </Tooltip>
   );
@@ -132,7 +132,7 @@ function getRadioValue({
 
 function formatOptionalNumber(value: number | undefined): number | string {
   if (value === undefined) {
-    return "n/a";
+    return "不适用";
   }
   return value;
 }
@@ -155,7 +155,7 @@ const StreamSubscriptionRadio = ({ supported, disabled }: StreamSubscriptionRadi
         )}
         htmlFor="streamSubscription"
       >
-        Stream subscription (default)
+        流式订阅（默认）
       </Label>
     </div>
   );
@@ -168,7 +168,7 @@ const StreamSubscriptionRadio = ({ supported, disabled }: StreamSubscriptionRadi
     <Tooltip>
       <TooltipTrigger asChild>{radio}</TooltipTrigger>
       <TooltipContent>
-        <p>Stream subscription is not supported for this agent.</p>
+        <p>此智能体不支持流式订阅。</p>
       </TooltipContent>
     </Tooltip>
   );
@@ -237,7 +237,7 @@ export const ComposerModelSettings = ({ agentId }: ComposerModelSettingsProps) =
             variant="default"
             size="icon-md"
             type="button"
-            tooltip="Model settings"
+            tooltip="模型设置"
             data-testid="composer-model-settings-trigger"
           >
             <Sliders className="h-5 w-5 text-neutral3 hover:text-neutral6" />
@@ -252,7 +252,7 @@ export const ComposerModelSettings = ({ agentId }: ComposerModelSettingsProps) =
             <Skeleton className="h-40 w-full" data-testid="composer-model-settings-skeleton" />
           ) : (
             <section className="space-y-5 @container">
-              <Entry label="Chat Method">
+              <Entry label="对话方式">
                 <RadioGroup
                   value={radioValue}
                   disabled={!canEditSettings}
@@ -282,7 +282,7 @@ export const ComposerModelSettings = ({ agentId }: ComposerModelSettingsProps) =
                           disabled={!canEditSettings}
                         />
                         <Label className="text-neutral6 text-ui-md" htmlFor="generateLegacy">
-                          Generate (Legacy)
+                          生成（旧版）
                         </Label>
                       </div>
                     ),
@@ -299,7 +299,7 @@ export const ComposerModelSettings = ({ agentId }: ComposerModelSettingsProps) =
                           disabled={!canEditSettings}
                         />
                         <Label className="text-neutral6 text-ui-md" htmlFor="generate">
-                          Generate
+                          生成
                         </Label>
                       </div>
                     ),
@@ -316,7 +316,7 @@ export const ComposerModelSettings = ({ agentId }: ComposerModelSettingsProps) =
                           disabled={!canEditSettings}
                         />
                         <Label className="text-neutral6 text-ui-md" htmlFor="streamLegacy">
-                          Stream (Legacy)
+                          流式（旧版）
                         </Label>
                       </div>
                     ),
@@ -343,7 +343,7 @@ export const ComposerModelSettings = ({ agentId }: ComposerModelSettingsProps) =
                           disabled={!canEditSettings}
                         />
                         <Label className="text-neutral6 text-ui-md" htmlFor="stream">
-                          Stream
+                          流式
                         </Label>
                       </div>
                     ),
@@ -363,7 +363,7 @@ export const ComposerModelSettings = ({ agentId }: ComposerModelSettingsProps) =
                 </RadioGroup>
               </Entry>
 
-              <Entry label="Require Tool Approval">
+              <Entry label="工具调用需要批准">
                 <Checkbox
                   checked={modelSettings?.requireToolApproval}
                   disabled={!canEditSettings}
@@ -390,15 +390,15 @@ export const ComposerModelSettings = ({ agentId }: ComposerModelSettingsProps) =
                     <Info className="w-3.5 h-3.5 shrink-0" />
                     <span>
                       {isTruthy(modelSettings?.temperature !== undefined)
-                        ? "Claude 4.5+ models only accept Temperature OR Top P. Clear Temperature to use Top P."
-                        : "Claude 4.5+ models only accept Temperature OR Top P. Setting Temperature will clear Top P."}
+                        ? "Claude 4.5+ 模型仅接受 Temperature 或 Top P。清除 Temperature 后才能使用 Top P。"
+                        : "Claude 4.5+ 模型仅接受 Temperature 或 Top P。设置 Temperature 会清除 Top P。"}
                     </span>
                   </div>
                 ),
                 () => null,
               )}
 
-              <Entry label="Temperature">
+              <Entry label="温度">
                 <div className="flex flex-row justify-between items-center gap-2">
                   <Slider
                     value={[withDefault(modelSettings?.temperature, -0.1)]}
@@ -456,7 +456,7 @@ export const ComposerModelSettings = ({ agentId }: ComposerModelSettingsProps) =
                   disabled={!canEditSettings}
                   onClick={() => canEditSettings && resetAll()}
                 >
-                  Reset
+                  重置
                 </Button>
                 <Button
                   variant="default"
@@ -465,7 +465,7 @@ export const ComposerModelSettings = ({ agentId }: ComposerModelSettingsProps) =
                   disabled={!canEditSettings}
                   onClick={() => setAdvancedOpen(true)}
                 >
-                  Advanced Settings
+                  高级设置
                 </Button>
               </div>
             </section>
@@ -476,7 +476,7 @@ export const ComposerModelSettings = ({ agentId }: ComposerModelSettingsProps) =
       <Dialog open={advancedOpen} onOpenChange={setAdvancedOpen}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Advanced model settings</DialogTitle>
+            <DialogTitle>高级模型设置</DialogTitle>
           </DialogHeader>
           <DialogBody>
             <AgentAdvancedSettingsBody canEdit={canEditSettings} />

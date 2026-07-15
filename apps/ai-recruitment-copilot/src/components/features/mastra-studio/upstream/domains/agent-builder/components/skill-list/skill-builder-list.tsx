@@ -37,8 +37,8 @@ export function SkillBuilderList({
       <div className="flex items-center justify-center pt-10">
         <EmptyState
           iconSlot={<SearchIcon className="h-8 w-8 text-neutral3" />}
-          titleSlot="No skills match your search"
-          descriptionSlot="Try a different name or description."
+          titleSlot="没有匹配搜索条件的技能"
+          descriptionSlot="请尝试其他名称或描述。"
         />
       </div>
     );
@@ -57,7 +57,7 @@ export function SkillBuilderList({
                     <TooltipTrigger asChild>
                       <span
                         className="text-neutral3 shrink-0"
-                        aria-label="Private skill"
+                        aria-label="私有技能"
                         data-testid="skill-builder-private-visibility-icon"
                       >
                         <Icon size="sm">
@@ -65,7 +65,7 @@ export function SkillBuilderList({
                         </Icon>
                       </span>
                     </TooltipTrigger>
-                    <TooltipContent>Only visible to you</TooltipContent>
+                    <TooltipContent>仅你可见</TooltipContent>
                   </Tooltip>
                 )}
                 {(() => {
@@ -74,22 +74,22 @@ export function SkillBuilderList({
                     return null;
                   }
                   const isCopy = origin.type === "library-copy";
-                  let originLabel = "imported";
-                  let originTooltip = "Imported from external registry";
+                  let originLabel = "已导入";
+                  let originTooltip = "从外部注册表导入";
                   if (isCopy) {
-                    originLabel = "copied";
-                    originTooltip = `Copied from "${origin.sourceSkillName}"`;
+                    originLabel = "已复制";
+                    originTooltip = `复制自“${origin.sourceSkillName}”`;
                   }
                   if (origin.type === "skills-sh") {
                     originLabel = "skills.sh";
-                    originTooltip = `Imported from ${origin.owner}/${origin.repo}`;
+                    originTooltip = `导入自 ${origin.owner}/${origin.repo}`;
                   }
                   return (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span
                           className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-surface5 text-neutral4 shrink-0"
-                          aria-label={isCopy ? "Copied skill" : "Imported skill"}
+                          aria-label={isCopy ? "已复制技能" : "已导入技能"}
                           data-testid="skill-builder-origin-badge"
                         >
                           {isCopy ? (
@@ -107,7 +107,7 @@ export function SkillBuilderList({
               </div>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-ui-sm text-neutral3 line-clamp-1">
-                  {skill.description || "No description"}
+                  {skill.description || "暂无描述"}
                 </span>
               </div>
               {showFavorites && (

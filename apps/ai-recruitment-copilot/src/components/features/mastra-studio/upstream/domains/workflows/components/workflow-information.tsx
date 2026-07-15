@@ -74,7 +74,7 @@ function NewWorkflowRunButton({
         <Icon>
           <Plus />
         </Icon>
-        New workflow run
+        新建工作流运行
       </Button>
     </div>
   );
@@ -181,8 +181,8 @@ export function WorkflowInformation({ workflowId, initialRunId }: WorkflowInform
 
   useEffect(() => {
     if (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to load workflow";
-      toast.error(`Error loading workflow: ${errorMessage}`);
+      const errorMessage = error instanceof Error ? error.message : "加载工作流失败";
+      toast.error(`加载工作流时出错：${errorMessage}`);
     }
   }, [error]);
 

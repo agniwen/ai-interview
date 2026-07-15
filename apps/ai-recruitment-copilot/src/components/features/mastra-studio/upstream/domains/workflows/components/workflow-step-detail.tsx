@@ -47,7 +47,7 @@ export function WorkflowStepDetailContent() {
         <button
           onClick={closeStepDetail}
           className="p-1 hover:bg-surface3 rounded transition-colors"
-          aria-label="Close"
+          aria-label="关闭"
         >
           <X className="w-4 h-4 text-neutral3" />
         </button>

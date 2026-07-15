@@ -11,48 +11,46 @@ import { EMBEDDED_MASTRA_API_PREFIX } from "@/components/features/mastra-studio/
 
 const resources = [
   {
-    description:
-      "Explore and test the available REST API endpoints with the interactive Swagger UI.",
+    description: "使用交互式 Swagger UI 浏览并测试可用的 REST API 端点。",
     external: false,
     href: `${EMBEDDED_MASTRA_API_PREFIX}/swagger-ui`,
     icon: EarthIcon,
     title: "Mastra APIs",
   },
   {
-    description: "Read the official Mastra documentation for guides, references, and tutorials.",
+    description: "阅读 Mastra 官方文档中的指南、参考资料和教程。",
     external: true,
     href: "https://mastra.ai/en/docs",
     icon: BookIcon,
-    title: "Documentation",
+    title: "文档",
   },
   {
-    description: "Browse the source code, report issues, and contribute to the Mastra project.",
+    description: "浏览源代码、报告问题并参与 Mastra 项目贡献。",
     external: true,
     href: "https://github.com/mastra-ai/mastra",
     icon: ExternalLinkIcon,
-    title: "Github",
+    title: "GitHub",
   },
   {
-    description: "Join the Mastra Discord community for help, discussion, and collaboration.",
+    description: "加入 Mastra Discord 社区，获取帮助、参与讨论与协作。",
     external: true,
     href: "https://discord.gg/BTYqqHKUrf",
     icon: MessageSquareIcon,
-    title: "Community",
+    title: "社区",
   },
   {
-    description: "Running Mastra Studio locally? Deploy to the cloud so your team can collaborate.",
+    description: "正在本地运行 Mastra Studio？部署到云端以便团队协作。",
     external: true,
     href: "https://mastra.ai/cloud",
     icon: CloudUploadIcon,
-    title: "Share with your team",
+    title: "与团队共享",
   },
   {
-    description:
-      "Get a custom demo, discuss on-prem deployments, and how we can help you accelerate getting agents into production.",
+    description: "获取定制演示，讨论本地部署，以及我们如何帮助你加速将智能体投入生产。",
     external: true,
     href: "https://mastra.ai/contact?ref=studio",
     icon: BuildingIcon,
-    title: "Talk to our Sales team",
+    title: "联系销售团队",
   },
 ];
 

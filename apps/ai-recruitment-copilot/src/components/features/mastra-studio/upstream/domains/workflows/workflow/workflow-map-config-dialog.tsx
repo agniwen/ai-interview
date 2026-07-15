@@ -22,14 +22,14 @@ export function WorkflowMapConfigDialog({ stepName, mapConfig }: WorkflowMapConf
   return (
     <>
       <Button type="button" size="sm" onClick={() => setOpen(true)}>
-        Map config
+        映射配置
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-4xl w-full">
           <DialogHeader>
-            <DialogTitle>{stepName} config</DialogTitle>
-            <DialogDescription>View the map configuration for this step</DialogDescription>
+            <DialogTitle>{stepName} 配置</DialogTitle>
+            <DialogDescription>查看此步骤的映射配置</DialogDescription>
           </DialogHeader>
           <DialogBody>
             <CodeDialogContent data={mapConfig} />

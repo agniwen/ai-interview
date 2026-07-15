@@ -44,19 +44,19 @@ const NetworkChoiceMetadata = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Agent Network Metadata</DialogTitle>
-          <DialogDescription>View the metadata of the agent's network choice.</DialogDescription>
+          <DialogTitle>智能体网络元数据</DialogTitle>
+          <DialogDescription>查看智能体网络选择的元数据。</DialogDescription>
         </DialogHeader>
 
         <DialogBody className="space-y-4">
           <div className="space-y-2">
-            <Txt className="text-neutral3">Selection Reason</Txt>
+            <Txt className="text-neutral3">选择原因</Txt>
             <div className="text-neutral6 text-ui-md">{selectionReason}</div>
           </div>
 
           {inputSlot && (
             <div className="space-y-2">
-              <Txt className="text-neutral3">Input</Txt>
+              <Txt className="text-neutral3">输入</Txt>
               <div className="text-neutral6 text-ui-md">{inputSlot}</div>
             </div>
           )}
@@ -81,7 +81,7 @@ export const NetworkChoiceMetadataDialogTrigger = ({
       <Button
         variant="default"
         size="icon-md"
-        tooltip="Show selection reason"
+        tooltip="查看选择原因"
         onClick={() => setIsOpen((s) => !s)}
       >
         <Share2 className="text-neutral3 size-5" />

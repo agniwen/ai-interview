@@ -77,14 +77,14 @@ export function SkillsPage() {
       <div className="flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <SectionHeader
-            title="Skills"
-            subtitle={`Give your agent specialized knowledge by using skills.${totalCount > 0 ? ` (${totalCount} selected)` : ""}`}
+            title="技能"
+            subtitle={`使用技能为智能体提供专业知识。${totalCount > 0 ? `（已选择 ${totalCount} 个）` : ""}`}
           />
 
           {!readOnly && (
             <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)}>
               <Plus className="size-3" />
-              Add a skill
+              添加技能
             </Button>
           )}
         </div>
@@ -95,8 +95,8 @@ export function SkillsPage() {
           </InputGroupAddon>
           <InputGroupInput
             type="search"
-            aria-label="Search skills"
-            placeholder="Search skills"
+            aria-label="搜索技能"
+            placeholder="搜索技能"
             onChange={(event) => setSearch(event.target.value)}
           />
         </InputGroup>
@@ -107,7 +107,7 @@ export function SkillsPage() {
               <Entity key={skill.id} className="bg-surface2">
                 <EntityContent>
                   <EntityName>{skill.name}</EntityName>
-                  <EntityDescription>{skill.description || "No description"}</EntityDescription>
+                  <EntityDescription>{skill.description || "暂无描述"}</EntityDescription>
                 </EntityContent>
 
                 {!readOnly && (
@@ -125,13 +125,13 @@ export function SkillsPage() {
           <div className="py-12">
             <EmptyState
               iconSlot={<Drill height={40} width={40} />}
-              titleSlot="No skills available"
-              descriptionSlot="Create a skill to give your agent specialized knowledge."
+              titleSlot="暂无可用技能"
+              descriptionSlot="创建技能，为智能体提供专业知识。"
               actionSlot={
                 isTruthy(!readOnly) ? (
                   <Button onClick={() => setDialogOpen(true)}>
                     <Plus />
-                    Add a skill
+                    添加技能
                   </Button>
                 ) : undefined
               }

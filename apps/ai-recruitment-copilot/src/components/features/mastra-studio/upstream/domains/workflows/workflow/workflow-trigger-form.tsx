@@ -60,20 +60,20 @@ export function WorkflowTriggerForm({
             onClick={() => setIsInputDialogOpen(true)}
           >
             <FormInput className="shrink-0 text-neutral3" />
-            <span className="truncate">Run input</span>
+            <span className="truncate">运行输入</span>
           </Button>
         </div>
         <Dialog open={isInputDialogOpen} onOpenChange={setIsInputDialogOpen}>
           <DialogContent className="max-w-3xl">
             <DialogHeader>
-              <DialogTitle>Workflow input</DialogTitle>
+              <DialogTitle>工作流输入</DialogTitle>
             </DialogHeader>
             <DialogBody className="max-h-[90vh]">
               <WorkflowInputData
                 schema={zodSchema}
                 defaultValues={defaultValues}
                 isSubmitLoading={isStreaming}
-                submitButtonLabel="Run"
+                submitButtonLabel="运行"
                 onSubmit={onExecute}
                 withoutSubmit
                 isReadOnly
@@ -96,7 +96,7 @@ export function WorkflowTriggerForm({
         schema={zodSchema}
         defaultValues={defaultValues}
         isSubmitLoading={isStreaming}
-        submitButtonLabel="Run"
+        submitButtonLabel="运行"
         submitButtonVariant="primary"
         submitButtonIcon={
           <Icon>
@@ -140,7 +140,7 @@ export function WorkflowTriggerForm({
               <Play />
             </Icon>
           )}
-          Run
+          运行
         </Button>
       </div>
     </div>

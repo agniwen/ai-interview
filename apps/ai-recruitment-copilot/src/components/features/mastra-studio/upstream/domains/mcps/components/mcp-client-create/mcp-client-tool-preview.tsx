@@ -47,7 +47,7 @@ function ToolList({
           <McpServerIcon />
         </Icon>
         <Txt variant="header-md" as="h2" className="font-medium">
-          Available Tools ({selectedCount}/{tools.length} selected)
+          可用工具（已选择 {selectedCount}/{tools.length}）
         </Txt>
       </div>
 
@@ -66,7 +66,7 @@ function ToolList({
                 <EntityDescription>
                   <input
                     type="text"
-                    aria-label={`${tool.name} description`}
+                    aria-label={`${tool.name} 描述`}
                     disabled={isDisabled}
                     className={cn(
                       "border border-transparent appearance-none block w-full text-neutral3 bg-transparent",
@@ -106,9 +106,7 @@ export function MCPClientToolPreview({
   if (serverType === "stdio") {
     return (
       <EmptyState>
-        <Txt className="text-neutral3">
-          Tool preview is available for HTTP servers. Stdio servers cannot be previewed.
-        </Txt>
+        <Txt className="text-neutral3">HTTP 服务器支持工具预览，Stdio 服务器无法预览。</Txt>
       </EmptyState>
     );
   }
@@ -116,9 +114,7 @@ export function MCPClientToolPreview({
   if (!url.trim()) {
     return (
       <EmptyState>
-        <Txt className="text-neutral3">
-          Enter a URL and click &quot;Try to connect&quot; to preview available tools.
-        </Txt>
+        <Txt className="text-neutral3">输入 URL 并点击“尝试连接”以预览可用工具。</Txt>
       </EmptyState>
     );
   }
@@ -126,9 +122,7 @@ export function MCPClientToolPreview({
   if (tryConnect.isIdle) {
     return (
       <EmptyState>
-        <Txt className="text-neutral3">
-          Click &quot;Try to connect&quot; to preview available tools.
-        </Txt>
+        <Txt className="text-neutral3">点击“尝试连接”以预览可用工具。</Txt>
       </EmptyState>
     );
   }
@@ -138,18 +132,18 @@ export function MCPClientToolPreview({
       {tryConnect.isPending && (
         <div className="flex items-center gap-2">
           <Spinner className="h-3 w-3" />
-          <Txt className="text-neutral3">Connecting...</Txt>
+          <Txt className="text-neutral3">正在连接...</Txt>
         </div>
       )}
 
       {tryConnect.isError && (
         <Txt variant="ui-sm" className="text-accent2">
-          {tryConnect.error instanceof Error ? tryConnect.error.message : "Connection failed"}
+          {tryConnect.error instanceof Error ? tryConnect.error.message : "连接失败"}
         </Txt>
       )}
 
       {tryConnect.isSuccess && tryConnect.data.tools.length === 0 && (
-        <Txt className="text-neutral3">Connected successfully but no tools were found.</Txt>
+        <Txt className="text-neutral3">连接成功，但未找到工具。</Txt>
       )}
 
       {tryConnect.isSuccess && tryConnect.data.tools.length > 0 && (

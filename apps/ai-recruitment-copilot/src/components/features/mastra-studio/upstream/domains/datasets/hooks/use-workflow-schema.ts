@@ -12,7 +12,7 @@ export function useWorkflowSchema(workflowId: string | null) {
     enabled: !!workflowId,
     queryFn: () => {
       if (!workflowId) {
-        throw new Error("No workflow selected");
+        throw new Error("未选择工作流");
       }
       return client.getWorkflow(workflowId).getSchema();
     },

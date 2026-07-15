@@ -19,11 +19,11 @@ const useDeleteSkillAction = ({ skillId }: UseDeleteSkillActionParams) => {
   const confirm = async () => {
     try {
       await deleteSkill.mutateAsync();
-      toast.success("Skill deleted");
+      toast.success("技能已删除");
       setOpen(false);
       void navigate("/agent-builder/skills", { viewTransition: true });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to delete skill");
+      toast.error(error instanceof Error ? error.message : "删除技能失败");
     }
   };
 
@@ -53,14 +53,14 @@ const DeleteSkillDialog = ({
   <AlertDialog open={open} onOpenChange={onOpenChange}>
     <AlertDialog.Content data-testid="skill-builder-delete-skill-dialog">
       <AlertDialog.Header>
-        <AlertDialog.Title>Delete skill?</AlertDialog.Title>
+        <AlertDialog.Title>删除技能？</AlertDialog.Title>
         <AlertDialog.Description>
-          This permanently deletes &quot;{skillName}&quot;. This cannot be undone.
+          此操作会永久删除“{skillName}”，且无法撤销。
         </AlertDialog.Description>
       </AlertDialog.Header>
       <AlertDialog.Footer>
         <AlertDialog.Cancel data-testid="skill-builder-delete-skill-cancel" disabled={isPending}>
-          Cancel
+          取消
         </AlertDialog.Cancel>
         <Button
           variant="primary"
@@ -72,7 +72,7 @@ const DeleteSkillDialog = ({
             onConfirm();
           }}
         >
-          {isPending ? "Deleting…" : "Delete skill"}
+          {isPending ? "正在删除…" : "删除技能"}
         </Button>
       </AlertDialog.Footer>
     </AlertDialog.Content>
@@ -103,7 +103,7 @@ export const DeleteSkillPanelButton = ({
         data-testid="skill-builder-delete-skill"
       >
         <Trash2 />
-        <span>Delete skill</span>
+        <span>删除技能</span>
       </Button>
       <DeleteSkillDialog
         open={open}
@@ -135,7 +135,7 @@ export const DeleteSkillMenuItem = ({
         }}
       >
         <Trash2 />
-        <span>Delete skill</span>
+        <span>删除技能</span>
       </DropdownMenu.Item>
       <DeleteSkillDialog
         open={open}

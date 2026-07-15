@@ -48,13 +48,13 @@ function RecursiveFieldRenderer({
           <div className="flex flex-row gap-2 items-center">
             <JSONSchemaForm.FieldName
               labelIsHidden
-              placeholder="Variable name"
+              placeholder="变量名称"
               size="md"
               className="[&_input]:bg-surface3 w-full"
             />
 
             <JSONSchemaForm.FieldType
-              placeholder="Type"
+              placeholder="类型"
               size="md"
               className="[&_button]:bg-surface3 w-full"
             />
@@ -80,7 +80,7 @@ function RecursiveFieldRenderer({
           </JSONSchemaForm.FieldList>
           <JSONSchemaForm.AddField variant="ghost" size="sm" className="mt-2">
             <PlusIcon className="w-3 h-3 mr-1" />
-            Add nested variable
+            添加嵌套变量
           </JSONSchemaForm.AddField>
         </JSONSchemaForm.NestedFields>
       </JSONSchemaForm.Field>
@@ -132,39 +132,36 @@ export function AgentEditSidebar({
             <Icon size="sm">
               <AgentIcon />
             </Icon>
-            Identity
+            身份
           </Tab>
           <Tab value="capabilities">
             <Icon size="sm">
               <ToolsIcon />
             </Icon>
-            Capabilities
+            能力
           </Tab>
 
           <Tab value="variables">
             <Icon size="sm">
               <VariablesIcon />
             </Icon>
-            Variables
+            变量
           </Tab>
         </TabList>
 
         <TabContent value="identity" className="flex-1 min-h-0 py-0 pb-3">
           <ScrollArea className="h-full">
             <div className="flex flex-col gap-6 p-4">
-              <SectionHeader
-                title="Identity"
-                subtitle="Define your agent's name, description, and model."
-              />
+              <SectionHeader title="身份信息" subtitle="定义智能体的名称、描述和模型。" />
 
               {/* Agent Name */}
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="agent-name" className="text-xs text-icon5">
-                  Name <span className="text-accent2">*</span>
+                  名称 <span className="text-accent2">*</span>
                 </Label>
                 <Input
                   id="agent-name"
-                  placeholder="My Agent"
+                  placeholder="我的智能体"
                   className="bg-surface3"
                   {...register("name")}
                   error={!!errors.name}
@@ -182,11 +179,11 @@ export function AgentEditSidebar({
               {/* Description */}
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="agent-description" className="text-xs text-icon5">
-                  Description
+                  描述
                 </Label>
                 <Textarea
                   id="agent-description"
-                  placeholder="Describe what this agent does"
+                  placeholder="描述此智能体的用途"
                   className="bg-surface3"
                   {...register("description")}
                   error={!!errors.description}
@@ -204,7 +201,7 @@ export function AgentEditSidebar({
               {/* Provider */}
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs text-icon5">
-                  Provider <span className="text-accent2">*</span>
+                  提供商 <span className="text-accent2">*</span>
                 </Label>
                 <Controller
                   name="model.provider"
@@ -231,7 +228,7 @@ export function AgentEditSidebar({
               {/* Model */}
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs text-icon5">
-                  Model <span className="text-accent2">*</span>
+                  模型 <span className="text-accent2">*</span>
                 </Label>
                 <Controller
                   name="model.name"
@@ -262,10 +259,7 @@ export function AgentEditSidebar({
         <TabContent value="capabilities" className="flex-1 min-h-0 py-0 pb-3">
           <ScrollArea className="h-full">
             <div className="flex flex-col gap-6 p-4">
-              <SectionHeader
-                title="Capabilities"
-                subtitle="Extend your agent with tools, workflows, and other resources to enhance its abilities."
-              />
+              <SectionHeader title="能力" subtitle="使用工具、工作流和其他资源扩展智能体能力。" />
 
               <ToolsSection
                 control={control}
@@ -293,12 +287,12 @@ export function AgentEditSidebar({
           <ScrollArea className="h-full">
             <div className="flex flex-col gap-6 p-4 border-b border-border1">
               <SectionHeader
-                title="Variables"
+                title="变量"
                 subtitle={
                   <>
-                    Variables are dynamic values that change based on the context of each request.
-                    Use them in your agent's instructions with the{" "}
-                    <code className="text-[#F59E0B] font-medium">{"{{variableName}}"}</code> syntax.
+                    变量是根据每次请求上下文动态变化的值。在智能体指令中使用
+                    <code className="text-[#F59E0B] font-medium">{"{{variableName}}"}</code>
+                    语法引用变量。
                   </>
                 }
               />
@@ -324,7 +318,7 @@ export function AgentEditSidebar({
                 <div className="p-2">
                   <JSONSchemaForm.AddField variant="outline" size="sm">
                     <PlusIcon className="w-4 h-4 mr-2" />
-                    Add variable
+                    添加变量
                   </JSONSchemaForm.AddField>
                 </div>
               </JSONSchemaForm.Root>
@@ -347,14 +341,14 @@ export function AgentEditSidebar({
               {isSubmitting ? (
                 <>
                   <Spinner className="h-4 w-4" />
-                  {mode === "edit" ? "Updating..." : "Creating..."}
+                  {mode === "edit" ? "正在更新…" : "正在创建…"}
                 </>
               ) : (
                 <>
                   <Icon>
                     <Check />
                   </Icon>
-                  {mode === "edit" ? "Update agent" : "Create agent"}
+                  {mode === "edit" ? "更新智能体" : "创建智能体"}
                 </>
               )}
             </Button>

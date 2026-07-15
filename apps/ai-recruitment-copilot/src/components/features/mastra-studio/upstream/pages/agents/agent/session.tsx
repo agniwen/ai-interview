@@ -77,7 +77,7 @@ function AgentSession() {
   }
 
   if (!agent) {
-    return <div className="text-center py-4">Agent not found</div>;
+    return <div className="text-center py-4">未找到智能体</div>;
   }
 
   const actualThreadId = isNewThread ? newThreadId : (threadId ?? newThreadId);

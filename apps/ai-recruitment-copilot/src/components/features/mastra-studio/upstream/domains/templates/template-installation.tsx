@@ -41,19 +41,19 @@ function isUserVisibleStep(
 function getPhaseMessage(phase: string, name: string): string {
   switch (phase) {
     case "initializing": {
-      return "Preparing template installation...";
+      return "正在准备安装模板...";
     }
     case "processing": {
-      return `Installing ${name} template`;
+      return `正在安装 ${name} 模板`;
     }
     case "completed": {
-      return "Template installation completed!";
+      return "模板安装完成！";
     }
     case "error": {
-      return "Template installation failed";
+      return "模板安装失败";
     }
     default: {
-      return "Installing template...";
+      return "正在安装模板...";
     }
   }
 }
@@ -103,7 +103,7 @@ function TemplateInstallationStatus({
       {!hasSteps && phase === "initializing" && (
         <div className="text-center text-sm text-neutral3 grid gap-4 justify-items-center">
           <Spinner />
-          <p>This may take some time...</p>
+          <p>这可能需要一些时间...</p>
         </div>
       )}
     </>
@@ -145,7 +145,7 @@ export function TemplateInstallation({
         <h3 className="text-lg font-semibold text-neutral5">{getPhaseMessage(phase, name)}</h3>
         {(streamResult?.runId || runId) && (
           <div className="mt-2 text-ui-sm text-neutral3">
-            Run ID: {streamResult?.runId ?? runId}
+            运行 ID：{streamResult?.runId ?? runId}
           </div>
         )}
       </div>

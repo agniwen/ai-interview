@@ -65,7 +65,7 @@ function ScorerConfigPanel({
         {!readOnly && (
           <Button
             type="button"
-            tooltip={`Remove ${scorerName}`}
+            tooltip={`移除 ${scorerName}`}
             onClick={onRemove}
             variant="ghost"
             size="icon-sm"
@@ -79,7 +79,7 @@ function ScorerConfigPanel({
         id={`description-${scorerId}`}
         value={description}
         onChange={(e) => onDescriptionChange(e.target.value)}
-        placeholder="Custom description for this scorer..."
+        placeholder="为此评分器添加自定义描述…"
         className="min-h-[40px] text-xs bg-surface3 border-dashed px-2 py-1"
         size="sm"
         disabled={readOnly}
@@ -87,7 +87,7 @@ function ScorerConfigPanel({
 
       <div className="flex flex-col gap-2">
         <Label htmlFor={`sampling-type-${scorerId}`} className="text-xs text-neutral4">
-          Sampling
+          采样
         </Label>
         <RadioGroup
           id={`sampling-type-${scorerId}`}
@@ -99,13 +99,13 @@ function ScorerConfigPanel({
           <div className="flex items-center gap-2">
             <RadioGroupItem value="none" id={`${scorerId}-none`} disabled={readOnly} />
             <Label htmlFor={`${scorerId}-none`} className="text-sm text-neutral5 cursor-pointer">
-              None (evaluate all)
+              不采样（全部评估）
             </Label>
           </div>
           <div className="flex items-center gap-2">
             <RadioGroupItem value="ratio" id={`${scorerId}-ratio`} disabled={readOnly} />
             <Label htmlFor={`${scorerId}-ratio`} className="text-sm text-neutral5 cursor-pointer">
-              Ratio (percentage)
+              比例（百分比）
             </Label>
           </div>
         </RadioGroup>
@@ -113,7 +113,7 @@ function ScorerConfigPanel({
         {samplingType === "ratio" && (
           <div className="flex flex-col gap-1.5 mt-1">
             <Label htmlFor={`rate-${scorerId}`} className="text-xs text-neutral4">
-              Sample Rate (0-1)
+              采样率（0–1）
             </Label>
             <Input
               id={`rate-${scorerId}`}
@@ -205,7 +205,7 @@ export function ScorersSection({ control, error, readOnly = false }: ScorersSect
                   <CollapsibleTrigger className="flex items-center gap-1 w-full">
                     <ChevronRight className="h-4 w-4 text-neutral3" />
                     <SectionTitle icon={<JudgeIcon className="text-neutral3" />}>
-                      Scorers
+                      评分器
                       {count > 0 && <span className="text-neutral3 font-normal">({count})</span>}
                     </SectionTitle>
                   </CollapsibleTrigger>
@@ -219,9 +219,9 @@ export function ScorersSection({ control, error, readOnly = false }: ScorersSect
                         options={options}
                         value={selectedIds}
                         onValueChange={handleValueChange}
-                        placeholder="Select scorers..."
-                        searchPlaceholder="Search scorers..."
-                        emptyText="No scorers available"
+                        placeholder="选择评分器…"
+                        searchPlaceholder="搜索评分器…"
+                        emptyText="暂无可用评分器"
                         disabled={isLoading || readOnly}
                         error={error}
                       />

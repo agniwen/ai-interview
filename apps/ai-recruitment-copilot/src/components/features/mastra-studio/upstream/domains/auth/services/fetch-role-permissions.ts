@@ -32,7 +32,7 @@ export async function fetchRolePermissionsRequest(
   );
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch role permissions: ${response.status}`);
+    throw new Error(`获取角色权限失败：${response.status}`);
   }
 
   return response.json();

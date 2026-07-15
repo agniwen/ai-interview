@@ -51,7 +51,7 @@ function ReadOnlyContent({ item }: { item: DatasetItem }) {
     <>
       <SideDialog.Header>
         <SideDialog.Heading>
-          <FileInputIcon /> Dataset Item
+          <FileInputIcon /> 数据项
         </SideDialog.Heading>
         <TextAndIcon>
           <HashIcon /> {item.id}
@@ -63,14 +63,14 @@ function ReadOnlyContent({ item }: { item: DatasetItem }) {
           data={[
             {
               key: "createdAt",
-              label: "Created",
-              value: format(new Date(item.createdAt), "MMM d, yyyy h:mm aaa"),
+              label: "创建时间",
+              value: format(new Date(item.createdAt), "yyyy/MM/dd HH:mm"),
             },
             ...(item.datasetVersion !== null && item.datasetVersion !== undefined
               ? [
                   {
                     key: "version",
-                    label: "Version",
+                    label: "版本",
                     value: `v${item.datasetVersion}`,
                   },
                 ]
@@ -79,14 +79,14 @@ function ReadOnlyContent({ item }: { item: DatasetItem }) {
         />
 
         <SideDialog.CodeSection
-          title="Input"
+          title="输入"
           icon={<FileInputIcon />}
           codeStr={JSON.stringify(item.input, null, 2)}
         />
 
         {item.groundTruth !== null && item.groundTruth !== undefined && (
           <SideDialog.CodeSection
-            title="Ground Truth"
+            title="标准答案"
             icon={<FileOutputIcon />}
             codeStr={JSON.stringify(item.groundTruth, null, 2)}
           />
@@ -94,7 +94,7 @@ function ReadOnlyContent({ item }: { item: DatasetItem }) {
 
         {trajectoryDisplay && (
           <SideDialog.CodeSection
-            title="Expected Trajectory"
+            title="预期轨迹"
             icon={<RouteIcon />}
             codeStr={trajectoryDisplay}
           />
@@ -102,14 +102,14 @@ function ReadOnlyContent({ item }: { item: DatasetItem }) {
 
         {requestContextDisplay && (
           <SideDialog.CodeSection
-            title="Request Context"
+            title="请求上下文"
             icon={<BracesIcon />}
             codeStr={requestContextDisplay}
           />
         )}
 
         {metadataDisplay && (
-          <SideDialog.CodeSection title="Metadata" icon={<TagIcon />} codeStr={metadataDisplay} />
+          <SideDialog.CodeSection title="元数据" icon={<TagIcon />} codeStr={metadataDisplay} />
         )}
       </Sections>
     </>
@@ -154,13 +154,13 @@ function EditModeContent({
     <>
       <SideDialog.Header>
         <SideDialog.Heading>
-          <Pencil /> Edit Item
+          <Pencil /> 编辑数据项
         </SideDialog.Heading>
       </SideDialog.Header>
 
       <div className="space-y-6">
         <div className="space-y-2">
-          <Label>Input (JSON) *</Label>
+          <Label>输入（JSON）*</Label>
           <CodeEditor
             value={inputValue}
             onChange={setInputValue}
@@ -170,7 +170,7 @@ function EditModeContent({
         </div>
 
         <div className="space-y-2">
-          <Label>Ground Truth (JSON, optional)</Label>
+          <Label>标准答案（JSON，可选）</Label>
           <CodeEditor
             value={groundTruthValue}
             onChange={setGroundTruthValue}
@@ -180,7 +180,7 @@ function EditModeContent({
         </div>
 
         <div className="space-y-2">
-          <Label>Expected Trajectory (JSON, optional)</Label>
+          <Label>预期轨迹（JSON，可选）</Label>
           <CodeEditor
             value={trajectoryValue}
             onChange={setTrajectoryValue}
@@ -190,7 +190,7 @@ function EditModeContent({
         </div>
 
         <div className="space-y-2">
-          <Label>Request Context (JSON, optional)</Label>
+          <Label>请求上下文（JSON，可选）</Label>
           <CodeEditor
             value={requestContextValue}
             onChange={setRequestContextValue}
@@ -200,7 +200,7 @@ function EditModeContent({
         </div>
 
         <div className="space-y-2">
-          <Label>Metadata (JSON, optional)</Label>
+          <Label>元数据（JSON，可选）</Label>
           <CodeEditor
             value={metadataValue}
             onChange={setMetadataValue}
@@ -211,10 +211,10 @@ function EditModeContent({
 
         <div className="flex justify-end gap-2 pt-4">
           <Button onClick={onCancel} disabled={isSaving}>
-            Cancel
+            取消
           </Button>
           <Button variant="primary" onClick={onSave} disabled={isSaving}>
-            {isSaving ? "Saving..." : "Save Changes"}
+            {isSaving ? "正在保存..." : "保存更改"}
           </Button>
         </div>
       </div>
@@ -292,7 +292,7 @@ export function ItemDetailDialog({
     try {
       parsedInput = JSON.parse(inputValue);
     } catch {
-      toast.error("Input must be valid JSON");
+      toast.error("输入必须是有效的 JSON");
       return;
     }
 
@@ -302,7 +302,7 @@ export function ItemDetailDialog({
       try {
         parsedGroundTruth = JSON.parse(groundTruthValue);
       } catch {
-        toast.error("Ground Truth must be valid JSON");
+        toast.error("标准答案必须是有效的 JSON");
         return;
       }
     }
@@ -313,7 +313,7 @@ export function ItemDetailDialog({
       try {
         parsedMetadata = JSON.parse(metadataValue);
       } catch {
-        toast.error("Metadata must be valid JSON");
+        toast.error("元数据必须是有效的 JSON");
         return;
       }
     }
@@ -324,7 +324,7 @@ export function ItemDetailDialog({
       try {
         parsedTrajectory = JSON.parse(trajectoryValue);
       } catch {
-        toast.error("Expected Trajectory must be valid JSON");
+        toast.error("预期轨迹必须是有效的 JSON");
         return;
       }
     }
@@ -335,7 +335,7 @@ export function ItemDetailDialog({
       try {
         parsedRequestContext = JSON.parse(requestContextValue);
       } catch {
-        toast.error("Request Context must be valid JSON");
+        toast.error("请求上下文必须是有效的 JSON");
         return;
       }
     }
@@ -351,12 +351,10 @@ export function ItemDetailDialog({
         requestContext: parsedRequestContext,
       });
 
-      toast.success("Item updated successfully");
+      toast.success("数据项更新成功");
       setIsEditing(false);
     } catch (error) {
-      toast.error(
-        `Failed to update item: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`更新数据项失败：${error instanceof Error ? error.message : "未知错误"}`);
     }
   };
 
@@ -383,21 +381,19 @@ export function ItemDetailDialog({
   const handleDeleteConfirm = async () => {
     try {
       await deleteItem.mutateAsync({ datasetId, itemId: item.id });
-      toast.success("Item deleted successfully");
+      toast.success("数据项删除成功");
       setShowDeleteConfirm(false);
       // Close the SideDialog after successful deletion
       onClose();
     } catch (error) {
-      toast.error(
-        `Failed to delete item: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`删除数据项失败：${error instanceof Error ? error.message : "未知错误"}`);
     }
   };
 
   return (
     <SideDialog
-      dialogTitle="Dataset Item"
-      dialogDescription={`Item: ${item.id}`}
+      dialogTitle="数据项"
+      dialogDescription={`数据项：${item.id}`}
       isOpen={isOpen}
       onClose={onClose}
       level={dialogLevel}
@@ -414,13 +410,13 @@ export function ItemDetailDialog({
               <Icon>
                 <Pencil />
               </Icon>
-              Edit
+              编辑
             </Button>
             <Button variant="outline" size="sm" onClick={handleDelete}>
               <Icon>
                 <Trash2 />
               </Icon>
-              Delete
+              删除
             </Button>
           </div>
         )}
@@ -452,15 +448,15 @@ export function ItemDetailDialog({
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialog.Content>
           <AlertDialog.Header>
-            <AlertDialog.Title>Delete Item</AlertDialog.Title>
+            <AlertDialog.Title>删除数据项</AlertDialog.Title>
             <AlertDialog.Description>
-              Are you sure you want to delete this item? This action cannot be undone.
+              确定要删除此数据项吗？此操作无法撤销。
             </AlertDialog.Description>
           </AlertDialog.Header>
           <AlertDialog.Footer>
-            <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+            <AlertDialog.Cancel>取消</AlertDialog.Cancel>
             <AlertDialog.Action onClick={handleDeleteConfirm}>
-              {deleteItem.isPending ? "Deleting..." : "Yes, Delete"}
+              {deleteItem.isPending ? "正在删除..." : "确认删除"}
             </AlertDialog.Action>
           </AlertDialog.Footer>
         </AlertDialog.Content>

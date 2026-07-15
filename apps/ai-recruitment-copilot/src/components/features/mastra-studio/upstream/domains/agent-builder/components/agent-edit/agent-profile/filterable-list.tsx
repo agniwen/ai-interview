@@ -71,8 +71,8 @@ export const FilterableList = ({
           </InputGroupAddon>
           <InputGroupInput
             type="search"
-            aria-label={`Filter ${title.toLowerCase()}`}
-            placeholder={`Filter ${title.toLowerCase()}...`}
+            aria-label={`筛选${title}`}
+            placeholder={`筛选${title}...`}
             onChange={(event) => setSearch(event.target.value)}
           />
         </InputGroup>
@@ -86,7 +86,7 @@ export const FilterableList = ({
           data-testid={`${testIdPrefix}-filter-select-all`}
           className="text-neutral3 transition-colors hover:text-neutral6 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Select all
+          全选
         </button>
         <span className="text-neutral2" aria-hidden>
           ·
@@ -98,14 +98,14 @@ export const FilterableList = ({
           data-testid={`${testIdPrefix}-filter-clear-all`}
           className="text-neutral3 transition-colors hover:text-neutral6 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Clear all
+          清除全部
         </button>
       </div>
 
       <ScrollArea className="min-h-0 flex-1" viewPortClassName="pr-2">
         {filteredItems.length === 0 ? (
           <Txt variant="ui-xs" className="px-1 py-2 text-neutral3">
-            No matches
+            没有匹配项
           </Txt>
         ) : (
           <ul className="flex flex-col gap-0.5">

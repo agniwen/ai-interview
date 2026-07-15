@@ -42,7 +42,7 @@ const renderError = (error: Error, resource: string) => {
   }
   return (
     <div className="flex items-center justify-center pt-10">
-      <ErrorState title={`Failed to load favorite ${resource}`} message={error.message} />
+      <ErrorState title={`加载收藏的${resource}失败`} message={error.message} />
     </div>
   );
 };
@@ -88,15 +88,15 @@ export default function AgentBuilderFavoritePage() {
         return <AgentBuilderListSkeleton rowTestId="favorite-skeleton-row" />;
       }
       if (agentsError) {
-        return renderError(agentsError, "agents");
+        return renderError(agentsError, "智能体");
       }
       if (agents.length === 0) {
         return (
           <div className="flex items-center justify-center pt-16">
             <EmptyState
               iconSlot={<StarIcon className="h-8 w-8 text-neutral3" />}
-              titleSlot="No favorite agents yet"
-              descriptionSlot="Star agents to keep them here for quick access."
+              titleSlot="暂无收藏的智能体"
+              descriptionSlot="为智能体添加星标，即可在此快速访问。"
             />
           </div>
         );
@@ -109,15 +109,15 @@ export default function AgentBuilderFavoritePage() {
       return <SkillBuilderListSkeleton />;
     }
     if (skillsError) {
-      return renderError(skillsError, "skills");
+      return renderError(skillsError, "技能");
     }
     if (skills.length === 0) {
       return (
         <div className="flex items-center justify-center pt-16">
           <EmptyState
             iconSlot={<SparklesIcon className="h-8 w-8 text-neutral3" />}
-            titleSlot="No favorite skills yet"
-            descriptionSlot="Star skills to keep them here for quick access."
+            titleSlot="暂无收藏的技能"
+            descriptionSlot="为技能添加星标，即可在此快速访问。"
           />
         </div>
       );
@@ -132,12 +132,12 @@ export default function AgentBuilderFavoritePage() {
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-4">
             <PageHeader>
               <PageHeader.Title>
-                <StarIcon /> Favorites
+                <StarIcon /> 收藏
               </PageHeader.Title>
               <PageHeader.Description>
                 {tab === "agents"
-                  ? "Agents you've starred in Agent Builder."
-                  : "Skills you've starred in Agent Builder."}
+                  ? "你在智能体构建器中收藏的智能体。"
+                  : "你在智能体构建器中收藏的技能。"}
               </PageHeader.Description>
             </PageHeader>
           </div>
@@ -152,7 +152,7 @@ export default function AgentBuilderFavoritePage() {
                       : "bg-surface2 text-neutral3 hover:text-neutral5"
                   }`}
                 >
-                  Agents
+                  智能体
                 </button>
                 <button
                   onClick={() => setTab("skills")}
@@ -162,16 +162,12 @@ export default function AgentBuilderFavoritePage() {
                       : "bg-surface2 text-neutral3 hover:text-neutral5"
                   }`}
                 >
-                  Skills
+                  技能
                 </button>
               </div>
             )}
             <div className="flex-1 max-w-120">
-              <ListSearch
-                onSearch={setSearch}
-                label="Filter favorites"
-                placeholder="Filter by name or description"
-              />
+              <ListSearch onSearch={setSearch} label="筛选收藏" placeholder="按名称或描述筛选" />
             </div>
           </div>
         </PageLayout.TopArea>

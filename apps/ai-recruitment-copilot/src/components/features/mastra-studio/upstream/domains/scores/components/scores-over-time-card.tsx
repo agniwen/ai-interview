@@ -42,12 +42,12 @@ function ScoresCardContent({
     return <MetricsCard.Loading />;
   }
   if (isError) {
-    return <MetricsCard.Error message="Failed to load scores data" />;
+    return <MetricsCard.Error message="加载得分数据失败" />;
   }
   if (!hasData) {
     return (
       <MetricsCard.Content>
-        <MetricsCard.NoData message="No scores data yet" />
+        <MetricsCard.NoData message="暂无得分数据" />
       </MetricsCard.Content>
     );
   }
@@ -56,14 +56,14 @@ function ScoresCardContent({
     <MetricsCard.Content>
       <Tabs defaultTab="over-time" className="overflow-visible">
         <TabList>
-          <Tab value="over-time">Over Time</Tab>
-          <Tab value="summary">Summary</Tab>
+          <Tab value="over-time">随时间变化</Tab>
+          <Tab value="summary">概览</Tab>
         </TabList>
         <TabContent value="over-time">
           {overTimeData.length > 0 ? (
             <MetricsLineChart data={overTimeData} series={series} yDomain={[0, 1]} />
           ) : (
-            <MetricsCard.NoData message="No time series data yet" />
+            <MetricsCard.NoData message="暂无时间序列数据" />
           )}
         </TabContent>
         <TabContent value="summary">
@@ -74,11 +74,11 @@ function ScoresCardContent({
             stickyHeaderBackground="tinted"
           >
             <DataList.Top>
-              <DataList.TopCell sticky="start">Scorer</DataList.TopCell>
-              <DataList.TopCell className="justify-end text-right">Avg</DataList.TopCell>
-              <DataList.TopCell className="justify-end text-right">Min</DataList.TopCell>
-              <DataList.TopCell className="justify-end text-right">Max</DataList.TopCell>
-              <DataList.TopCell className="justify-end text-right">Count</DataList.TopCell>
+              <DataList.TopCell sticky="start">评分器</DataList.TopCell>
+              <DataList.TopCell className="justify-end text-right">平均值</DataList.TopCell>
+              <DataList.TopCell className="justify-end text-right">最小值</DataList.TopCell>
+              <DataList.TopCell className="justify-end text-right">最大值</DataList.TopCell>
+              <DataList.TopCell className="justify-end text-right">数量</DataList.TopCell>
             </DataList.Top>
             {summaryData.map((row) => (
               <DataList.RowStatic key={row.scorer}>
@@ -130,14 +130,11 @@ export function ScoresOverTimeCard({
   return (
     <MetricsCard>
       <MetricsCard.TopBar>
-        <MetricsCard.TitleAndDescription
-          title="Scores"
-          description="Evaluation scorer performance across all scorers."
-        />
+        <MetricsCard.TitleAndDescription title="得分" description="所有评分器的评估表现。" />
         {hasData && (
           <MetricsCard.Summary
-            value={avgScore === null ? "—" : `avg ${avgScore}`}
-            label="Across all scorers"
+            value={avgScore === null ? "—" : `平均 ${avgScore}`}
+            label="所有评分器"
           />
         )}
       </MetricsCard.TopBar>

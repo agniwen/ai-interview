@@ -105,16 +105,14 @@ export function useUpdateSkill(options: UseUpdateSkillOptions = {}) {
     },
     onError: (error) => {
       if (!silent) {
-        toast.error(
-          `Failed to update skill: ${error instanceof Error ? error.message : "Unknown error"}`,
-        );
+        toast.error(`更新技能失败：${error instanceof Error ? error.message : "未知错误"}`);
       }
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["stored-skills"] });
       void queryClient.invalidateQueries({ queryKey: ["stored-skill"] });
       if (!silent) {
-        toast.success("Skill updated");
+        toast.success("技能已更新");
       }
     },
   });

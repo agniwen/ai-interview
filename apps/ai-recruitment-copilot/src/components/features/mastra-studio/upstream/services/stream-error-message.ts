@@ -21,7 +21,7 @@ const MAX_STEPS_FINISH_REASON = "tool-calls";
 
 const getMaxStepsErrorText = (maxSteps?: number) => {
   const limit = typeof maxSteps === "number" ? ` (${maxSteps})` : "";
-  return `Agent stopped because it reached maxSteps${limit} while tool calls were still pending. Increase maxSteps in advanced settings and try again.`;
+  return `智能体已停止：达到 maxSteps${limit} 时仍有工具调用等待执行。请在高级设置中增大 maxSteps 后重试。`;
 };
 
 const getFinishReason = (chunk: FinishChunkLike) => {
@@ -56,7 +56,7 @@ export const buildStreamErrorMessage = (chunk: StreamErrorChunk): MastraDBMessag
   ) {
     text = (errorValue as { message: string }).message;
   } else if (errorValue === null || errorValue === undefined) {
-    text = "Unknown error";
+    text = "未知错误";
   } else {
     try {
       text = JSON.stringify(errorValue) ?? String(errorValue);
@@ -64,7 +64,7 @@ export const buildStreamErrorMessage = (chunk: StreamErrorChunk): MastraDBMessag
       try {
         text = String(errorValue);
       } catch {
-        text = "Unknown error";
+        text = "未知错误";
       }
     }
   }

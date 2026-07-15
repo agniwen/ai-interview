@@ -27,7 +27,7 @@ export const ChatComposer = ({
   disabled,
   canSubmit,
   isRunning = false,
-  placeholder = "Ask a follow-up…",
+  placeholder = "继续提问…",
   inputTestId,
   submitTestId,
   containerTestId,
@@ -69,7 +69,7 @@ export const ChatComposer = ({
             type="submit"
             variant="default"
             size="icon-sm"
-            tooltip={isRunning ? "Generating…" : "Send"}
+            tooltip={isRunning ? "正在生成…" : "发送"}
             disabled={!canSubmit}
             data-testid={submitTestId}
             className="rounded-full"

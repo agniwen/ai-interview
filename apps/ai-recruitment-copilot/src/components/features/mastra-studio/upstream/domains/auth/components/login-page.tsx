@@ -37,9 +37,9 @@ interface CredentialsFormProps {
 
 function getCredentialsSubmitLabel(isPending: boolean, isSignIn: boolean): string {
   if (isPending) {
-    return isSignIn ? "Signing in..." : "Creating account...";
+    return isSignIn ? "正在登录..." : "正在创建账号...";
   }
-  return isSignIn ? "Sign in" : "Create account";
+  return isSignIn ? "登录" : "创建账号";
 }
 
 function CredentialsForm({
@@ -61,14 +61,14 @@ function CredentialsForm({
       {!isSignIn && (
         <div className="space-y-2">
           <label htmlFor="name" className="block text-sm text-neutral4">
-            Name
+            姓名
           </label>
           <Input
             id="name"
             type="text"
             value={name}
             onChange={(event) => onNameChange(event.target.value)}
-            placeholder="Your name"
+            placeholder="请输入姓名"
             variant="default"
             size="lg"
           />
@@ -76,7 +76,7 @@ function CredentialsForm({
       )}
       <div className="space-y-2">
         <label htmlFor="email" className="block text-sm text-neutral4">
-          Email
+          邮箱
         </label>
         <Input
           id="email"
@@ -91,14 +91,14 @@ function CredentialsForm({
       </div>
       <div className="space-y-2">
         <label htmlFor="password" className="block text-sm text-neutral4">
-          Password
+          密码
         </label>
         <Input
           id="password"
           type="password"
           value={password}
           onChange={(event) => onPasswordChange(event.target.value)}
-          placeholder={isSignIn ? "Enter your password" : "Create a password"}
+          placeholder={isSignIn ? "请输入密码" : "请设置密码"}
           required
           variant="default"
           size="lg"
@@ -112,11 +112,9 @@ function CredentialsForm({
       </Button>
       {signUpEnabled && (
         <div className="text-center text-sm">
-          <span className="text-neutral3">
-            {isSignIn ? "Don't have an account? " : "Already have an account? "}
-          </span>
+          <span className="text-neutral3">{isSignIn ? "还没有账号？" : "已经有账号？"}</span>
           <button type="button" onClick={onToggleMode} className="text-neutral6 hover:underline">
-            {isSignIn ? "Sign up" : "Sign in"}
+            {isSignIn ? "注册" : "登录"}
           </button>
         </div>
       )}
@@ -144,13 +142,13 @@ function SSOSection({ hasCredentials, isPending, onLogin, sso }: SSOSectionProps
             <div className="w-full border-t border-border1" />
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="bg-surface1 px-2 text-neutral3">or continue with</span>
+            <span className="bg-surface1 px-2 text-neutral3">或使用以下方式继续</span>
           </div>
         </div>
       )}
       <Button onClick={onLogin} disabled={isPending} className="w-full" size="lg" variant="outline">
         {sso.icon && <span className="mr-2">{sso.icon}</span>}
-        {isPending ? "Redirecting..." : sso.text || "Sign in"}
+        {isPending ? "正在跳转..." : sso.text || "登录"}
       </Button>
     </>
   );
@@ -205,7 +203,7 @@ export function LoginPage({
   if (isLoadingCapabilities) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface1">
-        <div className="text-neutral3">Loading...</div>
+        <div className="text-neutral3">正在加载...</div>
       </div>
     );
   }
@@ -213,7 +211,7 @@ export function LoginPage({
   if (!capabilities?.enabled || !capabilities?.login) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface1">
-        <div className="text-neutral3">Authentication is not configured</div>
+        <div className="text-neutral3">尚未配置身份验证</div>
       </div>
     );
   }
@@ -278,7 +276,7 @@ export function LoginPage({
 
   return (
     <LoginLayout
-      title={isSignIn ? "Sign in to Mastra Studio" : "Create your account"}
+      title={isSignIn ? "登录 Mastra Studio" : "创建账号"}
       description={description}
       errorBanner={errorBanner}
     >

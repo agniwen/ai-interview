@@ -48,7 +48,7 @@ export const AgentMetadataNetworkList = ({ agents }: AgentMetadataNetworkListPro
   const { Link, paths } = useLinkComponent();
 
   if (agents.length === 0) {
-    return <AgentMetadataListEmpty>No agents</AgentMetadataListEmpty>;
+    return <AgentMetadataListEmpty>暂无智能体</AgentMetadataListEmpty>;
   }
 
   return (
@@ -73,7 +73,7 @@ export const AgentMetadataCombinedProcessorList = ({
   const { Link, paths } = useLinkComponent();
 
   if (inputProcessors.length === 0 && outputProcessors.length === 0) {
-    return <AgentMetadataListEmpty>No processors</AgentMetadataListEmpty>;
+    return <AgentMetadataListEmpty>暂无处理器</AgentMetadataListEmpty>;
   }
 
   // Use the first processor's ID for the link (they're grouped into a single workflow per type)
@@ -88,7 +88,7 @@ export const AgentMetadataCombinedProcessorList = ({
             href={`${paths.workflowLink(inputProcessorId)}/graph`}
             data-testid="processor-badge"
           >
-            <Badge icon={<ProcessorIcon className="text-accent4" />}>input</Badge>
+            <Badge icon={<ProcessorIcon className="text-accent4" />}>输入</Badge>
           </Link>
         </AgentMetadataListItem>
       )}
@@ -98,7 +98,7 @@ export const AgentMetadataCombinedProcessorList = ({
             href={`${paths.workflowLink(outputProcessorId)}/graph`}
             data-testid="processor-badge"
           >
-            <Badge icon={<ProcessorIcon className="text-accent5" />}>output</Badge>
+            <Badge icon={<ProcessorIcon className="text-accent5" />}>输出</Badge>
           </Link>
         </AgentMetadataListItem>
       )}
@@ -108,7 +108,7 @@ export const AgentMetadataCombinedProcessorList = ({
 
 export const AgentMetadataBrowserToolsList = ({ tools }: AgentMetadataBrowserToolsListProps) => {
   if (tools.length === 0) {
-    return <AgentMetadataListEmpty>No browser tools</AgentMetadataListEmpty>;
+    return <AgentMetadataListEmpty>暂无浏览器工具</AgentMetadataListEmpty>;
   }
 
   return (
@@ -138,7 +138,7 @@ export const AgentMetadataWorkspaceToolsList = ({
   tools,
 }: AgentMetadataWorkspaceToolsListProps) => {
   if (tools.length === 0) {
-    return <AgentMetadataListEmpty>No workspace tools</AgentMetadataListEmpty>;
+    return <AgentMetadataListEmpty>暂无工作区工具</AgentMetadataListEmpty>;
   }
 
   return (
@@ -163,7 +163,7 @@ export const AgentMetadataSkillList = ({
   const { isSkillActivated } = useActivatedSkills();
 
   if (skills.length === 0) {
-    return <AgentMetadataListEmpty>No skills</AgentMetadataListEmpty>;
+    return <AgentMetadataListEmpty>暂无技能</AgentMetadataListEmpty>;
   }
 
   return (
@@ -178,7 +178,7 @@ export const AgentMetadataSkillList = ({
             variant={isActivated ? "success" : "default"}
           >
             {skill.name}
-            {isActivated && <span className="sr-only">Active</span>}
+            {isActivated && <span className="sr-only">已启用</span>}
           </Badge>
         );
 
@@ -196,7 +196,7 @@ export const AgentMetadataSkillList = ({
                     </Link>
                   </TooltipTrigger>
                   <TooltipContent className="bg-surface3 text-neutral6 border border-border1">
-                    Active
+                    已启用
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -235,7 +235,7 @@ export const AgentMetadataScorerList = ({ entityId, entityType }: AgentMetadataS
   }
 
   if (scorerList.length === 0) {
-    return <AgentMetadataListEmpty>No Scorers</AgentMetadataListEmpty>;
+    return <AgentMetadataListEmpty>暂无评分器</AgentMetadataListEmpty>;
   }
 
   return (
@@ -257,7 +257,7 @@ export const AgentMetadataWorkflowList = ({ workflows }: AgentMetadataWorkflowLi
   const { Link, paths } = useLinkComponent();
 
   if (workflows.length === 0) {
-    return <AgentMetadataListEmpty>No workflows</AgentMetadataListEmpty>;
+    return <AgentMetadataListEmpty>暂无工作流</AgentMetadataListEmpty>;
   }
 
   return (
@@ -277,7 +277,7 @@ export const AgentMetadataToolList = ({ tools, agentId }: AgentMetadataToolListP
   const { Link, paths } = useLinkComponent();
 
   if (tools.length === 0) {
-    return <AgentMetadataListEmpty>No tools</AgentMetadataListEmpty>;
+    return <AgentMetadataListEmpty>暂无工具</AgentMetadataListEmpty>;
   }
 
   return (
@@ -305,7 +305,7 @@ export const AgentMetadata = ({ agentId }: AgentMetadataProps) => {
   }
 
   if (!agent) {
-    return <div>Agent not found</div>;
+    return <div>未找到智能体</div>;
   }
 
   const networkAgentsMap = agent.agents ?? {};
@@ -332,7 +332,7 @@ export const AgentMetadata = ({ agentId }: AgentMetadataProps) => {
       {resolveConditional(
         agent?.description,
         () => (
-          <AgentMetadataSection title="Description">
+          <AgentMetadataSection title="描述">
             <p className="text-sm text-neutral6">{agent.description}</p>
           </AgentMetadataSection>
         ),
@@ -341,7 +341,7 @@ export const AgentMetadata = ({ agentId }: AgentMetadataProps) => {
       {resolveConditional(
         agent.modelList,
         (conditionValue) => (
-          <AgentMetadataSection title="Models">
+          <AgentMetadataSection title="模型">
             <AgentMetadataModelList
               modelList={conditionValue}
               updateModelInModelList={updateModelInModelList}
@@ -356,10 +356,10 @@ export const AgentMetadata = ({ agentId }: AgentMetadataProps) => {
         networkAgents.length > 0,
         () => (
           <AgentMetadataSection
-            title="Agents"
+            title="智能体"
             hint={{
               link: "https://mastra.ai/en/docs/agents/overview",
-              title: "Agents documentation",
+              title: "智能体文档",
             }}
           >
             <AgentMetadataNetworkList agents={networkAgents} />
@@ -369,30 +369,30 @@ export const AgentMetadata = ({ agentId }: AgentMetadataProps) => {
       )}
 
       <AgentMetadataSection
-        title="Tools"
+        title="工具"
         hint={{
           link: "https://mastra.ai/en/docs/agents/using-tools-and-mcp",
-          title: "Using Tools and MCP documentation",
+          title: "工具与 MCP 使用文档",
         }}
       >
         <AgentMetadataToolList tools={tools} agentId={agentId} />
       </AgentMetadataSection>
 
       <AgentMetadataSection
-        title="Workflows"
+        title="工作流"
         hint={{
           link: "https://mastra.ai/en/docs/workflows/overview",
-          title: "Workflows documentation",
+          title: "工作流文档",
         }}
       >
         <AgentMetadataWorkflowList workflows={workflows} />
       </AgentMetadataSection>
 
       <AgentMetadataSection
-        title="Skills"
+        title="技能"
         hint={{
           link: "https://mastra.ai/en/docs/workspace/skills",
-          title: "Skills documentation",
+          title: "技能文档",
         }}
       >
         <AgentMetadataSkillList skills={skills} agentId={agentId} workspaceId={workspaceId} />
@@ -402,10 +402,10 @@ export const AgentMetadata = ({ agentId }: AgentMetadataProps) => {
         workspaceTools.length > 0,
         () => (
           <AgentMetadataSection
-            title="Workspace Tools"
+            title="工作区工具"
             hint={{
               link: "https://mastra.ai/en/reference/workspace/workspace-class#agent-tools",
-              title: "Workspace tools documentation",
+              title: "工作区工具文档",
             }}
           >
             <AgentMetadataWorkspaceToolsList tools={workspaceTools} />
@@ -418,10 +418,10 @@ export const AgentMetadata = ({ agentId }: AgentMetadataProps) => {
         browserTools.length > 0,
         () => (
           <AgentMetadataSection
-            title="Browser Tools"
+            title="浏览器工具"
             hint={{
               link: "https://mastra.ai/en/docs/agents/adding-browser-control",
-              title: "Browser tools documentation",
+              title: "浏览器工具文档",
             }}
           >
             <AgentMetadataBrowserToolsList tools={browserTools} />
@@ -436,10 +436,10 @@ export const AgentMetadata = ({ agentId }: AgentMetadataProps) => {
         () =>
           outputProcessors.length > 0 && (
             <AgentMetadataSection
-              title="Processors"
+              title="处理器"
               hint={{
                 link: "https://mastra.ai/docs/agents/processors",
-                title: "Processors documentation",
+                title: "处理器文档",
               }}
             >
               <AgentMetadataCombinedProcessorList
@@ -450,10 +450,10 @@ export const AgentMetadata = ({ agentId }: AgentMetadataProps) => {
           ),
       )}
 
-      <AgentMetadataSection title="Scorers">
+      <AgentMetadataSection title="评分器">
         <AgentMetadataScorerList entityId={agent.name} entityType="AGENT" />
       </AgentMetadataSection>
-      <AgentMetadataSection title="System Prompt">
+      <AgentMetadataSection title="系统提示词">
         <CodeMirror
           className="border border-border1 rounded-md"
           value={extractPrompt(agent.instructions)}
@@ -467,17 +467,17 @@ export const AgentMetadata = ({ agentId }: AgentMetadataProps) => {
         {resolveConditional(
           !isCmsLoading && !isCmsAvailable,
           () => (
-            <Notice variant="warning" title="Read-only">
+            <Notice variant="warning" title="只读">
               <Notice.Message>
-                To edit the system prompt in Studio, add{" "}
-                <code className="font-medium">@mastra/editor</code> to your project. See the{" "}
+                若要在 Studio 中编辑系统提示词，请将{" "}
+                <code className="font-medium">@mastra/editor</code> 添加到项目中。请参阅{" "}
                 <a
                   href="https://mastra.ai/docs/editor/overview"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="underline"
                 >
-                  documentation
+                  文档
                 </a>
                 .
               </Notice.Message>

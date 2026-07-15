@@ -264,8 +264,8 @@ function MemorySidebarBody({ agentId, threadId, threads, onDelete }: MemorySideb
             ) : (
               <EmptyState
                 iconSlot={null}
-                titleSlot="Memory not enabled"
-                descriptionSlot="Conversations are only saved as threads when the agent has memory configured."
+                titleSlot="未启用记忆"
+                descriptionSlot="仅当智能体配置了记忆时，对话才会保存为会话。"
                 actionSlot={
                   <Button
                     as="a"
@@ -274,7 +274,7 @@ function MemorySidebarBody({ agentId, threadId, threads, onDelete }: MemorySideb
                     rel="noopener noreferrer"
                     variant="outline"
                   >
-                    View documentation
+                    查看文档
                   </Button>
                 }
               />
@@ -306,7 +306,7 @@ function MemorySidebarBody({ agentId, threadId, threads, onDelete }: MemorySideb
                 <span className="flex min-w-0 items-center gap-1.5 text-neutral6">
                   <MemoryIcon className="h-4 w-4 shrink-0" />
                   <Txt as="span" variant="ui-sm" className="font-medium">
-                    Memory
+                    记忆
                   </Txt>
                 </span>
                 {showMemory ? (
@@ -321,11 +321,11 @@ function MemorySidebarBody({ agentId, threadId, threads, onDelete }: MemorySideb
                 <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
                   <ConfigBadge
                     icon={MessageSquare}
-                    label="recent messages"
+                    label="最近消息"
                     tooltip={
                       isTruthy(lastMessages !== undefined)
-                        ? `Keeps the last ${lastMessages} messages in context`
-                        : "Recent message history is off"
+                        ? `在上下文中保留最近 ${lastMessages} 条消息`
+                        : "最近消息历史已关闭"
                     }
                     enabled={lastMessages !== undefined}
                     value={lastMessages}
@@ -333,34 +333,28 @@ function MemorySidebarBody({ agentId, threadId, threads, onDelete }: MemorySideb
                   />
                   <ConfigBadge
                     icon={Search}
-                    label="Semantic recall"
+                    label="语义召回"
                     tooltip={
-                      semanticRecallOn
-                        ? "Semantic recall is on - retrieves relevant past messages"
-                        : "Semantic recall is off"
+                      semanticRecallOn ? "语义召回已开启——可检索相关历史消息" : "语义召回已关闭"
                     }
                     enabled={semanticRecallOn}
                     expanded={showMemory}
                   />
                   <ConfigBadge
                     icon={NotebookPen}
-                    label="Working memory"
+                    label="工作记忆"
                     tooltip={
                       workingMemoryOn
-                        ? "Working memory is on - persists notes across the conversation"
-                        : "Working memory is off"
+                        ? "工作记忆已开启——可在对话期间持续保留记录"
+                        : "工作记忆已关闭"
                     }
                     enabled={workingMemoryOn}
                     expanded={showMemory}
                   />
                   <ConfigBadge
                     icon={Eye}
-                    label="Observational"
-                    tooltip={
-                      observationalOn
-                        ? "Observational memory is on - learns from the conversation"
-                        : "Observational memory is off"
-                    }
+                    label="观测记忆"
+                    tooltip={observationalOn ? "观测记忆已开启——可从对话中学习" : "观测记忆已关闭"}
                     enabled={observationalOn}
                     expanded={showMemory}
                   />

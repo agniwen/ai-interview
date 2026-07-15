@@ -142,7 +142,7 @@ export function DatasetPageTabs({
   // Confirm bulk delete
   const handleBulkDeleteConfirm = async () => {
     await deleteItems.mutateAsync({ datasetId, itemIds: itemIdsToDelete });
-    toast.success(`Deleted ${itemIdsToDelete.length} items`);
+    toast.success(`已删除 ${itemIdsToDelete.length} 个数据项`);
     setDeleteDialogOpen(false);
     setItemIdsToDelete([]);
     setClearSelectionTrigger((prev) => prev + 1);
@@ -175,14 +175,14 @@ export function DatasetPageTabs({
       >
         <TabList>
           <Tab value="items">
-            Items <Chip color="gray">{itemsTabCount}</Chip>
+            数据项 <Chip color="gray">{itemsTabCount}</Chip>
           </Tab>
           <Tab value="experiments">
-            Experiments
+            实验
             <Chip color="gray">{experiments.length}</Chip>
           </Tab>
           <Tab value="review">
-            Review
+            评审
             {reviewCount > 0 && <Chip color="orange">{reviewCount}</Chip>}
           </Tab>
         </TabList>
@@ -265,16 +265,15 @@ export function DatasetPageTabs({
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialog.Content>
           <AlertDialog.Header>
-            <AlertDialog.Title>Delete Items</AlertDialog.Title>
+            <AlertDialog.Title>删除数据项</AlertDialog.Title>
             <AlertDialog.Description>
-              Are you sure you want to delete {itemIdsToDelete.length} item
-              {itemIdsToDelete.length === 1 ? "" : "s"}? This action cannot be undone.
+              确定要删除 {itemIdsToDelete.length} 个数据项吗？此操作无法撤销。
             </AlertDialog.Description>
           </AlertDialog.Header>
           <AlertDialog.Footer>
-            <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+            <AlertDialog.Cancel>取消</AlertDialog.Cancel>
             <AlertDialog.Action onClick={handleBulkDeleteConfirm}>
-              {deleteItems.isPending ? "Deleting..." : "Delete"}
+              {deleteItems.isPending ? "正在删除..." : "删除"}
             </AlertDialog.Action>
           </AlertDialog.Footer>
         </AlertDialog.Content>

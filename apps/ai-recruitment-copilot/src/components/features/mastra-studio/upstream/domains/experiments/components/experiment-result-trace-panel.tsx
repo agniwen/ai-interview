@@ -80,7 +80,7 @@ export function ExperimentResultTracePanel({
   return (
     <>
       <Column.Toolbar>
-        <Button onClick={onClose} aria-label="Close trace panel">
+        <Button onClick={onClose} aria-label="关闭追踪记录面板">
           <XIcon />
         </Button>
       </Column.Toolbar>
@@ -89,7 +89,7 @@ export function ExperimentResultTracePanel({
         <MainHeader withMargins={false}>
           <MainHeader.Column>
             <MainHeader.Title size="smaller">
-              <EyeIcon /> Trace {getShortId(traceId)}
+              <EyeIcon /> 追踪记录 {getShortId(traceId)}
             </MainHeader.Title>
           </MainHeader.Column>
         </MainHeader>

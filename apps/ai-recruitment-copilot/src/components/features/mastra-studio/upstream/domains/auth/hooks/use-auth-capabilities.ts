@@ -24,7 +24,7 @@ export async function makeAuthCapabilitiesRequest(client: MastraClient): Promise
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch auth capabilities: ${response.status}`);
+    throw new Error(`获取身份验证能力失败：${response.status}`);
   }
 
   return response.json();

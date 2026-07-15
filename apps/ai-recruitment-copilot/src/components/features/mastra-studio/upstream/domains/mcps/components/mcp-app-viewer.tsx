@@ -54,7 +54,7 @@ export interface McpAppViewerProps {
  */
 export function McpAppViewer({
   html,
-  title: _title = "MCP App",
+  title: _title = "MCP 应用",
   toolName = "mcp-app",
   toolInput,
   toolResult,
@@ -98,7 +98,7 @@ export function McpAppViewer({
   const handleCallTool = useCallback(
     async (params: CallToolRequest["params"]): Promise<CallToolResult> => {
       if (!onToolCall) {
-        return { content: [{ text: "Tool calls not supported", type: "text" }] };
+        return { content: [{ text: "不支持工具调用", type: "text" }] };
       }
       const raw = await onToolCall(
         params.name,

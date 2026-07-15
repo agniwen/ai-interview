@@ -21,15 +21,15 @@ export function DatasetItemHeader({ item }: DatasetItemHeaderProps) {
         <MainHeader.Title size="smaller">
           <FileCodeIcon />
           <span className="truncate">{item.id}</span>
-          <CopyButton content={item.id} tooltip={`Copy item ID: ${item.id}`} />
+          <CopyButton content={item.id} tooltip={`复制数据项 ID：${item.id}`} />
         </MainHeader.Title>
         <MainHeader.Description>
           <TextAndIcon>
-            <Calendar1Icon /> Created {format(new Date(item.createdAt), "MMM d, yyyy h:mm aaa")}
+            <Calendar1Icon /> 创建时间 {format(new Date(item.createdAt), "yyyy/MM/dd HH:mm")}
           </TextAndIcon>
           {item.datasetVersion !== null && item.datasetVersion !== undefined && (
             <TextAndIcon>
-              <HistoryIcon /> Version v{item.datasetVersion}
+              <HistoryIcon /> 版本 v{item.datasetVersion}
             </TextAndIcon>
           )}
         </MainHeader.Description>

@@ -30,7 +30,7 @@ export function SelectedToolList({ providerId, selectedTools, onToggle }: Select
     return (
       <div className="flex items-center justify-center py-12">
         <Txt variant="ui-sm" className="text-neutral3">
-          No tools selected
+          尚未选择工具
         </Txt>
       </div>
     );

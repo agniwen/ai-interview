@@ -34,26 +34,26 @@ function getSourceInfo(source: SkillSource): {
     case "external": {
       return {
         icon: <Package className="h-3.5 w-3.5" />,
-        label: "External Package",
+        label: "外部包",
         path: source.packagePath,
       };
     }
     case "local": {
       return {
         icon: <Home className="h-3.5 w-3.5" />,
-        label: "Local Project",
+        label: "本地项目",
         path: source.projectPath,
       };
     }
     case "managed": {
       return {
         icon: <Server className="h-3.5 w-3.5" />,
-        label: "Managed",
+        label: "托管",
         path: source.mastraPath,
       };
     }
     default: {
-      throw new Error("Unsupported skill source");
+      throw new Error("不支持的技能来源");
     }
   }
 }
@@ -178,26 +178,26 @@ export function SkillDetail({ skill, rawSkillMd, onReferenceClick }: SkillDetail
 
       {/* Metadata */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <MetadataCard label="Source" value={sourceInfo.label} icon={sourceInfo.icon} />
+        <MetadataCard label="来源" value={sourceInfo.label} icon={sourceInfo.icon} />
         <MetadataCard
-          label="Path"
+          label="路径"
           value={skill.path}
           icon={<FolderOpen className="h-3.5 w-3.5" />}
         />
-        {skill.license && <MetadataCard label="License" value={skill.license} />}
+        {skill.license && <MetadataCard label="许可证" value={skill.license} />}
         {skill.compatibility !== null && (
-          <MetadataCard label="Compatibility" value={skill.compatibility} />
+          <MetadataCard label="兼容性" value={skill.compatibility} />
         )}
         <MetadataCard
-          label="References"
-          value={`${skill.references.length} files`}
+          label="参考资料"
+          value={`${skill.references.length} 个文件`}
           icon={<FileText className="h-3.5 w-3.5" />}
         />
       </div>
 
       {/* Instructions */}
       <CollapsibleSection
-        title="Instructions"
+        title="指令"
         isExpanded={expandedSections.has("instructions")}
         onToggle={() => toggleSection("instructions")}
         headerAction={
@@ -207,14 +207,14 @@ export function SkillDetail({ skill, rawSkillMd, onReferenceClick }: SkillDetail
               setShowRawInstructions(!showRawInstructions);
             }}
             className="flex items-center gap-1.5 px-2 py-1 rounded text-xs text-neutral4 hover:text-neutral5 hover:bg-surface4 transition-colors"
-            title={showRawInstructions ? "Show rendered" : "Show source"}
+            title={showRawInstructions ? "显示渲染内容" : "显示源文件"}
           >
             {showRawInstructions ? (
               <Eye className="h-3.5 w-3.5" />
             ) : (
               <FileCode2 className="h-3.5 w-3.5" />
             )}
-            {showRawInstructions ? "Rendered" : "Source"}
+            {showRawInstructions ? "渲染内容" : "源文件"}
           </button>
         }
       >
@@ -244,7 +244,7 @@ export function SkillDetail({ skill, rawSkillMd, onReferenceClick }: SkillDetail
       {/* References */}
       {skill.references.length > 0 && (
         <CollapsibleSection
-          title={`References (${skill.references.length})`}
+          title={`参考资料（${skill.references.length}）`}
           isExpanded={expandedSections.has("references")}
           onToggle={() => toggleSection("references")}
         >
@@ -266,7 +266,7 @@ export function SkillDetail({ skill, rawSkillMd, onReferenceClick }: SkillDetail
       {/* Scripts */}
       {skill.scripts.length > 0 && (
         <CollapsibleSection
-          title={`Scripts (${skill.scripts.length})`}
+          title={`脚本（${skill.scripts.length}）`}
           isExpanded={expandedSections.has("scripts")}
           onToggle={() => toggleSection("scripts")}
         >
@@ -284,7 +284,7 @@ export function SkillDetail({ skill, rawSkillMd, onReferenceClick }: SkillDetail
       {/* Assets */}
       {skill.assets.length > 0 && (
         <CollapsibleSection
-          title={`Assets (${skill.assets.length})`}
+          title={`资源文件（${skill.assets.length}）`}
           isExpanded={expandedSections.has("assets")}
           onToggle={() => toggleSection("assets")}
         >
@@ -302,7 +302,7 @@ export function SkillDetail({ skill, rawSkillMd, onReferenceClick }: SkillDetail
       {/* Path */}
       <div className="pt-4 border-t border-border1">
         <p className="text-xs text-neutral3">
-          Path: <code className="px-1 py-0.5 rounded bg-surface4">{skill.path}</code>
+          路径：<code className="px-1 py-0.5 rounded bg-surface4">{skill.path}</code>
         </p>
       </div>
     </div>

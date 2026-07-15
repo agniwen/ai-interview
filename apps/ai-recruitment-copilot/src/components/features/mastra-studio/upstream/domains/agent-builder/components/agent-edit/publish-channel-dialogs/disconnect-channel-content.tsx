@@ -27,25 +27,25 @@ export function DisconnectChannelContent({
   const handleConfirm = async () => {
     try {
       await disconnect(agentId);
-      toast.success(`${platform.name} disconnected`);
+      toast.success(`已断开 ${platform.name}`);
       onClose();
     } catch (error) {
       const e = error as Error & { body?: { error?: string } };
-      toast.error(e.body?.error || e.message || "Failed to disconnect channel");
+      toast.error(e.body?.error || e.message || "断开渠道失败");
     }
   };
 
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Are you sure?</DialogTitle>
+        <DialogTitle>确定要继续吗？</DialogTitle>
         <DialogDescription>
-          Your agent will be removed from <span className="text-neutral6">{platform.name}</span>.
+          你的智能体将从 <span className="text-neutral6">{platform.name}</span> 中移除。
         </DialogDescription>
       </DialogHeader>
       <DialogFooter>
         <Button variant="ghost" onClick={onCancel} disabled={isPending}>
-          Cancel
+          取消
         </Button>
         <Button
           variant="default"
@@ -53,7 +53,7 @@ export function DisconnectChannelContent({
           disabled={isPending}
           data-testid={`publish-channel-dialog-${platform.id}-disconnect-confirm`}
         >
-          {isPending ? "Disconnecting…" : "Confirm"}
+          {isPending ? "正在断开…" : "确认"}
         </Button>
       </DialogFooter>
     </>

@@ -114,12 +114,12 @@ export function AgentMemory({ agentId, threadId, memoryType }: AgentMemoryProps)
           <div className="p-4 border-b border-border1">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-medium text-neutral5">Clone Thread</h3>
-                <p className="text-xs text-neutral3 mt-1">Create a copy of this conversation</p>
+                <h3 className="text-sm font-medium text-neutral5">克隆会话</h3>
+                <p className="text-xs text-neutral3 mt-1">创建此对话的副本</p>
               </div>
               <Button onClick={handleCloneThread} disabled={isCloning}>
                 <Copy className="w-4 h-4 mr-2" />
-                {isCloning ? "Cloning..." : "Clone"}
+                {isCloning ? "正在克隆…" : "克隆"}
               </Button>
             </div>
           </div>
@@ -149,7 +149,7 @@ export function AgentMemory({ agentId, threadId, memoryType }: AgentMemoryProps)
           <div className="p-4 border-b border-border1">
             <div className="mb-2">
               <div className="flex items-center gap-2 mb-2">
-                <h3 className="text-sm font-medium text-neutral5">Semantic Recall</h3>
+                <h3 className="text-sm font-medium text-neutral5">语义召回</h3>
                 {searchMemoryData?.searchScope && (
                   <span
                     className={cn(
@@ -158,11 +158,7 @@ export function AgentMemory({ agentId, threadId, memoryType }: AgentMemoryProps)
                         ? "bg-purple-500/20 text-purple-400"
                         : "bg-blue-500/20 text-blue-400",
                     )}
-                    title={
-                      searchScope === "resource"
-                        ? "Searching across all threads"
-                        : "Searching within current thread only"
-                    }
+                    title={searchScope === "resource" ? "在所有会话中搜索" : "仅在当前会话中搜索"}
                   >
                     {searchScope}
                   </span>
@@ -182,8 +178,7 @@ export function AgentMemory({ agentId, threadId, memoryType }: AgentMemoryProps)
             ) : (
               <div className="bg-surface3 border border-border1 rounded-lg p-4">
                 <p className="text-sm text-neutral3 mb-3">
-                  Semantic recall is not enabled for this agent. Enable it to search through
-                  conversation history.
+                  此智能体尚未启用语义召回。启用后可搜索历史对话。
                 </p>
                 <a
                   href="https://mastra.ai/en/docs/memory/semantic-recall"
@@ -191,7 +186,7 @@ export function AgentMemory({ agentId, threadId, memoryType }: AgentMemoryProps)
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
                 >
-                  Learn about semantic recall
+                  了解语义召回
                   <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
@@ -220,13 +215,12 @@ export function AgentMemory({ agentId, threadId, memoryType }: AgentMemoryProps)
             <div className="bg-surface3 border border-border1 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-xs font-medium px-2 py-0.5 rounded bg-green-500/20 text-green-400">
-                  Gateway
+                  网关
                 </span>
-                <h3 className="text-sm font-medium text-neutral5">Memory Gateway</h3>
+                <h3 className="text-sm font-medium text-neutral5">记忆网关</h3>
               </div>
               <p className="text-xs text-neutral3">
-                Memory is managed by the Memory Gateway. Threads and observations are stored
-                remotely.
+                记忆由记忆网关管理。会话和观测内容存储在远端。
               </p>
             </div>
           </div>

@@ -24,7 +24,7 @@ const MCPs = () => {
   if (error && is403ForbiddenError(error)) {
     return (
       <NoDataPageLayout>
-        <PermissionDenied resource="MCP servers" />
+        <PermissionDenied resource="MCP 服务器" />
       </NoDataPageLayout>
     );
   }
@@ -32,7 +32,7 @@ const MCPs = () => {
   if (error) {
     return (
       <NoDataPageLayout>
-        <ErrorState title="Failed to load MCP servers" message={error.message} />
+        <ErrorState title="加载 MCP 服务器失败" message={error.message} />
       </NoDataPageLayout>
     );
   }
@@ -49,11 +49,7 @@ const MCPs = () => {
     <PageLayout>
       <PageLayout.TopArea>
         <div className="max-w-120">
-          <ListSearch
-            onSearch={setSearch}
-            label="Filter MCP servers"
-            placeholder="Filter by name"
-          />
+          <ListSearch onSearch={setSearch} label="筛选 MCP 服务器" placeholder="按名称筛选" />
         </div>
       </PageLayout.TopArea>
 

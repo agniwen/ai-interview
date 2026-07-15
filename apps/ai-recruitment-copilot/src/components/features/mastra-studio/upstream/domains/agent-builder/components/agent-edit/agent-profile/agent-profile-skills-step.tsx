@@ -22,10 +22,10 @@ export const AgentProfileSkillsStep = () => {
 
   return (
     <AgentStepContainer
-      title="Skills"
+      title="技能"
       cta={
         <Button onClick={handleContinue} disabled={isStreaming}>
-          Continue{" "}
+          继续{" "}
           <Icon>
             <ArrowRightIcon />
           </Icon>

@@ -15,26 +15,24 @@ const EXAMPLES = [
   {
     icon: Wrench,
     prompt:
-      "Build a skill that reviews TypeScript code for type-safety issues, missing tests, and inconsistent patterns. Leave concrete suggestions with examples.",
-    title: "Code reviewer",
+      "构建一个审查 TypeScript 代码的技能：查找类型安全问题、缺失测试和不一致的代码模式，并给出带示例的具体建议。",
+    title: "代码审查",
   },
   {
     icon: FileText,
-    prompt:
-      "Build a skill that summarizes long technical documents into a one-page brief with the key points, action items, and open questions.",
-    title: "Doc summarizer",
+    prompt: "构建一个将长篇技术文档总结为单页简报的技能，包含关键要点、行动项和待解决问题。",
+    title: "文档摘要",
   },
   {
     icon: GraduationCap,
     prompt:
-      "Build a skill that onboards new engineers to a codebase. Explain the architecture, point to the right docs, and answer questions in plain English with code examples.",
-    title: "Onboarding tutor",
+      "构建一个帮助新工程师熟悉代码库的技能：讲解架构、指向正确文档，并用清晰语言和代码示例回答问题。",
+    title: "入职辅导",
   },
   {
     icon: BookOpen,
-    prompt:
-      "Build a skill that turns messy research notes into structured findings with sources, methodology, and a tl;dr at the top.",
-    title: "Research notes",
+    prompt: "构建一个将零散研究笔记整理为结构化结论的技能，包含来源、方法和顶部摘要。",
+    title: "研究笔记",
   },
 ];
 
@@ -88,7 +86,7 @@ export const SkillBuilderStarter = () => {
         workspaceId,
       });
     } catch {
-      toast.error("Failed to start a new skill");
+      toast.error("新建技能失败");
       return;
     }
     void navigate(`/agent-builder/skills/${id}/edit`, {
@@ -123,7 +121,7 @@ export const SkillBuilderStarter = () => {
             lineHeight: 1.1,
           }}
         >
-          What skill do you want to build?
+          你想构建什么技能？
         </h1>
 
         <form onSubmit={handleSubmit}>
@@ -136,7 +134,7 @@ export const SkillBuilderStarter = () => {
               testId="skill-builder-starter-input"
               size="default"
               variant="unstyled"
-              placeholder="Describe the skill you want to build…"
+              placeholder="描述你想构建的技能…"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -149,7 +147,7 @@ export const SkillBuilderStarter = () => {
                 type="submit"
                 variant="default"
                 size="icon-md"
-                tooltip="Start building"
+                tooltip="开始构建"
                 disabled={trimmed.length === 0 || isCreating}
                 data-testid="skill-builder-starter-submit"
                 className="rounded-full"

@@ -120,7 +120,7 @@ function EditDatasetDialogForm({ onOpenChange, dataset, onSuccess }: EditDataset
     dispatch({ type: "setValidationError", validationError: null });
 
     if (!formState.name.trim()) {
-      toast.error("Dataset name is required");
+      toast.error("数据集名称为必填项");
       return;
     }
 
@@ -135,7 +135,7 @@ function EditDatasetDialogForm({ onOpenChange, dataset, onSuccess }: EditDataset
         targetType: formState.targetType || undefined,
       });
 
-      toast.success("Dataset updated successfully");
+      toast.success("数据集更新成功");
       onOpenChange(false);
       onSuccess?.();
     } catch (error: unknown) {
@@ -146,11 +146,11 @@ function EditDatasetDialogForm({ onOpenChange, dataset, onSuccess }: EditDataset
         const count = body.cause.failingItems.length;
         dispatch({
           type: "setValidationError",
-          validationError: `${count} existing item(s) fail validation. Fix items or adjust schema.`,
+          validationError: `${count} 个现有数据项验证失败，请修复数据项或调整 Schema。`,
         });
       } else {
         const requestError = error as { message?: string };
-        toast.error(`Failed to update dataset: ${requestError.message || "Unknown error"}`);
+        toast.error(`更新数据集失败：${requestError.message || "未知错误"}`);
       }
     }
   };
@@ -162,45 +162,45 @@ function EditDatasetDialogForm({ onOpenChange, dataset, onSuccess }: EditDataset
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Edit Dataset</DialogTitle>
+        <DialogTitle>编辑数据集</DialogTitle>
       </DialogHeader>
       <DialogBody className="max-h-[70vh] overflow-y-auto">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="edit-dataset-name">Name *</Label>
+            <Label htmlFor="edit-dataset-name">名称 *</Label>
             <Input
               id="edit-dataset-name"
               value={formState.name}
               onChange={(e) =>
                 dispatch({ field: "name", type: "setStringField", value: e.target.value })
               }
-              placeholder="Enter dataset name"
+              placeholder="输入数据集名称"
               autoFocus
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="edit-dataset-description">Description</Label>
+            <Label htmlFor="edit-dataset-description">描述</Label>
             <Input
               id="edit-dataset-description"
               value={formState.description}
               onChange={(e) =>
                 dispatch({ field: "description", type: "setStringField", value: e.target.value })
               }
-              placeholder="Enter dataset description (optional)"
+              placeholder="输入数据集描述（可选）"
             />
           </div>
 
           <SelectFieldBlock
-            label="Target type"
+            label="目标类型"
             name="edit-dataset-target-type"
-            placeholder="Select a target type (optional)"
+            placeholder="选择目标类型（可选）"
             options={[...DATASET_TARGET_TYPE_OPTIONS]}
             value={formState.targetType}
             onValueChange={(value) =>
               dispatch({ type: "setTargetType", value: value as DatasetTargetType })
             }
-            helpText="What this dataset evaluates. Drives the Target column and the Target filter."
+            helpText="此数据集的评估对象，将用于目标列和目标筛选。"
             disabled={updateDataset.isPending}
           />
 
@@ -223,14 +223,14 @@ function EditDatasetDialogForm({ onOpenChange, dataset, onSuccess }: EditDataset
 
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" onClick={handleCancel}>
-              Cancel
+              取消
             </Button>
             <Button
               type="submit"
               variant="primary"
               disabled={updateDataset.isPending || !formState.name.trim()}
             >
-              {updateDataset.isPending ? "Saving..." : "Save Changes"}
+              {updateDataset.isPending ? "正在保存..." : "保存更改"}
             </Button>
           </div>
         </form>

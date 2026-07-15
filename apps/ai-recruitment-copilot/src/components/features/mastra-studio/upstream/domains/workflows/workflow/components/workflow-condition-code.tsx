@@ -62,8 +62,8 @@ export const WorkflowConditionDialog = ({
   <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent className="max-w-[30rem]">
       <DialogHeader>
-        <DialogTitle className="sr-only">Condition Function</DialogTitle>
-        <DialogDescription>View the condition function code</DialogDescription>
+        <DialogTitle className="sr-only">条件函数</DialogTitle>
+        <DialogDescription>查看条件函数代码</DialogDescription>
       </DialogHeader>
       <DialogBody>
         <ScrollArea className="w-full" maxHeight="400px">

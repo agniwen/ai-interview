@@ -58,7 +58,7 @@ function renderTriggerStatus(trigger: ScheduleTriggerResponse, isPublishFailure:
     return (
       <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-ui-sm text-accent2">
         <AlertTriangleIcon size={14} />
-        publish failed
+        发布失败
       </span>
     );
   }
@@ -69,7 +69,7 @@ function renderTriggerStatus(trigger: ScheduleTriggerResponse, isPublishFailure:
 
   return (
     <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-ui-sm text-neutral3">
-      pending
+      等待中
     </span>
   );
 }
@@ -91,7 +91,7 @@ export function ScheduleTriggersList({
   if (triggers.length === 0) {
     return (
       <Txt variant="ui-md" className="text-neutral4 p-4">
-        No trigger history yet.
+        暂无触发历史。
       </Txt>
     );
   }
@@ -99,17 +99,17 @@ export function ScheduleTriggersList({
   return (
     <DataList columns={COLUMNS} className="min-w-0">
       <DataList.Top>
-        <DataList.TopCell>Run</DataList.TopCell>
-        <DataList.TopCell>Status</DataList.TopCell>
-        <DataList.TopCell>Started</DataList.TopCell>
-        <DataList.TopCell>Duration</DataList.TopCell>
+        <DataList.TopCell>运行记录</DataList.TopCell>
+        <DataList.TopCell>状态</DataList.TopCell>
+        <DataList.TopCell>开始时间</DataList.TopCell>
+        <DataList.TopCell>持续时间</DataList.TopCell>
         <DataList.TopCell> </DataList.TopCell>
       </DataList.Top>
 
       {triggers.map((t) => {
         const driftMs = t.actualFireAt - t.scheduledFireAt;
         const driftValue = formatDriftValue(driftMs);
-        const startedTooltip = `Scheduled ${formatScheduleTimestamp(t.scheduledFireAt)} — published ${formatScheduleTimestamp(t.actualFireAt)} (drift ${driftValue})`;
+        const startedTooltip = `计划于 ${formatScheduleTimestamp(t.scheduledFireAt)} 触发 — 实际发布于 ${formatScheduleTimestamp(t.actualFireAt)}（偏差 ${driftValue}）`;
         const isPublishFailure = t.outcome === "failed";
         const errorMessage = isPublishFailure ? t.error : t.run?.error;
         const absDrift = Math.abs(driftMs);
@@ -160,9 +160,7 @@ export function ScheduleTriggersList({
                         <AlertTriangleIcon size={14} />
                       </span>
                     </TooltipTrigger>
-                    <TooltipContent>
-                      Published {driftValue} after the scheduled fire time
-                    </TooltipContent>
+                    <TooltipContent>比计划触发时间晚 {driftValue} 发布</TooltipContent>
                   </Tooltip>
                 ) : null}
               </span>

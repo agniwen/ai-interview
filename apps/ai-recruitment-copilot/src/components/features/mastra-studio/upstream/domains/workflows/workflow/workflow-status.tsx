@@ -48,8 +48,8 @@ const TripwireDetails = ({
     <div className="flex items-start gap-3 p-4">
       <ShieldAlert className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-amber-200 mb-1">Content Blocked</p>
-        <p className="text-sm text-amber-300/90">{tripwire.reason || "Tripwire triggered"}</p>
+        <p className="text-sm font-medium text-amber-200 mb-1">内容已拦截</p>
+        <p className="text-sm text-amber-300/90">{tripwire.reason || "已触发拦截器"}</p>
       </div>
     </div>
 
@@ -65,7 +65,7 @@ const TripwireDetails = ({
           ) : (
             <ChevronRight className="w-3.5 h-3.5" />
           )}
-          <span>Details</span>
+          <span>详情</span>
         </button>
 
         {isExpanded && (
@@ -75,11 +75,11 @@ const TripwireDetails = ({
               <div className="flex items-center gap-2 pt-3">
                 <RefreshCw className="w-3.5 h-3.5 text-amber-400/60" />
                 <span className="text-xs text-amber-300/70">
-                  Retry:{" "}
+                  重试：{" "}
                   {tripwire.retry ? (
-                    <span className="text-green-400">Allowed</span>
+                    <span className="text-green-400">允许</span>
                   ) : (
-                    <span className="text-red-400">Not allowed</span>
+                    <span className="text-red-400">不允许</span>
                   )}
                 </span>
               </div>
@@ -90,7 +90,7 @@ const TripwireDetails = ({
               <div className="flex items-center gap-2">
                 <Tag className="w-3.5 h-3.5 text-amber-400/60" />
                 <span className="text-xs text-amber-300/70">
-                  Processor:{" "}
+                  处理器：{" "}
                   <code className="px-1.5 py-0.5 rounded bg-amber-900/30 text-amber-200 font-mono">
                     {tripwire.processorId}
                   </code>
@@ -101,7 +101,7 @@ const TripwireDetails = ({
             {/* Custom metadata */}
             {tripwire.metadata !== undefined && tripwire.metadata !== null && (
               <div className="pt-1">
-                <p className="text-xs text-amber-400/60 mb-1.5">Metadata:</p>
+                <p className="text-xs text-amber-400/60 mb-1.5">元数据：</p>
                 <pre className="text-xs text-amber-200/80 bg-amber-900/30 rounded p-2 overflow-x-auto font-mono">
                   {String(JSON.stringify(tripwire.metadata, null, 2))}
                 </pre>

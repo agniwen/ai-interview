@@ -6,8 +6,8 @@ export const NoScoresInfo = () => (
   <div className="flex h-full items-center justify-center">
     <EmptyState
       iconSlot={<CircleSlashIcon />}
-      titleSlot="No scores yet"
-      descriptionSlot="Scores will appear here once a scorer evaluates agents or workflows. More info in the documentation."
+      titleSlot="暂无得分"
+      descriptionSlot="评分器评估智能体或工作流后，得分将显示在此处。详情请参阅文档。"
       actionSlot={
         <Button
           variant="ghost"
@@ -16,7 +16,7 @@ export const NoScoresInfo = () => (
           target="_blank"
           rel="noopener noreferrer"
         >
-          Scorers Documentation <ExternalLinkIcon />
+          评分器文档 <ExternalLinkIcon />
         </Button>
       }
     />

@@ -18,7 +18,7 @@ export function PromptBlockCreateContent({ onSuccess }: PromptBlockCreateContent
   const handlePublish = async () => {
     const isValid = await form.trigger();
     if (!isValid) {
-      toast.error("Please fill in all required fields");
+      toast.error("请填写所有必填项");
       return;
     }
 
@@ -34,12 +34,10 @@ export function PromptBlockCreateContent({ onSuccess }: PromptBlockCreateContent
       };
 
       const created = await createStoredPromptBlock.mutateAsync(createParams);
-      toast.success("Prompt block created successfully");
+      toast.success("提示词块创建成功");
       onSuccess?.(created);
     } catch (error) {
-      toast.error(
-        `Failed to create prompt block: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`创建提示词块失败：${error instanceof Error ? error.message : "未知错误"}`);
     }
   };
 

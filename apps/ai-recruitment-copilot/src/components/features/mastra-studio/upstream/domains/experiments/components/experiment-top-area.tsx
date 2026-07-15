@@ -71,25 +71,25 @@ export function ExperimentTopArea({ experiment }: ExperimentTopAreaProps) {
       <PageLayout.Row>
         <PageLayout.Column>
           <DataKeysAndValues numOfCol={2}>
-            <DataKeysAndValues.Key>Created at</DataKeysAndValues.Key>
+            <DataKeysAndValues.Key>创建时间</DataKeysAndValues.Key>
             <DataKeysAndValues.Value>
-              {format(new Date(experiment.createdAt), "MMM d, yyyy 'at' h:mm a")}
+              {format(new Date(experiment.createdAt), "yyyy/MM/dd HH:mm")}
             </DataKeysAndValues.Value>
             {experiment.completedAt && (
               <>
-                <DataKeysAndValues.Key>Completed at</DataKeysAndValues.Key>
+                <DataKeysAndValues.Key>完成时间</DataKeysAndValues.Key>
                 <DataKeysAndValues.Value>
-                  {format(new Date(experiment.completedAt), "MMM d, yyyy 'at' h:mm a")}
+                  {format(new Date(experiment.completedAt), "yyyy/MM/dd HH:mm")}
                 </DataKeysAndValues.Value>
               </>
             )}
-            <DataKeysAndValues.Key>Target</DataKeysAndValues.Key>
+            <DataKeysAndValues.Key>目标</DataKeysAndValues.Key>
             <DataKeysAndValues.ValueLink href={targetPath()} as={LinkComponent}>
               {targetName()}
             </DataKeysAndValues.ValueLink>
             {experiment.agentVersion && (
               <>
-                <DataKeysAndValues.Key>Version</DataKeysAndValues.Key>
+                <DataKeysAndValues.Key>版本</DataKeysAndValues.Key>
                 {versionLinkHref ? (
                   <DataKeysAndValues.ValueLink href={versionLinkHref} as={LinkComponent}>
                     {experiment.agentVersion}

@@ -55,19 +55,19 @@ export function PromptBlockPickerDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Select a prompt block</DialogTitle>
-          <DialogDescription>Choose a saved prompt block to reference</DialogDescription>
+          <DialogTitle>选择提示词块</DialogTitle>
+          <DialogDescription>选择要引用的已保存提示词块</DialogDescription>
         </DialogHeader>
         <DialogBody>
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2 rounded-md border border-border1 bg-surface2 px-3 py-2">
               <Search className="h-4 w-4 text-neutral3" />
               <input
-                aria-label="Search prompt blocks"
+                aria-label="搜索提示词块"
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search prompt blocks..."
+                placeholder="搜索提示词块…"
                 className="flex-1 bg-transparent text-ui-sm text-neutral6 placeholder:text-neutral3 outline-hidden"
               />
             </div>
@@ -77,16 +77,14 @@ export function PromptBlockPickerDialog({
               () => (
                 <div className="flex flex-col items-center justify-center gap-2 py-8 text-neutral3">
                   <Spinner className="h-6 w-6" />
-                  <Txt variant="ui-sm">Loading prompt blocks...</Txt>
+                  <Txt variant="ui-sm">正在加载提示词块…</Txt>
                 </div>
               ),
               () =>
                 filtered.length === 0 ? (
                   <div className="flex flex-col items-center justify-center gap-2 py-8 text-neutral3">
                     <FileText className="h-8 w-8" />
-                    <Txt variant="ui-sm">
-                      {search ? "No matching prompt blocks" : "No prompt blocks available"}
-                    </Txt>
+                    <Txt variant="ui-sm">{search ? "没有匹配的提示词块" : "暂无可用提示词块"}</Txt>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-1 max-h-dropdown-max-height overflow-y-auto">

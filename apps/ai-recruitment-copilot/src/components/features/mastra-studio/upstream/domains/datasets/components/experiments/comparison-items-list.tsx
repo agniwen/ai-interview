@@ -29,7 +29,7 @@ export function ComparisonItemsList({
     <Column>
       <ItemList>
         <ItemList.Header columns={columns}>
-          <ItemList.HeaderCol>Item ID</ItemList.HeaderCol>
+          <ItemList.HeaderCol>数据项 ID</ItemList.HeaderCol>
           {!featuredItemId &&
             scorerIds.map((id) => (
               <ItemList.HeaderCol className="flex justify-center" key={id}>

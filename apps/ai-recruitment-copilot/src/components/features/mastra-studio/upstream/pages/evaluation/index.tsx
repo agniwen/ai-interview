@@ -68,7 +68,7 @@ export default function Evaluation() {
   if (error && is403ForbiddenError(error)) {
     return (
       <NoDataPageLayout>
-        <PermissionDenied resource="evaluation" />
+        <PermissionDenied resource="评估" />
       </NoDataPageLayout>
     );
   }
@@ -76,7 +76,7 @@ export default function Evaluation() {
   if (error) {
     return (
       <NoDataPageLayout>
-        <ErrorState title="Failed to load evaluation data" message={error.message} />
+        <ErrorState title="加载评估数据失败" message={error.message} />
       </NoDataPageLayout>
     );
   }

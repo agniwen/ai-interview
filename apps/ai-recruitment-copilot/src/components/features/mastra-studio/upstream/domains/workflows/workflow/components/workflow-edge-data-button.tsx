@@ -27,7 +27,7 @@ export const WorkflowEdgeDataButton = ({
 }: WorkflowEdgeDataButtonProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const hasOutput = hasPayload(output);
-  const dataLabel = label ?? (previousStepId ? `${previousStepId} output` : "Previous output");
+  const dataLabel = label ?? (previousStepId ? `${previousStepId} 输出` : "上一步输出");
 
   if (!hasOutput) {
     return null;
@@ -41,13 +41,13 @@ export const WorkflowEdgeDataButton = ({
         className="h-7 gap-1 rounded-full border border-border1 bg-surface3/95 px-2 text-neutral5 shadow-lg hover:bg-surface4"
       >
         <Database className="h-icon-sm w-icon-sm text-accent1" />
-        Data
+        数据
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-3xl w-full">
           <DialogHeader>
-            <DialogTitle>Step output</DialogTitle>
+            <DialogTitle>步骤输出</DialogTitle>
           </DialogHeader>
           <DialogBody className="max-h-[700px] overflow-auto">
             <div className="min-w-0 rounded-lg border border-border1 bg-surface2 p-3">

@@ -24,13 +24,11 @@ export function DeleteDatasetDialog({
   const handleDelete = async () => {
     try {
       await deleteDataset.mutateAsync(datasetId);
-      toast.success("Dataset deleted successfully");
+      toast.success("数据集删除成功");
       onOpenChange(false);
       onSuccess?.();
     } catch (error) {
-      toast.error(
-        `Failed to delete dataset: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`删除数据集失败：${error instanceof Error ? error.message : "未知错误"}`);
     }
   };
 
@@ -38,17 +36,17 @@ export function DeleteDatasetDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialog.Content>
         <AlertDialog.Header>
-          <AlertDialog.Title>Delete Dataset</AlertDialog.Title>
+          <AlertDialog.Title>删除数据集</AlertDialog.Title>
           <AlertDialog.Description>
-            Are you sure you want to delete &quot;{datasetName}&quot;? This will permanently delete
-            the dataset, all its items, and run history. This action cannot be undone.
+            确定要删除“{datasetName}
+            ”吗？这将永久删除该数据集、其中的所有数据项和运行记录，且无法撤销。
           </AlertDialog.Description>
         </AlertDialog.Header>
         <AlertDialog.Footer>
           <AlertDialog.Action onClick={handleDelete} disabled={deleteDataset.isPending}>
-            {deleteDataset.isPending ? "Deleting..." : "Delete"}
+            {deleteDataset.isPending ? "正在删除..." : "删除"}
           </AlertDialog.Action>
-          <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+          <AlertDialog.Cancel>取消</AlertDialog.Cancel>
         </AlertDialog.Footer>
       </AlertDialog.Content>
     </AlertDialog>

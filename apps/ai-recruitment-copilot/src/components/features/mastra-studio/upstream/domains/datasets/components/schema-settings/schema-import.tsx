@@ -46,23 +46,23 @@ const messageObjectSchema = {
 const AGENT_INPUT_SCHEMA: Record<string, unknown> = {
   $schema: "http://json-schema.org/draft-07/schema#",
   anyOf: [
-    { description: "Simple text message", type: "string" },
+    { description: "简单文本消息", type: "string" },
     {
-      description: "Array of text messages",
+      description: "文本消息数组",
       items: { type: "string" },
       type: "array",
     },
     {
       ...messageObjectSchema,
-      description: "Single message object",
+      description: "单个消息对象",
     },
     {
-      description: "Array of message objects",
+      description: "消息对象数组",
       items: messageObjectSchema,
       type: "array",
     },
   ],
-  description: "Agent message input (MessageListInput)",
+  description: "智能体消息输入（MessageListInput）",
 };
 
 /**
@@ -70,7 +70,7 @@ const AGENT_INPUT_SCHEMA: Record<string, unknown> = {
  */
 const AGENT_OUTPUT_SCHEMA: Record<string, unknown> = {
   $schema: "http://json-schema.org/draft-07/schema#",
-  description: "Agent text response",
+  description: "智能体文本响应",
   type: "string",
 };
 
@@ -136,13 +136,13 @@ export function SchemaImport({ schemaType, onImport }: SchemaImportProps) {
   if (workflowsLoading) {
     workflowItems = [
       <SelectItem key="loading" value="__loading__" disabled>
-        Loading...
+        正在加载...
       </SelectItem>,
     ];
   } else if (workflowOptions.length === 0) {
     workflowItems = [
       <SelectItem key="empty" value="__empty__" disabled>
-        No workflows
+        暂无工作流
       </SelectItem>,
     ];
   }
@@ -152,11 +152,11 @@ export function SchemaImport({ schemaType, onImport }: SchemaImportProps) {
       {/* Source type selector */}
       <Select value={sourceType} onValueChange={(v) => setSourceType(v as SourceType | "")}>
         <SelectTrigger size="sm" className="w-28">
-          <SelectValue placeholder="Import..." />
+          <SelectValue placeholder="正在导入..." />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="agent">Agent</SelectItem>
-          <SelectItem value="workflow">Workflow</SelectItem>
+          <SelectItem value="agent">智能体</SelectItem>
+          <SelectItem value="workflow">工作流</SelectItem>
         </SelectContent>
       </Select>
 
@@ -164,7 +164,7 @@ export function SchemaImport({ schemaType, onImport }: SchemaImportProps) {
       {sourceType === "workflow" && (
         <Select value={selectedWorkflow ?? ""} onValueChange={setSelectedWorkflow}>
           <SelectTrigger size="sm" className="w-40">
-            <SelectValue placeholder="Select..." />
+            <SelectValue placeholder="请选择..." />
           </SelectTrigger>
           <SelectContent>{workflowItems}</SelectContent>
         </Select>
@@ -172,10 +172,10 @@ export function SchemaImport({ schemaType, onImport }: SchemaImportProps) {
 
       <Button size="sm" variant="outline" onClick={handleImport} disabled={!canImport()}>
         <Download className="w-4 h-4" />
-        Import
+        导入
       </Button>
 
-      {showNoSchemaWarning && <span className="text-xs text-neutral3">No {schemaType} schema</span>}
+      {showNoSchemaWarning && <span className="text-xs text-neutral3">无 {schemaType} Schema</span>}
     </div>
   );
 }

@@ -38,7 +38,7 @@ export function CreateDatasetFromItemsDialog({
     e.preventDefault();
 
     if (!name.trim()) {
-      toast.error("Dataset name is required");
+      toast.error("数据集名称为必填项");
       return;
     }
 
@@ -67,7 +67,7 @@ export function CreateDatasetFromItemsDialog({
         setProgress(i + 1);
       }
 
-      toast.success(`Dataset created with ${items.length} items`);
+      toast.success(`数据集已创建，包含 ${items.length} 个数据项`);
 
       // Reset form
       setName("");
@@ -79,9 +79,7 @@ export function CreateDatasetFromItemsDialog({
       // Navigate to new dataset
       onSuccess?.(dataset.id);
     } catch (error) {
-      toast.error(
-        `Failed to create dataset: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`创建数据集失败：${error instanceof Error ? error.message : "未知错误"}`);
       setIsCreating(false);
       setProgress(0);
     }
@@ -103,35 +101,35 @@ export function CreateDatasetFromItemsDialog({
     <Dialog open={open} onOpenChange={isCreating ? undefined : onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Create Dataset from Items</DialogTitle>
+          <DialogTitle>从数据项创建数据集</DialogTitle>
         </DialogHeader>
         <DialogBody>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="dataset-name">Name *</Label>
+              <Label htmlFor="dataset-name">名称 *</Label>
               <Input
                 id="dataset-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Enter dataset name"
+                placeholder="输入数据集名称"
                 autoFocus
                 disabled={isCreating}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="dataset-description">Description</Label>
+              <Label htmlFor="dataset-description">描述</Label>
               <Input
                 id="dataset-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Enter dataset description (optional)"
+                placeholder="输入数据集描述（可选）"
                 disabled={isCreating}
               />
             </div>
 
             <p className="text-sm text-muted-foreground">
-              {items.length} item{items.length === 1 ? "" : "s"} will be copied to the new dataset
+              将把 {items.length} 个数据项复制到新数据集
             </p>
 
             {isCreating && (
@@ -143,17 +141,17 @@ export function CreateDatasetFromItemsDialog({
                   />
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Copying items: {progress} / {items.length}
+                  正在复制数据项： {progress} / {items.length}
                 </p>
               </div>
             )}
 
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" onClick={handleCancel} disabled={isCreating}>
-                Cancel
+                取消
               </Button>
               <Button type="submit" variant="primary" disabled={isCreating || !name.trim()}>
-                {isCreating ? `Creating... (${progress}/${items.length})` : "Create Dataset"}
+                {isCreating ? `正在创建...（${progress}/${items.length}）` : "创建数据集"}
               </Button>
             </div>
           </form>

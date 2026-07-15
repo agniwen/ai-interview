@@ -36,7 +36,7 @@ export function validateJSONData(data: unknown): JSONValidationResult {
   if (!Array.isArray(data)) {
     errors.push({
       index: -1,
-      message: "JSON must be an array of items",
+      message: "JSON 必须是数据项数组",
     });
     return { errors, items, valid: false };
   }
@@ -45,7 +45,7 @@ export function validateJSONData(data: unknown): JSONValidationResult {
   if (data.length === 0) {
     errors.push({
       index: -1,
-      message: "JSON array must contain at least one item",
+      message: "JSON 数组必须至少包含一个数据项",
     });
     return { errors, items, valid: false };
   }
@@ -60,7 +60,7 @@ export function validateJSONData(data: unknown): JSONValidationResult {
     if (typeof item !== "object" || item === null || Array.isArray(item)) {
       errors.push({
         index: itemNum,
-        message: `Item ${itemNum} must be an object`,
+        message: `第 ${itemNum} 个数据项必须是对象`,
       });
       continue;
     }
@@ -69,7 +69,7 @@ export function validateJSONData(data: unknown): JSONValidationResult {
     if (!("input" in item) || item.input === undefined || item.input === null) {
       errors.push({
         index: itemNum,
-        message: `Item ${itemNum} is missing required 'input' field`,
+        message: `第 ${itemNum} 个数据项缺少必填的 input 字段`,
       });
       continue;
     }
@@ -78,7 +78,7 @@ export function validateJSONData(data: unknown): JSONValidationResult {
     if (item.input === "") {
       errors.push({
         index: itemNum,
-        message: `Item ${itemNum} has empty 'input' field`,
+        message: `第 ${itemNum} 个数据项的 input 字段为空`,
       });
       continue;
     }
@@ -92,7 +92,7 @@ export function validateJSONData(data: unknown): JSONValidationResult {
     ) {
       errors.push({
         index: itemNum,
-        message: `Item ${itemNum} has invalid 'metadata' field (must be an object)`,
+        message: `第 ${itemNum} 个数据项的 metadata 字段无效（必须是对象）`,
       });
       continue;
     }

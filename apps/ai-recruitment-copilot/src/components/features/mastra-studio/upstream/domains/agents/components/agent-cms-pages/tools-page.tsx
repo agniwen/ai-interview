@@ -162,7 +162,7 @@ export function ToolsPage() {
         <EntityDescription>
           <input
             type="text"
-            aria-label={`Description for ${tool.label}`}
+            aria-label={`${tool.label} 的描述`}
             disabled={!canEditToolDescriptions}
             className={cn(
               "border border-transparent appearance-none block w-full text-neutral3 bg-transparent rounded px-1 -mx-1 transition-colors focus:outline-solid focus:outline-1 focus:outline-white focus-visible:outline-solid focus-visible:outline-1 focus-visible:outline-white",
@@ -188,7 +188,7 @@ export function ToolsPage() {
           type="button"
           onClick={() => handleValueChange(tool.value)}
           className="text-neutral3 hover:text-neutral5 transition-colors rounded-sm focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-white/30"
-          aria-label={`Remove ${tool.label}`}
+          aria-label={`移除 ${tool.label}`}
         >
           <Icon size="sm">
             <XIcon />
@@ -204,10 +204,9 @@ export function ToolsPage() {
         {resolveConditional(
           isToolsLocked,
           () => (
-            <Notice variant="info" title="Tools are owned by code">
+            <Notice variant="info" title="工具由代码管理">
               <Notice.Message>
-                This code-defined agent has disabled tools editing from Studio. Update the agent
-                definition in code to change its tools.
+                此代码定义的智能体已停用 Studio 中的工具编辑。请在代码中更新智能体定义以更改工具。
               </Notice.Message>
             </Notice>
           ),
@@ -216,10 +215,10 @@ export function ToolsPage() {
         {resolveConditional(
           !isToolsLocked && descriptionsOnly,
           () => (
-            <Notice variant="info" title="Tool membership is owned by code">
+            <Notice variant="info" title="工具成员关系由代码管理">
               <Notice.Message>
-                This code-defined agent only allows editing tool descriptions from Studio. Update
-                the agent definition in code to add or remove tools.
+                此代码定义的智能体仅允许在 Studio
+                中编辑工具描述。请在代码中更新智能体定义以添加或移除工具。
               </Notice.Message>
             </Notice>
           ),
@@ -227,7 +226,7 @@ export function ToolsPage() {
         )}
         <SubSectionRoot>
           <Section.Header>
-            <SubSectionHeader title="Tools" icon={<ToolsIcon />} />
+            <SubSectionHeader title="工具" icon={<ToolsIcon />} />
 
             {resolveConditional(
               canEditToolMembership && unselectedOptions.length > 0,
@@ -238,7 +237,7 @@ export function ToolsPage() {
                       <Icon size="sm">
                         <PlusIcon />
                       </Icon>
-                      Add Tools
+                      添加工具
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent align="end" className="w-80 p-0 pt-4 max-h-72 overflow-y-auto">

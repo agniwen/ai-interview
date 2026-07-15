@@ -38,7 +38,7 @@ function buildDialogTitle(sectionTitle: string, icon: React.ReactNode, score: Sc
         {sectionTitle}
       </span>
       <span>
-        › Score <b className="text-neutral3">#{score.id}</b>
+        › 得分 <b className="text-neutral3">#{score.id}</b>
       </span>
     </>
   );
@@ -49,7 +49,7 @@ function isDefined<T>(value: T | null | undefined): value is T {
 }
 
 function formatScore(score: number | null | undefined) {
-  return isDefined(score) && !Number.isNaN(score) ? score : "n/a";
+  return isDefined(score) && !Number.isNaN(score) ? score : "不适用";
 }
 
 export interface ScoreDataPanelProps {
@@ -63,23 +63,21 @@ export function ScoreDataPanel({ score, onClose, onPrevious, onNext }: ScoreData
   const { Link } = useLinkComponent();
   const [datasetDialogOpen, setDatasetDialogOpen] = useState(false);
   const isCodeBased = isCodeBasedScorer(score);
-  const naText = isCodeBased
-    ? "N/A — code-based scorer does not use prompts"
-    : "N/A — step not configured";
+  const naText = isCodeBased ? "不适用——代码评分器不使用提示词" : "不适用——未配置此步骤";
 
   return (
     <>
       <DataPanel>
         <DataPanel.Header>
           <DataPanel.Heading>
-            Score <b># {score.id}</b>
+            得分 <b># {score.id}</b>
           </DataPanel.Heading>
           <ButtonsGroup className="ml-auto shrink-0">
             <DataPanel.NextPrevNav
               onPrevious={onPrevious}
               onNext={onNext}
-              previousLabel="Previous score"
-              nextLabel="Next score"
+              previousLabel="上一个得分"
+              nextLabel="下一个得分"
             />
             <DataPanel.CloseButton onClick={onClose} />
           </ButtonsGroup>
@@ -89,21 +87,21 @@ export function ScoreDataPanel({ score, onClose, onPrevious, onNext }: ScoreData
           <DataKeysAndValues>
             {isDefined(score.scorer?.name) && (
               <>
-                <DataKeysAndValues.Key>Scorer</DataKeysAndValues.Key>
+                <DataKeysAndValues.Key>评分器</DataKeysAndValues.Key>
                 <DataKeysAndValues.Value>{String(score.scorer.name)}</DataKeysAndValues.Value>
               </>
             )}
             {score.createdAt && (
               <>
-                <DataKeysAndValues.Key>Created</DataKeysAndValues.Key>
+                <DataKeysAndValues.Key>创建时间</DataKeysAndValues.Key>
                 <DataKeysAndValues.Value>
-                  {format(new Date(score.createdAt), "MMM dd, HH:mm:ss.SSS")}
+                  {format(new Date(score.createdAt), "MM/dd HH:mm:ss.SSS")}
                 </DataKeysAndValues.Value>
               </>
             )}
             {score.traceId && (
               <>
-                <DataKeysAndValues.Key>Trace Id</DataKeysAndValues.Key>
+                <DataKeysAndValues.Key>追踪 ID</DataKeysAndValues.Key>
                 <DataKeysAndValues.ValueLink
                   href={`/traces/${encodeURIComponent(score.traceId)}`}
                   as={Link}
@@ -114,7 +112,7 @@ export function ScoreDataPanel({ score, onClose, onPrevious, onNext }: ScoreData
             )}
             {score.spanId && score.traceId && (
               <>
-                <DataKeysAndValues.Key>Span Id</DataKeysAndValues.Key>
+                <DataKeysAndValues.Key>Span ID</DataKeysAndValues.Key>
                 <DataKeysAndValues.ValueLink
                   href={`/traces/${encodeURIComponent(score.traceId)}?spanId=${encodeURIComponent(score.spanId)}`}
                   as={Link}
@@ -130,7 +128,7 @@ export function ScoreDataPanel({ score, onClose, onPrevious, onNext }: ScoreData
               <Icon>
                 <SaveIcon />
               </Icon>
-              Save as Dataset Item
+              保存为数据项
             </Button>
           </div>
 
@@ -142,54 +140,52 @@ export function ScoreDataPanel({ score, onClose, onPrevious, onNext }: ScoreData
               )}
             >
               <GaugeIcon />
-              <span className="">Score:</span>
+              <span className="">得分：</span>
               <b className="font-mono text-neutral3">{formatScore(score.score)}</b>
             </div>
             <div className="text-ui-smd font-mono mt-2">
               {score.reason ||
-                (isCodeBased
-                  ? "N/A — code-based scorer does not generate a reason"
-                  : "N/A — step not configured")}
+                (isCodeBased ? "不适用——代码评分器不生成理由" : "不适用——未配置此步骤")}
             </div>
           </div>
 
           <div className="grid gap-4">
             <DataPanel.CodeSection
-              title="Input"
-              dialogTitle={buildDialogTitle("Input", <FileInputIcon />, score)}
+              title="输入"
+              dialogTitle={buildDialogTitle("输入", <FileInputIcon />, score)}
               icon={<FileInputIcon />}
               codeStr={JSON.stringify(score.input ?? null, null, 2)}
             />
             <DataPanel.CodeSection
-              title="Output"
-              dialogTitle={buildDialogTitle("Output", <FileOutputIcon />, score)}
+              title="输出"
+              dialogTitle={buildDialogTitle("输出", <FileOutputIcon />, score)}
               icon={<FileOutputIcon />}
               codeStr={JSON.stringify(score.output ?? null, null, 2)}
             />
             <DataPanel.CodeSection
-              title="Preprocess Prompt"
-              dialogTitle={buildDialogTitle("Preprocess Prompt", <ReceiptText />, score)}
+              title="预处理提示词"
+              dialogTitle={buildDialogTitle("预处理提示词", <ReceiptText />, score)}
               icon={<ReceiptText />}
               codeStr={score.preprocessPrompt || naText}
               simplified={true}
             />
             <DataPanel.CodeSection
-              title="Analyze Prompt"
-              dialogTitle={buildDialogTitle("Analyze Prompt", <ReceiptText />, score)}
+              title="分析提示词"
+              dialogTitle={buildDialogTitle("分析提示词", <ReceiptText />, score)}
               icon={<ReceiptText />}
               codeStr={score.analyzePrompt || naText}
               simplified={true}
             />
             <DataPanel.CodeSection
-              title="Generate Score Prompt"
-              dialogTitle={buildDialogTitle("Generate Score Prompt", <ReceiptText />, score)}
+              title="生成得分提示词"
+              dialogTitle={buildDialogTitle("生成得分提示词", <ReceiptText />, score)}
               icon={<ReceiptText />}
               codeStr={score.generateScorePrompt || naText}
               simplified={true}
             />
             <DataPanel.CodeSection
-              title="Generate Reason Prompt"
-              dialogTitle={buildDialogTitle("Generate Reason Prompt", <ReceiptText />, score)}
+              title="生成理由提示词"
+              dialogTitle={buildDialogTitle("生成理由提示词", <ReceiptText />, score)}
               icon={<ReceiptText />}
               codeStr={score.generateReasonPrompt || naText}
               simplified={true}

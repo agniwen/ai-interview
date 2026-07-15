@@ -17,8 +17,8 @@ interface RequestContextLabelProps {
 
 export function RequestContextLabel({ as = "span", children, tooltip }: RequestContextLabelProps) {
   const labelText =
-    typeof children === "string" ? children.replaceAll(/\s*\([^)]*\)/g, "") : "Request context";
-  const ariaLabel = `${labelText} details`;
+    typeof children === "string" ? children.replaceAll(/\s*\([^)]*\)/g, "") : "请求上下文";
+  const ariaLabel = `${labelText}详情`;
 
   return (
     <div className="flex items-center gap-1.5">

@@ -46,7 +46,7 @@ export function ToolkitList({
               : "text-neutral3 hover:bg-surface4 hover:text-neutral5",
           )}
         >
-          All
+          全部
         </button>
 
         <button
@@ -60,7 +60,7 @@ export function ToolkitList({
               : "text-neutral3 hover:bg-surface4 hover:text-neutral5",
           )}
         >
-          Selected
+          已选择
           {selectedCount > 0 && (
             <span className="text-ui-xs tabular-nums bg-surface3 rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center">
               {selectedCount}

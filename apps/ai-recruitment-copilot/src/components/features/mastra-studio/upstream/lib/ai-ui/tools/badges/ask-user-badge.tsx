@@ -20,9 +20,9 @@ const getQuestionSubtitle = (
   mode: AskUserSuspendPayload["selectionMode"],
 ) => {
   if (!options?.length) {
-    return "free text";
+    return "自由文本";
   }
-  return mode === "multi_select" ? "multiple choice" : "single choice";
+  return mode === "multi_select" ? "多选" : "单选";
 };
 
 export const AskUserBadge = ({ toolCallId, suspendPayload, result }: AskUserBadgeProps) => {
@@ -92,7 +92,7 @@ export const AskUserBadge = ({ toolCallId, suspendPayload, result }: AskUserBadg
             </Icon>
           </span>
           <Txt as="span" variant="ui-md" className="font-medium text-neutral6">
-            Ask User
+            询问用户
           </Txt>
           <Txt as="span" variant="ui-sm" className="text-neutral3">
             · {subtitle}
@@ -103,14 +103,14 @@ export const AskUserBadge = ({ toolCallId, suspendPayload, result }: AskUserBadg
               size="sm"
               icon={<span className="size-1.5 rounded-full bg-current" />}
             >
-              Answered
+              已回答
             </Badge>
           )}
         </div>
 
         <div className="flex flex-col gap-4 p-4">
           <Txt as="p" variant="ui-xs" className="uppercase tracking-wide text-neutral3">
-            Question
+            问题
           </Txt>
           <Txt as="p" variant="ui-lg" className="text-neutral6">
             {question}
@@ -163,7 +163,7 @@ export const AskUserBadge = ({ toolCallId, suspendPayload, result }: AskUserBadg
                   <Icon>
                     <Send />
                   </Icon>
-                  Submit ({selectedOptions.length} selected)
+                  提交（已选 {selectedOptions.length} 项）
                 </Button>
               )}
             </div>
@@ -172,7 +172,7 @@ export const AskUserBadge = ({ toolCallId, suspendPayload, result }: AskUserBadg
           {!isAnswered && !options?.length && (
             <div className="flex gap-2">
               <Input
-                placeholder="Type your answer..."
+                placeholder="请输入回答..."
                 value={freeTextInput}
                 onChange={(e) => setFreeTextInput(e.target.value)}
                 onKeyDown={handleKeyDown}

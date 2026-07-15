@@ -53,7 +53,7 @@ export function EntityAccordionItem({
             <span className="text-xs font-medium text-neutral6">{name}</span>
           </div>
           {onRemove && (
-            <Button tooltip={`Remove ${name}`} onClick={onRemove} variant="ghost" size="icon-sm">
+            <Button tooltip={`移除${name}`} onClick={onRemove} variant="ghost" size="icon-sm">
               <Trash2 />
             </Button>
           )}
@@ -63,7 +63,7 @@ export function EntityAccordionItem({
           id={`description-${id}`}
           value={description}
           onChange={onDescriptionChange ? (e) => onDescriptionChange(e.target.value) : undefined}
-          placeholder="Custom description for this entity..."
+          placeholder="为此实体添加自定义描述..."
           className="min-h-[40px] text-xs bg-surface3 border-dashed px-2 py-1"
           size="sm"
           disabled={isReadOnly}
@@ -87,11 +87,9 @@ export function EntityAccordionItem({
             <Icon>
               <Ruler className="text-accent6" />
             </Icon>
-            <span className="text-neutral5 text-ui-sm">Display Conditions</span>
+            <span className="text-neutral5 text-ui-sm">显示条件</span>
             {ruleCount > 0 && (
-              <span className="text-neutral3 text-ui-sm">
-                ({ruleCount} {ruleCount === 1 ? "rule" : "rules"})
-              </span>
+              <span className="text-neutral3 text-ui-sm">（{ruleCount} 条规则）</span>
             )}
           </CollapsibleTrigger>
           <CollapsibleContent>

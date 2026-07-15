@@ -61,19 +61,19 @@ const parseArgs = (args: FileTreeBadgeProps["args"]): ParsedArgs => {
 const buildArgsDisplay = (args: ParsedArgs) => {
   const display: string[] = [];
   if (args.maxDepth !== undefined && args.maxDepth !== 3) {
-    display.push(`depth: ${args.maxDepth}`);
+    display.push(`深度：${args.maxDepth}`);
   }
   if (args.showHidden) {
-    display.push("hidden");
+    display.push("包含隐藏项");
   }
   if (args.dirsOnly) {
-    display.push("dirs only");
+    display.push("仅目录");
   }
   if (args.exclude) {
-    display.push(`exclude: ${args.exclude}`);
+    display.push(`排除：${args.exclude}`);
   }
   if (args.extension) {
-    display.push(`ext: ${args.extension}`);
+    display.push(`扩展名：${args.extension}`);
   }
   return display;
 };
@@ -192,7 +192,7 @@ export const FileTreeBadge = ({
             />
           </Icon>
           <Badge icon={<FolderTree className="text-accent6" size={16} />}>
-            List Files <span className="text-neutral6 font-normal ml-1">{path}</span>
+            文件列表 <span className="text-neutral6 font-normal ml-1">{path}</span>
             <ArgsSummary values={argsDisplay} />
           </Badge>
         </button>
@@ -223,7 +223,7 @@ export const FileTreeBadge = ({
           {toolApprovalMetadata && !toolCalled && (
             <div className="p-4 rounded-lg bg-surface2 flex flex-col gap-4">
               <div>
-                <p className="font-medium pb-2">Tool arguments</p>
+                <p className="font-medium pb-2">工具参数</p>
                 <CodeEditor data={parsedArgs as Record<string, unknown>} data-testid="tool-args" />
               </div>
               <ToolApprovalButtons
@@ -245,7 +245,7 @@ export const FileTreeBadge = ({
                 <Button
                   variant="default"
                   size="icon-sm"
-                  tooltip="Copy tree"
+                  tooltip="复制目录树"
                   onClick={onCopy}
                   disabled={!treeOutput}
                 >
@@ -276,7 +276,7 @@ export const FileTreeBadge = ({
           {/* Loading state */}
           {toolCalled && !hasResult && (
             <div className="rounded-md border border-border1 bg-surface2 px-3 py-2">
-              <span className="text-xs text-neutral6">Loading...</span>
+              <span className="text-xs text-neutral6">加载中...</span>
             </div>
           )}
         </div>

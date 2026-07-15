@@ -91,9 +91,7 @@ export const ComposerModelSwitcher = ({ agentId }: ComposerModelSwitcherProps) =
     const lockedProvider = policy.default?.provider;
     const lockedModel = policy.default?.modelId;
     const selectedLabel =
-      selectedProvider && selectedModel
-        ? `${selectedProvider}/${selectedModel}`
-        : "Locked by admin";
+      selectedProvider && selectedModel ? `${selectedProvider}/${selectedModel}` : "已由管理员锁定";
     const lockedLabel =
       lockedProvider && lockedModel ? `${lockedProvider}/${lockedModel}` : selectedLabel;
     return (

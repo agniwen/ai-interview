@@ -24,19 +24,18 @@ interface PlatformCopy {
 }
 
 const DEFAULT_COPY: PlatformCopy = {
-  connectLabel: "Connect",
-  description: (name) => `Manage the ${name} connection for this agent.`,
-  notConfigured: () => "This platform is not configured on the server.",
-  notConnected: (name) => `Publish this agent to ${name}.`,
+  connectLabel: "连接",
+  description: (name) => `管理此智能体与 ${name} 的连接。`,
+  notConfigured: () => "服务器尚未配置此平台。",
+  notConnected: (name) => `将此智能体发布到 ${name}。`,
 };
 
 const PLATFORM_COPY: Record<string, Partial<PlatformCopy>> = {
   slack: {
-    connectLabel: "Continue with Slack",
-    description: () => "Manage the Slack connection for this agent.",
-    notConfigured: () => "Slack is not configured on the server.",
-    notConnected: () =>
-      "You will be redirected to Slack to choose a workspace and approve permissions.",
+    connectLabel: "使用 Slack 继续",
+    description: () => "管理此智能体的 Slack 连接。",
+    notConfigured: () => "服务器尚未配置 Slack。",
+    notConnected: () => "你将跳转到 Slack，选择工作区并授权所需权限。",
     requireActiveInstallation: true,
   },
 };
@@ -73,7 +72,7 @@ export function PublishChannelContent({
   if (platform.isConfigured) {
     statusContent = activeInstallation ? (
       <>
-        Connected <span className="text-neutral6">{platform.name}</span> to{" "}
+        已将 <span className="text-neutral6">{platform.name}</span> 连接到{" "}
         <span className="text-neutral6">Mastra</span>
       </>
     ) : (
@@ -91,7 +90,7 @@ export function PublishChannelContent({
         onClick={onDisconnectRequest}
         data-testid={`publish-channel-dialog-${platform.id}-disconnect`}
       >
-        Disconnect
+        断开连接
       </Button>
     ) : (
       <Button
@@ -100,13 +99,13 @@ export function PublishChannelContent({
         disabled={isConnecting}
         data-testid={`publish-channel-dialog-${platform.id}-connect`}
       >
-        {isConnecting ? "Connecting…" : copy.connectLabel}
+        {isConnecting ? "正在连接…" : copy.connectLabel}
       </Button>
     );
   } else {
     footerAction = (
       <Button variant="default" onClick={onClose}>
-        Close
+        关闭
       </Button>
     );
   }
@@ -116,7 +115,7 @@ export function PublishChannelContent({
       <DialogHeader>
         <div className="flex items-center gap-2">
           <PlatformIcon platform={platform.id} className="h-8 w-8 shrink-0" />
-          <DialogTitle>{platform.name} integration</DialogTitle>
+          <DialogTitle>{platform.name} 集成</DialogTitle>
         </div>
 
         <DialogDescription>{copy.description(platform.name)}</DialogDescription>

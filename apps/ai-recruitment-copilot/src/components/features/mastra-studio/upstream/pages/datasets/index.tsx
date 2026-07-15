@@ -86,7 +86,7 @@ export default function Datasets() {
   if (error && is403ForbiddenError(error)) {
     return (
       <NoDataPageLayout>
-        <PermissionDenied resource="datasets" />
+        <PermissionDenied resource="数据集" />
       </NoDataPageLayout>
     );
   }
@@ -94,7 +94,7 @@ export default function Datasets() {
   if (error) {
     return (
       <NoDataPageLayout>
-        <ErrorState title="Failed to load datasets" message={error.message} />
+        <ErrorState title="加载数据集失败" message={error.message} />
       </NoDataPageLayout>
     );
   }

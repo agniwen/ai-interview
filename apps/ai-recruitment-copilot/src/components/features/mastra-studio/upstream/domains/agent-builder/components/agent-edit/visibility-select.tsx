@@ -27,7 +27,7 @@ export function VisibilitySelect({ agentId }: VisibilitySelectProps) {
           data-testid="agent-builder-visibility-add"
         >
           <Globe className="h-3.5 w-3.5" />
-          Add to library
+          添加到库
         </Button>
       ) : (
         <Button
@@ -37,7 +37,7 @@ export function VisibilitySelect({ agentId }: VisibilitySelectProps) {
           data-testid="agent-builder-visibility-remove"
         >
           <LockIcon className="h-3.5 w-3.5" />
-          Remove from library
+          从库中移除
         </Button>
       )}
       {dialog}

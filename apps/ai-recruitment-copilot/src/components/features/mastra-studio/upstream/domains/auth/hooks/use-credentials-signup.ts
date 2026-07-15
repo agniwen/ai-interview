@@ -89,7 +89,7 @@ export async function makeCredentialsSignUpRequest(
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.message || data.error || "Failed to create account");
+    throw new Error(data.message || data.error || "创建账户失败");
   }
 
   return data;

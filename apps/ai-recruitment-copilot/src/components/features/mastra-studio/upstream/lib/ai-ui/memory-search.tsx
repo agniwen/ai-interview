@@ -12,18 +12,18 @@ const formatRelativeTime = (date: Date): string => {
   const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
   if (seconds < 60) {
-    return "just now";
+    return "刚刚";
   }
   if (seconds < 3600) {
-    return `${Math.floor(seconds / 60)}m ago`;
+    return `${Math.floor(seconds / 60)} 分钟前`;
   }
   if (seconds < 86_400) {
-    return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 3600)} 小时前`;
   }
   if (seconds < 604_800) {
-    return `${Math.floor(seconds / 86_400)}d ago`;
+    return `${Math.floor(seconds / 86_400)} 天前`;
   }
-  return date.toLocaleDateString();
+  return date.toLocaleDateString("zh-CN");
 };
 
 const truncateContent = (content: string, maxLength = 100) => {
@@ -31,6 +31,16 @@ const truncateContent = (content: string, maxLength = 100) => {
     return content;
   }
   return `${content.slice(0, maxLength)}...`;
+};
+
+const formatRole = (role: string) => {
+  const roleLabels: Record<string, string> = {
+    assistant: "助手",
+    system: "系统",
+    tool: "工具",
+    user: "用户",
+  };
+  return roleLabels[role] ?? role;
 };
 
 interface MemorySearchProps {
@@ -75,7 +85,7 @@ export const MemorySearch = ({
         setResults(response.results);
         setIsOpen((prev) => prev || response.results.length > 0);
       } catch (searchError) {
-        setError("Failed to search memory");
+        setError("搜索记忆失败");
         console.error("Memory search error:", searchError);
       } finally {
         setIsSearching(false);
@@ -249,7 +259,7 @@ export const MemorySearch = ({
     searchStatus = (
       <div className="p-4 text-center">
         <Txt variant="ui-sm" className="text-neutral3">
-          Searching...
+          正在搜索...
         </Txt>
       </div>
     );
@@ -257,7 +267,7 @@ export const MemorySearch = ({
     searchStatus = (
       <div className="p-4 text-center">
         <Txt variant="ui-sm" className="text-neutral3">
-          No results found for "{query}"
+          没有找到与“{query}”匹配的结果
         </Txt>
       </div>
     );
@@ -272,7 +282,7 @@ export const MemorySearch = ({
           value={query}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          placeholder="Search memory..."
+          placeholder="搜索记忆..."
           className="pl-10 pr-10 bg-surface3 border-border1"
         />
         {query && (
@@ -306,7 +316,7 @@ export const MemorySearch = ({
                       <div className="opacity-50 text-xs space-y-1">
                         {result.context.before.map((msg, idx) => (
                           <div key={idx} className="flex items-start gap-2">
-                            <span className="font-medium">{msg.role}:</span>
+                            <span className="font-medium">{formatRole(msg.role)}：</span>
                             <span className="text-neutral3">
                               {truncateContent(msg.content, 50)}
                             </span>
@@ -327,7 +337,7 @@ export const MemorySearch = ({
                                 : "bg-green-500/20 text-green-400",
                             )}
                           >
-                            {result.role}
+                            {formatRole(result.role)}
                           </span>
                           <Txt variant="ui-xs" className="text-neutral3">
                             {formatRelativeTime(new Date(result.createdAt))}
@@ -363,7 +373,7 @@ export const MemorySearch = ({
                       <div className="opacity-50 text-xs space-y-1">
                         {result.context.after.map((msg, idx) => (
                           <div key={idx} className="flex items-start gap-2">
-                            <span className="font-medium">{msg.role}:</span>
+                            <span className="font-medium">{formatRole(msg.role)}：</span>
                             <span className="text-neutral3">
                               {truncateContent(msg.content, 50)}
                             </span>

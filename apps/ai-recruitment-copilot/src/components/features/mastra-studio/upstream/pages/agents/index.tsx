@@ -25,7 +25,7 @@ function Agents() {
   if (error && is403ForbiddenError(error)) {
     return (
       <NoDataPageLayout>
-        <PermissionDenied resource="agents" />
+        <PermissionDenied resource="智能体" />
       </NoDataPageLayout>
     );
   }
@@ -33,7 +33,7 @@ function Agents() {
   if (error) {
     return (
       <NoDataPageLayout>
-        <ErrorState title="Failed to load agents" message={error.message} />
+        <ErrorState title="加载智能体失败" message={error.message} />
       </NoDataPageLayout>
     );
   }
@@ -51,11 +51,7 @@ function Agents() {
       <AgentHeaderCreateAction />
       <PageLayout.TopArea>
         <div className="max-w-120">
-          <ListSearch
-            onSearch={setSearch}
-            label="Filter agents"
-            placeholder="Filter by name or instructions"
-          />
+          <ListSearch onSearch={setSearch} label="筛选智能体" placeholder="按名称或指令筛选" />
         </div>
       </PageLayout.TopArea>
 

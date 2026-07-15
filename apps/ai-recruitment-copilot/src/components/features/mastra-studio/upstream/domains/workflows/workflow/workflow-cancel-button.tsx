@@ -41,7 +41,7 @@ export function WorkflowCancelButton({
           <StopCircle />
         </Icon>
       )}
-      {cancelMessage || "Cancel Workflow Run"}
+      {cancelMessage || "取消工作流运行"}
     </Button>
   );
 }

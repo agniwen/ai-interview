@@ -48,7 +48,7 @@ export function UserMenu({ user }: UserMenuProps) {
   const availableRoles =
     capabilities && isAuthenticated(capabilities) ? capabilities.availableRoles : undefined;
 
-  const displayName = user.name || user.email || "User";
+  const displayName = user.name || user.email || "用户";
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -81,7 +81,7 @@ export function UserMenu({ user }: UserMenuProps) {
         {availableRoles && availableRoles.length > 0 && (
           <div className="border-b border-border1 p-2">
             <Txt variant="ui-xs" className="px-2 py-1 text-neutral3 uppercase tracking-wider">
-              Preview as role
+              按角色预览
             </Txt>
             {availableRoles.map((role) => {
               const isActive = isImpersonating && impersonatedRole?.id === role.id;
@@ -120,7 +120,7 @@ export function UserMenu({ user }: UserMenuProps) {
             onClick={() => setOpen(false)}
           >
             <Settings className="h-4 w-4" />
-            Settings
+            设置
           </Button>
           <Button
             variant="ghost"
@@ -128,7 +128,7 @@ export function UserMenu({ user }: UserMenuProps) {
             disabled={isPending}
             className="w-full justify-start"
           >
-            {isPending ? "Signing out..." : "Sign out"}
+            {isPending ? "正在退出..." : "退出登录"}
           </Button>
         </div>
       </PopoverContent>

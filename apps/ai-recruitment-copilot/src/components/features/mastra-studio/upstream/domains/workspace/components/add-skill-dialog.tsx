@@ -116,7 +116,7 @@ function SkillListContent({
     return (
       <div className="flex flex-col items-center justify-center py-8 text-neutral4">
         <Package className="h-8 w-8 mb-2" />
-        <p className="text-sm">No skills found</p>
+        <p className="text-sm">未找到技能</p>
       </div>
     );
   }
@@ -132,7 +132,7 @@ function SkillListContent({
         );
         return (
           <button
-            aria-label={`Preview ${skill.name}`}
+            aria-label={`预览 ${skill.name}`}
             key={skillUniqueId}
             onClick={() => onSelect(skill)}
             className={cn(
@@ -147,7 +147,7 @@ function SkillListContent({
                   <span className="font-medium text-sm text-neutral6 truncate">{skill.name}</span>
                   {isInstalled && (
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-accent1/20 text-accent1">
-                      <Check className="h-2.5 w-2.5" /> Installed
+                      <Check className="h-2.5 w-2.5" /> 已安装
                     </span>
                   )}
                 </div>
@@ -155,7 +155,7 @@ function SkillListContent({
               </div>
               <div className="flex items-center gap-1 text-xs text-neutral3 shrink-0">
                 <Download className="h-3 w-3" />
-                <span>{skill.installs.toLocaleString()}</span>
+                <span>{skill.installs.toLocaleString("zh-CN")}</span>
               </div>
             </div>
           </button>
@@ -184,7 +184,7 @@ function SkillPreviewContent({
     return (
       <div className="flex flex-col items-center justify-center h-full text-neutral4">
         <Package className="h-8 w-8 mb-2" />
-        <p className="text-sm">Select a skill to preview</p>
+        <p className="text-sm">选择技能以预览</p>
       </div>
     );
   }
@@ -207,7 +207,7 @@ function SkillPreviewContent({
     body = (
       <div className="flex-1 flex flex-col items-center justify-center text-neutral4">
         <Package className="h-8 w-8 mb-2" />
-        <p className="text-sm">Preview unavailable</p>
+        <p className="text-sm">无法预览</p>
         {skillsUrl && (
           <a
             href={skillsUrl}
@@ -215,7 +215,7 @@ function SkillPreviewContent({
             rel="noopener noreferrer"
             className="text-xs mt-2 text-accent1 hover:underline flex items-center gap-1"
           >
-            View on skills.sh <ExternalLink className="h-3 w-3" />
+            在 skills.sh 上查看 <ExternalLink className="h-3 w-3" />
           </a>
         )}
       </div>
@@ -235,7 +235,8 @@ function SkillPreviewContent({
                 <Github className="h-3 w-3" /> {selectedSkill.topSource}
               </span>
               <span className="flex items-center gap-1">
-                <Download className="h-3 w-3" /> {selectedSkill.installs.toLocaleString()} installs
+                <Download className="h-3 w-3" /> {selectedSkill.installs.toLocaleString("zh-CN")}{" "}
+                次安装
               </span>
             </div>
           </div>
@@ -245,7 +246,7 @@ function SkillPreviewContent({
               target="_blank"
               rel="noopener noreferrer"
               className="text-neutral4 hover:text-neutral5 transition-colors"
-              title="View on GitHub"
+              title="在 GitHub 上查看"
             >
               <ExternalLink className="h-4 w-4" />
             </a>
@@ -267,20 +268,20 @@ function InstallButtonLabel({
   if (installing) {
     return (
       <>
-        <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Installing...
+        <Loader2 className="h-4 w-4 mr-2 animate-spin" /> 正在安装...
       </>
     );
   }
   if (installed) {
     return (
       <>
-        <Check className="h-4 w-4 mr-2" /> Already Installed
+        <Check className="h-4 w-4 mr-2" /> 已安装
       </>
     );
   }
   return (
     <>
-      <Download className="h-4 w-4 mr-2" /> Install
+      <Download className="h-4 w-4 mr-2" /> 安装
     </>
   );
 }
@@ -329,7 +330,7 @@ function InstallActions({
             htmlFor="mount-select"
             className="text-sm text-icon5 whitespace-nowrap font-medium"
           >
-            Install to
+            安装到
           </label>
           <select
             id="mount-select"
@@ -339,7 +340,7 @@ function InstallActions({
           >
             {writableMounts?.map((mount) => (
               <option key={mount.path} value={mount.path}>
-                {mount.displayName ?? mount.name ?? mount.provider ?? "unknown"} ({mount.path})
+                {mount.displayName ?? mount.name ?? mount.provider ?? "未知"} ({mount.path})
               </option>
             ))}
           </select>
@@ -347,10 +348,10 @@ function InstallActions({
       )}
       <div className="flex items-center justify-end gap-2">
         {isInstalled && hasMultipleMounts && installedMount && (
-          <span className="text-xs text-icon4">Installed at {installedMount.path}</span>
+          <span className="text-xs text-icon4">安装位置：{installedMount.path}</span>
         )}
         <Button variant="default" onClick={onCancel}>
-          Cancel
+          取消
         </Button>
         <Button
           variant="primary"
@@ -493,10 +494,8 @@ export function AddSkillDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Add Skill</DialogTitle>
-          <DialogDescription>
-            Search and install skills from the community registry
-          </DialogDescription>
+          <DialogTitle>添加技能</DialogTitle>
+          <DialogDescription>从社区注册表搜索并安装技能</DialogDescription>
         </DialogHeader>
 
         <DialogBody className="flex-1 flex flex-col gap-4 overflow-hidden max-h-none">
@@ -504,7 +503,7 @@ export function AddSkillDialog({
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral3" />
             <Input
-              placeholder="Search skills..."
+              placeholder="搜索技能..."
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               className="pl-9"
@@ -515,7 +514,7 @@ export function AddSkillDialog({
             {/* Skills List */}
             <div className="w-1/2 flex flex-col min-h-0">
               <div className="text-xs font-medium text-neutral4 uppercase tracking-wide mb-2">
-                {hasSearchResults ? "Search Results" : "Popular Skills"}
+                {hasSearchResults ? "搜索结果" : "热门技能"}
               </div>
               <ScrollArea className="flex-1 border border-border1 rounded-lg">
                 <SkillListContent
@@ -532,7 +531,7 @@ export function AddSkillDialog({
             {/* Preview Panel */}
             <div className="w-1/2 flex flex-col min-h-0">
               <div className="text-xs font-medium text-neutral4 uppercase tracking-wide mb-2">
-                Preview
+                预览
               </div>
               <div className="flex-1 border border-border1 rounded-lg overflow-hidden flex flex-col">
                 <SkillPreviewContent

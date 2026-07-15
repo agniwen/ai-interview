@@ -39,31 +39,31 @@ export function AgentsList({ agents, isLoading, search = "" }: AgentsListProps) 
   return (
     <EntityList columns={"auto 1fr auto auto auto auto"} variant="striped">
       <EntityList.Top>
-        <EntityList.TopCell className="">Name</EntityList.TopCell>
-        <EntityList.TopCell className="">Instructions</EntityList.TopCell>
-        <EntityList.TopCell className="">Model</EntityList.TopCell>
+        <EntityList.TopCell className="">名称</EntityList.TopCell>
+        <EntityList.TopCell className="">指令</EntityList.TopCell>
+        <EntityList.TopCell className="">模型</EntityList.TopCell>
         <EntityList.TopCellSmart
-          long="Workflows"
+          long="工作流"
           short={<WorkflowIcon />}
-          tooltip="Number of attached Workflows"
+          tooltip="已关联的工作流数量"
           className="text-center"
         />
         <EntityList.TopCellSmart
-          long="Agents"
+          long="智能体"
           short={<AgentIcon />}
-          tooltip="Number of attached Agents"
+          tooltip="已关联的智能体数量"
           className="text-center"
         />
         <EntityList.TopCellSmart
-          long="Tools"
+          long="工具"
           short={<ToolsIcon />}
-          tooltip="Number of attached Tools"
+          tooltip="已关联的工具数量"
           className="text-center"
         />
       </EntityList.Top>
 
       {filteredData.length === 0 && search ? (
-        <EntityList.NoMatch message="No Agents match your search" />
+        <EntityList.NoMatch message="没有与搜索条件匹配的智能体" />
       ) : null}
 
       {filteredData.map((agent) => {
@@ -82,7 +82,7 @@ export function AgentsList({ agents, isLoading, search = "" }: AgentsListProps) 
                 {agent.provider && (
                   <ProviderLogo providerId={agent.provider} className="dark:invert" />
                 )}
-                <span className="truncate">{agent.modelId || "N/A"}</span>
+                <span className="truncate">{agent.modelId || "暂无"}</span>
               </TextAndIcon>
             </EntityList.Cell>
             <EntityList.TextCell className="text-center">

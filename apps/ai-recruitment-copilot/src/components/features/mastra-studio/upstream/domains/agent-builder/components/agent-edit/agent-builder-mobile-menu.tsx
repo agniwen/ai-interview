@@ -48,7 +48,7 @@ function VisibilityMenuItem({ agentId, disabled }: VisibilityMenuItemProps) {
           }}
         >
           <Globe />
-          <span>Add to library</span>
+          <span>添加到库</span>
         </DropdownMenu.Item>
       ) : (
         <DropdownMenu.Item
@@ -60,7 +60,7 @@ function VisibilityMenuItem({ agentId, disabled }: VisibilityMenuItemProps) {
           }}
         >
           <LockIcon />
-          <span>Remove from library</span>
+          <span>从库中移除</span>
         </DropdownMenu.Item>
       )}
       {dialog}
@@ -100,7 +100,7 @@ function AgentBuilderMenuContent({
           }}
         >
           <EyeIcon />
-          <span>View agent</span>
+          <span>查看智能体</span>
         </DropdownMenu.Item>
       )}
       {canEditAgent && (
@@ -112,7 +112,7 @@ function AgentBuilderMenuContent({
           }}
         >
           <PencilIcon />
-          <span>Edit agent</span>
+          <span>编辑智能体</span>
         </DropdownMenu.Item>
       )}
       {(canViewAgent || canEditAgent) && (canSetVisibility || canDelete) && (
@@ -154,7 +154,7 @@ export function AgentBuilderMobileMenu({
           <Button
             size="icon-sm"
             variant="ghost"
-            tooltip="More actions"
+            tooltip="更多操作"
             data-testid="agent-builder-mobile-menu-trigger"
           >
             <MoreVerticalIcon />

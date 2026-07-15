@@ -53,9 +53,9 @@ export function ExpandedItemEditor({
   const handleDelete = useCallback(async () => {
     try {
       await deleteItem.mutateAsync({ datasetId, itemId: item.id });
-      toast.success("Item deleted");
+      toast.success("条目已删除");
     } catch (error) {
-      toast.error(`Failed to delete: ${error instanceof Error ? error.message : "Unknown error"}`);
+      toast.error(`删除失败：${error instanceof Error ? error.message : "未知错误"}`);
     }
   }, [deleteItem, datasetId, item.id]);
 
@@ -93,10 +93,10 @@ export function ExpandedItemEditor({
         input: parsedInput,
         itemId: item.id,
       });
-      toast.success("Item updated");
+      toast.success("条目已更新");
       setIsEditing(false);
     } catch (error) {
-      toast.error(`Failed to update: ${error instanceof Error ? error.message : "Unknown error"}`);
+      toast.error(`更新失败：${error instanceof Error ? error.message : "未知错误"}`);
     }
   }, [inputValue, groundTruthValue, trajectoryValue, datasetId, item.id, updateItem]);
 
@@ -105,7 +105,7 @@ export function ExpandedItemEditor({
       <div className="px-4 pb-3 pl-10 space-y-2">
         <div>
           <Txt variant="ui-xs" className="text-neutral3 font-medium">
-            Input
+            输入
           </Txt>
           <Textarea
             value={inputValue}
@@ -116,7 +116,7 @@ export function ExpandedItemEditor({
         </div>
         <div>
           <Txt variant="ui-xs" className="text-neutral3 font-medium">
-            Ground Truth
+            标准答案
           </Txt>
           <Textarea
             value={groundTruthValue}
@@ -125,12 +125,12 @@ export function ExpandedItemEditor({
             }
             className="mt-1 font-mono text-xs"
             rows={3}
-            placeholder="Optional"
+            placeholder="可选"
           />
         </div>
         <div>
           <Txt variant="ui-xs" className="text-neutral3 font-medium">
-            Expected Trajectory (JSON)
+            预期轨迹（JSON）
           </Txt>
           <Textarea
             value={trajectoryValue}
@@ -139,7 +139,7 @@ export function ExpandedItemEditor({
             }
             className="mt-1 font-mono text-xs"
             rows={3}
-            placeholder="Optional — JSON trajectory expectation"
+            placeholder="可选 — JSON 格式的预期轨迹"
           />
         </div>
         <div className="flex items-center gap-2 pt-1">
@@ -151,13 +151,13 @@ export function ExpandedItemEditor({
                 <Save />
               </Icon>
             )}
-            Save
+            保存
           </Button>
           <Button variant="ghost" size="sm" onClick={cancelEditing}>
             <Icon size="sm">
               <X />
             </Icon>
-            Cancel
+            取消
           </Button>
         </div>
       </div>
@@ -168,7 +168,7 @@ export function ExpandedItemEditor({
     <div className="px-4 pb-3 pl-10 space-y-2">
       <div>
         <Txt variant="ui-xs" className="text-neutral3 font-medium">
-          Input
+          输入
         </Txt>
         <pre className="text-xs text-neutral5 bg-surface1 rounded px-2 py-1.5 overflow-x-auto whitespace-pre-wrap wrap-break-word max-h-48 overflow-y-auto mt-1">
           {formatValue(item.input)}
@@ -177,7 +177,7 @@ export function ExpandedItemEditor({
       {item.groundTruth !== undefined && item.groundTruth !== null && (
         <div>
           <Txt variant="ui-xs" className="text-neutral3 font-medium">
-            Ground Truth
+            标准答案
           </Txt>
           <pre className="text-xs text-neutral5 bg-surface1 rounded px-2 py-1.5 overflow-x-auto whitespace-pre-wrap wrap-break-word max-h-48 overflow-y-auto mt-1">
             {formatValue(item.groundTruth)}
@@ -187,7 +187,7 @@ export function ExpandedItemEditor({
       {isDefined(item.expectedTrajectory) && (
         <div>
           <Txt variant="ui-xs" className="text-neutral3 font-medium">
-            Expected Trajectory
+            预期轨迹
           </Txt>
           <pre className="text-xs text-neutral5 bg-surface1 rounded px-2 py-1.5 overflow-x-auto whitespace-pre-wrap break-words max-h-48 overflow-y-auto mt-1">
             {formatValue(item.expectedTrajectory)}
@@ -199,12 +199,12 @@ export function ExpandedItemEditor({
           <Icon size="sm">
             <Pencil />
           </Icon>
-          Edit
+          编辑
         </Button>
         {isConfirmingDelete ? (
           <>
             <Txt variant="ui-xs" className="text-negative1 font-medium">
-              Delete this item?
+              删除此条目？
             </Txt>
             <Button
               variant="ghost"
@@ -213,10 +213,10 @@ export function ExpandedItemEditor({
               disabled={deleteItem.isPending}
               className="text-negative1 hover:text-negative1"
             >
-              {deleteItem.isPending ? <Spinner className="h-3 w-3" /> : "Yes"}
+              {deleteItem.isPending ? <Spinner className="h-3 w-3" /> : "是"}
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setIsConfirmingDelete(false)}>
-              No
+              否
             </Button>
           </>
         ) : (
@@ -229,15 +229,15 @@ export function ExpandedItemEditor({
             <Icon size="sm">
               <Trash2 />
             </Icon>
-            Delete
+            删除
           </Button>
         )}
         {isDefined(item.source) && (
           <Txt variant="ui-xs" className="text-neutral2">
-            Source:{" "}
+            来源：{" "}
             {typeof item.source === "object" && item.source !== null && "type" in item.source
               ? String((item.source as unknown as Record<string, unknown>).type)
-              : "manual"}
+              : "手动"}
           </Txt>
         )}
       </div>

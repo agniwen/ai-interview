@@ -37,38 +37,38 @@ function buildFeedbackData(feedback?: FeedbackRecord) {
   const data = [
     {
       key: "timestamp",
-      label: "Created at",
+      label: "创建时间",
       value: feedback?.timestamp
-        ? format(new Date(feedback.timestamp), "MMM d, h:mm:ss aaa")
-        : "n/a",
+        ? format(new Date(feedback.timestamp), "MM/dd HH:mm:ss")
+        : "不适用",
     },
     {
       key: "type",
-      label: "Type",
-      value: feedback?.feedbackType ?? "n/a",
+      label: "类型",
+      value: feedback?.feedbackType ?? "不适用",
     },
     {
       key: "value",
-      label: "Value",
-      value: feedback ? formatValue(feedback) : "n/a",
+      label: "值",
+      value: feedback ? formatValue(feedback) : "不适用",
     },
   ];
 
   if (feedback?.comment) {
-    data.push({ key: "comment", label: "Comment", value: feedback.comment });
+    data.push({ key: "comment", label: "备注", value: feedback.comment });
   }
 
   data.push({
     key: "source",
-    label: "Source",
-    value: feedback?.feedbackSource ?? feedback?.source ?? "n/a",
+    label: "来源",
+    value: feedback?.feedbackSource ?? feedback?.source ?? "不适用",
   });
 
   if (feedback?.feedbackUserId) {
-    data.push({ key: "userId", label: "User", value: feedback.feedbackUserId });
+    data.push({ key: "userId", label: "用户", value: feedback.feedbackUserId });
   }
   if (feedback?.traceId) {
-    data.push({ key: "traceId", label: "Trace ID", value: feedback.traceId });
+    data.push({ key: "traceId", label: "追踪 ID", value: feedback.traceId });
   }
   if (feedback?.spanId) {
     data.push({ key: "spanId", label: "Span ID", value: feedback.spanId });
@@ -95,15 +95,15 @@ export function FeedbackDialog({
 
   return (
     <SideDialog
-      dialogTitle="Feedback Detail"
-      dialogDescription="View feedback details"
+      dialogTitle="反馈详情"
+      dialogDescription="查看反馈详情"
       isOpen={isOpen}
       onClose={onClose}
       level={3}
     >
       <SideDialog.Top>
         <TextAndIcon>
-          <MessageSquareIcon /> Feedback
+          <MessageSquareIcon /> 反馈
         </TextAndIcon>
         |
         <SideDialog.Nav onNext={onNext} onPrevious={onPrevious} />
@@ -112,7 +112,7 @@ export function FeedbackDialog({
       <SideDialog.Content>
         <SideDialog.Header>
           <SideDialog.Heading>
-            <MessageSquareIcon /> Feedback
+            <MessageSquareIcon /> 反馈
           </SideDialog.Heading>
           {feedback?.traceId && (
             <TextAndIcon>
@@ -126,7 +126,7 @@ export function FeedbackDialog({
 
           {metadataStr && (
             <SideDialog.CodeSection
-              title="Metadata"
+              title="元数据"
               icon={<HashIcon />}
               codeStr={metadataStr}
               simplified={true}

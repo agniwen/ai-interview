@@ -34,7 +34,7 @@ export const useStoredScorerMutations = (scorerId?: string) => {
   const updateMutation = useMutation({
     mutationFn: (params: UpdateStoredScorerParams) => {
       if (!scorerId) {
-        throw new Error("scorerId is required for update");
+        throw new Error("更新评分器时 scorerId 为必填项");
       }
       return client.getStoredScorer(scorerId).update(params, requestContext);
     },
@@ -50,7 +50,7 @@ export const useStoredScorerMutations = (scorerId?: string) => {
   const deleteMutation = useMutation({
     mutationFn: () => {
       if (!scorerId) {
-        throw new Error("scorerId is required for delete");
+        throw new Error("删除评分器时 scorerId 为必填项");
       }
       return client.getStoredScorer(scorerId).delete(requestContext);
     },

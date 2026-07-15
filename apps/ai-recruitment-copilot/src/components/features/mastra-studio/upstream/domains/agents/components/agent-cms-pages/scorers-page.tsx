@@ -58,7 +58,7 @@ function ScorerConfigPanel({
     <div>
       <div className="flex flex-col gap-2">
         <Label htmlFor={`sampling-type-${scorerId}`} className="text-xs text-neutral4">
-          Sampling
+          采样
         </Label>
         <RadioGroup
           id={`sampling-type-${scorerId}`}
@@ -70,7 +70,7 @@ function ScorerConfigPanel({
           <div className="flex items-center gap-2">
             <RadioGroupItem value="none" id={`${scorerId}-none`} disabled={readOnly} />
             <Label htmlFor={`${scorerId}-none`} className="text-ui-xs text-neutral5 cursor-pointer">
-              None (evaluate all)
+              无（全部评估）
             </Label>
           </div>
           <div className="flex items-center gap-2">
@@ -79,7 +79,7 @@ function ScorerConfigPanel({
               htmlFor={`${scorerId}-ratio`}
               className="text-ui-xs text-neutral5 cursor-pointer"
             >
-              Ratio (percentage)
+              比例（百分比）
             </Label>
           </div>
         </RadioGroup>
@@ -87,7 +87,7 @@ function ScorerConfigPanel({
         {samplingType === "ratio" && (
           <div className="flex flex-col gap-1.5 mt-2">
             <Label htmlFor={`rate-${scorerId}`} className="text-xs text-neutral4">
-              Sample Rate (0-1)
+              采样率（0-1）
             </Label>
             <Input
               id={`rate-${scorerId}`}
@@ -202,14 +202,14 @@ export function ScorersPage() {
       <div className="flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <SectionHeader
-            title="Scorers"
-            subtitle={`Configure scorers for evaluating agent responses.${count > 0 ? ` (${count} selected)` : ""}`}
+            title="评分器"
+            subtitle={`配置用于评估智能体响应的评分器。${count > 0 ? `（已选择 ${count} 个）` : ""}`}
           />
         </div>
 
         <SubSectionRoot>
           <Section.Header>
-            <SubSectionHeader title="Available Scorers" icon={<JudgeIcon />} />
+            <SubSectionHeader title="可用评分器" icon={<JudgeIcon />} />
           </Section.Header>
 
           <InputGroup variant="outline">
@@ -218,8 +218,8 @@ export function ScorersPage() {
             </InputGroupAddon>
             <InputGroupInput
               type="search"
-              aria-label="Search scorers"
-              placeholder="Search scorers"
+              aria-label="搜索评分器"
+              placeholder="搜索评分器"
               onChange={(event) => setSearch(event.target.value)}
             />
           </InputGroup>

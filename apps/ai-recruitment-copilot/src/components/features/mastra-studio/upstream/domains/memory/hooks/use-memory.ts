@@ -100,14 +100,14 @@ export const useDeleteThread = () => {
       return thread.delete({ requestContext });
     },
     onError: () => {
-      toast.error("Failed to delete chat");
+      toast.error("删除对话失败");
     },
     onSuccess: (_, variables) => {
       const { agentId } = variables;
       if (agentId) {
         void queryClient.invalidateQueries({ queryKey: ["memory", "threads", agentId, agentId] });
       }
-      toast.success("Chat deleted successfully");
+      toast.success("对话已删除");
     },
   });
 };
@@ -161,14 +161,14 @@ export const useCloneThread = () => {
       return thread.clone({ requestContext, title });
     },
     onError: () => {
-      toast.error("Failed to clone thread");
+      toast.error("克隆会话失败");
     },
     onSuccess: (_, variables) => {
       const { agentId } = variables;
       if (agentId) {
         void queryClient.invalidateQueries({ queryKey: ["memory", "threads", agentId, agentId] });
       }
-      toast.success("Thread cloned successfully");
+      toast.success("会话已克隆");
     },
   });
 };

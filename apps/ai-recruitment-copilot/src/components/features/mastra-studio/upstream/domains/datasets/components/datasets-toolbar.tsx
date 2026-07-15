@@ -39,21 +39,21 @@ export function DatasetsToolbar({
   onReset,
   hasActiveFilters,
   onCreateClick,
-  createTooltip = "Create a dataset",
+  createTooltip = "创建数据集",
 }: DatasetsToolbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="min-w-64 max-w-120 flex-1">
         <ListSearch
-          label="Search datasets"
-          placeholder="Filter by dataset name"
+          label="搜索数据集"
+          placeholder="按数据集名称筛选"
           value={search}
           onSearch={onSearchChange}
         />
       </div>
       <ButtonsGroup>
         <SelectFieldBlock
-          label="Target"
+          label="目标"
           labelIsHidden
           name="filter-target"
           options={[...DATASET_TARGET_OPTIONS]}
@@ -62,7 +62,7 @@ export function DatasetsToolbar({
           className="whitespace-nowrap"
         />
         <SelectFieldBlock
-          label="Experiments"
+          label="实验"
           labelIsHidden
           name="filter-experiments"
           options={[...DATASET_EXPERIMENT_OPTIONS]}
@@ -72,7 +72,7 @@ export function DatasetsToolbar({
         />
         {tagOptions.length > 1 && (
           <SelectFieldBlock
-            label="Tags"
+            label="标签"
             labelIsHidden
             name="filter-tags"
             options={tagOptions}
@@ -83,7 +83,7 @@ export function DatasetsToolbar({
         )}
         {onReset && hasActiveFilters && (
           <Button onClick={onReset} size="sm" variant="default">
-            <XIcon className="size-3" /> Reset
+            <XIcon className="size-3" /> 重置
           </Button>
         )}
       </ButtonsGroup>

@@ -40,10 +40,10 @@ function resolveEdgeOutput({
   workflowOutput?: unknown;
 }) {
   if (boundaryPayload === "workflow-input") {
-    return { label: "Workflow input", output: workflowInput ?? undefined };
+    return { label: "工作流输入", output: workflowInput ?? undefined };
   }
   if (boundaryPayload === "workflow-output") {
-    return { label: "Workflow output", output: workflowOutput };
+    return { label: "工作流输出", output: workflowOutput };
   }
   return {
     label: undefined,

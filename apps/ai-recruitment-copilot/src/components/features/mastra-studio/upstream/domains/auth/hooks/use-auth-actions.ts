@@ -62,7 +62,7 @@ export async function makeSSOLoginRequest(
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to initiate SSO login: ${response.status}`);
+    throw new Error(`发起 SSO 登录失败：${response.status}`);
   }
 
   return response.json();
@@ -132,7 +132,7 @@ export async function makeLogoutRequest(client: MastraClient): Promise<LogoutRes
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to logout: ${response.status}`);
+    throw new Error(`退出登录失败：${response.status}`);
   }
 
   return response.json();

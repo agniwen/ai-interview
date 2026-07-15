@@ -7,9 +7,9 @@ export type DatasetTargetFilter = "all" | "none" | DatasetTargetType;
 // 'none' surfaces legacy/untyped datasets (created before targetType was persisted) so they can be
 // found and classified instead of silently disappearing under a type filter.
 export const DATASET_TARGET_OPTIONS = [
-  { label: "All targets", value: "all" },
+  { label: "全部目标", value: "all" },
   ...DATASET_TARGET_TYPE_OPTIONS,
-  { label: "No target", value: "none" },
+  { label: "无目标", value: "none" },
 ] as const satisfies readonly { value: DatasetTargetFilter; label: string }[];
 
 /** Target-filter predicate for the Datasets list. `targetTypes` comes from
@@ -28,9 +28,9 @@ export function matchesDatasetTargetFilter(
 }
 
 export const DATASET_EXPERIMENT_OPTIONS = [
-  { label: "All datasets", value: "all" },
-  { label: "With experiments", value: "with" },
-  { label: "Without experiments", value: "without" },
+  { label: "全部数据集", value: "all" },
+  { label: "有实验", value: "with" },
+  { label: "无实验", value: "without" },
 ] as const;
 
 /** `targetType` is persisted by create/edit flows and is the source of truth.
@@ -62,7 +62,7 @@ export function getDatasetTagOptions(datasets: DatasetRecord[]) {
   }
 
   return [
-    { label: "All tags", value: "all" },
+    { label: "全部标签", value: "all" },
     ...[...tagSet].toSorted().map((tag) => ({ label: tag, value: tag })),
   ];
 }

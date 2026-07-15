@@ -33,7 +33,7 @@ export function ProposalTag({
     return (
       <span className="inline-flex items-center gap-0.5 bg-surface3 border border-border1 rounded-md px-1">
         <input
-          aria-label="Tag name"
+          aria-label="标签名称"
           ref={inputRef}
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
@@ -74,7 +74,7 @@ export function ProposalTag({
           setIsEditing(true);
         }}
         className="text-neutral2 hover:text-neutral4 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-        title="Edit tag"
+        title="编辑标签"
       >
         <Pencil className="w-3 h-3" />
       </button>
@@ -82,7 +82,7 @@ export function ProposalTag({
         type="button"
         onClick={onRemove}
         className="text-neutral2 hover:text-negative1 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-        title="Remove tag"
+        title="移除标签"
       >
         <X className="w-3 h-3" />
       </button>

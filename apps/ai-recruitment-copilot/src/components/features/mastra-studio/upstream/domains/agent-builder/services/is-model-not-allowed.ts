@@ -36,7 +36,7 @@ export function isModelNotAllowedError(err: unknown): ModelNotAllowedDetails | n
   };
   return {
     attempted: details.attempted,
-    message: details.message || candidate.message || "Model not allowed by admin policy",
+    message: details.message || candidate.message || "管理员策略不允许使用此模型",
     offendingLabel: details.offendingLabel,
   };
 }

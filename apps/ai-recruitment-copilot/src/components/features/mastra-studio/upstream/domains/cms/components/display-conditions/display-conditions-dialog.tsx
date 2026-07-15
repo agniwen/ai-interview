@@ -39,7 +39,7 @@ export function DisplayConditionsDialog({
     <Dialog>
       <DialogTrigger asChild>
         <Button
-          tooltip={ruleCount > 0 ? `${ruleCount} rules` : "Display Conditions"}
+          tooltip={ruleCount > 0 ? `${ruleCount} 条规则` : "显示条件"}
           size="icon-sm"
           variant="ghost"
           className="relative"
@@ -52,10 +52,8 @@ export function DisplayConditionsDialog({
       </DialogTrigger>
       <DialogContent className="max-w-5xl w-full">
         <DialogHeader>
-          <DialogTitle>Display Conditions for {entityName}</DialogTitle>
-          <DialogDescription>
-            Configure when this entity should be displayed based on variable values.
-          </DialogDescription>
+          <DialogTitle>{entityName}的显示条件</DialogTitle>
+          <DialogDescription>根据变量值配置此实体的显示时机。</DialogDescription>
         </DialogHeader>
         <DialogBody>
           <RuleBuilder schema={schema} ruleGroup={rules} onChange={onRulesChange} />

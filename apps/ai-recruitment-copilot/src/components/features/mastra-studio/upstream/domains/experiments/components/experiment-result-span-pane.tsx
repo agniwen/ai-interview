@@ -32,10 +32,10 @@ export function ExperimentResultSpanPane({
         <PrevNextNav
           onPrevious={onPrevious}
           onNext={onNext}
-          previousAriaLabel="View previous span details"
-          nextAriaLabel="View next span details"
+          previousAriaLabel="查看上一个 Span 详情"
+          nextAriaLabel="查看下一个 Span 详情"
         />
-        <Button onClick={onClose} aria-label="Close span details">
+        <Button onClick={onClose} aria-label="关闭 Span 详情">
           <XIcon />
         </Button>
       </Column.Toolbar>

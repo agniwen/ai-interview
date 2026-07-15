@@ -47,21 +47,21 @@ export function TemplateForm({
             "[&>svg]:w-[1.2em] [&_svg]:h-[1.2em] [&_svg]:opacity-70",
           )}
         >
-          Install Template <PackageOpenIcon />
+          安装模板 <PackageOpenIcon />
         </h2>
         <SelectFieldBlock
           name="template-provider"
           options={providerOptions}
-          label="Template AI Model Provider"
+          label="模板 AI 模型提供商"
           onValueChange={onProviderChange}
           value={selectedProvider}
-          placeholder="Select"
+          placeholder="选择"
           layout="horizontal"
         />
 
         {selectedProvider && Object.entries(variables || {}).length > 0 && (
           <>
-            <h3 className="text-neutral3 text-ui-md">Set required Environmental Variables</h3>
+            <h3 className="text-neutral3 text-ui-md">设置必需的环境变量</h3>
             <div className="grid grid-cols-[1fr_1fr] gap-4 items-start">
               {isLoadingEnvVars ? (
                 <div
@@ -71,7 +71,7 @@ export function TemplateForm({
                     "animate-in fade-in duration-300",
                   )}
                 >
-                  <Spinner /> Loading variables...
+                  <Spinner /> 正在加载变量...
                 </div>
               ) : (
                 Object.entries(variables).map(([key, value]) => (
@@ -79,7 +79,7 @@ export function TemplateForm({
                     <TextFieldBlock
                       name={`env-${key}`}
                       labelIsHidden={true}
-                      label="Key"
+                      label="键"
                       value={key}
                       disabled
                       className="w-full"
@@ -87,10 +87,10 @@ export function TemplateForm({
                     <TextFieldBlock
                       name={key}
                       labelIsHidden={true}
-                      label="Value"
+                      label="值"
                       value={value}
                       onChange={handleVariableChange}
-                      errorMsg={errors.includes(key) ? `Value is required.` : ""}
+                      errorMsg={errors.includes(key) ? "请输入值。" : ""}
                       autoComplete="off"
                       className="w-full"
                     />
@@ -100,24 +100,22 @@ export function TemplateForm({
             </div>
             <div className="border-t border-border1 pt-12 mt-3.5 relative">
               <div className="absolute w-8 h-8 rounded-full bg-surface2 top-0 left-1/2 -translate-x-1/2 -translate-y-4 text-ui-sm text-neutral3 flex items-center justify-center">
-                And
+                以及
               </div>
 
-              <h3 className="text-neutral4 text-ui-lg">Set AI Model for Template Installation</h3>
-              <p className="text-neutral3 text-ui-md mt-2 mb-8">
-                This model will be used by the workflow to process and install the template
-              </p>
+              <h3 className="text-neutral4 text-ui-lg">设置用于安装模板的 AI 模型</h3>
+              <p className="text-neutral3 text-ui-md mt-2 mb-8">工作流将使用此模型处理并安装模板</p>
 
               {/* The template context stays open after a model selection. */}
               <AgentMetadataModelSwitcher
                 defaultProvider={defaultModelProvider || ""}
                 defaultModel={defaultModelId || ""}
-                updateModel={onModelUpdate || (() => Promise.resolve({ message: "Updated" }))}
+                updateModel={onModelUpdate || (() => Promise.resolve({ message: "已更新" }))}
                 closeEditor={() => {
                   /* empty */
                 }}
                 autoSave={true}
-                selectProviderPlaceholder="Provider"
+                selectProviderPlaceholder="提供商"
               />
             </div>
           </>
@@ -140,11 +138,11 @@ export function TemplateForm({
           >
             {isInstalling ? (
               <>
-                <Spinner className="w-4 h-4" /> Installing...
+                <Spinner className="w-4 h-4" /> 正在安装...
               </>
             ) : (
               <>
-                Install <ArrowRightIcon />
+                安装 <ArrowRightIcon />
               </>
             )}
           </Button>

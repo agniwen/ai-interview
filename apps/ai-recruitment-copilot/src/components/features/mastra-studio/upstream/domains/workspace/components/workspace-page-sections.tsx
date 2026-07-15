@@ -34,7 +34,7 @@ export function WorkspaceSelector({
         )}
         {isReadOnly && (
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400">
-            Read-only
+            只读
           </span>
         )}
       </div>
@@ -46,7 +46,7 @@ export function WorkspaceSelector({
   return (
     <div className="relative">
       <button
-        aria-label="Select workspace"
+        aria-label="选择工作区"
         onClick={onToggle}
         className="flex items-center gap-2 px-3 py-2 text-sm border border-border1 rounded-lg bg-surface2 hover:bg-surface3 transition-colors w-full max-w-md"
       >
@@ -56,7 +56,7 @@ export function WorkspaceSelector({
           <Server className="h-4 w-4 text-neutral4" />
         )}
         <span className="flex-1 text-left truncate">
-          {selectedWorkspace?.name ?? "Select workspace"}
+          {selectedWorkspace?.name ?? "选择工作区"}
           {selectedWorkspace?.source === "agent" && selectedWorkspace.agentName && (
             <span className="text-neutral4 ml-1">({selectedWorkspace.agentName})</span>
           )}
@@ -69,7 +69,7 @@ export function WorkspaceSelector({
         <div className="absolute z-50 mt-1 w-full max-w-md bg-surface2 border border-border1 rounded-lg shadow-lg overflow-hidden">
           {workspaces.map((workspace) => (
             <button
-              aria-label={`Open ${workspace.name}`}
+              aria-label={`打开 ${workspace.name}`}
               key={workspace.id}
               onClick={() => onSelect(workspace.id)}
               className={`flex items-center gap-3 px-3 py-2 w-full text-left hover:bg-surface3 transition-colors ${selectedWorkspace?.id === workspace.id ? "bg-surface3" : ""}`}
@@ -82,23 +82,21 @@ export function WorkspaceSelector({
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium text-neutral6 truncate">{workspace.name}</div>
                 <div className="text-xs text-neutral4 truncate">
-                  {workspace.source === "agent"
-                    ? `Agent: ${workspace.agentName}`
-                    : "Global workspace"}
+                  {workspace.source === "agent" ? `智能体：${workspace.agentName}` : "全局工作区"}
                 </div>
               </div>
               <div className="flex gap-1 shrink-0">
                 {workspace.safety?.readOnly && (
-                  <span className="text-[10px] text-amber-400">Read-only</span>
+                  <span className="text-[10px] text-amber-400">只读</span>
                 )}
                 {workspace.capabilities.hasFilesystem && (
-                  <span className="text-[10px] text-neutral4">FS</span>
+                  <span className="text-[10px] text-neutral4">文件系统</span>
                 )}
                 {workspace.capabilities.hasSandbox && (
-                  <span className="text-[10px] text-neutral4">Sandbox</span>
+                  <span className="text-[10px] text-neutral4">沙盒</span>
                 )}
                 {workspace.capabilities.hasSkills && (
-                  <span className="text-[10px] text-neutral4">Skills</span>
+                  <span className="text-[10px] text-neutral4">技能</span>
                 )}
               </div>
             </button>

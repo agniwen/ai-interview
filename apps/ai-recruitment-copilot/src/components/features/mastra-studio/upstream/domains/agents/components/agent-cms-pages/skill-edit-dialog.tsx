@@ -236,9 +236,7 @@ export function SkillEditDialog({
           visibility,
         });
       } catch (error) {
-        toast.error(
-          `Failed to update skill: ${error instanceof Error ? error.message : "Unknown error"}`,
-        );
+        toast.error(`更新技能失败：${error instanceof Error ? error.message : "未知错误"}`);
         return;
       }
       onSkillUpdated?.(result);
@@ -254,9 +252,7 @@ export function SkillEditDialog({
           workspaceId,
         });
       } catch (error) {
-        toast.error(
-          `Failed to create skill: ${error instanceof Error ? error.message : "Unknown error"}`,
-        );
+        toast.error(`创建技能失败：${error instanceof Error ? error.message : "未知错误"}`);
         return;
       }
       onSkillCreated?.(result, workspaceId);
@@ -282,16 +278,14 @@ export function SkillEditDialog({
 
   const dialogTitle = resolveConditional(
     isExistingSkill,
-    () => (isEditing ? "Edit Skill" : "Skill Details"),
-    () => "Add Skill",
+    () => (isEditing ? "编辑技能" : "技能详情"),
+    () => "添加技能",
   );
 
   return (
     <SideDialog
       dialogTitle={dialogTitle}
-      dialogDescription={
-        isExistingSkill ? "View or edit skill details" : "Describe what your skill should do"
-      }
+      dialogDescription={isExistingSkill ? "查看或编辑技能详情" : "描述此技能应该完成的任务"}
       isOpen={isOpen}
       onClose={onClose}
       className="h-full"
@@ -304,13 +298,13 @@ export function SkillEditDialog({
             () => (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="text-neutral3 shrink-0" aria-label="Private skill">
+                  <span className="text-neutral3 shrink-0" aria-label="私有技能">
                     <Icon size="sm">
                       <LockIcon />
                     </Icon>
                   </span>
                 </TooltipTrigger>
-                <TooltipContent>Only visible to you</TooltipContent>
+                <TooltipContent>仅你可见</TooltipContent>
               </Tooltip>
             ),
             () => null,
@@ -321,7 +315,7 @@ export function SkillEditDialog({
             allTruthy(isViewMode, isOwner),
             () => (
               <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-                <Pencil className="h-3.5 w-3.5" /> Edit
+                <Pencil className="h-3.5 w-3.5" /> 编辑
               </Button>
             ),
             () => null,
@@ -342,10 +336,10 @@ export function SkillEditDialog({
                             size="sm"
                             onClick={() => copySkill(skillToCopy)}
                           >
-                            <CopyIcon className="h-3.5 w-3.5" /> Copy
+                            <CopyIcon className="h-3.5 w-3.5" /> 复制
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Make your own private copy you can edit</TooltipContent>
+                        <TooltipContent>创建可编辑的私有副本</TooltipContent>
                       </Tooltip>
                     ),
                     () => null,
@@ -363,20 +357,20 @@ export function SkillEditDialog({
                     value={visibility}
                     onValueChange={(next) => setVisibility(next as "private" | "public")}
                   >
-                    <SelectTrigger size="sm" aria-label="Visibility" className="w-fit gap-1.5">
-                      <SelectValue placeholder="Visibility" />
+                    <SelectTrigger size="sm" aria-label="可见性" className="w-fit gap-1.5">
+                      <SelectValue placeholder="可见性" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="private">
                         <span className="flex items-center gap-2">
                           <LockIcon className="h-3.5 w-3.5" />
-                          Private
+                          私有
                         </span>
                       </SelectItem>
                       <SelectItem value="public">
                         <span className="flex items-center gap-2">
                           <Globe className="h-3.5 w-3.5" />
-                          Public
+                          公开
                         </span>
                       </SelectItem>
                     </SelectContent>
@@ -390,8 +384,8 @@ export function SkillEditDialog({
                 >
                   {resolveConditional(
                     isPending,
-                    () => "Saving...",
-                    () => (isExistingSkill ? "Save" : "Create"),
+                    () => "正在保存…",
+                    () => (isExistingSkill ? "保存" : "创建"),
                   )}
                 </Button>
               </>
@@ -437,7 +431,7 @@ export function SkillEditDialog({
                   className="flex items-center gap-1.5 text-xs text-neutral3 hover:text-neutral5 transition-colors mb-3"
                 >
                   <ChevronDown className="h-3 w-3" />
-                  Hide skill details
+                  隐藏技能详情
                 </button>
 
                 {resolveConditional(
@@ -447,8 +441,8 @@ export function SkillEditDialog({
                       <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                       <span>
                         {isTruthy(!workspaceId)
-                          ? "No workspace available. The skill will be saved to the database only."
-                          : "No workspace filesystem configured. The skill will be saved to the database only."}
+                          ? "没有可用工作区。此技能将仅保存到数据库。"
+                          : "尚未配置工作区文件系统。此技能将仅保存到数据库。"}
                       </span>
                     </div>
                   ),
@@ -491,7 +485,7 @@ export function SkillEditDialog({
                           className="mt-3 flex items-center gap-1.5 text-xs text-neutral3 hover:text-neutral5 transition-colors"
                         >
                           <Settings2 className="h-3.5 w-3.5" />
-                          Advanced mode
+                          高级模式
                           <ChevronRight className="h-3 w-3" />
                         </button>
                       ),
@@ -515,7 +509,7 @@ export function SkillEditDialog({
                           className="mb-3 flex items-center gap-1.5 text-xs text-neutral3 hover:text-neutral5 transition-colors"
                         >
                           <Pencil className="h-3.5 w-3.5" />
-                          Simple mode
+                          简单模式
                           <ChevronRight className="h-3 w-3" />
                         </button>
                       ),
@@ -539,7 +533,7 @@ export function SkillEditDialog({
                   className="flex items-center gap-1.5 text-xs text-neutral3 hover:text-neutral5 transition-colors"
                 >
                   <ChevronRight className="h-3 w-3" />
-                  {hasFields ? "Show skill details" : "or fill in manually"}
+                  {hasFields ? "显示技能详情" : "或手动填写"}
                 </button>
               </div>
             )}

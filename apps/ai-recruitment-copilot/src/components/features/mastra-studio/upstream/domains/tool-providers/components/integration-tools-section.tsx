@@ -57,7 +57,7 @@ export function IntegrationToolsSection({
     <>
       <SubSectionRoot>
         <Section.Header>
-          <SubSectionHeader title="Integration Tools" icon={<Plug />} />
+          <SubSectionHeader title="集成工具" icon={<Plug />} />
         </Section.Header>
 
         <div className="flex flex-col gap-1">
@@ -87,12 +87,8 @@ export function IntegrationToolsSection({
                 </EntityContent>
 
                 <div className="flex items-center gap-2">
-                  {count > 0 && (
-                    <Badge variant="default">
-                      {count} {count === 1 ? "tool" : "tools"}
-                    </Badge>
-                  )}
-                  <Badge variant="success">Available</Badge>
+                  {count > 0 && <Badge variant="default">{count} 个工具</Badge>}
+                  <Badge variant="success">可用</Badge>
                 </div>
               </Entity>
             );

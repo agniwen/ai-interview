@@ -12,7 +12,7 @@ export const ProviderNotConnectedAlert = ({ provider }: ProviderNotConnectedAler
 
   return (
     <div className="pt-2 p-2">
-      <Notice variant="warning" title="Provider not connected">
+      <Notice variant="warning" title="提供商未连接">
         <Notice.Message>
           Set the{" "}
           <code className="px-1 py-0.5 bg-yellow-100 dark:bg-yellow-900/50 rounded">

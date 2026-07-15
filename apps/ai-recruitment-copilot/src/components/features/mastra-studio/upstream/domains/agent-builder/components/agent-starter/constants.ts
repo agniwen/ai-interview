@@ -6,25 +6,25 @@ export const EXAMPLES = [
   {
     icon: MessagesSquare,
     prompt:
-      "Build an agent that triages incoming customer support emails. Classify urgency, route to the right team, and draft a polite first reply that asks for missing details.",
-    title: "Support triage",
+      "构建一个处理客户支持邮件的智能体：判断紧急程度、分配给合适的团队，并起草礼貌的首次回复，询问缺失信息。",
+    title: "支持工单分流",
   },
   {
     icon: MessageCircleQuestion,
     prompt:
-      "Build an agent that runs an async Slack standup. It pings each team member in the morning, collects what they did, what they will do, and any blockers, then posts a concise summary in #standup.",
-    title: "Standup bot",
+      "构建一个运行 Slack 异步站会的智能体：每天早上提醒团队成员，收集已完成、计划完成和阻塞事项，然后在 #standup 中发布简洁摘要。",
+    title: "站会机器人",
   },
   {
     icon: Wrench,
     prompt:
-      "Build an agent that reviews TypeScript pull requests on GitHub. Look for type-safety issues, missing tests, and inconsistent patterns. Leave inline review comments with concrete suggestions.",
-    title: "PR reviewer",
+      "构建一个审查 GitHub TypeScript 拉取请求的智能体：查找类型安全问题、缺失测试和不一致的代码模式，并给出具体的行内评审建议。",
+    title: "PR 评审助手",
   },
   {
     icon: GraduationCap,
     prompt:
-      "Build an agent that onboards new engineers to our codebase. It explains the architecture, points to the right docs, and answers questions in plain English with code examples.",
-    title: "Onboarding tutor",
+      "构建一个帮助新工程师熟悉代码库的智能体：讲解架构、指向正确文档，并用清晰语言和代码示例回答问题。",
+    title: "入职辅导助手",
   },
 ];

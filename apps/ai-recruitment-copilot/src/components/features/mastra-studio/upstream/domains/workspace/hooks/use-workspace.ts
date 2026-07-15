@@ -61,7 +61,7 @@ export const useWorkspaceInfo = (workspaceId?: string) => {
         throw new Error("Workspace v1 not supported by core or client");
       }
       if (!workspaceId) {
-        throw new Error("workspaceId is required");
+        throw new Error("必须提供工作区 ID");
       }
       const workspace = getWorkspaceClient(client).getWorkspace(workspaceId);
       return workspace.info();
@@ -111,7 +111,7 @@ export const useWorkspaceFiles = (
         throw new Error("Workspace v1 not supported by core or client");
       }
       if (!options?.workspaceId) {
-        throw new Error("workspaceId is required");
+        throw new Error("必须提供工作区 ID");
       }
       const workspace = getWorkspaceClient(client).getWorkspace(options.workspaceId);
       return workspace.listFiles(path, options?.recursive);
@@ -138,7 +138,7 @@ export const useWorkspaceFile = (
         throw new Error("Workspace v1 not supported by core or client");
       }
       if (!options?.workspaceId) {
-        throw new Error("workspaceId is required");
+        throw new Error("必须提供工作区 ID");
       }
       const workspace = getWorkspaceClient(client).getWorkspace(options.workspaceId);
       return workspace.readFile(path, options?.encoding);
@@ -165,7 +165,7 @@ export const useWorkspaceFileStat = (
         throw new Error("Workspace v1 not supported by core or client");
       }
       if (!options?.workspaceId) {
-        throw new Error("workspaceId is required");
+        throw new Error("必须提供工作区 ID");
       }
       const workspace = getWorkspaceClient(client).getWorkspace(options.workspaceId);
       return workspace.stat(path);

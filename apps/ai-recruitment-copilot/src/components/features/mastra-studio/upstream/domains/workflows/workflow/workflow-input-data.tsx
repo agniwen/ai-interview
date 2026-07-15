@@ -172,7 +172,7 @@ const WorkflowJsonInput = ({
         setErrors(result.error.issues.map((e) => `[${e.path.join(".")}] ${e.message}`));
       }
     } catch {
-      setErrors(["Invalid JSON provided"]);
+      setErrors(["提供的 JSON 无效"]);
     }
   };
 
@@ -188,7 +188,7 @@ const WorkflowJsonInput = ({
       {errors.length > 0 && (
         <div className="border border-accent2 rounded-lg p-2">
           <Txt as="p" variant="ui-md" className="text-accent2 font-semibold">
-            {errors.length} errors found
+            发现 {errors.length} 个错误
           </Txt>
 
           <ul className="list-disc list-inside">
@@ -203,7 +203,7 @@ const WorkflowJsonInput = ({
 
       <div>
         <Txt as="label" variant="ui-sm" className="text-neutral3 pb-1 block">
-          Input data
+          输入数据
         </Txt>
         <CodeEditor data={data} onChange={setInputData} editable={!isReadOnly} />
       </div>
@@ -228,14 +228,14 @@ const WorkflowJsonInput = ({
 };
 
 const PROCESSOR_PHASES = [
-  { label: "Input - Process input messages before LLM", value: "input" },
-  { label: "Input Step - Process at each agentic loop step", value: "inputStep" },
-  { label: "Output Stream - Process streaming chunks", value: "outputStream" },
-  { label: "Output Result - Process complete output", value: "outputResult" },
-  { label: "Output Step - Process after each LLM response", value: "outputStep" },
+  { label: "输入 - 在 LLM 之前处理输入消息", value: "input" },
+  { label: "输入步骤 - 在每次智能体循环步骤中处理", value: "inputStep" },
+  { label: "输出流 - 处理流式数据块", value: "outputStream" },
+  { label: "输出结果 - 处理完整输出", value: "outputResult" },
+  { label: "输出步骤 - 在每次 LLM 响应后处理", value: "outputStep" },
 ];
 
-const DEFAULT_PROCESSOR_MESSAGE = "Hello, this is a test message.";
+const DEFAULT_PROCESSOR_MESSAGE = "你好，这是一条测试消息。";
 const DEFAULT_PROCESSOR_PHASE = "input";
 
 function getDefaultProcessorMessage(defaultValues: unknown) {
@@ -305,7 +305,7 @@ const WorkflowProcessorInput = ({
         setErrors(result.error.issues.map((e) => `[${e.path.join(".")}] ${e.message}`));
       }
     } catch {
-      setErrors(["Error processing input"]);
+      setErrors(["处理输入时出错"]);
     }
   };
 
@@ -314,7 +314,7 @@ const WorkflowProcessorInput = ({
       {errors.length > 0 && (
         <div className="border border-accent2 rounded-lg p-2">
           <Txt as="p" variant="ui-md" className="text-accent2 font-semibold">
-            {errors.length} errors found
+            发现 {errors.length} 个错误
           </Txt>
           <ul className="list-disc list-inside">
             {errors.map((error, idx) => (
@@ -328,11 +328,11 @@ const WorkflowProcessorInput = ({
 
       <div className="space-y-2">
         <Txt as="div" variant="ui-sm" className="text-neutral3">
-          Phase
+          阶段
         </Txt>
         <Select value={phase} onValueChange={setPhase} disabled={isReadOnly}>
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select phase" />
+            <SelectValue placeholder="选择阶段" />
           </SelectTrigger>
           <SelectContent>
             {PROCESSOR_PHASES.map((p) => (
@@ -349,13 +349,13 @@ const WorkflowProcessorInput = ({
 
       <div className="space-y-2">
         <Txt as="label" variant="ui-sm" className="text-neutral3">
-          Test Message
+          测试消息
         </Txt>
         <textarea
-          aria-label="Test Message"
+          aria-label="测试消息"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder="Enter a test message..."
+          placeholder="输入测试消息..."
           rows={4}
           disabled={isReadOnly}
           className="w-full bg-transparent border border-border1 rounded-md p-3 text-ui-sm text-neutral6 placeholder:text-neutral3 focus:outline-hidden focus:ring-2 focus:ring-accent1 disabled:opacity-50"
@@ -458,7 +458,7 @@ export const WorkflowInputData = ({
   submitButtonVariant,
   submitButtonFullWidth,
   hideInputTypeLabel,
-  inputTypeLabel = "Run input",
+  inputTypeLabel = "运行输入",
   hideHeading,
 }: WorkflowInputDataProps) => {
   const [type, setType] = useState<InputType>(isProcessorWorkflow ? "simple" : "form");
@@ -473,7 +473,7 @@ export const WorkflowInputData = ({
 
   const defaultHeading = (
     <Txt as="span" variant="ui-md" className={cn("text-neutral5 font-semibold", headingClassName)}>
-      {heading ?? (withoutSubmit ? "Run input" : "Trigger a run")}
+      {heading ?? (withoutSubmit ? "运行输入" : "触发运行")}
     </Txt>
   );
   const inputTypeToggle = (

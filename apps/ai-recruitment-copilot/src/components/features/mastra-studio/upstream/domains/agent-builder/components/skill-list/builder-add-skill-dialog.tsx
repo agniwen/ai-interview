@@ -77,7 +77,7 @@ function renderPreviewContent(isLoading: boolean, previewContent: string | undef
   return (
     <div className="flex-1 flex flex-col items-center justify-center text-neutral4">
       <Package className="h-8 w-8 mb-2" />
-      <p className="text-sm">Preview unavailable</p>
+      <p className="text-sm">无法预览</p>
     </div>
   );
 }
@@ -87,7 +87,7 @@ function renderInstallButtonContent(isPending: boolean, isInstalled: boolean): R
     return (
       <>
         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-        Installing...
+        正在安装...
       </>
     );
   }
@@ -95,14 +95,14 @@ function renderInstallButtonContent(isPending: boolean, isInstalled: boolean): R
     return (
       <>
         <Check className="h-4 w-4 mr-2" />
-        Already installed
+        已安装
       </>
     );
   }
   return (
     <>
       <Download className="h-4 w-4 mr-2" />
-      Install
+      安装
     </>
   );
 }
@@ -213,12 +213,12 @@ export function BuilderAddSkillDialog({
       onInstalled?.(result.storedSkillId);
       onOpenChange(false);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Install failed";
+      const message = error instanceof Error ? error.message : "安装失败";
       // Detect 409 from the stringified error body. The collision case is the
       // only one we need to upgrade into a navigation hint.
       if (/409/.test(message) || /already exists/i.test(message)) {
         onCollision?.(selectedSkill.name);
-        setInstallError("A skill with this name already exists. Open the existing skill instead.");
+        setInstallError("已存在同名技能，请打开现有技能。");
       } else {
         setInstallError(message);
       }
@@ -241,9 +241,9 @@ export function BuilderAddSkillDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Browse {registryLabel}</DialogTitle>
+          <DialogTitle>浏览 {registryLabel}</DialogTitle>
           <DialogDescription>
-            Find a public skill from {registryLabel} and import it into your Builder skill library.
+            从 {registryLabel} 查找公共技能，并将其导入构建器技能库。
           </DialogDescription>
         </DialogHeader>
 
@@ -251,7 +251,7 @@ export function BuilderAddSkillDialog({
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral3" />
             <Input
-              placeholder={`Search ${registryLabel}...`}
+              placeholder={`搜索 ${registryLabel}...`}
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               className="pl-9"
@@ -263,7 +263,7 @@ export function BuilderAddSkillDialog({
             {/* Skills list */}
             <div className="w-1/2 flex flex-col min-h-0">
               <div className="text-xs font-medium text-neutral4 uppercase tracking-wide mb-2">
-                {hasSearchResults ? "Search results" : "Popular skills"}
+                {hasSearchResults ? "搜索结果" : "热门技能"}
               </div>
               <ScrollArea className="flex-1 border border-border1 rounded-lg">
                 {(() => {
@@ -279,7 +279,7 @@ export function BuilderAddSkillDialog({
                       <div className="flex flex-col items-center justify-center py-8 text-neutral4">
                         <Package className="h-8 w-8 mb-2" />
                         <p className="text-sm">
-                          {hasSearchResults ? "No skills found" : "No skills available"}
+                          {hasSearchResults ? "未找到技能" : "暂无可用技能"}
                         </p>
                       </div>
                     );
@@ -294,7 +294,7 @@ export function BuilderAddSkillDialog({
                           : null;
                         return (
                           <button
-                            aria-label={`Select skill ${skill.name}`}
+                            aria-label={`选择技能 ${skill.name}`}
                             key={skillUniqueId}
                             onClick={() => setSelectedSkill(skill)}
                             className={cn(
@@ -313,7 +313,7 @@ export function BuilderAddSkillDialog({
                                   {isInstalled && (
                                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-accent1/20 text-accent1">
                                       <Check className="h-2.5 w-2.5" />
-                                      Installed
+                                      已安装
                                     </span>
                                   )}
                                 </div>
@@ -355,7 +355,7 @@ export function BuilderAddSkillDialog({
                           </span>
                           <span className="flex items-center gap-1">
                             <Download className="h-3 w-3" />
-                            {selectedSkill.installs.toLocaleString()} installs
+                            {selectedSkill.installs.toLocaleString()} 次安装
                           </span>
                         </div>
                       </div>
@@ -365,7 +365,7 @@ export function BuilderAddSkillDialog({
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-neutral4 hover:text-neutral5 transition-colors"
-                          title="View on GitHub"
+                          title="在 GitHub 上查看"
                         >
                           <ExternalLink className="h-4 w-4" />
                         </a>
@@ -378,7 +378,7 @@ export function BuilderAddSkillDialog({
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center text-neutral4">
                   <Package className="h-8 w-8 mb-2" />
-                  <p className="text-sm">Select a skill to preview</p>
+                  <p className="text-sm">选择技能以预览</p>
                 </div>
               )}
             </div>
@@ -393,7 +393,7 @@ export function BuilderAddSkillDialog({
               )}
               <div className="flex items-center justify-end gap-2">
                 <Button variant="default" onClick={() => handleOpenChange(false)}>
-                  Cancel
+                  取消
                 </Button>
                 <Button
                   variant="primary"

@@ -47,9 +47,9 @@ export const FavoriteButton = ({
   }
 
   const signedIn = capabilities ? isAuthenticated(capabilities) : false;
-  const label = isFavorited ? "Unstar agent" : "Star agent";
-  const disabledLabel = "Sign in to star this agent";
-  const countLabel = favoriteCount === 1 ? "Star" : "Stars";
+  const label = isFavorited ? "取消收藏智能体" : "收藏智能体";
+  const disabledLabel = "登录后可收藏此智能体";
+  const countLabel = "收藏";
   const isDisabled = toggle.isPending || !signedIn;
 
   return (

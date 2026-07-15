@@ -45,11 +45,11 @@ const WorkflowBadgeExtended = ({ workflowId, workflow, runId }: WorkflowBadgeExt
     <>
       <div className="flex items-center gap-2 pb-2">
         <Button as={Link} href={`/workflows/${workflowId}/graph`}>
-          Go to workflow
+          前往工作流
         </Button>
         {runId && (
           <Button as={Link} href={`/workflows/${workflowId}/graph/${runId}`}>
-            See run
+            查看运行记录
           </Button>
         )}
       </div>
@@ -146,7 +146,7 @@ export const WorkflowBadge = ({
 
       {suspendPayloadSlot !== undefined && Boolean(suspendPayload) && (
         <div>
-          <p className="font-medium pb-2">Workflow suspend payload</p>
+          <p className="font-medium pb-2">工作流挂起载荷</p>
           {suspendPayloadSlot}
         </div>
       )}

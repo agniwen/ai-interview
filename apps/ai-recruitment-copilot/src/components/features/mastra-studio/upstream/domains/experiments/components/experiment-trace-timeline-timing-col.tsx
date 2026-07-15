@@ -88,33 +88,33 @@ export function ExperimentTraceTimelineTimingCol({
               "[&>svg]:w-[1.25em] [&>svg]:h-[1.25em] [&>svg]:shrink-0 [&>svg]:opacity-50",
             )}
           >
-            <TimerIcon /> Span Timing
+            <TimerIcon /> Span 时间
           </div>
           <KeyValueList
             className="[&>dd]:text-ui-md [&>dt]:text-ui-md [&>dt]:min-h-0 [&>dd]:min-h-0"
             data={[
               {
                 icon: <ChevronsLeftRightIcon />,
-                key: "Latency",
-                label: "Latency",
+                key: "延迟",
+                label: "延迟",
                 value: `${span.latency} ms`,
               },
               {
                 icon: <ChevronFirstIcon />,
                 key: "startTime",
-                label: "Started at",
+                label: "开始时间",
                 value: span.startTime ? format(new Date(span.startTime), "hh:mm:ss:SSS a") : "-",
               },
               {
                 icon: <ChevronLastIcon />,
                 key: "endTime",
-                label: "Ended at",
+                label: "结束时间",
                 value: span.endTime ? format(new Date(span.endTime), "hh:mm:ss:SSS a") : "-",
               },
               {
                 icon: <ChevronsRightIcon />,
                 key: "startShift",
-                label: "Start Shift",
+                label: "开始偏移",
                 value: `${spanStartTimeShift}ms`,
               },
             ]}

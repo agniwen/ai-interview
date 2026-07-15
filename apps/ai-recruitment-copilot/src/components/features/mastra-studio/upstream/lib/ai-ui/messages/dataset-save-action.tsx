@@ -59,7 +59,7 @@ function DatasetSaveDialog({
 
   const handleSubmit = useCallback(async () => {
     if (!selectedDatasetId) {
-      toast.error("Please select a dataset");
+      toast.error("请选择数据集");
       return;
     }
 
@@ -67,7 +67,7 @@ function DatasetSaveDialog({
     try {
       parsedInput = JSON.parse(input);
     } catch {
-      toast.error("Input must be valid JSON");
+      toast.error("输入必须是有效的 JSON");
       return;
     }
 
@@ -76,7 +76,7 @@ function DatasetSaveDialog({
       try {
         parsedGroundTruth = JSON.parse(groundTruth);
       } catch {
-        toast.error("Ground Truth must be valid JSON");
+        toast.error("标准答案必须是有效的 JSON");
         return;
       }
     }
@@ -90,15 +90,13 @@ function DatasetSaveDialog({
         ...(hasRequestContext ? { requestContext } : {}),
       });
       const targetDataset = datasets.find((d) => d.id === selectedDatasetId);
-      toast.success(`Item saved to "${targetDataset?.name}"`);
+      toast.success(`数据项已保存到“${targetDataset?.name}”`);
       onOpenChange(false);
       setSelectedDatasetId("");
       onInputChange("");
       setGroundTruth("");
     } catch (error) {
-      toast.error(
-        `Failed to save item: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`保存数据项失败：${error instanceof Error ? error.message : "未知错误"}`);
     }
   }, [
     input,
@@ -115,25 +113,23 @@ function DatasetSaveDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Save to Dataset</DialogTitle>
-          <DialogDescription>Save as a dataset item for evaluation.</DialogDescription>
+          <DialogTitle>保存到数据集</DialogTitle>
+          <DialogDescription>保存为用于评估的数据项。</DialogDescription>
         </DialogHeader>
         <DialogBody className="py-1 space-y-4">
           <div className="grid gap-2">
-            <Label htmlFor="ds-target">Dataset</Label>
+            <Label htmlFor="ds-target">数据集</Label>
             <Select
               value={selectedDatasetId}
               onValueChange={setSelectedDatasetId}
               disabled={addItem.isPending || isDatasetsLoading}
             >
               <SelectTrigger id="ds-target">
-                <SelectValue placeholder={isDatasetsLoading ? "Loading..." : "Select a dataset"} />
+                <SelectValue placeholder={isDatasetsLoading ? "正在加载..." : "选择数据集"} />
               </SelectTrigger>
               <SelectContent>
                 {datasets.length === 0 ? (
-                  <div className="px-2 py-4 text-sm text-neutral4 text-center">
-                    No datasets available
-                  </div>
+                  <div className="px-2 py-4 text-sm text-neutral4 text-center">暂无可用数据集</div>
                 ) : (
                   datasets.map((dataset) => (
                     <SelectItem key={dataset.id} value={dataset.id}>
@@ -146,7 +142,7 @@ function DatasetSaveDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label>Input (JSON)</Label>
+            <Label>输入（JSON）</Label>
             <CodeEditor
               value={input}
               onChange={onInputChange}
@@ -156,7 +152,7 @@ function DatasetSaveDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label>Ground Truth (JSON, optional)</Label>
+            <Label>标准答案（JSON，可选）</Label>
             <CodeEditor
               value={groundTruth}
               onChange={setGroundTruth}
@@ -167,7 +163,7 @@ function DatasetSaveDialog({
         </DialogBody>
         <DialogFooter className="px-6">
           <Button variant="default" size="sm" onClick={() => onOpenChange(false)}>
-            Cancel
+            取消
           </Button>
           <Button
             variant="primary"
@@ -178,7 +174,7 @@ function DatasetSaveDialog({
             <Icon size="sm">
               <Save />
             </Icon>
-            {addItem.isPending ? "Saving..." : "Save Item"}
+            {addItem.isPending ? "正在保存..." : "保存数据项"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -210,7 +206,7 @@ function DatasetSaveActionInner({ messageText }: DatasetSaveActionProps) {
       <Button
         variant="default"
         size="icon-md"
-        tooltip="Save to dataset"
+        tooltip="保存到数据集"
         className="bg-transparent text-neutral3 hover:text-neutral6"
         onClick={handleClick}
       >
@@ -274,9 +270,7 @@ function SaveFullConversationInner({
 
       setDialogOpen(true);
     } catch (error) {
-      toast.error(
-        `Failed to fetch thread messages: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`获取会话消息失败：${error instanceof Error ? error.message : "未知错误"}`);
     } finally {
       setIsFetching(false);
     }
@@ -295,7 +289,7 @@ function SaveFullConversationInner({
         ) : (
           <DatabaseIcon className="h-3.5 w-3.5" />
         )}
-        Save full conversation to dataset
+        将完整对话保存到数据集
       </button>
       <DatasetSaveDialog
         open={dialogOpen}

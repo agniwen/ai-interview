@@ -39,10 +39,10 @@ export const useChannelConnectToast = () => {
 
     if (channelConnected === "true") {
       const teamSuffix = team ? ` workspace "${team}"` : "";
-      toast.success(`Connected to ${platformLabel}${teamSuffix}`);
+      toast.success(`已连接到 ${platformLabel}${teamSuffix}`);
     } else {
       // v8 ignore next
-      toast.error(`Failed to connect ${platformLabel}: ${channelError}`);
+      toast.error(`连接 ${platformLabel} 失败：${channelError}`);
     }
   }, [channelConnected, channelError, platform, searchParams, team]);
 };

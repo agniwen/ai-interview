@@ -75,7 +75,7 @@ function ReviewComment({
     }
     return (
       <Txt variant="ui-xs" className="text-neutral2 italic">
-        No comment
+        暂无评论
       </Txt>
     );
   }
@@ -94,7 +94,7 @@ function ReviewComment({
           setTimeout(() => setCommentSaved(false), 2000);
         }
       }}
-      placeholder="What went wrong? How should this be handled?"
+      placeholder="出现了什么问题？应该如何处理？"
       rows={2}
     />
   );
@@ -112,7 +112,7 @@ function ReviewRatingButtons({
   return (
     <div className="flex items-center gap-0.5 mr-1">
       <Button
-        tooltip="Good — this result is acceptable"
+        tooltip="良好——此结果可以接受"
         variant={item.rating === "positive" ? "default" : "ghost"}
         size="sm"
         onClick={() => onRate(item.rating === "positive" ? undefined : "positive")}
@@ -123,7 +123,7 @@ function ReviewRatingButtons({
         </Icon>
       </Button>
       <Button
-        tooltip="Bad — this result is wrong"
+        tooltip="不佳——此结果有误"
         variant={item.rating === "negative" ? "default" : "ghost"}
         size="sm"
         onClick={() => onRate(item.rating === "negative" ? undefined : "negative")}
@@ -201,7 +201,7 @@ export function ReviewItemCard({
           </Icon>
         ) : (
           <input
-            aria-label="Select review item"
+            aria-label="选择评审项"
             type="checkbox"
             checked={isSelected}
             onChange={onToggleSelect}
@@ -219,7 +219,7 @@ export function ReviewItemCard({
       {/* Error indicator */}
       {Boolean(item.error) && (
         <Txt variant="ui-xs" className="text-negative1 mt-1 block truncate">
-          Error: {typeof item.error === "string" ? item.error : "Failed"}
+          错误：{typeof item.error === "string" ? item.error : "失败"}
         </Txt>
       )}
 
@@ -243,9 +243,7 @@ export function ReviewItemCard({
             <>
               <Button
                 tooltip={
-                  item.tags.length > 0 || item.comment
-                    ? "Mark as complete"
-                    : "Add a tag or comment before completing"
+                  item.tags.length > 0 || item.comment ? "标记为已完成" : "完成前请添加标签或评论"
                 }
                 variant="ghost"
                 size="sm"
@@ -262,12 +260,7 @@ export function ReviewItemCard({
                 </Icon>
               </Button>
 
-              <Button
-                tooltip="Delete from review queue"
-                variant="ghost"
-                size="sm"
-                onClick={onRemove}
-              >
+              <Button tooltip="从评审队列中删除" variant="ghost" size="sm" onClick={onRemove}>
                 <Icon size="sm" className="text-neutral3">
                   <Trash2 />
                 </Icon>
@@ -294,7 +287,7 @@ export function ReviewItemCard({
           {/* Input */}
           <div>
             <Txt variant="ui-xs" className="text-neutral3 font-medium block mb-1">
-              Input
+              输入
             </Txt>
             <pre className="text-xs text-neutral4 bg-surface3 rounded px-3 py-2 overflow-x-auto whitespace-pre-wrap wrap-break-word max-h-24 overflow-y-auto">
               {formatUnknown(item.input)}
@@ -304,7 +297,7 @@ export function ReviewItemCard({
           {/* Output / Error */}
           <div>
             <Txt variant="ui-xs" className="text-neutral3 font-medium block mb-1">
-              {item.error ? "Error" : "Output"}
+              {item.error ? "错误" : "输出"}
             </Txt>
             <pre
               className={cn(
@@ -320,11 +313,11 @@ export function ReviewItemCard({
           <div>
             <div className="flex items-center justify-between mb-1">
               <Txt variant="ui-xs" className="text-neutral3 font-medium">
-                Comment
+                评论
               </Txt>
               {commentSaved && (
                 <Txt variant="ui-xs" className="text-positive1">
-                  Saved
+                  已保存
                 </Txt>
               )}
             </div>

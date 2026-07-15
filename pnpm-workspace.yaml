@@ -92,3 +92,6 @@ minimumReleaseAgeExclude:
   - "@ai-sdk/provider@3.0.13"
   - "@ai-sdk/react@3.0.221"
   - ai@6.0.219
+
+patchedDependencies:
+  "@mastra/playground-ui@40.0.1": patches/@mastra__playground-ui@40.0.1.patch

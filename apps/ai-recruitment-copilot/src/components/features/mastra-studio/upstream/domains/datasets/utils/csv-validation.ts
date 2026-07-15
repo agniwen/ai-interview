@@ -184,7 +184,7 @@ export function validateMappedData(
   if (inputColumns.length === 0) {
     errors.push({
       column: "",
-      message: "At least one column must be mapped to input",
+      message: "至少需要将一列映射到输入",
       // Header-level error,
       row: 0,
     });
@@ -204,7 +204,7 @@ export function validateMappedData(
       if (value === null || value === undefined || value === "") {
         errors.push({
           column: col,
-          message: `Input column "${col}" cannot be empty`,
+          message: `输入列“${col}”不能为空`,
           row: rowNumber,
         });
       }

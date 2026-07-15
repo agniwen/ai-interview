@@ -51,32 +51,28 @@ function CSVValidationStep({
   return (
     <div className="flex flex-col gap-4">
       <div className="text-sm text-neutral4">
-        {hasSchema
-          ? "Rows have been validated against the dataset schema."
-          : "Ready to import. No schema validation required."}
+        {hasSchema ? "已按照数据集 Schema 验证各行。" : "已准备导入，无需进行 Schema 验证。"}
       </div>
       {result.invalidCount > 0 ? (
         <div className="p-3 bg-warning/10 border border-warning/30 rounded-md">
           <div className="flex items-center gap-2 text-warning font-medium">
             <span className="text-lg">⚠</span>
-            {result.invalidCount} row{result.invalidCount === 1 ? "" : "s"} will be skipped
+            将跳过 {result.invalidCount} 行
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            {result.validCount} of {result.totalRows} rows will be imported
+            将导入 {result.totalRows} 行中的 {result.validCount} 行
           </p>
         </div>
       ) : (
         <div className="p-3 bg-success/10 border border-success/30 rounded-md">
           <div className="flex items-center gap-2 text-success font-medium">
             <span className="text-lg">✓</span>
-            All {result.totalRows} row{result.totalRows === 1 ? " is" : "s are"} valid
+            全部 {result.totalRows} 行均有效
           </div>
         </div>
       )}
       {result.validCount === 0 && (
-        <p className="text-sm text-destructive">
-          No valid rows to import. Please fix the data or adjust the schema.
-        </p>
+        <p className="text-sm text-destructive">没有可导入的有效行，请修复数据或调整 Schema。</p>
       )}
       {result.invalidCount > 0 && <ValidationReport result={result} />}
     </div>
@@ -88,14 +84,11 @@ function ImportCompleteStep({ result }: { result: ImportResult | null }) {
     <div className="flex flex-col items-center gap-4 py-8">
       <div className="text-4xl">{result && result.errors === 0 ? "✓" : "⚠"}</div>
       <div className="text-center">
-        <div className="text-lg font-medium text-neutral1">Import Complete</div>
+        <div className="text-lg font-medium text-neutral1">导入完成</div>
         <div className="text-sm text-neutral4 mt-1">
-          {result?.success ?? 0} item{result?.success === 1 ? "" : "s"} imported
+          已导入 {result?.success ?? 0} 个数据项
           {result && result.errors > 0 && (
-            <span className="text-accent2">
-              {" "}
-              ({result.errors} error{result.errors === 1 ? "" : "s"})
-            </span>
+            <span className="text-accent2"> （{result.errors} 个错误）</span>
           )}
         </div>
       </div>
@@ -169,8 +162,8 @@ export function CSVImportDialog({
 
     if (inputColumns.length === 0) {
       errors.push({
-        column: "Input",
-        message: "At least one column must be mapped to Input",
+        column: "输入",
+        message: "至少需要将一列映射到输入",
         row: 0,
       });
       return errors;
@@ -187,7 +180,7 @@ export function CSVImportDialog({
         if (value === null || value === undefined || value === "") {
           errors.push({
             column: col,
-            message: "Input value is required",
+            message: "输入值为必填项",
             row: rowNum,
           });
         }
@@ -271,7 +264,7 @@ export function CSVImportDialog({
         setValidationErrors([
           {
             column: "",
-            message: "All rows failed schema validation. Please check your data.",
+            message: "所有行均未通过 Schema 验证，请检查数据。",
             row: 0,
           },
         ]);
@@ -355,13 +348,9 @@ export function CSVImportDialog({
     if (importResult) {
       const skipped = schemaValidation?.invalidCount ?? 0;
       if (skipped > 0) {
-        toast.success(
-          `Imported ${importResult.success} row${importResult.success === 1 ? "" : "s"} (${skipped} skipped)`,
-        );
+        toast.success(`已导入 ${importResult.success} 行（跳过 ${skipped} 行）`);
       } else {
-        toast.success(
-          `Imported ${importResult.success} row${importResult.success === 1 ? "" : "s"}`,
-        );
+        toast.success(`已导入 ${importResult.success} 行`);
       }
     }
 
@@ -424,9 +413,7 @@ export function CSVImportDialog({
       case "preview": {
         return parsedCSV ? (
           <div className="flex flex-col gap-4">
-            <div className="text-sm text-neutral4">
-              Preview of your CSV data. Click Next to map columns.
-            </div>
+            <div className="text-sm text-neutral4">预览 CSV 数据。点击“下一步”映射列。</div>
             <CSVPreviewTable headers={parsedCSV.headers} data={parsedCSV.data} maxRows={5} />
           </div>
         ) : null;
@@ -445,7 +432,7 @@ export function CSVImportDialog({
 
             {/* Compact preview */}
             <div className="border-t border-border1 pt-4">
-              <div className="text-xs text-neutral4 mb-2">Data Preview</div>
+              <div className="text-xs text-neutral4 mb-2">数据预览</div>
               <CSVPreviewTable headers={parsedCSV.headers} data={parsedCSV.data} maxRows={3} />
             </div>
           </div>
@@ -466,9 +453,9 @@ export function CSVImportDialog({
           <div className="flex flex-col items-center gap-4 py-8">
             <Spinner />
             <div className="text-center">
-              <div className="text-lg font-medium text-neutral1">Importing items...</div>
+              <div className="text-lg font-medium text-neutral1">正在导入数据项...</div>
               <div className="text-sm text-neutral4 mt-1">
-                {importProgress.current} of {importProgress.total}
+                {importProgress.current} / {importProgress.total}
               </div>
             </div>
           </div>
@@ -488,15 +475,15 @@ export function CSVImportDialog({
   const renderFooter = () => {
     switch (step) {
       case "upload": {
-        return <Button onClick={handleClose}>Cancel</Button>;
+        return <Button onClick={handleClose}>取消</Button>;
       }
 
       case "preview": {
         return (
           <>
-            <Button onClick={() => setStep("upload")}>Back</Button>
+            <Button onClick={() => setStep("upload")}>返回</Button>
             <Button variant="primary" onClick={() => setStep("mapping")}>
-              Next
+              下一步
             </Button>
           </>
         );
@@ -505,13 +492,13 @@ export function CSVImportDialog({
       case "mapping": {
         return (
           <>
-            <Button onClick={() => setStep("preview")}>Back</Button>
+            <Button onClick={() => setStep("preview")}>返回</Button>
             <Button
               variant="primary"
               onClick={handleValidateMapping}
               disabled={!columnMapping.isInputMapped}
             >
-              {dataset?.inputSchema || dataset?.groundTruthSchema ? "Validate" : "Next"}
+              {dataset?.inputSchema || dataset?.groundTruthSchema ? "验证" : "下一步"}
             </Button>
           </>
         );
@@ -520,15 +507,15 @@ export function CSVImportDialog({
       case "validation": {
         return (
           <>
-            <Button onClick={() => setStep("mapping")}>Back</Button>
+            <Button onClick={() => setStep("mapping")}>返回</Button>
             <Button
               variant="primary"
               onClick={handleImport}
               disabled={!schemaValidation || schemaValidation.validCount === 0}
             >
               {schemaValidation?.invalidCount
-                ? `Import ${schemaValidation.validCount} Valid Row${schemaValidation.validCount === 1 ? "" : "s"}`
-                : `Import ${schemaValidation?.totalRows ?? 0} Row${schemaValidation?.totalRows === 1 ? "" : "s"}`}
+                ? `导入 ${schemaValidation.validCount} 个有效行`
+                : `导入 ${schemaValidation?.totalRows ?? 0} 行`}
             </Button>
           </>
         );
@@ -542,7 +529,7 @@ export function CSVImportDialog({
       case "complete": {
         return (
           <Button variant="primary" onClick={handleDone}>
-            Done
+            完成
           </Button>
         );
       }
@@ -554,12 +541,12 @@ export function CSVImportDialog({
 
   // Step titles
   const stepTitles: Record<ImportStep, string> = {
-    complete: "Import Complete",
-    importing: "Importing",
-    mapping: "Map Columns",
-    preview: "Preview Data",
-    upload: "Import CSV",
-    validation: "Review Validation",
+    complete: "导入完成",
+    importing: "正在导入",
+    mapping: "映射列",
+    preview: "预览数据",
+    upload: "导入 CSV",
+    validation: "检查验证结果",
   };
 
   return (
@@ -567,7 +554,7 @@ export function CSVImportDialog({
       <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>{stepTitles[step]}</DialogTitle>
-          <DialogDescription>Import dataset items from a CSV file.</DialogDescription>
+          <DialogDescription>从 CSV 文件导入数据项。</DialogDescription>
         </DialogHeader>
 
         <DialogBody className="min-h-[200px] max-h-[50vh] overflow-y-auto">

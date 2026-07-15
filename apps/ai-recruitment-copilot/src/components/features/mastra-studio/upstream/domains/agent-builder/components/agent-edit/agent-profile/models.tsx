@@ -116,10 +116,10 @@ const LockedModelChip = ({ provider, modelId }: LockedModelChipProps) => (
   >
     <LockIcon className="h-4 w-4 shrink-0 text-neutral3" />
     <Txt variant="ui-sm" className="font-medium text-neutral6 truncate">
-      {provider && modelId ? `${provider}/${modelId}` : "Locked by admin"}
+      {provider && modelId ? `${provider}/${modelId}` : "由管理员锁定"}
     </Txt>
     <Txt variant="ui-xs" className="ml-auto shrink-0 text-neutral3">
-      Set by admin
+      由管理员设置
     </Txt>
   </div>
 );
@@ -255,11 +255,9 @@ const ModelPicker = ({ disabled = false }: ModelPickerProps) => {
 
   const groups = groupModelsByProvider(policyAllowedModels, selectedProviders, search, provider);
   const allProvidersUnchecked = selectedProviders !== null && selectedProviders.size === 0;
-  let emptyMessage = allProvidersUnchecked
-    ? "Select at least one provider to see models"
-    : "No models available";
+  let emptyMessage = allProvidersUnchecked ? "至少选择一个提供商以查看模型" : "暂无可用模型";
   if (search.trim()) {
-    emptyMessage = `No models match "${search.trim()}"`;
+    emptyMessage = `没有匹配“${search.trim()}”的模型`;
   }
 
   return (
@@ -270,7 +268,7 @@ const ModelPicker = ({ disabled = false }: ModelPickerProps) => {
       >
         {providerOptions.length > 0 && (
           <FilterableList
-            title="Providers"
+            title="提供商"
             items={providerFilterItems}
             isChecked={isProviderChecked}
             onToggle={handleToggleProvider}
@@ -292,8 +290,8 @@ const ModelPicker = ({ disabled = false }: ModelPickerProps) => {
               </InputGroupAddon>
               <InputGroupInput
                 type="search"
-                aria-label="Search models"
-                placeholder="Search models or providers..."
+                aria-label="搜索模型"
+                placeholder="搜索模型或提供商..."
                 onChange={(event) => setSearch(event.target.value)}
               />
             </InputGroup>

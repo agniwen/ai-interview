@@ -10,7 +10,7 @@ export const UnionField: React.FC<AutoFormFieldProps> = ({ field, inputProps }) 
       <CustomAutoFormField key={path.join(".")} field={schema} path={path} />
       {index < (field.schema?.length ?? 0) - 1 && (
         <Txt variant="ui-xs" className="text-center">
-          OR
+          或
         </Txt>
       )}
     </div>

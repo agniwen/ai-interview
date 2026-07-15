@@ -24,20 +24,16 @@ export function DatasetItemContent({ item }: DatasetItemContentProps) {
 
   return (
     <Sections>
-      <SideDialog.CodeSection title="Input" icon={<FileInputIcon />} codeStr={inputDisplay} />
+      <SideDialog.CodeSection title="输入" icon={<FileInputIcon />} codeStr={inputDisplay} />
       <SideDialog.CodeSection
-        title="Ground Truth"
+        title="标准答案"
         icon={<FileOutputIcon />}
         codeStr={groundTruthDisplay}
       />
       {trajectoryDisplay && (
-        <SideDialog.CodeSection
-          title="Expected Trajectory"
-          icon={<RouteIcon />}
-          codeStr={trajectoryDisplay}
-        />
+        <SideDialog.CodeSection title="预期轨迹" icon={<RouteIcon />} codeStr={trajectoryDisplay} />
       )}
-      <SideDialog.CodeSection title="Metadata" icon={<TagIcon />} codeStr={metadataDisplay} />
+      <SideDialog.CodeSection title="元数据" icon={<TagIcon />} codeStr={metadataDisplay} />
     </Sections>
   );
 }

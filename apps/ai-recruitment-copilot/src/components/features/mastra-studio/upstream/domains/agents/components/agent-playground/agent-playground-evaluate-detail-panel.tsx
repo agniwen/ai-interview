@@ -53,7 +53,7 @@ export function EvaluateDetailPanel({
   if (detailView.type === "dataset") {
     return (
       <Column withLeftSeparator>
-        {renderBackButton("Back to Datasets", () => setDetailView(null))}
+        {renderBackButton("返回数据集", () => setDetailView(null))}
         <Column.Content>
           <DatasetDetailView
             agentId={agentId}
@@ -78,7 +78,7 @@ export function EvaluateDetailPanel({
   if (detailView.type === "scorer") {
     return (
       <Column withLeftSeparator>
-        {renderBackButton("Back to Scorers", () => setDetailView(null))}
+        {renderBackButton("返回评分器", () => setDetailView(null))}
         <Column.Content>
           <ScorerDetailView
             scorerId={detailView.id}
@@ -110,7 +110,7 @@ export function EvaluateDetailPanel({
   if (detailView.type === "new-scorer") {
     return (
       <Column withLeftSeparator>
-        {renderBackButton("Back to Scorers", () => setDetailView(null))}
+        {renderBackButton("返回评分器", () => setDetailView(null))}
         <Column.Content>
           <ScorerMiniEditor
             onBack={() => setDetailView(null)}
@@ -128,9 +128,7 @@ export function EvaluateDetailPanel({
   if (detailView.type === "edit-scorer") {
     return (
       <Column withLeftSeparator>
-        {renderBackButton("Back to Scorer", () =>
-          setDetailView({ id: detailView.id, type: "scorer" }),
-        )}
+        {renderBackButton("返回评分器", () => setDetailView({ id: detailView.id, type: "scorer" }))}
         <Column.Content>
           <ScorerMiniEditor
             onBack={() => setDetailView({ id: detailView.id, type: "scorer" })}
@@ -148,16 +146,16 @@ export function EvaluateDetailPanel({
     if (!exp) {
       return (
         <Column withLeftSeparator>
-          {renderBackButton("Back to Experiments", () => setDetailView(null))}
+          {renderBackButton("返回实验", () => setDetailView(null))}
           <Column.Content>
-            <div className="p-4 text-neutral3">Experiment not found</div>
+            <div className="p-4 text-neutral3">未找到实验</div>
           </Column.Content>
         </Column>
       );
     }
     return (
       <Column withLeftSeparator>
-        {renderBackButton("Back to Experiments", () => setDetailView(null))}
+        {renderBackButton("返回实验", () => setDetailView(null))}
         <Column.Content>
           <ExperimentResultsPanel
             experiment={exp}

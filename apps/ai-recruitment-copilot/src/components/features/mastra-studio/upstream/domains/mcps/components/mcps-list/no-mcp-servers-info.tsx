@@ -6,11 +6,11 @@ export const NoMCPServersInfo = () => (
   <div className="flex h-full items-center justify-center">
     <EmptyState
       iconSlot={<CircleSlashIcon />}
-      titleSlot="No MCP Servers yet"
+      titleSlot="暂无 MCP 服务器"
       descriptionSlot={
         <>
-          MCP servers are not configured yet. <br />
-          More information in the documentation.
+          尚未配置 MCP 服务器。 <br />
+          更多信息请参阅文档。
         </>
       }
       actionSlot={
@@ -21,7 +21,7 @@ export const NoMCPServersInfo = () => (
           target="_blank"
           rel="noopener noreferrer"
         >
-          MCP Documentation <ExternalLinkIcon />
+          MCP 文档 <ExternalLinkIcon />
         </Button>
       }
     />

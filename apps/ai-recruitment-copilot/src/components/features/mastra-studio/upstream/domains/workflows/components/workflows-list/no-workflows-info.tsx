@@ -6,11 +6,11 @@ export const NoWorkflowsInfo = () => (
   <div className="flex h-full items-center justify-center">
     <EmptyState
       iconSlot={<CircleSlashIcon />}
-      titleSlot="No Workflows yet"
+      titleSlot="暂无工作流"
       descriptionSlot={
         <>
-          Mastra workflows are not configured yet. <br />
-          More information in the documentation.
+          尚未配置 Mastra 工作流。 <br />
+          更多信息请参阅文档。
         </>
       }
       actionSlot={
@@ -21,7 +21,7 @@ export const NoWorkflowsInfo = () => (
           target="_blank"
           rel="noopener noreferrer"
         >
-          Workflows Documentation <ExternalLinkIcon />
+          工作流文档 <ExternalLinkIcon />
         </Button>
       }
     />

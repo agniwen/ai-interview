@@ -27,11 +27,11 @@ export function PdfPreviewDialog({ data, open, onOpenChange }: PdfPreviewDialogP
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
-          <DialogTitle>PDF preview</DialogTitle>
-          <DialogDescription>Preview of the PDF document</DialogDescription>
+          <DialogTitle>PDF 预览</DialogTitle>
+          <DialogDescription>预览 PDF 文档</DialogDescription>
         </DialogHeader>
         <DialogBody>
-          {open && <iframe title="PDF document preview" src={data} width="100%" height="600px" />}
+          {open && <iframe title="PDF 文档预览" src={data} width="100%" height="600px" />}
         </DialogBody>
       </DialogContent>
     </Dialog>
@@ -44,7 +44,7 @@ export function PdfEntry({ data, url }: PdfEntryProps) {
   if (url) {
     return (
       <a href={url} className={ctaClassName} target="_blank" rel="noreferrer noopener">
-        <FileText className="text-accent2" aria-label="View PDF" />
+        <FileText className="text-accent2" aria-label="查看 PDF" />
       </a>
     );
   }
@@ -52,7 +52,7 @@ export function PdfEntry({ data, url }: PdfEntryProps) {
   return (
     <>
       <button onClick={() => setOpen(true)} className={ctaClassName} type="button">
-        <FileText className="text-accent2" aria-label="View PDF" />
+        <FileText className="text-accent2" aria-label="查看 PDF" />
       </button>
 
       <PdfPreviewDialog data={data} open={open} onOpenChange={setOpen} />
@@ -72,15 +72,15 @@ interface FileChipEntryProps {
 /** Picks an icon (and a11y label) representing the file's media type. */
 const iconForContentType = (contentType?: string) => {
   if (contentType?.startsWith("video/")) {
-    return { Icon: FileVideo, label: "Video file" };
+    return { Icon: FileVideo, label: "视频文件" };
   }
   if (contentType?.startsWith("audio/")) {
-    return { Icon: FileAudio, label: "Audio file" };
+    return { Icon: FileAudio, label: "音频文件" };
   }
   if (contentType?.startsWith("text/") || contentType === "application/pdf") {
-    return { Icon: FileText, label: "Document file" };
+    return { Icon: FileText, label: "文档文件" };
   }
-  return { Icon: FileIcon, label: "File" };
+  return { Icon: FileIcon, label: "文件" };
 };
 
 /**
@@ -123,13 +123,13 @@ export function ImagePreviewDialog({ src, open, onOpenChange }: ImagePreviewDial
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
-          <DialogTitle>Image preview</DialogTitle>
-          <DialogDescription>Preview of the image</DialogDescription>
+          <DialogTitle>图片预览</DialogTitle>
+          <DialogDescription>预览图片</DialogDescription>
         </DialogHeader>
         <DialogBody>
           {open && (
             <div
-              aria-label="Image preview"
+              aria-label="图片预览"
               className="h-[70vh] w-full bg-contain bg-center bg-no-repeat"
               style={{ backgroundImage: `url(${src})` }}
             />
@@ -147,7 +147,7 @@ export function ImageEntry({ src }: ImageEntryProps) {
     <>
       <button onClick={() => setOpen(true)} type="button" className={ctaClassName}>
         <span
-          aria-label="Attachment preview"
+          aria-label="附件预览"
           style={{ backgroundImage: `url(${src})` }}
           className="block size-full bg-cover bg-center"
         />
@@ -172,8 +172,8 @@ export function TxtPreviewDialog({ data, open, onOpenChange }: TxtPreviewDialogP
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl h-[80vh]">
         <DialogHeader>
-          <DialogTitle>Text preview</DialogTitle>
-          <DialogDescription>Preview of the text file</DialogDescription>
+          <DialogTitle>文本预览</DialogTitle>
+          <DialogDescription>预览文本文件</DialogDescription>
         </DialogHeader>
         <DialogBody>{open && <div className="whitespace-pre-wrap">{data}</div>}</DialogBody>
       </DialogContent>

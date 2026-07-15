@@ -1,10 +1,10 @@
 // Target-type choices shared by the dataset create/edit dialogs. Persisting a dataset's target type
 // is what lets the Datasets list classify and filter it by target.
 export const DATASET_TARGET_TYPE_OPTIONS = [
-  { label: "Agent", value: "agent" },
-  { label: "Workflow", value: "workflow" },
-  { label: "Scorer", value: "scorer" },
-  { label: "Processor", value: "processor" },
+  { label: "智能体", value: "agent" },
+  { label: "工作流", value: "workflow" },
+  { label: "评分器", value: "scorer" },
+  { label: "处理器", value: "processor" },
 ] as const;
 
 export type DatasetTargetType = (typeof DATASET_TARGET_TYPE_OPTIONS)[number]["value"];

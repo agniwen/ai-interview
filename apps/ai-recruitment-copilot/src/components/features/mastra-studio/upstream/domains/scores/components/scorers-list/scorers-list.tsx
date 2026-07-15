@@ -8,6 +8,7 @@ import { AgentIcon } from "@mastra/playground-ui/icons/AgentIcon";
 import { WorkflowIcon } from "lucide-react";
 import { useMemo } from "react";
 import { useLinkComponent } from "@/components/features/mastra-studio/upstream/lib/framework";
+import { SCORER_SOURCE_OPTIONS } from "./constants";
 
 export interface ScorersListProps {
   scorers: Record<string, GetScorerResponse>;
@@ -54,19 +55,19 @@ export function ScorersList({
   return (
     <EntityList columns={COLUMNS} variant="striped">
       <EntityList.Top>
-        <EntityList.TopCell>Name</EntityList.TopCell>
-        <EntityList.TopCell>Description</EntityList.TopCell>
-        <EntityList.TopCell>Source</EntityList.TopCell>
+        <EntityList.TopCell>名称</EntityList.TopCell>
+        <EntityList.TopCell>描述</EntityList.TopCell>
+        <EntityList.TopCell>来源</EntityList.TopCell>
         <EntityList.TopCellSmart
-          long="Agents"
+          long="智能体"
           short={<AgentIcon />}
-          tooltip="Number of attached Agents"
+          tooltip="关联智能体数量"
           className="text-center"
         />
         <EntityList.TopCellSmart
-          long="Workflows"
+          long="工作流"
           short={<WorkflowIcon />}
-          tooltip="Number of attached Workflows"
+          tooltip="关联工作流数量"
           className="text-center"
         />
       </EntityList.Top>
@@ -77,6 +78,9 @@ export function ScorersList({
         const agentCount = scorer.agentIds?.length ?? 0;
         const workflowCount = scorer.workflowIds?.length ?? 0;
         const isTrajectory = scorer.scorer.config?.type === "trajectory";
+        const sourceLabel =
+          SCORER_SOURCE_OPTIONS.find((option) => option.value === scorer.source)?.label ??
+          scorer.source;
 
         return (
           <EntityList.RowLink key={scorer.id} to={paths.scorerLink(scorer.id)} LinkComponent={Link}>
@@ -85,7 +89,7 @@ export function ScorersList({
                 <span className="min-w-0 truncate">{name}</span>
                 {isTrajectory && (
                   <Chip size="small" color="purple" className="shrink-0">
-                    trajectory
+                    轨迹
                   </Chip>
                 )}
               </span>
@@ -93,7 +97,7 @@ export function ScorersList({
             <EntityList.DescriptionCell>{description}</EntityList.DescriptionCell>
             <EntityList.Cell className="py-0">
               <Chip size="small" color={scorer.source === "code" ? "blue" : "gray"}>
-                {scorer.source}
+                {sourceLabel}
               </Chip>
             </EntityList.Cell>
             <EntityList.TextCell className="text-center">{agentCount || ""}</EntityList.TextCell>

@@ -31,9 +31,9 @@ export interface SkillsTableProps {
 const DOWNLOADED_SKILLS_PATH = ".agents/skills/";
 
 const baseColumns = [
-  { label: "Skill", size: "minmax(8rem,auto)" },
-  { label: "Path", size: "minmax(8rem,1fr)" },
-  { label: "Description", size: "minmax(0,2fr)" },
+  { label: "技能", size: "minmax(8rem,auto)" },
+  { label: "路径", size: "minmax(8rem,1fr)" },
+  { label: "描述", size: "minmax(0,2fr)" },
 ] as const;
 
 const columnsWithActions = [...baseColumns, { label: "", size: "auto" }] as const;
@@ -49,10 +49,9 @@ export function SkillsNotConfigured({ onAddSkill }: SkillsNotConfiguredProps) {
         <div className="p-4 rounded-full bg-surface4 mb-4">
           <SkillIcon className="h-8 w-8 text-neutral3" />
         </div>
-        <h2 className="text-lg font-medium text-neutral6 mb-2">Skills Not Configured</h2>
+        <h2 className="text-lg font-medium text-neutral6 mb-2">技能尚未配置</h2>
         <p className="text-sm text-neutral4 mb-6">
-          No skills are configured in the workspace. Add SKILL.md files to your skills directory to
-          discover and manage agent skills.
+          工作区中尚未配置技能。将 SKILL.md 文件添加到技能目录，即可发现并管理智能体技能。
         </p>
         <div className="flex gap-3">
           {onAddSkill && (
@@ -60,7 +59,7 @@ export function SkillsNotConfigured({ onAddSkill }: SkillsNotConfiguredProps) {
               <Icon>
                 <Plus className="h-4 w-4" />
               </Icon>
-              Add Skill from skills.sh
+              从 skills.sh 添加技能
             </Button>
           )}
           <Button
@@ -73,7 +72,7 @@ export function SkillsNotConfigured({ onAddSkill }: SkillsNotConfiguredProps) {
             <Icon>
               <BookOpen className="h-4 w-4" />
             </Icon>
-            Learn about Skills
+            了解技能
           </Button>
         </div>
       </div>
@@ -117,7 +116,7 @@ export function SkillsTable({
             <Icon>
               <Plus className="h-4 w-4" />
             </Icon>
-            Add Skill
+            添加技能
           </Button>
         </div>
       )}
@@ -126,12 +125,10 @@ export function SkillsTable({
         <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
           <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
           <div className="text-sm">
-            <p className="font-medium text-amber-500">Skills installed but not discovered</p>
+            <p className="font-medium text-amber-500">已安装但未发现的技能</p>
             <p className="text-neutral4 mt-1">
-              You have skills in{" "}
-              <code className="px-1 py-0.5 rounded bg-surface4 text-xs">.agents/skills</code> that
-              aren&apos;t being discovered. Add this path to your workspace skills configuration to
-              see them.
+              你在 <code className="px-1 py-0.5 rounded bg-surface4 text-xs">.agents/skills</code>{" "}
+              中有未被发现的技能。请将此路径添加到工作区技能配置以显示这些技能。
             </p>
           </div>
         </div>
@@ -148,8 +145,8 @@ export function SkillsTable({
           <DataList.NoMatch
             message={
               onAddSkill
-                ? 'No skills discovered. Click "Add Skill" to install from skills.sh.'
-                : "No skills discovered. Add SKILL.md files to your skills directory."
+                ? "未发现技能。点击“添加技能”从 skills.sh 安装。"
+                : "未发现技能。请将 SKILL.md 文件添加到技能目录。"
             }
           />
         ) : (

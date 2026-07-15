@@ -2,22 +2,22 @@ import { Loader2 } from "lucide-react";
 
 const TOOL_DISPLAY_NAMES: Record<string, string> = {
   // AgentBrowser tools
-  browser_click: "Clicking",
-  browser_close: "Closing",
-  browser_goto: "Navigating",
-  browser_navigate: "Navigating",
-  browser_screenshot: "Capturing",
-  browser_scroll: "Scrolling",
-  browser_select: "Selecting",
-  browser_snapshot: "Reading page",
-  browser_type: "Typing",
+  browser_click: "正在点击",
+  browser_close: "正在关闭",
+  browser_goto: "正在导航",
+  browser_navigate: "正在导航",
+  browser_screenshot: "正在截取",
+  browser_scroll: "正在滚动",
+  browser_select: "正在选择",
+  browser_snapshot: "正在读取页面",
+  browser_type: "正在输入",
   // StagehandBrowser tools
-  stagehand_act: "Acting",
-  stagehand_close: "Closing",
-  stagehand_extract: "Extracting",
-  stagehand_navigate: "Navigating",
-  stagehand_observe: "Observing",
-  stagehand_screenshot: "Capturing",
+  stagehand_act: "正在操作",
+  stagehand_close: "正在关闭",
+  stagehand_extract: "正在提取",
+  stagehand_navigate: "正在导航",
+  stagehand_observe: "正在观测",
+  stagehand_screenshot: "正在截取",
 };
 
 export interface AgentBusyOverlayProps {
@@ -34,7 +34,7 @@ export interface AgentBusyOverlayProps {
 export function AgentBusyOverlay({ toolName }: AgentBusyOverlayProps) {
   const displayName = toolName
     ? (TOOL_DISPLAY_NAMES[toolName] ?? toolName.replace(/^(browser_|stagehand_)/, ""))
-    : "Working";
+    : "正在处理";
 
   return (
     <div className="absolute inset-0 bg-surface1/40 flex items-center justify-center z-10 cursor-not-allowed">

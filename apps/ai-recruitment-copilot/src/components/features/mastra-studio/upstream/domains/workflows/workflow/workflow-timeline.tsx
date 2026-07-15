@@ -150,7 +150,7 @@ const WorkflowTimelineRow = ({
           type="button"
           variant="ghost"
           size="icon-sm"
-          tooltip="View step input"
+          tooltip="查看步骤输入"
           disabled={isInProgress}
           className="text-neutral3 hover:text-neutral6 disabled:cursor-not-allowed disabled:opacity-40"
           onClick={(event) => {
@@ -189,7 +189,7 @@ const WorkflowTimelineRow = ({
           type="button"
           variant="ghost"
           size="icon-sm"
-          tooltip="View step output"
+          tooltip="查看步骤输出"
           disabled={isInProgress}
           className="text-neutral3 hover:text-neutral6 disabled:cursor-not-allowed disabled:opacity-40"
           onClick={(event) => {
@@ -267,11 +267,11 @@ export function WorkflowTimeline() {
         <div className="pointer-events-auto flex max-h-64 w-full min-w-0 flex-col gap-3 overflow-hidden rounded-studio-panel border border-border1/50 bg-surface3 p-4 shadow-lg">
           <div className="flex shrink-0 items-center justify-between gap-3">
             <Txt as="p" variant="ui-md" className="text-neutral3">
-              Timeline
+              时间线
             </Txt>
             <button
               type="button"
-              aria-label={isCollapsed ? "Expand timeline" : "Collapse timeline"}
+              aria-label={isCollapsed ? "展开时间线" : "收起时间线"}
               aria-expanded={!isCollapsed}
               onClick={() => setIsCollapsed((collapsed) => !collapsed)}
               className="rounded-md p-1 text-neutral3 transition-colors hover:bg-surface4 hover:text-neutral6"
@@ -321,7 +321,7 @@ export function WorkflowTimeline() {
         {jsonDialog && (
           <WorkflowJsonDialogContent
             data={jsonDialog.data}
-            title={`${titleCase(jsonDialog.stepId)} ${jsonDialog.type === "input" ? "input" : "output"}`}
+            title={`${titleCase(jsonDialog.stepId)} ${jsonDialog.type === "input" ? "输入" : "输出"}`}
           />
         )}
       </Dialog>

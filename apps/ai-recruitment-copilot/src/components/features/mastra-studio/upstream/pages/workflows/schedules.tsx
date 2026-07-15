@@ -22,7 +22,7 @@ export default function SchedulesPage() {
   if (error && is403ForbiddenError(error)) {
     return (
       <NoDataPageLayout>
-        <PermissionDenied resource="schedules" />
+        <PermissionDenied resource="定时任务" />
       </NoDataPageLayout>
     );
   }

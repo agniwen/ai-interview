@@ -83,10 +83,10 @@ export function SchemaField({
         isLocalEditRef.current = true;
         onChange(parsed);
       } else {
-        setParseError("Schema must be a JSON object");
+        setParseError("Schema 必须是 JSON 对象");
       }
     } catch {
-      setParseError("Invalid JSON");
+      setParseError("无效的 JSON");
     }
   };
 

@@ -69,7 +69,7 @@ export const LLMProviders = ({
               className={`absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full ${
                 provider.connected ? "bg-accent1" : "bg-accent2"
               }`}
-              title={provider.connected ? "Connected" : "Not connected"}
+              title={provider.connected ? "已连接" : "未连接"}
             />
           </div>
         ),
@@ -97,9 +97,9 @@ export const LLMProviders = ({
       options={providerOptions}
       value={currentModelProvider}
       onValueChange={handleValueChange}
-      placeholder="Select provider..."
-      searchPlaceholder="Search providers..."
-      emptyText="No providers found"
+      placeholder="选择提供商…"
+      searchPlaceholder="搜索提供商…"
+      emptyText="未找到提供商"
       variant={variant}
       size={size}
       className={className}

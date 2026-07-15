@@ -50,7 +50,7 @@ export function WorkflowsSection({ control, error, readOnly = false }: Workflows
         <CollapsibleTrigger className="flex items-center gap-1 w-full p-3 bg-surface3">
           <ChevronRight className="h-4 w-4 text-neutral3" />
           <SectionTitle icon={<WorkflowIcon className="text-accent3" />}>
-            Workflows{count > 0 && <span className="text-neutral3 font-normal">({count})</span>}
+            工作流{count > 0 && <span className="text-neutral3 font-normal">({count})</span>}
           </SectionTitle>
         </CollapsibleTrigger>
         <CollapsibleContent>
@@ -90,9 +90,9 @@ export function WorkflowsSection({ control, error, readOnly = false }: Workflows
                       options={options}
                       value={selectedIds}
                       onValueChange={handleValueChange}
-                      placeholder="Select workflows..."
-                      searchPlaceholder="Search workflows..."
-                      emptyText="No workflows available"
+                      placeholder="选择工作流…"
+                      searchPlaceholder="搜索工作流…"
+                      emptyText="暂无可用工作流"
                       disabled={isLoading || readOnly}
                       error={error}
                     />

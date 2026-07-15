@@ -49,7 +49,7 @@ export function ToolList({ providerId, toolkit, selectedIds, onToggle }: ToolLis
     listContent = (
       <div className="flex items-center justify-center py-12">
         <Txt variant="ui-sm" className="text-neutral3">
-          No tools found
+          未找到工具
         </Txt>
       </div>
     );
@@ -107,8 +107,8 @@ export function ToolList({ providerId, toolkit, selectedIds, onToggle }: ToolLis
           </InputGroupAddon>
           <InputGroupInput
             type="search"
-            aria-label="Search tools"
-            placeholder="Search tools..."
+            aria-label="搜索工具"
+            placeholder="搜索工具..."
             onChange={(event) => debouncedSearch(event.target.value)}
           />
         </InputGroup>

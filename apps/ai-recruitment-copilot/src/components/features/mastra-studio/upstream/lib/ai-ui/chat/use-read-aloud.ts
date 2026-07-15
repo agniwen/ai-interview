@@ -67,14 +67,14 @@ export const useReadAloud = (agentId?: string, requestContext?: VoiceRequestCont
           const agent = client.getAgent(agentId);
           const response = await agent.voice.speak(text);
           if (!response.body) {
-            throw new Error("No audio stream returned from voice.speak()");
+            throw new Error("voice.speak() 未返回音频流");
           }
           const cleanup = await playStreamWithWebAudio(response.body, () => setIsSpeaking(false));
           cleanupRef.current = cleanup ?? null;
           return;
         } catch (error) {
           setIsSpeaking(false);
-          toast.error(error instanceof Error ? error.message : "Voice generation failed.");
+          toast.error(error instanceof Error ? error.message : "语音生成失败。");
           return;
         }
       }

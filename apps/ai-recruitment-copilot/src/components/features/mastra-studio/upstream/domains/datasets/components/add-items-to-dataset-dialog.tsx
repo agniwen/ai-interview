@@ -55,7 +55,7 @@ export function AddItemsToDatasetDialog({
     e.preventDefault();
 
     if (!selectedDatasetId) {
-      toast.error("Please select a dataset");
+      toast.error("请选择数据集");
       return;
     }
 
@@ -76,9 +76,7 @@ export function AddItemsToDatasetDialog({
       }
 
       const targetDataset = datasets.find((d: DatasetRecord) => d.id === selectedDatasetId);
-      toast.success(
-        `Added ${items.length} item${items.length === 1 ? "" : "s"} to "${targetDataset?.name}"`,
-      );
+      toast.success(`已将 ${items.length} 个数据项添加到“${targetDataset?.name}”`);
 
       // Reset form
       setSelectedDatasetId("");
@@ -88,9 +86,7 @@ export function AddItemsToDatasetDialog({
 
       onSuccess?.(selectedDatasetId);
     } catch (error) {
-      toast.error(
-        `Failed to add items: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`添加数据项失败：${error instanceof Error ? error.message : "未知错误"}`);
       setIsAdding(false);
       setProgress(0);
     }
@@ -111,12 +107,12 @@ export function AddItemsToDatasetDialog({
     <Dialog open={open} onOpenChange={isAdding ? undefined : onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Items to Dataset</DialogTitle>
+          <DialogTitle>向数据集添加数据项</DialogTitle>
         </DialogHeader>
         <DialogBody>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="target-dataset">Target Dataset *</Label>
+              <Label htmlFor="target-dataset">目标数据集 *</Label>
               <Select
                 value={selectedDatasetId}
                 onValueChange={setSelectedDatasetId}
@@ -124,13 +120,13 @@ export function AddItemsToDatasetDialog({
               >
                 <SelectTrigger id="target-dataset">
                   <SelectValue
-                    placeholder={isDatasetsLoading ? "Loading datasets..." : "Select a dataset"}
+                    placeholder={isDatasetsLoading ? "正在加载数据集..." : "选择数据集"}
                   />
                 </SelectTrigger>
                 <SelectContent>
                   {availableDatasets.length === 0 ? (
                     <div className="px-2 py-4 text-sm text-neutral4 text-center">
-                      No other datasets available
+                      暂无其他可用数据集
                     </div>
                   ) : (
                     availableDatasets.map((dataset) => (
@@ -144,8 +140,7 @@ export function AddItemsToDatasetDialog({
             </div>
 
             <p className="text-sm text-muted-foreground">
-              {items.length} item{items.length === 1 ? "" : "s"} will be copied to the selected
-              dataset
+              将把 {items.length} 个数据项复制到所选数据集
             </p>
 
             {isAdding && (
@@ -157,21 +152,21 @@ export function AddItemsToDatasetDialog({
                   />
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Adding items: {progress} / {items.length}
+                  正在添加数据项： {progress} / {items.length}
                 </p>
               </div>
             )}
 
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" onClick={handleCancel} disabled={isAdding}>
-                Cancel
+                取消
               </Button>
               <Button
                 type="submit"
                 variant="primary"
                 disabled={isAdding || !selectedDatasetId || availableDatasets.length === 0}
               >
-                {isAdding ? `Adding... (${progress}/${items.length})` : "Add Items"}
+                {isAdding ? `正在添加...（${progress}/${items.length}）` : "添加数据项"}
               </Button>
             </div>
           </form>

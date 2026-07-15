@@ -88,7 +88,7 @@ export function MCPClientCreateContent({
 
     const isValid = await form.trigger();
     if (!isValid) {
-      toast.error("Please fill in all required fields");
+      toast.error("请填写所有必填字段");
       return;
     }
 

@@ -4,6 +4,7 @@ import { DatePicker } from "@mastra/playground-ui/components/DateTimePicker";
 import { Popover, PopoverContent, PopoverTrigger } from "@mastra/playground-ui/components/Popover";
 import { cn } from "@mastra/playground-ui/utils/cn";
 import { format, isValid } from "date-fns";
+import { zhCN } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 import React, { useState, useEffect } from "react";
 
@@ -50,14 +51,15 @@ export const DateField: React.FC<AutoFormFieldProps> = ({ inputProps, field, err
         >
           <CalendarIcon className="h-4 w-4" />
           {value ? (
-            <span className="text-white">{format(value, "PPP")}</span>
+            <span className="text-white">{format(value, "PPP", { locale: zhCN })}</span>
           ) : (
-            <span className="text-gray">Pick a date</span>
+            <span className="text-gray">选择日期</span>
           )}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0 bg-surface4" align="start">
         <DatePicker
+          locale={zhCN}
           mode="single"
           selected={value}
           onSelect={handleSelect}
@@ -67,7 +69,7 @@ export const DateField: React.FC<AutoFormFieldProps> = ({ inputProps, field, err
         {value && (
           <div className="p-3 pt-0">
             <Button variant="default" size="lg" className="w-full" onClick={handleClear}>
-              Clear
+              清除
             </Button>
           </div>
         )}

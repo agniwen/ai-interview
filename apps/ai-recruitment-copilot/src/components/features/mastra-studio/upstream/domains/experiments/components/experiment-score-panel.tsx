@@ -51,19 +51,19 @@ export function ExperimentScorePanel({
   const setCollapsed = onCollapsedChange ?? setInternalCollapsed;
 
   const isCodeBased = isCodeBasedScorer(score);
-  const naText = isCodeBased ? "N/A — code-based scorer" : "N/A — step not configured";
+  const naText = isCodeBased ? "不适用——代码评分器" : "不适用——未配置此步骤";
 
   return (
     <DataPanel collapsed={collapsed}>
       <DataPanel.Header>
         <DataPanel.Heading>
-          Score <b>{score.scorerId}</b>
+          得分 <b>{score.scorerId}</b>
         </DataPanel.Heading>
         <ButtonsGroup className="ml-auto shrink-0">
           {onCollapsedChange && (
             <Button
               size="md"
-              tooltip={collapsed ? "Expand panel" : "Collapse panel"}
+              tooltip={collapsed ? "展开面板" : "收起面板"}
               onClick={() => setCollapsed(!collapsed)}
             >
               {collapsed ? <ChevronsUpDownIcon /> : <ChevronsDownUpIcon />}
@@ -73,17 +73,17 @@ export function ExperimentScorePanel({
             <DataPanel.NextPrevNav
               onPrevious={onPrevious}
               onNext={onNext}
-              previousLabel="Previous score"
-              nextLabel="Next score"
+              previousLabel="上一个得分"
+              nextLabel="下一个得分"
             />
           )}
           {onShowTrace && (
             <Button size="md" onClick={onShowTrace} disabled={!score.traceId}>
               <TraceIcon />
-              Trace
+              追踪记录
             </Button>
           )}
-          <DataPanel.CloseButton onClick={onClose} tooltip="Close score panel" />
+          <DataPanel.CloseButton onClick={onClose} tooltip="关闭得分面板" />
         </ButtonsGroup>
       </DataPanel.Header>
 
@@ -91,7 +91,7 @@ export function ExperimentScorePanel({
         <DataPanel.Content>
           <div className="grid gap-3">
             <DataPanel.CodeSection
-              title={`Score: ${score.score}`}
+              title={`得分：${score.score}`}
               icon={<GaugeIcon />}
               codeStr={score.reason || naText}
               simplified
@@ -100,25 +100,25 @@ export function ExperimentScorePanel({
             {!isCodeBased && (
               <>
                 <DataPanel.CodeSection
-                  title="Preprocess Prompt"
+                  title="预处理提示词"
                   icon={<ReceiptText />}
                   codeStr={score.preprocessPrompt || naText}
                   simplified
                 />
                 <DataPanel.CodeSection
-                  title="Analyze Prompt"
+                  title="分析提示词"
                   icon={<ReceiptText />}
                   codeStr={score.analyzePrompt || naText}
                   simplified
                 />
                 <DataPanel.CodeSection
-                  title="Generate Score Prompt"
+                  title="生成得分提示词"
                   icon={<ReceiptText />}
                   codeStr={score.generateScorePrompt || naText}
                   simplified
                 />
                 <DataPanel.CodeSection
-                  title="Generate Reason Prompt"
+                  title="生成理由提示词"
                   icon={<ReceiptText />}
                   codeStr={score.generateReasonPrompt || naText}
                   simplified

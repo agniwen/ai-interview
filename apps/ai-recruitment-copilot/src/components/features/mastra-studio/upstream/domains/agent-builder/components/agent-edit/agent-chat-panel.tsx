@@ -40,28 +40,27 @@ const EMPTY_MESSAGES: never[] = [];
 const STARTER_PROMPTS = [
   {
     Icon: ListChecksIcon,
-    description: "Get an overview of capabilities",
-    prompt: "What can you do? Give me a quick overview of your capabilities.",
-    title: "What can you do?",
+    description: "快速了解能力范围",
+    prompt: "你能做什么？请快速概述你的能力。",
+    title: "你能做什么？",
   },
   {
     Icon: WrenchIcon,
-    description: "See what this agent can call",
-    prompt: "Show me the available tools you can call and explain when you would use each one.",
-    title: "Show available tools",
+    description: "查看此智能体可调用的内容",
+    prompt: "列出你可以调用的工具，并说明各自适合在什么情况下使用。",
+    title: "显示可用工具",
   },
   {
     Icon: LightbulbIcon,
-    description: "Get an example prompt to try",
-    prompt: "Suggest a useful task I can try with you, including an example prompt.",
-    title: "Suggest a task",
+    description: "获取可尝试的示例提示词",
+    prompt: "建议一个我可以与你一起尝试的实用任务，并提供示例提示词。",
+    title: "建议一个任务",
   },
   {
     Icon: CircleCheckIcon,
-    description: "Verify tools are reachable",
-    prompt:
-      "Run a self-check and verify whether your tools are reachable. Tell me what works and what does not.",
-    title: "Run a self-check",
+    description: "验证工具是否可用",
+    prompt: "运行自检，确认你的工具是否可用，并告诉我哪些正常、哪些异常。",
+    title: "运行自检",
   },
 ];
 
@@ -144,7 +143,7 @@ const AgentChatMessageList = ({ onStarterPromptSelect }: AgentChatMessageListPro
               className="starter-chip"
               style={{ animationDelay: "0ms", viewTransitionName: "agent-avatar" }}
             >
-              <Avatar name={agentName ?? "Agent"} src={agentAvatarUrl} size="lg" />
+              <Avatar name={agentName ?? "智能体"} src={agentAvatarUrl} size="lg" />
             </div>
             <div className="starter-chip" style={{ animationDelay: "150ms" }}>
               <Txt
@@ -152,7 +151,7 @@ const AgentChatMessageList = ({ onStarterPromptSelect }: AgentChatMessageListPro
                 className="text-neutral6 font-semibold"
                 style={{ viewTransitionName: "agent-name" }}
               >
-                {agentName ?? "your agent"}
+                {agentName ?? "你的智能体"}
               </Txt>
             </div>
             {agentDescription ? (
@@ -171,7 +170,7 @@ const AgentChatMessageList = ({ onStarterPromptSelect }: AgentChatMessageListPro
           <div className="grid w-full max-w-2xl grid-cols-1 gap-5 sm:grid-cols-2">
             {STARTER_PROMPTS.map((starterPrompt, index) => (
               <button
-                aria-label={`Use starter prompt: ${starterPrompt.title}`}
+                aria-label={`使用起始提示词：${starterPrompt.title}`}
                 key={starterPrompt.title}
                 type="button"
                 onClick={() => onStarterPromptSelect(starterPrompt.prompt)}
@@ -224,7 +223,7 @@ export const AgentChatPanelChat = ({ hasBrowser = false }: AgentChatPanelChatPro
         disabled={isRunning}
         isRunning={isRunning}
         canSubmit={trimmed.length > 0 && !isRunning}
-        placeholder="Message your agent…"
+        placeholder="向智能体发送消息…"
         inputTestId="agent-builder-agent-chat-input"
         submitTestId="agent-builder-agent-chat-submit"
         containerTestId="agent-builder-agent-chat-composer"

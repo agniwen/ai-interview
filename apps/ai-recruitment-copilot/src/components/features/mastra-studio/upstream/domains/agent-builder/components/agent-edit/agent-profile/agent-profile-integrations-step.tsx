@@ -22,10 +22,10 @@ export const AgentProfileIntegrationsStep = () => {
 
   return (
     <AgentStepContainer
-      title="Integrations"
+      title="集成"
       cta={
         <Button onClick={handleContinue} disabled={isStreaming}>
-          Continue{" "}
+          继续{" "}
           <Icon>
             <ArrowRightIcon />
           </Icon>

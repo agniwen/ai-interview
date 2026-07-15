@@ -23,5 +23,5 @@ export function StoredScorerCrumb() {
     return <Skeleton className="h-5 w-36" />;
   }
 
-  return scorer?.name ?? "Scorer not found";
+  return scorer?.name ?? "未找到评分器";
 }

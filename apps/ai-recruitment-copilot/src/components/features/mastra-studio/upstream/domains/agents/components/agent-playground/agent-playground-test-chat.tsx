@@ -40,15 +40,15 @@ function UnsavedChangesBanner({
     return null;
   }
 
-  const saveLabel = isCodeSource ? "Save to filesystem" : "Save draft";
+  const saveLabel = isCodeSource ? "保存到文件系统" : "保存草稿";
   const message = isCodeSource
-    ? "You have unsaved changes to the agent configuration. Save to filesystem to ensure the chat uses your latest changes."
-    : "You have unsaved changes to the agent configuration. Save your draft to ensure the chat uses your latest changes.";
+    ? "智能体配置有未保存的更改。请保存到文件系统，确保对话使用最新更改。"
+    : "智能体配置有未保存的更改。请保存草稿，确保对话使用最新更改。";
 
   return (
     <Notice
       variant="warning"
-      title="Unsaved changes"
+      title="未保存的更改"
       className="mx-4 mt-3 mb-0"
       action={
         handleSaveDraft && (
@@ -60,7 +60,7 @@ function UnsavedChangesBanner({
             disabled={isSavingDraft}
           >
             <Save className="h-3.5 w-3.5" />
-            {isSavingDraft ? "Saving..." : saveLabel}
+            {isSavingDraft ? "正在保存…" : saveLabel}
           </Button>
         )
       }

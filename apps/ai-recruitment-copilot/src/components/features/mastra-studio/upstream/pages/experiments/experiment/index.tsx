@@ -59,7 +59,7 @@ function getExperimentFallback({
   if (experimentError && is403ForbiddenError(experimentError)) {
     return (
       <ExperimentPageShell>
-        <PermissionDenied resource="datasets" />
+        <PermissionDenied resource="数据集" />
       </ExperimentPageShell>
     );
   }
@@ -68,12 +68,12 @@ function getExperimentFallback({
       <ExperimentPageShell>
         <EmptyState
           iconSlot={<PlayCircle />}
-          titleSlot="Experiment not found"
-          descriptionSlot={`No experiment with id "${experimentId}".`}
+          titleSlot="未找到实验"
+          descriptionSlot={`未找到 ID 为“${experimentId}”的实验。`}
           actionSlot={
             <Button as={Link} to="/experiments">
               <ArrowLeft />
-              Back to Experiments
+              返回实验
             </Button>
           }
         />
@@ -84,11 +84,9 @@ function getExperimentFallback({
     return (
       <ExperimentPageShell>
         <ErrorState
-          title="Failed to load experiment"
+          title="加载实验失败"
           message={
-            experimentError instanceof Error
-              ? experimentError.message
-              : "An unexpected error occurred. Please try again."
+            experimentError instanceof Error ? experimentError.message : "发生意外错误，请重试。"
           }
         />
       </ExperimentPageShell>

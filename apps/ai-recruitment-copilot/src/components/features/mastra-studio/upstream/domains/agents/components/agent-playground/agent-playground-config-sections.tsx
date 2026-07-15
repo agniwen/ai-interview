@@ -145,13 +145,13 @@ function RefBlockCopyContent({ promptBlockId }: { promptBlockId: string }) {
   if (!content) {
     return null;
   }
-  return <CopyButton content={content} tooltip="Copy prompt block text" size="sm" />;
+  return <CopyButton content={content} tooltip="复制提示词块文本" size="sm" />;
 }
 
 function BlockCopyButton({ block }: { block: Record<string, unknown> }) {
   const rawContent = getRawBlockContent(block);
   if (rawContent) {
-    return <CopyButton content={rawContent} tooltip="Copy prompt text" size="sm" />;
+    return <CopyButton content={rawContent} tooltip="复制提示词文本" size="sm" />;
   }
   if (
     block.type === "prompt_block_ref" &&
@@ -254,7 +254,7 @@ function InstructionsDiffView({
               className="rounded-md border border-green-900/30 bg-green-950/10 p-3 font-mono text-sm"
             >
               <Txt variant="ui-xs" className="text-green-400 mb-1">
-                + Added block
+                + 已添加块
               </Txt>
               <Txt variant="ui-sm" className="text-green-300 whitespace-pre-wrap">
                 {newStr}
@@ -273,7 +273,7 @@ function InstructionsDiffView({
                 <BlockCopyButton block={prevBlock} />
               </div>
               <Txt variant="ui-xs" className="text-red-400 mb-1">
-                − Removed in latest
+                − 已在最新版本中移除
               </Txt>
               <Txt variant="ui-sm" className="text-red-300 whitespace-pre-wrap">
                 {oldStr}
@@ -291,7 +291,7 @@ function InstructionsDiffView({
                 </div>
               )}
               <Txt variant="ui-sm" className="text-neutral4 whitespace-pre-wrap font-mono">
-                {oldStr || "(empty)"}
+                {oldStr || "（空）"}
               </Txt>
             </div>
           );
@@ -351,7 +351,7 @@ function RefBlockPreview({ promptBlockId }: { promptBlockId: string }) {
     <div className="relative rounded-md border border-border1 bg-surface2 p-3">
       {content && (
         <div className="absolute top-2 right-2">
-          <CopyButton content={content} tooltip="Copy prompt block text" size="sm" />
+          <CopyButton content={content} tooltip="复制提示词块文本" size="sm" />
         </div>
       )}
       {promptBlock?.name && (
@@ -360,7 +360,7 @@ function RefBlockPreview({ promptBlockId }: { promptBlockId: string }) {
         </Txt>
       )}
       <Txt variant="ui-sm" className="text-neutral4 whitespace-pre-wrap font-mono">
-        {content || "(empty)"}
+        {content || "（空）"}
       </Txt>
     </div>
   );
@@ -372,7 +372,7 @@ export function ReadOnlyInstructions({ blocks }: { blocks: unknown }) {
   if (blocksArr.length === 0) {
     return (
       <Txt variant="ui-sm" className="text-neutral3 py-2">
-        No instruction blocks configured
+        尚未配置指令块
       </Txt>
     );
   }
@@ -393,11 +393,11 @@ export function ReadOnlyInstructions({ blocks }: { blocks: unknown }) {
           >
             {content && (
               <div className="absolute top-2 right-2">
-                <CopyButton content={content} tooltip="Copy prompt text" size="sm" />
+                <CopyButton content={content} tooltip="复制提示词文本" size="sm" />
               </div>
             )}
             <Txt variant="ui-sm" className="text-neutral4 whitespace-pre-wrap font-mono">
-              {content || "(empty)"}
+              {content || "（空）"}
             </Txt>
           </div>
         );
@@ -456,12 +456,12 @@ function ToolsDiffView({
             </Txt>
             {status === "removed" && (
               <Badge variant="error" className="ml-auto">
-                removed in latest
+                已在最新版本中移除
               </Badge>
             )}
             {status === "added" && (
               <Badge variant="success" className="ml-auto">
-                added in latest
+                已在最新版本中添加
               </Badge>
             )}
           </div>
@@ -477,7 +477,7 @@ function ReadOnlyTools({ tools }: { tools: Record<string, unknown> | undefined }
   if (entries.length === 0) {
     return (
       <Txt variant="ui-sm" className="text-neutral3 py-2">
-        No tools configured
+        尚未配置工具
       </Txt>
     );
   }
@@ -519,7 +519,7 @@ function VariablesDiffView({
   if (allKeys.length === 0) {
     return (
       <Txt variant="ui-sm" className="text-neutral3 py-2">
-        No variables configured
+        尚未配置变量
       </Txt>
     );
   }
@@ -562,12 +562,12 @@ function VariablesDiffView({
             </Txt>
             {status === "removed" && (
               <Badge variant="error" className="ml-auto">
-                removed in latest
+                已在最新版本中移除
               </Badge>
             )}
             {status === "added" && (
               <Badge variant="success" className="ml-auto">
-                added in latest
+                已在最新版本中添加
               </Badge>
             )}
           </div>
@@ -585,7 +585,7 @@ function ReadOnlyVariables({ variables }: { variables: Record<string, unknown> |
   if (entries.length === 0) {
     return (
       <Txt variant="ui-sm" className="text-neutral3 py-2">
-        No variables configured
+        尚未配置变量
       </Txt>
     );
   }
@@ -650,21 +650,21 @@ export function ReadOnlyConfigWithDiff({
 
   const instructionsBadge = instructionsDiff ? (
     <Badge variant="warning" size="sm">
-      modified
+      已修改
     </Badge>
   ) : null;
   const toolsBadge = resolveConditional(
     toolsDiff,
     () => (
       <Badge variant="warning" size="sm">
-        modified
+        已修改
       </Badge>
     ),
     () => (toolCount > 0 ? <Badge variant="default" size="sm">{`${toolCount}`}</Badge> : null),
   );
   const variablesBadge = variablesDiff ? (
     <Badge variant="warning" size="sm">
-      modified
+      已修改
     </Badge>
   ) : null;
 
@@ -683,13 +683,13 @@ export function ReadOnlyConfigWithDiff({
     >
       <TabList variant="pill-ghost" className="shrink-0">
         <Tab value="variables">
-          <ConfigTabLabel title="Variables" icon={<Braces />} badge={variablesBadge} />
+          <ConfigTabLabel title="变量" icon={<Braces />} badge={variablesBadge} />
         </Tab>
         <Tab value="instructions">
-          <ConfigTabLabel title="System Prompt" icon={<Cpu />} badge={instructionsBadge} />
+          <ConfigTabLabel title="系统提示词" icon={<Cpu />} badge={instructionsBadge} />
         </Tab>
         <Tab value="tools">
-          <ConfigTabLabel title="Tools" icon={<Wrench />} badge={toolsBadge} />
+          <ConfigTabLabel title="工具" icon={<Wrench />} badge={toolsBadge} />
         </Tab>
       </TabList>
 

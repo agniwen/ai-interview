@@ -20,10 +20,10 @@ export const AgentProfileInstructionsStep = () => {
 
   return (
     <AgentStepContainer
-      title="Instructions"
+      title="指令"
       cta={
         <Button onClick={handleContinue} disabled={isStreaming}>
-          Continue{" "}
+          继续{" "}
           <Icon>
             <ArrowRightIcon />
           </Icon>

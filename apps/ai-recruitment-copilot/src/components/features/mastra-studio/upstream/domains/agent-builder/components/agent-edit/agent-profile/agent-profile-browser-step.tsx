@@ -20,10 +20,10 @@ export const AgentProfileBrowserStep = () => {
 
   return (
     <AgentStepContainer
-      title="Browser"
+      title="浏览器"
       cta={
         <Button onClick={handleContinue} disabled={isStreaming}>
-          Continue{" "}
+          继续{" "}
           <Icon>
             <ArrowRightIcon />
           </Icon>

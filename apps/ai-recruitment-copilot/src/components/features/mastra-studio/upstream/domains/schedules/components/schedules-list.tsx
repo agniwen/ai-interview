@@ -37,7 +37,7 @@ function renderLastRun(schedule: ScheduleResponse) {
     );
   }
 
-  return <span className="text-neutral4">Never</span>;
+  return <span className="text-neutral4">从未运行</span>;
 }
 
 export function SchedulesList({ schedules, isLoading, search = "" }: SchedulesListProps) {
@@ -62,20 +62,18 @@ export function SchedulesList({ schedules, isLoading, search = "" }: SchedulesLi
   return (
     <DataList columns={COLUMNS} variant="striped" className="min-w-0">
       <DataList.Top>
-        <DataList.TopCell>Target</DataList.TopCell>
-        <DataList.TopCell>Schedule ID</DataList.TopCell>
+        <DataList.TopCell>目标</DataList.TopCell>
+        <DataList.TopCell>定时任务 ID</DataList.TopCell>
         <DataList.TopCell>Cron</DataList.TopCell>
-        <DataList.TopCell>Status</DataList.TopCell>
-        <DataList.TopCell>Next fire</DataList.TopCell>
-        <DataList.TopCell>Last run</DataList.TopCell>
+        <DataList.TopCell>状态</DataList.TopCell>
+        <DataList.TopCell>下次触发</DataList.TopCell>
+        <DataList.TopCell>上次运行</DataList.TopCell>
       </DataList.Top>
 
       {filtered.length === 0 && search ? (
-        <DataList.NoMatch message="No schedules match your search" />
+        <DataList.NoMatch message="没有符合搜索条件的定时任务" />
       ) : null}
-      {filtered.length === 0 && !search ? (
-        <DataList.NoMatch message="No schedules configured" />
-      ) : null}
+      {filtered.length === 0 && !search ? <DataList.NoMatch message="尚未配置定时任务" /> : null}
 
       {filtered.map((s) => (
         <DataList.RowLink key={s.id} to={paths.scheduleLink(s.id)} LinkComponent={Link}>

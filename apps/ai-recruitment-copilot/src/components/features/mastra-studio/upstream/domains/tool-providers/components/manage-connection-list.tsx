@@ -39,7 +39,7 @@ export const ManageConnectionList = ({
                   className="flex w-full items-center justify-between gap-2 text-left outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-accent1"
                 >
                   <EntityName className="truncate">
-                    {connection.label?.trim() || "Unnamed connection"}
+                    {connection.label?.trim() || "未命名连接"}
                   </EntityName>
                   <Icon className="shrink-0 text-neutral3">
                     <ChevronRight />
@@ -68,7 +68,7 @@ export const ManageConnectionList = ({
               <Plus />
             </Icon>
           )}
-          Add connection
+          添加连接
         </Button>
       </DialogFooter>
     )}

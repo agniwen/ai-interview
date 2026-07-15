@@ -13,7 +13,7 @@ export const VoiceCallButton = ({ voiceCall }: VoiceCallButtonProps) => {
         variant="default"
         size="icon-md"
         type="button"
-        tooltip="Start voice call"
+        tooltip="发起语音通话"
         data-testid="voice-call-button"
         onClick={() => voiceCall.start()}
       >
@@ -28,7 +28,7 @@ export const VoiceCallButton = ({ voiceCall }: VoiceCallButtonProps) => {
         variant="default"
         size="icon-md"
         type="button"
-        tooltip="Connecting…"
+        tooltip="正在连接…"
         data-testid="voice-call-button"
       >
         <Loader2 className="h-5 w-5 text-neutral3 animate-spin" />
@@ -41,7 +41,7 @@ export const VoiceCallButton = ({ voiceCall }: VoiceCallButtonProps) => {
       variant="default"
       size="icon-md"
       type="button"
-      tooltip="End voice call"
+      tooltip="结束语音通话"
       data-testid="voice-call-button"
       onClick={() => voiceCall.stop()}
     >

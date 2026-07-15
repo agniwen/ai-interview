@@ -39,7 +39,7 @@ function getErrorMessage(...errors: unknown[]): string {
       return error.message;
     }
   }
-  return "An unexpected error occurred";
+  return "发生意外错误";
 }
 
 function getScorerPageState({
@@ -80,10 +80,10 @@ function ScorerEmptyContent({ message, state }: { message: string; state: Scorer
       return <SessionExpired />;
     }
     case "forbidden": {
-      return <PermissionDenied resource="scorers" />;
+      return <PermissionDenied resource="评分器" />;
     }
     case "error": {
-      return <ErrorState title="Failed to load scorer" message={message} />;
+      return <ErrorState title="加载评分器失败" message={message} />;
     }
     default: {
       return <NoScoresInfo />;
@@ -98,7 +98,7 @@ function ScorerHeaderActions({ isStored, scorerId }: { isStored: boolean; scorer
   return (
     <RouteHeaderActions owner="scorer-detail">
       <Button variant="default" as={Link} to={`/cms/scorers/${scorerId}/edit`} size="sm">
-        <PencilIcon /> Edit
+        <PencilIcon /> 编辑
       </Button>
     </RouteHeaderActions>
   );
@@ -110,7 +110,7 @@ export default function Scorer() {
   const scoreIdFromUrl = searchParams.get("scoreId") ?? undefined;
   const [selectedScoreId, setSelectedScoreId] = useState<string | undefined>(scoreIdFromUrl);
   const [selectedEntityOption, setSelectedEntityOption] = useState<EntityOptions | undefined>({
-    label: "All Entities",
+    label: "全部实体",
     type: "ALL" as const,
     value: "all",
   });
@@ -156,7 +156,7 @@ export default function Scorer() {
 
   const entityOptions: EntityOptions[] = useMemo(
     () => [
-      { label: "All Entities", type: "ALL" as const, value: "all" },
+      { label: "全部实体", type: "ALL" as const, value: "all" },
       ...agentOptions,
       ...workflowOptions,
     ],
@@ -174,25 +174,23 @@ export default function Scorer() {
 
   useEffect(() => {
     if (scorerError) {
-      const errorMessage =
-        scorerError instanceof Error ? scorerError.message : "Failed to load scorer";
-      toast.error(`Error loading scorer: ${errorMessage}`);
+      const errorMessage = scorerError instanceof Error ? scorerError.message : "加载评分器失败";
+      toast.error(`加载评分器时出错：${errorMessage}`);
     }
   }, [scorerError]);
 
   useEffect(() => {
     if (agentsError) {
-      const errorMessage =
-        agentsError instanceof Error ? agentsError.message : "Failed to load agents";
-      toast.error(`Error loading agents: ${errorMessage}`);
+      const errorMessage = agentsError instanceof Error ? agentsError.message : "加载智能体失败";
+      toast.error(`加载智能体时出错：${errorMessage}`);
     }
   }, [agentsError]);
 
   useEffect(() => {
     if (workflowsError) {
       const errorMessage =
-        workflowsError instanceof Error ? workflowsError.message : "Failed to load workflows";
-      toast.error(`Error loading workflows: ${errorMessage}`);
+        workflowsError instanceof Error ? workflowsError.message : "加载工作流失败";
+      toast.error(`加载工作流时出错：${errorMessage}`);
     }
   }, [workflowsError]);
 

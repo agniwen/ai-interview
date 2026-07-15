@@ -9,13 +9,13 @@ import type {
 import { TripwireNotice } from "../tripwire-notice";
 
 export const ErrorStatusRenderer = ({ text }: ErrorRendererProps) => (
-  <Notice variant="destructive" title="Error">
+  <Notice variant="destructive" title="错误">
     <Notice.Message>{text}</Notice.Message>
   </Notice>
 );
 
 export const WarningStatusRenderer = ({ text }: WarningRendererProps) => (
-  <Notice variant="warning" title="Warning">
+  <Notice variant="warning" title="警告">
     <Notice.Message>{text}</Notice.Message>
   </Notice>
 );

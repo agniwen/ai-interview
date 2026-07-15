@@ -21,7 +21,6 @@ import {
 } from "@/components/features/mastra-studio/upstream/domains/prompt-blocks";
 import { useLinkComponent } from "@/components/features/mastra-studio/upstream/lib/framework";
 import { resolveConditional } from "../../utils/conditional";
-import { isTruthy } from "../../utils/truthiness";
 
 export interface AgentCMSRefBlockProps {
   index: number;
@@ -127,7 +126,7 @@ const RefBlockContent = ({
                   <GripVertical />
                 </Icon>
               </TooltipTrigger>
-              <TooltipContent side="left">Drag to reorder</TooltipContent>
+              <TooltipContent side="left">拖动以重新排序</TooltipContent>
             </Tooltip>
           </div>
         </div>
@@ -140,7 +139,7 @@ const RefBlockContent = ({
           () => (
             <div className="flex items-center gap-2 text-neutral3 py-3">
               <Spinner className="h-4 w-4" />
-              <Txt variant="ui-sm">Loading prompt block...</Txt>
+              <Txt variant="ui-sm">正在加载提示词块…</Txt>
             </div>
           ),
           () =>
@@ -156,7 +155,7 @@ const RefBlockContent = ({
                       <PopoverTrigger asChild>
                         <button
                           type="button"
-                          aria-label={`Open actions for ${promptBlock.name}`}
+                          aria-label={`打开 ${promptBlock.name} 的操作菜单`}
                           className="ml-auto rounded p-0.5 hover:bg-surface4/50 transition-colors duration-150 text-neutral3 hover:text-neutral5"
                         >
                           <Icon className="h-3! w-3!">
@@ -186,7 +185,7 @@ const RefBlockContent = ({
                             <Icon className="h-3.5! w-3.5! text-neutral3">
                               <ExternalLink />
                             </Icon>
-                            Open original
+                            打开原始内容
                           </button>
                           {onDereference && (
                             <button
@@ -200,7 +199,7 @@ const RefBlockContent = ({
                               <Icon className="h-3.5! w-3.5! text-neutral3">
                                 <X />
                               </Icon>
-                              De-reference block
+                              取消引用提示词块
                             </button>
                           )}
                           {onDelete && (
@@ -212,15 +211,14 @@ const RefBlockContent = ({
                               <Icon className="h-3.5! w-3.5!">
                                 <X />
                               </Icon>
-                              Remove block
+                              移除提示词块
                             </button>
                           )}
                         </div>
                         {usedByAgents.length > 0 && (
                           <div className="border-t border-border1 p-3">
                             <Txt variant="ui-xs" className="text-neutral3 mb-1.5">
-                              Used by {usedByAgents.length} agent
-                              {isTruthy(usedByAgents.length !== 1) ? "s" : ""}
+                              被 {usedByAgents.length} 个智能体使用
                             </Txt>
                             <div className="flex flex-col gap-1">
                               {usedByAgents.map((agent) => (
@@ -244,7 +242,7 @@ const RefBlockContent = ({
                 <CodeEditor
                   value={localContent}
                   onChange={handleContentChange}
-                  placeholder="Referenced block is empty..."
+                  placeholder="引用的提示词块为空…"
                   variant="embedded"
                   className="min-h-12"
                   language="markdown"
@@ -257,7 +255,7 @@ const RefBlockContent = ({
               </>
             ) : (
               <div className="flex items-center gap-2 text-warning py-3">
-                <Txt variant="ui-sm">Prompt block not found (ID: {block.promptBlockId})</Txt>
+                <Txt variant="ui-sm">未找到提示词块（ID：{block.promptBlockId}）</Txt>
               </div>
             ),
         )}

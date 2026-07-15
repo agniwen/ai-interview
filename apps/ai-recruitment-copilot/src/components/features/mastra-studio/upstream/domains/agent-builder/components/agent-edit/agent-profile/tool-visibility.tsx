@@ -37,17 +37,17 @@ export function getEmptyStateDetails(args: {
 }): ReactNode {
   const trimmedSearch = args.search.trim();
   if (args.allToolkitsUnchecked) {
-    return "Select at least one toolkit to see tools";
+    return "至少选择一个工具包以查看工具";
   }
   if (args.onlySelected && trimmedSearch === "") {
-    return "No tools selected yet";
+    return "尚未选择工具";
   }
   if (args.onlySelected) {
-    return <>No selected tools match {trimmedSearch}</>;
+    return <>已选工具中没有匹配“{trimmedSearch}”的结果</>;
   }
   return (
     <>
-      No tools match <strong>{trimmedSearch}</strong>
+      没有工具匹配“<strong>{trimmedSearch}</strong>”
     </>
   );
 }

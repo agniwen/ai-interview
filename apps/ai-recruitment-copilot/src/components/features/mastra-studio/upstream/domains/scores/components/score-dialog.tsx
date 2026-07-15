@@ -106,7 +106,7 @@ function ScoreDialogTop({
         <Icon>
           <SaveIcon />
         </Icon>
-        Save as Dataset Item
+        保存为数据项
       </Button>
     </SideDialog.Top>
   );
@@ -116,7 +116,7 @@ function getPromptValue(value: string | undefined, isCodeBased: boolean): string
   if (value) {
     return value;
   }
-  return isCodeBased ? "N/A — code-based scorer does not use prompts" : "N/A — step not configured";
+  return isCodeBased ? "不适用——代码评分器不使用提示词" : "不适用——未配置此步骤";
 }
 
 interface ScoreSectionsProps {
@@ -125,48 +125,46 @@ interface ScoreSectionsProps {
 }
 
 function ScoreSections({ isCodeBased, score }: ScoreSectionsProps) {
-  const reasonFallback = isCodeBased
-    ? "N/A — code-based scorer does not generate a reason"
-    : "N/A — step not configured";
+  const reasonFallback = isCodeBased ? "不适用——代码评分器不生成理由" : "不适用——未配置此步骤";
 
   return (
     <>
       <SideDialog.CodeSection
-        title={`Score: ${Number.isNaN(score?.score) ? "n/a" : score?.score}`}
+        title={`得分：${Number.isNaN(score?.score) ? "不适用" : score?.score}`}
         icon={<GaugeIcon />}
         codeStr={score?.reason || reasonFallback}
         simplified={true}
       />
       <SideDialog.CodeSection
-        title="Input"
+        title="输入"
         icon={<FileInputIcon />}
         codeStr={JSON.stringify(score?.input || null, null, 2)}
       />
       <SideDialog.CodeSection
-        title="Output"
+        title="输出"
         icon={<FileOutputIcon />}
         codeStr={JSON.stringify(score?.output || null, null, 2)}
       />
       <SideDialog.CodeSection
-        title="Preprocess Prompt"
+        title="预处理提示词"
         icon={<ReceiptText />}
         codeStr={getPromptValue(score?.preprocessPrompt, isCodeBased)}
         simplified={true}
       />
       <SideDialog.CodeSection
-        title="Analyze Prompt"
+        title="分析提示词"
         icon={<ReceiptText />}
         codeStr={getPromptValue(score?.analyzePrompt, isCodeBased)}
         simplified={true}
       />
       <SideDialog.CodeSection
-        title="Generate Score Prompt"
+        title="生成得分提示词"
         icon={<ReceiptText />}
         codeStr={getPromptValue(score?.generateScorePrompt, isCodeBased)}
         simplified={true}
       />
       <SideDialog.CodeSection
-        title="Generate Reason Prompt"
+        title="生成理由提示词"
         icon={<ReceiptText />}
         codeStr={getPromptValue(score?.generateReasonPrompt, isCodeBased)}
         simplified={true}
@@ -182,7 +180,7 @@ interface ScoreMetadataProps {
 }
 
 function formatCreatedAt(score?: ScoreRowData): string {
-  return score?.createdAt ? format(new Date(score.createdAt), "MMM d, h:mm:ss aaa") : "n/a";
+  return score?.createdAt ? format(new Date(score.createdAt), "MM/dd HH:mm:ss") : "不适用";
 }
 
 function ScoreMetadata({ computeTraceLink, score, usageContext }: ScoreMetadataProps) {
@@ -198,7 +196,7 @@ function ScoreMetadata({ computeTraceLink, score, usageContext }: ScoreMetadataP
         data={[
           {
             key: "scorer-name",
-            label: "Scorer",
+            label: "评分器",
             value: scorerDetailHref ? (
               <Link href={scorerDetailHref}>{(score?.scorer?.name as string) || "-"}</Link>
             ) : (
@@ -207,7 +205,7 @@ function ScoreMetadata({ computeTraceLink, score, usageContext }: ScoreMetadataP
           },
           {
             key: "date",
-            label: "Created at",
+            label: "创建时间",
             value: formatCreatedAt(score),
           },
         ]}
@@ -220,16 +218,16 @@ function ScoreMetadata({ computeTraceLink, score, usageContext }: ScoreMetadataP
       data={[
         {
           key: "date",
-          label: "Created at",
+          label: "创建时间",
           value: formatCreatedAt(score),
         },
         {
           key: "traceId",
-          label: "Trace ID",
+          label: "追踪 ID",
           value: score?.traceId ? (
             <Link href={computeTraceLink(score.traceId)}>{score.traceId}</Link>
           ) : (
-            "n/a"
+            "不适用"
           ),
         },
         {
@@ -239,7 +237,7 @@ function ScoreMetadata({ computeTraceLink, score, usageContext }: ScoreMetadataP
             score?.traceId && score.spanId ? (
               <Link href={computeTraceLink(score.traceId, score.spanId)}>{score.spanId}</Link>
             ) : (
-              "n/a"
+              "不适用"
             ),
         },
       ]}
@@ -264,8 +262,8 @@ export function ScoreDialog({
   return (
     <>
       <SideDialog
-        dialogTitle="Scorer Score"
-        dialogDescription="View and analyze score details"
+        dialogTitle="评分器得分"
+        dialogDescription="查看并分析得分详情"
         isOpen={isOpen}
         onClose={onClose}
         level={dialogLevel}
@@ -282,7 +280,7 @@ export function ScoreDialog({
         <SideDialog.Content>
           <SideDialog.Header>
             <SideDialog.Heading>
-              <CalculatorIcon /> Score
+              <CalculatorIcon /> 得分
             </SideDialog.Heading>
             <TextAndIcon>
               <HashIcon /> {score?.id}

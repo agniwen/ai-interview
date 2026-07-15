@@ -136,18 +136,18 @@ export function DatasetItems({
     if (selectionMode === "export") {
       try {
         exportItemsToCSV(selectedItems, `${datasetName || "dataset"}-items.csv`);
-        toast.success(`Exported ${selection.selectedCount} items to CSV`);
+        toast.success(`已将 ${selection.selectedCount} 个数据项导出为 CSV`);
       } catch (error) {
-        toast.error("Failed to export items to CSV");
+        toast.error("将数据项导出为 CSV 失败");
         console.error("CSV export error:", error);
       }
       handleCancelSelection();
     } else if (selectionMode === "export-json") {
       try {
         exportItemsToJSON(selectedItems, `${datasetName || "dataset"}-items.json`);
-        toast.success(`Exported ${selection.selectedCount} items to JSON`);
+        toast.success(`已将 ${selection.selectedCount} 个数据项导出为 JSON`);
       } catch (error) {
-        toast.error("Failed to export items to JSON");
+        toast.error("将数据项导出为 JSON 失败");
         console.error("JSON export error:", error);
       }
       handleCancelSelection();
@@ -166,10 +166,10 @@ export function DatasetItems({
 
   const itemsListColumns = [
     { label: "ID", name: "id", size: "7rem" },
-    { label: "Input", name: "input", size: "minmax(10rem,1fr)" },
-    { label: "Ground Truth", name: "groundTruth", size: "minmax(10rem,1fr)" },
-    { label: "Trajectory", name: "trajectory", size: "8rem" },
-    { label: "Created", name: "date", size: "10rem" },
+    { label: "输入", name: "input", size: "minmax(10rem,1fr)" },
+    { label: "标准答案", name: "groundTruth", size: "minmax(10rem,1fr)" },
+    { label: "轨迹", name: "trajectory", size: "8rem" },
+    { label: "创建时间", name: "date", size: "10rem" },
   ];
 
   const listSlot = (
@@ -213,14 +213,14 @@ export function DatasetItems({
         activeDatasetVersion !== undefined && (
           <Notice
             variant="warning"
-            title="Previous version"
+            title="上一个版本"
             action={
               <Notice.Button onClick={() => handleVersionChange(null)}>
-                <ArrowRightToLineIcon /> Return to the latest version
+                <ArrowRightToLineIcon /> 返回最新版本
               </Notice.Button>
             }
           >
-            <Notice.Message>Viewing version v{activeDatasetVersion}</Notice.Message>
+            <Notice.Message>正在查看版本 v{activeDatasetVersion}</Notice.Message>
           </Notice>
         )}
 

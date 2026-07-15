@@ -46,11 +46,10 @@ export const Browser = ({ editable = true }: BrowserProps) => {
 
         <div className="flex flex-col gap-2">
           <Txt variant="header-sm" className="font-semibold text-neutral6">
-            Browser access
+            浏览器访问
           </Txt>
           <Txt variant="ui-md" className="text-neutral3">
-            Let this agent open a browser session to navigate websites, fill out forms, and read
-            live web content as part of a run.
+            允许此智能体在运行过程中打开浏览器会话，以浏览网站、填写表单并读取实时网页内容。
           </Txt>
         </div>
 
@@ -67,10 +66,10 @@ export const Browser = ({ editable = true }: BrowserProps) => {
             htmlFor={TOGGLE_ID}
             className="cursor-pointer text-ui-md font-medium text-neutral6"
           >
-            Enable browser
+            启用浏览器
           </label>
           <StatusBadge variant={browserEnabled ? "success" : "neutral"} size="sm" withDot>
-            {browserEnabled ? "Enabled" : "Disabled"}
+            {browserEnabled ? "已启用" : "已停用"}
           </StatusBadge>
         </div>
       </div>

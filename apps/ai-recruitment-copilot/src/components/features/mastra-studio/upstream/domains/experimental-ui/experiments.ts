@@ -3,7 +3,7 @@ import type { UIExperimentConfig } from "./experimental-ui-context";
 export const UI_EXPERIMENTS: UIExperimentConfig[] = [
   {
     key: "entity-list-page",
-    name: "Entity List page UI",
+    name: "实体列表页界面",
     path: [
       "/agents",
       "/prompts",
@@ -15,8 +15,8 @@ export const UI_EXPERIMENTS: UIExperimentConfig[] = [
       "/processors",
     ],
     variants: [
-      { label: "Current state", value: "current" },
-      { label: "New proposal", value: "new-proposal" },
+      { label: "当前版本", value: "current" },
+      { label: "新版方案", value: "new-proposal" },
     ],
   },
 ];

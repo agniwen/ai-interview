@@ -61,10 +61,8 @@ export const ManageConnectionDialog = ({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent data-testid={`${testIdPrefix}-dialog`} className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>
-            {showList ? `${titleize(providerId)} connections` : "Manage connection"}
-          </DialogTitle>
-          <DialogDescription>Rename or disconnect this authorized account.</DialogDescription>
+          <DialogTitle>{showList ? `${titleize(providerId)} 连接` : "管理连接"}</DialogTitle>
+          <DialogDescription>重命名或断开此已授权账户。</DialogDescription>
         </DialogHeader>
         {open &&
           (showList ? (

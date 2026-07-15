@@ -30,13 +30,13 @@ function AccessDeniedScreen() {
       <div className="flex flex-col items-center gap-4">
         <EmptyState
           iconSlot={<LockIcon />}
-          titleSlot="Access Denied"
-          descriptionSlot="You don't have permission to access the Agent Builder."
+          titleSlot="访问被拒绝"
+          descriptionSlot="你没有访问智能体构建器的权限。"
         />
         <div className="flex items-center gap-2">
           <Button as="a" href="/agents" variant="outline" size="sm">
             <ArrowLeft className="h-3.5 w-3.5" />
-            Back to Studio
+            返回 Studio
           </Button>
           {isImpersonating && (
             <Button variant="default" size="sm" onClick={stopImpersonation}>
@@ -71,8 +71,8 @@ const AgentBuilderPermissionsGuard = ({ paths }: AgentBuilderRootLayoutProps) =>
       <div className="flex h-screen items-center justify-center">
         <EmptyState
           iconSlot={<AlertTriangle />}
-          titleSlot="Error"
-          descriptionSlot="Failed to load Agent Builder configuration."
+          titleSlot="错误"
+          descriptionSlot="加载智能体构建器配置失败。"
         />
       </div>
     );
@@ -83,8 +83,8 @@ const AgentBuilderPermissionsGuard = ({ paths }: AgentBuilderRootLayoutProps) =>
       <div className="flex h-screen items-center justify-center">
         <EmptyState
           iconSlot={<Settings />}
-          titleSlot="Agent Builder Not Configured"
-          descriptionSlot="Agent Builder is not enabled. Contact your administrator to enable this feature."
+          titleSlot="智能体构建器尚未配置"
+          descriptionSlot="智能体构建器未启用。请联系管理员启用此功能。"
         />
       </div>
     );
@@ -96,8 +96,8 @@ const AgentBuilderPermissionsGuard = ({ paths }: AgentBuilderRootLayoutProps) =>
       <div className="flex h-screen items-center justify-center">
         <EmptyState
           iconSlot={<Settings />}
-          titleSlot="No Features Enabled"
-          descriptionSlot="No Agent Builder features are configured."
+          titleSlot="未启用任何功能"
+          descriptionSlot="尚未配置智能体构建器功能。"
         />
       </div>
     );

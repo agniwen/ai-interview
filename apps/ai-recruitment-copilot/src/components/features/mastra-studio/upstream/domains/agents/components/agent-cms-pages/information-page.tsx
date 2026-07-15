@@ -24,18 +24,15 @@ export function InformationPage() {
   return (
     <ScrollArea className="h-full">
       <SectionRoot>
-        <SectionHeader
-          title="Identity"
-          subtitle="Define your agent's name, description, and model."
-        />
+        <SectionHeader title="身份信息" subtitle="定义智能体的名称、描述和模型。" />
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="agent-name" className="text-xs text-neutral5">
-            Name <span className="text-accent2">*</span>
+            名称 <span className="text-accent2">*</span>
           </Label>
           <Input
             id="agent-name"
-            placeholder="My Agent"
+            placeholder="我的智能体"
             variant="outline"
             {...register("name")}
             error={!!errors.name}
@@ -46,11 +43,11 @@ export function InformationPage() {
 
         <div className="flex flex-col gap-1.5 pb-8">
           <Label htmlFor="agent-description" className="text-xs text-neutral5">
-            Description
+            描述
           </Label>
           <Textarea
             id="agent-description"
-            placeholder="Describe what this agent does"
+            placeholder="描述此智能体的用途"
             variant="outline"
             {...register("description")}
             error={!!errors.description}
@@ -63,11 +60,11 @@ export function InformationPage() {
 
         <div className="border-t border-border1 pt-8">
           <SubSectionRoot>
-            <SubSectionHeader title="Model Configuration" />
+            <SubSectionHeader title="模型配置" />
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs text-neutral5">
-                  Provider <span className="text-accent2">*</span>
+                  提供商 <span className="text-accent2">*</span>
                 </Label>
                 <Controller
                   name="model.provider"
@@ -85,7 +82,7 @@ export function InformationPage() {
 
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs text-neutral5">
-                  Model <span className="text-accent2">*</span>
+                  模型 <span className="text-accent2">*</span>
                 </Label>
                 <Controller
                   name="model.name"

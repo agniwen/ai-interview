@@ -25,11 +25,11 @@ function RecursiveFieldRenderer({
       <JSONSchemaForm.Field key={field.id} field={field} parentPath={parentPath} depth={depth}>
         <div className="space-y-2 px-2">
           <div className="flex flex-row gap-4 items-center">
-            <JSONSchemaForm.FieldName placeholder="Variable name" className="w-64" />
-            <JSONSchemaForm.FieldType placeholder="Type" />
+            <JSONSchemaForm.FieldName placeholder="变量名称" className="w-64" />
+            <JSONSchemaForm.FieldType placeholder="类型" />
             <JSONSchemaForm.FieldOptional />
             <JSONSchemaForm.FieldNullable />
-            <JSONSchemaForm.FieldRemove aria-label="Remove Variable" />
+            <JSONSchemaForm.FieldRemove aria-label="移除变量" />
           </div>
         </div>
 
@@ -46,7 +46,7 @@ function RecursiveFieldRenderer({
           </JSONSchemaForm.FieldList>
           <JSONSchemaForm.AddField variant="ghost" size="sm" className="mt-2">
             <PlusIcon className="w-3 h-3 mr-1" />
-            Add nested variable
+            添加嵌套变量
           </JSONSchemaForm.AddField>
         </JSONSchemaForm.NestedFields>
       </JSONSchemaForm.Field>
@@ -92,7 +92,7 @@ export function VariablesPage() {
             <div className="p-2">
               <JSONSchemaForm.AddField>
                 <Plus />
-                Add variable
+                添加变量
               </JSONSchemaForm.AddField>
             </div>
           </JSONSchemaForm.Root>

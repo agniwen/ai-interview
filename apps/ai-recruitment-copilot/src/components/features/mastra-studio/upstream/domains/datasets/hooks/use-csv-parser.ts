@@ -66,8 +66,7 @@ export function useCSVParser() {
       });
       return await promise;
     } catch (caughtError) {
-      const parseError =
-        caughtError instanceof Error ? caughtError : new Error("Failed to parse CSV");
+      const parseError = caughtError instanceof Error ? caughtError : new Error("解析 CSV 失败");
       setError(parseError);
       throw parseError;
     } finally {

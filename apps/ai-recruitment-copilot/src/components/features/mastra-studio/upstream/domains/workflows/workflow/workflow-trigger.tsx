@@ -84,9 +84,9 @@ function DebugModeSwitch() {
   const { debugMode, setDebugMode } = useContext(WorkflowRunContext);
   return (
     <div className="flex shrink-0 items-center gap-2">
-      <Switch checked={debugMode} onCheckedChange={setDebugMode} aria-label="Debug" />
+      <Switch checked={debugMode} onCheckedChange={setDebugMode} aria-label="调试" />
       <Txt variant="ui-xs" className="text-neutral3 whitespace-nowrap">
-        Debug
+        调试
       </Txt>
     </div>
   );
@@ -104,9 +104,18 @@ function useSyncStreamResultToWorkflowRunContext(streamResult: WorkflowRunStream
 
 function formatRunStatus(status?: WorkflowRunStatus) {
   if (!status) {
-    return "Run";
+    return "运行";
   }
-  return status.charAt(0).toUpperCase() + status.slice(1);
+  const statusLabels: Partial<Record<WorkflowRunStatus, string>> = {
+    canceled: "已取消",
+    failed: "失败",
+    pending: "等待中",
+    running: "运行中",
+    success: "成功",
+    suspended: "已挂起",
+    waiting: "等待中",
+  };
+  return statusLabels[status] ?? status;
 }
 
 function formatRunDuration(durationMs?: number) {
@@ -134,19 +143,20 @@ function formatRelativeTime(ms?: number) {
   const diff = ms - Date.now();
   const abs = Math.abs(diff);
   const seconds = Math.floor(abs / 1000);
+  const formatter = new Intl.RelativeTimeFormat("zh-CN", { numeric: "auto" });
   if (seconds < 60) {
-    return diff >= 0 ? `in ${seconds}s` : `${seconds}s ago`;
+    return formatter.format(diff >= 0 ? seconds : -seconds, "second");
   }
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) {
-    return diff >= 0 ? `in ${minutes}m` : `${minutes}m ago`;
+    return formatter.format(diff >= 0 ? minutes : -minutes, "minute");
   }
   const hours = Math.floor(minutes / 60);
   if (hours < 24) {
-    return diff >= 0 ? `in ${hours}h` : `${hours}h ago`;
+    return formatter.format(diff >= 0 ? hours : -hours, "hour");
   }
   const days = Math.floor(hours / 24);
-  return diff >= 0 ? `in ${days}d` : `${days}d ago`;
+  return formatter.format(diff >= 0 ? days : -days, "day");
 }
 
 function getRunDuration(result: WorkflowRunStreamResult | null, status?: WorkflowRunStatus) {
@@ -191,9 +201,7 @@ function InitialWorkflowHeader({
         {workflow.name ?? workflowId}
       </Txt>
       <CopyButton content={workflow.name ?? workflowId} variant="ghost" className="shrink-0" />
-      <Badge className="ml-auto shrink-0">
-        {stepsCount} step{stepsCount > 1 ? "s" : ""}
-      </Badge>
+      <Badge className="ml-auto shrink-0">{stepsCount} 个步骤</Badge>
     </div>
   );
 }
@@ -250,7 +258,7 @@ function WorkflowTriggerFormSection({
   if (!canExecute) {
     return (
       <Txt variant="ui-sm" className="text-neutral3 py-2 px-5">
-        You don't have permission to execute workflows.
+        你没有执行工作流的权限。
       </Txt>
     );
   }
@@ -287,8 +295,8 @@ function WorkflowRunResultActions({
           variant="ghost"
           size="sm"
           data={result}
-          triggerLabel="Entire workflow execution (JSON)"
-          title="Entire workflow execution (JSON)"
+          triggerLabel="完整工作流执行（JSON）"
+          title="完整工作流执行（JSON）"
         />
         {"result" in result && result.result !== undefined && (
           <WorkflowJsonDialog
@@ -296,8 +304,8 @@ function WorkflowRunResultActions({
             variant="ghost"
             size="sm"
             data={{ result: result.result }}
-            triggerLabel="Run output"
-            title="Run output (JSON)"
+            triggerLabel="运行输出"
+            title="运行输出（JSON）"
           />
         )}
       </div>
@@ -330,7 +338,7 @@ function WorkflowTriggerBody({
             <Icon>
               <Loader2 className="animate-spin text-neutral6" />
             </Icon>
-            <Txt>Resuming workflow</Txt>
+            <Txt>正在恢复工作流</Txt>
           </div>
         )}
         {formSection}
@@ -483,7 +491,7 @@ export function WorkflowTrigger({
         workflowId,
       });
     } catch {
-      toast.error("Error executing workflow");
+      toast.error("执行工作流时出错");
     }
   };
 
@@ -492,7 +500,7 @@ export function WorkflowTrigger({
       const response = await cancelWorkflowRun({ runId: innerRunId, workflowId });
       setCancelResponse(response);
     } catch {
-      toast.error("Error cancelling workflow run");
+      toast.error("取消工作流运行时出错");
     }
   };
 

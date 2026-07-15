@@ -103,31 +103,31 @@ const BackgroundTaskMetadata = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Background Task Metadata</DialogTitle>
-          <DialogDescription>View the metadata of the background task.</DialogDescription>
+          <DialogTitle>后台任务元数据</DialogTitle>
+          <DialogDescription>查看后台任务的元数据。</DialogDescription>
         </DialogHeader>
 
         <DialogBody className="space-y-4">
           <div className="space-y-2">
-            <Txt className="text-neutral3">Background Task Duration</Txt>
+            <Txt className="text-neutral3">后台任务耗时</Txt>
             <Txt className="text-neutral6 text-ui-md">{toSigFigs(timeDiff, 3)}ms</Txt>
           </div>
 
           <div className="space-y-2">
-            <Txt className="text-neutral3">Background Task Arguments</Txt>
+            <Txt className="text-neutral3">后台任务参数</Txt>
             {argSlot}
           </div>
 
           {suspendPayloadSlot !== undefined && Boolean(suspendPayload) && (
             <div className="space-y-2">
-              <Txt className="text-neutral3">Background Task Suspend Data</Txt>
+              <Txt className="text-neutral3">后台任务挂起数据</Txt>
               {suspendPayloadSlot}
             </div>
           )}
 
           {resultSlot !== undefined && Boolean(result) && (
             <div className="space-y-2">
-              <Txt className="text-neutral3">Background Task Result</Txt>
+              <Txt className="text-neutral3">后台任务结果</Txt>
               {resultSlot}
             </div>
           )}
@@ -155,7 +155,7 @@ export const BackgroundTaskMetadataDialogTrigger = ({
       <Button
         variant="default"
         size="icon-md"
-        tooltip="Show background task information"
+        tooltip="查看后台任务信息"
         onClick={() => setIsOpen((s) => !s)}
       >
         {backgroundTask.completedAt || backgroundTask.suspendedAt ? (

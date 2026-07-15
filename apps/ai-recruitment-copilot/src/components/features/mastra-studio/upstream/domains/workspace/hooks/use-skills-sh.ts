@@ -21,16 +21,16 @@ export const useSearchSkillsSh = (workspaceId: string | undefined) => {
   return useMutation({
     mutationFn: async (query: string): Promise<SkillsShSearchResponse> => {
       if (!workspaceId) {
-        throw new Error("Workspace ID is required");
+        throw new Error("必须提供工作区 ID");
       }
       const baseUrl = client.options.baseUrl || "";
       const url = `${baseUrl}/api/workspaces/${workspaceId}/skills-sh/search?q=${encodeURIComponent(query)}&limit=10`;
       const response = await fetch(url);
       if (!response.ok) {
-        throw new Error(`Failed to search skills: ${response.statusText}`);
+        throw new Error(`搜索技能失败：${response.statusText}`);
       }
       return response.json().catch(() => {
-        throw new Error("Invalid response from server");
+        throw new Error("服务器响应无效");
       });
     },
   });
@@ -46,16 +46,16 @@ export const usePopularSkillsSh = (workspaceId: string | undefined) => {
     enabled: !!workspaceId,
     queryFn: async (): Promise<SkillsShListResponse> => {
       if (!workspaceId) {
-        throw new Error("Workspace ID is required");
+        throw new Error("必须提供工作区 ID");
       }
       const baseUrl = client.options.baseUrl || "";
       const url = `${baseUrl}/api/workspaces/${workspaceId}/skills-sh/popular?limit=10&offset=0`;
       const response = await fetch(url);
       if (!response.ok) {
-        throw new Error(`Failed to fetch popular skills: ${response.statusText}`);
+        throw new Error(`获取热门技能失败：${response.statusText}`);
       }
       return response.json().catch(() => {
-        throw new Error("Invalid response from server");
+        throw new Error("服务器响应无效");
       });
     },
     queryKey: ["skills-sh", "popular", workspaceId],
@@ -80,17 +80,17 @@ export const useSkillPreview = (
     enabled: options?.enabled !== false && !!workspaceId && !!owner && !!repo && !!skillPath,
     queryFn: async (): Promise<string> => {
       if (!workspaceId || !owner || !repo || !skillPath) {
-        throw new Error("workspaceId, owner, repo, and skillPath are required");
+        throw new Error("必须提供 workspaceId、owner、repo 和 skillPath");
       }
       const baseUrl = client.options.baseUrl || "";
       const params = new URLSearchParams({ owner, path: skillPath, repo });
       const url = `${baseUrl}/api/workspaces/${workspaceId}/skills-sh/preview?${params}`;
       const response = await fetch(url);
       if (!response.ok) {
-        throw new Error(`Failed to fetch preview: ${response.statusText}`);
+        throw new Error(`获取预览失败：${response.statusText}`);
       }
       const data = await response.json().catch(() => {
-        throw new Error("Invalid response from server");
+        throw new Error("服务器响应无效");
       });
       return data.content;
     },
@@ -124,7 +124,7 @@ export const useInstallSkill = () => {
     mutationFn: async (params: InstallSkillParams): Promise<SkillsShInstallResponse> => {
       const [owner, repo] = params.repository.split("/");
       if (!owner || !repo) {
-        throw new Error("Invalid repository format. Expected owner/repo");
+        throw new Error("仓库格式无效，应为 owner/repo");
       }
 
       const baseUrl = client.options.baseUrl || "";
@@ -141,13 +141,11 @@ export const useInstallSkill = () => {
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        throw new Error(
-          error.error || error.message || `Failed to install skill: ${response.statusText}`,
-        );
+        throw new Error(error.error || error.message || `安装技能失败：${response.statusText}`);
       }
 
       return response.json().catch(() => {
-        throw new Error("Invalid response from server");
+        throw new Error("服务器响应无效");
       });
     },
     onSuccess: (_, variables) => {
@@ -182,13 +180,11 @@ export const useUpdateSkills = () => {
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        throw new Error(
-          error.error || error.message || `Failed to update skill: ${response.statusText}`,
-        );
+        throw new Error(error.error || error.message || `更新技能失败：${response.statusText}`);
       }
 
       return response.json().catch(() => {
-        throw new Error("Invalid response from server");
+        throw new Error("服务器响应无效");
       });
     },
     onSuccess: (_, variables) => {
@@ -223,13 +219,11 @@ export const useRemoveSkill = () => {
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        throw new Error(
-          error.error || error.message || `Failed to remove skill: ${response.statusText}`,
-        );
+        throw new Error(error.error || error.message || `移除技能失败：${response.statusText}`);
       }
 
       return response.json().catch(() => {
-        throw new Error("Invalid response from server");
+        throw new Error("服务器响应无效");
       });
     },
     onSuccess: (_, variables) => {

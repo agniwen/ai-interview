@@ -53,7 +53,7 @@ export default function Experiments() {
   if (errorExperiments && is403ForbiddenError(errorExperiments)) {
     return (
       <NoDataPageLayout>
-        <PermissionDenied resource="experiments" />
+        <PermissionDenied resource="实验" />
       </NoDataPageLayout>
     );
   }
@@ -61,7 +61,7 @@ export default function Experiments() {
   if (errorDatasets && is403ForbiddenError(errorDatasets)) {
     return (
       <NoDataPageLayout>
-        <PermissionDenied resource="datasets" />
+        <PermissionDenied resource="数据集" />
       </NoDataPageLayout>
     );
   }
@@ -69,7 +69,7 @@ export default function Experiments() {
   if (error) {
     return (
       <NoDataPageLayout>
-        <ErrorState title="Failed to load experiments" message={error.message} />
+        <ErrorState title="加载实验失败" message={error.message} />
       </NoDataPageLayout>
     );
   }

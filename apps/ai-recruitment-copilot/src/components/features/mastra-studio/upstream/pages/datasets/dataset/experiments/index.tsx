@@ -37,7 +37,7 @@ function CompareDatasetExperimentsPage() {
     return (
       <MainContentLayout>
         <div className="flex h-full items-center justify-center">
-          <PermissionDenied resource="datasets" />
+          <PermissionDenied resource="数据集" />
         </div>
       </MainContentLayout>
     );
@@ -48,9 +48,9 @@ function CompareDatasetExperimentsPage() {
       <MainContentLayout>
         <MainContentContent>
           <div className="text-neutral4 text-center py-8">
-            <p>Select two experiments to compare.</p>
+            <p>请选择两个实验进行对比。</p>
             <p className="text-sm mt-2">
-              Use the URL format: /datasets/{"{datasetId}"}/experiments?baseline={"{experimentIdA}"}
+              请使用 URL 格式：/datasets/{"{datasetId}"}/experiments?baseline={"{experimentIdA}"}
               &contender=
               {"{experimentIdB}"}
             </p>
@@ -67,14 +67,14 @@ function CompareDatasetExperimentsPage() {
           <MainHeader>
             <MainHeader.Column>
               <MainHeader.Title>
-                <GitCompare /> Dataset Experiments Comparison
+                <GitCompare /> 数据集实验对比
               </MainHeader.Title>
               <MainHeader.Description>
-                Comparing{" "}
+                正在对比{" "}
                 <Link to={`/datasets/${datasetId}/experiments/${experimentIdA}`}>
                   {experimentIdA.slice(0, 8)}
                 </Link>{" "}
-                vs{" "}
+                对比{" "}
                 <Link to={`/datasets/${datasetId}/experiments/${experimentIdB}`}>
                   {experimentIdB.slice(0, 8)}
                 </Link>
@@ -83,7 +83,7 @@ function CompareDatasetExperimentsPage() {
             <MainHeader.Column>
               <Button as={Link} to={`/datasets/${datasetId}`}>
                 <ArrowLeft />
-                Back to Dataset
+                返回数据集
               </Button>
             </MainHeader.Column>
           </MainHeader>

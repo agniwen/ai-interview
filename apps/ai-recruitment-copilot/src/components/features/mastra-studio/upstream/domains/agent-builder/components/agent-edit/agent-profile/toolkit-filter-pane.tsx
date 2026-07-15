@@ -231,8 +231,8 @@ export const ToolkitFilterPane = ({
           </InputGroupAddon>
           <InputGroupInput
             type="search"
-            aria-label="Filter toolkits"
-            placeholder="Filter toolkits..."
+            aria-label="筛选工具包"
+            placeholder="筛选工具包..."
             onChange={(event) => setSearch(event.target.value)}
           />
         </InputGroup>
@@ -246,7 +246,7 @@ export const ToolkitFilterPane = ({
           data-testid={`${TEST_ID_PREFIX}-filter-select-all`}
           className="text-neutral3 transition-colors hover:text-neutral6 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Select all
+          全选
         </button>
         <span className="text-neutral2" aria-hidden>
           ·
@@ -258,7 +258,7 @@ export const ToolkitFilterPane = ({
           data-testid={`${TEST_ID_PREFIX}-filter-clear-all`}
           className="text-neutral3 transition-colors hover:text-neutral6 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Clear all
+          清除全部
         </button>
       </div>
 

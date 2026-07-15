@@ -16,11 +16,11 @@ export function AgentTopBarRunOptions({ requestContextSchema }: AgentTopBarRunOp
           variant="ghost"
           size="sm"
           type="button"
-          tooltip="Run options"
+          tooltip="运行选项"
           data-testid="agent-top-bar-run-options-trigger"
         >
           <Settings2 />
-          Run options
+          运行选项
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[min(760px,calc(100vw-2rem))] p-0">

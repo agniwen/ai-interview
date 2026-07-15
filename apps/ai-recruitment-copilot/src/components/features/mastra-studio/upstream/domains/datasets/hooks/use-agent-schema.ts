@@ -30,23 +30,23 @@ const messageObjectSchema: JSONSchema7 = {
 const AGENT_INPUT_SCHEMA: JSONSchema7 = {
   $schema: "http://json-schema.org/draft-07/schema#",
   anyOf: [
-    { description: "Simple text message", type: "string" },
+    { description: "简单文本消息", type: "string" },
     {
-      description: "Array of text messages",
+      description: "文本消息数组",
       items: { type: "string" },
       type: "array",
     },
     {
       ...messageObjectSchema,
-      description: "Single message object",
+      description: "单个消息对象",
     },
     {
-      description: "Array of message objects",
+      description: "消息对象数组",
       items: messageObjectSchema,
       type: "array",
     },
   ],
-  description: "Agent message input (MessageListInput)",
+  description: "智能体消息输入（MessageListInput）",
 };
 
 /**
@@ -55,33 +55,33 @@ const AGENT_INPUT_SCHEMA: JSONSchema7 = {
  */
 const AGENT_OUTPUT_SCHEMA: JSONSchema7 = {
   $schema: "http://json-schema.org/draft-07/schema#",
-  description: "Agent generate() output",
+  description: "智能体 generate() 输出",
   properties: {
     files: {
-      description: "Files generated",
+      description: "生成的文件",
       items: { additionalProperties: true, type: "object" },
       type: "array",
     },
-    object: { description: "Structured output (if any)" },
-    reasoningText: { description: "Reasoning text (if any)", type: "string" },
+    object: { description: "结构化输出（如有）" },
+    reasoningText: { description: "推理文本（如有）", type: "string" },
     sources: {
-      description: "Sources referenced",
+      description: "引用的来源",
       items: { additionalProperties: true, type: "object" },
       type: "array",
     },
-    text: { description: "Text response", type: "string" },
+    text: { description: "文本响应", type: "string" },
     toolCalls: {
-      description: "Tool calls made by the agent",
+      description: "智能体发起的工具调用",
       items: { additionalProperties: true, type: "object" },
       type: "array",
     },
     toolResults: {
-      description: "Tool execution results",
+      description: "工具执行结果",
       items: { additionalProperties: true, type: "object" },
       type: "array",
     },
     usage: {
-      description: "Token usage",
+      description: "Token 用量",
       properties: {
         completionTokens: { type: "number" },
         promptTokens: { type: "number" },

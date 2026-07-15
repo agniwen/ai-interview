@@ -36,13 +36,11 @@ function ReflectorFields({ reflectorProvider }: { reflectorProvider: string }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <SubSectionHeader title="Reflector" />
+      <SubSectionHeader title="反思器" />
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
-          <Label className="text-sm text-neutral5">Provider Override</Label>
-          <span className="text-xs text-neutral2">
-            Override the default model provider for the reflector
-          </span>
+          <Label className="text-sm text-neutral5">提供商覆盖</Label>
+          <span className="text-xs text-neutral2">覆盖反思器的默认模型提供商</span>
           <Controller
             name="memory.observationalMemory.reflection.model.provider"
             control={control}
@@ -63,10 +61,8 @@ function ReflectorFields({ reflectorProvider }: { reflectorProvider: string }) {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label className="text-sm text-neutral5">Model Override</Label>
-          <span className="text-xs text-neutral2">
-            Override the default model for the reflector
-          </span>
+          <Label className="text-sm text-neutral5">模型覆盖</Label>
+          <span className="text-xs text-neutral2">覆盖反思器的默认模型</span>
           <Controller
             name="memory.observationalMemory.reflection.model.name"
             control={control}
@@ -88,10 +84,10 @@ function ReflectorFields({ reflectorProvider }: { reflectorProvider: string }) {
           render={({ field }) => (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="memory-om-ref-obs-tokens" className="text-sm text-neutral5">
-                Observation Tokens
+                观测内容 Token 数
               </Label>
               <span className="text-xs text-neutral2">
-                Token count of observations that triggers reflection (default: 40000)
+                触发反思的观测内容 Token 数（默认：40000）
               </span>
               <Input
                 id="memory-om-ref-obs-tokens"
@@ -117,10 +113,10 @@ function ReflectorFields({ reflectorProvider }: { reflectorProvider: string }) {
           render={({ field }) => (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="memory-om-ref-block" className="text-sm text-neutral5">
-                Block After
+                阻塞阈值
               </Label>
               <span className="text-xs text-neutral2">
-                Multiplier or absolute token count for synchronous blocking (default: 1.2)
+                同步阻塞的倍数或绝对 Token 数（默认：1.2）
               </span>
               <Input
                 id="memory-om-ref-block"
@@ -146,11 +142,9 @@ function ReflectorFields({ reflectorProvider }: { reflectorProvider: string }) {
           render={({ field }) => (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="memory-om-ref-buf-act" className="text-sm text-neutral5">
-                Buffer Activation
+                缓冲区激活比例
               </Label>
-              <span className="text-xs text-neutral2">
-                Ratio (0-1) controlling when async reflection buffering starts
-              </span>
+              <span className="text-xs text-neutral2">控制异步反思缓冲何时开始的比例（0–1）</span>
               <Input
                 id="memory-om-ref-buf-act"
                 type="number"
@@ -180,13 +174,11 @@ function ObserverFields({ observerProvider }: { observerProvider: string }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <SubSectionHeader title="Observer" />
+      <SubSectionHeader title="观测器" />
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
-          <Label className="text-sm text-neutral5">Provider Override</Label>
-          <span className="text-xs text-neutral2">
-            Override the default model provider for the observer
-          </span>
+          <Label className="text-sm text-neutral5">提供商覆盖</Label>
+          <span className="text-xs text-neutral2">覆盖观测器的默认模型提供商</span>
           <Controller
             name="memory.observationalMemory.observation.model.provider"
             control={control}
@@ -207,8 +199,8 @@ function ObserverFields({ observerProvider }: { observerProvider: string }) {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label className="text-sm text-neutral5">Model Override</Label>
-          <span className="text-xs text-neutral2">Override the default model for the observer</span>
+          <Label className="text-sm text-neutral5">模型覆盖</Label>
+          <span className="text-xs text-neutral2">覆盖观测器的默认模型</span>
           <Controller
             name="memory.observationalMemory.observation.model.name"
             control={control}
@@ -230,10 +222,10 @@ function ObserverFields({ observerProvider }: { observerProvider: string }) {
           render={({ field }) => (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="memory-om-obs-msg-tokens" className="text-sm text-neutral5">
-                Message Tokens
+                消息 Token 数
               </Label>
               <span className="text-xs text-neutral2">
-                Token count of unobserved messages that triggers observation (default: 30000)
+                触发观测的未观测消息 Token 数（默认：30000）
               </span>
               <Input
                 id="memory-om-obs-msg-tokens"
@@ -259,10 +251,10 @@ function ObserverFields({ observerProvider }: { observerProvider: string }) {
           render={({ field }) => (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="memory-om-obs-batch" className="text-sm text-neutral5">
-                Max Tokens Per Batch
+                每批最大 Token 数
               </Label>
               <span className="text-xs text-neutral2">
-                Maximum tokens per batch when observing multiple threads (default: 10000)
+                观测多个会话时每批的最大 Token 数（默认：10000）
               </span>
               <Input
                 id="memory-om-obs-batch"
@@ -288,11 +280,11 @@ function ObserverFields({ observerProvider }: { observerProvider: string }) {
           render={({ field }) => (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="memory-om-obs-buffer" className="text-sm text-neutral5">
-                Buffer Tokens
+                缓冲 Token 数
               </Label>
               <span className="text-xs text-neutral2">
-                Token interval for async buffering (fraction of messageTokens or absolute count,
-                empty to use default 0.2, set 0 to disable)
+                异步缓冲的 Token 间隔（messageTokens 的比例或绝对数量；留空使用默认值 0.2， 设为 0
+                则停用）
               </span>
               <Input
                 id="memory-om-obs-buffer"
@@ -323,10 +315,10 @@ function ObserverFields({ observerProvider }: { observerProvider: string }) {
           render={({ field }) => (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="memory-om-obs-buf-act" className="text-sm text-neutral5">
-                Buffer Activation
+                缓冲区激活比例
               </Label>
               <span className="text-xs text-neutral2">
-                Ratio (0-1) of buffered observations to activate (default: 0.8)
+                激活缓冲观测内容的比例（0–1，默认：0.8）
               </span>
               <Input
                 id="memory-om-obs-buf-act"
@@ -353,10 +345,10 @@ function ObserverFields({ observerProvider }: { observerProvider: string }) {
           render={({ field }) => (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="memory-om-obs-block" className="text-sm text-neutral5">
-                Block After
+                阻塞阈值
               </Label>
               <span className="text-xs text-neutral2">
-                Multiplier or absolute token count for synchronous blocking (default: 1.2)
+                同步阻塞的倍数或绝对 Token 数（默认：1.2）
               </span>
               <Input
                 id="memory-om-obs-block"
@@ -393,10 +385,8 @@ function ObservationalMemoryFields() {
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
-          <Label className="text-sm text-neutral5">Provider</Label>
-          <span className="text-xs text-neutral2">
-            Provider for the observer and reflector agents
-          </span>
+          <Label className="text-sm text-neutral5">提供商</Label>
+          <span className="text-xs text-neutral2">观测器和反思器智能体使用的提供商</span>
           <Controller
             name="memory.observationalMemory.model.provider"
             control={control}
@@ -415,8 +405,8 @@ function ObservationalMemoryFields() {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label className="text-sm text-neutral5">Model</Label>
-          <span className="text-xs text-neutral2">Model for the observer and reflector agents</span>
+          <Label className="text-sm text-neutral5">模型</Label>
+          <span className="text-xs text-neutral2">观测器和反思器智能体使用的模型</span>
           <Controller
             name="memory.observationalMemory.model.name"
             control={control}
@@ -438,11 +428,10 @@ function ObservationalMemoryFields() {
           render={({ field }) => (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="memory-om-scope" className="text-sm text-neutral5">
-                Scope
+                作用域
               </Label>
               <span className="text-xs text-neutral2">
-                Whether observations are scoped per thread or shared across all threads for a
-                resource
+                观测内容是按会话隔离，还是在同一资源的所有会话间共享
               </span>
               <Select
                 value={field.value ?? "thread"}
@@ -450,11 +439,11 @@ function ObservationalMemoryFields() {
                 disabled={readOnly}
               >
                 <SelectTrigger id="memory-om-scope" className="bg-surface3">
-                  <SelectValue placeholder="Select scope" />
+                  <SelectValue placeholder="选择作用域" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="thread">Thread</SelectItem>
-                  <SelectItem value="resource">Resource</SelectItem>
+                  <SelectItem value="thread">会话</SelectItem>
+                  <SelectItem value="resource">资源</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -467,11 +456,9 @@ function ObservationalMemoryFields() {
           render={({ field }) => (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="memory-om-share-budget" className="text-sm text-neutral5">
-                Share Token Budget
+                共享 Token 预算
               </Label>
-              <span className="text-xs text-neutral2">
-                Share token budget between observation and reflection
-              </span>
+              <span className="text-xs text-neutral2">在观测和反思之间共享 Token 预算</span>
               <Switch
                 id="memory-om-share-budget"
                 checked={field.value ?? false}
@@ -503,10 +490,8 @@ function ObservationalMemoryEntity() {
     <Entity className="flex-col gap-0 p-0 overflow-hidden">
       <div className="flex gap-3 py-3 px-4">
         <EntityContent>
-          <EntityName>Observational Memory</EntityName>
-          <EntityDescription>
-            Automatically observe and reflect on conversations to build long-term memory
-          </EntityDescription>
+          <EntityName>观测记忆</EntityName>
+          <EntityDescription>自动观测并反思对话，以建立长期记忆</EntityDescription>
         </EntityContent>
 
         {!readOnly && (
@@ -544,8 +529,8 @@ function ReadOnlyEntity() {
   return (
     <Entity>
       <EntityContent>
-        <EntityName>Read Only</EntityName>
-        <EntityDescription>Memory is read-only (no new messages stored)</EntityDescription>
+        <EntityName>只读</EntityName>
+        <EntityDescription>记忆为只读状态（不会存储新消息）</EntityDescription>
       </EntityContent>
 
       {!readOnly && (
@@ -575,8 +560,8 @@ function SemanticRecallEntity() {
     <Entity className="flex-col gap-0 p-0 overflow-hidden">
       <div className="flex gap-3 py-3 px-4">
         <EntityContent>
-          <EntityName>Semantic Recall</EntityName>
-          <EntityDescription>Enable semantic search in memory</EntityDescription>
+          <EntityName>语义召回</EntityName>
+          <EntityDescription>在记忆中启用语义搜索</EntityDescription>
         </EntityContent>
 
         {!readOnly && (
@@ -598,18 +583,16 @@ function SemanticRecallEntity() {
             render={({ field }) => (
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="memory-vector" className="text-sm text-neutral5">
-                  Vector Store
+                  向量存储
                 </Label>
-                <span className="text-xs text-neutral2">
-                  Select a vector store for semantic search
-                </span>
+                <span className="text-xs text-neutral2">选择用于语义搜索的向量存储</span>
                 <Select
                   value={field.value ?? ""}
                   onValueChange={field.onChange}
                   disabled={readOnly}
                 >
                   <SelectTrigger id="memory-vector" className="bg-surface3">
-                    <SelectValue placeholder="Select a vector store" />
+                    <SelectValue placeholder="选择向量存储" />
                   </SelectTrigger>
                   <SelectContent>
                     {vectors.map((vector) => (
@@ -629,18 +612,16 @@ function SemanticRecallEntity() {
             render={({ field }) => (
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="memory-embedder" className="text-sm text-neutral5">
-                  Embedder Model
+                  嵌入模型
                 </Label>
-                <span className="text-xs text-neutral2">
-                  Select an embedding model for semantic search
-                </span>
+                <span className="text-xs text-neutral2">选择用于语义搜索的嵌入模型</span>
                 <Select
                   value={field.value ?? ""}
                   onValueChange={field.onChange}
                   disabled={readOnly}
                 >
                   <SelectTrigger id="memory-embedder" className="bg-surface3">
-                    <SelectValue placeholder="Select an embedder model" />
+                    <SelectValue placeholder="选择嵌入模型" />
                   </SelectTrigger>
                   <SelectContent>
                     {embedders.map((embedder) => (
@@ -669,8 +650,8 @@ function LastMessagesEntity() {
     <Entity className="flex-col gap-0 p-0 overflow-hidden">
       <div className="flex gap-3 py-3 px-4">
         <EntityContent>
-          <EntityName>Message History</EntityName>
-          <EntityDescription>Number of recent messages to include in context</EntityDescription>
+          <EntityName>消息历史</EntityName>
+          <EntityDescription>要包含在上下文中的最近消息数量</EntityDescription>
         </EntityContent>
 
         {!readOnly && (
@@ -731,10 +712,7 @@ export function MemoryPage() {
     <ScrollArea className="h-full">
       <div className="flex flex-col gap-6">
         <div className="flex items-center justify-between">
-          <SectionHeader
-            title="Memory"
-            subtitle="Configure memory settings for conversation persistence and semantic recall."
-          />
+          <SectionHeader title="记忆" subtitle="配置用于保存对话和语义召回的记忆设置。" />
           {!readOnly && isEnabled && (
             <Controller
               name="memory.enabled"
@@ -750,8 +728,8 @@ export function MemoryPage() {
           <div className="py-12">
             <EmptyState
               iconSlot={<MemoryIcon height={40} width={40} />}
-              titleSlot="Memory is not enabled"
-              descriptionSlot="Enable memory to store conversation history, add semantic recall for relevant retrieval, or observational memory for long-term learning."
+              titleSlot="未启用记忆"
+              descriptionSlot="启用记忆以存储对话历史；可添加语义召回来检索相关内容，或使用观测记忆进行长期学习。"
               actionSlot={
                 !readOnly && (
                   <Controller
@@ -759,7 +737,7 @@ export function MemoryPage() {
                     control={control}
                     render={({ field }) => (
                       <Button variant="default" size="sm" onClick={() => field.onChange(true)}>
-                        Enable Memory
+                        启用记忆
                       </Button>
                     )}
                   />

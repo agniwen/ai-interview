@@ -12,8 +12,8 @@ export function EmptyDatasetsTable({ onCreateClick }: EmptyDatasetsTableProps) {
     <div className="flex h-full items-center justify-center">
       <EmptyState
         iconSlot={<Database className="size-10 text-neutral3" />}
-        titleSlot="No Datasets Yet"
-        descriptionSlot="Create your first dataset to start evaluating your agents and workflows."
+        titleSlot="暂无数据集"
+        descriptionSlot="创建首个数据集，开始评估智能体和工作流。"
         actionSlot={
           <div className="flex flex-col sm:flex-row gap-2">
             {onCreateClick && (
@@ -21,7 +21,7 @@ export function EmptyDatasetsTable({ onCreateClick }: EmptyDatasetsTableProps) {
                 <Icon>
                   <Plus />
                 </Icon>
-                Create Dataset
+                创建数据集
               </Button>
             )}
             <Button
@@ -35,7 +35,7 @@ export function EmptyDatasetsTable({ onCreateClick }: EmptyDatasetsTableProps) {
               <Icon>
                 <BookOpen />
               </Icon>
-              Documentation
+              文档
             </Button>
           </div>
         }

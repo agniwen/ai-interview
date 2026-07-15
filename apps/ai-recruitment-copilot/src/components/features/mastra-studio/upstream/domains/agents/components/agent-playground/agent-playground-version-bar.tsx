@@ -61,7 +61,7 @@ interface AgentPlaygroundVersionBarProps {
 
 function formatTimestamp(isoString: string): string {
   const date = new Date(isoString);
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString("zh-CN", {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
@@ -119,17 +119,17 @@ export function AgentPlaygroundVersionBar({
             isCodeSourceAgent,
             () => (
               <Badge variant={isPublished ? "success" : "info"}>
-                {isPublished ? "Current" : "Saved"}
+                {isPublished ? "当前" : "已保存"}
               </Badge>
             ),
             () =>
               resolveConditional(
                 isPublished,
-                () => <Badge variant="success">Published</Badge>,
-                () => (isDraftVersion ? <Badge variant="info">Draft</Badge> : undefined),
+                () => <Badge variant="success">已发布</Badge>,
+                () => (isDraftVersion ? <Badge variant="info">草稿</Badge> : undefined),
               ),
           ),
-          label: `${isCodeSourceAgent ? "Save" : "v"}${v.versionNumber} - ${formatTimestamp(v.createdAt)}`,
+          label: `${isCodeSourceAgent ? "保存" : "v"}${v.versionNumber} - ${formatTimestamp(v.createdAt)}`,
           value: v.id,
         };
       }),
@@ -140,8 +140,8 @@ export function AgentPlaygroundVersionBar({
 
   const saveDisabled = readOnly || !isDirty || isSavingDraft || isPublishing;
   const versionInfoText = isCodeSourceAgent
-    ? "Code mode saves write override JSON to filesystem-backed editor storage. This dropdown shows saved override snapshots for this agent."
-    : "Changes are saved as draft versions. When you're ready, publish a version to make it the active configuration used in production.";
+    ? "代码模式会将覆盖配置 JSON 写入文件系统支持的编辑器存储。此下拉列表显示该智能体已保存的覆盖配置快照。"
+    : "更改会保存为草稿版本。准备就绪后，请发布一个版本，使其成为生产环境中使用的有效配置。";
 
   const handleSaveWithMessage = useCallback(async () => {
     if (isSavingDraft) {
@@ -164,7 +164,7 @@ export function AgentPlaygroundVersionBar({
                 <Icon size="sm">
                   <Download />
                 </Icon>
-                Download JSON
+                下载 JSON
               </Button>
               {canOpenPr ? (
                 <Button
@@ -176,7 +176,7 @@ export function AgentPlaygroundVersionBar({
                   <Icon size="sm">
                     <GitPullRequest />
                   </Icon>
-                  Open PR
+                  创建 PR
                 </Button>
               ) : (
                 <Button
@@ -188,14 +188,14 @@ export function AgentPlaygroundVersionBar({
                   {isSavingDraft ? (
                     <>
                       <Spinner className="size-3.5" />
-                      Saving&hellip;
+                      正在保存&hellip;
                     </>
                   ) : (
                     <>
                       <Icon size="sm">
                         <Save />
                       </Icon>
-                      Save to filesystem
+                      保存到文件系统
                     </>
                   )}
                 </Button>
@@ -215,14 +215,14 @@ export function AgentPlaygroundVersionBar({
                     {isSavingDraft ? (
                       <>
                         <Spinner className="size-3.5" />
-                        Saving&hellip;
+                        正在保存&hellip;
                       </>
                     ) : (
                       <>
                         <Icon size="sm">
                           <Save />
                         </Icon>
-                        Save New Version
+                        保存新版本
                       </>
                     )}
                   </Button>
@@ -232,7 +232,7 @@ export function AgentPlaygroundVersionBar({
                         variant="default"
                         size="md"
                         disabled={saveDisabled}
-                        aria-label="More save options"
+                        aria-label="更多保存选项"
                       >
                         <ChevronDown className="size-3.5" />
                       </Button>
@@ -242,7 +242,7 @@ export function AgentPlaygroundVersionBar({
                         <Icon size="sm">
                           <MessageSquare />
                         </Icon>
-                        Save with message
+                        保存并添加说明
                       </DropdownMenu.Item>
                     </DropdownMenu.Content>
                   </DropdownMenu>
@@ -261,14 +261,14 @@ export function AgentPlaygroundVersionBar({
                   {isPublishing ? (
                     <>
                       <Spinner className="size-3.5" />
-                      Publishing&hellip;
+                      正在发布&hellip;
                     </>
                   ) : (
                     <>
                       <Icon size="sm">
                         <Check />
                       </Icon>
-                      {isViewingPreviousVersion ? "Publish This Version" : "Publish"}
+                      {isViewingPreviousVersion ? "发布此版本" : "发布"}
                     </>
                   )}
                 </Button>
@@ -280,17 +280,15 @@ export function AgentPlaygroundVersionBar({
         <Dialog open={showMessageDialog} onOpenChange={setShowMessageDialog}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Save New Version</DialogTitle>
-              <DialogDescription>
-                Add a message to describe the changes in this version.
-              </DialogDescription>
+              <DialogTitle>保存新版本</DialogTitle>
+              <DialogDescription>添加说明，描述此版本中的更改。</DialogDescription>
             </DialogHeader>
             <DialogBody className="py-1">
               <div className="grid gap-2">
-                <Label htmlFor="change-message">Change message</Label>
+                <Label htmlFor="change-message">更改说明</Label>
                 <Input
                   id="change-message"
-                  placeholder="Describe what changed..."
+                  placeholder="描述更改内容..."
                   value={changeMessage}
                   className="focus:ring-white/50"
                   onChange={(e) => setChangeMessage(e.target.value)}
@@ -306,7 +304,7 @@ export function AgentPlaygroundVersionBar({
             </DialogBody>
             <DialogFooter className="px-6">
               <Button variant="default" size="sm" onClick={() => setShowMessageDialog(false)}>
-                Cancel
+                取消
               </Button>
               <Button
                 variant="primary"
@@ -317,7 +315,7 @@ export function AgentPlaygroundVersionBar({
                 <Icon size="sm">
                   <Save />
                 </Icon>
-                Save Version
+                保存版本
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -331,20 +329,20 @@ export function AgentPlaygroundVersionBar({
             options={versionOptions}
             value={currentValue}
             onValueChange={onVersionSelect}
-            placeholder="Select version..."
+            placeholder="选择版本..."
             variant="ghost"
             className="min-w-0 flex-1"
           />
         ) : (
           <Txt variant="ui-xs" className="text-neutral3">
-            {isCodeSourceAgent ? "No filesystem saves yet" : "No versions yet"}
+            {isCodeSourceAgent ? "尚无文件系统保存记录" : "尚无版本"}
           </Txt>
         )}
 
         {resolveConditional(
           currentValue,
           (conditionValue) => (
-            <CopyButton content={conditionValue} tooltip="Copy version ID" size="sm" />
+            <CopyButton content={conditionValue} tooltip="复制版本 ID" size="sm" />
           ),
           () => null,
         )}
@@ -353,7 +351,7 @@ export function AgentPlaygroundVersionBar({
           <PopoverTrigger asChild>
             <button
               type="button"
-              aria-label="Version information"
+              aria-label="版本信息"
               className="text-neutral3 hover:text-neutral5 transition-colors shrink-0 rounded-sm focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-white/30"
             >
               <Icon size="sm">
@@ -372,14 +370,14 @@ export function AgentPlaygroundVersionBar({
           {resolveConditional(
             readOnly,
             () => (
-              <Badge variant="warning">Read-only</Badge>
+              <Badge variant="warning">只读</Badge>
             ),
             () => null,
           )}
           {resolveConditional(
             !readOnly && hasDraft && !isCodeSourceAgent,
             () => (
-              <Badge variant="info">Unpublished</Badge>
+              <Badge variant="info">未发布</Badge>
             ),
             () => null,
           )}

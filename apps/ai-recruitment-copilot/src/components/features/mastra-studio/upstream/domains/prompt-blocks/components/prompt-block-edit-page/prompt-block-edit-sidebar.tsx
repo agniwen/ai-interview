@@ -37,12 +37,12 @@ function RecursiveFieldRenderer({
           <div className="flex flex-row gap-4 items-center">
             <JSONSchemaForm.FieldName
               labelIsHidden
-              placeholder="Variable name"
+              placeholder="变量名称"
               size="md"
               className="[&_input]:bg-surface3 w-full"
             />
 
-            <JSONSchemaForm.FieldType placeholder="Type" />
+            <JSONSchemaForm.FieldType placeholder="类型" />
             <JSONSchemaForm.FieldOptional />
             <JSONSchemaForm.FieldNullable />
             <JSONSchemaForm.FieldRemove variant="outline" />
@@ -62,7 +62,7 @@ function RecursiveFieldRenderer({
           </JSONSchemaForm.FieldList>
           <JSONSchemaForm.AddField className="mt-2" size="sm">
             <PlusIcon />
-            Add nested variable
+            添加嵌套变量
           </JSONSchemaForm.AddField>
         </JSONSchemaForm.NestedFields>
       </JSONSchemaForm.Field>
@@ -148,19 +148,16 @@ export function PromptBlockEditSidebar(props: PromptBlockEditSidebarProps) {
     <div className="h-full flex flex-col">
       <ScrollArea className="flex-1 min-h-0">
         <div className="flex flex-col gap-6 p-4">
-          <SectionHeader
-            title="Configuration"
-            subtitle="Define your prompt block's name and description."
-          />
+          <SectionHeader title="配置" subtitle="定义提示词块的名称和描述。" />
 
           {/* Name */}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="prompt-block-name" className="text-xs text-neutral5">
-              Name <span className="text-accent2">*</span>
+              名称 <span className="text-accent2">*</span>
             </Label>
             <Input
               id="prompt-block-name"
-              placeholder="My Prompt Block"
+              placeholder="我的提示词块"
               variant="outline"
               {...register("name")}
               error={!!errors.name}
@@ -171,11 +168,11 @@ export function PromptBlockEditSidebar(props: PromptBlockEditSidebarProps) {
           {/* Description */}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="prompt-block-description" className="text-xs text-neutral5">
-              Description
+              描述
             </Label>
             <Textarea
               id="prompt-block-description"
-              placeholder="Describe what this prompt block does"
+              placeholder="描述此提示词块的用途"
               variant="outline"
               {...register("description")}
               error={!!errors.description}
@@ -189,12 +186,11 @@ export function PromptBlockEditSidebar(props: PromptBlockEditSidebarProps) {
         {/* Variables */}
         <div className="flex flex-col gap-4 p-4 border-t border-border1">
           <SectionHeader
-            title="Variables"
+            title="变量"
             subtitle={
               <>
-                Define variables for this prompt block. Use{" "}
-                <code className="text-accent1 font-medium">{"{{variableName}}"}</code> syntax in
-                your content.
+                定义此提示词块的变量。请在内容中使用{" "}
+                <code className="text-accent1 font-medium">{"{{variableName}}"}</code> 语法。
               </>
             }
           />
@@ -219,7 +215,7 @@ export function PromptBlockEditSidebar(props: PromptBlockEditSidebarProps) {
             <div className="p-2">
               <JSONSchemaForm.AddField>
                 <Plus />
-                Add variable
+                添加变量
               </JSONSchemaForm.AddField>
             </div>
           </JSONSchemaForm.Root>
@@ -228,7 +224,7 @@ export function PromptBlockEditSidebar(props: PromptBlockEditSidebarProps) {
         {/* Used by */}
         {mode === "edit" && blockId && (
           <div className="flex flex-col gap-3 p-4 border-t border-border1">
-            <SectionHeader title="Used by" subtitle="Agents that reference this prompt block." />
+            <SectionHeader title="引用方" subtitle="引用此提示词块的智能体。" />
             {usedByAgents.length > 0 ? (
               <div className="flex flex-col gap-1.5">
                 {usedByAgents.map((agent) => (
@@ -246,7 +242,7 @@ export function PromptBlockEditSidebar(props: PromptBlockEditSidebarProps) {
               </div>
             ) : (
               <Txt variant="ui-sm" className="text-neutral3">
-                Not referenced by any agents yet.
+                尚未被任何智能体引用。
               </Txt>
             )}
           </div>
@@ -265,12 +261,12 @@ export function PromptBlockEditSidebar(props: PromptBlockEditSidebarProps) {
               {isSavingDraft ? (
                 <>
                   <Spinner className="h-4 w-4" />
-                  Saving...
+                  正在保存...
                 </>
               ) : (
                 <>
                   <Save />
-                  Save
+                  保存
                 </>
               )}
             </Button>
@@ -283,12 +279,12 @@ export function PromptBlockEditSidebar(props: PromptBlockEditSidebarProps) {
               {isSubmitting ? (
                 <>
                   <Spinner className="h-4 w-4" />
-                  Publishing...
+                  正在发布...
                 </>
               ) : (
                 <>
                   <Check />
-                  Publish
+                  发布
                 </>
               )}
             </Button>
@@ -298,12 +294,12 @@ export function PromptBlockEditSidebar(props: PromptBlockEditSidebarProps) {
             {isSubmitting ? (
               <>
                 <Spinner className="h-4 w-4" />
-                Creating...
+                正在创建...
               </>
             ) : (
               <>
                 <Check />
-                Create prompt block
+                创建提示词块
               </>
             )}
           </Button>

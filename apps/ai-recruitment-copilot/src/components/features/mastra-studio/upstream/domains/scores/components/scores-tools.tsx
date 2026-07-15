@@ -28,10 +28,10 @@ export function ScoresTools({
   return (
     <ButtonsGroup>
       <SelectFieldBlock
-        label="Filter by Entity"
+        label="按实体筛选"
         labelIsHidden={true}
         name="select-entity"
-        placeholder="Select..."
+        placeholder="请选择..."
         size="md"
         options={entityOptions || []}
         onValueChange={(val: string) => {
@@ -47,7 +47,7 @@ export function ScoresTools({
 
       {selectedEntity && selectedEntity.value !== "all" && (
         <Button onClick={onReset} disabled={isLoading} size="md">
-          Reset
+          重置
           <Icon>
             <XIcon />
           </Icon>

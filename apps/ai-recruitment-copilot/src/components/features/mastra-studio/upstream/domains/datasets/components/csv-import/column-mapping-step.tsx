@@ -14,10 +14,10 @@ export interface ColumnMappingStepProps {
 
 // Zone configuration for display
 const ZONES: { id: FieldType; label: string; description: string; required?: boolean }[] = [
-  { description: "Data passed to target", id: "input", label: "Input", required: true },
-  { description: "Ground truth for comparison", id: "groundTruth", label: "Ground Truth" },
-  { description: "Additional context", id: "metadata", label: "Metadata" },
-  { description: "Not imported", id: "ignore", label: "Ignore" },
+  { description: "传递给目标的数据", id: "input", label: "输入", required: true },
+  { description: "用于对比的标准答案", id: "groundTruth", label: "标准答案" },
+  { description: "附加上下文", id: "metadata", label: "元数据" },
+  { description: "不导入", id: "ignore", label: "忽略" },
 ];
 
 export function ColumnMappingStep({ headers, mapping, onMappingChange }: ColumnMappingStepProps) {
@@ -48,7 +48,7 @@ export function ColumnMappingStep({ headers, mapping, onMappingChange }: ColumnM
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
       <div className="flex flex-col gap-4">
-        <div className="text-sm text-neutral4">Drag columns to assign them to dataset fields</div>
+        <div className="text-sm text-neutral4">拖动列，将其分配到数据集字段</div>
 
         {ZONES.map((zone) => {
           const columnsInZone = getColumnsForZone(zone.id);
@@ -80,7 +80,7 @@ export function ColumnMappingStep({ headers, mapping, onMappingChange }: ColumnM
                   >
                     {isEmpty && !snapshot.isDraggingOver && (
                       <span className="text-xs text-neutral4 italic">
-                        {needsAttention ? "Drag at least one column here" : "No columns assigned"}
+                        {needsAttention ? "请至少将一列拖到此处" : "未分配列"}
                       </span>
                     )}
 
@@ -132,9 +132,7 @@ export function ColumnMappingStep({ headers, mapping, onMappingChange }: ColumnM
         })}
 
         {/* Validation message */}
-        {!inputHasColumns && (
-          <div className="text-sm text-warning">At least one column must be mapped to Input</div>
-        )}
+        {!inputHasColumns && <div className="text-sm text-warning">至少需要将一列映射到输入</div>}
       </div>
     </DragDropContext>
   );

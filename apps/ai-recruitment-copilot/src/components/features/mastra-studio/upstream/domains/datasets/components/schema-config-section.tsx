@@ -243,13 +243,13 @@ export function SchemaConfigSection({
   if (workflowsLoading) {
     workflowItems = [
       <SelectItem key="loading" value="__loading__" disabled>
-        Loading...
+        正在加载...
       </SelectItem>,
     ];
   } else if (workflowOptions.length === 0) {
     workflowItems = [
       <SelectItem key="empty" value="__empty__" disabled>
-        No workflows
+        暂无工作流
       </SelectItem>,
     ];
   }
@@ -258,14 +258,14 @@ export function SchemaConfigSection({
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium text-neutral4 hover:text-neutral5 w-full py-2">
         <ChevronRight className="w-4 h-4" />
-        Schema Configuration (Optional)
+        Schema 配置（可选）
       </CollapsibleTrigger>
 
       <CollapsibleContent className="pt-4 space-y-4">
         {/* JSON Schema info notification */}
-        <Notice variant="info" title="JSON Schema Format">
+        <Notice variant="info" title="JSON Schema 格式">
           <Notice.Message>
-            Schemas use{" "}
+            Schema 使用{" "}
             <a
               href="https://json-schema.org/"
               target="_blank"
@@ -274,14 +274,14 @@ export function SchemaConfigSection({
             >
               JSON Schema
             </a>{" "}
-            for validation and type checking.
+            进行验证和类型检查。
           </Notice.Message>
         </Notice>
 
         {/* Source selector */}
         <div className="space-y-2">
           <label htmlFor="schema-import-source" className="text-sm font-medium text-neutral4">
-            Import From
+            导入来源
           </label>
           <div className="flex items-center gap-2">
             <Select
@@ -293,10 +293,10 @@ export function SchemaConfigSection({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="custom">Custom</SelectItem>
-                <SelectItem value="agent">Agent</SelectItem>
-                <SelectItem value="workflow">Workflow</SelectItem>
-                <SelectItem value="scorer">Scorer</SelectItem>
+                <SelectItem value="custom">自定义</SelectItem>
+                <SelectItem value="agent">智能体</SelectItem>
+                <SelectItem value="workflow">工作流</SelectItem>
+                <SelectItem value="scorer">评分器</SelectItem>
               </SelectContent>
             </Select>
 
@@ -308,7 +308,7 @@ export function SchemaConfigSection({
                 disabled={disabled}
               >
                 <SelectTrigger size="sm" className="w-48">
-                  <SelectValue placeholder="Select workflow..." />
+                  <SelectValue placeholder="选择工作流..." />
                 </SelectTrigger>
                 <SelectContent>{workflowItems}</SelectContent>
               </Select>
@@ -316,7 +316,7 @@ export function SchemaConfigSection({
 
             {/* Loading indicator for workflow schema */}
             {sourceType === "workflow" && selectedWorkflow && workflowSchemaLoading && (
-              <span className="text-xs text-neutral3">Loading schema...</span>
+              <span className="text-xs text-neutral3">正在加载 Schema...</span>
             )}
 
             {/* Scorer target type picker */}
@@ -330,8 +330,8 @@ export function SchemaConfigSection({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="agent">Agent</SelectItem>
-                  <SelectItem value="custom">Custom</SelectItem>
+                  <SelectItem value="agent">智能体</SelectItem>
+                  <SelectItem value="custom">自定义</SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -341,15 +341,15 @@ export function SchemaConfigSection({
           {sourceType === "scorer" && (
             <p className="text-xs text-neutral3">
               {scorerTargetType === "agent"
-                ? "For calibrating agent-type scorers"
-                : "For calibrating custom scorers (input/output as any)"}
+                ? "用于校准智能体类型评分器"
+                : "用于校准自定义评分器（输入/输出为任意类型）"}
             </p>
           )}
         </div>
 
         {/* Schema fields */}
         <SchemaField
-          label="Input Schema"
+          label="输入 Schema"
           schemaType="input"
           value={inputSchema}
           onChange={handleInputSchemaChange}
@@ -358,7 +358,7 @@ export function SchemaConfigSection({
         />
 
         <SchemaField
-          label="Ground Truth Schema"
+          label="标准答案 Schema"
           schemaType="output"
           value={outputSchema}
           onChange={handleOutputSchemaChange}
@@ -367,7 +367,7 @@ export function SchemaConfigSection({
         />
 
         <SchemaField
-          label="Request Context Schema"
+          label="请求上下文 Schema"
           schemaType="requestContext"
           value={requestContextSchema}
           onChange={handleRequestContextSchemaChange}

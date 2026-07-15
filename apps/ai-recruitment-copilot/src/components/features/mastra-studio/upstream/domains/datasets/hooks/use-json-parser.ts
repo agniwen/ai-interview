@@ -31,7 +31,7 @@ export function useJSONParser() {
       try {
         data = JSON.parse(text);
       } catch {
-        throw new Error("Invalid JSON format. Please check your file syntax.");
+        throw new Error("JSON 格式无效，请检查文件语法。");
       }
 
       // Validate structure
@@ -53,7 +53,7 @@ export function useJSONParser() {
       };
     } catch (caughtError) {
       const parseError =
-        caughtError instanceof Error ? caughtError : new Error("Failed to parse JSON file");
+        caughtError instanceof Error ? caughtError : new Error("解析 JSON 文件失败");
       setError(parseError);
       throw parseError;
     } finally {

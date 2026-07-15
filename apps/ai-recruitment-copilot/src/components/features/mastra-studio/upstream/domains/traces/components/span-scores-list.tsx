@@ -27,10 +27,10 @@ export function SpanScoresList({
       <DataList columns={COLUMNS} className="min-w-0">
         <DataList.Top>
           <DataList.TopCell>ID</DataList.TopCell>
-          <DataList.TopCell>Date</DataList.TopCell>
-          <DataList.TopCell>Time</DataList.TopCell>
-          <DataList.TopCell>Score</DataList.TopCell>
-          <DataList.TopCell>Scorer</DataList.TopCell>
+          <DataList.TopCell>日期</DataList.TopCell>
+          <DataList.TopCell>时间</DataList.TopCell>
+          <DataList.TopCell>得分</DataList.TopCell>
+          <DataList.TopCell>评分器</DataList.TopCell>
         </DataList.Top>
 
         {scoresData?.scores && scoresData.scores.length > 0 ? (
@@ -41,13 +41,13 @@ export function SpanScoresList({
             return (
               <DataList.RowButton key={score.id} onClick={() => onScoreSelect?.(score)}>
                 <DataList.Cell height="compact" className="font-mono text-neutral3 text-ui-smd">
-                  {getShortId(score?.id) || "n/a"}
+                  {getShortId(score?.id) || "不适用"}
                 </DataList.Cell>
                 <DataList.Cell height="compact" className="text-neutral2 text-ui-smd">
-                  {isTodayDate ? "Today" : format(createdAtDate, "MMM dd")}
+                  {isTodayDate ? "今天" : format(createdAtDate, "MM/dd")}
                 </DataList.Cell>
                 <DataList.Cell height="compact" className="font-mono text-neutral3 text-ui-smd">
-                  {format(createdAtDate, "h:mm:ss aaa")}
+                  {format(createdAtDate, "HH:mm:ss")}
                 </DataList.Cell>
                 <DataList.Cell height="compact" className="text-ui-smd">
                   {String(score?.score ?? "")}
@@ -59,7 +59,7 @@ export function SpanScoresList({
             );
           })
         ) : (
-          <DataList.NoMatch message="No scores found" />
+          <DataList.NoMatch message="未找到得分" />
         )}
       </DataList>
 

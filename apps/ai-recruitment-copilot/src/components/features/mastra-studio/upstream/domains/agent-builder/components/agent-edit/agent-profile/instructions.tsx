@@ -27,7 +27,7 @@ export const Instructions = ({ editable = true, fallbackPrompt }: InstructionsPr
         onChange={handleChange}
         language="markdown"
         editable={editable}
-        placeholder="You are a helpful assistant that…"
+        placeholder="你是一个乐于助人的助手，能够…"
         showCopyButton={false}
         className="min-h-0 w-full border-0 bg-transparent p-0 rounded-none [&_.cm-editor]:h-full [&_.cm-scroller]:overflow-y-auto [&_.cm-scroller]:!font-sans [&_.cm-line]:leading-relaxed"
       />

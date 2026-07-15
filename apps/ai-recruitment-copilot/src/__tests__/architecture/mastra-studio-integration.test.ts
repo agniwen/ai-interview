@@ -36,7 +36,7 @@ describe("Mastra Studio TanStack integration", () => {
     expect(sidebar).toContain("mainNav");
     expect(sidebar).toContain("bottomNav");
     expect(sidebar).toContain("MastraSidebarSearch");
-    expect(tabs).toContain('value="manage">Manage');
+    expect(tabs).toContain('value="manage">管理');
     expect(tabs).toContain('value="mastra">Mastra');
   });
 
@@ -152,7 +152,21 @@ describe("Mastra Studio TanStack integration", () => {
     expect(configContext).not.toContain("localStorage");
     expect(configContext).toContain("defaultApiPrefix");
     expect(settings).not.toContain("StudioConfigForm");
-    expect(settings).toContain("managed by the host application");
+    expect(settings).toContain("连接由宿主应用管理");
+  });
+
+  it("keeps package-owned Studio surfaces localized", () => {
+    const workspace = readSource("pnpm-workspace.yaml");
+    const localizationPatch = readSource("patches/@mastra__playground-ui@40.0.1.patch");
+
+    expect(workspace).toContain(
+      '"@mastra/playground-ui@40.0.1": patches/@mastra__playground-ui@40.0.1.patch',
+    );
+    expect(localizationPatch).toContain('title: "模型用量与成本"');
+    expect(localizationPatch).toContain('title: "暂无追踪记录"');
+    expect(localizationPatch).toContain('label = "添加筛选条件"');
+    expect(localizationPatch).toContain('titleSlot: title ?? "会话已过期"');
+    expect(localizationPatch).toContain('children: "观测记忆"');
   });
 
   it("keeps custom drag portals inside the scoped Studio root", () => {

@@ -36,7 +36,7 @@ export const CustomAutoFormField: React.FC<{
 
   let FieldComponent: React.ComponentType<AutoFormFieldProps> = () => (
     <uiComponents.ErrorMessage
-      error={`[AutoForm Configuration Error] No component found for type "${field.type}" nor a fallback`}
+      error={`[AutoForm 配置错误] 未找到类型“${field.type}”对应的组件或备用组件`}
     />
   );
 

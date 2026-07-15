@@ -49,7 +49,7 @@ export const RequestContextSchemaForm = ({
   if (!zodSchema) {
     return (
       <div className="text-neutral3">
-        <Txt variant="ui-sm">Failed to parse request context schema</Txt>
+        <Txt variant="ui-sm">解析请求上下文 Schema 失败</Txt>
       </div>
     );
   }
@@ -57,14 +57,14 @@ export const RequestContextSchemaForm = ({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <RequestContextLabel tooltip={labelTooltip}>Request Context</RequestContextLabel>
+        <RequestContextLabel tooltip={labelTooltip}>请求上下文</RequestContextLabel>
         <CopyButton content={localFormValuesStr} />
       </div>
 
       <DynamicForm
         schema={zodSchema}
         onSubmit={(values) => setSchemaValues(values as Record<string, unknown>)}
-        submitButtonLabel="Save"
+        submitButtonLabel="保存"
         defaultValues={schemaValues}
       />
     </div>

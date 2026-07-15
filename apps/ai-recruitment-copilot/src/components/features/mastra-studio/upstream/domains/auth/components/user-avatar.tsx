@@ -25,7 +25,7 @@ export function UserAvatar({ user, size = "sm" }: UserAvatarProps) {
     return null;
   }
 
-  const displayName = user.name || user.email || "User";
+  const displayName = user.name || user.email || "用户";
 
   return <Avatar src={user.avatarUrl} name={displayName} size={size} />;
 }

@@ -31,7 +31,7 @@ export function BulkTagPicker({
           <Icon size="sm">
             <Tag />
           </Icon>
-          Tag {selectedCount} items
+          为 {selectedCount} 项添加标签
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-56 p-2" align="end">
@@ -49,7 +49,7 @@ export function BulkTagPicker({
               setSearch("");
             }
           }}
-          placeholder="Search or create tag..."
+          placeholder="搜索或创建标签..."
           className="h-7 text-xs mb-1"
           autoFocus
         />
@@ -84,7 +84,7 @@ export function BulkTagPicker({
               }}
               className="w-full text-left px-2 py-1 text-xs rounded hover:bg-surface3 text-accent1"
             >
-              Create &amp; apply &quot;{search.trim()}&quot;
+              创建并应用“{search.trim()}”
             </button>
           )}
         </div>

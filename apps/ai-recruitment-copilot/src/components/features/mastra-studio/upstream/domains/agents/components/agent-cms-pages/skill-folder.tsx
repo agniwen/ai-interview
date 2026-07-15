@@ -102,13 +102,13 @@ export function SkillFolder({
         {workspaceOptions.length > 0 && (
           <div className="flex flex-col gap-1.5 pb-4">
             <Txt as="label" variant="ui-sm" className="text-neutral3">
-              Workspace
+              工作区
             </Txt>
             <Combobox
               options={workspaceOptions}
               value={workspaceId}
               onValueChange={setWorkspaceId}
-              placeholder="Select a workspace..."
+              placeholder="选择工作区…"
               disabled={readOnly}
             />
           </div>
@@ -152,7 +152,7 @@ export function SkillFolder({
           </>
         ) : (
           <div className="flex items-center justify-center h-full text-xs text-neutral3">
-            Select a file to edit its content
+            选择文件以编辑其内容
           </div>
         )}
       </div>

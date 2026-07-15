@@ -59,7 +59,7 @@ export const WorkflowConditionCardView = ({
         <div className="flex items-center gap-1 w-full px-3 py-2">
           {isCollapsible && (
             <CollapsibleTrigger
-              aria-label={isOpen ? "Collapse condition" : "Expand condition"}
+              aria-label={isOpen ? "收起条件" : "展开条件"}
               className="inline-flex h-5 w-5 items-center justify-center rounded-full text-neutral3 hover:text-neutral5 focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-accent1"
             >
               <Icon>
@@ -97,7 +97,8 @@ export const WorkflowConditionCardView = ({
                         {typeof condition.ref.step === "string"
                           ? condition.ref.step
                           : condition.ref.step.id}
-                        's {condition.ref.path}{" "}
+                        {" 的 "}
+                        {condition.ref.path}{" "}
                         {Object.entries(condition.query).map(
                           ([key, value]) => `${key} ${String(value)}`,
                         )}

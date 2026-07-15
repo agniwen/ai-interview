@@ -54,13 +54,11 @@ export function useCopySkill() {
       });
     },
     onError: (error) => {
-      toast.error(
-        `Failed to copy skill: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`复制技能失败：${error instanceof Error ? error.message : "未知错误"}`);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["stored-skills"] });
-      toast.success("Skill copied");
+      toast.success("技能已复制");
     },
   });
 }

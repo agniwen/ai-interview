@@ -178,7 +178,7 @@ export default function LogsPage() {
       <PageLayout width="wide" height="full">
         {pageTopArea}
         <PageLayout.MainArea isCentered>
-          <LogsErrorContent error={logsError} resource="logs" errorTitle="Failed to load logs" />
+          <LogsErrorContent error={logsError} resource="日志" errorTitle="加载日志失败" />
         </PageLayout.MainArea>
       </PageLayout>
     );

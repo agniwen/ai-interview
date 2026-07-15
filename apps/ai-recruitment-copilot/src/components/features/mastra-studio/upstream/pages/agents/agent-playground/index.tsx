@@ -31,7 +31,7 @@ function getVersionCount(versions: unknown[] | undefined): number {
 
 function getOpenPrTitle(canOpenPr: boolean): string | undefined {
   if (canOpenPr) {
-    return "Open a pull request for these JSON changes";
+    return "为这些 JSON 更改创建拉取请求";
   }
   return undefined;
 }
@@ -171,7 +171,7 @@ function AgentPlayground() {
     onSuccess: () => {
       /* empty */
     },
-    saveSuccessMessage: isCodeSourceAgent ? "Saved to filesystem" : undefined,
+    saveSuccessMessage: isCodeSourceAgent ? "已保存到文件系统" : undefined,
   });
 
   const handlePublishVersion = useCallback(async () => {
@@ -215,7 +215,7 @@ function AgentPlayground() {
   if (error && is403ForbiddenError(error)) {
     return (
       <div className="flex h-full items-center justify-center">
-        <PermissionDenied resource="agents" />
+        <PermissionDenied resource="智能体" />
       </div>
     );
   }
@@ -229,7 +229,7 @@ function AgentPlayground() {
   }
 
   if (!codeAgent) {
-    return <div className="text-center py-4">Agent not found</div>;
+    return <div className="text-center py-4">未找到智能体</div>;
   }
 
   return (

@@ -165,7 +165,7 @@ export function BrowserViewFrame({
       {/* Image element - always rendered, hidden via opacity until first frame loads */}
       <button
         type="button"
-        aria-label="Interact with browser screencast"
+        aria-label="与浏览器屏幕直播交互"
         onClick={handleFrameClick}
         tabIndex={status === "streaming" ? 0 : -1}
         className={cn(
@@ -176,7 +176,7 @@ export function BrowserViewFrame({
       >
         <OptimizedImage
           ref={imgRef}
-          alt="Browser screencast"
+          alt="浏览器屏幕直播"
           className="size-full object-contain"
           loading="eager"
         />
@@ -210,7 +210,7 @@ export function BrowserViewFrame({
           <div className="absolute inset-0 bg-surface1/80 flex items-center justify-center">
             <div className="flex flex-col items-center gap-2">
               <div className="w-4 h-4 border-2 border-neutral4 border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm text-neutral4">Reconnecting...</span>
+              <span className="text-sm text-neutral4">正在重新连接…</span>
             </div>
           </div>
         ),
@@ -239,8 +239,8 @@ export function BrowserViewFrame({
                 </svg>
               </div>
               <div className="flex flex-col gap-1">
-                <span className="text-lg font-medium text-white">Connection Error</span>
-                <span className="text-sm text-white/70">Failed to connect to browser</span>
+                <span className="text-lg font-medium text-white">连接错误</span>
+                <span className="text-sm text-white/70">连接浏览器失败</span>
               </div>
             </div>
           </div>

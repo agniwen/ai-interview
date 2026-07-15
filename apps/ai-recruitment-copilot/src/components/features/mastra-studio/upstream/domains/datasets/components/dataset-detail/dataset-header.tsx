@@ -57,7 +57,7 @@ export function DatasetHeader({
             </div>
           </span>
         </TooltipTrigger>
-        <TooltipContent>Add items to the dataset before running an experiment</TooltipContent>
+        <TooltipContent>请先向数据集添加数据项，再运行实验</TooltipContent>
       </Tooltip>
     ) : (
       experimentTriggerSlot
@@ -69,16 +69,16 @@ export function DatasetHeader({
           <span className="cursor-not-allowed">
             <Button disabled tabIndex={-1}>
               <Play />
-              Run Experiment
+              运行实验
             </Button>
           </span>
         </TooltipTrigger>
-        <TooltipContent>Add items to the dataset before running an experiment</TooltipContent>
+        <TooltipContent>请先向数据集添加数据项，再运行实验</TooltipContent>
       </Tooltip>
     ) : (
       <Button onClick={onExperimentClick}>
         <Play />
-        Run Experiment
+        运行实验
       </Button>
     );
   }
@@ -94,11 +94,11 @@ export function DatasetHeader({
         </MainHeader.Description>
         <MainHeader.Description isLoading={isLoading}>
           <TextAndIcon>
-            <Calendar1Icon /> Created at{" "}
-            {dataset?.createdAt ? format(new Date(dataset.createdAt), "MMM d, yyyy") : ""}
+            <Calendar1Icon /> 创建时间{" "}
+            {dataset?.createdAt ? format(new Date(dataset.createdAt), "yyyy/MM/dd") : ""}
           </TextAndIcon>
           <TextAndIcon>
-            <HistoryIcon /> Latest version v{dataset?.version ?? ""}
+            <HistoryIcon /> 最新版本 v{dataset?.version ?? ""}
           </TextAndIcon>
         </MainHeader.Description>
       </MainHeader.Column>
@@ -107,22 +107,22 @@ export function DatasetHeader({
           {experimentAction}
           <DropdownMenu>
             <DropdownMenu.Trigger asChild>
-              <Button size="lg" aria-label="Dataset actions menu">
+              <Button size="lg" aria-label="数据集操作菜单">
                 <MoreVertical />
               </Button>
             </DropdownMenu.Trigger>
             <DropdownMenu.Content align="end" className="w-48">
               <DropdownMenu.Item onSelect={onEditClick}>
-                <Pencil /> Edit Dataset
+                <Pencil /> 编辑数据集
               </DropdownMenu.Item>
               <DropdownMenu.Item onSelect={onDuplicateClick}>
-                <Copy /> Duplicate Dataset
+                <Copy /> 复制数据集
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 onSelect={onDeleteClick}
                 className="text-red-500 focus:text-red-400"
               >
-                <Trash2 /> Delete Dataset
+                <Trash2 /> 删除数据集
               </DropdownMenu.Item>
             </DropdownMenu.Content>
           </DropdownMenu>

@@ -44,9 +44,9 @@ function truncateValue(value: unknown, maxLength = 100): string {
 }
 
 function formatDate(date: Date): string {
-  const dayMonth = isToday(date) ? "Today" : format(date, "MMM dd");
+  const dayMonth = isToday(date) ? "今天" : format(date, "MM/dd");
   const year = isThisYear(date) ? "" : format(date, "yyyy");
-  const time = format(date, "'at' h:mm aaa");
+  const time = format(date, "HH:mm");
   return `${dayMonth} ${year} ${time}`.replaceAll(/\s+/g, " ").trim();
 }
 
@@ -65,24 +65,24 @@ function EmptyDatasetItemList({
     <div className="flex h-full items-center justify-center py-12">
       <EmptyState
         iconSlot={<Plus className="w-8 h-8 text-neutral3" />}
-        titleSlot="No items yet"
-        descriptionSlot="Add items to this dataset to use them in experiment runs."
+        titleSlot="暂无数据项"
+        descriptionSlot="向此数据集添加数据项，以用于实验运行。"
         actionSlot={
           <ButtonsGroup>
             <Button onClick={onAddClick} size="md">
               <Plus />
-              Add Single Item
+              添加单个数据项
             </Button>
             {onImportClick && (
               <Button onClick={onImportClick} size="md">
                 <Upload />
-                Import CSV
+                导入 CSV
               </Button>
             )}
             {onImportJsonClick && (
               <Button onClick={onImportJsonClick} size="md">
                 <FileJson />
-                Import JSON
+                导入 JSON
               </Button>
             )}
           </ButtonsGroup>
@@ -160,7 +160,7 @@ export function DatasetItemsList({
           <DataList.TopSelectCell
             checked={isIndeterminate ? "indeterminate" : isAllSelected}
             onToggle={handleSelectAllToggle}
-            aria-label="Select all items"
+            aria-label="选择全部数据项"
           />
         )}
         {isSelectionActive && maxSelection && <DataList.TopCell>&nbsp;</DataList.TopCell>}
@@ -178,7 +178,7 @@ export function DatasetItemsList({
       </DataList.Top>
 
       {items.length === 0 && searchQuery ? (
-        <DataList.NoMatch message="No items match your search" />
+        <DataList.NoMatch message="没有符合搜索条件的数据项" />
       ) : (
         <>
           {items.map((item) => {
@@ -196,7 +196,7 @@ export function DatasetItemsList({
                   {item.expectedTrajectory ? (
                     <span className="text-ui-smd text-neutral3">
                       {Array.isArray((item.expectedTrajectory as Record<string, unknown>)?.steps)
-                        ? `${((item.expectedTrajectory as Record<string, unknown>).steps as unknown[]).length} steps`
+                        ? `${((item.expectedTrajectory as Record<string, unknown>).steps as unknown[]).length} 个步骤`
                         : "Yes"}
                     </span>
                   ) : (
@@ -228,7 +228,7 @@ export function DatasetItemsList({
                 <DataList.SelectCell
                   checked={selectedIds.has(item.id)}
                   onToggle={(shiftKey) => handleToggleSelection(item.id, shiftKey, allIds)}
-                  aria-label={`Select item ${item.id}`}
+                  aria-label={`选择数据项 ${item.id}`}
                 />
                 <DataList.RowButton
                   flushLeft

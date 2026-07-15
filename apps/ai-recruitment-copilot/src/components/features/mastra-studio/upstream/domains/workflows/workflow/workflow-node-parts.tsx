@@ -68,12 +68,12 @@ export function WorkflowDefaultNodeBadges({
   return (
     <div className="px-3 pt-2 pb-1 flex gap-1.5 flex-wrap">
       {isSleepNode && (
-        <NodeBadge type={date ? "sleepUntil" : "sleep"}>{date ? "SLEEP UNTIL" : "SLEEP"}</NodeBadge>
+        <NodeBadge type={date ? "sleepUntil" : "sleep"}>{date ? "休眠至" : "休眠"}</NodeBadge>
       )}
-      {canSuspend && <NodeBadge type="suspend">SUSPEND/RESUME</NodeBadge>}
-      {isParallel && <NodeBadge type="parallel">PARALLEL</NodeBadge>}
-      {isForEachNode && <NodeBadge type="forEach">FOREACH</NodeBadge>}
-      {isMapNode && <NodeBadge type="map">MAP</NodeBadge>}
+      {canSuspend && <NodeBadge type="suspend">挂起/恢复</NodeBadge>}
+      {isParallel && <NodeBadge type="parallel">并行</NodeBadge>}
+      {isForEachNode && <NodeBadge type="forEach">逐项处理</NodeBadge>}
+      {isMapNode && <NodeBadge type="map">映射</NodeBadge>}
     </div>
   );
 }
@@ -93,11 +93,11 @@ export function WorkflowNestedNodeBadges({
 }) {
   return (
     <div className="px-3 pt-2 pb-1 flex gap-1.5 flex-wrap">
-      {canSuspend && <NodeBadge type="suspend">SUSPEND/RESUME</NodeBadge>}
-      {isParallel && <NodeBadge type="parallel">PARALLEL</NodeBadge>}
-      {isNestedWorkflow && <NodeBadge type="workflow">WORKFLOW</NodeBadge>}
-      {isForEachNode && <NodeBadge type="forEach">FOREACH</NodeBadge>}
-      {isMapNode && <NodeBadge type="map">MAP</NodeBadge>}
+      {canSuspend && <NodeBadge type="suspend">挂起/恢复</NodeBadge>}
+      {isParallel && <NodeBadge type="parallel">并行</NodeBadge>}
+      {isNestedWorkflow && <NodeBadge type="workflow">工作流</NodeBadge>}
+      {isForEachNode && <NodeBadge type="forEach">逐项处理</NodeBadge>}
+      {isMapNode && <NodeBadge type="map">映射</NodeBadge>}
     </div>
   );
 }

@@ -11,7 +11,7 @@ export const ArrayElementWrapper: React.FC<ArrayElementWrapperProps> = ({ childr
       <Icon size="sm">
         <TrashIcon />
       </Icon>
-      Delete
+      删除
     </Button>
   </div>
 );

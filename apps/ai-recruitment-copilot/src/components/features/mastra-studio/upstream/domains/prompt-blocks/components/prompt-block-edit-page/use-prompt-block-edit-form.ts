@@ -7,20 +7,20 @@ const promptBlockFormResolver: Resolver<PromptBlockFormValues> = (values) => {
   const errors: Record<string, { type: string; message: string }> = {};
 
   if (!values.name || values.name.trim() === "") {
-    errors.name = { message: "Name is required", type: "required" };
+    errors.name = { message: "名称为必填项", type: "required" };
   } else if (values.name.length > 100) {
-    errors.name = { message: "Name must be 100 characters or less", type: "maxLength" };
+    errors.name = { message: "名称不能超过 100 个字符", type: "maxLength" };
   }
 
   if (values.description && values.description.length > 500) {
     errors.description = {
-      message: "Description must be 500 characters or less",
+      message: "描述不能超过 500 个字符",
       type: "maxLength",
     };
   }
 
   if (!values.content || values.content.trim() === "") {
-    errors.content = { message: "Content is required", type: "required" };
+    errors.content = { message: "内容为必填项", type: "required" };
   }
 
   return {

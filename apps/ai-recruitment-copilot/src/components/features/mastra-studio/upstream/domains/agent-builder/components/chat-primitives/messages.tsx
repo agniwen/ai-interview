@@ -115,7 +115,7 @@ const ToolApprovalPrompt = ({ toolCallId, toolName }: { toolCallId: string; tool
   return (
     <ToolCard testId="agent-builder-chat-tool-approval" className="bg-surface4 border-transparent">
       <Txt variant="ui-sm" className="text-neutral5 pb-2" as="div">
-        Approval required for <span className="font-mono text-neutral6">{toolName}</span>
+        工具 <span className="font-mono text-neutral6">{toolName}</span> 需要批准
       </Txt>
       <div className="flex gap-2 items-center">
         <Button
@@ -123,24 +123,24 @@ const ToolApprovalPrompt = ({ toolCallId, toolName }: { toolCallId: string; tool
           onClick={handleApprove}
           disabled={decided}
           data-testid="agent-builder-chat-tool-approve"
-          aria-label={`Approve ${toolName}`}
+          aria-label={`批准 ${toolName}`}
         >
           <Icon>{pending === "approve" ? <Loader2 className="animate-spin" /> : <Check />}</Icon>
-          Approve
+          批准
         </Button>
         <Button
           variant="ghost"
           onClick={handleDecline}
           disabled={decided}
           data-testid="agent-builder-chat-tool-decline"
-          aria-label={`Decline ${toolName}`}
+          aria-label={`拒绝 ${toolName}`}
         >
           {pending === "decline" && (
             <Icon>
               <Loader2 className="animate-spin" />
             </Icon>
           )}
-          Decline
+          拒绝
         </Button>
       </div>
     </ToolCard>
@@ -194,9 +194,9 @@ const getRequireApprovalMetadata = (
 
 const getNameFromInput = (input: unknown): string => {
   if (!input || typeof input !== "object" || !("name" in input)) {
-    return "unknown";
+    return "未知";
   }
-  return typeof input.name === "string" ? input.name : "unknown";
+  return typeof input.name === "string" ? input.name : "未知";
 };
 
 const findApprovalEntry = (
@@ -286,7 +286,7 @@ export function ErrorMessage({
         <AlertTriangle className="size-4 mt-0.5 shrink-0 text-accent6" aria-hidden />
         <div className="flex flex-col gap-1 min-w-0">
           <Txt variant="ui-md" className="text-icon6 font-medium" as="div">
-            Something went wrong while building the agent.
+            构建智能体时出现问题。
           </Txt>
           <Txt
             variant="ui-sm"
@@ -310,14 +310,14 @@ export function ErrorMessage({
                 data-testid="agent-builder-chat-error-retry"
               >
                 <RefreshCw className="size-3.5" aria-hidden />
-                Try again
+                重试
               </Button>
             )}
             <CollapsibleTrigger
               className="text-neutral4 hover:text-neutral6 text-sm underline-offset-2 hover:underline"
               data-testid="agent-builder-chat-error-details-trigger"
             >
-              Details
+              详情
             </CollapsibleTrigger>
           </div>
           <CollapsibleContent>
@@ -339,7 +339,7 @@ export function ErrorMessage({
               data-testid="agent-builder-chat-error-retry"
             >
               <RefreshCw className="size-3.5" aria-hidden />
-              Try again
+              重试
             </Button>
           </div>
         )
@@ -396,7 +396,7 @@ function GenericTool({
           <span className="inline-flex items-center gap-1.5 rounded-md border border-border1/60 bg-surface1 px-2 py-0.5">
             <Wrench className="size-3.5 shrink-0 text-neutral4" aria-hidden />
             <Txt variant="ui-sm" className="text-neutral5" as="span">
-              Executing <span className="font-mono text-neutral6">{toolName}</span>
+              正在执行 <span className="font-mono text-neutral6">{toolName}</span>
             </Txt>
           </span>
           <ChevronRight
@@ -412,7 +412,7 @@ function GenericTool({
             <div className="rounded-md border border-border1/60 bg-surface1 overflow-hidden">
               <div className="px-2 py-1 border-b border-border1/60">
                 <Txt variant="ui-sm" className="text-neutral3" as="div">
-                  Input
+                  输入
                 </Txt>
               </div>
               <pre className="m-0 max-h-[320px] overflow-auto p-3 text-xs leading-relaxed text-neutral5 whitespace-pre-wrap break-words">
@@ -423,7 +423,7 @@ function GenericTool({
               <div className="rounded-md border border-border1/60 bg-surface1 overflow-hidden">
                 <div className="px-2 py-1 border-b border-border1/60">
                   <Txt variant="ui-sm" className="text-neutral3" as="div">
-                    Output
+                    输出
                   </Txt>
                 </div>
                 <pre className="m-0 max-h-[320px] overflow-auto p-3 text-xs leading-relaxed text-neutral5 whitespace-pre-wrap break-words">
@@ -465,7 +465,7 @@ function MessageSetAgentName() {
     return null;
   }
 
-  return <SkillToolLine icon={<AlignLeft />} label="Setting the agent name:" value={name} />;
+  return <SkillToolLine icon={<AlignLeft />} label="正在设置智能体名称：" value={name} />;
 }
 
 function MessageSetAgentDescription() {
@@ -476,13 +476,7 @@ function MessageSetAgentDescription() {
     return null;
   }
 
-  return (
-    <SkillToolLine
-      icon={<AlignLeft />}
-      label="Setting the agent description:"
-      value={description}
-    />
-  );
+  return <SkillToolLine icon={<AlignLeft />} label="正在设置智能体描述：" value={description} />;
 }
 
 function MessageSetAgentInstructions() {
@@ -493,13 +487,7 @@ function MessageSetAgentInstructions() {
     return null;
   }
 
-  return (
-    <SkillToolLine
-      icon={<FileText />}
-      label="Setting the agent instructions:"
-      value={instructions}
-    />
-  );
+  return <SkillToolLine icon={<FileText />} label="正在设置智能体指令：" value={instructions} />;
 }
 
 function MessageSetAgentTools() {
@@ -520,9 +508,9 @@ function MessageSetAgentTools() {
   });
 
   const enabled = availableAgentTools.filter((t) => t.isChecked);
-  const value = enabled.length === 0 ? "none" : enabled.map((t) => t.name).join(", ");
+  const value = enabled.length === 0 ? "无" : enabled.map((t) => t.name).join(", ");
 
-  return <SkillToolLine icon={<Wrench />} label="Enabling tools:" value={value} />;
+  return <SkillToolLine icon={<Wrench />} label="正在启用工具：" value={value} />;
 }
 
 function MessageSetAgentSkills() {
@@ -530,9 +518,9 @@ function MessageSetAgentSkills() {
   const { watch } = useFormContext<AgentBuilderEditFormValues>();
   const skillsField = watch("skills");
   const enabled = skillsField ? availableSkills.filter((s) => skillsField[s.id] === true) : [];
-  const value = enabled.length === 0 ? "none" : enabled.map((s) => s.name).join(", ");
+  const value = enabled.length === 0 ? "无" : enabled.map((s) => s.name).join(", ");
 
-  return <SkillToolLine icon={<Zap />} label="Enabling skills:" value={value} />;
+  return <SkillToolLine icon={<Zap />} label="正在启用技能：" value={value} />;
 }
 
 function MessageSetAgentModel() {
@@ -546,7 +534,7 @@ function MessageSetAgentModel() {
   return (
     <SkillToolLine
       icon={<ProviderLogo providerId={model.provider} size={16} />}
-      label="Setting agent model to"
+      label="正在将智能体模型设置为"
       value={`${model.provider}/${model.name}`}
     />
   );
@@ -559,8 +547,8 @@ function MessageSetAgentBrowserEnabled() {
   return (
     <SkillToolLine
       icon={browserEnabled ? <Globe /> : <GlobeLockIcon />}
-      label="Browser access"
-      value={browserEnabled ? "enabled" : "disabled"}
+      label="浏览器访问"
+      value={browserEnabled ? "已启用" : "已停用"}
     />
   );
 }
@@ -573,7 +561,7 @@ function MessageSetAgentWorkspaceId() {
     return null;
   }
 
-  return <SkillToolLine icon={<Building />} label="Setting workspace to" value={workspaceId} />;
+  return <SkillToolLine icon={<Building />} label="正在将工作区设置为" value={workspaceId} />;
 }
 
 interface SkillToolProps {
@@ -581,7 +569,7 @@ interface SkillToolProps {
 }
 
 function SkillTool({ name }: SkillToolProps) {
-  return <SkillToolLine icon={<Zap />} label="Using super-powers:" value={name} />;
+  return <SkillToolLine icon={<Zap />} label="正在使用增强能力：" value={name} />;
 }
 
 const renderToolCard = (toolName: string, input: unknown, output: unknown): ReactNode => {
@@ -652,7 +640,7 @@ export const MessageRow = ({ message }: MessageRowProps) => {
       if (state !== "streaming") {
         return null;
       }
-      return <ReasoningStreamingLine text="Reasoning..." />;
+      return <ReasoningStreamingLine text="正在推理..." />;
     },
     Text: (part) => <Txtmessage txt={part.text ?? ""} role={displayRole} metadata={metadata} />,
     ToolInvocation: (part: ToolInvocationPart) => {

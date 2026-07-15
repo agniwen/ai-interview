@@ -46,7 +46,7 @@ export function MCPClientFormSidebar({
   containerRef,
   readOnly,
   showSubmit,
-  submitLabel = "Create MCP Client",
+  submitLabel = "创建 MCP 客户端",
   onTryConnect,
   isTryingConnect,
 }: MCPClientFormSidebarProps) {
@@ -79,15 +79,15 @@ export function MCPClientFormSidebar({
     <div className="h-full flex flex-col">
       <ScrollArea className="flex-1 min-h-0">
         <div className="flex flex-col gap-6 p-4">
-          <SectionHeader title="Identity" subtitle="Define the MCP client name and description." />
+          <SectionHeader title="基本信息" subtitle="设置 MCP 客户端的名称和描述。" />
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="mcp-client-name" className="text-xs text-neutral5">
-              Name <span className="text-accent2">*</span>
+              名称 <span className="text-accent2">*</span>
             </Label>
             <Input
               id="mcp-client-name"
-              placeholder="My MCP Client"
+              placeholder="我的 MCP 客户端"
               className={SOLID_FIELD}
               disabled={readOnly}
               {...register("name")}
@@ -98,11 +98,11 @@ export function MCPClientFormSidebar({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="mcp-client-description" className="text-xs text-neutral5">
-              Description
+              描述
             </Label>
             <Textarea
               id="mcp-client-description"
-              placeholder="Describe what this MCP client connects to"
+              placeholder="描述此 MCP 客户端连接的内容"
               className={SOLID_FIELD}
               disabled={readOnly}
               {...register("description")}
@@ -111,31 +111,25 @@ export function MCPClientFormSidebar({
 
           {!readOnly && (
             <>
-              <SectionHeader
-                title="Pre-fill from server"
-                subtitle="Select an existing MCP server to pre-fill settings."
-              />
+              <SectionHeader title="从服务器预填" subtitle="选择现有 MCP 服务器以预填设置。" />
 
               <div className="flex flex-col gap-1.5">
                 <MCPServerCombobox
                   onValueChange={onPreFillFromServer}
-                  placeholder="Select a server..."
-                  searchPlaceholder="Search servers..."
-                  emptyText="No servers found"
+                  placeholder="选择服务器..."
+                  searchPlaceholder="搜索服务器..."
+                  emptyText="未找到服务器"
                   container={containerRef}
                 />
               </div>
             </>
           )}
 
-          <SectionHeader
-            title="Server Configuration"
-            subtitle="Configure the MCP server connection details."
-          />
+          <SectionHeader title="服务器配置" subtitle="配置 MCP 服务器的连接详情。" />
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="mcp-server-name" className="text-xs text-neutral5">
-              Server Name <span className="text-accent2">*</span>
+              服务器名称 <span className="text-accent2">*</span>
             </Label>
             <Input
               id="mcp-server-name"
@@ -151,7 +145,7 @@ export function MCPClientFormSidebar({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs text-neutral5">Server Type</Label>
+            <Label className="text-xs text-neutral5">服务器类型</Label>
             <Controller
               name="serverType"
               control={control}
@@ -188,7 +182,7 @@ export function MCPClientFormSidebar({
 
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="mcp-timeout" className="text-xs text-neutral5">
-                  Timeout (ms)
+                  超时时间（毫秒）
                 </Label>
                 <Input
                   id="mcp-timeout"
@@ -206,7 +200,7 @@ export function MCPClientFormSidebar({
             <>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="mcp-command" className="text-xs text-neutral5">
-                  Command <span className="text-accent2">*</span>
+                  命令 <span className="text-accent2">*</span>
                 </Label>
                 <Input
                   id="mcp-command"
@@ -223,7 +217,7 @@ export function MCPClientFormSidebar({
 
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="mcp-args" className="text-xs text-neutral5">
-                  Arguments (one per line)
+                  参数（每行一个）
                 </Label>
                 <Textarea
                   id="mcp-args"
@@ -235,18 +229,18 @@ export function MCPClientFormSidebar({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <Label className="text-xs text-neutral5">Environment Variables</Label>
+                <Label className="text-xs text-neutral5">环境变量</Label>
                 <div className="flex flex-col gap-2">
                   {env.map((_, index) => (
                     <div key={index} className="flex gap-2 items-center">
                       <Input
-                        placeholder="KEY"
+                        placeholder="键"
                         className={`${SOLID_FIELD} flex-1`}
                         disabled={readOnly}
                         {...register(`env.${index}.key`)}
                       />
                       <Input
-                        placeholder="VALUE"
+                        placeholder="值"
                         className={`${SOLID_FIELD} flex-1`}
                         disabled={readOnly}
                         {...register(`env.${index}.value`)}
@@ -261,7 +255,7 @@ export function MCPClientFormSidebar({
                   {!readOnly && (
                     <Button variant="outline" size="sm" onClick={addEnvVar} className="w-fit">
                       <PlusIcon className="h-3 w-3 mr-1" />
-                      Add variable
+                      添加变量
                     </Button>
                   )}
                 </div>
@@ -278,9 +272,9 @@ export function MCPClientFormSidebar({
               const isDisabled = serverType !== "http" || !url.trim() || isTryingConnect;
               let tooltipContent: string | undefined;
               if (serverType === "http") {
-                tooltipContent = url.trim() ? undefined : "Enter a URL first";
+                tooltipContent = url.trim() ? undefined : "请先输入 URL";
               } else {
-                tooltipContent = "Only available for HTTP servers";
+                tooltipContent = "仅适用于 HTTP 服务器";
               }
 
               return tooltipContent ? (
@@ -294,10 +288,10 @@ export function MCPClientFormSidebar({
                   {isTryingConnect ? (
                     <>
                       <Spinner className="h-4 w-4" />
-                      Connecting...
+                      正在连接...
                     </>
                   ) : (
-                    "Try to connect"
+                    "尝试连接"
                   )}
                 </Button>
               ) : (
@@ -310,10 +304,10 @@ export function MCPClientFormSidebar({
                   {isTryingConnect ? (
                     <>
                       <Spinner className="h-4 w-4" />
-                      Connecting...
+                      正在连接...
                     </>
                   ) : (
-                    "Try to connect"
+                    "尝试连接"
                   )}
                 </Button>
               );
@@ -322,7 +316,7 @@ export function MCPClientFormSidebar({
             {isSubmitting ? (
               <>
                 <Spinner className="h-4 w-4" />
-                Creating...
+                正在创建...
               </>
             ) : (
               <>

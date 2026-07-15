@@ -149,7 +149,7 @@ export const AgentMetadataModelSwitcher = ({
     return (
       <div className="flex items-center gap-2">
         <Spinner />
-        <span className="text-sm text-gray-500">Loading providers...</span>
+        <span className="text-sm text-gray-500">正在加载提供商…</span>
       </div>
     );
   }
@@ -181,9 +181,7 @@ export const AgentMetadataModelSwitcher = ({
     const lockedProvider = policy.default?.provider;
     const lockedModel = policy.default?.modelId;
     const selectedLabel =
-      selectedProvider && selectedModel
-        ? `${selectedProvider}/${selectedModel}`
-        : "Locked by admin";
+      selectedProvider && selectedModel ? `${selectedProvider}/${selectedModel}` : "已由管理员锁定";
     const lockedLabel =
       lockedProvider && lockedModel ? `${lockedProvider}/${lockedModel}` : selectedLabel;
     return (
@@ -193,7 +191,7 @@ export const AgentMetadataModelSwitcher = ({
       >
         <Lock className="h-4 w-4 shrink-0 text-neutral3" />
         <span className="truncate text-ui-sm text-neutral6">{lockedLabel}</span>
-        <span className="ml-auto shrink-0 text-ui-xs text-neutral3">Set by admin</span>
+        <span className="ml-auto shrink-0 text-ui-xs text-neutral3">由管理员设置</span>
       </div>
     );
   }
@@ -234,7 +232,7 @@ export const AgentMetadataModelSwitcher = ({
           onClick={handleReset}
           disabled={loading}
           className="flex items-center gap-1.5 text-xs whitespace-nowrap border-0!"
-          title="Reset to original model"
+          title="重置为原始模型"
         >
           <RotateCcw className="w-3.5 h-3.5" />
         </Button>
@@ -244,12 +242,12 @@ export const AgentMetadataModelSwitcher = ({
         stale,
         () => (
           <div className="pt-2 p-2" data-testid="agent-metadata-model-stale-warning">
-            <Notice variant="warning" title="Model not allowed">
+            <Notice variant="warning" title="不允许使用此模型">
               <Notice.Message>
                 <code className="px-1 py-0.5 bg-yellow-100 dark:bg-yellow-900/50 rounded">
                   {selectedProvider}/{selectedModel}
                 </code>{" "}
-                is no longer allowed by the admin policy. Pick a different model to save changes.
+                已不符合管理员策略。请选择其他模型后再保存更改。
               </Notice.Message>
             </Notice>
           </div>
@@ -265,19 +263,17 @@ export const AgentMetadataModelSwitcher = ({
             !provider.connected,
             () => (
               <div className="pt-2 p-2">
-                <Notice variant="warning" title="Provider not connected">
+                <Notice variant="warning" title="提供商未连接">
                   <Notice.Message>
-                    Set the{" "}
+                    请设置{" "}
                     <code className="px-1 py-0.5 bg-yellow-100 dark:bg-yellow-900/50 rounded">
                       {Array.isArray(provider.envVar)
                         ? provider.envVar.join(", ")
                         : provider.envVar}
                     </code>{" "}
-                    environment{" "}
-                    {Array.isArray(provider.envVar) && provider.envVar.length > 1
-                      ? "variables"
-                      : "variable"}{" "}
-                    to use this provider.
+                    环境{" "}
+                    {Array.isArray(provider.envVar) && provider.envVar.length > 1 ? "变量" : "变量"}{" "}
+                    以使用此提供商。
                   </Notice.Message>
                 </Notice>
               </div>

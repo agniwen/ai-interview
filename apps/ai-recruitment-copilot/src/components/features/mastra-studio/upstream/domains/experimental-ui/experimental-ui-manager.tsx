@@ -25,12 +25,8 @@ export function ExperimentalUIManager({ pathname }: { pathname?: string }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button
-          aria-label="Experimental UI"
-          size="sm"
-          className="mr-auto ml-3 bg-blue-600 text-white"
-        >
-          <FlaskConicalIcon /> UI
+        <Button aria-label="实验性界面" size="sm" className="mr-auto ml-3 bg-blue-600 text-white">
+          <FlaskConicalIcon /> 实验性界面
         </Button>
       </PopoverTrigger>
 

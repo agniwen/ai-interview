@@ -97,28 +97,28 @@ const SaveAsPromptBlockDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Save as prompt block</DialogTitle>
-          <DialogDescription>Create a reusable prompt block from this content.</DialogDescription>
+          <DialogTitle>另存为提示词块</DialogTitle>
+          <DialogDescription>根据此内容创建可复用的提示词块。</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <DialogBody className="space-y-3">
             <div className="space-y-1.5">
-              <Label htmlFor="prompt-block-name">Name</Label>
+              <Label htmlFor="prompt-block-name">名称</Label>
               <Input
                 id="prompt-block-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Tone guidelines"
+                placeholder="例如：语气指南"
                 autoFocus
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="prompt-block-description">Description (optional)</Label>
+              <Label htmlFor="prompt-block-description">描述（可选）</Label>
               <Input
                 id="prompt-block-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Brief description..."
+                placeholder="简要描述…"
               />
             </div>
             {error && (
@@ -129,10 +129,10 @@ const SaveAsPromptBlockDialog = ({
           </DialogBody>
           <DialogFooter className="px-6 pt-4">
             <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-              Cancel
+              取消
             </Button>
             <Button type="submit" variant="primary" size="sm" disabled={!name.trim() || isPending}>
-              {isPending ? "Saving..." : "Save"}
+              {isPending ? "正在保存…" : "保存"}
             </Button>
           </DialogFooter>
         </form>
@@ -185,7 +185,7 @@ const InlineBlockContent = ({
         },
         {
           onError: (err: Error) => {
-            setSaveError(err.message || "Failed to create prompt block");
+            setSaveError(err.message || "创建提示词块失败");
           },
           onSuccess: (data) => {
             setSaveDialogOpen(false);
@@ -218,7 +218,7 @@ const InlineBlockContent = ({
                     <GripVertical />
                   </Icon>
                 </TooltipTrigger>
-                <TooltipContent side="left">Drag to reorder</TooltipContent>
+                <TooltipContent side="left">拖动以重新排序</TooltipContent>
               </Tooltip>
             </div>
           </div>
@@ -228,7 +228,7 @@ const InlineBlockContent = ({
         {!readOnly && (
           <div className="absolute right-0 top-1 z-10 flex items-center gap-0.5 transition-opacity duration-150 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
             <DisplayConditionsDialog
-              entityName={`Block ${index + 1}`}
+              entityName={`块 ${index + 1}`}
               schema={schema}
               rules={block.rules}
               onRulesChange={handleRulesChange}
@@ -239,14 +239,14 @@ const InlineBlockContent = ({
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => setSaveDialogOpen(true)}
-                tooltip="Save as prompt block"
+                tooltip="另存为提示词块"
               >
                 <BookmarkPlus />
               </Button>
             )}
 
             {onDelete && (
-              <Button variant="ghost" size="icon-sm" onClick={onDelete} tooltip="Delete block">
+              <Button variant="ghost" size="icon-sm" onClick={onDelete} tooltip="删除块">
                 <X />
               </Button>
             )}

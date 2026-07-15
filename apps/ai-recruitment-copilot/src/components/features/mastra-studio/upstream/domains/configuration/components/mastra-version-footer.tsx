@@ -111,11 +111,11 @@ function renderStatusSummary({
   outdatedCount,
 }: Pick<PackagesModalContentProps, "deprecatedCount" | "isLoadingUpdates" | "outdatedCount">) {
   if (isLoadingUpdates) {
-    return <span className="text-neutral3">Checking for updates...</span>;
+    return <span className="text-neutral3">正在检查更新...</span>;
   }
 
   if (outdatedCount === 0 && deprecatedCount === 0) {
-    return <span className="text-accent1">✓ All packages are up to date</span>;
+    return <span className="text-accent1">✓ 所有包均为最新版本</span>;
   }
 
   return (
@@ -123,13 +123,13 @@ function renderStatusSummary({
       {outdatedCount > 0 && (
         <span className="flex items-center gap-1.5">
           <StatusBadge value={outdatedCount} variant="warning" />
-          <span>package{outdatedCount === 1 ? "" : "s"} outdated</span>
+          <span>个包有可用更新</span>
         </span>
       )}
       {deprecatedCount > 0 && (
         <span className="flex items-center gap-1.5">
           <StatusBadge value={deprecatedCount} variant="error" />
-          <span>package{deprecatedCount === 1 ? "" : "s"} deprecated</span>
+          <span>个包已弃用</span>
         </span>
       )}
     </div>
@@ -152,8 +152,8 @@ const PackagesModalContent = ({
   return (
     <DialogContent className="max-w-2xl">
       <DialogHeader>
-        <DialogTitle>Installed Mastra Packages</DialogTitle>
-        <DialogDescription>View and update installed Mastra packages</DialogDescription>
+        <DialogTitle>已安装的 Mastra 包</DialogTitle>
+        <DialogDescription>查看并更新已安装的 Mastra 包</DialogDescription>
       </DialogHeader>
 
       <DialogBody>
@@ -162,8 +162,8 @@ const PackagesModalContent = ({
           {renderStatusSummary({ deprecatedCount, isLoadingUpdates, outdatedCount })}
           <CopyButton
             content={packagesText}
-            copyMessage="Copied package versions!"
-            tooltip="Copy current versions"
+            copyMessage="已复制包版本！"
+            tooltip="复制当前版本"
             size="sm"
           />
         </div>
@@ -197,8 +197,8 @@ const PackagesModalContent = ({
                       </TooltipTrigger>
                       <TooltipContent>
                         {pkg.isDeprecated
-                          ? pkg.deprecationMessage || "This version is deprecated"
-                          : "Newer version available"}
+                          ? pkg.deprecationMessage || "此版本已弃用"
+                          : "有新版本可用"}
                       </TooltipContent>
                     </Tooltip>
                   ) : (
@@ -224,7 +224,7 @@ const PackagesModalContent = ({
             <div className="flex items-center gap-2 pt-3">
               <Info className="w-4 h-4 text-neutral3" />
               <Txt as="span" variant="ui-sm" className="text-neutral3">
-                Use the command below to update your packages
+                使用以下命令更新依赖包
               </Txt>
             </div>
             <CodeBlock
@@ -241,8 +241,8 @@ const PackagesModalContent = ({
                   onPackageManagerChange(value);
                 }
               }}
-              copyMessage="Copied update command!"
-              copyTooltip="Copy command"
+              copyMessage="已复制更新命令！"
+              copyTooltip="复制命令"
             />
           </div>
         )}

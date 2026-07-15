@@ -89,8 +89,8 @@ export function AgentPlaygroundScorers(_props: AgentPlaygroundScorersProps) {
             </InputGroupAddon>
             <InputGroupInput
               type="search"
-              aria-label="Search scorers"
-              placeholder="Search scorers..."
+              aria-label="搜索评分器"
+              placeholder="搜索评分器…"
               onChange={(event) => setSearch(event.target.value)}
             />
           </InputGroup>
@@ -114,12 +114,10 @@ export function AgentPlaygroundScorers(_props: AgentPlaygroundScorersProps) {
                   </Icon>
                   <div>
                     <Txt variant="ui-sm" className="text-neutral3">
-                      {search ? "No scorers match your search" : "No scorers available"}
+                      {search ? "没有与搜索条件匹配的评分器" : "暂无可用评分器"}
                     </Txt>
                     <Txt variant="ui-xs" className="text-neutral3 mt-1">
-                      {search
-                        ? "Try a different search term."
-                        : "Create scorers in your Mastra config or through the Scorers page."}
+                      {search ? "请尝试其他搜索词。" : "请在 Mastra 配置或评分器页面中创建评分器。"}
                     </Txt>
                   </div>
                 </div>
@@ -140,7 +138,7 @@ export function AgentPlaygroundScorers(_props: AgentPlaygroundScorersProps) {
                             {scorer.isRegistered && (
                               <Badge variant="default">
                                 <CheckCircle2 className="h-3 w-3 mr-1" />
-                                Registered
+                                已注册
                               </Badge>
                             )}
                           </div>

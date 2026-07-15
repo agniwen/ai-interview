@@ -95,7 +95,7 @@ function CmsPromptBlocksEditForm({
   const handleSaveDraft = useCallback(async () => {
     const isValid = await form.trigger();
     if (!isValid) {
-      toast.error("Please fill in all required fields");
+      toast.error("请填写所有必填字段");
       return;
     }
 
@@ -104,11 +104,9 @@ function CmsPromptBlocksEditForm({
       const params = buildUpdateParams(form.getValues());
       await updateStoredPromptBlock.mutateAsync(params);
       form.reset(form.getValues());
-      toast.success("Draft saved");
+      toast.success("草稿已保存");
     } catch (error) {
-      toast.error(
-        `Failed to save draft: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`保存草稿失败：${error instanceof Error ? error.message : "未知错误"}`);
     } finally {
       setIsSavingDraft(false);
     }
@@ -117,7 +115,7 @@ function CmsPromptBlocksEditForm({
   const handlePublish = useCallback(async () => {
     const isValid = await form.trigger();
     if (!isValid) {
-      toast.error("Please fill in all required fields");
+      toast.error("请填写所有必填字段");
       return;
     }
 
@@ -132,17 +130,17 @@ function CmsPromptBlocksEditForm({
         .listVersions({ orderBy: { direction: "DESC" }, perPage: 1 });
       const [latestVersion] = versionsResponse.versions;
       if (!latestVersion) {
-        throw new Error("No version found to publish");
+        throw new Error("没有可发布的版本");
       }
       await client.getStoredPromptBlock(blockId).activateVersion(latestVersion.id);
 
       void queryClient.invalidateQueries({ queryKey: ["stored-prompt-blocks"] });
       void queryClient.invalidateQueries({ queryKey: ["stored-prompt-block"] });
       void queryClient.invalidateQueries({ queryKey: ["prompt-block-versions", blockId] });
-      toast.success("Prompt block published");
+      toast.success("提示词块已发布");
       void navigate(paths.promptBlocksLink());
     } catch (error) {
-      toast.error(`Failed to publish: ${error instanceof Error ? error.message : "Unknown error"}`);
+      toast.error(`发布失败：${error instanceof Error ? error.message : "未知错误"}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -156,12 +154,10 @@ function CmsPromptBlocksEditForm({
         void queryClient.invalidateQueries({ queryKey: ["stored-prompt-blocks"] });
         void queryClient.invalidateQueries({ queryKey: ["stored-prompt-block"] });
         void queryClient.invalidateQueries({ queryKey: ["prompt-block-versions", blockId] });
-        toast.success("Version published");
+        toast.success("版本已发布");
         void navigate(paths.promptBlocksLink());
       } catch (error) {
-        toast.error(
-          `Failed to publish version: ${error instanceof Error ? error.message : "Unknown error"}`,
-        );
+        toast.error(`发布版本失败：${error instanceof Error ? error.message : "未知错误"}`);
       } finally {
         setIsSubmitting(false);
       }
@@ -197,11 +193,11 @@ function CmsPromptBlocksEditForm({
       }
     >
       {isViewingPreviousVersion && (
-        <Notice variant="info" title="This is a previous version" className="m-4 mb-0">
-          <Notice.Message>You are seeing a specific version of the prompt block.</Notice.Message>
+        <Notice variant="info" title="当前为历史版本" className="m-4 mb-0">
+          <Notice.Message>你正在查看提示词块的特定版本。</Notice.Message>
           <div className="flex gap-2">
             <Button type="button" variant="default" size="sm" onClick={onClearVersion}>
-              View latest version
+              查看最新版本
             </Button>
             <Button
               type="button"
@@ -210,7 +206,7 @@ function CmsPromptBlocksEditForm({
               onClick={handlePublishVersion}
               disabled={selectedVersionId === activeVersionId || isSubmitting}
             >
-              {isSubmitting ? "Publishing..." : "Publish This Version"}
+              {isSubmitting ? "发布中..." : "发布此版本"}
             </Button>
           </div>
         </Notice>
@@ -276,12 +272,12 @@ function CmsPromptBlocksEditPage() {
         <AgentEditLayout
           leftSlot={
             <div className="flex items-center justify-center h-full text-neutral3">
-              Prompt block not found
+              未找到提示词块
             </div>
           }
         >
           <div className="flex items-center justify-center h-full text-neutral3">
-            Prompt block not found
+            未找到提示词块
           </div>
         </AgentEditLayout>
       </MainContentLayout>
@@ -292,7 +288,7 @@ function CmsPromptBlocksEditPage() {
     <MainContentLayout className="grid-rows-[1fr]">
       <RouteHeaderActions owner="cms-prompt-block-edit">
         <div className="flex items-center gap-2">
-          {hasDraft && <Badge variant="info">Unpublished changes</Badge>}
+          {hasDraft && <Badge variant="info">有未发布的更改</Badge>}
           <PromptBlockVersionCombobox
             blockId={blockId}
             value={selectedVersionId ?? ""}

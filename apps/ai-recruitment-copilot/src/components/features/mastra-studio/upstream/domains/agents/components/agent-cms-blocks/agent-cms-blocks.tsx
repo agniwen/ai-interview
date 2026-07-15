@@ -47,13 +47,13 @@ const AddBlockButton = ({ onAddInline, onPickRef, className }: AddBlockButtonPro
           <Icon>
             <PenLine />
           </Icon>
-          Write inline block
+          编写内联块
         </DropdownMenu.Item>
         <DropdownMenu.Item onSelect={onPickRef}>
           <Icon>
             <FileText />
           </Icon>
-          Reference saved prompt block
+          引用已保存的提示词块
         </DropdownMenu.Item>
       </DropdownMenu.Content>
     </DropdownMenu>

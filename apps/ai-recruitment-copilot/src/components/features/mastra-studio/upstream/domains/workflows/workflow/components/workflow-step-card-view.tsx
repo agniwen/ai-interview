@@ -45,12 +45,12 @@ const WorkflowSleepDetails = ({
   <>
     {duration && (
       <Txt variant="ui-sm" className="text-neutral3 px-3 pb-2">
-        sleeps for <strong>{duration}ms</strong>
+        休眠 <strong>{duration}ms</strong>
       </Txt>
     )}
     {date && (
       <Txt variant="ui-sm" className="text-neutral3 px-3 pb-2">
-        sleeps until <strong>{new Date(date).toLocaleString()}</strong>
+        休眠至 <strong>{new Date(date).toLocaleString("zh-CN")}</strong>
       </Txt>
     )}
   </>

@@ -6,8 +6,8 @@ export const NoScorersInfo = () => (
   <div className="flex h-full items-center justify-center">
     <EmptyState
       iconSlot={<CircleSlashIcon />}
-      titleSlot="No Scorers yet"
-      descriptionSlot="Configure scorers in code to get started. More info in the documentation."
+      titleSlot="暂无评分器"
+      descriptionSlot="请先在代码中配置评分器，详情请参阅文档。"
       actionSlot={
         <Button
           variant="ghost"
@@ -16,7 +16,7 @@ export const NoScorersInfo = () => (
           target="_blank"
           rel="noopener noreferrer"
         >
-          Scorers Documentation <ExternalLinkIcon />
+          评分器文档 <ExternalLinkIcon />
         </Button>
       }
     />

@@ -66,13 +66,13 @@ function TraceHeaderActions({
   return (
     <RouteHeaderActions owner="trace-detail">
       <ButtonsGroup>
-        <Button tooltip="Evaluate Trace" aria-label="Evaluate Trace" onClick={onEvaluate}>
+        <Button tooltip="评估追踪记录" aria-label="评估追踪记录" onClick={onEvaluate}>
           <CircleGaugeIcon />
-          Evaluate
+          评估
         </Button>
-        <Button tooltip="Save as Dataset Item" aria-label="Save as Dataset Item" onClick={onSave}>
+        <Button tooltip="保存为数据项" aria-label="保存为数据项" onClick={onSave}>
           <SaveIcon />
-          Save
+          保存
         </Button>
       </ButtonsGroup>
     </RouteHeaderActions>
@@ -268,8 +268,8 @@ export default function TracePage() {
         <PageLayout.MainArea isCentered>
           <TracesErrorContent
             error={traceError}
-            resource="traces"
-            errorTitle="Failed to load trace"
+            resource="追踪记录"
+            errorTitle="加载追踪记录失败"
           />
         </PageLayout.MainArea>
       </PageLayout>

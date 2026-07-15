@@ -110,9 +110,7 @@ export function JSONImportDialog({
     onSuccess?.();
 
     if (importResult && importResult.success > 0) {
-      toast.success(
-        `Imported ${importResult.success} item${importResult.success === 1 ? "" : "s"}`,
-      );
+      toast.success(`已导入 ${importResult.success} 个数据项`);
     }
 
     // Reset state after close animation
@@ -163,15 +161,12 @@ export function JSONImportDialog({
             {parsedJSON.errors.length > 0 ? (
               <>
                 <JSONValidationSummary errors={parsedJSON.errors} />
-                <div className="text-sm text-neutral4">
-                  Please fix the errors in your JSON file and try again.
-                </div>
+                <div className="text-sm text-neutral4">请修复 JSON 文件中的错误后重试。</div>
               </>
             ) : (
               <>
                 <div className="text-sm text-neutral4">
-                  Found {parsedJSON.items.length} valid item
-                  {parsedJSON.items.length === 1 ? "" : "s"} to import.
+                  找到 {parsedJSON.items.length} 个可导入的有效数据项。
                 </div>
                 <JSONPreviewTable items={parsedJSON.items} maxRows={5} />
               </>
@@ -185,9 +180,9 @@ export function JSONImportDialog({
           <div className="flex flex-col items-center gap-4 py-8">
             <Spinner />
             <div className="text-center">
-              <div className="text-lg font-medium text-neutral1">Importing items...</div>
+              <div className="text-lg font-medium text-neutral1">正在导入数据项...</div>
               <div className="text-sm text-neutral4 mt-1">
-                {importProgress.current} of {importProgress.total}
+                {importProgress.current} / {importProgress.total}
               </div>
             </div>
           </div>
@@ -199,14 +194,11 @@ export function JSONImportDialog({
           <div className="flex flex-col items-center gap-4 py-8">
             <div className="text-4xl">{importResult && importResult.errors === 0 ? "✓" : "⚠"}</div>
             <div className="text-center">
-              <div className="text-lg font-medium text-neutral1">Import Complete</div>
+              <div className="text-lg font-medium text-neutral1">导入完成</div>
               <div className="text-sm text-neutral4 mt-1">
-                {importResult?.success ?? 0} item{importResult?.success === 1 ? "" : "s"} imported
+                已导入 {importResult?.success ?? 0} 个数据项
                 {importResult && importResult.errors > 0 && (
-                  <span className="text-accent2">
-                    {" "}
-                    ({importResult.errors} error{importResult.errors === 1 ? "" : "s"})
-                  </span>
+                  <span className="text-accent2"> （{importResult.errors} 个错误）</span>
                 )}
               </div>
             </div>
@@ -223,15 +215,15 @@ export function JSONImportDialog({
   const renderFooter = () => {
     switch (step) {
       case "upload": {
-        return <Button onClick={handleClose}>Cancel</Button>;
+        return <Button onClick={handleClose}>取消</Button>;
       }
 
       case "preview": {
         return (
           <>
-            <Button onClick={() => setStep("upload")}>Back</Button>
+            <Button onClick={() => setStep("upload")}>返回</Button>
             <Button variant="primary" onClick={handleImport} disabled={!canImport}>
-              Import {parsedJSON?.items.length ?? 0} Item{parsedJSON?.items.length === 1 ? "" : "s"}
+              导入 {parsedJSON?.items.length ?? 0} 个数据项
             </Button>
           </>
         );
@@ -245,7 +237,7 @@ export function JSONImportDialog({
       case "complete": {
         return (
           <Button variant="primary" onClick={handleDone}>
-            Done
+            完成
           </Button>
         );
       }
@@ -257,10 +249,10 @@ export function JSONImportDialog({
 
   // Step titles
   const stepTitles: Record<ImportStep, string> = {
-    complete: "Import Complete",
-    importing: "Importing",
-    preview: "Preview Data",
-    upload: "Import JSON",
+    complete: "导入完成",
+    importing: "正在导入",
+    preview: "预览数据",
+    upload: "导入 JSON",
   };
 
   return (
@@ -268,7 +260,7 @@ export function JSONImportDialog({
       <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>{stepTitles[step]}</DialogTitle>
-          <DialogDescription>Import dataset items from a JSON file.</DialogDescription>
+          <DialogDescription>从 JSON 文件导入数据项。</DialogDescription>
         </DialogHeader>
 
         <DialogBody className="min-h-[200px] max-h-[50vh] overflow-y-auto">

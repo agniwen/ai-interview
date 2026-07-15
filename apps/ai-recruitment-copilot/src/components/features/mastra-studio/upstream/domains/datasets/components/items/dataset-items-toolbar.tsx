@@ -41,37 +41,37 @@ function ActionsMenu({
   return (
     <DropdownMenu>
       <DropdownMenu.Trigger asChild>
-        <Button aria-label="Actions menu">
-          Select <AmpersandIcon />
+        <Button aria-label="操作菜单">
+          选择 <AmpersandIcon />
         </Button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align="end" className="w-72">
         <DropdownMenu.Item onSelect={onCompareClick}>
           <GitCompareIcon />
-          <span>Compare Items</span>
+          <span>对比数据项</span>
         </DropdownMenu.Item>
         <DropdownMenu.Separator />
         <DropdownMenu.Item onSelect={onExportClick}>
           <Download />
-          <span>Export Items as CSV</span>
+          <span>将数据项导出为 CSV</span>
         </DropdownMenu.Item>
         <DropdownMenu.Item onSelect={onExportJsonClick}>
           <Download />
-          <span>Export Items as JSON</span>
+          <span>将数据项导出为 JSON</span>
         </DropdownMenu.Item>
         <DropdownMenu.Separator />
         <DropdownMenu.Item onSelect={onCreateDatasetClick}>
           <FolderPlus />
-          <span>Create Dataset from Items</span>
+          <span>从数据项创建数据集</span>
         </DropdownMenu.Item>
         <DropdownMenu.Item onSelect={onAddToDatasetClick}>
           <FolderOutput />
-          <span>Copy Items to Dataset</span>
+          <span>将数据项复制到数据集</span>
         </DropdownMenu.Item>
         <DropdownMenu.Separator />
         <DropdownMenu.Item onSelect={onDeleteClick} className="text-red-500 focus:text-red-400">
           <Trash2 />
-          <span>Delete Items</span>
+          <span>删除数据项</span>
         </DropdownMenu.Item>
       </DropdownMenu.Content>
     </DropdownMenu>
@@ -89,12 +89,12 @@ type SelectionMode =
 
 function getSelectionActionLabel(mode: SelectionMode): string {
   const labels: Partial<Record<SelectionMode, string>> = {
-    "add-to-dataset": "Add Items to a Dataset",
-    "compare-items": "Compare Items",
-    "create-dataset": "Create a new Dataset with Items",
-    delete: "Delete Items",
-    export: "Export Items as CSV",
-    "export-json": "Export Items as JSON",
+    "add-to-dataset": "将数据项添加到数据集",
+    "compare-items": "对比数据项",
+    "create-dataset": "使用数据项创建新数据集",
+    delete: "删除数据项",
+    export: "将数据项导出为 CSV",
+    "export-json": "将数据项导出为 JSON",
   };
   return labels[mode] ?? "";
 }
@@ -155,14 +155,14 @@ export function DatasetItemsToolbar({
 }: DatasetItemsToolbarProps) {
   let selectionTooltip: string | undefined;
   if (selectionMode === "compare-items" && selectedCount <= 2) {
-    selectionTooltip = "Select 2 items to compare";
+    selectionTooltip = "请选择 2 个数据项进行比较";
   } else if (selectedCount === 0) {
-    selectionTooltip = "Select at least one item";
+    selectionTooltip = "请至少选择一个数据项";
   }
   const isCompareMode = selectionMode === "compare-items";
   const isSelectionInvalid = isCompareMode ? selectedCount !== 2 : selectedCount === 0;
   const showSelectionTooltip = isCompareMode ? selectedCount < 2 : selectedCount === 0;
-  const selectionLabel = isCompareMode ? "of 2 items selected" : "items selected";
+  const selectionLabel = isCompareMode ? "项已选择（需 2 项）" : "项已选择";
   const selectionActionLabel = getSelectionActionLabel(selectionMode);
   const canShowAddActions = !isItemPanelOpen && !isViewingOldVersion;
   const canShowActionsMenu = hasItems && !isViewingOldVersion;
@@ -173,9 +173,9 @@ export function DatasetItemsToolbar({
       <Column.Toolbar className="">
         <SearchFieldBlock
           name="search-items"
-          label="Search"
+          label="搜索"
           labelIsHidden
-          placeholder="Search items..."
+          placeholder="搜索数据项..."
           value={searchQuery ?? ""}
           onChange={(e) => onSearchChange?.(e.target.value)}
           onReset={() => onSearchChange?.("")}
@@ -199,7 +199,7 @@ export function DatasetItemsToolbar({
             <Button variant="primary" disabled={isSelectionInvalid} onClick={onExecuteAction}>
               {selectionActionLabel}
             </Button>
-            <Button onClick={onCancelSelection}>Cancel</Button>
+            <Button onClick={onCancelSelection}>取消</Button>
           </ButtonsGroup>
         </div>
       </Column.Toolbar>
@@ -210,9 +210,9 @@ export function DatasetItemsToolbar({
     <div className="flex items-center justify-between gap-4 w-full">
       <SearchFieldBlock
         name="search-items"
-        label="Search"
+        label="搜索"
         labelIsHidden
-        placeholder="Search items..."
+        placeholder="搜索数据项..."
         value={searchQuery ?? ""}
         onChange={(e) => onSearchChange?.(e.target.value)}
         onReset={() => onSearchChange?.("")}
@@ -223,20 +223,20 @@ export function DatasetItemsToolbar({
         {canShowAddActions && (
           <ButtonsGroup spacing="close">
             <Button onClick={onAddClick}>
-              <Plus /> Add Item
+              <Plus /> 添加数据项
             </Button>
             <DropdownMenu>
               <DropdownMenu.Trigger asChild>
-                <Button aria-label="Dataset actions menu">
+                <Button aria-label="数据集操作菜单">
                   <ChevronDownIcon />
                 </Button>
               </DropdownMenu.Trigger>
               <DropdownMenu.Content align="end">
                 <DropdownMenu.Item onSelect={onImportClick}>
-                  <Upload /> Import CSV
+                  <Upload /> 导入 CSV
                 </DropdownMenu.Item>
                 <DropdownMenu.Item onSelect={onImportJsonClick}>
-                  <FileJson /> Import JSON
+                  <FileJson /> 导入 JSON
                 </DropdownMenu.Item>
               </DropdownMenu.Content>
             </DropdownMenu>
@@ -255,9 +255,9 @@ export function DatasetItemsToolbar({
         )}
 
         {canShowVersions && (
-          <Button onClick={onVersionsClick} aria-label="View versions">
+          <Button onClick={onVersionsClick} aria-label="查看版本">
             <History className="w-4 h-4" />
-            Versions
+            版本
           </Button>
         )}
       </ButtonsGroup>

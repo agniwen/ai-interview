@@ -26,31 +26,31 @@ export function SkillSimpleForm({
     <div className="flex flex-col gap-4 h-full">
       <div className="flex flex-col gap-1.5">
         <Txt as="label" variant="ui-sm" className="text-neutral3">
-          Name
+          名称
         </Txt>
         <Input
           value={name}
           onChange={(e) => onNameChange(e.target.value)}
-          placeholder="Skill name"
+          placeholder="技能名称"
           disabled={readOnly}
         />
       </div>
 
       <div className="flex flex-col gap-1.5">
         <Txt as="label" variant="ui-sm" className="text-neutral3">
-          Description
+          描述
         </Txt>
         <Input
           value={description}
           onChange={(e) => onDescriptionChange(e.target.value)}
-          placeholder="Brief description of the skill"
+          placeholder="简要描述此技能"
           disabled={readOnly}
         />
       </div>
 
       <div className="flex flex-col gap-1.5 flex-1 min-h-0">
         <Txt as="label" variant="ui-sm" className="text-neutral3">
-          Instructions
+          指令
         </Txt>
 
         {readOnly ? (
@@ -59,7 +59,7 @@ export function SkillSimpleForm({
               <MarkdownRenderer>{instructions}</MarkdownRenderer>
             ) : (
               <Txt variant="ui-sm" className="text-neutral3 italic">
-                No instructions provided.
+                尚未提供指令。
               </Txt>
             )}
           </div>
@@ -71,7 +71,7 @@ export function SkillSimpleForm({
               onChange={onInstructionsChange}
               language="markdown"
               editable
-              placeholder="You are a helpful assistant that…"
+              placeholder="你是一位乐于助人的助手…"
               showCopyButton={false}
               className="h-full w-full"
             />

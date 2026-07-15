@@ -562,7 +562,7 @@ export function DatasetReview({
                           }}
                           onSelect={(e) => e.preventDefault()}
                         >
-                          Review Queue
+                          评审队列
                         </DropdownMenu.CheckboxItem>
                         <DropdownMenu.CheckboxItem
                           checked={showCompleted}
@@ -572,7 +572,7 @@ export function DatasetReview({
                           }}
                           onSelect={(e) => e.preventDefault()}
                         >
-                          Completed
+                          已完成
                         </DropdownMenu.CheckboxItem>
                       </DropdownMenu.SubContent>
                     </DropdownMenu.Sub>
@@ -591,7 +591,7 @@ export function DatasetReview({
                           onCheckedChange={() => setActiveTagFilter(null)}
                           onSelect={(e) => e.preventDefault()}
                         >
-                          All
+                          全部
                         </DropdownMenu.CheckboxItem>
                         {untaggedCount > 0 && (
                           <DropdownMenu.CheckboxItem
@@ -603,7 +603,7 @@ export function DatasetReview({
                             }
                             onSelect={(e) => e.preventDefault()}
                           >
-                            Untagged
+                            无标签
                           </DropdownMenu.CheckboxItem>
                         )}
                         {tagCounts.length > 0 && <DropdownMenu.Separator />}
@@ -634,7 +634,7 @@ export function DatasetReview({
                           }}
                         >
                           <XIcon />
-                          Clear all filters
+                          清除所有筛选项
                         </DropdownMenu.Item>
                       </>
                     )}
@@ -652,7 +652,7 @@ export function DatasetReview({
                     }}
                   >
                     <XIcon />
-                    Reset
+                    重置
                   </Button>
                 )}
               </div>
@@ -686,20 +686,20 @@ export function DatasetReview({
                         <Icon size="sm">
                           <CheckCircle />
                         </Icon>
-                        Complete
+                        完成
                       </DropdownMenu.Item>
                       <DropdownMenu.Item onSelect={handleBulkRemove}>
                         <Icon size="sm">
                           <Trash2 />
                         </Icon>
-                        Remove
+                        移除
                       </DropdownMenu.Item>
                       <DropdownMenu.Separator />
                       <DropdownMenu.Item onSelect={openAnalyzeDialog}>
                         <Icon size="sm">
                           <Sparkles />
                         </Icon>
-                        Analyze
+                        分析
                       </DropdownMenu.Item>
                     </DropdownMenu.Content>
                   </DropdownMenu>

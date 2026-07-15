@@ -97,7 +97,7 @@ export function AgentsSection({
                   <CollapsibleTrigger className="flex items-center gap-1 w-full">
                     <ChevronRight className="h-4 w-4 text-neutral3" />
                     <SectionTitle icon={<AgentIcon className="text-accent1" />}>
-                      Sub-Agents
+                      子智能体
                       {count > 0 && <span className="text-neutral3 font-normal">({count})</span>}
                     </SectionTitle>
                   </CollapsibleTrigger>
@@ -111,9 +111,9 @@ export function AgentsSection({
                         options={options}
                         value={selectedIds}
                         onValueChange={handleValueChange}
-                        placeholder="Select sub-agents..."
-                        searchPlaceholder="Search agents..."
-                        emptyText="No agents available"
+                        placeholder="选择子智能体…"
+                        searchPlaceholder="搜索智能体…"
+                        emptyText="暂无可用智能体"
                         disabled={isLoading || readOnly}
                         error={error}
                       />

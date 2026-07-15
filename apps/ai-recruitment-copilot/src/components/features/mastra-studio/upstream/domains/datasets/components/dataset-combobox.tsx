@@ -21,9 +21,9 @@ export interface DatasetComboboxProps {
 export function DatasetCombobox({
   value,
   onValueChange,
-  placeholder = "Select a dataset...",
-  searchPlaceholder = "Search datasets...",
-  emptyText = "No datasets found.",
+  placeholder = "选择数据集...",
+  searchPlaceholder = "搜索数据集...",
+  emptyText = "未找到数据集。",
   className,
   disabled = false,
   variant,
@@ -33,8 +33,8 @@ export function DatasetCombobox({
 
   useEffect(() => {
     if (isError) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to load datasets";
-      toast.error(`Error loading datasets: ${errorMessage}`);
+      const errorMessage = error instanceof Error ? error.message : "加载数据集失败";
+      toast.error(`加载数据集时出错：${errorMessage}`);
     }
   }, [isError, error]);
 
@@ -57,7 +57,7 @@ export function DatasetCombobox({
       options={datasetOptions}
       value={value}
       onValueChange={handleValueChange}
-      placeholder={isLoading ? "Loading datasets..." : placeholder}
+      placeholder={isLoading ? "正在加载数据集..." : placeholder}
       searchPlaceholder={searchPlaceholder}
       emptyText={emptyText}
       className={className}

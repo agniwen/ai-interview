@@ -94,14 +94,14 @@ export function AgentPlaygroundConfig({
           >
             <TabList variant="pill-ghost" className="shrink-0">
               <Tab value="variables">
-                <ConfigTabLabel title="Variables" icon={<Braces />} />
+                <ConfigTabLabel title="变量" icon={<Braces />} />
               </Tab>
               <Tab value="instructions">
-                <ConfigTabLabel title="System Prompt" icon={<Cpu />} />
+                <ConfigTabLabel title="系统提示词" icon={<Cpu />} />
               </Tab>
               <Tab value="tools">
                 <ConfigTabLabel
-                  title="Tools"
+                  title="工具"
                   icon={<Wrench />}
                   badge={
                     toolCount > 0 ? (
@@ -123,8 +123,8 @@ export function AgentPlaygroundConfig({
                 ) : null}
                 <Txt variant="ui-xs" className="text-neutral3 mt-1">
                   {variableEntries.length > 0
-                    ? "Defined via requestContextSchema in code."
-                    : "No variables defined. Add a requestContextSchema to your agent to define variables."}
+                    ? "通过代码中的 requestContextSchema 定义。"
+                    : "尚未定义变量。请为智能体添加 requestContextSchema 以定义变量。"}
                 </Txt>
               </div>
             </TabContent>
@@ -132,22 +132,21 @@ export function AgentPlaygroundConfig({
             <TabContent value="instructions" className="px-4 py-0 pb-4">
               <div className="flex flex-col gap-3 pt-4 pb-2">
                 <Txt variant="ui-sm" className="font-normal text-neutral3">
-                  Add instruction blocks to your agent. Blocks are combined in order to form the
-                  system prompt. You can{" "}
+                  为智能体添加指令块。各个块会按顺序组合为系统提示词。你可以在指令块中{" "}
                   <HoverPopover>
                     <PopoverTrigger asChild>
                       <button
                         type="button"
                         className="text-neutral3 underline decoration-dotted hover:text-neutral5 cursor-pointer inline"
                       >
-                        use variables
+                        使用变量
                       </button>
                     </PopoverTrigger>{" "}
-                    as part of your instruction blocks.
+                    。
                     <PopoverContent side="bottom" align="start">
                       <p className="text-ui-sm text-neutral5">
-                        Use <code className="text-accent1 font-medium">{"{{variableName}}"}</code>{" "}
-                        syntax to insert dynamic values into your instruction blocks.
+                        使用 <code className="text-accent1 font-medium">{"{{variableName}}"}</code>{" "}
+                        语法将动态值插入指令块。
                       </p>
                     </PopoverContent>
                   </HoverPopover>

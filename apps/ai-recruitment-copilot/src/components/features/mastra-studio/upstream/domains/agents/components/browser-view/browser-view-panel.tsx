@@ -19,31 +19,31 @@ function getStatusBadgeConfig(status: StreamStatus): {
 } {
   switch (status) {
     case "idle": {
-      return { label: "Idle", pulse: false, variant: "neutral" };
+      return { label: "空闲", pulse: false, variant: "neutral" };
     }
     case "connecting": {
-      return { label: "Connecting", pulse: true, variant: "warning" };
+      return { label: "正在连接", pulse: true, variant: "warning" };
     }
     case "connected": {
-      return { label: "Connected", pulse: true, variant: "warning" };
+      return { label: "已连接", pulse: true, variant: "warning" };
     }
     case "browser_starting": {
-      return { label: "Starting", pulse: true, variant: "warning" };
+      return { label: "正在启动", pulse: true, variant: "warning" };
     }
     case "streaming": {
-      return { label: "Live", pulse: false, variant: "success" };
+      return { label: "实时", pulse: false, variant: "success" };
     }
     case "browser_closed": {
-      return { label: "Closed", pulse: false, variant: "neutral" };
+      return { label: "已关闭", pulse: false, variant: "neutral" };
     }
     case "disconnected": {
-      return { label: "Disconnected", pulse: true, variant: "error" };
+      return { label: "未连接", pulse: true, variant: "error" };
     }
     case "error": {
-      return { label: "Error", pulse: false, variant: "error" };
+      return { label: "错误", pulse: false, variant: "error" };
     }
     default: {
-      return { label: "Unknown", pulse: false, variant: "neutral" };
+      return { label: "未知", pulse: false, variant: "neutral" };
     }
   }
 }
@@ -118,7 +118,7 @@ export function BrowserViewPanel() {
     >
       <button
         type="button"
-        aria-label="Minimize browser view"
+        aria-label="最小化浏览器视图"
         className="absolute inset-0"
         onClick={handleBackdropClick}
       />
@@ -126,7 +126,7 @@ export function BrowserViewPanel() {
         open={isModal}
         ref={dialogRef}
         aria-modal="true"
-        aria-label="Browser view"
+        aria-label="浏览器视图"
         tabIndex={-1}
         className={cn(
           "flex flex-col w-full max-w-5xl max-h-full",
@@ -145,27 +145,27 @@ export function BrowserViewPanel() {
                 currentUrl ? "text-neutral5" : "text-neutral3 italic",
               )}
             >
-              {currentUrl || "No URL"}
+              {currentUrl || "无 URL"}
             </span>
           </div>
           <StatusBadge variant={statusConfig.variant} size="sm" withDot pulse={statusConfig.pulse}>
             {statusConfig.label}
           </StatusBadge>
           <div className="flex items-center gap-1 ml-2">
-            <Button variant="ghost" size="icon-sm" tooltip="Minimize to chat" onClick={hide}>
+            <Button variant="ghost" size="icon-sm" tooltip="最小化到对话" onClick={hide}>
               <Minimize2 className="h-4 w-4" />
             </Button>
             {currentUrl && (
               <Button
                 variant="ghost"
                 size="icon-sm"
-                tooltip="Open in new tab"
+                tooltip="在新标签页中打开"
                 onClick={handleOpenExternal}
               >
                 <ExternalLink className="h-4 w-4" />
               </Button>
             )}
-            <Button variant="ghost" size="icon-sm" tooltip="Close browser" onClick={closeBrowser}>
+            <Button variant="ghost" size="icon-sm" tooltip="关闭浏览器" onClick={closeBrowser}>
               <X className="h-4 w-4" />
             </Button>
           </div>

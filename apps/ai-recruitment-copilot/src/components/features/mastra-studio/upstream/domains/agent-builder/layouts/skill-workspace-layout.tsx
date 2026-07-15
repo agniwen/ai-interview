@@ -46,7 +46,7 @@ export const SkillWorkspaceLayout = ({
           variant="ghost"
           onClick={() => navigate("/agent-builder/skills", { viewTransition: true })}
           className="rounded-full"
-          tooltip="Skills list"
+          tooltip="技能列表"
           data-testid="skill-edit-back-button"
         >
           <ArrowLeftIcon />
@@ -65,7 +65,7 @@ export const SkillWorkspaceLayout = ({
         <div className="md:hidden px-4 pt-4 pb-2">
           <div
             role="tablist"
-            aria-label="Workspace view"
+            aria-label="工作区视图"
             className="relative mx-auto flex h-9 w-full max-w-sm items-center rounded-full border border-border1 bg-surface3 p-0.5"
           >
             <span
@@ -88,7 +88,7 @@ export const SkillWorkspaceLayout = ({
                 activeTab === "chat" ? "text-neutral5" : "text-neutral3 hover:text-neutral4",
               )}
             >
-              Chat
+              对话
             </button>
             <button
               type="button"
@@ -102,7 +102,7 @@ export const SkillWorkspaceLayout = ({
                 activeTab === "configure" ? "text-neutral5" : "text-neutral3 hover:text-neutral4",
               )}
             >
-              Configuration
+              配置
             </button>
           </div>
         </div>

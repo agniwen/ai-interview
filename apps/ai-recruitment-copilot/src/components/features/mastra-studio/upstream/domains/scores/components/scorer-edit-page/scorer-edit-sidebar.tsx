@@ -48,19 +48,16 @@ export function ScorerEditSidebar({
     <div className="h-full flex flex-col">
       <ScrollArea className="flex-1 min-h-0">
         <div className="flex flex-col gap-6 p-4">
-          <SectionHeader
-            title="Configuration"
-            subtitle="Define your scorer's name, type, and settings."
-          />
+          <SectionHeader title="配置" subtitle="定义评分器的名称、类型和设置。" />
 
           {/* Name */}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="scorer-name" className="text-xs text-neutral5">
-              Name <span className="text-accent2">*</span>
+              名称 <span className="text-accent2">*</span>
             </Label>
             <Input
               id="scorer-name"
-              placeholder="My Scorer"
+              placeholder="我的评分器"
               variant="outline"
               {...register("name")}
               error={!!errors.name}
@@ -71,11 +68,11 @@ export function ScorerEditSidebar({
           {/* Description */}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="scorer-description" className="text-xs text-neutral5">
-              Description <span className="text-accent2">*</span>
+              描述 <span className="text-accent2">*</span>
             </Label>
             <Textarea
               id="scorer-description"
-              placeholder="Describe what this scorer does"
+              placeholder="描述此评分器的用途"
               variant="outline"
               {...register("description")}
               error={!!errors.description}
@@ -88,7 +85,7 @@ export function ScorerEditSidebar({
           {/* Provider */}
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs text-neutral5">
-              Provider <span className="text-accent2">*</span>
+              提供商 <span className="text-accent2">*</span>
             </Label>
             <Controller
               name="model.provider"
@@ -109,7 +106,7 @@ export function ScorerEditSidebar({
           {/* Model */}
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs text-neutral5">
-              Model <span className="text-accent2">*</span>
+              模型 <span className="text-accent2">*</span>
             </Label>
             <Controller
               name="model.name"
@@ -130,7 +127,7 @@ export function ScorerEditSidebar({
 
           {/* Score Range */}
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs text-neutral5">Score Range</Label>
+            <Label className="text-xs text-neutral5">得分范围</Label>
             <div className="flex gap-2 items-center">
               <Controller
                 name="scoreRange.min"
@@ -138,21 +135,21 @@ export function ScorerEditSidebar({
                 render={({ field }) => (
                   <Input
                     type="number"
-                    placeholder="Min"
+                    placeholder="最小值"
                     variant="outline"
                     value={field.value}
                     onChange={(e) => field.onChange(Number.parseFloat(e.target.value) || 0)}
                   />
                 )}
               />
-              <span className="text-xs text-neutral3">to</span>
+              <span className="text-xs text-neutral3">至</span>
               <Controller
                 name="scoreRange.max"
                 control={control}
                 render={({ field }) => (
                   <Input
                     type="number"
-                    placeholder="Max"
+                    placeholder="最大值"
                     variant="outline"
                     value={field.value}
                     onChange={(e) => field.onChange(Number.parseFloat(e.target.value) || 0)}
@@ -164,7 +161,7 @@ export function ScorerEditSidebar({
 
           {/* Default Sampling */}
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs text-neutral5">Default Sampling</Label>
+            <Label className="text-xs text-neutral5">默认采样</Label>
             <Controller
               name="defaultSampling.type"
               control={control}
@@ -173,13 +170,13 @@ export function ScorerEditSidebar({
                   <div className="flex items-center gap-2">
                     <RadioGroupItem value="none" id="sampling-none" />
                     <Label htmlFor="sampling-none" className="text-xs text-neutral5">
-                      None
+                      无
                     </Label>
                   </div>
                   <div className="flex items-center gap-2">
                     <RadioGroupItem value="ratio" id="sampling-ratio" />
                     <Label htmlFor="sampling-ratio" className="text-xs text-neutral5">
-                      Ratio
+                      比例
                     </Label>
                   </div>
                 </RadioGroup>
@@ -195,7 +192,7 @@ export function ScorerEditSidebar({
                     step="0.1"
                     min="0"
                     max="1"
-                    placeholder="Rate (0-1)"
+                    placeholder="比率（0–1）"
                     variant="outline"
                     value={field.value ?? ""}
                     onChange={(e) => field.onChange(Number.parseFloat(e.target.value) || 0)}
@@ -220,14 +217,14 @@ export function ScorerEditSidebar({
               {isSavingDraft ? (
                 <>
                   <Spinner className="h-4 w-4" />
-                  Saving...
+                  正在保存...
                 </>
               ) : (
                 <>
                   <Icon>
                     <Save />
                   </Icon>
-                  Save
+                  保存
                 </>
               )}
             </Button>
@@ -240,14 +237,14 @@ export function ScorerEditSidebar({
               {isSubmitting ? (
                 <>
                   <Spinner className="h-4 w-4" />
-                  Publishing...
+                  正在发布...
                 </>
               ) : (
                 <>
                   <Icon>
                     <Check />
                   </Icon>
-                  Publish
+                  发布
                 </>
               )}
             </Button>
@@ -257,14 +254,14 @@ export function ScorerEditSidebar({
             {isSubmitting ? (
               <>
                 <Spinner className="h-4 w-4" />
-                Creating...
+                正在创建...
               </>
             ) : (
               <>
                 <Icon>
                   <Check />
                 </Icon>
-                Create scorer
+                创建评分器
               </>
             )}
           </Button>

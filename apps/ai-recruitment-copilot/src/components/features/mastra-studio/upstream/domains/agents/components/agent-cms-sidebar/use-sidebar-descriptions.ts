@@ -6,11 +6,7 @@ import type { AgentFormValues } from "../agent-edit-page/utils/form-validation";
 import { resolveConditional } from "../../utils/conditional";
 
 function pluralize(count: number, singular: string): string {
-  return `${count} ${singular}${resolveConditional(
-    count === 1,
-    () => "",
-    () => "s",
-  )}`;
+  return `${count} 个${singular}`;
 }
 
 function describeCount(count: number, empty: string, singular: string): string {
@@ -40,7 +36,7 @@ function describeIdentity(values: {
   model?: { provider?: string; name?: string };
 }): string {
   if (!values.name || !values.model?.provider || !values.model?.name) {
-    return "Required";
+    return "必填";
   }
   return values.name;
 }
@@ -50,34 +46,35 @@ export function useSidebarDescriptions(control: Control<AgentFormValues>) {
 
   return useMemo(() => {
     const identity = describeIdentity(values);
+    const identityIsComplete = Boolean(values.name && values.model?.provider && values.model?.name);
 
     const blockCount = countInstructionBlocks(values as AgentFormValues);
-    const instructions = describeCount(blockCount, "Required", "block");
+    const instructions = describeCount(blockCount, "必填", "指令块");
 
     const toolCount =
       Object.keys(values.tools ?? {}).length + Object.keys(values.integrationTools ?? {}).length;
-    const tools = describeCount(toolCount, "None selected", "tool");
+    const tools = describeCount(toolCount, "未选择", "工具");
 
     const agentCount = Object.keys(values.agents ?? {}).length;
-    const agents = describeCount(agentCount, "None selected", "agent");
+    const agents = describeCount(agentCount, "未选择", "智能体");
 
     const scorerCount = Object.keys(values.scorers ?? {}).length;
-    const scorers = describeCount(scorerCount, "None selected", "scorer");
+    const scorers = describeCount(scorerCount, "未选择", "评分器");
 
     const workflowCount = Object.keys(values.workflows ?? {}).length;
-    const workflows = describeCount(workflowCount, "None selected", "workflow");
+    const workflows = describeCount(workflowCount, "未选择", "工作流");
 
-    const memory = resolveConditional(values.memory?.enabled, () => "Enabled", () => "Disabled");
+    const memory = resolveConditional(values.memory?.enabled, () => "已启用", () => "已停用");
 
     const skillCount = Object.keys(values.skills ?? {}).length;
-    const skills = describeCount(skillCount, "None selected", "skill");
+    const skills = describeCount(skillCount, "未选择", "技能");
 
     const variableCount = Object.keys(values.variables?.properties ?? {}).length;
-    const variables = describeCount(variableCount, "None defined", "variable");
+    const variables = describeCount(variableCount, "未定义", "变量");
 
     return {
       agents: { description: agents, done: agentCount > 0 },
-      identity: { description: identity, done: identity !== "Required" },
+      identity: { description: identity, done: identityIsComplete },
       instructions: { description: instructions, done: blockCount > 0 },
       memory: { description: memory, done: !!values.memory?.enabled },
       scorers: { description: scorers, done: scorerCount > 0 },

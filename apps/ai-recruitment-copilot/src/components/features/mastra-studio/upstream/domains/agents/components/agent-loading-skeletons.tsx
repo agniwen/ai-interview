@@ -131,7 +131,7 @@ export function AgentViewLoadingSkeleton({
   return (
     <AgentLayout
       agentId={agentId}
-      leftDrawerLabel="Open threads and memory"
+      leftDrawerLabel="打开会话和记忆"
       leftSlot={<AgentSidebarLoadingSkeleton />}
     >
       <div

@@ -93,7 +93,7 @@ export function CustomAutoForm<T extends FieldValues>({
             <CustomAutoFormField key={field.key} field={field} path={[field.key]} />
           ))}
           {children}
-          {withSubmit && <uiComponents.SubmitButton>Submit</uiComponents.SubmitButton>}
+          {withSubmit && <uiComponents.SubmitButton>提交</uiComponents.SubmitButton>}
         </uiComponents.Form>
       </AutoFormProvider>
     </FormProvider>

@@ -28,11 +28,11 @@ export function PromptBlockEditMain({ form, formResetKey = 0 }: PromptBlockEditM
     <div className="flex flex-col gap-3 h-full px-4">
       <div className="flex items-center justify-between">
         <SectionHeader
-          title="Content"
-          subtitle="Write the prompt block content. Use {{variableName}} for template variables."
+          title="内容"
+          subtitle="编写提示词块内容。使用 {{variableName}} 表示模板变量。"
         />
         <DisplayConditionsDialog
-          entityName="Prompt Block"
+          entityName="提示词块"
           schema={schema}
           rules={rules}
           onRulesChange={handleRulesChange}
@@ -49,7 +49,7 @@ export function PromptBlockEditMain({ form, formResetKey = 0 }: PromptBlockEditM
               onChange={field.onChange}
               language="markdown"
               showCopyButton
-              placeholder="Enter prompt block content..."
+              placeholder="输入提示词块内容..."
               highlightVariables
               schema={schema}
               className="flex-1 min-h-[200px]"

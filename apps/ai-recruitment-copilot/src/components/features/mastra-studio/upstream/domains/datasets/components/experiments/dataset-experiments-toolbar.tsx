@@ -8,19 +8,19 @@ import { GitCompare, MoveRightIcon, XIcon } from "lucide-react";
 import type { DatasetExperimentsFilters } from "../../hooks/use-dataset-experiments";
 
 const STATUS_OPTIONS = [
-  { label: "All statuses", value: "all" },
-  { label: "Pending", value: "pending" },
-  { label: "Running", value: "running" },
-  { label: "Completed", value: "completed" },
-  { label: "Failed", value: "failed" },
+  { label: "全部状态", value: "all" },
+  { label: "等待中", value: "pending" },
+  { label: "运行中", value: "running" },
+  { label: "已完成", value: "completed" },
+  { label: "失败", value: "failed" },
 ];
 
 const TARGET_TYPE_OPTIONS = [
-  { label: "All types", value: "all" },
-  { label: "Agent", value: "agent" },
-  { label: "Workflow", value: "workflow" },
-  { label: "Scorer", value: "scorer" },
-  { label: "Processor", value: "processor" },
+  { label: "全部类型", value: "all" },
+  { label: "智能体", value: "agent" },
+  { label: "工作流", value: "workflow" },
+  { label: "评分器", value: "scorer" },
+  { label: "处理器", value: "processor" },
 ];
 
 export interface DatasetExperimentsToolbarProps {
@@ -47,7 +47,7 @@ export function DatasetExperimentsToolbar({
   targetIds,
 }: DatasetExperimentsToolbarProps) {
   const targetIdOptions = [
-    { label: "All targets", value: "all" },
+    { label: "全部目标", value: "all" },
     ...targetIds.map((id) => ({ label: id, value: id })),
   ];
 
@@ -59,15 +59,15 @@ export function DatasetExperimentsToolbar({
             <Chip size="large" color={selectedCount < 2 ? "red" : "green"}>
               {selectedCount}
             </Chip>
-            <span>of 2 experiments selected</span>
+            <span>（已选择 2 个实验）</span>
             <MoveRightIcon />
           </div>
           <ButtonsGroup>
             <Button variant="primary" disabled={selectedCount !== 2} onClick={onExecuteCompare}>
               <GitCompare className="w-4 h-4" />
-              Compare Experiments
+              对比实验
             </Button>
-            <Button onClick={onCancelSelection}>Cancel</Button>
+            <Button onClick={onCancelSelection}>取消</Button>
           </ButtonsGroup>
         </div>
       </div>
@@ -78,7 +78,7 @@ export function DatasetExperimentsToolbar({
     <div className="flex items-center justify-between gap-4 w-full">
       <ButtonsGroup>
         <SelectFieldBlock
-          label="Status"
+          label="状态"
           labelIsHidden={true}
           name="filter-status"
           options={STATUS_OPTIONS}
@@ -89,7 +89,7 @@ export function DatasetExperimentsToolbar({
         />
 
         <SelectFieldBlock
-          label="Type"
+          label="类型"
           labelIsHidden={true}
           name="filter-target-type"
           options={TARGET_TYPE_OPTIONS}
@@ -101,7 +101,7 @@ export function DatasetExperimentsToolbar({
 
         {targetIds.length > 0 && (
           <SelectFieldBlock
-            label="Target"
+            label="目标"
             labelIsHidden={true}
             name="filter-target-id"
             options={targetIdOptions}
@@ -115,7 +115,7 @@ export function DatasetExperimentsToolbar({
         {(filters.status || filters.targetType || filters.targetId) && (
           <Button onClick={() => onFiltersChange({})}>
             <XIcon />
-            Reset
+            重置
           </Button>
         )}
       </ButtonsGroup>
@@ -123,7 +123,7 @@ export function DatasetExperimentsToolbar({
       {hasExperiments && (
         <Button onClick={onCompareClick}>
           <GitCompare />
-          Compare
+          对比
         </Button>
       )}
     </div>

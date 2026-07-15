@@ -54,31 +54,29 @@ export function AnalyzeItemsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Analyze Items</DialogTitle>
-          <DialogDescription>
-            Use an LLM to automatically suggest tags for the selected items.
-          </DialogDescription>
+          <DialogTitle>分析数据项</DialogTitle>
+          <DialogDescription>使用 LLM 自动为选中的数据项推荐标签。</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <Label className="text-xs mb-1 block">Provider</Label>
+              <Label className="text-xs mb-1 block">提供商</Label>
               <LLMProviders value={provider} onValueChange={onProviderChange} />
             </div>
             <div>
-              <Label className="text-xs mb-1 block">Model</Label>
+              <Label className="text-xs mb-1 block">模型</Label>
               <LLMModels llmId={provider} value={model} onValueChange={onModelChange} />
             </div>
           </div>
           <Txt variant="ui-xs" className="text-neutral3">
-            {selectedCount} item{selectedCount === 1 ? "" : "s"} will be analyzed
+            将分析 {selectedCount} 个数据项
           </Txt>
           <div>
-            <Label className="text-xs">Instructions (optional)</Label>
+            <Label className="text-xs">指令（可选）</Label>
             <Textarea
               value={prompt}
               onChange={(event) => onPromptChange(event.target.value)}
-              placeholder="E.g., Focus on safety issues and factual errors..."
+              placeholder="例如：重点关注安全问题和事实错误…"
               rows={3}
               className="text-xs mt-1"
             />
@@ -86,11 +84,11 @@ export function AnalyzeItemsDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            取消
           </Button>
           <Button onClick={onAnalyze} disabled={!provider || !model || analyzing}>
             {analyzing && <Spinner className="w-4 h-4 mr-1" />}
-            Analyze
+            分析
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -135,9 +133,9 @@ export function ProposedTagsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Review Proposed Tags</DialogTitle>
+          <DialogTitle>评审推荐标签</DialogTitle>
           <DialogDescription>
-            {acceptedCount} of {assignments.length} proposals selected
+            已选择 {acceptedCount}/{assignments.length} 个建议
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-2">
@@ -199,10 +197,10 @@ export function ProposedTagsDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            取消
           </Button>
           <Button onClick={onAccept} disabled={acceptedCount === 0}>
-            Accept {acceptedCount} proposals
+            接受 {acceptedCount} 个建议
           </Button>
         </DialogFooter>
       </DialogContent>

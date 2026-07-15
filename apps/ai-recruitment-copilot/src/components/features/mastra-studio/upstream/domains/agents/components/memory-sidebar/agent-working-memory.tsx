@@ -36,7 +36,7 @@ export const AgentWorkingMemory = ({ agentId }: AgentWorkingMemoryProps) => {
 
   // All hooks must be called before any early returns
   const { isCopied, handleCopy } = useCopyToClipboard({
-    copyMessage: "Working memory copied!",
+    copyMessage: "工作记忆已复制！",
     text: workingMemoryData ?? "",
   });
   const [editState, setEditState] = useState({
@@ -59,7 +59,7 @@ export const AgentWorkingMemory = ({ agentId }: AgentWorkingMemoryProps) => {
     <div className="flex flex-col gap-4 p-4">
       <div>
         <div className="flex items-center gap-2 mb-2">
-          <h3 className="text-sm font-medium text-neutral5">Working Memory</h3>
+          <h3 className="text-sm font-medium text-neutral5">工作记忆</h3>
           {resolveConditional(
             isWorkingMemoryEnabled && workingMemorySource,
             () => (
@@ -72,8 +72,8 @@ export const AgentWorkingMemory = ({ agentId }: AgentWorkingMemoryProps) => {
                 )}
                 title={
                   workingMemorySource === "resource"
-                    ? "Shared across all threads for this agent"
-                    : "Specific to this conversation thread"
+                    ? "在此智能体的所有会话中共享"
+                    : "仅适用于当前对话会话"
                 }
               >
                 {workingMemorySource}
@@ -85,9 +85,7 @@ export const AgentWorkingMemory = ({ agentId }: AgentWorkingMemoryProps) => {
         {resolveConditional(
           isWorkingMemoryEnabled && !threadExists,
           () => (
-            <p className="text-xs text-neutral3">
-              Send a message to the agent to enable working memory.
-            </p>
+            <p className="text-xs text-neutral3">向智能体发送消息后即可使用工作记忆。</p>
           ),
           () => null,
         )}
@@ -121,7 +119,7 @@ export const AgentWorkingMemory = ({ agentId }: AgentWorkingMemoryProps) => {
                             <button
                               type="button"
                               onClick={handleCopy}
-                              aria-label="Copy working memory"
+                              aria-label="复制工作记忆"
                               className="absolute inset-0 z-10 rounded-lg focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent1"
                             />
                             <div className="pointer-events-none">
@@ -131,13 +129,13 @@ export const AgentWorkingMemory = ({ agentId }: AgentWorkingMemoryProps) => {
                               isCopied,
                               () => (
                                 <span className="absolute top-2 right-2 z-20 text-ui-xs px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-500 pointer-events-none">
-                                  Copied!
+                                  已复制！
                                 </span>
                               ),
                               () => null,
                             )}
                             <span className="absolute top-2 right-2 z-20 text-ui-xs px-1.5 py-0.5 rounded-full bg-surface3 text-neutral4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                              Click to copy
+                              点击复制
                             </span>
                           </div>
                         </ScrollArea>
@@ -147,7 +145,7 @@ export const AgentWorkingMemory = ({ agentId }: AgentWorkingMemoryProps) => {
                 </>
               ) : (
                 <div className="text-sm text-neutral3 font-mono">
-                  No working memory content yet. Click "Edit Working Memory" to add content.
+                  暂无工作记忆内容。点击“编辑工作记忆”即可添加内容。
                 </div>
               )}
             </>
@@ -157,8 +155,8 @@ export const AgentWorkingMemory = ({ agentId }: AgentWorkingMemoryProps) => {
               value={editState.value}
               onChange={(e) => setEditState((state) => ({ ...state, value: e.target.value }))}
               disabled={isUpdating}
-              aria-label="Working memory content"
-              placeholder="Enter working memory content..."
+              aria-label="工作记忆内容"
+              placeholder="输入工作记忆内容…"
             />
           )}
           <div className="flex gap-2">
@@ -173,13 +171,11 @@ export const AgentWorkingMemory = ({ agentId }: AgentWorkingMemoryProps) => {
                         onClick={(event) => event.preventDefault()}
                         className="text-xs cursor-not-allowed opacity-50"
                       >
-                        Edit Working Memory
+                        编辑工作记忆
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>
-                        Working memory will be available after the agent calls updateWorkingMemory
-                      </p>
+                      <p>智能体调用 updateWorkingMemory 后，工作记忆将可用</p>
                     </TooltipContent>
                   </Tooltip>
                 ) : (
@@ -188,7 +184,7 @@ export const AgentWorkingMemory = ({ agentId }: AgentWorkingMemoryProps) => {
                     disabled={isUpdating}
                     className="text-xs"
                   >
-                    Edit Working Memory
+                    编辑工作记忆
                   </Button>
                 )}
               </>
@@ -201,17 +197,13 @@ export const AgentWorkingMemory = ({ agentId }: AgentWorkingMemoryProps) => {
                       setIsEditing(false);
                     } catch (error) {
                       console.error("Failed to update working memory:", error);
-                      toast.error("Failed to update working memory");
+                      toast.error("更新工作记忆失败");
                     }
                   }}
                   disabled={isUpdating}
                   className="text-xs"
                 >
-                  {isUpdating ? (
-                    <RefreshCcwIcon className="w-3 h-3 animate-spin" />
-                  ) : (
-                    "Save Changes"
-                  )}
+                  {isUpdating ? <RefreshCcwIcon className="w-3 h-3 animate-spin" /> : "保存更改"}
                 </Button>
                 <Button
                   onClick={() => {
@@ -224,7 +216,7 @@ export const AgentWorkingMemory = ({ agentId }: AgentWorkingMemoryProps) => {
                   disabled={isUpdating}
                   className="text-xs"
                 >
-                  Cancel
+                  取消
                 </Button>
               </>
             )}
@@ -233,8 +225,7 @@ export const AgentWorkingMemory = ({ agentId }: AgentWorkingMemoryProps) => {
       ) : (
         <div className="bg-surface3 border border-border1 rounded-lg p-4">
           <p className="text-sm text-neutral3 mb-3">
-            Working memory is not enabled for this agent. Enable it to maintain context across
-            conversations.
+            此智能体尚未启用工作记忆。启用后可在多次对话间保持上下文。
           </p>
           <a
             href="https://mastra.ai/en/docs/memory/working-memory"
@@ -242,7 +233,7 @@ export const AgentWorkingMemory = ({ agentId }: AgentWorkingMemoryProps) => {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
           >
-            Learn about working memory
+            了解工作记忆
             <ExternalLink className="w-3 h-3" />
           </a>
         </div>

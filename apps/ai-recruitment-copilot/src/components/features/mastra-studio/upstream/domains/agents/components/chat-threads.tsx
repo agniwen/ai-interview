@@ -33,7 +33,7 @@ const formatDay = (date: Date) => {
     month: "short",
     second: "numeric",
   };
-  return new Date(date).toLocaleString("en-us", options).replace(",", " at");
+  return new Date(date).toLocaleString("zh-CN", options);
 };
 
 function isDefaultThreadName(name: string): boolean {
@@ -45,7 +45,7 @@ function ThreadTitle({ title, id, createdAt }: { title?: string; id?: string; cr
   const titleText = resolveConditional(
     title && !isDefaultThreadName(title),
     () => title,
-    () => (createdAt ? formatDay(createdAt) : `Thread ${id ? id.slice(-5) : ""}`),
+    () => (createdAt ? formatDay(createdAt) : `会话 ${id ? id.slice(-5) : ""}`),
   );
 
   return <span className="block truncate">{titleText}</span>;
@@ -55,15 +55,14 @@ const DeleteThreadDialog = ({ open, onOpenChange, onDelete }: DeleteThreadDialog
   <AlertDialog open={open} onOpenChange={onOpenChange}>
     <AlertDialog.Content>
       <AlertDialog.Header>
-        <AlertDialog.Title>Are you absolutely sure?</AlertDialog.Title>
+        <AlertDialog.Title>确认删除此会话吗？</AlertDialog.Title>
         <AlertDialog.Description>
-          This action cannot be undone. This will permanently delete your chat and remove it from
-          our servers.
+          此操作无法撤销。该对话将从服务器中永久删除。
         </AlertDialog.Description>
       </AlertDialog.Header>
       <AlertDialog.Footer>
-        <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
-        <AlertDialog.Action onClick={onDelete}>Continue</AlertDialog.Action>
+        <AlertDialog.Cancel>取消</AlertDialog.Cancel>
+        <AlertDialog.Action onClick={onDelete}>继续</AlertDialog.Action>
       </AlertDialog.Footer>
     </AlertDialog.Content>
   </AlertDialog>
@@ -94,14 +93,12 @@ export const ChatThreads = ({
           <Icon>
             <Plus />
           </Icon>
-          New Chat
+          新建对话
         </ThreadListNewItem>
         <ThreadListSeparator />
 
         {threads.length === 0 ? (
-          <ThreadListEmpty>
-            Your conversations will appear here once you start chatting!
-          </ThreadListEmpty>
+          <ThreadListEmpty>开始对话后，会话记录会显示在这里。</ThreadListEmpty>
         ) : (
           <ThreadListItems>
             {threads.map((thread) => {
@@ -119,7 +116,7 @@ export const ChatThreads = ({
                   to={threadLink}
                   isActive={isActive}
                   onDelete={canDeleteThread ? () => setDeleteId(thread.id) : undefined}
-                  deleteLabel="delete thread"
+                  deleteLabel="删除会话"
                 >
                   <ThreadTitle title={thread.title} id={thread.id} createdAt={thread.createdAt} />
                 </ThreadListItem>

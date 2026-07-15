@@ -19,7 +19,7 @@ export interface IntegrationsProps {
 }
 
 const PLATFORM_DESCRIPTION: Record<string, string> = {
-  slack: "Creates a Slack bot powered by this agent.",
+  slack: "创建由此智能体驱动的 Slack 机器人。",
 };
 
 interface IntegrationCardProps {
@@ -43,19 +43,19 @@ const IntegrationCard = ({
   const description = PLATFORM_DESCRIPTION[platform.id];
   let status = (
     <StatusBadge variant="warning" size="sm" withDot>
-      Not configured
+      未配置
     </StatusBadge>
   );
   if (platform.isConfigured && installation) {
     status = (
       <StatusBadge variant="success" size="sm" withDot>
-        Connected
+        已连接
       </StatusBadge>
     );
   } else if (platform.isConfigured) {
     status = (
       <StatusBadge variant="neutral" size="sm" withDot>
-        Not connected
+        未连接
       </StatusBadge>
     );
   }
@@ -92,7 +92,7 @@ const IntegrationCard = ({
 
       {showLibraryBadge ? (
         <StatusBadge variant="warning" size="sm" withDot>
-          Add to library to connect
+          添加到库后即可连接
         </StatusBadge>
       ) : null}
     </button>
@@ -140,7 +140,7 @@ export const Integrations = ({ agentId, editable = true }: IntegrationsProps) =>
     return (
       <div className="flex justify-center px-6 py-8" data-testid="integrations-detail-picker">
         <Txt variant="ui-md" className="text-neutral3">
-          No integrations configured for this project
+          此项目尚未配置集成
         </Txt>
       </div>
     );
@@ -151,11 +151,10 @@ export const Integrations = ({ agentId, editable = true }: IntegrationsProps) =>
       <div className="flex w-full max-w-[48rem] flex-col items-center gap-6 text-center">
         <div className="flex flex-col gap-2">
           <Txt variant="header-sm" className="font-semibold text-neutral6">
-            Channel integrations
+            渠道集成
           </Txt>
           <Txt variant="ui-md" className="text-neutral3">
-            Publish this agent to external platforms. Each connection installs a bot in the platform
-            that runs this agent.
+            将此智能体发布到外部平台。每个连接都会在对应平台中安装一个运行此智能体的机器人。
           </Txt>
         </div>
 

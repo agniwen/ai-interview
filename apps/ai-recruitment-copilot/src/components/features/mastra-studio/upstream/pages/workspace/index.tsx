@@ -169,7 +169,7 @@ function WorkspaceLoadState({
   if (isPermissionDenied) {
     return (
       <NoDataPageLayout>
-        <PermissionDenied resource="workspaces" />
+        <PermissionDenied resource="工作区" />
       </NoDataPageLayout>
     );
   }
@@ -183,7 +183,7 @@ function WorkspaceLoadState({
   if (genericError) {
     return (
       <NoDataPageLayout>
-        <ErrorState title="Failed to load workspace" message={(genericError as Error).message} />
+        <ErrorState title="加载工作区失败" message={(genericError as Error).message} />
       </NoDataPageLayout>
     );
   }
@@ -232,12 +232,12 @@ function WorkspaceSearchPanel({
         <div>
           <h3 className="text-sm font-medium text-neutral5 mb-3 flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            Search Indexed Files
+            搜索已索引文件
           </h3>
           {showInitWarning && (
             <p className="text-xs text-amber-400 mb-3">
-              File search requires <code className="text-amber-300">workspace.init()</code> to index
-              files from your configured <code className="text-amber-300">autoIndexPaths</code>.
+              文件搜索需要调用 <code className="text-amber-300">workspace.init()</code>，以索引
+              <code className="text-amber-300">autoIndexPaths</code> 中配置的文件。
             </p>
           )}
           <SearchWorkspacePanel
@@ -262,7 +262,7 @@ function WorkspaceSearchPanel({
         <div>
           <h3 className="text-sm font-medium text-neutral5 mb-3 flex items-center gap-2">
             <Wand2 className="h-4 w-4" />
-            Search Skills
+            搜索技能
           </h3>
           <SearchSkillsPanel
             onSearch={(params) => searchSkills.mutate({ ...params, workspaceId })}
@@ -436,9 +436,7 @@ export default function Workspace() {
         { ...params, workspaceId: effectiveWorkspaceId },
         {
           onError: (error) => {
-            toast.error(
-              `Failed to install skill: ${error instanceof Error ? error.message : "Unknown error"}`,
-            );
+            toast.error(`安装技能失败：${error instanceof Error ? error.message : "未知错误"}`);
           },
           onSuccess: async (result) => {
             if (result.success) {
@@ -449,9 +447,7 @@ export default function Workspace() {
 
               // If refetch failed, just show success (can't verify discovery)
               if (error || !refreshedData) {
-                toast.success(
-                  `Skill "${result.skillName}" installed successfully (${result.filesWritten} files)`,
-                );
+                toast.success(`技能“${result.skillName}”安装成功（${result.filesWritten} 个文件）`);
                 return;
               }
 
@@ -460,18 +456,16 @@ export default function Workspace() {
               );
 
               if (installedSkillFound) {
-                toast.success(
-                  `Skill "${result.skillName}" installed successfully (${result.filesWritten} files)`,
-                );
+                toast.success(`技能“${result.skillName}”安装成功（${result.filesWritten} 个文件）`);
               } else {
                 // Skill was installed but not discovered - likely missing path config
                 setHasUndiscoveredInstall(true);
                 toast.warning(
-                  `Skill "${result.skillName}" installed to .agents/skills but not discovered. Add .agents/skills to your workspace skills paths.`,
+                  `技能“${result.skillName}”已安装到 .agents/skills，但未被发现。请将 .agents/skills 添加到工作区技能路径。`,
                 );
               }
             } else {
-              toast.error("Failed to install skill");
+              toast.error("安装技能失败");
             }
           },
         },
@@ -492,24 +486,20 @@ export default function Workspace() {
         {
           onError: (error) => {
             setUpdatingSkillName(null);
-            toast.error(
-              `Failed to update skill: ${error instanceof Error ? error.message : "Unknown error"}`,
-            );
+            toast.error(`更新技能失败：${error instanceof Error ? error.message : "未知错误"}`);
           },
           onSuccess: (result) => {
             setUpdatingSkillName(null);
             if (result.updated.length > 0) {
               const [updated] = result.updated;
               if (updated.success) {
-                toast.success(
-                  `Skill "${skillName}" updated successfully (${updated.filesWritten} files)`,
-                );
+                toast.success(`技能“${skillName}”更新成功（${updated.filesWritten} 个文件）`);
                 void refetchSkills();
               } else {
-                toast.error(`Failed to update skill: ${updated.error ?? "Unknown error"}`);
+                toast.error(`更新技能失败：${updated.error ?? "未知错误"}`);
               }
             } else {
-              toast.error(`Failed to update skill: No update result returned`);
+              toast.error("更新技能失败：未返回更新结果");
             }
           },
         },
@@ -530,17 +520,15 @@ export default function Workspace() {
         {
           onError: (error) => {
             setRemovingSkillName(null);
-            toast.error(
-              `Failed to remove skill: ${error instanceof Error ? error.message : "Unknown error"}`,
-            );
+            toast.error(`移除技能失败：${error instanceof Error ? error.message : "未知错误"}`);
           },
           onSuccess: (result) => {
             setRemovingSkillName(null);
             if (result.success) {
-              toast.success(`Skill "${result.skillName}" removed successfully`);
+              toast.success(`技能“${result.skillName}”已成功移除`);
               void refetchSkills();
             } else {
-              toast.error(`Failed to remove skill "${result.skillName}"`);
+              toast.error(`移除技能“${result.skillName}”失败`);
             }
           },
         },
@@ -556,8 +544,8 @@ export default function Workspace() {
           <PageLayout.Row className="justify-end">
             <Button
               onClick={() => setShowSearch(!showSearch)}
-              tooltip="Search workspace"
-              aria-label="Search workspace"
+              tooltip="搜索工作区"
+              aria-label="搜索工作区"
             >
               <Search />
             </Button>
@@ -606,12 +594,12 @@ export default function Workspace() {
             <TabList>
               {hasFilesystem && (
                 <Tab value="files">
-                  <FileText className="h-4 w-4" /> Files
+                  <FileText className="h-4 w-4" /> 文件
                 </Tab>
               )}
               {hasSkills && (
                 <Tab value="skills">
-                  <Wand2 className="h-4 w-4" /> Skills
+                  <Wand2 className="h-4 w-4" /> 技能
                   {isSkillsConfigured && skills.length > 0 && (
                     <span className="text-xs px-1.5 py-0.5 rounded bg-surface4 text-neutral4">
                       {skills.length}
@@ -658,7 +646,7 @@ export default function Workspace() {
 
         {!hasFilesystem && !hasSkills && !isLoadingInfo && (
           <div className="py-12 text-center text-neutral4">
-            <p>No workspace capabilities are configured.</p>
+            <p>尚未配置工作区能力。</p>
           </div>
         )}
       </PageLayout.MainArea>

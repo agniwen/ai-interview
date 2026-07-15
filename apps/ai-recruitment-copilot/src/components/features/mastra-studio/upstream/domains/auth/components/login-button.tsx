@@ -66,7 +66,7 @@ export function LoginButton({
     return (
       <Button onClick={handleSSOLogin} disabled={isPending} className={className}>
         {sso?.icon && <span className="mr-2">{sso.icon}</span>}
-        {sso?.text || "Sign in"}
+        {sso?.text || "登录"}
       </Button>
     );
   }
@@ -82,7 +82,7 @@ export function LoginButton({
 
   return (
     <Button onClick={handleCredentialsLogin} className={className}>
-      Sign in
+      登录
     </Button>
   );
 }

@@ -33,7 +33,7 @@ export function WorkflowStepsStatus({ steps, workflowResult }: WorkflowStepsStat
   return (
     <div className="flex flex-col gap-2 pt-5 border-t border-border1">
       <Txt variant="ui-xs" className="text-neutral3">
-        Status
+        状态
       </Txt>
       <div className="flex flex-col gap-4">
         {filteredSteps.map(([stepId, step]) => {

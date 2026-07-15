@@ -6,11 +6,11 @@ export const NoExperimentsInfo = () => (
   <div className="flex h-full items-center justify-center">
     <EmptyState
       iconSlot={<CircleSlashIcon />}
-      titleSlot="No Experiments yet"
+      titleSlot="暂无实验"
       descriptionSlot={
         <>
-          Run an experiment from a dataset to evaluate <br />
-          your agents and workflows.
+          从数据集运行实验，以评估 <br />
+          智能体和工作流。
         </>
       }
       actionSlot={
@@ -22,7 +22,7 @@ export const NoExperimentsInfo = () => (
             target="_blank"
             rel="noopener noreferrer"
           >
-            Experiments Documentation <ExternalLinkIcon />
+            实验文档 <ExternalLinkIcon />
           </Button>
         </div>
       }

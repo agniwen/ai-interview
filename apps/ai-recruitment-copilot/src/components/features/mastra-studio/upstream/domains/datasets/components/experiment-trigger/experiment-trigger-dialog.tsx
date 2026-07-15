@@ -53,7 +53,7 @@ function RequestContextForm({
   }, [requestContextSchema]);
 
   if (!zodSchema) {
-    return <p className="text-sm text-destructive">Failed to parse request context schema</p>;
+    return <p className="text-sm text-destructive">解析请求上下文 Schema 失败</p>;
   }
 
   const handleValuesChange = (values: unknown) => {
@@ -64,7 +64,7 @@ function RequestContextForm({
 
   return (
     <div className="space-y-2">
-      <Label>Request Context</Label>
+      <Label>请求上下文</Label>
       <DynamicForm
         schema={zodSchema}
         onValuesChange={handleValuesChange}
@@ -116,10 +116,10 @@ export function ExperimentTriggerDialog({
       try {
         parsed = JSON.parse(requestContextRaw);
       } catch {
-        throw new Error("Request Context must be valid JSON");
+        throw new Error("请求上下文必须是有效的 JSON");
       }
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        throw new Error("Request Context must be a JSON object");
+        throw new Error("请求上下文必须是 JSON 对象");
       }
       return parsed as Record<string, unknown>;
     }
@@ -135,7 +135,7 @@ export function ExperimentTriggerDialog({
     try {
       requestContext = resolveRequestContext();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Request Context must be valid JSON";
+      const message = error instanceof Error ? error.message : "请求上下文必须是有效的 JSON";
       toast.error(message);
       return;
     }
@@ -150,13 +150,13 @@ export function ExperimentTriggerDialog({
         version,
       });
 
-      toast.success("Experiment triggered successfully");
+      toast.success("实验触发成功");
       onOpenChange(false);
       onSuccess?.(result.experimentId);
 
       resetState();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to trigger experiment";
+      const message = error instanceof Error ? error.message : "触发实验失败";
       toast.error(message);
     }
   };
@@ -172,11 +172,11 @@ export function ExperimentTriggerDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent ref={contentRef}>
         <DialogHeader>
-          <DialogTitle>Run Experiment</DialogTitle>
+          <DialogTitle>运行实验</DialogTitle>
           <DialogDescription>
             {version
-              ? `Execute items from ${format(new Date(version), "MMM d, yyyy")} version against a target.`
-              : "Execute all items in this dataset against a target."}
+              ? `使用 ${format(new Date(version), "yyyy/MM/dd")} 版本中的数据项运行目标。`
+              : "使用此数据集中的所有数据项运行目标。"}
           </DialogDescription>
         </DialogHeader>
 
@@ -206,7 +206,7 @@ export function ExperimentTriggerDialog({
             />
           ) : (
             <div className="space-y-2">
-              <Label>Request Context (JSON, optional)</Label>
+              <Label>请求上下文（JSON，可选）</Label>
               <CodeEditor
                 value={requestContextRaw}
                 onChange={setRequestContextRaw}
@@ -219,16 +219,16 @@ export function ExperimentTriggerDialog({
 
         <DialogFooter className="px-6 pt-4">
           <Button onClick={handleClose} disabled={isRunning}>
-            Cancel
+            取消
           </Button>
           <Button variant="primary" onClick={handleRun} disabled={!canRun || isRunning}>
             {isRunning ? (
               <>
                 <Spinner className="w-4 h-4" />
-                Running...
+                正在运行...
               </>
             ) : (
-              "Run"
+              "运行"
             )}
           </Button>
         </DialogFooter>

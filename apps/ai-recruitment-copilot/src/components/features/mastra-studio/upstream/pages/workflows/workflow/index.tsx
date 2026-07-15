@@ -56,7 +56,7 @@ export const Workflow = () => {
   if (error && is403ForbiddenError(error)) {
     return (
       <div className="flex h-full items-center justify-center">
-        <PermissionDenied resource="workflows" />
+        <PermissionDenied resource="工作流" />
       </div>
     );
   }

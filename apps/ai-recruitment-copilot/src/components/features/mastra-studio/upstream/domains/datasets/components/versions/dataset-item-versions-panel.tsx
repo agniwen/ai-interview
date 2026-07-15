@@ -25,16 +25,16 @@ export interface DatasetItemVersionsPanelProps {
 function DatasetItemVersionsListSkeleton() {
   return (
     <ItemList>
-      <ItemList.Header columns={[{ label: "Item Version History", name: "version", size: "1fr" }]}>
-        <ItemList.HeaderCol>Item Version History</ItemList.HeaderCol>
+      <ItemList.Header columns={[{ label: "数据项版本历史", name: "version", size: "1fr" }]}>
+        <ItemList.HeaderCol>数据项版本历史</ItemList.HeaderCol>
       </ItemList.Header>
       <ItemList.Items>
         {Array.from({ length: 3 }).map((_, index) => (
           <ItemList.Row key={index}>
             <ItemList.RowButton
-              columns={[{ label: "Item Version History", name: "version", size: "1fr" }]}
+              columns={[{ label: "数据项版本历史", name: "version", size: "1fr" }]}
             >
-              <ItemList.TextCell isLoading>Loading...</ItemList.TextCell>
+              <ItemList.TextCell isLoading>正在加载...</ItemList.TextCell>
             </ItemList.RowButton>
           </ItemList.Row>
         ))}
@@ -102,15 +102,15 @@ export function DatasetItemVersionsPanel({
       {isSelectionActive ? (
         <Column.Toolbar className="grid justify-stretch gap-3 w-full">
           <ButtonsGroup>
-            <Button onClick={handleCancelSelection}>Cancel</Button>
+            <Button onClick={handleCancelSelection}>取消</Button>
             <Button
               variant="primary"
               disabled={selectedIds.size !== 2}
               onClick={handleExecuteCompare}
-              tooltip={selectedIds.size === 2 ? undefined : "Check 2 versions to compare"}
+              tooltip={selectedIds.size === 2 ? undefined : "请选择两个版本进行对比"}
               className="grow"
             >
-              Compare
+              对比
             </Button>
           </ButtonsGroup>
         </Column.Toolbar>
@@ -119,7 +119,7 @@ export function DatasetItemVersionsPanel({
           {(versions || []).length > 1 && (
             <Column.Toolbar>
               <Button onClick={handleCompareClick} className="w-full">
-                <GitCompareIcon /> Compare Ver.
+                <GitCompareIcon /> 对比版本
               </Button>
             </Column.Toolbar>
           )}
@@ -131,7 +131,7 @@ export function DatasetItemVersionsPanel({
       ) : (
         <ItemList>
           <ItemList.Header>
-            <ItemList.HeaderCol>Item Version History</ItemList.HeaderCol>
+            <ItemList.HeaderCol>数据项版本历史</ItemList.HeaderCol>
           </ItemList.Header>
 
           <ItemList.Scroller>
@@ -157,13 +157,13 @@ export function DatasetItemVersionsPanel({
                               handleToggleSelection(versionKey);
                             }
                           }}
-                          aria-label={`Select version ${item.datasetVersion}`}
+                          aria-label={`选择版本 ${item.datasetVersion}`}
                         />
                       </ItemList.LabelCell>
                     )}
                     <ItemList.RowButton
                       item={item}
-                      columns={[{ label: "Item Version History", name: "version", size: "1fr" }]}
+                      columns={[{ label: "数据项版本历史", name: "version", size: "1fr" }]}
                       isFeatured={isVersionSelected(item)}
                       onClick={() => handleVersionClick(item)}
                       className="py-2"

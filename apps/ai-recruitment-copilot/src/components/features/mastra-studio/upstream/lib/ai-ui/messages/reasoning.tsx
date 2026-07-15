@@ -12,7 +12,7 @@ export interface ReasoningProps {
 export const Reasoning = ({ text, redacted }: ReasoningProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  const body = redacted ? "Reasoning was redacted by the provider." : text;
+  const body = redacted ? "推理内容已被提供商隐藏。" : text;
 
   if (!body) {
     return null;
@@ -26,7 +26,7 @@ export const Reasoning = ({ text, redacted }: ReasoningProps) => {
             className={cn("transition-all", isCollapsed ? "rotate-90" : "rotate-180")}
           />
         </Icon>
-        <Badge icon={<BrainIcon />}>{isCollapsed ? "Show" : "Hide"} reasoning</Badge>
+        <Badge icon={<BrainIcon />}>{isCollapsed ? "显示推理内容" : "隐藏推理内容"}</Badge>
       </button>
 
       {isCollapsed ? null : (

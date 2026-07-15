@@ -143,12 +143,12 @@ export function SkillChatComposer({
       </div>
       <div className="flex flex-col gap-1">
         <Txt variant="ui-md" className="text-neutral5 font-medium" as="p">
-          {hasFields ? "Refine your skill" : "Describe your skill"}
+          {hasFields ? "优化你的技能" : "描述你的技能"}
         </Txt>
         <Txt variant="ui-sm" className="text-neutral3" as="p">
           {hasFields
-            ? "Ask the agent to adjust the name, description, or instructions."
-            : "Tell the agent what this skill should do and it will fill in the details for you."}
+            ? "让智能体调整名称、描述或指令。"
+            : "告诉智能体此技能应该做什么，它会为你补充详细信息。"}
         </Txt>
       </div>
     </div>
@@ -170,7 +170,7 @@ export function SkillChatComposer({
         disabled={isRunning}
         canSubmit={!!trimmed && !isRunning}
         isRunning={isRunning}
-        placeholder={hasFields ? "Ask the agent to refine…" : "Describe your skill…"}
+        placeholder={hasFields ? "让智能体进行优化…" : "描述你的技能…"}
         inputTestId="skill-builder-conversation-input"
         submitTestId="skill-builder-conversation-submit"
         containerTestId="skill-builder-conversation-composer"

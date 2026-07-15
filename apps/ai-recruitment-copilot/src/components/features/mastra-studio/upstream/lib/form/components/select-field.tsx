@@ -32,7 +32,7 @@ export const SelectField: React.FC<AutoFormFieldProps> = ({
       }}
     >
       <SelectTrigger id={id} className={error ? "border-accent2" : ""}>
-        <SelectValue placeholder="Select an option" />
+        <SelectValue placeholder="请选择" />
       </SelectTrigger>
       <SelectContent>
         {(field.options || []).map(([optionKey, label]) => (

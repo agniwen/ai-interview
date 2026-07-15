@@ -34,7 +34,7 @@ export const ArrayWrapper: React.FC<ArrayWrapperProps> = ({ label, children, onA
               </Icon>
             </button>
           </TooltipTrigger>
-          <TooltipContent>Add item</TooltipContent>
+          <TooltipContent>添加一项</TooltipContent>
         </Tooltip>
       </TooltipProvider>
     </div>

@@ -70,7 +70,7 @@ const AgentMetadataModelListItem = ({
                 </span>
               </TooltipTrigger>
               <TooltipContent>
-                <p>At least one model must be enabled</p>
+                <p>至少需要启用一个模型</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

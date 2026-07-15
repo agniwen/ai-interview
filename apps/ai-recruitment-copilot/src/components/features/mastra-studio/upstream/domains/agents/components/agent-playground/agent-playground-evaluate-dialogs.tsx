@@ -110,7 +110,7 @@ export function EvaluateDialogs({
       <Dialog open={showAttachDialog} onOpenChange={setShowAttachDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Attach Existing Dataset</DialogTitle>
+            <DialogTitle>关联现有数据集</DialogTitle>
           </DialogHeader>
           <DialogBody className="max-h-[50vh] overflow-y-auto">
             <InputGroup variant="outline">
@@ -119,8 +119,8 @@ export function EvaluateDialogs({
               </InputGroupAddon>
               <InputGroupInput
                 type="search"
-                aria-label="Search datasets"
-                placeholder="Search datasets..."
+                aria-label="搜索数据集"
+                placeholder="搜索数据集..."
                 onChange={(event) => setAttachDatasetSearch(event.target.value)}
               />
             </InputGroup>
@@ -143,10 +143,10 @@ export function EvaluateDialogs({
                         // Classify legacy/untyped datasets without overwriting existing target types.
                         targetType: ds.targetType ?? "agent",
                       });
-                      toast.success(`Dataset "${ds.name}" attached`);
+                      toast.success(`已关联数据集“${ds.name}”`);
                       setShowAttachDialog(false);
                     } catch {
-                      toast.error("Failed to attach dataset");
+                      toast.error("关联数据集失败");
                     }
                   }}
                 >
@@ -168,7 +168,7 @@ export function EvaluateDialogs({
                 ds.name.toLowerCase().includes(attachDatasetSearch.toLowerCase()),
             ).length === 0 && (
               <Txt variant="ui-sm" className="text-neutral3 text-center py-4 block">
-                No datasets available to attach
+                没有可关联的数据集
               </Txt>
             )}
           </DialogBody>
@@ -179,7 +179,7 @@ export function EvaluateDialogs({
       <Dialog open={showAttachScorerDialog} onOpenChange={setShowAttachScorerDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Attach Existing Scorer</DialogTitle>
+            <DialogTitle>关联现有评分器</DialogTitle>
           </DialogHeader>
           <DialogBody className="max-h-[50vh] overflow-y-auto">
             <InputGroup variant="outline">
@@ -188,8 +188,8 @@ export function EvaluateDialogs({
               </InputGroupAddon>
               <InputGroupInput
                 type="search"
-                aria-label="Search scorers"
-                placeholder="Search scorers..."
+                aria-label="搜索评分器"
+                placeholder="搜索评分器..."
                 onChange={(event) => setAttachScorerSearch(event.target.value)}
               />
             </InputGroup>
@@ -209,10 +209,10 @@ export function EvaluateDialogs({
                   onClick={async () => {
                     try {
                       await attachScorer(id, scorer);
-                      toast.success(`Scorer "${scorer.scorer?.name || id}" attached`);
+                      toast.success(`已关联评分器“${scorer.scorer?.name || id}”`);
                       setShowAttachScorerDialog(false);
                     } catch {
-                      toast.error("Failed to attach scorer");
+                      toast.error("关联评分器失败");
                     }
                   }}
                 >
@@ -236,7 +236,7 @@ export function EvaluateDialogs({
               return name.toLowerCase().includes(attachScorerSearch.toLowerCase());
             }).length === 0 && (
               <Txt variant="ui-sm" className="text-neutral3 text-center py-4 block">
-                No scorers available to attach
+                没有可关联的评分器
               </Txt>
             )}
           </DialogBody>

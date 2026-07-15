@@ -46,34 +46,34 @@ export interface RoutePermission {
  */
 export const ROUTE_PERMISSIONS: RoutePermission[] = [
   // Primary routes (highest priority for redirects)
-  { name: "Agents", permission: "agents:read", route: "/agents" },
-  { name: "Workflows", permission: "workflows:read", route: "/workflows" },
+  { name: "智能体", permission: "agents:read", route: "/agents" },
+  { name: "工作流", permission: "workflows:read", route: "/workflows" },
 
   // Observability - uses 'observability' resource for traces/metrics, 'logs' for logs
-  { name: "Metrics", permission: "observability:read", route: "/metrics" },
-  { name: "Traces", permission: "observability:read", route: "/observability" },
-  { name: "Traces", permission: "observability:read", route: "/traces" },
-  { name: "Logs", permission: "logs:read", route: "/logs" },
+  { name: "指标", permission: "observability:read", route: "/metrics" },
+  { name: "追踪", permission: "observability:read", route: "/observability" },
+  { name: "追踪", permission: "observability:read", route: "/traces" },
+  { name: "日志", permission: "logs:read", route: "/logs" },
 
   // Evaluation - uses 'scores' resource (not 'scorers')
-  { name: "Scorers", permission: "scores:read", route: "/scorers" },
-  { name: "Datasets", permission: ["datasets:read"], route: "/datasets" },
-  { name: "Experiments", permission: ["datasets:read"], route: "/experiments" },
+  { name: "评分器", permission: "scores:read", route: "/scorers" },
+  { name: "数据集", permission: ["datasets:read"], route: "/datasets" },
+  { name: "实验", permission: ["datasets:read"], route: "/experiments" },
 
   // Primitives - note: 'mcp' not 'mcps', 'stored' for prompts (stored/prompt-blocks routes)
-  { name: "Tools", permission: "tools:read", route: "/tools" },
-  { name: "MCP Servers", permission: "mcp:read", route: "/mcps" },
-  { name: "Processors", permission: "processors:read", route: "/processors" },
-  { name: "Prompts", permission: "stored-prompt-blocks:read", route: "/prompts" },
-  { name: "Workspaces", permission: "workspaces:read", route: "/workspaces" },
+  { name: "工具", permission: "tools:read", route: "/tools" },
+  { name: "MCP 服务器", permission: "mcp:read", route: "/mcps" },
+  { name: "处理器", permission: "processors:read", route: "/processors" },
+  { name: "提示词", permission: "stored-prompt-blocks:read", route: "/prompts" },
+  { name: "工作区", permission: "workspaces:read", route: "/workspaces" },
 
   // Admin-only pages
-  { name: "Request Context", permission: "*", route: "/request-context" },
+  { name: "请求上下文", permission: "*", route: "/request-context" },
 
   // UI-only pages (no corresponding API resource) - marked as public
   // These pages don't fetch protected data, so they're accessible to all authenticated users
-  { name: "Settings", permission: "public", route: "/settings" },
-  { name: "Resources", permission: "public", route: "/resources" },
+  { name: "设置", permission: "public", route: "/settings" },
+  { name: "资源", permission: "public", route: "/resources" },
 ];
 
 /**

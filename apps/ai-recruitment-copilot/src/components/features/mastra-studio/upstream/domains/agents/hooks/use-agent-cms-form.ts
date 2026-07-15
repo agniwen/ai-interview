@@ -304,7 +304,7 @@ export function useAgentCmsForm(options: UseAgentCmsFormOptions) {
 
       const isValid = await form.trigger();
       if (!isValid) {
-        toast.error("Please fill in all required fields");
+        toast.error("请填写所有必填字段");
         return;
       }
 
@@ -349,12 +349,10 @@ export function useAgentCmsForm(options: UseAgentCmsFormOptions) {
         toast.success(
           options.mode === "edit" && options.saveSuccessMessage
             ? options.saveSuccessMessage
-            : "Draft saved",
+            : "草稿已保存",
         );
       } catch (error) {
-        toast.error(
-          `Failed to save draft: ${error instanceof Error ? error.message : "Unknown error"}`,
-        );
+        toast.error(`保存草稿失败：${error instanceof Error ? error.message : "未知错误"}`);
       } finally {
         setIsSavingDraft(false);
       }
@@ -380,7 +378,7 @@ export function useAgentCmsForm(options: UseAgentCmsFormOptions) {
       if (!publishVersionId) {
         const isValid = await form.trigger();
         if (!isValid) {
-          toast.error("Please fill in all required fields");
+          toast.error("请填写所有必填字段");
           return;
         }
       }
@@ -424,7 +422,7 @@ export function useAgentCmsForm(options: UseAgentCmsFormOptions) {
 
             const [latestVersion] = versionsResponse.versions;
             if (!latestVersion || latestVersion.id === agentDetails.activeVersionId) {
-              toast.error("No draft changes to publish. Save a draft first.");
+              toast.error("没有可发布的草稿更改。请先保存草稿。");
               return;
             }
 
@@ -438,7 +436,7 @@ export function useAgentCmsForm(options: UseAgentCmsFormOptions) {
             queryClient.invalidateQueries({ queryKey: ["agents"] }),
             queryClient.invalidateQueries({ queryKey: ["stored-agents"] }),
           ]);
-          toast.success("Agent published");
+          toast.success("智能体已发布");
           options.onSuccess(options.agentId);
         } else {
           const sharedParams = await buildSharedParams(values);
@@ -461,14 +459,12 @@ export function useAgentCmsForm(options: UseAgentCmsFormOptions) {
           };
 
           const created = await createStoredAgent.mutateAsync(createParams);
-          toast.success("Agent created successfully");
+          toast.success("智能体已创建");
           options.onSuccess(created.id);
         }
       } catch (error) {
-        const action = isEdit ? "publish" : "create";
-        toast.error(
-          `Failed to ${action} agent: ${error instanceof Error ? error.message : "Unknown error"}`,
-        );
+        const action = isEdit ? "发布" : "创建";
+        toast.error(`${action}智能体失败：${error instanceof Error ? error.message : "未知错误"}`);
       } finally {
         setIsSubmitting(false);
       }
@@ -495,7 +491,7 @@ export function useAgentCmsForm(options: UseAgentCmsFormOptions) {
 
     const isValid = await form.trigger();
     if (!isValid) {
-      toast.error("Please fill in all required fields");
+      toast.error("请填写所有必填字段");
       return;
     }
 
@@ -517,11 +513,9 @@ export function useAgentCmsForm(options: UseAgentCmsFormOptions) {
       anchor.download = response.fileName;
       anchor.click();
       URL.revokeObjectURL(url);
-      toast.success("Agent JSON downloaded");
+      toast.success("智能体 JSON 已下载");
     } catch (error) {
-      toast.error(
-        `Failed to download JSON: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`下载 JSON 失败：${error instanceof Error ? error.message : "未知错误"}`);
     }
   }, [getAgentExport]);
 
@@ -565,11 +559,9 @@ export function useAgentCmsForm(options: UseAgentCmsFormOptions) {
 
         const result = (await prResponse.json()) as { url: string };
         window.open(result.url, "_blank", "noopener,noreferrer");
-        toast.success("Pull request opened");
+        toast.success("拉取请求已创建");
       } catch (error) {
-        toast.error(
-          `Failed to open PR: ${error instanceof Error ? error.message : "Unknown error"}`,
-        );
+        toast.error(`创建 PR 失败：${error instanceof Error ? error.message : "未知错误"}`);
       }
     },
     [getAgentExport, isEdit],

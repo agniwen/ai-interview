@@ -10,8 +10,8 @@ const REVIEW_COLORS = {
 
 // "complete" is the DB status value; we label it "Reviewed" in the UI for clarity
 const SEGMENTS = [
-  { color: REVIEW_COLORS.needsReview, label: "Needs Review" },
-  { color: REVIEW_COLORS.complete, label: "Reviewed" },
+  { color: REVIEW_COLORS.needsReview, label: "待评审" },
+  { color: REVIEW_COLORS.complete, label: "已评审" },
 ];
 
 interface ReviewPipelineCardProps {
@@ -82,14 +82,14 @@ export function ReviewPipelineCard({
   if (isLoading) {
     cardContent = <MetricsCard.Loading />;
   } else if (isError) {
-    cardContent = <MetricsCard.Error message="Failed to load review data" />;
+    cardContent = <MetricsCard.Error message="加载评审数据失败" />;
   } else {
     cardContent = (
       <MetricsCard.Content>
         {hasData ? (
           <HorizontalBars data={data} segments={SEGMENTS} maxVal={maxVal} fmt={String} />
         ) : (
-          <MetricsCard.NoData message="No items have been sent to review yet" />
+          <MetricsCard.NoData message="尚无数据项送交评审" />
         )}
       </MetricsCard.Content>
     );
@@ -98,13 +98,8 @@ export function ReviewPipelineCard({
   return (
     <MetricsCard>
       <MetricsCard.TopBar>
-        <MetricsCard.TitleAndDescription
-          title="Review Pipeline"
-          description="Items in review across experiments."
-        />
-        {hasData && (
-          <MetricsCard.Summary value={String(totalInPipeline)} label="Items in pipeline" />
-        )}
+        <MetricsCard.TitleAndDescription title="评审流程" description="各实验中的待评审数据项。" />
+        {hasData && <MetricsCard.Summary value={String(totalInPipeline)} label="流程中的数据项" />}
       </MetricsCard.TopBar>
       {cardContent}
     </MetricsCard>

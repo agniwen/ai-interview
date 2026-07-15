@@ -58,7 +58,7 @@ export function useSaveAgent({
           ...toolProvidersField,
         });
         if (!silent) {
-          toast.success("Agent updated");
+          toast.success("智能体已更新");
         }
         onSuccess?.(agentId);
         return updated;
@@ -67,9 +67,7 @@ export function useSaveAgent({
         if (policyDetails) {
           toast.error(policyDetails.message);
         } else {
-          toast.error(
-            `Failed to save agent: ${error instanceof Error ? error.message : "Unknown error"}`,
-          );
+          toast.error(`保存智能体失败：${error instanceof Error ? error.message : "未知错误"}`);
         }
         throw error;
       }

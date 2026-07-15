@@ -46,10 +46,10 @@ interface DatasetDetailViewProps {
 
 function formatTimestamp(date: string | Date) {
   const d = new Date(date);
-  return `${d.toLocaleDateString("en-US", {
+  return `${d.toLocaleDateString("zh-CN", {
     day: "numeric",
     month: "short",
-  })}, ${d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`;
+  })} ${d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
 function truncateValue(value: unknown, maxLength = 120): string {
@@ -66,7 +66,7 @@ function truncateValue(value: unknown, maxLength = 120): string {
 function getExpectedTrajectoryLabel(expectedTrajectory: unknown): string {
   const traj = expectedTrajectory as Record<string, unknown> | undefined;
   const steps = Array.isArray(traj?.steps) ? traj.steps.length : 0;
-  return steps > 0 ? `${steps} expected steps` : "trajectory";
+  return steps > 0 ? `${steps} 个预期步骤` : "轨迹";
 }
 
 // Deterministic tag color from string
@@ -143,7 +143,7 @@ export function DatasetDetailView({
       try {
         await updateDataset.mutateAsync({ datasetId, scorerIds: newScorerIds });
       } catch (error) {
-        toast.error("Failed to attach scorer");
+        toast.error("关联评分器失败");
         throw error;
       }
     },
@@ -156,7 +156,7 @@ export function DatasetDetailView({
       try {
         await updateDataset.mutateAsync({ datasetId, scorerIds: newScorerIds });
       } catch {
-        toast.error("Failed to detach scorer");
+        toast.error("解除评分器关联失败");
       }
     },
     [datasetId, datasetScorerIds, updateDataset],
@@ -230,11 +230,9 @@ export function DatasetDetailView({
       // Poll a few times to pick up status changes
       const poll = setInterval(() => refetchExperiments(), 3000);
       setTimeout(() => clearInterval(poll), 30_000);
-      toast.success("Experiment started");
+      toast.success("实验已启动");
     } catch (error) {
-      toast.error(
-        `Failed to start experiment: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`启动实验失败：${error instanceof Error ? error.message : "未知错误"}`);
     } finally {
       isStartingRef.current = false;
       setIsRunning(false);
@@ -290,7 +288,7 @@ export function DatasetDetailView({
               <Icon size="sm">
                 <Sparkles />
               </Icon>
-              Generate
+              生成
             </Button>
             <Button
               variant="primary"
@@ -304,14 +302,14 @@ export function DatasetDetailView({
             >
               {isRunning ? (
                 <>
-                  <Spinner className="h-3 w-3" /> Running...
+                  <Spinner className="h-3 w-3" /> 运行中...
                 </>
               ) : (
                 <>
                   <Icon size="sm">
                     <Play />
                   </Icon>{" "}
-                  Run Experiment
+                  运行实验
                 </>
               )}
             </Button>
@@ -321,20 +319,20 @@ export function DatasetDetailView({
         <div className="flex items-center gap-3">
           <div className="flex-1 min-w-0">
             <Txt variant="ui-xs" className="text-neutral3 mb-1 block">
-              Dataset version
+              数据集版本
             </Txt>
             <Combobox
               options={[
-                { label: "Latest", value: "" },
+                { label: "最新", value: "" },
                 ...datasetVersions.map((v) => ({
-                  description: v.isCurrent ? "Current" : undefined,
+                  description: v.isCurrent ? "当前" : undefined,
                   label: `v${v.version}`,
                   value: String(v.version),
                 })),
               ]}
               value={selectedDatasetVersion}
               onValueChange={setSelectedDatasetVersion}
-              placeholder="Latest"
+              placeholder="最新"
               size="sm"
             />
           </div>
@@ -343,12 +341,12 @@ export function DatasetDetailView({
             () => (
               <div className="flex-1 min-w-0">
                 <Txt variant="ui-xs" className="text-neutral3 mb-1 block">
-                  Agent version
+                  智能体版本
                 </Txt>
                 <div className="flex items-center gap-1">
                   <Combobox
                     options={[
-                      { label: "Current", value: "" },
+                      { label: "当前", value: "" },
                       ...agentVersions.map((v) => ({
                         description: v.changeMessage ?? undefined,
                         label: `v${v.versionNumber}`,
@@ -357,13 +355,13 @@ export function DatasetDetailView({
                     ]}
                     value={selectedAgentVersion}
                     onValueChange={setSelectedAgentVersion}
-                    placeholder="Current"
+                    placeholder="当前"
                     size="sm"
                   />
                   {(selectedAgentVersion || agentVersions[0]?.id) && (
                     <CopyButton
                       content={selectedAgentVersion || agentVersions[0]?.id}
-                      tooltip="Copy version ID"
+                      tooltip="复制版本 ID"
                       size="sm"
                     />
                   )}
@@ -393,7 +391,7 @@ export function DatasetDetailView({
                   variant="ui-xs"
                   className="text-neutral3 font-semibold uppercase tracking-wider"
                 >
-                  Scorers ({attachedScorerEntries.length})
+                  评分器（{attachedScorerEntries.length}）
                 </Txt>
               </button>
               {resolveConditional(
@@ -405,7 +403,7 @@ export function DatasetDetailView({
                       size="sm"
                       onClick={() => setShowAttachScorerDialog(true)}
                     >
-                      Attach
+                      关联
                     </Button>
                   </div>
                 ),
@@ -419,7 +417,7 @@ export function DatasetDetailView({
             ) ? (
               <div className="px-4 py-4 text-center">
                 <Txt variant="ui-xs" className="text-neutral3">
-                  No scorers attached to this dataset.
+                  此数据集尚未关联评分器。
                 </Txt>
                 {resolveConditional(
                   unattachedScorerEntries.length > 0,
@@ -430,7 +428,7 @@ export function DatasetDetailView({
                         size="sm"
                         onClick={() => setShowAttachScorerDialog(true)}
                       >
-                        Attach a scorer
+                        关联评分器
                       </Button>
                     </div>
                   ),
@@ -452,9 +450,9 @@ export function DatasetDetailView({
                       <button
                         type="button"
                         onClick={() => handleDetachScorer(id)}
-                        aria-label={`Detach "${name}" from this dataset`}
+                        aria-label={`解除“${name}”与此数据集的关联`}
                         className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity text-neutral3 hover:text-red-500 p-0.5"
-                        title="Detach scorer"
+                        title="解除评分器关联"
                       >
                         <Icon size="sm">
                           <X />
@@ -478,7 +476,7 @@ export function DatasetDetailView({
                 {itemsCollapsed ? <ChevronRight /> : <ChevronDown />}
               </Icon>
               <Txt variant="ui-xs" className="text-neutral3 font-semibold uppercase tracking-wider">
-                Items ({items.length})
+                条目（{items.length}）
               </Txt>
             </button>
             {resolveConditional(
@@ -488,7 +486,7 @@ export function DatasetDetailView({
             ) ? (
               <div className="px-4 py-6 text-center">
                 <Txt variant="ui-xs" className="text-neutral3">
-                  No items yet. Use Generate to create test data.
+                  尚无条目。请使用“生成”创建测试数据。
                 </Txt>
               </div>
             ) : (
@@ -548,7 +546,7 @@ export function DatasetDetailView({
                 <Clock />
               </Icon>
               <Txt variant="ui-xs" className="text-neutral3 font-semibold uppercase tracking-wider">
-                Past Runs ({datasetExperiments.length})
+                历史运行记录（{datasetExperiments.length}）
               </Txt>
             </button>
             {resolveConditional(
@@ -558,7 +556,7 @@ export function DatasetDetailView({
             ) ? (
               <div className="px-4 py-4 text-center">
                 <Txt variant="ui-xs" className="text-neutral3">
-                  No experiment runs yet
+                  尚无实验运行记录
                 </Txt>
               </div>
             ) : (
@@ -573,10 +571,10 @@ export function DatasetDetailView({
                     <ExperimentStatusDot status={exp.status} />
                     <div className="flex-1 min-w-0">
                       <Txt variant="ui-xs" className="text-neutral5 block">
-                        {exp.startedAt ? formatTimestamp(exp.startedAt) : "Unknown"}
+                        {exp.startedAt ? formatTimestamp(exp.startedAt) : "未知"}
                       </Txt>
                       <Txt variant="ui-xs" className="text-neutral3">
-                        {exp.succeededCount}/{exp.totalItems} passed
+                        {exp.succeededCount}/{exp.totalItems} 通过
                         {isDefined(exp.datasetVersion) &&
                           ` · ${formatVersionLabel("Dataset", exp.datasetVersion)}`}
                         {exp.agentVersion &&
@@ -609,19 +607,19 @@ export function DatasetDetailView({
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Attach Scorer to Dataset</DialogTitle>
+            <DialogTitle>为数据集关联评分器</DialogTitle>
           </DialogHeader>
           <DialogBody className="max-h-[50vh] overflow-y-auto">
             {unattachedScorerEntries.length === 0 ? (
               <Txt variant="ui-sm" className="text-neutral3 py-4 text-center">
-                No scorers available to attach.
+                没有可关联的评分器。
               </Txt>
             ) : (
               <div className="space-y-2">
                 <input
-                  aria-label="Search scorers"
+                  aria-label="搜索评分器"
                   type="text"
-                  placeholder="Search scorers..."
+                  placeholder="搜索评分器..."
                   value={attachScorerSearch}
                   onChange={(e) => setAttachScorerSearch(e.target.value)}
                   className="w-full px-3 py-1.5 text-sm rounded border border-border1 bg-surface2 text-text1 placeholder:text-neutral3 focus:outline-none focus:ring-1 focus:ring-accent1"
@@ -644,7 +642,7 @@ export function DatasetDetailView({
                         onClick={async () => {
                           try {
                             await handleAttachScorer(id);
-                            toast.success(`Attached "${name}" to this dataset`);
+                            toast.success(`已将“${name}”关联到此数据集`);
                             setShowAttachScorerDialog(false);
                           } catch {
                             // error toast already shown by handleAttachScorer

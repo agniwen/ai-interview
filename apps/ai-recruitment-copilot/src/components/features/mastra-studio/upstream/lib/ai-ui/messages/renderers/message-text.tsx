@@ -27,14 +27,14 @@ export const MessageText = ({ text, metadata }: MessageTextProps) => {
   }
   if (metadata?.status === "warning") {
     return (
-      <Notice variant="warning" title="Warning">
+      <Notice variant="warning" title="警告">
         <Notice.Message>{text}</Notice.Message>
       </Notice>
     );
   }
   if (metadata?.status === "error") {
     return (
-      <Notice variant="destructive" title="Error">
+      <Notice variant="destructive" title="错误">
         <Notice.Message>{text}</Notice.Message>
       </Notice>
     );
@@ -57,11 +57,11 @@ export const MessageText = ({ text, metadata }: MessageTextProps) => {
             />
           </Icon>
           <Badge variant="info" icon={<CheckCircleIcon />}>
-            {collapsedCompletionCheck ? "Show" : "Hide"} completion check
+            {collapsedCompletionCheck ? "显示" : "隐藏"}完成检查
           </Badge>
         </button>
         {!collapsedCompletionCheck && (
-          <Notice variant="info" title={taskCompleteResult?.passed ? "Complete" : "Not Complete"}>
+          <Notice variant="info" title={taskCompleteResult?.passed ? "已完成" : "未完成"}>
             <MarkdownRenderer>{text}</MarkdownRenderer>
           </Notice>
         )}
@@ -72,14 +72,14 @@ export const MessageText = ({ text, metadata }: MessageTextProps) => {
   const trimmedText = text.trim();
   if (trimmedText.startsWith("__ERROR__:")) {
     return (
-      <Notice variant="destructive" title="Error">
+      <Notice variant="destructive" title="错误">
         <Notice.Message>{trimmedText.slice("__ERROR__:".length)}</Notice.Message>
       </Notice>
     );
   }
   if (trimmedText.startsWith("Error:")) {
     return (
-      <Notice variant="destructive" title="Error">
+      <Notice variant="destructive" title="错误">
         <Notice.Message>{trimmedText.slice("Error:".length).trim()}</Notice.Message>
       </Notice>
     );

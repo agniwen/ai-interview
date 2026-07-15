@@ -61,6 +61,16 @@ function getStatusClass(status: string): string {
   return "bg-neutral3/10 text-neutral4";
 }
 
+function getReviewStatusLabel(status: string): string {
+  if (status === "needs-review") {
+    return "待评审";
+  }
+  if (status === "complete") {
+    return "已完成";
+  }
+  return status;
+}
+
 function getErrorValue(error: unknown): unknown {
   if (error && typeof error === "object") {
     return (error as Record<string, unknown>).message;
@@ -79,8 +89,8 @@ function ResultScores({
   return (
     <DataList columns="1fr 1fr">
       <DataList.Top>
-        <DataList.TopCell>Scorer</DataList.TopCell>
-        <DataList.TopCell>Score</DataList.TopCell>
+        <DataList.TopCell>评分器</DataList.TopCell>
+        <DataList.TopCell>得分</DataList.TopCell>
       </DataList.Top>
       {scores.map((score) => (
         <DataList.RowButton
@@ -117,7 +127,7 @@ function ResultReviewSection({
   return (
     <div className="grid gap-2">
       <DataPanel.SectionHeading icon={<TagIcon />} className="mb-2">
-        Review
+        评审
       </DataPanel.SectionHeading>
       {(status || tags.length > 0) && (
         <div className="flex flex-wrap gap-2 items-center">
@@ -125,7 +135,7 @@ function ResultReviewSection({
             <span
               className={`text-xs px-2 py-0.5 rounded-full font-medium ${getStatusClass(status)}`}
             >
-              {status}
+              {getReviewStatusLabel(status)}
             </span>
           )}
           {tags.map((tag) => (
@@ -139,7 +149,7 @@ function ResultReviewSection({
         <div>
           <Button size="sm" onClick={onFlag}>
             <ClipboardCheck />
-            Flag for Review
+            标记为待评审
           </Button>
         </div>
       )}
@@ -147,7 +157,7 @@ function ResultReviewSection({
         <div>
           <Button size="sm" onClick={onOpenInReview}>
             <ExternalLinkIcon />
-            Review
+            评审
           </Button>
         </div>
       )}
@@ -187,13 +197,13 @@ export function ExperimentResultPanel({
     <DataPanel collapsed={collapsed}>
       <DataPanel.Header>
         <DataPanel.Heading>
-          Result <b># {result.id.length > 12 ? `${result.id.slice(0, 12)}…` : result.id}</b>
+          结果 <b># {result.id.length > 12 ? `${result.id.slice(0, 12)}…` : result.id}</b>
         </DataPanel.Heading>
         <ButtonsGroup className="ml-auto shrink-0">
           {onCollapsedChange && (
             <Button
               size="md"
-              tooltip={collapsed ? "Expand panel" : "Collapse panel"}
+              tooltip={collapsed ? "展开面板" : "收起面板"}
               onClick={() => setCollapsed(!collapsed)}
             >
               {collapsed ? <ChevronsUpDownIcon /> : <ChevronsDownUpIcon />}
@@ -202,14 +212,14 @@ export function ExperimentResultPanel({
           <DataPanel.NextPrevNav
             onPrevious={onPrevious}
             onNext={onNext}
-            previousLabel="Previous result"
-            nextLabel="Next result"
+            previousLabel="上一个结果"
+            nextLabel="下一个结果"
           />
           <Button size="md" onClick={onShowTrace} disabled={!result.traceId}>
             <TraceIcon />
-            Trace
+            追踪记录
           </Button>
-          <DataPanel.CloseButton onClick={onClose} tooltip="Close result panel" />
+          <DataPanel.CloseButton onClick={onClose} tooltip="关闭结果面板" />
         </ButtonsGroup>
       </DataPanel.Header>
 
@@ -217,21 +227,21 @@ export function ExperimentResultPanel({
         <DataPanel.Content>
           <div className="grid gap-4 mb-6">
             <DataKeysAndValues>
-              <DataKeysAndValues.Key>Item Id</DataKeysAndValues.Key>
+              <DataKeysAndValues.Key>数据项 ID</DataKeysAndValues.Key>
               <DataKeysAndValues.ValueWithCopyBtn
-                copyTooltip="Copy Item Id to clipboard"
+                copyTooltip="复制数据项 ID"
                 copyValue={result.itemId}
               >
                 {result.itemId}
               </DataKeysAndValues.ValueWithCopyBtn>
-              <DataKeysAndValues.Key>Created</DataKeysAndValues.Key>
+              <DataKeysAndValues.Key>创建时间</DataKeysAndValues.Key>
               <DataKeysAndValues.Value>
-                {format(new Date(result.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                {format(new Date(result.createdAt), "yyyy/MM/dd HH:mm")}
               </DataKeysAndValues.Value>
             </DataKeysAndValues>
 
             {hasError && (
-              <Notice variant="destructive" title="Error">
+              <Notice variant="destructive" title="错误">
                 <Notice.Message>{formatValue(getErrorValue(result.error))}</Notice.Message>
               </Notice>
             )}
@@ -254,10 +264,10 @@ export function ExperimentResultPanel({
           </div>
 
           <div className="grid gap-3">
-            <DataPanel.CodeSection title="Input" icon={<FileCodeIcon />} codeStr={inputStr} />
-            <DataPanel.CodeSection title="Output" icon={<FileOutputIcon />} codeStr={outputStr} />
+            <DataPanel.CodeSection title="输入" icon={<FileCodeIcon />} codeStr={inputStr} />
+            <DataPanel.CodeSection title="输出" icon={<FileOutputIcon />} codeStr={outputStr} />
             <DataPanel.CodeSection
-              title="Ground Truth"
+              title="标准答案"
               icon={<TargetIcon />}
               codeStr={groundTruthStr}
             />

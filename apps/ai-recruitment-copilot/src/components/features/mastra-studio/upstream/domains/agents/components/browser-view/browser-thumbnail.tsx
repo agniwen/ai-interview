@@ -20,7 +20,7 @@ interface BrowserThumbnailProps {
  * - Collapsed: Small thumbnail bar (click to expand)
  * - Expanded: Larger view with screencast + actions, with a button to switch to modal
  */
-export function BrowserThumbnail({ agentName = "Agent" }: BrowserThumbnailProps) {
+export function BrowserThumbnail({ agentName = "智能体" }: BrowserThumbnailProps) {
   const { hasSession, viewMode, status, currentUrl, setViewMode, closeBrowser } =
     useBrowserSession();
   const { latestFrame } = useBrowserFrame();
@@ -75,7 +75,7 @@ export function BrowserThumbnail({ agentName = "Agent" }: BrowserThumbnailProps)
 
   const displayUrl = useMemo(() => {
     if (!currentUrl) {
-      return "Browser";
+      return "浏览器";
     }
     try {
       return new URL(currentUrl).hostname;
@@ -111,11 +111,7 @@ export function BrowserThumbnail({ agentName = "Agent" }: BrowserThumbnailProps)
         {/* Thumbnail preview */}
         <div className="relative shrink-0 w-24 h-14 bg-surface3 rounded-md overflow-hidden border border-border1">
           {hasFrame ? (
-            <OptimizedImage
-              ref={imgRef}
-              alt="Browser preview"
-              className="w-full h-full object-cover"
-            />
+            <OptimizedImage ref={imgRef} alt="浏览器预览" className="w-full h-full object-cover" />
           ) : (
             <div className="flex items-center justify-center w-full h-full">
               <Monitor className="h-5 w-5 text-neutral3" />
@@ -134,7 +130,7 @@ export function BrowserThumbnail({ agentName = "Agent" }: BrowserThumbnailProps)
               {agentName}&apos;s browser
             </span>
             <StatusBadge variant={isLive ? "success" : "neutral"} size="sm" withDot pulse={isLive}>
-              {isLive ? "Live" : "Idle"}
+              {isLive ? "实时" : "空闲"}
             </StatusBadge>
           </div>
           <p className="text-xs text-neutral4 truncate mt-0.5">{displayUrl}</p>
@@ -158,7 +154,7 @@ export function BrowserThumbnail({ agentName = "Agent" }: BrowserThumbnailProps)
                 <Button
                   variant="default"
                   size="icon-sm"
-                  tooltip="Center view"
+                  tooltip="居中显示"
                   onClick={handleOpenModal}
                   className="bg-surface1/80 backdrop-blur-sm"
                 >
@@ -167,7 +163,7 @@ export function BrowserThumbnail({ agentName = "Agent" }: BrowserThumbnailProps)
                 <Button
                   variant="default"
                   size="icon-sm"
-                  tooltip="Close browser"
+                  tooltip="关闭浏览器"
                   onClick={handleClose}
                   className="bg-surface1/80 backdrop-blur-sm"
                 >
@@ -181,7 +177,7 @@ export function BrowserThumbnail({ agentName = "Agent" }: BrowserThumbnailProps)
           {toolCalls.length > 0 && (
             <div ref={actionsRef} className="border-t border-border1 max-h-40 overflow-y-auto">
               <div className="px-3 py-2">
-                <h4 className="text-xs font-medium text-neutral4 mb-2">Browser Actions</h4>
+                <h4 className="text-xs font-medium text-neutral4 mb-2">浏览器操作</h4>
                 <div className="space-y-1">
                   {toolCalls.slice(-5).map((entry) => (
                     <BrowserToolCallItem key={entry.toolCallId} entry={entry} />

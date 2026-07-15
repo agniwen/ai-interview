@@ -66,12 +66,12 @@ function parseToolMocks(
   changed: boolean,
   value: string,
 ): JsonParseResult<DatasetItemToolMock[] | undefined> {
-  const result = parseChangedJson<unknown>(changed, value, "Tool Mocks must be valid JSON");
+  const result = parseChangedJson<unknown>(changed, value, "工具模拟必须是有效的 JSON");
   if (!result.ok || result.value === undefined) {
     return result as JsonParseResult<undefined>;
   }
   if (!Array.isArray(result.value)) {
-    toast.error("Tool Mocks must be a JSON array");
+    toast.error("工具模拟必须是 JSON 数组");
     return { ok: false };
   }
   return { ok: true, value: result.value as DatasetItemToolMock[] };
@@ -111,7 +111,7 @@ function getItemPageState({
     return (
       <MainContentLayout>
         <div className="flex h-full items-center justify-center">
-          <PermissionDenied resource="datasets" />
+          <PermissionDenied resource="数据集" />
         </div>
       </MainContentLayout>
     );
@@ -123,7 +123,7 @@ function getItemPageState({
     return (
       <MainContentLayout>
         <MainContentContent>
-          <div className="text-neutral3 p-4">Item not found</div>
+          <div className="text-neutral3 p-4">未找到数据项</div>
         </MainContentContent>
       </MainContentLayout>
     );
@@ -248,7 +248,7 @@ function DatasetItemPage() {
     }
 
     // Parse and validate input JSON
-    const inputResult = parseJson<unknown>(inputValue, "Input must be valid JSON");
+    const inputResult = parseJson<unknown>(inputValue, "输入必须是有效的 JSON");
     if (!inputResult.ok) {
       return;
     }
@@ -256,7 +256,7 @@ function DatasetItemPage() {
 
     const groundTruthResult = parseOptionalJson<unknown>(
       groundTruthValue,
-      "Ground Truth must be valid JSON",
+      "标准答案必须是有效的 JSON",
     );
     if (!groundTruthResult.ok) {
       return;
@@ -264,7 +264,7 @@ function DatasetItemPage() {
     const parsedGroundTruth = groundTruthResult.value;
     const metadataResult = parseOptionalJson<Record<string, unknown>>(
       metadataValue,
-      "Metadata must be valid JSON",
+      "元数据必须是有效的 JSON",
     );
     if (!metadataResult.ok) {
       return;
@@ -274,7 +274,7 @@ function DatasetItemPage() {
     const trajectoryResult = parseChangedJson<unknown>(
       trajectoryChanged,
       trajectoryValue,
-      "Expected Trajectory must be valid JSON",
+      "预期轨迹必须是有效的 JSON",
     );
     if (!trajectoryResult.ok) {
       return;
@@ -290,7 +290,7 @@ function DatasetItemPage() {
     const requestContextResult = parseChangedJson<Record<string, unknown>>(
       requestContextChanged,
       requestContextValue,
-      "Request Context must be valid JSON",
+      "请求上下文必须是有效的 JSON",
     );
     if (!requestContextResult.ok) {
       return;
@@ -308,11 +308,11 @@ function DatasetItemPage() {
         ...(toolMocksChanged ? { toolMocks: parsedToolMocks ?? [] } : {}),
         ...(requestContextChanged ? { requestContext: parsedRequestContext } : {}),
       });
-      toast.success("Item updated successfully");
+      toast.success("数据项更新成功");
       setIsEditing(false);
     } catch (mutationError) {
       toast.error(
-        `Failed to update item: ${mutationError instanceof Error ? mutationError.message : "Unknown error"}`,
+        `更新数据项失败：${mutationError instanceof Error ? mutationError.message : "未知错误"}`,
       );
     }
   };
@@ -348,12 +348,12 @@ function DatasetItemPage() {
     }
     try {
       await deleteItem.mutateAsync({ datasetId, itemId });
-      toast.success("Item deleted successfully");
+      toast.success("数据项删除成功");
       setDeleteDialogOpen(false);
       void navigate(`/datasets/${datasetId}`);
     } catch (mutationError) {
       toast.error(
-        `Failed to delete item: ${mutationError instanceof Error ? mutationError.message : "Unknown error"}`,
+        `删除数据项失败：${mutationError instanceof Error ? mutationError.message : "未知错误"}`,
       );
     }
   };
@@ -388,7 +388,7 @@ function DatasetItemPage() {
   let itemContent = displayItem ? (
     <DatasetItemContent item={displayItem} Link={FrameworkLink} />
   ) : (
-    <div className="text-neutral4 text-sm">Item data not available</div>
+    <div className="text-neutral4 text-sm">数据项数据不可用</div>
   );
   if (isEditing) {
     itemContent = (
@@ -426,18 +426,18 @@ function DatasetItemPage() {
                 </MainHeader.Title>
                 <MainHeader.Description>
                   <TextAndIcon>
-                    Item of <DatabaseIcon /> {dataset?.name}
+                    所属数据集 <DatabaseIcon /> {dataset?.name}
                   </TextAndIcon>
                 </MainHeader.Description>
                 <MainHeader.Description>
                   <TextAndIcon>
-                    <Calendar1Icon /> Created at{" "}
+                    <Calendar1Icon /> 创建时间{" "}
                     {latestVersion?.createdAt
-                      ? format(new Date(latestVersion.createdAt), "MMM d, yyyy")
+                      ? format(new Date(latestVersion.createdAt), "yyyy/MM/dd")
                       : ""}
                   </TextAndIcon>
                   <TextAndIcon>
-                    <HistoryIcon /> Latest version v{latestVersion?.datasetVersion ?? ""}
+                    <HistoryIcon /> 最新版本 v{latestVersion?.datasetVersion ?? ""}
                   </TextAndIcon>
                 </MainHeader.Description>
               </MainHeader.Column>
@@ -447,16 +447,16 @@ function DatasetItemPage() {
                     <Button
                       onClick={handleEditClick}
                       disabled={isViewingOldVersion}
-                      title={isViewingOldVersion ? "Return to latest version to edit" : undefined}
+                      title={isViewingOldVersion ? "返回最新版本后才能编辑" : undefined}
                     >
-                      <Edit2Icon /> Edit
+                      <Edit2Icon /> 编辑
                     </Button>
                     <Button
                       onClick={handleDeleteClick}
                       disabled={isViewingOldVersion}
-                      title={isViewingOldVersion ? "Return to latest version to delete" : undefined}
+                      title={isViewingOldVersion ? "返回最新版本后才能删除" : undefined}
                     >
-                      <Trash2Icon /> Delete
+                      <Trash2Icon /> 删除
                     </Button>
                   </ButtonsGroup>
                 )}
@@ -466,9 +466,9 @@ function DatasetItemPage() {
             <Columns className={isEditing ? "grid-cols-1" : "grid-cols-[1fr_auto]"}>
               <Column withRightSeparator={!isEditing}>
                 {isDeleted && latestVersion && (
-                  <Notice variant="destructive" title="Item deleted">
+                  <Notice variant="destructive" title="数据项已删除">
                     <Notice.Message>
-                      This item was deleted at version v{latestVersion.datasetVersion}
+                      此数据项已在版本 v{latestVersion.datasetVersion} 中删除
                     </Notice.Message>
                   </Notice>
                 )}
@@ -476,16 +476,14 @@ function DatasetItemPage() {
                 {!isDeleted && isViewingOldVersion && selectedVersion && (
                   <Notice
                     variant="warning"
-                    title="Previous version"
+                    title="上一个版本"
                     action={
                       <Notice.Button onClick={handleReturnToLatest}>
-                        <ArrowRightToLineIcon /> Return to the latest version
+                        <ArrowRightToLineIcon /> 返回最新版本
                       </Notice.Button>
                     }
                   >
-                    <Notice.Message>
-                      Viewing version v{selectedVersion.datasetVersion}
-                    </Notice.Message>
+                    <Notice.Message>正在查看版本 v{selectedVersion.datasetVersion}</Notice.Message>
                   </Notice>
                 )}
 
@@ -518,15 +516,15 @@ function DatasetItemPage() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialog.Content>
           <AlertDialog.Header>
-            <AlertDialog.Title>Delete Item</AlertDialog.Title>
+            <AlertDialog.Title>删除数据项</AlertDialog.Title>
             <AlertDialog.Description>
-              Are you sure you want to delete this item? This action cannot be undone.
+              确定要删除此数据项吗？此操作无法撤销。
             </AlertDialog.Description>
           </AlertDialog.Header>
           <AlertDialog.Footer>
-            <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+            <AlertDialog.Cancel>取消</AlertDialog.Cancel>
             <AlertDialog.Action onClick={handleDeleteConfirm}>
-              {deleteItem.isPending ? "Deleting..." : "Delete"}
+              {deleteItem.isPending ? "正在删除..." : "删除"}
             </AlertDialog.Action>
           </AlertDialog.Footer>
         </AlertDialog.Content>

@@ -27,7 +27,7 @@ export function CodeDisplay({
             <button
               type="button"
               onClick={onCopy}
-              aria-label="Copy code"
+              aria-label="复制代码"
               className="absolute inset-0 z-10 rounded-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent1"
             />
           )}
@@ -37,18 +37,18 @@ export function CodeDisplay({
           {isDraft && (
             <div className="mt-1.5">
               <span className="text-ui-xs px-1.5 py-0.5 rounded-full bg-yellow-500/20 text-yellow-500">
-                Draft - Save changes to apply
+                草稿——保存更改后生效
               </span>
             </div>
           )}
           {isCopied && (
             <span className="absolute top-2 right-2 z-20 text-ui-xs px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-500 pointer-events-none">
-              Copied!
+              已复制！
             </span>
           )}
           {onCopy && (
             <span className="absolute top-2 right-2 z-20 text-ui-xs px-1.5 py-0.5 rounded-full bg-surface4 text-neutral4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              Click to copy
+              点击复制
             </span>
           )}
         </div>

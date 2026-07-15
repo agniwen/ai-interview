@@ -30,21 +30,20 @@ async function getMastraTemplateRepos(): Promise<{
 }> {
   const response = await fetch("https://mastra.ai/api/templates.json");
   if (!response.ok) {
-    throw new Error(`Failed to fetch templates: ${response.statusText}`);
+    throw new Error(`获取模板失败：${response.statusText}`);
   }
   const templates = await response.json();
   const allTemplates = [
     {
       agents: ["weatherAgent"],
-      description: "Get weather information of any city.",
+      description: "获取任意城市的天气信息。",
       githubUrl: "https://github.com/mastra-ai/weather-agent",
       imageURL: "",
-      longDescription:
-        "One Agent, one Workflow and one Tool to bring you the weather in your city.",
+      longDescription: "通过一个智能体、一个工作流和一个工具查询城市天气。",
       slug: "weather-agent",
       supportedProviders: ["openai", "anthropic", "google", "groq"],
-      tags: ["Agent", "Workflow", "Tool"],
-      title: "Weather Agent",
+      tags: ["智能体", "工作流", "工具"],
+      title: "天气智能体",
       tools: ["weatherTool"],
       useCase: "",
       workflows: ["weatherWorkflow"],
@@ -71,13 +70,11 @@ async function getTemplateRepoByRepoName({
 }): Promise<Template> {
   const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
   if (!response.ok) {
-    throw new Error(`Failed to fetch template: ${response.statusText}`);
+    throw new Error(`获取模板失败：${response.statusText}`);
   }
   const repoInfo = await response.json();
   if (!repoInfo.is_template) {
-    throw new Error(
-      "Repo is not a template, please update the repo settings to make it a template",
-    );
+    throw new Error("该仓库不是模板仓库，请在仓库设置中将其设为模板。");
   }
 
   return {
@@ -119,7 +116,7 @@ async function getTemplateRepo({
       return templateRepo;
     }
 
-    throw new Error(`Template ${repoOrSlug} not found`);
+    throw new Error(`未找到模板 ${repoOrSlug}`);
   }
 
   return template;
@@ -213,12 +210,12 @@ const normalizeError = (error: unknown): string => {
     return error;
   }
   if (error === null || error === undefined) {
-    return "Unknown error";
+    return "未知错误";
   }
   if (error instanceof Error) {
     return typeof error.message === "string" && error.message.length > 0
       ? error.message
-      : "Unknown error";
+      : "未知错误";
   }
   if (typeof error === "object") {
     try {
@@ -500,7 +497,7 @@ const useTemplateStreamProcessor = (workflowInfo?: TemplateWorkflowInfo, runId?:
     setStreamResult({});
 
     if (!stream) {
-      throw new Error("No stream returned");
+      throw new Error("未返回数据流");
     }
 
     const reader = stream.getReader();
@@ -531,7 +528,7 @@ const useTemplateStreamProcessor = (workflowInfo?: TemplateWorkflowInfo, runId?:
       // Use the helper for error handling too
       const { newState } = processTemplateInstallRecord(
         {
-          payload: { error: error instanceof Error ? error.message : "Unknown error" },
+          payload: { error: error instanceof Error ? error.message : "未知错误" },
           type: "error",
         },
         currentState,
@@ -626,8 +623,8 @@ export const useStreamTemplateInstall = (workflowInfo?: TemplateWorkflowInfo) =>
           if (isNetworkError) {
             // For stream network errors, provide helpful message since switching context is complex
             const errorMessage = runId
-              ? `Network error during template installation (likely hot reload). Please refresh the page to resume from where you left off using runId: ${runId}`
-              : "Network error during template installation (likely hot reload). Please try again.";
+              ? `安装模板时网络异常（可能由热更新引起）。请刷新页面，并使用运行 ID ${runId} 从中断处继续。`
+              : "安装模板时网络异常（可能由热更新引起），请重试。";
 
             console.error("🔌 Stream network error:", errorMessage);
             throw new Error(errorMessage, { cause: error });

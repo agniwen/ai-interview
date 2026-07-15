@@ -95,7 +95,7 @@ function getLockedTooltipContent(isScoped: boolean) {
   if (!isScoped) {
     return;
   }
-  return "This filter is scoped to the current agent. Open the global Traces view to change it.";
+  return "此筛选仅适用于当前智能体。请打开全局追踪页面进行更改。";
 }
 
 export default function TracesPage({ scopedEntityId, scopedEntityType }: TracesPageProps = {}) {
@@ -369,16 +369,16 @@ export default function TracesPage({ scopedEntityId, scopedEntityType }: TracesP
                 }
                 disabled={isTracesLoading}
               />
-              <Label htmlFor="show-subtraces">Show subtraces</Label>
+              <Label htmlFor="show-subtraces">显示子追踪</Label>
             </>
           )}
           <Button
             variant="ghost"
             size="md"
             onClick={() => setAutoRefetchTraces(!autoRefetchTraces)}
-            aria-label="Toggle auto-refetch"
+            aria-label="切换自动刷新"
             aria-pressed={autoRefetchTraces}
-            tooltip={autoRefetchTraces ? "Auto-refetch ON" : "Auto-refetch OFF"}
+            tooltip={autoRefetchTraces ? "自动刷新已开启" : "自动刷新已关闭"}
           >
             {autoRefetchTraces ? (
               <RefreshCw className={`h-4 w-4 ${isRefetchingTraces ? "animate-spin" : ""}`} />
@@ -396,14 +396,12 @@ export default function TracesPage({ scopedEntityId, scopedEntityType }: TracesP
           variant="info"
           action={
             <Notice.Button variant="ghost" onClick={() => setBranchesNoticeDismissed(true)}>
-              Dismiss
+              关闭
             </Notice.Button>
           }
           className="mb-4"
         >
-          <Notice.Message>
-            Selected list mode isn't supported by this storage provider — switched to default.
-          </Notice.Message>
+          <Notice.Message>当前存储提供商不支持所选列表模式，已切换为默认模式。</Notice.Message>
         </Notice>
       ) : null;
 
@@ -442,11 +440,7 @@ export default function TracesPage({ scopedEntityId, scopedEntityType }: TracesP
       <PageLayout width="wide" height="full">
         {renderPageTopArea()}
         <PageLayout.MainArea isCentered>
-          <TracesErrorContent
-            error={tracesError}
-            resource="traces"
-            errorTitle="Failed to load traces"
-          />
+          <TracesErrorContent error={tracesError} resource="追踪" errorTitle="加载追踪失败" />
         </PageLayout.MainArea>
       </PageLayout>
     );

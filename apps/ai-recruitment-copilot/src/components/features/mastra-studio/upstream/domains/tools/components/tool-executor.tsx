@@ -62,8 +62,8 @@ const ToolExecutorContent = ({
         <div className="flex-1 overflow-hidden border-t border-border1 flex flex-col">
           <Tabs defaultTab="input-data" value={selectedTab} onValueChange={setSelectedTab}>
             <TabList>
-              <Tab value="input-data">Input Data</Tab>
-              {requestContextSchema && <Tab value="request-context">Request Context</Tab>}
+              <Tab value="input-data">输入数据</Tab>
+              {requestContextSchema && <Tab value="request-context">请求上下文</Tab>}
             </TabList>
           </Tabs>
           <div className={cn("p-5 overflow-y-auto", selectedTab !== "input-data" && "hidden")}>
@@ -86,7 +86,7 @@ const ToolExecutorContent = ({
         </div>
       </div>
       <div className="absolute top-4 right-4 z-10">
-        <CopyButton content={code} tooltip="Copy JSON result to clipboard" />
+        <CopyButton content={code} tooltip="复制 JSON 结果到剪贴板" />
       </div>
       <div className="p-5 h-full relative overflow-x-auto overflow-y-auto">
         <CodeMirror

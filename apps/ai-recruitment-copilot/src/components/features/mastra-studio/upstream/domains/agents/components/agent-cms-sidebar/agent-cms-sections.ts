@@ -9,20 +9,20 @@ export interface AgentCmsSection {
 }
 
 export const AGENT_CMS_SECTIONS: AgentCmsSection[] = [
-  { descriptionKey: "identity", name: "Identity", pathSuffix: "", required: true },
+  { descriptionKey: "identity", name: "身份信息", pathSuffix: "", required: true },
   {
     descriptionKey: "instructions",
-    name: "Instructions",
+    name: "指令",
     pathSuffix: "/instruction-blocks",
     required: true,
   },
-  { descriptionKey: "tools", name: "Tools", pathSuffix: "/tools", required: false },
-  { descriptionKey: "agents", name: "Agents", pathSuffix: "/agents", required: false },
-  { descriptionKey: "scorers", name: "Scorers", pathSuffix: "/scorers", required: false },
-  { descriptionKey: "workflows", name: "Workflows", pathSuffix: "/workflows", required: false },
-  { descriptionKey: "skills", name: "Skills", pathSuffix: "/skills", required: false },
-  { descriptionKey: "memory", name: "Memory", pathSuffix: "/memory", required: false },
-  { descriptionKey: "variables", name: "Variables", pathSuffix: "/variables", required: false },
+  { descriptionKey: "tools", name: "工具", pathSuffix: "/tools", required: false },
+  { descriptionKey: "agents", name: "智能体", pathSuffix: "/agents", required: false },
+  { descriptionKey: "scorers", name: "评分器", pathSuffix: "/scorers", required: false },
+  { descriptionKey: "workflows", name: "工作流", pathSuffix: "/workflows", required: false },
+  { descriptionKey: "skills", name: "技能", pathSuffix: "/skills", required: false },
+  { descriptionKey: "memory", name: "记忆", pathSuffix: "/memory", required: false },
+  { descriptionKey: "variables", name: "变量", pathSuffix: "/variables", required: false },
 ];
 
 /** Sections available when editing a code-defined agent (override mode) */
@@ -32,13 +32,13 @@ export function getCodeAgentOverrideSections(editorConfig?: AgentEditorConfig): 
   }
 
   const sections = AGENT_CMS_SECTIONS.filter((section) => {
-    if (section.name === "Instructions") {
+    if (section.descriptionKey === "instructions") {
       return editorConfig?.instructions !== false;
     }
-    if (section.name === "Tools") {
+    if (section.descriptionKey === "tools") {
       return editorConfig?.tools !== false;
     }
-    return section.name === "Variables";
+    return section.descriptionKey === "variables";
   });
 
   return sections;

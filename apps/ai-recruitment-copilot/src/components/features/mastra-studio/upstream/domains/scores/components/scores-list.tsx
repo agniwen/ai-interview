@@ -95,11 +95,11 @@ export function ScoresList({
 
   const header = (
     <ScoresDataList.Top>
-      <ScoresDataList.TopCell>Date</ScoresDataList.TopCell>
-      <ScoresDataList.TopCell>Time</ScoresDataList.TopCell>
-      <ScoresDataList.TopCell>Input</ScoresDataList.TopCell>
-      <ScoresDataList.TopCell>Entity</ScoresDataList.TopCell>
-      <ScoresDataList.TopCell>Score</ScoresDataList.TopCell>
+      <ScoresDataList.TopCell>日期</ScoresDataList.TopCell>
+      <ScoresDataList.TopCell>时间</ScoresDataList.TopCell>
+      <ScoresDataList.TopCell>输入</ScoresDataList.TopCell>
+      <ScoresDataList.TopCell>实体</ScoresDataList.TopCell>
+      <ScoresDataList.TopCell>得分</ScoresDataList.TopCell>
     </ScoresDataList.Top>
   );
 

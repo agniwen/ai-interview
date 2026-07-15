@@ -67,17 +67,14 @@ export function ToolProviderDialog({
   );
 
   const selectionCount = localSelection.size;
-  const selectionLabel =
-    selectionCount === 0
-      ? "Add tools"
-      : `Add ${selectionCount} tool${selectionCount === 1 ? "" : "s"}`;
+  const selectionLabel = selectionCount === 0 ? "添加工具" : `添加 ${selectionCount} 个工具`;
 
   return (
     <SideDialog
       isOpen={!!provider}
       onClose={onClose}
       dialogTitle={provider?.name ?? ""}
-      dialogDescription={provider?.description ?? "Browse tools from this provider"}
+      dialogDescription={provider?.description ?? "浏览此提供商的工具"}
       level={1}
     >
       <SideDialog.Header className="px-9 pt-6">

@@ -71,13 +71,13 @@ export default function AgentBuilderSkillsPage() {
       if (is403ForbiddenError(error)) {
         return (
           <div className="flex items-center justify-center pt-10">
-            <PermissionDenied resource="skills" />
+            <PermissionDenied resource="技能" />
           </div>
         );
       }
       return (
         <div className="flex items-center justify-center pt-10">
-          <ErrorState title="Failed to load skills" message={error.message} />
+          <ErrorState title="加载技能失败" message={error.message} />
         </div>
       );
     }
@@ -87,13 +87,13 @@ export default function AgentBuilderSkillsPage() {
         <div className="flex items-center justify-center pt-16">
           <EmptyState
             iconSlot={<SparklesIcon className="h-8 w-8 text-neutral3" />}
-            titleSlot="No skills yet"
-            descriptionSlot="Create your first skill to give agents new capabilities."
+            titleSlot="暂无技能"
+            descriptionSlot="创建第一个技能，为智能体提供新能力。"
             actionSlot={
               canWriteSkills ? (
                 <div className="flex items-center gap-2">
                   <Button variant="primary" onClick={goToCreate}>
-                    <PlusIcon /> New skill
+                    <PlusIcon /> 新建技能
                   </Button>
                   {enabledRegistry && (
                     <Button
@@ -102,7 +102,7 @@ export default function AgentBuilderSkillsPage() {
                         setRegistryDialog({ id: enabledRegistry.id, label: enabledRegistry.label })
                       }
                     >
-                      <DownloadIcon /> Browse registry
+                      <DownloadIcon /> 浏览注册表
                     </Button>
                   )}
                 </div>
@@ -123,9 +123,9 @@ export default function AgentBuilderSkillsPage() {
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-4">
             <PageHeader>
               <PageHeader.Title>
-                <SparklesIcon /> My skills
+                <SparklesIcon /> 我的技能
               </PageHeader.Title>
-              <PageHeader.Description>Skills you've created.</PageHeader.Description>
+              <PageHeader.Description>你创建的技能。</PageHeader.Description>
             </PageHeader>
             {skills.length > 0 && canWriteSkills && (
               <div className="w-full shrink-0 flex flex-col items-stretch gap-2 md:w-auto md:flex-row md:items-center">
@@ -137,7 +137,7 @@ export default function AgentBuilderSkillsPage() {
                       setRegistryDialog({ id: enabledRegistry.id, label: enabledRegistry.label })
                     }
                   >
-                    <DownloadIcon /> Browse registry
+                    <DownloadIcon /> 浏览注册表
                   </Button>
                 )}
                 <Button
@@ -145,17 +145,13 @@ export default function AgentBuilderSkillsPage() {
                   className="w-full justify-center md:w-auto"
                   onClick={goToCreate}
                 >
-                  <PlusIcon /> New skill
+                  <PlusIcon /> 新建技能
                 </Button>
               </div>
             )}
           </div>
           <div className="max-w-120">
-            <ListSearch
-              onSearch={setSearch}
-              label="Filter skills"
-              placeholder="Filter by name or description"
-            />
+            <ListSearch onSearch={setSearch} label="筛选技能" placeholder="按名称或描述筛选" />
           </div>
         </PageLayout.TopArea>
 
@@ -175,19 +171,19 @@ export default function AgentBuilderSkillsPage() {
           installedSkillIds={installedSkillIds}
           onInstalled={(storedSkillId) => {
             const installed = skills.find((s) => s.id === storedSkillId);
-            toast.success(installed ? `Imported "${installed.name}"` : "Skill imported");
+            toast.success(installed ? `已导入“${installed.name}”` : "已导入技能");
           }}
           onCollision={(skillName) => {
             const existing = skills.find((s) => s.id === skillName || s.name === skillName);
             if (existing) {
-              toast.error(`"${existing.name}" is already in your library`, {
+              toast.error(`“${existing.name}”已在你的库中`, {
                 action: {
-                  label: "Open existing",
+                  label: "打开现有技能",
                   onClick: () => goToEdit(existing.id),
                 },
               });
             } else {
-              toast.error(`A skill named "${skillName}" already exists.`);
+              toast.error(`已存在名为“${skillName}”的技能。`);
             }
           }}
         />

@@ -18,9 +18,9 @@ export interface DatasetCompareVersionsListProps {
 
 const columns = [
   { label: "ID", name: "id", size: "1fr" },
-  { label: "Version A", name: "versionA", size: "1fr" },
-  { label: "Version B", name: "versionB", size: "1fr" },
-  { label: "Compare", name: "compare", size: "10rem" },
+  { label: "版本 A", name: "versionA", size: "1fr" },
+  { label: "版本 B", name: "versionB", size: "1fr" },
+  { label: "对比", name: "compare", size: "10rem" },
 ];
 
 const versionInfoConfig = {
@@ -28,19 +28,19 @@ const versionInfoConfig = {
     borderColor: "border-blue-900",
     color: "blue" as const,
     icon: <PlusIcon />,
-    tooltip: "Added in this version",
+    tooltip: "此版本新增",
   },
   changed: {
     borderColor: "border-yellow-900",
     color: "orange" as const,
     icon: <PenIcon />,
-    tooltip: "Changed in this version",
+    tooltip: "此版本已更改",
   },
   same: {
     borderColor: "border-green-900",
     color: "green" as const,
     icon: <EqualIcon />,
-    tooltip: "Same in both versions",
+    tooltip: "两个版本中相同",
   },
 };
 
@@ -67,7 +67,7 @@ function VersionInfo({
   version?: number;
 }) {
   if (!variant) {
-    return <span className="text-ui-md text-neutral4">v. {version}</span>;
+    return <span className="text-ui-md text-neutral4">版本 {version}</span>;
   }
   const { color, icon, tooltip } = versionInfoConfig[variant];
   return (
@@ -76,7 +76,7 @@ function VersionInfo({
         <div className="grid grid-cols-[1fr_auto]">
           {version !== undefined && (
             <span className="pr-3 text-ui-md text-neutral4 min-w-16 flex justify-end">
-              v. {version}
+              版本 {version}
             </span>
           )}
           <Chip color={color} size="small">
@@ -151,9 +151,7 @@ export function DatasetCompareVersionsList({
                       <ItemList.Cell className={"justify-center flex  items-center"}>
                         <EmptyCell
                           red={isANewer}
-                          tooltip={
-                            isANewer ? "Deleted in this version" : "Not present in this version"
-                          }
+                          tooltip={isANewer ? "此版本中已删除" : "此版本中不存在"}
                         />
                       </ItemList.Cell>
                     )}
@@ -169,9 +167,7 @@ export function DatasetCompareVersionsList({
                       <ItemList.Cell className={"justify-center flex items-center"}>
                         <EmptyCell
                           red={!isANewer}
-                          tooltip={
-                            isANewer ? "Not present in this version" : "Deleted in this version"
-                          }
+                          tooltip={isANewer ? "此版本中不存在" : "此版本中已删除"}
                         />
                       </ItemList.Cell>
                     )}
@@ -191,18 +187,11 @@ export function DatasetCompareVersionsList({
                     LinkComponent={Link}
                     href={`/datasets/${datasetId}/items/${id}/versions?ids=${itemA?.datasetVersion},${itemB?.datasetVersion}`}
                   >
-                    Compare
+                    对比
                   </ItemList.LinkCell>
                 ) : (
                   <ItemList.Cell>
-                    <EmptyCell
-                      tooltip={
-                        <>
-                          Comparing is available
-                          <br /> only for changed items
-                        </>
-                      }
-                    />
+                    <EmptyCell tooltip={<>仅可对比已更改的数据项</>} />
                   </ItemList.Cell>
                 )}
               </ItemList.Row>

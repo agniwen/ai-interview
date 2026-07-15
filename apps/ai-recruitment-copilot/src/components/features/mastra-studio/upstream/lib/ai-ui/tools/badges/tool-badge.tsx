@@ -109,28 +109,28 @@ export const ToolBadge = ({
       <div className="space-y-4">
         {withoutArgs ? null : (
           <div>
-            <p className="font-medium pb-2">Tool arguments</p>
+            <p className="font-medium pb-2">工具参数</p>
             {argSlot}
           </div>
         )}
 
         {suspendPayloadSlot !== undefined && Boolean(suspendPayload) && (
           <div>
-            <p className="font-medium pb-2">Tool suspend payload</p>
+            <p className="font-medium pb-2">工具挂起载荷</p>
             {suspendPayloadSlot}
           </div>
         )}
 
         {resultSlot !== undefined && Boolean(result) && (
           <div>
-            <p className="font-medium pb-2">Tool result</p>
+            <p className="font-medium pb-2">工具结果</p>
             {resultSlot}
           </div>
         )}
 
         {toolOutput.length > 0 && (
           <div>
-            <p className="font-medium pb-2">Tool output</p>
+            <p className="font-medium pb-2">工具输出</p>
 
             <div className="h-40 overflow-y-auto">
               <CodeEditor data={toolOutput} data-testid="tool-output" />

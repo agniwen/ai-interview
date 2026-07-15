@@ -5,8 +5,10 @@ import {
   DataListSkeleton as EntityListSkeleton,
 } from "@mastra/playground-ui/components/DataList";
 import { StatusBadge } from "@mastra/playground-ui/components/StatusBadge";
+import { format } from "date-fns";
 import { useMemo } from "react";
 import { useLinkComponent } from "@/components/features/mastra-studio/upstream/lib/framework";
+import { getExperimentStatusLabel, getExperimentTargetTypeLabel } from "./experiments-list-options";
 
 export interface ExperimentsListProps {
   experiments: DatasetExperiment[];
@@ -25,12 +27,7 @@ function formatDate(dateStr: string | Date | undefined | null): string {
     return "—";
   }
   const d = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
-  return d.toLocaleDateString("en-US", {
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "short",
-  });
+  return format(d, "yyyy/MM/dd HH:mm");
 }
 
 const STATUS_VARIANT: Record<string, "success" | "warning" | "error" | "neutral"> = {
@@ -91,15 +88,15 @@ export function ExperimentsList({
   return (
     <EntityList columns={COLUMNS} variant="striped">
       <EntityList.Top>
-        <EntityList.TopCell>Experiment</EntityList.TopCell>
-        <EntityList.TopCell>Dataset</EntityList.TopCell>
-        <EntityList.TopCell>Target</EntityList.TopCell>
-        <EntityList.TopCell>Status</EntityList.TopCell>
-        <EntityList.TopCell className="text-center">Items</EntityList.TopCell>
-        <EntityList.TopCell className="text-center">Succeeded</EntityList.TopCell>
-        <EntityList.TopCell className="text-center">Failed</EntityList.TopCell>
-        <EntityList.TopCell className="text-center">Review</EntityList.TopCell>
-        <EntityList.TopCell>Date</EntityList.TopCell>
+        <EntityList.TopCell>实验</EntityList.TopCell>
+        <EntityList.TopCell>数据集</EntityList.TopCell>
+        <EntityList.TopCell>目标</EntityList.TopCell>
+        <EntityList.TopCell>状态</EntityList.TopCell>
+        <EntityList.TopCell className="text-center">数据项</EntityList.TopCell>
+        <EntityList.TopCell className="text-center">成功</EntityList.TopCell>
+        <EntityList.TopCell className="text-center">失败</EntityList.TopCell>
+        <EntityList.TopCell className="text-center">评审</EntityList.TopCell>
+        <EntityList.TopCell>日期</EntityList.TopCell>
       </EntityList.Top>
 
       {filteredData.map((exp) => {
@@ -118,12 +115,12 @@ export function ExperimentsList({
             <EntityList.TextCell>{dsName}</EntityList.TextCell>
             <EntityList.Cell>
               <span className="truncate">
-                {exp.targetType} {exp.targetId}
+                {getExperimentTargetTypeLabel(exp.targetType)} {exp.targetId}
               </span>
             </EntityList.Cell>
             <EntityList.Cell>
               <StatusBadge variant={STATUS_VARIANT[status] ?? "neutral"} withDot>
-                {status}
+                {getExperimentStatusLabel(status)}
               </StatusBadge>
             </EntityList.Cell>
             <EntityList.TextCell className="text-center">{total}</EntityList.TextCell>
@@ -148,13 +145,13 @@ export function ExperimentsList({
                 if (review.needsReview > 0) {
                   return (
                     <Chip size="small" color="yellow">
-                      {review.needsReview} pending
+                      {review.needsReview} 等待中
                     </Chip>
                   );
                 }
                 return (
                   <Chip size="small" color="green">
-                    {review.complete}/{inPipeline} reviewed
+                    {review.complete}/{inPipeline} 已评审
                   </Chip>
                 );
               })()}

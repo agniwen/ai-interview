@@ -11,7 +11,7 @@ export function VersionIndicator({ versionNumber, onClose }: VersionIndicatorPro
   return (
     <div className="flex items-center gap-1.5">
       <Badge variant="info">Viewing v{versionNumber}</Badge>
-      <Button variant="ghost" size="icon-sm" onClick={onClose} tooltip="Back to latest version">
+      <Button variant="ghost" size="icon-sm" onClick={onClose} tooltip="返回最新版本">
         <X />
       </Button>
     </div>

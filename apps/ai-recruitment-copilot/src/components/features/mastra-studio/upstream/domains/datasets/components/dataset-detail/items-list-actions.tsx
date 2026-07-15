@@ -40,7 +40,7 @@ export function ActionsMenu({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" disabled={disabled} aria-label="Actions menu">
+        <Button variant="ghost" size="sm" disabled={disabled} aria-label="操作菜单">
           <Icon>
             <MoreVertical className="w-4 h-4" />
           </Icon>
@@ -57,7 +57,7 @@ export function ActionsMenu({
             <Icon>
               <Download className="w-4 h-4" />
             </Icon>
-            Export
+            导出
           </Button>
           <Button
             variant="ghost"
@@ -68,7 +68,7 @@ export function ActionsMenu({
             <Icon>
               <FolderPlus className="w-4 h-4" />
             </Icon>
-            Create Dataset
+            创建数据集
           </Button>
           <Button
             variant="ghost"
@@ -79,7 +79,7 @@ export function ActionsMenu({
             <Icon>
               <Trash2 className="w-4 h-4" />
             </Icon>
-            Delete
+            删除
           </Button>
         </div>
       </PopoverContent>

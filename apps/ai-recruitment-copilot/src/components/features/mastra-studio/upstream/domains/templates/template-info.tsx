@@ -73,21 +73,16 @@ export function TemplateInfo({
               <div className="flex-1 space-y-2">
                 <div className="flex items-center gap-2">
                   <GitBranchIcon className="w-[1em] h-[1em] text-neutral4" />
-                  <span className="text-ui-md font-medium text-neutral5">
-                    A new Git branch will be created
-                  </span>
+                  <span className="text-ui-md font-medium text-neutral5">将创建新的 Git 分支</span>
                 </div>
                 <div className="text-ui-sm text-neutral4 space-y-1">
                   <div>
-                    <span className="font-medium">Branch name:</span>{" "}
+                    <span className="font-medium">分支名称：</span>{" "}
                     <code className="bg-surface3 px-1.5 py-0.5 rounded text-ui-sm font-mono">
                       {branchName}
                     </code>
                   </div>
-                  <div>
-                    This ensures safe installation with easy rollback if needed. Your main branch
-                    remains unchanged.
-                  </div>
+                  <div>这样可以安全安装并在需要时轻松回滚，主分支不会发生变化。</div>
                 </div>
               </div>
             </div>

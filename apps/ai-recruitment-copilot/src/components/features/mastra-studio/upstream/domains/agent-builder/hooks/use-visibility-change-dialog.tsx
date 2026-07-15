@@ -62,9 +62,7 @@ export function useVisibilityChangeDialog<V extends string>({
       onSuccess(nextVisibility);
       toast.success(copy[nextVisibility].toast);
     } catch (error) {
-      toast.error(
-        `Failed to update visibility: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`更新可见性失败：${error instanceof Error ? error.message : "未知错误"}`);
     } finally {
       setPending(null);
     }
@@ -89,7 +87,7 @@ export function useVisibilityChangeDialog<V extends string>({
                 disabled={isPending}
                 data-testid={testIds.cancel}
               >
-                Cancel
+                取消
               </Button>
               <Button
                 variant="default"
@@ -97,7 +95,7 @@ export function useVisibilityChangeDialog<V extends string>({
                 disabled={isPending || (confirmDisabled?.(pending) ?? false)}
                 data-testid={testIds.confirm}
               >
-                Confirm
+                确认
               </Button>
             </DialogFooter>
           </>

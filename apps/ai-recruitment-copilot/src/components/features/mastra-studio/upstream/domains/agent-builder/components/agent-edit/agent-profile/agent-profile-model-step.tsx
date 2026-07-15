@@ -38,18 +38,19 @@ export const AgentProfileModelStep = () => {
 
   return (
     <AgentStepContainer
-      title="Available models"
+      title="可用模型"
       description={
         model ? (
           <div className="flex items-center gap-2">
-            Selected model: <ActiveModelBadge provider={model.provider} name={model.name} />
+            已选模型：
+            <ActiveModelBadge provider={model.provider} name={model.name} />
           </div>
         ) : undefined
       }
       contentClassName="overflow-hidden"
       cta={
         <Button onClick={handleContinue} disabled={isStreaming}>
-          Continue{" "}
+          继续{" "}
           <Icon>
             <ArrowRightIcon />
           </Icon>

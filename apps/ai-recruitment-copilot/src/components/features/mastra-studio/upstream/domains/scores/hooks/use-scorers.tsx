@@ -86,10 +86,10 @@ export const useScorer = (scorerId: string) => {
         setScorer(res);
       } catch (error) {
         setScorer(null);
-        const errorObj = error instanceof Error ? error : new Error("Error fetching scorer");
+        const errorObj = error instanceof Error ? error : new Error("获取评分器时出错");
         setError(errorObj);
-        console.error("Error fetching scorer", error);
-        toast.error("Error fetching scorer");
+        console.error("获取评分器时出错", error);
+        toast.error("获取评分器时出错");
       } finally {
         setIsLoading(false);
       }

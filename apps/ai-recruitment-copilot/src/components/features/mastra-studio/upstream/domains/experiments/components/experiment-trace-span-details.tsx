@@ -14,22 +14,22 @@ export function ExperimentTraceSpanDetails({ span }: ExperimentTraceSpanDetailsP
   return (
     <>
       <SideDialog.CodeSection
-        title="Input"
+        title="输入"
         icon={<FileInputIcon />}
         codeStr={JSON.stringify(span.input || null, null, 2)}
       />
       <SideDialog.CodeSection
-        title="Output"
+        title="输出"
         icon={<FileOutputIcon />}
         codeStr={JSON.stringify(span.output || null, null, 2)}
       />
       <SideDialog.CodeSection
-        title="Metadata"
+        title="元数据"
         icon={<BracesIcon />}
         codeStr={JSON.stringify(span.metadata || null, null, 2)}
       />
       <SideDialog.CodeSection
-        title="Attributes"
+        title="属性"
         icon={<BracesIcon />}
         codeStr={JSON.stringify(span.attributes || null, null, 2)}
       />

@@ -109,7 +109,7 @@ export const AgentStepContainer = ({
               onClick={() => startViewTransition(() => next())}
               disabled={isStreaming}
             >
-              See agent configuration
+              查看智能体配置
             </Button>
             <Button
               variant="primary"
@@ -118,7 +118,7 @@ export const AgentStepContainer = ({
               }
               disabled={isStreaming}
             >
-              Try agent
+              试用智能体
             </Button>
           </div>
         ) : (

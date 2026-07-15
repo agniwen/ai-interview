@@ -107,7 +107,7 @@ function CmsScorersEditForm({
   const handleSaveDraft = useCallback(async () => {
     const isValid = await form.trigger();
     if (!isValid) {
-      toast.error("Please fill in all required fields");
+      toast.error("请填写所有必填字段");
       return;
     }
 
@@ -115,11 +115,9 @@ function CmsScorersEditForm({
     try {
       const params = buildUpdateParams(form.getValues());
       await updateStoredScorer.mutateAsync(params);
-      toast.success("Draft saved");
+      toast.success("草稿已保存");
     } catch (error) {
-      toast.error(
-        `Failed to save draft: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`保存草稿失败：${error instanceof Error ? error.message : "未知错误"}`);
     } finally {
       setIsSavingDraft(false);
     }
@@ -128,7 +126,7 @@ function CmsScorersEditForm({
   const handlePublish = useCallback(async () => {
     const isValid = await form.trigger();
     if (!isValid) {
-      toast.error("Please fill in all required fields");
+      toast.error("请填写所有必填字段");
       return;
     }
 
@@ -148,12 +146,10 @@ function CmsScorersEditForm({
 
       void queryClient.invalidateQueries({ queryKey: ["scorers"] });
       void queryClient.invalidateQueries({ queryKey: ["stored-scorers"] });
-      toast.success("Scorer published");
+      toast.success("评分器已发布");
       void navigate(paths.scorerLink(scorerId));
     } catch (error) {
-      toast.error(
-        `Failed to publish scorer: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`发布评分器失败：${error instanceof Error ? error.message : "未知错误"}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -167,12 +163,10 @@ function CmsScorersEditForm({
         void queryClient.invalidateQueries({ queryKey: ["scorers"] });
         void queryClient.invalidateQueries({ queryKey: ["stored-scorers"] });
         void queryClient.invalidateQueries({ queryKey: ["scorer-versions", scorerId] });
-        toast.success("Version published");
+        toast.success("版本已发布");
         void navigate(paths.scorerLink(scorerId));
       } catch (error) {
-        toast.error(
-          `Failed to publish version: ${error instanceof Error ? error.message : "Unknown error"}`,
-        );
+        toast.error(`发布版本失败：${error instanceof Error ? error.message : "未知错误"}`);
       } finally {
         setIsSubmitting(false);
       }
@@ -205,11 +199,11 @@ function CmsScorersEditForm({
       }
     >
       {isViewingPreviousVersion && (
-        <Notice variant="info" title="This is a previous version" className="m-4 mb-0">
-          <Notice.Message>You are seeing a specific version of the scorer.</Notice.Message>
+        <Notice variant="info" title="当前为历史版本" className="m-4 mb-0">
+          <Notice.Message>你正在查看评分器的特定版本。</Notice.Message>
           <div className="flex gap-2">
             <Button type="button" variant="default" size="sm" onClick={onClearVersion}>
-              View latest version
+              查看最新版本
             </Button>
             <Button
               type="button"
@@ -218,7 +212,7 @@ function CmsScorersEditForm({
               onClick={handlePublishVersion}
               disabled={selectedVersionId === activeVersionId || isSubmitting}
             >
-              {isSubmitting ? "Publishing..." : "Publish This Version"}
+              {isSubmitting ? "发布中..." : "发布此版本"}
             </Button>
           </div>
         </Notice>
@@ -284,13 +278,11 @@ function CmsScorersEditPage() {
         <AgentEditLayout
           leftSlot={
             <div className="flex items-center justify-center h-full text-neutral3">
-              Scorer not found
+              未找到评分器
             </div>
           }
         >
-          <div className="flex items-center justify-center h-full text-neutral3">
-            Scorer not found
-          </div>
+          <div className="flex items-center justify-center h-full text-neutral3">未找到评分器</div>
         </AgentEditLayout>
       </MainContentLayout>
     );
@@ -300,7 +292,7 @@ function CmsScorersEditPage() {
     <MainContentLayout className="grid-rows-[1fr]">
       <RouteHeaderActions owner="cms-scorer-edit">
         <div className="flex items-center gap-2">
-          {hasDraft && <Badge variant="info">Unpublished changes</Badge>}
+          {hasDraft && <Badge variant="info">有未发布的更改</Badge>}
           <ScorerVersionCombobox
             scorerId={scorerId}
             value={selectedVersionId ?? ""}

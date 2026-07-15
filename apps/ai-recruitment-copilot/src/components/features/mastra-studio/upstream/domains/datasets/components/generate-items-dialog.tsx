@@ -46,19 +46,17 @@ interface GenerateConfigDialogProps {
 function buildDefaultPrompt(agentContext?: AgentContext): string {
   const parts: string[] = [];
   if (agentContext?.description) {
-    parts.push(
-      `Generate diverse test inputs for an agent that ${agentContext.description.toLowerCase()}.`,
-    );
+    parts.push(`为具备以下描述的智能体生成多样化的测试输入：${agentContext.description}。`);
   } else {
-    parts.push("Generate diverse test inputs for this agent.");
+    parts.push("为此智能体生成多样化的测试输入。");
   }
   if (agentContext?.instructions) {
-    parts.push(`Agent instructions: ${agentContext.instructions}`);
+    parts.push(`智能体指令：${agentContext.instructions}`);
   }
   if (agentContext?.tools?.length) {
-    parts.push(`The agent has these tools: ${agentContext.tools.join(", ")}.`);
+    parts.push(`智能体拥有以下工具：${agentContext.tools.join("、")}。`);
   }
-  parts.push("Include edge cases, typical usage, and adversarial inputs.");
+  parts.push("包含边界情况、典型用法和对抗性输入。");
   return parts.join(" ");
 }
 
@@ -100,7 +98,7 @@ export function GenerateConfigDialog({
 
   const handleGenerate = useCallback(() => {
     if (!modelId) {
-      toast.error("Please select a provider and model");
+      toast.error("请选择提供商和模型");
       return;
     }
 
@@ -134,12 +132,12 @@ export function GenerateConfigDialog({
     <Dialog open onOpenChange={handleClose}>
       <DialogContent ref={configContentRef} className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Generate Test Data</DialogTitle>
+          <DialogTitle>生成测试数据</DialogTitle>
         </DialogHeader>
         <DialogBody>
           <div className="space-y-4">
             <div className="space-y-1">
-              <Label>Model</Label>
+              <Label>模型</Label>
               <div className="flex items-center gap-1.5">
                 <div className="w-[160px]">
                   <LLMProviders
@@ -166,17 +164,17 @@ export function GenerateConfigDialog({
             </div>
 
             <div className="space-y-2">
-              <Label>Instructions (optional)</Label>
+              <Label>指令（可选）</Label>
               <Textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="e.g., Generate diverse recipe queries covering different cuisines, dietary restrictions, and skill levels..."
+                placeholder="例如：生成涵盖不同菜系、饮食限制和技能水平的多样化食谱查询..."
                 rows={4}
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Number of items</Label>
+              <Label>数据项数量</Label>
               <Input
                 type="number"
                 min={1}
@@ -190,19 +188,19 @@ export function GenerateConfigDialog({
 
             {!modelId && (
               <Txt variant="ui-xs" className="text-amber-400">
-                Select a provider and model above to generate items.
+                请先在上方选择提供商和模型，再生成数据项。
               </Txt>
             )}
           </div>
         </DialogBody>
         <DialogFooter className="px-6">
           <div className="flex justify-end gap-2">
-            <Button onClick={() => handleClose(false)}>Cancel</Button>
+            <Button onClick={() => handleClose(false)}>取消</Button>
             <Button variant="primary" onClick={handleGenerate} disabled={!modelId}>
               <Icon>
                 <Sparkles />
               </Icon>
-              Generate
+              生成
             </Button>
           </div>
         </DialogFooter>
@@ -247,18 +245,16 @@ export function GenerateReviewDialog({
       }));
 
     if (items.length === 0) {
-      toast.error("No items selected");
+      toast.error("未选择数据项");
       return;
     }
 
     try {
       await batchInsertItems.mutateAsync({ datasetId, items });
-      toast.success(`Added ${items.length} item${items.length > 1 ? "s" : ""} to dataset`);
+      toast.success(`已向数据集添加 ${items.length} 个数据项`);
       onDismiss();
     } catch (error) {
-      toast.error(
-        `Failed to add items: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`添加数据项失败：${error instanceof Error ? error.message : "未知错误"}`);
     }
   }, [generatedItems, selectedIndices, modelId, datasetId, batchInsertItems, onDismiss]);
 
@@ -333,7 +329,7 @@ export function GenerateReviewDialog({
     <Dialog open onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Review Generated Items</DialogTitle>
+          <DialogTitle>检查已生成的数据项</DialogTitle>
         </DialogHeader>
         <DialogBody className="max-h-[70vh] flex flex-col">
           <div className="flex flex-col flex-1 min-h-0 gap-4">
@@ -344,12 +340,12 @@ export function GenerateReviewDialog({
                   onCheckedChange={toggleAll}
                 />
                 <Txt variant="ui-sm" className="text-neutral4">
-                  {selectedIndices.size} of {generatedItems.length} selected
+                  已选择 {selectedIndices.size} / {generatedItems.length}
                 </Txt>
               </div>
               {onStartOver && (
                 <Button variant="ghost" size="sm" onClick={onStartOver}>
-                  Start over
+                  重新开始
                 </Button>
               )}
             </div>
@@ -369,7 +365,7 @@ export function GenerateReviewDialog({
                         onClick={() => toggleExpanded(index)}
                       >
                         <Txt variant="ui-sm" className="text-neutral5 truncate">
-                          Item {index + 1}: {formatItemPreview(item.input)}
+                          数据项 {index + 1}: {formatItemPreview(item.input)}
                         </Txt>
                       </button>
                       <Button variant="ghost" size="sm" onClick={() => handleRemoveItem(index)}>
@@ -383,7 +379,7 @@ export function GenerateReviewDialog({
                       <div className="border-t border-border1 px-3 py-2 space-y-2">
                         <div>
                           <Txt variant="ui-xs" className="text-neutral3 font-medium">
-                            Input
+                            输入
                           </Txt>
                           <pre className="text-xs text-neutral5 bg-surface1 rounded px-2 py-1.5 overflow-x-auto whitespace-pre-wrap wrap-break-word max-h-32 overflow-y-auto mt-1">
                             {JSON.stringify(item.input, null, 2)}
@@ -392,7 +388,7 @@ export function GenerateReviewDialog({
                         {item.groundTruth !== undefined && (
                           <div>
                             <Txt variant="ui-xs" className="text-neutral3 font-medium">
-                              Ground Truth
+                              标准答案
                             </Txt>
                             <pre className="text-xs text-neutral5 bg-surface1 rounded px-2 py-1.5 overflow-x-auto whitespace-pre-wrap wrap-break-word max-h-32 overflow-y-auto mt-1">
                               {JSON.stringify(item.groundTruth, null, 2)}
@@ -409,7 +405,7 @@ export function GenerateReviewDialog({
         </DialogBody>
         <DialogFooter className="px-6">
           <div className="flex justify-end gap-2">
-            <Button onClick={() => handleClose(false)}>Cancel</Button>
+            <Button onClick={() => handleClose(false)}>取消</Button>
             <Button
               variant="primary"
               onClick={handleAddSelected}
@@ -418,14 +414,14 @@ export function GenerateReviewDialog({
               {batchInsertItems.isPending ? (
                 <>
                   <Spinner className="h-4 w-4" />
-                  Adding...
+                  正在添加...
                 </>
               ) : (
                 <>
                   <Icon>
                     <Plus />
                   </Icon>
-                  Add {selectedIndices.size} Item{selectedIndices.size === 1 ? "" : "s"}
+                  添加 {selectedIndices.size} 个数据项
                 </>
               )}
             </Button>

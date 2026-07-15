@@ -17,16 +17,14 @@ type Visibility = NonNullable<AgentBuilderEditFormValues["visibility"]>;
 
 const COPY: Record<Visibility, VisibilityCopy> = {
   private: {
-    description:
-      "Removing this agent from the library means your teammates will no longer be able to discover, view, or chat with it. You will be the only person with access.",
-    title: "Remove this agent from your library?",
-    toast: "Agent removed from the library",
+    description: "从库中移除此智能体后，团队成员将无法再发现、查看或与其对话，只有你可以访问。",
+    title: "从你的库中移除此智能体？",
+    toast: "已从库中移除智能体",
   },
   public: {
-    description:
-      "Adding this agent to the library means your teammates will be able to discover, view, and chat with it.",
-    title: "Add this agent to your library?",
-    toast: "Agent added to the library",
+    description: "将此智能体添加到库后，团队成员将能够发现、查看并与其对话。",
+    title: "将此智能体添加到你的库？",
+    toast: "已将智能体添加到库",
   },
 };
 

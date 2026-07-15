@@ -41,7 +41,7 @@ export function ProviderToolkitSelector({
     <div className="space-y-4 border rounded p-4">
       <div className="space-y-1">
         <label className="block font-medium" htmlFor="provider-select">
-          Provider
+          提供商
         </label>
         <select
           id="provider-select"
@@ -50,20 +50,20 @@ export function ProviderToolkitSelector({
           onChange={(event) => onProviderChange(event.target.value)}
           disabled={providersLoading}
         >
-          <option value="">— select provider —</option>
+          <option value="">— 选择提供商 —</option>
           {providers.map((provider) => (
             <option key={provider.id} value={provider.id}>
               {provider.displayName ?? provider.name} ({provider.id})
             </option>
           ))}
         </select>
-        {providersLoading && <span className="text-gray-500">Loading providers…</span>}
+        {providersLoading && <span className="text-gray-500">正在加载提供商…</span>}
         {providersError ? <span className="text-red-600">{String(providersError)}</span> : null}
       </div>
 
       <div className="space-y-1">
         <label className="block font-medium" htmlFor="toolkit-select">
-          Toolkit
+          工具包
         </label>
         <select
           id="toolkit-select"
@@ -72,27 +72,27 @@ export function ProviderToolkitSelector({
           onChange={(event) => onToolkitChange(event.target.value)}
           disabled={!providerId || toolkitsLoading}
         >
-          <option value="">— select toolkit —</option>
+          <option value="">— 选择工具包 —</option>
           {toolkits.map((item) => (
             <option key={item.slug} value={item.slug}>
               {item.name} ({item.slug})
             </option>
           ))}
         </select>
-        {toolkitsLoading && <span className="text-gray-500">Loading toolkits…</span>}
+        {toolkitsLoading && <span className="text-gray-500">正在加载工具包…</span>}
         {toolkitsError ? <span className="text-red-600">{String(toolkitsError)}</span> : null}
       </div>
 
       <div className="space-y-1">
         <label className="block font-medium" htmlFor="label-input">
-          Label (optional)
+          标签（可选）
         </label>
         <input
           id="label-input"
-          aria-label="Connection label"
+          aria-label="连接标签"
           type="text"
           className="border rounded px-2 py-1 w-full"
-          placeholder="My personal Gmail"
+          placeholder="我的个人 Gmail"
           value={label}
           onChange={(event) => onLabelChange(event.target.value)}
           disabled={!providerId || !toolkit}
@@ -105,13 +105,13 @@ export function ProviderToolkitSelector({
         onClick={onConnect}
         disabled={!providerId || !toolkit || authorizePending}
       >
-        {authorizePending ? "Authorizing…" : "Connect"}
+        {authorizePending ? "正在授权…" : "连接"}
       </button>
 
       {authorizeError ? <p className="text-red-600">{String(authorizeError)}</p> : null}
       {authorizedConnection && (
         <p className="text-green-700">
-          Authorized: {authorizedConnection.connectionId} (status: {authorizedConnection.status})
+          已授权：{authorizedConnection.connectionId}（状态：{authorizedConnection.status}）
         </p>
       )}
     </div>

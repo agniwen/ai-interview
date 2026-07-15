@@ -31,7 +31,7 @@ export const ReasoningPartRenderer = ({ part }: ReasoningPartRendererProps) => {
   const isStreaming = "state" in part && part.state === "streaming";
 
   if (!reasoningText && !redacted && isStreaming) {
-    return <ReasoningStreamingLine text="Reasoning..." />;
+    return <ReasoningStreamingLine text="思考中..." />;
   }
 
   return <Reasoning text={reasoningText} redacted={redacted} />;

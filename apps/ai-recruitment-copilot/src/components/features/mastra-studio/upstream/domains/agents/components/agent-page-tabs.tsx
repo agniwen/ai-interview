@@ -106,14 +106,14 @@ export function AgentPageTabs({
 
   const playgroundDisabledReason = isTruthy(!showPlayground) ? (
     <p>
-      Configure <code>@mastra/editor</code> to use the Editor.{" "}
-      <DocsLink href="https://mastra.ai/docs/editor/overview">Learn more</DocsLink>
+      配置 <code>@mastra/editor</code> 后即可使用编辑器。{" "}
+      <DocsLink href="https://mastra.ai/docs/editor/overview">了解更多</DocsLink>
     </p>
   ) : undefined;
   const observabilityDisabledReason = isTruthy(!showObservability) ? (
     <p>
-      Add <code>@mastra/observability</code> to enable this tab.{" "}
-      <DocsLink href="https://mastra.ai/docs/observability/overview">Learn more</DocsLink>
+      添加 <code>@mastra/observability</code> 以启用此标签页。{" "}
+      <DocsLink href="https://mastra.ai/docs/observability/overview">了解更多</DocsLink>
     </p>
   ) : undefined;
 
@@ -143,25 +143,25 @@ export function AgentPageTabs({
         className="flex-1 min-w-0 max-lg:flex-auto"
       >
         <TabList variant="pill-ghost">
-          <AgentTab value="chat" icon={<MessageSquare />} label="Chat" />
+          <AgentTab value="chat" icon={<MessageSquare />} label="对话" />
           <AgentTab
             value="versions"
             icon={<GitBranch />}
-            label="Editor"
+            label="编辑器"
             disabled={!showPlayground}
             disabledReason={playgroundDisabledReason}
           />
           <AgentTab
             value="evaluate"
             icon={<FlaskConical />}
-            label="Evaluate"
+            label="评估"
             disabled={!showObservability}
             disabledReason={observabilityDisabledReason}
           />
           <AgentTab
             value="review"
             icon={<ClipboardCheck />}
-            label="Review"
+            label="评审"
             badge={reviewBadge}
             disabled={!showObservability}
             disabledReason={observabilityDisabledReason}
@@ -169,7 +169,7 @@ export function AgentPageTabs({
           <AgentTab
             value="traces"
             icon={<EyeIcon />}
-            label="Traces"
+            label="追踪"
             disabled={!showObservability}
             disabledReason={observabilityDisabledReason}
           />

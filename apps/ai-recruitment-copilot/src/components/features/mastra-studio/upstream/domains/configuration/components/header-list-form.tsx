@@ -18,7 +18,7 @@ export interface HeaderListFormProps {
 export const HeaderListForm = ({ headers, onAddHeader, onRemoveHeader }: HeaderListFormProps) => (
   <div className="space-y-4">
     <Txt as="h2" variant="header-xs" className="text-neutral6">
-      Headers
+      请求头
     </Txt>
 
     <div className=" space-y-6">
@@ -37,7 +37,7 @@ export const HeaderListForm = ({ headers, onAddHeader, onRemoveHeader }: HeaderL
       )}
 
       <div className="flex items-center gap-2 justify-between">
-        {headers.length === 0 && <Txt className="text-neutral3">No header yet</Txt>}
+        {headers.length === 0 && <Txt className="text-neutral3">尚未添加请求头</Txt>}
         <Button
           type="button"
           onClick={() => onAddHeader({ name: "", value: "" })}
@@ -45,7 +45,7 @@ export const HeaderListForm = ({ headers, onAddHeader, onRemoveHeader }: HeaderL
           className=""
         >
           <Plus />
-          {headers.length === 0 ? "Add Header" : "Add Another Header"}
+          {headers.length === 0 ? "添加请求头" : "继续添加请求头"}
         </Button>
       </div>
     </div>
@@ -67,8 +67,8 @@ const HeaderListFormItem = ({ index, header, onRemove }: HeaderListFormItemProps
       <TextFieldBlock
         id={nameId}
         name={`headers.${index}.name`}
-        label="Name"
-        placeholder="e.g. Authorization"
+        label="名称"
+        placeholder="例如 Authorization"
         required
         defaultValue={header.name}
       />
@@ -76,13 +76,13 @@ const HeaderListFormItem = ({ index, header, onRemove }: HeaderListFormItemProps
       <TextFieldBlock
         id={valueId}
         name={`headers.${index}.value`}
-        label="Value"
-        placeholder="e.g. Bearer <token>"
+        label="值"
+        placeholder="例如 Bearer <token>"
         required
         defaultValue={header.value}
       />
 
-      <Button type="button" onClick={onRemove} aria-label="Remove header" tooltip="Remove header">
+      <Button type="button" onClick={onRemove} aria-label="移除请求头" tooltip="移除请求头">
         <Trash />
       </Button>
     </div>

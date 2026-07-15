@@ -112,7 +112,7 @@ export const CodeModeBadge = ({
     >
       <div className="space-y-4">
         <div>
-          <p className="font-medium pb-2">Program</p>
+          <p className="font-medium pb-2">程序</p>
           <div data-testid="code-mode-program">
             <CodeBlock code={formattedCode} lang="typescript" />
           </div>
@@ -120,21 +120,21 @@ export const CodeModeBadge = ({
 
         {error && (
           <div>
-            <p className="font-medium pb-2">Error</p>
+            <p className="font-medium pb-2">错误</p>
             <pre
               data-testid="code-mode-error"
               className="whitespace-pre-wrap break-words bg-surface4 p-4 rounded-md text-error font-mono text-sm"
             >
               {error.name ? `${error.name}: ` : ""}
               {error.message}
-              {typeof error.line === "number" ? ` (line ${error.line})` : ""}
+              {typeof error.line === "number" ? `（第 ${error.line} 行）` : ""}
             </pre>
           </div>
         )}
 
         {hasResultValue && (
           <div>
-            <p className="font-medium pb-2">Result</p>
+            <p className="font-medium pb-2">结果</p>
             {typeof resultValue === "string" ? (
               <pre
                 className="whitespace-pre bg-surface4 p-4 rounded-md overflow-x-auto"
@@ -153,7 +153,7 @@ export const CodeModeBadge = ({
 
         {logs.length > 0 && (
           <div>
-            <p className="font-medium pb-2">Logs</p>
+            <p className="font-medium pb-2">日志</p>
             <pre
               data-testid="code-mode-logs"
               className="whitespace-pre-wrap break-words bg-black p-3 rounded-md text-neutral-300 font-mono text-sm overflow-x-auto"

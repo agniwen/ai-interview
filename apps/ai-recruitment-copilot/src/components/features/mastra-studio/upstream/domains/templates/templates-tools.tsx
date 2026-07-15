@@ -51,14 +51,14 @@ export function TemplatesTools({
     <div className={cn("flex flex-wrap mx-auto sticky top-0 gap-4 bg-surface2 py-8", className)}>
       <SearchFieldBlock
         name="search-templates"
-        label="Search templates"
+        label="搜索模板"
         labelIsHidden
         value={searchTerm}
         onChange={(e) => onSearchChange?.(e.target.value)}
-        placeholder="Search Template"
+        placeholder="搜索模板"
       />
       <SelectFieldBlock
-        label="Filter by tag"
+        label="按标签筛选"
         labelIsHidden={true}
         name="filter-tag"
         value={selectedTag}
@@ -66,7 +66,7 @@ export function TemplatesTools({
         options={tagOptions}
       />
       <SelectFieldBlock
-        label="Filter by provider"
+        label="按提供商筛选"
         labelIsHidden={true}
         name="filter-provider"
         value={selectedProvider}
@@ -75,7 +75,7 @@ export function TemplatesTools({
       />
       {onReset && (
         <Button onClick={onReset}>
-          Reset <XIcon />
+          重置 <XIcon />
         </Button>
       )}
     </div>

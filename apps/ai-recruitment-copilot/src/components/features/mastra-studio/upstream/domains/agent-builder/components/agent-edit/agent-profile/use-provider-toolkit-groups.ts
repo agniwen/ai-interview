@@ -65,9 +65,7 @@ export const useProviderToolkitGroups = (
       }
     }
 
-    const builtIn: ToolkitOption[] = hasBuiltIn
-      ? [{ id: BUILT_IN_TOOLKIT_ID, label: "Built-in" }]
-      : [];
+    const builtIn: ToolkitOption[] = hasBuiltIn ? [{ id: BUILT_IN_TOOLKIT_ID, label: "内置" }] : [];
 
     const providerSections: ProviderSection[] = (providers ?? [])
       .filter((p) => slugsByProvider.has(p.id))

@@ -14,7 +14,7 @@ export const SystemReminderBadge = ({ text }: SystemReminderBadgeProps) => {
     return text;
   }
 
-  const title = reminder.path || reminder.type || "System reminder";
+  const title = reminder.path || reminder.type || "系统提醒";
 
   return (
     <div className="rounded-lg border border-border1 bg-surface2 overflow-hidden">
@@ -25,7 +25,7 @@ export const SystemReminderBadge = ({ text }: SystemReminderBadgeProps) => {
       >
         <FileText className="w-4 h-4 text-icon3 mt-0.5 shrink-0" />
         <div className="min-w-0 flex-1">
-          <p className="text-ui-sm leading-ui-sm font-medium text-neutral6">System reminder</p>
+          <p className="text-ui-sm leading-ui-sm font-medium text-neutral6">系统提醒</p>
           <p className="text-ui-xs leading-ui-xs text-neutral4 break-all mt-1">{title}</p>
         </div>
         {isExpanded ? (

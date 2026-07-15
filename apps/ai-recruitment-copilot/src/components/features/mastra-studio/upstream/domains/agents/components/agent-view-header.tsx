@@ -28,7 +28,7 @@ export function AgentViewHeader({ agentId, view }: AgentViewHeaderProps) {
 
   const sessionUrl = `${window.location.origin}${MASTRA_STUDIO_ROUTE_BASE}/agents/${encodeURIComponent(agentId)}/session`;
   const { handleCopy: handleShareLink, isCopied: isShareCopied } = useCopyToClipboard({
-    copyMessage: "Session URL copied to clipboard!",
+    copyMessage: "会话 URL 已复制到剪贴板！",
     text: sessionUrl,
   });
 
@@ -64,14 +64,14 @@ export function AgentViewHeader({ agentId, view }: AgentViewHeaderProps) {
               <Icon size="sm">
                 <Pencil />
               </Icon>
-              Edit
+              编辑
             </Button>
           )}
           <Button
             variant="default"
             type="button"
             onClick={handleShareLink}
-            tooltip="Copy session URL to share with your team"
+            tooltip="复制会话 URL 并与团队共享"
             data-testid="agent-entity-header-share"
           >
             {isShareCopied ? (
@@ -88,11 +88,11 @@ export function AgentViewHeader({ agentId, view }: AgentViewHeaderProps) {
           >
             {view === "chat" ? (
               <>
-                <SlidersHorizontal className="h-4 w-4 text-neutral3" /> Settings
+                <SlidersHorizontal className="h-4 w-4 text-neutral3" /> 设置
               </>
             ) : (
               <>
-                <X className="h-4 w-4 text-neutral3" /> Close
+                <X className="h-4 w-4 text-neutral3" /> 关闭
               </>
             )}
           </Button>

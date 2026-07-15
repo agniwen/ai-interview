@@ -106,13 +106,13 @@ export function WorkflowsPage() {
     <ScrollArea className="h-full">
       <div className="flex flex-col gap-6">
         <SectionHeader
-          title="Workflows"
-          subtitle={`Select workflows this agent can trigger.${count > 0 ? ` (${count} selected)` : ""}`}
+          title="工作流"
+          subtitle={`选择此智能体可以触发的工作流。${count > 0 ? `（已选择 ${count} 个）` : ""}`}
         />
 
         <SubSectionRoot>
           <Section.Header>
-            <SubSectionHeader title="Available Workflows" icon={<WorkflowIcon />} />
+            <SubSectionHeader title="可用工作流" icon={<WorkflowIcon />} />
           </Section.Header>
 
           <InputGroup variant="outline">
@@ -121,8 +121,8 @@ export function WorkflowsPage() {
             </InputGroupAddon>
             <InputGroupInput
               type="search"
-              aria-label="Search workflows"
-              placeholder="Search workflows"
+              aria-label="搜索工作流"
+              placeholder="搜索工作流"
               onChange={(event) => setSearch(event.target.value)}
             />
           </InputGroup>
@@ -140,7 +140,7 @@ export function WorkflowsPage() {
                       <EntityName>{workflow.label}</EntityName>
                       <EntityDescription>
                         <input
-                          aria-label={`${workflow.label} description`}
+                          aria-label={`${workflow.label} 的描述`}
                           type="text"
                           disabled={isDisabled}
                           className={cn(

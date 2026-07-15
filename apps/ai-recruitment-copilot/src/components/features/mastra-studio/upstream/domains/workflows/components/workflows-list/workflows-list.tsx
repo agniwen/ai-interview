@@ -39,13 +39,13 @@ export function WorkflowsList({ workflows, isLoading, search = "" }: WorkflowsLi
   return (
     <EntityList columns="auto 1fr auto">
       <EntityList.Top>
-        <EntityList.TopCell>Name</EntityList.TopCell>
-        <EntityList.TopCell>Description</EntityList.TopCell>
-        <EntityList.TopCell>Number of steps</EntityList.TopCell>
+        <EntityList.TopCell>名称</EntityList.TopCell>
+        <EntityList.TopCell>描述</EntityList.TopCell>
+        <EntityList.TopCell>步骤数</EntityList.TopCell>
       </EntityList.Top>
 
       {filteredData.length === 0 && search ? (
-        <EntityList.NoMatch message="No Workflows match your search" />
+        <EntityList.NoMatch message="没有符合搜索条件的工作流" />
       ) : null}
 
       {filteredData.map((wf) => {

@@ -32,14 +32,14 @@ export function PromptsList({ promptBlocks, isLoading, search = "" }: PromptsLis
   return (
     <EntityList columns="auto 1fr auto auto" variant="striped">
       <EntityList.Top>
-        <EntityList.TopCell>Name</EntityList.TopCell>
-        <EntityList.TopCell>Description</EntityList.TopCell>
-        <EntityList.TopCell className="text-center">Has Draft</EntityList.TopCell>
-        <EntityList.TopCell className="text-center">Is Published</EntityList.TopCell>
+        <EntityList.TopCell>名称</EntityList.TopCell>
+        <EntityList.TopCell>描述</EntityList.TopCell>
+        <EntityList.TopCell className="text-center">有草稿</EntityList.TopCell>
+        <EntityList.TopCell className="text-center">已发布</EntityList.TopCell>
       </EntityList.Top>
 
       {filteredData.length === 0 && search ? (
-        <EntityList.NoMatch message="No Prompts match your search" />
+        <EntityList.NoMatch message="没有符合搜索条件的提示词" />
       ) : null}
 
       {filteredData.map((block) => {

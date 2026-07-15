@@ -71,24 +71,23 @@ export function ExperimentPageHeader({ experimentId, experiment }: ExperimentPag
         </MainHeader.Title>
         <MainHeader.Description>
           <TextAndIcon>
-            <Calendar1Icon /> Created at{" "}
-            {format(new Date(experiment.createdAt), "MMM d, yyyy 'at' h:mm a")}
+            <Calendar1Icon /> 创建时间 {format(new Date(experiment.createdAt), "yyyy/MM/dd HH:mm")}
           </TextAndIcon>
           {experiment.completedAt && (
             <TextAndIcon>
-              <Calendar1Icon /> Completed at{" "}
-              {format(new Date(experiment.completedAt), "MMM d, yyyy 'at' h:mm a")}
+              <Calendar1Icon /> 完成时间{" "}
+              {format(new Date(experiment.completedAt), "yyyy/MM/dd HH:mm")}
             </TextAndIcon>
           )}
         </MainHeader.Description>
         <MainHeader.Description>
           <TextAndIcon>
-            <CrosshairIcon /> Target
+            <CrosshairIcon /> 目标
             <Link href={getTargetPath()}>{getTargetName()}</Link>
           </TextAndIcon>
           {experiment.agentVersion && (
             <TextAndIcon>
-              <GitBranch /> Version
+              <GitBranch /> 版本
               {experiment.targetType === "agent" && experiment.targetId ? (
                 <Link
                   href={`${paths.agentLink(experiment.targetId)}/editor?version=${encodeURIComponent(experiment.agentVersion)}`}

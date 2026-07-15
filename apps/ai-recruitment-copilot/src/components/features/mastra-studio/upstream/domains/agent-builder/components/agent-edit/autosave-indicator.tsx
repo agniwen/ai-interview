@@ -16,7 +16,7 @@ export const AutosaveIndicator = ({ status, lastError, onRetry }: AutosaveIndica
         data-testid="agent-builder-autosave-saving"
       >
         <Spinner size="sm" />
-        Saving…
+        正在保存…
       </span>
     );
   }
@@ -28,7 +28,7 @@ export const AutosaveIndicator = ({ status, lastError, onRetry }: AutosaveIndica
         data-testid="agent-builder-autosave-saved"
       >
         <CheckIcon className="h-3.5 w-3.5" />
-        Saved
+        已保存
       </span>
     );
   }
@@ -39,14 +39,14 @@ export const AutosaveIndicator = ({ status, lastError, onRetry }: AutosaveIndica
         className="flex items-center gap-1.5 text-ui-sm text-neutral3"
         data-testid="agent-builder-autosave-error"
       >
-        <span title={lastError?.message}>Failed to save</span>
+        <span title={lastError?.message}>保存失败</span>
         <button
           type="button"
           onClick={onRetry}
           data-testid="agent-builder-autosave-retry"
           className="underline underline-offset-2 hover:text-neutral4"
         >
-          Retry
+          重试
         </button>
       </span>
     );

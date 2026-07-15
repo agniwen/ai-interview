@@ -29,14 +29,14 @@ export function WorkflowNestedGraphDialog({
   return (
     <>
       <Button type="button" size="sm" onClick={() => setOpen(true)}>
-        View nested graph
+        查看嵌套图
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-4xl w-full z-10">
           <DialogHeader>
-            <DialogTitle>{stepName} workflow</DialogTitle>
-            <DialogDescription>View the nested workflow graph for this step</DialogDescription>
+            <DialogTitle>{stepName} 工作流</DialogTitle>
+            <DialogDescription>查看此步骤的嵌套工作流图</DialogDescription>
           </DialogHeader>
           <DialogBody className="min-h-[500px]">
             <ReactFlowProvider key={fullStep}>

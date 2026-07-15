@@ -8,7 +8,7 @@ export const useExperimentTrace = (traceId: string | null | undefined) => {
     enabled: !!traceId,
     queryFn: () => {
       if (!traceId) {
-        throw new Error("Trace ID is required");
+        throw new Error("追踪 ID 为必填项");
       }
       return client.getTraceLight(traceId);
     },

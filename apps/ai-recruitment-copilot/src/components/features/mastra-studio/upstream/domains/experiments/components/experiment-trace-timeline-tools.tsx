@@ -62,9 +62,9 @@ export function ExperimentTraceTimelineTools({
       <div className="flex">
         <SearchFieldBlock
           name="search-spans"
-          label="Find span by name"
+          label="按名称查找 Span"
           labelIsHidden
-          placeholder="Look for span name"
+          placeholder="搜索 Span 名称"
           value={localSearchPhrase}
           onChange={(e) => {
             setLocalSearchPhrase(e.target.value);
@@ -101,7 +101,7 @@ export function ExperimentTraceTimelineTools({
             <Icon>
               <CircleDashedIcon />
             </Icon>
-            Other
+            其他
           </Button>
         )}
         <Button onClick={onLegendReset} disabled={fadedTypes?.length === 0}>

@@ -8,6 +8,16 @@ export interface WorkflowRunStatusIconProps {
   status: WorkflowRunStatus;
 }
 
+const STATUS_LABELS: Partial<Record<WorkflowRunStatus, string>> = {
+  canceled: "已取消",
+  failed: "失败",
+  pending: "等待中",
+  running: "运行中",
+  success: "成功",
+  suspended: "已挂起",
+  waiting: "等待中",
+};
+
 function StatusIcon({ status }: WorkflowRunStatusIconProps) {
   switch (status) {
     case "running": {
@@ -36,14 +46,15 @@ function StatusIcon({ status }: WorkflowRunStatusIconProps) {
 }
 
 export function WorkflowRunStatusIcon({ status }: WorkflowRunStatusIconProps) {
+  const statusLabel = STATUS_LABELS[status] ?? status;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Icon aria-label={status} className="shrink-0">
+        <Icon aria-label={statusLabel} className="shrink-0">
           <StatusIcon status={status} />
         </Icon>
       </TooltipTrigger>
-      <TooltipContent>{status}</TooltipContent>
+      <TooltipContent>{statusLabel}</TooltipContent>
     </Tooltip>
   );
 }

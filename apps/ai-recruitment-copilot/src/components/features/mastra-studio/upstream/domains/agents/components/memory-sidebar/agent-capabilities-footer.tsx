@@ -57,7 +57,7 @@ const toneClassName: Record<CapabilityTone, { icon: string }> = {
 // per-capability components and the summary count cannot drift apart.
 const getRecordCount = (value?: CapabilityCollection) => (value ? Object.keys(value).length : 0);
 
-const countStatus = (count: number) => (count > 0 ? String(count) : "Off");
+const countStatus = (count: number) => (count > 0 ? String(count) : "关闭");
 
 const getProcessorCount = (agent: GetAgentResponse | null | undefined) =>
   (agent?.inputProcessors?.length ?? 0) + (agent?.outputProcessors?.length ?? 0);
@@ -154,20 +154,20 @@ function MemoryCapability({ agentId, view }: AgentCapabilityProps) {
 
   const settledStatus = resolveConditional(
     enabled,
-    () => (memory?.memoryType === "gateway" ? "Gateway" : "On"),
-    () => "Off",
+    () => (memory?.memoryType === "gateway" ? "网关" : "开启"),
+    () => "关闭",
   );
-  const status = isLoading ? "Checking" : settledStatus;
+  const status = isLoading ? "正在检查" : settledStatus;
 
   return (
     <CapabilityItem
       view={view}
-      label="Memory"
+      label="记忆"
       status={status}
       description={
         enabled
-          ? "Conversation history and configured memory features are available for this agent."
-          : "This agent has no memory configured, so conversations are not saved as memory-backed threads."
+          ? "此智能体可以使用会话历史和已配置的记忆功能。"
+          : "此智能体未配置记忆，因此对话不会保存为由记忆支持的会话。"
       }
       docsHref="https://mastra.ai/docs/memory/overview"
       enabled={enabled}
@@ -191,25 +191,23 @@ function EditorCapability({ agentId, view }: AgentCapabilityProps) {
   const isLoading =
     isAgentLoading || isCmsAvailabilityLoading || (enabled && versionsQuery.isLoading);
 
-  const availableStatus = versionCount > 0 ? String(versionCount) : "Ready";
+  const availableStatus = versionCount > 0 ? String(versionCount) : "就绪";
   const settledStatus = resolveConditional(
     enabled,
     () => availableStatus,
-    () => (locked ? "Locked" : "Off"),
+    () => (locked ? "已锁定" : "关闭"),
   );
-  const status = isLoading ? "Checking" : settledStatus;
+  const status = isLoading ? "正在检查" : settledStatus;
 
   const disabledDescription = locked
-    ? "This code-defined agent explicitly disables editor overrides."
-    : "Register MastraEditor to enable versioned agent overrides.";
-  const description = enabled
-    ? "Editor is available for versioned agent overrides."
-    : disabledDescription;
+    ? "此代码定义的智能体已显式停用编辑器覆盖。"
+    : "注册 MastraEditor 以启用带版本的智能体覆盖。";
+  const description = enabled ? "编辑器可用于带版本的智能体覆盖。" : disabledDescription;
 
   return (
     <CapabilityItem
       view={view}
-      label="Editor"
+      label="编辑器"
       status={status}
       description={description}
       docsHref="https://mastra.ai/docs/editor/overview"
@@ -227,11 +225,9 @@ function ToolsCapability({ agentId, view }: AgentCapabilityProps) {
   return (
     <CapabilityItem
       view={view}
-      label="Tools"
-      status={isLoading ? "Checking" : countStatus(count)}
-      description={
-        count > 0 ? `${count} tool${count === 1 ? "" : "s"} available.` : "No tools are configured."
-      }
+      label="工具"
+      status={isLoading ? "正在检查" : countStatus(count)}
+      description={count > 0 ? `有 ${count} 个可用工具。` : "尚未配置工具。"}
       docsHref="https://mastra.ai/docs/agents/using-tools-and-mcp"
       enabled={count > 0}
       tone="emerald"
@@ -247,13 +243,9 @@ function WorkflowsCapability({ agentId, view }: AgentCapabilityProps) {
   return (
     <CapabilityItem
       view={view}
-      label="Workflows"
-      status={isLoading ? "Checking" : countStatus(count)}
-      description={
-        count > 0
-          ? `${count} workflow${count === 1 ? "" : "s"} available.`
-          : "No workflows are attached to this agent."
-      }
+      label="工作流"
+      status={isLoading ? "正在检查" : countStatus(count)}
+      description={count > 0 ? `有 ${count} 个可用工作流。` : "此智能体尚未关联工作流。"}
       docsHref="https://mastra.ai/docs/workflows/overview"
       enabled={count > 0}
       tone="sky"
@@ -269,13 +261,9 @@ function SubAgentsCapability({ agentId, view }: AgentCapabilityProps) {
   return (
     <CapabilityItem
       view={view}
-      label="Sub-agents"
-      status={isLoading ? "Checking" : countStatus(count)}
-      description={
-        count > 0
-          ? `${count} sub-agent${count === 1 ? "" : "s"} available.`
-          : "No sub-agents are attached to this agent."
-      }
+      label="子智能体"
+      status={isLoading ? "正在检查" : countStatus(count)}
+      description={count > 0 ? `有 ${count} 个可用子智能体。` : "此智能体尚未关联子智能体。"}
       docsHref="https://mastra.ai/docs/agents/supervisor-agents"
       enabled={count > 0}
       tone="cyan"
@@ -291,13 +279,9 @@ function ProcessorsCapability({ agentId, view }: AgentCapabilityProps) {
   return (
     <CapabilityItem
       view={view}
-      label="Processors"
-      status={isLoading ? "Checking" : countStatus(count)}
-      description={
-        count > 0
-          ? `${count} input/output processor${count === 1 ? "" : "s"} configured.`
-          : "No input or output processors are configured."
-      }
+      label="处理器"
+      status={isLoading ? "正在检查" : countStatus(count)}
+      description={count > 0 ? `已配置 ${count} 个输入/输出处理器。` : "尚未配置输入或输出处理器。"}
       docsHref="https://mastra.ai/docs/agents/processors"
       enabled={count > 0}
       tone="orange"
@@ -334,10 +318,7 @@ export function AgentCapabilitiesFooter({ agentId }: { agentId: string }) {
   return (
     <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
       <div className="shrink-0 border-t border-border1/50">
-        <CollapsibleTrigger
-          asChild
-          aria-label={isExpanded ? "Hide capability details" : "Show capability details"}
-        >
+        <CollapsibleTrigger asChild aria-label={isExpanded ? "隐藏能力详情" : "显示能力详情"}>
           <button
             type="button"
             data-testid="agent-capabilities-footer"

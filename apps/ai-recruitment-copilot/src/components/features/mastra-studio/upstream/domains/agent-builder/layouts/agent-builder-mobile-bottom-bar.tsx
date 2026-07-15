@@ -15,27 +15,27 @@ interface MobileLink {
 
 const agentsLink: MobileLink = {
   icon: <AgentIcon />,
-  name: "Agents",
+  name: "智能体",
   url: "/agent-builder/agents",
 };
 const skillsLink: MobileLink = {
   icon: <Blocks className="size-5" />,
-  name: "Skills",
+  name: "技能",
   url: "/agent-builder/skills",
 };
 const favoritesLink: MobileLink = {
   icon: <StarIcon className="size-5" />,
-  name: "Favorites",
+  name: "收藏",
   url: "/agent-builder/favorite",
 };
 const libraryLink: MobileLink = {
   icon: <LibraryIcon className="size-5" />,
-  name: "Library",
+  name: "库",
   url: "/agent-builder/library",
 };
 const infrastructureLink: MobileLink = {
   icon: <ServerCogIcon className="size-5" />,
-  name: "Infra",
+  name: "基础设施",
   url: "/agent-builder/infrastructure",
 };
 
@@ -64,7 +64,7 @@ export function AgentBuilderMobileBottomBar() {
 
   return (
     <nav
-      aria-label="Primary"
+      aria-label="主导航"
       className="md:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border1 bg-surface1/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)]"
     >
       <ul

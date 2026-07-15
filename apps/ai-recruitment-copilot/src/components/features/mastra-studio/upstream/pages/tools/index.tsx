@@ -29,7 +29,7 @@ export default function Tools() {
   if (error && is403ForbiddenError(error)) {
     return (
       <NoDataPageLayout>
-        <PermissionDenied resource="tools" />
+        <PermissionDenied resource="工具" />
       </NoDataPageLayout>
     );
   }
@@ -37,7 +37,7 @@ export default function Tools() {
   if (error) {
     return (
       <NoDataPageLayout>
-        <ErrorState title="Failed to load tools" message={error.message} />
+        <ErrorState title="加载工具失败" message={error.message} />
       </NoDataPageLayout>
     );
   }
@@ -54,7 +54,7 @@ export default function Tools() {
     <PageLayout>
       <PageLayout.TopArea>
         <div className="max-w-120">
-          <ListSearch onSearch={setSearch} label="Filter tools" placeholder="Filter by name" />
+          <ListSearch onSearch={setSearch} label="筛选工具" placeholder="按名称筛选" />
         </div>
       </PageLayout.TopArea>
 
