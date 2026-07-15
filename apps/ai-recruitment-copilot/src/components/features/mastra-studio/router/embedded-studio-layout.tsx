@@ -10,7 +10,6 @@ import { UI_EXPERIMENTS } from "@/components/features/mastra-studio/upstream/dom
 import { useExperimentalUIEnabled } from "@/components/features/mastra-studio/upstream/domains/experimental-ui/use-experimental-ui-enabled";
 import { NavigationCommand } from "@/components/features/mastra-studio/upstream/lib/command";
 import {
-  RouteHeader,
   RouteHeaderActionsProvider,
   RouteHeaderCrumbsProvider,
   getRouteHeaderHeading,
@@ -18,6 +17,7 @@ import {
   useRouteHeaderCrumbsOverride,
 } from "@/components/features/mastra-studio/upstream/lib/route-header";
 import { useLocation } from "./compat";
+import { MastraStudioHeader } from "./mastra-studio-header";
 
 function EmbeddedStudioContent({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
@@ -29,11 +29,9 @@ function EmbeddedStudioContent({ children }: { children: React.ReactNode }) {
     <>
       <NavigationCommand />
       <div className="flex h-full min-h-0 flex-col">
-        <div className="mx-2 mt-1.5 shrink-0">
-          <RouteHeader />
-        </div>
+        <MastraStudioHeader />
         <PageHeadingContext.Provider value={pageHeading}>
-          <div className="mx-2 mb-2 min-h-0 flex-1 overflow-y-auto rounded-studio-frame border border-border1 bg-surface2 shadow-main-frame [--studio-frame-inset:0.5rem] [--studio-frame-radius:1.5rem]">
+          <div className="m-2 min-h-0 flex-1 overflow-y-auto rounded-studio-frame bg-background [--studio-frame-inset:0.5rem] [--studio-frame-radius:1.5rem]">
             <AuthRequired>
               <ErrorBoundary resetKeys={[pathname]}>{children}</ErrorBoundary>
             </AuthRequired>
@@ -48,7 +46,7 @@ export function EmbeddedStudioLayout({ children }: { children: React.ReactNode }
   const { experimentalUIEnabled } = useExperimentalUIEnabled();
 
   return (
-    <div className="h-full min-h-0 bg-surface1 font-sans">
+    <div className="h-full min-h-0 bg-background font-sans">
       <Toaster position="bottom-right" />
       <TooltipProvider delayDuration={0}>
         <ExperimentalUIProvider experiments={experimentalUIEnabled ? UI_EXPERIMENTS : []}>

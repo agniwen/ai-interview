@@ -1,1 +1,97 @@
 @import "./upstream/index.css";
+
+body.mastra-studio-active,
+body.mastra-studio-active [data-base-ui-portal],
+.mastra-studio-theme.mastra-studio-theme.light,
+.mastra-studio-theme.mastra-studio-theme.dark {
+  --surface1: var(--background);
+  --surface2: color-mix(in oklab, var(--background) 98%, var(--foreground));
+  --surface3: var(--card);
+  --surface4: var(--muted);
+  --surface5: color-mix(in oklab, var(--accent) 88%, var(--foreground));
+  --surface6: var(--secondary);
+  --neutral1: color-mix(in oklab, var(--muted-foreground) 52%, var(--background));
+  --neutral2: var(--muted-foreground);
+  --neutral3: color-mix(in oklab, var(--foreground) 68%, var(--background));
+  --neutral4: color-mix(in oklab, var(--foreground) 78%, var(--background));
+  --neutral5: color-mix(in oklab, var(--foreground) 90%, var(--background));
+  --neutral6: var(--foreground);
+  --border1: var(--border);
+  --border2: var(--input);
+  --accent1: var(--primary);
+  --accent1Dark: color-mix(in oklab, var(--primary) 14%, var(--background));
+  --accent1Darker: color-mix(in oklab, var(--primary) 20%, var(--background));
+  --accent2: var(--destructive);
+  --accent2Dark: color-mix(in oklab, var(--destructive) 14%, var(--background));
+  --accent2Darker: color-mix(in oklab, var(--destructive) 20%, var(--background));
+  --accent3: var(--primary);
+  --accent3Dark: color-mix(in oklab, var(--primary) 14%, var(--background));
+  --accent3Darker: color-mix(in oklab, var(--primary) 20%, var(--background));
+  --accent5: var(--primary);
+  --accent5Dark: color-mix(in oklab, var(--primary) 14%, var(--background));
+  --accent5Darker: color-mix(in oklab, var(--primary) 20%, var(--background));
+  --error: var(--destructive);
+  --negative1: var(--destructive);
+  --positive1: var(--primary);
+  --text1: var(--foreground);
+}
+
+.mastra-studio-theme :is(button, a)[data-variant],
+body.mastra-studio-active [data-base-ui-portal] :is(button, a)[data-variant] {
+  flex-shrink: 0;
+  border-radius: calc(var(--radius) - 2px);
+  white-space: nowrap;
+}
+
+.mastra-studio-theme :is(button, a)[data-variant="primary"],
+body.mastra-studio-active [data-base-ui-portal] :is(button, a)[data-variant="primary"] {
+  border-color: transparent;
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.mastra-studio-theme :is(button, a)[data-variant="primary"]:hover,
+body.mastra-studio-active [data-base-ui-portal] :is(button, a)[data-variant="primary"]:hover {
+  background-color: color-mix(in oklab, var(--primary) 90%, black);
+  color: var(--primary-foreground);
+}
+
+.mastra-studio-theme :is(button, a)[data-variant="default"],
+body.mastra-studio-active [data-base-ui-portal] :is(button, a)[data-variant="default"] {
+  border-color: var(--border);
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+.mastra-studio-theme :is(button, a)[data-variant="default"]:hover,
+.mastra-studio-theme :is(button, a)[data-variant="outline"]:hover,
+.mastra-studio-theme :is(button, a)[data-variant="ghost"]:hover,
+body.mastra-studio-active [data-base-ui-portal] :is(button, a)[data-variant="default"]:hover,
+body.mastra-studio-active [data-base-ui-portal] :is(button, a)[data-variant="outline"]:hover,
+body.mastra-studio-active [data-base-ui-portal] :is(button, a)[data-variant="ghost"]:hover {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.mastra-studio-theme :is(input, textarea, [role="combobox"]),
+body.mastra-studio-active [data-base-ui-portal] :is(input, textarea, [role="combobox"]) {
+  border-color: var(--input);
+  border-radius: calc(var(--radius) - 2px);
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+.mastra-studio-theme :is(input, textarea, [role="combobox"]):focus-visible,
+body.mastra-studio-active
+  [data-base-ui-portal]
+  :is(input, textarea, [role="combobox"]):focus-visible {
+  border-color: var(--ring);
+}
+
+body.mastra-studio-active [data-slot="dialog-content"] {
+  border-color: var(--border);
+  border-radius: var(--radius);
+  background-color: color-mix(in oklab, var(--popover) 96%, transparent);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-lg);
+}

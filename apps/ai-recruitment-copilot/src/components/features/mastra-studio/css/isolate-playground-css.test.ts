@@ -23,7 +23,11 @@ html.light { --surface1: white; }
     expect(result).not.toContain(":root");
     expect(result).not.toContain("html.light");
     expect(result).toContain(":scope.light");
-    expect(result.startsWith("@scope (.mastra-studio-theme) {\n")).toBe(true);
+    expect(
+      result.startsWith(
+        "@scope (:is(.mastra-studio-theme, body.mastra-studio-active [data-base-ui-portal])) {\n",
+      ),
+    ).toBe(true);
     expect(result.endsWith("\n}")).toBe(true);
     expect(result).toContain("@layer mastra-studio-base {");
     expect(result).toContain("@layer mastra-studio-theme {");

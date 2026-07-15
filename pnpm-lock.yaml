@@ -332,9 +332,6 @@ importers:
       embla-carousel-react:
         specifier: ^8.6.0
         version: 8.6.0(react@19.2.7)
-      foxact:
-        specifier: ^0.3.1
-        version: 0.3.8(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       gsap:
         specifier: ^3.15.0
         version: 3.15.0
@@ -7061,9 +7058,6 @@ packages:
     resolution: {integrity: sha512-aIL5Fx7mawVa300al2BnEE4iNvo1qETxLrPI/o05L7z6go7fCw1J6EQmbK4FmJ2AS7kgVF/KEZWufBfdClMcPg==}
     engines: {node: '>= 0.6'}
 
-  event-target-bus@1.0.0:
-    resolution: {integrity: sha512-uPcWKbj/BJU3Tbw9XqhHqET4/LBOhvv3/SJWr7NksxA6TC5YqBpaZgawE9R+WpYFCBFSAE4Vun+xQS6w4ABdlA==}
-
   event-target-shim@5.0.1:
     resolution: {integrity: sha512-i/2XbnSz/uxRCU6+NdVJgKWDTM427+MqYbkQzD321DuCQJUqOuJKIA0IM2+W2xtYHdKOmZ4dR6fExsd4SXL+WQ==}
     engines: {node: '>=6'}
@@ -7240,17 +7234,6 @@ packages:
   forwarded@0.2.0:
     resolution: {integrity: sha512-buRG0fpBtRHSTCOASe6hD258tEubFoRLb4ZNA6NxMVHNw2gOcwHo9wyablzMzOA5z9xA9L1KNjk/Nt6MT9aYow==}
     engines: {node: '>= 0.6'}
-
-  foxact@0.3.8:
-    resolution: {integrity: sha512-lFakEG8xm6A6wMH4ycWhXvwUybq4ATnMxJfBD4hj6hm9CKo72q2M/YaiEemoWGh9sUjQqX+pPXfq8S/jxedWzA==}
-    peerDependencies:
-      react: 19.2.7
-      react-dom: 19.2.7
-    peerDependenciesMeta:
-      react:
-        optional: true
-      react-dom:
-        optional: true
 
   framer-motion@12.40.0:
     resolution: {integrity: sha512-uaBd3qC1v3KQqBEjwTUd183K6PbS+j0yR9w9VmEOLWA/tnUcSn8Xa3uck7t4dgpDoUss8xQTcj8W2L07lrnLFg==}
@@ -9709,9 +9692,6 @@ packages:
     resolution: {integrity: sha512-QEjUSA+sD4Rotm1znR8s50YqA3kYpRGPmtd5GlFxbaL9n/FdUNbqMhxClqdditSk0LlZyA/dhud6XNRTOC9x2Q==}
     engines: {node: '>= 14'}
     hasBin: true
-
-  server-only@0.0.1:
-    resolution: {integrity: sha512-qepMx2JxAa5jjfzxG79yPPq+8BuFToHd1hm7kI+Z4zAq1ftQiP7HcxMhDDItrbtwVeLg/cY2JnKnrcFkmiswNA==}
 
   set-cookie-parser@3.1.0:
     resolution: {integrity: sha512-kjnC1DXBHcxaOaOXBHBeRtltsDG2nUiUni+jP92M9gYdW12rsmx92UsfpH7o5tDRs7I1ZZPSQJQGv3UaRfCiuw==}
@@ -16303,7 +16283,8 @@ snapshots:
   cli-width@4.1.0:
     optional: true
 
-  client-only@0.0.1: {}
+  client-only@0.0.1:
+    optional: true
 
   clipboardy@3.0.0:
     dependencies:
@@ -17023,8 +17004,6 @@ snapshots:
 
   etag@1.8.1: {}
 
-  event-target-bus@1.0.0: {}
-
   event-target-shim@5.0.1: {}
 
   eventemitter3@4.0.7: {}
@@ -17241,15 +17220,6 @@ snapshots:
   format@0.2.2: {}
 
   forwarded@0.2.0: {}
-
-  foxact@0.3.8(react-dom@19.2.7(react@19.2.7))(react@19.2.7):
-    dependencies:
-      client-only: 0.0.1
-      event-target-bus: 1.0.0
-      server-only: 0.0.1
-    optionalDependencies:
-      react: 19.2.7
-      react-dom: 19.2.7(react@19.2.7)
 
   framer-motion@12.40.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7):
     dependencies:
@@ -20276,8 +20246,6 @@ snapshots:
       update-check: 1.5.4
     transitivePeerDependencies:
       - supports-color
-
-  server-only@0.0.1: {}
 
   set-cookie-parser@3.1.0: {}
 

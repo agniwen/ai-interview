@@ -1,11 +1,10 @@
 /*
- * Keep the lazy-loaded Mastra stylesheet below the host Tailwind layers in the
- * cascade. Its generated utility selectors are global, so letting them form a
- * later `utilities` layer would override responsive host classes such as
- * `hidden md:flex` after Studio is opened.
+ * Keep Mastra's component and utility rules after the host base reset so
+ * package controls retain their spacing. Host components still follow Mastra
+ * components, and host utilities stay last so responsive host classes win.
  */
 @layer mastra-studio-properties, mastra-studio-theme, mastra-studio-base,
-  mastra-studio-components, mastra-studio-utilities, properties, theme, base, components, utilities;
+  properties, theme, base, mastra-studio-components, components, mastra-studio-utilities, utilities;
 
 @import "tailwindcss";
 @import "tw-animate-css";

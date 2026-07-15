@@ -27,6 +27,12 @@ export function ScopedMastraTheme({ children }: { children: React.ReactNode }) {
   const [target, setTarget] = useState<HTMLDivElement | null>(null);
   const studioTheme: ResolvedTheme = resolvedTheme === "light" ? "light" : "dark";
 
+  useLayoutEffect(() => {
+    document.body.classList.add("mastra-studio-active");
+
+    return () => document.body.classList.remove("mastra-studio-active");
+  }, []);
+
   return (
     <div className="mastra-studio-theme h-full min-h-0" ref={setTarget}>
       {target ? (

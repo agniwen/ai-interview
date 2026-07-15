@@ -239,10 +239,13 @@ const DEFAULT_PROCESSOR_MESSAGE = "Hello, this is a test message.";
 const DEFAULT_PROCESSOR_PHASE = "input";
 
 function getDefaultProcessorMessage(defaultValues: unknown) {
-  const values = defaultValues as {
-    messages?: { content?: { parts?: { type?: string; text?: unknown }[] } }[];
-  };
-  const textPart = values.messages?.[0]?.content?.parts?.find((part) => part.type === "text");
+  const values = defaultValues as
+    | {
+        messages?: { content?: { parts?: { type?: string; text?: unknown }[] } }[];
+      }
+    | null
+    | undefined;
+  const textPart = values?.messages?.[0]?.content?.parts?.find((part) => part.type === "text");
   return typeof textPart?.text === "string" ? textPart.text : DEFAULT_PROCESSOR_MESSAGE;
 }
 

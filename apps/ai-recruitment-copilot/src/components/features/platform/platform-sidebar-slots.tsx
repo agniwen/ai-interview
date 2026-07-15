@@ -110,7 +110,9 @@ function MastraSidebarSearch() {
       <SidebarMenuItem>
         <SidebarMenuButton
           aria-label="Search and navigate"
+          className="cursor-default select-none transition-[width,height,padding,background-color,border-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100"
           onClick={() => setOpen(true)}
+          size="default"
           tooltip="Search"
           variant="outline"
         >
@@ -152,6 +154,7 @@ export function PlatformSidebarSlots() {
                   return (
                     <SidebarMenuItem key={item.path}>
                       <SidebarMenuButton
+                        className="cursor-default select-none transition-[width,height,padding,background-color,border-color,color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] data-[active=false]:opacity-90 data-[active=false]:hover:opacity-100 motion-reduce:transition-none motion-reduce:active:scale-100"
                         isActive={isActive(item)}
                         render={
                           <Link to={item.path}>
@@ -159,6 +162,7 @@ export function PlatformSidebarSlots() {
                             <span>{item.title}</span>
                           </Link>
                         }
+                        size="default"
                         tooltip={item.title}
                       />
                     </SidebarMenuItem>

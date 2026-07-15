@@ -53,6 +53,7 @@ describe("Mastra Studio TanStack integration", () => {
   });
 
   it("isolates the published Studio stylesheet at the host boundary", () => {
+    const globalStyles = readSource("apps/ai-recruitment-copilot/src/styles/globals.css");
     const viteConfig = readSource("apps/ai-recruitment-copilot/vite.config.ts");
     const routeRoot = readSource(
       "apps/ai-recruitment-copilot/src/components/features/mastra-studio/router/studio-route-root.tsx",
@@ -69,6 +70,75 @@ describe("Mastra Studio TanStack integration", () => {
     expect(studioStyles).not.toContain('@import "@mastra/playground-ui/style.css"');
     expect(theme).toContain("useHostTheme");
     expect(theme).toContain('storageKey="theme"');
+    expect(theme).toContain('document.body.classList.add("mastra-studio-active")');
+    expect(theme).toContain('document.body.classList.remove("mastra-studio-active")');
+    expect(globalStyles).toContain(
+      "properties, theme, base, mastra-studio-components, components, mastra-studio-utilities, utilities",
+    );
+  });
+
+  it("uses the host header and semantic theme tokens", () => {
+    const platformLayout = readSource(
+      "apps/ai-recruitment-copilot/src/components/features/platform/platform-layout.tsx",
+    );
+    const platformSidebar = readSource(
+      "apps/ai-recruitment-copilot/src/components/layout/platform-sidebar/platform-sidebar.tsx",
+    );
+    const embeddedLayout = readSource(
+      "apps/ai-recruitment-copilot/src/components/features/mastra-studio/router/embedded-studio-layout.tsx",
+    );
+    const studioHeader = readSource(
+      "apps/ai-recruitment-copilot/src/components/features/mastra-studio/router/mastra-studio-header.tsx",
+    );
+    const studioStyles = readSource(
+      "apps/ai-recruitment-copilot/src/components/features/mastra-studio/mastra-studio.css",
+    );
+
+    expect(platformSidebar).not.toContain("PlatformLogo");
+    expect(platformLayout).not.toContain("<PlatformHeader />\n        <PendingOutlet");
+    expect(embeddedLayout).toContain("<MastraStudioHeader />");
+    expect(embeddedLayout).not.toContain("<RouteHeader />");
+    expect(embeddedLayout).not.toContain("border border-border1");
+    expect(embeddedLayout).not.toContain("shadow-main-frame");
+    expect(studioHeader).toContain("SidebarInsetHeader");
+    expect(studioHeader).toContain("RouteHeaderActionsSlot");
+    expect(studioStyles).toContain("--surface1: var(--background)");
+    expect(studioStyles).toContain("--neutral6: var(--foreground)");
+    expect(studioStyles).toContain("--accent1: var(--primary)");
+    expect(studioStyles).toContain("--accent5: var(--primary)");
+    expect(studioStyles).toContain("body.mastra-studio-active [data-base-ui-portal]");
+    expect(studioStyles).toContain('[data-variant="primary"]');
+    expect(studioStyles).toContain("color: var(--primary-foreground)");
+    expect(studioStyles).toContain("flex-shrink: 0");
+    expect(studioStyles).toContain("white-space: nowrap");
+  });
+
+  it("keeps Platform navigation aligned with the host sidebar interaction", () => {
+    const platformSidebarSlots = readSource(
+      "apps/ai-recruitment-copilot/src/components/features/platform/platform-sidebar-slots.tsx",
+    );
+
+    expect(platformSidebarSlots).toContain('size="default"');
+    expect(platformSidebarSlots).toContain("active:scale-[0.98]");
+    expect(platformSidebarSlots).toContain("data-[active=false]:opacity-90");
+    expect(platformSidebarSlots).toContain("motion-reduce:active:scale-100");
+  });
+
+  it("loads the Studio command palette only after user intent", () => {
+    const commandEntry = readSource(
+      "apps/ai-recruitment-copilot/src/components/features/mastra-studio/upstream/lib/command/index.ts",
+    );
+    const lazyCommand = readSource(
+      "apps/ai-recruitment-copilot/src/components/features/mastra-studio/upstream/lib/command/navigation-command-lazy.tsx",
+    );
+    const commandDialog = readSource(
+      "apps/ai-recruitment-copilot/src/components/features/mastra-studio/upstream/lib/command/navigation-command.tsx",
+    );
+
+    expect(commandEntry).toContain('from "./navigation-command-lazy"');
+    expect(lazyCommand).toContain('import("./navigation-command")');
+    expect(commandDialog).toContain("useAgents({ enabled: open })");
+    expect(commandDialog).toContain("useScorers({ enabled: open })");
   });
 
   it("keeps the embedded Mastra connection host-managed", () => {

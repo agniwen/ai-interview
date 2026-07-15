@@ -38,6 +38,8 @@ export default defineConfig({
   envPrefix: ["NEXT_PUBLIC_"],
   optimizeDeps: {
     include: [
+      "@base-ui/react",
+      "@base-ui/react/**",
       "@tanstack/react-form",
       "@tanstack/react-query",
       "@tanstack/react-router",
@@ -47,6 +49,7 @@ export default defineConfig({
       "better-auth/client/plugins",
       "better-auth/react",
       "clsx",
+      "cmdk",
       "dayjs",
       "react",
       "react/compiler-runtime",
@@ -54,6 +57,7 @@ export default defineConfig({
       "react-day-picker",
       "react-dom",
       "react-dom/client",
+      "semver",
       "sonner",
       "tailwind-merge",
       "zod",

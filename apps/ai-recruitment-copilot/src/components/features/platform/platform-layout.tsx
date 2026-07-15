@@ -20,7 +20,6 @@ function PlatformContent({ children }: { children: ReactNode }) {
   if (isMastraStudio) {
     return (
       <div className="@container/main flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
-        <PlatformHeader />
         <PendingOutlet className="min-h-0 flex-1 overflow-hidden">{children}</PendingOutlet>
       </div>
     );

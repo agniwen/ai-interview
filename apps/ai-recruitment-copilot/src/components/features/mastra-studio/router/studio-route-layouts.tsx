@@ -9,6 +9,7 @@ import { LinkComponentProvider } from "@/components/features/mastra-studio/upstr
 import { Link } from "@/components/features/mastra-studio/upstream/lib/link";
 import { useNavigate } from "./compat";
 import { EmbeddedStudioLayout } from "./embedded-studio-layout";
+import { MastraStudioHeader } from "./mastra-studio-header";
 import { studioPaths } from "./studio-paths";
 
 function StudioLinkProvider({ children }: { children: React.ReactNode }) {
@@ -39,12 +40,15 @@ export function MastraStudioMainLayout() {
 export function MastraStudioMinimalLayout() {
   return (
     <StudioLinkProvider>
-      <div className="h-full min-h-0 overflow-y-auto bg-surface1 font-sans">
+      <div className="flex h-full min-h-0 flex-col bg-background font-sans">
         <Toaster position="bottom-right" />
         <TooltipProvider delayDuration={0}>
-          <AuthRequired>
-            <Outlet />
-          </AuthRequired>
+          <MastraStudioHeader />
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <AuthRequired>
+              <Outlet />
+            </AuthRequired>
+          </div>
         </TooltipProvider>
       </div>
     </StudioLinkProvider>

@@ -1,4 +1,5 @@
-const STUDIO_THEME_SELECTOR = ".mastra-studio-theme";
+const STUDIO_THEME_SELECTOR =
+  ":is(.mastra-studio-theme, body.mastra-studio-active [data-base-ui-portal])";
 const STUDIO_LAYER_PREFIX = "mastra-studio-";
 
 /**

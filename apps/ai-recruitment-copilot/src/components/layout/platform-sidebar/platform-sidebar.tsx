@@ -12,7 +12,6 @@ import {
   SidebarFooterSkeleton,
   SidebarSlotHydrationFallback,
 } from "@/components/layout/app-sidebar/sidebar-slot-skeleton";
-import { PlatformLogo } from "./platform-logo";
 
 type PlatformSidebarProps = ComponentProps<typeof Sidebar>;
 
@@ -20,7 +19,6 @@ export function PlatformSidebar({ ...props }: PlatformSidebarProps) {
   return (
     <Sidebar collapsible="icon" variant="inset" {...props}>
       <SidebarHeader className="gap-3">
-        <PlatformLogo />
         <SidebarHeaderPortalTarget className="contents" />
       </SidebarHeader>
       <SidebarContent>

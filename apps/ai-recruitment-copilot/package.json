@@ -4,7 +4,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "predev": "rm -rf node_modules/.vite .tanstack/tmp",
     "dev": "vite dev",
     "dev:fresh": "rm -rf node_modules/.vite .tanstack/tmp && vite dev --force",
     "copy:mupdf-wasm": "tsx scripts/copy-mupdf-wasm.ts",
@@ -111,7 +110,6 @@
     "drizzle-orm": "catalog:",
     "embla-carousel-autoplay": "^8.6.0",
     "embla-carousel-react": "^8.6.0",
-    "foxact": "^0.3.1",
     "gsap": "^3.15.0",
     "hono": "^4.12.18",
     "html-to-image": "^1.11.13",

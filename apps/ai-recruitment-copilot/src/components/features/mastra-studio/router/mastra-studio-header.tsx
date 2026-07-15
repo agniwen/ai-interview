@@ -1,0 +1,121 @@
+"use client";
+
+import { IconBook2 } from "@tabler/icons-react";
+import { Fragment } from "react";
+import type { CrumbDef } from "@/components/features/mastra-studio/upstream/lib/route-header";
+import {
+  RouteHeaderActionsSlot,
+  useRouteHeader,
+  useRouteHeaderCrumbsOverride,
+} from "@/components/features/mastra-studio/upstream/lib/route-header";
+import { SidebarInsetHeader } from "@/components/layout/app-sidebar/sidebar-inset-header";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { Button } from "@/components/ui/button";
+import { Link } from "./compat";
+
+function CrumbContent({ crumb }: { crumb: CrumbDef }) {
+  if ("Component" in crumb && crumb.Component) {
+    const { Component } = crumb;
+    return <Component />;
+  }
+
+  if ("node" in crumb) {
+    return <>{crumb.node}</>;
+  }
+
+  return <>{crumb.label}</>;
+}
+
+function MastraBreadcrumb({ crumbs }: { crumbs: CrumbDef[] }) {
+  if (crumbs.length === 0) {
+    return (
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbPage>Mastra Studio</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+    );
+  }
+
+  return (
+    <Breadcrumb className="min-w-0">
+      <BreadcrumbList className="flex-nowrap overflow-hidden">
+        {crumbs.map((crumb, index) => {
+          const isCurrent = index === crumbs.length - 1;
+          const Icon = crumb.icon;
+
+          return (
+            <Fragment key={crumb.id}>
+              {index > 0 ? <BreadcrumbSeparator /> : null}
+              <BreadcrumbItem className="min-w-0 shrink-0 last:shrink">
+                {isCurrent || !crumb.to ? (
+                  <BreadcrumbPage className="flex min-w-0 items-center gap-1.5">
+                    {Icon ? <Icon className="size-4 shrink-0" /> : null}
+                    <span className="truncate">
+                      <CrumbContent crumb={crumb} />
+                    </span>
+                  </BreadcrumbPage>
+                ) : (
+                  <BreadcrumbLink
+                    className="flex min-w-0 items-center gap-1.5"
+                    render={<Link to={crumb.to} viewTransition />}
+                  >
+                    {Icon ? <Icon className="size-4 shrink-0" /> : null}
+                    <span className="truncate">
+                      <CrumbContent crumb={crumb} />
+                    </span>
+                  </BreadcrumbLink>
+                )}
+              </BreadcrumbItem>
+            </Fragment>
+          );
+        })}
+      </BreadcrumbList>
+    </Breadcrumb>
+  );
+}
+
+export function MastraStudioHeader() {
+  const { crumbs, docs } = useRouteHeader();
+  const overrideCrumbs = useRouteHeaderCrumbsOverride();
+
+  return (
+    <SidebarInsetHeader
+      actions={
+        <>
+          <RouteHeaderActionsSlot className="contents" />
+          {docs ? (
+            <Button
+              nativeButton={false}
+              render={
+                <a
+                  aria-label={docs.label ?? "Documentation"}
+                  href={docs.href}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                />
+              }
+              size="sm"
+              variant="ghost"
+            >
+              <IconBook2 data-icon="inline-start" />
+              <span className="hidden max-w-48 truncate sm:inline">
+                {docs.label ?? "Documentation"}
+              </span>
+            </Button>
+          ) : null}
+        </>
+      }
+      breadcrumb={<MastraBreadcrumb crumbs={overrideCrumbs ?? crumbs} />}
+    />
+  );
+}

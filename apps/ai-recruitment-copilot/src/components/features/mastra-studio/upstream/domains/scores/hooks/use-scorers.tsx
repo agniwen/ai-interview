@@ -101,11 +101,12 @@ export const useScorer = (scorerId: string) => {
   return { error: scorerError, isLoading, scorer };
 };
 
-export const useScorers = () => {
+export const useScorers = (options?: { enabled?: boolean }) => {
   const client = useMastraClient();
   const requestContext = useMergedRequestContext();
 
   return useQuery({
+    enabled: options?.enabled !== false,
     gcTime: 0,
     queryFn: () => client.listScorers(requestContext),
     queryKey: ["scorers", requestContext],

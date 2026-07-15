@@ -548,20 +548,20 @@ const CommandFooter = () => (
 );
 
 export const NavigationCommand = () => {
-  const { open, setOpen } = useNavigationCommand();
+  const { open, setOpen } = useNavigationCommand({ enableShortcut: false });
   const { navigate, paths } = useLinkComponent();
   const { isMastraPlatform } = useMastraPlatform();
   const sidebar = useMaybeSidebar();
   const sidebarShortcutLabel = useKeyboardShortcutLabel("B");
   const [activeScope, setActiveScope] = React.useState<CommandScope>("all");
 
-  const { data: agents = {} } = useAgents();
-  const { data: workflows = {} } = useWorkflows();
-  const { data: tools = {} } = useTools();
-  const { data: processors = {} } = useProcessors();
-  const { data: mcpServers = [] } = useMCPServers();
-  const { data: scorers = {} } = useScorers();
-  const { isCmsAvailable, isLoading: isCmsLoading } = useIsCmsAvailable();
+  const { data: agents = {} } = useAgents({ enabled: open });
+  const { data: workflows = {} } = useWorkflows({ enabled: open });
+  const { data: tools = {} } = useTools({ enabled: open });
+  const { data: processors = {} } = useProcessors({ enabled: open });
+  const { data: mcpServers = [] } = useMCPServers({ enabled: open });
+  const { data: scorers = {} } = useScorers({ enabled: open });
+  const { isCmsAvailable, isLoading: isCmsLoading } = useIsCmsAvailable({ enabled: open });
   const { hasPermission, hasAnyPermission, isLoading: isPermissionsLoading } = usePermissions();
 
   React.useEffect(() => {
