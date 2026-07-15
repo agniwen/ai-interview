@@ -34,8 +34,8 @@ agent-download: ## 下载 Silero VAD + turn-detector 模型
 dev: ## 并行启动 TanStack Start + LiveKit agent worker + 简历解析 worker
 	@$(MAKE) -j3 web-dev agent-dev worker-dev
 
-web-dev: ## 仅启动 TanStack Start dev server
-	pnpm --filter @arc/ai-recruitment-copilot dev
+web-dev: ## 清理缓存后启动 TanStack Start dev server
+	pnpm --filter @arc/ai-recruitment-copilot dev:fresh
 
 worker-dev: ## 仅启动简历异步解析 worker (dev 模式，热重载)
 	pnpm --filter $(WORKER_PACKAGE) dev
