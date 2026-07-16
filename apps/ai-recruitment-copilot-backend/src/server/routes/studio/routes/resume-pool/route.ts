@@ -12,6 +12,10 @@ import {
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/middlewares/permission";
 import {
+  intersectRequestedCreatorIds,
+  resolveRecruitingVisibilityScope,
+} from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
+import {
   normalizeResumeFile,
   storeInterviewResume,
   toBadRequest,
@@ -27,6 +31,7 @@ import {
   createResumePoolItem,
   deleteOwnPoolItem,
   importPoolItemToResumeLibrary,
+  listResumePoolUploaders,
   loadResumePoolItem,
   publishPrivatePoolItem,
   queryResumePoolItems,
@@ -85,23 +90,56 @@ export const resumePoolRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       const q = c.req.valid("query");
+      const visibilityScope = await resolveRecruitingVisibilityScope({
+        currentRole: c.var.member?.role,
+        organizationId: activeOrg.id,
+        userId: user.id,
+      });
+      const creatorIds =
+        q.scope === "private"
+          ? intersectRequestedCreatorIds(
+              q.uploaderId === "all" ? null : [q.uploaderId ?? user.id],
+              visibilityScope,
+            )
+          : undefined;
       const result = await queryResumePoolItems({
+        creatorIds,
         organizationId: activeOrg.id,
         scope: q.scope,
-        userId: user.id,
       });
       return c.json(result, 200);
     },
   )
+  .get("/uploaders", requirePermission("resumePool", "read"), async (c) => {
+    const { activeOrg, user } = c.var;
+    if (!activeOrg || !user) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const visibilityScope = await resolveRecruitingVisibilityScope({
+      currentRole: c.var.member?.role,
+      organizationId: activeOrg.id,
+      userId: user.id,
+    });
+    const records = await listResumePoolUploaders({
+      organizationId: activeOrg.id,
+      visibilityScope,
+    });
+    return c.json({ records }, 200);
+  })
   .get("/:id", requirePermission("resumePool", "read"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);
     }
+    const visibilityScope = await resolveRecruitingVisibilityScope({
+      currentRole: c.var.member?.role,
+      organizationId: activeOrg.id,
+      userId: user.id,
+    });
     const item = await loadResumePoolItem({
       organizationId: activeOrg.id,
       poolItemId: c.req.param("id"),
-      userId: user.id,
+      visibilityScope,
     });
     if (!item) {
       return c.json({ error: "记录不存在。" }, 404);
@@ -114,17 +152,22 @@ export const resumePoolRouter = factory
       return c.json({ message: "Unauthorized" }, 401);
     }
     const poolItemId = c.req.param("id");
+    const visibilityScope = await resolveRecruitingVisibilityScope({
+      currentRole: c.var.member?.role,
+      organizationId: activeOrg.id,
+      userId: user.id,
+    });
     const item = await loadResumePoolItem({
       organizationId: activeOrg.id,
       poolItemId,
-      userId: user.id,
+      visibilityScope,
     });
     if (!item) {
       return c.json({ error: "记录不存在。" }, 404);
     }
     const matches = await listDuplicateMatchesForSource({
       organizationId: activeOrg.id,
-      poolOwnerUserId: user.id,
+      poolOwnerUserId: item.createdBy ?? user.id,
       sourceId: poolItemId,
       sourceType: "resume_pool_item",
     });
@@ -135,10 +178,15 @@ export const resumePoolRouter = factory
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);
     }
+    const visibilityScope = await resolveRecruitingVisibilityScope({
+      currentRole: c.var.member?.role,
+      organizationId: activeOrg.id,
+      userId: user.id,
+    });
     const item = await loadResumePoolItem({
       organizationId: activeOrg.id,
       poolItemId: c.req.param("id"),
-      userId: user.id,
+      visibilityScope,
     });
     if (!item?.resumeStorageKey) {
       return c.json({ error: "简历文件已不可用。" }, 404);
@@ -164,10 +212,15 @@ export const resumePoolRouter = factory
     if (!activeOrg || !user) {
       return c.json({ message: "Unauthorized" }, 401);
     }
+    const visibilityScope = await resolveRecruitingVisibilityScope({
+      currentRole: c.var.member?.role,
+      organizationId: activeOrg.id,
+      userId: user.id,
+    });
     const item = await loadResumePoolItem({
       organizationId: activeOrg.id,
       poolItemId: c.req.param("id"),
-      userId: user.id,
+      visibilityScope,
     });
     if (!item?.resumeStorageKey) {
       return c.json({ error: "简历文件已不可用。" }, 404);

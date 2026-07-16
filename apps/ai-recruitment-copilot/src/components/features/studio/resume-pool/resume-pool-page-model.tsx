@@ -7,6 +7,7 @@ import type {
   ResumePoolImportDuplicateMatchRecord,
   ResumePoolImportDuplicateResult,
   ResumePoolListRecord,
+  ResumePoolUploaderOption,
 } from "@arc/shared/resume-pool";
 
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
@@ -18,10 +19,44 @@ type ResumePoolSourceFilter = "all" | "non_referral" | "referral";
 
 export type ResumePoolFilters = Record<"importStatus" | "parseStatus", string> & {
   sourceType: ResumePoolSourceFilter;
+  uploaderId: string;
 };
+
+export function createResumePoolFilters(
+  scope: ResumePoolScope,
+  currentUserId: string | null,
+): ResumePoolFilters {
+  return {
+    importStatus: "",
+    parseStatus: "",
+    sourceType: "all",
+    uploaderId: scope === "private" ? (currentUserId ?? "") : "",
+  };
+}
+
+export function buildResumePoolUploaderFilterOptions(
+  uploaders: ResumePoolUploaderOption[],
+  currentUserId: string | null,
+) {
+  const options = uploaders.map((uploader) => ({
+    avatarUrl: uploader.image,
+    label: uploader.id === currentUserId ? `我自己（${uploader.name}）` : uploader.name,
+    searchValue: `${uploader.name} ${uploader.email}`,
+    value: uploader.id,
+  }));
+  return uploaders.length > 1 ? [{ label: "全部上传人", value: "all" }, ...options] : options;
+}
 
 export function normalizeScope(value: unknown): ResumePoolScope {
   return value === "private" ? "private" : "public";
+}
+
+export function normalizeResumePoolUploaderId(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim();
+  return normalized || undefined;
 }
 
 export function getCandidateTitle(record: ResumePoolListRecord) {

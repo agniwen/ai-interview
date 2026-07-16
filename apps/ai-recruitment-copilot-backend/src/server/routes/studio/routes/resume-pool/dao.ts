@@ -1,8 +1,10 @@
-import { and, count, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
+/* oxlint-disable max-lines -- resume-pool persistence keeps list/detail/write transactions co-located. */
+import { and, asc, count, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   jobDescription,
   mailIngestMessage,
+  member,
   organization,
   resumePoolEvent,
   resumePoolImport,
@@ -14,12 +16,14 @@ import {
 import type { ResumePoolEventType, ResumePoolScope, ResumePoolStatus } from "@arc/db-schema/schema";
 import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import type {
   PaginatedResumePoolResult,
   ResumePoolDetail,
   ResumePoolImportDuplicateMatchRecord,
   ResumePoolImportResult,
   ResumePoolSourceChannel,
+  ResumePoolUploaderOption,
 } from "@arc/shared/resume-pool";
 import type { ResumeDuplicateMatchSummary } from "@arc/shared/resume-duplicates";
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
@@ -80,9 +84,9 @@ export interface MarkResumePoolItemStatusInput {
 }
 
 export interface QueryResumePoolItemsInput {
+  creatorIds?: string[] | null;
   organizationId: string;
   scope: ResumePoolScope;
-  userId: string;
 }
 
 export interface PublishPrivatePoolItemInput {
@@ -145,6 +149,33 @@ async function loadUploaderMeta(poolItemId: string): Promise<PoolUploaderMeta> {
     .where(eq(resumePoolItem.id, poolItemId))
     .limit(1);
   return row ? uploaderMetaFromRow(row) : EMPTY_UPLOADER_META;
+}
+
+export async function listResumePoolUploaders(input: {
+  organizationId: string;
+  visibilityScope: RecruitingVisibilityScope;
+}): Promise<ResumePoolUploaderOption[]> {
+  if (
+    input.visibilityScope.kind === "none" ||
+    (input.visibilityScope.kind === "restricted" && input.visibilityScope.userIds.length === 0)
+  ) {
+    return [];
+  }
+  const visibilityCondition =
+    input.visibilityScope.kind === "restricted"
+      ? inArray(member.userId, input.visibilityScope.userIds)
+      : undefined;
+  return await db
+    .select({
+      email: user.email,
+      id: user.id,
+      image: user.image,
+      name: user.name,
+    })
+    .from(member)
+    .innerJoin(user, eq(member.userId, user.id))
+    .where(and(eq(member.organizationId, input.organizationId), visibilityCondition))
+    .orderBy(asc(user.name), asc(user.email));
 }
 
 async function writeResumePoolEvent(
@@ -303,8 +334,8 @@ export async function markResumePoolItemParseFailed(
     );
 }
 
-function accessibleWhere(input: { organizationId: string; poolItemId: string; userId: string }) {
-  return and(eq(resumePoolItem.id, input.poolItemId), eq(resumePoolItem.status, "active"));
+function accessibleWhere(poolItemId: string) {
+  return and(eq(resumePoolItem.id, poolItemId), eq(resumePoolItem.status, "active"));
 }
 
 async function loadAccessiblePoolItem(input: {
@@ -312,7 +343,11 @@ async function loadAccessiblePoolItem(input: {
   poolItemId: string;
   userId: string;
 }): Promise<PoolRow | null> {
-  const [row] = await db.select().from(resumePoolItem).where(accessibleWhere(input)).limit(1);
+  const [row] = await db
+    .select()
+    .from(resumePoolItem)
+    .where(accessibleWhere(input.poolItemId))
+    .limit(1);
   if (!row) {
     return null;
   }
@@ -320,6 +355,37 @@ async function loadAccessiblePoolItem(input: {
     return row;
   }
   if (row.organizationId === input.organizationId && row.createdBy === input.userId) {
+    return row;
+  }
+  return null;
+}
+
+async function loadVisiblePoolItem(input: {
+  organizationId: string;
+  poolItemId: string;
+  visibilityScope: RecruitingVisibilityScope;
+}): Promise<PoolRow | null> {
+  const [row] = await db
+    .select()
+    .from(resumePoolItem)
+    .where(accessibleWhere(input.poolItemId))
+    .limit(1);
+  if (!row) {
+    return null;
+  }
+  if (row.scope === "public") {
+    return row;
+  }
+  if (row.organizationId !== input.organizationId || !row.createdBy) {
+    return null;
+  }
+  if (input.visibilityScope.kind === "all") {
+    return row;
+  }
+  if (
+    input.visibilityScope.kind === "restricted" &&
+    input.visibilityScope.userIds.includes(row.createdBy)
+  ) {
     return row;
   }
   return null;
@@ -399,13 +465,16 @@ async function loadPoolDuplicateMatches(input: {
 export async function queryResumePoolItems(
   input: QueryResumePoolItemsInput,
 ): Promise<PaginatedResumePoolResult> {
+  if (input.scope === "private" && input.creatorIds?.length === 0) {
+    return { records: [], total: 0 };
+  }
   const where =
     input.scope === "private"
       ? and(
           eq(resumePoolItem.scope, "private"),
           eq(resumePoolItem.status, "active"),
           eq(resumePoolItem.organizationId, input.organizationId),
-          eq(resumePoolItem.createdBy, input.userId),
+          input.creatorIds ? inArray(resumePoolItem.createdBy, input.creatorIds) : undefined,
         )
       : and(eq(resumePoolItem.scope, "public"), eq(resumePoolItem.status, "active"));
 
@@ -457,12 +526,26 @@ export async function queryResumePoolItems(
   };
 }
 
-export async function loadResumePoolItem(input: {
-  organizationId: string;
-  poolItemId: string;
-  userId: string;
-}): Promise<ResumePoolDetail | null> {
-  const row = await loadAccessiblePoolItem(input);
+export async function loadResumePoolItem(
+  input: {
+    organizationId: string;
+    poolItemId: string;
+  } & (
+    | { userId: string; visibilityScope?: never }
+    | { userId?: never; visibilityScope: RecruitingVisibilityScope }
+  ),
+): Promise<ResumePoolDetail | null> {
+  const row = input.visibilityScope
+    ? await loadVisiblePoolItem({
+        organizationId: input.organizationId,
+        poolItemId: input.poolItemId,
+        visibilityScope: input.visibilityScope,
+      })
+    : await loadAccessiblePoolItem({
+        organizationId: input.organizationId,
+        poolItemId: input.poolItemId,
+        userId: input.userId,
+      });
   if (!row) {
     return null;
   }

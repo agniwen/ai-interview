@@ -127,7 +127,9 @@ A pre-library staging area for parsed resumes before they are imported into the 
 _Avoid_: Resume library, upload queue
 
 **Private Resume Pool**:
-The user's own resume-pool scope inside a workspace.
+The workspace resume-pool scope whose records remain privately owned. It defaults to the current
+user's uploads; workspace owners/admins can browse all uploaders, while recruiting supervisors and
+leads can browse their own uploads and those of lower-ranked members in their recruiting groups.
 _Avoid_: My uploads, personal library
 
 **Public Resume Pool**:

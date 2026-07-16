@@ -86,6 +86,13 @@ export interface PaginatedResumePoolResult {
   total: number;
 }
 
+export interface ResumePoolUploaderOption {
+  email: string;
+  id: string;
+  image: string | null;
+  name: string;
+}
+
 export interface ResumePoolImportSuccessResult {
   resumeRecordId: string;
   status: "imported";

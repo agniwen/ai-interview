@@ -35,6 +35,7 @@ import {
   deleteResumePoolItem,
   fetchResumePoolDuplicateMatches,
   fetchResumePoolItems,
+  fetchResumePoolUploaders,
   publishResumePoolItem,
 } from "@/lib/client/api";
 import { listBulkResumeBatches } from "@/lib/client/api/endpoints/bulk-resume-upload";
@@ -45,6 +46,8 @@ import { useWorkspaceId, useWorkspaceSlug } from "@/lib/client/workspace-context
 import {
   canImportResumePoolToLibrary,
   canUploadToResumePool,
+  buildResumePoolUploaderFilterOptions,
+  createResumePoolFilters,
   deletePoolRecordLabel,
   filterPoolRecords,
   getCandidateTitle,
@@ -75,13 +78,9 @@ const ResumeDocumentPreviewDialog = lazy(async () => {
 
 export interface ResumePoolSearch {
   scope?: ResumePoolScope;
+  uploaderId?: string;
 }
 
-const EMPTY_POOL_FILTERS: ResumePoolFilters = {
-  importStatus: "",
-  parseStatus: "",
-  sourceType: "all",
-};
 const RESUME_POOL_INITIAL_PAGE_SIZE = 20;
 const RESUME_POOL_LOAD_STEP = 20;
 
@@ -100,6 +99,12 @@ export function ResumePoolPage() {
   const search = useSearch({ from: "/w/$slug/studio/resume-pool" }) as ResumePoolSearch;
   const navigate = useNavigate({ from: "/w/$slug/studio/resume-pool" });
   const scope = normalizeScope(search.scope);
+  const currentUserId = sessionUserId(session);
+  const currentOrganizationId = workspaceId;
+  const initialPoolFilters = useMemo(
+    () => createResumePoolFilters(scope, currentUserId),
+    [currentUserId, scope],
+  );
   const {
     batchListOpen,
     deleteTarget,
@@ -141,7 +146,11 @@ export function ResumePoolPage() {
         sortBy: string | undefined;
         sortOrder: "asc" | "desc" | undefined;
       }) => {
-        const result = await fetchResumePoolItems(slug, scope);
+        const result = await fetchResumePoolItems(
+          slug,
+          scope,
+          scope === "private" ? params.filters.uploaderId || currentUserId || undefined : undefined,
+        );
         const filtered = filterPoolRecords(result.records, params);
         const start = (params.page - 1) * params.pageSize;
         const records = filtered.slice(start, start + params.pageSize);
@@ -151,13 +160,13 @@ export function ResumePoolPage() {
           totalPages: Math.max(1, Math.ceil(filtered.length / params.pageSize)),
         };
       },
-    [scope, slug],
+    [currentUserId, scope, slug],
   );
   const grid = useDataGridState<ResumePoolListRecord, ResumePoolFilters>({
     allowedSortIds: ["createdAt", "candidateName", "updatedAt"],
     defaultPageSize: RESUME_POOL_INITIAL_PAGE_SIZE,
     defaultSorting: [{ desc: true, id: "createdAt" }],
-    initialFilters: EMPTY_POOL_FILTERS,
+    initialFilters: initialPoolFilters,
     maxPageSize: Number.MAX_SAFE_INTEGER,
     queryFn: fetcher,
     queryKeyBase: ["resume-pool", slug, scope],
@@ -169,8 +178,16 @@ export function ResumePoolPage() {
   const isInitialPoolLoading = isPoolBusy && visibleRecordCount === 0;
   const showEmptyState = !isInitialPoolLoading && grid.bind.data.length === 0;
   const showPoolFooter = visibleRecordCount > 0;
-  const currentUserId = sessionUserId(session);
-  const currentOrganizationId = workspaceId;
+  const uploaderQuery = useQuery({
+    enabled: scope === "private",
+    queryFn: () => fetchResumePoolUploaders(slug),
+    queryKey: ["resume-pool-uploaders", slug],
+    staleTime: 60_000,
+  });
+  const uploaderFilterOptions = useMemo(
+    () => buildResumePoolUploaderFilterOptions(uploaderQuery.data ?? [], currentUserId),
+    [currentUserId, uploaderQuery.data],
+  );
   const selectedPrivateResumeIdsArray = useMemo(
     () => [...selectedPrivateResumeIds],
     [selectedPrivateResumeIds],
@@ -360,6 +377,19 @@ export function ResumePoolPage() {
         placeholder: "搜索候选人、邮箱、电话、简历名或目标岗位",
         type: "search" as const,
       },
+      ...(scope === "private"
+        ? [
+            {
+              clearable: false,
+              emptyMessage: "没有可选择的上传人",
+              key: "uploaderId" as const,
+              options: uploaderFilterOptions,
+              placeholder: "按上传人筛选",
+              searchPlaceholder: "搜索姓名或邮箱…",
+              type: "select" as const,
+            },
+          ]
+        : []),
       {
         clearable: false,
         key: "sourceType" as const,
@@ -394,7 +424,7 @@ export function ResumePoolPage() {
         type: "select" as const,
       },
     ],
-    [],
+    [scope, uploaderFilterOptions],
   );
   let loadMoreStatusText = "暂无可加载简历";
   if (hasMoreRecords) {
@@ -577,6 +607,7 @@ export function ResumePoolPage() {
         onOpenChange={(open) => !open && setImportTarget(null)}
       />
       <ResumePoolDetailDialog
+        currentUserId={currentUserId}
         onOpenDuplicateMatches={setDuplicateMatchRecord}
         onOpenChange={(open) => !open && setDetailRecord(null)}
         record={detailRecord}

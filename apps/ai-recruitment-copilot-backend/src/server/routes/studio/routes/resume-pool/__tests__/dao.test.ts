@@ -206,9 +206,9 @@ describe("queryResumePoolItems", () => {
     await createResumePoolItem(basePoolInput({ createdBy: USER_A, organizationId: ORG_B }));
 
     const result = await queryResumePoolItems({
+      creatorIds: [USER_A],
       organizationId: ORG_A,
       scope: "private",
-      userId: USER_A,
     });
 
     expect(result.records).toHaveLength(1);
@@ -225,7 +225,6 @@ describe("queryResumePoolItems", () => {
     const result = await queryResumePoolItems({
       organizationId: ORG_A,
       scope: "public",
-      userId: USER_A,
     });
 
     const orgIds = result.records.map((record) => record.organizationId);
@@ -242,9 +241,9 @@ describe("queryResumePoolItems", () => {
     );
 
     const result = await queryResumePoolItems({
+      creatorIds: [USER_A],
       organizationId: ORG_A,
       scope: "private",
-      userId: USER_A,
     });
 
     const record = result.records.find((item) => item.id === id);
@@ -297,9 +296,9 @@ describe("queryResumePoolItems", () => {
 
     try {
       const result = await queryResumePoolItems({
+        creatorIds: [USER_A],
         organizationId: ORG_A,
         scope: "private",
-        userId: USER_A,
       });
       expect(result.records.find((item) => item.id === id)?.duplicateMatch).toEqual({
         count: 1,
@@ -329,7 +328,6 @@ describe("queryResumePoolItems", () => {
     const result = await queryResumePoolItems({
       organizationId: ORG_A,
       scope: "public",
-      userId: USER_A,
     });
     const record = result.records.find((item) => item.id === id);
 
@@ -405,9 +403,9 @@ describe("queryResumePoolItems", () => {
     });
 
     const result = await queryResumePoolItems({
+      creatorIds: [USER_A],
       organizationId: ORG_A,
       scope: "private",
-      userId: USER_A,
     });
     const record = result.records.find((item) => item.id === poolItemId);
     const detail = await loadResumePoolItem({
@@ -433,7 +431,6 @@ describe("queryResumePoolItems", () => {
     const result = await queryResumePoolItems({
       organizationId: ORG_A,
       scope: "public",
-      userId: USER_A,
     });
     const record = result.records.find((item) => item.id === id);
     const detail = await loadResumePoolItem({

@@ -4,6 +4,7 @@ import type {
   ResumePoolImportInput,
   ResumePoolImportResult,
   ResumePoolListRecord,
+  ResumePoolUploaderOption,
 } from "@arc/shared/resume-pool";
 import type { ResumePoolScope } from "@arc/db-schema/schema";
 import { rpc } from "@/lib/client/rpc";
@@ -14,14 +15,22 @@ import { rpcFetch } from "../rpc-fetch";
 export function fetchResumePoolItems(
   slug: string,
   scope: ResumePoolScope,
+  uploaderId?: string,
 ): Promise<PaginatedResumePoolResult> {
   return rpcFetch<PaginatedResumePoolResult>(
     rpc.api.w[":slug"].studio["resume-pool"].$get({
       param: { slug },
-      query: { scope },
+      query: { scope, uploaderId },
     }),
     "加载人才库失败",
   );
+}
+
+export function fetchResumePoolUploaders(slug: string): Promise<ResumePoolUploaderOption[]> {
+  return rpcFetch<{ records: ResumePoolUploaderOption[] }>(
+    rpc.api.w[":slug"].studio["resume-pool"].uploaders.$get({ param: { slug } }),
+    "加载上传人列表失败",
+  ).then((result) => result.records);
 }
 
 export function createResumePoolItem(

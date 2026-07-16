@@ -154,11 +154,12 @@ export function ResumePoolListContent({
           currentOrganizationId,
           currentUserId,
         }) && canDeletePoolRecords;
+      const canManageRecord = scope !== "private" || record.createdBy === currentUserId;
       return (
         <ResumePoolCard
           canDelete={canDelete}
-          canImport={canImportToLibrary}
-          canPublish={canPublishToPool}
+          canImport={canImportToLibrary && canManageRecord}
+          canPublish={canPublishToPool && canManageRecord}
           deleting={deleting}
           key={record.id}
           onDelete={onDelete}

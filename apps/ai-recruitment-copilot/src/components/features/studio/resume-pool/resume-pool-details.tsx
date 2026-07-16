@@ -96,7 +96,7 @@ function ResumePoolDetailSummaryPanel({
   isError: boolean;
   isLoading: boolean;
   onOpenDuplicateMatches?: () => void;
-  onRequestRecommendations: () => void;
+  onRequestRecommendations?: () => void;
   resumeProfile: ResumePoolProfile;
   slug: string;
 }) {
@@ -155,13 +155,15 @@ function ResumePoolDetailSummaryPanel({
             if (detail.jobDescriptionId) {
               return <span className="text-muted-foreground/60">已关联岗位</span>;
             }
-            return (
+            return onRequestRecommendations ? (
               <span className="inline-flex items-center gap-2">
                 <span>—</span>
                 <Button onClick={onRequestRecommendations} size="xs" variant="outline">
                   推荐
                 </Button>
               </span>
+            ) : (
+              "—"
             );
           })()}
         </DetailSummaryItem>
@@ -363,11 +365,13 @@ export function ResumePoolCardUploaderMeta({ record }: { record: ResumePoolListR
 }
 
 export function ResumePoolDetailDialog({
+  currentUserId,
   onOpenDuplicateMatches,
   onOpenChange,
   record,
   slug,
 }: {
+  currentUserId: string | null;
   record: ResumePoolListRecord | null;
   slug: string;
   onOpenChange: (open: boolean) => void;
@@ -385,6 +389,7 @@ export function ResumePoolDetailDialog({
     queryKey: ["resume-pool", "detail", slug, itemId],
   });
   const detail: ResumePoolDetail | ResumePoolListRecord | null = detailQuery.data ?? record;
+  const canManageDetail = detail?.scope !== "private" || detail.createdBy === currentUserId;
   const resumeProfile = detailQuery.data?.resumeProfile ?? null;
   const [recommendationsOpen, setRecommendationsOpen] = useState(false);
   const bound = Boolean(detailQuery.data?.jobDescriptionId);
@@ -417,7 +422,9 @@ export function ResumePoolDetailDialog({
               onOpenDuplicateMatches={
                 record && onOpenDuplicateMatches ? () => onOpenDuplicateMatches(record) : undefined
               }
-              onRequestRecommendations={() => setRecommendationsOpen(true)}
+              onRequestRecommendations={
+                canManageDetail ? () => setRecommendationsOpen(true) : undefined
+              }
               resumeProfile={resumeProfile}
               slug={slug}
             />
