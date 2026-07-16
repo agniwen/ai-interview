@@ -30,12 +30,10 @@ import {
   resetResumeEvaluationForJobChange,
   updateResumeEvaluationStatus,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/evaluation";
-import { syncResumeSkills } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
 import { parseResumePayloadInput } from "@arc/db-schema/studio-interviews";
 import {
   normalizeResumeFile,
   resolveResumeUploadStorage,
-  storeInterviewResume,
   toBadRequest,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";

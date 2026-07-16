@@ -1,5 +1,7 @@
 "use client";
 
+/* oxlint-disable complexity, max-lines -- overview panel hosts review summary + identity edit form. */
+
 // 招聘台的「概览」面板：简历评价 + 结构化简历经历。
 // 详情弹窗 resume 模式与「发起 AI 面试」弹窗共用，避免布局漂移。
 //
@@ -7,14 +9,8 @@
 // between the resume-mode detail dialog and the launch-interview dialog so the
 // same data renders the same way in both places.
 
-import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import { canEditResumeRecord, describeResumeEvaluationStatus } from "@arc/shared/studio-resumes";
-import type { ResumeIdentityUpdateInput } from "@arc/shared/studio-resumes";
-import type {
-  ResumeReview,
-  ResumeReviewAction,
-  ResumeReviewLoose,
-} from "@arc/shared/resume-review";
+import type { ResumeIdentityUpdateInput, ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import {
   countResumeReviewBiasCategories,
   getResumeReviewBaseScore,
@@ -22,6 +18,11 @@ import {
   RESUME_REVIEW_DIMENSIONS,
   resumeReviewActionLabel,
   resumeReviewBiasCategoryLabel,
+} from "@arc/shared/resume-review";
+import type {
+  ResumeReview,
+  ResumeReviewAction,
+  ResumeReviewLoose,
 } from "@arc/shared/resume-review";
 import { IconCheck, IconPencil, IconX } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -521,7 +522,7 @@ interface OverviewIdentityDraft {
 function toOverviewIdentityDraft(detail: ResumeLibraryDetail): OverviewIdentityDraft {
   const profile = detail.resumeProfile;
   return {
-    age: profile?.age == null ? "" : String(profile.age),
+    age: profile?.age === null || profile?.age === undefined ? "" : String(profile.age),
     // Prefer table columns; fall back to structured profile JSON.
     candidateEmail: detail.candidateEmail ?? profile?.email ?? "",
     candidateName: detail.candidateName || profile?.name || "",
@@ -529,7 +530,10 @@ function toOverviewIdentityDraft(detail: ResumeLibraryDetail): OverviewIdentityD
     gender: profile?.gender ?? "",
     jobDescriptionId: detail.jobDescriptionId ?? "",
     resumeEvaluationStatus: detail.resumeEvaluationStatus ?? "unreviewed",
-    workYears: profile?.workYears == null ? "" : String(profile.workYears),
+    workYears:
+      profile?.workYears === null || profile?.workYears === undefined
+        ? ""
+        : String(profile.workYears),
   };
 }
 

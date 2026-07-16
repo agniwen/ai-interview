@@ -4,9 +4,7 @@ import { act } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
-import type { ResumeReview } from "@arc/shared/resume-review";
 import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-rounds";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
 import {
   enableReactActEnvironment,
@@ -123,50 +121,6 @@ vi.mock("../use-resume-review-regeneration", () => ({
     ...reviewRegenerationMocks.hookValue,
   }),
 }));
-
-const STRUCTURED_REVIEW: ResumeReview = {
-  biasScan: { items: [] },
-  dimensions: {
-    educationBackground: { rationale: "学历背景符合预期", score: 75 },
-    experienceRelevance: { rationale: "岗位相关", score: 78 },
-    potential: { rationale: "潜力良好", score: 80 },
-    projectMatch: { rationale: "项目匹配", score: 80 },
-    skillMatch: { rationale: "技能匹配", score: 80 },
-    stability: { rationale: "稳定性可接受", score: 75 },
-  },
-  levelRecommendation: { level: "中级", rationale: "经验匹配" },
-  nextStep: {
-    action: "interview",
-    disclaimer: "以上为初步结论",
-    interviewFocus: ["项目贡献"],
-    rationale: "建议面试核实",
-  },
-  overall: {
-    baseScore: 79,
-    conclusion: "候选人匹配度较高。",
-    scoreRationale: "基于六维度按 35/25/15/10/8/7 加权得出基础分 79（不含历史面试加权）",
-  },
-  schemaVersion: 4,
-  strengths: [{ evidence: "简历证据", impact: "匹配岗位", point: "经验匹配" }],
-  teamPositioning: { rationale: "经历集中", suggestion: "业务团队" },
-  weaknesses: [{ evidence: null, impact: "需面试确认", point: "细节不足" }],
-};
-
-const STRUCTURED_PROFILE: ResumeProfile = {
-  age: null,
-  educationExperiences: [],
-  email: "candidate@example.com",
-  gender: null,
-  name: "邓超",
-  personalStrengths: [],
-  phone: null,
-  projectExperiences: [],
-  schools: [],
-  skills: ["React"],
-  targetRoles: ["前端工程师"],
-  workExperiences: [],
-  workYears: 5,
-};
 
 function makeDetail(overrides: Partial<ResumeLibraryDetail> = {}): ResumeLibraryDetail {
   return {

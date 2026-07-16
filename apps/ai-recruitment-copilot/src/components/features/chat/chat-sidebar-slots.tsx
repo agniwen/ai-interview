@@ -527,17 +527,17 @@ export function ChatSidebarSlots({
     isPending: isListPending,
     refetch: refetchConversationList,
   } = useQuery({
-    queryKey: conversationListKey,
-    queryFn: () => loadConversationList(slug),
-    // Always stale so focus / panel-switch refetch hits the network.
-    staleTime: 0,
     // Keep list across Agent/Studio tab switches; only drop after idle GC.
     gcTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
+    queryFn: () => loadConversationList(slug),
+    queryKey: conversationListKey,
     // Poll while Agent panel is visible to stay close to server truth.
     refetchInterval: active ? 30_000 : false,
     refetchIntervalInBackground: false,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
+    // Always stale so focus / panel-switch refetch hits the network.
+    staleTime: 0,
   });
 
   const invalidateConversationList = useCallback(async () => {

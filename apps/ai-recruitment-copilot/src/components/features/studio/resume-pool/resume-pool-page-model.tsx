@@ -252,10 +252,6 @@ export function sourceLabel(record: ResumePoolListRecord) {
   return record.sourcePoolItemId ? "私有简历推送" : "公共上传";
 }
 
-export function uploaderOrganizationLabel(record: ResumePoolListRecord) {
-  return record.uploaderOrganizationName?.trim() || "未知组织";
-}
-
 export function uploaderUserLabel(record: ResumePoolListRecord) {
   return record.uploaderName?.trim() || record.uploaderEmail?.trim() || "未知上传人";
 }

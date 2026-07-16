@@ -23,7 +23,7 @@ import type {
 import { hasPermissionInStatements } from "@arc/shared/permission-statements";
 import { computeWorkspacePermissionSnapshot } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-permission-snapshot";
 
-export async function workspaceAccessHasPermission<R extends WorkspaceResource>({
+export function workspaceAccessHasPermission<R extends WorkspaceResource>({
   access,
   action,
   resource,
@@ -31,7 +31,7 @@ export async function workspaceAccessHasPermission<R extends WorkspaceResource>(
   access: Extract<WorkspaceAccessState, { status: "ready" }>;
   resource: R;
   action: WorkspaceAction<R>;
-}): Promise<boolean> {
+}): boolean {
   return hasPermissionInStatements(access.permissions, resource, action);
 }
 

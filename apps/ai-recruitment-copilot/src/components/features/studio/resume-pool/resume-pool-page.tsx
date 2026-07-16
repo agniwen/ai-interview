@@ -452,7 +452,7 @@ export function ResumePoolPage() {
         <PageHeader
           className="max-w-3xl"
           title="人才库"
-          description="先沉淀简历，再决定是否推送共享或入库到招聘台。"
+          description="先沉淀简历，再决定是否在本工作区共享或入库到招聘台。"
         />
         <Tabs
           onValueChange={(value) => void navigate({ search: { scope: normalizeScope(value) } })}

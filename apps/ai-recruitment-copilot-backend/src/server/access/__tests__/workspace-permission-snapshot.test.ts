@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type * as RecruitingGroupAccess from "../recruiting-group-access";
 import { computeWorkspacePermissionSnapshot } from "../workspace-permission-snapshot";
 
 const mocks = vi.hoisted(() => ({
@@ -19,9 +20,9 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
 }));
 
 vi.mock("@arc/ai-recruitment-copilot-backend/server/access/recruiting-group-access", async () => {
-  const actual = await vi.importActual<typeof import("../recruiting-group-access")>(
+  const actual = (await vi.importActual(
     "../recruiting-group-access",
-  );
+  )) as typeof RecruitingGroupAccess;
   return {
     ...actual,
     listRecruitingGroupRoles: mocks.listGroupRoles,

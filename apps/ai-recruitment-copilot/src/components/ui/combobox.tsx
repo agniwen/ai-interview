@@ -68,8 +68,14 @@ function ComboboxInput({
   showTrigger?: boolean;
   showClear?: boolean;
 }) {
+  // Base UI positions the popup against `inputGroupElement` when present, otherwise
+  // the bare <input>. Without Combobox.InputGroup the anchor shrinks to the text
+  // field only (excluding start/end addons like avatars and the chevron), so the
+  // menu looks misaligned relative to the full control. Register the styled
+  // InputGroup as the combobox input-group so --anchor-width and align match the
+  // visible trigger.
   return (
-    <InputGroup className={cn("w-auto", className)}>
+    <ComboboxPrimitive.InputGroup render={<InputGroup className={cn("w-auto", className)} />}>
       <ComboboxPrimitive.Input render={<InputGroupInput disabled={disabled} />} {...props} />
       <InputGroupAddon align="inline-end">
         {showTrigger && (
@@ -85,7 +91,7 @@ function ComboboxInput({
         {showClear && <ComboboxClear disabled={disabled} />}
       </InputGroupAddon>
       {children}
-    </InputGroup>
+    </ComboboxPrimitive.InputGroup>
   );
 }
 

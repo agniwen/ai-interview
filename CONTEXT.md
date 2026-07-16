@@ -133,8 +133,9 @@ leads can browse their own uploads and those of lower-ranked members in their re
 _Avoid_: My uploads, personal library
 
 **Public Resume Pool**:
-A shared resume-pool scope that can be read across workspaces according to product rules.
-_Avoid_: Global resume library, marketplace
+The workspace-shared resume-pool scope. Any member with resume-pool read access in the current
+workspace can browse and import these records; they are not visible to other workspaces.
+_Avoid_: Global resume library, marketplace, app-wide public feed
 
 **Resume Pool Import**:
 The act of copying a resume-pool item into a workspace's resume library while preserving source traceability.

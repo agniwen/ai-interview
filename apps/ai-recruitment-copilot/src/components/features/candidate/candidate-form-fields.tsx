@@ -310,6 +310,7 @@ function CandidateAssessmentFields({
   );
 }
 
+// oxlint-disable-next-line complexity -- form hosts optional file/identity/assessment sections.
 export function CandidateFormFields({
   form,
   resumeFile,

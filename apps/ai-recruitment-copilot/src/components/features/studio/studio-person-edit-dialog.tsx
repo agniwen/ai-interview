@@ -318,7 +318,9 @@ function ResumeEditBody({
             candidateNamePlaceholder="请输入候选人姓名"
             disabled={isSubmitting || isResumeLocked}
             form={form}
-            onResumeFileChange={() => {}}
+            onResumeFileChange={(file) => {
+              void file;
+            }}
             requireCandidateName
             resumeFile={null}
             showResumeEvaluationStatus

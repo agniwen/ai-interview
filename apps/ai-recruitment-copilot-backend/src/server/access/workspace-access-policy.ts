@@ -36,11 +36,14 @@ export function createRequestWorkspaceAuthorizer({
     if (!memberRole || memberRole === NO_ACCESS_WORKSPACE_ROLE || !userId) {
       return {};
     }
-    statementsPromise ??= computeWorkspacePermissionSnapshot({
-      memberRole,
-      organizationId,
-      userId,
-    }).then((snapshot) => snapshot.statements);
+    statementsPromise ??= (async () => {
+      const snapshot = await computeWorkspacePermissionSnapshot({
+        memberRole,
+        organizationId,
+        userId,
+      });
+      return snapshot.statements;
+    })();
     return await statementsPromise;
   };
 

@@ -2,9 +2,12 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useContext, useEffect } from "react";
-import type { WorkspacePermissionStatements } from "@arc/shared/permission-statements";
 import { hasPermissionInStatements } from "@arc/shared/permission-statements";
-import type { PermissionAction, PermissionResource } from "@arc/shared/permission-statements";
+import type {
+  PermissionAction,
+  PermissionResource,
+  WorkspacePermissionStatements,
+} from "@arc/shared/permission-statements";
 import {
   fetchWorkspaceAccessSnapshot,
   WORKSPACE_PERMISSION_REFRESH_INTERVAL_MS,
@@ -43,23 +46,23 @@ export function WorkspaceSlugProvider({
   // Keep the query cache aligned when the route loader re-runs (slug switch / invalidate).
   useEffect(() => {
     queryClient.setQueryData(workspaceAccessKeys.bySlug(slug), loaderSnapshot);
-  }, [id, memberRole, permissions, queryClient, slug]);
+  }, [id, loaderSnapshot, memberRole, permissions, queryClient, slug]);
 
   const { data } = useQuery({
-    queryKey: workspaceAccessKeys.bySlug(slug),
-    queryFn: () => fetchWorkspaceAccessSnapshot(slug),
-    // Always stale so every window focus triggers a refetch.
-    staleTime: 0,
-    // Loader already hydrated; skip an immediate duplicate mount fetch.
-    refetchOnMount: false,
-    // Focus: always re-pull (pairs with staleTime: 0). Global default is false.
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-    refetchInterval: WORKSPACE_PERMISSION_REFRESH_INTERVAL_MS,
-    refetchIntervalInBackground: false,
     initialData: loaderSnapshot,
     // Preserve last good snapshot if a background refetch fails / redirects mid-flight.
     placeholderData: (previous) => previous,
+    queryFn: () => fetchWorkspaceAccessSnapshot(slug),
+    queryKey: workspaceAccessKeys.bySlug(slug),
+    refetchInterval: WORKSPACE_PERMISSION_REFRESH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+    // Loader already hydrated; skip an immediate duplicate mount fetch.
+    refetchOnMount: false,
+    refetchOnReconnect: true,
+    // Focus: always re-pull (pairs with staleTime: 0). Global default is false.
+    refetchOnWindowFocus: true,
+    // Always stale so every window focus triggers a refetch.
+    staleTime: 0,
   });
 
   const value = data ?? loaderSnapshot;

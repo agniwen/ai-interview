@@ -90,15 +90,23 @@ export async function computeWorkspacePermissionSnapshot({
 
   const groupRoles = await listRecruitingGroupRoles({ organizationId, userId });
   const groupStatements = statementsFromRecruitingGroupRoles(groupRoles);
-  const statements = clonePermissionStatements(roleStatements);
+  const roleClone = clonePermissionStatements(roleStatements);
+  const statements: WorkspacePermissionStatements = {};
 
-  // member + recruiting resources ignore the role matrix and use group grants only.
+  // Keep non-recruiting role grants. Recruiting resources come from group membership only.
+  for (const resource of Object.keys(roleClone) as (keyof typeof statement)[]) {
+    if (RECRUITING_GROUP_RESOURCES.has(resource)) {
+      continue;
+    }
+    const actions = roleClone[resource];
+    if (actions) {
+      Object.assign(statements, { [resource]: [...actions] });
+    }
+  }
   for (const resource of RECRUITING_GROUP_RESOURCES) {
     const groupActions = groupStatements[resource];
     if (groupActions && groupActions.length > 0) {
-      (statements as Record<string, string[]>)[resource] = [...groupActions];
-    } else {
-      delete (statements as Record<string, unknown>)[resource];
+      Object.assign(statements, { [resource]: [...groupActions] });
     }
   }
 
@@ -109,9 +117,9 @@ export async function computeWorkspacePermissionSnapshot({
     if (!allowedCatalog || !actions) {
       continue;
     }
-    (statements as Record<string, string[]>)[resource] = actions.filter((action) =>
-      allowedCatalog.includes(action),
-    );
+    Object.assign(statements, {
+      [resource]: actions.filter((action) => allowedCatalog.includes(action)),
+    });
   }
 
   return { role: memberRole, statements };
