@@ -13,55 +13,15 @@ import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   member as memberTable,
   organization as organizationTable,
-  organizationRole,
   user as userTable,
 } from "@arc/db-schema/schema";
 import { isNoAccessWorkspaceRole } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-roles";
-import { createRequestWorkspaceAuthorizer } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy";
 import type {
   WorkspaceAction,
   WorkspaceResource,
 } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy";
-import { roles } from "@arc/shared/permissions";
-
-type PermissionRecord = Record<string, readonly string[] | undefined>;
-
-function readPermissionRecord(value: string): PermissionRecord {
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return {};
-    }
-    return parsed as PermissionRecord;
-  } catch {
-    return {};
-  }
-}
-
-async function roleCanBrowseStudioPage({
-  action,
-  organizationId,
-  role,
-}: {
-  action: StudioPagePermissionAction;
-  organizationId: string;
-  role: string;
-}): Promise<boolean> {
-  const builtInRole = (roles as Record<string, { statements: PermissionRecord } | undefined>)[role];
-  if (builtInRole) {
-    return builtInRole.statements.page?.includes(action) ?? false;
-  }
-
-  const dynamicRole = await db
-    .select({ permission: organizationRole.permission })
-    .from(organizationRole)
-    .where(
-      and(eq(organizationRole.organizationId, organizationId), eq(organizationRole.role, role)),
-    )
-    .limit(1);
-  const permission = readPermissionRecord(dynamicRole[0]?.permission ?? "{}");
-  return permission.page?.includes(action) ?? false;
-}
+import { hasPermissionInStatements } from "@arc/shared/permission-statements";
+import { computeWorkspacePermissionSnapshot } from "@arc/ai-recruitment-copilot-backend/server/access/workspace-permission-snapshot";
 
 export async function workspaceAccessHasPermission<R extends WorkspaceResource>({
   access,
@@ -72,14 +32,7 @@ export async function workspaceAccessHasPermission<R extends WorkspaceResource>(
   resource: R;
   action: WorkspaceAction<R>;
 }): Promise<boolean> {
-  const requestHeaders = getRequestHeaders();
-  const authorize = createRequestWorkspaceAuthorizer({
-    headers: requestHeaders,
-    memberRole: access.member.role,
-    organizationId: access.workspace.id,
-    userId: access.user.id,
-  });
-  return await authorize({ action, resource });
+  return hasPermissionInStatements(access.permissions, resource, action);
 }
 
 export async function getActiveOrganizationStateFromRequest(): Promise<ActiveOrganizationState> {
@@ -195,10 +148,17 @@ async function resolveWorkspaceAccess(
       ),
     );
 
+  const permissionSnapshot = await computeWorkspacePermissionSnapshot({
+    memberRole: currentMember.role,
+    organizationId: matched.id,
+    userId: session.user.id,
+  });
+
   return {
     member: {
       role: currentMember.role,
     },
+    permissions: permissionSnapshot.statements,
     status: "ready",
     user: {
       id: session.user.id,
@@ -279,10 +239,26 @@ export async function resolveStudioPageAccessFromRequest(
 
   return {
     ...state,
-    allowed: await roleCanBrowseStudioPage({
-      action,
-      organizationId: state.workspace.id,
-      role: state.member.role,
-    }),
+    allowed: hasPermissionInStatements(state.permissions, "page", action),
   };
+}
+
+/**
+ * Resolve the first Studio page this member may open, using a single access snapshot.
+ */
+export async function resolveFirstAllowedStudioPagePath(
+  slug: string,
+  pagePaths: readonly { action: StudioPagePermissionAction; path: string }[],
+): Promise<string | null> {
+  const state = await resolveWorkspaceAccess(getRequestHeaders(), slug);
+  if (state.status !== "ready") {
+    return null;
+  }
+
+  for (const item of pagePaths) {
+    if (hasPermissionInStatements(state.permissions, "page", item.action)) {
+      return item.path;
+    }
+  }
+  return null;
 }

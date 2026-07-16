@@ -104,6 +104,8 @@ const mastraNavSections: NavSection[] = [
 function MastraSidebarSearch() {
   const { setOpen } = useNavigationCommand({ enableShortcut: false });
   const commandShortcutLabel = useKeyboardShortcutLabel("K");
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
 
   return (
     <SidebarMenu>
@@ -114,10 +116,11 @@ function MastraSidebarSearch() {
           onClick={() => setOpen(true)}
           size="default"
           tooltip="搜索"
-          variant="outline"
+          // Expanded: outline “search field” look. Collapsed: plain icon like other nav items.
+          variant={collapsed ? "default" : "outline"}
         >
           <IconSearch />
-          <span>搜索</span>
+          <span className="group-data-[collapsible=icon]:hidden">搜索</span>
           <Kbd className="ml-auto group-data-[collapsible=icon]:hidden">{commandShortcutLabel}</Kbd>
         </SidebarMenuButton>
       </SidebarMenuItem>

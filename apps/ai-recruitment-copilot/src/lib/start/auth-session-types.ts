@@ -1,4 +1,5 @@
 import type { statement } from "@arc/shared/permissions";
+import type { WorkspacePermissionStatements } from "@arc/shared/permission-statements";
 
 export type ActiveOrganizationState =
   | { status: "unauthenticated" }
@@ -66,6 +67,8 @@ export type WorkspaceAccessState =
       member: {
         role: string;
       };
+      /** Effective permission matrix for this user in this workspace (computed once). */
+      permissions: WorkspacePermissionStatements;
       status: "ready";
       user: {
         id: string;

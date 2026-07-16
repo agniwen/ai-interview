@@ -1,5 +1,4 @@
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
-import { agentDebugRouter } from "./routes/agent-debug/route";
 import { departmentsRouter } from "./routes/departments/route";
 import { candidateFormsRouter } from "./routes/forms/route";
 import { globalConfigRouter } from "./routes/global-config/route";
@@ -21,7 +20,6 @@ export const studioRouter = factory
   .route("/resume-pool", resumePoolRouter)
   .route("/resumes", resumeLibraryRouter)
   .route("/resume-upload-batches", resumeUploadBatchesRouter)
-  .route("/agent-debug", agentDebugRouter)
   .route("/departments", departmentsRouter)
   .route("/global-config", globalConfigRouter)
   .route("/interviewers", interviewersRouter)

@@ -1,7 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
-  AgentDebugPageSkeleton,
   DashboardPageSkeleton,
   GlobalConfigPageSkeleton,
   InterviewDetailPageSkeleton,
@@ -23,7 +22,6 @@ describe("Studio page skeletons", () => {
     ["岗位设置", () => <JobDescriptionsPageSkeleton />],
     ["我的信息", () => <ProfilePageSkeleton />],
     ["工作区管理", () => <MembersPageSkeleton />],
-    ["Agent 调试", () => <AgentDebugPageSkeleton />],
     ["权限管理", () => <PermissionsPageSkeleton />],
     ["系统设置", () => <GlobalConfigPageSkeleton />],
     ["面试详情", () => <InterviewDetailPageSkeleton />],
@@ -46,8 +44,8 @@ describe("Studio page skeletons", () => {
     expect(resumePool).toContain("lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4");
     expect(dashboard).toContain("grid-cols-2 gap-4 xl:grid-cols-4");
     expect(dashboard).toContain("xl:grid-cols-[minmax(0,1fr)_24rem]");
-    expect(profile).toContain("lg:grid-cols-2");
-    expect(profile).toContain("min-h-[34rem]");
+    expect(profile).toContain("max-w-[96rem]");
+    expect(profile).toContain("max-w-3xl");
     expect(permissions).toContain("min-w-[72rem]");
   });
 });

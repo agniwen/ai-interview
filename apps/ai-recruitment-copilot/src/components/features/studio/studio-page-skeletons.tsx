@@ -254,26 +254,24 @@ export function ProfilePageSkeleton() {
   return (
     <PageShell label="我的信息">
       <HeaderSkeleton />
-      <div className="grid gap-6 lg:grid-cols-2">
-        {Array.from({ length: 3 }).map((_, cardIndex) => (
-          <div
-            className={
-              cardIndex === 0
-                ? "min-h-[34rem] space-y-5 rounded-xl border border-border/70 p-6"
-                : "min-h-64 space-y-5 rounded-xl border border-border/70 p-6"
-            }
-            key={cardIndex}
-          >
-            <Skeleton className="h-5 w-28" />
-            <Skeleton className="h-3 w-64 max-w-full" />
-            {Array.from({ length: cardIndex === 0 ? 4 : 2 }).map((__, rowIndex) => (
-              <div className="space-y-2" key={rowIndex}>
-                <Skeleton className="h-3 w-20" />
-                <Skeleton className="h-9 w-full" />
+      <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
+        <div className="flex w-full max-w-3xl flex-col gap-8">
+          {Array.from({ length: 3 }).map((_, sectionIndex) => (
+            <div className="space-y-5" key={sectionIndex}>
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-28" />
+                <Skeleton className="h-3 w-64 max-w-full" />
               </div>
-            ))}
-          </div>
-        ))}
+              {Array.from({ length: sectionIndex === 0 ? 4 : 2 }).map((__, rowIndex) => (
+                <div className="space-y-2" key={rowIndex}>
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-9 w-full" />
+                </div>
+              ))}
+              {sectionIndex < 2 ? <Skeleton className="h-px w-full" /> : null}
+            </div>
+          ))}
+        </div>
       </div>
     </PageShell>
   );
@@ -286,15 +284,6 @@ export function MembersPageSkeleton() {
       <TabsSkeleton count={2} />
       <ToolbarSkeleton filterCount={1} />
       <TableSkeleton rows={4} />
-    </PageShell>
-  );
-}
-
-export function AgentDebugPageSkeleton() {
-  return (
-    <PageShell label="Agent 调试">
-      <HeaderSkeleton />
-      <Skeleton className="h-44 w-full rounded-xl" />
     </PageShell>
   );
 }

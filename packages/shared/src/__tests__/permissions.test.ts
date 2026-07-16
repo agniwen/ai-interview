@@ -119,13 +119,7 @@ describe("permissions matrix", () => {
 
     it("cannot browse admin-only studio pages", () => {
       expect(roles.member.statements.page).not.toEqual(
-        expect.arrayContaining([
-          "agentDebug",
-          "dashboard",
-          "globalConfig",
-          "mailIngestAccounts",
-          "permissions",
-        ]),
+        expect.arrayContaining(["dashboard", "globalConfig", "mailIngestAccounts", "permissions"]),
       );
       expect(roles.member.statements.page).toEqual(
         expect.arrayContaining(["resumes", "resumePool", "interviews", "members"]),
@@ -244,10 +238,8 @@ describe("permission matrix cross-cut", () => {
     ["member", "member", "delete", false],
     // page browsing
     ["admin", "page", "dashboard", true],
-    ["admin", "page", "agentDebug", true],
     ["admin", "page", "mailIngestAccounts", true],
     ["member", "page", "dashboard", false],
-    ["member", "page", "agentDebug", false],
     ["member", "page", "mailIngestAccounts", false],
     ["member", "page", "permissions", false],
     ["member", "page", "globalConfig", false],

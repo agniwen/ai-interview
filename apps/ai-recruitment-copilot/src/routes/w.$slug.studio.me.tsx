@@ -19,7 +19,6 @@ import type { WorkspaceRole } from "@/components/features/studio/members/role-di
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
@@ -197,57 +196,56 @@ interface OrganizationCardProps {
   }[];
 }
 
-function OrganizationCard({ currentRole, currentSlug, organizations }: OrganizationCardProps) {
+function OrganizationSection({ currentRole, currentSlug, organizations }: OrganizationCardProps) {
   return (
-    <Card className="rounded-lg">
-      <CardHeader>
-        <CardTitle>我的工作区</CardTitle>
-        <CardDescription>当前账号已加入的工作区与当前工作区角色。</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div className="flex items-center gap-3 rounded-md border bg-muted/30 p-4">
-          <div className="flex size-12 shrink-0 items-center justify-center rounded-md bg-background text-muted-foreground shadow-xs">
-            <IconBuilding />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-medium">已加入 {organizations.length} 个工作区</p>
-            <p className="text-muted-foreground text-sm">当前工作区：{currentSlug}</p>
-          </div>
-          {currentRole ? (
-            <Badge variant={ROLE_BADGE_VARIANT[currentRole]}>
-              {getWorkspaceRoleLabel(currentRole)}
-            </Badge>
-          ) : null}
-        </div>
+    <section className="flex flex-col gap-4">
+      <div className="space-y-1">
+        <h2 className="font-medium text-base">我的工作区</h2>
+        <p className="text-muted-foreground text-sm">当前账号已加入的工作区与当前工作区角色。</p>
+      </div>
 
-        <div className="flex flex-col gap-3">
-          {organizations.map((organization) => {
-            const isActive = organization.slug === currentSlug;
-            return (
-              <div
-                className="flex items-center justify-between gap-3 rounded-md border p-3"
-                key={organization.id}
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate font-medium text-sm">{organization.name}</p>
-                    {isActive ? <Badge variant="secondary">当前</Badge> : null}
-                  </div>
-                  <p className="truncate text-muted-foreground text-xs">
-                    /w/{organization.slug} · 加入于 {formatDateOnly(organization.createdAt)}
-                  </p>
-                </div>
-                {isActive && currentRole ? (
-                  <Badge variant={ROLE_BADGE_VARIANT[currentRole]}>
-                    {getWorkspaceRoleLabel(currentRole)}
-                  </Badge>
-                ) : null}
-              </div>
-            );
-          })}
+      <div className="flex items-center gap-3 rounded-md border bg-muted/30 p-4">
+        <div className="flex size-12 shrink-0 items-center justify-center rounded-md bg-background text-muted-foreground shadow-xs">
+          <IconBuilding />
         </div>
-      </CardContent>
-    </Card>
+        <div className="min-w-0 flex-1">
+          <p className="font-medium">已加入 {organizations.length} 个工作区</p>
+          <p className="text-muted-foreground text-sm">当前工作区：{currentSlug}</p>
+        </div>
+        {currentRole ? (
+          <Badge variant={ROLE_BADGE_VARIANT[currentRole]}>
+            {getWorkspaceRoleLabel(currentRole)}
+          </Badge>
+        ) : null}
+      </div>
+
+      <div className="flex flex-col gap-3">
+        {organizations.map((organization) => {
+          const isActive = organization.slug === currentSlug;
+          return (
+            <div
+              className="flex items-center justify-between gap-3 rounded-md border p-3"
+              key={organization.id}
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="truncate font-medium text-sm">{organization.name}</p>
+                  {isActive ? <Badge variant="secondary">当前</Badge> : null}
+                </div>
+                <p className="truncate text-muted-foreground text-xs">
+                  /w/{organization.slug} · 加入于 {formatDateOnly(organization.createdAt)}
+                </p>
+              </div>
+              {isActive && currentRole ? (
+                <Badge variant={ROLE_BADGE_VARIANT[currentRole]}>
+                  {getWorkspaceRoleLabel(currentRole)}
+                </Badge>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -265,7 +263,7 @@ interface ProfileCardProps {
   tenantName: string | null;
 }
 
-function ProfileCard({
+function ProfileSection({
   dirty,
   email,
   emailVerified,
@@ -279,43 +277,42 @@ function ProfileCard({
   tenantName,
 }: ProfileCardProps) {
   return (
-    <Card className="rounded-lg">
-      <CardHeader>
-        <CardTitle>账号资料</CardTitle>
-        <CardDescription>这些信息会显示在工作区成员列表和个人菜单中。</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-6">
-        <ProfileSummary
-          email={email}
-          emailVerified={emailVerified}
-          image={image}
-          name={name}
-          tenantName={tenantName}
-        />
+    <section className="flex flex-col gap-6">
+      <div className="space-y-1">
+        <h2 className="font-medium text-base">账号资料</h2>
+        <p className="text-muted-foreground text-sm">
+          这些信息会显示在工作区成员列表和个人菜单中。
+        </p>
+      </div>
 
-        <Separator />
+      <ProfileSummary
+        email={email}
+        emailVerified={emailVerified}
+        image={image}
+        name={name}
+        tenantName={tenantName}
+      />
 
-        <ProfileFields
-          email={email}
-          image={image}
-          isPending={isPending}
-          name={name}
-          onImageChange={onImageChange}
-          onNameChange={onNameChange}
-        />
+      <ProfileFields
+        email={email}
+        image={image}
+        isPending={isPending}
+        name={name}
+        onImageChange={onImageChange}
+        onNameChange={onNameChange}
+      />
 
-        <div className="flex justify-end">
-          <Button disabled={pending || isPending || !dirty} onClick={onSave}>
-            {pending ? (
-              <Spinner data-icon="inline-start" />
-            ) : (
-              <IconDeviceFloppy data-icon="inline-start" />
-            )}
-            {pending ? "保存中" : "保存修改"}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+      <div className="flex justify-end">
+        <Button disabled={pending || isPending || !dirty} onClick={onSave} type="button">
+          {pending ? (
+            <Spinner data-icon="inline-start" />
+          ) : (
+            <IconDeviceFloppy data-icon="inline-start" />
+          )}
+          {pending ? "保存中" : "保存修改"}
+        </Button>
+      </div>
+    </section>
   );
 }
 
@@ -467,186 +464,183 @@ function MailIngestAccountCard() {
   const disabled = saving || deleting || accountsQuery.isLoading;
 
   return (
-    <Card className="rounded-lg">
-      <CardHeader>
-        <CardTitle>简历邮箱采集</CardTitle>
-        <CardDescription>轮询 Boss 直聘简历邮件，自动加入你的私有招聘台解析队列。</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form
-          className="flex flex-col gap-5"
-          onSubmit={(event) => {
-            event.preventDefault();
-            saveMutation.mutate();
-          }}
-        >
-          <div className="flex items-center justify-between gap-4 rounded-md border bg-muted/30 p-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-background text-muted-foreground">
-                <IconInbox />
-              </div>
-              <div className="min-w-0">
-                <p className="font-medium text-sm">
-                  {account ? account.emailAddress : "未配置邮箱"}
-                </p>
-                <p className="truncate text-muted-foreground text-xs">
-                  {account?.lastCheckedAt
-                    ? `上次轮询：${formatDateOnly(account.lastCheckedAt)}`
-                    : "worker 开启后每 15 分钟轮询一次"}
-                </p>
-              </div>
+    <section className="flex flex-col gap-5">
+      <div className="space-y-1">
+        <h2 className="font-medium text-base">简历邮箱采集</h2>
+        <p className="text-muted-foreground text-sm">
+          轮询 Boss 直聘简历邮件，自动加入你的私有招聘台解析队列。
+        </p>
+      </div>
+
+      <form
+        className="flex flex-col gap-5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          saveMutation.mutate();
+        }}
+      >
+        <div className="flex items-center justify-between gap-4 rounded-md border bg-muted/30 p-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-background text-muted-foreground">
+              <IconInbox />
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground text-sm">启用</span>
-              <Switch
-                checked={form.enabled}
-                disabled={disabled}
-                onCheckedChange={(enabled) => setForm((current) => ({ ...current, enabled }))}
-              />
+            <div className="min-w-0">
+              <p className="font-medium text-sm">{account ? account.emailAddress : "未配置邮箱"}</p>
+              <p className="truncate text-muted-foreground text-xs">
+                {account?.lastCheckedAt
+                  ? `上次轮询：${formatDateOnly(account.lastCheckedAt)}`
+                  : "worker 开启后每 15 分钟轮询一次"}
+              </p>
             </div>
           </div>
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground text-sm">启用</span>
+            <Switch
+              checked={form.enabled}
+              disabled={disabled}
+              onCheckedChange={(enabled) => setForm((current) => ({ ...current, enabled }))}
+            />
+          </div>
+        </div>
 
-          {account?.lastError ? (
-            <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-sm">
-              {account.lastError}
-            </p>
-          ) : null}
+        {account?.lastError ? (
+          <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-sm">
+            {account.lastError}
+          </p>
+        ) : null}
 
-          <FieldGroup className="gap-5">
-            <Field>
-              <FieldLabel htmlFor="mail-ingest-email">邮箱地址</FieldLabel>
-              <Input
-                id="mail-ingest-email"
-                autoComplete="email"
-                disabled={disabled}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, emailAddress: event.target.value }))
-                }
-                placeholder="hr@example.com"
-                type="email"
-                value={form.emailAddress}
-              />
-            </Field>
+        <FieldGroup className="gap-5">
+          <Field>
+            <FieldLabel htmlFor="mail-ingest-email">邮箱地址</FieldLabel>
+            <Input
+              id="mail-ingest-email"
+              autoComplete="email"
+              disabled={disabled}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, emailAddress: event.target.value }))
+              }
+              placeholder="hr@example.com"
+              type="email"
+              value={form.emailAddress}
+            />
+          </Field>
 
-            <Field>
-              <FieldLabel htmlFor="mail-ingest-username">登录账号</FieldLabel>
-              <Input
-                id="mail-ingest-username"
-                autoComplete="username"
-                disabled={disabled}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, username: event.target.value }))
-                }
-                placeholder="通常与邮箱地址相同"
-                value={form.username}
-              />
-            </Field>
+          <Field>
+            <FieldLabel htmlFor="mail-ingest-username">登录账号</FieldLabel>
+            <Input
+              id="mail-ingest-username"
+              autoComplete="username"
+              disabled={disabled}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, username: event.target.value }))
+              }
+              placeholder="通常与邮箱地址相同"
+              value={form.username}
+            />
+          </Field>
 
-            <Field>
-              <FieldLabel htmlFor="mail-ingest-password">客户端密码</FieldLabel>
-              <Input
-                id="mail-ingest-password"
-                autoComplete="new-password"
-                disabled={disabled}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, password: event.target.value }))
-                }
-                placeholder={account?.hasPassword ? "留空则不修改" : "请输入阿里邮箱客户端密码"}
-                type="password"
-                value={form.password}
-              />
-              <FieldDescription>
-                密码会加密保存；阿里企业邮箱需开启 IMAP/SMTP 服务。
-              </FieldDescription>
-            </Field>
+          <Field>
+            <FieldLabel htmlFor="mail-ingest-password">客户端密码</FieldLabel>
+            <Input
+              id="mail-ingest-password"
+              autoComplete="new-password"
+              disabled={disabled}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, password: event.target.value }))
+              }
+              placeholder={account?.hasPassword ? "留空则不修改" : "请输入阿里邮箱客户端密码"}
+              type="password"
+              value={form.password}
+            />
+            <FieldDescription>密码会加密保存；阿里企业邮箱需开启 IMAP/SMTP 服务。</FieldDescription>
+          </Field>
 
-            <Field>
-              <FieldLabel htmlFor="mail-ingest-provider">邮箱服务</FieldLabel>
-              <Select
-                disabled={disabled}
-                value={form.providerId}
-                onValueChange={(value) =>
-                  setForm((current) =>
-                    applyMailIngestProvider(
-                      { ...current, providerId: value as MailIngestProviderId },
-                      value as MailIngestProviderId,
-                    ),
-                  )
-                }
-              >
-                <SelectTrigger className="w-full" id="mail-ingest-provider">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {MAIL_INGEST_PROVIDERS.map((provider) => (
-                      <SelectItem key={provider.id} value={provider.id}>
-                        {provider.label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <FieldDescription>
-                IMAP：{form.imapHost}:{form.imapPort}
-              </FieldDescription>
-            </Field>
+          <Field>
+            <FieldLabel htmlFor="mail-ingest-provider">邮箱服务</FieldLabel>
+            <Select
+              disabled={disabled}
+              value={form.providerId}
+              onValueChange={(value) =>
+                setForm((current) =>
+                  applyMailIngestProvider(
+                    { ...current, providerId: value as MailIngestProviderId },
+                    value as MailIngestProviderId,
+                  ),
+                )
+              }
+            >
+              <SelectTrigger className="w-full" id="mail-ingest-provider">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {MAIL_INGEST_PROVIDERS.map((provider) => (
+                    <SelectItem key={provider.id} value={provider.id}>
+                      {provider.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <FieldDescription>
+              IMAP：{form.imapHost}:{form.imapPort}
+            </FieldDescription>
+          </Field>
 
-            <Field>
-              <FieldLabel htmlFor="mail-ingest-keyword">标题关键字</FieldLabel>
-              <Input
-                id="mail-ingest-keyword"
-                disabled={disabled}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, subjectKeyword: event.target.value }))
-                }
-                value={form.subjectKeyword}
-              />
-            </Field>
+          <Field>
+            <FieldLabel htmlFor="mail-ingest-keyword">标题关键字</FieldLabel>
+            <Input
+              id="mail-ingest-keyword"
+              disabled={disabled}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, subjectKeyword: event.target.value }))
+              }
+              value={form.subjectKeyword}
+            />
+          </Field>
 
-            <Field>
-              <FieldLabel htmlFor="mail-ingest-listen-start">监听起始时间</FieldLabel>
-              <Input
-                id="mail-ingest-listen-start"
-                disabled={disabled}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, listenStartAt: event.target.value }))
-                }
-                type="datetime-local"
-                value={form.listenStartAt}
-              />
-              <FieldDescription>留空表示扫描全部邮件；新建时默认从当前时间开始。</FieldDescription>
-            </Field>
-          </FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="mail-ingest-listen-start">监听起始时间</FieldLabel>
+            <Input
+              id="mail-ingest-listen-start"
+              disabled={disabled}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, listenStartAt: event.target.value }))
+              }
+              type="datetime-local"
+              value={form.listenStartAt}
+            />
+            <FieldDescription>留空表示扫描全部邮件；新建时默认从当前时间开始。</FieldDescription>
+          </Field>
+        </FieldGroup>
 
-          <div className="flex justify-end gap-2">
-            {account ? (
-              <Button
-                disabled={disabled}
-                onClick={() => deleteMutation.mutate()}
-                type="button"
-                variant="outline"
-              >
-                {deleting ? (
-                  <Spinner data-icon="inline-start" />
-                ) : (
-                  <IconTrash data-icon="inline-start" />
-                )}
-                删除
-              </Button>
-            ) : null}
-            <Button disabled={disabled} type="submit">
-              {saving ? (
+        <div className="flex justify-end gap-2">
+          {account ? (
+            <Button
+              disabled={disabled}
+              onClick={() => deleteMutation.mutate()}
+              type="button"
+              variant="outline"
+            >
+              {deleting ? (
                 <Spinner data-icon="inline-start" />
               ) : (
-                <IconDeviceFloppy data-icon="inline-start" />
+                <IconTrash data-icon="inline-start" />
               )}
-              保存配置
+              删除
             </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+          ) : null}
+          <Button disabled={disabled} type="submit">
+            {saving ? (
+              <Spinner data-icon="inline-start" />
+            ) : (
+              <IconDeviceFloppy data-icon="inline-start" />
+            )}
+            保存配置
+          </Button>
+        </div>
+      </form>
+    </section>
   );
 }
 
@@ -699,14 +693,14 @@ function MyProfilePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[96rem] flex flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
       <PageHeader
         title="我的信息"
         description="更新你在工作区里的展示姓名和头像，方便同事识别每一次配置和操作。"
       />
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <ProfileCard
+      <div className="flex w-full max-w-3xl flex-col gap-8">
+        <ProfileSection
           dirty={dirty}
           email={user?.email ?? ""}
           emailVerified={user?.emailVerified}
@@ -720,13 +714,16 @@ function MyProfilePage() {
           tenantName={tenantName}
         />
 
-        <OrganizationCard
+        <Separator />
+
+        <OrganizationSection
           currentRole={currentRole}
           currentSlug={currentSlug}
           organizations={organizations}
         />
 
         <PermissionGate resource="member" action="update">
+          <Separator />
           <MailIngestAccountCard />
         </PermissionGate>
       </div>

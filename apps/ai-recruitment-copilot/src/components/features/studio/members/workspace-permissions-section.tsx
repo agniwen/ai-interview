@@ -34,7 +34,12 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { authClient } from "@/lib/client/auth-client";
-import { useWorkspaceId, useWorkspaceMemberRole } from "@/lib/client/workspace-context";
+import { workspaceAccessKeys } from "@/lib/client/workspace-access-query";
+import {
+  useWorkspaceId,
+  useWorkspaceMemberRole,
+  useWorkspaceSlug,
+} from "@/lib/client/workspace-context";
 import { roles } from "@arc/shared/permissions";
 import { WORKSPACE_ROLES, getWorkspaceRoleLabel } from "./role-display";
 import {
@@ -295,6 +300,7 @@ function RoleFormDialog({
 
 export function WorkspacePermissionsSection({ headerRender }: WorkspacePermissionsSectionProps) {
   const workspaceId = useWorkspaceId();
+  const workspaceSlug = useWorkspaceSlug();
   const currentRole = useWorkspaceMemberRole();
   const canManage = canManageWorkspacePermissions(currentRole);
   const queryClient = useQueryClient();
@@ -354,7 +360,10 @@ export function WorkspacePermissionsSection({ headerRender }: WorkspacePermissio
     },
     async onSuccess() {
       setRoleFormState(null);
-      await queryClient.invalidateQueries({ queryKey });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey }),
+        queryClient.invalidateQueries({ queryKey: workspaceAccessKeys.bySlug(workspaceSlug) }),
+      ]);
       toast.success("角色已创建");
     },
   });
@@ -386,7 +395,10 @@ export function WorkspacePermissionsSection({ headerRender }: WorkspacePermissio
     },
     async onSuccess() {
       setRoleFormState(null);
-      await queryClient.invalidateQueries({ queryKey });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey }),
+        queryClient.invalidateQueries({ queryKey: workspaceAccessKeys.bySlug(workspaceSlug) }),
+      ]);
       toast.success("权限已保存");
     },
   });
@@ -406,7 +418,10 @@ export function WorkspacePermissionsSection({ headerRender }: WorkspacePermissio
     },
     async onSuccess() {
       setDeleteTarget(null);
-      await queryClient.invalidateQueries({ queryKey });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey }),
+        queryClient.invalidateQueries({ queryKey: workspaceAccessKeys.bySlug(workspaceSlug) }),
+      ]);
       toast.success("角色已删除");
     },
   });

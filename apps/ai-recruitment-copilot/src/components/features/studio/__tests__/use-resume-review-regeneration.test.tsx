@@ -3,6 +3,7 @@
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { GenerateResumeReviewResult } from "@/lib/client/resume-analysis";
 import { WorkspaceSlugProvider } from "@/lib/client/workspace-context";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -60,11 +61,22 @@ function renderHookHarness(callbacks: {
     return null;
   }
 
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+
   act(() => {
     root.render(
-      <WorkspaceSlugProvider id="org-test" memberRole="admin" slug="workspace-test">
-        <Harness />
-      </WorkspaceSlugProvider>,
+      <QueryClientProvider client={queryClient}>
+        <WorkspaceSlugProvider
+          id="org-test"
+          memberRole="admin"
+          permissions={{}}
+          slug="workspace-test"
+        >
+          <Harness />
+        </WorkspaceSlugProvider>
+      </QueryClientProvider>,
     );
   });
 

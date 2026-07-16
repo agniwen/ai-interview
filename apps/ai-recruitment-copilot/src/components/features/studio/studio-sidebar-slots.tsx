@@ -11,7 +11,6 @@ import {
   IconRobot,
   IconSettings,
   IconShieldCheck,
-  IconTool,
   IconUser,
   IconUserCircle,
   IconUserCog,
@@ -150,14 +149,6 @@ const navGroups: NavGroup[] = [
         path: "/studio/mail-ingest-accounts",
         resource: "page",
         title: "邮箱监听",
-      },
-      {
-        action: "agentDebug",
-        adminOnly: true,
-        icon: IconTool,
-        path: "/studio/agent-debug",
-        resource: "page",
-        title: "Agent 调试",
       },
       {
         action: "permissions",

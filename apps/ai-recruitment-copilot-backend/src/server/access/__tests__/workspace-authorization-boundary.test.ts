@@ -46,13 +46,26 @@ describe("request-scoped workspace authorization boundary", () => {
     expect(helper).toContain("auth.api.hasPermission");
   });
 
-  it("keeps recruiting group resource and role policy in one module", () => {
+  it("keeps recruiting group resource and role policy in one access package", () => {
     const policyPattern = /RECRUITING_GROUP_RESOURCES|groupRoleAllows/u;
 
-    expect(filesContaining(backendRoot, policyPattern)).toEqual([
-      "apps/ai-recruitment-copilot-backend/src/server/access/workspace-access-policy.ts",
-    ]);
+    expect(filesContaining(backendRoot, policyPattern).toSorted()).toEqual(
+      [
+        "apps/ai-recruitment-copilot-backend/src/server/access/recruiting-group-access.ts",
+        "apps/ai-recruitment-copilot-backend/src/server/access/workspace-permission-snapshot.ts",
+      ].toSorted(),
+    );
     expect(filesContaining(webRoot, policyPattern)).toEqual([]);
+  });
+
+  it("routes API authorization through the shared permission snapshot", () => {
+    const policy = readFileSync(
+      path.join(backendRoot, "server/access/workspace-access-policy.ts"),
+      "utf-8",
+    );
+    expect(policy).toContain("computeWorkspacePermissionSnapshot");
+    expect(policy).toContain("hasPermissionInStatements");
+    expect(policy).not.toContain("hasWorkspacePermission");
   });
 
   it("mounts every workspace business router behind one URL-scoped boundary", () => {

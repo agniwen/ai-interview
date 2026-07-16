@@ -29,13 +29,11 @@ export const STUDIO_PAGE_PERMISSION_ACTIONS = [
   "me",
   "members",
   "mailIngestAccounts",
-  "agentDebug",
   "permissions",
   "globalConfig",
 ] as const;
 
 export const STUDIO_PAGE_PERMISSION_LABELS = {
-  agentDebug: "Agent 调试",
   dashboard: "数据看板",
   departments: "部门管理",
   forms: "面试表单",

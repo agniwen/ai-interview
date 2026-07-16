@@ -11,9 +11,11 @@ import {
   getActiveOrganizationStateFromRequest,
   getNoAccessWaitStateFromRequest,
   getWorkspaceSelectionStateFromRequest,
+  resolveFirstAllowedStudioPagePath,
   resolveStudioPageAccessFromRequest,
   resolveWorkspaceAccessFromRequest,
 } from "./auth-session.server";
+import { STUDIO_PAGE_PATHS } from "./studio-page-paths";
 import { STUDIO_PAGE_PERMISSION_ACTIONS } from "@arc/shared/permissions";
 import { z } from "zod";
 
@@ -45,4 +47,11 @@ export const getStudioPageAccessState = createServerFn({ method: "GET" })
   .handler(
     async ({ data }): Promise<StudioPageAccessState> =>
       await resolveStudioPageAccessFromRequest(data.slug, data.action),
+  );
+
+export const getFirstAllowedStudioPagePath = createServerFn({ method: "GET" })
+  .validator(slugInputSchema)
+  .handler(
+    async ({ data }): Promise<string | null> =>
+      await resolveFirstAllowedStudioPagePath(data.slug, STUDIO_PAGE_PATHS),
   );

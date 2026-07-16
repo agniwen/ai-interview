@@ -291,7 +291,7 @@ async function renderDialog() {
 
   const { root } = await renderInAct(
     <QueryClientProvider client={queryClient}>
-      <WorkspaceSlugProvider id="org-1" memberRole="admin" slug="new">
+      <WorkspaceSlugProvider id="org-1" memberRole="admin" permissions={{}} slug="new">
         <StudioPersonEditDialog mode="resume" onOpenChange={vi.fn()} open recordId="resume-1" />
       </WorkspaceSlugProvider>
     </QueryClientProvider>,
@@ -313,7 +313,7 @@ async function renderInterviewDialog({
 
   const { root } = await renderInAct(
     <QueryClientProvider client={queryClient}>
-      <WorkspaceSlugProvider id="org-1" memberRole="admin" slug="new">
+      <WorkspaceSlugProvider id="org-1" memberRole="admin" permissions={{}} slug="new">
         <StudioPersonEditDialog
           mode="interview"
           onEditResumeRecord={onEditResumeRecord}

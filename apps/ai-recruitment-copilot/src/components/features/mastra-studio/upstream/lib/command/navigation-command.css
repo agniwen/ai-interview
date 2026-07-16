@@ -16,10 +16,30 @@
 .navigation-command-surface-input {
   --navigation-command-enter-delay: 20ms;
   --navigation-command-exit-delay: 80ms;
+  /* Match rail/results panels; beat playground-ui / dialog surface utilities. */
+  background-color: var(--surface2) !important;
+  border-bottom-color: var(--border1);
 }
 
-.navigation-command-surface-input [cmdk-input] {
-  background-color: transparent;
+.navigation-command-surface-input:focus-within {
+  background-color: var(--surface2) !important;
+}
+
+.navigation-command-surface-input [cmdk-input],
+.navigation-command-surface-input input {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Browser autofill can paint a different fill over the shared surface. */
+.navigation-command-surface-input input:-webkit-autofill,
+.navigation-command-surface-input input:-webkit-autofill:hover,
+.navigation-command-surface-input input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--surface2) inset !important;
+  box-shadow: 0 0 0 1000px var(--surface2) inset !important;
+  -webkit-text-fill-color: var(--neutral6, inherit);
+  caret-color: var(--neutral6, inherit);
+  transition: background-color 99999s ease-out;
 }
 
 .navigation-command-surface-rail {

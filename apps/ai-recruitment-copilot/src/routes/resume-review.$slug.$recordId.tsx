@@ -134,6 +134,7 @@ function ResumeReviewDetailPage() {
     <WorkspaceSlugProvider
       id={state.workspace.id}
       memberRole={state.member.role}
+      permissions={state.permissions}
       slug={state.workspace.slug}
     >
       <ResumeReviewDetailContent recordId={recordId} />
