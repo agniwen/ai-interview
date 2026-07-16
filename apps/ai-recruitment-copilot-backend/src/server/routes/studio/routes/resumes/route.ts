@@ -13,6 +13,7 @@ import {
   canDeleteResumeRecord,
   canEditResumeRecord,
   resumeEvaluationUpdateSchema,
+  resumeIdentityUpdateSchema,
   resumeLibraryEditFormSchema,
   resumeLibraryFormSchema,
 } from "@arc/shared/studio-resumes";
@@ -307,6 +308,122 @@ export const resumeLibraryRouter = factory
       }
 
       invalidateStudioInterviewCaches(activeOrg.id);
+      const detail = await loadResumeDetail(id, activeOrg.id, visibilityScope);
+      return c.json(detail, 200);
+    },
+  )
+  .patch(
+    "/:id/identity",
+    requirePermission("resumeLibrary", "update"),
+    zValidator("json", resumeIdentityUpdateSchema, jsonValidatorError("请求参数无效。")),
+    async (c) => {
+      const { activeOrg } = c.var;
+      if (!activeOrg) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const id = c.req.param("id");
+      const visibilityScope = await loadVisibilityScope(
+        activeOrg.id,
+        c.var.member?.role,
+        c.var.user?.id,
+      );
+      const existing = await loadResumeDetail(id, activeOrg.id, visibilityScope);
+      if (!existing) {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
+      if (!canEditResumeRecord(existing.resumeParseStatus)) {
+        return c.json({ error: "简历解析完成后才能编辑。" }, 409);
+      }
+
+      const input = c.req.valid("json");
+      const ok = await jobDescriptionIdsExist([input.jobDescriptionId], activeOrg.id);
+      if (!ok) {
+        return c.json({ error: "所选在招岗位不存在。" }, 400);
+      }
+
+      const nextJobDescriptionId = input.jobDescriptionId;
+      const jobDescriptionChanged = existing.jobDescriptionId !== nextJobDescriptionId;
+      const nextJobDescription = jobDescriptionChanged
+        ? await loadJobDescriptionById(activeOrg.id, nextJobDescriptionId)
+        : null;
+
+      // Mirror identity into resumeProfile JSON when a structured profile exists.
+      // Table: candidateName/email/phone/targetRole/jobDescriptionId
+      // JSON: name/email/phone/gender/age/workYears/targetRoles
+      const resumeProfile = syncResumeProfileIdentity(existing.resumeProfile, {
+        age: input.age,
+        candidateEmail: input.candidateEmail,
+        candidateName: input.candidateName,
+        candidatePhone: input.candidatePhone,
+        gender: input.gender,
+        targetRole: input.targetRole || existing.targetRole || "",
+        workYears: input.workYears,
+      });
+      const now = new Date();
+      const update = {
+        candidateEmail: input.candidateEmail || null,
+        candidateName: input.candidateName,
+        candidatePhone: input.candidatePhone || null,
+        jobDescriptionId: nextJobDescriptionId,
+        targetRole:
+          input.targetRole || resumeProfile?.targetRoles[0] || existing.targetRole || null,
+        updatedAt: now,
+        ...(resumeProfile ? { resumeProfile } : {}),
+      } satisfies Partial<typeof studioInterview.$inferInsert>;
+
+      await db.transaction(async (tx) => {
+        await tx
+          .update(studioInterview)
+          .set(update)
+          .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)));
+        if (jobDescriptionChanged) {
+          await tx.insert(interviewAuditLog).values({
+            action: "job_description_changed",
+            createdAt: now,
+            detail: {
+              fromJobDescriptionId: existing.jobDescriptionId,
+              fromJobDescriptionName: existing.jobDescriptionName,
+              toJobDescriptionId: nextJobDescriptionId,
+              toJobDescriptionName: nextJobDescription?.name ?? null,
+            },
+            id: crypto.randomUUID(),
+            interviewRecordId: id,
+            operatorId: c.var.user?.id ?? null,
+            organizationId: activeOrg.id,
+          });
+        }
+      });
+
+      if (jobDescriptionChanged && existing.resumeEvaluationStatus) {
+        await resetResumeEvaluationForJobChange({
+          id,
+          nextJobDescriptionId,
+          operatorId: c.var.user?.id ?? null,
+          organizationId: activeOrg.id,
+          previousJobDescriptionId: existing.jobDescriptionId,
+          previousStatus: existing.resumeEvaluationStatus,
+        });
+      } else {
+        const nextEvaluationStatus =
+          input.resumeEvaluationStatus === "unreviewed" ? null : input.resumeEvaluationStatus;
+        if (nextEvaluationStatus !== existing.resumeEvaluationStatus) {
+          await updateResumeEvaluationStatus({
+            id,
+            operatorId: c.var.user?.id ?? null,
+            organizationId: activeOrg.id,
+            status: nextEvaluationStatus,
+          });
+        }
+      }
+
+      invalidateStudioInterviewCaches(activeOrg.id);
+      if (resumeProfile) {
+        await enqueueResumeSemanticIndexJobBestEffort({
+          organizationId: activeOrg.id,
+          sourceId: id,
+          sourceType: "studio_interview",
+        });
+      }
       const detail = await loadResumeDetail(id, activeOrg.id, visibilityScope);
       return c.json(detail, 200);
     },

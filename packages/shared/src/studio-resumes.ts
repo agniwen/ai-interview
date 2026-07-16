@@ -491,6 +491,34 @@ export const resumeLibraryEditFormSchema = resumeLibraryFormSchema.extend({
 
 export type ResumeLibraryFormValues = z.infer<typeof resumeLibraryFormSchema>;
 
+/**
+ * Lightweight identity edit from the resume overview "候选人信息" section.
+ * Updates table columns and mirrors into resumeProfile JSON when present.
+ */
+export const resumeIdentityUpdateSchema = z.object({
+  age: z.number().int().min(0).max(120).nullable(),
+  candidateEmail: z
+    .string()
+    .trim()
+    .max(200, "邮箱不能超过 200 个字符")
+    .refine((v) => v === "" || z.string().email().safeParse(v).success, {
+      message: "请输入有效邮箱",
+    }),
+  candidateName: z
+    .string()
+    .trim()
+    .min(1, "请填写候选人姓名")
+    .max(120, "候选人姓名不能超过 120 个字符"),
+  candidatePhone: z.string().trim().max(40, "联系电话不能超过 40 个字符"),
+  gender: z.string().trim().max(40),
+  jobDescriptionId: z.string().trim().min(1, "请选择关联在招岗位").max(100, "关联在招岗位无效"),
+  resumeEvaluationStatus: resumeEvaluationStatusFormValueSchema,
+  targetRole: z.string().trim().max(120, "目标岗位不能超过 120 个字符"),
+  workYears: z.number().min(0).max(80).nullable(),
+});
+
+export type ResumeIdentityUpdateInput = z.infer<typeof resumeIdentityUpdateSchema>;
+
 export function createResumeLibraryFormValues(): ResumeLibraryFormValues {
   return {
     candidateEmail: "",

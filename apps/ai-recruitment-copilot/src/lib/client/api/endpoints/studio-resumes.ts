@@ -17,6 +17,7 @@ import type {
   CandidateTimelineResponse,
   PaginatedResumeLibraryResult,
   ResumeEvaluationStatus,
+  ResumeIdentityUpdateInput,
   ResumeLibraryDetail,
 } from "@arc/shared/studio-resumes";
 import { rpc } from "@/lib/client/rpc";
@@ -114,6 +115,23 @@ export function fetchStudioResume(slug: string, id: string): Promise<ResumeLibra
     rpc.api.w[":slug"].studio.resumes[":id"].$get({ param: { id, slug } }),
     "加载简历详情失败",
     { allow404: true },
+  );
+}
+
+/**
+ * Lightweight identity update for the resume detail panel (table columns + resumeProfile JSON).
+ */
+export function updateStudioResumeIdentity(
+  slug: string,
+  id: string,
+  input: ResumeIdentityUpdateInput,
+): Promise<ResumeLibraryDetail> {
+  return rpcFetch<ResumeLibraryDetail>(
+    rpc.api.w[":slug"].studio.resumes[":id"].identity.$patch({
+      json: input,
+      param: { id, slug },
+    }),
+    "保存候选人信息失败",
   );
 }
 

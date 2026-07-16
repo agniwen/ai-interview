@@ -188,7 +188,7 @@ function InterviewResultTabContent({
           <InterviewResultFrame evaluationSummary={evaluationSummary} report={report} />
         )}
         <Frame className="h-full">
-          <FrameHeader className="flex-row flex-wrap items-center justify-between   ">
+          <FrameHeader className="flex-row flex-wrap items-center justify-between">
             <FrameTitle>候选人信息</FrameTitle>
           </FrameHeader>
           <FramePanel className="flex-1">
@@ -408,8 +408,11 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
               launch-interview dialog and this view stay in sync. */}
               {mode === "resume" && resumeRecord ? (
                 <ResumeOverviewPanel
+                  canEdit={Boolean(model.canUpdateResumeLibrary)}
                   detail={resumeRecord}
+                  onUpdated={model.onResumeIdentityUpdated}
                   onViewAiScore={() => setActiveTab("ai-analysis")}
+                  slug={model.slug}
                 />
               ) : (
                 <InterviewResultTabContent

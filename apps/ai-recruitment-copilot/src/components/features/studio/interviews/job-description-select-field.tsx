@@ -39,6 +39,8 @@ export function JobDescriptionSelectField({
   action,
   disabled,
   matching = false,
+  showDescription = true,
+  size = "default",
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -52,6 +54,10 @@ export function JobDescriptionSelectField({
    * surfaces a spinner + hint so the user understands a value is incoming.
    */
   matching?: boolean;
+  /** When false, omit the helper description under the field. */
+  showDescription?: boolean;
+  /** Control height; `sm` matches SelectTrigger size="sm" (h-8). */
+  size?: "default" | "sm";
 }) {
   const slug = useWorkspaceSlug();
   const { data: jobDescriptions = [] } = useQuery({
@@ -91,20 +97,23 @@ export function JobDescriptionSelectField({
               invalid={!!error}
               onChange={(next) => onChange(next ?? "")}
               options={jobDescriptions.map((jd) => ({
-                description: describeInterviewers(jd),
+                description: showDescription ? describeInterviewers(jd) : undefined,
                 label: buildJdLabel(jd),
                 value: jd.id,
               }))}
               placeholder={matching ? "正在为你匹配在招岗位…" : "请选择在招岗位"}
               searchPlaceholder="搜索岗位…"
+              triggerClassName={size === "sm" ? "h-8" : undefined}
               value={value || null}
             />
           </div>
           {action ? <div className="shrink-0">{action}</div> : null}
         </div>
-        <FieldDescription>
-          面试时会从在招岗位所配置的面试官中随机挑选一位，使用其 prompt 与音色。
-        </FieldDescription>
+        {showDescription ? (
+          <FieldDescription>
+            面试时会从在招岗位所配置的面试官中随机挑选一位，使用其 prompt 与音色。
+          </FieldDescription>
+        ) : null}
         {error ? <FieldError errors={[{ message: error }]} /> : null}
       </FieldContent>
     </Field>

@@ -151,6 +151,7 @@ export function useStudioPersonDetailController({
   const canViewReportMetadata = accessMode === "authed";
   const hasReadHumanInterviewPermission = useHasPermission("humanInterview", "read");
   const hasUpdateInterviewPermission = useHasPermission("interview", "update");
+  const hasUpdateResumeLibraryPermission = useHasPermission("resumeLibrary", "update");
   const hasCreateHumanInterviewPermission = useHasPermission("humanInterview", "create");
   const hasUpdateHumanInterviewPermission = useHasPermission("humanInterview", "update");
   const hasDeleteHumanInterviewPermission = useHasPermission("humanInterview", "delete");
@@ -160,6 +161,10 @@ export function useStudioPersonDetailController({
   const hasDeleteOfferPermission = useHasPermission("offer", "delete");
   const canReadHumanInterview = canUseManagementActions && hasReadHumanInterviewPermission;
   const canUpdateInterview = canUseManagementActions && hasUpdateInterviewPermission;
+  // Same gate as 招聘台列表 card「编辑」: resumeLibrary:update in authed mode.
+  // Parse-ready is checked at the call site (canEditResumeRecord), matching
+  // resume-library-card-actions.
+  const canUpdateResumeLibrary = canUseManagementActions && hasUpdateResumeLibraryPermission;
   const canCreateHumanInterview = canUseManagementActions && hasCreateHumanInterviewPermission;
   const canUpdateHumanInterview = canUseManagementActions && hasUpdateHumanInterviewPermission;
   const canDeleteHumanInterview = canUseManagementActions && hasDeleteHumanInterviewPermission;
@@ -819,6 +824,7 @@ export function useStudioPersonDetailController({
     canResetAiRound,
     canUpdateHumanInterview,
     canUpdateOffer,
+    canUpdateResumeLibrary,
     canUseManagementActions,
     canUseTimelineRailScroll,
     canViewReportMetadata,
@@ -855,6 +861,11 @@ export function useStudioPersonDetailController({
     metadataReport,
     mode,
     onRequestClose,
+    onResumeIdentityUpdated: () => {
+      void queryClient.invalidateQueries({ queryKey: ["studio-resumes", slug] });
+      void queryClient.invalidateQueries({ queryKey: ["studio-interview-round", slug] });
+      void queryClient.invalidateQueries({ queryKey: ["studio-interview-rounds", slug] });
+    },
     pendingResetSubmissionId,
     record,
     recordId,
