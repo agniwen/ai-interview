@@ -34,17 +34,18 @@ export function createResumePoolFilters(
   };
 }
 
-export function buildResumePoolUploaderFilterOptions(
-  uploaders: ResumePoolUploaderOption[],
-  currentUserId: string | null,
-) {
+export function buildResumePoolUploaderFilterOptions(uploaders: ResumePoolUploaderOption[]) {
   const options = uploaders.map((uploader) => ({
     avatarUrl: uploader.image,
-    label: uploader.id === currentUserId ? `我自己（${uploader.name}）` : uploader.name,
+    label: uploader.name,
     searchValue: `${uploader.name} ${uploader.email}`,
     value: uploader.id,
   }));
   return uploaders.length > 1 ? [{ label: "全部上传人", value: "all" }, ...options] : options;
+}
+
+export function isResumePoolUploaderFilterDisabled(uploaders: ResumePoolUploaderOption[]) {
+  return uploaders.length <= 1;
 }
 
 export function normalizeScope(value: unknown): ResumePoolScope {

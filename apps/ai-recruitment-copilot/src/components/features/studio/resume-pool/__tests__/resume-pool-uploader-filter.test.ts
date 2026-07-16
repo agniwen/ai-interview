@@ -2,12 +2,18 @@ import { describe, expect, it } from "vitest";
 import {
   buildResumePoolUploaderFilterOptions,
   createResumePoolFilters,
+  isResumePoolUploaderFilterDisabled,
   normalizeResumePoolUploaderId,
 } from "../resume-pool-page-model";
 
 describe("private resume pool uploader filter", () => {
   const uploaders = [
-    { email: "self@example.com", id: "self", image: null, name: "当前用户" },
+    {
+      email: "self@example.com",
+      id: "self",
+      image: "https://example.com/self.png",
+      name: "当前用户",
+    },
     { email: "report@example.com", id: "report", image: null, name: "下级成员" },
   ];
 
@@ -25,11 +31,11 @@ describe("private resume pool uploader filter", () => {
   });
 
   it("builds self, subordinate, and all-visible uploader choices", () => {
-    expect(buildResumePoolUploaderFilterOptions(uploaders, "self")).toEqual([
+    expect(buildResumePoolUploaderFilterOptions(uploaders)).toEqual([
       { label: "全部上传人", value: "all" },
       {
-        avatarUrl: null,
-        label: "我自己（当前用户）",
+        avatarUrl: "https://example.com/self.png",
+        label: "当前用户",
         searchValue: "当前用户 self@example.com",
         value: "self",
       },
@@ -40,6 +46,12 @@ describe("private resume pool uploader filter", () => {
         value: "report",
       },
     ]);
+  });
+
+  it("disables the uploader filter when the current user is the only option", () => {
+    expect(isResumePoolUploaderFilterDisabled([])).toBe(true);
+    expect(isResumePoolUploaderFilterDisabled(uploaders.slice(0, 1))).toBe(true);
+    expect(isResumePoolUploaderFilterDisabled(uploaders)).toBe(false);
   });
 
   it("keeps a valid uploader id in route search and drops invalid values", () => {

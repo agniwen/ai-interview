@@ -25,6 +25,8 @@ export type ToolbarFilterConfig =
       searchPlaceholder?: string;
       emptyMessage?: string;
       clearable?: boolean;
+      disabled?: boolean;
+      required?: boolean;
     }
   | {
       type: "multi-select";
@@ -139,10 +141,12 @@ export function Toolbar(props: ToolbarProps) {
                 <div className="min-w-0 sm:w-auto sm:min-w-45" key={filter.key}>
                   <SearchableSelect
                     clearable={filter.clearable ?? true}
+                    disabled={filter.disabled}
                     emptyMessage={filter.emptyMessage ?? "没有匹配项"}
                     onChange={(next) => onFilterChange?.(filter.key, next ?? "")}
                     options={filter.options}
                     placeholder={filter.placeholder ?? "请选择"}
+                    required={filter.required}
                     searchPlaceholder={filter.searchPlaceholder ?? "搜索…"}
                     value={value || null}
                   />

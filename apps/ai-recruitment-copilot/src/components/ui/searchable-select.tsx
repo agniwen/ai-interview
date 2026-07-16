@@ -3,6 +3,7 @@
 import type { ReactNode, WheelEvent } from "react";
 import { useEffect, useId, useMemo, useState } from "react";
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Combobox,
   ComboboxContent,
@@ -11,6 +12,7 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@/components/ui/combobox";
+import { InputGroupAddon } from "@/components/ui/input-group";
 import { cn } from "@arc/shared/utils";
 
 // =====================================================================
@@ -27,8 +29,8 @@ export interface SearchableSelectOption {
   /** 副信息（如部门 / 备注），出现在 option 第二行；为空则不显示。 */
   /** Secondary line shown beneath the label inside the dropdown. */
   description?: string;
-  /** 可选头像 URL；多选下拉会在 option 行内展示。 */
-  /** Optional avatar URL rendered by multi-select option rows. */
+  /** 可选头像 URL；在当前值与 option 行内展示。 */
+  /** Optional avatar URL rendered with the selected value and option rows. */
   avatarUrl?: string | null;
   /** 自定义搜索文本，缺省为 label + description / Override text used by cmdk filter. */
   searchValue?: string;
@@ -51,6 +53,8 @@ export interface SearchableSelectProps {
   disabled?: boolean;
   /** 是否允许清空 / Whether to render a clear button when something is selected. */
   clearable?: boolean;
+  /** 是否必须保留一个已选值 / Whether an existing selection must not be cleared. */
+  required?: boolean;
   /** 触发器额外样式（高度 / 宽度等） / Extra trigger className. */
   triggerClassName?: string;
   /** 下拉列表额外样式 / Extra option list className. */
@@ -75,6 +79,23 @@ function filterSearchableOption(option: SearchableSelectOption, query: string) {
   return getOptionSearchText(option).toLocaleLowerCase().includes(normalizedQuery);
 }
 
+function getOptionInitials(label: string): string {
+  const trimmed = label.trim();
+  return trimmed ? trimmed.slice(0, 1).toUpperCase() : "?";
+}
+
+function SearchableSelectOptionAvatar({ option }: { option: SearchableSelectOption }) {
+  if (option.avatarUrl === undefined) {
+    return null;
+  }
+  return (
+    <Avatar size="sm">
+      {option.avatarUrl ? <AvatarImage alt={option.label} src={option.avatarUrl} /> : null}
+      <AvatarFallback>{getOptionInitials(option.label)}</AvatarFallback>
+    </Avatar>
+  );
+}
+
 export function handleScrollableListWheel(event: WheelEvent<HTMLDivElement>) {
   const list = event.currentTarget;
 
@@ -96,10 +117,12 @@ export function SearchableSelect({
   onChange,
   options,
   placeholder = "请选择",
+  searchPlaceholder = "搜索…",
   emptyMessage = "没有匹配项",
   invalid,
   disabled,
   clearable = false,
+  required = false,
   triggerClassName,
   listClassName,
   contentSide = "bottom",
@@ -130,6 +153,9 @@ export function SearchableSelect({
   };
 
   const handleValueChange = (next: SearchableSelectOption | null) => {
+    if (!next && required) {
+      return;
+    }
     onChange(next?.value ?? null);
     setInputValue(next?.label ?? "");
     setOpen(false);
@@ -152,12 +178,19 @@ export function SearchableSelect({
     >
       <ComboboxInput
         aria-invalid={invalid ? true : undefined}
+        aria-required={required ? true : undefined}
         className={cn("w-full", triggerClassName)}
         disabled={disabled}
         id={triggerId}
-        placeholder={placeholder}
+        placeholder={open ? searchPlaceholder : placeholder}
         showClear={clearable}
-      />
+      >
+        {selected ? (
+          <InputGroupAddon align="inline-start">
+            <SearchableSelectOptionAvatar option={selected} />
+          </InputGroupAddon>
+        ) : null}
+      </ComboboxInput>
       <ComboboxContent
         className="min-w-72"
         collisionAvoidance={{ side: "flip", align: "shift", fallbackAxisSide: "none" }}
@@ -170,6 +203,7 @@ export function SearchableSelect({
         >
           {(option: SearchableSelectOption) => (
             <ComboboxItem disabled={option.disabled} key={option.value} value={option}>
+              <SearchableSelectOptionAvatar option={option} />
               <div className="flex min-w-0 flex-col leading-tight">
                 <span className="truncate">{option.label}</span>
                 {option.description ? (

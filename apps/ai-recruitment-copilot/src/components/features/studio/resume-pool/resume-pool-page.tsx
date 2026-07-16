@@ -52,6 +52,7 @@ import {
   filterPoolRecords,
   getCandidateTitle,
   getCandidateTitleWithId,
+  isResumePoolUploaderFilterDisabled,
   normalizeScope,
   pruneSelectedPrivateResumeIds,
   removeSelectedPrivateResumeId,
@@ -185,9 +186,11 @@ export function ResumePoolPage() {
     staleTime: 60_000,
   });
   const uploaderFilterOptions = useMemo(
-    () => buildResumePoolUploaderFilterOptions(uploaderQuery.data ?? [], currentUserId),
-    [currentUserId, uploaderQuery.data],
+    () => buildResumePoolUploaderFilterOptions(uploaderQuery.data ?? []),
+    [uploaderQuery.data],
   );
+  const uploaderFilterDisabled =
+    uploaderQuery.isPending || isResumePoolUploaderFilterDisabled(uploaderQuery.data ?? []);
   const selectedPrivateResumeIdsArray = useMemo(
     () => [...selectedPrivateResumeIds],
     [selectedPrivateResumeIds],
@@ -381,10 +384,12 @@ export function ResumePoolPage() {
         ? [
             {
               clearable: false,
+              disabled: uploaderFilterDisabled,
               emptyMessage: "没有可选择的上传人",
               key: "uploaderId" as const,
               options: uploaderFilterOptions,
               placeholder: "按上传人筛选",
+              required: true,
               searchPlaceholder: "搜索姓名或邮箱…",
               type: "select" as const,
             },
@@ -424,7 +429,7 @@ export function ResumePoolPage() {
         type: "select" as const,
       },
     ],
-    [scope, uploaderFilterOptions],
+    [scope, uploaderFilterDisabled, uploaderFilterOptions],
   );
   let loadMoreStatusText = "暂无可加载简历";
   if (hasMoreRecords) {
