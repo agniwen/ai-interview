@@ -52,10 +52,11 @@ import {
   filterPoolRecords,
   getCandidateTitle,
   getCandidateTitleWithId,
-  isResumePoolUploaderFilterDisabled,
+  getResumePoolUploaderFilterAvailability,
   normalizeScope,
   pruneSelectedPrivateResumeIds,
   removeSelectedPrivateResumeId,
+  RESUME_POOL_UPLOADER_QUERY_FRESHNESS,
   sessionUserId,
   updateSelectedPrivateResumeIds,
 } from "@/components/features/studio/resume-pool/resume-pool-page-model";
@@ -183,14 +184,18 @@ export function ResumePoolPage() {
     enabled: scope === "private",
     queryFn: () => fetchResumePoolUploaders(slug),
     queryKey: ["resume-pool-uploaders", slug],
-    staleTime: 60_000,
+    ...RESUME_POOL_UPLOADER_QUERY_FRESHNESS,
   });
   const uploaderFilterOptions = useMemo(
     () => buildResumePoolUploaderFilterOptions(uploaderQuery.data ?? []),
     [uploaderQuery.data],
   );
-  const uploaderFilterDisabled =
-    uploaderQuery.isPending || isResumePoolUploaderFilterDisabled(uploaderQuery.data ?? []);
+  const { disabled: uploaderFilterDisabled, disabledReason: uploaderFilterDisabledReason } =
+    getResumePoolUploaderFilterAvailability({
+      isFetching: uploaderQuery.isFetching,
+      isSuccess: uploaderQuery.isSuccess,
+      uploaders: uploaderQuery.data ?? [],
+    });
   const selectedPrivateResumeIdsArray = useMemo(
     () => [...selectedPrivateResumeIds],
     [selectedPrivateResumeIds],
@@ -374,17 +379,12 @@ export function ResumePoolPage() {
   const emptyTitle = scope === "private" ? "暂无私有简历池简历" : "公共简历池暂无简历";
   const filtersConfig = useMemo(
     () => [
-      {
-        key: "search" as const,
-        minWidth: "15rem",
-        placeholder: "搜索候选人、邮箱、电话、简历名或目标岗位",
-        type: "search" as const,
-      },
       ...(scope === "private"
         ? [
             {
               clearable: false,
               disabled: uploaderFilterDisabled,
+              disabledReason: uploaderFilterDisabledReason,
               emptyMessage: "没有可选择的上传人",
               key: "uploaderId" as const,
               options: uploaderFilterOptions,
@@ -395,6 +395,12 @@ export function ResumePoolPage() {
             },
           ]
         : []),
+      {
+        key: "search" as const,
+        minWidth: "15rem",
+        placeholder: "搜索候选人、邮箱、电话、简历名或目标岗位",
+        type: "search" as const,
+      },
       {
         clearable: false,
         key: "sourceType" as const,
@@ -429,7 +435,7 @@ export function ResumePoolPage() {
         type: "select" as const,
       },
     ],
-    [scope, uploaderFilterDisabled, uploaderFilterOptions],
+    [scope, uploaderFilterDisabled, uploaderFilterDisabledReason, uploaderFilterOptions],
   );
   let loadMoreStatusText = "暂无可加载简历";
   if (hasMoreRecords) {

@@ -54,4 +54,24 @@ describe("Toolbar", () => {
     expect(html).not.toContain('title="岗位 C"');
     expect(html).toContain("+1");
   });
+
+  it("explains why a select filter is disabled", () => {
+    const html = renderToStaticMarkup(
+      <Toolbar
+        filterValues={{ uploaderId: "self" }}
+        filters={[
+          {
+            disabled: true,
+            disabledReason: "当前仅可查看自己的数据",
+            key: "uploaderId",
+            options: [{ label: "当前用户", value: "self" }],
+            type: "select",
+          },
+        ]}
+      />,
+    );
+
+    expect(html).toContain('data-slot="tooltip-trigger"');
+    expect(html).toContain('tabindex="0"');
+  });
 });

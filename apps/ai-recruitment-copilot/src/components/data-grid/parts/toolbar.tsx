@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import type { SearchableSelectOption } from "@/components/ui/searchable-select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DebouncedSearchInput } from "./debounced-search-input";
 
 // =====================================================================
@@ -26,6 +27,7 @@ export type ToolbarFilterConfig =
       emptyMessage?: string;
       clearable?: boolean;
       disabled?: boolean;
+      disabledReason?: string;
       required?: boolean;
     }
   | {
@@ -137,19 +139,37 @@ export function Toolbar(props: ToolbarProps) {
               );
             }
             if (filter.type === "select") {
+              const selectControl = (
+                <SearchableSelect
+                  clearable={filter.clearable ?? true}
+                  disabled={filter.disabled}
+                  emptyMessage={filter.emptyMessage ?? "没有匹配项"}
+                  onChange={(next) => onFilterChange?.(filter.key, next ?? "")}
+                  options={filter.options}
+                  placeholder={filter.placeholder ?? "请选择"}
+                  required={filter.required}
+                  searchPlaceholder={filter.searchPlaceholder ?? "搜索…"}
+                  value={value || null}
+                />
+              );
+              if (filter.disabled && filter.disabledReason) {
+                return (
+                  <Tooltip key={filter.key}>
+                    <TooltipTrigger
+                      render={
+                        // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- disabled controls cannot receive focus; the wrapper exposes the reason to keyboard users.
+                        <span className="min-w-0 sm:w-auto sm:min-w-45" tabIndex={0}>
+                          {selectControl}
+                        </span>
+                      }
+                    />
+                    <TooltipContent>{filter.disabledReason}</TooltipContent>
+                  </Tooltip>
+                );
+              }
               return (
                 <div className="min-w-0 sm:w-auto sm:min-w-45" key={filter.key}>
-                  <SearchableSelect
-                    clearable={filter.clearable ?? true}
-                    disabled={filter.disabled}
-                    emptyMessage={filter.emptyMessage ?? "没有匹配项"}
-                    onChange={(next) => onFilterChange?.(filter.key, next ?? "")}
-                    options={filter.options}
-                    placeholder={filter.placeholder ?? "请选择"}
-                    required={filter.required}
-                    searchPlaceholder={filter.searchPlaceholder ?? "搜索…"}
-                    value={value || null}
-                  />
+                  {selectControl}
                 </div>
               );
             }

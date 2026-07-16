@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   buildResumePoolUploaderFilterOptions,
   createResumePoolFilters,
+  getResumePoolUploaderFilterAvailability,
   isResumePoolUploaderFilterDisabled,
   normalizeResumePoolUploaderId,
+  RESUME_POOL_UPLOADER_QUERY_FRESHNESS,
 } from "../resume-pool-page-model";
 
 describe("private resume pool uploader filter", () => {
@@ -52,6 +54,31 @@ describe("private resume pool uploader filter", () => {
     expect(isResumePoolUploaderFilterDisabled([])).toBe(true);
     expect(isResumePoolUploaderFilterDisabled(uploaders.slice(0, 1))).toBe(true);
     expect(isResumePoolUploaderFilterDisabled(uploaders)).toBe(false);
+  });
+
+  it("always refreshes uploader options when the page mounts", () => {
+    expect(RESUME_POOL_UPLOADER_QUERY_FRESHNESS).toEqual({
+      refetchOnMount: "always",
+      staleTime: 0,
+    });
+  });
+
+  it("does not show a stale self-only tooltip while uploader options refresh", () => {
+    expect(
+      getResumePoolUploaderFilterAvailability({
+        isFetching: true,
+        isSuccess: true,
+        uploaders: uploaders.slice(0, 1),
+      }),
+    ).toEqual({ disabled: true, disabledReason: undefined });
+
+    expect(
+      getResumePoolUploaderFilterAvailability({
+        isFetching: false,
+        isSuccess: true,
+        uploaders: uploaders.slice(0, 1),
+      }),
+    ).toEqual({ disabled: true, disabledReason: "当前仅可查看自己的数据" });
   });
 
   it("keeps a valid uploader id in route search and drops invalid values", () => {

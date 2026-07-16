@@ -17,6 +17,11 @@ import { rpc } from "@/lib/client/rpc";
 
 type ResumePoolSourceFilter = "all" | "non_referral" | "referral";
 
+export const RESUME_POOL_UPLOADER_QUERY_FRESHNESS = {
+  refetchOnMount: "always",
+  staleTime: 0,
+} as const;
+
 export type ResumePoolFilters = Record<"importStatus" | "parseStatus", string> & {
   sourceType: ResumePoolSourceFilter;
   uploaderId: string;
@@ -46,6 +51,23 @@ export function buildResumePoolUploaderFilterOptions(uploaders: ResumePoolUpload
 
 export function isResumePoolUploaderFilterDisabled(uploaders: ResumePoolUploaderOption[]) {
   return uploaders.length <= 1;
+}
+
+export function getResumePoolUploaderFilterAvailability({
+  isFetching,
+  isSuccess,
+  uploaders,
+}: {
+  isFetching: boolean;
+  isSuccess: boolean;
+  uploaders: ResumePoolUploaderOption[];
+}) {
+  const isLimitedToSelf = isResumePoolUploaderFilterDisabled(uploaders);
+  return {
+    disabled: isFetching || isLimitedToSelf,
+    disabledReason:
+      isSuccess && !isFetching && isLimitedToSelf ? "当前仅可查看自己的数据" : undefined,
+  };
 }
 
 export function normalizeScope(value: unknown): ResumePoolScope {
