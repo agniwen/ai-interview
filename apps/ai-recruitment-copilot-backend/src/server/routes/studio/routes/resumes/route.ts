@@ -311,7 +311,7 @@ export const resumeLibraryRouter = factory
       return c.json(detail, 200);
     },
   )
-  // oxlint-disable-next-line complexity -- single update handler orchestrates upload + parse + whitelist write.
+  // oxlint-disable-next-line complexity -- single update handler orchestrates identity + JD + evaluation whitelist write.
   .patch("/:id", requirePermission("resumeLibrary", "update"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {
@@ -333,25 +333,13 @@ export const resumeLibraryRouter = factory
       }
 
       const formData = await c.req.formData();
-      const resume = normalizeResumeFile(formData.get("resume"));
-      // 与 POST 对齐：在任何短路路径（缓存命中）之前先把 PDF / 20MB 校验显式跑掉。
-      // Mirror POST — run the PDF / size gate before any short-circuit path
-      // (e.g. registry cache hit) skips the parser.
-      if (resume) {
-        validateResumeFile(resume);
-      }
       const input = parseResumeLibraryEditFormInput(formData);
       if (!input.success) {
         return c.json({ error: input.error.issues[0]?.message ?? "表单校验失败。" }, 400);
       }
-      const resumeReviewInput = parseResumeReviewFormInput(formData.get("resumeReview"));
-      if (!resumeReviewInput.success) {
-        return c.json({ error: resumeReviewInput.error }, 400);
-      }
 
-      if (resume && !c.var.user) {
-        return c.json({ error: "Unauthorized" }, 401);
-      }
+      // 编辑接口不再接受简历文件替换 / 系统评价（notes、resumeReview）更新。
+      // Edit no longer accepts resume file replacement or system notes / review updates.
       if (input.data.jobDescriptionId) {
         const ok = await jobDescriptionIdsExist([input.data.jobDescriptionId], activeOrg.id);
         if (!ok) {
@@ -365,57 +353,15 @@ export const resumeLibraryRouter = factory
           ? await loadJobDescriptionById(activeOrg.id, nextJobDescriptionId)
           : null;
 
-      const uploadResult =
-        resume && c.var.user
-          ? await storeInterviewResume(id, resume, c.var.user.id, activeOrg.id)
-          : null;
+      const resumeProfile = syncResumeProfileIdentity(existing.resumeProfile, input.data);
+      const resumeProfileUpdate: Partial<typeof studioInterview.$inferInsert> = resumeProfile
+        ? { resumeProfile }
+        : {};
 
-      let { resumeProfile } = existing;
-      let { resumeFileName } = existing;
-      const resumeStorageKey = uploadResult?.storageKey ?? null;
-      const resumeContentHash = uploadResult?.contentHash ?? null;
-      let resumeText = uploadResult?.resumeText ?? null;
-
-      if (resume) {
-        // 命中注册表时 storeInterviewResume 已经返回 cachedResumeProfile，不再
-        // 无条件再跑一次 parseResumeFastToProfile —— 行为对齐 POST。
-        // When the registry hits, storeInterviewResume already returned a
-        // cached profile; skip the redundant parse to match POST semantics.
-        let nextResumeProfile = uploadResult?.cachedResumeProfile ?? null;
-        if (!nextResumeProfile) {
-          const parsed = await parseResumeFastToProfile(resume);
-          nextResumeProfile = parsed.resumeProfile;
-          resumeText = parsed.parsedText;
-        }
-        resumeProfile = nextResumeProfile;
-        resumeFileName = resume.name;
-      }
-      resumeProfile = syncResumeProfileIdentity(resumeProfile, input.data);
-      let resumeProfileUpdate: Partial<typeof studioInterview.$inferInsert> = {};
-      if (resume) {
-        resumeProfileUpdate = {
-          resumeContentHash: resumeContentHash ?? existing.resumeContentHash,
-          resumeFileName,
-          resumeParseError: null,
-          resumeParseStatus: resumeProfile ? "ready" : "unparsed",
-          resumeParsedAt: resumeProfile ? new Date() : null,
-          resumeProfile,
-          resumeStorageKey: resumeStorageKey ?? null,
-          resumeText,
-        };
-      } else if (resumeProfile) {
-        resumeProfileUpdate = { resumeProfile };
-      }
-
-      let nextResumeReview = existing.resumeReview;
-      if (formData.has("resumeReview")) {
-        nextResumeReview = resumeReviewInput.data;
-      } else if (resume) {
-        nextResumeReview = null;
-      }
-
-      // 显式白名单写入 —— 绝不触碰 interviewQuestions / status / schedule。
-      // Explicit whitelist write — never touches interviewQuestions / status / schedule.
+      // 显式白名单写入 —— 绝不触碰 interviewQuestions / status / schedule /
+      // notes / resume file / resumeReview。
+      // Explicit whitelist — never touches interviewQuestions / status / schedule /
+      // notes / resume file / resumeReview.
       const now = new Date();
       const nextHrResumeAssessment = input.data.hrResumeAssessment || null;
       const hrAssessmentChanged = existing.hrResumeAssessment !== nextHrResumeAssessment;
@@ -431,8 +377,6 @@ export const resumeLibraryRouter = factory
             }
           : {}),
         jobDescriptionId: nextJobDescriptionId,
-        notes: input.data.notes || null,
-        resumeReview: nextResumeReview,
         targetRole: input.data.targetRole || resumeProfile?.targetRoles[0] || null,
         updatedAt: now,
         ...resumeProfileUpdate,
@@ -443,16 +387,6 @@ export const resumeLibraryRouter = factory
           .update(studioInterview)
           .set(update)
           .where(and(eq(studioInterview.id, id), eq(studioInterview.organizationId, activeOrg.id)));
-        // 仅当上传新简历时才重刷技能索引；基础信息同步不会改变技能。
-        // Only refresh the skill index for a new resume upload; identity-field
-        // sync does not change skills.
-        if (resume) {
-          await syncResumeSkills(tx, {
-            interviewId: id,
-            organizationId: activeOrg.id,
-            skills: resumeProfile?.skills,
-          });
-        }
         if (jobDescriptionChanged) {
           await tx.insert(interviewAuditLog).values({
             action: "job_description_changed",

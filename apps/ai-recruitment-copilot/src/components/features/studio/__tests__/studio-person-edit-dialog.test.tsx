@@ -394,19 +394,6 @@ describe("StudioPersonEditDialog", () => {
     await cleanupDialog(root, queryClient);
   });
 
-  it("prefills resume review notes in resume edit mode", async () => {
-    apiMocks.fetchStudioResume.mockResolvedValue(makeDetail());
-    const { queryClient, root } = await renderDialog();
-
-    await waitForUi(() => {
-      expect(document.body.textContent).toContain("已有简历评价");
-    });
-
-    expect(apiMocks.fetchStudioResume).toHaveBeenCalledWith("new", "resume-1");
-
-    await cleanupDialog(root, queryClient);
-  });
-
   it("prefills editable resume fields in resume edit mode", async () => {
     apiMocks.fetchStudioResume.mockResolvedValue({
       ...makeDetail(),
@@ -424,57 +411,13 @@ describe("StudioPersonEditDialog", () => {
     );
     expect(document.querySelector<HTMLInputElement>("#candidatePhone")?.value).toBe("13800138000");
     expect(document.querySelector<HTMLInputElement>("#targetRole")?.value).toBe("前端工程师");
+    expect(document.body.textContent).not.toContain("系统简历评价");
+    expect(document.body.textContent).not.toContain("简历文件");
 
     await cleanupDialog(root, queryClient);
   });
 
-  it("preserves structured resume review when notes are manually changed", async () => {
-    apiMocks.fetchStudioResume.mockResolvedValue(makeDetail({ resumeReview: STRUCTURED_REVIEW }));
-    apiMocks.apiFetch.mockResolvedValue(makeDetail());
-    const { queryClient, root } = await renderDialog();
-
-    await waitForUi(() => {
-      expect(document.querySelector<HTMLTextAreaElement>("#notes")?.value).toBe("已有简历评价");
-    });
-
-    const notes = document.querySelector<HTMLTextAreaElement>("#notes");
-    expect(notes).not.toBeNull();
-
-    await act(async () => {
-      if (!notes) {
-        return;
-      }
-      const valueSetter = Object.getOwnPropertyDescriptor(
-        HTMLTextAreaElement.prototype,
-        "value",
-      )?.set;
-      valueSetter?.call(notes, "用户改过的简历评价");
-      notes.dispatchEvent(new Event("input", { bubbles: true }));
-      await Promise.resolve();
-    });
-
-    const form = document.querySelector<HTMLFormElement>("#resume-edit-form");
-    expect(form).not.toBeNull();
-
-    await act(async () => {
-      form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-      await Promise.resolve();
-    });
-
-    await waitForUi(() => {
-      expect(apiMocks.apiFetch).toHaveBeenCalled();
-    });
-
-    const [, init] = apiMocks.apiFetch.mock.calls[0] as [
-      string,
-      { body: FormData; method: string },
-    ];
-    expect(init.body.has("resumeReview")).toBe(false);
-
-    await cleanupDialog(root, queryClient);
-  });
-
-  it("submits the selected resume evaluation status from resume edit mode", async () => {
+  it("submits identity fields without resume file or system notes", async () => {
     apiMocks.fetchStudioResume.mockResolvedValue(makeDetail({ resumeEvaluationStatus: "pass" }));
     apiMocks.apiFetch.mockResolvedValue(makeDetail({ resumeEvaluationStatus: "fail" }));
     const { queryClient, root } = await renderDialog();
@@ -500,38 +443,9 @@ describe("StudioPersonEditDialog", () => {
       { body: FormData; method: string },
     ];
     expect(init.body.get("resumeEvaluationStatus")).toBe("pass");
-
-    await cleanupDialog(root, queryClient);
-  });
-
-  it("shows resume review regeneration progress in resume edit mode", async () => {
-    reviewRegenerationMocks.hookValue = {
-      isGenerating: true,
-      progressStatus: "正在生成维度评分",
-      progressTools: [
-        { done: true, name: "检查硬性门槛" },
-        { done: false, name: "生成维度评分" },
-      ],
-      regenerate: vi.fn(),
-      scoringPreview: { baseScore: 82 },
-    };
-    apiMocks.fetchStudioResume.mockResolvedValue(makeDetail({ resumeProfile: STRUCTURED_PROFILE }));
-    const { queryClient, root } = await renderDialog();
-
-    await waitForUi(() => {
-      expect(document.body.textContent).toContain("正在生成维度评分");
-    });
-
-    expect(document.body.textContent).toContain("检查硬性门槛");
-    expect(document.body.textContent).toContain("生成维度评分");
-    expect(document.body.textContent).toContain("评分预览：82");
-    const progressCard = document.querySelector(
-      '[data-testid="resume-review-generation-progress"]',
-    );
-    const notesEditor = document.querySelector("#notes");
-    expect(progressCard?.compareDocumentPosition(notesEditor as Node)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
+    expect(init.body.has("notes")).toBe(false);
+    expect(init.body.has("resume")).toBe(false);
+    expect(init.body.has("resumeReview")).toBe(false);
 
     await cleanupDialog(root, queryClient);
   });

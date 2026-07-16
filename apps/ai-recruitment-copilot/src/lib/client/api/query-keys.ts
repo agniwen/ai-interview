@@ -1,5 +1,10 @@
 import type { QueryClient } from "@tanstack/react-query";
 
+export const chatConversationKeys = {
+  all: ["chat-conversations"] as const,
+  list: (slug: string) => ["chat-conversations", slug] as const,
+};
+
 export const humanInterviewKeys = {
   meetings: (slug: string, candidateId: string) =>
     ["human-interview-meetings", slug, candidateId] as const,

@@ -1,6 +1,7 @@
 "use client";
 
 import { IconPlus, IconSquareCheck, IconTrash, IconX } from "@tabler/icons-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import dayjs from "dayjs";
 import "dayjs/locale/zh-cn";
@@ -33,8 +34,10 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { deleteConversation, fetchConversations } from "@/lib/client/api";
+import { chatConversationKeys } from "@/lib/client/api/query-keys";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { cn } from "@arc/shared/utils";
 import { CHAT_EVENTS, notifyConversationsChanged } from "./lib/chat-events";
@@ -306,8 +309,48 @@ function renderSessionItem({
   );
 }
 
+function ChatSessionListSkeleton({ collapsed }: { collapsed: boolean }) {
+  if (collapsed) {
+    return (
+      <output aria-busy="true" aria-label="会话列表加载中" className="block">
+        <ul className="space-y-1.5 px-1">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <li key={index}>
+              <div className="rounded-md px-1.5 py-1.5">
+                <Skeleton
+                  className={cn("h-1.5 rounded-full", index % 2 === 0 ? "w-full" : "w-3/4")}
+                />
+              </div>
+            </li>
+          ))}
+        </ul>
+      </output>
+    );
+  }
+
+  return (
+    <output aria-busy="true" aria-label="会话列表加载中" className="block">
+      <ul className="space-y-0.5 px-1.5 py-1">
+        {Array.from({ length: 8 }).map((_, index) => (
+          <li key={index}>
+            <div className="flex items-center gap-1 rounded-md border border-transparent px-1 py-0.5">
+              <div className="min-w-0 flex-1 rounded-md px-2 py-1">
+                <Skeleton className={cn("h-5 max-w-full", index % 3 === 0 ? "w-4/5" : "w-3/5")} />
+              </div>
+              <div className="flex h-7 w-12 shrink-0 items-center justify-end pr-1">
+                <Skeleton className="h-3 w-8" />
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </output>
+  );
+}
+
 function ChatSidebarBody({
   conversations,
+  isLoading,
   activeSessionId,
   slug,
   deleteTargetId,
@@ -320,6 +363,7 @@ function ChatSidebarBody({
   onToggleSelect,
 }: {
   conversations: ConversationListItem[];
+  isLoading: boolean;
   activeSessionId: string | null;
   slug: string;
   deleteTargetId: string | null;
@@ -339,6 +383,10 @@ function ChatSidebarBody({
       setOpenMobile(false);
     }
   }, [isMobile, setOpenMobile]);
+
+  if (isLoading) {
+    return <ChatSessionListSkeleton collapsed={isCollapsed} />;
+  }
 
   if (conversations.length === 0) {
     if (isCollapsed) {
@@ -441,6 +489,18 @@ function ChatSidebarBody({
   );
 }
 
+async function loadConversationList(slug: string): Promise<ConversationListItem[]> {
+  const rows = await fetchConversations(slug);
+  return rows
+    .filter((item) => !isStudioResumeChatId(item.id))
+    .map((item) => ({
+      id: item.id,
+      isTitleGenerating: item.isTitleGenerating,
+      title: item.title,
+      updatedAt: item.updatedAt,
+    }));
+}
+
 export function ChatSidebarSlots({
   active,
   direction,
@@ -450,8 +510,8 @@ export function ChatSidebarSlots({
 }) {
   const navigate = useNavigate();
   const slug = useWorkspaceSlug();
+  const queryClient = useQueryClient();
   const { setOpenMobile, isMobile } = useSidebar();
-  const [conversations, setConversations] = useState<ConversationListItem[]>([]);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deletingConversationId, setDeletingConversationId] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
@@ -460,24 +520,29 @@ export function ChatSidebarSlots({
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [now, setNow] = useState<number | null>(null);
   const activeSessionId = useActiveSessionId();
+  const conversationListKey = chatConversationKeys.list(slug);
 
-  const refreshConversationList = useCallback(async () => {
-    try {
-      const rows = await fetchConversations(slug);
-      setConversations(
-        rows
-          .filter((item) => !isStudioResumeChatId(item.id))
-          .map((item) => ({
-            id: item.id,
-            isTitleGenerating: item.isTitleGenerating,
-            title: item.title,
-            updatedAt: item.updatedAt,
-          })),
-      );
-    } catch {
-      // network failure — keep the previous list; the next tick will retry
-    }
-  }, [slug]);
+  const {
+    data: conversations = [],
+    isPending: isListPending,
+    refetch: refetchConversationList,
+  } = useQuery({
+    queryKey: conversationListKey,
+    queryFn: () => loadConversationList(slug),
+    // Always stale so focus / panel-switch refetch hits the network.
+    staleTime: 0,
+    // Keep list across Agent/Studio tab switches; only drop after idle GC.
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    // Poll while Agent panel is visible to stay close to server truth.
+    refetchInterval: active ? 30_000 : false,
+    refetchIntervalInBackground: false,
+  });
+
+  const invalidateConversationList = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: conversationListKey });
+  }, [conversationListKey, queryClient]);
 
   const handleStartNewConversation = useCallback(() => {
     if (isMobile) {
@@ -487,43 +552,24 @@ export function ChatSidebarSlots({
     void navigate({ params: { slug }, replace: true, to: "/w/$slug/agent" });
   }, [isMobile, navigate, setOpenMobile, slug]);
 
+  // Refetch when Agent tab becomes active (cache still shows immediately).
   useEffect(() => {
     if (!active) {
       return;
     }
+    void refetchConversationList();
+  }, [active, refetchConversationList]);
 
-    const initialTimerId = window.setTimeout(() => {
-      void refreshConversationList();
-    }, 0);
-
-    // Event-driven refresh: the chat page dispatches this after any write
-    // that affects the list (create, title update, assistant finished, delete).
+  // Event-driven invalidation from chat writes (create / title / finish / delete).
+  useEffect(() => {
     const handleListChanged = () => {
-      void refreshConversationList();
+      void invalidateConversationList();
     };
-    const handleVisibility = () => {
-      if (!document.hidden) {
-        void refreshConversationList();
-      }
-    };
-
     window.addEventListener(CHAT_EVENTS.conversationsChanged, handleListChanged);
-    document.addEventListener("visibilitychange", handleVisibility);
-
-    // Slow fallback in case an event was missed (e.g. external updates).
-    const intervalId = window.setInterval(() => {
-      if (!document.hidden) {
-        void refreshConversationList();
-      }
-    }, 30_000);
-
     return () => {
-      window.clearTimeout(initialTimerId);
-      window.clearInterval(intervalId);
       window.removeEventListener(CHAT_EVENTS.conversationsChanged, handleListChanged);
-      document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [active, refreshConversationList]);
+  }, [invalidateConversationList]);
 
   useEffect(() => {
     if (!active) {
@@ -584,12 +630,12 @@ export function ChatSidebarSlots({
     setSelectedIds(new Set());
     setEditMode(false);
     notifyConversationsChanged();
-    await refreshConversationList();
+    await invalidateConversationList();
 
     if (activeSessionId && ids.includes(activeSessionId)) {
       void navigate({ params: { slug }, replace: true, to: "/w/$slug/agent" });
     }
-  }, [activeSessionId, navigate, refreshConversationList, selectedIds, slug]);
+  }, [activeSessionId, invalidateConversationList, navigate, selectedIds, slug]);
 
   const handleDeleteOpenChange = useCallback(
     (conversation: ConversationListItem, open: boolean) => {
@@ -611,13 +657,13 @@ export function ChatSidebarSlots({
       }
       setDeleteTargetId(null);
       notifyConversationsChanged();
-      await refreshConversationList();
+      await invalidateConversationList();
 
       if (activeSessionId === id) {
         void navigate({ params: { slug }, replace: true, to: "/w/$slug/agent" });
       }
     },
-    [activeSessionId, navigate, refreshConversationList, slug],
+    [activeSessionId, invalidateConversationList, navigate, slug],
   );
 
   return (
@@ -647,6 +693,7 @@ export function ChatSidebarSlots({
             deleteTargetId={deleteTargetId}
             deletingConversationId={deletingConversationId}
             editMode={editMode}
+            isLoading={isListPending}
             now={now}
             onConfirmDelete={(conversation) => void confirmDelete(conversation)}
             onDeleteOpenChange={handleDeleteOpenChange}
