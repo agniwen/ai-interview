@@ -4,9 +4,9 @@
 
 **Goal:** 落地「简历评分策略」P1：可配置六维启用与权重、唯一全局默认策略、岗位绑定互斥覆盖、生成时策略快照、综合分 1 位小数与可排序列、以及筛选/评分单口结论（nextStep 代码约束 + UI 主结论层级）。**不做**结构化扣分表与 LLM 扣项（P2）。
 
-**Architecture:** 新增 workspace 实体 **Resume Scoring Policy**（global 种子 1 条 + 可选多条 job-scoped）。生成 Resume Review 时按 `jobDescriptionId` 解析生效策略 → Agent 2 仍输出满六维整体分 → **代码**按 snapshot 启用维加权算综合分（1 位小数）→ 写入 `resume_review` jsonb（含 snapshot）+ 冗余 `resume_review_base_score`。Screening 与 Review 存储仍分离；**Resume Evaluation Decision** 在展示与 `nextStep` 装配层统一。
+**Architecture:** 新增 workspace 实体 **Resume Scoring Policy**（global 种子 1 条 + 可选多条 job-scoped）。**策略解析在 workflow 入口之前完成**（DAO，有 org/JD 上下文）；快照作为 **Mastra `resume-review-workflow` 的输入字段** 流入。Workflow 仍是 `qualitative → scoring → compose` 三步：前两步走现有 Mastra Agent（`resumeReviewQualitativeAgent` / `resumeReviewScoringAgent`），**compose 步纯代码**（加权综合分 + nextStep 约束 + 挂 snapshot）。落库 `resume_review` jsonb + 冗余 `resume_review_base_score`。Screening 与 Review 存储仍分离；**Resume Evaluation Decision** 在 compose/UI 统一。
 
-**Tech Stack:** TypeScript / Hono / Drizzle / Zod / Vitest；React 19 / TanStack Router / Query / Hono RPC / shadcn。共享类型在 `@arc/db-schema` + `@arc/shared`。
+**Tech Stack:** [Mastra](https://mastra.ai/)（`@mastra/core` Agent / Workflow / Scorer / Observability）+ TypeScript / Hono / Drizzle / Zod / Vitest；React 19 / TanStack Router / Query / Hono RPC / shadcn。共享类型在 `@arc/db-schema` + `@arc/shared`。
 
 **ADRs / glossary:**
 
@@ -26,6 +26,82 @@
 - 命令：`pnpm --filter @arc/db-schema …` / `@arc/shared` / `@arc/ai-recruitment-copilot-backend` / `@arc/ai-recruitment-copilot`；根目录 `pnpm fix` 提交前。
 - Conventional commits；每个 Task 结束提交一次。
 - **P1 不做：** Workspace Deduction Rule Set、Agent 2 扣项 schema、改策略批量重算、默认改列表排序、替换向量推荐分。
+- **Mastra 边界（见下节）：** 策略 CRUD / 权重数学 / nextStep 约束 **不**做成 Agent tool 或 LLM 输出；只扩展现有 workflow 输入与 compose 步。
+
+---
+
+## Mastra Integration (how we use the framework)
+
+现网已用 Mastra，P1 **沿着现有缝接入**，不新开第二套编排。
+
+### 现状（代码事实）
+
+| 层                               | 位置                                                                                          | 职责                                                                                                          |
+| -------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| **Mastra instance**              | `server/agents/mastra/index.ts`                                                               | 注册 agents / workflows / scorers / observability / studio editor                                             |
+| **Agents**                       | `mastra/agents/simple-generators.ts`                                                          | `resumeReviewQualitativeAgent`、`resumeReviewScoringAgent`（短 instructions + `structuredModel`）             |
+| **Prompt + structured generate** | `server/agents/resume-analysis-review.ts`                                                     | 长中文 prompt + Zod schema；经 `generateStructuredWithMastraAgent` 调 Agent                                   |
+| **Workflow**                     | `mastra/workflows/resume-review-workflow.ts`                                                  | `qualitative-review` → `scoring` → `compose-review`；`runResumeReviewWorkflow` / `streamResumeReviewWorkflow` |
+| **入口**                         | `generateResumeReview` → `runResumeReviewWorkflow`；worker → `generateResumeReviewBestEffort` | 生产路径已走 Mastra workflow                                                                                  |
+| **旁路**                         | `streamGenerateResumeReviewMarkdownFirst`                                                     | **非** workflow，手写 step 事件；P1 必须与主路径 **同一套 compose 语义**                                      |
+| **Mastra Scorer**                | `resumeReviewStructureScorer`                                                                 | 仅检查 review 文本 + structured 是否有值（评测用，非业务分）                                                  |
+
+### P1 选用原则
+
+| 能力                                  | 放哪里                                                                                                         | 原因                                                                                                 |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 策略 CRUD / 绑定 / 种子               | Hono + DAO + Postgres                                                                                          | 配置面，与 LLM 无关                                                                                  |
+| `resolveScoringPolicyForJob`          | DAO；在 **lifecycle/worker 调用 workflow 之前**                                                                | 需要 `organizationId` + `jobDescriptionId`；避免 workflow step 内耦合 DB，且与现有 deps 注入风格一致 |
+| 启用维加权 / 1 位小数 / snapshot 挂载 | **`compose-review` 纯代码步** + `composeResumeReviewResult`                                                    | 与现网「LLM 不写 baseScore」一致；可单测、可复现                                                     |
+| `constrainNextStepAction`             | **compose 步**（读 input 上的 `screeningResult`）                                                              | 决策表确定性；不进 Agent                                                                             |
+| 六维原始分                            | 仍 `resumeReviewScoringAgent` + 现 schema                                                                      | P1 不改扣项；满六维                                                                                  |
+| 策略信息进 scoring prompt             | **可选轻量**：在 `REVIEW_SCORING_INSTRUCTIONS` / scoring prompt 中附加「启用维与权重仅供校准，总分由系统计算」 | 帮助模型对启用维给更稳 rationale；**禁止**让模型输出综合分                                           |
+| Workflow 输入扩展                     | `scoringPolicySnapshot`（已序列化、可 Zod）                                                                    | Step 间透传；trace 可见；compose 不二次查库                                                          |
+| Mastra Scorer 增强                    | 扩展 `resumeReviewStructureScorer` 或新增 `resumeReviewCompositeConsistencyScorer`                             | 校验 `baseScore ≈ Σ(dim×w)` 与 snapshot 存在；用于 Studio 评测 / 回归，**不**替代业务计分            |
+| Observability                         | 沿用现有 `Observability` + workflow stream labels                                                              | compose 步 label 可改为「按策略汇总评分」                                                            |
+| **不做（P1）**                        | 新建「政策 Agent」、用 Agent tools 查策略、把权重交给 LLM 算、把筛选改成 Mastra tool 链                        | 增复杂且与 ADR 冲突                                                                                  |
+
+### 目标数据流（Mastra-centric）
+
+```text
+review-generation / worker
+  ├─ resolveScoringPolicyForJob(orgId, jdId)     // DAO，非 Mastra
+  ├─ buildScoringPolicySnapshot(policy)          // @arc/shared 纯函数
+  └─ runResumeReviewWorkflow | streamResumeReviewWorkflow
+        input: {
+          resumeProfile,
+          jobDescription,
+          screeningResult?,
+          scoringPolicySnapshot,                 // NEW
+        }
+        steps:
+          1. qualitative-review  → generateResumeQualitativeReview (Mastra Agent)
+          2. scoring             → generateResumeReviewScoring (Mastra Agent)
+          3. compose-review      → composeResumeReviewResult(qual, scoring, {
+               snapshot,
+               screeningResult,
+               hardFilterRejected?: false,
+             })
+               • computeResumeReviewBaseScore(dims, snapshot)  // 1 位小数
+               • constrainNextStepAction(...)
+               • attach scoringPolicySnapshot
+               • formatResumeReviewMarkdown
+```
+
+Hard-filter 短路（Agent 0，在 workflow 外 / lifecycle 前）若仍返回 reject review：同样调用 **同一** `compose`/`assemble` 辅助，写入 `baseScore: 0.0` + 当前 snapshot（保证列与 jsonb 形状一致）。
+
+### Markdown-first 旁路
+
+`streamGenerateResumeReviewMarkdownFirst` 不是 Mastra workflow，但必须：
+
+1. 接受同样的 `scoringPolicySnapshot`（调用方 resolve 后传入）
+2. 最终走 `composeResumeReviewFromMarkdown(..., { snapshot, screening })`，**禁止**再 `computeResumeReviewBaseScore(dims)` 无策略重载
+
+### P2 与 Mastra（预告，本 plan 不实现）
+
+- Scoring Agent 输出改为 `appliedDeductions[]`；维分在 **compose 或独立 code step** 计算
+- 可选第四步 / 替换 scoring step；扣分表仍 workspace 配置，不进 Agent 记忆
+- Scorer 可断言「screening missing skill ⊆ deductions」
 
 ---
 
@@ -339,52 +415,101 @@ git commit -m "feat(api): studio scoring-policies CRUD"
 
 ---
 
-## Task 6: 生成链路接入 — 解析策略、快照、综合分、nextStep
+## Task 6: Mastra workflow + compose — 策略快照、综合分、nextStep
+
+> 核心改动落在 **Mastra resume-review-workflow** 与 **compose 纯函数**，不是新建 Agent。
 
 **Files:**
 
+- Modify: `apps/ai-recruitment-copilot-backend/src/server/agents/mastra/workflows/resume-review-workflow.ts`
+  - 扩展 `resumeReviewInputSchema`：`scoringPolicySnapshot`（用 `@arc/db-schema` / shared 的 Zod）
+  - `qualitative` / `scoring` step：**透传** snapshot（spread `inputData`）
+  - `compose-review`：`deps.composeReview(qual, scoring, { snapshot: inputData.scoringPolicySnapshot, screeningResult: inputData.screeningResult })`
+  - 更新 `stepLabels`：`compose-review` → `按策略汇总评分`（或保留原中文并注明策略）
 - Modify: `apps/ai-recruitment-copilot-backend/src/server/agents/resume-analysis-review.ts`
-  - `assembleResumeReview` / `generateResumeReview` / markdown-first 路径：注入 `ResolvedPolicy`
-  - `computeResumeReviewBaseScore(dims, policy)`
-  - `constrainNextStepAction` 在组装后执行
-  - `scoreRationale` 含策略标题与权重摘要（非写死 35/25/…）
-- Modify: workflow runner / `resume-review-workflow.ts` 若需传 orgId+jdId
-- Modify: `review-worker` 调用链：评估时带 `organizationId` + `jobDescriptionId` 已有则 resolve
-- Modify: hard-filter reject 组装：snapshot 仍写入当前策略或 `source:policy`；baseScore 0.0
-- Test: `resume-analysis-agent-review.test.ts`、`resume-review-workflow.test.ts`
+  - `assembleResumeReview(qual, scoring, options: { snapshot; screening? })`
+  - `composeResumeReviewResult` / `composeResumeReviewFromMarkdown` 签名对齐
+  - `generateResumeReview` / `streamGenerateResumeReview` / markdown-first：input 增加 `scoringPolicySnapshot`
+  - **可选：** `buildResumeScoringPrompt` 末尾追加 snapshot 启用维与权重说明（总分仍禁止模型输出）
+  - Agent 短 instructions（`simple-generators.ts`）**可不改**；长 prompt 在 review 文件即可
+- Modify: `apps/ai-recruitment-copilot-backend/src/server/routes/studio/routes/resumes/utils/review-generation.ts`
+  - 在调 `generateResumeReview` 前：`resolveScoringPolicyForJob` + `buildScoringPolicySnapshot`
+  - 需要 `organizationId` + `jobDescriptionId`（从 record 取；无 JD 时仍 resolve → global）
+- Modify: hard-filter reject 路径（`resume-analysis-hard-filter.ts`）：写入 `baseScore: 0.0` + 传入的 snapshot
+- Test: `mastra/__tests__/resume-review-workflow.test.ts`（断言 compose 收到 snapshot；hold → nextStep）
+- Test: `agents/__tests__/resume-analysis-agent-review.test.ts`
+- Test: `resumes/utils/review-generation.test.ts`（mock resolve）
 
-**伪代码：**
+**Workflow 输入（目标）：**
 
 ```ts
-const policy = await resolveScoringPolicyForJob(orgId, jobDescriptionId);
-const snapshot = buildScoringPolicySnapshot(policy);
-let review = assembleResumeReview(qualitative, scoring, snapshot);
-review = {
-  ...review,
-  nextStep: {
-    ...review.nextStep,
-    action: constrainNextStepAction({
-      action: review.nextStep.action,
-      screening: screeningResult,
-      hardFilterRejected: false,
-    }),
-  },
-  scoringPolicySnapshot: snapshot,
-  overall: {
-    ...review.overall,
-    baseScore: computeResumeReviewBaseScore(scoring.dimensions, snapshot),
-  },
-};
+const resumeReviewInputSchema = z.object({
+  jobDescription: z.string().nullable().optional(),
+  resumeProfile: resumeProfileSchema,
+  screeningResult: resumeScreeningResultSchema.nullable().optional(),
+  scoringPolicySnapshot: scoringPolicySnapshotSchema, // required for new writes
+});
 ```
 
-- [ ] **Step 1: 单测** — 自定义权重综合分；hold screening 强制 nextStep；rationale 含策略名。
+**Compose 契约：**
 
-- [ ] **Step 2: 实现**
+```ts
+export function composeResumeReviewResult(
+  qualitative: ResumeQualitativeReview,
+  scoringInput: unknown,
+  options: {
+    scoringPolicySnapshot: ScoringPolicySnapshot;
+    screeningResult?: ResumeScreeningResult | null;
+    hardFilterRejected?: boolean;
+  },
+): ResumeReviewGenerationResult;
+```
+
+- [ ] **Step 1: 失败测试（workflow）** — mock compose 时 expect 第三参含 snapshot；screening hold 时 structured nextStep 非 interview。
+
+- [ ] **Step 2: 实现 schema 扩展 + compose + generation 入口 resolve**
+
+- [ ] **Step 3: 更新 markdown-first 旁路同一 compose**
+
+- [ ] **Step 4: 跑测**
+
+```bash
+pnpm --filter @arc/ai-recruitment-copilot-backend test resume-review-workflow
+pnpm --filter @arc/ai-recruitment-copilot-backend test resume-analysis-agent-review
+pnpm --filter @arc/ai-recruitment-copilot-backend test review-generation
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git commit -m "feat(mastra): thread scoring policy snapshot through resume-review workflow"
+```
+
+---
+
+## Task 6b: Mastra Scorer — 综合分自洽（评测用）
+
+**Files:**
+
+- Modify: `apps/ai-recruitment-copilot-backend/src/server/agents/mastra/scorers/recruitment-scorers.ts`
+- Modify: `mastra/__tests__/recruitment-scorers.test.ts`
+- 保持注册在 `recruitmentScorers` → `mastra/index.ts`（已挂 scorers）
+
+**行为：**
+
+- 新增或扩展 scorer：`resumeReviewCompositeConsistencyScorer`
+  - 输入：structuredReview
+  - 得分 1.0 当：`scoringPolicySnapshot` 存在且 `abs(baseScore - recompute(dims, snapshot)) < 0.05`
+  - 无 snapshot（legacy fixture）→ 跳过或给 1.0 并标记 N/A（测试里用新 shape）
+
+- [ ] **Step 1: 单测 recompute 一致 / 故意改 baseScore → 0**
+
+- [ ] **Step 2: 实现并注册**
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git commit -m "feat(resume-review): apply scoring policy snapshot and constrain nextStep"
+git commit -m "feat(mastra): composite score consistency scorer for resume review"
 ```
 
 ---
@@ -525,11 +650,15 @@ git commit -m "feat(jd): show effective resume scoring policy"
 ```bash
 pnpm --filter @arc/shared test
 pnpm --filter @arc/ai-recruitment-copilot-backend test
+pnpm --filter @arc/ai-recruitment-copilot-backend test resume-review-workflow
+pnpm --filter @arc/ai-recruitment-copilot-backend test recruitment-scorers
 pnpm --filter @arc/ai-recruitment-copilot test  # 若有相关
 pnpm --filter @arc/ai-recruitment-copilot-backend typecheck
 pnpm --filter @arc/ai-recruitment-copilot typecheck
 pnpm fix
 ```
+
+Mastra 相关：确认 `recruitmentWorkflows.resumeReviewWorkflow` step id 仍为 `qualitative-review` / `scoring` / `compose-review`（或有意重命名时同步 stream labels 与 `workflows.test.ts`）。
 
 **手工验收清单：**
 
@@ -551,50 +680,64 @@ pnpm fix
 ## Dependency Graph
 
 ```text
-T0 类型/计分
+T0 类型/计分（shared，compose 纯函数）
  └─ T1 DB
-     ├─ T2 DAO
+     ├─ T2 DAO resolve/seed
      │   ├─ T3 种子/backfill org
      │   ├─ T5 API ── T10 策略 UI
-     │   └─ T6 生成链路 ── T7 worker 列 ── T8 score backfill
-     │                    └─ T11 评价 UI
-     │                    └─ T9 列表排序
+     │   └─ T6 Mastra workflow + compose ── T6b Mastra scorer
+     │        └─ T7 worker 列 ── T8 score backfill
+     │        └─ T11 评价 UI
+     │        └─ T9 列表排序
      └─ T4 权限 ── T5/T10
 T12 JD 只读（T2+T5 后）
-T13 验收
+T13 验收（含 workflow + scorer 回归）
 ```
 
-可并行：T4 ∥ T0；T10 在 T5 后；T11 在 T6 后。
+可并行：T4 ∥ T0；T10 在 T5 后；T6b 在 T6 后或与 T7 并行；T11 在 T6 后。
 
 ---
 
 ## P2 边界（本 plan 禁止实现）
 
 - Workspace Deduction Rule Set UI/存储
-- Agent 2 `appliedDeductions[]`
-- 代码算维分 / 扣项明细
+- Agent 2 / scoring step 改为 `appliedDeductions[]`（仍走 Mastra Agent，维分在 compose）
+- 代码算维分 / 扣项明细 UI
 - 「只重算综合分」运维按钮
 - 与 screening 扣项硬对齐校验器
+- 新建「政策 Agent」或 Agent tools 查库
 
-P2 依赖产品 **v1 冻结扣分表**（grilling 问题 13）。
+P2 依赖产品 **v1 冻结扣分表**（grilling 问题 13）；编排上优先 **改 scoring step 输出 schema + 加强 compose**，而不是另起非 Mastra 流水线。
 
 ---
 
 ## Risk Notes
 
-| Risk                                       | Mitigation                                              |
-| ------------------------------------------ | ------------------------------------------------------- |
-| `baseScore` int→decimal 破客户端假设       | 全库 grep `baseScore`；DTO 统一 number；UI `toFixed(1)` |
-| 权限漏配导致 member 可写                   | 矩阵单测 + 路由 requirePermission                       |
-| 无 global 的脏数据                         | ensure 幂等在 resolve 路径也调用一次                    |
-| nextStep 被约束后与定性 rationale 略不一致 | rationale 前缀「已按筛选结果调整：」可选 P1             |
-| 列表排序 null 分                           | `NULLS LAST`                                            |
+| Risk                                       | Mitigation                                                         |
+| ------------------------------------------ | ------------------------------------------------------------------ |
+| `baseScore` int→decimal 破客户端假设       | 全库 grep `baseScore`；DTO 统一 number；UI `toFixed(1)`            |
+| 权限漏配导致 member 可写                   | 矩阵单测 + 路由 requirePermission                                  |
+| 无 global 的脏数据                         | ensure 幂等在 resolve 路径也调用一次                               |
+| nextStep 被约束后与定性 rationale 略不一致 | rationale 前缀「已按筛选结果调整：」可选 P1                        |
+| 列表排序 null 分                           | `NULLS LAST`                                                       |
+| Markdown-first 与 Mastra workflow 分叉     | 强制同一 `composeResumeReview*`；两侧单测都传 snapshot             |
+| Workflow 调用方漏传 snapshot               | input Zod **required**；仅 generation 边界 resolve，禁止裸调 Agent |
+| 在 Mastra Agent / step 内查策略表          | **禁止**；resolve 只在 worker/generation                           |
+| 误用 Mastra Scorer 写业务分                | Scorer 仅评测 consistency；业务分只在 compose                      |
+| Studio 调试看不到策略                      | snapshot 进 workflow input → observability/trace 可见              |
 
 ---
 
 ## Execution Handoff
 
-Plan complete and saved to `docs/superpowers/plans/2026-07-17-resume-scoring-policy-p1.md`.
+Plan updated with Mastra integration; saved to `docs/superpowers/plans/2026-07-17-resume-scoring-policy-p1.md`.
+
+**Two execution options:**
+
+1. **Subagent-driven (recommended)** — 按 Task 派 subagent，每 Task 后 review
+2. **Inline** — 本会话按 Task 顺序实现
+
+哪一种开始 P1 实现即可。
 
 **Two execution options:**
 
