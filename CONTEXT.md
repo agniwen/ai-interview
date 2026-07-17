@@ -225,6 +225,30 @@ _Avoid_: Invalid result, failed screening
 The generated evaluation of how a resume record matches a job description, including dimensions, strengths, risks, and next-step guidance.
 _Avoid_: Screening result, final candidate outcome, manual feedback note
 
+**Resume Scoring Policy**:
+A workspace-owned scoring configuration that chooses which resume-review dimensions participate, how their weights are assigned, and which job descriptions it applies to. Each workspace has exactly one global default policy (system-seeded, editable, not deletable); additional policies bind exclusively to selected job descriptions and override the global default for those jobs.
+_Avoid_: Dimension config, scoring template, weight settings, six-dimension config
+
+**Resume Scoring Policy Snapshot**:
+The frozen copy of the resume scoring policy used when one resume review score was produced, so later policy edits do not silently rewrite historical scores.
+_Avoid_: Live policy, current weight settings
+
+**Dimension Deduction Rule**:
+A fixed-identity scoring rule (stable rule id) that defines how one resume-review dimension loses points from a 100 baseline; the deduction amount may be configured per workspace while the rule catalog stays product-defined.
+_Avoid_: Soft checklist, free-form score rationale, per-policy deduction table
+
+**Workspace Deduction Rule Set**:
+The workspace-owned table of deduction amounts (and optional per-rule enablement) applied when computing resume-review dimension raw scores.
+_Avoid_: Scoring policy weights, screening rules
+
+**Resume Review Composite Score**:
+The weighted overall score of a resume review under the effective scoring policy snapshot, shown to one decimal place. Within candidates who have cleared resume screening, it is the primary rank and score-filter signal; when screening has not passed, the score may still be shown for diagnosis but must not outrank or override the screening conclusion.
+_Avoid_: Recommendation score, vector similarity score, screening result, final pass decision
+
+**Resume Evaluation Decision**:
+The single user-facing outcome for a resume at the screening/review stage, assembled from resume screening results (and hard filters when applicable) with next-step constrained by those results; dimension scores never independently authorize a more lenient outcome than screening.
+_Avoid_: Parallel AI conclusions, competing badges without hierarchy
+
 **HR Resume Assessment**:
 A human-written assessment of a resume record that captures the recruiter's judgment separately from the generated resume review.
 _Avoid_: Resume review, screening result, interview report
