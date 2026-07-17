@@ -340,9 +340,7 @@ export function ResumeScreeningResultPanel({
             <Badge variant={recommendationMeta[result.recommendation].variant}>
               {recommendationMeta[result.recommendation].label}
             </Badge>
-          ) : (
-            <Badge variant="outline">未评估</Badge>
-          )}
+          ) : null}
           {resumeRecord?.resumeScreeningStale ? <Badge variant="warning">规则已更新</Badge> : null}
         </div>
       </FrameHeader>
@@ -384,7 +382,7 @@ export function ResumeScreeningResultPanel({
             </ul>
           </ScrollArea>
         ) : (
-          <p className="flex h-[24rem] items-center justify-center text-muted-foreground text-sm leading-6">
+          <p className="flex h-[24rem] w-full min-w-0 items-center justify-center text-muted-foreground text-sm leading-6">
             {result?.policyEmpty ? "该岗位未启用具体筛选规则。" : "未评估"}
           </p>
         )}

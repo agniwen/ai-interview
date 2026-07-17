@@ -55,6 +55,11 @@ import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart } from "r
 
 const DIMENSION_LABELS = RESUME_REVIEW_DIMENSIONS;
 
+/** Plain empty copy for unevaluated review cards — no badge/border chrome. */
+function UnevaluatedText({ className }: { className?: string }) {
+  return <p className={cn("text-muted-foreground text-sm leading-6", className)}>未评估</p>;
+}
+
 function actionVariant(action: ResumeReviewAction) {
   if (action === "interview") {
     return "success";
@@ -102,11 +107,11 @@ function DimensionRadarChart({
     return (
       <div
         className={cn(
-          "flex items-center justify-center rounded-2xl border border-muted/60 bg-muted/20 text-muted-foreground text-sm",
+          "flex w-full min-w-0 items-center justify-center",
           compact ? "min-h-48" : "min-h-64",
         )}
       >
-        未评估
+        <UnevaluatedText />
       </div>
     );
   }
@@ -279,11 +284,9 @@ function DimensionScoreGroup({
 }
 
 function ReviewPointList({
-  emptyLabel = "未评估",
   items,
   tone,
 }: {
-  emptyLabel?: string;
   items: ResumeReview["strengths"] | undefined;
   tone: "positive" | "negative";
 }) {
@@ -292,9 +295,9 @@ function ReviewPointList({
 
   if (!items?.length) {
     return (
-      <p className="flex h-[24rem] items-center justify-center text-muted-foreground text-sm leading-6">
-        {emptyLabel}
-      </p>
+      <div className="flex h-[24rem] w-full min-w-0 items-center justify-center">
+        <UnevaluatedText />
+      </div>
     );
   }
 
@@ -335,9 +338,9 @@ function BiasScanSection({
   let body: ReactNode;
   if (!review) {
     body = (
-      <p className="flex h-[24rem] items-center justify-center text-muted-foreground text-sm leading-6">
-        未评估
-      </p>
+      <div className="flex h-[24rem] w-full min-w-0 items-center justify-center">
+        <UnevaluatedText />
+      </div>
     );
   } else if (items.length === 0) {
     body = <p className="py-5 text-muted-foreground text-sm">未发现关键偏差</p>;
@@ -368,9 +371,7 @@ function BiasScanSection({
               <Badge variant="outline">真实性存疑 {biasCounts.credibilityRisk}</Badge>
               <Badge variant="outline">稳定性信号 {biasCounts.stabilitySignal}</Badge>
             </>
-          ) : (
-            <Badge variant="outline">未评估</Badge>
-          )
+          ) : undefined
         }
         title="偏差扫描"
       />
@@ -398,39 +399,37 @@ function ReviewSummaryHero({
       <FramePanel>
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_12rem] lg:items-start">
           <div className="min-w-0 space-y-5">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-muted-foreground text-xs">推荐建议</span>
-              {review ? (
-                <>
+            {review ? (
+              <>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-muted-foreground text-xs">推荐建议</span>
                   <Badge variant={actionVariant(review.nextStep.action)}>
                     {resumeReviewActionLabel[review.nextStep.action]}
                   </Badge>
                   <Badge variant="outline">{review.levelRecommendation.level}</Badge>
-                </>
-              ) : (
-                <Badge variant="outline">未评估</Badge>
-              )}
-            </div>
-            <div className="space-y-2">
-              <h3 className="font-semibold text-base leading-7">
-                {review?.overall.conclusion ?? "未评估"}
-              </h3>
-              <p className="text-muted-foreground text-sm leading-6">
-                {review?.overall.scoreRationale ?? "绑定岗位并完成 AI 评估后，这里会展示综合评价。"}
-              </p>
-            </div>
-            <div className="grid gap-5 md:grid-cols-2">
-              <div className="min-w-0 space-y-1">
-                <div className="text-muted-foreground text-xs">下一步行动</div>
-                <p className="text-sm leading-6">{review?.nextStep.rationale ?? "未评估"}</p>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-base leading-7">{review.overall.conclusion}</h3>
+                  <p className="text-muted-foreground text-sm leading-6">
+                    {review.overall.scoreRationale}
+                  </p>
+                </div>
+                <div className="grid gap-5 md:grid-cols-2">
+                  <div className="min-w-0 space-y-1">
+                    <div className="text-muted-foreground text-xs">下一步行动</div>
+                    <p className="text-sm leading-6">{review.nextStep.rationale}</p>
+                  </div>
+                  <div className="min-w-0 space-y-1">
+                    <div className="text-muted-foreground text-xs">团队定位</div>
+                    <p className="text-sm leading-6">{review.teamPositioning.suggestion}</p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex min-h-32 items-center">
+                <UnevaluatedText />
               </div>
-              <div className="min-w-0 space-y-1">
-                <div className="text-muted-foreground text-xs">团队定位</div>
-                <p className="text-sm leading-6">
-                  {review?.teamPositioning.suggestion ?? "未评估"}
-                </p>
-              </div>
-            </div>
+            )}
           </div>
           <div className="flex min-w-0 flex-col items-start gap-5 lg:items-end lg:text-right">
             <div className="font-semibold text-7xl tabular-nums leading-none tracking-tighter">
@@ -468,15 +467,15 @@ export function ResumeReviewStructuredView({
 
       <Frame>
         <ReviewSectionHeader
-          action={<span className="text-muted-foreground text-xs">0-100</span>}
+          action={review ? <span className="text-muted-foreground text-xs">0-100</span> : undefined}
           title="维度评分"
         />
-        <div className="grid gap-1 lg:grid-cols-2">
-          <FramePanel className="flex min-w-0 items-center justify-center lg:rounded-tr-[2px] lg:rounded-br-[2px] lg:rounded-bl-[2px] lg:before:rounded-tr-[1px] lg:before:rounded-br-[1px] lg:before:rounded-bl-[1px]">
-            <DimensionRadarChart dimensions={dimensionScores} />
-          </FramePanel>
-          {review ? (
-            dimensionScoreGroups.map((group, index) => (
+        {review ? (
+          <div className="grid gap-1 lg:grid-cols-2">
+            <FramePanel className="flex min-w-0 items-center justify-center lg:rounded-tr-[2px] lg:rounded-br-[2px] lg:rounded-bl-[2px] lg:before:rounded-tr-[1px] lg:before:rounded-br-[1px] lg:before:rounded-bl-[1px]">
+              <DimensionRadarChart dimensions={dimensionScores} />
+            </FramePanel>
+            {dimensionScoreGroups.map((group, index) => (
               <DimensionScoreGroup
                 className={cn(
                   index === 0 &&
@@ -489,13 +488,13 @@ export function ResumeReviewStructuredView({
                 dimensions={group}
                 key={group.map((dimension) => dimension.key).join("-")}
               />
-            ))
-          ) : (
-            <FramePanel className="flex min-h-64 items-center justify-center lg:rounded-tl-[2px] lg:rounded-br-[2px] lg:rounded-bl-[2px] lg:before:rounded-tl-[1px] lg:before:rounded-br-[1px] lg:before:rounded-bl-[1px]">
-              <p className="text-muted-foreground text-sm leading-6">未评估</p>
-            </FramePanel>
-          )}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <FramePanel className="flex min-h-48 w-full min-w-0 items-center justify-center">
+            <UnevaluatedText />
+          </FramePanel>
+        )}
       </Frame>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -528,29 +527,29 @@ export function ResumeReviewStructuredView({
       <div className="grid gap-6 md:grid-cols-2">
         <Frame className="h-full">
           <ReviewSectionHeader title="团队定位建议" />
-          <FramePanel className="flex-1">
-            <div className="space-y-2 text-sm leading-6">
-              <p className="font-medium">{review?.teamPositioning.suggestion ?? "未评估"}</p>
-              <p className="text-muted-foreground">
-                {review?.teamPositioning.rationale ?? "未评估"}
-              </p>
-            </div>
+          <FramePanel className="flex flex-1 items-center">
+            {review ? (
+              <div className="space-y-2 text-sm leading-6">
+                <p className="font-medium">{review.teamPositioning.suggestion}</p>
+                <p className="text-muted-foreground">{review.teamPositioning.rationale}</p>
+              </div>
+            ) : (
+              <UnevaluatedText />
+            )}
           </FramePanel>
         </Frame>
 
         <Frame className="h-full">
           <ReviewSectionHeader title="职级建议" />
-          <FramePanel className="flex-1">
-            <div className="space-y-2 text-sm leading-6">
-              {review ? (
+          <FramePanel className="flex flex-1 items-center">
+            {review ? (
+              <div className="space-y-2 text-sm leading-6">
                 <Badge variant="outline">{review.levelRecommendation.level}</Badge>
-              ) : (
-                <Badge variant="outline">未评估</Badge>
-              )}
-              <p className="text-muted-foreground">
-                {review?.levelRecommendation.rationale ?? "未评估"}
-              </p>
-            </div>
+                <p className="text-muted-foreground">{review.levelRecommendation.rationale}</p>
+              </div>
+            ) : (
+              <UnevaluatedText />
+            )}
           </FramePanel>
         </Frame>
       </div>
