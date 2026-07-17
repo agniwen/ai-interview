@@ -116,4 +116,36 @@ describe("processResumeReviewGenerationJob", () => {
       resumeScreeningStatus: "failed",
     });
   });
+
+  it("force reassess regenerates even when a review already exists", async () => {
+    mocks.record = assessmentRecord({
+      resumeReview: { overall: { baseScore: 70 } },
+      resumeScreeningResult: { recommendation: "flag" },
+    });
+    mocks.generateResumeReviewBestEffort.mockResolvedValue({
+      review: "重新评估结果",
+      screeningResult: { recommendation: "pass" },
+      structuredReview: { overall: { baseScore: 90 } },
+    });
+
+    await processResumeReviewGenerationJob({
+      ...JOB,
+      force: true,
+      reassessToken: "token-1",
+      source: "reassess",
+    });
+
+    expect(mocks.generateResumeReviewBestEffort).toHaveBeenCalled();
+    expect(mocks.updates).toHaveLength(2);
+    expect(mocks.updates[0]).toMatchObject({
+      resumeReviewStatus: "processing",
+      resumeScreeningStatus: "processing",
+    });
+    expect(mocks.updates[1]).toMatchObject({
+      resumeReview: { overall: { baseScore: 90 } },
+      resumeReviewStatus: "ready",
+      resumeScreeningResult: { recommendation: "pass" },
+      resumeScreeningStatus: "ready",
+    });
+  });
 });

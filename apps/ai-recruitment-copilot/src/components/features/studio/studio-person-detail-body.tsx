@@ -67,7 +67,6 @@ import {
 } from "./studio-person-detail-model";
 import {
   CollectedCandidateInfoList,
-  ResumeAiAnalysisPlaceholder,
   ResumeScreeningResultPanel,
   compactText,
   resolveActiveEvidence,
@@ -366,6 +365,7 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
     isLoading,
     isPublic,
     isReassessingResume,
+    isResumeAssessmentInProgress,
     isReportsLoading,
     isResumeInterviewResultLoading,
     isTimelineLoading,
@@ -431,35 +431,30 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
           {mode === "resume" ? (
             <TabsContent value="ai-analysis">
               <div className="space-y-6">
-                {resumeRecord?.resumeReview ? (
-                  <ResumeReviewStructuredView
-                    review={resumeRecord.resumeReview}
-                    screeningResultSlot={<ResumeScreeningResultPanel resumeRecord={resumeRecord} />}
-                    summaryAction={
-                      canUseManagementActions ? (
-                        <Button
-                          disabled={isReassessingResume}
-                          onClick={handleReassessResume}
-                          size="sm"
-                          type="button"
-                          variant="outline"
-                        >
-                          {isReassessingResume ? (
-                            <IconLoader2 className="size-3.5 animate-spin" />
-                          ) : (
-                            <IconArrowBackUp className="size-3.5" />
-                          )}
-                          重新评估
-                        </Button>
-                      ) : undefined
-                    }
-                  />
-                ) : (
-                  <>
-                    <ResumeAiAnalysisPlaceholder resumeRecord={resumeRecord} />
-                    <ResumeScreeningResultPanel resumeRecord={resumeRecord} />
-                  </>
-                )}
+                <ResumeReviewStructuredView
+                  review={resumeRecord?.resumeReview}
+                  screeningResultSlot={<ResumeScreeningResultPanel resumeRecord={resumeRecord} />}
+                  summaryAction={
+                    canUseManagementActions ? (
+                      <Button
+                        disabled={isResumeAssessmentInProgress || isReassessingResume}
+                        onClick={handleReassessResume}
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        {isResumeAssessmentInProgress || isReassessingResume ? (
+                          <IconLoader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <IconArrowBackUp className="size-3.5" />
+                        )}
+                        {isResumeAssessmentInProgress || isReassessingResume
+                          ? "评估中"
+                          : "重新评估"}
+                      </Button>
+                    ) : undefined
+                  }
+                />
               </div>
             </TabsContent>
           ) : null}

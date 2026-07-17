@@ -30,6 +30,10 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-rounds";
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
 import { listDuplicateMatchesForSource } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
+import {
+  enqueueResumeReassessmentForRecord,
+  ResumeReassessmentEnqueueError,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue";
 import { reassessResumeRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-worker";
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
 import { launchAiInterviewRound } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/application/default-launch-ai-interview-round";
@@ -254,11 +258,26 @@ export const resumeLibraryReadRouter = factory
       return c.json({ error: "记录不存在。" }, 404);
     }
     try {
-      await reassessResumeRecord({
+      const enqueueResult = await enqueueResumeReassessmentForRecord({
         organizationId: activeOrg.id,
         resumeRecordId: id,
       });
+      if (enqueueResult === "fallback_sync") {
+        // No Redis queue: run assessment off the request path so the UI can poll.
+        void reassessResumeRecord({
+          organizationId: activeOrg.id,
+          resumeRecordId: id,
+        }).catch((error) => {
+          console.error("[resume-reassess] fallback async failed", {
+            error,
+            resumeRecordId: id,
+          });
+        });
+      }
     } catch (error) {
+      if (error instanceof ResumeReassessmentEnqueueError) {
+        return c.json({ error: error.message }, error.status);
+      }
       const message = error instanceof Error ? error.message : "AI 重新评估失败，请稍后重试。";
       const isEligibilityError = [
         "已结案候选人不能重新评估。",
@@ -268,13 +287,13 @@ export const resumeLibraryReadRouter = factory
       if (isEligibilityError) {
         return c.json({ error: message }, 409);
       }
-      const detail = await loadResumeDetail(id, activeOrg.id, visibilityScope);
-      return c.json(detail, 500);
+      return c.json({ error: message }, 500);
     }
 
     invalidateStudioInterviewCaches(activeOrg.id);
     const detail = await loadResumeDetail(id, activeOrg.id, visibilityScope);
-    return c.json(detail, 200);
+    // 202: accepted for async generation (queued/processing); detail includes current status.
+    return c.json(detail, 202);
   })
   .get("/:id/review/timeline", async (c) => {
     const { activeOrg } = c.var;

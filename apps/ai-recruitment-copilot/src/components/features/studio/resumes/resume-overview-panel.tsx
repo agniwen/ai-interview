@@ -106,7 +106,7 @@ function DimensionRadarChart({
           compact ? "min-h-48" : "min-h-64",
         )}
       >
-        暂无维度评分
+        未评估
       </div>
     );
   }
@@ -279,14 +279,24 @@ function DimensionScoreGroup({
 }
 
 function ReviewPointList({
+  emptyLabel = "未评估",
   items,
   tone,
 }: {
-  items: ResumeReview["strengths"];
+  emptyLabel?: string;
+  items: ResumeReview["strengths"] | undefined;
   tone: "positive" | "negative";
 }) {
   const markerClass =
     tone === "positive" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground";
+
+  if (!items?.length) {
+    return (
+      <p className="flex h-[24rem] items-center justify-center text-muted-foreground text-sm leading-6">
+        {emptyLabel}
+      </p>
+    );
+  }
 
   return (
     <ul className="divide-y divide-border/50">
@@ -319,38 +329,54 @@ function BiasScanSection({
   review,
 }: {
   biasCounts: ReturnType<typeof countResumeReviewBiasCategories>;
-  review: ResumeReviewLoose;
+  review: ResumeReviewLoose | null | undefined;
 }) {
+  const items = review?.biasScan.items ?? [];
+  let body: ReactNode;
+  if (!review) {
+    body = (
+      <p className="flex h-[24rem] items-center justify-center text-muted-foreground text-sm leading-6">
+        未评估
+      </p>
+    );
+  } else if (items.length === 0) {
+    body = <p className="py-5 text-muted-foreground text-sm">未发现关键偏差</p>;
+  } else {
+    body = (
+      <ul className="divide-y divide-border/50">
+        {items.map((item, index) => (
+          <li className="py-4 text-sm leading-6" key={`${item.category}-${index}`}>
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <Badge variant="outline">{resumeReviewBiasCategoryLabel[item.category]}</Badge>
+              <span className="font-medium">{item.description}</span>
+            </div>
+            <p className="text-muted-foreground">{item.impact}</p>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
   return (
     <Frame className="h-full">
       <ReviewSectionHeader
         action={
-          <>
-            <Badge variant="outline">硬缺口 {biasCounts.hardGap}</Badge>
-            <Badge variant="outline">软错位 {biasCounts.softMismatch}</Badge>
-            <Badge variant="outline">真实性存疑 {biasCounts.credibilityRisk}</Badge>
-            <Badge variant="outline">稳定性信号 {biasCounts.stabilitySignal}</Badge>
-          </>
+          review ? (
+            <>
+              <Badge variant="outline">硬缺口 {biasCounts.hardGap}</Badge>
+              <Badge variant="outline">软错位 {biasCounts.softMismatch}</Badge>
+              <Badge variant="outline">真实性存疑 {biasCounts.credibilityRisk}</Badge>
+              <Badge variant="outline">稳定性信号 {biasCounts.stabilitySignal}</Badge>
+            </>
+          ) : (
+            <Badge variant="outline">未评估</Badge>
+          )
         }
         title="偏差扫描"
       />
       <FramePanel className="flex-1">
         <ScrollArea className="h-[24rem]" scrollFade>
-          {review.biasScan.items.length > 0 ? (
-            <ul className="divide-y divide-border/50">
-              {review.biasScan.items.map((item, index) => (
-                <li className="py-4 text-sm leading-6" key={`${item.category}-${index}`}>
-                  <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">{resumeReviewBiasCategoryLabel[item.category]}</Badge>
-                    <span className="font-medium">{item.description}</span>
-                  </div>
-                  <p className="text-muted-foreground">{item.impact}</p>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="py-5 text-muted-foreground text-sm">未发现关键偏差</p>
-          )}
+          {body}
         </ScrollArea>
       </FramePanel>
     </Frame>
@@ -363,7 +389,7 @@ function ReviewSummaryHero({
   summaryAction,
 }: {
   baseScore: number | null;
-  review: ResumeReviewLoose;
+  review: ResumeReviewLoose | null | undefined;
   summaryAction?: ReactNode;
 }) {
   return (
@@ -374,25 +400,35 @@ function ReviewSummaryHero({
           <div className="min-w-0 space-y-5">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-muted-foreground text-xs">推荐建议</span>
-              <Badge variant={actionVariant(review.nextStep.action)}>
-                {resumeReviewActionLabel[review.nextStep.action]}
-              </Badge>
-              <Badge variant="outline">{review.levelRecommendation.level}</Badge>
+              {review ? (
+                <>
+                  <Badge variant={actionVariant(review.nextStep.action)}>
+                    {resumeReviewActionLabel[review.nextStep.action]}
+                  </Badge>
+                  <Badge variant="outline">{review.levelRecommendation.level}</Badge>
+                </>
+              ) : (
+                <Badge variant="outline">未评估</Badge>
+              )}
             </div>
             <div className="space-y-2">
-              <h3 className="font-semibold text-base leading-7">{review.overall.conclusion}</h3>
+              <h3 className="font-semibold text-base leading-7">
+                {review?.overall.conclusion ?? "未评估"}
+              </h3>
               <p className="text-muted-foreground text-sm leading-6">
-                {review.overall.scoreRationale}
+                {review?.overall.scoreRationale ?? "绑定岗位并完成 AI 评估后，这里会展示综合评价。"}
               </p>
             </div>
             <div className="grid gap-5 md:grid-cols-2">
               <div className="min-w-0 space-y-1">
                 <div className="text-muted-foreground text-xs">下一步行动</div>
-                <p className="text-sm leading-6">{review.nextStep.rationale}</p>
+                <p className="text-sm leading-6">{review?.nextStep.rationale ?? "未评估"}</p>
               </div>
               <div className="min-w-0 space-y-1">
                 <div className="text-muted-foreground text-xs">团队定位</div>
-                <p className="text-sm leading-6">{review.teamPositioning.suggestion}</p>
+                <p className="text-sm leading-6">
+                  {review?.teamPositioning.suggestion ?? "未评估"}
+                </p>
               </div>
             </div>
           </div>
@@ -413,13 +449,13 @@ export function ResumeReviewStructuredView({
   screeningResultSlot,
   summaryAction,
 }: {
-  review: ResumeReviewLoose;
+  review: ResumeReviewLoose | null | undefined;
   screeningResultSlot?: ReactNode;
   summaryAction?: ReactNode;
 }) {
-  const biasCounts = countResumeReviewBiasCategories(review.biasScan.items);
-  const baseScore = getResumeReviewBaseScore(review);
-  const dimensionScores = getReviewDimensionDisplays(review);
+  const biasCounts = countResumeReviewBiasCategories(review?.biasScan.items ?? []);
+  const baseScore = review ? getResumeReviewBaseScore(review) : null;
+  const dimensionScores = review ? getReviewDimensionDisplays(review) : [];
   const dimensionScoreGroups = [
     dimensionScores.slice(0, 2),
     dimensionScores.slice(2, 4),
@@ -439,20 +475,26 @@ export function ResumeReviewStructuredView({
           <FramePanel className="flex min-w-0 items-center justify-center lg:rounded-tr-[2px] lg:rounded-br-[2px] lg:rounded-bl-[2px] lg:before:rounded-tr-[1px] lg:before:rounded-br-[1px] lg:before:rounded-bl-[1px]">
             <DimensionRadarChart dimensions={dimensionScores} />
           </FramePanel>
-          {dimensionScoreGroups.map((group, index) => (
-            <DimensionScoreGroup
-              className={cn(
-                index === 0 &&
-                  "lg:rounded-tl-[2px] lg:rounded-br-[2px] lg:rounded-bl-[2px] lg:before:rounded-tl-[1px] lg:before:rounded-br-[1px] lg:before:rounded-bl-[1px]",
-                index === 1 &&
-                  "lg:rounded-tl-[2px] lg:rounded-tr-[2px] lg:rounded-br-[2px] lg:before:rounded-tl-[1px] lg:before:rounded-tr-[1px] lg:before:rounded-br-[1px]",
-                index === 2 &&
-                  "lg:rounded-tl-[2px] lg:rounded-tr-[2px] lg:rounded-bl-[2px] lg:before:rounded-tl-[1px] lg:before:rounded-tr-[1px] lg:before:rounded-bl-[1px]",
-              )}
-              dimensions={group}
-              key={group.map((dimension) => dimension.key).join("-")}
-            />
-          ))}
+          {review ? (
+            dimensionScoreGroups.map((group, index) => (
+              <DimensionScoreGroup
+                className={cn(
+                  index === 0 &&
+                    "lg:rounded-tl-[2px] lg:rounded-br-[2px] lg:rounded-bl-[2px] lg:before:rounded-tl-[1px] lg:before:rounded-br-[1px] lg:before:rounded-bl-[1px]",
+                  index === 1 &&
+                    "lg:rounded-tl-[2px] lg:rounded-tr-[2px] lg:rounded-br-[2px] lg:before:rounded-tl-[1px] lg:before:rounded-tr-[1px] lg:before:rounded-br-[1px]",
+                  index === 2 &&
+                    "lg:rounded-tl-[2px] lg:rounded-tr-[2px] lg:rounded-bl-[2px] lg:before:rounded-tl-[1px] lg:before:rounded-tr-[1px] lg:before:rounded-bl-[1px]",
+                )}
+                dimensions={group}
+                key={group.map((dimension) => dimension.key).join("-")}
+              />
+            ))
+          ) : (
+            <FramePanel className="flex min-h-64 items-center justify-center lg:rounded-tl-[2px] lg:rounded-br-[2px] lg:rounded-bl-[2px] lg:before:rounded-tl-[1px] lg:before:rounded-br-[1px] lg:before:rounded-bl-[1px]">
+              <p className="text-muted-foreground text-sm leading-6">未评估</p>
+            </FramePanel>
+          )}
         </div>
       </Frame>
 
@@ -461,7 +503,7 @@ export function ResumeReviewStructuredView({
           <ReviewSectionHeader title="优点" />
           <FramePanel className="flex-1">
             <ScrollArea className="h-[24rem]" scrollFade>
-              <ReviewPointList items={review.strengths} tone="positive" />
+              <ReviewPointList items={review?.strengths} tone="positive" />
             </ScrollArea>
           </FramePanel>
         </Frame>
@@ -470,7 +512,7 @@ export function ResumeReviewStructuredView({
           <ReviewSectionHeader title="缺点" />
           <FramePanel className="flex-1">
             <ScrollArea className="h-[24rem]" scrollFade>
-              <ReviewPointList items={review.weaknesses} tone="negative" />
+              <ReviewPointList items={review?.weaknesses} tone="negative" />
             </ScrollArea>
           </FramePanel>
         </Frame>
@@ -488,8 +530,10 @@ export function ResumeReviewStructuredView({
           <ReviewSectionHeader title="团队定位建议" />
           <FramePanel className="flex-1">
             <div className="space-y-2 text-sm leading-6">
-              <p className="font-medium">{review.teamPositioning.suggestion}</p>
-              <p className="text-muted-foreground">{review.teamPositioning.rationale}</p>
+              <p className="font-medium">{review?.teamPositioning.suggestion ?? "未评估"}</p>
+              <p className="text-muted-foreground">
+                {review?.teamPositioning.rationale ?? "未评估"}
+              </p>
             </div>
           </FramePanel>
         </Frame>
@@ -498,8 +542,14 @@ export function ResumeReviewStructuredView({
           <ReviewSectionHeader title="职级建议" />
           <FramePanel className="flex-1">
             <div className="space-y-2 text-sm leading-6">
-              <Badge variant="outline">{review.levelRecommendation.level}</Badge>
-              <p className="text-muted-foreground">{review.levelRecommendation.rationale}</p>
+              {review ? (
+                <Badge variant="outline">{review.levelRecommendation.level}</Badge>
+              ) : (
+                <Badge variant="outline">未评估</Badge>
+              )}
+              <p className="text-muted-foreground">
+                {review?.levelRecommendation.rationale ?? "未评估"}
+              </p>
             </div>
           </FramePanel>
         </Frame>

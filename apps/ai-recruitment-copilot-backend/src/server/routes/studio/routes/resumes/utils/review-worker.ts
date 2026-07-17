@@ -153,10 +153,11 @@ export function reassessResumeRecord(input: { organizationId: string; resumeReco
 }
 
 export function processResumeReviewGenerationJob(input: ResumeReviewGenerationJobData) {
+  const force = Boolean(input.force) || input.source === "reassess";
   return runResumeAssessmentLifecycle(
     {
       expectedJobDescriptionId: input.jobDescriptionId,
-      force: false,
+      force,
       organizationId: input.organizationId,
       resumeRecordId: input.resumeRecordId,
     },

@@ -31,11 +31,13 @@ export const RESUME_REVIEW_GENERATION_JOB_LIST_STATES = [
 const RESUME_REVIEW_GENERATION_JOB_TYPES: JobType[] = [...RESUME_REVIEW_GENERATION_COUNT_TYPES];
 
 export const resumeReviewGenerationJobSchema = z.object({
+  force: z.boolean().optional(),
   jobDescriptionId: z.string().min(1),
   organizationId: z.string().min(1),
   poolItemId: z.string().min(1).optional(),
+  reassessToken: z.string().min(1).optional(),
   resumeRecordId: z.string().min(1),
-  source: z.enum(["resume_pool_import"]),
+  source: z.enum(["resume_pool_import", "reassess"]),
 });
 
 export type ResumeReviewGenerationJobData = z.infer<typeof resumeReviewGenerationJobSchema>;
@@ -116,10 +118,20 @@ function normalizeJobIdPart(value: string): string {
 }
 
 export function buildResumeReviewGenerationJobId({
+  force,
   jobDescriptionId,
+  reassessToken,
   resumeRecordId,
-}: Pick<ResumeReviewGenerationJobData, "jobDescriptionId" | "resumeRecordId">): string {
-  return `resume-review-${normalizeJobIdPart(resumeRecordId)}-${normalizeJobIdPart(jobDescriptionId)}`;
+}: Pick<
+  ResumeReviewGenerationJobData,
+  "force" | "jobDescriptionId" | "reassessToken" | "resumeRecordId"
+>): string {
+  const base = `resume-review-${normalizeJobIdPart(resumeRecordId)}-${normalizeJobIdPart(jobDescriptionId)}`;
+  // Reassess must not collide with completed first-generation job ids.
+  if (force || reassessToken) {
+    return `${base}-reassess-${normalizeJobIdPart(reassessToken ?? crypto.randomUUID())}`;
+  }
+  return base;
 }
 
 export function resolveResumeReviewGenerationWorkerConcurrency(

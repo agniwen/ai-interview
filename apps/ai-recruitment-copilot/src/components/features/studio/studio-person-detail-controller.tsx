@@ -242,9 +242,16 @@ export function useStudioPersonDetailController({
       return fetchStudioResume(slug, effectiveRecordId as string);
     },
     queryKey: ["studio-resumes", slug, "detail", effectiveRecordId, accessMode] as const,
+    refetchInterval: (query) => {
+      const status = query.state.data?.resumeReviewStatus;
+      return status === "queued" || status === "processing" ? 30_000 : false;
+    },
   });
+  const isResumeAssessmentInProgress =
+    resumeRecord?.resumeReviewStatus === "queued" ||
+    resumeRecord?.resumeReviewStatus === "processing";
   async function handleReassessResume() {
-    if (!(slug && effectiveRecordId) || !canUseManagementActions) {
+    if (!(slug && effectiveRecordId) || !canUseManagementActions || isResumeAssessmentInProgress) {
       return;
     }
     setIsReassessingResume(true);
@@ -257,7 +264,7 @@ export function useStudioPersonDetailController({
       if (!response.ok) {
         throw new Error(payload?.error ?? "重新评估失败");
       }
-      toast.success("已重新评估");
+      toast.success("已开始重新评估");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["studio-resumes"] }),
         queryClient.invalidateQueries({
@@ -850,6 +857,7 @@ export function useStudioPersonDetailController({
     isPublic,
     isReassessingResume,
     isReportsLoading,
+    isResumeAssessmentInProgress,
     isResumeInterviewResultLoading,
     isRoundCompleted,
     isRoundsLoading,
