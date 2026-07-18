@@ -21,6 +21,7 @@
     "backfill:resume-text": "tsx src/scripts/backfill-resume-text.ts",
     "dev:standalone": "tsx watch src/index.ts",
     "eval:recommendations": "tsx src/scripts/reco-eval.ts",
+    "eval:resume-reviews": "tsx src/scripts/resume-review-eval.ts",
     "repair:default-recruiting-groups": "tsx src/scripts/repair-default-recruiting-groups.ts",
     "studio:dev": "mastra dev --env ../ai-recruitment-copilot/.env",
     "start": "tsx src/index.ts",
