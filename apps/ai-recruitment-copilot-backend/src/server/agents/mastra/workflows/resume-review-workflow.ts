@@ -83,6 +83,7 @@ export function createResumeReviewWorkflow(deps: ResumeReviewWorkflowDeps) {
       return deps.composeReview(
         inputData.qualitative as ResumeQualitativeReview,
         inputData.scoring as ResumeReviewScoring,
+        { screeningResult: inputData.screeningResult },
       );
     },
     id: "compose-review",

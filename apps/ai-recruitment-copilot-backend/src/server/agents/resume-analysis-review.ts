@@ -9,6 +9,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
 import { createAiRunEventStream } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/adapters/ai-run-stream";
 import type { AiRunEvent } from "@arc/shared/ai-run-events";
+import { constrainNextStepAction } from "@arc/shared/resume-evaluation-decision";
 import type { ResumeReview } from "@arc/shared/resume-review";
 import type { ResumeScreeningResult } from "@arc/shared/resume-screening";
 import {
@@ -437,13 +438,20 @@ export async function generateResumeReviewScoring(input: {
 function assembleResumeReview(
   qualitative: ResumeQualitativeReview,
   scoring: ResumeReviewScoring,
+  options: { screeningResult?: ResumeScreeningResult | null },
 ): ResumeReview {
   const baseScore = computeResumeReviewBaseScore(scoring.dimensions);
   return {
     biasScan: qualitative.biasScan,
     dimensions: scoring.dimensions,
     levelRecommendation: qualitative.levelRecommendation,
-    nextStep: qualitative.nextStep,
+    nextStep: {
+      ...qualitative.nextStep,
+      action: constrainNextStepAction({
+        action: qualitative.nextStep.action,
+        screening: options.screeningResult,
+      }),
+    },
     overall: {
       baseScore,
       conclusion: qualitative.overall.conclusion,
@@ -464,9 +472,10 @@ export interface ResumeReviewGenerationResult {
 export function composeResumeReviewResult(
   qualitative: ResumeQualitativeReview,
   scoringInput: unknown,
+  options: { screeningResult?: ResumeScreeningResult | null } = {},
 ): ResumeReviewGenerationResult {
   const scoring = resumeScoringSchema.parse(scoringInput);
-  const structuredReview = assembleResumeReview(qualitative, scoring);
+  const structuredReview = assembleResumeReview(qualitative, scoring, options);
   const review = formatResumeReviewMarkdown(structuredReview).trim().slice(0, 2000);
   return { review, structuredReview };
 }
@@ -475,9 +484,10 @@ function composeResumeReviewFromMarkdown(
   reviewMarkdown: string,
   qualitative: ResumeQualitativeReview,
   scoringInput: unknown,
+  options: { screeningResult?: ResumeScreeningResult | null } = {},
 ): ResumeReviewGenerationResult {
   const scoring = resumeScoringSchema.parse(scoringInput);
-  const structuredReview = assembleResumeReview(qualitative, scoring);
+  const structuredReview = assembleResumeReview(qualitative, scoring, options);
   const review = reviewMarkdown.trim().slice(0, 2000);
   return { review, structuredReview };
 }
@@ -602,7 +612,9 @@ export function streamGenerateResumeReviewMarkdownFirst(input: {
         type: "step.completed",
       });
 
-      const result = composeResumeReviewFromMarkdown(review, qualitative, scoring);
+      const result = composeResumeReviewFromMarkdown(review, qualitative, scoring, {
+        screeningResult: input.screeningResult,
+      });
       emit({
         artifactType: "resume.review.result",
         data: result,

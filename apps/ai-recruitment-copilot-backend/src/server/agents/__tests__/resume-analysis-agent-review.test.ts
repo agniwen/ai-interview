@@ -231,6 +231,31 @@ describe("generateResumeReview", () => {
     );
   });
 
+  it("constrains markdown-first next step when screening recommends hold", async () => {
+    mockMarkdownStream(["建议进入面试。"]);
+    mocks.generateStructuredWithMastraAgent
+      .mockResolvedValueOnce(QUALITATIVE_OUTPUT)
+      .mockResolvedValueOnce(SCORING_OUTPUT);
+
+    const events = await readStreamEvents(
+      streamGenerateResumeReviewMarkdownFirst({
+        resumeProfile: PROFILE_WITH_DEGREE,
+        screeningResult: {
+          policyEmpty: false,
+          policyEnabled: true,
+          policyHash: "abc123",
+          policyVersion: 2,
+          recommendation: "hold",
+          ruleResults: [],
+        },
+      }),
+    );
+
+    expect(events.find((event) => event.type === "run.completed")?.output).toMatchObject({
+      structuredReview: { nextStep: { action: "hold" } },
+    });
+  });
+
   it("streams resume review workflow events as AiRun events", async () => {
     mockThreeAgentPipeline();
 
@@ -371,6 +396,7 @@ describe("generateResumeReview", () => {
     });
 
     expect(result.structuredReview.overall.baseScore).toBe(88);
+    expect(result.structuredReview.nextStep.action).toBe("hold");
     expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledTimes(2);
     expect(mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0]?.prompt).toContain(
       "已确认的简历筛选结果",
