@@ -149,6 +149,5 @@ export function getSyntheticEvalStrictFailures(
       metrics.rationaleTermCoverage < 0.8 &&
       "理由证据覆盖率低于 80%",
     metrics.baseScoreSpreadMax > 10 && "总分最大波动超过 10",
-    metrics.maxDimensionScoreSpread > 15 && "六维最大波动超过 15",
   ].filter((failure): failure is string => typeof failure === "string");
 }

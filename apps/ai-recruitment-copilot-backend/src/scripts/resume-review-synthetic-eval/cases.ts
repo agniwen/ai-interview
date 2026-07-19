@@ -35,7 +35,7 @@ export const SYNTHETIC_RESUME_REVIEW_CASES: SyntheticResumeReviewCase[] = [
     expectations: {
       allowedActions: ["interview", "hold"],
       dimensionBands: {
-        educationBackground: { max: 90, min: 65 },
+        educationBackground: { max: 90, min: 80 },
         experienceRelevance: { max: 95, min: 75 },
         potential: { max: 90, min: 65 },
         projectMatch: { max: 95, min: 70 },
@@ -84,10 +84,10 @@ export const SYNTHETIC_RESUME_REVIEW_CASES: SyntheticResumeReviewCase[] = [
   },
   {
     expectations: {
-      allowedActions: ["interview", "hold"],
+      allowedActions: ["hold"],
       dimensionBands: {
-        experienceRelevance: { max: 80, min: 55 },
-        projectMatch: { max: 75, min: 50 },
+        experienceRelevance: { max: 85, min: 65 },
+        projectMatch: { max: 85, min: 60 },
         skillMatch: { max: 70, min: 45 },
       },
       rationaleTerms: {
@@ -109,6 +109,14 @@ export const SYNTHETIC_RESUME_REVIEW_CASES: SyntheticResumeReviewCase[] = [
       ],
       skills: ["Vue", "JavaScript"],
       targetRoles: ["前端工程师"],
+      workExperiences: [
+        {
+          company: "合成科技 C",
+          period: "2021-2025",
+          role: "前端工程师",
+          summary: "使用 Vue 和 JavaScript 持续负责运营后台开发与交付",
+        },
+      ],
       workYears: 4,
     }),
   },
@@ -140,8 +148,9 @@ export const SYNTHETIC_RESUME_REVIEW_CASES: SyntheticResumeReviewCase[] = [
     expectations: {
       allowedActions: ["hold", "reject"],
       dimensionBands: {
-        experienceRelevance: { max: 55, min: 25 },
-        projectMatch: { max: 60, min: 25 },
+        experienceRelevance: { max: 30, min: 0 },
+        potential: { max: 40, min: 25 },
+        projectMatch: { max: 25, min: 0 },
       },
       rationaleTerms: {
         experienceRelevance: ["2年", "2 年", "资深", "经验"],
@@ -169,9 +178,10 @@ export const SYNTHETIC_RESUME_REVIEW_CASES: SyntheticResumeReviewCase[] = [
     expectations: {
       allowedActions: ["interview", "hold"],
       dimensionBands: {
-        potential: { max: 90, min: 65 },
-        projectMatch: { max: 85, min: 60 },
-        skillMatch: { max: 90, min: 65 },
+        experienceRelevance: { max: 75, min: 50 },
+        potential: { max: 95, min: 85 },
+        projectMatch: { max: 95, min: 60 },
+        skillMatch: { max: 95, min: 65 },
       },
       rationaleTerms: {
         potential: ["独立", "成长", "学习", "负责"],
@@ -199,8 +209,15 @@ export const SYNTHETIC_RESUME_REVIEW_CASES: SyntheticResumeReviewCase[] = [
   },
   {
     expectations: {
-      allowedActions: ["hold", "reject"],
-      dimensionBands: {},
+      allowedActions: ["hold"],
+      dimensionBands: {
+        educationBackground: { max: 25, min: 15 },
+        experienceRelevance: { max: 60, min: 45 },
+        potential: { max: 60, min: 45 },
+        projectMatch: { max: 60, min: 45 },
+        skillMatch: { max: 80, min: 65 },
+        stability: { max: 60, min: 45 },
+      },
       rationaleTerms: {},
     },
     id: "blocking-screening-hold",

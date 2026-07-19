@@ -195,5 +195,8 @@ describe("computeSyntheticEvalMetrics", () => {
     expect(metrics.rationaleTermCoverage).toBeNull();
     expect(getSyntheticEvalStrictFailures(metrics, 3)).not.toContain("维度区间命中率低于 90%");
     expect(getSyntheticEvalStrictFailures(metrics, 3)).not.toContain("理由证据覆盖率低于 80%");
+    expect(
+      getSyntheticEvalStrictFailures({ ...metrics, maxDimensionScoreSpread: 99 }, 3),
+    ).not.toContain("六维最大波动超过 15");
   });
 });

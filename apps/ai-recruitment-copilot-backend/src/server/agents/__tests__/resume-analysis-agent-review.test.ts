@@ -244,9 +244,38 @@ describe("generateResumeReview", () => {
     const scoringPrompt = mocks.generateStructuredWithMastraAgent.mock.calls[1]?.[0]?.prompt;
     expect(qualitativePrompt).toContain("信息不足不等于不满足");
     expect(qualitativePrompt).toContain("不得仅因字段缺失直接建议 reject");
+    expect(qualitativePrompt).toContain("相邻技术栈");
+    expect(qualitativePrompt).toContain("优先 hold");
+    expect(qualitativePrompt).toContain("action 必须为 hold，不得 reject");
+    expect(qualitativePrompt).toContain("总体建议为 hold");
+    expect(qualitativePrompt).toContain("action 必须为 hold");
+    expect(qualitativePrompt).toContain("空数组只表示简历未提供记录");
+    expect(qualitativePrompt).toContain("不得根据毕业年份与 workYears 的差值推断空档期");
+    expect(qualitativePrompt).toContain("action 可为 interview 或 hold，但不得 reject");
     expect(scoringPrompt).toContain("85-100");
     expect(scoringPrompt).toContain("简历未提供学历层次");
     expect(scoringPrompt).toContain("React 与 TypeScript");
+    expect(scoringPrompt).toContain("8 年以上前端架构经验");
+    expect(scoringPrompt).toContain("score 5-20");
+    expect(scoringPrompt).toContain("skillMatch 架构能力缺口");
+    expect(scoringPrompt).toContain("score 20-35");
+    expect(scoringPrompt).toContain("score 85-95");
+    expect(scoringPrompt).toContain("potential 明确资深差距");
+    expect(scoringPrompt).toContain("experienceRelevance 高潜初级");
+    expect(scoringPrompt).toContain("screening hold 学历差距");
+    expect(scoringPrompt).toContain("screening hold 技能证据不足");
+    expect(scoringPrompt).toContain("证据安全规则优先于定性评价");
+    expect(scoringPrompt).toContain("空数组只表示简历未提供记录");
+    expect(scoringPrompt).toContain("educationBackground 学校声誉未知");
+    expect(scoringPrompt).toContain("不得根据学校名称推断院校质量");
+    expect(scoringPrompt).toContain("potential 高潜证据优先");
+    expect(scoringPrompt).toContain("不得因工作经历字段为空重复扣分");
+    expect(scoringPrompt).toContain("不得根据毕业年份与 workYears 的差值推断空档期");
+    expect(scoringPrompt).toContain("projectMatch 场景直接匹配但技术栈相邻");
+    expect(scoringPrompt).toContain("不得在 projectMatch 重复扣分");
+    expect(scoringPrompt).toContain("experienceRelevance 同职业域相邻技术栈");
+    expect(mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0]?.temperature).toBe(0);
+    expect(mocks.generateStructuredWithMastraAgent.mock.calls[1]?.[0]?.temperature).toBe(0);
   });
 
   it("rejects scoring output with unexpected top-level fields", () => {

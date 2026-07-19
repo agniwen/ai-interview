@@ -148,6 +148,8 @@ const REVIEW_QUALITATIVE_INSTRUCTIONS = `你是一名招聘评估助手。根据
 - 严格遵守字段名、枚举值和数据类型；无证据时 evidence 填 null，文本写"待核实"。
 - 不要编造简历或 JD 中没有的信息。
 - 信息不足不等于不满足：字段缺失时应标记"待核实"并给出 interviewFocus，不得仅因字段缺失直接建议 reject。
+- workExperiences、projectExperiences 等字段为空数组只表示简历未提供记录，不表示候选人明确没有工作经验、项目能力或相关实践；应结合 workYears 等已有字段描述，并把无法验证的部分标记为"待核实"。
+- 工作时间线未提供时，不得根据毕业年份与 workYears 的差值推断空档期、失业时长或职业不连续；只能标记任职时间线待核实。
 
 ## 评价内容
 1. overall.conclusion：一句话总体判断，描述候选人与岗位的语义匹配方向，不要出现任何数字。
@@ -163,6 +165,14 @@ const REVIEW_QUALITATIVE_INSTRUCTIONS = `你是一名招聘评估助手。根据
    - rationale：依据（仅基于定性判断，不涉及最终分数）
    - interviewFocus：进入面试或暂缓时建议重点追问的问题，可为空数组
    - disclaimer：必须严格等于"以上为初步结论"
+
+## nextStep 行动边界
+- interview：核心要求有直接证据，剩余风险可在面试中验证。
+- hold：存在可迁移的相邻经验或关键证据待核实，当前不足以直接推进。JD 只列出某项具体技能、简历提供同领域的相邻技术栈且没有已确认的 blocking 筛选失败时，应标记 soft_mismatch 并优先 hold，不得把缺少同名技术栈直接视为不可弥补的 hard_gap。
+- 同职业域相邻技术栈且没有已确认的 blocking 筛选失败时，action 必须为 hold，不得 reject；缺少同名技术栈本身不是"无法通过面试弥补"的硬性缺口。
+- reject：简历有明确证据证明候选人与岗位核心职责或职级要求存在根本差距，且没有合理的迁移路径。不得仅因字段缺失或相邻技术栈不同而 reject。
+- 已确认的简历筛选结果总体建议为 hold 时，如果 reject 的依据只是筛选结果中已经列出的风险，action 必须为 hold；只有简历与 JD 还存在筛选结果之外的独立核心缺口时，才能建议 reject。
+- 初级岗位已有核心技能和独立交付的直接证据、但工作经历字段缺失时，应将缺失信息列入 interviewFocus；action 可为 interview 或 hold，但不得 reject。
 
 ## 输出 JSON 结构（必须严格遵守）
 {
@@ -267,10 +277,24 @@ ${REVIEW_SCORING_DIMENSION_LIST}
 - 35-54：与岗位存在明显差距，仅有有限的相邻证据。
 - 0-34：简历有明确证据表明不满足该维度的核心要求。不得仅因信息缺失给出该区间。
 - 简历没有提供某维度信息时，通常在 45-60 区间表达不确定性，并在 rationale 明确写"待核实"；不要编造负面事实。
+- 证据安全规则优先于定性评价：workExperiences、projectExperiences 等字段为空数组只表示简历未提供记录，不是明确的负面证据。即使定性评价误写为"没有经验"，也必须按信息缺失处理并在 45-60 区间评分；只有简历存在相反的明确证据时才能低于 45。
+- 工作时间线未提供时，不得根据毕业年份与 workYears 的差值推断空档期或职业不连续，也不得把这种推断用于 experienceRelevance、potential 或 stability 扣分。
 
 ## Few-shot 校准示例
 - skillMatch 强匹配：JD 要求 React 与 TypeScript，简历项目明确写出使用 React 与 TypeScript 交付核心模块 → score 90，rationale 引用这两项直接证据。
 - skillMatch 相邻经验：JD 要求 React，简历只有 Vue 与 JavaScript 项目 → score 58，rationale 写明前端经验可迁移，但 React 实践待核实。
+- projectMatch 场景直接匹配但技术栈相邻：JD 要求中后台项目，简历有明确的中后台项目但使用 Vue/JavaScript，且复杂度信息有限 → score 60-70；技术栈差异主要由 skillMatch 评价，不得在 projectMatch 重复扣分。
+- experienceRelevance 同职业域相邻技术栈：候选人有明确的同类业务场景和持续相关前端工作经验，但具体框架不同 → score 65-85；根据职责证据完整度校准，不能忽略可迁移经验压到信息缺失基准以下。
+- experienceRelevance 明确职级差距：JD 要求 8 年以上前端架构经验，简历明确只有 2 年开发经验 → score 5-20，rationale 写明年限和职责层级差距；这属于明确不满足，不按信息缺失的 45-60 区间处理。
+- projectMatch 明确复杂度差距：JD 要求主导大型系统架构，简历只有简单活动页面开发 → score 5-20，rationale 引用项目角色和复杂度差距。
+- skillMatch 架构能力缺口：JD 要求架构设计与技术治理，简历只有 React、JavaScript 基础开发且无架构实践 → score 20-35；基础前端技能只能作为有限的相邻证据，不能按完全无技能处理，也不能忽略架构能力缺口。
+- potential 明确资深差距：JD 要求资深架构职责，简历明确只有 2 年经验和简单页面项目，且没有成长或复杂任务证据 → score 25-40。
+- experienceRelevance 高潜初级：初级岗位候选人有 1.5 年经验和直接项目证据，但没有完整工作经历 → score 55-70；认可项目迁移价值，同时保留工作场景待核实项。
+- potential 高潜初级：初级岗位候选人有独立交付 React 组件库并推动使用的直接证据 → score 85-95，rationale 引用独立交付与实际落地证据。
+- potential 高潜证据优先：已有独立交付、推动实际使用等直接成长证据时，不得因工作经历字段为空重复扣分；工作经历缺失只影响 experienceRelevance 与 stability 的信息完整性。
+- educationBackground 学校声誉未知：简历明确提供与岗位相关的本科学历和专业、JD 未要求特定院校时 → score 80-90；不得根据学校名称推断院校质量、知名度或层次，也不得因无法识别学校而扣分。
+- screening hold 学历差距：筛选结果已确认专科学历不满足本科要求并建议 hold → educationBackground score 15-25，不因相同事实重复加重到接近 0 分。
+- screening hold 技能证据不足：技能列表有 React 与 TypeScript，但没有工作或项目使用证据 → skillMatch score 65-80，认可技能方向并明确实践深度待核实。
 - educationBackground 信息缺失：JD 要求本科，简历未提供学历层次 → score 50，rationale 写"学历层次待核实"，不能按学历不达标处理。
 - stability 信息缺失：简历没有完整任职起止时间 → score 50，rationale 写"任职时间线待核实"，不能推断频繁跳槽。
 
@@ -404,7 +428,7 @@ export async function generateResumeQualitativeReview(input: {
     prompt: `${REVIEW_QUALITATIVE_INSTRUCTIONS}\n\n${buildResumeReviewPrompt(input)}`,
     retryOnInvalid: true,
     schema: resumeQualitativeSchema,
-    temperature: 0.4,
+    temperature: 0,
   });
 }
 
@@ -432,7 +456,7 @@ export async function generateResumeQualitativeReviewFromMarkdown(input: {
     prompt: `${REVIEW_QUALITATIVE_FROM_MARKDOWN_INSTRUCTIONS}\n\n${buildResumeReviewFromMarkdownPrompt(input)}`,
     retryOnInvalid: true,
     schema: resumeQualitativeSchema,
-    temperature: 0.2,
+    temperature: 0,
   });
 }
 
@@ -448,7 +472,7 @@ export async function generateResumeReviewScoring(input: {
     prompt: `${REVIEW_SCORING_INSTRUCTIONS}\n\n${buildResumeScoringPrompt(input)}`,
     retryOnInvalid: true,
     schema: resumeScoringSchema,
-    temperature: 0.2,
+    temperature: 0,
   });
 }
 

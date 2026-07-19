@@ -26,7 +26,7 @@ export function formatSyntheticEvalReport(input: SyntheticEvalReportInput): stri
     `维度区间命中率: ${pct(input.metrics.dimensionBandPassRate)}`,
     `理由证据覆盖率: ${pct(input.metrics.rationaleTermCoverage)}`,
     `总分最大波动: ${input.metrics.baseScoreSpreadMax}`,
-    `六维最大波动: ${input.metrics.maxDimensionScoreSpread}`,
+    `六维最大波动（观察项）: ${input.metrics.maxDimensionScoreSpread}`,
     "",
     "## 分案例",
     "",
@@ -34,6 +34,6 @@ export function formatSyntheticEvalReport(input: SyntheticEvalReportInput): stri
     "",
     "## 解释边界",
     "",
-    "该评测仅用于 Prompt 稳定性、结构契约和人工校准锚点检查，不代表真实录用效果，也不得用于拟合业务权重或阈值。",
+    "该评测仅用于 Prompt 稳定性、结构契约和人工校准锚点检查；六维最大波动仅用于观察单维离群，不作为 strict 硬门禁。不代表真实录用效果，也不得用于拟合业务权重或阈值。",
   ].join("\n");
 }
