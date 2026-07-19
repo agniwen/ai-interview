@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { z } from "zod";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 
@@ -76,9 +77,48 @@ describe("matchJobDescriptionForResume", () => {
     expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledWith(
       expect.objectContaining({
         agent: mocks.jobDescriptionMatchAgent,
+        retryOnInvalid: true,
         schema: expect.any(Object),
         temperature: 0,
       }),
     );
+  });
+
+  it("uses a strict schema constrained to the supplied candidate IDs", async () => {
+    await matchJobDescriptionForResume(RESUME_PROFILE, JOBS);
+
+    const schema = mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0]?.schema as z.ZodType;
+    expect(
+      schema.safeParse({
+        jobDescriptionId: "jd-frontend",
+        reason: "前端经验匹配",
+      }).success,
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        jobDescriptionId: "jd-outside-candidates",
+        reason: "越界选择",
+      }).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({
+        extra: "unexpected",
+        jobDescriptionId: "jd-frontend",
+        reason: "前端经验匹配",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("returns null without a model call when there are no candidates", async () => {
+    await expect(matchJobDescriptionForResume(RESUME_PROFILE, [])).resolves.toBeNull();
+    expect(mocks.generateStructuredWithMastraAgent).not.toHaveBeenCalled();
+  });
+
+  it("selects the only candidate without a model call", async () => {
+    await expect(matchJobDescriptionForResume(RESUME_PROFILE, [JOBS[0]])).resolves.toEqual({
+      jobDescriptionId: "jd-frontend",
+      reason: "候选岗位只有一个，默认选择。",
+    });
+    expect(mocks.generateStructuredWithMastraAgent).not.toHaveBeenCalled();
   });
 });

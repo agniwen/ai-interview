@@ -20,6 +20,7 @@
     "backfill:resume-semantic-index": "tsx src/scripts/backfill-resume-semantic-index.ts",
     "backfill:resume-text": "tsx src/scripts/backfill-resume-text.ts",
     "dev:standalone": "tsx watch src/index.ts",
+    "eval:jd-match:synthetic": "tsx src/scripts/jd-match-synthetic-eval.ts",
     "eval:recommendations": "tsx src/scripts/reco-eval.ts",
     "eval:resume-reviews": "tsx src/scripts/resume-review-eval.ts",
     "eval:resume-reviews:synthetic": "tsx src/scripts/resume-review-synthetic-eval.ts",
