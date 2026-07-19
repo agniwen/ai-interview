@@ -4,6 +4,7 @@ import {
   configureAlibabaCodingPlanApiKey,
   mastraModels,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/models";
+import { parseJsonOutput } from "@arc/ai-recruitment-copilot-backend/server/agents/json-output";
 
 configureAlibabaCodingPlanApiKey();
 
@@ -236,26 +237,48 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
   agent,
   maxOutputTokens,
   prompt,
+  retryOnInvalid,
   schema,
   temperature,
 }: {
   agent: MastraGeneratorLike;
   maxOutputTokens?: number;
   prompt: string;
+  retryOnInvalid?: boolean;
   schema: TSchema;
   temperature?: number;
 }): Promise<z.infer<TSchema>> {
-  const result = await agent.generate(prompt, {
-    modelSettings: buildModelSettings({ maxOutputTokens, temperature }),
-    structuredOutput: { schema },
-  });
-  if (result.error) {
-    throw result.error;
+  let attemptPrompt = prompt;
+  let lastError = new Error("AI 生成的结构化内容校验失败。");
+  const maxAttempts = retryOnInvalid ? 2 : 1;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const result = await agent.generate(attemptPrompt, {
+      modelSettings: buildModelSettings({ maxOutputTokens, temperature }),
+      structuredOutput: { schema },
+    });
+    if (result.error) {
+      lastError = result.error;
+    } else {
+      const parsed = schema.safeParse(result.object);
+      if (parsed.success) {
+        return parsed.data;
+      }
+      lastError = new Error(parsed.error.issues[0]?.message ?? "AI 生成的结构化内容校验失败。");
+      if (result.text.trim()) {
+        try {
+          return parseJsonOutput(
+            result.text,
+            schema as z.ZodType<z.infer<TSchema>>,
+            "structured-output-fallback",
+          );
+        } catch {
+          // Retry below with concise schema feedback and the original task context.
+        }
+      }
+    }
+    if (attempt + 1 < maxAttempts) {
+      attemptPrompt = `${prompt}\n\n上一次结构化输出无效：${lastError.message}\n请严格按照原字段和类型重新输出完整的 JSON 对象，不要输出 Markdown 或解释。`;
+    }
   }
-
-  const parsed = schema.safeParse(result.object);
-  if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message ?? "AI 生成的结构化内容校验失败。");
-  }
-  return parsed.data;
+  throw lastError;
 }

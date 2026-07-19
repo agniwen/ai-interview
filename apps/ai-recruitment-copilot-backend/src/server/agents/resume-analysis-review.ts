@@ -22,6 +22,7 @@ import {
   resumeReviewBiasItemSchema,
   resumeReviewDimensionSchema,
   resumeReviewPointSchema,
+  resumeReviewSchema,
 } from "@arc/shared/resume-review";
 
 const RESUME_REVIEW_SERVER_TIME_ZONE = "Asia/Shanghai";
@@ -146,6 +147,7 @@ const REVIEW_QUALITATIVE_INSTRUCTIONS = `你是一名招聘评估助手。根据
 - 所有自由文本字段使用中文，简洁直入，不要寒暄。
 - 严格遵守字段名、枚举值和数据类型；无证据时 evidence 填 null，文本写"待核实"。
 - 不要编造简历或 JD 中没有的信息。
+- 信息不足不等于不满足：字段缺失时应标记"待核实"并给出 interviewFocus，不得仅因字段缺失直接建议 reject。
 
 ## 评价内容
 1. overall.conclusion：一句话总体判断，描述候选人与岗位的语义匹配方向，不要出现任何数字。
@@ -258,6 +260,20 @@ ${REVIEW_SCORING_DIMENSION_LIST}
 - 不要输出 Markdown、代码块或解释性文字；只输出 JSON 对象。
 - 不要编造简历或 JD 中没有的信息。
 
+## 统一评分锚点
+- 85-100：简历有直接、充分且与 JD 核心要求一致的证据，几乎没有关键缺口。
+- 70-84：主要要求有直接证据，存在少量次要缺口或待核实项。
+- 55-69：只有部分或相邻经验，具备迁移可能，但关键证据不完整。
+- 35-54：与岗位存在明显差距，仅有有限的相邻证据。
+- 0-34：简历有明确证据表明不满足该维度的核心要求。不得仅因信息缺失给出该区间。
+- 简历没有提供某维度信息时，通常在 45-60 区间表达不确定性，并在 rationale 明确写"待核实"；不要编造负面事实。
+
+## Few-shot 校准示例
+- skillMatch 强匹配：JD 要求 React 与 TypeScript，简历项目明确写出使用 React 与 TypeScript 交付核心模块 → score 90，rationale 引用这两项直接证据。
+- skillMatch 相邻经验：JD 要求 React，简历只有 Vue 与 JavaScript 项目 → score 58，rationale 写明前端经验可迁移，但 React 实践待核实。
+- educationBackground 信息缺失：JD 要求本科，简历未提供学历层次 → score 50，rationale 写"学历层次待核实"，不能按学历不达标处理。
+- stability 信息缺失：简历没有完整任职起止时间 → score 50，rationale 写"任职时间线待核实"，不能推断频繁跳槽。
+
 ## 与定性评价的一致性
 - 若你的打分方向与定性评价的结论、strengths、weaknesses 出现冲突（例如定性说"技术栈高度匹配"，你给技能匹配度打低分），以定性结论方向为准，并在该维度 rationale 开头用"已采纳定性结论"一句说明，再写评分依据。
 
@@ -274,7 +290,7 @@ ${REVIEW_SCORING_JSON_SHAPE}
 
 // Agent 1 定性输出的内部类型 —— 不持久化，只传给 Agent 2 和组装层。
 // Internal type for Agent 1 output; not persisted, only fed to Agent 2 + assembler.
-const resumeQualitativeSchema = z.object({
+const resumeQualitativeSchema = z.strictObject({
   biasScan: z.object({
     items: z.array(resumeReviewBiasItemSchema),
   }),
@@ -301,8 +317,8 @@ const resumeQualitativeSchema = z.object({
 export type ResumeQualitativeReview = z.infer<typeof resumeQualitativeSchema>;
 
 // Agent 2 打分输出的内部类型。
-const resumeScoringSchema = z.object({
-  dimensions: z.object({
+const resumeScoringSchema = z.strictObject({
+  dimensions: z.strictObject({
     educationBackground: resumeReviewDimensionSchema,
     experienceRelevance: resumeReviewDimensionSchema,
     potential: resumeReviewDimensionSchema,
@@ -386,6 +402,7 @@ export async function generateResumeQualitativeReview(input: {
   return await generateStructuredWithMastraAgent({
     agent: resumeReviewQualitativeAgent,
     prompt: `${REVIEW_QUALITATIVE_INSTRUCTIONS}\n\n${buildResumeReviewPrompt(input)}`,
+    retryOnInvalid: true,
     schema: resumeQualitativeSchema,
     temperature: 0.4,
   });
@@ -413,6 +430,7 @@ export async function generateResumeQualitativeReviewFromMarkdown(input: {
   return await generateStructuredWithMastraAgent({
     agent: resumeReviewQualitativeAgent,
     prompt: `${REVIEW_QUALITATIVE_FROM_MARKDOWN_INSTRUCTIONS}\n\n${buildResumeReviewFromMarkdownPrompt(input)}`,
+    retryOnInvalid: true,
     schema: resumeQualitativeSchema,
     temperature: 0.2,
   });
@@ -428,6 +446,7 @@ export async function generateResumeReviewScoring(input: {
   return await generateStructuredWithMastraAgent({
     agent: resumeReviewScoringAgent,
     prompt: `${REVIEW_SCORING_INSTRUCTIONS}\n\n${buildResumeScoringPrompt(input)}`,
+    retryOnInvalid: true,
     schema: resumeScoringSchema,
     temperature: 0.2,
   });
@@ -441,7 +460,7 @@ function assembleResumeReview(
   options: { screeningResult?: ResumeScreeningResult | null },
 ): ResumeReview {
   const baseScore = computeResumeReviewBaseScore(scoring.dimensions);
-  return {
+  return resumeReviewSchema.parse({
     biasScan: qualitative.biasScan,
     dimensions: scoring.dimensions,
     levelRecommendation: qualitative.levelRecommendation,
@@ -461,7 +480,7 @@ function assembleResumeReview(
     strengths: qualitative.strengths,
     teamPositioning: qualitative.teamPositioning,
     weaknesses: qualitative.weaknesses,
-  };
+  });
 }
 
 export interface ResumeReviewGenerationResult {

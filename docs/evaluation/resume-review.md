@@ -36,6 +36,31 @@ pnpm --filter @arc/ai-recruitment-copilot-backend eval:resume-reviews -- --org o
 - 六维诊断：每一维的正负例均值与差值；
 - 数据质量：互斥排除原因、缺失维度、无效硬门槛结果、缺失生成时间或 run ID。
 
+## 合成契约回归
+
+真实结果数据成熟前，使用 24 个合成边界案例守住规则正确性：学历和年限边界、信息缺失、技能全量/至少项匹配、语义证据、规则严重级别和空策略。运行：
+
+```bash
+pnpm --filter @arc/shared exec vitest run src/__tests__/resume-screening.synthetic.test.ts
+```
+
+合成案例只验证结构和规则契约：信息不足必须进入人工核实，明确 blocking 失败只能暂缓推进，不能用来拟合六维权重、业务阈值或证明真实误拒率。
+
+评分 Prompt 另有 6 个合成简历/JD 场景。默认命令只列出案例，不调用模型：
+
+```bash
+pnpm --filter @arc/ai-recruitment-copilot-backend eval:resume-reviews:synthetic
+```
+
+显式运行会产生模型调用。建议每个案例重复 3 次，以检查结构成功率、允许行动、人工分数锚点、理由证据和重复运行波动：
+
+```bash
+pnpm --filter @arc/ai-recruitment-copilot-backend eval:resume-reviews:synthetic -- \
+  --execute --runs 3 --strict
+```
+
+`--strict` 要求每个案例至少运行 3 次。稳定性护栏为：结构成功率和允许行动命中率 100%、行动一致率至少 80%、维度区间命中率至少 90%、理由证据覆盖率至少 80%、总分波动不超过 10、单维最大波动不超过 15。案例没有配置维度区间或理由关键词时，对应指标显示为 `N/A` 且不参与门槛判定。这些是合成回归护栏，不是生产录用阈值。
+
 ## 复现边界
 
 当前表只保留每位候选人的最新评价，没有保存评价生成时的 JD/简历快照、模型版本和 prompt 版本。因此历史样本无法严格重放，也不能用于证明因果效果。后续若要比较 prompt 或权重版本，应在生成时保存不可变输入快照与版本元数据，再固定时间切分评测集。

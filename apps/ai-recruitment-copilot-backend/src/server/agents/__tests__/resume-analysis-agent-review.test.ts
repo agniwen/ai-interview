@@ -50,6 +50,7 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachm
 
 // oxlint-disable-next-line import/first -- must follow vi.mock() for correct hoisting
 import {
+  composeResumeReviewResult,
   generateResumeReview,
   streamGenerateResumeReviewMarkdownFirst,
   streamGenerateResumeReview,
@@ -229,6 +230,32 @@ describe("generateResumeReview", () => {
         schema: expect.any(Object),
       }),
     );
+  });
+
+  it("injects evidence-safe qualitative guidance and scoring anchors", async () => {
+    mockThreeAgentPipeline();
+
+    await generateResumeReview({
+      jobDescription: "岗位名称：前端工程师",
+      resumeProfile: PROFILE_WITH_DEGREE,
+    });
+
+    const qualitativePrompt = mocks.generateStructuredWithMastraAgent.mock.calls[0]?.[0]?.prompt;
+    const scoringPrompt = mocks.generateStructuredWithMastraAgent.mock.calls[1]?.[0]?.prompt;
+    expect(qualitativePrompt).toContain("信息不足不等于不满足");
+    expect(qualitativePrompt).toContain("不得仅因字段缺失直接建议 reject");
+    expect(scoringPrompt).toContain("85-100");
+    expect(scoringPrompt).toContain("简历未提供学历层次");
+    expect(scoringPrompt).toContain("React 与 TypeScript");
+  });
+
+  it("rejects scoring output with unexpected top-level fields", () => {
+    expect(() =>
+      composeResumeReviewResult(QUALITATIVE_OUTPUT, {
+        ...SCORING_OUTPUT,
+        overall: { score: 88 },
+      }),
+    ).toThrow();
   });
 
   it("constrains markdown-first next step when screening recommends hold", async () => {
