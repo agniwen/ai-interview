@@ -19,6 +19,7 @@ const interviewQuestionSchema = generatedInterviewQuestionSchema.extend({
 });
 
 const interviewReportInputSchema = z.object({
+  candidateFormResponses: z.string(),
   questions: z.array(interviewQuestionSchema),
   transcript: z.array(interviewTranscriptTurnSchema),
 });
@@ -105,6 +106,7 @@ export function createInterviewReportWorkflow(deps: InterviewReportWorkflowDeps)
           evaluationResult: {
             status: "fulfilled" as const,
             value: await deps.generateEvaluation({
+              candidateFormResponses: inputData.candidateFormResponses,
               questions: inputData.questions,
               transcript: inputData.transcript,
             }),
@@ -163,6 +165,7 @@ export const interviewReportWorkflow = createInterviewReportWorkflow({
 });
 
 export async function runInterviewReportWorkflow(input: {
+  candidateFormResponses: z.input<typeof interviewReportInputSchema>["candidateFormResponses"];
   questions: z.input<typeof interviewReportInputSchema>["questions"];
   transcript: z.input<typeof interviewReportInputSchema>["transcript"];
 }): Promise<InterviewReportWorkflowOutput> {

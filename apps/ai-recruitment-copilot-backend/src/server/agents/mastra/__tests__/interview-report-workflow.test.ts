@@ -30,6 +30,7 @@ describe("runInterviewReportWorkflow", () => {
     });
 
     const result = await runInterviewReportWorkflow({
+      candidateFormResponses: "最快到岗时间：一个月内",
       questions: [{ difficulty: "easy", order: 1, question: "请介绍项目。" }],
       transcript: [{ message: "我负责招聘系统前端。", role: "user", timeInCallSecs: 6 }],
     });
@@ -38,6 +39,7 @@ describe("runInterviewReportWorkflow", () => {
       transcript: [{ message: "我负责招聘系统前端。", role: "user", timeInCallSecs: 6 }],
     });
     expect(mocks.generateInterviewEvaluation).toHaveBeenCalledWith({
+      candidateFormResponses: "最快到岗时间：一个月内",
       questions: [{ difficulty: "easy", order: 1, question: "请介绍项目。" }],
       transcript: [{ message: "我负责招聘系统前端。", role: "user", timeInCallSecs: 6 }],
     });

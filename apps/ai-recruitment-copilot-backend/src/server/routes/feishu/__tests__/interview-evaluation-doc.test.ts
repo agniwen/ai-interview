@@ -8,6 +8,14 @@ describe("buildInterviewEvaluationDocument", () => {
       detailUrl: "https://example.com/studio/interviews?roundId=round-1",
       duration: "18 分钟",
       evaluation: {
+        hrEvaluation: {
+          availability: "目前在职，预计一个月内到岗。",
+          careerProgression: "最近两份工作分别获得一次晋升，绩效均为 A。",
+          compensationExpectations: "当前固定月薪 30k，期望年包 50 万。",
+          jobMotivation: "希望承担更完整的系统架构职责。",
+          overseasTravel: "已婚，可以接受每次两周以内的海外出差。",
+          recentWork: "最近两家公司约 200 人，主要担任项目主导者。",
+        },
         overallAssessment: "项目经验完整，沟通清晰。",
         overallScore: 86,
         questions: [
@@ -38,6 +46,10 @@ describe("buildInterviewEvaluationDocument", () => {
       throw new Error("Expected HR callout block");
     }
     expect(hrCallout.callout).toEqual({ background_color: 2, border_color: 2 });
+    expect(hrCallout.children?.filter((block) => block.block_type === 13)).toHaveLength(8);
+    expect(
+      hrCallout.children?.filter((block) => JSON.stringify(block).includes("答案：")),
+    ).toHaveLength(6);
     expect(JSON.stringify(hrCallout.children)).toContain("📚 HR面试评价（AI）");
     expect(JSON.stringify(hrCallout.children)).toContain("求职动机：");
     expect(JSON.stringify(hrCallout.children)).toContain("最快到岗时间");
@@ -46,6 +58,20 @@ describe("buildInterviewEvaluationDocument", () => {
     expect(JSON.stringify(hrCallout.children)).toContain("加薪晋升情况");
     expect(JSON.stringify(hrCallout.children)).toContain("目前两份工作");
     expect(JSON.stringify(hrCallout.children)).toContain("签证评估情况");
+    expect(JSON.stringify(hrCallout.children)).toContain("答案：希望承担更完整的系统架构职责。");
+    expect(JSON.stringify(hrCallout.children)).toContain("答案：目前在职，预计一个月内到岗。");
+    expect(JSON.stringify(hrCallout.children)).toContain(
+      "答案：已婚，可以接受每次两周以内的海外出差。",
+    );
+    expect(JSON.stringify(hrCallout.children)).toContain(
+      "答案：当前固定月薪 30k，期望年包 50 万。",
+    );
+    expect(JSON.stringify(hrCallout.children)).toContain(
+      "答案：最近两份工作分别获得一次晋升，绩效均为 A。",
+    );
+    expect(JSON.stringify(hrCallout.children)).toContain(
+      "答案：最近两家公司约 200 人，主要担任项目主导者。",
+    );
     expect(JSON.stringify(hrCallout.children)).toContain("综合评分：86/100");
     expect(JSON.stringify(hrCallout.children)).toContain("建议进入下一轮");
     expect(JSON.stringify(hrCallout.children)).toContain("请介绍缓存设计（9/10）");
@@ -81,6 +107,7 @@ describe("buildInterviewEvaluationDocument", () => {
     expect(serialized).toContain("综合评分：暂无评分");
     expect(serialized).toContain("推荐结论：暂无建议");
     expect(serialized).toContain("面试摘要：暂无摘要");
+    expect(serialized).toContain("答案：未收集到");
     expect(serialized).not.toContain("undefined");
   });
 });

@@ -5,6 +5,7 @@ import { interviewConversation } from "@arc/db-schema/schema";
 import { notifyInterviewSummaryReady } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/feishu-interview-notifications";
 import { cacheTags, safeUpdateTag } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import { runInterviewReportWorkflow } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/workflows/interview-report-workflow";
+import { formatCandidateFormSubmissions } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-report";
 import { createInterviewEvidenceSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/evidence-snapshot";
 
 const LOG_PREFIX = "[interview-summary]";
@@ -118,7 +119,11 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
     const evidence = await createInterviewEvidenceSnapshot({ conversationId, interviewRecordId });
     const questions = buildEvaluationQuestionsFromContext(evidence.payload.context);
 
-    const report = await runInterviewReportWorkflow({ questions, transcript });
+    const report = await runInterviewReportWorkflow({
+      candidateFormResponses: formatCandidateFormSubmissions(evidence.payload.formSubmissions),
+      questions,
+      transcript,
+    });
 
     const hasSummary = report.summary !== null;
     const hasEvaluation = report.evaluation !== null;

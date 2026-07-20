@@ -57,6 +57,15 @@ interface EvaluationQuestion {
   score?: unknown;
 }
 
+interface HrEvaluation {
+  availability?: unknown;
+  careerProgression?: unknown;
+  compensationExpectations?: unknown;
+  jobMotivation?: unknown;
+  overseasTravel?: unknown;
+  recentWork?: unknown;
+}
+
 export interface InterviewEvaluationDocumentInput {
   candidateName: string;
   detailUrl: string;
@@ -184,6 +193,16 @@ function interviewStageCallout(
   ]);
 }
 
+function hrQuestionBlocks(question: string, answer: unknown): FeishuDocumentBlock[] {
+  return [
+    {
+      block_type: BLOCK_TYPE.ORDERED,
+      ordered: textContent(question),
+    },
+    textBlock(`答案：${stringValue(answer, "未收集到")}`),
+  ];
+}
+
 export function buildInterviewEvaluationDocument(input: InterviewEvaluationDocumentInput): {
   blocks: FeishuDocumentBlock[];
   title: string;
@@ -191,36 +210,33 @@ export function buildInterviewEvaluationDocument(input: InterviewEvaluationDocum
   const overallScore = numberValue(input.evaluation.overallScore);
   const recommendation = stringValue(input.evaluation.recommendation, "暂无建议");
   const overallAssessment = stringValue(input.evaluation.overallAssessment, "暂无整体评价");
+  const hrEvaluation =
+    input.evaluation.hrEvaluation && typeof input.evaluation.hrEvaluation === "object"
+      ? (input.evaluation.hrEvaluation as HrEvaluation)
+      : {};
   const hrChildren = [
     heading3Block("📚 HR面试评价（AI）"),
-    {
-      block_type: BLOCK_TYPE.ORDERED,
-      ordered: textContent("求职动机："),
-    } satisfies FeishuDocumentBlock,
-    {
-      block_type: BLOCK_TYPE.ORDERED,
-      ordered: textContent("最快到岗时间：当前 base 地、求职状态及到岗时间；"),
-    } satisfies FeishuDocumentBlock,
-    {
-      block_type: BLOCK_TYPE.ORDERED,
-      ordered: textContent("海外出差情况：成家情况，是否可以接受短期海外出差及周期；"),
-    } satisfies FeishuDocumentBlock,
-    {
-      block_type: BLOCK_TYPE.ORDERED,
-      ordered: textContent(
-        "薪酬预期沟通：过往 2 份薪酬及结构，【年包=固定月薪+浮动月薪+奖金+期权/股票】，薪酬期望。",
-      ),
-    } satisfies FeishuDocumentBlock,
-    {
-      block_type: BLOCK_TYPE.ORDERED,
-      ordered: textContent("加薪晋升情况：过往 2 份工作的绩效情况、是否有晋升、加薪晋级获奖荣誉；"),
-    } satisfies FeishuDocumentBlock,
-    {
-      block_type: BLOCK_TYPE.ORDERED,
-      ordered: textContent(
-        "目前两份工作：公司规模以及部门架构，个人角色定位（主导者还是参与者）；\n① 非管理岗：工作节奏、压力、离职原因及亮点项目；\n② 管理岗：向上、向下管理技巧及沟通。",
-      ),
-    } satisfies FeishuDocumentBlock,
+    ...hrQuestionBlocks("求职动机：", hrEvaluation.jobMotivation),
+    ...hrQuestionBlocks(
+      "最快到岗时间：当前 base 地、求职状态及到岗时间；",
+      hrEvaluation.availability,
+    ),
+    ...hrQuestionBlocks(
+      "海外出差情况：成家情况，是否可以接受短期海外出差及周期；",
+      hrEvaluation.overseasTravel,
+    ),
+    ...hrQuestionBlocks(
+      "薪酬预期沟通：过往 2 份薪酬及结构，【年包=固定月薪+浮动月薪+奖金+期权/股票】，薪酬期望。",
+      hrEvaluation.compensationExpectations,
+    ),
+    ...hrQuestionBlocks(
+      "加薪晋升情况：过往 2 份工作的绩效情况、是否有晋升、加薪晋级获奖荣誉；",
+      hrEvaluation.careerProgression,
+    ),
+    ...hrQuestionBlocks(
+      "目前两份工作：公司规模以及部门架构，个人角色定位（主导者还是参与者）；\n① 非管理岗：工作节奏、压力、离职原因及亮点项目；\n② 管理岗：向上、向下管理技巧及沟通。",
+      hrEvaluation.recentWork,
+    ),
     {
       block_type: BLOCK_TYPE.ORDERED,
       ordered: textContent("签证评估情况：小原评估"),

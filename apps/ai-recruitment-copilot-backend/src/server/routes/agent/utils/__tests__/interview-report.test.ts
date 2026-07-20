@@ -20,7 +20,7 @@ vi.mock(
 );
 
 // oxlint-disable-next-line import/first -- must follow vi.mock() for correct hoisting
-import { generateInterviewReport } from "../interview-report";
+import { formatCandidateFormSubmissions, generateInterviewReport } from "../interview-report";
 
 const TRANSCRIPT: InterviewTranscriptTurn[] = [
   { message: "请介绍你的项目。", role: "agent", timeInCallSecs: 1 },
@@ -32,6 +32,14 @@ const QUESTIONS: InterviewQuestion[] = [
 ];
 
 const EVALUATION = {
+  hrEvaluation: {
+    availability: "目前在职，预计一个月内到岗。",
+    careerProgression: "上一家公司晋升一次，最近绩效为 A。",
+    compensationExpectations: "目前年包 50 万，期望年包 60 万。",
+    jobMotivation: "希望承担更完整的系统架构职责。",
+    overseasTravel: "已婚，可接受每次两周以内的海外出差。",
+    recentWork: "最近两家公司均为约 200 人规模，主要担任项目主导者。",
+  },
   overallAssessment: "候选人表达清晰。",
   overallScore: 82,
   questions: [
@@ -55,7 +63,7 @@ describe("generateInterviewReport", () => {
 
   it("returns empty report when transcript is empty", async () => {
     await expect(
-      generateInterviewReport({ questions: QUESTIONS, transcript: [] }),
+      generateInterviewReport({ candidateFormResponses: "", questions: QUESTIONS, transcript: [] }),
     ).resolves.toEqual({
       evaluation: null,
       summary: null,
@@ -69,7 +77,11 @@ describe("generateInterviewReport", () => {
     mocks.generateStructuredWithMastraAgent.mockResolvedValue(EVALUATION);
 
     await expect(
-      generateInterviewReport({ questions: QUESTIONS, transcript: TRANSCRIPT }),
+      generateInterviewReport({
+        candidateFormResponses: "当前求职状态：在职，一个月内到岗",
+        questions: QUESTIONS,
+        transcript: TRANSCRIPT,
+      }),
     ).resolves.toEqual({
       evaluation: EVALUATION,
       summary: "面试摘要",
@@ -84,6 +96,7 @@ describe("generateInterviewReport", () => {
     expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledWith(
       expect.objectContaining({
         agent: mocks.interviewReportEvaluationAgent,
+        prompt: expect.stringContaining("当前求职状态：在职，一个月内到岗"),
         schema: expect.any(Object),
         temperature: 0,
       }),
@@ -95,11 +108,64 @@ describe("generateInterviewReport", () => {
     mocks.generateStructuredWithMastraAgent.mockRejectedValue(new Error("evaluation failed"));
 
     await expect(
-      generateInterviewReport({ questions: QUESTIONS, transcript: TRANSCRIPT }),
+      generateInterviewReport({
+        candidateFormResponses: "",
+        questions: QUESTIONS,
+        transcript: TRANSCRIPT,
+      }),
     ).resolves.toEqual({
       evaluation: null,
       evaluationError: "evaluation failed",
       summary: "摘要",
     });
+  });
+
+  it("formats candidate form answers with option labels for HR extraction", () => {
+    expect(
+      formatCandidateFormSubmissions([
+        {
+          answers: {
+            availability: "one_month",
+            travel: ["short_term", "overseas"],
+          },
+          snapshot: {
+            description: null,
+            jobDescriptionIds: [],
+            questions: [
+              {
+                displayMode: "select",
+                helperText: null,
+                id: "availability",
+                label: "最快到岗时间",
+                options: [{ label: "一个月内", value: "one_month" }],
+                required: true,
+                sortOrder: 1,
+                type: "single",
+              },
+              {
+                displayMode: "checkbox",
+                helperText: null,
+                id: "travel",
+                label: "可接受出差情况",
+                options: [
+                  { label: "短期", value: "short_term" },
+                  { label: "海外", value: "overseas" },
+                ],
+                required: true,
+                sortOrder: 2,
+                type: "multi",
+              },
+            ],
+            scope: "global",
+            templateId: "form-1",
+            title: "候选人信息",
+          },
+          submittedAt: "2026-07-20T10:00:00.000Z",
+          templateId: "form-1",
+          version: 1,
+          versionId: "version-1",
+        },
+      ]),
+    ).toBe("【候选人信息】\n最快到岗时间：一个月内\n可接受出差情况：短期、海外");
   });
 });

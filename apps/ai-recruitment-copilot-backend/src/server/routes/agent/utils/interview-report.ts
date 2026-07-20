@@ -1,6 +1,8 @@
 import { z } from "zod";
 import type { InterviewTranscriptTurn } from "@arc/db-schema/interview-session";
+import type { InterviewEvidenceSnapshotFormSubmission } from "@arc/db-schema/interview-snapshots";
 import type { InterviewQuestion } from "@arc/db-schema/interview/types";
+import { formatCandidateFormAnswer } from "@arc/shared/candidate-form-answer";
 import {
   generateStructuredWithMastraAgent,
   generateTextWithMastraAgent,
@@ -16,6 +18,9 @@ const SUMMARY_PROMPT = `你是一位面试报告撰写助手。请根据以下�
 
 const EVALUATION_PROMPT = `你是一位专业的面试评估专家。请根据以下面试对话记录和面试题目，对候选人的表现进行结构化评估。
 
+## 候选人面试前表单答复
+{formResponses}
+
 ## 面试题目
 {questions}
 
@@ -25,6 +30,9 @@ const EVALUATION_PROMPT = `你是一位专业的面试评估专家。请根据�
 请严格按照指定 JSON Schema 输出评估结果。
 
 注意：
+- hrEvaluation 只汇总候选人在表单答复或候选人本人对话中明确表达的信息，不得从简历、面试官话术或常识推测
+- 将同一主题在表单和语音面试中的信息合并为简洁、完整的事实；没有收集到的信息必须输出 null
+- hrEvaluation.recentWork 同时覆盖最近两份工作的公司规模、部门架构、个人角色，以及适用的工作节奏、压力、离职原因、亮点项目或管理沟通信息
 - 只评估面试中实际提问到的题目
 - score 范围 0-10，overallScore 范围 0-100
 - 评价要客观具体，引用候选人的实际回答
@@ -38,7 +46,23 @@ const evidenceSchema = z.object({
   turnIndex: z.number().int().min(1).nullable().optional().describe("对话记录中的 1-based 行号"),
 });
 
+const hrEvaluationSchema = z.object({
+  availability: z.string().nullable().describe("当前 base 地、求职状态和最快到岗时间"),
+  careerProgression: z.string().nullable().describe("最近两份工作的绩效、晋升、加薪晋级和获奖荣誉"),
+  compensationExpectations: z
+    .string()
+    .nullable()
+    .describe("最近两份工作的薪酬及结构、当前薪酬和薪酬期望"),
+  jobMotivation: z.string().nullable().describe("候选人的求职动机"),
+  overseasTravel: z.string().nullable().describe("成家情况、能否接受短期海外出差及周期"),
+  recentWork: z
+    .string()
+    .nullable()
+    .describe("最近两份工作的公司规模、部门架构、个人角色及管理或非管理岗补充信息"),
+});
+
 const evaluationSchema = z.object({
+  hrEvaluation: hrEvaluationSchema,
   overallAssessment: z.string().describe("候选人整体表现的综合评价，2-3 句话"),
   overallScore: z.number().int().min(0).max(100),
   questions: z.array(
@@ -55,6 +79,20 @@ const evaluationSchema = z.object({
 });
 
 export type InterviewEvaluation = z.infer<typeof evaluationSchema>;
+
+export function formatCandidateFormSubmissions(
+  submissions: InterviewEvidenceSnapshotFormSubmission[],
+): string {
+  return submissions
+    .flatMap((submission) => {
+      const answers = submission.snapshot.questions.flatMap((question) => {
+        const value = formatCandidateFormAnswer(question, submission.answers[question.id]);
+        return value ? [`${question.label}：${value}`] : [];
+      });
+      return answers.length > 0 ? [`【${submission.snapshot.title}】\n${answers.join("\n")}`] : [];
+    })
+    .join("\n\n");
+}
 
 export function formatTranscript(turns: InterviewTranscriptTurn[]): string {
   return turns
@@ -129,21 +167,25 @@ export async function generateInterviewSummary(options: {
 }
 
 export async function generateInterviewEvaluation(options: {
+  candidateFormResponses: string;
   questions: InterviewQuestion[];
   transcript: InterviewTranscriptTurn[];
 }): Promise<InterviewEvaluation> {
   return await generateStructuredWithMastraAgent({
     agent: interviewReportEvaluationAgent,
-    prompt: EVALUATION_PROMPT.replace("{questions}", formatQuestions(options.questions)).replace(
-      "{transcript}",
-      formatTranscript(options.transcript),
-    ),
+    prompt: EVALUATION_PROMPT.replace(
+      "{formResponses}",
+      options.candidateFormResponses || "（无表单答复）",
+    )
+      .replace("{questions}", formatQuestions(options.questions))
+      .replace("{transcript}", formatTranscript(options.transcript)),
     schema: evaluationSchema,
     temperature: 0,
   });
 }
 
 export async function generateInterviewReport(options: {
+  candidateFormResponses: string;
   transcript: InterviewTranscriptTurn[];
   questions: InterviewQuestion[];
 }): Promise<InterviewReportResult> {
@@ -155,7 +197,11 @@ export async function generateInterviewReport(options: {
 
   const [summaryResult, evaluationResult] = await Promise.allSettled([
     generateInterviewSummary({ transcript }),
-    generateInterviewEvaluation({ questions, transcript }),
+    generateInterviewEvaluation({
+      candidateFormResponses: options.candidateFormResponses,
+      questions,
+      transcript,
+    }),
   ]);
 
   return composeInterviewReport({ evaluationResult, summaryResult });

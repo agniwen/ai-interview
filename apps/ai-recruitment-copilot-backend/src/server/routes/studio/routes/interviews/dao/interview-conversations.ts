@@ -3,6 +3,7 @@ import type {
   StudioInterviewConversationReport,
 } from "@arc/db-schema/interview-session";
 import { asc, desc, eq, inArray } from "drizzle-orm";
+import { formatCandidateFormAnswer } from "@arc/shared/candidate-form-answer";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   interviewContextSnapshot,
@@ -79,32 +80,6 @@ function stringifyJsonInput(value: unknown) {
   return value === null || value === undefined ? null : JSON.stringify(value, null, 2);
 }
 
-function formatSnapshotFormAnswer(
-  question: {
-    label: string;
-    options: { label: string; value: string }[];
-    type: string;
-  },
-  rawValue: string | string[] | undefined,
-) {
-  if (
-    rawValue === undefined ||
-    rawValue === "" ||
-    (Array.isArray(rawValue) && rawValue.length === 0)
-  ) {
-    return "";
-  }
-
-  if (question.type === "single" || question.type === "multi") {
-    const values = Array.isArray(rawValue) ? rawValue : [rawValue];
-    return values
-      .map((value) => question.options.find((option) => option.value === value)?.label ?? value)
-      .join("、");
-  }
-
-  return Array.isArray(rawValue) ? rawValue.join("、") : rawValue;
-}
-
 function buildFullTextInput(
   snapshotRows: SnapshotRows,
   turns: InterviewConversationTurnRow[],
@@ -127,7 +102,7 @@ function buildFullTextInput(
         answers: submission.snapshot.questions.map((question) => ({
           label: question.label,
           questionId: question.id,
-          valueText: formatSnapshotFormAnswer(question, submission.answers[question.id]),
+          valueText: formatCandidateFormAnswer(question, submission.answers[question.id]),
         })),
         submittedAt: submission.submittedAt,
         templateId: submission.templateId,
