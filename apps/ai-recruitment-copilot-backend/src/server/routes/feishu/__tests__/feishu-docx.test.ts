@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { createFeishuDocx, grantFeishuDocxAccess } from "../utils/feishu-docx";
+import {
+  createFeishuDocx,
+  grantFeishuDocxAccess,
+  moveFeishuDocx,
+  resolveFeishuDocxDocumentId,
+} from "../utils/feishu-docx";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return Response.json(body, { status });
@@ -100,7 +105,7 @@ describe("createFeishuDocx", () => {
     expect(sleep).toHaveBeenCalled();
   });
 
-  it("creates the document in the configured folder", async () => {
+  it("moves the created document into the configured folder", async () => {
     const fetcher = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(
@@ -110,8 +115,8 @@ describe("createFeishuDocx", () => {
           msg: "success",
         }),
       )
-      .mockResolvedValueOnce(jsonResponse({ code: 0, data: { children: [] }, msg: "success" }))
-      .mockResolvedValueOnce(jsonResponse({ code: 0, data: { member: {} }, msg: "success" }));
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: { member: {} }, msg: "success" }))
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: {}, msg: "success" }));
 
     await createFeishuDocx(
       {
@@ -125,8 +130,14 @@ describe("createFeishuDocx", () => {
     );
 
     expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toEqual({
-      folder_token: "fldcn-evaluations",
       title: "王五 - 面试评价表",
+    });
+    expect(fetcher.mock.calls[2]?.[0]).toBe(
+      "https://open.feishu.cn/open-apis/drive/v1/files/docx-folder/move",
+    );
+    expect(JSON.parse(String(fetcher.mock.calls[2]?.[1]?.body))).toEqual({
+      folder_token: "fldcn-evaluations",
+      type: "docx",
     });
   });
 
@@ -155,5 +166,41 @@ describe("createFeishuDocx", () => {
 
     expect(fetcher).toHaveBeenCalledTimes(4);
     expect(sleep).toHaveBeenCalledWith(500);
+  });
+});
+
+describe("existing Feishu documents", () => {
+  it("recovers the document id from a stored docx URL", () => {
+    expect(resolveFeishuDocxDocumentId(null, "https://feishu.cn/docx/docx-from-url")).toBe(
+      "docx-from-url",
+    );
+    expect(resolveFeishuDocxDocumentId("docx-stored", "https://feishu.cn/docx/ignored")).toBe(
+      "docx-stored",
+    );
+  });
+
+  it("allows an existing document to be moved repeatedly", async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockImplementation(() =>
+        Promise.resolve(jsonResponse({ code: 0, data: {}, msg: "success" })),
+      );
+    const options = {
+      accessToken: "tenant-token",
+      documentId: "docx-existing",
+      folderToken: "fldcn-evaluations",
+    };
+
+    await moveFeishuDocx(options, { fetcher, sleep: vi.fn() });
+    await moveFeishuDocx(options, { fetcher, sleep: vi.fn() });
+
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher).toHaveBeenNthCalledWith(
+      2,
+      "https://open.feishu.cn/open-apis/drive/v1/files/docx-existing/move",
+      expect.objectContaining({
+        body: JSON.stringify({ folder_token: "fldcn-evaluations", type: "docx" }),
+      }),
+    );
   });
 });

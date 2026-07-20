@@ -40,6 +40,12 @@ interface GrantFeishuDocxAccessOptions {
   recipientOpenId: string;
 }
 
+interface MoveFeishuDocxOptions {
+  accessToken: string;
+  documentId: string;
+  folderToken: string;
+}
+
 interface FeishuDocxDependencies {
   fetcher: typeof fetch;
   sleep: (milliseconds: number) => Promise<void>;
@@ -61,6 +67,23 @@ function chunks<T>(values: T[], size: number): T[][] {
     result.push(values.slice(index, index + size));
   }
   return result;
+}
+
+export function resolveFeishuDocxDocumentId(
+  documentId: string | null,
+  documentUrl: string,
+): string | undefined {
+  const storedDocumentId = documentId?.trim();
+  if (storedDocumentId) {
+    return storedDocumentId;
+  }
+
+  try {
+    const pathSegments = new URL(documentUrl).pathname.split("/").filter(Boolean);
+    return pathSegments[0] === "docx" ? pathSegments[1] : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 async function postFeishu<T>(
@@ -134,6 +157,21 @@ export async function grantFeishuDocxAccess(
   );
 }
 
+export async function moveFeishuDocx(
+  options: MoveFeishuDocxOptions,
+  dependencies: FeishuDocxDependencies = defaultDependencies,
+): Promise<void> {
+  await postFeishu(
+    `/drive/v1/files/${encodeURIComponent(options.documentId)}/move`,
+    options.accessToken,
+    {
+      folder_token: options.folderToken,
+      type: "docx",
+    },
+    dependencies,
+  );
+}
+
 export async function createFeishuDocx(
   options: CreateFeishuDocxOptions,
   dependencies: FeishuDocxDependencies = defaultDependencies,
@@ -141,10 +179,7 @@ export async function createFeishuDocx(
   const created = await postFeishu<CreateDocumentResponse>(
     "/docx/v1/documents",
     options.accessToken,
-    {
-      ...(options.folderToken ? { folder_token: options.folderToken } : {}),
-      title: options.title,
-    },
+    { title: options.title },
     dependencies,
   );
   const documentId = created.document?.document_id;
@@ -187,6 +222,17 @@ export async function createFeishuDocx(
     dependencies,
   );
 
+  if (options.folderToken) {
+    await moveFeishuDocx(
+      {
+        accessToken: options.accessToken,
+        documentId,
+        folderToken: options.folderToken,
+      },
+      dependencies,
+    );
+  }
+
   return {
     documentId,
     documentUrl: `https://feishu.cn/docx/${documentId}`,
@@ -201,6 +247,20 @@ export async function createFeishuInterviewEvaluationDocx(
   const accessToken = await getFeishuTenantAccessToken(appId, appSecret);
   const folderToken = getFeishuEvaluationFolderToken(providerId);
   return await createFeishuDocx({ ...options, accessToken, folderToken });
+}
+
+export async function moveFeishuInterviewEvaluationDocx(
+  providerId: FeishuProviderId,
+  documentId: string,
+): Promise<void> {
+  const folderToken = getFeishuEvaluationFolderToken(providerId);
+  if (!folderToken) {
+    return;
+  }
+
+  const { appId, appSecret } = getFeishuAppCredentials(providerId);
+  const accessToken = await getFeishuTenantAccessToken(appId, appSecret);
+  await moveFeishuDocx({ accessToken, documentId, folderToken });
 }
 
 export async function grantFeishuInterviewEvaluationDocxAccess(
