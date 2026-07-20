@@ -100,6 +100,36 @@ describe("createFeishuDocx", () => {
     expect(sleep).toHaveBeenCalled();
   });
 
+  it("creates the document in the configured folder", async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          code: 0,
+          data: { document: { document_id: "docx-folder" } },
+          msg: "success",
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: { children: [] }, msg: "success" }))
+      .mockResolvedValueOnce(jsonResponse({ code: 0, data: { member: {} }, msg: "success" }));
+
+    await createFeishuDocx(
+      {
+        accessToken: "tenant-token",
+        blocks: [],
+        folderToken: "fldcn-evaluations",
+        recipientOpenId: "ou_hr",
+        title: "王五 - 面试评价表",
+      },
+      { fetcher, sleep: vi.fn(() => Promise.resolve()) },
+    );
+
+    expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toEqual({
+      folder_token: "fldcn-evaluations",
+      title: "王五 - 面试评价表",
+    });
+  });
+
   it("retries a rate-limited Feishu request", async () => {
     const fetcher = vi
       .fn<typeof fetch>()

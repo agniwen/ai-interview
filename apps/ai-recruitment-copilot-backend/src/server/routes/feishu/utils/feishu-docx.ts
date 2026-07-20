@@ -1,7 +1,10 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { getFeishuTenantAccessToken } from "@arc/ai-recruitment-copilot-backend/lib/server/feishu-access-token";
 import type { FeishuProviderId } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
-import { getFeishuAppCredentials } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
+import {
+  getFeishuAppCredentials,
+  getFeishuEvaluationFolderToken,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
 import type { FeishuDocumentBlock } from "./interview-evaluation-doc";
 
 const FEISHU_API_ROOT = "https://open.feishu.cn/open-apis";
@@ -26,6 +29,7 @@ interface CreateBlocksResponse {
 interface CreateFeishuDocxOptions {
   accessToken: string;
   blocks: FeishuDocumentBlock[];
+  folderToken?: string;
   recipientOpenId: string;
   title: string;
 }
@@ -137,7 +141,10 @@ export async function createFeishuDocx(
   const created = await postFeishu<CreateDocumentResponse>(
     "/docx/v1/documents",
     options.accessToken,
-    { title: options.title },
+    {
+      ...(options.folderToken ? { folder_token: options.folderToken } : {}),
+      title: options.title,
+    },
     dependencies,
   );
   const documentId = created.document?.document_id;
@@ -192,7 +199,8 @@ export async function createFeishuInterviewEvaluationDocx(
 ): Promise<{ documentId: string; documentUrl: string }> {
   const { appId, appSecret } = getFeishuAppCredentials(providerId);
   const accessToken = await getFeishuTenantAccessToken(appId, appSecret);
-  return await createFeishuDocx({ ...options, accessToken });
+  const folderToken = getFeishuEvaluationFolderToken(providerId);
+  return await createFeishuDocx({ ...options, accessToken, folderToken });
 }
 
 export async function grantFeishuInterviewEvaluationDocxAccess(
