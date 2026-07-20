@@ -18,6 +18,10 @@ import { replaceDuplicateMatchesForSource } from "@arc/ai-recruitment-copilot-ba
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
 import { runResumeSemanticIndexJob } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer";
 import {
+  enqueueResumePoolReviewGenerationBestEffort,
+  enqueueResumeReviewGenerationForRecordBestEffort,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue";
+import {
   member,
   department,
   jobDescription,
@@ -81,6 +85,14 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicat
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer", () => ({
   runResumeSemanticIndexJob: vi.fn(),
 }));
+
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue",
+  () => ({
+    enqueueResumePoolReviewGenerationBestEffort: vi.fn(),
+    enqueueResumeReviewGenerationForRecordBestEffort: vi.fn(),
+  }),
+);
 
 // ─── Fixture IDs（固定前缀避免与其他测试冲突）────────────────────────────────
 // Fixed prefix to avoid collisions with other test runs.
@@ -269,6 +281,10 @@ beforeEach(() => {
   (runResumeSemanticIndexJob as ReturnType<typeof vi.fn>).mockImplementation(() =>
     Promise.resolve(),
   );
+  (enqueueResumePoolReviewGenerationBestEffort as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+  (enqueueResumeReviewGenerationForRecordBestEffort as ReturnType<typeof vi.fn>).mockResolvedValue(
+    true,
+  );
 });
 
 describe("processNextItem — dedup skip", () => {
@@ -336,7 +352,7 @@ describe("processNextItem — dedup skip", () => {
     await db.delete(studioInterview).where(eq(studioInterview.id, preExistingId));
   });
 
-  it("语义重复 + skip 策略创建招聘台记录并记录疑似重复", async () => {
+  it("skip 策略先创建招聘台记录并异步查重", async () => {
     const batchId = await insertBatchWithItems({
       dedupPolicy: "skip",
       files: makeFiles(1),
@@ -349,24 +365,6 @@ describe("processNextItem — dedup skip", () => {
       .select()
       .from(resumeUploadBatchItem)
       .where(eq(resumeUploadBatchItem.batchId, batchId));
-    const matches = [
-      {
-        candidateEmail: "existing@example.com",
-        candidateName: "Existing Candidate",
-        candidatePhone: null,
-        conflictingSignals: [],
-        createdAt: NOW.toISOString(),
-        id: "existing_record",
-        jobDescriptionName: null,
-        level: "high",
-        score: 0.96,
-        semanticReasons: ["整体履历高度相似"],
-        similarity: { resumeOverview: 0.96 },
-        status: "active",
-        targetRole: null,
-      },
-    ];
-    (findSemanticResumeDuplicates as ReturnType<typeof vi.fn>).mockResolvedValue(matches);
     mockS3OK();
     mockParseOK({
       email: "library-dup@example.com",
@@ -380,12 +378,49 @@ describe("processNextItem — dedup skip", () => {
     expect(result?.item?.status).toBe("succeeded");
     expect(result?.item?.resumeRecordId).toBe(beforeItem?.resumeRecordId);
     expect(result?.batch.skippedCount).toBe(0);
-    expect(replaceDuplicateMatchesForSource).toHaveBeenCalledWith({
-      matches,
+    expect(enqueueResumeSemanticIndexJobBestEffort).toHaveBeenCalledWith({
       organizationId: ORG_A,
       sourceId: beforeItem?.resumeRecordId,
       sourceType: "studio_interview",
     });
+    expect(findSemanticResumeDuplicates).not.toHaveBeenCalled();
+    expect(replaceDuplicateMatchesForSource).not.toHaveBeenCalled();
+  });
+});
+
+describe("processNextItem — enrichment failure isolation", () => {
+  it("评价和向量入队异常不会回滚已解析简历", async () => {
+    const batchId = await insertBatchWithItems({
+      dedupPolicy: "skip",
+      files: makeFiles(1),
+      jdMode: "none",
+      jobDescriptionId: null,
+      organizationId: ORG_A,
+      userId: USER_A,
+    });
+    mockS3OK();
+    mockParseOK({
+      email: "enqueue-failure@example.com",
+      name: "Enqueue Failure User",
+      phone: null,
+      targetRoles: ["Engineer"],
+    });
+    (
+      enqueueResumeReviewGenerationForRecordBestEffort as ReturnType<typeof vi.fn>
+    ).mockRejectedValue(new Error("review queue unavailable"));
+    (enqueueResumeSemanticIndexJobBestEffort as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error("semantic queue unavailable"),
+    );
+
+    const result = await processNextItem(batchId, ORG_A, USER_A);
+
+    expect(result?.item?.status).toBe("succeeded");
+    const [record] = await db
+      .select()
+      .from(studioInterview)
+      .where(eq(studioInterview.id, result?.item?.resumeRecordId ?? ""));
+    expect(record?.resumeParseStatus).toBe("ready");
+    expect(record?.resumeProfile).toMatchObject({ name: "Enqueue Failure User" });
   });
 });
 

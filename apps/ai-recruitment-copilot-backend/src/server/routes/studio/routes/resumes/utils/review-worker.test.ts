@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   generateResumeReviewBestEffort: vi.fn(),
+  listAllJobDescriptions: vi.fn(),
+  matchJobDescriptionForResume: vi.fn(),
   record: null as null | Record<string, unknown>,
   updates: [] as Record<string, unknown>[],
 }));
@@ -18,6 +20,9 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
     update: () => ({
       set: (patch: Record<string, unknown>) => {
         mocks.updates.push(patch);
+        if (mocks.record && "jobDescriptionId" in patch) {
+          mocks.record.jobDescriptionId = patch.jobDescriptionId;
+        }
         return {
           where: () => ({ returning: () => Promise.resolve([{ id: "resume-1" }]) }),
         };
@@ -28,6 +33,13 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
 vi.mock("./review-generation", () => ({
   generateResumeReviewBestEffort: mocks.generateResumeReviewBestEffort,
 }));
+vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/job-description-match-agent", () => ({
+  matchJobDescriptionForResume: mocks.matchJobDescriptionForResume,
+}));
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao",
+  () => ({ listAllJobDescriptions: mocks.listAllJobDescriptions }),
+);
 
 // oxlint-disable-next-line import/first -- must follow vi.mock() calls for correct hoisting.
 import { processResumeReviewGenerationJob } from "./review-worker";
@@ -58,6 +70,8 @@ describe("processResumeReviewGenerationJob", () => {
     mocks.record = null;
     mocks.updates.length = 0;
     mocks.generateResumeReviewBestEffort.mockReset();
+    mocks.listAllJobDescriptions.mockReset();
+    mocks.matchJobDescriptionForResume.mockReset();
   });
 
   it("treats a previously generated review as an idempotent success", async () => {
@@ -147,5 +161,59 @@ describe("processResumeReviewGenerationJob", () => {
       resumeScreeningResult: { recommendation: "pass" },
       resumeScreeningStatus: "ready",
     });
+  });
+
+  it("generates a bound resume-pool review without changing parse readiness", async () => {
+    mocks.record = {
+      jobDescriptionId: "jd-1",
+      resumeParseStatus: "ready",
+      resumeProfile: { name: "人才库候选人" },
+      resumeText: "人才库简历原文",
+    };
+    mocks.generateResumeReviewBestEffort.mockResolvedValue({
+      review: "人才库 AI 评价",
+      screeningResult: { recommendation: "pass" },
+      structuredReview: { overall: { baseScore: 88 } },
+    });
+
+    await processResumeReviewGenerationJob({
+      jobDescriptionId: "jd-1",
+      organizationId: "org-1",
+      poolItemId: "pool-1",
+      source: "resume_pool_upload",
+    });
+
+    expect(mocks.generateResumeReviewBestEffort).toHaveBeenCalledWith(
+      expect.objectContaining({
+        jobDescriptionId: "jd-1",
+        resumeProfile: { name: "人才库候选人" },
+      }),
+    );
+    expect(mocks.updates).toEqual([expect.objectContaining({ notes: "人才库 AI 评价" })]);
+  });
+
+  it("matches an automatic JD in the review worker after parse readiness", async () => {
+    mocks.record = assessmentRecord({ jobDescriptionId: null });
+    mocks.listAllJobDescriptions.mockResolvedValue([{ id: "jd-auto" }]);
+    mocks.matchJobDescriptionForResume.mockResolvedValue({ jobDescriptionId: "jd-auto" });
+    mocks.generateResumeReviewBestEffort.mockResolvedValue({
+      review: "自动岗位评价",
+      screeningResult: { recommendation: "pass" },
+      structuredReview: { overall: { baseScore: 86 } },
+    });
+
+    await processResumeReviewGenerationJob({
+      autoMatchJobDescription: true,
+      jobDescriptionId: null,
+      organizationId: "org-1",
+      resumeRecordId: "resume-1",
+      source: "resume_upload",
+    });
+
+    expect(mocks.matchJobDescriptionForResume).toHaveBeenCalled();
+    expect(mocks.updates).toContainEqual(expect.objectContaining({ jobDescriptionId: "jd-auto" }));
+    expect(mocks.generateResumeReviewBestEffort).toHaveBeenCalledWith(
+      expect.objectContaining({ jobDescriptionId: "jd-auto" }),
+    );
   });
 });

@@ -40,6 +40,7 @@ interface FindSemanticResumeDuplicatesInput {
   poolScope?: ResumePoolScope | null;
   resumeProfile?: ResumeProfile | null;
   sourceTypes?: ResumeSemanticSourceType[];
+  throwOnError?: boolean;
 }
 
 interface SemanticDedupDeps {
@@ -190,6 +191,9 @@ export async function findSemanticResumeDuplicates(
     return matches;
   } catch (error) {
     console.warn("[resume-semantic-dedup] semantic dedup failed", error);
+    if (input.throwOnError) {
+      throw error;
+    }
     return [];
   }
 }

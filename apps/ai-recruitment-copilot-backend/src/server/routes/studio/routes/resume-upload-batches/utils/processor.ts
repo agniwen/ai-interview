@@ -9,8 +9,6 @@ import {
 import type { ProcessNextResult } from "@arc/shared/bulk-resume-upload";
 import { getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { parseResumeBytesToProfile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
-import type { ResumeReviewGenerationResult } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
-import type { ResumeScreeningResult } from "@arc/shared/resume-screening";
 import { isResumeParseCacheEnabled } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-cache-policy";
 import {
   claimNextPendingItem,
@@ -20,13 +18,11 @@ import {
   toBatchDto,
   toItemDto,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
-import { matchJobDescriptionForResume } from "@arc/ai-recruitment-copilot-backend/server/agents/job-description-match-agent";
 import { projectAttachmentToResumeProfile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-parser-agent";
 import {
   findAttachmentByStorageKey,
   updateParseResultByHash,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments";
-import { listAllJobDescriptions } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import {
   createResumePoolItem,
   markResumePoolItemParsed,
@@ -34,12 +30,11 @@ import {
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { syncResumeSkills } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
-import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
-import { replaceDuplicateMatchesForSource } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
-import { generateResumeReviewBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-generation";
-import { completeResumePoolReadinessWithDefaultAdapters } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/utils/readiness";
 import {
-  BatchItemCancelledError,
+  enqueueResumePoolReviewGenerationBestEffort,
+  enqueueResumeReviewGenerationForRecordBestEffort,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue";
+import {
   assertBatchItemNotCancelled,
   getClaimMissRetryError,
   isBatchItemCancelled,
@@ -69,7 +64,6 @@ function elapsed(startedAt: number): number {
 type ItemRow = Awaited<ReturnType<typeof claimNextPendingItem>>;
 type BatchRow = typeof resumeUploadBatch.$inferSelect;
 type ParsedResume = Awaited<ReturnType<typeof parseResumeBytesToProfile>>;
-type DuplicateMatches = Awaited<ReturnType<typeof findSemanticResumeDuplicates>>;
 
 // 拿到 resumeProfile 的两条路径：
 //   1) 命中注册表 → 投影 parsedStructured（零额外调用）
@@ -140,20 +134,14 @@ async function resolveResumeProfile(item: NonNullable<ItemRow>): Promise<{
 async function upsertParsedResumeRecord({
   item,
   jobDescriptionId,
-  notes,
   organizationId,
-  resumeReview,
-  resumeScreeningResult,
   resumeProfile,
   resumeText,
   userId,
 }: {
   item: NonNullable<ItemRow>;
   jobDescriptionId: string | null;
-  notes: string | null;
   organizationId: string;
-  resumeReview: ResumeReviewGenerationResult["structuredReview"] | null;
-  resumeScreeningResult: ResumeScreeningResult | null;
   resumeProfile: ParsedResume["resumeProfile"];
   resumeText: string | null;
   userId: string;
@@ -170,16 +158,16 @@ async function upsertParsedResumeRecord({
       candidatePhone: null,
       contentHash: item.contentHash,
       jobDescriptionId,
-      notes,
+      notes: null,
       organizationId,
       resumeFileName: item.originalFileName,
       resumeProfile,
-      resumeReview,
-      resumeReviewError: resumeReview ? null : "AI 分析生成失败。",
-      resumeReviewStatus: resumeReview ? "ready" : "failed",
-      resumeScreeningError: resumeScreeningResult ? null : "AI 分析生成失败。",
-      resumeScreeningResult,
-      resumeScreeningStatus: resumeScreeningResult ? "ready" : "failed",
+      resumeReview: null,
+      resumeReviewError: null,
+      resumeReviewStatus: "idle",
+      resumeScreeningError: null,
+      resumeScreeningResult: null,
+      resumeScreeningStatus: "idle",
       resumeText,
       storageKey: item.storageKey,
       targetRole: null,
@@ -203,21 +191,22 @@ async function upsertParsedResumeRecord({
         candidateName: resumeProfile?.name || item.originalFileName,
         candidatePhone: resumeProfile?.phone ?? null,
         jobDescriptionId,
-        notes,
+        notes: null,
         resumeContentHash: item.contentHash,
         resumeFileName: item.originalFileName,
         resumeParseError: null,
         resumeParseStatus: "ready",
         resumeParsedAt: now,
         resumeProfile,
-        resumeReview,
-        resumeReviewError: resumeReview ? null : "AI 分析生成失败。",
-        resumeReviewGeneratedAt: resumeReview ? now : null,
-        resumeReviewStatus: resumeReview ? "ready" : "failed",
-        resumeScreeningError: resumeScreeningResult ? null : "AI 分析生成失败。",
-        resumeScreeningEvaluatedAt: resumeScreeningResult ? now : null,
-        resumeScreeningResult,
-        resumeScreeningStatus: resumeScreeningResult ? "ready" : "failed",
+        resumeReview: null,
+        resumeReviewError: null,
+        resumeReviewGeneratedAt: null,
+        resumeReviewRunId: null,
+        resumeReviewStatus: "idle",
+        resumeScreeningError: null,
+        resumeScreeningEvaluatedAt: null,
+        resumeScreeningResult: null,
+        resumeScreeningStatus: "idle",
         resumeStorageKey: item.storageKey,
         resumeText,
         targetRole: resumeProfile?.targetRoles?.[0] ?? null,
@@ -240,122 +229,16 @@ async function upsertParsedResumeRecord({
   return recordId;
 }
 
-async function generateReviewForParsedResume(input: {
-  itemId: string;
-  jobDescriptionId: string | null;
-  organizationId: string;
-  resumeProfile: ParsedResume["resumeProfile"];
-  resumeText: string | null;
-}): Promise<(ResumeReviewGenerationResult & { screeningResult: ResumeScreeningResult }) | null> {
-  try {
-    const startedAt = Date.now();
-    logStep("review.generate.start", {
-      hasJobDescription: Boolean(input.jobDescriptionId),
-      itemId: input.itemId,
-    });
-    const review = await generateResumeReviewBestEffort({
-      jobDescriptionId: input.jobDescriptionId,
-      logPrefix: "[bulk-upload]",
-      organizationId: input.organizationId,
-      resumeProfile: input.resumeProfile,
-      resumeText: input.resumeText,
-    });
-    if (!review) {
-      return null;
-    }
-    logStep("review.generate.done", {
-      durationMs: elapsed(startedAt),
-      itemId: input.itemId,
-      reviewChars: review.review.length,
-    });
-    return review;
-  } catch (error) {
-    console.error("[bulk-upload] resume review generation failed:", error);
-    logStep("review.generate.error", {
-      errorMessage: truncate(error instanceof Error ? error.message : String(error)),
-      itemId: input.itemId,
-    });
-    return null;
-  }
-}
-
-async function resolveJobDescriptionId(input: {
-  batchRow: BatchRow;
-  itemId: string;
-  organizationId: string;
-  resumeProfile: ParsedResume["resumeProfile"];
-}): Promise<string | null> {
-  if (input.batchRow.jdMode === "bind") {
-    return input.batchRow.jobDescriptionId;
-  }
-  if (input.batchRow.jdMode !== "auto" || !input.resumeProfile) {
-    return null;
-  }
-  try {
-    const jdStartedAt = Date.now();
-    logStep("jd.match.start", { itemId: input.itemId });
-    const jds = await listAllJobDescriptions(input.organizationId);
-    const match = await matchJobDescriptionForResume(input.resumeProfile, jds);
-    const jobDescriptionId = match?.jobDescriptionId ?? null;
-    await assertBatchItemNotCancelled(input.batchRow.id, input.itemId);
-    logStep("jd.match.done", {
-      candidateCount: jds.length,
-      durationMs: elapsed(jdStartedAt),
-      itemId: input.itemId,
-      matched: Boolean(jobDescriptionId),
-    });
-    return jobDescriptionId;
-  } catch (error) {
-    if (error instanceof BatchItemCancelledError) {
-      throw error;
-    }
-    // 自动匹配失败不算致命错误：简历仍然入库，只是不绑定岗位。
-    // Auto-match failure is non-fatal: the resume still gets imported, just without a JD.
-    console.error("[bulk-upload] auto JD match failed:", error);
-    return null;
-  }
-}
-
-async function findDuplicateMatches(input: {
-  batchRow: BatchRow;
-  itemId: string;
-  organizationId: string;
-  resumeProfile: ParsedResume["resumeProfile"];
-  userId: string;
-}): Promise<DuplicateMatches> {
-  const dedupStartedAt = Date.now();
-  logStep("dedup.start", { itemId: input.itemId });
-  const shouldIncludePrivatePool =
-    input.batchRow.target === "resume_pool" && input.batchRow.resumePoolScope === "private";
-  const matches = await findSemanticResumeDuplicates({
-    email: input.resumeProfile?.email ?? null,
-    name: input.resumeProfile?.name ?? null,
-    organizationId: input.organizationId,
-    phone: input.resumeProfile?.phone ?? null,
-    poolOwnerUserId: shouldIncludePrivatePool ? input.userId : undefined,
-    poolScope: shouldIncludePrivatePool ? "private" : undefined,
-    resumeProfile: input.resumeProfile,
-    sourceTypes: shouldIncludePrivatePool
-      ? ["studio_interview", "resume_pool_item"]
-      : ["studio_interview"],
-  });
-  logStep("dedup.done", {
-    durationMs: elapsed(dedupStartedAt),
-    itemId: input.itemId,
-    matchCount: matches.length,
-  });
-  return matches;
-}
-
-// S3 から PDF を取得してパースし、作成すべき studio_interview の情報を返す。
-// Fetch PDF from S3, parse it, and return the info needed to create a studio_interview.
+// S3 から PDF を取得してパースし、閲覧可能な基本レコードまで永続化する。
+// Fetch and parse the PDF, then persist the base record needed for immediate viewing.
 async function fetchAndParse(
   item: NonNullable<ItemRow>,
   batchRow: BatchRow,
   organizationId: string,
   userId: string,
 ): Promise<{
-  duplicateMatches: DuplicateMatches;
+  autoMatchJobDescription: boolean;
+  jobDescriptionId: string | null;
   succeededPoolItemId: string | null;
   succeededRecordId: string | null;
 }> {
@@ -371,32 +254,8 @@ async function fetchAndParse(
   const { resumeProfile, resumeText } = await resolveResumeProfile(item);
   await assertBatchItemNotCancelled(batchRow.id, item.id);
 
-  const duplicateMatches = await findDuplicateMatches({
-    batchRow,
-    itemId: item.id,
-    organizationId,
-    resumeProfile,
-    userId,
-  });
-  await assertBatchItemNotCancelled(batchRow.id, item.id);
-
-  const jobDescriptionId = await resolveJobDescriptionId({
-    batchRow,
-    itemId: item.id,
-    organizationId,
-    resumeProfile,
-  });
-  const shouldGenerateReview = batchRow.target !== "resume_pool" || Boolean(jobDescriptionId);
-  const reviewResult = shouldGenerateReview
-    ? await generateReviewForParsedResume({
-        itemId: item.id,
-        jobDescriptionId,
-        organizationId,
-        resumeProfile,
-        resumeText,
-      })
-    : null;
-  await assertBatchItemNotCancelled(batchRow.id, item.id);
+  const autoMatchJobDescription = batchRow.jdMode === "auto";
+  const jobDescriptionId = batchRow.jdMode === "bind" ? batchRow.jobDescriptionId : null;
 
   if (batchRow.target === "resume_pool") {
     let { poolItemId } = item;
@@ -405,10 +264,10 @@ async function fetchAndParse(
       await markResumePoolItemParsed({
         actorId: userId,
         jobDescriptionId,
-        notes: reviewResult?.review ?? null,
+        notes: null,
         organizationId,
         poolItemId,
-        resumeParseStatus: "processing",
+        resumeParseStatus: "ready",
         resumeProfile,
         resumeText,
       });
@@ -420,10 +279,10 @@ async function fetchAndParse(
         contentHash: item.contentHash,
         createdBy: userId,
         jobDescriptionId,
-        notes: reviewResult?.review ?? null,
+        notes: null,
         organizationId,
         resumeFileName: item.originalFileName,
-        resumeParseStatus: "processing",
+        resumeParseStatus: "ready",
         resumeProfile,
         resumeText,
         scope: batchRow.resumePoolScope ?? "private",
@@ -431,13 +290,9 @@ async function fetchAndParse(
         targetRole: null,
       });
     }
-    await completeResumePoolReadinessWithDefaultAdapters({
-      duplicateMatches,
-      organizationId,
-      poolItemId,
-    });
     return {
-      duplicateMatches,
+      autoMatchJobDescription,
+      jobDescriptionId,
       succeededPoolItemId: poolItemId,
       succeededRecordId: null,
     };
@@ -446,25 +301,73 @@ async function fetchAndParse(
   const succeededRecordId = await upsertParsedResumeRecord({
     item,
     jobDescriptionId,
-    notes: reviewResult?.review ?? null,
     organizationId,
     resumeProfile,
-    resumeReview: reviewResult?.structuredReview ?? null,
-    resumeScreeningResult: reviewResult?.screeningResult ?? null,
     resumeText,
     userId,
   });
-  await replaceDuplicateMatchesForSource({
-    matches: duplicateMatches,
-    organizationId,
-    sourceId: succeededRecordId,
-    sourceType: "studio_interview",
-  });
   return {
-    duplicateMatches,
+    autoMatchJobDescription,
+    jobDescriptionId,
     succeededPoolItemId: null,
     succeededRecordId,
   };
+}
+
+async function settleEnrichmentTasks(tasks: Promise<unknown>[]): Promise<void> {
+  const results = await Promise.allSettled(tasks);
+  for (const result of results) {
+    if (result.status === "rejected") {
+      console.warn("[bulk-upload] enrichment enqueue failed after parse-ready", result.reason);
+    }
+  }
+}
+
+async function enqueueParsedResumeEnrichment(input: {
+  autoMatchJobDescription: boolean;
+  jobDescriptionId: string | null;
+  organizationId: string;
+  succeededPoolItemId: string | null;
+  succeededRecordId: string | null;
+}): Promise<void> {
+  if (input.succeededRecordId) {
+    await settleEnrichmentTasks([
+      enqueueResumeReviewGenerationForRecordBestEffort({
+        autoMatchJobDescription: input.autoMatchJobDescription,
+        jobDescriptionId: input.jobDescriptionId,
+        organizationId: input.organizationId,
+        resumeRecordId: input.succeededRecordId,
+        source: "resume_upload",
+      }),
+      enqueueResumeSemanticIndexJobBestEffort({
+        organizationId: input.organizationId,
+        sourceId: input.succeededRecordId,
+        sourceType: "studio_interview",
+      }),
+    ]);
+    return;
+  }
+  if (!input.succeededPoolItemId) {
+    return;
+  }
+  const tasks: Promise<unknown>[] = [
+    enqueueResumeSemanticIndexJobBestEffort({
+      organizationId: input.organizationId,
+      sourceId: input.succeededPoolItemId,
+      sourceType: "resume_pool_item",
+    }),
+  ];
+  if (input.autoMatchJobDescription || input.jobDescriptionId) {
+    tasks.push(
+      enqueueResumePoolReviewGenerationBestEffort({
+        autoMatchJobDescription: input.autoMatchJobDescription,
+        jobDescriptionId: input.jobDescriptionId,
+        organizationId: input.organizationId,
+        poolItemId: input.succeededPoolItemId,
+      }),
+    );
+  }
+  await settleEnrichmentTasks(tasks);
 }
 
 // 結果を DB に書き戻し、batch カウンターを更新する。
@@ -586,11 +489,15 @@ async function processClaimedItem(
     target: batchRow.target,
   });
   let outcome: {
+    autoMatchJobDescription: boolean;
     errorMessage: string | null;
+    jobDescriptionId: string | null;
     succeededPoolItemId: string | null;
     succeededRecordId: string | null;
   } = {
+    autoMatchJobDescription: false,
     errorMessage: null,
+    jobDescriptionId: null,
     succeededPoolItemId: null,
     succeededRecordId: null,
   };
@@ -617,14 +524,13 @@ async function processClaimedItem(
     return loadCancelledProcessResult(item, batchRow, startedAt);
   }
 
-  await writeOutcome(item, batchRow.id, outcome);
-  if (!(outcome.errorMessage || outcome.succeededRecordId === null)) {
-    await enqueueResumeSemanticIndexJobBestEffort({
+  if (!outcome.errorMessage) {
+    await enqueueParsedResumeEnrichment({
+      ...outcome,
       organizationId: batchRow.organizationId,
-      sourceId: outcome.succeededRecordId,
-      sourceType: "studio_interview",
     });
   }
+  await writeOutcome(item, batchRow.id, outcome);
 
   const detail = await loadBatchDetail(batchRow.id, batchRow.organizationId, batchRow.createdBy);
   if (!detail) {
@@ -691,12 +597,12 @@ export async function processBatchItem(itemId: string): Promise<ProcessNextResul
   return processClaimedItem(claimed.item, claimed.batchRow);
 }
 
-// 処理一個 pending item：拉 S3 → parse → 查重 → 創建 studio_interview → 更新 batch counter。
+// 処理一個 pending item：拉 S3 → parse → 創建可閲覧記録 → 派發 enrichment → 更新 batch counter。
 // 整個流程對調用方暴露一次 HTTP 調用的語義；如果 batch 已經無 pending item，
 // 返回 done=true 並把 batch 標 completed（若還未標）。
 //
-// Process one pending item: pull from S3 → parse → dedup check → create
-// studio_interview → update batch counters. Exposed as a single HTTP call's
+// Process one pending item: pull from S3 → parse → persist a viewable record →
+// enqueue enrichment → update batch counters. Exposed as a single HTTP call's
 // worth of work to the caller. When no pending item remains, returns done=true
 // and marks the batch completed if not already.
 export async function processNextItem(

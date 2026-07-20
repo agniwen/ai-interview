@@ -95,9 +95,9 @@ async function main() {
           await runJdSemanticIndexJob(payload as Parameters<typeof runJdSemanticIndexJob>[0]);
           return;
         }
-        const { runResumeSemanticIndexJob } =
-          await import("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/indexer");
-        await runResumeSemanticIndexJob(payload);
+        const { runResumeSemanticEnrichmentJob } =
+          await import("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enrichment");
+        await runResumeSemanticEnrichmentJob(payload);
       });
     }
     reviewGenerationWorker = createResumeReviewGenerationWorker(async (payload) => {

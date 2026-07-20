@@ -7,6 +7,11 @@ import {
 } from "@arc/resume-parse-queue/resume-review-generation";
 import type { ResumeReviewGenerationJobData } from "@arc/resume-parse-queue/resume-review-generation";
 
+type ResumeRecordReviewGenerationJobData = Exclude<
+  ResumeReviewGenerationJobData,
+  { source: "resume_pool_upload" }
+>;
+
 export async function markResumeReviewQueued(input: {
   allowExistingReview?: boolean;
   organizationId: string;
@@ -60,7 +65,7 @@ async function markResumeReviewQueueFailed(input: {
 }
 
 export async function enqueueResumeReviewGenerationForRecordBestEffort(
-  input: ResumeReviewGenerationJobData,
+  input: ResumeRecordReviewGenerationJobData,
 ): Promise<boolean> {
   if (!isResumeReviewGenerationQueueConfigured()) {
     return false;
@@ -101,6 +106,27 @@ export async function enqueueResumeReviewGenerationForRecordBestEffort(
     console.warn("[resume-review-generation] enqueue failed", {
       error,
       resumeRecordId: input.resumeRecordId,
+    });
+    return false;
+  }
+}
+
+export async function enqueueResumePoolReviewGenerationBestEffort(input: {
+  autoMatchJobDescription?: boolean;
+  jobDescriptionId: string | null;
+  organizationId: string;
+  poolItemId: string;
+}): Promise<boolean> {
+  if (!isResumeReviewGenerationQueueConfigured()) {
+    return false;
+  }
+  try {
+    await enqueueResumeReviewGenerationJobs([{ ...input, source: "resume_pool_upload" }]);
+    return true;
+  } catch (error) {
+    console.warn("[resume-review-generation] pool review enqueue failed", {
+      error,
+      poolItemId: input.poolItemId,
     });
     return false;
   }
