@@ -24,6 +24,7 @@ import { Route as StudioInterviewsRouteImport } from './routes/studio.interviews
 import { Route as ReferralsTokenRouteImport } from './routes/referrals.$token'
 import { Route as RRoundIdRouteImport } from './routes/r.$roundId'
 import { Route as PlatformUsersRouteImport } from './routes/platform.users'
+import { Route as PlatformResumeParseCacheRouteImport } from './routes/platform.resume-parse-cache'
 import { Route as PlatformQueuesRouteImport } from './routes/platform.queues'
 import { Route as PlatformOrganizationsRouteImport } from './routes/platform.organizations'
 import { Route as PlatformNotificationsRouteImport } from './routes/platform.notifications'
@@ -245,6 +246,12 @@ const PlatformUsersRoute = PlatformUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => PlatformRoute,
 } as any)
+const PlatformResumeParseCacheRoute =
+  PlatformResumeParseCacheRouteImport.update({
+    id: '/resume-parse-cache',
+    path: '/resume-parse-cache',
+    getParentRoute: () => PlatformRoute,
+  } as any)
 const PlatformQueuesRoute = PlatformQueuesRouteImport.update({
   id: '/queues',
   path: '/queues',
@@ -1110,6 +1117,7 @@ export interface FileRoutesByFullPath {
   '/platform/notifications': typeof PlatformNotificationsRoute
   '/platform/organizations': typeof PlatformOrganizationsRoute
   '/platform/queues': typeof PlatformQueuesRoute
+  '/platform/resume-parse-cache': typeof PlatformResumeParseCacheRoute
   '/platform/users': typeof PlatformUsersRoute
   '/r/$roundId': typeof RRoundIdRoute
   '/referrals/$token': typeof ReferralsTokenRoute
@@ -1266,6 +1274,7 @@ export interface FileRoutesByTo {
   '/platform/notifications': typeof PlatformNotificationsRoute
   '/platform/organizations': typeof PlatformOrganizationsRoute
   '/platform/queues': typeof PlatformQueuesRoute
+  '/platform/resume-parse-cache': typeof PlatformResumeParseCacheRoute
   '/platform/users': typeof PlatformUsersRoute
   '/r/$roundId': typeof RRoundIdRoute
   '/referrals/$token': typeof ReferralsTokenRoute
@@ -1410,6 +1419,7 @@ export interface FileRoutesById {
   '/platform/notifications': typeof PlatformNotificationsRoute
   '/platform/organizations': typeof PlatformOrganizationsRoute
   '/platform/queues': typeof PlatformQueuesRoute
+  '/platform/resume-parse-cache': typeof PlatformResumeParseCacheRoute
   '/platform/users': typeof PlatformUsersRoute
   '/r/$roundId': typeof RRoundIdRoute
   '/referrals/$token': typeof ReferralsTokenRoute
@@ -1574,6 +1584,7 @@ export interface FileRouteTypes {
     | '/platform/notifications'
     | '/platform/organizations'
     | '/platform/queues'
+    | '/platform/resume-parse-cache'
     | '/platform/users'
     | '/r/$roundId'
     | '/referrals/$token'
@@ -1730,6 +1741,7 @@ export interface FileRouteTypes {
     | '/platform/notifications'
     | '/platform/organizations'
     | '/platform/queues'
+    | '/platform/resume-parse-cache'
     | '/platform/users'
     | '/r/$roundId'
     | '/referrals/$token'
@@ -1873,6 +1885,7 @@ export interface FileRouteTypes {
     | '/platform/notifications'
     | '/platform/organizations'
     | '/platform/queues'
+    | '/platform/resume-parse-cache'
     | '/platform/users'
     | '/r/$roundId'
     | '/referrals/$token'
@@ -2145,6 +2158,13 @@ declare module '@tanstack/react-router' {
       path: '/users'
       fullPath: '/platform/users'
       preLoaderRoute: typeof PlatformUsersRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/platform/resume-parse-cache': {
+      id: '/platform/resume-parse-cache'
+      path: '/resume-parse-cache'
+      fullPath: '/platform/resume-parse-cache'
+      preLoaderRoute: typeof PlatformResumeParseCacheRouteImport
       parentRoute: typeof PlatformRoute
     }
     '/platform/queues': {
@@ -3711,6 +3731,7 @@ interface PlatformRouteChildren {
   PlatformNotificationsRoute: typeof PlatformNotificationsRoute
   PlatformOrganizationsRoute: typeof PlatformOrganizationsRoute
   PlatformQueuesRoute: typeof PlatformQueuesRoute
+  PlatformResumeParseCacheRoute: typeof PlatformResumeParseCacheRoute
   PlatformUsersRoute: typeof PlatformUsersRoute
 }
 
@@ -3720,6 +3741,7 @@ const PlatformRouteChildren: PlatformRouteChildren = {
   PlatformNotificationsRoute: PlatformNotificationsRoute,
   PlatformOrganizationsRoute: PlatformOrganizationsRoute,
   PlatformQueuesRoute: PlatformQueuesRoute,
+  PlatformResumeParseCacheRoute: PlatformResumeParseCacheRoute,
   PlatformUsersRoute: PlatformUsersRoute,
 }
 

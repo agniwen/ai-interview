@@ -3,6 +3,7 @@
 import {
   IconBell,
   IconBuilding,
+  IconDatabase,
   IconInbox,
   IconListCheck,
   IconSearch,
@@ -71,6 +72,11 @@ const manageNavSections: NavSection[] = [
         icon: IconListCheck,
         path: "/platform/queues",
         title: "队列任务",
+      },
+      {
+        icon: IconDatabase,
+        path: "/platform/resume-parse-cache",
+        title: "解析缓存",
       },
     ],
     title: "平台管理",

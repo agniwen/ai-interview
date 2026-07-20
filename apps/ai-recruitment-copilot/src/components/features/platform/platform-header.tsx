@@ -20,6 +20,7 @@ const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
   { meta: { title: "邮箱监听" }, prefix: "/platform/mail-ingest-accounts" },
   { meta: { title: "飞书通知" }, prefix: "/platform/notifications" },
   { meta: { title: "队列任务" }, prefix: "/platform/queues" },
+  { meta: { title: "解析缓存" }, prefix: "/platform/resume-parse-cache" },
   { meta: { title: "Mastra Studio" }, prefix: "/platform/mastra-studio" },
 ];
 

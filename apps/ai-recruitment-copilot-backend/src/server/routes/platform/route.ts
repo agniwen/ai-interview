@@ -41,6 +41,7 @@ import {
 import type { PlatformQueueJobsResult } from "./queue-details";
 import { platformMastraRouter } from "./routes/mastra/route";
 import { platformNotificationsRouter } from "./routes/notifications/route";
+import { platformResumeParseCacheRouter } from "./routes/resume-parse-cache/route";
 
 // --- Organizations list ---
 const orgQuerySchema = z.object({
@@ -632,6 +633,7 @@ export const platformRouter = factory
   .route("/", platformQueues)
   .route("/", platformMailIngestAccounts)
   .route("/notifications", platformNotificationsRouter)
+  .route("/resume-parse-cache", platformResumeParseCacheRouter)
   .route("/", platformOrganizations)
   .route("/", organizationDetail)
   .route("/", platformUsers);
