@@ -35,6 +35,7 @@ export interface PlatformNotificationRecord {
   conversationId: string | null;
   createdAt: string;
   error: string | null;
+  feishuDocumentUrl: string | null;
   feishuMessageId: string | null;
   id: string;
   interviewRecordId: string;
@@ -150,6 +151,7 @@ export async function queryPaginatedPlatformNotifications(
         conversationId: interviewNotification.conversationId,
         createdAt: interviewNotification.createdAt,
         error: interviewNotification.error,
+        feishuDocumentUrl: interviewNotification.feishuDocumentUrl,
         feishuMessageId: interviewNotification.feishuMessageId,
         id: interviewNotification.id,
         interviewRecordId: interviewNotification.interviewRecordId,
@@ -202,6 +204,7 @@ export async function queryPaginatedPlatformNotifications(
       conversationId: row.conversationId,
       createdAt: row.createdAt.toISOString(),
       error: row.error,
+      feishuDocumentUrl: row.feishuDocumentUrl,
       feishuMessageId: row.feishuMessageId,
       id: row.id,
       interviewRecordId: row.interviewRecordId,

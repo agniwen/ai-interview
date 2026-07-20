@@ -1,11 +1,38 @@
 import { describe, expect, it, vi } from "vitest";
-import { createFeishuDocx } from "../utils/feishu-docx";
+import { createFeishuDocx, grantFeishuDocxAccess } from "../utils/feishu-docx";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return Response.json(body, { status });
 }
 
 describe("createFeishuDocx", () => {
+  it("grants edit access to an existing application-owned document", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ code: 0, data: { member: {} }, msg: "success" }));
+
+    await grantFeishuDocxAccess(
+      {
+        accessToken: "tenant-token",
+        documentId: "docx-existing",
+        recipientOpenId: "ou_admin",
+      },
+      { fetcher: fetcher as typeof fetch, sleep: vi.fn() },
+    );
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "https://open.feishu.cn/open-apis/drive/v1/permissions/docx-existing/members?type=docx",
+      expect.objectContaining({
+        body: JSON.stringify({
+          member_id: "ou_admin",
+          member_type: "openid",
+          perm: "edit",
+          type: "user",
+        }),
+      }),
+    );
+  });
+
   it("creates, fills, and shares a styled document", async () => {
     const fetcher = vi
       .fn<typeof fetch>()

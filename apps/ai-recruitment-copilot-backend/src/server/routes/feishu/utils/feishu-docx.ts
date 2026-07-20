@@ -30,6 +30,12 @@ interface CreateFeishuDocxOptions {
   title: string;
 }
 
+interface GrantFeishuDocxAccessOptions {
+  accessToken: string;
+  documentId: string;
+  recipientOpenId: string;
+}
+
 interface FeishuDocxDependencies {
   fetcher: typeof fetch;
   sleep: (milliseconds: number) => Promise<void>;
@@ -107,6 +113,23 @@ async function appendBlocks(
   return created;
 }
 
+export async function grantFeishuDocxAccess(
+  options: GrantFeishuDocxAccessOptions,
+  dependencies: FeishuDocxDependencies = defaultDependencies,
+): Promise<void> {
+  await postFeishu(
+    `/drive/v1/permissions/${encodeURIComponent(options.documentId)}/members?type=docx`,
+    options.accessToken,
+    {
+      member_id: options.recipientOpenId,
+      member_type: "openid",
+      perm: "edit",
+      type: "user",
+    },
+    dependencies,
+  );
+}
+
 export async function createFeishuDocx(
   options: CreateFeishuDocxOptions,
   dependencies: FeishuDocxDependencies = defaultDependencies,
@@ -148,14 +171,11 @@ export async function createFeishuDocx(
     );
   }
 
-  await postFeishu(
-    `/drive/v1/permissions/${encodeURIComponent(documentId)}/members?type=docx`,
-    options.accessToken,
+  await grantFeishuDocxAccess(
     {
-      member_id: options.recipientOpenId,
-      member_type: "openid",
-      perm: "edit",
-      type: "user",
+      accessToken: options.accessToken,
+      documentId,
+      recipientOpenId: options.recipientOpenId,
     },
     dependencies,
   );
@@ -173,4 +193,13 @@ export async function createFeishuInterviewEvaluationDocx(
   const { appId, appSecret } = getFeishuAppCredentials(providerId);
   const accessToken = await getFeishuTenantAccessToken(appId, appSecret);
   return await createFeishuDocx({ ...options, accessToken });
+}
+
+export async function grantFeishuInterviewEvaluationDocxAccess(
+  providerId: FeishuProviderId,
+  options: Omit<GrantFeishuDocxAccessOptions, "accessToken">,
+): Promise<void> {
+  const { appId, appSecret } = getFeishuAppCredentials(providerId);
+  const accessToken = await getFeishuTenantAccessToken(appId, appSecret);
+  await grantFeishuDocxAccess({ ...options, accessToken });
 }

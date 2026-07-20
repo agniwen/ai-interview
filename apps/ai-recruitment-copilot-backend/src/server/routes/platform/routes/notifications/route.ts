@@ -7,6 +7,7 @@ import {
   platformNotificationStatusFilterValues,
   queryPaginatedPlatformNotifications,
 } from "./dao";
+import { grantPlatformNotificationDocumentAccess, NotificationDocumentAccessError } from "./utils";
 
 const querySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -39,5 +40,26 @@ export const platformNotificationsRouter = factory
     } catch (error) {
       const message = error instanceof Error ? error.message : "重新发送飞书通知失败";
       return c.json({ error: message }, message === "通知记录不存在" ? 404 : 400);
+    }
+  })
+  .post("/:id/document-access", async (c) => {
+    try {
+      const { user } = c.var;
+      if (!user) {
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+      return c.json(
+        await grantPlatformNotificationDocumentAccess({
+          notificationId: c.req.param("id"),
+          userId: user.id,
+        }),
+        200,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "获取飞书文档访问权失败";
+      if (error instanceof NotificationDocumentAccessError) {
+        return c.json({ code: error.code, error: message }, error.status);
+      }
+      return c.json({ error: message }, 400);
     }
   });

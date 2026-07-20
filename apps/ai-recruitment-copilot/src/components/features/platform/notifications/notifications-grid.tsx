@@ -50,6 +50,7 @@ interface PlatformNotificationRecord {
   conversationId: string | null;
   createdAt: string;
   error: string | null;
+  feishuDocumentUrl: string | null;
   feishuMessageId: string | null;
   id: string;
   interviewRecordId: string;
@@ -189,6 +190,35 @@ export function NotificationsGrid() {
     },
   });
 
+  const openDocumentMutation = useMutation({
+    mutationFn: async ({
+      openedWindow,
+      record,
+    }: {
+      openedWindow: Window | null;
+      record: PlatformNotificationRecord;
+    }) => {
+      const result = await rpcFetch<{ documentUrl: string }>(
+        rpc.api.platform.notifications[":id"]["document-access"].$post({
+          param: { id: record.id },
+        }),
+        "打开飞书文档失败",
+      );
+      return { ...result, openedWindow };
+    },
+    onError: (error, variables) => {
+      variables.openedWindow?.close();
+      toast.error(error instanceof Error ? error.message : "打开飞书文档失败");
+    },
+    onSuccess: ({ documentUrl, openedWindow }) => {
+      if (openedWindow) {
+        openedWindow.location.href = documentUrl;
+        return;
+      }
+      window.location.href = documentUrl;
+    },
+  });
+
   const grid = useDataGridState<PlatformNotificationRecord, NotificationFilters>({
     allowedSortIds: [
       "createdAt",
@@ -312,6 +342,19 @@ export function NotificationsGrid() {
     }),
     actionsColumn<PlatformNotificationRecord>({
       menu: [
+        {
+          disabled: (record) => !record.feishuDocumentUrl || openDocumentMutation.isPending,
+          disabledReason: (record) =>
+            record.feishuDocumentUrl ? "正在获取文档访问权" : "文档尚未生成，请先重新发送通知",
+          label: "打开飞书文档",
+          onClick: (record) => {
+            const openedWindow = window.open("about:blank", "_blank");
+            if (openedWindow) {
+              openedWindow.opener = null;
+            }
+            openDocumentMutation.mutate({ openedWindow, record });
+          },
+        },
         {
           label: "打开报告",
           onClick: (record) => {
