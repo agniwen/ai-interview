@@ -10,7 +10,7 @@ decision space is bounded.
 We deliberately do NOT forward the parent agent's chat_ctx: at the opening
 there is no conversation history to preserve, and the parent's system
 prompt explicitly tells the model to skip greetings and dive into the
-first preset question — which would directly contradict the per-call
+first interview question — which would directly contradict the per-call
 opening_instructions and cause small models to ignore the configured
 greeting wording.
 """

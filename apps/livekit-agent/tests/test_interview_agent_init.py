@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
+import interview_agent as interview_agent_module
 from dispatch_context import parse_dispatch_context
 from interview_agent import (
     INTERVIEW_FINAL_WRAP_SECONDS,
@@ -58,6 +59,10 @@ class _FakeSession:
         self.calls.append((text, kwargs))
         return self.handle
 
+    async def generate_reply(self, **kwargs):
+        self.calls.append((None, kwargs))
+        return self.handle
+
 
 def test_uses_final_prompts_from_dispatch_contract_without_rebuilding():
     a = InterviewAgent(
@@ -78,6 +83,31 @@ def test_uses_typed_candidate_fields_from_dispatch_contract():
 
     assert a._candidate_name == "王五"
     assert a._target_role == "数据工程师"
+
+
+@pytest.mark.asyncio
+async def test_ready_candidate_is_prompted_with_first_interview_question(monkeypatch):
+    async def ready():
+        return True
+
+    session = _FakeSession()
+    a = InterviewAgent(_ctx())
+    monkeypatch.setattr(
+        interview_agent_module,
+        "ReadyCheckTask",
+        lambda **_kwargs: ready(),
+    )
+    monkeypatch.setattr(
+        a,
+        "_get_activity_or_raise",
+        lambda: SimpleNamespace(session=session),
+    )
+
+    await a.on_enter()
+
+    instructions = session.calls[-1][1]["instructions"]
+    assert "第一道面试题" in instructions
+    assert "岗位预设题" not in instructions
 
 
 def test_default_timeline_warns_at_21_and_hard_cuts_at_25():

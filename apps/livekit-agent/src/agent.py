@@ -226,13 +226,13 @@ def prewarm(proc: JobProcess) -> None:
     到一个 worker 进程的多次 job 上.
 
     Silero VAD 参数选择 / VAD parameter notes:
-        回归官方默认值, 仅 min_silence_duration 保留 1.5s. 之前
+        回归官方默认值, min_silence_duration 保留 0.55s. 之前
         activation_threshold=0.7 / min_speech_duration=0.25 偏保守, 会漏抓
         候选人轻声"嗯/呃"等填充音 → STT 拿不到对应文本 → turn detector 误判
         句子已说完 → 用 min_delay=0.5s 立即回, 抢答风险高; 反向上长 user turn
         也跟这条相关 (filler 被 VAD 吞了, 句子断成多段累积).
-        min_silence 1.5s 与 turn detector + max_delay=4s 兜底协同, 是给真实
-        思考停顿的最小窗口. max_buffered_speech 提到 600s, 覆盖面试里
+        min_silence 0.55s 让音频 turn detector 尽早收到停顿信号, 再由
+        dynamic endpointing 判断候选人是否仍会继续. max_buffered_speech 提到 600s, 覆盖面试里
         长答场景; Silero 达到该上限后会忽略当前 speech input 的后续音频.
 
         Reverted to official defaults except min_silence. The previous strict
@@ -244,7 +244,7 @@ def prewarm(proc: JobProcess) -> None:
         model="silero",
         activation_threshold=0.5,
         min_speech_duration=0.05,
-        min_silence_duration=1.5,
+        min_silence_duration=0.55,
         max_buffered_speech=600.0,
         prefix_padding_duration=0.5,
     )
@@ -295,6 +295,12 @@ def _build_session(
         stt=elevenlabs.STT(
             model_id="scribe_v2_realtime",
             tag_audio_events=False,
+            server_vad={
+                "vad_silence_threshold_secs": 0.6,
+                "vad_threshold": 0.4,
+                "min_speech_duration_ms": 100,
+                "min_silence_duration_ms": 100,
+            },
         ),
         llm=openai.LLM(
             # 通过 DashScope OpenAI 兼容端点调通义系模型, 走 base_url 覆盖即可
@@ -313,19 +319,16 @@ def _build_session(
         ),
         vad=proc.userdata["vad"],
         userdata=state,
-        preemptive_generation=False,
         turn_handling={
             # LiveKit Agents 1.6 audio turn detector uses acoustic + semantic
             # cues and supersedes the deprecated text MultilingualModel.
             "turn_detection": inference.TurnDetector(),
             "endpointing": {
                 "mode": "dynamic",
-                # Audio EOT is more accurate than the old text model, so we can
-                # lower latency while still leaving room for Chinese interview
-                # pauses. Official defaults are 0.3/2.5; keep a conservative
-                # floor/ceiling for candidate reflection time.
-                "min_delay": 1.0,
-                "max_delay": 4.0,
+                # Keep slightly more room than the audio detector's 0.3/2.5s
+                # defaults while avoiding the previous 1.0/4.0s latency tax.
+                "min_delay": 0.5,
+                "max_delay": 3.0,
             },
             "interruption": {
                 "mode": "adaptive",
@@ -333,6 +336,10 @@ def _build_session(
                 "min_words": 1,
                 "false_interruption_timeout": 2.0,
                 "resume_false_interruption": True,
+            },
+            "preemptive_generation": {
+                "enabled": True,
+                "preemptive_tts": False,
             },
             "user_turn_limit": {
                 "max_duration": _USER_TURN_LIMIT_MAX_DURATION_SECONDS,

@@ -14,7 +14,7 @@ class _FakeComponent:
         self.kwargs = kwargs
 
 
-def test_prewarm_allows_long_interview_answers(monkeypatch):
+def test_prewarm_balances_interview_pauses_with_response_latency(monkeypatch):
     calls = []
 
     def fake_vad(**kwargs):
@@ -32,7 +32,7 @@ def test_prewarm_allows_long_interview_answers(monkeypatch):
             "activation_threshold": 0.5,
             "model": "silero",
             "max_buffered_speech": 600.0,
-            "min_silence_duration": 1.5,
+            "min_silence_duration": 0.55,
             "min_speech_duration": 0.05,
             "prefix_padding_duration": 0.5,
         }
@@ -59,10 +59,16 @@ def test_agent_session_uses_scribe_v2_realtime_stt(monkeypatch):
     assert stt.kwargs["model_id"] == "scribe_v2_realtime"
     assert "language_code" not in stt.kwargs
     assert stt.kwargs["tag_audio_events"] is False
+    assert stt.kwargs["server_vad"] == {
+        "min_silence_duration_ms": 100,
+        "min_speech_duration_ms": 100,
+        "vad_silence_threshold_secs": 0.6,
+        "vad_threshold": 0.4,
+    }
     assert "api_key" not in stt.kwargs
 
 
-def test_agent_session_endpointing_waits_for_interview_pauses(monkeypatch):
+def test_agent_session_endpointing_balances_pauses_with_response_latency(monkeypatch):
     monkeypatch.setattr(agent_module, "AgentSession", _FakeAgentSession)
     monkeypatch.setattr(agent_module.elevenlabs, "STT", _FakeComponent)
     monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
@@ -80,8 +86,30 @@ def test_agent_session_endpointing_waits_for_interview_pauses(monkeypatch):
     endpointing = session.kwargs["turn_handling"]["endpointing"]
 
     assert endpointing["mode"] == "dynamic"
-    assert endpointing["min_delay"] == 1.0
-    assert endpointing["max_delay"] == 4.0
+    assert endpointing["min_delay"] == 0.5
+    assert endpointing["max_delay"] == 3.0
+
+
+def test_agent_session_preemptively_starts_llm_generation(monkeypatch):
+    monkeypatch.setattr(agent_module, "AgentSession", _FakeAgentSession)
+    monkeypatch.setattr(agent_module.elevenlabs, "STT", _FakeComponent)
+    monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
+    monkeypatch.setattr(agent_module.minimax, "TTS", _FakeComponent)
+    monkeypatch.setattr(
+        agent_module.inference, "TurnDetector", lambda: "audio-turn-detector"
+    )
+
+    session = _build_session(
+        proc=SimpleNamespace(userdata={"vad": "silero-vad"}),
+        selected_voice="voice_agent_Male_Phone_1",
+        state=object(),
+    )
+
+    assert session.kwargs["turn_handling"]["preemptive_generation"] == {
+        "enabled": True,
+        "preemptive_tts": False,
+    }
+    assert "preemptive_generation" not in session.kwargs
 
 
 def test_agent_session_uses_audio_turn_detector_and_user_turn_limit(monkeypatch):

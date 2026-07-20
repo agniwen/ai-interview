@@ -36,11 +36,19 @@ describe("buildAgentInstructions", () => {
     expect(out).not.toContain("其他面试官");
   });
 
-  it("instructs the agent to skip resume-derived supplementary questions when none exist", () => {
+  it("uses interview questions and omits resume-derived supplementary questions", () => {
     const out = buildAgentInstructions({
       candidateName: "Alex",
       companyContext: "",
-      interviewQuestions: [],
+      interviewQuestions: [
+        {
+          difficulty: "hard",
+          evaluationFocus: "不应进入提示词的补充题考核点",
+          followUpDirections: "不应进入提示词的补充题追问方向",
+          order: 1,
+          question: "这道补充题不应该被询问。",
+        },
+      ],
       interviewerPrompt: "",
       jobDescriptionPresetQuestions: [
         {
@@ -53,8 +61,13 @@ describe("buildAgentInstructions", () => {
       targetRole: "Backend Engineer",
     });
 
-    expect(out).toContain("本轮没有从简历生成的补充题目");
-    expect(out).toContain("请跳过补充题目环节");
+    expect(out).toContain("## 面试题（必问）");
+    expect(out).toContain("请介绍一个你负责过的后端项目。");
+    expect(out).not.toContain("岗位预设题");
+    expect(out).not.toContain("补充题目");
+    expect(out).not.toContain("这道补充题不应该被询问。");
+    expect(out).not.toContain("不应进入提示词的补充题考核点");
+    expect(out).not.toContain("不应进入提示词的补充题追问方向");
     expect(out).not.toContain("从以下题目中再随机抽取三到五道");
   });
 
@@ -110,8 +123,8 @@ describe("buildAgentInstructions", () => {
 
     expect(out).toContain("考核点：验证排障方法和复盘能力");
     expect(out).toContain("追问方向：追问定位链路、监控信号和后续预防措施");
-    expect(out).toContain("考核点：验证系统设计权衡");
-    expect(out).toContain("追问方向：追问容量估算和降级策略");
+    expect(out).not.toContain("考核点：验证系统设计权衡");
+    expect(out).not.toContain("追问方向：追问容量估算和降级策略");
     expect(out).toContain("考核点和追问方向仅供你内部参考，提问时不要念出来");
   });
 });
