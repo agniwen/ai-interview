@@ -3,7 +3,7 @@ import { createLarkAdapter } from "@larksuite/vercel-chat-adapter";
 import { cardChildToFallbackText, Chat, isCardElement, toCardElement } from "chat";
 import type { AdapterPostableMessage, CardChild, CardElement } from "chat";
 import type { FeishuProviderId } from "./provider";
-import { FEISHU_PROVIDER_IDS } from "./provider";
+import { FEISHU_PROVIDER_IDS, getFeishuAppCredentials } from "./provider";
 import { routeDM, routeGroupMention } from "./router";
 
 type LarkAdapter = ReturnType<typeof createLarkAdapter>;
@@ -84,28 +84,6 @@ type LarkInteractiveAction =
     };
 
 const cached = new Map<FeishuProviderId, { adapter: LarkAdapter; bot: FeishuBot }>();
-
-const FEISHU_BOT_CONFIG: Record<
-  FeishuProviderId,
-  {
-    appIdEnv: string;
-    appSecretEnv: string;
-  }
-> = {
-  feishu: {
-    appIdEnv: "FEISHU_APP_ID",
-    appSecretEnv: "FEISHU_APP_SECRET",
-  },
-  "feishu-jiguang-hr": {
-    appIdEnv: "FEISHU_APP_ID2",
-    appSecretEnv: "FEISHU_APP_SECRET2",
-  },
-};
-
-function getEnv(name: string): string | undefined {
-  const value = process.env[name];
-  return value && value.length > 0 ? value : undefined;
-}
 
 function resolveCardElement(card: CardElement | unknown): CardElement {
   if (isCardElement(card)) {
@@ -338,12 +316,7 @@ export function getFeishuBot(providerId: FeishuProviderId = "feishu"): FeishuBot
     throw new Error("DATABASE_URL is required for the Feishu bot state adapter");
   }
 
-  const config = FEISHU_BOT_CONFIG[providerId];
-  const appId = getEnv(config.appIdEnv);
-  const appSecret = getEnv(config.appSecretEnv);
-  if (!appId || !appSecret) {
-    throw new Error(`${config.appIdEnv} and ${config.appSecretEnv} are required`);
-  }
+  const { appId, appSecret } = getFeishuAppCredentials(providerId);
 
   const adapter = createLarkAdapter({
     appId,

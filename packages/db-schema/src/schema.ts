@@ -1681,6 +1681,8 @@ export const interviewNotification = pgTable(
     }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     error: text("error"),
+    feishuDocumentId: text("feishu_document_id"),
+    feishuDocumentUrl: text("feishu_document_url"),
     feishuMessageId: text("feishu_message_id"),
     id: text("id").primaryKey(),
     interviewRecordId: text("interview_record_id")

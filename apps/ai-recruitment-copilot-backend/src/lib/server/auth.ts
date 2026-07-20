@@ -8,6 +8,7 @@ import { and, eq } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { getAuthRequestHeaders } from "@arc/ai-recruitment-copilot-backend/lib/server/auth-request-context";
 import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
+import { getFeishuTenantAccessToken } from "@arc/ai-recruitment-copilot-backend/lib/server/feishu-access-token";
 import {
   canAssignWorkspaceRole,
   dynamicWorkspaceRoleExists,
@@ -76,13 +77,6 @@ interface FeishuUserInfoResponse {
   };
 }
 
-interface FeishuTenantTokenResponse {
-  code: number;
-  msg: string;
-  tenant_access_token?: string;
-  expire?: number;
-}
-
 interface FeishuTenantQueryResponse {
   code: number;
   msg: string;
@@ -97,44 +91,12 @@ interface FeishuTenantQueryResponse {
   };
 }
 
-// Short-lived in-memory cache to avoid minting a new tenant_access_token on every login.
-// Keyed by appId so each registered Feishu app has its own cached token.
-const tenantTokenCache = new Map<string, { token: string; expiresAt: number }>();
-
-async function fetchFeishuTenantToken(appId: string, appSecret: string): Promise<string | null> {
-  const now = Date.now();
-  const cached = tenantTokenCache.get(appId);
-  if (cached && cached.expiresAt > now + 60_000) {
-    return cached.token;
-  }
-  const res = await fetch("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", {
-    body: JSON.stringify({
-      app_id: appId,
-      app_secret: appSecret,
-    }),
-    headers: { "content-type": "application/json; charset=utf-8" },
-    method: "POST",
-  });
-  const json = (await res.json()) as FeishuTenantTokenResponse;
-  if (json.code !== 0 || !json.tenant_access_token) {
-    return null;
-  }
-  tenantTokenCache.set(appId, {
-    expiresAt: now + (json.expire ?? 7200) * 1000,
-    token: json.tenant_access_token,
-  });
-  return json.tenant_access_token;
-}
-
 async function fetchFeishuOrganizationName(
   appId: string,
   appSecret: string,
 ): Promise<string | null> {
   try {
-    const token = await fetchFeishuTenantToken(appId, appSecret);
-    if (!token) {
-      return null;
-    }
+    const token = await getFeishuTenantAccessToken(appId, appSecret);
     const res = await fetch("https://open.feishu.cn/open-apis/tenant/v2/tenant/query", {
       headers: { authorization: `Bearer ${token}` },
     });

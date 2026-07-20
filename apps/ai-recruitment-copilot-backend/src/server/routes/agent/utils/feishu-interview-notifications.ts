@@ -14,6 +14,8 @@ import {
   getResendClient,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resend";
 import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
+import { createFeishuInterviewEvaluationDocx } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/feishu-docx";
+import { buildInterviewEvaluationDocument } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/interview-evaluation-doc";
 import { InterviewSummaryCard } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/interview-summary-card";
 import type { InterviewSummaryQuestionScore } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/interview-summary-card";
 import { FEISHU_PROVIDER_IDS } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
@@ -71,6 +73,13 @@ function buildStudioUrl(roundId: string, organizationSlug: string | null): strin
   const root = baseUrl.replace(/\/$/, "");
   const prefix = organizationSlug ? `/w/${encodeURIComponent(organizationSlug)}` : "";
   return `${root}${prefix}/studio/interviews?roundId=${encodeURIComponent(roundId)}`;
+}
+
+function buildResumeUrl(roundId: string, organizationSlug: string | null): string {
+  const baseUrl = getRequiredEnv("BETTER_AUTH_URL");
+  const root = baseUrl.replace(/\/$/, "");
+  const prefix = organizationSlug ? `/w/${encodeURIComponent(organizationSlug)}` : "";
+  return `${root}/api${prefix}/studio/interviews/${encodeURIComponent(roundId)}/resume`;
 }
 
 function formatDateTime(value: Date | null): string {
@@ -169,13 +178,13 @@ function buildSummaryPayload(input: NotificationCardInput) {
   return { assessment, overallScore, recommendation };
 }
 
-function buildNotificationCard(input: NotificationCardInput) {
+function buildNotificationCard(input: NotificationCardInput, detailUrl?: string) {
   const { assessment, overallScore, recommendation } = buildSummaryPayload(input);
 
   const card = InterviewSummaryCard({
     assessment,
     candidateName: input.candidateName,
-    detailUrl: buildStudioUrl(input.roundId, input.organizationSlug),
+    detailUrl: detailUrl ?? buildStudioUrl(input.roundId, input.organizationSlug),
     duration: input.duration,
     interviewStartedAt: input.interviewStartedAt,
     overallScore,
@@ -378,6 +387,55 @@ async function markNotificationFailed(notificationId: string, error: unknown) {
     .where(eq(interviewNotification.id, notificationId));
 }
 
+async function ensureInterviewEvaluationDocument({
+  input,
+  notificationId,
+  providerId,
+  recipientOpenId,
+}: {
+  input: NotificationCardInput;
+  notificationId: string;
+  providerId: FeishuProviderId;
+  recipientOpenId: string;
+}): Promise<string> {
+  const [existing] = await db
+    .select({
+      documentUrl: interviewNotification.feishuDocumentUrl,
+    })
+    .from(interviewNotification)
+    .where(eq(interviewNotification.id, notificationId))
+    .limit(1);
+  if (existing?.documentUrl) {
+    return existing.documentUrl;
+  }
+
+  const detailUrl = buildStudioUrl(input.roundId, input.organizationSlug);
+  const document = buildInterviewEvaluationDocument({
+    candidateName: input.candidateName,
+    detailUrl,
+    duration: input.duration,
+    evaluation: input.evaluation,
+    interviewStartedAt: input.interviewStartedAt,
+    resumeUrl: buildResumeUrl(input.roundId, input.organizationSlug),
+    summary: input.summary,
+    targetRole: input.targetRole,
+  });
+  const created = await createFeishuInterviewEvaluationDocx(providerId, {
+    blocks: document.blocks,
+    recipientOpenId,
+    title: document.title,
+  });
+
+  await db
+    .update(interviewNotification)
+    .set({
+      feishuDocumentId: created.documentId,
+      feishuDocumentUrl: created.documentUrl,
+    })
+    .where(eq(interviewNotification.id, notificationId));
+  return created.documentUrl;
+}
+
 async function sendGoogleSummaryEmail({
   conversationId,
   context,
@@ -477,7 +535,7 @@ export async function resendInterviewSummaryNotification(
     throw new Error("通知缺少面试轮次，无法生成报告链接");
   }
 
-  const { card } = buildNotificationCard({
+  const notificationInput = {
     candidateName: context.candidateName,
     duration: formatDuration(context.startedAt, context.endedAt),
     evaluation: context.evaluationCriteriaResults ?? {},
@@ -486,7 +544,7 @@ export async function resendInterviewSummaryNotification(
     roundId: context.scheduleEntryId,
     summary: context.transcriptSummary,
     targetRole: context.targetRole,
-  });
+  };
 
   await db
     .update(interviewNotification)
@@ -497,6 +555,13 @@ export async function resendInterviewSummaryNotification(
     .where(eq(interviewNotification.id, notification.id));
 
   try {
+    const documentUrl = await ensureInterviewEvaluationDocument({
+      input: notificationInput,
+      notificationId: notification.id,
+      providerId: notification.providerId,
+      recipientOpenId: notification.recipientOpenId,
+    });
+    const { card } = buildNotificationCard(notificationInput, documentUrl);
     const { postFeishuDirectCard } =
       await import("@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/bot");
     const sent = await postFeishuDirectCard(
@@ -618,7 +683,6 @@ export async function notifyInterviewSummaryReady(
     targetRole: context.targetRole,
   };
   const detailUrl = buildStudioUrl(context.scheduleEntryId, context.organizationSlug ?? null);
-  const { card } = buildNotificationCard(notificationInput);
 
   if (recipients.length > 0) {
     const { postFeishuDirectCard } =
@@ -636,6 +700,13 @@ export async function notifyInterviewSummaryReady(
       }
 
       try {
+        const documentUrl = await ensureInterviewEvaluationDocument({
+          input: notificationInput,
+          notificationId,
+          providerId: recipient.providerId,
+          recipientOpenId: recipient.accountId,
+        });
+        const { card } = buildNotificationCard(notificationInput, documentUrl);
         const sent = await postFeishuDirectCard(recipient.providerId, recipient.accountId, card);
         await markNotificationSent(notificationId, sent.id ?? null);
       } catch (error) {
