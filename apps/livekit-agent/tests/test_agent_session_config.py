@@ -57,7 +57,7 @@ def test_agent_session_uses_scribe_v2_realtime_stt(monkeypatch):
     stt = session.kwargs["stt"]
 
     assert stt.kwargs["model_id"] == "scribe_v2_realtime"
-    assert "language_code" not in stt.kwargs
+    assert stt.kwargs["language_code"] == "zh"
     assert stt.kwargs["tag_audio_events"] is False
     assert stt.kwargs["server_vad"] == {
         "min_silence_duration_ms": 100,
@@ -154,6 +154,7 @@ def test_agent_session_uses_pcm_for_minimax_streaming_audio(monkeypatch):
     tts = session.kwargs["tts"]
 
     assert tts.kwargs["audio_format"] == "pcm"
+    assert tts.kwargs["language_boost"] == "Chinese"
 
 
 def test_room_options_enable_text_input_when_round_allows_it():

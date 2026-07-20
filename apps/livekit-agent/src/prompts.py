@@ -1,8 +1,8 @@
 # ReadyCheckTask and WrapUpTask repeat this policy in their phase-specific
-# instructions. The main interview system prompt is built in TypeScript and is
-# delivered through the versioned dispatch contract.
+# instructions. InterviewAgent also appends it to the versioned dispatch prompt
+# so an independently deployed worker enforces the same language requirement.
 LANGUAGE_POLICY = (
-    "以候选人的主要语言为主进行交流：根据候选人的发言自动判断语言，后续尽量保持同一种语言；"
-    "候选人切换语言或明确要求使用某种语言时立即跟随。若候选人尚未发言，使用开场指令或面试材料的语言；"
-    "仍无法判断时默认使用中文。题目若与候选人主要语言不同，请自然翻译后提问，保持考查点和难度不变。"
+    "本次是中文面试，全程使用简体中文交流，包括开场、提问、追问、澄清和告别。"
+    "候选人使用其他语言或要求切换语言时，仍使用简体中文，并请候选人尽量用中文作答。"
+    "专业术语可以保留必要的外文原文，但解释和完整句子必须使用简体中文。"
 )

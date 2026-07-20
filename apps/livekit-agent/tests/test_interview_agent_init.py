@@ -64,7 +64,7 @@ class _FakeSession:
         return self.handle
 
 
-def test_uses_final_prompts_from_dispatch_contract_without_rebuilding():
+def test_uses_dispatch_prompts_and_appends_chinese_language_policy():
     a = InterviewAgent(
         _ctx(
             system="TS 生成的最终 system prompt",
@@ -73,7 +73,8 @@ def test_uses_final_prompts_from_dispatch_contract_without_rebuilding():
         )
     )
 
-    assert a.instructions == "TS 生成的最终 system prompt"
+    assert a.instructions.startswith("TS 生成的最终 system prompt")
+    assert "全程使用简体中文" in a.instructions
     assert a._opening_instructions == "TS 生成的最终 opening prompt"
     assert a._closing_instructions == "TS 生成的最终 closing prompt"
 

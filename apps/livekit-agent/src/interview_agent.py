@@ -17,6 +17,7 @@ from livekit.agents import (
 from livekit.agents.beta.tools import EndCallTool
 
 from dispatch_context import InterviewDispatchContext
+from prompts import LANGUAGE_POLICY
 from ready_check_task import ReadyCheckTask
 from wrap_up_task import WrapUpTask
 
@@ -106,7 +107,10 @@ class InterviewAgent(Agent):
         )
 
         super().__init__(
-            instructions=interview_context.prompts.system,
+            instructions=(
+                f"{interview_context.prompts.system}\n\n"
+                f"## 中文面试语言要求\n{LANGUAGE_POLICY}"
+            ),
             tools=self._end_call_tool.tools,  # type: ignore
         )
 

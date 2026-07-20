@@ -12,7 +12,7 @@ def test_task_exposes_two_tools():
     assert tool_names == {"confirm_ready", "decline_interview"}
 
 
-def test_task_uses_candidate_language_policy():
-    assert "以候选人的主要语言为主" in _TASK_INSTRUCTIONS
+def test_task_requires_simplified_chinese():
+    assert "全程使用简体中文" in _TASK_INSTRUCTIONS
     assert "I'm ready" in _TASK_INSTRUCTIONS
-    assert "全程使用中文" not in _TASK_INSTRUCTIONS
+    assert "以候选人的主要语言为主" not in _TASK_INSTRUCTIONS

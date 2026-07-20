@@ -293,6 +293,7 @@ def _build_session(
     """
     return AgentSession(
         stt=elevenlabs.STT(
+            language_code="zh",
             model_id="scribe_v2_realtime",
             tag_audio_events=False,
             server_vad={
@@ -315,6 +316,7 @@ def _build_session(
         tts=minimax.TTS(
             audio_format="pcm",
             base_url="https://api.minimax.chat",
+            language_boost="Chinese",
             voice=selected_voice,
         ),
         vad=proc.userdata["vad"],
