@@ -40,6 +40,7 @@ import {
   isBatchItemCancelled,
   isBatchItemCancelledError,
   loadClaimMissSnapshot,
+  releaseBatchItemForRetry,
 } from "./processor-claims";
 
 export { getClaimMissRetryError } from "./processor-claims";
@@ -183,6 +184,20 @@ async function upsertParsedResumeRecord({
   const recordId = item.resumeRecordId;
 
   const now = new Date();
+  const assessmentReset =
+    item.attemptCount > 1
+      ? {}
+      : {
+          resumeReview: null,
+          resumeReviewError: null,
+          resumeReviewGeneratedAt: null,
+          resumeReviewRunId: null,
+          resumeReviewStatus: "idle" as const,
+          resumeScreeningError: null,
+          resumeScreeningEvaluatedAt: null,
+          resumeScreeningResult: null,
+          resumeScreeningStatus: "idle" as const,
+        };
   await db.transaction(async (tx) => {
     await tx
       .update(studioInterview)
@@ -198,19 +213,11 @@ async function upsertParsedResumeRecord({
         resumeParseStatus: "ready",
         resumeParsedAt: now,
         resumeProfile,
-        resumeReview: null,
-        resumeReviewError: null,
-        resumeReviewGeneratedAt: null,
-        resumeReviewRunId: null,
-        resumeReviewStatus: "idle",
-        resumeScreeningError: null,
-        resumeScreeningEvaluatedAt: null,
-        resumeScreeningResult: null,
-        resumeScreeningStatus: "idle",
         resumeStorageKey: item.storageKey,
         resumeText,
         targetRole: resumeProfile?.targetRoles?.[0] ?? null,
         updatedAt: now,
+        ...assessmentReset,
       })
       .where(
         and(eq(studioInterview.id, recordId), eq(studioInterview.organizationId, organizationId)),
@@ -314,26 +321,26 @@ async function fetchAndParse(
   };
 }
 
-async function settleEnrichmentTasks(tasks: Promise<unknown>[]): Promise<void> {
-  const results = await Promise.allSettled(tasks);
-  for (const result of results) {
-    if (result.status === "rejected") {
-      console.warn("[bulk-upload] enrichment enqueue failed after parse-ready", result.reason);
-    }
+async function requireEnrichmentTasks(tasks: Promise<boolean>[]): Promise<void> {
+  const results = await Promise.all(tasks);
+  if (results.some((enqueued) => !enqueued)) {
+    throw new Error("简历后续分析任务入队失败。");
   }
 }
 
 async function enqueueParsedResumeEnrichment(input: {
   autoMatchJobDescription: boolean;
+  generationToken: string;
   jobDescriptionId: string | null;
   organizationId: string;
   succeededPoolItemId: string | null;
   succeededRecordId: string | null;
 }): Promise<void> {
   if (input.succeededRecordId) {
-    await settleEnrichmentTasks([
+    await requireEnrichmentTasks([
       enqueueResumeReviewGenerationForRecordBestEffort({
         autoMatchJobDescription: input.autoMatchJobDescription,
+        generationToken: input.generationToken,
         jobDescriptionId: input.jobDescriptionId,
         organizationId: input.organizationId,
         resumeRecordId: input.succeededRecordId,
@@ -350,7 +357,7 @@ async function enqueueParsedResumeEnrichment(input: {
   if (!input.succeededPoolItemId) {
     return;
   }
-  const tasks: Promise<unknown>[] = [
+  const tasks: Promise<boolean>[] = [
     enqueueResumeSemanticIndexJobBestEffort({
       organizationId: input.organizationId,
       sourceId: input.succeededPoolItemId,
@@ -361,13 +368,14 @@ async function enqueueParsedResumeEnrichment(input: {
     tasks.push(
       enqueueResumePoolReviewGenerationBestEffort({
         autoMatchJobDescription: input.autoMatchJobDescription,
+        generationToken: input.generationToken,
         jobDescriptionId: input.jobDescriptionId,
         organizationId: input.organizationId,
         poolItemId: input.succeededPoolItemId,
       }),
     );
   }
-  await settleEnrichmentTasks(tasks);
+  await requireEnrichmentTasks(tasks);
 }
 
 // 結果を DB に書き戻し、batch カウンターを更新する。
@@ -525,10 +533,16 @@ async function processClaimedItem(
   }
 
   if (!outcome.errorMessage) {
-    await enqueueParsedResumeEnrichment({
-      ...outcome,
-      organizationId: batchRow.organizationId,
-    });
+    try {
+      await enqueueParsedResumeEnrichment({
+        ...outcome,
+        generationToken: item.id,
+        organizationId: batchRow.organizationId,
+      });
+    } catch (error) {
+      await releaseBatchItemForRetry(batchRow.id, item.id);
+      throw error;
+    }
   }
   await writeOutcome(item, batchRow.id, outcome);
 

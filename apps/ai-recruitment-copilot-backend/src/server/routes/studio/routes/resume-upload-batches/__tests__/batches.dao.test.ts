@@ -715,7 +715,7 @@ describe("recoverIncompleteBatchItems", () => {
 
       expect(reclaimed?.id).toBe(itemId);
       expect(reclaimed?.status).toBe("processing");
-      expect(reclaimed?.attemptCount).toBe(1);
+      expect(reclaimed?.attemptCount).toBe(2);
     } finally {
       await db.delete(resumeUploadBatch).where(eq(resumeUploadBatch.id, batchId));
     }

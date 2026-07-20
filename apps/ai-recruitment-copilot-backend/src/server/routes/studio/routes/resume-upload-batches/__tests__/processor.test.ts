@@ -311,9 +311,7 @@ beforeEach(() => {
     EMPTY_SCREENING_RESULT,
   );
   (findSemanticResumeDuplicates as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-  (enqueueResumeSemanticIndexJobBestEffort as ReturnType<typeof vi.fn>).mockImplementation(() =>
-    Promise.resolve(),
-  );
+  (enqueueResumeSemanticIndexJobBestEffort as ReturnType<typeof vi.fn>).mockResolvedValue(true);
   (replaceDuplicateMatchesForSource as ReturnType<typeof vi.fn>).mockImplementation(() =>
     Promise.resolve(0),
   );
@@ -408,6 +406,7 @@ describe("processNextItem — happy path", () => {
     expect(generateResumeReview).not.toHaveBeenCalled();
     expect(enqueueResumeReviewGenerationForRecordBestEffort).toHaveBeenCalledWith({
       autoMatchJobDescription: false,
+      generationToken: beforeItem.id,
       jobDescriptionId: null,
       organizationId: ORG_A,
       resumeRecordId: recordId,
@@ -516,6 +515,7 @@ describe("processNextItem — resume pool target", () => {
     expect(generateResumeReview).not.toHaveBeenCalled();
     expect(enqueueResumePoolReviewGenerationBestEffort).toHaveBeenCalledWith({
       autoMatchJobDescription: false,
+      generationToken: beforeItem?.id,
       jobDescriptionId,
       organizationId: ORG_A,
       poolItemId: beforeItem?.poolItemId,
@@ -562,6 +562,7 @@ describe("processNextItem — resume pool target", () => {
     expect(record?.jobDescriptionId).toBeNull();
     expect(enqueueResumeReviewGenerationForRecordBestEffort).toHaveBeenCalledWith({
       autoMatchJobDescription: true,
+      generationToken: beforeItem?.id,
       jobDescriptionId: null,
       organizationId: ORG_A,
       resumeRecordId: beforeItem?.resumeRecordId,

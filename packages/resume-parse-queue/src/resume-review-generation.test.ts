@@ -119,6 +119,25 @@ describe("resume review generation queue", () => {
     ).toBe("resume-pool-review-pool-1-jd-1");
   });
 
+  it("builds one upload job id per parse generation", () => {
+    expect(
+      buildResumeReviewGenerationJobId({
+        generationToken: "item:1",
+        jobDescriptionId: null,
+        resumeRecordId: "resume:1",
+        source: "resume_upload",
+      }),
+    ).toBe("resume-review-resume-1-no-jd-parse-item-1");
+    expect(
+      buildResumeReviewGenerationJobId({
+        generationToken: "item:1",
+        jobDescriptionId: "jd:1",
+        poolItemId: "pool:1",
+        source: "resume_pool_upload",
+      }),
+    ).toBe("resume-pool-review-pool-1-jd-1-parse-item-1");
+  });
+
   it("builds unique reassess job ids", () => {
     expect(
       buildResumeReviewGenerationJobId({

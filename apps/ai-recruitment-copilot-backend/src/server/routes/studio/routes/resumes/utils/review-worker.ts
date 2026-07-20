@@ -274,6 +274,7 @@ async function processResumePoolReviewGenerationJob(
         eq(resumePoolItem.id, input.poolItemId),
         eq(resumePoolItem.organizationId, input.organizationId),
         eq(resumePoolItem.jobDescriptionId, jobDescriptionId),
+        eq(resumePoolItem.resumeProfile, record.resumeProfile),
       ),
     );
 }

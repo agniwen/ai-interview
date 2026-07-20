@@ -4,9 +4,9 @@ export async function enqueueResumeSemanticIndexJobBestEffort(input: {
   organizationId: string;
   sourceId: string | null | undefined;
   sourceType: "resume_pool_item" | "studio_interview";
-}): Promise<void> {
+}): Promise<boolean> {
   if (!(input.sourceId && isResumeSemanticIndexEnabled())) {
-    return;
+    return true;
   }
   try {
     const { prepareResumeSemanticIndexJob } = await import("./indexer");
@@ -16,16 +16,18 @@ export async function enqueueResumeSemanticIndexJobBestEffort(input: {
       sourceType: input.sourceType,
     };
     if (!(await prepareResumeSemanticIndexJob(job))) {
-      return;
+      return true;
     }
     const { enqueueResumeSemanticIndexJobs } =
       await import("@arc/resume-parse-queue/resume-semantic-index");
     await enqueueResumeSemanticIndexJobs([job]);
+    return true;
   } catch (error) {
     console.warn("[resume-semantic-index] enqueue failed", {
       error,
       sourceId: input.sourceId,
       sourceType: input.sourceType,
     });
+    return false;
   }
 }

@@ -377,12 +377,13 @@ export function createDefaultJdRecommendationDeps(): JdRecommendationDeps {
       isResumeSemanticIndexEnabled() &&
       Boolean(semanticConfig.qdrantUrl) &&
       Boolean(embeddingConfig.apiKey),
-    enqueueResumeReindex: (input) =>
-      enqueueResumeSemanticIndexJobBestEffort({
+    enqueueResumeReindex: async (input) => {
+      await enqueueResumeSemanticIndexJobBestEffort({
         organizationId: input.organizationId,
         sourceId: input.sourceId,
         sourceType: "resume_pool_item",
-      }),
+      });
+    },
     isReindexQueueConfigured: isResumeParseQueueConfigured,
     loadJobDescriptionsForDisplay,
     loadResumeChunks: (loadInput) => vectorStore.loadResumeEmbeddings(loadInput),

@@ -34,6 +34,7 @@ const RESUME_REVIEW_GENERATION_JOB_TYPES: JobType[] = [...RESUME_REVIEW_GENERATI
 const resumeRecordReviewJobSchema = z.object({
   autoMatchJobDescription: z.boolean().optional(),
   force: z.boolean().optional(),
+  generationToken: z.string().min(1).optional(),
   jobDescriptionId: z.string().min(1).nullable(),
   organizationId: z.string().min(1),
   poolItemId: z.string().min(1).optional(),
@@ -45,6 +46,7 @@ const resumeRecordReviewJobSchema = z.object({
 const resumePoolReviewJobSchema = z.object({
   autoMatchJobDescription: z.boolean().optional(),
   force: z.boolean().optional(),
+  generationToken: z.string().min(1).optional(),
   jobDescriptionId: z.string().min(1).nullable(),
   organizationId: z.string().min(1),
   poolItemId: z.string().min(1),
@@ -136,6 +138,7 @@ function normalizeJobIdPart(value: string): string {
 
 export function buildResumeReviewGenerationJobId(input: {
   force?: boolean;
+  generationToken?: string;
   jobDescriptionId: string | null;
   poolItemId?: string;
   reassessToken?: string;
@@ -150,7 +153,10 @@ export function buildResumeReviewGenerationJobId(input: {
     const jobDescriptionId = input.jobDescriptionId
       ? normalizeJobIdPart(input.jobDescriptionId)
       : "no-jd";
-    return `resume-pool-review-${normalizeJobIdPart(poolItemId)}-${jobDescriptionId}`;
+    const base = `resume-pool-review-${normalizeJobIdPart(poolItemId)}-${jobDescriptionId}`;
+    return input.generationToken
+      ? `${base}-parse-${normalizeJobIdPart(input.generationToken)}`
+      : base;
   }
   if (!input.resumeRecordId) {
     throw new Error("Resume review jobs require resumeRecordId.");
@@ -159,6 +165,9 @@ export function buildResumeReviewGenerationJobId(input: {
     ? normalizeJobIdPart(input.jobDescriptionId)
     : "no-jd";
   const base = `resume-review-${normalizeJobIdPart(input.resumeRecordId)}-${jobDescriptionId}`;
+  if (input.generationToken) {
+    return `${base}-parse-${normalizeJobIdPart(input.generationToken)}`;
+  }
   // Reassess must not collide with completed first-generation job ids.
   if (input.force || input.reassessToken) {
     return `${base}-reassess-${normalizeJobIdPart(input.reassessToken ?? crypto.randomUUID())}`;
@@ -376,7 +385,10 @@ export async function enqueueResumeReviewGenerationJobs(
         return;
       }
       const state = await existing.getState();
-      if (shouldRemoveExistingResumeParseJob(state)) {
+      if (
+        state === "failed" ||
+        (!data.generationToken && shouldRemoveExistingResumeParseJob(state))
+      ) {
         await existing.remove();
       }
     }),

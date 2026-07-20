@@ -87,8 +87,11 @@ export async function enqueueResumeReviewGenerationForRecordBestEffort(
     )
     .limit(1);
 
-  if (!record?.resumeProfile || (!force && record.resumeReview)) {
+  if (!record?.resumeProfile) {
     return false;
+  }
+  if (!force && record.resumeReview) {
+    return true;
   }
 
   try {
@@ -113,6 +116,7 @@ export async function enqueueResumeReviewGenerationForRecordBestEffort(
 
 export async function enqueueResumePoolReviewGenerationBestEffort(input: {
   autoMatchJobDescription?: boolean;
+  generationToken?: string;
   jobDescriptionId: string | null;
   organizationId: string;
   poolItemId: string;
