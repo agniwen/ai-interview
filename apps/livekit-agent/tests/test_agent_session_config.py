@@ -39,7 +39,7 @@ def test_prewarm_balances_interview_pauses_with_response_latency(monkeypatch):
     ]
 
 
-def test_agent_session_uses_scribe_v2_realtime_stt(monkeypatch):
+def test_agent_session_uses_scribe_v2_batch_stt(monkeypatch):
     monkeypatch.setattr(agent_module, "AgentSession", _FakeAgentSession)
     monkeypatch.setattr(agent_module.elevenlabs, "STT", _FakeComponent)
     monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
@@ -56,15 +56,10 @@ def test_agent_session_uses_scribe_v2_realtime_stt(monkeypatch):
 
     stt = session.kwargs["stt"]
 
-    assert stt.kwargs["model_id"] == "scribe_v2_realtime"
+    assert stt.kwargs["model_id"] == "scribe_v2"
     assert stt.kwargs["language_code"] == "zh"
     assert stt.kwargs["tag_audio_events"] is False
-    assert stt.kwargs["server_vad"] == {
-        "min_silence_duration_ms": 100,
-        "min_speech_duration_ms": 100,
-        "vad_silence_threshold_secs": 0.6,
-        "vad_threshold": 0.4,
-    }
+    assert "server_vad" not in stt.kwargs
     assert "api_key" not in stt.kwargs
 
 

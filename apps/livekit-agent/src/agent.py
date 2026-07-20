@@ -294,14 +294,8 @@ def _build_session(
     return AgentSession(
         stt=elevenlabs.STT(
             language_code="zh",
-            model_id="scribe_v2_realtime",
+            model_id="scribe_v2",
             tag_audio_events=False,
-            server_vad={
-                "vad_silence_threshold_secs": 0.6,
-                "vad_threshold": 0.4,
-                "min_speech_duration_ms": 100,
-                "min_silence_duration_ms": 100,
-            },
         ),
         llm=openai.LLM(
             # 通过 DashScope OpenAI 兼容端点调通义系模型, 走 base_url 覆盖即可
