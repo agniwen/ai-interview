@@ -173,6 +173,7 @@ async function buildSnapshotPayloadFromDatabase(
   const [jd] = candidate.jobDescriptionId
     ? await tx
         .select({
+          description: jobDescription.description,
           id: jobDescription.id,
           name: jobDescription.name,
           prompt: jobDescription.prompt,
@@ -272,6 +273,7 @@ async function buildSnapshotPayloadFromDatabase(
     })),
     jobDescription: jd
       ? {
+          description: jd.description,
           id: jd.id,
           name: jd.name,
           prompt: jd.prompt,

@@ -33,7 +33,11 @@ export interface InterviewScheduleEntry {
 export interface CandidateInterviewView {
   id: string;
   candidateName: string;
+  companyContext: string | null;
   targetRole: string | null;
+  jobDescriptionDescription: string | null;
+  jobDescriptionName: string | null;
+  jobDescriptionPrompt: string | null;
   resumeProfile: ResumeProfile | null;
   interviewQuestions: InterviewQuestion[];
   currentRoundId: string | null;
@@ -160,6 +164,7 @@ export function buildCandidateInterviewView(
 
   return {
     candidateName: record.candidateName,
+    companyContext: null,
     currentRoundAllowTextInput: currentEntry?.allowTextInput ?? false,
     currentRoundCanResume: computeCanResume(currentEntry),
     currentRoundId: currentEntry?.id ?? null,
@@ -169,6 +174,9 @@ export function buildCandidateInterviewView(
     currentRoundTime: currentEntry?.scheduledAt ?? null,
     id: record.id,
     interviewQuestions: record.interviewQuestions,
+    jobDescriptionDescription: null,
+    jobDescriptionName: null,
+    jobDescriptionPrompt: null,
     resumeProfile: record.resumeProfile,
     targetRole: record.targetRole,
   };
