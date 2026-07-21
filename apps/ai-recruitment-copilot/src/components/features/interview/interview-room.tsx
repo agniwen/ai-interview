@@ -254,9 +254,9 @@ function WaitingView({
     <>
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-0 -z-20 bg-[url('/textures/interview-prep-light.png')] bg-center bg-cover bg-no-repeat dark:bg-[url('/textures/interview-prep-dark.png')]"
+        className="pointer-events-none fixed inset-0 -z-20 bg-[url('/textures/interview-prep-light-monet.jpg')] bg-center bg-cover bg-no-repeat dark:bg-[url('/textures/interview-prep-dark-monet.jpg')]"
       />
-      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-white/5 dark:hidden" />
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-background/45" />
       <div className="fixed top-4 right-4 z-20">
         <ThemeToggle />
       </div>
@@ -288,7 +288,7 @@ function WaitingView({
                 {mutedLabel}
               </Button>
               <Button
-                className="flex-[1.5] gap-2 md:min-w-32 md:flex-none"
+                className="flex-1 gap-2 md:min-w-32 md:flex-none"
                 disabled={startDisabled}
                 onClick={() => openNotice()}
                 size="sm"

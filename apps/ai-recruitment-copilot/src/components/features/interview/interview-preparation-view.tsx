@@ -73,9 +73,9 @@ export function InterviewPreparationView({
     <>
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-0 -z-20 bg-[url('/textures/interview-prep-light.png')] bg-center bg-cover bg-no-repeat dark:bg-[url('/textures/interview-prep-dark.png')]"
+        className="pointer-events-none fixed inset-0 -z-20 bg-[url('/textures/interview-prep-light-monet.jpg')] bg-center bg-cover bg-no-repeat dark:bg-[url('/textures/interview-prep-dark-monet.jpg')]"
       />
-      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-white/5 dark:hidden" />
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-background/45" />
       <div className="fixed top-4 right-4 z-20">
         <ThemeToggle />
       </div>
@@ -99,7 +99,7 @@ export function InterviewPreparationView({
                 </p>
               </div>
 
-              <dl className="mt-10 grid border-border/70 border-y sm:grid-cols-3 sm:divide-x sm:divide-border/70">
+              <dl className="mt-10 grid border-foreground/15 border-y sm:grid-cols-3 sm:divide-x sm:divide-foreground/15">
                 <ScheduleItem
                   label="面试时间"
                   value={formatInterviewTime(interviewView.currentRoundTime)}
@@ -117,14 +117,14 @@ export function InterviewPreparationView({
               </dl>
             </header>
 
-            <div className="mt-4 grid border-border/70 border-b lg:grid-cols-2 lg:divide-x lg:divide-border/70">
+            <div className=" grid border-foreground/15 border-b lg:grid-cols-2 lg:divide-x lg:divide-foreground/15">
               <ContextSection className="lg:pr-10" index="01" title="关于公司">
                 <p className="whitespace-pre-wrap">
                   {interviewView.companyContext?.trim() || "公司暂未提供详细介绍。"}
                 </p>
               </ContextSection>
               <ContextSection
-                className="border-border/70 border-t lg:border-t-0 lg:pl-10"
+                className="border-foreground/15 border-t lg:border-t-0 lg:pl-10"
                 index="02"
                 title={roleName}
               >
@@ -150,7 +150,7 @@ export function InterviewPreparationView({
                 </div>
               </div>
               <InterviewRules
-                className="mt-5 grid divide-y-0 border-border/70 border-t md:grid-cols-2 md:gap-x-10 [&>li]:border-border/70 [&>li]:border-b"
+                className="mt-5 grid divide-y-0 border-foreground/15 border-t md:grid-cols-2 md:gap-x-10 [&>li]:border-foreground/15 [&>li]:border-b"
                 recordingEnabled={recordingEnabled}
               />
             </section>
