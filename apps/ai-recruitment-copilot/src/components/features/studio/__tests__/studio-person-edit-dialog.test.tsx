@@ -165,6 +165,8 @@ function makeDetail(overrides: Partial<ResumeLibraryDetail> = {}): ResumeLibrary
     resumeProfileSnapshot: {
       education: [],
       educationHasMore: false,
+      projects: [],
+      projectsHasMore: false,
       work: [],
       workHasMore: false,
     },

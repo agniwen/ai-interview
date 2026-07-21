@@ -96,12 +96,28 @@ export interface ResumeLibraryProfileSnapshotLine {
   secondary: string | null;
 }
 
+/**
+ * Compact resume profile projection for list / match cards.
+ * Library list cards use work + education only; duplicate-match cards may also
+ * include projects (recent 3 companies / 2 education / 3 projects).
+ */
 export interface ResumeLibraryProfileSnapshot {
   education: ResumeLibraryProfileSnapshotLine[];
   educationHasMore: boolean;
+  projects: ResumeLibraryProfileSnapshotLine[];
+  projectsHasMore: boolean;
   work: ResumeLibraryProfileSnapshotLine[];
   workHasMore: boolean;
 }
+
+export const EMPTY_RESUME_PROFILE_SNAPSHOT: ResumeLibraryProfileSnapshot = {
+  education: [],
+  educationHasMore: false,
+  projects: [],
+  projectsHasMore: false,
+  work: [],
+  workHasMore: false,
+};
 
 /**
  * 招聘台列表行 DTO。AI 面试列表的精简投影：去掉 status / interviewQuestions /

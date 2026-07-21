@@ -4,6 +4,7 @@ import { memo } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 
 import { TimeDisplay } from "@/components/features/display/time-display";
+import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
 import { ResumeLifecycleBadge } from "@/components/features/studio/resumes/resume-lifecycle-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -185,9 +186,11 @@ function duplicateMatchBadge(record: ResumeLibraryListRecord, onClick?: () => vo
   if (!record.duplicateMatch) {
     return null;
   }
+  const isDuplicate = record.duplicateMatch.highestLevel === "high";
+  const badgeText = isDuplicate ? "重复简历" : "相似简历";
   const label =
-    record.duplicateMatch.count > 1 ? `疑似重复 ${record.duplicateMatch.count} 条` : "疑似重复";
-  const variant = record.duplicateMatch.highestLevel === "high" ? "destructive" : "secondary";
+    record.duplicateMatch.count > 1 ? `${badgeText} ${record.duplicateMatch.count} 条` : badgeText;
+  const variant = isDuplicate ? "destructive" : "secondary";
   return onClick ? (
     <Badge
       className="shrink-0 cursor-pointer"
@@ -390,7 +393,10 @@ function ResumeLibraryCardComponent({
                   onClick={() => onOpenDetail(record, "overview")}
                   type="button"
                 >
-                  {record.candidateName}
+                  <span>{record.candidateName}</span>{" "}
+                  <span className="font-normal text-muted-foreground/60 text-xs">
+                    ({formatResumeRecordDisplayId(record.id)})
+                  </span>
                 </button>
                 {duplicateMatchBadge(record, () => onShowDuplicateMatches(record))}
                 <ResumeLifecycleBadge

@@ -21,6 +21,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { ResumeDuplicateMatchesDialog } from "@/components/features/resume/resume-dedup-overlay";
+import { toDedupSourceFromLibraryRecord } from "@/components/features/resume/resume-dedup-source";
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
 import { listBulkResumeBatches } from "@/lib/client/api/endpoints/bulk-resume-upload";
 import { BulkUploadConfirmDialog } from "@/components/features/studio/resumes/bulk-upload-confirm-dialog";
@@ -613,6 +614,7 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
           }
         }}
         open={duplicateMatchRecord !== null}
+        source={duplicateMatchRecord ? toDedupSourceFromLibraryRecord(duplicateMatchRecord) : null}
         title={
           duplicateMatchRecord
             ? `${formatResumeCandidateTitle(

@@ -39,6 +39,7 @@ import type {
   HumanInterviewRoundRecord,
   OfferDraftRecord,
 } from "@arc/shared/studio-pipeline-stages";
+import type { ResumeLibraryProfileSnapshot } from "@arc/shared/studio-resumes";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
 
@@ -54,6 +55,9 @@ export interface DedupMatchRecord {
   candidatePhone: string | null;
   targetRole: string | null;
   jobDescriptionName: string | null;
+  resumeProfileSnapshot?: ResumeLibraryProfileSnapshot | null;
+  /** Mastered skills for comparison UI (top skills from resume profile). */
+  skills?: string[];
   status: "active" | "archived";
   createdAt: string;
   conflictingSignals?: string[];
@@ -65,6 +69,23 @@ export interface DedupMatchRecord {
     skillRole?: number;
     workProject?: number;
   };
+}
+
+/**
+ * Source candidate summary shown in the "view suspected duplicates" dialog.
+ * Built client-side from list-row data so the modal can compare without an extra fetch.
+ */
+export interface DedupSourceCandidate {
+  id: string;
+  candidateName: string;
+  candidateEmail: string | null;
+  candidatePhone: string | null;
+  targetRole: string | null;
+  jobDescriptionName: string | null;
+  resumeProfileSnapshot: ResumeLibraryProfileSnapshot | null;
+  skills: string[];
+  sourceType?: ResumeSemanticSourceType;
+  createdAt?: string;
 }
 
 /**

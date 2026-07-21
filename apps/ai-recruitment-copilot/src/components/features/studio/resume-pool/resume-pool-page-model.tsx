@@ -135,9 +135,11 @@ export function duplicateMatchBadge(record: ResumePoolListRecord, onClick?: () =
   if (!record.duplicateMatch) {
     return null;
   }
+  const isDuplicate = record.duplicateMatch.highestLevel === "high";
+  const badgeText = isDuplicate ? "重复简历" : "相似简历";
   const label =
-    record.duplicateMatch.count > 1 ? `疑似重复 ${record.duplicateMatch.count} 条` : "疑似重复";
-  const variant = record.duplicateMatch.highestLevel === "high" ? "destructive" : "secondary";
+    record.duplicateMatch.count > 1 ? `${badgeText} ${record.duplicateMatch.count} 条` : badgeText;
+  const variant = isDuplicate ? "destructive" : "secondary";
   return onClick ? (
     <Badge
       className="cursor-pointer"
@@ -413,9 +415,11 @@ export function toResumeDedupMatches(
     id: match.id,
     jobDescriptionName: match.jobDescriptionName,
     level: match.level,
+    resumeProfileSnapshot: match.resumeProfileSnapshot,
     score: match.score,
     semanticReasons: match.semanticReasons,
     similarity: match.similarity,
+    skills: match.skills,
     status: match.status,
     targetRole: match.targetRole,
   }));

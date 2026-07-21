@@ -5,6 +5,7 @@ import { jobDescription, resumePoolItem, studioInterview } from "@arc/db-schema/
 import type { ResumePoolScope, ResumeSemanticSourceType } from "@arc/db-schema/schema";
 import { getCandidateActivityStatus } from "@arc/shared/candidate-pipeline-machine";
 import type { DedupMatchRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
+import { buildResumeProfileSnapshotFromProfile } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resume-profile-snapshot";
 import { QdrantResumeVectorStore } from "../qdrant/resume-vector-store";
 import {
   embedResumeSemanticTexts,
@@ -163,9 +164,15 @@ export async function findSemanticResumeDuplicates(
           id: candidate.id,
           jobDescriptionName: candidate.jobDescriptionName,
           level: rerank.level,
+          resumeProfileSnapshot: buildResumeProfileSnapshotFromProfile(candidate.resumeProfile),
           score: rerank.score,
           semanticReasons: rerank.reasons,
           similarity: toSimilarity(vectorScores),
+          skills: (candidate.resumeProfile?.skills ?? [])
+            .map((skill) => skill.trim())
+            .filter((skill) => skill && skill !== "未发现信息")
+            .filter((skill, index, all) => all.indexOf(skill) === index)
+            .slice(0, 12),
           sourceType: candidateSourceType,
           status: candidate.status,
           targetRole: candidate.targetRole,

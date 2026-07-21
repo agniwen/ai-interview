@@ -1,6 +1,8 @@
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import type { DedupMatchRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
+import { buildResumeProfileSnapshotFromProfile } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resume-profile-snapshot";
+import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import {
   jobDescription,
   resumeDuplicateMatch,
@@ -147,6 +149,28 @@ export async function listActiveDuplicateMatchCounts(input: {
 
 type DuplicateMatchRow = typeof resumeDuplicateMatch.$inferSelect;
 
+const DEDUP_SKILLS_LIMIT = 12;
+
+function profileSkills(profile: ResumeProfile | null | undefined): string[] {
+  if (!profile?.skills?.length) {
+    return [];
+  }
+  const seen = new Set<string>();
+  const skills: string[] = [];
+  for (const raw of profile.skills) {
+    const skill = raw?.trim();
+    if (!skill || skill === "未发现信息" || seen.has(skill)) {
+      continue;
+    }
+    seen.add(skill);
+    skills.push(skill);
+    if (skills.length >= DEDUP_SKILLS_LIMIT) {
+      break;
+    }
+  }
+  return skills;
+}
+
 function toMatchRecord(
   match: DuplicateMatchRow,
   target: {
@@ -156,6 +180,7 @@ function toMatchRecord(
     createdAt: Date;
     id: string;
     jobDescriptionName: string | null;
+    resumeProfile: ResumeProfile | null;
     status: DedupMatchRecord["status"];
     targetRole: string | null;
   },
@@ -169,9 +194,11 @@ function toMatchRecord(
     id: target.id,
     jobDescriptionName: target.jobDescriptionName,
     level: match.level,
+    resumeProfileSnapshot: buildResumeProfileSnapshotFromProfile(target.resumeProfile),
     score: match.score,
     semanticReasons: match.reasons,
     similarity: match.similarity ?? undefined,
+    skills: profileSkills(target.resumeProfile),
     sourceType: match.matchedSourceType,
     status: target.status,
     targetRole: target.targetRole,
@@ -215,6 +242,7 @@ export async function listDuplicateMatchesForSource(input: {
             createdAt: studioInterview.createdAt,
             id: studioInterview.id,
             jobDescriptionName: jobDescription.name,
+            resumeProfile: studioInterview.resumeProfile,
             status: sql<"active" | "archived">`
               CASE
                 WHEN ${studioInterview.pipelineStage} = 'closed' THEN 'archived'
@@ -247,6 +275,7 @@ export async function listDuplicateMatchesForSource(input: {
             createdAt: resumePoolItem.createdAt,
             id: resumePoolItem.id,
             jobDescriptionName: jobDescription.name,
+            resumeProfile: resumePoolItem.resumeProfile,
             status: resumePoolItem.status,
             targetRole: resumePoolItem.targetRole,
           })

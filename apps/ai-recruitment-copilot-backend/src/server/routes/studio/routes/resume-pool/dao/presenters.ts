@@ -1,6 +1,7 @@
 import type { resumePoolItem } from "@arc/db-schema/schema";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ResumeDuplicateMatchSummary } from "@arc/shared/resume-duplicates";
+import { buildResumeProfileSnapshotFromProfile } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resume-profile-snapshot";
 import {
   formatResumeEducationItems,
   formatResumeEducationLines,
@@ -113,6 +114,7 @@ export function toResumePoolListRecord(
     resumeParseError: row.resumeParseError,
     resumeParseStatus: row.resumeParseStatus,
     resumeParsedAt: serializeDate(row.resumeParsedAt),
+    resumeProfileSnapshot: buildResumeProfileSnapshotFromProfile(row.resumeProfile),
     resumeStorageKey: row.resumeStorageKey,
     scope: row.scope,
     skillsNormalized: row.skillsNormalized,

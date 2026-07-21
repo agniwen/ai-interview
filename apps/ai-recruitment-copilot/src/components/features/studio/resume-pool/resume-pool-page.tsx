@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { useDataGridState } from "@/components/data-grid";
 import { Toolbar } from "@/components/data-grid/parts/toolbar";
 import { ResumeDuplicateMatchesDialog } from "@/components/features/resume/resume-dedup-overlay";
+import { toDedupSourceFromPoolRecord } from "@/components/features/resume/resume-dedup-source";
 import { getPreviewableResumeDocumentKind } from "@/components/features/resume/resume-document-preview-button";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { BulkUploadProgressDialog } from "@/components/features/studio/resumes/bulk-upload-progress-dialog";
@@ -634,6 +635,7 @@ export function ResumePoolPage() {
           }
         }}
         open={duplicateMatchRecord !== null}
+        source={duplicateMatchRecord ? toDedupSourceFromPoolRecord(duplicateMatchRecord) : null}
         title={
           duplicateMatchRecord
             ? `${getCandidateTitleWithId(duplicateMatchRecord)} 的疑似重复简历`
