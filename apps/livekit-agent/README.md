@@ -41,9 +41,12 @@ lives **inside `apps/livekit-agent/`**, separate from the server environment:
 values (`LIVEKIT_*`, `CALLBACK_BASE_URL`, `AGENT_CALLBACK_SECRET`,
 `RECORDING_R2_*`) must stay in lock-step with whichever server runtime is deployed.
 
-If local `dev` runs print `ai_coustics Missing configuration`, set
-`INTERVIEW_DISABLE_NOISE_CANCELLATION=1` in the local `.env`. Keep it unset in
-deployed LiveKit Cloud workers so Cloud audio enhancement remains active.
+For a self-hosted LiveKit server and agent worker, set
+`INTERVIEW_SELF_HOSTED=1`. This pins the local `v1-mini` turn detector, uses
+VAD interruption handling, and disables Cloud-only noise cancellation. Leave
+it unset for LiveKit Cloud so the full turn detector, adaptive interruption,
+and Cloud audio enhancement remain active. For local troubleshooting, you can
+disable only noise cancellation with `INTERVIEW_DISABLE_NOISE_CANCELLATION=1`.
 
 ## Running
 

@@ -131,6 +131,56 @@ def test_agent_session_uses_audio_turn_detector_and_user_turn_limit(monkeypatch)
     }
 
 
+def test_cloud_session_keeps_adaptive_interruption(monkeypatch):
+    turn_detector_calls = []
+
+    def fake_turn_detector(**kwargs):
+        turn_detector_calls.append(kwargs)
+        return "audio-turn-detector"
+
+    monkeypatch.setattr(agent_module, "_SELF_HOSTED", False)
+    monkeypatch.setattr(agent_module, "AgentSession", _FakeAgentSession)
+    monkeypatch.setattr(agent_module.elevenlabs, "STT", _FakeComponent)
+    monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
+    monkeypatch.setattr(agent_module.minimax, "TTS", _FakeComponent)
+    monkeypatch.setattr(agent_module.inference, "TurnDetector", fake_turn_detector)
+
+    session = _build_session(
+        proc=SimpleNamespace(userdata={"vad": "silero-vad"}),
+        selected_voice="voice_agent_Male_Phone_1",
+        state=object(),
+    )
+
+    assert turn_detector_calls == [{}]
+    assert session.kwargs["turn_handling"]["interruption"]["mode"] == "adaptive"
+
+
+def test_self_hosted_session_uses_local_turn_detection_and_vad_interruption(
+    monkeypatch,
+):
+    turn_detector_calls = []
+
+    def fake_turn_detector(**kwargs):
+        turn_detector_calls.append(kwargs)
+        return "audio-turn-detector"
+
+    monkeypatch.setattr(agent_module, "_SELF_HOSTED", True)
+    monkeypatch.setattr(agent_module, "AgentSession", _FakeAgentSession)
+    monkeypatch.setattr(agent_module.elevenlabs, "STT", _FakeComponent)
+    monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
+    monkeypatch.setattr(agent_module.minimax, "TTS", _FakeComponent)
+    monkeypatch.setattr(agent_module.inference, "TurnDetector", fake_turn_detector)
+
+    session = _build_session(
+        proc=SimpleNamespace(userdata={"vad": "silero-vad"}),
+        selected_voice="voice_agent_Male_Phone_1",
+        state=object(),
+    )
+
+    assert turn_detector_calls == [{"version": "v1-mini"}]
+    assert session.kwargs["turn_handling"]["interruption"]["mode"] == "vad"
+
+
 def test_agent_session_uses_pcm_for_minimax_streaming_audio(monkeypatch):
     monkeypatch.setattr(agent_module, "AgentSession", _FakeAgentSession)
     monkeypatch.setattr(agent_module.elevenlabs, "STT", _FakeComponent)
@@ -164,3 +214,23 @@ def test_room_options_disable_text_input_when_round_disallows_it():
 
     assert options.text_input is False
     assert options.close_on_disconnect is False
+
+
+def test_self_hosted_room_options_disable_cloud_noise_cancellation(monkeypatch):
+    monkeypatch.setattr(agent_module, "_SELF_HOSTED", True)
+    monkeypatch.setattr(agent_module, "_DISABLE_NOISE_CANCELLATION", False)
+
+    options = _build_room_options(allow_text_input=True)
+
+    assert options.audio_input.noise_cancellation is None
+
+
+def test_cloud_room_options_keep_noise_cancellation(monkeypatch):
+    monkeypatch.setattr(agent_module, "_SELF_HOSTED", False)
+    monkeypatch.setattr(agent_module, "_DISABLE_NOISE_CANCELLATION", False)
+
+    options = _build_room_options(allow_text_input=True)
+
+    assert (
+        options.audio_input.noise_cancellation is agent_module._pick_noise_cancellation
+    )

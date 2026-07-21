@@ -2,7 +2,7 @@ import json
 import logging
 
 import report as report_module
-from agent_config import resolve_agent_name
+from agent_config import resolve_agent_name, resolve_self_hosted
 from dispatch_context import parse_dispatch_context
 
 
@@ -34,6 +34,11 @@ def test_agent_name_uses_trimmed_environment_override():
     assert (
         resolve_agent_name({"AGENT_NAME": "  interview-agent  "}) == "interview-agent"
     )
+
+
+def test_self_hosted_mode_is_opt_in():
+    assert resolve_self_hosted({}) is False
+    assert resolve_self_hosted({"INTERVIEW_SELF_HOSTED": "1"}) is True
 
 
 async def test_report_failure_log_does_not_include_transcript(caplog, monkeypatch):

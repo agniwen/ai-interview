@@ -53,7 +53,7 @@ from livekit.plugins import (
     openai,
 )
 
-from agent_config import resolve_agent_name
+from agent_config import resolve_agent_name, resolve_self_hosted
 from dispatch_context import (
     DispatchContextError,
     InterviewDispatchContext,
@@ -72,6 +72,7 @@ logger = logging.getLogger("agent")
 load_dotenv()
 
 AGENT_NAME = resolve_agent_name()
+_SELF_HOSTED = resolve_self_hosted()
 
 
 # 本地 dev 时设置 INTERVIEW_DISABLE_NOISE_CANCELLATION=1 关掉噪声抑制. 默认
@@ -318,7 +319,11 @@ def _build_session(
         turn_handling={
             # LiveKit Agents 1.6 audio turn detector uses acoustic + semantic
             # cues and supersedes the deprecated text MultilingualModel.
-            "turn_detection": inference.TurnDetector(),
+            "turn_detection": (
+                inference.TurnDetector(version="v1-mini")
+                if _SELF_HOSTED
+                else inference.TurnDetector()
+            ),
             "endpointing": {
                 "mode": "dynamic",
                 # Keep slightly more room than the audio detector's 0.3/2.5s
@@ -327,7 +332,7 @@ def _build_session(
                 "max_delay": 3.0,
             },
             "interruption": {
-                "mode": "adaptive",
+                "mode": "vad" if _SELF_HOSTED else "adaptive",
                 "min_duration": 0.8,
                 "min_words": 1,
                 "false_interruption_timeout": 2.0,
@@ -358,7 +363,9 @@ def _build_room_options(*, allow_text_input: bool) -> room_io.RoomOptions:
         text_input=allow_text_input,
         audio_input=room_io.AudioInputOptions(
             noise_cancellation=(
-                None if _DISABLE_NOISE_CANCELLATION else _pick_noise_cancellation
+                None
+                if _SELF_HOSTED or _DISABLE_NOISE_CANCELLATION
+                else _pick_noise_cancellation
             ),
         ),
         close_on_disconnect=False,
