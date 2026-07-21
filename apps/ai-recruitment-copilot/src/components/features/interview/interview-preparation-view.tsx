@@ -1,6 +1,7 @@
 "use client";
 
 import type { CandidateInterviewView } from "@arc/shared/interview/interview-record";
+import { cn } from "@arc/shared/utils";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -21,12 +22,36 @@ function formatInterviewTime(value: string | Date | null) {
   return Number.isNaN(date.getTime()) ? "以邀请通知为准" : DATE_TIME_FORMATTER.format(date);
 }
 
-function ContextSection({ children, title }: { children: React.ReactNode; title: string }) {
+function ContextSection({
+  children,
+  className,
+  index,
+  title,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  index: string;
+  title: string;
+}) {
   return (
-    <section className="px-5 py-7 sm:px-7 sm:py-8">
-      <h2 className="font-medium text-sm sm:text-base">{title}</h2>
-      <div className="mt-3 min-w-0 text-foreground/75 text-sm leading-7">{children}</div>
+    <section className={cn("py-8 sm:py-10 lg:py-12", className)}>
+      <div className="flex items-baseline gap-3">
+        <span className="font-mono text-[10px] text-muted-foreground tracking-[0.16em]">
+          {index}
+        </span>
+        <h2 className="font-medium text-base tracking-tight sm:text-lg">{title}</h2>
+      </div>
+      <div className="mt-4 min-w-0 text-foreground/70 text-sm leading-7 sm:pl-8">{children}</div>
     </section>
+  );
+}
+
+function ScheduleItem({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="grid content-start gap-1 px-0 py-4 sm:px-6 sm:py-5 sm:first:pl-0 sm:last:pr-0">
+      <dt className="text-[11px] text-muted-foreground tracking-wide">{label}</dt>
+      <dd className="text-sm leading-6">{value}</dd>
+    </div>
   );
 }
 
@@ -51,73 +76,83 @@ export function InterviewPreparationView({
         className="pointer-events-none fixed inset-0 -z-20 bg-[url('/textures/interview-prep-light.png')] bg-center bg-cover bg-no-repeat dark:bg-[url('/textures/interview-prep-dark.png')]"
       />
       <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-white/5 dark:hidden" />
-      <div className="fixed top-4 right-4 z-20 rounded-md bg-background/20 p-1 backdrop-blur-sm">
+      <div className="fixed top-4 right-4 z-20">
         <ThemeToggle />
       </div>
 
       <main className="relative h-dvh w-full select-none">
         <ScrollArea className="h-full w-full">
-          <div className="mx-auto flex w-full max-w-5xl flex-col px-5 pt-12 pb-40 sm:px-6 sm:pt-20 sm:pb-36 md:pt-16">
-            <header className="max-w-3xl">
-              <h1 className="text-balance text-2xl tracking-tight sm:text-4xl">
-                {interviewView.candidateName
-                  ? `${interviewView.candidateName}，先了解一下这次面试`
-                  : "先了解一下这次面试"}
-              </h1>
-              <p className="mt-3 max-w-2xl text-muted-foreground text-sm leading-6 sm:text-base">
-                开始前花几分钟了解公司、岗位和完整流程。准备充分后，再进入信息填写与 AI 面试。
-              </p>
-            </header>
-
-            <div className="relative mt-10 grid overflow-hidden rounded-xl border border-input bg-background/70 shadow-xs/5 before:pointer-events-none before:absolute before:inset-px before:rounded-[calc(var(--radius-xl)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] backdrop-blur-xl dark:bg-background/65 dark:before:shadow-[0_-1px_--theme(--color-white/8%)] lg:grid-cols-[minmax(0,1fr)_18rem]">
-              <div className="divide-y divide-border/60">
-                <ContextSection title="关于公司">
-                  <p className="whitespace-pre-wrap">
-                    {interviewView.companyContext?.trim() || "公司暂未提供详细介绍。"}
-                  </p>
-                </ContextSection>
-                <ContextSection title={roleName}>
-                  <MarkdownView
-                    className="text-foreground/75 text-sm [&_li]:leading-7 [&_p]:leading-7"
-                    content={
-                      interviewView.jobDescriptionDescription?.trim() || "岗位暂未提供详细说明。"
-                    }
-                  />
-                </ContextSection>
+          <div className="mx-auto flex w-full max-w-5xl flex-col px-5 pt-12 pb-40 sm:px-8 sm:pt-20 sm:pb-36 md:pt-16">
+            <header>
+              <div className="flex items-center gap-3 text-[11px] text-muted-foreground tracking-[0.18em]">
+                <span aria-hidden className="h-px w-8 bg-foreground/35" />
+                面试准备 · 第一步
               </div>
-
-              <aside className="border-border/60 border-t lg:border-t-0 lg:border-l">
-                <h2 className="px-5 pt-7 font-medium text-base sm:px-7 lg:pt-8">本轮安排</h2>
-                <dl className="mt-5 divide-y divide-border/60 text-sm">
-                  <div className="grid gap-1 px-5 pb-3 sm:px-7">
-                    <dt className="text-muted-foreground text-xs">面试时间</dt>
-                    <dd className="leading-6">
-                      {formatInterviewTime(interviewView.currentRoundTime)}
-                    </dd>
-                  </div>
-                  <div className="grid gap-1 px-5 py-3 sm:px-7">
-                    <dt className="text-muted-foreground text-xs">预计用时</dt>
-                    <dd>20 分钟内</dd>
-                  </div>
-                  <div className="grid gap-1 px-5 pt-3 pb-7 sm:px-7 lg:pb-8">
-                    <dt className="text-muted-foreground text-xs">面试内容</dt>
-                    <dd>
-                      {interviewView.currentRoundLabel ?? "AI 面试"}
-                      {questionCount > 0 ? ` · ${questionCount} 题` : ""}
-                    </dd>
-                  </div>
-                </dl>
-              </aside>
-            </div>
-
-            <section className="mt-10 border-border/70 border-b">
-              <div className="border-border/60 border-b py-5">
-                <h2 className="font-medium text-base">面试注意事项</h2>
-                <p className="mt-1 text-muted-foreground text-xs sm:text-sm">
-                  确认以下事项后再继续，正式开始前还会进行一次设备检测。
+              <div className="mt-7 grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-end lg:gap-16">
+                <h1 className="max-w-3xl text-balance text-3xl leading-tight tracking-[-0.03em] sm:text-5xl sm:leading-[1.1]">
+                  {interviewView.candidateName
+                    ? `${interviewView.candidateName}，先了解一下这次面试`
+                    : "先了解一下这次面试"}
+                </h1>
+                <p className="max-w-2xl text-muted-foreground text-sm leading-7">
+                  开始前花几分钟了解公司、岗位和完整流程。准备充分后，再进入信息填写与 AI 面试。
                 </p>
               </div>
-              <InterviewRules recordingEnabled={recordingEnabled} />
+
+              <dl className="mt-10 grid border-border/70 border-y sm:grid-cols-3 sm:divide-x sm:divide-border/70">
+                <ScheduleItem
+                  label="面试时间"
+                  value={formatInterviewTime(interviewView.currentRoundTime)}
+                />
+                <ScheduleItem label="预计用时" value="20 分钟内" />
+                <ScheduleItem
+                  label="面试内容"
+                  value={
+                    <>
+                      {interviewView.currentRoundLabel ?? "AI 面试"}
+                      {questionCount > 0 ? ` · ${questionCount} 题` : ""}
+                    </>
+                  }
+                />
+              </dl>
+            </header>
+
+            <div className="mt-4 grid border-border/70 border-b lg:grid-cols-2 lg:divide-x lg:divide-border/70">
+              <ContextSection className="lg:pr-10" index="01" title="关于公司">
+                <p className="whitespace-pre-wrap">
+                  {interviewView.companyContext?.trim() || "公司暂未提供详细介绍。"}
+                </p>
+              </ContextSection>
+              <ContextSection
+                className="border-border/70 border-t lg:border-t-0 lg:pl-10"
+                index="02"
+                title={roleName}
+              >
+                <MarkdownView
+                  className="text-foreground/70 text-sm [&_li]:leading-7 [&_p]:leading-7"
+                  content={
+                    interviewView.jobDescriptionDescription?.trim() || "岗位暂未提供详细说明。"
+                  }
+                />
+              </ContextSection>
+            </div>
+
+            <section className="pt-10 sm:pt-14">
+              <div className="flex items-baseline gap-3">
+                <span className="font-mono text-[10px] text-muted-foreground tracking-[0.16em]">
+                  03
+                </span>
+                <div>
+                  <h2 className="font-medium text-base tracking-tight sm:text-lg">面试注意事项</h2>
+                  <p className="mt-1 text-muted-foreground text-xs leading-6 sm:text-sm">
+                    确认以下事项后再继续，正式开始前还会进行一次设备检测。
+                  </p>
+                </div>
+              </div>
+              <InterviewRules
+                className="mt-5 grid divide-y-0 border-border/70 border-t md:grid-cols-2 md:gap-x-10 [&>li]:border-border/70 [&>li]:border-b"
+                recordingEnabled={recordingEnabled}
+              />
             </section>
           </div>
         </ScrollArea>
