@@ -6,7 +6,7 @@ import {
   useTrackToggle,
 } from "@livekit/components-react";
 import { Track } from "livekit-client";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 
 function trackSourceToProtocol(source: Track.Source) {
   // NOTE: this mapping avoids importing the protocol package as that leads to a significant bundle size increase
@@ -56,6 +56,7 @@ export interface UseInputControlsProps {
 }
 
 export interface UseInputControlsReturn {
+  activeMicrophoneDeviceId: string;
   microphoneTrack?: TrackReference;
   microphoneToggle: ReturnType<typeof useTrackToggle<Track.Source.Microphone>>;
   cameraToggle: ReturnType<typeof useTrackToggle<Track.Source.Camera>>;
@@ -70,6 +71,7 @@ export function useInputControls({
   saveUserChoices = true,
   onDeviceError,
 }: UseInputControlsProps = {}): UseInputControlsReturn {
+  const [activeMicrophoneDeviceId, setActiveMicrophoneDeviceId] = useState("default");
   const {
     local: { microphoneTrack },
   } = useSessionContext();
@@ -98,7 +100,9 @@ export function useInputControls({
 
   const handleAudioDeviceChange = useCallback(
     (deviceId: string) => {
-      saveAudioInputDeviceId(deviceId ?? "default");
+      const nextDeviceId = deviceId ?? "default";
+      setActiveMicrophoneDeviceId(nextDeviceId);
+      saveAudioInputDeviceId(nextDeviceId);
     },
     [saveAudioInputDeviceId],
   );
@@ -151,6 +155,7 @@ export function useInputControls({
   );
 
   return {
+    activeMicrophoneDeviceId,
     cameraToggle: {
       ...cameraToggle,
       toggle: handleToggleCamera,

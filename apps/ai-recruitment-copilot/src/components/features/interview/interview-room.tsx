@@ -591,6 +591,10 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
     async (options?: { muted?: boolean }) => {
       setStartedMuted(!!options?.muted);
       try {
+        // LiveKit replaces the initial `default` alias with the physical device
+        // id after publishing. Restore the browser's current system default so
+        // a reused Room does not pin the microphone from the previous session.
+        await session.room.switchActiveDevice("audioinput", "default", false);
         await session.start({
           tracks: {
             // 默认开启摄像头以便服务端 RoomCompositeEgress 录像；

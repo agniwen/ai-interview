@@ -1,14 +1,15 @@
 "use client";
 
-import { IconLoader2, IconMessage2, IconSend } from "@tabler/icons-react";
+import { IconLoader2, IconMessage2, IconMicrophone, IconSend } from "@tabler/icons-react";
 import type { MotionProps } from "motion/react";
 import type { ComponentProps } from "react";
 import type { UseInputControlsProps } from "@/hooks/agents-ui/use-agent-control-bar";
-import { useAgent, useChat } from "@livekit/components-react";
+import { useAgent, useChat, useMediaDeviceSelect } from "@livekit/components-react";
 import { Track } from "livekit-client";
 
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import { AgentAudioVisualizerBar } from "@/components/agents-ui/agent-audio-visualizer-bar";
 import { AgentDisconnectButton } from "@/components/agents-ui/agent-disconnect-button";
 import { AgentTrackControl } from "@/components/agents-ui/agent-track-control";
 import {
@@ -26,8 +27,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { CardFrame } from "@/components/ui/card";
 import { Toggle } from "@/components/ui/toggle";
 import { useInputControls, usePublishPermissions } from "@/hooks/agents-ui/use-agent-control-bar";
+import {
+  resolveActiveMicrophoneLabel,
+  resolvePreferredMicrophoneDeviceId,
+} from "@/lib/client/microphone-device";
 import { cn } from "@arc/shared/utils";
 
 const LK_TOGGLE_VARIANT_1 = [
@@ -40,15 +46,11 @@ const LK_TOGGLE_VARIANT_1 = [
   "dark:data-[state=off]:[&_~_button]:bg-accent dark:data-[state=off]:[&_~_button]:hover:bg-foreground/10",
 ];
 
-const LK_TOGGLE_VARIANT_2 = [
-  "data-[state=off]:bg-accent data-[state=off]:hover:bg-foreground/10",
-  "data-[state=off]:border-border data-[state=off]:hover:border-foreground/12",
-  "data-[state=off]:focus-visible:border-ring data-[state=off]:focus-visible:ring-foreground/12",
-  "data-[state=off]:text-foreground data-[state=off]:hover:text-foreground data-[state=off]:focus:text-foreground",
-  "data-[state=on]:bg-blue-500/20 data-[state=on]:hover:bg-blue-500/30",
-  "data-[state=on]:border-blue-700/10 data-[state=on]:text-blue-700 data-[state=on]:ring-blue-700/30",
-  "data-[state=on]:focus-visible:border-blue-700/50",
-  "dark:data-[state=on]:bg-blue-500/20 dark:data-[state=on]:text-blue-300",
+const LK_ACTION_TOGGLE_VARIANT = [
+  "bg-transparent text-foreground hover:bg-accent/60 hover:text-foreground",
+  "data-pressed:bg-accent data-pressed:text-accent-foreground",
+  "data-pressed:hover:bg-accent",
+  "focus-visible:border-ring focus-visible:ring-foreground/12",
 ];
 
 const MOTION_PROPS: MotionProps = {
@@ -325,6 +327,7 @@ export function AgentControlBar({
   // false. Prefer the controlled value when a change handler is provided.
   const isChatOpenEffective = onIsChatOpenChange ? isChatOpen : isChatOpenUncontrolled;
   const {
+    activeMicrophoneDeviceId: preferredMicrophoneDeviceId,
     microphoneTrack,
     cameraToggle,
     microphoneToggle,
@@ -334,6 +337,25 @@ export function AgentControlBar({
     handleMicrophoneDeviceSelectError,
     handleCameraDeviceSelectError,
   } = useInputControls({ onDeviceError, saveUserChoices });
+  const { activeDeviceId: activeMicrophoneDeviceId, devices: microphoneDevices } =
+    useMediaDeviceSelect({
+      kind: "audioinput",
+      onError: handleMicrophoneDeviceSelectError,
+      requestPermissions: false,
+    });
+  useEffect(() => {
+    if (activeMicrophoneDeviceId === "default" && preferredMicrophoneDeviceId !== "default") {
+      handleAudioDeviceChange("default");
+    }
+  }, [activeMicrophoneDeviceId, handleAudioDeviceChange, preferredMicrophoneDeviceId]);
+  const displayedMicrophoneDeviceId = resolvePreferredMicrophoneDeviceId(
+    preferredMicrophoneDeviceId,
+    activeMicrophoneDeviceId,
+  );
+  const activeMicrophoneLabel = resolveActiveMicrophoneLabel(
+    microphoneDevices,
+    displayedMicrophoneDeviceId,
+  );
 
   const handleSendMessage = async (message: string) => {
     await send(message);
@@ -355,158 +377,192 @@ export function AgentControlBar({
   }
 
   return (
-    <div
+    <CardFrame
       aria-label="Voice assistant controls"
       className={cn(
-        "bg-background border-input/50 dark:border-muted flex flex-col border p-3 drop-shadow-md/3",
+        "overflow-hidden border-input/50",
+        !visibleControls.microphone && "p-3",
         variant === "livekit" ? "rounded-[31px]" : "rounded-lg",
         className,
       )}
       {...props}
     >
-      <motion.div
-        {...MOTION_PROPS}
-        inert={!isChatOpenEffective}
-        animate={isChatOpenEffective ? "visible" : "hidden"}
-        className="border-input/50 flex w-full items-start overflow-hidden border-b"
+      <div
+        className={cn(
+          visibleControls.microphone && "relative z-10 rounded-b-[24px] bg-background p-3",
+        )}
       >
-        <AgentChatInput
-          chatOpen={isChatOpenEffective}
-          inputEnabled={chatInputEnabled}
-          onSend={handleSendMessage}
-          className={cn(variant === "livekit" && "[&_button]:rounded-full")}
-        />
-      </motion.div>
+        <motion.div
+          {...MOTION_PROPS}
+          inert={!isChatOpenEffective}
+          animate={isChatOpenEffective ? "visible" : "hidden"}
+          className="border-input/50 flex w-full items-start overflow-hidden border-b"
+        >
+          <AgentChatInput
+            chatOpen={isChatOpenEffective}
+            inputEnabled={chatInputEnabled}
+            onSend={handleSendMessage}
+            className={cn(variant === "livekit" && "[&_button]:rounded-full")}
+          />
+        </motion.div>
 
-      <div className="flex gap-1">
-        <div className="flex grow gap-1">
-          {/* Toggle Microphone */}
-          {visibleControls.microphone && (
-            <AgentTrackControl
-              variant={variant === "outline" ? "outline" : "default"}
-              kind="audioinput"
-              aria-label="Toggle microphone"
-              source={Track.Source.Microphone}
-              pressed={microphoneToggle.enabled}
-              disabled={microphoneToggle.pending}
-              audioTrack={microphoneTrack}
-              onPressedChange={microphoneToggle.toggle}
-              onActiveDeviceChange={handleAudioDeviceChange}
-              onMediaDeviceError={handleMicrophoneDeviceSelectError}
-              className={cn(
-                variant === "livekit" && [
-                  LK_TOGGLE_VARIANT_1,
-                  "rounded-full [&_button:first-child]:rounded-l-full [&_button:last-child]:rounded-r-full",
-                ],
-              )}
-            />
-          )}
+        <div className="flex gap-1">
+          <div className="flex grow gap-1">
+            {/* Toggle Microphone */}
+            {visibleControls.microphone && (
+              <AgentTrackControl
+                variant={variant === "outline" ? "outline" : "default"}
+                kind="audioinput"
+                aria-label="Toggle microphone"
+                source={Track.Source.Microphone}
+                pressed={microphoneToggle.enabled}
+                disabled={microphoneToggle.pending}
+                audioTrack={microphoneTrack}
+                activeDeviceId={displayedMicrophoneDeviceId}
+                onPressedChange={microphoneToggle.toggle}
+                onActiveDeviceChange={handleAudioDeviceChange}
+                onMediaDeviceError={handleMicrophoneDeviceSelectError}
+                className={cn(
+                  variant === "livekit" && [
+                    LK_TOGGLE_VARIANT_1,
+                    "rounded-full [&_button:first-child]:rounded-l-full [&_button:last-child]:rounded-r-full",
+                  ],
+                )}
+              />
+            )}
 
-          {/* Toggle Camera */}
-          {visibleControls.camera && (
-            <AgentTrackControl
-              variant={variant === "outline" ? "outline" : "default"}
-              kind="videoinput"
-              aria-label="Toggle camera"
-              source={Track.Source.Camera}
-              pressed={cameraToggle.enabled}
-              pending={cameraToggle.pending}
-              disabled={cameraToggle.pending}
-              onPressedChange={(next) => {
-                // Camera is recording-mandatory: block off transitions when an
-                // interceptor is provided, but always allow turning on.
-                // 摄像头为强制录制场景：有拦截器时不允许从开变关，但允许从关变开。
-                if (!next && cameraToggle.enabled && onCameraDisableAttempt) {
-                  onCameraDisableAttempt();
-                  return;
+            {/* Toggle Camera */}
+            {visibleControls.camera && (
+              <AgentTrackControl
+                variant={variant === "outline" ? "outline" : "default"}
+                kind="videoinput"
+                aria-label="Toggle camera"
+                source={Track.Source.Camera}
+                pressed={cameraToggle.enabled}
+                pending={cameraToggle.pending}
+                disabled={cameraToggle.pending}
+                onPressedChange={(next) => {
+                  // Camera is recording-mandatory: block off transitions when an
+                  // interceptor is provided, but always allow turning on.
+                  // 摄像头为强制录制场景：有拦截器时不允许从开变关，但允许从关变开。
+                  if (!next && cameraToggle.enabled && onCameraDisableAttempt) {
+                    onCameraDisableAttempt();
+                    return;
+                  }
+                  cameraToggle.toggle();
+                }}
+                onMediaDeviceError={handleCameraDeviceSelectError}
+                onActiveDeviceChange={handleVideoDeviceChange}
+                className={cn(
+                  variant === "livekit" && [
+                    "[&_button]:bg-transparent [&_button]:text-foreground [&_button]:hover:bg-accent/60",
+                    "[&_button[data-pressed]]:bg-accent [&_button[data-pressed]]:text-accent-foreground",
+                    "[&_button[data-pressed]]:hover:bg-accent",
+                    "[&_button[data-track-state=on]]:bg-accent [&_button[data-track-state=off]]:bg-transparent",
+                    "[&_button[data-track-state]]:before:bg-border",
+                    "rounded-full [&_button:first-child]:rounded-l-full [&_button:last-child]:rounded-r-full",
+                  ],
+                )}
+              />
+            )}
+
+            {/* Toggle Screen Share */}
+            {visibleControls.screenShare && (
+              <AgentTrackToggle
+                variant={variant === "outline" ? "outline" : "default"}
+                aria-label="Toggle screen share"
+                source={Track.Source.ScreenShare}
+                pressed={screenShareToggle.enabled}
+                disabled={screenShareToggle.pending}
+                onPressedChange={screenShareToggle.toggle}
+                className={cn(variant === "livekit" && [LK_ACTION_TOGGLE_VARIANT, "rounded-full"])}
+              />
+            )}
+
+            {/* Toggle Transcript */}
+            {visibleControls.chat && (
+              <Toggle
+                variant={variant === "outline" ? "outline" : "default"}
+                pressed={isChatOpenEffective}
+                aria-label="Toggle transcript"
+                onPressedChange={(state) => {
+                  if (!onIsChatOpenChange) {
+                    setIsChatOpenUncontrolled(state);
+                  } else {
+                    onIsChatOpenChange(state);
+                  }
+                }}
+                className={agentTrackToggleVariants({
+                  className: cn(
+                    variant === "livekit" && [LK_ACTION_TOGGLE_VARIANT, "rounded-full"],
+                  ),
+                  variant: variant === "outline" ? "outline" : "default",
+                })}
+              >
+                <IconMessage2 />
+              </Toggle>
+            )}
+          </div>
+
+          {/* Disconnect */}
+          {visibleControls.leave && (
+            <Dialog>
+              <DialogTrigger
+                render={
+                  <AgentDisconnectButton
+                    disabled={!isConnected}
+                    className={cn(
+                      variant === "livekit" &&
+                        "bg-destructive/10 dark:bg-destructive/10 text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/20 focus:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/4 rounded-full font-mono text-xs font-bold tracking-wider",
+                    )}
+                  >
+                    <span className="hidden md:inline">结束面试</span>
+                    <span className="inline md:hidden">结束</span>
+                  </AgentDisconnectButton>
                 }
-                cameraToggle.toggle();
-              }}
-              onMediaDeviceError={handleCameraDeviceSelectError}
-              onActiveDeviceChange={handleVideoDeviceChange}
-              className={cn(
-                variant === "livekit" && [
-                  LK_TOGGLE_VARIANT_1,
-                  "rounded-full [&_button:first-child]:rounded-l-full [&_button:last-child]:rounded-r-full",
-                ],
-              )}
-            />
-          )}
-
-          {/* Toggle Screen Share */}
-          {visibleControls.screenShare && (
-            <AgentTrackToggle
-              variant={variant === "outline" ? "outline" : "default"}
-              aria-label="Toggle screen share"
-              source={Track.Source.ScreenShare}
-              pressed={screenShareToggle.enabled}
-              disabled={screenShareToggle.pending}
-              onPressedChange={screenShareToggle.toggle}
-              className={cn(variant === "livekit" && [LK_TOGGLE_VARIANT_2, "rounded-full"])}
-            />
-          )}
-
-          {/* Toggle Transcript */}
-          {visibleControls.chat && (
-            <Toggle
-              variant={variant === "outline" ? "outline" : "default"}
-              pressed={isChatOpenEffective}
-              aria-label="Toggle transcript"
-              onPressedChange={(state) => {
-                if (!onIsChatOpenChange) {
-                  setIsChatOpenUncontrolled(state);
-                } else {
-                  onIsChatOpenChange(state);
-                }
-              }}
-              className={agentTrackToggleVariants({
-                className: cn(variant === "livekit" && [LK_TOGGLE_VARIANT_2, "rounded-full"]),
-                variant: variant === "outline" ? "outline" : "default",
-              })}
-            >
-              <IconMessage2 />
-            </Toggle>
+              />
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>确认结束面试</DialogTitle>
+                  <DialogDescription>
+                    面试结束后将无法继续对话，确定要结束本次面试吗？
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <DialogClose render={<Button variant="outline">继续面试</Button>} />
+                  <DialogClose
+                    render={
+                      <Button onClick={onDisconnect} variant="destructive">
+                        确认结束
+                      </Button>
+                    }
+                  />
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           )}
         </div>
-
-        {/* Disconnect */}
-        {visibleControls.leave && (
-          <Dialog>
-            <DialogTrigger
-              render={
-                <AgentDisconnectButton
-                  disabled={!isConnected}
-                  className={cn(
-                    variant === "livekit" &&
-                      "bg-destructive/10 dark:bg-destructive/10 text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/20 focus:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/4 rounded-full font-mono text-xs font-bold tracking-wider",
-                  )}
-                >
-                  <span className="hidden md:inline">结束面试</span>
-                  <span className="inline md:hidden">结束</span>
-                </AgentDisconnectButton>
-              }
-            />
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>确认结束面试</DialogTitle>
-                <DialogDescription>
-                  面试结束后将无法继续对话，确定要结束本次面试吗？
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <DialogClose render={<Button variant="outline">继续面试</Button>} />
-                <DialogClose
-                  render={
-                    <Button onClick={onDisconnect} variant="destructive">
-                      确认结束
-                    </Button>
-                  }
-                />
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
       </div>
-    </div>
+      {visibleControls.microphone ? (
+        <p
+          className="relative flex min-w-0 items-center gap-1.5 px-4 py-2 text-[11px] text-muted-foreground"
+          title={activeMicrophoneLabel}
+        >
+          <IconMicrophone className="size-3 shrink-0 opacity-70" />
+          <span className="shrink-0">当前麦克风</span>
+          <span className="min-w-0 flex-1 truncate text-foreground/65">
+            {activeMicrophoneLabel}
+          </span>
+          <AgentAudioVisualizerBar
+            aria-label="麦克风实时音量"
+            audioTrack={microphoneToggle.enabled ? microphoneTrack : undefined}
+            barCount={7}
+            className="h-5 w-16 shrink-0 gap-1 text-foreground/45 sm:w-20"
+            size="icon"
+            state={microphoneToggle.enabled ? "speaking" : "disconnected"}
+          />
+        </p>
+      ) : null}
+    </CardFrame>
   );
 }

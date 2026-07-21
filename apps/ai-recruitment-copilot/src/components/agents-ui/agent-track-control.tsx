@@ -106,6 +106,8 @@ type TrackDeviceSelectProps = React.ComponentProps<typeof SelectTrigger> &
      * Callback when the active device changes.
      */
     onActiveDeviceChange?: (deviceId: string) => void;
+    /** Controlled device id used by the select UI. */
+    activeDeviceId?: string;
   };
 
 /**
@@ -133,6 +135,7 @@ function TrackDeviceSelect({
   onMediaDeviceError,
   onDeviceListChange,
   onActiveDeviceChange,
+  activeDeviceId: controlledActiveDeviceId,
   ...props
 }: TrackDeviceSelectProps) {
   const room = useMaybeRoomContext();
@@ -157,16 +160,20 @@ function TrackDeviceSelect({
     }
   };
 
-  const handleActiveDeviceChange = (deviceId: string) => {
-    setActiveMediaDevice(deviceId);
-    onActiveDeviceChange?.(deviceId);
+  const handleActiveDeviceChange = async (deviceId: string) => {
+    try {
+      await setActiveMediaDevice(deviceId);
+      onActiveDeviceChange?.(deviceId);
+    } catch (error) {
+      onMediaDeviceError?.(error instanceof Error ? error : new Error(String(error)));
+    }
   };
 
   const handleSelectedDeviceChange = (deviceId: string | null) => {
     if (!deviceId) {
       return;
     }
-    handleActiveDeviceChange(deviceId);
+    void handleActiveDeviceChange(deviceId);
   };
 
   const filteredDevices = useMemo(() => devices.filter((d) => d.deviceId !== ""), [devices]);
@@ -178,7 +185,7 @@ function TrackDeviceSelect({
   return (
     <Select
       open={open}
-      value={activeDeviceId}
+      value={controlledActiveDeviceId ?? activeDeviceId}
       onOpenChange={handleOpenChange}
       onValueChange={handleSelectedDeviceChange}
     >
@@ -242,6 +249,8 @@ export type AgentTrackControlProps = VariantProps<typeof toggleVariants> & {
    * Callback when the active device changes.
    */
   onActiveDeviceChange?: (deviceId: string) => void;
+  /** Controlled device id used by the device select. */
+  activeDeviceId?: string;
 };
 
 /**
@@ -273,6 +282,7 @@ export function AgentTrackControl({
   onPressedChange,
   onMediaDeviceError,
   onActiveDeviceChange,
+  activeDeviceId,
 }: AgentTrackControlProps) {
   return (
     <div
@@ -316,6 +326,7 @@ export function AgentTrackControl({
           variant={variant}
           data-track-state={pressed ? "on" : "off"}
           requestPermissions={false}
+          activeDeviceId={activeDeviceId}
           onMediaDeviceError={onMediaDeviceError}
           onActiveDeviceChange={onActiveDeviceChange}
           className={cn([
