@@ -26,8 +26,14 @@ interface CreateBlocksResponse {
   children?: { block_id?: string }[];
 }
 
+interface FeishuDocxAttachment {
+  bytes: Uint8Array;
+  fileName: string;
+}
+
 interface CreateFeishuDocxOptions {
   accessToken: string;
+  attachment?: FeishuDocxAttachment;
   blocks: FeishuDocumentBlock[];
   folderToken?: string;
   recipientOpenId: string;
@@ -140,6 +146,40 @@ async function appendBlocks(
   return created;
 }
 
+async function uploadFeishuDocxAttachment(
+  documentId: string,
+  blockId: string,
+  attachment: FeishuDocxAttachment,
+  accessToken: string,
+  dependencies: FeishuDocxDependencies,
+): Promise<void> {
+  const body = new FormData();
+  body.append("file_name", attachment.fileName);
+  body.append("parent_type", "docx_file");
+  body.append("parent_node", blockId);
+  body.append("size", String(attachment.bytes.byteLength));
+  body.append("extra", JSON.stringify({ drive_route_token: documentId }));
+  const pdfBytes = new Uint8Array(attachment.bytes.byteLength);
+  pdfBytes.set(attachment.bytes);
+  body.append(
+    "file",
+    new Blob([pdfBytes.buffer], { type: "application/pdf" }),
+    attachment.fileName,
+  );
+
+  const response = await dependencies.fetcher(`${FEISHU_API_ROOT}/drive/v1/medias/upload_all`, {
+    body,
+    headers: { authorization: `Bearer ${accessToken}` },
+    method: "POST",
+  });
+  const result = (await response.json()) as FeishuApiResponse<unknown>;
+  if (!response.ok || result.code !== 0) {
+    throw new Error(
+      `Feishu API request failed: ${result.code || response.status} ${result.msg || ""}`,
+    );
+  }
+}
+
 export async function grantFeishuDocxAccess(
   options: GrantFeishuDocxAccessOptions,
   dependencies: FeishuDocxDependencies = defaultDependencies,
@@ -188,15 +228,34 @@ export async function createFeishuDocx(
   }
   await dependencies.sleep(EDIT_THROTTLE_MS);
 
+  const documentBlocks = options.attachment
+    ? [{ block_type: 23, file: {} } satisfies FeishuDocumentBlock, ...options.blocks]
+    : options.blocks;
+
   const topLevelBlocks = await appendBlocks(
     documentId,
     documentId,
-    options.blocks,
+    documentBlocks,
     options.accessToken,
     dependencies,
   );
 
-  for (const [index, block] of options.blocks.entries()) {
+  if (options.attachment) {
+    const attachmentBlockId = topLevelBlocks[0]?.block_id;
+    if (!attachmentBlockId) {
+      throw new Error("Feishu did not return block_id for the resume attachment block");
+    }
+    await uploadFeishuDocxAttachment(
+      documentId,
+      attachmentBlockId,
+      options.attachment,
+      options.accessToken,
+      dependencies,
+    );
+    await dependencies.sleep(EDIT_THROTTLE_MS);
+  }
+
+  for (const [index, block] of documentBlocks.entries()) {
     if (!block.children || block.children.length === 0) {
       continue;
     }
@@ -220,7 +279,9 @@ export async function createFeishuDocx(
       recipientOpenId: options.recipientOpenId,
     },
     dependencies,
-  );
+  ).catch(() => {
+    // A removed or inaccessible recipient must not block document delivery.
+  });
 
   if (options.folderToken) {
     await moveFeishuDocx(

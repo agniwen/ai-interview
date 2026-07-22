@@ -399,17 +399,29 @@ export async function postFeishuDirectMessage(
   return { id: sent.id };
 }
 
+export async function trySendFeishuDirectCard(
+  send: () => Promise<{ messageId: string }>,
+): Promise<{ id: string | null }> {
+  try {
+    const sent = await send();
+    return { id: sent.messageId };
+  } catch {
+    return { id: null };
+  }
+}
+
 export async function postFeishuDirectCard(
   providerId: FeishuProviderId,
   openId: string,
   card: CardElement | unknown,
-): Promise<{ id: string }> {
-  const { adapter } = await ensureFeishuBotInitialized(providerId);
-  const channel = adapter._getChannel();
-  if (!channel) {
-    throw new Error(`Feishu bot channel is not initialized for provider ${providerId}`);
-  }
-  const cardElement = resolveCardElement(card);
-  const sent = await channel.send(openId, { card: toLarkInteractiveCard(cardElement) });
-  return { id: sent.messageId };
+): Promise<{ id: string | null }> {
+  return await trySendFeishuDirectCard(async () => {
+    const { adapter } = await ensureFeishuBotInitialized(providerId);
+    const channel = adapter._getChannel();
+    if (!channel) {
+      throw new Error(`Feishu bot channel is not initialized for provider ${providerId}`);
+    }
+    const cardElement = resolveCardElement(card);
+    return await channel.send(openId, { card: toLarkInteractiveCard(cardElement) });
+  });
 }

@@ -38,6 +38,7 @@ const EVALUATION = {
     compensationExpectations: "目前年包 50 万，期望年包 60 万。",
     jobMotivation: "希望承担更完整的系统架构职责。",
     overseasTravel: "已婚，可接受每次两周以内的海外出差。",
+    projectHighlights: "主导招聘系统从零到一建设。",
     recentWork: "最近两家公司均为约 200 人规模，主要担任项目主导者。",
   },
   overallAssessment: "候选人表达清晰。",
@@ -96,7 +97,9 @@ describe("generateInterviewReport", () => {
     expect(mocks.generateStructuredWithMastraAgent).toHaveBeenCalledWith(
       expect.objectContaining({
         agent: mocks.interviewReportEvaluationAgent,
-        prompt: expect.stringContaining("当前求职状态：在职，一个月内到岗"),
+        prompt: expect.stringMatching(
+          /当前求职状态：在职，一个月内到岗[\s\S]*年龄、成家情况、是否可以接受短期海外出差及周期[\s\S]*hrEvaluation\.projectHighlights：候选人分享的亮点项目/,
+        ),
         schema: expect.any(Object),
         temperature: 0,
       }),
