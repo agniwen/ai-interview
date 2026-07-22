@@ -13,14 +13,19 @@ const BLOCK_TYPE = {
   HEADING_2: 4,
   HEADING_3: 5,
   TEXT: 2,
+  TODO: 17,
 } as const;
 
 const CALLOUT_COLOR = {
+  GREEN: 4,
   ORANGE: 2,
+  RED: 1,
+  YELLOW: 3,
 } as const;
 
 interface FeishuTextContent {
   elements: FeishuTextRun[];
+  style?: { done?: boolean };
 }
 
 export interface FeishuDocumentBlock {
@@ -28,12 +33,14 @@ export interface FeishuDocumentBlock {
   callout?: {
     background_color: number;
     border_color: number;
+    emoji_id?: string;
   };
   children?: FeishuDocumentBlock[];
   file?: Record<string, never>;
   heading2?: FeishuTextContent;
   heading3?: FeishuTextContent;
   text?: FeishuTextContent;
+  todo?: FeishuTextContent;
 }
 
 interface HrEvaluation {
@@ -101,9 +108,37 @@ function calloutBlock(
 ): FeishuDocumentBlock {
   return {
     block_type: BLOCK_TYPE.CALLOUT,
-    callout: { background_color: backgroundColor, border_color: borderColor },
+    callout: {
+      background_color: backgroundColor,
+      border_color: borderColor,
+      emoji_id: "",
+    },
     children,
   };
+}
+
+function todoBlock(content: string): FeishuDocumentBlock {
+  return {
+    block_type: BLOCK_TYPE.TODO,
+    todo: { ...textContent(content), style: { done: false } },
+  };
+}
+
+function interviewStageCallout(
+  title: string,
+  backgroundColor: number,
+  borderColor = backgroundColor,
+): FeishuDocumentBlock {
+  return calloutBlock(backgroundColor, borderColor, [
+    heading3Block(title),
+    textBlock("评级（A,B,C,D）："),
+    textBlock("职级定位：业务负责人/小组主管/执行员工"),
+    textBlock("角色定位：主导决策者/辅助执行者"),
+    textBlock("专业技能：优/良/中/差"),
+    textBlock("优势特点："),
+    textBlock("劣势风险："),
+    textBlock("薪资建议：月薪"),
+  ]);
 }
 
 function stringValue(value: unknown, fallback: string): string {
@@ -161,6 +196,15 @@ export function buildInterviewEvaluationDocument(input: InterviewEvaluationDocum
         text: textContent("查看候选人简历", { link: input.resumeUrl }),
       },
       hrEvaluationBlock.block,
+      heading2Block("评级等级确定"),
+      todoBlock("A-超出预期 薪资110%~130%"),
+      todoBlock("B-完全匹配 薪资100%~120%"),
+      todoBlock("C-基本匹配 薪资90%~110%"),
+      todoBlock("D-勉强接受 薪资80%~100%"),
+      interviewStageCallout("🧑‍💻 业务一面评价", CALLOUT_COLOR.GREEN),
+      interviewStageCallout("👨‍💻 业务二面评价", CALLOUT_COLOR.GREEN),
+      interviewStageCallout("🧑‍💼 HRD面试评价", CALLOUT_COLOR.YELLOW, CALLOUT_COLOR.ORANGE),
+      calloutBlock(CALLOUT_COLOR.RED, CALLOUT_COLOR.RED, [heading3Block("👨‍💼 CEO面试评价")]),
     ],
     title: `${input.candidateName} - 面试评价表`,
   };

@@ -1,7 +1,76 @@
 import { describe, expect, it } from "vitest";
 import { buildInterviewEvaluationDocument } from "../utils/interview-evaluation-doc";
+import type { FeishuDocumentBlock } from "../utils/interview-evaluation-doc";
+
+const BLOCK_TYPE = {
+  CALLOUT: 19,
+  HEADING_2: 4,
+  TEXT: 2,
+  TODO: 17,
+} as const;
+
+function blockText(block: FeishuDocumentBlock): string | undefined {
+  const content = block.heading2 ?? block.heading3 ?? block.text ?? block.todo;
+  return content?.elements[0]?.text_run.content;
+}
 
 describe("buildInterviewEvaluationDocument", () => {
+  it("keeps every manual evaluation section from the Feishu template", () => {
+    const document = buildInterviewEvaluationDocument({
+      candidateName: "张三",
+      evaluation: {},
+      resumeUrl: "https://example.com/resume",
+    });
+
+    expect(document.blocks.map((block) => block.block_type)).toEqual([
+      BLOCK_TYPE.HEADING_2,
+      BLOCK_TYPE.TEXT,
+      BLOCK_TYPE.CALLOUT,
+      BLOCK_TYPE.HEADING_2,
+      BLOCK_TYPE.TODO,
+      BLOCK_TYPE.TODO,
+      BLOCK_TYPE.TODO,
+      BLOCK_TYPE.TODO,
+      BLOCK_TYPE.CALLOUT,
+      BLOCK_TYPE.CALLOUT,
+      BLOCK_TYPE.CALLOUT,
+      BLOCK_TYPE.CALLOUT,
+    ]);
+
+    expect(document.blocks.slice(3, 8).map(blockText)).toEqual([
+      "评级等级确定",
+      "A-超出预期 薪资110%~130%",
+      "B-完全匹配 薪资100%~120%",
+      "C-基本匹配 薪资90%~110%",
+      "D-勉强接受 薪资80%~100%",
+    ]);
+
+    const commonStageFields = [
+      "评级（A,B,C,D）：",
+      "职级定位：业务负责人/小组主管/执行员工",
+      "角色定位：主导决策者/辅助执行者",
+      "专业技能：优/良/中/差",
+      "优势特点：",
+      "劣势风险：",
+      "薪资建议：月薪",
+    ];
+    const [businessOne, businessTwo, hrd, ceo] = document.blocks.slice(8);
+    expect(businessOne?.children?.map(blockText)).toEqual([
+      "🧑‍💻 业务一面评价",
+      ...commonStageFields,
+    ]);
+    expect(businessTwo?.children?.map(blockText)).toEqual([
+      "👨‍💻 业务二面评价",
+      ...commonStageFields,
+    ]);
+    expect(hrd?.children?.map(blockText)).toEqual(["🧑‍💼 HRD面试评价", ...commonStageFields]);
+    expect(ceo?.children?.map(blockText)).toEqual(["👨‍💼 CEO面试评价"]);
+
+    const hrSection = document.blocks.at(2);
+    expect(JSON.stringify(hrSection)).toContain("📚 HR面试评价");
+    expect(hrSection?.callout?.emoji_id).toBe("");
+  });
+
   it("shows only the seven HR questions and answers in the HR section", () => {
     const document = buildInterviewEvaluationDocument({
       candidateName: "张三",
@@ -32,14 +101,18 @@ describe("buildInterviewEvaluationDocument", () => {
     });
 
     expect(document.title).toBe("张三 - 面试评价表");
-    expect(document.blocks.map((block) => block.block_type)).toEqual([4, 2, 19]);
+    expect(document.blocks.slice(0, 3).map((block) => block.block_type)).toEqual([4, 2, 19]);
 
     const hrCallout = document.blocks.at(2);
     expect(hrCallout).toBeDefined();
     if (!hrCallout) {
       throw new Error("Expected HR callout block");
     }
-    expect(hrCallout.callout).toEqual({ background_color: 2, border_color: 2 });
+    expect(hrCallout.callout).toEqual({
+      background_color: 2,
+      border_color: 2,
+      emoji_id: "",
+    });
     expect(hrCallout.children?.filter((block) => block.block_type === 13)).toHaveLength(0);
     expect(
       hrCallout.children?.filter((block) => JSON.stringify(block).includes("答案：")),
