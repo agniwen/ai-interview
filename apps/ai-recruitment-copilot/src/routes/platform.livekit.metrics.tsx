@@ -1,0 +1,15 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { LiveKitMetricsGrid } from "@/components/features/platform/livekit/livekit-metrics-grid";
+
+function PlatformLiveKitMetricsRoute() {
+  return (
+    <div className="container mx-auto">
+      <LiveKitMetricsGrid />
+    </div>
+  );
+}
+
+export const Route = createFileRoute("/platform/livekit/metrics")({
+  component: PlatformLiveKitMetricsRoute,
+  head: () => ({ meta: [{ title: "平台 · LiveKit 运行指标" }] }),
+});

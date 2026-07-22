@@ -42,6 +42,7 @@ import type { PlatformQueueJobsResult } from "./queue-details";
 import { platformMastraRouter } from "./routes/mastra/route";
 import { platformNotificationsRouter } from "./routes/notifications/route";
 import { platformResumeParseCacheRouter } from "./routes/resume-parse-cache/route";
+import { platformLiveKitRouter } from "./routes/livekit/route";
 
 // --- Organizations list ---
 const orgQuerySchema = z.object({
@@ -629,6 +630,7 @@ const platformQueues = factory
 export const platformRouter = factory
   .createApp()
   .use(adminMiddleware)
+  .route("/livekit", platformLiveKitRouter)
   .route("/mastra", platformMastraRouter)
   .route("/", platformQueues)
   .route("/", platformMailIngestAccounts)
