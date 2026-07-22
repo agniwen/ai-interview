@@ -36,7 +36,7 @@ export interface FeishuDocumentBlock {
     emoji_id?: string;
   };
   children?: FeishuDocumentBlock[];
-  file?: Record<string, never>;
+  file?: { token?: string; view_type?: 1 | 2 };
   heading2?: FeishuTextContent;
   heading3?: FeishuTextContent;
   text?: FeishuTextContent;
@@ -59,6 +59,7 @@ export interface HrInterviewEvaluationInput {
 }
 
 export interface InterviewEvaluationDocumentInput extends HrInterviewEvaluationInput {
+  includeResumeLink?: boolean;
   resumeUrl: string;
 }
 
@@ -97,13 +98,10 @@ function heading2Block(content: string): FeishuDocumentBlock {
   return { block_type: BLOCK_TYPE.HEADING_2, heading2: textContent(content) };
 }
 
-function heading3Block(content: string): FeishuDocumentBlock {
-  return { block_type: BLOCK_TYPE.HEADING_3, heading3: textContent(content) };
-}
-
 function calloutBlock(
   backgroundColor: number,
   borderColor: number,
+  emojiId: string,
   children: FeishuDocumentBlock[],
 ): FeishuDocumentBlock {
   return {
@@ -111,7 +109,7 @@ function calloutBlock(
     callout: {
       background_color: backgroundColor,
       border_color: borderColor,
-      emoji_id: "",
+      emoji_id: emojiId,
     },
     children,
   };
@@ -125,12 +123,13 @@ function todoBlock(content: string): FeishuDocumentBlock {
 }
 
 function interviewStageCallout(
+  emojiId: string,
   title: string,
   backgroundColor: number,
   borderColor = backgroundColor,
 ): FeishuDocumentBlock {
-  return calloutBlock(backgroundColor, borderColor, [
-    heading3Block(title),
+  return calloutBlock(backgroundColor, borderColor, emojiId, [
+    textBlock(title, true),
     textBlock("评级（A,B,C,D）："),
     textBlock("职级定位：业务负责人/小组主管/执行员工"),
     textBlock("角色定位：主导决策者/辅助执行者"),
@@ -166,7 +165,7 @@ export function buildHrInterviewEvaluationBlock(
       ? (input.evaluation.hrEvaluation as HrEvaluation)
       : {};
   const hrChildren = [
-    heading3Block("📚 HR面试评价"),
+    textBlock("HR面试评价", true),
     ...hrQuestionBlocks(1, "求职动机：", hrEvaluation.jobMotivation),
     ...hrQuestionBlocks(2, "最快到岗时间：", hrEvaluation.availability),
     ...hrQuestionBlocks(3, "伦敦出差情况：", hrEvaluation.overseasTravel),
@@ -177,7 +176,7 @@ export function buildHrInterviewEvaluationBlock(
   ];
 
   return {
-    block: calloutBlock(CALLOUT_COLOR.ORANGE, CALLOUT_COLOR.ORANGE, hrChildren),
+    block: calloutBlock(CALLOUT_COLOR.ORANGE, CALLOUT_COLOR.ORANGE, "books", hrChildren),
     title: `${input.candidateName} - HR面试评价预览`,
   };
 }
@@ -187,24 +186,37 @@ export function buildInterviewEvaluationDocument(input: InterviewEvaluationDocum
   title: string;
 } {
   const hrEvaluationBlock = buildHrInterviewEvaluationBlock(input);
+  const resumeLinkBlocks =
+    input.includeResumeLink === false
+      ? []
+      : [
+          heading2Block("简历"),
+          {
+            block_type: BLOCK_TYPE.TEXT,
+            text: textContent("查看候选人简历", { link: input.resumeUrl }),
+          },
+        ];
 
   return {
     blocks: [
-      heading2Block("简历"),
-      {
-        block_type: BLOCK_TYPE.TEXT,
-        text: textContent("查看候选人简历", { link: input.resumeUrl }),
-      },
+      ...resumeLinkBlocks,
       hrEvaluationBlock.block,
       heading2Block("评级等级确定"),
       todoBlock("A-超出预期 薪资110%~130%"),
       todoBlock("B-完全匹配 薪资100%~120%"),
       todoBlock("C-基本匹配 薪资90%~110%"),
       todoBlock("D-勉强接受 薪资80%~100%"),
-      interviewStageCallout("🧑‍💻 业务一面评价", CALLOUT_COLOR.GREEN),
-      interviewStageCallout("👨‍💻 业务二面评价", CALLOUT_COLOR.GREEN),
-      interviewStageCallout("🧑‍💼 HRD面试评价", CALLOUT_COLOR.YELLOW, CALLOUT_COLOR.ORANGE),
-      calloutBlock(CALLOUT_COLOR.RED, CALLOUT_COLOR.RED, [heading3Block("👨‍💼 CEO面试评价")]),
+      interviewStageCallout("technologist", "业务一面评价", CALLOUT_COLOR.GREEN),
+      interviewStageCallout("man_technologist", "业务二面评价", CALLOUT_COLOR.GREEN),
+      interviewStageCallout(
+        "office_worker",
+        "HRD面试评价",
+        CALLOUT_COLOR.YELLOW,
+        CALLOUT_COLOR.ORANGE,
+      ),
+      calloutBlock(CALLOUT_COLOR.RED, CALLOUT_COLOR.RED, "man_office_worker", [
+        textBlock("CEO面试评价", true),
+      ]),
     ],
     title: `${input.candidateName} - 面试评价表`,
   };

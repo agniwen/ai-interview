@@ -15,6 +15,19 @@ function blockText(block: FeishuDocumentBlock): string | undefined {
 }
 
 describe("buildInterviewEvaluationDocument", () => {
+  it("omits the duplicate resume heading and link when a PDF attachment is present", () => {
+    const document = buildInterviewEvaluationDocument({
+      candidateName: "张三",
+      evaluation: {},
+      includeResumeLink: false,
+      resumeUrl: "https://example.com/resume",
+    });
+
+    expect(document.blocks[0]?.block_type).toBe(BLOCK_TYPE.CALLOUT);
+    expect(JSON.stringify(document.blocks)).not.toContain("简历");
+    expect(JSON.stringify(document.blocks)).not.toContain("https://example.com/resume");
+  });
+
   it("keeps every manual evaluation section from the Feishu template", () => {
     const document = buildInterviewEvaluationDocument({
       candidateName: "张三",
@@ -55,20 +68,23 @@ describe("buildInterviewEvaluationDocument", () => {
       "薪资建议：月薪",
     ];
     const [businessOne, businessTwo, hrd, ceo] = document.blocks.slice(8);
-    expect(businessOne?.children?.map(blockText)).toEqual([
-      "🧑‍💻 业务一面评价",
-      ...commonStageFields,
+    expect(businessOne?.children?.map(blockText)).toEqual(["业务一面评价", ...commonStageFields]);
+    expect(businessTwo?.children?.map(blockText)).toEqual(["业务二面评价", ...commonStageFields]);
+    expect(hrd?.children?.map(blockText)).toEqual(["HRD面试评价", ...commonStageFields]);
+    expect(ceo?.children?.map(blockText)).toEqual(["CEO面试评价"]);
+    expect([businessOne, businessTwo, hrd, ceo].map((block) => block?.callout?.emoji_id)).toEqual([
+      "technologist",
+      "man_technologist",
+      "office_worker",
+      "man_office_worker",
     ]);
-    expect(businessTwo?.children?.map(blockText)).toEqual([
-      "👨‍💻 业务二面评价",
-      ...commonStageFields,
-    ]);
-    expect(hrd?.children?.map(blockText)).toEqual(["🧑‍💼 HRD面试评价", ...commonStageFields]);
-    expect(ceo?.children?.map(blockText)).toEqual(["👨‍💼 CEO面试评价"]);
 
     const hrSection = document.blocks.at(2);
-    expect(JSON.stringify(hrSection)).toContain("📚 HR面试评价");
-    expect(hrSection?.callout?.emoji_id).toBe("");
+    expect(hrSection?.children?.map(blockText)).toContain("HR面试评价");
+    expect(hrSection?.callout?.emoji_id).toBe("books");
+    expect(hrSection?.children?.[0]?.text?.elements[0]?.text_run.text_element_style?.bold).toBe(
+      true,
+    );
   });
 
   it("shows only the seven HR questions and answers in the HR section", () => {
@@ -111,13 +127,14 @@ describe("buildInterviewEvaluationDocument", () => {
     expect(hrCallout.callout).toEqual({
       background_color: 2,
       border_color: 2,
-      emoji_id: "",
+      emoji_id: "books",
     });
     expect(hrCallout.children?.filter((block) => block.block_type === 13)).toHaveLength(0);
     expect(
       hrCallout.children?.filter((block) => JSON.stringify(block).includes("答案：")),
     ).toHaveLength(0);
-    expect(JSON.stringify(hrCallout.children)).toContain("📚 HR面试评价");
+    expect(JSON.stringify(hrCallout.children)).toContain("HR面试评价");
+    expect(JSON.stringify(hrCallout.children)).not.toContain("📚 HR面试评价");
     expect(JSON.stringify(hrCallout.children)).toContain("求职动机：");
     expect(JSON.stringify(hrCallout.children)).toContain("最快到岗时间");
     expect(JSON.stringify(hrCallout.children)).toContain("伦敦出差情况");

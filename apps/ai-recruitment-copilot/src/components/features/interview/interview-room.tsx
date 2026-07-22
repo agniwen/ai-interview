@@ -28,6 +28,7 @@ import { InterviewFlowFloatingBar } from "./interview-flow-floating-bar";
 import { InterviewTimer } from "./interview-timer";
 import { InterviewPreSessionFlow } from "./interview-pre-session-flow";
 import { InterviewRules } from "./interview-rules";
+import { startInterviewSession } from "./interview-session-start";
 import { DevicePreflightCard } from "./interview-device-preflight";
 import { fetchPreInterviewForms } from "./pre-interview-forms-view";
 import type { FormsPayload } from "./pre-interview-forms/types";
@@ -543,39 +544,10 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
     async (options?: { muted?: boolean }) => {
       setStartedMuted(!!options?.muted);
       try {
-        // LiveKit replaces the initial `default` alias with the physical device
-        // id after publishing. Restore the browser's current system default so
-        // a reused Room does not pin the microphone from the previous session.
-        await session.room.switchActiveDevice("audioinput", "default", false);
-        await session.start({
-          tracks: {
-            // 默认开启摄像头以便服务端 RoomCompositeEgress 录像；
-            // 浏览器拒绝权限时 LiveKit 会自动跳过该 track，不影响音频通话。
-            // Enable camera by default so server-side RoomCompositeEgress captures
-            // video; if the browser denies permission, LiveKit silently skips it.
-            camera: {
-              enabled: interviewRecordingEnabled,
-            },
-            microphone: {
-              enabled: !options?.muted,
-              publishOptions: {
-                // @ts-expect-error ignore
-                audioCaptureOptions: {
-                  autoGainControl: true,
-                  echoCancellation: true,
-                  noiseSuppression: true,
-                },
-                // 让浏览器在 room.connect 完成前就开始采集麦克风，连上后通过
-                // lk.agent.pre-connect-audio-buffer byte stream 把这段音频喂给
-                // agent，避免候选人点"开始"后立刻说话的第一句被吃掉。
-                // Capture mic audio before the room connects; LiveKit replays the
-                // buffer to the agent on the lk.agent.pre-connect-audio-buffer
-                // byte stream so a candidate's first words aren't lost in the
-                // ~1-2s connection window.
-                preConnectBuffer: true,
-              },
-            },
-          },
+        await startInterviewSession({
+          recordingEnabled: interviewRecordingEnabled,
+          session,
+          startMuted: !!options?.muted,
         });
       } catch (error) {
         // session.start 内部把 getUserMedia(摄像头/麦克风) 和 room.connect 一起跑.

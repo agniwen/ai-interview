@@ -406,14 +406,15 @@ async function ensureInterviewEvaluationDocument({
     conversationId,
     interviewRecordId,
   });
-  const document = buildInterviewEvaluationDocument({
-    candidateName: input.candidateName,
-    evaluation: { hrEvaluation },
-    resumeUrl: buildResumeUrl(input.roundId, input.organizationSlug),
-  });
   const resumePdf = await loadResumePdfAttachment({
     fileName: resumeFileName,
     storageKey: resumeStorageKey,
+  });
+  const document = buildInterviewEvaluationDocument({
+    candidateName: input.candidateName,
+    evaluation: { hrEvaluation },
+    includeResumeLink: !resumePdf,
+    resumeUrl: buildResumeUrl(input.roundId, input.organizationSlug),
   });
   const created = await createFeishuInterviewEvaluationDocx(providerId, {
     attachment: resumePdf
