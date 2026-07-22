@@ -16,10 +16,10 @@ const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
 
 function formatInterviewTime(value: string | Date | null) {
   if (!value) {
-    return "以邀请通知为准";
+    return "请以邀请通知为准";
   }
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "以邀请通知为准" : DATE_TIME_FORMATTER.format(date);
+  return Number.isNaN(date.getTime()) ? "请以邀请通知为准" : DATE_TIME_FORMATTER.format(date);
 }
 
 function ContextSection({
@@ -64,7 +64,7 @@ export function InterviewPreparationView({
   interviewView: CandidateInterviewView;
   onContinue: () => void;
 }) {
-  const roleName = interviewView.jobDescriptionName ?? interviewView.targetRole ?? "当前岗位";
+  const roleName = interviewView.jobDescriptionName ?? interviewView.targetRole ?? "应聘岗位";
   const questionCount = interviewView.interviewQuestions.length;
 
   return (
@@ -88,8 +88,8 @@ export function InterviewPreparationView({
               <div className="mt-7 grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-end lg:gap-16">
                 <h1 className="max-w-3xl text-balance text-3xl leading-tight tracking-[-0.03em] sm:text-5xl sm:leading-[1.1]">
                   {interviewView.candidateName
-                    ? `${interviewView.candidateName}，先了解一下这次面试`
-                    : "先了解一下这次面试"}
+                    ? `${interviewView.candidateName}，开始前先了解这次面试`
+                    : "开始前先了解这次面试"}
                 </h1>
               </div>
 
@@ -98,7 +98,7 @@ export function InterviewPreparationView({
                   label="面试时间"
                   value={formatInterviewTime(interviewView.currentRoundTime)}
                 />
-                <ScheduleItem label="预计用时" value="20 分钟内" />
+                <ScheduleItem label="预计用时" value="约 20 分钟" />
                 <ScheduleItem
                   label="面试内容"
                   value={
@@ -114,7 +114,8 @@ export function InterviewPreparationView({
             <div className="grid border-foreground/15 border-b lg:grid-cols-2 lg:divide-x lg:divide-foreground/15">
               <ContextSection className="lg:pr-10" index="01" title="关于公司">
                 <p className="whitespace-pre-wrap">
-                  {interviewView.companyContext?.trim() || "公司暂未提供详细介绍。"}
+                  {interviewView.companyContext?.trim() ||
+                    "公司介绍暂未补充，您可以先从岗位要求了解。"}
                 </p>
               </ContextSection>
               <ContextSection
@@ -125,7 +126,8 @@ export function InterviewPreparationView({
                 <MarkdownView
                   className="text-foreground/70 text-sm [&_li]:leading-7 [&_p]:leading-7"
                   content={
-                    interviewView.jobDescriptionDescription?.trim() || "岗位暂未提供详细说明。"
+                    interviewView.jobDescriptionDescription?.trim() ||
+                    "岗位说明暂未补充，不影响您继续准备。"
                   }
                 />
               </ContextSection>
@@ -138,7 +140,7 @@ export function InterviewPreparationView({
       <InterviewFlowFloatingBar
         actions={
           <Button onClick={onContinue} size="sm">
-            {hasForms ? "确认信息，开始填写" : "确认信息，进入面试准备"}
+            {hasForms ? "下一步，填写信息" : "准备好了，开始面试"}
           </Button>
         }
         currentStep="preparation"

@@ -10,7 +10,7 @@ function CandidateReviewRadar({ dimensions }: { dimensions: CandidateAiReview["d
   if (dimensions.length === 0) {
     return (
       <div className="flex min-h-64 items-center justify-center text-muted-foreground text-sm">
-        暂无维度评分
+        暂无匹配维度
       </div>
     );
   }
@@ -109,9 +109,9 @@ export function CandidateAiReviewSection({ review }: { review: CandidateAiReview
       <div className="flex items-baseline gap-3">
         <span className="font-mono text-[10px] text-muted-foreground tracking-[0.16em]">03</span>
         <div>
-          <h2 className="font-medium text-base tracking-tight sm:text-lg">AI 对你的评价</h2>
+          <h2 className="font-medium text-base tracking-tight sm:text-lg">AI 对您的初步了解</h2>
           <p className="mt-1 text-muted-foreground text-xs leading-6 sm:text-sm">
-            根据你的简历与本次岗位要求生成，帮助你快速了解自身优势。
+            基于您的简历与岗位要求，这里整理了邀请您面试的主要理由，方便您提前了解匹配点。仅供参考。
           </p>
         </div>
       </div>
@@ -120,19 +120,19 @@ export function CandidateAiReviewSection({ review }: { review: CandidateAiReview
         <div className="mt-6">
           <div className="grid border-foreground/15 border-y lg:grid-cols-[minmax(18rem,0.9fr)_minmax(0,1.1fr)] lg:divide-x lg:divide-foreground/15">
             <div className="py-8 lg:pr-10">
-              <h3 className="text-muted-foreground text-xs tracking-wide">维度评分</h3>
+              <h3 className="text-muted-foreground text-xs tracking-wide">匹配维度</h3>
               <CandidateReviewRadar dimensions={review.dimensions} />
             </div>
 
             <div className="flex min-w-0 flex-col justify-center border-foreground/15 border-t py-8 lg:border-t-0">
               <div className="lg:pl-10">
-                <h3 className="text-muted-foreground text-xs tracking-wide">综合评分 / 100</h3>
+                <h3 className="text-muted-foreground text-xs tracking-wide">综合匹配度</h3>
                 <span className="mt-4 block font-semibold text-6xl tabular-nums leading-none tracking-tighter">
                   {review.baseScore ?? "—"}
                 </span>
               </div>
               <div className="mt-8 border-foreground/15 border-t pt-6 lg:pl-10">
-                <h3 className="text-muted-foreground text-xs tracking-wide">一句话评价</h3>
+                <h3 className="text-muted-foreground text-xs tracking-wide">匹配摘要</h3>
                 <p className="mt-4 text-balance font-medium text-base leading-8 tracking-tight sm:text-lg">
                   {review.conclusion}
                 </p>
@@ -142,7 +142,7 @@ export function CandidateAiReviewSection({ review }: { review: CandidateAiReview
 
           <div className="py-8">
             <div className="flex items-center justify-between gap-4">
-              <h3 className="text-muted-foreground text-xs tracking-wide">优势总结</h3>
+              <h3 className="text-muted-foreground text-xs tracking-wide">您的优势</h3>
             </div>
             {review.strengths.length > 0 ? (
               <ScrollArea
@@ -172,7 +172,7 @@ export function CandidateAiReviewSection({ review }: { review: CandidateAiReview
                           </p>
                         ) : null}
                         <p className="mt-3 text-foreground/70 text-sm leading-6">
-                          <span className="text-muted-foreground">这意味着：</span>
+                          <span className="text-muted-foreground">对岗位的价值：</span>
                           {strength.impact}
                         </p>
                       </div>
@@ -181,14 +181,14 @@ export function CandidateAiReviewSection({ review }: { review: CandidateAiReview
                 </ol>
               </ScrollArea>
             ) : (
-              <p className="mt-5 text-muted-foreground text-sm">暂无优势总结</p>
+              <p className="mt-5 text-muted-foreground text-sm">暂无优势要点</p>
             )}
           </div>
         </div>
       ) : (
         <div className="mt-6 border-foreground/15 border-y py-4 text-center">
-          <p className="font-medium text-sm">AI 评价尚未生成</p>
-          <p className="mt-2 text-muted-foreground text-sm">你仍可以继续完成本次面试准备。</p>
+          <p className="font-medium text-sm">初步了解还在准备中</p>
+          <p className="mt-2 text-muted-foreground text-sm">您可以先继续，不影响后续流程。</p>
         </div>
       )}
     </section>

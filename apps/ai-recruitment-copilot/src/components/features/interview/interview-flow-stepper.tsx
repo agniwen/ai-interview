@@ -18,9 +18,9 @@ export function buildInterviewFlowSteps(hasForms: boolean): InterviewFlowStep[] 
     ...(hasForms
       ? [
           {
-            description: "补充面试所需信息",
+            description: "补充本次面试需要的信息",
             id: "forms" as const,
-            label: "表单收集",
+            label: "填写信息",
           },
         ]
       : []),
