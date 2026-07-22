@@ -71,7 +71,7 @@ export function InterviewPreparationView({
     <>
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-0 -z-20 bg-[url('/textures/interview-prep-light-monet.jpg')] bg-center bg-cover bg-no-repeat dark:bg-[url('/textures/interview-prep-dark-monet.jpg')]"
+        className="pointer-events-none fixed inset-0 -z-20 bg-[url('/textures/interview-prep-light.png')] bg-center bg-cover bg-no-repeat dark:bg-[url('/textures/interview-prep-dark.png')]"
       />
       <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-background/45" />
       <div className="fixed top-4 right-4 z-20">
