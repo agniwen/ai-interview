@@ -1,6 +1,48 @@
 import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
 import type { ScheduleEntryStatus } from "@arc/db-schema/studio-interviews";
 import { RECONNECT_GRACE_MS } from "@arc/db-schema/studio-interviews";
+import type { ResumeReviewDimensionKey, ResumeReviewLoose } from "../resume-review";
+import {
+  getResumeReviewBaseScore,
+  getResumeReviewDimension,
+  RESUME_REVIEW_DIMENSIONS,
+} from "../resume-review";
+
+export interface CandidateAiReview {
+  baseScore: number | null;
+  conclusion: string;
+  dimensions: {
+    key: ResumeReviewDimensionKey;
+    label: string;
+    rationale: string;
+    score: number;
+  }[];
+  strengths: {
+    evidence: string | null;
+    impact: string;
+    point: string;
+  }[];
+}
+
+export function buildCandidateAiReview(
+  review: ResumeReviewLoose | null | undefined,
+): CandidateAiReview | null {
+  if (!review) {
+    return null;
+  }
+
+  return {
+    baseScore: getResumeReviewBaseScore(review),
+    conclusion: review.overall.conclusion,
+    dimensions: RESUME_REVIEW_DIMENSIONS.flatMap(({ key, label }) => {
+      const dimension = getResumeReviewDimension(review, key);
+      return dimension
+        ? [{ key, label, rationale: dimension.rationale, score: dimension.score }]
+        : [];
+    }),
+    strengths: review.strengths.map(({ evidence, impact, point }) => ({ evidence, impact, point })),
+  };
+}
 
 /**
  * 单轮面试安排记录（来自数据库 schedule_entries 表的视图）。
@@ -32,6 +74,7 @@ export interface InterviewScheduleEntry {
  */
 export interface CandidateInterviewView {
   id: string;
+  aiReview: CandidateAiReview | null;
   candidateName: string;
   companyContext: string | null;
   targetRole: string | null;
@@ -155,6 +198,7 @@ export function buildCandidateInterviewView(
     candidateName: string;
     targetRole: string | null;
     resumeProfile: ResumeProfile | null;
+    resumeReview: ResumeReviewLoose | null;
     interviewQuestions: InterviewQuestion[];
   },
   scheduleEntries: InterviewScheduleEntry[],
@@ -163,6 +207,7 @@ export function buildCandidateInterviewView(
   const currentEntry = scheduleEntries.find((e) => e.id === roundId) ?? null;
 
   return {
+    aiReview: buildCandidateAiReview(record.resumeReview),
     candidateName: record.candidateName,
     companyContext: null,
     currentRoundAllowTextInput: currentEntry?.allowTextInput ?? false,

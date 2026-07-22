@@ -60,7 +60,6 @@ export function InterviewPreSessionFlow({
   onPreparationConfirmed,
   onRetry,
   preparationConfirmed,
-  recordingEnabled,
   roundId,
   waitingView,
 }: {
@@ -75,7 +74,6 @@ export function InterviewPreSessionFlow({
   onPreparationConfirmed: () => void;
   onRetry: () => void;
   preparationConfirmed: boolean;
-  recordingEnabled: boolean;
   roundId: string;
   waitingView: React.ReactNode;
 }) {
@@ -100,7 +98,6 @@ export function InterviewPreSessionFlow({
         hasForms={hasForms}
         interviewView={interviewView}
         onContinue={onPreparationConfirmed}
-        recordingEnabled={recordingEnabled}
       />
     );
   }

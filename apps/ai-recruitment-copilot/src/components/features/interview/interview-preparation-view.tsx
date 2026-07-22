@@ -6,8 +6,8 @@ import { MarkdownView } from "@/components/features/display/markdown-view";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { CandidateAiReviewSection } from "./candidate-ai-review-section";
 import { InterviewFlowFloatingBar } from "./interview-flow-floating-bar";
-import { InterviewRules } from "./interview-rules";
 
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
   dateStyle: "long",
@@ -59,12 +59,10 @@ export function InterviewPreparationView({
   hasForms,
   interviewView,
   onContinue,
-  recordingEnabled,
 }: {
   hasForms: boolean;
   interviewView: CandidateInterviewView;
   onContinue: () => void;
-  recordingEnabled: boolean;
 }) {
   const roleName = interviewView.jobDescriptionName ?? interviewView.targetRole ?? "当前岗位";
   const questionCount = interviewView.interviewQuestions.length;
@@ -95,7 +93,8 @@ export function InterviewPreparationView({
                     : "先了解一下这次面试"}
                 </h1>
                 <p className="max-w-2xl text-muted-foreground text-sm leading-7">
-                  开始前花几分钟了解公司、岗位和完整流程。准备充分后，再进入信息填写与 AI 面试。
+                  开始前花几分钟了解公司、岗位和 AI 对你的初步评价。准备充分后，再进入信息填写与 AI
+                  面试。
                 </p>
               </div>
 
@@ -137,23 +136,7 @@ export function InterviewPreparationView({
               </ContextSection>
             </div>
 
-            <section className="pt-10 sm:pt-14">
-              <div className="flex items-baseline gap-3">
-                <span className="font-mono text-[10px] text-muted-foreground tracking-[0.16em]">
-                  03
-                </span>
-                <div>
-                  <h2 className="font-medium text-base tracking-tight sm:text-lg">面试注意事项</h2>
-                  <p className="mt-1 text-muted-foreground text-xs leading-6 sm:text-sm">
-                    确认以下事项后再继续，正式开始前还会进行一次设备检测。
-                  </p>
-                </div>
-              </div>
-              <InterviewRules
-                className="mt-5 grid divide-y-0 border-foreground/15 border-t md:grid-cols-2 md:gap-x-10 [&>li]:border-foreground/15 [&>li]:border-b"
-                recordingEnabled={recordingEnabled}
-              />
-            </section>
+            <CandidateAiReviewSection review={interviewView.aiReview} />
           </div>
         </ScrollArea>
       </main>

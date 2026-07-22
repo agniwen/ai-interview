@@ -672,7 +672,6 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         onPreparationConfirmed={() => setPreparationConfirmed(true)}
         onRetry={() => void loadEntryData()}
         preparationConfirmed={preparationConfirmed}
-        recordingEnabled={interviewRecordingEnabled}
         roundId={roundId}
         waitingView={waitingView}
       />
