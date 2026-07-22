@@ -102,6 +102,10 @@ _Avoid_: Saved filter, default workspace setting, permission scope
 A person being evaluated by a workspace for one or more job descriptions or interview rounds.
 _Avoid_: Applicant when the record is already inside the workspace
 
+**Candidate Recruiting Record**:
+The workspace record that tracks one candidate in the context of one job and its recruiting pipeline. AI interview rounds belong to this record; each interview report and its versions belong to exactly one AI interview round rather than directly to the candidate record.
+_Avoid_: Candidate identity, resume record, interview round
+
 **Resume Library**:
 The workspace roster of resume records that have been accepted into the recruiting workflow.
 _Avoid_: Candidate database, interview list
@@ -272,11 +276,55 @@ A live interview session involving a human interviewer and a candidate.
 _Avoid_: AI interview, manual round
 
 **Interview Report**:
-The generated evaluation output for an interview round, based on transcript, questions, answers, and evidence.
-_Avoid_: Summary, feedback note
+The versioned, reviewable evaluation output for one AI interview round, combining evidence from the candidate's resume, submitted forms, and that round's interview. A candidate may have multiple interview reports.
+_Avoid_: Candidate-level aggregate report, summary, feedback note
+
+**Interview Report Evidence**:
+An immutable source fact cited by an interview report conclusion from exactly one of three source families: resume content, a submitted form response, or a candidate statement from that AI interview round. Generated assessments and prior report conclusions are derived material, not evidence.
+_Avoid_: AI rationale, report conclusion, prompt context
+
+**Interview Report Conclusion**:
+One structured claim in an interview report that cites at least one interview report evidence item. The report's overall recommendation refers to conclusions rather than introducing unsupported claims.
+_Avoid_: Evidence quote, report section, free-form rationale
+
+**Interview Report Evidence Conflict**:
+A structured disagreement between source facts that must retain references to the conflicting evidence and request human resolution instead of silently selecting one account.
+_Avoid_: Missing source, low confidence, rejected report
+
+**Interview Report Schema Version**:
+The version of the interview report data contract used to parse and validate its stored content.
+_Avoid_: Report version, prompt version
+
+**Interview Report Version**:
+The immutable business revision number of an interview report within one AI interview round.
+_Avoid_: Schema version, edit count
+
+**Interview Report Review**:
+The decision process applied to the immutable interview report version submitted to the round's Feishu review workspace, with attributable audit history. Once the document exists, the system does not revise or regenerate that round's report.
+_Avoid_: Report editing, recruitment stage, Feishu document status
+
+**Business Interview Entry Gate**:
+The human decision made from one submitted interview report version: advance the candidate to the human interview stage or close the recruiting record as rejected.
+_Avoid_: AI recommendation, human interview outcome, report status
+
+**Interview Report Reviewer**:
+A workspace member who may decide the business interview entry gate for candidate recruiting records within their recruiting visibility scope. Ordinary HR members may review their own submitted versions; management rank is not required.
+_Avoid_: Feishu document editor, AI evaluator, human interviewer
+
+**Feishu Review Workspace**:
+The editable Feishu document generated for one AI interview round. Each round has its own document, and after creation the system never modifies its body, so human review input cannot be overwritten. Editing the document does not revise a system report version, and gate decisions are submitted in the authenticated system rather than through Feishu callbacks.
+_Avoid_: Report source of truth, report version, unrestricted report editor
+
+**Human Review Input**:
+Reviewer-authored content entered in designated sections of a Feishu review workspace. In the first version it remains in Feishu and is not part of the immutable generated report or the system review record.
+_Avoid_: AI assessment conclusion, Feishu document body, approval decision
+
+**Interview Report Source Coverage**:
+The explicit availability state of each interview report source family: available, missing, or not applicable. Missing required sources block review submission; a source omitted by the recruiting process does not.
+_Avoid_: Evidence quality, completion percentage
 
 **Interview Evidence Snapshot**:
-A stable snapshot of the resume, job, questions, and configuration used to generate or explain an interview evaluation.
+A stable snapshot of the resume, job, submitted forms, questions, configuration, and transcript used to generate or explain one interview report.
 _Avoid_: Context dump, prompt cache
 
 **Round Invite Email**:
