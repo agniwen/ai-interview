@@ -162,7 +162,10 @@ export function PreInterviewFormsView({
         aria-hidden
         className="pointer-events-none fixed inset-0 -z-20 bg-[url('/textures/interview-prep-light.png')] bg-center bg-cover bg-no-repeat dark:bg-[url('/textures/interview-prep-dark.png')]"
       />
-      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-background/45" />
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10 bg-background/45 dark:bg-background/75"
+      />
       <div className="fixed top-4 right-4 z-20 rounded-md bg-background/20 p-1 backdrop-blur-sm">
         <ThemeToggle />
       </div>

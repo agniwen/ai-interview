@@ -73,7 +73,10 @@ export function InterviewPreparationView({
         aria-hidden
         className="pointer-events-none fixed inset-0 -z-20 bg-[url('/textures/interview-prep-light.png')] bg-center bg-cover bg-no-repeat dark:bg-[url('/textures/interview-prep-dark.png')]"
       />
-      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-background/45" />
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10 bg-background/45 dark:bg-background/75"
+      />
       <div className="fixed top-4 right-4 z-20">
         <ThemeToggle />
       </div>
@@ -82,20 +85,12 @@ export function InterviewPreparationView({
         <ScrollArea className="h-full w-full">
           <div className="mx-auto flex w-full max-w-5xl flex-col px-5 pt-12 pb-40 sm:px-8 sm:pt-20 sm:pb-36 md:pt-16">
             <header>
-              <div className="flex items-center gap-3 text-[11px] text-muted-foreground tracking-[0.18em]">
-                <span aria-hidden className="h-px w-8 bg-foreground/35" />
-                面试准备 · 第一步
-              </div>
               <div className="mt-7 grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-end lg:gap-16">
                 <h1 className="max-w-3xl text-balance text-3xl leading-tight tracking-[-0.03em] sm:text-5xl sm:leading-[1.1]">
                   {interviewView.candidateName
                     ? `${interviewView.candidateName}，先了解一下这次面试`
                     : "先了解一下这次面试"}
                 </h1>
-                <p className="max-w-2xl text-muted-foreground text-sm leading-7">
-                  开始前花几分钟了解公司、岗位和 AI 对你的初步评价。准备充分后，再进入信息填写与 AI
-                  面试。
-                </p>
               </div>
 
               <dl className="mt-10 grid border-foreground/15 border-y sm:grid-cols-3 sm:divide-x sm:divide-foreground/15">
@@ -116,7 +111,7 @@ export function InterviewPreparationView({
               </dl>
             </header>
 
-            <div className=" grid border-foreground/15 border-b lg:grid-cols-2 lg:divide-x lg:divide-foreground/15">
+            <div className="grid border-foreground/15 border-b lg:grid-cols-2 lg:divide-x lg:divide-foreground/15">
               <ContextSection className="lg:pr-10" index="01" title="关于公司">
                 <p className="whitespace-pre-wrap">
                   {interviewView.companyContext?.trim() || "公司暂未提供详细介绍。"}

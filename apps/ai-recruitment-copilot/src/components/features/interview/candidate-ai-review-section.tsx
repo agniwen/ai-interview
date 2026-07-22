@@ -3,6 +3,7 @@
 import type { CandidateAiReview } from "@arc/shared/interview/interview-record";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useEffect, useRef } from "react";
 import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart } from "recharts";
 
 function CandidateReviewRadar({ dimensions }: { dimensions: CandidateAiReview["dimensions"] }) {
@@ -72,6 +73,37 @@ function CandidateReviewRadar({ dimensions }: { dimensions: CandidateAiReview["d
 }
 
 export function CandidateAiReviewSection({ review }: { review: CandidateAiReview | null }) {
+  const strengthsViewportRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const viewport = strengthsViewportRef.current;
+    if (!viewport) {
+      return;
+    }
+
+    const onWheel = (event: WheelEvent) => {
+      if (viewport.scrollWidth <= viewport.clientWidth) {
+        return;
+      }
+
+      const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+      if (delta === 0) {
+        return;
+      }
+
+      const previousScrollLeft = viewport.scrollLeft;
+      viewport.scrollLeft += delta;
+
+      if (viewport.scrollLeft !== previousScrollLeft) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+
+    viewport.addEventListener("wheel", onWheel, { passive: false });
+    return () => viewport.removeEventListener("wheel", onWheel);
+  }, [review?.strengths.length]);
+
   return (
     <section className="pt-10 sm:pt-14">
       <div className="flex items-baseline gap-3">
@@ -85,21 +117,21 @@ export function CandidateAiReviewSection({ review }: { review: CandidateAiReview
       </div>
 
       {review ? (
-        <div className="mt-6 sm:pl-8">
+        <div className="mt-6">
           <div className="grid border-foreground/15 border-y lg:grid-cols-[minmax(18rem,0.9fr)_minmax(0,1.1fr)] lg:divide-x lg:divide-foreground/15">
             <div className="py-8 lg:pr-10">
               <h3 className="text-muted-foreground text-xs tracking-wide">维度评分</h3>
               <CandidateReviewRadar dimensions={review.dimensions} />
             </div>
 
-            <div className="flex min-w-0 flex-col justify-center border-foreground/15 border-t py-8 lg:border-t-0 lg:pl-10">
-              <div>
+            <div className="flex min-w-0 flex-col justify-center border-foreground/15 border-t py-8 lg:border-t-0">
+              <div className="lg:pl-10">
                 <h3 className="text-muted-foreground text-xs tracking-wide">综合评分 / 100</h3>
                 <span className="mt-4 block font-semibold text-6xl tabular-nums leading-none tracking-tighter">
                   {review.baseScore ?? "—"}
                 </span>
               </div>
-              <div className="mt-8 border-foreground/15 border-t pt-6">
+              <div className="mt-8 border-foreground/15 border-t pt-6 lg:pl-10">
                 <h3 className="text-muted-foreground text-xs tracking-wide">一句话评价</h3>
                 <p className="mt-4 text-balance font-medium text-base leading-8 tracking-tight sm:text-lg">
                   {review.conclusion}
@@ -108,12 +140,9 @@ export function CandidateAiReviewSection({ review }: { review: CandidateAiReview
             </div>
           </div>
 
-          <div className="border-foreground/15 border-b py-8">
+          <div className="py-8">
             <div className="flex items-center justify-between gap-4">
               <h3 className="text-muted-foreground text-xs tracking-wide">优势总结</h3>
-              {review.strengths.length > 1 ? (
-                <span className="text-muted-foreground text-xs">横向滑动查看更多</span>
-              ) : null}
             </div>
             {review.strengths.length > 0 ? (
               <ScrollArea
@@ -122,11 +151,12 @@ export function CandidateAiReviewSection({ review }: { review: CandidateAiReview
                 scrollbarGutter
                 scrollFade
                 viewportClassName="pb-3"
+                viewportRef={strengthsViewportRef}
               >
                 <ol className="flex w-max min-w-full gap-4">
                   {review.strengths.map((strength, index) => (
                     <li
-                      className="flex w-[min(22rem,80vw)] shrink-0 gap-3 border border-foreground/15 bg-background/25 p-5"
+                      className="flex w-[min(28rem,85vw)] shrink-0 gap-3 rounded border border-foreground/15 bg-background/25 p-5"
                       key={`${strength.point}-${index}`}
                     >
                       <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 font-mono text-primary text-xs">
@@ -156,7 +186,7 @@ export function CandidateAiReviewSection({ review }: { review: CandidateAiReview
           </div>
         </div>
       ) : (
-        <div className="mt-6 border-foreground/15 border-y py-4 text-center sm:ml-8">
+        <div className="mt-6 border-foreground/15 border-y py-4 text-center">
           <p className="font-medium text-sm">AI 评价尚未生成</p>
           <p className="mt-2 text-muted-foreground text-sm">你仍可以继续完成本次面试准备。</p>
         </div>
