@@ -118,8 +118,8 @@ export function CandidateAiReviewSection({ review }: { review: CandidateAiReview
 
       {review ? (
         <div className="mt-6">
-          <div className="grid border-foreground/15 border-y lg:grid-cols-[minmax(18rem,0.9fr)_minmax(0,1.1fr)] lg:divide-x lg:divide-foreground/15">
-            <div className="py-8 lg:pr-10">
+          <div className="grid border-foreground/15 border-y lg:grid-cols-[repeat(2,minmax(0,1fr))] lg:divide-x lg:divide-foreground/15">
+            <div className="min-w-0 py-8 lg:pr-10">
               <h3 className="text-muted-foreground text-xs tracking-wide">匹配维度</h3>
               <CandidateReviewRadar dimensions={review.dimensions} />
             </div>

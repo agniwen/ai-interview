@@ -34,7 +34,7 @@ function ContextSection({
   title: string;
 }) {
   return (
-    <section className={cn("py-8 sm:py-10 lg:py-12", className)}>
+    <section className={cn("min-w-0 py-8 sm:py-10 lg:py-12", className)}>
       <div className="flex items-baseline gap-3">
         <span className="font-mono text-[10px] text-muted-foreground tracking-[0.16em]">
           {index}
@@ -48,7 +48,7 @@ function ContextSection({
 
 function ScheduleItem({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="grid content-start gap-1 px-0 py-4 sm:px-6 sm:py-5 sm:first:pl-0 sm:last:pr-0">
+    <div className="grid min-w-0 content-start gap-1 px-0 py-4 sm:px-6 sm:py-5 sm:first:pl-0 sm:last:pr-0">
       <dt className="text-[11px] text-muted-foreground tracking-wide">{label}</dt>
       <dd className="text-sm leading-6">{value}</dd>
     </div>
@@ -93,7 +93,7 @@ export function InterviewPreparationView({
                 </h1>
               </div>
 
-              <dl className="mt-10 grid border-foreground/15 border-y sm:grid-cols-3 sm:divide-x sm:divide-foreground/15">
+              <dl className="mt-10 grid border-foreground/15 border-y sm:grid-cols-[repeat(3,minmax(0,1fr))] sm:divide-x sm:divide-foreground/15">
                 <ScheduleItem
                   label="面试时间"
                   value={formatInterviewTime(interviewView.currentRoundTime)}
@@ -111,7 +111,7 @@ export function InterviewPreparationView({
               </dl>
             </header>
 
-            <div className="grid border-foreground/15 border-b lg:grid-cols-2 lg:divide-x lg:divide-foreground/15">
+            <div className="grid border-foreground/15 border-b lg:grid-cols-[repeat(2,minmax(0,1fr))] lg:divide-x lg:divide-foreground/15">
               <ContextSection className="lg:pr-10" index="01" title="关于公司">
                 <p className="whitespace-pre-wrap">
                   {interviewView.companyContext?.trim() ||
