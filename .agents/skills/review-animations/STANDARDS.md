@@ -1,6 +1,6 @@
 # Animation Standards Reference
 
-The precise values, curves, and rules behind the review. Cite these in findings instead of approximating. Distilled from Emil Kowalski's design engineering philosophy ([animations.dev](https://animations.dev/)).
+The precise values, curves, and rules behind the review. Cite these in findings instead of approximating. Distilled from Emil Kowalski's design engineering philosophy.
 
 ## Should it animate? (frequency table)
 
@@ -54,9 +54,6 @@ Find curves at [easing.dev](https://easing.dev/) or [easings.co](https://easings
 - **Never `scale(0)`.** Start from `scale(0.9–0.97)` + `opacity: 0`. Nothing in the real world appears from nothing.
 - **Origin-aware popovers.** Scale from the trigger, not center:
   ```css
-  .popover {
-    transform-origin: var(--radix-popover-content-transform-origin);
-  } /* Radix */
   .popover {
     transform-origin: var(--transform-origin);
   } /* Base UI */

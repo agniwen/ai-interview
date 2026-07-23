@@ -32,6 +32,15 @@ describe("buildRecruitingCopilotInstructions", () => {
     expect(instructions).not.toContain("conversationJobBindingProposal");
   });
 
+  it("requires database-backed six-dimension scores for mentioned bound candidates", () => {
+    const instructions = buildRecruitingCopilotInstructions();
+
+    expect(instructions).toContain("出现 :resume_record");
+    expect(instructions).toContain("必须调用 get_resume_record_detail");
+    expect(instructions).toContain("数据库已有的六维评分");
+    expect(instructions).toContain("不要自行重新估分");
+  });
+
   it("does not interpolate candidate data into the system prompt", () => {
     const instructions = buildRecruitingCopilotInstructions({
       id: "resume-1",

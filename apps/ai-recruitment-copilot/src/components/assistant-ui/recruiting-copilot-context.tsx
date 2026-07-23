@@ -11,8 +11,10 @@ import {
   useState,
 } from "react";
 import type { CSSProperties, PropsWithChildren } from "react";
+import type { ResumeReviewLoose } from "@arc/shared/resume-review";
 import { getPreviewableResumeDocumentKind } from "@/components/features/resume/resume-document-preview-button";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
+import type { StudioPersonDetailTab } from "@/components/features/studio/studio-person-detail-panel";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 const ResumeDocumentPreviewDialog = lazy(async () => {
@@ -42,6 +44,17 @@ export interface SearchResumeRecordsResult {
   retrievalMode?: "combined" | "semantic" | "structured" | "structured_text";
   semanticHitCount?: number;
   total?: number;
+}
+
+export interface ResumeRecordDetailResult {
+  resumeRecord?: {
+    candidateName: string;
+    citation: CopilotCitation;
+    id: string;
+    jobDescriptionId: string | null;
+    jobDescriptionName: string | null;
+    resumeReview?: ResumeReviewLoose | null;
+  } | null;
 }
 
 export interface CopilotCitation {
@@ -83,7 +96,7 @@ interface RecruitingCopilotContextValue {
   proposalStatuses: Record<string, ProposalStatus>;
   proposals: RecruitingActionProposal[];
   markProposal: (id: string, status: ProposalStatus) => void;
-  openResumeDetail: (recordId: string) => void;
+  openResumeDetail: (recordId: string, defaultTab?: StudioPersonDetailTab) => void;
   openResumePreview: (record: Pick<CandidateSummaryCard, "id" | "resumeFileName">) => void;
   upsertCitations: (citations: CopilotCitation[]) => void;
   upsertProposal: (proposal: RecruitingActionProposal) => void;
@@ -114,7 +127,10 @@ export function RecruitingCopilotContextProvider({
   conversationId: string | null;
 }>) {
   const [citations, setCitations] = useState<CopilotCitation[]>([]);
-  const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
+  const [detailTarget, setDetailTarget] = useState<{
+    defaultTab: StudioPersonDetailTab;
+    recordId: string;
+  } | null>(null);
   const [previewRecord, setPreviewRecord] = useState<Pick<
     CandidateSummaryCard,
     "id" | "resumeFileName"
@@ -124,7 +140,7 @@ export function RecruitingCopilotContextProvider({
 
   useEffect(() => {
     setCitations([]);
-    setDetailRecordId(null);
+    setDetailTarget(null);
     setPreviewRecord(null);
     setProposals([]);
     setProposalStatuses({});
@@ -151,9 +167,12 @@ export function RecruitingCopilotContextProvider({
     setProposalStatuses((current) => ({ ...current, [id]: status }));
   }, []);
 
-  const openResumeDetail = useCallback((recordId: string) => {
-    setDetailRecordId(recordId);
-  }, []);
+  const openResumeDetail = useCallback(
+    (recordId: string, defaultTab: StudioPersonDetailTab = "overview") => {
+      setDetailTarget({ defaultTab, recordId });
+    },
+    [],
+  );
 
   const openResumePreview = useCallback(
     (record: Pick<CandidateSummaryCard, "id" | "resumeFileName">) => {
@@ -196,14 +215,15 @@ export function RecruitingCopilotContextProvider({
     <RecruitingCopilotContext.Provider value={value}>
       {children}
       <StudioPersonDetailDialog
+        defaultTab={detailTarget?.defaultTab}
         mode="resume"
         onOpenChange={(open) => {
           if (!open) {
-            setDetailRecordId(null);
+            setDetailTarget(null);
           }
         }}
-        open={detailRecordId !== null}
-        recordId={detailRecordId}
+        open={detailTarget !== null}
+        recordId={detailTarget?.recordId}
       />
       {previewRecord && previewKind ? (
         <Suspense fallback={null}>

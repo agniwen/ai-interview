@@ -11,6 +11,7 @@ export { customColumn, type CustomColumnOptions } from "./columns/custom-column"
 export { MemberCell, getMemberInitials, type MemberCellProps } from "./cells/member-cell";
 export {
   actionsColumn,
+  estimateActionsColumnSize,
   type ActionInline,
   type ActionMenuItem,
   type ActionsColumnOptions,

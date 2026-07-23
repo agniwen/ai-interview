@@ -8,6 +8,14 @@ import type * as DataGridModule from "@/components/data-grid";
 import { ResumeParseCacheGrid } from "../resume-parse-cache-grid";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+function ResizeObserverMock() {
+  return {
+    disconnect: vi.fn(),
+    observe: vi.fn(),
+    unobserve: vi.fn(),
+  };
+}
+vi.stubGlobal("ResizeObserver", ResizeObserverMock);
 
 const cacheRecord = vi.hoisted(() => ({
   contentHash: "sha256-demo",
@@ -144,6 +152,13 @@ describe("ResumeParseCacheGrid", () => {
     expect(document.body.textContent).toContain("resume.pdf");
     expect(findButton("查看")).toBeTruthy();
     expect(findButton("删除")).toBeTruthy();
+    const actionsHeader = [...document.querySelectorAll("th")].find(
+      (header) => header.textContent?.trim() === "操作",
+    );
+    expect(actionsHeader?.style.width).toBe("100px");
+    expect(actionsHeader?.style.minWidth).toBe("100px");
+    expect(actionsHeader?.style.maxWidth).toBe("100px");
+    expect(findButton("删除")?.classList.contains("pr-0")).toBe(true);
 
     await act(async () => {
       findButton("查看")?.click();

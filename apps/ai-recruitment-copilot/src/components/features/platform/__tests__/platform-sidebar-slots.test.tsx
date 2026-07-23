@@ -143,7 +143,7 @@ describe("PlatformSidebarSlots", () => {
     expect(resolvePlatformSidebarTab("/platform/mastra-studio/agents/demo")).toBe("mastra");
   });
 
-  it("keeps the existing management navigation and switches to Mastra", async () => {
+  it("keeps the existing management navigation and switches to debugging", async () => {
     const { root } = await renderInAct(<PlatformSidebarSlots />);
     roots.push(root);
 
@@ -157,17 +157,17 @@ describe("PlatformSidebarSlots", () => {
     expect(document.body.textContent).not.toContain("Agents");
     expect(document.querySelector("button[data-active='true']")?.textContent).toBe("管理");
 
-    const mastraTab = [...document.querySelectorAll("button")].find(
-      (button) => button.textContent === "Mastra",
+    const debugTab = [...document.querySelectorAll("button")].find(
+      (button) => button.textContent === "调试",
     );
-    act(() => mastraTab?.click());
+    act(() => debugTab?.click());
 
     expect(routerMocks.navigate).toHaveBeenCalledWith({
       to: "/platform/mastra-studio/agents",
     });
   });
 
-  it("shows grouped Mastra navigation and marks nested items active", async () => {
+  it("shows grouped debugging navigation and marks nested items active", async () => {
     routerMocks.pathname = "/platform/mastra-studio/agents/demo";
     const { root } = await renderInAct(<PlatformSidebarSlots />);
     roots.push(root);
@@ -180,7 +180,7 @@ describe("PlatformSidebarSlots", () => {
     expect(document.body.textContent).toContain("资源");
     expect(document.body.textContent).toContain("搜索");
     expect(document.body.textContent).not.toContain("所有工作区");
-    expect(document.querySelector("button[data-active='true']")?.textContent).toBe("Mastra");
+    expect(document.querySelector("button[data-active='true']")?.textContent).toBe("调试");
     const agentsLink = document.querySelector<HTMLAnchorElement>(
       "a[href='/platform/mastra-studio/agents']",
     );

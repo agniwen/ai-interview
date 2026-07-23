@@ -25,6 +25,7 @@ import { loadResumePoolItem } from "@arc/ai-recruitment-copilot-backend/server/r
 import { upsertConversationContextJobBinding } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat";
 import type { ChatContextBindings } from "@arc/db-schema/chat-context-bindings";
 import { EMPTY_CHAT_CONTEXT_BINDINGS } from "@arc/db-schema/chat-context-bindings";
+import { resumeReviewLooseSchema } from "@arc/db-schema/resume-review";
 import { jobDescription, resumePoolItem, studioInterview } from "@arc/db-schema/schema";
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
 import type { JobDescriptionRecord } from "@arc/shared/job-descriptions";
@@ -100,6 +101,7 @@ export const resumeRecordDetailSchema = z.object({
   notes: z.string().nullable(),
   pipelineStage: z.string(),
   resumeProfile: z.unknown().nullable(),
+  resumeReview: resumeReviewLooseSchema.nullable(),
   resumeSummary: z.string().nullable(),
   resumeText: z.string().nullable(),
   targetRole: z.string().nullable(),
@@ -878,6 +880,7 @@ export async function getResumeRecordDetailForCopilot(input: {
       notes: cleanString(record.notes),
       pipelineStage: record.pipelineStage,
       resumeProfile: record.resumeProfile,
+      resumeReview: record.resumeReview,
       resumeSummary: readResumeReviewConclusion(record.resumeReview) ?? cleanString(record.notes),
       resumeText: parsed.includeResumeText ? (record.resumeText?.slice(0, 12_000) ?? null) : null,
       targetRole: cleanString(record.targetRole),
@@ -1052,7 +1055,7 @@ export function createRecruitingCopilotTools({
     }),
     get_resume_record_detail: createTool({
       description:
-        "读取当前 workspace 中某个招聘台候选人的简历详情。若返回的 jobDescriptionId 为 null：同一轮必须立刻调用 propose_recruiting_action（type=bind_candidate_to_job，payload.resumeRecordId=本候选人 id），不要先口头询问用户是否要选岗位，也不要在提案前输出匹配/分析正文。",
+        "读取当前 workspace 中某个招聘台候选人的简历详情，并返回数据库已有六维评分 resumeReview。若返回的 jobDescriptionId 不为空，必须依据 resumeReview 输出数据库评分，不要自行重算；前端会直接渲染评分卡。若 jobDescriptionId 为 null：同一轮必须立刻调用 propose_recruiting_action（type=bind_candidate_to_job，payload.resumeRecordId=本候选人 id），不要先口头询问用户是否要选岗位，也不要在提案前输出匹配/分析正文。",
       execute: (input: z.infer<typeof getResumeRecordDetailInputSchema>) =>
         getResumeRecordDetailForCopilot({
           ...input,

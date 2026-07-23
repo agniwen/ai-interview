@@ -4,7 +4,8 @@
     "agents": {
       "source": "elevenlabs/skills",
       "sourceType": "github",
-      "computedHash": "18ddb1893c48233e73674aa00a28c62f75b55901ac7d24190575e72397a2b27a"
+      "skillPath": "agents/SKILL.md",
+      "computedHash": "f7f23cec9725eca6b1088e59d325015bca0cfe5b855cf2ac35153d6957207502"
     },
     "apple-design": {
       "source": "emilkowalski/skills",
@@ -15,35 +16,32 @@
     "better-auth-best-practices": {
       "source": "better-auth/skills",
       "sourceType": "github",
-      "computedHash": "a4c830509e85557b59339d8d93a4e243e9e59c686e7678854d39230e12c2a6dc"
+      "skillPath": "better-auth/best-practices/SKILL.md",
+      "computedHash": "61ba0ef64ed2e7c424401cc848ca33dd6d790a720c44727717dc0c5cba5fc122"
     },
     "chat-sdk": {
       "source": "vercel/chat",
       "sourceType": "github",
-      "computedHash": "f10f9eb1289aa7a1095d77954ea70c6ee6ab217f18af46a90d57a4b246d73af3"
+      "skillPath": "skills/chat/SKILL.md",
+      "computedHash": "dd2e9e18aa536e4f2625a6830247e4f593ba0c65ba7527365c18375c2cc618bd"
     },
     "emil-design-eng": {
       "source": "emilkowalski/skill",
       "sourceType": "github",
       "skillPath": "skills/emil-design-eng/SKILL.md",
-      "computedHash": "8bdf9e4e6de7a4969147bf4828a4ad2c5aacd9fba4b690b250a85e0467ca387d"
-    },
-    "next-best-practices": {
-      "source": "vercel-labs/next-skills",
-      "sourceType": "github",
-      "skillPath": "skills/next-best-practices/SKILL.md",
-      "computedHash": "f4678aef4ffc10a5ea64a91e57abe5a5081af813b06d58d565caf3e8ef56e26c"
+      "computedHash": "41b0a4dc1a27164fe297845a6c6850a39e9242c42c9be999967fcee9df2c5974"
     },
     "review-animations": {
       "source": "emilkowalski/skill",
       "sourceType": "github",
       "skillPath": "skills/review-animations/SKILL.md",
-      "computedHash": "ca04aaa0a815f05e0910ded8fedbfbdfe0acdec8f52dfbb88277890070d134d4"
+      "computedHash": "b9f669af5ae280c19a592a94611520335a81de25c88f225bf60ae4b2d66c8c7c"
     },
     "shadcn": {
       "source": "shadcn/ui",
       "sourceType": "github",
-      "computedHash": "873c67922d80775a9fdf596db7964b579f0408c30ec6e3d11989f6055bbec89f"
+      "skillPath": "skills/shadcn/SKILL.md",
+      "computedHash": "d81caa0f86aabab65b25e302d454f23a3328760386ed9078345584c0d5c8058e"
     },
     "tanstack-query-best-practices": {
       "source": "deckardger/tanstack-agent-skills",
@@ -54,12 +52,14 @@
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
-      "computedHash": "4365be772fd3b41994a72ad478472c6d680678e7f3859860ab010e9c46e48ee0"
+      "skillPath": "skills/react-best-practices/SKILL.md",
+      "computedHash": "ca7b0c0c6e5f2750043f7f0cd72d16ac4e2abc48f9b5500d047a4b77a2506212"
     },
     "web-design-guidelines": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
-      "computedHash": "a6a44d5498f7e8f68289902f3dedfc6f38ae0cee1e96527c80724cf27f727c2a"
+      "skillPath": "skills/web-design-guidelines/SKILL.md",
+      "computedHash": "f3bc47f890f42a44db1007ab390709ec368e4b8c089baee6b0007182236ac474"
     }
   }
 }

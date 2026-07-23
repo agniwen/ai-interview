@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@arc/shared/utils";
 
 export interface ActionInline<TData> {
   /** Visible button text and aria-label/title fallback. */
@@ -52,7 +53,9 @@ const ACTION_BUTTON_HORIZONTAL_PADDING = 20;
 const ACTION_MENU_TRIGGER_HORIZONTAL_PADDING = 10;
 /** Flex gap between action buttons (`gap-0.5`). */
 const ACTION_BUTTON_GAP = 2;
-const MIN_ACTION_COLUMN_SIZE = 64;
+/** Right-aligned final control uses no trailing button padding. */
+const ACTION_BUTTON_TRAILING_PADDING = 10;
+const MIN_ACTION_COLUMN_SIZE = 44;
 const HEADER_LABEL = "操作";
 
 function estimateActionLabelWidth(label: string) {
@@ -68,7 +71,7 @@ function estimateActionLabelWidth(label: string) {
   return width;
 }
 
-/** Exported for unit tests — keeps DataGrid action column sizing honest. */
+/** Shared sizing helper for custom action cells and the standard actions column. */
 export function estimateActionsColumnSize(opts: {
   inlineLabels?: string[];
   hasMenu?: boolean;
@@ -87,8 +90,10 @@ export function estimateActionsColumnSize(opts: {
     ? estimateActionLabelWidth("更多") + ACTION_MENU_TRIGGER_HORIZONTAL_PADDING
     : 0;
   const gapWidth = Math.max(actionCount - 1, 0) * ACTION_BUTTON_GAP;
+  const removedTrailingPadding =
+    inlineLabels.length > 0 && !hasMenu ? ACTION_BUTTON_TRAILING_PADDING : 0;
   const contentWidth = Math.ceil(
-    inlineWidth + menuWidth + gapWidth + ACTION_CELL_HORIZONTAL_PADDING,
+    inlineWidth + menuWidth + gapWidth + ACTION_CELL_HORIZONTAL_PADDING - removedTrailingPadding,
   );
   const headerWidth = Math.ceil(
     estimateActionLabelWidth(headerLabel) + ACTION_CELL_HORIZONTAL_PADDING,
@@ -118,13 +123,15 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
 
       return (
         <div className="flex items-center justify-end gap-0.5">
-          {visibleInline.map((action) => {
+          {visibleInline.map((action, index) => {
             const disabled = action.disabled?.(record) ?? false;
             const reason = disabled ? (action.disabledReason?.(record) ?? null) : null;
+            const isTrailingControl =
+              index === visibleInline.length - 1 && visibleMenu.length === 0;
             return (
               <Button
                 aria-label={action.label}
-                className="h-8 px-2.5 text-xs"
+                className={cn("h-8 px-2.5 text-xs", isTrailingControl && "pr-0")}
                 disabled={disabled}
                 key={action.label}
                 onClick={() => void action.onClick(record)}

@@ -50,14 +50,16 @@ conversation_config={
 }
 ```
 
-| Field                                 | Type   | Default | Description                                                            |
-| ------------------------------------- | ------ | ------- | ---------------------------------------------------------------------- |
-| `first_message`                       | string | `""`    | What the agent says when conversation starts                           |
-| `language`                            | string | `"en"`  | ISO 639-1 language code (en, es, fr, etc.)                             |
-| `disable_first_message_interruptions` | bool   | `false` | Prevent user from interrupting the first message                       |
-| `hinglish_mode`                       | bool   | `false` | When enabled and language is Hindi, agent responds in Hinglish         |
-| `dynamic_variables`                   | object | -       | Config with `dynamic_variable_placeholders` containing key-value pairs |
-| `prompt`                              | object | -       | LLM configuration (see prompt section below)                           |
+| Field                                 | Type   | Default | Description                                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------- | ------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `first_message`                       | string | `""`    | What the agent says when conversation starts                                                                                                                                                                                                                                                                                                                                   |
+| `language`                            | string | `"en"`  | ISO 639-1 language code (en, es, fr, etc.)                                                                                                                                                                                                                                                                                                                                     |
+| `disable_first_message_interruptions` | bool   | `false` | Prevent user from interrupting the first message                                                                                                                                                                                                                                                                                                                               |
+| `max_conversation_duration_message`   | string | -       | If non-empty, the message sent when `conversation.max_duration_seconds` is reached                                                                                                                                                                                                                                                                                             |
+| `text_behavior_overrides`             | object | -       | Per-channel text behavior overrides. Map of `ConversationInitiationSource` -> `BehaviorOverride` (`verbosity`, `output_format`, `interaction_budget`). Interaction budgets are `realtime`, `5_minutes`, `10_minutes`, or `1_hour`. See [API reference](https://elevenlabs.io/docs/api-reference/agents/create#request.body.conversation_config.agent.text_behavior_overrides). |
+| `hinglish_mode`                       | bool   | `false` | When enabled and language is Hindi, agent responds in Hinglish                                                                                                                                                                                                                                                                                                                 |
+| `dynamic_variables`                   | object | -       | Config with `dynamic_variable_placeholders` containing key-value pairs                                                                                                                                                                                                                                                                                                         |
+| `prompt`                              | object | -       | LLM configuration (see prompt section below)                                                                                                                                                                                                                                                                                                                                   |
 
 ### tts (Text-to-Speech)
 
@@ -69,23 +71,22 @@ conversation_config={
         "stability": 0.5,
         "similarity_boost": 0.8,
         "speed": 1.0,
-        "optimize_streaming_latency": 3,
         "expressive_mode": True
     }
 }
 ```
 
-| Field                               | Type   | Default                  | Description                            |
-| ----------------------------------- | ------ | ------------------------ | -------------------------------------- |
-| `voice_id`                          | string | `"cjVigY5qzO86Huf0OWal"` | Voice to use                           |
-| `model_id`                          | string | -                        | TTS model (see below)                  |
-| `stability`                         | float  | `0.5`                    | 0-1, lower = more expressive           |
-| `similarity_boost`                  | float  | `0.8`                    | 0-1, higher = closer to original voice |
-| `speed`                             | float  | `1.0`                    | 0.7-1.2, speech speed multiplier       |
-| `optimize_streaming_latency`        | int    | -                        | 0-4, higher = faster but lower quality |
-| `expressive_mode`                   | bool   | `true`                   | Enable expressive voice generation     |
-| `agent_output_audio_format`         | string | -                        | Output audio codec format              |
-| `pronunciation_dictionary_locators` | array  | -                        | Pronunciation overrides                |
+| Field                               | Type   | Default                  | Description                                                                        |
+| ----------------------------------- | ------ | ------------------------ | ---------------------------------------------------------------------------------- |
+| `voice_id`                          | string | `"cjVigY5qzO86Huf0OWal"` | Voice to use                                                                       |
+| `model_id`                          | string | -                        | TTS model (see below)                                                              |
+| `stability`                         | float  | `0.5`                    | 0-1, lower = more expressive                                                       |
+| `similarity_boost`                  | float  | `0.8`                    | 0-1, higher = closer to original voice                                             |
+| `speed`                             | float  | `1.0`                    | 0.7-1.2, speech speed multiplier                                                   |
+| `expressive_mode`                   | bool   | `true`                   | Enable expressive voice generation                                                 |
+| `agent_output_audio_format`         | string | -                        | Output audio codec format                                                          |
+| `pronunciation_dictionary_locators` | array  | -                        | Pronunciation overrides                                                            |
+| `enable_phoneme_tags`               | bool   | `true`                   | Parse inline and pronunciation-dictionary SSML phoneme tags into IPA for V3 models |
 
 **Available TTS models for agents:**
 
@@ -104,18 +105,19 @@ conversation_config={
 conversation_config={
     "asr": {
         "quality": "high",
+        "provider": "scribe_realtime",
         "keywords": ["ElevenLabs", "TechCorp"],
         "user_input_audio_format": "pcm_16000"
     }
 }
 ```
 
-| Field                     | Type   | Default        | Description                                         |
-| ------------------------- | ------ | -------------- | --------------------------------------------------- |
-| `quality`                 | string | `"high"`       | Transcription quality level                         |
-| `provider`                | string | `"elevenlabs"` | ASR provider (`elevenlabs` or `scribe_realtime`)    |
-| `keywords`                | array  | -              | Words to boost recognition accuracy                 |
-| `user_input_audio_format` | string | -              | Input audio format (e.g., `pcm_16000`, `ulaw_8000`) |
+| Field                     | Type   | Default             | Description                                         |
+| ------------------------- | ------ | ------------------- | --------------------------------------------------- |
+| `quality`                 | string | `"high"`            | Transcription quality level                         |
+| `provider`                | string | `"scribe_realtime"` | ASR provider for current agents                     |
+| `keywords`                | array  | -                   | Words to boost recognition accuracy                 |
+| `user_input_audio_format` | string | -                   | Input audio format (e.g., `pcm_16000`, `ulaw_8000`) |
 
 ### turn (Turn-Taking)
 
@@ -124,28 +126,36 @@ conversation_config={
     "turn": {
         "turn_timeout": 7,
         "turn_eagerness": "normal",
-        "silence_end_call_timeout": -1
+        "silence_end_call_timeout": -1,
+        "turn_model": "turn_v3"
     }
 }
 ```
 
-| Field                      | Type   | Default    | Description                                                 |
-| -------------------------- | ------ | ---------- | ----------------------------------------------------------- |
-| `turn_timeout`             | number | `7`        | Seconds to wait before re-engaging the user                 |
-| `turn_eagerness`           | string | `"normal"` | How quickly agent responds: `patient`, `normal`, or `eager` |
-| `silence_end_call_timeout` | number | `-1`       | Seconds of silence before ending call (-1 = disabled)       |
-| `initial_wait_time`        | number | -          | Seconds to wait for user to start speaking                  |
-| `spelling_patience`        | string | `"auto"`   | Entity detection patience: `auto` or `off`                  |
-| `speculative_turn`         | bool   | `false`    | Enable speculative turn detection                           |
-| `soft_timeout_config`      | object | -          | Configures a message if user is silent (see below)          |
+| Field                                  | Type   | Default     | Description                                                                                      |
+| -------------------------------------- | ------ | ----------- | ------------------------------------------------------------------------------------------------ |
+| `turn_timeout`                         | number | `7`         | Seconds to wait before re-engaging the user                                                      |
+| `turn_eagerness`                       | string | `"normal"`  | How quickly agent responds: `patient`, `normal`, or `eager`                                      |
+| `silence_end_call_timeout`             | number | `-1`        | Seconds of silence before ending call (-1 = disabled)                                            |
+| `initial_wait_time`                    | number | -           | Seconds to wait for user to start speaking                                                       |
+| `spelling_patience`                    | string | `"auto"`    | Entity detection patience: `auto` or `off`                                                       |
+| `speculative_turn`                     | bool   | `false`     | Enable speculative turn detection                                                                |
+| `turn_model`                           | string | `"turn_v3"` | Turn detection model version: `turn_v2` or `turn_v3`                                             |
+| `interruption_ignore_terms`            | array  | -           | Case-insensitive terms that should not trigger an interruption when spoken by the user           |
+| `transcribe_on_disabled_interruptions` | bool   | `false`     | When interruptions are disabled, still transcribe user speech so it can carry into the next turn |
+| `soft_timeout_config`                  | object | -           | Configures a message if user is silent (see below)                                               |
 
 **soft_timeout_config:**
 
-| Field                       | Type   | Default            | Description                                 |
-| --------------------------- | ------ | ------------------ | ------------------------------------------- |
-| `timeout_seconds`           | number | `-1`               | Seconds before soft timeout (-1 = disabled) |
-| `message`                   | string | `"Hhmmmm...yeah."` | What agent says on timeout                  |
-| `use_llm_generated_message` | bool   | `false`            | Let LLM generate the timeout message        |
+| Field                                   | Type   | Default            | Description                                                                               |
+| --------------------------------------- | ------ | ------------------ | ----------------------------------------------------------------------------------------- |
+| `timeout_seconds`                       | number | `-1`               | Seconds before soft timeout (-1 = disabled)                                               |
+| `message`                               | string | `"Hhmmmm...yeah."` | What agent says on timeout; supports dynamic variables                                    |
+| `additional_soft_timeout_messages`      | array  | -                  | Extra static filler messages for later timeouts in the same LLM response, up to 7 strings |
+| `use_llm_generated_message`             | bool   | `false`            | Let LLM generate the timeout message                                                      |
+| `randomize_fillers`                     | bool   | `false`            | Shuffle static soft timeout messages once at the start of each turn                       |
+| `max_soft_timeouts_per_generation`      | int    | `1`                | Maximum filler messages while waiting for one LLM response (1-8)                          |
+| `llm_generated_message_prompt_override` | string | -                  | Custom prompt for LLM-generated filler messages; supports dynamic variables               |
 
 ## prompt (nested in conversation_config.agent)
 
@@ -167,25 +177,26 @@ conversation_config={
 }
 ```
 
-| Field                        | Type   | Default | Description                                                                   |
-| ---------------------------- | ------ | ------- | ----------------------------------------------------------------------------- |
-| `prompt`                     | string | `""`    | System prompt defining agent behavior                                         |
-| `llm`                        | string | -       | Model ID (see LLM providers below)                                            |
-| `temperature`                | float  | `0`     | 0-1, higher = more creative                                                   |
-| `max_tokens`                 | int    | `-1`    | Max tokens for LLM response (-1 = unlimited)                                  |
-| `reasoning_effort`           | string | -       | Reasoning depth: `none`, `minimal`, `low`, `medium`, `high` (model-dependent) |
-| `thinking_budget`            | int    | -       | Max thinking tokens for reasoning models                                      |
-| `tools`                      | array  | -       | Webhook and client tool definitions                                           |
-| `built_in_tools`             | object | -       | System tools (end_call, transfer, etc.)                                       |
-| `tool_ids`                   | array  | -       | References to pre-configured tools                                            |
-| `knowledge_base`             | array  | -       | Documents for RAG                                                             |
-| `custom_llm`                 | object | -       | Custom LLM endpoint config                                                    |
-| `timezone`                   | string | -       | IANA timezone (e.g., `America/New_York`)                                      |
-| `backup_llm_config`          | object | -       | Fallback LLM configuration                                                    |
-| `cascade_timeout_seconds`    | number | `8`     | Seconds before cascading to backup LLM (2-15)                                 |
-| `mcp_server_ids`             | array  | -       | MCP server IDs to connect                                                     |
-| `native_mcp_server_ids`      | array  | -       | Native MCP server IDs                                                         |
-| `ignore_default_personality` | bool   | -       | Skip default personality instructions                                         |
+| Field                        | Type   | Default | Description                                                                                      |
+| ---------------------------- | ------ | ------- | ------------------------------------------------------------------------------------------------ |
+| `prompt`                     | string | `""`    | System prompt defining agent behavior                                                            |
+| `llm`                        | string | -       | Model ID (see LLM providers below)                                                               |
+| `temperature`                | float  | `0`     | 0-1, higher = more creative                                                                      |
+| `max_tokens`                 | int    | `-1`    | Max tokens for LLM response (-1 = unlimited)                                                     |
+| `reasoning_effort`           | string | -       | Reasoning depth: `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max` (model-dependent) |
+| `thinking_budget`            | int    | -       | Max thinking tokens for reasoning models                                                         |
+| `enable_reasoning_summary`   | bool   | `false` | Request provider reasoning summaries when supported; keep disabled for lower time-to-first-byte  |
+| `tools`                      | array  | -       | Webhook and client tool definitions                                                              |
+| `built_in_tools`             | object | -       | System tools (end_call, transfer, etc.)                                                          |
+| `tool_ids`                   | array  | -       | References to pre-configured tools                                                               |
+| `knowledge_base`             | array  | -       | Documents for RAG                                                                                |
+| `custom_llm`                 | object | -       | Custom LLM endpoint config                                                                       |
+| `timezone`                   | string | -       | IANA timezone (e.g., `America/New_York`)                                                         |
+| `backup_llm_config`          | object | -       | Fallback LLM configuration                                                                       |
+| `cascade_timeout_seconds`    | number | `4`     | Seconds before cascading to backup LLM (2-15)                                                    |
+| `mcp_server_ids`             | array  | -       | MCP server IDs to connect                                                                        |
+| `native_mcp_server_ids`      | array  | -       | Native MCP server IDs                                                                            |
+| `ignore_default_personality` | bool   | -       | Skip default personality instructions                                                            |
 
 Workspace environment variables let one agent configuration span multiple deployments. Use
 `{{system_env__label}}` in server tool and MCP server URLs, `{ "env_var_label": "orders_api_key" }`
@@ -194,13 +205,13 @@ to resolve per-environment auth connections at runtime.
 
 ### LLM Providers
 
-| Provider   | Model IDs                                                                                                                                                                   |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| OpenAI     | `gpt-5`, `gpt-5-mini`, `gpt-5-nano`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`                                                      |
-| Anthropic  | `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-sonnet-4`, `claude-haiku-4-5`, `claude-3-7-sonnet`, `claude-3-5-sonnet`, `claude-3-haiku`                                 |
-| Google     | `gemini-3.1-flash-lite-preview`, `gemini-3-pro-preview`, `gemini-3-flash-preview`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-2.0-flash`, `gemini-2.0-flash-lite` |
-| ElevenLabs | `glm-45-air-fp8`, `qwen3-30b-a3b`, `gpt-oss-120b` (hosted, ultra-low latency)                                                                                               |
-| Custom     | `custom-llm` (requires custom_llm config)                                                                                                                                   |
+| Provider   | Model IDs                                                                                                                                                                                                                                                                                                                      |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| OpenAI     | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5`, `gpt-5.5-2026-04-23`, `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.4-nano`, `gpt-5.4-2026-03-05`, `gpt-5.4-mini-2026-03-17`, `gpt-5.4-nano-2026-03-17`, `gpt-5`, `gpt-5-mini`, `gpt-5-nano`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo` |
+| Anthropic  | `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-sonnet-4`, `claude-haiku-4-5`, `claude-3-7-sonnet`, `claude-3-5-sonnet`, `claude-3-haiku`                                                                                                                                                                 |
+| Google     | `gemini-3.1-flash-lite-preview`, `gemini-3.1-pro-preview`, `gemini-3-pro-preview`, `gemini-3-flash-preview`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-2.0-flash`, `gemini-2.0-flash-lite`                                                                                                                          |
+| ElevenLabs | `glm-45-air-fp8`, `qwen3-30b-a3b`, `qwen36-35b-a3b`, `qwen35-35b-a3b`, `qwen35-397b-a17b`, `gpt-oss-120b` (hosted, ultra-low latency)                                                                                                                                                                                          |
+| Custom     | `custom-llm` (requires custom_llm config)                                                                                                                                                                                                                                                                                      |
 
 Use `GET /v1/convai/llm/list` to inspect the current model catalog, including deprecation state, token/context limits, and capability flags such as image-input support.
 
@@ -243,20 +254,25 @@ platform_settings={
     "call_limits": {
         "agent_concurrency_limit": 10,
         "daily_limit": 100
-    }
+    },
+    "trust_context": "low"
 }
 ```
 
 ### Top-Level Fields
 
-| Field              | Type   | Description                                                                                                                                                                          |
-| ------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `summary_language` | string | Language for conversation analysis outputs such as summaries, titles, evaluation rationales, and data collection rationales. If omitted, ElevenLabs infers it from the conversation. |
-| `widget`           | object | Hosted widget and shareable page configuration. See the widget table below for selected options.                                                                                     |
-| `auth`             | object | Authentication and origin restrictions for agent access                                                                                                                              |
-| `call_limits`      | object | Concurrency and daily usage limits                                                                                                                                                   |
-| `guardrails`       | object | Built-in safety and policy controls for agent interactions                                                                                                                           |
-| `privacy`          | object | Recording, retention, and conversation history redaction settings                                                                                                                    |
+| Field                                       | Type   | Description                                                                                                                                                                          |
+| ------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `summary_language`                          | string | Language for conversation analysis outputs such as summaries, titles, evaluation rationales, and data collection rationales. If omitted, ElevenLabs infers it from the conversation. |
+| `auto_translate_transcript_to_app_language` | bool   | Automatically translate a transcript to the viewer's application language when they open it                                                                                          |
+| `widget`                                    | object | Hosted widget and shareable page configuration. See the widget table below for selected options.                                                                                     |
+| `auth`                                      | object | Authentication and origin restrictions for agent access                                                                                                                              |
+| `call_limits`                               | object | Concurrency and daily usage limits                                                                                                                                                   |
+| `guardrails`                                | object | Built-in safety and policy controls for agent interactions                                                                                                                           |
+| `privacy`                                   | object | Recording, retention, and conversation history redaction settings                                                                                                                    |
+| `trust_context`                             | string | Trust classification for the agent: `unknown`, `low`, or `high`                                                                                                                      |
+| `topic_discovery`                           | object | Per-agent topic discovery configuration                                                                                                                                              |
+| `sentiment_analysis`                        | object | Per-agent post-call sentiment analysis configuration                                                                                                                                 |
 
 ### auth
 
@@ -285,6 +301,19 @@ Use `platform_settings.guardrails` to configure built-in safety controls for use
 | `prompt_injection` | object | Detects prompt injection and instruction override attempts.    |
 | `custom`           | object | Configures user-defined response validation guardrails.        |
 | `content`          | object | Configures category-specific content moderation guardrails.    |
+
+**custom.config.configs[]:**
+
+| Field                         | Type    | Description                                                                                                              |
+| ----------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `is_enabled`                  | bool    | Enables the custom guardrail.                                                                                            |
+| `name`                        | string  | User-facing guardrail name.                                                                                              |
+| `prompt`                      | string  | Instruction describing what to block.                                                                                    |
+| `execution_mode`              | string  | Guardrail execution mode: `streaming` or `blocking`.                                                                     |
+| `model`                       | string  | LLM model used for custom guardrail evaluation, such as `gemini-2.5-flash-lite`, `claude-sonnet-4-6`, or `gpt-5.4-mini`. |
+| `history_message_count`       | integer | Number of recent customer messages to include in guardrail history; `0` includes none.                                   |
+| `trigger_action`              | object  | Action when triggered, such as retrying with feedback or ending the call.                                                |
+| `evaluate_full_response_only` | bool    | Evaluate the complete non-TTS response once. Requires `execution_mode` set to `blocking`; defaults to `false`.           |
 
 **focus / prompt_injection:**
 
@@ -352,11 +381,36 @@ Use `platform_settings.widget` to configure the hosted widget and shareable page
 
 ### conversation (inside conversation_config)
 
-| Field                  | Type | Default | Description                           |
-| ---------------------- | ---- | ------- | ------------------------------------- |
-| `max_duration_seconds` | int  | `600`   | Max conversation duration             |
-| `text_only`            | bool | `false` | Text-only mode (avoids audio pricing) |
-| `monitoring_enabled`   | bool | `false` | Enable real-time WebSocket monitoring |
+| Field                  | Type   | Default | Description                                                                     |
+| ---------------------- | ------ | ------- | ------------------------------------------------------------------------------- |
+| `max_duration_seconds` | int    | `600`   | Max conversation duration                                                       |
+| `text_only`            | bool   | `false` | Text-only mode (avoids audio pricing)                                           |
+| `file_input`           | object | -       | Enables image and PDF uploads in chat for multimodal LLMs                       |
+| `monitoring_enabled`   | bool   | `false` | Enable real-time WebSocket monitoring                                           |
+| `client_events`        | array  | -       | Client events forwarded to the connected application                            |
+| `monitoring_events`    | array  | -       | Events forwarded to monitoring WebSocket connections                            |
+| `background_sound`     | object | -       | Background sound played during conversations                                    |
+| `source_attribution`   | bool   | `false` | Instructs the LLM to report sources used when knowledge base content is present |
+
+Common client events include `agent_response_correction`, `agent_tool_response_full_payload`,
+and `agent_response_complete`. `agent_response_complete` fires when the agent is done responding
+and must be enabled in `client_events`.
+
+**file_input:**
+
+| Field                        | Type | Default | Description                                                                                       |
+| ---------------------------- | ---- | ------- | ------------------------------------------------------------------------------------------------- |
+| `enabled`                    | bool | `true`  | Allows end users to attach images or PDFs in chat when the selected LLM supports multimodal input |
+| `max_files_per_conversation` | int  | `10`    | Maximum number of uploaded files allowed in a single conversation                                 |
+
+**background_sound:**
+
+| Field            | Type   | Default | Description                                                                                               |
+| ---------------- | ------ | ------- | --------------------------------------------------------------------------------------------------------- |
+| `source_type`    | string | -       | Background sound source type; use `preset` for built-in sounds                                            |
+| `source_id`      | string | -       | Preset sound ID, such as `office1`, `office2`, `restaurant`, `city`, `typing`, or `elevator1`-`elevator4` |
+| `volume`         | number | `0.6`   | Playback volume from `0.01` to `1.0`                                                                      |
+| `crossfade_loop` | bool   | `false` | Crossfade loop boundaries to avoid audible pops                                                           |
 
 ## Additional Top-Level Fields
 
@@ -394,6 +448,9 @@ agent = client.conversational_ai.agents.create(
 ```
 
 `rag.embedding_model` supports `e5_mistral_7b_instruct`, `multilingual_e5_large_instruct`, and `qwen3_embedding_4b`.
+
+Set `conversation_config.conversation.source_attribution` to `true` when you want the agent to
+report which knowledge base sources it used in responses.
 
 ## CRUD Operations
 
@@ -448,6 +505,43 @@ const agents = await client.conversationalAi.agents.list();
 
 ```bash
 curl -X GET "https://api.elevenlabs.io/v1/convai/agents" -H "xi-api-key: $ELEVENLABS_API_KEY"
+```
+
+### SDK: Manage Conversation Tags
+
+Use tags to categorize conversation history and filter list views:
+
+```python
+tag = client.conversational_ai.conversations.tags.create(
+    title="Urgent Support",
+    description="Conversations that need same-day follow-up",
+)
+
+client.conversational_ai.conversations.tags.assign(
+    conversation_id="conversation_id",
+    tag_ids=[tag.tag_id],
+)
+
+conversations = client.conversational_ai.conversations.list(
+    tag_ids=[tag.tag_id],
+    exclude_statuses=["initiated", "in-progress", "processing"],
+)
+```
+
+```javascript
+const tag = await client.conversationalAi.conversations.tags.create({
+  title: "Urgent Support",
+  description: "Conversations that need same-day follow-up",
+});
+
+await client.conversationalAi.conversations.tags.assign("conversation_id", {
+  tagIds: [tag.tagId],
+});
+
+const conversations = await client.conversationalAi.conversations.list({
+  tagIds: [tag.tagId],
+  excludeStatuses: ["initiated", "in-progress", "processing"],
+});
 ```
 
 ### SDK: Get Agent
@@ -519,19 +613,19 @@ curl -X PATCH "https://api.elevenlabs.io/v1/convai/agents/your-agent-id" \
 
 #### Updatable Fields
 
-| Section                            | Fields                                                                                                                                  |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Root                               | `name`, `tags`                                                                                                                          |
-| `conversation_config.agent`        | `first_message`, `language`, `disable_first_message_interruptions`, `dynamic_variables`                                                 |
-| `conversation_config.agent.prompt` | `prompt`, `llm`, `temperature`, `max_tokens`, `reasoning_effort`, `tools`, `built_in_tools`, `knowledge_base`, `custom_llm`, `timezone` |
-| `conversation_config.tts`          | `voice_id`, `model_id`, `stability`, `similarity_boost`, `speed`, `optimize_streaming_latency`, `expressive_mode`                       |
-| `conversation_config.asr`          | `quality`, `provider`, `keywords`, `user_input_audio_format`                                                                            |
-| `conversation_config.turn`         | `turn_timeout`, `turn_eagerness`, `silence_end_call_timeout`, `soft_timeout_config`                                                     |
-| `conversation_config.conversation` | `max_duration_seconds`, `text_only`, `monitoring_enabled`                                                                               |
-| `platform_settings`                | `summary_language`, `guardrails`, `privacy`                                                                                             |
-| `platform_settings.widget`         | `dismissible`, `show_agent_status`, `show_conversation_id`, `strip_audio_tags`, `syntax_highlight_theme`                                |
-| `platform_settings.auth`           | `enable_auth`, `allowlist`                                                                                                              |
-| `platform_settings.call_limits`    | `agent_concurrency_limit`, `daily_limit`, `bursting_enabled`                                                                            |
+| Section                            | Fields                                                                                                                                                                 |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Root                               | `name`, `tags`                                                                                                                                                         |
+| `conversation_config.agent`        | `first_message`, `language`, `disable_first_message_interruptions`, `dynamic_variables`, `text_behavior_overrides`                                                     |
+| `conversation_config.agent.prompt` | `prompt`, `llm`, `temperature`, `max_tokens`, `reasoning_effort`, `tools`, `built_in_tools`, `knowledge_base`, `custom_llm`, `timezone`                                |
+| `conversation_config.tts`          | `voice_id`, `model_id`, `stability`, `similarity_boost`, `speed`, `expressive_mode`, `enable_phoneme_tags`                                                             |
+| `conversation_config.asr`          | `quality`, `provider`, `keywords`, `user_input_audio_format`                                                                                                           |
+| `conversation_config.turn`         | `turn_timeout`, `turn_eagerness`, `silence_end_call_timeout`, `turn_model`, `interruption_ignore_terms`, `transcribe_on_disabled_interruptions`, `soft_timeout_config` |
+| `conversation_config.conversation` | `max_duration_seconds`, `text_only`, `monitoring_enabled`, `background_sound`                                                                                          |
+| `platform_settings`                | `summary_language`, `auto_translate_transcript_to_app_language`, `guardrails`, `privacy`, `topic_discovery`, `sentiment_analysis`                                      |
+| `platform_settings.widget`         | `dismissible`, `show_agent_status`, `show_conversation_id`, `strip_audio_tags`, `syntax_highlight_theme`                                                               |
+| `platform_settings.auth`           | `enable_auth`, `allowlist`                                                                                                                                             |
+| `platform_settings.call_limits`    | `agent_concurrency_limit`, `daily_limit`, `bursting_enabled`                                                                                                           |
 
 ### SDK: Delete Agent
 
@@ -604,7 +698,7 @@ agent = client.conversational_ai.agents.create(
                 "max_tokens": 100
             }
         },
-        "tts": {"voice_id": "JBFqnCBsd6RMkjVDRZzb", "model_id": "eleven_flash_v2_5", "optimize_streaming_latency": 4},
+        "tts": {"voice_id": "JBFqnCBsd6RMkjVDRZzb", "model_id": "eleven_flash_v2_5"},
         "turn": {"turn_eagerness": "eager", "turn_timeout": 3}
     }
 )

@@ -163,7 +163,7 @@ server connections.
 ```
 
 Workspace auth connections support OAuth2 client credentials, OAuth2 JWT, private key JWT,
-basic auth, bearer auth, and custom header auth.
+basic auth, bearer auth, custom header auth, and mutual TLS (`mtls`).
 
 System dynamic variables are also available in tool parameters and headers. Use
 `{{system__conversation_history}}` when a webhook or sub-agent needs the full conversation
@@ -171,14 +171,21 @@ context as a lazily evaluated JSON history object with user, agent, and tool ent
 
 ### Webhook Tool Options
 
-| Field                      | Type   | Default       | Description                                               |
-| -------------------------- | ------ | ------------- | --------------------------------------------------------- |
-| `response_timeout_secs`    | int    | `20`          | Timeout in seconds (5-120)                                |
-| `disable_interruptions`    | bool   | `false`       | Prevent user interruptions during tool execution          |
-| `execution_mode`           | string | `"immediate"` | `immediate`, `post_tool_speech`, or `async`               |
-| `tool_call_sound`          | string | -             | Sound during execution: `typing`, `elevator1`-`elevator4` |
-| `force_pre_tool_speech`    | bool   | `false`       | Force agent to speak before executing tool                |
-| `tool_error_handling_mode` | string | `"auto"`      | `auto`, `summarized`, `passthrough`, or `hide`            |
+| Field                        | Type   | Default       | Description                                                                                                                                                               |
+| ---------------------------- | ------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `response_timeout_secs`      | int    | `20`          | Timeout in seconds (5-120)                                                                                                                                                |
+| `interruption_mode`          | string | `"allow"`     | Controls whether the user can interrupt around this tool call: `allow`, `disable_during_tool`, or `disable_during_tool_and_turn`                                          |
+| `execution_mode`             | string | `"immediate"` | `immediate`, `post_tool_speech`, or `async`                                                                                                                               |
+| `tool_call_sound`            | string | -             | Sound during execution: `typing`, `elevator1`-`elevator4`                                                                                                                 |
+| `pre_tool_speech`            | string | `"auto"`      | Controls whether the agent speaks before execution: `auto`, `force`, or `off`                                                                                             |
+| `tool_error_handling_mode`   | string | `"auto"`      | `auto`, `summarized`, `passthrough`, or `hide`                                                                                                                            |
+| `api_schema.response_filter` | object | -             | Filters JSON webhook responses before the LLM sees them. Use `mode: "allow"` with `filters` dot-paths to keep selected fields, or `mode: "hide_all"` to hide the response |
+
+MCP server configuration supports the same `pre_tool_speech`, `interruption_mode`, `execution_mode`, and
+`response_timeout_secs` controls at the server level, with per-tool overrides in
+`tool_config_overrides`. Set a per-tool `tool_call_sound` override to `"off"` to silence that tool
+while retaining the server default for other tools. MCP timeouts default to 30 seconds and must be
+5-300 seconds.
 
 **Note:** The default `api_schema.method` is `GET`. Always set `"method": "POST"` explicitly for webhook tools that send request bodies.
 
@@ -250,6 +257,53 @@ const conversation = await Conversation.startSession({
     },
   },
 });
+```
+
+### React Registration with `useConversationClientTool`
+
+When you use the React SDK, wrap your component tree in `ConversationProvider` and register
+client tools from components with `useConversationClientTool`. Handlers are cleaned up
+automatically on unmount and always use the latest closure value. Prefer granular hooks such as
+`useConversationControls` and `useConversationStatus` for the session UI; `useConversation`
+remains available when you want the full conversation object in one hook.
+
+```typescript
+import {
+  ConversationProvider,
+  useConversationClientTool,
+  useConversationControls,
+  useConversationStatus,
+} from "@elevenlabs/react";
+
+function Storefront() {
+  useConversationClientTool("show_product", async ({ productId }) => {
+    const modal = document.getElementById("product-modal");
+    modal.innerHTML = await fetchProductCard(productId);
+    modal.showModal();
+    return { success: true };
+  });
+
+  const { startSession, endSession } = useConversationControls();
+  const { status } = useConversationStatus();
+
+  if (status === "connected") {
+    return <button onClick={endSession}>End</button>;
+  }
+
+  return (
+    <button onClick={() => startSession({ agentId: "your-agent-id" })}>
+      Start
+    </button>
+  );
+}
+
+function App() {
+  return (
+    <ConversationProvider>
+      <Storefront />
+    </ConversationProvider>
+  );
+}
 ```
 
 ### Registering Client Tools with Agent
@@ -378,18 +432,25 @@ Transfer to a phone number (requires telephony integration):
 
 ### transfer_to_agent
 
-Transfer to another ElevenLabs agent:
+Transfer to another ElevenLabs agent or workflow node:
 
 ```python
 "built_in_tools": {
     "transfer_to_agent": {
         "transfers": [{
             "agent_id": "other-agent-id",
+            "node_id": "destination-workflow-node-id",
+            "preserve_client_tts_overrides": true,
             "condition": "User asks about sales"
         }]
     }
 }
 ```
+
+Use `node_id` when the transfer should start at a specific workflow node. Omit
+`agent_id` when the transfer stays within the current agent's workflow.
+Set `preserve_client_tts_overrides` when client-side TTS overrides should continue
+after the transfer.
 
 ## Best Practices
 
@@ -424,6 +485,10 @@ Help the LLM extract correct values:
     }
 }
 ```
+
+For optional tool parameters that should never be sent in the request payload, set
+`is_omitted: true` on the JSON schema property. Do not combine it with `description`,
+`dynamic_variable`, `is_system_provided`, or `constant_value`.
 
 ### Error Handling
 
@@ -460,7 +525,7 @@ app.post("/webhook/lookup_order", async (req, res) => {
 
 ### Timeouts
 
-Set reasonable timeouts for webhooks using `response_timeout_secs` (5-120 seconds, default 20):
+Set reasonable timeouts for webhooks using `response_timeout_secs` (5-120 seconds, default 20). MCP server tool calls use the same field with a 30-second default and a 5-300 second range:
 
 ```python
 {
