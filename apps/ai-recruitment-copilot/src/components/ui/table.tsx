@@ -82,14 +82,7 @@ export function TableFooter({
 
 export function TableRow({ className, ...props }: React.ComponentProps<"tr">): React.ReactElement {
   return (
-    <tr
-      className={cn(
-        "relative border-b not-in-data-[variant=card]:hover:bg-[color-mix(in_srgb,var(--background),var(--color-black)_2%)] not-in-data-[variant=card]:data-[state=selected]:bg-[color-mix(in_srgb,var(--background),var(--color-black)_4%)] dark:not-in-data-[variant=card]:data-[state=selected]:bg-[color-mix(in_srgb,var(--background),var(--color-white)_4%)] dark:not-in-data-[variant=card]:hover:bg-[color-mix(in_srgb,var(--background),var(--color-white)_2%)]",
-        className,
-      )}
-      data-slot="table-row"
-      {...props}
-    />
+    <tr className={cn("group/row relative border-b", className)} data-slot="table-row" {...props} />
   );
 }
 
@@ -97,7 +90,7 @@ export function TableHead({ className, ...props }: React.ComponentProps<"th">): 
   return (
     <th
       className={cn(
-        "h-10 whitespace-nowrap px-2.5 text-left align-middle font-medium text-muted-foreground leading-none has-[[role=checkbox]]:w-px last:has-[[role=checkbox]]:ps-0 first:has-[[role=checkbox]]:pe-0",
+        "h-10 whitespace-nowrap px-2.5 text-left align-middle font-medium text-muted-foreground leading-none not-in-data-[variant=card]:border-r not-in-data-[variant=card]:bg-sidebar not-in-data-[variant=card]:dark:bg-muted not-in-data-[variant=card]:last:border-r-0 has-[[role=checkbox]]:w-px has-[[role=checkbox]]:text-center",
         className,
       )}
       data-slot="table-head"
@@ -110,7 +103,7 @@ export function TableCell({ className, ...props }: React.ComponentProps<"td">): 
   return (
     <td
       className={cn(
-        "whitespace-nowrap bg-clip-padding p-2.5 in-data-[slot=table-footer]:py-3.5 align-middle leading-none in-data-[variant=card]:first:ps-[calc(--spacing(2.5)-1px)] in-data-[variant=card]:last:pe-[calc(--spacing(2.5)-1px)] has-[[role=checkbox]]:w-px last:has-[[role=checkbox]]:ps-0 first:has-[[role=checkbox]]:pe-0",
+        "whitespace-nowrap bg-clip-padding p-2.5 align-middle leading-none not-in-data-[variant=card]:border-r not-in-data-[variant=card]:last:border-r-0 not-in-data-[variant=card]:group-hover/row:bg-[color-mix(in_srgb,var(--background),var(--color-black)_2%)] not-in-data-[variant=card]:group-data-[state=selected]/row:bg-[color-mix(in_srgb,var(--background),var(--color-black)_4%)] dark:not-in-data-[variant=card]:group-hover/row:bg-[color-mix(in_srgb,var(--background),var(--color-white)_2%)] dark:not-in-data-[variant=card]:group-data-[state=selected]/row:bg-[color-mix(in_srgb,var(--background),var(--color-white)_4%)] in-data-[slot=table-footer]:py-3.5 in-data-[variant=card]:first:ps-[calc(--spacing(2.5)-1px)] in-data-[variant=card]:last:pe-[calc(--spacing(2.5)-1px)] has-[[role=checkbox]]:w-px has-[[role=checkbox]]:text-center",
         className,
       )}
       data-slot="table-cell"

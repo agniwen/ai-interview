@@ -44,11 +44,16 @@ export interface ActionsColumnOptions<TData> {
   size?: number;
 }
 
-const ACTION_CELL_HORIZONTAL_PADDING = 32;
+/** TableCell `p-2.5` → 10px × 2. */
+const ACTION_CELL_HORIZONTAL_PADDING = 20;
+/** Button `px-2.5` → 10px × 2. */
 const ACTION_BUTTON_HORIZONTAL_PADDING = 20;
+/** Menu trigger uses `pl-2.5 pr-0`. */
 const ACTION_MENU_TRIGGER_HORIZONTAL_PADDING = 10;
+/** Flex gap between action buttons (`gap-0.5`). */
 const ACTION_BUTTON_GAP = 2;
-const MIN_ACTION_COLUMN_SIZE = 72;
+const MIN_ACTION_COLUMN_SIZE = 64;
+const HEADER_LABEL = "操作";
 
 function estimateActionLabelWidth(label: string) {
   let width = 0;
@@ -57,30 +62,53 @@ function estimateActionLabelWidth(label: string) {
       width += 4;
       continue;
     }
-    width += (char.codePointAt(0) ?? 0) <= 127 ? 7 : 13;
+    // text-xs (~12px): CJK ≈ 12px, Latin ≈ 7px.
+    width += (char.codePointAt(0) ?? 0) <= 127 ? 7 : 12;
   }
   return width;
+}
+
+/** Exported for unit tests — keeps DataGrid action column sizing honest. */
+export function estimateActionsColumnSize(opts: {
+  inlineLabels?: string[];
+  hasMenu?: boolean;
+  headerLabel?: string;
+}): number {
+  const inlineLabels = opts.inlineLabels ?? [];
+  const hasMenu = opts.hasMenu ?? false;
+  const headerLabel = opts.headerLabel ?? HEADER_LABEL;
+  const actionCount = inlineLabels.length + (hasMenu ? 1 : 0);
+
+  let inlineWidth = 0;
+  for (const label of inlineLabels) {
+    inlineWidth += estimateActionLabelWidth(label) + ACTION_BUTTON_HORIZONTAL_PADDING;
+  }
+  const menuWidth = hasMenu
+    ? estimateActionLabelWidth("更多") + ACTION_MENU_TRIGGER_HORIZONTAL_PADDING
+    : 0;
+  const gapWidth = Math.max(actionCount - 1, 0) * ACTION_BUTTON_GAP;
+  const contentWidth = Math.ceil(
+    inlineWidth + menuWidth + gapWidth + ACTION_CELL_HORIZONTAL_PADDING,
+  );
+  const headerWidth = Math.ceil(
+    estimateActionLabelWidth(headerLabel) + ACTION_CELL_HORIZONTAL_PADDING,
+  );
+
+  return Math.max(MIN_ACTION_COLUMN_SIZE, contentWidth, headerWidth);
 }
 
 export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnDef<TData> {
   const inlineButtons = opts.inline ?? [];
   const menuItems = opts.menu ?? [];
+  const headerLabel = opts.title ?? HEADER_LABEL;
   // Action buttons are text-only in tables; estimate enough width for labels.
   // 表格 action 按钮统一纯文字展示，列宽按 label 文本估算。
-  const actionCount = inlineButtons.length + (menuItems.length > 0 ? 1 : 0);
-  let inlineWidth = 0;
-  for (const action of inlineButtons) {
-    inlineWidth += estimateActionLabelWidth(action.label) + ACTION_BUTTON_HORIZONTAL_PADDING;
-  }
-  const menuWidth =
-    menuItems.length > 0
-      ? estimateActionLabelWidth("更多") + ACTION_MENU_TRIGGER_HORIZONTAL_PADDING
-      : 0;
-  const gapWidth = Math.max(actionCount - 1, 0) * ACTION_BUTTON_GAP;
-  const inferredSize = Math.max(
-    MIN_ACTION_COLUMN_SIZE,
-    Math.ceil(inlineWidth + menuWidth + gapWidth + ACTION_CELL_HORIZONTAL_PADDING),
-  );
+  const inferredSize = estimateActionsColumnSize({
+    hasMenu: menuItems.length > 0,
+    headerLabel,
+    inlineLabels: inlineButtons.map((action) => action.label),
+  });
+  const size = opts.size ?? inferredSize;
 
   return {
     cell: ({ row }) => {
@@ -152,9 +180,13 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
       );
     },
     enableHiding: false,
+    enableResizing: false,
     enableSorting: false,
-    header: () => <div className="text-right">{opts.title ?? "操作"}</div>,
+    header: () => <div className="text-right">{headerLabel}</div>,
     id: opts.id ?? "actions",
-    size: opts.size ?? inferredSize,
+    // Lock width so the last action column stays content-sized instead of absorbing leftover table width.
+    maxSize: size,
+    minSize: size,
+    size,
   };
 }
