@@ -20,7 +20,7 @@ async function copyInterviewUrl(url: string, successMessage: string) {
   }
 }
 
-export function copyInterviewLink(record: StudioInterviewRoundListRecord) {
+export function copyInterviewLink(record: Pick<StudioInterviewRoundListRecord, "interviewLink">) {
   return copyInterviewUrl(record.interviewLink, "面试链接已复制");
 }
 

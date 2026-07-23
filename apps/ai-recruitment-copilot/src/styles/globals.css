@@ -66,16 +66,18 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
 
-  /* kami "whisper shadow" 阶梯：取代硬投影，纸张般的轻微抬升。
-     kami invariant #9 — depth via soft long-blur whispers, never hard drop shadows. */
-  --shadow-2xs: 0 1px 2px 0 rgb(0 0 0 / 0.025);
-  --shadow-xs: 0 1px 3px 0 rgb(0 0 0 / 0.03);
-  --shadow-sm: 0 2px 8px -2px rgb(0 0 0 / 0.04);
-  --shadow-DEFAULT: 0 4px 16px -4px rgb(0 0 0 / 0.05);
-  --shadow-md: 0 6px 20px -6px rgb(0 0 0 / 0.05);
-  --shadow-lg: 0 10px 32px -8px rgb(0 0 0 / 0.06);
-  --shadow-xl: 0 16px 48px -12px rgb(0 0 0 / 0.07);
-  --shadow-2xl: 0 24px 64px -16px rgb(0 0 0 / 0.08);
+  /* Yohaku / kami depth:
+     - Resting surfaces: ring/border only — no drop shadow.
+     - Elevated overlays: one whisper (0 4px 24px / 0.05).
+     - Hard drop shadows are forbidden. */
+  --shadow-2xs: 0 0 #0000;
+  --shadow-xs: 0 4px 24px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 4px 24px 0 rgb(0 0 0 / 0.05);
+  --shadow-DEFAULT: 0 4px 24px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 24px 0 rgb(0 0 0 / 0.05);
+  --shadow-lg: 0 4px 24px 0 rgb(0 0 0 / 0.05);
+  --shadow-xl: 0 8px 32px 0 rgb(0 0 0 / 0.06);
+  --shadow-2xl: 0 12px 40px 0 rgb(0 0 0 / 0.06);
 }
 
 :root {

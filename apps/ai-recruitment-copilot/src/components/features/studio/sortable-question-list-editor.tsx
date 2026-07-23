@@ -2,7 +2,6 @@
 
 import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
-import { cossControlOverlayClass } from "@/components/ui/coss-style";
 import { FieldError } from "@/components/ui/field";
 import {
   Select,
@@ -138,11 +137,10 @@ function QuestionListBody({
               {({ handleProps, isDragging }) => (
                 <div
                   className={cn(
-                    cossControlOverlayClass,
-                    "group relative flex flex-col gap-2 rounded-xl border bg-card/30 bg-clip-padding p-3 shadow-xs/5 transition-colors",
+                    "group relative flex flex-col gap-2 rounded-xl border bg-card/30 p-3 transition-colors",
                     "hover:bg-card/60 focus-within:bg-card/60",
                     isDragging
-                      ? "border-primary/30 bg-card shadow-sm"
+                      ? "border-primary/30 bg-card"
                       : "border-border hover:border-border focus-within:border-border",
                   )}
                 >

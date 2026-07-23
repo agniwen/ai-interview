@@ -200,7 +200,7 @@ function ResumePoolDetailSummaryPanel({
               <ul className="flex flex-wrap gap-2">
                 {skills.map((skill) => (
                   <li
-                    className="rounded-full bg-background px-2.5 py-1 text-xs shadow-xs ring-1 ring-border/50"
+                    className="rounded-sm bg-background px-2.5 py-1 text-xs ring-1 ring-border/50"
                     key={skill}
                   >
                     {skill}

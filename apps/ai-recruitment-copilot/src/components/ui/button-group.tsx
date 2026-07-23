@@ -6,6 +6,9 @@ import { cva } from "class-variance-authority";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@arc/shared/utils";
 
+// Ignore Base UI `[data-base-ui-focus-guard]` siblings (injected while Popover/Menu is open)
+// so first/last real controls keep shared radius. Class names must stay full string
+// literals for Tailwind scanning.
 const buttonGroupVariants = cva(
   "flex w-fit items-stretch [&>*]:focus-visible:z-10 [&>*]:focus-visible:relative [&>[data-slot=select-trigger]:not([class*='w-'])]:w-fit [&>input]:flex-1 has-[select[aria-hidden=true]:last-child]:[&>[data-slot=select-trigger]:last-of-type]:rounded-r-md has-[>[data-slot=button-group]]:gap-2",
   {
@@ -15,9 +18,9 @@ const buttonGroupVariants = cva(
     variants: {
       orientation: {
         horizontal:
-          "[&>*:not(:first-child)]:rounded-l-none [&>*:not(:first-child)]:border-l-0 [&>*:not(:last-child)]:rounded-r-none",
+          "[&>:not([data-base-ui-focus-guard])~:not([data-base-ui-focus-guard])]:rounded-l-none [&>:not([data-base-ui-focus-guard])~:not([data-base-ui-focus-guard])]:border-l-0 [&>:not([data-base-ui-focus-guard]):has(~:not([data-base-ui-focus-guard]))]:rounded-r-none",
         vertical:
-          "flex-col [&>*:not(:first-child)]:rounded-t-none [&>*:not(:first-child)]:border-t-0 [&>*:not(:last-child)]:rounded-b-none",
+          "flex-col [&>:not([data-base-ui-focus-guard])~:not([data-base-ui-focus-guard])]:rounded-t-none [&>:not([data-base-ui-focus-guard])~:not([data-base-ui-focus-guard])]:border-t-0 [&>:not([data-base-ui-focus-guard]):has(~:not([data-base-ui-focus-guard]))]:rounded-b-none",
       },
     },
   },
@@ -45,7 +48,7 @@ function ButtonGroupText({ className, render, ...props }: useRender.ComponentPro
     props: mergeProps<"div">(
       {
         className: cn(
-          "relative flex items-center gap-2 rounded-md border bg-muted px-4 text-sm font-medium shadow-xs/5 before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-md)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] dark:before:shadow-[0_-1px_--theme(--color-white/6%)] [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4",
+          "relative flex items-center gap-2 rounded-md border bg-muted px-4 text-sm font-medium [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4",
           className,
         ),
       },

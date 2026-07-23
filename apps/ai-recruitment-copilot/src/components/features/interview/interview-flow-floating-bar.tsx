@@ -2,11 +2,11 @@
 
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { cossControlOverlayClass } from "@/components/ui/coss-style";
+import { cossWhisperShadowClass } from "@/components/ui/coss-style";
 import { InterviewFlowStepper } from "./interview-flow-stepper";
 import type { InterviewFlowStepId } from "./interview-flow-stepper";
 
-const FLOATING_FLOW_GLASS_CLASS = `relative border border-border/40 bg-background/32 bg-clip-padding shadow-[0_18px_54px_-28px_rgb(0_0_0/0.45)] backdrop-blur-lg ${cossControlOverlayClass}`;
+const FLOATING_FLOW_GLASS_CLASS = `relative border border-border/50 bg-background/80 bg-clip-padding backdrop-blur-lg ${cossWhisperShadowClass}`;
 
 export function InterviewFlowFloatingBar({
   actions,

@@ -5,6 +5,7 @@ import {
   IconArrowRight,
   IconCircleOff,
   IconInfoCircle,
+  IconLink,
   IconUsers,
 } from "@tabler/icons-react";
 /* oxlint-disable no-use-before-define -- helper defined below the export */
@@ -36,6 +37,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import type { CandidatePipelineEvent } from "@arc/shared/candidate-pipeline-machine";
 import { canApplyCandidatePipelineEvent } from "@arc/shared/candidate-pipeline-machine";
 import { cn } from "@arc/shared/utils";
+import { copyInterviewLink } from "@/components/features/studio/interviews/interview-link-actions";
 
 export interface PipelineStageActionBarProps {
   pipelineStage: PipelineStage;
@@ -55,9 +57,11 @@ export interface PipelineStageActionBarProps {
     roundLabel: string;
     status: ScheduleEntryStatus;
   };
+  /** 待开始轮次的面试链接；有值时展示「复制面试链接」。 */
+  aiRoundInterviewLink?: string;
   // 推进到指定阶段的回调（仅 stage 跳变，无元数据）。
-  // Advance to a target stage (no metadata).
-  onAdvance: (target: PipelineStage) => void;
+  // Advance to a target stage (no metadata). May return a Promise so the bar can lock while pending.
+  onAdvance: (target: PipelineStage) => void | Promise<void>;
   // 查看当前阶段对应内容；不对应独立 tab 时由上层回到概览。
   // View content for the current stage; parent falls back to overview when no stage tab exists.
   onViewCurrentStage: () => void;
@@ -78,32 +82,67 @@ export function PipelineStageActionBar({
   humanInterviewDone,
   humanInterviewFeedbackComplete,
   aiRoundReset,
+  aiRoundInterviewLink,
   onAdvance,
   onRequestClose,
   onRequestReactivate,
   onViewCurrentStage,
 }: PipelineStageActionBarProps) {
+  const [isAdvancing, setIsAdvancing] = useState(false);
+  const isBusy = isAdvancing || Boolean(aiRoundReset?.isResetting);
+
+  async function handleAdvance(target: PipelineStage) {
+    if (isBusy) {
+      return;
+    }
+    setIsAdvancing(true);
+    try {
+      await onAdvance(target);
+    } finally {
+      setIsAdvancing(false);
+    }
+  }
+
   const actions = getStageActions({
     canCreateHumanInterview,
     canCreateOffer,
     hasJobDescription,
     humanInterviewDone,
     humanInterviewFeedbackComplete,
-    onAdvance,
+    isAdvancing,
+    isBusy,
+    onAdvance: handleAdvance,
     onRequestReactivate,
     pipelineStage,
   });
   const groupedPrimaryAction = pipelineStage === "closed" ? null : primaryAction;
+  const aiRoundCopyLinkAction =
+    pipelineStage === "ai_interview" && aiRoundInterviewLink ? (
+      <Button
+        disabled={isBusy}
+        key="copy-ai-interview-link"
+        onClick={() => void copyInterviewLink({ interviewLink: aiRoundInterviewLink })}
+        size="sm"
+        type="button"
+      >
+        <IconLink className="size-4" />
+        复制面试链接
+      </Button>
+    ) : null;
   const aiRoundResetAction =
     pipelineStage === "ai_interview" && aiRoundReset ? (
-      <AiRoundResetAction {...aiRoundReset} />
+      <AiRoundResetAction {...aiRoundReset} isBusy={isBusy} />
     ) : null;
   const hasPrimaryActions =
-    Boolean(groupedPrimaryAction) || Boolean(aiRoundResetAction) || actions.right.length > 0;
+    Boolean(groupedPrimaryAction) ||
+    Boolean(aiRoundCopyLinkAction) ||
+    Boolean(aiRoundResetAction) ||
+    actions.right.length > 0;
   const canClose = pipelineStage !== "closed";
 
   return (
     <div
+      aria-busy={isBusy}
       aria-label={`当前招聘阶段：${pipelineStageMeta[pipelineStage].label}`}
       className="flex flex-wrap items-center justify-end gap-2"
     >
@@ -111,25 +150,32 @@ export function PipelineStageActionBar({
         onViewCurrentStage={onViewCurrentStage}
         pipelineStage={pipelineStage}
       />
-      {hasPrimaryActions ? (
-        <ButtonGroup className="flex-wrap justify-end">
-          {groupedPrimaryAction}
-          {aiRoundResetAction}
-          {actions.right}
-        </ButtonGroup>
-      ) : null}
-      {canClose ? (
-        <Button
-          className="border-destructive/20 bg-destructive/8 text-destructive shadow-xs/5 hover:border-destructive/30 hover:bg-destructive/12 hover:text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/12 dark:hover:bg-destructive/18"
-          onClick={onRequestClose}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          <IconCircleOff className="size-4" />
-          标记结案
-        </Button>
-      ) : null}
+      {/* fieldset disabled locks every nested control (incl. primaryAction / Tooltip wrappers). */}
+      <fieldset
+        className="m-0 inline-flex min-w-0 flex-wrap items-center justify-end gap-2 border-0 p-0"
+        disabled={isBusy}
+      >
+        {hasPrimaryActions ? (
+          <ButtonGroup className="flex-wrap justify-end">
+            {groupedPrimaryAction}
+            {aiRoundCopyLinkAction}
+            {aiRoundResetAction}
+            {actions.right}
+          </ButtonGroup>
+        ) : null}
+        {canClose ? (
+          <Button
+            className="border-destructive/20 bg-destructive/8 text-destructive hover:border-destructive/30 hover:bg-destructive/12 hover:text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/12 dark:hover:bg-destructive/18"
+            onClick={onRequestClose}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <IconCircleOff className="size-4" />
+            标记结案
+          </Button>
+        ) : null}
+      </fieldset>
     </div>
   );
 }
@@ -145,18 +191,19 @@ export function getAiRoundResetBehavior(status: ScheduleEntryStatus) {
 }
 
 function AiRoundResetAction({
+  isBusy,
   isResetting,
   onReset,
   roundLabel,
   status,
-}: NonNullable<PipelineStageActionBarProps["aiRoundReset"]>) {
+}: NonNullable<PipelineStageActionBarProps["aiRoundReset"]> & { isBusy: boolean }) {
   const [open, setOpen] = useState(false);
   const behavior = getAiRoundResetBehavior(status);
   const buttonLabel = isResetting ? "重置中..." : "重置面试轮次";
 
   if (behavior === "direct") {
     return (
-      <Button disabled={isResetting} onClick={onReset} size="sm" type="button">
+      <Button disabled={isBusy} onClick={onReset} size="sm" type="button">
         <IconArrowBackUp />
         {buttonLabel}
       </Button>
@@ -183,7 +230,7 @@ function AiRoundResetAction({
     <Popover onOpenChange={setOpen} open={open}>
       <PopoverTrigger
         render={
-          <Button disabled={isResetting} size="sm" type="button">
+          <Button disabled={isBusy} size="sm" type="button">
             <IconArrowBackUp />
             {buttonLabel}
           </Button>
@@ -197,7 +244,13 @@ function AiRoundResetAction({
           </PopoverDescription>
         </PopoverHeader>
         <div className="mt-4 flex justify-end gap-2">
-          <Button onClick={() => setOpen(false)} size="sm" type="button" variant="outline">
+          <Button
+            disabled={isResetting}
+            onClick={() => setOpen(false)}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
             取消
           </Button>
           <Button
@@ -210,7 +263,7 @@ function AiRoundResetAction({
             type="button"
             variant="destructive"
           >
-            确认重置
+            {isResetting ? "重置中..." : "确认重置"}
           </Button>
         </div>
       </PopoverContent>
@@ -333,7 +386,9 @@ function getStageActions(props: {
   hasJobDescription: boolean;
   humanInterviewFeedbackComplete?: boolean;
   humanInterviewDone?: boolean;
-  onAdvance: (target: PipelineStage) => void;
+  isAdvancing: boolean;
+  isBusy: boolean;
+  onAdvance: (target: PipelineStage) => void | Promise<void>;
   onRequestReactivate: () => void;
 }): { left: ReactNode[]; right: ReactNode[] } {
   const {
@@ -343,6 +398,8 @@ function getStageActions(props: {
     hasJobDescription,
     humanInterviewFeedbackComplete,
     humanInterviewDone,
+    isAdvancing,
+    isBusy,
     onAdvance,
     onRequestReactivate,
   } = props;
@@ -353,7 +410,13 @@ function getStageActions(props: {
     return {
       left: [],
       right: [
-        <Button key="reactivate" onClick={onRequestReactivate} size="sm" variant="outline">
+        <Button
+          disabled={isBusy}
+          key="reactivate"
+          onClick={onRequestReactivate}
+          size="sm"
+          variant="outline"
+        >
           <IconArrowBackUp className="size-4" />
           重新激活
         </Button>,
@@ -383,6 +446,8 @@ function getStageActions(props: {
                 hasJobDescription,
                 canAdvanceToHumanInterview,
               )}
+              isAdvancing={isAdvancing}
+              isBusy={isBusy}
               key="to-human"
               onAdvance={onAdvance}
             />
@@ -408,6 +473,8 @@ function getStageActions(props: {
                 hasJobDescription,
                 canAdvanceToHumanInterview,
               )}
+              isAdvancing={isAdvancing}
+              isBusy={isBusy}
               key="to-human"
               onAdvance={onAdvance}
             />
@@ -433,6 +500,8 @@ function getStageActions(props: {
             <OfferAdvanceButton
               disabledReason={disabledReason}
               humanInterviewDone={humanInterviewDone}
+              isAdvancing={isAdvancing}
+              isBusy={isBusy}
               key="to-offer"
               onAdvance={onAdvance}
             />
@@ -455,9 +524,14 @@ function getStageActions(props: {
       buttons.push({
         key: "to-ai",
         node: (
-          <Button key="to-ai" onClick={() => onAdvance("ai_interview")} size="sm">
+          <Button
+            disabled={isBusy}
+            key="to-ai"
+            onClick={() => void onAdvance("ai_interview")}
+            size="sm"
+          >
             <IconArrowRight className="size-4" />
-            推进到 AI 面试
+            {isAdvancing ? "推进中..." : "推进到 AI 面试"}
           </Button>
         ),
         side: "right",
@@ -497,30 +571,36 @@ function resolveOfferAdvanceDisabledReason(
 
 function HumanInterviewAdvanceButton({
   disabledReason,
+  isAdvancing,
+  isBusy,
   onAdvance,
   variant = "default",
 }: {
   disabledReason: string | null;
-  onAdvance: (target: PipelineStage) => void;
+  isAdvancing: boolean;
+  isBusy: boolean;
+  onAdvance: (target: PipelineStage) => void | Promise<void>;
   variant?: ComponentProps<typeof Button>["variant"];
 }) {
   const targetStage: PipelineStage = "human_interview";
+  const locked = isBusy || Boolean(disabledReason);
   const button = (
     <Button
-      aria-disabled={Boolean(disabledReason)}
+      aria-disabled={locked}
       className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:shadow-none aria-disabled:active:scale-100"
+      disabled={isBusy}
       key="to-human"
       onClick={() => {
-        if (disabledReason) {
+        if (locked) {
           return;
         }
-        onAdvance(targetStage);
+        void onAdvance(targetStage);
       }}
       size="sm"
       variant={variant}
     >
       <IconUsers className="size-4" />
-      安排真人面试
+      {isAdvancing ? "处理中..." : "安排真人面试"}
     </Button>
   );
 
@@ -539,29 +619,35 @@ function HumanInterviewAdvanceButton({
 function OfferAdvanceButton({
   disabledReason,
   humanInterviewDone,
+  isAdvancing,
+  isBusy,
   onAdvance,
 }: {
   disabledReason: string | null;
   humanInterviewDone?: boolean;
-  onAdvance: (target: PipelineStage) => void;
+  isAdvancing: boolean;
+  isBusy: boolean;
+  onAdvance: (target: PipelineStage) => void | Promise<void>;
 }) {
   const targetStage: PipelineStage = "offer";
+  const locked = isBusy || Boolean(disabledReason);
   const button = (
     <Button
-      aria-disabled={Boolean(disabledReason)}
+      aria-disabled={locked}
       className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:shadow-none aria-disabled:active:scale-100"
+      disabled={isBusy}
       key="to-offer"
       onClick={() => {
-        if (disabledReason) {
+        if (locked) {
           return;
         }
-        onAdvance(targetStage);
+        void onAdvance(targetStage);
       }}
       size="sm"
       variant={humanInterviewDone ? "default" : "outline"}
     >
       <IconArrowRight className="size-4" />
-      推进到 Offer
+      {isAdvancing ? "推进中..." : "推进到 Offer"}
     </Button>
   );
 

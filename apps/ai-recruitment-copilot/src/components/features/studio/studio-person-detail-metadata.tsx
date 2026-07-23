@@ -54,7 +54,7 @@ export function InterviewReportMetadataSnapshotSection({
   metadata: ReportSnapshotMetadata;
 }) {
   return (
-    <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+    <section className="rounded-xl border border-border/60 bg-background p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h4 className="font-medium text-sm">快照</h4>
         {metadata.contextSnapshot ? (
@@ -141,7 +141,7 @@ export function InterviewReportMetadataFrozenInputSection({
   metadata: ReportSnapshotMetadata;
 }) {
   return (
-    <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+    <section className="rounded-xl border border-border/60 bg-background p-4">
       <h4 className="font-medium text-sm">冻结输入</h4>
       {metadata.frozenInput ? (
         <div className="mt-4 grid gap-x-8 gap-y-4 md:grid-cols-2">
@@ -178,7 +178,7 @@ export function InterviewReportMetadataSessionSection({
   metadata: ReportSnapshotMetadata;
 }) {
   return (
-    <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+    <section className="rounded-xl border border-border/60 bg-background p-4">
       <h4 className="font-medium text-sm">会话</h4>
       <div className="mt-4 grid gap-x-8 gap-y-4 md:grid-cols-2">
         <DetailRow
@@ -338,7 +338,7 @@ export function InterviewReportMetadataFullTextInputSection({
   const input = metadata.fullTextInput;
   if (!input) {
     return (
-      <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+      <section className="rounded-xl border border-border/60 bg-background p-4">
         <h4 className="font-medium text-sm">完整输入</h4>
         <p className="mt-3 text-muted-foreground text-sm">
           当前快照缺少完整输入文本，可能需要重新生成快照或执行回填。
@@ -348,7 +348,7 @@ export function InterviewReportMetadataFullTextInputSection({
   }
 
   return (
-    <section className="rounded-xl border border-border/60 bg-background p-4 shadow-sm">
+    <section className="rounded-xl border border-border/60 bg-background p-4">
       <h4 className="font-medium text-sm">完整输入</h4>
       <Accordion
         className="mt-3 rounded-xl border border-border/60"

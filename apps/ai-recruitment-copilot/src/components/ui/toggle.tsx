@@ -4,7 +4,6 @@ import type { VariantProps } from "class-variance-authority";
 import { cva } from "class-variance-authority";
 import { Toggle as TogglePrimitive } from "@base-ui/react/toggle";
 
-import { cossControlOverlayClass } from "@/components/ui/coss-style";
 import { cn } from "@arc/shared/utils";
 
 const toggleVariants = cva(
@@ -37,15 +36,7 @@ function Toggle({
   return (
     <TogglePrimitive
       data-slot="toggle"
-      className={cn(
-        toggleVariants({ size, variant }),
-        variant === "outline" &&
-          cn(
-            cossControlOverlayClass,
-            "shadow-xs/5 data-pressed:before:shadow-none active:shadow-none active:before:shadow-none disabled:shadow-none disabled:before:shadow-none",
-          ),
-        className,
-      )}
+      className={cn(toggleVariants({ size, variant }), className)}
       {...props}
     />
   );

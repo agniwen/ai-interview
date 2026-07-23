@@ -15,10 +15,10 @@ import type { StudioInterviewRoundDetail } from "@arc/shared/studio-interview-ro
 import type { QueryClient } from "@tanstack/react-query";
 
 import type { ReactNode } from "react";
-import { cossControlOverlayClass } from "@/components/ui/coss-style";
+import { cossWhisperShadowClass } from "@/components/ui/coss-style";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
 
-export const DETAIL_PAGE_FLOATING_ACTION_CLASS = `relative border border-border/40 bg-background/32 bg-clip-padding shadow-[0_18px_54px_-28px_rgb(0_0_0/0.45)] backdrop-blur-lg ${cossControlOverlayClass}`;
+export const DETAIL_PAGE_FLOATING_ACTION_CLASS = `relative border border-border/50 bg-background/80 bg-clip-padding backdrop-blur-lg ${cossWhisperShadowClass}`;
 
 export type StudioPersonDetailMode = "interview" | "resume";
 export type StudioPersonDetailLayoutMode = "modal" | "page";

@@ -117,8 +117,7 @@ function UploadIconCluster({
           className={cn(
             "grid size-12 place-items-center rounded-xl border bg-background text-muted-foreground transition-[transform,color,background-color] duration-[220ms] ease-[cubic-bezier(0.23,1,0.32,1)]",
             "motion-reduce:transition-none",
-            isDragging &&
-              "scale-[1.08] bg-popover text-foreground shadow-md shadow-black/10 not-dark:bg-clip-border dark:shadow-black/25",
+            isDragging && "scale-[1.08] bg-popover text-foreground shadow-sm",
           )}
         >
           <IconUpload className="size-5" />
@@ -138,8 +137,7 @@ function UploadIconCluster({
               "absolute top-1/2 left-1/2 grid size-12 place-items-center rounded-xl border bg-background text-muted-foreground transition-[transform,color,background-color] duration-[220ms] ease-[cubic-bezier(0.23,1,0.32,1)]",
               "motion-reduce:transition-none",
               index === 1 && "z-10",
-              isDragging &&
-                "bg-popover text-foreground shadow-md shadow-black/10 not-dark:bg-clip-border dark:shadow-black/25",
+              isDragging && "bg-popover text-foreground shadow-sm",
             )}
             key={item.label}
             style={{

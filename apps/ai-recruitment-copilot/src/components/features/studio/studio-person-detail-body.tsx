@@ -519,7 +519,7 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                           };
                           return (
                             <AccordionItem
-                              className="overflow-hidden rounded-2xl border border-muted/60 bg-muted/20 px-0 shadow-sm"
+                              className="overflow-hidden rounded-2xl border border-muted/60 bg-muted/20 px-0"
                               key={report.conversationId}
                               value={report.conversationId}
                             >

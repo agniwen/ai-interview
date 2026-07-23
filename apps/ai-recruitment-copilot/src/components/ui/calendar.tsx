@@ -68,7 +68,7 @@ function Calendar({
         dropdown: cn("absolute inset-0 bg-popover opacity-0", defaultClassNames.dropdown),
         dropdown_root: cn(
           cossControlOverlayClass,
-          "relative rounded-md border border-input bg-background bg-clip-padding shadow-xs/5 has-focus:border-ring has-focus:ring-[3px] has-focus:ring-ring/50 has-focus:shadow-none has-focus:before:shadow-none dark:bg-input/30",
+          "relative rounded-md border border-input bg-background bg-clip-padding has-focus:border-ring has-focus:ring-[3px] has-focus:ring-ring/50 dark:bg-input/30",
           defaultClassNames.dropdown_root,
         ),
         dropdowns: cn(
