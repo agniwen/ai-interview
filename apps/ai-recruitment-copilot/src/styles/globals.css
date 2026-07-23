@@ -306,6 +306,19 @@
   }
 }
 
+@keyframes text-shimmer {
+  from {
+    background-position: 100% center;
+  }
+  to {
+    background-position: 0% center;
+  }
+}
+
+.ai-text-shimmer {
+  animation: text-shimmer var(--text-shimmer-duration, 2s) linear infinite;
+}
+
 /* Apple §14 — reduced motion ≠ no feedback: preserve short opacity/color
    transitions for comprehension, drop transform/position-based motion. */
 @media (prefers-reduced-motion: reduce) {
@@ -319,6 +332,11 @@
     transition-duration: 200ms !important;
     transition-property:
       opacity, color, background-color, border-color, outline-color, fill, stroke !important;
+  }
+
+  .ai-text-shimmer {
+    animation: none !important;
+    background-position: 0% center;
   }
 }
 

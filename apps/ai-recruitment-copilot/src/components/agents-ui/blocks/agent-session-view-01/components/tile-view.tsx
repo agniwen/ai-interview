@@ -8,7 +8,7 @@ import {
   VideoTrack,
 } from "@livekit/components-react";
 import { Track } from "livekit-client";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useTheme } from "next-themes";
 import * as React from "react";
 import { useMemo } from "react";
@@ -50,6 +50,7 @@ interface TileLayoutProps {
 }
 
 export function TileLayout({ chatOpen }: TileLayoutProps) {
+  const reduceMotion = Boolean(useReducedMotion());
   const { videoTrack: agentVideoTrack, audioTrack } = useVoiceAssistant();
   const { state: agentState } = useAgent();
   const { resolvedTheme } = useTheme();
@@ -171,13 +172,18 @@ export function TileLayout({ chatOpen }: TileLayoutProps) {
                   key="camera"
                   layout="position"
                   layoutId="camera"
-                  initial={{ opacity: 0, scale: 0 }}
+                  initial={{ opacity: 0, scale: reduceMotion ? 1 : 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0 }}
-                  transition={{
-                    ...ANIMATION_TRANSITION,
-                    delay: animationDelay,
-                  }}
+                  exit={{ opacity: 0, scale: reduceMotion ? 1 : 0.95 }}
+                  transition={
+                    reduceMotion
+                      ? { duration: 0.2, ease: [0.23, 1, 0.32, 1] }
+                      : {
+                          duration: 0.2,
+                          ease: [0.23, 1, 0.32, 1],
+                          delay: animationDelay,
+                        }
+                  }
                   className="aspect-square size-[90px] drop-shadow-lg/20"
                 >
                   <VideoTrack
