@@ -127,7 +127,7 @@ function InterviewQuestionTemplateManagementPage({
         },
       });
       if (!res.ok) {
-        throw new Error("加载面试题模板列表失败");
+        throw new Error("加载沟通题列表失败");
       }
       return (await res.json()) as PaginatedInterviewQuestionTemplateResult;
     },
@@ -436,8 +436,8 @@ function InterviewQuestionTemplateManagementPage({
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
         <PageHeader
-          description="沉淀常用必问题，按全局或岗位复用，让每一轮面试都有稳定的问题基线。"
-          title="面试题库"
+          description="AI 面试时按顺序追问的题目，可全局或按岗位复用；发起后会冻结，改模板不影响已开始的场次。"
+          title="沟通题"
         />
 
         <DataGrid<InterviewQuestionTemplateListRecord>
@@ -449,7 +449,7 @@ function InterviewQuestionTemplateManagementPage({
                 <EmptyMedia variant="icon">
                   <IconListCheck className="size-5" />
                 </EmptyMedia>
-                <EmptyTitle>还没有面试题</EmptyTitle>
+                <EmptyTitle>还没有沟通题</EmptyTitle>
                 <EmptyDescription>
                   创建后，符合作用域的面试在创建时会自动绑定到最新版本的题目快照。
                 </EmptyDescription>
@@ -464,13 +464,13 @@ function InterviewQuestionTemplateManagementPage({
                       }}
                     >
                       <IconPlus className="size-4" />
-                      新建面试题
+                      新建沟通题
                     </Button>
                     <Button
-                      aria-label="AI 创建面试题"
+                      aria-label="AI 创建沟通题"
                       onClick={() => setAiCreateOpen(true)}
                       size="icon"
-                      title="AI 创建面试题"
+                      title="AI 创建沟通题"
                       type="button"
                     >
                       <IconSparkles className="size-4" />
@@ -515,13 +515,13 @@ function InterviewQuestionTemplateManagementPage({
                   }}
                 >
                   <IconPlus className="size-4" />
-                  新建面试题
+                  新建沟通题
                 </Button>
                 <Button
-                  aria-label="AI 创建面试题"
+                  aria-label="AI 创建沟通题"
                   onClick={() => setAiCreateOpen(true)}
                   size="icon"
-                  title="AI 创建面试题"
+                  title="AI 创建沟通题"
                   type="button"
                 >
                   <IconSparkles className="size-4" />
@@ -564,7 +564,7 @@ function InterviewQuestionTemplateManagementPage({
         onClose={() => crud.setDeleteRecord(null)}
         onConfirm={crud.handleDelete}
         record={canDeleteQuestionTemplate ? crud.deleteRecord : null}
-        title="确认归档这组面试题？"
+        title="确认归档这组沟通题？"
       />
     </>
   );
@@ -632,7 +632,7 @@ function StudioInterviewQuestionsRoute() {
 export const Route = createFileRoute("/w/$slug/studio/interview-questions")({
   component: StudioInterviewQuestionsRoute,
   head: () => ({
-    meta: [{ title: "面试题" }],
+    meta: [{ title: "沟通题" }],
   }),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {
@@ -660,7 +660,7 @@ export const Route = createFileRoute("/w/$slug/studio/interview-questions")({
     }
     return state;
   },
-  pendingComponent: () => <StudioTablePageSkeleton filterCount={3} label="面试题" />,
+  pendingComponent: () => <StudioTablePageSkeleton filterCount={3} label="沟通题" />,
   shouldReload: false,
   validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });

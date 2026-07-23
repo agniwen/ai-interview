@@ -21,7 +21,7 @@ function StudioGlobalConfigRoute() {
 export const Route = createFileRoute("/w/$slug/studio/global-config")({
   component: StudioGlobalConfigRoute,
   head: () => ({
-    meta: [{ title: "系统设置" }],
+    meta: [{ title: "上下文设置" }],
   }),
   loader: async ({ params }) => {
     await requireStudioPageAccess({

@@ -30,9 +30,29 @@ import type {
   ResumeStageProgress,
 } from "@arc/shared/studio-resumes";
 import type { ResumeDuplicateMatchSummary } from "@arc/shared/resume-duplicates";
+import { resumeReviewActionSchema } from "@arc/shared/resume-review";
+import type { ResumeReviewAction } from "@arc/shared/resume-review";
 import { resumeScreeningResultSchema } from "@arc/shared/resume-screening";
 import { normalizeSkill } from "./skills";
 import { buildResumeProfileSnapshot } from "./resume-profile-snapshot";
+
+function parseResumeReviewBaseScore(value: string | null | undefined): number | null {
+  if (value === null || value === undefined || value.trim() === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  return Math.round(parsed);
+}
+
+function parseResumeReviewNextStepAction(
+  value: string | null | undefined,
+): ResumeReviewAction | null {
+  const parsed = resumeReviewActionSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
 
 const SORT_COLUMNS = ["createdAt", "candidateName", "updatedAt"] as const;
 
@@ -202,11 +222,19 @@ const SELECTED_COLUMNS = {
   resumeProjectExperiences: sql<unknown>`${studioInterview.resumeProfile}->'projectExperiences'`.as(
     "resume_project_experiences",
   ),
+  resumeReviewBaseScore: sql<
+    string | null
+  >`coalesce(${studioInterview.resumeReview}->'overall'->>'baseScore', ${studioInterview.resumeReview}->'overall'->>'score')`.as(
+    "resume_review_base_score",
+  ),
   resumeReviewConclusion: sql<
     string | null
   >`${studioInterview.resumeReview}->'overall'->>'conclusion'`.as("resume_review_conclusion"),
   resumeReviewError: studioInterview.resumeReviewError,
   resumeReviewGeneratedAt: studioInterview.resumeReviewGeneratedAt,
+  resumeReviewNextStepAction: sql<
+    string | null
+  >`${studioInterview.resumeReview}->'nextStep'->>'action'`.as("resume_review_next_step_action"),
   resumeReviewQueuedAt: studioInterview.resumeReviewQueuedAt,
   resumeReviewStatus: studioInterview.resumeReviewStatus,
   resumeSchool: sql<string | null>`${studioInterview.resumeProfile}->'schools'->>0`.as(
@@ -262,7 +290,9 @@ const LIST_SELECTED_COLUMNS = {
   resumeFileName: SELECTED_COLUMNS.resumeFileName,
   resumeParseStatus: SELECTED_COLUMNS.resumeParseStatus,
   resumeProjectExperiences: SELECTED_COLUMNS.resumeProjectExperiences,
+  resumeReviewBaseScore: SELECTED_COLUMNS.resumeReviewBaseScore,
   resumeReviewConclusion: SELECTED_COLUMNS.resumeReviewConclusion,
+  resumeReviewNextStepAction: SELECTED_COLUMNS.resumeReviewNextStepAction,
   resumeReviewStatus: SELECTED_COLUMNS.resumeReviewStatus,
   resumeSchool: SELECTED_COLUMNS.resumeSchool,
   resumeSkills: SELECTED_COLUMNS.resumeSkills,
@@ -593,6 +623,8 @@ function toRecord(
     resumeFileName: row.resumeFileName,
     resumeParseStatus: row.resumeParseStatus,
     resumeProfileSnapshot: buildResumeProfileSnapshot(row),
+    resumeReviewBaseScore: parseResumeReviewBaseScore(row.resumeReviewBaseScore),
+    resumeReviewNextStepAction: parseResumeReviewNextStepAction(row.resumeReviewNextStepAction),
     resumeReviewStatus: row.resumeReviewStatus,
     resumeSkills: buildResumeSkills(row.resumeSkills),
     resumeSummary: row.resumeReviewConclusion ?? row.notes?.trim() ?? null,

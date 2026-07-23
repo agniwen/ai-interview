@@ -485,7 +485,7 @@ function RecruitingDashboardPage({ metrics }: { metrics: RecruitingDashboardMetr
     <div className="mx-auto w-full max-w-[96rem] flex flex-col gap-4 md:gap-6">
       <PageHeader
         title="数据看板"
-        description="从候选人漏斗、待办队列、招聘活动、岗位分布和 Offer 状态观察当前招聘运营。"
+        description="看看候选人漏斗、待办、岗位分布和 Offer 进度，了解这阵子招聘做得怎么样。"
       />
       <StudioSummaryCards
         items={[

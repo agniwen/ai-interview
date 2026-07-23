@@ -16,7 +16,7 @@ function readMarkdown(editor: Editor): string {
   ).markdown.getMarkdown();
 }
 
-export type EditorMode = "edit" | "preview" | "raw";
+export type EditorMode = "edit" | "preview";
 
 interface Options {
   value: string;

@@ -415,7 +415,7 @@ function JobDescriptionManagementPage({
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
         <PageHeader
-          description="按岗位组织候选人、面试官和面试数据，让招聘进展和团队分工都落到同一处。"
+          description="维护在招岗位、JD 和要求；候选人、面试官和面试都会挂到对应岗位上。"
           title="岗位设置"
         />
 

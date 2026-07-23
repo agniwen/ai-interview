@@ -93,7 +93,7 @@ export const roundEmailsRouter = factory
       }
 
       const interviewUrl = `${getAppUrl()}/interview/${row.interviewRecordId}/${roundId}`;
-      // 中文：从系统设置里读公司名称作为标题/正文前缀；为空时模板会回退到「AI 面试」。
+      // 中文：从上下文设置里读公司名称作为标题/正文前缀；为空时模板会回退到「AI 面试」。
       // English: Pull companyName from global config as subject/body prefix;
       // template falls back to "AI 面试" when blank.
       const config = await getGlobalConfig(activeOrg.id);

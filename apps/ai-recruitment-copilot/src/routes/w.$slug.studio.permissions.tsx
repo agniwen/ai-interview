@@ -10,7 +10,7 @@ function StudioPermissionsRoute() {
         headerRender={({ actionRender }) => (
           <PageHeader
             actionRender={actionRender}
-            description="配置工作区自定义角色，并为角色分配可访问和操作的业务模块。"
+            description="自定义角色，并决定每个角色能进哪些页面、能做什么操作。"
             title="权限管理"
           />
         )}

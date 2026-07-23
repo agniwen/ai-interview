@@ -26,7 +26,7 @@ import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
 import { ScreenFrame } from "./screen-frame";
 
-const BREADCRUMB: BreadcrumbCrumb[] = [{ label: "Studio" }, { current: true, label: "招聘" }];
+const BREADCRUMB: BreadcrumbCrumb[] = [{ label: "Studio" }, { current: true, label: "招聘台" }];
 
 // ─────────────────── shared mini Card ───────────────────
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -679,8 +679,8 @@ function ResumesContent() {
   return (
     <div className="flex flex-col gap-6 px-6 py-6">
       <PageHeader
-        description="沉淀候选人档案、简历 PDF、岗位匹配和流程进展，筛选到面试推进都能从这里接上。"
-        title="招聘"
+        description="已经进入招聘流程的候选人在这里跟进：看简历、匹配岗位、推进到面试。"
+        title="招聘台"
       />
       <ChartsRow />
       <PipelineStageTabs />

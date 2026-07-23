@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { ResumeAnalysisResult, ResumeProfile } from "@arc/db-schema/interview/types";
-import type { ResumeReview } from "@arc/db-schema/resume-review";
+import type { ResumeReview, ResumeReviewAction } from "@arc/db-schema/resume-review";
 import type { ResumeDuplicateMatchSummary } from "./resume-duplicates";
 import {
   resumeEvaluationStatusMeta,
@@ -138,6 +138,10 @@ export interface ResumeLibraryListRecord {
   jobDescriptionDepartmentName: string | null;
   jobDescriptionName: string | null;
   resumeFileName: string | null;
+  // 列表卡片轻量投影：从 resume_review jsonb 抽出，避免整包下发。
+  // Lightweight card projection extracted from resume_review jsonb.
+  resumeReviewBaseScore: number | null;
+  resumeReviewNextStepAction: ResumeReviewAction | null;
   resumeReviewStatus: ResumeReviewStatus;
   resumeSummary: string | null;
   resumeParseStatus: ResumeParseStatus;

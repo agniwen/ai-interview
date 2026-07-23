@@ -13,7 +13,6 @@ import { loadStudioResumesState } from "@/lib/start/studio/resumes.functions";
 import type { StudioResumesState } from "@/lib/start/studio/resumes.functions";
 import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
 
-import { StudioResumeFloatingChat } from "@/components/features/studio/studio-resume-floating-chat";
 import { RecruitingPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 
 import { ResumeLibraryPage } from "@/components/features/studio/resumes/resume-library-page";
@@ -40,7 +39,6 @@ function StudioResumesRoute() {
   return (
     <HydrationBoundary state={state.dehydratedState as unknown as DehydratedState}>
       <ResumeLibraryPage metrics={state.metrics} />
-      <StudioResumeFloatingChat />
     </HydrationBoundary>
   );
 }
@@ -48,7 +46,7 @@ function StudioResumesRoute() {
 export const Route = createFileRoute("/w/$slug/studio/resumes")({
   component: StudioResumesRoute,
   head: () => ({
-    meta: [{ title: "招聘" }],
+    meta: [{ title: "招聘台" }],
   }),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {

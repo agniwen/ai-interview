@@ -27,7 +27,6 @@ import {
 } from "./resume-library-page-model";
 import type { ResumeLibraryGridState } from "./resume-library-page-model";
 interface ResumeLibraryCardListProps {
-  canCreateChat: boolean;
   canCreateInterview: boolean;
   canDeleteResumeLibrary: boolean;
   canReadResumeUploadBatch: boolean;
@@ -44,7 +43,6 @@ interface ResumeLibraryCardListProps {
   onCopyDetailLink: (record: ResumeLibraryListRecord) => void;
   onDelete: (record: ResumeLibraryListRecord) => void;
   onEdit: (record: ResumeLibraryListRecord) => void;
-  onLaunchChat: (record: ResumeLibraryListRecord) => void;
   onLaunchInterview: (record: ResumeLibraryListRecord) => void;
   onOpenBatchList: () => void;
   onOpenDetail: (record: ResumeLibraryListRecord, tab?: ResumeDetailDefaultTab) => void;
@@ -52,7 +50,6 @@ interface ResumeLibraryCardListProps {
   onPreviewResume: (record: ResumeLibraryListRecord) => void;
   onShowDuplicateMatches: (record: ResumeLibraryListRecord) => void;
   onTransition: (record: ResumeLibraryListRecord, mode: "close" | "reactivate") => void;
-  onViewJobDescription: (id: string) => void;
   records: ResumeLibraryListRecord[];
   isFetchingNextPage: boolean;
   isInitialLoading: boolean;
@@ -63,7 +60,6 @@ interface ResumeLibraryCardListProps {
 }
 
 export function ResumeLibraryCardList({
-  canCreateChat,
   canCreateInterview,
   canDeleteResumeLibrary,
   canReadResumeUploadBatch,
@@ -84,7 +80,6 @@ export function ResumeLibraryCardList({
   onCopyDetailLink,
   onDelete,
   onEdit,
-  onLaunchChat,
   onLaunchInterview,
   onOpenBatchList,
   onOpenDetail,
@@ -92,7 +87,6 @@ export function ResumeLibraryCardList({
   onPreviewResume,
   onShowDuplicateMatches,
   onTransition,
-  onViewJobDescription,
   records,
   total,
   uploadEntryDisabled,
@@ -233,7 +227,6 @@ export function ResumeLibraryCardList({
                 }}
               >
                 <ResumeLibraryCard
-                  canCreateChat={canCreateChat}
                   canCreateInterview={canCreateInterview}
                   canDeleteResumeLibrary={canDeleteResumeLibrary}
                   canUpdateResumeLibrary={canUpdateResumeLibrary}
@@ -242,14 +235,12 @@ export function ResumeLibraryCardList({
                   onCopyDetailLink={onCopyDetailLink}
                   onDelete={onDelete}
                   onEdit={onEdit}
-                  onLaunchChat={onLaunchChat}
                   onLaunchInterview={onLaunchInterview}
                   onOpenDetail={handleOpenDetail}
                   onPreviewResume={onPreviewResume}
                   onSelectChange={handleSelectionChange}
                   onShowDuplicateMatches={onShowDuplicateMatches}
                   onTransition={onTransition}
-                  onViewJobDescription={onViewJobDescription}
                   record={record}
                   selected={Boolean(grid.bind.rowSelection[record.id])}
                 />

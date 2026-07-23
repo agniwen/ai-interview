@@ -185,7 +185,7 @@ function ResumePoolCardsSkeleton() {
 
 export function RecruitingPageSkeleton() {
   return (
-    <PageShell label="招聘">
+    <PageShell label="招聘台">
       <HeaderSkeleton />
       <ChartGridSkeleton />
       <TabsSkeleton count={6} />
@@ -330,7 +330,7 @@ export function PermissionsPageSkeleton() {
 
 export function GlobalConfigPageSkeleton() {
   return (
-    <PageShell label="系统设置">
+    <PageShell label="上下文设置">
       <HeaderSkeleton action />
       <div className="space-y-5">
         {Array.from({ length: 5 }).map((_, index) => (

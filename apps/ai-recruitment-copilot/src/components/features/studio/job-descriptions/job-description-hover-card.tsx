@@ -112,14 +112,23 @@ export function JobDescriptionHoverCard({
               "cursor-pointer text-left underline-offset-4 hover:underline focus-visible:underline focus-visible:outline-none",
               className,
             )}
-            onClick={() => setOpen(true)}
+            onClick={(event) => {
+              event.stopPropagation();
+              setOpen(true);
+            }}
             type="button"
           >
             {displayName}
           </button>
         }
       />
-      <HoverCardContent align="start" className="w-96 max-w-[calc(100vw-2rem)]" sideOffset={8}>
+      <HoverCardContent
+        align="start"
+        className="w-96 max-w-[calc(100vw-2rem)]"
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+        sideOffset={8}
+      >
         {isPending ? <JobDescriptionPreviewSkeleton /> : null}
         {isError ? (
           <p className="text-destructive text-sm">岗位详情加载失败，请稍后重试。</p>

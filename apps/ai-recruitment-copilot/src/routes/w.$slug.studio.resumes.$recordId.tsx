@@ -19,7 +19,6 @@ import { StudioPersonDetailDialog } from "@/components/features/studio/studio-pe
 import { StudioPersonDetailPanel } from "@/components/features/studio/studio-person-detail-panel";
 import type { StudioPersonDetailTab } from "@/components/features/studio/studio-person-detail-panel";
 import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
-import { StudioResumeFloatingChat } from "@/components/features/studio/studio-resume-floating-chat";
 import { CandidateTimelineSkeleton } from "@/components/features/studio/candidate-timeline";
 import { useStudioHeaderOverride } from "@/components/features/studio/studio-header-context";
 import { LaunchInterviewDialog } from "@/components/features/studio/resumes/launch-interview-dialog";
@@ -403,8 +402,6 @@ function RecruiterResumeDetailPage() {
         open={editRecordId !== null}
         recordId={editRecordId}
       />
-
-      <StudioResumeFloatingChat />
     </>
   );
 }

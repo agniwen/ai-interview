@@ -36,9 +36,9 @@ export const STUDIO_PAGE_PERMISSION_ACTIONS = [
 export const STUDIO_PAGE_PERMISSION_LABELS = {
   dashboard: "数据看板",
   departments: "部门管理",
-  forms: "面试表单",
-  globalConfig: "系统设置",
-  interviewQuestions: "面试题",
+  forms: "表单题",
+  globalConfig: "上下文设置",
+  interviewQuestions: "沟通题",
   interviewers: "面试官管理",
   interviews: "AI 面试",
   jobDescriptions: "岗位设置",

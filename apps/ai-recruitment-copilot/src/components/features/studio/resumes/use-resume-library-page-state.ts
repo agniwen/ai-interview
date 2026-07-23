@@ -27,7 +27,6 @@ export function useResumeLibraryPageState() {
   const [duplicateMatchRecord, setDuplicateMatchRecord] = useState<ResumeLibraryListRecord | null>(
     null,
   );
-  const [viewJobDescriptionId, setViewJobDescriptionId] = useState<string | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
@@ -62,9 +61,7 @@ export function useResumeLibraryPageState() {
     setProgressOpen,
     setTransitionTarget,
     setUploadEntryOpen,
-    setViewJobDescriptionId,
     transitionTarget,
     uploadEntryOpen,
-    viewJobDescriptionId,
   };
 }

@@ -131,7 +131,7 @@ export function InterviewQuestionTemplateEditorDialog({
         toast.error(payload?.error ?? (isEdit ? "更新失败" : "创建失败"));
         return;
       }
-      toast.success(isEdit ? "面试题已更新" : "已创建面试题");
+      toast.success(isEdit ? "沟通题已更新" : "已创建沟通题");
       onSaved();
       onOpenChange(false);
     },
@@ -154,8 +154,8 @@ export function InterviewQuestionTemplateEditorDialog({
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title={isEdit ? "编辑面试题" : "新建面试题"}
-      description="面试官在面试时按顺序向候选人必问的题目；面试创建瞬间的题目内容会被冻结为快照。"
+      title={isEdit ? "编辑沟通题" : "新建沟通题"}
+      description="AI 面试时按顺序向候选人追问的题目；创建面试瞬间会冻结为快照，之后编辑不影响已发起的面试。"
       size="xl"
       bodyClassName="-mx-1 px-7 py-1.5 space-y-6"
       footer={

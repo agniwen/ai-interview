@@ -25,9 +25,9 @@ export function LinkedFormsList({
     <div className="mt-4 space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="font-medium text-sm">岗位关联的面试表单</p>
+          <p className="font-medium text-sm">岗位关联的表单题</p>
           <p className="mt-1 text-muted-foreground text-xs">
-            候选人进入面试前需要填写下列表单；全局面试表单在「面试表单」菜单中维护。
+            候选人进入面试前需要填写下列表单题；全局表单题在「表单题」菜单中维护。
           </p>
         </div>
         <Button
@@ -53,7 +53,7 @@ export function LinkedFormsList({
       {!isLoading && templates.length === 0 ? (
         <Card className="gap-0 rounded-xl border-dashed py-0">
           <CardContent className="bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
-            暂无该岗位专属的面试表单。
+            暂无该岗位专属的表单题。
           </CardContent>
         </Card>
       ) : null}
@@ -109,9 +109,9 @@ export function LinkedInterviewQuestionTemplatesList({
     <div className="mt-4 space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="font-medium text-sm">岗位关联的面试题</p>
+          <p className="font-medium text-sm">岗位关联的沟通题</p>
           <p className="mt-1 text-muted-foreground text-xs">
-            面试创建时会自动绑定到下列面试题的最新版本；全局面试题在「面试题」菜单中维护。
+            创建 AI 面试时会自动绑定到下列沟通题的最新版本；全局沟通题在「沟通题」菜单中维护。
           </p>
         </div>
         <Button
@@ -137,7 +137,7 @@ export function LinkedInterviewQuestionTemplatesList({
       {!isLoading && templates.length === 0 ? (
         <Card className="gap-0 rounded-xl border-dashed py-0">
           <CardContent className="bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
-            暂无该岗位专属的面试题。
+            暂无该岗位专属的沟通题。
           </CardContent>
         </Card>
       ) : null}

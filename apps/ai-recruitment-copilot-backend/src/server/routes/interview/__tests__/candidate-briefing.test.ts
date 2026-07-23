@@ -5,10 +5,10 @@ describe("resolveCandidateCompanyContext", () => {
   it("uses the current global config when an older interview snapshot has no company context", () => {
     expect(
       resolveCandidateCompanyContext({
-        currentCompanyContext: "当前系统设置中的公司资料",
+        currentCompanyContext: "当前上下文设置中的公司简介",
         snapshotCompanyContext: "",
       }),
-    ).toBe("当前系统设置中的公司资料");
+    ).toBe("当前上下文设置中的公司简介");
   });
 
   it("falls back to the interview snapshot when the current config is unavailable", () => {

@@ -646,7 +646,7 @@ function ManagedMailIngestPage() {
     <div className="mx-auto w-full max-w-[96rem] flex flex-col gap-6">
       <PageHeader
         title="邮箱监听"
-        description="管理员查看全工作区配置，其他成员仅查看和维护自己的监听账号。"
+        description="把收简历的邮箱接进来自动入库。管理员能看全部账号，其他人只管理自己的。"
       />
 
       <DataGrid<ManagedMailIngestRow>

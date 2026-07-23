@@ -40,7 +40,7 @@ const blocks: Block[] = [
     Screen: JobsScreen,
     bullets: [
       "在工作台维护岗位、JD、面试官人设、面试问题",
-      "系统设置一次设定多次复用",
+      "上下文设置一次设定多次复用",
       "JD 与候选人评估上下文打通",
     ],
     eyebrow: "Workspace",

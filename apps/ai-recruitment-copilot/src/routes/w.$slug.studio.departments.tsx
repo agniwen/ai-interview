@@ -218,7 +218,7 @@ function DepartmentManagementPage() {
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
         <PageHeader
-          description="按业务团队整理岗位和面试官，后续筛选、统计和协作都能对齐到部门。"
+          description="按团队建好部门，方便给岗位和面试官归队，协作和统计也更清楚。"
           title="部门管理"
         />
 
