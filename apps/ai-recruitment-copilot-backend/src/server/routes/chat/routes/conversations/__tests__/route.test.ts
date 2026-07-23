@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   confirmRecruitingAction: vi.fn(),
   createRequestWorkspaceAuthorizer: vi.fn(),
   loadResumeDetail: vi.fn(),
+  loadResumePoolItem: vi.fn(),
   resolveRecruitingVisibilityScope: vi.fn(),
   upsertConversation: vi.fn(),
 }));
@@ -23,6 +24,9 @@ vi.mock(
     loadResumeDetail: mocks.loadResumeDetail,
   }),
 );
+vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao", () => ({
+  loadResumePoolItem: mocks.loadResumePoolItem,
+}));
 
 vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat", () => ({
   checkConversationOwner: mocks.checkConversationOwner,
@@ -70,6 +74,7 @@ describe("conversationsRouter", () => {
     vi.clearAllMocks();
     mocks.createRequestWorkspaceAuthorizer.mockReturnValue(mocks.authorize);
     mocks.loadResumeDetail.mockResolvedValue({ id: "resume-1" });
+    mocks.loadResumePoolItem.mockResolvedValue({ id: "pool-1" });
     mocks.resolveRecruitingVisibilityScope.mockResolvedValue({ kind: "all" });
   });
 
@@ -131,6 +136,7 @@ describe("conversationsRouter", () => {
         authorize: mocks.authorize,
         operatorId: USER_ID,
         organizationId: ORG_ID,
+        visibilityScope: { kind: "all" },
       }),
     );
     await expect(res.json()).resolves.toEqual({

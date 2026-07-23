@@ -20,6 +20,8 @@ import { requirePermission } from "@arc/ai-recruitment-copilot-backend/server/mi
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { confirmRecruitingAction } from "./actions";
 import { loadResumeDetail } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
+import { loadResumePoolItem } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao";
+import { normalizeResumePoolItemId } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/tools/resume-pool-id";
 
 export const conversationsRouter = factory
   .createApp()
@@ -187,13 +189,24 @@ export const conversationsRouter = factory
         organizationId: activeOrg.id,
         userId: user.id,
       });
-      const visibleRecord = await loadResumeDetail(
-        proposal.payload.resumeRecordId,
-        activeOrg.id,
-        visibilityScope,
-      );
-      if (!visibleRecord) {
-        return c.json({ error: "Not Found" }, 404);
+      if (proposal.type === "bind_pool_item_to_job") {
+        const visiblePoolItem = await loadResumePoolItem({
+          organizationId: activeOrg.id,
+          poolItemId: normalizeResumePoolItemId(proposal.payload.poolItemId),
+          visibilityScope,
+        });
+        if (!visiblePoolItem) {
+          return c.json({ error: "Not Found" }, 404);
+        }
+      } else {
+        const visibleRecord = await loadResumeDetail(
+          proposal.payload.resumeRecordId,
+          activeOrg.id,
+          visibilityScope,
+        );
+        if (!visibleRecord) {
+          return c.json({ error: "Not Found" }, 404);
+        }
       }
       const authorize = createRequestWorkspaceAuthorizer({
         headers: c.req.raw.headers,
@@ -206,6 +219,7 @@ export const conversationsRouter = factory
         operatorId: user.id,
         organizationId: activeOrg.id,
         proposal,
+        visibilityScope,
       });
       const status = result.status === "failed" ? 409 : 200;
       return c.json(result, status);

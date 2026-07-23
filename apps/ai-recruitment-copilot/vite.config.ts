@@ -38,8 +38,11 @@ export default defineConfig({
   envPrefix: ["NEXT_PUBLIC_"],
   optimizeDeps: {
     include: [
+      "@assistant-ui/react",
+      "@assistant-ui/react-lexical",
       "@base-ui/react",
       "@base-ui/react/**",
+      "@lexical/react",
       "@tanstack/react-form",
       "@tanstack/react-query",
       "@tanstack/react-router",
@@ -51,6 +54,7 @@ export default defineConfig({
       "clsx",
       "cmdk",
       "dayjs",
+      "lexical",
       "react",
       "react/compiler-runtime",
       "react/jsx-runtime",

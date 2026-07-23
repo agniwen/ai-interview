@@ -58,10 +58,17 @@ export const confirmRecruitingActionSchema = z.object({
   proposal: z.discriminatedUnion("type", [
     recruitingActionBaseSchema.extend({
       payload: z.object({
-        jobDescriptionId: z.string().min(1).nullable(),
+        jobDescriptionId: z.string().min(1).nullish(),
         resumeRecordId: z.string().min(1),
       }),
       type: z.literal("bind_candidate_to_job"),
+    }),
+    recruitingActionBaseSchema.extend({
+      payload: z.object({
+        jobDescriptionId: z.string().min(1).nullish(),
+        poolItemId: z.string().min(1),
+      }),
+      type: z.literal("bind_pool_item_to_job"),
     }),
     recruitingActionBaseSchema.extend({
       payload: z

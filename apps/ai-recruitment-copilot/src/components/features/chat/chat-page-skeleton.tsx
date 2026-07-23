@@ -14,7 +14,7 @@ export function ChatPageSkeleton() {
         <div className="mb-6 flex justify-center">
           <Skeleton className="h-8 w-64 max-w-[72%]" />
         </div>
-        <div className="flex w-full items-end gap-2 rounded-[28px] border border-input bg-background px-3 py-2 shadow-sm">
+        <div className="flex w-full items-end gap-2 rounded-[28px] border border-input bg-background px-3 py-2">
           <div className="flex min-h-9 flex-1 items-center px-2 py-2">
             <Skeleton className="h-4 w-40 max-w-[58%]" />
           </div>
@@ -64,7 +64,7 @@ export function ChatMessageListSkeleton() {
       <div className="aui-thread-footer sticky bottom-0 bg-background px-4 pb-3">
         <div className="mx-auto w-full max-w-(--thread-max-width)">
           <div className="aui-composer-root relative flex w-full flex-col">
-            <div className="aui-composer-shell flex w-full flex-col gap-2 rounded-[28px] border border-input bg-background px-3 py-2 shadow-sm transition-shadow">
+            <div className="aui-composer-shell flex w-full flex-col gap-2 rounded-[28px] border border-input bg-background px-3 py-2 transition-colors">
               <div className="aui-composer-input max-h-32 min-h-10 w-full resize-none bg-transparent px-2 py-2 text-base text-foreground outline-none">
                 <Skeleton className="h-4 w-40 max-w-[58%]" />
               </div>

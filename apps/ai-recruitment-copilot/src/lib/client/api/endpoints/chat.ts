@@ -72,7 +72,11 @@ export interface RecruitingActionProposal {
   id: string;
   payload: Record<string, unknown>;
   title: string;
-  type: "bind_candidate_to_job" | "advance_candidate_stage" | "generate_interview_questions";
+  type:
+    | "bind_candidate_to_job"
+    | "bind_pool_item_to_job"
+    | "advance_candidate_stage"
+    | "generate_interview_questions";
 }
 
 export interface ConfirmRecruitingActionResult {

@@ -20,6 +20,14 @@ describe("buildRecruitingCopilotInstructions", () => {
     expect(instructions).toContain("不要把界面上下文当作已经读取到的简历内容");
   });
 
+  it("documents resume pool mention tooling", () => {
+    const instructions = buildRecruitingCopilotInstructions();
+
+    expect(instructions).toContain("get_resume_pool_detail");
+    expect(instructions).toContain("bind_pool_item_to_job");
+    expect(instructions).toContain(":resume_pool");
+  });
+
   it("does not interpolate candidate data into the system prompt", () => {
     const instructions = buildRecruitingCopilotInstructions({
       id: "resume-1",
