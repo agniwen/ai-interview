@@ -63,7 +63,15 @@ export interface RecruitingActionProposal {
     | "generate_interview_questions";
 }
 
+export interface RecruitingActionConfirmation {
+  confirmedAt: string;
+  jobDescriptionId?: string;
+  jobDescriptionName?: string | null;
+  status: "confirmed" | "ignored";
+}
+
 export interface RecruitingActionProposalResult {
+  confirmation?: RecruitingActionConfirmation;
   proposal?: RecruitingActionProposal;
 }
 
@@ -102,7 +110,9 @@ function mergeByKey<T>(current: T[], incoming: T[], keyOf: (value: T) => string)
 export function RecruitingCopilotContextProvider({
   children,
   conversationId,
-}: PropsWithChildren<{ conversationId: string | null }>) {
+}: PropsWithChildren<{
+  conversationId: string | null;
+}>) {
   const [citations, setCitations] = useState<CopilotCitation[]>([]);
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
   const [previewRecord, setPreviewRecord] = useState<Pick<

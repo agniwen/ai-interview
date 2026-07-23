@@ -19,14 +19,12 @@ import {
   IconCheck,
   IconCopy,
   IconExternalLink,
-  IconLoader2,
   IconPencil,
   IconRefresh,
   IconSquare,
 } from "@tabler/icons-react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import type { ComponentProps, ReactNode } from "react";
-import { toast } from "sonner";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import {
   ResumeDocumentFileIcon,
@@ -38,12 +36,8 @@ import {
 } from "@/components/features/resume/resume-document-preview-button";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { confirmRecruitingAction } from "@/lib/client/api";
-import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { cn } from "@/lib/utils";
-import { notifyConversationsChanged } from "@/components/features/chat/lib/chat-events";
 import { pipelineStageMeta, pipelineStageSchema } from "@arc/db-schema/studio-interviews";
-import { JobDescriptionSelectField } from "@/components/features/studio/interviews/job-description-select-field";
 import { RecruitingContextPanel } from "./recruiting-context-panel";
 import {
   activeThreadStyle,
@@ -55,12 +49,11 @@ import {
   RecruitingDirectiveText,
 } from "./recruiting-directive-text";
 import { RecruitingPersonMentionPopover } from "./recruiting-person-mention";
+import { RecruitingActionProposalToolUI } from "./recruiting-action-proposal";
 import type {
   CandidateSummaryCard,
   CopilotCitation,
-  ProposalStatus,
   RecruitingActionProposal,
-  RecruitingActionProposalResult,
   SearchResumeRecordsResult,
 } from "./recruiting-copilot-context";
 export { RecruitingCopilotContextProvider } from "./recruiting-copilot-context";
@@ -499,205 +492,6 @@ export const RecruitingResumeSearchToolUI = makeAssistantToolUI<unknown, SearchR
     toolName: "search_resume_records",
   },
 );
-
-function statusLabel(status: ProposalStatus) {
-  switch (status) {
-    case "confirmed": {
-      return "已确认";
-    }
-    case "failed": {
-      return "确认失败";
-    }
-    case "ignored": {
-      return "已忽略";
-    }
-    default: {
-      return "待确认";
-    }
-  }
-}
-
-function readJobBindPayload(payload: Record<string, unknown>): {
-  jobDescriptionId: string | null;
-  poolItemId: string | null;
-  resumeRecordId: string | null;
-} {
-  const resumeRecordId =
-    typeof payload.resumeRecordId === "string" && payload.resumeRecordId.length > 0
-      ? payload.resumeRecordId
-      : null;
-  const rawPoolItemId =
-    typeof payload.poolItemId === "string" && payload.poolItemId.length > 0
-      ? payload.poolItemId
-      : null;
-  const poolItemId = rawPoolItemId?.startsWith("pool:")
-    ? rawPoolItemId.slice("pool:".length)
-    : rawPoolItemId;
-  const jobDescriptionId =
-    typeof payload.jobDescriptionId === "string" && payload.jobDescriptionId.length > 0
-      ? payload.jobDescriptionId
-      : null;
-  return { jobDescriptionId, poolItemId, resumeRecordId };
-}
-
-function isJobBindProposal(type: RecruitingActionProposal["type"]) {
-  return type === "bind_candidate_to_job" || type === "bind_pool_item_to_job";
-}
-
-function withConfirmedJobBindPayload(
-  proposal: RecruitingActionProposal,
-  jobDescriptionId: string | null,
-  bindPayload: ReturnType<typeof readJobBindPayload> | null,
-): RecruitingActionProposal {
-  if (proposal.type === "bind_candidate_to_job") {
-    return {
-      ...proposal,
-      payload: {
-        ...proposal.payload,
-        jobDescriptionId,
-        resumeRecordId: bindPayload?.resumeRecordId,
-      },
-    };
-  }
-  if (proposal.type === "bind_pool_item_to_job") {
-    return {
-      ...proposal,
-      payload: {
-        ...proposal.payload,
-        jobDescriptionId,
-        poolItemId: bindPayload?.poolItemId,
-      },
-    };
-  }
-  return proposal;
-}
-
-function RecruitingActionProposalCard({ proposal }: { proposal: RecruitingActionProposal }) {
-  const slug = useWorkspaceSlug();
-  const { conversationId, markProposal, proposalStatuses } = useRecruitingCopilotContext();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const bindPayload = isJobBindProposal(proposal.type)
-    ? readJobBindPayload(proposal.payload)
-    : null;
-  const needsJobPicker = Boolean(bindPayload && !bindPayload.jobDescriptionId);
-  const [selectedJobDescriptionId, setSelectedJobDescriptionId] = useState(
-    bindPayload?.jobDescriptionId ?? "",
-  );
-  const currentStatus = proposalStatuses[proposal.id] ?? "pending";
-  const isDone = currentStatus === "confirmed" || currentStatus === "ignored";
-  const canConfirmBind =
-    !isJobBindProposal(proposal.type) ||
-    Boolean(selectedJobDescriptionId) ||
-    Boolean(bindPayload?.jobDescriptionId);
-
-  const handleConfirm = async () => {
-    if (!conversationId || isSubmitting || isDone) {
-      return;
-    }
-    const jobDescriptionId = selectedJobDescriptionId || bindPayload?.jobDescriptionId || null;
-    if (
-      proposal.type === "bind_candidate_to_job" &&
-      (!bindPayload?.resumeRecordId || !jobDescriptionId)
-    ) {
-      toast.error("请先选择要绑定的岗位");
-      return;
-    }
-    if (
-      proposal.type === "bind_pool_item_to_job" &&
-      (!bindPayload?.poolItemId || !jobDescriptionId)
-    ) {
-      toast.error("请先选择要绑定的岗位");
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      const nextProposal = withConfirmedJobBindPayload(proposal, jobDescriptionId, bindPayload);
-      const result = await confirmRecruitingAction(slug, conversationId, nextProposal);
-      if (result.status === "failed") {
-        markProposal(proposal.id, "failed");
-        toast.error(result.message);
-        return;
-      }
-      markProposal(proposal.id, "confirmed");
-      notifyConversationsChanged();
-      toast.success(result.message);
-    } catch (error) {
-      markProposal(proposal.id, "failed");
-      toast.error(error instanceof Error ? error.message : "确认动作失败");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleIgnore = () => {
-    markProposal(proposal.id, "ignored");
-  };
-
-  return (
-    <article className="aui-action-proposal my-3 rounded-xl border bg-background p-3">
-      <CopilotToolContextReporter proposal={proposal} />
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-muted-foreground text-xs">{statusLabel(currentStatus)}</p>
-          <h3 className="mt-1 font-medium text-sm">{proposal.title}</h3>
-        </div>
-        <span className="rounded-full border bg-muted/50 px-2 py-0.5 text-muted-foreground text-xs">
-          {proposal.type}
-        </span>
-      </div>
-      <p className="mt-2 text-sm leading-6">{proposal.explanation}</p>
-      {needsJobPicker && !isDone ? (
-        <div className="mt-3">
-          <JobDescriptionSelectField
-            disabled={isSubmitting}
-            onChange={setSelectedJobDescriptionId}
-            showDescription={false}
-            size="sm"
-            value={selectedJobDescriptionId}
-          />
-        </div>
-      ) : null}
-      <div className="mt-3 flex justify-end gap-2">
-        <Button
-          disabled={isSubmitting || isDone}
-          onClick={handleIgnore}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          忽略
-        </Button>
-        <Button
-          disabled={!conversationId || isSubmitting || isDone || !canConfirmBind}
-          onClick={handleConfirm}
-          size="sm"
-          type="button"
-        >
-          {isSubmitting ? <IconLoader2 className="size-3.5 animate-spin" /> : null}
-          确认
-        </Button>
-      </div>
-    </article>
-  );
-}
-
-export const RecruitingActionProposalToolUI = makeAssistantToolUI<
-  unknown,
-  RecruitingActionProposalResult
->({
-  display: "standalone",
-  render: ({ result, status }) => {
-    const proposal = result?.proposal;
-    if (status.type === "running") {
-      return <ToolNotice>正在生成动作建议...</ToolNotice>;
-    }
-    if (!proposal) {
-      return null;
-    }
-    return <RecruitingActionProposalCard proposal={proposal} />;
-  },
-  toolName: "propose_recruiting_action",
-});
 
 export function RecruitingToolRenderers() {
   return (

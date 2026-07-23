@@ -55,6 +55,7 @@ const recruitingActionBaseSchema = z.object({
 });
 
 export const confirmRecruitingActionSchema = z.object({
+  decision: z.enum(["confirm", "ignore"]).optional().default("confirm"),
   proposal: z.discriminatedUnion("type", [
     recruitingActionBaseSchema.extend({
       payload: z.object({

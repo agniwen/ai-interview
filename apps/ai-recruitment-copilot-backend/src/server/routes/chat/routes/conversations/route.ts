@@ -183,29 +183,31 @@ export const conversationsRouter = factory
         return c.json({ error: "Forbidden" }, 403);
       }
 
-      const { proposal } = c.req.valid("json");
+      const { proposal, decision } = c.req.valid("json");
       const visibilityScope = await resolveRecruitingVisibilityScope({
         currentRole: c.var.member?.role,
         organizationId: activeOrg.id,
         userId: user.id,
       });
-      if (proposal.type === "bind_pool_item_to_job") {
-        const visiblePoolItem = await loadResumePoolItem({
-          organizationId: activeOrg.id,
-          poolItemId: normalizeResumePoolItemId(proposal.payload.poolItemId),
-          visibilityScope,
-        });
-        if (!visiblePoolItem) {
-          return c.json({ error: "Not Found" }, 404);
-        }
-      } else {
-        const visibleRecord = await loadResumeDetail(
-          proposal.payload.resumeRecordId,
-          activeOrg.id,
-          visibilityScope,
-        );
-        if (!visibleRecord) {
-          return c.json({ error: "Not Found" }, 404);
+      if (decision !== "ignore") {
+        if (proposal.type === "bind_pool_item_to_job") {
+          const visiblePoolItem = await loadResumePoolItem({
+            organizationId: activeOrg.id,
+            poolItemId: normalizeResumePoolItemId(proposal.payload.poolItemId),
+            visibilityScope,
+          });
+          if (!visiblePoolItem) {
+            return c.json({ error: "Not Found" }, 404);
+          }
+        } else {
+          const visibleRecord = await loadResumeDetail(
+            proposal.payload.resumeRecordId,
+            activeOrg.id,
+            visibilityScope,
+          );
+          if (!visibleRecord) {
+            return c.json({ error: "Not Found" }, 404);
+          }
         }
       }
       const authorize = createRequestWorkspaceAuthorizer({
@@ -216,6 +218,8 @@ export const conversationsRouter = factory
       });
       const result = await confirmRecruitingAction({
         authorize,
+        conversationId,
+        decision,
         operatorId: user.id,
         organizationId: activeOrg.id,
         proposal,

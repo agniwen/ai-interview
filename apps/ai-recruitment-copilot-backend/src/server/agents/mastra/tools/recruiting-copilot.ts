@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- recruiting copilot search/detail/proposal tools stay co-located. */
 import { createTool } from "@mastra/core/tools";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { z } from "zod";
@@ -21,6 +22,9 @@ import {
   loadJobDescriptionById,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { loadResumePoolItem } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao";
+import { upsertConversationContextJobBinding } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat";
+import type { ChatContextBindings } from "@arc/db-schema/chat-context-bindings";
+import { EMPTY_CHAT_CONTEXT_BINDINGS } from "@arc/db-schema/chat-context-bindings";
 import { jobDescription, resumePoolItem, studioInterview } from "@arc/db-schema/schema";
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
 import type { JobDescriptionRecord } from "@arc/shared/job-descriptions";
@@ -31,6 +35,37 @@ export { normalizeResumePoolItemId } from "./resume-pool-id";
 
 const MAX_SEARCH_LIMIT = 10;
 const MAX_COMPARISON_CANDIDATES = 5;
+
+async function resolveConversationJobOverlay(input: {
+  boundJobDescriptionId: string | undefined;
+  jobDescriptionId: string | null;
+  jobDescriptionName: string | null;
+  organizationId: string;
+}): Promise<{ jobDescriptionId: string | null; jobDescriptionName: string | null }> {
+  if (!input.boundJobDescriptionId) {
+    return {
+      jobDescriptionId: input.jobDescriptionId,
+      jobDescriptionName: input.jobDescriptionName,
+    };
+  }
+  if (input.boundJobDescriptionId === input.jobDescriptionId && input.jobDescriptionName) {
+    return {
+      jobDescriptionId: input.jobDescriptionId,
+      jobDescriptionName: input.jobDescriptionName,
+    };
+  }
+  const bound = await loadJobDescriptionById(input.organizationId, input.boundJobDescriptionId);
+  if (!bound) {
+    return {
+      jobDescriptionId: input.jobDescriptionId,
+      jobDescriptionName: input.jobDescriptionName,
+    };
+  }
+  return {
+    jobDescriptionId: bound.id,
+    jobDescriptionName: bound.name,
+  };
+}
 
 export const copilotCitationSchema = z.object({
   id: z.string(),
@@ -90,6 +125,13 @@ export const recruitingActionProposalSchema = z.object({
     "advance_candidate_stage",
     "generate_interview_questions",
   ]),
+});
+
+export const recruitingActionConfirmationSchema = z.object({
+  confirmedAt: z.string(),
+  jobDescriptionId: z.string().optional(),
+  jobDescriptionName: z.string().nullable().optional(),
+  status: z.enum(["confirmed", "ignored"]),
 });
 
 export const searchResumeRecordsInputSchema = z.object({
@@ -165,6 +207,7 @@ export const proposeRecruitingActionInputSchema = z.object({
 });
 
 export const proposeRecruitingActionOutputSchema = z.object({
+  confirmation: recruitingActionConfirmationSchema.optional(),
   proposal: recruitingActionProposalSchema,
 });
 
@@ -524,7 +567,248 @@ export async function searchSemanticResumeRecords(input: {
   }
 }
 
+export function buildConversationBindProposalId(
+  kind: "resume_pool_item" | "resume_record",
+  recordId: string,
+) {
+  return `conversation-bind:${kind}:${recordId}`;
+}
+
+function resolveRecruitingActionProposalId(
+  input: z.infer<typeof proposeRecruitingActionInputSchema>,
+): string {
+  if (input.type === "bind_candidate_to_job") {
+    const resumeRecordId =
+      typeof input.payload.resumeRecordId === "string" ? input.payload.resumeRecordId : null;
+    if (resumeRecordId) {
+      return buildConversationBindProposalId("resume_record", resumeRecordId);
+    }
+  }
+  if (input.type === "bind_pool_item_to_job") {
+    const rawPoolItemId =
+      typeof input.payload.poolItemId === "string" ? input.payload.poolItemId : null;
+    const poolItemId = rawPoolItemId ? normalizeResumePoolItemId(rawPoolItemId) : null;
+    if (poolItemId) {
+      return buildConversationBindProposalId("resume_pool_item", poolItemId);
+    }
+  }
+  return crypto.randomUUID();
+}
+
+export function createRecruitingActionProposal(
+  input: z.infer<typeof proposeRecruitingActionInputSchema> & { id?: string },
+): z.infer<typeof proposeRecruitingActionOutputSchema> {
+  const parsed = proposeRecruitingActionInputSchema.parse(input);
+  return {
+    proposal: {
+      ...parsed,
+      id: input.id ?? resolveRecruitingActionProposalId(parsed),
+    },
+  };
+}
+
+function confirmedConversationBindResult(input: {
+  extraPayload?: Record<string, unknown>;
+  jobDescriptionId: string;
+  jobDescriptionName: string;
+  proposal: z.infer<typeof recruitingActionProposalSchema>;
+}): z.infer<typeof proposeRecruitingActionOutputSchema> {
+  const { jobDescriptionId, jobDescriptionName, proposal } = input;
+  return {
+    confirmation: {
+      confirmedAt: new Date().toISOString(),
+      jobDescriptionId,
+      jobDescriptionName,
+      status: "confirmed",
+    },
+    proposal: {
+      ...proposal,
+      explanation: `用户已确认：本对话分析岗位为「${jobDescriptionName}」（jobDescriptionId=${jobDescriptionId}）。请立即基于该岗位继续匹配/分析；不要再说未绑定岗位，也不要再次调用 propose_recruiting_action。`,
+      payload: {
+        ...proposal.payload,
+        ...input.extraPayload,
+        jobDescriptionId,
+      },
+      title: `已关联「${jobDescriptionName}」`,
+    },
+  };
+}
+
+async function resolvePriorRecruitingActionConfirmation(input: {
+  organizationId: string;
+  priorConfirmation: z.infer<typeof recruitingActionConfirmationSchema> | undefined;
+  proposal: z.infer<typeof recruitingActionProposalSchema>;
+}): Promise<z.infer<typeof proposeRecruitingActionOutputSchema> | null> {
+  const { priorConfirmation, proposal } = input;
+  if (priorConfirmation?.status === "confirmed" && priorConfirmation.jobDescriptionId) {
+    const selectedJobDescription = await loadJobDescriptionById(
+      input.organizationId,
+      priorConfirmation.jobDescriptionId,
+    );
+    const name =
+      priorConfirmation.jobDescriptionName?.trim() || selectedJobDescription?.name || "已选岗位";
+    return confirmedConversationBindResult({
+      jobDescriptionId: priorConfirmation.jobDescriptionId,
+      jobDescriptionName: name,
+      proposal,
+    });
+  }
+  if (priorConfirmation?.status === "ignored") {
+    return {
+      confirmation: priorConfirmation,
+      proposal: {
+        ...proposal,
+        explanation:
+          "用户已忽略本对话岗位关联建议。请在不绑定岗位的前提下继续回答（可说明信息有限）。",
+        title: "已忽略岗位关联",
+      },
+    };
+  }
+  return null;
+}
+
+async function executeCandidateBindProposal(input: {
+  contextBindings: ChatContextBindings;
+  conversationId: string;
+  created: z.infer<typeof proposeRecruitingActionOutputSchema>;
+  organizationId: string;
+  payloadJobDescriptionId: string | null;
+}): Promise<z.infer<typeof proposeRecruitingActionOutputSchema>> {
+  const { created } = input;
+  const { proposal } = created;
+  const resumeRecordId =
+    typeof proposal.payload.resumeRecordId === "string" ? proposal.payload.resumeRecordId : null;
+  if (!resumeRecordId) {
+    return created;
+  }
+  const boundFromConversation = input.contextBindings.resume_record?.[resumeRecordId];
+  const jobDescriptionId = boundFromConversation ?? input.payloadJobDescriptionId;
+  if (!jobDescriptionId) {
+    return created;
+  }
+  const nextJobDescription = await loadJobDescriptionById(input.organizationId, jobDescriptionId);
+  if (!nextJobDescription) {
+    return created;
+  }
+  if (boundFromConversation !== jobDescriptionId) {
+    const [existing] = await db
+      .select({ id: studioInterview.id })
+      .from(studioInterview)
+      .where(
+        and(
+          eq(studioInterview.id, resumeRecordId),
+          eq(studioInterview.organizationId, input.organizationId),
+        ),
+      )
+      .limit(1);
+    if (!existing) {
+      return created;
+    }
+    await upsertConversationContextJobBinding({
+      conversationId: input.conversationId,
+      jobDescriptionId,
+      jobDescriptionName: nextJobDescription.name,
+      kind: "resume_record",
+      organizationId: input.organizationId,
+      recordId: resumeRecordId,
+      summaryText: `已在本对话中将该候选人关联到「${nextJobDescription.name}」（仅影响本轮分析，未改招聘台数据）。`,
+    });
+  }
+  return confirmedConversationBindResult({
+    jobDescriptionId,
+    jobDescriptionName: nextJobDescription.name,
+    proposal,
+  });
+}
+
+async function executeProposeRecruitingAction(input: {
+  conversationId?: string | null;
+  contextBindings: ChatContextBindings;
+  organizationId: string;
+  proposalInput: z.infer<typeof proposeRecruitingActionInputSchema>;
+  visibilityScope: RecruitingVisibilityScope;
+}): Promise<z.infer<typeof proposeRecruitingActionOutputSchema>> {
+  const created = createRecruitingActionProposal(input.proposalInput);
+  const { proposal } = created;
+  const priorConfirmation = input.contextBindings.actionConfirmations?.[proposal.id];
+  const confirmedProposal = await resolvePriorRecruitingActionConfirmation({
+    organizationId: input.organizationId,
+    priorConfirmation,
+    proposal,
+  });
+  if (confirmedProposal) {
+    return confirmedProposal;
+  }
+
+  if (proposal.type !== "bind_candidate_to_job" && proposal.type !== "bind_pool_item_to_job") {
+    return created;
+  }
+
+  if (!input.conversationId) {
+    return created;
+  }
+
+  const payloadJobDescriptionId =
+    typeof proposal.payload.jobDescriptionId === "string" &&
+    proposal.payload.jobDescriptionId.length > 0
+      ? proposal.payload.jobDescriptionId
+      : null;
+
+  if (proposal.type === "bind_candidate_to_job") {
+    return executeCandidateBindProposal({
+      contextBindings: input.contextBindings,
+      conversationId: input.conversationId,
+      created,
+      organizationId: input.organizationId,
+      payloadJobDescriptionId,
+    });
+  }
+
+  const rawPoolItemId =
+    typeof proposal.payload.poolItemId === "string" ? proposal.payload.poolItemId : null;
+  const poolItemId = rawPoolItemId ? normalizeResumePoolItemId(rawPoolItemId) : null;
+  if (!poolItemId) {
+    return created;
+  }
+  const boundFromConversation = input.contextBindings.resume_pool_item?.[poolItemId];
+  const jobDescriptionId = boundFromConversation ?? payloadJobDescriptionId;
+  if (!jobDescriptionId) {
+    return created;
+  }
+  const nextJobDescription = await loadJobDescriptionById(input.organizationId, jobDescriptionId);
+  if (!nextJobDescription) {
+    return created;
+  }
+  if (boundFromConversation !== jobDescriptionId) {
+    const existing = await loadResumePoolItem({
+      organizationId: input.organizationId,
+      poolItemId,
+      visibilityScope: input.visibilityScope,
+    });
+    if (!existing) {
+      return created;
+    }
+    await upsertConversationContextJobBinding({
+      conversationId: input.conversationId,
+      jobDescriptionId,
+      jobDescriptionName: nextJobDescription.name,
+      kind: "resume_pool_item",
+      organizationId: input.organizationId,
+      recordId: poolItemId,
+      summaryText: `已在本对话中将该人才库条目关联到「${nextJobDescription.name}」（仅影响本轮分析，未改人才库数据）。`,
+    });
+  }
+
+  return confirmedConversationBindResult({
+    extraPayload: { poolItemId },
+    jobDescriptionId,
+    jobDescriptionName: nextJobDescription.name,
+    proposal,
+  });
+}
+
 export async function getResumeRecordDetailForCopilot(input: {
+  contextBindings?: ChatContextBindings;
   id: string;
   includeResumeText?: boolean;
   organizationId: string;
@@ -571,19 +855,26 @@ export async function getResumeRecordDetailForCopilot(input: {
   if (!record) {
     return { resumeRecord: null };
   }
+  const boundJobDescriptionId = input.contextBindings?.resume_record?.[record.id];
+  const jobBinding = await resolveConversationJobOverlay({
+    boundJobDescriptionId,
+    jobDescriptionId: record.jobDescriptionId,
+    jobDescriptionName: record.jobDescriptionName,
+    organizationId: input.organizationId,
+  });
   return {
     resumeRecord: {
       candidateName: record.candidateName,
       citation: {
         id: record.id,
         label: record.candidateName,
-        recordType: "resume_record",
-        secondaryLabel: record.jobDescriptionName,
+        recordType: "resume_record" as const,
+        secondaryLabel: jobBinding.jobDescriptionName,
       },
       id: record.id,
       interviewQuestions: record.interviewQuestions ?? [],
-      jobDescriptionId: record.jobDescriptionId,
-      jobDescriptionName: record.jobDescriptionName,
+      jobDescriptionId: jobBinding.jobDescriptionId,
+      jobDescriptionName: jobBinding.jobDescriptionName,
       notes: cleanString(record.notes),
       pipelineStage: record.pipelineStage,
       resumeProfile: record.resumeProfile,
@@ -597,6 +888,7 @@ export async function getResumeRecordDetailForCopilot(input: {
 function toResumePoolItemDetail(
   detail: ResumePoolDetail,
   resumeText: string | null,
+  jobBinding: { jobDescriptionId: string | null; jobDescriptionName: string | null },
 ): z.infer<typeof resumePoolItemDetailSchema> {
   const keySkills = (
     detail.masteredSkills.length > 0 ? detail.masteredSkills : detail.skillsNormalized
@@ -607,12 +899,12 @@ function toResumePoolItemDetail(
       id: `pool:${detail.id}`,
       label: detail.candidateName,
       recordType: "resume_pool_item",
-      secondaryLabel: detail.jobDescriptionName,
+      secondaryLabel: jobBinding.jobDescriptionName,
     },
     hasAiProfile: detail.resumeProfile !== null && detail.resumeProfile !== undefined,
     id: detail.id,
-    jobDescriptionId: detail.jobDescriptionId,
-    jobDescriptionName: detail.jobDescriptionName,
+    jobDescriptionId: jobBinding.jobDescriptionId,
+    jobDescriptionName: jobBinding.jobDescriptionName,
     keySkills,
     notes: cleanString(detail.notes),
     resumeParseStatus: detail.resumeParseStatus,
@@ -625,6 +917,7 @@ function toResumePoolItemDetail(
 }
 
 export async function getResumePoolDetailForCopilot(input: {
+  contextBindings?: ChatContextBindings;
   id: string;
   includeResumeText?: boolean;
   organizationId: string;
@@ -660,7 +953,15 @@ export async function getResumePoolDetailForCopilot(input: {
       .limit(1);
     resumeText = row?.resumeText?.slice(0, 12_000) ?? null;
   }
-  return { resumePoolItem: toResumePoolItemDetail(detail, resumeText) };
+  const jobBinding = await resolveConversationJobOverlay({
+    boundJobDescriptionId: input.contextBindings?.resume_pool_item?.[detail.id],
+    jobDescriptionId: detail.jobDescriptionId,
+    jobDescriptionName: detail.jobDescriptionName,
+    organizationId: input.organizationId,
+  });
+  return {
+    resumePoolItem: toResumePoolItemDetail(detail, resumeText, jobBinding),
+  };
 }
 
 function readDepartmentName(record: JobDescriptionRecord): string | null {
@@ -709,22 +1010,14 @@ export async function searchJobDescriptionsForCopilot(
   };
 }
 
-export function createRecruitingActionProposal(
-  input: z.infer<typeof proposeRecruitingActionInputSchema>,
-): z.infer<typeof proposeRecruitingActionOutputSchema> {
-  const parsed = proposeRecruitingActionInputSchema.parse(input);
-  return {
-    proposal: {
-      ...parsed,
-      id: crypto.randomUUID(),
-    },
-  };
-}
-
 export function createRecruitingCopilotTools({
+  contextBindings = EMPTY_CHAT_CONTEXT_BINDINGS,
+  conversationId,
   organizationId,
   visibilityScope,
 }: {
+  contextBindings?: ChatContextBindings;
+  conversationId?: string | null;
   organizationId: string;
   visibilityScope: RecruitingVisibilityScope;
 }) {
@@ -745,33 +1038,51 @@ export function createRecruitingCopilotTools({
     }),
     get_resume_pool_detail: createTool({
       description:
-        "读取当前 workspace 人才库（resume pool）条目详情。id 可为 uuid 或 pool:uuid。默认返回结构化画像与解析状态；只有需要逐段引用时才请求 resumeText。若无 AI 解析，hasAiProfile 为 false。",
+        "读取当前 workspace 人才库（resume pool）条目详情。id 可为 uuid 或 pool:uuid。若返回的 jobDescriptionId 为 null：同一轮必须立刻调用 propose_recruiting_action（type=bind_pool_item_to_job，payload.poolItemId=本条目 id），不要先口头询问用户是否要选岗位，也不要在提案前输出匹配/分析正文。",
       execute: (input: z.infer<typeof getResumePoolDetailInputSchema>) =>
-        getResumePoolDetailForCopilot({ ...input, organizationId, visibilityScope }),
+        getResumePoolDetailForCopilot({
+          ...input,
+          contextBindings,
+          organizationId,
+          visibilityScope,
+        }),
       id: "get_resume_pool_detail",
       inputSchema: getResumePoolDetailInputSchema,
       outputSchema: getResumePoolDetailOutputSchema,
     }),
     get_resume_record_detail: createTool({
       description:
-        "读取当前 workspace 中某个招聘台候选人的简历详情。默认返回结构化画像；只有需要逐段引用时才请求 resumeText。",
+        "读取当前 workspace 中某个招聘台候选人的简历详情。若返回的 jobDescriptionId 为 null：同一轮必须立刻调用 propose_recruiting_action（type=bind_candidate_to_job，payload.resumeRecordId=本候选人 id），不要先口头询问用户是否要选岗位，也不要在提案前输出匹配/分析正文。",
       execute: (input: z.infer<typeof getResumeRecordDetailInputSchema>) =>
-        getResumeRecordDetailForCopilot({ ...input, organizationId, visibilityScope }),
+        getResumeRecordDetailForCopilot({
+          ...input,
+          contextBindings,
+          organizationId,
+          visibilityScope,
+        }),
       id: "get_resume_record_detail",
       inputSchema: getResumeRecordDetailInputSchema,
       outputSchema: getResumeRecordDetailOutputSchema,
     }),
     propose_recruiting_action: createTool({
       description:
-        "创建一个需要用户确认的招聘动作建议卡片。此工具只返回建议，不修改任何系统数据。绑定招聘台候选人用 type=bind_candidate_to_job（payload.resumeRecordId）；绑定人才库条目用 type=bind_pool_item_to_job（payload.poolItemId）。尚未绑定时 jobDescriptionId 可省略，由前端行动卡让用户选择。",
+        "弹出需要用户批准的动作卡（前端会渲染）。读详情后若 jobDescriptionId 为空，必须主动、立即调用本工具做本对话岗位关联，不要等用户再说「选岗位」。bind_candidate_to_job：payload 含 resumeRecordId，尽量预填推荐 jobDescriptionId；bind_pool_item_to_job：payload 含 poolItemId，尽量预填推荐 jobDescriptionId。若本轮已有 search_job_descriptions 结果，用最相关岗位填 jobDescriptionId；没有也可先提案，由用户在卡片里选择。批准前不要输出分析正文；确认后只写入本对话分析上下文。推进阶段/生成面试题等写操作也用本工具。",
       execute: (input: z.infer<typeof proposeRecruitingActionInputSchema>) =>
-        Promise.resolve(createRecruitingActionProposal(input)),
+        executeProposeRecruitingAction({
+          contextBindings,
+          conversationId,
+          organizationId,
+          proposalInput: input,
+          visibilityScope,
+        }),
       id: "propose_recruiting_action",
       inputSchema: proposeRecruitingActionInputSchema,
       outputSchema: proposeRecruitingActionOutputSchema,
+      requireApproval: true,
     }),
     search_job_descriptions: createTool({
-      description: "在当前 workspace 中检索岗位信息，返回可引用的岗位摘要。",
+      description:
+        "在当前 workspace 中检索岗位信息，返回可引用的岗位摘要。为未绑定候选人推荐岗位时优先调用；拿到结果后同一轮继续调用 propose_recruiting_action 预填 jobDescriptionId。",
       execute: (input: z.infer<typeof searchJobDescriptionsInputSchema>) =>
         searchJobDescriptionsForCopilot({ ...input, organizationId }),
       id: "search_job_descriptions",

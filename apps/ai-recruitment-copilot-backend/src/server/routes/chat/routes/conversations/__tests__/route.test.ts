@@ -108,7 +108,7 @@ describe("conversationsRouter", () => {
     mocks.checkConversationOwner.mockResolvedValue("ok");
     mocks.confirmRecruitingAction.mockResolvedValue({
       actionType: "bind_candidate_to_job",
-      message: "已绑定候选人到岗位。",
+      message: "已在本对话中将该候选人关联到所选岗位（仅影响本轮分析，未改招聘台数据）。",
       status: "executed",
     });
 
@@ -134,6 +134,7 @@ describe("conversationsRouter", () => {
     expect(mocks.confirmRecruitingAction).toHaveBeenCalledWith(
       expect.objectContaining({
         authorize: mocks.authorize,
+        conversationId: "conversation_1",
         operatorId: USER_ID,
         organizationId: ORG_ID,
         visibilityScope: { kind: "all" },
@@ -141,7 +142,7 @@ describe("conversationsRouter", () => {
     );
     await expect(res.json()).resolves.toEqual({
       actionType: "bind_candidate_to_job",
-      message: "已绑定候选人到岗位。",
+      message: "已在本对话中将该候选人关联到所选岗位（仅影响本轮分析，未改招聘台数据）。",
       status: "executed",
     });
   });

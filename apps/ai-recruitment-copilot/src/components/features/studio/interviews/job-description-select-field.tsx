@@ -38,7 +38,9 @@ export function JobDescriptionSelectField({
   error,
   action,
   disabled,
+  label = "关联在招岗位",
   matching = false,
+  required = true,
   showDescription = true,
   size = "default",
 }: {
@@ -47,6 +49,8 @@ export function JobDescriptionSelectField({
   error?: string;
   action?: ReactNode;
   disabled?: boolean;
+  /** Field label text. Defaults to 关联在招岗位. */
+  label?: string;
   /**
    * 简历解析后自动匹配岗位期间为 true：禁用下拉、显示 spinner 与提示文案，
    * 让用户知道结果即将自动回填。匹配完成后立即恢复可选。
@@ -54,6 +58,8 @@ export function JobDescriptionSelectField({
    * surfaces a spinner + hint so the user understands a value is incoming.
    */
   matching?: boolean;
+  /** When false, omit the required asterisk next to the label. */
+  required?: boolean;
   /** When false, omit the helper description under the field. */
   showDescription?: boolean;
   /** Control height; `sm` matches SelectTrigger size="sm" (h-8). */
@@ -79,7 +85,8 @@ export function JobDescriptionSelectField({
     <Field data-invalid={error ? true : undefined}>
       <FieldLabel className="flex items-center gap-2" htmlFor="interview-jd-select">
         <span>
-          关联在招岗位 <span className="text-destructive">*</span>
+          {label}
+          {required ? <span className="text-destructive"> *</span> : null}
         </span>
         {matching ? (
           <span className="inline-flex items-center gap-1 text-muted-foreground text-xs">

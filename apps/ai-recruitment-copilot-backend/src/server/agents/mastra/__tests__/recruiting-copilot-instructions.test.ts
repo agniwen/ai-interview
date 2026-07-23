@@ -26,6 +26,10 @@ describe("buildRecruitingCopilotInstructions", () => {
     expect(instructions).toContain("get_resume_pool_detail");
     expect(instructions).toContain("bind_pool_item_to_job");
     expect(instructions).toContain(":resume_pool");
+    expect(instructions).toContain("只会写入本对话分析上下文");
+    expect(instructions).toContain("propose_recruiting_action");
+    expect(instructions).toContain("必须立刻调用 propose_recruiting_action");
+    expect(instructions).not.toContain("conversationJobBindingProposal");
   });
 
   it("does not interpolate candidate data into the system prompt", () => {

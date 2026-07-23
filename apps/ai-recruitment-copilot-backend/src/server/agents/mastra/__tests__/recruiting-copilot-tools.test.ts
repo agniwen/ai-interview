@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   capCandidateComparisonIds,
   createRecruitingActionProposal,
+  createRecruitingCopilotTools,
   searchResumeRecordsForCopilot,
 } from "../tools/recruiting-copilot";
 import { normalizeResumePoolItemId } from "../tools/resume-pool-id";
@@ -167,7 +168,7 @@ describe("recruiting copilot tools", () => {
     });
   });
 
-  it("creates confirmable recruiting action proposals without executing writes", () => {
+  it("creates confirmable recruiting action proposals with stable bind ids", () => {
     const result = createRecruitingActionProposal({
       explanation: "候选人与岗位技能匹配，可以先绑定岗位。",
       payload: {
@@ -180,7 +181,7 @@ describe("recruiting copilot tools", () => {
 
     expect(result.proposal).toEqual({
       explanation: "候选人与岗位技能匹配，可以先绑定岗位。",
-      id: expect.any(String),
+      id: "conversation-bind:resume_record:resume-1",
       payload: {
         jobDescriptionId: "jd-1",
         resumeRecordId: "resume-1",
@@ -195,7 +196,7 @@ describe("recruiting copilot tools", () => {
     expect(normalizeResumePoolItemId("abc-123")).toBe("abc-123");
   });
 
-  it("creates confirmable pool bind proposals", () => {
+  it("creates confirmable pool bind proposals with stable ids", () => {
     const result = createRecruitingActionProposal({
       explanation: "人才库条目尚未绑定岗位，先请用户选择。",
       payload: {
@@ -206,6 +207,22 @@ describe("recruiting copilot tools", () => {
     });
 
     expect(result.proposal.type).toBe("bind_pool_item_to_job");
+    expect(result.proposal.id).toBe("conversation-bind:resume_pool_item:pool-1");
     expect(result.proposal.payload).toEqual({ poolItemId: "pool-1" });
+  });
+
+  it("registers propose_recruiting_action with requireApproval", () => {
+    const tools = createRecruitingCopilotTools({
+      organizationId: "org-1",
+      visibilityScope: { kind: "all" },
+    });
+    expect(tools.propose_recruiting_action.requireApproval).toBe(true);
+    expect(tools.propose_recruiting_action.description).toContain("必须主动、立即调用");
+    expect(tools.get_resume_record_detail.description).toContain(
+      "必须立刻调用 propose_recruiting_action",
+    );
+    expect(tools.get_resume_pool_detail.description).toContain(
+      "必须立刻调用 propose_recruiting_action",
+    );
   });
 });
