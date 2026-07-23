@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- resume library list/detail/filter queries stay co-located. */
 import { and, arrayContains, asc, count, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";

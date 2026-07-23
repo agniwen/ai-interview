@@ -72,7 +72,7 @@ export function StudioScrollToTopButton({ className }: { className?: string }) {
     <motion.div
       animate={{
         opacity: visible ? 1 : 0,
-        scale: reduceMotion ? 1 : (visible ? 1 : 0.96),
+        scale: reduceMotion || visible ? 1 : 0.96,
       }}
       aria-hidden={!visible}
       className={cn(

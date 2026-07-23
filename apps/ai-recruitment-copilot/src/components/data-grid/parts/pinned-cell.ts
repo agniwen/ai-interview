@@ -40,6 +40,10 @@ export function getPinningStyles<TData>(
   }
 
   const size = column.getSize();
+  let zIndex: number | undefined;
+  if (isPinned) {
+    zIndex = options.isHeader ? 3 : 1;
+  }
 
   return {
     boxSizing: "border-box",
@@ -50,7 +54,7 @@ export function getPinningStyles<TData>(
     right: isPinned === "right" ? `${column.getAfter("right")}px` : undefined,
     top: isPinned && options.stickToTop ? 0 : undefined,
     width: `${size}px`,
-    zIndex: isPinned ? (options.isHeader ? 3 : 1) : undefined,
+    zIndex,
   };
 }
 

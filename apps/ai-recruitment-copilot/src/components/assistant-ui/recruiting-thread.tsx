@@ -5,12 +5,9 @@ import {
   AuiIf,
   BranchPickerPrimitive,
   ComposerPrimitive,
-  INTERNAL,
   makeAssistantToolUI,
   MessagePrimitive,
   ThreadPrimitive,
-  useComposer,
-  useComposerRuntime,
   useEditComposer,
   useMessage,
 } from "@assistant-ui/react";
@@ -27,7 +24,7 @@ import {
   IconRefresh,
   IconSquare,
 } from "@tabler/icons-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ComponentProps, ReactNode } from "react";
 import { toast } from "sonner";
 import { MarkdownView } from "@/components/features/display/markdown-view";
@@ -58,7 +55,6 @@ import {
   RecruitingDirectiveText,
 } from "./recruiting-directive-text";
 import { RecruitingPersonMentionPopover } from "./recruiting-person-mention";
-import { emptyThreadStyle } from "./recruiting-thread-layout";
 import type {
   CandidateSummaryCard,
   CopilotCitation,
@@ -68,6 +64,7 @@ import type {
   SearchResumeRecordsResult,
 } from "./recruiting-copilot-context";
 export { RecruitingCopilotContextProvider } from "./recruiting-copilot-context";
+export { NewRecruitingThread } from "./new-recruiting-thread";
 
 function ToolNotice({ children }: { children: string }) {
   return (
@@ -547,6 +544,34 @@ function isJobBindProposal(type: RecruitingActionProposal["type"]) {
   return type === "bind_candidate_to_job" || type === "bind_pool_item_to_job";
 }
 
+function withConfirmedJobBindPayload(
+  proposal: RecruitingActionProposal,
+  jobDescriptionId: string | null,
+  bindPayload: ReturnType<typeof readJobBindPayload> | null,
+): RecruitingActionProposal {
+  if (proposal.type === "bind_candidate_to_job") {
+    return {
+      ...proposal,
+      payload: {
+        ...proposal.payload,
+        jobDescriptionId,
+        resumeRecordId: bindPayload?.resumeRecordId,
+      },
+    };
+  }
+  if (proposal.type === "bind_pool_item_to_job") {
+    return {
+      ...proposal,
+      payload: {
+        ...proposal.payload,
+        jobDescriptionId,
+        poolItemId: bindPayload?.poolItemId,
+      },
+    };
+  }
+  return proposal;
+}
+
 function RecruitingActionProposalCard({ proposal }: { proposal: RecruitingActionProposal }) {
   const slug = useWorkspaceSlug();
   const { conversationId, markProposal, proposalStatuses } = useRecruitingCopilotContext();
@@ -570,40 +595,23 @@ function RecruitingActionProposalCard({ proposal }: { proposal: RecruitingAction
       return;
     }
     const jobDescriptionId = selectedJobDescriptionId || bindPayload?.jobDescriptionId || null;
-    if (proposal.type === "bind_candidate_to_job") {
-      if (!bindPayload?.resumeRecordId || !jobDescriptionId) {
-        toast.error("请先选择要绑定的岗位");
-        return;
-      }
+    if (
+      proposal.type === "bind_candidate_to_job" &&
+      (!bindPayload?.resumeRecordId || !jobDescriptionId)
+    ) {
+      toast.error("请先选择要绑定的岗位");
+      return;
     }
-    if (proposal.type === "bind_pool_item_to_job") {
-      if (!bindPayload?.poolItemId || !jobDescriptionId) {
-        toast.error("请先选择要绑定的岗位");
-        return;
-      }
+    if (
+      proposal.type === "bind_pool_item_to_job" &&
+      (!bindPayload?.poolItemId || !jobDescriptionId)
+    ) {
+      toast.error("请先选择要绑定的岗位");
+      return;
     }
     setIsSubmitting(true);
     try {
-      const nextProposal: RecruitingActionProposal =
-        proposal.type === "bind_candidate_to_job"
-          ? {
-              ...proposal,
-              payload: {
-                ...proposal.payload,
-                jobDescriptionId,
-                resumeRecordId: bindPayload?.resumeRecordId,
-              },
-            }
-          : (proposal.type === "bind_pool_item_to_job"
-            ? {
-                ...proposal,
-                payload: {
-                  ...proposal.payload,
-                  jobDescriptionId,
-                  poolItemId: bindPayload?.poolItemId,
-                },
-              }
-            : proposal);
+      const nextProposal = withConfirmedJobBindPayload(proposal, jobDescriptionId, bindPayload);
       const result = await confirmRecruitingAction(slug, conversationId, nextProposal);
       if (result.status === "failed") {
         markProposal(proposal.id, "failed");
@@ -746,167 +754,5 @@ export function RecruitingThread({ isRunning }: { isRunning: boolean }) {
         <RecruitingContextPanel />
       </div>
     </ThreadPrimitive.Root>
-  );
-}
-
-export function NewRecruitingThread({
-  disabled,
-  onSubmit,
-}: {
-  disabled: boolean;
-  onSubmit: (text: string) => Promise<void>;
-}) {
-  return (
-    <div
-      className="aui-root aui-thread-root flex min-h-0 flex-1 flex-col bg-background text-foreground"
-      style={emptyThreadStyle}
-    >
-      <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-1 flex-col justify-center px-4 pb-[18vh]">
-        <div className="aui-thread-welcome-root mb-6 text-center">
-          <h1 className="aui-thread-welcome-message-inner fade-in slide-in-from-bottom-1 animate-in fill-mode-both text-2xl font-normal duration-200">
-            从哪里开始招聘协作？
-          </h1>
-        </div>
-        <NewRecruitingComposer disabled={disabled} onSubmit={onSubmit} />
-        <p className="mt-2 text-center text-muted-foreground text-xs">
-          AI Recruitment Copilot 可能出错，请在确认动作前核对候选人和岗位信息。可用 @ 提及招聘台 /
-          人才库候选人。
-        </p>
-      </div>
-    </div>
-  );
-}
-
-const newComposerInputClassName = cn(
-  // Keep empty-state height close to the old textarea (min-h-9 + shell py-2).
-  // Avoid stacking min-height on both the Lexical wrapper and contenteditable.
-  "aui-composer-input relative max-h-36 min-w-0 flex-1 bg-transparent px-2 text-base text-foreground",
-  "[&_.aui-lexical-input]:min-h-9 [&_.aui-lexical-input]:py-2 [&_.aui-lexical-input]:leading-6 [&_.aui-lexical-input]:outline-none [&_.aui-lexical-input]:whitespace-pre-wrap [&_p]:m-0",
-  "[&_.aui-lexical-placeholder]:pointer-events-none [&_.aui-lexical-placeholder]:absolute [&_.aui-lexical-placeholder]:inset-x-2 [&_.aui-lexical-placeholder]:top-2 [&_.aui-lexical-placeholder]:text-muted-foreground",
-);
-
-function NewThreadEnterSubmitPlugin({
-  disabled,
-  onSubmit,
-}: {
-  disabled: boolean;
-  onSubmit: () => void;
-}) {
-  "use no memo";
-  // Prefer assistant-ui's input plugin registry over Lexical commands so we
-  // don't import `@lexical/*` (Vite deep-import resolution is fragile here).
-  // Lower priority than TriggerPopover (default 0) so @-mention Enter selects first.
-  const pluginRegistry = INTERNAL.useComposerInputPluginRegistryOptional();
-  const disabledRef = useRef(disabled);
-  const onSubmitRef = useRef(onSubmit);
-  disabledRef.current = disabled;
-  onSubmitRef.current = onSubmit;
-
-  useEffect(() => {
-    if (!pluginRegistry) {
-      return;
-    }
-    return pluginRegistry.register(
-      {
-        handleKeyDown(event) {
-          if (event.key !== "Enter" || event.shiftKey) {
-            return false;
-          }
-          if (event.ctrlKey || event.metaKey) {
-            return false;
-          }
-          if (event.nativeEvent?.isComposing) {
-            return false;
-          }
-          if (disabledRef.current) {
-            return false;
-          }
-          event.preventDefault();
-          onSubmitRef.current();
-          return true;
-        },
-        setCursorPosition() {},
-      },
-      { priority: -1 },
-    );
-  }, [pluginRegistry]);
-
-  return null;
-}
-
-function NewRecruitingComposer({
-  disabled,
-  onSubmit,
-}: {
-  disabled: boolean;
-  onSubmit: (text: string) => Promise<void>;
-}) {
-  "use no memo";
-  return (
-    <ComposerPrimitive.Unstable_TriggerPopoverRoot>
-      <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
-        <NewRecruitingComposerShell disabled={disabled} onSubmit={onSubmit} />
-        <RecruitingPersonMentionPopover />
-      </ComposerPrimitive.Root>
-    </ComposerPrimitive.Unstable_TriggerPopoverRoot>
-  );
-}
-
-function NewRecruitingComposerShell({
-  disabled,
-  onSubmit,
-}: {
-  disabled: boolean;
-  onSubmit: (text: string) => Promise<void>;
-}) {
-  "use no memo";
-  const composerRuntime = useComposerRuntime();
-  const text = useComposer((composer) => composer.text);
-  const canSubmit = text.trim().length > 0 && !disabled;
-  const submittingRef = useRef(false);
-
-  const handleSubmit = () => {
-    if (submittingRef.current || disabled) {
-      return;
-    }
-    const nextText = composerRuntime.getState().text.trim();
-    if (!nextText) {
-      return;
-    }
-    submittingRef.current = true;
-    composerRuntime.setText("");
-    void onSubmit(nextText).finally(() => {
-      submittingRef.current = false;
-    });
-  };
-
-  return (
-    <div
-      className={cn(
-        "aui-composer-shell flex w-full items-end gap-2 rounded-[28px] border border-input bg-background px-3 py-2 transition-colors focus-within:border-foreground/20",
-        disabled && "pointer-events-none opacity-60",
-      )}
-    >
-      <LexicalComposerInput
-        aria-label="招聘问题输入"
-        autoFocus={!disabled}
-        className={newComposerInputClassName}
-        directiveChip={RecruitingComposerDirectiveChip}
-        placeholder="输入招聘问题，或输入 @ 提及候选人..."
-        submitMode="none"
-      />
-      <NewThreadEnterSubmitPlugin disabled={!canSubmit} onSubmit={handleSubmit} />
-      <Button
-        aria-label="发送"
-        className={cn(composerSendButtonClass, "shrink-0")}
-        disabled={!canSubmit}
-        onClick={handleSubmit}
-        size="icon"
-        title="发送"
-        type="button"
-      >
-        <IconArrowUp className="size-4" />
-      </Button>
-    </div>
   );
 }

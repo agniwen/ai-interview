@@ -151,13 +151,14 @@ function ComposerTriggerPopoverImpl({
           formatter={directive.formatter ?? unstable_defaultDirectiveFormatter}
           onInserted={directive.onInserted}
         />
-      ) : (action ? (
+      ) : null}
+      {!directive && action ? (
         <ComposerPrimitive.Unstable_TriggerPopover.Action
           formatter={action.formatter ?? unstable_defaultDirectiveFormatter}
           onExecute={action.onExecute}
           removeOnExecute={action.removeOnExecute}
         />
-      ) : null)}
+      ) : null}
       <Categories emptyLabel={emptyCategoriesLabel} />
       <Items
         backLabel={backLabel}

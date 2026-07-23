@@ -609,7 +609,7 @@ function toResumePoolItemDetail(
       recordType: "resume_pool_item",
       secondaryLabel: detail.jobDescriptionName,
     },
-    hasAiProfile: detail.resumeProfile != null,
+    hasAiProfile: detail.resumeProfile !== null && detail.resumeProfile !== undefined,
     id: detail.id,
     jobDescriptionId: detail.jobDescriptionId,
     jobDescriptionName: detail.jobDescriptionName,
