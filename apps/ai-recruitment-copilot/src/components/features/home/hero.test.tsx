@@ -39,8 +39,9 @@ describe("Hero", () => {
 
     expect(heading?.className).toContain("dark:text-white");
     expect(brand?.className).toContain("dark:text-violet-100");
-    expect(description?.className).toContain("dark:text-slate-100");
-    expect(description?.className).toContain("dark:[text-shadow:");
+    expect(description?.className).toContain("dark:text-white/80");
+    expect(heading?.className).not.toContain("text-shadow");
+    expect(description?.className).not.toContain("text-shadow");
     expect(buttons[0]?.className).toContain("dark:text-white");
     expect(buttons[1]?.className).toContain("dark:text-slate-950");
 

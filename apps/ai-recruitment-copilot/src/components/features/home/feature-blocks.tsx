@@ -74,7 +74,7 @@ interface SceneProps {
 const titleClass =
   "font-medium text-3xl text-foreground tracking-tight leading-[1.15] sm:text-4xl lg:text-[2.5rem] lg:leading-[1.18]";
 const leadClass =
-  "text-base text-muted-foreground leading-normal sm:text-[1.0625rem] lg:text-[1.0625rem]";
+  "text-base text-muted-foreground leading-normal dark:text-white/80 sm:text-[1.0625rem] lg:text-[1.0625rem]";
 
 // 编号 bullet 卡片：与下方 CapabilityGrid BentoTile 同款毛玻璃材质（背景 60%、淡边、轻投影、blur）
 // Bullet card material — matches the CapabilityGrid BentoTile glass: bg-background/60, faint border, soft drop, backdrop-blur
@@ -262,7 +262,9 @@ function SceneCard({ block }: { block: Block }) {
         <h3 className="font-medium text-2xl text-foreground leading-[1.2] tracking-tight sm:text-[1.75rem]">
           {block.title}
         </h3>
-        <p className="text-foreground/70 text-sm leading-normal sm:text-[0.95rem]">{block.lead}</p>
+        <p className="text-foreground/70 text-sm leading-normal dark:text-white/80 sm:text-[0.95rem]">
+          {block.lead}
+        </p>
       </div>
       {/* 卡片自带阴影，screen 内部不再叠 shadow-xl，否则会被 article 的 overflow-hidden 裁切出黑边 */}
       {/* Card has its own shadow; suppress the inner shadow-xl so it doesn't get clipped by the article's overflow-hidden */}

@@ -116,7 +116,7 @@ export function ProcessTabs() {
                     </div>
                     <p
                       className={cn(
-                        "grid overflow-hidden text-foreground/70 text-sm leading-normal transition-[grid-template-rows,opacity,margin] duration-300",
+                        "grid overflow-hidden text-foreground/70 text-sm leading-normal transition-[grid-template-rows,opacity,margin] duration-300 dark:text-white/80",
                         isActive
                           ? "mt-3 grid-rows-[1fr] opacity-100"
                           : "mt-0 grid-rows-[0fr] opacity-0",

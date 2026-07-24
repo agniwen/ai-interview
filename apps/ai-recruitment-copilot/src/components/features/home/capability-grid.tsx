@@ -43,7 +43,9 @@ function BentoTile({
       <h3 className="mt-6 font-medium text-foreground text-lg leading-tight tracking-tight">
         {title}
       </h3>
-      <p className="mt-2 text-foreground/70 text-sm leading-normal">{description}</p>
+      <p className="mt-2 text-foreground/70 text-sm leading-normal dark:text-white/80">
+        {description}
+      </p>
     </div>
   );
 

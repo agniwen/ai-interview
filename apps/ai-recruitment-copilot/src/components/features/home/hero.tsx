@@ -36,7 +36,7 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
         </p>
       </FadeContent>
 
-      <h1 className="mt-5 mx-auto max-w-5xl text-balance font-medium text-[2rem] text-foreground leading-[1.12] tracking-tight dark:text-white dark:[text-shadow:0_1px_18px_rgb(2_6_23/0.35)] sm:mt-6 sm:text-5xl lg:text-[3.5rem]">
+      <h1 className="mt-5 mx-auto max-w-5xl text-balance font-medium text-[2rem] text-foreground leading-[1.12] tracking-tight dark:text-white sm:mt-6 sm:text-5xl lg:text-[3.5rem]">
         {/* 品牌行用 motion.span（不能用 FadeContent，它会渲染 <div> 嵌进 <h1> 不合法）。
             延迟 0.15s 卡在 eyebrow 起势之后、SplitText 标语字符 stagger 起点(0.1s) 附近，
             形成 eyebrow → 品牌行 → 标语字符 → 副标题 → CTA 的连贯入场。
@@ -59,7 +59,7 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
       </h1>
 
       <FadeContent className="mt-5 mx-auto max-w-2xl sm:mt-7" delay={0.1}>
-        <p className="font-serif text-sm text-muted-foreground leading-normal dark:text-slate-100 dark:[text-shadow:0_1px_12px_rgb(2_6_23/0.55)] sm:text-lg sm:leading-[1.8]">
+        <p className="font-serif text-sm text-muted-foreground leading-normal dark:text-white/80 sm:text-lg sm:leading-[1.8]">
           上传简历，和 AI
           先聊几句。把面试链接发出去，让候选人开口面对面。亮点、风险、追问过程、回答表现，一条工作流里全程在场。
         </p>
