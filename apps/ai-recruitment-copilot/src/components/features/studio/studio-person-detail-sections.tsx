@@ -163,12 +163,6 @@ export function CollectedCandidateInfoList({
                 <div className="font-medium text-[11px] text-muted-foreground">问题</div>
                 <p className="font-medium text-foreground leading-normal">{item.question}</p>
               </div>
-              {item.analysis ? (
-                <div className="mt-3 space-y-1">
-                  <div className="font-medium text-[11px] text-muted-foreground">AI 分析</div>
-                  <p className="font-medium text-foreground leading-6">{item.analysis}</p>
-                </div>
-              ) : null}
               <div className="mt-3 space-y-1">
                 <div className="font-medium text-[11px] text-muted-foreground">
                   {item.kind === "interview" ? "候选人回答" : "回答"}
@@ -182,7 +176,7 @@ export function CollectedCandidateInfoList({
                             <p
                               className={
                                 item.kind === "interview"
-                                  ? "line-clamp-2 cursor-help text-muted-foreground leading-6 wrap-break-word"
+                                  ? "whitespace-pre-wrap font-medium text-foreground leading-6 wrap-break-word"
                                   : "line-clamp-2 cursor-help text-foreground leading-6 wrap-break-word"
                               }
                             >
@@ -200,6 +194,12 @@ export function CollectedCandidateInfoList({
                   <p className="text-muted-foreground text-sm">暂无提取答案</p>
                 )}
               </div>
+              {item.analysis ? (
+                <div className="mt-3 space-y-1">
+                  <div className="font-medium text-[11px] text-muted-foreground">AI 分析</div>
+                  <p className="text-muted-foreground text-xs leading-5">{item.analysis}</p>
+                </div>
+              ) : null}
             </div>
           </div>
         </article>
