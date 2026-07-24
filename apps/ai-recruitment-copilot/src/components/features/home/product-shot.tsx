@@ -60,8 +60,10 @@ export function ProductShot() {
 
   return (
     <Section className="!pt-8 sm:!pt-10" width="wide">
-      <div ref={wrapperRef}>
-        <ResumesScreen />
+      <div className="home-product-shot-enter">
+        <div ref={wrapperRef}>
+          <ResumesScreen />
+        </div>
       </div>
     </Section>
   );
