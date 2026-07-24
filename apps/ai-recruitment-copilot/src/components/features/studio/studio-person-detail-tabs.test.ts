@@ -57,6 +57,23 @@ describe("AI 面试详情 tabs", () => {
     expect(resultContentSource).toContain("重置沟通");
   });
 
+  it("places reset communication in the communication frame header", () => {
+    const communicationTitleIndex = resultContentSource.indexOf("<FrameTitle>沟通题</FrameTitle>");
+    const communicationHeaderStart = resultContentSource.lastIndexOf(
+      "<FrameHeader",
+      communicationTitleIndex,
+    );
+    const communicationHeaderEnd = resultContentSource.indexOf(
+      "</FrameHeader>",
+      communicationTitleIndex,
+    );
+    const communicationHeader = resultContentSource.slice(
+      communicationHeaderStart,
+      communicationHeaderEnd,
+    );
+    expect(communicationHeader).toContain("重置沟通");
+  });
+
   it("reuses the result layout in interview detail and recruitment detail", () => {
     const overviewBranch = bodySource.slice(
       bodySource.indexOf('<TabsContent value="overview">'),
