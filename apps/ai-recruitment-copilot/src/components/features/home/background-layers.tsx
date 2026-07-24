@@ -2,15 +2,16 @@
 // Purpose: extracts the fixed homepage background animation + mask into one component.
 "use client";
 
+import { MeshGradient } from "@paper-design/shaders-react";
+import { useReducedMotion } from "motion/react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { AsciiHero } from "@/components/react-bits/ascii-hero";
-import { DarkVeil } from "@/components/react-bits/dark-veil";
-import DotGrid from "@/components/react-bits/dot-grid";
 import Grainient from "@/components/react-bits/grainient";
 
 export function BackgroundLayers() {
   const { resolvedTheme } = useTheme();
+  const prefersReducedMotion = useReducedMotion();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -25,27 +26,20 @@ export function BackgroundLayers() {
         {isDark ? (
           <>
             <div className="absolute inset-0">
-              <DarkVeil
-                hueShift={30}
-                noiseIntensity={0.02}
-                resolutionScale={1.5}
-                scanlineFrequency={0.5}
-                scanlineIntensity={0}
-                speed={2}
-                warpAmount={0.2}
+              <MeshGradient
+                colors={["#020617", "#0b2545", "#312e81", "#581c87"]}
+                distortion={0.82}
+                grainMixer={0.08}
+                grainOverlay={0.06}
+                height="100%"
+                maxPixelCount={1_920_000}
+                speed={prefersReducedMotion ? 0 : 0.35}
+                swirl={0.24}
+                width="100%"
               />
             </div>
-            <div className="absolute inset-0 mix-blend-screen">
-              <DotGrid
-                activeColor="#ffffff"
-                baseColor="#2a2a3a"
-                dotSize={3}
-                gap={18}
-                proximity={140}
-                shockRadius={220}
-                shockStrength={4}
-                speedTrigger={120}
-              />
+            <div className="absolute inset-0">
+              <AsciiHero />
             </div>
           </>
         ) : (
