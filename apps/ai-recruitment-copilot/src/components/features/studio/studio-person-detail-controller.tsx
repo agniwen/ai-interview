@@ -46,7 +46,6 @@ import { DetailHeaderSkeleton } from "./studio-person-detail-skeletons";
 import { countDisplayInterviewTurns } from "@arc/shared/interview-transcript-turns";
 import { pipelineStageMeta, scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
-import { useRoundEmailSummary } from "./interviews/round-email/use-round-email-summary";
 
 import {
   findCachedResumeCandidateName,
@@ -381,17 +380,6 @@ export function useStudioPersonDetailController({
     queryKey: ["studio-resumes", slug, "timeline", effectiveRecordId, accessMode] as const,
     refetchOnWindowFocus: true,
   });
-  let resultRoundId: string | null = null;
-  if (mode === "interview") {
-    resultRoundId = round?.id ?? null;
-  } else if (shouldLoadResumeInterviewResult) {
-    resultRoundId = latestCandidateRoundId;
-  }
-  const roundEmailSummaryRoundIds = canUseManagementActions && resultRoundId ? [resultRoundId] : [];
-  const roundEmailSummaryQuery = useRoundEmailSummary(slug, roundEmailSummaryRoundIds);
-  const roundEmailSummary = resultRoundId
-    ? roundEmailSummaryQuery.data?.[resultRoundId]
-    : undefined;
   const isLoading =
     mode === "interview" ? isResolvingRoundId || isInterviewLoading : isResumeLoading;
   let record: UnifiedRecord | null = null;
@@ -535,13 +523,6 @@ export function useStudioPersonDetailController({
     }
     dispatchUi({ id: null, type: "resettingRoundChanged" });
   }
-  const aiStageLockedReason: string | null =
-    record?.pipelineStage &&
-    record.pipelineStage !== "screening" &&
-    record.pipelineStage !== "ai_interview"
-      ? `候选人已进入「${pipelineStageMeta[record.pipelineStage].label}」阶段，AI 面试相关操作已锁定。如需修改请先回退阶段或重新激活。`
-      : null;
-  const isAiStageLocked = aiStageLockedReason !== null;
   const latestReport = reports[0] ?? null;
   const latestEvaluationSummary = getEvaluationSummary(
     latestReport?.evaluationCriteriaResults as Record<string, unknown> | undefined,
@@ -570,10 +551,6 @@ export function useStudioPersonDetailController({
   const isRoundCompleted = record?.roundStatus === "completed";
   const canResetAiRound =
     Boolean(record?.roundId) && !isPublic && record?.pipelineStage === "ai_interview";
-  const isRoundLive =
-    record?.roundStatus === "in_progress" || record?.roundStatus === "interrupted";
-  const roundActionLockedReason = isRoundLive ? "面试正在进行中，结束后才能发送或复制链接。" : null;
-  const roundActionDisabledReason = roundActionLockedReason ?? aiStageLockedReason;
   const canLaunchResumeModeRecord =
     canUseManagementActions &&
     (mode !== "resume" || !record?.resumeParseStatus
@@ -815,7 +792,6 @@ export function useStudioPersonDetailController({
   );
   return {
     activeTab,
-    aiStageLockedReason,
     bodyLayoutClassName,
     canCreateHumanInterview,
     canCreateOffer,
@@ -846,7 +822,6 @@ export function useStudioPersonDetailController({
     handleToggleAllowTextInput,
     headerExtra,
     interviewItems,
-    isAiStageLocked,
     isFormSubmissionsLoading,
     isLoading,
     isPublic,
@@ -883,9 +858,6 @@ export function useStudioPersonDetailController({
     resumePreviewUrl,
     resumeRecord,
     round,
-    roundActionDisabledReason,
-    roundActionLockedReason,
-    roundEmailSummary,
     roundId,
     selectedEvidence,
     setActiveTab,

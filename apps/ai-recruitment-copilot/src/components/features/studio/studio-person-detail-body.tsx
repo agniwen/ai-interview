@@ -4,6 +4,7 @@
 import { IconArrowBackUp, IconChevronDown, IconLoader2, IconMessage2 } from "@tabler/icons-react";
 import { cn } from "@arc/shared/utils";
 import { env } from "@/env/client";
+import type { ReactNode } from "react";
 
 import { CandidateBasicInfoView } from "@/components/features/candidate/candidate-basic-info-view";
 import { MarkdownView } from "@/components/features/display/markdown-view";
@@ -45,11 +46,7 @@ import {
   ReportsSkeleton,
   SummaryMetric,
 } from "./studio-person-detail-skeletons";
-import { toAbsoluteUrl } from "@/lib/client/clipboard";
-import { pipelineStageMeta, scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
 import { AgentInstructionsPanel } from "./interviews/agent-instructions-panel";
-import { RoundEmailAction } from "./interviews/round-email/round-email-action";
-import { InterviewLinkQrButton } from "./interviews/interview-link-qr-button";
 import { ConversationTranscript } from "./interviews/interview-detail/conversation-transcript";
 import { KeywordHighlightProvider } from "./interviews/interview-detail/keyword-highlight/context";
 import { HighlightedText } from "./interviews/interview-detail/keyword-highlight/highlighted-text";
@@ -145,18 +142,21 @@ function FormSubmissionResetAction({
 function InterviewResultFrame({
   evaluationSummary,
   report,
+  resetAction,
 }: {
   evaluationSummary: StudioPersonDetailViewModel["latestEvaluationSummary"];
   report: StudioPersonDetailViewModel["latestReport"];
+  resetAction?: ReactNode;
 }) {
   return (
     <Frame className="h-full">
       <FrameHeader className="flex-row items-center justify-between gap-3">
         <FrameTitle>面试结果</FrameTitle>
-        <div>
+        <div className="flex items-center gap-2">
           <Badge variant={report ? getReportBadgeVariant(report.status) : "outline"}>
             {report ? formatReportStatus(report.status) : "暂无报告"}
           </Badge>
+          {resetAction}
         </div>
       </FrameHeader>
       <FramePanel className="flex-1">
@@ -225,36 +225,39 @@ function InterviewResultTabContent({
     handleToggleAllowTextInput,
     isPublic,
     mode,
-    resettingSubmissionId,
     resettingRoundId,
+    resettingSubmissionId,
     resumePreviewUrl,
-    roundEmailSummary,
-    slug,
     updatingRoundId,
   } = model;
-  const resultAiStageLockedReason =
-    record.pipelineStage &&
-    record.pipelineStage !== "screening" &&
-    record.pipelineStage !== "ai_interview"
-      ? `候选人已进入「${pipelineStageMeta[record.pipelineStage].label}」阶段，AI 面试相关操作已锁定。如需修改请先回退阶段或重新激活。`
-      : null;
-  const resultIsRoundLive =
-    record.roundStatus === "in_progress" || record.roundStatus === "interrupted";
-  const resultRoundActionDisabledReason = resultIsRoundLive
-    ? "面试正在进行中，结束后才能发送或复制链接。"
-    : resultAiStageLockedReason;
-  const resultIsRoundCompleted = record.roundStatus === "completed";
   const showRoundActions = canUseManagementActions && !isPublic;
   const canResetResultRound =
     showRoundActions && Boolean(record.roundId) && record.pipelineStage === "ai_interview";
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2">
         {isReportsLoading ? (
           <InterviewResultOverviewSkeleton />
         ) : (
-          <InterviewResultFrame evaluationSummary={evaluationSummary} report={report} />
+          <InterviewResultFrame
+            evaluationSummary={evaluationSummary}
+            report={report}
+            resetAction={
+              canResetResultRound ? (
+                <Button
+                  disabled={resettingRoundId === record.roundId}
+                  onClick={() => void handleResetRound(record.roundId as string)}
+                  size="xs"
+                  type="button"
+                  variant="outline"
+                >
+                  <IconArrowBackUp />
+                  {resettingRoundId === record.roundId ? "重置中..." : "重置沟通"}
+                </Button>
+              ) : undefined
+            }
+          />
         )}
         <Frame className="h-full">
           <FrameHeader className="flex-row flex-wrap items-center justify-between">
@@ -272,117 +275,39 @@ function InterviewResultTabContent({
               resumeFileName={record.resumeFileName}
               targetRole={record.targetRole}
             />
-          </FramePanel>
-        </Frame>
-      </div>
-
-      {record.roundId ? (
-        <Frame>
-          <FrameHeader>
-            <FrameTitle>轮次概览</FrameTitle>
-          </FrameHeader>
-          <FramePanel className="flex flex-col gap-4">
-            {resultAiStageLockedReason ? (
-              <p className="rounded-xl bg-muted/30 px-3 py-2 text-muted-foreground text-xs leading-5">
-                {resultAiStageLockedReason}
-              </p>
-            ) : null}
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-sm">{record.roundLabel}</span>
-                {record.roundStatus ? (
-                  <Badge variant={scheduleEntryStatusMeta[record.roundStatus].tone}>
-                    {scheduleEntryStatusMeta[record.roundStatus].label}
-                  </Badge>
-                ) : null}
-              </div>
-              <div className="flex items-center gap-2">
-                {record.roundScheduledAt && record.roundScheduledEndAt ? (
-                  <div className="flex flex-wrap items-center gap-1 text-muted-foreground text-xs">
-                    <span>开始</span>
-                    <TimeDisplay
+            {showRoundActions && record.roundId ? (
+              <Field className="mt-4 w-auto max-w-full gap-0 border-border/50 border-t pt-4">
+                <FieldContent>
+                  <div className="flex items-center justify-between gap-3">
+                    <FieldLabel htmlFor={`round-allow-text-input-${record.roundId}`}>
+                      允许面试者文本输入
+                    </FieldLabel>
+                    <Switch
+                      checked={record.roundAllowTextInput ?? false}
                       className="shrink-0"
-                      options={DATE_TIME_DISPLAY_OPTIONS}
-                      value={record.roundScheduledAt}
-                    />
-                    <span>· 结束</span>
-                    <TimeDisplay
-                      className="shrink-0"
-                      options={DATE_TIME_DISPLAY_OPTIONS}
-                      value={record.roundScheduledEndAt}
+                      disabled={
+                        record.roundStatus === "completed" || updatingRoundId === record.roundId
+                      }
+                      id={`round-allow-text-input-${record.roundId}`}
+                      onCheckedChange={(next) =>
+                        void handleToggleAllowTextInput(record.roundId as string, next)
+                      }
                     />
                   </div>
-                ) : (
-                  <span className="text-muted-foreground text-xs">未排期</span>
-                )}
-                {showRoundActions && record.roundId && !resultIsRoundCompleted ? (
-                  <RoundEmailAction
-                    candidateEmail={record.candidateEmail}
-                    lockedReason={resultRoundActionDisabledReason}
-                    roundId={record.roundId}
-                    slug={slug}
-                    summary={roundEmailSummary}
-                  />
-                ) : null}
-                {showRoundActions && record.roundInterviewLink && !resultIsRoundCompleted ? (
-                  <InterviewLinkQrButton
-                    candidateName={record.candidateName}
-                    disabled={Boolean(resultRoundActionDisabledReason)}
-                    url={toAbsoluteUrl(record.roundInterviewLink)}
-                  />
-                ) : null}
-              </div>
-            </div>
-            {showRoundActions ? (
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <Field className="w-auto max-w-full gap-0">
-                  <FieldContent>
-                    <div className="flex items-center gap-2">
-                      <FieldLabel htmlFor={`round-allow-text-input-${record.roundId}`}>
-                        允许面试者文本输入
-                      </FieldLabel>
-                      <Switch
-                        checked={record.roundAllowTextInput ?? false}
-                        className="shrink-0"
-                        disabled={
-                          record.roundStatus === "completed" || updatingRoundId === record.roundId
-                        }
-                        id={`round-allow-text-input-${record.roundId}`}
-                        onCheckedChange={(next) =>
-                          void handleToggleAllowTextInput(record.roundId as string, next)
-                        }
-                      />
-                    </div>
-                    <FieldDescription className="text-xs">
-                      关闭时面试界面文字输入框被禁用，仅支持语音作答。
-                    </FieldDescription>
-                  </FieldContent>
-                </Field>
-                {canResetResultRound ? (
-                  <div className="flex shrink-0 justify-end sm:border-l sm:border-border/50 sm:pl-4">
-                    <Button
-                      disabled={resettingRoundId === record.roundId}
-                      onClick={() => void handleResetRound(record.roundId as string)}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      <IconArrowBackUp className="size-3.5" />
-                      {resettingRoundId === record.roundId ? "重置中..." : "重置轮次"}
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
+                  <FieldDescription className="text-xs">
+                    关闭时面试界面文字输入框被禁用，仅支持语音作答。
+                  </FieldDescription>
+                </FieldContent>
+              </Field>
             ) : null}
           </FramePanel>
         </Frame>
-      ) : null}
-
-      <section className="xl:col-span-2">
         {isFormSubmissionsLoading || isReportsLoading ? (
-          <FormsSkeleton />
+          <div className="md:col-span-2">
+            <FormsSkeleton />
+          </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2">
+          <>
             <Frame className="h-full">
               <FrameHeader className="flex-row items-center gap-2">
                 <FrameTitle>表单题</FrameTitle>
@@ -405,17 +330,17 @@ function InterviewResultTabContent({
               </FramePanel>
             </Frame>
             <Frame className="h-full">
-              <FrameHeader className="flex-row items-center gap-2  ">
-                <FrameTitle>面试题</FrameTitle>
+              <FrameHeader className="flex-row items-center gap-2">
+                <FrameTitle>沟通题</FrameTitle>
                 <Badge variant="outline">共{interviewItems.length}题</Badge>
               </FrameHeader>
               <FramePanel className="flex-1 p-4">
-                <CollectedCandidateInfoList emptyLabel="暂无面试题" items={interviewItems} />
+                <CollectedCandidateInfoList emptyLabel="暂无沟通题" items={interviewItems} />
               </FramePanel>
             </Frame>
-          </div>
+          </>
         )}
-      </section>
+      </div>
 
       <section className="space-y-3">
         <h3 className="font-medium text-sm">简历评价</h3>
