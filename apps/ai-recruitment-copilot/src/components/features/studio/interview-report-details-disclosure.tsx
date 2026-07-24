@@ -2,21 +2,36 @@
 
 import { IconChevronDown } from "@tabler/icons-react";
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@arc/shared/utils";
+import { ANIMATED_HEIGHT_COMPLETE_EVENT } from "@/components/features/motion/animated-height";
 import { Button } from "@/components/ui/button";
 
 export function InterviewReportDetailsDisclosure({ children }: { children: ReactNode }) {
   const [expanded, setExpanded] = useState(false);
   const detailsRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (expanded) {
+  useLayoutEffect(() => {
+    if (!expanded) {
+      return;
+    }
+    const details = detailsRef.current;
+    const scrollToDetails = () => {
       detailsRef.current?.scrollIntoView({
         behavior: "smooth",
         block: "nearest",
       });
+    };
+    const animatedHeight = details?.closest<HTMLElement>('[data-slot="animated-height"]');
+    if (!animatedHeight) {
+      scrollToDetails();
+      return;
     }
+    animatedHeight.addEventListener(ANIMATED_HEIGHT_COMPLETE_EVENT, scrollToDetails, {
+      once: true,
+    });
+    return () =>
+      animatedHeight.removeEventListener(ANIMATED_HEIGHT_COMPLETE_EVENT, scrollToDetails);
   }, [expanded]);
 
   return (

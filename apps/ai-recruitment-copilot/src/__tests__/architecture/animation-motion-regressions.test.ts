@@ -59,4 +59,14 @@ describe("animation motion regressions", () => {
     expect(sidebar).toContain("transition-[margin,opacity] duration-200 ease-linear");
     expect(sidebar).toContain("transition-[width,height,padding]");
   });
+
+  it("signals when animated height changes finish", () => {
+    const animatedHeight = readSource(
+      "apps/ai-recruitment-copilot/src/components/features/motion/animated-height.tsx",
+    );
+
+    expect(animatedHeight).toContain('data-slot="animated-height"');
+    expect(animatedHeight).toContain("onAnimationComplete");
+    expect(animatedHeight).toContain("ANIMATED_HEIGHT_COMPLETE_EVENT");
+  });
 });

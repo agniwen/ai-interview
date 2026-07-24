@@ -3,6 +3,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ANIMATED_HEIGHT_COMPLETE_EVENT } from "@/components/features/motion/animated-height";
 import { InterviewReportDetailsDisclosure } from "./interview-report-details-disclosure";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -43,9 +44,11 @@ describe("InterviewReportDetailsDisclosure", () => {
   it("reveals and hides the latest report details", () => {
     act(() => {
       root.render(
-        <InterviewReportDetailsDisclosure>
-          <div>最新报告详情</div>
-        </InterviewReportDetailsDisclosure>,
+        <div data-slot="animated-height">
+          <InterviewReportDetailsDisclosure>
+            <div>最新报告详情</div>
+          </InterviewReportDetailsDisclosure>
+        </div>,
       );
     });
 
@@ -62,6 +65,14 @@ describe("InterviewReportDetailsDisclosure", () => {
     expect(collapseButton?.textContent).toContain("收起更多信息");
     expect(collapseButton?.getAttribute("aria-expanded")).toBe("true");
     expect(container.textContent).toContain("最新报告详情");
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    act(() => {
+      container
+        .querySelector('[data-slot="animated-height"]')
+        ?.dispatchEvent(new Event(ANIMATED_HEIGHT_COMPLETE_EVENT));
+    });
+
     expect(scrollIntoView).toHaveBeenCalledWith({
       behavior: "smooth",
       block: "nearest",
@@ -72,5 +83,24 @@ describe("InterviewReportDetailsDisclosure", () => {
     });
 
     expect(container.textContent).not.toContain("最新报告详情");
+  });
+
+  it("scrolls immediately when height animation is disabled", () => {
+    act(() => {
+      root.render(
+        <InterviewReportDetailsDisclosure>
+          <div>最新报告详情</div>
+        </InterviewReportDetailsDisclosure>,
+      );
+    });
+
+    act(() => {
+      container.querySelector("button")?.click();
+    });
+
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "nearest",
+    });
   });
 });
