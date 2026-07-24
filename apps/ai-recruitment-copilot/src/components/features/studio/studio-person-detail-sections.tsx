@@ -10,6 +10,7 @@
 // chrome via shell — Modal, full-page layout, or any custom frame.
 
 import type { CandidateFormSubmissionWithSnapshot } from "@arc/db-schema/candidate-forms";
+import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
 import { describeResumeReviewStatus } from "@arc/shared/studio-resumes";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import type { QueryClient } from "@tanstack/react-query";
@@ -134,6 +135,30 @@ export function getCollectedCandidateInfoItems({
   }
 
   return { formItems, interviewItems };
+}
+
+export function getReportFormItems(
+  report: StudioInterviewConversationReport | null | undefined,
+): CollectedCandidateInfoItem[] | null {
+  const submissions = report?.snapshotMetadata?.fullTextInput?.formSubmissions;
+  if (!submissions) {
+    return null;
+  }
+
+  const items: CollectedCandidateInfoItem[] = [];
+  for (const [submissionIndex, submission] of submissions.entries()) {
+    for (const answer of submission.answers) {
+      items.push({
+        analysis: null,
+        answers: answer.valueText ? [answer.valueText] : [],
+        id: `form-${submissionIndex}-${submission.templateId}-${answer.questionId}`,
+        kind: "form",
+        question: answer.label,
+        sequence: items.length + 1,
+      });
+    }
+  }
+  return items;
 }
 
 export function CollectedCandidateInfoList({

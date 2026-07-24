@@ -227,6 +227,20 @@ export function fetchStudioInterviewRoundReports(
   );
 }
 
+export function fetchStudioInterviewRoundReport(
+  slug: string,
+  roundId: string,
+  conversationId: string,
+): Promise<StudioInterviewConversationReport | null> {
+  return rpcFetch<StudioInterviewConversationReport>(
+    rpc.api.w[":slug"].studio.interviews[":id"].reports[":conversationId"].$get({
+      param: { conversationId, id: roundId, slug },
+    }),
+    "加载面试记录失败",
+    { allow404: true },
+  );
+}
+
 /**
  * 获取某轮录像的 S3 预签名播放 URL (10 分钟有效).
  * Fetch a 10-min presigned URL for the round's recording mp4.

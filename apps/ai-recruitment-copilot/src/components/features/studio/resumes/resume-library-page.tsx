@@ -105,7 +105,6 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
     deleteRecord,
     duplicateMatchRecord,
     editRecordId,
-    interviewDetailDefaultTab,
     interviewDetailDialogOpen,
     interviewRoundDetailId,
     isBulkDeleting,
@@ -119,7 +118,6 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
     setDeleteRecord,
     setDuplicateMatchRecord,
     setEditRecordId,
-    setInterviewDetailDefaultTab,
     setInterviewDetailDialogOpen,
     setInterviewRoundDetailId,
     setIsBulkDeleting,
@@ -615,13 +613,12 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
           launch-interview flow from the resume library row menu. recordId is
           the round id when mode="interview". */}
       <StudioPersonDetailDialog
-        defaultTab={interviewDetailDefaultTab}
+        defaultTab="overview"
         mode="interview"
         onOpenChange={setInterviewDetailDialogOpen}
         onOpenChangeComplete={(open) => {
           if (!open && !interviewDetailDialogOpen) {
             setInterviewRoundDetailId(null);
-            setInterviewDetailDefaultTab("overview");
           }
         }}
         onUpdated={invalidateAll}
@@ -633,7 +630,6 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
         candidateName={launchingRecord?.candidateName ?? null}
         onLaunched={(round) => {
           invalidateAll();
-          setInterviewDetailDefaultTab("overview");
           setInterviewRoundDetailId(round.id);
           setInterviewDetailDialogOpen(true);
         }}

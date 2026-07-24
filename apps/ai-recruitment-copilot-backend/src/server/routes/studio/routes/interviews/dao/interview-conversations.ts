@@ -2,7 +2,7 @@ import type {
   InterviewReportSnapshotMetadata,
   StudioInterviewConversationReport,
 } from "@arc/db-schema/interview-session";
-import { asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { formatCandidateFormAnswer } from "@arc/shared/candidate-form-answer";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
@@ -359,4 +359,45 @@ export async function queryInterviewConversationReportsByRound(
         : undefined,
     );
   });
+}
+
+export async function queryInterviewConversationReportByRound(
+  scheduleEntryId: string,
+  conversationId: string,
+  options: QueryInterviewConversationReportsOptions = {},
+) {
+  const [conversation] = await db
+    .select()
+    .from(interviewConversation)
+    .where(
+      and(
+        eq(interviewConversation.scheduleEntryId, scheduleEntryId),
+        eq(interviewConversation.conversationId, conversationId),
+      ),
+    )
+    .limit(1);
+
+  if (!conversation) {
+    return null;
+  }
+
+  const turnRows = await db
+    .select()
+    .from(interviewConversationTurn)
+    .where(eq(interviewConversationTurn.conversationId, conversationId))
+    .orderBy(asc(interviewConversationTurn.createdAt), asc(interviewConversationTurn.receivedAt));
+  const snapshotRowsByConversationId = options.includeSnapshotMetadata
+    ? await loadSnapshotRowsByConversationIds([conversationId])
+    : null;
+
+  return serializeConversationReport(
+    conversation,
+    turnRows,
+    snapshotRowsByConversationId
+      ? (snapshotRowsByConversationId.get(conversationId) ?? {
+          context: null,
+          evidence: null,
+        })
+      : undefined,
+  );
 }

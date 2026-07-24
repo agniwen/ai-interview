@@ -187,6 +187,28 @@ export function InterviewResultOverviewSkeleton() {
   );
 }
 
+export function InterviewResultFramesSkeleton() {
+  return (
+    <div className="grid gap-6 md:grid-cols-2">
+      <InterviewResultOverviewSkeleton />
+      {["候选人信息", "表单题", "沟通题"].map((title) => (
+        <Frame className="h-full" key={title}>
+          <FrameHeader className="flex-row items-center justify-between gap-3">
+            <Skeleton className="h-5 w-20" />
+            <Skeleton className="h-6 w-16" />
+          </FrameHeader>
+          <FramePanel className="flex min-h-48 flex-col gap-3">
+            <Skeleton className="h-4 w-5/12" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-9/12" />
+            <Skeleton className="h-4 w-7/12" />
+          </FramePanel>
+        </Frame>
+      ))}
+    </div>
+  );
+}
+
 export function SummaryMetric({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="min-w-0">

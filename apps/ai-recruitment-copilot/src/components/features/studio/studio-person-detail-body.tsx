@@ -1,7 +1,8 @@
 /* oxlint-disable no-explicit-any no-nested-ternary complexity max-lines -- tab body has explicit loading/empty/content branches and card compositions. */
 "use client";
 
-import { IconArrowBackUp, IconChevronDown, IconLoader2, IconMessage2 } from "@tabler/icons-react";
+import { IconArrowBackUp, IconChevronDown, IconLoader2 } from "@tabler/icons-react";
+import { countDisplayInterviewTurns } from "@arc/shared/interview-transcript-turns";
 import { cn } from "@arc/shared/utils";
 import type { ReactNode } from "react";
 import { env } from "@/env/client";
@@ -13,17 +14,15 @@ import {
   ResumeOverviewPanel,
   ResumeReviewStructuredView,
 } from "@/components/features/studio/resumes/resume-overview-panel";
-import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+  DATE_TIME_DISPLAY_OPTIONS,
+  TimeDisplay,
+  formatTimeDisplayText,
+} from "@/components/features/display/time-display";
 import { AnimatedHeight } from "@/components/features/motion/animated-height";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardAction, CardHeader, CardPanel, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardPanel, CardTitle } from "@/components/ui/card";
 import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import {
@@ -34,6 +33,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { TabsContent } from "@/components/ui/tabs";
 import { HumanInterviewStagePanel } from "./human-interview-stage-panel";
@@ -43,8 +51,8 @@ import { CandidateTimeline } from "./candidate-timeline";
 import {
   DetailBodySkeleton,
   FormsSkeleton,
+  InterviewResultFramesSkeleton,
   InterviewResultOverviewSkeleton,
-  ReportsSkeleton,
   SummaryMetric,
 } from "./studio-person-detail-skeletons";
 import { AgentInstructionsPanel } from "./interviews/agent-instructions-panel";
@@ -73,7 +81,6 @@ import {
   ResumeScreeningResultPanel,
   compactText,
   resolveActiveEvidence,
-  resolveDisplayTurnStats,
 } from "./studio-person-detail-sections";
 import { ReportMetadataButton } from "./studio-person-detail-metadata";
 import type { StudioPersonDetailViewModel } from "./studio-person-detail-controller";
@@ -150,25 +157,101 @@ function FormSubmissionResetAction({
   );
 }
 
+function getInterviewRecordLabel(
+  report: StudioPersonDetailViewModel["resultReports"][number],
+  index: number,
+) {
+  const time =
+    formatTimeDisplayText(report.startedAt ?? report.createdAt, DATE_TIME_DISPLAY_OPTIONS) ??
+    "时间未记录";
+  return index === 0 ? `最近一次 · ${time}` : `第 ${index + 1} 条记录 · ${time}`;
+}
+
+function InterviewRecordSelector({
+  onSelectedReportChange,
+  reports,
+  value,
+}: {
+  onSelectedReportChange: (conversationId: string) => void;
+  reports: StudioPersonDetailViewModel["resultReports"];
+  value: string | null;
+}) {
+  if (!(reports.length > 1) || !value) {
+    return null;
+  }
+  const completedCount = reports.filter((report) => report.status === "done").length;
+  const failedCount = reports.filter((report) => report.status === "failed").length;
+  const totalTurnCount = reports.reduce(
+    (total, report) => total + countDisplayInterviewTurns(report.turns).turnCount,
+    0,
+  );
+
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-wrap gap-2">
+        <Badge variant="outline">共 {reports.length} 次</Badge>
+        <Badge variant="outline">已完成 {completedCount}</Badge>
+        <Badge variant="outline">失败 {failedCount}</Badge>
+        <Badge variant="outline">累计对话 {totalTurnCount} 条</Badge>
+      </div>
+      <Select
+        onValueChange={(conversationId) => {
+          if (conversationId) {
+            onSelectedReportChange(conversationId);
+          }
+        }}
+        value={value}
+      >
+        <SelectTrigger aria-label="选择面试记录" className="w-full sm:w-72">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent align="end">
+          <SelectGroup>
+            <SelectLabel>面试记录</SelectLabel>
+            {reports.map((report, index) => {
+              const label = getInterviewRecordLabel(report, index);
+              return (
+                <SelectItem key={report.conversationId} label={label} value={report.conversationId}>
+                  {label}
+                </SelectItem>
+              );
+            })}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 function InterviewResultFrame({
   evaluationSummary,
   report,
 }: {
-  evaluationSummary: StudioPersonDetailViewModel["latestEvaluationSummary"];
-  report: StudioPersonDetailViewModel["latestReport"];
+  evaluationSummary: StudioPersonDetailViewModel["selectedResultEvaluationSummary"];
+  report: StudioPersonDetailViewModel["selectedResultReport"];
 }) {
   return (
     <Frame className="h-full">
       <FrameHeader className="flex-row items-center justify-between gap-3">
         <FrameTitle>面试结果</FrameTitle>
-        <div className="flex items-center gap-2">
-          <Badge variant={report ? getReportBadgeVariant(report.status) : "outline"}>
-            {report ? formatReportStatus(report.status) : "暂无报告"}
-          </Badge>
-        </div>
+        <Badge variant={report ? getReportBadgeVariant(report.status) : "outline"}>
+          {report ? formatReportStatus(report.status) : "暂无报告"}
+        </Badge>
       </FrameHeader>
       <FramePanel className="flex-1">
-        <div className="grid gap-x-8 gap-y-4 sm:grid-cols-3">
+        <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+          <SummaryMetric
+            label="开始时间"
+            value={
+              <TimeDisplay emptyText="未记录" value={report?.startedAt ?? report?.createdAt} />
+            }
+          />
+          <SummaryMetric
+            label="结束时间"
+            value={<TimeDisplay emptyText="未记录" value={report?.endedAt ?? report?.updatedAt} />}
+          />
+        </div>
+        <div className="mt-5 grid gap-x-8 gap-y-4 border-border/50 border-t pt-5 sm:grid-cols-3">
           <SummaryMetric
             label="评分"
             value={
@@ -250,46 +333,117 @@ function InterviewReportDetails({
   activeTurnIndex: number | null;
   leftSupplement?: ReactNode;
   onEvidenceSelect: (evidence: EvidenceQuote) => void;
-  report: NonNullable<StudioPersonDetailViewModel["latestReport"]>;
+  report: NonNullable<StudioPersonDetailViewModel["selectedResultReport"]>;
   surface: "card" | "frame";
 }) {
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(400px,1fr)]">
-      <div className="space-y-4">
-        <InterviewReportDetailSection surface={surface} title="最终总结">
-          <div className="text-muted-foreground text-sm leading-6">
-            <HighlightedText text={report.transcriptSummary ?? "暂无总结。"} />
-          </div>
-          {report.latestError ? (
-            <div className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-sm">
-              {report.latestError}
+    <div className="flex flex-col gap-4">
+      {report.turns.length > 0 ? <KeywordHighlightLegend /> : null}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(400px,1fr)]">
+        <div className="space-y-4">
+          <InterviewReportDetailSection surface={surface} title="最终总结">
+            <div className="text-muted-foreground text-sm leading-6">
+              <HighlightedText text={report.transcriptSummary ?? "暂无总结。"} />
             </div>
-          ) : null}
-        </InterviewReportDetailSection>
-        <InterviewReportDetailSection surface={surface} title="评估指标">
-          <ScrollArea className="max-h-[420px] pr-1" scrollFade>
-            <EvaluationResults
-              data={(report.evaluationCriteriaResults as Record<string, unknown> | null) ?? {}}
-              onEvidenceSelect={onEvidenceSelect}
-            />
-          </ScrollArea>
-        </InterviewReportDetailSection>
-        {leftSupplement}
-      </div>
-      <div className="lg:relative">
-        <InterviewReportDetailSection
-          className="h-[480px] overflow-hidden lg:absolute lg:inset-0 lg:h-auto"
-          panelClassName={cn(
-            "flex min-h-0 flex-1 flex-col overflow-hidden",
-            surface === "frame" ? "p-0" : undefined,
-          )}
-          surface={surface}
-          title="对话记录"
-        >
-          <ConversationTranscript activeTurnIndex={activeTurnIndex} turns={report.turns} />
-        </InterviewReportDetailSection>
+            {report.latestError ? (
+              <div className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-sm">
+                {report.latestError}
+              </div>
+            ) : null}
+          </InterviewReportDetailSection>
+          <InterviewReportDetailSection surface={surface} title="评估指标">
+            <ScrollArea className="max-h-[420px] pr-1" scrollFade>
+              <EvaluationResults
+                data={(report.evaluationCriteriaResults as Record<string, unknown> | null) ?? {}}
+                onEvidenceSelect={onEvidenceSelect}
+              />
+            </ScrollArea>
+          </InterviewReportDetailSection>
+          {leftSupplement}
+        </div>
+        <div className="lg:relative">
+          <InterviewReportDetailSection
+            className="h-[480px] overflow-hidden lg:absolute lg:inset-0 lg:h-auto"
+            panelClassName={cn(
+              "flex min-h-0 flex-1 flex-col overflow-hidden",
+              surface === "frame" ? "p-0" : undefined,
+            )}
+            surface={surface}
+            title="对话记录"
+          >
+            <ConversationTranscript activeTurnIndex={activeTurnIndex} turns={report.turns} />
+          </InterviewReportDetailSection>
+        </div>
       </div>
     </div>
+  );
+}
+
+function InterviewReportSupplement({
+  activeEvidence,
+  model,
+  report,
+}: {
+  activeEvidence: ReturnType<typeof resolveActiveEvidence>;
+  model: StudioPersonDetailViewModel;
+  report: NonNullable<StudioPersonDetailViewModel["selectedResultReport"]>;
+}) {
+  const { canViewReportMetadata, isPublic, resultRoundId, setMetadataReport } = model;
+  const transcriptStats = countDisplayInterviewTurns(report.turns);
+
+  return (
+    <>
+      {env.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS ? (
+        <Frame>
+          <FrameHeader className="flex-row items-center justify-between gap-3">
+            <FrameTitle>会话概览</FrameTitle>
+            <ReportMetadataButton
+              disabled={!report.snapshotMetadata}
+              label=""
+              onClick={() => setMetadataReport(report)}
+              visible={canViewReportMetadata}
+            />
+          </FrameHeader>
+          <FramePanel>
+            <div className="grid gap-x-8 gap-y-4 text-sm md:grid-cols-2">
+              <DetailRow
+                label="会话 ID"
+                value={<span className="break-all">{report.conversationId}</span>}
+              />
+              <DetailRow label="同步时间" value={<TimeDisplay value={report.lastSyncedAt} />} />
+              <DetailRow
+                label="消息统计"
+                value={`共 ${transcriptStats.turnCount} 条 · 候选人 ${transcriptStats.userTurnCount} 条 · 面试官 ${transcriptStats.agentTurnCount} 条`}
+              />
+              <DetailRow
+                label="Webhook"
+                value={
+                  report.webhookReceivedAt ? (
+                    <TimeDisplay value={report.webhookReceivedAt} />
+                  ) : (
+                    "未收到"
+                  )
+                }
+              />
+            </div>
+          </FramePanel>
+        </Frame>
+      ) : null}
+      {env.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING ? (
+        <RecordingPlayer
+          accessMode={isPublic ? "public" : "authed"}
+          conversationId={report.conversationId}
+          durationSecs={report.recordingDurationSecs}
+          key={report.conversationId}
+          recordId={resultRoundId ?? ""}
+          seekToSecs={activeEvidence?.timeInCallSecs ?? null}
+          status={report.recordingStatus}
+        />
+      ) : null}
+      {env.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS ? (
+        <InterviewMetricsPanel metrics={report.metrics ?? {}} />
+      ) : null}
+    </>
   );
 }
 
@@ -303,14 +457,14 @@ function InterviewResultTabContent({
   record,
   report,
 }: {
-  evaluationSummary: StudioPersonDetailViewModel["latestEvaluationSummary"];
-  formItems: StudioPersonDetailViewModel["formItems"];
-  interviewItems: StudioPersonDetailViewModel["interviewItems"];
+  evaluationSummary: StudioPersonDetailViewModel["selectedResultEvaluationSummary"];
+  formItems: StudioPersonDetailViewModel["selectedResultFormItems"];
+  interviewItems: StudioPersonDetailViewModel["selectedResultInterviewItems"];
   isFormSubmissionsLoading: boolean;
   isReportsLoading: boolean;
   model: StudioPersonDetailViewModel;
   record: NonNullable<StudioPersonDetailViewModel["record"]>;
-  report: StudioPersonDetailViewModel["latestReport"];
+  report: StudioPersonDetailViewModel["selectedResultReport"];
 }) {
   const {
     canUseManagementActions,
@@ -318,18 +472,28 @@ function InterviewResultTabContent({
     formSubmissions,
     handleResetRound,
     handleToggleAllowTextInput,
+    isLatestResultReportSelected,
     isPublic,
+    isSelectedReportLoading,
     mode,
+    onSelectedReportChange,
+    resultReports,
     round,
     resettingRoundId,
     resettingSubmissionId,
     resumePreviewUrl,
     selectedEvidence,
+    effectiveSelectedResultConversationId,
     updatingRoundId,
   } = model;
   const showRoundActions = canUseManagementActions && !isPublic;
+  const frozenInput = report?.snapshotMetadata?.fullTextInput;
+  const frozenCandidate = frozenInput?.candidate;
   const canResetResultRound =
-    showRoundActions && Boolean(record.roundId) && record.pipelineStage === "ai_interview";
+    showRoundActions &&
+    isLatestResultReportSelected &&
+    Boolean(record.roundId) &&
+    record.pipelineStage === "ai_interview";
   const activeEvidence = report
     ? resolveActiveEvidence(selectedEvidence, report.conversationId)
     : null;
@@ -342,127 +506,158 @@ function InterviewResultTabContent({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid gap-6 md:grid-cols-2">
-        {isReportsLoading ? (
-          <InterviewResultOverviewSkeleton />
-        ) : (
-          <InterviewResultFrame evaluationSummary={evaluationSummary} report={report} />
-        )}
-        <Frame className="h-full">
-          <FrameHeader className="flex-row flex-wrap items-center justify-between">
-            <FrameTitle>候选人信息</FrameTitle>
-          </FrameHeader>
-          <FramePanel className="flex-1">
-            <CandidateBasicInfoView
-              candidateEmail={record.candidateEmail}
-              candidateName={record.candidateName}
-              candidatePhone={record.candidatePhone}
-              creatorName={record.creatorName}
-              hasResumeFile={record.hasResumeFile}
-              jobDescriptionName={record.jobDescriptionName}
-              pdfPreviewUrl={resumePreviewUrl}
-              resumeFileName={record.resumeFileName}
-              targetRole={record.targetRole}
-            />
-            {showRoundActions && record.roundId ? (
-              <Field className="mt-4 w-auto max-w-full gap-0 border-border/50 border-t pt-4">
-                <FieldContent>
-                  <div className="flex items-center justify-between gap-3">
-                    <FieldLabel htmlFor={`round-allow-text-input-${record.roundId}`}>
-                      允许面试者文本输入
-                    </FieldLabel>
-                    <Switch
-                      checked={record.roundAllowTextInput ?? false}
-                      className="shrink-0"
-                      disabled={
-                        record.roundStatus === "completed" || updatingRoundId === record.roundId
-                      }
-                      id={`round-allow-text-input-${record.roundId}`}
-                      onCheckedChange={(next) =>
-                        void handleToggleAllowTextInput(record.roundId as string, next)
-                      }
-                    />
-                  </div>
-                  <FieldDescription className="text-xs">
-                    关闭时面试界面文字输入框被禁用，仅支持语音作答。
-                  </FieldDescription>
-                </FieldContent>
-              </Field>
-            ) : null}
-          </FramePanel>
-        </Frame>
-        {isFormSubmissionsLoading || isReportsLoading ? (
-          <div className="md:col-span-2">
-            <FormsSkeleton />
+      <InterviewRecordSelector
+        onSelectedReportChange={onSelectedReportChange}
+        reports={resultReports}
+        value={effectiveSelectedResultConversationId}
+      />
+      {isSelectedReportLoading ? (
+        <InterviewResultFramesSkeleton />
+      ) : (
+        <>
+          <div className="grid gap-6 md:grid-cols-2">
+            {isReportsLoading ? (
+              <InterviewResultOverviewSkeleton />
+            ) : (
+              <InterviewResultFrame evaluationSummary={evaluationSummary} report={report} />
+            )}
+            <Frame className="h-full">
+              <FrameHeader className="flex-row flex-wrap items-center justify-between">
+                <FrameTitle>候选人信息</FrameTitle>
+              </FrameHeader>
+              <FramePanel className="flex-1">
+                <CandidateBasicInfoView
+                  candidateEmail={
+                    frozenCandidate ? frozenCandidate.candidateEmail : record.candidateEmail
+                  }
+                  candidateName={
+                    frozenCandidate ? (frozenCandidate.candidateName ?? "—") : record.candidateName
+                  }
+                  candidatePhone={
+                    frozenCandidate ? frozenCandidate.candidatePhone : record.candidatePhone
+                  }
+                  creatorName={record.creatorName}
+                  hasResumeFile={record.hasResumeFile}
+                  jobDescriptionName={
+                    frozenInput
+                      ? (frozenInput.jobDescription?.name ?? null)
+                      : record.jobDescriptionName
+                  }
+                  pdfPreviewUrl={resumePreviewUrl}
+                  resumeFileName={record.resumeFileName}
+                  targetRole={frozenCandidate ? frozenCandidate.targetRole : record.targetRole}
+                />
+                {showRoundActions && isLatestResultReportSelected && record.roundId ? (
+                  <Field className="mt-4 w-auto max-w-full gap-0 border-border/50 border-t pt-4">
+                    <FieldContent>
+                      <div className="flex items-center justify-between gap-3">
+                        <FieldLabel htmlFor={`round-allow-text-input-${record.roundId}`}>
+                          允许面试者文本输入
+                        </FieldLabel>
+                        <Switch
+                          checked={record.roundAllowTextInput ?? false}
+                          className="shrink-0"
+                          disabled={
+                            record.roundStatus === "completed" || updatingRoundId === record.roundId
+                          }
+                          id={`round-allow-text-input-${record.roundId}`}
+                          onCheckedChange={(next) =>
+                            void handleToggleAllowTextInput(record.roundId as string, next)
+                          }
+                        />
+                      </div>
+                      <FieldDescription className="text-xs">
+                        关闭时面试界面文字输入框被禁用，仅支持语音作答。
+                      </FieldDescription>
+                    </FieldContent>
+                  </Field>
+                ) : null}
+              </FramePanel>
+            </Frame>
+            {isFormSubmissionsLoading || isReportsLoading ? (
+              <div className="md:col-span-2">
+                <FormsSkeleton />
+              </div>
+            ) : (
+              <>
+                <Frame className="h-full">
+                  <FrameHeader className="flex-row items-center gap-2">
+                    <FrameTitle>表单题</FrameTitle>
+                    <Badge variant="outline">共{formItems.length}题</Badge>
+                    {mode === "interview" && !isPublic && isLatestResultReportSelected ? (
+                      <FormSubmissionResetAction
+                        onReset={(id) =>
+                          dispatchUi({
+                            id,
+                            type: "pendingResetSubmissionChanged",
+                          })
+                        }
+                        resettingId={resettingSubmissionId}
+                        submissions={formSubmissions}
+                      />
+                    ) : null}
+                  </FrameHeader>
+                  <FramePanel className="flex-1 p-0">
+                    <ScrollArea className="max-h-[28rem]" scrollFade>
+                      <div className="p-4">
+                        <CollectedCandidateInfoList emptyLabel="暂无表单答复" items={formItems} />
+                      </div>
+                    </ScrollArea>
+                  </FramePanel>
+                </Frame>
+                <Frame className="h-full">
+                  <FrameHeader className="flex-row items-center gap-2">
+                    <FrameTitle>沟通题</FrameTitle>
+                    <Badge variant="outline">共{interviewItems.length}题</Badge>
+                    {canResetResultRound ? (
+                      <Button
+                        className="ml-auto"
+                        disabled={resettingRoundId === record.roundId}
+                        onClick={() => void handleResetRound(record.roundId as string)}
+                        size="xs"
+                        type="button"
+                        variant="outline"
+                      >
+                        <IconArrowBackUp />
+                        {resettingRoundId === record.roundId ? "重置中..." : "重置沟通"}
+                      </Button>
+                    ) : null}
+                  </FrameHeader>
+                  <FramePanel className="flex-1 p-0">
+                    <ScrollArea className="max-h-[28rem]" scrollFade>
+                      <div className="p-4">
+                        <CollectedCandidateInfoList
+                          emptyLabel="暂无沟通题"
+                          items={interviewItems}
+                        />
+                      </div>
+                    </ScrollArea>
+                  </FramePanel>
+                </Frame>
+              </>
+            )}
           </div>
-        ) : (
-          <>
-            <Frame className="h-full">
-              <FrameHeader className="flex-row items-center gap-2">
-                <FrameTitle>表单题</FrameTitle>
-                <Badge variant="outline">共{formItems.length}题</Badge>
-                {mode === "interview" && !isPublic ? (
-                  <FormSubmissionResetAction
-                    onReset={(id) =>
-                      dispatchUi({
-                        id,
-                        type: "pendingResetSubmissionChanged",
-                      })
-                    }
-                    resettingId={resettingSubmissionId}
-                    submissions={formSubmissions}
-                  />
-                ) : null}
-              </FrameHeader>
-              <FramePanel className="flex-1 p-0">
-                <ScrollArea className="max-h-[28rem]" scrollFade>
-                  <div className="p-4">
-                    <CollectedCandidateInfoList emptyLabel="暂无表单答复" items={formItems} />
-                  </div>
-                </ScrollArea>
-              </FramePanel>
-            </Frame>
-            <Frame className="h-full">
-              <FrameHeader className="flex-row items-center gap-2">
-                <FrameTitle>沟通题</FrameTitle>
-                <Badge variant="outline">共{interviewItems.length}题</Badge>
-                {canResetResultRound ? (
-                  <Button
-                    className="ml-auto"
-                    disabled={resettingRoundId === record.roundId}
-                    onClick={() => void handleResetRound(record.roundId as string)}
-                    size="xs"
-                    type="button"
-                    variant="outline"
-                  >
-                    <IconArrowBackUp />
-                    {resettingRoundId === record.roundId ? "重置中..." : "重置沟通"}
-                  </Button>
-                ) : null}
-              </FrameHeader>
-              <FramePanel className="flex-1 p-0">
-                <ScrollArea className="max-h-[28rem]" scrollFade>
-                  <div className="p-4">
-                    <CollectedCandidateInfoList emptyLabel="暂无沟通题" items={interviewItems} />
-                  </div>
-                </ScrollArea>
-              </FramePanel>
-            </Frame>
-          </>
-        )}
-      </div>
-      {report ? (
-        <InterviewReportDetailsDisclosure>
-          <KeywordHighlightProvider extraSkills={round?.jdRequiredSkills}>
-            <InterviewReportDetails
-              activeTurnIndex={activeEvidence?.turnIndex ?? null}
-              onEvidenceSelect={handleEvidenceSelect}
-              report={report}
-              surface="frame"
-            />
-          </KeywordHighlightProvider>
-        </InterviewReportDetailsDisclosure>
-      ) : null}
+          {report ? (
+            <InterviewReportDetailsDisclosure>
+              <KeywordHighlightProvider extraSkills={round?.jdRequiredSkills}>
+                <InterviewReportDetails
+                  activeTurnIndex={activeEvidence?.turnIndex ?? null}
+                  leftSupplement={
+                    <InterviewReportSupplement
+                      activeEvidence={activeEvidence}
+                      model={model}
+                      report={report}
+                    />
+                  }
+                  onEvidenceSelect={handleEvidenceSelect}
+                  report={report}
+                  surface="frame"
+                />
+              </KeywordHighlightProvider>
+            </InterviewReportDetailsDisclosure>
+          ) : null}
+        </>
+      )}
     </div>
   );
 }
@@ -480,46 +675,33 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
     canUpdateOffer,
     canUseManagementActions,
     canUseTimelineRailScroll,
-    canViewReportMetadata,
     candidateRounds,
     candidateTimeline,
     detailScrollClassName,
-    dispatchUi,
     effectiveRoundId,
     enabled,
-    formItems,
     handleReassessResume,
-    interviewItems,
     isFormSubmissionsLoading,
     isLoading,
-    isPublic,
     isReassessingResume,
     isResumeAssessmentInProgress,
     isReportsLoading,
     isResumeInterviewResultLoading,
     isTimelineLoading,
-    latestEvaluationSummary,
-    latestCandidateRoundEvaluationSummary,
-    latestCandidateRoundReport,
-    latestReport,
     mode,
     onRequestClose,
     record,
-    reportTranscriptStats,
-    reports,
     resumeRecord,
-    resumeInterviewFormItems,
-    resumeInterviewItems,
     resumeInterviewResultRecord,
-    round,
-    selectedEvidence,
+    selectedResultEvaluationSummary,
+    selectedResultFormItems,
+    selectedResultInterviewItems,
+    selectedResultReport,
     setActiveTab,
-    setMetadataReport,
     showTimelineRail,
     showAgentInstructions,
     tabContentRootRef,
     tabVisibilityRecord,
-    totalDisplayTurnCount,
   } = model;
   const body = isLoading ? (
     <DetailBodySkeleton mode={mode} />
@@ -544,14 +726,14 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                 />
               ) : (
                 <InterviewResultTabContent
-                  evaluationSummary={latestEvaluationSummary}
-                  formItems={formItems}
-                  interviewItems={interviewItems}
+                  evaluationSummary={selectedResultEvaluationSummary}
+                  formItems={selectedResultFormItems}
+                  interviewItems={selectedResultInterviewItems}
                   isFormSubmissionsLoading={isFormSubmissionsLoading}
                   isReportsLoading={isReportsLoading}
                   model={model}
                   record={record}
-                  report={latestReport}
+                  report={selectedResultReport}
                 />
               )}
             </div>
@@ -587,197 +769,6 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
             </TabsContent>
           ) : null}
           {mode === "interview" ? (
-            <TabsContent value="reports">
-              {isReportsLoading ? (
-                <ReportsSkeleton />
-              ) : (
-                <KeywordHighlightProvider extraSkills={round?.jdRequiredSkills}>
-                  <div className="space-y-8">
-                    <div className="grid gap-x-8 gap-y-4 md:grid-cols-4">
-                      <SummaryMetric label="本轮通话次数" value={reports.length} />
-                      <SummaryMetric
-                        label="已完成"
-                        value={reports.filter((report) => report.status === "done").length}
-                      />
-                      <SummaryMetric
-                        label="失败"
-                        value={reports.filter((report) => report.status === "failed").length}
-                      />
-                      <SummaryMetric label="累计对话轮次" value={totalDisplayTurnCount} />
-                    </div>
-                    {reports.length > 0 ? <KeywordHighlightLegend /> : null}
-                    {reports.length === 0 ? (
-                      <Card>
-                        <CardPanel className="flex min-h-60 flex-col items-center justify-center text-center">
-                          <IconMessage2 className="size-8 text-muted-foreground" />
-                          <p className="mt-4 font-medium text-sm">暂无面试报告</p>
-                          <p className="mt-2 max-w-xl text-muted-foreground text-sm leading-normal">
-                            候选人开始并结束语音面试后，这里会展示逐场面试的总结、状态和完整对话记录。
-                          </p>
-                        </CardPanel>
-                      </Card>
-                    ) : (
-                      <Accordion
-                        className="space-y-4"
-                        defaultValue={[reports[0].conversationId]}
-                        multiple
-                      >
-                        {reports.map((report) => {
-                          const startedAt = report.startedAt ?? report.createdAt;
-                          const endedAt = report.endedAt ?? report.updatedAt;
-                          const { displayAgentTurnCount, displayTurnCount, displayUserTurnCount } =
-                            resolveDisplayTurnStats(
-                              report,
-                              reportTranscriptStats.get(report.conversationId),
-                            );
-                          const activeEvidence = resolveActiveEvidence(
-                            selectedEvidence,
-                            report.conversationId,
-                          );
-                          const snapshotMetadata = report.snapshotMetadata ?? null;
-                          const handleEvidenceSelect = (evidence: EvidenceQuote) => {
-                            dispatchUi(
-                              createSelectedEvidenceAction(report.conversationId, evidence),
-                            );
-                          };
-                          return (
-                            <AccordionItem
-                              className="overflow-hidden rounded-2xl border border-muted/60 bg-muted/20 px-0"
-                              key={report.conversationId}
-                              value={report.conversationId}
-                            >
-                              <AccordionTrigger className="group rounded-none px-5 py-4 hover:no-underline data-panel-open:border-border/60 data-panel-open:border-b data-panel-open:bg-background/70">
-                                <div className="min-w-0 flex-1 text-left">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <TimeDisplay
-                                      className="font-medium text-sm"
-                                      options={DATE_TIME_DISPLAY_OPTIONS}
-                                      value={startedAt}
-                                    />
-                                    <Badge variant={getReportBadgeVariant(report.status)}>
-                                      {formatReportStatus(report.status)}
-                                    </Badge>
-                                    {report.callSuccessful ? (
-                                      <Badge variant="outline">{report.callSuccessful}</Badge>
-                                    ) : null}
-                                  </div>
-                                  <MarkdownView
-                                    className="mt-2 h-20 line-clamp-4 text-muted-foreground text-sm leading-5 group-data-[panel-open]:hidden [&_p]:m-0"
-                                    content={
-                                      report.transcriptSummary ??
-                                      report.latestError ??
-                                      "暂无总结，等待后续同步。"
-                                    }
-                                  />
-                                </div>
-                              </AccordionTrigger>
-                              <AccordionContent className="bg-muted/25 px-5 pt-4 pb-5">
-                                <InterviewReportDetails
-                                  activeTurnIndex={activeEvidence?.turnIndex ?? null}
-                                  leftSupplement={
-                                    <>
-                                      {env.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS ? (
-                                        <Card>
-                                          <CardHeader>
-                                            <CardTitle className="text-sm">会话概览</CardTitle>
-                                            <CardAction>
-                                              <ReportMetadataButton
-                                                disabled={!snapshotMetadata}
-                                                label=""
-                                                onClick={() => setMetadataReport(report)}
-                                                visible={canViewReportMetadata}
-                                              />
-                                            </CardAction>
-                                          </CardHeader>
-                                          <CardPanel>
-                                            <div className="grid gap-x-8 gap-y-4 text-sm md:grid-cols-2">
-                                              <DetailRow
-                                                label="会话 ID"
-                                                value={
-                                                  <span className="break-all">
-                                                    {report.conversationId}
-                                                  </span>
-                                                }
-                                              />
-                                              <DetailRow
-                                                label="开始时间"
-                                                value={
-                                                  <TimeDisplay
-                                                    options={DATE_TIME_DISPLAY_OPTIONS}
-                                                    value={startedAt}
-                                                  />
-                                                }
-                                              />
-                                              <DetailRow
-                                                label="结束时间"
-                                                value={
-                                                  <TimeDisplay
-                                                    options={DATE_TIME_DISPLAY_OPTIONS}
-                                                    value={endedAt}
-                                                  />
-                                                }
-                                              />
-                                              <DetailRow
-                                                label="消息统计"
-                                                value={`共 ${displayTurnCount} 条 · 候选人 ${displayUserTurnCount} 条 · 面试官 ${displayAgentTurnCount} 条`}
-                                              />
-                                              <DetailRow
-                                                label="同步时间"
-                                                value={
-                                                  <TimeDisplay
-                                                    options={DATE_TIME_DISPLAY_OPTIONS}
-                                                    value={report.lastSyncedAt}
-                                                  />
-                                                }
-                                              />
-                                              <DetailRow
-                                                label="Webhook"
-                                                value={
-                                                  report.webhookReceivedAt ? (
-                                                    <TimeDisplay
-                                                      options={DATE_TIME_DISPLAY_OPTIONS}
-                                                      value={report.webhookReceivedAt}
-                                                    />
-                                                  ) : (
-                                                    "未收到"
-                                                  )
-                                                }
-                                              />
-                                            </div>
-                                          </CardPanel>
-                                        </Card>
-                                      ) : null}
-                                      {env.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING ? (
-                                        <RecordingPlayer
-                                          accessMode={isPublic ? "public" : "authed"}
-                                          conversationId={report.conversationId}
-                                          durationSecs={report.recordingDurationSecs}
-                                          recordId={effectiveRoundId ?? ""}
-                                          seekToSecs={activeEvidence?.timeInCallSecs ?? null}
-                                          status={report.recordingStatus}
-                                        />
-                                      ) : null}
-                                      {env.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS ? (
-                                        <InterviewMetricsPanel metrics={report.metrics ?? {}} />
-                                      ) : null}
-                                    </>
-                                  }
-                                  onEvidenceSelect={handleEvidenceSelect}
-                                  report={report}
-                                  surface="card"
-                                />
-                              </AccordionContent>
-                            </AccordionItem>
-                          );
-                        })}
-                      </Accordion>
-                    )}
-                  </div>
-                </KeywordHighlightProvider>
-              )}
-            </TabsContent>
-          ) : null}
-          {mode === "interview" ? (
             <TabsContent value="experience">
               <ResumeProfileView profile={record.resumeProfile ?? null} />
             </TabsContent>
@@ -795,14 +786,14 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                   </p>
                 ) : resumeInterviewResultRecord ? (
                   <InterviewResultTabContent
-                    evaluationSummary={latestCandidateRoundEvaluationSummary}
-                    formItems={resumeInterviewFormItems}
-                    interviewItems={resumeInterviewItems}
+                    evaluationSummary={selectedResultEvaluationSummary}
+                    formItems={selectedResultFormItems}
+                    interviewItems={selectedResultInterviewItems}
                     isFormSubmissionsLoading={false}
                     isReportsLoading={false}
                     model={model}
                     record={resumeInterviewResultRecord}
-                    report={latestCandidateRoundReport}
+                    report={selectedResultReport}
                   />
                 ) : (
                   <p className="text-muted-foreground text-sm leading-normal">

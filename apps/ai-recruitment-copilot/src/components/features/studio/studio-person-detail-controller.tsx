@@ -13,11 +13,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchPublicInterviewRound,
   fetchPublicInterviewRoundFormSubmissions,
+  fetchPublicInterviewRoundReport,
   fetchPublicInterviewRoundReports,
   fetchPublicResume,
   fetchPublicResumeRounds,
   fetchStudioInterviewRound,
   fetchStudioInterviewRoundFormSubmissions,
+  fetchStudioInterviewRoundReport,
   fetchStudioInterviewRoundReports,
   fetchStudioResume,
   fetchStudioResumeRounds,
@@ -43,7 +45,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { PipelineStageActionBar } from "./pipeline-stage-action-bar";
 import { DetailHeaderSkeleton } from "./studio-person-detail-skeletons";
-import { countDisplayInterviewTurns } from "@arc/shared/interview-transcript-turns";
 import { pipelineStageMeta, scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
 
@@ -64,6 +65,7 @@ import {
   detailPanelUiReducer,
   getCollectedCandidateInfoItems,
   getEvaluationSummary,
+  getReportFormItems,
   initialDetailPanelUiState,
   resetInterviewFormSubmission,
   resetInterviewRound,
@@ -183,6 +185,9 @@ export function useStudioPersonDetailController({
   const [metadataReport, setMetadataReport] = useState<StudioInterviewConversationReport | null>(
     null,
   );
+  const [selectedResultConversationId, setSelectedResultConversationId] = useState<string | null>(
+    null,
+  );
   const [optimisticPipelineStage, setOptimisticPipelineStage] = useState<PipelineStage | null>(
     null,
   );
@@ -201,6 +206,7 @@ export function useStudioPersonDetailController({
     setActiveTab(defaultTab ?? "overview");
     setMetadataReport(null);
     setOptimisticPipelineStage(null);
+    setSelectedResultConversationId(null);
   }, [defaultTab, mode, recordId, roundId]);
   useEffect(() => {
     tabContentRootRef.current?.scrollTo({
@@ -289,20 +295,6 @@ export function useStudioPersonDetailController({
     queryKey: ["studio-interview-round-reports", slug, effectiveRoundId, accessMode],
     refetchOnWindowFocus: true,
   });
-  const reportTranscriptStats = useMemo(() => {
-    const stats = new Map<string, ReturnType<typeof countDisplayInterviewTurns>>();
-    for (const report of reports) {
-      stats.set(report.conversationId, countDisplayInterviewTurns(report.turns));
-    }
-    return stats;
-  }, [reports]);
-  const totalDisplayTurnCount = useMemo(() => {
-    let total = 0;
-    for (const stats of reportTranscriptStats.values()) {
-      total += stats.turnCount;
-    }
-    return total;
-  }, [reportTranscriptStats]);
   const { data: formSubmissions = [], isLoading: isFormSubmissionsLoading } = useQuery({
     enabled: enabled && !!effectiveRoundId && mode === "interview",
     queryFn: () =>
@@ -327,6 +319,9 @@ export function useStudioPersonDetailController({
     refetchOnWindowFocus: true,
   });
   const latestCandidateRoundId = mode === "resume" ? (candidateRounds.at(-1)?.id ?? null) : null;
+  useEffect(() => {
+    setSelectedResultConversationId(null);
+  }, [latestCandidateRoundId]);
   const shouldLoadResumeInterviewResult =
     enabled && mode === "resume" && activeTab === "rounds" && !!latestCandidateRoundId;
   const { data: latestCandidateRoundReports = [], isLoading: isCandidateRoundReportsLoading } =
@@ -370,6 +365,62 @@ export function useStudioPersonDetailController({
     ] as const,
     refetchOnWindowFocus: true,
   });
+  const resultReports = mode === "interview" ? reports : latestCandidateRoundReports;
+  const resultRoundId = mode === "interview" ? effectiveRoundId : latestCandidateRoundId;
+  const latestResultReport = resultReports[0] ?? null;
+  const hasSelectedResultReport = resultReports.some(
+    (report) => report.conversationId === selectedResultConversationId,
+  );
+  const effectiveSelectedResultConversationId =
+    (hasSelectedResultReport ? selectedResultConversationId : null) ??
+    latestResultReport?.conversationId ??
+    null;
+  const selectedResultReportFromList =
+    resultReports.find(
+      (report) => report.conversationId === effectiveSelectedResultConversationId,
+    ) ?? null;
+  const shouldFetchSelectedReport =
+    Boolean(resultRoundId) && hasSelectedResultReport && Boolean(selectedResultConversationId);
+  const {
+    data: fetchedSelectedReport,
+    error: selectedReportError,
+    isError: isSelectedReportError,
+    isFetching: isSelectedReportFetching,
+  } = useQuery({
+    enabled: enabled && shouldFetchSelectedReport,
+    queryFn: () =>
+      isPublic
+        ? fetchPublicInterviewRoundReport(
+            resultRoundId as string,
+            effectiveSelectedResultConversationId as string,
+          )
+        : fetchStudioInterviewRoundReport(
+            slug,
+            resultRoundId as string,
+            effectiveSelectedResultConversationId as string,
+          ),
+    queryKey: [
+      "studio-interview-round-reports",
+      slug,
+      resultRoundId,
+      accessMode,
+      "detail",
+      effectiveSelectedResultConversationId,
+    ] as const,
+    refetchOnWindowFocus: false,
+  });
+  useEffect(() => {
+    if (isSelectedReportError) {
+      toast.error(
+        selectedReportError instanceof Error
+          ? selectedReportError.message
+          : "加载面试记录失败，请稍后重试。",
+      );
+    }
+  }, [isSelectedReportError, selectedReportError]);
+  const selectedResultReport = shouldFetchSelectedReport
+    ? (fetchedSelectedReport ?? (isSelectedReportError ? selectedResultReportFromList : null))
+    : latestResultReport;
   const { data: candidateTimeline, isLoading: isTimelineLoading } = useQuery({
     enabled:
       enabled && !!effectiveRecordId && mode === "resume" && !isPublic && activeTab === "overview",
@@ -432,7 +483,6 @@ export function useStudioPersonDetailController({
     }
     tabs.add("overview");
     if (mode === "interview") {
-      tabs.add("reports");
       tabs.add("experience");
       if (showAgentInstructions) {
         tabs.add("instructions");
@@ -523,31 +573,34 @@ export function useStudioPersonDetailController({
     }
     dispatchUi({ id: null, type: "resettingRoundChanged" });
   }
-  const latestReport = reports[0] ?? null;
-  const latestEvaluationSummary = getEvaluationSummary(
-    latestReport?.evaluationCriteriaResults as Record<string, unknown> | undefined,
-  );
-  const latestCandidateRoundReport = latestCandidateRoundReports[0] ?? null;
-  const latestCandidateRoundEvaluationSummary = getEvaluationSummary(
-    latestCandidateRoundReport?.evaluationCriteriaResults as Record<string, unknown> | undefined,
-  );
   const isResumeInterviewResultLoading =
     isRoundsLoading ||
     (!!latestCandidateRoundId &&
       (isCandidateRoundReportsLoading ||
         isResumeInterviewRoundLoading ||
         isResumeInterviewFormSubmissionsLoading));
-  const { formItems, interviewItems } = getCollectedCandidateInfoItems({
-    evaluation: latestReport?.evaluationCriteriaResults as Record<string, unknown> | undefined,
-    formSubmissions,
-  });
-  const { formItems: resumeInterviewFormItems, interviewItems: resumeInterviewItems } =
-    getCollectedCandidateInfoItems({
-      evaluation: latestCandidateRoundReport?.evaluationCriteriaResults as
-        | Record<string, unknown>
-        | undefined,
-      formSubmissions: resumeInterviewFormSubmissions,
-    });
+  const selectedResultEvaluationSummary = getEvaluationSummary(
+    selectedResultReport?.evaluationCriteriaResults as Record<string, unknown> | undefined,
+  );
+  const currentResultFormSubmissions =
+    mode === "interview" ? formSubmissions : resumeInterviewFormSubmissions;
+  const currentResultFormItems = getCollectedCandidateInfoItems({
+    evaluation: null,
+    formSubmissions: currentResultFormSubmissions,
+  }).formItems;
+  const selectedResultFormItems =
+    getReportFormItems(selectedResultReport) ??
+    (effectiveSelectedResultConversationId === latestResultReport?.conversationId
+      ? currentResultFormItems
+      : []);
+  const selectedResultInterviewItems = getCollectedCandidateInfoItems({
+    evaluation: selectedResultReport?.evaluationCriteriaResults as
+      | Record<string, unknown>
+      | undefined,
+    formSubmissions: [],
+  }).interviewItems;
+  const isLatestResultReportSelected =
+    effectiveSelectedResultConversationId === latestResultReport?.conversationId;
   const isRoundCompleted = record?.roundStatus === "completed";
   const canResetAiRound =
     Boolean(record?.roundId) && !isPublic && record?.pipelineStage === "ai_interview";
@@ -725,11 +778,6 @@ export function useStudioPersonDetailController({
             {mode === "interview" ? "结果" : "概览"}
           </TabsTrigger>
           {mode === "interview" ? (
-            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="reports">
-              面试报告
-            </TabsTrigger>
-          ) : null}
-          {mode === "interview" ? (
             <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="experience">
               经历
             </TabsTrigger>
@@ -813,16 +861,16 @@ export function useStudioPersonDetailController({
     detailScrollClassName,
     dispatchUi,
     effectiveRoundId,
+    effectiveSelectedResultConversationId,
     enabled,
     floatingActionBar,
-    formItems,
     formSubmissions,
     handleReassessResume,
     handleResetRound,
     handleToggleAllowTextInput,
     headerExtra,
-    interviewItems,
     isFormSubmissionsLoading,
+    isLatestResultReportSelected,
     isLoading,
     isPublic,
     isReassessingResume,
@@ -831,11 +879,8 @@ export function useStudioPersonDetailController({
     isResumeInterviewResultLoading,
     isRoundCompleted,
     isRoundsLoading,
+    isSelectedReportLoading: shouldFetchSelectedReport && isSelectedReportFetching,
     isTimelineLoading,
-    latestCandidateRoundEvaluationSummary,
-    latestCandidateRoundReport,
-    latestEvaluationSummary,
-    latestReport,
     metadataReport,
     mode,
     onRequestClose,
@@ -844,22 +889,25 @@ export function useStudioPersonDetailController({
       void queryClient.invalidateQueries({ queryKey: ["studio-interview-round", slug] });
       void queryClient.invalidateQueries({ queryKey: ["studio-interview-rounds", slug] });
     },
+    onSelectedReportChange: setSelectedResultConversationId,
     pendingResetSubmissionId,
     record,
     recordId,
     reduceMotion,
-    reportTranscriptStats,
-    reports,
     resettingRoundId,
     resettingSubmissionId,
-    resumeInterviewFormItems,
-    resumeInterviewItems,
+    resultReports,
+    resultRoundId,
     resumeInterviewResultRecord,
     resumePreviewUrl,
     resumeRecord,
     round,
     roundId,
     selectedEvidence,
+    selectedResultEvaluationSummary,
+    selectedResultFormItems,
+    selectedResultInterviewItems,
+    selectedResultReport,
     setActiveTab,
     setMetadataReport,
     shell,
@@ -869,7 +917,6 @@ export function useStudioPersonDetailController({
     tabContentRootRef,
     tabVisibilityRecord,
     title,
-    totalDisplayTurnCount,
     updatingRoundId,
   };
 }

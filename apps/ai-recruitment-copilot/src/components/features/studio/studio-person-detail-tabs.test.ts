@@ -14,6 +14,10 @@ const reportDetailsSource = bodySource.slice(
   bodySource.indexOf("function InterviewReportDetailSection"),
   bodySource.indexOf("function InterviewResultTabContent"),
 );
+const resultFrameSource = bodySource.slice(
+  bodySource.indexOf("function InterviewResultFrame"),
+  bodySource.indexOf("function InterviewReportDetailSection"),
+);
 
 describe("AI 面试详情 tabs", () => {
   it("keeps communication questions and form responses inside the result tab", () => {
@@ -24,7 +28,8 @@ describe("AI 面试详情 tabs", () => {
     expect(bodySource).toContain("<FrameTitle>表单题</FrameTitle>");
     expect(bodySource).toContain('emptyLabel="暂无表单答复" items={formItems}');
     expect(bodySource).toContain("<FrameTitle>沟通题</FrameTitle>");
-    expect(bodySource).toContain('emptyLabel="暂无沟通题" items={interviewItems}');
+    expect(resultContentSource).toContain('emptyLabel="暂无沟通题"');
+    expect(resultContentSource).toContain("items={interviewItems}");
   });
 
   it("shows agent instructions only in development", () => {
@@ -89,6 +94,25 @@ describe("AI 面试详情 tabs", () => {
     );
     expect(overviewBranch).toContain("<InterviewResultTabContent");
     expect(recruitmentAiBranch).toContain("<InterviewResultTabContent");
+  });
+
+  it("replaces the standalone report tab with a report selector in the result tab", () => {
+    expect(controllerSource).not.toContain('value="reports"');
+    expect(bodySource).not.toContain('<TabsContent value="reports">');
+    expect(bodySource).toContain("reports.length > 1");
+    expect(bodySource).toContain("<Select");
+    expect(resultContentSource).toContain("onSelectedReportChange");
+  });
+
+  it("shows selected interview start and end times at the top of the result frame", () => {
+    expect(resultFrameSource).toContain('label="开始时间"');
+    expect(resultFrameSource).toContain('label="结束时间"');
+    expect(resultFrameSource).toContain("<TimeDisplay");
+  });
+
+  it("shows frame skeletons while a selected report is being fetched", () => {
+    expect(resultContentSource).toContain("isSelectedReportLoading");
+    expect(resultContentSource).toContain("<InterviewResultFramesSkeleton");
   });
 
   it("places the text input switch inside candidate information", () => {

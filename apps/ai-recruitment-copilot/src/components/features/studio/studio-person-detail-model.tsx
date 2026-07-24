@@ -42,7 +42,6 @@ export type StudioPersonDetailTab =
   | "human-interview"
   | "offer"
   | "experience"
-  | "reports"
   | "instructions"
   | "transcript";
 
