@@ -96,4 +96,18 @@ describe("AI 面试详情 tabs", () => {
     expect(candidateFrame).toContain("允许面试者文本输入");
     expect(candidateFrame).toContain("<Switch");
   });
+
+  it("limits form and communication frame bodies with scroll areas", () => {
+    for (const title of ["表单题", "沟通题"]) {
+      const titleIndex = resultContentSource.indexOf(`<FrameTitle>${title}</FrameTitle>`);
+      const frameEnd = resultContentSource.indexOf("</Frame>", titleIndex);
+      const frame = resultContentSource.slice(titleIndex, frameEnd);
+      expect(frame).toContain('<ScrollArea className="max-h-[28rem]" scrollFade>');
+    }
+  });
+
+  it("does not render the resume evaluation below the result frames", () => {
+    expect(resultContentSource).not.toContain("简历评价");
+    expect(resultContentSource).not.toContain("record.notes");
+  });
 });
