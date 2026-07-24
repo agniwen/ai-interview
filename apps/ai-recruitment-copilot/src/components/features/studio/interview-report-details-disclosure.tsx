@@ -2,12 +2,22 @@
 
 import { IconChevronDown } from "@tabler/icons-react";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@arc/shared/utils";
 import { Button } from "@/components/ui/button";
 
 export function InterviewReportDetailsDisclosure({ children }: { children: ReactNode }) {
   const [expanded, setExpanded] = useState(false);
+  const detailsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (expanded) {
+      detailsRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    }
+  }, [expanded]);
 
   return (
     <>
@@ -25,7 +35,7 @@ export function InterviewReportDetailsDisclosure({ children }: { children: React
           />
         </Button>
       </div>
-      {expanded ? children : null}
+      {expanded ? <div ref={detailsRef}>{children}</div> : null}
     </>
   );
 }

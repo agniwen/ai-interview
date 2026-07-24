@@ -2,19 +2,30 @@
 
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InterviewReportDetailsDisclosure } from "./interview-report-details-disclosure";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("InterviewReportDetailsDisclosure", () => {
   let container: HTMLDivElement;
+  let originalScrollIntoView: PropertyDescriptor | undefined;
   let root: ReturnType<typeof createRoot>;
+  let scrollIntoView: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
+    originalScrollIntoView = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "scrollIntoView",
+    );
+    scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
   });
 
   afterEach(() => {
@@ -22,6 +33,11 @@ describe("InterviewReportDetailsDisclosure", () => {
       root.unmount();
     });
     container.remove();
+    if (originalScrollIntoView) {
+      Object.defineProperty(HTMLElement.prototype, "scrollIntoView", originalScrollIntoView);
+    } else {
+      Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+    }
   });
 
   it("reveals and hides the latest report details", () => {
@@ -46,6 +62,10 @@ describe("InterviewReportDetailsDisclosure", () => {
     expect(collapseButton?.textContent).toContain("收起更多信息");
     expect(collapseButton?.getAttribute("aria-expanded")).toBe("true");
     expect(container.textContent).toContain("最新报告详情");
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "nearest",
+    });
 
     act(() => {
       collapseButton?.click();
