@@ -157,18 +157,25 @@ describe("StudioCalendarPage", () => {
     const endedHumanEvent = [
       ...host.querySelectorAll<HTMLElement>('[data-slot="event-calendar-event"]'),
     ].find((event) => event.textContent?.includes("赵六 · 终面"));
-    expect(aiEvent?.className).toContain("bg-(--ec-event-color)");
-    expect(aiEvent?.className).not.toContain("bg-(--ec-event-color)/50");
-    expect(aiEvent?.className).toContain("[&_.text-muted-foreground]:text-background/80");
-    expect(humanEvent?.className).toContain("bg-(--ec-event-color)/50");
+    expect(aiEvent?.className).toContain("bg-(--ec-event-color)/10");
+    expect(aiEvent?.className).toContain(
+      "[&_.text-muted-foreground]:text-(--ec-event-foreground)/75",
+    );
+    expect(humanEvent?.className).toContain("bg-(--ec-event-color)/5");
     expect(aiEvent?.style.getPropertyValue("--ec-event-color")).toBe(
       "var(--calendar-ai-interview)",
+    );
+    expect(aiEvent?.style.getPropertyValue("--ec-event-foreground")).toBe(
+      "var(--calendar-ai-interview-foreground)",
     );
     expect(humanEvent?.style.getPropertyValue("--ec-event-color")).toBe(
       "var(--calendar-human-interview)",
     );
-    expect(pendingAiEvent?.className).toContain("bg-(--ec-event-color)/50");
-    expect(endedHumanEvent?.className).not.toContain("bg-(--ec-event-color)/50");
+    expect(humanEvent?.style.getPropertyValue("--ec-event-foreground")).toBe(
+      "var(--calendar-human-interview-foreground)",
+    );
+    expect(pendingAiEvent?.className).toContain("bg-(--ec-event-color)/5");
+    expect(endedHumanEvent?.className).toContain("bg-(--ec-event-color)/10");
     expect(aiEvent?.getAttribute("aria-label")).toContain("AI 面试记录");
     expect(humanEvent?.getAttribute("aria-label")).toContain("真人面试");
 

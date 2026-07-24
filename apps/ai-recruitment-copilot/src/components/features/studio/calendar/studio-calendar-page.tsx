@@ -82,11 +82,17 @@ function calendarEventColor(event: StudioCalendarEvent): string {
     : "var(--calendar-ai-interview)";
 }
 
+function calendarEventForeground(event: StudioCalendarEvent): string {
+  return event.kind === "human"
+    ? "var(--calendar-human-interview-foreground)"
+    : "var(--calendar-ai-interview-foreground)";
+}
+
 function calendarEventSurfaceClassName(event: StudioCalendarEvent): string {
   if (event.status === "ended") {
-    return "bg-(--ec-event-color) text-background hover:bg-(--ec-event-color) data-selected:bg-(--ec-event-color) dark:bg-(--ec-event-color) dark:hover:bg-(--ec-event-color) [&_.text-muted-foreground]:text-background/80";
+    return "bg-(--ec-event-color)/10 text-(--ec-event-foreground) inset-ring-(--ec-event-color)/30 hover:bg-(--ec-event-color)/15 data-selected:bg-(--ec-event-color)/15 dark:bg-(--ec-event-color)/15 dark:inset-ring-(--ec-event-color)/40 dark:hover:bg-(--ec-event-color)/20 dark:data-selected:bg-(--ec-event-color)/20 [&_.text-muted-foreground]:text-(--ec-event-foreground)/75";
   }
-  return "bg-(--ec-event-color)/50 hover:bg-(--ec-event-color)/60 data-selected:bg-(--ec-event-color)/50 dark:bg-(--ec-event-color)/50 dark:hover:bg-(--ec-event-color)/60";
+  return "bg-(--ec-event-color)/5 text-(--ec-event-foreground) inset-ring-(--ec-event-color)/15 hover:bg-(--ec-event-color)/10 data-selected:bg-(--ec-event-color)/10 dark:bg-(--ec-event-color)/10 dark:inset-ring-(--ec-event-color)/20 dark:hover:bg-(--ec-event-color)/15 dark:data-selected:bg-(--ec-event-color)/15 [&_.text-muted-foreground]:text-(--ec-event-foreground)/65";
 }
 
 function calendarEventTypeLabel(event: StudioCalendarEvent): string {
@@ -104,6 +110,7 @@ function toCalendarEvent(event: StudioCalendarEvent): CalendarEvent<StudioCalend
     color: calendarEventColor(event),
     data: event,
     end: new Date(event.endAt),
+    foreground: calendarEventForeground(event),
     id: event.id,
     readOnly: true,
     start: new Date(event.startAt),

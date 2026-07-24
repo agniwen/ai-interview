@@ -53,6 +53,8 @@ interface CalendarEvent<TData = unknown> {
   originalStart?: Date;
   /** Token or css color; flows to the --ec-event-color css var. */
   color?: string;
+  /** Optional foreground token; flows to the --ec-event-foreground css var. */
+  foreground?: string;
   /** Consumer-owned classes applied to the calendar event surface. */
   className?: string;
   /** Consumer-owned accessible label for the event button. */

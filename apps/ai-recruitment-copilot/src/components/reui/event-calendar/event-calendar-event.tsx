@@ -440,6 +440,7 @@ function EventCalendarEvent<TData = unknown>({
     tabIndex: preview ? -1 : undefined,
     style: {
       "--ec-event-color": event.color ?? "var(--color-primary)",
+      "--ec-event-foreground": event.foreground ?? "var(--foreground)",
     } as CSSProperties,
     onPointerDown: (e: React.PointerEvent) => {
       e.stopPropagation();
