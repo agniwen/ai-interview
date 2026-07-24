@@ -10,6 +10,10 @@ const resultContentSource = bodySource.slice(
   bodySource.indexOf("function InterviewResultTabContent"),
   bodySource.indexOf("export function StudioPersonDetailBody"),
 );
+const reportDetailsSource = bodySource.slice(
+  bodySource.indexOf("function InterviewReportDetailSection"),
+  bodySource.indexOf("function InterviewResultTabContent"),
+);
 
 describe("AI 面试详情 tabs", () => {
   it("keeps communication questions and form responses inside the result tab", () => {
@@ -109,5 +113,21 @@ describe("AI 面试详情 tabs", () => {
   it("does not render the resume evaluation below the result frames", () => {
     expect(resultContentSource).not.toContain("简历评价");
     expect(resultContentSource).not.toContain("record.notes");
+  });
+
+  it("reveals the latest report details from a ghost button", () => {
+    expect(resultContentSource).toContain("<InterviewReportDetailsDisclosure>");
+    expect(resultContentSource).toContain("<InterviewReportDetails");
+    expect(resultContentSource).toContain('surface="frame"');
+  });
+
+  it("uses frames for the latest report summary, metrics, and transcript", () => {
+    expect(reportDetailsSource).toContain('title="最终总结"');
+    expect(reportDetailsSource).toContain('title="评估指标"');
+    expect(reportDetailsSource).toContain('title="对话记录"');
+    expect(reportDetailsSource).toContain('surface === "card"');
+    expect(reportDetailsSource).toContain("<Frame");
+    expect(reportDetailsSource).toContain("<EvaluationResults");
+    expect(reportDetailsSource).toContain("<ConversationTranscript");
   });
 });

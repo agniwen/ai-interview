@@ -3,6 +3,7 @@
 
 import { IconArrowBackUp, IconChevronDown, IconLoader2, IconMessage2 } from "@tabler/icons-react";
 import { cn } from "@arc/shared/utils";
+import type { ReactNode } from "react";
 import { env } from "@/env/client";
 
 import { CandidateBasicInfoView } from "@/components/features/candidate/candidate-basic-info-view";
@@ -36,6 +37,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { TabsContent } from "@/components/ui/tabs";
 import { HumanInterviewStagePanel } from "./human-interview-stage-panel";
+import { InterviewReportDetailsDisclosure } from "./interview-report-details-disclosure";
 import { OfferStagePanel } from "./offer-stage-panel";
 import { CandidateTimeline } from "./candidate-timeline";
 import {
@@ -75,6 +77,17 @@ import {
 } from "./studio-person-detail-sections";
 import { ReportMetadataButton } from "./studio-person-detail-metadata";
 import type { StudioPersonDetailViewModel } from "./studio-person-detail-controller";
+
+function createSelectedEvidenceAction(conversationId: string, evidence: EvidenceQuote) {
+  return {
+    evidence: {
+      conversationId,
+      timeInCallSecs: evidence.timeInCallSecs ?? null,
+      turnIndex: evidence.turnIndex ?? null,
+    },
+    type: "selectedEvidenceChanged" as const,
+  };
+}
 
 function FormSubmissionResetAction({
   onReset,
@@ -193,6 +206,93 @@ function InterviewResultFrame({
   );
 }
 
+function InterviewReportDetailSection({
+  children,
+  className,
+  panelClassName,
+  surface,
+  title,
+}: {
+  children: ReactNode;
+  className?: string;
+  panelClassName?: string;
+  surface: "card" | "frame";
+  title: string;
+}) {
+  if (surface === "card") {
+    return (
+      <Card className={className}>
+        <CardHeader className={className ? "shrink-0" : undefined}>
+          <CardTitle className="text-sm">{title}</CardTitle>
+        </CardHeader>
+        <CardPanel className={panelClassName}>{children}</CardPanel>
+      </Card>
+    );
+  }
+
+  return (
+    <Frame className={className}>
+      <FrameHeader className={className ? "shrink-0" : undefined}>
+        <FrameTitle>{title}</FrameTitle>
+      </FrameHeader>
+      <FramePanel className={panelClassName}>{children}</FramePanel>
+    </Frame>
+  );
+}
+
+function InterviewReportDetails({
+  activeTurnIndex,
+  leftSupplement,
+  onEvidenceSelect,
+  report,
+  surface,
+}: {
+  activeTurnIndex: number | null;
+  leftSupplement?: ReactNode;
+  onEvidenceSelect: (evidence: EvidenceQuote) => void;
+  report: NonNullable<StudioPersonDetailViewModel["latestReport"]>;
+  surface: "card" | "frame";
+}) {
+  return (
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(400px,1fr)]">
+      <div className="space-y-4">
+        <InterviewReportDetailSection surface={surface} title="最终总结">
+          <div className="text-muted-foreground text-sm leading-6">
+            <HighlightedText text={report.transcriptSummary ?? "暂无总结。"} />
+          </div>
+          {report.latestError ? (
+            <div className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-sm">
+              {report.latestError}
+            </div>
+          ) : null}
+        </InterviewReportDetailSection>
+        <InterviewReportDetailSection surface={surface} title="评估指标">
+          <ScrollArea className="max-h-[420px] pr-1" scrollFade>
+            <EvaluationResults
+              data={(report.evaluationCriteriaResults as Record<string, unknown> | null) ?? {}}
+              onEvidenceSelect={onEvidenceSelect}
+            />
+          </ScrollArea>
+        </InterviewReportDetailSection>
+        {leftSupplement}
+      </div>
+      <div className="lg:relative">
+        <InterviewReportDetailSection
+          className="h-[480px] overflow-hidden lg:absolute lg:inset-0 lg:h-auto"
+          panelClassName={cn(
+            "flex min-h-0 flex-1 flex-col overflow-hidden",
+            surface === "frame" ? "p-0" : undefined,
+          )}
+          surface={surface}
+          title="对话记录"
+        >
+          <ConversationTranscript activeTurnIndex={activeTurnIndex} turns={report.turns} />
+        </InterviewReportDetailSection>
+      </div>
+    </div>
+  );
+}
+
 function InterviewResultTabContent({
   evaluationSummary,
   formItems,
@@ -220,14 +320,25 @@ function InterviewResultTabContent({
     handleToggleAllowTextInput,
     isPublic,
     mode,
+    round,
     resettingRoundId,
     resettingSubmissionId,
     resumePreviewUrl,
+    selectedEvidence,
     updatingRoundId,
   } = model;
   const showRoundActions = canUseManagementActions && !isPublic;
   const canResetResultRound =
     showRoundActions && Boolean(record.roundId) && record.pipelineStage === "ai_interview";
+  const activeEvidence = report
+    ? resolveActiveEvidence(selectedEvidence, report.conversationId)
+    : null;
+  const handleEvidenceSelect = (evidence: EvidenceQuote) => {
+    if (!report) {
+      return;
+    }
+    dispatchUi(createSelectedEvidenceAction(report.conversationId, evidence));
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -340,6 +451,18 @@ function InterviewResultTabContent({
           </>
         )}
       </div>
+      {report ? (
+        <InterviewReportDetailsDisclosure>
+          <KeywordHighlightProvider extraSkills={round?.jdRequiredSkills}>
+            <InterviewReportDetails
+              activeTurnIndex={activeEvidence?.turnIndex ?? null}
+              onEvidenceSelect={handleEvidenceSelect}
+              report={report}
+              surface="frame"
+            />
+          </KeywordHighlightProvider>
+        </InterviewReportDetailsDisclosure>
+      ) : null}
     </div>
   );
 }
@@ -513,14 +636,9 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                           );
                           const snapshotMetadata = report.snapshotMetadata ?? null;
                           const handleEvidenceSelect = (evidence: EvidenceQuote) => {
-                            dispatchUi({
-                              evidence: {
-                                conversationId: report.conversationId,
-                                timeInCallSecs: evidence.timeInCallSecs ?? null,
-                                turnIndex: evidence.turnIndex ?? null,
-                              },
-                              type: "selectedEvidenceChanged",
-                            });
+                            dispatchUi(
+                              createSelectedEvidenceAction(report.conversationId, evidence),
+                            );
                           };
                           return (
                             <AccordionItem
@@ -554,142 +672,100 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                                 </div>
                               </AccordionTrigger>
                               <AccordionContent className="bg-muted/25 px-5 pt-4 pb-5">
-                                <div className="grid gap-4  lg:grid-cols-[minmax(0,1fr)_minmax(400px,1fr)]">
-                                  <div className="space-y-4">
-                                    <Card>
-                                      <CardHeader>
-                                        <CardTitle className="text-sm">最终总结</CardTitle>
-                                      </CardHeader>
-                                      <CardPanel>
-                                        <div className="text-muted-foreground text-sm leading-6">
-                                          <HighlightedText
-                                            text={report.transcriptSummary ?? "暂无总结。"}
-                                          />
-                                        </div>
-                                        {report.latestError ? (
-                                          <div className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-sm">
-                                            {report.latestError}
-                                          </div>
-                                        ) : null}
-                                      </CardPanel>
-                                    </Card>
-                                    <Card>
-                                      <CardHeader>
-                                        <CardTitle className="text-sm">评估指标</CardTitle>
-                                      </CardHeader>
-                                      <CardPanel>
-                                        <ScrollArea className="max-h-[420px] pr-1" scrollFade>
-                                          <EvaluationResults
-                                            data={
-                                              (report.evaluationCriteriaResults as Record<
-                                                string,
-                                                unknown
-                                              >) ?? {}
-                                            }
-                                            onEvidenceSelect={handleEvidenceSelect}
-                                          />
-                                        </ScrollArea>
-                                      </CardPanel>
-                                    </Card>
-                                    {env.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS ? (
-                                      <Card>
-                                        <CardHeader>
-                                          <CardTitle className="text-sm">会话概览</CardTitle>
-                                          <CardAction>
-                                            <ReportMetadataButton
-                                              disabled={!snapshotMetadata}
-                                              label=""
-                                              onClick={() => setMetadataReport(report)}
-                                              visible={canViewReportMetadata}
-                                            />
-                                          </CardAction>
-                                        </CardHeader>
-                                        <CardPanel>
-                                          <div className="grid gap-x-8 gap-y-4 text-sm md:grid-cols-2">
-                                            <DetailRow
-                                              label="会话 ID"
-                                              value={
-                                                <span className="break-all">
-                                                  {report.conversationId}
-                                                </span>
-                                              }
-                                            />
-                                            <DetailRow
-                                              label="开始时间"
-                                              value={
-                                                <TimeDisplay
-                                                  options={DATE_TIME_DISPLAY_OPTIONS}
-                                                  value={startedAt}
-                                                />
-                                              }
-                                            />
-                                            <DetailRow
-                                              label="结束时间"
-                                              value={
-                                                <TimeDisplay
-                                                  options={DATE_TIME_DISPLAY_OPTIONS}
-                                                  value={endedAt}
-                                                />
-                                              }
-                                            />
-                                            <DetailRow
-                                              label="消息统计"
-                                              value={`共 ${displayTurnCount} 条 · 候选人 ${displayUserTurnCount} 条 · 面试官 ${displayAgentTurnCount} 条`}
-                                            />
-                                            <DetailRow
-                                              label="同步时间"
-                                              value={
-                                                <TimeDisplay
-                                                  options={DATE_TIME_DISPLAY_OPTIONS}
-                                                  value={report.lastSyncedAt}
-                                                />
-                                              }
-                                            />
-                                            <DetailRow
-                                              label="Webhook"
-                                              value={
-                                                report.webhookReceivedAt ? (
+                                <InterviewReportDetails
+                                  activeTurnIndex={activeEvidence?.turnIndex ?? null}
+                                  leftSupplement={
+                                    <>
+                                      {env.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS ? (
+                                        <Card>
+                                          <CardHeader>
+                                            <CardTitle className="text-sm">会话概览</CardTitle>
+                                            <CardAction>
+                                              <ReportMetadataButton
+                                                disabled={!snapshotMetadata}
+                                                label=""
+                                                onClick={() => setMetadataReport(report)}
+                                                visible={canViewReportMetadata}
+                                              />
+                                            </CardAction>
+                                          </CardHeader>
+                                          <CardPanel>
+                                            <div className="grid gap-x-8 gap-y-4 text-sm md:grid-cols-2">
+                                              <DetailRow
+                                                label="会话 ID"
+                                                value={
+                                                  <span className="break-all">
+                                                    {report.conversationId}
+                                                  </span>
+                                                }
+                                              />
+                                              <DetailRow
+                                                label="开始时间"
+                                                value={
                                                   <TimeDisplay
                                                     options={DATE_TIME_DISPLAY_OPTIONS}
-                                                    value={report.webhookReceivedAt}
+                                                    value={startedAt}
                                                   />
-                                                ) : (
-                                                  "未收到"
-                                                )
-                                              }
-                                            />
-                                          </div>
-                                        </CardPanel>
-                                      </Card>
-                                    ) : null}
-                                    {env.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING ? (
-                                      <RecordingPlayer
-                                        accessMode={isPublic ? "public" : "authed"}
-                                        conversationId={report.conversationId}
-                                        durationSecs={report.recordingDurationSecs}
-                                        recordId={effectiveRoundId ?? ""}
-                                        seekToSecs={activeEvidence?.timeInCallSecs ?? null}
-                                        status={report.recordingStatus}
-                                      />
-                                    ) : null}
-                                    {env.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS ? (
-                                      <InterviewMetricsPanel metrics={report.metrics ?? {}} />
-                                    ) : null}
-                                  </div>
-                                  <div className="lg:relative">
-                                    <Card className="h-[480px] overflow-hidden lg:absolute lg:inset-0 lg:h-auto">
-                                      <CardHeader className="shrink-0">
-                                        <CardTitle className="text-sm">对话记录</CardTitle>
-                                      </CardHeader>
-                                      <CardPanel className="flex min-h-0 flex-col overflow-hidden">
-                                        <ConversationTranscript
-                                          activeTurnIndex={activeEvidence?.turnIndex ?? null}
-                                          turns={report.turns}
+                                                }
+                                              />
+                                              <DetailRow
+                                                label="结束时间"
+                                                value={
+                                                  <TimeDisplay
+                                                    options={DATE_TIME_DISPLAY_OPTIONS}
+                                                    value={endedAt}
+                                                  />
+                                                }
+                                              />
+                                              <DetailRow
+                                                label="消息统计"
+                                                value={`共 ${displayTurnCount} 条 · 候选人 ${displayUserTurnCount} 条 · 面试官 ${displayAgentTurnCount} 条`}
+                                              />
+                                              <DetailRow
+                                                label="同步时间"
+                                                value={
+                                                  <TimeDisplay
+                                                    options={DATE_TIME_DISPLAY_OPTIONS}
+                                                    value={report.lastSyncedAt}
+                                                  />
+                                                }
+                                              />
+                                              <DetailRow
+                                                label="Webhook"
+                                                value={
+                                                  report.webhookReceivedAt ? (
+                                                    <TimeDisplay
+                                                      options={DATE_TIME_DISPLAY_OPTIONS}
+                                                      value={report.webhookReceivedAt}
+                                                    />
+                                                  ) : (
+                                                    "未收到"
+                                                  )
+                                                }
+                                              />
+                                            </div>
+                                          </CardPanel>
+                                        </Card>
+                                      ) : null}
+                                      {env.NEXT_PUBLIC_ENABLE_INTERVIEW_RECORDING ? (
+                                        <RecordingPlayer
+                                          accessMode={isPublic ? "public" : "authed"}
+                                          conversationId={report.conversationId}
+                                          durationSecs={report.recordingDurationSecs}
+                                          recordId={effectiveRoundId ?? ""}
+                                          seekToSecs={activeEvidence?.timeInCallSecs ?? null}
+                                          status={report.recordingStatus}
                                         />
-                                      </CardPanel>
-                                    </Card>
-                                  </div>
-                                </div>
+                                      ) : null}
+                                      {env.NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS ? (
+                                        <InterviewMetricsPanel metrics={report.metrics ?? {}} />
+                                      ) : null}
+                                    </>
+                                  }
+                                  onEvidenceSelect={handleEvidenceSelect}
+                                  report={report}
+                                  surface="card"
+                                />
                               </AccordionContent>
                             </AccordionItem>
                           );
