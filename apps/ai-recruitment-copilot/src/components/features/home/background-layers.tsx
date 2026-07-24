@@ -33,7 +33,7 @@ export function BackgroundLayers() {
                 grainOverlay={0}
                 height="100%"
                 maxPixelCount={1_920_000}
-                speed={prefersReducedMotion ? 0 : 1}
+                speed={prefersReducedMotion ? 0 : 0.35}
                 swirl={0.1}
                 width="100%"
               />

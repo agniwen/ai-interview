@@ -80,7 +80,7 @@ describe("BackgroundLayers", () => {
     expect(mesh?.dataset.swirl).toBe("0.1");
     expect(mesh?.dataset.grainMixer).toBe("0");
     expect(mesh?.dataset.grainOverlay).toBe("0");
-    expect(mesh?.dataset.speed).toBe("1");
+    expect(mesh?.dataset.speed).toBe("0.35");
     expect(container.querySelector('[data-testid="ascii-hero"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="dark-veil"]')).toBeNull();
     expect(container.querySelector('[data-testid="dot-grid"]')).toBeNull();
