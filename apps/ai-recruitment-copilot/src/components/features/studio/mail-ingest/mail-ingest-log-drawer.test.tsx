@@ -46,6 +46,24 @@ vi.mock("sonner", () => ({
   toast: toastMocks,
 }));
 
+vi.mock("@/components/date-time-picker", () => ({
+  DatePicker: ({
+    onValueChange,
+    value,
+    ...props
+  }: {
+    onValueChange: (value: string) => void;
+    value: string;
+  }) => (
+    <input
+      {...props}
+      onChange={(event) => onValueChange(event.currentTarget.value)}
+      type="text"
+      value={value}
+    />
+  ),
+}));
+
 afterEach(() => {
   document.body.innerHTML = "";
   vi.clearAllMocks();

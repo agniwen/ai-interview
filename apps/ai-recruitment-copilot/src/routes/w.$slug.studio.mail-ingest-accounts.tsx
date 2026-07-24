@@ -10,6 +10,7 @@ import {
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { DateTimePicker } from "@/components/date-time-picker";
 import { actionsColumn, customColumn, DataGrid, useDataGridState } from "@/components/data-grid";
 import type { DataGridFetchParams, DataGridFetchResult } from "@/components/data-grid";
 import { formatDocumentTitle } from "@/lib/start/document-title";
@@ -411,13 +412,12 @@ function MailIngestAccountDialog({
 
             <Field>
               <FieldLabel htmlFor="mail-ingest-listen-start">监听起始时间</FieldLabel>
-              <Input
+              <DateTimePicker
                 id="mail-ingest-listen-start"
                 disabled={pending}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, listenStartAt: event.target.value }))
+                onValueChange={(listenStartAt) =>
+                  setForm((current) => ({ ...current, listenStartAt }))
                 }
-                type="datetime-local"
                 value={form.listenStartAt}
               />
               <FieldDescription>留空表示扫描全部邮件；新建时默认从当前时间开始。</FieldDescription>

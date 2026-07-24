@@ -770,6 +770,7 @@ export const studioInterviewSchedule = pgTable(
       }),
     roundLabel: text("round_label").notNull(),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    scheduledEndAt: timestamp("scheduled_end_at", { withTimezone: true }),
     sessionStartedAt: timestamp("session_started_at", { withTimezone: true }),
     sortOrder: integer("sort_order").notNull(),
     status: text("status").$type<ScheduleEntryStatus>().notNull().default("pending"),

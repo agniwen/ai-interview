@@ -8,6 +8,7 @@ export const STUDIO_PAGE_PATHS = [
   { action: "resumes", path: "/resumes" },
   { action: "resumePool", path: "/resume-pool" },
   { action: "interviews", path: "/interviews" },
+  { action: "interviews", path: "/calendar" },
   { action: "dashboard", path: "/dashboard" },
   { action: "departments", path: "/departments" },
   { action: "interviewers", path: "/interviewers" },

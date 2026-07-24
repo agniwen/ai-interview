@@ -30,6 +30,7 @@ import type {
 import type { ApiError } from "@/lib/client/api/errors";
 import { fetchStudioResume, transitionInterviewRecord } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { DatePicker } from "@/components/date-time-picker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -312,10 +313,9 @@ function CloseDialog({
                   <Label className="text-xs" htmlFor="hired-joining">
                     实际入职日（可选）
                   </Label>
-                  <Input
+                  <DatePicker
                     id="hired-joining"
-                    onChange={(e) => setActualJoiningDate(e.target.value)}
-                    type="date"
+                    onValueChange={setActualJoiningDate}
                     value={actualJoiningDate}
                   />
                 </div>
@@ -373,10 +373,9 @@ function CloseDialog({
                     <Label className="text-xs" htmlFor="revisit-after">
                       建议多久后再联系（可选）
                     </Label>
-                    <Input
+                    <DatePicker
                       id="revisit-after"
-                      onChange={(e) => setRevisitAfter(e.target.value)}
-                      type="date"
+                      onValueChange={setRevisitAfter}
                       value={revisitAfter}
                     />
                   </div>

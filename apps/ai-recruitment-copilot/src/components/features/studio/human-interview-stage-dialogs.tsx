@@ -17,6 +17,7 @@ import { invalidateHumanInterviewCandidateQueries } from "@/lib/client/api/query
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { DateTimePicker } from "@/components/date-time-picker";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -175,11 +176,10 @@ export function ScheduleRoundDialog({
             <Label className="text-sm" htmlFor="scheduled-at">
               面试时间
             </Label>
-            <Input
+            <DateTimePicker
               id="scheduled-at"
-              onChange={(e) => handleScheduledAtChange(e.target.value)}
+              onValueChange={handleScheduledAtChange}
               required
-              type="datetime-local"
               value={scheduledAt}
             />
           </div>
@@ -188,12 +188,7 @@ export function ScheduleRoundDialog({
             <Label className="text-sm" htmlFor="valid-until">
               有效时间至
             </Label>
-            <Input
-              id="valid-until"
-              onChange={(e) => setValidUntil(e.target.value)}
-              type="datetime-local"
-              value={validUntil}
-            />
+            <DateTimePicker id="valid-until" onValueChange={setValidUntil} value={validUntil} />
           </div>
 
           <div className="grid gap-1.5">

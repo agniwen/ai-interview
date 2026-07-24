@@ -11,6 +11,7 @@ export default defineConfig({
     "**/src/hooks/agents-ui/**",
     "**/src/components/ui/**",
     "**/src/components/react-bits/**",
+    "**/src/components/reui/**",
     "**/src/components/spell-ui/**",
     "apps/ai-recruitment-copilot/src/routeTree.gen.ts",
     "apps/ai-recruitment-copilot-worker/dist/**",

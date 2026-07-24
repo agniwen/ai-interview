@@ -28,6 +28,7 @@ export interface StudioInterviewRoundListRecord {
   roundLabel: string;
   sortOrder: number;
   scheduledAt: string | null;
+  scheduledEndAt: string | null;
   lastInterviewAt: string | null;
   status: ScheduleEntryStatus;
   allowTextInput: boolean;
@@ -53,6 +54,7 @@ export interface StudioInterviewRoundDetail {
   roundLabel: string;
   sortOrder: number;
   scheduledAt: string | null;
+  scheduledEndAt: string | null;
   status: ScheduleEntryStatus;
   allowTextInput: boolean;
   conversationId: string | null;

@@ -289,7 +289,7 @@ export function resetStudioInterviewRound(
 }
 
 /**
- * PATCH 单轮的可编辑字段（allowTextInput / notes / scheduledAt / status）。
+ * PATCH 单轮的可编辑字段（allowTextInput / notes / scheduledAt / scheduledEndAt / status）。
  * PATCH a round's editable fields.
  */
 export function updateStudioInterviewRound(
@@ -299,6 +299,7 @@ export function updateStudioInterviewRound(
     allowTextInput?: boolean;
     notes?: string;
     scheduledAt?: string | null;
+    scheduledEndAt?: string | null;
     status?: ScheduleEntryStatus;
   },
 ): Promise<StudioInterviewRoundDetail> {

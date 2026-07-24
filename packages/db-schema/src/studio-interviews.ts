@@ -396,6 +396,7 @@ export const studioInterviewScheduleEntrySchema = z.object({
   notes: z.string().trim().max(1000, "轮次备注不能超过 1000 字").optional().or(z.literal("")),
   roundLabel: z.string().trim().min(1, "请输入面试轮次").max(100, "面试轮次不能超过 100 个字符"),
   scheduledAt: z.string().trim().optional().or(z.literal("")),
+  scheduledEndAt: z.string().trim().optional().or(z.literal("")),
   sortOrder: z.number().int().min(0),
 });
 
@@ -415,7 +416,7 @@ export const studioInterviewBaseSchema = z.object({
     .superRefine((entries, context) => {
       const seenOrder = new Set<number>();
 
-      for (const entry of entries) {
+      for (const [index, entry] of entries.entries()) {
         if (seenOrder.has(entry.sortOrder)) {
           context.addIssue({
             code: z.ZodIssueCode.custom,
@@ -429,7 +430,39 @@ export const studioInterviewBaseSchema = z.object({
         if (entry.scheduledAt && Number.isNaN(Date.parse(entry.scheduledAt))) {
           context.addIssue({
             code: z.ZodIssueCode.custom,
-            message: "请输入有效的面试时间",
+            message: "请输入有效的面试开始时间",
+            path: [index, "scheduledAt"],
+          });
+          return;
+        }
+
+        if (entry.scheduledEndAt && Number.isNaN(Date.parse(entry.scheduledEndAt))) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "请输入有效的面试结束时间",
+            path: [index, "scheduledEndAt"],
+          });
+          return;
+        }
+
+        if (Boolean(entry.scheduledAt) !== Boolean(entry.scheduledEndAt)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "面试开始时间和结束时间需要同时填写",
+            path: [index, entry.scheduledAt ? "scheduledEndAt" : "scheduledAt"],
+          });
+          return;
+        }
+
+        if (
+          entry.scheduledAt &&
+          entry.scheduledEndAt &&
+          Date.parse(entry.scheduledEndAt) <= Date.parse(entry.scheduledAt)
+        ) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "面试结束时间必须晚于开始时间",
+            path: [index, "scheduledEndAt"],
           });
           return;
         }
@@ -448,6 +481,13 @@ function validateScheduleEntryInstants(
         code: z.ZodIssueCode.custom,
         message: "面试时间必须包含明确的时区信息。",
         path: ["scheduleEntries", index, "scheduledAt"],
+      });
+    }
+    if (entry.scheduledEndAt && !isExplicitTimezoneDateTimeString(entry.scheduledEndAt)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "面试结束时间必须包含明确的时区信息。",
+        path: ["scheduleEntries", index, "scheduledEndAt"],
       });
     }
   }
@@ -491,6 +531,7 @@ export function createDefaultScheduleEntry(sortOrder = 0): StudioInterviewSchedu
     notes: "",
     roundLabel: sortOrder === 0 ? "一面" : `第 ${sortOrder + 1} 轮`,
     scheduledAt: "",
+    scheduledEndAt: "",
     sortOrder,
   };
 }

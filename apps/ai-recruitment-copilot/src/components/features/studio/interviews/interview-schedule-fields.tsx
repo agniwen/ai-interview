@@ -1,15 +1,10 @@
 "use client";
 
-import {
-  IconArrowBackUp,
-  IconCalendarEvent,
-  IconLock,
-  IconPlus,
-  IconTrash,
-} from "@tabler/icons-react";
+import { IconArrowBackUp, IconLock, IconPlus, IconTrash } from "@tabler/icons-react";
 import type { InterviewFormApi } from "./interview-form";
 import type { ScheduleEntryStatus } from "@arc/db-schema/studio-interviews";
 
+import { DateTimePicker } from "@/components/date-time-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -141,6 +136,7 @@ export function InterviewScheduleFields({
 
                           return (
                             <Field
+                              className="md:col-span-2"
                               data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
                             >
                               <FieldLabel htmlFor={field.name}>轮次名称</FieldLabel>
@@ -171,25 +167,50 @@ export function InterviewScheduleFields({
                             <Field
                               data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
                             >
-                              <FieldLabel htmlFor={field.name}>面试时间</FieldLabel>
+                              <FieldLabel htmlFor={field.name}>开始时间</FieldLabel>
                               <FieldContent className="gap-2">
-                                <div className="relative">
-                                  <IconCalendarEvent className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                                  <Input
-                                    aria-invalid={!!errors?.length}
-                                    className="w-full pl-9"
-                                    disabled={isLocked}
-                                    id={field.name}
-                                    onBlur={field.handleBlur}
-                                    onChange={(event) => field.handleChange(event.target.value)}
-                                    type="datetime-local"
-                                    value={field.state.value}
-                                  />
-                                </div>
+                                <DateTimePicker
+                                  aria-invalid={!!errors?.length}
+                                  disabled={isLocked}
+                                  id={field.name}
+                                  onBlur={field.handleBlur}
+                                  onValueChange={field.handleChange}
+                                  value={field.state.value ?? ""}
+                                />
                                 <FieldDescription>
                                   {isLocked
                                     ? "该轮次已开始或已结束，时间不可修改。"
-                                    : "可留空，表示轮次已创建但时间待定。"}
+                                    : "开始与结束时间需要同时填写。"}
+                                </FieldDescription>
+                                <FieldError errors={errors} />
+                              </FieldContent>
+                            </Field>
+                          );
+                        }}
+                      </form.Field>
+
+                      <form.Field name={`scheduleEntries[${index}].scheduledEndAt` as const}>
+                        {(field) => {
+                          const errors = toFieldErrors(field.state.meta.errors);
+
+                          return (
+                            <Field
+                              data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
+                            >
+                              <FieldLabel htmlFor={field.name}>结束时间</FieldLabel>
+                              <FieldContent className="gap-2">
+                                <DateTimePicker
+                                  aria-invalid={!!errors?.length}
+                                  disabled={isLocked}
+                                  id={field.name}
+                                  onBlur={field.handleBlur}
+                                  onValueChange={field.handleChange}
+                                  value={field.state.value ?? ""}
+                                />
+                                <FieldDescription>
+                                  {isLocked
+                                    ? "该轮次已开始或已结束，时间不可修改。"
+                                    : "结束时间必须晚于开始时间。"}
                                 </FieldDescription>
                                 <FieldError errors={errors} />
                               </FieldContent>

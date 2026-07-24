@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
+import { DatePicker } from "@/components/date-time-picker";
 import { Badge } from "@/components/ui/badge";
 import {
   Sheet,
@@ -365,18 +366,18 @@ function MailIngestLogMessages({ account, slug }: { account: MailIngestLogAccoun
           placeholder="主题或发件人"
           value={keyword}
         />
-        <input
+        <DatePicker
           aria-label="起始日期"
-          className="rounded border px-2 py-1 text-sm"
-          onChange={(e) => applyDates(e.target.value || null, to)}
-          type="date"
+          className="h-8 text-sm"
+          onValueChange={(value) => applyDates(value || null, to)}
+          placeholder="起始日期"
           value={from ?? ""}
         />
-        <input
+        <DatePicker
           aria-label="结束日期"
-          className="rounded border px-2 py-1 text-sm"
-          onChange={(e) => applyDates(from, e.target.value || null)}
-          type="date"
+          className="h-8 text-sm"
+          onValueChange={(value) => applyDates(from, value || null)}
+          placeholder="结束日期"
           value={to ?? ""}
         />
         {hasFilters ? (

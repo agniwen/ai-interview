@@ -27,10 +27,10 @@ import { dateTimeLocalInputToISOString } from "@/lib/client/datetime-local";
 import { patchHumanInterviewRound } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
+import { DateTimePicker } from "@/components/date-time-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   addOneHourToDateTimeLocalInputValue,
@@ -224,24 +224,22 @@ export function RoundScheduledAtControl({
         <Label className="sr-only" htmlFor={inputId}>
           面试时间
         </Label>
-        <Input
+        <DateTimePicker
           className="h-7 w-[13.5rem] text-xs"
           disabled={mutation.isPending}
           id={inputId}
-          onChange={(e) => handleScheduledAtChange(e.target.value)}
+          onValueChange={handleScheduledAtChange}
           required
-          type="datetime-local"
           value={scheduledAt}
         />
         <Label className="sr-only" htmlFor={validUntilInputId}>
           有效时间至
         </Label>
-        <Input
+        <DateTimePicker
           className="h-7 w-[13.5rem] text-xs"
           disabled={mutation.isPending}
           id={validUntilInputId}
-          onChange={(e) => setValidUntil(e.target.value)}
-          type="datetime-local"
+          onValueChange={setValidUntil}
           value={validUntil}
         />
         <Button

@@ -94,6 +94,7 @@ interface UnifiedRecord {
   roundId?: string;
   roundLabel?: string;
   roundScheduledAt?: string | null;
+  roundScheduledEndAt?: string | null;
   roundStatus?: StudioInterviewRoundDetail["status"];
   roundInterviewLink?: string;
   roundAllowTextInput?: boolean;
@@ -123,6 +124,7 @@ function toUnifiedRoundRecord(round: StudioInterviewRoundDetail): UnifiedRecord 
     roundInterviewLink: round.interviewLink,
     roundLabel: round.roundLabel,
     roundScheduledAt: round.scheduledAt,
+    roundScheduledEndAt: round.scheduledEndAt,
     roundStatus: round.status,
     targetRole: round.candidate.targetRole,
   };

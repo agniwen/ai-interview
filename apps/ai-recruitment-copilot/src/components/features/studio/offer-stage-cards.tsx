@@ -26,6 +26,7 @@ import {
   updateCandidateExpectations,
 } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { DatePicker } from "@/components/date-time-picker";
 import { Badge } from "@/components/ui/badge";
 import { EmptyValue } from "@/components/features/display/empty-value";
 import { Button } from "@/components/ui/button";
@@ -149,10 +150,9 @@ export function CandidateExpectationsBlock({
               <Label className="text-sm" htmlFor="exp-joining">
                 最早入职日
               </Label>
-              <Input
+              <DatePicker
                 id="exp-joining"
-                onChange={(e) => setEarliestJoiningDate(e.target.value)}
-                type="date"
+                onValueChange={setEarliestJoiningDate}
                 value={earliestJoiningDate}
               />
             </div>

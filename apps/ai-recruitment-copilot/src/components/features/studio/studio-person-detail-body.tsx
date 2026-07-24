@@ -227,12 +227,21 @@ function InterviewResultTabContent({
                 ) : null}
               </div>
               <div className="flex items-center gap-2">
-                {record.roundScheduledAt ? (
-                  <TimeDisplay
-                    className="shrink-0 text-muted-foreground text-xs"
-                    options={DATE_TIME_DISPLAY_OPTIONS}
-                    value={record.roundScheduledAt}
-                  />
+                {record.roundScheduledAt && record.roundScheduledEndAt ? (
+                  <div className="flex flex-wrap items-center gap-1 text-muted-foreground text-xs">
+                    <span>开始</span>
+                    <TimeDisplay
+                      className="shrink-0"
+                      options={DATE_TIME_DISPLAY_OPTIONS}
+                      value={record.roundScheduledAt}
+                    />
+                    <span>· 结束</span>
+                    <TimeDisplay
+                      className="shrink-0"
+                      options={DATE_TIME_DISPLAY_OPTIONS}
+                      value={record.roundScheduledEndAt}
+                    />
+                  </div>
                 ) : (
                   <span className="text-muted-foreground text-xs">未排期</span>
                 )}

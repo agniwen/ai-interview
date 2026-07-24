@@ -59,6 +59,7 @@ export function normalizeScheduleEntries(values: InterviewFormValues["scheduleEn
   return values.map((entry, index) => ({
     ...entry,
     scheduledAt: dateTimeLocalInputToISOString(entry.scheduledAt ?? ""),
+    scheduledEndAt: dateTimeLocalInputToISOString(entry.scheduledEndAt ?? ""),
     sortOrder: index,
   }));
 }

@@ -10,4 +10,9 @@ describe("Studio sidebar menu items", () => {
     expect(source).toContain("data-[active=false]:hover:opacity-100");
     expect(source).toContain("motion-reduce:active:scale-100");
   });
+
+  it("places schedule management immediately above the dashboard", () => {
+    expect(source.indexOf('title: "日程管理"')).toBeGreaterThan(source.indexOf('title: "AI 面试"'));
+    expect(source.indexOf('title: "日程管理"')).toBeLessThan(source.indexOf('title: "数据看板"'));
+  });
 });

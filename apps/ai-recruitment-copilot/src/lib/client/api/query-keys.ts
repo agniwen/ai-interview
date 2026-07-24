@@ -13,6 +13,11 @@ export const humanInterviewKeys = {
   studioResumes: () => ["studio-resumes"] as const,
 };
 
+export const studioCalendarKeys = {
+  range: (slug: string, start: string, end: string) =>
+    ["studio-calendar", slug, start, end] as const,
+};
+
 type QueryInvalidator = Pick<QueryClient, "invalidateQueries">;
 
 export async function invalidateHumanInterviewCandidateQueries(
