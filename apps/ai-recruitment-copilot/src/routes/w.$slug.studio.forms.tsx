@@ -12,6 +12,7 @@ import {
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioFormsState } from "@/lib/start/studio/forms.functions";
 import type { StudioFormsState } from "@/lib/start/studio/forms.functions";
 import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
@@ -661,7 +662,7 @@ function StudioFormsRoute() {
 export const Route = createFileRoute("/w/$slug/studio/forms")({
   component: StudioFormsRoute,
   head: () => ({
-    meta: [{ title: "表单题" }],
+    meta: [{ title: formatDocumentTitle("表单题") }],
   }),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {

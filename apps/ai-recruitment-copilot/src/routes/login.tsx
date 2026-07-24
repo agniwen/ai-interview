@@ -1,5 +1,6 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { LoginPage } from "@/components/features/login/login-page";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import {
   readLoginGoto,
   resolveLoginCallbackURL,
@@ -34,7 +35,7 @@ function LoginRoute() {
 export const Route = createFileRoute("/login")({
   component: LoginRoute,
   head: () => ({
-    meta: [{ title: "登录" }],
+    meta: [{ title: formatDocumentTitle("登录") }],
   }),
   validateSearch: (search): LoginSearch => ({
     callbackURL: readSearchValue(search.callbackURL),

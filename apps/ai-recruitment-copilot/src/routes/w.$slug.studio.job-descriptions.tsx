@@ -12,6 +12,7 @@ import {
   useSearch,
 } from "@tanstack/react-router";
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import type { DepartmentRecord } from "@arc/shared/departments";
 import type { InterviewerListRecord } from "@arc/shared/interviewers";
@@ -636,7 +637,7 @@ function StudioJobDescriptionsRoute() {
 export const Route = createFileRoute("/w/$slug/studio/job-descriptions")({
   component: StudioJobDescriptionsRoute,
   head: () => ({
-    meta: [{ title: "岗位设置" }],
+    meta: [{ title: formatDocumentTitle("岗位设置") }],
   }),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {

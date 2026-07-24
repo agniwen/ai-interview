@@ -12,6 +12,7 @@ import type { ResumeEvaluationStatus } from "@arc/shared/studio-resumes";
 import { describeResumeEvaluationStatus } from "@arc/shared/studio-resumes";
 
 import { StudioPersonDetailPanel } from "@/components/features/studio/studio-person-detail-panel";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { fetchStudioResumeReview, submitResumeReviewEvaluation } from "@/lib/client/api";
@@ -145,7 +146,7 @@ function ResumeReviewDetailPage() {
 export const Route = createFileRoute("/resume-review/$slug/$recordId")({
   component: ResumeReviewDetailPage,
   head: () => ({
-    meta: [{ title: "简历评估" }],
+    meta: [{ title: formatDocumentTitle("简历评估") }],
   }),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {

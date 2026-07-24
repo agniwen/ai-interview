@@ -7,6 +7,7 @@ import { getJoinPreview } from "@arc/ai-recruitment-copilot-backend/server/route
 import { codeParamsSchema } from "@arc/ai-recruitment-copilot-backend/server/routes/join/schema";
 import { InvalidJoinLink } from "@/components/features/join/invalid-join-link";
 import { JoinClient } from "@/components/features/join/join-client";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import { codeInputSchema } from "@/lib/start/server-fn-validators";
 
 type JoinRouteState =
@@ -73,7 +74,7 @@ function JoinRoute() {
 export const Route = createFileRoute("/join/$code")({
   component: JoinRoute,
   head: () => ({
-    meta: [{ title: "加入工作区" }],
+    meta: [{ title: formatDocumentTitle("加入工作区") }],
   }),
   loader: async ({ params }) => {
     const state = await getJoinRouteState({ data: { code: params.code } });

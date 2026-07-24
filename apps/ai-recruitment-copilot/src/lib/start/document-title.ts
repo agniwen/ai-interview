@@ -1,4 +1,13 @@
-export const ROOT_DOCUMENT_TITLE = "招聘 AI 协同工作台 · AI Recruitment Copilot";
+export const APPLICATION_NAME = "AI Recruitment Copilot";
+export const ROOT_DOCUMENT_TITLE = `招聘 AI 协同工作台 · ${APPLICATION_NAME}`;
+
+export function formatDocumentTitle(pageTitle: string): string {
+  const normalizedTitle = pageTitle.trim();
+  const applicationSuffix = ` · ${APPLICATION_NAME}`;
+  return normalizedTitle.endsWith(applicationSuffix)
+    ? normalizedTitle
+    : `${normalizedTitle}${applicationSuffix}`;
+}
 
 const PUBLIC_PAGE_TITLES: readonly (readonly [RegExp, string])[] = [
   [/^\/invite\//, "加入工作区"],
@@ -138,15 +147,15 @@ export function resolveDocumentTitle(pathname: string): string {
 
   for (const [pattern, title] of PUBLIC_PAGE_TITLES) {
     if (pattern.test(normalizedPathname)) {
-      return title;
+      return formatDocumentTitle(title);
     }
   }
 
-  return (
+  const pageTitle =
     resolveWorkspaceTitle(normalizedPathname) ??
     resolvePlatformTitle(normalizedPathname) ??
-    ROOT_DOCUMENT_TITLE
-  );
+    ROOT_DOCUMENT_TITLE;
+  return formatDocumentTitle(pageTitle);
 }
 
 export function documentTitleMeta(matches: readonly { pathname: string }[]) {

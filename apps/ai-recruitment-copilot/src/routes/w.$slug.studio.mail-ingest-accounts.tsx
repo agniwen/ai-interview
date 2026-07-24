@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { actionsColumn, customColumn, DataGrid, useDataGridState } from "@/components/data-grid";
 import type { DataGridFetchParams, DataGridFetchResult } from "@/components/data-grid";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import { MemberCell } from "@/components/data-grid/cells/member-cell";
 import { TimeDisplay } from "@/components/features/display/time-display";
 import { PageHeader } from "@/components/features/studio/page-header";
@@ -706,7 +707,7 @@ function ManagedMailIngestRoute() {
 export const Route = createFileRoute("/w/$slug/studio/mail-ingest-accounts")({
   component: ManagedMailIngestRoute,
   head: () => ({
-    meta: [{ title: "邮箱监听" }],
+    meta: [{ title: formatDocumentTitle("邮箱监听") }],
   }),
   pendingComponent: () => <StudioTablePageSkeleton label="邮箱监听" />,
 });

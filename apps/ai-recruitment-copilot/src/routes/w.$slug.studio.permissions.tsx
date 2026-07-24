@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { WorkspacePermissionsSection } from "@/components/features/studio/members/workspace-permissions-section";
 import { PermissionsPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 
 function StudioPermissionsRoute() {
   return (
@@ -22,7 +23,7 @@ function StudioPermissionsRoute() {
 export const Route = createFileRoute("/w/$slug/studio/permissions")({
   component: StudioPermissionsRoute,
   head: () => ({
-    meta: [{ title: "权限管理" }],
+    meta: [{ title: formatDocumentTitle("权限管理") }],
   }),
   pendingComponent: PermissionsPageSkeleton,
 });

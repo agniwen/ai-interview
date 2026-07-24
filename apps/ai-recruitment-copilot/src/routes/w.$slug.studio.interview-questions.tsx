@@ -12,6 +12,7 @@ import {
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioInterviewQuestionsState } from "@/lib/start/studio/interview-questions.functions";
 import type { StudioInterviewQuestionsState } from "@/lib/start/studio/interview-questions.functions";
 import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
@@ -632,7 +633,7 @@ function StudioInterviewQuestionsRoute() {
 export const Route = createFileRoute("/w/$slug/studio/interview-questions")({
   component: StudioInterviewQuestionsRoute,
   head: () => ({
-    meta: [{ title: "沟通题" }],
+    meta: [{ title: formatDocumentTitle("沟通题") }],
   }),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {

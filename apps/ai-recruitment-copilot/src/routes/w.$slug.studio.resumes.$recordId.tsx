@@ -10,6 +10,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import {
   canLaunchInterviewFromResume,
   getResumeActionLockedReason,
@@ -409,7 +410,7 @@ function RecruiterResumeDetailPage() {
 export const Route = createFileRoute("/w/$slug/studio/resumes/$recordId")({
   component: RecruiterResumeDetailPage,
   head: () => ({
-    meta: [{ title: "候选人详情" }],
+    meta: [{ title: formatDocumentTitle("候选人详情") }],
   }),
   loader: async (loaderContext) => {
     const { params } = loaderContext as unknown as {

@@ -1,6 +1,7 @@
 import { IconRobot, IconTrash } from "@tabler/icons-react";
 import { HydrationBoundary, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import {
   Link,
   Outlet,
@@ -765,7 +766,7 @@ function StudioInterviewsRoute() {
 export const Route = createFileRoute("/w/$slug/studio/interviews")({
   component: StudioInterviewsRoute,
   head: () => ({
-    meta: [{ title: "AI 面试" }],
+    meta: [{ title: formatDocumentTitle("AI 面试") }],
   }),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {

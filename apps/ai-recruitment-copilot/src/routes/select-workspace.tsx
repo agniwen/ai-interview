@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CreateWorkspaceDialog } from "@/components/features/workspace/create-workspace-dialog";
 import { getWorkspaceSelectionState } from "@/lib/start/auth-session";
 import { UserMenu } from "@/components/features/select-workspace/user-menu";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 
 const WHITESPACE_REGEX = /\s+/;
 
@@ -119,7 +120,7 @@ function SelectWorkspaceRoute() {
 export const Route = createFileRoute("/select-workspace")({
   component: SelectWorkspaceRoute,
   head: () => ({
-    meta: [{ title: "选择工作区" }],
+    meta: [{ title: formatDocumentTitle("选择工作区") }],
   }),
   loader: async () => {
     const state = await getWorkspaceSelectionState();

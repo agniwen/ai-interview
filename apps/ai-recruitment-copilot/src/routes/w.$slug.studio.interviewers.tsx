@@ -11,6 +11,7 @@ import {
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import type { DepartmentRecord } from "@arc/shared/departments";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioInterviewersState } from "@/lib/start/studio/interviewers.functions";
 import type { StudioInterviewersState } from "@/lib/start/studio/interviewers.functions";
 import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
@@ -387,7 +388,7 @@ function StudioInterviewersRoute() {
 export const Route = createFileRoute("/w/$slug/studio/interviewers")({
   component: StudioInterviewersRoute,
   head: () => ({
-    meta: [{ title: "面试官管理" }],
+    meta: [{ title: formatDocumentTitle("面试官管理") }],
   }),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {

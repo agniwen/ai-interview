@@ -1,5 +1,6 @@
 import { HydrationBoundary } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import {
   Outlet,
   createFileRoute,
@@ -46,7 +47,7 @@ function StudioResumesRoute() {
 export const Route = createFileRoute("/w/$slug/studio/resumes")({
   component: StudioResumesRoute,
   head: () => ({
-    meta: [{ title: "招聘台" }],
+    meta: [{ title: formatDocumentTitle("招聘台") }],
   }),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {

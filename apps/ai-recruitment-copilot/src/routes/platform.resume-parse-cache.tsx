@@ -4,6 +4,7 @@ import { createFileRoute, redirect, useLoaderData } from "@tanstack/react-router
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import { ResumeParseCacheGrid } from "@/components/features/platform/resume-parse-cache/resume-parse-cache-grid";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadPlatformResumeParseCacheState } from "@/lib/start/platform/resume-parse-cache.functions";
 import type { PlatformResumeParseCacheState } from "@/lib/start/platform/resume-parse-cache.functions";
 import type { ResumeParseCacheFilters } from "@arc/ai-recruitment-copilot-backend/server/routes/platform/routes/resume-parse-cache/schema";
@@ -62,7 +63,7 @@ function PlatformResumeParseCacheRoute() {
 
 export const Route = createFileRoute("/platform/resume-parse-cache")({
   component: PlatformResumeParseCacheRoute,
-  head: () => ({ meta: [{ title: "平台 · 解析缓存" }] }),
+  head: () => ({ meta: [{ title: formatDocumentTitle("平台 · 解析缓存") }] }),
   loader: async (loaderContext) => {
     const { location } = loaderContext as unknown as {
       location: { search: SearchParamsRecord };
