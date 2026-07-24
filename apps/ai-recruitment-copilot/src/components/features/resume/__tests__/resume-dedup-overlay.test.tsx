@@ -79,6 +79,11 @@ describe("ResumeDuplicateMatchesDialog", () => {
     expect(document.body.textContent).toContain("上传人");
     expect(document.body.textContent).toContain("当前上传人");
     expect(document.body.textContent).toContain("疑似上传人");
+    const uploaderLabel = [...document.querySelectorAll("span")].find(
+      (element) => element.textContent === "上传人",
+    );
+    expect(uploaderLabel?.parentElement?.className).toContain("grid-cols-[3rem_minmax(0,1fr)]");
+    expect(uploaderLabel?.parentElement?.className).toContain("gap-x-2");
     const avatars = document.querySelectorAll<HTMLElement>('[data-slot="avatar"]');
     expect(avatars.length).toBeGreaterThanOrEqual(2);
     for (const avatar of avatars) {

@@ -142,15 +142,17 @@ function UploaderMeta({
 }) {
   const displayName = textOrNull(name) ?? "未知上传人";
   return (
-    <div className="flex min-w-0 items-center gap-1.5 text-xs">
+    <div className="grid min-w-0 grid-cols-[3rem_minmax(0,1fr)] gap-x-2 text-xs leading-5">
       <span className="shrink-0 text-muted-foreground">上传人</span>
-      <Avatar className="size-4 shrink-0">
-        {image ? <AvatarImage alt={displayName} src={image} /> : null}
-        <AvatarFallback className="text-[8px]">
-          {textOrNull(name)?.charAt(0).toUpperCase() ?? "?"}
-        </AvatarFallback>
-      </Avatar>
-      <span className="min-w-0 truncate text-foreground">{displayName}</span>
+      <div className="flex min-w-0 items-center gap-1.5">
+        <Avatar className="size-4 shrink-0">
+          {image ? <AvatarImage alt={displayName} src={image} /> : null}
+          <AvatarFallback className="text-[8px]">
+            {textOrNull(name)?.charAt(0).toUpperCase() ?? "?"}
+          </AvatarFallback>
+        </Avatar>
+        <span className="min-w-0 truncate text-foreground">{displayName}</span>
+      </div>
     </div>
   );
 }
