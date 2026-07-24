@@ -6,7 +6,6 @@ import { useGSAP } from "@gsap/react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useRef } from "react";
-import { FadeContent } from "@/components/react-bits/fade-content";
 import { ResumesScreen } from "@/components/features/home/screens";
 import { Section } from "./section";
 
@@ -61,11 +60,9 @@ export function ProductShot() {
 
   return (
     <Section className="!pt-8 sm:!pt-10" width="wide">
-      <FadeContent>
-        <div ref={wrapperRef}>
-          <ResumesScreen />
-        </div>
-      </FadeContent>
+      <div ref={wrapperRef}>
+        <ResumesScreen />
+      </div>
     </Section>
   );
 }
