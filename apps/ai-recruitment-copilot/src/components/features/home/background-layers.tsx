@@ -76,10 +76,10 @@ export function BackgroundLayers() {
           </>
         )}
       </div>
-      {/* 保持原首页 mask，背景动画始终可见 / Preserve original mask so bg animation stays visible. */}
+      {/* 亮色保留 mask，暗色直接展示 Mesh / Keep the light mask; expose the Mesh directly in dark mode. */}
       <div
         aria-hidden="true"
-        className="bg-mask pointer-events-none fixed inset-0 -z-10 bg-[linear-gradient(to_bottom,oklch(0.985_0.007_236.5/0.48),oklch(0.985_0.007_236.5/0.68)_42%,oklch(0.985_0.007_236.5/0.82)_100%)] opacity-80 dark:bg-[linear-gradient(to_bottom,oklch(0.145_0_0/0.55),oklch(0.145_0_0/0.72)_42%,oklch(0.145_0_0/0.88)_100%)]"
+        className="bg-mask pointer-events-none fixed inset-0 -z-10 bg-[linear-gradient(to_bottom,oklch(0.985_0.007_236.5/0.48),oklch(0.985_0.007_236.5/0.68)_42%,oklch(0.985_0.007_236.5/0.82)_100%)] opacity-80 dark:bg-[linear-gradient(to_bottom,oklch(0.145_0_0/0.55),oklch(0.145_0_0/0.72)_42%,oklch(0.145_0_0/0.88)_100%)] dark:opacity-0"
       />
     </>
   );

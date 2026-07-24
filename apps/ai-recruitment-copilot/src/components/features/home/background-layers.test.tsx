@@ -84,6 +84,7 @@ describe("BackgroundLayers", () => {
     expect(container.querySelector('[data-testid="ascii-hero"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="dark-veil"]')).toBeNull();
     expect(container.querySelector('[data-testid="dot-grid"]')).toBeNull();
+    expect(container.querySelector(".bg-mask")?.className).toContain("dark:opacity-0");
 
     act(() => root.unmount());
     container.remove();
