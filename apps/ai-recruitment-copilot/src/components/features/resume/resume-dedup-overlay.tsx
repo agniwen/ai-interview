@@ -22,6 +22,7 @@ import { ResumeProfileView } from "@/components/features/resume/resume-profile-v
 import { EmptyValue } from "@/components/features/display/empty-value";
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Modal } from "@/components/ui/modal";
 import { fetchResumePoolItem } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -132,6 +133,28 @@ function ContactFields({
   );
 }
 
+function UploaderMeta({
+  image,
+  name,
+}: {
+  image: string | null | undefined;
+  name: string | null | undefined;
+}) {
+  const displayName = textOrNull(name) ?? "未知上传人";
+  return (
+    <div className="flex min-w-0 items-center gap-2 text-xs">
+      <span className="shrink-0 text-muted-foreground">上传人</span>
+      <Avatar className="size-5 shrink-0" size="sm">
+        {image ? <AvatarImage alt={displayName} src={image} /> : null}
+        <AvatarFallback className="text-[9px]">
+          {textOrNull(name)?.charAt(0).toUpperCase() ?? "?"}
+        </AvatarFallback>
+      </Avatar>
+      <span className="min-w-0 truncate text-foreground">{displayName}</span>
+    </div>
+  );
+}
+
 function JudgmentLines({ match }: { match: DedupMatchRecord }) {
   const evidence = similarityEvidence(match);
   const reasons = match.semanticReasons ?? [];
@@ -188,6 +211,8 @@ function CandidateBody({
   createdAt,
   skills,
   snapshot,
+  uploaderImage,
+  uploaderName,
   footer,
 }: {
   targetRole: string | null | undefined;
@@ -197,11 +222,14 @@ function CandidateBody({
   createdAt?: string | null;
   skills: string[] | null | undefined;
   snapshot: DedupMatchRecord["resumeProfileSnapshot"];
+  uploaderImage: string | null | undefined;
+  uploaderName: string | null | undefined;
   footer?: ReactNode;
 }) {
   return (
     <div className="min-w-0 space-y-2.5">
       <RoleText jobDescriptionName={jobDescriptionName} targetRole={targetRole} />
+      <UploaderMeta image={uploaderImage} name={uploaderName} />
       <ContactFields createdAt={createdAt} email={email} phone={phone} />
       <ResumeProfileSnapshotView showLabels snapshot={snapshot} />
       <SkillsLine skills={skills} />
@@ -287,6 +315,8 @@ function SourceCandidatePanel({ source }: { source: DedupSourceCandidate }) {
           skills={source.skills}
           snapshot={source.resumeProfileSnapshot}
           targetRole={source.targetRole}
+          uploaderImage={source.uploaderImage}
+          uploaderName={source.uploaderName}
         />
       </div>
     </aside>
@@ -346,6 +376,8 @@ function MatchCandidateRow({
           skills={match.skills}
           snapshot={match.resumeProfileSnapshot}
           targetRole={match.targetRole}
+          uploaderImage={match.uploaderImage}
+          uploaderName={match.uploaderName}
         />
       </div>
     </div>

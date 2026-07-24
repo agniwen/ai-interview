@@ -8,6 +8,7 @@ import {
   resumeDuplicateMatch,
   resumePoolItem,
   studioInterview,
+  user,
 } from "@arc/db-schema/schema";
 import type { ResumeSemanticSourceType } from "@arc/db-schema/schema";
 import { getResumeSemanticIndexConfig } from "./indexer";
@@ -183,6 +184,8 @@ function toMatchRecord(
     resumeProfile: ResumeProfile | null;
     status: DedupMatchRecord["status"];
     targetRole: string | null;
+    uploaderImage: string | null;
+    uploaderName: string | null;
   },
 ): DedupMatchRecord {
   return {
@@ -202,6 +205,8 @@ function toMatchRecord(
     sourceType: match.matchedSourceType,
     status: target.status,
     targetRole: target.targetRole,
+    uploaderImage: target.uploaderImage,
+    uploaderName: target.uploaderName,
   };
 }
 
@@ -250,8 +255,11 @@ export async function listDuplicateMatchesForSource(input: {
               END
             `,
             targetRole: studioInterview.targetRole,
+            uploaderImage: user.image,
+            uploaderName: user.name,
           })
           .from(studioInterview)
+          .leftJoin(user, eq(studioInterview.createdBy, user.id))
           .leftJoin(
             jobDescription,
             and(
@@ -278,8 +286,11 @@ export async function listDuplicateMatchesForSource(input: {
             resumeProfile: resumePoolItem.resumeProfile,
             status: resumePoolItem.status,
             targetRole: resumePoolItem.targetRole,
+            uploaderImage: user.image,
+            uploaderName: user.name,
           })
           .from(resumePoolItem)
+          .leftJoin(user, eq(resumePoolItem.createdBy, user.id))
           .leftJoin(
             jobDescription,
             and(
