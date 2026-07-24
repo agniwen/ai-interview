@@ -4,6 +4,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
 import type { ResumeReviewLoose } from "@arc/shared/resume-review";
+import { installNoopResizeObserver } from "@/test-utils/react-act";
 import {
   buildRecruitingResumeReviewCardModel,
   RecruitingResumeReviewCard,
@@ -20,6 +21,7 @@ vi.mock("../recruiting-copilot-context", () => ({
 }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+installNoopResizeObserver();
 
 const review: ResumeReviewLoose = {
   biasScan: { items: [] },
@@ -100,9 +102,11 @@ describe("buildRecruitingResumeReviewCardModel", () => {
       await Promise.resolve();
     });
 
-    expect(container.querySelectorAll("meter")).toHaveLength(6);
+    expect(container.querySelector("[data-chart]")).not.toBeNull();
+    expect(container.querySelectorAll("dt")).toHaveLength(6);
+    expect(container.querySelector("section")?.className).toContain("my-3");
     const detailButton = [...container.querySelectorAll("button")].find((button) =>
-      button.textContent?.includes("AI评分详情"),
+      button.textContent?.includes("查看评分详情"),
     );
     expect(detailButton).toBeDefined();
     await act(async () => {

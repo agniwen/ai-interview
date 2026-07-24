@@ -1,6 +1,5 @@
 "use client";
 
-import { IconChevronRight, IconSparkles } from "@tabler/icons-react";
 import {
   getResumeReviewBaseScore,
   getResumeReviewDimension,
@@ -8,7 +7,10 @@ import {
 } from "@arc/shared/resume-review";
 import type { ResumeReviewLoose } from "@arc/shared/resume-review";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { CardFooter, CardHeader, CardPanel } from "@/components/ui/card";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart } from "recharts";
+import { RecruitingChatCard } from "./recruiting-chat-card";
 import { useRecruitingCopilotContext } from "./recruiting-copilot-context";
 import type { ResumeRecordDetailResult } from "./recruiting-copilot-context";
 
@@ -17,6 +19,13 @@ interface RecruitingResumeReviewDimension {
   label: string;
   score: number | null;
 }
+
+const REVIEW_CHART_CONFIG = {
+  score: {
+    color: "var(--primary)",
+    label: "评分",
+  },
+};
 
 export function buildRecruitingResumeReviewCardModel(
   review: ResumeReviewLoose | null | undefined,
@@ -39,34 +48,56 @@ export function buildRecruitingResumeReviewCardModel(
   };
 }
 
-function DimensionScore({ dimension }: { dimension: RecruitingResumeReviewDimension }) {
-  const { score } = dimension;
+function DimensionRadarChart({ dimensions }: { dimensions: RecruitingResumeReviewDimension[] }) {
+  const hasScores = dimensions.some((dimension) => dimension.score !== null);
+
+  if (!hasScores) {
+    return (
+      <div className="flex min-h-48 items-center justify-center text-muted-foreground text-sm">
+        暂无维度评分
+      </div>
+    );
+  }
+
   return (
-    <div className="min-w-0 space-y-1.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="truncate text-muted-foreground text-xs">{dimension.label}</span>
-        <span className="shrink-0 font-medium text-xs tabular-nums">
-          {score === null ? "—" : score}
-        </span>
-      </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-        <meter
-          aria-label={`${dimension.label}${score === null ? "未评分" : `${score} 分`}`}
-          className="sr-only"
-          max={100}
-          min={0}
-          value={score ?? 0}
+    <ChartContainer
+      className="mx-auto aspect-square min-h-48 w-full max-w-52"
+      config={REVIEW_CHART_CONFIG}
+    >
+      <RadarChart
+        data={dimensions}
+        margin={{ bottom: 16, left: 16, right: 16, top: 16 }}
+        outerRadius="70%"
+      >
+        <PolarGrid gridType="polygon" />
+        <PolarAngleAxis dataKey="label" tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} />
+        <PolarRadiusAxis angle={90} axisLine={false} domain={[0, 100]} tick={false} />
+        <ChartTooltip
+          content={
+            <ChartTooltipContent
+              formatter={(value, _name, item) => {
+                const dimension = item.payload as RecruitingResumeReviewDimension | undefined;
+                return (
+                  <div className="font-medium text-foreground">
+                    {dimension?.label ?? "维度"}：{String(value)}
+                  </div>
+                );
+              }}
+              hideLabel
+            />
+          }
         />
-        <div
-          aria-hidden="true"
-          className={cn(
-            "h-full rounded-full transition-[width] duration-500",
-            score === null ? "bg-muted" : "bg-primary/75",
-          )}
-          style={{ width: `${score ?? 0}%` }}
+        <Radar
+          dataKey="score"
+          dot={{ fill: "var(--color-score)", r: 2.5 }}
+          fill="var(--color-score)"
+          fillOpacity={0.16}
+          name="评分"
+          stroke="var(--color-score)"
+          strokeWidth={2}
         />
-      </div>
-    </div>
+      </RadarChart>
+    </ChartContainer>
   );
 }
 
@@ -79,59 +110,59 @@ export function RecruitingResumeReviewCard({
   const model = buildRecruitingResumeReviewCardModel(record.resumeReview);
 
   return (
-    <section
+    <RecruitingChatCard
       aria-label={`${record.candidateName} 的数据库 AI评分`}
-      className="aui-resume-review-card overflow-hidden rounded-2xl border bg-background shadow-xs"
+      className="aui-resume-review-card"
+      render={<section />}
     >
-      <div className="flex items-start justify-between gap-4 border-b bg-muted/25 px-4 py-3.5">
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border bg-background text-foreground shadow-xs">
-            <IconSparkles className="size-4" />
-          </span>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <h3 className="truncate font-medium text-sm">{record.candidateName}</h3>
-              <span className="rounded-full border bg-background px-2 py-0.5 text-muted-foreground text-[11px]">
-                数据库 AI评分
-              </span>
-            </div>
-            <p className="mt-1 truncate text-muted-foreground text-xs">
-              关联岗位：{record.jobDescriptionName ?? "已绑定岗位"}
-            </p>
-          </div>
+      <CardHeader className="flex flex-row items-start justify-between gap-4 px-4 pt-4 pb-0">
+        <div className="min-w-0">
+          <h3 className="truncate font-medium text-sm">{record.candidateName}</h3>
+          <p className="mt-1 truncate text-muted-foreground text-xs">
+            关联岗位：{record.jobDescriptionName ?? "已绑定岗位"}
+          </p>
         </div>
         <div className="shrink-0 text-right">
           <div className="font-semibold text-2xl tabular-nums leading-none">
             {model.baseScore ?? "—"}
           </div>
-          <div className="mt-1 text-muted-foreground text-[11px]">综合评分 / 100</div>
+          <div className="mt-1 text-muted-foreground text-[11px]">综合评分</div>
         </div>
-      </div>
+      </CardHeader>
 
-      <div className="px-4 py-3.5">
-        <p className="mb-3 text-sm leading-6">
-          {model.conclusion ?? "该候选人尚未生成 AI评分，六维评分暂无数据。"}
-        </p>
-        <div className="grid gap-x-5 gap-y-3 sm:grid-cols-2">
-          {model.dimensions.map((dimension) => (
-            <DimensionScore dimension={dimension} key={dimension.key} />
-          ))}
+      <CardPanel className="grid gap-4 px-4 py-3.5 sm:grid-cols-[minmax(12rem,0.8fr)_minmax(0,1.2fr)] sm:items-center">
+        <DimensionRadarChart dimensions={model.dimensions} />
+        <div className="min-w-0">
+          <p className="text-sm leading-6">
+            {model.conclusion ?? "该候选人尚未生成 AI评分，六维评分暂无数据。"}
+          </p>
+          <dl className="mt-3 grid gap-x-4 sm:grid-cols-2">
+            {model.dimensions.map((dimension) => (
+              <div
+                className="flex min-w-0 items-baseline justify-between gap-2 border-b py-2"
+                key={dimension.key}
+              >
+                <dt className="truncate text-muted-foreground text-xs">{dimension.label}</dt>
+                <dd className="shrink-0 font-medium text-xs tabular-nums">
+                  {dimension.score ?? "—"}
+                </dd>
+              </div>
+            ))}
+          </dl>
         </div>
-      </div>
+      </CardPanel>
 
-      <div className="flex justify-end border-t bg-muted/15 px-2 py-1.5">
+      <CardFooter className="justify-end px-4 pt-0 pb-4">
         <Button
-          className="h-8 gap-1.5 px-2.5 text-xs"
+          className="h-8 px-2.5 text-xs"
           onClick={() => openResumeDetail(record.id, "ai-analysis")}
           size="sm"
           type="button"
-          variant="ghost"
+          variant="secondary"
         >
-          <IconSparkles className="size-3.5" />
-          AI评分详情
-          <IconChevronRight className="size-3.5 text-muted-foreground" />
+          查看评分详情
         </Button>
-      </div>
-    </section>
+      </CardFooter>
+    </RecruitingChatCard>
   );
 }

@@ -6,10 +6,12 @@ import { IconLoader2 } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { CardFooter, CardHeader, CardPanel } from "@/components/ui/card";
 import { JobDescriptionSelectField } from "@/components/features/studio/interviews/job-description-select-field";
 import { confirmRecruitingAction } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { notifyConversationsChanged } from "@/components/features/chat/lib/chat-events";
+import { RecruitingChatCard } from "./recruiting-chat-card";
 import { useRecruitingCopilotContext } from "./recruiting-copilot-context";
 import type {
   ProposalStatus,
@@ -193,7 +195,7 @@ function ActionProposalActions({
   onIgnore: () => void;
 }) {
   return (
-    <div className="mt-3 flex justify-end gap-2">
+    <div className="flex w-full justify-end gap-2">
       <Button disabled={disabled} onClick={onIgnore} size="sm" type="button" variant="outline">
         忽略
       </Button>
@@ -338,36 +340,40 @@ function RecruitingActionProposalCard({
   };
 
   return (
-    <article className="aui-action-proposal my-3 rounded-xl border bg-background p-3">
-      <div className="min-w-0">
+    <RecruitingChatCard className="aui-action-proposal rounded-xl" render={<article />}>
+      <CardHeader className="gap-0 p-3 pb-0">
         <p className="text-muted-foreground text-xs">{statusLabel(currentStatus)}</p>
         <h3 className="mt-1 font-medium text-sm">{proposal.title}</h3>
-      </div>
-      <p className="mt-2 text-sm leading-6">{proposal.explanation}</p>
-      {showJobPicker ? (
-        <div className="mt-3">
-          <JobDescriptionSelectField
-            disabled={!canInteract || isSubmitting}
-            label={isConfirmed ? "已关联在招岗位" : "关联在招岗位"}
-            onChange={setSelectedJobDescriptionId}
-            required={!isConfirmed}
-            showDescription={false}
-            size="sm"
-            value={selectedJobDescriptionId}
-          />
-        </div>
-      ) : null}
+      </CardHeader>
+      <CardPanel className="p-3 pt-2">
+        <p className="text-sm leading-6">{proposal.explanation}</p>
+        {showJobPicker ? (
+          <div className="mt-3">
+            <JobDescriptionSelectField
+              disabled={!canInteract || isSubmitting}
+              label={isConfirmed ? "已关联在招岗位" : "关联在招岗位"}
+              onChange={setSelectedJobDescriptionId}
+              required={!isConfirmed}
+              showDescription={false}
+              size="sm"
+              value={selectedJobDescriptionId}
+            />
+          </div>
+        ) : null}
+      </CardPanel>
       {showActions ? (
-        <ActionProposalActions
-          canConfirm={canConfirmBind}
-          confirmLabel={isJobBindProposal(proposal.type) ? "用于本对话分析" : "确认"}
-          disabled={actionsDisabled}
-          isSubmitting={isSubmitting}
-          onConfirm={handleConfirm}
-          onIgnore={handleIgnore}
-        />
+        <CardFooter className="p-3 pt-0">
+          <ActionProposalActions
+            canConfirm={canConfirmBind}
+            confirmLabel={isJobBindProposal(proposal.type) ? "用于本对话分析" : "确认"}
+            disabled={actionsDisabled}
+            isSubmitting={isSubmitting}
+            onConfirm={handleConfirm}
+            onIgnore={handleIgnore}
+          />
+        </CardFooter>
       ) : null}
-    </article>
+    </RecruitingChatCard>
   );
 }
 
