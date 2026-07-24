@@ -5,6 +5,7 @@ import { ChatPendingSkeleton } from "@/components/features/chat/chat-page-skelet
 import { PendingOutlet } from "@/components/layout/pending-outlet";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { cn } from "@arc/shared/utils/cn";
+import { documentTitleMeta } from "@/lib/start/document-title";
 
 function AgentLayout({ children }: { children: ReactNode }) {
   return (
@@ -39,5 +40,8 @@ function AgentPendingRoute() {
 
 export const Route = createFileRoute("/w/$slug/agent")({
   component: AgentShellRoute,
+  head: ({ matches }) => ({
+    meta: documentTitleMeta(matches),
+  }),
   pendingComponent: AgentPendingRoute,
 });
