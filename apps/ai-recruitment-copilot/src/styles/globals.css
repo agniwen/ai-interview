@@ -125,8 +125,9 @@
   --card-foreground: oklch(0.97 0.006 254);
   --popover: oklch(0.215 0.018 254);
   --popover-foreground: oklch(0.97 0.006 254);
-  --primary: oklch(0.72 0.095 254);
-  --primary-foreground: oklch(0.22 0.025 254);
+  /* Dark brand palette echoes the homepage MeshGradient without tinting neutral surfaces. */
+  --primary: #c4b5fd;
+  --primary-foreground: #241d3f;
   --secondary: oklch(0.255 0.02 254);
   --secondary-foreground: oklch(0.97 0.006 254);
   --muted: oklch(0.255 0.02 254);
@@ -136,20 +137,20 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.65 0.09 254);
-  --chart-1: oklch(0.62 0.1 254);
-  --chart-2: oklch(0.75 0.08 254);
-  --chart-3: oklch(0.45 0.09 254);
-  --chart-4: oklch(0.85 0.05 254);
-  --chart-5: oklch(0.55 0.06 254);
+  --ring: #a78bfa;
+  --chart-1: #c4b5fd;
+  --chart-2: #e0eaff;
+  --chart-3: #f0abfc;
+  --chart-4: #fbcfe8;
+  --chart-5: #a5b4fc;
   --sidebar: #0e151e;
   --sidebar-foreground: oklch(0.97 0.006 254);
-  --sidebar-primary: oklch(0.62 0.1 254);
-  --sidebar-primary-foreground: oklch(0.97 0.006 254);
+  --sidebar-primary: #c4b5fd;
+  --sidebar-primary-foreground: #241d3f;
   --sidebar-accent: oklch(0.255 0.02 254);
   --sidebar-accent-foreground: oklch(0.97 0.006 254);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.65 0.09 254);
+  --sidebar-ring: #a78bfa;
 }
 
 @layer base {
@@ -177,6 +178,10 @@
        kami: minimum 3 lines for widows and orphans — no stranded single lines. */
     widows: 3;
     orphans: 3;
+  }
+
+  .dark body {
+    -webkit-tap-highlight-color: color-mix(in oklab, var(--primary) 14%, transparent);
   }
 
   [data-sidebar="sidebar"] [data-sidebar="menu-button"],
@@ -225,6 +230,11 @@
   ::selection {
     background: oklch(0.86 0.09 254);
     color: oklch(0.32 0.1 254);
+  }
+
+  .dark ::selection {
+    background: color-mix(in oklab, var(--primary) 45%, transparent);
+    color: var(--foreground);
   }
 
   * {

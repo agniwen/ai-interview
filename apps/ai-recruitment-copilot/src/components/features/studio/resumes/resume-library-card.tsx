@@ -383,8 +383,10 @@ function ResumeLibraryCardComponent({
     // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <Card
       className={cn(
-        "h-full overflow-hidden transition-colors hover:border-border hover:bg-muted/30 dark:bg-input/30",
-        selected && "border-primary/40 bg-primary/5 hover:bg-primary/5 hover:border-primary/60",
+        "h-full overflow-hidden transition-colors hover:border-border hover:bg-muted/30",
+        selected
+          ? "border-primary/40 bg-primary/5 hover:border-primary/60 hover:bg-primary/5"
+          : "dark:bg-background dark:hover:bg-input/30",
       )}
       onClick={(event) => {
         if (isResumeCardInteractiveClick(event)) {
