@@ -27,14 +27,14 @@ export function BackgroundLayers() {
           <>
             <div className="absolute inset-0">
               <MeshGradient
-                colors={["#020617", "#0b2545", "#312e81", "#581c87"]}
-                distortion={0.82}
-                grainMixer={0.08}
-                grainOverlay={0.06}
+                colors={["#e0eaff", "#241d9a", "#f75092", "#9f50d3"]}
+                distortion={0.8}
+                grainMixer={0}
+                grainOverlay={0}
                 height="100%"
                 maxPixelCount={1_920_000}
-                speed={prefersReducedMotion ? 0 : 0.35}
-                swirl={0.24}
+                speed={prefersReducedMotion ? 0 : 1}
+                swirl={0.1}
                 width="100%"
               />
             </div>
