@@ -26,11 +26,7 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
   const reducedMotion = useReducedMotion();
 
   return (
-    <section className="relative isolate w-full text-center">
-      <div
-        aria-hidden="true"
-        className="hero-contrast-scrim pointer-events-none absolute top-1/2 left-1/2 -z-10 hidden h-[calc(100%+5rem)] w-[min(72rem,calc(100%+2rem))] -translate-x-1/2 -translate-y-1/2 bg-[radial-gradient(ellipse_at_center,oklch(0.11_0.03_270/0.64)_0%,oklch(0.11_0.03_270/0.48)_52%,transparent_80%)] dark:block"
-      />
+    <section className="relative w-full text-center">
       <FadeContent>
         {/* 中文官方名放在标语徽章里，承担本地化品牌识别。
             Chinese official name lives in the eyebrow badge for localized brand recall. */}
@@ -63,7 +59,7 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
       </h1>
 
       <FadeContent className="mt-5 mx-auto max-w-2xl sm:mt-7" delay={0.1}>
-        <p className="font-serif text-sm text-muted-foreground leading-normal dark:text-slate-100 sm:text-lg sm:leading-[1.8]">
+        <p className="font-serif text-sm text-muted-foreground leading-normal dark:text-slate-100 dark:[text-shadow:0_1px_12px_rgb(2_6_23/0.55)] sm:text-lg sm:leading-[1.8]">
           上传简历，和 AI
           先聊几句。把面试链接发出去，让候选人开口面对面。亮点、风险、追问过程、回答表现，一条工作流里全程在场。
         </p>

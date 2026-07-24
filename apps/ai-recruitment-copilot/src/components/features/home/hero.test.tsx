@@ -23,7 +23,7 @@ vi.mock("@/components/react-bits/split-text", () => ({
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("Hero", () => {
-  it("keeps dark-mode copy readable over the animated mesh", () => {
+  it("uses the existing copy and controls for dark-mode contrast", () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -32,15 +32,17 @@ describe("Hero", () => {
       root.render(<Hero onResumeFiltering={vi.fn()} onWorkbench={vi.fn()} />);
     });
 
-    const scrim = container.querySelector<HTMLElement>(".hero-contrast-scrim");
     const heading = container.querySelector("h1");
+    const brand = heading?.querySelector("span");
     const description = container.querySelector("p.font-serif");
+    const buttons = container.querySelectorAll("button");
 
-    expect(scrim).not.toBeNull();
-    expect(scrim?.getAttribute("aria-hidden")).toBe("true");
-    expect(scrim?.className).toContain("dark:block");
     expect(heading?.className).toContain("dark:text-white");
+    expect(brand?.className).toContain("dark:text-violet-100");
     expect(description?.className).toContain("dark:text-slate-100");
+    expect(description?.className).toContain("dark:[text-shadow:");
+    expect(buttons[0]?.className).toContain("dark:text-white");
+    expect(buttons[1]?.className).toContain("dark:text-slate-950");
 
     act(() => root.unmount());
     container.remove();
