@@ -96,6 +96,13 @@ function toCalendarEvent(event: StudioCalendarEvent): CalendarEvent<StudioCalend
   };
 }
 
+function calendarEventTypeLabel(event: StudioCalendarEvent): string {
+  if (event.kind === "human") {
+    return "真人面试";
+  }
+  return event.source === "result" ? "AI 面试记录" : "AI 面试计划";
+}
+
 function CalendarEventTooltip({ event }: { event: StudioCalendarEvent | undefined }) {
   if (!event) {
     return null;
@@ -109,7 +116,7 @@ function CalendarEventTooltip({ event }: { event: StudioCalendarEvent | undefine
   return (
     <div className="flex max-w-72 flex-col gap-1.5">
       <div className="font-medium">{event.title}</div>
-      <div>类型：{event.kind === "ai" ? "AI 面试" : "真人面试"}</div>
+      <div>类型：{calendarEventTypeLabel(event)}</div>
       {candidates ? <div>候选人：{candidates}</div> : null}
       {interviewers ? <div>面试官：{interviewers}</div> : null}
       {event.kind === "human" ? (
@@ -229,7 +236,7 @@ export function StudioCalendarPage({ slug }: { slug: string }) {
   return (
     <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
       <PageHeader
-        description="按月、周或日查看 AI 面试与真人面试。日程为只读，面试时间请在候选人详情中调整。"
+        description="按月、周或日查看 AI 面试计划、实际面试记录与真人面试。日程为只读，面试时间请在候选人详情中调整。"
         title="日程管理"
       />
       {calendarQuery.isError ? (

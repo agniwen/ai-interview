@@ -27,9 +27,21 @@ interface StudioCalendarEventBase {
   title: string;
 }
 
-export interface StudioAiCalendarEvent extends StudioCalendarEventBase {
+interface StudioAiCalendarEventBase extends StudioCalendarEventBase {
   kind: "ai";
 }
+
+export interface StudioAiResultCalendarEvent extends StudioAiCalendarEventBase {
+  conversationId: string;
+  source: "result";
+}
+
+export interface StudioAiScheduledCalendarEvent extends StudioAiCalendarEventBase {
+  conversationId: null;
+  source: "scheduled";
+}
+
+export type StudioAiCalendarEvent = StudioAiResultCalendarEvent | StudioAiScheduledCalendarEvent;
 
 export interface StudioHumanCalendarEvent extends StudioCalendarEventBase {
   format: HumanInterviewFormat;

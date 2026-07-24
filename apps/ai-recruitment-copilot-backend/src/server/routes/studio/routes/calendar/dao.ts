@@ -1,7 +1,8 @@
-import { and, asc, eq, gte, inArray, isNull, lt, ne, or } from "drizzle-orm";
+import { and, asc, eq, gt, gte, inArray, isNotNull, isNull, lt, ne, or } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import {
+  interviewConversation,
   studioHumanInterviewMeeting,
   studioHumanInterviewMeetingRound,
   studioHumanInterviewRound,
@@ -18,8 +19,8 @@ import type {
 import type {
   HumanInterviewMeetingStatus,
   HumanInterviewRoundStatus,
-  ScheduleEntryStatus,
 } from "@arc/db-schema/studio-interviews";
+import { buildAiCalendarEvents } from "./events";
 
 const DEFAULT_INTERVIEW_DURATION_MS = 60 * 60 * 1000;
 
@@ -51,13 +52,6 @@ function resolveEventStatus(
   return roundStatus === "completed" ? "ended" : "scheduled";
 }
 
-function resolveAiEventStatus(status: ScheduleEntryStatus): StudioCalendarEvent["status"] {
-  if (status === "completed") {
-    return "ended";
-  }
-  return status === "in_progress" || status === "interrupted" ? "in_progress" : "scheduled";
-}
-
 export async function listStudioCalendarEvents({
   end,
   organizationId,
@@ -68,7 +62,7 @@ export async function listStudioCalendarEvents({
     return [];
   }
 
-  const [candidateRows, aiRows] = await Promise.all([
+  const [candidateRows, aiRows, aiConversationRows] = await Promise.all([
     db
       .select({
         candidateName: studioInterview.candidateName,
@@ -141,13 +135,45 @@ export async function listStudioCalendarEvents({
         ),
       )
       .orderBy(asc(studioInterviewSchedule.scheduledAt), asc(studioInterviewSchedule.sortOrder)),
+    db
+      .select({
+        candidateName: studioInterview.candidateName,
+        conversationId: interviewConversation.conversationId,
+        endedAt: interviewConversation.endedAt,
+        interviewRecordId: studioInterview.id,
+        roundId: studioInterviewSchedule.id,
+        roundLabel: studioInterviewSchedule.roundLabel,
+        startedAt: interviewConversation.startedAt,
+      })
+      .from(interviewConversation)
+      .innerJoin(
+        studioInterviewSchedule,
+        eq(studioInterviewSchedule.id, interviewConversation.scheduleEntryId),
+      )
+      .innerJoin(studioInterview, eq(studioInterview.id, studioInterviewSchedule.interviewRecordId))
+      .where(
+        and(
+          eq(interviewConversation.organizationId, organizationId),
+          eq(studioInterviewSchedule.organizationId, organizationId),
+          eq(studioInterview.organizationId, organizationId),
+          isNotNull(interviewConversation.startedAt),
+          isNotNull(interviewConversation.endedAt),
+          gt(interviewConversation.endedAt, start),
+          lt(interviewConversation.startedAt, end),
+          visibilityScope.kind === "restricted"
+            ? inArray(studioInterview.createdBy, visibilityScope.userIds)
+            : undefined,
+        ),
+      )
+      .orderBy(asc(interviewConversation.startedAt)),
   ]);
 
   const roundIds = candidateRows.map((row) => row.roundId);
-  const interviewerRows =
+  const aiRoundIds = aiRows.map((row) => row.roundId);
+  const [interviewerRows, aiResultRoundRows] = await Promise.all([
     roundIds.length === 0
       ? []
-      : await db
+      : db
           .select({
             id: user.id,
             name: user.name,
@@ -156,7 +182,21 @@ export async function listStudioCalendarEvents({
           .from(studioHumanInterviewRoundInterviewer)
           .innerJoin(user, eq(user.id, studioHumanInterviewRoundInterviewer.userId))
           .where(inArray(studioHumanInterviewRoundInterviewer.roundId, roundIds))
-          .orderBy(asc(user.name));
+          .orderBy(asc(user.name)),
+    aiRoundIds.length === 0
+      ? []
+      : db
+          .selectDistinct({ roundId: interviewConversation.scheduleEntryId })
+          .from(interviewConversation)
+          .where(
+            and(
+              eq(interviewConversation.organizationId, organizationId),
+              inArray(interviewConversation.scheduleEntryId, aiRoundIds),
+              isNotNull(interviewConversation.startedAt),
+              isNotNull(interviewConversation.endedAt),
+            ),
+          ),
+  ]);
 
   const candidatesByEvent = new Map<string, StudioCalendarCandidate[]>();
   for (const row of candidateRows) {
@@ -207,28 +247,10 @@ export async function listStudioCalendarEvents({
     });
   }
 
-  const aiEvents = aiRows.flatMap((row): StudioCalendarEvent[] => {
-    if (!row.scheduledAt || !row.scheduledEndAt) {
-      return [];
-    }
-    return [
-      {
-        candidates: [
-          {
-            candidateName: row.candidateName,
-            interviewRecordId: row.interviewRecordId,
-            roundId: row.roundId,
-            roundLabel: row.roundLabel,
-          },
-        ],
-        endAt: row.scheduledEndAt.toISOString(),
-        id: `ai:${row.roundId}`,
-        kind: "ai",
-        startAt: row.scheduledAt.toISOString(),
-        status: resolveAiEventStatus(row.status),
-        title: row.roundLabel,
-      },
-    ];
+  const aiEvents = buildAiCalendarEvents({
+    conversationRows: aiConversationRows,
+    roundIdsWithResults: aiResultRoundRows.flatMap((row) => (row.roundId ? [row.roundId] : [])),
+    scheduledRows: aiRows,
   });
 
   return [...events.values(), ...aiEvents].toSorted(

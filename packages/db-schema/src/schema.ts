@@ -1526,6 +1526,11 @@ export const interviewConversation = pgTable(
     index("interview_conversation_summary_status_idx").on(table.summaryStatus),
     index("interview_conversation_updated_at_idx").on(table.updatedAt),
     index("interview_conversation_organization_idx").on(table.organizationId),
+    index("interview_conversation_org_ended_started_idx").on(
+      table.organizationId,
+      table.endedAt,
+      table.startedAt,
+    ),
   ],
 );
 
