@@ -41,7 +41,7 @@ overrides:
   react: 19.2.7
   react-dom: 19.2.7
 
-packageExtensionsChecksum: sha256-dMPZibyDAh/vemSXDsrGBrdvuIeCNMTArCheuBn/Mbg=
+packageExtensionsChecksum: sha256-Q4nnIBsm8X0lFtot0w7Ymjksc/uVGU8skIGJo+VkcxA=
 
 patchedDependencies:
   '@mastra/playground-ui@40.0.1': d0a1975af7722c340c81524b41514729deccd06b89620f57e3cc4026e2164693
@@ -21056,6 +21056,7 @@ snapshots:
       remark-parse: 11.0.0
       remark-rehype: 11.1.2
       remend: 1.3.0
+      shiki: 3.23.0
       tailwind-merge: 3.6.0
       unified: 11.0.5
       unist-util-visit: 5.1.0
