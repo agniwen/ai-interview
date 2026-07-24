@@ -53,6 +53,8 @@ import {
   generateResumeReviewBestEffort,
   generateResumeScreeningBestEffort,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-generation";
+import { enqueueResumeReassessmentForRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue";
+import { reassessResumeRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-worker";
 /* oxlint-disable complexity -- multipart create/update handlers preserve transactional business rules. */
 
 // 「发起 AI 面试」请求体：候选人侧已存在招聘台行，只把（可能被用户编辑过的）
@@ -78,6 +80,47 @@ function toNullableString(value: FormDataEntryValue | null): string | null {
   }
   const trimmed = value.trim();
   return trimmed.length === 0 ? null : trimmed;
+}
+
+const INVALIDATED_RESUME_ASSESSMENT = {
+  notes: null,
+  resumeReview: null,
+  resumeReviewError: null,
+  resumeReviewGeneratedAt: null,
+  resumeReviewQueuedAt: null,
+  resumeReviewRunId: null,
+  resumeReviewStatus: "idle" as const,
+  resumeScreeningError: null,
+  resumeScreeningEvaluatedAt: null,
+  resumeScreeningResult: null,
+  resumeScreeningStatus: "idle" as const,
+};
+
+async function reassessAfterJobDescriptionChange(input: {
+  organizationId: string;
+  resumeRecordId: string;
+}) {
+  try {
+    const enqueueResult = await enqueueResumeReassessmentForRecord(input);
+    if (enqueueResult !== "fallback_sync") {
+      return;
+    }
+    void (async () => {
+      try {
+        await reassessResumeRecord(input);
+      } catch (error) {
+        console.error("[resume-reassess] job-change fallback async failed", {
+          error,
+          resumeRecordId: input.resumeRecordId,
+        });
+      }
+    })();
+  } catch (error) {
+    console.error("[resume-reassess] job-change enqueue failed", {
+      error,
+      resumeRecordId: input.resumeRecordId,
+    });
+  }
 }
 
 function parseResumeLibraryFormData(
@@ -367,6 +410,7 @@ export const resumeLibraryRouter = factory
           input.targetRole || resumeProfile?.targetRoles[0] || existing.targetRole || null,
         updatedAt: now,
         ...(resumeProfile ? { resumeProfile } : {}),
+        ...(jobDescriptionChanged ? INVALIDATED_RESUME_ASSESSMENT : {}),
       } satisfies Partial<typeof studioInterview.$inferInsert>;
 
       await db.transaction(async (tx) => {
@@ -412,6 +456,19 @@ export const resumeLibraryRouter = factory
             status: nextEvaluationStatus,
           });
         }
+      }
+
+      if (
+        jobDescriptionChanged &&
+        resumeProfile &&
+        existing.resumeParseStatus === "ready" &&
+        existing.pipelineStage !== "closed" &&
+        existing.outcome === "in_pipeline"
+      ) {
+        await reassessAfterJobDescriptionChange({
+          organizationId: activeOrg.id,
+          resumeRecordId: id,
+        });
       }
 
       invalidateStudioInterviewCaches(activeOrg.id);
@@ -475,8 +532,9 @@ export const resumeLibraryRouter = factory
 
       // 显式白名单写入 —— 绝不触碰 interviewQuestions / status / schedule /
       // notes / resume file / resumeReview。
-      // Explicit whitelist — never touches interviewQuestions / status / schedule /
-      // notes / resume file / resumeReview.
+      // Explicit whitelist — normal identity edits never touch interviewQuestions / status /
+      // schedule / notes / resume file / resumeReview. A job change invalidates the old
+      // job-bound AI assessment below.
       const now = new Date();
       const nextHrResumeAssessment = input.data.hrResumeAssessment || null;
       const hrAssessmentChanged = existing.hrResumeAssessment !== nextHrResumeAssessment;
@@ -495,6 +553,7 @@ export const resumeLibraryRouter = factory
         targetRole: input.data.targetRole || resumeProfile?.targetRoles[0] || null,
         updatedAt: now,
         ...resumeProfileUpdate,
+        ...(jobDescriptionChanged ? INVALIDATED_RESUME_ASSESSMENT : {}),
       } satisfies Partial<typeof studioInterview.$inferInsert>;
 
       await db.transaction(async (tx) => {
@@ -538,6 +597,19 @@ export const resumeLibraryRouter = factory
           operatorId: c.var.user?.id ?? null,
           organizationId: activeOrg.id,
           status: nextResumeEvaluationStatus,
+        });
+      }
+
+      if (
+        jobDescriptionChanged &&
+        resumeProfile &&
+        existing.resumeParseStatus === "ready" &&
+        existing.pipelineStage !== "closed" &&
+        existing.outcome === "in_pipeline"
+      ) {
+        await reassessAfterJobDescriptionChange({
+          organizationId: activeOrg.id,
+          resumeRecordId: id,
         });
       }
 

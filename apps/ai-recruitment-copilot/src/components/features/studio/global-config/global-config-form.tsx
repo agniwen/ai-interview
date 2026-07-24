@@ -1,14 +1,12 @@
 "use client";
 
-import { IconDeviceFloppy } from "@tabler/icons-react";
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useDebouncedCallback } from "use-debounce";
 import { PageHeader } from "@/components/features/studio/page-header";
-import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { MarkdownEditor } from "@/components/features/markdown-editor";
 import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
-import { Spinner } from "@/components/ui/spinner";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { GlobalConfigRecord } from "@arc/shared/global-config";
@@ -17,9 +15,38 @@ const PROMPT_MAX_LENGTH = 10_000;
 const COMPANY_CONTEXT_MAX_LENGTH = 8000;
 const COMPANY_NAME_MAX_LENGTH = 120;
 const JOB_CODE_PREFIX_MAX_LENGTH = 3;
+const AUTOSAVE_DEBOUNCE_MS = 1000;
 
 interface Props {
   initial: GlobalConfigRecord;
+}
+
+interface FormSnapshot {
+  closingInstructions: string;
+  companyContext: string;
+  companyName: string;
+  jobCodePrefix: string;
+  openingInstructions: string;
+}
+
+function toSnapshot(record: GlobalConfigRecord): FormSnapshot {
+  return {
+    closingInstructions: record.closingInstructions,
+    companyContext: record.companyContext,
+    companyName: record.companyName,
+    jobCodePrefix: record.jobCodePrefix,
+    openingInstructions: record.openingInstructions,
+  };
+}
+
+function isSameSnapshot(a: FormSnapshot, b: FormSnapshot) {
+  return (
+    a.closingInstructions === b.closingInstructions &&
+    a.companyContext === b.companyContext &&
+    a.companyName === b.companyName &&
+    a.jobCodePrefix === b.jobCodePrefix &&
+    a.openingInstructions === b.openingInstructions
+  );
 }
 
 function PlaceholderDescription() {
@@ -39,56 +66,89 @@ export function GlobalConfigForm({ initial }: Props) {
   const [company, setCompany] = useState(initial.companyContext);
   const [companyName, setCompanyName] = useState(initial.companyName);
   const [jobCodePrefix, setJobCodePrefix] = useState(initial.jobCodePrefix);
-  const [pending, startTransition] = useTransition();
 
-  const onSave = () => {
-    startTransition(async () => {
-      const res = await rpc.api.w[":slug"].studio["global-config"].$put({
-        json: {
-          closingInstructions: closing,
-          companyContext: company,
-          companyName,
-          jobCodePrefix,
-          openingInstructions: opening,
-        },
-        param: { slug },
-      });
-      if (!res.ok) {
-        const { error } = (await res.json().catch(() => ({ error: "保存失败" }))) as {
-          error?: string;
-        };
-        toast.error(error ?? "保存失败");
-        return;
-      }
-      const saved = (await res.json()) as GlobalConfigRecord;
-      setJobCodePrefix(saved.jobCodePrefix);
-      toast.success("已保存");
-    });
+  const lastSavedRef = useRef<FormSnapshot>(toSnapshot(initial));
+  const latestRef = useRef<FormSnapshot>(toSnapshot(initial));
+  const requestSeqRef = useRef(0);
+  const mountedRef = useRef(true);
+
+  latestRef.current = {
+    closingInstructions: closing,
+    companyContext: company,
+    companyName,
+    jobCodePrefix,
+    openingInstructions: opening,
   };
+
+  const performSave = useCallback(async () => {
+    const values = latestRef.current;
+    if (isSameSnapshot(values, lastSavedRef.current)) {
+      return;
+    }
+
+    const seq = (requestSeqRef.current += 1);
+    const res = await rpc.api.w[":slug"].studio["global-config"].$put({
+      json: values,
+      param: { slug },
+    });
+
+    if (seq !== requestSeqRef.current) {
+      return;
+    }
+
+    if (!res.ok) {
+      const { error } = (await res.json().catch(() => ({ error: "保存失败" }))) as {
+        error?: string;
+      };
+      toast.error(error ?? "保存失败");
+      return;
+    }
+
+    const saved = (await res.json()) as GlobalConfigRecord;
+    lastSavedRef.current = {
+      ...values,
+      jobCodePrefix: saved.jobCodePrefix,
+    };
+    toast.success("自动保存成功");
+    if (mountedRef.current) {
+      setJobCodePrefix(saved.jobCodePrefix);
+    }
+  }, [slug]);
+
+  const debouncedSave = useDebouncedCallback(() => {
+    void performSave();
+  }, AUTOSAVE_DEBOUNCE_MS);
+
+  useEffect(() => {
+    if (isSameSnapshot(latestRef.current, lastSavedRef.current)) {
+      return;
+    }
+    debouncedSave();
+  }, [opening, closing, company, companyName, jobCodePrefix, debouncedSave]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      debouncedSave.flush();
+    };
+  }, [debouncedSave]);
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        actionRender={
-          <Button disabled={pending} onClick={onSave}>
-            {pending ? (
-              <Spinner data-icon="inline-start" />
-            ) : (
-              <IconDeviceFloppy data-icon="inline-start" />
-            )}
-            {pending ? "保存中" : "保存配置"}
-          </Button>
-        }
-        description="统一维护公司名称、开场收尾话术和公司资料，让候选人沟通保持同一种口径。"
-        title="系统设置"
+        description="公司名称、简介和开场收尾话术。候选人准备页能看到简介，AI 面试官也会用到。"
+        title="上下文设置"
       />
 
       <FieldGroup className="gap-5">
         <Field>
           <FieldLabel htmlFor="company-name">公司名称</FieldLabel>
+          <FieldDescription>
+            用于面试邀请邮件的主题和正文，以及候选人面前展示的发件方名称。
+          </FieldDescription>
           <InputGroup>
             <InputGroupInput
-              disabled={pending}
               id="company-name"
               maxLength={COMPANY_NAME_MAX_LENGTH}
               onChange={(event) => setCompanyName(event.target.value)}
@@ -96,16 +156,13 @@ export function GlobalConfigForm({ initial }: Props) {
               value={companyName}
             />
           </InputGroup>
-          <FieldDescription>
-            用于面试邀请邮件的主题和正文，以及候选人面前展示的发件方名称。
-          </FieldDescription>
         </Field>
 
         <Field>
           <FieldLabel htmlFor="job-code-prefix">岗位编码前缀</FieldLabel>
+          <FieldDescription>新建岗位编码使用此前缀，后接 4 位数字或字母。</FieldDescription>
           <InputGroup>
             <InputGroupInput
-              disabled={pending}
               id="job-code-prefix"
               maxLength={JOB_CODE_PREFIX_MAX_LENGTH}
               onChange={(event) => setJobCodePrefix(event.target.value)}
@@ -113,46 +170,44 @@ export function GlobalConfigForm({ initial }: Props) {
               value={jobCodePrefix}
             />
           </InputGroup>
-          <FieldDescription>新建岗位编码使用此前缀，后接 4 位数字或字母。</FieldDescription>
         </Field>
 
         <Field>
           <FieldLabel htmlFor="opening">开场白 prompt</FieldLabel>
+          <PlaceholderDescription />
           <MarkdownEditor
-            disabled={pending}
             id="opening"
             maxLength={PROMPT_MAX_LENGTH}
             onChange={setOpening}
             placeholder='例如：用候选人的名字"{候选人姓名}"打招呼，介绍你是 XX 公司"{岗位}"的面试官…'
             value={opening}
           />
-          <PlaceholderDescription />
         </Field>
 
         <Field>
           <FieldLabel htmlFor="closing">结束语 prompt</FieldLabel>
+          <PlaceholderDescription />
           <MarkdownEditor
-            disabled={pending}
             id="closing"
             maxLength={PROMPT_MAX_LENGTH}
             onChange={setClosing}
             placeholder="例如：感谢候选人参加本次面试，祝你一切顺利。"
             value={closing}
           />
-          <PlaceholderDescription />
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="company">公司资料</FieldLabel>
+          <FieldLabel htmlFor="company">公司简介</FieldLabel>
+          <FieldDescription>
+            候选人在面试准备页可以看到这段公司简介，面试 agent 也会参考这里回答相关问题。
+          </FieldDescription>
           <MarkdownEditor
-            disabled={pending}
             id="company"
             maxLength={COMPANY_CONTEXT_MAX_LENGTH}
             onChange={setCompany}
-            placeholder="公司业务、规模、文化等，候选人若问及可由此回答。"
+            placeholder="公司业务、规模、文化等简介内容。"
             value={company}
           />
-          <FieldDescription>候选人主动问到公司相关信息时，agent 会优先参考这里。</FieldDescription>
         </Field>
       </FieldGroup>
     </div>

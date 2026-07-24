@@ -66,16 +66,18 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
 
-  /* kami "whisper shadow" 阶梯：取代硬投影，纸张般的轻微抬升。
-     kami invariant #9 — depth via soft long-blur whispers, never hard drop shadows. */
-  --shadow-2xs: 0 1px 2px 0 rgb(0 0 0 / 0.025);
-  --shadow-xs: 0 1px 3px 0 rgb(0 0 0 / 0.03);
-  --shadow-sm: 0 2px 8px -2px rgb(0 0 0 / 0.04);
-  --shadow-DEFAULT: 0 4px 16px -4px rgb(0 0 0 / 0.05);
-  --shadow-md: 0 6px 20px -6px rgb(0 0 0 / 0.05);
-  --shadow-lg: 0 10px 32px -8px rgb(0 0 0 / 0.06);
-  --shadow-xl: 0 16px 48px -12px rgb(0 0 0 / 0.07);
-  --shadow-2xl: 0 24px 64px -16px rgb(0 0 0 / 0.08);
+  /* Yohaku / kami depth:
+     - Resting surfaces: ring/border only — no drop shadow.
+     - Elevated overlays: one whisper (0 4px 24px / 0.05).
+     - Hard drop shadows are forbidden. */
+  --shadow-2xs: 0 0 #0000;
+  --shadow-xs: 0 4px 24px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 4px 24px 0 rgb(0 0 0 / 0.05);
+  --shadow-DEFAULT: 0 4px 24px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 24px 0 rgb(0 0 0 / 0.05);
+  --shadow-lg: 0 4px 24px 0 rgb(0 0 0 / 0.05);
+  --shadow-xl: 0 8px 32px 0 rgb(0 0 0 / 0.06);
+  --shadow-2xl: 0 12px 40px 0 rgb(0 0 0 / 0.06);
 }
 
 :root {
@@ -123,8 +125,9 @@
   --card-foreground: oklch(0.97 0.006 254);
   --popover: oklch(0.215 0.018 254);
   --popover-foreground: oklch(0.97 0.006 254);
-  --primary: oklch(0.72 0.095 254);
-  --primary-foreground: oklch(0.22 0.025 254);
+  /* Dark brand palette echoes the homepage MeshGradient without tinting neutral surfaces. */
+  --primary: #c4b5fd;
+  --primary-foreground: #241d3f;
   --secondary: oklch(0.255 0.02 254);
   --secondary-foreground: oklch(0.97 0.006 254);
   --muted: oklch(0.255 0.02 254);
@@ -134,20 +137,20 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.65 0.09 254);
-  --chart-1: oklch(0.62 0.1 254);
-  --chart-2: oklch(0.75 0.08 254);
-  --chart-3: oklch(0.45 0.09 254);
-  --chart-4: oklch(0.85 0.05 254);
-  --chart-5: oklch(0.55 0.06 254);
+  --ring: #a78bfa;
+  --chart-1: #c4b5fd;
+  --chart-2: #e0eaff;
+  --chart-3: #f0abfc;
+  --chart-4: #fbcfe8;
+  --chart-5: #a5b4fc;
   --sidebar: #0e151e;
   --sidebar-foreground: oklch(0.97 0.006 254);
-  --sidebar-primary: oklch(0.62 0.1 254);
-  --sidebar-primary-foreground: oklch(0.97 0.006 254);
+  --sidebar-primary: #c4b5fd;
+  --sidebar-primary-foreground: #241d3f;
   --sidebar-accent: oklch(0.255 0.02 254);
   --sidebar-accent-foreground: oklch(0.97 0.006 254);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.65 0.09 254);
+  --sidebar-ring: #a78bfa;
 }
 
 @layer base {
@@ -175,6 +178,10 @@
        kami: minimum 3 lines for widows and orphans — no stranded single lines. */
     widows: 3;
     orphans: 3;
+  }
+
+  .dark body {
+    -webkit-tap-highlight-color: color-mix(in oklab, var(--primary) 14%, transparent);
   }
 
   [data-sidebar="sidebar"] [data-sidebar="menu-button"],
@@ -223,6 +230,11 @@
   ::selection {
     background: oklch(0.86 0.09 254);
     color: oklch(0.32 0.1 254);
+  }
+
+  .dark ::selection {
+    background: color-mix(in oklab, var(--primary) 45%, transparent);
+    color: var(--foreground);
   }
 
   * {
@@ -304,6 +316,34 @@
   }
 }
 
+@keyframes home-product-shot-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.home-product-shot-enter {
+  animation: home-product-shot-enter 550ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes text-shimmer {
+  from {
+    background-position: 100% center;
+  }
+  to {
+    background-position: 0% center;
+  }
+}
+
+.ai-text-shimmer {
+  animation: text-shimmer var(--text-shimmer-duration, 2s) linear infinite;
+}
+
 /* Apple §14 — reduced motion ≠ no feedback: preserve short opacity/color
    transitions for comprehension, drop transform/position-based motion. */
 @media (prefers-reduced-motion: reduce) {
@@ -317,6 +357,15 @@
     transition-duration: 200ms !important;
     transition-property:
       opacity, color, background-color, border-color, outline-color, fill, stroke !important;
+  }
+
+  .ai-text-shimmer {
+    animation: none !important;
+    background-position: 0% center;
+  }
+
+  .home-product-shot-enter {
+    animation: none !important;
   }
 }
 

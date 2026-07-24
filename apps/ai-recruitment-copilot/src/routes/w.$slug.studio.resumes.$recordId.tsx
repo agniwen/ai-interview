@@ -10,6 +10,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import {
   canLaunchInterviewFromResume,
   getResumeActionLockedReason,
@@ -19,7 +20,6 @@ import { StudioPersonDetailDialog } from "@/components/features/studio/studio-pe
 import { StudioPersonDetailPanel } from "@/components/features/studio/studio-person-detail-panel";
 import type { StudioPersonDetailTab } from "@/components/features/studio/studio-person-detail-panel";
 import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
-import { StudioResumeFloatingChat } from "@/components/features/studio/studio-resume-floating-chat";
 import { CandidateTimelineSkeleton } from "@/components/features/studio/candidate-timeline";
 import { useStudioHeaderOverride } from "@/components/features/studio/studio-header-context";
 import { LaunchInterviewDialog } from "@/components/features/studio/resumes/launch-interview-dialog";
@@ -403,8 +403,6 @@ function RecruiterResumeDetailPage() {
         open={editRecordId !== null}
         recordId={editRecordId}
       />
-
-      <StudioResumeFloatingChat />
     </>
   );
 }
@@ -412,7 +410,7 @@ function RecruiterResumeDetailPage() {
 export const Route = createFileRoute("/w/$slug/studio/resumes/$recordId")({
   component: RecruiterResumeDetailPage,
   head: () => ({
-    meta: [{ title: "候选人详情" }],
+    meta: [{ title: formatDocumentTitle("候选人详情") }],
   }),
   loader: async (loaderContext) => {
     const { params } = loaderContext as unknown as {

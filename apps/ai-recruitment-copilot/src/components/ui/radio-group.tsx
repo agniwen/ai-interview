@@ -23,7 +23,7 @@ function RadioGroupItem({ className, ...props }: RadioPrimitive.Root.Props) {
       data-slot="radio-group-item"
       className={cn(
         cossControlOverlayClass,
-        "relative inline-flex aspect-square size-4 shrink-0 items-center justify-center rounded-full border border-input bg-background bg-clip-padding align-middle text-primary shadow-xs/5 transition-[color,box-shadow] outline-none before:rounded-full focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 data-disabled:cursor-not-allowed data-disabled:opacity-50 data-disabled:shadow-none data-disabled:before:shadow-none aria-invalid:border-destructive aria-invalid:ring-destructive/20 aria-invalid:before:shadow-none data-checked:before:shadow-none dark:bg-input/30 dark:aria-invalid:ring-destructive/40",
+        "relative inline-flex aspect-square size-4 shrink-0 items-center justify-center rounded-full border border-input bg-background bg-clip-padding align-middle text-primary transition-[color,box-shadow] outline-none before:rounded-full focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 data-disabled:cursor-not-allowed data-disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:bg-input/30 dark:aria-invalid:ring-destructive/40",
         className,
       )}
       {...props}

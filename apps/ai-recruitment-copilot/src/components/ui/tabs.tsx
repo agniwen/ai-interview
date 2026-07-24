@@ -64,7 +64,7 @@ export function TabsList({
           "absolute bottom-0 left-0 h-(--active-tab-height) w-(--active-tab-width) translate-x-(--active-tab-left) -translate-y-(--active-tab-bottom) transition-[width,translate] duration-200 ease-in-out",
           resolvedVariant === "underline"
             ? "z-10 bg-primary data-[orientation=horizontal]:h-0.5 data-[orientation=vertical]:w-0.5 data-[orientation=vertical]:-translate-x-px data-[orientation=horizontal]:translate-y-px"
-            : "-z-1 rounded-md bg-background shadow-sm/5 dark:bg-input",
+            : "-z-1 rounded-md bg-background dark:bg-input",
         )}
         data-slot="tab-indicator"
       />

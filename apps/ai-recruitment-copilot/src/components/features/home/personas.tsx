@@ -59,7 +59,7 @@ export function Personas() {
               <h3 className="mt-2 min-h-[2lh] font-medium text-foreground text-xl leading-tight tracking-tight sm:text-2xl">
                 {title}
               </h3>
-              <p className="mt-3 text-foreground/75 text-sm leading-normal sm:text-[15px]">
+              <p className="mt-3 text-foreground/75 text-sm leading-normal dark:text-white/80 sm:text-[15px]">
                 {description}
               </p>
             </article>

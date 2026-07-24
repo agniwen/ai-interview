@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   confirmRecruitingAction: vi.fn(),
   createRequestWorkspaceAuthorizer: vi.fn(),
   loadResumeDetail: vi.fn(),
+  loadResumePoolItem: vi.fn(),
   resolveRecruitingVisibilityScope: vi.fn(),
   upsertConversation: vi.fn(),
 }));
@@ -23,6 +24,9 @@ vi.mock(
     loadResumeDetail: mocks.loadResumeDetail,
   }),
 );
+vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao", () => ({
+  loadResumePoolItem: mocks.loadResumePoolItem,
+}));
 
 vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat", () => ({
   checkConversationOwner: mocks.checkConversationOwner,
@@ -70,6 +74,7 @@ describe("conversationsRouter", () => {
     vi.clearAllMocks();
     mocks.createRequestWorkspaceAuthorizer.mockReturnValue(mocks.authorize);
     mocks.loadResumeDetail.mockResolvedValue({ id: "resume-1" });
+    mocks.loadResumePoolItem.mockResolvedValue({ id: "pool-1" });
     mocks.resolveRecruitingVisibilityScope.mockResolvedValue({ kind: "all" });
   });
 
@@ -103,7 +108,7 @@ describe("conversationsRouter", () => {
     mocks.checkConversationOwner.mockResolvedValue("ok");
     mocks.confirmRecruitingAction.mockResolvedValue({
       actionType: "bind_candidate_to_job",
-      message: "已绑定候选人到岗位。",
+      message: "已在本对话中将该候选人关联到所选岗位（仅影响本轮分析，未改招聘台数据）。",
       status: "executed",
     });
 
@@ -129,13 +134,15 @@ describe("conversationsRouter", () => {
     expect(mocks.confirmRecruitingAction).toHaveBeenCalledWith(
       expect.objectContaining({
         authorize: mocks.authorize,
+        conversationId: "conversation_1",
         operatorId: USER_ID,
         organizationId: ORG_ID,
+        visibilityScope: { kind: "all" },
       }),
     );
     await expect(res.json()).resolves.toEqual({
       actionType: "bind_candidate_to_job",
-      message: "已绑定候选人到岗位。",
+      message: "已在本对话中将该候选人关联到所选岗位（仅影响本轮分析，未改招聘台数据）。",
       status: "executed",
     });
   });

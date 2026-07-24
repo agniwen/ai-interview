@@ -104,7 +104,7 @@ export function FormTemplateAiCreateDialog({
 
   return (
     <Modal
-      description="选择岗位并填写指令，AI 将生成题目并打开「新建面试表单」供你确认与保存。"
+      description="选择岗位并填写指令，AI 将生成题目并打开「新建表单题」供你确认与保存。"
       dismissible={!generating}
       footer={
         <>
@@ -133,7 +133,7 @@ export function FormTemplateAiCreateDialog({
       }}
       open={open}
       size="lg"
-      title="AI 创建面试表单"
+      title="AI 创建表单题"
     >
       <FieldGroup className="gap-4">
         <Field>

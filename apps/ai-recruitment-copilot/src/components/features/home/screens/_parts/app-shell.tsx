@@ -5,11 +5,11 @@ import {
   IconFileText,
   IconLayoutSidebarLeftCollapse,
   IconListCheck,
+  IconMessageChatbot,
   IconMoon,
   IconPlus,
   IconRobot,
   IconSelector,
-  IconSettings,
   IconTrash,
   IconUser,
   IconUserCircle,
@@ -57,8 +57,8 @@ export const STUDIO_NAV_GROUPS: NavGroup[] = [
   },
   {
     items: [
-      { icon: IconClipboardList, label: "面试表单" },
-      { icon: IconListCheck, label: "面试题" },
+      { icon: IconClipboardList, label: "表单题" },
+      { icon: IconListCheck, label: "沟通题" },
     ],
     label: "题库",
   },
@@ -66,7 +66,7 @@ export const STUDIO_NAV_GROUPS: NavGroup[] = [
     items: [
       { icon: IconUser, label: "我的信息" },
       { icon: IconUserCog, label: "工作区管理" },
-      { icon: IconSettings, label: "系统设置" },
+      { icon: IconMessageChatbot, label: "上下文设置" },
     ],
     label: "系统配置",
   },

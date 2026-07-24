@@ -1,6 +1,7 @@
 import { createFileRoute, notFound, redirect, useLoaderData } from "@tanstack/react-router";
 import { GlobalConfigForm } from "@/components/features/studio/global-config/global-config-form";
 import { GlobalConfigPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioGlobalConfigState } from "@/lib/start/studio/global-config.functions";
 import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
 
@@ -21,7 +22,7 @@ function StudioGlobalConfigRoute() {
 export const Route = createFileRoute("/w/$slug/studio/global-config")({
   component: StudioGlobalConfigRoute,
   head: () => ({
-    meta: [{ title: "系统设置" }],
+    meta: [{ title: formatDocumentTitle("上下文设置") }],
   }),
   loader: async ({ params }) => {
     await requireStudioPageAccess({

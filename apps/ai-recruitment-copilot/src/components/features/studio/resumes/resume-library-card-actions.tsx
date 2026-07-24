@@ -3,8 +3,6 @@ import {
   IconCircleOff,
   IconDots,
   IconEdit,
-  IconEye,
-  IconMessage2,
   IconSparkles,
 } from "@tabler/icons-react";
 import type { ReactNode } from "react";
@@ -27,7 +25,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   canDeleteResumeRecord,
   canEditResumeRecord,
@@ -36,20 +33,18 @@ import {
 import { cn } from "@arc/shared/utils";
 import type { ResumeLibraryCardProps } from "./resume-library-card.types";
 
-const ACTION_ICON_CLASS = "size-4";
+const ACTION_ICON_CLASS = "size-3.5";
+const ACTION_BUTTON_CLASS = "h-8 gap-1 px-2 text-xs";
 
 type ResumeLibraryCardActionsProps = Pick<
   ResumeLibraryCardProps,
-  | "canCreateChat"
   | "canCreateInterview"
   | "canDeleteResumeLibrary"
   | "canUpdateResumeLibrary"
   | "onCopyDetailLink"
   | "onDelete"
   | "onEdit"
-  | "onLaunchChat"
   | "onLaunchInterview"
-  | "onOpenDetail"
   | "onPreviewResume"
   | "onTransition"
   | "record"
@@ -57,28 +52,32 @@ type ResumeLibraryCardActionsProps = Pick<
   canCopyLink: boolean;
 };
 
-function IconActionButton({
+function TextActionButton({
   children,
+  className,
   label,
   onClick,
+  title,
 }: {
   children: ReactNode;
+  className?: string;
   label: string;
   onClick: () => void;
+  title?: string;
 }) {
   return (
-    <TooltipProvider delay={700}>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button aria-label={label} onClick={onClick} size="icon" type="button" variant="ghost">
-              {children}
-            </Button>
-          }
-        />
-        <TooltipContent side="top">{label}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Button
+      aria-label={label}
+      className={cn(ACTION_BUTTON_CLASS, className)}
+      onClick={onClick}
+      size="sm"
+      title={title}
+      type="button"
+      variant="ghost"
+    >
+      {children}
+      <span>{label}</span>
+    </Button>
   );
 }
 
@@ -89,56 +88,48 @@ function PreviewAction({
   const documentKind = getResumeDocumentFileIconKind({ fileName: record.resumeFileName });
   const previewable = isPreviewableResumeDocumentInput({ fileName: record.resumeFileName });
   const canPreview = record.hasResumeFile && previewable;
-  const previewLabel = record.resumeFileName ?? "查看简历";
+  const previewTitle = record.resumeFileName ?? "查看简历";
 
   if (canPreview) {
     return (
-      <TooltipProvider delay={700}>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                aria-label={previewLabel}
-                className="group/pdf"
-                onClick={() => onPreviewResume(record)}
-                size="icon"
-                title={previewLabel}
-                type="button"
-                variant="ghost"
-              >
-                <ResumeDocumentFileIcon
-                  className={cn(
-                    ACTION_ICON_CLASS,
-                    "transition-transform duration-200 group-hover/pdf:scale-[1.03] motion-reduce:group-hover/pdf:scale-100",
-                  )}
-                  kind={documentKind}
-                />
-              </Button>
-            }
-          />
-          <TooltipContent side="top">查看简历</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <TextActionButton
+        className="group/pdf"
+        label="简历"
+        onClick={() => onPreviewResume(record)}
+        title={previewTitle}
+      >
+        <ResumeDocumentFileIcon
+          className={cn(
+            ACTION_ICON_CLASS,
+            "transition-transform duration-200 group-hover/pdf:scale-[1.03] motion-reduce:group-hover/pdf:scale-100",
+          )}
+          kind={documentKind}
+        />
+      </TextActionButton>
     );
   }
 
-  const disabledIcon = (
+  const disabledControl = (
     <span
       aria-disabled="true"
       aria-label={record.hasResumeFile ? "该格式不支持预览" : "暂无可预览简历"}
-      className="inline-flex size-9 shrink-0 items-center justify-center rounded-md opacity-45 grayscale"
-      title={record.hasResumeFile ? undefined : "暂无可预览简历"}
+      className={cn(
+        ACTION_BUTTON_CLASS,
+        "inline-flex shrink-0 items-center justify-center rounded-md opacity-45 grayscale",
+      )}
+      title={record.hasResumeFile ? previewTitle : "暂无可预览简历"}
     >
       <ResumeDocumentFileIcon className={ACTION_ICON_CLASS} kind={documentKind} />
+      <span>简历</span>
     </span>
   );
 
   return record.hasResumeFile ? (
     <UnsupportedResumeDocumentPreviewTooltip>
-      {disabledIcon}
+      {disabledControl}
     </UnsupportedResumeDocumentPreviewTooltip>
   ) : (
-    disabledIcon
+    disabledControl
   );
 }
 
@@ -146,44 +137,39 @@ function MoreMenu({
   canClose,
   canCopyLink,
   canDelete,
-  canLaunchChat,
   canPreviewFromMenu,
   canReactivate,
   onCopyDetailLink,
   onDelete,
-  onLaunchChat,
   onPreviewResume,
   onTransition,
   record,
 }: Pick<
   ResumeLibraryCardProps,
-  "onCopyDetailLink" | "onDelete" | "onLaunchChat" | "onPreviewResume" | "onTransition" | "record"
+  "onCopyDetailLink" | "onDelete" | "onPreviewResume" | "onTransition" | "record"
 > & {
   canClose: boolean;
   canCopyLink: boolean;
   canDelete: boolean;
-  canLaunchChat: boolean;
   canPreviewFromMenu: boolean;
   canReactivate: boolean;
 }) {
   return (
     <DropdownMenu modal={false}>
-      <TooltipProvider delay={700}>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <DropdownMenuTrigger
-                render={
-                  <Button aria-label="更多操作" size="icon" type="button" variant="ghost">
-                    <IconDots className={ACTION_ICON_CLASS} />
-                  </Button>
-                }
-              />
-            }
-          />
-          <TooltipContent side="top">更多操作</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            aria-label="更多"
+            className={ACTION_BUTTON_CLASS}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <IconDots className={ACTION_ICON_CLASS} />
+            <span>更多</span>
+          </Button>
+        }
+      />
       <DropdownMenuContent align="end" className="w-44">
         <DropdownMenuGroup>
           <DropdownMenuLabel>更多操作</DropdownMenuLabel>
@@ -191,12 +177,6 @@ function MoreMenu({
         <DropdownMenuSeparator />
         {canCopyLink ? (
           <DropdownMenuItem onClick={() => onCopyDetailLink(record)}>复制详情链接</DropdownMenuItem>
-        ) : null}
-        {canLaunchChat ? (
-          <DropdownMenuItem onClick={() => onLaunchChat(record)}>
-            <IconMessage2 className={ACTION_ICON_CLASS} />
-            发起 AI Chat
-          </DropdownMenuItem>
         ) : null}
         {canPreviewFromMenu ? (
           <DropdownMenuItem onClick={() => onPreviewResume(record)}>查看简历</DropdownMenuItem>
@@ -228,16 +208,13 @@ function MoreMenu({
 
 export function ResumeLibraryCardActions({
   canCopyLink,
-  canCreateChat,
   canCreateInterview,
   canDeleteResumeLibrary,
   canUpdateResumeLibrary,
   onCopyDetailLink,
   onDelete,
   onEdit,
-  onLaunchChat,
   onLaunchInterview,
-  onOpenDetail,
   onPreviewResume,
   onTransition,
   record,
@@ -250,7 +227,6 @@ export function ResumeLibraryCardActions({
     canLaunchInterviewFromResume(record.resumeParseStatus) &&
     !record.hasInterviewRounds &&
     record.pipelineStage !== "closed";
-  const canLaunchChat = canCreateChat && canLaunchInterviewFromResume(record.resumeParseStatus);
   const canPreviewFromMenu =
     !canEditResumeRecord(record.resumeParseStatus) && record.hasResumeFile && previewable;
   const canClose =
@@ -264,31 +240,26 @@ export function ResumeLibraryCardActions({
 
   return (
     <div className="flex justify-end self-center">
-      <div className="flex items-center justify-end gap-1 xl:flex-col xl:items-center">
+      <div className="flex items-center justify-end gap-1.5 xl:flex-col xl:items-stretch">
         <PreviewAction onPreviewResume={onPreviewResume} record={record} />
-        <IconActionButton label="查看" onClick={() => onOpenDetail(record, "overview")}>
-          <IconEye className={ACTION_ICON_CLASS} />
-        </IconActionButton>
         {canEdit ? (
-          <IconActionButton label="编辑" onClick={() => onEdit(record)}>
+          <TextActionButton label="编辑" onClick={() => onEdit(record)}>
             <IconEdit className={ACTION_ICON_CLASS} />
-          </IconActionButton>
+          </TextActionButton>
         ) : null}
         {canLaunchInterview ? (
-          <IconActionButton label="发起 AI 面试" onClick={() => onLaunchInterview(record)}>
+          <TextActionButton label="AI面" onClick={() => onLaunchInterview(record)}>
             <IconSparkles className={ACTION_ICON_CLASS} />
-          </IconActionButton>
+          </TextActionButton>
         ) : null}
         <MoreMenu
           canClose={canClose}
           canCopyLink={canCopyLink}
           canDelete={canDelete}
-          canLaunchChat={canLaunchChat}
           canPreviewFromMenu={canPreviewFromMenu}
           canReactivate={canReactivate}
           onCopyDetailLink={onCopyDetailLink}
           onDelete={onDelete}
-          onLaunchChat={onLaunchChat}
           onPreviewResume={onPreviewResume}
           onTransition={onTransition}
           record={record}

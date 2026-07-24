@@ -680,6 +680,14 @@ export function useStudioPersonDetailController({
           resumeRecord?.stageProgress.humanInterview &&
           resumeRecord.stageProgress.humanInterview.completedRoundsMissingFeedback === 0,
         )}
+        aiRoundInterviewLink={
+          layoutMode === "page" &&
+          actionBarPipelineStage === "ai_interview" &&
+          !isRoundsLoading &&
+          actionBarAiRound?.status === "pending"
+            ? actionBarAiRound.interviewLink
+            : undefined
+        }
         aiRoundReset={
           layoutMode === "page" &&
           actionBarPipelineStage === "ai_interview" &&
@@ -697,23 +705,21 @@ export function useStudioPersonDetailController({
         canCreateHumanInterview={canCreateHumanInterview}
         canCreateOffer={canCreateOffer}
         hasJobDescription={Boolean(resumeRecord?.jobDescriptionId)}
-        onAdvance={(target) => {
-          void (async () => {
-            const error = await advancePipelineStage({
-              queryClient,
-              recordId: record.id,
-              slug,
-              target,
-            });
-            if (error) {
-              toast.error(error);
-            } else {
-              toast.success(`已推进到「${pipelineStageMeta[target].label}」`);
-              setOptimisticPipelineStage(target);
-              setActiveTab(tabForPipelineStage(target));
-              onUpdated?.();
-            }
-          })();
+        onAdvance={async (target) => {
+          const error = await advancePipelineStage({
+            queryClient,
+            recordId: record.id,
+            slug,
+            target,
+          });
+          if (error) {
+            toast.error(error);
+            return;
+          }
+          toast.success(`已推进到「${pipelineStageMeta[target].label}」`);
+          setOptimisticPipelineStage(target);
+          setActiveTab(tabForPipelineStage(target));
+          onUpdated?.();
         }}
         onRequestClose={() =>
           onRequestClose?.({ candidateName: record.candidateName, id: record.id })

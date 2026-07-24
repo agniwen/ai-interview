@@ -153,7 +153,7 @@ export function JobDescriptionFormDialog({
         error?: string;
       } | null;
       if (!response.ok || !payload?.records) {
-        throw new Error(payload?.error ?? "加载关联面试表单失败");
+        throw new Error(payload?.error ?? "加载关联表单题失败");
       }
       return payload.records;
     },
@@ -178,7 +178,7 @@ export function JobDescriptionFormDialog({
         error?: string;
       } | null;
       if (!response.ok || !payload?.records) {
-        throw new Error(payload?.error ?? "加载关联面试题失败");
+        throw new Error(payload?.error ?? "加载关联沟通题失败");
       }
       return payload.records;
     },
@@ -335,8 +335,8 @@ export function JobDescriptionFormDialog({
           <TabsList className="mt-2">
             <TabsTrigger value="basic">基本信息</TabsTrigger>
             <TabsTrigger value="screening">筛选规则</TabsTrigger>
-            {isEdit ? <TabsTrigger value="interview-questions">面试题</TabsTrigger> : null}
-            {isEdit ? <TabsTrigger value="forms">面试表单</TabsTrigger> : null}
+            {isEdit ? <TabsTrigger value="interview-questions">沟通题</TabsTrigger> : null}
+            {isEdit ? <TabsTrigger value="forms">表单题</TabsTrigger> : null}
           </TabsList>
         }
         footer={

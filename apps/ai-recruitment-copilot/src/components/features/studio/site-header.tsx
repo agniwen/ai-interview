@@ -17,21 +17,21 @@ interface RouteMeta {
 
 const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
   { meta: { title: "人才库" }, prefix: "/studio/resume-pool" },
-  { meta: { title: "招聘" }, prefix: "/studio/resumes" },
+  { meta: { title: "招聘台" }, prefix: "/studio/resumes" },
   { meta: { title: "AI 面试" }, prefix: "/studio/interviews" },
   { meta: { title: "部门管理" }, prefix: "/studio/departments" },
   { meta: { title: "面试官管理" }, prefix: "/studio/interviewers" },
   { meta: { title: "岗位设置" }, prefix: "/studio/job-descriptions" },
-  { meta: { title: "面试表单" }, prefix: "/studio/forms" },
-  { meta: { title: "面试题" }, prefix: "/studio/interview-questions" },
+  { meta: { title: "表单题" }, prefix: "/studio/forms" },
+  { meta: { title: "沟通题" }, prefix: "/studio/interview-questions" },
   { meta: { title: "我的信息" }, prefix: "/studio/me" },
   { meta: { title: "工作区管理" }, prefix: "/studio/members" },
   { meta: { title: "邮箱监听" }, prefix: "/studio/mail-ingest-accounts" },
-  { meta: { title: "系统设置" }, prefix: "/studio/global-config" },
+  { meta: { title: "上下文设置" }, prefix: "/studio/global-config" },
   { meta: { title: "权限管理" }, prefix: "/studio/permissions" },
 ];
 
-const DEFAULT_META: RouteMeta = { title: "招聘" };
+const DEFAULT_META: RouteMeta = { title: "招聘台" };
 const WORKSPACE_PREFIX_REGEX = /^\/w\/[^/]+/;
 
 function resolveRouteMeta(pathname: string): RouteMeta {

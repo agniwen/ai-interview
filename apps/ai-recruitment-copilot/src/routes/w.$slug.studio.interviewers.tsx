@@ -11,6 +11,7 @@ import {
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import type { DepartmentRecord } from "@arc/shared/departments";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioInterviewersState } from "@/lib/start/studio/interviewers.functions";
 import type { StudioInterviewersState } from "@/lib/start/studio/interviewers.functions";
 import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
@@ -228,8 +229,8 @@ function InterviewerManagementPage({ departments }: { departments: DepartmentRec
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
         <PageHeader
-          description="维护不同部门的 AI 面试官、追问风格和声音，让每个岗位都能匹配合适的面试方式。"
-          title="面试官"
+          description="给不同部门配好 AI 面试官的人设、追问风格和声音，面试时更贴合岗位。"
+          title="面试官管理"
         />
 
         <DataGrid<InterviewerListRecord>
@@ -387,7 +388,7 @@ function StudioInterviewersRoute() {
 export const Route = createFileRoute("/w/$slug/studio/interviewers")({
   component: StudioInterviewersRoute,
   head: () => ({
-    meta: [{ title: "面试官管理" }],
+    meta: [{ title: formatDocumentTitle("面试官管理") }],
   }),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {

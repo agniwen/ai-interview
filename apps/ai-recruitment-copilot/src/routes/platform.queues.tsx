@@ -4,6 +4,7 @@ import { createFileRoute, redirect, useLoaderData } from "@tanstack/react-router
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import { QueuesGrid } from "@/components/features/platform/queues/queues-grid";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadPlatformQueuesState } from "@/lib/start/platform/queues.functions";
 import type { PlatformQueuesState } from "@/lib/start/platform/queues.functions";
 import type { PlatformQueueFilters } from "@/lib/start/platform/queues.server";
@@ -69,7 +70,7 @@ function PlatformQueuesRoute() {
 export const Route = createFileRoute("/platform/queues")({
   component: PlatformQueuesRoute,
   head: () => ({
-    meta: [{ title: "平台 · 队列任务" }],
+    meta: [{ title: formatDocumentTitle("平台 · 队列任务") }],
   }),
   loader: async (loaderContext) => {
     const { location } = loaderContext as unknown as {

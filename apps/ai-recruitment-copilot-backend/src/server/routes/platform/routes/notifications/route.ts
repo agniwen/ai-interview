@@ -7,7 +7,11 @@ import {
   platformNotificationStatusFilterValues,
   queryPaginatedPlatformNotifications,
 } from "./dao";
-import { grantPlatformNotificationDocumentAccess, NotificationDocumentAccessError } from "./utils";
+import {
+  grantPlatformNotificationDocumentAccess,
+  NotificationDocumentAccessError,
+  previewPlatformFeishuNotification,
+} from "./utils";
 
 const querySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -42,6 +46,18 @@ export const platformNotificationsRouter = factory
       return c.json({ error: message }, message === "通知记录不存在" ? 404 : 400);
     }
   })
+  .post("/:id/debug-preview", async (c) => {
+    try {
+      return c.json(await previewPlatformFeishuNotification(c.req.param("id")), 200);
+    } catch (error) {
+      if (error instanceof NotificationDocumentAccessError) {
+        const payload = { code: error.code, error: error.message };
+        return c.json(payload, error.status);
+      }
+      const payload = { error: "生成飞书通知预览失败" };
+      return c.json(payload, 500);
+    }
+  })
   .post("/:id/document-access", async (c) => {
     try {
       const { user } = c.var;
@@ -58,7 +74,8 @@ export const platformNotificationsRouter = factory
     } catch (error) {
       const message = error instanceof Error ? error.message : "获取飞书文档访问权失败";
       if (error instanceof NotificationDocumentAccessError) {
-        return c.json({ code: error.code, error: message }, error.status);
+        const payload = { code: error.code, error: message };
+        return c.json(payload, error.status);
       }
       return c.json({ error: message }, 400);
     }

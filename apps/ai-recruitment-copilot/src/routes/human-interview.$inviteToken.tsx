@@ -2,6 +2,7 @@ import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import type { PublicHumanInterviewMeetingPreview } from "@arc/shared/studio-pipeline-stages";
 import { HumanMeetingRoom } from "@/components/features/human-interview/human-meeting-room";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import { inviteTokenInputSchema } from "@/lib/start/server-fn-validators";
 
 interface HumanInterviewCandidateState {
@@ -56,7 +57,7 @@ function PublicHumanInterviewRoute() {
 export const Route = createFileRoute("/human-interview/$inviteToken")({
   component: PublicHumanInterviewRoute,
   head: () => ({
-    meta: [{ title: "真人复面" }],
+    meta: [{ title: formatDocumentTitle("真人复面") }],
   }),
   loader: ({ params }) =>
     loadHumanInterviewCandidateState({ data: { inviteToken: params.inviteToken } }),

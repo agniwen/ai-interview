@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   deleteDuplicateMatchesForSource: vi.fn(),
   deleteResumeSemanticIndexBestEffort: vi.fn(),
   deleteReturning: vi.fn(),
+  enqueueResumeReassessmentForRecord: vi.fn(),
   enqueueResumeSemanticIndexJobBestEffort: vi.fn(),
   findSemanticResumeDuplicates: vi.fn(),
   insertedValues: [] as Record<string, unknown>[],
@@ -147,6 +148,16 @@ vi.mock(
     generateResumeScreeningBestEffort: vi.fn(),
   }),
 );
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue",
+  () => ({
+    enqueueResumeReassessmentForRecord: mocks.enqueueResumeReassessmentForRecord,
+  }),
+);
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-worker",
+  () => ({ reassessResumeRecord: vi.fn() }),
+);
 vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview", () => ({
   createPptxPreviewPdfResponse: vi.fn(),
 }));
@@ -194,6 +205,7 @@ describe("resumeLibraryRouter behavior", () => {
     mocks.resolveRecruitingVisibilityScope.mockResolvedValue({ kind: "all" });
     mocks.resolveResumeUploadStorage.mockResolvedValue(null);
     mocks.jobDescriptionIdsExist.mockResolvedValue(true);
+    mocks.enqueueResumeReassessmentForRecord.mockResolvedValue("enqueued");
     mocks.buildScheduleRows.mockReturnValue([SCHEDULE_ROW]);
     mocks.loadInterviewRoundDetail.mockResolvedValue({ id: SCHEDULE_ROW.id });
     mocks.queryPaginatedResumeRecords.mockResolvedValue({
@@ -342,10 +354,14 @@ describe("resumeLibraryRouter behavior", () => {
     });
   });
 
-  it("audits a job-description change and resets the prior evaluation", async () => {
+  it("audits a full-form job change and resets both evaluation paths", async () => {
+    const existingWithProfile = {
+      ...EXISTING_RECORD,
+      resumeProfile: { name: "候选人", targetRoles: [] },
+    };
     mocks.loadResumeDetail
-      .mockResolvedValueOnce(EXISTING_RECORD)
-      .mockResolvedValueOnce({ ...EXISTING_RECORD, jobDescriptionId: "jd-new" });
+      .mockResolvedValueOnce(existingWithProfile)
+      .mockResolvedValueOnce({ ...existingWithProfile, jobDescriptionId: "jd-new" });
     mocks.loadJobDescriptionById.mockResolvedValue({ id: "jd-new", name: "新岗位" });
 
     const formData = new FormData();
@@ -377,6 +393,65 @@ describe("resumeLibraryRouter behavior", () => {
       organizationId: ORGANIZATION_ID,
       previousJobDescriptionId: "jd-old",
       previousStatus: "pass",
+    });
+    expect(mocks.enqueueResumeReassessmentForRecord).toHaveBeenCalledWith({
+      organizationId: ORGANIZATION_ID,
+      resumeRecordId: RECORD_ID,
+    });
+  });
+
+  it("invalidates stale AI scoring and queues a new assessment when the job changes", async () => {
+    const processingRecord = {
+      ...EXISTING_RECORD,
+      resumeProfile: { name: "候选人", targetRoles: [] },
+      resumeReview: { overall: { conclusion: "旧岗位评分" } },
+      resumeReviewRunId: "old-run",
+      resumeReviewStatus: "processing",
+      resumeScreeningResult: { recommendation: "pass" },
+      resumeScreeningStatus: "processing",
+    };
+    mocks.loadResumeDetail.mockResolvedValueOnce(processingRecord).mockResolvedValueOnce({
+      ...processingRecord,
+      jobDescriptionId: "jd-new",
+      resumeReview: null,
+      resumeReviewStatus: "queued",
+    });
+    mocks.loadJobDescriptionById.mockResolvedValue({ id: "jd-new", name: "新岗位" });
+
+    const response = await makeApp().request(`/resumes/${RECORD_ID}/identity`, {
+      body: JSON.stringify({
+        age: null,
+        candidateEmail: "",
+        candidateName: "候选人",
+        candidatePhone: "",
+        gender: "",
+        jobDescriptionId: "jd-new",
+        resumeEvaluationStatus: "pass",
+        targetRole: "",
+        workYears: null,
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "PATCH",
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.updatePatches).toContainEqual(
+      expect.objectContaining({
+        resumeReview: null,
+        resumeReviewError: null,
+        resumeReviewGeneratedAt: null,
+        resumeReviewQueuedAt: null,
+        resumeReviewRunId: null,
+        resumeReviewStatus: "idle",
+        resumeScreeningError: null,
+        resumeScreeningEvaluatedAt: null,
+        resumeScreeningResult: null,
+        resumeScreeningStatus: "idle",
+      }),
+    );
+    expect(mocks.enqueueResumeReassessmentForRecord).toHaveBeenCalledWith({
+      organizationId: ORGANIZATION_ID,
+      resumeRecordId: RECORD_ID,
     });
   });
 

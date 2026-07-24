@@ -52,7 +52,7 @@ function renderAnswer(question: FormQuestion, rawValue: string | string[] | unde
 }
 
 /**
- * 「面试表单」Tab 的内容：列出候选人提交过的所有表单快照与回答。
+ * 「表单题」Tab 的内容：列出候选人提交过的所有表单快照与回答。
  * Forms tab body — lists every form snapshot the candidate submitted, with answers.
  */
 export function FormsTab({
@@ -71,7 +71,7 @@ export function FormsTab({
   if (submissions.length === 0) {
     return (
       <div className="py-10 text-center text-muted-foreground text-sm">
-        候选人没有填写过任何面试表单。
+        候选人没有填写过任何表单题。
       </div>
     );
   }
@@ -142,7 +142,7 @@ export function FormsTab({
           {/* 版本注脚：用 border-t 与上方问答区分开，跟头部 border-b 对称。
               Version footnote separated by a border-t mirror of the header. */}
           <p className="border-border/50 border-t pt-3 text-muted-foreground text-xs">
-            该记录基于 v{submission.version} 的快照；如已更新，请到「面试表单」查看当前版本。
+            该记录基于 v{submission.version} 的快照；如已更新，请到「表单题」查看当前版本。
           </p>
         </article>
       ))}

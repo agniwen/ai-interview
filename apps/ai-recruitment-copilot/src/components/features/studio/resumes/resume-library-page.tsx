@@ -30,7 +30,6 @@ import { BulkUploadProgressDialog } from "@/components/features/studio/resumes/b
 import { useBulkUpload } from "@/components/features/studio/resumes/use-bulk-upload";
 import { UploadBatchListDialog } from "@/components/features/studio/resumes/upload-batch-list-dialog";
 import { PageHeader } from "@/components/features/studio/page-header";
-import { JobDescriptionViewDialog } from "@/components/features/studio/interviews/job-description-view-dialog";
 import {
   Empty,
   EmptyContent,
@@ -53,7 +52,7 @@ import { useWorkspaceMemberRole, useWorkspaceSlug } from "@/lib/client/workspace
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
-import { openStudioResumeChat } from "@/components/features/studio/studio-resume-chat";
+import { StudioScrollToTopButton } from "@/components/features/studio/studio-scroll-to-top-button";
 import {
   ResumeUploadEntryButton,
   ResumeUploadEntryDialog,
@@ -86,7 +85,6 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id ?? null;
   const canCreateInterview = useHasPermission("interview", "create");
-  const canCreateChat = useHasPermission("chat", "create");
   const canCreateResumeLibrary = useHasPermission("resumeLibrary", "create");
   const canUpdateResumeLibrary = useHasPermission("resumeLibrary", "update");
   const canDeleteResumeLibrary = useHasPermission("resumeLibrary", "delete");
@@ -131,10 +129,8 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
     setProgressOpen,
     setTransitionTarget,
     setUploadEntryOpen,
-    setViewJobDescriptionId,
     transitionTarget,
     uploadEntryOpen,
-    viewJobDescriptionId,
   } = useResumeLibraryPageState();
   const bulk = useBulkUpload({
     onBatchQueued: (detail) => {
@@ -488,8 +484,8 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
         <PageHeader
-          title="招聘"
-          description="沉淀候选人档案、简历 PDF、岗位匹配和流程进展，筛选到面试推进都能从这里接上。"
+          title="招聘台"
+          description="已经进入招聘流程的候选人在这里跟进：看简历、匹配岗位、推进到面试。"
         />
         <ClientOnly fallback={<Skeleton className="h-48 w-full" />}>
           <ResumeLibraryCharts metrics={metrics} />
@@ -526,7 +522,6 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
           </TabsList>
         </Tabs>
         <ResumeLibraryCardList
-          canCreateChat={canCreateChat}
           canCreateInterview={canCreateInterview}
           canDeleteResumeLibrary={canDeleteResumeLibrary}
           canReadResumeUploadBatch={canReadResumeUploadBatch}
@@ -549,16 +544,6 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
           onCopyDetailLink={(record) => void copyResumeDetailLink(slug, record)}
           onDelete={setDeleteRecord}
           onEdit={(record) => setEditRecordId(record.id)}
-          onLaunchChat={(record) => {
-            if (!canLaunchInterviewFromResume(record.resumeParseStatus)) {
-              toast.error("简历解析完成后才能发起 AI Chat");
-              return;
-            }
-            openStudioResumeChat({
-              candidateName: record.candidateName ?? null,
-              recordId: record.id,
-            });
-          }}
           onLaunchInterview={startAiInterview}
           onOpenBatchList={() => setBatchListOpen(true)}
           onOpenDetail={(record, tab = "overview") => {
@@ -585,7 +570,6 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
               mode,
             })
           }
-          onViewJobDescription={setViewJobDescriptionId}
           records={loadedResumeRecords}
           total={resumeLibraryTotal}
           uploadEntryDisabled={uploadEntryDisabled}
@@ -693,11 +677,6 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
         slug={slug}
       />
 
-      <JobDescriptionViewDialog
-        jobDescriptionId={viewJobDescriptionId}
-        onOpenChange={(open) => !open && setViewJobDescriptionId(null)}
-      />
-
       <ResumeUploadEntryDialog
         disabled={uploadEntryDisabled}
         onMultipleFilesPicked={handleMultipleUploadFilesPicked}
@@ -761,6 +740,7 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
         open={progressOpen}
         state={bulk.state}
       />
+      <StudioScrollToTopButton />
     </>
   );
 }

@@ -2,8 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import {
   capCandidateComparisonIds,
   createRecruitingActionProposal,
+  createRecruitingCopilotTools,
+  getResumeRecordDetailOutputSchema,
   searchResumeRecordsForCopilot,
 } from "../tools/recruiting-copilot";
+import { normalizeResumePoolItemId } from "../tools/resume-pool-id";
 
 describe("recruiting copilot tools", () => {
   it("returns candidate summary cards and citations without full resume payloads", async () => {
@@ -166,7 +169,60 @@ describe("recruiting copilot tools", () => {
     });
   });
 
-  it("creates confirmable recruiting action proposals without executing writes", () => {
+  it("exposes stored six-dimension review data in resume detail tool results", () => {
+    const result = getResumeRecordDetailOutputSchema.parse({
+      resumeRecord: {
+        candidateName: "张三",
+        citation: {
+          id: "resume-1",
+          label: "张三",
+          recordType: "resume_record",
+          secondaryLabel: "前端工程师",
+        },
+        id: "resume-1",
+        interviewQuestions: [],
+        jobDescriptionId: "jd-1",
+        jobDescriptionName: "前端工程师",
+        notes: null,
+        pipelineStage: "screening",
+        resumeProfile: null,
+        resumeReview: {
+          biasScan: { items: [] },
+          dimensions: {
+            educationBackground: { rationale: "学历符合要求", score: 80 },
+            experienceRelevance: { rationale: "经验相关", score: 88 },
+            potential: { rationale: "成长性良好", score: 82 },
+            projectMatch: { rationale: "项目匹配", score: 86 },
+            skillMatch: { rationale: "核心技能匹配", score: 92 },
+            stability: { rationale: "履历稳定", score: 78 },
+          },
+          levelRecommendation: { level: "高级", rationale: "经验充分" },
+          nextStep: {
+            action: "interview",
+            disclaimer: "以上为初步结论",
+            interviewFocus: ["系统设计"],
+            rationale: "建议进入面试",
+          },
+          overall: {
+            baseScore: 87,
+            conclusion: "整体匹配",
+            scoreRationale: "六维加权",
+          },
+          schemaVersion: 4,
+          strengths: [{ evidence: "项目经历", impact: "可快速上手", point: "经验丰富" }],
+          teamPositioning: { rationale: "能力匹配", suggestion: "核心开发" },
+          weaknesses: [{ evidence: null, impact: "需要验证", point: "管理经验有限" }],
+        },
+        resumeSummary: "5 年前端经验",
+        resumeText: null,
+        targetRole: "高级前端",
+      },
+    });
+
+    expect(result.resumeRecord?.resumeReview?.dimensions.skillMatch?.score).toBe(92);
+  });
+
+  it("creates confirmable recruiting action proposals with stable bind ids", () => {
     const result = createRecruitingActionProposal({
       explanation: "候选人与岗位技能匹配，可以先绑定岗位。",
       payload: {
@@ -179,7 +235,7 @@ describe("recruiting copilot tools", () => {
 
     expect(result.proposal).toEqual({
       explanation: "候选人与岗位技能匹配，可以先绑定岗位。",
-      id: expect.any(String),
+      id: "conversation-bind:resume_record:resume-1",
       payload: {
         jobDescriptionId: "jd-1",
         resumeRecordId: "resume-1",
@@ -187,5 +243,41 @@ describe("recruiting copilot tools", () => {
       title: "绑定候选人到前端工程师",
       type: "bind_candidate_to_job",
     });
+  });
+
+  it("normalizes pool mention ids for resume pool tools", () => {
+    expect(normalizeResumePoolItemId("pool:abc-123")).toBe("abc-123");
+    expect(normalizeResumePoolItemId("abc-123")).toBe("abc-123");
+  });
+
+  it("creates confirmable pool bind proposals with stable ids", () => {
+    const result = createRecruitingActionProposal({
+      explanation: "人才库条目尚未绑定岗位，先请用户选择。",
+      payload: {
+        poolItemId: "pool-1",
+      },
+      title: "绑定人才库条目到岗位",
+      type: "bind_pool_item_to_job",
+    });
+
+    expect(result.proposal.type).toBe("bind_pool_item_to_job");
+    expect(result.proposal.id).toBe("conversation-bind:resume_pool_item:pool-1");
+    expect(result.proposal.payload).toEqual({ poolItemId: "pool-1" });
+  });
+
+  it("registers propose_recruiting_action with requireApproval", () => {
+    const tools = createRecruitingCopilotTools({
+      organizationId: "org-1",
+      visibilityScope: { kind: "all" },
+    });
+    expect(tools.propose_recruiting_action.requireApproval).toBe(true);
+    expect(tools.propose_recruiting_action.description).toContain("必须主动、立即调用");
+    expect(tools.get_resume_record_detail.description).toContain(
+      "必须立刻调用 propose_recruiting_action",
+    );
+    expect(tools.get_resume_record_detail.description).toContain("数据库已有六维评分");
+    expect(tools.get_resume_pool_detail.description).toContain(
+      "必须立刻调用 propose_recruiting_action",
+    );
   });
 });

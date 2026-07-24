@@ -10,6 +10,7 @@ import {
 } from "@tanstack/react-router";
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioDepartmentsState } from "@/lib/start/studio/departments.functions";
 import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
 import type { StudioDepartmentsState } from "@/lib/start/studio/departments.functions";
@@ -218,7 +219,7 @@ function DepartmentManagementPage() {
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
         <PageHeader
-          description="按业务团队整理岗位和面试官，后续筛选、统计和协作都能对齐到部门。"
+          description="按团队建好部门，方便给岗位和面试官归队，协作和统计也更清楚。"
           title="部门管理"
         />
 
@@ -372,7 +373,7 @@ function StudioDepartmentsRoute() {
 export const Route = createFileRoute("/w/$slug/studio/departments")({
   component: StudioDepartmentsRoute,
   head: () => ({
-    meta: [{ title: "部门管理" }],
+    meta: [{ title: formatDocumentTitle("部门管理") }],
   }),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {

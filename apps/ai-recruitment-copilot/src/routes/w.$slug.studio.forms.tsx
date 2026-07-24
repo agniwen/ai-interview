@@ -12,6 +12,7 @@ import {
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioFormsState } from "@/lib/start/studio/forms.functions";
 import type { StudioFormsState } from "@/lib/start/studio/forms.functions";
 import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
@@ -129,7 +130,7 @@ function CandidateFormTemplateManagementPage({
           },
         });
         if (!res.ok) {
-          throw new Error("加载面试表单列表失败");
+          throw new Error("加载表单题列表失败");
         }
         return (await res.json()) as PaginatedCandidateFormTemplateResult;
       },
@@ -460,8 +461,8 @@ function CandidateFormTemplateManagementPage({
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
         <PageHeader
-          description="准备候选人面试前需要补充的信息，按岗位复用，提交后的内容会随面试记录留档。"
-          title="面试表单"
+          description="面试开始前让候选人先填的问题，可按岗位复用；提交后会跟着这份面试一起留档。"
+          title="表单题"
         />
 
         <DataGrid<CandidateFormTemplateListRecord>
@@ -473,7 +474,7 @@ function CandidateFormTemplateManagementPage({
                 <EmptyMedia variant="icon">
                   <IconClipboardList className="size-5" />
                 </EmptyMedia>
-                <EmptyTitle>还没有面试表单</EmptyTitle>
+                <EmptyTitle>还没有表单题</EmptyTitle>
                 <EmptyDescription>
                   创建后，符合作用域的面试开始前，候选人会先被要求填写表单。
                 </EmptyDescription>
@@ -488,13 +489,13 @@ function CandidateFormTemplateManagementPage({
                       }}
                     >
                       <IconPlus className="size-4" />
-                      新建面试表单
+                      新建表单题
                     </Button>
                     <Button
-                      aria-label="AI 创建面试表单"
+                      aria-label="AI 创建表单题"
                       onClick={() => setAiCreateOpen(true)}
                       size="icon"
-                      title="AI 创建面试表单"
+                      title="AI 创建表单题"
                       type="button"
                     >
                       <IconSparkles className="size-4" />
@@ -539,13 +540,13 @@ function CandidateFormTemplateManagementPage({
                   }}
                 >
                   <IconPlus className="size-4" />
-                  新建面试表单
+                  新建表单题
                 </Button>
                 <Button
-                  aria-label="AI 创建面试表单"
+                  aria-label="AI 创建表单题"
                   onClick={() => setAiCreateOpen(true)}
                   size="icon"
-                  title="AI 创建面试表单"
+                  title="AI 创建表单题"
                   type="button"
                 >
                   <IconSparkles className="size-4" />
@@ -593,7 +594,7 @@ function CandidateFormTemplateManagementPage({
         onClose={() => crud.setDeleteRecord(null)}
         onConfirm={crud.handleDelete}
         record={canDeleteCandidateForm ? crud.deleteRecord : null}
-        title="确认归档这个面试表单？"
+        title="确认归档这个表单题？"
       />
     </>
   );
@@ -661,7 +662,7 @@ function StudioFormsRoute() {
 export const Route = createFileRoute("/w/$slug/studio/forms")({
   component: StudioFormsRoute,
   head: () => ({
-    meta: [{ title: "面试表单" }],
+    meta: [{ title: formatDocumentTitle("表单题") }],
   }),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {
@@ -687,7 +688,7 @@ export const Route = createFileRoute("/w/$slug/studio/forms")({
     }
     return state;
   },
-  pendingComponent: () => <StudioTablePageSkeleton filterCount={3} label="面试表单" />,
+  pendingComponent: () => <StudioTablePageSkeleton filterCount={3} label="表单题" />,
   shouldReload: false,
   validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });

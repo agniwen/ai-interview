@@ -7,6 +7,7 @@ import { rpc } from "@/lib/client/rpc";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { InterviewFlowFloatingBar } from "./interview-flow-floating-bar";
 import { FormCard } from "./pre-interview-forms/form-card";
 import { buildInitialAnswers, validateAnswers } from "./pre-interview-forms/helpers";
 import type {
@@ -16,7 +17,10 @@ import type {
   RequiredTemplate,
 } from "./pre-interview-forms/types";
 
-async function fetchForms(interviewId: string, roundId: string): Promise<FormsPayload> {
+export async function fetchPreInterviewForms(
+  interviewId: string,
+  roundId: string,
+): Promise<FormsPayload> {
   const response = await rpc.api.interview[":id"][":roundId"].forms.$get({
     param: { id: interviewId, roundId },
   });
@@ -47,63 +51,39 @@ async function submitForm(
 
 export function PreInterviewFormsView({
   interviewId,
+  initialPayload,
   roundId,
   onAllCompleted,
+  onBack,
   children,
 }: {
   interviewId: string;
+  initialPayload: FormsPayload;
   roundId: string;
   onAllCompleted?: () => void;
+  onBack: () => void;
   children: React.ReactNode;
 }) {
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [templates, setTemplates] = useState<RequiredTemplate[]>([]);
-  const [submittedIds, setSubmittedIds] = useState<Set<string>>(new Set());
-  const [answersByTemplate, setAnswersByTemplate] = useState<
-    Record<string, Record<string, AnswerValue>>
-  >({});
+  const [templates] = useState<RequiredTemplate[]>(() => initialPayload.required);
+  const [submittedIds, setSubmittedIds] = useState<Set<string>>(
+    () => new Set(Object.keys(initialPayload.submitted)),
+  );
   const [errorsByTemplate, setErrorsByTemplate] = useState<Record<string, FieldErrorMap>>({});
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setLoadError(null);
-
-    async function load() {
-      try {
-        const payload = await fetchForms(interviewId, roundId);
-        if (cancelled) {
-          return;
-        }
-        setTemplates(payload.required);
-        const initial: Record<string, Record<string, AnswerValue>> = {};
-        for (const template of payload.required) {
-          initial[template.templateId] = buildInitialAnswers(template.snapshot);
-        }
-        setAnswersByTemplate(initial);
-        setSubmittedIds(new Set(Object.keys(payload.submitted)));
-      } catch (error) {
-        if (!cancelled) {
-          setLoadError(error instanceof Error ? error.message : "加载面试表单失败");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
+  const [answersByTemplate, setAnswersByTemplate] = useState<
+    Record<string, Record<string, AnswerValue>>
+  >(() => {
+    const initial: Record<string, Record<string, AnswerValue>> = {};
+    for (const template of initialPayload.required) {
+      initial[template.templateId] = buildInitialAnswers(template.snapshot);
     }
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [interviewId, roundId]);
+    return initial;
+  });
 
   const pendingTemplates = templates.filter((t) => !submittedIds.has(t.templateId));
-  const allSubmitted = !loading && templates.length > 0 && pendingTemplates.length === 0;
-  const noFormsRequired = !loading && templates.length === 0;
+  const allSubmitted = templates.length > 0 && pendingTemplates.length === 0;
+  const noFormsRequired = templates.length === 0;
 
   useEffect(() => {
     if (allSubmitted || noFormsRequired) {
@@ -182,13 +162,16 @@ export function PreInterviewFormsView({
         aria-hidden
         className="pointer-events-none fixed inset-0 -z-20 bg-[url('/textures/interview-prep-light.png')] bg-center bg-cover bg-no-repeat dark:bg-[url('/textures/interview-prep-dark.png')]"
       />
-      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-white/5 dark:hidden" />
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10 bg-background/45 dark:bg-background/75"
+      />
       <div className="fixed top-4 right-4 z-20 rounded-md bg-background/20 p-1 backdrop-blur-sm">
         <ThemeToggle />
       </div>
       <main className="relative flex h-dvh w-full select-none flex-col md:items-center">
         <ScrollArea className="h-full w-full">
-          <div className="mx-auto flex w-full max-w-2xl flex-col px-5 pt-12  sm:px-2 sm:pt-20 md:pt-16">
+          <div className="mx-auto flex w-full max-w-3xl flex-col px-5 pt-12 pb-44 sm:px-6 sm:pt-20 sm:pb-40 md:pt-16">
             <section className="mb-8">
               <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-primary text-xs">
                 <IconClipboardList className="size-3.5" />
@@ -200,48 +183,38 @@ export function PreInterviewFormsView({
               </p>
             </section>
 
-            {loading ? (
-              <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground text-sm">
-                <IconLoader2 className="size-4 animate-spin" />
-                正在检查面试表单填写情况
-              </div>
-            ) : null}
-
-            {loadError ? (
-              <p className="py-10 text-center text-destructive text-sm">{loadError}</p>
-            ) : null}
-
-            {!loading && !loadError ? (
-              <div className="space-y-4">
-                {pendingTemplates.map((template) => (
-                  <FormCard
-                    answers={answersByTemplate[template.templateId] ?? {}}
-                    errors={errorsByTemplate[template.templateId] ?? {}}
-                    key={template.templateId}
-                    onChange={(questionId, value) =>
-                      handleChangeAnswer(template.templateId, questionId, value)
-                    }
-                    submitted={false}
-                    template={template}
-                  />
-                ))}
-
-                <div className="sticky bottom-0 z-10 -mx-5 border-border border-t px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur sm:-mx-2 sm:px-2">
-                  <Button
-                    className="h-11 w-full"
-                    disabled={submitting || pendingTemplates.length === 0}
-                    onClick={() => void handleSubmitAll()}
-                    size="lg"
-                  >
-                    {submitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
-                    提交并继续
-                  </Button>
-                </div>
-              </div>
-            ) : null}
+            <div className="space-y-4">
+              {pendingTemplates.map((template) => (
+                <FormCard
+                  answers={answersByTemplate[template.templateId] ?? {}}
+                  errors={errorsByTemplate[template.templateId] ?? {}}
+                  key={template.templateId}
+                  onChange={(questionId, value) =>
+                    handleChangeAnswer(template.templateId, questionId, value)
+                  }
+                  submitted={false}
+                  template={template}
+                />
+              ))}
+            </div>
           </div>
         </ScrollArea>
       </main>
+      <InterviewFlowFloatingBar
+        actions={
+          <Button
+            disabled={submitting || pendingTemplates.length === 0}
+            onClick={() => void handleSubmitAll()}
+            size="sm"
+          >
+            {submitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
+            提交并继续
+          </Button>
+        }
+        currentStep="forms"
+        hasForms
+        onBack={onBack}
+      />
     </>
   );
 }

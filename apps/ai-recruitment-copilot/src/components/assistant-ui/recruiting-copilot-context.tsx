@@ -11,8 +11,10 @@ import {
   useState,
 } from "react";
 import type { CSSProperties, PropsWithChildren } from "react";
+import type { ResumeReviewLoose } from "@arc/shared/resume-review";
 import { getPreviewableResumeDocumentKind } from "@/components/features/resume/resume-document-preview-button";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
+import type { StudioPersonDetailTab } from "@/components/features/studio/studio-person-detail-panel";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 const ResumeDocumentPreviewDialog = lazy(async () => {
@@ -44,6 +46,17 @@ export interface SearchResumeRecordsResult {
   total?: number;
 }
 
+export interface ResumeRecordDetailResult {
+  resumeRecord?: {
+    candidateName: string;
+    citation: CopilotCitation;
+    id: string;
+    jobDescriptionId: string | null;
+    jobDescriptionName: string | null;
+    resumeReview?: ResumeReviewLoose | null;
+  } | null;
+}
+
 export interface CopilotCitation {
   id: string;
   label: string;
@@ -56,10 +69,22 @@ export interface RecruitingActionProposal {
   id: string;
   payload: Record<string, unknown>;
   title: string;
-  type: "bind_candidate_to_job" | "advance_candidate_stage" | "generate_interview_questions";
+  type:
+    | "bind_candidate_to_job"
+    | "bind_pool_item_to_job"
+    | "advance_candidate_stage"
+    | "generate_interview_questions";
+}
+
+export interface RecruitingActionConfirmation {
+  confirmedAt: string;
+  jobDescriptionId?: string;
+  jobDescriptionName?: string | null;
+  status: "confirmed" | "ignored";
 }
 
 export interface RecruitingActionProposalResult {
+  confirmation?: RecruitingActionConfirmation;
   proposal?: RecruitingActionProposal;
 }
 
@@ -71,7 +96,7 @@ interface RecruitingCopilotContextValue {
   proposalStatuses: Record<string, ProposalStatus>;
   proposals: RecruitingActionProposal[];
   markProposal: (id: string, status: ProposalStatus) => void;
-  openResumeDetail: (recordId: string) => void;
+  openResumeDetail: (recordId: string, defaultTab?: StudioPersonDetailTab) => void;
   openResumePreview: (record: Pick<CandidateSummaryCard, "id" | "resumeFileName">) => void;
   upsertCitations: (citations: CopilotCitation[]) => void;
   upsertProposal: (proposal: RecruitingActionProposal) => void;
@@ -98,9 +123,14 @@ function mergeByKey<T>(current: T[], incoming: T[], keyOf: (value: T) => string)
 export function RecruitingCopilotContextProvider({
   children,
   conversationId,
-}: PropsWithChildren<{ conversationId: string | null }>) {
+}: PropsWithChildren<{
+  conversationId: string | null;
+}>) {
   const [citations, setCitations] = useState<CopilotCitation[]>([]);
-  const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
+  const [detailTarget, setDetailTarget] = useState<{
+    defaultTab: StudioPersonDetailTab;
+    recordId: string;
+  } | null>(null);
   const [previewRecord, setPreviewRecord] = useState<Pick<
     CandidateSummaryCard,
     "id" | "resumeFileName"
@@ -110,7 +140,7 @@ export function RecruitingCopilotContextProvider({
 
   useEffect(() => {
     setCitations([]);
-    setDetailRecordId(null);
+    setDetailTarget(null);
     setPreviewRecord(null);
     setProposals([]);
     setProposalStatuses({});
@@ -137,9 +167,12 @@ export function RecruitingCopilotContextProvider({
     setProposalStatuses((current) => ({ ...current, [id]: status }));
   }, []);
 
-  const openResumeDetail = useCallback((recordId: string) => {
-    setDetailRecordId(recordId);
-  }, []);
+  const openResumeDetail = useCallback(
+    (recordId: string, defaultTab: StudioPersonDetailTab = "overview") => {
+      setDetailTarget({ defaultTab, recordId });
+    },
+    [],
+  );
 
   const openResumePreview = useCallback(
     (record: Pick<CandidateSummaryCard, "id" | "resumeFileName">) => {
@@ -182,14 +215,15 @@ export function RecruitingCopilotContextProvider({
     <RecruitingCopilotContext.Provider value={value}>
       {children}
       <StudioPersonDetailDialog
+        defaultTab={detailTarget?.defaultTab}
         mode="resume"
         onOpenChange={(open) => {
           if (!open) {
-            setDetailRecordId(null);
+            setDetailTarget(null);
           }
         }}
-        open={detailRecordId !== null}
-        recordId={detailRecordId}
+        open={detailTarget !== null}
+        recordId={detailTarget?.recordId}
       />
       {previewRecord && previewKind ? (
         <Suspense fallback={null}>

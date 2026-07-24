@@ -16,7 +16,7 @@ import { render } from "@react-email/render";
 
 interface RoundInviteEmailProps {
   candidateName: string;
-  /** 中文：系统设置里的公司名称，可为空。/ English: company name from global config, optional. */
+  /** 中文：上下文设置里的公司名称，可为空。/ English: company name from global config, optional. */
   companyName?: string;
   heroImageUrl?: string;
   interviewUrl: string;

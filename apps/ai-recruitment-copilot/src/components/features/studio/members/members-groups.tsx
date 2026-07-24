@@ -410,7 +410,7 @@ function MemberPoolCard({ canUpdate, isOverlay, row }: MemberPoolCardProps) {
 
   return (
     <div
-      className={`min-w-0 rounded-md border bg-background p-3 shadow-sm ${
+      className={`min-w-0 rounded-md border bg-background p-3 ${
         isOverlay ? "ring-2 ring-primary" : ""
       } ${isDragging ? "opacity-50" : ""}`}
       ref={setNodeRef}
@@ -508,9 +508,7 @@ function GroupMemberCard({
 
   return (
     <div
-      className={`min-w-0 rounded-md border bg-background p-3 shadow-sm ${
-        isDragging ? "opacity-50" : ""
-      }`}
+      className={`min-w-0 rounded-md border bg-background p-3 ${isDragging ? "opacity-50" : ""}`}
       ref={setNodeRef}
       style={style}
     >

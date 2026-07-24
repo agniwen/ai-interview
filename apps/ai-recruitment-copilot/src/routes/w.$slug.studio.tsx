@@ -4,6 +4,7 @@ import { PendingOutlet } from "@/components/layout/pending-outlet";
 import { SiteHeader } from "@/components/features/studio/site-header";
 import { StudioHeaderProvider } from "@/components/features/studio/studio-header-context";
 import { RecruitingPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
+import { documentTitleMeta } from "@/lib/start/document-title";
 import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset } from "@/components/ui/sidebar";
@@ -59,13 +60,13 @@ function StudioPendingRoute() {
 
 export const Route = createFileRoute("/w/$slug/studio")({
   component: StudioShellRoute,
-  head: () => ({
+  head: ({ matches }) => ({
     meta: [
       {
         content: "Studio 管理后台。",
         name: "description",
       },
-      { title: "Studio" },
+      ...documentTitleMeta(matches),
     ],
   }),
   loader: async (loaderContext) => {

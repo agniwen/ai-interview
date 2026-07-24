@@ -32,7 +32,13 @@ const EVALUATION_PROMPT = `你是一位专业的面试评估专家。请根据�
 注意：
 - hrEvaluation 只汇总候选人在表单答复或候选人本人对话中明确表达的信息，不得从简历、面试官话术或常识推测
 - 将同一主题在表单和语音面试中的信息合并为简洁、完整的事实；没有收集到的信息必须输出 null
-- hrEvaluation.recentWork 同时覆盖最近两份工作的公司规模、部门架构、个人角色，以及适用的工作节奏、压力、离职原因、亮点项目或管理沟通信息
+- hrEvaluation.jobMotivation：离职原因 + 看机会核心关注点
+- hrEvaluation.availability：当前 base 地、求职状态及到岗时间
+- hrEvaluation.overseasTravel：年龄、成家情况、是否可以接受短期海外出差及周期
+- hrEvaluation.compensationExpectations：过往两份工作的薪酬及结构（年包=固定月薪+浮动月薪+奖金+期权/股票）以及薪酬期望
+- hrEvaluation.careerProgression：过往两份工作的绩效、是否有高绩效、加薪或晋升，并说明原因；没有相关信息时输出 null
+- hrEvaluation.recentWork：最近两份工作的个人角色定位、团队架构及人员分工、离职原因
+- hrEvaluation.projectHighlights：候选人分享的亮点项目
 - 只评估面试中实际提问到的题目
 - score 范围 0-10，overallScore 范围 0-100
 - 评价要客观具体，引用候选人的实际回答
@@ -47,18 +53,22 @@ const evidenceSchema = z.object({
 });
 
 const hrEvaluationSchema = z.object({
-  availability: z.string().nullable().describe("当前 base 地、求职状态和最快到岗时间"),
-  careerProgression: z.string().nullable().describe("最近两份工作的绩效、晋升、加薪晋级和获奖荣誉"),
+  availability: z.string().nullable().describe("当前 base 地、求职状态及到岗时间"),
+  careerProgression: z
+    .string()
+    .nullable()
+    .describe("过往两份工作的绩效、是否有高绩效、加薪或晋升及原因；无相关信息则为 null"),
   compensationExpectations: z
     .string()
     .nullable()
-    .describe("最近两份工作的薪酬及结构、当前薪酬和薪酬期望"),
-  jobMotivation: z.string().nullable().describe("候选人的求职动机"),
-  overseasTravel: z.string().nullable().describe("成家情况、能否接受短期海外出差及周期"),
+    .describe("过往两份工作的薪酬及结构（年包=固定月薪+浮动月薪+奖金+期权/股票）和薪酬期望"),
+  jobMotivation: z.string().nullable().describe("离职原因和看机会核心关注点"),
+  overseasTravel: z.string().nullable().describe("年龄、成家情况、能否接受短期海外出差及周期"),
+  projectHighlights: z.string().nullable().describe("候选人分享的亮点项目"),
   recentWork: z
     .string()
     .nullable()
-    .describe("最近两份工作的公司规模、部门架构、个人角色及管理或非管理岗补充信息"),
+    .describe("最近两份工作的个人角色定位、团队架构及人员分工、离职原因"),
 });
 
 const evaluationSchema = z.object({

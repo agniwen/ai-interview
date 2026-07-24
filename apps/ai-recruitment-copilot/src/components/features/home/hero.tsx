@@ -20,7 +20,7 @@ interface HeroProps {
 //   t=0.10   sub paragraph fade
 //   t=0.20   CTA buttons fade
 const BRAND_MARK_CLASS =
-  "mb-3 block font-mono font-medium text-base text-primary uppercase tracking-[0.22em] sm:mb-4 sm:text-base lg:text-lg";
+  "mb-3 block font-mono font-medium text-base text-primary uppercase tracking-[0.22em] dark:text-violet-100 sm:mb-4 sm:text-base lg:text-lg";
 
 export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
   const reducedMotion = useReducedMotion();
@@ -30,13 +30,13 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
       <FadeContent>
         {/* 中文官方名放在标语徽章里，承担本地化品牌识别。
             Chinese official name lives in the eyebrow badge for localized brand recall. */}
-        <p className="inline-flex items-center gap-1.5 rounded-full border border-primary/15 bg-primary/10 px-3 py-1 font-medium text-[11px] text-primary sm:text-xs">
+        <p className="inline-flex items-center gap-1.5 rounded-full border border-primary/15 bg-primary/10 px-3 py-1 font-medium text-[11px] text-primary dark:border-white/20 dark:bg-slate-950/50 dark:text-violet-100 dark:backdrop-blur-sm sm:text-xs">
           <IconSparkles aria-hidden="true" className="size-3" />
           招聘 AI 协同工作台
         </p>
       </FadeContent>
 
-      <h1 className="mt-5 mx-auto max-w-5xl text-balance font-medium text-[2rem] text-foreground leading-[1.12] tracking-tight sm:mt-6 sm:text-5xl lg:text-[3.5rem]">
+      <h1 className="mt-5 mx-auto max-w-5xl text-balance font-medium text-[2rem] text-foreground leading-[1.12] tracking-tight dark:text-white sm:mt-6 sm:text-5xl lg:text-[3.5rem]">
         {/* 品牌行用 motion.span（不能用 FadeContent，它会渲染 <div> 嵌进 <h1> 不合法）。
             延迟 0.15s 卡在 eyebrow 起势之后、SplitText 标语字符 stagger 起点(0.1s) 附近，
             形成 eyebrow → 品牌行 → 标语字符 → 副标题 → CTA 的连贯入场。
@@ -59,7 +59,7 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
       </h1>
 
       <FadeContent className="mt-5 mx-auto max-w-2xl sm:mt-7" delay={0.1}>
-        <p className="font-serif text-sm text-muted-foreground leading-normal sm:text-lg sm:leading-[1.8]">
+        <p className="font-serif text-sm text-muted-foreground leading-normal dark:text-white/80 sm:text-lg sm:leading-[1.8]">
           上传简历，和 AI
           先聊几句。把面试链接发出去，让候选人开口面对面。亮点、风险、追问过程、回答表现，一条工作流里全程在场。
         </p>
@@ -68,7 +68,7 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
       <FadeContent className="mt-8 flex items-center justify-center sm:mt-10" delay={0.2}>
         <div className="inline-flex items-stretch">
           <Button
-            className="group h-11 min-w-[12em] gap-0 rounded-l-xl rounded-r-none border-primary/40 bg-primary/20! px-8 text-sm  hover:bg-primary/40! sm:h-12 sm:px-10 sm:text-base"
+            className="group h-11 min-w-[12em] gap-0 rounded-l-xl rounded-r-none border-primary/40 bg-primary/20! px-8 text-sm hover:bg-primary/40! dark:border-white/30 dark:bg-slate-950/55! dark:text-white dark:hover:bg-slate-950/75! sm:h-12 sm:px-10 sm:text-base"
             onClick={onResumeFiltering}
             type="button"
             variant="outline"
@@ -79,7 +79,7 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
             </span>
           </Button>
           <Button
-            className="group h-11 min-w-[12em] gap-0 rounded-l-none rounded-r-xl border-background bg-background/60 px-8 text-sm  hover:bg-background/80 sm:h-12 sm:px-10 sm:text-base"
+            className="group h-11 min-w-[12em] gap-0 rounded-l-none rounded-r-xl border-background bg-background/60 px-8 text-sm hover:bg-background/80 dark:border-white/50 dark:bg-white/85 dark:text-slate-950 dark:hover:bg-white sm:h-12 sm:px-10 sm:text-base"
             onClick={onWorkbench}
             type="button"
             variant="outline"

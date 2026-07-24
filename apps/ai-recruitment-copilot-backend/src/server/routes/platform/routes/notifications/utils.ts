@@ -1,6 +1,9 @@
 import { and, desc, eq } from "drizzle-orm";
-import { account, interviewNotification } from "@arc/db-schema/schema";
+import { account, interviewNotification, studioInterview } from "@arc/db-schema/schema";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import { generateFeishuHrEvaluationWithPromptForInterview } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/feishu-hr-evaluation";
+import { buildHrInterviewEvaluationBlock } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/interview-evaluation-doc";
+import type { HrInterviewEvaluationPreview } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/interview-evaluation-doc";
 import { grantFeishuInterviewEvaluationDocxAccess } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/feishu-docx";
 import type { FeishuProviderId } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
 import { FEISHU_PROVIDER_IDS } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
@@ -13,6 +16,7 @@ type NotificationDocumentAccessErrorCode =
   | "DOCUMENT_NOT_GENERATED"
   | "FEISHU_ACCOUNT_NOT_LINKED"
   | "NOTIFICATION_NOT_FOUND"
+  | "PREVIEW_NOT_AVAILABLE"
   | "UNSUPPORTED_FEISHU_PROVIDER";
 
 export class NotificationDocumentAccessError extends Error {
@@ -83,4 +87,42 @@ export async function grantPlatformNotificationDocumentAccess(options: {
   }
 
   return { documentUrl: notification.documentUrl };
+}
+
+export async function previewPlatformFeishuNotification(
+  notificationId: string,
+): Promise<HrInterviewEvaluationPreview & { prompt: string }> {
+  const [notification] = await db
+    .select({
+      candidateName: studioInterview.candidateName,
+      conversationId: interviewNotification.conversationId,
+      interviewRecordId: interviewNotification.interviewRecordId,
+      type: interviewNotification.type,
+    })
+    .from(interviewNotification)
+    .innerJoin(studioInterview, eq(studioInterview.id, interviewNotification.interviewRecordId))
+    .where(eq(interviewNotification.id, notificationId))
+    .limit(1);
+
+  if (!notification) {
+    throw new NotificationDocumentAccessError("NOTIFICATION_NOT_FOUND", "通知记录不存在", 404);
+  }
+  if (notification.type !== "summary_ready" || !notification.conversationId) {
+    throw new NotificationDocumentAccessError(
+      "PREVIEW_NOT_AVAILABLE",
+      "该通知没有可供 AI 调试的面试会话",
+      409,
+    );
+  }
+
+  const generated = await generateFeishuHrEvaluationWithPromptForInterview({
+    conversationId: notification.conversationId,
+    interviewRecordId: notification.interviewRecordId,
+  });
+
+  const preview = buildHrInterviewEvaluationBlock({
+    candidateName: notification.candidateName,
+    evaluation: { hrEvaluation: generated.evaluation },
+  });
+  return { ...preview, prompt: generated.prompt };
 }

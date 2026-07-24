@@ -61,7 +61,7 @@ export function SectionLead({ children, className }: SectionLeadProps) {
   return (
     <p
       className={cn(
-        "mt-4 max-w-2xl text-base text-muted-foreground leading-normal sm:text-lg",
+        "mt-4 max-w-2xl text-base text-muted-foreground leading-normal dark:text-white/80 sm:text-lg",
         className,
       )}
     >

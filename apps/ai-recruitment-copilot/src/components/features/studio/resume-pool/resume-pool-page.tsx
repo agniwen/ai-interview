@@ -16,6 +16,7 @@ import { ResumeDuplicateMatchesDialog } from "@/components/features/resume/resum
 import { toDedupSourceFromPoolRecord } from "@/components/features/resume/resume-dedup-source";
 import { getPreviewableResumeDocumentKind } from "@/components/features/resume/resume-document-preview-button";
 import { PageHeader } from "@/components/features/studio/page-header";
+import { StudioScrollToTopButton } from "@/components/features/studio/studio-scroll-to-top-button";
 import { BulkUploadProgressDialog } from "@/components/features/studio/resumes/bulk-upload-progress-dialog";
 import { ResumeUploadEntryDialog } from "@/components/features/studio/resumes/resume-upload-entry-dialog";
 import { UploadBatchListDialog } from "@/components/features/studio/resumes/upload-batch-list-dialog";
@@ -453,7 +454,7 @@ export function ResumePoolPage() {
         <PageHeader
           className="max-w-3xl"
           title="人才库"
-          description="先沉淀简历，再决定是否在本工作区共享或入库到招聘台。"
+          description="还没进入流程、或暂时归档的简历放这里；合适了再推进到招聘台。"
         />
         <Tabs
           onValueChange={(value) => void navigate({ search: { scope: normalizeScope(value) } })}
@@ -689,6 +690,7 @@ export function ResumePoolPage() {
             ) : null;
           })()
         : null}
+      <StudioScrollToTopButton />
     </>
   );
 }

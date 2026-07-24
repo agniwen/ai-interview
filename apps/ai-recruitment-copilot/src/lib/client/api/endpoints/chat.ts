@@ -72,11 +72,23 @@ export interface RecruitingActionProposal {
   id: string;
   payload: Record<string, unknown>;
   title: string;
-  type: "bind_candidate_to_job" | "advance_candidate_stage" | "generate_interview_questions";
+  type:
+    | "bind_candidate_to_job"
+    | "bind_pool_item_to_job"
+    | "advance_candidate_stage"
+    | "generate_interview_questions";
+}
+
+export interface RecruitingActionConfirmation {
+  confirmedAt: string;
+  jobDescriptionId?: string;
+  jobDescriptionName?: string | null;
+  status: "confirmed" | "ignored";
 }
 
 export interface ConfirmRecruitingActionResult {
   actionType?: RecruitingActionProposal["type"];
+  confirmation?: RecruitingActionConfirmation;
   message: string;
   status: "executed" | "failed" | "noop";
 }
@@ -204,10 +216,14 @@ export async function confirmRecruitingAction(
   slug: string,
   conversationId: string,
   proposal: RecruitingActionProposal,
+  options?: { decision?: "confirm" | "ignore" },
 ): Promise<ConfirmRecruitingActionResult> {
   return await rpcFetch<ConfirmRecruitingActionResult>(
     rpc.api.w[":slug"].chat.conversations[":id"].actions.confirm.$post({
-      json: { proposal: proposal as never },
+      json: {
+        decision: options?.decision ?? "confirm",
+        proposal: proposal as never,
+      },
       param: { id: conversationId, slug },
     }),
     "确认动作失败",

@@ -28,5 +28,15 @@
     "typescript": "catalog:",
     "ultracite": "7.6.0"
   },
-  "packageManager": "pnpm@11.5.2"
+  "packageManager": "pnpm@11.5.2",
+  "intent": {
+    "skills": [
+      "@tanstack/react-start",
+      "@tanstack/router-core",
+      "@tanstack/router-plugin",
+      "@tanstack/start-client-core",
+      "@tanstack/start-server-core",
+      "@tanstack/virtual-file-routes"
+    ]
+  }
 }

@@ -1,6 +1,7 @@
 import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
 import { PlatformLayout } from "@/components/features/platform/platform-layout";
 import { getPlatformAdminState } from "@/lib/start/platform-admin";
+import { documentTitleMeta } from "@/lib/start/document-title";
 
 function PlatformRoute() {
   return (
@@ -12,8 +13,8 @@ function PlatformRoute() {
 
 export const Route = createFileRoute("/platform")({
   component: PlatformRoute,
-  head: () => ({
-    meta: [{ title: "平台管理" }],
+  head: ({ matches }) => ({
+    meta: documentTitleMeta(matches),
   }),
   loader: async (loaderContext) => {
     const { location } = loaderContext as { location: { pathname: string } };

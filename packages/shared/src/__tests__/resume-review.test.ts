@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   computeResumeReviewBaseScore,
+  describeResumeLibraryReviewCard,
   formatResumeReviewMarkdown,
+  getResumeReviewActionTone,
   getResumeReviewBaseScore,
   getResumeReviewDimension,
+  getResumeReviewScoreSentiment,
   resumeReviewSchema,
 } from "../resume-review";
 import type { ResumeReview } from "../resume-review";
@@ -170,5 +173,70 @@ describe("formatResumeReviewMarkdown", () => {
       **下一步建议**
       进入面试。岗位匹配度较高，建议通过面试核实关键风险。面试重点：追问性能优化指标；核实项目中的个人贡献。以上为初步结论。"
     `);
+  });
+});
+
+describe("resume library card review helpers", () => {
+  it("maps score bands to thumb sentiments", () => {
+    expect(getResumeReviewScoreSentiment(70)).toBe("positive");
+    expect(getResumeReviewScoreSentiment(50)).toBe("neutral");
+    expect(getResumeReviewScoreSentiment(49)).toBe("negative");
+  });
+
+  it("maps next-step actions to text tones", () => {
+    expect(getResumeReviewActionTone("interview")).toBe("success");
+    expect(getResumeReviewActionTone("hold")).toBe("warning");
+    expect(getResumeReviewActionTone("reject")).toBe("danger");
+    expect(getResumeReviewActionTone(null)).toBe("muted");
+  });
+
+  it("describes ready / pending / failed card copy", () => {
+    expect(
+      describeResumeLibraryReviewCard({
+        baseScore: 72,
+        nextStepAction: "interview",
+        status: "ready",
+      }),
+    ).toEqual({
+      label: "建议进入面试（72分）",
+      scoreSentiment: "positive",
+      tone: "success",
+    });
+
+    expect(
+      describeResumeLibraryReviewCard({
+        baseScore: null,
+        nextStepAction: null,
+        status: "processing",
+      }),
+    ).toEqual({
+      label: "生成中…",
+      scoreSentiment: null,
+      tone: "muted",
+    });
+
+    expect(
+      describeResumeLibraryReviewCard({
+        baseScore: null,
+        nextStepAction: null,
+        status: "failed",
+      }),
+    ).toEqual({
+      label: "生成失败",
+      scoreSentiment: null,
+      tone: "muted",
+    });
+
+    expect(
+      describeResumeLibraryReviewCard({
+        baseScore: null,
+        nextStepAction: null,
+        status: "idle",
+      }),
+    ).toEqual({
+      label: "未生成",
+      scoreSentiment: null,
+      tone: "muted",
+    });
   });
 });

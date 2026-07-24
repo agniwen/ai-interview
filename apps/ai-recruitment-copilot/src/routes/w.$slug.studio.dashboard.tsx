@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-router";
 import type { RecruitingDashboardMetrics } from "@arc/shared/studio-dashboard";
 import { loadStudioDashboardState } from "@/lib/start/studio/dashboard.functions";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { DashboardPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
@@ -485,7 +486,7 @@ function RecruitingDashboardPage({ metrics }: { metrics: RecruitingDashboardMetr
     <div className="mx-auto w-full max-w-[96rem] flex flex-col gap-4 md:gap-6">
       <PageHeader
         title="数据看板"
-        description="从候选人漏斗、待办队列、招聘活动、岗位分布和 Offer 状态观察当前招聘运营。"
+        description="看看候选人漏斗、待办、岗位分布和 Offer 进度，了解这阵子招聘做得怎么样。"
       />
       <StudioSummaryCards
         items={[
@@ -569,7 +570,7 @@ function StudioDashboardRoute() {
 export const Route = createFileRoute("/w/$slug/studio/dashboard")({
   component: StudioDashboardRoute,
   head: () => ({
-    meta: [{ title: "数据看板" }],
+    meta: [{ title: formatDocumentTitle("数据看板") }],
   }),
   loader: async ({ params }) => {
     await requireStudioPageAccess({

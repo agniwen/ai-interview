@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { actionsColumn, customColumn, DataGrid, useDataGridState } from "@/components/data-grid";
 import type { DataGridFetchParams, DataGridFetchResult } from "@/components/data-grid";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import { MemberCell } from "@/components/data-grid/cells/member-cell";
 import { TimeDisplay } from "@/components/features/display/time-display";
 import { PageHeader } from "@/components/features/studio/page-header";
@@ -646,7 +647,7 @@ function ManagedMailIngestPage() {
     <div className="mx-auto w-full max-w-[96rem] flex flex-col gap-6">
       <PageHeader
         title="邮箱监听"
-        description="管理员查看全工作区配置，其他成员仅查看和维护自己的监听账号。"
+        description="把收简历的邮箱接进来自动入库。管理员能看全部账号，其他人只管理自己的。"
       />
 
       <DataGrid<ManagedMailIngestRow>
@@ -706,7 +707,7 @@ function ManagedMailIngestRoute() {
 export const Route = createFileRoute("/w/$slug/studio/mail-ingest-accounts")({
   component: ManagedMailIngestRoute,
   head: () => ({
-    meta: [{ title: "邮箱监听" }],
+    meta: [{ title: formatDocumentTitle("邮箱监听") }],
   }),
   pendingComponent: () => <StudioTablePageSkeleton label="邮箱监听" />,
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { IconHome, IconLogout, IconUser } from "@tabler/icons-react";
+import { IconHome, IconLogout, IconShieldCheck, IconUser } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -42,6 +42,48 @@ function getInitials(name?: string | null, email?: string | null) {
   return source.slice(0, 2).toUpperCase();
 }
 
+function SidebarUserMenuLinks({
+  showHomeLink,
+  showPlatformLink,
+  onSignOut,
+}: {
+  showHomeLink: boolean;
+  showPlatformLink: boolean;
+  onSignOut: () => void;
+}) {
+  const hasNavigationLinks = showHomeLink || showPlatformLink;
+
+  return (
+    <>
+      {showHomeLink ? (
+        <DropdownMenuItem
+          render={
+            <Link to="/studio">
+              <IconHome className="mr-2 size-4" />
+              返回工作台
+            </Link>
+          }
+        />
+      ) : null}
+      {showPlatformLink ? (
+        <DropdownMenuItem
+          render={
+            <Link to="/platform">
+              <IconShieldCheck className="mr-2 size-4" />
+              进入管理后台
+            </Link>
+          }
+        />
+      ) : null}
+      {hasNavigationLinks ? <DropdownMenuSeparator /> : null}
+      <DropdownMenuItem onClick={onSignOut} variant="destructive">
+        <IconLogout className="mr-2 size-4" />
+        退出登录
+      </DropdownMenuItem>
+    </>
+  );
+}
+
 // oxlint-disable-next-line complexity -- Shared user section branches on session state and collapse variants.
 export function SidebarUserSection({
   collapsed,
@@ -68,6 +110,7 @@ export function SidebarUserSection({
   const userEmail = session?.user?.email ?? "";
   const organizationName = session?.user?.feishuTenantName ?? null;
   const userInitials = getInitials(session?.user?.name, session?.user?.email);
+  const showPlatformLink = !showHomeLink && session?.user?.role === "admin";
 
   let content: ReactNode;
 
@@ -111,21 +154,11 @@ export function SidebarUserSection({
             </DropdownMenuLabel>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          {showHomeLink ? (
-            <DropdownMenuItem
-              render={
-                <Link to="/">
-                  <IconHome className="mr-2 size-4" />
-                  返回首页
-                </Link>
-              }
-            />
-          ) : null}
-          {showHomeLink ? <DropdownMenuSeparator /> : null}
-          <DropdownMenuItem onClick={handleSignOut} variant="destructive">
-            <IconLogout className="mr-2 size-4" />
-            退出登录
-          </DropdownMenuItem>
+          <SidebarUserMenuLinks
+            onSignOut={handleSignOut}
+            showHomeLink={showHomeLink}
+            showPlatformLink={showPlatformLink}
+          />
         </DropdownMenuContent>
       </DropdownMenu>
     ) : (
@@ -162,21 +195,11 @@ export function SidebarUserSection({
             </DropdownMenuLabel>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          {showHomeLink ? (
-            <DropdownMenuItem
-              render={
-                <Link to="/">
-                  <IconHome className="mr-2 size-4" />
-                  返回首页
-                </Link>
-              }
-            />
-          ) : null}
-          {showHomeLink ? <DropdownMenuSeparator /> : null}
-          <DropdownMenuItem onClick={handleSignOut} variant="destructive">
-            <IconLogout className="mr-2 size-4" />
-            退出登录
-          </DropdownMenuItem>
+          <SidebarUserMenuLinks
+            onSignOut={handleSignOut}
+            showHomeLink={showHomeLink}
+            showPlatformLink={showPlatformLink}
+          />
         </DropdownMenuContent>
       </DropdownMenu>
     );

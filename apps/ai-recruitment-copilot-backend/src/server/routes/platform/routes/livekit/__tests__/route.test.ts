@@ -1,0 +1,146 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { platformLiveKitRouter } from "../route";
+
+const sdkMocks = vi.hoisted(() => ({
+  listParticipants: vi.fn(),
+  listRooms: vi.fn(),
+}));
+
+vi.mock("livekit-server-sdk", () => ({
+  RoomServiceClient: class {
+    listParticipants = sdkMocks.listParticipants;
+    listRooms = sdkMocks.listRooms;
+  },
+}));
+
+const app = factory.createApp().route("/livekit", platformLiveKitRouter);
+
+function configureLiveKit() {
+  vi.stubEnv("LIVEKIT_URL", "wss://livekit.example.com");
+  vi.stubEnv("LIVEKIT_API_KEY", "test-key");
+  vi.stubEnv("LIVEKIT_API_SECRET", "test-secret");
+}
+
+beforeEach(() => {
+  sdkMocks.listParticipants.mockReset();
+  sdkMocks.listRooms.mockReset();
+  vi.stubEnv("LIVEKIT_URL", "");
+  vi.stubEnv("LIVEKIT_API_KEY", "");
+  vi.stubEnv("LIVEKIT_API_SECRET", "");
+  vi.stubEnv("LIVEKIT_PROMETHEUS_URL", "");
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
+
+describe("platform LiveKit routes", () => {
+  it("reports an offline overview without exposing credentials when config is missing", async () => {
+    const response = await app.request("/livekit/overview");
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ endpoint: null, metricsConfigured: false, status: "offline" });
+    expect(JSON.stringify(body)).not.toContain("test-secret");
+  });
+
+  it("validates list pagination", async () => {
+    const response = await app.request("/livekit/rooms?page=0");
+    expect(response.status).toBe(400);
+    expect(sdkMocks.listRooms).not.toHaveBeenCalled();
+  });
+
+  it("lists active rooms as JSON-safe records", async () => {
+    configureLiveKit();
+    sdkMocks.listRooms.mockResolvedValue([
+      {
+        activeRecording: false,
+        creationTime: 1_720_000_000n,
+        creationTimeMs: 0n,
+        emptyTimeout: 300,
+        maxParticipants: 0,
+        metadata: "",
+        name: "room-a",
+        numParticipants: 1,
+        numPublishers: 1,
+        sid: "RM_a",
+      },
+    ]);
+
+    const response = await app.request("/livekit/rooms?page=1&pageSize=20");
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      records: [{ createdAt: "2024-07-03T09:46:40.000Z", name: "room-a" }],
+      total: 1,
+    });
+  });
+
+  it("returns 404 before requesting participants for a closed room", async () => {
+    configureLiveKit();
+    sdkMocks.listRooms.mockResolvedValue([]);
+
+    const response = await app.request("/livekit/rooms/closed-room");
+
+    expect(response.status).toBe(404);
+    expect(sdkMocks.listParticipants).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 when a room closes while its drawer is loading", async () => {
+    configureLiveKit();
+    sdkMocks.listRooms
+      .mockResolvedValueOnce([
+        {
+          activeRecording: false,
+          creationTime: 1_720_000_000n,
+          creationTimeMs: 0n,
+          emptyTimeout: 300,
+          maxParticipants: 0,
+          metadata: "",
+          name: "closing-room",
+          numParticipants: 1,
+          numPublishers: 1,
+          sid: "RM_closing",
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    sdkMocks.listParticipants.mockRejectedValue(new Error("room not found"));
+
+    const response = await app.request("/livekit/rooms/closing-room");
+
+    expect(response.status).toBe(404);
+    expect(sdkMocks.listRooms).toHaveBeenCalledTimes(2);
+  });
+
+  it("distinguishes an unconfigured metrics endpoint from an empty scrape", async () => {
+    const response = await app.request("/livekit/metrics?page=1&pageSize=20");
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ configured: false, records: [] });
+  });
+
+  it("returns parsed Prometheus samples", async () => {
+    vi.stubEnv("LIVEKIT_PROMETHEUS_URL", "http://metrics.internal:6789");
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            "# HELP livekit_room_total Active rooms\n# TYPE livekit_room_total gauge\nlivekit_room_total 2\n",
+          ),
+        ),
+    );
+
+    const response = await app.request("/livekit/metrics?page=1&pageSize=20");
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      configured: true,
+      records: [{ name: "livekit_room_total", type: "gauge", value: 2 }],
+    });
+  });
+});

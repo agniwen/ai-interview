@@ -208,7 +208,7 @@ export function CandidateFormTemplateEditorDialog({
         toast.error(payload?.error ?? (isEdit ? "更新失败" : "创建失败"));
         return;
       }
-      toast.success(isEdit ? "面试表单已更新" : "已创建面试表单");
+      toast.success(isEdit ? "表单题已更新" : "已创建表单题");
       onSaved();
       onOpenChange(false);
     },
@@ -245,8 +245,8 @@ export function CandidateFormTemplateEditorDialog({
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title={isEdit ? "编辑面试表单" : "新建面试表单"}
-      description="候选人在面试开始前根据作用域填写该表单；提交瞬间的题目结构会被冻结为快照。"
+      title={isEdit ? "编辑表单题" : "新建表单题"}
+      description="候选人在面试开始前根据作用域填写该表单题；提交瞬间的题目结构会被冻结为快照。"
       size="full"
       className="h-[90vh]"
       bodyClassName="overflow-y-auto p-0"
@@ -468,7 +468,7 @@ function QuestionBuilderBody({
   const templateTitle = useStore(
     form.store,
     // oxlint-disable-next-line no-explicit-any
-    (state: any) => (state.values.title?.trim() || "未命名面试表单") as string,
+    (state: any) => (state.values.title?.trim() || "未命名表单题") as string,
   );
   const templateDescription = useStore(
     form.store,

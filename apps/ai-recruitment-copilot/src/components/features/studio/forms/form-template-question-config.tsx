@@ -59,7 +59,7 @@ export function QuestionPreview({ question }: { question: CandidateFormQuestionI
   if (question.type === "text") {
     if (question.displayMode === "textarea") {
       return (
-        <div className="relative min-h-24 rounded-md border border-input bg-background px-3 py-2 text-muted-foreground text-sm shadow-xs">
+        <div className="relative min-h-24 rounded-md border border-input bg-background px-3 py-2 text-muted-foreground text-sm">
           请输入你的回答…
           <span className="absolute right-3 bottom-2 text-muted-foreground/70 text-xs">0/5000</span>
         </div>
@@ -67,7 +67,7 @@ export function QuestionPreview({ question }: { question: CandidateFormQuestionI
     }
 
     return (
-      <div className="flex h-9 items-center rounded-md border border-input bg-background px-3 text-muted-foreground text-sm shadow-xs">
+      <div className="flex h-9 items-center rounded-md border border-input bg-background px-3 text-muted-foreground text-sm">
         请输入你的回答…
       </div>
     );
@@ -103,7 +103,7 @@ export function QuestionPreview({ question }: { question: CandidateFormQuestionI
 
 function PreviewSelect({ placeholder }: { placeholder: string }) {
   return (
-    <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-muted-foreground text-sm shadow-xs">
+    <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-muted-foreground text-sm">
       <span>{placeholder}</span>
       <IconChevronDown className="size-4 shrink-0 opacity-50" />
     </div>

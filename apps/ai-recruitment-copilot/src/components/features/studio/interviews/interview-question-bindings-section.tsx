@@ -50,7 +50,7 @@ export function InterviewQuestionBindingsSection({
     });
     const payload = (await response.json()) as BindingsResponse | { error?: string };
     if (!response.ok) {
-      throw new Error("error" in payload && payload.error ? payload.error : "加载面试题绑定失败");
+      throw new Error("error" in payload && payload.error ? payload.error : "加载沟通题绑定失败");
     }
     return payload as BindingsResponse;
   }
@@ -143,10 +143,10 @@ export function InterviewQuestionBindingsSection({
   return (
     <div className="space-y-3">
       <div>
-        <p className="font-medium text-sm">面试题</p>
+        <p className="font-medium text-sm">沟通题</p>
         <p className="mt-1 text-muted-foreground text-xs">
           AI
-          面试官会按顺序必问下列已开启的面试题；面试创建瞬间的题目内容已被冻结为快照，之后编辑不影响本面试。
+          面试官会按顺序必问下列已开启的沟通题；面试创建瞬间的题目内容已被冻结为快照，之后编辑不影响本面试。
         </p>
       </div>
 
@@ -162,7 +162,7 @@ export function InterviewQuestionBindingsSection({
       ) : null}
       {!isLoading && !isError && data && data.applicable.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-muted-foreground text-sm">
-          没有适用的面试题（全局或当前岗位绑定）。
+          没有适用的沟通题（全局或当前岗位绑定）。
         </p>
       ) : null}
       {!isLoading && !isError && data && data.applicable.length > 0 ? (

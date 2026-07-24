@@ -4,6 +4,7 @@ import { createFileRoute, redirect, useLoaderData } from "@tanstack/react-router
 import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import { OrganizationsGrid } from "@/components/features/platform/organizations/organizations-grid";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadPlatformOrganizationsState } from "@/lib/start/platform/organizations.functions";
 import type { PlatformOrganizationsState } from "@/lib/start/platform/organizations.functions";
 
@@ -67,7 +68,7 @@ function PlatformOrganizationsRoute() {
 export const Route = createFileRoute("/platform/organizations")({
   component: PlatformOrganizationsRoute,
   head: () => ({
-    meta: [{ title: "平台 · 所有工作区" }],
+    meta: [{ title: formatDocumentTitle("平台 · 所有工作区") }],
   }),
   loader: async (loaderContext) => {
     const { location } = loaderContext as unknown as {

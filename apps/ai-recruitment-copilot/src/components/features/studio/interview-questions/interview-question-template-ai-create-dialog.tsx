@@ -82,7 +82,7 @@ export function InterviewQuestionTemplateAiCreateDialog({
           },
           param: { slug },
         }),
-        "AI 生成面试题失败",
+        "AI 生成沟通题失败",
       );
 
       if (result.questions.length === 0) {
@@ -104,7 +104,7 @@ export function InterviewQuestionTemplateAiCreateDialog({
 
   return (
     <Modal
-      description="选择岗位并填写指令，AI 将生成面试题并打开「新建面试题」供你确认与保存。"
+      description="选择岗位并填写指令，AI 将生成沟通题并打开「新建沟通题」供你确认与保存。"
       dismissible={!generating}
       footer={
         <>
@@ -133,7 +133,7 @@ export function InterviewQuestionTemplateAiCreateDialog({
       }}
       open={open}
       size="lg"
-      title="AI 创建面试题"
+      title="AI 创建沟通题"
     >
       <FieldGroup className="gap-4">
         <Field>
@@ -164,7 +164,7 @@ export function InterviewQuestionTemplateAiCreateDialog({
                 disabled={generating}
                 maxLength={PROMPT_MAX}
                 onChange={(event) => setPrompt(event.target.value)}
-                placeholder="例如：生成 10 道前端面试题，5 道基础（React/TS）+ 5 道项目深度追问，由浅入深"
+                placeholder="例如：生成 10 道前端沟通题，5 道基础（React/TS）+ 5 道项目深度追问，由浅入深"
                 rows={4}
                 value={prompt}
               />

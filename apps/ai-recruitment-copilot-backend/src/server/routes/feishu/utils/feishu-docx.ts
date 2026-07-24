@@ -23,11 +23,21 @@ interface CreateDocumentResponse {
 }
 
 interface CreateBlocksResponse {
-  children?: { block_id?: string }[];
+  children?: { block_id?: string; children?: string[] }[];
+}
+
+interface UploadMediaResponse {
+  file_token?: string;
+}
+
+interface FeishuDocxAttachment {
+  bytes: Uint8Array;
+  fileName: string;
 }
 
 interface CreateFeishuDocxOptions {
   accessToken: string;
+  attachment?: FeishuDocxAttachment;
   blocks: FeishuDocumentBlock[];
   folderToken?: string;
   recipientOpenId: string;
@@ -86,11 +96,12 @@ export function resolveFeishuDocxDocumentId(
   }
 }
 
-async function postFeishu<T>(
+async function requestFeishu<T>(
   path: string,
   accessToken: string,
   body: unknown,
   dependencies: FeishuDocxDependencies,
+  method: "DELETE" | "PATCH" | "POST" = "POST",
 ): Promise<T> {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     const response = await dependencies.fetcher(`${FEISHU_API_ROOT}${path}`, {
@@ -99,7 +110,7 @@ async function postFeishu<T>(
         authorization: `Bearer ${accessToken}`,
         "content-type": "application/json; charset=utf-8",
       },
-      method: "POST",
+      method,
     });
     const result = (await response.json()) as FeishuApiResponse<T>;
     if (response.ok && result.code === 0) {
@@ -125,10 +136,10 @@ async function appendBlocks(
   blocks: FeishuDocumentBlock[],
   accessToken: string,
   dependencies: FeishuDocxDependencies,
-): Promise<{ block_id?: string }[]> {
-  const created: { block_id?: string }[] = [];
+): Promise<{ block_id?: string; children?: string[] }[]> {
+  const created: { block_id?: string; children?: string[] }[] = [];
   for (const blockChunk of chunks(blocks, MAX_BLOCKS_PER_REQUEST)) {
-    const response = await postFeishu<CreateBlocksResponse>(
+    const response = await requestFeishu<CreateBlocksResponse>(
       `/docx/v1/documents/${encodeURIComponent(documentId)}/blocks/${encodeURIComponent(parentBlockId)}/children`,
       accessToken,
       { children: blockChunk.map(withoutChildren) },
@@ -140,11 +151,86 @@ async function appendBlocks(
   return created;
 }
 
+async function updateCalloutTitle(
+  documentId: string,
+  titleBlockId: string,
+  titleBlock: FeishuDocumentBlock,
+  accessToken: string,
+  dependencies: FeishuDocxDependencies,
+): Promise<void> {
+  const elements = titleBlock.text?.elements ?? titleBlock.heading3?.elements;
+  if (!elements) {
+    throw new Error("Feishu callout title must be a text block");
+  }
+  await requestFeishu(
+    `/docx/v1/documents/${encodeURIComponent(documentId)}/blocks/${encodeURIComponent(titleBlockId)}`,
+    accessToken,
+    { update_text_elements: { elements } },
+    dependencies,
+    "PATCH",
+  );
+}
+
+async function uploadFeishuDocxAttachment(
+  documentId: string,
+  blockId: string,
+  attachment: FeishuDocxAttachment,
+  accessToken: string,
+  dependencies: FeishuDocxDependencies,
+): Promise<string> {
+  const body = new FormData();
+  body.append("file_name", attachment.fileName);
+  body.append("parent_type", "docx_file");
+  body.append("parent_node", blockId);
+  body.append("size", String(attachment.bytes.byteLength));
+  body.append("extra", JSON.stringify({ drive_route_token: documentId }));
+  const pdfBytes = new Uint8Array(attachment.bytes.byteLength);
+  pdfBytes.set(attachment.bytes);
+  body.append(
+    "file",
+    new Blob([pdfBytes.buffer], { type: "application/pdf" }),
+    attachment.fileName,
+  );
+
+  const response = await dependencies.fetcher(`${FEISHU_API_ROOT}/drive/v1/medias/upload_all`, {
+    body,
+    headers: { authorization: `Bearer ${accessToken}` },
+    method: "POST",
+  });
+  const result = (await response.json()) as FeishuApiResponse<UploadMediaResponse>;
+  if (!response.ok || result.code !== 0) {
+    throw new Error(
+      `Feishu API request failed: ${result.code || response.status} ${result.msg || ""}`,
+    );
+  }
+  const fileToken = result.data?.file_token;
+  if (!fileToken) {
+    throw new Error("Feishu media upload response did not include file_token");
+  }
+  return fileToken;
+}
+
+async function replaceFeishuDocxFile(
+  documentId: string,
+  blockId: string,
+  fileToken: string,
+  accessToken: string,
+  dependencies: FeishuDocxDependencies,
+): Promise<void> {
+  await requestFeishu(
+    `/docx/v1/documents/${encodeURIComponent(documentId)}/blocks/${encodeURIComponent(blockId)}`,
+    accessToken,
+    { replace_file: { token: fileToken } },
+    dependencies,
+    "PATCH",
+  );
+}
+
 export async function grantFeishuDocxAccess(
   options: GrantFeishuDocxAccessOptions,
   dependencies: FeishuDocxDependencies = defaultDependencies,
 ): Promise<void> {
-  await postFeishu(
+  await requestFeishu(
     `/drive/v1/permissions/${encodeURIComponent(options.documentId)}/members?type=docx`,
     options.accessToken,
     {
@@ -161,7 +247,7 @@ export async function moveFeishuDocx(
   options: MoveFeishuDocxOptions,
   dependencies: FeishuDocxDependencies = defaultDependencies,
 ): Promise<void> {
-  await postFeishu(
+  await requestFeishu(
     `/drive/v1/files/${encodeURIComponent(options.documentId)}/move`,
     options.accessToken,
     {
@@ -176,7 +262,7 @@ export async function createFeishuDocx(
   options: CreateFeishuDocxOptions,
   dependencies: FeishuDocxDependencies = defaultDependencies,
 ): Promise<{ documentId: string; documentUrl: string }> {
-  const created = await postFeishu<CreateDocumentResponse>(
+  const created = await requestFeishu<CreateDocumentResponse>(
     "/docx/v1/documents",
     options.accessToken,
     { title: options.title },
@@ -188,21 +274,70 @@ export async function createFeishuDocx(
   }
   await dependencies.sleep(EDIT_THROTTLE_MS);
 
+  const documentBlocks = options.attachment
+    ? [
+        { block_type: 23, file: { token: "", view_type: 2 } } satisfies FeishuDocumentBlock,
+        ...options.blocks,
+      ]
+    : options.blocks;
+
   const topLevelBlocks = await appendBlocks(
     documentId,
     documentId,
-    options.blocks,
+    documentBlocks,
     options.accessToken,
     dependencies,
   );
 
-  for (const [index, block] of options.blocks.entries()) {
+  if (options.attachment) {
+    const attachmentBlockId = topLevelBlocks[0]?.children?.[0];
+    if (!attachmentBlockId) {
+      throw new Error("Feishu did not return block_id for the resume attachment block");
+    }
+    const fileToken = await uploadFeishuDocxAttachment(
+      documentId,
+      attachmentBlockId,
+      options.attachment,
+      options.accessToken,
+      dependencies,
+    );
+    await dependencies.sleep(EDIT_THROTTLE_MS);
+    await replaceFeishuDocxFile(
+      documentId,
+      attachmentBlockId,
+      fileToken,
+      options.accessToken,
+      dependencies,
+    );
+    await dependencies.sleep(EDIT_THROTTLE_MS);
+  }
+
+  for (const [index, block] of documentBlocks.entries()) {
     if (!block.children || block.children.length === 0) {
       continue;
     }
     const parentBlockId = topLevelBlocks[index]?.block_id;
     if (!parentBlockId) {
       throw new Error(`Feishu did not return block_id for top-level block ${index}`);
+    }
+    const generatedTitleBlockId = topLevelBlocks[index]?.children?.[0];
+    if (block.block_type === 19 && generatedTitleBlockId) {
+      await updateCalloutTitle(
+        documentId,
+        generatedTitleBlockId,
+        block.children[0],
+        options.accessToken,
+        dependencies,
+      );
+      await dependencies.sleep(EDIT_THROTTLE_MS);
+      await appendBlocks(
+        documentId,
+        parentBlockId,
+        block.children.slice(1),
+        options.accessToken,
+        dependencies,
+      );
+      continue;
     }
     await appendBlocks(
       documentId,
@@ -220,7 +355,9 @@ export async function createFeishuDocx(
       recipientOpenId: options.recipientOpenId,
     },
     dependencies,
-  );
+  ).catch(() => {
+    // A removed or inaccessible recipient must not block document delivery.
+  });
 
   if (options.folderToken) {
     await moveFeishuDocx(

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WaitRouteImport } from './routes/wait'
+import { Route as StudioRouteImport } from './routes/studio'
 import { Route as SelectWorkspaceRouteImport } from './routes/select-workspace'
 import { Route as PlatformRouteImport } from './routes/platform'
 import { Route as LoginRouteImport } from './routes/login'
@@ -30,11 +31,13 @@ import { Route as PlatformOrganizationsRouteImport } from './routes/platform.org
 import { Route as PlatformNotificationsRouteImport } from './routes/platform.notifications'
 import { Route as PlatformMastraStudioRouteImport } from './routes/platform.mastra-studio'
 import { Route as PlatformMailIngestAccountsRouteImport } from './routes/platform.mail-ingest-accounts'
+import { Route as PlatformLivekitRouteImport } from './routes/platform.livekit'
 import { Route as JoinCodeRouteImport } from './routes/join.$code'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as InterviewIdRouteImport } from './routes/interview.$id'
 import { Route as HumanInterviewInviteTokenRouteImport } from './routes/human-interview.$inviteToken'
 import { Route as ApiAppVersionRouteImport } from './routes/api.app-version'
+import { Route as PlatformLivekitIndexRouteImport } from './routes/platform.livekit.index'
 import { Route as WSlugStudioRouteImport } from './routes/w.$slug.studio'
 import { Route as WSlugChatRouteImport } from './routes/w.$slug.chat'
 import { Route as WSlugAgentRouteImport } from './routes/w.$slug.agent'
@@ -42,6 +45,9 @@ import { Route as ResumeReviewSlugRecordIdRouteImport } from './routes/resume-re
 import { Route as PlatformMastraStudioAgentBuilderRouteImport } from './routes/platform.mastra-studio.agent-builder'
 import { Route as PlatformMastraStudioMinimalRouteImport } from './routes/platform.mastra-studio._minimal'
 import { Route as PlatformMastraStudioMainRouteImport } from './routes/platform.mastra-studio._main'
+import { Route as PlatformLivekitRoomsRouteImport } from './routes/platform.livekit.rooms'
+import { Route as PlatformLivekitOverviewRouteImport } from './routes/platform.livekit.overview'
+import { Route as PlatformLivekitMetricsRouteImport } from './routes/platform.livekit.metrics'
 import { Route as InterviewIdRoundIdRouteImport } from './routes/interview.$id.$roundId'
 import { Route as HumanInterviewInterviewerInviteTokenRouteImport } from './routes/human-interview.interviewer.$inviteToken'
 import { Route as WSlugChatIndexRouteImport } from './routes/w.$slug.chat.index'
@@ -176,6 +182,11 @@ const WaitRoute = WaitRouteImport.update({
   path: '/wait',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StudioRoute = StudioRouteImport.update({
+  id: '/studio',
+  path: '/studio',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SelectWorkspaceRoute = SelectWorkspaceRouteImport.update({
   id: '/select-workspace',
   path: '/select-workspace',
@@ -217,19 +228,19 @@ const WSlugRoute = WSlugRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const StudioResumesRoute = StudioResumesRouteImport.update({
-  id: '/studio/resumes',
-  path: '/studio/resumes',
-  getParentRoute: () => rootRouteImport,
+  id: '/resumes',
+  path: '/resumes',
+  getParentRoute: () => StudioRoute,
 } as any)
 const StudioResumePoolRoute = StudioResumePoolRouteImport.update({
-  id: '/studio/resume-pool',
-  path: '/studio/resume-pool',
-  getParentRoute: () => rootRouteImport,
+  id: '/resume-pool',
+  path: '/resume-pool',
+  getParentRoute: () => StudioRoute,
 } as any)
 const StudioInterviewsRoute = StudioInterviewsRouteImport.update({
-  id: '/studio/interviews',
-  path: '/studio/interviews',
-  getParentRoute: () => rootRouteImport,
+  id: '/interviews',
+  path: '/interviews',
+  getParentRoute: () => StudioRoute,
 } as any)
 const ReferralsTokenRoute = ReferralsTokenRouteImport.update({
   id: '/referrals/$token',
@@ -278,6 +289,11 @@ const PlatformMailIngestAccountsRoute =
     path: '/mail-ingest-accounts',
     getParentRoute: () => PlatformRoute,
   } as any)
+const PlatformLivekitRoute = PlatformLivekitRouteImport.update({
+  id: '/livekit',
+  path: '/livekit',
+  getParentRoute: () => PlatformRoute,
+} as any)
 const JoinCodeRoute = JoinCodeRouteImport.update({
   id: '/join/$code',
   path: '/join/$code',
@@ -303,6 +319,11 @@ const ApiAppVersionRoute = ApiAppVersionRouteImport.update({
   id: '/api/app-version',
   path: '/api/app-version',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PlatformLivekitIndexRoute = PlatformLivekitIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PlatformLivekitRoute,
 } as any)
 const WSlugStudioRoute = WSlugStudioRouteImport.update({
   id: '/studio',
@@ -341,6 +362,21 @@ const PlatformMastraStudioMainRoute =
     id: '/_main',
     getParentRoute: () => PlatformMastraStudioRoute,
   } as any)
+const PlatformLivekitRoomsRoute = PlatformLivekitRoomsRouteImport.update({
+  id: '/rooms',
+  path: '/rooms',
+  getParentRoute: () => PlatformLivekitRoute,
+} as any)
+const PlatformLivekitOverviewRoute = PlatformLivekitOverviewRouteImport.update({
+  id: '/overview',
+  path: '/overview',
+  getParentRoute: () => PlatformLivekitRoute,
+} as any)
+const PlatformLivekitMetricsRoute = PlatformLivekitMetricsRouteImport.update({
+  id: '/metrics',
+  path: '/metrics',
+  getParentRoute: () => PlatformLivekitRoute,
+} as any)
 const InterviewIdRoundIdRoute = InterviewIdRoundIdRouteImport.update({
   id: '/$roundId',
   path: '/$roundId',
@@ -1106,12 +1142,14 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/platform': typeof PlatformRouteWithChildren
   '/select-workspace': typeof SelectWorkspaceRoute
+  '/studio': typeof StudioRouteWithChildren
   '/wait': typeof WaitRoute
   '/api/app-version': typeof ApiAppVersionRoute
   '/human-interview/$inviteToken': typeof HumanInterviewInviteTokenRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
+  '/platform/livekit': typeof PlatformLivekitRouteWithChildren
   '/platform/mail-ingest-accounts': typeof PlatformMailIngestAccountsRoute
   '/platform/mastra-studio': typeof PlatformMastraStudioRouteWithChildren
   '/platform/notifications': typeof PlatformNotificationsRoute
@@ -1127,11 +1165,15 @@ export interface FileRoutesByFullPath {
   '/w/$slug': typeof WSlugRouteWithChildren
   '/human-interview/interviewer/$inviteToken': typeof HumanInterviewInterviewerInviteTokenRoute
   '/interview/$id/$roundId': typeof InterviewIdRoundIdRoute
+  '/platform/livekit/metrics': typeof PlatformLivekitMetricsRoute
+  '/platform/livekit/overview': typeof PlatformLivekitOverviewRoute
+  '/platform/livekit/rooms': typeof PlatformLivekitRoomsRoute
   '/platform/mastra-studio/agent-builder': typeof PlatformMastraStudioAgentBuilderRouteWithChildren
   '/resume-review/$slug/$recordId': typeof ResumeReviewSlugRecordIdRoute
   '/w/$slug/agent': typeof WSlugAgentRouteWithChildren
   '/w/$slug/chat': typeof WSlugChatRouteWithChildren
   '/w/$slug/studio': typeof WSlugStudioRouteWithChildren
+  '/platform/livekit/': typeof PlatformLivekitIndexRoute
   '/platform/mastra-studio/agents': typeof PlatformMastraStudioMainAgentsRoute
   '/platform/mastra-studio/datasets': typeof PlatformMastraStudioMainDatasetsRoute
   '/platform/mastra-studio/evaluation': typeof PlatformMastraStudioMainEvaluationRoute
@@ -1263,6 +1305,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/platform': typeof PlatformRouteWithChildren
   '/select-workspace': typeof SelectWorkspaceRoute
+  '/studio': typeof StudioRouteWithChildren
   '/wait': typeof WaitRoute
   '/api/app-version': typeof ApiAppVersionRoute
   '/human-interview/$inviteToken': typeof HumanInterviewInviteTokenRoute
@@ -1284,8 +1327,12 @@ export interface FileRoutesByTo {
   '/w/$slug': typeof WSlugRouteWithChildren
   '/human-interview/interviewer/$inviteToken': typeof HumanInterviewInterviewerInviteTokenRoute
   '/interview/$id/$roundId': typeof InterviewIdRoundIdRoute
+  '/platform/livekit/metrics': typeof PlatformLivekitMetricsRoute
+  '/platform/livekit/overview': typeof PlatformLivekitOverviewRoute
+  '/platform/livekit/rooms': typeof PlatformLivekitRoomsRoute
   '/resume-review/$slug/$recordId': typeof ResumeReviewSlugRecordIdRoute
   '/w/$slug/studio': typeof WSlugStudioRouteWithChildren
+  '/platform/livekit': typeof PlatformLivekitIndexRoute
   '/platform/mastra-studio/agents': typeof PlatformMastraStudioMainAgentsRoute
   '/platform/mastra-studio/datasets': typeof PlatformMastraStudioMainDatasetsRoute
   '/platform/mastra-studio/evaluation': typeof PlatformMastraStudioMainEvaluationRoute
@@ -1408,12 +1455,14 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/platform': typeof PlatformRouteWithChildren
   '/select-workspace': typeof SelectWorkspaceRoute
+  '/studio': typeof StudioRouteWithChildren
   '/wait': typeof WaitRoute
   '/api/app-version': typeof ApiAppVersionRoute
   '/human-interview/$inviteToken': typeof HumanInterviewInviteTokenRoute
   '/interview/$id': typeof InterviewIdRouteWithChildren
   '/invite/$token': typeof InviteTokenRoute
   '/join/$code': typeof JoinCodeRoute
+  '/platform/livekit': typeof PlatformLivekitRouteWithChildren
   '/platform/mail-ingest-accounts': typeof PlatformMailIngestAccountsRoute
   '/platform/mastra-studio': typeof PlatformMastraStudioRouteWithChildren
   '/platform/notifications': typeof PlatformNotificationsRoute
@@ -1429,6 +1478,9 @@ export interface FileRoutesById {
   '/w/$slug': typeof WSlugRouteWithChildren
   '/human-interview/interviewer/$inviteToken': typeof HumanInterviewInterviewerInviteTokenRoute
   '/interview/$id/$roundId': typeof InterviewIdRoundIdRoute
+  '/platform/livekit/metrics': typeof PlatformLivekitMetricsRoute
+  '/platform/livekit/overview': typeof PlatformLivekitOverviewRoute
+  '/platform/livekit/rooms': typeof PlatformLivekitRoomsRoute
   '/platform/mastra-studio/_main': typeof PlatformMastraStudioMainRouteWithChildren
   '/platform/mastra-studio/_minimal': typeof PlatformMastraStudioMinimalRouteWithChildren
   '/platform/mastra-studio/agent-builder': typeof PlatformMastraStudioAgentBuilderRouteWithChildren
@@ -1436,6 +1488,7 @@ export interface FileRoutesById {
   '/w/$slug/agent': typeof WSlugAgentRouteWithChildren
   '/w/$slug/chat': typeof WSlugChatRouteWithChildren
   '/w/$slug/studio': typeof WSlugStudioRouteWithChildren
+  '/platform/livekit/': typeof PlatformLivekitIndexRoute
   '/platform/mastra-studio/_main/agents': typeof PlatformMastraStudioMainAgentsRoute
   '/platform/mastra-studio/_main/datasets': typeof PlatformMastraStudioMainDatasetsRoute
   '/platform/mastra-studio/_main/evaluation': typeof PlatformMastraStudioMainEvaluationRoute
@@ -1573,12 +1626,14 @@ export interface FileRouteTypes {
     | '/login'
     | '/platform'
     | '/select-workspace'
+    | '/studio'
     | '/wait'
     | '/api/app-version'
     | '/human-interview/$inviteToken'
     | '/interview/$id'
     | '/invite/$token'
     | '/join/$code'
+    | '/platform/livekit'
     | '/platform/mail-ingest-accounts'
     | '/platform/mastra-studio'
     | '/platform/notifications'
@@ -1594,11 +1649,15 @@ export interface FileRouteTypes {
     | '/w/$slug'
     | '/human-interview/interviewer/$inviteToken'
     | '/interview/$id/$roundId'
+    | '/platform/livekit/metrics'
+    | '/platform/livekit/overview'
+    | '/platform/livekit/rooms'
     | '/platform/mastra-studio/agent-builder'
     | '/resume-review/$slug/$recordId'
     | '/w/$slug/agent'
     | '/w/$slug/chat'
     | '/w/$slug/studio'
+    | '/platform/livekit/'
     | '/platform/mastra-studio/agents'
     | '/platform/mastra-studio/datasets'
     | '/platform/mastra-studio/evaluation'
@@ -1730,6 +1789,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/platform'
     | '/select-workspace'
+    | '/studio'
     | '/wait'
     | '/api/app-version'
     | '/human-interview/$inviteToken'
@@ -1751,8 +1811,12 @@ export interface FileRouteTypes {
     | '/w/$slug'
     | '/human-interview/interviewer/$inviteToken'
     | '/interview/$id/$roundId'
+    | '/platform/livekit/metrics'
+    | '/platform/livekit/overview'
+    | '/platform/livekit/rooms'
     | '/resume-review/$slug/$recordId'
     | '/w/$slug/studio'
+    | '/platform/livekit'
     | '/platform/mastra-studio/agents'
     | '/platform/mastra-studio/datasets'
     | '/platform/mastra-studio/evaluation'
@@ -1874,12 +1938,14 @@ export interface FileRouteTypes {
     | '/login'
     | '/platform'
     | '/select-workspace'
+    | '/studio'
     | '/wait'
     | '/api/app-version'
     | '/human-interview/$inviteToken'
     | '/interview/$id'
     | '/invite/$token'
     | '/join/$code'
+    | '/platform/livekit'
     | '/platform/mail-ingest-accounts'
     | '/platform/mastra-studio'
     | '/platform/notifications'
@@ -1895,6 +1961,9 @@ export interface FileRouteTypes {
     | '/w/$slug'
     | '/human-interview/interviewer/$inviteToken'
     | '/interview/$id/$roundId'
+    | '/platform/livekit/metrics'
+    | '/platform/livekit/overview'
+    | '/platform/livekit/rooms'
     | '/platform/mastra-studio/_main'
     | '/platform/mastra-studio/_minimal'
     | '/platform/mastra-studio/agent-builder'
@@ -1902,6 +1971,7 @@ export interface FileRouteTypes {
     | '/w/$slug/agent'
     | '/w/$slug/chat'
     | '/w/$slug/studio'
+    | '/platform/livekit/'
     | '/platform/mastra-studio/_main/agents'
     | '/platform/mastra-studio/_main/datasets'
     | '/platform/mastra-studio/_main/evaluation'
@@ -2038,6 +2108,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PlatformRoute: typeof PlatformRouteWithChildren
   SelectWorkspaceRoute: typeof SelectWorkspaceRoute
+  StudioRoute: typeof StudioRouteWithChildren
   WaitRoute: typeof WaitRoute
   ApiAppVersionRoute: typeof ApiAppVersionRoute
   HumanInterviewInviteTokenRoute: typeof HumanInterviewInviteTokenRoute
@@ -2045,9 +2116,6 @@ export interface RootRouteChildren {
   JoinCodeRoute: typeof JoinCodeRoute
   RRoundIdRoute: typeof RRoundIdRoute
   ReferralsTokenRoute: typeof ReferralsTokenRoute
-  StudioInterviewsRoute: typeof StudioInterviewsRoute
-  StudioResumePoolRoute: typeof StudioResumePoolRoute
-  StudioResumesRoute: typeof StudioResumesRoute
   WSlugRoute: typeof WSlugRouteWithChildren
   HumanInterviewInterviewerInviteTokenRoute: typeof HumanInterviewInterviewerInviteTokenRoute
   ResumeReviewSlugRecordIdRoute: typeof ResumeReviewSlugRecordIdRoute
@@ -2060,6 +2128,13 @@ declare module '@tanstack/react-router' {
       path: '/wait'
       fullPath: '/wait'
       preLoaderRoute: typeof WaitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/studio': {
+      id: '/studio'
+      path: '/studio'
+      fullPath: '/studio'
+      preLoaderRoute: typeof StudioRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/select-workspace': {
@@ -2120,24 +2195,24 @@ declare module '@tanstack/react-router' {
     }
     '/studio/resumes': {
       id: '/studio/resumes'
-      path: '/studio/resumes'
+      path: '/resumes'
       fullPath: '/studio/resumes'
       preLoaderRoute: typeof StudioResumesRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof StudioRoute
     }
     '/studio/resume-pool': {
       id: '/studio/resume-pool'
-      path: '/studio/resume-pool'
+      path: '/resume-pool'
       fullPath: '/studio/resume-pool'
       preLoaderRoute: typeof StudioResumePoolRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof StudioRoute
     }
     '/studio/interviews': {
       id: '/studio/interviews'
-      path: '/studio/interviews'
+      path: '/interviews'
       fullPath: '/studio/interviews'
       preLoaderRoute: typeof StudioInterviewsRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof StudioRoute
     }
     '/referrals/$token': {
       id: '/referrals/$token'
@@ -2202,6 +2277,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlatformMailIngestAccountsRouteImport
       parentRoute: typeof PlatformRoute
     }
+    '/platform/livekit': {
+      id: '/platform/livekit'
+      path: '/livekit'
+      fullPath: '/platform/livekit'
+      preLoaderRoute: typeof PlatformLivekitRouteImport
+      parentRoute: typeof PlatformRoute
+    }
     '/join/$code': {
       id: '/join/$code'
       path: '/join/$code'
@@ -2236,6 +2318,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/app-version'
       preLoaderRoute: typeof ApiAppVersionRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/platform/livekit/': {
+      id: '/platform/livekit/'
+      path: '/'
+      fullPath: '/platform/livekit/'
+      preLoaderRoute: typeof PlatformLivekitIndexRouteImport
+      parentRoute: typeof PlatformLivekitRoute
     }
     '/w/$slug/studio': {
       id: '/w/$slug/studio'
@@ -2285,6 +2374,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/platform/mastra-studio'
       preLoaderRoute: typeof PlatformMastraStudioMainRouteImport
       parentRoute: typeof PlatformMastraStudioRoute
+    }
+    '/platform/livekit/rooms': {
+      id: '/platform/livekit/rooms'
+      path: '/rooms'
+      fullPath: '/platform/livekit/rooms'
+      preLoaderRoute: typeof PlatformLivekitRoomsRouteImport
+      parentRoute: typeof PlatformLivekitRoute
+    }
+    '/platform/livekit/overview': {
+      id: '/platform/livekit/overview'
+      path: '/overview'
+      fullPath: '/platform/livekit/overview'
+      preLoaderRoute: typeof PlatformLivekitOverviewRouteImport
+      parentRoute: typeof PlatformLivekitRoute
+    }
+    '/platform/livekit/metrics': {
+      id: '/platform/livekit/metrics'
+      path: '/metrics'
+      fullPath: '/platform/livekit/metrics'
+      preLoaderRoute: typeof PlatformLivekitMetricsRouteImport
+      parentRoute: typeof PlatformLivekitRoute
     }
     '/interview/$id/$roundId': {
       id: '/interview/$id/$roundId'
@@ -3209,6 +3319,24 @@ const InterviewRouteWithChildren = InterviewRoute._addFileChildren(
   InterviewRouteChildren,
 )
 
+interface PlatformLivekitRouteChildren {
+  PlatformLivekitMetricsRoute: typeof PlatformLivekitMetricsRoute
+  PlatformLivekitOverviewRoute: typeof PlatformLivekitOverviewRoute
+  PlatformLivekitRoomsRoute: typeof PlatformLivekitRoomsRoute
+  PlatformLivekitIndexRoute: typeof PlatformLivekitIndexRoute
+}
+
+const PlatformLivekitRouteChildren: PlatformLivekitRouteChildren = {
+  PlatformLivekitMetricsRoute: PlatformLivekitMetricsRoute,
+  PlatformLivekitOverviewRoute: PlatformLivekitOverviewRoute,
+  PlatformLivekitRoomsRoute: PlatformLivekitRoomsRoute,
+  PlatformLivekitIndexRoute: PlatformLivekitIndexRoute,
+}
+
+const PlatformLivekitRouteWithChildren = PlatformLivekitRoute._addFileChildren(
+  PlatformLivekitRouteChildren,
+)
+
 interface PlatformMastraStudioMainAgentsAgentIdRouteChildren {
   PlatformMastraStudioMainAgentsAgentIdChannelsRoute: typeof PlatformMastraStudioMainAgentsAgentIdChannelsRoute
   PlatformMastraStudioMainAgentsAgentIdChatRoute: typeof PlatformMastraStudioMainAgentsAgentIdChatRoute
@@ -3726,6 +3854,7 @@ const PlatformMastraStudioRouteWithChildren =
   PlatformMastraStudioRoute._addFileChildren(PlatformMastraStudioRouteChildren)
 
 interface PlatformRouteChildren {
+  PlatformLivekitRoute: typeof PlatformLivekitRouteWithChildren
   PlatformMailIngestAccountsRoute: typeof PlatformMailIngestAccountsRoute
   PlatformMastraStudioRoute: typeof PlatformMastraStudioRouteWithChildren
   PlatformNotificationsRoute: typeof PlatformNotificationsRoute
@@ -3736,6 +3865,7 @@ interface PlatformRouteChildren {
 }
 
 const PlatformRouteChildren: PlatformRouteChildren = {
+  PlatformLivekitRoute: PlatformLivekitRouteWithChildren,
   PlatformMailIngestAccountsRoute: PlatformMailIngestAccountsRoute,
   PlatformMastraStudioRoute: PlatformMastraStudioRouteWithChildren,
   PlatformNotificationsRoute: PlatformNotificationsRoute,
@@ -3748,6 +3878,21 @@ const PlatformRouteChildren: PlatformRouteChildren = {
 const PlatformRouteWithChildren = PlatformRoute._addFileChildren(
   PlatformRouteChildren,
 )
+
+interface StudioRouteChildren {
+  StudioInterviewsRoute: typeof StudioInterviewsRoute
+  StudioResumePoolRoute: typeof StudioResumePoolRoute
+  StudioResumesRoute: typeof StudioResumesRoute
+}
+
+const StudioRouteChildren: StudioRouteChildren = {
+  StudioInterviewsRoute: StudioInterviewsRoute,
+  StudioResumePoolRoute: StudioResumePoolRoute,
+  StudioResumesRoute: StudioResumesRoute,
+}
+
+const StudioRouteWithChildren =
+  StudioRoute._addFileChildren(StudioRouteChildren)
 
 interface WSlugAgentRouteChildren {
   WSlugAgentSessionIdRoute: typeof WSlugAgentSessionIdRoute
@@ -3876,6 +4021,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PlatformRoute: PlatformRouteWithChildren,
   SelectWorkspaceRoute: SelectWorkspaceRoute,
+  StudioRoute: StudioRouteWithChildren,
   WaitRoute: WaitRoute,
   ApiAppVersionRoute: ApiAppVersionRoute,
   HumanInterviewInviteTokenRoute: HumanInterviewInviteTokenRoute,
@@ -3883,9 +4029,6 @@ const rootRouteChildren: RootRouteChildren = {
   JoinCodeRoute: JoinCodeRoute,
   RRoundIdRoute: RRoundIdRoute,
   ReferralsTokenRoute: ReferralsTokenRoute,
-  StudioInterviewsRoute: StudioInterviewsRoute,
-  StudioResumePoolRoute: StudioResumePoolRoute,
-  StudioResumesRoute: StudioResumesRoute,
   WSlugRoute: WSlugRouteWithChildren,
   HumanInterviewInterviewerInviteTokenRoute:
     HumanInterviewInterviewerInviteTokenRoute,

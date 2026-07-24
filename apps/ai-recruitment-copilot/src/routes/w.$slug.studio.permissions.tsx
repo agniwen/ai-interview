@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { WorkspacePermissionsSection } from "@/components/features/studio/members/workspace-permissions-section";
 import { PermissionsPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 
 function StudioPermissionsRoute() {
   return (
@@ -10,7 +11,7 @@ function StudioPermissionsRoute() {
         headerRender={({ actionRender }) => (
           <PageHeader
             actionRender={actionRender}
-            description="配置工作区自定义角色，并为角色分配可访问和操作的业务模块。"
+            description="自定义角色，并决定每个角色能进哪些页面、能做什么操作。"
             title="权限管理"
           />
         )}
@@ -22,7 +23,7 @@ function StudioPermissionsRoute() {
 export const Route = createFileRoute("/w/$slug/studio/permissions")({
   component: StudioPermissionsRoute,
   head: () => ({
-    meta: [{ title: "权限管理" }],
+    meta: [{ title: formatDocumentTitle("权限管理") }],
   }),
   pendingComponent: PermissionsPageSkeleton,
 });

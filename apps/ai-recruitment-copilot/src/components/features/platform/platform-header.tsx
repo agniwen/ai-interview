@@ -15,6 +15,9 @@ interface RouteMeta {
 }
 
 const ROUTE_META: { prefix: string; meta: RouteMeta }[] = [
+  { meta: { title: "LiveKit · 服务概览" }, prefix: "/platform/livekit/overview" },
+  { meta: { title: "LiveKit · 实时房间" }, prefix: "/platform/livekit/rooms" },
+  { meta: { title: "LiveKit · 运行指标" }, prefix: "/platform/livekit/metrics" },
   { meta: { title: "所有工作区" }, prefix: "/platform/organizations" },
   { meta: { title: "所有用户" }, prefix: "/platform/users" },
   { meta: { title: "邮箱监听" }, prefix: "/platform/mail-ingest-accounts" },

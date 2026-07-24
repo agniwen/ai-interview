@@ -4,7 +4,6 @@
 "use client";
 
 import { EditorContent } from "@tiptap/react";
-import { useCallback } from "react";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { cossFieldSurfaceClass } from "@/components/ui/coss-style";
 import { cn } from "@arc/shared/utils";
@@ -69,17 +68,6 @@ export function MarkdownEditor({
     value,
   });
 
-  const handleRawChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const next = e.target.value;
-      if (typeof maxLength === "number" && next.length > maxLength) {
-        return;
-      }
-      onChange(next);
-    },
-    [maxLength, onChange],
-  );
-
   const over = typeof maxLength === "number" && value.length > maxLength;
 
   return (
@@ -115,19 +103,6 @@ export function MarkdownEditor({
           <div className="px-3 py-2 text-sm">
             <MarkdownView content={value} />
           </div>
-        )}
-
-        {mode === "raw" && (
-          <textarea
-            aria-label="Markdown 原始内容"
-            className="block h-full w-full resize-none border-0 bg-transparent px-3 py-2 font-mono text-sm outline-none"
-            disabled={disabled}
-            onBlur={onBlur}
-            onChange={handleRawChange}
-            placeholder={placeholder}
-            style={{ minHeight }}
-            value={value}
-          />
         )}
       </div>
 

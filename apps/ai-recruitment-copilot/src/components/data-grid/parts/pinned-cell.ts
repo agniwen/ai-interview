@@ -2,8 +2,11 @@
 import type { Cell, Header } from "@tanstack/react-table";
 import type { CSSProperties } from "react";
 
+import { cn } from "@arc/shared/utils";
+
 /**
- * Compute sticky positioning for a pinned column.
+ * Compute layout styles for pinned and/or fixed-width columns.
+ *
  * Pin-left 用 `left: column.getStart('left')`，pin-right 用 `right: column.getAfter('right')`。
  *
  * 关键：同时强制设置 `width` / `minWidth` = `column.getSize()`。
@@ -14,10 +17,8 @@ import type { CSSProperties } from "react";
  *
  * 把宽度从 CSS 这边钉死成 `getSize()`，让数学恒等于布局。
  *
- * Forcing `width` / `minWidth` to `column.getSize()` keeps tanstack's
- * `getStart()` math (which positions subsequent pinned cells) in lockstep
- * with actual rendered width. Without this, padding/content can grow the
- * cell beyond the declared `size`, leaving a gap when scrolling horizontally.
+ * Fixed-width columns (`minSize === maxSize`, e.g. actions / select) also get an
+ * explicit width lock when unpinned, so they don't absorb leftover table space.
  *
  * z-index 分层（与 sticky 表头协作）/ z-index layering (works with sticky thead):
  *   - 普通 body 单元格 / regular body cell:  auto (0)
@@ -30,31 +31,96 @@ export function getPinningStyles<TData>(
   options: { isHeader?: boolean; stickToTop?: boolean } = {},
 ): CSSProperties {
   const isPinned = column.getIsPinned();
+  const { maxSize, minSize } = column.columnDef;
+  const isFixedWidth =
+    typeof minSize === "number" && typeof maxSize === "number" && minSize === maxSize;
 
-  if (!isPinned) {
+  if (!(isPinned || isFixedWidth)) {
     return {};
   }
 
   const size = column.getSize();
+  let zIndex: number | undefined;
+  if (isPinned) {
+    zIndex = options.isHeader ? 3 : 1;
+  }
 
   return {
     boxSizing: "border-box",
     left: isPinned === "left" ? `${column.getStart("left")}px` : undefined,
     maxWidth: `${size}px`,
     minWidth: `${size}px`,
-    position: "sticky",
+    position: isPinned ? "sticky" : undefined,
     right: isPinned === "right" ? `${column.getAfter("right")}px` : undefined,
-    top: options.stickToTop ? 0 : undefined,
+    top: isPinned && options.stickToTop ? 0 : undefined,
     width: `${size}px`,
-    zIndex: options.isHeader ? 3 : 1,
+    zIndex,
   };
 }
 
-const OPAQUE_HEADER_SURFACE = "bg-[color-mix(in_srgb,var(--card)_28%,var(--muted)_72%)]";
+const OPAQUE_HEADER_SURFACE = "bg-sidebar dark:bg-muted";
 
 export const PINNED_HEADER_CLASS = OPAQUE_HEADER_SURFACE;
 
 /**
- * Sticky header cells use the opaque equivalent of the table header surface.
+ * Opaque resting fill for sticky body cells. Row hover/selected fills come from
+ * TableCell `group-hover/row` / `group-data-[state=selected]/row` so the whole
+ * row (including pinned columns) shares one background.
+ */
+export const PINNED_CELL_CLASS = "bg-background";
+
+/**
+ * Sticky header cells use the same opaque light-mode sidebar / dark muted fill as TableHead.
  */
 export const STICKY_HEADER_CLASS = `sticky top-0 z-2 ${OPAQUE_HEADER_SURFACE}`;
+
+/**
+ * Pin-edge divider — only applied while horizontal scroll has content under the pin.
+ * Uses ::before so the line stays with the sticky cell (collapse borders would scroll away).
+ * `border-*-0` clears the native cell border on that edge to avoid a double line.
+ */
+export const PINNED_EDGE_LEFT_BORDER_CLASS =
+  "relative border-r-0 before:pointer-events-none before:absolute before:inset-y-0 before:right-0 before:z-[1] before:w-px before:bg-border";
+
+export const PINNED_EDGE_RIGHT_BORDER_CLASS =
+  "relative before:pointer-events-none before:absolute before:inset-y-0 before:left-0 before:z-[1] before:w-px before:bg-border";
+
+export function getPinnedEdgeSides<TData>(
+  column: Header<TData, unknown>["column"] | Cell<TData, unknown>["column"],
+): { isLeftEdge: boolean; isRightEdge: boolean } {
+  return {
+    isLeftEdge: column.getIsLastColumn("left"),
+    isRightEdge: column.getIsFirstColumn("right"),
+  };
+}
+
+/**
+ * Edge divider only when scroll has content under that pin side.
+ * At rest, return empty so the table keeps its normal cell borders.
+ */
+export function getPinnedEdgeClassName(options: {
+  isLeftEdge: boolean;
+  isRightEdge: boolean;
+  showLeftEdge?: boolean;
+  showRightEdge?: boolean;
+}): string {
+  return cn(
+    options.isLeftEdge && options.showLeftEdge && PINNED_EDGE_LEFT_BORDER_CLASS,
+    options.isRightEdge && options.showRightEdge && PINNED_EDGE_RIGHT_BORDER_CLASS,
+  );
+}
+
+export function readHorizontalScrollOverflow(element: HTMLElement): {
+  canScrollLeft: boolean;
+  canScrollRight: boolean;
+} {
+  const { clientWidth, scrollLeft, scrollWidth } = element;
+  const maxScrollLeft = scrollWidth - clientWidth;
+  // Sub-pixel tolerance so near-end scroll doesn't flicker the edge divider.
+  const epsilon = 1;
+
+  return {
+    canScrollLeft: scrollLeft > epsilon,
+    canScrollRight: maxScrollLeft > epsilon && scrollLeft < maxScrollLeft - epsilon,
+  };
+}

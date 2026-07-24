@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileUpload } from "@/components/ui/file-upload";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import {
   fetchPublicReferralPreview,
   uploadPublicReferralResume,
@@ -159,6 +160,6 @@ function ReferralPage() {
 export const Route = createFileRoute("/referrals/$token")({
   component: ReferralPage,
   head: () => ({
-    meta: [{ title: "简历内推" }],
+    meta: [{ title: formatDocumentTitle("简历内推") }],
   }),
 });

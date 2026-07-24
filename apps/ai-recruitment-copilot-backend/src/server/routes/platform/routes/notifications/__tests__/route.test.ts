@@ -11,6 +11,7 @@ interface NotificationUtilsModule {
 
 const mocks = vi.hoisted(() => ({
   grantDocumentAccess: vi.fn(),
+  previewNotification: vi.fn(),
   queryNotifications: vi.fn(),
   resendNotification: vi.fn(),
 }));
@@ -29,6 +30,7 @@ vi.mock(
 vi.mock("../utils", async (importOriginal) => ({
   ...(await importOriginal<NotificationUtilsModule>()),
   grantPlatformNotificationDocumentAccess: mocks.grantDocumentAccess,
+  previewPlatformFeishuNotification: mocks.previewNotification,
 }));
 
 function makeApp(role?: string) {
@@ -80,6 +82,38 @@ describe("platform notifications routes", () => {
     expect(success.status).toBe(200);
     expect(missing.status).toBe(404);
     expect(invalid.status).toBe(400);
+  });
+
+  it("returns an HR evaluation preview without sending a notification", async () => {
+    mocks.previewNotification.mockResolvedValueOnce({
+      block: { block_type: 19, children: [] },
+      prompt: "最终发送给模型的 Prompt",
+      title: "张三 - HR面试评价预览",
+    });
+
+    const response = await makeApp("admin").request("/platform/notifications/log_1/debug-preview", {
+      method: "POST",
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      block: { block_type: 19, children: [] },
+      prompt: "最终发送给模型的 Prompt",
+      title: "张三 - HR面试评价预览",
+    });
+    expect(mocks.previewNotification).toHaveBeenCalledWith("log_1");
+    expect(mocks.resendNotification).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 when AI preview generation fails unexpectedly", async () => {
+    mocks.previewNotification.mockRejectedValueOnce(new Error("model unavailable"));
+
+    const response = await makeApp("admin").request("/platform/notifications/log_1/debug-preview", {
+      method: "POST",
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({ error: "生成飞书通知预览失败" });
   });
 
   it("grants the current platform admin access before returning the document URL", async () => {

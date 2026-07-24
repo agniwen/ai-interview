@@ -1,6 +1,7 @@
 import { IconRobot, IconTrash } from "@tabler/icons-react";
 import { HydrationBoundary, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
+import { formatDocumentTitle } from "@/lib/start/document-title";
 import {
   Link,
   Outlet,
@@ -576,7 +577,7 @@ function InterviewManagementPage() {
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
         <PageHeader
           title="AI 面试"
-          description="查看每一轮语音面试的排期、最近进展、简历和报告，让候选人状态一眼可追。"
+          description="查看每位候选人的 AI 面试安排、进展和报告，方便随时跟进。"
         />
         <DataGrid<StudioInterviewRoundListRecord>
           {...grid.bind}
@@ -765,7 +766,7 @@ function StudioInterviewsRoute() {
 export const Route = createFileRoute("/w/$slug/studio/interviews")({
   component: StudioInterviewsRoute,
   head: () => ({
-    meta: [{ title: "AI 面试" }],
+    meta: [{ title: formatDocumentTitle("AI 面试") }],
   }),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {

@@ -38,8 +38,17 @@ export default defineConfig({
   envPrefix: ["NEXT_PUBLIC_"],
   optimizeDeps: {
     include: [
+      "@assistant-ui/react",
+      "@assistant-ui/react-lexical",
       "@base-ui/react",
       "@base-ui/react/**",
+      // No package-root export; prebundle the deep paths assistant-ui uses.
+      "@lexical/react/LexicalComposer",
+      "@lexical/react/LexicalComposerContext",
+      "@lexical/react/LexicalContentEditable",
+      "@lexical/react/LexicalErrorBoundary",
+      "@lexical/react/LexicalHistoryPlugin",
+      "@lexical/react/LexicalPlainTextPlugin",
       "@tanstack/react-form",
       "@tanstack/react-query",
       "@tanstack/react-router",
@@ -51,6 +60,7 @@ export default defineConfig({
       "clsx",
       "cmdk",
       "dayjs",
+      "lexical",
       "react",
       "react/compiler-runtime",
       "react/jsx-runtime",

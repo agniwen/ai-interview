@@ -112,7 +112,7 @@ export function RecruitingContextPanel() {
   return (
     <>
       {desktopOpen ? (
-        <aside className="absolute top-4 right-4 bottom-4 z-30 hidden w-80 overflow-hidden rounded-xl border bg-background/95 shadow-xl shadow-black/8 backdrop-blur lg:flex">
+        <aside className="absolute top-4 right-4 bottom-4 z-30 hidden w-80 overflow-hidden rounded-xl border bg-background/95 shadow-sm backdrop-blur lg:flex">
           <div className="flex h-full min-h-0 flex-1 flex-col">
             <div className="flex h-12 shrink-0 items-center justify-between border-b px-3">
               <h2 className="font-medium text-sm">上下文</h2>
@@ -135,7 +135,7 @@ export function RecruitingContextPanel() {
       ) : (
         <Button
           aria-label="展开上下文"
-          className="absolute top-4 right-4 z-30 hidden h-9 rounded-full bg-background/95 px-3 shadow-lg shadow-black/8 backdrop-blur lg:inline-flex"
+          className="absolute top-4 right-4 z-30 hidden h-9 rounded-full bg-background/95 px-3 shadow-sm backdrop-blur lg:inline-flex"
           onClick={() => setDesktopOpen(true)}
           size="sm"
           type="button"
@@ -146,7 +146,7 @@ export function RecruitingContextPanel() {
         </Button>
       )}
       <Button
-        className="absolute top-4 right-4 z-30 h-9 rounded-full bg-background/95 px-3 shadow-lg shadow-black/8 backdrop-blur lg:hidden"
+        className="absolute top-4 right-4 z-30 h-9 rounded-full bg-background/95 px-3 shadow-sm backdrop-blur lg:hidden"
         onClick={() => setMobileOpen(true)}
         size="sm"
         type="button"

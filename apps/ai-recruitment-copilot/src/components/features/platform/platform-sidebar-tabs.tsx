@@ -36,7 +36,7 @@ export function PlatformSidebarTabs() {
     >
       <TabsList className="w-full select-none dark:bg-sidebar/60">
         <TabsTrigger value="manage">管理</TabsTrigger>
-        <TabsTrigger value="mastra">Mastra</TabsTrigger>
+        <TabsTrigger value="mastra">调试</TabsTrigger>
       </TabsList>
     </Tabs>
   );

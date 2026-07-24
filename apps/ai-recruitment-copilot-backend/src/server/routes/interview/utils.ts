@@ -3,7 +3,12 @@ import type { StudioCandidateRecord } from "@arc/shared/studio-candidates";
 import type { ResumeAnalysisResult, ResumeProfile } from "@arc/db-schema/interview/types";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { jobDescription, studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
+import {
+  globalConfig,
+  jobDescription,
+  studioInterview,
+  studioInterviewSchedule,
+} from "@arc/db-schema/schema";
 import {
   buildCandidateInterviewView,
   pickCurrentScheduleEntry,
@@ -32,6 +37,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { isResumeParseCacheEnabled } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-cache-policy";
 import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
+import { resolveCandidateCompanyContext } from "./candidate-briefing";
 
 export type StudioInterviewRow = typeof studioInterview.$inferSelect;
 export type StudioInterviewScheduleRow = typeof studioInterviewSchedule.$inferSelect;
@@ -70,11 +76,35 @@ export async function loadCandidateInterviewRecord(id: string, roundId: string) 
   }
   const { payload } = contextSnapshot;
   const jobDescriptionPresetQuestions = flattenPresetQuestionsFromContextSnapshot(payload);
+  const [currentGlobalConfig] = await db
+    .select({ companyContext: globalConfig.companyContext })
+    .from(globalConfig)
+    .where(eq(globalConfig.organizationId, record.organizationId))
+    .limit(1);
+  let jobDescriptionDescription = payload.jobDescription?.description ?? null;
+  if (payload.jobDescription && payload.jobDescription.description === undefined) {
+    const [currentJobDescription] = await db
+      .select({ description: jobDescription.description })
+      .from(jobDescription)
+      .where(
+        and(
+          eq(jobDescription.id, payload.jobDescription.id),
+          eq(jobDescription.organizationId, record.organizationId),
+        ),
+      )
+      .limit(1);
+    jobDescriptionDescription = currentJobDescription?.description ?? null;
+  }
 
   return {
     ...view,
+    companyContext: resolveCandidateCompanyContext({
+      currentCompanyContext: currentGlobalConfig?.companyContext,
+      snapshotCompanyContext: payload.globalConfig.companyContext,
+    }),
     interviewQuestions: payload.personalizedQuestions,
     interviewers: payload.interviewers,
+    jobDescriptionDescription,
     jobDescriptionName: payload.jobDescription?.name ?? null,
     jobDescriptionPresetQuestions,
     jobDescriptionPrompt: payload.jobDescription?.prompt ?? null,
