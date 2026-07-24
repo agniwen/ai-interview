@@ -1,7 +1,7 @@
 /* oxlint-disable no-explicit-any no-nested-ternary complexity max-lines -- tab body has explicit loading/empty/content branches and card compositions. */
 "use client";
 
-import { IconArrowBackUp, IconLoader2, IconMessage2 } from "@tabler/icons-react";
+import { IconArrowBackUp, IconChevronDown, IconLoader2, IconMessage2 } from "@tabler/icons-react";
 import { cn } from "@arc/shared/utils";
 import { env } from "@/env/client";
 
@@ -25,6 +25,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardHeader, CardPanel, CardTitle } from "@/components/ui/card";
 import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { TabsContent } from "@/components/ui/tabs";
@@ -50,7 +57,6 @@ import { KeywordHighlightLegend } from "./interviews/interview-detail/keyword-hi
 import { DetailRow } from "./interviews/interview-detail/detail-row";
 import { EvaluationResults } from "./interviews/interview-detail/evaluation-results";
 import type { EvidenceQuote } from "./interviews/interview-detail/evaluation-results";
-import { FormsTab } from "./interviews/interview-detail/forms-tab";
 import { InterviewMetricsPanel } from "./interviews/interview-detail/interview-metrics-panel";
 import {
   formatReportStatus,
@@ -74,7 +80,67 @@ import {
 } from "./studio-person-detail-sections";
 import { ReportMetadataButton } from "./studio-person-detail-metadata";
 import type { StudioPersonDetailViewModel } from "./studio-person-detail-controller";
-import { StudioPersonDetailQuestionsTab } from "./studio-person-detail-questions";
+
+function FormSubmissionResetAction({
+  onReset,
+  resettingId,
+  submissions,
+}: {
+  onReset: (id: string) => void;
+  resettingId: string | null;
+  submissions: StudioPersonDetailViewModel["formSubmissions"];
+}) {
+  if (submissions.length === 0) {
+    return null;
+  }
+
+  const isResetting = resettingId !== null;
+
+  if (submissions.length === 1) {
+    const [submission] = submissions;
+    return (
+      <Button
+        className="ml-auto"
+        disabled={isResetting}
+        onClick={() => onReset(submission.id)}
+        size="xs"
+        type="button"
+        variant="outline"
+      >
+        <IconArrowBackUp />
+        {isResetting ? "重置中..." : "重置填写"}
+      </Button>
+    );
+  }
+
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            className="ml-auto"
+            disabled={isResetting}
+            size="xs"
+            type="button"
+            variant="outline"
+          >
+            <IconArrowBackUp />
+            {isResetting ? "重置中..." : "重置填写"}
+            <IconChevronDown />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuLabel>选择要重置的表单</DropdownMenuLabel>
+        {submissions.map((submission) => (
+          <DropdownMenuItem key={submission.id} onClick={() => onReset(submission.id)}>
+            <span className="truncate">{submission.snapshot.title}</span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 function InterviewResultFrame({
   evaluationSummary,
@@ -153,9 +219,13 @@ function InterviewResultTabContent({
 }) {
   const {
     canUseManagementActions,
+    dispatchUi,
+    formSubmissions,
     handleResetRound,
     handleToggleAllowTextInput,
     isPublic,
+    mode,
+    resettingSubmissionId,
     resettingRoundId,
     resumePreviewUrl,
     roundEmailSummary,
@@ -314,9 +384,21 @@ function InterviewResultTabContent({
         ) : (
           <div className="grid gap-6 md:grid-cols-2">
             <Frame className="h-full">
-              <FrameHeader className="flex-row items-center gap-2  ">
+              <FrameHeader className="flex-row items-center gap-2">
                 <FrameTitle>表单题</FrameTitle>
                 <Badge variant="outline">共{formItems.length}题</Badge>
+                {mode === "interview" && !isPublic ? (
+                  <FormSubmissionResetAction
+                    onReset={(id) =>
+                      dispatchUi({
+                        id,
+                        type: "pendingResetSubmissionChanged",
+                      })
+                    }
+                    resettingId={resettingSubmissionId}
+                    submissions={formSubmissions}
+                  />
+                ) : null}
               </FrameHeader>
               <FramePanel className="flex-1 p-4">
                 <CollectedCandidateInfoList emptyLabel="暂无表单答复" items={formItems} />
@@ -367,7 +449,6 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
     effectiveRoundId,
     enabled,
     formItems,
-    formSubmissions,
     handleReassessResume,
     interviewItems,
     isFormSubmissionsLoading,
@@ -387,7 +468,6 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
     record,
     reportTranscriptStats,
     reports,
-    resettingSubmissionId,
     resumeRecord,
     resumeInterviewFormItems,
     resumeInterviewItems,
@@ -397,10 +477,10 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
     setActiveTab,
     setMetadataReport,
     showTimelineRail,
+    showAgentInstructions,
     tabContentRootRef,
     tabVisibilityRecord,
     totalDisplayTurnCount,
-    visibleInterviewQuestions,
   } = model;
   const body = isLoading ? (
     <DetailBodySkeleton mode={mode} />
@@ -705,7 +785,6 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
               )}
             </TabsContent>
           ) : null}
-          <StudioPersonDetailQuestionsTab mode={mode} questions={visibleInterviewQuestions} />
           {mode === "interview" ? (
             <TabsContent value="experience">
               <ResumeProfileView profile={record.resumeProfile ?? null} />
@@ -774,30 +853,9 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
               />
             </TabsContent>
           ) : null}
-          {mode === "interview" && !isPublic ? (
+          {showAgentInstructions ? (
             <TabsContent value="instructions">
               <AgentInstructionsPanel enabled={enabled} recordId={effectiveRoundId} />
-            </TabsContent>
-          ) : null}
-          {mode === "interview" ? (
-            <TabsContent value="forms">
-              {isFormSubmissionsLoading ? (
-                <FormsSkeleton />
-              ) : (
-                <FormsTab
-                  onReset={
-                    isPublic
-                      ? undefined
-                      : (submissionId) =>
-                          dispatchUi({
-                            id: submissionId,
-                            type: "pendingResetSubmissionChanged",
-                          })
-                  }
-                  resettingId={resettingSubmissionId}
-                  submissions={formSubmissions}
-                />
-              )}
             </TabsContent>
           ) : null}
         </AnimatedHeight>
