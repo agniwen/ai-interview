@@ -53,6 +53,10 @@ interface CalendarEvent<TData = unknown> {
   originalStart?: Date;
   /** Token or css color; flows to the --ec-event-color css var. */
   color?: string;
+  /** Consumer-owned classes applied to the calendar event surface. */
+  className?: string;
+  /** Consumer-owned accessible label for the event button. */
+  ariaLabel?: string;
   /** Excluded from drag and resize regardless of interactions state. */
   readOnly?: boolean;
   /** Per-event override; default comes from interactions.drag. */

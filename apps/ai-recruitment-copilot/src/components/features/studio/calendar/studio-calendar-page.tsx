@@ -1,5 +1,6 @@
 "use client";
 
+import { IconSparkles, IconUser } from "@tabler/icons-react";
 import { addDays, format, startOfWeek } from "date-fns";
 import { zhCN } from "date-fns/locale";
 import { useMemo, useState } from "react";
@@ -11,6 +12,7 @@ import {
   EventCalendar,
   useEventCalendarView,
 } from "@/components/reui/event-calendar/event-calendar";
+import type { EventCalendarRenderEventProps } from "@/components/reui/event-calendar/event-calendar";
 import { EventCalendarContent } from "@/components/reui/event-calendar/event-calendar-content";
 import { DEFAULT_EVENT_CALENDAR_I18N } from "@/components/reui/event-calendar/event-calendar-i18n";
 import type { EventCalendarI18nConfig } from "@/components/reui/event-calendar/event-calendar-i18n";
@@ -75,25 +77,16 @@ function calendarTitle(event: StudioCalendarEvent): string {
 }
 
 function calendarEventColor(event: StudioCalendarEvent): string {
-  if (event.status === "in_progress") {
-    return "var(--primary)";
-  }
-  if (event.status === "ended") {
-    return "var(--muted-foreground)";
-  }
-  return event.kind === "ai" ? "var(--chart-2)" : "var(--chart-3)";
+  return event.kind === "human"
+    ? "var(--calendar-human-interview)"
+    : "var(--calendar-ai-interview)";
 }
 
-function toCalendarEvent(event: StudioCalendarEvent): CalendarEvent<StudioCalendarEvent> {
-  return {
-    color: calendarEventColor(event),
-    data: event,
-    end: new Date(event.endAt),
-    id: event.id,
-    readOnly: true,
-    start: new Date(event.startAt),
-    title: calendarTitle(event),
-  };
+function calendarEventSurfaceClassName(event: StudioCalendarEvent): string {
+  if (event.status === "ended") {
+    return "bg-(--ec-event-color) text-background hover:bg-(--ec-event-color) data-selected:bg-(--ec-event-color) dark:bg-(--ec-event-color) dark:hover:bg-(--ec-event-color) [&_.text-muted-foreground]:text-background/80";
+  }
+  return "bg-(--ec-event-color)/50 hover:bg-(--ec-event-color)/60 data-selected:bg-(--ec-event-color)/50 dark:bg-(--ec-event-color)/50 dark:hover:bg-(--ec-event-color)/60";
 }
 
 function calendarEventTypeLabel(event: StudioCalendarEvent): string {
@@ -101,6 +94,33 @@ function calendarEventTypeLabel(event: StudioCalendarEvent): string {
     return "真人面试";
   }
   return event.source === "result" ? "AI 面试记录" : "AI 面试计划";
+}
+
+function toCalendarEvent(event: StudioCalendarEvent): CalendarEvent<StudioCalendarEvent> {
+  const title = calendarTitle(event);
+  return {
+    ariaLabel: `${calendarEventTypeLabel(event)}，${title}，${format(new Date(event.startAt), "yyyy年M月d日 HH:mm")} 至 ${format(new Date(event.endAt), "yyyy年M月d日 HH:mm")}`,
+    className: calendarEventSurfaceClassName(event),
+    color: calendarEventColor(event),
+    data: event,
+    end: new Date(event.endAt),
+    id: event.id,
+    readOnly: true,
+    start: new Date(event.startAt),
+    title,
+  };
+}
+
+function CalendarEventIcon({ occurrence }: EventCalendarRenderEventProps<StudioCalendarEvent>) {
+  const event = occurrence.event.data;
+  if (!event) {
+    return null;
+  }
+  const Icon = event.kind === "human" ? IconUser : IconSparkles;
+
+  return (
+    <Icon aria-hidden="true" className="size-3 shrink-0" data-calendar-event-icon={event.kind} />
+  );
 }
 
 function CalendarEventTooltip({ event }: { event: StudioCalendarEvent | undefined }) {
@@ -269,6 +289,7 @@ export function StudioCalendarPage({ slug }: { slug: string }) {
             loading={calendarQuery.isFetching}
             locale={zhCN}
             onRangeChange={handleRangeChange}
+            renderEventIcon={(props) => <CalendarEventIcon {...props} />}
             renderEventTooltip={({ occurrence }) => (
               <CalendarEventTooltip event={occurrence.event.data} />
             )}

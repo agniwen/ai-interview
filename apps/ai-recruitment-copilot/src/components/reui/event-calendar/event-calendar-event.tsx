@@ -167,21 +167,34 @@ function EventCalendarEvent<TData = unknown>({
   // into neighbors
   const stackedBlock =
     timedBlock && (segment.endMin ?? 0) - (segment.startMin ?? 0) >= viewConfig.compactEventMinutes;
+  const eventIcon = useMemo(
+    () =>
+      viewConfig.renderEventIcon?.({
+        isDragging,
+        isSelected,
+        occurrence,
+        segment,
+        view,
+      }),
+    [occurrence, segment, view, isDragging, isSelected, viewConfig.renderEventIcon],
+  );
 
   const defaultContent = (
     <>
       {/* leading color dot for single-row chips (month cells, all-day bars);
           time-grid blocks read their color from the tinted surface instead -
           in the stacked layout a dot would sit alone on the first line */}
-      {!timedBlock && (
-        <span
-          aria-hidden
-          data-slot="event-calendar-event-dot"
-          // -me-0.5 tightens just the dot-to-title gap (the chip keeps gap-1.5
-          // between the title and the trailing time)
-          className="-me-0.5 size-1.5 shrink-0 rounded-full bg-(--ec-event-color)"
-        />
-      )}
+      {viewConfig.renderEventIcon
+        ? eventIcon
+        : !timedBlock && (
+            <span
+              aria-hidden
+              data-slot="event-calendar-event-dot"
+              // -me-0.5 tightens just the dot-to-title gap (the chip keeps gap-1.5
+              // between the title and the trailing time)
+              className="-me-0.5 size-1.5 shrink-0 rounded-full bg-(--ec-event-color)"
+            />
+          )}
       {occurrence.isRecurring && (
         <IconRepeat className="size-2.5 shrink-0 opacity-70" aria-hidden="true" />
       )}
@@ -412,6 +425,7 @@ function EventCalendarEvent<TData = unknown>({
     // when the styled eventTooltip is on so the two never stack)
     title: preview || tooltipOn ? undefined : label,
     "aria-label":
+      event.ariaLabel ??
       settings.i18n.functions.formatEventAriaLabel?.(
         event.title,
         timeLabel,
@@ -480,6 +494,7 @@ function EventCalendarEvent<TData = unknown>({
             segment.continuesAfter && "rounded-e-none",
           ),
       viewConfig.classNames?.event,
+      view !== "agenda" && event.className,
       className,
     ),
     children: (

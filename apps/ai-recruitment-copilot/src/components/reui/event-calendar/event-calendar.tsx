@@ -1277,6 +1277,8 @@ interface EventCalendarViewConfig<TData = unknown> {
   offDays?: boolean | EventCalendarOffDaysConfig;
   classNames?: EventCalendarClassNames;
   components?: Partial<Record<CalendarView, ComponentType>>;
+  /** Replaces the default leading color dot while preserving built-in event content. */
+  renderEventIcon?: (props: EventCalendarRenderEventProps<TData>) => ReactNode;
   renderEvent?: (props: EventCalendarRenderEventProps<TData>) => ReactNode;
   renderAgendaEvent?: (props: EventCalendarRenderEventProps<TData>) => ReactNode;
   /**
@@ -1452,6 +1454,7 @@ const VIEW_CONFIG_KEYS: (keyof EventCalendarViewConfig)[] = [
   "offDays",
   "classNames",
   "components",
+  "renderEventIcon",
   "renderEvent",
   "renderAgendaEvent",
   "renderEventTooltip",
