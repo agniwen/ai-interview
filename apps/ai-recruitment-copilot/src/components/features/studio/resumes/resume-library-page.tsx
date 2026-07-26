@@ -1,7 +1,7 @@
 /* oxlint-disable complexity -- page controller coordinates grid queries and dialogs. */
 import { IconUsers } from "@tabler/icons-react";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ClientOnly, useRouter, useSearch } from "@tanstack/react-router";
+import { useRouter, useSearch } from "@tanstack/react-router";
 import { buildInfiniteDataGridQueryKey } from "@/components/data-grid/query-contract";
 import { parseCsvParam } from "@arc/shared/csv";
 import {
@@ -12,7 +12,6 @@ import {
 import type {
   PaginatedResumeLibraryResult,
   ResumeLibraryListRecord,
-  ResumeLibraryMetrics,
 } from "@arc/shared/studio-resumes";
 import { pipelineStageMeta } from "@arc/db-schema/studio-interviews";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
@@ -58,9 +57,8 @@ import {
   ResumeUploadEntryDialog,
 } from "@/components/features/studio/resumes/resume-upload-entry-dialog";
 import { LaunchInterviewDialog } from "@/components/features/studio/resumes/launch-interview-dialog";
-import { ResumeLibraryCharts } from "@/components/features/studio/resumes/resume-library-charts";
 import { TransitionCandidateDialog } from "@/components/features/studio/resumes/transition-candidate-dialog";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ResumeLibraryMetricsSection } from "@/components/features/studio/resumes/resume-library-metrics-section";
 
 import {
   PIPELINE_STAGE_TAB_DESCRIPTIONS,
@@ -76,7 +74,7 @@ import {
   ResumeLibraryPreviewDialog,
 } from "./resume-library-page-dialogs";
 import { useResumeLibraryPageState } from "./use-resume-library-page-state";
-export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
+export function ResumeLibraryPage() {
   const slug = useWorkspaceSlug();
   const currentMemberRole = useWorkspaceMemberRole();
   const router = useRouter();
@@ -485,9 +483,7 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
           title="招聘台"
           description="已经进入招聘流程的候选人在这里跟进：看简历、匹配岗位、推进到面试。"
         />
-        <ClientOnly fallback={<Skeleton className="h-48 w-full" />}>
-          <ResumeLibraryCharts metrics={metrics} />
-        </ClientOnly>
+        <ResumeLibraryMetricsSection />
         <Tabs
           onValueChange={(value) => {
             setRowSelection({});

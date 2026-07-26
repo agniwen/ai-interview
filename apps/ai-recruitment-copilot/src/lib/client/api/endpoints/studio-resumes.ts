@@ -19,6 +19,7 @@ import type {
   ResumeEvaluationStatus,
   ResumeIdentityUpdateInput,
   ResumeLibraryDetail,
+  ResumeLibraryMetrics,
 } from "@arc/shared/studio-resumes";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
@@ -78,6 +79,15 @@ export function fetchStudioResumes(
       },
     }),
     "加载简历列表失败",
+  );
+}
+
+export function fetchStudioResumeMetrics(slug: string): Promise<ResumeLibraryMetrics> {
+  return rpcFetch<ResumeLibraryMetrics>(
+    rpc.api.w[":slug"].studio.resumes.metrics.$get({
+      param: { slug },
+    }),
+    "加载招聘指标失败",
   );
 }
 

@@ -10,7 +10,6 @@ import {
 } from "@arc/shared/studio-resumes";
 import type { PaginatedResumeLibraryResult, ResumeLibrarySortId } from "@arc/shared/studio-resumes";
 import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
-import { loadResumeLibraryMetrics } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/metrics";
 import { listResumeRecords } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
 import type { ResumeFilters } from "./resumes.functions";
 
@@ -61,10 +60,9 @@ export async function loadStudioResumesData({
           queryKey: buildInfiniteDataGridQueryKey(["studio-resumes", slug], { ...query, sortBy }),
         })
       : Promise.resolve();
-  const [metrics] = await Promise.all([loadResumeLibraryMetrics(workspaceId), listPrefetch]);
+  await listPrefetch;
 
   return {
     dehydratedState: structuredClone(dehydrate(queryClient)) as unknown as JsonValue,
-    metrics,
   };
 }

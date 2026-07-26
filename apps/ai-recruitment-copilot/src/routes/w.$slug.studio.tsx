@@ -8,8 +8,9 @@ import { documentTitleMeta } from "@/lib/start/document-title";
 import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset } from "@/components/ui/sidebar";
-import { getFirstAllowedStudioPagePath, getStudioPageAccessState } from "@/lib/start/auth-session";
+import { getFirstAllowedStudioPagePath } from "@/lib/start/auth-session";
 import { STUDIO_PAGE_PATHS } from "@/lib/start/studio-page-paths";
+import { hasPermissionInStatements } from "@arc/shared/permission-statements";
 
 function findStudioPageByPath(pathname: string, slug: string) {
   const studioBasePath = `/w/${slug}/studio`;
@@ -70,10 +71,7 @@ export const Route = createFileRoute("/w/$slug/studio")({
     ],
   }),
   loader: async (loaderContext) => {
-    const { location, params } = loaderContext as {
-      location: { pathname: string };
-      params: { slug: string };
-    };
+    const { location, params, parentMatchPromise } = loaderContext;
 
     if (location.pathname === `/w/${params.slug}/studio`) {
       const fallbackPath = await findFirstAllowedStudioPath(params.slug);
@@ -88,18 +86,13 @@ export const Route = createFileRoute("/w/$slug/studio")({
       return null;
     }
 
-    const state = await getStudioPageAccessState({
-      data: { action: requestedPage.action, slug: params.slug },
-    });
-    if (state.status === "unauthenticated") {
-      throw redirect({
-        href: `/login?callbackURL=${encodeURIComponent(location.pathname)}`,
-      });
-    }
-    if (state.status === "not_found") {
-      throw notFound();
-    }
-    if (!state.allowed) {
+    const parentMatch = await parentMatchPromise;
+    const state = parentMatch.loaderData;
+    if (
+      !state ||
+      state.status !== "ready" ||
+      !hasPermissionInStatements(state.permissions, "page", requestedPage.action)
+    ) {
       throw notFound();
     }
 

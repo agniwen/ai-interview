@@ -18,6 +18,10 @@ export const studioCalendarKeys = {
     ["studio-calendar", slug, start, end] as const,
 };
 
+export const studioResumeKeys = {
+  metrics: (slug: string) => ["studio-resumes", slug, "metrics"] as const,
+};
+
 type QueryInvalidator = Pick<QueryClient, "invalidateQueries">;
 
 export async function invalidateHumanInterviewCandidateQueries(

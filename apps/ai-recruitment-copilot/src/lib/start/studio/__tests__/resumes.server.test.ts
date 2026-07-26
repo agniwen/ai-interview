@@ -65,7 +65,7 @@ describe("loadStudioResumesData", () => {
       workspaceId: "org-1",
     });
 
-    expect(loadResumeLibraryMetrics).toHaveBeenCalledWith("org-1");
+    expect(loadResumeLibraryMetrics).not.toHaveBeenCalled();
     expect(listResumeRecords).toHaveBeenCalledWith(
       "org-1",
       {
@@ -78,12 +78,6 @@ describe("loadStudioResumesData", () => {
       { page: 1, pageSize: 20, sortBy: "createdAt", sortOrder: "desc" },
       visibilityScope,
     );
-    expect(result.metrics).toEqual({
-      byPipeline: [],
-      conversion: { withInterview: 0, withoutInterview: 0 },
-      dailyAdded: [],
-    });
-
     const dehydratedState = result.dehydratedState as unknown as {
       queries: {
         queryKey: unknown[];
@@ -116,7 +110,7 @@ describe("loadStudioResumesData", () => {
       workspaceId: "org-1",
     });
 
-    expect(loadResumeLibraryMetrics).toHaveBeenCalledWith("org-1");
+    expect(loadResumeLibraryMetrics).not.toHaveBeenCalled();
     expect(listResumeRecords).not.toHaveBeenCalled();
     expect(result.dehydratedState).toMatchObject({ queries: [] });
   });

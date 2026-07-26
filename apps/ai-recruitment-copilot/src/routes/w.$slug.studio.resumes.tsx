@@ -12,7 +12,6 @@ import {
 } from "@tanstack/react-router";
 import { loadStudioResumesState } from "@/lib/start/studio/resumes.functions";
 import type { StudioResumesState } from "@/lib/start/studio/resumes.functions";
-import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
 
 import { RecruitingPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 
@@ -37,9 +36,13 @@ function StudioResumesRoute() {
     return <Outlet />;
   }
 
+  if (state.mode !== "list") {
+    return null;
+  }
+
   return (
     <HydrationBoundary state={state.dehydratedState as unknown as DehydratedState}>
-      <ResumeLibraryPage metrics={state.metrics} />
+      <ResumeLibraryPage />
     </HydrationBoundary>
   );
 }
@@ -56,11 +59,6 @@ export const Route = createFileRoute("/w/$slug/studio/resumes")({
     };
     const isListRoute = location.pathname === `/w/${params.slug}/studio/resumes`;
     const query = parseResumeQuery(location.search);
-    await requireStudioPageAccess({
-      action: "resumes",
-      pathname: `/w/${params.slug}/studio/resumes`,
-      slug: params.slug,
-    });
     const state = (await loadStudioResumesState({
       data: { prefetchList: isListRoute, query, slug: params.slug },
     })) as StudioResumesState;

@@ -38,6 +38,7 @@ import { reassessResumeRecord } from "@arc/ai-recruitment-copilot-backend/server
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
 import { launchAiInterviewRound } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/application/default-launch-ai-interview-round";
 import { LaunchAiInterviewMutationError } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/application/launch-ai-interview-round";
+import { loadResumeLibraryMetrics } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/metrics";
 
 const dedupCheckInputSchema = z.object({
   email: z.string().trim().max(200).nullable().optional(),
@@ -143,6 +144,16 @@ export const resumeLibraryReadRouter = factory
         prefix: q.prefix,
       });
       return c.json({ records }, 200);
+    },
+  )
+  .get(
+    "/metrics",
+    requirePermission("page", "resumes"),
+    requirePermission("resumeLibrary", "read"),
+    async (c) => {
+      const { organization } = getWorkspaceRequestContext(c);
+      const metrics = await loadResumeLibraryMetrics(organization.id);
+      return c.json(metrics, 200);
     },
   )
   .post(
