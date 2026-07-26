@@ -1,5 +1,4 @@
 "use client";
-
 /**
  * 简历疑似重复风险提示 overlay / 详情弹窗。
  * Resume duplicate-risk overlay and the "view suspected duplicates" dialog.
@@ -9,7 +8,7 @@
  * - ResumeDedupOverlay: 上传解析后命中查重时的决策面板。
  */
 
-import { IconAlertTriangle, IconLoader2 } from "@tabler/icons-react";
+import { IconLoader2 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useState } from "react";
@@ -506,39 +505,5 @@ export function ResumeDuplicateMatchesDialog({
     >
       {content}
     </Modal>
-  );
-}
-
-interface ResumeDedupOverlayProps {
-  matches: DedupMatchRecord[];
-  onContinue: () => void;
-  onCancel: () => void;
-}
-
-export function ResumeDedupOverlay({ matches, onContinue, onCancel }: ResumeDedupOverlayProps) {
-  return (
-    <div className="flex w-full max-w-3xl flex-col gap-4">
-      <div className="flex items-start gap-3 rounded-xl border border-amber-200/70 bg-amber-50/70 px-4 py-3 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
-        <IconAlertTriangle className="mt-0.5 size-5 shrink-0" />
-        <div className="space-y-1">
-          <p className="font-medium text-sm">检测到 {matches.length} 条疑似重复的候选人记录</p>
-          <p className="text-xs leading-normal opacity-80">
-            系统会基于工作经历、项目经历、技能和岗位画像的语义相似度判断风险。
-            请根据判断依据确认是否为同一候选人，再决定查看已有记录或继续创建。
-          </p>
-        </div>
-      </div>
-
-      <ResumeDedupMatchList className="max-h-[min(52vh,520px)]" matches={matches} />
-
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <Button onClick={onCancel} type="button" variant="outline">
-          取消上传
-        </Button>
-        <Button onClick={onContinue} type="button">
-          仍然继续
-        </Button>
-      </div>
-    </div>
   );
 }

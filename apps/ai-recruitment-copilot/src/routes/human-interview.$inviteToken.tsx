@@ -55,10 +55,10 @@ function PublicHumanInterviewRoute() {
 }
 
 export const Route = createFileRoute("/human-interview/$inviteToken")({
-  component: PublicHumanInterviewRoute,
+  loader: ({ params }) =>
+    loadHumanInterviewCandidateState({ data: { inviteToken: params.inviteToken } }),
   head: () => ({
     meta: [{ title: formatDocumentTitle("真人复面") }],
   }),
-  loader: ({ params }) =>
-    loadHumanInterviewCandidateState({ data: { inviteToken: params.inviteToken } }),
+  component: PublicHumanInterviewRoute,
 });

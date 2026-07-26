@@ -33,10 +33,6 @@ function LoginRoute() {
 }
 
 export const Route = createFileRoute("/login")({
-  component: LoginRoute,
-  head: () => ({
-    meta: [{ title: formatDocumentTitle("登录") }],
-  }),
   validateSearch: (search): LoginSearch => ({
     callbackURL: readSearchValue(search.callbackURL),
     error: readSearchValue(search.error),
@@ -44,4 +40,8 @@ export const Route = createFileRoute("/login")({
     goto: readLoginGoto(search.goto),
     returnTo: readSearchValue(search.returnTo),
   }),
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("登录") }],
+  }),
+  component: LoginRoute,
 });

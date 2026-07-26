@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { CSSProperties, Ref } from "react";
 import {
   EventCalendarViewContext,
@@ -45,6 +53,15 @@ import { IconPlus } from "@tabler/icons-react";
 // Layout-effect on the client (measure before paint, no flash), plain effect on
 // the server (never runs there) to avoid the SSR useLayoutEffect warning.
 const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+const subscribeToStaticValue = () => () => {};
+
+function useTodayKey(timeZone: string) {
+  return useSyncExternalStore(
+    subscribeToStaticValue,
+    () => getDayKey(new Date(), timeZone),
+    () => null,
+  );
+}
 
 interface EventCalendarMonthViewProps extends useRender.ComponentProps<"div"> {
   maxEventsPerCell?: number | "auto";
@@ -68,6 +85,7 @@ function EventCalendarMonthView({
   const anchorDate = useEventCalendarSelector((state) => state.date);
 
   const { effective } = useEventCalendarViewSettings();
+  const todayKey = useTodayKey(settings.timeZone);
   const weeks = useMemo(() => {
     const days: Date[] = [];
     let cursor = zonedStartOfDay(visibleRange.start, settings.timeZone);
@@ -82,8 +100,9 @@ function EventCalendarMonthView({
     if (effective.weekends) {
       return rows;
     }
+    const weekendDays = new Set(settings.weekendDays);
     return rows.map((row) =>
-      row.filter((day) => !settings.weekendDays.includes(toZoned(day, settings.timeZone).getDay())),
+      row.filter((day) => !weekendDays.has(toZoned(day, settings.timeZone).getDay())),
     );
   }, [visibleRange, settings.timeZone, settings.weekendDays, effective.weekends]);
 
@@ -171,8 +190,7 @@ function EventCalendarMonthView({
             >
               {viewConfig.renderDayHeader?.({
                 day,
-                isToday:
-                  getDayKey(day, settings.timeZone) === getDayKey(new Date(), settings.timeZone),
+                isToday: getDayKey(day, settings.timeZone) === todayKey,
                 view: "month",
               }) ?? (
                 <>
@@ -846,6 +864,7 @@ function EventCalendarMonthCell({
   return (
     <div
       role="gridcell"
+      tabIndex={-1}
       data-slot="event-calendar-month-cell"
       data-today={isToday || undefined}
       data-outside={isOutside || undefined}

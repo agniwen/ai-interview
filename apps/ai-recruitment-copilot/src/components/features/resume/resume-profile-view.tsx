@@ -232,7 +232,7 @@ function WorkExperienceTimeline({ experiences }: { experiences: ResumeWorkExperi
   return <WorkExperience className="w-full" experiences={items} />;
 }
 
-export function ResumeProfileBasicFields({ profile }: { profile: ResumeProfile }) {
+function ResumeProfileBasicFields({ profile }: { profile: ResumeProfile }) {
   return (
     <>
       <DataField label="姓名" value={isPresent(profile.name) ? profile.name : null} />

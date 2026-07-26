@@ -19,7 +19,7 @@ function educationLevelTagClassName(level: string | null | undefined) {
   return "";
 }
 
-export function EducationLevelTag({ level }: { level: string | null | undefined }) {
+function EducationLevelTag({ level }: { level: string | null | undefined }) {
   const label = level?.trim();
   if (!label) {
     return null;

@@ -1,5 +1,4 @@
 "use client";
-
 import { IconCalendar } from "@tabler/icons-react";
 import dayjs from "dayjs";
 
@@ -16,8 +15,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 // across locales (no separator / order drift), in the browser's current
 // timezone after hydration.
 export const DATE_TIME_DISPLAY_OPTIONS = "YY/MM/DD HH:mm";
-
-export const TIME_DISPLAY_OPTIONS = "HH:mm";
 
 type TimeValue = string | number | Date | null | undefined;
 
@@ -36,6 +33,16 @@ const TOOLTIP_TIME_FORMATTER_OPTIONS = {
   month: "2-digit",
   year: "numeric",
 } satisfies Intl.DateTimeFormatOptions;
+
+const tooltipTimeFormatters = new Map(
+  TOOLTIP_TIME_ZONES.map(({ timeZone }) => [
+    timeZone,
+    new Intl.DateTimeFormat("en-US", {
+      ...TOOLTIP_TIME_FORMATTER_OPTIONS,
+      timeZone,
+    }),
+  ]),
+);
 
 function normalizeDate(value: TimeValue) {
   if (value === null || value === undefined || value === "") {
@@ -59,11 +66,11 @@ export function formatTimeDisplayText(
   return date ? dayjs(date).format(options) : null;
 }
 
-function formatTimeInTimeZone(date: Date, timeZone: string) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    ...TOOLTIP_TIME_FORMATTER_OPTIONS,
-    timeZone,
-  }).formatToParts(date);
+function formatTimeInTimeZone(
+  date: Date,
+  timeZone: (typeof TOOLTIP_TIME_ZONES)[number]["timeZone"],
+) {
+  const parts = tooltipTimeFormatters.get(timeZone)?.formatToParts(date) ?? [];
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return `${values.year?.slice(-2)}/${values.month}/${values.day} ${values.hour}:${values.minute}`;
 }

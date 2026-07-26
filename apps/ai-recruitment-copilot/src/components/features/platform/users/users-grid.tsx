@@ -326,11 +326,12 @@ export function UsersGrid() {
       return;
     }
     setBanPending(true);
-    const { error } = await authClient.admin.banUser({
-      banReason: "平台管理员封禁",
-      userId: banTarget.id,
-    });
-    setBanPending(false);
+    const { error } = await authClient.admin
+      .banUser({
+        banReason: "平台管理员封禁",
+        userId: banTarget.id,
+      })
+      .finally(() => setBanPending(false));
     if (error) {
       toast.error(error.message ?? "封禁用户失败");
       return;
@@ -345,10 +346,11 @@ export function UsersGrid() {
       return;
     }
     setUnbanPending(true);
-    const { error } = await authClient.admin.unbanUser({
-      userId: unbanTarget.id,
-    });
-    setUnbanPending(false);
+    const { error } = await authClient.admin
+      .unbanUser({
+        userId: unbanTarget.id,
+      })
+      .finally(() => setUnbanPending(false));
     if (error) {
       toast.error(error.message ?? "解封用户失败");
       return;
@@ -363,10 +365,11 @@ export function UsersGrid() {
       return;
     }
     setForceLogoutPending(true);
-    const { error } = await authClient.admin.revokeUserSessions({
-      userId: forceLogoutTarget.id,
-    });
-    setForceLogoutPending(false);
+    const { error } = await authClient.admin
+      .revokeUserSessions({
+        userId: forceLogoutTarget.id,
+      })
+      .finally(() => setForceLogoutPending(false));
     if (error) {
       toast.error(error.message ?? "强制下线失败");
       return;

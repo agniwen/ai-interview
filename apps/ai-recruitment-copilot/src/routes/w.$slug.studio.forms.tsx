@@ -660,10 +660,7 @@ function StudioFormsRoute() {
 }
 
 export const Route = createFileRoute("/w/$slug/studio/forms")({
-  component: StudioFormsRoute,
-  head: () => ({
-    meta: [{ title: formatDocumentTitle("表单题") }],
-  }),
+  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {
       location: { search: SearchParamsRecord };
@@ -688,7 +685,10 @@ export const Route = createFileRoute("/w/$slug/studio/forms")({
     }
     return state;
   },
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("表单题") }],
+  }),
+  component: StudioFormsRoute,
   pendingComponent: () => <StudioTablePageSkeleton filterCount={3} label="表单题" />,
   shouldReload: false,
-  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });

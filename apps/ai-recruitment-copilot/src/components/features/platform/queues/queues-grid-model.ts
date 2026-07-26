@@ -2,12 +2,11 @@ import type { ComponentProps } from "react";
 
 import type { Badge } from "@/components/ui/badge";
 
+const countFormatter = new Intl.NumberFormat("zh-CN");
+
 export const DEFAULT_QUEUE_NAME = "resume-parse";
-export const PLATFORM_QUEUE_OPTIONS = [
-  { label: "简历解析", value: "resume-parse" },
-  { label: "AI分析", value: "resume-review-generation" },
-] as const;
-export const DEFAULT_FILTERS = {
+
+const DEFAULT_FILTERS = {
   parseStatus: "all",
   queue: DEFAULT_QUEUE_NAME,
   state: "all",
@@ -162,7 +161,7 @@ export interface QueueJobsResult {
 type BadgeVariant = ComponentProps<typeof Badge>["variant"];
 
 export function formatCount(value: number): string {
-  return new Intl.NumberFormat("zh-CN").format(value);
+  return countFormatter.format(value);
 }
 
 export function formatJson(value: unknown): string {

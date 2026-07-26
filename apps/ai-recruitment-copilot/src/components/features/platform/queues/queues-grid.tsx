@@ -245,6 +245,13 @@ function QueueUserCell({ user }: { user: QueueJobRecord["triggeredBy"] }) {
   );
 }
 
+const queueDateTimeFormatter = new Intl.DateTimeFormat("zh-CN", {
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  month: "2-digit",
+});
+
 function formatDateTime(value: string | null): string {
   if (!value) {
     return "—";
@@ -253,12 +260,7 @@ function formatDateTime(value: string | null): string {
   if (Number.isNaN(date.getTime())) {
     return "—";
   }
-  return new Intl.DateTimeFormat("zh-CN", {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "2-digit",
-  }).format(date);
+  return queueDateTimeFormatter.format(date);
 }
 
 function DetailField({ label, value }: { label: string; value: string | null | undefined }) {

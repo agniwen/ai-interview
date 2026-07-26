@@ -1,5 +1,4 @@
 "use client";
-
 import { IconInfoCircle } from "@tabler/icons-react";
 // 候选人详情视图的共享主体 —— 把数据获取、tab 切换、各 section 渲染抽离出来,
 // 让弹窗版本 (StudioPersonDetailDialog) 和独立页面版本同时复用。调用方通过
@@ -48,7 +47,7 @@ export function ReportMetadataButton({
   );
 }
 
-export function InterviewReportMetadataSnapshotSection({
+function InterviewReportMetadataSnapshotSection({
   metadata,
 }: {
   metadata: ReportSnapshotMetadata;
@@ -135,7 +134,7 @@ export function InterviewReportMetadataSnapshotSection({
   );
 }
 
-export function InterviewReportMetadataFrozenInputSection({
+function InterviewReportMetadataFrozenInputSection({
   metadata,
 }: {
   metadata: ReportSnapshotMetadata;
@@ -172,11 +171,7 @@ export function InterviewReportMetadataFrozenInputSection({
   );
 }
 
-export function InterviewReportMetadataSessionSection({
-  metadata,
-}: {
-  metadata: ReportSnapshotMetadata;
-}) {
+function InterviewReportMetadataSessionSection({ metadata }: { metadata: ReportSnapshotMetadata }) {
   return (
     <section className="rounded-xl border border-border/60 bg-background p-4">
       <h4 className="font-medium text-sm">会话</h4>
@@ -319,7 +314,7 @@ export function formatTranscriptFullTextInput(input: ReportFullTextInput) {
     .join("\n\n");
 }
 
-export function MetadataTextBlock({ label, value }: { label: string; value: string }) {
+function MetadataTextBlock({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-2">
       <span className="font-medium text-muted-foreground text-xs">{label}</span>
@@ -330,7 +325,7 @@ export function MetadataTextBlock({ label, value }: { label: string; value: stri
   );
 }
 
-export function InterviewReportMetadataFullTextInputSection({
+function InterviewReportMetadataFullTextInputSection({
   metadata,
 }: {
   metadata: ReportSnapshotMetadata;
@@ -405,11 +400,7 @@ export function InterviewReportMetadataFullTextInputSection({
   );
 }
 
-export function InterviewReportMetadataJsonSection({
-  metadata,
-}: {
-  metadata: ReportSnapshotMetadata;
-}) {
+function InterviewReportMetadataJsonSection({ metadata }: { metadata: ReportSnapshotMetadata }) {
   return (
     <Accordion className="rounded-xl border border-border/60 bg-background">
       <AccordionItem className="border-0" value="raw">

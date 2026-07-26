@@ -57,10 +57,10 @@ function PublicHumanInterviewInterviewerRoute() {
 }
 
 export const Route = createFileRoute("/human-interview/interviewer/$inviteToken")({
-  component: PublicHumanInterviewInterviewerRoute,
+  loader: ({ params }) =>
+    loadHumanInterviewInterviewerState({ data: { inviteToken: params.inviteToken } }),
   head: () => ({
     meta: [{ title: formatDocumentTitle("真人复面会议") }],
   }),
-  loader: ({ params }) =>
-    loadHumanInterviewInterviewerState({ data: { inviteToken: params.inviteToken } }),
+  component: PublicHumanInterviewInterviewerRoute,
 });

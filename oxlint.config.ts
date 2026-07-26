@@ -27,6 +27,10 @@ export default defineConfig({
       files: ["apps/ai-recruitment-copilot/src/routes/**/*.{ts,tsx}"],
       rules: {
         "nextjs/no-head-element": "off",
+        // TanStack Router's option order is part of its type-inference chain.
+        // React Doctor validates that order, so route objects must not be
+        // alphabetized by Ultracite's global sort-keys rule.
+        "sort-keys": "off",
       },
     },
     {

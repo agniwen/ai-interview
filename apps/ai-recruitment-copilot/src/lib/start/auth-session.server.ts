@@ -86,11 +86,13 @@ export async function getWorkspaceSelectionStateFromRequest(): Promise<Workspace
     return { status: "unauthenticated" };
   }
 
-  const organizations = await auth.api.listOrganizations({ headers: requestHeaders });
-  const memberships = await db
-    .select({ organizationId: memberTable.organizationId, role: memberTable.role })
-    .from(memberTable)
-    .where(eq(memberTable.userId, session.user.id));
+  const [organizations, memberships] = await Promise.all([
+    auth.api.listOrganizations({ headers: requestHeaders }),
+    db
+      .select({ organizationId: memberTable.organizationId, role: memberTable.role })
+      .from(memberTable)
+      .where(eq(memberTable.userId, session.user.id)),
+  ]);
   const roleByOrganizationId = new Map(
     memberships.map((row) => [row.organizationId, row.role] as const),
   );
@@ -177,23 +179,25 @@ export async function getNoAccessWaitStateFromRequest(): Promise<NoAccessWaitSta
     return { status: "unauthenticated" };
   }
 
-  const [preference] = await db
-    .select({ organizationId: userTable.lastActiveOrganizationId })
-    .from(userTable)
-    .where(eq(userTable.id, session.user.id))
-    .limit(1);
-  const rows = await db
-    .select({
-      logo: organizationTable.logo,
-      name: organizationTable.name,
-      organizationId: organizationTable.id,
-      role: memberTable.role,
-      slug: organizationTable.slug,
-    })
-    .from(memberTable)
-    .innerJoin(organizationTable, eq(organizationTable.id, memberTable.organizationId))
-    .where(eq(memberTable.userId, session.user.id))
-    .orderBy(asc(memberTable.createdAt));
+  const [[preference], rows] = await Promise.all([
+    db
+      .select({ organizationId: userTable.lastActiveOrganizationId })
+      .from(userTable)
+      .where(eq(userTable.id, session.user.id))
+      .limit(1),
+    db
+      .select({
+        logo: organizationTable.logo,
+        name: organizationTable.name,
+        organizationId: organizationTable.id,
+        role: memberTable.role,
+        slug: organizationTable.slug,
+      })
+      .from(memberTable)
+      .innerJoin(organizationTable, eq(organizationTable.id, memberTable.organizationId))
+      .where(eq(memberTable.userId, session.user.id))
+      .orderBy(asc(memberTable.createdAt)),
+  ]);
 
   const activeWaitingWorkspace = rows.find(
     (row) => row.organizationId === preference?.organizationId && isNoAccessWorkspaceRole(row.role),

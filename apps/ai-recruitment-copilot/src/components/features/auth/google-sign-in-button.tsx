@@ -31,13 +31,18 @@ export function GoogleSignInButton({ callbackURL, className }: GoogleSignInButto
 
   const handleClick = async () => {
     setIsSubmitting(true);
-    const result = await authClient.signIn.social({
-      callbackURL: toAbsoluteUrl(callbackURL),
-      errorCallbackURL: toAbsoluteUrl("/login?error=google"),
-      provider: "google",
-    });
-    if (result.error) {
-      setIsSubmitting(false);
+    let shouldResetSubmitting = true;
+    try {
+      const result = await authClient.signIn.social({
+        callbackURL: toAbsoluteUrl(callbackURL),
+        errorCallbackURL: toAbsoluteUrl("/login?error=google"),
+        provider: "google",
+      });
+      shouldResetSubmitting = Boolean(result.error);
+    } finally {
+      if (shouldResetSubmitting) {
+        setIsSubmitting(false);
+      }
     }
   };
 

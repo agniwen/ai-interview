@@ -9,10 +9,6 @@ function StudioCalendarRoute() {
 }
 
 export const Route = createFileRoute("/w/$slug/studio/calendar")({
-  component: StudioCalendarRoute,
-  head: () => ({
-    meta: [{ title: formatDocumentTitle("日程管理") }],
-  }),
   loader: async ({ params }) => {
     await requireStudioPageAccess({
       action: "interviews",
@@ -20,4 +16,8 @@ export const Route = createFileRoute("/w/$slug/studio/calendar")({
       slug: params.slug,
     });
   },
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("日程管理") }],
+  }),
+  component: StudioCalendarRoute,
 });

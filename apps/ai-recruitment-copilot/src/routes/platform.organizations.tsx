@@ -66,10 +66,7 @@ function PlatformOrganizationsRoute() {
 }
 
 export const Route = createFileRoute("/platform/organizations")({
-  component: PlatformOrganizationsRoute,
-  head: () => ({
-    meta: [{ title: formatDocumentTitle("平台 · 所有工作区") }],
-  }),
+  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
   loader: async (loaderContext) => {
     const { location } = loaderContext as unknown as {
       location: { search: SearchParamsRecord };
@@ -86,6 +83,9 @@ export const Route = createFileRoute("/platform/organizations")({
     }
     return state;
   },
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("平台 · 所有工作区") }],
+  }),
+  component: PlatformOrganizationsRoute,
   shouldReload: false,
-  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });

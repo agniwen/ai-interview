@@ -227,6 +227,7 @@ function expandRecurrence<TData>(
           ),
         ]
       : null;
+  const weeklyDaySet = weeklyDays ? new Set(weeklyDays) : null;
 
   const monthlyByDay = rule.freq === "monthly" && rule.byWeekday?.length ? rule.byWeekday : null;
 
@@ -289,7 +290,8 @@ function expandRecurrence<TData>(
           }
         }
       }
-      days = days ? days.filter((n) => byDayMatches.includes(n)) : byDayMatches;
+      const byDayMatchSet = new Set(byDayMatches);
+      days = days ? days.filter((n) => byDayMatchSet.has(n)) : byDayMatches;
     }
     if (!days) {
       days = [Math.min(zonedStart.getDate(), total)];
@@ -304,12 +306,12 @@ function expandRecurrence<TData>(
     }
     if (rule.freq === "weekly") {
       const base = addWeeks(zonedStart, period * interval);
-      if (!weeklyDays) {
+      if (!(weeklyDays && weeklyDaySet)) {
         return [base];
       }
       const week: TZDate[] = [];
       for (let d = 0; d < 7; d++) {
-        if (!weeklyDays.includes(d)) {
+        if (!weeklyDaySet.has(d)) {
           continue;
         }
         const candidate = addDays(base, d - base.getDay());

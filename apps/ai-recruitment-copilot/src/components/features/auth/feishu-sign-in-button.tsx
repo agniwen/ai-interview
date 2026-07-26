@@ -25,13 +25,18 @@ export function FeishuSignInButton({
 
   const handleClick = async () => {
     setIsSubmitting(true);
-    const result = await authClient.signIn.oauth2({
-      callbackURL,
-      errorCallbackURL: `/login?error=${encodeURIComponent(providerId)}`,
-      providerId,
-    });
-    if (result.error) {
-      setIsSubmitting(false);
+    let shouldResetSubmitting = true;
+    try {
+      const result = await authClient.signIn.oauth2({
+        callbackURL,
+        errorCallbackURL: `/login?error=${encodeURIComponent(providerId)}`,
+        providerId,
+      });
+      shouldResetSubmitting = Boolean(result.error);
+    } finally {
+      if (shouldResetSubmitting) {
+        setIsSubmitting(false);
+      }
     }
   };
 

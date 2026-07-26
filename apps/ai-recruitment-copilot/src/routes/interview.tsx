@@ -11,7 +11,13 @@ function InterviewQuickStartRoute() {
 }
 
 export const Route = createFileRoute("/interview")({
-  component: InterviewQuickStartRoute,
+  loader: (loaderContext) => {
+    const { location } = loaderContext as { location: { pathname: string } };
+    if (location.pathname === "/interview") {
+      throw redirect({ href: "/" });
+    }
+    return null;
+  },
   head: () => ({
     meta: [
       {
@@ -21,11 +27,5 @@ export const Route = createFileRoute("/interview")({
       { title: formatDocumentTitle("AI 面试 · 快速开始") },
     ],
   }),
-  loader: (loaderContext) => {
-    const { location } = loaderContext as { location: { pathname: string } };
-    if (location.pathname === "/interview") {
-      throw redirect({ href: "/" });
-    }
-    return null;
-  },
+  component: InterviewQuickStartRoute,
 });

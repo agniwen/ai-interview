@@ -35,13 +35,6 @@ export const WORKSPACE_ROLES = [
   ...ASSIGNABLE_ROLES,
 ] as const satisfies readonly WorkspaceRole[];
 
-const WORKSPACE_ROLE_RANK: Record<WorkspaceRole, number> = {
-  admin: 2,
-  member: 1,
-  noAccess: 0,
-  owner: 3,
-};
-
 export function isBuiltInWorkspaceRole(role: string): role is WorkspaceRole {
   return role in WORKSPACE_ROLE_LABELS;
 }
@@ -69,20 +62,4 @@ export function buildWorkspaceRoleOptions(
       : (dynamicRoleNameByRole.get(role) ?? role),
     value: role,
   }));
-}
-
-export function canAssignWorkspaceRole(
-  currentRole: WorkspaceRole | null | undefined,
-  targetRole: WorkspaceRole,
-): boolean {
-  if (!currentRole) {
-    return false;
-  }
-  return WORKSPACE_ROLE_RANK[currentRole] > WORKSPACE_ROLE_RANK[targetRole];
-}
-
-export function getAssignableWorkspaceRoles(
-  currentRole: WorkspaceRole | null | undefined,
-): readonly WorkspaceRole[] {
-  return ASSIGNABLE_ROLES.filter((role) => canAssignWorkspaceRole(currentRole, role));
 }

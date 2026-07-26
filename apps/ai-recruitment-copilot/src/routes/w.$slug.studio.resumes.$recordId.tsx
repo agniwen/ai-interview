@@ -403,10 +403,7 @@ function RecruiterResumeDetailPage() {
 }
 
 export const Route = createFileRoute("/w/$slug/studio/resumes/$recordId")({
-  component: RecruiterResumeDetailPage,
-  head: () => ({
-    meta: [{ title: formatDocumentTitle("候选人详情") }],
-  }),
+  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
   loader: async (loaderContext) => {
     const { params } = loaderContext as unknown as {
       params: { recordId: string; slug: string };
@@ -418,6 +415,9 @@ export const Route = createFileRoute("/w/$slug/studio/resumes/$recordId")({
       slug: params.slug,
     });
   },
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("候选人详情") }],
+  }),
+  component: RecruiterResumeDetailPage,
   pendingComponent: RecruiterResumeDetailSkeleton,
-  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });

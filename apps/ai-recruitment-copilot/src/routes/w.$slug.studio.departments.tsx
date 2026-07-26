@@ -371,10 +371,7 @@ function StudioDepartmentsRoute() {
 }
 
 export const Route = createFileRoute("/w/$slug/studio/departments")({
-  component: StudioDepartmentsRoute,
-  head: () => ({
-    meta: [{ title: formatDocumentTitle("部门管理") }],
-  }),
+  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {
       location: { search: SearchParamsRecord };
@@ -399,7 +396,10 @@ export const Route = createFileRoute("/w/$slug/studio/departments")({
     }
     return state;
   },
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("部门管理") }],
+  }),
+  component: StudioDepartmentsRoute,
   pendingComponent: () => <StudioTablePageSkeleton label="部门管理" />,
   shouldReload: false,
-  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });

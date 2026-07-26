@@ -635,10 +635,7 @@ function StudioJobDescriptionsRoute() {
 }
 
 export const Route = createFileRoute("/w/$slug/studio/job-descriptions")({
-  component: StudioJobDescriptionsRoute,
-  head: () => ({
-    meta: [{ title: formatDocumentTitle("岗位设置") }],
-  }),
+  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {
       location: { search: SearchParamsRecord };
@@ -665,7 +662,10 @@ export const Route = createFileRoute("/w/$slug/studio/job-descriptions")({
     }
     return state;
   },
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("岗位设置") }],
+  }),
+  component: StudioJobDescriptionsRoute,
   pendingComponent: JobDescriptionsPageSkeleton,
   shouldReload: false,
-  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });

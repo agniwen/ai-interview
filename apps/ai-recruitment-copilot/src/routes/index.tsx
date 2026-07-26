@@ -25,7 +25,10 @@ function HomeRoute() {
 }
 
 export const Route = createFileRoute("/")({
-  component: HomeRoute,
+  validateSearch: (search: Record<string, unknown>): HomeSearch => ({
+    goto: resolveGoto(search.goto),
+  }),
+  loaderDeps: ({ search }) => ({ goto: (search as HomeSearch).goto }),
   loader: async (loaderContext) => {
     const { deps } = loaderContext as { deps: HomeSearch };
     const state = await getActiveOrganizationState();
@@ -45,8 +48,5 @@ export const Route = createFileRoute("/")({
       href: buildWorkspaceDestination(state.workspace.slug, deps.goto),
     });
   },
-  loaderDeps: ({ search }) => ({ goto: (search as HomeSearch).goto }),
-  validateSearch: (search: Record<string, unknown>): HomeSearch => ({
-    goto: resolveGoto(search.goto),
-  }),
+  component: HomeRoute,
 });

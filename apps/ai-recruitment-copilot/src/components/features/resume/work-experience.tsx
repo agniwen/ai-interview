@@ -1,5 +1,4 @@
 "use client";
-
 import { IconBriefcase2, IconInfinity } from "@tabler/icons-react";
 /* oxlint-disable no-use-before-define -- registry component keeps public component exports above local helpers. */
 
@@ -86,7 +85,7 @@ export interface ExperienceItemProps {
   experience: ExperienceItemType;
 }
 
-export function ExperienceItem({ experience }: ExperienceItemProps) {
+function ExperienceItem({ experience }: ExperienceItemProps) {
   return (
     <div className="relative flex flex-col gap-4 py-4">
       <div className="not-prose flex items-center gap-3">
@@ -131,7 +130,6 @@ export function ExperienceItem({ experience }: ExperienceItemProps) {
           </span>
         )}
       </div>
-
       <div className="relative flex flex-col gap-4 before:absolute before:left-3 before:h-full before:w-px before:bg-border">
         {experience.positions.map((position) => (
           <ExperiencePositionItem key={position.id} position={position} />
@@ -145,7 +143,7 @@ export interface ExperiencePositionItemProps {
   position: ExperiencePositionItemType;
 }
 
-export function ExperiencePositionItem({ position }: ExperiencePositionItemProps) {
+function ExperiencePositionItem({ position }: ExperiencePositionItemProps) {
   const chevronsUpDownIconRef = useRef<ChevronsUpDownIconHandle>(null);
 
   const handleOpenChange = useCallback((open: boolean) => {

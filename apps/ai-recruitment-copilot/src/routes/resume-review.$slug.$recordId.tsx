@@ -144,10 +144,6 @@ function ResumeReviewDetailPage() {
 }
 
 export const Route = createFileRoute("/resume-review/$slug/$recordId")({
-  component: ResumeReviewDetailPage,
-  head: () => ({
-    meta: [{ title: formatDocumentTitle("简历评估") }],
-  }),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {
       location: { pathname: string };
@@ -167,4 +163,8 @@ export const Route = createFileRoute("/resume-review/$slug/$recordId")({
     }
     return state;
   },
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("简历评估") }],
+  }),
+  component: ResumeReviewDetailPage,
 });

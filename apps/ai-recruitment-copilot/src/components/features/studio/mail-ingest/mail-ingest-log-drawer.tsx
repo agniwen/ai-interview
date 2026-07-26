@@ -122,18 +122,19 @@ export function renderRunSummary(account: {
   return { error: account.lastError, label: "上轮快照", showCounts: true };
 }
 
+const relativeTimeFormatter = new Intl.RelativeTimeFormat("zh-CN", { numeric: "auto" });
+
 function formatRelative(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
-  const rtf = new Intl.RelativeTimeFormat("zh-CN", { numeric: "auto" });
   const min = Math.round(diffMs / 60_000);
   if (Math.abs(min) < 60) {
-    return rtf.format(-min, "minute");
+    return relativeTimeFormatter.format(-min, "minute");
   }
   const hr = Math.round(min / 60);
   if (Math.abs(hr) < 24) {
-    return rtf.format(-hr, "hour");
+    return relativeTimeFormatter.format(-hr, "hour");
   }
-  return rtf.format(-Math.round(hr / 24), "day");
+  return relativeTimeFormatter.format(-Math.round(hr / 24), "day");
 }
 
 function statusVariant(status: MailMessageRecord["status"]) {

@@ -5,6 +5,7 @@ import { departmentFormSchema } from "@arc/shared/departments";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { toast } from "sonner";
+import { useCallback } from "react";
 import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,9 +41,13 @@ export function DepartmentFormDialog({
 }) {
   const slug = useWorkspaceSlug();
   const isEdit = record !== null;
+  const buildValues = useCallback(
+    () => (record ? toFormValues(record) : defaultValues()),
+    [record],
+  );
 
   const { form, isSubmitting } = useEntityForm<DepartmentFormValues>({
-    buildValues: () => (record ? toFormValues(record) : defaultValues()),
+    buildValues,
     onSubmit: async (value) => {
       const body = {
         description: value.description?.trim() || "",

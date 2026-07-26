@@ -62,8 +62,7 @@ function PlatformResumeParseCacheRoute() {
 }
 
 export const Route = createFileRoute("/platform/resume-parse-cache")({
-  component: PlatformResumeParseCacheRoute,
-  head: () => ({ meta: [{ title: formatDocumentTitle("平台 · 解析缓存") }] }),
+  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
   loader: async (loaderContext) => {
     const { location } = loaderContext as unknown as {
       location: { search: SearchParamsRecord };
@@ -80,6 +79,7 @@ export const Route = createFileRoute("/platform/resume-parse-cache")({
     }
     return state;
   },
+  head: () => ({ meta: [{ title: formatDocumentTitle("平台 · 解析缓存") }] }),
+  component: PlatformResumeParseCacheRoute,
   shouldReload: false,
-  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });

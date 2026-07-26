@@ -1,8 +1,5 @@
 "use client";
-
 import { IconInfoCircle, IconLoader2, IconSparkles } from "@tabler/icons-react";
-import { createDefaultResumeScreeningPolicy } from "@arc/shared/job-descriptions";
-import type { JobDescriptionFormValues } from "@arc/shared/job-descriptions";
 import type {
   ResumeScreeningFieldRule,
   ResumeScreeningPolicy,
@@ -45,19 +42,6 @@ const SCREENING_ACTION_TOOLTIP =
 
 type MinimumEducationRule = Extract<ResumeScreeningFieldRule, { field: "minimumEducation" }>;
 type MinimumWorkYearsRule = Extract<ResumeScreeningFieldRule, { field: "minimumWorkYears" }>;
-
-export function emptyJobDescriptionFormValues(): JobDescriptionFormValues {
-  return {
-    allowCrossDepartmentInterviewers: false,
-    code: "",
-    departmentId: "",
-    description: "",
-    interviewerIds: [],
-    name: "",
-    prompt: "",
-    resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
-  };
-}
 
 function splitRuleLines(value: string): string[] {
   return value

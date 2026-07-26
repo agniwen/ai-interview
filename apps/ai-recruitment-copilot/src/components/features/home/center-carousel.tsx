@@ -60,7 +60,7 @@ export function CenterCarousel({
   const tweenScale = useCallback((emblaApi: NonNullable<typeof embla>, eventName?: string) => {
     const engine = emblaApi.internalEngine();
     const scrollProgress = emblaApi.scrollProgress();
-    const slidesInView = emblaApi.slidesInView();
+    const slidesInView = new Set(emblaApi.slidesInView());
     const isScrollEvent = eventName === "scroll";
 
     const snapList = emblaApi.scrollSnapList();
@@ -70,7 +70,7 @@ export function CenterCarousel({
       const slidesInSnap = engine.slideRegistry[snapIndex];
 
       for (const slideIndex of slidesInSnap) {
-        if (isScrollEvent && !slidesInView.includes(slideIndex)) {
+        if (isScrollEvent && !slidesInView.has(slideIndex)) {
           continue;
         }
 

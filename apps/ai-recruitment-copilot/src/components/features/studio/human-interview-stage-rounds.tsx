@@ -1,5 +1,4 @@
 "use client";
-
 /* oxlint-disable no-use-before-define -- helper components follow the public card */
 
 import {
@@ -149,7 +148,7 @@ export function RoundCard({
   );
 }
 
-export function RoundScheduledAtControl({
+function RoundScheduledAtControl({
   round,
   meeting,
   canUpdate,
@@ -302,7 +301,7 @@ export function RoundScheduledAtControl({
   );
 }
 
-export function RoundCardActions({
+function RoundCardActions({
   meeting,
   canCreateMeeting,
   canOpenLinks,

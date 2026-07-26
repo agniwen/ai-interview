@@ -60,16 +60,6 @@ function StudioPendingRoute() {
 }
 
 export const Route = createFileRoute("/w/$slug/studio")({
-  component: StudioShellRoute,
-  head: ({ matches }) => ({
-    meta: [
-      {
-        content: "Studio 管理后台。",
-        name: "description",
-      },
-      ...documentTitleMeta(matches),
-    ],
-  }),
   loader: async (loaderContext) => {
     const { location, params, parentMatchPromise } = loaderContext;
 
@@ -98,5 +88,15 @@ export const Route = createFileRoute("/w/$slug/studio")({
 
     return null;
   },
+  head: ({ matches }) => ({
+    meta: [
+      {
+        content: "Studio 管理后台。",
+        name: "description",
+      },
+      ...documentTitleMeta(matches),
+    ],
+  }),
+  component: StudioShellRoute,
   pendingComponent: StudioPendingRoute,
 });

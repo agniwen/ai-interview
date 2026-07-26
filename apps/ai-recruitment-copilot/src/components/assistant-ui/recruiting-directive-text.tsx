@@ -1,5 +1,4 @@
 "use client";
-
 /**
  * PROTOTYPE — render assistant-ui mention directives as chips in user messages
  * and in the Lexical composer (`directiveChip`).
@@ -25,8 +24,7 @@ function typeLabel(type: string): string {
 const mentionChipClassName =
   "mx-0.5 inline align-baseline font-medium text-blue-700 text-[0.95em] dark:text-blue-300";
 
-/** Shared `@姓名` chip for composer + sent messages. */
-export function RecruitingMentionChip({
+function RecruitingMentionChip({
   label,
   directiveId,
   directiveType,

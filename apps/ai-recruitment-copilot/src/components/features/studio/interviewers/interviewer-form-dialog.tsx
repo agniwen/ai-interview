@@ -129,8 +129,13 @@ export function InterviewerFormDialog({
     }
   }
 
+  const buildValues = useCallback(
+    () => (record ? toFormValues(record) : defaultValues(fallbackDepartmentId)),
+    [fallbackDepartmentId, record],
+  );
+
   const { form, isSubmitting } = useEntityForm<InterviewerFormValues>({
-    buildValues: () => (record ? toFormValues(record) : defaultValues(fallbackDepartmentId)),
+    buildValues,
     onSubmit: async (value) => {
       const body = {
         departmentId: value.departmentId,

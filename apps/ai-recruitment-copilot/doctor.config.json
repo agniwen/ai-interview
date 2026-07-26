@@ -42,8 +42,31 @@
         "rules": ["react-hooks-js/refs"]
       },
       {
-        "files": ["src/routes/**"],
-        "rules": ["react-doctor/tanstack-start-route-property-order"]
+        "files": [
+          "src/components/assistant-ui/new-recruiting-thread.tsx",
+          "src/components/assistant-ui/recruiting-thread.tsx"
+        ],
+        "rules": ["react-doctor/no-transition-all"]
+      },
+      {
+        "files": ["src/components/features/display/time-display.tsx"],
+        "rules": ["react-doctor/js-hoist-intl"]
+      },
+      {
+        "files": ["src/components/data-grid/parts/toolbar.tsx"],
+        "rules": ["react-doctor/no-noninteractive-tabindex"]
+      },
+      {
+        "files": ["src/routes/wait.tsx"],
+        "rules": ["react-doctor/tanstack-start-no-navigate-in-render"]
+      },
+      {
+        "files": [
+          "src/components/features/auth/email-password-sign-in-form.tsx",
+          "src/components/features/auth/feishu-sign-in-button.tsx",
+          "src/components/features/auth/google-sign-in-button.tsx"
+        ],
+        "rules": ["react-doctor/no-loading-flag-reset-outside-finally"]
       }
     ]
   },

@@ -67,8 +67,9 @@ export function GlobalConfigForm({ initial }: Props) {
   const [companyName, setCompanyName] = useState(initial.companyName);
   const [jobCodePrefix, setJobCodePrefix] = useState(initial.jobCodePrefix);
 
-  const lastSavedRef = useRef<FormSnapshot>(toSnapshot(initial));
-  const latestRef = useRef<FormSnapshot>(toSnapshot(initial));
+  const [initialSnapshot] = useState(() => toSnapshot(initial));
+  const lastSavedRef = useRef<FormSnapshot>(initialSnapshot);
+  const latestRef = useRef<FormSnapshot>(initialSnapshot);
   const requestSeqRef = useRef(0);
   const mountedRef = useRef(true);
 

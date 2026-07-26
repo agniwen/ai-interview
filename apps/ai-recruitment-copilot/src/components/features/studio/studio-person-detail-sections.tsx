@@ -1,5 +1,4 @@
 "use client";
-
 // 候选人详情视图的共享主体 —— 把数据获取、tab 切换、各 section 渲染抽离出来,
 // 让弹窗版本 (StudioPersonDetailDialog) 和独立页面版本同时复用。调用方通过
 // shell 自己决定 chrome:Modal、全屏页面布局,甚至嵌入式抽屉都行。
@@ -11,7 +10,6 @@
 
 import type { CandidateFormSubmissionWithSnapshot } from "@arc/db-schema/candidate-forms";
 import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
-import { describeResumeReviewStatus } from "@arc/shared/studio-resumes";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import type { QueryClient } from "@tanstack/react-query";
 import {
@@ -22,13 +20,10 @@ import {
 } from "@/lib/client/api";
 
 import { Badge } from "@/components/ui/badge";
-import { MarkdownView } from "@/components/features/display/markdown-view";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { countDisplayInterviewTurns } from "@arc/shared/interview-transcript-turns";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
-import { truncateText } from "./interviews/interview-detail/helpers";
 
 import type {
   CollectedCandidateInfoItem,
@@ -240,65 +235,6 @@ export function compactText(value: string | null | undefined, fallback: string, 
   return value.length > limit ? `${value.slice(0, limit)}...` : value;
 }
 
-export function ResumeAiAnalysisPlaceholder({
-  resumeRecord,
-}: {
-  resumeRecord: ResumeLibraryDetail | null | undefined;
-}) {
-  const status = resumeRecord?.resumeReviewStatus ?? "idle";
-  const statusMeta = describeResumeReviewStatus(status);
-
-  if (status === "queued" || status === "processing") {
-    return (
-      <Frame>
-        <FrameHeader className="flex-row items-center justify-between gap-3">
-          <FrameTitle>简历筛选 · 分析中</FrameTitle>
-          <div>
-            <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
-          </div>
-        </FrameHeader>
-        <FramePanel>
-          <p className="text-muted-foreground text-sm leading-6">
-            系统正在基于绑定岗位生成 AI评分，完成后会自动展示在这里。
-          </p>
-        </FramePanel>
-      </Frame>
-    );
-  }
-
-  if (status === "failed") {
-    return (
-      <Frame>
-        <FrameHeader className="flex-row items-center justify-between gap-3">
-          <FrameTitle>AI评分失败</FrameTitle>
-          <div>
-            <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
-          </div>
-        </FrameHeader>
-        <FramePanel>
-          <p className="text-muted-foreground text-sm leading-6">
-            {resumeRecord?.resumeReviewError ?? "AI评分生成失败，请稍后重试。"}
-          </p>
-        </FramePanel>
-      </Frame>
-    );
-  }
-
-  return (
-    <Frame>
-      <FrameHeader>
-        <FrameTitle>AI评分</FrameTitle>
-      </FrameHeader>
-      <FramePanel>
-        <MarkdownView
-          className="text-muted-foreground text-sm leading-6"
-          content={truncateText(resumeRecord?.notes) || "暂无 AI评分结果"}
-        />
-      </FramePanel>
-    </Frame>
-  );
-}
-
 export type ResumeScreeningRuleResult = NonNullable<
   ResumeLibraryDetail["resumeScreeningResult"]
 >["ruleResults"][number];
@@ -414,17 +350,6 @@ export function ResumeScreeningResultPanel({
       </FramePanel>
     </Frame>
   );
-}
-
-export function resolveDisplayTurnStats(
-  report: { agentTurnCount: number; turnCount: number; userTurnCount: number },
-  stats: ReturnType<typeof countDisplayInterviewTurns> | undefined,
-) {
-  return {
-    displayAgentTurnCount: stats?.agentTurnCount ?? report.agentTurnCount,
-    displayTurnCount: stats?.turnCount ?? report.turnCount,
-    displayUserTurnCount: stats?.userTurnCount ?? report.userTurnCount,
-  };
 }
 
 export async function resetInterviewFormSubmission({

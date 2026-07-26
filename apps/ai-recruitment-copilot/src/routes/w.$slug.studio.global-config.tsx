@@ -20,10 +20,6 @@ function StudioGlobalConfigRoute() {
 }
 
 export const Route = createFileRoute("/w/$slug/studio/global-config")({
-  component: StudioGlobalConfigRoute,
-  head: () => ({
-    meta: [{ title: formatDocumentTitle("上下文设置") }],
-  }),
   loader: async ({ params }) => {
     await requireStudioPageAccess({
       action: "globalConfig",
@@ -41,5 +37,9 @@ export const Route = createFileRoute("/w/$slug/studio/global-config")({
     }
     return state;
   },
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("上下文设置") }],
+  }),
+  component: StudioGlobalConfigRoute,
   pendingComponent: GlobalConfigPageSkeleton,
 });

@@ -68,10 +68,7 @@ function PlatformQueuesRoute() {
 }
 
 export const Route = createFileRoute("/platform/queues")({
-  component: PlatformQueuesRoute,
-  head: () => ({
-    meta: [{ title: formatDocumentTitle("平台 · 队列任务") }],
-  }),
+  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
   loader: async (loaderContext) => {
     const { location } = loaderContext as unknown as {
       location: { search: SearchParamsRecord };
@@ -88,6 +85,9 @@ export const Route = createFileRoute("/platform/queues")({
     }
     return state;
   },
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("平台 · 队列任务") }],
+  }),
+  component: PlatformQueuesRoute,
   shouldReload: false,
-  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });

@@ -386,10 +386,7 @@ function StudioInterviewersRoute() {
 }
 
 export const Route = createFileRoute("/w/$slug/studio/interviewers")({
-  component: StudioInterviewersRoute,
-  head: () => ({
-    meta: [{ title: formatDocumentTitle("面试官管理") }],
-  }),
+  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {
       location: { search: SearchParamsRecord };
@@ -414,7 +411,10 @@ export const Route = createFileRoute("/w/$slug/studio/interviewers")({
     }
     return state;
   },
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("面试官管理") }],
+  }),
+  component: StudioInterviewersRoute,
   pendingComponent: () => <StudioTablePageSkeleton label="面试官管理" />,
   shouldReload: false,
-  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });
