@@ -1,7 +1,9 @@
 import type {
   HumanInterviewFormat,
   HumanInterviewMeetingStatus,
+  ScheduleEntryStatus,
 } from "@arc/db-schema/studio-interviews";
+import type { InterviewSummaryStatus } from "@arc/db-schema/db-enums";
 
 export interface StudioCalendarCandidate {
   candidateName: string;
@@ -56,4 +58,32 @@ export type StudioCalendarEvent = StudioAiCalendarEvent | StudioHumanCalendarEve
 
 export interface StudioCalendarResponse {
   events: StudioCalendarEvent[];
+}
+
+export interface StudioAiCalendarEventPreview {
+  candidate: {
+    id: string;
+    jobDescriptionName: string | null;
+    name: string;
+    targetRole: string | null;
+  };
+  result: {
+    conversationId: string;
+    durationSecs: number | null;
+    endedAt: string | null;
+    reportStatus: InterviewSummaryStatus;
+    startedAt: string | null;
+    summary: string | null;
+    turnCount: number;
+  } | null;
+  round: {
+    allowTextInput: boolean;
+    disconnectedAt: string | null;
+    id: string;
+    label: string;
+    scheduledAt: string | null;
+    scheduledEndAt: string | null;
+    sessionStartedAt: string | null;
+    status: ScheduleEntryStatus;
+  };
 }

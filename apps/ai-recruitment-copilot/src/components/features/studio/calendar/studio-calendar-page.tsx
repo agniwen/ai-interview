@@ -36,6 +36,7 @@ import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { fetchStudioCalendar } from "@/lib/client/api";
 import { studioCalendarKeys } from "@/lib/client/api/query-keys";
+import { AiInterviewEventHoverCard } from "./ai-interview-event-hover-card";
 
 const CALENDAR_I18N = {
   labels: {
@@ -297,6 +298,15 @@ export function StudioCalendarPage({ slug }: { slug: string }) {
             locale={zhCN}
             onRangeChange={handleRangeChange}
             renderEventIcon={(props) => <CalendarEventIcon {...props} />}
+            renderEventPreview={({ occurrence, trigger }) =>
+              occurrence.event.data?.kind === "ai" ? (
+                <AiInterviewEventHoverCard
+                  event={occurrence.event.data}
+                  slug={slug}
+                  trigger={trigger}
+                />
+              ) : null
+            }
             renderEventTooltip={({ occurrence }) => (
               <CalendarEventTooltip event={occurrence.event.data} />
             )}

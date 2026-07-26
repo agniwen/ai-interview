@@ -511,24 +511,33 @@ function EventCalendarEvent<TData = unknown>({
     props: mergeProps<"button">(defaultProps, props),
     render,
   });
+  const customPreview =
+    !preview &&
+    viewConfig.renderEventPreview?.({
+      occurrence,
+      segment,
+      trigger: chip,
+      view,
+    });
 
   return (
     <EventCalendarChipContext.Provider value={{ isDragging, isSelected, occurrence, segment }}>
-      {tooltipOn ? (
-        <TooltipProvider delay={tooltipOpts?.delay ?? 600}>
-          <Tooltip>
-            <TooltipTrigger render={chip} />
-            <TooltipContent
-              side={tooltipOpts?.side ?? "top"}
-              className={viewConfig.classNames?.eventTooltip}
-            >
-              {tooltipContent}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      ) : (
-        chip
-      )}
+      {customPreview ||
+        (tooltipOn ? (
+          <TooltipProvider delay={tooltipOpts?.delay ?? 600}>
+            <Tooltip>
+              <TooltipTrigger render={chip} />
+              <TooltipContent
+                side={tooltipOpts?.side ?? "top"}
+                className={viewConfig.classNames?.eventTooltip}
+              >
+                {tooltipContent}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          chip
+        ))}
     </EventCalendarChipContext.Provider>
   );
 }

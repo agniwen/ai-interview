@@ -1,8 +1,24 @@
-import { and, asc, eq, gt, gte, inArray, isNotNull, isNull, lt, ne, or } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  eq,
+  gt,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import {
   interviewConversation,
+  interviewConversationTurn,
+  jobDescription,
   studioHumanInterviewMeeting,
   studioHumanInterviewMeetingRound,
   studioHumanInterviewRound,
@@ -12,6 +28,7 @@ import {
   user,
 } from "@arc/db-schema/schema";
 import type {
+  StudioAiCalendarEventPreview,
   StudioCalendarCandidate,
   StudioCalendarEvent,
   StudioCalendarInterviewer,
@@ -23,6 +40,28 @@ import type {
 import { buildAiCalendarEvents } from "./events";
 
 const DEFAULT_INTERVIEW_DURATION_MS = 60 * 60 * 1000;
+
+function serializeDate(value: Date | null): string | null {
+  return value?.toISOString() ?? null;
+}
+
+function resolveConversationDurationSecs({
+  endedAt,
+  recordingDurationSecs,
+  startedAt,
+}: {
+  endedAt: Date | null;
+  recordingDurationSecs: number | null;
+  startedAt: Date | null;
+}): number | null {
+  if (recordingDurationSecs !== null) {
+    return recordingDurationSecs;
+  }
+  if (!(startedAt && endedAt)) {
+    return null;
+  }
+  return Math.max(0, Math.round((endedAt.getTime() - startedAt.getTime()) / 1000));
+}
 
 interface ListStudioCalendarEventsInput {
   end: Date;
@@ -256,4 +295,133 @@ export async function listStudioCalendarEvents({
   return [...events.values(), ...aiEvents].toSorted(
     (left, right) => new Date(left.startAt).getTime() - new Date(right.startAt).getTime(),
   );
+}
+
+export async function loadAiCalendarEventPreview({
+  conversationId,
+  organizationId,
+  roundId,
+  visibilityScope,
+}: {
+  conversationId?: string;
+  organizationId: string;
+  roundId: string;
+  visibilityScope: RecruitingVisibilityScope;
+}): Promise<StudioAiCalendarEventPreview | null> {
+  if (
+    visibilityScope.kind === "none" ||
+    (visibilityScope.kind === "restricted" && visibilityScope.userIds.length === 0)
+  ) {
+    return null;
+  }
+
+  const [round] = await db
+    .select({
+      allowTextInput: studioInterviewSchedule.allowTextInput,
+      candidateId: studioInterview.id,
+      candidateName: studioInterview.candidateName,
+      conversationId: studioInterviewSchedule.conversationId,
+      disconnectedAt: studioInterviewSchedule.disconnectedAt,
+      jobDescriptionName: jobDescription.name,
+      roundId: studioInterviewSchedule.id,
+      roundLabel: studioInterviewSchedule.roundLabel,
+      scheduledAt: studioInterviewSchedule.scheduledAt,
+      scheduledEndAt: studioInterviewSchedule.scheduledEndAt,
+      sessionStartedAt: studioInterviewSchedule.sessionStartedAt,
+      status: studioInterviewSchedule.status,
+      targetRole: studioInterview.targetRole,
+    })
+    .from(studioInterviewSchedule)
+    .innerJoin(studioInterview, eq(studioInterview.id, studioInterviewSchedule.interviewRecordId))
+    .leftJoin(
+      jobDescription,
+      and(
+        eq(jobDescription.id, studioInterview.jobDescriptionId),
+        eq(jobDescription.organizationId, organizationId),
+      ),
+    )
+    .where(
+      and(
+        eq(studioInterviewSchedule.id, roundId),
+        eq(studioInterviewSchedule.organizationId, organizationId),
+        eq(studioInterview.organizationId, organizationId),
+        visibilityScope.kind === "restricted"
+          ? inArray(studioInterview.createdBy, visibilityScope.userIds)
+          : undefined,
+      ),
+    )
+    .limit(1);
+
+  if (!round) {
+    return null;
+  }
+
+  const selectedConversationId = conversationId ?? round.conversationId;
+  const [result] = selectedConversationId
+    ? await db
+        .select({
+          conversationId: interviewConversation.conversationId,
+          endedAt: interviewConversation.endedAt,
+          recordingDurationSecs: interviewConversation.recordingDurationSecs,
+          reportStatus: interviewConversation.summaryStatus,
+          startedAt: interviewConversation.startedAt,
+          summary: interviewConversation.transcriptSummary,
+          turnCount: sql<number>`greatest(
+            ${count(interviewConversationTurn.id)},
+            jsonb_array_length(${interviewConversation.transcript})
+          )`.mapWith(Number),
+        })
+        .from(interviewConversation)
+        .leftJoin(
+          interviewConversationTurn,
+          eq(interviewConversationTurn.conversationId, interviewConversation.conversationId),
+        )
+        .where(
+          and(
+            eq(interviewConversation.conversationId, selectedConversationId),
+            eq(interviewConversation.scheduleEntryId, roundId),
+            eq(interviewConversation.organizationId, organizationId),
+          ),
+        )
+        .groupBy(
+          interviewConversation.conversationId,
+          interviewConversation.endedAt,
+          interviewConversation.recordingDurationSecs,
+          interviewConversation.summaryStatus,
+          interviewConversation.startedAt,
+          interviewConversation.transcript,
+          interviewConversation.transcriptSummary,
+        )
+        .limit(1)
+    : [];
+
+  return {
+    candidate: {
+      id: round.candidateId,
+      jobDescriptionName: round.jobDescriptionName,
+      name: round.candidateName,
+      targetRole: round.targetRole,
+    },
+    result: result
+      ? {
+          conversationId: result.conversationId,
+          durationSecs: resolveConversationDurationSecs(result),
+          endedAt: serializeDate(result.endedAt),
+          reportStatus: result.reportStatus,
+          startedAt: serializeDate(result.startedAt),
+          summary: result.summary,
+          turnCount: result.turnCount,
+        }
+      : null,
+    round: {
+      allowTextInput: round.allowTextInput,
+      disconnectedAt: serializeDate(round.disconnectedAt),
+      id: round.roundId,
+      label: round.roundLabel,
+      scheduledAt: serializeDate(round.scheduledAt),
+      scheduledEndAt: serializeDate(round.scheduledEndAt),
+      sessionStartedAt: serializeDate(round.sessionStartedAt),
+      status: round.status,
+    },
+  };
 }

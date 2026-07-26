@@ -16,3 +16,7 @@ export const studioCalendarQuerySchema = z
       message: "单次查询范围不能超过 370 天。",
     },
   );
+
+export const studioAiCalendarPreviewQuerySchema = z.object({
+  conversationId: z.string().trim().min(1).optional(),
+});

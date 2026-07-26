@@ -14,6 +14,8 @@ export const humanInterviewKeys = {
 };
 
 export const studioCalendarKeys = {
+  aiEventPreview: (slug: string, roundId: string, conversationId: string | null) =>
+    ["studio-calendar", slug, "ai-event-preview", roundId, conversationId] as const,
   range: (slug: string, start: string, end: string) =>
     ["studio-calendar", slug, start, end] as const,
 };

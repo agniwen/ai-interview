@@ -10,7 +10,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type { ComponentType, ReactNode, RefObject } from "react";
+import type { ComponentType, ReactElement, ReactNode, RefObject } from "react";
 import { mergeEventCalendarI18n } from "@/components/reui/event-calendar/event-calendar-i18n";
 import type { EventCalendarI18nConfig } from "@/components/reui/event-calendar/event-calendar-i18n";
 import {
@@ -1282,6 +1282,16 @@ interface EventCalendarViewConfig<TData = unknown> {
   renderEvent?: (props: EventCalendarRenderEventProps<TData>) => ReactNode;
   renderAgendaEvent?: (props: EventCalendarRenderEventProps<TData>) => ReactNode;
   /**
+   * Wraps the completed event trigger with a consumer-owned preview surface.
+   * Return a falsy value to keep the built-in tooltip behavior.
+   */
+  renderEventPreview?: (props: {
+    occurrence: EventCalendarOccurrence<TData>;
+    segment: EventCalendarSegment<TData>;
+    trigger: ReactElement;
+    view: CalendarView;
+  }) => ReactNode;
+  /**
    * Content for the styled hover tooltip (viewConfig.eventTooltip). Return a
    * falsy value (null / undefined, or the `false` a `cond && <node>` yields)
    * to fall back to the default label (title + time); `label` itself is
@@ -1457,6 +1467,7 @@ const VIEW_CONFIG_KEYS: (keyof EventCalendarViewConfig)[] = [
   "renderEventIcon",
   "renderEvent",
   "renderAgendaEvent",
+  "renderEventPreview",
   "renderEventTooltip",
   "renderDragPreview",
   "renderMonthCell",

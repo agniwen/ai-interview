@@ -178,6 +178,8 @@ describe("StudioCalendarPage", () => {
     expect(endedHumanEvent?.className).toContain("bg-(--ec-event-color)/10");
     expect(aiEvent?.getAttribute("aria-label")).toContain("AI 面试记录");
     expect(humanEvent?.getAttribute("aria-label")).toContain("真人面试");
+    expect(aiEvent?.dataset.calendarEventPreview).toBe("ai");
+    expect(humanEvent?.dataset.calendarEventPreview).toBeUndefined();
 
     const pendingCalendar = Promise.withResolvers<{ events: never[] }>();
     fetchStudioCalendarMock.mockImplementationOnce(() => pendingCalendar.promise);
