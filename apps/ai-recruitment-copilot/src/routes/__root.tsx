@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { LazyMotion, domAnimation } from "motion/react";
 import {
   HeadContent,
   Outlet,
@@ -47,15 +48,22 @@ function RootComponent() {
 
   return (
     <RootDocument>
-      <ThemeProvider attribute="class" defaultTheme="system" disableTransitionOnChange enableSystem>
-        <QueryProvider queryClient={queryClient}>
-          <TooltipProvider>
-            <Outlet />
-            <AppWatermark />
-            <Toaster />
-          </TooltipProvider>
-        </QueryProvider>
-      </ThemeProvider>
+      <LazyMotion features={domAnimation}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          disableTransitionOnChange
+          enableSystem
+        >
+          <QueryProvider queryClient={queryClient}>
+            <TooltipProvider>
+              <Outlet />
+              <AppWatermark />
+              <Toaster />
+            </TooltipProvider>
+          </QueryProvider>
+        </ThemeProvider>
+      </LazyMotion>
     </RootDocument>
   );
 }

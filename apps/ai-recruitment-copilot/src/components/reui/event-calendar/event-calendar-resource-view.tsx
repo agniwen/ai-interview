@@ -82,9 +82,9 @@ function EventCalendarResourceView({
 
   const resources = useMemo(
     () =>
-      flattenResources(settings.resources)
-        .filter(({ resource }) => !resource.children?.length)
-        .map(({ resource }) => resource),
+      flattenResources(settings.resources).flatMap(({ resource }) =>
+        resource.children?.length ? [] : [resource],
+      ),
     [settings.resources],
   );
 
@@ -466,9 +466,11 @@ function EventCalendarResourceColumn({
   // Filter this resource's timed segments and repack per column.
   // Clones keep the shared index cache untouched.
   const packed = useMemo(() => {
-    const mine = segments.timed
-      .filter((segment) => segment.occurrence.event.resourceId === resource.id)
-      .map((segment) => ({ ...segment }) as EventCalendarSegment);
+    const mine = segments.timed.flatMap((segment) =>
+      segment.occurrence.event.resourceId === resource.id
+        ? [{ ...segment } as EventCalendarSegment]
+        : [],
+    );
     packTimedSegments(mine);
     return mine;
   }, [segments.timed, resource.id]);

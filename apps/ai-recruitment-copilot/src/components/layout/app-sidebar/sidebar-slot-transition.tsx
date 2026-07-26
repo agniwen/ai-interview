@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { Variants } from "motion/react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 
 const PANEL_OFFSET = 20;
 
@@ -66,7 +66,7 @@ export function SidebarSlotTransition({
   return (
     <AnimatePresence custom={motionContext} initial={false} mode="popLayout">
       {active ? (
-        <motion.div
+        <m.div
           animate="center"
           custom={motionContext}
           exit="exit"
@@ -78,7 +78,7 @@ export function SidebarSlotTransition({
           variants={sidebarSlotPanelVariants}
         >
           {children}
-        </motion.div>
+        </m.div>
       ) : null}
     </AnimatePresence>
   );

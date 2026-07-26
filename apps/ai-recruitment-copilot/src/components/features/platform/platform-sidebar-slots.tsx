@@ -112,26 +112,34 @@ const manageNavSections: NavSection[] = [
 const mastraNavSections: NavSection[] = [
   ...mainNav.map((section) => ({
     id: `mastra-${section.title}`,
-    items: section.items
-      .filter((item) => !item.hidden)
-      .map((item) => ({
-        activePaths: item.activePaths?.map(addMastraStudioBase),
-        icon: item.Icon,
-        path: addMastraStudioBase(item.url),
-        title: item.name,
-      })),
+    items: section.items.flatMap((item) =>
+      item.hidden
+        ? []
+        : [
+            {
+              activePaths: item.activePaths?.map(addMastraStudioBase),
+              icon: item.Icon,
+              path: addMastraStudioBase(item.url),
+              title: item.name,
+            },
+          ],
+    ),
     title: section.title,
   })),
   {
     id: "mastra-bottom",
-    items: bottomNav
-      .filter((item) => !item.hidden)
-      .map((item) => ({
-        activePaths: item.activePaths?.map(addMastraStudioBase),
-        icon: item.Icon,
-        path: addMastraStudioBase(item.url),
-        title: item.name,
-      })),
+    items: bottomNav.flatMap((item) =>
+      item.hidden
+        ? []
+        : [
+            {
+              activePaths: item.activePaths?.map(addMastraStudioBase),
+              icon: item.Icon,
+              path: addMastraStudioBase(item.url),
+              title: item.name,
+            },
+          ],
+    ),
   },
 ];
 

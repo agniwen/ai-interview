@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -75,7 +75,7 @@ export function AnimatedHeight({
   }
 
   return (
-    <motion.div
+    <m.div
       animate={{ height }}
       className={cn("-m-1 p-1", className)}
       data-slot="animated-height"
@@ -107,6 +107,6 @@ export function AnimatedHeight({
       <div ref={innerRef} style={{ display: "flow-root" }}>
         {children}
       </div>
-    </motion.div>
+    </m.div>
   );
 }

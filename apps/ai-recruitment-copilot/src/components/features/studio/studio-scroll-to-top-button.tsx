@@ -1,7 +1,7 @@
 "use client";
 
 import { IconArrowUp } from "@tabler/icons-react";
-import { motion, useReducedMotion } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -69,7 +69,7 @@ export function StudioScrollToTopButton({ className }: { className?: string }) {
   }, [scrollElement]);
 
   return (
-    <motion.div
+    <m.div
       animate={{
         opacity: visible ? 1 : 0,
         scale: reduceMotion || visible ? 1 : 0.96,
@@ -101,6 +101,6 @@ export function StudioScrollToTopButton({ className }: { className?: string }) {
       >
         <IconArrowUp />
       </Button>
-    </motion.div>
+    </m.div>
   );
 }

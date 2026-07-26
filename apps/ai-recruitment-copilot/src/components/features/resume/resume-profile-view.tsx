@@ -95,8 +95,10 @@ export function formatResumeExperienceDescription(
   const items = text
     .split(/\r?\n/u)
     .flatMap((line) => line.split(/[。；]/u))
-    .map((item) => item.trim())
-    .filter(Boolean);
+    .flatMap((item) => {
+      const trimmed = item.trim();
+      return trimmed ? [trimmed] : [];
+    });
 
   if (items.length === 0) {
     return undefined;

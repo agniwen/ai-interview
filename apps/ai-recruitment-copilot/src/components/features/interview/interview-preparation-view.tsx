@@ -3,24 +3,12 @@
 import type { CandidateInterviewView } from "@arc/shared/interview/interview-record";
 import { cn } from "@arc/shared/utils";
 import { MarkdownView } from "@/components/features/display/markdown-view";
+import { LocalDateTimeText } from "@/components/features/display/local-date-time-text";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CandidateAiReviewSection } from "./candidate-ai-review-section";
 import { InterviewFlowFloatingBar } from "./interview-flow-floating-bar";
-
-const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
-  dateStyle: "long",
-  timeStyle: "short",
-});
-
-function formatInterviewTime(value: string | Date | null) {
-  if (!value) {
-    return "请以邀请通知为准";
-  }
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "请以邀请通知为准" : DATE_TIME_FORMATTER.format(date);
-}
 
 function ContextSection({
   children,
@@ -96,7 +84,13 @@ export function InterviewPreparationView({
               <dl className="mt-10 grid border-foreground/15 border-y sm:grid-cols-[repeat(3,minmax(0,1fr))] sm:divide-x sm:divide-foreground/15">
                 <ScheduleItem
                   label="面试时间"
-                  value={formatInterviewTime(interviewView.currentRoundTime)}
+                  value={
+                    <LocalDateTimeText
+                      fallback="请以邀请通知为准"
+                      format="long-zh"
+                      value={interviewView.currentRoundTime}
+                    />
+                  }
                 />
                 <ScheduleItem label="预计用时" value="约 20 分钟" />
                 <ScheduleItem

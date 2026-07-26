@@ -492,14 +492,18 @@ function ChatSidebarBody({
 
 async function loadConversationList(slug: string): Promise<ConversationListItem[]> {
   const rows = await fetchConversations(slug);
-  return rows
-    .filter((item) => !isStudioResumeChatId(item.id))
-    .map((item) => ({
-      id: item.id,
-      isTitleGenerating: item.isTitleGenerating,
-      title: item.title,
-      updatedAt: item.updatedAt,
-    }));
+  return rows.flatMap((item) =>
+    isStudioResumeChatId(item.id)
+      ? []
+      : [
+          {
+            id: item.id,
+            isTitleGenerating: item.isTitleGenerating,
+            title: item.title,
+            updatedAt: item.updatedAt,
+          },
+        ],
+  );
 }
 
 export function ChatSidebarSlots({

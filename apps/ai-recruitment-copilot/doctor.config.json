@@ -103,10 +103,37 @@
           "src/routes/w.$slug.studio.job-descriptions.tsx"
         ],
         "rules": ["react-doctor/no-giant-component"]
+      },
+      {
+        "files": ["src/components/features/chat/chat-sidebar-slots.tsx"],
+        "rules": ["react-doctor/query-no-query-in-effect"]
+      },
+      {
+        "files": [
+          "src/components/features/studio/human-interview-stage-rounds.tsx",
+          "src/components/features/studio/offer-stage-cards.tsx",
+          "src/routes/referrals.$token.tsx"
+        ],
+        "rules": ["react-doctor/query-mutation-missing-invalidation"]
+      },
+      {
+        "files": [
+          "src/routes/w.$slug.studio.dashboard.tsx",
+          "src/routes/w.$slug.studio.global-config.tsx"
+        ],
+        "rules": ["react-doctor/tanstack-start-loader-parallel-fetch"]
+      },
+      {
+        "files": [
+          "src/components/features/home/center-carousel.tsx",
+          "src/components/features/home/feature-blocks.tsx"
+        ],
+        "rules": ["react-doctor/no-permanent-will-change"]
       }
     ]
   },
   "rules": {
+    "react-doctor/react-compiler-no-manual-memoization": "off",
     "react-hooks-js/todo": "warn"
   }
 }

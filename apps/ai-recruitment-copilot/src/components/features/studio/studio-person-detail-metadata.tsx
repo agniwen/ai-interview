@@ -203,15 +203,19 @@ function InterviewReportMetadataSessionSection({ metadata }: { metadata: ReportS
 
 export function joinTextLines(lines: (string | null | undefined)[]) {
   return lines
-    .map((line) => line?.trim())
-    .filter(Boolean)
+    .flatMap((line) => {
+      const trimmed = line?.trim();
+      return trimmed ? [trimmed] : [];
+    })
     .join("\n");
 }
 
 export function joinTextBlocks(blocks: string[]) {
   return blocks
-    .map((block) => block.trim())
-    .filter(Boolean)
+    .flatMap((block) => {
+      const trimmed = block.trim();
+      return trimmed ? [trimmed] : [];
+    })
     .join("\n\n");
 }
 

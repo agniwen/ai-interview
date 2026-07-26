@@ -264,9 +264,10 @@ function expandRecurrence<TData>(
     let days: number[] | null = null;
     if (rule.byMonthDay?.length) {
       // negative BYMONTHDAY counts back from month end; nonexistent days skip
-      days = rule.byMonthDay
-        .map((n) => (n < 0 ? total + 1 + n : n))
-        .filter((n) => n >= 1 && n <= total);
+      days = rule.byMonthDay.flatMap((value) => {
+        const day = value < 0 ? total + 1 + value : value;
+        return day >= 1 && day <= total ? [day] : [];
+      });
     }
     if (monthlyByDay) {
       const byDayMatches: number[] = [];
@@ -327,9 +328,10 @@ function expandRecurrence<TData>(
       const anchor = addMonths(zonedStart, period * interval);
       const year = anchor.getFullYear();
       const month = anchor.getMonth();
-      return monthDays(year, month)
-        .map((day) => zonedDate(year, month, day))
-        .filter((c) => c.getTime() >= zonedStart.getTime());
+      return monthDays(year, month).flatMap((day) => {
+        const candidate = zonedDate(year, month, day);
+        return candidate.getTime() >= zonedStart.getTime() ? [candidate] : [];
+      });
     }
     // yearly
     const year = addYears(zonedStart, period * interval).getFullYear();

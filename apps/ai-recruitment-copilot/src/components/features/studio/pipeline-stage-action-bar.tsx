@@ -544,10 +544,11 @@ function getStageActions(props: {
     }
   }
 
-  return {
-    left: buttons.filter((button) => button.side === "left").map((button) => button.node),
-    right: buttons.filter((button) => button.side === "right").map((button) => button.node),
-  };
+  const groups: { left: ReactNode[]; right: ReactNode[] } = { left: [], right: [] };
+  for (const button of buttons) {
+    groups[button.side].push(button.node);
+  }
+  return groups;
 }
 
 function resolveHumanInterviewAdvanceDisabledReason(

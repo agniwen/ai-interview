@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
+import { LocalDateTimeText } from "@/components/features/display/local-date-time-text";
 import { DatePicker } from "@/components/date-time-picker";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -273,7 +274,9 @@ function MailIngestLogMessages({ account, slug }: { account: MailIngestLogAccoun
           {records.map((rec) => (
             <Fragment key={rec.id}>
               <tr>
-                <td>{rec.receivedAt ? new Date(rec.receivedAt).toLocaleString() : "—"}</td>
+                <td>
+                  <LocalDateTimeText value={rec.receivedAt} />
+                </td>
                 <td>
                   <Badge variant={statusVariant(rec.status)}>{STATUS_LABELS[rec.status]}</Badge>
                 </td>

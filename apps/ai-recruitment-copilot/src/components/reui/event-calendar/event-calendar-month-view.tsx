@@ -325,9 +325,9 @@ function EventCalendarMonthWeek({
   const hiddenBarKeysByCol = week.map(
     (_, col) =>
       new Set(
-        bars
-          .filter((b) => (b.lane ?? 0) >= cap && covers(b, offsets[col]))
-          .map((b) => b.occurrence.key),
+        bars.flatMap((bar) =>
+          (bar.lane ?? 0) >= cap && covers(bar, offsets[col]) ? [bar.occurrence.key] : [],
+        ),
       ),
   );
 

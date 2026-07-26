@@ -1,7 +1,7 @@
 "use client";
 
 import type { Variants } from "motion/react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AnimatedHeight } from "@/components/features/motion/animated-height";
@@ -100,7 +100,7 @@ export function SignInTabs({ callbackURL }: SignInTabsProps) {
       <AnimatedHeight animateOnMobile>
         <div className="relative">
           <AnimatePresence custom={motionContext} initial={false} mode="popLayout">
-            <motion.div
+            <m.div
               animate="center"
               custom={motionContext}
               exit="exit"
@@ -114,7 +114,7 @@ export function SignInTabs({ callbackURL }: SignInTabsProps) {
               variants={panelVariants}
             >
               {renderActivePanel()}
-            </motion.div>
+            </m.div>
           </AnimatePresence>
         </div>
       </AnimatedHeight>

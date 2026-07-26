@@ -15,7 +15,7 @@ import { IconLoader2 } from "@tabler/icons-react";
 
 import { useForm } from "@tanstack/react-form";
 
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { SortableQuestionListEditor } from "@/components/features/studio/sortable-question-list-editor";
@@ -365,7 +365,7 @@ export function LaunchInterviewDialog({
           </AnimatedHeight>
 
           {isGenerating ? (
-            <motion.div
+            <m.div
               animate={{ opacity: 1 }}
               className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 overflow-y-auto bg-background/85 px-6 py-8 backdrop-blur-sm"
               initial={{ opacity: 0 }}
@@ -376,7 +376,7 @@ export function LaunchInterviewDialog({
               <p className="text-muted-foreground text-xs">
                 生成完成后可在下方继续编辑，再点「发起」入库。
               </p>
-            </motion.div>
+            </m.div>
           ) : null}
         </div>
       </Modal>

@@ -93,7 +93,7 @@ function buildDecorations(doc: ProseMirrorNode): DecorationSet {
     for (let i = 0; i < node.childCount; i += 1) {
       const child = node.child(i);
       const currentMarks = new Set(
-        child.marks.map((m) => m.type.name).filter((n) => n in INLINE_MARKERS),
+        child.marks.flatMap((mark) => (mark.type.name in INLINE_MARKERS ? [mark.type.name] : [])),
       );
       // 中文：刚打开的 mark —— 记录起始位置。
       // English: newly opened marks — remember start position.

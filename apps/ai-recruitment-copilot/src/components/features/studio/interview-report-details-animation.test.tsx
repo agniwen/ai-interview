@@ -15,7 +15,7 @@ vi.mock("@/hooks/use-mobile", () => ({
 }));
 
 vi.mock("motion/react", () => ({
-  motion: {
+  m: {
     div: forwardRef<
       HTMLDivElement,
       React.ComponentProps<"div"> & {

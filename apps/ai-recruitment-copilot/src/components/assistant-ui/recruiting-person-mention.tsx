@@ -159,8 +159,10 @@ function useFlatMentionAdapter(people: MentionPerson[]): TriggerAdapter {
           return people.slice(0, MENTION_VISIBLE_LIMIT).map(toTriggerItem);
         }
         return people
-          .map((person) => ({ person, score: matchScore(person, lower) }))
-          .filter((entry) => entry.score > 0)
+          .flatMap((person) => {
+            const score = matchScore(person, lower);
+            return score > 0 ? [{ person, score }] : [];
+          })
           .toSorted(
             (a, b) => b.score - a.score || a.person.label.localeCompare(b.person.label, "zh"),
           )

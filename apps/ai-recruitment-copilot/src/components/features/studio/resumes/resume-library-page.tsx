@@ -165,9 +165,9 @@ export function ResumeLibraryPage() {
   const activeUploadBatchIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     const nextActiveBatchIds = new Set(
-      libraryBatches
-        .filter((batch) => batch.status === "pending" || batch.status === "running")
-        .map((batch) => batch.id),
+      libraryBatches.flatMap((batch) =>
+        batch.status === "pending" || batch.status === "running" ? [batch.id] : [],
+      ),
     );
     const hadBatchFinish = [...activeUploadBatchIdsRef.current].some(
       (batchId) => !nextActiveBatchIds.has(batchId),

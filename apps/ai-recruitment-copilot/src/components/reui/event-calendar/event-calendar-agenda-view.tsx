@@ -56,15 +56,11 @@ function EventCalendarAgendaView({ className, render, ...props }: EventCalendarA
   }, [visibleRange, settings.timeZone]);
 
   const index = instance.internals.getIndex();
-  const groups = days
-    .map((day) => ({
-      bucket: index.byDay.get(getDayKey(day, settings.timeZone)),
-      day,
-    }))
-    .filter((group) => {
-      const total = (group.bucket?.allDay.length ?? 0) + (group.bucket?.timed.length ?? 0);
-      return total > 0;
-    });
+  const groups = days.flatMap((day) => {
+    const bucket = index.byDay.get(getDayKey(day, settings.timeZone));
+    const total = (bucket?.allDay.length ?? 0) + (bucket?.timed.length ?? 0);
+    return total > 0 ? [{ bucket, day }] : [];
+  });
 
   const isToday = (day: Date) =>
     getDayKey(day, settings.timeZone) === getDayKey(new Date(), settings.timeZone);
