@@ -68,9 +68,7 @@ export function RecruitingComposerDirectiveChip({
 export const RecruitingDirectiveText: TextMessagePartComponent = ({ text }) => {
   const nodes: ReactNode[] = [];
   let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  DIRECTIVE_RE.lastIndex = 0;
-  while ((match = DIRECTIVE_RE.exec(text)) !== null) {
+  for (const match of text.matchAll(DIRECTIVE_RE)) {
     if (match.index > lastIndex) {
       nodes.push(text.slice(lastIndex, match.index));
     }

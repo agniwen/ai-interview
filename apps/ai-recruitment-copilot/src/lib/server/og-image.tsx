@@ -34,15 +34,24 @@ function readFontUrl(css: string, weight: number) {
   return match?.[1]?.replaceAll(/^["']|["']$/g, "");
 }
 
+async function fetchOrThrow(url: string): Promise<Response> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch OG image asset (${response.status}).`);
+  }
+  return response;
+}
+
 function loadOgFonts() {
   ogFontsPromise ??= (async () => {
     const params = new URLSearchParams({
       family: `${OG_FONT_FAMILY}:wght@400;700`,
       text: OG_FONT_TEXT,
     });
-    const css = await fetch(`https://fonts.googleapis.com/css2?${params.toString()}`).then((res) =>
-      res.text(),
+    const cssResponse = await fetchOrThrow(
+      `https://fonts.googleapis.com/css2?${params.toString()}`,
     );
+    const css = await cssResponse.text();
 
     return await Promise.all(
       OG_FONT_STYLES.map(async ({ weight }) => {
@@ -51,7 +60,8 @@ function loadOgFonts() {
           throw new Error(`Failed to resolve ${OG_FONT_FAMILY} ${weight} font for OG image.`);
         }
 
-        const data = await fetch(fontUrl).then((res) => res.arrayBuffer());
+        const fontResponse = await fetchOrThrow(fontUrl);
+        const data = await fontResponse.arrayBuffer();
         return { data, name: OG_FONT_FAMILY, weight };
       }),
     );

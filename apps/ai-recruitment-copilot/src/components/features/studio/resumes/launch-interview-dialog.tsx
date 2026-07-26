@@ -136,7 +136,10 @@ export function LaunchInterviewDialog({
   const [activeTab, setActiveTab] = useState<"questions" | "overview" | "experience">("questions");
   const abortControllerRef = useRef<AbortController | null>(null);
   const onLaunchedRef = useRef(onLaunched);
-  onLaunchedRef.current = onLaunched;
+
+  useEffect(() => {
+    onLaunchedRef.current = onLaunched;
+  }, [onLaunched]);
 
   const form = useForm({
     defaultValues: EMPTY_FORM_VALUES,

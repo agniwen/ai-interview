@@ -10,6 +10,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { useSyncExternalStoreWithSelector } from "use-sync-external-store/with-selector";
 import type { ComponentType, ReactElement, ReactNode, RefObject } from "react";
 import { mergeEventCalendarI18n } from "@/components/reui/event-calendar/event-calendar-i18n";
 import type { EventCalendarI18nConfig } from "@/components/reui/event-calendar/event-calendar-i18n";
@@ -804,13 +805,8 @@ function useEventCalendarState<TData = unknown>(
 ): EventCalendarInstance<TData> {
   const [store] = useState(() => createEventCalendarStore<TData>(options));
   const changed = store.setOptions(options);
-  const changedRef = useRef(false);
-  if (changed) {
-    changedRef.current = true;
-  }
   useLayoutEffect(() => {
-    if (changedRef.current) {
-      changedRef.current = false;
+    if (changed) {
       store.notify();
     }
   });
@@ -853,20 +849,13 @@ function useEventCalendarSelector<TData = unknown, TSelected = unknown>(
     );
   }
   const isEqual = options?.isEqual ?? Object.is;
-  const lastRef = useRef<{ value: TSelected } | null>(null);
-  const selectorRef = useRef(selector);
-  selectorRef.current = selector;
-
-  const getSnapshot = () => {
-    const next = selectorRef.current(instance.getState() as EventCalendarState<TData>);
-    if (lastRef.current && isEqual(lastRef.current.value, next)) {
-      return lastRef.current.value;
-    }
-    lastRef.current = { value: next };
-    return next;
-  };
-
-  return useSyncExternalStore(instance.subscribe, getSnapshot, getSnapshot);
+  return useSyncExternalStoreWithSelector(
+    instance.subscribe,
+    instance.getState,
+    instance.getState,
+    selector,
+    isEqual,
+  );
 }
 
 function useEventCalendarView(): {

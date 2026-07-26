@@ -420,7 +420,6 @@ function EventCalendarEvent<TData = unknown>({
     "data-selected": isSelected || undefined,
     "data-dragging": isDragging || undefined,
     "data-preview": preview || undefined,
-    "data-past": occurrence.end.getTime() < Date.now() || undefined,
     // native hover reveal for squeezed/faded chips: full title + time (dropped
     // when the styled eventTooltip is on so the two never stack)
     title: preview || tooltipOn ? undefined : label,

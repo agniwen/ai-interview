@@ -33,8 +33,11 @@ function NewThreadEnterSubmitPlugin({
   const pluginRegistry = INTERNAL.useComposerInputPluginRegistryOptional();
   const disabledRef = useRef(disabled);
   const onSubmitRef = useRef(onSubmit);
-  disabledRef.current = disabled;
-  onSubmitRef.current = onSubmit;
+
+  useEffect(() => {
+    disabledRef.current = disabled;
+    onSubmitRef.current = onSubmit;
+  }, [disabled, onSubmit]);
 
   useEffect(() => {
     if (!pluginRegistry) {

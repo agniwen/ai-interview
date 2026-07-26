@@ -117,9 +117,6 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
     }
   }, [boundChat, setMessages]);
 
-  const messagesRef = useRef(messages);
-  messagesRef.current = messages;
-
   const updateSessionInUrl = useCallback(
     (sessionId: string | null) => {
       if (sessionId === initialSessionId || (!sessionId && initialSessionId === null)) {
@@ -305,14 +302,14 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
   }, [activeConversationId, shouldNormalizeSessionPath, updateSessionInUrl]);
 
   const retryLastReply = useCallback(() => {
-    const lastMessage = messagesRef.current.at(-1);
+    const lastMessage = messages.at(-1);
     clearError();
     if (lastMessage?.role === "assistant") {
       void regenerate({ messageId: lastMessage.id });
       return;
     }
     void regenerate();
-  }, [clearError, regenerate]);
+  }, [clearError, messages, regenerate]);
 
   if (!isHistoryReady) {
     return initialSessionId ? <ChatMessageListSkeleton /> : <ChatPageSkeleton />;

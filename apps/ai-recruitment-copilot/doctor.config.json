@@ -1,0 +1,53 @@
+{
+  "$schema": "https://react.doctor/schema/config.json",
+  "buckets": {
+    "compiler-cleanup": "warn"
+  },
+  "ignore": {
+    "files": [
+      ".output/**",
+      "src/components/agents-ui/**",
+      "src/hooks/agents-ui/**",
+      "src/components/ui/**",
+      "src/components/react-bits/**",
+      "src/components/spell-ui/**",
+      "src/components/features/mastra-studio/upstream/**",
+      "src/routeTree.gen.ts"
+    ],
+    "overrides": [
+      {
+        "files": [
+          "src/components/features/human-interview/human-meeting-room.tsx",
+          "src/components/features/studio/studio-person-detail-controller.tsx"
+        ],
+        "rules": ["react-doctor/no-fetch-response-used-without-status-check"]
+      },
+      {
+        "files": ["src/components/features/mastra-studio/router/studio-route-root.tsx"],
+        "rules": ["react-doctor/no-unguarded-browser-global-in-render-or-hook-init"]
+      },
+      {
+        "files": ["src/components/features/motion/animated-height.tsx"],
+        "rules": ["react-doctor/no-layout-property-animation"]
+      },
+      {
+        "files": [
+          "src/components/data-grid/data-grid.tsx",
+          "src/components/features/studio/resumes/resume-library-page-list.tsx"
+        ],
+        "rules": ["react-hooks-js/incompatible-library"]
+      },
+      {
+        "files": ["src/components/layout/app-sidebar/workspace-sidebar-slots.tsx"],
+        "rules": ["react-hooks-js/refs"]
+      },
+      {
+        "files": ["src/routes/**"],
+        "rules": ["react-doctor/tanstack-start-route-property-order"]
+      }
+    ]
+  },
+  "rules": {
+    "react-hooks-js/todo": "warn"
+  }
+}

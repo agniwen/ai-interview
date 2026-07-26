@@ -35,12 +35,12 @@ export function CenterCarousel({
   items,
   slideSize = "basis-[82%] sm:basis-[70%]",
 }: CenterCarouselProps) {
-  const autoplayRef = useRef(
+  const [autoplay] = useState(() =>
     Autoplay({ delay: autoplayDelay, stopOnInteraction: false, stopOnMouseEnter: true }),
   );
   const [emblaRef, embla] = useEmblaCarousel(
     { align: "center", containScroll: false, loop: true },
-    [autoplayRef.current],
+    [autoplay],
   );
   const [selectedIndex, setSelectedIndex] = useState(0);
   const tweenNodesRef = useRef<HTMLElement[]>([]);

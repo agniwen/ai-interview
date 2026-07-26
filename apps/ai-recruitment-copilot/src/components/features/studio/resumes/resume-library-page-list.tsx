@@ -3,7 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { canDeleteResumeRecord } from "@arc/shared/studio-resumes";
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
 import type { ToolbarFilterConfig } from "@/components/data-grid";
@@ -93,11 +93,12 @@ export function ResumeLibraryCardList({
 }: ResumeLibraryCardListProps) {
   const listRootRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  const restoreSnapshotRef = useRef(resumeLibraryScrollRestoreSnapshot.current);
+  const [initialRestoreSnapshot] = useState(() => resumeLibraryScrollRestoreSnapshot.current);
+  const restoreSnapshotRef = useRef(initialRestoreSnapshot);
   const scrollElement = useResumeLibraryScrollElement(listRootRef);
   const cardHeight = useResumeLibraryCardHeight();
   const { setRowSelection } = grid;
-  const initialScrollRestore = useResumeLibraryInitialScrollRestore(restoreSnapshotRef);
+  const initialScrollRestore = useResumeLibraryInitialScrollRestore(initialRestoreSnapshot);
   const getVirtualItemKey = useCallback(
     (index: number) => records[index]?.id ?? `resume-placeholder-${index}`,
     [records],

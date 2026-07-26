@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { env } from "@/env/client";
 import { authClient } from "@/lib/client/auth-client";
 
@@ -29,17 +29,14 @@ export function buildWatermarkContent(user: WatermarkUser): [string, string] {
 function EnabledAppWatermark() {
   const { data: session, isPending } = authClient.useSession();
   const user = session?.user;
-  const content = useMemo(() => {
-    if (!(user?.id && !isPending)) {
-      return null;
-    }
-
-    return buildWatermarkContent({
-      email: user.email,
-      id: user.id,
-      name: user.name,
-    });
-  }, [isPending, user?.email, user?.id, user?.name]);
+  const content =
+    user?.id && !isPending
+      ? buildWatermarkContent({
+          email: user.email,
+          id: user.id,
+          name: user.name,
+        })
+      : null;
 
   useEffect(() => {
     if (!content) {

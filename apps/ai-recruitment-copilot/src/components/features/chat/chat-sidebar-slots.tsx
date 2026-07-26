@@ -593,13 +593,11 @@ export function ChatSidebarSlots({
   }, [active]);
 
   const toggleEditMode = useCallback(() => {
-    setEditMode((prev) => {
-      if (prev) {
-        setSelectedIds(new Set());
-      }
-      return !prev;
-    });
-  }, []);
+    if (editMode) {
+      setSelectedIds(new Set());
+    }
+    setEditMode(!editMode);
+  }, [editMode]);
 
   const handleToggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {

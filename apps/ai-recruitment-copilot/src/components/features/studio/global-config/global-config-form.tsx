@@ -72,13 +72,15 @@ export function GlobalConfigForm({ initial }: Props) {
   const requestSeqRef = useRef(0);
   const mountedRef = useRef(true);
 
-  latestRef.current = {
-    closingInstructions: closing,
-    companyContext: company,
-    companyName,
-    jobCodePrefix,
-    openingInstructions: opening,
-  };
+  useEffect(() => {
+    latestRef.current = {
+      closingInstructions: closing,
+      companyContext: company,
+      companyName,
+      jobCodePrefix,
+      openingInstructions: opening,
+    };
+  }, [closing, company, companyName, jobCodePrefix, opening]);
 
   const performSave = useCallback(async () => {
     const values = latestRef.current;

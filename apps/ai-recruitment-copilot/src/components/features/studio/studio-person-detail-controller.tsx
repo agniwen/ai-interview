@@ -32,7 +32,7 @@ import {
 } from "@/lib/client/api";
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
 
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -466,17 +466,13 @@ export function useStudioPersonDetailController({
   }, [optimisticPipelineStage, record?.pipelineStage]);
   const visiblePipelineStage = optimisticPipelineStage ?? record?.pipelineStage;
   const hasRecord = record !== null;
-  const tabVisibilityRecord = useMemo(
-    () =>
-      hasRecord
-        ? {
-            pipelineStage: visiblePipelineStage,
-          }
-        : null,
-    [hasRecord, visiblePipelineStage],
-  );
+  const tabVisibilityRecord = hasRecord
+    ? {
+        pipelineStage: visiblePipelineStage,
+      }
+    : null;
   const showAgentInstructions = import.meta.env.DEV && mode === "interview" && !isPublic;
-  const availableTabs = useMemo(() => {
+  const availableTabs = (() => {
     const tabs = new Set<StudioPersonDetailTab>();
     if (!hasRecord) {
       return tabs;
@@ -500,14 +496,7 @@ export function useStudioPersonDetailController({
       tabs.add("offer");
     }
     return tabs;
-  }, [
-    canReadHumanInterview,
-    canReadOffer,
-    hasRecord,
-    mode,
-    showAgentInstructions,
-    tabVisibilityRecord,
-  ]);
+  })();
   useEffect(() => {
     if (record && !availableTabs.has(activeTab)) {
       setActiveTab("overview");
