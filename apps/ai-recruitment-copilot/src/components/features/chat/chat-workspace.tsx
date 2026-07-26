@@ -20,6 +20,7 @@ import {
   upsertConversation as upsertConversationOnServer,
 } from "@/lib/client/api";
 import { authClient } from "@/lib/client/auth-client";
+import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { getVisibleConversationTitle, useSetChatHeaderTitle } from "./chat-header";
 import { ChatMessageListSkeleton, ChatPageSkeleton } from "./chat-page-skeleton";
@@ -196,37 +197,46 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
         submitDebounceRef.current = null;
       }, 300);
       setIsCreatingConversation(true);
-      try {
-        const conversationId = await ensureConversation({ withGeneratingTitle: true });
-        setHistoryErrorMessage(null);
-        await getOrCreateChat(conversationId, slug).sendMessage({ text });
-        void (async () => {
-          try {
-            const payload = await requestResumeChatTitle({ hasFiles: false, text });
-            await updateConversationTitle(
-              conversationId,
-              payload.title?.trim() || getConversationTitleFromText(text),
-            );
-          } catch {
-            await updateConversationTitle(conversationId, getConversationTitleFromText(text));
-          }
-        })();
-      } catch {
-        setHistoryErrorMessage("聊天记录保存失败，请稍后重试。");
-      } finally {
-        setIsCreatingConversation(false);
-      }
+      await runAsyncAction({
+        cleanup: () => setIsCreatingConversation(false),
+        onError: () => setHistoryErrorMessage("聊天记录保存失败，请稍后重试。"),
+        operation: async () => {
+          const conversationId = await ensureConversation({ withGeneratingTitle: true });
+          setHistoryErrorMessage(null);
+          await getOrCreateChat(conversationId, slug).sendMessage({ text });
+          void (async () => {
+            try {
+              const payload = await requestResumeChatTitle({ hasFiles: false, text });
+              await updateConversationTitle(
+                conversationId,
+                payload.title?.trim() || getConversationTitleFromText(text),
+              );
+            } catch {
+              await updateConversationTitle(conversationId, getConversationTitleFromText(text));
+            }
+          })();
+        },
+      });
     },
     [ensureConversation, slug, updateConversationTitle],
   );
 
   const openConversation = useCallback(
-    async (id: string, { shouldSyncUrl = true }: { shouldSyncUrl?: boolean } = {}) => {
+    async (
+      id: string,
+      { shouldSyncUrl = true, signal }: { shouldSyncUrl?: boolean; signal?: AbortSignal } = {},
+    ) => {
       let conversation: Awaited<ReturnType<typeof fetchConversation>> = null;
       try {
         conversation = await fetchConversation(slug, id);
       } catch {
+        if (signal?.aborted) {
+          return false;
+        }
         setHistoryErrorMessage("无法加载聊天记录，请稍后重试。");
+        return false;
+      }
+      if (signal?.aborted) {
         return false;
       }
       if (!conversation) {
@@ -264,20 +274,33 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
   }, [resetToNewConversation, updateSessionInUrl]);
 
   useEffect(() => {
+    const controller = new AbortController();
     const bootstrap = async () => {
-      try {
-        if (initialSessionId) {
-          await openConversation(initialSessionId, { shouldSyncUrl: false });
-          return;
-        }
-        resetToNewConversation();
-      } catch {
-        setHistoryErrorMessage("加载历史聊天失败，请稍后重试。");
-      } finally {
-        setIsHistoryReady(true);
-      }
+      await runAsyncAction({
+        cleanup: () => {
+          if (!controller.signal.aborted) {
+            setIsHistoryReady(true);
+          }
+        },
+        onError: () => {
+          if (!controller.signal.aborted) {
+            setHistoryErrorMessage("加载历史聊天失败，请稍后重试。");
+          }
+        },
+        operation: async () => {
+          if (initialSessionId) {
+            await openConversation(initialSessionId, {
+              shouldSyncUrl: false,
+              signal: controller.signal,
+            });
+            return;
+          }
+          resetToNewConversation();
+        },
+      });
     };
     void bootstrap();
+    return () => controller.abort();
   }, [initialSessionId, openConversation, resetToNewConversation]);
 
   useEffect(() => {

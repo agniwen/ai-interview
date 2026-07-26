@@ -22,6 +22,7 @@ import {
   useDataGridState,
 } from "@/components/data-grid";
 import { authClient } from "@/lib/client/auth-client";
+import { runAsyncAction } from "@/lib/client/async-control";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -301,24 +302,24 @@ export function UsersGrid() {
       return;
     }
     setRemarkPending(true);
-    try {
-      await rpcFetch(
-        rpc.api.platform.users[":userId"].remark.$patch({
-          json: {
-            remark: remarkValue.trim() || null,
-          },
-          param: { userId: remarkTarget.id },
-        }),
-        "保存备注失败",
-      );
-      toast.success("备注已保存");
-      setRemarkTarget(null);
-      await grid.invalidate();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "保存备注失败");
-    } finally {
-      setRemarkPending(false);
-    }
+    await runAsyncAction({
+      cleanup: () => setRemarkPending(false),
+      onError: (error) => toast.error(error instanceof Error ? error.message : "保存备注失败"),
+      operation: async () => {
+        await rpcFetch(
+          rpc.api.platform.users[":userId"].remark.$patch({
+            json: {
+              remark: remarkValue.trim() || null,
+            },
+            param: { userId: remarkTarget.id },
+          }),
+          "保存备注失败",
+        );
+        toast.success("备注已保存");
+        setRemarkTarget(null);
+        await grid.invalidate();
+      },
+    });
   }
 
   async function confirmBanUser() {

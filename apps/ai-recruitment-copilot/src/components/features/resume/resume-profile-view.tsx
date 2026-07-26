@@ -200,7 +200,15 @@ function EducationExperienceList({
                 index === educationExperiences.length - 1 &&
                 "rounded-l-[2px] before:rounded-l-[1px]",
             )}
-            key={`${education.school ?? "education"}-${index}`}
+            key={[
+              education.school,
+              education.major,
+              education.degree,
+              education.educationLevel,
+              education.period,
+              education.graduationYear,
+              education.summary,
+            ].join("\u001F")}
           >
             <ResumeEducationDisplayLine
               className="text-sm"
@@ -281,10 +289,16 @@ export function ResumeProfileView({ profile, showBasicInfo = true }: ResumeProfi
           <EmptyValue className="text-sm" />
         ) : (
           <ul className="flex flex-col gap-3">
-            {profile.projectExperiences.map((proj, index) => (
+            {profile.projectExperiences.map((proj) => (
               <li
                 className="rounded-xl bg-muted/30 px-4 py-3 border-muted/60 border"
-                key={`${proj.name ?? "project"}-${index}`}
+                key={[
+                  proj.name,
+                  proj.role,
+                  proj.period,
+                  proj.summary,
+                  proj.techStack.join(","),
+                ].join("\u001F")}
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="font-medium text-sm">

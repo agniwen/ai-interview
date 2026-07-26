@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Toaster } from "@/components/ui/sonner";
 import { env } from "@/env/client";
+import { runAsyncAction } from "@/lib/client/async-control";
 import { rpc } from "@/lib/client/rpc";
 import { InterviewFlowFloatingBar } from "./interview-flow-floating-bar";
 import { InterviewTimer } from "./interview-timer";
@@ -349,25 +350,26 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   const loadEntryData = useCallback(async () => {
     setIsLoadingStatus(true);
     setEntryLoadError(null);
-    try {
-      const [response, nextFormsPayload] = await Promise.all([
-        rpc.api.interview[":id"][":roundId"].$get({
-          param: { id: interviewId, roundId },
-        }),
-        fetchPreInterviewForms(interviewId, roundId),
-      ]);
-      if (!response.ok) {
-        throw new Error("面试信息不存在或已失效，请联系招聘负责人。");
-      }
-      const data = (await response.json()) as CandidateInterviewView;
-      setInterviewView(data);
-      setFormsPayload(nextFormsPayload);
-      setRoundStatus(data.currentRoundStatus);
-    } catch (error) {
-      setEntryLoadError(error instanceof Error ? error.message : "加载面试信息失败");
-    } finally {
-      setIsLoadingStatus(false);
-    }
+    await runAsyncAction({
+      cleanup: () => setIsLoadingStatus(false),
+      onError: (error) =>
+        setEntryLoadError(error instanceof Error ? error.message : "加载面试信息失败"),
+      operation: async () => {
+        const [response, nextFormsPayload] = await Promise.all([
+          rpc.api.interview[":id"][":roundId"].$get({
+            param: { id: interviewId, roundId },
+          }),
+          fetchPreInterviewForms(interviewId, roundId),
+        ]);
+        if (!response.ok) {
+          throw new Error("面试信息不存在或已失效，请联系招聘负责人。");
+        }
+        const data = (await response.json()) as CandidateInterviewView;
+        setInterviewView(data);
+        setFormsPayload(nextFormsPayload);
+        setRoundStatus(data.currentRoundStatus);
+      },
+    });
   }, [interviewId, roundId]);
 
   useEffect(() => {

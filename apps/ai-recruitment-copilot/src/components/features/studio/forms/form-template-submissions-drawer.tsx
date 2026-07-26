@@ -60,17 +60,15 @@ function renderAnswer(
   }
   if (question.type === "multi" || question.type === "single") {
     const values = Array.isArray(rawValue) ? rawValue : [rawValue];
-    const labels = values.map((v) => question.options.find((opt) => opt.value === v)?.label ?? v);
+    const choices = values.map((value) => ({
+      label: question.options.find((option) => option.value === value)?.label ?? value,
+      value,
+    }));
     return (
       <div className="flex flex-wrap gap-1.5">
-        {labels.map((label, index) => (
-          <Badge
-            // biome-ignore lint/suspicious/noArrayIndexKey: historical order is stable
-            className="font-normal"
-            key={index}
-            variant="secondary"
-          >
-            {label}
+        {choices.map((choice) => (
+          <Badge className="font-normal" key={choice.value} variant="secondary">
+            {choice.label}
           </Badge>
         ))}
       </div>

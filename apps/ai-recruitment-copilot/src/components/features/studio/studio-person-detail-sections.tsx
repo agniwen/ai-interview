@@ -189,8 +189,8 @@ export function CollectedCandidateInfoList({
                 </div>
                 {item.answers.length > 0 ? (
                   <div className="flex flex-col gap-1.5">
-                    {item.answers.map((answer, index) => (
-                      <Tooltip key={`${index}-${answer}`}>
+                    {item.answers.map((answer) => (
+                      <Tooltip key={answer}>
                         <TooltipTrigger
                           render={
                             <p

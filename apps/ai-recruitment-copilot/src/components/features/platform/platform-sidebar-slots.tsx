@@ -44,12 +44,14 @@ interface NavItem {
 }
 
 interface NavSection {
+  id: string;
   items: NavItem[];
   title?: string;
 }
 
 const manageNavSections: NavSection[] = [
   {
+    id: "platform-management",
     items: [
       {
         icon: IconBuilding,
@@ -85,6 +87,7 @@ const manageNavSections: NavSection[] = [
     title: "平台管理",
   },
   {
+    id: "livekit",
     items: [
       {
         icon: IconServer,
@@ -108,6 +111,7 @@ const manageNavSections: NavSection[] = [
 
 const mastraNavSections: NavSection[] = [
   ...mainNav.map((section) => ({
+    id: `mastra-${section.title}`,
     items: section.items
       .filter((item) => !item.hidden)
       .map((item) => ({
@@ -119,6 +123,7 @@ const mastraNavSections: NavSection[] = [
     title: section.title,
   })),
   {
+    id: "mastra-bottom",
     items: bottomNav
       .filter((item) => !item.hidden)
       .map((item) => ({
@@ -176,8 +181,8 @@ export function PlatformSidebarSlots() {
       </SidebarHeaderPortalContent>
 
       <SidebarBodyPortalContent>
-        {navSections.map((section, index) => (
-          <SidebarGroup key={section.title ?? `bottom-${index}`}>
+        {navSections.map((section) => (
+          <SidebarGroup key={section.id}>
             {section.title ? <SidebarGroupLabel>{section.title}</SidebarGroupLabel> : null}
             <SidebarGroupContent>
               <SidebarMenu>

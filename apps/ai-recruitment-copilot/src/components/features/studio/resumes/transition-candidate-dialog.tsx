@@ -29,6 +29,7 @@ import type {
 } from "@arc/db-schema/studio-interviews";
 import type { ApiError } from "@/lib/client/api/errors";
 import { fetchStudioResume, transitionInterviewRecord } from "@/lib/client/api";
+import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { DatePicker } from "@/components/date-time-picker";
 import { Button } from "@/components/ui/button";
@@ -204,53 +205,55 @@ function CloseDialog({
       return;
     }
     setSubmitting(true);
-    try {
-      // 构造 closedMeta partial。Build the closedMeta partial.
-      const closedMeta: Omit<ClosedMeta, "previousStage"> = {
-        feedbackToCandidate: feedbackToCandidate.trim() || null,
-        internalNotes: internalNotes.trim() || null,
-      };
-      if (outcome === "hired") {
-        const parsedSalary = finalBaseSalary === "" ? null : Number(finalBaseSalary);
-        if (parsedSalary !== null && (Number.isNaN(parsedSalary) || parsedSalary < 0)) {
-          throw new Error("最终薪资需为非负整数");
+    await runAsyncAction({
+      cleanup: () => setSubmitting(false),
+      onError: (error) => {
+        const message =
+          (error as ApiError | undefined)?.message ??
+          (error instanceof Error ? error.message : "操作失败");
+        toast.error(message);
+      },
+      operation: async () => {
+        // 构造 closedMeta partial。Build the closedMeta partial.
+        const closedMeta: Omit<ClosedMeta, "previousStage"> = {
+          feedbackToCandidate: feedbackToCandidate.trim() || null,
+          internalNotes: internalNotes.trim() || null,
+        };
+        if (outcome === "hired") {
+          const parsedSalary = finalBaseSalary === "" ? null : Number(finalBaseSalary);
+          if (parsedSalary !== null && (Number.isNaN(parsedSalary) || parsedSalary < 0)) {
+            throw new Error("最终薪资需为非负整数");
+          }
+          closedMeta.hiredDetails = {
+            actualJoiningDate: actualJoiningDate || null,
+            finalBaseSalary: parsedSalary,
+            finalPosition: finalPosition.trim() || null,
+            onboardingContact: onboardingContact.trim() || null,
+          };
         }
-        closedMeta.hiredDetails = {
-          actualJoiningDate: actualJoiningDate || null,
-          finalBaseSalary: parsedSalary,
-          finalPosition: finalPosition.trim() || null,
-          onboardingContact: onboardingContact.trim() || null,
-        };
-      }
-      if (outcome === "rejected") {
-        closedMeta.category = category || null;
-        closedMeta.rejectionDetails = {
-          revisitAfter: revisitAfter || null,
-          talentPoolEligible,
-        };
-      }
+        if (outcome === "rejected") {
+          closedMeta.category = category || null;
+          closedMeta.rejectionDetails = {
+            revisitAfter: revisitAfter || null,
+            talentPoolEligible,
+          };
+        }
 
-      await transitionInterviewRecord(slug, candidate.id, {
-        closedMeta,
-        outcome,
-        pipelineStage: "closed",
-      });
-      toast.success(`已标记为「${candidateOutcomeMeta[outcome].label}」`);
-      // 详情面板缓存也刷一下，让 action bar 立刻显示「重新激活」。
-      // Invalidate detail cache so the action bar swaps to "reactivate".
-      await queryClient.invalidateQueries({
-        queryKey: ["studio-resumes", slug, "detail", candidate.id],
-      });
-      onCompleted();
-      onOpenChange(false);
-    } catch (error) {
-      const message =
-        (error as ApiError | undefined)?.message ??
-        (error instanceof Error ? error.message : "操作失败");
-      toast.error(message);
-    } finally {
-      setSubmitting(false);
-    }
+        await transitionInterviewRecord(slug, candidate.id, {
+          closedMeta,
+          outcome,
+          pipelineStage: "closed",
+        });
+        toast.success(`已标记为「${candidateOutcomeMeta[outcome].label}」`);
+        // 详情面板缓存也刷一下，让 action bar 立刻显示「重新激活」。
+        // Invalidate detail cache so the action bar swaps to "reactivate".
+        await queryClient.invalidateQueries({
+          queryKey: ["studio-resumes", slug, "detail", candidate.id],
+        });
+        onCompleted();
+        onOpenChange(false);
+      },
+    });
   }
 
   const candidateLabel = candidate?.candidateName || "该候选人";
@@ -468,26 +471,28 @@ function ReactivateDialog({
       return;
     }
     setSubmitting(true);
-    try {
-      await transitionInterviewRecord(slug, candidate.id, {
-        outcome: "in_pipeline",
-        pipelineStage: targetStage,
-        reactivationReason: trimmedReason,
-      });
-      toast.success(`已重新激活，回到「${pipelineStageMeta[targetStage].label}」`);
-      await queryClient.invalidateQueries({
-        queryKey: ["studio-resumes", slug, "detail", candidate.id],
-      });
-      onCompleted();
-      onOpenChange(false);
-    } catch (error) {
-      const message =
-        (error as ApiError | undefined)?.message ??
-        (error instanceof Error ? error.message : "操作失败");
-      toast.error(message);
-    } finally {
-      setSubmitting(false);
-    }
+    await runAsyncAction({
+      cleanup: () => setSubmitting(false),
+      onError: (error) => {
+        const message =
+          (error as ApiError | undefined)?.message ??
+          (error instanceof Error ? error.message : "操作失败");
+        toast.error(message);
+      },
+      operation: async () => {
+        await transitionInterviewRecord(slug, candidate.id, {
+          outcome: "in_pipeline",
+          pipelineStage: targetStage,
+          reactivationReason: trimmedReason,
+        });
+        toast.success(`已重新激活，回到「${pipelineStageMeta[targetStage].label}」`);
+        await queryClient.invalidateQueries({
+          queryKey: ["studio-resumes", slug, "detail", candidate.id],
+        });
+        onCompleted();
+        onOpenChange(false);
+      },
+    });
   }
 
   const candidateLabel = candidate?.candidateName || "该候选人";

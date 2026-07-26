@@ -26,6 +26,11 @@ export function buildWatermarkContent(user: WatermarkUser): [string, string] {
   return [nickname, `ID: ${maskWatermarkUserId(user.id)}`];
 }
 
+async function loadWatermark() {
+  const { Watermark } = await import("watermark-js-plus");
+  return Watermark;
+}
+
 function EnabledAppWatermark() {
   const { data: session, isPending } = authClient.useSession();
   const user = session?.user;
@@ -48,7 +53,7 @@ function EnabledAppWatermark() {
     let instance: { create: () => Promise<void>; destroy: () => void } | null = null;
 
     async function createWatermark() {
-      const { Watermark } = await import("watermark-js-plus");
+      const Watermark = await loadWatermark();
 
       if (disposed) {
         return;

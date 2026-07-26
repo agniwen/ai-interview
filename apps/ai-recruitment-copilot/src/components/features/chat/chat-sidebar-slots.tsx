@@ -28,6 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { runAsyncAction, withCleanup } from "@/lib/client/async-control";
 import {
   SidebarMenu,
   SidebarMenuButton,
@@ -618,11 +619,10 @@ export function ChatSidebarSlots({
 
     const ids = [...selectedIds];
     setIsBulkDeleting(true);
-    try {
-      await Promise.allSettled(ids.map((id) => deleteConversation(slug, id)));
-    } finally {
-      setIsBulkDeleting(false);
-    }
+    await withCleanup(
+      () => Promise.allSettled(ids.map((id) => deleteConversation(slug, id))),
+      () => setIsBulkDeleting(false),
+    );
 
     setBulkConfirmOpen(false);
     setSelectedIds(new Set());
@@ -646,13 +646,10 @@ export function ChatSidebarSlots({
     async (conversation: ConversationListItem) => {
       const { id } = conversation;
       setDeletingConversationId(id);
-      try {
-        await deleteConversation(slug, id);
-      } catch {
-        // surface nothing — the UI will reflect server state on next refresh
-      } finally {
-        setDeletingConversationId(null);
-      }
+      await runAsyncAction({
+        cleanup: () => setDeletingConversationId(null),
+        operation: () => deleteConversation(slug, id),
+      });
       setDeleteTargetId(null);
       notifyConversationsChanged();
       await invalidateConversationList();

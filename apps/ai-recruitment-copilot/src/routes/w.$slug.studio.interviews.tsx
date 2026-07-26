@@ -73,6 +73,7 @@ import {
   isPreviewableResumeDocumentInput,
 } from "@/components/features/resume/resume-document-preview-button";
 import { rpc } from "@/lib/client/rpc";
+import { runAsyncAction } from "@/lib/client/async-control";
 import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
@@ -559,17 +560,17 @@ function InterviewManagementPage() {
       return;
     }
     setIsBulkDeleting(true);
-    try {
-      const result = await bulkDeleteStudioInterviewRounds(slug, ids);
-      toast.success(`已删除 ${result?.deleted ?? ids.length} 条记录`);
-      grid.setRowSelection({});
-      setBulkDeleteOpen(false);
-      invalidateAll();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "批量删除失败");
-    } finally {
-      setIsBulkDeleting(false);
-    }
+    await runAsyncAction({
+      cleanup: () => setIsBulkDeleting(false),
+      onError: (error) => toast.error(error instanceof Error ? error.message : "批量删除失败"),
+      operation: async () => {
+        const result = await bulkDeleteStudioInterviewRounds(slug, ids);
+        toast.success(`已删除 ${result?.deleted ?? ids.length} 条记录`);
+        grid.setRowSelection({});
+        setBulkDeleteOpen(false);
+        invalidateAll();
+      },
+    });
   }
 
   return (

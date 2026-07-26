@@ -56,6 +56,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { rpc } from "@/lib/client/rpc";
+import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { JobDescriptionFormDialog } from "@/components/features/studio/job-descriptions/job-description-form-dialog";
 import { JobDescriptionAiCreateDialog } from "@/components/features/studio/job-descriptions/job-description-ai-create-dialog";
@@ -231,23 +232,24 @@ function JobDescriptionManagementPage({
 
   async function copyReferralLink(record: JobDescriptionListRecord) {
     setCopyingReferralIds((current) => new Set(current).add(record.id));
-    try {
-      const result = await createJobDescriptionReferralLink(slug, record.id);
-      const copyResult = await copyTextToClipboard(result.url);
-      if (copyResult === "failed") {
-        toast.error("复制失败，请手动复制链接");
-        return;
-      }
-      toast.success(copyResult === "manual" ? "请在弹窗中手动复制内推链接" : "内推链接已复制");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "创建内推链接失败");
-    } finally {
-      setCopyingReferralIds((current) => {
-        const next = new Set(current);
-        next.delete(record.id);
-        return next;
-      });
-    }
+    await runAsyncAction({
+      cleanup: () =>
+        setCopyingReferralIds((current) => {
+          const next = new Set(current);
+          next.delete(record.id);
+          return next;
+        }),
+      onError: (error) => toast.error(error instanceof Error ? error.message : "创建内推链接失败"),
+      operation: async () => {
+        const result = await createJobDescriptionReferralLink(slug, record.id);
+        const copyResult = await copyTextToClipboard(result.url);
+        if (copyResult === "failed") {
+          toast.error("复制失败，请手动复制链接");
+          return;
+        }
+        toast.success(copyResult === "manual" ? "请在弹窗中手动复制内推链接" : "内推链接已复制");
+      },
+    });
   }
 
   let editorDialogKey = "create-empty";

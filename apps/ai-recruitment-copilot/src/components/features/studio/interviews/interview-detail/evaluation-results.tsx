@@ -80,10 +80,10 @@ function EvidenceList({
 
   return (
     <div className="mt-2 flex flex-col gap-1.5">
-      {items.map((item, index) => (
+      {items.map((item) => (
         <Button
           className="h-auto justify-start gap-2 px-2 py-1.5 text-left font-normal leading-normal"
-          key={`${item.turnIndex ?? "unknown"}-${index}`}
+          key={`${item.turnIndex ?? "unknown"}-${item.timeInCallSecs ?? "unknown"}-${item.quote}`}
           onClick={() => onEvidenceSelect?.(item)}
           size="sm"
           type="button"
@@ -155,8 +155,11 @@ export function EvaluationResults({
       )}
       {data.questions.length > 0 && (
         <div className="flex flex-col">
-          {data.questions.map((q, i) => (
-            <div className="border-border/50 border-t py-3 text-sm" key={q.order ?? i}>
+          {data.questions.map((q) => (
+            <div
+              className="border-border/50 border-t py-3 text-sm"
+              key={`${q.order ?? "unknown"}-${q.question ?? "unknown"}`}
+            >
               <div className="flex items-start justify-between gap-2">
                 <p className="min-w-0 font-medium leading-normal">
                   {q.order === null || q.order === undefined ? "" : `${q.order}. `}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { env } from "@/env/client";
 import { authClient } from "@/lib/client/auth-client";
+import { withCleanup } from "@/lib/client/async-control";
 import { cn } from "@arc/shared/utils";
 import { GoogleIcon } from "./google-icon";
 
@@ -32,18 +33,21 @@ export function GoogleSignInButton({ callbackURL, className }: GoogleSignInButto
   const handleClick = async () => {
     setIsSubmitting(true);
     let shouldResetSubmitting = true;
-    try {
-      const result = await authClient.signIn.social({
-        callbackURL: toAbsoluteUrl(callbackURL),
-        errorCallbackURL: toAbsoluteUrl("/login?error=google"),
-        provider: "google",
-      });
-      shouldResetSubmitting = Boolean(result.error);
-    } finally {
-      if (shouldResetSubmitting) {
-        setIsSubmitting(false);
-      }
-    }
+    await withCleanup(
+      async () => {
+        const result = await authClient.signIn.social({
+          callbackURL: toAbsoluteUrl(callbackURL),
+          errorCallbackURL: toAbsoluteUrl("/login?error=google"),
+          provider: "google",
+        });
+        shouldResetSubmitting = Boolean(result.error);
+      },
+      () => {
+        if (shouldResetSubmitting) {
+          setIsSubmitting(false);
+        }
+      },
+    );
   };
 
   return (

@@ -18,6 +18,7 @@ import {
   getDepartmentSyncedInterviewerSelection,
 } from "@arc/shared/job-description-interviewers";
 import { rpc } from "@/lib/client/rpc";
+import { withCleanup } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useQuery } from "@tanstack/react-query";
 import { useForm, useStore } from "@tanstack/react-form";
@@ -270,22 +271,25 @@ export function JobDescriptionFormDialog({
 
   async function handleGenerateCode() {
     setIsGeneratingCode(true);
-    try {
-      const response = await rpc.api.w[":slug"].studio["job-descriptions"]["generate-code"].$post({
-        param: { slug },
-      });
-      const payload = (await response.json().catch(() => null)) as {
-        code?: string;
-        error?: string;
-      } | null;
-      if (!response.ok || !payload?.code) {
-        toast.error(payload?.error ?? "生成岗位编码失败");
-        return;
-      }
-      form.setFieldValue("code", payload.code);
-    } finally {
-      setIsGeneratingCode(false);
-    }
+    await withCleanup(
+      async () => {
+        const response = await rpc.api.w[":slug"].studio["job-descriptions"]["generate-code"].$post(
+          {
+            param: { slug },
+          },
+        );
+        const payload = (await response.json().catch(() => null)) as {
+          code?: string;
+          error?: string;
+        } | null;
+        if (!response.ok || !payload?.code) {
+          toast.error(payload?.error ?? "生成岗位编码失败");
+          return;
+        }
+        form.setFieldValue("code", payload.code);
+      },
+      () => setIsGeneratingCode(false),
+    );
   }
 
   async function handleGenerateScreeningPolicy() {
@@ -295,32 +299,33 @@ export function JobDescriptionFormDialog({
       return;
     }
     setIsGeneratingScreeningPolicy(true);
-    try {
-      const response = await rpc.api.w[":slug"].studio["job-descriptions"][
-        "generate-screening-policy"
-      ].$post({
-        json: {
-          description: values.description?.trim() || undefined,
-          name: values.name.trim() || undefined,
-          prompt: values.prompt.trim(),
-        },
-        param: { slug },
-      });
-      const payload = (await response.json().catch(() => null)) as {
-        error?: string;
-        policy?: ResumeScreeningPolicy;
-      } | null;
-      if (!response.ok || !payload?.policy) {
-        toast.error(payload?.error ?? "筛选规则生成失败");
-        return;
-      }
-      form.setFieldValue("resumeScreeningPolicy", payload.policy);
-      toast.success(
-        payload.policy.rules.length > 0 ? "已生成筛选规则草稿" : "JD 中未发现明确筛选规则",
-      );
-    } finally {
-      setIsGeneratingScreeningPolicy(false);
-    }
+    await withCleanup(
+      async () => {
+        const response = await rpc.api.w[":slug"].studio["job-descriptions"][
+          "generate-screening-policy"
+        ].$post({
+          json: {
+            description: values.description?.trim() || undefined,
+            name: values.name.trim() || undefined,
+            prompt: values.prompt.trim(),
+          },
+          param: { slug },
+        });
+        const payload = (await response.json().catch(() => null)) as {
+          error?: string;
+          policy?: ResumeScreeningPolicy;
+        } | null;
+        if (!response.ok || !payload?.policy) {
+          toast.error(payload?.error ?? "筛选规则生成失败");
+          return;
+        }
+        form.setFieldValue("resumeScreeningPolicy", payload.policy);
+        toast.success(
+          payload.policy.rules.length > 0 ? "已生成筛选规则草稿" : "JD 中未发现明确筛选规则",
+        );
+      },
+      () => setIsGeneratingScreeningPolicy(false),
+    );
   }
 
   return (

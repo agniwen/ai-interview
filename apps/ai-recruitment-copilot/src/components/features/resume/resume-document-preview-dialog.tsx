@@ -7,6 +7,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { XlsxViewerPreview } from "@/components/ui/xlsx-viewer";
 import { cn } from "@arc/shared/utils";
+import { runAsyncAction } from "@/lib/client/async-control";
 
 export type OfficeResumePreviewKind = "docx" | "xlsx";
 export type ResumeDocumentPreviewKind = "pdf" | "image" | OfficeResumePreviewKind;
@@ -103,25 +104,28 @@ export function ImageResumePreviewContent({ filename, url }: { filename?: string
     setImageSource(null);
 
     async function loadImage() {
-      try {
-        const response = await fetch(url, {
-          credentials: "include",
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          throw new Error(`Image preview request failed with status ${response.status}`);
-        }
-        const blob = await response.blob();
-        if (controller.signal.aborted) {
-          return;
-        }
-        objectUrl = URL.createObjectURL(blob);
-        setImageSource({ objectUrl, requestUrl: url });
-      } catch {
-        if (!controller.signal.aborted) {
-          setStatus("error");
-        }
-      }
+      await runAsyncAction({
+        onError: () => {
+          if (!controller.signal.aborted) {
+            setStatus("error");
+          }
+        },
+        operation: async () => {
+          const response = await fetch(url, {
+            credentials: "include",
+            signal: controller.signal,
+          });
+          if (!response.ok) {
+            throw new Error(`Image preview request failed with status ${response.status}`);
+          }
+          const blob = await response.blob();
+          if (controller.signal.aborted) {
+            return;
+          }
+          objectUrl = URL.createObjectURL(blob);
+          setImageSource({ objectUrl, requestUrl: url });
+        },
+      });
     }
 
     void loadImage();

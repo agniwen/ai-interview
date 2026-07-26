@@ -45,6 +45,7 @@ import {
   fetchStudioResumes,
 } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
+import { runAsyncAction } from "@/lib/client/async-control";
 import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { authClient } from "@/lib/client/auth-client";
 import { useWorkspaceMemberRole, useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -429,17 +430,17 @@ export function ResumeLibraryPage() {
       return;
     }
     setIsBulkDeleting(true);
-    try {
-      const result = await bulkDeleteStudioResumes(slug, ids);
-      toast.success(`已删除 ${result.deleted ?? ids.length} 条记录`);
-      grid.setRowSelection({});
-      setBulkDeleteOpen(false);
-      invalidateAll();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "批量删除失败");
-    } finally {
-      setIsBulkDeleting(false);
-    }
+    await runAsyncAction({
+      cleanup: () => setIsBulkDeleting(false),
+      onError: (error) => toast.error(error instanceof Error ? error.message : "批量删除失败"),
+      operation: async () => {
+        const result = await bulkDeleteStudioResumes(slug, ids);
+        toast.success(`已删除 ${result.deleted ?? ids.length} 条记录`);
+        grid.setRowSelection({});
+        setBulkDeleteOpen(false);
+        invalidateAll();
+      },
+    });
   }
 
   const resumeLibraryEmptyState = grid.filters.stage ? (

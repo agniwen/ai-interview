@@ -4,6 +4,7 @@ import { IconDatabase } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { runAsyncAction } from "@/lib/client/async-control";
 import {
   customColumn,
   DataGrid,
@@ -299,22 +300,22 @@ export function ResumeParseCacheGrid() {
   const deleteCache = useCallback(
     async (record: ResumeParseCacheRecord) => {
       setDeletingId(record.id);
-      try {
-        const result = await rpcFetch<{ clearedCount: number }>(
-          rpc.api.platform["resume-parse-cache"][":hash"].$delete({
-            param: { hash: record.contentHash },
-          }),
-          "删除解析缓存失败",
-        );
-        toast.success(`缓存已删除，${result.clearedCount} 条同 Hash 记录已失效`);
-        grid.invalidate();
-        return true;
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "删除解析缓存失败");
-        return false;
-      } finally {
-        setDeletingId(null);
-      }
+      const result = await runAsyncAction({
+        cleanup: () => setDeletingId(null),
+        onError: (error) =>
+          toast.error(error instanceof Error ? error.message : "删除解析缓存失败"),
+        operation: async () => {
+          const response = await rpcFetch<{ clearedCount: number }>(
+            rpc.api.platform["resume-parse-cache"][":hash"].$delete({
+              param: { hash: record.contentHash },
+            }),
+            "删除解析缓存失败",
+          );
+          toast.success(`缓存已删除，${response.clearedCount} 条同 Hash 记录已失效`);
+          grid.invalidate();
+        },
+      });
+      return result.ok;
     },
     [grid],
   );

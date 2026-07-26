@@ -31,6 +31,7 @@ import {
   resolveStudioInterviewRecordId,
 } from "@/lib/client/api";
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
+import { runAsyncAction } from "@/lib/client/async-control";
 
 import { useEffect, useReducer, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -261,30 +262,30 @@ export function useStudioPersonDetailController({
       return;
     }
     setIsReassessingResume(true);
-    try {
-      const response = await fetch(
-        `/api/w/${encodeURIComponent(slug)}/studio/resumes/${encodeURIComponent(effectiveRecordId)}/reassess`,
-        { method: "POST" },
-      );
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-      if (!response.ok) {
-        throw new Error(payload?.error ?? "重新评估失败");
-      }
-      toast.success("已开始重新评估");
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["studio-resumes"] }),
-        queryClient.invalidateQueries({
-          queryKey: ["studio-resumes", slug, "detail", effectiveRecordId],
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ["studio-resumes", slug, "timeline", effectiveRecordId],
-        }),
-      ]);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "重新评估失败");
-    } finally {
-      setIsReassessingResume(false);
-    }
+    await runAsyncAction({
+      cleanup: () => setIsReassessingResume(false),
+      onError: (error) => toast.error(error instanceof Error ? error.message : "重新评估失败"),
+      operation: async () => {
+        const response = await fetch(
+          `/api/w/${encodeURIComponent(slug)}/studio/resumes/${encodeURIComponent(effectiveRecordId)}/reassess`,
+          { method: "POST" },
+        );
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        if (!response.ok) {
+          throw new Error(payload?.error ?? "重新评估失败");
+        }
+        toast.success("已开始重新评估");
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["studio-resumes"] }),
+          queryClient.invalidateQueries({
+            queryKey: ["studio-resumes", slug, "detail", effectiveRecordId],
+          }),
+          queryClient.invalidateQueries({
+            queryKey: ["studio-resumes", slug, "timeline", effectiveRecordId],
+          }),
+        ]);
+      },
+    });
   }
   const { data: reports = [], isLoading: isReportsLoading } = useQuery({
     enabled: enabled && !!effectiveRoundId && mode === "interview",

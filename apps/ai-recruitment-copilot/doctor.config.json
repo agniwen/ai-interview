@@ -67,6 +67,42 @@
           "src/components/features/auth/google-sign-in-button.tsx"
         ],
         "rules": ["react-doctor/no-loading-flag-reset-outside-finally"]
+      },
+      {
+        "files": [
+          "src/components/assistant-ui/recruiting-action-proposal.tsx",
+          "src/components/features/studio/offer-stage-cards.tsx",
+          "src/components/reui/event-calendar/event-calendar-time-grid.tsx",
+          "src/routes/__root.tsx",
+          "src/routes/resume-review.$slug.$recordId.tsx",
+          "src/routes/w.$slug.agent.tsx",
+          "src/routes/w.$slug.studio.dashboard.tsx",
+          "src/routes/w.$slug.studio.mail-ingest-accounts.tsx",
+          "src/routes/w.$slug.studio.me.tsx",
+          "src/routes/w.$slug.studio.resumes.$recordId.tsx",
+          "src/routes/w.$slug.studio.tsx"
+        ],
+        "rules": ["react-doctor/no-multi-comp"]
+      },
+      {
+        "files": [
+          "src/components/features/home/feature-blocks.tsx",
+          "src/components/features/interview/interview-room.tsx",
+          "src/components/features/platform/users/users-grid.tsx",
+          "src/components/features/studio/job-descriptions/job-description-form-dialog.tsx",
+          "src/components/features/studio/job-descriptions/job-description-screening-fields.tsx",
+          "src/components/features/studio/members/members-page.tsx",
+          "src/components/features/studio/members/workspace-permissions-section.tsx",
+          "src/components/features/studio/resume-pool/resume-pool-page.tsx",
+          "src/components/features/studio/resumes/resume-library-page.tsx",
+          "src/components/reui/event-calendar/event-calendar-event.tsx",
+          "src/components/reui/event-calendar/event-calendar-month-view.tsx",
+          "src/routes/w.$slug.studio.forms.tsx",
+          "src/routes/w.$slug.studio.interview-questions.tsx",
+          "src/routes/w.$slug.studio.interviews.tsx",
+          "src/routes/w.$slug.studio.job-descriptions.tsx"
+        ],
+        "rules": ["react-doctor/no-giant-component"]
       }
     ]
   },

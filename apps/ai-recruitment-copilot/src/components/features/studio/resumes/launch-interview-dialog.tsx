@@ -28,6 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { env } from "@/env/client";
 import { fetchStudioResume, launchInterviewFromResume } from "@/lib/client/api";
 import { readAiRunEventStream } from "@/lib/client/ai-run-event-stream";
+import { runAsyncAction } from "@/lib/client/async-control";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { AnalysisStreamEvent } from "@arc/shared/api-stream";
@@ -148,20 +149,21 @@ export function LaunchInterviewDialog({
         return;
       }
       setSubmitting(true);
-      try {
-        const round = await launchInterviewFromResume(
-          slug,
-          recordId,
-          normalizeInterviewQuestions(value.interviewQuestions),
-        );
-        toast.success("AI 面试已发起");
-        onLaunchedRef.current(round);
-        onOpenChange(false);
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "发起 AI 面试失败");
-      } finally {
-        setSubmitting(false);
-      }
+      await runAsyncAction({
+        cleanup: () => setSubmitting(false),
+        onError: (error) =>
+          toast.error(error instanceof Error ? error.message : "发起 AI 面试失败"),
+        operation: async () => {
+          const round = await launchInterviewFromResume(
+            slug,
+            recordId,
+            normalizeInterviewQuestions(value.interviewQuestions),
+          );
+          toast.success("AI 面试已发起");
+          onLaunchedRef.current(round);
+          onOpenChange(false);
+        },
+      });
     },
   });
 
@@ -180,8 +182,18 @@ export function LaunchInterviewDialog({
     setActiveTab("questions");
     form.reset(EMPTY_FORM_VALUES);
 
-    void (async () => {
-      try {
+    void runAsyncAction({
+      cleanup: () => {
+        if (!cancelled) {
+          setIsGenerating(false);
+        }
+      },
+      onError: (error) => {
+        if (!abortController.signal.aborted) {
+          toast.error(error instanceof Error ? error.message : "面试题生成失败");
+        }
+      },
+      operation: async () => {
         const detail = await fetchStudioResume(slug, recordId);
         if (cancelled || abortController.signal.aborted) {
           return;
@@ -210,17 +222,8 @@ export function LaunchInterviewDialog({
           form.setFieldValue("interviewQuestions", questions);
           toast.success("面试题已生成，可继续编辑后发起");
         }
-      } catch (error) {
-        if (abortController.signal.aborted) {
-          return;
-        }
-        toast.error(error instanceof Error ? error.message : "面试题生成失败");
-      } finally {
-        if (!cancelled) {
-          setIsGenerating(false);
-        }
-      }
-    })();
+      },
+    });
 
     return () => {
       cancelled = true;
