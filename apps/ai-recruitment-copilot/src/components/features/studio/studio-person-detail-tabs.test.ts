@@ -110,6 +110,17 @@ describe("AI 面试详情 tabs", () => {
     expect(resultFrameSource).toContain("<TimeDisplay");
   });
 
+  it("shows copy interview link below the result frame only while the round is pending", () => {
+    expect(resultFrameSource).toContain('roundStatus === "pending"');
+    expect(resultFrameSource).toContain("copyInterviewLink");
+    expect(resultFrameSource).toContain("<IconCopy");
+    expect(resultFrameSource).toContain("复制面试链接");
+    expect(resultFrameSource.indexOf("复制面试链接")).toBeLessThan(
+      resultFrameSource.indexOf("</Frame>"),
+    );
+    expect(resultContentSource).toContain("record={record}");
+  });
+
   it("shows frame skeletons while a selected report is being fetched", () => {
     expect(resultContentSource).toContain("isSelectedReportLoading");
     expect(resultContentSource).toContain("<InterviewResultFramesSkeleton");

@@ -18,6 +18,9 @@ const baseInput = {
     {
       content: "请介绍一次故障排查经历。",
       difficulty: "medium" as const,
+      evaluationFocus: "确认候选人能够定位并复盘线上故障",
+      followUpDirections: "追问定位信号、根因与预防措施",
+      id: "question-1",
     },
   ],
   jobDescriptionPrompt: "负责核心交易系统",
@@ -29,7 +32,7 @@ const baseInput = {
   targetRole: "后端工程师",
 };
 
-describe("interview dispatch V1 contract", () => {
+describe("interview dispatch V2 contract", () => {
   it("selects one interviewer and builds the final prompts in TypeScript", () => {
     const interviewers = [
       { name: "面试官甲", prompt: "保持友好", voice: "voice-a" },
@@ -52,6 +55,15 @@ describe("interview dispatch V1 contract", () => {
     expect(contract.prompts.system).toContain(`## 面试官角色设定\n${interviewer?.prompt}`);
     expect(contract.prompts.opening).toBe("你好 郭靖，欢迎面试 后端工程师");
     expect(contract.prompts.closing).toBe("再见 郭靖");
+    expect(contract.questions).toEqual([
+      {
+        content: "请介绍一次故障排查经历。",
+        difficulty: "medium",
+        evaluationFocus: "确认候选人能够定位并复盘线上故障",
+        followUpDirections: "追问定位信号、根因与预防措施",
+        id: "question-1",
+      },
+    ]);
     expect(interviewDispatchContractSchema.parse(contract)).toEqual(contract);
   });
 
@@ -65,7 +77,7 @@ describe("interview dispatch V1 contract", () => {
     expect(contract.prompts.system).not.toContain("## 面试官角色设定");
   });
 
-  it("keeps old workers compatible during the ordered rollout", () => {
+  it("emits only the V2 contract without a legacy compatibility envelope", () => {
     const selectedInterviewer = {
       name: "面试官甲",
       prompt: "保持友好",
@@ -77,10 +89,8 @@ describe("interview dispatch V1 contract", () => {
     });
 
     expect(metadata.schemaVersion).toBe(INTERVIEW_DISPATCH_SCHEMA_VERSION);
-    expect(metadata.candidate_name).toBe(metadata.candidate.name);
-    expect(metadata.interview_record_id).toBe(metadata.session.interviewRecordId);
-    expect(metadata.interviewers).toEqual([selectedInterviewer]);
-    expect(metadata.round_id).toBe(metadata.session.roundId);
+    expect(metadata).toEqual(buildInterviewDispatchContract({ ...baseInput, selectedInterviewer }));
+    expect(metadata).not.toHaveProperty("candidate_name");
   });
 
   it("rejects drifted or incomplete contracts", () => {
@@ -90,7 +100,7 @@ describe("interview dispatch V1 contract", () => {
     });
 
     expect(
-      interviewDispatchContractSchema.safeParse({ ...contract, schemaVersion: 2 }).success,
+      interviewDispatchContractSchema.safeParse({ ...contract, schemaVersion: 1 }).success,
     ).toBe(false);
     expect(
       interviewDispatchContractSchema.safeParse({
@@ -101,5 +111,15 @@ describe("interview dispatch V1 contract", () => {
     expect(
       interviewDispatchContractSchema.safeParse({ ...contract, unexpected: true }).success,
     ).toBe(false);
+  });
+
+  it("rejects an interview without a required question", () => {
+    expect(() =>
+      buildInterviewDispatchContract({
+        ...baseInput,
+        jobDescriptionPresetQuestions: [],
+        selectedInterviewer: null,
+      }),
+    ).toThrow();
   });
 });

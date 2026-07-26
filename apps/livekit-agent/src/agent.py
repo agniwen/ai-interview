@@ -60,11 +60,17 @@ from dispatch_context import (
     parse_dispatch_context,
 )
 from interview_agent import INTERVIEW_FINAL_WRAP_SECONDS, InterviewAgent
+from interview_clock import (
+    CLOSE_SECONDS,
+    KILL_SECONDS,
+    PausableInterviewClock,
+)
+from interview_question_task import InterviewQuestionOutcome
 from recording import (
     start_room_recording,
     stop_recording,
 )
-from report import send_report
+from report import send_question_checkpoint, send_report
 from transcript_replay import replay_turns_to
 
 logger = logging.getLogger("agent")
@@ -90,20 +96,6 @@ _DISABLE_NOISE_CANCELLATION = os.environ.get(
 ).lower() in ("1", "true", "yes", "on")
 
 
-# 与 web 端 POST /api/agent/report 的 callSuccessful 字段约定:
-# success / failed 用于驱动候选人侧的状态徽章. 这里只把"正常完成 / 用户主动结束
-# / 候选人离线"视为成功, 其余 (ERROR / JOB_SHUTDOWN) 都算失败.
-# Contract with the web-side POST /api/agent/report: callSuccessful drives the
-# candidate-facing status badge. Treat normal completion, user-initiated end,
-# and participant disconnect as success; everything else is a failure.
-_SUCCESS_REASONS = frozenset(
-    {
-        CloseReason.TASK_COMPLETED,
-        CloseReason.USER_INITIATED,
-        CloseReason.PARTICIPANT_DISCONNECTED,
-    }
-)
-
 # 热重连宽限期 (秒): 候选人短暂掉线后允许同 identity 在此窗口内重连继续面试,
 # 超出则走 framework shutdown -> /api/agent/report 把轮次置为 completed.
 # Hot-reconnect grace window in seconds: if the same identity rejoins within
@@ -116,7 +108,6 @@ _HOT_RECONNECT_GRACE_SECONDS = 180
 # Bounded TTS playout window for the fallback cues. If TTS hangs we bail out
 # instead of blocking shutdown indefinitely (which would also delay egress stop).
 _TIMEOUT_REPLY_PLAYOUT_SECONDS = 20.0
-_WIND_DOWN_PLAYOUT_SECONDS = 15.0
 
 # User-turn-limit guardrail. The longest normal prompt in the interview script
 # asks for about 400 Chinese characters. Keep roughly 2x headroom plus pauses so
@@ -199,6 +190,7 @@ class SessionState:
     interview_context: InterviewDispatchContext
     recording_info: dict[str, Any]
     started_at: float
+    clock: PausableInterviewClock
     turns: list[dict[str, Any]] = field(default_factory=list)
     metrics: dict[str, Any] = field(default_factory=_empty_metrics_state)
     close_reason: CloseReason | None = None
@@ -209,6 +201,9 @@ class SessionState:
     # _on_session_end can await it and asyncio's weakref-based task registry
     # doesn't garbage-collect it mid-flight.
     eager_stop_task: asyncio.Task[None] | None = None
+    checkpoint_tasks: set[asyncio.Task[None]] = field(default_factory=set)
+    interview_agent: InterviewAgent | None = None
+    completion_status: str | None = None
 
 
 # --------------------------------------------------------------------------- #
@@ -333,7 +328,7 @@ def _build_session(
             },
             "interruption": {
                 "mode": "vad" if _SELF_HOSTED else "adaptive",
-                "min_duration": 0.8,
+                "min_duration": 0.6,
                 "min_words": 1,
                 "false_interruption_timeout": 2.0,
                 "resume_false_interruption": True,
@@ -510,7 +505,29 @@ async def _on_session_end(ctx: JobContext) -> None:
     recording_info = state.recording_info or {}
     ended_at = state.ended_at or time.time()
 
-    call_successful = "success" if state.close_reason in _SUCCESS_REASONS else "failed"
+    if state.interview_agent is not None:
+        state.interview_agent.finalize_missing_question_outcomes("system_shutdown")
+        question_outcomes = state.interview_agent.question_outcomes
+        agent_completion_status = state.interview_agent.call_completion_status
+    else:
+        question_outcomes = ()
+        agent_completion_status = None
+    call_successful = (
+        state.completion_status
+        or agent_completion_status
+        or (
+            "success"
+            if state.close_reason is CloseReason.TASK_COMPLETED
+            else "partial"
+            if state.close_reason
+            in {CloseReason.USER_INITIATED, CloseReason.PARTICIPANT_DISCONNECTED}
+            else "failed"
+        )
+    )
+    data_collection_results = {
+        "schemaVersion": 2,
+        "questions": [outcome.to_payload() for outcome in question_outcomes],
+    }
 
     recording_payload: dict[str, Any] | None = None
     if recording_info:
@@ -537,6 +554,7 @@ async def _on_session_end(ctx: JobContext) -> None:
             ),
             recording=recording_payload,
             metrics=state.metrics,
+            data_collection_results=data_collection_results,
         ),
         _stop_recording_best_effort(state.lkapi, recording_info, state.eager_stop_task),
     )
@@ -611,11 +629,13 @@ async def my_agent(ctx: JobContext) -> None:
             selected_voice,
         )
 
+    clock = PausableInterviewClock()
     state = SessionState(
         lkapi=lkapi,
         interview_context=interview_context,
         recording_info=recording_info,
         started_at=time.time(),
+        clock=clock,
     )
 
     # ---- 2) 装配 session + 监听 --------------------------------------------
@@ -672,7 +692,13 @@ async def my_agent(ctx: JobContext) -> None:
             event.reason.value if event.reason else "unknown",
             len(state.turns),
         )
-        for t in (timeout_task, final_wrap_task, grace_task, resume_task):
+        for t in (
+            timeout_task,
+            final_wrap_task,
+            kill_task,
+            grace_task,
+            resume_task,
+        ):
             if t is not None and not t.done():
                 t.cancel()
         if recording_info:
@@ -686,7 +712,24 @@ async def my_agent(ctx: JobContext) -> None:
 
             state.eager_stop_task = asyncio.create_task(_eager_stop_recording())
 
-    interview_agent = InterviewAgent(interview_context)
+    async def _on_question_completed(outcome: InterviewQuestionOutcome) -> None:
+        task = asyncio.create_task(
+            send_question_checkpoint(
+                conversation_id=ctx.room.name,
+                interview_record_id=interview_context.session.interview_record_id,
+                schedule_entry_id=interview_context.session.round_id,
+                outcome=outcome.to_payload(),
+            )
+        )
+        state.checkpoint_tasks.add(task)
+        task.add_done_callback(state.checkpoint_tasks.discard)
+
+    interview_agent = InterviewAgent(
+        interview_context,
+        clock=clock,
+        on_question_completed=_on_question_completed,
+    )
+    state.interview_agent = interview_agent
 
     # ---- 3) 启动 session ---------------------------------------------------
     # ---- 3) Start the session
@@ -698,15 +741,7 @@ async def my_agent(ctx: JobContext) -> None:
         ),
     )
 
-    # 让 agent 的 elapsed clock 对齐 state.started_at, per-turn 时间提示才准.
-    # Anchor agent's elapsed clock to state.started_at so per-turn time hints
-    # match the actual session start.
-    interview_agent.mark_started()
-
-    # ---- 4) 三个定时器 + 热重连 -------------------------------------------
-    # ---- 4) Three timers + hot reconnect
-    time_limit = interview_agent.time_limit_seconds
-    hard_grace = interview_agent.hard_grace_seconds
+    # ---- 4) Active-time timers + hot reconnect ------------------------------
 
     # 幂等开关: 多个并发兜底路径 (硬切定时器 / grace 到期 / EndCallTool) 可能
     # 同时落地, 重复 ctx.shutdown 会抛错; 用 flag + state.close_reason 双重判定.
@@ -715,6 +750,7 @@ async def my_agent(ctx: JobContext) -> None:
     shutdown_initiated = False
     timeout_task: asyncio.Task[None] | None = None
     final_wrap_task: asyncio.Task[None] | None = None
+    kill_task: asyncio.Task[None] | None = None
     grace_task: asyncio.Task[None] | None = None
     # Post-reconnect resume task (replay history + welcome line). Hold the
     # ref to keep asyncio's weakref registry from GCing it mid-flight.
@@ -806,22 +842,18 @@ async def my_agent(ctx: JobContext) -> None:
         except Exception:
             logger.exception("fixed cue play failed")
 
-    def _schedule_cue(
+    def _schedule_active_deadline(
         *,
-        delay: float,
+        deadline: float,
         race_skip_log: str,
         run: Callable[[], Awaitable[None]],
     ) -> asyncio.Task[None]:
-        """通用定时器: sleep → race guard → run; CancelledError 安静吞掉.
-
-        Shared timer skeleton: sleep, re-check the close race, then run the
-        provided coroutine. Swallow CancelledError because cancel() from
-        _on_close is the normal early-exit path, not an error.
-        """
+        """Run at an interview-active-time deadline, excluding reconnect pauses."""
 
         async def _runner() -> None:
             try:
-                await asyncio.sleep(delay)
+                while clock.elapsed() < deadline:
+                    await asyncio.sleep(min(0.5, deadline - clock.elapsed()))
                 if _session_already_closing():
                     logger.info(race_skip_log)
                     return
@@ -831,14 +863,10 @@ async def my_agent(ctx: JobContext) -> None:
 
         return asyncio.create_task(_runner())
 
-    # 硬超时兜底: per-turn instructions 会引导模型 graceful 收尾 (soft wrap →
-    # final wrap → end_call). 如果模型在超时 + grace 后仍未结束, 强制说告别词
-    # 并走 shutdown, 杜绝"卡死的面试无限跑下去".
-    # Hard timeout safety net. If the LLM still hasn't ended after a generous
-    # grace period, force a goodbye and shutdown so a stuck interview can't
-    # run forever.
-    async def _enforce_time_limit() -> None:
-        logger.warning("interview exceeded time limit; forcing shutdown")
+    async def _close_at_time_limit() -> None:
+        logger.info("interview reached the 24-minute close boundary")
+        state.completion_status = "success"
+        interview_agent.stop_question_workflow("time_limit")
         await _say_fixed_cue(
             "非常感谢你今天的分享。因为时间关系，本场面试到此结束。"
             "我们会综合评估你的表现并尽快反馈结果，祝你一切顺利。",
@@ -847,34 +875,32 @@ async def my_agent(ctx: JobContext) -> None:
         )
         await _finalize_via_shutdown(reason="task_completed")
 
-    timeout_task = _schedule_cue(
-        delay=time_limit + hard_grace,
-        race_skip_log="time-limit timer fired but session already closing; skipping",
-        run=_enforce_time_limit,
+    timeout_task = _schedule_active_deadline(
+        deadline=CLOSE_SECONDS,
+        race_skip_log="close timer fired but session already closing; skipping",
+        run=_close_at_time_limit,
     )
 
-    # 21:00 主动收尾提示: 软提示走 on_user_turn_completed, 但只在用户说话时
-    # 触发. 候选人沉默或 turn detector 把长 user turn 一直挂着时, 该提示永远
-    # 到不了模型, 模型不会调 enter_wrap_up. 这里独立计时强制 agent 开口提示.
-    # Active wind-down trigger at INTERVIEW_FINAL_WRAP_SECONDS. The soft hint
-    # in on_user_turn_completed only fires on user turns; a silent candidate
-    # means the hint never reaches the model. This timer forces a spoken cue.
-    async def _force_wind_down() -> None:
-        # 模型已主动进入收尾流程 → 不抢话直接退.
-        # Skip if the model already entered wrap-up on its own.
-        if interview_agent.wrap_up_started:
-            return
-        logger.info("forcing wind-down cue at final wrap time")
-        await _say_fixed_cue(
-            "时间快到了，咱们准备进入收尾环节，请简单回答一下当前问题。",
-            allow_interruptions=True,
-            playout_timeout=_WIND_DOWN_PLAYOUT_SECONDS,
-        )
+    async def _end_current_question() -> None:
+        logger.info("ending the current question at the 21-minute boundary")
+        interview_agent.stop_question_workflow("time_limit")
 
-    final_wrap_task = _schedule_cue(
-        delay=INTERVIEW_FINAL_WRAP_SECONDS,
+    final_wrap_task = _schedule_active_deadline(
+        deadline=INTERVIEW_FINAL_WRAP_SECONDS,
         race_skip_log="wind-down timer fired but session already closing; skipping",
-        run=_force_wind_down,
+        run=_end_current_question,
+    )
+
+    async def _kill_stuck_session() -> None:
+        logger.error("interview reached the 25-minute stuck-session kill boundary")
+        state.completion_status = "failed"
+        interview_agent.stop_question_workflow("system_shutdown")
+        await _finalize_via_shutdown(reason="system_shutdown")
+
+    kill_task = _schedule_active_deadline(
+        deadline=KILL_SECONDS,
+        race_skip_log="kill timer fired but session already closing; skipping",
+        run=_kill_stuck_session,
     )
 
     # ---- 热重连 / Hot reconnect -------------------------------------------
@@ -895,7 +921,18 @@ async def my_agent(ctx: JobContext) -> None:
         # round status 永远停在进行中.
         # Full shutdown rather than bare aclose so on_session_end fires
         # and send_report posts to /api/agent/report.
+        state.completion_status = "partial"
+        interview_agent.stop_question_workflow("reconnect_grace_expired")
+        await asyncio.sleep(0)
         await _finalize_via_shutdown(reason="participant_disconnected")
+
+    async def _run_grace_timer(delay: float) -> None:
+        try:
+            await asyncio.sleep(delay)
+            if not _session_already_closing():
+                await _grace_expired()
+        except asyncio.CancelledError:
+            pass
 
     def _on_participant_disconnected(p: rtc.RemoteParticipant) -> None:
         nonlocal grace_task
@@ -903,6 +940,15 @@ async def my_agent(ctx: JobContext) -> None:
             return
         if grace_task is not None and not grace_task.done():
             return
+        if not clock.can_start_reconnect_pause:
+            state.completion_status = "partial"
+            grace_task = asyncio.create_task(_grace_expired())
+            return
+        clock.pause_for_reconnect()
+        grace_seconds = min(
+            float(_HOT_RECONNECT_GRACE_SECONDS),
+            clock.reconnect_pause_remaining,
+        )
         logger.info(
             "candidate %s disconnected; %ds hot-reconnect grace started",
             p.identity,
@@ -914,14 +960,7 @@ async def my_agent(ctx: JobContext) -> None:
             session.interrupt()
         except Exception:
             logger.exception("session.interrupt() during grace start failed")
-        grace_task = _schedule_cue(
-            delay=_HOT_RECONNECT_GRACE_SECONDS,
-            race_skip_log=(
-                f"grace timer expired for {candidate_identity} but session "
-                "already closing; skipping"
-            ),
-            run=_grace_expired,
-        )
+        grace_task = asyncio.create_task(_run_grace_timer(grace_seconds))
 
     async def _resume_after_reconnect(target_identity: str) -> None:
         """重连后: 先回放历史, 再 TTS 一句"欢迎回来".
@@ -949,8 +988,14 @@ async def my_agent(ctx: JobContext) -> None:
         # 当成候选人在反思, 进而切换到候选人口吻. say() 跳过 LLM 杜绝漂移.
         # Bypass LLM-driven greet: small models misread the meta-instruction
         # as the candidate's own utterance and flip role.
+        current_question = interview_agent.current_question_text
+        reconnect_message = (
+            f"欢迎回来。我们继续刚才这道题：{current_question}"
+            if current_question
+            else "欢迎回来，我们继续刚才的面试。"
+        )
         try:
-            session.say("欢迎回来，我们继续刚才的话题。", allow_interruptions=True)
+            session.say(reconnect_message, allow_interruptions=True)
         except Exception:
             logger.exception("re-greeting after reconnect failed")
 
@@ -961,6 +1006,7 @@ async def my_agent(ctx: JobContext) -> None:
         logger.info("candidate %s reconnected; cancelling grace", p.identity)
         grace_task.cancel()
         grace_task = None
+        clock.resume_from_reconnect()
         resume_task = asyncio.create_task(_resume_after_reconnect(p.identity))
 
     ctx.room.on("participant_disconnected", _on_participant_disconnected)

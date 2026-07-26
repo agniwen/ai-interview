@@ -1,7 +1,7 @@
 /* oxlint-disable no-explicit-any no-nested-ternary complexity max-lines -- tab body has explicit loading/empty/content branches and card compositions. */
 "use client";
 
-import { IconArrowBackUp, IconChevronDown, IconLoader2 } from "@tabler/icons-react";
+import { IconArrowBackUp, IconChevronDown, IconCopy, IconLoader2 } from "@tabler/icons-react";
 import { countDisplayInterviewTurns } from "@arc/shared/interview-transcript-turns";
 import { cn } from "@arc/shared/utils";
 import type { ReactNode } from "react";
@@ -64,6 +64,7 @@ import { DetailRow } from "./interviews/interview-detail/detail-row";
 import { EvaluationResults } from "./interviews/interview-detail/evaluation-results";
 import type { EvidenceQuote } from "./interviews/interview-detail/evaluation-results";
 import { InterviewMetricsPanel } from "./interviews/interview-detail/interview-metrics-panel";
+import { copyInterviewLink } from "./interviews/interview-link-actions";
 import {
   formatReportStatus,
   getReportBadgeVariant,
@@ -225,11 +226,15 @@ function InterviewRecordSelector({
 
 function InterviewResultFrame({
   evaluationSummary,
+  record,
   report,
 }: {
   evaluationSummary: StudioPersonDetailViewModel["selectedResultEvaluationSummary"];
+  record: NonNullable<StudioPersonDetailViewModel["record"]>;
   report: StudioPersonDetailViewModel["selectedResultReport"];
 }) {
+  const showCopyInterviewLink = record.roundStatus === "pending";
+
   return (
     <Frame className="h-full">
       <FrameHeader className="flex-row items-center justify-between gap-3">
@@ -284,6 +289,24 @@ function InterviewResultFrame({
             "候选人完成面试后，这里会优先显示结论、评分和关键摘要。",
           )}
         />
+        {showCopyInterviewLink ? (
+          <div className="mt-5 border-border/50 border-t pt-5">
+            <Button
+              className="w-full"
+              disabled={!record.roundInterviewLink}
+              onClick={() => {
+                if (record.roundInterviewLink) {
+                  void copyInterviewLink({ interviewLink: record.roundInterviewLink });
+                }
+              }}
+              type="button"
+              variant="outline"
+            >
+              <IconCopy className="size-4" />
+              复制面试链接
+            </Button>
+          </div>
+        ) : null}
       </FramePanel>
     </Frame>
   );
@@ -355,6 +378,7 @@ function InterviewReportDetails({
             <ScrollArea className="max-h-[420px] pr-1" scrollFade>
               <EvaluationResults
                 data={(report.evaluationCriteriaResults as Record<string, unknown> | null) ?? {}}
+                dataCollectionResults={report.dataCollectionResults}
                 onEvidenceSelect={onEvidenceSelect}
               />
             </ScrollArea>
@@ -519,7 +543,11 @@ function InterviewResultTabContent({
             {isReportsLoading ? (
               <InterviewResultOverviewSkeleton />
             ) : (
-              <InterviewResultFrame evaluationSummary={evaluationSummary} report={report} />
+              <InterviewResultFrame
+                evaluationSummary={evaluationSummary}
+                record={record}
+                report={report}
+              />
             )}
             <Frame className="h-full">
               <FrameHeader className="flex-row flex-wrap items-center justify-between">

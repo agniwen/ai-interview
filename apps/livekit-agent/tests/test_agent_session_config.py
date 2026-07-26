@@ -179,6 +179,7 @@ def test_self_hosted_session_uses_local_turn_detection_and_vad_interruption(
 
     assert turn_detector_calls == [{"version": "v1-mini"}]
     assert session.kwargs["turn_handling"]["interruption"]["mode"] == "vad"
+    assert session.kwargs["turn_handling"]["interruption"]["min_duration"] == 0.6
 
 
 def test_agent_session_uses_pcm_for_minimax_streaming_audio(monkeypatch):

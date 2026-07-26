@@ -24,7 +24,7 @@ def _ctx(
     closing="再见郭靖",
 ):
     payload = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "session": {
             "allowTextInput": True,
             "interviewRecordId": "record-1",
@@ -38,6 +38,15 @@ def _ctx(
             "opening": opening,
             "closing": closing,
         },
+        "questions": [
+            {
+                "id": "question-1",
+                "content": "请介绍一次故障排查经历。",
+                "difficulty": "medium",
+                "evaluationFocus": "确认候选人能够定位并复盘线上故障",
+                "followUpDirections": "追问定位信号、根因与预防措施",
+            }
+        ],
     }
     return parse_dispatch_context(json.dumps(payload, ensure_ascii=False))
 
@@ -87,17 +96,40 @@ def test_uses_typed_candidate_fields_from_dispatch_contract():
 
 
 @pytest.mark.asyncio
-async def test_ready_candidate_is_prompted_with_first_interview_question(monkeypatch):
+async def test_ready_candidate_runs_the_required_question_task_group(monkeypatch):
     async def ready():
         return True
 
     session = _FakeSession()
     a = InterviewAgent(_ctx())
+    captured = {}
+
+    class FakeGroup:
+        def __await__(self):
+            async def run():
+                return SimpleNamespace(task_results={})
+
+            return run().__await__()
+
+    def fake_build_question_task_group(questions, **kwargs):
+        captured["questions"] = questions
+        captured["kwargs"] = kwargs
+        return FakeGroup()
+
+    async def fake_wrap_up(_tool, **_kwargs):
+        return None
+
     monkeypatch.setattr(
         interview_agent_module,
         "ReadyCheckTask",
         lambda **_kwargs: ready(),
     )
+    monkeypatch.setattr(
+        interview_agent_module,
+        "build_question_task_group",
+        fake_build_question_task_group,
+    )
+    monkeypatch.setattr(interview_agent_module, "WrapUpTask", fake_wrap_up)
     monkeypatch.setattr(
         a,
         "_get_activity_or_raise",
@@ -106,9 +138,42 @@ async def test_ready_candidate_is_prompted_with_first_interview_question(monkeyp
 
     await a.on_enter()
 
-    instructions = session.calls[-1][1]["instructions"]
-    assert "第一道面试题" in instructions
-    assert "岗位预设题" not in instructions
+    assert [question.id for question in captured["questions"]] == ["question-1"]
+    assert session.calls == []
+
+
+@pytest.mark.asyncio
+async def test_declined_candidate_uses_wrap_up_without_another_question(monkeypatch):
+    async def declined():
+        return False
+
+    session = _FakeSession()
+    a = InterviewAgent(_ctx())
+    captured = {}
+
+    async def fake_wrap_up(tool, **kwargs):
+        captured["tool"] = tool
+        captured["kwargs"] = kwargs
+
+    monkeypatch.setattr(
+        interview_agent_module,
+        "ReadyCheckTask",
+        lambda **_kwargs: declined(),
+    )
+    monkeypatch.setattr(interview_agent_module, "WrapUpTask", fake_wrap_up)
+    monkeypatch.setattr(
+        a,
+        "_get_activity_or_raise",
+        lambda: SimpleNamespace(session=session),
+    )
+
+    await a.on_enter()
+
+    assert captured["tool"] is a._end_call_tool
+    assert captured["kwargs"] == {"ask_closing_question": False}
+    assert a.call_completion_status == "partial"
+    assert [outcome.status for outcome in a.question_outcomes] == ["unasked"]
+    assert session.calls == []
 
 
 def test_default_timeline_warns_at_21_and_hard_cuts_at_25():

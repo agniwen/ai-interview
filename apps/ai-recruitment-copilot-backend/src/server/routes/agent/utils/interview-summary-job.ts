@@ -1,12 +1,13 @@
 import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
-import type { InterviewQuestion } from "@arc/db-schema/interview/types";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { interviewConversation } from "@arc/db-schema/schema";
 import { notifyInterviewSummaryReady } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/feishu-interview-notifications";
 import { cacheTags, safeUpdateTag } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import { runInterviewReportWorkflow } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/workflows/interview-report-workflow";
 import { formatCandidateFormSubmissions } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-report";
+import type { InterviewEvaluationQuestion } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-report";
 import { createInterviewEvidenceSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/evidence-snapshot";
+import { parseInterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
 
 const LOG_PREFIX = "[interview-summary]";
 
@@ -16,20 +17,13 @@ const RUNNING_STALE_MINUTES = 10;
 
 function buildEvaluationQuestionsFromContext(
   context: Awaited<ReturnType<typeof createInterviewEvidenceSnapshot>>["payload"]["context"],
-): InterviewQuestion[] {
-  const personalizedQuestions: InterviewQuestion[] = context.personalizedQuestions.map((q) => ({
-    ...q,
-    question: `[个性化] ${q.question}`,
-  }));
-  const presetOrderBase =
-    personalizedQuestions.length > 0 ? Math.max(...personalizedQuestions.map((q) => q.order)) : 0;
-  let nextOrder = presetOrderBase + 1;
-  const presetQuestions: InterviewQuestion[] = [];
+): InterviewEvaluationQuestion[] {
+  let nextOrder = 1;
+  const presetQuestions: InterviewEvaluationQuestion[] = [];
 
   for (const template of context.questionTemplates
     .filter((row) => !row.disabledByUser)
     .toSorted((a, b) => a.sortOrder - b.sortOrder)) {
-    const label = template.scope === "job_description" ? "岗位题" : "全局题";
     for (const question of [...template.snapshot.questions].toSorted(
       (a, b) => a.sortOrder - b.sortOrder,
     )) {
@@ -42,13 +36,14 @@ function buildEvaluationQuestionsFromContext(
         evaluationFocus: question.evaluationFocus ?? null,
         followUpDirections: question.followUpDirections ?? null,
         order: nextOrder,
-        question: `[${label}] ${content}`,
+        question: content,
+        questionId: question.id,
       });
       nextOrder += 1;
     }
   }
 
-  return [...personalizedQuestions, ...presetQuestions];
+  return presetQuestions;
 }
 
 export interface RunSummaryJobOptions {
@@ -95,7 +90,10 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
           ),
         ),
       )
-      .returning({ transcript: interviewConversation.transcript });
+      .returning({
+        dataCollectionResults: interviewConversation.dataCollectionResults,
+        transcript: interviewConversation.transcript,
+      });
 
     if (claimed.length === 0) {
       // Either the row doesn't exist, is already `ready`, or another
@@ -103,7 +101,7 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
       return;
     }
 
-    const [{ transcript }] = claimed;
+    const [{ dataCollectionResults: rawDataCollectionResults, transcript }] = claimed;
 
     if (!transcript || transcript.length === 0) {
       await db
@@ -118,9 +116,11 @@ export async function runSummaryJob(options: RunSummaryJobOptions): Promise<void
 
     const evidence = await createInterviewEvidenceSnapshot({ conversationId, interviewRecordId });
     const questions = buildEvaluationQuestionsFromContext(evidence.payload.context);
+    const dataCollectionResults = parseInterviewDataCollectionResults(rawDataCollectionResults);
 
     const report = await runInterviewReportWorkflow({
       candidateFormResponses: formatCandidateFormSubmissions(evidence.payload.formSubmissions),
+      dataCollectionResults,
       questions,
       transcript,
     });
