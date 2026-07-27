@@ -68,6 +68,7 @@ async function main() {
   ]);
   const filePath = path.resolve(arg("file"));
   const outputDirectory = path.resolve(arg("output", ".eval/resume-parse-benchmark"));
+  const aliyunPromptFile = arg("aliyun-prompt-file", "");
   const parseTimeoutMs = Number.parseInt(arg("aliyun-parse-timeout-ms", "120000"), 10);
   if (!Number.isFinite(parseTimeoutMs) || parseTimeoutMs <= 0) {
     throw new Error("--aliyun-parse-timeout-ms must be a positive integer.");
@@ -78,6 +79,9 @@ async function main() {
   }
 
   const bytes = new Uint8Array(await readFile(filePath));
+  const aliyunPrompt = aliyunPromptFile
+    ? await readFile(path.resolve(aliyunPromptFile), "utf-8")
+    : RESUME_STRUCTURED_INSTRUCTIONS;
   const fileName = path.basename(filePath);
   const startedAt = new Date().toISOString();
 
@@ -106,13 +110,19 @@ async function main() {
     bytes,
     fileName,
     parseTimeoutMs,
-    prompt: RESUME_STRUCTURED_INSTRUCTIONS,
+    prompt: aliyunPrompt,
   });
-  const aliyunStructured = parseJsonOutput(
-    aliyun.content,
-    structuredSchema,
-    "aliyun-resume-extraction",
-  );
+  let aliyunStructured: unknown = aliyun.content;
+  let aliyunValidationError: string | null = null;
+  try {
+    aliyunStructured = parseJsonOutput(
+      aliyun.content,
+      structuredSchema,
+      "aliyun-resume-extraction",
+    );
+  } catch (error) {
+    aliyunValidationError = error instanceof Error ? error.message : String(error);
+  }
   const aliyunTotalMs = Math.round(performance.now() - aliyunTotalStartedAt);
   const aliyunValidationMs = Math.max(aliyunTotalMs - aliyun.timingsMs.total, 0);
 
@@ -129,12 +139,14 @@ async function main() {
       extractionAttempts: aliyun.extractionAttempts,
       output: aliyunStructured,
       pageCount: aliyun.pageCount,
+      rawOutput: aliyun.content,
       timingsMs: {
         ...aliyun.timingsMs,
         total: aliyunTotalMs,
         validation: aliyunValidationMs,
       },
       usage: aliyun.usage,
+      validationError: aliyunValidationError,
     },
     comparison: {
       deltaMs: Math.abs(currentTotalMs - aliyunTotalMs),
