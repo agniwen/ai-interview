@@ -74,5 +74,5 @@ export const Route = createFileRoute("/w/$slug/studio/resumes")({
   }),
   component: StudioResumesRoute,
   pendingComponent: RecruitingPageSkeleton,
-  shouldReload: false,
+  shouldReload: ({ location, params }) => location.pathname === `/w/${params.slug}/studio/resumes`,
 });
