@@ -19,6 +19,7 @@
     "backfill:resume-pool-semantic-index": "tsx src/scripts/backfill-resume-pool-semantic-index.ts",
     "backfill:resume-semantic-index": "tsx src/scripts/backfill-resume-semantic-index.ts",
     "backfill:resume-text": "tsx src/scripts/backfill-resume-text.ts",
+    "benchmark:resume-parse": "tsx src/scripts/resume-parse-benchmark.ts",
     "dev:standalone": "tsx watch src/index.ts",
     "eval:jd-match:synthetic": "tsx src/scripts/jd-match-synthetic-eval.ts",
     "eval:recommendations": "tsx src/scripts/reco-eval.ts",

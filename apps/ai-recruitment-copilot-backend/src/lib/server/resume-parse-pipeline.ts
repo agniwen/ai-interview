@@ -40,7 +40,7 @@ const XLSX_MAX_SHEETS = 8;
 const XLSX_MAX_ROWS_PER_SHEET = 200;
 const OCR_PAGE_TEXT_PREVIEW_MAX_CHARS = 300;
 
-const STRUCTURED_INSTRUCTIONS = `你是一名简历解析助手。给你一段简历文本，请严格按照下方 JSON 结构输出结构化候选人档案。
+export const RESUME_STRUCTURED_INSTRUCTIONS = `你是一名简历解析助手。给你一段简历文本，请严格按照下方 JSON 结构输出结构化候选人档案。
 
 ## 输出 JSON 结构（字段名与类型必须严格匹配）
 
@@ -579,7 +579,7 @@ export async function generateResumeStructured(text: string): Promise<ResumePars
     // experience summaries the output can be very long, so allow 16384 to leave
     // headroom and avoid truncating mid-string.
     maxOutputTokens: 16_384,
-    prompt: `${STRUCTURED_INSTRUCTIONS}\n\n简历文本：\n${clipForStructured(text)}`,
+    prompt: `${RESUME_STRUCTURED_INSTRUCTIONS}\n\n简历文本：\n${clipForStructured(text)}`,
     schema: structuredSchema,
     temperature: 0,
   });

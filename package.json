@@ -16,6 +16,7 @@
     "backfill:interview-snapshots": "pnpm --filter @arc/ai-recruitment-copilot-backend backfill:interview-snapshots",
     "backfill:resume-pool-semantic-index": "pnpm --filter @arc/ai-recruitment-copilot-backend backfill:resume-pool-semantic-index",
     "backfill:resume-semantic-index": "pnpm --filter @arc/ai-recruitment-copilot-backend backfill:resume-semantic-index",
+    "benchmark:resume-parse": "pnpm --filter @arc/ai-recruitment-copilot-backend benchmark:resume-parse",
     "db:generate": "pnpm --filter @arc/ai-recruitment-copilot db:generate",
     "db:migrate": "pnpm --filter @arc/ai-recruitment-copilot db:migrate",
     "db:studio": "pnpm --filter @arc/ai-recruitment-copilot db:studio"
