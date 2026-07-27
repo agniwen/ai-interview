@@ -36,6 +36,7 @@ import {
   putObjectBytes,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { isResumeParseCacheEnabled } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-cache-policy";
+import { isResumeParseCacheSourceCompatible } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-provider";
 import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
 import { resolveCandidateCompanyContext } from "./candidate-briefing";
 
@@ -230,9 +231,13 @@ export async function storeInterviewResume(
     //       backfill all rows sharing the hash via updateStructuredByHash.
     //   3C. neither structured nor text (shouldn't happen in practice) → fall
     //       through to the miss branch and re-run the full parse.
-    const existing = isResumeParseCacheEnabled()
+    const cachedAttachment = isResumeParseCacheEnabled()
       ? await findAttachmentByContentHash(contentHash)
       : null;
+    const existing =
+      cachedAttachment && isResumeParseCacheSourceCompatible(cachedAttachment.parsedTextSource)
+        ? cachedAttachment
+        : null;
     if (existing?.parsedStructured) {
       const cached = projectAttachmentToResumeProfile(existing.parsedStructured);
       if (cached) {
@@ -380,9 +385,13 @@ export async function storeResumeObjectOnly(
       contentHash,
       getResumeDocumentExtension({ fileName: file.name, mediaType: file.type }),
     );
-    const existing = isResumeParseCacheEnabled()
+    const cachedAttachment = isResumeParseCacheEnabled()
       ? await findAttachmentByContentHash(contentHash)
       : null;
+    const existing =
+      cachedAttachment && isResumeParseCacheSourceCompatible(cachedAttachment.parsedTextSource)
+        ? cachedAttachment
+        : null;
     await putObjectBytes({
       body: bytes,
       contentType: file.type || existing?.mediaType || "application/octet-stream",

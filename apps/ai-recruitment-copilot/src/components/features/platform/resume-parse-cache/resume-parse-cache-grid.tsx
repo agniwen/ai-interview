@@ -40,6 +40,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import type { ResumeParseCacheFilters } from "@arc/ai-recruitment-copilot-backend/server/routes/platform/routes/resume-parse-cache/schema";
+import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import { formatBytes } from "@arc/shared/utils/format";
 
 interface ResumeParseCacheRecord {
@@ -54,14 +55,7 @@ interface ResumeParseCacheRecord {
   parsedAt: string | null;
   parsedPageCount: number | null;
   parsedStatus: "failed" | "pending" | "ready";
-  parsedTextSource:
-    | "docx-text"
-    | "html-text"
-    | "pdf-parse"
-    | "pptx-text"
-    | "qwen-ocr"
-    | "xlsx-text"
-    | null;
+  parsedTextSource: AttachmentTextSource | null;
   size: number;
   storageKey: string;
   userEmail: string;
@@ -110,6 +104,7 @@ const STATUS_META = {
 } as const;
 
 const TEXT_SOURCE_LABEL: Record<NonNullable<ResumeParseCacheRecord["parsedTextSource"]>, string> = {
+  "aliyun-docmining": "阿里云文档挖掘",
   "docx-text": "DOCX 文本",
   "html-text": "HTML 文本",
   "pdf-parse": "PDF 文本",

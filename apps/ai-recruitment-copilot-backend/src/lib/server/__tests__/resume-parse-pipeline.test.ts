@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   qwenVlOcr: vi.fn(),
   rasterizePdfWithMeta: vi.fn(),
   resumeStructuredAgent: { id: "resume-structured-agent" },
+  runAliyunResumeExtraction: vi.fn(),
 }));
 
 vi.mock(
@@ -31,7 +32,11 @@ vi.mock("../qwen-ocr", () => ({
   qwenVlOcr: mocks.qwenVlOcr,
 }));
 
-const { extractResumeDocumentText, generateResumeStructured, parseResumeOcrOnly } =
+vi.mock("../aliyun-docmining", () => ({
+  runAliyunResumeExtraction: mocks.runAliyunResumeExtraction,
+}));
+
+const { extractResumeDocumentText, generateResumeStructured, parseResumeFast, parseResumeOcrOnly } =
   await import("../resume-parse-pipeline");
 
 const STRUCTURED_RESUME = {
@@ -85,6 +90,27 @@ const STRUCTURED_RESUME = {
   ],
   workYears: 5,
 };
+
+function aliyunExtractionResult(content = JSON.stringify(STRUCTURED_RESUME)) {
+  return {
+    cleanup: { deleted: true, error: null },
+    content,
+    extractionAttempts: 1,
+    pageCount: 2,
+    timingsMs: {
+      applyLease: 1,
+      extraction: 2,
+      ossUpload: 3,
+      submitParse: 4,
+      total: 10,
+    },
+    usage: {
+      inputTokens: 100,
+      outputTokens: 200,
+      totalTokens: 300,
+    },
+  };
+}
 
 function createStoredZip(entries: Record<string, string>): Promise<Uint8Array> {
   const zip = new JSZip();
@@ -543,5 +569,98 @@ describe("generateResumeStructured", () => {
     expect(prompt).toContain("项目经历");
     expect(prompt).toContain("工作经历");
     expect(prompt).not.toContain("skills 最多 18 项");
+  });
+});
+
+describe("parseResumeFast provider selection", () => {
+  const originalProvider = process.env.RESUME_PARSE_PROVIDER;
+  const originalApiKey = process.env.ALIBABA_API_KEY;
+
+  afterEach(() => {
+    if (originalProvider === undefined) {
+      delete process.env.RESUME_PARSE_PROVIDER;
+    } else {
+      process.env.RESUME_PARSE_PROVIDER = originalProvider;
+    }
+    if (originalApiKey === undefined) {
+      delete process.env.ALIBABA_API_KEY;
+    } else {
+      process.env.ALIBABA_API_KEY = originalApiKey;
+    }
+  });
+
+  it("uses Aliyun document mining without invoking OCR or the structured LLM", async () => {
+    process.env.RESUME_PARSE_PROVIDER = "aliyun-docmining";
+    process.env.ALIBABA_API_KEY = "test-key";
+    mocks.generateStructuredWithMastraAgent.mockClear();
+    mocks.qwenVlOcr.mockClear();
+    mocks.runAliyunResumeExtraction.mockResolvedValue(aliyunExtractionResult());
+
+    const result = await parseResumeFast({
+      bytes: new Uint8Array([1, 2, 3]),
+      fileName: "resume.docx",
+      mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+
+    expect(result).toEqual({
+      pageCount: 2,
+      structured: STRUCTURED_RESUME,
+      text: JSON.stringify(STRUCTURED_RESUME),
+      textSource: "aliyun-docmining",
+    });
+    expect(mocks.runAliyunResumeExtraction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        apiKey: "test-key",
+        fileName: "resume.docx",
+      }),
+    );
+    expect(mocks.qwenVlOcr).not.toHaveBeenCalled();
+    expect(mocks.generateStructuredWithMastraAgent).not.toHaveBeenCalled();
+  });
+
+  it("retries once when Aliyun returns truncated structured JSON", async () => {
+    process.env.RESUME_PARSE_PROVIDER = "aliyun-docmining";
+    process.env.ALIBABA_API_KEY = "test-key";
+    mocks.runAliyunResumeExtraction.mockReset();
+    mocks.runAliyunResumeExtraction
+      .mockResolvedValueOnce(aliyunExtractionResult('{"name":"候选人"'))
+      .mockResolvedValueOnce(aliyunExtractionResult());
+
+    const result = await parseResumeFast({
+      bytes: new Uint8Array([1, 2, 3]),
+      fileName: "resume.pdf",
+      mediaType: "application/pdf",
+    });
+
+    expect(result.structured).toEqual(STRUCTURED_RESUME);
+    expect(mocks.runAliyunResumeExtraction).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ["resume.pdf", "resume.pdf"],
+    ["resume.doc", "resume.doc"],
+    ["resume.docx", "resume.docx"],
+    ["resume.html", "resume.html"],
+    ["resume.htm", "resume.html"],
+    ["resume.ppt", "resume.ppt"],
+    ["resume.pptx", "resume.pptx"],
+    ["resume.xls", "resume.xls"],
+    ["resume.xlsx", "resume.xlsx"],
+    ["resume.jpg", "resume.jpg"],
+    ["resume.png", "resume.png"],
+  ])("passes supported format %s to Aliyun as %s", async (fileName, expectedFileName) => {
+    process.env.RESUME_PARSE_PROVIDER = "aliyun-docmining";
+    process.env.ALIBABA_API_KEY = "test-key";
+    mocks.runAliyunResumeExtraction.mockReset();
+    mocks.runAliyunResumeExtraction.mockResolvedValue(aliyunExtractionResult());
+
+    await parseResumeFast({
+      bytes: new Uint8Array([1, 2, 3]),
+      fileName,
+    });
+
+    expect(mocks.runAliyunResumeExtraction).toHaveBeenCalledWith(
+      expect.objectContaining({ fileName: expectedFileName }),
+    );
   });
 });

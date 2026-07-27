@@ -13,6 +13,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
 import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
 import type { ResumeParserStructured } from "@arc/db-schema/resume-parser-schema";
+import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import { getResumeDocumentKind } from "@arc/shared/resume-documents";
 import { convertLegacyOfficeToOoxml } from "./office-conversion";
 import {
@@ -28,6 +29,8 @@ import {
   readOfficeZipText as readZipText,
 } from "./office-xml";
 import { rasterizePdfWithMeta } from "./pdf-rasterize";
+import { parseResumeWithAliyun } from "./resume-parse-aliyun";
+import { getResumeParseProvider } from "./resume-parse-provider";
 import { isQwenOcrConfigured, qwenVlOcr } from "./qwen-ocr";
 
 const STRUCTURED_TEXT_MAX_CHARS = 16_000;
@@ -104,7 +107,7 @@ export const RESUME_STRUCTURED_INSTRUCTIONS = `你是一名简历解析助手。
 - timelineSummary.estimatedExperienceYears 为数字，不足一年用小数；无法推断时为 null。
 - age 仅在简历明确给出时填数字，不要根据毕业年份推测。`;
 
-export type ResumeTextSource = "qwen-ocr" | "docx-text" | "html-text" | "pptx-text" | "xlsx-text";
+export type ResumeTextSource = Exclude<AttachmentTextSource, "pdf-parse">;
 export {
   getResumeDocumentExtension,
   isSupportedResumeDocumentInput,
@@ -126,6 +129,8 @@ export interface ParsedResumeOcr {
 export interface ParsedResumeFast extends ParsedResumeOcr {
   structured: ResumeParserStructured;
 }
+
+export type ParsedResumeDocument = ParsedResumeOcr | ParsedResumeFast;
 
 export type ResumeParseProgressEvent =
   | {
@@ -737,6 +742,16 @@ export function extractResumeDocumentText(input: ResumeDocumentInput): Promise<P
   }
 }
 
+export function parseResumeDocument(input: ResumeDocumentInput): Promise<ParsedResumeDocument> {
+  if (!getResumeDocumentKind(input)) {
+    throw new Error("仅支持上传 PDF、DOC、DOCX、HTML、PPT、PPTX、XLS、XLSX、JPG、PNG 简历。");
+  }
+  if (getResumeParseProvider() === "aliyun-docmining") {
+    return parseResumeWithAliyun(input);
+  }
+  return extractResumeDocumentText(input);
+}
+
 /**
  * 完整解析：OCR + 结构化抽取。
  * 现在内部由 parseResumeOcrOnly + generateResumeStructured 两步组合而成，
@@ -751,18 +766,29 @@ export async function parseResumeFast(
 ): Promise<ParsedResumeFast> {
   const startedAt = nowMs();
   const documentInput =
-    input instanceof Uint8Array ? { bytes: input, mediaType: "application/pdf" } : input;
+    input instanceof Uint8Array
+      ? { bytes: input, fileName: "resume.pdf", mediaType: "application/pdf" }
+      : input;
   devOcrLog("full parse start", { bytes: documentInput.bytes.byteLength });
-  const ocr = await extractResumeDocumentText(documentInput);
+  const parsed = await parseResumeDocument(documentInput);
+  if ("structured" in parsed) {
+    devOcrLog("full parse completed", {
+      duration: formatDuration(startedAt),
+      outputChars: parsed.text.length,
+      pageCount: parsed.pageCount,
+      provider: parsed.textSource,
+    });
+    return parsed;
+  }
   devOcrLog("structured dispatch", {
-    inputChars: ocr.text.length,
-    pageCount: ocr.pageCount,
+    inputChars: parsed.text.length,
+    pageCount: parsed.pageCount,
   });
-  const structured = await generateResumeStructured(ocr.text);
+  const structured = await generateResumeStructured(parsed.text);
   devOcrLog("full parse completed", {
     duration: formatDuration(startedAt),
-    outputChars: ocr.text.length,
-    pageCount: ocr.pageCount,
+    outputChars: parsed.text.length,
+    pageCount: parsed.pageCount,
   });
-  return { ...ocr, structured };
+  return { ...parsed, structured };
 }

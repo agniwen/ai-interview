@@ -25,6 +25,7 @@ export type AttachmentParseStatus = z.infer<typeof attachmentParseStatusSchema>;
 
 export const attachmentTextSourceValues = [
   "pdf-parse",
+  "aliyun-docmining",
   "qwen-ocr",
   "docx-text",
   "html-text",

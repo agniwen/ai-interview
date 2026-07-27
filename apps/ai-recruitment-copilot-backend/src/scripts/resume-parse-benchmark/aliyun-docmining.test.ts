@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { runAliyunResumeExtraction } from "./aliyun-docmining";
+import { runAliyunResumeExtraction } from "../../lib/server/aliyun-docmining";
 
 function jsonResponse(body: unknown, status = 200) {
   return Response.json(body, { status });

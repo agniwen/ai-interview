@@ -10,6 +10,7 @@ import type { ProcessNextResult } from "@arc/shared/bulk-resume-upload";
 import { getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { parseResumeBytesToProfile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import { isResumeParseCacheEnabled } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-cache-policy";
+import { isResumeParseCacheSourceCompatible } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-provider";
 import {
   claimNextPendingItem,
   claimPendingItemById,
@@ -79,9 +80,10 @@ async function resolveResumeProfile(item: NonNullable<ItemRow>): Promise<{
   if (isResumeParseCacheEnabled(process.env)) {
     logStep("cache.lookup.start", { itemId: item.id });
     const cached = await findAttachmentByStorageKey(item.storageKey);
-    const fromCache = cached?.parsedStructured
-      ? projectAttachmentToResumeProfile(cached.parsedStructured)
-      : null;
+    const fromCache =
+      cached?.parsedStructured && isResumeParseCacheSourceCompatible(cached.parsedTextSource)
+        ? projectAttachmentToResumeProfile(cached.parsedStructured)
+        : null;
     if (fromCache) {
       logStep("cache.lookup.hit", { durationMs: elapsed(startedAt), itemId: item.id });
       return { parsed: null, resumeProfile: fromCache, resumeText: cached?.parsedText ?? null };

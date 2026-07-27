@@ -30,6 +30,7 @@ describe("server env", () => {
     RECORDING_R2_FORCE_PATH_STYLE: "true",
     RECORDING_R2_KEY_PREFIX: "recordings",
     RECORDING_R2_REGION: "auto",
+    RESUME_PARSE_PROVIDER: "aliyun-docmining",
     S3_FORCE_PATH_STYLE: "false",
     S3_KEY_PREFIX: "uploads",
     S3_REGION: "auto",
@@ -42,6 +43,7 @@ describe("server env", () => {
 
     expect(env.ALIBABA_MODEL).toBe("deepseek-v4-pro");
     expect(env.NEXT_PUBLIC_BASE_URL).toBe("https://app.example.com");
+    expect(env.RESUME_PARSE_PROVIDER).toBe("aliyun-docmining");
     expect(env.S3_FORCE_PATH_STYLE).toBe("false");
   });
 
@@ -62,6 +64,7 @@ describe("server env", () => {
       NEXT_PUBLIC_BASE_URL: "https://app.example.com",
       QWEN_OCR_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
       QWEN_OCR_MODEL: "qwen-vl-ocr-latest",
+      RESUME_PARSE_PROVIDER: "aliyun-docmining",
       S3_FORCE_PATH_STYLE: "false",
     });
   });

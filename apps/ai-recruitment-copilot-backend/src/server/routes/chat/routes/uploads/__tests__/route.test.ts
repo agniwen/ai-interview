@@ -4,8 +4,8 @@ import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 const mocks = vi.hoisted(() => ({
   buildAttachmentKeyByHash: vi.fn(),
   createAttachment: vi.fn(),
-  extractResumeDocumentText: vi.fn(),
   findAttachmentByContentHash: vi.fn(),
+  parseResumeDocument: vi.fn(),
   putObjectBytes: vi.fn(),
   sha256HexOfBytes: vi.fn(),
 }));
@@ -16,7 +16,7 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
   putObjectBytes: mocks.putObjectBytes,
 }));
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline", () => ({
-  extractResumeDocumentText: mocks.extractResumeDocumentText,
+  parseResumeDocument: mocks.parseResumeDocument,
 }));
 vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments", () => ({
   createAttachment: mocks.createAttachment,
@@ -45,6 +45,7 @@ function makeApp() {
 
 describe("uploadsRouter cache policy", () => {
   const originalDisableCache = process.env.RESUME_PARSE_DISABLE_CACHE;
+  const originalProvider = process.env.RESUME_PARSE_PROVIDER;
 
   beforeEach(() => {
     for (const fn of Object.values(mocks)) {
@@ -55,10 +56,15 @@ describe("uploadsRouter cache policy", () => {
     } else {
       process.env.RESUME_PARSE_DISABLE_CACHE = originalDisableCache;
     }
+    if (originalProvider === undefined) {
+      delete process.env.RESUME_PARSE_PROVIDER;
+    } else {
+      process.env.RESUME_PARSE_PROVIDER = originalProvider;
+    }
     mocks.sha256HexOfBytes.mockResolvedValue(HASH);
     mocks.buildAttachmentKeyByHash.mockResolvedValue(STORAGE_KEY);
     mocks.putObjectBytes.mockImplementation(async () => {});
-    mocks.extractResumeDocumentText.mockResolvedValue({
+    mocks.parseResumeDocument.mockResolvedValue({
       pageCount: 1,
       text: "fresh ocr text",
       textSource: "qwen-ocr",
@@ -89,6 +95,29 @@ describe("uploadsRouter cache policy", () => {
     expect(mocks.createAttachment).not.toHaveBeenCalled();
   });
 
+  it("does not reuse a cache entry produced by a different parser provider", async () => {
+    process.env.RESUME_PARSE_PROVIDER = "aliyun-docmining";
+    mocks.findAttachmentByContentHash.mockResolvedValue({
+      parsedStatus: "ready",
+      parsedTextSource: "qwen-ocr",
+      storageKey: "dev/chat-attachments/cached.jpeg",
+    });
+
+    const res = await makeApp().request("/uploads/preflight", {
+      body: JSON.stringify({
+        filename: "resume.jpeg",
+        hash: HASH,
+        mediaType: "image/jpeg",
+        size: 1024,
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ hit: false });
+  });
+
   it("cache disabled: upload parses fresh instead of copying a cached attachment row", async () => {
     process.env.RESUME_PARSE_DISABLE_CACHE = "true";
     mocks.findAttachmentByContentHash.mockResolvedValue({
@@ -113,7 +142,7 @@ describe("uploadsRouter cache policy", () => {
     expect(res.status).toBe(200);
     expect(mocks.findAttachmentByContentHash).not.toHaveBeenCalled();
     expect(mocks.putObjectBytes).toHaveBeenCalledTimes(1);
-    expect(mocks.extractResumeDocumentText).toHaveBeenCalledTimes(1);
+    expect(mocks.parseResumeDocument).toHaveBeenCalledTimes(1);
     expect(mocks.createAttachment).toHaveBeenCalledTimes(1);
     expect(mocks.createAttachment.mock.calls[0]?.[0]).toMatchObject({
       contentHash: HASH,
@@ -122,6 +151,46 @@ describe("uploadsRouter cache policy", () => {
       parsedText: "fresh ocr text",
       storageKey: STORAGE_KEY,
       userId: USER_ID,
+    });
+  });
+
+  it("stores structured output immediately when Aliyun document mining is selected", async () => {
+    process.env.RESUME_PARSE_DISABLE_CACHE = "true";
+    process.env.RESUME_PARSE_PROVIDER = "aliyun-docmining";
+    const structured = { name: "候选人", skills: ["TypeScript"] };
+    mocks.parseResumeDocument.mockResolvedValue({
+      pageCount: 2,
+      structured,
+      text: JSON.stringify(structured),
+      textSource: "aliyun-docmining",
+    });
+
+    const form = new FormData();
+    form.set(
+      "file",
+      new File([new TextEncoder().encode("document-bytes")], "resume.docx", {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      }),
+    );
+
+    const res = await makeApp().request("/uploads", {
+      body: form,
+      method: "POST",
+    });
+
+    expect(res.status).toBe(200);
+    expect(mocks.parseResumeDocument).toHaveBeenCalledTimes(1);
+    expect(mocks.createAttachment.mock.calls[0]?.[0]).toMatchObject({
+      parsedStatus: "ready",
+      parsedStructured: structured,
+      parsedTextSource: "aliyun-docmining",
+    });
+    await expect(res.json()).resolves.toMatchObject({
+      parseStatus: "ready",
+      parsed: {
+        structured,
+        textSource: "aliyun-docmining",
+      },
     });
   });
 });

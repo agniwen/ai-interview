@@ -1,6 +1,7 @@
 import { and, asc, count, desc, eq, ilike, isNotNull, ne, or, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import { chatAttachment, organization, user } from "@arc/db-schema/schema";
 import type { ResumeParseCacheQuery } from "./schema";
 
@@ -98,9 +99,7 @@ export async function queryPaginatedResumeParseCache(query: ResumeParseCacheQuer
         parsedStatus: sql<
           "failed" | "pending" | "ready"
         >`(array_agg(${chatAttachment.parsedStatus} ${latestOrder}))[1]`,
-        parsedTextSource: sql<
-          "docx-text" | "html-text" | "pdf-parse" | "pptx-text" | "qwen-ocr" | "xlsx-text" | null
-        >`(array_agg(${chatAttachment.parsedTextSource} ${latestOrder}))[1]`,
+        parsedTextSource: sql<AttachmentTextSource | null>`(array_agg(${chatAttachment.parsedTextSource} ${latestOrder}))[1]`,
         size: sql<number>`(array_agg(${chatAttachment.size} ${latestOrder}))[1]`,
         storageKey: sql<string>`(array_agg(${chatAttachment.storageKey} ${latestOrder}))[1]`,
         userEmail: sql<string>`(array_agg(${user.email} ${latestOrder}))[1]`,

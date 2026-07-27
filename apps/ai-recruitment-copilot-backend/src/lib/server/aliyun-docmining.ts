@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 
+// Alibaba Cloud Model Studio document mining upload and extraction client.
 const API_BASE_URL = "https://dashscope.aliyuncs.com/api/v2/apps";
 const APPLY_UPLOAD_LEASE_URL = `${API_BASE_URL}/zhiwen-file/apply_upload_lease`;
 const SUBMIT_PARSE_FILE_URL = `${API_BASE_URL}/zhiwen-file/submit_parse_file`;

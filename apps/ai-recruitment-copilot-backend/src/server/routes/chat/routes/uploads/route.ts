@@ -1,5 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
-import { extractResumeDocumentText } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline";
+import { parseResumeDocument } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline";
+import type { ParsedResumeDocument } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline";
+import { isResumeParseCacheSourceCompatible } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-provider";
 import {
   getResumeDocumentExtension,
   isSupportedResumeDocumentInput,
@@ -20,6 +22,10 @@ import {
   uploadPreflightSchema,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/schema";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+
+function getParsedStructured(parsed: ParsedResumeDocument) {
+  return "structured" in parsed ? parsed.structured : null;
+}
 
 // 构造上传/preflight 共用的响应结构。
 // 多租户改造后 chat 路由挂在 /api/w/:slug/chat 下，必须把 slug 拼进附件 URL，
@@ -74,7 +80,9 @@ export const uploadsRouter = factory
 
     const { filename, hash, mediaType, size } = c.req.valid("json");
 
-    const existing = isResumeParseCacheEnabled() ? await findAttachmentByContentHash(hash) : null;
+    const cached = isResumeParseCacheEnabled() ? await findAttachmentByContentHash(hash) : null;
+    const existing =
+      cached && isResumeParseCacheSourceCompatible(cached.parsedTextSource) ? cached : null;
     if (!existing) {
       return c.json({ hit: false } as const);
     }
@@ -147,9 +155,11 @@ export const uploadsRouter = factory
     // per-user row — the read path remains userId+id scoped, so isolation holds.
     // Concurrent miss: two requests each PUT the same hash-named S3 key
     // (idempotent overwrite) and INSERT independent attachmentIds — no conflict.
-    const existing = isResumeParseCacheEnabled()
+    const cached = isResumeParseCacheEnabled()
       ? await findAttachmentByContentHash(contentHash)
       : null;
+    const existing =
+      cached && isResumeParseCacheSourceCompatible(cached.parsedTextSource) ? cached : null;
     if (existing) {
       const attachmentId = crypto.randomUUID();
       await createAttachment({
@@ -197,17 +207,13 @@ export const uploadsRouter = factory
     const bytesForUpload = new Uint8Array(original);
     const bytesForParse = new Uint8Array(original);
 
-    // 上传与文本抽取并行：S3 失败致命；文本抽取失败记录后由后续 LLM 调用兜底。
-    // chat 路径不在这里跑结构化抽取 —— 结构化由招聘台的 storeInterviewResume
-    // 或聊天里的 suggest_job_description 工具按需触发，命中同 hash 时复用并回填。
-    // S3 upload + text extraction in parallel. S3 failure is fatal; extraction
-    // failure is logged and falls back at LLM call time.
-    // The chat path no longer runs structured extraction here — that's deferred
-    // to studio's storeInterviewResume or the chat-side suggest_job_description
-    // tool, both of which backfill the cache by content hash when they do run.
+    // 上传与解析并行。默认 OCR + LLM 模式仍只提取文本并延迟结构化；
+    // 阿里云文档挖掘模式一次返回完整结构化结果。
+    // Upload and parsing run in parallel. The default OCR + LLM mode keeps
+    // structure extraction lazy; Aliyun document mining returns it immediately.
     const [uploadOutcome, parseOutcome] = await Promise.allSettled([
       putObjectBytes({ body: bytesForUpload, contentType: file.type, storageKey }),
-      extractResumeDocumentText({
+      parseResumeDocument({
         bytes: bytesForParse,
         fileName: file.name,
         mediaType: file.type,
@@ -225,11 +231,7 @@ export const uploadsRouter = factory
             parsedAt: new Date(),
             parsedPageCount: parseOutcome.value.pageCount,
             parsedStatus: "ready" as const,
-            // 故意留 null：结构化抽取 lazily 在真正需要时再跑（见 storeInterviewResume
-            // 和 suggest_job_description 的 on-demand 分支）。
-            // Intentionally null — structured extraction is deferred to whoever
-            // actually needs it (see storeInterviewResume / suggest_job_description).
-            parsedStructured: null,
+            parsedStructured: getParsedStructured(parseOutcome.value),
             parsedText: parseOutcome.value.text,
             parsedTextSource: parseOutcome.value.textSource,
           }
@@ -260,10 +262,8 @@ export const uploadsRouter = factory
         attachmentId,
         parsedPageCount: parseOutcome.status === "fulfilled" ? parseOutcome.value.pageCount : null,
         parsedStatus: parseFields.parsedStatus,
-        // text-only：响应里 structured 总为 null；附件预览和历史消息烘焙路径需要兼容这种形态。
-        // Text-only path: structured is always null in the response; attachment preview
-        // and historical message baking paths need to tolerate it.
-        parsedStructured: null,
+        parsedStructured:
+          parseOutcome.status === "fulfilled" ? getParsedStructured(parseOutcome.value) : null,
         parsedText: parseOutcome.status === "fulfilled" ? parseOutcome.value.text : null,
         parsedTextSource:
           parseOutcome.status === "fulfilled" ? parseOutcome.value.textSource : null,

@@ -16,6 +16,7 @@ import {
   supportedResumeDocumentLabel,
 } from "@arc/shared/resume-documents";
 import { isResumeParseCacheEnabled } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-cache-policy";
+import { isResumeParseCacheSourceCompatible } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-provider";
 import type { ResumeTextSource } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline";
 import {
   buildAttachmentKeyByHash,
@@ -451,9 +452,13 @@ export function streamParseResumeProfile(
       //      structured extraction alone, then backfill all rows sharing the hash.
       //   C. nothing usable → fall through to the full parseResumeFast.
       const contentHash = await sha256HexOfBytes(bytes);
-      const existing = isResumeParseCacheEnabled()
+      const cachedAttachment = isResumeParseCacheEnabled()
         ? await findAttachmentByContentHash(contentHash)
         : null;
+      const existing =
+        cachedAttachment && isResumeParseCacheSourceCompatible(cachedAttachment.parsedTextSource)
+          ? cachedAttachment
+          : null;
       if (existing?.parsedStructured) {
         const cached = projectAttachmentToResumeProfile(existing.parsedStructured);
         if (cached) {

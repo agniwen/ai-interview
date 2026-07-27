@@ -2,7 +2,7 @@ import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { config as loadEnvFile } from "dotenv";
 import { structuredSchema } from "@arc/db-schema/resume-parser-schema";
-import { runAliyunResumeExtraction } from "./resume-parse-benchmark/aliyun-docmining";
+import { runAliyunResumeExtraction } from "../lib/server/aliyun-docmining";
 
 interface TimedResult<T> {
   durationMs: number;

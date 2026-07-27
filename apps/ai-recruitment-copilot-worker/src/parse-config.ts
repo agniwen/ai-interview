@@ -52,6 +52,7 @@ export function getResumeParseConfigSummary(
     ocrAttempts: getEnvNumberString(env.RESUME_PARSE_OCR_ATTEMPTS, 3),
     ocrPageConcurrency: getEnvNumberString(env.RESUME_PARSE_OCR_PAGE_CONCURRENCY, 1),
     ocrRetryDelayMs: getEnvNumberString(env.RESUME_PARSE_OCR_RETRY_DELAY_MS, 1000),
+    parseProvider: env.RESUME_PARSE_PROVIDER?.trim() || "ocr-llm",
     parseStepLogsEnabled: TRUE_VALUES.has(env.RESUME_PARSE_LOG_STEPS?.trim().toLowerCase() ?? ""),
     qwenOcrBaseUrlHost: getUrlHost(
       env.QWEN_OCR_BASE_URL,
