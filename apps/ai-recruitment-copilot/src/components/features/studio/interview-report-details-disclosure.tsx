@@ -44,7 +44,7 @@ export function InterviewReportDetailsDisclosure({ children }: { children: React
           type="button"
           variant="ghost"
         >
-          {expanded ? "收起更多信息" : "展示详细分析结果"}
+          {expanded ? "收起详细分析结果" : "展示详细分析结果"}
           <IconChevronDown
             className={cn("transition-transform", expanded ? "rotate-180" : undefined)}
           />
