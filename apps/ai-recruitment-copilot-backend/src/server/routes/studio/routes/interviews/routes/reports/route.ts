@@ -31,6 +31,7 @@ export const reportsRouter = factory
       return c.json({ error: "记录不存在。" }, 404);
     }
     const reports = await queryInterviewConversationReportsByRound(roundId, {
+      includeKeyInformation: true,
       includeSnapshotMetadata: true,
     });
     return c.json(reports, 200);

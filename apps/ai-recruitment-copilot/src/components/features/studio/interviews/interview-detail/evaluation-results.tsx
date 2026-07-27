@@ -64,7 +64,7 @@ function KeyValueEntries({ entries }: { entries: Record<string, unknown> }) {
   );
 }
 
-function EvidenceList({
+export function EvidenceList({
   enabledCategories,
   evidence,
   onEvidenceSelect,

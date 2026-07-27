@@ -218,6 +218,16 @@ beforeAll(async () => {
     createdAt: NOW,
     endedAt: NOW,
     interviewRecordId: INTERVIEW_ID,
+    keyInformation: {
+      quantitativeInformation: [],
+      risks: [],
+      skillEvidence: [
+        {
+          content: "候选人介绍了后端开发经历。",
+          evidence: [{ quote: "我是候选人。", timeInCallSecs: 3, turnIndex: 2 }],
+        },
+      ],
+    },
     lastSyncedAt: NOW,
     metadata: {},
     metrics: {},
@@ -285,10 +295,15 @@ describe("queryInterviewConversationReportsByRound", () => {
     const [publicReport] = await queryInterviewConversationReportsByRound(ROUND_ID);
 
     expect(expectPresent(publicReport).snapshotMetadata).toBeUndefined();
+    expect(expectPresent(publicReport).keyInformation).toBeNull();
 
     const [studioReport] = await queryInterviewConversationReportsByRound(ROUND_ID, {
+      includeKeyInformation: true,
       includeSnapshotMetadata: true,
     });
+    expect(expectPresent(studioReport).keyInformation?.skillEvidence[0]?.content).toBe(
+      "候选人介绍了后端开发经历。",
+    );
     const metadata = expectPresent(expectPresent(studioReport).snapshotMetadata);
     const fullTextInput = expectPresent(metadata.fullTextInput);
 

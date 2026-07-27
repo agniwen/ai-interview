@@ -28,6 +28,7 @@ import type {
   InterviewEvidenceSnapshotPayload,
   InterviewSnapshotStatus,
 } from "./interview-snapshots";
+import type { InterviewKeyInformation } from "./interview-key-information";
 import type { InterviewTranscriptTurn } from "./interview-session";
 import type { InterviewQuestion, ResumeProfile } from "./interview/types";
 import type { JobDescriptionConfig } from "./job-description-config";
@@ -1482,6 +1483,14 @@ export const interviewConversation = pgTable(
     interviewRecordId: text("interview_record_id").references(() => studioInterview.id, {
       onDelete: "set null",
     }),
+    keyInformation: jsonb("key_information").$type<InterviewKeyInformation>(),
+    keyInformationAttempts: integer("key_information_attempts").notNull().default(0),
+    keyInformationError: text("key_information_error"),
+    keyInformationStartedAt: timestamp("key_information_started_at", { withTimezone: true }),
+    keyInformationStatus: text("key_information_status")
+      .$type<InterviewSummaryStatus>()
+      .notNull()
+      .default("pending"),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }).defaultNow().notNull(),
     latestError: text("latest_error"),
     metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
@@ -1520,6 +1529,7 @@ export const interviewConversation = pgTable(
   },
   (table) => [
     index("interview_conversation_record_idx").on(table.interviewRecordId),
+    index("interview_conversation_key_information_status_idx").on(table.keyInformationStatus),
     index("interview_conversation_schedule_entry_idx").on(table.scheduleEntryId),
     index("interview_conversation_status_idx").on(table.status),
     index("interview_conversation_summary_status_idx").on(table.summaryStatus),

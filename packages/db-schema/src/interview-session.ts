@@ -7,6 +7,7 @@
  */
 
 import type { InterviewMessageRole, InterviewRecordingStatus } from "./db-enums";
+import type { InterviewKeyInformation } from "./interview-key-information";
 
 /**
  * 实时对话中收到的一轮 transcript（来自 Agent webhook / 流）。
@@ -47,6 +48,7 @@ export interface InterviewConversationSnapshot {
   callSuccessful: string | null;
   transcriptSummary: string | null;
   evaluationCriteriaResults: Record<string, unknown>;
+  keyInformation: InterviewKeyInformation | null;
   dataCollectionResults: Record<string, unknown>;
   metadata: Record<string, unknown>;
   // Agent 端 metrics_collected 聚合：STT/LLM/TTS/EOU/打断的会话级总览与 per-speech_id 明细。
@@ -196,6 +198,7 @@ export interface StudioInterviewConversationReport {
   callSuccessful: string | null;
   transcriptSummary: string | null;
   evaluationCriteriaResults: Record<string, unknown>;
+  keyInformation: InterviewKeyInformation | null;
   dataCollectionResults: Record<string, unknown>;
   metadata: Record<string, unknown>;
   // Agent 端 metrics_collected 聚合：STT/LLM/TTS/EOU/打断的会话级总览与 per-speech_id 明细。

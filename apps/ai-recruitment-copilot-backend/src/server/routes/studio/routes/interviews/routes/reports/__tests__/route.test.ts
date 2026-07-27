@@ -61,6 +61,7 @@ describe("reportsRouter", () => {
       kind: "none",
     });
     expect(mocks.queryInterviewConversationReportsByRound).toHaveBeenCalledWith(ROUND_ID, {
+      includeKeyInformation: true,
       includeSnapshotMetadata: true,
     });
   });

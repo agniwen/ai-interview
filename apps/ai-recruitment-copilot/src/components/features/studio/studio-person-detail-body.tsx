@@ -52,6 +52,7 @@ import { EvaluationResults } from "./interviews/interview-detail/evaluation-resu
 import type { EvidenceQuote } from "./interviews/interview-detail/evaluation-results";
 import { FormsTab } from "./interviews/interview-detail/forms-tab";
 import { InterviewMetricsPanel } from "./interviews/interview-detail/interview-metrics-panel";
+import { KeyInterviewInformation } from "./interviews/interview-detail/key-interview-information";
 import {
   formatReportStatus,
   getReportBadgeVariant,
@@ -568,6 +569,12 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
                                         ) : null}
                                       </CardPanel>
                                     </Card>
+                                    {report.keyInformation ? (
+                                      <KeyInterviewInformation
+                                        data={report.keyInformation}
+                                        onEvidenceSelect={handleEvidenceSelect}
+                                      />
+                                    ) : null}
                                     <Card>
                                       <CardHeader>
                                         <CardTitle className="text-sm">评估指标</CardTitle>

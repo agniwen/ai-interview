@@ -279,6 +279,22 @@ _Avoid_: AI interview, manual round
 The versioned, reviewable evaluation output for one AI interview round, combining evidence from the candidate's resume, submitted forms, and that round's interview. A candidate may have multiple interview reports.
 _Avoid_: Candidate-level aggregate report, summary, feedback note
 
+**Key Interview Information**:
+A recommendation-free set of the candidate's most decision-relevant skill evidence, contextualized quantitative information including stated compensation expectations, and risks stated by the candidate in one AI interview round. Selection prioritizes relevance to the current job while retaining exceptionally material general evidence or risks. Age, marital status, and family circumstances are excluded; an explicit conflict with a job requirement may be retained as an objective constraint. Unverified claims retain candidate-attributed language; resume or form content is included only when the candidate confirms it during that round. It informs an HR member's progression decision without replacing or modifying the interview transcript summary.
+_Avoid_: Interview recommendation, overall assessment, interview transcript summary
+
+**Key Skill Evidence**:
+A candidate statement that shows a job-relevant skill through an actual usage context, responsibility, problem, or result. A standalone claim that the candidate knows a skill is not key skill evidence.
+_Avoid_: Skill keyword, self-rating, inferred capability
+
+**Observed Interview Risk**:
+A job-relevant contradiction, capability gap, or work-condition conflict directly exposed by the candidate's answers in one AI interview round.
+_Avoid_: Missing coverage, unasked requirement, unverified concern
+
+**Interview Verification Item**:
+A decision-relevant candidate statement that remains incomplete or lacks enough detail to confirm or reject. It is explicitly distinct from an observed interview risk.
+_Avoid_: Confirmed weakness, negative inference, missing interview coverage
+
 **Interview Report Evidence**:
 An immutable source fact cited by an interview report conclusion from exactly one of three source families: resume content, a submitted form response, or a candidate statement from that AI interview round. Generated assessments and prior report conclusions are derived material, not evidence.
 _Avoid_: AI rationale, report conclusion, prompt context
