@@ -53,7 +53,7 @@ describe("InterviewReportDetailsDisclosure", () => {
     });
 
     const expandButton = container.querySelector("button");
-    expect(expandButton?.textContent).toContain("展示更多信息");
+    expect(expandButton?.textContent).toContain("展示详细分析结果");
     expect(expandButton?.getAttribute("aria-expanded")).toBe("false");
     expect(container.textContent).not.toContain("最新报告详情");
 
