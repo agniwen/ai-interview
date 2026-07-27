@@ -64,6 +64,7 @@ import { DetailRow } from "./interviews/interview-detail/detail-row";
 import { EvaluationResults } from "./interviews/interview-detail/evaluation-results";
 import type { EvidenceQuote } from "./interviews/interview-detail/evaluation-results";
 import { InterviewMetricsPanel } from "./interviews/interview-detail/interview-metrics-panel";
+import { KeyInterviewInformation } from "./interviews/interview-detail/key-interview-information";
 import { copyInterviewLink } from "./interviews/interview-link-actions";
 import {
   formatReportStatus,
@@ -374,6 +375,13 @@ function InterviewReportDetails({
               </div>
             ) : null}
           </InterviewReportDetailSection>
+          {report.keyInformation ? (
+            <KeyInterviewInformation
+              data={report.keyInformation}
+              onEvidenceSelect={onEvidenceSelect}
+              surface={surface}
+            />
+          ) : null}
           <InterviewReportDetailSection surface={surface} title="评估指标">
             <ScrollArea className="max-h-[420px] pr-1" scrollFade>
               <EvaluationResults

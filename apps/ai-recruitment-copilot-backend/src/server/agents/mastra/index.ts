@@ -3,6 +3,7 @@ import { MastraEditor } from "@mastra/editor";
 import { MastraStorageExporter, Observability, SensitiveDataFilter } from "@mastra/observability";
 import {
   formQuestionAgent,
+  interviewKeyInformationAgent,
   interviewQuestionAgent,
   interviewReportEvaluationAgent,
   interviewReportSummaryAgent,
@@ -24,6 +25,7 @@ configureAlibabaCodingPlanApiKey();
 
 export const recruitmentAgents = {
   formQuestionAgent,
+  interviewKeyInformationAgent,
   interviewQuestionAgent,
   interviewReportEvaluationAgent,
   interviewReportSummaryAgent,

@@ -63,6 +63,7 @@ describe("reportsRouter", () => {
       kind: "none",
     });
     expect(mocks.queryInterviewConversationReportsByRound).toHaveBeenCalledWith(ROUND_ID, {
+      includeKeyInformation: true,
       includeSnapshotMetadata: true,
     });
   });
@@ -90,7 +91,7 @@ describe("reportsRouter", () => {
     expect(mocks.queryInterviewConversationReportByRound).toHaveBeenCalledWith(
       ROUND_ID,
       "conversation_2",
-      { includeSnapshotMetadata: true },
+      { includeKeyInformation: true, includeSnapshotMetadata: true },
     );
   });
 

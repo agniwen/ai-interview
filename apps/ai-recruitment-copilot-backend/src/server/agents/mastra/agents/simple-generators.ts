@@ -140,6 +140,14 @@ export const interviewReportSummaryAgent = new Agent({
   name: "InterviewReportSummaryAgent",
 });
 
+export const interviewKeyInformationAgent = new Agent({
+  id: "interview-key-information-agent",
+  instructions: "你是面试重点信息提取助手，只提取候选人对话中的关键技能证据、量化信息和风险。",
+  maxRetries: 1,
+  model: mastraModels.structuredModel,
+  name: "InterviewKeyInformationAgent",
+});
+
 export const interviewReportEvaluationAgent = new Agent({
   id: "interview-report-evaluation-agent",
   instructions: "你是专业面试评估专家，负责根据面试 transcript 和题目生成结构化评价。",
