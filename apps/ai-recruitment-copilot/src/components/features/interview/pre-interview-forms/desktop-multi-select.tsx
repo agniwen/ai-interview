@@ -37,8 +37,7 @@ export function DesktopMultiSelect({
       return "请选择";
     }
     return question.options
-      .filter((option) => selected.has(option.value))
-      .map((option) => option.label)
+      .flatMap((option) => (selected.has(option.value) ? [option.label] : []))
       .join("、");
   }, [question.options, selected]);
 

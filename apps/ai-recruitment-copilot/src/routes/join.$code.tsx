@@ -72,10 +72,6 @@ function JoinRoute() {
 }
 
 export const Route = createFileRoute("/join/$code")({
-  component: JoinRoute,
-  head: () => ({
-    meta: [{ title: formatDocumentTitle("加入工作区") }],
-  }),
   loader: async ({ params }) => {
     const state = await getJoinRouteState({ data: { code: params.code } });
 
@@ -91,4 +87,8 @@ export const Route = createFileRoute("/join/$code")({
 
     return state;
   },
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("加入工作区") }],
+  }),
+  component: JoinRoute,
 });

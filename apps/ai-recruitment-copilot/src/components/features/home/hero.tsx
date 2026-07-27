@@ -3,7 +3,7 @@
 import { IconArrowRight, IconSparkles } from "@tabler/icons-react";
 // 用途：首页 Hero 区，保留原有视觉与 CTA
 // Purpose: Hero section preserving original visuals + CTAs.
-import { motion, useReducedMotion } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 import { FadeContent } from "@/components/react-bits/fade-content";
 import { SplitText } from "@/components/react-bits/split-text";
 import { Button } from "@/components/ui/button";
@@ -46,14 +46,14 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
         {reducedMotion ? (
           <span className={BRAND_MARK_CLASS}>AI Recruitment Copilot</span>
         ) : (
-          <motion.span
+          <m.span
             animate={{ opacity: 1, transform: "translateY(0px)" }}
             className={BRAND_MARK_CLASS}
             initial={{ opacity: 0, transform: "translateY(12px)" }}
             transition={{ delay: 0.15, duration: 0.5, ease: "easeOut" }}
           >
             AI Recruitment Copilot
-          </motion.span>
+          </m.span>
         )}
         <SplitText text="简历，先聊清楚。面试，一开口就来。" />
       </h1>
@@ -74,7 +74,7 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
             variant="outline"
           >
             <span>开始简历筛选</span>
-            <span className="inline-flex max-w-0 overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover:ml-2 group-hover:max-w-4 group-hover:opacity-100">
+            <span className="inline-flex max-w-0 overflow-hidden opacity-0 transition-[margin,max-width,opacity] duration-300 ease-out group-hover:ml-2 group-hover:max-w-4 group-hover:opacity-100">
               <IconArrowRight aria-hidden="true" className="size-4" />
             </span>
           </Button>
@@ -85,7 +85,7 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
             variant="outline"
           >
             <span>进入工作台</span>
-            <span className="inline-flex max-w-0 overflow-hidden opacity-0 transition-all duration-300 ease-out group-hover:ml-2 group-hover:max-w-4 group-hover:opacity-100">
+            <span className="inline-flex max-w-0 overflow-hidden opacity-0 transition-[margin,max-width,opacity] duration-300 ease-out group-hover:ml-2 group-hover:max-w-4 group-hover:opacity-100">
               <IconArrowRight aria-hidden="true" className="size-4" />
             </span>
           </Button>

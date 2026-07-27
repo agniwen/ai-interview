@@ -63,7 +63,7 @@ export function ResumeLifecycleBadge({
       ) : null}
       <span
         aria-hidden
-        className="ml-auto flex size-4 shrink-0 items-center justify-center rounded-full border border-current/25 bg-current/10 opacity-70 transition-all duration-200 group-hover/lifecycle:scale-110 group-hover/lifecycle:bg-current/15 group-hover/lifecycle:opacity-100"
+        className="ml-auto flex size-4 shrink-0 items-center justify-center rounded-full border border-current/25 bg-current/10 opacity-70 transition-[transform,background-color,opacity] duration-200 group-hover/lifecycle:scale-110 group-hover/lifecycle:bg-current/15 group-hover/lifecycle:opacity-100"
       >
         <IconChevronRight className="size-3 transition-transform duration-200 group-hover/lifecycle:scale-110" />
       </span>

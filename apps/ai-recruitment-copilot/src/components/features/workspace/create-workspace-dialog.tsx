@@ -118,11 +118,12 @@ export function CreateWorkspaceDialog({
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
     setSubmitting(true);
-    const { data, error } = await authClient.organization.create({
-      name: name.trim(),
-      slug: slug.trim(),
-    });
-    setSubmitting(false);
+    const { data, error } = await authClient.organization
+      .create({
+        name: name.trim(),
+        slug: slug.trim(),
+      })
+      .finally(() => setSubmitting(false));
     if (error || !data) {
       // checkSlug 已过滤掉 99% 的冲突;这里兜底竞态/服务端错误。
       // checkSlug filters most conflicts; this catches the rare race / server error.

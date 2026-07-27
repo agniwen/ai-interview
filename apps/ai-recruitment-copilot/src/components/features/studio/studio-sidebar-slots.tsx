@@ -2,6 +2,7 @@
 
 import {
   IconBuilding,
+  IconCalendarEvent,
   IconChartBar,
   IconClipboardList,
   IconFileText,
@@ -71,6 +72,13 @@ const navGroups: NavGroup[] = [
         path: "/studio/interviews",
         resource: "page",
         title: "AI 面试",
+      },
+      {
+        action: "interviews",
+        icon: IconCalendarEvent,
+        path: "/studio/calendar",
+        resource: "page",
+        title: "日程管理",
       },
       {
         action: "dashboard",

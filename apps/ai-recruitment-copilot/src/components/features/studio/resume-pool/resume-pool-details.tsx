@@ -1,5 +1,4 @@
 "use client";
-
 import type { TablerIcon } from "@tabler/icons-react";
 import {
   IconBriefcase2,
@@ -278,7 +277,7 @@ function ResumePoolHighlightRow({
   );
 }
 
-export function ResumePoolCardHighlights({ record }: { record: ResumePoolListRecord }) {
+function ResumePoolCardHighlights({ record }: { record: ResumePoolListRecord }) {
   const { profileHighlights } = record;
   const { educationItems } = profileHighlights;
   const educationFallbackLines =
@@ -338,7 +337,7 @@ export function ResumePoolCardHighlights({ record }: { record: ResumePoolListRec
   );
 }
 
-export function ResumePoolCardUploaderMeta({ record }: { record: ResumePoolListRecord }) {
+function ResumePoolCardUploaderMeta({ record }: { record: ResumePoolListRecord }) {
   const displayName = record.uploaderName?.trim() || record.uploaderEmail?.trim() || "未知";
   return (
     <div className="flex min-w-0 items-center gap-1 text-muted-foreground text-xs">
@@ -443,7 +442,7 @@ export function ResumePoolDetailDialog({
   );
 }
 
-export function ResumePoolCardActions({
+function ResumePoolCardActions({
   canDelete,
   canImport,
   canPublish,

@@ -42,6 +42,7 @@ export default defineConfig({
       "@assistant-ui/react-lexical",
       "@base-ui/react",
       "@base-ui/react/**",
+      "@date-fns/tz",
       // No package-root export; prebundle the deep paths assistant-ui uses.
       "@lexical/react/LexicalComposer",
       "@lexical/react/LexicalComposerContext",

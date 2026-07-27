@@ -103,6 +103,8 @@ describe("findSemanticResumeDuplicates", () => {
               resumeProfile: queryProfile,
               status: "archived",
               targetRole: "全栈工程师",
+              uploaderImage: "https://example.com/uploader.png",
+              uploaderName: "上传人昵称",
             },
           ]),
         vectorStore: {
@@ -126,6 +128,8 @@ describe("findSemanticResumeDuplicates", () => {
     expect(matches[0]).toMatchObject({
       id: "candidate-semantic",
       level: "high",
+      uploaderImage: "https://example.com/uploader.png",
+      uploaderName: "上传人昵称",
     });
     expect(ensureCollection).toHaveBeenCalledTimes(1);
     expect(matches[0]?.score).toBeGreaterThanOrEqual(92);

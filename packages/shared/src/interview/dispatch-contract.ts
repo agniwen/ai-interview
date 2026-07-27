@@ -7,7 +7,7 @@ import {
 } from "@arc/shared/interview/agent-instructions";
 import type { AgentInstructionContext } from "@arc/shared/interview/agent-instructions";
 
-export const INTERVIEW_DISPATCH_SCHEMA_VERSION = 1 as const;
+export const INTERVIEW_DISPATCH_SCHEMA_VERSION = 2 as const;
 
 const sessionSchema = z
   .object({
@@ -55,10 +55,21 @@ const promptsSchema = z
   })
   .strict();
 
+const questionSchema = z
+  .object({
+    content: z.string().trim().min(1),
+    difficulty: z.enum(["easy", "medium", "hard"]),
+    evaluationFocus: z.string().trim().min(1).nullable(),
+    followUpDirections: z.string().trim().min(1).nullable(),
+    id: z.string().trim().min(1),
+  })
+  .strict();
+
 export const interviewDispatchContractSchema = z
   .object({
     candidate: candidateSchema,
     prompts: promptsSchema,
+    questions: z.array(questionSchema).min(1),
     recording: recordingSchema,
     schemaVersion: z.literal(INTERVIEW_DISPATCH_SCHEMA_VERSION),
     selectedInterviewer: selectedInterviewerSchema.nullable(),
@@ -123,6 +134,13 @@ export function buildInterviewDispatchContract(
         targetRole,
       }),
     },
+    questions: input.jobDescriptionPresetQuestions.map((question) => ({
+      content: question.content,
+      difficulty: question.difficulty,
+      evaluationFocus: question.evaluationFocus?.trim() || null,
+      followUpDirections: question.followUpDirections?.trim() || null,
+      id: question.id,
+    })),
     recording: {
       enabled: input.recordingEnabled,
       fileKey: input.recordingFileKey,
@@ -139,32 +157,6 @@ export function buildInterviewDispatchContract(
   return interviewDispatchContractSchema.parse(contract);
 }
 
-/**
- * Expand-contract metadata for rolling Backend → Agent deployments.
- *
- * V1 consumers use the versioned camelCase contract. The temporary snake_case
- * fields let an older Python worker finish jobs while Backend replicas roll
- * forward. Deploy Backend completely before deploying the V1 Agent, then remove
- * this compatibility envelope in a later release.
- */
 export function buildInterviewDispatchMetadata(input: InterviewDispatchContractInput) {
-  const contract = buildInterviewDispatchContract(input);
-  return {
-    ...contract,
-    allow_text_input: contract.session.allowTextInput,
-    candidate_name: contract.candidate.name,
-    candidate_profile: input.resumeProfile,
-    global_closing_instructions: input.closingInstructions ?? null,
-    global_company_context: input.companyContext ?? null,
-    global_opening_instructions: input.openingInstructions ?? null,
-    interview_questions: input.interviewQuestions,
-    interview_record_id: contract.session.interviewRecordId,
-    interviewers: input.selectedInterviewer ? [input.selectedInterviewer] : [],
-    job_description_preset_questions: input.jobDescriptionPresetQuestions,
-    job_description_prompt: input.jobDescriptionPrompt ?? null,
-    recording_enabled: contract.recording.enabled,
-    recording_file_key: contract.recording.fileKey,
-    round_id: contract.session.roundId,
-    target_role: contract.candidate.targetRole,
-  };
+  return buildInterviewDispatchContract(input);
 }

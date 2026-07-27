@@ -55,6 +55,15 @@ export const interviewRouter = factory
     if (!contextSnapshot) {
       return c.json({ error: "Interview not available." }, 404);
     }
+    if (interviewRecord.jobDescriptionPresetQuestions.length === 0) {
+      return c.json(
+        {
+          code: "questions_required",
+          error: "当前面试轮次未绑定必问题目，请联系招聘方完成配置。",
+        },
+        409,
+      );
+    }
     const requiredTemplateIds = contextSnapshot.payload.forms.map((form) => form.templateId);
     if (requiredTemplateIds.length > 0) {
       const submittedIds = await loadSubmittedTemplateIds(id, requiredTemplateIds);

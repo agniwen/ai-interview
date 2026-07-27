@@ -9,9 +9,6 @@ export function useResumeLibraryPageState() {
   const [batchListOpen, setBatchListOpen] = useState(false);
   const [interviewRoundDetailId, setInterviewRoundDetailId] = useState<string | null>(null);
   const [interviewDetailDialogOpen, setInterviewDetailDialogOpen] = useState(false);
-  const [interviewDetailDefaultTab, setInterviewDetailDefaultTab] = useState<
-    "overview" | "reports"
-  >("overview");
   const [launchingRecord, setLaunchingRecord] = useState<{
     id: string;
     candidateName: string | null;
@@ -37,7 +34,6 @@ export function useResumeLibraryPageState() {
     deleteRecord,
     duplicateMatchRecord,
     editRecordId,
-    interviewDetailDefaultTab,
     interviewDetailDialogOpen,
     interviewRoundDetailId,
     isBulkDeleting,
@@ -51,7 +47,6 @@ export function useResumeLibraryPageState() {
     setDeleteRecord,
     setDuplicateMatchRecord,
     setEditRecordId,
-    setInterviewDetailDefaultTab,
     setInterviewDetailDialogOpen,
     setInterviewRoundDetailId,
     setIsBulkDeleting,

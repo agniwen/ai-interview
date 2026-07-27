@@ -78,10 +78,7 @@ function PlatformNotificationsRoute() {
 }
 
 export const Route = createFileRoute("/platform/notifications")({
-  component: PlatformNotificationsRoute,
-  head: () => ({
-    meta: [{ title: formatDocumentTitle("平台 · 飞书通知") }],
-  }),
+  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
   loader: async (loaderContext) => {
     const { location } = loaderContext as unknown as {
       location: { search: SearchParamsRecord };
@@ -98,6 +95,9 @@ export const Route = createFileRoute("/platform/notifications")({
     }
     return state;
   },
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("平台 · 飞书通知") }],
+  }),
+  component: PlatformNotificationsRoute,
   shouldReload: false,
-  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });

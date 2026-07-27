@@ -5,6 +5,7 @@ import { LexicalComposerInput } from "@assistant-ui/react-lexical";
 import { IconArrowUp } from "@tabler/icons-react";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { withCleanup } from "@/lib/client/async-control";
 import { cn } from "@/lib/utils";
 import { composerSendButtonClass } from "./recruiting-copilot-context";
 import { RecruitingComposerDirectiveChip } from "./recruiting-directive-text";
@@ -33,8 +34,11 @@ function NewThreadEnterSubmitPlugin({
   const pluginRegistry = INTERNAL.useComposerInputPluginRegistryOptional();
   const disabledRef = useRef(disabled);
   const onSubmitRef = useRef(onSubmit);
-  disabledRef.current = disabled;
-  onSubmitRef.current = onSubmit;
+
+  useEffect(() => {
+    disabledRef.current = disabled;
+    onSubmitRef.current = onSubmit;
+  }, [disabled, onSubmit]);
 
   useEffect(() => {
     if (!pluginRegistry) {
@@ -93,13 +97,12 @@ function NewRecruitingComposerShell({
     }
     submittingRef.current = true;
     composerRuntime.setText("");
-    void (async () => {
-      try {
-        await onSubmit(nextText);
-      } finally {
+    void withCleanup(
+      () => onSubmit(nextText),
+      () => {
         submittingRef.current = false;
-      }
-    })();
+      },
+    );
   };
 
   return (

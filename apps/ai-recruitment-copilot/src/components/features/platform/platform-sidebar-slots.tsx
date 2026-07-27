@@ -44,12 +44,14 @@ interface NavItem {
 }
 
 interface NavSection {
+  id: string;
   items: NavItem[];
   title?: string;
 }
 
 const manageNavSections: NavSection[] = [
   {
+    id: "platform-management",
     items: [
       {
         icon: IconBuilding,
@@ -85,6 +87,7 @@ const manageNavSections: NavSection[] = [
     title: "平台管理",
   },
   {
+    id: "livekit",
     items: [
       {
         icon: IconServer,
@@ -108,25 +111,35 @@ const manageNavSections: NavSection[] = [
 
 const mastraNavSections: NavSection[] = [
   ...mainNav.map((section) => ({
-    items: section.items
-      .filter((item) => !item.hidden)
-      .map((item) => ({
-        activePaths: item.activePaths?.map(addMastraStudioBase),
-        icon: item.Icon,
-        path: addMastraStudioBase(item.url),
-        title: item.name,
-      })),
+    id: `mastra-${section.title}`,
+    items: section.items.flatMap((item) =>
+      item.hidden
+        ? []
+        : [
+            {
+              activePaths: item.activePaths?.map(addMastraStudioBase),
+              icon: item.Icon,
+              path: addMastraStudioBase(item.url),
+              title: item.name,
+            },
+          ],
+    ),
     title: section.title,
   })),
   {
-    items: bottomNav
-      .filter((item) => !item.hidden)
-      .map((item) => ({
-        activePaths: item.activePaths?.map(addMastraStudioBase),
-        icon: item.Icon,
-        path: addMastraStudioBase(item.url),
-        title: item.name,
-      })),
+    id: "mastra-bottom",
+    items: bottomNav.flatMap((item) =>
+      item.hidden
+        ? []
+        : [
+            {
+              activePaths: item.activePaths?.map(addMastraStudioBase),
+              icon: item.Icon,
+              path: addMastraStudioBase(item.url),
+              title: item.name,
+            },
+          ],
+    ),
   },
 ];
 
@@ -176,8 +189,8 @@ export function PlatformSidebarSlots() {
       </SidebarHeaderPortalContent>
 
       <SidebarBodyPortalContent>
-        {navSections.map((section, index) => (
-          <SidebarGroup key={section.title ?? `bottom-${index}`}>
+        {navSections.map((section) => (
+          <SidebarGroup key={section.id}>
             {section.title ? <SidebarGroupLabel>{section.title}</SidebarGroupLabel> : null}
             <SidebarGroupContent>
               <SidebarMenu>

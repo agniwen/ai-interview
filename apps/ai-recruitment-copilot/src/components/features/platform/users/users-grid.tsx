@@ -22,6 +22,7 @@ import {
   useDataGridState,
 } from "@/components/data-grid";
 import { authClient } from "@/lib/client/auth-client";
+import { runAsyncAction } from "@/lib/client/async-control";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -301,24 +302,24 @@ export function UsersGrid() {
       return;
     }
     setRemarkPending(true);
-    try {
-      await rpcFetch(
-        rpc.api.platform.users[":userId"].remark.$patch({
-          json: {
-            remark: remarkValue.trim() || null,
-          },
-          param: { userId: remarkTarget.id },
-        }),
-        "保存备注失败",
-      );
-      toast.success("备注已保存");
-      setRemarkTarget(null);
-      await grid.invalidate();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "保存备注失败");
-    } finally {
-      setRemarkPending(false);
-    }
+    await runAsyncAction({
+      cleanup: () => setRemarkPending(false),
+      onError: (error) => toast.error(error instanceof Error ? error.message : "保存备注失败"),
+      operation: async () => {
+        await rpcFetch(
+          rpc.api.platform.users[":userId"].remark.$patch({
+            json: {
+              remark: remarkValue.trim() || null,
+            },
+            param: { userId: remarkTarget.id },
+          }),
+          "保存备注失败",
+        );
+        toast.success("备注已保存");
+        setRemarkTarget(null);
+        await grid.invalidate();
+      },
+    });
   }
 
   async function confirmBanUser() {
@@ -326,11 +327,12 @@ export function UsersGrid() {
       return;
     }
     setBanPending(true);
-    const { error } = await authClient.admin.banUser({
-      banReason: "平台管理员封禁",
-      userId: banTarget.id,
-    });
-    setBanPending(false);
+    const { error } = await authClient.admin
+      .banUser({
+        banReason: "平台管理员封禁",
+        userId: banTarget.id,
+      })
+      .finally(() => setBanPending(false));
     if (error) {
       toast.error(error.message ?? "封禁用户失败");
       return;
@@ -345,10 +347,11 @@ export function UsersGrid() {
       return;
     }
     setUnbanPending(true);
-    const { error } = await authClient.admin.unbanUser({
-      userId: unbanTarget.id,
-    });
-    setUnbanPending(false);
+    const { error } = await authClient.admin
+      .unbanUser({
+        userId: unbanTarget.id,
+      })
+      .finally(() => setUnbanPending(false));
     if (error) {
       toast.error(error.message ?? "解封用户失败");
       return;
@@ -363,10 +366,11 @@ export function UsersGrid() {
       return;
     }
     setForceLogoutPending(true);
-    const { error } = await authClient.admin.revokeUserSessions({
-      userId: forceLogoutTarget.id,
-    });
-    setForceLogoutPending(false);
+    const { error } = await authClient.admin
+      .revokeUserSessions({
+        userId: forceLogoutTarget.id,
+      })
+      .finally(() => setForceLogoutPending(false));
     if (error) {
       toast.error(error.message ?? "强制下线失败");
       return;

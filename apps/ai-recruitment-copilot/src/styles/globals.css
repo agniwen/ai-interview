@@ -107,6 +107,10 @@
   --chart-3: oklch(0.8 0.09 254);
   --chart-4: oklch(0.87 0.05 254);
   --chart-5: oklch(0.5 0.16 254);
+  --calendar-ai-interview: var(--color-emerald-500);
+  --calendar-ai-interview-foreground: var(--color-emerald-700);
+  --calendar-human-interview: var(--color-sky-500);
+  --calendar-human-interview-foreground: var(--color-sky-700);
   --sidebar: #f7f7f7;
   /* --sidebar: oklch(0.985 0 0); */
   --sidebar-foreground: oklch(0.28 0 0);
@@ -143,6 +147,10 @@
   --chart-3: #f0abfc;
   --chart-4: #fbcfe8;
   --chart-5: #a5b4fc;
+  --calendar-ai-interview: var(--color-emerald-500);
+  --calendar-ai-interview-foreground: var(--color-emerald-300);
+  --calendar-human-interview: var(--color-sky-500);
+  --calendar-human-interview-foreground: var(--color-sky-300);
   --sidebar: #0e151e;
   --sidebar-foreground: oklch(0.97 0.006 254);
   --sidebar-primary: #c4b5fd;

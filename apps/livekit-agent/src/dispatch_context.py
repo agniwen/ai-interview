@@ -4,32 +4,16 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _CONTRACT_ROOT_KEYS = {
     "candidate",
     "prompts",
+    "questions",
     "recording",
     "schemaVersion",
     "selectedInterviewer",
     "session",
-}
-_LEGACY_COMPATIBILITY_KEYS = {
-    "allow_text_input",
-    "candidate_name",
-    "candidate_profile",
-    "global_closing_instructions",
-    "global_company_context",
-    "global_opening_instructions",
-    "interview_questions",
-    "interview_record_id",
-    "interviewers",
-    "job_description_preset_questions",
-    "job_description_prompt",
-    "recording_enabled",
-    "recording_file_key",
-    "round_id",
-    "target_role",
 }
 
 
@@ -70,6 +54,15 @@ class DispatchPrompts:
 
 
 @dataclass(frozen=True)
+class DispatchQuestion:
+    id: str
+    content: str
+    difficulty: str
+    evaluation_focus: str | None
+    follow_up_directions: str | None
+
+
+@dataclass(frozen=True)
 class InterviewDispatchContext:
     schema_version: int
     session: DispatchSession
@@ -77,6 +70,7 @@ class InterviewDispatchContext:
     recording: DispatchRecording
     selected_interviewer: DispatchInterviewer | None
     prompts: DispatchPrompts
+    questions: tuple[DispatchQuestion, ...]
 
 
 def _object(value: Any, path: str, keys: set[str]) -> dict[str, Any]:
@@ -94,7 +88,7 @@ def _dispatch_root(value: Any) -> dict[str, Any]:
     actual_keys = set(value)
     if not _CONTRACT_ROOT_KEYS.issubset(actual_keys):
         raise DispatchContextError("metadata has missing fields")
-    if not actual_keys.issubset(_CONTRACT_ROOT_KEYS | _LEGACY_COMPATIBILITY_KEYS):
+    if actual_keys != _CONTRACT_ROOT_KEYS:
         raise DispatchContextError("metadata has invalid fields")
     return value
 
@@ -115,6 +109,42 @@ def _boolean(value: Any, path: str) -> bool:
     if not isinstance(value, bool):
         raise DispatchContextError(f"{path} must be a boolean")
     return value
+
+
+def _questions(value: Any) -> tuple[DispatchQuestion, ...]:
+    if not isinstance(value, list) or not value:
+        raise DispatchContextError("questions must contain at least one question")
+    questions: list[DispatchQuestion] = []
+    for index, raw_question in enumerate(value):
+        path = f"questions[{index}]"
+        question = _object(
+            raw_question,
+            path,
+            {
+                "content",
+                "difficulty",
+                "evaluationFocus",
+                "followUpDirections",
+                "id",
+            },
+        )
+        difficulty = _string(question["difficulty"], f"{path}.difficulty")
+        if difficulty not in {"easy", "medium", "hard"}:
+            raise DispatchContextError(f"{path}.difficulty is invalid")
+        questions.append(
+            DispatchQuestion(
+                id=_string(question["id"], f"{path}.id"),
+                content=_string(question["content"], f"{path}.content"),
+                difficulty=difficulty,
+                evaluation_focus=_nullable_string(
+                    question["evaluationFocus"], f"{path}.evaluationFocus"
+                ),
+                follow_up_directions=_nullable_string(
+                    question["followUpDirections"], f"{path}.followUpDirections"
+                ),
+            )
+        )
+    return tuple(questions)
 
 
 def parse_dispatch_context(raw_metadata: str) -> InterviewDispatchContext:
@@ -182,4 +212,5 @@ def parse_dispatch_context(raw_metadata: str) -> InterviewDispatchContext:
             opening=_string(prompts["opening"], "prompts.opening"),
             closing=_string(prompts["closing"], "prompts.closing"),
         ),
+        questions=_questions(root["questions"]),
     )

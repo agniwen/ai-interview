@@ -1,7 +1,7 @@
 /* oxlint-disable complexity -- page controller coordinates grid queries and dialogs. */
 import { IconUsers } from "@tabler/icons-react";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ClientOnly, useRouter, useSearch } from "@tanstack/react-router";
+import { useRouter, useSearch } from "@tanstack/react-router";
 import { buildInfiniteDataGridQueryKey } from "@/components/data-grid/query-contract";
 import { parseCsvParam } from "@arc/shared/csv";
 import {
@@ -12,7 +12,6 @@ import {
 import type {
   PaginatedResumeLibraryResult,
   ResumeLibraryListRecord,
-  ResumeLibraryMetrics,
 } from "@arc/shared/studio-resumes";
 import { pipelineStageMeta } from "@arc/db-schema/studio-interviews";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
@@ -46,6 +45,7 @@ import {
   fetchStudioResumes,
 } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
+import { runAsyncAction } from "@/lib/client/async-control";
 import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { authClient } from "@/lib/client/auth-client";
 import { useWorkspaceMemberRole, useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -58,9 +58,8 @@ import {
   ResumeUploadEntryDialog,
 } from "@/components/features/studio/resumes/resume-upload-entry-dialog";
 import { LaunchInterviewDialog } from "@/components/features/studio/resumes/launch-interview-dialog";
-import { ResumeLibraryCharts } from "@/components/features/studio/resumes/resume-library-charts";
 import { TransitionCandidateDialog } from "@/components/features/studio/resumes/transition-candidate-dialog";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ResumeLibraryMetricsSection } from "@/components/features/studio/resumes/resume-library-metrics-section";
 
 import {
   PIPELINE_STAGE_TAB_DESCRIPTIONS,
@@ -76,7 +75,7 @@ import {
   ResumeLibraryPreviewDialog,
 } from "./resume-library-page-dialogs";
 import { useResumeLibraryPageState } from "./use-resume-library-page-state";
-export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }) {
+export function ResumeLibraryPage() {
   const slug = useWorkspaceSlug();
   const currentMemberRole = useWorkspaceMemberRole();
   const router = useRouter();
@@ -105,7 +104,6 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
     deleteRecord,
     duplicateMatchRecord,
     editRecordId,
-    interviewDetailDefaultTab,
     interviewDetailDialogOpen,
     interviewRoundDetailId,
     isBulkDeleting,
@@ -119,7 +117,6 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
     setDeleteRecord,
     setDuplicateMatchRecord,
     setEditRecordId,
-    setInterviewDetailDefaultTab,
     setInterviewDetailDialogOpen,
     setInterviewRoundDetailId,
     setIsBulkDeleting,
@@ -168,9 +165,9 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
   const activeUploadBatchIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     const nextActiveBatchIds = new Set(
-      libraryBatches
-        .filter((batch) => batch.status === "pending" || batch.status === "running")
-        .map((batch) => batch.id),
+      libraryBatches.flatMap((batch) =>
+        batch.status === "pending" || batch.status === "running" ? [batch.id] : [],
+      ),
     );
     const hadBatchFinish = [...activeUploadBatchIdsRef.current].some(
       (batchId) => !nextActiveBatchIds.has(batchId),
@@ -433,17 +430,17 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
       return;
     }
     setIsBulkDeleting(true);
-    try {
-      const result = await bulkDeleteStudioResumes(slug, ids);
-      toast.success(`已删除 ${result.deleted ?? ids.length} 条记录`);
-      grid.setRowSelection({});
-      setBulkDeleteOpen(false);
-      invalidateAll();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "批量删除失败");
-    } finally {
-      setIsBulkDeleting(false);
-    }
+    await runAsyncAction({
+      cleanup: () => setIsBulkDeleting(false),
+      onError: (error) => toast.error(error instanceof Error ? error.message : "批量删除失败"),
+      operation: async () => {
+        const result = await bulkDeleteStudioResumes(slug, ids);
+        toast.success(`已删除 ${result.deleted ?? ids.length} 条记录`);
+        grid.setRowSelection({});
+        setBulkDeleteOpen(false);
+        invalidateAll();
+      },
+    });
   }
 
   const resumeLibraryEmptyState = grid.filters.stage ? (
@@ -487,9 +484,7 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
           title="招聘台"
           description="已经进入招聘流程的候选人在这里跟进：看简历、匹配岗位、推进到面试。"
         />
-        <ClientOnly fallback={<Skeleton className="h-48 w-full" />}>
-          <ResumeLibraryCharts metrics={metrics} />
-        </ClientOnly>
+        <ResumeLibraryMetricsSection />
         <Tabs
           onValueChange={(value) => {
             setRowSelection({});
@@ -615,13 +610,12 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
           launch-interview flow from the resume library row menu. recordId is
           the round id when mode="interview". */}
       <StudioPersonDetailDialog
-        defaultTab={interviewDetailDefaultTab}
+        defaultTab="overview"
         mode="interview"
         onOpenChange={setInterviewDetailDialogOpen}
         onOpenChangeComplete={(open) => {
           if (!open && !interviewDetailDialogOpen) {
             setInterviewRoundDetailId(null);
-            setInterviewDetailDefaultTab("overview");
           }
         }}
         onUpdated={invalidateAll}
@@ -633,7 +627,6 @@ export function ResumeLibraryPage({ metrics }: { metrics: ResumeLibraryMetrics }
         candidateName={launchingRecord?.candidateName ?? null}
         onLaunched={(round) => {
           invalidateAll();
-          setInterviewDetailDefaultTab("overview");
           setInterviewRoundDetailId(round.id);
           setInterviewDetailDialogOpen(true);
         }}

@@ -2,7 +2,7 @@ import logging
 import os
 import re
 import time
-from collections.abc import AsyncIterable
+from collections.abc import AsyncIterable, Awaitable, Callable
 
 from livekit import rtc
 from livekit.agents import (
@@ -17,11 +17,26 @@ from livekit.agents import (
 from livekit.agents.beta.tools import EndCallTool
 
 from dispatch_context import InterviewDispatchContext
+from interview_clock import (
+    STOP_NEW_QUESTIONS_SECONDS,
+    PausableInterviewClock,
+)
+from interview_question_task import (
+    InterviewQuestionOutcome,
+    QuestionOutcomeStatus,
+    build_question_task_group,
+)
 from prompts import LANGUAGE_POLICY
 from ready_check_task import ReadyCheckTask
 from wrap_up_task import WrapUpTask
 
 logger = logging.getLogger("agent")
+
+
+class InterviewWorkflowStoppedError(Exception):
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
 
 
 # 调试开关: 设置 INTERVIEW_DEBUG_FAST=1 时把整套计时压到 1 分钟级别, 用来在本地
@@ -96,6 +111,11 @@ class InterviewAgent(Agent):
         self,
         interview_context: InterviewDispatchContext,
         time_limit_seconds: int = INTERVIEW_TIME_LIMIT_SECONDS,
+        *,
+        clock: PausableInterviewClock | None = None,
+        on_question_completed: (
+            Callable[[InterviewQuestionOutcome], Awaitable[None]] | None
+        ) = None,
     ) -> None:
         self._opening_instructions = interview_context.prompts.opening
         self._closing_instructions = interview_context.prompts.closing
@@ -117,6 +137,12 @@ class InterviewAgent(Agent):
         self._candidate_name = interview_context.candidate.name
         self._target_role = interview_context.candidate.target_role
         self._time_limit = time_limit_seconds
+        self._clock = clock or PausableInterviewClock()
+        self._on_question_completed_callback = on_question_completed
+        self._questions = interview_context.questions
+        self._question_outcomes: dict[str, InterviewQuestionOutcome] = {}
+        self._question_group = None
+        self._call_completion_status: str | None = None
         self._started_at: float | None = None
         # 防止 enter_wrap_up 被重复调用: WrapUpTask 进入后会自行 end_call 关闭 session,
         # 但模型在 hint 持续提示下可能在 wrap-up 还没生效前再次尝试调用本工具.
@@ -129,9 +155,86 @@ class InterviewAgent(Agent):
         self._started_at = time.time()
 
     def elapsed_seconds(self) -> float:
-        if self._started_at is None:
-            return 0.0
-        return max(0.0, time.time() - self._started_at)
+        return self._clock.elapsed()
+
+    @property
+    def question_outcomes(self) -> tuple[InterviewQuestionOutcome, ...]:
+        return tuple(
+            self._question_outcomes[question.id]
+            for question in self._questions
+            if question.id in self._question_outcomes
+        )
+
+    @property
+    def call_completion_status(self) -> str | None:
+        return self._call_completion_status
+
+    @property
+    def current_question_text(self) -> str | None:
+        current_id = (
+            self._question_group.current_question_id
+            if self._question_group is not None
+            else None
+        )
+        if current_id is None:
+            return None
+        return next(
+            question.content
+            for question in self._questions
+            if question.id == current_id
+        )
+
+    def stop_question_workflow(self, reason: str) -> bool:
+        if self._question_group is None:
+            return False
+        return self._question_group.interrupt_current(reason)
+
+    def finalize_missing_question_outcomes(self, reason: str) -> None:
+        current_id = (
+            self._question_group.current_question_id
+            if self._question_group is not None
+            else None
+        )
+        if current_id is not None and current_id not in self._question_outcomes:
+            current_outcome = self._question_group.current_interrupted_outcome(
+                now=self.elapsed_seconds(),
+                reason=reason,
+            )
+            if current_outcome is not None:
+                self._question_outcomes[current_id] = current_outcome
+        self._record_unasked(reason)
+
+    async def _on_question_completed(self, event) -> None:
+        outcome = event.result
+        if not isinstance(outcome, InterviewQuestionOutcome):
+            return
+        self._question_outcomes[outcome.question_id] = outcome
+        if self._on_question_completed_callback is not None:
+            await self._on_question_completed_callback(outcome)
+        if outcome.status is QuestionOutcomeStatus.INTERRUPTED:
+            raise InterviewWorkflowStoppedError(outcome.reason or "system_shutdown")
+        if self.elapsed_seconds() >= STOP_NEW_QUESTIONS_SECONDS:
+            raise InterviewWorkflowStoppedError("time_limit")
+
+    def _record_unasked(self, reason: str) -> None:
+        now = self.elapsed_seconds()
+        for question in self._questions:
+            if question.id in self._question_outcomes:
+                continue
+            self._question_outcomes[question.id] = InterviewQuestionOutcome(
+                question_id=question.id,
+                question=question.content,
+                difficulty=question.difficulty,
+                evaluation_focus=question.evaluation_focus,
+                follow_up_directions=question.follow_up_directions,
+                status=QuestionOutcomeStatus.UNASKED,
+                reason=reason,
+                follow_up_count=0,
+                started_at_secs=now,
+                ended_at_secs=now,
+                answer_summary=None,
+                revision=1,
+            )
 
     @property
     def time_limit_seconds(self) -> int:
@@ -242,24 +345,38 @@ class InterviewAgent(Agent):
             opening_instructions=self._opening_instructions,
         )
         if not ready:
-            handle = self.session.generate_reply(
-                instructions=self._closing_instructions,
-                allow_interruptions=False,
+            self._call_completion_status = "partial"
+            self._record_unasked("candidate_ended_round")
+            await WrapUpTask(
+                self._end_call_tool,
+                ask_closing_question=False,
             )
-            await handle.wait_for_playout()
-            await self.session.aclose()
             return
 
-        # 候选人确认就绪后, 用一句轻量指令把控制权交回 InterviewAgent 的主 prompt,
-        # 由它按系统提示中的题目顺序进入第一道面试题. 不要再次寒暄.
-        # Hand control back to the main interview prompt: the system prompt
-        # already contains the question list, so we only nudge it into the
-        # first interview question without repeating the greeting.
-        await self.session.generate_reply(
-            instructions=(
-                "候选人已确认准备好，并且上个阶段已经说过类似‘好的，那正式开始’之类的话了。直接开始按系统提示中的题目列表顺序，"
-                "向候选人提出第一道面试题。直接进入提问，不要再次寒暄或自我介绍。"
-            ),
+        self._question_group = build_question_task_group(
+            self._questions,
+            now=self.elapsed_seconds,
+            outcomes=self._question_outcomes,
+            on_task_completed=self._on_question_completed,
+        )
+        stop_reason: str | None = None
+        try:
+            await self._question_group
+            self._call_completion_status = "success"
+        except InterviewWorkflowStoppedError as error:
+            stop_reason = error.reason
+            self._record_unasked(error.reason)
+            self._call_completion_status = (
+                "success"
+                if error.reason == "time_limit"
+                else "failed"
+                if error.reason == "system_shutdown"
+                else "partial"
+            )
+
+        await WrapUpTask(
+            self._end_call_tool,
+            ask_closing_question=stop_reason in {None, "time_limit"},
         )
 
     async def stt_node(

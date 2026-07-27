@@ -7,6 +7,7 @@ import { rpc } from "@/lib/client/rpc";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { withCleanup } from "@/lib/client/async-control";
 import { InterviewFlowFloatingBar } from "./interview-flow-floating-bar";
 import { FormCard } from "./pre-interview-forms/form-card";
 import { buildInitialAnswers, validateAnswers } from "./pre-interview-forms/helpers";
@@ -16,6 +17,10 @@ import type {
   FormsPayload,
   RequiredTemplate,
 } from "./pre-interview-forms/types";
+
+function omitFieldError(errors: FieldErrorMap, questionId: string): FieldErrorMap {
+  return Object.fromEntries(Object.entries(errors).filter(([key]) => key !== questionId));
+}
 
 export async function fetchPreInterviewForms(
   interviewId: string,
@@ -104,8 +109,7 @@ export function PreInterviewFormsView({
         if (!current?.[questionId]) {
           return prev;
         }
-        const { [questionId]: _removed, ...rest } = current;
-        return { ...prev, [templateId]: rest };
+        return { ...prev, [templateId]: omitFieldError(current, questionId) };
       });
     },
     [],
@@ -113,43 +117,44 @@ export function PreInterviewFormsView({
 
   const handleSubmitAll = useCallback(async () => {
     setSubmitting(true);
-    try {
-      const nextErrors: Record<string, FieldErrorMap> = {};
-      let firstInvalidTitle: string | null = null;
-      for (const template of pendingTemplates) {
-        const answers = answersByTemplate[template.templateId] ?? {};
-        const errors = validateAnswers(template.snapshot, answers);
-        if (Object.keys(errors).length > 0) {
-          nextErrors[template.templateId] = errors;
-          if (!firstInvalidTitle) {
-            firstInvalidTitle = template.snapshot.title;
+    await withCleanup(
+      async () => {
+        const nextErrors: Record<string, FieldErrorMap> = {};
+        let firstInvalidTitle: string | null = null;
+        for (const template of pendingTemplates) {
+          const answers = answersByTemplate[template.templateId] ?? {};
+          const errors = validateAnswers(template.snapshot, answers);
+          if (Object.keys(errors).length > 0) {
+            nextErrors[template.templateId] = errors;
+            if (!firstInvalidTitle) {
+              firstInvalidTitle = template.snapshot.title;
+            }
           }
         }
-      }
-      setErrorsByTemplate(nextErrors);
-      if (firstInvalidTitle) {
-        toast.error(`「${firstInvalidTitle}」有未完成的题目，请检查标红的内容`);
-        return;
-      }
-      for (const template of pendingTemplates) {
-        const answers = answersByTemplate[template.templateId] ?? {};
-        const result = await submitForm(
-          interviewId,
-          roundId,
-          template.templateId,
-          template.versionId,
-          answers,
-        );
-        if (!result.success) {
-          toast.error(`「${template.snapshot.title}」${result.error ?? "提交失败"}`);
+        setErrorsByTemplate(nextErrors);
+        if (firstInvalidTitle) {
+          toast.error(`「${firstInvalidTitle}」有未完成的题目，请检查标红的内容`);
           return;
         }
-        setSubmittedIds((prev) => new Set([...prev, template.templateId]));
-      }
-      toast.success("面试表单已提交");
-    } finally {
-      setSubmitting(false);
-    }
+        for (const template of pendingTemplates) {
+          const answers = answersByTemplate[template.templateId] ?? {};
+          const result = await submitForm(
+            interviewId,
+            roundId,
+            template.templateId,
+            template.versionId,
+            answers,
+          );
+          if (!result.success) {
+            toast.error(`「${template.snapshot.title}」${result.error ?? "提交失败"}`);
+            return;
+          }
+          setSubmittedIds((prev) => new Set([...prev, template.templateId]));
+        }
+        toast.success("面试表单已提交");
+      },
+      () => setSubmitting(false),
+    );
   }, [answersByTemplate, interviewId, pendingTemplates, roundId]);
 
   if (noFormsRequired || allSubmitted) {

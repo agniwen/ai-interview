@@ -12,10 +12,6 @@ function PlatformRoute() {
 }
 
 export const Route = createFileRoute("/platform")({
-  component: PlatformRoute,
-  head: ({ matches }) => ({
-    meta: documentTitleMeta(matches),
-  }),
   loader: async (loaderContext) => {
     const { location } = loaderContext as { location: { pathname: string } };
     const state = await getPlatformAdminState();
@@ -30,4 +26,8 @@ export const Route = createFileRoute("/platform")({
     }
     return null;
   },
+  head: ({ matches }) => ({
+    meta: documentTitleMeta(matches),
+  }),
+  component: PlatformRoute,
 });

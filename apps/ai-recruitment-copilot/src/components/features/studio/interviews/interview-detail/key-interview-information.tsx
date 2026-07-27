@@ -3,6 +3,7 @@
 import type { InterviewKeyInformation } from "@arc/db-schema/interview-key-information";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardPanel, CardTitle } from "@/components/ui/card";
+import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { EvidenceList } from "./evaluation-results";
 import type { EvidenceQuote } from "./evaluation-results";
 import { HighlightedText } from "./keyword-highlight/highlighted-text";
@@ -86,9 +87,11 @@ function RiskSection({
 export function KeyInterviewInformation({
   data,
   onEvidenceSelect,
+  surface = "card",
 }: {
   data: InterviewKeyInformation;
   onEvidenceSelect?: (evidence: EvidenceQuote) => void;
+  surface?: "card" | "frame";
 }) {
   const hasContent =
     data.skillEvidence.length > 0 ||
@@ -99,24 +102,39 @@ export function KeyInterviewInformation({
     return null;
   }
 
+  const content = (
+    <>
+      <InformationSection
+        items={data.skillEvidence}
+        onEvidenceSelect={onEvidenceSelect}
+        title="关键技能证据"
+      />
+      <InformationSection
+        items={data.quantitativeInformation}
+        onEvidenceSelect={onEvidenceSelect}
+        title="关键量化信息"
+      />
+      <RiskSection items={data.risks} onEvidenceSelect={onEvidenceSelect} />
+    </>
+  );
+
+  if (surface === "frame") {
+    return (
+      <Frame>
+        <FrameHeader>
+          <FrameTitle>重点信息</FrameTitle>
+        </FrameHeader>
+        <FramePanel className="flex flex-col gap-4">{content}</FramePanel>
+      </Frame>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-sm">重点信息</CardTitle>
       </CardHeader>
-      <CardPanel className="flex flex-col gap-4">
-        <InformationSection
-          items={data.skillEvidence}
-          onEvidenceSelect={onEvidenceSelect}
-          title="关键技能证据"
-        />
-        <InformationSection
-          items={data.quantitativeInformation}
-          onEvidenceSelect={onEvidenceSelect}
-          title="关键量化信息"
-        />
-        <RiskSection items={data.risks} onEvidenceSelect={onEvidenceSelect} />
-      </CardPanel>
+      <CardPanel className="flex flex-col gap-4">{content}</CardPanel>
     </Card>
   );
 }

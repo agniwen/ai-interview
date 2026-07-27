@@ -79,10 +79,6 @@ function WaitRoute() {
 }
 
 export const Route = createFileRoute("/wait")({
-  component: WaitRoute,
-  head: () => ({
-    meta: [{ title: formatDocumentTitle("等待授权") }],
-  }),
   loader: async () => {
     const state = await getNoAccessWaitState();
     if (state.status === "unauthenticated") {
@@ -93,4 +89,8 @@ export const Route = createFileRoute("/wait")({
     }
     return state;
   },
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("等待授权") }],
+  }),
+  component: WaitRoute,
 });

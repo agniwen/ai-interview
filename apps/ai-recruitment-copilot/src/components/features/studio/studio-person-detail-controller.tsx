@@ -13,11 +13,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchPublicInterviewRound,
   fetchPublicInterviewRoundFormSubmissions,
+  fetchPublicInterviewRoundReport,
   fetchPublicInterviewRoundReports,
   fetchPublicResume,
   fetchPublicResumeRounds,
   fetchStudioInterviewRound,
   fetchStudioInterviewRoundFormSubmissions,
+  fetchStudioInterviewRoundReport,
   fetchStudioInterviewRoundReports,
   fetchStudioResume,
   fetchStudioResumeRounds,
@@ -29,8 +31,9 @@ import {
   resolveStudioInterviewRecordId,
 } from "@/lib/client/api";
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
+import { runAsyncAction } from "@/lib/client/async-control";
 
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -43,11 +46,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { PipelineStageActionBar } from "./pipeline-stage-action-bar";
 import { DetailHeaderSkeleton } from "./studio-person-detail-skeletons";
-import { countDisplayInterviewTurns } from "@arc/shared/interview-transcript-turns";
 import { pipelineStageMeta, scheduleEntryStatusMeta } from "@arc/db-schema/studio-interviews";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
-import { useRoundEmailSummary } from "./interviews/round-email/use-round-email-summary";
-import { ensureArray } from "./interviews/interview-detail/helpers";
 
 import {
   findCachedResumeCandidateName,
@@ -66,6 +66,7 @@ import {
   detailPanelUiReducer,
   getCollectedCandidateInfoItems,
   getEvaluationSummary,
+  getReportFormItems,
   initialDetailPanelUiState,
   resetInterviewFormSubmission,
   resetInterviewRound,
@@ -94,6 +95,7 @@ interface UnifiedRecord {
   roundId?: string;
   roundLabel?: string;
   roundScheduledAt?: string | null;
+  roundScheduledEndAt?: string | null;
   roundStatus?: StudioInterviewRoundDetail["status"];
   roundInterviewLink?: string;
   roundAllowTextInput?: boolean;
@@ -123,6 +125,7 @@ function toUnifiedRoundRecord(round: StudioInterviewRoundDetail): UnifiedRecord 
     roundInterviewLink: round.interviewLink,
     roundLabel: round.roundLabel,
     roundScheduledAt: round.scheduledAt,
+    roundScheduledEndAt: round.scheduledEndAt,
     roundStatus: round.status,
     targetRole: round.candidate.targetRole,
   };
@@ -183,6 +186,9 @@ export function useStudioPersonDetailController({
   const [metadataReport, setMetadataReport] = useState<StudioInterviewConversationReport | null>(
     null,
   );
+  const [selectedResultConversationId, setSelectedResultConversationId] = useState<string | null>(
+    null,
+  );
   const [optimisticPipelineStage, setOptimisticPipelineStage] = useState<PipelineStage | null>(
     null,
   );
@@ -201,6 +207,7 @@ export function useStudioPersonDetailController({
     setActiveTab(defaultTab ?? "overview");
     setMetadataReport(null);
     setOptimisticPipelineStage(null);
+    setSelectedResultConversationId(null);
   }, [defaultTab, mode, recordId, roundId]);
   useEffect(() => {
     tabContentRootRef.current?.scrollTo({
@@ -255,30 +262,30 @@ export function useStudioPersonDetailController({
       return;
     }
     setIsReassessingResume(true);
-    try {
-      const response = await fetch(
-        `/api/w/${encodeURIComponent(slug)}/studio/resumes/${encodeURIComponent(effectiveRecordId)}/reassess`,
-        { method: "POST" },
-      );
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-      if (!response.ok) {
-        throw new Error(payload?.error ?? "重新评估失败");
-      }
-      toast.success("已开始重新评估");
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["studio-resumes"] }),
-        queryClient.invalidateQueries({
-          queryKey: ["studio-resumes", slug, "detail", effectiveRecordId],
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ["studio-resumes", slug, "timeline", effectiveRecordId],
-        }),
-      ]);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "重新评估失败");
-    } finally {
-      setIsReassessingResume(false);
-    }
+    await runAsyncAction({
+      cleanup: () => setIsReassessingResume(false),
+      onError: (error) => toast.error(error instanceof Error ? error.message : "重新评估失败"),
+      operation: async () => {
+        const response = await fetch(
+          `/api/w/${encodeURIComponent(slug)}/studio/resumes/${encodeURIComponent(effectiveRecordId)}/reassess`,
+          { method: "POST" },
+        );
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        if (!response.ok) {
+          throw new Error(payload?.error ?? "重新评估失败");
+        }
+        toast.success("已开始重新评估");
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["studio-resumes"] }),
+          queryClient.invalidateQueries({
+            queryKey: ["studio-resumes", slug, "detail", effectiveRecordId],
+          }),
+          queryClient.invalidateQueries({
+            queryKey: ["studio-resumes", slug, "timeline", effectiveRecordId],
+          }),
+        ]);
+      },
+    });
   }
   const { data: reports = [], isLoading: isReportsLoading } = useQuery({
     enabled: enabled && !!effectiveRoundId && mode === "interview",
@@ -289,20 +296,6 @@ export function useStudioPersonDetailController({
     queryKey: ["studio-interview-round-reports", slug, effectiveRoundId, accessMode],
     refetchOnWindowFocus: true,
   });
-  const reportTranscriptStats = useMemo(() => {
-    const stats = new Map<string, ReturnType<typeof countDisplayInterviewTurns>>();
-    for (const report of reports) {
-      stats.set(report.conversationId, countDisplayInterviewTurns(report.turns));
-    }
-    return stats;
-  }, [reports]);
-  const totalDisplayTurnCount = useMemo(() => {
-    let total = 0;
-    for (const stats of reportTranscriptStats.values()) {
-      total += stats.turnCount;
-    }
-    return total;
-  }, [reportTranscriptStats]);
   const { data: formSubmissions = [], isLoading: isFormSubmissionsLoading } = useQuery({
     enabled: enabled && !!effectiveRoundId && mode === "interview",
     queryFn: () =>
@@ -327,6 +320,9 @@ export function useStudioPersonDetailController({
     refetchOnWindowFocus: true,
   });
   const latestCandidateRoundId = mode === "resume" ? (candidateRounds.at(-1)?.id ?? null) : null;
+  useEffect(() => {
+    setSelectedResultConversationId(null);
+  }, [latestCandidateRoundId]);
   const shouldLoadResumeInterviewResult =
     enabled && mode === "resume" && activeTab === "rounds" && !!latestCandidateRoundId;
   const { data: latestCandidateRoundReports = [], isLoading: isCandidateRoundReportsLoading } =
@@ -370,6 +366,62 @@ export function useStudioPersonDetailController({
     ] as const,
     refetchOnWindowFocus: true,
   });
+  const resultReports = mode === "interview" ? reports : latestCandidateRoundReports;
+  const resultRoundId = mode === "interview" ? effectiveRoundId : latestCandidateRoundId;
+  const latestResultReport = resultReports[0] ?? null;
+  const hasSelectedResultReport = resultReports.some(
+    (report) => report.conversationId === selectedResultConversationId,
+  );
+  const effectiveSelectedResultConversationId =
+    (hasSelectedResultReport ? selectedResultConversationId : null) ??
+    latestResultReport?.conversationId ??
+    null;
+  const selectedResultReportFromList =
+    resultReports.find(
+      (report) => report.conversationId === effectiveSelectedResultConversationId,
+    ) ?? null;
+  const shouldFetchSelectedReport =
+    Boolean(resultRoundId) && hasSelectedResultReport && Boolean(selectedResultConversationId);
+  const {
+    data: fetchedSelectedReport,
+    error: selectedReportError,
+    isError: isSelectedReportError,
+    isFetching: isSelectedReportFetching,
+  } = useQuery({
+    enabled: enabled && shouldFetchSelectedReport,
+    queryFn: () =>
+      isPublic
+        ? fetchPublicInterviewRoundReport(
+            resultRoundId as string,
+            effectiveSelectedResultConversationId as string,
+          )
+        : fetchStudioInterviewRoundReport(
+            slug,
+            resultRoundId as string,
+            effectiveSelectedResultConversationId as string,
+          ),
+    queryKey: [
+      "studio-interview-round-reports",
+      slug,
+      resultRoundId,
+      accessMode,
+      "detail",
+      effectiveSelectedResultConversationId,
+    ] as const,
+    refetchOnWindowFocus: false,
+  });
+  useEffect(() => {
+    if (isSelectedReportError) {
+      toast.error(
+        selectedReportError instanceof Error
+          ? selectedReportError.message
+          : "加载面试记录失败，请稍后重试。",
+      );
+    }
+  }, [isSelectedReportError, selectedReportError]);
+  const selectedResultReport = shouldFetchSelectedReport
+    ? (fetchedSelectedReport ?? (isSelectedReportError ? selectedResultReportFromList : null))
+    : latestResultReport;
   const { data: candidateTimeline, isLoading: isTimelineLoading } = useQuery({
     enabled:
       enabled && !!effectiveRecordId && mode === "resume" && !isPublic && activeTab === "overview",
@@ -380,17 +432,6 @@ export function useStudioPersonDetailController({
     queryKey: ["studio-resumes", slug, "timeline", effectiveRecordId, accessMode] as const,
     refetchOnWindowFocus: true,
   });
-  let resultRoundId: string | null = null;
-  if (mode === "interview") {
-    resultRoundId = round?.id ?? null;
-  } else if (shouldLoadResumeInterviewResult) {
-    resultRoundId = latestCandidateRoundId;
-  }
-  const roundEmailSummaryRoundIds = canUseManagementActions && resultRoundId ? [resultRoundId] : [];
-  const roundEmailSummaryQuery = useRoundEmailSummary(slug, roundEmailSummaryRoundIds);
-  const roundEmailSummary = resultRoundId
-    ? roundEmailSummaryQuery.data?.[resultRoundId]
-    : undefined;
   const isLoading =
     mode === "interview" ? isResolvingRoundId || isInterviewLoading : isResumeLoading;
   let record: UnifiedRecord | null = null;
@@ -426,29 +467,23 @@ export function useStudioPersonDetailController({
   }, [optimisticPipelineStage, record?.pipelineStage]);
   const visiblePipelineStage = optimisticPipelineStage ?? record?.pipelineStage;
   const hasRecord = record !== null;
-  const tabVisibilityRecord = useMemo(
-    () =>
-      hasRecord
-        ? {
-            pipelineStage: visiblePipelineStage,
-          }
-        : null,
-    [hasRecord, visiblePipelineStage],
-  );
-  const availableTabs = useMemo(() => {
+  const tabVisibilityRecord = hasRecord
+    ? {
+        pipelineStage: visiblePipelineStage,
+      }
+    : null;
+  const showAgentInstructions = import.meta.env.DEV && mode === "interview" && !isPublic;
+  const availableTabs = (() => {
     const tabs = new Set<StudioPersonDetailTab>();
     if (!hasRecord) {
       return tabs;
     }
     tabs.add("overview");
     if (mode === "interview") {
-      tabs.add("reports");
-      tabs.add("questions");
       tabs.add("experience");
-      if (!isPublic) {
+      if (showAgentInstructions) {
         tabs.add("instructions");
       }
-      tabs.add("forms");
       return tabs;
     }
     tabs.add("ai-analysis");
@@ -462,7 +497,7 @@ export function useStudioPersonDetailController({
       tabs.add("offer");
     }
     return tabs;
-  }, [canReadHumanInterview, canReadOffer, hasRecord, isPublic, mode, tabVisibilityRecord]);
+  })();
   useEffect(() => {
     if (record && !availableTabs.has(activeTab)) {
       setActiveTab("overview");
@@ -528,49 +563,37 @@ export function useStudioPersonDetailController({
     }
     dispatchUi({ id: null, type: "resettingRoundChanged" });
   }
-  const aiStageLockedReason: string | null =
-    record?.pipelineStage &&
-    record.pipelineStage !== "screening" &&
-    record.pipelineStage !== "ai_interview"
-      ? `候选人已进入「${pipelineStageMeta[record.pipelineStage].label}」阶段，AI 面试相关操作已锁定。如需修改请先回退阶段或重新激活。`
-      : null;
-  const isAiStageLocked = aiStageLockedReason !== null;
-  const interviewQuestions = ensureArray<
-    StudioInterviewRoundDetail["candidate"]["interviewQuestions"][number]
-  >(record?.interviewQuestions);
-  const visibleInterviewQuestions = interviewQuestions.slice(0, 20);
-  const latestReport = reports[0] ?? null;
-  const latestEvaluationSummary = getEvaluationSummary(
-    latestReport?.evaluationCriteriaResults as Record<string, unknown> | undefined,
-  );
-  const latestCandidateRoundReport = latestCandidateRoundReports[0] ?? null;
-  const latestCandidateRoundEvaluationSummary = getEvaluationSummary(
-    latestCandidateRoundReport?.evaluationCriteriaResults as Record<string, unknown> | undefined,
-  );
   const isResumeInterviewResultLoading =
     isRoundsLoading ||
     (!!latestCandidateRoundId &&
       (isCandidateRoundReportsLoading ||
         isResumeInterviewRoundLoading ||
         isResumeInterviewFormSubmissionsLoading));
-  const { formItems, interviewItems } = getCollectedCandidateInfoItems({
-    evaluation: latestReport?.evaluationCriteriaResults as Record<string, unknown> | undefined,
-    formSubmissions,
-  });
-  const { formItems: resumeInterviewFormItems, interviewItems: resumeInterviewItems } =
-    getCollectedCandidateInfoItems({
-      evaluation: latestCandidateRoundReport?.evaluationCriteriaResults as
-        | Record<string, unknown>
-        | undefined,
-      formSubmissions: resumeInterviewFormSubmissions,
-    });
+  const selectedResultEvaluationSummary = getEvaluationSummary(
+    selectedResultReport?.evaluationCriteriaResults as Record<string, unknown> | undefined,
+  );
+  const currentResultFormSubmissions =
+    mode === "interview" ? formSubmissions : resumeInterviewFormSubmissions;
+  const currentResultFormItems = getCollectedCandidateInfoItems({
+    evaluation: null,
+    formSubmissions: currentResultFormSubmissions,
+  }).formItems;
+  const selectedResultFormItems =
+    getReportFormItems(selectedResultReport) ??
+    (effectiveSelectedResultConversationId === latestResultReport?.conversationId
+      ? currentResultFormItems
+      : []);
+  const selectedResultInterviewItems = getCollectedCandidateInfoItems({
+    evaluation: selectedResultReport?.evaluationCriteriaResults as
+      | Record<string, unknown>
+      | undefined,
+    formSubmissions: [],
+  }).interviewItems;
+  const isLatestResultReportSelected =
+    effectiveSelectedResultConversationId === latestResultReport?.conversationId;
   const isRoundCompleted = record?.roundStatus === "completed";
   const canResetAiRound =
     Boolean(record?.roundId) && !isPublic && record?.pipelineStage === "ai_interview";
-  const isRoundLive =
-    record?.roundStatus === "in_progress" || record?.roundStatus === "interrupted";
-  const roundActionLockedReason = isRoundLive ? "面试正在进行中，结束后才能发送或复制链接。" : null;
-  const roundActionDisabledReason = roundActionLockedReason ?? aiStageLockedReason;
   const canLaunchResumeModeRecord =
     canUseManagementActions &&
     (mode !== "resume" || !record?.resumeParseStatus
@@ -745,16 +768,6 @@ export function useStudioPersonDetailController({
             {mode === "interview" ? "结果" : "概览"}
           </TabsTrigger>
           {mode === "interview" ? (
-            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="reports">
-              面试报告
-            </TabsTrigger>
-          ) : null}
-          {mode === "interview" ? (
-            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="questions">
-              AI 题目
-            </TabsTrigger>
-          ) : null}
-          {mode === "interview" ? (
             <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="experience">
               经历
             </TabsTrigger>
@@ -782,19 +795,10 @@ export function useStudioPersonDetailController({
               Offer
             </TabsTrigger>
           ) : null}
-          {mode === "interview" ? (
-            <>
-              {/* 公开访问下不暴露 Agent 提示词面板 —— 这是面试官调试用，不属于候选人侧/对外可见信息。
-                Agent prompts are admin tooling (no public mirror) and are hidden from public access. */}
-              {isPublic ? null : (
-                <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="instructions">
-                  Agent 提示词
-                </TabsTrigger>
-              )}
-              <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="forms">
-                表单答复
-              </TabsTrigger>
-            </>
+          {showAgentInstructions ? (
+            <TabsTrigger className="flex-1 sm:min-w-[6em] sm:flex-none" value="instructions">
+              Agent 提示词
+            </TabsTrigger>
           ) : null}
         </TabsList>
         <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
@@ -826,7 +830,6 @@ export function useStudioPersonDetailController({
   );
   return {
     activeTab,
-    aiStageLockedReason,
     bodyLayoutClassName,
     canCreateHumanInterview,
     canCreateOffer,
@@ -848,17 +851,16 @@ export function useStudioPersonDetailController({
     detailScrollClassName,
     dispatchUi,
     effectiveRoundId,
+    effectiveSelectedResultConversationId,
     enabled,
     floatingActionBar,
-    formItems,
     formSubmissions,
     handleReassessResume,
     handleResetRound,
     handleToggleAllowTextInput,
     headerExtra,
-    interviewItems,
-    isAiStageLocked,
     isFormSubmissionsLoading,
+    isLatestResultReportSelected,
     isLoading,
     isPublic,
     isReassessingResume,
@@ -867,11 +869,8 @@ export function useStudioPersonDetailController({
     isResumeInterviewResultLoading,
     isRoundCompleted,
     isRoundsLoading,
+    isSelectedReportLoading: shouldFetchSelectedReport && isSelectedReportFetching,
     isTimelineLoading,
-    latestCandidateRoundEvaluationSummary,
-    latestCandidateRoundReport,
-    latestEvaluationSummary,
-    latestReport,
     metadataReport,
     mode,
     onRequestClose,
@@ -880,36 +879,35 @@ export function useStudioPersonDetailController({
       void queryClient.invalidateQueries({ queryKey: ["studio-interview-round", slug] });
       void queryClient.invalidateQueries({ queryKey: ["studio-interview-rounds", slug] });
     },
+    onSelectedReportChange: setSelectedResultConversationId,
     pendingResetSubmissionId,
     record,
     recordId,
     reduceMotion,
-    reportTranscriptStats,
-    reports,
     resettingRoundId,
     resettingSubmissionId,
-    resumeInterviewFormItems,
-    resumeInterviewItems,
+    resultReports,
+    resultRoundId,
     resumeInterviewResultRecord,
     resumePreviewUrl,
     resumeRecord,
     round,
-    roundActionDisabledReason,
-    roundActionLockedReason,
-    roundEmailSummary,
     roundId,
     selectedEvidence,
+    selectedResultEvaluationSummary,
+    selectedResultFormItems,
+    selectedResultInterviewItems,
+    selectedResultReport,
     setActiveTab,
     setMetadataReport,
     shell,
+    showAgentInstructions,
     showTimelineRail,
     slug,
     tabContentRootRef,
     tabVisibilityRecord,
     title,
-    totalDisplayTurnCount,
     updatingRoundId,
-    visibleInterviewQuestions,
   };
 }
 

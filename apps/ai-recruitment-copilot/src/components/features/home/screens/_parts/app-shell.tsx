@@ -10,12 +10,10 @@ import {
   IconPlus,
   IconRobot,
   IconSelector,
-  IconTrash,
   IconUser,
   IconUserCircle,
   IconUserCog,
   IconUsers,
-  IconX,
 } from "@tabler/icons-react";
 // 用途：复刻真实 Studio 壳（shadcn Sidebar variant="inset"）。所有尺寸严格按真实组件：
 // --sidebar-width 18rem (288px) · --header-height 3rem (48px) · SidebarMenuButton h-8
@@ -313,13 +311,6 @@ function InsetHeader({ breadcrumb, actions, className }: InsetHeaderProps) {
   );
 }
 
-// ─────────────────── Re-exports used by some screens ───────────────────
-export const Icons = {
-  Plus: IconPlus,
-  Trash: IconTrash,
-  X: IconX,
-};
-
 // ─────────────────── App shell ───────────────────
 interface AppShellProps {
   tab?: "agent" | "chat" | "studio";
@@ -369,7 +360,6 @@ export function AppShell({
           <SidebarUserSection />
         </div>
       </aside>
-
       {/* SidebarInset: relative flex w-full flex-1 flex-col bg-background
           + variant=inset: m-3 ml-0 rounded-xl shadow-none
           + layout 上还加了 border border-border */}

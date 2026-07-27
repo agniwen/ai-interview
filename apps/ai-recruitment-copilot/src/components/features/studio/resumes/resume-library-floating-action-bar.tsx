@@ -1,7 +1,7 @@
 "use client";
 
 import { IconEye, IconTrash, IconX } from "@tabler/icons-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 
 import { Button } from "@/components/ui/button";
 import { cossWhisperShadowClass } from "@/components/ui/coss-style";
@@ -43,7 +43,7 @@ export function ResumeLibraryFloatingActionBar({
   return (
     <AnimatePresence>
       {visible ? (
-        <motion.div
+        <m.div
           animate={{ opacity: 1, y: 0 }}
           className="fixed right-4 bottom-[calc(2.5rem+env(safe-area-inset-bottom))] left-4 z-40 flex flex-col items-center justify-center gap-2 pointer-events-none"
           exit={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
@@ -110,7 +110,7 @@ export function ResumeLibraryFloatingActionBar({
               批量删除
             </Button>
           </div>
-        </motion.div>
+        </m.div>
       ) : null}
     </AnimatePresence>
   );

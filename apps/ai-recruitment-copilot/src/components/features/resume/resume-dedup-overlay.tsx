@@ -1,5 +1,4 @@
 "use client";
-
 /**
  * 简历疑似重复风险提示 overlay / 详情弹窗。
  * Resume duplicate-risk overlay and the "view suspected duplicates" dialog.
@@ -9,7 +8,7 @@
  * - ResumeDedupOverlay: 上传解析后命中查重时的决策面板。
  */
 
-import { IconAlertTriangle, IconLoader2 } from "@tabler/icons-react";
+import { IconLoader2 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useState } from "react";
@@ -22,6 +21,7 @@ import { ResumeProfileView } from "@/components/features/resume/resume-profile-v
 import { EmptyValue } from "@/components/features/display/empty-value";
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Modal } from "@/components/ui/modal";
 import { fetchResumePoolItem } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -132,6 +132,30 @@ function ContactFields({
   );
 }
 
+function UploaderMeta({
+  image,
+  name,
+}: {
+  image: string | null | undefined;
+  name: string | null | undefined;
+}) {
+  const displayName = textOrNull(name) ?? "未知上传人";
+  return (
+    <div className="grid min-w-0 grid-cols-[3rem_minmax(0,1fr)] gap-x-2 text-xs leading-5">
+      <span className="shrink-0 text-muted-foreground">上传人</span>
+      <div className="flex min-w-0 items-center gap-1.5">
+        <Avatar className="size-4 shrink-0">
+          {image ? <AvatarImage alt={displayName} src={image} /> : null}
+          <AvatarFallback className="text-[8px]">
+            {textOrNull(name)?.charAt(0).toUpperCase() ?? "?"}
+          </AvatarFallback>
+        </Avatar>
+        <span className="min-w-0 truncate text-foreground">{displayName}</span>
+      </div>
+    </div>
+  );
+}
+
 function JudgmentLines({ match }: { match: DedupMatchRecord }) {
   const evidence = similarityEvidence(match);
   const reasons = match.semanticReasons ?? [];
@@ -188,6 +212,8 @@ function CandidateBody({
   createdAt,
   skills,
   snapshot,
+  uploaderImage,
+  uploaderName,
   footer,
 }: {
   targetRole: string | null | undefined;
@@ -197,11 +223,14 @@ function CandidateBody({
   createdAt?: string | null;
   skills: string[] | null | undefined;
   snapshot: DedupMatchRecord["resumeProfileSnapshot"];
+  uploaderImage: string | null | undefined;
+  uploaderName: string | null | undefined;
   footer?: ReactNode;
 }) {
   return (
     <div className="min-w-0 space-y-2.5">
       <RoleText jobDescriptionName={jobDescriptionName} targetRole={targetRole} />
+      <UploaderMeta image={uploaderImage} name={uploaderName} />
       <ContactFields createdAt={createdAt} email={email} phone={phone} />
       <ResumeProfileSnapshotView showLabels snapshot={snapshot} />
       <SkillsLine skills={skills} />
@@ -287,6 +316,8 @@ function SourceCandidatePanel({ source }: { source: DedupSourceCandidate }) {
           skills={source.skills}
           snapshot={source.resumeProfileSnapshot}
           targetRole={source.targetRole}
+          uploaderImage={source.uploaderImage}
+          uploaderName={source.uploaderName}
         />
       </div>
     </aside>
@@ -346,6 +377,8 @@ function MatchCandidateRow({
           skills={match.skills}
           snapshot={match.resumeProfileSnapshot}
           targetRole={match.targetRole}
+          uploaderImage={match.uploaderImage}
+          uploaderName={match.uploaderName}
         />
       </div>
     </div>
@@ -472,39 +505,5 @@ export function ResumeDuplicateMatchesDialog({
     >
       {content}
     </Modal>
-  );
-}
-
-interface ResumeDedupOverlayProps {
-  matches: DedupMatchRecord[];
-  onContinue: () => void;
-  onCancel: () => void;
-}
-
-export function ResumeDedupOverlay({ matches, onContinue, onCancel }: ResumeDedupOverlayProps) {
-  return (
-    <div className="flex w-full max-w-3xl flex-col gap-4">
-      <div className="flex items-start gap-3 rounded-xl border border-amber-200/70 bg-amber-50/70 px-4 py-3 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
-        <IconAlertTriangle className="mt-0.5 size-5 shrink-0" />
-        <div className="space-y-1">
-          <p className="font-medium text-sm">检测到 {matches.length} 条疑似重复的候选人记录</p>
-          <p className="text-xs leading-normal opacity-80">
-            系统会基于工作经历、项目经历、技能和岗位画像的语义相似度判断风险。
-            请根据判断依据确认是否为同一候选人，再决定查看已有记录或继续创建。
-          </p>
-        </div>
-      </div>
-
-      <ResumeDedupMatchList className="max-h-[min(52vh,520px)]" matches={matches} />
-
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <Button onClick={onCancel} type="button" variant="outline">
-          取消上传
-        </Button>
-        <Button onClick={onContinue} type="button">
-          仍然继续
-        </Button>
-      </div>
-    </div>
   );
 }

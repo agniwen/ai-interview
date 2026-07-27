@@ -1,6 +1,7 @@
 "use client";
 
 import { IconEye, IconLoader2 } from "@tabler/icons-react";
+import { LocalDateTimeText } from "@/components/features/display/local-date-time-text";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -39,15 +40,6 @@ function statusMeta(status: BulkResumeBatchDto["status"]): {
       return { label: "未知", variant: "outline" };
     }
   }
-}
-
-function formatBatchTime(value: string) {
-  return new Date(value).toLocaleString("zh-CN", {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "2-digit",
-  });
 }
 
 export function UploadBatchListDialog({
@@ -92,7 +84,7 @@ export function UploadBatchListDialog({
               <div className="min-w-0 space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-sm">
-                    {formatBatchTime(batch.createdAt)} 上传
+                    <LocalDateTimeText format="compact-zh" value={batch.createdAt} /> 上传
                   </span>
                   <Badge variant={meta.variant}>{meta.label}</Badge>
                 </div>

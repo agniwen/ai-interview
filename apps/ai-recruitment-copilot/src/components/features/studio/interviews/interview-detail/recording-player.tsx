@@ -19,6 +19,7 @@ import {
   fetchStudioInterviewRecordingUrl,
 } from "@/lib/client/api";
 import { ApiError } from "@/lib/client/api/errors";
+import { runAsyncAction } from "@/lib/client/async-control";
 import { useOptionalWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { InterviewRecordingStatus } from "@arc/db-schema/db-enums";
 
@@ -97,18 +98,20 @@ export function RecordingPlayer({
 
   async function loadUrl() {
     setLoading(true);
-    try {
-      const res =
-        accessMode === "public"
-          ? await fetchPublicInterviewRecordingUrl(recordId, conversationId)
-          : await fetchStudioInterviewRecordingUrl(slug ?? "", recordId, conversationId);
-      setUrl(res.url);
-    } catch (error) {
-      const message = error instanceof ApiError ? error.message : "录像加载失败, 请稍后重试。";
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
+    await runAsyncAction({
+      cleanup: () => setLoading(false),
+      onError: (error) => {
+        const message = error instanceof ApiError ? error.message : "录像加载失败, 请稍后重试。";
+        toast.error(message);
+      },
+      operation: async () => {
+        const res =
+          accessMode === "public"
+            ? await fetchPublicInterviewRecordingUrl(recordId, conversationId)
+            : await fetchStudioInterviewRecordingUrl(slug ?? "", recordId, conversationId);
+        setUrl(res.url);
+      },
+    });
   }
 
   const durationText = formatDuration(durationSecs);

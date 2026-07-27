@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { DatePicker } from "@/components/date-time-picker";
 import { customColumn, DataGrid, dateColumn, useDataGridState } from "@/components/data-grid";
 import type { DataGridFetchParams, DataGridFetchResult } from "@/components/data-grid";
 import { PageHeader } from "@/components/features/studio/page-header";
@@ -19,7 +20,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Input } from "@/components/ui/input";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { serializeDateRange } from "./mail-ingest-log-drawer";
@@ -321,16 +321,16 @@ export function MailIngestLogPage() {
         ]}
         filtersExtra={
           <div className="grid grid-cols-2 gap-3">
-            <Input
+            <DatePicker
               aria-label="起始日期"
-              onChange={(event) => applyDate("receivedFrom", event.target.value)}
-              type="date"
+              onValueChange={(value) => applyDate("receivedFrom", value)}
+              placeholder="起始日期"
               value={grid.filters.receivedFrom}
             />
-            <Input
+            <DatePicker
               aria-label="结束日期"
-              onChange={(event) => applyDate("receivedTo", event.target.value)}
-              type="date"
+              onValueChange={(value) => applyDate("receivedTo", value)}
+              placeholder="结束日期"
               value={grid.filters.receivedTo}
             />
           </div>

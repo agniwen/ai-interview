@@ -7,7 +7,7 @@ import { sortDynamicWorkspaceRolesByCreatedAt } from "@/components/features/stud
 
 export const DEFAULT_PAGE_SIZE = 10;
 export const DEFAULT_TAB = "members";
-export const WORKSPACE_MANAGEMENT_TABS = ["members", "groups"] as const;
+const WORKSPACE_MANAGEMENT_TABS = ["members", "groups"] as const;
 
 export type WorkspaceManagementTab = (typeof WORKSPACE_MANAGEMENT_TABS)[number];
 

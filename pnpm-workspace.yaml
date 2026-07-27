@@ -37,6 +37,9 @@ packageExtensions:
   "@mastra/deployer@1.50.1":
     dependencies:
       typescript: 6.0.3
+  "streamdown@2.5.0":
+    dependencies:
+      shiki: ^3.19.0
 overrides:
   react: 19.2.7
   react-dom: 19.2.7

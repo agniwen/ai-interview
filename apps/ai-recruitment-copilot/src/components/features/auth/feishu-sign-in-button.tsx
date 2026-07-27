@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/client/auth-client";
+import { withCleanup } from "@/lib/client/async-control";
 import { cn } from "@arc/shared/utils";
 import { FeishuIcon } from "./feishu-icon";
 
@@ -25,14 +26,22 @@ export function FeishuSignInButton({
 
   const handleClick = async () => {
     setIsSubmitting(true);
-    const result = await authClient.signIn.oauth2({
-      callbackURL,
-      errorCallbackURL: `/login?error=${encodeURIComponent(providerId)}`,
-      providerId,
-    });
-    if (result.error) {
-      setIsSubmitting(false);
-    }
+    let shouldResetSubmitting = true;
+    await withCleanup(
+      async () => {
+        const result = await authClient.signIn.oauth2({
+          callbackURL,
+          errorCallbackURL: `/login?error=${encodeURIComponent(providerId)}`,
+          providerId,
+        });
+        shouldResetSubmitting = Boolean(result.error);
+      },
+      () => {
+        if (shouldResetSubmitting) {
+          setIsSubmitting(false);
+        }
+      },
+    );
   };
 
   return (

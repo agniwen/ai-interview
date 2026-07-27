@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CandidateFormFields } from "@/components/features/candidate/candidate-form-fields";
+import { DateTimePicker } from "@/components/date-time-picker";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,7 +23,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -36,6 +37,7 @@ import {
   updateStudioInterviewRound,
 } from "@/lib/client/api";
 import { dateTimeLocalInputToISOString } from "@/lib/client/datetime-local";
+import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
   canEditResumeRecord,
@@ -344,6 +346,7 @@ function ResumeEditBody({
 // Round edit form values — status is now read-only display, not editable here.
 interface InterviewRoundFormValues {
   scheduledAt: string;
+  scheduledEndAt: string;
   allowTextInput: boolean;
   notes: string;
 }
@@ -355,6 +358,7 @@ function createInterviewRoundFormValues(
     allowTextInput: round.allowTextInput,
     notes: round.notes ?? "",
     scheduledAt: getScheduleEntryDateValue(round.scheduledAt) ?? "",
+    scheduledEndAt: getScheduleEntryDateValue(round.scheduledEndAt) ?? "",
   };
 }
 
@@ -388,6 +392,7 @@ function InterviewEditBody({
     allowTextInput: false,
     notes: "",
     scheduledAt: "",
+    scheduledEndAt: "",
   });
 
   // 详情加载完成后回填表单。Hydrate form once round detail resolves.
@@ -411,20 +416,21 @@ function InterviewEditBody({
       return;
     }
     setIsSubmitting(true);
-    try {
-      await updateStudioInterviewRound(slug, recordId, {
-        allowTextInput: formValues.allowTextInput,
-        notes: formValues.notes,
-        scheduledAt: dateTimeLocalInputToISOString(formValues.scheduledAt),
-      });
-      toast.success("已保存轮次");
-      onUpdated?.();
-      onOpenChange(false);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "保存失败");
-    } finally {
-      setIsSubmitting(false);
-    }
+    await runAsyncAction({
+      cleanup: () => setIsSubmitting(false),
+      onError: (error) => toast.error(error instanceof Error ? error.message : "保存失败"),
+      operation: async () => {
+        await updateStudioInterviewRound(slug, recordId, {
+          allowTextInput: formValues.allowTextInput,
+          notes: formValues.notes,
+          scheduledAt: dateTimeLocalInputToISOString(formValues.scheduledAt),
+          scheduledEndAt: dateTimeLocalInputToISOString(formValues.scheduledEndAt),
+        });
+        toast.success("已保存轮次");
+        onUpdated?.();
+        onOpenChange(false);
+      },
+    });
   }
 
   async function handleReset() {
@@ -433,16 +439,16 @@ function InterviewEditBody({
     }
     setResetConfirmOpen(false);
     setIsResetting(true);
-    try {
-      await resetStudioInterviewRound(slug, recordId);
-      toast.success("轮次已重置为待开始");
-      onUpdated?.();
-      await refetch();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "重置失败");
-    } finally {
-      setIsResetting(false);
-    }
+    await runAsyncAction({
+      cleanup: () => setIsResetting(false),
+      onError: (error) => toast.error(error instanceof Error ? error.message : "重置失败"),
+      operation: async () => {
+        await resetStudioInterviewRound(slug, recordId);
+        toast.success("轮次已重置为待开始");
+        onUpdated?.();
+        await refetch();
+      },
+    });
   }
 
   return (
@@ -514,18 +520,29 @@ function InterviewEditBody({
               </div>
             ) : null}
 
-            {/* 面试时间 / Scheduled time */}
-            <div className="space-y-1.5">
-              <Label htmlFor="round-scheduledAt">面试时间</Label>
-              <Input
-                id="round-scheduledAt"
-                onChange={(e) =>
-                  setFormValues((prev) => ({ ...prev, scheduledAt: e.target.value }))
-                }
-                type="datetime-local"
-                value={formValues.scheduledAt}
-              />
-            </div>
+            {/* 计划开始与结束时间 / Scheduled start and end */}
+            <FieldGroup className="grid gap-4 sm:grid-cols-2">
+              <Field>
+                <FieldLabel htmlFor="round-scheduledAt">开始时间</FieldLabel>
+                <DateTimePicker
+                  id="round-scheduledAt"
+                  onValueChange={(scheduledAt) =>
+                    setFormValues((prev) => ({ ...prev, scheduledAt }))
+                  }
+                  value={formValues.scheduledAt}
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="round-scheduledEndAt">结束时间</FieldLabel>
+                <DateTimePicker
+                  id="round-scheduledEndAt"
+                  onValueChange={(scheduledEndAt) =>
+                    setFormValues((prev) => ({ ...prev, scheduledEndAt }))
+                  }
+                  value={formValues.scheduledEndAt}
+                />
+              </Field>
+            </FieldGroup>
 
             {/* 允许文本输入 / Allow text input — 已结束的轮次不允许修改 */}
             <Card className="gap-0 rounded-lg py-0">

@@ -2,7 +2,7 @@
 // Purpose: Vertical 4-step process tabs (Notion style: left list, right image).
 "use client";
 
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useState } from "react";
 import {
   ChatScreen,
@@ -136,7 +136,7 @@ export function ProcessTabs() {
         {/* AnimatePresence mode="wait" — old image animates out fully before new one animates in */}
         <div className="relative lg:sticky lg:top-24 lg:self-start">
           <AnimatePresence initial={false} mode="wait">
-            <motion.div
+            <m.div
               animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
               exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -60 }}
               initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 60 }}
@@ -144,7 +144,7 @@ export function ProcessTabs() {
               transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
             >
               <activeStep.Screen />
-            </motion.div>
+            </m.div>
           </AnimatePresence>
         </div>
       </div>

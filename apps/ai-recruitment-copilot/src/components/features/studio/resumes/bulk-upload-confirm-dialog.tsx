@@ -89,7 +89,7 @@ export function BulkUploadConfirmDialog({
                 {files.map((f, idx) => (
                   <li
                     className="flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-background"
-                    key={`${f.name}-${f.size}-${idx}`}
+                    key={`${f.name}-${f.size}-${f.lastModified}-${f.type}`}
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       <IconFileText className="size-4 shrink-0 text-muted-foreground" />

@@ -18,6 +18,8 @@ export function toDedupSourceFromLibraryRecord(
     skills: record.resumeSkills,
     sourceType: "studio_interview",
     targetRole: record.targetRole,
+    uploaderImage: record.creatorImage,
+    uploaderName: record.creatorName,
   };
 }
 
@@ -34,5 +36,7 @@ export function toDedupSourceFromPoolRecord(record: ResumePoolListRecord): Dedup
     skills: record.masteredSkills,
     sourceType: "resume_pool_item",
     targetRole: record.targetRole,
+    uploaderImage: record.uploaderImage,
+    uploaderName: record.uploaderName,
   };
 }

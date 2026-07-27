@@ -5,6 +5,7 @@ import type { DepartmentRecord } from "@arc/shared/departments";
 import type { InterviewerFormValues, InterviewerRecord } from "@arc/shared/interviewers";
 import { interviewerFormSchema } from "@arc/shared/interviewers";
 import { rpc } from "@/lib/client/rpc";
+import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { toast } from "sonner";
 
@@ -98,39 +99,45 @@ export function InterviewerFormDialog({
 
     stopVoicePreview();
     setLoadingPreviewVoice(voice);
-    try {
-      const response = await rpc.api.w[":slug"].studio.interviewers["voice-previews"].$post({
-        json: { voice },
-        param: { slug },
-      });
-      const payload = (await response.json().catch(() => null)) as {
-        error?: string;
-        url?: string;
-      } | null;
-      if (!response.ok || !payload?.url) {
-        throw new Error(payload?.error ?? "生成试听音频失败");
-      }
-
-      const audio = new Audio(payload.url);
-      audioRef.current = audio;
-      audio.addEventListener("ended", () => {
-        if (audioRef.current === audio) {
-          audioRef.current = null;
-          setPlayingPreviewVoice(null);
+    await runAsyncAction({
+      cleanup: () => setLoadingPreviewVoice(null),
+      onError: (error) => {
+        stopVoicePreview();
+        toast.error(error instanceof Error ? error.message : "试听音频播放失败");
+      },
+      operation: async () => {
+        const response = await rpc.api.w[":slug"].studio.interviewers["voice-previews"].$post({
+          json: { voice },
+          param: { slug },
+        });
+        const payload = (await response.json().catch(() => null)) as {
+          error?: string;
+          url?: string;
+        } | null;
+        if (!response.ok || !payload?.url) {
+          throw new Error(payload?.error ?? "生成试听音频失败");
         }
-      });
-      setPlayingPreviewVoice(voice);
-      await audio.play();
-    } catch (error) {
-      stopVoicePreview();
-      toast.error(error instanceof Error ? error.message : "试听音频播放失败");
-    } finally {
-      setLoadingPreviewVoice(null);
-    }
+        const audio = new Audio(payload.url);
+        audioRef.current = audio;
+        audio.addEventListener("ended", () => {
+          if (audioRef.current === audio) {
+            audioRef.current = null;
+            setPlayingPreviewVoice(null);
+          }
+        });
+        setPlayingPreviewVoice(voice);
+        await audio.play();
+      },
+    });
   }
 
+  const buildValues = useCallback(
+    () => (record ? toFormValues(record) : defaultValues(fallbackDepartmentId)),
+    [fallbackDepartmentId, record],
+  );
+
   const { form, isSubmitting } = useEntityForm<InterviewerFormValues>({
-    buildValues: () => (record ? toFormValues(record) : defaultValues(fallbackDepartmentId)),
+    buildValues,
     onSubmit: async (value) => {
       const body = {
         departmentId: value.departmentId,

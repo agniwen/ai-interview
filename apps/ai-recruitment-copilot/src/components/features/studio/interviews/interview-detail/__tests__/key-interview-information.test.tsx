@@ -77,4 +77,25 @@ describe("KeyInterviewInformation", () => {
     expect(html).not.toContain("风险与待核实");
     expect(html).not.toContain("暂无风险");
   });
+
+  it("uses the latest interview report frame surface when requested", () => {
+    const html = renderToStaticMarkup(
+      <KeyInterviewInformation
+        data={{
+          quantitativeInformation: [
+            {
+              content: "候选人期望税前年包 60 万元。",
+              evidence: [{ quote: "我的期望是税前年包六十万", turnIndex: 4 }],
+            },
+          ],
+          risks: [],
+          skillEvidence: [],
+        }}
+        surface="frame"
+      />,
+    );
+
+    expect(html).toContain('data-slot="frame"');
+    expect(html).toContain("重点信息");
+  });
 });

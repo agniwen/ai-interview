@@ -503,6 +503,7 @@ function buildSingleScheduleRow(
     organizationId: existing?.organizationId ?? orgId,
     roundLabel: entry.roundLabel.trim(),
     scheduledAt: entry.scheduledAt ? new Date(entry.scheduledAt) : null,
+    scheduledEndAt: entry.scheduledEndAt ? new Date(entry.scheduledEndAt) : null,
     sessionStartedAt: existing?.sessionStartedAt ?? null,
     sortOrder: typeof entry.sortOrder === "number" ? entry.sortOrder : index,
     status: existing?.status ?? ("pending" as const),

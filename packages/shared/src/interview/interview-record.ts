@@ -54,6 +54,7 @@ export interface InterviewScheduleEntry {
   roundLabel: string;
   status: ScheduleEntryStatus;
   scheduledAt: string | Date | null;
+  scheduledEndAt: string | Date | null;
   notes: string | null;
   sortOrder: number;
   conversationId: string | null;

@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { InterviewTranscriptTurn } from "@arc/db-schema/interview-session";
-import type { InterviewQuestion } from "@arc/db-schema/interview/types";
+import type { InterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
+import {
+  applyQuestionOutcomesToEvaluation,
+  formatCandidateFormSubmissions,
+  generateInterviewReport,
+} from "../interview-report";
+import type { InterviewEvaluationQuestion } from "../interview-report";
 
 const mocks = vi.hoisted(() => ({
   generateStructuredWithMastraAgent: vi.fn(),
@@ -19,16 +25,13 @@ vi.mock(
   }),
 );
 
-// oxlint-disable-next-line import/first -- must follow vi.mock() for correct hoisting
-import { formatCandidateFormSubmissions, generateInterviewReport } from "../interview-report";
-
 const TRANSCRIPT: InterviewTranscriptTurn[] = [
   { message: "请介绍你的项目。", role: "agent", timeInCallSecs: 1 },
   { message: "我负责招聘系统前端。", role: "user", timeInCallSecs: 6 },
 ];
 
-const QUESTIONS: InterviewQuestion[] = [
-  { difficulty: "easy", order: 1, question: "请介绍你的项目。" },
+const QUESTIONS: InterviewEvaluationQuestion[] = [
+  { difficulty: "easy", order: 1, question: "请介绍你的项目。", questionId: "question-1" },
 ];
 
 const EVALUATION = {
@@ -50,6 +53,7 @@ const EVALUATION = {
       maxScore: 10,
       order: 1,
       question: "请介绍你的项目。",
+      questionId: "question-1",
       score: 8,
     },
   ],
@@ -170,5 +174,153 @@ describe("generateInterviewReport", () => {
         },
       ]),
     ).toBe("【候选人信息】\n最快到岗时间：一个月内\n可接受出差情况：短期、海外");
+  });
+
+  it("derives scores only from scorable V2 question outcomes", () => {
+    const outcomes: InterviewDataCollectionResults = {
+      questions: [
+        {
+          answerSummary: "回答完整",
+          difficulty: "easy",
+          endedAtSecs: 20,
+          evaluationFocus: null,
+          followUpCount: 0,
+          followUpDirections: null,
+          question: "题目一",
+          questionId: "q1",
+          reason: null,
+          revision: 1,
+          startedAtSecs: 1,
+          status: "answered",
+        },
+        {
+          answerSummary: "信息有限",
+          difficulty: "medium",
+          endedAtSecs: 40,
+          evaluationFocus: "验证技术深度",
+          followUpCount: 2,
+          followUpDirections: null,
+          question: "题目二",
+          questionId: "q2",
+          reason: null,
+          revision: 1,
+          startedAtSecs: 21,
+          status: "insufficient",
+        },
+        {
+          answerSummary: null,
+          difficulty: "easy",
+          endedAtSecs: 50,
+          evaluationFocus: null,
+          followUpCount: 0,
+          followUpDirections: null,
+          question: "题目三",
+          questionId: "q3",
+          reason: null,
+          revision: 1,
+          startedAtSecs: 41,
+          status: "skipped",
+        },
+        {
+          answerSummary: null,
+          difficulty: "hard",
+          endedAtSecs: 60,
+          evaluationFocus: null,
+          followUpCount: 0,
+          followUpDirections: null,
+          question: "题目四",
+          questionId: "q4",
+          reason: "time_limit",
+          revision: 1,
+          startedAtSecs: 51,
+          status: "interrupted",
+        },
+        {
+          answerSummary: null,
+          difficulty: "hard",
+          endedAtSecs: 60,
+          evaluationFocus: null,
+          followUpCount: 0,
+          followUpDirections: null,
+          question: "题目五",
+          questionId: "q5",
+          reason: "time_limit",
+          revision: 1,
+          startedAtSecs: 60,
+          status: "unasked",
+        },
+      ],
+      schemaVersion: 2,
+    };
+    const evaluation = {
+      ...EVALUATION,
+      questions: [
+        { ...EVALUATION.questions[0], order: 1, question: "题目一", questionId: "q1", score: 8 },
+        { ...EVALUATION.questions[0], order: 2, question: "题目二", questionId: "q2", score: 4 },
+        { ...EVALUATION.questions[0], order: 3, question: "题目三", questionId: "q3", score: 7 },
+        { ...EVALUATION.questions[0], order: 4, question: "题目四", questionId: "q4", score: 9 },
+        { ...EVALUATION.questions[0], order: 5, question: "题目五", questionId: "q5", score: 9 },
+      ],
+    };
+
+    const result = applyQuestionOutcomesToEvaluation(evaluation, outcomes);
+
+    expect(result.overallScore).toBe(40);
+    expect(result.questions.map((question) => question.score)).toEqual([8, 4, 0, null, null]);
+    expect(result.questions[2]?.evidence).toEqual(evaluation.questions[2]?.evidence);
+    expect(result.questions[3]?.evidence).toEqual(evaluation.questions[3]?.evidence);
+    expect(result.questions[4]?.evidence).toEqual([]);
+    expect(result.recommendation).toBe("建议进入下一轮");
+  });
+
+  it("forces a pending recommendation when fewer than half the required questions are scorable", () => {
+    const outcomes: InterviewDataCollectionResults = {
+      questions: [
+        {
+          answerSummary: "回答完整",
+          difficulty: "easy",
+          endedAtSecs: 20,
+          evaluationFocus: null,
+          followUpCount: 0,
+          followUpDirections: null,
+          question: "题目一",
+          questionId: "q1",
+          reason: null,
+          revision: 1,
+          startedAtSecs: 1,
+          status: "answered",
+        },
+        ...["q2", "q3"].map((questionId, index) => ({
+          answerSummary: null,
+          difficulty: "easy" as const,
+          endedAtSecs: 30 + index,
+          evaluationFocus: null,
+          followUpCount: 0,
+          followUpDirections: null,
+          question: `题目${index + 2}`,
+          questionId,
+          reason: "time_limit" as const,
+          revision: 1,
+          startedAtSecs: 20 + index,
+          status: "unasked" as const,
+        })),
+      ],
+      schemaVersion: 2,
+    };
+
+    const result = applyQuestionOutcomesToEvaluation(
+      {
+        ...EVALUATION,
+        questions: [
+          { ...EVALUATION.questions[0], questionId: "q1" },
+          { ...EVALUATION.questions[0], order: 2, questionId: "q2" },
+          { ...EVALUATION.questions[0], order: 3, questionId: "q3" },
+        ],
+      },
+      outcomes,
+    );
+
+    expect(result.overallScore).toBe(80);
+    expect(result.recommendation).toBe("待定");
   });
 });

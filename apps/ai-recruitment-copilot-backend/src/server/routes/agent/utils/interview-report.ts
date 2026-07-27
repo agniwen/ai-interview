@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { InterviewTranscriptTurn } from "@arc/db-schema/interview-session";
 import type { InterviewEvidenceSnapshotFormSubmission } from "@arc/db-schema/interview-snapshots";
 import type { InterviewQuestion } from "@arc/db-schema/interview/types";
+import type { InterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
 import { formatCandidateFormAnswer } from "@arc/shared/candidate-form-answer";
 import {
   generateStructuredWithMastraAgent,
@@ -40,6 +41,10 @@ const EVALUATION_PROMPT = `你是一位专业的面试评估专家。请根据�
 - hrEvaluation.recentWork：最近两份工作的个人角色定位、团队架构及人员分工、离职原因
 - hrEvaluation.projectHighlights：候选人分享的亮点项目
 - 只评估面试中实际提问到的题目
+- 每道题必须原样返回输入中的题目ID到 questionId
+- answered 和 insufficient 根据原始转写证据评分；insufficient 仅依据有限证据，不自动记零分
+- skipped 的 evidence 只引用候选人明确拒答的原话，作为跳过依据；interrupted 的 evidence 只保留已产生的部分上下文；二者都不要包装成正式能力证据
+- unasked 不生成 evidence；skipped、interrupted、unasked 的评分由系统按流程结果统一处理
 - score 范围 0-10，overallScore 范围 0-100
 - 评价要客观具体，引用候选人的实际回答
 - overallAssessment、assessment 等自由文本字段请使用面试对话的主要语言；recommendation 必须保持指定的中文枚举值
@@ -74,7 +79,7 @@ const hrEvaluationSchema = z.object({
 const evaluationSchema = z.object({
   hrEvaluation: hrEvaluationSchema,
   overallAssessment: z.string().describe("候选人整体表现的综合评价，2-3 句话"),
-  overallScore: z.number().int().min(0).max(100),
+  overallScore: z.number().int().min(0).max(100).nullable(),
   questions: z.array(
     z.object({
       assessment: z.string().describe("对候选人该题回答的评价"),
@@ -82,13 +87,90 @@ const evaluationSchema = z.object({
       maxScore: z.number().int().default(10),
       order: z.number().int(),
       question: z.string(),
-      score: z.number().int().min(0).max(10),
+      questionId: z.string().min(1),
+      score: z.number().int().min(0).max(10).nullable(),
     }),
   ),
   recommendation: z.enum(["建议进入下一轮", "不建议进入下一轮", "待定"]),
 });
 
 export type InterviewEvaluation = z.infer<typeof evaluationSchema>;
+
+export interface InterviewEvaluationQuestion extends InterviewQuestion {
+  questionId: string;
+}
+
+const SCORABLE_OUTCOMES = new Set(["answered", "insufficient", "skipped"]);
+
+export function applyQuestionOutcomesToEvaluation(
+  evaluation: InterviewEvaluation,
+  dataCollectionResults: InterviewDataCollectionResults,
+): InterviewEvaluation {
+  const evaluationByQuestionId = new Map(
+    evaluation.questions.map((question) => [question.questionId, question]),
+  );
+  const questions = dataCollectionResults.questions.map((outcome, index) => {
+    const generated = evaluationByQuestionId.get(outcome.questionId);
+    const base = generated ?? {
+      assessment: "报告未能生成本题评估。",
+      evidence: [],
+      maxScore: 10,
+      order: index + 1,
+      question: outcome.question,
+      questionId: outcome.questionId,
+      score: null,
+    };
+    if (outcome.status === "skipped") {
+      return {
+        ...base,
+        assessment: "候选人明确跳过本题。",
+        score: 0,
+      };
+    }
+    if (outcome.status === "interrupted") {
+      return {
+        ...base,
+        assessment: "本题在完成前被中断，不参与评分。",
+        score: null,
+      };
+    }
+    if (outcome.status === "unasked") {
+      return {
+        ...base,
+        assessment: "本轮面试结束前未开始本题，不参与评分。",
+        evidence: [],
+        score: null,
+      };
+    }
+    return base;
+  });
+  const scorableQuestionIds = new Set(
+    dataCollectionResults.questions
+      .filter((outcome) => SCORABLE_OUTCOMES.has(outcome.status))
+      .map((outcome) => outcome.questionId),
+  );
+  const scoreTotal = questions.reduce(
+    (total, question) =>
+      total +
+      (scorableQuestionIds.has(question.questionId) && typeof question.score === "number"
+        ? (question.score / question.maxScore) * 100
+        : 0),
+    0,
+  );
+  const overallScore =
+    scorableQuestionIds.size > 0 ? Math.round(scoreTotal / scorableQuestionIds.size) : null;
+  const coverage =
+    dataCollectionResults.questions.length > 0
+      ? scorableQuestionIds.size / dataCollectionResults.questions.length
+      : 0;
+
+  return {
+    ...evaluation,
+    overallScore,
+    questions,
+    recommendation: coverage < 0.5 ? "待定" : evaluation.recommendation,
+  };
+}
 
 export function formatCandidateFormSubmissions(
   submissions: InterviewEvidenceSnapshotFormSubmission[],
@@ -115,15 +197,24 @@ export function formatTranscript(turns: InterviewTranscriptTurn[]): string {
     .join("\n");
 }
 
-export function formatQuestions(questions: InterviewQuestion[]): string {
+export function formatQuestions(
+  questions: InterviewEvaluationQuestion[],
+  dataCollectionResults?: InterviewDataCollectionResults | null,
+): string {
   if (questions.length === 0) {
     return "（无补充题目）";
   }
+  const outcomeById = new Map(
+    (dataCollectionResults?.questions ?? []).map((outcome) => [outcome.questionId, outcome]),
+  );
   return questions
     .map((q) => {
+      const outcome = outcomeById.get(q.questionId);
       const metadata = [
+        `   题目ID：${q.questionId}`,
         q.evaluationFocus ? `   考核点：${q.evaluationFocus}` : null,
         q.followUpDirections ? `   追问方向：${q.followUpDirections}` : null,
+        outcome ? `   流程结果：${outcome.status}` : null,
       ]
         .filter(Boolean)
         .join("\n");
@@ -178,26 +269,31 @@ export async function generateInterviewSummary(options: {
 
 export async function generateInterviewEvaluation(options: {
   candidateFormResponses: string;
-  questions: InterviewQuestion[];
+  dataCollectionResults?: InterviewDataCollectionResults | null;
+  questions: InterviewEvaluationQuestion[];
   transcript: InterviewTranscriptTurn[];
 }): Promise<InterviewEvaluation> {
-  return await generateStructuredWithMastraAgent({
+  const evaluation = await generateStructuredWithMastraAgent({
     agent: interviewReportEvaluationAgent,
     prompt: EVALUATION_PROMPT.replace(
       "{formResponses}",
       options.candidateFormResponses || "（无表单答复）",
     )
-      .replace("{questions}", formatQuestions(options.questions))
+      .replace("{questions}", formatQuestions(options.questions, options.dataCollectionResults))
       .replace("{transcript}", formatTranscript(options.transcript)),
     schema: evaluationSchema,
     temperature: 0,
   });
+  return options.dataCollectionResults
+    ? applyQuestionOutcomesToEvaluation(evaluation, options.dataCollectionResults)
+    : evaluation;
 }
 
 export async function generateInterviewReport(options: {
   candidateFormResponses: string;
+  dataCollectionResults?: InterviewDataCollectionResults | null;
   transcript: InterviewTranscriptTurn[];
-  questions: InterviewQuestion[];
+  questions: InterviewEvaluationQuestion[];
 }): Promise<InterviewReportResult> {
   const { transcript, questions } = options;
 
@@ -209,6 +305,7 @@ export async function generateInterviewReport(options: {
     generateInterviewSummary({ transcript }),
     generateInterviewEvaluation({
       candidateFormResponses: options.candidateFormResponses,
+      dataCollectionResults: options.dataCollectionResults,
       questions,
       transcript,
     }),

@@ -771,6 +771,7 @@ export const studioInterviewSchedule = pgTable(
       }),
     roundLabel: text("round_label").notNull(),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    scheduledEndAt: timestamp("scheduled_end_at", { withTimezone: true }),
     sessionStartedAt: timestamp("session_started_at", { withTimezone: true }),
     sortOrder: integer("sort_order").notNull(),
     status: text("status").$type<ScheduleEntryStatus>().notNull().default("pending"),
@@ -1535,6 +1536,11 @@ export const interviewConversation = pgTable(
     index("interview_conversation_summary_status_idx").on(table.summaryStatus),
     index("interview_conversation_updated_at_idx").on(table.updatedAt),
     index("interview_conversation_organization_idx").on(table.organizationId),
+    index("interview_conversation_org_ended_started_idx").on(
+      table.organizationId,
+      table.endedAt,
+      table.startedAt,
+    ),
   ],
 );
 

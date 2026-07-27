@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { env } from "@/env/client";
 import { authClient } from "@/lib/client/auth-client";
 
@@ -26,20 +26,22 @@ export function buildWatermarkContent(user: WatermarkUser): [string, string] {
   return [nickname, `ID: ${maskWatermarkUserId(user.id)}`];
 }
 
+async function loadWatermark() {
+  const { Watermark } = await import("watermark-js-plus");
+  return Watermark;
+}
+
 function EnabledAppWatermark() {
   const { data: session, isPending } = authClient.useSession();
   const user = session?.user;
-  const content = useMemo(() => {
-    if (!(user?.id && !isPending)) {
-      return null;
-    }
-
-    return buildWatermarkContent({
-      email: user.email,
-      id: user.id,
-      name: user.name,
-    });
-  }, [isPending, user?.email, user?.id, user?.name]);
+  const content =
+    user?.id && !isPending
+      ? buildWatermarkContent({
+          email: user.email,
+          id: user.id,
+          name: user.name,
+        })
+      : null;
 
   useEffect(() => {
     if (!content) {
@@ -51,7 +53,7 @@ function EnabledAppWatermark() {
     let instance: { create: () => Promise<void>; destroy: () => void } | null = null;
 
     async function createWatermark() {
-      const { Watermark } = await import("watermark-js-plus");
+      const Watermark = await loadWatermark();
 
       if (disposed) {
         return;

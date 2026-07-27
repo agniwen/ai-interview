@@ -66,10 +66,7 @@ function PlatformMailIngestAccountsRoute() {
 }
 
 export const Route = createFileRoute("/platform/mail-ingest-accounts")({
-  component: PlatformMailIngestAccountsRoute,
-  head: () => ({
-    meta: [{ title: formatDocumentTitle("平台 · 邮箱监听") }],
-  }),
+  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
   loader: async (loaderContext) => {
     const { location } = loaderContext as unknown as {
       location: { search: SearchParamsRecord };
@@ -86,6 +83,9 @@ export const Route = createFileRoute("/platform/mail-ingest-accounts")({
     }
     return state;
   },
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("平台 · 邮箱监听") }],
+  }),
+  component: PlatformMailIngestAccountsRoute,
   shouldReload: false,
-  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });

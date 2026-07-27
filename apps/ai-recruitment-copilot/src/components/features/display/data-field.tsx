@@ -16,6 +16,18 @@ const SPAN_CLASS: Record<DataFieldSpan, string> = {
   full: "col-span-full",
 };
 
+const numberFormatters = new Map<string, Intl.NumberFormat>();
+
+function formatNumber(value: number, options?: Intl.NumberFormatOptions) {
+  const key = JSON.stringify(options ?? {});
+  let formatter = numberFormatters.get(key);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat("zh-CN", options);
+    numberFormatters.set(key, formatter);
+  }
+  return formatter.format(value);
+}
+
 function isEmptyValue(value: ReactNode) {
   return value === null || value === undefined || value === "";
 }
@@ -58,7 +70,7 @@ function renderValue({
   }
 
   if (kind === "number" && typeof value === "number") {
-    return new Intl.NumberFormat("zh-CN", numberFormat).format(value);
+    return formatNumber(value, numberFormat);
   }
 
   if (kind === "boolean" && typeof value === "boolean") {

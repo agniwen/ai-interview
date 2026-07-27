@@ -8,6 +8,7 @@ import {
   IconServer,
 } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { LocalDateTimeText } from "@/components/features/display/local-date-time-text";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { formatBytes } from "@arc/shared/utils/format";
@@ -245,27 +247,11 @@ function QueueUserCell({ user }: { user: QueueJobRecord["triggeredBy"] }) {
   );
 }
 
-function formatDateTime(value: string | null): string {
-  if (!value) {
-    return "—";
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "—";
-  }
-  return new Intl.DateTimeFormat("zh-CN", {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "2-digit",
-  }).format(date);
-}
-
-function DetailField({ label, value }: { label: string; value: string | null | undefined }) {
+function DetailField({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="min-w-0">
       <p className="text-muted-foreground text-xs">{label}</p>
-      <p className="mt-1 truncate text-sm" title={value ?? undefined}>
+      <p className="mt-1 truncate text-sm" title={typeof value === "string" ? value : undefined}>
         {value || "—"}
       </p>
     </div>
@@ -332,9 +318,18 @@ function UploadTaskStatusPanel({
       </div>
 
       <div className="grid gap-3 rounded-lg border bg-background p-3 sm:grid-cols-4">
-        <DetailField label="入队时间" value={formatDateTime(detail.queuedAt)} />
-        <DetailField label="开始时间" value={formatDateTime(detail.startedAt)} />
-        <DetailField label="结束时间" value={formatDateTime(detail.finishedAt)} />
+        <DetailField
+          label="入队时间"
+          value={<LocalDateTimeText format="compact-zh" value={detail.queuedAt} />}
+        />
+        <DetailField
+          label="开始时间"
+          value={<LocalDateTimeText format="compact-zh" value={detail.startedAt} />}
+        />
+        <DetailField
+          label="结束时间"
+          value={<LocalDateTimeText format="compact-zh" value={detail.finishedAt} />}
+        />
         <DetailField label="处理耗时" value={formatDuration(detail.startedAt, detail.finishedAt)} />
       </div>
 

@@ -157,7 +157,7 @@ export function CandidateAiReviewSection({ review }: { review: CandidateAiReview
                   {review.strengths.map((strength, index) => (
                     <li
                       className="flex w-[min(28rem,85vw)] shrink-0 gap-3 rounded border border-foreground/15 bg-background/25 p-5"
-                      key={`${strength.point}-${index}`}
+                      key={`${strength.point}-${strength.evidence ?? ""}-${strength.impact}`}
                     >
                       <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 font-mono text-primary text-xs">
                         {String(index + 1).padStart(2, "0")}

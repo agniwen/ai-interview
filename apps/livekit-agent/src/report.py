@@ -11,6 +11,53 @@ from dispatch_context import InterviewDispatchContext
 logger = logging.getLogger("agent")
 
 
+async def send_question_checkpoint(
+    *,
+    conversation_id: str,
+    interview_record_id: str,
+    schedule_entry_id: str,
+    outcome: dict,
+) -> None:
+    """Persist one completed question without blocking the interview workflow."""
+    base_url = os.environ.get("CALLBACK_BASE_URL")
+    secret = os.environ.get("AGENT_CALLBACK_SECRET")
+    if not base_url:
+        logger.warning("CALLBACK_BASE_URL not set, skipping question checkpoint")
+        return
+
+    headers = {"Content-Type": "application/json"}
+    if secret:
+        headers["X-Agent-Secret"] = secret
+    payload = {
+        "conversationId": conversation_id,
+        "interviewRecordId": interview_record_id,
+        "scheduleEntryId": schedule_entry_id,
+        "outcome": outcome,
+    }
+    url = f"{base_url.rstrip('/')}/api/agent/checkpoint"
+
+    async with httpx.AsyncClient(timeout=3) as client:
+        for attempt in range(2):
+            try:
+                response = await client.post(url, json=payload, headers=headers)
+                if response.status_code < 300:
+                    return
+                logger.warning(
+                    "checkpoint API returned %d: conversation_id=%s question_id=%s",
+                    response.status_code,
+                    conversation_id,
+                    outcome.get("questionId"),
+                )
+            except Exception:
+                logger.exception(
+                    "question checkpoint failed: conversation_id=%s question_id=%s",
+                    conversation_id,
+                    outcome.get("questionId"),
+                )
+            if attempt == 0:
+                await asyncio.sleep(0.5)
+
+
 async def send_report(
     interview_context: InterviewDispatchContext,
     room_name: str,
@@ -21,6 +68,7 @@ async def send_report(
     close_reason: str,
     recording: dict | None = None,
     metrics: dict | None = None,
+    data_collection_results: dict | None = None,
 ) -> None:
     """POST raw transcript to the backend. Summary + evaluation are generated
     server-side asynchronously (fire-and-forget in the Node process), so this
@@ -54,6 +102,7 @@ async def send_report(
         },
         "metrics": metrics or {},
         "recording": recording,
+        "dataCollectionResults": data_collection_results,
     }
 
     headers = {"Content-Type": "application/json"}

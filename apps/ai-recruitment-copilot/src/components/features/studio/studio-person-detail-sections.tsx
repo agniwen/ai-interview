@@ -1,5 +1,4 @@
 "use client";
-
 // 候选人详情视图的共享主体 —— 把数据获取、tab 切换、各 section 渲染抽离出来,
 // 让弹窗版本 (StudioPersonDetailDialog) 和独立页面版本同时复用。调用方通过
 // shell 自己决定 chrome:Modal、全屏页面布局,甚至嵌入式抽屉都行。
@@ -10,7 +9,7 @@
 // chrome via shell — Modal, full-page layout, or any custom frame.
 
 import type { CandidateFormSubmissionWithSnapshot } from "@arc/db-schema/candidate-forms";
-import { describeResumeReviewStatus } from "@arc/shared/studio-resumes";
+import type { StudioInterviewConversationReport } from "@arc/db-schema/interview-session";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import type { QueryClient } from "@tanstack/react-query";
 import {
@@ -21,13 +20,10 @@ import {
 } from "@/lib/client/api";
 
 import { Badge } from "@/components/ui/badge";
-import { MarkdownView } from "@/components/features/display/markdown-view";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { countDisplayInterviewTurns } from "@arc/shared/interview-transcript-turns";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
-import { truncateText } from "./interviews/interview-detail/helpers";
 
 import type {
   CollectedCandidateInfoItem,
@@ -136,6 +132,30 @@ export function getCollectedCandidateInfoItems({
   return { formItems, interviewItems };
 }
 
+export function getReportFormItems(
+  report: StudioInterviewConversationReport | null | undefined,
+): CollectedCandidateInfoItem[] | null {
+  const submissions = report?.snapshotMetadata?.fullTextInput?.formSubmissions;
+  if (!submissions) {
+    return null;
+  }
+
+  const items: CollectedCandidateInfoItem[] = [];
+  for (const [submissionIndex, submission] of submissions.entries()) {
+    for (const answer of submission.answers) {
+      items.push({
+        analysis: null,
+        answers: answer.valueText ? [answer.valueText] : [],
+        id: `form-${submissionIndex}-${submission.templateId}-${answer.questionId}`,
+        kind: "form",
+        question: answer.label,
+        sequence: items.length + 1,
+      });
+    }
+  }
+  return items;
+}
+
 export function CollectedCandidateInfoList({
   items,
   emptyLabel,
@@ -163,26 +183,20 @@ export function CollectedCandidateInfoList({
                 <div className="font-medium text-[11px] text-muted-foreground">问题</div>
                 <p className="font-medium text-foreground leading-normal">{item.question}</p>
               </div>
-              {item.analysis ? (
-                <div className="mt-3 space-y-1">
-                  <div className="font-medium text-[11px] text-muted-foreground">AI 分析</div>
-                  <p className="font-medium text-foreground leading-6">{item.analysis}</p>
-                </div>
-              ) : null}
               <div className="mt-3 space-y-1">
                 <div className="font-medium text-[11px] text-muted-foreground">
                   {item.kind === "interview" ? "候选人回答" : "回答"}
                 </div>
                 {item.answers.length > 0 ? (
                   <div className="flex flex-col gap-1.5">
-                    {item.answers.map((answer, index) => (
-                      <Tooltip key={`${index}-${answer}`}>
+                    {item.answers.map((answer) => (
+                      <Tooltip key={answer}>
                         <TooltipTrigger
                           render={
                             <p
                               className={
                                 item.kind === "interview"
-                                  ? "line-clamp-2 cursor-help text-muted-foreground leading-6 wrap-break-word"
+                                  ? "whitespace-pre-wrap font-medium text-foreground leading-6 wrap-break-word"
                                   : "line-clamp-2 cursor-help text-foreground leading-6 wrap-break-word"
                               }
                             >
@@ -200,6 +214,12 @@ export function CollectedCandidateInfoList({
                   <p className="text-muted-foreground text-sm">暂无提取答案</p>
                 )}
               </div>
+              {item.analysis ? (
+                <div className="mt-3 space-y-1">
+                  <div className="font-medium text-[11px] text-muted-foreground">AI 分析</div>
+                  <p className="text-muted-foreground text-xs leading-5">{item.analysis}</p>
+                </div>
+              ) : null}
             </div>
           </div>
         </article>
@@ -213,65 +233,6 @@ export function compactText(value: string | null | undefined, fallback: string, 
     return fallback;
   }
   return value.length > limit ? `${value.slice(0, limit)}...` : value;
-}
-
-export function ResumeAiAnalysisPlaceholder({
-  resumeRecord,
-}: {
-  resumeRecord: ResumeLibraryDetail | null | undefined;
-}) {
-  const status = resumeRecord?.resumeReviewStatus ?? "idle";
-  const statusMeta = describeResumeReviewStatus(status);
-
-  if (status === "queued" || status === "processing") {
-    return (
-      <Frame>
-        <FrameHeader className="flex-row items-center justify-between gap-3">
-          <FrameTitle>简历筛选 · 分析中</FrameTitle>
-          <div>
-            <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
-          </div>
-        </FrameHeader>
-        <FramePanel>
-          <p className="text-muted-foreground text-sm leading-6">
-            系统正在基于绑定岗位生成 AI评分，完成后会自动展示在这里。
-          </p>
-        </FramePanel>
-      </Frame>
-    );
-  }
-
-  if (status === "failed") {
-    return (
-      <Frame>
-        <FrameHeader className="flex-row items-center justify-between gap-3">
-          <FrameTitle>AI评分失败</FrameTitle>
-          <div>
-            <Badge variant={statusMeta.tone}>{statusMeta.label}</Badge>
-          </div>
-        </FrameHeader>
-        <FramePanel>
-          <p className="text-muted-foreground text-sm leading-6">
-            {resumeRecord?.resumeReviewError ?? "AI评分生成失败，请稍后重试。"}
-          </p>
-        </FramePanel>
-      </Frame>
-    );
-  }
-
-  return (
-    <Frame>
-      <FrameHeader>
-        <FrameTitle>AI评分</FrameTitle>
-      </FrameHeader>
-      <FramePanel>
-        <MarkdownView
-          className="text-muted-foreground text-sm leading-6"
-          content={truncateText(resumeRecord?.notes) || "暂无 AI评分结果"}
-        />
-      </FramePanel>
-    </Frame>
-  );
 }
 
 export type ResumeScreeningRuleResult = NonNullable<
@@ -389,17 +350,6 @@ export function ResumeScreeningResultPanel({
       </FramePanel>
     </Frame>
   );
-}
-
-export function resolveDisplayTurnStats(
-  report: { agentTurnCount: number; turnCount: number; userTurnCount: number },
-  stats: ReturnType<typeof countDisplayInterviewTurns> | undefined,
-) {
-  return {
-    displayAgentTurnCount: stats?.agentTurnCount ?? report.agentTurnCount,
-    displayTurnCount: stats?.turnCount ?? report.turnCount,
-    displayUserTurnCount: stats?.userTurnCount ?? report.userTurnCount,
-  };
 }
 
 export async function resetInterviewFormSubmission({

@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
+import { LocalDateTimeText } from "@/components/features/display/local-date-time-text";
+import { DatePicker } from "@/components/date-time-picker";
 import { Badge } from "@/components/ui/badge";
 import {
   Sheet,
@@ -121,18 +123,19 @@ export function renderRunSummary(account: {
   return { error: account.lastError, label: "上轮快照", showCounts: true };
 }
 
+const relativeTimeFormatter = new Intl.RelativeTimeFormat("zh-CN", { numeric: "auto" });
+
 function formatRelative(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
-  const rtf = new Intl.RelativeTimeFormat("zh-CN", { numeric: "auto" });
   const min = Math.round(diffMs / 60_000);
   if (Math.abs(min) < 60) {
-    return rtf.format(-min, "minute");
+    return relativeTimeFormatter.format(-min, "minute");
   }
   const hr = Math.round(min / 60);
   if (Math.abs(hr) < 24) {
-    return rtf.format(-hr, "hour");
+    return relativeTimeFormatter.format(-hr, "hour");
   }
-  return rtf.format(-Math.round(hr / 24), "day");
+  return relativeTimeFormatter.format(-Math.round(hr / 24), "day");
 }
 
 function statusVariant(status: MailMessageRecord["status"]) {
@@ -271,7 +274,9 @@ function MailIngestLogMessages({ account, slug }: { account: MailIngestLogAccoun
           {records.map((rec) => (
             <Fragment key={rec.id}>
               <tr>
-                <td>{rec.receivedAt ? new Date(rec.receivedAt).toLocaleString() : "—"}</td>
+                <td>
+                  <LocalDateTimeText value={rec.receivedAt} />
+                </td>
                 <td>
                   <Badge variant={statusVariant(rec.status)}>{STATUS_LABELS[rec.status]}</Badge>
                 </td>
@@ -365,18 +370,18 @@ function MailIngestLogMessages({ account, slug }: { account: MailIngestLogAccoun
           placeholder="主题或发件人"
           value={keyword}
         />
-        <input
+        <DatePicker
           aria-label="起始日期"
-          className="rounded border px-2 py-1 text-sm"
-          onChange={(e) => applyDates(e.target.value || null, to)}
-          type="date"
+          className="h-8 text-sm"
+          onValueChange={(value) => applyDates(value || null, to)}
+          placeholder="起始日期"
           value={from ?? ""}
         />
-        <input
+        <DatePicker
           aria-label="结束日期"
-          className="rounded border px-2 py-1 text-sm"
-          onChange={(e) => applyDates(from, e.target.value || null)}
-          type="date"
+          className="h-8 text-sm"
+          onValueChange={(value) => applyDates(from, value || null)}
+          placeholder="结束日期"
           value={to ?? ""}
         />
         {hasFilters ? (

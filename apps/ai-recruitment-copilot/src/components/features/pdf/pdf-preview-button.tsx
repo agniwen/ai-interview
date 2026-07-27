@@ -110,7 +110,12 @@ function PdfPreviewFallbackDialog({
         </div>
       }
     >
-      <iframe className="h-full w-full bg-background" src={url} title={filename ?? "简历预览"} />
+      <iframe
+        className="h-full w-full bg-background"
+        sandbox=""
+        src={url}
+        title={filename ?? "简历预览"}
+      />
     </Modal>
   );
 }

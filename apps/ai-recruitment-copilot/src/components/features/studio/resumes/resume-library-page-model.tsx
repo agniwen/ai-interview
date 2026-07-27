@@ -109,7 +109,7 @@ export function setResumeLibraryScrollRestoreSnapshot(
 }
 
 export function useResumeLibraryInitialScrollRestore(
-  restoreSnapshotRef: RefObject<ResumeLibraryScrollRestoreSnapshot | null>,
+  restoreSnapshot: ResumeLibraryScrollRestoreSnapshot | null,
 ) {
   const initialScrollElement =
     typeof document === "undefined"
@@ -118,19 +118,17 @@ export function useResumeLibraryInitialScrollRestore(
           `[data-scroll-restoration-id="${STUDIO_MAIN_SCROLL_RESTORATION_ID}"]`,
         );
   const canUseInitialMeasurements =
-    !!restoreSnapshotRef.current &&
+    !!restoreSnapshot &&
     !!initialScrollElement &&
-    restoreSnapshotRef.current.viewportWidth === initialScrollElement.clientWidth;
+    restoreSnapshot.viewportWidth === initialScrollElement.clientWidth;
   const studioScrollEntry = useElementScrollRestoration({
     id: STUDIO_MAIN_SCROLL_RESTORATION_ID,
   });
 
   return {
-    initialMeasurementsCache: canUseInitialMeasurements
-      ? restoreSnapshotRef.current?.measurements
-      : undefined,
+    initialMeasurementsCache: canUseInitialMeasurements ? restoreSnapshot.measurements : undefined,
     initialOffset: canUseInitialMeasurements
-      ? restoreSnapshotRef.current?.scrollOffset
+      ? restoreSnapshot.scrollOffset
       : studioScrollEntry?.scrollY,
   };
 }

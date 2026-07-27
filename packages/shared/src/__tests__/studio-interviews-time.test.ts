@@ -26,14 +26,26 @@ describe("studio interview timestamp input schemas", () => {
     expect(
       studioInterviewFormSchema.safeParse({
         ...baseInterviewInput,
-        scheduleEntries: [{ ...scheduleEntry, scheduledAt: "2026-06-02T17:30" }],
+        scheduleEntries: [
+          {
+            ...scheduleEntry,
+            scheduledAt: "2026-06-02T17:30",
+            scheduledEndAt: "2026-06-02T18:30",
+          },
+        ],
       }).success,
     ).toBe(false);
 
     expect(
       studioInterviewFormSchema.safeParse({
         ...baseInterviewInput,
-        scheduleEntries: [{ ...scheduleEntry, scheduledAt: "2026-06-02T09:30:00.000Z" }],
+        scheduleEntries: [
+          {
+            ...scheduleEntry,
+            scheduledAt: "2026-06-02T09:30:00.000Z",
+            scheduledEndAt: "2026-06-02T10:30:00.000Z",
+          },
+        ],
       }).success,
     ).toBe(true);
   });
@@ -43,9 +55,43 @@ describe("studio interview timestamp input schemas", () => {
       studioInterviewClientFormSchema.safeParse({
         ...baseInterviewInput,
         interviewQuestions: [],
-        scheduleEntries: [{ ...scheduleEntry, scheduledAt: "2026-06-02T17:30" }],
+        scheduleEntries: [
+          {
+            ...scheduleEntry,
+            scheduledAt: "2026-06-02T17:30",
+            scheduledEndAt: "2026-06-02T18:30",
+          },
+        ],
       }).success,
     ).toBe(true);
+  });
+
+  it("requires paired AI interview times with the end after the start", () => {
+    expect(
+      studioInterviewFormSchema.safeParse({
+        ...baseInterviewInput,
+        scheduleEntries: [
+          {
+            ...scheduleEntry,
+            scheduledAt: "2026-06-02T09:30:00.000Z",
+            scheduledEndAt: "",
+          },
+        ],
+      }).success,
+    ).toBe(false);
+
+    expect(
+      studioInterviewFormSchema.safeParse({
+        ...baseInterviewInput,
+        scheduleEntries: [
+          {
+            ...scheduleEntry,
+            scheduledAt: "2026-06-02T09:30:00.000Z",
+            scheduledEndAt: "2026-06-02T09:00:00.000Z",
+          },
+        ],
+      }).success,
+    ).toBe(false);
   });
 
   it("requires explicit timezone information for human interview schedules", () => {

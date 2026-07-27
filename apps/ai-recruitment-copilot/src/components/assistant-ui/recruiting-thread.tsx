@@ -1,5 +1,4 @@
 "use client";
-
 import {
   ActionBarPrimitive,
   AuiIf,
@@ -455,47 +454,45 @@ function CandidateSummaryCardButton({ card }: { card: CandidateSummaryCard }) {
   );
 }
 
-export const RecruitingResumeSearchToolUI = makeAssistantToolUI<unknown, SearchResumeRecordsResult>(
-  {
-    display: "standalone",
-    render: ({ result, status }) => {
-      const cards = result?.candidateSummaryCards ?? [];
-      if (status.type === "running") {
-        return <ToolNotice>正在检索候选人...</ToolNotice>;
-      }
-      if (cards.length === 0) {
-        return (
-          <>
-            <CopilotToolContextReporter citations={result?.citations ?? []} />
-            <ToolNotice>未找到匹配候选人。</ToolNotice>
-          </>
-        );
-      }
+const RecruitingResumeSearchToolUI = makeAssistantToolUI<unknown, SearchResumeRecordsResult>({
+  display: "standalone",
+  render: ({ result, status }) => {
+    const cards = result?.candidateSummaryCards ?? [];
+    if (status.type === "running") {
+      return <ToolNotice>正在检索候选人...</ToolNotice>;
+    }
+    if (cards.length === 0) {
       return (
-        <div className="aui-candidate-card-list grid gap-2">
+        <>
           <CopilotToolContextReporter citations={result?.citations ?? []} />
-          {result?.retrievalMode ? (
-            <p className="text-muted-foreground text-xs">
-              检索方式：{result.retrievalMode}
-              {result.semanticHitCount ? ` · 语义命中 ${result.semanticHitCount}` : ""}
-            </p>
-          ) : null}
-          {cards.map((card) => (
-            <CandidateSummaryCardButton card={card} key={card.id} />
-          ))}
-          {typeof result?.total === "number" && result.total > cards.length ? (
-            <p className="text-muted-foreground text-xs">
-              还有 {result.total - cards.length} 个候选人未展示。
-            </p>
-          ) : null}
-        </div>
+          <ToolNotice>未找到匹配候选人。</ToolNotice>
+        </>
       );
-    },
-    toolName: "search_resume_records",
+    }
+    return (
+      <div className="aui-candidate-card-list grid gap-2">
+        <CopilotToolContextReporter citations={result?.citations ?? []} />
+        {result?.retrievalMode ? (
+          <p className="text-muted-foreground text-xs">
+            检索方式：{result.retrievalMode}
+            {result.semanticHitCount ? ` · 语义命中 ${result.semanticHitCount}` : ""}
+          </p>
+        ) : null}
+        {cards.map((card) => (
+          <CandidateSummaryCardButton card={card} key={card.id} />
+        ))}
+        {typeof result?.total === "number" && result.total > cards.length ? (
+          <p className="text-muted-foreground text-xs">
+            还有 {result.total - cards.length} 个候选人未展示。
+          </p>
+        ) : null}
+      </div>
+    );
   },
-);
+  toolName: "search_resume_records",
+});
 
-export const RecruitingResumeDetailToolUI = makeAssistantToolUI<unknown, ResumeRecordDetailResult>({
+const RecruitingResumeDetailToolUI = makeAssistantToolUI<unknown, ResumeRecordDetailResult>({
   display: "standalone",
   render: ({ result, status }) => {
     if (status.type === "running") {

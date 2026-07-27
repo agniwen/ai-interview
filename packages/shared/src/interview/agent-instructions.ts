@@ -18,6 +18,7 @@ export interface AgentInstructionPresetQuestion {
   difficulty: InterviewQuestionTemplateDifficulty;
   evaluationFocus?: string | null;
   followUpDirections?: string | null;
+  id?: string;
 }
 
 /**

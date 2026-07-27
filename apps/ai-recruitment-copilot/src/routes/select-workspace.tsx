@@ -66,7 +66,7 @@ function SelectWorkspaceRoute() {
             {organizations.map((organization) => (
               <li key={organization.id}>
                 <a className="block" href={`/w/${organization.slug}`}>
-                  <article className="group flex items-center gap-4 rounded-xl border border-border bg-background px-4 py-3.5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-foreground/10 hover:bg-card hover:shadow-sm">
+                  <article className="group flex items-center gap-4 rounded-xl border border-border bg-background px-4 py-3.5 shadow-xs transition-[transform,border-color,background-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-foreground/10 hover:bg-card hover:shadow-sm">
                     <Avatar className="size-11 shrink-0">
                       <AvatarFallback className="bg-muted font-medium text-foreground text-sm">
                         {getInitials(organization.name)}
@@ -80,7 +80,7 @@ function SelectWorkspaceRoute() {
                     </div>
                     <IconArrowRight
                       aria-hidden="true"
-                      className="size-4 shrink-0 text-muted-foreground transition-all duration-200 group-hover:translate-x-1 group-hover:text-foreground"
+                      className="size-4 shrink-0 text-muted-foreground transition-[transform,color] duration-200 group-hover:translate-x-1 group-hover:text-foreground"
                     />
                   </article>
                 </a>
@@ -118,10 +118,6 @@ function SelectWorkspaceRoute() {
 }
 
 export const Route = createFileRoute("/select-workspace")({
-  component: SelectWorkspaceRoute,
-  head: () => ({
-    meta: [{ title: formatDocumentTitle("选择工作区") }],
-  }),
   loader: async () => {
     const state = await getWorkspaceSelectionState();
     if (state.status === "unauthenticated") {
@@ -135,4 +131,8 @@ export const Route = createFileRoute("/select-workspace")({
     }
     return state;
   },
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("选择工作区") }],
+  }),
+  component: SelectWorkspaceRoute,
 });

@@ -7,6 +7,7 @@ import {
   fetchLatestBuildTime,
   isStaleClient,
 } from "@/lib/client/app-version";
+import { runAsyncAction } from "@/lib/client/async-control";
 import { BUILD_TIME } from "@/lib/client/build-info";
 import { env } from "@/env/client";
 
@@ -31,21 +32,25 @@ export function AppVersionProvider({ children }: { children: ReactNode }) {
     }
 
     inFlightRef.current = true;
-    try {
-      const currentBuildTime = await fetchLatestBuildTime();
-      if (!(forceUpdateNotice || isStaleClient(currentBuildTime, BUILD_TIME))) {
-        setLatestBuildTime(null);
-        return;
-      }
+    await runAsyncAction({
+      cleanup: () => {
+        inFlightRef.current = false;
+      },
+      onError: (error) => {
+        if (import.meta.env.DEV) {
+          console.debug("[app-version] version check failed", error);
+        }
+      },
+      operation: async () => {
+        const currentBuildTime = await fetchLatestBuildTime();
+        if (!(forceUpdateNotice || isStaleClient(currentBuildTime, BUILD_TIME))) {
+          setLatestBuildTime(null);
+          return;
+        }
 
-      setLatestBuildTime(currentBuildTime);
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.debug("[app-version] version check failed", error);
-      }
-    } finally {
-      inFlightRef.current = false;
-    }
+        setLatestBuildTime(currentBuildTime);
+      },
+    });
   }, [forceUpdateNotice]);
 
   useEffect(() => {

@@ -98,10 +98,6 @@ export function hasChat(chatId: string): boolean {
   return chats.has(chatId);
 }
 
-export function removeChat(chatId: string): void {
-  chats.delete(chatId);
-}
-
 export function subscribeChatFinish(listener: FinishListener): () => void {
   finishListeners.add(listener);
   return () => {

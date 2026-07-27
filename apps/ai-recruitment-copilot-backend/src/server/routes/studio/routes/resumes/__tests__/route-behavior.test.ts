@@ -22,6 +22,8 @@ const mocks = vi.hoisted(() => ({
   loadOrCreateActiveInterviewContextSnapshot: vi.fn(),
   loadResumeDetail: vi.fn(),
   loadResumeDetailForWorkspaceMember: vi.fn(),
+  loadResumeLibraryMetrics: vi.fn(),
+  permissionChecks: [] as [string, string][],
   queryPaginatedResumeRecords: vi.fn(),
   removeImportedInterviewFromConversations: vi.fn(),
   replaceDuplicateMatchesForSource: vi.fn(),
@@ -59,7 +61,11 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent
   validateResumeFile: vi.fn(),
 }));
 vi.mock("@arc/ai-recruitment-copilot-backend/server/middlewares/permission", () => ({
-  requirePermission: () => (_c: unknown, next: () => Promise<void>) => next(),
+  requirePermission:
+    (resource: string, action: string) => (_c: unknown, next: () => Promise<void>) => {
+      mocks.permissionChecks.push([resource, action]);
+      return next();
+    },
 }));
 vi.mock(
   "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes",
@@ -67,6 +73,12 @@ vi.mock(
     loadResumeDetail: mocks.loadResumeDetail,
     loadResumeDetailForWorkspaceMember: mocks.loadResumeDetailForWorkspaceMember,
     queryPaginatedResumeRecords: mocks.queryPaginatedResumeRecords,
+  }),
+);
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/metrics",
+  () => ({
+    loadResumeLibraryMetrics: mocks.loadResumeLibraryMetrics,
   }),
 );
 vi.mock(
@@ -201,6 +213,7 @@ describe("resumeLibraryRouter behavior", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.insertedValues.length = 0;
+    mocks.permissionChecks.length = 0;
     mocks.updatePatches.length = 0;
     mocks.resolveRecruitingVisibilityScope.mockResolvedValue({ kind: "all" });
     mocks.resolveResumeUploadStorage.mockResolvedValue(null);
@@ -214,6 +227,11 @@ describe("resumeLibraryRouter behavior", () => {
       records: [],
       total: 1103,
       totalPages: 56,
+    });
+    mocks.loadResumeLibraryMetrics.mockResolvedValue({
+      byPipeline: [],
+      conversion: { withInterview: 0, withoutInterview: 0 },
+      dailyAdded: [],
     });
     // oxlint-disable-next-line promise/prefer-await-to-callbacks -- Drizzle transactions use a callback API.
     mocks.transaction.mockImplementation((callback) => {
@@ -247,6 +265,22 @@ describe("resumeLibraryRouter behavior", () => {
       { kind: "all" },
       1103,
     );
+  });
+
+  it("returns resume-library metrics behind page and resource permissions", async () => {
+    const response = await makeApp().request("/resumes/metrics");
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      byPipeline: [],
+      conversion: { withInterview: 0, withoutInterview: 0 },
+      dailyAdded: [],
+    });
+    expect(mocks.loadResumeLibraryMetrics).toHaveBeenCalledWith(ORGANIZATION_ID);
+    expect(mocks.permissionChecks).toEqual([
+      ["page", "resumes"],
+      ["resumeLibrary", "read"],
+    ]);
   });
 
   it("persists duplicate matches after creating a resume-library record", async () => {

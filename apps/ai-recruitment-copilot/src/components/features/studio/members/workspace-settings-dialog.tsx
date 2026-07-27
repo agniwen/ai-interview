@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { runAsyncAction } from "@/lib/client/async-control";
 import { rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { useWorkspaceId, useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -60,27 +61,29 @@ export function WorkspaceSettingsDialog({ currentName, trigger }: WorkspaceSetti
 
     setSubmitting(true);
     setFieldError(null);
-    try {
-      await rpcFetch(
-        rpc.api.w[":slug"].studio.workspace.$patch({
-          json: { name: trimmedName },
-          param: { slug },
-        }),
-        "更新工作区名称失败",
-      );
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["workspace-organization", workspaceId] }),
-        queryClient.invalidateQueries({ queryKey: ["organizations"] }),
-      ]);
-      toast.success("工作区名称已更新");
-      setOpen(false);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "更新工作区名称失败";
-      setFieldError(message);
-      toast.error(message);
-    } finally {
-      setSubmitting(false);
-    }
+    await runAsyncAction({
+      cleanup: () => setSubmitting(false),
+      onError: (error) => {
+        const message = error instanceof Error ? error.message : "更新工作区名称失败";
+        setFieldError(message);
+        toast.error(message);
+      },
+      operation: async () => {
+        await rpcFetch(
+          rpc.api.w[":slug"].studio.workspace.$patch({
+            json: { name: trimmedName },
+            param: { slug },
+          }),
+          "更新工作区名称失败",
+        );
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["workspace-organization", workspaceId] }),
+          queryClient.invalidateQueries({ queryKey: ["organizations"] }),
+        ]);
+        toast.success("工作区名称已更新");
+        setOpen(false);
+      },
+    });
   }
 
   return (

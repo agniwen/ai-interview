@@ -13,6 +13,17 @@ export const humanInterviewKeys = {
   studioResumes: () => ["studio-resumes"] as const,
 };
 
+export const studioCalendarKeys = {
+  aiEventPreview: (slug: string, roundId: string, conversationId: string | null) =>
+    ["studio-calendar", slug, "ai-event-preview", roundId, conversationId] as const,
+  range: (slug: string, start: string, end: string) =>
+    ["studio-calendar", slug, start, end] as const,
+};
+
+export const studioResumeKeys = {
+  metrics: (slug: string) => ["studio-resumes", slug, "metrics"] as const,
+};
+
 type QueryInvalidator = Pick<QueryClient, "invalidateQueries">;
 
 export async function invalidateHumanInterviewCandidateQueries(

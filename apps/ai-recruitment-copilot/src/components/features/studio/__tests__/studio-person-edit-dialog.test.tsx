@@ -234,6 +234,7 @@ function makeRoundDetail(
     notes: "轮次备注",
     roundLabel: "第一轮",
     scheduledAt: null,
+    scheduledEndAt: null,
     sessionStartedAt: null,
     sortOrder: 1,
     status: "pending",

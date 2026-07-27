@@ -260,8 +260,8 @@ function FeishuNotificationPreviewDialog({
               className="min-h-0 overflow-y-auto rounded-xl border border-orange-200/80 bg-orange-50/70 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:border-orange-900/70 dark:bg-orange-950/25"
               value="preview"
             >
-              {previewMutation.data.block.children?.map((block, index) => (
-                <FeishuPreviewLine block={block} key={index} />
+              {previewMutation.data.block.children?.map((block) => (
+                <FeishuPreviewLine block={block} key={JSON.stringify(block)} />
               ))}
             </TabsContent>
             <TabsContent

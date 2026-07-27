@@ -73,6 +73,7 @@ import {
   isPreviewableResumeDocumentInput,
 } from "@/components/features/resume/resume-document-preview-button";
 import { rpc } from "@/lib/client/rpc";
+import { runAsyncAction } from "@/lib/client/async-control";
 import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
@@ -559,17 +560,17 @@ function InterviewManagementPage() {
       return;
     }
     setIsBulkDeleting(true);
-    try {
-      const result = await bulkDeleteStudioInterviewRounds(slug, ids);
-      toast.success(`已删除 ${result?.deleted ?? ids.length} 条记录`);
-      grid.setRowSelection({});
-      setBulkDeleteOpen(false);
-      invalidateAll();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "批量删除失败");
-    } finally {
-      setIsBulkDeleting(false);
-    }
+    await runAsyncAction({
+      cleanup: () => setIsBulkDeleting(false),
+      onError: (error) => toast.error(error instanceof Error ? error.message : "批量删除失败"),
+      operation: async () => {
+        const result = await bulkDeleteStudioInterviewRounds(slug, ids);
+        toast.success(`已删除 ${result?.deleted ?? ids.length} 条记录`);
+        grid.setRowSelection({});
+        setBulkDeleteOpen(false);
+        invalidateAll();
+      },
+    });
   }
 
   return (
@@ -764,10 +765,7 @@ function StudioInterviewsRoute() {
 }
 
 export const Route = createFileRoute("/w/$slug/studio/interviews")({
-  component: StudioInterviewsRoute,
-  head: () => ({
-    meta: [{ title: formatDocumentTitle("AI 面试") }],
-  }),
+  validateSearch: (search: Record<string, unknown>) => coerceStudioInterviewsSearch(search),
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as unknown as {
       location: { pathname: string; search: SearchParamsRecord };
@@ -793,7 +791,10 @@ export const Route = createFileRoute("/w/$slug/studio/interviews")({
     }
     return state;
   },
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("AI 面试") }],
+  }),
+  component: StudioInterviewsRoute,
   pendingComponent: () => <StudioTablePageSkeleton filterCount={3} label="AI 面试" summary />,
   shouldReload: false,
-  validateSearch: (search: Record<string, unknown>) => coerceStudioInterviewsSearch(search),
 });

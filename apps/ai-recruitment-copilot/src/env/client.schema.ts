@@ -19,8 +19,8 @@ export function createClientEnv(runtimeEnv: Record<string, string | boolean | nu
   return createEnv({
     client: {
       NEXT_PUBLIC_AGENT_NAME: z.string().min(1),
-      NEXT_PUBLIC_BASE_URL: z.string().url(),
-      NEXT_PUBLIC_BETTER_AUTH_URL: z.string().url(),
+      NEXT_PUBLIC_BASE_URL: z.url(),
+      NEXT_PUBLIC_BETTER_AUTH_URL: z.url(),
       NEXT_PUBLIC_ENABLE_CANDIDATE_SPECIFIC_INTERVIEW_QUESTIONS: defaultTrueBooleanStringSchema,
       NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: booleanStringSchema,
       NEXT_PUBLIC_ENABLE_INTERVIEW_DEVELOPER_DETAILS: defaultFalseBooleanStringSchema,

@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { jobDescription, resumePoolItem, studioInterview } from "@arc/db-schema/schema";
+import { jobDescription, resumePoolItem, studioInterview, user } from "@arc/db-schema/schema";
 import type { ResumePoolScope, ResumeSemanticSourceType } from "@arc/db-schema/schema";
 import { getCandidateActivityStatus } from "@arc/shared/candidate-pipeline-machine";
 import type { DedupMatchRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
@@ -29,6 +29,8 @@ interface SemanticCandidateRecord {
   sourceType?: ResumeSemanticSourceType;
   status: DedupMatchRecord["status"];
   targetRole: string | null;
+  uploaderImage?: string | null;
+  uploaderName?: string | null;
 }
 
 interface FindSemanticResumeDuplicatesInput {
@@ -176,6 +178,8 @@ export async function findSemanticResumeDuplicates(
           sourceType: candidateSourceType,
           status: candidate.status,
           targetRole: candidate.targetRole,
+          uploaderImage: candidate.uploaderImage,
+          uploaderName: candidate.uploaderName,
         },
       ];
     });
@@ -252,8 +256,11 @@ async function loadSemanticDedupCandidates(
             pipelineStage: studioInterview.pipelineStage,
             resumeProfile: studioInterview.resumeProfile,
             targetRole: studioInterview.targetRole,
+            uploaderImage: user.image,
+            uploaderName: user.name,
           })
           .from(studioInterview)
+          .leftJoin(user, eq(studioInterview.createdBy, user.id))
           .leftJoin(
             jobDescription,
             and(
@@ -282,8 +289,11 @@ async function loadSemanticDedupCandidates(
             resumeProfile: resumePoolItem.resumeProfile,
             status: resumePoolItem.status,
             targetRole: resumePoolItem.targetRole,
+            uploaderImage: user.image,
+            uploaderName: user.name,
           })
           .from(resumePoolItem)
+          .leftJoin(user, eq(resumePoolItem.createdBy, user.id))
           .leftJoin(
             jobDescription,
             and(

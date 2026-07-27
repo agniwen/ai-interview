@@ -267,6 +267,46 @@ _Avoid_: Screening-only refresh
 One scheduled AI interview attempt for a candidate.
 _Avoid_: Candidate row, interview record
 
+**Interview Active Time**:
+The elapsed time in an AI interview round while the candidate is connected and the interview can progress. Time spent inside the hot-reconnect grace window is excluded, although the grace window itself remains bounded.
+_Avoid_: Room lifetime, wall-clock duration, recording duration
+
+**Required Interview Question**:
+A question from the question-template snapshot assigned to an AI interview round. Resume-derived personalized questions are not part of the round's required question set.
+_Avoid_: Personalized question, supplementary question, generated follow-up
+
+**Evaluation Focus**:
+The assessable information a required interview question is intended to collect. It defines when the question has gathered enough evidence to complete, but it is not a standard answer or a correctness rule.
+_Avoid_: Question intent, scoring answer, evaluation criterion
+
+**Follow-up Direction**:
+Guidance for probing when a candidate's answer has not yet covered a question's evaluation focus. It suggests useful avenues rather than a checklist that must be exhausted.
+_Avoid_: Required subquestion, completion checklist
+
+**Skipped Interview Question**:
+A required interview question that the candidate explicitly declines after one confirmation. It is recorded as a candidate skip, receives zero credit, and does not prevent the round from continuing.
+_Avoid_: Unasked interview question, unanswered question
+
+**Insufficient Interview Question**:
+A required interview question the candidate attempted but whose evaluation focus remained unsupported after the permitted follow-ups. It records inadequate coverage and lets the round continue without assigning a score by itself.
+_Avoid_: Skipped interview question, incorrect answer, zero-score answer
+
+**Interrupted Interview Question**:
+A required interview question that started but could not reach a coverage outcome before the round ended. It preserves partial participation and records whether time pressure, disconnect, candidate choice, or system shutdown caused the interruption.
+_Avoid_: Unasked interview question, insufficient interview question
+
+**Unasked Interview Question**:
+A required question that an AI interview round ended before starting. It records why coverage was incomplete and is neither a candidate skip nor a zero-score answer.
+_Avoid_: Skipped question, unanswered question, incorrect answer
+
+**Interview Question Outcome**:
+The round-scoped process record for one required interview question, including whether it was answered, skipped, or unasked and its timing and follow-up count. It supports coverage auditing but is not interview report evidence; scoring must continue to cite the original transcript.
+_Avoid_: Answer evidence, question score, generated assessment
+
+**Call Completion Status**:
+The technical completion state of an AI interview call. `success` means the round reached a normal wrap-up, including a time-driven wrap-up; `partial` means a candidate-ended round or exhausted reconnect grace preserved usable partial results; `failed` means an agent, infrastructure, or system-shutdown failure prevented normal completion. It does not replace per-question outcomes.
+_Avoid_: Interview score, hiring recommendation, question outcome
+
 **Schedule Entry**:
 The round-level scheduling and status record for an AI interview.
 _Avoid_: Calendar event, timeslot

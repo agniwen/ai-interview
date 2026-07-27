@@ -37,7 +37,7 @@ describe("Mastra Studio TanStack integration", () => {
     expect(sidebar).toContain("bottomNav");
     expect(sidebar).toContain("MastraSidebarSearch");
     expect(tabs).toContain('value="manage">管理');
-    expect(tabs).toContain('value="mastra">Mastra');
+    expect(tabs).toContain('value="mastra">调试');
   });
 
   it("does not depend on the former iframe build pipeline", () => {

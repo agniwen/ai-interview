@@ -22,6 +22,7 @@ import { Route as WSlugRouteImport } from './routes/w.$slug'
 import { Route as StudioResumesRouteImport } from './routes/studio.resumes'
 import { Route as StudioResumePoolRouteImport } from './routes/studio.resume-pool'
 import { Route as StudioInterviewsRouteImport } from './routes/studio.interviews'
+import { Route as StudioCalendarRouteImport } from './routes/studio.calendar'
 import { Route as ReferralsTokenRouteImport } from './routes/referrals.$token'
 import { Route as RRoundIdRouteImport } from './routes/r.$roundId'
 import { Route as PlatformUsersRouteImport } from './routes/platform.users'
@@ -68,6 +69,7 @@ import { Route as WSlugStudioGlobalConfigRouteImport } from './routes/w.$slug.st
 import { Route as WSlugStudioFormsRouteImport } from './routes/w.$slug.studio.forms'
 import { Route as WSlugStudioDepartmentsRouteImport } from './routes/w.$slug.studio.departments'
 import { Route as WSlugStudioDashboardRouteImport } from './routes/w.$slug.studio.dashboard'
+import { Route as WSlugStudioCalendarRouteImport } from './routes/w.$slug.studio.calendar'
 import { Route as WSlugChatSessionIdRouteImport } from './routes/w.$slug.chat.$sessionId'
 import { Route as WSlugAgentSessionIdRouteImport } from './routes/w.$slug.agent.$sessionId'
 import { Route as PlatformMastraStudioAgentBuilderSkillsRouteImport } from './routes/platform.mastra-studio.agent-builder.skills'
@@ -240,6 +242,11 @@ const StudioResumePoolRoute = StudioResumePoolRouteImport.update({
 const StudioInterviewsRoute = StudioInterviewsRouteImport.update({
   id: '/interviews',
   path: '/interviews',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioCalendarRoute = StudioCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
   getParentRoute: () => StudioRoute,
 } as any)
 const ReferralsTokenRoute = ReferralsTokenRouteImport.update({
@@ -481,6 +488,11 @@ const WSlugStudioDepartmentsRoute = WSlugStudioDepartmentsRouteImport.update({
 const WSlugStudioDashboardRoute = WSlugStudioDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => WSlugStudioRoute,
+} as any)
+const WSlugStudioCalendarRoute = WSlugStudioCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
   getParentRoute: () => WSlugStudioRoute,
 } as any)
 const WSlugChatSessionIdRoute = WSlugChatSessionIdRouteImport.update({
@@ -1159,6 +1171,7 @@ export interface FileRoutesByFullPath {
   '/platform/users': typeof PlatformUsersRoute
   '/r/$roundId': typeof RRoundIdRoute
   '/referrals/$token': typeof ReferralsTokenRoute
+  '/studio/calendar': typeof StudioCalendarRoute
   '/studio/interviews': typeof StudioInterviewsRoute
   '/studio/resume-pool': typeof StudioResumePoolRoute
   '/studio/resumes': typeof StudioResumesRoute
@@ -1202,6 +1215,7 @@ export interface FileRoutesByFullPath {
   '/platform/mastra-studio/agent-builder/skills': typeof PlatformMastraStudioAgentBuilderSkillsRouteWithChildren
   '/w/$slug/agent/$sessionId': typeof WSlugAgentSessionIdRoute
   '/w/$slug/chat/$sessionId': typeof WSlugChatSessionIdRoute
+  '/w/$slug/studio/calendar': typeof WSlugStudioCalendarRoute
   '/w/$slug/studio/dashboard': typeof WSlugStudioDashboardRoute
   '/w/$slug/studio/departments': typeof WSlugStudioDepartmentsRoute
   '/w/$slug/studio/forms': typeof WSlugStudioFormsRoute
@@ -1321,6 +1335,7 @@ export interface FileRoutesByTo {
   '/platform/users': typeof PlatformUsersRoute
   '/r/$roundId': typeof RRoundIdRoute
   '/referrals/$token': typeof ReferralsTokenRoute
+  '/studio/calendar': typeof StudioCalendarRoute
   '/studio/interviews': typeof StudioInterviewsRoute
   '/studio/resume-pool': typeof StudioResumePoolRoute
   '/studio/resumes': typeof StudioResumesRoute
@@ -1358,6 +1373,7 @@ export interface FileRoutesByTo {
   '/platform/mastra-studio/agent-builder/skills': typeof PlatformMastraStudioAgentBuilderSkillsListingIndexRoute
   '/w/$slug/agent/$sessionId': typeof WSlugAgentSessionIdRoute
   '/w/$slug/chat/$sessionId': typeof WSlugChatSessionIdRoute
+  '/w/$slug/studio/calendar': typeof WSlugStudioCalendarRoute
   '/w/$slug/studio/dashboard': typeof WSlugStudioDashboardRoute
   '/w/$slug/studio/departments': typeof WSlugStudioDepartmentsRoute
   '/w/$slug/studio/forms': typeof WSlugStudioFormsRoute
@@ -1472,6 +1488,7 @@ export interface FileRoutesById {
   '/platform/users': typeof PlatformUsersRoute
   '/r/$roundId': typeof RRoundIdRoute
   '/referrals/$token': typeof ReferralsTokenRoute
+  '/studio/calendar': typeof StudioCalendarRoute
   '/studio/interviews': typeof StudioInterviewsRoute
   '/studio/resume-pool': typeof StudioResumePoolRoute
   '/studio/resumes': typeof StudioResumesRoute
@@ -1517,6 +1534,7 @@ export interface FileRoutesById {
   '/platform/mastra-studio/agent-builder/skills': typeof PlatformMastraStudioAgentBuilderSkillsRouteWithChildren
   '/w/$slug/agent/$sessionId': typeof WSlugAgentSessionIdRoute
   '/w/$slug/chat/$sessionId': typeof WSlugChatSessionIdRoute
+  '/w/$slug/studio/calendar': typeof WSlugStudioCalendarRoute
   '/w/$slug/studio/dashboard': typeof WSlugStudioDashboardRoute
   '/w/$slug/studio/departments': typeof WSlugStudioDepartmentsRoute
   '/w/$slug/studio/forms': typeof WSlugStudioFormsRoute
@@ -1643,6 +1661,7 @@ export interface FileRouteTypes {
     | '/platform/users'
     | '/r/$roundId'
     | '/referrals/$token'
+    | '/studio/calendar'
     | '/studio/interviews'
     | '/studio/resume-pool'
     | '/studio/resumes'
@@ -1686,6 +1705,7 @@ export interface FileRouteTypes {
     | '/platform/mastra-studio/agent-builder/skills'
     | '/w/$slug/agent/$sessionId'
     | '/w/$slug/chat/$sessionId'
+    | '/w/$slug/studio/calendar'
     | '/w/$slug/studio/dashboard'
     | '/w/$slug/studio/departments'
     | '/w/$slug/studio/forms'
@@ -1805,6 +1825,7 @@ export interface FileRouteTypes {
     | '/platform/users'
     | '/r/$roundId'
     | '/referrals/$token'
+    | '/studio/calendar'
     | '/studio/interviews'
     | '/studio/resume-pool'
     | '/studio/resumes'
@@ -1842,6 +1863,7 @@ export interface FileRouteTypes {
     | '/platform/mastra-studio/agent-builder/skills'
     | '/w/$slug/agent/$sessionId'
     | '/w/$slug/chat/$sessionId'
+    | '/w/$slug/studio/calendar'
     | '/w/$slug/studio/dashboard'
     | '/w/$slug/studio/departments'
     | '/w/$slug/studio/forms'
@@ -1955,6 +1977,7 @@ export interface FileRouteTypes {
     | '/platform/users'
     | '/r/$roundId'
     | '/referrals/$token'
+    | '/studio/calendar'
     | '/studio/interviews'
     | '/studio/resume-pool'
     | '/studio/resumes'
@@ -2000,6 +2023,7 @@ export interface FileRouteTypes {
     | '/platform/mastra-studio/agent-builder/skills'
     | '/w/$slug/agent/$sessionId'
     | '/w/$slug/chat/$sessionId'
+    | '/w/$slug/studio/calendar'
     | '/w/$slug/studio/dashboard'
     | '/w/$slug/studio/departments'
     | '/w/$slug/studio/forms'
@@ -2212,6 +2236,13 @@ declare module '@tanstack/react-router' {
       path: '/interviews'
       fullPath: '/studio/interviews'
       preLoaderRoute: typeof StudioInterviewsRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/calendar': {
+      id: '/studio/calendar'
+      path: '/calendar'
+      fullPath: '/studio/calendar'
+      preLoaderRoute: typeof StudioCalendarRouteImport
       parentRoute: typeof StudioRoute
     }
     '/referrals/$token': {
@@ -2534,6 +2565,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/w/$slug/studio/dashboard'
       preLoaderRoute: typeof WSlugStudioDashboardRouteImport
+      parentRoute: typeof WSlugStudioRoute
+    }
+    '/w/$slug/studio/calendar': {
+      id: '/w/$slug/studio/calendar'
+      path: '/calendar'
+      fullPath: '/w/$slug/studio/calendar'
+      preLoaderRoute: typeof WSlugStudioCalendarRouteImport
       parentRoute: typeof WSlugStudioRoute
     }
     '/w/$slug/chat/$sessionId': {
@@ -3880,12 +3918,14 @@ const PlatformRouteWithChildren = PlatformRoute._addFileChildren(
 )
 
 interface StudioRouteChildren {
+  StudioCalendarRoute: typeof StudioCalendarRoute
   StudioInterviewsRoute: typeof StudioInterviewsRoute
   StudioResumePoolRoute: typeof StudioResumePoolRoute
   StudioResumesRoute: typeof StudioResumesRoute
 }
 
 const StudioRouteChildren: StudioRouteChildren = {
+  StudioCalendarRoute: StudioCalendarRoute,
   StudioInterviewsRoute: StudioInterviewsRoute,
   StudioResumePoolRoute: StudioResumePoolRoute,
   StudioResumesRoute: StudioResumesRoute,
@@ -3961,6 +4001,7 @@ const WSlugStudioResumesRouteWithChildren =
   WSlugStudioResumesRoute._addFileChildren(WSlugStudioResumesRouteChildren)
 
 interface WSlugStudioRouteChildren {
+  WSlugStudioCalendarRoute: typeof WSlugStudioCalendarRoute
   WSlugStudioDashboardRoute: typeof WSlugStudioDashboardRoute
   WSlugStudioDepartmentsRoute: typeof WSlugStudioDepartmentsRoute
   WSlugStudioFormsRoute: typeof WSlugStudioFormsRoute
@@ -3978,6 +4019,7 @@ interface WSlugStudioRouteChildren {
 }
 
 const WSlugStudioRouteChildren: WSlugStudioRouteChildren = {
+  WSlugStudioCalendarRoute: WSlugStudioCalendarRoute,
   WSlugStudioDashboardRoute: WSlugStudioDashboardRoute,
   WSlugStudioDepartmentsRoute: WSlugStudioDepartmentsRoute,
   WSlugStudioFormsRoute: WSlugStudioFormsRoute,

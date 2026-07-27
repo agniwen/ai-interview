@@ -22,6 +22,7 @@ describe("normalizeScheduleEntries", () => {
           notes: "",
           roundLabel: "一面",
           scheduledAt: "2026-06-02T17:30",
+          scheduledEndAt: "2026-06-02T18:30",
           sortOrder: 99,
         },
       ]),
@@ -31,6 +32,7 @@ describe("normalizeScheduleEntries", () => {
         notes: "",
         roundLabel: "一面",
         scheduledAt: "2026-06-02T09:30:00.000Z",
+        scheduledEndAt: "2026-06-02T10:30:00.000Z",
         sortOrder: 0,
       },
     ]);

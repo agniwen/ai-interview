@@ -75,12 +75,13 @@ export function InviteDialog({
     }
 
     setSubmitting(true);
-    const { data, error } = await authClient.organization.inviteMember({
-      email: trimmedEmail,
-      organizationId: workspaceId,
-      role: role as "admin" | "member",
-    });
-    setSubmitting(false);
+    const { data, error } = await authClient.organization
+      .inviteMember({
+        email: trimmedEmail,
+        organizationId: workspaceId,
+        role: role as "admin" | "member",
+      })
+      .finally(() => setSubmitting(false));
     if (error || !data) {
       toast.error(error?.message ?? "邀请失败");
       return;

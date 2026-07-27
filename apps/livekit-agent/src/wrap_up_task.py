@@ -50,7 +50,12 @@ class WrapUpTask(AgentTask[None]):
     session lifecycle, not by this task.
     """
 
-    def __init__(self, end_call_tool: EndCallTool) -> None:
+    def __init__(
+        self,
+        end_call_tool: EndCallTool,
+        *,
+        ask_closing_question: bool = True,
+    ) -> None:
         super().__init__(
             instructions=_WRAP_UP_INSTRUCTIONS,
             # 仅暴露 end_call, 把模型的工具空间限制到"问完就关"这一条路径.
@@ -58,19 +63,33 @@ class WrapUpTask(AgentTask[None]):
             # conversation anywhere but to the close.
             tools=end_call_tool.tools,  # type: ignore[arg-type]
         )
+        self._ask_closing_question = ask_closing_question
 
     async def on_enter(self) -> None:
+        self.session.update_options(
+            endpointing_opts={
+                "mode": "dynamic",
+                "min_delay": 0.4,
+                "max_delay": 2.5,
+            }
+        )
         # 由任务自身触发收尾问句, 避免主 agent 在 on_user_turn_completed
         # 注入 hint 后还要再赌一次模型自觉性.
         # Drive the closing question from the task itself rather than relying
         # on the parent agent's hint mechanism, which leaves the trigger up
         # to the LLM's discretion.
         logger.info("wrap-up: entering closing phase")
-        await self.session.generate_reply(
-            instructions=(
+        instructions = (
+            (
                 "现在进入面试收尾阶段. 用一句自然口语向候选人提出本场最后一个收尾性问题"
                 "(例如询问感受、是否有想了解的, 或让对方做简短自我评价). "
                 "全程使用简体中文表达. 不要再提技术问题、不要追问简历细节. "
                 "听完候选人回答后立即调用 end_call 结束."
-            ),
+            )
+            if self._ask_closing_question
+            else (
+                "候选人已经明确要求结束整轮面试。不要再提出任何问题，"
+                "直接用一两句简体中文礼貌告别，然后调用 end_call 结束。"
+            )
         )
+        await self.session.generate_reply(instructions=instructions)

@@ -6,6 +6,8 @@ import { resolveRecommendationVariant } from "./helpers";
 import { HighlightedText } from "./keyword-highlight/highlighted-text";
 import { useKeywordHighlight } from "./keyword-highlight/context";
 import type { KeywordCategory } from "@arc/shared/answer-keywords";
+import { parseInterviewDataCollectionResults } from "@arc/shared/interview/question-outcomes";
+import type { InterviewQuestionOutcome } from "@arc/shared/interview/question-outcomes";
 
 export interface EvidenceQuote {
   quote?: string;
@@ -16,10 +18,11 @@ export interface EvidenceQuote {
 interface EvaluationQuestion {
   order?: number;
   question?: string;
-  score?: number;
   maxScore?: number;
   assessment?: string;
   evidence?: EvidenceQuote[];
+  questionId?: string;
+  score?: number | null;
 }
 
 /**
@@ -28,7 +31,7 @@ interface EvaluationQuestion {
  */
 type AgentEvaluation = Record<string, unknown> & {
   questions: EvaluationQuestion[];
-  overallScore?: number;
+  overallScore?: number | null;
   overallAssessment?: string;
   recommendation?: string;
 };
@@ -36,6 +39,29 @@ type AgentEvaluation = Record<string, unknown> & {
 function isAgentEvaluation(data: Record<string, unknown>): data is AgentEvaluation {
   return Array.isArray(data.questions);
 }
+
+const QUESTION_STATUS_LABELS: Record<InterviewQuestionOutcome["status"], string> = {
+  answered: "已回答",
+  insufficient: "信息不足",
+  interrupted: "已中断",
+  skipped: "已跳过",
+  unasked: "未提问",
+};
+
+const QUESTION_STATUS_VARIANTS = {
+  answered: "secondary",
+  insufficient: "outline",
+  interrupted: "outline",
+  skipped: "destructive",
+  unasked: "outline",
+} as const;
+
+const REASON_LABELS = {
+  candidate_ended_round: "候选人结束整轮",
+  reconnect_grace_expired: "重连宽限期耗尽",
+  system_shutdown: "系统终止",
+  time_limit: "时间截止",
+} as const;
 
 /**
  * 兜底渲染：把任意键值对扁平展示。
@@ -80,10 +106,10 @@ export function EvidenceList({
 
   return (
     <div className="mt-2 flex flex-col gap-1.5">
-      {items.map((item, index) => (
+      {items.map((item) => (
         <Button
           className="h-auto justify-start gap-2 px-2 py-1.5 text-left font-normal leading-normal"
-          key={`${item.turnIndex ?? "unknown"}-${index}`}
+          key={`${item.turnIndex ?? "unknown"}-${item.timeInCallSecs ?? "unknown"}-${item.quote}`}
           onClick={() => onEvidenceSelect?.(item)}
           size="sm"
           type="button"
@@ -109,6 +135,147 @@ export function EvidenceList({
   );
 }
 
+function OverallEvaluation({
+  data,
+  enabledCategories,
+}: {
+  data: AgentEvaluation;
+  enabledCategories: Set<KeywordCategory>;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3 rounded-xl border border-muted/60 bg-muted/30 px-4 py-3">
+        <span className="font-medium text-2xl text-primary tabular-nums">
+          {typeof data.overallScore === "number" ? data.overallScore : "—"}
+        </span>
+        <span className="text-muted-foreground text-sm">/ 100</span>
+        {data.recommendation ? (
+          <Badge className="ml-auto" variant={resolveRecommendationVariant(data.recommendation)}>
+            {data.recommendation}
+          </Badge>
+        ) : null}
+      </div>
+      {data.overallAssessment ? (
+        <p className="text-muted-foreground text-sm leading-normal">
+          <HighlightedText enabledCategories={enabledCategories} text={data.overallAssessment} />
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function QuestionCoverageResults({
+  data,
+  enabledCategories,
+  onEvidenceSelect,
+  outcomes,
+}: {
+  data: AgentEvaluation;
+  enabledCategories: Set<KeywordCategory>;
+  onEvidenceSelect?: (evidence: EvidenceQuote) => void;
+  outcomes: InterviewQuestionOutcome[];
+}) {
+  const evaluationById = new Map(
+    data.questions
+      .filter((question) => question.questionId)
+      .map((question) => [question.questionId as string, question]),
+  );
+  const scorableCount = outcomes.filter((outcome) =>
+    ["answered", "insufficient", "skipped"].includes(outcome.status),
+  ).length;
+  const insufficientSample = scorableCount / outcomes.length < 0.5;
+
+  return (
+    <div className="space-y-4">
+      <div className="overflow-hidden rounded-xl border border-border/70">
+        {outcomes.map((outcome, index) => {
+          const evaluation = evaluationById.get(outcome.questionId);
+          const evidence = evaluation?.evidence ?? [];
+          const firstEvidence = evidence.find((item) => item.quote);
+          const duration = Math.max(0, Math.round(outcome.endedAtSecs - outcome.startedAtSecs));
+          let evidenceLabel = "转写证据";
+          if (outcome.status === "skipped") {
+            evidenceLabel = "跳过依据";
+          } else if (outcome.status === "interrupted") {
+            evidenceLabel = "未完成上下文";
+          }
+
+          return (
+            <article
+              className={index === 0 ? "p-4" : "border-border/60 border-t p-4"}
+              key={outcome.questionId}
+            >
+              <div className="flex items-start gap-3">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground text-xs tabular-nums">
+                  {index + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <Button
+                    className="h-auto max-w-full justify-start whitespace-normal p-0 text-left font-medium leading-normal hover:bg-transparent"
+                    disabled={!firstEvidence}
+                    onClick={() => {
+                      if (firstEvidence) {
+                        onEvidenceSelect?.(firstEvidence);
+                      }
+                    }}
+                    type="button"
+                    variant="ghost"
+                  >
+                    {outcome.question}
+                  </Button>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
+                    <Badge variant={QUESTION_STATUS_VARIANTS[outcome.status]}>
+                      {QUESTION_STATUS_LABELS[outcome.status]}
+                    </Badge>
+                    <span>追问 {outcome.followUpCount} 次</span>
+                    <span>用时 {duration} 秒</span>
+                    {outcome.reason ? <span>{REASON_LABELS[outcome.reason]}</span> : null}
+                    <span className="ml-auto font-medium text-foreground tabular-nums">
+                      {typeof evaluation?.score === "number" ? `${evaluation.score}/10` : "不评分"}
+                    </span>
+                  </div>
+                  {outcome.evaluationFocus ? (
+                    <div className="mt-3 rounded-lg bg-muted/35 px-3 py-2">
+                      <p className="font-medium text-foreground text-xs">考核意图</p>
+                      <p className="mt-1 text-muted-foreground text-xs leading-5">
+                        {outcome.evaluationFocus}
+                      </p>
+                    </div>
+                  ) : null}
+                  {evaluation?.assessment ? (
+                    <p className="mt-3 text-muted-foreground text-sm leading-normal">
+                      <HighlightedText
+                        enabledCategories={enabledCategories}
+                        text={evaluation.assessment}
+                      />
+                    </p>
+                  ) : null}
+                  {evidence.length > 0 && outcome.status !== "unasked" ? (
+                    <div className="mt-3">
+                      <p className="font-medium text-muted-foreground text-xs">{evidenceLabel}</p>
+                      <EvidenceList
+                        enabledCategories={enabledCategories}
+                        evidence={evidence}
+                        onEvidenceSelect={onEvidenceSelect}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      {insufficientSample ? (
+        <p className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-muted-foreground text-xs leading-5">
+          可评分题目少于必问题目的一半，当前结论为待定，评分仅供有限样本参考。
+        </p>
+      ) : null}
+      <OverallEvaluation data={data} enabledCategories={enabledCategories} />
+    </div>
+  );
+}
+
 /**
  * 渲染 Agent 评估结果：识别"标准评估"格式（含 questions[]）则渲染富视图，
  * 否则降级为通用键值对展示。
@@ -118,12 +285,26 @@ export function EvidenceList({
  */
 export function EvaluationResults({
   data,
+  dataCollectionResults,
   onEvidenceSelect,
 }: {
   data: Record<string, unknown>;
+  dataCollectionResults?: unknown;
   onEvidenceSelect?: (evidence: EvidenceQuote) => void;
 }) {
   const { enabledCategories } = useKeywordHighlight();
+  const parsedDataCollectionResults = parseInterviewDataCollectionResults(dataCollectionResults);
+  if (parsedDataCollectionResults) {
+    const evaluation: AgentEvaluation = isAgentEvaluation(data) ? data : { questions: [] };
+    return (
+      <QuestionCoverageResults
+        data={evaluation}
+        enabledCategories={enabledCategories}
+        onEvidenceSelect={onEvidenceSelect}
+        outcomes={parsedDataCollectionResults.questions}
+      />
+    );
+  }
 
   if (!data || Object.keys(data).length === 0) {
     return <p className="text-muted-foreground text-sm">暂无结构化结果。</p>;
@@ -155,8 +336,11 @@ export function EvaluationResults({
       )}
       {data.questions.length > 0 && (
         <div className="flex flex-col">
-          {data.questions.map((q, i) => (
-            <div className="border-border/50 border-t py-3 text-sm" key={q.order ?? i}>
+          {data.questions.map((q) => (
+            <div
+              className="border-border/50 border-t py-3 text-sm"
+              key={`${q.order ?? "unknown"}-${q.question ?? "unknown"}`}
+            >
               <div className="flex items-start justify-between gap-2">
                 <p className="min-w-0 font-medium leading-normal">
                   {q.order === null || q.order === undefined ? "" : `${q.order}. `}

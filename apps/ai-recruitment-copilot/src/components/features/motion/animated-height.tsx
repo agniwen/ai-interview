@@ -1,10 +1,12 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@arc/shared/utils";
+
+export const ANIMATED_HEIGHT_COMPLETE_EVENT = "animated-height-complete";
 
 interface AnimatedHeightProps {
   /** 默认在移动端禁用；无 Drawer 手势冲突的页面可显式开启。 */
@@ -39,6 +41,7 @@ export function AnimatedHeight({
   duration = 0.24,
   className,
 }: AnimatedHeightProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState<number | "auto">("auto");
   const reduceMotion = useReducedMotion();
@@ -49,7 +52,7 @@ export function AnimatedHeight({
     // 桌面端才需要平滑过渡 tab 切换的高度跳变。
     // Mobile Modal swaps to Drawer with its own sizing/gesture; layering an
     // animation here fights the drawer. Only desktop needs this transition.
-    if (isMobile && !animateOnMobile) {
+    if (disabled || reduceMotion || (isMobile && !animateOnMobile)) {
       return;
     }
     const el = innerRef.current;
@@ -65,19 +68,24 @@ export function AnimatedHeight({
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [animateOnMobile, isMobile]);
+  }, [animateOnMobile, disabled, isMobile, reduceMotion]);
 
-  if (disabled || (isMobile && !animateOnMobile)) {
+  if (disabled || reduceMotion || (isMobile && !animateOnMobile)) {
     return <div className={className}>{children}</div>;
   }
 
   return (
-    <motion.div
+    <m.div
       animate={{ height }}
       className={cn("-m-1 p-1", className)}
+      data-slot="animated-height"
       initial={false}
+      onAnimationComplete={() => {
+        containerRef.current?.dispatchEvent(new Event(ANIMATED_HEIGHT_COMPLETE_EVENT));
+      }}
+      ref={containerRef}
       style={{ boxSizing: "content-box", overflow: clip ? "hidden" : "visible" }}
-      transition={reduceMotion ? { duration: 0 } : { duration, ease: [0.77, 0, 0.175, 1] as const }}
+      transition={{ duration, ease: [0.77, 0, 0.175, 1] as const }}
     >
       {/*
         `display: flow-root` 让 inner 自己开 BFC，否则子节点的 top/bottom margin
@@ -99,6 +107,6 @@ export function AnimatedHeight({
       <div ref={innerRef} style={{ display: "flow-root" }}>
         {children}
       </div>
-    </motion.div>
+    </m.div>
   );
 }

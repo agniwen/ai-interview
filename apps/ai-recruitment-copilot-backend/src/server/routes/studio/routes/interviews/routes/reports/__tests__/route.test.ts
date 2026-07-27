@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 
 const mocks = vi.hoisted(() => ({
+  queryInterviewConversationReportByRound: vi.fn(),
   queryInterviewConversationReportsByRound: vi.fn(),
   resolveCandidateIdForRound: vi.fn(),
 }));
@@ -17,6 +18,7 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility
 vi.mock(
   "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-conversations",
   () => ({
+    queryInterviewConversationReportByRound: mocks.queryInterviewConversationReportByRound,
     queryInterviewConversationReportsByRound: mocks.queryInterviewConversationReportsByRound,
   }),
 );
@@ -74,5 +76,32 @@ describe("reportsRouter", () => {
     expect(res.status).toBe(404);
     await expect(res.json()).resolves.toEqual({ error: "记录不存在。" });
     expect(mocks.queryInterviewConversationReportsByRound).not.toHaveBeenCalled();
+  });
+
+  it("returns one selected report within the round", async () => {
+    mocks.resolveCandidateIdForRound.mockResolvedValue("candidate_1");
+    mocks.queryInterviewConversationReportByRound.mockResolvedValue({
+      conversationId: "conversation_2",
+    });
+
+    const res = await makeApp().request(`/${ROUND_ID}/reports/conversation_2`);
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ conversationId: "conversation_2" });
+    expect(mocks.queryInterviewConversationReportByRound).toHaveBeenCalledWith(
+      ROUND_ID,
+      "conversation_2",
+      { includeKeyInformation: true, includeSnapshotMetadata: true },
+    );
+  });
+
+  it("returns 404 when the selected report is not part of the round", async () => {
+    mocks.resolveCandidateIdForRound.mockResolvedValue("candidate_1");
+    mocks.queryInterviewConversationReportByRound.mockResolvedValue(null);
+
+    const res = await makeApp().request(`/${ROUND_ID}/reports/missing`);
+
+    expect(res.status).toBe(404);
+    await expect(res.json()).resolves.toEqual({ error: "面试记录不存在。" });
   });
 });

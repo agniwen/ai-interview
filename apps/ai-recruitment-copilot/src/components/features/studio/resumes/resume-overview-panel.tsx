@@ -50,6 +50,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { updateStudioResumeIdentity } from "@/lib/client/api";
+import { runAsyncAction } from "@/lib/client/async-control";
 import { cn } from "@arc/shared/utils";
 import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart } from "recharts";
 
@@ -306,7 +307,7 @@ function ReviewPointList({
       {items.map((item, index) => (
         <li
           className="grid gap-3 py-4 text-sm leading-6 sm:grid-cols-[1.75rem_minmax(0,1fr)]"
-          key={`${item.point}-${index}`}
+          key={`${item.point}-${item.evidence ?? ""}-${item.impact}`}
         >
           <span
             className={cn(
@@ -347,8 +348,11 @@ function BiasScanSection({
   } else {
     body = (
       <ul className="divide-y divide-border/50">
-        {items.map((item, index) => (
-          <li className="py-4 text-sm leading-6" key={`${item.category}-${index}`}>
+        {items.map((item) => (
+          <li
+            className="py-4 text-sm leading-6"
+            key={`${item.category}-${item.description}-${item.impact}`}
+          >
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <Badge variant="outline">{resumeReviewBiasCategoryLabel[item.category]}</Badge>
               <span className="font-medium">{item.description}</span>
@@ -677,29 +681,29 @@ function ResumeOverviewCandidateInfoSection({
     setNameError(null);
     setJdError(null);
     setSaving(true);
-    try {
-      const payload: ResumeIdentityUpdateInput = {
-        age,
-        candidateEmail: email,
-        candidateName: name,
-        candidatePhone: draft.candidatePhone.trim(),
-        gender: draft.gender.trim(),
-        jobDescriptionId: draft.jobDescriptionId.trim(),
-        resumeEvaluationStatus: draft.resumeEvaluationStatus,
-        // Keep existing target role (not shown in this section).
-        targetRole: detail.targetRole ?? "",
-        workYears,
-      };
-      await updateStudioResumeIdentity(slug, detail.id, payload);
-      toast.success("候选人信息已保存");
-      setEditing(false);
-      await queryClient.invalidateQueries({ queryKey: ["studio-resumes", slug] });
-      onUpdated?.();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "保存失败");
-    } finally {
-      setSaving(false);
-    }
+    await runAsyncAction({
+      cleanup: () => setSaving(false),
+      onError: (error) => toast.error(error instanceof Error ? error.message : "保存失败"),
+      operation: async () => {
+        const payload: ResumeIdentityUpdateInput = {
+          age,
+          candidateEmail: email,
+          candidateName: name,
+          candidatePhone: draft.candidatePhone.trim(),
+          gender: draft.gender.trim(),
+          jobDescriptionId: draft.jobDescriptionId.trim(),
+          resumeEvaluationStatus: draft.resumeEvaluationStatus,
+          // Keep existing target role (not shown in this section).
+          targetRole: detail.targetRole ?? "",
+          workYears,
+        };
+        await updateStudioResumeIdentity(slug, detail.id, payload);
+        toast.success("候选人信息已保存");
+        setEditing(false);
+        await queryClient.invalidateQueries({ queryKey: ["studio-resumes", slug] });
+        onUpdated?.();
+      },
+    });
   }
 
   const actions = showEdit ? (

@@ -16,7 +16,10 @@ import {
   studioInterview,
   studioInterviewSchedule,
 } from "@arc/db-schema/schema";
-import { queryInterviewConversationReportsByRound } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-conversations";
+import {
+  queryInterviewConversationReportByRound,
+  queryInterviewConversationReportsByRound,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/interview-conversations";
 
 const ORG_ID = "test_report_snapshot_metadata_org";
 const INTERVIEW_ID = "test_report_snapshot_metadata_interview";
@@ -355,5 +358,18 @@ describe("queryInterviewConversationReportsByRound", () => {
       message: "我是候选人。",
       role: "user",
     });
+
+    const selectedReport = await queryInterviewConversationReportByRound(
+      ROUND_ID,
+      CONVERSATION_ID,
+      {
+        includeKeyInformation: true,
+        includeSnapshotMetadata: true,
+      },
+    );
+    expect(expectPresent(selectedReport).keyInformation?.skillEvidence[0]?.content).toBe(
+      "候选人介绍了后端开发经历。",
+    );
+    expect(expectPresent(selectedReport).snapshotMetadata?.evidenceSnapshot?.id).toBe(EVIDENCE_ID);
   });
 });

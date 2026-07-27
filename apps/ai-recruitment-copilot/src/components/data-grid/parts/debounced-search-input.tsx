@@ -46,7 +46,10 @@ export function DebouncedSearchInput({
   const composingRef = useRef(false);
   const lastCommittedRef = useRef(value);
   const onValueChangeRef = useRef(onValueChange);
-  onValueChangeRef.current = onValueChange;
+
+  useEffect(() => {
+    onValueChangeRef.current = onValueChange;
+  }, [onValueChange]);
 
   const setDraftValue = (next: string) => {
     draftRef.current = next;

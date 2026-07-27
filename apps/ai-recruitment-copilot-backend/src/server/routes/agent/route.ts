@@ -17,6 +17,12 @@ import {
 import { runKeyInformationJob } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-key-information-job";
 import { runSummaryJob } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/interview-summary-job";
 import { createInterviewEvidenceSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/evidence-snapshot";
+import {
+  interviewDataCollectionResultsSchema,
+  mergeInterviewQuestionOutcome,
+  parseInterviewDataCollectionResults,
+} from "@arc/shared/interview/question-outcomes";
+import { questionCheckpointPayloadSchema } from "@arc/ai-recruitment-copilot-backend/server/routes/agent/utils/question-checkpoint";
 
 async function resolveOrgFromInterview(interviewRecordId: string): Promise<string> {
   const [row] = await db
@@ -49,6 +55,7 @@ const reportPayloadSchema = z.object({
   agentId: z.string().nullish(),
   callSuccessful: z.string().nullish(),
   conversationId: z.string().min(1),
+  dataCollectionResults: interviewDataCollectionResultsSchema.nullish(),
   endedAt: z.string().nullish(),
   interviewRecordId: z.string().min(1),
   metadata: z.record(z.string(), z.unknown()).nullish(),
@@ -78,6 +85,62 @@ const RECOVERY_MAX_ATTEMPTS = 5;
 
 export const agentRouter = factory
   .createApp()
+  .post("/checkpoint", async (c) => {
+    const secret = c.req.header("X-Agent-Secret");
+    const expectedSecret = process.env.AGENT_CALLBACK_SECRET;
+    if (!expectedSecret || secret !== expectedSecret) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const body = questionCheckpointPayloadSchema.safeParse(await c.req.json());
+    if (!body.success) {
+      return c.json({ details: body.error.flatten(), error: "Invalid payload" }, 400);
+    }
+
+    const { data } = body;
+    const now = new Date();
+    const orgId = await resolveOrgFromInterview(data.interviewRecordId);
+
+    await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select({ dataCollectionResults: interviewConversation.dataCollectionResults })
+        .from(interviewConversation)
+        .where(eq(interviewConversation.conversationId, data.conversationId))
+        .for("update")
+        .limit(1);
+      const current = parseInterviewDataCollectionResults(existing?.dataCollectionResults) ?? {
+        questions: [],
+        schemaVersion: 2 as const,
+      };
+      const merged = mergeInterviewQuestionOutcome(current, data.outcome);
+
+      if (existing) {
+        await tx
+          .update(interviewConversation)
+          .set({
+            dataCollectionResults: merged,
+            lastSyncedAt: now,
+          })
+          .where(eq(interviewConversation.conversationId, data.conversationId));
+        return;
+      }
+
+      await tx.insert(interviewConversation).values({
+        conversationId: data.conversationId,
+        dataCollectionResults: merged,
+        interviewRecordId: data.interviewRecordId,
+        lastSyncedAt: now,
+        mode: "voice",
+        organizationId: orgId,
+        scheduleEntryId: data.scheduleEntryId,
+        status: "in_progress",
+      });
+    });
+
+    safeUpdateTag(cacheTags.interviewConversations);
+    safeUpdateTag(cacheTags.interviewConversationsByRecord(data.interviewRecordId));
+    return c.json({ success: true }, 201);
+  })
   .post("/report", async (c) => {
     const secret = c.req.header("X-Agent-Secret");
     const expectedSecret = process.env.AGENT_CALLBACK_SECRET;
@@ -144,6 +207,9 @@ export const agentRouter = factory
             recordingStatus: data.recording.status,
           }
         : {};
+      const dataCollectionFields = data.dataCollectionResults
+        ? { dataCollectionResults: data.dataCollectionResults }
+        : {};
 
       await tx
         .insert(interviewConversation)
@@ -151,7 +217,7 @@ export const agentRouter = factory
           agentId: data.agentId ?? null,
           callSuccessful: data.callSuccessful ?? null,
           conversationId: data.conversationId,
-          dataCollectionResults: {},
+          dataCollectionResults: data.dataCollectionResults ?? {},
           dynamicVariables: {},
           endedAt: data.endedAt ? new Date(data.endedAt) : null,
           interviewRecordId: data.interviewRecordId,
@@ -181,6 +247,7 @@ export const agentRouter = factory
             webhookReceivedAt: now,
             ...summaryResetFields,
             ...recordingFields,
+            ...dataCollectionFields,
           },
           target: interviewConversation.conversationId,
         });

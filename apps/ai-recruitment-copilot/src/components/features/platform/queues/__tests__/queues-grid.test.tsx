@@ -6,9 +6,11 @@ import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type * as DataGridModule from "@/components/data-grid";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { installNoopResizeObserver } from "@/test-utils/react-act";
 import { QueueJobDetailDialog, QueueOverview, QueuesGrid } from "../queues-grid";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+installNoopResizeObserver();
 
 const matchedUploadQueueJob = vi.hoisted(() => ({
   attemptsMade: 1,

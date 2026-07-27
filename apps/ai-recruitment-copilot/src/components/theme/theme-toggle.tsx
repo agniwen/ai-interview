@@ -1,5 +1,4 @@
 "use client";
-
 import { IconDeviceDesktop, IconMoon, IconSun } from "@tabler/icons-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -8,9 +7,6 @@ import {
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useHydrated } from "@/hooks/use-hydrated";
@@ -69,34 +65,5 @@ export function ThemeToggle({
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
-  );
-}
-
-export function ThemeSubMenu() {
-  const { theme, setTheme } = useTheme();
-  const isHydrated = useHydrated();
-  const activeTheme = isHydrated ? (theme ?? "system") : "system";
-
-  return (
-    <DropdownMenuSub>
-      <DropdownMenuSubTrigger>
-        <IconSun className="mr-2 size-4 dark:hidden" />
-        <IconMoon className="mr-2 hidden size-4 dark:block" />
-        主题
-      </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent className="w-40">
-        <DropdownMenuRadioGroup onValueChange={setTheme} value={activeTheme}>
-          {THEME_OPTIONS.map((option) => {
-            const Icon = option.icon;
-            return (
-              <DropdownMenuRadioItem key={option.value} value={option.value}>
-                <Icon className="mr-2 size-4" />
-                {option.label}
-              </DropdownMenuRadioItem>
-            );
-          })}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuSubContent>
-    </DropdownMenuSub>
   );
 }

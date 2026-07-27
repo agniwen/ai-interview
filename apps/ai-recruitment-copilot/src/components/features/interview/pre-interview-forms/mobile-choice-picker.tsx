@@ -66,8 +66,7 @@ export function MobileChoicePicker({
       return "请选择";
     }
     return question.options
-      .filter((option) => selectedValues.has(option.value))
-      .map((option) => option.label)
+      .flatMap((option) => (selectedValues.has(option.value) ? [option.label] : []))
       .join("、");
   }, [question.options, selectedValues]);
 

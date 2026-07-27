@@ -42,11 +42,8 @@ export type StudioPersonDetailTab =
   | "human-interview"
   | "offer"
   | "experience"
-  | "reports"
-  | "questions"
   | "instructions"
-  | "transcript"
-  | "forms";
+  | "transcript";
 
 export function shouldShowAiInterviewTab(record: { pipelineStage?: string } | null): boolean {
   if (!record?.pipelineStage) {

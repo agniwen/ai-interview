@@ -236,9 +236,6 @@ function RecruiterResumeDetailPage() {
   } | null>(null);
   const [interviewRoundDetailId, setInterviewRoundDetailId] = useState<string | null>(null);
   const [interviewDetailDialogOpen, setInterviewDetailDialogOpen] = useState(false);
-  const [interviewDetailDefaultTab, setInterviewDetailDefaultTab] = useState<
-    "overview" | "reports"
-  >("overview");
   const detailQuery = useQuery({
     queryFn: () => fetchStudioResume(slug, recordId),
     queryKey: ["studio-resumes", slug, "detail", recordId, "authed"] as const,
@@ -360,13 +357,12 @@ function RecruiterResumeDetailPage() {
       </main>
 
       <StudioPersonDetailDialog
-        defaultTab={interviewDetailDefaultTab}
+        defaultTab="overview"
         mode="interview"
         onOpenChange={setInterviewDetailDialogOpen}
         onOpenChangeComplete={(open) => {
           if (!open && !interviewDetailDialogOpen) {
             setInterviewRoundDetailId(null);
-            setInterviewDetailDefaultTab("overview");
           }
         }}
         onUpdated={invalidateAll}
@@ -378,7 +374,6 @@ function RecruiterResumeDetailPage() {
         candidateName={launchingRecord?.candidateName ?? null}
         onLaunched={(round) => {
           invalidateAll();
-          setInterviewDetailDefaultTab("overview");
           setInterviewRoundDetailId(round.id);
           setInterviewDetailDialogOpen(true);
         }}
@@ -408,10 +403,7 @@ function RecruiterResumeDetailPage() {
 }
 
 export const Route = createFileRoute("/w/$slug/studio/resumes/$recordId")({
-  component: RecruiterResumeDetailPage,
-  head: () => ({
-    meta: [{ title: formatDocumentTitle("候选人详情") }],
-  }),
+  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
   loader: async (loaderContext) => {
     const { params } = loaderContext as unknown as {
       params: { recordId: string; slug: string };
@@ -423,6 +415,9 @@ export const Route = createFileRoute("/w/$slug/studio/resumes/$recordId")({
       slug: params.slug,
     });
   },
+  head: () => ({
+    meta: [{ title: formatDocumentTitle("候选人详情") }],
+  }),
+  component: RecruiterResumeDetailPage,
   pendingComponent: RecruiterResumeDetailSkeleton,
-  validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
 });

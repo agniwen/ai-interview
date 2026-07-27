@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { CardFooter, CardHeader, CardPanel } from "@/components/ui/card";
 import { JobDescriptionSelectField } from "@/components/features/studio/interviews/job-description-select-field";
 import { confirmRecruitingAction } from "@/lib/client/api";
+import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { notifyConversationsChanged } from "@/components/features/chat/lib/chat-events";
 import { RecruitingChatCard } from "./recruiting-chat-card";
@@ -280,33 +281,35 @@ function RecruitingActionProposalCard({
       return;
     }
     setIsSubmitting(true);
-    try {
-      const nextProposal = withConfirmedJobBindPayload(proposal, jobDescriptionId, bindPayload);
-      const result = await confirmRecruitingAction(slug, conversationId, nextProposal);
-      if (result.status === "failed") {
+    await runAsyncAction({
+      cleanup: () => setIsSubmitting(false),
+      onError: (error) => {
         markProposal(proposal.id, "failed");
-        toast.error(result.message);
-        return;
-      }
-      const nextConfirmation = result.confirmation ?? {
-        confirmedAt: new Date().toISOString(),
-        ...(jobDescriptionId ? { jobDescriptionId } : {}),
-        status: "confirmed" as const,
-      };
-      if (jobDescriptionId) {
-        setSelectedJobDescriptionId(jobDescriptionId);
-      }
-      setLocalConfirmation(nextConfirmation);
-      markProposal(proposal.id, "confirmed");
-      notifyConversationsChanged();
-      toast.success(result.message);
-      onRespondToApproval?.({ approved: true });
-    } catch (error) {
-      markProposal(proposal.id, "failed");
-      toast.error(error instanceof Error ? error.message : "确认动作失败");
-    } finally {
-      setIsSubmitting(false);
-    }
+        toast.error(error instanceof Error ? error.message : "确认动作失败");
+      },
+      operation: async () => {
+        const nextProposal = withConfirmedJobBindPayload(proposal, jobDescriptionId, bindPayload);
+        const result = await confirmRecruitingAction(slug, conversationId, nextProposal);
+        if (result.status === "failed") {
+          markProposal(proposal.id, "failed");
+          toast.error(result.message);
+          return;
+        }
+        const nextConfirmation = result.confirmation ?? {
+          confirmedAt: new Date().toISOString(),
+          ...(jobDescriptionId ? { jobDescriptionId } : {}),
+          status: "confirmed" as const,
+        };
+        if (jobDescriptionId) {
+          setSelectedJobDescriptionId(jobDescriptionId);
+        }
+        setLocalConfirmation(nextConfirmation);
+        markProposal(proposal.id, "confirmed");
+        notifyConversationsChanged();
+        toast.success(result.message);
+        onRespondToApproval?.({ approved: true });
+      },
+    });
   };
 
   const handleIgnore = async () => {
@@ -314,29 +317,31 @@ function RecruitingActionProposalCard({
       return;
     }
     setIsSubmitting(true);
-    try {
-      const result = await confirmRecruitingAction(slug, conversationId, proposal, {
-        decision: "ignore",
-      });
-      if (result.status === "failed") {
+    await runAsyncAction({
+      cleanup: () => setIsSubmitting(false),
+      onError: (error) => {
         markProposal(proposal.id, "failed");
-        toast.error(result.message);
-        return;
-      }
-      const nextConfirmation = result.confirmation ?? {
-        confirmedAt: new Date().toISOString(),
-        status: "ignored" as const,
-      };
-      setLocalConfirmation(nextConfirmation);
-      markProposal(proposal.id, "ignored");
-      notifyConversationsChanged();
-      onRespondToApproval?.({ approved: false, reason: "user_ignored" });
-    } catch (error) {
-      markProposal(proposal.id, "failed");
-      toast.error(error instanceof Error ? error.message : "忽略动作失败");
-    } finally {
-      setIsSubmitting(false);
-    }
+        toast.error(error instanceof Error ? error.message : "忽略动作失败");
+      },
+      operation: async () => {
+        const result = await confirmRecruitingAction(slug, conversationId, proposal, {
+          decision: "ignore",
+        });
+        if (result.status === "failed") {
+          markProposal(proposal.id, "failed");
+          toast.error(result.message);
+          return;
+        }
+        const nextConfirmation = result.confirmation ?? {
+          confirmedAt: new Date().toISOString(),
+          status: "ignored" as const,
+        };
+        setLocalConfirmation(nextConfirmation);
+        markProposal(proposal.id, "ignored");
+        notifyConversationsChanged();
+        onRespondToApproval?.({ approved: false, reason: "user_ignored" });
+      },
+    });
   };
 
   return (

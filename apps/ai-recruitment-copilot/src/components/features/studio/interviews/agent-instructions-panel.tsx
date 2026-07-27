@@ -107,10 +107,10 @@ export function AgentInstructionsPanel({
         </ToggleGroup>
       </div>
 
-      {variants.map((variant, index) => (
+      {variants.map((variant) => (
         <div
           className="space-y-4 rounded-2xl border border-border bg-muted/30 p-4"
-          key={variant.interviewerName ?? `variant-${index}`}
+          key={variant.interviewerName ?? "default"}
         >
           <h3 className="font-medium text-sm">
             {variant.interviewerName
