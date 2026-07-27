@@ -62,7 +62,7 @@ describe("InterviewReportDetailsDisclosure", () => {
     });
 
     const collapseButton = container.querySelector("button");
-    expect(collapseButton?.textContent).toContain("收起更多信息");
+    expect(collapseButton?.textContent).toContain("收起详细分析结果");
     expect(collapseButton?.getAttribute("aria-expanded")).toBe("true");
     expect(container.textContent).toContain("最新报告详情");
     expect(scrollIntoView).not.toHaveBeenCalled();
