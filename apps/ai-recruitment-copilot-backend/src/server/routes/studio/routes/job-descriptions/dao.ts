@@ -8,6 +8,10 @@ import {
   createDefaultResumeScreeningPolicy,
   resumeScreeningPolicySchema,
 } from "@arc/shared/resume-screening";
+import {
+  createDefaultJobDescriptionStructuredConfig,
+  jobDescriptionStructuredConfigSchema,
+} from "@arc/db-schema/job-description-structured-config";
 import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
 import { and, asc, count, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { uniq } from "lodash-es";
@@ -56,6 +60,11 @@ export type PaginatedJobDescriptionResult = PaginatedResult<JobDescriptionListRe
 function parseResumeScreeningPolicy(value: unknown) {
   const parsedPolicy = resumeScreeningPolicySchema.safeParse(value);
   return parsedPolicy.success ? parsedPolicy.data : createDefaultResumeScreeningPolicy();
+}
+
+function parseStructuredConfig(value: unknown) {
+  const parsedConfig = jobDescriptionStructuredConfigSchema.safeParse(value);
+  return parsedConfig.success ? parsedConfig.data : createDefaultJobDescriptionStructuredConfig();
 }
 
 function buildWhereConditions({
@@ -166,6 +175,7 @@ function listJobDescriptionRows({
       resumeScreeningPolicy: jobDescription.resumeScreeningPolicy,
       resumeScreeningPolicyHash: jobDescription.resumeScreeningPolicyHash,
       resumeScreeningPolicyVersion: jobDescription.resumeScreeningPolicyVersion,
+      structuredConfig: jobDescription.structuredConfig,
       updatedAt: jobDescription.updatedAt,
     })
     .from(jobDescription)
@@ -307,6 +317,7 @@ function toJobDescriptionListRecord(
     resumeScreeningPolicy,
     resumeScreeningPolicyHash: row.resumeScreeningPolicyHash,
     resumeScreeningPolicyVersion: row.resumeScreeningPolicyVersion,
+    structuredConfig: parseStructuredConfig(row.structuredConfig),
     updatedAt: serializeDate(row.updatedAt),
   };
 }
@@ -667,6 +678,7 @@ export function serializeJobDescription(
     resumeScreeningPolicy,
     resumeScreeningPolicyHash: row.resumeScreeningPolicyHash,
     resumeScreeningPolicyVersion: row.resumeScreeningPolicyVersion,
+    structuredConfig: parseStructuredConfig(row.structuredConfig),
     updatedAt: serializeDate(row.updatedAt),
   };
 }

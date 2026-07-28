@@ -1,5 +1,8 @@
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { createDefaultResumeScreeningPolicy } from "@arc/shared/job-descriptions";
+import {
+  createDefaultJobDescriptionStructuredConfig,
+  createDefaultResumeScreeningPolicy,
+} from "@arc/shared/job-descriptions";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import type { SyntheticJdMatchCase } from "./types";
 
@@ -29,6 +32,7 @@ function job(input: {
     resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
     resumeScreeningPolicyHash: null,
     resumeScreeningPolicyVersion: 1,
+    structuredConfig: createDefaultJobDescriptionStructuredConfig(),
     updatedAt: SYNTHETIC_TIME,
   };
 }

@@ -32,6 +32,8 @@ import type { InterviewKeyInformation } from "./interview-key-information";
 import type { InterviewTranscriptTurn } from "./interview-session";
 import type { InterviewQuestion, ResumeProfile } from "./interview/types";
 import type { JobDescriptionConfig } from "./job-description-config";
+import type { JobDescriptionStructuredConfig } from "./job-description-structured-config";
+import { createDefaultJobDescriptionStructuredConfig } from "./job-description-structured-config";
 import type { MinimaxVoiceId } from "./minimax-voices";
 import type {
   CandidateExpectationsMeta,
@@ -710,6 +712,10 @@ export const jobDescription = pgTable(
     resumeScreeningPolicy: jsonb("resume_screening_policy").$type<Record<string, unknown> | null>(),
     resumeScreeningPolicyHash: text("resume_screening_policy_hash"),
     resumeScreeningPolicyVersion: integer("resume_screening_policy_version").notNull().default(1),
+    structuredConfig: jsonb("structured_config")
+      .$type<JobDescriptionStructuredConfig>()
+      .notNull()
+      .default(createDefaultJobDescriptionStructuredConfig()),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())

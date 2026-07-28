@@ -7,11 +7,11 @@ import type { DepartmentRecord } from "@arc/shared/departments";
 import type { InterviewerListRecord } from "@arc/shared/interviewers";
 import type { InterviewQuestionTemplateListRecord } from "@arc/db-schema/interview-question-templates";
 import {
+  createDefaultJobDescriptionStructuredConfig,
   createDefaultResumeScreeningPolicy,
   jobDescriptionFormSchema,
 } from "@arc/shared/job-descriptions";
 import type { JobDescriptionFormValues, JobDescriptionRecord } from "@arc/shared/job-descriptions";
-import type { ResumeScreeningPolicy } from "@arc/shared/resume-screening";
 import {
   buildJobDescriptionInterviewerOptions,
   filterInterviewerIdsByDepartment,
@@ -45,7 +45,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
-import { ResumeScreeningPolicyFields } from "./job-description-screening-fields";
+import { JobDescriptionStructuredFields } from "./job-description-structured-fields";
 import {
   LinkedFormsList,
   LinkedInterviewQuestionTemplatesList,
@@ -55,7 +55,7 @@ const NAME_MAX_LENGTH = 120;
 const DESCRIPTION_MAX_LENGTH = 500;
 const PROMPT_MAX_LENGTH = 10_000;
 
-type JobDescriptionFormTab = "basic" | "screening" | "interview-questions" | "forms";
+type JobDescriptionFormTab = "basic" | "interview-questions" | "forms";
 
 export function emptyJobDescriptionFormValues(): JobDescriptionFormValues {
   return {
@@ -67,6 +67,7 @@ export function emptyJobDescriptionFormValues(): JobDescriptionFormValues {
     name: "",
     prompt: "",
     resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
+    structuredConfig: createDefaultJobDescriptionStructuredConfig(),
   };
 }
 
@@ -80,6 +81,7 @@ function toFormValues(record: JobDescriptionRecord): JobDescriptionFormValues {
     name: record.name,
     prompt: record.prompt,
     resumeScreeningPolicy: record.resumeScreeningPolicy,
+    structuredConfig: record.structuredConfig,
   };
 }
 
@@ -124,7 +126,6 @@ export function JobDescriptionFormDialog({
   const isEdit = record !== null;
   const codeLocked = Boolean(record?.code);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
-  const [isGeneratingScreeningPolicy, setIsGeneratingScreeningPolicy] = useState(false);
   const [activeTab, setActiveTab] = useState<JobDescriptionFormTab>("basic");
   const resolvedInitialValues = useMemo(() => {
     if (record) {
@@ -198,6 +199,7 @@ export function JobDescriptionFormDialog({
         name: value.name.trim(),
         prompt: value.prompt.trim(),
         resumeScreeningPolicy: value.resumeScreeningPolicy,
+        structuredConfig: value.structuredConfig,
       };
 
       const response = isEdit
@@ -231,13 +233,14 @@ export function JobDescriptionFormDialog({
         "description",
         "prompt",
       ];
-      const screeningFields = ["resumeScreeningPolicy"];
       const hasBasicError = basicFields.some((key) => (meta[key]?.errors?.length ?? 0) > 0);
-      const hasScreeningError = screeningFields.some((key) => (meta[key]?.errors?.length ?? 0) > 0);
-      if (hasBasicError) {
+      const hasStructuredError = Object.entries(meta).some(
+        ([key, fieldMeta]) =>
+          (key === "structuredConfig" || key.startsWith("structuredConfig.")) &&
+          (fieldMeta.errors?.length ?? 0) > 0,
+      );
+      if (hasBasicError || hasStructuredError) {
         setActiveTab("basic");
-      } else if (hasScreeningError) {
-        setActiveTab("screening");
       }
     },
     validators: { onSubmit: jobDescriptionFormSchema },
@@ -292,42 +295,6 @@ export function JobDescriptionFormDialog({
     );
   }
 
-  async function handleGenerateScreeningPolicy() {
-    const { values } = form.store.state;
-    if (!values.prompt.trim()) {
-      toast.error("请先填写岗位 Prompt");
-      return;
-    }
-    setIsGeneratingScreeningPolicy(true);
-    await withCleanup(
-      async () => {
-        const response = await rpc.api.w[":slug"].studio["job-descriptions"][
-          "generate-screening-policy"
-        ].$post({
-          json: {
-            description: values.description?.trim() || undefined,
-            name: values.name.trim() || undefined,
-            prompt: values.prompt.trim(),
-          },
-          param: { slug },
-        });
-        const payload = (await response.json().catch(() => null)) as {
-          error?: string;
-          policy?: ResumeScreeningPolicy;
-        } | null;
-        if (!response.ok || !payload?.policy) {
-          toast.error(payload?.error ?? "筛选规则生成失败");
-          return;
-        }
-        form.setFieldValue("resumeScreeningPolicy", payload.policy);
-        toast.success(
-          payload.policy.rules.length > 0 ? "已生成筛选规则草稿" : "JD 中未发现明确筛选规则",
-        );
-      },
-      () => setIsGeneratingScreeningPolicy(false),
-    );
-  }
-
   return (
     <Tabs onValueChange={(value) => setActiveTab(value as JobDescriptionFormTab)} value={activeTab}>
       <Modal
@@ -337,12 +304,13 @@ export function JobDescriptionFormDialog({
         description="为在招岗位指定部门和面试官，prompt 在面试时会传给语音 agent。"
         size="xl"
         headerExtra={
-          <TabsList className="mt-2">
-            <TabsTrigger value="basic">基本信息</TabsTrigger>
-            <TabsTrigger value="screening">筛选规则</TabsTrigger>
-            {isEdit ? <TabsTrigger value="interview-questions">沟通题</TabsTrigger> : null}
-            {isEdit ? <TabsTrigger value="forms">表单题</TabsTrigger> : null}
-          </TabsList>
+          isEdit ? (
+            <TabsList className="mt-2">
+              <TabsTrigger value="basic">基本信息</TabsTrigger>
+              <TabsTrigger value="interview-questions">沟通题</TabsTrigger>
+              <TabsTrigger value="forms">表单题</TabsTrigger>
+            </TabsList>
+          ) : null
         }
         footer={
           <>
@@ -612,15 +580,11 @@ export function JobDescriptionFormDialog({
                   }}
                 </form.Field>
               </FieldGroup>
-            </TabsContent>
-            <TabsContent value="screening">
-              <form.Field name="resumeScreeningPolicy">
+              <form.Field name="structuredConfig">
                 {(field) => (
-                  <ResumeScreeningPolicyFields
-                    isGenerating={isGeneratingScreeningPolicy}
-                    onGenerateFromJobDescription={handleGenerateScreeningPolicy}
+                  <JobDescriptionStructuredFields
+                    config={field.state.value}
                     onChange={field.handleChange}
-                    policy={field.state.value}
                   />
                 )}
               </form.Field>

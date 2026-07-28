@@ -181,6 +181,18 @@ _Avoid_: AI suggestion, draft rule
 The configured strength of a resume screening rule, determining whether a rule result is informational, warning-level, or blocking for screening guidance.
 _Avoid_: Score weight, automatic outcome
 
+**Resume Screening Gate**:
+A blocking resume screening rule that a candidate must clear before entering the pass-ranking pool. Every rule configured in the hard-gate section is blocking; softer preferences and risks belong to job scoring adjustment rules. An unmet gate marks the evaluation as "未通过门槛" rather than automatically rejecting the candidate; review scores may still be generated for diagnosis but cannot override the gate.
+_Avoid_: Warning-only rule, informational rule, automatic rejection, 暂缓, score deduction, hard filter
+
+**Job Hard-Gate Configuration**:
+The job-description-owned set of independently stored free-text resume screening gates for education, work years, required skills, work location, language ability, required certificates, and other requirements. Categories provide structure without constraining each requirement to maintained option lists. Every skill stated as required must be satisfied; softer skill preferences belong to priority conditions. Saved non-empty gates are active without a separate enable switch; an empty configuration means the job has no hard gates.
+_Avoid_: Free-form JD text, scoring adjustment rules, runtime-extracted hard filter
+
+**Custom Hard Gate**:
+A free-text blocking requirement stored under "其他硬性门槛" because it does not fit one of the six named hard-gate categories, such as shift availability or work authorization.
+_Avoid_: Catch-all JD text, preference, scoring adjustment
+
 **Deterministic Resume Screening Rule**:
 A resume screening rule that can be evaluated from structured resume profile fields without semantic judgment.
 _Avoid_: AI judgment, semantic requirement
@@ -229,13 +241,33 @@ _Avoid_: Invalid result, failed screening
 The generated evaluation of how a resume record matches a job description, including dimensions, strengths, risks, and next-step guidance.
 _Avoid_: Screening result, final candidate outcome, manual feedback note
 
-**Resume Scoring Policy**:
-A workspace-owned scoring configuration that chooses which resume-review dimensions participate, how their weights are assigned, and which job descriptions it applies to. Each workspace has exactly one global default policy (system-seeded, editable, not deletable); additional policies bind exclusively to selected job descriptions and override the global default for those jobs.
-_Avoid_: Dimension config, scoring template, weight settings, six-dimension config
+**Resume Review Dimension**:
+One of the six product-defined aspects independently scored for a resume review: skill match, experience relevance, project match, education/background, potential, or stability. A dimension participates when its job weight is greater than zero and is disabled when its weight is zero.
+_Avoid_: Screening rule, scoring condition, weight
 
-**Resume Scoring Policy Snapshot**:
-The frozen copy of the resume scoring policy used when one resume review score was produced, so later policy edits do not silently rewrite historical scores.
-_Avoid_: Live policy, current weight settings
+**Resume Review Dimension Score**:
+The integer score from 0 to 100 produced for one enabled resume-review dimension by applying the standardized dimension deduction rules.
+_Avoid_: Composite score, weighted score, screening result
+
+**Job Resume Scoring Configuration**:
+The job-description-owned integer weights used to combine the six resume-review dimension scores. New jobs use 35/25/15/10/8/7; a dimension with weight zero is disabled and shown muted, while positive-weight dimensions participate and all six weights always total 100%. No separate weight mode is stored.
+_Avoid_: Global scoring policy, scoring template, reusable weight policy
+
+**Job Scoring Adjustment Rule**:
+A dimension-independent, job-description-specific scoring condition stored as one structured rule with separate condition text and a non-zero integer point magnitude from 1 to 100. The rule group supplies the sign: priority conditions are positive and exclusion conditions are negative. Matched adjustments apply after the six-dimension weighted base score and before the final score is clamped to 0–100. A rule does not need to belong to one of the six resume-review dimensions, and it is not a resume screening gate.
+_Avoid_: Dimension deduction rule, free-form note, automatic rejection, screening rule
+
+**Priority Condition**:
+A job scoring adjustment rule with a positive point value for evidence the job prefers.
+_Avoid_: Required gate, pass decision, unscored preference
+
+**Exclusion Condition**:
+A job scoring adjustment rule with a negative point value for an undesirable match signal. It lowers a score but does not mark the candidate as rejected or as having failed a resume screening gate.
+_Avoid_: Resume screening gate, automatic rejection, hard filter
+
+**Job Resume Scoring Snapshot**:
+The frozen copy of the job resume scoring configuration used when one resume review score was produced, so later job-description edits do not silently rewrite historical scores.
+_Avoid_: Live job configuration, current weight settings
 
 **Dimension Deduction Rule**:
 A fixed-identity scoring rule (stable rule id) that defines how one resume-review dimension loses points from a 100 baseline; the deduction amount may be configured per workspace while the rule catalog stays product-defined.
@@ -246,7 +278,7 @@ The workspace-owned table of deduction amounts (and optional per-rule enablement
 _Avoid_: Scoring policy weights, screening rules
 
 **Resume Review Composite Score**:
-The weighted overall score of a resume review under the effective scoring policy snapshot, shown to one decimal place. Within candidates who have cleared resume screening, it is the primary rank and score-filter signal; when screening has not passed, the score may still be shown for diagnosis but must not outrank or override the screening conclusion.
+The weighted overall score of a resume review under the job resume scoring snapshot, calculated within the range 0 to 100 and shown to one decimal place. Within candidates who have cleared resume screening, it is the primary rank and score-filter signal; when screening has not passed, the score may still be shown for diagnosis but must not outrank or override the screening conclusion.
 _Avoid_: Recommendation score, vector similarity score, screening result, final pass decision
 
 **Resume Evaluation Decision**:

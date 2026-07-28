@@ -1,4 +1,5 @@
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import { createDefaultJobDescriptionStructuredConfig } from "@arc/shared/job-descriptions";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { describe, expect, it, vi } from "vitest";
 import { resolveJobDescriptionMatchBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/match-job-description";
@@ -37,6 +38,7 @@ const jobDescriptions: JobDescriptionListRecord[] = [
     resumeScreeningPolicy: { enabled: false, rules: [], version: 1 },
     resumeScreeningPolicyHash: null,
     resumeScreeningPolicyVersion: 1,
+    structuredConfig: createDefaultJobDescriptionStructuredConfig(),
     updatedAt: new Date("2026-06-20T00:00:00.000Z"),
   },
 ];

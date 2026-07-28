@@ -12,6 +12,7 @@ import { testClient } from "hono/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { department, interviewer, jobDescription, organization, user } from "@arc/db-schema/schema";
+import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
 import { createDefaultResumeScreeningPolicy } from "@arc/shared/resume-screening";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 
@@ -110,6 +111,7 @@ function jobDescriptionPayload(overrides?: Partial<Record<string, unknown>>) {
     name: "前端工程师",
     prompt: "负责前端工程化与业务开发。",
     resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
+    structuredConfig: createDefaultJobDescriptionStructuredConfig(),
     ...overrides,
   };
 }
@@ -136,6 +138,31 @@ describe("job-descriptions route index hooks", () => {
       jobDescriptionId: body.id,
       organizationId: ORG_ID,
     });
+  });
+
+  it("POST / persists and returns the structured JD configuration", async () => {
+    const config = {
+      ...createDefaultJobDescriptionStructuredConfig(),
+      hardGates: {
+        ...createDefaultJobDescriptionStructuredConfig().hardGates,
+        education: "本科及以上，985/211 优先",
+      },
+      priorityConditions: [
+        {
+          condition: "具有头部企业项目经验",
+          id: "priority-1",
+          points: 5,
+        },
+      ],
+    };
+
+    const res = await client["job-descriptions"].$post({
+      json: jobDescriptionPayload({ structuredConfig: config }),
+    });
+    expect(res.status).toBe(201);
+    const body = await res.json();
+
+    expect("structuredConfig" in body ? body.structuredConfig : null).toEqual(config);
   });
 
   it("PATCH /:id enqueues a JD index job with the updated record id and active org", async () => {

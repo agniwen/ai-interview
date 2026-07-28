@@ -329,6 +329,7 @@ export const jobDescriptionsRouter = factory
           resumeScreeningPolicy: input.resumeScreeningPolicy,
           resumeScreeningPolicyHash,
           resumeScreeningPolicyVersion: input.resumeScreeningPolicy.version,
+          structuredConfig: input.structuredConfig,
           updatedAt: now,
         } satisfies typeof jobDescription.$inferSelect;
 
@@ -488,6 +489,7 @@ export const jobDescriptionsRouter = factory
         },
         resumeScreeningPolicyHash: nextPolicyHash,
         resumeScreeningPolicyVersion: nextPolicyVersion,
+        structuredConfig: input.structuredConfig,
         updatedAt: now,
       };
       try {

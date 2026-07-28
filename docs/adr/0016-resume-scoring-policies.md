@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by ADR-0020
 ---
 
 # Resume scoring policies as workspace-owned dimension weight configs

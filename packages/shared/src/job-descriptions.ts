@@ -1,4 +1,9 @@
 import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
+import {
+  createDefaultJobDescriptionStructuredConfig,
+  jobDescriptionStructuredConfigSchema,
+} from "@arc/db-schema/job-description-structured-config";
+import type { JobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
 import { z } from "zod";
 import type { ResumeParseStatus } from "@arc/db-schema/studio-interviews";
 import {
@@ -28,6 +33,7 @@ export const jobDescriptionBaseSchema = z.object({
   name: z.string().trim().min(1, "请输入岗位名称").max(120, "岗位名称不能超过 120 个字符"),
   prompt: z.string().trim().min(1, "请输入岗位 prompt").max(10_000, "prompt 不能超过 10000 字"),
   resumeScreeningPolicy: resumeScreeningPolicySchema,
+  structuredConfig: jobDescriptionStructuredConfigSchema,
 });
 
 export const jobDescriptionFormSchema = jobDescriptionBaseSchema;
@@ -58,6 +64,7 @@ export interface JobDescriptionRecord {
   resumeScreeningPolicy: ResumeScreeningPolicy;
   resumeScreeningPolicyHash: string | null;
   resumeScreeningPolicyVersion: number;
+  structuredConfig: JobDescriptionStructuredConfig;
   createdBy: string | null;
   createdAt: string | Date;
   updatedAt: string | Date;
@@ -142,3 +149,6 @@ export interface JobDescriptionRecommendationResult {
   resume: { id: string };
   status: "disabled" | "ready" | "already_matched" | "indexing";
 }
+
+export { createDefaultJobDescriptionStructuredConfig, jobDescriptionStructuredConfigSchema };
+export type { JobDescriptionStructuredConfig };
