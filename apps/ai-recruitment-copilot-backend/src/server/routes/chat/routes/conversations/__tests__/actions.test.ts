@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   loadJobDescriptionById: vi.fn(),
+  loadRecruitingJobDescriptionById: vi.fn(),
   loadResumePoolItem: vi.fn(),
   patchRecruitingActionConfirmationInConversation: vi.fn(),
   selectLimit: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock(
   "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao",
   () => ({
     loadJobDescriptionById: mocks.loadJobDescriptionById,
+    loadRecruitingJobDescriptionById: mocks.loadRecruitingJobDescriptionById,
   }),
 );
 
@@ -44,6 +46,10 @@ describe("confirmRecruitingAction bind_* conversation context", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.loadJobDescriptionById.mockResolvedValue({ id: "jd-1", name: "前端工程师" });
+    mocks.loadRecruitingJobDescriptionById.mockResolvedValue({
+      id: "jd-1",
+      name: "前端工程师",
+    });
     mocks.selectLimit.mockResolvedValue([{ id: "resume-1" }]);
     mocks.loadResumePoolItem.mockResolvedValue({
       id: "pool-1",

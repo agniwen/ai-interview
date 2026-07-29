@@ -13,7 +13,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { department, interviewer, jobDescription, organization, user } from "@arc/db-schema/schema";
 import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
-import { createDefaultResumeScreeningPolicy } from "@arc/shared/resume-screening";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 
 const mocks = vi.hoisted(() => ({
@@ -110,7 +109,6 @@ function jobDescriptionPayload(overrides?: Partial<Record<string, unknown>>) {
     interviewerIds: [INTERVIEWER_ID],
     name: "前端工程师",
     prompt: "负责前端工程化与业务开发。",
-    resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
     structuredConfig: createDefaultJobDescriptionStructuredConfig(),
     ...overrides,
   };
@@ -125,7 +123,7 @@ beforeEach(async () => {
 afterEach(cleanup);
 
 describe("job-descriptions route index hooks", () => {
-  it("POST / enqueues a JD index job with the new record id and active org", async () => {
+  it("POST / keeps a new draft out of the semantic index", async () => {
     const res = await client["job-descriptions"].$post({ json: jobDescriptionPayload() });
     expect(res.status).toBe(201);
     const body = await res.json();
@@ -133,11 +131,11 @@ describe("job-descriptions route index hooks", () => {
       throw new Error("expected the created job description record in the response body");
     }
 
-    expect(mocks.enqueueJobDescriptionIndexJobBestEffort).toHaveBeenCalledTimes(1);
-    expect(mocks.enqueueJobDescriptionIndexJobBestEffort).toHaveBeenCalledWith({
-      jobDescriptionId: body.id,
-      organizationId: ORG_ID,
+    expect(body).toMatchObject({
+      evaluationMode: "structured",
+      lifecycleStatus: "draft",
     });
+    expect(mocks.enqueueJobDescriptionIndexJobBestEffort).not.toHaveBeenCalled();
   });
 
   it("POST / persists and returns the structured JD configuration", async () => {
@@ -165,7 +163,7 @@ describe("job-descriptions route index hooks", () => {
     expect("structuredConfig" in body ? body.structuredConfig : null).toEqual(config);
   });
 
-  it("PATCH /:id enqueues a JD index job with the updated record id and active org", async () => {
+  it("PATCH /:id keeps an updated draft out of the semantic index", async () => {
     await db.insert(jobDescription).values({
       allowCrossDepartmentInterviewers: true,
       createdAt: NOW,
@@ -175,8 +173,6 @@ describe("job-descriptions route index hooks", () => {
       name: "后端工程师",
       organizationId: ORG_ID,
       prompt: "负责后端服务开发。",
-      resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
-      resumeScreeningPolicyVersion: 1,
       updatedAt: NOW,
     });
 
@@ -186,11 +182,7 @@ describe("job-descriptions route index hooks", () => {
     });
     expect(res.status).toBe(200);
 
-    expect(mocks.enqueueJobDescriptionIndexJobBestEffort).toHaveBeenCalledTimes(1);
-    expect(mocks.enqueueJobDescriptionIndexJobBestEffort).toHaveBeenCalledWith({
-      jobDescriptionId: EXISTING_JD_ID,
-      organizationId: ORG_ID,
-    });
+    expect(mocks.enqueueJobDescriptionIndexJobBestEffort).not.toHaveBeenCalled();
   });
 
   it("DELETE /:id purges the JD semantic index", async () => {
@@ -203,8 +195,6 @@ describe("job-descriptions route index hooks", () => {
       name: "测试工程师",
       organizationId: ORG_ID,
       prompt: "负责质量保障。",
-      resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
-      resumeScreeningPolicyVersion: 1,
       updatedAt: NOW,
     });
 

@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   getObjectStream: vi.fn(),
   getUserAttachment: vi.fn(),
   listAllJobDescriptions: vi.fn(),
+  listRecruitingJobDescriptions: vi.fn(),
   projectAttachmentToResumeProfile: vi.fn(),
   resolveJobDescriptionMatchBestEffort: vi.fn(),
   updateStructuredByHash: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock(
   "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao",
   () => ({
     listAllJobDescriptions: mocks.listAllJobDescriptions,
+    listRecruitingJobDescriptions: mocks.listRecruitingJobDescriptions,
   }),
 );
 vi.mock(
@@ -62,6 +64,7 @@ describe("attachmentsRouter match-job-description", () => {
       fn.mockReset();
     }
     mocks.listAllJobDescriptions.mockResolvedValue([{ id: "jd-1", name: "前端工程师" }]);
+    mocks.listRecruitingJobDescriptions.mockResolvedValue([{ id: "jd-1", name: "前端工程师" }]);
     mocks.resolveJobDescriptionMatchBestEffort.mockResolvedValue({
       matchedId: "jd-1",
       reason: "技能匹配",

@@ -37,7 +37,9 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
     select: () => ({
       from: (_table: unknown) => ({
         where: (condition: WhereCondition) => ({
-          limit: (_n: number) => rows.filter((r) => condition.matches(r)).slice(0, 1),
+          orderBy: () => ({
+            limit: (_n: number) => rows.filter((r) => condition.matches(r)).slice(0, 1),
+          }),
         }),
       }),
     }),
@@ -51,6 +53,7 @@ vi.mock("drizzle-orm", () => ({
   and: (...conds: WhereCondition[]) => ({
     matches: (row: DbRow) => conds.every((c) => c.matches(row)),
   }),
+  desc: (column: unknown) => column,
   eq: (col: { name: string }, value: unknown) => ({
     matches: (row: DbRow) => row[col.name] === value,
   }),

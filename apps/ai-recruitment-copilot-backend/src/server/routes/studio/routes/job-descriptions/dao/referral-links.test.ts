@@ -56,10 +56,13 @@ async function seedFixtures() {
     createdAt: NOW,
     createdBy: USER_ID,
     departmentId: DEPARTMENT_ID,
+    evaluationMode: "legacy",
     id: JD_ID,
+    lifecycleStatus: "published",
     name: "前端工程师",
     organizationId: ORG_ID,
     prompt: "负责前端工程化与业务开发。",
+    publishedAt: NOW,
     updatedAt: NOW,
   });
 }

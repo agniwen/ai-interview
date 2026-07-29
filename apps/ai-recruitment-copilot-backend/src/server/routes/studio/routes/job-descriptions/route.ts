@@ -154,6 +154,19 @@ const jobDescriptionPatchBodySchema = z.union([
   publishedJobOperationalUpdateSchema,
 ]);
 
+function jobLifecycleErrorPayload(error: JobEvaluationLifecycleError) {
+  const messages: Record<string, string> = {
+    JOB_ALREADY_PUBLISHED: "岗位已经发布。",
+    JOB_BLUEPRINT_PREVIEW_STALE: "评估蓝图已失效，请重新生成并确认。",
+    JOB_EVALUATION_MODE_IMMUTABLE: "旧岗位不能切换到新版评估流程。",
+    JOB_NOT_FOUND: "岗位不存在。",
+  };
+  return {
+    code: error.code,
+    error: messages[error.code] ?? "岗位状态冲突，请刷新后重试。",
+  };
+}
+
 function buildReferralUrl(requestUrl: string, token: string): string {
   const { origin } = new URL(requestUrl);
   return `${origin}/referrals/${encodeURIComponent(token)}`;
@@ -411,7 +424,7 @@ export const jobDescriptionsRouter = factory
     } catch (error) {
       if (error instanceof JobEvaluationLifecycleError) {
         const status = error.code === "JOB_NOT_FOUND" ? 404 : 409;
-        return c.json({ code: error.code, error: error.message }, status);
+        return c.json(jobLifecycleErrorPayload(error), status);
       }
       throw error;
     }
@@ -443,7 +456,7 @@ export const jobDescriptionsRouter = factory
       } catch (error) {
         if (error instanceof JobEvaluationLifecycleError) {
           const status = error.code === "JOB_NOT_FOUND" ? 404 : 409;
-          return c.json({ code: error.code, error: error.message }, status);
+          return c.json(jobLifecycleErrorPayload(error), status);
         }
         throw error;
       }

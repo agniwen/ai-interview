@@ -10,6 +10,135 @@ import { createDefaultScheduleEntry } from "@arc/db-schema/studio-interviews";
 import { canApplyCandidatePipelineEvent } from "@arc/shared/candidate-pipeline-machine";
 import { canLaunchInterviewFromResume } from "@arc/shared/studio-resumes";
 import { createLaunchAiInterviewRound } from "./launch-ai-interview-round";
+import type { PersistLaunchInput } from "./launch-ai-interview-round";
+
+export function persistLaunchAiInterviewRound(
+  input: PersistLaunchInput<typeof studioInterviewSchedule.$inferInsert>,
+) {
+  return db.transaction(async (tx) => {
+    const {
+      actorId,
+      decisionAuditLogId,
+      interviewQuestions,
+      interviewRecordId,
+      launchAuditLogId,
+      now,
+      organizationId,
+      schedule,
+      visibilityScope,
+    } = input;
+    const visibilityCondition =
+      visibilityScope.kind === "restricted"
+        ? inArray(studioInterview.createdBy, visibilityScope.userIds)
+        : undefined;
+    if (visibilityScope.kind === "none") {
+      return { ok: false as const, reason: "not_found" as const };
+    }
+
+    const [candidate] = await tx
+      .select({
+        jobDescriptionId: studioInterview.jobDescriptionId,
+        pipelineStage: studioInterview.pipelineStage,
+        resumeEvaluationStatus: studioInterview.resumeEvaluationStatus,
+        resumeParseStatus: studioInterview.resumeParseStatus,
+      })
+      .from(studioInterview)
+      .where(
+        and(
+          eq(studioInterview.id, interviewRecordId),
+          eq(studioInterview.organizationId, organizationId),
+          visibilityCondition,
+        ),
+      )
+      .limit(1)
+      .for("update");
+    if (!candidate) {
+      return { ok: false as const, reason: "not_found" as const };
+    }
+    if (candidate.pipelineStage === "closed") {
+      return { ok: false as const, reason: "closed_candidate" as const };
+    }
+    if (
+      !canApplyCandidatePipelineEvent(
+        {
+          humanInterviewReadyForOffer: false,
+          stage: candidate.pipelineStage,
+        },
+        { type: "START_AI_INTERVIEW" },
+      )
+    ) {
+      return { ok: false as const, reason: "stage_conflict" as const };
+    }
+    if (!canLaunchInterviewFromResume(candidate.resumeParseStatus)) {
+      return { ok: false as const, reason: "resume_not_ready" as const };
+    }
+
+    const [activeRound] = await tx
+      .select({ id: studioInterviewSchedule.id })
+      .from(studioInterviewSchedule)
+      .where(
+        and(
+          eq(studioInterviewSchedule.interviewRecordId, interviewRecordId),
+          eq(studioInterviewSchedule.organizationId, organizationId),
+          inArray(studioInterviewSchedule.status, ["pending", "in_progress", "interrupted"]),
+        ),
+      )
+      .limit(1);
+    if (activeRound) {
+      return { ok: false as const, reason: "stage_conflict" as const };
+    }
+
+    await tx.insert(studioInterviewSchedule).values(schedule);
+    await setResumeEvaluationStatusWithAuditTx(tx, {
+      auditLogId: decisionAuditLogId,
+      auditUnchanged: true,
+      currentStatus: candidate.resumeEvaluationStatus,
+      id: interviewRecordId,
+      now,
+      operatorId: actorId,
+      organizationId,
+      status: "pass",
+    });
+    await tx
+      .update(studioInterview)
+      .set({
+        interviewQuestions,
+        pipelineStage: "ai_interview",
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(studioInterview.id, interviewRecordId),
+          eq(studioInterview.organizationId, organizationId),
+          visibilityCondition,
+        ),
+      );
+    await autoBindApplicableTemplates(tx, interviewRecordId, candidate.jobDescriptionId);
+    await refreshInterviewContextSnapshot(tx, {
+      createdAt: now,
+      createdBy: actorId,
+      interviewRecordId,
+      reason: "create",
+      scheduleEntryId: schedule.id,
+    });
+    await tx.insert(interviewAuditLog).values({
+      action: "ai_interview_launched",
+      createdAt: now,
+      detail: {
+        questionCount: interviewQuestions.length,
+        roundId: schedule.id,
+        roundLabel: schedule.roundLabel,
+      },
+      id: launchAuditLogId,
+      interviewRecordId,
+      operatorId: actorId,
+      organizationId,
+      scheduleEntryId: schedule.id,
+    });
+
+    return { ok: true as const, roundId: schedule.id };
+  });
+}
 
 export const launchAiInterviewRound = createLaunchAiInterviewRound({
   buildSchedule: ({ actorId, interviewRecordId, now, organizationId, roundId }) => {
@@ -26,127 +155,5 @@ export const launchAiInterviewRound = createLaunchAiInterviewRound({
   clock: { now: () => new Date() },
   idGenerator: { next: () => crypto.randomUUID() },
   invalidateCache: invalidateStudioInterviewCaches,
-  persist: ({
-    actorId,
-    decisionAuditLogId,
-    interviewQuestions,
-    interviewRecordId,
-    launchAuditLogId,
-    now,
-    organizationId,
-    schedule,
-    visibilityScope,
-  }) =>
-    db.transaction(async (tx) => {
-      const visibilityCondition =
-        visibilityScope.kind === "restricted"
-          ? inArray(studioInterview.createdBy, visibilityScope.userIds)
-          : undefined;
-      if (visibilityScope.kind === "none") {
-        return { ok: false as const, reason: "not_found" as const };
-      }
-
-      const [candidate] = await tx
-        .select({
-          jobDescriptionId: studioInterview.jobDescriptionId,
-          pipelineStage: studioInterview.pipelineStage,
-          resumeEvaluationStatus: studioInterview.resumeEvaluationStatus,
-          resumeParseStatus: studioInterview.resumeParseStatus,
-        })
-        .from(studioInterview)
-        .where(
-          and(
-            eq(studioInterview.id, interviewRecordId),
-            eq(studioInterview.organizationId, organizationId),
-            visibilityCondition,
-          ),
-        )
-        .limit(1)
-        .for("update");
-      if (!candidate) {
-        return { ok: false as const, reason: "not_found" as const };
-      }
-      if (candidate.pipelineStage === "closed") {
-        return { ok: false as const, reason: "closed_candidate" as const };
-      }
-      if (
-        !canApplyCandidatePipelineEvent(
-          {
-            humanInterviewReadyForOffer: false,
-            stage: candidate.pipelineStage,
-          },
-          { type: "START_AI_INTERVIEW" },
-        )
-      ) {
-        return { ok: false as const, reason: "stage_conflict" as const };
-      }
-      if (!canLaunchInterviewFromResume(candidate.resumeParseStatus)) {
-        return { ok: false as const, reason: "resume_not_ready" as const };
-      }
-
-      const [activeRound] = await tx
-        .select({ id: studioInterviewSchedule.id })
-        .from(studioInterviewSchedule)
-        .where(
-          and(
-            eq(studioInterviewSchedule.interviewRecordId, interviewRecordId),
-            eq(studioInterviewSchedule.organizationId, organizationId),
-            inArray(studioInterviewSchedule.status, ["pending", "in_progress", "interrupted"]),
-          ),
-        )
-        .limit(1);
-      if (activeRound) {
-        return { ok: false as const, reason: "stage_conflict" as const };
-      }
-
-      await tx.insert(studioInterviewSchedule).values(schedule);
-      await setResumeEvaluationStatusWithAuditTx(tx, {
-        auditLogId: decisionAuditLogId,
-        auditUnchanged: true,
-        currentStatus: candidate.resumeEvaluationStatus,
-        id: interviewRecordId,
-        now,
-        operatorId: actorId,
-        organizationId,
-        status: "pass",
-      });
-      await tx
-        .update(studioInterview)
-        .set({
-          interviewQuestions,
-          pipelineStage: "ai_interview",
-          updatedAt: now,
-        })
-        .where(
-          and(
-            eq(studioInterview.id, interviewRecordId),
-            eq(studioInterview.organizationId, organizationId),
-            visibilityCondition,
-          ),
-        );
-      await autoBindApplicableTemplates(tx, interviewRecordId, candidate.jobDescriptionId);
-      await refreshInterviewContextSnapshot(tx, {
-        createdAt: now,
-        createdBy: actorId,
-        interviewRecordId,
-        reason: "create",
-        scheduleEntryId: schedule.id,
-      });
-      await tx.insert(interviewAuditLog).values({
-        action: "ai_interview_launched",
-        createdAt: now,
-        detail: {
-          questionCount: interviewQuestions.length,
-          roundId: schedule.id,
-          roundLabel: schedule.roundLabel,
-        },
-        id: launchAuditLogId,
-        interviewRecordId,
-        operatorId: actorId,
-        organizationId,
-        scheduleEntryId: schedule.id,
-      });
-
-      return { ok: true as const, roundId: schedule.id };
-    }),
+  persist: persistLaunchAiInterviewRound,
 });

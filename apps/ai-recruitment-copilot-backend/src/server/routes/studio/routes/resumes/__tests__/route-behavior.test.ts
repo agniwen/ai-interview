@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   insertedValues: [] as Record<string, unknown>[],
   invalidateStudioInterviewCaches: vi.fn(),
   jobDescriptionIdsExist: vi.fn(),
+  launchAiInterviewRound: vi.fn(),
   listCandidateRounds: vi.fn(),
   listDuplicateMatchesForSource: vi.fn(),
   loadCandidateTimeline: vi.fn(),
@@ -54,6 +55,12 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility
 vi.mock("@arc/ai-recruitment-copilot-backend/server/cache-tags", () => ({
   invalidateStudioInterviewCaches: mocks.invalidateStudioInterviewCaches,
 }));
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/application/default-launch-ai-interview-round",
+  () => ({
+    launchAiInterviewRound: mocks.launchAiInterviewRound,
+  }),
+);
 vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat", () => ({
   removeImportedInterviewFromConversations: mocks.removeImportedInterviewFromConversations,
 }));
@@ -233,6 +240,10 @@ describe("resumeLibraryRouter behavior", () => {
     });
     mocks.buildScheduleRows.mockReturnValue([SCHEDULE_ROW]);
     mocks.loadInterviewRoundDetail.mockResolvedValue({ id: SCHEDULE_ROW.id });
+    mocks.launchAiInterviewRound.mockResolvedValue({
+      ok: true,
+      roundId: SCHEDULE_ROW.id,
+    });
     mocks.queryPaginatedResumeRecords.mockResolvedValue({
       page: 2,
       pageSize: 20,
@@ -333,7 +344,7 @@ describe("resumeLibraryRouter behavior", () => {
     });
   });
 
-  it("launches AI interview with an audit event and context snapshot", async () => {
+  it("delegates AI interview launch to the atomic command", async () => {
     mocks.loadResumeDetail.mockResolvedValue(EXISTING_RECORD);
 
     const response = await makeApp().request(`/resumes/${RECORD_ID}/launch-interview`, {
@@ -343,26 +354,19 @@ describe("resumeLibraryRouter behavior", () => {
     });
 
     expect(response.status).toBe(201);
-    expect(mocks.insertedValues).toContainEqual(
+    expect(mocks.launchAiInterviewRound).toHaveBeenCalledWith(
       expect.objectContaining({
-        action: "ai_interview_launched",
+        actorId: USER_ID,
         interviewRecordId: RECORD_ID,
-        operatorId: USER_ID,
-        scheduleEntryId: SCHEDULE_ROW.id,
+        organizationId: ORGANIZATION_ID,
       }),
     );
-    expect(mocks.loadOrCreateActiveInterviewContextSnapshot).toHaveBeenCalledWith({
-      createdBy: USER_ID,
-      interviewRecordId: RECORD_ID,
-      reason: "create",
-      scheduleEntryId: SCHEDULE_ROW.id,
-    });
   });
 
   it("blocks launching AI interview after the candidate reaches a later stage", async () => {
-    mocks.loadResumeDetail.mockResolvedValue({
-      ...EXISTING_RECORD,
-      pipelineStage: "human_interview",
+    mocks.launchAiInterviewRound.mockResolvedValue({
+      ok: false,
+      reason: "stage_conflict",
     });
 
     const response = await makeApp().request(`/resumes/${RECORD_ID}/launch-interview`, {
@@ -372,8 +376,9 @@ describe("resumeLibraryRouter behavior", () => {
     });
 
     expect(response.status).toBe(409);
-    expect(mocks.transaction).not.toHaveBeenCalled();
-    expect(mocks.loadOrCreateActiveInterviewContextSnapshot).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({
+      code: "AI_INTERVIEW_STAGE_CONFLICT",
+    });
   });
 
   it("exposes workspace review data and records a one-time evaluation", async () => {
