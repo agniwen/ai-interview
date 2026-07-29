@@ -326,10 +326,10 @@ def _build_session(
             ),
             "endpointing": {
                 "mode": "dynamic",
-                # Keep slightly more room than the audio detector's 0.3/2.5s
-                # defaults while avoiding the previous 1.0/4.0s latency tax.
-                "min_delay": 0.5,
-                "max_delay": 3.0,
+                # Give candidates more room to pause mid-answer without the
+                # agent jumping in; slightly higher latency is acceptable.
+                "min_delay": 0.8,
+                "max_delay": 5.0,
             },
             "interruption": {
                 "mode": "vad" if _SELF_HOSTED else "adaptive",
@@ -891,7 +891,7 @@ async def my_agent(ctx: JobContext) -> None:
         return asyncio.create_task(_runner())
 
     async def _close_at_time_limit() -> None:
-        logger.info("interview reached the 24-minute close boundary")
+        logger.info("interview reached the 35-minute close boundary")
         state.completion_status = "success"
         state.business_close_reason = "time_limit"
         interview_agent.stop_question_workflow("time_limit")
@@ -921,7 +921,7 @@ async def my_agent(ctx: JobContext) -> None:
     )
 
     async def _kill_stuck_session() -> None:
-        logger.error("interview reached the 25-minute stuck-session kill boundary")
+        logger.error("interview reached the 36-minute stuck-session kill boundary")
         state.completion_status = "failed"
         state.business_close_reason = "system_shutdown"
         interview_agent.stop_question_workflow("system_shutdown")

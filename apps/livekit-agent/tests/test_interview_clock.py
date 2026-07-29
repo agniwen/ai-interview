@@ -47,8 +47,10 @@ def test_reconnect_pause_cap_is_cumulative():
 
 
 def test_timeline_uses_the_confirmed_active_time_boundaries():
-    assert classify_timeline_phase(1109.9) is InterviewTimelinePhase.QUESTIONS
-    assert classify_timeline_phase(1110.0) is InterviewTimelinePhase.FINISH_CURRENT
-    assert classify_timeline_phase(1260.0) is InterviewTimelinePhase.WRAP_UP
-    assert classify_timeline_phase(1440.0) is InterviewTimelinePhase.CLOSE
-    assert classify_timeline_phase(1500.0) is InterviewTimelinePhase.KILL
+    # 30:00 soft / stop new questions, 33:00 finish current,
+    # 35:00 close, 36:00 kill.
+    assert classify_timeline_phase(1799.9) is InterviewTimelinePhase.QUESTIONS
+    assert classify_timeline_phase(1800.0) is InterviewTimelinePhase.FINISH_CURRENT
+    assert classify_timeline_phase(1980.0) is InterviewTimelinePhase.WRAP_UP
+    assert classify_timeline_phase(2100.0) is InterviewTimelinePhase.CLOSE
+    assert classify_timeline_phase(2160.0) is InterviewTimelinePhase.KILL

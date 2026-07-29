@@ -176,13 +176,13 @@ async def test_declined_candidate_uses_wrap_up_without_another_question(monkeypa
     assert session.calls == []
 
 
-def test_default_timeline_warns_at_21_and_hard_cuts_at_25():
+def test_default_timeline_reminds_at_30_and_hard_cuts_at_36():
     a = InterviewAgent(_ctx())
 
-    assert INTERVIEW_SOFT_WRAP_SECONDS == 18 * 60 + 30
-    assert INTERVIEW_FINAL_WRAP_SECONDS == 21 * 60
-    assert a.time_limit_seconds == 24 * 60
-    assert INTERVIEW_TIME_LIMIT_SECONDS + INTERVIEW_HARD_GRACE_SECONDS == 25 * 60
+    assert INTERVIEW_SOFT_WRAP_SECONDS == 30 * 60
+    assert INTERVIEW_FINAL_WRAP_SECONDS == 33 * 60
+    assert a.time_limit_seconds == 35 * 60
+    assert INTERVIEW_TIME_LIMIT_SECONDS + INTERVIEW_HARD_GRACE_SECONDS == 36 * 60
 
 
 @pytest.mark.asyncio

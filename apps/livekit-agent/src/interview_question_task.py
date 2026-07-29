@@ -221,8 +221,10 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
         self.session.update_options(
             endpointing_opts={
                 "mode": "dynamic",
-                "min_delay": 0.5,
-                "max_delay": 4.5,
+                # Slightly looser than session defaults so long answers with
+                # thinking pauses are less likely to be cut mid-sentence.
+                "min_delay": 0.8,
+                "max_delay": 5.5,
             }
         )
         if self._previous_outcome is None:

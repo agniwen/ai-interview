@@ -54,10 +54,10 @@ _DEBUG_FAST = os.environ.get("INTERVIEW_DEBUG_FAST", "").lower() in (
 )
 
 if _DEBUG_FAST:
-    # 数值挑选: 与生产 18.5/21/24/1min 同形比例, 同时保证
+    # 数值挑选: 与生产 30/33/35/1min 同形比例, 同时保证
     # 相邻两阶段之间留出至少 10s 间隙, 给 _force_wind_down / _enforce_time_limit
     # 的 wait_for_playout 有播放窗口. 硬切总时长 = 45 + 15 = 60s.
-    # Values chosen to keep the same shape as the prod 18.5/21/24/1min timeline
+    # Values chosen to keep the same shape as the prod 30/33/35/1min timeline
     # while leaving ≥10s between adjacent phases so the playout windows for
     # _force_wind_down / _enforce_time_limit don't overlap. Total hard cutoff
     # lands at 45 + 15 = 60s.
@@ -74,12 +74,13 @@ if _DEBUG_FAST:
         INTERVIEW_TIME_LIMIT_SECONDS + INTERVIEW_HARD_GRACE_SECONDS,
     )
 else:
-    INTERVIEW_TIME_LIMIT_SECONDS = 24 * 60
-    INTERVIEW_SOFT_WRAP_SECONDS = 18 * 60 + 30
-    INTERVIEW_FINAL_WRAP_SECONDS = 21 * 60
+    # 30:00 soft reminder / stop new questions; 33:00 finish current;
+    # 35:00 force goodbye; kill boundary is +1 min in agent.py (KILL_SECONDS).
+    INTERVIEW_SOFT_WRAP_SECONDS = 30 * 60
+    INTERVIEW_FINAL_WRAP_SECONDS = 33 * 60
+    INTERVIEW_TIME_LIMIT_SECONDS = 35 * 60
     # Hard cutoff is enforced in agent.py; allow 1 min after the time limit so
-    # the LLM has time to ask the closing question, hear the answer, and say
-    # goodbye without being interrupted mid-sentence.
+    # the fixed goodbye cue can finish playout before the stuck-session kill.
     INTERVIEW_HARD_GRACE_SECONDS = 60
 
 
