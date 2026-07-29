@@ -60,6 +60,7 @@ import {
   INVALIDATED_AI_RESUME_ASSESSMENT,
   INVALIDATED_RESUME_ASSESSMENT_FOR_JOB_CHANGE,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
+import { structuredResumeEvaluationRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/routes/structured-evaluation/route";
 /* oxlint-disable complexity -- multipart create/update handlers preserve transactional business rules. */
 
 // 「发起 AI 面试」请求体：候选人侧已存在招聘台行，只把（可能被用户编辑过的）
@@ -162,6 +163,7 @@ export function parseResumeReviewFormInput(
 export const resumeLibraryRouter = factory
   .createApp()
   .route("/", resumeLibraryReadRouter)
+  .route("/:id/structured-evaluation", structuredResumeEvaluationRouter)
   .post("/", requirePermission("resumeLibrary", "create"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {

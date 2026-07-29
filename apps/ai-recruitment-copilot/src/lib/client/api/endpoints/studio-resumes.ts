@@ -21,6 +21,11 @@ import type {
   ResumeLibraryDetail,
   ResumeLibraryMetrics,
 } from "@arc/shared/studio-resumes";
+import type {
+  StructuredResumeEvaluationV1,
+  StructuredResumeGateStatus,
+} from "@arc/db-schema/structured-resume-evaluation";
+import type { StructuredResumeSummaryFields } from "@arc/shared/structured-resume-scoring";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
 import type { DedupMatchRecord } from "./studio-interviews";
@@ -189,6 +194,34 @@ export function fetchStudioResumeReview(
     rpc.api.w[":slug"].studio.resumes[":id"].review.$get({ param: { id, slug } }),
     "加载简历详情失败",
     { allow404: true },
+  );
+}
+
+export function correctStructuredResumeGate(
+  slug: string,
+  resumeId: string,
+  requirementId: string,
+  input: {
+    correctedStatus: StructuredResumeGateStatus | null;
+    expectedRunId: string;
+  },
+): Promise<{
+  evaluation: StructuredResumeEvaluationV1;
+  status: "updated";
+  summaries: StructuredResumeSummaryFields;
+}> {
+  return rpcFetch(
+    rpc.api.w[":slug"].studio.resumes[":id"]["structured-evaluation"].gates[
+      ":requirementId"
+    ].$patch({
+      json: input,
+      param: {
+        id: resumeId,
+        requirementId,
+        slug,
+      },
+    }),
+    "更新门槛核实结果失败",
   );
 }
 

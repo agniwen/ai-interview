@@ -30,6 +30,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
+import { StructuredResumeEvaluationPanel } from "@/components/features/studio/resumes/structured-resume-evaluation-panel";
 import { DataField } from "@/components/features/display/data-field";
 import { DataFields } from "@/components/features/display/data-fields";
 import { EmptyValue } from "@/components/features/display/empty-value";
@@ -912,7 +913,16 @@ export function ResumeOverviewPanel({
 }) {
   return (
     <div className="space-y-8">
-      <ResumeOverviewAiScoreSection detail={detail} onViewAiScore={onViewAiScore} />
+      {detail.jobEvaluationMode === "structured" ? (
+        <StructuredResumeEvaluationPanel
+          canEdit={canEdit}
+          detail={detail}
+          onUpdated={onUpdated}
+          slug={slug}
+        />
+      ) : (
+        <ResumeOverviewAiScoreSection detail={detail} onViewAiScore={onViewAiScore} />
+      )}
 
       <ResumeOverviewCandidateInfoSection
         canEdit={canEdit}
