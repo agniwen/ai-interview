@@ -224,13 +224,21 @@ function InterviewQuestionTemplateManagementPage({
   const [refreshRecord, setRefreshRecord] = useState<InterviewQuestionTemplateListRecord | null>(
     null,
   );
+  // Keep the target while the confirm dialog closes (onOpenChange clears state).
+  const pendingRefreshRecordRef = useRef<InterviewQuestionTemplateListRecord | null>(null);
+
+  const openRefreshConfirm = useCallback((record: InterviewQuestionTemplateListRecord) => {
+    pendingRefreshRecordRef.current = record;
+    setRefreshRecord(record);
+  }, []);
 
   const handleRefreshEligibleCandidates = useCallback(async () => {
-    if (!refreshRecord) {
+    const record = pendingRefreshRecordRef.current ?? refreshRecord;
+    pendingRefreshRecordRef.current = null;
+    setRefreshRecord(null);
+    if (!record) {
       return;
     }
-    const record = refreshRecord;
-    setRefreshRecord(null);
     const toastId = toast.loading("正在刷新未面试候选人沟通题…");
     try {
       const res = await rpc.api.w[":slug"].studio["interview-questions"][":id"][
@@ -238,19 +246,21 @@ function InterviewQuestionTemplateManagementPage({
       ].$post({
         param: { id: record.id, slug },
       });
+      const body = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        refreshedCount?: number;
+        scannedCount?: number;
+      };
       if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
         toast.error(body.error ?? "刷新失败", { id: toastId });
         return;
       }
-      const body = (await res.json()) as {
-        refreshedCount: number;
-        scannedCount: number;
-      };
+      const refreshedCount = body.refreshedCount ?? 0;
+      const scannedCount = body.scannedCount ?? 0;
       toast.success(
-        body.refreshedCount === 0
-          ? `扫描 ${body.scannedCount} 人，没有需要更新的未面试候选人`
-          : `已刷新 ${body.refreshedCount} 位未面试候选人（扫描 ${body.scannedCount} 人）`,
+        refreshedCount === 0
+          ? `扫描 ${scannedCount} 人，没有需要更新的未面试候选人`
+          : `已刷新 ${refreshedCount} 位未面试候选人（扫描 ${scannedCount} 人）`,
         { id: toastId },
       );
     } catch {
@@ -422,7 +432,7 @@ function InterviewQuestionTemplateManagementPage({
         menu: [
           {
             label: "刷新未面试候选人沟通题",
-            onClick: (r) => setRefreshRecord(r),
+            onClick: (r) => openRefreshConfirm(r),
             show: (r) => canUpdateQuestionTemplate && !r.archivedAt,
           },
           {
@@ -440,7 +450,7 @@ function InterviewQuestionTemplateManagementPage({
       }),
     ],
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-    [canDeleteQuestionTemplate, canUpdateQuestionTemplate],
+    [canDeleteQuestionTemplate, canUpdateQuestionTemplate, openRefreshConfirm],
   );
 
   const filtersConfig = useMemo(
