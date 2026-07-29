@@ -40,25 +40,69 @@ export const jobDescriptionScoringConditionSchema = z.object({
   points: z.number().int().min(1).max(100),
 });
 
-export const jobDescriptionStructuredConfigSchema = z.object({
-  exclusionConditions: z
-    .array(jobDescriptionScoringConditionSchema)
-    .max(JOB_DESCRIPTION_SCORING_CONDITION_LIMIT),
-  hardGates: z.object({
-    education: hardGateTextSchema,
-    languageAbility: hardGateTextSchema,
-    other: hardGateTextSchema,
-    requiredCertificates: hardGateTextSchema,
-    requiredSkills: hardGateTextSchema,
-    workExperience: hardGateTextSchema,
-    workLocation: hardGateTextSchema,
-  }),
-  priorityConditions: z
-    .array(jobDescriptionScoringConditionSchema)
-    .max(JOB_DESCRIPTION_SCORING_CONDITION_LIMIT),
-  version: z.literal(JOB_DESCRIPTION_STRUCTURED_CONFIG_VERSION),
-  weights: jobDescriptionDimensionWeightsSchema,
-});
+export const jobDescriptionStructuredConfigSchema = z
+  .object({
+    exclusionConditions: z
+      .array(jobDescriptionScoringConditionSchema)
+      .max(JOB_DESCRIPTION_SCORING_CONDITION_LIMIT),
+    hardGates: z.object({
+      education: hardGateTextSchema,
+      languageAbility: hardGateTextSchema,
+      other: hardGateTextSchema,
+      requiredCertificates: hardGateTextSchema,
+      requiredSkills: hardGateTextSchema,
+      workExperience: hardGateTextSchema,
+      workLocation: hardGateTextSchema,
+    }),
+    priorityConditions: z
+      .array(jobDescriptionScoringConditionSchema)
+      .max(JOB_DESCRIPTION_SCORING_CONDITION_LIMIT),
+    version: z.literal(JOB_DESCRIPTION_STRUCTURED_CONFIG_VERSION),
+    weights: jobDescriptionDimensionWeightsSchema,
+  })
+  .superRefine((config, context) => {
+    const conditions = [
+      ...config.priorityConditions.map((condition, index) => ({
+        ...condition,
+        index,
+        list: "priorityConditions" as const,
+      })),
+      ...config.exclusionConditions.map((condition, index) => ({
+        ...condition,
+        index,
+        list: "exclusionConditions" as const,
+      })),
+    ];
+    const ids = new Map<string, (typeof conditions)[number]>();
+    const normalizedTexts = new Map<string, (typeof conditions)[number]>();
+    for (const condition of conditions) {
+      const previousId = ids.get(condition.id);
+      if (previousId) {
+        context.addIssue({
+          code: "custom",
+          message: "优先与排除条件的 ID 不能重复",
+          path: [condition.list, condition.index, "id"],
+        });
+      } else {
+        ids.set(condition.id, condition);
+      }
+
+      const normalizedText = condition.condition
+        .normalize("NFKC")
+        .toLocaleLowerCase()
+        .replaceAll(/\s+/g, "");
+      const previousText = normalizedTexts.get(normalizedText);
+      if (previousText) {
+        context.addIssue({
+          code: "custom",
+          message: "优先与排除条件的内容不能重复",
+          path: [condition.list, condition.index, "condition"],
+        });
+      } else {
+        normalizedTexts.set(normalizedText, condition);
+      }
+    }
+  });
 
 export type JobDescriptionStructuredConfig = z.infer<typeof jobDescriptionStructuredConfigSchema>;
 export type JobDescriptionScoringCondition = z.infer<typeof jobDescriptionScoringConditionSchema>;
