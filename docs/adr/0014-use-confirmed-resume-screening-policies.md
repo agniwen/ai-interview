@@ -6,6 +6,8 @@ status: accepted
 
 Resume screening rules should be configured as confirmed job-description policy, not extracted from the job description by a runtime hard-filter agent for each resume review. AI may suggest draft resume screening rules, but a recruiter must confirm them before they become active; this keeps screening standards stable across candidates and prevents model extraction drift from becoming an automatic candidate outcome.
 
+ADR-0022 limits this policy and its runtime to legacy jobs. Structured jobs use published hard gates and the separate structured evaluation workflow.
+
 ## Consequences
 
 Resume screening is distinct from resume review and from the final candidate outcome. A resume screening result may recommend pass, flag, or hold, but it must not automatically close a candidate as rejected.

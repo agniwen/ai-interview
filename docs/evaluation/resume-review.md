@@ -1,5 +1,7 @@
 # 简历评分离线评测
 
+> 当前命令与指标描述针对 legacy 简历评价。structured V1 使用独立 workflow、确定性扣分计分和 85/75 分档；接入实现时应新增独立数据切片与回归契约，不能把两种评估体系的分数合并统计。设计基准见 `docs/superpowers/specs/2026-07-29-structured-resume-evaluation-design.md`。
+
 这套评测从 `studio_interview` 的最新简历评价与招聘结果构造代理金标，用来诊断简历评分、六维分和 `nextStep`，不读取或导出姓名、联系方式、简历正文等个人信息。
 
 ## 运行

@@ -49,8 +49,20 @@ _Avoid_: Invite link
 ### Recruiting Setup
 
 **Job Description**:
-An active position definition used to evaluate resumes and drive interview questions.
+A position definition used to evaluate resumes and drive interview questions; it is either a draft or a published job description.
 _Avoid_: JD when writing user-facing copy, role posting
+
+**Draft Job Description**:
+A job description whose recruiting and resume-evaluation configuration is still editable and cannot yet receive, match, or evaluate candidates.
+_Avoid_: Inactive position, unpublished config
+
+**Published Job Description**:
+A job description available to recruiting workflows. Its name, code, description, prompt, resume gates, scoring weights, scoring adjustments, and scoring-rule-set version are immutable, while operational interview assignments and questions may still change.
+_Avoid_: Saved draft, editable active job
+
+**Job Resume Evaluation Mode**:
+The immutable evaluation lineage of a published job description: legacy for jobs created before structured evaluation, or structured for newly published jobs. A legacy job cannot be upgraded in place; using structured evaluation requires a new job description.
+_Avoid_: Feature flag, scoring version, temporary rollout state
 
 **Job Code**:
 A workspace-scoped generated identifier for a job description.
@@ -182,12 +194,16 @@ The configured strength of a resume screening rule, determining whether a rule r
 _Avoid_: Score weight, automatic outcome
 
 **Resume Screening Gate**:
-A blocking resume screening rule that a candidate must clear before entering the pass-ranking pool. Every rule configured in the hard-gate section is blocking; softer preferences and risks belong to job scoring adjustment rules. An unmet gate marks the evaluation as "未通过门槛" rather than automatically rejecting the candidate; review scores may still be generated for diagnosis but cannot override the gate.
-_Avoid_: Warning-only rule, informational rule, automatic rejection, 暂缓, score deduction, hard filter
+A published structured-job requirement evaluated as passed, failed, or needing verification. A failed gate marks the AI reference result as "未通过门槛", but the gate is not a final candidate decision and cannot prevent an explicit recruiter action.
+_Avoid_: Warning-only rule, automatic rejection, score deduction, final HR decision, hard filter
 
 **Job Hard-Gate Configuration**:
-The job-description-owned set of independently stored free-text resume screening gates for education, work years, required skills, work location, language ability, required certificates, and other requirements. Categories provide structure without constraining each requirement to maintained option lists. Every skill stated as required must be satisfied; softer skill preferences belong to priority conditions. Saved non-empty gates are active without a separate enable switch; an empty configuration means the job has no hard gates.
+The draft job-description-owned set of independently stored free-text resume screening gates for education, work years, required skills, work location, language ability, required certificates, and other requirements. Non-empty gates become active when a structured job is published; an empty published configuration means the job has no hard gates.
 _Avoid_: Free-form JD text, scoring adjustment rules, runtime-extracted hard filter
+
+**Atomic Resume Gate Requirement**:
+One independently judged requirement extracted from a published free-text gate category. Its AI result retains the source category, evidence, and one of passed, failed, or needs-verification; category and overall gate status aggregate from these atomic results.
+_Avoid_: Entire gate text box, scoring deduction, recruiter decision
 
 **Custom Hard Gate**:
 A free-text blocking requirement stored under "其他硬性门槛" because it does not fit one of the six named hard-gate categories, such as shift availability or work authorization.
@@ -214,7 +230,7 @@ The narrow AI evaluator that extracts evidence for resume screening skill rules 
 _Avoid_: Resume review agent, final decision maker
 
 **Resume Screening Policy**:
-The current set of resume screening rules configured on a job description.
+The current set of confirmed resume screening rules configured on a legacy job description.
 _Avoid_: Resume review prompt, candidate filter text
 
 **Resume Screening Result**:
@@ -234,7 +250,7 @@ The stable record of which resume screening policy and rule results were used fo
 _Avoid_: Current job rule, live policy
 
 **Stale Resume Screening Snapshot**:
-A resume screening snapshot created with an older resume screening policy than the current job description policy.
+A legacy resume screening snapshot created with an older resume screening policy than the current legacy job policy.
 _Avoid_: Invalid result, failed screening
 
 **Resume Review**:
@@ -246,15 +262,15 @@ One of the six product-defined aspects independently scored for a resume review:
 _Avoid_: Screening rule, scoring condition, weight
 
 **Resume Review Dimension Score**:
-The integer score from 0 to 100 produced for one enabled resume-review dimension by applying the standardized dimension deduction rules.
+The integer score from 0 to 100 calculated by code for one enabled resume-review dimension from a 100-point baseline and the matched standardized deductions. A disabled dimension has no score rather than a zero score.
 _Avoid_: Composite score, weighted score, screening result
 
 **Job Resume Scoring Configuration**:
-The job-description-owned integer weights used to combine the six resume-review dimension scores. New jobs use 35/25/15/10/8/7; a dimension with weight zero is disabled and shown muted, while positive-weight dimensions participate and all six weights always total 100%. No separate weight mode is stored.
+The published structured-job-owned integer weights used to combine enabled resume-review dimensions. New jobs use 35/25/15/10/8/7; a zero-weight dimension is disabled, positive weights participate, and all six weights always total 100%.
 _Avoid_: Global scoring policy, scoring template, reusable weight policy
 
 **Job Scoring Adjustment Rule**:
-A dimension-independent, job-description-specific scoring condition stored as one structured rule with separate condition text and a non-zero integer point magnitude from 1 to 100. The rule group supplies the sign: priority conditions are positive and exclusion conditions are negative. Matched adjustments apply after the six-dimension weighted base score and before the final score is clamped to 0–100. A rule does not need to belong to one of the six resume-review dimensions, and it is not a resume screening gate.
+A dimension-independent, job-description-specific scoring condition stored with free-text condition and a non-zero integer point magnitude from 1 to 100. The condition is either matched or not matched from resume evidence; only matched priority or exclusion conditions adjust the weighted base score.
 _Avoid_: Dimension deduction rule, free-form note, automatic rejection, screening rule
 
 **Priority Condition**:
@@ -266,31 +282,39 @@ A job scoring adjustment rule with a negative point value for an undesirable mat
 _Avoid_: Resume screening gate, automatic rejection, hard filter
 
 **Job Resume Scoring Snapshot**:
-The frozen copy of the job resume scoring configuration used when one resume review score was produced, so later job-description edits do not silently rewrite historical scores.
+The frozen copy of the published job weights, adjustments, scoring-rule-set version, evaluation-engine version, and model identity used for one structured resume evaluation.
 _Avoid_: Live job configuration, current weight settings
 
 **Dimension Deduction Rule**:
-A fixed-identity scoring rule (stable rule id) that defines how one resume-review dimension loses points from a 100 baseline; the deduction amount may be configured per workspace while the rule catalog stays product-defined.
+A product-defined, fixed-identity rule describing how one resume-review dimension loses points from a 100-point baseline. Rules belong to a versioned catalog pinned when a structured job is published; recruiters do not edit them per job or workspace.
 _Avoid_: Soft checklist, free-form score rationale, per-policy deduction table
 
-**Workspace Deduction Rule Set**:
-The workspace-owned table of deduction amounts (and optional per-rule enablement) applied when computing resume-review dimension raw scores.
-_Avoid_: Scoring policy weights, screening rules
+**Resume Evaluation Engine Version**:
+The versioned semantic-judgment contract used to atomize gates, identify scoring evidence, and match deduction and adjustment rules. It records prompt and model metadata for audit without permanently binding a job to a model that may be retired.
+_Avoid_: Deduction rule set, application release, model name alone
+
+**Resume Review Weighted Base Score**:
+The six-dimension weighted sum before job-specific priority and exclusion adjustments.
+_Avoid_: Final composite score, dimension score, vector similarity
 
 **Resume Review Composite Score**:
-The weighted overall score of a resume review under the job resume scoring snapshot, calculated within the range 0 to 100 and shown to one decimal place. Within candidates who have cleared resume screening, it is the primary rank and score-filter signal; when screening has not passed, the score may still be shown for diagnosis but must not outrank or override the screening conclusion.
-_Avoid_: Recommendation score, vector similarity score, screening result, final pass decision
+The integer from 0 to 100 produced by adding matched priority points and subtracting matched exclusion points from the weighted base score, clamping to 0–100, and rounding to an integer. Within one structured job it drives score sorting and the AI match grade, but it remains advisory to the recruiter.
+_Avoid_: Recommendation score, vector similarity score, final HR decision
+
+**AI Resume Match Grade**:
+The score-derived structured-job reference grade: 推荐 for 85–100, 匹配 for 75–84, or 不匹配 for 0–74. A failed or needs-verification gate takes presentation and AI-ranking precedence over this grade without erasing the score.
+_Avoid_: HR pass status, candidate outcome, screening gate result
 
 **Resume Evaluation Decision**:
-The single user-facing outcome for a resume at the screening/review stage, assembled from resume screening results (and hard filters when applicable) with next-step constrained by those results; dimension scores never independently authorize a more lenient outcome than screening.
-_Avoid_: Parallel AI conclusions, competing badges without hierarchy
+The recruiter-owned final pass or fail decision for a resume record. AI gates, match grade, score, and narrative are reference evidence; before a recruiter decides they may lead the presentation, and after a recruiter decides they remain secondary without changing the human decision.
+_Avoid_: AI recommendation, match grade, automatic candidate outcome
 
 **HR Resume Assessment**:
 A human-written assessment of a resume record that captures the recruiter's judgment separately from the generated resume review.
 _Avoid_: Resume review, screening result, interview report
 
 **Resume Reassessment**:
-The act of regenerating both resume screening and resume review for a resume record after relevant job-description context changes.
+The act of regenerating the current job's resume evaluation after a resume or job binding changes, or after an explicit eligible rerun. Published structured evaluation configuration itself is immutable.
 _Avoid_: Screening-only refresh
 
 ### Interview Workflow

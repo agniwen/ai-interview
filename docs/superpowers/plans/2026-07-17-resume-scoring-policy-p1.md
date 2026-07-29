@@ -1,5 +1,7 @@
 # Resume Scoring Policy P1 Implementation Plan
 
+> **Superseded — do not execute.** ADR-0020 replaced the workspace policy resource with job-owned weights, and ADR-0022 through ADR-0025 replace the shared-workflow and AI-decision assumptions. Use `docs/superpowers/specs/2026-07-29-structured-resume-evaluation-design.md` for the current design and create a new implementation plan from it.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 落地「简历评分策略」P1：可配置六维启用与权重、唯一全局默认策略、岗位绑定互斥覆盖、生成时策略快照、综合分 1 位小数与可排序列、以及筛选/评分单口结论（nextStep 代码约束 + UI 主结论层级）。**不做**结构化扣分表与 LLM 扣项（P2）。

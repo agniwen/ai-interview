@@ -6,6 +6,8 @@ status: accepted
 
 Resume-review dimension weights belong directly to each job description and are edited as part of that job's structured configuration. New job descriptions use product defaults 35/25/15/10/8/7. Recruiters adjust non-negative integer percentages by dragging dimension boundaries; a dimension is disabled and shown muted when dragged to zero, and becomes active again when expanded above zero. There is no separate dimension checkbox, enabled field, equal/custom mode, or stored mode value, and all six stored weights must total 100%. A future equal-distribution action can rewrite the same six values without changing the data shape. This intentionally replaces the separate workspace-owned, reusable scoring-policy resource proposed in ADR-0016 because the current scope favors a single job-configuration flow over policy CRUD, global inheritance, and binding rules.
 
+ADR-0022 through ADR-0025 define the later runtime delivery: structured configuration applies only to newly published structured jobs, is frozen at publication, drives a separate workflow, and remains advisory to the recruiter.
+
 Each generated resume review must retain a snapshot of the job's scoring configuration so later JD edits do not silently rewrite historical scores.
 
 When scoring consumes this configuration in a later delivery, matched priority and exclusion adjustments apply directly to the six-dimension weighted base score without dimension weighting, and the resulting composite score is clamped to 0–100.

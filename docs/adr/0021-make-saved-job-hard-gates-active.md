@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by ADR-0023
 ---
 
 # Make saved job hard gates active
