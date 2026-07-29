@@ -46,4 +46,18 @@ describe("structured resume eval metrics", () => {
       ]),
     );
   });
+
+  it("does not award perfect macro-F1 for rule-status classes absent from the corpus", async () => {
+    const corpus = await loadStructuredResumeEvalCorpus(fixtureManifest);
+    for (const item of corpus.cases) {
+      for (const ruleId of Object.keys(item.gold.ruleJudgments)) {
+        item.gold.ruleJudgments[ruleId] = "matched";
+        item.baseline.ruleJudgments[ruleId] = "matched";
+      }
+    }
+
+    const metrics = computeStructuredResumeEvalMetrics(corpus.cases);
+
+    expect(metrics.minimumRuleMacroF1).toBe(0.25);
+  });
 });

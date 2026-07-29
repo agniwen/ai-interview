@@ -696,11 +696,22 @@ export const jobDescriptionsRouter = factory
         };
       }
       try {
-        await db.transaction(async (tx) => {
-          await tx
+        const updatedCurrentLifecycle = await db.transaction(async (tx) => {
+          const updated = await tx
             .update(jobDescription)
             .set(updateValues)
-            .where(and(eq(jobDescription.id, id), eq(jobDescription.organizationId, activeOrg.id)));
+            .where(
+              and(
+                eq(jobDescription.id, id),
+                eq(jobDescription.organizationId, activeOrg.id),
+                eq(jobDescription.evaluationMode, existing.evaluationMode),
+                eq(jobDescription.lifecycleStatus, existing.lifecycleStatus),
+              ),
+            )
+            .returning({ id: jobDescription.id });
+          if (updated.length === 0) {
+            return false;
+          }
 
           // Replace junction links atomically.
           await tx
@@ -713,7 +724,11 @@ export const jobDescriptionsRouter = factory
               jobDescriptionId: id,
             })),
           );
+          return true;
         });
+        if (!updatedCurrentLifecycle) {
+          return c.json({ code: "JOB_EVALUATION_FROZEN", error: "岗位状态已变化。" }, 409);
+        }
       } catch (updateError) {
         if (isJobCodeConflict(updateError)) {
           return c.json({ error: "岗位编码已被占用，请重新生成。" }, 409);

@@ -21,7 +21,7 @@ function macroF1(expected: StructuredRuleStatus[], actual: StructuredRuleStatus[
       falseNegative += Number(expectedStatus === status && actualStatus !== status);
     }
     const denominator = 2 * truePositive + falsePositive + falseNegative;
-    return denominator === 0 ? 1 : (2 * truePositive) / denominator;
+    return denominator === 0 ? 0 : (2 * truePositive) / denominator;
   });
   return scores.reduce((sum, score) => sum + score, 0) / scores.length;
 }

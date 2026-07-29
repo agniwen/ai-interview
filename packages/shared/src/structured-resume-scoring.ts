@@ -478,6 +478,7 @@ export function computeRelevantExperience(
     const relevantYears = relevantMonths / 12;
     const missingYearUnits = Math.max(Math.ceil(input.requiredYears - relevantYears), 0);
     const hasOutcomeChangingUnknown =
+      input.relevanceScope !== "total_employment" &&
       missingYearUnits > 0 &&
       input.episodes.some((episode) => episode.relevance === "insufficient_evidence");
     let status: RelevantExperienceResult["status"] = "not_matched";

@@ -28,7 +28,14 @@ const dimension = (rawScore: number, weight: number) => ({
   deductionTotal: 100 - rawScore,
   insufficientEvidenceRuleIds: [],
   rawScore,
-  ruleJudgments: [],
+  ruleJudgments: [
+    {
+      evidence: [{ quote: "主导支付系统重构", source: "resume_text" }],
+      reason: "具备核心项目经验",
+      ruleId: "project.edge_participation",
+      status: "not_matched",
+    },
+  ],
   weight,
   weightedContributionHundredths: rawScore * weight,
 });
@@ -43,7 +50,18 @@ function createDetail(): ResumeLibraryDetail {
     structuredResumeEvaluation: {
       adjustments: {
         exclusionPointTotal: 0,
-        matches: [],
+        matches: [
+          {
+            appliedPoints: 5,
+            conditionId: "priority-1",
+            evidence: [{ quote: "拥有支付行业经验", source: "resume_text" }],
+            kind: "priority",
+            matched: true,
+            points: 5,
+            reason: "符合优先条件",
+            sourceText: "支付行业经验",
+          },
+        ],
         priorityPointTotal: 0,
       },
       calculations: {
@@ -109,6 +127,8 @@ describe("StructuredResumeEvaluationPanel", () => {
     expect(content).toContain("稳定");
     expect(content).toContain("权重 0% · 贡献 0 分");
     expect(content).toContain("最高学历为大专");
+    expect(content).toContain("主导支付系统重构");
+    expect(content).toContain("拥有支付行业经验");
     expect(content).toContain("AI 原始结论：");
 
     act(() => root.unmount());

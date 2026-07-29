@@ -282,6 +282,14 @@ export function StructuredResumeEvaluationPanel({
                   <Badge variant="outline">{judgment.status}</Badge>
                 </div>
                 <p className="mt-2 text-muted-foreground">{judgment.reason}</p>
+                {judgment.evidence.map((evidence) => (
+                  <blockquote
+                    className="mt-2 border-l-2 pl-3 text-muted-foreground text-xs"
+                    key={`${evidence.source}-${evidence.quote}`}
+                  >
+                    {evidence.quote}
+                  </blockquote>
+                ))}
               </div>
             )),
           )}
@@ -300,6 +308,14 @@ export function StructuredResumeEvaluationPanel({
                 <div className="mt-1 text-muted-foreground">
                   {match.matched ? `命中 · ${match.appliedPoints} 分` : "未命中"} · {match.reason}
                 </div>
+                {match.evidence.map((evidence) => (
+                  <blockquote
+                    className="mt-2 border-l-2 pl-3 text-muted-foreground text-xs"
+                    key={`${evidence.source}-${evidence.quote}`}
+                  >
+                    {evidence.quote}
+                  </blockquote>
+                ))}
               </div>
             ))}
           </FramePanel>

@@ -169,6 +169,9 @@ export const structuredNarrativeAgentOutputSchema = z
 
 export type StructuredResumeWorkflowInput = z.infer<typeof structuredResumeWorkflowInputSchema>;
 type DimensionFacts = z.infer<typeof structuredDimensionAgentOutputSchema>;
+type GateAgentOutput = z.infer<typeof structuredGateAgentOutputSchema>;
+type AdjustmentAgentOutput = z.infer<typeof structuredAdjustmentAgentOutputSchema>;
+export type StructuredResumeCalculation = ReturnType<typeof computeStructuredResumeCalculation>;
 
 function buildPrompt(title: string, input: StructuredResumeWorkflowInput): string {
   return [
@@ -352,9 +355,22 @@ export function deriveStructuredRuleJudgments(
   return judgments;
 }
 
+export function validateStructuredResumeInput(rawInput: StructuredResumeWorkflowInput) {
+  const input = structuredResumeWorkflowInputSchema.parse(rawInput);
+  if (
+    computeJobEvaluationPayloadHash(input.jobSnapshot.blueprint) !== input.jobSnapshot.blueprintHash
+  ) {
+    throw new Error("STRUCTURED_BLUEPRINT_HASH_MISMATCH");
+  }
+  if (input.jobSnapshot.deductionRuleSetVersion !== STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION) {
+    throw new Error("STRUCTURED_RULE_SET_VERSION_MISMATCH");
+  }
+  return input;
+}
+
 function buildGateJudgments(
   input: StructuredResumeWorkflowInput,
-  output: z.infer<typeof structuredGateAgentOutputSchema>,
+  output: GateAgentOutput,
 ): StructuredResumeGateJudgment[] {
   const byId = new Map(output.judgments.map((item) => [item.requirementId, item]));
   return input.jobSnapshot.blueprint.hardGateRequirements.map((requirement) => {
@@ -371,7 +387,7 @@ function buildGateJudgments(
 
 function buildAdjustmentMatches(
   input: StructuredResumeWorkflowInput,
-  output: z.infer<typeof structuredAdjustmentAgentOutputSchema>,
+  output: AdjustmentAgentOutput,
 ): StructuredResumeAdjustmentMatch[] {
   const byId = new Map(output.judgments.map((item) => [item.conditionId, item]));
   return [
@@ -420,49 +436,63 @@ export function generateStructuredNarrative(input: {
   });
 }
 
-export async function evaluateStructuredResume(rawInput: StructuredResumeWorkflowInput) {
-  const input = structuredResumeWorkflowInputSchema.parse(rawInput);
-  if (
-    computeJobEvaluationPayloadHash(input.jobSnapshot.blueprint) !== input.jobSnapshot.blueprintHash
-  ) {
-    throw new Error("STRUCTURED_BLUEPRINT_HASH_MISMATCH");
-  }
-  if (input.jobSnapshot.deductionRuleSetVersion !== STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION) {
-    throw new Error("STRUCTURED_RULE_SET_VERSION_MISMATCH");
-  }
-  const [gateOutput, dimensionOutput, adjustmentOutput] = await Promise.all([
-    judgeStructuredHardGates(input),
-    judgeStructuredDimensionEvidence(input),
-    judgeStructuredAdjustments(input),
-  ]);
-  const gateJudgments = buildGateJudgments(input, gateOutput);
-  const dimensionRuleJudgments = deriveStructuredRuleJudgments(input, dimensionOutput);
-  const adjustments = buildAdjustmentMatches(input, adjustmentOutput);
+export function computeStructuredResumeCalculation(input: {
+  adjustmentOutput: AdjustmentAgentOutput;
+  dimensionOutput: DimensionFacts;
+  gateOutput: GateAgentOutput;
+  workflowInput: StructuredResumeWorkflowInput;
+}) {
+  const { adjustmentOutput, dimensionOutput, gateOutput, workflowInput } = input;
+  const normalizedDimensionOutput =
+    workflowInput.jobSnapshot.blueprint.requiredRelevantExperience?.relevanceScope ===
+    "total_employment"
+      ? {
+          ...dimensionOutput,
+          employmentEpisodes: dimensionOutput.employmentEpisodes.map((episode) => ({
+            ...episode,
+            relevance: "relevant" as const,
+            relevanceReason: "岗位采用总工作经验口径，代码将已解析任职统一计为相关经验。",
+          })),
+        }
+      : dimensionOutput;
+  const gateJudgments = buildGateJudgments(workflowInput, gateOutput);
+  const dimensionRuleJudgments = deriveStructuredRuleJudgments(
+    workflowInput,
+    normalizedDimensionOutput,
+  );
+  const adjustments = buildAdjustmentMatches(workflowInput, adjustmentOutput);
   const calculation = computeStructuredResumeEvaluation({
     adjustments,
     dimensionRuleJudgments,
     gateJudgments,
-    weights: input.jobSnapshot.publishedConfig.weights,
+    weights: workflowInput.jobSnapshot.publishedConfig.weights,
   });
-  const narrative = await generateStructuredNarrative({
-    calculation,
-    workflowInput: input,
-  });
-  const required = input.jobSnapshot.blueprint.requiredRelevantExperience;
+  return { calculation, dimensionRuleJudgments, normalizedDimensionOutput };
+}
+
+export function assembleStructuredResumeEvaluation(input: {
+  calculationResult: StructuredResumeCalculation;
+  narrative: z.infer<typeof structuredNarrativeAgentOutputSchema>;
+  workflowInput: StructuredResumeWorkflowInput;
+}) {
+  const { calculationResult, narrative, workflowInput } = input;
+  const { calculation, dimensionRuleJudgments, normalizedDimensionOutput } = calculationResult;
+  const required = workflowInput.jobSnapshot.blueprint.requiredRelevantExperience;
   const relevant = required
     ? computeRelevantExperience({
-        episodes: dimensionOutput.employmentEpisodes.flatMap((episode) =>
+        episodes: normalizedDimensionOutput.employmentEpisodes.flatMap((episode) =>
           episode.startMonth && (episode.endMonth || episode.current)
             ? [
                 {
-                  endMonth: episode.endMonth ?? input.resumeInput.evaluationAsOf.slice(0, 7),
+                  endMonth:
+                    episode.endMonth ?? workflowInput.resumeInput.evaluationAsOf.slice(0, 7),
                   relevance: episode.relevance,
                   startMonth: episode.startMonth,
                 },
               ]
             : [],
         ),
-        profileWorkYears: input.resumeInput.resumeProfile.workYears ?? undefined,
+        profileWorkYears: workflowInput.resumeInput.resumeProfile.workYears ?? undefined,
         relevanceScope: required.relevanceScope,
         requiredYears: required.years,
       })
@@ -473,15 +503,15 @@ export async function evaluateStructuredResume(rawInput: StructuredResumeWorkflo
       matches: calculation.adjustments,
       priorityPointTotal: calculation.priorityPointTotal,
     },
-    blueprint: input.jobSnapshot.blueprint,
-    blueprintHash: input.jobSnapshot.blueprintHash,
+    blueprint: workflowInput.jobSnapshot.blueprint,
+    blueprintHash: workflowInput.jobSnapshot.blueprintHash,
     calculations: {
       adjustedHundredths: calculation.adjustedHundredths,
       clampedHundredths: calculation.clampedHundredths,
       compositeScore: calculation.compositeScore,
       weightedBaseHundredths: calculation.weightedBaseHundredths,
     },
-    deductionRuleSetVersion: input.jobSnapshot.deductionRuleSetVersion,
+    deductionRuleSetVersion: workflowInput.jobSnapshot.deductionRuleSetVersion,
     dimensions: Object.fromEntries(
       STRUCTURED_RESUME_DIMENSIONS.map((dimension) => [
         dimension,
@@ -492,19 +522,19 @@ export async function evaluateStructuredResume(rawInput: StructuredResumeWorkflo
       ]),
     ),
     engine: {
-      engineVersion: input.engine.version,
-      modelId: input.engine.modelId,
-      promptVersion: input.engine.promptVersion,
+      engineVersion: workflowInput.engine.version,
+      modelId: workflowInput.engine.modelId,
+      promptVersion: workflowInput.engine.promptVersion,
     },
-    evaluationAsOf: input.resumeInput.evaluationAsOf,
+    evaluationAsOf: workflowInput.resumeInput.evaluationAsOf,
     evaluationMode: "structured",
     gates: calculation.gates,
     generatedAt: new Date().toISOString(),
     grade: calculation.grade,
-    inputHash: input.resumeInput.resumeInputHash,
-    jobConfig: input.jobSnapshot.publishedConfig,
-    jobConfigHash: computeJobEvaluationPayloadHash(input.jobSnapshot.publishedConfig),
-    jobId: input.jobSnapshot.jobId,
+    inputHash: workflowInput.resumeInput.resumeInputHash,
+    jobConfig: workflowInput.jobSnapshot.publishedConfig,
+    jobConfigHash: computeJobEvaluationPayloadHash(workflowInput.jobSnapshot.publishedConfig),
+    jobId: workflowInput.jobSnapshot.jobId,
     narrative,
     requiredRelevantExperience: required
       ? {
@@ -512,19 +542,45 @@ export async function evaluateStructuredResume(rawInput: StructuredResumeWorkflo
           years: required.years,
         }
       : null,
-    runId: input.resumeInput.runId,
+    runId: workflowInput.resumeInput.runId,
     schemaVersion: 1,
     skillExpectations: {
-      auxiliary: input.jobSnapshot.blueprint.auxiliarySkills.map((skill) => skill.normalizedSkill),
-      core: input.jobSnapshot.blueprint.coreSkills.map((skill) => skill.normalizedSkill),
+      auxiliary: workflowInput.jobSnapshot.blueprint.auxiliarySkills.map(
+        (skill) => skill.normalizedSkill,
+      ),
+      core: workflowInput.jobSnapshot.blueprint.coreSkills.map((skill) => skill.normalizedSkill),
     },
     timeline: {
-      employmentEpisodes: dimensionOutput.employmentEpisodes,
+      employmentEpisodes: normalizedDimensionOutput.employmentEpisodes,
       relevantMonths: relevant?.relevantMonths ?? null,
       relevantYears: relevant?.relevantYears ?? null,
       relevantYearsSource: relevant?.source ?? null,
     },
-    weights: input.jobSnapshot.publishedConfig.weights,
+    weights: workflowInput.jobSnapshot.publishedConfig.weights,
   };
   return structuredResumeEvaluationV1Schema.parse(artifact);
+}
+
+export async function evaluateStructuredResume(rawInput: StructuredResumeWorkflowInput) {
+  const input = validateStructuredResumeInput(rawInput);
+  const [gateOutput, dimensionOutput, adjustmentOutput] = await Promise.all([
+    judgeStructuredHardGates(input),
+    judgeStructuredDimensionEvidence(input),
+    judgeStructuredAdjustments(input),
+  ]);
+  const calculationResult = computeStructuredResumeCalculation({
+    adjustmentOutput,
+    dimensionOutput,
+    gateOutput,
+    workflowInput: input,
+  });
+  const narrative = await generateStructuredNarrative({
+    calculation: calculationResult.calculation,
+    workflowInput: input,
+  });
+  return assembleStructuredResumeEvaluation({
+    calculationResult,
+    narrative,
+    workflowInput: input,
+  });
 }

@@ -327,6 +327,26 @@ describe("computeRelevantExperience", () => {
     });
   });
 
+  it("does not treat Agent relevance uncertainty as missing evidence for total employment", () => {
+    expect(
+      computeRelevantExperience({
+        episodes: [
+          {
+            endMonth: "2026-06",
+            relevance: "insufficient_evidence",
+            startMonth: "2023-01",
+          },
+        ],
+        relevanceScope: "total_employment",
+        requiredYears: 4,
+      }),
+    ).toMatchObject({
+      missingYearUnits: 1,
+      relevantMonths: 42,
+      status: "matched",
+    });
+  });
+
   it("does not use total-work fallback for a narrower relevance scope", () => {
     expect(
       computeRelevantExperience({
