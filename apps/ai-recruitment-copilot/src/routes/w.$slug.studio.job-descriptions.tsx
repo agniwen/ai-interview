@@ -275,6 +275,20 @@ function JobDescriptionManagementPage({
         truncate: "max-w-[14rem]",
       }),
       customColumn<JobDescriptionListRecord>({
+        cell: (record) => {
+          if (record.evaluationMode === "legacy") {
+            return <Badge variant="outline">旧版岗位</Badge>;
+          }
+          return record.lifecycleStatus === "draft" ? (
+            <Badge variant="secondary">草稿</Badge>
+          ) : (
+            <Badge>已发布</Badge>
+          );
+        },
+        key: "lifecycleStatus",
+        title: "状态",
+      }),
+      customColumn<JobDescriptionListRecord>({
         cell: (r) =>
           r.code ? (
             <span className="font-mono text-xs">{r.code}</span>

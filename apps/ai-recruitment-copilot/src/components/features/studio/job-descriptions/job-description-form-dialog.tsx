@@ -3,6 +3,7 @@
 
 import { IconLoader2 } from "@tabler/icons-react";
 import type { CandidateFormTemplateListRecord } from "@arc/db-schema/candidate-forms";
+import type { JobEvaluationBlueprint } from "@arc/db-schema/job-description-evaluation";
 import type { DepartmentRecord } from "@arc/shared/departments";
 import type { InterviewerListRecord } from "@arc/shared/interviewers";
 import type { InterviewQuestionTemplateListRecord } from "@arc/db-schema/interview-question-templates";
@@ -46,6 +47,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
 import { JobDescriptionStructuredFields } from "./job-description-structured-fields";
+import { JobEvaluationBlueprintPreview } from "./job-evaluation-blueprint-preview";
 import {
   LinkedFormsList,
   LinkedInterviewQuestionTemplatesList,
@@ -124,8 +126,25 @@ export function JobDescriptionFormDialog({
 }) {
   const slug = useWorkspaceSlug();
   const isEdit = record !== null;
+  const evaluationFrozen =
+    record?.evaluationMode === "structured" && record.lifecycleStatus === "published";
+  const isStructuredDraft =
+    record?.evaluationMode === "structured" && record.lifecycleStatus === "draft";
   const codeLocked = Boolean(record?.code);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [preview, setPreview] = useState<{
+    blueprint: JobEvaluationBlueprint;
+    blueprintHash: string;
+  } | null>(
+    record?.evaluationBlueprintPreview && record.evaluationBlueprintPreviewHash
+      ? {
+          blueprint: record.evaluationBlueprintPreview,
+          blueprintHash: record.evaluationBlueprintPreviewHash,
+        }
+      : null,
+  );
   const [activeTab, setActiveTab] = useState<JobDescriptionFormTab>("basic");
   const resolvedInitialValues = useMemo(() => {
     if (record) {
@@ -190,7 +209,7 @@ export function JobDescriptionFormDialog({
   const form = useForm({
     defaultValues: resolvedInitialValues,
     onSubmit: async ({ value }) => {
-      const body = {
+      const structuredBody = {
         allowCrossDepartmentInterviewers: value.allowCrossDepartmentInterviewers,
         code: value.code?.trim() || undefined,
         departmentId: value.departmentId,
@@ -198,19 +217,37 @@ export function JobDescriptionFormDialog({
         interviewerIds: value.interviewerIds,
         name: value.name.trim(),
         prompt: value.prompt.trim(),
-        resumeScreeningPolicy: value.resumeScreeningPolicy,
         structuredConfig: value.structuredConfig,
       };
+      const body =
+        record?.evaluationMode === "legacy"
+          ? {
+              ...structuredBody,
+              resumeScreeningPolicy: value.resumeScreeningPolicy,
+            }
+          : structuredBody;
 
-      const response = isEdit
-        ? await rpc.api.w[":slug"].studio["job-descriptions"][":id"].$patch({
-            json: body,
-            param: { id: record.id, slug },
-          })
-        : await rpc.api.w[":slug"].studio["job-descriptions"].$post({
-            json: body,
-            param: { slug },
-          });
+      let response;
+      if (record && evaluationFrozen) {
+        response = await rpc.api.w[":slug"].studio["job-descriptions"][":id"].operational.$patch({
+          json: {
+            allowCrossDepartmentInterviewers: value.allowCrossDepartmentInterviewers,
+            departmentId: value.departmentId,
+            interviewerIds: value.interviewerIds,
+          },
+          param: { id: record.id, slug },
+        });
+      } else if (record) {
+        response = await rpc.api.w[":slug"].studio["job-descriptions"][":id"].$patch({
+          json: body,
+          param: { id: record.id, slug },
+        });
+      } else {
+        response = await rpc.api.w[":slug"].studio["job-descriptions"].$post({
+          json: structuredBody,
+          param: { slug },
+        });
+      }
       const payload = (await response.json().catch(() => null)) as
         | ({ error?: string } & Partial<JobDescriptionRecord>)
         | null;
@@ -267,8 +304,22 @@ export function JobDescriptionFormDialog({
     if (open) {
       form.reset(resolvedInitialValues);
       setActiveTab("basic");
+      setPreview(
+        record?.evaluationBlueprintPreview && record.evaluationBlueprintPreviewHash
+          ? {
+              blueprint: record.evaluationBlueprintPreview,
+              blueprintHash: record.evaluationBlueprintPreviewHash,
+            }
+          : null,
+      );
     }
-  }, [open, form, resolvedInitialValues]);
+  }, [
+    form,
+    open,
+    record?.evaluationBlueprintPreview,
+    record?.evaluationBlueprintPreviewHash,
+    resolvedInitialValues,
+  ]);
 
   const missingRefs = departments.length === 0 || interviewers.length === 0;
 
@@ -295,6 +346,63 @@ export function JobDescriptionFormDialog({
     );
   }
 
+  async function handleGeneratePreview() {
+    if (!record || !isStructuredDraft) {
+      return;
+    }
+    setIsGeneratingPreview(true);
+    await withCleanup(
+      async () => {
+        const response = await rpc.api.w[":slug"].studio["job-descriptions"][":id"][
+          "evaluation-blueprint-preview"
+        ].$post({
+          param: { id: record.id, slug },
+        });
+        const payload = (await response.json().catch(() => null)) as {
+          blueprint?: JobEvaluationBlueprint;
+          blueprintHash?: string;
+          error?: string;
+        } | null;
+        if (!response.ok || !payload?.blueprint || !payload.blueprintHash) {
+          toast.error(payload?.error ?? "生成评估蓝图失败");
+          return;
+        }
+        setPreview({
+          blueprint: payload.blueprint,
+          blueprintHash: payload.blueprintHash,
+        });
+        toast.success("评估蓝图已生成，请确认后发布");
+      },
+      () => setIsGeneratingPreview(false),
+    );
+  }
+
+  async function handlePublish() {
+    if (!record || !preview) {
+      return;
+    }
+    setIsPublishing(true);
+    await withCleanup(
+      async () => {
+        const response = await rpc.api.w[":slug"].studio["job-descriptions"][":id"].publish.$post({
+          json: { confirmedBlueprintHash: preview.blueprintHash },
+          param: { id: record.id, slug },
+        });
+        const payload = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        if (!response.ok) {
+          toast.error(payload?.error ?? "发布岗位失败");
+          return;
+        }
+        toast.success("岗位已发布，评估设置已冻结");
+        onSaved();
+        onOpenChange(false);
+      },
+      () => setIsPublishing(false),
+    );
+  }
+
   return (
     <Tabs onValueChange={(value) => setActiveTab(value as JobDescriptionFormTab)} value={activeTab}>
       <Modal
@@ -317,13 +425,30 @@ export function JobDescriptionFormDialog({
             <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
               取消
             </Button>
+            {isStructuredDraft ? (
+              <Button
+                disabled={isGeneratingPreview || isSubmitting}
+                onClick={handleGeneratePreview}
+                type="button"
+                variant="outline"
+              >
+                {isGeneratingPreview ? <IconLoader2 className="size-4 animate-spin" /> : null}
+                生成配置预览
+              </Button>
+            ) : null}
+            {isStructuredDraft && preview ? (
+              <Button disabled={isPublishing || isSubmitting} onClick={handlePublish} type="button">
+                {isPublishing ? <IconLoader2 className="size-4 animate-spin" /> : null}
+                确认并发布
+              </Button>
+            ) : null}
             <Button
               disabled={isSubmitting || missingRefs}
               form="job-description-form"
               type="submit"
             >
               {isSubmitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
-              {isEdit ? "保存" : "创建"}
+              {isEdit ? "保存" : "创建草稿"}
             </Button>
           </>
         }
@@ -352,6 +477,7 @@ export function JobDescriptionFormDialog({
                             <Input
                               aria-invalid={!!errors?.length}
                               id={field.name}
+                              disabled={evaluationFrozen}
                               maxLength={NAME_MAX_LENGTH}
                               onBlur={field.handleBlur}
                               onChange={(event) => field.handleChange(event.target.value)}
@@ -537,6 +663,7 @@ export function JobDescriptionFormDialog({
                               aria-invalid={!!errors?.length}
                               className="min-h-20 pb-6"
                               id={field.name}
+                              disabled={evaluationFrozen}
                               maxLength={DESCRIPTION_MAX_LENGTH}
                               onBlur={field.handleBlur}
                               onChange={(event) => field.handleChange(event.target.value)}
@@ -567,6 +694,7 @@ export function JobDescriptionFormDialog({
                           <MarkdownEditor
                             aria-invalid={!!errors?.length}
                             id={field.name}
+                            disabled={evaluationFrozen}
                             maxLength={PROMPT_MAX_LENGTH}
                             onBlur={field.handleBlur}
                             onChange={field.handleChange}
@@ -584,10 +712,17 @@ export function JobDescriptionFormDialog({
                 {(field) => (
                   <JobDescriptionStructuredFields
                     config={field.state.value}
+                    disabled={evaluationFrozen}
                     onChange={field.handleChange}
                   />
                 )}
               </form.Field>
+              {preview ? (
+                <JobEvaluationBlueprintPreview
+                  blueprint={preview.blueprint}
+                  weights={form.state.values.structuredConfig.weights}
+                />
+              ) : null}
             </TabsContent>
             {isEdit ? (
               <TabsContent value="interview-questions">

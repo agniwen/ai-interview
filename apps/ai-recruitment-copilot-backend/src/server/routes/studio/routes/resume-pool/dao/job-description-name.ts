@@ -20,6 +20,7 @@ export async function loadBoundJobDescriptionName(
       and(
         eq(jobDescription.id, jobDescriptionId),
         eq(jobDescription.organizationId, organizationId),
+        eq(jobDescription.lifecycleStatus, "published"),
       ),
     )
     .limit(1);

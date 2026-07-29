@@ -1,6 +1,6 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { asc, count, notExists, sql } from "drizzle-orm";
+import { and, asc, count, eq, notExists, sql } from "drizzle-orm";
 import { config as loadEnvFile } from "dotenv";
 import { jobDescription, resumeSemanticIndex } from "@arc/db-schema/schema";
 import type { Database } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
@@ -161,7 +161,12 @@ async function loadJdRecords(db: Database): Promise<SemanticBackfillRecord[]> {
       sourceId: jobDescription.id,
     })
     .from(jobDescription)
-    .where(notAlreadyIndexedCondition("job_description", jobDescription.id))
+    .where(
+      and(
+        eq(jobDescription.lifecycleStatus, "published"),
+        notAlreadyIndexedCondition("job_description", jobDescription.id),
+      ),
+    )
     .orderBy(asc(jobDescription.createdAt));
 
   return rows.map((row) => ({

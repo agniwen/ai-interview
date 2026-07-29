@@ -135,6 +135,7 @@ export const resumeUploadBatchesRouter = factory
             and(
               eq(jobDescription.id, input.jobDescriptionId),
               eq(jobDescription.organizationId, activeOrg.id),
+              eq(jobDescription.lifecycleStatus, "published"),
             ),
           )
           .limit(1);

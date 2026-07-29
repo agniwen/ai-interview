@@ -44,8 +44,8 @@ import {
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
 import { deleteResumeSemanticIndexBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/lifecycle";
 import {
-  jobDescriptionIdsExist,
-  loadJobDescriptionById,
+  loadRecruitingJobDescriptionById,
+  recruitingJobDescriptionIdsExist,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { syncResumeProfileIdentity } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/profile-sync";
@@ -202,7 +202,10 @@ export const resumeLibraryRouter = factory
         return c.json({ error: "Unauthorized" }, 401);
       }
       if (input.data.jobDescriptionId) {
-        const ok = await jobDescriptionIdsExist([input.data.jobDescriptionId], activeOrg.id);
+        const ok = await recruitingJobDescriptionIdsExist(
+          [input.data.jobDescriptionId],
+          activeOrg.id,
+        );
         if (!ok) {
           return c.json({ error: "所选在招岗位不存在。" }, 400);
         }
@@ -377,7 +380,7 @@ export const resumeLibraryRouter = factory
       }
 
       const input = c.req.valid("json");
-      const ok = await jobDescriptionIdsExist([input.jobDescriptionId], activeOrg.id);
+      const ok = await recruitingJobDescriptionIdsExist([input.jobDescriptionId], activeOrg.id);
       if (!ok) {
         return c.json({ error: "所选在招岗位不存在。" }, 400);
       }
@@ -385,7 +388,7 @@ export const resumeLibraryRouter = factory
       const nextJobDescriptionId = input.jobDescriptionId;
       const jobDescriptionChanged = existing.jobDescriptionId !== nextJobDescriptionId;
       const nextJobDescription = jobDescriptionChanged
-        ? await loadJobDescriptionById(activeOrg.id, nextJobDescriptionId)
+        ? await loadRecruitingJobDescriptionById(activeOrg.id, nextJobDescriptionId)
         : null;
 
       // Mirror identity into resumeProfile JSON when a structured profile exists.
@@ -513,7 +516,10 @@ export const resumeLibraryRouter = factory
       // 编辑接口不再接受简历文件替换 / 系统评价（notes、resumeReview）更新。
       // Edit no longer accepts resume file replacement or system notes / review updates.
       if (input.data.jobDescriptionId) {
-        const ok = await jobDescriptionIdsExist([input.data.jobDescriptionId], activeOrg.id);
+        const ok = await recruitingJobDescriptionIdsExist(
+          [input.data.jobDescriptionId],
+          activeOrg.id,
+        );
         if (!ok) {
           return c.json({ error: "所选在招岗位不存在。" }, 400);
         }
@@ -522,7 +528,7 @@ export const resumeLibraryRouter = factory
       const jobDescriptionChanged = existing.jobDescriptionId !== nextJobDescriptionId;
       const nextJobDescription =
         jobDescriptionChanged && nextJobDescriptionId
-          ? await loadJobDescriptionById(activeOrg.id, nextJobDescriptionId)
+          ? await loadRecruitingJobDescriptionById(activeOrg.id, nextJobDescriptionId)
           : null;
 
       const resumeProfile = syncResumeProfileIdentity(existing.resumeProfile, input.data);

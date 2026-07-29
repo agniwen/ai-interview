@@ -355,7 +355,13 @@ async function loadJobDescriptionsForDisplay(
     })
     .from(jobDescription)
     .leftJoin(department, eq(jobDescription.departmentId, department.id))
-    .where(and(eq(jobDescription.organizationId, organizationId), inArray(jobDescription.id, ids)));
+    .where(
+      and(
+        eq(jobDescription.organizationId, organizationId),
+        eq(jobDescription.lifecycleStatus, "published"),
+        inArray(jobDescription.id, ids),
+      ),
+    );
   return rows.map((row) => ({ ...row, departmentName: row.departmentName ?? null }));
 }
 

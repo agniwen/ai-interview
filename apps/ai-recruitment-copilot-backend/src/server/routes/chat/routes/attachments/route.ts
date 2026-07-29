@@ -13,7 +13,7 @@ import {
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
 import { resolveJobDescriptionMatchBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/match-job-description";
-import { listAllJobDescriptions } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import { listRecruitingJobDescriptions } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
 
 const PREVIEW_SUFFIX = "-preview.pdf";
@@ -75,7 +75,7 @@ export const attachmentsRouter = factory
     }
 
     try {
-      const jobDescriptions = await listAllJobDescriptions(activeOrg.id);
+      const jobDescriptions = await listRecruitingJobDescriptions(activeOrg.id);
       const match = await resolveJobDescriptionMatchBestEffort({
         jobDescriptions,
         resumeProfile,

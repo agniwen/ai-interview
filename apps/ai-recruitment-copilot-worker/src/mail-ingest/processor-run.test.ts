@@ -4,7 +4,7 @@ import {
   buildAttachmentKeyByHash,
   putObjectBytes,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
-import { fetchJobDescriptionsByCodes } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import { fetchPublishedJobDescriptionsByCodes } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import {
   claimMailIngestMessageForProcessing,
   updateMailIngestMessageResult,
@@ -101,7 +101,7 @@ vi.mock(
 vi.mock(
   "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao",
   () => ({
-    fetchJobDescriptionsByCodes: vi.fn(),
+    fetchPublishedJobDescriptionsByCodes: vi.fn(),
   }),
 );
 
@@ -166,7 +166,7 @@ describe("runMailIngestOnce", () => {
       status: "processing",
     });
     vi.mocked(enqueueResumeParseJobs).mockImplementation(() => Promise.resolve());
-    vi.mocked(fetchJobDescriptionsByCodes).mockResolvedValue([]);
+    vi.mocked(fetchPublishedJobDescriptionsByCodes).mockResolvedValue([]);
     vi.mocked(insertBatchWithItems).mockResolvedValue("batch_1");
     vi.mocked(loadBatchDetail).mockResolvedValue({
       batch: { id: "batch_1" },
@@ -221,12 +221,14 @@ describe("runMailIngestOnce", () => {
       messageId: "message-id-1",
       subject: "【BOSS直聘】王泽投递 AUR00AZ 前端工程师",
     } as unknown as Awaited<ReturnType<typeof simpleParser>>);
-    vi.mocked(fetchJobDescriptionsByCodes).mockResolvedValue([{ code: "AUR00AZ", id: "jd_1" }]);
+    vi.mocked(fetchPublishedJobDescriptionsByCodes).mockResolvedValue([
+      { code: "AUR00AZ", id: "jd_1" },
+    ]);
 
     const result = await runMailIngestOnce(config);
 
     expect(result).toMatchObject({ accounts: 1, messagesFailed: 0, messagesQueued: 1 });
-    expect(fetchJobDescriptionsByCodes).toHaveBeenCalledWith("org_1", ["AUR00AZ"]);
+    expect(fetchPublishedJobDescriptionsByCodes).toHaveBeenCalledWith("org_1", ["AUR00AZ"]);
     expect(insertBatchWithItems).toHaveBeenCalledWith(
       expect.objectContaining({
         jdMode: "bind",
@@ -258,7 +260,9 @@ describe("runMailIngestOnce", () => {
       messageId: "message-id-2",
       subject: "【BOSS直聘】李雷投递 AUR0001 后端工程师",
     } as unknown as Awaited<ReturnType<typeof simpleParser>>);
-    vi.mocked(fetchJobDescriptionsByCodes).mockResolvedValue([{ code: "AUR0001", id: "jd-1" }]);
+    vi.mocked(fetchPublishedJobDescriptionsByCodes).mockResolvedValue([
+      { code: "AUR0001", id: "jd-1" },
+    ]);
 
     await runMailIngestOnce(config);
 

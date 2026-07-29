@@ -41,7 +41,7 @@ import {
   signHumanInterviewMeetingToken,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/utils/human-interview-livekit";
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
-import { jobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import { recruitingJobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { syncResumeSkills } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
 import {
   loadInterviewRoundDetail,
@@ -127,7 +127,10 @@ export const studioInterviewCollectionRouter = factory
         return c.json({ error: "Unauthorized" }, 401);
       }
       if (input.data.jobDescriptionId) {
-        const ok = await jobDescriptionIdsExist([input.data.jobDescriptionId], activeOrg.id);
+        const ok = await recruitingJobDescriptionIdsExist(
+          [input.data.jobDescriptionId],
+          activeOrg.id,
+        );
         if (!ok) {
           return c.json({ error: "所选在招岗位不存在。" }, 400);
         }

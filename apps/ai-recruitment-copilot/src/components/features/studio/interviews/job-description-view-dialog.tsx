@@ -20,7 +20,7 @@ export function JobDescriptionViewDialog({
   const { data: jobDescriptions = [], isLoading } = useQuery({
     enabled: jobDescriptionId !== null,
     queryFn: async () => {
-      const response = await rpc.api.w[":slug"].studio["job-descriptions"].all.$get({
+      const response = await rpc.api.w[":slug"].studio["job-descriptions"].recruiting.$get({
         param: { slug },
       });
       if (!response.ok) {
@@ -29,7 +29,7 @@ export function JobDescriptionViewDialog({
       const payload = (await response.json()) as { records: JobDescriptionListRecord[] };
       return payload.records;
     },
-    queryKey: ["job-descriptions", "all", slug],
+    queryKey: ["job-descriptions", "recruiting", slug],
     staleTime: 60_000,
   });
 

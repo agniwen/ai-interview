@@ -18,8 +18,8 @@ import type {
 } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/vector-store";
 import { listResumeRecords } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
 import {
-  listAllJobDescriptions,
-  loadJobDescriptionById,
+  listRecruitingJobDescriptions,
+  loadRecruitingJobDescriptionById,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { loadResumePoolItem } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao";
 import { upsertConversationContextJobBinding } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat";
@@ -55,7 +55,10 @@ async function resolveConversationJobOverlay(input: {
       jobDescriptionName: input.jobDescriptionName,
     };
   }
-  const bound = await loadJobDescriptionById(input.organizationId, input.boundJobDescriptionId);
+  const bound = await loadRecruitingJobDescriptionById(
+    input.organizationId,
+    input.boundJobDescriptionId,
+  );
   if (!bound) {
     return {
       jobDescriptionId: input.jobDescriptionId,
@@ -643,7 +646,7 @@ async function resolvePriorRecruitingActionConfirmation(input: {
 }): Promise<z.infer<typeof proposeRecruitingActionOutputSchema> | null> {
   const { priorConfirmation, proposal } = input;
   if (priorConfirmation?.status === "confirmed" && priorConfirmation.jobDescriptionId) {
-    const selectedJobDescription = await loadJobDescriptionById(
+    const selectedJobDescription = await loadRecruitingJobDescriptionById(
       input.organizationId,
       priorConfirmation.jobDescriptionId,
     );
@@ -688,7 +691,10 @@ async function executeCandidateBindProposal(input: {
   if (!jobDescriptionId) {
     return created;
   }
-  const nextJobDescription = await loadJobDescriptionById(input.organizationId, jobDescriptionId);
+  const nextJobDescription = await loadRecruitingJobDescriptionById(
+    input.organizationId,
+    jobDescriptionId,
+  );
   if (!nextJobDescription) {
     return created;
   }
@@ -777,7 +783,10 @@ async function executeProposeRecruitingAction(input: {
   if (!jobDescriptionId) {
     return created;
   }
-  const nextJobDescription = await loadJobDescriptionById(input.organizationId, jobDescriptionId);
+  const nextJobDescription = await loadRecruitingJobDescriptionById(
+    input.organizationId,
+    jobDescriptionId,
+  );
   if (!nextJobDescription) {
     return created;
   }
@@ -997,7 +1006,7 @@ export async function searchJobDescriptionsForCopilot(
   input: z.infer<typeof searchJobDescriptionsInputSchema> & { organizationId: string },
 ): Promise<z.infer<typeof searchJobDescriptionsOutputSchema>> {
   const parsed = searchJobDescriptionsInputSchema.parse(input);
-  const all = await listAllJobDescriptions(input.organizationId);
+  const all = await listRecruitingJobDescriptions(input.organizationId);
   const query = parsed.query?.toLowerCase();
   const filtered = query
     ? all.filter((record) =>
@@ -1028,7 +1037,7 @@ export function createRecruitingCopilotTools({
     get_job_description_detail: createTool({
       description: "读取当前 workspace 中某个岗位的完整岗位描述，用于解释岗位匹配。",
       execute: async ({ id }: z.infer<typeof getJobDescriptionDetailInputSchema>) => {
-        const record = await loadJobDescriptionById(organizationId, id);
+        const record = await loadRecruitingJobDescriptionById(organizationId, id);
         return record
           ? {
               citation: toJobDescriptionCitation(record),

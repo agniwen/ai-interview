@@ -9,7 +9,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import { invalidateStudioInterviewCaches } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import { transitionCandidateStage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/utils/candidate-stage-transition";
-import { loadJobDescriptionById } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import { loadRecruitingJobDescriptionById } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { loadResumePoolItem } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao";
 import { normalizeResumePoolItemId } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/tools/resume-pool-id";
 import { interviewAuditLog, studioInterview } from "@arc/db-schema/schema";
@@ -82,7 +82,7 @@ async function confirmBindCandidateToJob(input: {
   proposalId: string;
   resumeRecordId: string;
 }): Promise<ConfirmRecruitingActionResult> {
-  const nextJobDescription = await loadJobDescriptionById(
+  const nextJobDescription = await loadRecruitingJobDescriptionById(
     input.organizationId,
     input.jobDescriptionId,
   );
@@ -146,7 +146,7 @@ async function confirmBindPoolItemToJob(input: {
   visibilityScope: RecruitingVisibilityScope;
 }): Promise<ConfirmRecruitingActionResult> {
   const poolItemId = normalizeResumePoolItemId(input.poolItemId);
-  const nextJobDescription = await loadJobDescriptionById(
+  const nextJobDescription = await loadRecruitingJobDescriptionById(
     input.organizationId,
     input.jobDescriptionId,
   );

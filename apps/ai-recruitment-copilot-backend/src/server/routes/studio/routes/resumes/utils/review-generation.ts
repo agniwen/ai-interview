@@ -5,7 +5,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import type { ResumeReviewGenerationResult } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import type { ResumeScreeningPolicy, ResumeScreeningResult } from "@arc/shared/resume-screening";
-import { loadJobDescriptionById } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import { loadRecruitingJobDescriptionById } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import type { ResumeAssessment } from "./review-lifecycle";
 
 interface ResumeReviewContext {
@@ -20,7 +20,7 @@ export async function buildJobDescriptionReviewContext(
   if (!jobDescriptionId) {
     return { jobDescription: null, screeningPolicy: null };
   }
-  const jd = await loadJobDescriptionById(organizationId, jobDescriptionId);
+  const jd = await loadRecruitingJobDescriptionById(organizationId, jobDescriptionId);
   if (!jd) {
     return { jobDescription: null, screeningPolicy: null };
   }

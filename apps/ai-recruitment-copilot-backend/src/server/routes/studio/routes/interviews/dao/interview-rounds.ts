@@ -463,6 +463,7 @@ export async function loadInterviewRoundDetail(
         and(
           eq(jobDescription.id, candidate.jobDescriptionId),
           eq(jobDescription.organizationId, organizationId),
+          eq(jobDescription.lifecycleStatus, "published"),
         ),
       )
       .limit(1);

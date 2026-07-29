@@ -17,7 +17,7 @@ import {
   queryPaginatedInterviewQuestionTemplates,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/queries";
 import { loadInterviewQuestionTemplateVersionById } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/versions";
-import { jobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import { managedJobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { safeUpdateTag } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import {
   resolveAiGenerateContext,
@@ -177,7 +177,7 @@ export const interviewQuestionTemplatesRouter = factory
       const input = c.req.valid("json");
       const jobDescriptionIds = input.scope === "job_description" ? input.jobDescriptionIds : [];
       if (jobDescriptionIds.length > 0) {
-        const ok = await jobDescriptionIdsExist(jobDescriptionIds, activeOrg.id);
+        const ok = await managedJobDescriptionIdsExist(jobDescriptionIds, activeOrg.id);
         if (!ok) {
           return c.json({ error: "所选在招岗位中存在无效项。" }, 400);
         }
@@ -245,7 +245,7 @@ export const interviewQuestionTemplatesRouter = factory
       const input = c.req.valid("json");
       const jobDescriptionIds = input.scope === "job_description" ? input.jobDescriptionIds : [];
       if (jobDescriptionIds.length > 0) {
-        const ok = await jobDescriptionIdsExist(jobDescriptionIds, activeOrg.id);
+        const ok = await managedJobDescriptionIdsExist(jobDescriptionIds, activeOrg.id);
         if (!ok) {
           return c.json({ error: "所选在招岗位中存在无效项。" }, 400);
         }

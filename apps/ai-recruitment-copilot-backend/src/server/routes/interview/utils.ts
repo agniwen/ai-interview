@@ -91,6 +91,7 @@ export async function loadCandidateInterviewRecord(id: string, roundId: string) 
         and(
           eq(jobDescription.id, payload.jobDescription.id),
           eq(jobDescription.organizationId, record.organizationId),
+          eq(jobDescription.lifecycleStatus, "published"),
         ),
       )
       .limit(1);

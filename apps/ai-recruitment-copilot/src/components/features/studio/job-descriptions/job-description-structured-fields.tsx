@@ -91,7 +91,7 @@ function HardGateFields({
   return (
     <Card className="gap-4 p-4">
       <SectionHeader
-        description="每个非空字段都是已确认的岗位门槛；本期仅保存配置，不执行筛选。"
+        description="每个非空字段会在发布前拆成可确认的原子门槛，并用于新版简历评估。"
         title="硬性门槛"
       />
       <div className="grid gap-4 md:grid-cols-2">
@@ -373,7 +373,7 @@ function ScoringConditions({
   return (
     <Card className="gap-4 p-4">
       <SectionHeader
-        description="规则不绑定六维；条件和整数分值会完整保存，但本期不参与评分计算。"
+        description="规则不绑定六维；发布后会按命中结果叠加到综合分。"
         title="优先与排除条件"
       />
       <div className="grid gap-4 lg:grid-cols-2">
@@ -400,13 +400,15 @@ function ScoringConditions({
 
 export function JobDescriptionStructuredFields({
   config,
+  disabled = false,
   onChange,
 }: {
   config: JobDescriptionStructuredConfig;
+  disabled?: boolean;
   onChange: (config: JobDescriptionStructuredConfig) => void;
 }) {
   return (
-    <div className="mt-8 space-y-4 border-t pt-6">
+    <fieldset className="mt-8 space-y-4 border-t pt-6" disabled={disabled}>
       <div className="space-y-1">
         <h2 className="font-semibold text-base">JD 结构化</h2>
         <p className="text-muted-foreground text-sm">
@@ -417,7 +419,7 @@ export function JobDescriptionStructuredFields({
       <Alert className="bg-muted/40">
         <IconInfoCircle />
         <AlertDescription>
-          当前仅保存岗位结构化配置，不影响现有简历筛选、评分或排序。
+          发布前请生成并确认评估蓝图；发布后门槛、权重和条件将冻结。
         </AlertDescription>
       </Alert>
 
@@ -430,6 +432,6 @@ export function JobDescriptionStructuredFields({
         weights={config.weights}
       />
       <ScoringConditions config={config} onChange={onChange} />
-    </div>
+    </fieldset>
   );
 }

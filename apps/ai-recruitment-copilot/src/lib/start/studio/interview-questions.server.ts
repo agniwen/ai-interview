@@ -4,7 +4,7 @@ import { buildDataGridQueryKey } from "@/components/data-grid/query-contract";
 import type { JsonValue } from "@/lib/start/server-function-types";
 import { createQueryClient } from "@arc/shared/query-client";
 import { listInterviewQuestionTemplates } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/queries";
-import { listAllJobDescriptions } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import { listManagedJobDescriptions } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import type { InterviewQuestionFilters } from "./interview-questions.functions";
 
 function normalizeArchivedFilter(value: string): "active" | "archived" | "all" {
@@ -22,7 +22,7 @@ export async function loadStudioInterviewQuestionsData({
 }) {
   const queryClient = createQueryClient();
   const [jobDescriptions] = await Promise.all([
-    listAllJobDescriptions(workspaceId),
+    listManagedJobDescriptions(workspaceId),
     queryClient.prefetchQuery({
       queryFn: () =>
         listInterviewQuestionTemplates(

@@ -1,5 +1,5 @@
 import { loadInterviewContextsForFormAi } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/dao/form-ai-context";
-import { loadJobDescriptionById } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import { loadManagedJobDescriptionById } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import type { AiCandidateContext } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/forms/utils/ai-candidate-context-format";
 
 export interface AiGenerateJobDescriptionContext {
@@ -57,7 +57,7 @@ export async function resolveAiGenerateContext(
   }
 
   if (jobDescriptionId) {
-    const jd = await loadJobDescriptionById(organizationId, jobDescriptionId);
+    const jd = await loadManagedJobDescriptionById(organizationId, jobDescriptionId);
     if (!jd) {
       return { error: "所选岗位不存在。" };
     }
@@ -65,7 +65,7 @@ export async function resolveAiGenerateContext(
   } else if (!jobDescription && jobDescriptionIds?.length) {
     const [firstJobDescriptionId] = jobDescriptionIds;
     if (firstJobDescriptionId) {
-      const jd = await loadJobDescriptionById(organizationId, firstJobDescriptionId);
+      const jd = await loadManagedJobDescriptionById(organizationId, firstJobDescriptionId);
       if (jd) {
         jobDescription = { name: jd.name, prompt: jd.prompt ?? null };
       }

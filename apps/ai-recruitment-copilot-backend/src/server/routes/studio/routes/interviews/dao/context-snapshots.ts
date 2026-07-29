@@ -184,6 +184,7 @@ async function buildSnapshotPayloadFromDatabase(
           and(
             eq(jobDescription.id, candidate.jobDescriptionId),
             eq(jobDescription.organizationId, candidate.organizationId),
+            eq(jobDescription.lifecycleStatus, "published"),
           ),
         )
         .limit(1)

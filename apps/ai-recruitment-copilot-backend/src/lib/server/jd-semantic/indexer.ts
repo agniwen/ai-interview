@@ -117,6 +117,7 @@ async function loadJdSource(job: JdSemanticIndexJob): Promise<JobDescriptionSema
       and(
         eq(jobDescription.id, job.sourceId),
         eq(jobDescription.organizationId, job.organizationId),
+        eq(jobDescription.lifecycleStatus, "published"),
       ),
     )
     .limit(1);

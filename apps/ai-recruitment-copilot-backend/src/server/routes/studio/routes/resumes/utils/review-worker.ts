@@ -4,7 +4,7 @@ import { resumePoolItem, studioInterview } from "@arc/db-schema/schema";
 import type { ResumeReviewGenerationJobData } from "@arc/resume-parse-queue/resume-review-generation";
 import type { ResumeScreeningResult } from "@arc/shared/resume-screening";
 import { matchJobDescriptionForResume } from "@arc/ai-recruitment-copilot-backend/server/agents/job-description-match-agent";
-import { listAllJobDescriptions } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import { listRecruitingJobDescriptions } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { generateResumeReviewBestEffort } from "./review-generation";
 import { runResumeAssessmentLifecycle } from "./review-lifecycle";
 import type { ResumeAssessmentLifecycleDeps } from "./review-lifecycle";
@@ -159,7 +159,7 @@ async function matchJobDescriptionId(input: {
   resumeProfile: NonNullable<typeof studioInterview.$inferSelect.resumeProfile>;
 }): Promise<string | null> {
   try {
-    const jobDescriptions = await listAllJobDescriptions(input.organizationId);
+    const jobDescriptions = await listRecruitingJobDescriptions(input.organizationId);
     const match = await matchJobDescriptionForResume(input.resumeProfile, jobDescriptions);
     return match?.jobDescriptionId ?? null;
   } catch (error) {

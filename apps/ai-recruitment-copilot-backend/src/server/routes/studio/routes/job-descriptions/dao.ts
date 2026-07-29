@@ -73,16 +73,21 @@ function buildWhereConditions({
   departmentIds,
   interviewerIds,
   jdIdsForInterviewers,
+  recruitingOnly = false,
 }: {
   organizationId: string;
   search?: string;
   departmentIds?: string[];
   interviewerIds?: string[];
   jdIdsForInterviewers?: string[];
+  recruitingOnly?: boolean;
 }) {
   const conditions: (ReturnType<typeof ilike> | ReturnType<typeof eq>)[] = [
     eq(jobDescription.organizationId, organizationId),
   ];
+  if (recruitingOnly) {
+    conditions.push(eq(jobDescription.lifecycleStatus, "published"));
+  }
   if (search) {
     const searchCond = or(
       ilike(jobDescription.name, `%${search}%`),
@@ -140,6 +145,7 @@ function listJobDescriptionRows({
   sortOrder = "desc",
   limit,
   offset,
+  recruitingOnly = false,
 }: {
   organizationId: string;
   search?: string;
@@ -150,12 +156,14 @@ function listJobDescriptionRows({
   sortOrder?: "asc" | "desc";
   limit?: number;
   offset?: number;
+  recruitingOnly?: boolean;
 }) {
   const where = buildWhereConditions({
     departmentIds,
     interviewerIds,
     jdIdsForInterviewers,
     organizationId,
+    recruitingOnly,
     search,
   });
 
@@ -165,13 +173,24 @@ function listJobDescriptionRows({
       code: jobDescription.code,
       createdAt: jobDescription.createdAt,
       createdBy: jobDescription.createdBy,
+      deductionRuleSetVersion: jobDescription.deductionRuleSetVersion,
       departmentId: jobDescription.departmentId,
       departmentName: department.name,
       description: jobDescription.description,
+      evaluationBlueprint: jobDescription.evaluationBlueprint,
+      evaluationBlueprintHash: jobDescription.evaluationBlueprintHash,
+      evaluationBlueprintPreview: jobDescription.evaluationBlueprintPreview,
+      evaluationBlueprintPreviewGeneratedAt: jobDescription.evaluationBlueprintPreviewGeneratedAt,
+      evaluationBlueprintPreviewHash: jobDescription.evaluationBlueprintPreviewHash,
+      evaluationBlueprintPreviewInputHash: jobDescription.evaluationBlueprintPreviewInputHash,
+      evaluationBlueprintSchemaVersion: jobDescription.evaluationBlueprintSchemaVersion,
+      evaluationMode: jobDescription.evaluationMode,
       id: jobDescription.id,
+      lifecycleStatus: jobDescription.lifecycleStatus,
       name: jobDescription.name,
       presetQuestions: jobDescription.presetQuestions,
       prompt: jobDescription.prompt,
+      publishedAt: jobDescription.publishedAt,
       resumeScreeningPolicy: jobDescription.resumeScreeningPolicy,
       resumeScreeningPolicyHash: jobDescription.resumeScreeningPolicyHash,
       resumeScreeningPolicyVersion: jobDescription.resumeScreeningPolicyVersion,
@@ -304,15 +323,28 @@ function toJobDescriptionListRecord(
     code: row.code,
     createdAt: serializeDate(row.createdAt),
     createdBy: row.createdBy,
+    deductionRuleSetVersion: row.deductionRuleSetVersion,
     departmentId: row.departmentId,
     departmentName: row.departmentName,
     description: row.description,
+    evaluationBlueprint: row.evaluationBlueprint,
+    evaluationBlueprintHash: row.evaluationBlueprintHash,
+    evaluationBlueprintPreview: row.evaluationBlueprintPreview,
+    evaluationBlueprintPreviewGeneratedAt: row.evaluationBlueprintPreviewGeneratedAt
+      ? serializeDate(row.evaluationBlueprintPreviewGeneratedAt)
+      : null,
+    evaluationBlueprintPreviewHash: row.evaluationBlueprintPreviewHash,
+    evaluationBlueprintPreviewInputHash: row.evaluationBlueprintPreviewInputHash,
+    evaluationBlueprintSchemaVersion: row.evaluationBlueprintSchemaVersion,
+    evaluationMode: row.evaluationMode,
     id: row.id,
     interviewerIds: interviewers.map((item) => item.id),
     interviewers,
+    lifecycleStatus: row.lifecycleStatus,
     name: row.name,
     presetQuestions: row.presetQuestions ?? [],
     prompt: row.prompt,
+    publishedAt: row.publishedAt ? serializeDate(row.publishedAt) : null,
     resumeCount,
     resumeScreeningPolicy,
     resumeScreeningPolicyHash: row.resumeScreeningPolicyHash,
@@ -425,7 +457,7 @@ export function listJobDescriptions(
   return queryPaginatedJobDescriptions(organizationId, filters, pagination);
 }
 
-export async function listAllJobDescriptions(
+export async function listManagedJobDescriptions(
   organizationId: string,
 ): Promise<JobDescriptionListRecord[]> {
   const rows = await listJobDescriptionRows({ organizationId, sortBy: "name", sortOrder: "asc" });
@@ -443,7 +475,30 @@ export async function listAllJobDescriptions(
   );
 }
 
-export async function fetchJobDescriptionsByCodes(
+export async function listRecruitingJobDescriptions(
+  organizationId: string,
+): Promise<JobDescriptionListRecord[]> {
+  const rows = await listJobDescriptionRows({
+    organizationId,
+    recruitingOnly: true,
+    sortBy: "name",
+    sortOrder: "asc",
+  });
+  const ids = rows.map((row) => row.id);
+  const [interviewersMap, resumeCountsMap] = await Promise.all([
+    loadInterviewersForJobDescriptions(ids),
+    loadResumeCountsForJobDescriptions(ids),
+  ]);
+  return rows.map((row) =>
+    toJobDescriptionListRecord(
+      row,
+      interviewersMap.get(row.id) ?? [],
+      resumeCountsMap.get(row.id) ?? 0,
+    ),
+  );
+}
+
+export async function fetchPublishedJobDescriptionsByCodes(
   organizationId: string,
   codes: readonly string[],
 ): Promise<{ code: string; id: string }[]> {
@@ -460,6 +515,7 @@ export async function fetchJobDescriptionsByCodes(
     .where(
       and(
         eq(jobDescription.organizationId, organizationId),
+        eq(jobDescription.lifecycleStatus, "published"),
         inArray(jobDescription.code, normalizedCodes),
       ),
     );
@@ -470,7 +526,7 @@ export async function fetchJobDescriptionsByCodes(
  * 校验给定 ids 全部存在于 jobDescription 表。空数组视作合法。
  * Validate that every id in `ids` exists in jobDescription. Empty input is valid.
  */
-export async function jobDescriptionIdsExist(
+export async function managedJobDescriptionIdsExist(
   ids: string[],
   organizationId: string,
 ): Promise<boolean> {
@@ -484,7 +540,27 @@ export async function jobDescriptionIdsExist(
   return rows.length === new Set(ids).size;
 }
 
-export async function loadJobDescriptionById(
+export async function recruitingJobDescriptionIdsExist(
+  ids: string[],
+  organizationId: string,
+): Promise<boolean> {
+  if (ids.length === 0) {
+    return true;
+  }
+  const rows = await db
+    .select({ id: jobDescription.id })
+    .from(jobDescription)
+    .where(
+      and(
+        inArray(jobDescription.id, ids),
+        eq(jobDescription.organizationId, organizationId),
+        eq(jobDescription.lifecycleStatus, "published"),
+      ),
+    );
+  return rows.length === new Set(ids).size;
+}
+
+export async function loadManagedJobDescriptionById(
   organizationId: string,
   id: string,
 ): Promise<JobDescriptionRecord | null> {
@@ -504,6 +580,23 @@ export async function loadJobDescriptionById(
     interviewers.map((item) => item.id),
   );
 }
+
+export async function loadRecruitingJobDescriptionById(
+  organizationId: string,
+  id: string,
+): Promise<JobDescriptionRecord | null> {
+  const record = await loadManagedJobDescriptionById(organizationId, id);
+  return record?.lifecycleStatus === "published" ? record : null;
+}
+
+/** @deprecated Choose the explicit management or recruiting loader. */
+export const listAllJobDescriptions = listManagedJobDescriptions;
+/** @deprecated Choose the explicit management or recruiting loader. */
+export const loadJobDescriptionById = loadManagedJobDescriptionById;
+/** @deprecated Choose the explicit management or recruiting existence check. */
+export const jobDescriptionIdsExist = managedJobDescriptionIdsExist;
+/** @deprecated Recruiting ingestion must use published jobs only. */
+export const fetchJobDescriptionsByCodes = fetchPublishedJobDescriptionsByCodes;
 
 // =========================================================================
 // 头部 chart 聚合查询 / Header chart aggregations.
@@ -668,13 +761,26 @@ export function serializeJobDescription(
     code: row.code,
     createdAt: serializeDate(row.createdAt),
     createdBy: row.createdBy,
+    deductionRuleSetVersion: row.deductionRuleSetVersion,
     departmentId: row.departmentId,
     description: row.description,
+    evaluationBlueprint: row.evaluationBlueprint,
+    evaluationBlueprintHash: row.evaluationBlueprintHash,
+    evaluationBlueprintPreview: row.evaluationBlueprintPreview,
+    evaluationBlueprintPreviewGeneratedAt: row.evaluationBlueprintPreviewGeneratedAt
+      ? serializeDate(row.evaluationBlueprintPreviewGeneratedAt)
+      : null,
+    evaluationBlueprintPreviewHash: row.evaluationBlueprintPreviewHash,
+    evaluationBlueprintPreviewInputHash: row.evaluationBlueprintPreviewInputHash,
+    evaluationBlueprintSchemaVersion: row.evaluationBlueprintSchemaVersion,
+    evaluationMode: row.evaluationMode,
     id: row.id,
     interviewerIds,
+    lifecycleStatus: row.lifecycleStatus,
     name: row.name,
     presetQuestions: row.presetQuestions ?? [],
     prompt: row.prompt,
+    publishedAt: row.publishedAt ? serializeDate(row.publishedAt) : null,
     resumeScreeningPolicy,
     resumeScreeningPolicyHash: row.resumeScreeningPolicyHash,
     resumeScreeningPolicyVersion: row.resumeScreeningPolicyVersion,
