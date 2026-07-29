@@ -57,7 +57,7 @@ A job description whose recruiting and resume-evaluation configuration is still 
 _Avoid_: Inactive position, unpublished config
 
 **Published Job Description**:
-A job description available to recruiting workflows. Its name, code, description, prompt, resume gates, scoring weights, scoring adjustments, and scoring-rule-set version are immutable, while operational interview assignments and questions may still change.
+A job description available to recruiting workflows. For structured jobs, its name, code, description, prompt, resume gates, evaluation blueprint, scoring weights, scoring adjustments, and scoring-rule-set version are immutable, while operational interview assignments and questions may still change; legacy jobs retain their existing edit/version behavior.
 _Avoid_: Saved draft, editable active job
 
 **Job Resume Evaluation Mode**:
@@ -201,8 +201,16 @@ _Avoid_: Warning-only rule, automatic rejection, score deduction, final HR decis
 The draft job-description-owned set of independently stored free-text resume screening gates for education, work years, required skills, work location, language ability, required certificates, and other requirements. Non-empty gates become active when a structured job is published; an empty published configuration means the job has no hard gates.
 _Avoid_: Free-form JD text, scoring adjustment rules, runtime-extracted hard filter
 
+**Draft Job Evaluation Blueprint Preview**:
+The server-stored, recruiter-reviewable interpretation compiled from the current structured draft. It becomes stale when evaluation inputs change and is copied unchanged into the published blueprint only after confirmation.
+_Avoid_: Client-generated preview, published blueprint, live model output
+
+**Published Job Evaluation Blueprint**:
+The recruiter-confirmed immutable interpretation of a structured job's source-backed evaluation inputs, compiled before publication into atomic gates, skill expectations, and normalized job-side scoring expectations without inventing unstated requirements.
+_Avoid_: Runtime JD extraction, mutable prompt output, resume evaluation result
+
 **Atomic Resume Gate Requirement**:
-One independently judged requirement extracted from a published free-text gate category. Its AI result retains the source category, evidence, and one of passed, failed, or needs-verification; category and overall gate status aggregate from these atomic results.
+One stable requirement compiled from a draft free-text gate into the published evaluation blueprint and independently judged for each resume. Its result retains the raw AI status and evidence; an optional recruiter correction produces the effective gate status without erasing the AI judgment.
 _Avoid_: Entire gate text box, scoring deduction, recruiter decision
 
 **Custom Hard Gate**:
@@ -257,16 +265,28 @@ _Avoid_: Invalid result, failed screening
 The generated evaluation of how a resume record matches a job description, including dimensions, strengths, risks, and next-step guidance.
 _Avoid_: Screening result, final candidate outcome, manual feedback note
 
+**Structured Resume Evaluation**:
+The current structured-job evaluation artifact containing frozen job expectations, six raw dimension scores, gate evidence, deductions, adjustments, deterministic composite score, and AI narrative. It is stored separately from legacy resume-review v4 results.
+_Avoid_: Legacy resume review, recruiter decision, resume-pool note
+
+**Current Resume Evaluation**:
+The mode-specific generated artifact currently valid for one resume record and its bound job: legacy v4 for a legacy job or structured V1 for a structured job.
+_Avoid_: Any non-null review field, historical evaluation, recruiter decision
+
 **Resume Review Dimension**:
-One of the six product-defined aspects independently scored for a resume review: skill match, experience relevance, project match, education/background, potential, or stability. A dimension participates when its job weight is greater than zero and is disabled when its weight is zero.
+One of the six product-defined aspects always independently scored for a structured resume evaluation: skill match, experience relevance, project match, education/background, potential, or stability. Its configured weight controls only its contribution to the composite score.
 _Avoid_: Screening rule, scoring condition, weight
 
 **Resume Review Dimension Score**:
-The integer score from 0 to 100 calculated by code for one enabled resume-review dimension from a 100-point baseline and the matched standardized deductions. A disabled dimension has no score rather than a zero score.
+The integer score from 0 to 100 calculated by code for one resume-review dimension from a 100-point baseline, matched standardized deductions, direct-zero rules, and the insufficient-evidence cap. It is retained even when that dimension's configured weight is zero.
 _Avoid_: Composite score, weighted score, screening result
 
+**Required Relevant Experience**:
+The single source-backed threshold frozen in a structured job's published blueprint, containing the required years and the role, industry, domain, capability, or total-employment scope whose experience counts toward those years. V1 rejects incompatible experience thresholds instead of choosing or combining them.
+_Avoid_: Total work years, tenure, model-estimated experience
+
 **Job Resume Scoring Configuration**:
-The published structured-job-owned integer weights used to combine enabled resume-review dimensions. New jobs use 35/25/15/10/8/7; a zero-weight dimension is disabled, positive weights participate, and all six weights always total 100%.
+The published structured-job-owned integer weights used to combine all six resume-review dimension scores. New jobs use 35/25/15/10/8/7; a zero weight contributes nothing to the composite without suppressing the raw score, and all six weights always total 100%.
 _Avoid_: Global scoring policy, scoring template, reusable weight policy
 
 **Job Scoring Adjustment Rule**:
@@ -282,15 +302,23 @@ A job scoring adjustment rule with a negative point value for an undesirable mat
 _Avoid_: Resume screening gate, automatic rejection, hard filter
 
 **Job Resume Scoring Snapshot**:
-The frozen copy of the published job weights, adjustments, scoring-rule-set version, evaluation-engine version, and model identity used for one structured resume evaluation.
+The frozen copy of the published evaluation blueprint, job weights, adjustments, scoring-rule-set version, evaluation-engine version, and model identity used for one structured resume evaluation.
 _Avoid_: Live job configuration, current weight settings
 
 **Dimension Deduction Rule**:
 A product-defined, fixed-identity rule describing how one resume-review dimension loses points from a 100-point baseline. Rules belong to a versioned catalog pinned when a structured job is published; recruiters do not edit them per job or workspace.
 _Avoid_: Soft checklist, free-form score rationale, per-policy deduction table
 
+**Dimension Rule Judgment**:
+The evidence-backed result for one applicable deduction rule: matched, not matched, insufficient evidence, or not applicable. Only matched subtracts points; insufficient evidence may cap the dimension score.
+_Avoid_: Dimension score, gate status, binary adjustment match
+
+**Resume Evaluation As-Of Date**:
+The UTC calendar date fixed at the start of one evaluation run and used by all recency, duration, jump, and gap windows in that run.
+_Avoid_: Display time, generated timestamp, current wall-clock lookup
+
 **Resume Evaluation Engine Version**:
-The versioned semantic-judgment contract used to atomize gates, identify scoring evidence, and match deduction and adjustment rules. It records prompt and model metadata for audit without permanently binding a job to a model that may be retired.
+The versioned semantic-judgment contract used to judge frozen gates, identify scoring evidence, and match deduction and adjustment rules. It records prompt and model metadata for audit without permanently binding a job to a model that may be retired.
 _Avoid_: Deduction rule set, application release, model name alone
 
 **Resume Review Weighted Base Score**:
@@ -314,7 +342,7 @@ A human-written assessment of a resume record that captures the recruiter's judg
 _Avoid_: Resume review, screening result, interview report
 
 **Resume Reassessment**:
-The act of regenerating the current job's resume evaluation after a resume or job binding changes, or after an explicit eligible rerun. Published structured evaluation configuration itself is immutable.
+The act of clearing and regenerating the current job's AI evaluation after resume evidence or job binding changes, or after an explicit eligible rerun. It does not itself change a recruiter decision; a job rebind separately resets that decision under the binding contract.
 _Avoid_: Screening-only refresh
 
 ### Interview Workflow
