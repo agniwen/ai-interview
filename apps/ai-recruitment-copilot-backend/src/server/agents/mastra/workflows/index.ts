@@ -4,6 +4,7 @@ import { interviewReportWorkflow } from "./interview-report-workflow";
 import { resumeAnalysisWorkflow } from "./resume-analysis-workflow";
 import { resumeParseWorkflow } from "./resume-parse-workflow";
 import { resumeReviewWorkflow } from "./resume-review-workflow";
+import { structuredResumeReviewWorkflow } from "./structured-resume-review-workflow";
 
 export {
   bulkResumeUploadWorkflow,
@@ -12,6 +13,7 @@ export {
   resumeAnalysisWorkflow,
   resumeParseWorkflow,
   resumeReviewWorkflow,
+  structuredResumeReviewWorkflow,
 };
 
 export const recruitmentWorkflows = {
@@ -21,4 +23,5 @@ export const recruitmentWorkflows = {
   resumeAnalysisWorkflow,
   resumeParseWorkflow,
   resumeReviewWorkflow,
+  structuredResumeReviewWorkflow,
 };

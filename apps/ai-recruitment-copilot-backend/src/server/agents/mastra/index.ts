@@ -15,6 +15,10 @@ import {
   resumeReviewQualitativeAgent,
   resumeReviewScoringAgent,
   resumeStructuredAgent,
+  structuredResumeAdjustmentAgent,
+  structuredResumeDimensionAgent,
+  structuredResumeGateAgent,
+  structuredResumeNarrativeAgent,
   titleAgent,
 } from "./agents/simple-generators";
 import { configureAlibabaCodingPlanApiKey } from "./models";
@@ -38,6 +42,10 @@ export const recruitmentAgents = {
   resumeReviewQualitativeAgent,
   resumeReviewScoringAgent,
   resumeStructuredAgent,
+  structuredResumeAdjustmentAgent,
+  structuredResumeDimensionAgent,
+  structuredResumeGateAgent,
+  structuredResumeNarrativeAgent,
   titleAgent,
 };
 

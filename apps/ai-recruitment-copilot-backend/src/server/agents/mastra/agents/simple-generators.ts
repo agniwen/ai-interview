@@ -140,6 +140,38 @@ export const resumeReviewMarkdownAgent = new Agent({
   name: "ResumeReviewMarkdownAgent",
 });
 
+export const structuredResumeGateAgent = new Agent({
+  id: "structured-resume-gate-agent",
+  instructions: "逐项判断冻结岗位门槛，只返回状态、证据和原因。",
+  maxRetries: 1,
+  model: mastraModels.structuredModel,
+  name: "StructuredResumeGateAgent",
+});
+
+export const structuredResumeDimensionAgent = new Agent({
+  id: "structured-resume-dimension-agent",
+  instructions: "提取简历的语义事实和月级时间线，不做任何评分或时长计算。",
+  maxRetries: 1,
+  model: mastraModels.structuredModel,
+  name: "StructuredResumeDimensionAgent",
+});
+
+export const structuredResumeAdjustmentAgent = new Agent({
+  id: "structured-resume-adjustment-agent",
+  instructions: "逐项判断岗位优先和排除条件是否有明确简历证据。",
+  maxRetries: 1,
+  model: mastraModels.structuredModel,
+  name: "StructuredResumeAdjustmentAgent",
+});
+
+export const structuredResumeNarrativeAgent = new Agent({
+  id: "structured-resume-narrative-agent",
+  instructions: "解释代码已经完成的简历评分结果，不得重算或改变结果。",
+  maxRetries: 1,
+  model: mastraModels.fastModel,
+  name: "StructuredResumeNarrativeAgent",
+});
+
 export const interviewReportSummaryAgent = new Agent({
   id: "interview-report-summary-agent",
   instructions: "你是面试报告撰写助手，负责根据面试 transcript 生成摘要。",

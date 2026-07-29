@@ -53,14 +53,18 @@ const gateJudgmentSchema = z
   })
   .strict();
 
-const ruleJudgmentSchema = z
+const baseRuleJudgmentSchema = z
   .object({
-    appliedPoints: z.number().int().min(0),
     evidence: z.array(structuredResumeEvidenceSchema),
     reason: z.string().trim().min(1),
     ruleId: z.string().trim().min(1),
     status: structuredResumeRuleStatusSchema,
     units: z.number().int().positive().optional(),
+  })
+  .strict();
+const ruleJudgmentSchema = baseRuleJudgmentSchema
+  .extend({
+    appliedPoints: z.number().int().min(0),
   })
   .strict();
 
@@ -70,6 +74,7 @@ const dimensionResultSchema = z
     deductionTotal: z.number().int().min(0),
     insufficientEvidenceRuleIds: z.array(z.string().trim().min(1)),
     rawScore: z.number().int().min(0).max(100),
+    ruleJudgments: z.array(baseRuleJudgmentSchema),
     weight: z.number().int().min(0).max(100),
     weightedContributionHundredths: z.number().int().min(0).max(10_000),
   })
