@@ -35,7 +35,14 @@ export const ResumeDocumentPreviewDialog = lazy(async () => {
 // skills = candidate must have ALL selected skills (intersection / AND);
 // jdIds = candidate's linked JD is one of the selection (OR — a resume can
 //          link to only one JD, so AND would always be empty for >1).
-export const EMPTY_FILTERS: ResumeFilters = { creatorIds: "", jdIds: "", skills: "", stage: "" };
+export const EMPTY_FILTERS: ResumeFilters = {
+  creatorIds: "",
+  jdIds: "",
+  skills: "",
+  stage: "",
+  structuredMaxScore: "",
+  structuredMinScore: "",
+};
 export const RESUME_LIBRARY_FILTER_KEYS = Object.keys(EMPTY_FILTERS) as (keyof ResumeFilters &
   string)[];
 export const RESUME_LIBRARY_DEFAULT_SORTING = [{ desc: true, id: "createdAt" }];

@@ -43,6 +43,8 @@ export interface ResumeListParams {
   outcomes?: string[];
   sortBy?: string;
   sortOrder?: "asc" | "desc";
+  structuredMaxScore?: number;
+  structuredMinScore?: number;
 }
 
 /**
@@ -76,6 +78,12 @@ export function fetchStudioResumes(
           : {}),
         ...(params.sortBy ? { sortBy: params.sortBy } : {}),
         ...(params.sortOrder ? { sortOrder: params.sortOrder } : {}),
+        ...(params.structuredMaxScore === undefined
+          ? {}
+          : { structuredMaxScore: String(params.structuredMaxScore) }),
+        ...(params.structuredMinScore === undefined
+          ? {}
+          : { structuredMinScore: String(params.structuredMinScore) }),
       },
     }),
     "加载简历列表失败",

@@ -38,6 +38,8 @@ const query: DataGridQueryState<ResumeFilters> = {
     jdIds: "jd-1",
     skills: "React,TypeScript",
     stage: "screening",
+    structuredMaxScore: "",
+    structuredMinScore: "",
   },
   page: 3,
   pageSize: 50,

@@ -18,6 +18,7 @@ import {
   loadResumeDetailForWorkspaceMember,
   loadResumeDetail,
   queryPaginatedResumeRecords,
+  ResumeStructuredScoreQueryError,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
 import { submitResumeEvaluationOnce } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/evaluation";
 import { loadCandidateTimeline } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/timeline";
@@ -86,6 +87,8 @@ export const resumeLibraryReadRouter = factory
         skills: z.string().optional(),
         sortBy: z.string().optional(),
         sortOrder: z.string().optional(),
+        structuredMaxScore: z.coerce.number().int().min(0).max(100).optional(),
+        structuredMinScore: z.coerce.number().int().min(0).max(100).optional(),
       }),
       jsonValidatorError("查询参数无效。"),
     ),
@@ -100,26 +103,35 @@ export const resumeLibraryReadRouter = factory
         c.var.member?.role,
         c.var.user?.id,
       );
-      const result = await queryPaginatedResumeRecords(
-        activeOrg.id,
-        {
-          creatorIds: parseCsvParam(q.creatorIds),
-          jobDescriptionIds: parseCsvParam(q.jdIds),
-          outcomes: parseCsvParam(q.outcomes),
-          pipelineStages: parseCsvParam(q.pipelineStages),
-          search: q.search,
-          skills: parseCsvParam(q.skills),
-        },
-        {
-          page: q.page,
-          pageSize: q.pageSize,
-          sortBy: q.sortBy,
-          sortOrder: q.sortOrder,
-        },
-        visibilityScope,
-        q.knownTotal,
-      );
-      return c.json(result, 200);
+      try {
+        const result = await queryPaginatedResumeRecords(
+          activeOrg.id,
+          {
+            creatorIds: parseCsvParam(q.creatorIds),
+            jobDescriptionIds: parseCsvParam(q.jdIds),
+            outcomes: parseCsvParam(q.outcomes),
+            pipelineStages: parseCsvParam(q.pipelineStages),
+            search: q.search,
+            skills: parseCsvParam(q.skills),
+            structuredMaxScore: q.structuredMaxScore,
+            structuredMinScore: q.structuredMinScore,
+          },
+          {
+            page: q.page,
+            pageSize: q.pageSize,
+            sortBy: q.sortBy,
+            sortOrder: q.sortOrder,
+          },
+          visibilityScope,
+          q.knownTotal,
+        );
+        return c.json(result, 200);
+      } catch (error) {
+        if (error instanceof ResumeStructuredScoreQueryError) {
+          return c.json({ error: error.message }, 400);
+        }
+        throw error;
+      }
     },
   )
   .get(

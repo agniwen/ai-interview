@@ -201,6 +201,12 @@ export function ResumeLibraryPage() {
           skills: parseCsvParam(params.filters.skills),
           sortBy: params.sortBy,
           sortOrder: params.sortOrder,
+          structuredMaxScore: params.filters.structuredMaxScore
+            ? Number(params.filters.structuredMaxScore)
+            : undefined,
+          structuredMinScore: params.filters.structuredMinScore
+            ? Number(params.filters.structuredMinScore)
+            : undefined,
         }),
     [slug],
   );
@@ -228,7 +234,12 @@ export function ResumeLibraryPage() {
         throw new Error("加载在招岗位列表失败");
       }
       const payload = (await response.json()) as {
-        records: { id: string; name: string; departmentName: string | null }[];
+        records: {
+          departmentName: string | null;
+          evaluationMode: "legacy" | "structured";
+          id: string;
+          name: string;
+        }[];
       };
       return payload.records;
     },
@@ -254,6 +265,13 @@ export function ResumeLibraryPage() {
     slug,
   });
   const { setRowSelection } = grid;
+  const selectedJobIds = parseCsvParam(grid.filters.jdIds);
+  const selectedStructuredJob =
+    selectedJobIds.length === 1
+      ? jobDescriptions.find(
+          (job) => job.id === selectedJobIds[0] && job.evaluationMode === "structured",
+        )
+      : undefined;
 
   useEffect(() => {
     setRowSelection({});
@@ -393,8 +411,32 @@ export function ResumeLibraryPage() {
         selectedFormat: (count: number) => `已选 ${count} 个岗位`,
         type: "multi-select" as const,
       },
+      ...(selectedStructuredJob
+        ? [
+            {
+              clearable: true,
+              key: "structuredMinScore" as const,
+              options: [60, 75, 85, 90].map((score) => ({
+                label: `最低 ${score} 分`,
+                value: String(score),
+              })),
+              placeholder: "最低综合分",
+              type: "select" as const,
+            },
+            {
+              clearable: true,
+              key: "structuredMaxScore" as const,
+              options: [60, 75, 85, 90].map((score) => ({
+                label: `最高 ${score} 分`,
+                value: String(score),
+              })),
+              placeholder: "最高综合分",
+              type: "select" as const,
+            },
+          ]
+        : []),
     ],
-    [skillSuggestions, jobDescriptions, workspaceMembers],
+    [skillSuggestions, jobDescriptions, selectedStructuredJob, workspaceMembers],
   );
 
   async function handleDelete() {
@@ -535,6 +577,20 @@ export function ResumeLibraryPage() {
           isRefetching={
             resumeLibraryListQuery.isRefetching && !resumeLibraryListQuery.isFetchingNextPage
           }
+          onToggleStructuredScoreSort={() => {
+            const isActive = activeSort?.id === "structuredScore";
+            void router.navigate({
+              params: { slug },
+              replace: true,
+              resetScroll: false,
+              search: {
+                ...routeSearch,
+                sortBy: isActive ? undefined : "structuredScore",
+                sortOrder: isActive ? undefined : "desc",
+              },
+              to: "/w/$slug/studio/resumes",
+            } as never);
+          }}
           onBulkDelete={() => setBulkDeleteOpen(true)}
           onCopyDetailLink={(record) => void copyResumeDetailLink(slug, record)}
           onDelete={setDeleteRecord}
@@ -566,6 +622,8 @@ export function ResumeLibraryPage() {
             })
           }
           records={loadedResumeRecords}
+          structuredScoreSortActive={activeSort?.id === "structuredScore"}
+          structuredScoreSortEnabled={Boolean(selectedStructuredJob)}
           total={resumeLibraryTotal}
           uploadEntryDisabled={uploadEntryDisabled}
         />

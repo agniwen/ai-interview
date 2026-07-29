@@ -23,6 +23,12 @@ import type {
   ScheduleEntryStatus,
 } from "@arc/db-schema/studio-interviews";
 import type { ResumeScreeningResult } from "./resume-screening";
+import type {
+  StructuredResumeEvaluationV1,
+  StructuredResumeGateStatus,
+  StructuredResumeGrade,
+} from "@arc/db-schema/structured-resume-evaluation";
+import type { JobEvaluationMode } from "@arc/db-schema/job-description-evaluation";
 
 /**
  * AI 面试阶段的派生进度：从 studio_interview_schedule 聚合。
@@ -137,12 +143,23 @@ export interface ResumeLibraryListRecord {
   jobDescriptionId: string | null;
   jobDescriptionDepartmentName: string | null;
   jobDescriptionName: string | null;
+  jobEvaluationMode: JobEvaluationMode | null;
   resumeFileName: string | null;
   // 列表卡片轻量投影：从 resume_review jsonb 抽出，避免整包下发。
   // Lightweight card projection extracted from resume_review jsonb.
   resumeReviewBaseScore: number | null;
   resumeReviewNextStepAction: ResumeReviewAction | null;
   resumeReviewStatus: ResumeReviewStatus;
+  resumeReviewError: string | null;
+  resumeReviewGeneratedAt: string | null;
+  resumeReviewQueuedAt: string | null;
+  resumeReviewRunId: string | null;
+  resumeEvaluationStatus: ResumeEvaluationStatus | null;
+  resumeEvaluationArtifactMode: JobEvaluationMode | null;
+  structuredCompositeScore: number | null;
+  structuredGateSortRank: number | null;
+  structuredGateStatus: StructuredResumeGateStatus | null;
+  structuredScoreGrade: StructuredResumeGrade | null;
   resumeSummary: string | null;
   resumeParseStatus: ResumeParseStatus;
   resumeSkills: string[];
@@ -198,6 +215,7 @@ export interface ResumeLibraryDetail extends ResumeLibraryListRecord {
   resumeReviewError: string | null;
   resumeReviewGeneratedAt: string | null;
   resumeReviewQueuedAt: string | null;
+  structuredResumeEvaluation: StructuredResumeEvaluationV1 | null;
   resumeScreeningError: string | null;
   resumeScreeningEvaluatedAt: string | null;
   resumeScreeningResult: ResumeScreeningResult | null;
@@ -373,7 +391,12 @@ export interface PaginatedResumeLibraryResult {
 }
 
 export const RESUME_LIBRARY_INFINITE_PAGE_SIZE = 20;
-export const resumeLibrarySortIds = ["createdAt", "candidateName", "updatedAt"] as const;
+export const resumeLibrarySortIds = [
+  "createdAt",
+  "candidateName",
+  "structuredScore",
+  "updatedAt",
+] as const;
 export type ResumeLibrarySortId = (typeof resumeLibrarySortIds)[number];
 
 export function canEditResumeRecord(status: ResumeParseStatus): boolean {

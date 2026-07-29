@@ -48,6 +48,12 @@ export async function loadStudioResumesData({
                 pipelineStages: parseCsvParam(query.filters.stage),
                 search: query.search || undefined,
                 skills: parseCsvParam(query.filters.skills),
+                structuredMaxScore: query.filters.structuredMaxScore
+                  ? Number(query.filters.structuredMaxScore)
+                  : undefined,
+                structuredMinScore: query.filters.structuredMinScore
+                  ? Number(query.filters.structuredMinScore)
+                  : undefined,
               },
               {
                 page: Number(pageParam),

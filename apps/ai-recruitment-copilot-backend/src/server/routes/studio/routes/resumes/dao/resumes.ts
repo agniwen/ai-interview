@@ -1,5 +1,18 @@
 /* oxlint-disable max-lines -- resume library list/detail/filter queries stay co-located. */
-import { and, arrayContains, asc, count, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import {
+  and,
+  arrayContains,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
@@ -34,6 +47,7 @@ import type { ResumeDuplicateMatchSummary } from "@arc/shared/resume-duplicates"
 import { resumeReviewActionSchema } from "@arc/shared/resume-review";
 import type { ResumeReviewAction } from "@arc/shared/resume-review";
 import { resumeScreeningResultSchema } from "@arc/shared/resume-screening";
+import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
 import { normalizeSkill } from "./skills";
 import { buildResumeProfileSnapshot } from "./resume-profile-snapshot";
 
@@ -55,7 +69,7 @@ function parseResumeReviewNextStepAction(
   return parsed.success ? parsed.data : null;
 }
 
-const SORT_COLUMNS = ["createdAt", "candidateName", "updatedAt"] as const;
+const SORT_COLUMNS = ["createdAt", "candidateName", "structuredScore", "updatedAt"] as const;
 
 const ORDER_COLUMNS = {
   candidateName: studioInterview.candidateName,
@@ -75,11 +89,20 @@ const filtersSchema = z.object({
   pipelineStages: z.array(z.string()).max(10).optional().nullable(),
   search: z.string().trim().max(120).optional().nullable(),
   skills: z.array(z.string()).max(20).optional().nullable(),
+  structuredMaxScore: z.number().int().min(0).max(100).optional().nullable(),
+  structuredMinScore: z.number().int().min(0).max(100).optional().nullable(),
 });
 
 type Pagination = z.infer<typeof paginationSchema>;
 type Filters = z.infer<typeof filtersSchema>;
 type ResumeQueryFilters = z.infer<typeof filtersSchema> & { forceEmpty?: boolean };
+
+export class ResumeStructuredScoreQueryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ResumeStructuredScoreQueryError";
+  }
+}
 
 // 把单字段 filter 编译成 conditions 数组，挪出 buildWhere 拆复杂度。
 // Filter compilation helpers split out of buildWhere to keep its complexity low.
@@ -153,6 +176,12 @@ function buildWhere(organizationId: string, filters?: ResumeQueryFilters) {
     buildCreatorIdsCondition(filters?.creatorIds),
     buildStagesCondition(filters?.pipelineStages),
     buildOutcomesCondition(filters?.outcomes),
+    filters?.structuredMinScore === null || filters?.structuredMinScore === undefined
+      ? null
+      : gte(studioInterview.structuredCompositeScore, filters.structuredMinScore),
+    filters?.structuredMaxScore === null || filters?.structuredMaxScore === undefined
+      ? null
+      : lte(studioInterview.structuredCompositeScore, filters.structuredMaxScore),
   ].filter((c) => c !== null);
   return conditions.length === 1 ? conditions[0] : and(...conditions);
 }
@@ -180,6 +209,7 @@ const SELECTED_COLUMNS = {
   jobDescriptionId: studioInterview.jobDescriptionId,
   jobDescriptionName: jobDescription.name,
   jobDescriptionResumeScreeningPolicyHash: jobDescription.resumeScreeningPolicyHash,
+  jobEvaluationMode: jobDescription.evaluationMode,
   notes: studioInterview.notes,
   offerAcceptedAt: studioInterview.offerAcceptedAt,
   offerSentAt: studioInterview.offerSentAt,
@@ -237,6 +267,7 @@ const SELECTED_COLUMNS = {
     string | null
   >`${studioInterview.resumeReview}->'nextStep'->>'action'`.as("resume_review_next_step_action"),
   resumeReviewQueuedAt: studioInterview.resumeReviewQueuedAt,
+  resumeReviewRunId: studioInterview.resumeReviewRunId,
   resumeReviewStatus: studioInterview.resumeReviewStatus,
   resumeSchool: sql<string | null>`${studioInterview.resumeProfile}->'schools'->>0`.as(
     "resume_school",
@@ -259,6 +290,11 @@ const SELECTED_COLUMNS = {
   resumeWorkRole: sql<
     string | null
   >`${studioInterview.resumeProfile}->'workExperiences'->0->>'role'`.as("resume_work_role"),
+  structuredCompositeScore: studioInterview.structuredCompositeScore,
+  structuredGateSortRank: studioInterview.structuredGateSortRank,
+  structuredGateStatus: studioInterview.structuredGateStatus,
+  structuredResumeEvaluation: studioInterview.structuredResumeEvaluation,
+  structuredScoreGrade: studioInterview.structuredScoreGrade,
   targetRole: studioInterview.targetRole,
   updatedAt: studioInterview.updatedAt,
   writtenTestScheduledAt: studioInterview.writtenTestScheduledAt,
@@ -279,6 +315,7 @@ const LIST_SELECTED_COLUMNS = {
   jobDescriptionDepartmentName: SELECTED_COLUMNS.jobDescriptionDepartmentName,
   jobDescriptionId: SELECTED_COLUMNS.jobDescriptionId,
   jobDescriptionName: SELECTED_COLUMNS.jobDescriptionName,
+  jobEvaluationMode: SELECTED_COLUMNS.jobEvaluationMode,
   notes: SELECTED_COLUMNS.notes,
   outcome: SELECTED_COLUMNS.outcome,
   pipelineStage: SELECTED_COLUMNS.pipelineStage,
@@ -288,12 +325,17 @@ const LIST_SELECTED_COLUMNS = {
   resumeEducationMajor: SELECTED_COLUMNS.resumeEducationMajor,
   resumeEducationPeriod: SELECTED_COLUMNS.resumeEducationPeriod,
   resumeEducationSchool: SELECTED_COLUMNS.resumeEducationSchool,
+  resumeEvaluationStatus: SELECTED_COLUMNS.resumeEvaluationStatus,
   resumeFileName: SELECTED_COLUMNS.resumeFileName,
   resumeParseStatus: SELECTED_COLUMNS.resumeParseStatus,
   resumeProjectExperiences: SELECTED_COLUMNS.resumeProjectExperiences,
   resumeReviewBaseScore: SELECTED_COLUMNS.resumeReviewBaseScore,
   resumeReviewConclusion: SELECTED_COLUMNS.resumeReviewConclusion,
+  resumeReviewError: SELECTED_COLUMNS.resumeReviewError,
+  resumeReviewGeneratedAt: SELECTED_COLUMNS.resumeReviewGeneratedAt,
   resumeReviewNextStepAction: SELECTED_COLUMNS.resumeReviewNextStepAction,
+  resumeReviewQueuedAt: SELECTED_COLUMNS.resumeReviewQueuedAt,
+  resumeReviewRunId: SELECTED_COLUMNS.resumeReviewRunId,
   resumeReviewStatus: SELECTED_COLUMNS.resumeReviewStatus,
   resumeSchool: SELECTED_COLUMNS.resumeSchool,
   resumeSkills: SELECTED_COLUMNS.resumeSkills,
@@ -302,6 +344,10 @@ const LIST_SELECTED_COLUMNS = {
   resumeWorkExperiences: SELECTED_COLUMNS.resumeWorkExperiences,
   resumeWorkPeriod: SELECTED_COLUMNS.resumeWorkPeriod,
   resumeWorkRole: SELECTED_COLUMNS.resumeWorkRole,
+  structuredCompositeScore: SELECTED_COLUMNS.structuredCompositeScore,
+  structuredGateSortRank: SELECTED_COLUMNS.structuredGateSortRank,
+  structuredGateStatus: SELECTED_COLUMNS.structuredGateStatus,
+  structuredScoreGrade: SELECTED_COLUMNS.structuredScoreGrade,
   targetRole: SELECTED_COLUMNS.targetRole,
   updatedAt: SELECTED_COLUMNS.updatedAt,
 } as const;
@@ -319,6 +365,20 @@ function selectRows({
 }) {
   const { page, pageSize, sortBy, sortOrder } = paginationSchema.parse(pagination ?? {});
   const offset = (page - 1) * pageSize;
+  const orderBy =
+    sortBy === "structuredScore"
+      ? [
+          asc(
+            sql`case when ${studioInterview.resumeReviewStatus} = 'ready'
+              and ${studioInterview.structuredCompositeScore} is not null
+              then 0 else 1 end`,
+          ),
+          asc(studioInterview.structuredGateSortRank),
+          desc(studioInterview.structuredCompositeScore),
+          asc(studioInterview.candidateName),
+          asc(studioInterview.id),
+        ]
+      : [buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder)];
 
   return db
     .select(LIST_SELECTED_COLUMNS)
@@ -339,7 +399,7 @@ function selectRows({
       ),
     )
     .where(buildWhere(organizationId, filters))
-    .orderBy(buildOrderBy(ORDER_COLUMNS, sortBy, sortOrder))
+    .orderBy(...orderBy)
     .limit(pageSize)
     .offset(offset);
 }
@@ -407,6 +467,20 @@ function buildResumeSkills(value: unknown) {
 function parseResumeScreeningResult(value: unknown) {
   const parsed = resumeScreeningResultSchema.safeParse(value);
   return parsed.success ? parsed.data : null;
+}
+
+function resolveResumeEvaluationArtifactMode(row: {
+  jobEvaluationMode: "legacy" | "structured" | null;
+  resumeReviewBaseScore: string | null;
+  structuredCompositeScore: number | null;
+}) {
+  if (row.jobEvaluationMode === "structured" && row.structuredCompositeScore !== null) {
+    return "structured" as const;
+  }
+  if (row.jobEvaluationMode === "legacy" && row.resumeReviewBaseScore !== null) {
+    return "legacy" as const;
+  }
+  return null;
 }
 
 // 批量组装 4 类派生字段，集中在一个函数里避免在分页行上重复 correlated subquery。
@@ -617,19 +691,30 @@ function toRecord(
     jobDescriptionDepartmentName: row.jobDescriptionDepartmentName,
     jobDescriptionId: row.jobDescriptionId,
     jobDescriptionName: row.jobDescriptionName,
+    jobEvaluationMode: row.jobEvaluationMode,
     lastInterviewAt: resolvedDerived.lastInterviewAt,
     notes: row.notes,
     outcome: row.outcome,
     pipelineStage: row.pipelineStage,
+    resumeEvaluationArtifactMode: resolveResumeEvaluationArtifactMode(row),
+    resumeEvaluationStatus: row.resumeEvaluationStatus,
     resumeFileName: row.resumeFileName,
     resumeParseStatus: row.resumeParseStatus,
     resumeProfileSnapshot: buildResumeProfileSnapshot(row),
     resumeReviewBaseScore: parseResumeReviewBaseScore(row.resumeReviewBaseScore),
+    resumeReviewError: row.resumeReviewError,
+    resumeReviewGeneratedAt: serializeDate(row.resumeReviewGeneratedAt),
     resumeReviewNextStepAction: parseResumeReviewNextStepAction(row.resumeReviewNextStepAction),
+    resumeReviewQueuedAt: serializeDate(row.resumeReviewQueuedAt),
+    resumeReviewRunId: row.resumeReviewRunId,
     resumeReviewStatus: row.resumeReviewStatus,
     resumeSkills: buildResumeSkills(row.resumeSkills),
     resumeSummary: row.resumeReviewConclusion ?? row.notes?.trim() ?? null,
     stageProgress: resolvedDerived.stageProgress,
+    structuredCompositeScore: row.structuredCompositeScore,
+    structuredGateSortRank: row.structuredGateSortRank,
+    structuredGateStatus: row.structuredGateStatus,
+    structuredScoreGrade: row.structuredScoreGrade,
     targetRole: row.targetRole,
     updatedAt: serializeDate(row.updatedAt),
   };
@@ -644,6 +729,8 @@ export async function queryPaginatedResumeRecords(
     jobDescriptionIds?: string[] | null;
     pipelineStages?: string[] | null;
     outcomes?: string[] | null;
+    structuredMaxScore?: number | null;
+    structuredMinScore?: number | null;
   },
   pagination?: Record<string, unknown>,
   visibilityScope?: RecruitingVisibilityScope,
@@ -651,6 +738,32 @@ export async function queryPaginatedResumeRecords(
 ): Promise<PaginatedResumeLibraryResult> {
   const parsedFilters = filtersSchema.parse(filters ?? {});
   const parsedPagination = paginationSchema.parse(pagination ?? {});
+  const requestsStructuredScores =
+    parsedPagination.sortBy === "structuredScore" ||
+    (parsedFilters.structuredMinScore !== null && parsedFilters.structuredMinScore !== undefined) ||
+    (parsedFilters.structuredMaxScore !== null && parsedFilters.structuredMaxScore !== undefined);
+  if (requestsStructuredScores) {
+    const selectedJobIds = [
+      ...new Set((parsedFilters.jobDescriptionIds ?? []).filter((id) => id.trim().length > 0)),
+    ];
+    if (selectedJobIds.length !== 1) {
+      throw new ResumeStructuredScoreQueryError("结构化评分排序或筛选必须且只能选择一个岗位。");
+    }
+    const [selectedJob] = await db
+      .select({ evaluationMode: jobDescription.evaluationMode })
+      .from(jobDescription)
+      .where(
+        and(
+          eq(jobDescription.id, selectedJobIds[0] as string),
+          eq(jobDescription.organizationId, organizationId),
+          eq(jobDescription.lifecycleStatus, "published"),
+        ),
+      )
+      .limit(1);
+    if (selectedJob?.evaluationMode !== "structured") {
+      throw new ResumeStructuredScoreQueryError("所选岗位不支持结构化评分排序或筛选。");
+    }
+  }
   const scopedCreatorIds = visibilityScope
     ? intersectRequestedCreatorIds(parsedFilters.creatorIds, visibilityScope)
     : parsedFilters.creatorIds;
@@ -716,6 +829,8 @@ export function listResumeRecords(
     jobDescriptionIds?: string[] | null;
     pipelineStages?: string[] | null;
     outcomes?: string[] | null;
+    structuredMaxScore?: number | null;
+    structuredMinScore?: number | null;
   },
   pagination?: Partial<Pagination>,
   visibilityScope?: RecruitingVisibilityScope,
@@ -775,6 +890,9 @@ export async function loadResumeDetail(
 
   const { interviewQuestions, resumeProfile, resumeReview, ...rest } = row;
   const resumeScreeningResult = parseResumeScreeningResult(rest.resumeScreeningResult);
+  const structuredEvaluation = structuredResumeEvaluationV1Schema.safeParse(
+    rest.structuredResumeEvaluation,
+  );
   const [derivedFields, duplicateMatches] = await Promise.all([
     loadResumeDerivedFields([rest.id]),
     listActiveDuplicateMatchCounts({
@@ -820,6 +938,7 @@ export async function loadResumeDetail(
       resumeScreeningResult.policyHash !== rest.jobDescriptionResumeScreeningPolicyHash,
     ),
     resumeScreeningStatus: rest.resumeScreeningStatus,
+    structuredResumeEvaluation: structuredEvaluation.success ? structuredEvaluation.data : null,
     writtenTestScheduledAt: serializeDate(rest.writtenTestScheduledAt),
     writtenTestScore: rest.writtenTestScore,
   };

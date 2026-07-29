@@ -9,6 +9,8 @@ export interface ResumeFilters extends Record<string, string> {
   skills: string;
   jdIds: string;
   stage: string;
+  structuredMaxScore: string;
+  structuredMinScore: string;
 }
 
 const resumeFiltersSchema = z.object({
@@ -16,6 +18,8 @@ const resumeFiltersSchema = z.object({
   jdIds: z.string(),
   skills: z.string(),
   stage: z.string(),
+  structuredMaxScore: z.string(),
+  structuredMinScore: z.string(),
 });
 
 const studioResumesInputSchema = workspaceDataGridInputSchema(resumeFiltersSchema).extend({

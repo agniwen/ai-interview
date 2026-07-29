@@ -245,6 +245,45 @@ function getResumeAvatarValue(record: ResumeLibraryListRecord) {
   return [record.candidateName, record.candidateEmail].filter(Boolean).join(" ") || record.id;
 }
 
+function describeStructuredReviewCard(record: ResumeLibraryListRecord): {
+  label: string;
+  tone: ResumeReviewActionTone;
+} {
+  if (record.resumeEvaluationStatus === "pass") {
+    return { label: "HR 已通过", tone: "success" };
+  }
+  if (record.resumeEvaluationStatus === "fail") {
+    return { label: "HR 未通过", tone: "danger" };
+  }
+  if (record.resumeReviewStatus === "queued" || record.resumeReviewStatus === "processing") {
+    return { label: "AI 评估中", tone: "muted" };
+  }
+  if (record.structuredGateStatus === "failed") {
+    return { label: "未通过门槛", tone: "danger" };
+  }
+  if (record.structuredGateStatus === "needs_verification") {
+    return { label: "门槛待核实", tone: "warning" };
+  }
+  if (record.structuredCompositeScore !== null) {
+    const gradeLabel = {
+      matched: "匹配",
+      recommended: "推荐",
+      unmatched: "不匹配",
+    }[record.structuredScoreGrade ?? "unmatched"];
+    let tone: ResumeReviewActionTone = "danger";
+    if (record.structuredScoreGrade === "recommended") {
+      tone = "success";
+    } else if (record.structuredScoreGrade === "matched") {
+      tone = "warning";
+    }
+    return {
+      label: `${gradeLabel} · ${record.structuredCompositeScore} 分`,
+      tone,
+    };
+  }
+  return { label: "待 AI 评估", tone: "muted" };
+}
+
 function ResumeCardMetaItem({
   children,
   className,
@@ -365,11 +404,14 @@ function ResumeLibraryCardComponent({
   const summary = record.resumeSummary;
   const canCopyLink = canCopyResumeDetailLink({ currentMemberRole, currentUserId, record });
   const { jobDescriptionId } = record;
-  const reviewCard = describeResumeLibraryReviewCard({
-    baseScore: record.resumeReviewBaseScore,
-    nextStepAction: record.resumeReviewNextStepAction,
-    status: record.resumeReviewStatus,
-  });
+  const reviewCard =
+    record.jobEvaluationMode === "structured"
+      ? describeStructuredReviewCard(record)
+      : describeResumeLibraryReviewCard({
+          baseScore: record.resumeReviewBaseScore,
+          nextStepAction: record.resumeReviewNextStepAction,
+          status: record.resumeReviewStatus,
+        });
   const jobDescriptionTextClass =
     "block w-full max-w-full min-w-0 truncate text-left underline decoration-transparent underline-offset-2 transition-colors hover:decoration-foreground/40";
   const toggleSelected = () => onSelectChange(record.id, !selected);
