@@ -52,6 +52,14 @@ export const jobDescriptionDraftAgent = new Agent({
   name: "JobDescriptionDraftAgent",
 });
 
+export const jobEvaluationBlueprintAgent = new Agent({
+  id: "job-evaluation-blueprint-agent",
+  instructions: "你是岗位评估蓝图编译助手，只提取有原文依据的结构化要求。",
+  maxRetries: 1,
+  model: mastraModels.structuredModel,
+  name: "JobEvaluationBlueprintAgent",
+});
+
 export const interviewQuestionAgent = new Agent({
   id: "interview-question-agent",
   instructions: "你是技术面试出题助手，负责根据岗位、简历和 HR 指令生成结构化面试题。",
