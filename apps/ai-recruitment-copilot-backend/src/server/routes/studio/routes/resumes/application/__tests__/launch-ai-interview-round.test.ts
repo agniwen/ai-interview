@@ -4,22 +4,14 @@ import {
   LaunchAiInterviewMutationError,
 } from "../launch-ai-interview-round";
 
-const candidate = {
-  jobDescriptionId: "jd_1",
-  pipelineStage: "screening" as const,
-  resumeParseStatus: "ready" as const,
-};
-
 const schedule = { id: "round_1", roundLabel: "AI 面试" };
 
 const deps = {
-  buildSchedule: vi.fn(() => schedule),
+  buildSchedule: vi.fn<() => typeof schedule | null>(() => schedule),
   clock: { now: vi.fn(() => new Date("2026-07-12T00:00:00.000Z")) },
-  commit: vi.fn(),
-  createSnapshot: vi.fn(),
   idGenerator: { next: vi.fn() },
   invalidateCache: vi.fn(),
-  loadCandidate: vi.fn(),
+  persist: vi.fn(),
 };
 
 const command = {
@@ -33,60 +25,49 @@ const command = {
 describe("launchAiInterviewRound", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    deps.loadCandidate.mockResolvedValue(candidate);
-    deps.commit.mockImplementation(() => Promise.resolve());
-    deps.createSnapshot.mockImplementation(() => Promise.resolve());
-    deps.idGenerator.next.mockReturnValueOnce("round_1").mockReturnValueOnce("audit_1");
+    deps.idGenerator.next
+      .mockReturnValueOnce("round_1")
+      .mockReturnValueOnce("decision_audit_1")
+      .mockReturnValueOnce("launch_audit_1");
+    deps.persist.mockResolvedValue({ ok: true, roundId: "round_1" });
   });
 
-  it("returns not_found without starting the write workflow", async () => {
-    deps.loadCandidate.mockResolvedValue(null);
-
+  it("delegates all durable work to one persistence boundary", async () => {
     const result = await createLaunchAiInterviewRound(deps)(command);
 
-    expect(result).toEqual({ ok: false, reason: "not_found" });
-    expect(deps.commit).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true, roundId: "round_1" });
+    expect(deps.persist).toHaveBeenCalledTimes(1);
+    expect(deps.persist).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: "user_1",
+        decisionAuditLogId: "decision_audit_1",
+        launchAuditLogId: "launch_audit_1",
+        schedule,
+      }),
+    );
+    expect(deps.invalidateCache).toHaveBeenCalledWith("org_1");
   });
 
-  it("rejects a candidate that has already reached a later stage", async () => {
-    deps.loadCandidate.mockResolvedValue({ ...candidate, pipelineStage: "human_interview" });
+  it("returns a locked persistence conflict without invalidating", async () => {
+    deps.persist.mockResolvedValue({ ok: false, reason: "stage_conflict" });
 
     const result = await createLaunchAiInterviewRound(deps)(command);
 
     expect(result).toEqual({ ok: false, reason: "stage_conflict" });
-    expect(deps.commit).not.toHaveBeenCalled();
+    expect(deps.invalidateCache).not.toHaveBeenCalled();
   });
 
-  it("commits, snapshots, then invalidates after a successful launch", async () => {
-    const calls: string[] = [];
-    deps.commit.mockImplementation(() => {
-      calls.push("commit");
-      return Promise.resolve();
-    });
-    deps.createSnapshot.mockImplementation(() => {
-      calls.push("snapshot");
-      return Promise.resolve();
-    });
-    deps.invalidateCache.mockImplementation(() => calls.push("invalidate"));
+  it("does not enter persistence when a round cannot be prepared", async () => {
+    deps.buildSchedule.mockReturnValueOnce(null);
 
     const result = await createLaunchAiInterviewRound(deps)(command);
 
-    expect(result).toEqual({ ok: true, roundId: "round_1" });
-    expect(calls).toEqual(["commit", "snapshot", "invalidate"]);
-    expect(deps.commit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        actorId: "user_1",
-        auditLogId: "audit_1",
-        interviewRecordId: "record_1",
-        jobDescriptionId: "jd_1",
-        organizationId: "org_1",
-        schedule,
-      }),
-    );
+    expect(result).toEqual({ ok: false, reason: "round_not_created" });
+    expect(deps.persist).not.toHaveBeenCalled();
   });
 
-  it("does not invalidate when the post-commit snapshot fails", async () => {
-    deps.createSnapshot.mockRejectedValue(new Error("snapshot failed"));
+  it("wraps any transactional failure and does not invalidate", async () => {
+    deps.persist.mockRejectedValue(new Error("snapshot failed"));
 
     await expect(createLaunchAiInterviewRound(deps)(command)).rejects.toBeInstanceOf(
       LaunchAiInterviewMutationError,

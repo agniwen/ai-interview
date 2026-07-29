@@ -1,14 +1,5 @@
 import type { ResumeAnalysisResult } from "@arc/db-schema/interview/types";
-import type { PipelineStage, ResumeParseStatus } from "@arc/db-schema/studio-interviews";
-import { canApplyCandidatePipelineEvent } from "@arc/shared/candidate-pipeline-machine";
-import { canLaunchInterviewFromResume } from "@arc/shared/studio-resumes";
 import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
-
-interface LaunchCandidate {
-  jobDescriptionId: string | null;
-  pipelineStage: PipelineStage;
-  resumeParseStatus: ResumeParseStatus;
-}
 
 interface LaunchSchedule {
   id: string;
@@ -23,11 +14,11 @@ export interface LaunchAiInterviewRoundCommand {
   visibilityScope: RecruitingVisibilityScope;
 }
 
-interface CommitLaunchInput<
+export interface PersistLaunchInput<
   TSchedule extends LaunchSchedule,
 > extends LaunchAiInterviewRoundCommand {
-  auditLogId: string;
-  jobDescriptionId: string | null;
+  decisionAuditLogId: string;
+  launchAuditLogId: string;
   now: Date;
   schedule: TSchedule;
 }
@@ -41,19 +32,9 @@ interface LaunchAiInterviewRoundDependencies<TSchedule extends LaunchSchedule> {
     roundId: string;
   }) => TSchedule | null;
   clock: { now: () => Date };
-  commit: (input: CommitLaunchInput<TSchedule>) => Promise<void>;
-  createSnapshot: (input: {
-    actorId: string;
-    interviewRecordId: string;
-    scheduleEntryId: string;
-  }) => Promise<void>;
-  invalidateCache: (organizationId: string) => void;
   idGenerator: { next: () => string };
-  loadCandidate: (input: {
-    interviewRecordId: string;
-    organizationId: string;
-    visibilityScope: RecruitingVisibilityScope;
-  }) => Promise<LaunchCandidate | null>;
+  invalidateCache: (organizationId: string) => void;
+  persist: (input: PersistLaunchInput<TSchedule>) => Promise<LaunchAiInterviewRoundResult>;
 }
 
 export type LaunchAiInterviewRoundResult =
@@ -84,29 +65,6 @@ export function createLaunchAiInterviewRound<TSchedule extends LaunchSchedule>(
   return async function launchAiInterviewRound(
     command: LaunchAiInterviewRoundCommand,
   ): Promise<LaunchAiInterviewRoundResult> {
-    const candidate = await deps.loadCandidate({
-      interviewRecordId: command.interviewRecordId,
-      organizationId: command.organizationId,
-      visibilityScope: command.visibilityScope,
-    });
-    if (!candidate) {
-      return { ok: false, reason: "not_found" };
-    }
-    if (candidate.pipelineStage === "closed") {
-      return { ok: false, reason: "closed_candidate" };
-    }
-    if (
-      !canApplyCandidatePipelineEvent(
-        { humanInterviewReadyForOffer: false, stage: candidate.pipelineStage },
-        { type: "START_AI_INTERVIEW" },
-      )
-    ) {
-      return { ok: false, reason: "stage_conflict" };
-    }
-    if (!canLaunchInterviewFromResume(candidate.resumeParseStatus)) {
-      return { ok: false, reason: "resume_not_ready" };
-    }
-
     const now = deps.clock.now();
     const schedule = deps.buildSchedule({
       actorId: command.actorId,
@@ -119,24 +77,21 @@ export function createLaunchAiInterviewRound<TSchedule extends LaunchSchedule>(
       return { ok: false, reason: "round_not_created" };
     }
 
+    let result: LaunchAiInterviewRoundResult;
     try {
-      await deps.commit({
+      result = await deps.persist({
         ...command,
-        auditLogId: deps.idGenerator.next(),
-        jobDescriptionId: candidate.jobDescriptionId,
+        decisionAuditLogId: deps.idGenerator.next(),
+        launchAuditLogId: deps.idGenerator.next(),
         now,
         schedule,
-      });
-      await deps.createSnapshot({
-        actorId: command.actorId,
-        interviewRecordId: command.interviewRecordId,
-        scheduleEntryId: schedule.id,
       });
     } catch (error) {
       throw new LaunchAiInterviewMutationError(error);
     }
-    deps.invalidateCache(command.organizationId);
-
-    return { ok: true, roundId: schedule.id };
+    if (result.ok) {
+      deps.invalidateCache(command.organizationId);
+    }
+    return result;
   };
 }

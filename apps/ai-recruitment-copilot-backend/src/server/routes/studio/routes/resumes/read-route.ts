@@ -521,10 +521,22 @@ export const resumeLibraryReadRouter = factory
             return c.json({ error: "记录不存在。" }, 404);
           }
           case "closed_candidate": {
-            return c.json({ error: "候选人已结案，请先「重新激活」后再发起 AI 面试。" }, 409);
+            return c.json(
+              {
+                code: "AI_INTERVIEW_STAGE_CONFLICT",
+                error: "候选人已结案，请先「重新激活」后再发起 AI 面试。",
+              },
+              409,
+            );
           }
           case "stage_conflict": {
-            return c.json({ error: "候选人已进入后续招聘阶段，不能再发起 AI 面试。" }, 409);
+            return c.json(
+              {
+                code: "AI_INTERVIEW_STAGE_CONFLICT",
+                error: "候选人已进入后续招聘阶段，不能再发起 AI 面试。",
+              },
+              409,
+            );
           }
           case "resume_not_ready": {
             return c.json({ error: "简历解析完成后才能发起 AI 面试。" }, 409);

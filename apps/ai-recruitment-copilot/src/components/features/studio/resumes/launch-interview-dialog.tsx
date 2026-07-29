@@ -23,6 +23,16 @@ import { AnimatedHeight } from "@/components/features/motion/animated-height";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Modal } from "@/components/ui/modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { env } from "@/env/client";
@@ -42,6 +52,13 @@ interface LaunchFormValues {
 }
 
 const EMPTY_FORM_VALUES: LaunchFormValues = { interviewQuestions: [] };
+
+export function requiresStructuredLaunchConfirmation(detail: ResumeLibraryDetail | null): boolean {
+  return (
+    detail?.jobEvaluationMode === "structured" &&
+    (detail.structuredGateStatus === "failed" || detail.structuredScoreGrade === "unmatched")
+  );
+}
 
 // 招聘台的「发起 AI 面试」只编辑题目，所以走最小化的 useForm；不要复用
 // AI 面试侧的 useInterviewForm —— 它绑了 studioInterviewClientFormSchema，
@@ -132,10 +149,12 @@ export function LaunchInterviewDialog({
   // 解析阶段没有简历 PDF 可用或自动出题关闭时给出可见的兜底说明。
   // Banner shown when generation is unavailable or disabled.
   const [questionGenerationNotice, setQuestionGenerationNotice] = useState<string | null>(null);
+  const [advisoryConfirmationOpen, setAdvisoryConfirmationOpen] = useState(false);
   // 默认停在「面试题」tab；用户可手动切到概览 / 经历查看候选人上下文。
   // Default to the questions tab; users can flip to overview / experience.
   const [activeTab, setActiveTab] = useState<"questions" | "overview" | "experience">("questions");
   const abortControllerRef = useRef<AbortController | null>(null);
+  const advisoryConfirmedRef = useRef(false);
   const onLaunchedRef = useRef(onLaunched);
 
   useEffect(() => {
@@ -148,6 +167,12 @@ export function LaunchInterviewDialog({
       if (!recordId) {
         return;
       }
+      const requiresAdvisoryConfirmation = requiresStructuredLaunchConfirmation(resumeDetail);
+      if (requiresAdvisoryConfirmation && !advisoryConfirmedRef.current) {
+        setAdvisoryConfirmationOpen(true);
+        return;
+      }
+      advisoryConfirmedRef.current = false;
       setSubmitting(true);
       await runAsyncAction({
         cleanup: () => setSubmitting(false),
@@ -179,6 +204,8 @@ export function LaunchInterviewDialog({
     abortControllerRef.current = abortController;
     setQuestionGenerationNotice(null);
     setResumeDetail(null);
+    setAdvisoryConfirmationOpen(false);
+    advisoryConfirmedRef.current = false;
     setActiveTab("questions");
     form.reset(EMPTY_FORM_VALUES);
 
@@ -236,150 +263,174 @@ export function LaunchInterviewDialog({
   const isBusy = isGenerating || submitting;
 
   return (
-    // 与招聘台详情弹窗对齐：Tabs 包住整个 Modal，TabsList 放进 headerExtra；
-    // TabsContent 走 AnimatedHeight，切换时高度平滑过渡。
-    // Mirror the detail dialog: Tabs wraps Modal, TabsList sits in headerExtra,
-    // and AnimatedHeight gives the body a smooth height transition on switch.
-    <Tabs
-      key={recordId ?? "empty"}
-      onValueChange={(value) => setActiveTab(value as "questions" | "overview" | "experience")}
-      value={activeTab}
-    >
-      <Modal
-        description={
-          candidateName
-            ? `为 ${candidateName} 生成面试题并发起 AI 面试`
-            : "生成面试题并发起 AI 面试"
-        }
-        dismissible={!isBusy}
-        headerExtra={
-          // 与详情弹窗 headerExtra 结构对齐：外层 flex row 让 TabsList 在桌面
-          // 端按内容自适应；不裸放 TabsList，否则 Modal 的 stack 列容器会把
-          // 它拉满宽度。
-          // Mirror the detail dialog's headerExtra wrapper so the desktop row
-          // sizes TabsList to its content. Rendering TabsList bare inside the
-          // modal's stack-mode column would stretch it to 100% width.
-          <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-            {/* 生成面试题期间锁住所有 tab，避免用户切到「概览/经历」时面试题
+    <>
+      // 与招聘台详情弹窗对齐：Tabs 包住整个 Modal，TabsList 放进 headerExtra； // TabsContent 走
+      AnimatedHeight，切换时高度平滑过渡。 // Mirror the detail dialog: Tabs wraps Modal, TabsList
+      sits in headerExtra, // and AnimatedHeight gives the body a smooth height transition on
+      switch.
+      <Tabs
+        key={recordId ?? "empty"}
+        onValueChange={(value) => setActiveTab(value as "questions" | "overview" | "experience")}
+        value={activeTab}
+      >
+        <Modal
+          description={
+            candidateName
+              ? `为 ${candidateName} 生成面试题并发起 AI 面试`
+              : "生成面试题并发起 AI 面试"
+          }
+          dismissible={!isBusy}
+          headerExtra={
+            // 与详情弹窗 headerExtra 结构对齐：外层 flex row 让 TabsList 在桌面
+            // 端按内容自适应；不裸放 TabsList，否则 Modal 的 stack 列容器会把
+            // 它拉满宽度。
+            // Mirror the detail dialog's headerExtra wrapper so the desktop row
+            // sizes TabsList to its content. Rendering TabsList bare inside the
+            // modal's stack-mode column would stretch it to 100% width.
+            <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+              {/* 生成面试题期间锁住所有 tab，避免用户切到「概览/经历」时面试题
                 还没准备好，回来一脸空 list；overlay 已经覆盖 body，禁用 tab
                 让锁定看起来一致。
                 Lock all tabs during question generation so the user can't slip
                 away mid-stream — the overlay already blocks the body, this
                 keeps the header consistent. */}
-            <TabsList className="mt-0 w-full sm:w-auto">
-              <TabsTrigger
-                className="flex-1 sm:min-w-[6em] sm:flex-none"
-                disabled={isGenerating}
-                value="questions"
-              >
-                面试题
-              </TabsTrigger>
-              <TabsTrigger
-                className="flex-1 sm:min-w-[6em] sm:flex-none"
-                disabled={isGenerating || !resumeDetail}
-                value="overview"
-              >
-                概览
-              </TabsTrigger>
-              <TabsTrigger
-                className="flex-1 sm:min-w-[6em] sm:flex-none"
-                disabled={isGenerating || !resumeDetail}
-                value="experience"
-              >
-                经历
-              </TabsTrigger>
-            </TabsList>
-          </div>
-        }
-        onOpenChange={(next) => {
-          if (!next && isBusy) {
-            return;
+              <TabsList className="mt-0 w-full sm:w-auto">
+                <TabsTrigger
+                  className="flex-1 sm:min-w-[6em] sm:flex-none"
+                  disabled={isGenerating}
+                  value="questions"
+                >
+                  面试题
+                </TabsTrigger>
+                <TabsTrigger
+                  className="flex-1 sm:min-w-[6em] sm:flex-none"
+                  disabled={isGenerating || !resumeDetail}
+                  value="overview"
+                >
+                  概览
+                </TabsTrigger>
+                <TabsTrigger
+                  className="flex-1 sm:min-w-[6em] sm:flex-none"
+                  disabled={isGenerating || !resumeDetail}
+                  value="experience"
+                >
+                  经历
+                </TabsTrigger>
+              </TabsList>
+            </div>
           }
-          onOpenChange(next);
-        }}
-        open={open}
-        showCloseButton={!isBusy}
-        size="lg"
-        title="发起 AI 面试"
-        footer={
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-            <Button
-              disabled={isBusy}
-              onClick={() => onOpenChange(false)}
-              type="button"
-              variant="outline"
-            >
-              取消
-            </Button>
-            <Button disabled={isBusy} onClick={() => void form.handleSubmit()} type="button">
-              {submitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
-              发起
-            </Button>
-          </div>
-        }
-      >
-        <div className="relative">
-          <AnimatedHeight>
-            <TabsContent value="questions">
-              {questionGenerationNotice ? (
-                <Card className="mb-3 gap-0 rounded-md py-0">
-                  <CardContent className="bg-muted/40 px-3 py-2 text-muted-foreground text-xs">
-                    {questionGenerationNotice}
+          onOpenChange={(next) => {
+            if (!next && isBusy) {
+              return;
+            }
+            onOpenChange(next);
+          }}
+          open={open}
+          showCloseButton={!isBusy}
+          size="lg"
+          title="发起 AI 面试"
+          footer={
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button
+                disabled={isBusy}
+                onClick={() => onOpenChange(false)}
+                type="button"
+                variant="outline"
+              >
+                取消
+              </Button>
+              <Button disabled={isBusy} onClick={() => void form.handleSubmit()} type="button">
+                {submitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
+                发起
+              </Button>
+            </div>
+          }
+        >
+          <div className="relative">
+            <AnimatedHeight>
+              <TabsContent value="questions">
+                {questionGenerationNotice ? (
+                  <Card className="mb-3 gap-0 rounded-md py-0">
+                    <CardContent className="bg-muted/40 px-3 py-2 text-muted-foreground text-xs">
+                      {questionGenerationNotice}
+                    </CardContent>
+                  </Card>
+                ) : null}
+                <SortableQuestionListEditor
+                  arrayFieldName="interviewQuestions"
+                  contentFieldName="question"
+                  contentPlaceholder="输入面试题目"
+                  createItem={(sortIndex) => ({
+                    difficulty: "easy",
+                    evaluationFocus: "",
+                    followUpDirections: "",
+                    order: sortIndex + 1,
+                    question: "",
+                  })}
+                  disabled={isBusy}
+                  emptyDescription={
+                    env.NEXT_PUBLIC_ENABLE_CANDIDATE_SPECIFIC_INTERVIEW_QUESTIONS
+                      ? "生成完成后会自动填入，也可以手动添加。"
+                      : "自动生成已关闭，可以手动添加，也可以留空直接发起。"
+                  }
+                  emptyTitle="暂无面试题"
+                  form={form}
+                  resetKey={recordId ?? "new"}
+                />
+              </TabsContent>
+
+              <TabsContent value="overview">
+                {resumeDetail ? <ResumeOverviewPanel detail={resumeDetail} /> : null}
+              </TabsContent>
+
+              <TabsContent value="experience">
+                <Card className="gap-0 rounded-2xl border-border bg-background py-0">
+                  <CardContent className="p-5">
+                    <ResumeProfileView profile={resumeDetail?.resumeProfile ?? null} />
                   </CardContent>
                 </Card>
-              ) : null}
-              <SortableQuestionListEditor
-                arrayFieldName="interviewQuestions"
-                contentFieldName="question"
-                contentPlaceholder="输入面试题目"
-                createItem={(sortIndex) => ({
-                  difficulty: "easy",
-                  evaluationFocus: "",
-                  followUpDirections: "",
-                  order: sortIndex + 1,
-                  question: "",
-                })}
-                disabled={isBusy}
-                emptyDescription={
-                  env.NEXT_PUBLIC_ENABLE_CANDIDATE_SPECIFIC_INTERVIEW_QUESTIONS
-                    ? "生成完成后会自动填入，也可以手动添加。"
-                    : "自动生成已关闭，可以手动添加，也可以留空直接发起。"
-                }
-                emptyTitle="暂无面试题"
-                form={form}
-                resetKey={recordId ?? "new"}
-              />
-            </TabsContent>
+              </TabsContent>
+            </AnimatedHeight>
 
-            <TabsContent value="overview">
-              {resumeDetail ? <ResumeOverviewPanel detail={resumeDetail} /> : null}
-            </TabsContent>
-
-            <TabsContent value="experience">
-              <Card className="gap-0 rounded-2xl border-border bg-background py-0">
-                <CardContent className="p-5">
-                  <ResumeProfileView profile={resumeDetail?.resumeProfile ?? null} />
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </AnimatedHeight>
-
-          {isGenerating ? (
-            <m.div
-              animate={{ opacity: 1 }}
-              className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 overflow-y-auto bg-background/85 px-6 py-8 backdrop-blur-sm"
-              initial={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
+            {isGenerating ? (
+              <m.div
+                animate={{ opacity: 1 }}
+                className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 overflow-y-auto bg-background/85 px-6 py-8 backdrop-blur-sm"
+                initial={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <IconLoader2 className="size-7 animate-spin text-muted-foreground" />
+                <p className="font-medium text-foreground text-sm">正在生成面试题…</p>
+                <p className="text-muted-foreground text-xs">
+                  生成完成后可在下方继续编辑，再点「发起」入库。
+                </p>
+              </m.div>
+            ) : null}
+          </div>
+        </Modal>
+      </Tabs>
+      <AlertDialog onOpenChange={setAdvisoryConfirmationOpen} open={advisoryConfirmationOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>仍要发起 AI 面试？</AlertDialogTitle>
+            <AlertDialogDescription>
+              AI 评估显示候选人未通过门槛或综合等级为不匹配。该结果仅供参考，HR
+              可继续发起面试，发起后最终筛选状态将记为通过。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                advisoryConfirmedRef.current = true;
+                void form.handleSubmit();
+              }}
             >
-              <IconLoader2 className="size-7 animate-spin text-muted-foreground" />
-              <p className="font-medium text-foreground text-sm">正在生成面试题…</p>
-              <p className="text-muted-foreground text-xs">
-                生成完成后可在下方继续编辑，再点「发起」入库。
-              </p>
-            </m.div>
-          ) : null}
-        </div>
-      </Modal>
-    </Tabs>
+              确认发起
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

@@ -1,12 +1,14 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { invalidateStudioInterviewCaches } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import { buildScheduleRows } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
-import { loadOrCreateActiveInterviewContextSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
 import { autoBindApplicableTemplates } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/bindings";
-import { loadResumeDetail } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
+import { refreshInterviewContextSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
+import { setResumeEvaluationStatusWithAuditTx } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/evaluation";
 import { interviewAuditLog, studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
 import { createDefaultScheduleEntry } from "@arc/db-schema/studio-interviews";
+import { canApplyCandidatePipelineEvent } from "@arc/shared/candidate-pipeline-machine";
+import { canLaunchInterviewFromResume } from "@arc/shared/studio-resumes";
 import { createLaunchAiInterviewRound } from "./launch-ai-interview-round";
 
 export const launchAiInterviewRound = createLaunchAiInterviewRound({
@@ -22,27 +24,114 @@ export const launchAiInterviewRound = createLaunchAiInterviewRound({
     return schedule ?? null;
   },
   clock: { now: () => new Date() },
-  commit: async ({
+  idGenerator: { next: () => crypto.randomUUID() },
+  invalidateCache: invalidateStudioInterviewCaches,
+  persist: ({
     actorId,
-    auditLogId,
+    decisionAuditLogId,
     interviewQuestions,
     interviewRecordId,
-    jobDescriptionId,
+    launchAuditLogId,
     now,
     organizationId,
     schedule,
-  }) => {
-    await db.transaction(async (tx) => {
-      await tx
-        .update(studioInterview)
-        .set({ interviewQuestions, pipelineStage: "ai_interview", updatedAt: now })
+    visibilityScope,
+  }) =>
+    db.transaction(async (tx) => {
+      const visibilityCondition =
+        visibilityScope.kind === "restricted"
+          ? inArray(studioInterview.createdBy, visibilityScope.userIds)
+          : undefined;
+      if (visibilityScope.kind === "none") {
+        return { ok: false as const, reason: "not_found" as const };
+      }
+
+      const [candidate] = await tx
+        .select({
+          jobDescriptionId: studioInterview.jobDescriptionId,
+          pipelineStage: studioInterview.pipelineStage,
+          resumeEvaluationStatus: studioInterview.resumeEvaluationStatus,
+          resumeParseStatus: studioInterview.resumeParseStatus,
+        })
+        .from(studioInterview)
         .where(
           and(
             eq(studioInterview.id, interviewRecordId),
             eq(studioInterview.organizationId, organizationId),
+            visibilityCondition,
+          ),
+        )
+        .limit(1)
+        .for("update");
+      if (!candidate) {
+        return { ok: false as const, reason: "not_found" as const };
+      }
+      if (candidate.pipelineStage === "closed") {
+        return { ok: false as const, reason: "closed_candidate" as const };
+      }
+      if (
+        !canApplyCandidatePipelineEvent(
+          {
+            humanInterviewReadyForOffer: false,
+            stage: candidate.pipelineStage,
+          },
+          { type: "START_AI_INTERVIEW" },
+        )
+      ) {
+        return { ok: false as const, reason: "stage_conflict" as const };
+      }
+      if (!canLaunchInterviewFromResume(candidate.resumeParseStatus)) {
+        return { ok: false as const, reason: "resume_not_ready" as const };
+      }
+
+      const [activeRound] = await tx
+        .select({ id: studioInterviewSchedule.id })
+        .from(studioInterviewSchedule)
+        .where(
+          and(
+            eq(studioInterviewSchedule.interviewRecordId, interviewRecordId),
+            eq(studioInterviewSchedule.organizationId, organizationId),
+            inArray(studioInterviewSchedule.status, ["pending", "in_progress", "interrupted"]),
+          ),
+        )
+        .limit(1);
+      if (activeRound) {
+        return { ok: false as const, reason: "stage_conflict" as const };
+      }
+
+      await tx.insert(studioInterviewSchedule).values(schedule);
+      await setResumeEvaluationStatusWithAuditTx(tx, {
+        auditLogId: decisionAuditLogId,
+        auditUnchanged: true,
+        currentStatus: candidate.resumeEvaluationStatus,
+        id: interviewRecordId,
+        now,
+        operatorId: actorId,
+        organizationId,
+        status: "pass",
+      });
+      await tx
+        .update(studioInterview)
+        .set({
+          interviewQuestions,
+          pipelineStage: "ai_interview",
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(studioInterview.id, interviewRecordId),
+            eq(studioInterview.organizationId, organizationId),
+            visibilityCondition,
           ),
         );
-      await tx.insert(studioInterviewSchedule).values(schedule);
+      await autoBindApplicableTemplates(tx, interviewRecordId, candidate.jobDescriptionId);
+      await refreshInterviewContextSnapshot(tx, {
+        createdAt: now,
+        createdBy: actorId,
+        interviewRecordId,
+        reason: "create",
+        scheduleEntryId: schedule.id,
+      });
       await tx.insert(interviewAuditLog).values({
         action: "ai_interview_launched",
         createdAt: now,
@@ -51,25 +140,13 @@ export const launchAiInterviewRound = createLaunchAiInterviewRound({
           roundId: schedule.id,
           roundLabel: schedule.roundLabel,
         },
-        id: auditLogId,
+        id: launchAuditLogId,
         interviewRecordId,
         operatorId: actorId,
         organizationId,
         scheduleEntryId: schedule.id,
       });
-      await autoBindApplicableTemplates(tx, interviewRecordId, jobDescriptionId);
-    });
-  },
-  createSnapshot: async ({ actorId, interviewRecordId, scheduleEntryId }) => {
-    await loadOrCreateActiveInterviewContextSnapshot({
-      createdBy: actorId,
-      interviewRecordId,
-      reason: "create",
-      scheduleEntryId,
-    });
-  },
-  idGenerator: { next: () => crypto.randomUUID() },
-  invalidateCache: invalidateStudioInterviewCaches,
-  loadCandidate: ({ interviewRecordId, organizationId, visibilityScope }) =>
-    loadResumeDetail(interviewRecordId, organizationId, visibilityScope),
+
+      return { ok: true as const, roundId: schedule.id };
+    }),
 });
