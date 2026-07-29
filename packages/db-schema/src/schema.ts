@@ -32,6 +32,11 @@ import type { InterviewKeyInformation } from "./interview-key-information";
 import type { InterviewTranscriptTurn } from "./interview-session";
 import type { InterviewQuestion, ResumeProfile } from "./interview/types";
 import type { JobDescriptionConfig } from "./job-description-config";
+import type {
+  JobEvaluationBlueprint,
+  JobEvaluationMode,
+  JobLifecycleStatus,
+} from "./job-description-evaluation";
 import type { JobDescriptionStructuredConfig } from "./job-description-structured-config";
 import { createDefaultJobDescriptionStructuredConfig } from "./job-description-structured-config";
 import type { MinimaxVoiceId } from "./minimax-voices";
@@ -54,6 +59,11 @@ import type {
 } from "./studio-interviews";
 import type { ResumeParserStructured } from "./resume-parser-schema";
 import type { ResumeReview } from "./resume-review";
+import type {
+  StructuredResumeEvaluationV1,
+  StructuredResumeGateStatus,
+  StructuredResumeGrade,
+} from "./structured-resume-evaluation";
 import { sql } from "drizzle-orm";
 import {
   bigserial,
@@ -510,6 +520,13 @@ export const studioInterview = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
+    structuredCompositeScore: integer("structured_composite_score"),
+    structuredGateSortRank: integer("structured_gate_sort_rank"),
+    structuredGateStatus: text("structured_gate_status").$type<StructuredResumeGateStatus>(),
+    structuredResumeEvaluation: jsonb(
+      "structured_resume_evaluation",
+    ).$type<StructuredResumeEvaluationV1 | null>(),
+    structuredScoreGrade: text("structured_score_grade").$type<StructuredResumeGrade>(),
     targetRole: text("target_role"),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
@@ -551,6 +568,39 @@ export const studioInterview = pgTable(
     index("studio_interview_skills_normalized_idx")
       .using("gin", table.skillsNormalized)
       .concurrently(),
+    check(
+      "studio_interview_structured_evaluation_complete_check",
+      sql`(
+        ${table.structuredResumeEvaluation} IS NULL
+        AND ${table.structuredCompositeScore} IS NULL
+        AND ${table.structuredScoreGrade} IS NULL
+        AND ${table.structuredGateStatus} IS NULL
+        AND ${table.structuredGateSortRank} IS NULL
+      ) OR (
+        ${table.structuredResumeEvaluation} IS NOT NULL
+        AND ${table.structuredCompositeScore} BETWEEN 0 AND 100
+        AND ${table.structuredScoreGrade} IN ('recommended', 'matched', 'unmatched')
+        AND ${table.structuredGateStatus} IN ('passed', 'needs_verification', 'failed')
+        AND ${table.structuredGateSortRank} IN (0, 1, 2)
+      )`,
+    ),
+    check(
+      "studio_interview_structured_gate_rank_check",
+      sql`(${table.structuredGateStatus}, ${table.structuredGateSortRank}) IN (
+        ('passed', 0),
+        ('needs_verification', 1),
+        ('failed', 2)
+      ) OR (
+        ${table.structuredGateStatus} IS NULL
+        AND ${table.structuredGateSortRank} IS NULL
+      )`,
+    ),
+    index("studio_interview_structured_job_order_idx").on(
+      table.organizationId,
+      table.jobDescriptionId,
+      table.structuredGateSortRank.asc(),
+      table.structuredCompositeScore.desc(),
+    ),
   ],
 );
 
@@ -691,16 +741,36 @@ export const jobDescription = pgTable(
     code: text("code"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    deductionRuleSetVersion: integer("deduction_rule_set_version"),
     departmentId: text("department_id")
       .notNull()
       .references(() => department.id, { onDelete: "restrict" }),
     description: text("description"),
+    evaluationBlueprint: jsonb("evaluation_blueprint").$type<JobEvaluationBlueprint | null>(),
+    evaluationBlueprintHash: text("evaluation_blueprint_hash"),
+    evaluationBlueprintPreview: jsonb(
+      "evaluation_blueprint_preview",
+    ).$type<JobEvaluationBlueprint | null>(),
+    evaluationBlueprintPreviewGeneratedAt: timestamp("evaluation_blueprint_preview_generated_at", {
+      withTimezone: true,
+    }),
+    evaluationBlueprintPreviewHash: text("evaluation_blueprint_preview_hash"),
+    evaluationBlueprintPreviewInputHash: text("evaluation_blueprint_preview_input_hash"),
+    evaluationBlueprintSchemaVersion: integer("evaluation_blueprint_schema_version"),
+    evaluationMode: text("evaluation_mode")
+      .$type<JobEvaluationMode>()
+      .notNull()
+      .default("structured"),
     feishuChatBoundAt: timestamp("feishu_chat_bound_at", { withTimezone: true }),
     feishuChatBoundBy: text("feishu_chat_bound_by").references(() => user.id, {
       onDelete: "set null",
     }),
     feishuChatId: text("feishu_chat_id"),
     id: text("id").primaryKey(),
+    lifecycleStatus: text("lifecycle_status")
+      .$type<JobLifecycleStatus>()
+      .notNull()
+      .default("draft"),
     name: text("name").notNull(),
     organizationId: text("organization_id")
       .notNull()
@@ -709,6 +779,7 @@ export const jobDescription = pgTable(
       }),
     presetQuestions: jsonb("preset_questions").$type<string[]>().notNull().default([]),
     prompt: text("prompt").notNull(),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
     resumeScreeningPolicy: jsonb("resume_screening_policy").$type<Record<string, unknown> | null>(),
     resumeScreeningPolicyHash: text("resume_screening_policy_hash"),
     resumeScreeningPolicyVersion: integer("resume_screening_policy_version").notNull().default(1),
@@ -729,6 +800,63 @@ export const jobDescription = pgTable(
     uniqueIndex("job_description_org_code_uq")
       .on(table.organizationId, table.code)
       .where(sql`${table.code} IS NOT NULL`),
+    check(
+      "job_description_evaluation_mode_check",
+      sql`${table.evaluationMode} IN ('legacy', 'structured')`,
+    ),
+    check(
+      "job_description_lifecycle_status_check",
+      sql`${table.lifecycleStatus} IN ('draft', 'published')`,
+    ),
+    check(
+      "job_description_evaluation_lifecycle_check",
+      sql`(
+        ${table.evaluationMode} = 'legacy'
+        AND ${table.lifecycleStatus} = 'published'
+        AND ${table.publishedAt} IS NOT NULL
+        AND ${table.evaluationBlueprintPreview} IS NULL
+        AND ${table.evaluationBlueprintPreviewInputHash} IS NULL
+        AND ${table.evaluationBlueprintPreviewHash} IS NULL
+        AND ${table.evaluationBlueprintPreviewGeneratedAt} IS NULL
+        AND ${table.evaluationBlueprint} IS NULL
+        AND ${table.evaluationBlueprintHash} IS NULL
+        AND ${table.evaluationBlueprintSchemaVersion} IS NULL
+        AND ${table.deductionRuleSetVersion} IS NULL
+      ) OR (
+        ${table.evaluationMode} = 'structured'
+        AND ${table.lifecycleStatus} = 'draft'
+        AND ${table.publishedAt} IS NULL
+        AND ${table.evaluationBlueprint} IS NULL
+        AND ${table.evaluationBlueprintHash} IS NULL
+        AND ${table.evaluationBlueprintSchemaVersion} IS NULL
+        AND ${table.deductionRuleSetVersion} IS NULL
+        AND (
+          (
+            ${table.evaluationBlueprintPreview} IS NULL
+            AND ${table.evaluationBlueprintPreviewInputHash} IS NULL
+            AND ${table.evaluationBlueprintPreviewHash} IS NULL
+            AND ${table.evaluationBlueprintPreviewGeneratedAt} IS NULL
+          ) OR (
+            ${table.evaluationBlueprintPreview} IS NOT NULL
+            AND ${table.evaluationBlueprintPreviewInputHash} IS NOT NULL
+            AND ${table.evaluationBlueprintPreviewHash} IS NOT NULL
+            AND ${table.evaluationBlueprintPreviewGeneratedAt} IS NOT NULL
+          )
+        )
+      ) OR (
+        ${table.evaluationMode} = 'structured'
+        AND ${table.lifecycleStatus} = 'published'
+        AND ${table.publishedAt} IS NOT NULL
+        AND ${table.evaluationBlueprint} IS NOT NULL
+        AND ${table.evaluationBlueprintHash} IS NOT NULL
+        AND ${table.evaluationBlueprintSchemaVersion} IS NOT NULL
+        AND ${table.deductionRuleSetVersion} IS NOT NULL
+        AND ${table.evaluationBlueprintPreview} IS NULL
+        AND ${table.evaluationBlueprintPreviewInputHash} IS NULL
+        AND ${table.evaluationBlueprintPreviewHash} IS NULL
+        AND ${table.evaluationBlueprintPreviewGeneratedAt} IS NULL
+      )`,
+    ),
   ],
 );
 
