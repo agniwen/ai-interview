@@ -5,6 +5,7 @@ import type { SQL } from "drizzle-orm";
 import { config as loadEnvFile } from "dotenv";
 import { chatAttachment, resumePoolItem, studioInterview } from "@arc/db-schema/schema";
 import type { Database } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import { INVALIDATED_AI_RESUME_ASSESSMENT } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
 import { loadStandaloneEnv } from "../standalone/env";
 
 export type ResumeTextBackfillTarget = "all" | "pool" | "private_pool" | "public_pool" | "studio";
@@ -262,7 +263,11 @@ async function updateResumeText(
   if (record.recordType === "studio_interview") {
     await db
       .update(studioInterview)
-      .set({ resumeText, updatedAt: now })
+      .set({
+        ...INVALIDATED_AI_RESUME_ASSESSMENT,
+        resumeText,
+        updatedAt: now,
+      })
       .where(
         and(
           eq(studioInterview.id, record.id),

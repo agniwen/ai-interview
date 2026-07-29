@@ -1,11 +1,20 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { resumePoolItem, studioInterview } from "@arc/db-schema/schema";
+import { jobDescription, resumePoolItem, studioInterview } from "@arc/db-schema/schema";
 import type { ResumeReviewGenerationJobData } from "@arc/resume-parse-queue/resume-review-generation";
 import type { ResumeScreeningResult } from "@arc/shared/resume-screening";
+import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
+import { deriveStructuredResumeSummaries } from "@arc/shared/structured-resume-scoring";
+import { computeResumeEvaluationInputHash } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-evaluation-input-hash";
 import { matchJobDescriptionForResume } from "@arc/ai-recruitment-copilot-backend/server/agents/job-description-match-agent";
-import { listRecruitingJobDescriptions } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
-import { generateResumeReviewBestEffort } from "./review-generation";
+import {
+  listRecruitingJobDescriptions,
+  loadRecruitingJobDescriptionById,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import {
+  generateLegacyResumeReviewBestEffort,
+  generateResumeReviewBestEffort,
+} from "./review-generation";
 import { runResumeAssessmentLifecycle } from "./review-lifecycle";
 import type { ResumeAssessmentLifecycleDeps } from "./review-lifecycle";
 
@@ -52,16 +61,22 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
   loadRecord: async (input) => {
     const [record] = await db
       .select({
+        evaluationMode: jobDescription.evaluationMode,
         jobDescriptionId: studioInterview.jobDescriptionId,
         outcome: studioInterview.outcome,
         pipelineStage: studioInterview.pipelineStage,
+        resumeContentHash: studioInterview.resumeContentHash,
         resumeParseStatus: studioInterview.resumeParseStatus,
         resumeProfile: studioInterview.resumeProfile,
         resumeReview: studioInterview.resumeReview,
+        resumeReviewQueuedAt: studioInterview.resumeReviewQueuedAt,
+        resumeReviewRunId: studioInterview.resumeReviewRunId,
         resumeScreeningResult: studioInterview.resumeScreeningResult,
         resumeText: studioInterview.resumeText,
+        structuredResumeEvaluation: studioInterview.structuredResumeEvaluation,
       })
       .from(studioInterview)
+      .leftJoin(jobDescription, eq(studioInterview.jobDescriptionId, jobDescription.id))
       .where(recordWhere(input))
       .limit(1);
     return record
@@ -73,14 +88,22 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
   },
   markExistingReady: async (input) => {
     const now = new Date();
+    const lifecycleValues =
+      input.mode === "legacy"
+        ? {
+            resumeScreeningError: null,
+            resumeScreeningStatus: input.hasScreeningResult
+              ? ("ready" as const)
+              : ("idle" as const),
+          }
+        : {};
     const updated = await db
       .update(studioInterview)
       .set({
         resumeReviewError: null,
         resumeReviewGeneratedAt: now,
         resumeReviewStatus: "ready",
-        resumeScreeningError: null,
-        resumeScreeningStatus: input.hasScreeningResult ? "ready" : "idle",
+        ...lifecycleValues,
         updatedAt: now,
       })
       .where(guardedRecordWhere({ ...input, runId: null }))
@@ -89,14 +112,19 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
   },
   markFailed: async (input) => {
     const errorMessage = input.errorMessage.slice(0, 1000);
+    const modeValues =
+      input.mode === "legacy"
+        ? {
+            resumeScreeningError: errorMessage,
+            resumeScreeningStatus: "failed" as const,
+          }
+        : {};
     const updated = await db
       .update(studioInterview)
       .set({
         resumeReviewError: errorMessage,
-        resumeReviewRunId: input.runId ? null : undefined,
         resumeReviewStatus: "failed",
-        resumeScreeningError: errorMessage,
-        resumeScreeningStatus: "failed",
+        ...modeValues,
         updatedAt: new Date(),
       })
       .where(guardedRecordWhere({ ...input, runId: input.runId ?? null }))
@@ -105,28 +133,109 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
   },
   markProcessing: async (input) => {
     const now = new Date();
+    const modeValues =
+      input.mode === "legacy"
+        ? {
+            resumeScreeningError: null,
+            resumeScreeningStatus: "processing" as const,
+          }
+        : {};
     const updated = await db
       .update(studioInterview)
       .set({
         resumeReviewError: null,
-        resumeReviewQueuedAt: now,
-        resumeReviewRunId: input.runId,
         resumeReviewStatus: "processing",
-        resumeScreeningError: null,
-        resumeScreeningStatus: "processing",
+        ...modeValues,
         updatedAt: now,
       })
-      .where(guardedRecordWhere({ ...input, runId: undefined }))
+      .where(guardedRecordWhere(input))
       .returning({ id: studioInterview.id });
     return updated.length > 0;
   },
   markReady: async (input) => {
     const now = new Date();
+    if (input.assessment.mode === "structured") {
+      const { assessment } = input;
+      return db.transaction(async (tx) => {
+        const [current] = await tx
+          .select({
+            jobDescriptionId: studioInterview.jobDescriptionId,
+            resumeContentHash: studioInterview.resumeContentHash,
+            resumeProfile: studioInterview.resumeProfile,
+            resumeReviewRunId: studioInterview.resumeReviewRunId,
+            resumeText: studioInterview.resumeText,
+          })
+          .from(studioInterview)
+          .where(recordWhere(input))
+          .limit(1)
+          .for("update");
+        if (
+          !current?.resumeProfile ||
+          current.jobDescriptionId !== input.expectedJobDescriptionId ||
+          current.resumeReviewRunId !== input.runId
+        ) {
+          return false;
+        }
+        const evaluation = structuredResumeEvaluationV1Schema.parse(assessment.evaluation);
+        const currentInputHash = computeResumeEvaluationInputHash({
+          resumeContentHash: current.resumeContentHash,
+          resumeProfile: current.resumeProfile,
+          resumeText: current.resumeText,
+        });
+        if (
+          evaluation.runId !== input.runId ||
+          evaluation.jobId !== current.jobDescriptionId ||
+          evaluation.inputHash !== currentInputHash
+        ) {
+          return false;
+        }
+        const [job] = await tx
+          .select({
+            evaluationBlueprintHash: jobDescription.evaluationBlueprintHash,
+            evaluationMode: jobDescription.evaluationMode,
+            lifecycleStatus: jobDescription.lifecycleStatus,
+          })
+          .from(jobDescription)
+          .where(
+            and(
+              eq(jobDescription.id, current.jobDescriptionId),
+              eq(jobDescription.organizationId, input.organizationId),
+            ),
+          )
+          .limit(1)
+          .for("update");
+        if (
+          !job ||
+          job.evaluationMode !== "structured" ||
+          job.lifecycleStatus !== "published" ||
+          job.evaluationBlueprintHash !== evaluation.blueprintHash
+        ) {
+          return false;
+        }
+        const summaries = deriveStructuredResumeSummaries(evaluation);
+        const updated = await tx
+          .update(studioInterview)
+          .set({
+            resumeReviewError: null,
+            resumeReviewGeneratedAt: now,
+            resumeReviewStatus: "ready",
+            structuredCompositeScore: summaries.compositeScore,
+            structuredGateSortRank: summaries.gateSortRank,
+            structuredGateStatus: summaries.gateStatus,
+            structuredResumeEvaluation: evaluation,
+            structuredScoreGrade: summaries.grade,
+            updatedAt: now,
+          })
+          .where(guardedRecordWhere(input))
+          .returning({ id: studioInterview.id });
+        return updated.length > 0;
+      });
+    }
     const updated = await db
       .update(studioInterview)
       .set({
         notes: input.assessment.review,
-        resumeReview: input.assessment.structuredReview,
+        resumeReview: input.assessment.resumeReview,
         resumeReviewError: null,
         resumeReviewGeneratedAt: now,
         resumeReviewRunId: null,
@@ -256,7 +365,11 @@ async function processResumePoolReviewGenerationJob(
   ) {
     return;
   }
-  const generated = await generateResumeReviewBestEffort({
+  const job = await loadRecruitingJobDescriptionById(input.organizationId, jobDescriptionId);
+  if (!job || job.evaluationMode === "structured") {
+    return;
+  }
+  const generated = await generateLegacyResumeReviewBestEffort({
     jobDescriptionId,
     logPrefix: "[resume-pool-review-worker]",
     organizationId: input.organizationId,
@@ -288,6 +401,7 @@ export async function processResumeReviewGenerationJob(input: ResumeReviewGenera
   return runResumeAssessmentLifecycle(
     {
       expectedJobDescriptionId: jobDescriptionId,
+      expectedRunId: input.runId,
       force,
       organizationId: input.organizationId,
       resumeRecordId: input.resumeRecordId,

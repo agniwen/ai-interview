@@ -6,77 +6,59 @@ import {
   isResumeReviewGenerationQueueConfigured,
 } from "@arc/resume-parse-queue/resume-review-generation";
 import type { ResumeReviewGenerationJobData } from "@arc/resume-parse-queue/resume-review-generation";
+import { structuredResumeEvaluationV1Schema } from "@arc/db-schema/structured-resume-evaluation";
+import {
+  listRecruitingJobDescriptions,
+  loadRecruitingJobDescriptionById,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import { matchJobDescriptionForResume } from "@arc/ai-recruitment-copilot-backend/server/agents/job-description-match-agent";
 
-type ResumeRecordReviewGenerationJobData = Exclude<
+type PersistedResumeRecordReviewJobData = Exclude<
   ResumeReviewGenerationJobData,
   { source: "resume_pool_upload" }
 >;
+type ResumeRecordReviewSchedulingInput = Omit<PersistedResumeRecordReviewJobData, "runId">;
 
-export async function markResumeReviewQueued(input: {
-  allowExistingReview?: boolean;
+export type ResumeReviewSchedulingResult =
+  | { status: "already_current" }
+  | { runId: string; status: "enqueued" | "fallback_sync" }
+  | { errorMessage: string; status: "failed" };
+
+function hasCurrentStructuredEvaluation(record: {
+  structuredCompositeScore: number | null;
+  structuredGateSortRank: number | null;
+  structuredGateStatus: string | null;
+  structuredResumeEvaluation: unknown;
+  structuredScoreGrade: string | null;
+}): boolean {
+  return (
+    structuredResumeEvaluationV1Schema.safeParse(record.structuredResumeEvaluation).success &&
+    record.structuredCompositeScore !== null &&
+    record.structuredGateSortRank !== null &&
+    record.structuredGateStatus !== null &&
+    record.structuredScoreGrade !== null
+  );
+}
+
+async function loadSchedulingContext(input: {
+  autoMatchJobDescription?: boolean;
   organizationId: string;
   resumeRecordId: string;
 }) {
-  const now = new Date();
-  const conditions = [
-    eq(studioInterview.id, input.resumeRecordId),
-    eq(studioInterview.organizationId, input.organizationId),
-  ];
-  if (!input.allowExistingReview) {
-    conditions.push(isNull(studioInterview.resumeReview));
-  }
-  await db
-    .update(studioInterview)
-    .set({
-      resumeReviewError: null,
-      resumeReviewQueuedAt: now,
-      resumeReviewStatus: "queued",
-      resumeScreeningError: null,
-      resumeScreeningStatus: "processing",
-      updatedAt: now,
-    })
-    .where(and(...conditions));
-}
-
-async function markResumeReviewQueueFailed(input: {
-  allowExistingReview?: boolean;
-  errorMessage: string;
-  organizationId: string;
-  resumeRecordId: string;
-}) {
-  const errorMessage = input.errorMessage.slice(0, 1000);
-  const conditions = [
-    eq(studioInterview.id, input.resumeRecordId),
-    eq(studioInterview.organizationId, input.organizationId),
-  ];
-  if (!input.allowExistingReview) {
-    conditions.push(isNull(studioInterview.resumeReview));
-  }
-  await db
-    .update(studioInterview)
-    .set({
-      resumeReviewError: errorMessage,
-      resumeReviewStatus: "failed",
-      resumeScreeningError: errorMessage,
-      resumeScreeningStatus: "failed",
-      updatedAt: new Date(),
-    })
-    .where(and(...conditions));
-}
-
-export async function enqueueResumeReviewGenerationForRecordBestEffort(
-  input: ResumeRecordReviewGenerationJobData,
-): Promise<boolean> {
-  if (!isResumeReviewGenerationQueueConfigured()) {
-    return false;
-  }
-
-  const force = Boolean(input.force) || input.source === "reassess";
-
   const [record] = await db
     .select({
+      jobDescriptionId: studioInterview.jobDescriptionId,
+      outcome: studioInterview.outcome,
+      pipelineStage: studioInterview.pipelineStage,
+      resumeParseStatus: studioInterview.resumeParseStatus,
       resumeProfile: studioInterview.resumeProfile,
       resumeReview: studioInterview.resumeReview,
+      resumeReviewStatus: studioInterview.resumeReviewStatus,
+      structuredCompositeScore: studioInterview.structuredCompositeScore,
+      structuredGateSortRank: studioInterview.structuredGateSortRank,
+      structuredGateStatus: studioInterview.structuredGateStatus,
+      structuredResumeEvaluation: studioInterview.structuredResumeEvaluation,
+      structuredScoreGrade: studioInterview.structuredScoreGrade,
     })
     .from(studioInterview)
     .where(
@@ -86,33 +68,179 @@ export async function enqueueResumeReviewGenerationForRecordBestEffort(
       ),
     )
     .limit(1);
-
   if (!record?.resumeProfile) {
-    return false;
+    return null;
   }
-  if (!force && record.resumeReview) {
-    return true;
+  let { jobDescriptionId } = record;
+  if (!jobDescriptionId && input.autoMatchJobDescription) {
+    const jobs = await listRecruitingJobDescriptions(input.organizationId);
+    const matched = await matchJobDescriptionForResume(record.resumeProfile, jobs);
+    if (matched?.jobDescriptionId) {
+      const [updated] = await db
+        .update(studioInterview)
+        .set({
+          jobDescriptionId: matched.jobDescriptionId,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(studioInterview.id, input.resumeRecordId),
+            eq(studioInterview.organizationId, input.organizationId),
+            isNull(studioInterview.jobDescriptionId),
+          ),
+        )
+        .returning({ jobDescriptionId: studioInterview.jobDescriptionId });
+      jobDescriptionId = updated?.jobDescriptionId ?? null;
+    }
+  }
+  if (!jobDescriptionId) {
+    return null;
+  }
+  const job = await loadRecruitingJobDescriptionById(input.organizationId, jobDescriptionId);
+  return job ? { job, record: { ...record, jobDescriptionId } } : null;
+}
+
+async function persistQueuedRun(input: {
+  mode: "legacy" | "structured";
+  organizationId: string;
+  resumeRecordId: string;
+  runId: string;
+}) {
+  const now = new Date();
+  const legacyValues =
+    input.mode === "legacy"
+      ? {
+          resumeScreeningError: null,
+          resumeScreeningStatus: "processing" as const,
+        }
+      : {};
+  const updated = await db
+    .update(studioInterview)
+    .set({
+      resumeReviewError: null,
+      resumeReviewQueuedAt: now,
+      resumeReviewRunId: input.runId,
+      resumeReviewStatus: "queued",
+      ...legacyValues,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(studioInterview.id, input.resumeRecordId),
+        eq(studioInterview.organizationId, input.organizationId),
+        notInArray(studioInterview.resumeReviewStatus, ["queued", "processing"]),
+      ),
+    )
+    .returning({ id: studioInterview.id });
+  return updated.length > 0;
+}
+
+async function markQueueFailure(input: {
+  errorMessage: string;
+  mode: "legacy" | "structured";
+  organizationId: string;
+  resumeRecordId: string;
+  runId: string;
+}) {
+  const errorMessage = input.errorMessage.slice(0, 1000);
+  const legacyValues =
+    input.mode === "legacy"
+      ? {
+          resumeScreeningError: errorMessage,
+          resumeScreeningStatus: "failed" as const,
+        }
+      : {};
+  await db
+    .update(studioInterview)
+    .set({
+      resumeReviewError: errorMessage,
+      resumeReviewStatus: "failed",
+      ...legacyValues,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(studioInterview.id, input.resumeRecordId),
+        eq(studioInterview.organizationId, input.organizationId),
+        eq(studioInterview.resumeReviewRunId, input.runId),
+      ),
+    )
+    .returning({ id: studioInterview.id });
+}
+
+export async function scheduleResumeEvaluationForRecord(
+  input: ResumeRecordReviewSchedulingInput,
+): Promise<ResumeReviewSchedulingResult> {
+  const context = await loadSchedulingContext(input);
+  if (!context?.record.resumeProfile) {
+    return {
+      errorMessage: "记录不存在、简历尚未解析或绑定岗位尚未发布。",
+      status: "failed",
+    };
+  }
+  const force = Boolean(input.force) || input.source === "reassess";
+  const hasCurrentArtifact =
+    context.job.evaluationMode === "structured"
+      ? hasCurrentStructuredEvaluation(context.record)
+      : Boolean(context.record.resumeReview);
+  if (!force && hasCurrentArtifact) {
+    return { status: "already_current" };
+  }
+  if (
+    context.record.resumeReviewStatus === "queued" ||
+    context.record.resumeReviewStatus === "processing"
+  ) {
+    return {
+      errorMessage: "AI 评估任务正在处理中。",
+      status: "failed",
+    };
+  }
+
+  const runId = crypto.randomUUID();
+  const persisted = await persistQueuedRun({
+    mode: context.job.evaluationMode,
+    organizationId: input.organizationId,
+    resumeRecordId: input.resumeRecordId,
+    runId,
+  });
+  if (!persisted) {
+    return {
+      errorMessage: "AI 评估任务正在处理中。",
+      status: "failed",
+    };
+  }
+  if (!isResumeReviewGenerationQueueConfigured()) {
+    return { runId, status: "fallback_sync" };
   }
 
   try {
-    await markResumeReviewQueued({ ...input, allowExistingReview: force });
-    await enqueueResumeReviewGenerationJobs([{ ...input, force }]);
-    return true;
+    await enqueueResumeReviewGenerationJobs([
+      {
+        ...input,
+        force,
+        jobDescriptionId: context.job.id,
+        runId,
+      },
+    ]);
+    return { runId, status: "enqueued" };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    await markResumeReviewQueueFailed({
-      allowExistingReview: force,
+    await markQueueFailure({
       errorMessage,
+      mode: context.job.evaluationMode,
       organizationId: input.organizationId,
       resumeRecordId: input.resumeRecordId,
+      runId,
     });
     console.warn("[resume-review-generation] enqueue failed", {
       error,
       resumeRecordId: input.resumeRecordId,
     });
-    return false;
+    return { errorMessage, status: "failed" };
   }
 }
+
+export const enqueueResumeReviewGenerationForRecordBestEffort = scheduleResumeEvaluationForRecord;
 
 export async function enqueueResumePoolReviewGenerationBestEffort(input: {
   autoMatchJobDescription?: boolean;
@@ -146,83 +274,38 @@ export class ResumeReassessmentEnqueueError extends Error {
   }
 }
 
-/**
- * Enqueue a force reassess for an existing resume library row.
- * Shares the same BullMQ worker path as talent-pool first-generation.
- */
 export async function enqueueResumeReassessmentForRecord(input: {
   organizationId: string;
   resumeRecordId: string;
 }): Promise<"already_in_progress" | "enqueued" | "fallback_sync"> {
-  const [record] = await db
-    .select({
-      jobDescriptionId: studioInterview.jobDescriptionId,
-      outcome: studioInterview.outcome,
-      pipelineStage: studioInterview.pipelineStage,
-      resumeParseStatus: studioInterview.resumeParseStatus,
-      resumeProfile: studioInterview.resumeProfile,
-      resumeReviewStatus: studioInterview.resumeReviewStatus,
-    })
-    .from(studioInterview)
-    .where(
-      and(
-        eq(studioInterview.id, input.resumeRecordId),
-        eq(studioInterview.organizationId, input.organizationId),
-      ),
-    )
-    .limit(1);
-
-  if (!record) {
-    throw new ResumeReassessmentEnqueueError("记录不存在。");
+  const context = await loadSchedulingContext(input);
+  if (!context) {
+    throw new ResumeReassessmentEnqueueError("记录不存在或绑定岗位尚未发布。");
   }
+  const { record } = context;
   if (!record.resumeProfile || record.resumeParseStatus !== "ready") {
     throw new ResumeReassessmentEnqueueError("简历解析完成后才能重新评估。");
   }
   if (record.pipelineStage === "closed" || record.outcome !== "in_pipeline") {
     throw new ResumeReassessmentEnqueueError("已结案候选人不能重新评估。");
   }
-  if (!record.jobDescriptionId) {
-    throw new ResumeReassessmentEnqueueError("请先关联在招岗位后再重新评估。");
-  }
   if (record.resumeReviewStatus === "queued" || record.resumeReviewStatus === "processing") {
     return "already_in_progress";
   }
 
-  if (!isResumeReviewGenerationQueueConfigured()) {
-    // No Redis worker: mark processing and let the caller run lifecycle in-process async.
-    const now = new Date();
-    await db
-      .update(studioInterview)
-      .set({
-        resumeReviewError: null,
-        resumeReviewQueuedAt: now,
-        resumeReviewStatus: "processing",
-        resumeScreeningError: null,
-        resumeScreeningStatus: "processing",
-        updatedAt: now,
-      })
-      .where(
-        and(
-          eq(studioInterview.id, input.resumeRecordId),
-          eq(studioInterview.organizationId, input.organizationId),
-          notInArray(studioInterview.resumeReviewStatus, ["queued", "processing"]),
-        ),
-      );
-    return "fallback_sync";
-  }
-
-  const reassessToken = crypto.randomUUID();
-  const enqueued = await enqueueResumeReviewGenerationForRecordBestEffort({
+  const result = await scheduleResumeEvaluationForRecord({
     force: true,
-    jobDescriptionId: record.jobDescriptionId,
+    jobDescriptionId: context.job.id,
     organizationId: input.organizationId,
-    reassessToken,
+    reassessToken: crypto.randomUUID(),
     resumeRecordId: input.resumeRecordId,
     source: "reassess",
   });
-
-  if (!enqueued) {
+  if (result.status === "failed") {
     throw new ResumeReassessmentEnqueueError("重新评估任务入队失败，请稍后重试。", 503);
   }
-  return "enqueued";
+  if (result.status === "already_current") {
+    return "already_in_progress";
+  }
+  return result.status;
 }

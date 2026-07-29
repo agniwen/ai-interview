@@ -3,10 +3,17 @@ import {
   generateResumeReview,
   generateResumeScreeningResult,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
-import type { ResumeReviewGenerationResult } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import type { ResumeScreeningPolicy, ResumeScreeningResult } from "@arc/shared/resume-screening";
+import { jobEvaluationBlueprintSchema } from "@arc/db-schema/job-description-evaluation";
+import { deriveStructuredResumeSummaries } from "@arc/shared/structured-resume-scoring";
 import { loadRecruitingJobDescriptionById } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
-import type { ResumeAssessment } from "./review-lifecycle";
+import {
+  STRUCTURED_RESUME_ENGINE_VERSION,
+  STRUCTURED_RESUME_MODEL_ID,
+  STRUCTURED_RESUME_PROMPT_VERSION,
+} from "@arc/ai-recruitment-copilot-backend/server/agents/structured-resume-evaluation";
+import { runStructuredResumeReviewWorkflow } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/workflows/structured-resume-review-workflow";
+import type { GeneratedResumeAssessment } from "./review-lifecycle";
 
 interface ResumeReviewContext {
   jobDescription: string | null;
@@ -35,11 +42,51 @@ export async function buildJobDescriptionReviewContext(
 }
 
 export async function generateResumeAssessment(input: {
-  jobDescriptionId: string | null;
+  evaluationAsOf: string;
+  jobDescriptionId: string;
   organizationId: string;
+  resumeContentHash: string | null;
+  resumeInputHash: string;
   resumeProfile: ResumeProfile;
   resumeText?: string | null;
-}): Promise<ResumeAssessment> {
+  runId: string;
+}): Promise<GeneratedResumeAssessment> {
+  const job = await loadRecruitingJobDescriptionById(input.organizationId, input.jobDescriptionId);
+  if (!job) {
+    throw new Error("绑定岗位不存在或尚未发布。");
+  }
+  if (job.evaluationMode === "structured") {
+    if (!job.evaluationBlueprint || !job.evaluationBlueprintHash || !job.deductionRuleSetVersion) {
+      throw new Error("结构化岗位缺少已发布评估蓝图。");
+    }
+    const evaluation = await runStructuredResumeReviewWorkflow({
+      engine: {
+        modelId: STRUCTURED_RESUME_MODEL_ID,
+        promptVersion: STRUCTURED_RESUME_PROMPT_VERSION,
+        version: STRUCTURED_RESUME_ENGINE_VERSION,
+      },
+      jobSnapshot: {
+        blueprint: jobEvaluationBlueprintSchema.parse(job.evaluationBlueprint),
+        blueprintHash: job.evaluationBlueprintHash,
+        deductionRuleSetVersion: job.deductionRuleSetVersion,
+        evaluationMode: "structured",
+        jobId: job.id,
+        publishedConfig: job.structuredConfig,
+      },
+      resumeInput: {
+        evaluationAsOf: input.evaluationAsOf,
+        resumeInputHash: input.resumeInputHash,
+        resumeProfile: input.resumeProfile,
+        resumeText: input.resumeText ?? null,
+        runId: input.runId,
+      },
+    });
+    return {
+      evaluation,
+      mode: "structured",
+      summaries: deriveStructuredResumeSummaries(evaluation),
+    };
+  }
   const context = await buildJobDescriptionReviewContext(
     input.organizationId,
     input.jobDescriptionId,
@@ -57,18 +104,67 @@ export async function generateResumeAssessment(input: {
   if (!review.review) {
     throw new Error("AI 分析生成失败。");
   }
-  return { ...review, screeningResult };
+  return {
+    mode: "legacy",
+    resumeReview: review.structuredReview,
+    review: review.review,
+    screeningResult,
+  };
 }
 
 export async function generateResumeReviewBestEffort(input: {
-  jobDescriptionId: string | null;
+  evaluationAsOf: string;
+  jobDescriptionId: string;
+  logPrefix?: string;
+  organizationId: string;
+  resumeContentHash: string | null;
+  resumeInputHash: string;
+  resumeProfile: ResumeProfile;
+  resumeText?: string | null;
+  runId: string;
+}): Promise<GeneratedResumeAssessment | null> {
+  try {
+    return await generateResumeAssessment(input);
+  } catch (error) {
+    console.error(
+      `${input.logPrefix ?? "[resume-library]"} resume review generation failed:`,
+      error,
+    );
+    return null;
+  }
+}
+
+export async function generateLegacyResumeReviewBestEffort(input: {
+  jobDescriptionId: string;
   logPrefix?: string;
   organizationId: string;
   resumeProfile: ResumeProfile;
   resumeText?: string | null;
-}): Promise<(ResumeReviewGenerationResult & { screeningResult: ResumeScreeningResult }) | null> {
+}): Promise<{
+  resumeReview: Awaited<ReturnType<typeof generateResumeReview>>["structuredReview"];
+  review: string;
+  screeningResult: ResumeScreeningResult;
+} | null> {
   try {
-    return await generateResumeAssessment(input);
+    const context = await buildJobDescriptionReviewContext(
+      input.organizationId,
+      input.jobDescriptionId,
+    );
+    const screeningResult = await generateResumeScreeningResult({
+      policy: context.screeningPolicy,
+      resumeProfile: input.resumeProfile,
+      resumeText: input.resumeText,
+    });
+    const review = await generateResumeReview({
+      jobDescription: context.jobDescription,
+      resumeProfile: input.resumeProfile,
+      screeningResult,
+    });
+    return {
+      resumeReview: review.structuredReview,
+      review: review.review,
+      screeningResult,
+    };
   } catch (error) {
     console.error(
       `${input.logPrefix ?? "[resume-library]"} resume review generation failed:`,

@@ -40,6 +40,7 @@ const resumeRecordReviewJobSchema = z.object({
   poolItemId: z.string().min(1).optional(),
   reassessToken: z.string().min(1).optional(),
   resumeRecordId: z.string().min(1),
+  runId: z.string().min(1),
   source: z.enum(["resume_pool_import", "reassess", "resume_upload"]),
 });
 
@@ -143,6 +144,7 @@ export function buildResumeReviewGenerationJobId(input: {
   poolItemId?: string;
   reassessToken?: string;
   resumeRecordId?: string;
+  runId?: string;
   source?: ResumeReviewGenerationJobData["source"];
 }): string {
   if (input.source === "resume_pool_upload") {
@@ -165,6 +167,9 @@ export function buildResumeReviewGenerationJobId(input: {
     ? normalizeJobIdPart(input.jobDescriptionId)
     : "no-jd";
   const base = `resume-review-${normalizeJobIdPart(input.resumeRecordId)}-${jobDescriptionId}`;
+  if (input.runId) {
+    return `${base}-run-${normalizeJobIdPart(input.runId)}`;
+  }
   if (input.generationToken) {
     return `${base}-parse-${normalizeJobIdPart(input.generationToken)}`;
   }

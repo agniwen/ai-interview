@@ -28,6 +28,7 @@ describe("resume review generation queue", () => {
         organizationId: "org-1",
         poolItemId: "pool-1",
         resumeRecordId: "resume-1",
+        runId: "run-1",
         source: "resume_pool_import",
       }),
     ).toEqual({
@@ -35,6 +36,7 @@ describe("resume review generation queue", () => {
       organizationId: "org-1",
       poolItemId: "pool-1",
       resumeRecordId: "resume-1",
+      runId: "run-1",
       source: "resume_pool_import",
     });
   });
@@ -47,6 +49,7 @@ describe("resume review generation queue", () => {
         organizationId: "org-1",
         reassessToken: "token-1",
         resumeRecordId: "resume-1",
+        runId: "run-1",
         source: "reassess",
       }),
     ).toEqual({
@@ -55,6 +58,7 @@ describe("resume review generation queue", () => {
       organizationId: "org-1",
       reassessToken: "token-1",
       resumeRecordId: "resume-1",
+      runId: "run-1",
       source: "reassess",
     });
   });
@@ -65,11 +69,13 @@ describe("resume review generation queue", () => {
         jobDescriptionId: null,
         organizationId: "org-1",
         resumeRecordId: "resume-1",
+        runId: "run-1",
         source: "resume_upload",
       }),
     ).toMatchObject({
       jobDescriptionId: null,
       resumeRecordId: "resume-1",
+      runId: "run-1",
       source: "resume_upload",
     });
     expect(

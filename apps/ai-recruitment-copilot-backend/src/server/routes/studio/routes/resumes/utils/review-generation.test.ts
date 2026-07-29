@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   generateResumeReview: vi.fn(),
   generateResumeScreeningResult: vi.fn(),
-  loadJobDescriptionById: vi.fn(),
+  loadRecruitingJobDescriptionById: vi.fn(),
 }));
 
 vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent", () => ({
@@ -14,7 +14,7 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent
 vi.mock(
   "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao",
   () => ({
-    loadJobDescriptionById: mocks.loadJobDescriptionById,
+    loadRecruitingJobDescriptionById: mocks.loadRecruitingJobDescriptionById,
   }),
 );
 
@@ -46,8 +46,9 @@ describe("generateResumeReviewBestEffort", () => {
 
   it("generates a structured V2 review with job description context", async () => {
     const structuredReview = { overall: { baseScore: 86 } };
-    mocks.loadJobDescriptionById.mockResolvedValue({
+    mocks.loadRecruitingJobDescriptionById.mockResolvedValue({
       description: "负责 Web 端研发",
+      evaluationMode: "legacy",
       name: "前端工程师",
       prompt: "需要 React 经验",
       resumeScreeningPolicy: { enabled: true, rules: [], version: 1 },
@@ -66,13 +67,18 @@ describe("generateResumeReviewBestEffort", () => {
     });
 
     const result = await generateResumeReviewBestEffort({
+      evaluationAsOf: "2026-07-29",
       jobDescriptionId: "jd-1",
       organizationId: "org-1",
+      resumeContentHash: null,
+      resumeInputHash: "input-hash",
       resumeProfile: RESUME_PROFILE,
+      runId: "run-1",
     });
 
-    expect(result?.structuredReview).toBe(structuredReview);
-    expect(mocks.loadJobDescriptionById).toHaveBeenCalledWith("org-1", "jd-1");
+    expect(result?.mode).toBe("legacy");
+    expect(result?.mode === "legacy" ? result.resumeReview : null).toBe(structuredReview);
+    expect(mocks.loadRecruitingJobDescriptionById).toHaveBeenCalledWith("org-1", "jd-1");
     expect(mocks.generateResumeReview).toHaveBeenCalledWith({
       jobDescription:
         "岗位名称：前端工程师\n\n岗位描述：负责 Web 端研发\n\n岗位 Prompt：\n需要 React 经验",
@@ -89,7 +95,7 @@ describe("generateResumeReviewBestEffort", () => {
   });
 
   it("returns null when review generation fails", async () => {
-    mocks.loadJobDescriptionById.mockResolvedValue(null);
+    mocks.loadRecruitingJobDescriptionById.mockResolvedValue(null);
     mocks.generateResumeScreeningResult.mockResolvedValue({
       policyEmpty: true,
       policyEnabled: false,
@@ -101,9 +107,13 @@ describe("generateResumeReviewBestEffort", () => {
     mocks.generateResumeReview.mockRejectedValue(new Error("model unavailable"));
 
     const result = await generateResumeReviewBestEffort({
+      evaluationAsOf: "2026-07-29",
       jobDescriptionId: "jd-1",
       organizationId: "org-1",
+      resumeContentHash: null,
+      resumeInputHash: "input-hash",
       resumeProfile: RESUME_PROFILE,
+      runId: "run-1",
     });
 
     expect(result).toBeNull();

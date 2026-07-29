@@ -7,6 +7,7 @@ import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import type { AttachmentTextSource } from "@arc/db-schema/db-enums";
 import { chatAttachment, resumePoolItem, studioInterview } from "@arc/db-schema/schema";
 import type { Database } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import { INVALIDATED_AI_RESUME_ASSESSMENT } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
 import { loadStandaloneEnv } from "../standalone/env";
 
 type BackfillTarget = "all" | "pool" | "private";
@@ -367,6 +368,7 @@ async function writeBackfillResult(
       await tx
         .update(studioInterview)
         .set({
+          ...INVALIDATED_AI_RESUME_ASSESSMENT,
           resumeParseError: null,
           resumeParsedAt: now,
           resumeProfile: mergeEducationExperiencesIntoProfile(

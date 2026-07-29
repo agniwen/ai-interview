@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  generateLegacyResumeReviewBestEffort: vi.fn(),
   generateResumeReviewBestEffort: vi.fn(),
   listAllJobDescriptions: vi.fn(),
+  loadRecruitingJobDescriptionById: vi.fn(),
   matchJobDescriptionForResume: vi.fn(),
   record: null as null | Record<string, unknown>,
   updates: [] as Record<string, unknown>[],
@@ -11,11 +13,17 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
   db: {
     select: () => ({
-      from: () => ({
-        where: () => ({
-          limit: () => Promise.resolve(mocks.record ? [mocks.record] : []),
-        }),
-      }),
+      from: () => {
+        const query = {
+          where: () => ({
+            limit: () => Promise.resolve(mocks.record ? [mocks.record] : []),
+          }),
+        };
+        return {
+          ...query,
+          leftJoin: () => query,
+        };
+      },
     }),
     update: () => ({
       set: (patch: Record<string, unknown>) => {
@@ -31,6 +39,7 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
   },
 }));
 vi.mock("./review-generation", () => ({
+  generateLegacyResumeReviewBestEffort: mocks.generateLegacyResumeReviewBestEffort,
   generateResumeReviewBestEffort: mocks.generateResumeReviewBestEffort,
 }));
 vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/job-description-match-agent", () => ({
@@ -38,7 +47,10 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/job-description-match
 }));
 vi.mock(
   "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao",
-  () => ({ listAllJobDescriptions: mocks.listAllJobDescriptions }),
+  () => ({
+    listRecruitingJobDescriptions: mocks.listAllJobDescriptions,
+    loadRecruitingJobDescriptionById: mocks.loadRecruitingJobDescriptionById,
+  }),
 );
 
 // oxlint-disable-next-line import/first -- must follow vi.mock() calls for correct hoisting.
@@ -48,19 +60,25 @@ const JOB = {
   jobDescriptionId: "jd-1",
   organizationId: "org-1",
   resumeRecordId: "resume-1",
+  runId: "run-1",
   source: "resume_pool_import" as const,
 };
 
 function assessmentRecord(overrides: Record<string, unknown>) {
   return {
+    evaluationMode: "legacy",
     jobDescriptionId: JOB.jobDescriptionId,
     outcome: "in_pipeline",
     pipelineStage: "screening",
+    resumeContentHash: "content-hash",
     resumeParseStatus: "ready",
     resumeProfile: { name: "候选人" },
     resumeReview: null,
+    resumeReviewQueuedAt: new Date("2026-07-29T00:00:00.000Z"),
+    resumeReviewRunId: JOB.runId,
     resumeScreeningResult: null,
     resumeText: "简历原文",
+    structuredResumeEvaluation: null,
     ...overrides,
   };
 }
@@ -70,7 +88,13 @@ describe("processResumeReviewGenerationJob", () => {
     mocks.record = null;
     mocks.updates.length = 0;
     mocks.generateResumeReviewBestEffort.mockReset();
+    mocks.generateLegacyResumeReviewBestEffort.mockReset();
     mocks.listAllJobDescriptions.mockReset();
+    mocks.loadRecruitingJobDescriptionById.mockReset();
+    mocks.loadRecruitingJobDescriptionById.mockResolvedValue({
+      evaluationMode: "legacy",
+      id: "jd-1",
+    });
     mocks.matchJobDescriptionForResume.mockReset();
   });
 
@@ -82,21 +106,16 @@ describe("processResumeReviewGenerationJob", () => {
     await processResumeReviewGenerationJob(JOB);
 
     expect(mocks.generateResumeReviewBestEffort).not.toHaveBeenCalled();
-    expect(mocks.updates).toHaveLength(1);
-    expect(mocks.updates[0]).toMatchObject({
-      resumeReviewError: null,
-      resumeReviewStatus: "ready",
-      resumeScreeningError: null,
-      resumeScreeningStatus: "idle",
-    });
+    expect(mocks.updates).toHaveLength(0);
   });
 
   it("moves a new review through processing to ready", async () => {
     mocks.record = assessmentRecord({});
     mocks.generateResumeReviewBestEffort.mockResolvedValue({
+      mode: "legacy",
+      resumeReview: { overall: { baseScore: 85 } },
       review: "AI 分析",
       screeningResult: { recommendation: "pass" },
-      structuredReview: { overall: { baseScore: 85 } },
     });
 
     await processResumeReviewGenerationJob(JOB);
@@ -137,9 +156,10 @@ describe("processResumeReviewGenerationJob", () => {
       resumeScreeningResult: { recommendation: "flag" },
     });
     mocks.generateResumeReviewBestEffort.mockResolvedValue({
+      mode: "legacy",
+      resumeReview: { overall: { baseScore: 90 } },
       review: "重新评估结果",
       screeningResult: { recommendation: "pass" },
-      structuredReview: { overall: { baseScore: 90 } },
     });
 
     await processResumeReviewGenerationJob({
@@ -170,10 +190,10 @@ describe("processResumeReviewGenerationJob", () => {
       resumeProfile: { name: "人才库候选人" },
       resumeText: "人才库简历原文",
     };
-    mocks.generateResumeReviewBestEffort.mockResolvedValue({
+    mocks.generateLegacyResumeReviewBestEffort.mockResolvedValue({
+      resumeReview: { overall: { baseScore: 88 } },
       review: "人才库 AI 评价",
       screeningResult: { recommendation: "pass" },
-      structuredReview: { overall: { baseScore: 88 } },
     });
 
     await processResumeReviewGenerationJob({
@@ -183,7 +203,7 @@ describe("processResumeReviewGenerationJob", () => {
       source: "resume_pool_upload",
     });
 
-    expect(mocks.generateResumeReviewBestEffort).toHaveBeenCalledWith(
+    expect(mocks.generateLegacyResumeReviewBestEffort).toHaveBeenCalledWith(
       expect.objectContaining({
         jobDescriptionId: "jd-1",
         resumeProfile: { name: "人才库候选人" },
@@ -197,9 +217,10 @@ describe("processResumeReviewGenerationJob", () => {
     mocks.listAllJobDescriptions.mockResolvedValue([{ id: "jd-auto" }]);
     mocks.matchJobDescriptionForResume.mockResolvedValue({ jobDescriptionId: "jd-auto" });
     mocks.generateResumeReviewBestEffort.mockResolvedValue({
+      mode: "legacy",
+      resumeReview: { overall: { baseScore: 86 } },
       review: "自动岗位评价",
       screeningResult: { recommendation: "pass" },
-      structuredReview: { overall: { baseScore: 86 } },
     });
 
     await processResumeReviewGenerationJob({
@@ -207,6 +228,7 @@ describe("processResumeReviewGenerationJob", () => {
       jobDescriptionId: null,
       organizationId: "org-1",
       resumeRecordId: "resume-1",
+      runId: "run-1",
       source: "resume_upload",
     });
 

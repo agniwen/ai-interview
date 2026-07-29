@@ -20,9 +20,13 @@ import {
   storeInterviewResume,
   toBadRequest,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
-import { recruitingJobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
+import {
+  loadRecruitingJobDescriptionById,
+  recruitingJobDescriptionIdsExist,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
 import { enqueueResumeReviewGenerationForRecordBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue";
+import { reassessResumeRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-worker";
 import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service";
 import { listDuplicateMatchesForSource } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
 import { completeResumePoolReadinessWithDefaultAdapters } from "./utils/readiness";
@@ -367,16 +371,7 @@ export const resumePoolRouter = factory
       }
       const input = c.req.valid("json");
       if (input.jobDescriptionId) {
-        const [jd] = await db
-          .select({ id: jobDescription.id })
-          .from(jobDescription)
-          .where(
-            and(
-              eq(jobDescription.id, input.jobDescriptionId),
-              eq(jobDescription.organizationId, activeOrg.id),
-            ),
-          )
-          .limit(1);
+        const jd = await loadRecruitingJobDescriptionById(activeOrg.id, input.jobDescriptionId);
         if (!jd) {
           return c.json({ error: "所选在招岗位不存在。" }, 400);
         }
@@ -390,13 +385,28 @@ export const resumePoolRouter = factory
           poolItemId: c.req.param("id"),
         });
         if (result.status === "imported" && input.jobDescriptionId) {
-          await enqueueResumeReviewGenerationForRecordBestEffort({
+          const scheduling = await enqueueResumeReviewGenerationForRecordBestEffort({
             jobDescriptionId: input.jobDescriptionId,
             organizationId: activeOrg.id,
             poolItemId: c.req.param("id"),
             resumeRecordId: result.resumeRecordId,
             source: "resume_pool_import",
           });
+          if (scheduling.status === "fallback_sync") {
+            void (async () => {
+              try {
+                await reassessResumeRecord({
+                  organizationId: activeOrg.id,
+                  resumeRecordId: result.resumeRecordId,
+                });
+              } catch (error) {
+                console.error("[resume-pool] fallback assessment failed", {
+                  error,
+                  resumeRecordId: result.resumeRecordId,
+                });
+              }
+            })();
+          }
         }
         return c.json(result, result.status === "imported" ? 201 : 409);
       } catch (error) {

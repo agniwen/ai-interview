@@ -35,6 +35,7 @@ import {
   enqueueResumePoolReviewGenerationBestEffort,
   enqueueResumeReviewGenerationForRecordBestEffort,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue";
+import { reassessResumeRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-worker";
 import {
   assertBatchItemNotCancelled,
   getClaimMissRetryError,
@@ -330,6 +331,29 @@ async function requireEnrichmentTasks(tasks: Promise<boolean>[]): Promise<void> 
   }
 }
 
+async function scheduleLibraryEvaluation(input: {
+  autoMatchJobDescription: boolean;
+  generationToken: string;
+  jobDescriptionId: string | null;
+  organizationId: string;
+  resumeRecordId: string;
+}): Promise<boolean> {
+  const result = await enqueueResumeReviewGenerationForRecordBestEffort({
+    ...input,
+    source: "resume_upload",
+  });
+  if (result.status === "failed") {
+    return false;
+  }
+  if (result.status === "fallback_sync") {
+    await reassessResumeRecord({
+      organizationId: input.organizationId,
+      resumeRecordId: input.resumeRecordId,
+    });
+  }
+  return true;
+}
+
 async function enqueueParsedResumeEnrichment(input: {
   autoMatchJobDescription: boolean;
   generationToken: string;
@@ -340,13 +364,12 @@ async function enqueueParsedResumeEnrichment(input: {
 }): Promise<void> {
   if (input.succeededRecordId) {
     await requireEnrichmentTasks([
-      enqueueResumeReviewGenerationForRecordBestEffort({
+      scheduleLibraryEvaluation({
         autoMatchJobDescription: input.autoMatchJobDescription,
         generationToken: input.generationToken,
         jobDescriptionId: input.jobDescriptionId,
         organizationId: input.organizationId,
         resumeRecordId: input.succeededRecordId,
-        source: "resume_upload",
       }),
       enqueueResumeSemanticIndexJobBestEffort({
         organizationId: input.organizationId,

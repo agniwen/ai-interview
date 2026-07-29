@@ -30,6 +30,7 @@ const mocks = vi.hoisted(() => ({
   resetResumeEvaluationForJobChange: vi.fn(),
   resolveRecruitingVisibilityScope: vi.fn(),
   resolveResumeUploadStorage: vi.fn(),
+  scheduleResumeEvaluationForRecord: vi.fn(),
   submitResumeEvaluationOnce: vi.fn(),
   transaction: vi.fn(),
   updatePatches: [] as Record<string, unknown>[],
@@ -143,6 +144,8 @@ vi.mock(
   () => ({
     jobDescriptionIdsExist: mocks.jobDescriptionIdsExist,
     loadJobDescriptionById: mocks.loadJobDescriptionById,
+    loadRecruitingJobDescriptionById: mocks.loadJobDescriptionById,
+    recruitingJobDescriptionIdsExist: mocks.jobDescriptionIdsExist,
   }),
 );
 vi.mock(
@@ -164,6 +167,7 @@ vi.mock(
   "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue",
   () => ({
     enqueueResumeReassessmentForRecord: mocks.enqueueResumeReassessmentForRecord,
+    scheduleResumeEvaluationForRecord: mocks.scheduleResumeEvaluationForRecord,
   }),
 );
 vi.mock(
@@ -219,6 +223,14 @@ describe("resumeLibraryRouter behavior", () => {
     mocks.resolveResumeUploadStorage.mockResolvedValue(null);
     mocks.jobDescriptionIdsExist.mockResolvedValue(true);
     mocks.enqueueResumeReassessmentForRecord.mockResolvedValue("enqueued");
+    mocks.scheduleResumeEvaluationForRecord.mockResolvedValue({
+      status: "enqueued",
+    });
+    mocks.loadJobDescriptionById.mockResolvedValue({
+      evaluationMode: "legacy",
+      id: "jd-new",
+      name: "新岗位",
+    });
     mocks.buildScheduleRows.mockReturnValue([SCHEDULE_ROW]);
     mocks.loadInterviewRoundDetail.mockResolvedValue({ id: SCHEDULE_ROW.id });
     mocks.queryPaginatedResumeRecords.mockResolvedValue({

@@ -49,12 +49,17 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { createResumeRecordFromStorage } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/create-from-storage";
 import { syncResumeProfileIdentity } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/profile-sync";
+import { generateResumeScreeningBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-generation";
 import {
-  generateResumeReviewBestEffort,
-  generateResumeScreeningBestEffort,
-} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-generation";
-import { enqueueResumeReassessmentForRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue";
+  enqueueResumeReassessmentForRecord,
+  scheduleResumeEvaluationForRecord,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue";
 import { reassessResumeRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-worker";
+import { computeResumeEvaluationInputHash } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-evaluation-input-hash";
+import {
+  INVALIDATED_AI_RESUME_ASSESSMENT,
+  INVALIDATED_RESUME_ASSESSMENT_FOR_JOB_CHANGE,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
 /* oxlint-disable complexity -- multipart create/update handlers preserve transactional business rules. */
 
 // 「发起 AI 面试」请求体：候选人侧已存在招聘台行，只把（可能被用户编辑过的）
@@ -81,20 +86,6 @@ function toNullableString(value: FormDataEntryValue | null): string | null {
   const trimmed = value.trim();
   return trimmed.length === 0 ? null : trimmed;
 }
-
-const INVALIDATED_RESUME_ASSESSMENT = {
-  notes: null,
-  resumeReview: null,
-  resumeReviewError: null,
-  resumeReviewGeneratedAt: null,
-  resumeReviewQueuedAt: null,
-  resumeReviewRunId: null,
-  resumeReviewStatus: "idle" as const,
-  resumeScreeningError: null,
-  resumeScreeningEvaluatedAt: null,
-  resumeScreeningResult: null,
-  resumeScreeningStatus: "idle" as const,
-};
 
 async function reassessAfterJobDescriptionChange(input: {
   organizationId: string;
@@ -201,14 +192,14 @@ export const resumeLibraryRouter = factory
       if (resume && !c.var.user) {
         return c.json({ error: "Unauthorized" }, 401);
       }
-      if (input.data.jobDescriptionId) {
-        const ok = await recruitingJobDescriptionIdsExist(
-          [input.data.jobDescriptionId],
-          activeOrg.id,
-        );
-        if (!ok) {
-          return c.json({ error: "所选在招岗位不存在。" }, 400);
-        }
+      const selectedJob = input.data.jobDescriptionId
+        ? await loadRecruitingJobDescriptionById(activeOrg.id, input.data.jobDescriptionId)
+        : null;
+      if (input.data.jobDescriptionId && !selectedJob) {
+        return c.json({ error: "所选在招岗位不存在。" }, 400);
+      }
+      if (resumeReviewInput.data && selectedJob?.evaluationMode !== "legacy") {
+        return c.json({ error: "新版岗位不接受客户端写入旧版简历评价。" }, 400);
       }
 
       const uploadResult = await resolveResumeUploadStorage({
@@ -243,20 +234,9 @@ export const resumeLibraryRouter = factory
         resumeProfile,
       });
 
-      let generatedReview: Awaited<ReturnType<typeof generateResumeReviewBestEffort>> = null;
-      let resumeReview = resumeReviewInput.data;
+      const resumeReview = resumeReviewInput.data;
       let resumeScreeningResult = null;
-      if (!resumeReview && resumeProfile) {
-        generatedReview = await generateResumeReviewBestEffort({
-          jobDescriptionId: input.data.jobDescriptionId || null,
-          logPrefix: "[studio-resumes]",
-          organizationId: activeOrg.id,
-          resumeProfile,
-          resumeText,
-        });
-        resumeReview = generatedReview?.structuredReview ?? null;
-        resumeScreeningResult = generatedReview?.screeningResult ?? null;
-      } else if (resumeProfile) {
+      if (resumeReview && resumeProfile) {
         resumeScreeningResult = await generateResumeScreeningBestEffort({
           jobDescriptionId: input.data.jobDescriptionId || null,
           logPrefix: "[studio-resumes]",
@@ -267,8 +247,8 @@ export const resumeLibraryRouter = factory
       }
       let resumeReviewStatus: "failed" | "idle" | "ready" = "idle";
       let resumeScreeningStatus: "failed" | "idle" | "ready" = "idle";
-      if (resumeProfile) {
-        resumeReviewStatus = resumeReview ? "ready" : "failed";
+      if (resumeReview) {
+        resumeReviewStatus = "ready";
         resumeScreeningStatus = resumeScreeningResult ? "ready" : "failed";
       }
 
@@ -285,9 +265,9 @@ export const resumeLibraryRouter = factory
         resumeFileName: parsedFileName,
         resumeProfile,
         resumeReview,
-        resumeReviewError: resumeProfile && !resumeReview ? "AI 分析生成失败。" : null,
+        resumeReviewError: null,
         resumeReviewStatus,
-        resumeScreeningError: resumeProfile && !resumeScreeningResult ? "AI 分析生成失败。" : null,
+        resumeScreeningError: resumeReview && !resumeScreeningResult ? "AI 分析生成失败。" : null,
         resumeScreeningResult,
         resumeScreeningStatus,
         resumeText,
@@ -308,6 +288,29 @@ export const resumeLibraryRouter = factory
         sourceId: recordId,
         sourceType: "studio_interview",
       });
+      if (resumeProfile && selectedJob && !resumeReview) {
+        const scheduling = await scheduleResumeEvaluationForRecord({
+          jobDescriptionId: selectedJob.id,
+          organizationId: activeOrg.id,
+          resumeRecordId: recordId,
+          source: "resume_upload",
+        });
+        if (scheduling.status === "fallback_sync") {
+          void (async () => {
+            try {
+              await reassessResumeRecord({
+                organizationId: activeOrg.id,
+                resumeRecordId: recordId,
+              });
+            } catch (error) {
+              console.error("[studio-resumes] fallback assessment failed", {
+                error,
+                resumeRecordId: recordId,
+              });
+            }
+          })();
+        }
+      }
       const visibilityScope = await loadVisibilityScope(
         activeOrg.id,
         c.var.member?.role,
@@ -403,7 +406,27 @@ export const resumeLibraryRouter = factory
         targetRole: input.targetRole || existing.targetRole || "",
         workYears: input.workYears,
       });
+      const resumeEvidenceChanged = Boolean(
+        resumeProfile &&
+        existing.resumeProfile &&
+        computeResumeEvaluationInputHash({
+          resumeContentHash: existing.resumeContentHash,
+          resumeProfile,
+          resumeText: null,
+        }) !==
+          computeResumeEvaluationInputHash({
+            resumeContentHash: existing.resumeContentHash,
+            resumeProfile: existing.resumeProfile,
+            resumeText: null,
+          }),
+      );
       const now = new Date();
+      let invalidatedAssessment = {};
+      if (jobDescriptionChanged) {
+        invalidatedAssessment = INVALIDATED_RESUME_ASSESSMENT_FOR_JOB_CHANGE;
+      } else if (resumeEvidenceChanged) {
+        invalidatedAssessment = INVALIDATED_AI_RESUME_ASSESSMENT;
+      }
       const update = {
         candidateEmail: input.candidateEmail || null,
         candidateName: input.candidateName,
@@ -413,7 +436,7 @@ export const resumeLibraryRouter = factory
           input.targetRole || resumeProfile?.targetRoles[0] || existing.targetRole || null,
         updatedAt: now,
         ...(resumeProfile ? { resumeProfile } : {}),
-        ...(jobDescriptionChanged ? INVALIDATED_RESUME_ASSESSMENT : {}),
+        ...invalidatedAssessment,
       } satisfies Partial<typeof studioInterview.$inferInsert>;
 
       await db.transaction(async (tx) => {
@@ -462,7 +485,7 @@ export const resumeLibraryRouter = factory
       }
 
       if (
-        jobDescriptionChanged &&
+        (jobDescriptionChanged || resumeEvidenceChanged) &&
         resumeProfile &&
         existing.resumeParseStatus === "ready" &&
         existing.pipelineStage !== "closed" &&
@@ -532,6 +555,20 @@ export const resumeLibraryRouter = factory
           : null;
 
       const resumeProfile = syncResumeProfileIdentity(existing.resumeProfile, input.data);
+      const resumeEvidenceChanged = Boolean(
+        resumeProfile &&
+        existing.resumeProfile &&
+        computeResumeEvaluationInputHash({
+          resumeContentHash: existing.resumeContentHash,
+          resumeProfile,
+          resumeText: null,
+        }) !==
+          computeResumeEvaluationInputHash({
+            resumeContentHash: existing.resumeContentHash,
+            resumeProfile: existing.resumeProfile,
+            resumeText: null,
+          }),
+      );
       const resumeProfileUpdate: Partial<typeof studioInterview.$inferInsert> = resumeProfile
         ? { resumeProfile }
         : {};
@@ -542,6 +579,12 @@ export const resumeLibraryRouter = factory
       // schedule / notes / resume file / resumeReview. A job change invalidates the old
       // job-bound AI assessment below.
       const now = new Date();
+      let invalidatedAssessment = {};
+      if (jobDescriptionChanged) {
+        invalidatedAssessment = INVALIDATED_RESUME_ASSESSMENT_FOR_JOB_CHANGE;
+      } else if (resumeEvidenceChanged) {
+        invalidatedAssessment = INVALIDATED_AI_RESUME_ASSESSMENT;
+      }
       const nextHrResumeAssessment = input.data.hrResumeAssessment || null;
       const hrAssessmentChanged = existing.hrResumeAssessment !== nextHrResumeAssessment;
       const update = {
@@ -559,7 +602,7 @@ export const resumeLibraryRouter = factory
         targetRole: input.data.targetRole || resumeProfile?.targetRoles[0] || null,
         updatedAt: now,
         ...resumeProfileUpdate,
-        ...(jobDescriptionChanged ? INVALIDATED_RESUME_ASSESSMENT : {}),
+        ...invalidatedAssessment,
       } satisfies Partial<typeof studioInterview.$inferInsert>;
 
       await db.transaction(async (tx) => {
@@ -607,7 +650,7 @@ export const resumeLibraryRouter = factory
       }
 
       if (
-        jobDescriptionChanged &&
+        (jobDescriptionChanged || resumeEvidenceChanged) &&
         resumeProfile &&
         existing.resumeParseStatus === "ready" &&
         existing.pipelineStage !== "closed" &&
