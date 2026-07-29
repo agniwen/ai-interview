@@ -195,6 +195,11 @@ class SessionState:
     metrics: dict[str, Any] = field(default_factory=_empty_metrics_state)
     close_reason: CloseReason | None = None
     ended_at: float | None = None
+    # 业务层结束原因 (time_limit / candidate_ended_round / reconnect_grace_expired ...).
+    # 与 LiveKit CloseReason 分离: session.shutdown() 总会落成 user_initiated.
+    # Business stop reason distinct from LiveKit CloseReason — session.shutdown()
+    # always surfaces as user_initiated.
+    business_close_reason: str | None = None
     # 录像 eager stop 任务: _on_close 触发时立即异步发出 stop_egress, 这里
     # 持引用让 _on_session_end 可以 await, 同时避免被 GC (RUF006).
     # Eager stop_egress task fired from the close listener; held here so
@@ -506,9 +511,18 @@ async def _on_session_end(ctx: JobContext) -> None:
     ended_at = state.ended_at or time.time()
 
     if state.interview_agent is not None:
-        state.interview_agent.finalize_missing_question_outcomes("system_shutdown")
+        # Prefer business reason recorded during the session over a generic
+        # system_shutdown label so partial coverage is diagnosable.
+        finalize_reason = (
+            state.business_close_reason
+            or state.interview_agent.workflow_stop_reason
+            or "system_shutdown"
+        )
+        state.interview_agent.finalize_missing_question_outcomes(finalize_reason)
         question_outcomes = state.interview_agent.question_outcomes
         agent_completion_status = state.interview_agent.call_completion_status
+        if state.business_close_reason is None:
+            state.business_close_reason = state.interview_agent.workflow_stop_reason
     else:
         question_outcomes = ()
         agent_completion_status = None
@@ -518,9 +532,16 @@ async def _on_session_end(ctx: JobContext) -> None:
         or (
             "success"
             if state.close_reason is CloseReason.TASK_COMPLETED
+            or state.business_close_reason in {"task_completed", "time_limit"}
             else "partial"
             if state.close_reason
             in {CloseReason.USER_INITIATED, CloseReason.PARTICIPANT_DISCONNECTED}
+            or state.business_close_reason
+            in {
+                "candidate_ended_round",
+                "reconnect_grace_expired",
+                "participant_disconnected",
+            }
             else "failed"
         )
     )
@@ -541,6 +562,13 @@ async def _on_session_end(ctx: JobContext) -> None:
             "durationSecs": None,
         }
 
+    # Prefer business close reason in the report metadata; keep LiveKit reason
+    # as a secondary field when both exist.
+    livekit_close_reason = (
+        state.close_reason.value if state.close_reason else "unknown"
+    )
+    report_close_reason = state.business_close_reason or livekit_close_reason
+
     await asyncio.gather(
         send_report(
             interview_context=state.interview_context,
@@ -549,12 +577,11 @@ async def _on_session_end(ctx: JobContext) -> None:
             call_successful=call_successful,
             started_at=state.started_at,
             ended_at=ended_at,
-            close_reason=(
-                state.close_reason.value if state.close_reason else "unknown"
-            ),
+            close_reason=report_close_reason,
             recording=recording_payload,
             metrics=state.metrics,
             data_collection_results=data_collection_results,
+            livekit_close_reason=livekit_close_reason,
         ),
         _stop_recording_best_effort(state.lkapi, recording_info, state.eager_stop_task),
     )
@@ -866,6 +893,7 @@ async def my_agent(ctx: JobContext) -> None:
     async def _close_at_time_limit() -> None:
         logger.info("interview reached the 24-minute close boundary")
         state.completion_status = "success"
+        state.business_close_reason = "time_limit"
         interview_agent.stop_question_workflow("time_limit")
         await _say_fixed_cue(
             "非常感谢你今天的分享。因为时间关系，本场面试到此结束。"
@@ -883,6 +911,7 @@ async def my_agent(ctx: JobContext) -> None:
 
     async def _end_current_question() -> None:
         logger.info("ending the current question at the 21-minute boundary")
+        state.business_close_reason = state.business_close_reason or "time_limit"
         interview_agent.stop_question_workflow("time_limit")
 
     final_wrap_task = _schedule_active_deadline(
@@ -894,6 +923,7 @@ async def my_agent(ctx: JobContext) -> None:
     async def _kill_stuck_session() -> None:
         logger.error("interview reached the 25-minute stuck-session kill boundary")
         state.completion_status = "failed"
+        state.business_close_reason = "system_shutdown"
         interview_agent.stop_question_workflow("system_shutdown")
         await _finalize_via_shutdown(reason="system_shutdown")
 
@@ -922,6 +952,7 @@ async def my_agent(ctx: JobContext) -> None:
         # Full shutdown rather than bare aclose so on_session_end fires
         # and send_report posts to /api/agent/report.
         state.completion_status = "partial"
+        state.business_close_reason = "reconnect_grace_expired"
         interview_agent.stop_question_workflow("reconnect_grace_expired")
         await asyncio.sleep(0)
         await _finalize_via_shutdown(reason="participant_disconnected")

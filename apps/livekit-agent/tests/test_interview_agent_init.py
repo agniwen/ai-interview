@@ -225,3 +225,32 @@ def test_noise_transcript_filters_fillers():
 def test_noise_transcript_keeps_meaningful_text():
     for text in ("我有三年后端经验。", "C++", "2024 年开始做 LiveKit"):
         assert not _is_noise_transcript(text)
+
+
+def test_parent_agent_does_not_expose_end_call_tool():
+    a = InterviewAgent(_ctx())
+
+    tool_names = []
+    for tool in a.tools:
+        info = getattr(tool, "info", None)
+        name = getattr(info, "name", None) if info is not None else None
+        tool_names.append(name or getattr(tool, "name", type(tool).__name__))
+
+    assert "end_call" not in tool_names
+    assert a._end_call_tool is not None
+
+
+def test_finalize_missing_outcomes_prefers_workflow_stop_reason():
+    a = InterviewAgent(_ctx())
+    a.note_workflow_stop("candidate_ended_round")
+    a.finalize_missing_question_outcomes()
+
+    outcomes = a.question_outcomes
+    assert len(outcomes) == 1
+    assert outcomes[0].status.value == "unasked"
+    assert outcomes[0].reason == "candidate_ended_round"
+
+
+def test_has_incomplete_required_questions_before_any_outcome():
+    a = InterviewAgent(_ctx())
+    assert a.has_incomplete_required_questions is True

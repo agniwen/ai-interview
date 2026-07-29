@@ -69,6 +69,7 @@ async def send_report(
     recording: dict | None = None,
     metrics: dict | None = None,
     data_collection_results: dict | None = None,
+    livekit_close_reason: str | None = None,
 ) -> None:
     """POST raw transcript to the backend. Summary + evaluation are generated
     server-side asynchronously (fire-and-forget in the Node process), so this
@@ -98,7 +99,16 @@ async def send_report(
         "endedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ended_at)),
         "metadata": {
             "roomName": room_name,
+            # closeReason: business-level reason when known (time_limit,
+            # candidate_ended_round, task_completed, reconnect_grace_expired…).
             "closeReason": close_reason,
+            # livekitCloseReason: raw AgentSession CloseReason (often
+            # user_initiated because session.shutdown() maps there).
+            **(
+                {"livekitCloseReason": livekit_close_reason}
+                if livekit_close_reason is not None
+                else {}
+            ),
         },
         "metrics": metrics or {},
         "recording": recording,

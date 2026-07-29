@@ -2,7 +2,10 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { invalidateStudioInterviewCaches } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import { buildScheduleRows } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
-import { loadOrCreateActiveInterviewContextSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
+import {
+  flattenPresetQuestionsFromContextSnapshot,
+  loadOrCreateActiveInterviewContextSnapshot,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
 import { autoBindApplicableTemplates } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/bindings";
 import { loadResumeDetail } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resumes";
 import { interviewAuditLog, studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
@@ -43,11 +46,14 @@ export const launchAiInterviewRound = createLaunchAiInterviewRound({
           ),
         );
       await tx.insert(studioInterviewSchedule).values(schedule);
+      // questionCount is the agent-dispatch required count; filled after snapshot
+      // from bound templates. personalizedQuestionCount is resume-generated only.
       await tx.insert(interviewAuditLog).values({
         action: "ai_interview_launched",
         createdAt: now,
         detail: {
-          questionCount: interviewQuestions.length,
+          personalizedQuestionCount: interviewQuestions.length,
+          questionCount: 0,
           roundId: schedule.id,
           roundLabel: schedule.roundLabel,
         },
@@ -61,12 +67,41 @@ export const launchAiInterviewRound = createLaunchAiInterviewRound({
     });
   },
   createSnapshot: async ({ actorId, interviewRecordId, scheduleEntryId }) => {
-    await loadOrCreateActiveInterviewContextSnapshot({
+    const snapshot = await loadOrCreateActiveInterviewContextSnapshot({
       createdBy: actorId,
       interviewRecordId,
       reason: "create",
       scheduleEntryId,
     });
+    const requiredQuestionCount = flattenPresetQuestionsFromContextSnapshot(
+      snapshot.payload,
+    ).length;
+    const [existing] = await db
+      .select({
+        detail: interviewAuditLog.detail,
+        id: interviewAuditLog.id,
+      })
+      .from(interviewAuditLog)
+      .where(
+        and(
+          eq(interviewAuditLog.interviewRecordId, interviewRecordId),
+          eq(interviewAuditLog.scheduleEntryId, scheduleEntryId),
+          eq(interviewAuditLog.action, "ai_interview_launched"),
+        ),
+      )
+      .limit(1);
+    if (!existing) {
+      return;
+    }
+    await db
+      .update(interviewAuditLog)
+      .set({
+        detail: {
+          ...existing.detail,
+          questionCount: requiredQuestionCount,
+        },
+      })
+      .where(eq(interviewAuditLog.id, existing.id));
   },
   idGenerator: { next: () => crypto.randomUUID() },
   invalidateCache: invalidateStudioInterviewCaches,

@@ -136,3 +136,40 @@ def test_candidate_can_end_the_whole_round_without_skipping_only_the_current_que
 
     assert outcome.status is QuestionOutcomeStatus.INTERRUPTED
     assert outcome.reason == "candidate_ended_round"
+
+
+def test_question_instructions_reject_polite_thanks_as_end_signal():
+    from interview_question_task import _question_instructions
+
+    instructions = _question_instructions(_question())
+
+    assert "谢谢" in instructions
+    assert "不是结束整轮的信号" in instructions
+    assert "禁止在本题流程中向候选人道别" in instructions
+
+
+@pytest.mark.asyncio
+async def test_question_task_on_enter_asks_question_without_transition_confirmation():
+    from types import SimpleNamespace
+
+    from interview_question_task import InterviewQuestionTask
+
+    task = InterviewQuestionTask(_question())
+    captured: dict = {}
+
+    class Session:
+        def update_options(self, **_kwargs):
+            return None
+
+        def generate_reply(self, **kwargs):
+            captured.update(kwargs)
+
+    session = Session()
+    task._get_activity_or_raise = lambda: SimpleNamespace(session=session)  # type: ignore[method-assign]
+
+    await task.on_enter()
+
+    instructions = captured["instructions"]
+    assert "直接、完整地向候选人提出这道必问题" in instructions
+    assert "不要问候选人是否准备好或是否可以继续" in instructions
+    assert "不要告别" in instructions

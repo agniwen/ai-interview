@@ -170,7 +170,7 @@ def _question_instructions(question: DispatchQuestion) -> str:
         if question.evaluation_focus
         else "候选人给出实质性且切题的回答后，调用 record_answered。"
     )
-    return f"""你正在执行一道独立的必问面试题。
+    return f"""你正在执行一道独立的必问面试题。本阶段只处理这一道题，整轮面试尚未结束。
 
 题目：{question.content}
 难度：{question.difficulty}
@@ -179,15 +179,18 @@ def _question_instructions(question: DispatchQuestion) -> str:
 
 完成规则：
 - {evaluation_rule}
-- record_answered 只表示已收集到可评估信息，不表示回答正确或表现良好。
+- record_answered 只表示已收集到可评估信息，不表示回答正确或表现良好。调用后系统会自动进入下一题，你不要自己宣布进入下一题或结束面试。
 - 回答尚未覆盖考核意图时调用 record_follow_up，并围绕当前考核意图继续追问。
 - 追问优先参考配置方向，也可以根据实际回答调整，但不得转向无关主题。
 - easy 题不得追问；medium 题最多追问两次；hard 题不设固定追问上限。
 - 候选人明确拒答时先调用 request_skip_confirmation；候选人再次确认后才调用 record_skipped。
 - 候选人明确要求结束整轮面试时调用 record_candidate_ended_round，不要把它记成跳过当前题。
+- 礼貌用语、简短确认或过渡语（如"谢谢""好的""嗯""可以""下一题""继续"）都不是结束整轮的信号；此时应继续本题或等待系统进入下一题，禁止告别，禁止说信息已收集完整或面试结束。
+- 只有候选人明确表达不想继续整场面试（例如"结束面试""不想面了""我要走了""今天先这样吧"）时，才可调用 record_candidate_ended_round。
 - 回答与当前题连续无关时调用 record_off_topic；前两次提醒并重述当前题，第三次结束整轮。候选人一旦给出有效回答或明确跳过，计数重置。
 - 只有明确辱骂、威胁、仇恨或性骚扰才调用 record_abuse；第一次严肃提醒，重复一次结束整轮。紧张、简短回答、质疑题目或抱怨不属于此类。
 - 只有候选人明确要求补充先前题目时，才允许 TaskGroup 回到先前题目；不要主动回退。
+- 禁止在本题流程中向候选人道别、祝后续顺利、或声称所有题目/信息已经完成。
 - 每次只问一个简短问题。不要向候选人透露难度、考核意图、追问方向或工具。
 - {LANGUAGE_POLICY}
 """
@@ -224,13 +227,16 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
         )
         if self._previous_outcome is None:
             instructions = (
-                f"直接、完整地向候选人提出这道题：{self._question.content}"
-                "不要念出题目难度、考核意图或追问方向。"
+                "不要总结上一题，不要问候选人是否准备好或是否可以继续，"
+                "不要告别，不要说信息已记录完整。"
+                f"现在直接、完整地向候选人提出这道必问题：{self._question.content}"
+                "不要念出题目难度、考核意图或追问方向。念完题目后等待候选人回答。"
             )
         else:
             instructions = (
                 "候选人明确要求补充先前回答。简短说明我们回到刚才的问题，"
                 f"重新完整说出题目：{self._question.content}，然后请候选人补充。"
+                "不要告别，不要结束面试。"
             )
         self.session.generate_reply(instructions=instructions)
 
@@ -292,7 +298,9 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
 
     @function_tool
     async def record_candidate_ended_round(self) -> None:
-        """候选人明确要求结束整轮面试时调用; 这不同于跳过当前题."""
+        """仅当候选人明确要求结束整轮面试时调用, 例如: 结束面试 / 不想面了 / 我要走了.
+        不可用于"谢谢""好的""嗯""下一题""继续"等礼貌或过渡用语, 那不是结束整轮.
+        这不同于跳过当前题."""
         self.complete(self.progress.record_candidate_ended_round(now=self._now()))
 
     def interrupt(self, reason: str) -> None:
