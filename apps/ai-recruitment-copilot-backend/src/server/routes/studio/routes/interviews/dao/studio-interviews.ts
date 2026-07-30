@@ -16,6 +16,7 @@ export interface DedupMatchRecord {
   uploaderImage?: string | null;
   uploaderName?: string | null;
   resumeProfileSnapshot?: ResumeLibraryProfileSnapshot | null;
+  resumeFileName?: string | null;
   /** Mastered skills for comparison UI (top skills from resume profile). */
   skills?: string[];
   status: "active" | "archived";

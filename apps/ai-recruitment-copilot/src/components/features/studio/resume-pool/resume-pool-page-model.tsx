@@ -11,6 +11,7 @@ import type {
 } from "@arc/shared/resume-pool";
 
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
+import { ResumeDuplicateMatchBadge } from "@/components/features/resume/resume-duplicate-match-badge";
 import { Badge } from "@/components/ui/badge";
 import type { DedupMatchRecord } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
@@ -135,31 +136,7 @@ export function duplicateMatchBadge(record: ResumePoolListRecord, onClick?: () =
   if (!record.duplicateMatch) {
     return null;
   }
-  const isDuplicate = record.duplicateMatch.highestLevel === "high";
-  const badgeText = isDuplicate ? "重复简历" : "相似简历";
-  const label =
-    record.duplicateMatch.count > 1 ? `${badgeText} ${record.duplicateMatch.count} 条` : badgeText;
-  const variant = isDuplicate ? "destructive" : "secondary";
-  return onClick ? (
-    <Badge
-      className="cursor-pointer"
-      render={
-        <button
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            onClick();
-          }}
-          type="button"
-        >
-          {label}
-        </button>
-      }
-      variant={variant}
-    />
-  ) : (
-    <Badge variant={variant}>{label}</Badge>
-  );
+  return <ResumeDuplicateMatchBadge duplicateMatch={record.duplicateMatch} onClick={onClick} />;
 }
 
 export function getResumePoolImportActionState(record: ResumePoolListRecord) {

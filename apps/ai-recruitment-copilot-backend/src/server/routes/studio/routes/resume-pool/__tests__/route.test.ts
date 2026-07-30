@@ -423,6 +423,10 @@ describe("resume pool duplicate handling", () => {
       poolOwnerUserId: USER_ID,
       sourceId: "pool-item-1",
       sourceType: "resume_pool_item",
+      visibilityScope: {
+        kind: "restricted",
+        userIds: [USER_ID, "subordinate-user"],
+      },
     });
   });
 });

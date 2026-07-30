@@ -58,6 +58,7 @@ export interface DedupMatchRecord {
   uploaderImage?: string | null;
   uploaderName?: string | null;
   resumeProfileSnapshot?: ResumeLibraryProfileSnapshot | null;
+  resumeFileName?: string | null;
   /** Mastered skills for comparison UI (top skills from resume profile). */
   skills?: string[];
   status: "active" | "archived";
@@ -85,6 +86,7 @@ export interface DedupSourceCandidate {
   targetRole: string | null;
   jobDescriptionName: string | null;
   resumeProfileSnapshot: ResumeLibraryProfileSnapshot | null;
+  resumeFileName?: string | null;
   skills: string[];
   sourceType?: ResumeSemanticSourceType;
   createdAt?: string;

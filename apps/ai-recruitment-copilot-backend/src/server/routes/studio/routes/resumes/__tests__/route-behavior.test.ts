@@ -392,6 +392,7 @@ describe("resumeLibraryRouter behavior", () => {
       poolOwnerUserId: USER_ID,
       sourceId: RECORD_ID,
       sourceType: "studio_interview",
+      visibilityScope: { kind: "all" },
     });
   });
 

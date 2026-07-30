@@ -171,6 +171,7 @@ export const resumePoolRouter = factory
       poolOwnerUserId: item.createdBy ?? user.id,
       sourceId: poolItemId,
       sourceType: "resume_pool_item",
+      visibilityScope,
     });
     return c.json({ matches }, 200);
   })

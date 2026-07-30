@@ -9,22 +9,25 @@
  */
 
 import { IconLoader2 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { Suspense, lazy, useState } from "react";
 import type { DedupMatchRecord, DedupSourceCandidate } from "@/lib/client/api";
 import { formatDate } from "@arc/shared/utils/time";
 import { cn } from "@arc/shared/utils";
-import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import { ResumeProfileSnapshotView } from "@/components/features/resume/resume-profile-snapshot";
-import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
 import { EmptyValue } from "@/components/features/display/empty-value";
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Modal } from "@/components/ui/modal";
-import { fetchResumePoolItem } from "@/lib/client/api";
-import { useWorkspaceSlug } from "@/lib/client/workspace-context";
+import { useHasPermission } from "@/hooks/use-has-permission";
+import type { ResumeDedupCompareMode } from "./resume-dedup-compare-dialog";
+import { getResumeComparisonDocumentKind } from "./resume-dedup-compare-model";
+
+const ResumeDedupCompareDialog = lazy(async () => {
+  const mod = await import("./resume-dedup-compare-dialog");
+  return { default: mod.ResumeDedupCompareDialog };
+});
 
 const LEVEL_META: Record<
   NonNullable<DedupMatchRecord["level"]>,
@@ -239,69 +242,6 @@ function CandidateBody({
   );
 }
 
-function ResumePoolMatchDetailDialog({
-  onOpenChange,
-  open,
-  recordId,
-}: {
-  open: boolean;
-  recordId: string | null;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const slug = useWorkspaceSlug();
-  const detailQuery = useQuery({
-    enabled: open && Boolean(recordId),
-    queryFn: () => (recordId ? fetchResumePoolItem(slug, recordId) : null),
-    queryKey: ["resume-pool", "dedup-match-detail", slug, recordId],
-  });
-  const detail = detailQuery.data ?? null;
-  let content: ReactNode = <p className="text-muted-foreground text-sm">未找到这份私有简历。</p>;
-  if (detailQuery.isLoading) {
-    content = (
-      <div className="flex items-center gap-2 text-muted-foreground text-sm">
-        <IconLoader2 className="size-4 animate-spin" />
-        正在加载简历详情
-      </div>
-    );
-  } else if (detail) {
-    content = (
-      <div className="space-y-5">
-        <div className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-          <div>
-            <span className="text-muted-foreground">目标岗位</span>
-            <p className="mt-1 font-medium">{detail.targetRole ?? <EmptyValue />}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground">邮箱</span>
-            <p className="mt-1 break-all font-medium">{detail.candidateEmail ?? <EmptyValue />}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground">电话</span>
-            <p className="mt-1 break-all font-medium">{detail.candidatePhone ?? <EmptyValue />}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground">状态</span>
-            <p className="mt-1 font-medium">{detail.status === "active" ? "有效" : "已归档"}</p>
-          </div>
-        </div>
-        <ResumeProfileView profile={detail.resumeProfile ?? null} />
-      </div>
-    );
-  }
-
-  return (
-    <Modal
-      description={detail?.resumeFileName ?? undefined}
-      onOpenChange={onOpenChange}
-      open={open}
-      size="2xl"
-      title={detail ? formatResumeCandidateTitle(detail.candidateName, detail.id) : "私有简历详情"}
-    >
-      {content}
-    </Modal>
-  );
-}
-
 function SourceCandidatePanel({ source }: { source: DedupSourceCandidate }) {
   return (
     <aside className="min-h-0 min-w-0 overflow-y-auto">
@@ -325,11 +265,17 @@ function SourceCandidatePanel({ source }: { source: DedupSourceCandidate }) {
 }
 
 function MatchCandidateRow({
+  canCompareDetail,
+  canCompareResume,
   match,
   onOpenDetail,
+  onOpenResume,
 }: {
+  canCompareDetail: boolean;
+  canCompareResume: boolean;
   match: DedupMatchRecord;
   onOpenDetail: (match: DedupMatchRecord) => void;
+  onOpenResume: (match: DedupMatchRecord) => void;
 }) {
   const statusLabel = match.status === "active" ? "有效" : "已归档";
   return (
@@ -356,15 +302,20 @@ function MatchCandidateRow({
             </span>
           </div>
         </div>
-        <Button
-          className="shrink-0"
-          onClick={() => onOpenDetail(match)}
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
-          查看
-        </Button>
+        {canCompareDetail || canCompareResume ? (
+          <div className="hidden shrink-0 items-center gap-1 lg:flex">
+            {canCompareDetail ? (
+              <Button onClick={() => onOpenDetail(match)} size="sm" type="button" variant="ghost">
+                详情
+              </Button>
+            ) : null}
+            {canCompareResume ? (
+              <Button onClick={() => onOpenResume(match)} size="sm" type="button" variant="ghost">
+                简历
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <div className="mt-2 min-w-0">
@@ -388,49 +339,72 @@ function MatchCandidateRow({
 export function ResumeDedupMatchList({
   matches,
   className,
+  source = null,
 }: {
   matches: DedupMatchRecord[];
   className?: string;
+  source?: DedupSourceCandidate | null;
 }) {
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
-  const [poolDetailOpen, setPoolDetailOpen] = useState(false);
-  const [poolDetailRecordId, setPoolDetailRecordId] = useState<string | null>(null);
+  const canReadResumeLibrary = useHasPermission("resumeLibrary", "read");
+  const canReadResumePool = useHasPermission("resumePool", "read");
+  const [comparison, setComparison] = useState<{
+    match: DedupMatchRecord;
+    mode: ResumeDedupCompareMode;
+  } | null>(null);
 
-  function openDetail(match: DedupMatchRecord) {
-    if (match.sourceType === "resume_pool_item") {
-      setPoolDetailRecordId(match.id);
-      setPoolDetailOpen(true);
-      return;
-    }
-    setDetailRecordId(match.id);
-    setDetailOpen(true);
+  function openComparison(match: DedupMatchRecord, mode: ResumeDedupCompareMode) {
+    setComparison({ match, mode });
   }
+
+  function canReadSourceType(sourceType: DedupMatchRecord["sourceType"]) {
+    return sourceType === "resume_pool_item" ? canReadResumePool : canReadResumeLibrary;
+  }
+
+  const canReadCurrent = source ? canReadSourceType(source.sourceType) : false;
+  const currentDocumentKind = getResumeComparisonDocumentKind(source?.resumeFileName);
 
   return (
     <>
       <div className={cn("min-h-0 divide-y overflow-y-auto", className)}>
         {matches.map((match) => (
-          <MatchCandidateRow key={match.id} match={match} onOpenDetail={openDetail} />
+          <MatchCandidateRow
+            canCompareDetail={Boolean(
+              source &&
+              canReadCurrent &&
+              canReadSourceType(match.sourceType) &&
+              !(match.sourceType === "resume_pool_item" && match.status === "archived"),
+            )}
+            canCompareResume={Boolean(
+              source &&
+              canReadCurrent &&
+              canReadSourceType(match.sourceType) &&
+              currentDocumentKind &&
+              getResumeComparisonDocumentKind(match.resumeFileName) &&
+              !(match.sourceType === "resume_pool_item" && match.status === "archived"),
+            )}
+            key={match.id}
+            match={match}
+            onOpenDetail={(selectedMatch) => openComparison(selectedMatch, "detail")}
+            onOpenResume={(selectedMatch) => openComparison(selectedMatch, "resume")}
+          />
         ))}
       </div>
 
-      <StudioPersonDetailDialog
-        mode="resume"
-        onOpenChange={setDetailOpen}
-        open={detailOpen}
-        recordId={detailRecordId}
-      />
-      <ResumePoolMatchDetailDialog
-        onOpenChange={(open) => {
-          setPoolDetailOpen(open);
-          if (!open) {
-            setPoolDetailRecordId(null);
-          }
-        }}
-        open={poolDetailOpen}
-        recordId={poolDetailRecordId}
-      />
+      {comparison && source ? (
+        <Suspense fallback={null}>
+          <ResumeDedupCompareDialog
+            match={comparison.match}
+            mode={comparison.mode}
+            onOpenChange={(open) => {
+              if (!open) {
+                setComparison(null);
+              }
+            }}
+            open
+            source={source}
+          />
+        </Suspense>
+      ) : null}
     </>
   );
 }
@@ -485,7 +459,7 @@ export function ResumeDuplicateMatchesDialog({
           </div>
 
           {matches.length > 0 ? (
-            <ResumeDedupMatchList className="min-h-0 flex-1" matches={matches} />
+            <ResumeDedupMatchList className="min-h-0 flex-1" matches={matches} source={source} />
           ) : (
             <p className="py-10 text-center text-muted-foreground text-sm">暂无疑似重复简历</p>
           )}
