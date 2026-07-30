@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { encodeUploadTaskInboxCursor } from "../routes/inbox/cursor";
 import { uploadTaskInboxQuerySchema } from "../routes/inbox/schema";
-import { normalizeQueueProgress, resolveInboxQueueState } from "../routes/inbox/state";
+import {
+  normalizeQueueProgress,
+  resolveInboxPreviewTarget,
+  resolveInboxQueueState,
+} from "../routes/inbox/state";
 
 describe("upload task inbox queue state", () => {
   it("accepts only server-issued keyset cursors", () => {
@@ -40,5 +44,24 @@ describe("upload task inbox queue state", () => {
     expect(normalizeQueueProgress({ percentage: 68 })).toBe(68);
     expect(normalizeQueueProgress({ progress: 0.25 })).toBe(25);
     expect(normalizeQueueProgress("unknown")).toBeNull();
+  });
+
+  it("does not expose archived or cancelled placeholder records for preview", () => {
+    expect(
+      resolveInboxPreviewTarget({
+        poolItemId: "pool-1",
+        poolItemStatus: "archived",
+        resumeRecordId: null,
+        target: "resume_pool",
+      }),
+    ).toBeNull();
+    expect(
+      resolveInboxPreviewTarget({
+        poolItemId: "pool-2",
+        poolItemStatus: "active",
+        resumeRecordId: null,
+        target: "resume_pool",
+      }),
+    ).toEqual({ id: "pool-2", resource: "resume-pool" });
   });
 });

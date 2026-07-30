@@ -1,6 +1,6 @@
 import type { UploadTaskInboxPage } from "@arc/shared/upload-task-inbox";
 import { queryUploadTaskInbox } from "./dao";
-import { normalizeQueueProgress, resolveInboxQueueState } from "./state";
+import { normalizeQueueProgress, resolveInboxPreviewTarget, resolveInboxQueueState } from "./state";
 
 function toIsoString(value: Date | null): string | null {
   return value?.toISOString() ?? null;
@@ -42,6 +42,8 @@ export async function listUploadTaskInbox(input: {
     nextCursor: page.nextCursor,
     records: page.records.map((record) => {
       const queueJob = queueJobsById.get(record.id);
+      const previewTarget = resolveInboxPreviewTarget(record);
+
       return {
         attemptCount: record.attemptCount,
         batchId: record.batchId,
@@ -51,6 +53,7 @@ export async function listUploadTaskInbox(input: {
         finishedAt: toIsoString(record.finishedAt),
         id: record.id,
         originalFileName: record.originalFileName,
+        previewTarget,
         progressPercent: normalizeQueueProgress(queueJob?.progress),
         queueState: resolveInboxQueueState(record.status, queueJob?.state ?? null),
         queuedAt: toIsoString(record.queuedAt),

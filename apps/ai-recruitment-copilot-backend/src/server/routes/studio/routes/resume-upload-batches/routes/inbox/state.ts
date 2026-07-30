@@ -1,5 +1,5 @@
 import type { ResumeUploadBatchItemStatus } from "@arc/db-schema/schema";
-import type { UploadTaskQueueState } from "@arc/shared/upload-task-inbox";
+import type { UploadTaskInboxRecord, UploadTaskQueueState } from "@arc/shared/upload-task-inbox";
 
 const QUEUE_STATES = new Set<UploadTaskQueueState>([
   "active",
@@ -15,6 +15,21 @@ const QUEUE_STATES = new Set<UploadTaskQueueState>([
 
 function clampPercent(value: number): number {
   return Math.min(100, Math.max(0, value));
+}
+
+export function resolveInboxPreviewTarget(input: {
+  poolItemId: string | null;
+  poolItemStatus: string | null;
+  resumeRecordId: string | null;
+  target: "resume_library" | "resume_pool";
+}): UploadTaskInboxRecord["previewTarget"] {
+  if (input.target === "resume_pool") {
+    return input.poolItemId && input.poolItemStatus === "active"
+      ? { id: input.poolItemId, resource: "resume-pool" }
+      : null;
+  }
+
+  return input.resumeRecordId ? { id: input.resumeRecordId, resource: "resumes" } : null;
 }
 
 export function resolveInboxQueueState(

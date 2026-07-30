@@ -24,6 +24,10 @@ export interface UploadTaskInboxRecord {
   finishedAt: string | null;
   id: string;
   originalFileName: string;
+  previewTarget:
+    | { id: string; resource: "resume-pool" }
+    | { id: string; resource: "resumes" }
+    | null;
   progressPercent: number | null;
   queueState: UploadTaskQueueState;
   queuedAt: string | null;

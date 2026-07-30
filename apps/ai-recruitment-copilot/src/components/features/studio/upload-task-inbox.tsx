@@ -1,17 +1,15 @@
 "use client";
 
-import {
-  IconAlertCircle,
-  IconFileText,
-  IconInbox,
-  IconLoader2,
-  IconRefresh,
-} from "@tabler/icons-react";
+import { IconAlertCircle, IconInbox, IconLoader2, IconRefresh } from "@tabler/icons-react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { UploadTaskInboxPage, UploadTaskInboxRecord } from "@arc/shared/upload-task-inbox";
 import { formatRelativeTime } from "@arc/shared/utils/time";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ResumeDocumentFileIcon,
+  getResumeDocumentFileIconKind,
+} from "@/components/features/resume/resume-document-file-icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,9 +24,14 @@ import { Progress } from "@/components/ui/progress";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { getUploadTaskInboxPage } from "@/lib/client/api/endpoints/bulk-resume-upload";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
-import { getUploadTaskStatusMeta } from "./upload-task-inbox-model";
+import { getUploadTaskPreviewTarget, getUploadTaskStatusMeta } from "./upload-task-inbox-model";
 
-const TASK_ROW_ESTIMATE = 116;
+const ResumeDocumentPreviewDialog = lazy(async () => {
+  const mod = await import("@/components/features/resume/resume-document-preview-dialog");
+  return { default: mod.ResumeDocumentPreviewDialog };
+});
+
+const TASK_ROW_ESTIMATE = 76;
 const INITIAL_PAGE_PARAM: { cursor: string | null } = { cursor: null };
 
 const statusClasses = {
@@ -39,83 +42,90 @@ const statusClasses = {
   processing: "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300",
 } as const;
 
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`;
-  }
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function UploadTaskRow({ record }: { record: UploadTaskInboxRecord }) {
+function UploadTaskRow({
+  canPreview,
+  onPreview,
+  record,
+}: {
+  canPreview: boolean;
+  onPreview: (record: UploadTaskInboxRecord) => void;
+  record: UploadTaskInboxRecord;
+}) {
   const status = getUploadTaskStatusMeta(record.queueState);
   const progress = record.progressPercent;
-  const displayName = record.candidateName?.trim() || record.originalFileName;
   const time = record.finishedAt ?? record.startedAt ?? record.queuedAt;
+  const previewTarget = canPreview ? getUploadTaskPreviewTarget(record) : null;
+  const fileKind = getResumeDocumentFileIconKind({
+    fileName: record.originalFileName,
+  });
 
   return (
-    <article className="border-border/60 border-b px-4 py-3 last:border-b-0">
-      <div className="flex items-start gap-3">
-        <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-          <IconFileText className="size-4" />
-        </div>
+    <button
+      className="w-full border-border/60 border-b px-3 py-2.5 text-left transition-colors enabled:hover:bg-muted/40 disabled:cursor-default last:border-b-0"
+      disabled={!previewTarget}
+      onClick={() => onPreview(record)}
+      title={previewTarget ? "点击预览简历" : undefined}
+      type="button"
+    >
+      <div className="flex items-start gap-2.5">
+        <ResumeDocumentFileIcon className="mt-0.5 size-6 shrink-0" kind={fileKind} />
         <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="truncate font-medium text-sm" title={displayName}>
-                {displayName}
-              </p>
-              <p className="mt-0.5 truncate text-muted-foreground text-xs">
-                {record.originalFileName}
-              </p>
-            </div>
-            <Badge className={statusClasses[status.tone]} variant="outline">
+          <div className="flex min-w-0 items-center gap-2">
+            <p
+              className="min-w-0 flex-1 truncate font-medium text-sm"
+              title={record.originalFileName}
+            >
+              {record.originalFileName}
+            </p>
+            <Badge
+              className={`h-5 shrink-0 px-1.5 py-0 text-[11px] ${statusClasses[status.tone]}`}
+              variant="outline"
+            >
               {status.label}
             </Badge>
           </div>
-          <div className="mt-2 flex items-center gap-2 text-muted-foreground text-xs">
-            <span>{record.target === "resume_pool" ? "人才库" : "招聘台"}</span>
-            {record.targetRole ? (
+          <div className="mt-1 flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
+            {record.candidateName ? (
               <>
+                <span className="max-w-28 truncate">{record.candidateName}</span>
                 <span aria-hidden>·</span>
-                <span className="max-w-28 truncate">{record.targetRole}</span>
               </>
             ) : null}
-            <span aria-hidden>·</span>
-            <span>{formatFileSize(record.fileSize)}</span>
+            <span>{record.target === "resume_pool" ? "人才库" : "招聘台"}</span>
             {record.attemptCount > 1 ? (
               <>
                 <span aria-hidden>·</span>
-                <span>第 {record.attemptCount} 次尝试</span>
+                <span>重试 {record.attemptCount - 1} 次</span>
               </>
             ) : null}
             <span className="ml-auto shrink-0">{formatRelativeTime(time)}</span>
           </div>
           {record.queueState === "active" ? (
-            <div className="mt-2 flex items-center gap-2">
-              <Progress className="h-1.5" value={progress} />
-              <span className="w-8 shrink-0 text-right text-muted-foreground text-xs">
+            <div className="mt-1.5 flex items-center gap-2">
+              <Progress className="h-1" value={progress} />
+              <span className="w-8 shrink-0 text-right text-[11px] text-muted-foreground">
                 {progress === null ? "处理中" : `${Math.round(progress)}%`}
               </span>
             </div>
           ) : null}
           {record.queueState === "failed" && record.errorMessage ? (
-            <p className="mt-2 line-clamp-2 text-rose-600 text-xs dark:text-rose-300">
+            <p className="mt-1 line-clamp-1 text-rose-600 text-xs dark:text-rose-300">
               {record.errorMessage}
             </p>
           ) : null}
         </div>
       </div>
-    </article>
+    </button>
   );
 }
 
 export function UploadTaskInbox() {
   const slug = useWorkspaceSlug();
   const canReadUploadTasks = useHasPermission("resumeUploadBatch", "read");
+  const canReadResumeLibrary = useHasPermission("resumeLibrary", "read");
+  const canReadResumePool = useHasPermission("resumePool", "read");
   const [open, setOpen] = useState(false);
+  const [previewRecord, setPreviewRecord] = useState<UploadTaskInboxRecord | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const query = useInfiniteQuery({
     enabled: open && canReadUploadTasks,
@@ -141,6 +151,17 @@ export function UploadTaskInbox() {
     overscan: 5,
   });
   const virtualRows = virtualizer.getVirtualItems();
+  const previewTarget = previewRecord ? getUploadTaskPreviewTarget(previewRecord) : null;
+
+  const handlePreview = (record: UploadTaskInboxRecord) => {
+    const hasTargetPermission =
+      record.target === "resume_pool" ? canReadResumePool : canReadResumeLibrary;
+    if (!hasTargetPermission || !getUploadTaskPreviewTarget(record)) {
+      return;
+    }
+    setOpen(false);
+    setPreviewRecord(record);
+  };
 
   useEffect(() => {
     const lastRow = virtualRows.at(-1);
@@ -148,6 +169,10 @@ export function UploadTaskInbox() {
       void fetchNextPage();
     }
   }, [fetchNextPage, hasNextPage, isFetchingNextPage, records.length, virtualRows]);
+
+  useEffect(() => {
+    setPreviewRecord(null);
+  }, [slug]);
 
   if (!canReadUploadTasks) {
     return null;
@@ -202,7 +227,13 @@ export function UploadTaskInbox() {
                   style={{ transform: `translateY(${virtualRow.start}px)` }}
                 >
                   {record ? (
-                    <UploadTaskRow record={record} />
+                    <UploadTaskRow
+                      canPreview={
+                        record.target === "resume_pool" ? canReadResumePool : canReadResumeLibrary
+                      }
+                      onPreview={handlePreview}
+                      record={record}
+                    />
                   ) : (
                     <div className="flex h-16 items-center justify-center gap-2 text-muted-foreground text-xs">
                       <IconLoader2 className="size-4 animate-spin" />
@@ -222,43 +253,61 @@ export function UploadTaskInbox() {
   }
 
   return (
-    <Popover onOpenChange={setOpen} open={open}>
-      <PopoverTrigger
-        render={
-          <Button
-            aria-label="打开上传任务 Inbox"
-            className="relative"
-            size="icon-sm"
-            variant="ghost"
-          >
-            <IconInbox className="size-4" />
-          </Button>
-        }
-      />
-      <PopoverContent
-        align="end"
-        className="w-[min(26rem,calc(100vw-1rem))] overflow-hidden p-0"
-        sideOffset={8}
-      >
-        <PopoverHeader className="border-border/60 border-b px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <PopoverTitle>上传任务</PopoverTitle>
-              <PopoverDescription>当前工作区中由你提交的简历解析任务</PopoverDescription>
-            </div>
+    <>
+      <Popover onOpenChange={setOpen} open={open}>
+        <PopoverTrigger
+          render={
             <Button
-              aria-label="刷新上传任务"
-              disabled={query.isFetching}
-              onClick={() => void query.refetch()}
+              aria-label="打开上传任务 Inbox"
+              className="relative"
               size="icon-sm"
               variant="ghost"
             >
-              <IconRefresh className={query.isFetching ? "size-4 animate-spin" : "size-4"} />
+              <IconInbox className="size-4" />
             </Button>
-          </div>
-        </PopoverHeader>
-        {content}
-      </PopoverContent>
-    </Popover>
+          }
+        />
+        <PopoverContent
+          align="end"
+          className="w-[min(26rem,calc(100vw-1rem))] overflow-hidden bg-background p-0"
+          sideOffset={8}
+        >
+          <PopoverHeader className="border-border/60 border-b px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <PopoverTitle>上传任务</PopoverTitle>
+                <PopoverDescription>当前工作区中由你提交的简历解析任务</PopoverDescription>
+              </div>
+              <Button
+                aria-label="刷新上传任务"
+                disabled={query.isFetching}
+                onClick={() => void query.refetch()}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <IconRefresh className={query.isFetching ? "size-4 animate-spin" : "size-4"} />
+              </Button>
+            </div>
+          </PopoverHeader>
+          {content}
+        </PopoverContent>
+      </Popover>
+      {previewRecord && previewTarget ? (
+        <Suspense fallback={null}>
+          <ResumeDocumentPreviewDialog
+            downloadUrl={`/api/w/${slug}/studio/${previewTarget.resource}/${previewTarget.id}/resume`}
+            filename={previewRecord.originalFileName}
+            kind={previewTarget.kind}
+            onOpenChange={(nextOpen) => {
+              if (!nextOpen) {
+                setPreviewRecord(null);
+              }
+            }}
+            open
+            url={`/api/w/${slug}/studio/${previewTarget.resource}/${previewTarget.id}/${previewTarget.path}`}
+          />
+        </Suspense>
+      ) : null}
+    </>
   );
 }

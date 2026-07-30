@@ -1,4 +1,5 @@
-import type { UploadTaskQueueState } from "@arc/shared/upload-task-inbox";
+import { getResumeDocumentKind } from "@arc/shared/resume-documents";
+import type { UploadTaskInboxRecord, UploadTaskQueueState } from "@arc/shared/upload-task-inbox";
 
 export type UploadTaskStatusTone = "cancelled" | "completed" | "failed" | "pending" | "processing";
 
@@ -25,4 +26,39 @@ export function getUploadTaskStatusMeta(state: UploadTaskQueueState): {
     return { label: "等待重试", tone: "pending" };
   }
   return { label: "等待解析", tone: "pending" };
+}
+
+type UploadTaskPreviewInput = Pick<UploadTaskInboxRecord, "originalFileName" | "previewTarget">;
+
+export function getUploadTaskPreviewTarget(input: UploadTaskPreviewInput) {
+  const documentKind = getResumeDocumentKind({
+    fileName: input.originalFileName,
+  });
+
+  if (!input.previewTarget || !documentKind) {
+    return null;
+  }
+
+  if (documentKind === "pptx") {
+    return {
+      ...input.previewTarget,
+      kind: "pdf" as const,
+      path: "resume-preview.pdf" as const,
+    };
+  }
+
+  if (
+    documentKind === "pdf" ||
+    documentKind === "docx" ||
+    documentKind === "xlsx" ||
+    documentKind === "image"
+  ) {
+    return {
+      ...input.previewTarget,
+      kind: documentKind,
+      path: "resume" as const,
+    };
+  }
+
+  return null;
 }
