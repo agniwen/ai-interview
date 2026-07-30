@@ -30,6 +30,7 @@ interface ResumeLibraryCardListProps {
   canCreateInterview: boolean;
   canDeleteResumeLibrary: boolean;
   canReadResumeUploadBatch: boolean;
+  canRetryResumeParse: boolean;
   canUpdateResumeLibrary: boolean;
   canUploadResumeLibrary: boolean;
   currentMemberRole: string;
@@ -48,9 +49,12 @@ interface ResumeLibraryCardListProps {
   onOpenDetail: (record: ResumeLibraryListRecord, tab?: ResumeDetailDefaultTab) => void;
   onOpenUploadEntry: () => void;
   onPreviewResume: (record: ResumeLibraryListRecord) => void;
+  onRetryParse: (record: ResumeLibraryListRecord) => void;
   onShowDuplicateMatches: (record: ResumeLibraryListRecord) => void;
   onTransition: (record: ResumeLibraryListRecord, mode: "close" | "reactivate") => void;
   records: ResumeLibraryListRecord[];
+  retryingRecordId: string | null;
+  retriedRecordIds: ReadonlySet<string>;
   isFetchingNextPage: boolean;
   isInitialLoading: boolean;
   isRefetching: boolean;
@@ -63,6 +67,7 @@ export function ResumeLibraryCardList({
   canCreateInterview,
   canDeleteResumeLibrary,
   canReadResumeUploadBatch,
+  canRetryResumeParse,
   canUpdateResumeLibrary,
   canUploadResumeLibrary,
   currentMemberRole,
@@ -85,9 +90,12 @@ export function ResumeLibraryCardList({
   onOpenDetail,
   onOpenUploadEntry,
   onPreviewResume,
+  onRetryParse,
   onShowDuplicateMatches,
   onTransition,
   records,
+  retryingRecordId,
+  retriedRecordIds,
   total,
   uploadEntryDisabled,
 }: ResumeLibraryCardListProps) {
@@ -230,6 +238,7 @@ export function ResumeLibraryCardList({
                 <ResumeLibraryCard
                   canCreateInterview={canCreateInterview}
                   canDeleteResumeLibrary={canDeleteResumeLibrary}
+                  canRetryResumeParse={canRetryResumeParse && !retriedRecordIds.has(record.id)}
                   canUpdateResumeLibrary={canUpdateResumeLibrary}
                   currentMemberRole={currentMemberRole}
                   currentUserId={currentUserId}
@@ -239,10 +248,12 @@ export function ResumeLibraryCardList({
                   onLaunchInterview={onLaunchInterview}
                   onOpenDetail={handleOpenDetail}
                   onPreviewResume={onPreviewResume}
+                  onRetryParse={onRetryParse}
                   onSelectChange={handleSelectionChange}
                   onShowDuplicateMatches={onShowDuplicateMatches}
                   onTransition={onTransition}
                   record={record}
+                  retrying={retryingRecordId === record.id}
                   selected={Boolean(grid.bind.rowSelection[record.id])}
                 />
               </div>

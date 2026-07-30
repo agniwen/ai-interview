@@ -4,6 +4,7 @@ import { uniq } from "lodash-es";
 import { z } from "zod";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { listActiveDuplicateMatchCounts } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicate-matches";
+import { loadResumeParseRetryEligibility } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/retry";
 import {
   buildOrderBy,
   calcTotalPages,
@@ -356,12 +357,14 @@ const EMPTY_STAGE_PROGRESS: ResumeStageProgress = {
 interface ResumeDerivedFields {
   hasInterviewRounds: boolean;
   lastInterviewAt: string | null;
+  resumeParseRetryable: boolean | null;
   stageProgress: ResumeStageProgress;
 }
 
 const EMPTY_DERIVED_FIELDS: ResumeDerivedFields = {
   hasInterviewRounds: false,
   lastInterviewAt: null,
+  resumeParseRetryable: null,
   stageProgress: EMPTY_STAGE_PROGRESS,
 };
 
@@ -414,6 +417,7 @@ function parseResumeScreeningResult(value: unknown) {
 // oxlint-disable-next-line complexity
 async function loadResumeDerivedFields(
   candidateIds: string[],
+  organizationId: string,
 ): Promise<Map<string, ResumeDerivedFields>> {
   const ids = uniq(candidateIds.filter(Boolean));
   const result = new Map<string, ResumeDerivedFields>();
@@ -421,6 +425,7 @@ async function loadResumeDerivedFields(
     result.set(id, {
       hasInterviewRounds: false,
       lastInterviewAt: null,
+      resumeParseRetryable: null,
       stageProgress: { ...EMPTY_STAGE_PROGRESS },
     });
   }
@@ -428,7 +433,7 @@ async function loadResumeDerivedFields(
     return result;
   }
 
-  const [aiRows, humanRows, offerRows, lastInterviewRows] = await Promise.all([
+  const [aiRows, humanRows, offerRows, lastInterviewRows, retryableIds] = await Promise.all([
     db
       .select({
         interviewRecordId: studioInterviewSchedule.interviewRecordId,
@@ -487,7 +492,19 @@ async function loadResumeDerivedFields(
         ),
       )
       .groupBy(interviewConversation.interviewRecordId),
+    loadResumeParseRetryEligibility({
+      ids,
+      organizationId,
+      target: "resume_library",
+    }),
   ]);
+
+  for (const [id, retryable] of retryableIds) {
+    const derived = result.get(id);
+    if (derived) {
+      derived.resumeParseRetryable = retryable;
+    }
+  }
 
   const aiByCandidate = new Map<string, (typeof aiRows)[number][]>();
   for (const row of aiRows) {
@@ -622,6 +639,10 @@ function toRecord(
     outcome: row.outcome,
     pipelineStage: row.pipelineStage,
     resumeFileName: row.resumeFileName,
+    resumeParseRetryable:
+      row.resumeParseStatus === "failed" &&
+      Boolean(row.resumeStorageKey) &&
+      (resolvedDerived.resumeParseRetryable ?? true),
     resumeParseStatus: row.resumeParseStatus,
     resumeProfileSnapshot: buildResumeProfileSnapshot(row),
     resumeReviewBaseScore: parseResumeReviewBaseScore(row.resumeReviewBaseScore),
@@ -682,7 +703,7 @@ export async function queryPaginatedResumeRecords(
 
   const recordIds = rows.map((row) => row.id);
   const [derivedFields, duplicateMatches] = await Promise.all([
-    loadResumeDerivedFields(recordIds),
+    loadResumeDerivedFields(recordIds, organizationId),
     listActiveDuplicateMatchCounts({
       organizationId,
       sourceIds: recordIds,
@@ -776,7 +797,7 @@ export async function loadResumeDetail(
   const { interviewQuestions, resumeProfile, resumeReview, ...rest } = row;
   const resumeScreeningResult = parseResumeScreeningResult(rest.resumeScreeningResult);
   const [derivedFields, duplicateMatches] = await Promise.all([
-    loadResumeDerivedFields([rest.id]),
+    loadResumeDerivedFields([rest.id], organizationId),
     listActiveDuplicateMatchCounts({
       organizationId,
       sourceIds: [rest.id],

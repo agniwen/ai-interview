@@ -1,6 +1,6 @@
 /* oxlint-disable complexity -- page controller coordinates grid queries and dialogs. */
 import { IconUsers } from "@tabler/icons-react";
-import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearch } from "@tanstack/react-router";
 import { buildInfiniteDataGridQueryKey } from "@/components/data-grid/query-contract";
 import { parseCsvParam } from "@arc/shared/csv";
@@ -17,7 +17,7 @@ import { pipelineStageMeta } from "@arc/db-schema/studio-interviews";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ResumeDuplicateMatchesDialog } from "@/components/features/resume/resume-dedup-overlay";
 import { toDedupSourceFromLibraryRecord } from "@/components/features/resume/resume-dedup-source";
@@ -43,6 +43,7 @@ import {
   fetchStudioResumeDuplicateMatches,
   fetchStudioResumeSkillSuggestions,
   fetchStudioResumes,
+  retryStudioResumeParse,
 } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { runAsyncAction } from "@/lib/client/async-control";
@@ -89,6 +90,8 @@ export function ResumeLibraryPage() {
   const canDeleteResumeLibrary = useHasPermission("resumeLibrary", "delete");
   const canReadResumeUploadBatch = useHasPermission("resumeUploadBatch", "read");
   const canCreateResumeUploadBatch = useHasPermission("resumeUploadBatch", "create");
+  const canRetryResumeParse = useHasPermission("resumeUploadBatch", "process");
+  const [retriedRecordIds, setRetriedRecordIds] = useState<ReadonlySet<string>>(() => new Set());
 
   const invalidateAll = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
@@ -290,6 +293,15 @@ export function ResumeLibraryPage() {
       sortOrder: activeSortOrder,
     }),
     staleTime: 30_000,
+  });
+  const retryParseMutation = useMutation({
+    mutationFn: (record: ResumeLibraryListRecord) => retryStudioResumeParse(slug, record.id),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "重新解析简历失败"),
+    onSuccess: (_result, record) => {
+      setRetriedRecordIds((current) => new Set(current).add(record.id));
+      toast.success("已重新加入解析队列");
+      invalidateAll();
+    },
   });
   const loadedResumeRecords = useMemo(
     () => resumeLibraryListQuery.data?.pages.flatMap((page) => page.records) ?? [],
@@ -520,6 +532,7 @@ export function ResumeLibraryPage() {
           canCreateInterview={canCreateInterview}
           canDeleteResumeLibrary={canDeleteResumeLibrary}
           canReadResumeUploadBatch={canReadResumeUploadBatch}
+          canRetryResumeParse={canRetryResumeParse}
           canUpdateResumeLibrary={canUpdateResumeLibrary}
           canUploadResumeLibrary={canUploadResumeLibrary}
           currentMemberRole={currentMemberRole}
@@ -558,6 +571,7 @@ export function ResumeLibraryPage() {
           }}
           onOpenUploadEntry={() => setUploadEntryOpen(true)}
           onPreviewResume={setPreviewRecord}
+          onRetryParse={retryParseMutation.mutate}
           onShowDuplicateMatches={setDuplicateMatchRecord}
           onTransition={(record, mode) =>
             setTransitionTarget({
@@ -566,6 +580,10 @@ export function ResumeLibraryPage() {
             })
           }
           records={loadedResumeRecords}
+          retryingRecordId={
+            retryParseMutation.isPending ? (retryParseMutation.variables?.id ?? null) : null
+          }
+          retriedRecordIds={retriedRecordIds}
           total={resumeLibraryTotal}
           uploadEntryDisabled={uploadEntryDisabled}
         />

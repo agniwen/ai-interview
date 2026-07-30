@@ -35,6 +35,7 @@ const mocks = vi.hoisted(() => ({
   queryResumePoolItems: vi.fn(),
   replaceDuplicateMatchesForSource: vi.fn(),
   resolveRecruitingVisibilityScope: vi.fn(),
+  retryFailedResumeParse: vi.fn(),
   runResumeSemanticIndexJob: vi.fn(),
   storeInterviewResume: vi.fn(),
 }));
@@ -73,6 +74,10 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-pre
 vi.mock(
   "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue",
   () => ({ enqueueResumeReviewGenerationForRecordBestEffort: vi.fn() }),
+);
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/retry",
+  () => ({ retryFailedResumeParse: mocks.retryFailedResumeParse }),
 );
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service", () => ({
   findSemanticResumeDuplicates: mocks.findSemanticResumeDuplicates,
@@ -122,6 +127,7 @@ describe("resume pool private uploader visibility", () => {
       kind: "restricted",
       userIds: [USER_ID, "subordinate-user"],
     });
+    mocks.retryFailedResumeParse.mockResolvedValue({ status: "queued" });
   });
 
   it("defaults private listings to the current uploader", async () => {
@@ -184,6 +190,40 @@ describe("resume pool private uploader visibility", () => {
         userIds: [USER_ID, "subordinate-user"],
       },
     });
+  });
+
+  it("queues one retry for an eligible failed resume", async () => {
+    mocks.loadResumePoolItem.mockResolvedValue({
+      id: "failed-item",
+      resumeParseRetryable: true,
+      resumeParseStatus: "failed",
+    });
+
+    const response = await makeApp().request("/resume-pool/failed-item/retry-parse", {
+      method: "POST",
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.retryFailedResumeParse).toHaveBeenCalledWith({
+      organizationId: ORGANIZATION_ID,
+      poolItemId: "failed-item",
+      requestedBy: USER_ID,
+    });
+  });
+
+  it("rejects a failed resume that already used its retry", async () => {
+    mocks.loadResumePoolItem.mockResolvedValue({
+      id: "failed-item",
+      resumeParseRetryable: false,
+      resumeParseStatus: "failed",
+    });
+
+    const response = await makeApp().request("/resume-pool/failed-item/retry-parse", {
+      method: "POST",
+    });
+
+    expect(response.status).toBe(409);
+    expect(mocks.retryFailedResumeParse).not.toHaveBeenCalled();
   });
 
   it("reads a subordinate resume file through the recruiting visibility scope", async () => {

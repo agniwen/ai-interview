@@ -7,6 +7,7 @@ import {
   IconGitBranch,
   IconLink,
   IconLoader2,
+  IconRefresh,
   IconSchool,
   IconSend,
   IconTrash,
@@ -446,34 +447,57 @@ function ResumePoolCardActions({
   canDelete,
   canImport,
   canPublish,
+  canRetryParse,
   deleting,
   importActionState,
   onDelete,
   onImport,
   onPublish,
+  onRetryParse,
   publishing,
+  retrying,
   record,
   scope,
 }: {
   canDelete: boolean;
   canImport: boolean;
   canPublish: boolean;
+  canRetryParse: boolean;
   deleting: boolean;
   importActionState: ReturnType<typeof getResumePoolImportActionState>;
   publishing: boolean;
+  retrying: boolean;
   record: ResumePoolListRecord;
   scope: ResumePoolScope;
   onDelete: (record: ResumePoolListRecord) => void;
   onImport: (record: ResumePoolListRecord) => void;
   onPublish: (record: ResumePoolListRecord) => void;
+  onRetryParse: (record: ResumePoolListRecord) => void;
 }) {
   const showPublishAction = scope === "private" && canPublish;
-  if (!canImport && !showPublishAction && !canDelete) {
+  const showRetryAction =
+    canRetryParse && record.resumeParseStatus === "failed" && record.resumeParseRetryable === true;
+  if (!canImport && !showPublishAction && !canDelete && !showRetryAction) {
     return null;
   }
 
   return (
     <CardFooter className="flex items-center gap-2 p-3 pt-0">
+      {showRetryAction ? (
+        <Button
+          className="min-w-0 flex-1 justify-center"
+          disabled={retrying}
+          onClick={() => onRetryParse(record)}
+          variant="outline"
+        >
+          {retrying ? (
+            <IconLoader2 className="size-4 animate-spin" />
+          ) : (
+            <IconRefresh className="size-4" />
+          )}
+          {retrying ? "加入队列中…" : "重新解析"}
+        </Button>
+      ) : null}
       {canImport ? (
         <Button
           aria-label={importActionState.label}
@@ -525,6 +549,7 @@ export function ResumePoolCard({
   canDelete,
   canImport,
   canPublish,
+  canRetryParse,
   deleting,
   onDelete,
   onOpenDuplicateMatches,
@@ -532,8 +557,10 @@ export function ResumePoolCard({
   onOpenPdf,
   onImport,
   onPublish,
+  onRetryParse,
   onSelectionChange,
   publishing,
+  retrying,
   record,
   selected,
   selectionDisabled,
@@ -544,7 +571,9 @@ export function ResumePoolCard({
   canDelete: boolean;
   canImport: boolean;
   canPublish: boolean;
+  canRetryParse: boolean;
   publishing: boolean;
+  retrying: boolean;
   deleting: boolean;
   selected: boolean;
   selectionDisabled: boolean;
@@ -553,6 +582,7 @@ export function ResumePoolCard({
   onOpenPdf: (record: ResumePoolListRecord) => void;
   onImport: (record: ResumePoolListRecord) => void;
   onPublish: (record: ResumePoolListRecord) => void;
+  onRetryParse: (record: ResumePoolListRecord) => void;
   onDelete: (record: ResumePoolListRecord) => void;
   onSelectionChange: (record: ResumePoolListRecord, selected: boolean) => void;
 }) {
@@ -692,12 +722,15 @@ export function ResumePoolCard({
         canDelete={canDelete}
         canImport={canImport}
         canPublish={canPublish}
+        canRetryParse={canRetryParse}
         deleting={deleting}
         importActionState={importActionState}
         onDelete={onDelete}
         onImport={onImport}
         onPublish={onPublish}
+        onRetryParse={onRetryParse}
         publishing={publishing}
+        retrying={retrying}
         record={record}
         scope={scope}
       />

@@ -55,6 +55,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-generation";
 import { enqueueResumeReassessmentForRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue";
 import { reassessResumeRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-worker";
+import { retryFailedResumeParse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/retry";
 /* oxlint-disable complexity -- multipart create/update handlers preserve transactional business rules. */
 
 // 「发起 AI 面试」请求体：候选人侧已存在招聘台行，只把（可能被用户编辑过的）
@@ -171,6 +172,49 @@ export function parseResumeReviewFormInput(
 export const resumeLibraryRouter = factory
   .createApp()
   .route("/", resumeLibraryReadRouter)
+  .post(
+    "/:id/retry-parse",
+    requirePermission("resumeLibrary", "update"),
+    requirePermission("resumeUploadBatch", "process"),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!activeOrg || !user) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const visibilityScope = await loadVisibilityScope(activeOrg.id, c.var.member?.role, user.id);
+      const resumeRecordId = c.req.param("id");
+      const record = await loadResumeDetail(resumeRecordId, activeOrg.id, visibilityScope);
+      if (!record) {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
+      if (record.resumeParseStatus !== "failed") {
+        return c.json({ error: "只有解析失败的简历可以重新解析。" }, 409);
+      }
+      if (!record.resumeParseRetryable) {
+        return c.json({ error: "该简历已重新解析过，不能再次操作。" }, 409);
+      }
+      try {
+        const result = await retryFailedResumeParse({
+          organizationId: activeOrg.id,
+          requestedBy: user.id,
+          resumeRecordId,
+        });
+        if (result.status === "queued") {
+          invalidateStudioInterviewCaches(activeOrg.id);
+          return c.json({ status: "queued" as const }, 200);
+        }
+        if (result.status === "queue_unavailable") {
+          return c.json({ error: "简历解析队列未配置 REDIS_URL。" }, 503);
+        }
+        return c.json({ error: "该简历当前不能重新解析，请刷新后重试。" }, 409);
+      } catch (error) {
+        return c.json(
+          { error: error instanceof Error ? error.message : "简历解析队列入队失败。" },
+          503,
+        );
+      }
+    },
+  )
   .post("/", requirePermission("resumeLibrary", "create"), async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {

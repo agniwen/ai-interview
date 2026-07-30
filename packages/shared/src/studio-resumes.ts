@@ -145,6 +145,7 @@ export interface ResumeLibraryListRecord {
   resumeReviewStatus: ResumeReviewStatus;
   resumeSummary: string | null;
   resumeParseStatus: ResumeParseStatus;
+  resumeParseRetryable: boolean;
   resumeSkills: string[];
   resumeProfileSnapshot: ResumeLibraryProfileSnapshot;
   hasResumeFile: boolean;

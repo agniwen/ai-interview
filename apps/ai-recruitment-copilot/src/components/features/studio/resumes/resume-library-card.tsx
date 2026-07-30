@@ -343,6 +343,7 @@ function ResumeCardProfileSnapshot({ snapshot }: { snapshot: ResumeLibraryProfil
 function ResumeLibraryCardComponent({
   canCreateInterview,
   canDeleteResumeLibrary,
+  canRetryResumeParse,
   canUpdateResumeLibrary,
   currentMemberRole,
   currentUserId,
@@ -352,10 +353,12 @@ function ResumeLibraryCardComponent({
   onLaunchInterview,
   onOpenDetail,
   onPreviewResume,
+  onRetryParse,
   onSelectChange,
   onShowDuplicateMatches,
   onTransition,
   record,
+  retrying,
   selected,
 }: ResumeLibraryCardProps) {
   const jobDescriptionLabel = getResumeLibraryJobDescriptionLabel(record);
@@ -549,14 +552,17 @@ function ResumeLibraryCardComponent({
           canCopyLink={canCopyLink}
           canCreateInterview={canCreateInterview}
           canDeleteResumeLibrary={canDeleteResumeLibrary}
+          canRetryResumeParse={canRetryResumeParse}
           canUpdateResumeLibrary={canUpdateResumeLibrary}
           onCopyDetailLink={onCopyDetailLink}
           onDelete={onDelete}
           onEdit={onEdit}
           onLaunchInterview={onLaunchInterview}
           onPreviewResume={onPreviewResume}
+          onRetryParse={onRetryParse}
           onTransition={onTransition}
           record={record}
+          retrying={retrying}
         />
       </CardPanel>
     </Card>
