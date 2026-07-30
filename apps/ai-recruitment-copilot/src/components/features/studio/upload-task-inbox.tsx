@@ -159,8 +159,14 @@ export function UploadTaskInbox() {
     if (!hasTargetPermission || !getUploadTaskPreviewTarget(record)) {
       return;
     }
-    setOpen(false);
     setPreviewRecord(record);
+  };
+
+  const handleInboxOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && previewRecord) {
+      return;
+    }
+    setOpen(nextOpen);
   };
 
   useEffect(() => {
@@ -254,7 +260,7 @@ export function UploadTaskInbox() {
 
   return (
     <>
-      <Popover onOpenChange={setOpen} open={open}>
+      <Popover onOpenChange={handleInboxOpenChange} open={open}>
         <PopoverTrigger
           render={
             <Button
@@ -272,11 +278,13 @@ export function UploadTaskInbox() {
           className="w-[min(26rem,calc(100vw-1rem))] overflow-hidden bg-background p-0"
           sideOffset={8}
         >
-          <PopoverHeader className="border-border/60 border-b px-4 py-3">
+          <PopoverHeader className="border-border/60 border-b px-3 py-2.5">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <PopoverTitle>上传任务</PopoverTitle>
-                <PopoverDescription>当前工作区中由你提交的简历解析任务</PopoverDescription>
+                <PopoverTitle className="text-[13px] leading-4">上传任务</PopoverTitle>
+                <PopoverDescription className="text-[11px] leading-4">
+                  当前工作区中由你提交的简历解析任务
+                </PopoverDescription>
               </div>
               <Button
                 aria-label="刷新上传任务"
