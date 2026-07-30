@@ -4,6 +4,7 @@ import { useRouterState } from "@tanstack/react-router";
 import { SidebarInsetHeader } from "@/components/layout/app-sidebar/sidebar-inset-header";
 import { WorkspaceSwitcher } from "@/components/features/workspace/workspace-switcher";
 import { useStudioHeaderOverrideValue } from "@/components/features/studio/studio-header-context";
+import { UploadTaskInbox } from "@/components/features/studio/upload-task-inbox";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -54,7 +55,12 @@ export function SiteHeader() {
 
   return (
     <SidebarInsetHeader
-      actions={<WorkspaceSwitcher />}
+      actions={
+        <>
+          <WorkspaceSwitcher />
+          <UploadTaskInbox />
+        </>
+      }
       breadcrumb={
         headerOverride ?? (
           <Breadcrumb>

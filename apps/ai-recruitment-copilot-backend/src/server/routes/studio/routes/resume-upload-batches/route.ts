@@ -21,6 +21,7 @@ import {
   reviveRetriableFailures,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/batches";
 import { processNextItem } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/processor";
+import { uploadTaskInboxRouter } from "./routes/inbox/route";
 import { createBatchInputSchema } from "./schema";
 
 async function getResumeParseQueueApi() {
@@ -54,6 +55,7 @@ async function removeCancelledQueueJobsBestEffort(
 
 export const resumeUploadBatchesRouter = factory
   .createApp()
+  .route("/inbox", uploadTaskInboxRouter)
   .post("/uploads", requirePermission("resumeUploadBatch", "create"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {

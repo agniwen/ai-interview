@@ -14,6 +14,7 @@ import type {
   CreateBulkResumeBatchInput,
   ProcessNextResult,
 } from "@arc/shared/bulk-resume-upload";
+import type { UploadTaskInboxPage } from "@arc/shared/upload-task-inbox";
 import { apiFetch } from "@/lib/client/api/client";
 import { rpc } from "@/lib/client/rpc";
 import { rpcFetch } from "../rpc-fetch";
@@ -70,6 +71,19 @@ export function getActiveBulkResumeBatches(slug: string): Promise<BulkResumeBatc
   return rpcFetch<BulkResumeBatchDetailDto[]>(
     rpc.api.w[":slug"].studio["resume-upload-batches"].active.$get({ param: { slug } }),
     "加载活跃批次失败",
+  );
+}
+
+export function getUploadTaskInboxPage(
+  slug: string,
+  cursor: string | null,
+): Promise<UploadTaskInboxPage> {
+  return rpcFetch<UploadTaskInboxPage>(
+    rpc.api.w[":slug"].studio["resume-upload-batches"].inbox.$get({
+      param: { slug },
+      query: cursor ? { cursor } : {},
+    }),
+    "加载上传任务失败",
   );
 }
 
