@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import { formatDate } from "@arc/shared/utils/time";
 import { EmptyValue } from "@/components/features/display/empty-value";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DocxViewerPreview } from "@/components/ui/docx-viewer";
 import { Modal } from "@/components/ui/modal";
@@ -35,6 +36,7 @@ interface ResumeComparisonDetail {
   sourceType: ResumeComparisonSourceType;
   statusLabel: string;
   targetRole: string | null;
+  uploaderImage: string | null;
   uploaderName: string | null;
 }
 
@@ -70,6 +72,7 @@ async function fetchComparisonDetail(
           sourceType: "resume_pool_item",
           statusLabel: detail.status === "active" ? "有效" : "已归档",
           targetRole: detail.targetRole,
+          uploaderImage: detail.uploaderImage,
           uploaderName: detail.uploaderName,
         }
       : null;
@@ -90,6 +93,7 @@ async function fetchComparisonDetail(
         sourceType: "studio_interview",
         statusLabel: detail.outcome === "in_pipeline" ? "流程中" : "已结案",
         targetRole: detail.targetRole,
+        uploaderImage: detail.creatorImage,
         uploaderName: detail.creatorName,
       }
     : null;
@@ -112,10 +116,8 @@ function DetailComparisonContent({ detail }: { detail: ResumeComparisonDetail })
         <ComparisonMeta label="关联职位" value={detail.jobDescriptionName} />
         <ComparisonMeta label="邮箱" value={detail.candidateEmail} />
         <ComparisonMeta label="手机" value={detail.candidatePhone} />
-        <ComparisonMeta label="上传人" value={detail.uploaderName} />
         <ComparisonMeta label="来源" value={detail.sourceLabel} />
         <ComparisonMeta label="记录状态" value={detail.statusLabel} />
-        <ComparisonMeta label="创建时间" value={formatDate(detail.createdAt)} />
       </dl>
       <div className="border-border/70 border-t pt-5">
         <ResumeProfileView profile={detail.resumeProfile} />
@@ -270,6 +272,22 @@ function ComparisonColumn({
               candidate.id,
             )}
           </h3>
+          {detail ? (
+            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
+              <span className="flex min-w-0 items-center gap-1.5">
+                <Avatar className="size-5">
+                  {detail.uploaderImage ? (
+                    <AvatarImage alt={detail.uploaderName ?? "上传人"} src={detail.uploaderImage} />
+                  ) : null}
+                  <AvatarFallback className="text-[9px]">
+                    {detail.uploaderName?.trim().charAt(0).toUpperCase() || "?"}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="truncate">上传人：{detail.uploaderName || "—"}</span>
+              </span>
+              <span className="shrink-0">上传时间：{formatDate(detail.createdAt)}</span>
+            </div>
+          ) : null}
         </div>
         {mode === "resume" && document ? (
           <Button
