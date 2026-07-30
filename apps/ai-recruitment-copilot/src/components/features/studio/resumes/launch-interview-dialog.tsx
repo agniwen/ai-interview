@@ -60,6 +60,23 @@ export function requiresStructuredLaunchConfirmation(detail: ResumeLibraryDetail
   );
 }
 
+export function getStructuredLaunchConfirmation(detail: ResumeLibraryDetail | null) {
+  const runId = detail?.structuredResumeEvaluation?.runId;
+  if (
+    !requiresStructuredLaunchConfirmation(detail) ||
+    !runId ||
+    !detail?.structuredGateStatus ||
+    !detail.structuredScoreGrade
+  ) {
+    return null;
+  }
+  return {
+    gateStatus: detail.structuredGateStatus,
+    grade: detail.structuredScoreGrade,
+    runId,
+  };
+}
+
 // 招聘台的「发起 AI 面试」只编辑题目，所以走最小化的 useForm；不要复用
 // AI 面试侧的 useInterviewForm —— 它绑了 studioInterviewClientFormSchema，
 // 会因为本弹窗里没有候选人姓名 / JD / 排期字段而静默 invalid 阻塞提交。
@@ -172,6 +189,9 @@ export function LaunchInterviewDialog({
         setAdvisoryConfirmationOpen(true);
         return;
       }
+      const structuredEvaluationConfirmation = advisoryConfirmedRef.current
+        ? getStructuredLaunchConfirmation(resumeDetail)
+        : null;
       advisoryConfirmedRef.current = false;
       setSubmitting(true);
       await runAsyncAction({
@@ -183,6 +203,7 @@ export function LaunchInterviewDialog({
             slug,
             recordId,
             normalizeInterviewQuestions(value.interviewQuestions),
+            structuredEvaluationConfirmation,
           );
           toast.success("AI 面试已发起");
           onLaunchedRef.current(round);

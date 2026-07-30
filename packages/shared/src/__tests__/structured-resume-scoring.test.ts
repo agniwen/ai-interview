@@ -361,6 +361,31 @@ describe("computeRelevantExperience", () => {
       status: "insufficient_evidence",
     });
   });
+
+  it("keeps an undated relevant episode outcome unresolved when known months are insufficient", () => {
+    expect(
+      computeRelevantExperience({
+        episodes: [
+          {
+            endMonth: "2024-12",
+            relevance: "relevant",
+            startMonth: "2024-01",
+          },
+          {
+            endMonth: null,
+            relevance: "insufficient_evidence",
+            startMonth: null,
+          },
+        ],
+        relevanceScope: "role",
+        requiredYears: 2,
+      }),
+    ).toMatchObject({
+      missingYearUnits: 1,
+      relevantMonths: 12,
+      status: "insufficient_evidence",
+    });
+  });
 });
 
 describe("deriveTimelineFacts", () => {
@@ -390,7 +415,7 @@ describe("deriveTimelineFacts", () => {
         },
       ],
       evaluationAsOf: "2026-07-29",
-      projects: [{ current: false, endMonth: "2023-06", id: "old-project" }],
+      projects: [{ current: false, endMonth: "2023-06", id: "old-project", relevant: true }],
     });
 
     expect(result.jobChangesWithinOneYear).toBe(0);
@@ -417,6 +442,42 @@ describe("deriveTimelineFacts", () => {
         projects: [],
       }).hasUnresolvedPrimaryConcurrency,
     ).toBe(true);
+  });
+
+  it("marks a missing primary timeline as unresolved instead of reporting zero changes", () => {
+    const result = deriveTimelineFacts({
+      employmentEpisodes: [],
+      evaluationAsOf: "2026-07-29",
+      projects: [],
+    });
+
+    expect(result.hasUnresolvedPrimaryTimeline).toBe(true);
+    expect(result.jobChangesWithinOneYear).toBeNull();
+    expect(result.shortTenureCount).toBeNull();
+  });
+
+  it("uses only the most recent relevant project for freshness", () => {
+    expect(
+      deriveTimelineFacts({
+        employmentEpisodes: [],
+        evaluationAsOf: "2026-07-29",
+        projects: [
+          { current: false, endMonth: "2022-01", id: "old-unrelated", relevant: false },
+          { current: true, endMonth: null, id: "current-relevant", relevant: true },
+        ],
+      }).oldProjectIds,
+    ).toEqual([]);
+
+    expect(
+      deriveTimelineFacts({
+        employmentEpisodes: [],
+        evaluationAsOf: "2026-07-29",
+        projects: [
+          { current: false, endMonth: "2022-01", id: "old-relevant", relevant: true },
+          { current: false, endMonth: "2026-01", id: "recent-relevant", relevant: true },
+        ],
+      }).oldProjectIds,
+    ).toEqual([]);
   });
 });
 

@@ -14,6 +14,10 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/lib/server/job-evaluation-hash";
 import { jobDescription } from "@arc/db-schema/schema";
 import {
+  getMastraModelIdentifier,
+  mastraModels,
+} from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/models";
+import {
   compileEvaluationBlueprint,
   generateEvaluationBlueprintCandidate,
   JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION,
@@ -171,7 +175,7 @@ async function compileDefault(job: JobEvaluationDraft): Promise<JobEvaluationBlu
     { ...job, modelOutput },
     {
       generatedAt,
-      modelId: "configured-structured-model",
+      modelId: getMastraModelIdentifier(mastraModels.structuredModel),
       promptVersion: JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION,
     },
   );

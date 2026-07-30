@@ -9,7 +9,11 @@ import {
   structuredResumeGradeSchema,
   structuredResumeRuleStatusSchema,
 } from "@arc/db-schema/structured-resume-evaluation";
-import type { StructuredResumeEvalCase, StructuredResumeEvalManifest } from "./types";
+import type {
+  StructuredResumeEvalCandidate,
+  StructuredResumeEvalCase,
+  StructuredResumeEvalManifest,
+} from "./types";
 import { STRUCTURED_RULE_STATUS_CLASSES } from "./types";
 
 const outputSchema = z
@@ -50,6 +54,26 @@ const evalCaseSchema = z
         sourceAnchor: z.string().trim().min(1),
       })
       .strict(),
+  })
+  .strict();
+
+const candidateSchema = z
+  .object({
+    candidateVersion: z.string().trim().min(1),
+    corpusHash: z.string().regex(/^[a-f0-9]{64}$/),
+    engineVersion: z.string().trim().min(1),
+    generatedAt: z.string().datetime(),
+    modelId: z.string().trim().min(1),
+    outputs: z.array(
+      z
+        .object({
+          caseId: z.string().trim().min(1),
+          output: outputSchema,
+        })
+        .strict(),
+    ),
+    promptVersion: z.string().trim().min(1),
+    schemaVersion: z.literal(1),
   })
   .strict();
 
@@ -162,6 +186,73 @@ async function loadCases(casesPath: string): Promise<unknown> {
     cases?: unknown;
   };
   return importedCases.cases;
+}
+
+async function loadCandidate(candidatePath: string): Promise<unknown> {
+  if (candidatePath.endsWith(".json")) {
+    return JSON.parse(await readFile(candidatePath, "utf-8"));
+  }
+  const importedCandidate = (await import(pathToFileURL(candidatePath).href)) as {
+    candidate?: unknown;
+  };
+  return importedCandidate.candidate;
+}
+
+interface LoadedStructuredResumeEvalCorpus {
+  cases: StructuredResumeEvalCase[];
+  corpusHash: string;
+  manifest: StructuredResumeEvalManifest;
+}
+
+export function bindStructuredResumeEvalCandidate(
+  corpus: LoadedStructuredResumeEvalCorpus,
+  rawCandidate: StructuredResumeEvalCandidate,
+): StructuredResumeEvalCase[] {
+  const candidate = candidateSchema.parse(rawCandidate);
+  if (candidate.corpusHash !== corpus.corpusHash) {
+    throw new Error("STRUCTURED_EVAL_CANDIDATE_CORPUS_MISMATCH");
+  }
+  if (candidate.engineVersion !== corpus.manifest.engineVersion) {
+    throw new Error("STRUCTURED_EVAL_CANDIDATE_ENGINE_MISMATCH");
+  }
+  if (candidate.promptVersion !== corpus.manifest.promptVersion) {
+    throw new Error("STRUCTURED_EVAL_CANDIDATE_PROMPT_MISMATCH");
+  }
+  if (candidate.modelId !== corpus.manifest.modelId) {
+    throw new Error("STRUCTURED_EVAL_CANDIDATE_MODEL_MISMATCH");
+  }
+  const outputs = new Map<string, StructuredResumeEvalCandidate["outputs"][number]["output"]>();
+  for (const item of candidate.outputs) {
+    if (outputs.has(item.caseId)) {
+      throw new Error(`STRUCTURED_EVAL_CANDIDATE_DUPLICATE_CASE:${item.caseId}`);
+    }
+    outputs.set(item.caseId, item.output);
+  }
+  const corpusIds = new Set(corpus.cases.map((item) => item.id));
+  for (const caseId of outputs.keys()) {
+    if (!corpusIds.has(caseId)) {
+      throw new Error(`STRUCTURED_EVAL_CANDIDATE_UNKNOWN_CASE:${caseId}`);
+    }
+  }
+  return corpus.cases.map((item) => {
+    const output = outputs.get(item.id);
+    if (!output) {
+      throw new Error(`STRUCTURED_EVAL_CANDIDATE_MISSING_CASE:${item.id}`);
+    }
+    return { ...item, baseline: output };
+  });
+}
+
+export async function loadStructuredResumeEvalCandidate(
+  candidatePath: string,
+  corpus: LoadedStructuredResumeEvalCorpus,
+): Promise<{ candidate: StructuredResumeEvalCandidate; cases: StructuredResumeEvalCase[] }> {
+  const rawCandidate = await loadCandidate(candidatePath);
+  const candidate = candidateSchema.parse(rawCandidate) as StructuredResumeEvalCandidate;
+  return {
+    candidate,
+    cases: bindStructuredResumeEvalCandidate(corpus, candidate),
+  };
 }
 
 export async function loadStructuredResumeEvalCorpus(manifestPath: string) {

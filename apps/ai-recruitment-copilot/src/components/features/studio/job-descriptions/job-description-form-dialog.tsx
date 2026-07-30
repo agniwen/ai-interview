@@ -58,6 +58,7 @@ const DESCRIPTION_MAX_LENGTH = 500;
 const PROMPT_MAX_LENGTH = 10_000;
 
 type JobDescriptionFormTab = "basic" | "interview-questions" | "forms";
+type JobDescriptionSubmitAction = "preview" | "save";
 
 export function emptyJobDescriptionFormValues(): JobDescriptionFormValues {
   return {
@@ -208,57 +209,8 @@ export function JobDescriptionFormDialog({
 
   const form = useForm({
     defaultValues: resolvedInitialValues,
-    onSubmit: async ({ value }) => {
-      const structuredBody = {
-        allowCrossDepartmentInterviewers: value.allowCrossDepartmentInterviewers,
-        code: value.code?.trim() || undefined,
-        departmentId: value.departmentId,
-        description: value.description?.trim() || "",
-        interviewerIds: value.interviewerIds,
-        name: value.name.trim(),
-        prompt: value.prompt.trim(),
-        structuredConfig: value.structuredConfig,
-      };
-      const body =
-        record?.evaluationMode === "legacy"
-          ? {
-              ...structuredBody,
-              resumeScreeningPolicy: value.resumeScreeningPolicy,
-            }
-          : structuredBody;
-
-      let response;
-      if (record && evaluationFrozen) {
-        response = await rpc.api.w[":slug"].studio["job-descriptions"][":id"].operational.$patch({
-          json: {
-            allowCrossDepartmentInterviewers: value.allowCrossDepartmentInterviewers,
-            departmentId: value.departmentId,
-            interviewerIds: value.interviewerIds,
-          },
-          param: { id: record.id, slug },
-        });
-      } else if (record) {
-        response = await rpc.api.w[":slug"].studio["job-descriptions"][":id"].$patch({
-          json: body,
-          param: { id: record.id, slug },
-        });
-      } else {
-        response = await rpc.api.w[":slug"].studio["job-descriptions"].$post({
-          json: structuredBody,
-          param: { slug },
-        });
-      }
-      const payload = (await response.json().catch(() => null)) as
-        | ({ error?: string } & Partial<JobDescriptionRecord>)
-        | null;
-      if (!response.ok) {
-        toast.error(payload?.error ?? (isEdit ? "更新失败" : "创建失败"));
-        return;
-      }
-      toast.success(isEdit ? "在招岗位已更新" : "在招岗位已创建");
-      onSaved();
-      onOpenChange(false);
-    },
+    // oxlint-disable-next-line no-use-before-define -- preview submission resets this form, so the handler closes over the initialized form instance.
+    onSubmit: ({ meta, value }) => submitJobDescription(value, meta.action),
     onSubmitInvalid: ({ formApi }) => {
       const meta = formApi.store.state.fieldMeta as Record<string, { errors?: unknown[] }>;
       const basicFields = [
@@ -280,6 +232,7 @@ export function JobDescriptionFormDialog({
         setActiveTab("basic");
       }
     },
+    onSubmitMeta: { action: "save" } as { action: JobDescriptionSubmitAction },
     validators: { onSubmit: jobDescriptionFormSchema },
   });
 
@@ -323,6 +276,111 @@ export function JobDescriptionFormDialog({
 
   const missingRefs = departments.length === 0 || interviewers.length === 0;
 
+  async function persistJobDescription(value: JobDescriptionFormValues): Promise<boolean> {
+    const structuredBody = {
+      allowCrossDepartmentInterviewers: value.allowCrossDepartmentInterviewers,
+      code: value.code?.trim() || undefined,
+      departmentId: value.departmentId,
+      description: value.description?.trim() || "",
+      interviewerIds: value.interviewerIds,
+      name: value.name.trim(),
+      prompt: value.prompt.trim(),
+      structuredConfig: value.structuredConfig,
+    };
+    const body =
+      record?.evaluationMode === "legacy"
+        ? {
+            ...structuredBody,
+            resumeScreeningPolicy: value.resumeScreeningPolicy,
+          }
+        : structuredBody;
+
+    let response;
+    if (record && evaluationFrozen) {
+      response = await rpc.api.w[":slug"].studio["job-descriptions"][":id"].operational.$patch({
+        json: {
+          allowCrossDepartmentInterviewers: value.allowCrossDepartmentInterviewers,
+          departmentId: value.departmentId,
+          interviewerIds: value.interviewerIds,
+        },
+        param: { id: record.id, slug },
+      });
+    } else if (record) {
+      response = await rpc.api.w[":slug"].studio["job-descriptions"][":id"].$patch({
+        json: body,
+        param: { id: record.id, slug },
+      });
+    } else {
+      response = await rpc.api.w[":slug"].studio["job-descriptions"].$post({
+        json: structuredBody,
+        param: { slug },
+      });
+    }
+    const payload = (await response.json().catch(() => null)) as
+      | ({ error?: string } & Partial<JobDescriptionRecord>)
+      | null;
+    if (!response.ok) {
+      toast.error(payload?.error ?? (isEdit ? "更新失败" : "创建失败"));
+      return false;
+    }
+    return true;
+  }
+
+  async function requestEvaluationBlueprintPreview() {
+    if (!record) {
+      return;
+    }
+    const response = await rpc.api.w[":slug"].studio["job-descriptions"][":id"][
+      "evaluation-blueprint-preview"
+    ].$post({
+      param: { id: record.id, slug },
+    });
+    const payload = (await response.json().catch(() => null)) as {
+      blueprint?: JobEvaluationBlueprint;
+      blueprintHash?: string;
+      error?: string;
+    } | null;
+    if (!response.ok || !payload?.blueprint || !payload.blueprintHash) {
+      toast.error(payload?.error ?? "生成评估蓝图失败");
+      return;
+    }
+    setPreview({
+      blueprint: payload.blueprint,
+      blueprintHash: payload.blueprintHash,
+    });
+    toast.success("当前草稿已保存，评估蓝图已生成，请确认后发布");
+  }
+
+  async function submitJobDescription(
+    value: JobDescriptionFormValues,
+    action: JobDescriptionSubmitAction,
+  ) {
+    if (action === "preview") {
+      if (!record || !isStructuredDraft) {
+        return;
+      }
+      setIsGeneratingPreview(true);
+      await withCleanup(
+        async () => {
+          if (!(await persistJobDescription(value))) {
+            return;
+          }
+          form.reset(value);
+          onSaved();
+          await requestEvaluationBlueprintPreview();
+        },
+        () => setIsGeneratingPreview(false),
+      );
+      return;
+    }
+    if (!(await persistJobDescription(value))) {
+      return;
+    }
+    toast.success(isEdit ? "在招岗位已更新" : "在招岗位已创建");
+    onSaved();
+    onOpenChange(false);
+  }
+
   async function handleGenerateCode() {
     setIsGeneratingCode(true);
     await withCleanup(
@@ -346,35 +404,8 @@ export function JobDescriptionFormDialog({
     );
   }
 
-  async function handleGeneratePreview() {
-    if (!record || !isStructuredDraft) {
-      return;
-    }
-    setIsGeneratingPreview(true);
-    await withCleanup(
-      async () => {
-        const response = await rpc.api.w[":slug"].studio["job-descriptions"][":id"][
-          "evaluation-blueprint-preview"
-        ].$post({
-          param: { id: record.id, slug },
-        });
-        const payload = (await response.json().catch(() => null)) as {
-          blueprint?: JobEvaluationBlueprint;
-          blueprintHash?: string;
-          error?: string;
-        } | null;
-        if (!response.ok || !payload?.blueprint || !payload.blueprintHash) {
-          toast.error(payload?.error ?? "生成评估蓝图失败");
-          return;
-        }
-        setPreview({
-          blueprint: payload.blueprint,
-          blueprintHash: payload.blueprintHash,
-        });
-        toast.success("评估蓝图已生成，请确认后发布");
-      },
-      () => setIsGeneratingPreview(false),
-    );
+  function handleGeneratePreview() {
+    void form.handleSubmit({ action: "preview" });
   }
 
   async function handlePublish() {
@@ -436,12 +467,20 @@ export function JobDescriptionFormDialog({
                 生成配置预览
               </Button>
             ) : null}
-            {isStructuredDraft && preview ? (
-              <Button disabled={isPublishing || isSubmitting} onClick={handlePublish} type="button">
-                {isPublishing ? <IconLoader2 className="size-4 animate-spin" /> : null}
-                确认并发布
-              </Button>
-            ) : null}
+            <form.Subscribe selector={(state) => state.isDirty}>
+              {(isDirty) =>
+                isStructuredDraft && preview ? (
+                  <Button
+                    disabled={isDirty || isPublishing || isSubmitting}
+                    onClick={handlePublish}
+                    type="button"
+                  >
+                    {isPublishing ? <IconLoader2 className="size-4 animate-spin" /> : null}
+                    确认并发布
+                  </Button>
+                ) : null
+              }
+            </form.Subscribe>
             <Button
               disabled={isSubmitting || missingRefs}
               form="job-description-form"

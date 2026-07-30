@@ -9,7 +9,10 @@ import { interviewAuditLog, studioInterview, studioInterviewSchedule } from "@ar
 import { createDefaultScheduleEntry } from "@arc/db-schema/studio-interviews";
 import { canApplyCandidatePipelineEvent } from "@arc/shared/candidate-pipeline-machine";
 import { canLaunchInterviewFromResume } from "@arc/shared/studio-resumes";
-import { createLaunchAiInterviewRound } from "./launch-ai-interview-round";
+import {
+  createLaunchAiInterviewRound,
+  isStructuredEvaluationConfirmationValid,
+} from "./launch-ai-interview-round";
 import type { PersistLaunchInput } from "./launch-ai-interview-round";
 
 export function persistLaunchAiInterviewRound(
@@ -25,6 +28,7 @@ export function persistLaunchAiInterviewRound(
       now,
       organizationId,
       schedule,
+      structuredEvaluationConfirmation,
       visibilityScope,
     } = input;
     const visibilityCondition =
@@ -41,6 +45,9 @@ export function persistLaunchAiInterviewRound(
         pipelineStage: studioInterview.pipelineStage,
         resumeEvaluationStatus: studioInterview.resumeEvaluationStatus,
         resumeParseStatus: studioInterview.resumeParseStatus,
+        structuredGateStatus: studioInterview.structuredGateStatus,
+        structuredResumeEvaluation: studioInterview.structuredResumeEvaluation,
+        structuredScoreGrade: studioInterview.structuredScoreGrade,
       })
       .from(studioInterview)
       .where(
@@ -71,6 +78,30 @@ export function persistLaunchAiInterviewRound(
     }
     if (!canLaunchInterviewFromResume(candidate.resumeParseStatus)) {
       return { ok: false as const, reason: "resume_not_ready" as const };
+    }
+    let currentStructuredEvaluation = null;
+    if (
+      candidate.structuredResumeEvaluation &&
+      candidate.structuredGateStatus &&
+      candidate.structuredScoreGrade
+    ) {
+      currentStructuredEvaluation = {
+        gateStatus: candidate.structuredGateStatus,
+        grade: candidate.structuredScoreGrade,
+        runId: candidate.structuredResumeEvaluation.runId,
+      };
+    }
+    if (
+      (candidate.structuredResumeEvaluation && !currentStructuredEvaluation) ||
+      !isStructuredEvaluationConfirmationValid(
+        currentStructuredEvaluation,
+        structuredEvaluationConfirmation,
+      )
+    ) {
+      return {
+        ok: false as const,
+        reason: "structured_evaluation_confirmation_required" as const,
+      };
     }
 
     const [activeRound] = await tx

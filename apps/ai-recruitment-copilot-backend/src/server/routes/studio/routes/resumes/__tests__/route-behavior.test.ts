@@ -381,6 +381,24 @@ describe("resumeLibraryRouter behavior", () => {
     });
   });
 
+  it("returns a confirmation conflict when the current structured evaluation needs acknowledgement", async () => {
+    mocks.launchAiInterviewRound.mockResolvedValue({
+      ok: false,
+      reason: "structured_evaluation_confirmation_required",
+    });
+
+    const response = await makeApp().request(`/resumes/${RECORD_ID}/launch-interview`, {
+      body: JSON.stringify({ interviewQuestions: [] }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "AI_INTERVIEW_CONFIRMATION_REQUIRED",
+    });
+  });
+
   it("exposes workspace review data and records a one-time evaluation", async () => {
     mocks.loadResumeDetailForWorkspaceMember
       .mockResolvedValueOnce({ id: RECORD_ID })

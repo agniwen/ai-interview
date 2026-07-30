@@ -7,6 +7,7 @@ import type {
 const percent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
 export function formatStructuredResumeEvalReport(input: {
+  candidateVersion: string;
   corpusHash: string;
   gate: StructuredResumeEvalGateResult;
   generatedAt: string;
@@ -19,7 +20,7 @@ export function formatStructuredResumeEvalReport(input: {
     "",
     `生成时间: ${input.generatedAt}`,
     `版本: engine=${manifest.engineVersion} prompt=${manifest.promptVersion} model=${manifest.modelId}`,
-    `语料: corpus=${manifest.corpusVersion} gold=${manifest.goldLabelVersion} baseline=${manifest.baselineVersion}`,
+    `语料: corpus=${manifest.corpusVersion} gold=${manifest.goldLabelVersion} baseline=${manifest.baselineVersion} candidate=${input.candidateVersion}`,
     `语料哈希: ${input.corpusHash}`,
     `人工审批: ${manifest.approval.status}${manifest.approval.approver ? ` by ${manifest.approval.approver}` : ""}`,
     "",
@@ -40,6 +41,6 @@ export function formatStructuredResumeEvalReport(input: {
       ? ["", "失败项:", ...input.gate.failures.map((failure) => `- ${failure}`)]
       : []),
     "",
-    "说明: 本报告只评估版本化基线，不修改任何历史简历评估结果。prompt、schema 或语义行为变更必须提升 engine 版本。",
+    "说明: 本报告评估与语料哈希、engine、prompt 和 model 绑定的待发布候选输出，不修改任何历史简历评估结果。",
   ].join("\n");
 }

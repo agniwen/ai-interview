@@ -4,6 +4,7 @@ import { formatStructuredResumeEvalReport } from "./report";
 describe("structured resume eval report", () => {
   it("includes immutable versions, thresholds, approval, and result", () => {
     const report = formatStructuredResumeEvalReport({
+      candidateVersion: "candidate-v1",
       corpusHash: "hash",
       gate: { failures: [], passed: true },
       generatedAt: "2026-07-29T00:00:00.000Z",

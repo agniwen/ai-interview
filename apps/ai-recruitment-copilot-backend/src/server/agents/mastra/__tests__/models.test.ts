@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_CHAT_MODEL,
+  getMastraModelIdentifier,
   getMastraModelConfig,
   getAlibabaCodingPlanApiKey,
   getMastraModelApiKey,
@@ -101,5 +102,19 @@ describe("Mastra model configuration", () => {
         ALIBABA_CODING_PLAN_API_KEY: "coding-plan-key",
       }),
     ).toBe("alibaba-key");
+  });
+
+  it("derives a stable identifier from the actual structured model config", () => {
+    expect(getMastraModelIdentifier("alibaba-coding-plan/qwen-plus")).toBe(
+      "alibaba-coding-plan/qwen-plus",
+    );
+    expect(
+      getMastraModelIdentifier({
+        apiKey: "secret",
+        modelId: "qwen-plus",
+        providerId: "alibaba",
+        url: "https://example.com/v1",
+      }),
+    ).toBe("alibaba/qwen-plus");
   });
 });

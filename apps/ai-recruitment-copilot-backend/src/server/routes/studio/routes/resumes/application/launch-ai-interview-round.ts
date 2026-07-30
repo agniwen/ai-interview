@@ -1,4 +1,8 @@
 import type { ResumeAnalysisResult } from "@arc/db-schema/interview/types";
+import type {
+  StructuredResumeGateStatus,
+  StructuredResumeGrade,
+} from "@arc/db-schema/structured-resume-evaluation";
 import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 
 interface LaunchSchedule {
@@ -6,11 +10,18 @@ interface LaunchSchedule {
   roundLabel: string;
 }
 
+export interface StructuredEvaluationConfirmation {
+  gateStatus: StructuredResumeGateStatus;
+  grade: StructuredResumeGrade;
+  runId: string;
+}
+
 export interface LaunchAiInterviewRoundCommand {
   actorId: string;
   interviewQuestions: ResumeAnalysisResult["interviewQuestions"];
   interviewRecordId: string;
   organizationId: string;
+  structuredEvaluationConfirmation?: StructuredEvaluationConfirmation | null;
   visibilityScope: RecruitingVisibilityScope;
 }
 
@@ -46,8 +57,23 @@ export type LaunchAiInterviewRoundResult =
         | "not_found"
         | "resume_not_ready"
         | "round_not_created"
-        | "stage_conflict";
+        | "stage_conflict"
+        | "structured_evaluation_confirmation_required";
     };
+
+export function isStructuredEvaluationConfirmationValid(
+  current: StructuredEvaluationConfirmation | null,
+  confirmation: StructuredEvaluationConfirmation | null | undefined,
+): boolean {
+  if (!current || (current.gateStatus !== "failed" && current.grade !== "unmatched")) {
+    return true;
+  }
+  return (
+    confirmation?.runId === current.runId &&
+    confirmation.gateStatus === current.gateStatus &&
+    confirmation.grade === current.grade
+  );
+}
 
 export class LaunchAiInterviewMutationError extends Error {
   override readonly cause: unknown;

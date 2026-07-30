@@ -53,12 +53,12 @@ export interface BlueprintCompilerCandidate {
       | "work_location";
     normalizedRequirement: string;
   })[];
-  requiredRelevantExperience: {
+  requiredRelevantExperiences: {
     relevanceScope: "capability" | "domain" | "industry" | "role" | "total_employment";
     scopeDescription: string;
     sourceText: string;
     years: number;
-  } | null;
+  }[];
 }
 
 const sourceCandidateSchema = z.object({ sourceText: z.string().trim().min(1) });
@@ -100,13 +100,13 @@ export const blueprintCompilerCandidateSchema = z.object({
       normalizedRequirement: z.string().trim().min(1),
     }),
   ),
-  requiredRelevantExperience: sourceCandidateSchema
-    .extend({
+  requiredRelevantExperiences: z.array(
+    sourceCandidateSchema.extend({
       relevanceScope: z.enum(["capability", "domain", "industry", "role", "total_employment"]),
       scopeDescription: z.string().trim().min(1),
       years: z.number().nonnegative(),
-    })
-    .nullable(),
+    }),
+  ),
 });
 
 export interface CompileEvaluationBlueprintInput {
@@ -226,6 +226,29 @@ function mapSkillCandidates(
   });
 }
 
+function resolveRequiredRelevantExperience(input: CompileEvaluationBlueprintInput) {
+  const candidates = input.modelOutput.requiredRelevantExperiences.map((candidate) => ({
+    ...candidate,
+    sourceRef: sourceRefFor(input, candidate.sourceText, "work_experience"),
+  }));
+  const distinct = new Set(
+    candidates.map((candidate) =>
+      JSON.stringify({
+        relevanceScope: candidate.relevanceScope,
+        scopeDescription: normalizeSource(candidate.scopeDescription),
+        years: candidate.years,
+      }),
+    ),
+  );
+  if (distinct.size > 1) {
+    throw new BlueprintCompilationError(
+      "JOB_BLUEPRINT_EXPERIENCE_CONFLICT",
+      "岗位包含不兼容的经验年限或范围要求，请简化后重试。",
+    );
+  }
+  return candidates[0] ?? null;
+}
+
 export function compileEvaluationBlueprint(
   input: CompileEvaluationBlueprintInput,
   metadata: CompilerMetadata,
@@ -296,16 +319,7 @@ export function compileEvaluationBlueprint(
       ...condition,
       sourceText: condition.condition,
     })),
-    requiredRelevantExperience: input.modelOutput.requiredRelevantExperience
-      ? {
-          ...input.modelOutput.requiredRelevantExperience,
-          sourceRef: sourceRefFor(
-            input,
-            input.modelOutput.requiredRelevantExperience.sourceText,
-            "work_experience",
-          ),
-        }
-      : null,
+    requiredRelevantExperience: resolveRequiredRelevantExperience(input),
     schemaVersion: JOB_EVALUATION_BLUEPRINT_SCHEMA_VERSION,
   };
   return jobEvaluationBlueprintSchema.parse(blueprint);
@@ -328,6 +342,7 @@ export function generateEvaluationBlueprintCandidate(input: {
       "核心技能只来自 requiredSkills 和 JD 描述中的强制措辞。",
       "辅助技能只来自 JD 描述中的优先/加分/了解/熟悉等软措辞。",
       "岗位 Prompt 中的技能不得进入 coreSkills 或 auxiliarySkills。",
+      "保留全部明确的经验年限要求到 requiredRelevantExperiences；不要自行选择或合并冲突要求。",
       "不要生成 ID、分数或扣分。",
       JSON.stringify(input),
     ].join("\n"),

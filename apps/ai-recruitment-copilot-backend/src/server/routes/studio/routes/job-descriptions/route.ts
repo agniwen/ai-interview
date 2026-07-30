@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- collection, item, blueprint lifecycle, and operational endpoints remain one route-owned module. */
 import { zValidator } from "@hono/zod-validator";
 import { and, count, eq, inArray, ne } from "drizzle-orm";
 import { uniq } from "lodash-es";
@@ -50,6 +51,7 @@ import {
   JobEvaluationLifecycleError,
   publishStructuredJob,
 } from "./application/job-evaluation-lifecycle";
+import { BlueprintCompilationError } from "./utils/evaluation-blueprint-compiler";
 import { computeJobEvaluationDraftInputHash } from "@arc/ai-recruitment-copilot-backend/lib/server/job-evaluation-hash";
 
 const generateJobDescriptionBodySchema = z.object({
@@ -422,6 +424,9 @@ export const jobDescriptionsRouter = factory
       safeUpdateTag(`job-descriptions:${activeOrg.id}`);
       return c.json(preview, 200);
     } catch (error) {
+      if (error instanceof BlueprintCompilationError) {
+        return c.json({ code: error.code, error: error.message }, 422);
+      }
       if (error instanceof JobEvaluationLifecycleError) {
         const status = error.code === "JOB_NOT_FOUND" ? 404 : 409;
         return c.json(jobLifecycleErrorPayload(error), status);

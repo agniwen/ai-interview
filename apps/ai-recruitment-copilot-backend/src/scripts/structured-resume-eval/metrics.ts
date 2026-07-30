@@ -9,7 +9,10 @@ import { STRUCTURED_RULE_STATUS_CLASSES } from "./types";
 
 const ratio = (count: number, total: number) => (total === 0 ? 0 : count / total);
 
-function macroF1(expected: StructuredRuleStatus[], actual: StructuredRuleStatus[]): number {
+function macroF1(
+  expected: StructuredRuleStatus[],
+  actual: (StructuredRuleStatus | undefined)[],
+): number {
   const scores = STRUCTURED_RULE_STATUS_CLASSES.map((status) => {
     let truePositive = 0;
     let falsePositive = 0;
@@ -35,14 +38,15 @@ export function computeStructuredResumeEvalMetrics(
   const ruleIds = new Set(cases.flatMap((item) => Object.keys(item.gold.ruleJudgments)));
   const perRuleMacroF1: Record<string, number> = {};
   for (const ruleId of ruleIds) {
-    const comparable = cases.filter(
-      (item) =>
-        item.gold.ruleJudgments[ruleId] !== undefined &&
-        item.baseline.ruleJudgments[ruleId] !== undefined,
-    );
+    const comparable = cases.flatMap((item) => {
+      const expected = item.gold.ruleJudgments[ruleId];
+      return expected === undefined
+        ? []
+        : [{ actual: item.baseline.ruleJudgments[ruleId], expected }];
+    });
     perRuleMacroF1[ruleId] = macroF1(
-      comparable.map((item) => item.gold.ruleJudgments[ruleId] ?? "not_applicable"),
-      comparable.map((item) => item.baseline.ruleJudgments[ruleId] ?? "not_applicable"),
+      comparable.map((item) => item.expected),
+      comparable.map((item) => item.actual),
     );
   }
   const ruleScores = Object.values(perRuleMacroF1);

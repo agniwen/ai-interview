@@ -1,11 +1,19 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { loadStructuredResumeEvalCorpus } from "./structured-resume-eval/dataset";
+import {
+  loadStructuredResumeEvalCandidate,
+  loadStructuredResumeEvalCorpus,
+} from "./structured-resume-eval/dataset";
 import {
   computeStructuredResumeEvalMetrics,
   evaluateStructuredResumeThresholds,
 } from "./structured-resume-eval/metrics";
 import { formatStructuredResumeEvalReport } from "./structured-resume-eval/report";
+import {
+  STRUCTURED_RESUME_ENGINE_VERSION,
+  STRUCTURED_RESUME_MODEL_ID,
+  STRUCTURED_RESUME_PROMPT_VERSION,
+} from "../server/agents/structured-resume-evaluation";
 
 function argument(name: string): string {
   const index = process.argv.indexOf(`--${name}`);
@@ -19,12 +27,22 @@ function argument(name: string): string {
 async function main() {
   const corpus = resolve(argument("corpus"));
   const manifestPath = corpus.endsWith(".json") ? corpus : resolve(corpus, "manifest.json");
+  const candidatePath = resolve(argument("candidate"));
   const outputPath = resolve(argument("output"));
   const loaded = await loadStructuredResumeEvalCorpus(manifestPath);
-  const metrics = computeStructuredResumeEvalMetrics(loaded.cases);
+  if (
+    loaded.manifest.engineVersion !== STRUCTURED_RESUME_ENGINE_VERSION ||
+    loaded.manifest.promptVersion !== STRUCTURED_RESUME_PROMPT_VERSION ||
+    loaded.manifest.modelId !== STRUCTURED_RESUME_MODEL_ID
+  ) {
+    throw new Error("STRUCTURED_EVAL_MANIFEST_NOT_CONFIGURED_ENGINE");
+  }
+  const candidateRun = await loadStructuredResumeEvalCandidate(candidatePath, loaded);
+  const metrics = computeStructuredResumeEvalMetrics(candidateRun.cases);
   const gate = evaluateStructuredResumeThresholds(metrics, loaded.manifest.thresholds);
   const generatedAt = new Date().toISOString();
   const report = formatStructuredResumeEvalReport({
+    candidateVersion: candidateRun.candidate.candidateVersion,
     corpusHash: loaded.corpusHash,
     gate,
     generatedAt,
@@ -37,6 +55,7 @@ async function main() {
     `${outputPath}.json`,
     `${JSON.stringify(
       {
+        candidate: candidateRun.candidate,
         corpusHash: loaded.corpusHash,
         gate,
         generatedAt,

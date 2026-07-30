@@ -24,6 +24,10 @@ import { submitResumeEvaluationOnce } from "@arc/ai-recruitment-copilot-backend/
 import { loadCandidateTimeline } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/timeline";
 import { listOrgSkillSuggestions } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
 import { studioInterviewQuestionClientSchema } from "@arc/db-schema/studio-interviews";
+import {
+  structuredResumeGateStatusSchema,
+  structuredResumeGradeSchema,
+} from "@arc/db-schema/structured-resume-evaluation";
 import { toBadRequest } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
 import {
   listInterviewRoundsForCandidate,
@@ -55,6 +59,15 @@ const dedupCheckInputSchema = z.object({
 // Zero-length is allowed.
 const launchInterviewSchema = z.object({
   interviewQuestions: z.array(studioInterviewQuestionClientSchema).max(50),
+  structuredEvaluationConfirmation: z
+    .object({
+      gateStatus: structuredResumeGateStatusSchema,
+      grade: structuredResumeGradeSchema,
+      runId: z.string().trim().min(1),
+    })
+    .strict()
+    .nullable()
+    .optional(),
 });
 
 function loadVisibilityScope(
@@ -494,7 +507,7 @@ export const resumeLibraryReadRouter = factory
       const { member, organization, user } = getWorkspaceRequestContext(c);
       const id = c.req.param("id");
       const visibilityScope = await loadVisibilityScope(organization.id, member.role, user.id);
-      const { interviewQuestions } = c.req.valid("json");
+      const { interviewQuestions, structuredEvaluationConfirmation } = c.req.valid("json");
       let result;
       try {
         result = await launchAiInterviewRound({
@@ -502,6 +515,7 @@ export const resumeLibraryReadRouter = factory
           interviewQuestions,
           interviewRecordId: id,
           organizationId: organization.id,
+          structuredEvaluationConfirmation,
           visibilityScope,
         });
       } catch (error) {
@@ -540,6 +554,15 @@ export const resumeLibraryReadRouter = factory
           }
           case "resume_not_ready": {
             return c.json({ error: "简历解析完成后才能发起 AI 面试。" }, 409);
+          }
+          case "structured_evaluation_confirmation_required": {
+            return c.json(
+              {
+                code: "AI_INTERVIEW_CONFIRMATION_REQUIRED",
+                error: "简历评估结果已变化，请确认当前结果后再发起 AI 面试。",
+              },
+              409,
+            );
           }
           case "round_not_created": {
             return c.json({ error: "未生成面试轮次。" }, 400);

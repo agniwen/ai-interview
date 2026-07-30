@@ -147,6 +147,36 @@ describe("structured resume workflow contracts", () => {
     ).toBe("not_applicable");
   });
 
+  it("normalizes semantic rule judgments to one complete product-owned catalog", () => {
+    const judgments = deriveStructuredRuleJudgments(workflowInput, {
+      employmentEpisodes: [],
+      projects: [],
+      ruleJudgments: [
+        {
+          dimension: "skillMatch",
+          evidence: [],
+          reason: "第一次返回",
+          ruleId: "skill.shallow",
+          status: "not_matched",
+        },
+        {
+          dimension: "skillMatch",
+          evidence: [],
+          reason: "重复返回",
+          ruleId: "skill.shallow",
+          status: "matched",
+        },
+      ],
+    });
+    const all = Object.values(judgments).flat();
+
+    expect(all.filter((item) => item.ruleId === "skill.shallow")).toHaveLength(1);
+    expect(all.filter((item) => item.ruleId === "skill.missing_core")).toEqual([
+      expect.objectContaining({ status: "insufficient_evidence" }),
+    ]);
+    expect(new Set(all.map((item) => item.ruleId)).size).toBe(23);
+  });
+
   it("executes semantic judgment, code scoring, narrative, and assembly as real steps", async () => {
     generator
       .mockResolvedValueOnce({ judgments: [] })
@@ -171,8 +201,8 @@ describe("structured resume workflow contracts", () => {
 
     expect(generator).toHaveBeenCalledTimes(4);
     expect(result).toMatchObject({
-      calculations: { compositeScore: 100 },
-      grade: "recommended",
+      calculations: { compositeScore: 75 },
+      grade: "matched",
       narrative: { recommendation: "建议进入下一轮" },
     });
   });
@@ -185,7 +215,7 @@ describe("structured resume workflow contracts", () => {
           {
             current: false,
             endMonth: "2026-06",
-            evidence: [{ quote: "2023.01-2026.06 任职", source: "resume_text" }],
+            evidence: [],
             gapExplanation: null,
             id: "job-a",
             primaryStatus: "primary",
@@ -224,5 +254,34 @@ describe("structured resume workflow contracts", () => {
         (item) => item.ruleId === "experience.missing_year",
       ),
     ).toMatchObject({ status: "matched", units: 1 });
+  });
+
+  it("rejects evidence quotes that do not exist in their declared resume source", () => {
+    expect(() =>
+      computeStructuredResumeCalculation({
+        adjustmentOutput: { judgments: [] },
+        dimensionOutput: {
+          employmentEpisodes: [],
+          projects: [],
+          ruleJudgments: [
+            {
+              dimension: "skillMatch",
+              evidence: [{ quote: "候选人精通 Rust", source: "resume_text" }],
+              reason: "模型声称命中",
+              ruleId: "skill.shallow",
+              status: "matched",
+            },
+          ],
+        },
+        gateOutput: { judgments: [] },
+        workflowInput: {
+          ...workflowInput,
+          resumeInput: {
+            ...workflowInput.resumeInput,
+            resumeText: "候选人精通 TypeScript",
+          },
+        },
+      }),
+    ).toThrow("STRUCTURED_RESUME_EVIDENCE_MISMATCH");
   });
 });

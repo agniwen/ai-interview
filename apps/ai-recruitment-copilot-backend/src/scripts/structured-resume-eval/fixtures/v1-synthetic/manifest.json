@@ -9,7 +9,7 @@
   "corpusVersion": "structured-resume-synthetic-v1",
   "engineVersion": "structured-resume-engine-v1",
   "goldLabelVersion": "synthetic-gold-v1",
-  "modelId": "configured-structured-model",
+  "modelId": "alibaba-coding-plan/MiniMax-M2.5",
   "promptVersion": "structured-resume-prompt-v1",
   "schemaVersion": 1,
   "thresholds": {

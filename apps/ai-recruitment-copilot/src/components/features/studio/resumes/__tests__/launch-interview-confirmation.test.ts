@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
-import { requiresStructuredLaunchConfirmation } from "../launch-interview-dialog";
+import {
+  getStructuredLaunchConfirmation,
+  requiresStructuredLaunchConfirmation,
+} from "../launch-interview-dialog";
 
 function detail(
   input: Pick<
@@ -52,5 +55,20 @@ describe("structured AI interview launch confirmation", () => {
         }),
       ),
     ).toBe(false);
+  });
+
+  it("binds confirmation to the displayed run, gate, and grade", () => {
+    expect(
+      getStructuredLaunchConfirmation({
+        jobEvaluationMode: "structured",
+        structuredGateStatus: "failed",
+        structuredResumeEvaluation: { runId: "run-1" },
+        structuredScoreGrade: "matched",
+      } as ResumeLibraryDetail),
+    ).toEqual({
+      gateStatus: "failed",
+      grade: "matched",
+      runId: "run-1",
+    });
   });
 });

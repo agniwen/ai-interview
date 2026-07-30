@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createLaunchAiInterviewRound,
+  isStructuredEvaluationConfirmationValid,
   LaunchAiInterviewMutationError,
 } from "../launch-ai-interview-round";
 
@@ -73,5 +74,28 @@ describe("launchAiInterviewRound", () => {
       LaunchAiInterviewMutationError,
     );
     expect(deps.invalidateCache).not.toHaveBeenCalled();
+  });
+
+  it("requires an exact acknowledgement of the current risky structured evaluation", () => {
+    const current = {
+      gateStatus: "failed" as const,
+      grade: "matched" as const,
+      runId: "run-current",
+    };
+
+    expect(isStructuredEvaluationConfirmationValid(current, null)).toBe(false);
+    expect(
+      isStructuredEvaluationConfirmationValid(current, {
+        ...current,
+        gateStatus: "passed",
+      }),
+    ).toBe(false);
+    expect(isStructuredEvaluationConfirmationValid(current, current)).toBe(true);
+    expect(
+      isStructuredEvaluationConfirmationValid(
+        { ...current, gateStatus: "passed", grade: "matched" },
+        null,
+      ),
+    ).toBe(true);
   });
 });

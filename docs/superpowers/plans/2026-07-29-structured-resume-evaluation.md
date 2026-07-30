@@ -1017,9 +1017,11 @@ For the first V1 release, derive expected score/grade from human-approved gold r
 ```bash
 pnpm --filter @arc/ai-recruitment-copilot-backend eval:structured-resumes -- \
   --corpus <versioned-corpus-path> \
+  --candidate <pending-engine-candidate-output-path> \
   --output <report-path>
 ```
 
+- [ ] Require separately generated candidate outputs bound to the exact corpus hash and the pending engine/prompt/model versions; never score the corpus's frozen baseline as the pending release.
 - [ ] Report engine/prompt/model/corpus versions and every threshold.
 - [ ] Never mutate historical stored evaluations.
 - [ ] Require a new engine version for prompt/schema/semantic behavior changes.

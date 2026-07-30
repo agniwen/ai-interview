@@ -417,9 +417,9 @@ export function deriveStructuredResumeSummaries(
 }
 
 interface RelevantEpisode {
-  endMonth: string;
+  endMonth: string | null;
   relevance: "insufficient_evidence" | "not_relevant" | "relevant";
-  startMonth: string;
+  startMonth: string | null;
 }
 
 interface RelevantExperienceInput {
@@ -437,7 +437,10 @@ interface RelevantExperienceResult {
   status: Extract<StructuredResumeRuleStatus, "insufficient_evidence" | "matched" | "not_matched">;
 }
 
-function monthIndex(value: string): number | null {
+function monthIndex(value: string | null): number | null {
+  if (!value) {
+    return null;
+  }
   const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(value);
   if (!match) {
     return null;
@@ -448,10 +451,10 @@ function monthIndex(value: string): number | null {
 export function computeRelevantExperience(
   input: RelevantExperienceInput,
 ): RelevantExperienceResult {
-  const intervals = input.episodes
-    .filter(
-      (episode) => input.relevanceScope === "total_employment" || episode.relevance === "relevant",
-    )
+  const inScopeEpisodes = input.episodes.filter(
+    (episode) => input.relevanceScope === "total_employment" || episode.relevance === "relevant",
+  );
+  const intervals = inScopeEpisodes
     .map((episode) => ({
       end: monthIndex(episode.endMonth),
       start: monthIndex(episode.startMonth),
@@ -478,9 +481,10 @@ export function computeRelevantExperience(
     const relevantYears = relevantMonths / 12;
     const missingYearUnits = Math.max(Math.ceil(input.requiredYears - relevantYears), 0);
     const hasOutcomeChangingUnknown =
-      input.relevanceScope !== "total_employment" &&
       missingYearUnits > 0 &&
-      input.episodes.some((episode) => episode.relevance === "insufficient_evidence");
+      (inScopeEpisodes.length > intervals.length ||
+        (input.relevanceScope !== "total_employment" &&
+          input.episodes.some((episode) => episode.relevance === "insufficient_evidence")));
     let status: RelevantExperienceResult["status"] = "not_matched";
     if (hasOutcomeChangingUnknown) {
       status = "insufficient_evidence";
@@ -532,6 +536,7 @@ export interface StructuredResumeTimelineProject {
   current: boolean;
   endMonth: string | null;
   id: string;
+  relevant: boolean;
 }
 
 interface DeriveTimelineFactsInput {
@@ -542,6 +547,7 @@ interface DeriveTimelineFactsInput {
 
 export interface StructuredResumeTimelineFacts {
   hasUnresolvedPrimaryConcurrency: boolean;
+  hasUnresolvedPrimaryTimeline: boolean;
   jobChangesWithinOneYear: number | null;
   jobChangesWithinTwoYears: number | null;
   oldProjectIds: string[];
@@ -566,15 +572,19 @@ function deriveOldProjectIds(
   asOfMonth: number,
 ): string[] {
   const boundary = asOfMonth - 36;
-  return projects
-    .filter((project) => {
-      if (project.current || !project.endMonth) {
-        return false;
-      }
-      const end = monthIndex(project.endMonth);
-      return end !== null && end < boundary;
-    })
-    .map((project) => project.id);
+  const relevantProjects = projects.filter((project) => project.relevant);
+  if (relevantProjects.some((project) => project.current)) {
+    return [];
+  }
+  const ended = relevantProjects.flatMap((project) => {
+    const end = monthIndex(project.endMonth);
+    return end === null ? [] : [{ end, id: project.id }];
+  });
+  const latestEnd = Math.max(...ended.map((project) => project.end));
+  if (!Number.isFinite(latestEnd) || latestEnd >= boundary) {
+    return [];
+  }
+  return ended.filter((project) => project.end === latestEnd).map((project) => project.id);
 }
 
 export function deriveTimelineFacts(
@@ -584,8 +594,10 @@ export function deriveTimelineFacts(
   const hasUnresolvedPrimaryConcurrency = input.employmentEpisodes.some(
     (episode) => episode.primaryStatus === "unresolved",
   );
-  const primaryEpisodes = input.employmentEpisodes
-    .filter((episode) => episode.primaryStatus === "primary")
+  const primaryCandidates = input.employmentEpisodes.filter(
+    (episode) => episode.primaryStatus === "primary",
+  );
+  const primaryEpisodes = primaryCandidates
     .map((episode) => ({
       ...episode,
       end: episode.current ? asOfMonth : episode.endMonth && monthIndex(episode.endMonth),
@@ -600,10 +612,15 @@ export function deriveTimelineFacts(
       } => episode.start !== null && episode.end !== null && episode.end >= episode.start,
     )
     .toSorted((left, right) => left.start - right.start);
+  const hasUnresolvedPrimaryTimeline =
+    hasUnresolvedPrimaryConcurrency ||
+    primaryCandidates.length === 0 ||
+    primaryEpisodes.length !== primaryCandidates.length;
 
-  if (hasUnresolvedPrimaryConcurrency) {
+  if (hasUnresolvedPrimaryTimeline) {
     return {
       hasUnresolvedPrimaryConcurrency,
+      hasUnresolvedPrimaryTimeline,
       jobChangesWithinOneYear: null,
       jobChangesWithinTwoYears: null,
       oldProjectIds: deriveOldProjectIds(input.projects, asOfMonth),
@@ -634,6 +651,7 @@ export function deriveTimelineFacts(
   }
   return {
     hasUnresolvedPrimaryConcurrency,
+    hasUnresolvedPrimaryTimeline,
     jobChangesWithinOneYear: changeMonths.filter((month) => month >= asOfMonth - 12).length,
     jobChangesWithinTwoYears: changeMonths.filter((month) => month >= asOfMonth - 24).length,
     oldProjectIds: deriveOldProjectIds(input.projects, asOfMonth),

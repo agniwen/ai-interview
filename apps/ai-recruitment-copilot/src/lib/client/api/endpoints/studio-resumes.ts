@@ -24,6 +24,7 @@ import type {
 import type {
   StructuredResumeEvaluationV1,
   StructuredResumeGateStatus,
+  StructuredResumeGrade,
 } from "@arc/db-schema/structured-resume-evaluation";
 import type { StructuredResumeSummaryFields } from "@arc/shared/structured-resume-scoring";
 import { rpc } from "@/lib/client/rpc";
@@ -299,10 +300,15 @@ export function launchInterviewFromResume(
   slug: string,
   id: string,
   interviewQuestions: InterviewQuestion[],
+  structuredEvaluationConfirmation?: {
+    gateStatus: StructuredResumeGateStatus;
+    grade: StructuredResumeGrade;
+    runId: string;
+  } | null,
 ): Promise<StudioInterviewRoundDetail> {
   return rpcFetch<StudioInterviewRoundDetail>(
     rpc.api.w[":slug"].studio.resumes[":id"]["launch-interview"].$post({
-      json: { interviewQuestions },
+      json: { interviewQuestions, structuredEvaluationConfirmation },
       param: { id, slug },
     }),
     "发起 AI 面试失败",

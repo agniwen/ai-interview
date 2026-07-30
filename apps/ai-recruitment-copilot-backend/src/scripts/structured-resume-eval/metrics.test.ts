@@ -60,4 +60,21 @@ describe("structured resume eval metrics", () => {
 
     expect(metrics.minimumRuleMacroF1).toBe(0.25);
   });
+
+  it("counts a missing candidate rule judgment as a classification error", async () => {
+    const corpus = await loadStructuredResumeEvalCorpus(fixtureManifest);
+    const [firstCase] = corpus.cases;
+    const [firstRuleId] = Object.keys(firstCase?.gold.ruleJudgments ?? {});
+    expect(firstRuleId).toBeDefined();
+    if (!firstRuleId || !firstCase) {
+      return;
+    }
+    firstCase.baseline.ruleJudgments = Object.fromEntries(
+      Object.entries(firstCase.baseline.ruleJudgments).filter(([ruleId]) => ruleId !== firstRuleId),
+    );
+
+    const metrics = computeStructuredResumeEvalMetrics(corpus.cases);
+
+    expect(metrics.perRuleMacroF1[firstRuleId]).toBeLessThan(1);
+  });
 });

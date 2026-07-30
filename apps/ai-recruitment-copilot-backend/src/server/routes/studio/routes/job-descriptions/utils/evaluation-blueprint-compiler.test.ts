@@ -62,12 +62,14 @@ function input(): CompileEvaluationBlueprintInput {
           sourceText: "需要 PostgreSQL 实战",
         },
       ],
-      requiredRelevantExperience: {
-        relevanceScope: "role",
-        scopeDescription: "后端研发",
-        sourceText: "3 年后端研发经验",
-        years: 3,
-      },
+      requiredRelevantExperiences: [
+        {
+          relevanceScope: "role",
+          scopeDescription: "后端研发",
+          sourceText: "3 年后端研发经验",
+          years: 3,
+        },
+      ],
     },
     prompt: "必须掌握 PromptOnly",
     structuredConfig,
@@ -134,5 +136,40 @@ describe("compileEvaluationBlueprint", () => {
         promptVersion: "v1",
       }),
     ).toThrow("单个硬性门槛分类不能超过 20 项");
+  });
+
+  it("rejects incompatible experience thresholds instead of selecting one", () => {
+    const conflicting = input();
+    conflicting.structuredConfig.hardGates.workExperience =
+      "至少 3 年后端经验；至少 5 年金融行业经验";
+    conflicting.modelOutput = {
+      ...conflicting.modelOutput,
+      requiredRelevantExperiences: [
+        {
+          relevanceScope: "role",
+          scopeDescription: "后端",
+          sourceText: "至少 3 年后端经验",
+          years: 3,
+        },
+        {
+          relevanceScope: "industry",
+          scopeDescription: "金融行业",
+          sourceText: "至少 5 年金融行业经验",
+          years: 5,
+        },
+      ],
+    };
+
+    expect(() =>
+      compileEvaluationBlueprint(conflicting, {
+        generatedAt: "2026-07-29T10:00:00.000Z",
+        modelId: "test-model",
+        promptVersion: "v1",
+      }),
+    ).toThrow(
+      expect.objectContaining({
+        code: "JOB_BLUEPRINT_EXPERIENCE_CONFLICT",
+      }),
+    );
   });
 });

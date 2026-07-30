@@ -44,6 +44,20 @@ export interface StructuredResumeEvalCase {
   };
 }
 
+export interface StructuredResumeEvalCandidate {
+  candidateVersion: string;
+  corpusHash: string;
+  engineVersion: string;
+  generatedAt: string;
+  modelId: string;
+  outputs: {
+    caseId: string;
+    output: StructuredResumeEvalOutput;
+  }[];
+  promptVersion: string;
+  schemaVersion: 1;
+}
+
 export interface StructuredResumeEvalThresholds {
   artifactSchemaValidity: number;
   compositeScoreMae: number;

@@ -108,6 +108,22 @@ export function getMastraModelApiKey(env: EnvLike = process.env): string | undef
   return getAlibabaCodingPlanApiKey(env);
 }
 
+export function getMastraModelIdentifier(model: CoreMastraModelConfig): string {
+  if (typeof model === "string") {
+    return model;
+  }
+  if ("providerId" in model && "modelId" in model) {
+    return `${model.providerId}/${model.modelId}`;
+  }
+  if ("id" in model && typeof model.id === "string") {
+    return model.id;
+  }
+  if ("provider" in model && "modelId" in model) {
+    return `${model.provider}/${model.modelId}`;
+  }
+  throw new Error("Unable to derive Mastra model identifier.");
+}
+
 export function getMastraModelConfig(env: EnvLike = process.env): MastraModelConfig {
   const alibabaBaseURL = readEnv(env, "ALIBABA_BASE_URL");
   if (alibabaBaseURL) {

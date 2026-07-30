@@ -12,6 +12,7 @@ import {
   computeRelevantExperience,
   computeStructuredResumeEvaluation,
   deriveTimelineFacts,
+  STRUCTURED_RESUME_DEDUCTION_CATALOG,
   STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION,
   STRUCTURED_RESUME_DIMENSIONS,
 } from "@arc/shared/structured-resume-scoring";
@@ -28,11 +29,12 @@ import {
   structuredResumeGateAgent,
   structuredResumeNarrativeAgent,
 } from "./mastra/agents/simple-generators";
+import { getMastraModelIdentifier, mastraModels } from "./mastra/models";
 import { computeJobEvaluationPayloadHash } from "@arc/ai-recruitment-copilot-backend/lib/server/job-evaluation-hash";
 
 export const STRUCTURED_RESUME_ENGINE_VERSION = "structured-resume-engine-v1";
 export const STRUCTURED_RESUME_PROMPT_VERSION = "structured-resume-prompt-v1";
-export const STRUCTURED_RESUME_MODEL_ID = "configured-structured-model";
+export const STRUCTURED_RESUME_MODEL_ID = getMastraModelIdentifier(mastraModels.structuredModel);
 
 export const structuredResumeWorkflowInputSchema = z
   .object({
@@ -231,6 +233,7 @@ function judgment(
   };
 }
 
+// oxlint-disable-next-line complexity -- this deterministic reducer covers the complete fixed rule catalog in one auditable pass.
 export function deriveStructuredRuleJudgments(
   input: StructuredResumeWorkflowInput,
   facts: DimensionFacts,
@@ -243,30 +246,41 @@ export function deriveStructuredRuleJudgments(
     skillMatch: [],
     stability: [],
   };
+  const semanticByRuleId = new Map<
+    (typeof ruleIds)[number],
+    (typeof facts.ruleJudgments)[number]
+  >();
   for (const item of facts.ruleJudgments) {
-    judgments[item.dimension].push({
-      evidence: item.evidence,
-      reason: item.reason,
-      ruleId: item.ruleId,
-      status: item.status,
-      ...(item.units ? { units: item.units } : {}),
-    });
+    if (!semanticByRuleId.has(item.ruleId)) {
+      semanticByRuleId.set(item.ruleId, item);
+    }
+  }
+  for (const ruleId of ruleIds) {
+    const item = semanticByRuleId.get(ruleId);
+    const { dimension } = STRUCTURED_RESUME_DEDUCTION_CATALOG[ruleId];
+    judgments[dimension].push(
+      item
+        ? {
+            evidence: item.evidence,
+            reason: item.reason,
+            ruleId,
+            status: item.status,
+            ...(item.units ? { units: item.units } : {}),
+          }
+        : judgment(ruleId, "insufficient_evidence", "AI 未返回该规则的有效判断。"),
+    );
   }
 
   const required = input.jobSnapshot.blueprint.requiredRelevantExperience;
   if (required) {
     const relevant = computeRelevantExperience({
-      episodes: facts.employmentEpisodes.flatMap((episode) =>
-        episode.startMonth && (episode.endMonth || episode.current)
-          ? [
-              {
-                endMonth: episode.endMonth ?? input.resumeInput.evaluationAsOf.slice(0, 7),
-                relevance: episode.relevance,
-                startMonth: episode.startMonth,
-              },
-            ]
-          : [],
-      ),
+      episodes: facts.employmentEpisodes.map((episode) => ({
+        endMonth:
+          episode.endMonth ??
+          (episode.current ? input.resumeInput.evaluationAsOf.slice(0, 7) : null),
+        relevance: episode.relevance,
+        startMonth: episode.startMonth,
+      })),
       profileWorkYears: input.resumeInput.resumeProfile.workYears ?? undefined,
       relevanceScope: required.relevanceScope,
       requiredYears: required.years,
@@ -290,13 +304,24 @@ export function deriveStructuredRuleJudgments(
     evaluationAsOf: input.resumeInput.evaluationAsOf,
     projects: facts.projects,
   });
-  if (temporal.hasUnresolvedPrimaryConcurrency) {
+  if (temporal.hasUnresolvedPrimaryTimeline) {
     judgments.stability.push(
+      judgment(
+        "stability.three_changes_one_year",
+        "insufficient_evidence",
+        "缺少可解析的主职工作时间线。",
+      ),
+      judgment(
+        "stability.two_changes_one_year",
+        "insufficient_evidence",
+        "缺少可解析的主职工作时间线。",
+      ),
       judgment(
         "stability.two_changes_two_years",
         "insufficient_evidence",
-        "无法确定主职与并发任职关系。",
+        "缺少可解析的主职工作时间线。",
       ),
+      judgment("stability.short_tenure", "insufficient_evidence", "缺少可解析的主职工作时间线。"),
     );
   } else {
     const oneYear = temporal.jobChangesWithinOneYear ?? 0;
@@ -325,26 +350,48 @@ export function deriveStructuredRuleJudgments(
       ),
     );
   }
-  const maxGap = Math.max(0, ...temporal.unexplainedGapMonths);
-  judgments.stability.push(
-    judgment(
-      "stability.gap_over_six_months",
-      maxGap > 6 ? "matched" : "not_matched",
-      "由代码计算未解释的完整空档月。",
-    ),
-    judgment(
-      "stability.gap_three_to_six_months",
-      maxGap >= 3 && maxGap <= 6 ? "matched" : "not_matched",
-      "由代码计算未解释的完整空档月。",
-    ),
-  );
-  judgments.potential.push(
-    judgment(
-      "potential.unexplained_gap_over_six_months",
-      maxGap > 6 ? "matched" : "not_matched",
-      "由代码计算未解释的完整空档月。",
-    ),
-  );
+  if (temporal.hasUnresolvedPrimaryTimeline) {
+    judgments.stability.push(
+      judgment(
+        "stability.gap_over_six_months",
+        "insufficient_evidence",
+        "缺少可解析的主职工作时间线。",
+      ),
+      judgment(
+        "stability.gap_three_to_six_months",
+        "insufficient_evidence",
+        "缺少可解析的主职工作时间线。",
+      ),
+    );
+    judgments.potential.push(
+      judgment(
+        "potential.unexplained_gap_over_six_months",
+        "insufficient_evidence",
+        "缺少可解析的主职工作时间线。",
+      ),
+    );
+  } else {
+    const maxGap = Math.max(0, ...temporal.unexplainedGapMonths);
+    judgments.stability.push(
+      judgment(
+        "stability.gap_over_six_months",
+        maxGap > 6 ? "matched" : "not_matched",
+        "由代码计算未解释的完整空档月。",
+      ),
+      judgment(
+        "stability.gap_three_to_six_months",
+        maxGap >= 3 && maxGap <= 6 ? "matched" : "not_matched",
+        "由代码计算未解释的完整空档月。",
+      ),
+    );
+    judgments.potential.push(
+      judgment(
+        "potential.unexplained_gap_over_six_months",
+        maxGap > 6 ? "matched" : "not_matched",
+        "由代码计算未解释的完整空档月。",
+      ),
+    );
+  }
   judgments.projectMatch.push(
     judgment(
       "project.old_relevant_project",
@@ -414,6 +461,37 @@ function buildAdjustmentMatches(
   });
 }
 
+function normalizedEvidenceText(value: string): string {
+  return value.normalize("NFKC").replaceAll(/\s+/g, "").toLocaleLowerCase("zh-CN");
+}
+
+function validateEvidenceSources(input: {
+  adjustmentOutput: AdjustmentAgentOutput;
+  dimensionOutput: DimensionFacts;
+  gateOutput: GateAgentOutput;
+  workflowInput: StructuredResumeWorkflowInput;
+}): void {
+  const sources = {
+    resume_profile: normalizedEvidenceText(
+      JSON.stringify(input.workflowInput.resumeInput.resumeProfile),
+    ),
+    resume_text: normalizedEvidenceText(input.workflowInput.resumeInput.resumeText ?? ""),
+  };
+  const evidenceLists = [
+    ...input.gateOutput.judgments.map((item) => item.evidence),
+    ...input.dimensionOutput.employmentEpisodes.map((item) => item.evidence),
+    ...input.dimensionOutput.projects.map((item) => item.evidence),
+    ...input.dimensionOutput.ruleJudgments.map((item) => item.evidence),
+    ...input.adjustmentOutput.judgments.map((item) => item.evidence),
+  ];
+  for (const evidence of evidenceLists.flat()) {
+    const quote = normalizedEvidenceText(evidence.quote);
+    if (!quote || !sources[evidence.source].includes(quote)) {
+      throw new Error("STRUCTURED_RESUME_EVIDENCE_MISMATCH");
+    }
+  }
+}
+
 export function generateStructuredNarrative(input: {
   calculation: ReturnType<typeof computeStructuredResumeEvaluation>;
   workflowInput: StructuredResumeWorkflowInput;
@@ -443,6 +521,7 @@ export function computeStructuredResumeCalculation(input: {
   workflowInput: StructuredResumeWorkflowInput;
 }) {
   const { adjustmentOutput, dimensionOutput, gateOutput, workflowInput } = input;
+  validateEvidenceSources(input);
   const normalizedDimensionOutput =
     workflowInput.jobSnapshot.blueprint.requiredRelevantExperience?.relevanceScope ===
     "total_employment"
@@ -480,18 +559,13 @@ export function assembleStructuredResumeEvaluation(input: {
   const required = workflowInput.jobSnapshot.blueprint.requiredRelevantExperience;
   const relevant = required
     ? computeRelevantExperience({
-        episodes: normalizedDimensionOutput.employmentEpisodes.flatMap((episode) =>
-          episode.startMonth && (episode.endMonth || episode.current)
-            ? [
-                {
-                  endMonth:
-                    episode.endMonth ?? workflowInput.resumeInput.evaluationAsOf.slice(0, 7),
-                  relevance: episode.relevance,
-                  startMonth: episode.startMonth,
-                },
-              ]
-            : [],
-        ),
+        episodes: normalizedDimensionOutput.employmentEpisodes.map((episode) => ({
+          endMonth:
+            episode.endMonth ??
+            (episode.current ? workflowInput.resumeInput.evaluationAsOf.slice(0, 7) : null),
+          relevance: episode.relevance,
+          startMonth: episode.startMonth,
+        })),
         profileWorkYears: workflowInput.resumeInput.resumeProfile.workYears ?? undefined,
         relevanceScope: required.relevanceScope,
         requiredYears: required.years,
