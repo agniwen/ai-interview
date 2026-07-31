@@ -142,8 +142,8 @@ export function duplicateMatchBadge(record: ResumePoolListRecord, onClick?: () =
 export function getResumePoolImportActionState(record: ResumePoolListRecord) {
   if (record.importedResumeRecordId) {
     return {
-      disabled: true,
-      label: "已入库",
+      disabled: false,
+      label: "再次入库",
       loading: false,
     };
   }

@@ -14,7 +14,6 @@ import {
   studioInterview,
   user,
 } from "@arc/db-schema/schema";
-import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import {
   createResumePoolItem,
   deleteOwnPoolItem,
@@ -29,6 +28,7 @@ import { findSemanticResumeDuplicates } from "@arc/ai-recruitment-copilot-backen
 import { deleteResumeSemanticIndexBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/lifecycle";
 import { cloneResumeSemanticIndexFromPoolToInterview } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/clone";
 import { deleteFixtureResumePoolItems } from "../../../../../../test-utils/db-fixture-cleanup";
+import { PROFILE, PROFILE_WITH_HIGHLIGHTS } from "./fixtures";
 
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue", () => ({
   enqueueResumeSemanticIndexJobBestEffort: vi.fn(),
@@ -51,56 +51,6 @@ const ORG_B = "resume_pool_org_b";
 const USER_A = "resume_pool_user_a";
 const USER_B = "resume_pool_user_b";
 const NOW = new Date("2026-06-14T09:00:00.000Z");
-
-const PROFILE: ResumeProfile = {
-  age: null,
-  email: "candidate@example.com",
-  gender: null,
-  name: "候选人甲",
-  personalStrengths: ["沟通清晰"],
-  phone: "13800138000",
-  projectExperiences: [],
-  schools: [],
-  skills: ["React", "TypeScript"],
-  targetRoles: ["前端工程师"],
-  workExperiences: [],
-  workYears: 5,
-};
-
-const PROFILE_WITH_HIGHLIGHTS: ResumeProfile = {
-  ...PROFILE,
-  projectExperiences: [
-    {
-      name: "智能招聘看板",
-      period: "2025.01-2025.05",
-      role: "负责人",
-      summary: "负责候选人数据分析与可视化。",
-      techStack: ["React"],
-    },
-    {
-      name: "旧项目",
-      period: "2024.01-2024.05",
-      role: "成员",
-      summary: "历史项目。",
-      techStack: [],
-    },
-  ],
-  schools: ["华南农业大学", "长沙理工大学"],
-  workExperiences: [
-    {
-      company: "极光矩阵",
-      period: "2025.02-至今",
-      role: "前端工程师",
-      summary: "负责 AI 招聘产品前端。",
-    },
-    {
-      company: "旧公司",
-      period: "2023.01-2024.01",
-      role: "实习生",
-      summary: "历史经历。",
-    },
-  ],
-};
 
 async function cleanup() {
   await db
@@ -592,6 +542,38 @@ describe("importPoolItemToResumeLibrary", () => {
       targetOrganizationId: ORG_A,
     });
     expect(enqueueResumeSemanticIndexJobBestEffort).not.toHaveBeenCalled();
+  });
+
+  it("creates another Resume Record for an explicit reimport", async () => {
+    const publicId = await createResumePoolItem(basePoolInput({ scope: "public" }));
+    const input = {
+      dedupPolicy: "force" as const,
+      importedBy: USER_B,
+      jobDescriptionId: null,
+      organizationId: ORG_A,
+      poolItemId: publicId,
+    };
+
+    const first = await importPoolItemToResumeLibrary(input);
+    const second = await importPoolItemToResumeLibrary({ ...input, reimport: true });
+    if (first.status !== "imported" || second.status !== "imported") {
+      throw new Error("expected both imports to succeed");
+    }
+
+    expect(second.resumeRecordId).not.toBe(first.resumeRecordId);
+    const records = await db
+      .select({ id: studioInterview.id })
+      .from(studioInterview)
+      .where(eq(studioInterview.resumeSourcePoolItemId, publicId));
+    const imports = await db
+      .select({ resumeRecordId: resumePoolImport.importedResumeRecordId })
+      .from(resumePoolImport)
+      .where(eq(resumePoolImport.poolItemId, publicId));
+    expect(records).toHaveLength(2);
+    expect(imports).toHaveLength(2);
+    expect(imports.map((item) => item.resumeRecordId)).toEqual(
+      expect.arrayContaining([first.resumeRecordId, second.resumeRecordId]),
+    );
   });
 
   it("keeps a failed admission retryable and reuses its Resume Record", async () => {

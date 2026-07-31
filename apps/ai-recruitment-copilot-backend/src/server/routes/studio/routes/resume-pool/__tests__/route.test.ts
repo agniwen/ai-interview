@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   findSemanticResumeDuplicates: vi.fn(),
   getObjectBytes: vi.fn(),
   getObjectStream: vi.fn(),
+  importPoolItemToResumeLibrary: vi.fn(),
   intersectRequestedCreatorIds: vi.fn(
     (
       requestedCreatorIds: string[] | null | undefined,
@@ -92,7 +93,7 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicat
 vi.mock("../dao", () => ({
   createResumePoolItem: mocks.createResumePoolItem,
   deleteOwnPoolItem: mocks.deleteOwnPoolItem,
-  importPoolItemToResumeLibrary: vi.fn(),
+  importPoolItemToResumeLibrary: mocks.importPoolItemToResumeLibrary,
   listResumePoolUploaders: mocks.listResumePoolUploaders,
   loadResumePoolItem: mocks.loadResumePoolItem,
   markResumePoolItemParseFailed: mocks.markResumePoolItemParseFailed,
@@ -357,6 +358,46 @@ describe("resumePoolImportInputSchema", () => {
     });
 
     expect(result.jobDescriptionId).toBeNull();
+  });
+
+  it("preserves an explicit reimport request", () => {
+    const result = resumePoolImportInputSchema.parse({
+      dedupPolicy: "force",
+      jobDescriptionId: null,
+      jobDescriptionMode: "none",
+      reimport: true,
+    });
+
+    expect(result.reimport).toBe(true);
+  });
+});
+
+describe("resume pool import route", () => {
+  it("forwards an explicit reimport request to the DAO", async () => {
+    mocks.importPoolItemToResumeLibrary.mockResolvedValue({
+      resumeRecordId: "resume-record-2",
+      status: "imported",
+    });
+
+    const response = await makeApp().request("/resume-pool/pool-item-1/import", {
+      body: JSON.stringify({
+        dedupPolicy: "force",
+        jobDescriptionMode: "none",
+        reimport: true,
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    expect(response.status).toBe(201);
+    expect(mocks.importPoolItemToResumeLibrary).toHaveBeenCalledWith({
+      dedupPolicy: "force",
+      importedBy: USER_ID,
+      jobDescriptionId: null,
+      organizationId: ORGANIZATION_ID,
+      poolItemId: "pool-item-1",
+      reimport: true,
+    });
   });
 });
 

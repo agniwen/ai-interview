@@ -23,6 +23,7 @@ export const resumePoolImportSchema = z.object({
   dedupPolicy: z.enum(["check", "force"]).default("check"),
   jobDescriptionId: z.string().trim().min(1).nullable().optional(),
   jobDescriptionMode: z.enum(["none", "bind"]).default("none"),
+  reimport: z.boolean().optional(),
 });
 
 export type ResumePoolCreateInput = z.infer<typeof resumePoolCreateSchema>;

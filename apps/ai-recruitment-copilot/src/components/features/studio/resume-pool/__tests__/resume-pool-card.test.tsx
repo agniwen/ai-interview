@@ -109,4 +109,34 @@ describe("ResumePoolCard", () => {
     expect(html).toContain("2025.01-2025.05");
     expect(html).toContain("负责候选人数据分析与可视化。");
   });
+
+  it("offers an enabled reimport action for an imported resume", () => {
+    const html = renderToStaticMarkup(
+      <ResumePoolCard
+        canDelete={false}
+        canImport={true}
+        canPublish={false}
+        canRetryParse={false}
+        deleting={false}
+        onDelete={() => {}}
+        onImport={() => {}}
+        onOpenDetail={() => {}}
+        onOpenDuplicateMatches={() => {}}
+        onOpenPdf={() => {}}
+        onPublish={() => {}}
+        onRetryParse={() => {}}
+        onSelectionChange={() => {}}
+        publishing={false}
+        record={{ ...record, importedResumeRecordId: "resume-record-1" }}
+        retrying={false}
+        scope="public"
+        selected={false}
+        selectionDisabled={false}
+      />,
+    );
+    const reimportButton = html.match(/<button[^>]*aria-label="再次入库"[^>]*>/u)?.[0];
+
+    expect(reimportButton).toBeDefined();
+    expect(reimportButton).not.toMatch(/\sdisabled(?:=|\s|>)/u);
+  });
 });

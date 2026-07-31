@@ -10,6 +10,7 @@ interface ResumePoolAdmissionInput {
   jobDescriptionId: string | null;
   organizationId: string;
   poolItemId: string;
+  reimport?: boolean;
 }
 
 interface ResumePoolAdmissionKey {
@@ -58,7 +59,9 @@ export async function admitResumePoolItem<TSource extends ResumePoolAdmissionSou
     throw new Error("简历解析完成后才能入库");
   }
 
-  const existingResumeRecordId = await deps.loadExistingAdmissionRecord(input);
+  const existingResumeRecordId = input.reimport
+    ? null
+    : await deps.loadExistingAdmissionRecord(input);
   const matches = await deps.findDuplicateMatches({
     admission: input,
     existingResumeRecordId,
