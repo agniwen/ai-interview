@@ -312,7 +312,7 @@ function RecruitmentStageHoverCard({
             onClick={onViewCurrentStage}
             size="sm"
             type="button"
-            variant="ghost"
+            variant="text"
           >
             <IconInfoCircle className="size-4" />
             当前阶段：{pipelineStageMeta[pipelineStage].label}
