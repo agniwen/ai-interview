@@ -1,6 +1,6 @@
 "use client";
 
-import { IconDatabase, IconLoader2 } from "@tabler/icons-react";
+import { IconDatabase, IconExternalLink, IconLoader2 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import type { ResumePoolScope, ResumeUploadBatchDedupPolicy } from "@arc/db-schema/schema";
 import { resumePoolScopeMeta } from "@arc/shared/resume-pool";
@@ -9,9 +9,11 @@ import type {
   ResumePoolListRecord,
 } from "@arc/shared/resume-pool";
 
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { TimeDisplay } from "@/components/features/display/time-display";
 import { ResumeDedupMatchList } from "@/components/features/resume/resume-dedup-overlay";
+import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
 import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldLabel } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
@@ -37,6 +39,12 @@ import {
   toResumeDedupMatches,
   useJobDescriptions,
 } from "./resume-pool-page-model";
+
+const StudioPersonDetailDialog = lazy(async () => {
+  const detailDialog = await import("@/components/features/studio/studio-person-detail-dialog");
+  return { default: detailDialog.StudioPersonDetailDialog };
+});
+
 export function SelectResumePoolScopeDialog({
   defaultScope,
   onOpenChange,
@@ -140,23 +148,25 @@ export function ImportResumePoolDialog({
 }) {
   const slug = useWorkspaceSlug();
   const { data: jobDescriptions = [] } = useJobDescriptions(slug);
-  const [mode, setMode] = useState<"none" | "bind">("none");
+  const [mode, setMode] = useState<"none" | "bind">("bind");
   const [jobDescriptionId, setJobDescriptionId] = useState("");
   const [duplicates, setDuplicates] = useState<ResumePoolImportDuplicateResult | null>(null);
+  const [detailRecordId, setDetailRecordId] = useState<string | null>(null);
   const isReimport = Boolean(item?.importedResumeRecordId);
+  const importedRecords = item?.importedRecords ?? [];
+  const candidateTitle = item ? getCandidateTitle(item) : "";
 
   useEffect(() => {
     if (!item) {
-      setMode("none");
+      setMode("bind");
       setJobDescriptionId("");
       setDuplicates(null);
+      setDetailRecordId(null);
       return;
     }
     const canUseSourceJd =
-      item.scope === "private" &&
-      item.jobDescriptionId &&
-      jobDescriptions.some((jd) => jd.id === item.jobDescriptionId);
-    setMode(canUseSourceJd ? "bind" : "none");
+      item.jobDescriptionId && jobDescriptions.some((jd) => jd.id === item.jobDescriptionId);
+    setMode("bind");
     setJobDescriptionId(canUseSourceJd ? (item.jobDescriptionId ?? "") : "");
     setDuplicates(null);
   }, [item, jobDescriptions]);
@@ -198,7 +208,7 @@ export function ImportResumePoolDialog({
   const { isPending } = mutation;
   let dialogDescription: string | undefined;
   if (item) {
-    dialogDescription = isReimport ? "已在招聘台，是否再次入库。" : getCandidateTitle(item);
+    dialogDescription = isReimport ? "已在招聘台，是否再次入库。" : candidateTitle;
   }
 
   return (
@@ -234,7 +244,36 @@ export function ImportResumePoolDialog({
         title={isReimport ? "再次入库到招聘台" : "入库到招聘台"}
         description={dialogDescription}
       >
-        <div className="space-y-5">
+        <div className="flex flex-col gap-5">
+          {isReimport && importedRecords.length > 0 ? (
+            <Field>
+              <FieldLabel>已入库记录</FieldLabel>
+              <FieldContent>
+                <div className="flex flex-col gap-2">
+                  {importedRecords.map((record) => (
+                    <Button
+                      aria-label={`查看已入库记录 ${record.resumeRecordId}`}
+                      className="h-auto w-full justify-between py-3"
+                      key={record.resumeRecordId}
+                      onClick={() => setDetailRecordId(record.resumeRecordId)}
+                      type="button"
+                      variant="outline"
+                    >
+                      <span className="min-w-0 text-left">
+                        <span className="block truncate">{candidateTitle}</span>
+                        <span className="mt-0.5 block text-muted-foreground text-xs font-normal">
+                          {formatResumeRecordDisplayId(record.resumeRecordId)}
+                          {" · "}
+                          <TimeDisplay as="span" value={record.importedAt} />
+                        </span>
+                      </span>
+                      <IconExternalLink data-icon="inline-end" />
+                    </Button>
+                  ))}
+                </div>
+              </FieldContent>
+            </Field>
+          ) : null}
           <Field>
             <FieldLabel>关联岗位</FieldLabel>
             <FieldContent>
@@ -245,12 +284,12 @@ export function ImportResumePoolDialog({
                 value={mode}
               >
                 <FieldLabel className="w-full rounded-md border p-3">
-                  <RadioGroupItem value="none" />
-                  <span>不绑定岗位</span>
-                </FieldLabel>
-                <FieldLabel className="w-full rounded-md border p-3">
                   <RadioGroupItem value="bind" />
                   <span>绑定岗位</span>
+                </FieldLabel>
+                <FieldLabel className="w-full rounded-md border p-3">
+                  <RadioGroupItem value="none" />
+                  <span>不绑定岗位</span>
                 </FieldLabel>
               </RadioGroup>
             </FieldContent>
@@ -299,6 +338,20 @@ export function ImportResumePoolDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {detailRecordId ? (
+        <Suspense fallback={null}>
+          <StudioPersonDetailDialog
+            mode="resume"
+            onOpenChange={(open) => {
+              if (!open) {
+                setDetailRecordId(null);
+              }
+            }}
+            open={true}
+            recordId={detailRecordId}
+          />
+        </Suspense>
+      ) : null}
     </>
   );
 }

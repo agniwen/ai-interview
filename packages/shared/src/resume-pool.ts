@@ -45,6 +45,11 @@ export interface ResumePoolProfileHighlights {
   schools: string[];
 }
 
+export interface ResumePoolImportedRecord {
+  importedAt: string;
+  resumeRecordId: string;
+}
+
 export type ResumePoolSourceChannel = "mail_ingest" | "referral";
 
 export interface ResumePoolListRecord {
@@ -86,6 +91,7 @@ export interface ResumePoolListRecord {
   updatedAt: string;
   importedResumeRecordId: string | null;
   importedAt: string | null;
+  importedRecords: ResumePoolImportedRecord[];
   duplicateMatch: ResumeDuplicateMatchSummary | null;
 }
 

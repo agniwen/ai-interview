@@ -17,6 +17,7 @@ const record = {
   duplicateMatch: null,
   id: "resume-pool-1",
   importedAt: null,
+  importedRecords: [],
   importedResumeRecordId: null,
   jobDescriptionId: null,
   jobDescriptionName: null,

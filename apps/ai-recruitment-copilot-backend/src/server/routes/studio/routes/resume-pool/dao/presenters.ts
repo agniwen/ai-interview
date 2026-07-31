@@ -14,6 +14,10 @@ import type {
 } from "@arc/shared/resume-pool";
 
 type PoolRow = typeof resumePoolItem.$inferSelect;
+interface PoolImportRow {
+  importedAt: Date;
+  resumeRecordId: string;
+}
 
 export interface PoolUploaderMeta {
   uploaderEmail: string | null;
@@ -130,13 +134,14 @@ export function buildMasteredSkills(profile: ResumeProfile | null): string[] {
 
 export function toResumePoolListRecord(
   row: PoolRow,
-  importRow?: { importedAt: Date; resumeRecordId: string } | null,
+  importRows: PoolImportRow[] = [],
   uploaderMeta: PoolUploaderMeta = EMPTY_UPLOADER_META,
   sourceChannel: ResumePoolSourceChannel | null = null,
   duplicateMatch: ResumeDuplicateMatchSummary | null = null,
   jobDescriptionName: string | null = null,
   resumeParseRetryable = false,
 ): ResumePoolListRecord {
+  const latestImport = importRows[0] ?? null;
   return {
     candidateEmail: row.candidateEmail,
     candidateName: row.candidateName,
@@ -145,8 +150,12 @@ export function toResumePoolListRecord(
     createdBy: row.createdBy,
     duplicateMatch,
     id: row.id,
-    importedAt: importRow ? importRow.importedAt.toISOString() : null,
-    importedResumeRecordId: importRow?.resumeRecordId ?? null,
+    importedAt: latestImport?.importedAt.toISOString() ?? null,
+    importedRecords: importRows.map((item) => ({
+      importedAt: item.importedAt.toISOString(),
+      resumeRecordId: item.resumeRecordId,
+    })),
+    importedResumeRecordId: latestImport?.resumeRecordId ?? null,
     jobDescriptionId: row.jobDescriptionId,
     jobDescriptionName,
     masteredSkills: buildMasteredSkills(row.resumeProfile),
@@ -182,7 +191,7 @@ export function toResumePoolListRecord(
 
 export function toResumePoolDetail(
   row: PoolRow,
-  importRow?: { importedAt: Date; resumeRecordId: string } | null,
+  importRows: PoolImportRow[] = [],
   uploaderMeta: PoolUploaderMeta = EMPTY_UPLOADER_META,
   sourceChannel: ResumePoolSourceChannel | null = null,
   duplicateMatch: ResumeDuplicateMatchSummary | null = null,
@@ -192,7 +201,7 @@ export function toResumePoolDetail(
   return {
     ...toResumePoolListRecord(
       row,
-      importRow,
+      importRows,
       uploaderMeta,
       sourceChannel,
       duplicateMatch,

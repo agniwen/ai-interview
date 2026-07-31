@@ -26,16 +26,27 @@ vi.mock("@/lib/client/api", () => ({
   isApiError: () => false,
 }));
 
+vi.mock("@/components/features/studio/studio-person-detail-dialog", () => ({
+  StudioPersonDetailDialog: ({ open, recordId }: { open: boolean; recordId: string | null }) =>
+    open ? <div>招聘台详情 {recordId}</div> : null,
+}));
+
 vi.mock("../resume-pool-page-model", async (importOriginal) => ({
   ...(await importOriginal<typeof ResumePoolPageModel>()),
-  useJobDescriptions: () => ({ data: [] }),
+  useJobDescriptions: () => ({
+    data: [{ departmentName: "研发部", id: "jd-1", name: "前端工程师" }],
+  }),
 }));
 
 const importedItem = {
   candidateName: "测试候选人",
   id: "pool-item-1",
-  importedResumeRecordId: "resume-record-1",
-  jobDescriptionId: null,
+  importedRecords: [
+    { importedAt: "2026-07-31T03:00:00.000Z", resumeRecordId: "resume-record-2" },
+    { importedAt: "2026-07-30T03:00:00.000Z", resumeRecordId: "resume-record-1" },
+  ],
+  importedResumeRecordId: "resume-record-2",
+  jobDescriptionId: "jd-1",
   scope: "public",
 } as ResumePoolListRecord;
 
@@ -67,6 +78,22 @@ describe("ImportResumePoolDialog", () => {
     });
 
     expect(document.body.textContent).toContain("已在招聘台，是否再次入库。");
+    const radioGroupText = document.querySelector('[data-slot="radio-group"]')?.textContent ?? "";
+    expect(radioGroupText.indexOf("绑定岗位")).toBeLessThan(radioGroupText.indexOf("不绑定岗位"));
+    expect(document.body.textContent).toContain("已入库记录");
+    const importedRecordButton = document.querySelector<HTMLButtonElement>(
+      '[aria-label="查看已入库记录 resume-record-2"]',
+    );
+    expect(importedRecordButton).toBeTruthy();
+    expect(document.querySelector('[aria-label="查看已入库记录 resume-record-1"]')).toBeTruthy();
+    await act(async () => {
+      importedRecordButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("招聘台详情 resume-record-2");
+    });
+
     const confirmButton = [...document.querySelectorAll("button")].find((button) =>
       button.textContent?.includes("确认再次入库"),
     );
@@ -79,8 +106,8 @@ describe("ImportResumePoolDialog", () => {
 
     expect(importResumePoolItemMock).toHaveBeenCalledWith("test-workspace", "pool-item-1", {
       dedupPolicy: "force",
-      jobDescriptionId: null,
-      jobDescriptionMode: "none",
+      jobDescriptionId: "jd-1",
+      jobDescriptionMode: "bind",
       reimport: true,
     });
 

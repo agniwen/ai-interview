@@ -574,6 +574,12 @@ describe("importPoolItemToResumeLibrary", () => {
     expect(imports.map((item) => item.resumeRecordId)).toEqual(
       expect.arrayContaining([first.resumeRecordId, second.resumeRecordId]),
     );
+    const pool = await queryResumePoolItems({ organizationId: ORG_A, scope: "public" });
+    const poolRecord = pool.records.find((item) => item.id === publicId);
+    expect(poolRecord?.importedRecords).toHaveLength(2);
+    expect(poolRecord?.importedRecords.map((item) => item.resumeRecordId)).toEqual(
+      expect.arrayContaining([first.resumeRecordId, second.resumeRecordId]),
+    );
   });
 
   it("keeps a failed admission retryable and reuses its Resume Record", async () => {
