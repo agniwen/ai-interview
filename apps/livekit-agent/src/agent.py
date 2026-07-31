@@ -326,10 +326,10 @@ def _build_session(
             ),
             "endpointing": {
                 "mode": "dynamic",
-                # Give candidates more room to pause mid-answer without the
-                # agent jumping in; slightly higher latency is acceptable.
-                "min_delay": 0.8,
-                "max_delay": 5.0,
+                # Interviews favor patient listening over minimum response
+                # latency, especially when candidates pause to think.
+                "min_delay": 1.5,
+                "max_delay": 7.0,
             },
             "interruption": {
                 "mode": "vad" if _SELF_HOSTED else "adaptive",

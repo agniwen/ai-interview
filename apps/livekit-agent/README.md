@@ -30,7 +30,7 @@ Python 3.11, [`uv`](https://docs.astral.sh/uv/) required. Do not mix in
 ```bash
 cd apps/livekit-agent
 uv sync                                  # install deps into .venv
-uv run src/agent.py download-files       # Silero VAD + turn-detector models
+uv run -m livekit.agents download-files  # Silero VAD + turn-detector models
 cp .env.example .env                     # then fill in values (see comments inside)
 ```
 

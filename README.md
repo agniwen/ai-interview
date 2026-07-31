@@ -102,7 +102,7 @@ pnpm --filter @arc/ai-recruitment-copilot-backend test
 ```bash
 cd apps/livekit-agent
 uv sync
-uv run src/agent.py download-files
+uv run -m livekit.agents download-files
 uv run src/agent.py dev
 uv run src/agent.py console
 uv run pytest

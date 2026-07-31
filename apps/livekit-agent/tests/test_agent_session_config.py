@@ -85,8 +85,8 @@ def test_agent_session_endpointing_balances_pauses_with_response_latency(monkeyp
     endpointing = session.kwargs["turn_handling"]["endpointing"]
 
     assert endpointing["mode"] == "dynamic"
-    assert endpointing["min_delay"] == 0.8
-    assert endpointing["max_delay"] == 5.0
+    assert endpointing["min_delay"] == 1.5
+    assert endpointing["max_delay"] == 7.0
 
 
 def test_agent_session_preemptively_starts_llm_generation(monkeypatch):
