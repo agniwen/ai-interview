@@ -2,6 +2,7 @@
 
 import { useRouterState } from "@tanstack/react-router";
 import { SidebarInsetHeader } from "@/components/layout/app-sidebar/sidebar-inset-header";
+import { resolvePlatformSidebarNavItem } from "./platform-sidebar-slots";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -41,9 +42,11 @@ function resolveRouteMeta(pathname: string): RouteMeta {
 export function PlatformHeader() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { title } = resolveRouteMeta(pathname);
+  const ActiveMenuIcon = resolvePlatformSidebarNavItem(pathname)?.icon;
 
   return (
     <SidebarInsetHeader
+      activeMenuIcon={ActiveMenuIcon ? <ActiveMenuIcon /> : undefined}
       breadcrumb={
         <Breadcrumb>
           <BreadcrumbList>

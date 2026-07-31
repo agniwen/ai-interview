@@ -102,6 +102,7 @@ describe("Mastra Studio TanStack integration", () => {
     expect(embeddedLayout).not.toContain("shadow-main-frame");
     expect(studioHeader).toContain("SidebarInsetHeader");
     expect(studioHeader).toContain("RouteHeaderActionsSlot");
+    expect(studioHeader).toContain("hideCurrentIcon={Boolean(ActiveMenuIcon)}");
     expect(studioStyles).toContain("--surface1: var(--background)");
     expect(studioStyles).toContain("--neutral6: var(--foreground)");
     expect(studioStyles).toContain("--accent1: var(--primary)");
