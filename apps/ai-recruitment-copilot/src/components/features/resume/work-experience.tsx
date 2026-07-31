@@ -68,7 +68,7 @@ export function WorkExperience({ className, experiences }: WorkExperienceProps) 
   return (
     <div
       className={cn(
-        "relative bg-background px-4 text-foreground",
+        "relative  px-4 text-foreground",
         experiences.length > 1 &&
           "before:absolute before:top-7 before:bottom-7 before:left-7 before:w-px before:bg-border",
         className,
