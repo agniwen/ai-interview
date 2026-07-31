@@ -156,7 +156,7 @@ src/
   agent.py        Entrypoint — AgentSession wiring, room handlers, dispatch
   recording.py    LiveKit Egress → R2 recording lifecycle
   report.py       POSTs session summary back to web (CALLBACK_BASE_URL)
-  aliyun_stt.py   Custom DashScope STT helper (kept as a fallback option)
+  aliyun_stt.py   Optional aligned DashScope streaming STT adapter
 tests/            pytest suite
 ```
 

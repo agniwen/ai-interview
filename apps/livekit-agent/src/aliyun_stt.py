@@ -1,4 +1,4 @@
-"""Aliyun DashScope Paraformer STT plugin for LiveKit Agents.
+"""Aliyun DashScope streaming STT plugin for LiveKit Agents.
 
 Adapted from livekit-plugins-aliyun v1.3.0 (by wangmengdi)
 to work with livekit-agents >= 1.5.
@@ -22,9 +22,29 @@ from livekit.agents import (
     utils,
 )
 from livekit.agents.language import LanguageCode
-from livekit.agents.types import NOT_GIVEN, NotGivenOr
+from livekit.agents.types import NOT_GIVEN, NotGivenOr, TimedString
 
 logger = logging.getLogger("aliyun-stt")
+
+
+def _milliseconds_to_seconds(value: int | float | None, *, default: float = 0.0):
+    if value is None:
+        return default
+    return value / 1000
+
+
+def _to_timed_word(word: dict) -> TimedString:
+    start_time = _milliseconds_to_seconds(word.get("begin_time"))
+    end_time = _milliseconds_to_seconds(
+        word.get("end_time"),
+        default=start_time,
+    )
+    return TimedString(
+        f"{word.get('text', '')}{word.get('punctuation', '')}",
+        start_time=start_time,
+        end_time=end_time,
+        start_time_offset=0.0,
+    )
 
 
 @dataclass
@@ -35,7 +55,7 @@ class STTOptions:
     interim_results: bool
     punctuate: bool
     model: str
-    max_sentence_silence: int = 500
+    max_sentence_silence: int = 1000
     sample_rate: int = 16000
     workspace: str | None = None
     vocabulary_id: str | None = None
@@ -49,7 +69,7 @@ class STTOptions:
 
     def get_header(self):
         header = {
-            "Authorization": f"bearer {self.api_key}",
+            "Authorization": f"Bearer {self.api_key}",
             "X-DashScope-DataInspection": "enable",
         }
         if self.workspace is not None:
@@ -57,6 +77,28 @@ class STTOptions:
         return header
 
     def get_run_task_params(self, task_id: str):
+        parameters = {
+            "format": "pcm",
+            "sample_rate": self.sample_rate,
+            "semantic_punctuation_enabled": self.semantic_punctuation_enabled,
+            "max_sentence_silence": self.max_sentence_silence,
+            "heartbeat": True,
+            "language_hints": [self.language],
+        }
+        if self.vocabulary_id is not None:
+            parameters["vocabulary_id"] = self.vocabulary_id
+
+        # These parameters belong to the older Paraformer API and are not part
+        # of Qwen-Audio-3.0-ASR-Flash-Streaming's documented request schema.
+        if not self.model.startswith("qwen-audio-3.0-asr-flash"):
+            parameters.update(
+                {
+                    "disfluency_removal_enabled": self.disfluency_removal_enabled,
+                    "punctuation_prediction_enabled": self.punctuation_prediction_enabled,
+                    "inverse_text_normalization_enabled": self.inverse_text_normalization_enabled,
+                }
+            )
+
         return {
             "header": {
                 "action": "run-task",
@@ -68,18 +110,7 @@ class STTOptions:
                 "task": "asr",
                 "function": "recognition",
                 "model": self.model,
-                "parameters": {
-                    "format": "wav",
-                    "sample_rate": self.sample_rate,
-                    "vocabulary_id": self.vocabulary_id,
-                    "disfluency_removal_enabled": self.disfluency_removal_enabled,
-                    "semantic_punctuation_enabled": self.semantic_punctuation_enabled,
-                    "punctuation_prediction_enabled": self.punctuation_prediction_enabled,
-                    "inverse_text_normalization_enabled": self.inverse_text_normalization_enabled,
-                    "max_sentence_silence": self.max_sentence_silence,
-                    "heartbeat": True,
-                    "language_hints": [self.language],
-                },
+                "parameters": parameters,
                 "input": {},
             },
         }
@@ -103,9 +134,9 @@ class STT(stt.STT):
         detect_language: bool = False,
         interim_results: bool = True,
         punctuate: bool = True,
-        model: str = "paraformer-realtime-v2",
+        model: str = "qwen-audio-3.0-asr-flash-streaming",
         api_key: str | None = None,
-        max_sentence_silence: int = 500,
+        max_sentence_silence: int = 1000,
         disfluency_removal_enabled: bool = False,
         semantic_punctuation_enabled: bool = False,
         punctuation_prediction_enabled: bool = True,
@@ -116,7 +147,10 @@ class STT(stt.STT):
     ) -> None:
         super().__init__(
             capabilities=stt.STTCapabilities(
-                streaming=True, interim_results=interim_results
+                streaming=True,
+                interim_results=interim_results,
+                aligned_transcript="word",
+                offline_recognize=False,
             )
         )
         api_key = api_key or os.environ.get("DASHSCOPE_API_KEY")
@@ -180,7 +214,11 @@ class SpeechStream(stt.SpeechStream):
         conn_options: APIConnectOptions,
         http_session: aiohttp.ClientSession,
     ) -> None:
-        super().__init__(stt=stt, conn_options=conn_options)
+        super().__init__(
+            stt=stt,
+            conn_options=conn_options,
+            sample_rate=opts.sample_rate,
+        )
         if opts.language is None:
             raise ValueError("language detection is not supported in streaming mode")
         self._opts = opts
@@ -293,9 +331,23 @@ class SpeechStream(stt.SpeechStream):
         # Gummy returns sentence_end as string "true"/"false"
         if isinstance(is_sentence_end, str):
             is_sentence_end = is_sentence_end.lower() == "true"
-        start_time = transcript.get("begin_time", 0)
-        end_time = transcript.get("end_time", 0)
         text = transcript.get("text", "")
+        if not text:
+            return
+
+        words = [
+            _to_timed_word(word)
+            for word in transcript.get("words", [])
+            if word.get("text")
+        ]
+        start_time = _milliseconds_to_seconds(transcript.get("begin_time"))
+        end_time = _milliseconds_to_seconds(
+            transcript.get("end_time"),
+            default=start_time,
+        )
+        if words:
+            start_time = words[0].start_time
+            end_time = words[-1].end_time
 
         if not self._speaking:
             self._event_ch.send_nowait(
@@ -314,6 +366,7 @@ class SpeechStream(stt.SpeechStream):
                             text=text,
                             start_time=start_time,
                             end_time=end_time,
+                            words=words or None,
                         )
                     ],
                 )
@@ -330,6 +383,7 @@ class SpeechStream(stt.SpeechStream):
                             text=text,
                             start_time=start_time,
                             end_time=end_time,
+                            words=words or None,
                         )
                     ],
                 )
