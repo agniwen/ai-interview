@@ -65,7 +65,9 @@ describe("ResumeDuplicateMatchesDialog", () => {
               createdAt: "2026-07-24T00:00:00.000Z",
               id: "suspected-id",
               jobDescriptionName: null,
+              level: "high",
               resumeFileName: "suspected.pdf",
+              score: 94,
               status: "active",
               targetRole: null,
               uploaderImage: "https://example.com/suspected.png",
@@ -96,6 +98,16 @@ describe("ResumeDuplicateMatchesDialog", () => {
     expect(document.body.textContent).toContain("上传人");
     expect(document.body.textContent).toContain("当前上传人");
     expect(document.body.textContent).toContain("疑似上传人");
+    const riskBadge = [...document.querySelectorAll<HTMLElement>('[data-slot="badge"]')].find(
+      (element) => element.textContent === "高度疑似 94%",
+    );
+    expect(riskBadge).toBeTruthy();
+    expect(riskBadge?.className).toContain("rounded-sm");
+    expect(riskBadge?.className).toContain("px-2.5");
+    expect(riskBadge?.className).toContain("py-1");
+    expect(riskBadge?.className).toContain("font-normal");
+    expect(riskBadge?.className).not.toContain("px-1.5");
+    expect(riskBadge?.className).not.toContain("py-0.5");
     const uploaderLabel = [...document.querySelectorAll("span")].find(
       (element) => element.textContent === "上传人",
     );

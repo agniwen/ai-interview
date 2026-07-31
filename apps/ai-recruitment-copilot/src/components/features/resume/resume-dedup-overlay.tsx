@@ -19,6 +19,7 @@ import { EmptyValue } from "@/components/features/display/empty-value";
 import { formatResumeCandidateTitle } from "@/components/features/resume/resume-record-display-id";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import type { ResumeDedupCompareMode } from "./resume-dedup-compare-dialog";
@@ -31,11 +32,11 @@ const ResumeDedupCompareDialog = lazy(async () => {
 
 const LEVEL_META: Record<
   NonNullable<DedupMatchRecord["level"]>,
-  { label: string; tone: string }
+  { label: string; variant: "danger" | "secondary" | "warning" }
 > = {
-  high: { label: "高度疑似", tone: "border-red-200 bg-red-50 text-red-700" },
-  low: { label: "低风险", tone: "border-slate-200 bg-slate-50 text-slate-700" },
-  medium: { label: "可能重复", tone: "border-amber-200 bg-amber-50 text-amber-700" },
+  high: { label: "高度疑似", variant: "danger" },
+  low: { label: "低风险", variant: "secondary" },
+  medium: { label: "可能重复", variant: "warning" },
 };
 
 const SKILLS_PREVIEW_LIMIT = 8;
@@ -287,15 +288,10 @@ function MatchCandidateRow({
               {formatResumeCandidateTitle(match.candidateName, match.id)}
             </h3>
             {match.level ? (
-              <span
-                className={cn(
-                  "rounded border px-1.5 py-0.5 font-medium text-[11px] leading-4",
-                  LEVEL_META[match.level].tone,
-                )}
-              >
+              <Badge variant={LEVEL_META[match.level].variant}>
                 {LEVEL_META[match.level].label}
                 {typeof match.score === "number" ? ` ${match.score}%` : ""}
-              </span>
+              </Badge>
             ) : null}
             <span className="text-muted-foreground text-[11px]">
               {sourceTypeLabel(match)} · {statusLabel}
