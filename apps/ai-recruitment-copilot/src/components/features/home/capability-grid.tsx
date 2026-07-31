@@ -12,6 +12,7 @@ import {
 // Purpose: Bento-style capability section — featured tile + varied-size tiles for headline capabilities.
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import { FadeContent } from "@/components/react-bits/fade-content";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@arc/shared/utils";
 import { CenterCarousel } from "./center-carousel";
 import { Eyebrow, Section, SectionLead, SectionTitle } from "./section";
@@ -173,10 +174,10 @@ function LiveVoiceVisual() {
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 font-medium text-[10px] text-rose-600 dark:text-rose-300">
+        <Badge variant="danger">
           <span className="size-1.5 animate-pulse rounded-full bg-rose-500" />
           LIVE
-        </span>
+        </Badge>
         <span className="font-mono text-[11px] text-foreground/55 tabular-nums">04:32</span>
       </div>
       <div className="flex h-7 w-full items-center justify-between">

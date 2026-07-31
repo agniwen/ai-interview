@@ -8,6 +8,7 @@ import { ScrollSmoother } from "gsap/ScrollSmoother";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useCallback, useRef } from "react";
 import { ChatScreen, InterviewScreen, JobsScreen } from "@/components/features/home/screens";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@arc/shared/utils";
 import { CenterCarousel } from "./center-carousel";
 import { Eyebrow, Section } from "./section";
@@ -120,13 +121,10 @@ function SceneChat({ block }: SceneProps) {
             <block.Screen className="w-full" />
           </div>
         </div>
-        <div
-          className="-top-3 -left-3 absolute flex items-center gap-1.5 rounded-full ring-1 ring-foreground/5 bg-background/80 px-3 py-1.5 font-mono text-[10px] text-foreground tracking-[0.18em] shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur"
-          data-reveal="badge"
-        >
+        <Badge className="-top-3 -left-3 absolute" data-reveal="badge" variant="outline">
           <span className="size-1.5 animate-pulse rounded-full bg-primary" />
           LIVE CHAT
-        </div>
+        </Badge>
       </div>
     </div>
   );
@@ -166,13 +164,10 @@ function SceneWorkspace({ block }: SceneProps) {
         </div>
         {/* JD READY 徽标：与 Chat 的 LIVE CHAT、Voice Interview 的 REC 形成同节奏的"压轴"标签 */}
         {/* JD READY badge — paired with Chat's LIVE CHAT and Voice Interview's REC, revealed last in the dwell */}
-        <div
-          className="-top-3 -right-3 absolute flex items-center gap-1.5 rounded-full ring-1 ring-foreground/5 bg-background/80 px-3 py-1.5 font-mono text-[10px] text-foreground tracking-[0.18em] shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur"
-          data-reveal="badge"
-        >
+        <Badge className="-top-3 -right-3 absolute" data-reveal="badge" variant="outline">
           <span className="size-1.5 rounded-full bg-emerald-500" />
           JD READY
-        </div>
+        </Badge>
       </div>
     </div>
   );
@@ -210,10 +205,7 @@ function SceneInterview({ block }: SceneProps) {
         <div className="transform-gpu">
           <block.Screen className="w-full" />
         </div>
-        <div
-          className="-bottom-3 -right-3 absolute flex items-center gap-2 rounded-full ring-1 ring-foreground/5 bg-background/80 px-3 py-1.5 shadow-[0_4px_18px_-12px_rgba(0,0,0,0.18)] backdrop-blur"
-          data-reveal="badge"
-        >
+        <Badge className="-right-3 -bottom-3 absolute" data-reveal="badge" variant="outline">
           <span className="flex h-3.5 items-end gap-[2px]">
             {[3, 5, 2, 6, 4, 3, 5].map((h, i) => (
               <span
@@ -224,8 +216,8 @@ function SceneInterview({ block }: SceneProps) {
               />
             ))}
           </span>
-          <span className="font-mono text-[10px] text-foreground tracking-[0.18em]">REC</span>
-        </div>
+          <span>REC</span>
+        </Badge>
       </div>
     </div>
   );
