@@ -8,7 +8,7 @@ New structured jobs are drafts until explicitly published. Drafts are excluded f
 
 Publication locks the draft, verifies the stored preview and current input hashes, then atomically copies that exact preview into the immutable blueprint and pins the rule versions before activating recruiting use. After publication, job name, code, description, prompt, blueprint, hard gates, dimension weights, priority/exclusion conditions, and pinned versions are immutable. Department, interviewer assignments, communication questions, and candidate forms remain editable because they are operational settings outside resume-score comparability. A changed evaluation contract requires a new job rather than silently rewriting the meaning of scores inside an active candidate population.
 
-The blueprint may contain at most one source-backed required-relevant-experience threshold with an explicit relevance scope. Preview generation rejects incompatible experience thresholds or scopes instead of silently selecting or combining them.
+Every explicit experience requirement is published as an independent source-backed atomic hard gate. The blueprint also contains at most one required-relevant-experience scoring baseline for the missing-year deduction rule. When a job has multiple thresholds, the compiler deterministically selects the highest-year requirement (with stable normalized scope/source ordering for ties) so common combinations such as role experience plus management experience remain publishable without stacking the same missing years more than once.
 
 ## Considered options
 

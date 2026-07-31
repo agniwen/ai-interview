@@ -39,7 +39,7 @@ const structuredJobOwnedFieldsSchema = z.object({
   code: jobDescriptionCodeSchema,
   description: z.string().trim().max(500, "描述不能超过 500 字").optional().or(z.literal("")),
   name: z.string().trim().min(1, "请输入岗位名称").max(120, "岗位名称不能超过 120 个字符"),
-  prompt: z.string().trim().min(1, "请输入岗位 prompt").max(10_000, "prompt 不能超过 10000 字"),
+  prompt: z.string().trim().min(1, "请输入岗位内容").max(10_000, "岗位内容不能超过 10000 字"),
   structuredConfig: jobDescriptionStructuredConfigSchema,
 });
 

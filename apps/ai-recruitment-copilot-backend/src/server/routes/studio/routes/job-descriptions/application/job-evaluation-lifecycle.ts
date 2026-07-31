@@ -170,7 +170,15 @@ async function loadDefault(input: {
 
 async function compileDefault(job: JobEvaluationDraft): Promise<JobEvaluationBlueprint> {
   const generatedAt = new Date().toISOString();
-  const modelOutput = await generateEvaluationBlueprintCandidate(job);
+  let modelOutput;
+  try {
+    modelOutput = await generateEvaluationBlueprintCandidate(job);
+  } catch {
+    throw new JobEvaluationLifecycleError(
+      "JOB_BLUEPRINT_GENERATION_FAILED",
+      "AI 评估蓝图生成暂时不可用，请稍后重试。",
+    );
+  }
   return compileEvaluationBlueprint(
     { ...job, modelOutput },
     {

@@ -389,6 +389,32 @@ describe("computeRelevantExperience", () => {
 });
 
 describe("deriveTimelineFacts", () => {
+  it("counts a same-month employer transition as a job change", () => {
+    const result = deriveTimelineFacts({
+      employmentEpisodes: [
+        {
+          current: false,
+          endMonth: "2026-01",
+          id: "first",
+          primaryStatus: "primary",
+          startMonth: "2025-01",
+        },
+        {
+          current: true,
+          endMonth: null,
+          id: "second",
+          primaryStatus: "primary",
+          startMonth: "2026-01",
+        },
+      ],
+      evaluationAsOf: "2026-07-29",
+      projects: [],
+    });
+
+    expect(result.jobChangesWithinOneYear).toBe(1);
+    expect(result.unexplainedGapMonths).toEqual([]);
+  });
+
   it("uses the UTC evaluation date, excludes the first job, and ignores concurrent overlap", () => {
     const result = deriveTimelineFacts({
       employmentEpisodes: [
@@ -478,6 +504,27 @@ describe("deriveTimelineFacts", () => {
         ],
       }).oldProjectIds,
     ).toEqual([]);
+  });
+
+  it("keeps project freshness unresolved when no dated relevant project settles the outcome", () => {
+    const unresolved = deriveTimelineFacts({
+      employmentEpisodes: [],
+      evaluationAsOf: "2026-07-29",
+      projects: [{ current: false, endMonth: null, id: "undated-relevant", relevant: true }],
+    });
+    const settledByRecent = deriveTimelineFacts({
+      employmentEpisodes: [],
+      evaluationAsOf: "2026-07-29",
+      projects: [
+        { current: false, endMonth: null, id: "undated-relevant", relevant: true },
+        { current: false, endMonth: "2026-01", id: "recent-relevant", relevant: true },
+      ],
+    });
+
+    expect(unresolved.hasUnresolvedRelevantProjectDate).toBe(true);
+    expect(unresolved.oldProjectIds).toEqual([]);
+    expect(settledByRecent.hasUnresolvedRelevantProjectDate).toBe(false);
+    expect(settledByRecent.oldProjectIds).toEqual([]);
   });
 });
 

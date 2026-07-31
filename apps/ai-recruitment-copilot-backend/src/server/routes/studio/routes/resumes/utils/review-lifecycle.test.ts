@@ -178,4 +178,18 @@ describe("runResumeAssessmentLifecycle", () => {
     expect(result).toEqual({ reason: "superseded", status: "skipped" });
     expect(record.resumeReview).toBeNull();
   });
+
+  it("rejects an assessment generated for a different job evaluation mode", async () => {
+    const { deps, record } = createStore({
+      evaluationMode: "structured",
+      resumeReview: null,
+      structuredResumeEvaluation: null,
+    });
+
+    await expect(runResumeAssessmentLifecycle(RUN_INPUT, deps)).rejects.toThrow(
+      "评估结果模式与岗位评估模式不一致",
+    );
+    expect(record.resumeReview).toBeNull();
+    expect(record.resumeReviewStatus).toBe("failed");
+  });
 });

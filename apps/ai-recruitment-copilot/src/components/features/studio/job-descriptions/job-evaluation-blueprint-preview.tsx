@@ -12,6 +12,15 @@ const DIMENSION_LABELS: Record<keyof JobDescriptionDimensionWeights, string> = {
   stability: "稳定",
 };
 
+const DIMENSION_ORDER: (keyof JobDescriptionDimensionWeights)[] = [
+  "skillMatch",
+  "experienceRelevance",
+  "projectMatch",
+  "educationBackground",
+  "potential",
+  "stability",
+];
+
 export function JobEvaluationBlueprintPreview({
   blueprint,
   weights,
@@ -21,10 +30,10 @@ export function JobEvaluationBlueprintPreview({
 }) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>评估蓝图预览</CardTitle>
+      <CardHeader className="p-4 pb-3">
+        <CardTitle className="text-base">评估蓝图预览</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4 text-sm">
+      <CardContent className="space-y-3 px-4 pb-4 text-sm">
         <section className="space-y-2">
           <h4 className="font-medium">原子门槛</h4>
           {blueprint.hardGateRequirements.length > 0 ? (
@@ -51,13 +60,30 @@ export function JobEvaluationBlueprintPreview({
           </div>
         </section>
         <section className="space-y-2">
-          <h4 className="font-medium">权重</h4>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(weights).map(([dimension, weight]) => (
-              <Badge key={dimension} variant="outline">
-                {DIMENSION_LABELS[dimension as keyof JobDescriptionDimensionWeights]} {weight}%
-              </Badge>
-            ))}
+          <h4 className="font-medium">六维评分标准</h4>
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {DIMENSION_ORDER.map((dimension) => {
+              const expectations = blueprint.dimensionExpectations[dimension];
+              return (
+                <div className="space-y-1.5 rounded-md border p-2.5" key={dimension}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium">{DIMENSION_LABELS[dimension]}</span>
+                    <Badge variant="outline">{weights[dimension]}%</Badge>
+                  </div>
+                  {expectations.length > 0 ? (
+                    <ul className="list-disc space-y-1 pl-4 text-muted-foreground">
+                      {expectations.map((expectation) => (
+                        <li key={`${dimension}-${expectation.expectation}`}>
+                          {expectation.expectation}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-muted-foreground">未识别到明确标准</p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </section>
         {blueprint.requiredRelevantExperience ? (

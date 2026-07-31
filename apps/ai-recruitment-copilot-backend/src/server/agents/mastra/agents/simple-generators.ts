@@ -1,4 +1,5 @@
 import { Agent } from "@mastra/core/agent";
+import { setTimeout as delay } from "node:timers/promises";
 import type { z } from "zod";
 import {
   configureAlibabaCodingPlanApiKey,
@@ -9,6 +10,7 @@ import { parseJsonOutput } from "@arc/ai-recruitment-copilot-backend/server/agen
 configureAlibabaCodingPlanApiKey();
 
 export interface MastraGenerateOptions {
+  abortSignal?: AbortSignal;
   modelSettings?: {
     maxOutputTokens?: number;
     temperature?: number;
@@ -260,6 +262,35 @@ function isReadableStream(value: unknown): value is ReadableStream<string> {
   return typeof value === "object" && value !== null && "getReader" in value;
 }
 
+function isRetryableStructuredOutputError(error: Error): boolean {
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("structured output") ||
+    message.includes("structured_output") ||
+    message.includes("schema validation") ||
+    message.includes("schema_validation")
+  );
+}
+
+async function throwAfterTimeout(timeoutMs: number, signal: AbortSignal): Promise<never> {
+  await delay(timeoutMs, undefined, { signal });
+  const error = new Error(`AI generation timed out after ${timeoutMs}ms`);
+  error.name = "TimeoutError";
+  throw error;
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number | undefined): Promise<T> {
+  if (!timeoutMs) {
+    return promise;
+  }
+  const controller = new AbortController();
+  try {
+    return await Promise.race([promise, throwAfterTimeout(timeoutMs, controller.signal)]);
+  } finally {
+    controller.abort();
+  }
+}
+
 export async function* streamTextWithMastraAgent({
   agent,
   maxOutputTokens,
@@ -281,6 +312,7 @@ export async function* streamTextWithMastraAgent({
   }
 }
 
+// oxlint-disable-next-line complexity -- retries, schema fallback, and semantic validation share one generation attempt loop.
 export async function generateStructuredWithMastraAgent<TSchema extends z.ZodType>({
   agent,
   maxOutputTokens,
@@ -288,6 +320,8 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
   retryOnInvalid,
   schema,
   temperature,
+  timeoutMs,
+  validate,
 }: {
   agent: MastraGeneratorLike;
   maxOutputTokens?: number;
@@ -295,32 +329,61 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
   retryOnInvalid?: boolean;
   schema: TSchema;
   temperature?: number;
+  timeoutMs?: number;
+  validate?: (value: z.infer<TSchema>) => void;
 }): Promise<z.infer<TSchema>> {
   let attemptPrompt = prompt;
   let lastError = new Error("AI 生成的结构化内容校验失败。");
   const maxAttempts = retryOnInvalid ? 2 : 1;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const result = await agent.generate(attemptPrompt, {
-      modelSettings: buildModelSettings({ maxOutputTokens, temperature }),
-      structuredOutput: { schema },
-    });
+    let result: Awaited<ReturnType<MastraGeneratorLike["generate"]>>;
+    try {
+      result = await withTimeout(
+        agent.generate(attemptPrompt, {
+          ...(timeoutMs ? { abortSignal: AbortSignal.timeout(timeoutMs) } : {}),
+          modelSettings: buildModelSettings({ maxOutputTokens, temperature }),
+          structuredOutput: { schema },
+        }),
+        timeoutMs,
+      );
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (!isRetryableStructuredOutputError(lastError)) {
+        throw lastError;
+      }
+      if (attempt + 1 < maxAttempts) {
+        attemptPrompt = `${prompt}\n\n上一次结构化输出无效：${lastError.message}\n请严格按照原字段和类型重新输出完整的 JSON 对象，不要输出 Markdown 或解释。`;
+      }
+      continue;
+    }
     if (result.error) {
       lastError = result.error;
+      if (!isRetryableStructuredOutputError(lastError)) {
+        throw lastError;
+      }
     } else {
       const parsed = schema.safeParse(result.object);
       if (parsed.success) {
-        return parsed.data;
-      }
-      lastError = new Error(parsed.error.issues[0]?.message ?? "AI 生成的结构化内容校验失败。");
-      if (result.text.trim()) {
         try {
-          return parseJsonOutput(
-            result.text,
-            schema as z.ZodType<z.infer<TSchema>>,
-            "structured-output-fallback",
-          );
-        } catch {
-          // Retry below with concise schema feedback and the original task context.
+          validate?.(parsed.data);
+          return parsed.data;
+        } catch (error) {
+          lastError = error instanceof Error ? error : new Error(String(error));
+        }
+      } else {
+        lastError = new Error(parsed.error.issues[0]?.message ?? "AI 生成的结构化内容校验失败。");
+        if (result.text.trim()) {
+          try {
+            const fallback = parseJsonOutput(
+              result.text,
+              schema as z.ZodType<z.infer<TSchema>>,
+              "structured-output-fallback",
+            );
+            validate?.(fallback);
+            return fallback;
+          } catch (error) {
+            lastError = error instanceof Error ? error : new Error(String(error));
+          }
         }
       }
     }

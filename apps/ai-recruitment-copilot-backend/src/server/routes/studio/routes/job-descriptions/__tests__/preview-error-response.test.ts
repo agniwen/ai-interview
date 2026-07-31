@@ -24,6 +24,8 @@ vi.mock("../application/job-evaluation-lifecycle", async (importOriginal) => {
 // oxlint-disable-next-line import/first -- route must load after the hoisted dependency mocks.
 import { BlueprintCompilationError } from "../utils/evaluation-blueprint-compiler";
 // oxlint-disable-next-line import/first -- route must load after the hoisted dependency mocks.
+import { JobEvaluationLifecycleError } from "../application/job-evaluation-lifecycle";
+// oxlint-disable-next-line import/first -- route must load after the hoisted dependency mocks.
 import { jobDescriptionsRouter } from "../route";
 
 function makeApp() {
@@ -60,6 +62,25 @@ describe("job evaluation blueprint preview errors", () => {
     await expect(response.json()).resolves.toEqual({
       code: "JOB_BLUEPRINT_EXPERIENCE_CONFLICT",
       error: "岗位包含不兼容的经验要求。",
+    });
+  });
+
+  it("returns an actionable 503 response when blueprint generation is unavailable", async () => {
+    mocks.generateStructuredJobBlueprintPreview.mockRejectedValue(
+      new JobEvaluationLifecycleError(
+        "JOB_BLUEPRINT_GENERATION_FAILED",
+        "AI 评估蓝图生成暂时不可用，请稍后重试。",
+      ),
+    );
+
+    const response = await client["job-descriptions"][":id"]["evaluation-blueprint-preview"].$post({
+      param: { id: "job-1" },
+    });
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      code: "JOB_BLUEPRINT_GENERATION_FAILED",
+      error: "AI 评估蓝图生成暂时不可用，请稍后重试。",
     });
   });
 });

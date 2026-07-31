@@ -36,6 +36,7 @@ vi.mock("@/lib/client/workspace-context", () => ({
 const record = {
   code: "DEV0001",
   description: "负责产品前端研发",
+  evaluationMode: "structured",
   id: "job-1",
   interviewerIds: ["interviewer-1"],
   name: "前端工程师",
@@ -76,12 +77,13 @@ describe("JobDescriptionHoverCard", () => {
 
     await vi.waitFor(() => {
       expect(rpcFetchMock).toHaveBeenCalledTimes(1);
-      expect(document.body.textContent).toContain("负责产品前端研发");
+      expect(document.body.textContent).toContain("岗位 JD");
+      expect(document.body.textContent).not.toContain("负责产品前端研发");
       expect(document.body.querySelector('[data-slot="hover-card-content"]')?.classList).toContain(
         "bg-background",
       );
       const scrollAreas = document.body.querySelectorAll('[data-slot="scroll-area"]');
-      expect(scrollAreas).toHaveLength(2);
+      expect(scrollAreas).toHaveLength(1);
       expect(scrollAreas[0]?.classList).toContain("[--scroll-fade-reveal:1rem]");
       for (const scrollArea of scrollAreas) {
         expect(scrollArea.firstElementChild?.classList).toContain("scroll-fade");

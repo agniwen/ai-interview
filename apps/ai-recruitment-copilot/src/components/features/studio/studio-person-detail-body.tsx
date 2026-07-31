@@ -14,6 +14,7 @@ import {
   ResumeOverviewPanel,
   ResumeReviewStructuredView,
 } from "@/components/features/studio/resumes/resume-overview-panel";
+import { StructuredResumeEvaluationPanel } from "@/components/features/studio/resumes/structured-resume-evaluation-panel";
 import {
   DATE_TIME_DISPLAY_OPTIONS,
   TimeDisplay,
@@ -739,6 +740,22 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
     tabContentRootRef,
     tabVisibilityRecord,
   } = model;
+  const resumeReassessAction = canUseManagementActions ? (
+    <Button
+      disabled={isResumeAssessmentInProgress || isReassessingResume}
+      onClick={handleReassessResume}
+      size="sm"
+      type="button"
+      variant="outline"
+    >
+      {isResumeAssessmentInProgress || isReassessingResume ? (
+        <IconLoader2 className="size-3.5 animate-spin" />
+      ) : (
+        <IconArrowBackUp className="size-3.5" />
+      )}
+      {isResumeAssessmentInProgress || isReassessingResume ? "评估中" : "重新评估"}
+    </Button>
+  ) : null;
   const body = isLoading ? (
     <DetailBodySkeleton mode={mode} />
   ) : // oxlint-disable-next-line no-nested-ternary -- Secondary branch renders based on record presence.
@@ -777,30 +794,25 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
           {mode === "resume" ? (
             <TabsContent value="ai-analysis">
               <div className="space-y-6">
-                <ResumeReviewStructuredView
-                  review={resumeRecord?.resumeReview}
-                  screeningResultSlot={<ResumeScreeningResultPanel resumeRecord={resumeRecord} />}
-                  summaryAction={
-                    canUseManagementActions ? (
-                      <Button
-                        disabled={isResumeAssessmentInProgress || isReassessingResume}
-                        onClick={handleReassessResume}
-                        size="sm"
-                        type="button"
-                        variant="outline"
-                      >
-                        {isResumeAssessmentInProgress || isReassessingResume ? (
-                          <IconLoader2 className="size-3.5 animate-spin" />
-                        ) : (
-                          <IconArrowBackUp className="size-3.5" />
-                        )}
-                        {isResumeAssessmentInProgress || isReassessingResume
-                          ? "评估中"
-                          : "重新评估"}
-                      </Button>
-                    ) : undefined
-                  }
-                />
+                {resumeRecord?.jobEvaluationMode === "structured" ? (
+                  <>
+                    {resumeReassessAction ? (
+                      <div className="flex justify-end">{resumeReassessAction}</div>
+                    ) : null}
+                    <StructuredResumeEvaluationPanel
+                      canEdit={Boolean(model.canUpdateResumeLibrary)}
+                      detail={resumeRecord}
+                      onUpdated={model.onResumeIdentityUpdated}
+                      slug={model.slug}
+                    />
+                  </>
+                ) : (
+                  <ResumeReviewStructuredView
+                    review={resumeRecord?.resumeReview}
+                    screeningResultSlot={<ResumeScreeningResultPanel resumeRecord={resumeRecord} />}
+                    summaryAction={resumeReassessAction ?? undefined}
+                  />
+                )}
               </div>
             </TabsContent>
           ) : null}

@@ -57,7 +57,7 @@ import { computeJobEvaluationDraftInputHash } from "@arc/ai-recruitment-copilot-
 const generateJobDescriptionBodySchema = z.object({
   departmentName: z.string().trim().max(120).optional(),
   jobName: z.string().trim().max(120).optional(),
-  prompt: z.string().trim().min(1, "请填写 AI 填写指令").max(2000),
+  prompt: z.string().trim().min(1, "请填写 AI 填写指令").max(10_000),
 });
 
 const generateResumeScreeningPolicyBodySchema = z.object({
@@ -159,6 +159,7 @@ const jobDescriptionPatchBodySchema = z.union([
 function jobLifecycleErrorPayload(error: JobEvaluationLifecycleError) {
   const messages: Record<string, string> = {
     JOB_ALREADY_PUBLISHED: "岗位已经发布。",
+    JOB_BLUEPRINT_GENERATION_FAILED: "AI 评估蓝图生成暂时不可用，请稍后重试。",
     JOB_BLUEPRINT_PREVIEW_STALE: "评估蓝图已失效，请重新生成并确认。",
     JOB_EVALUATION_MODE_IMMUTABLE: "旧岗位不能切换到新版评估流程。",
     JOB_NOT_FOUND: "岗位不存在。",
@@ -428,7 +429,12 @@ export const jobDescriptionsRouter = factory
         return c.json({ code: error.code, error: error.message }, 422);
       }
       if (error instanceof JobEvaluationLifecycleError) {
-        const status = error.code === "JOB_NOT_FOUND" ? 404 : 409;
+        let status: 404 | 409 | 503 = 409;
+        if (error.code === "JOB_NOT_FOUND") {
+          status = 404;
+        } else if (error.code === "JOB_BLUEPRINT_GENERATION_FAILED") {
+          status = 503;
+        }
         return c.json(jobLifecycleErrorPayload(error), status);
       }
       throw error;

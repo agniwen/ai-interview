@@ -97,13 +97,15 @@ The evaluation blueprint is compiled once from the draft's frozen description, p
 
 - stable IDs and source mappings for every atomized hard-gate requirement;
 - de-duplicated core and auxiliary skill expectations;
-- zero or one normalized `requiredRelevantExperience` requirement where an explicit experience threshold is configured;
+- zero or one normalized `requiredRelevantExperience` compatibility baseline where at least one explicit experience threshold is configured;
 - normalized education thresholds where explicitly configured;
 - stable job-side expectations needed by the six dimensions, such as industry/domain, responsibility level, project scale, business complexity, and ownership expectations;
 - the original priority and exclusion conditions;
 - blueprint schema, compiler prompt, and compiler model metadata.
 
-`requiredRelevantExperience` contains `years`, `relevanceScope`, `sourceText`, and `sourceRef`. `relevanceScope` states which role, industry, domain, or capability experience counts toward the threshold; it is `total_employment` only when the source explicitly requires total work experience without a narrower scope. The compiler may de-duplicate equivalent statements, but V1 publishes at most one experience threshold. If explicit source statements contain incompatible thresholds or scopes, preview generation fails with `422 JOB_BLUEPRINT_EXPERIENCE_CONFLICT` and asks the recruiter to simplify the JD instead of choosing or combining them.
+`requiredRelevantExperience` contains `years`, `relevanceScope`, `sourceText`, and `sourceRef`. `relevanceScope` states which role, industry, domain, or capability experience counts toward the threshold; it is `total_employment` only when the source explicitly requires total work experience without a narrower scope. Every explicit experience requirement is compiled and published as its own atomic hard gate. `requiredRelevantExperience` retains the deterministic highest-year requirement only as a compatibility baseline for artifacts that do not yet contain per-gate timelines; it does not suppress other distinct experience thresholds.
+
+During evaluation, every distinct numeric work-experience gate gets its own source-cited qualifying episode list. Code independently merges and counts the months for each gate. Equivalent duplicate statements are counted once; distinct scopes such as "8 years frontend development" and "3 years team management" are both evaluated. Their missing-year units are summed into the single `experience.missing_year` deduction rule. When one frozen experience expectation explicitly joins a management-year requirement with a numeric team-size requirement, only management experience satisfying that linked team-size scope counts toward the years; failure of the linked qualifier contributes the full required-year deficit. Unrelated hard gates are never joined implicitly. This keeps the gate result and experience score consistent: a management requirement cannot pass or avoid deductions by borrowing months from a broader frontend-development requirement or from management experience outside the frozen team-size scope.
 
 Every compiled expectation retains its source text and location. The compiler may normalize and de-duplicate what the job says, but cannot invent an unstated requirement. Soft wording such as "优先", "加分", "最好", or equivalent is excluded from blocking gates and may become an auxiliary skill. It affects score adjustments only when the recruiter separately configured the same meaning as an explicit priority or exclusion condition; the compiler never creates adjustment conditions. The confirmed blueprint and its hash are immutable after publication. Later model or prompt changes cannot recompile it; correcting the published evaluation contract requires a new job.
 
@@ -213,7 +215,7 @@ Aggregation is deterministic:
 - otherwise any needs-verification category makes the overall result needs verification;
 - otherwise the overall result passes.
 
-Missing resume information is `needs_verification`, not an automatic failure. The AI gate result is advisory. Recruiters may optionally correct atomic results, but do not have to resolve every atom before marking the resume passed or launching an AI interview.
+Missing or unstated resume information is `failed`: screening treats "not written" as "not matched" rather than sending every omission to manual verification. `needs_verification` is reserved for related resume evidence that is internally conflicting or genuinely indeterminate. The AI gate result is advisory. Recruiters may optionally correct atomic results, but do not have to resolve every atom before marking the resume passed or launching an AI interview.
 
 A correction stores the original AI status unchanged plus corrected status, recruiter, and timestamp. Category and overall effective gate status aggregate from the corrected status when present and otherwise from the AI status. Effective gate status drives current gate presentation and gate-first sorting; correction does not change dimension scores, composite score, or the original AI narrative. A correction belongs to one evaluation run and is cleared when that evaluation is invalidated or regenerated.
 
@@ -252,12 +254,14 @@ Skill expectations use one mutually exclusive candidate status per de-duplicated
 
 All relative-time rules use the stored UTC `evaluationAsOf` calendar date from the run input. Retries of the same run reuse that date. Replaying a stored result uses its original date; an explicit later reassessment creates a new run/date and may legitimately change time-window deductions.
 
-The semantic step produces a source-cited normalized candidate timeline with month-level start/end values and an explicit current-role marker. When the blueprint contains `requiredRelevantExperience`, every resolved employment episode receives a relevance status of `relevant`, `not_relevant`, or `insufficient_evidence`, with cited resume evidence and a concise reason. For `total_employment`, code assigns every resolved employment episode `relevant`; for a narrower frozen scope, the model performs the semantic classification. The model does not calculate durations.
+The semantic step produces a source-cited normalized candidate timeline with month-level start/end values and an explicit current-role marker. For every numeric work-experience gate, it also returns the source-cited employment episodes that satisfy that gate's specific role, industry, domain, or capability scope. When the compatibility `requiredRelevantExperience` baseline is used, every resolved employment episode receives a relevance status of `relevant`, `not_relevant`, or `insufficient_evidence`, with cited resume evidence and a concise reason. For `total_employment`, code assigns every resolved employment episode `relevant`; for a narrower frozen scope, the model performs the semantic classification. The model does not calculate durations or decide whether the numeric threshold is met.
 
 Code performs all duration, overlap, gap, recency, and job-change arithmetic from that timeline:
 
 - merge overlapping employment months before calculating total employment duration;
-- for the missing-years rule, merge and count only months from `relevant` episodes, then divide the non-overlapping month total by 12;
+- for the missing-years rule, independently merge and count the qualifying months for every distinct numeric experience gate, then divide each non-overlapping month total by 12;
+- sum the missing-year units across distinct experience scopes, while de-duplicating equivalent repeated requirements;
+- apply a numeric team-size qualifier to management years only when the frozen experience expectation contains both source requirements; a failed linked qualifier means zero years satisfy that combined scope;
 - when known relevant months already meet the requirement, unresolved episodes cannot create a missing-years deduction;
 - when known relevant months are below the requirement and an `insufficient_evidence` episode could change the outcome, mark the missing-years rule `insufficient_evidence`;
 - use `resumeProfile.workYears` as a fallback only when dated intervals cannot be normalized, the profile value is present, and `relevanceScope = total_employment`;
@@ -270,7 +274,7 @@ The versioned deduction catalog owns the exact timeline definitions used by jump
 V1 temporal definitions are:
 
 - a one-, two-, or three-year lookback is the inclusive calendar interval ending on `evaluationAsOf`;
-- a job change is a transition from one ended primary employment episode to a later primary employment episode; the first known job is not a change;
+- a job change is a transition between adjacent resolved primary employment episodes; the first known job is not a change, and a transition still counts when month-level dates share the same boundary month;
 - the start of a new role counts in the window, including the current role when a prior role exists;
 - overlapping concurrent roles do not create extra changes or gaps; if primary-versus-concurrent status cannot be resolved, affected rules are `insufficient_evidence`;
 - short tenure is fewer than three complete calendar months in one resolved employment episode;
@@ -291,6 +295,8 @@ V1 temporal definitions are:
 
 Core skills include every skill in the structured required-skills gate plus skills expressed in the published job description with strong wording such as "必须", "必备", "精通", or "熟练掌握". Auxiliary skills come only from the published job description and require explicit soft wording such as "优先", "加分", "了解", or "熟悉". The job prompt never contributes a core or auxiliary skill expectation. These de-duplicated expectations are compiled into the published evaluation blueprint and reused unchanged for every resume bound to that job.
 
+For a core-skill expectation sourced from `hardGates.requiredSkills`, the corresponding atomic gate judgment is also the authoritative skill fact: `passed` maps to applied, `needs_verification` maps to shallow, and `failed` maps to missing. An omitted gate judgment is treated as failed/missing rather than falling back to a contradictory dimension-model claim. The dimension scorer must not independently produce a skill status that contradicts the same run's gate result.
+
 #### Experience relevance
 
 | Rule                                                              |          Deduction |
@@ -299,7 +305,7 @@ Core skills include every skill in the structured required-skills gate plus skil
 | Relevant experience is below the job requirement                  | 9 per missing year |
 | Relevant experience is fragmented, with repeated switches or gaps |                 13 |
 
-Missing-year count is `ceil(required years - relevant years)`. For example, 3 required versus 2.5 relevant deducts 9; 3 required versus 1.5 relevant deducts 18. If the published blueprint has no `requiredRelevantExperience`, this rule is `not_applicable`. If the requirement exists but relevant years cannot be established under its frozen scope, the rule is `insufficient_evidence` and the dimension-cap rule applies.
+For each distinct numeric experience requirement, missing-year count is `ceil(required years - relevant years)`. For example, 3 required versus 2.5 relevant contributes one missing-year unit and deducts 9; 3 required versus 1.5 relevant contributes two units and deducts 18. Units from distinct scopes are summed. If the published blueprint contains no numeric experience requirement, this rule is `not_applicable`. If any requirement's relevant years cannot be established under its frozen scope and the uncertainty could change the result, the aggregate rule is `insufficient_evidence` and the dimension-cap rule applies.
 
 #### Project match
 
@@ -310,6 +316,8 @@ Missing-year count is `ceil(required years - relevant years)`. For example, 3 re
 | Most recent relevant project ended more than three years ago       |             12 |
 | No evidence of a relevant business project                         | Direct score 0 |
 
+The normalized project facts are authoritative for the direct-zero rule. When no relevant project is present, the scale, ownership, and freshness rules are `not_applicable` so the same absence is not presented as multiple independent defects. When relevant projects exist, freshness uses only the most recent relevant project.
+
 #### Education and background
 
 | Rule                                                             |          Deduction |
@@ -317,7 +325,7 @@ Missing-year count is `ceil(required years - relevant years)`. For example, 3 re
 | Education level meets the requirement but the major is unrelated |                 14 |
 | Education level is below the configured gate                     | 38 per degree tier |
 
-The education-tier rule uses the normalized sequence associate degree → bachelor → master → doctorate. The deduction accumulates by distance and is floored at 0: master versus bachelor deducts 38, while master versus associate degree deducts 76. If the published blueprint has no explicit education-level threshold, the below-gate rule is not applicable. School-tier conditions such as 985 or 211 remain hard-gate semantics unless a future rule version explicitly adds a scoring deduction.
+The education-tier rule uses the normalized sequence associate degree → bachelor → master → doctorate. The deduction accumulates by distance and is floored at 0: master versus bachelor deducts 38, while master versus associate degree deducts 76. The same deterministic comparison owns a simple standard degree-level gate, so the gate and education dimension cannot disagree even if the model returns a conflicting status. If the published blueprint has no explicit education-level threshold, the below-gate rule is not applicable. Compound or school-tier conditions such as full-time study, 985, or 211 retain their independent hard-gate semantics unless a future rule version explicitly adds a scoring deduction.
 
 #### Potential
 
@@ -385,6 +393,7 @@ composite = floor((clampedHundredths + 50) / 100)
 Each priority or exclusion condition is judged only as matched or not matched:
 
 - missing evidence means not matched;
+- comma-, semicolon-, "且"-, "并"-, or "同时"-joined subconditions are conjunctive unless the frozen text explicitly says "或", "任一", or an equivalent alternative; every conjunctive subcondition needs evidence before the whole condition is matched;
 - only a matched priority condition adds its configured integer points;
 - only a matched exclusion condition subtracts its configured integer points;
 - custom conditions deliberately stack with standardized dimension deductions, even when their wording overlaps;

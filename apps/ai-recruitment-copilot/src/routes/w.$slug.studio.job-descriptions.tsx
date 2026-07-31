@@ -1,4 +1,4 @@
-import { IconFileText, IconPlus, IconSparkles } from "@tabler/icons-react";
+import { IconFileText, IconPlus } from "@tabler/icons-react";
 import { HydrationBoundary, useQueryClient } from "@tanstack/react-query";
 import type { DehydratedState } from "@tanstack/react-query";
 import {
@@ -24,14 +24,9 @@ import { JobDescriptionsPageSkeleton } from "@/components/features/studio/studio
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
 import { useEntityCrud } from "@/components/features/studio/use-entity-crud";
 import type {
-  JobDescriptionFormValues,
   JobDescriptionListRecord,
   JobDescriptionMetrics,
   JobDescriptionRecord,
-} from "@arc/shared/job-descriptions";
-import {
-  createDefaultJobDescriptionStructuredConfig,
-  createDefaultResumeScreeningPolicy,
 } from "@arc/shared/job-descriptions";
 import type { PaginatedJobDescriptionResult } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { JobDescriptionCharts } from "@/components/features/studio/job-descriptions/job-description-charts";
@@ -40,7 +35,6 @@ import { ScopedResumesModal } from "@/components/features/studio/scoped-resumes-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   actionsColumn,
@@ -62,7 +56,6 @@ import { rpc } from "@/lib/client/rpc";
 import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { JobDescriptionFormDialog } from "@/components/features/studio/job-descriptions/job-description-form-dialog";
-import { JobDescriptionAiCreateDialog } from "@/components/features/studio/job-descriptions/job-description-ai-create-dialog";
 import { JobDescriptionTalentRecommendationsDialog } from "@/components/features/studio/job-descriptions/job-description-talent-recommendations-dialog";
 import { createJobDescriptionReferralLink } from "@/lib/client/api";
 import { copyTextToClipboard } from "@/lib/client/clipboard";
@@ -88,9 +81,6 @@ function JobDescriptionManagementPage({
     id: string;
     name: string;
   } | null>(null);
-  const [createDraft, setCreateDraft] = useState<JobDescriptionFormValues | null>(null);
-  const [createDraftSessionId, setCreateDraftSessionId] = useState(0);
-  const [aiCreateOpen, setAiCreateOpen] = useState(false);
   const [copyingReferralIds, setCopyingReferralIds] = useState<Set<string>>(() => new Set());
   const canCreateJobDescription = useHasPermission("jd", "create");
   const canUpdateJobDescription = useHasPermission("jd", "update");
@@ -175,6 +165,13 @@ function JobDescriptionManagementPage({
     },
   });
 
+  function handleJobDescriptionSaved(savedRecord: JobDescriptionRecord) {
+    if (crud.editingRecord?.id === savedRecord.id) {
+      crud.setEditingRecord(savedRecord);
+    }
+    invalidateJobDescriptionData();
+  }
+
   // 深链：其他页面（如简历详情的「关联岗位」）通过 ?jobDescriptionId=<id> 直接打开该岗位详情。
   const deepLinkSearch = useSearch({ from: "/w/$slug/studio/job-descriptions" });
   const navigate = useNavigate({ from: "/w/$slug/studio/job-descriptions" });
@@ -200,38 +197,6 @@ function JobDescriptionManagementPage({
 
   function onFormOpenChange(next: boolean) {
     crud.onFormOpenChange(next);
-    if (!next) {
-      setCreateDraft(null);
-    }
-  }
-
-  function handleAiGenerated({
-    departmentId,
-    description,
-    name,
-    prompt,
-  }: {
-    departmentId: string;
-    description: string;
-    name: string;
-    prompt: string;
-  }) {
-    if (!canCreateJobDescription) {
-      return;
-    }
-    setCreateDraft({
-      allowCrossDepartmentInterviewers: false,
-      departmentId,
-      description,
-      interviewerIds: [],
-      name,
-      prompt,
-      resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
-      structuredConfig: createDefaultJobDescriptionStructuredConfig(),
-    });
-    setCreateDraftSessionId((id) => id + 1);
-    crud.setEditingRecord(null);
-    crud.setFormDialogOpen(true);
   }
 
   async function copyReferralLink(record: JobDescriptionListRecord) {
@@ -256,12 +221,7 @@ function JobDescriptionManagementPage({
     });
   }
 
-  let editorDialogKey = "create-empty";
-  if (createDraft) {
-    editorDialogKey = `create-draft-${createDraftSessionId}`;
-  } else if (crud.editingRecord) {
-    editorDialogKey = `edit-${crud.editingRecord.id}`;
-  }
+  const editorDialogKey = crud.editingRecord ? `edit-${crud.editingRecord.id}` : "create";
   const canOpenEditorDialog = crud.editingRecord
     ? canUpdateJobDescription
     : canCreateJobDescription;
@@ -351,11 +311,11 @@ function JobDescriptionManagementPage({
       customColumn<JobDescriptionListRecord>({
         cell: (r) => (
           <span className="block max-w-sm truncate text-muted-foreground text-sm">
-            {r.description || "—"}
+            {(r.evaluationMode === "structured" ? r.prompt : r.description || r.prompt) || "—"}
           </span>
         ),
         key: "description",
-        title: "描述",
+        title: "岗位 JD",
       }),
       dateColumn<JobDescriptionListRecord>({
         key: "createdAt",
@@ -474,28 +434,10 @@ function JobDescriptionManagementPage({
                 </EmptyHeader>
                 {canCreateJobDescription ? (
                   <EmptyContent className="flex items-center justify-center">
-                    <ButtonGroup>
-                      <Button
-                        disabled={missingRefs}
-                        onClick={() => {
-                          setCreateDraft(null);
-                          crud.openCreate();
-                        }}
-                      >
-                        <IconPlus className="size-4" />
-                        新建在招岗位
-                      </Button>
-                      <Button
-                        aria-label="AI 创建在招岗位"
-                        disabled={missingRefs}
-                        onClick={() => setAiCreateOpen(true)}
-                        size="icon"
-                        title="AI 创建在招岗位"
-                        type="button"
-                      >
-                        <IconSparkles className="size-4" />
-                      </Button>
-                    </ButtonGroup>
+                    <Button disabled={missingRefs} onClick={() => crud.openCreate()}>
+                      <IconPlus className="size-4" />
+                      新建在招岗位
+                    </Button>
                   </EmptyContent>
                 ) : null}
               </Empty>
@@ -505,51 +447,26 @@ function JobDescriptionManagementPage({
           getRowId={(r) => r.id}
           toolbarRight={
             canCreateJobDescription ? (
-              <ButtonGroup className="flex-1 sm:flex-none">
-                <Button
-                  className="flex-1 sm:flex-none"
-                  disabled={missingRefs}
-                  onClick={() => {
-                    setCreateDraft(null);
-                    crud.openCreate();
-                  }}
-                >
-                  <IconPlus className="size-4" />
-                  新建在招岗位
-                </Button>
-                <Button
-                  aria-label="AI 创建在招岗位"
-                  disabled={missingRefs}
-                  onClick={() => setAiCreateOpen(true)}
-                  size="icon"
-                  title="AI 创建在招岗位"
-                  type="button"
-                >
-                  <IconSparkles className="size-4" />
-                </Button>
-              </ButtonGroup>
+              <Button
+                className="flex-1 sm:flex-none"
+                disabled={missingRefs}
+                onClick={() => crud.openCreate()}
+              >
+                <IconPlus className="size-4" />
+                新建在招岗位
+              </Button>
             ) : null
           }
         />
       </div>
 
-      {canCreateJobDescription ? (
-        <JobDescriptionAiCreateDialog
-          departments={departments}
-          onGenerated={handleAiGenerated}
-          onOpenChange={setAiCreateOpen}
-          open={aiCreateOpen}
-        />
-      ) : null}
-
       {canOpenEditorDialog ? (
         <JobDescriptionFormDialog
           departments={departments}
-          initialDraft={createDraft}
           interviewers={interviewers}
           key={editorDialogKey}
           onOpenChange={onFormOpenChange}
-          onSaved={invalidateJobDescriptionData}
+          onSaved={handleJobDescriptionSaved}
           open={crud.formDialogOpen}
           record={crud.editingRecord}
         />

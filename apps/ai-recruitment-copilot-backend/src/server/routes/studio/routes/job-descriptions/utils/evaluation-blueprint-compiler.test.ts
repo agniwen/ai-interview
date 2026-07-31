@@ -92,7 +92,15 @@ describe("compileEvaluationBlueprint", () => {
     expect(first.hardGateRequirements.map((item) => item.requirementId)).toEqual(
       second.hardGateRequirements.map((item) => item.requirementId),
     );
-    expect(first.coreSkills.map((item) => item.normalizedSkill)).toEqual(["React", "TypeScript"]);
+    expect(first.coreSkills.map((item) => item.normalizedSkill)).toEqual([
+      "React",
+      "TypeScript",
+      "PromptOnly",
+    ]);
+    expect(first.coreSkills[2]?.sourceRef).toEqual({
+      kind: "job_description",
+      path: "prompt",
+    });
     expect(first.auxiliarySkills.map((item) => item.normalizedSkill)).toEqual(["Redis"]);
     expect(first.priorityConditions).toEqual([
       {
@@ -138,12 +146,25 @@ describe("compileEvaluationBlueprint", () => {
     ).toThrow("单个硬性门槛分类不能超过 20 项");
   });
 
-  it("rejects incompatible experience thresholds instead of selecting one", () => {
-    const conflicting = input();
-    conflicting.structuredConfig.hardGates.workExperience =
+  it("keeps multiple experience gates and selects the highest threshold for scoring", () => {
+    const multipleRequirements = input();
+    multipleRequirements.structuredConfig.hardGates.workExperience =
       "至少 3 年后端经验；至少 5 年金融行业经验";
-    conflicting.modelOutput = {
-      ...conflicting.modelOutput,
+    multipleRequirements.modelOutput = {
+      ...multipleRequirements.modelOutput,
+      hardGateAtoms: [
+        ...multipleRequirements.modelOutput.hardGateAtoms,
+        {
+          category: "work_experience",
+          normalizedRequirement: "至少 3 年后端经验",
+          sourceText: "至少 3 年后端经验",
+        },
+        {
+          category: "work_experience",
+          normalizedRequirement: "至少 5 年金融行业经验",
+          sourceText: "至少 5 年金融行业经验",
+        },
+      ],
       requiredRelevantExperiences: [
         {
           relevanceScope: "role",
@@ -160,15 +181,90 @@ describe("compileEvaluationBlueprint", () => {
       ],
     };
 
+    const blueprint = compileEvaluationBlueprint(multipleRequirements, {
+      generatedAt: "2026-07-29T10:00:00.000Z",
+      modelId: "test-model",
+      promptVersion: "v1",
+    });
+
+    expect(
+      blueprint.hardGateRequirements
+        .filter((requirement) => requirement.category === "work_experience")
+        .map((requirement) => requirement.normalizedRequirement),
+    ).toEqual(["至少 3 年后端经验", "至少 5 年金融行业经验"]);
+    expect(blueprint.requiredRelevantExperience).toMatchObject({
+      relevanceScope: "industry",
+      scopeDescription: "金融行业",
+      years: 5,
+    });
+  });
+
+  it("accepts dimension expectations sourced from structured gates and the job prompt", () => {
+    const sourced = input();
+    sourced.structuredConfig.hardGates.education = "本科及以上";
+    sourced.modelOutput.dimensionExpectations = {
+      educationBackground: [
+        {
+          expectation: "本科及以上",
+          sourceText: "本科及以上",
+        },
+      ],
+      experienceRelevance: [
+        {
+          expectation: "3 年后端研发经验",
+          sourceText: "3 年后端研发经验",
+        },
+      ],
+      potential: [],
+      projectMatch: [],
+      skillMatch: [],
+      stability: [
+        {
+          expectation: "考察系统设计、工程质量与团队协作",
+          sourceText: "考察系统设计、工程质量与团队协作",
+        },
+      ],
+    };
+    sourced.prompt = "必须掌握 PromptOnly。考察系统设计、工程质量与团队协作";
+
+    const blueprint = compileEvaluationBlueprint(sourced, {
+      generatedAt: "2026-07-29T10:00:00.000Z",
+      modelId: "test-model",
+      promptVersion: "v1",
+    });
+
+    expect(blueprint.dimensionExpectations.educationBackground[0]?.sourceRef).toEqual({
+      kind: "hard_gate",
+      path: "hardGates.education",
+    });
+    expect(blueprint.dimensionExpectations.experienceRelevance[0]?.sourceRef).toEqual({
+      kind: "hard_gate",
+      path: "hardGates.workExperience",
+    });
+    expect(blueprint.dimensionExpectations.stability[0]?.sourceRef).toEqual({
+      kind: "job_description",
+      path: "prompt",
+    });
+  });
+
+  it("still rejects a dimension expectation with no source in the job inputs", () => {
+    const invented = input();
+    invented.modelOutput.dimensionExpectations.potential = [
+      {
+        expectation: "候选人必须展现创业精神",
+        sourceText: "候选人必须展现创业精神",
+      },
+    ];
+
     expect(() =>
-      compileEvaluationBlueprint(conflicting, {
+      compileEvaluationBlueprint(invented, {
         generatedAt: "2026-07-29T10:00:00.000Z",
         modelId: "test-model",
         promptVersion: "v1",
       }),
     ).toThrow(
       expect.objectContaining({
-        code: "JOB_BLUEPRINT_EXPERIENCE_CONFLICT",
+        code: "JOB_BLUEPRINT_INVENTED_EXPECTATION",
       }),
     );
   });

@@ -1,3 +1,4 @@
+import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -94,6 +95,82 @@ describe("simple Mastra generators", () => {
     ).resolves.toEqual({ title: "前端工程师" });
 
     expect(generate).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries once when the structured provider throws a validation error", async () => {
+    const generate = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("STRUCTURED_OUTPUT_SCHEMA_VALIDATION_FAILED"))
+      .mockResolvedValueOnce({ object: { title: "前端工程师" }, text: "" });
+
+    await expect(
+      generateStructuredWithMastraAgent({
+        agent: { generate },
+        prompt: "生成结构化对象",
+        retryOnInvalid: true,
+        schema: z.object({ title: z.string().min(1) }),
+      }),
+    ).resolves.toEqual({ title: "前端工程师" });
+
+    expect(generate).toHaveBeenCalledTimes(2);
+    expect(generate.mock.calls[1]?.[0]).toContain("STRUCTURED_OUTPUT_SCHEMA_VALIDATION_FAILED");
+  });
+
+  it("does not retry when the structured provider times out", async () => {
+    const timeoutError = new Error("Request timed out after 90000ms");
+    const generate = vi.fn().mockRejectedValue(timeoutError);
+
+    await expect(
+      generateStructuredWithMastraAgent({
+        agent: { generate },
+        prompt: "生成结构化对象",
+        retryOnInvalid: true,
+        schema: z.object({ title: z.string().min(1) }),
+      }),
+    ).rejects.toBe(timeoutError);
+
+    expect(generate).toHaveBeenCalledTimes(1);
+  });
+
+  it("aborts structured generation after the configured timeout", async () => {
+    const generate = vi.fn(() => delay(10_000).then(() => ({ text: "" })));
+
+    await expect(
+      generateStructuredWithMastraAgent({
+        agent: { generate },
+        prompt: "生成结构化对象",
+        schema: z.object({ title: z.string().min(1) }),
+        timeoutMs: 5,
+      }),
+    ).rejects.toMatchObject({ name: "TimeoutError" });
+
+    expect(generate).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries once when a parsed structured object fails domain validation", async () => {
+    const generate = vi
+      .fn()
+      .mockResolvedValueOnce({ object: { title: "改写后的引文" }, text: "" })
+      .mockResolvedValueOnce({ object: { title: "简历逐字引文" }, text: "" });
+    const validate = vi.fn((value: { title: string }) => {
+      if (value.title !== "简历逐字引文") {
+        throw new Error("STRUCTURED_RESUME_EVIDENCE_MISMATCH");
+      }
+    });
+
+    await expect(
+      generateStructuredWithMastraAgent({
+        agent: { generate },
+        prompt: "生成结构化对象",
+        retryOnInvalid: true,
+        schema: z.object({ title: z.string().min(1) }),
+        validate,
+      }),
+    ).resolves.toEqual({ title: "简历逐字引文" });
+
+    expect(validate).toHaveBeenCalledTimes(2);
+    expect(generate).toHaveBeenCalledTimes(2);
+    expect(generate.mock.calls[1]?.[0]).toContain("STRUCTURED_RESUME_EVIDENCE_MISMATCH");
   });
 
   it("throws the first schema validation message", async () => {

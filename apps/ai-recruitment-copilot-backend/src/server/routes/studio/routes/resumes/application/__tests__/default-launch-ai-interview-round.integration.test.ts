@@ -20,10 +20,16 @@ const JOB_ID = "atomic_launch_job";
 const ROLLBACK_CANDIDATE_ID = "atomic_launch_rollback_candidate";
 const CONCURRENT_CANDIDATE_ID = "atomic_launch_concurrent_candidate";
 const STRUCTURED_CANDIDATE_ID = "atomic_launch_structured_candidate";
+const STALE_STRUCTURED_CANDIDATE_ID = "atomic_launch_stale_structured_candidate";
 const NOW = new Date("2026-07-29T12:00:00.000Z");
 
 async function cleanup() {
-  const candidateIds = [ROLLBACK_CANDIDATE_ID, CONCURRENT_CANDIDATE_ID, STRUCTURED_CANDIDATE_ID];
+  const candidateIds = [
+    ROLLBACK_CANDIDATE_ID,
+    CONCURRENT_CANDIDATE_ID,
+    STRUCTURED_CANDIDATE_ID,
+    STALE_STRUCTURED_CANDIDATE_ID,
+  ];
   await db
     .delete(interviewContextSnapshot)
     .where(inArray(interviewContextSnapshot.interviewRecordId, candidateIds));
@@ -142,11 +148,33 @@ beforeAll(async () => {
       organizationId: ORG_ID,
       resumeEvaluationStatus: "fail",
       resumeParseStatus: "ready",
+      resumeReviewRunId: "structured-run-current",
+      resumeReviewStatus: "ready",
       structuredCompositeScore: 80,
       structuredGateSortRank: 2,
       structuredGateStatus: "failed",
       structuredResumeEvaluation: {
         runId: "structured-run-current",
+      } as (typeof studioInterview.$inferInsert)["structuredResumeEvaluation"],
+      structuredScoreGrade: "matched",
+      updatedAt: NOW,
+    },
+    {
+      candidateName: "Stale Structured Candidate",
+      createdAt: NOW,
+      createdBy: USER_ID,
+      id: STALE_STRUCTURED_CANDIDATE_ID,
+      jobDescriptionId: JOB_ID,
+      organizationId: ORG_ID,
+      resumeEvaluationStatus: "fail",
+      resumeParseStatus: "ready",
+      resumeReviewRunId: "structured-run-replacement",
+      resumeReviewStatus: "queued",
+      structuredCompositeScore: 80,
+      structuredGateSortRank: 2,
+      structuredGateStatus: "failed",
+      structuredResumeEvaluation: {
+        runId: "structured-run-stale",
       } as (typeof studioInterview.$inferInsert)["structuredResumeEvaluation"],
       structuredScoreGrade: "matched",
       updatedAt: NOW,
@@ -189,6 +217,22 @@ describe("atomic AI interview launch persistence", () => {
     ).resolves.toEqual({
       ok: true,
       roundId: "atomic_launch_structured_round",
+    });
+  });
+
+  it("does not treat an artifact from a replaced run as the current structured evaluation", async () => {
+    await expect(
+      persistLaunchAiInterviewRound(
+        launchInput(
+          STALE_STRUCTURED_CANDIDATE_ID,
+          "atomic_launch_stale_structured_round",
+          "atomic_launch_stale_structured_decision",
+          "atomic_launch_stale_structured_audit",
+        ),
+      ),
+    ).resolves.toEqual({
+      ok: true,
+      roundId: "atomic_launch_stale_structured_round",
     });
   });
 

@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
+import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
 import { STRUCTURED_RESUME_DIMENSIONS } from "@arc/shared/structured-resume-scoring";
+import { computeJobEvaluationPayloadHash } from "@arc/ai-recruitment-copilot-backend/lib/server/job-evaluation-hash";
 import type { StructuredResumeEvalCase, StructuredRuleStatus } from "../../types";
 
 const statuses: StructuredRuleStatus[] = [
@@ -8,6 +10,30 @@ const statuses: StructuredRuleStatus[] = [
   "insufficient_evidence",
   "not_applicable",
 ];
+const publishedConfig = createDefaultJobDescriptionStructuredConfig();
+const blueprint = {
+  auxiliarySkills: [],
+  compiler: {
+    generatedAt: "2026-07-30T00:00:00.000Z",
+    modelId: "compiler-model",
+    promptVersion: "compiler-v1",
+  },
+  coreSkills: [],
+  dimensionExpectations: {
+    educationBackground: [],
+    experienceRelevance: [],
+    potential: [],
+    projectMatch: [],
+    skillMatch: [],
+    stability: [],
+  },
+  educationExpectation: null,
+  exclusionConditions: [],
+  hardGateRequirements: [],
+  priorityConditions: [],
+  requiredRelevantExperience: null,
+  schemaVersion: 1 as const,
+};
 
 function gateStatusFor(index: number) {
   if (index % 5 === 0) {
@@ -59,6 +85,33 @@ export const cases: StructuredResumeEvalCase[] = Array.from({ length: 100 }, (_,
     },
     gold: expected,
     id,
+    jobInput: {
+      blueprint,
+      blueprintHash: computeJobEvaluationPayloadHash(blueprint),
+      deductionRuleSetVersion: 1,
+      jobId: "job-1",
+      publishedConfig,
+    },
+    resumeInput: {
+      evaluationAsOf: "2026-07-30",
+      resumeInputHash: contentHash,
+      resumeProfile: {
+        age: null,
+        educationExperiences: [],
+        email: null,
+        gender: null,
+        name: "合成候选人",
+        personalStrengths: [],
+        phone: null,
+        projectExperiences: [],
+        schools: [],
+        skills: [],
+        targetRoles: [],
+        workExperiences: [],
+        workYears: null,
+      },
+      resumeText: null,
+    },
     source: {
       contentHash,
       kind: "synthetic",

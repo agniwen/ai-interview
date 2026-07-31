@@ -181,6 +181,33 @@ function sourceRefFor(
   if (sourceContains(input.description, sourceText)) {
     return { kind: "job_description" as const, path: "description" };
   }
+  if (sourceContains(input.prompt, sourceText)) {
+    return { kind: "job_description" as const, path: "prompt" };
+  }
+  throw new BlueprintCompilationError(
+    "JOB_BLUEPRINT_INVENTED_EXPECTATION",
+    `蓝图内容没有岗位来源：${sourceText}`,
+  );
+}
+
+function sourceRefForDimensionExpectation(
+  input: CompileEvaluationBlueprintInput,
+  sourceText: string,
+) {
+  if (sourceContains(input.description, sourceText)) {
+    return { kind: "job_description" as const, path: "description" };
+  }
+  if (sourceContains(input.prompt, sourceText)) {
+    return { kind: "job_description" as const, path: "prompt" };
+  }
+  for (const sourceKey of Object.values(HARD_GATE_SOURCE_KEYS)) {
+    if (sourceContains(input.structuredConfig.hardGates[sourceKey], sourceText)) {
+      return {
+        kind: "hard_gate" as const,
+        path: `hardGates.${sourceKey}`,
+      };
+    }
+  }
   throw new BlueprintCompilationError(
     "JOB_BLUEPRINT_INVENTED_EXPECTATION",
     `蓝图内容没有岗位来源：${sourceText}`,
@@ -231,22 +258,24 @@ function resolveRequiredRelevantExperience(input: CompileEvaluationBlueprintInpu
     ...candidate,
     sourceRef: sourceRefFor(input, candidate.sourceText, "work_experience"),
   }));
-  const distinct = new Set(
-    candidates.map((candidate) =>
-      JSON.stringify({
-        relevanceScope: candidate.relevanceScope,
-        scopeDescription: normalizeSource(candidate.scopeDescription),
-        years: candidate.years,
-      }),
-    ),
+  return (
+    candidates.toSorted((left, right) => {
+      if (left.years !== right.years) {
+        return right.years - left.years;
+      }
+      return JSON.stringify({
+        relevanceScope: left.relevanceScope,
+        scopeDescription: normalizeSource(left.scopeDescription),
+        sourceText: normalizeSource(left.sourceText),
+      }).localeCompare(
+        JSON.stringify({
+          relevanceScope: right.relevanceScope,
+          scopeDescription: normalizeSource(right.scopeDescription),
+          sourceText: normalizeSource(right.sourceText),
+        }),
+      );
+    })[0] ?? null
   );
-  if (distinct.size > 1) {
-    throw new BlueprintCompilationError(
-      "JOB_BLUEPRINT_EXPERIENCE_CONFLICT",
-      "岗位包含不兼容的经验年限或范围要求，请简化后重试。",
-    );
-  }
-  return candidates[0] ?? null;
 }
 
 export function compileEvaluationBlueprint(
@@ -285,7 +314,7 @@ export function compileEvaluationBlueprint(
       dimension,
       expectations.map((expectation) => ({
         expectation: expectation.expectation.trim(),
-        sourceRef: sourceRefFor(input, expectation.sourceText),
+        sourceRef: sourceRefForDimensionExpectation(input, expectation.sourceText),
         sourceText: expectation.sourceText.trim(),
       })),
     ]),
@@ -325,7 +354,7 @@ export function compileEvaluationBlueprint(
   return jobEvaluationBlueprintSchema.parse(blueprint);
 }
 
-export const JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION = "structured-job-blueprint-v1";
+export const JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION = "structured-job-blueprint-v2";
 
 export function generateEvaluationBlueprintCandidate(input: {
   description: string | null;
@@ -339,15 +368,16 @@ export function generateEvaluationBlueprintCandidate(input: {
       "请把岗位信息编译为结构化简历评估蓝图候选。",
       "只能复述输入中存在的要求，每项 sourceText 必须是输入原文的连续片段。",
       "硬性门槛按原子要求拆分；空分类不生成。",
-      "核心技能只来自 requiredSkills 和 JD 描述中的强制措辞。",
-      "辅助技能只来自 JD 描述中的优先/加分/了解/熟悉等软措辞。",
-      "岗位 Prompt 中的技能不得进入 coreSkills 或 auxiliarySkills。",
-      "保留全部明确的经验年限要求到 requiredRelevantExperiences；不要自行选择或合并冲突要求。",
+      "对于新版岗位，prompt 字段就是 HR 确认后的完整岗位 JD。",
+      "核心技能只来自 requiredSkills，以及岗位 JD/旧描述中的强制措辞。",
+      "辅助技能只来自岗位 JD/旧描述中的优先、加分、了解、熟悉等软措辞。",
+      "保留全部明确的经验年限要求到 requiredRelevantExperiences；不要自行选择或合并要求，服务端会保留兼容基准并按每个不同口径分别计分。",
       "不要生成 ID、分数或扣分。",
       JSON.stringify(input),
     ].join("\n"),
     retryOnInvalid: true,
     schema: blueprintCompilerCandidateSchema,
     temperature: 0,
+    timeoutMs: 120_000,
   });
 }

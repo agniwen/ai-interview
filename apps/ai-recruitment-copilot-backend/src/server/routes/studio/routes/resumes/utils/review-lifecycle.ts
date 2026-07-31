@@ -199,6 +199,9 @@ export async function runResumeAssessmentLifecycle(
       resumeText: record.resumeText,
       runId: record.resumeReviewRunId,
     });
+    if (assessment.mode !== record.evaluationMode) {
+      throw new Error("评估结果模式与岗位评估模式不一致。");
+    }
     const committed = await deps.markReady({ ...key, ...guard, assessment });
     return committed ? { status: "ready" } : { reason: "superseded", status: "skipped" };
   } catch (error) {

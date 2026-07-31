@@ -24,6 +24,50 @@ export interface StructuredResumeEvidence {
   source: "resume_profile" | "resume_text";
 }
 
+function normalizedEvidenceText(value: string): string {
+  return value.normalize("NFKC").replaceAll(/\s+/g, "").toLocaleLowerCase("zh-CN");
+}
+
+function collectEvidenceLeafValues(value: unknown, output: string[]): void {
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    const normalized = normalizedEvidenceText(String(value));
+    if (normalized) {
+      output.push(normalized);
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectEvidenceLeafValues(item, output);
+    }
+    return;
+  }
+  if (value && typeof value === "object") {
+    for (const item of Object.values(value)) {
+      collectEvidenceLeafValues(item, output);
+    }
+  }
+}
+
+export function areStructuredResumeEvidenceSourcesValid(input: {
+  evidence: StructuredResumeEvidence[];
+  resumeProfile: unknown;
+  resumeText: string | null;
+}): boolean {
+  const profileLeaves: string[] = [];
+  collectEvidenceLeafValues(input.resumeProfile, profileLeaves);
+  const resumeText = normalizedEvidenceText(input.resumeText ?? "");
+  return input.evidence.every((item) => {
+    const quote = normalizedEvidenceText(item.quote);
+    if (!quote) {
+      return false;
+    }
+    return item.source === "resume_text"
+      ? resumeText.includes(quote)
+      : profileLeaves.some((leaf) => leaf.includes(quote));
+  });
+}
+
 export interface StructuredResumeRuleJudgment {
   evidence: StructuredResumeEvidence[];
   reason: string;
@@ -546,6 +590,7 @@ interface DeriveTimelineFactsInput {
 }
 
 export interface StructuredResumeTimelineFacts {
+  hasUnresolvedRelevantProjectDate: boolean;
   hasUnresolvedPrimaryConcurrency: boolean;
   hasUnresolvedPrimaryTimeline: boolean;
   jobChangesWithinOneYear: number | null;
@@ -567,24 +612,31 @@ function evaluationMonthIndex(evaluationAsOf: string): number {
   return index;
 }
 
-function deriveOldProjectIds(
+function deriveProjectFreshness(
   projects: StructuredResumeTimelineProject[],
   asOfMonth: number,
-): string[] {
+): Pick<StructuredResumeTimelineFacts, "hasUnresolvedRelevantProjectDate" | "oldProjectIds"> {
   const boundary = asOfMonth - 36;
   const relevantProjects = projects.filter((project) => project.relevant);
   if (relevantProjects.some((project) => project.current)) {
-    return [];
+    return { hasUnresolvedRelevantProjectDate: false, oldProjectIds: [] };
   }
   const ended = relevantProjects.flatMap((project) => {
     const end = monthIndex(project.endMonth);
     return end === null ? [] : [{ end, id: project.id }];
   });
   const latestEnd = Math.max(...ended.map((project) => project.end));
-  if (!Number.isFinite(latestEnd) || latestEnd >= boundary) {
-    return [];
+  if (Number.isFinite(latestEnd) && latestEnd >= boundary) {
+    return { hasUnresolvedRelevantProjectDate: false, oldProjectIds: [] };
   }
-  return ended.filter((project) => project.end === latestEnd).map((project) => project.id);
+  const hasUnresolvedRelevantProjectDate = relevantProjects.length > ended.length;
+  return {
+    hasUnresolvedRelevantProjectDate,
+    oldProjectIds:
+      hasUnresolvedRelevantProjectDate || !Number.isFinite(latestEnd)
+        ? []
+        : ended.filter((project) => project.end === latestEnd).map((project) => project.id),
+  };
 }
 
 export function deriveTimelineFacts(
@@ -616,14 +668,15 @@ export function deriveTimelineFacts(
     hasUnresolvedPrimaryConcurrency ||
     primaryCandidates.length === 0 ||
     primaryEpisodes.length !== primaryCandidates.length;
+  const projectFreshness = deriveProjectFreshness(input.projects, asOfMonth);
 
   if (hasUnresolvedPrimaryTimeline) {
     return {
+      ...projectFreshness,
       hasUnresolvedPrimaryConcurrency,
       hasUnresolvedPrimaryTimeline,
       jobChangesWithinOneYear: null,
       jobChangesWithinTwoYears: null,
-      oldProjectIds: deriveOldProjectIds(input.projects, asOfMonth),
       shortTenureCount: null,
       unexplainedGapMonths: [],
     };
@@ -634,8 +687,8 @@ export function deriveTimelineFacts(
   for (let index = 1; index < primaryEpisodes.length; index += 1) {
     const previous = primaryEpisodes[index - 1];
     const current = primaryEpisodes[index];
+    changeMonths.push(current.start);
     if (current.start > previous.end) {
-      changeMonths.push(current.start);
       const completeGapMonths = Math.max(current.start - previous.end - 1, 0);
       if (completeGapMonths > 0 && !previous.gapExplanation) {
         unexplainedGapMonths.push(completeGapMonths);
@@ -650,11 +703,11 @@ export function deriveTimelineFacts(
     }
   }
   return {
+    ...projectFreshness,
     hasUnresolvedPrimaryConcurrency,
     hasUnresolvedPrimaryTimeline,
     jobChangesWithinOneYear: changeMonths.filter((month) => month >= asOfMonth - 12).length,
     jobChangesWithinTwoYears: changeMonths.filter((month) => month >= asOfMonth - 24).length,
-    oldProjectIds: deriveOldProjectIds(input.projects, asOfMonth),
     shortTenureCount: primaryEpisodes.filter((episode) => episode.end - episode.start + 1 < 3)
       .length,
     unexplainedGapMonths,

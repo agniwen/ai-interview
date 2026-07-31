@@ -55,7 +55,16 @@ async function main() {
     `${outputPath}.json`,
     `${JSON.stringify(
       {
-        candidate: candidateRun.candidate,
+        candidate: {
+          candidateVersion: candidateRun.candidate.candidateVersion,
+          corpusHash: candidateRun.candidate.corpusHash,
+          engineVersion: candidateRun.candidate.engineVersion,
+          generatedAt: candidateRun.candidate.generatedAt,
+          modelId: candidateRun.candidate.modelId,
+          outputCount: candidateRun.candidate.outputs.length,
+          promptVersion: candidateRun.candidate.promptVersion,
+          schemaVersion: candidateRun.candidate.schemaVersion,
+        },
         corpusHash: loaded.corpusHash,
         gate,
         generatedAt,

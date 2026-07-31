@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   generateLegacyResumeReviewBestEffort: vi.fn(),
-  generateResumeReviewBestEffort: vi.fn(),
+  generateResumeAssessment: vi.fn(),
   listAllJobDescriptions: vi.fn(),
   loadRecruitingJobDescriptionById: vi.fn(),
   matchJobDescriptionForResume: vi.fn(),
@@ -40,7 +40,7 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
 }));
 vi.mock("./review-generation", () => ({
   generateLegacyResumeReviewBestEffort: mocks.generateLegacyResumeReviewBestEffort,
-  generateResumeReviewBestEffort: mocks.generateResumeReviewBestEffort,
+  generateResumeAssessment: mocks.generateResumeAssessment,
 }));
 vi.mock("@arc/ai-recruitment-copilot-backend/server/agents/job-description-match-agent", () => ({
   matchJobDescriptionForResume: mocks.matchJobDescriptionForResume,
@@ -87,7 +87,7 @@ describe("processResumeReviewGenerationJob", () => {
   beforeEach(() => {
     mocks.record = null;
     mocks.updates.length = 0;
-    mocks.generateResumeReviewBestEffort.mockReset();
+    mocks.generateResumeAssessment.mockReset();
     mocks.generateLegacyResumeReviewBestEffort.mockReset();
     mocks.listAllJobDescriptions.mockReset();
     mocks.loadRecruitingJobDescriptionById.mockReset();
@@ -105,13 +105,13 @@ describe("processResumeReviewGenerationJob", () => {
 
     await processResumeReviewGenerationJob(JOB);
 
-    expect(mocks.generateResumeReviewBestEffort).not.toHaveBeenCalled();
+    expect(mocks.generateResumeAssessment).not.toHaveBeenCalled();
     expect(mocks.updates).toHaveLength(0);
   });
 
   it("moves a new review through processing to ready", async () => {
     mocks.record = assessmentRecord({});
-    mocks.generateResumeReviewBestEffort.mockResolvedValue({
+    mocks.generateResumeAssessment.mockResolvedValue({
       mode: "legacy",
       resumeReview: { overall: { baseScore: 85 } },
       review: "AI 分析",
@@ -137,7 +137,7 @@ describe("processResumeReviewGenerationJob", () => {
     mocks.record = assessmentRecord({
       resumeText: null,
     });
-    mocks.generateResumeReviewBestEffort.mockRejectedValue(new Error("model unavailable"));
+    mocks.generateResumeAssessment.mockRejectedValue(new Error("model unavailable"));
 
     await expect(processResumeReviewGenerationJob(JOB)).rejects.toThrow("model unavailable");
 
@@ -155,7 +155,7 @@ describe("processResumeReviewGenerationJob", () => {
       resumeReview: { overall: { baseScore: 70 } },
       resumeScreeningResult: { recommendation: "flag" },
     });
-    mocks.generateResumeReviewBestEffort.mockResolvedValue({
+    mocks.generateResumeAssessment.mockResolvedValue({
       mode: "legacy",
       resumeReview: { overall: { baseScore: 90 } },
       review: "重新评估结果",
@@ -169,7 +169,7 @@ describe("processResumeReviewGenerationJob", () => {
       source: "reassess",
     });
 
-    expect(mocks.generateResumeReviewBestEffort).toHaveBeenCalled();
+    expect(mocks.generateResumeAssessment).toHaveBeenCalled();
     expect(mocks.updates).toHaveLength(2);
     expect(mocks.updates[0]).toMatchObject({
       resumeReviewStatus: "processing",
@@ -216,7 +216,7 @@ describe("processResumeReviewGenerationJob", () => {
     mocks.record = assessmentRecord({ jobDescriptionId: null });
     mocks.listAllJobDescriptions.mockResolvedValue([{ id: "jd-auto" }]);
     mocks.matchJobDescriptionForResume.mockResolvedValue({ jobDescriptionId: "jd-auto" });
-    mocks.generateResumeReviewBestEffort.mockResolvedValue({
+    mocks.generateResumeAssessment.mockResolvedValue({
       mode: "legacy",
       resumeReview: { overall: { baseScore: 86 } },
       review: "自动岗位评价",
@@ -234,7 +234,7 @@ describe("processResumeReviewGenerationJob", () => {
 
     expect(mocks.matchJobDescriptionForResume).toHaveBeenCalled();
     expect(mocks.updates).toContainEqual(expect.objectContaining({ jobDescriptionId: "jd-auto" }));
-    expect(mocks.generateResumeReviewBestEffort).toHaveBeenCalledWith(
+    expect(mocks.generateResumeAssessment).toHaveBeenCalledWith(
       expect.objectContaining({ jobDescriptionId: "jd-auto" }),
     );
   });

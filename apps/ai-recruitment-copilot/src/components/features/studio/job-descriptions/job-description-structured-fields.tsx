@@ -71,7 +71,7 @@ const HARD_GATE_FIELDS = [
 
 function SectionHeader({ description, title }: { description: string; title: string }) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-0.5">
       <div className="flex items-center gap-2">
         <span className="size-2 rounded-sm bg-primary" />
         <h3 className="font-semibold text-sm">{title}</h3>
@@ -89,20 +89,20 @@ function HardGateFields({
   onChange: (hardGates: JobDescriptionStructuredConfig["hardGates"]) => void;
 }) {
   return (
-    <Card className="gap-4 p-4">
+    <Card className="gap-3 p-3">
       <SectionHeader
         description="每个非空字段会在发布前拆成可确认的原子门槛，并用于新版简历评估。"
         title="硬性门槛"
       />
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
         {HARD_GATE_FIELDS.map((definition) => (
           <div
-            className={cn("space-y-2", definition.key === "other" && "md:col-span-2")}
+            className={cn("space-y-1.5", definition.key === "other" && "lg:col-span-3")}
             key={definition.key}
           >
             <FieldLabel htmlFor={`hard-gate-${definition.key}`}>{definition.label}</FieldLabel>
             <Textarea
-              className="min-h-20"
+              className="min-h-16"
               id={`hard-gate-${definition.key}`}
               maxLength={JOB_DESCRIPTION_HARD_GATE_MAX_LENGTH}
               onChange={(event) =>
@@ -147,7 +147,7 @@ function DimensionWeightBar({
   }
 
   return (
-    <Card className="gap-5 p-4">
+    <Card className="gap-3 p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <SectionHeader
           description="拖动分界点调整相邻维度；拖到 0% 时该维度停用并置灰。"
@@ -156,8 +156,8 @@ function DimensionWeightBar({
         <span className="font-medium text-emerald-600 text-xs">总计 100%</span>
       </div>
 
-      <div className="space-y-5">
-        <div className="relative py-5" ref={trackRef}>
+      <div className="space-y-3">
+        <div className="relative py-3" ref={trackRef}>
           <div className="flex h-2.5 overflow-hidden rounded-full bg-muted">
             {JOB_DESCRIPTION_DIMENSIONS.map(({ color, key }) => (
               <span
@@ -216,7 +216,7 @@ function DimensionWeightBar({
             return (
               <div
                 className={cn(
-                  "flex items-center justify-center gap-2 rounded-md border px-2 py-2 text-xs",
+                  "flex items-center justify-center gap-2 rounded-md border px-2 py-1.5 text-xs",
                   disabled && "bg-muted/50 text-muted-foreground",
                 )}
                 key={key}
@@ -301,7 +301,7 @@ function ScoringConditionList({
       </div>
 
       {conditions.length === 0 ? (
-        <p className="rounded-md border border-dashed bg-background/60 px-3 py-5 text-center text-muted-foreground text-xs">
+        <p className="rounded-md border border-dashed bg-background/60 px-3 py-3 text-center text-muted-foreground text-xs">
           {emptyText}
         </p>
       ) : (
@@ -371,12 +371,12 @@ function ScoringConditions({
   onChange: (config: JobDescriptionStructuredConfig) => void;
 }) {
   return (
-    <Card className="gap-4 p-4">
+    <Card className="gap-3 p-3">
       <SectionHeader
         description="规则不绑定六维；发布后会按命中结果叠加到综合分。"
         title="优先与排除条件"
       />
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-2">
         <ScoringConditionList
           accent="positive"
           conditions={config.priorityConditions}
@@ -408,15 +408,15 @@ export function JobDescriptionStructuredFields({
   onChange: (config: JobDescriptionStructuredConfig) => void;
 }) {
   return (
-    <fieldset className="mt-8 space-y-4 border-t pt-6" disabled={disabled}>
-      <div className="space-y-1">
+    <fieldset className="mt-5 space-y-3 border-t pt-4" disabled={disabled}>
+      <div className="space-y-0.5">
         <h2 className="font-semibold text-base">JD 结构化</h2>
         <p className="text-muted-foreground text-sm">
           配置岗位硬性门槛、评分维度权重以及优先与排除条件。
         </p>
       </div>
 
-      <Alert className="bg-muted/40">
+      <Alert className="bg-muted/40 px-3 py-2">
         <IconInfoCircle />
         <AlertDescription>
           发布前请生成并确认评估蓝图；发布后门槛、权重和条件将冻结。

@@ -3,6 +3,9 @@ import type {
   StructuredResumeGateStatus,
   StructuredResumeGrade,
 } from "@arc/db-schema/structured-resume-evaluation";
+import type { ResumeProfile } from "@arc/db-schema/interview/types";
+import type { JobEvaluationBlueprint } from "@arc/db-schema/job-description-evaluation";
+import type { JobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
 
 export const STRUCTURED_RULE_STATUS_CLASSES = [
   "insufficient_evidence",
@@ -37,6 +40,19 @@ export interface StructuredResumeEvalCase {
     "compositeScore" | "gateStatus" | "grade" | "ruleJudgments"
   >;
   id: string;
+  jobInput: {
+    blueprint: JobEvaluationBlueprint;
+    blueprintHash: string;
+    deductionRuleSetVersion: number;
+    jobId: string;
+    publishedConfig: JobDescriptionStructuredConfig;
+  };
+  resumeInput: {
+    evaluationAsOf: string;
+    resumeInputHash: string;
+    resumeProfile: ResumeProfile;
+    resumeText: string | null;
+  };
   source: {
     contentHash: string;
     kind: "sanitized" | "synthetic";
@@ -51,8 +67,8 @@ export interface StructuredResumeEvalCandidate {
   generatedAt: string;
   modelId: string;
   outputs: {
+    artifact: unknown;
     caseId: string;
-    output: StructuredResumeEvalOutput;
   }[];
   promptVersion: string;
   schemaVersion: 1;

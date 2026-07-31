@@ -30,7 +30,6 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
-import { StructuredResumeEvaluationPanel } from "@/components/features/studio/resumes/structured-resume-evaluation-panel";
 import { DataField } from "@/components/features/display/data-field";
 import { DataFields } from "@/components/features/display/data-fields";
 import { EmptyValue } from "@/components/features/display/empty-value";
@@ -56,6 +55,16 @@ import { cn } from "@arc/shared/utils";
 import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart } from "recharts";
 
 const DIMENSION_LABELS = RESUME_REVIEW_DIMENSIONS;
+const STRUCTURED_GATE_LABELS = {
+  failed: "未通过门槛",
+  needs_verification: "门槛待核实",
+  passed: "门槛通过",
+} as const;
+const STRUCTURED_GRADE_LABELS = {
+  matched: "匹配",
+  recommended: "推荐",
+  unmatched: "不匹配",
+} as const;
 
 /** Plain empty copy for unevaluated review cards — no badge/border chrome. */
 function UnevaluatedText({ className }: { className?: string }) {
@@ -70,6 +79,16 @@ function actionVariant(action: ResumeReviewAction) {
     return "warning";
   }
   return "danger";
+}
+
+function structuredGateVariant(status: keyof typeof STRUCTURED_GATE_LABELS) {
+  if (status === "failed") {
+    return "destructive";
+  }
+  if (status === "needs_verification") {
+    return "warning";
+  }
+  return "success";
 }
 
 interface ReviewDimensionDisplay {
@@ -186,58 +205,92 @@ function ResumeOverviewAiScoreSection({
   onViewAiScore?: () => void;
 }) {
   const review = detail.resumeReview;
-  const baseScore = review ? getResumeReviewBaseScore(review) : null;
-  const dimensionScores = review ? getReviewDimensionDisplays(review) : [];
+  const structuredEvaluation =
+    detail.jobEvaluationMode === "structured" ? detail.structuredResumeEvaluation : null;
+  let score = review ? getResumeReviewBaseScore(review) : null;
+  let conclusion: string | null = review?.overall.conclusion ?? "暂无 AI评分结果";
+  let recommendation: string | null = null;
+  let statusBadges: ReactNode = review ? (
+    <Badge variant={actionVariant(review.nextStep.action)}>
+      建议{resumeReviewActionLabel[review.nextStep.action]}
+    </Badge>
+  ) : (
+    <Badge variant="outline">未生成</Badge>
+  );
+
+  if (detail.jobEvaluationMode === "structured") {
+    score = structuredEvaluation?.calculations.compositeScore ?? null;
+    conclusion = structuredEvaluation ? null : "暂无 AI评分结果";
+    recommendation = structuredEvaluation?.narrative.recommendation ?? null;
+    statusBadges = structuredEvaluation ? (
+      <>
+        <Badge variant={structuredGateVariant(structuredEvaluation.gates.effectiveStatus)}>
+          {STRUCTURED_GATE_LABELS[structuredEvaluation.gates.effectiveStatus]}
+        </Badge>
+        <Badge variant="outline">
+          {STRUCTURED_GRADE_LABELS[structuredEvaluation.grade]} ·{" "}
+          {structuredEvaluation.calculations.compositeScore} 分
+        </Badge>
+      </>
+    ) : (
+      <Badge variant="outline">未生成</Badge>
+    );
+    if (!structuredEvaluation && detail.resumeReviewStatus === "failed") {
+      conclusion = detail.resumeReviewError || "评估失败";
+    }
+  }
+
+  const isPriorStructuredRun =
+    Boolean(structuredEvaluation?.runId) &&
+    Boolean(detail.resumeReviewRunId) &&
+    structuredEvaluation?.runId !== detail.resumeReviewRunId;
+  let retainedResultNotice: string | null = null;
+  if (isPriorStructuredRun && detail.resumeReviewStatus === "failed") {
+    retainedResultNotice = `${detail.resumeReviewError || "评估失败"} 当前展示上一次已完成的评估结果。`;
+  } else if (
+    isPriorStructuredRun &&
+    (detail.resumeReviewStatus === "processing" || detail.resumeReviewStatus === "queued")
+  ) {
+    retainedResultNotice = "正在重新评估，当前展示上一次已完成的评估结果。";
+  }
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-medium text-sm">AI评分</h3>
-          {review ? (
-            <Badge variant={actionVariant(review.nextStep.action)}>
-              建议{resumeReviewActionLabel[review.nextStep.action]}
-            </Badge>
-          ) : (
-            <Badge variant="outline">未生成</Badge>
-          )}
-        </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="font-medium text-sm">AI评分</h3>
+        {statusBadges}
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(14rem,0.8fr)_minmax(0,1.2fr)] lg:items-center">
-        <div className="min-w-0">
-          <DimensionRadarChart compact dimensions={dimensionScores} />
-        </div>
-        <div className="min-w-0 space-y-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0 space-y-1.5">
-              <div className="text-muted-foreground text-xs">综合评分</div>
-              <div className="font-semibold text-4xl tabular-nums leading-none tracking-tight">
-                {baseScore ?? <EmptyValue />}
-              </div>
-            </div>
-            {/* {review ? <Badge variant="outline">{review.levelRecommendation.level}</Badge> : null} */}
+      {retainedResultNotice ? (
+        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-700 text-sm dark:text-amber-400">
+          {retainedResultNotice}
+        </p>
+      ) : null}
+
+      <div className="min-w-0 space-y-3">
+        <div className="min-w-0 space-y-1.5">
+          <div className="text-muted-foreground text-xs">综合评分</div>
+          <div className="font-semibold text-4xl tabular-nums leading-none tracking-tight">
+            {score ?? <EmptyValue />}
           </div>
-          <div className="space-y-1.5">
-            <h4 className="font-semibold text-sm leading-6">
-              {review?.overall.conclusion ?? "暂无 AI评分结果"}
-            </h4>
-            <p className="text-muted-foreground text-sm leading-6">
-              {review?.overall.scoreRationale ??
-                "系统完成 AI评分后，这里会展示候选人的综合评价、分数和维度分布。"}
-            </p>
-          </div>
-          {onViewAiScore ? (
-            <Button
-              className="h-auto px-0 text-xs"
-              onClick={onViewAiScore}
-              type="button"
-              variant="link"
-            >
-              查看详情
-            </Button>
-          ) : null}
         </div>
+        {conclusion ? <h4 className="font-semibold text-sm leading-6">{conclusion}</h4> : null}
+        {recommendation ? (
+          <p className="text-muted-foreground text-sm leading-6">
+            <span className="font-medium text-foreground">AI 结论：</span>
+            {recommendation}
+          </p>
+        ) : null}
+        {onViewAiScore ? (
+          <Button
+            className="h-auto px-0 text-xs"
+            onClick={onViewAiScore}
+            type="button"
+            variant="link"
+          >
+            查看详情
+          </Button>
+        ) : null}
       </div>
     </section>
   );
@@ -913,16 +966,7 @@ export function ResumeOverviewPanel({
 }) {
   return (
     <div className="space-y-8">
-      {detail.jobEvaluationMode === "structured" ? (
-        <StructuredResumeEvaluationPanel
-          canEdit={canEdit}
-          detail={detail}
-          onUpdated={onUpdated}
-          slug={slug}
-        />
-      ) : (
-        <ResumeOverviewAiScoreSection detail={detail} onViewAiScore={onViewAiScore} />
-      )}
+      <ResumeOverviewAiScoreSection detail={detail} onViewAiScore={onViewAiScore} />
 
       <ResumeOverviewCandidateInfoSection
         canEdit={canEdit}

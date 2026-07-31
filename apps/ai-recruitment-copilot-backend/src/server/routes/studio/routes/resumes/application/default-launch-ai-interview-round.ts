@@ -45,6 +45,8 @@ export function persistLaunchAiInterviewRound(
         pipelineStage: studioInterview.pipelineStage,
         resumeEvaluationStatus: studioInterview.resumeEvaluationStatus,
         resumeParseStatus: studioInterview.resumeParseStatus,
+        resumeReviewRunId: studioInterview.resumeReviewRunId,
+        resumeReviewStatus: studioInterview.resumeReviewStatus,
         structuredGateStatus: studioInterview.structuredGateStatus,
         structuredResumeEvaluation: studioInterview.structuredResumeEvaluation,
         structuredScoreGrade: studioInterview.structuredScoreGrade,
@@ -82,6 +84,8 @@ export function persistLaunchAiInterviewRound(
     let currentStructuredEvaluation = null;
     if (
       candidate.structuredResumeEvaluation &&
+      candidate.resumeReviewStatus === "ready" &&
+      candidate.resumeReviewRunId === candidate.structuredResumeEvaluation.runId &&
       candidate.structuredGateStatus &&
       candidate.structuredScoreGrade
     ) {
@@ -92,7 +96,10 @@ export function persistLaunchAiInterviewRound(
       };
     }
     if (
-      (candidate.structuredResumeEvaluation && !currentStructuredEvaluation) ||
+      (candidate.resumeReviewStatus === "ready" &&
+        candidate.resumeReviewRunId === candidate.structuredResumeEvaluation?.runId &&
+        candidate.structuredResumeEvaluation &&
+        !currentStructuredEvaluation) ||
       !isStructuredEvaluationConfirmationValid(
         currentStructuredEvaluation,
         structuredEvaluationConfirmation,

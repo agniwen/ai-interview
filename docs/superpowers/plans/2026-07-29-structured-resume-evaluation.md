@@ -141,6 +141,15 @@ export function deriveStructuredResumeSummaries(
 ): StructuredResumeSummaryFields;
 ```
 
+When the source contains multiple explicit experience thresholds, compile every threshold into
+an atomic hard gate. Keep the highest-year requirement as the deterministic
+`requiredRelevantExperience` compatibility baseline, but evaluate and score every distinct numeric
+experience gate from its own qualifying episode list. De-duplicate equivalent requirements and sum
+the missing-year units across distinct scopes so role experience cannot satisfy a separate
+management-experience requirement. When a frozen experience expectation explicitly combines a
+management-year threshold with a numeric team-size gate, treat that gate as a qualifier of the
+management-year scope; do not infer links to unrelated gates.
+
 `StructuredResumeEvaluationV1` must contain every field required by the accepted design, including:
 
 - immutable job/config/blueprint snapshots and hashes;

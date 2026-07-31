@@ -90,7 +90,10 @@ export function createStructuredResumeReviewWorkflow(deps: {
   const judgeAdjustments = createStep({
     execute: async ({ inputData }) => ({
       ...inputData,
-      adjustmentOutput: await deps.judgeAdjustments(workflowInputFrom(inputData)),
+      adjustmentOutput: await deps.judgeAdjustments(
+        workflowInputFrom(inputData),
+        inputData.gateOutput,
+      ),
     }),
     id: "judge-adjustments",
     inputSchema: dimensionOutputSchema,
@@ -175,6 +178,25 @@ export const structuredResumeReviewWorkflow = createStructuredResumeReviewWorkfl
   validate: validateStructuredResumeInput,
 });
 
+function toWorkflowError(value: unknown): Error {
+  if (value instanceof Error) {
+    return value;
+  }
+  if (
+    value &&
+    typeof value === "object" &&
+    "message" in value &&
+    typeof value.message === "string"
+  ) {
+    const error = new Error(value.message);
+    if ("name" in value && typeof value.name === "string") {
+      error.name = value.name;
+    }
+    return error;
+  }
+  return new Error(String(value));
+}
+
 export async function runStructuredResumeReviewWorkflow(input: StructuredResumeWorkflowInput) {
   const run = await structuredResumeReviewWorkflow.createRun();
   const result = await run.start({ inputData: input });
@@ -182,7 +204,7 @@ export async function runStructuredResumeReviewWorkflow(input: StructuredResumeW
     return structuredResumeEvaluationV1Schema.parse(result.result);
   }
   if (result.status === "failed") {
-    throw result.error;
+    throw toWorkflowError(result.error);
   }
   throw new Error(`Structured resume workflow ended with status ${result.status}.`);
 }
@@ -207,7 +229,7 @@ export async function streamStructuredResumeReviewWorkflow(
     return structuredResumeEvaluationV1Schema.parse(result.result);
   }
   if (result.status === "failed") {
-    throw result.error;
+    throw toWorkflowError(result.error);
   }
   throw new Error(`Structured resume workflow ended with status ${result.status}.`);
 }

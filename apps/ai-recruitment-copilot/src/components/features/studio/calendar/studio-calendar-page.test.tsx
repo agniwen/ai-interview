@@ -19,8 +19,10 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
     const humanStartAt = new Date();
     humanStartAt.setHours(10, 0, 0, 0);
     const humanEndAt = new Date(humanStartAt.getTime() + 30 * 60 * 1000);
-    const endedHumanStartAt = new Date(startAt.getTime() + 3 * 24 * 60 * 60 * 1000);
-    const endedHumanEndAt = new Date(endedHumanStartAt.getTime() + 30 * 60 * 1000);
+    const otherDayStartAt = new Date(
+      humanStartAt.getTime() + (dayOfWeek === 7 ? -1 : 1) * 24 * 60 * 60 * 1000,
+    );
+    const otherDayEndAt = new Date(otherDayStartAt.getTime() + 30 * 60 * 1000);
     return Promise.resolve({
       events: [
         {
@@ -71,11 +73,11 @@ const fetchStudioCalendarMock = vi.hoisted(() =>
             },
           ],
           conversationId: null,
-          endAt: endedHumanEndAt.toISOString(),
+          endAt: otherDayEndAt.toISOString(),
           id: "ai:round-3",
           kind: "ai" as const,
           source: "scheduled" as const,
-          startAt: endedHumanStartAt.toISOString(),
+          startAt: otherDayStartAt.toISOString(),
           status: "scheduled" as const,
           title: "AI 复面",
         },
@@ -186,7 +188,10 @@ describe("StudioCalendarPage", () => {
     const monthTab = [...host.querySelectorAll<HTMLElement>('[data-slot="tabs-tab"]')].find(
       (tab) => tab.textContent === "月",
     );
-    act(() => monthTab?.click());
+    await act(async () => {
+      monthTab?.click();
+      await Promise.resolve();
+    });
 
     expect(host.querySelector('[aria-label="正在加载面试日程"]')).toBeNull();
     expect(host.querySelector('[data-slot="event-calendar"]')).not.toBeNull();
@@ -197,7 +202,10 @@ describe("StudioCalendarPage", () => {
     const dayTab = [...host.querySelectorAll<HTMLElement>('[data-slot="tabs-tab"]')].find(
       (tab) => tab.textContent === "日",
     );
-    act(() => dayTab?.click());
+    await act(async () => {
+      dayTab?.click();
+      await Promise.resolve();
+    });
     expect(host.querySelectorAll('[data-calendar-event-icon="ai"]')).toHaveLength(1);
     expect(host.querySelectorAll('[data-calendar-event-icon="human"]')).toHaveLength(1);
 

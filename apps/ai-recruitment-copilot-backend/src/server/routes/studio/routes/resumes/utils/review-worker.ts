@@ -13,7 +13,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import {
   generateLegacyResumeReviewBestEffort,
-  generateResumeReviewBestEffort,
+  generateResumeAssessment,
 } from "./review-generation";
 import { runResumeAssessmentLifecycle } from "./review-lifecycle";
 import type { ResumeAssessmentLifecycleDeps } from "./review-lifecycle";
@@ -48,16 +48,10 @@ function guardedRecordWhere(input: {
 }
 
 const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
-  generate: async (input) => {
-    const generated = await generateResumeReviewBestEffort({
+  generate: (input) =>
+    generateResumeAssessment({
       ...input,
-      logPrefix: "[resume-assessment-lifecycle]",
-    });
-    if (!generated) {
-      throw new Error("AI 分析生成失败。");
-    }
-    return generated;
-  },
+    }),
   loadRecord: async (input) => {
     const [record] = await db
       .select({
@@ -216,9 +210,15 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
         const updated = await tx
           .update(studioInterview)
           .set({
+            notes: null,
+            resumeReview: null,
             resumeReviewError: null,
             resumeReviewGeneratedAt: now,
             resumeReviewStatus: "ready",
+            resumeScreeningError: null,
+            resumeScreeningEvaluatedAt: null,
+            resumeScreeningResult: null,
+            resumeScreeningStatus: "idle",
             structuredCompositeScore: summaries.compositeScore,
             structuredGateSortRank: summaries.gateSortRank,
             structuredGateStatus: summaries.gateStatus,

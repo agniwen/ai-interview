@@ -285,10 +285,8 @@ export function LaunchInterviewDialog({
 
   return (
     <>
-      // 与招聘台详情弹窗对齐：Tabs 包住整个 Modal，TabsList 放进 headerExtra； // TabsContent 走
-      AnimatedHeight，切换时高度平滑过渡。 // Mirror the detail dialog: Tabs wraps Modal, TabsList
-      sits in headerExtra, // and AnimatedHeight gives the body a smooth height transition on
-      switch.
+      {/* 与招聘台详情弹窗对齐：Tabs 包住整个 Modal，TabsList 放进 headerExtra；
+      TabsContent 走 AnimatedHeight，切换时高度平滑过渡。 */}
       <Tabs
         key={recordId ?? "empty"}
         onValueChange={(value) => setActiveTab(value as "questions" | "overview" | "experience")}
