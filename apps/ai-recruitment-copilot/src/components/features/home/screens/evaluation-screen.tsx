@@ -5,6 +5,7 @@ import { IconFileText, IconSearch, IconX } from "@tabler/icons-react";
 // laid over the AI 面试 list page. Active tab "面试报告" mirrors EvaluationResults.
 
 import { PdfFileIcon } from "@/components/features/pdf/pdf-file-icon";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -118,18 +119,6 @@ const INTERVIEWS: InterviewRow[] = [
   },
 ];
 
-// 对齐 ui/badge.tsx variants:
-// success: bg-emerald-500/15 text-emerald-700
-// warning: bg-amber-500/15 text-amber-700
-// info:    bg-sky-500/15 text-sky-700
-// outline: border border-border bg-transparent text-foreground
-const TONE_CLASS: Record<InterviewRow["status"]["tone"], string> = {
-  info: "bg-sky-500/5 text-sky-700/80 dark:text-sky-300/80",
-  outline: "border border-border bg-transparent text-foreground",
-  success: "bg-emerald-500/5 text-emerald-700/80 dark:text-emerald-300/80",
-  warning: "bg-amber-500/5 text-amber-700/80 dark:text-amber-300/80",
-};
-
 const SUMMARY_STATS = [
   { hint: "该组织下所有面试轮次总数", label: "总轮数", value: "42" },
   { hint: "尚未开始的轮次", label: "待开始", value: "13" },
@@ -223,17 +212,11 @@ function InterviewListBackground() {
               <TableCell className="text-muted-foreground">{r.round}</TableCell>
               <TableCell className="text-muted-foreground tabular-nums">{r.scheduledAt}</TableCell>
               <TableCell aria-label={`状态：${r.status.label}`}>
-                <span
-                  className={`inline-flex items-center rounded-md px-1.5 py-0.5 font-medium text-xs ${TONE_CLASS[r.status.tone]}`}
-                >
-                  {r.status.label}
-                </span>
+                <Badge variant={r.status.tone}>{r.status.label}</Badge>
               </TableCell>
               <TableCell>
                 {r.report ? (
-                  <span className="inline-flex items-center rounded-md border border-transparent bg-emerald-500/5 px-1.5 py-0.5 font-medium text-emerald-700/80 text-xs dark:text-emerald-300/80">
-                    已生成
-                  </span>
+                  <Badge variant="success">已生成</Badge>
                 ) : (
                   <span className="text-muted-foreground">—</span>
                 )}
@@ -372,9 +355,9 @@ function EvaluationContent() {
       <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5">
         <span className="font-medium text-2xl text-primary/75 tabular-nums">86</span>
         <span className="text-muted-foreground text-sm">/ 100</span>
-        <span className="ml-auto inline-flex items-center rounded-md border border-transparent bg-emerald-500/5 px-1.5 py-0.5 font-medium text-emerald-700/80 text-xs dark:text-emerald-300/80">
+        <Badge className="ml-auto" variant="success">
           推荐进入下一轮
-        </span>
+        </Badge>
       </div>
       <p className="text-muted-foreground text-sm leading-normal">
         候选人具备完整的微前端架构落地经验，技术深度与工程素养扎实，能用数据讲清楚优化收益。沟通节奏清晰、能主动展开追问。团队协作部分案例描述偏简略，建议在下一轮补充跨团队推动决策的具体例子。
@@ -425,9 +408,7 @@ function DetailDialog() {
           <div className="flex flex-wrap items-center gap-3 font-semibold text-foreground text-lg leading-none">
             <span>李铭</span>
             {/* Completed evaluation badge */}
-            <span className="inline-flex items-center rounded-md border border-transparent bg-emerald-500/5 px-1.5 py-0.5 font-medium text-emerald-700/80 text-xs dark:text-emerald-300/80">
-              已结束
-            </span>
+            <Badge variant="success">已结束</Badge>
           </div>
           <p className="text-muted-foreground text-sm">资深前端工程师 · 简历_李铭.pdf</p>
           <ModalTabs />
