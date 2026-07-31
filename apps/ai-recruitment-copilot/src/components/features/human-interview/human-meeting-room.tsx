@@ -48,6 +48,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MicrophoneDeviceMenu, VoiceEffectMenu } from "./human-meeting-audio-controls";
 
@@ -521,10 +522,10 @@ function HumanMeetingStage({
           <h1 className="font-medium text-xl text-white tracking-normal">{title}</h1>
           <p className="text-white/60 text-xs">{participantName}</p>
         </div>
-        <div className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-white/70 text-xs">
-          <IconUsers className="size-3.5" />
+        <Badge variant="inverse">
+          <IconUsers data-icon="inline-start" />
           {participants.length}
-        </div>
+        </Badge>
       </header>
 
       <div

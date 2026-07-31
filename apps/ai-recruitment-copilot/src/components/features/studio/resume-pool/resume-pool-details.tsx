@@ -199,11 +199,8 @@ function ResumePoolDetailSummaryPanel({
               <p className="mb-2 text-muted-foreground text-xs">核心技能</p>
               <ul className="flex flex-wrap gap-2">
                 {skills.map((skill) => (
-                  <li
-                    className="rounded-sm bg-background px-2.5 py-1 text-xs ring-1 ring-border/50"
-                    key={skill}
-                  >
-                    {skill}
+                  <li key={skill}>
+                    <Badge variant="outline">{skill}</Badge>
                   </li>
                 ))}
               </ul>

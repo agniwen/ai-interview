@@ -14,11 +14,10 @@ export function ResumeDuplicateMatchBadge({
   const badgeText = isDuplicate ? "重复简历" : "相似简历";
   const label = duplicateMatch.count > 1 ? `${badgeText} ${duplicateMatch.count} 条` : badgeText;
   const variant = isDuplicate ? "destructive" : "secondary";
-  const className = "max-w-full shrink-0 px-2.5 py-1 font-normal";
 
   if (!onClick) {
     return (
-      <Badge className={className} variant={variant}>
+      <Badge className="max-w-full" variant={variant}>
         {label}
       </Badge>
     );
@@ -26,7 +25,7 @@ export function ResumeDuplicateMatchBadge({
 
   return (
     <Badge
-      className={`${className} cursor-pointer`}
+      className="max-w-full cursor-pointer"
       render={
         <button
           onClick={(event) => {

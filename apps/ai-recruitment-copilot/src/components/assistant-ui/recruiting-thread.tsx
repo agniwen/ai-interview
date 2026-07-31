@@ -29,6 +29,7 @@ import {
   ResumeDocumentFileIcon,
   getResumeDocumentFileIconKind,
 } from "@/components/features/resume/resume-document-file-icon";
+import { Badge } from "@/components/ui/badge";
 import {
   UnsupportedResumeDocumentPreviewTooltip,
   isPreviewableResumeDocumentInput,
@@ -428,9 +429,7 @@ function CandidateSummaryCardButton({ card }: { card: CandidateSummaryCard }) {
           <span className="pointer-events-auto">
             <CandidateResumePreviewIcon card={card} />
           </span>
-          <span className="rounded-full border bg-muted/50 px-2 py-0.5 text-muted-foreground text-xs">
-            {stageLabel}
-          </span>
+          <Badge variant="outline">{stageLabel}</Badge>
         </div>
       </div>
       {card.resumeSummary ? (
@@ -441,12 +440,9 @@ function CandidateSummaryCardButton({ card }: { card: CandidateSummaryCard }) {
       {card.keySkills.length > 0 ? (
         <div className="pointer-events-none relative z-20 mt-2 flex flex-wrap gap-1">
           {card.keySkills.map((skill) => (
-            <span
-              className="rounded-full border border-border/70 bg-muted/50 px-2 py-0.5 text-muted-foreground text-xs"
-              key={skill}
-            >
+            <Badge key={skill} variant="outline">
               {skill}
-            </span>
+            </Badge>
           ))}
         </div>
       ) : null}

@@ -2,6 +2,7 @@
 
 import { IconExternalLink, IconX } from "@tabler/icons-react";
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useRecruitingCopilotContext } from "./recruiting-copilot-context";
@@ -63,9 +64,9 @@ function ProposalList({
         <div className="rounded-lg border bg-background px-3 py-2 text-sm" key={proposal.id}>
           <div className="flex items-start justify-between gap-2">
             <p className="min-w-0 truncate font-medium">{proposal.title}</p>
-            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs">
+            <Badge className="shrink-0" variant="outline">
               {statuses[proposal.id] ?? "pending"}
-            </span>
+            </Badge>
           </div>
           <p className="mt-1 line-clamp-2 text-muted-foreground text-xs">{proposal.explanation}</p>
         </div>

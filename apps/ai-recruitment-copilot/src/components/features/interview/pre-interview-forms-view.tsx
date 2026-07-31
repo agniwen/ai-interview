@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { rpc } from "@/lib/client/rpc";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { withCleanup } from "@/lib/client/async-control";
@@ -178,10 +179,10 @@ export function PreInterviewFormsView({
         <ScrollArea className="h-full w-full">
           <div className="mx-auto flex w-full max-w-3xl flex-col px-5 pt-12 pb-44 sm:px-6 sm:pt-20 sm:pb-40 md:pt-16">
             <section className="mb-8">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-primary text-xs">
-                <IconClipboardList className="size-3.5" />
+              <Badge className="mb-3">
+                <IconClipboardList data-icon="inline-start" />
                 开始前的面试表单
-              </div>
+              </Badge>
               <h1 className="text-2xl tracking-tight sm:text-3xl">开始前请先填写面试表单</h1>
               <p className="mt-2 text-muted-foreground text-sm sm:text-base">
                 完成全部面试表单后进入面试。
