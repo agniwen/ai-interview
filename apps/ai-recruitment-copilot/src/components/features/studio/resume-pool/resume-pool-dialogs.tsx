@@ -11,9 +11,11 @@ import type {
 
 import { lazy, Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { getMemberInitials } from "@/components/data-grid/cells/member-cell";
 import { TimeDisplay } from "@/components/features/display/time-display";
 import { ResumeDedupMatchList } from "@/components/features/resume/resume-dedup-overlay";
 import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Field, FieldContent, FieldLabel } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
@@ -250,26 +252,40 @@ export function ImportResumePoolDialog({
               <FieldLabel>已入库记录</FieldLabel>
               <FieldContent>
                 <div className="flex flex-col gap-2">
-                  {importedRecords.map((record) => (
-                    <Button
-                      aria-label={`查看已入库记录 ${record.resumeRecordId}`}
-                      className="h-auto w-full justify-between py-3"
-                      key={record.resumeRecordId}
-                      onClick={() => setDetailRecordId(record.resumeRecordId)}
-                      type="button"
-                      variant="outline"
-                    >
-                      <span className="min-w-0 text-left">
-                        <span className="block truncate">{candidateTitle}</span>
-                        <span className="mt-0.5 block text-muted-foreground text-xs font-normal">
-                          {formatResumeRecordDisplayId(record.resumeRecordId)}
-                          {" · "}
-                          <TimeDisplay as="span" value={record.importedAt} />
+                  {importedRecords.map((record) => {
+                    const creatorName = record.creatorName?.trim() || "已删除用户";
+                    return (
+                      <Button
+                        aria-label={`查看已入库记录 ${record.resumeRecordId}`}
+                        className="h-auto w-full justify-between py-3"
+                        key={record.resumeRecordId}
+                        onClick={() => setDetailRecordId(record.resumeRecordId)}
+                        type="button"
+                        variant="outline"
+                      >
+                        <span className="min-w-0 text-left">
+                          <span className="block truncate">{candidateTitle}</span>
+                          <span className="mt-0.5 block text-muted-foreground text-xs font-normal">
+                            {formatResumeRecordDisplayId(record.resumeRecordId)}
+                            {" · "}
+                            <TimeDisplay as="span" value={record.importedAt} />
+                          </span>
+                          <span className="mt-1.5 flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs font-normal">
+                            <Avatar size="sm">
+                              {record.creatorImage ? (
+                                <AvatarImage alt={creatorName} src={record.creatorImage} />
+                              ) : null}
+                              <AvatarFallback>
+                                {getMemberInitials(record.creatorName)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="truncate">创建人 {creatorName}</span>
+                          </span>
                         </span>
-                      </span>
-                      <IconExternalLink data-icon="inline-end" />
-                    </Button>
-                  ))}
+                        <IconExternalLink data-icon="inline-end" />
+                      </Button>
+                    );
+                  })}
                 </div>
               </FieldContent>
             </Field>

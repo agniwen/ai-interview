@@ -94,6 +94,7 @@ beforeAll(async () => {
       email: "resume-pool-b@example.com",
       emailVerified: false,
       id: USER_B,
+      image: "https://example.com/resume-pool-b.png",
       name: "resume-pool-b",
       updatedAt: NOW,
     },
@@ -579,6 +580,14 @@ describe("importPoolItemToResumeLibrary", () => {
     expect(poolRecord?.importedRecords).toHaveLength(2);
     expect(poolRecord?.importedRecords.map((item) => item.resumeRecordId)).toEqual(
       expect.arrayContaining([first.resumeRecordId, second.resumeRecordId]),
+    );
+    expect(poolRecord?.importedRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          creatorImage: "https://example.com/resume-pool-b.png",
+          creatorName: "resume-pool-b",
+        }),
+      ]),
     );
   });
 

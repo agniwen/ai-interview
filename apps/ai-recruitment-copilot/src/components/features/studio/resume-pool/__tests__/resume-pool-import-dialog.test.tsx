@@ -42,8 +42,18 @@ const importedItem = {
   candidateName: "测试候选人",
   id: "pool-item-1",
   importedRecords: [
-    { importedAt: "2026-07-31T03:00:00.000Z", resumeRecordId: "resume-record-2" },
-    { importedAt: "2026-07-30T03:00:00.000Z", resumeRecordId: "resume-record-1" },
+    {
+      creatorImage: "https://example.com/creator-2.png",
+      creatorName: "招聘管理员",
+      importedAt: "2026-07-31T03:00:00.000Z",
+      resumeRecordId: "resume-record-2",
+    },
+    {
+      creatorImage: null,
+      creatorName: "人事专员",
+      importedAt: "2026-07-30T03:00:00.000Z",
+      resumeRecordId: "resume-record-1",
+    },
   ],
   importedResumeRecordId: "resume-record-2",
   jobDescriptionId: "jd-1",
@@ -85,7 +95,11 @@ describe("ImportResumePoolDialog", () => {
       '[aria-label="查看已入库记录 resume-record-2"]',
     );
     expect(importedRecordButton).toBeTruthy();
+    const creatorAvatar = importedRecordButton?.querySelector<HTMLElement>('[data-slot="avatar"]');
     expect(document.querySelector('[aria-label="查看已入库记录 resume-record-1"]')).toBeTruthy();
+    expect(document.body.textContent).toContain("创建人 招聘管理员");
+    expect(document.body.textContent).toContain("创建人 人事专员");
+    expect(creatorAvatar?.dataset.size).toBe("sm");
     await act(async () => {
       importedRecordButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       await Promise.resolve();

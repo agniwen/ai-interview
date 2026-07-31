@@ -15,6 +15,8 @@ import type {
 
 type PoolRow = typeof resumePoolItem.$inferSelect;
 interface PoolImportRow {
+  creatorImage: string | null;
+  creatorName: string | null;
   importedAt: Date;
   resumeRecordId: string;
 }
@@ -152,6 +154,8 @@ export function toResumePoolListRecord(
     id: row.id,
     importedAt: latestImport?.importedAt.toISOString() ?? null,
     importedRecords: importRows.map((item) => ({
+      creatorImage: item.creatorImage,
+      creatorName: item.creatorName,
       importedAt: item.importedAt.toISOString(),
       resumeRecordId: item.resumeRecordId,
     })),

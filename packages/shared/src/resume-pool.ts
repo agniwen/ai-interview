@@ -46,6 +46,8 @@ export interface ResumePoolProfileHighlights {
 }
 
 export interface ResumePoolImportedRecord {
+  creatorImage: string | null;
+  creatorName: string | null;
   importedAt: string;
   resumeRecordId: string;
 }
