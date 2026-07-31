@@ -28,11 +28,19 @@ export const resumePoolImportSchema = z.object({
 export type ResumePoolCreateInput = z.infer<typeof resumePoolCreateSchema>;
 export type ResumePoolImportInput = z.infer<typeof resumePoolImportSchema>;
 
+export interface ResumePoolLatestExperienceDetail {
+  period: string | null;
+  role: string | null;
+  summary: string | null;
+}
+
 export interface ResumePoolProfileHighlights {
   educationItems: ResumeEducationDisplayItem[];
   educationLines: string[];
   latestCompany: string | null;
+  latestCompanyDetail: ResumePoolLatestExperienceDetail | null;
   latestProject: string | null;
+  latestProjectDetail: ResumePoolLatestExperienceDetail | null;
   schools: string[];
 }
 

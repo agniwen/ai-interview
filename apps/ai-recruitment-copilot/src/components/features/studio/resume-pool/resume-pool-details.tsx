@@ -15,7 +15,11 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { ResumePoolScope } from "@arc/db-schema/schema";
-import type { ResumePoolDetail, ResumePoolListRecord } from "@arc/shared/resume-pool";
+import type {
+  ResumePoolDetail,
+  ResumePoolLatestExperienceDetail,
+  ResumePoolListRecord,
+} from "@arc/shared/resume-pool";
 
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
@@ -54,7 +58,7 @@ import {
 } from "./resume-pool-page-model";
 import { ResumePoolRecommendationsPanel } from "./resume-pool-recommendations-panel";
 
-const RESUME_POOL_CARD_SKILL_LIMIT = 18;
+const RESUME_POOL_CARD_SKILL_LIMIT = 9;
 
 function notesPreview(value: string | null) {
   const trimmed = value?.trim();
@@ -275,6 +279,27 @@ function ResumePoolHighlightRow({
   );
 }
 
+function ResumePoolLatestExperience({
+  detail,
+  title,
+}: {
+  detail: ResumePoolLatestExperienceDetail | null;
+  title: string;
+}) {
+  const metadata = [detail?.role, detail?.period].filter(Boolean).join(" · ");
+  return (
+    <div className="min-w-0">
+      <p className="font-medium text-xs">{title}</p>
+      {metadata ? <p className="mt-0.5 text-muted-foreground text-[11px]">{metadata}</p> : null}
+      {detail?.summary ? (
+        <p className="mt-1 line-clamp-2 text-muted-foreground text-[11px] leading-4">
+          {detail.summary}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function ResumePoolCardHighlights({ record }: { record: ResumePoolListRecord }) {
   const { profileHighlights } = record;
   const { educationItems } = profileHighlights;
@@ -304,13 +329,23 @@ function ResumePoolCardHighlights({ record }: { record: ResumePoolListRecord }) 
     {
       icon: IconBuilding,
       label: "最近公司",
-      value: profileHighlights.latestCompany ?? "",
+      value: (
+        <ResumePoolLatestExperience
+          detail={profileHighlights.latestCompanyDetail}
+          title={profileHighlights.latestCompany ?? ""}
+        />
+      ),
       visible: Boolean(profileHighlights.latestCompany),
     },
     {
       icon: IconGitBranch,
       label: "最近项目",
-      value: profileHighlights.latestProject ?? "",
+      value: (
+        <ResumePoolLatestExperience
+          detail={profileHighlights.latestProjectDetail}
+          title={profileHighlights.latestProject ?? ""}
+        />
+      ),
       visible: Boolean(profileHighlights.latestProject),
     },
   ].filter((item) => item.visible);

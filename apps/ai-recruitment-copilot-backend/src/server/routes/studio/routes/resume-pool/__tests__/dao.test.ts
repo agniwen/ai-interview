@@ -248,7 +248,7 @@ describe("queryResumePoolItems", () => {
 
     const record = result.records.find((item) => item.id === id);
     expect(record?.workYears).toBe(5);
-    expect(record?.profileHighlights).toEqual({
+    expect(record?.profileHighlights).toMatchObject({
       educationItems: [],
       educationLines: [],
       latestCompany: "极光矩阵",
