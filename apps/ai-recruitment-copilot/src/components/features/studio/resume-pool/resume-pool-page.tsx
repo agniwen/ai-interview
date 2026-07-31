@@ -59,6 +59,7 @@ import {
   normalizeScope,
   pruneSelectedPrivateResumeIds,
   removeSelectedPrivateResumeId,
+  RESUME_POOL_LOAD_MORE_ROOT_MARGIN,
   RESUME_POOL_UPLOADER_QUERY_FRESHNESS,
   sessionUserId,
   updateSelectedPrivateResumeIds,
@@ -287,7 +288,7 @@ export function ResumePoolPage() {
           loadMoreRecords();
         }
       },
-      { rootMargin: "360px 0px" },
+      { rootMargin: RESUME_POOL_LOAD_MORE_ROOT_MARGIN },
     );
 
     observer.observe(node);
@@ -518,7 +519,6 @@ export function ResumePoolPage() {
             deleting={isDeletingPoolRecords}
             emptyTitle={emptyTitle}
             isInitialPoolLoading={isInitialPoolLoading}
-            isPoolBusy={isPoolBusy}
             onDelete={setDeleteTarget}
             onImport={setImportTarget}
             onOpenDuplicateMatches={setDuplicateMatchRecord}

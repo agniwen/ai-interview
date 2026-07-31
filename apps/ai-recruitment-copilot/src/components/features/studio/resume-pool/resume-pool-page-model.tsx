@@ -23,6 +23,8 @@ export const RESUME_POOL_UPLOADER_QUERY_FRESHNESS = {
   staleTime: 0,
 } as const;
 
+export const RESUME_POOL_LOAD_MORE_ROOT_MARGIN = "720px 0px";
+
 export type ResumePoolFilters = Record<"importStatus" | "parseStatus", string> & {
   sourceType: ResumePoolSourceFilter;
   uploaderId: string;

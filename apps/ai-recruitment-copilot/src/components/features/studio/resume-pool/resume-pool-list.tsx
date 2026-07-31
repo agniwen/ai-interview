@@ -106,7 +106,6 @@ export function ResumePoolListContent({
   deleting,
   emptyTitle,
   isInitialPoolLoading,
-  isPoolBusy,
   onDelete,
   onImport,
   onOpenDuplicateMatches,
@@ -137,7 +136,6 @@ export function ResumePoolListContent({
   publishing: boolean;
   deleting: boolean;
   isInitialPoolLoading: boolean;
-  isPoolBusy: boolean;
   showEmptyState: boolean;
   emptyTitle: string;
   canResetFilters: boolean;
@@ -192,13 +190,11 @@ export function ResumePoolListContent({
       <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{cards}</div>
     );
     return (
-      <div className={isPoolBusy ? "opacity-60 transition-opacity" : "transition-opacity"}>
-        <ClientOnly fallback={fallback}>
-          <Suspense fallback={fallback}>
-            <ResumePoolMasonry>{cards}</ResumePoolMasonry>
-          </Suspense>
-        </ClientOnly>
-      </div>
+      <ClientOnly fallback={fallback}>
+        <Suspense fallback={fallback}>
+          <ResumePoolMasonry>{cards}</ResumePoolMasonry>
+        </Suspense>
+      </ClientOnly>
     );
   }
 

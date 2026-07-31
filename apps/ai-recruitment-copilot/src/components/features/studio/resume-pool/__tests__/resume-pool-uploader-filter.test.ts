@@ -5,6 +5,7 @@ import {
   getResumePoolUploaderFilterAvailability,
   isResumePoolUploaderFilterDisabled,
   normalizeResumePoolUploaderId,
+  RESUME_POOL_LOAD_MORE_ROOT_MARGIN,
   RESUME_POOL_UPLOADER_QUERY_FRESHNESS,
 } from "../resume-pool-page-model";
 
@@ -18,6 +19,10 @@ describe("private resume pool uploader filter", () => {
     },
     { email: "report@example.com", id: "report", image: null, name: "下级成员" },
   ];
+
+  it("starts loading the next page before the footer reaches the viewport", () => {
+    expect(RESUME_POOL_LOAD_MORE_ROOT_MARGIN).toBe("720px 0px");
+  });
 
   it("defaults the private pool uploader to the current user", () => {
     expect(createResumePoolFilters("private", "self")).toEqual({
