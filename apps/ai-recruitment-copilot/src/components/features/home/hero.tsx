@@ -6,6 +6,7 @@ import { IconArrowRight, IconSparkles } from "@tabler/icons-react";
 import { m, useReducedMotion } from "motion/react";
 import { FadeContent } from "@/components/react-bits/fade-content";
 import { SplitText } from "@/components/react-bits/split-text";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 interface HeroProps {
@@ -30,10 +31,10 @@ export function Hero({ onResumeFiltering, onWorkbench }: HeroProps) {
       <FadeContent>
         {/* 中文官方名放在标语徽章里，承担本地化品牌识别。
             Chinese official name lives in the eyebrow badge for localized brand recall. */}
-        <p className="inline-flex items-center gap-1.5 rounded-full border border-primary/15 bg-primary/10 px-3 py-1 font-medium text-[11px] text-primary dark:border-white/20 dark:bg-slate-950/50 dark:text-violet-100 dark:backdrop-blur-sm sm:text-xs">
-          <IconSparkles aria-hidden="true" className="size-3" />
+        <Badge>
+          <IconSparkles aria-hidden="true" data-icon="inline-start" />
           招聘 AI 协同工作台
-        </p>
+        </Badge>
       </FadeContent>
 
       <h1 className="mt-5 mx-auto max-w-5xl text-balance font-medium text-[2rem] text-foreground leading-[1.12] tracking-tight dark:text-white sm:mt-6 sm:text-5xl lg:text-[3.5rem]">

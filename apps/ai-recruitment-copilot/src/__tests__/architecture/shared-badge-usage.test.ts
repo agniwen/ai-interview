@@ -36,9 +36,24 @@ describe("shared Badge usage", () => {
           /\brounded-(?:full|sm|md|lg)\b/u.test(classes) &&
           /\bpx-/u.test(classes) &&
           /\bpy-/u.test(classes) &&
-          /\b(?:text-xs|text-\[10px\])\b/u.test(classes) &&
+          /(?:\btext-xs\b|text-\[(?:10|11)px\])/u.test(classes) &&
           /\b(?:border|bg-)/u.test(classes);
         return isBadgeShaped ? [`${relativePath}: ${classes.trim()}`] : [];
+      });
+    });
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("does not override the shared Badge dimensions or typography", () => {
+    const offenders = listComponentFiles(componentsRoot).flatMap((file) => {
+      const source = readFileSync(file, "utf-8");
+      const badgePattern = /<Badge\b[^>]*className="([^"]*)"[^>]*>/gsu;
+      return [...source.matchAll(badgePattern)].flatMap((match) => {
+        const classes = match[1] ?? "";
+        const overridesSharedStyle =
+          /\b(?:px-|py-|rounded-|text-xs|text-\[|font-normal|font-medium|h-\d)/u.test(classes);
+        return overridesSharedStyle ? [`${path.relative(appRoot, file)}: ${classes.trim()}`] : [];
       });
     });
 

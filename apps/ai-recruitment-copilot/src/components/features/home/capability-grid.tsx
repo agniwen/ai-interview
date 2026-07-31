@@ -94,12 +94,8 @@ function ChatBubblesVisual() {
       <div className="max-w-[90%] rounded-2xl rounded-bl-md ring-1 ring-foreground/5 bg-background/80 px-3.5 py-2 text-[13px] text-foreground/80 shadow-sm">
         <span className="block">他更偏战略与定价；上一位偏渠道执行。</span>
         <span className="mt-1.5 flex flex-wrap gap-1.5">
-          <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 font-medium text-[11px] text-emerald-600 dark:text-emerald-300">
-            亮点 · 跨区定价
-          </span>
-          <span className="rounded-full bg-amber-500/10 px-2 py-0.5 font-medium text-[11px] text-amber-600 dark:text-amber-300">
-            风险 · 团队规模较小
-          </span>
+          <Badge variant="success">亮点 · 跨区定价</Badge>
+          <Badge variant="warning">风险 · 团队规模较小</Badge>
         </span>
       </div>
       <div className="ml-auto max-w-[70%] rounded-2xl rounded-br-md ring-1 ring-foreground/5 bg-foreground/[0.04] px-3.5 py-2 text-right font-medium text-[13px] text-foreground/85 shadow-sm">
@@ -132,16 +128,7 @@ function WorkbenchVisual() {
           <span className="truncate font-medium text-foreground/85">{p.name}</span>
           <span className="flex shrink-0 items-center gap-2">
             <span className="font-mono text-[11px] text-foreground/55">{p.count} 题</span>
-            <span
-              className={cn(
-                "rounded-full px-2 py-0.5 font-medium text-[10px]",
-                p.status === "草稿"
-                  ? "bg-foreground/[0.06] text-foreground/55"
-                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
-              )}
-            >
-              {p.status}
-            </span>
+            <Badge variant={p.status === "草稿" ? "secondary" : "success"}>{p.status}</Badge>
           </span>
         </li>
       ))}

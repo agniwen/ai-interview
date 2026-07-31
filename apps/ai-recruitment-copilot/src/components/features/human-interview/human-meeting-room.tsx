@@ -637,17 +637,13 @@ function HumanParticipantTile() {
         )}
         trackRef={trackRef}
       />
-      <div
-        className={cn(
-          "pointer-events-none absolute top-3 left-3 z-20 max-w-[calc(100%-1.5rem)] truncate rounded-md px-2.5 py-1 font-medium text-xs shadow-sm backdrop-blur",
-          badge.tone === "candidate"
-            ? "border border-sky-300/45 bg-sky-400/90 text-sky-950"
-            : "border border-white/15 bg-black/55 text-white",
-        )}
+      <Badge
+        className="pointer-events-none absolute top-3 left-3 z-20 max-w-[calc(100%-1.5rem)] truncate shadow-sm backdrop-blur"
         title={badge.label}
+        variant={badge.tone === "candidate" ? "info" : "inverse"}
       >
         {badge.label}
-      </div>
+      </Badge>
     </div>
   );
 }

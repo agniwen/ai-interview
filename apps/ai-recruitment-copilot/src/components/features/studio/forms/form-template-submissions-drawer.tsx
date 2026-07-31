@@ -67,7 +67,7 @@ function renderAnswer(
     return (
       <div className="flex flex-wrap gap-1.5">
         {choices.map((choice) => (
-          <Badge className="font-normal" key={choice.value} variant="secondary">
+          <Badge key={choice.value} variant="secondary">
             {choice.label}
           </Badge>
         ))}
@@ -177,9 +177,7 @@ export function CandidateFormTemplateSubmissionsDrawer({
                     <h3 className="font-semibold text-base text-foreground leading-tight">
                       {submission.candidateName ?? "未命名候选人"}
                     </h3>
-                    <Badge className="font-mono text-[10px] tracking-wider" variant="outline">
-                      v{submission.version}
-                    </Badge>
+                    <Badge variant="outline">v{submission.version}</Badge>
                   </div>
                   <p className="text-muted-foreground text-xs tabular-nums">
                     提交于{" "}

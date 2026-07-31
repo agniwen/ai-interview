@@ -356,11 +356,7 @@ function RecruitmentStageHoverCard({
                       >
                         {pipelineStageMeta[stage].label}
                       </span>
-                      {isCurrent ? (
-                        <Badge className="h-5 px-1.5 text-[10px]" variant="outline">
-                          当前
-                        </Badge>
-                      ) : null}
+                      {isCurrent ? <Badge variant="outline">当前</Badge> : null}
                     </div>
                   </div>
                 </li>

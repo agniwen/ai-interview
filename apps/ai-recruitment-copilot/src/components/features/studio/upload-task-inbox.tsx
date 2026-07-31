@@ -34,12 +34,12 @@ const ResumeDocumentPreviewDialog = lazy(async () => {
 const TASK_ROW_ESTIMATE = 76;
 const INITIAL_PAGE_PARAM: { cursor: string | null } = { cursor: null };
 
-const statusClasses = {
-  cancelled: "border-border bg-muted/50 text-muted-foreground",
-  completed: "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-  failed: "border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300",
-  pending: "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-  processing: "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+const statusVariants = {
+  cancelled: "outline",
+  completed: "success",
+  failed: "danger",
+  pending: "warning",
+  processing: "info",
 } as const;
 
 function UploadTaskRow({
@@ -77,10 +77,7 @@ function UploadTaskRow({
             >
               {record.originalFileName}
             </p>
-            <Badge
-              className={`h-5 shrink-0 px-1.5 py-0 text-[11px] ${statusClasses[status.tone]}`}
-              variant="outline"
-            >
+            <Badge className="shrink-0" variant={statusVariants[status.tone]}>
               {status.label}
             </Badge>
           </div>
