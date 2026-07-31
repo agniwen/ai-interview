@@ -3,15 +3,18 @@
 import { IconDownload, IconLoader2 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatDate } from "@arc/shared/utils/time";
 import { EmptyValue } from "@/components/features/display/empty-value";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DocxViewerPreview } from "@/components/ui/docx-viewer";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
 import { PDFViewer } from "@/components/ui/pdf-viewer";
+import type { PDFViewerHandle } from "@/components/ui/pdf-viewer";
 import { XlsxViewerPreview } from "@/components/ui/xlsx-viewer";
 import { fetchResumePoolItem, fetchStudioResume } from "@/lib/client/api";
 import type { DedupMatchRecord, DedupSourceCandidate } from "@/lib/client/api";
@@ -44,6 +47,76 @@ interface ResumeComparisonRef {
   candidateName: string;
   id: string;
   sourceType: ResumeComparisonSourceType;
+}
+
+function scrollProgress(element: HTMLElement): number {
+  const scrollRange = element.scrollHeight - element.clientHeight;
+  return scrollRange > 0 ? Math.min(1, Math.max(0, element.scrollTop / scrollRange)) : 0;
+}
+
+function syncScrollProgress(source: HTMLElement, target: HTMLElement): number {
+  const targetScrollTop =
+    scrollProgress(source) * Math.max(0, target.scrollHeight - target.clientHeight);
+  if (Math.abs(target.scrollTop - targetScrollTop) >= 0.5) {
+    target.scrollTop = targetScrollTop;
+  }
+  return targetScrollTop;
+}
+
+function useSynchronizedScroll(
+  currentViewport: HTMLElement | null,
+  matchViewport: HTMLElement | null,
+  enabled: boolean,
+) {
+  useEffect(() => {
+    if (!(enabled && currentViewport && matchViewport)) {
+      return;
+    }
+
+    const current = currentViewport;
+    const match = matchViewport;
+    let programmaticScroll: { element: HTMLElement; top: number } | null = null;
+
+    function synchronize(source: HTMLElement, target: HTMLElement) {
+      programmaticScroll = {
+        element: target,
+        top: syncScrollProgress(source, target),
+      };
+    }
+
+    function shouldIgnoreProgrammaticScroll(element: HTMLElement) {
+      if (
+        programmaticScroll?.element === element &&
+        Math.abs(element.scrollTop - programmaticScroll.top) < 0.5
+      ) {
+        programmaticScroll = null;
+        return true;
+      }
+      programmaticScroll = null;
+      return false;
+    }
+
+    function handleCurrentScroll() {
+      if (!shouldIgnoreProgrammaticScroll(current)) {
+        synchronize(current, match);
+      }
+    }
+
+    function handleMatchScroll() {
+      if (!shouldIgnoreProgrammaticScroll(match)) {
+        synchronize(match, current);
+      }
+    }
+
+    synchronize(current, match);
+    current.addEventListener("scroll", handleCurrentScroll, { passive: true });
+    match.addEventListener("scroll", handleMatchScroll, { passive: true });
+
+    return () => {
+      current.removeEventListener("scroll", handleCurrentScroll);
+      match.removeEventListener("scroll", handleMatchScroll);
+    };
+  }, [currentViewport, enabled, matchViewport]);
 }
 
 function getComparisonSourceType(
@@ -128,12 +201,16 @@ function DetailComparisonContent({ detail }: { detail: ResumeComparisonDetail })
 
 function ResumeComparisonContent({
   detail,
+  onScrollViewportChange,
   slug,
 }: {
   detail: ResumeComparisonDetail;
+  onScrollViewportChange: (element: HTMLElement | null) => void;
   slug: string;
 }) {
   const [isDark, setIsDark] = useState(false);
+  const viewerRootRef = useRef<HTMLDivElement>(null);
+  const pdfViewerRef = useRef<PDFViewerHandle>(null);
   const document = getResumeComparisonDocument({
     fileName: detail.resumeFileName,
     id: detail.id,
@@ -148,6 +225,54 @@ function ResumeComparisonContent({
     }),
     [],
   );
+  const documentKind = document?.kind;
+
+  useEffect(() => {
+    const root = viewerRootRef.current;
+    if (!(documentKind && root)) {
+      onScrollViewportChange(null);
+      return;
+    }
+    const viewerRoot = root;
+
+    function findViewport() {
+      if (documentKind === "pdf") {
+        return pdfViewerRef.current?.getViewportElement() ?? null;
+      }
+      if (documentKind === "docx") {
+        return viewerRoot.querySelector<HTMLElement>('[aria-label="DOCX document"]');
+      }
+      if (documentKind === "xlsx") {
+        return viewerRoot.querySelector<HTMLElement>('[data-slot="scroll-area"] > div');
+      }
+      return null;
+    }
+
+    function registerViewport() {
+      const viewport = findViewport();
+      if (viewport) {
+        onScrollViewportChange(viewport);
+        return true;
+      }
+      return false;
+    }
+
+    if (registerViewport()) {
+      return () => onScrollViewportChange(null);
+    }
+
+    const observer = new MutationObserver(() => {
+      if (registerViewport()) {
+        observer.disconnect();
+      }
+    });
+    observer.observe(viewerRoot, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+      onScrollViewportChange(null);
+    };
+  }, [documentKind, onScrollViewportChange]);
 
   if (!document) {
     return (
@@ -160,44 +285,51 @@ function ResumeComparisonContent({
 
   if (document.kind === "pdf") {
     return (
-      <PDFViewer
-        className="h-full"
-        defaultZoom={0.9}
-        documentOptions={documentOptions}
-        downloadFileName={detail.resumeFileName ?? "resume.pdf"}
-        file={document.previewUrl}
-        showDownload={false}
-        showUpload={false}
-      />
+      <div className="h-full" ref={viewerRootRef}>
+        <PDFViewer
+          className="h-full"
+          defaultZoom={0.9}
+          documentOptions={documentOptions}
+          downloadFileName={detail.resumeFileName ?? "resume.pdf"}
+          file={document.previewUrl}
+          ref={pdfViewerRef}
+          showDownload={false}
+          showUpload={false}
+        />
+      </div>
     );
   }
 
   if (document.kind === "docx") {
     return (
-      <DocxViewerPreview
-        className="h-full"
-        defaultZoom={0.85}
-        fileName={detail.resumeFileName ?? undefined}
-        isDark={isDark}
-        onIsDarkChange={setIsDark}
-        showDownload={false}
-        showUpload={false}
-        src={document.previewUrl}
-      />
+      <div className="h-full" ref={viewerRootRef}>
+        <DocxViewerPreview
+          className="h-full"
+          defaultZoom={0.85}
+          fileName={detail.resumeFileName ?? undefined}
+          isDark={isDark}
+          onIsDarkChange={setIsDark}
+          showDownload={false}
+          showUpload={false}
+          src={document.previewUrl}
+        />
+      </div>
     );
   }
 
   if (document.kind === "xlsx") {
     return (
-      <XlsxViewerPreview
-        className="h-full"
-        fileName={detail.resumeFileName ?? undefined}
-        isDark={isDark}
-        onIsDarkChange={setIsDark}
-        showDownload={false}
-        showUpload={false}
-        src={document.previewUrl}
-      />
+      <div className="h-full" ref={viewerRootRef}>
+        <XlsxViewerPreview
+          className="h-full"
+          fileName={detail.resumeFileName ?? undefined}
+          isDark={isDark}
+          onIsDarkChange={setIsDark}
+          showDownload={false}
+          showUpload={false}
+          src={document.previewUrl}
+        />
+      </div>
     );
   }
 
@@ -216,6 +348,7 @@ function ComparisonColumn({
   isLoading,
   label,
   mode,
+  onScrollViewportChange,
   slug,
 }: {
   candidate: ResumeComparisonRef;
@@ -224,8 +357,11 @@ function ComparisonColumn({
   isLoading: boolean;
   label: string;
   mode: ResumeDedupCompareMode;
+  onScrollViewportChange: (element: HTMLElement | null) => void;
   slug: string;
 }) {
+  const [outerViewport, setOuterViewport] = useState<HTMLDivElement | null>(null);
+  const [viewerViewport, setViewerViewport] = useState<HTMLElement | null>(null);
   const document = detail
     ? getResumeComparisonDocument({
         fileName: detail.resumeFileName,
@@ -234,6 +370,11 @@ function ComparisonColumn({
         sourceType: detail.sourceType,
       })
     : null;
+
+  useEffect(() => {
+    onScrollViewportChange(viewerViewport ?? outerViewport);
+    return () => onScrollViewportChange(null);
+  }, [onScrollViewportChange, outerViewport, viewerViewport]);
 
   let content: React.ReactNode;
   if (isLoading) {
@@ -258,7 +399,13 @@ function ComparisonColumn({
   } else if (mode === "detail") {
     content = <DetailComparisonContent detail={detail} />;
   } else {
-    content = <ResumeComparisonContent detail={detail} slug={slug} />;
+    content = (
+      <ResumeComparisonContent
+        detail={detail}
+        onScrollViewportChange={setViewerViewport}
+        slug={slug}
+      />
+    );
   }
 
   return (
@@ -304,7 +451,13 @@ function ComparisonColumn({
           />
         ) : null}
       </header>
-      <div className="min-h-0 overflow-auto bg-muted/20">{content}</div>
+      <div
+        className="min-h-0 overflow-auto bg-muted/20"
+        data-resume-compare-scroll-container={label === "当前简历" ? "current" : "match"}
+        ref={setOuterViewport}
+      >
+        {content}
+      </div>
     </section>
   );
 }
@@ -323,6 +476,9 @@ export function ResumeDedupCompareDialog({
   source: DedupSourceCandidate;
 }) {
   const slug = useWorkspaceSlug();
+  const [isScrollSyncEnabled, setIsScrollSyncEnabled] = useState(true);
+  const [currentViewport, setCurrentViewport] = useState<HTMLElement | null>(null);
+  const [matchViewport, setMatchViewport] = useState<HTMLElement | null>(null);
   const sourceRef: ResumeComparisonRef = {
     candidateName: source.candidateName,
     id: source.id,
@@ -343,6 +499,13 @@ export function ResumeDedupCompareDialog({
     queryFn: () => fetchComparisonDetail(slug, matchRef),
     queryKey: ["resume-dedup-compare", slug, matchRef.sourceType, matchRef.id],
   });
+  useSynchronizedScroll(currentViewport, matchViewport, isScrollSyncEnabled);
+
+  useEffect(() => {
+    if (open) {
+      setIsScrollSyncEnabled(true);
+    }
+  }, [open]);
 
   return (
     <Modal
@@ -354,25 +517,39 @@ export function ResumeDedupCompareDialog({
       size="full"
       title={mode === "detail" ? "简历详情对比" : "原始简历对比"}
     >
-      <div className="grid h-full min-h-0 grid-cols-2 divide-x divide-border">
-        <ComparisonColumn
-          candidate={sourceRef}
-          detail={sourceQuery.data}
-          isError={sourceQuery.isError}
-          isLoading={sourceQuery.isLoading}
-          label="当前简历"
-          mode={mode}
-          slug={slug}
-        />
-        <ComparisonColumn
-          candidate={matchRef}
-          detail={matchQuery.data}
-          isError={matchQuery.isError}
-          isLoading={matchQuery.isLoading}
-          label="疑似简历"
-          mode={mode}
-          slug={slug}
-        />
+      <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]">
+        <div className="flex items-center border-border/70 border-b bg-muted/20 px-5 py-2.5">
+          <Field className="w-auto gap-2" orientation="horizontal">
+            <Checkbox
+              checked={isScrollSyncEnabled}
+              id="resume-dedup-sync-scroll"
+              onCheckedChange={setIsScrollSyncEnabled}
+            />
+            <FieldLabel htmlFor="resume-dedup-sync-scroll">同步滚动</FieldLabel>
+          </Field>
+        </div>
+        <div className="grid min-h-0 grid-cols-2 divide-x divide-border">
+          <ComparisonColumn
+            candidate={sourceRef}
+            detail={sourceQuery.data}
+            isError={sourceQuery.isError}
+            isLoading={sourceQuery.isLoading}
+            label="当前简历"
+            mode={mode}
+            onScrollViewportChange={setCurrentViewport}
+            slug={slug}
+          />
+          <ComparisonColumn
+            candidate={matchRef}
+            detail={matchQuery.data}
+            isError={matchQuery.isError}
+            isLoading={matchQuery.isLoading}
+            label="疑似简历"
+            mode={mode}
+            onScrollViewportChange={setMatchViewport}
+            slug={slug}
+          />
+        </div>
       </div>
     </Modal>
   );
