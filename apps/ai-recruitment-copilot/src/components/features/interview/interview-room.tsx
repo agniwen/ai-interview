@@ -102,7 +102,7 @@ function buildSubheading({
   }
   const prefix = parts.join(" · ");
   const countText = questionCount > 0 ? `共 ${questionCount} 题，` : "";
-  const trailing = "预计 20 分钟内完成。";
+  const trailing = "预计 30 分钟内完成。";
   return prefix ? `${prefix} · ${countText}${trailing}` : `${countText}${trailing}`;
 }
 
