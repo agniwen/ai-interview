@@ -1,6 +1,6 @@
 "use client";
 
-import { IconExternalLink, IconX } from "@tabler/icons-react";
+import { IconChevronRight, IconExternalLink, IconX } from "@tabler/icons-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,38 +12,58 @@ import type {
   RecruitingActionProposal,
 } from "./recruiting-copilot-context";
 
-function citationHref(slug: string, citation: CopilotCitation) {
-  if (citation.recordType === "job_description") {
-    return `/w/${slug}/studio/job-descriptions`;
-  }
-  if (citation.recordType === "resume_pool_item") {
-    return `/w/${slug}/studio/resume-pool`;
-  }
-  return `/w/${slug}/studio/resumes`;
-}
-
 function CitationList({ citations }: { citations: CopilotCitation[] }) {
   const slug = useWorkspaceSlug();
+  const { openCandidateDetail } = useRecruitingCopilotContext();
   if (citations.length === 0) {
     return <p className="text-muted-foreground text-sm">当前会话还没有引用系统记录。</p>;
   }
   return (
     <div className="grid gap-2">
-      {citations.map((citation) => (
-        <a
-          className="group flex min-w-0 items-start justify-between gap-2 rounded-lg border bg-background px-3 py-2 text-sm transition-colors hover:border-primary/40 hover:bg-primary/5"
-          href={citationHref(slug, citation)}
-          key={`${citation.recordType}:${citation.id}`}
-        >
-          <span className="min-w-0">
-            <span className="block truncate font-medium">{citation.label}</span>
-            <span className="block truncate text-muted-foreground text-xs">
-              {citation.secondaryLabel ?? citation.recordType}
+      {citations.map((citation) => {
+        const content = (
+          <>
+            <span className="min-w-0">
+              <span className="block truncate font-medium">{citation.label}</span>
+              <span className="block truncate text-muted-foreground text-xs">
+                {citation.secondaryLabel ?? citation.recordType}
+              </span>
             </span>
-          </span>
-          <IconExternalLink className="mt-0.5 size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
-        </a>
-      ))}
+            {citation.recordType === "job_description" ? (
+              <IconExternalLink className="mt-0.5 size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
+            ) : (
+              <IconChevronRight className="mt-0.5 size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
+            )}
+          </>
+        );
+        const className =
+          "group flex min-w-0 items-start justify-between gap-2 rounded-lg border bg-background px-3 py-2 text-left text-sm transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
+        const key = `${citation.recordType}:${citation.id}`;
+
+        if (citation.recordType === "job_description") {
+          return (
+            <a className={className} href={`/w/${slug}/studio/job-descriptions`} key={key}>
+              {content}
+            </a>
+          );
+        }
+
+        return (
+          <button
+            className={className}
+            key={key}
+            onClick={() =>
+              openCandidateDetail({
+                id: citation.id,
+                kind: citation.recordType === "resume_pool_item" ? "resume_pool" : "resume_record",
+              })
+            }
+            type="button"
+          >
+            {content}
+          </button>
+        );
+      })}
     </div>
   );
 }

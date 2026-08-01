@@ -15,11 +15,17 @@ import type { ResumeReviewLoose } from "@arc/shared/resume-review";
 import { getPreviewableResumeDocumentKind } from "@/components/features/resume/resume-document-preview-button";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import type { StudioPersonDetailTab } from "@/components/features/studio/studio-person-detail-panel";
+import { authClient } from "@/lib/client/auth-client";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 
 const ResumeDocumentPreviewDialog = lazy(async () => {
   const mod = await import("@/components/features/resume/resume-document-preview-dialog");
   return { default: mod.ResumeDocumentPreviewDialog };
+});
+
+const ResumePoolDetailDialog = lazy(async () => {
+  const mod = await import("@/components/features/studio/resume-pool/resume-pool-details");
+  return { default: mod.ResumePoolDetailDialog };
 });
 
 export interface CandidateSummaryCard {
@@ -90,12 +96,18 @@ export interface RecruitingActionProposalResult {
 
 export type ProposalStatus = "confirmed" | "failed" | "ignored" | "pending";
 
+export interface CandidateDetailTarget {
+  id: string;
+  kind: "resume_pool" | "resume_record";
+}
+
 interface RecruitingCopilotContextValue {
   citations: CopilotCitation[];
   conversationId: string | null;
   proposalStatuses: Record<string, ProposalStatus>;
   proposals: RecruitingActionProposal[];
   markProposal: (id: string, status: ProposalStatus) => void;
+  openCandidateDetail: (target: CandidateDetailTarget) => void;
   openResumeDetail: (recordId: string, defaultTab?: StudioPersonDetailTab) => void;
   openResumePreview: (record: Pick<CandidateSummaryCard, "id" | "resumeFileName">) => void;
   upsertCitations: (citations: CopilotCitation[]) => void;
@@ -110,6 +122,10 @@ export function useRecruitingCopilotContext() {
     throw new Error("RecruitingCopilotContext is missing.");
   }
   return context;
+}
+
+export function useRecruitingCopilotContextOptional() {
+  return useContext(RecruitingCopilotContext);
 }
 
 function mergeByKey<T>(current: T[], incoming: T[], keyOf: (value: T) => string): T[] {
@@ -127,10 +143,11 @@ export function RecruitingCopilotContextProvider({
   conversationId: string | null;
 }>) {
   const [citations, setCitations] = useState<CopilotCitation[]>([]);
-  const [detailTarget, setDetailTarget] = useState<{
-    defaultTab: StudioPersonDetailTab;
-    recordId: string;
-  } | null>(null);
+  const [detailTarget, setDetailTarget] = useState<
+    | { defaultTab: StudioPersonDetailTab; kind: "resume_record"; recordId: string }
+    | { itemId: string; kind: "resume_pool" }
+    | null
+  >(null);
   const [previewRecord, setPreviewRecord] = useState<Pick<
     CandidateSummaryCard,
     "id" | "resumeFileName"
@@ -167,9 +184,18 @@ export function RecruitingCopilotContextProvider({
     setProposalStatuses((current) => ({ ...current, [id]: status }));
   }, []);
 
+  const openCandidateDetail = useCallback((target: CandidateDetailTarget) => {
+    if (target.kind === "resume_pool") {
+      const itemId = target.id.startsWith("pool:") ? target.id.slice("pool:".length) : target.id;
+      setDetailTarget({ itemId, kind: "resume_pool" });
+      return;
+    }
+    setDetailTarget({ defaultTab: "overview", kind: "resume_record", recordId: target.id });
+  }, []);
+
   const openResumeDetail = useCallback(
     (recordId: string, defaultTab: StudioPersonDetailTab = "overview") => {
-      setDetailTarget({ defaultTab, recordId });
+      setDetailTarget({ defaultTab, kind: "resume_record", recordId });
     },
     [],
   );
@@ -186,6 +212,7 @@ export function RecruitingCopilotContextProvider({
       citations,
       conversationId,
       markProposal,
+      openCandidateDetail,
       openResumeDetail,
       openResumePreview,
       proposalStatuses,
@@ -197,6 +224,7 @@ export function RecruitingCopilotContextProvider({
       citations,
       conversationId,
       markProposal,
+      openCandidateDetail,
       openResumeDetail,
       openResumePreview,
       proposalStatuses,
@@ -210,21 +238,39 @@ export function RecruitingCopilotContextProvider({
     ? getPreviewableResumeDocumentKind({ fileName: previewRecord.resumeFileName })
     : null;
   const slug = useWorkspaceSlug();
+  const { data: session } = authClient.useSession();
+  const resumeDetailTarget = detailTarget?.kind === "resume_record" ? detailTarget : null;
+  const poolDetailTarget = detailTarget?.kind === "resume_pool" ? detailTarget : null;
 
   return (
     <RecruitingCopilotContext.Provider value={value}>
       {children}
       <StudioPersonDetailDialog
-        defaultTab={detailTarget?.defaultTab}
+        defaultTab={resumeDetailTarget?.defaultTab}
         mode="resume"
         onOpenChange={(open) => {
           if (!open) {
             setDetailTarget(null);
           }
         }}
-        open={detailTarget !== null}
-        recordId={detailTarget?.recordId}
+        open={resumeDetailTarget !== null}
+        recordId={resumeDetailTarget?.recordId}
       />
+      {poolDetailTarget ? (
+        <Suspense fallback={null}>
+          <ResumePoolDetailDialog
+            currentUserId={session?.user.id ?? null}
+            onOpenChange={(open) => {
+              if (!open) {
+                setDetailTarget(null);
+              }
+            }}
+            record={null}
+            recordId={poolDetailTarget.itemId}
+            slug={slug}
+          />
+        </Suspense>
+      ) : null}
       {previewRecord && previewKind ? (
         <Suspense fallback={null}>
           <ResumeDocumentPreviewDialog

@@ -390,15 +390,17 @@ export function ResumePoolDetailDialog({
   onOpenDuplicateMatches,
   onOpenChange,
   record,
+  recordId,
   slug,
 }: {
   currentUserId: string | null;
   record: ResumePoolListRecord | null;
+  recordId?: string | null;
   slug: string;
   onOpenChange: (open: boolean) => void;
   onOpenDuplicateMatches?: (record: ResumePoolListRecord) => void;
 }) {
-  const itemId = record?.id ?? "";
+  const itemId = record?.id ?? recordId ?? "";
   const detailQuery = useQuery({
     enabled: Boolean(itemId),
     queryFn: async () => {
@@ -428,11 +430,11 @@ export function ResumePoolDetailDialog({
   return (
     <>
       <Modal
-        description={record?.resumeFileName ?? undefined}
+        description={detail?.resumeFileName ?? record?.resumeFileName ?? undefined}
         onOpenChange={onOpenChange}
-        open={record !== null}
+        open={Boolean(itemId)}
         size="2xl"
-        title={record ? getCandidateTitleWithId(record) : "候选人详情"}
+        title={detail ? getCandidateTitleWithId(detail) : "候选人详情"}
       >
         {detail ? (
           <div className="space-y-8">
