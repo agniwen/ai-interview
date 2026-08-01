@@ -1,8 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { JsonValue } from "@/lib/start/server-function-types";
-import { resolveWorkspaceAccessFromRequest } from "@/lib/start/auth-session.server";
 import { emptyFiltersSchema, workspaceDataGridInputSchema } from "@/lib/start/server-fn-validators";
 import { loadStudioDepartmentsHydrationState } from "./departments.server";
+import { resolveAuthorizedStudioPageAccessFromRequest } from "./page-access.server";
 
 export type StudioDepartmentsState =
   | { status: "unauthenticated" }
@@ -15,7 +15,7 @@ export type StudioDepartmentsState =
 export const loadStudioDepartmentsState = createServerFn({ method: "GET" })
   .validator(workspaceDataGridInputSchema(emptyFiltersSchema))
   .handler(async ({ data }): Promise<StudioDepartmentsState> => {
-    const access = await resolveWorkspaceAccessFromRequest(data.slug);
+    const access = await resolveAuthorizedStudioPageAccessFromRequest(data.slug, "departments");
     if (access.status !== "ready") {
       return access;
     }

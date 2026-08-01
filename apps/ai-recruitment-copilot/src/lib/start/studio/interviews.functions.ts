@@ -1,10 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { JsonValue } from "@/lib/start/server-function-types";
-import { resolveWorkspaceAccessFromRequest } from "@/lib/start/auth-session.server";
 import { workspaceDataGridInputSchema } from "@/lib/start/server-fn-validators";
 import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import { loadStudioInterviewsHydrationState } from "./interviews.server";
+import { resolveAuthorizedStudioPageAccessFromRequest } from "./page-access.server";
 
 export interface InterviewFilters extends Record<string, string> {
   creatorIds: string;
@@ -31,7 +31,7 @@ export const loadStudioInterviewsState = createServerFn({ method: "GET" })
     workspaceDataGridInputSchema(interviewFiltersSchema).extend({ prefetchList: z.boolean() }),
   )
   .handler(async ({ data }): Promise<StudioInterviewsServerState> => {
-    const access = await resolveWorkspaceAccessFromRequest(data.slug);
+    const access = await resolveAuthorizedStudioPageAccessFromRequest(data.slug, "interviews");
     if (access.status !== "ready") {
       return access;
     }

@@ -2,9 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import type { JsonValue } from "@/lib/start/server-function-types";
-import { resolveWorkspaceAccessFromRequest } from "@/lib/start/auth-session.server";
 import { workspaceDataGridInputSchema } from "@/lib/start/server-fn-validators";
 import { loadStudioFormsData } from "./forms.server";
+import { resolveAuthorizedStudioPageAccessFromRequest } from "./page-access.server";
 
 export interface CandidateFormFilters extends Record<string, string> {
   archivedFilter: string;
@@ -30,7 +30,7 @@ export type StudioFormsState =
 export const loadStudioFormsState = createServerFn({ method: "GET" })
   .validator(workspaceDataGridInputSchema(candidateFormFiltersSchema))
   .handler(async ({ data }): Promise<StudioFormsState> => {
-    const access = await resolveWorkspaceAccessFromRequest(data.slug);
+    const access = await resolveAuthorizedStudioPageAccessFromRequest(data.slug, "forms");
     if (access.status !== "ready") {
       return access;
     }

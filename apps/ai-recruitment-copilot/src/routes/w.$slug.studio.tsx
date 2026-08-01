@@ -60,6 +60,7 @@ function StudioPendingRoute() {
 }
 
 export const Route = createFileRoute("/w/$slug/studio")({
+  ssr: "data-only",
   loader: async (loaderContext) => {
     const { location, params, parentMatchPromise } = loaderContext;
 

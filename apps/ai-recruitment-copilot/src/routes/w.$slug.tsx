@@ -34,14 +34,14 @@ export const Route = createFileRoute("/w/$slug")({
   component: WorkspaceRoute,
   loader: async (loaderContext) => {
     const { location, params } = loaderContext as {
-      location: { pathname: string };
+      location: { href: string; pathname: string };
       params: { slug: string };
     };
     const state = await getWorkspaceAccessState({ data: { slug: params.slug } });
 
     if (state.status === "unauthenticated") {
       throw redirect({
-        href: `/login?callbackURL=${encodeURIComponent(`/w/${params.slug}`)}`,
+        href: `/login?callbackURL=${encodeURIComponent(location.href)}`,
       });
     }
 

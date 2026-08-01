@@ -2,9 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import type { JsonValue } from "@/lib/start/server-function-types";
-import { resolveWorkspaceAccessFromRequest } from "@/lib/start/auth-session.server";
 import { workspaceDataGridInputSchema } from "@/lib/start/server-fn-validators";
 import { loadStudioInterviewQuestionsData } from "./interview-questions.server";
+import { resolveAuthorizedStudioPageAccessFromRequest } from "./page-access.server";
 
 export interface InterviewQuestionFilters extends Record<string, string> {
   archivedFilter: string;
@@ -30,7 +30,10 @@ export type StudioInterviewQuestionsState =
 export const loadStudioInterviewQuestionsState = createServerFn({ method: "GET" })
   .validator(workspaceDataGridInputSchema(interviewQuestionFiltersSchema))
   .handler(async ({ data }): Promise<StudioInterviewQuestionsState> => {
-    const access = await resolveWorkspaceAccessFromRequest(data.slug);
+    const access = await resolveAuthorizedStudioPageAccessFromRequest(
+      data.slug,
+      "interviewQuestions",
+    );
     if (access.status !== "ready") {
       return access;
     }

@@ -16,7 +16,6 @@ import {
 } from "@tanstack/react-router";
 import { loadStudioInterviewsState } from "@/lib/start/studio/interviews.functions";
 import type { StudioInterviewsState } from "@/lib/start/studio/interviews.functions";
-import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { StudioTablePageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { StudioSummaryCards } from "@/components/features/studio/studio-summary-cards";
@@ -773,11 +772,6 @@ export const Route = createFileRoute("/w/$slug/studio/interviews")({
     };
     const isListRoute = location.pathname === `/w/${params.slug}/studio/interviews`;
     const query = parseStudioInterviewsQuery(location.search);
-    await requireStudioPageAccess({
-      action: "interviews",
-      pathname: `/w/${params.slug}/studio/interviews`,
-      slug: params.slug,
-    });
     const state = (await loadStudioInterviewsState({
       data: { prefetchList: isListRoute, query, slug: params.slug },
     })) as StudioInterviewsState;

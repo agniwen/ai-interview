@@ -4,9 +4,9 @@ import type { DepartmentRecord } from "@arc/shared/departments";
 import type { InterviewerListRecord } from "@arc/shared/interviewers";
 import type { JobDescriptionMetrics } from "@arc/shared/job-descriptions";
 import type { JsonValue } from "@/lib/start/server-function-types";
-import { resolveWorkspaceAccessFromRequest } from "@/lib/start/auth-session.server";
 import { workspaceDataGridInputSchema } from "@/lib/start/server-fn-validators";
 import { loadStudioJobDescriptionsData } from "./job-descriptions.server";
+import { resolveAuthorizedStudioPageAccessFromRequest } from "./page-access.server";
 
 export interface JobDescriptionFilters extends Record<string, string> {
   departmentId: string;
@@ -32,7 +32,7 @@ export type StudioJobDescriptionsState =
 export const loadStudioJobDescriptionsState = createServerFn({ method: "GET" })
   .validator(workspaceDataGridInputSchema(jobDescriptionFiltersSchema))
   .handler(async ({ data }): Promise<StudioJobDescriptionsState> => {
-    const access = await resolveWorkspaceAccessFromRequest(data.slug);
+    const access = await resolveAuthorizedStudioPageAccessFromRequest(data.slug, "jobDescriptions");
     if (access.status !== "ready") {
       return access;
     }

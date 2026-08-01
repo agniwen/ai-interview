@@ -1,8 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { GlobalConfigRecord } from "@arc/shared/global-config";
-import { resolveWorkspaceAccessFromRequest } from "@/lib/start/auth-session.server";
 import { slugInputSchema } from "@/lib/start/server-fn-validators";
 import { loadStudioGlobalConfigInitial } from "./global-config.server";
+import { resolveAuthorizedStudioPageAccessFromRequest } from "./page-access.server";
 
 export type StudioGlobalConfigState =
   | { status: "unauthenticated" }
@@ -15,7 +15,7 @@ export type StudioGlobalConfigState =
 export const loadStudioGlobalConfigState = createServerFn({ method: "GET" })
   .validator(slugInputSchema)
   .handler(async ({ data }): Promise<StudioGlobalConfigState> => {
-    const access = await resolveWorkspaceAccessFromRequest(data.slug);
+    const access = await resolveAuthorizedStudioPageAccessFromRequest(data.slug, "globalConfig");
     if (access.status !== "ready") {
       return access;
     }

@@ -12,7 +12,6 @@ import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioDepartmentsState } from "@/lib/start/studio/departments.functions";
-import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
 import type { StudioDepartmentsState } from "@/lib/start/studio/departments.functions";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { StudioTablePageSkeleton } from "@/components/features/studio/studio-page-skeletons";
@@ -378,11 +377,6 @@ export const Route = createFileRoute("/w/$slug/studio/departments")({
       params: { slug: string };
     };
     const query = parseDepartmentQuery(location.search);
-    await requireStudioPageAccess({
-      action: "departments",
-      pathname: `/w/${params.slug}/studio/departments`,
-      slug: params.slug,
-    });
     const state = (await loadStudioDepartmentsState({
       data: { query, slug: params.slug },
     })) as StudioDepartmentsState;

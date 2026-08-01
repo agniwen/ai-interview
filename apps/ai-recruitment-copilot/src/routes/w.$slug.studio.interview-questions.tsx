@@ -15,7 +15,6 @@ import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioInterviewQuestionsState } from "@/lib/start/studio/interview-questions.functions";
 import type { StudioInterviewQuestionsState } from "@/lib/start/studio/interview-questions.functions";
-import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { StudioTablePageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
@@ -702,11 +701,6 @@ export const Route = createFileRoute("/w/$slug/studio/interview-questions")({
       params: { slug: string };
     };
     const query = parseInterviewQuestionQuery(location.search);
-    await requireStudioPageAccess({
-      action: "interviewQuestions",
-      pathname: `/w/${params.slug}/studio/interview-questions`,
-      slug: params.slug,
-    });
     const state = (await loadStudioInterviewQuestionsState({
       data: { query, slug: params.slug },
     })) as StudioInterviewQuestionsState;

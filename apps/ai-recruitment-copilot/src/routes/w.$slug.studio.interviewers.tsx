@@ -14,7 +14,6 @@ import type { DepartmentRecord } from "@arc/shared/departments";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioInterviewersState } from "@/lib/start/studio/interviewers.functions";
 import type { StudioInterviewersState } from "@/lib/start/studio/interviewers.functions";
-import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { StudioTablePageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
@@ -393,11 +392,6 @@ export const Route = createFileRoute("/w/$slug/studio/interviewers")({
       params: { slug: string };
     };
     const query = parseInterviewerQuery(location.search);
-    await requireStudioPageAccess({
-      action: "interviewers",
-      pathname: `/w/${params.slug}/studio/interviewers`,
-      slug: params.slug,
-    });
     const state = (await loadStudioInterviewersState({
       data: { query, slug: params.slug },
     })) as StudioInterviewersState;

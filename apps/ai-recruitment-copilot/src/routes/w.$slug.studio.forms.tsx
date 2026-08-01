@@ -15,7 +15,6 @@ import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioFormsState } from "@/lib/start/studio/forms.functions";
 import type { StudioFormsState } from "@/lib/start/studio/forms.functions";
-import { requireStudioPageAccess } from "@/lib/start/studio/page-access";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { StudioTablePageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
@@ -729,11 +728,6 @@ export const Route = createFileRoute("/w/$slug/studio/forms")({
       params: { slug: string };
     };
     const query = parseCandidateFormQuery(location.search);
-    await requireStudioPageAccess({
-      action: "forms",
-      pathname: `/w/${params.slug}/studio/forms`,
-      slug: params.slug,
-    });
     const state = (await loadStudioFormsState({
       data: { query, slug: params.slug },
     })) as StudioFormsState;
