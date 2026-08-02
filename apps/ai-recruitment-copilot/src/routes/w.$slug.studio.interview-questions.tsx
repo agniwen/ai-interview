@@ -1,6 +1,5 @@
 import { IconChevronDown, IconListCheck, IconPlus, IconSparkles } from "@tabler/icons-react";
-import { HydrationBoundary, useQueryClient } from "@tanstack/react-query";
-import type { DehydratedState } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   createFileRoute,
   notFound,
@@ -9,8 +8,6 @@ import {
   useNavigate,
   useSearch,
 } from "@tanstack/react-router";
-import type { DataGridQueryState } from "@/components/data-grid/query-contract";
-import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioInterviewQuestionsState } from "@/lib/start/studio/interview-questions.functions";
@@ -56,6 +53,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { rpc } from "@/lib/client/rpc";
+import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { InterviewQuestionTemplateEditorDialog } from "@/components/features/studio/interview-questions/interview-question-template-editor-dialog";
 import { InterviewQuestionTemplateAiCreateDialog } from "@/components/features/studio/interview-questions/interview-question-template-ai-create-dialog";
@@ -96,41 +94,39 @@ function InterviewQuestionTemplateManagementPage({
   const canDeleteQuestionTemplate = useHasPermission("questionTemplate", "delete");
 
   const fetchTemplates = useCallback(
-    async (params: {
+    (params: {
       search: string;
       page: number;
       pageSize: number;
       filters: { scope: string; jobDescriptionId: string; archivedFilter: string };
       sortBy: string | undefined;
       sortOrder: "asc" | "desc" | undefined;
-    }): Promise<PaginatedInterviewQuestionTemplateResult> => {
-      const res = await rpc.api.w[":slug"].studio["interview-questions"].$get({
-        param: { slug },
-        query: {
-          page: String(params.page),
-          pageSize: String(params.pageSize),
-          ...(params.search ? { search: params.search } : {}),
-          // 多选过滤：CSV 形式 / Multi-select filters: CSV serialization.
-          ...(params.filters.scope ? { scope: params.filters.scope } : {}),
-          ...(params.filters.jobDescriptionId
-            ? { jobDescriptionId: params.filters.jobDescriptionId }
-            : {}),
-          // archivedFilter 走 DataGrid 的 filter 通道，这样能自动进 queryKey，
-          // 变更时触发 react-query 重新拉取（避免出现"换了过滤态但列表不刷新"）。
-          // Archived filter goes through the DataGrid filter channel so it's
-          // part of the queryKey and changes trigger a fresh fetch.
-          ...(params.filters.archivedFilter === "active"
-            ? {}
-            : { archived: params.filters.archivedFilter }),
-          sortBy: params.sortBy ?? "createdAt",
-          sortOrder: params.sortOrder ?? "desc",
-        },
-      });
-      if (!res.ok) {
-        throw new Error("加载沟通题列表失败");
-      }
-      return (await res.json()) as PaginatedInterviewQuestionTemplateResult;
-    },
+    }): Promise<PaginatedInterviewQuestionTemplateResult> =>
+      rpcFetch<PaginatedInterviewQuestionTemplateResult>(
+        rpc.api.w[":slug"].studio["interview-questions"].$get({
+          param: { slug },
+          query: {
+            page: String(params.page),
+            pageSize: String(params.pageSize),
+            ...(params.search ? { search: params.search } : {}),
+            // 多选过滤：CSV 形式 / Multi-select filters: CSV serialization.
+            ...(params.filters.scope ? { scope: params.filters.scope } : {}),
+            ...(params.filters.jobDescriptionId
+              ? { jobDescriptionId: params.filters.jobDescriptionId }
+              : {}),
+            // archivedFilter 走 DataGrid 的 filter 通道，这样能自动进 queryKey，
+            // 变更时触发 react-query 重新拉取（避免出现"换了过滤态但列表不刷新"）。
+            // Archived filter goes through the DataGrid filter channel so it's
+            // part of the queryKey and changes trigger a fresh fetch.
+            ...(params.filters.archivedFilter === "active"
+              ? {}
+              : { archived: params.filters.archivedFilter }),
+            sortBy: params.sortBy ?? "createdAt",
+            sortOrder: params.sortOrder ?? "desc",
+          },
+        }),
+        "加载沟通题列表失败",
+      ),
     [slug],
   );
 
@@ -634,12 +630,6 @@ function InterviewQuestionTemplateManagementPage({
   );
 }
 
-interface InterviewQuestionFilters extends Record<string, string> {
-  archivedFilter: string;
-  jobDescriptionId: string;
-  scope: string;
-}
-
 type SearchParamsPrimitive = boolean | number | string;
 type SearchParamsRecord = Record<
   string,
@@ -667,16 +657,6 @@ function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord
   return out;
 }
 
-function parseInterviewQuestionQuery(
-  searchParams: SearchParamsRecord,
-): DataGridQueryState<InterviewQuestionFilters> {
-  return parseDataGridSearchParams(searchParams, {
-    allowedSortIds: ["createdAt", "title", "updatedAt"],
-    defaultSorting: [{ desc: true, id: "createdAt" }],
-    initialFilters: { archivedFilter: "active", jobDescriptionId: "", scope: "" },
-  });
-}
-
 function StudioInterviewQuestionsRoute() {
   const state = useLoaderData({
     from: "/w/$slug/studio/interview-questions",
@@ -686,23 +666,15 @@ function StudioInterviewQuestionsRoute() {
     return null;
   }
 
-  return (
-    <HydrationBoundary state={state.dehydratedState as unknown as DehydratedState}>
-      <InterviewQuestionTemplateManagementPage jobDescriptions={state.jobDescriptions} />
-    </HydrationBoundary>
-  );
+  return <InterviewQuestionTemplateManagementPage jobDescriptions={state.jobDescriptions} />;
 }
 
 export const Route = createFileRoute("/w/$slug/studio/interview-questions")({
   validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
   loader: async (loaderContext) => {
-    const { location, params } = loaderContext as unknown as {
-      location: { search: SearchParamsRecord };
-      params: { slug: string };
-    };
-    const query = parseInterviewQuestionQuery(location.search);
+    const { params } = loaderContext as unknown as { params: { slug: string } };
     const state = (await loadStudioInterviewQuestionsState({
-      data: { query, slug: params.slug },
+      data: { slug: params.slug },
     })) as StudioInterviewQuestionsState;
     if (state.status === "unauthenticated") {
       throw redirect({

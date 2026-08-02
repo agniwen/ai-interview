@@ -1,6 +1,5 @@
 import { IconFileText, IconPlus, IconSparkles } from "@tabler/icons-react";
-import { HydrationBoundary, useQueryClient } from "@tanstack/react-query";
-import type { DehydratedState } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ClientOnly,
   createFileRoute,
@@ -11,9 +10,7 @@ import {
   useRouter,
   useSearch,
 } from "@tanstack/react-router";
-import type { DataGridQueryState } from "@/components/data-grid/query-contract";
 import { formatDocumentTitle } from "@/lib/start/document-title";
-import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import type { DepartmentRecord } from "@arc/shared/departments";
 import type { InterviewerListRecord } from "@arc/shared/interviewers";
 import { loadStudioJobDescriptionsState } from "@/lib/start/studio/job-descriptions.functions";
@@ -55,6 +52,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { rpc } from "@/lib/client/rpc";
+import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { JobDescriptionFormDialog } from "@/components/features/studio/job-descriptions/job-description-form-dialog";
@@ -94,33 +92,33 @@ function JobDescriptionManagementPage({
   const canReadResumeLibrary = useHasPermission("resumeLibrary", "read");
 
   const fetchJobDescriptions = useCallback(
-    async (params: {
+    (params: {
       search: string;
       page: number;
       pageSize: number;
       filters: { departmentId: string; interviewerId: string };
       sortBy: string | undefined;
       sortOrder: "asc" | "desc" | undefined;
-    }): Promise<PaginatedJobDescriptionResult> => {
-      const res = await rpc.api.w[":slug"].studio["job-descriptions"].$get({
-        param: { slug },
-        query: {
-          page: String(params.page),
-          pageSize: String(params.pageSize),
-          ...(params.search ? { search: params.search } : {}),
-          // 多选过滤：CSV 形式，例如 "a,b,c"。空串表示不筛选。
-          // / Multi-select filters serialize to CSV; empty string means "no filter".
-          ...(params.filters.departmentId ? { departmentId: params.filters.departmentId } : {}),
-          ...(params.filters.interviewerId ? { interviewerId: params.filters.interviewerId } : {}),
-          sortBy: params.sortBy ?? "createdAt",
-          sortOrder: params.sortOrder ?? "desc",
-        },
-      });
-      if (!res.ok) {
-        throw new Error("加载在招岗位列表失败");
-      }
-      return (await res.json()) as PaginatedJobDescriptionResult;
-    },
+    }): Promise<PaginatedJobDescriptionResult> =>
+      rpcFetch<PaginatedJobDescriptionResult>(
+        rpc.api.w[":slug"].studio["job-descriptions"].$get({
+          param: { slug },
+          query: {
+            page: String(params.page),
+            pageSize: String(params.pageSize),
+            ...(params.search ? { search: params.search } : {}),
+            // 多选过滤：CSV 形式，例如 "a,b,c"。空串表示不筛选。
+            // / Multi-select filters serialize to CSV; empty string means "no filter".
+            ...(params.filters.departmentId ? { departmentId: params.filters.departmentId } : {}),
+            ...(params.filters.interviewerId
+              ? { interviewerId: params.filters.interviewerId }
+              : {}),
+            sortBy: params.sortBy ?? "createdAt",
+            sortOrder: params.sortOrder ?? "desc",
+          },
+        }),
+        "加载在招岗位列表失败",
+      ),
     [slug],
   );
 
@@ -573,11 +571,6 @@ function JobDescriptionManagementPage({
   );
 }
 
-interface JobDescriptionFilters extends Record<string, string> {
-  departmentId: string;
-  interviewerId: string;
-}
-
 type SearchParamsPrimitive = boolean | number | string;
 type SearchParamsRecord = Record<
   string,
@@ -605,16 +598,6 @@ function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord
   return out;
 }
 
-function parseJobDescriptionQuery(
-  searchParams: SearchParamsRecord,
-): DataGridQueryState<JobDescriptionFilters> {
-  return parseDataGridSearchParams(searchParams, {
-    allowedSortIds: ["createdAt", "name", "updatedAt"],
-    defaultSorting: [{ desc: true, id: "createdAt" }],
-    initialFilters: { departmentId: "", interviewerId: "" },
-  });
-}
-
 function StudioJobDescriptionsRoute() {
   const state = useLoaderData({
     from: "/w/$slug/studio/job-descriptions",
@@ -625,26 +608,20 @@ function StudioJobDescriptionsRoute() {
   }
 
   return (
-    <HydrationBoundary state={state.dehydratedState as unknown as DehydratedState}>
-      <JobDescriptionManagementPage
-        departments={state.departments}
-        interviewers={state.interviewers}
-        metrics={state.metrics}
-      />
-    </HydrationBoundary>
+    <JobDescriptionManagementPage
+      departments={state.departments}
+      interviewers={state.interviewers}
+      metrics={state.metrics}
+    />
   );
 }
 
 export const Route = createFileRoute("/w/$slug/studio/job-descriptions")({
   validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
   loader: async (loaderContext) => {
-    const { location, params } = loaderContext as unknown as {
-      location: { search: SearchParamsRecord };
-      params: { slug: string };
-    };
-    const query = parseJobDescriptionQuery(location.search);
+    const { params } = loaderContext as unknown as { params: { slug: string } };
     const state = (await loadStudioJobDescriptionsState({
-      data: { query, slug: params.slug },
+      data: { slug: params.slug },
     })) as StudioJobDescriptionsState;
     if (state.status === "unauthenticated") {
       throw redirect({

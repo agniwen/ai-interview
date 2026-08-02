@@ -1,18 +1,7 @@
 import { IconBuilding, IconPlus } from "@tabler/icons-react";
-import { HydrationBoundary, useQueryClient } from "@tanstack/react-query";
-import type { DehydratedState } from "@tanstack/react-query";
-import {
-  createFileRoute,
-  notFound,
-  redirect,
-  useLoaderData,
-  useRouter,
-} from "@tanstack/react-router";
-import type { DataGridQueryState } from "@/components/data-grid/query-contract";
-import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
+import { useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { formatDocumentTitle } from "@/lib/start/document-title";
-import { loadStudioDepartmentsState } from "@/lib/start/studio/departments.functions";
-import type { StudioDepartmentsState } from "@/lib/start/studio/departments.functions";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { StudioTablePageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { EntityDeleteDialog } from "@/components/features/studio/entity-delete-dialog";
@@ -41,6 +30,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { rpc } from "@/lib/client/rpc";
+import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { DepartmentFormDialog } from "@/components/features/studio/departments/department-form-dialog";
 import { useHasPermission } from "@/hooks/use-has-permission";
@@ -57,29 +47,27 @@ function DepartmentManagementPage() {
 
   const fetchDepartments = useMemo(
     () =>
-      async (params: {
+      (params: {
         search: string;
         page: number;
         pageSize: number;
         filters: Record<string, never>;
         sortBy: string | undefined;
         sortOrder: "asc" | "desc" | undefined;
-      }): Promise<PaginatedDepartmentResult> => {
-        const res = await rpc.api.w[":slug"].studio.departments.$get({
-          param: { slug },
-          query: {
-            page: String(params.page),
-            pageSize: String(params.pageSize),
-            ...(params.search ? { search: params.search } : {}),
-            sortBy: params.sortBy ?? "createdAt",
-            sortOrder: params.sortOrder ?? "desc",
-          },
-        });
-        if (!res.ok) {
-          throw new Error("加载部门列表失败");
-        }
-        return (await res.json()) as PaginatedDepartmentResult;
-      },
+      }): Promise<PaginatedDepartmentResult> =>
+        rpcFetch<PaginatedDepartmentResult>(
+          rpc.api.w[":slug"].studio.departments.$get({
+            param: { slug },
+            query: {
+              page: String(params.page),
+              pageSize: String(params.pageSize),
+              ...(params.search ? { search: params.search } : {}),
+              sortBy: params.sortBy ?? "createdAt",
+              sortOrder: params.sortOrder ?? "desc",
+            },
+          }),
+          "加载部门列表失败",
+        ),
     [slug],
   );
 
@@ -318,7 +306,6 @@ function DepartmentManagementPage() {
   );
 }
 
-type EmptyFilters = Record<string, never>;
 type SearchParamsPrimitive = boolean | number | string;
 type SearchParamsRecord = Record<
   string,
@@ -345,55 +332,12 @@ function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord
   return out;
 }
 
-function parseDepartmentQuery(searchParams: SearchParamsRecord): DataGridQueryState<EmptyFilters> {
-  return parseDataGridSearchParams(searchParams, {
-    allowedSortIds: ["createdAt", "name", "updatedAt"],
-    defaultSorting: [{ desc: true, id: "createdAt" }],
-    initialFilters: {},
-  });
-}
-
-function StudioDepartmentsRoute() {
-  const state = useLoaderData({
-    from: "/w/$slug/studio/departments",
-  }) as unknown as StudioDepartmentsState;
-
-  if (state.status !== "ready") {
-    return null;
-  }
-
-  return (
-    <HydrationBoundary state={state.dehydratedState as unknown as DehydratedState}>
-      <DepartmentManagementPage />
-    </HydrationBoundary>
-  );
-}
-
 export const Route = createFileRoute("/w/$slug/studio/departments")({
   validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
-  loader: async (loaderContext) => {
-    const { location, params } = loaderContext as unknown as {
-      location: { search: SearchParamsRecord };
-      params: { slug: string };
-    };
-    const query = parseDepartmentQuery(location.search);
-    const state = (await loadStudioDepartmentsState({
-      data: { query, slug: params.slug },
-    })) as StudioDepartmentsState;
-    if (state.status === "unauthenticated") {
-      throw redirect({
-        href: `/login?callbackURL=${encodeURIComponent(`/w/${params.slug}/studio/departments`)}`,
-      });
-    }
-    if (state.status === "not_found") {
-      throw notFound();
-    }
-    return state;
-  },
   head: () => ({
     meta: [{ title: formatDocumentTitle("部门管理") }],
   }),
-  component: StudioDepartmentsRoute,
+  component: DepartmentManagementPage,
   pendingComponent: () => <StudioTablePageSkeleton label="部门管理" />,
   shouldReload: false,
 });

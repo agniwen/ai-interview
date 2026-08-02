@@ -1,21 +1,15 @@
 import { IconRobot, IconTrash } from "@tabler/icons-react";
-import { HydrationBoundary, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { DehydratedState } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import {
   Link,
   Outlet,
   createFileRoute,
-  notFound,
-  redirect,
-  useLoaderData,
   useNavigate,
   useParams,
   useRouterState,
   useSearch,
 } from "@tanstack/react-router";
-import { loadStudioInterviewsState } from "@/lib/start/studio/interviews.functions";
-import type { StudioInterviewsState } from "@/lib/start/studio/interviews.functions";
 import { PageHeader } from "@/components/features/studio/page-header";
 import { StudioTablePageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { StudioSummaryCards } from "@/components/features/studio/studio-summary-cards";
@@ -83,10 +77,7 @@ import { StudioPersonDetailDialog } from "@/components/features/studio/studio-pe
 import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
 import { JobDescriptionViewDialog } from "@/components/features/studio/interviews/job-description-view-dialog";
 import { useHasPermission } from "@/hooks/use-has-permission";
-import {
-  coerceStudioInterviewsSearch,
-  parseStudioInterviewsQuery,
-} from "@/lib/client/studio-interviews-search";
+import { coerceStudioInterviewsSearch } from "@/lib/client/studio-interviews-search";
 import type { SearchParamsRecord } from "@/lib/client/studio-interviews-search";
 
 const ResumeDocumentPreviewDialog = lazy(async () => {
@@ -742,49 +733,18 @@ function InterviewManagementPage() {
 }
 
 function StudioInterviewsRoute() {
-  const state = useLoaderData({
-    from: "/w/$slug/studio/interviews",
-  }) as unknown as StudioInterviewsState;
   const { slug } = useParams({ from: "/w/$slug/studio/interviews" });
   const pathname = useRouterState({ select: (routerState) => routerState.location.pathname });
-
-  if (state.status !== "ready") {
-    return null;
-  }
 
   if (pathname !== `/w/${slug}/studio/interviews`) {
     return <Outlet />;
   }
 
-  return (
-    <HydrationBoundary state={state.dehydratedState as unknown as DehydratedState}>
-      <InterviewManagementPage />
-    </HydrationBoundary>
-  );
+  return <InterviewManagementPage />;
 }
 
 export const Route = createFileRoute("/w/$slug/studio/interviews")({
   validateSearch: (search: Record<string, unknown>) => coerceStudioInterviewsSearch(search),
-  loader: async (loaderContext) => {
-    const { location, params } = loaderContext as unknown as {
-      location: { pathname: string; search: SearchParamsRecord };
-      params: { slug: string };
-    };
-    const isListRoute = location.pathname === `/w/${params.slug}/studio/interviews`;
-    const query = parseStudioInterviewsQuery(location.search);
-    const state = (await loadStudioInterviewsState({
-      data: { prefetchList: isListRoute, query, slug: params.slug },
-    })) as StudioInterviewsState;
-    if (state.status === "unauthenticated") {
-      throw redirect({
-        href: `/login?callbackURL=${encodeURIComponent(`/w/${params.slug}/studio/interviews`)}`,
-      });
-    }
-    if (state.status === "not_found") {
-      throw notFound();
-    }
-    return state;
-  },
   head: () => ({
     meta: [{ title: formatDocumentTitle("AI 面试") }],
   }),

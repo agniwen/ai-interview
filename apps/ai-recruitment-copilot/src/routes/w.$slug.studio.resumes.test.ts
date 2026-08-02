@@ -13,11 +13,11 @@ function shouldReloadAt(pathname: string) {
 }
 
 describe("Studio resumes route reload behavior", () => {
-  it("reloads list data when returning from a candidate detail route", () => {
-    expect(shouldReloadAt("/w/acme/studio/resumes")).toBe(true);
+  it("does not repeat the access loader for list search or pagination changes", () => {
+    expect(shouldReloadAt("/w/acme/studio/resumes")).toBe(false);
   });
 
-  it("does not prefetch list data while a candidate detail route is active", () => {
+  it("does not repeat the access loader while a candidate detail route is active", () => {
     expect(shouldReloadAt("/w/acme/studio/resumes/candidate-1")).toBe(false);
   });
 });

@@ -1,34 +1,19 @@
 import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
-import type { JsonValue } from "@/lib/start/server-function-types";
-import { workspaceDataGridInputSchema } from "@/lib/start/server-fn-validators";
+import { slugInputSchema } from "@/lib/start/server-fn-validators";
 import { loadStudioInterviewQuestionsData } from "./interview-questions.server";
 import { resolveAuthorizedStudioPageAccessFromRequest } from "./page-access.server";
-
-export interface InterviewQuestionFilters extends Record<string, string> {
-  archivedFilter: string;
-  jobDescriptionId: string;
-  scope: string;
-}
-
-const interviewQuestionFiltersSchema = z.object({
-  archivedFilter: z.string(),
-  jobDescriptionId: z.string(),
-  scope: z.string(),
-});
 
 export type StudioInterviewQuestionsState =
   | { status: "unauthenticated" }
   | { status: "not_found" }
   | {
-      dehydratedState: JsonValue;
       jobDescriptions: JobDescriptionListRecord[];
       status: "ready";
     };
 
 export const loadStudioInterviewQuestionsState = createServerFn({ method: "GET" })
-  .validator(workspaceDataGridInputSchema(interviewQuestionFiltersSchema))
+  .validator(slugInputSchema)
   .handler(async ({ data }): Promise<StudioInterviewQuestionsState> => {
     const access = await resolveAuthorizedStudioPageAccessFromRequest(
       data.slug,
@@ -40,8 +25,6 @@ export const loadStudioInterviewQuestionsState = createServerFn({ method: "GET" 
 
     return {
       ...(await loadStudioInterviewQuestionsData({
-        query: data.query,
-        slug: data.slug,
         workspaceId: access.workspace.id,
       })),
       status: "ready",

@@ -1,6 +1,5 @@
 import { IconPlus, IconUserCircle } from "@tabler/icons-react";
-import { HydrationBoundary, useQueryClient } from "@tanstack/react-query";
-import type { DehydratedState } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   createFileRoute,
   notFound,
@@ -8,8 +7,6 @@ import {
   useLoaderData,
   useRouter,
 } from "@tanstack/react-router";
-import type { DataGridQueryState } from "@/components/data-grid/query-contract";
-import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import type { DepartmentRecord } from "@arc/shared/departments";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioInterviewersState } from "@/lib/start/studio/interviewers.functions";
@@ -41,6 +38,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { rpc } from "@/lib/client/rpc";
+import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { getMinimaxVoiceMeta } from "@arc/db-schema/minimax-voices";
 import { ScopedJobDescriptionsModal } from "@/components/features/studio/scoped-job-descriptions-modal";
@@ -58,29 +56,27 @@ function InterviewerManagementPage({ departments }: { departments: DepartmentRec
 
   const fetchInterviewers = useMemo(
     () =>
-      async (params: {
+      (params: {
         search: string;
         page: number;
         pageSize: number;
         filters: Record<string, never>;
         sortBy: string | undefined;
         sortOrder: "asc" | "desc" | undefined;
-      }): Promise<PaginatedInterviewerResult> => {
-        const res = await rpc.api.w[":slug"].studio.interviewers.$get({
-          param: { slug },
-          query: {
-            page: String(params.page),
-            pageSize: String(params.pageSize),
-            ...(params.search ? { search: params.search } : {}),
-            sortBy: params.sortBy ?? "createdAt",
-            sortOrder: params.sortOrder ?? "desc",
-          },
-        });
-        if (!res.ok) {
-          throw new Error("加载面试官列表失败");
-        }
-        return (await res.json()) as PaginatedInterviewerResult;
-      },
+      }): Promise<PaginatedInterviewerResult> =>
+        rpcFetch<PaginatedInterviewerResult>(
+          rpc.api.w[":slug"].studio.interviewers.$get({
+            param: { slug },
+            query: {
+              page: String(params.page),
+              pageSize: String(params.pageSize),
+              ...(params.search ? { search: params.search } : {}),
+              sortBy: params.sortBy ?? "createdAt",
+              sortOrder: params.sortOrder ?? "desc",
+            },
+          }),
+          "加载面试官列表失败",
+        ),
     [slug],
   );
 
@@ -333,7 +329,6 @@ function InterviewerManagementPage({ departments }: { departments: DepartmentRec
   );
 }
 
-type EmptyFilters = Record<string, never>;
 type SearchParamsPrimitive = boolean | number | string;
 type SearchParamsRecord = Record<
   string,
@@ -360,14 +355,6 @@ function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord
   return out;
 }
 
-function parseInterviewerQuery(searchParams: SearchParamsRecord): DataGridQueryState<EmptyFilters> {
-  return parseDataGridSearchParams(searchParams, {
-    allowedSortIds: ["createdAt", "name", "updatedAt"],
-    defaultSorting: [{ desc: true, id: "createdAt" }],
-    initialFilters: {},
-  });
-}
-
 function StudioInterviewersRoute() {
   const state = useLoaderData({
     from: "/w/$slug/studio/interviewers",
@@ -377,23 +364,15 @@ function StudioInterviewersRoute() {
     return null;
   }
 
-  return (
-    <HydrationBoundary state={state.dehydratedState as unknown as DehydratedState}>
-      <InterviewerManagementPage departments={state.departments} />
-    </HydrationBoundary>
-  );
+  return <InterviewerManagementPage departments={state.departments} />;
 }
 
 export const Route = createFileRoute("/w/$slug/studio/interviewers")({
   validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
   loader: async (loaderContext) => {
-    const { location, params } = loaderContext as unknown as {
-      location: { search: SearchParamsRecord };
-      params: { slug: string };
-    };
-    const query = parseInterviewerQuery(location.search);
+    const { params } = loaderContext as unknown as { params: { slug: string } };
     const state = (await loadStudioInterviewersState({
-      data: { query, slug: params.slug },
+      data: { slug: params.slug },
     })) as StudioInterviewersState;
     if (state.status === "unauthenticated") {
       throw redirect({

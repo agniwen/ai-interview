@@ -1,6 +1,5 @@
 import { IconChevronDown, IconClipboardList, IconPlus, IconSparkles } from "@tabler/icons-react";
-import { HydrationBoundary, useQueryClient } from "@tanstack/react-query";
-import type { DehydratedState } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   createFileRoute,
   notFound,
@@ -9,8 +8,6 @@ import {
   useNavigate,
   useSearch,
 } from "@tanstack/react-router";
-import type { DataGridQueryState } from "@/components/data-grid/query-contract";
-import { parseDataGridSearchParams } from "@/components/data-grid/query-contract";
 import type { JobDescriptionListRecord } from "@arc/shared/job-descriptions";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import { loadStudioFormsState } from "@/lib/start/studio/forms.functions";
@@ -56,6 +53,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { rpc } from "@/lib/client/rpc";
+import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { CandidateFormTemplateEditorDialog } from "@/components/features/studio/forms/form-template-editor-dialog";
 import { FormTemplateAiCreateDialog } from "@/components/features/studio/forms/form-template-ai-create-dialog";
@@ -98,41 +96,39 @@ function CandidateFormTemplateManagementPage({
 
   const fetchTemplates = useMemo(
     () =>
-      async (params: {
+      (params: {
         search: string;
         page: number;
         pageSize: number;
         filters: { scope: string; jobDescriptionId: string; archivedFilter: string };
         sortBy: string | undefined;
         sortOrder: "asc" | "desc" | undefined;
-      }): Promise<PaginatedCandidateFormTemplateResult> => {
-        const res = await rpc.api.w[":slug"].studio.forms.$get({
-          param: { slug },
-          query: {
-            page: String(params.page),
-            pageSize: String(params.pageSize),
-            ...(params.search ? { search: params.search } : {}),
-            // 多选过滤：CSV 形式 / Multi-select filters: CSV serialization.
-            ...(params.filters.scope ? { scope: params.filters.scope } : {}),
-            ...(params.filters.jobDescriptionId
-              ? { jobDescriptionId: params.filters.jobDescriptionId }
-              : {}),
-            // archivedFilter 走 DataGrid 的 filter 通道，自动进入 queryKey，
-            // 切换时 react-query 才会重新拉取（避免列表不刷新的 bug）。
-            // Archived filter goes through the DataGrid filter channel so it's
-            // part of the queryKey and changes trigger a fresh fetch.
-            ...(params.filters.archivedFilter === "active"
-              ? {}
-              : { archived: params.filters.archivedFilter }),
-            sortBy: params.sortBy ?? "createdAt",
-            sortOrder: params.sortOrder ?? "desc",
-          },
-        });
-        if (!res.ok) {
-          throw new Error("加载表单题列表失败");
-        }
-        return (await res.json()) as PaginatedCandidateFormTemplateResult;
-      },
+      }): Promise<PaginatedCandidateFormTemplateResult> =>
+        rpcFetch<PaginatedCandidateFormTemplateResult>(
+          rpc.api.w[":slug"].studio.forms.$get({
+            param: { slug },
+            query: {
+              page: String(params.page),
+              pageSize: String(params.pageSize),
+              ...(params.search ? { search: params.search } : {}),
+              // 多选过滤：CSV 形式 / Multi-select filters: CSV serialization.
+              ...(params.filters.scope ? { scope: params.filters.scope } : {}),
+              ...(params.filters.jobDescriptionId
+                ? { jobDescriptionId: params.filters.jobDescriptionId }
+                : {}),
+              // archivedFilter 走 DataGrid 的 filter 通道，自动进入 queryKey，
+              // 切换时 react-query 才会重新拉取（避免列表不刷新的 bug）。
+              // Archived filter goes through the DataGrid filter channel so it's
+              // part of the queryKey and changes trigger a fresh fetch.
+              ...(params.filters.archivedFilter === "active"
+                ? {}
+                : { archived: params.filters.archivedFilter }),
+              sortBy: params.sortBy ?? "createdAt",
+              sortOrder: params.sortOrder ?? "desc",
+            },
+          }),
+          "加载表单题列表失败",
+        ),
     [slug],
   );
 
@@ -661,12 +657,6 @@ function CandidateFormTemplateManagementPage({
   );
 }
 
-interface CandidateFormFilters extends Record<string, string> {
-  archivedFilter: string;
-  jobDescriptionId: string;
-  scope: string;
-}
-
 type SearchParamsPrimitive = boolean | number | string;
 type SearchParamsRecord = Record<
   string,
@@ -694,16 +684,6 @@ function coerceSearchParams(search: Record<string, unknown>): SearchParamsRecord
   return out;
 }
 
-function parseCandidateFormQuery(
-  searchParams: SearchParamsRecord,
-): DataGridQueryState<CandidateFormFilters> {
-  return parseDataGridSearchParams(searchParams, {
-    allowedSortIds: ["createdAt", "title", "updatedAt"],
-    defaultSorting: [{ desc: true, id: "createdAt" }],
-    initialFilters: { archivedFilter: "active", jobDescriptionId: "", scope: "" },
-  });
-}
-
 function StudioFormsRoute() {
   const state = useLoaderData({
     from: "/w/$slug/studio/forms",
@@ -713,23 +693,15 @@ function StudioFormsRoute() {
     return null;
   }
 
-  return (
-    <HydrationBoundary state={state.dehydratedState as unknown as DehydratedState}>
-      <CandidateFormTemplateManagementPage jobDescriptions={state.jobDescriptions} />
-    </HydrationBoundary>
-  );
+  return <CandidateFormTemplateManagementPage jobDescriptions={state.jobDescriptions} />;
 }
 
 export const Route = createFileRoute("/w/$slug/studio/forms")({
   validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
   loader: async (loaderContext) => {
-    const { location, params } = loaderContext as unknown as {
-      location: { search: SearchParamsRecord };
-      params: { slug: string };
-    };
-    const query = parseCandidateFormQuery(location.search);
+    const { params } = loaderContext as unknown as { params: { slug: string } };
     const state = (await loadStudioFormsState({
-      data: { query, slug: params.slug },
+      data: { slug: params.slug },
     })) as StudioFormsState;
     if (state.status === "unauthenticated") {
       throw redirect({
