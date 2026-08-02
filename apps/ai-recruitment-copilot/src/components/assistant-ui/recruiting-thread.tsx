@@ -39,11 +39,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { pipelineStageMeta, pipelineStageSchema } from "@arc/db-schema/studio-interviews";
 import { RecruitingContextPanel } from "./recruiting-context-panel";
+import { activeThreadStyle, useRecruitingCopilotContext } from "./recruiting-copilot-context";
 import {
-  activeThreadStyle,
   composerSendButtonClass,
-  useRecruitingCopilotContext,
-} from "./recruiting-copilot-context";
+  recruitingComposerDisclaimer,
+  recruitingComposerPlaceholder,
+} from "./recruiting-composer-style";
 import {
   RecruitingComposerDirectiveChip,
   RecruitingDirectiveText,
@@ -263,7 +264,7 @@ function RecruitingComposerInput() {
         "[&_.aui-lexical-placeholder]:pointer-events-none [&_.aui-lexical-placeholder]:absolute [&_.aui-lexical-placeholder]:inset-x-2 [&_.aui-lexical-placeholder]:top-2 [&_.aui-lexical-placeholder]:text-muted-foreground",
       )}
       directiveChip={RecruitingComposerDirectiveChip}
-      placeholder="输入招聘问题，或输入 @ 提及候选人..."
+      placeholder={recruitingComposerPlaceholder}
       submitMode="enter"
     />
   );
@@ -548,7 +549,7 @@ export function RecruitingThread({ isRunning }: { isRunning: boolean }) {
             <div className="mx-auto w-full max-w-(--thread-max-width)">
               <Composer />
               <p className="mt-2 text-center text-muted-foreground text-xs">
-                AI Recruitment Copilot 可能出错，请在确认动作前核对候选人和岗位信息。
+                {recruitingComposerDisclaimer}
               </p>
             </div>
           </div>

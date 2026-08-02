@@ -289,6 +289,3 @@ export function RecruitingCopilotContextProvider({
 export const activeThreadStyle = {
   "--thread-max-width": "48rem",
 } as CSSProperties;
-
-export const composerSendButtonClass =
-  "size-9 rounded-full bg-primary p-0 text-primary-foreground hover:bg-primary/90 disabled:border-input disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100";

@@ -11,8 +11,6 @@ import {
 import { loadStudioResumesState } from "@/lib/start/studio/resumes.functions";
 import type { StudioResumesState } from "@/lib/start/studio/resumes.functions";
 
-import { RecruitingPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
-
 import { ResumeLibraryPage } from "@/components/features/studio/resumes/resume-library-page";
 import { coerceSearchParams } from "@/components/features/studio/resumes/resume-library-page-model";
 function StudioResumesRoute() {
@@ -54,6 +52,5 @@ export const Route = createFileRoute("/w/$slug/studio/resumes")({
     meta: [{ title: formatDocumentTitle("招聘台") }],
   }),
   component: StudioResumesRoute,
-  pendingComponent: RecruitingPageSkeleton,
   shouldReload: false,
 });

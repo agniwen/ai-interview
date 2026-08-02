@@ -30,21 +30,22 @@ describe("ChatPageSkeleton", () => {
     const composerShell = composerRoot?.querySelector(":scope > .aui-composer-shell");
     const composerInput = composerShell?.querySelector(":scope > .aui-composer-input");
     const composerActions = composerShell?.querySelector(":scope > .aui-composer-action-wrapper");
-    const disclaimerSkeleton =
-      composerRoot?.nextElementSibling?.querySelector('[data-slot="skeleton"]');
+    const disclaimer = composerRoot?.nextElementSibling;
 
     expect(html).toContain('aria-busy="true"');
     expect(html).toContain('aria-label="聊天记录加载中"');
     expect(html).toContain("--thread-max-width:48rem");
     expect(html).toContain("overflow-y-auto");
-    expect(html).toContain("flex w-full flex-col gap-2 rounded-[28px]");
+    expect(html).toContain("relative flex w-full flex-col gap-2 rounded-[28px]");
     expect(html).toContain("min-h-10 w-full");
     expect(html).toContain("flex items-center justify-end gap-1");
     expect(footer?.classList).toContain("sticky");
     expect(composerRoot?.parentElement).toBe(footer?.firstElementChild);
     expect(composerShell?.children[0]).toBe(composerInput);
     expect(composerShell?.children[1]).toBe(composerActions);
-    expect(disclaimerSkeleton?.classList).toContain("h-4");
+    expect(composerRoot?.querySelector('[data-slot="skeleton"]')).toBeNull();
+    expect(composerInput?.textContent).toContain("输入招聘问题");
+    expect(disclaimer?.textContent).toContain("AI Recruitment Copilot 可能出错");
     expect(html).not.toContain("pb-[18vh]");
   });
 
@@ -59,8 +60,8 @@ describe("ChatPageSkeleton", () => {
     expect(agentLayout).toContain("<ChatPendingSkeleton />");
     expect(agentIndex).toContain("pendingComponent: ChatPageSkeleton");
     expect(agentSession).toContain("pendingComponent: ChatMessageListSkeleton");
-    expect(studioLayout).toContain("<RecruitingPageSkeleton />");
-    expect(studioLayout).toContain("pendingComponent: StudioPendingRoute");
+    expect(studioLayout).not.toContain("RecruitingPageSkeleton");
+    expect(studioLayout).not.toContain("pendingComponent:");
     expect(chatWorkspace).toContain(
       "initialSessionId ? <ChatMessageListSkeleton /> : <ChatPageSkeleton />",
     );
