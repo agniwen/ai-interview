@@ -257,6 +257,10 @@ export function useDataGridState<TData, F extends Record<string, string>>(
     void queryClient.invalidateQueries({ queryKey: opts.queryKeyBase });
   }
 
+  function retry() {
+    void listQuery.refetch();
+  }
+
   const pagination = {
     onPageChange: (p: number) => setPageRaw(p),
     onPageSizeChange: (s: number) => {
@@ -298,11 +302,13 @@ export function useDataGridState<TData, F extends Record<string, string>>(
   const bind = {
     canResetFilters,
     data: data.records,
+    error: listQuery.error,
     filterValues,
     loading,
     onFilterChange,
     onRefresh: invalidate,
     onResetFilters,
+    onRetry: retry,
     onRowSelectionChange: setRowSelection,
     onSortingChange,
     pagination,

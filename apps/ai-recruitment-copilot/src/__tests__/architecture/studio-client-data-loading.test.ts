@@ -14,6 +14,8 @@ const listRoutes = [
   "resumes",
 ] as const;
 
+const extractedPageRoutes = listRoutes.filter((route) => route !== "resumes");
+
 function readSource(relativePath: string): string {
   return readFileSync(path.join(appRoot, relativePath), "utf-8");
 }
@@ -39,5 +41,13 @@ describe("Studio client data loading", () => {
       expect(source).not.toContain("prefetchQuery");
       expect(source).not.toContain("prefetchInfiniteQuery");
     }
+  });
+
+  it.each(extractedPageRoutes)("keeps the %s route as a thin routing boundary", (route) => {
+    const source = readSource(`src/routes/w.$slug.studio.${route}.tsx`);
+
+    expect(source).not.toContain("useDataGridState");
+    expect(source).not.toContain("rpcFetch");
+    expect(source.split("\n").length).toBeLessThan(120);
   });
 });

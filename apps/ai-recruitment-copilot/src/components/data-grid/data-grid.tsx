@@ -25,6 +25,7 @@ import {
 } from "./parts/pinned-cell";
 import { Toolbar } from "./parts/toolbar";
 import type { ToolbarFilterConfig } from "./parts/toolbar";
+import { ListLoadError } from "./list-load-error";
 
 const DEFAULT_PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100] as const;
 
@@ -74,7 +75,9 @@ export interface DataGridProps<TData> {
   headerExtra?: ReactNode;
 
   empty: ReactNode;
+  error?: unknown;
   onRefresh?: () => void;
+  onRetry?: () => void;
   onResetFilters?: () => void;
   canResetFilters?: boolean;
   /**
@@ -96,6 +99,7 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
     columns,
     data,
     empty,
+    error,
     filterValues,
     filters,
     filtersExtra,
@@ -105,6 +109,7 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
     maxHeight = null,
     onFilterChange,
     onRefresh,
+    onRetry,
     onResetFilters,
     onRowSelectionChange,
     onSortingChange,
@@ -160,6 +165,11 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
       : null;
 
   const { rows } = table.getRowModel();
+  const emptyContent = error ? (
+    <ListLoadError error={error} onRetry={onRetry ?? onRefresh} />
+  ) : (
+    empty
+  );
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [scrollOverflow, setScrollOverflow] = useState({
@@ -305,7 +315,7 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
           </Table>
         </div>
       ) : (
-        empty
+        emptyContent
       )}
 
       <PaginationBar

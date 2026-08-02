@@ -19,7 +19,15 @@ window.scrollTo = vi.fn();
 
 type Grid = ReturnType<typeof useDataGridState<{ id: string }, { status: string }>>;
 
-async function renderGridHook({ searchParams = "" }: { searchParams?: string }) {
+async function renderGridHook({
+  queryFn = vi.fn(() => Promise.resolve({ records: [], total: 0, totalPages: 5 })),
+  searchParams = "",
+}: {
+  queryFn?: ReturnType<
+    typeof vi.fn<() => Promise<{ records: { id: string }[]; total: number; totalPages: number }>>
+  >;
+  searchParams?: string;
+}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -27,7 +35,6 @@ async function renderGridHook({ searchParams = "" }: { searchParams?: string }) 
   document.body.append(container);
   const root = createRoot(container);
   let current: Grid | null = null;
-  const queryFn = vi.fn(() => Promise.resolve({ records: [], total: 0, totalPages: 5 }));
 
   function Harness() {
     current = useDataGridState<{ id: string }, { status: string }>({
@@ -102,5 +109,27 @@ describe("useDataGridState", () => {
     expect(harness.router.state.location.search).toMatchObject({ page: 2 });
     expect(harness.router.state.location.href).toContain("?page=2");
     expect(harness.router.state.location.href).not.toContain('"2"');
+  });
+
+  it("exposes a failed list query and a retry callback", async () => {
+    const failure = new Error("加载部门列表失败");
+    const queryFn = vi.fn<
+      () => Promise<{ records: { id: string }[]; total: number; totalPages: number }>
+    >(() => Promise.reject(failure));
+    const harness = await renderGridHook({ queryFn });
+
+    await act(async () => {
+      await vi.waitFor(() => {
+        expect(harness.current.bind.error).toBe(failure);
+      });
+    });
+
+    queryFn.mockResolvedValueOnce({ records: [], total: 0, totalPages: 0 });
+    await act(async () => {
+      harness.current.bind.onRetry();
+      await vi.waitFor(() => {
+        expect(queryFn).toHaveBeenCalledTimes(2);
+      });
+    });
   });
 });
