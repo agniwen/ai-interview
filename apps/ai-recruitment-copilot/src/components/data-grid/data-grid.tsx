@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@arc/shared/utils";
 import { PaginationBar } from "./parts/pagination-bar";
 import {
@@ -28,6 +29,54 @@ import type { ToolbarFilterConfig } from "./parts/toolbar";
 import { ListLoadError } from "./list-load-error";
 
 const DEFAULT_PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100] as const;
+const SKELETON_CELL_WIDTHS = ["w-16", "w-24", "w-32", "w-20"] as const;
+
+function DataGridSkeleton({ columnCount, rowCount }: { columnCount: number; rowCount: number }) {
+  const columnIndexes = Array.from({ length: Math.max(columnCount, 1) }, (_, index) => index);
+  const rowIndexes = Array.from({ length: rowCount }, (_, index) => index);
+
+  return (
+    <div
+      aria-label="正在加载表格"
+      aria-busy="true"
+      className="w-full overflow-hidden rounded-lg border"
+      data-slot="data-grid-skeleton"
+    >
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {columnIndexes.map((columnIndex) => (
+              <TableHead key={`header-${columnIndex}`}>
+                <Skeleton
+                  className={cn(
+                    "h-4",
+                    SKELETON_CELL_WIDTHS[columnIndex % SKELETON_CELL_WIDTHS.length],
+                  )}
+                />
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rowIndexes.map((rowIndex) => (
+            <TableRow key={`row-${rowIndex}`}>
+              {columnIndexes.map((columnIndex) => (
+                <TableCell key={`cell-${rowIndex}-${columnIndex}`}>
+                  <Skeleton
+                    className={cn(
+                      "h-4",
+                      SKELETON_CELL_WIDTHS[(rowIndex + columnIndex) % SKELETON_CELL_WIDTHS.length],
+                    )}
+                  />
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
 
 export interface BulkActionContext<TData> {
   selectedIds: string[];
@@ -165,11 +214,18 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
       : null;
 
   const { rows } = table.getRowModel();
-  const emptyContent = error ? (
-    <ListLoadError error={error} onRetry={onRetry ?? onRefresh} />
-  ) : (
-    empty
-  );
+  let emptyContent = empty;
+  if (loading) {
+    emptyContent = (
+      <DataGridSkeleton
+        columnCount={table.getAllLeafColumns().length}
+        rowCount={Math.min(pagination.pageSize, 6)}
+      />
+    );
+  }
+  if (error) {
+    emptyContent = <ListLoadError error={error} onRetry={onRetry ?? onRefresh} />;
+  }
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [scrollOverflow, setScrollOverflow] = useState({
