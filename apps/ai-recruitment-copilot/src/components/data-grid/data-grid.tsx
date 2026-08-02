@@ -240,6 +240,10 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
         toolbarRight={toolbarRight}
       />
 
+      {error && rows.length > 0 ? (
+        <ListLoadError compact error={error} onRetry={onRetry ?? onRefresh} />
+      ) : null}
+
       {rows.length > 0 ? (
         <div className="w-full overflow-hidden rounded-lg border">
           <Table

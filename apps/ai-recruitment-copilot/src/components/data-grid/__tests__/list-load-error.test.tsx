@@ -30,4 +30,18 @@ describe("ListLoadError", () => {
     act(() => button?.click());
     expect(onRetry).toHaveBeenCalledOnce();
   });
+
+  it("supports a compact stale-data warning", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    act(() => {
+      root.render(<ListLoadError compact error={new Error("刷新失败")} />);
+    });
+
+    const alert = container.querySelector('[role="alert"]');
+    expect(alert?.className).not.toContain("min-h-48");
+    expect(container.textContent).toContain("刷新失败");
+  });
 });
