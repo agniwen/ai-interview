@@ -29,11 +29,11 @@ describe("resume semantic index queue payload", () => {
     ).toBe("studio_interview-candidate-1");
   });
 
-  it("defaults semantic concurrency to parse concurrency", () => {
+  it("keeps semantic concurrency at 9 unless explicitly configured", () => {
     expect(resolveResumeSemanticIndexWorkerConcurrency({})).toBe(9);
     expect(
       resolveResumeSemanticIndexWorkerConcurrency({ RESUME_PARSE_WORKER_CONCURRENCY: "4" }),
-    ).toBe(4);
+    ).toBe(9);
     expect(
       resolveResumeSemanticIndexWorkerConcurrency({
         RESUME_PARSE_WORKER_CONCURRENCY: "4",

@@ -56,10 +56,7 @@ export function buildResumeSemanticIndexJobId({
 export function resolveResumeSemanticIndexWorkerConcurrency(
   env: NodeJS.ProcessEnv = process.env,
 ): number {
-  const value = Number.parseInt(
-    env.RESUME_SEMANTIC_INDEX_WORKER_CONCURRENCY || env.RESUME_PARSE_WORKER_CONCURRENCY || "9",
-    10,
-  );
+  const value = Number.parseInt(env.RESUME_SEMANTIC_INDEX_WORKER_CONCURRENCY || "9", 10);
   return Number.isFinite(value) && value > 0 ? value : 9;
 }
 

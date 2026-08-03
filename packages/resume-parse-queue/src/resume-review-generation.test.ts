@@ -149,13 +149,13 @@ describe("resume review generation queue", () => {
     ).toBe("resume-review-resume-1-jd-1-reassess-token-1");
   });
 
-  it("defaults review concurrency to parse concurrency", () => {
+  it("keeps review concurrency at 9 unless explicitly configured", () => {
     expect(resolveResumeReviewGenerationWorkerConcurrency({})).toBe(9);
     expect(
       resolveResumeReviewGenerationWorkerConcurrency({
         RESUME_PARSE_WORKER_CONCURRENCY: "4",
       }),
-    ).toBe(4);
+    ).toBe(9);
     expect(
       resolveResumeReviewGenerationWorkerConcurrency({
         RESUME_PARSE_WORKER_CONCURRENCY: "4",
