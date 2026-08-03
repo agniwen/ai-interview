@@ -59,4 +59,22 @@ describe("isResumeParseCacheSourceCompatible", () => {
       }),
     ).toBe(true);
   });
+
+  it("invalidates legacy Qwen OCR cache entries after the Qwen3.5 migration", () => {
+    expect(
+      isResumeParseCacheSourceCompatible("qwen-ocr", {
+        RESUME_PARSE_PROVIDER: "ocr-llm",
+      }),
+    ).toBe(false);
+    expect(
+      isResumeParseCacheSourceCompatible("qwen3.5-ocr", {
+        RESUME_PARSE_PROVIDER: "ocr-llm",
+      }),
+    ).toBe(true);
+    expect(
+      isResumeParseCacheSourceCompatible("pptx-text", {
+        RESUME_PARSE_PROVIDER: "ocr-llm",
+      }),
+    ).toBe(true);
+  });
 });

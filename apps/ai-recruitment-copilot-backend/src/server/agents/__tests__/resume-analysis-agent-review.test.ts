@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   findAttachmentByContentHash: vi.fn(),
   generateResumeStructured: vi.fn(),
   generateStructuredWithMastraAgent: vi.fn(),
+  parseResumeDocument: vi.fn(),
   parseResumeFast: vi.fn(),
   putObjectBytes: vi.fn(),
   resumeHardFilterAgent: { id: "resume-hard-filter-agent" },
@@ -35,11 +36,13 @@ vi.mock(
 vi.mock("@arc/shared/file-hash", () => ({ sha256HexOfBytes: mocks.sha256HexOfBytes }));
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
   buildAttachmentKeyByHash: mocks.buildAttachmentKeyByHash,
+  presignGetObjectUrl: vi.fn(),
   putObjectBytes: mocks.putObjectBytes,
 }));
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline", () => ({
   extractResumeDocumentText: mocks.extractResumeDocumentText,
   generateResumeStructured: mocks.generateResumeStructured,
+  parseResumeDocument: mocks.parseResumeDocument,
   parseResumeFast: mocks.parseResumeFast,
 }));
 vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments", () => ({

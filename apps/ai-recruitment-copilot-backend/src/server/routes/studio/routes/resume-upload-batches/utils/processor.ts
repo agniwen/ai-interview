@@ -7,10 +7,17 @@ import {
   studioInterview,
 } from "@arc/db-schema/schema";
 import type { ProcessNextResult } from "@arc/shared/bulk-resume-upload";
-import { getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
+import {
+  getObjectStream,
+  presignGetObjectUrl,
+} from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { parseResumeBytesToProfile } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import { isResumeParseCacheEnabled } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-cache-policy";
-import { isResumeParseCacheSourceCompatible } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-provider";
+import {
+  getResumeParseProvider,
+  isResumeParseCacheSourceCompatible,
+} from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-provider";
+import { getResumeDocumentKind } from "@arc/shared/resume-documents";
 import {
   claimNextPendingItem,
   claimPendingItemById,
@@ -104,11 +111,20 @@ async function resolveResumeProfile(item: NonNullable<ItemRow>): Promise<{
     itemId: item.id,
   });
   const bytes = new Uint8Array(await new Response(object.body).arrayBuffer());
+  const fileUrl =
+    getResumeParseProvider() === "ocr-llm" &&
+    getResumeDocumentKind({
+      fileName: item.originalFileName,
+      mediaType: object.contentType ?? undefined,
+    }) === "pdf"
+      ? await presignGetObjectUrl(item.storageKey)
+      : undefined;
   const parseStartedAt = Date.now();
   logStep("parse.start", { fileSize: bytes.byteLength, itemId: item.id });
   const parsed = await parseResumeBytesToProfile({
     bytes,
     fileName: item.originalFileName,
+    fileUrl,
     mediaType: object.contentType ?? "application/octet-stream",
   });
   logStep("parse.done", {

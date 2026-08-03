@@ -110,6 +110,7 @@ const TEXT_SOURCE_LABEL: Record<NonNullable<ResumeParseCacheRecord["parsedTextSo
   "pdf-parse": "PDF 文本",
   "pptx-text": "PPTX 文本",
   "qwen-ocr": "Qwen OCR",
+  "qwen3.5-ocr": "Qwen3.5 OCR",
   "xlsx-text": "XLSX 文本",
 };
 
