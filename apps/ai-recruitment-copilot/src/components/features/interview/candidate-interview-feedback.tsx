@@ -10,6 +10,7 @@ import {
   candidateInterviewFeedbackCategoryValues,
   candidateInterviewFeedbackInputSchema,
 } from "@arc/db-schema/studio-interviews";
+import { IconChevronRight, IconCircleCheck, IconMessageCircle } from "@tabler/icons-react";
 import { useState } from "react";
 import { LocalDateTimeText } from "@/components/features/display/local-date-time-text";
 import {
@@ -24,7 +25,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardPanel, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -34,7 +34,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from "@/components/ui/item";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 
 export function CandidateInterviewFeedbackContent({
@@ -43,7 +52,7 @@ export function CandidateInterviewFeedbackContent({
   feedback: CandidateInterviewFeedback;
 }) {
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-wrap gap-2">
         {feedback.categories.map((category) => (
           <Badge key={category} variant="outline">
@@ -75,15 +84,21 @@ export function CandidateInterviewFeedbackPanel({
 
   if (feedback) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>候选人反馈</CardTitle>
-          <p className="text-muted-foreground text-sm">已提交反馈，内容无法修改。</p>
-        </CardHeader>
-        <CardPanel>
-          <CandidateInterviewFeedbackContent feedback={feedback} />
-        </CardPanel>
-      </Card>
+      <div className="flex flex-col gap-4">
+        <Separator />
+        <Item className="items-start p-1">
+          <ItemMedia>
+            <IconCircleCheck className="size-5 text-muted-foreground" />
+          </ItemMedia>
+          <ItemContent>
+            <ItemTitle>感谢你的反馈</ItemTitle>
+            <ItemDescription>本轮反馈已提交，内容无法修改。</ItemDescription>
+            <div className="mt-3">
+              <CandidateInterviewFeedbackContent feedback={feedback} />
+            </div>
+          </ItemContent>
+        </Item>
+      </div>
     );
   }
 
@@ -130,19 +145,24 @@ export function CandidateInterviewFeedbackPanel({
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle>面试中遇到了问题？</CardTitle>
-          <p className="text-muted-foreground text-sm">
-            告诉我们音视频、网络或 AI 对话中遇到的情况。
-          </p>
-        </CardHeader>
-        <CardPanel>
-          <Button onClick={() => setOpen(true)} type="button">
-            反馈遇到的问题
-          </Button>
-        </CardPanel>
-      </Card>
+      <div className="flex flex-col gap-4">
+        <Separator />
+        <Item className="items-start p-1">
+          <ItemMedia>
+            <IconMessageCircle className="size-5 text-muted-foreground" />
+          </ItemMedia>
+          <ItemContent>
+            <ItemTitle>面试过程不太顺利？</ItemTitle>
+            <ItemDescription>如遇音视频、网络或 AI 对话问题，可以告诉我们。</ItemDescription>
+          </ItemContent>
+          <ItemActions className="basis-full pl-8 sm:basis-auto sm:self-center sm:pl-0">
+            <Button onClick={() => setOpen(true)} size="sm" type="button" variant="ghost">
+              反馈问题
+              <IconChevronRight data-icon="inline-end" />
+            </Button>
+          </ItemActions>
+        </Item>
+      </div>
 
       <Dialog onOpenChange={setOpen} open={open}>
         <DialogContent className="sm:max-w-xl">

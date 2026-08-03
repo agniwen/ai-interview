@@ -8,7 +8,8 @@ describe("CandidateInterviewFeedbackPanel", () => {
       <CandidateInterviewFeedbackPanel feedback={null} onSubmit={vi.fn()} />,
     );
 
-    expect(html).toContain("反馈遇到的问题");
+    expect(html).toContain("反馈问题");
+    expect(html).toContain("面试过程不太顺利？");
     expect(html).not.toContain("已提交反馈");
   });
 
@@ -24,10 +25,10 @@ describe("CandidateInterviewFeedbackPanel", () => {
       />,
     );
 
-    expect(html).toContain("已提交反馈");
+    expect(html).toContain("本轮反馈已提交");
     expect(html).toContain("音频");
     expect(html).toContain("网络连接");
     expect(html).toContain("面试过程中声音断断续续，并且发生过一次网络重连。");
-    expect(html).not.toContain(">反馈遇到的问题<");
+    expect(html).not.toContain(">反馈问题<");
   });
 });
