@@ -182,7 +182,7 @@ export function CandidateInterviewFeedbackPanel({
       <Dialog onOpenChange={handleOpenChange} open={open}>
         <DialogContent
           className={cn(
-            "sm:max-w-xl",
+            "md:max-w-xl",
             isDrawerExpanded && "max-md:mt-0 max-md:h-dvh max-md:max-h-dvh max-md:rounded-none",
           )}
         >

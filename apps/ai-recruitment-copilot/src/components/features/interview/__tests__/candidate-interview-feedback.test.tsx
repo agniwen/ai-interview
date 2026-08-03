@@ -68,6 +68,8 @@ describe("CandidateInterviewFeedbackPanel", () => {
     );
     const drawerContent = document.querySelector<HTMLElement>('[data-slot="dialog-content"]');
     expect(expandButton?.getAttribute("aria-expanded")).toBe("false");
+    expect(drawerContent?.className).toContain("md:max-w-xl");
+    expect(drawerContent?.className).not.toContain("sm:max-w-xl");
     expect(drawerContent?.className).not.toContain("h-dvh");
 
     await act(() => {
