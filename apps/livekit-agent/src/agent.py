@@ -303,7 +303,7 @@ def _build_session(
             # 复用 openai.LLM 的 streaming 实现.
             # Reuse openai.LLM by pointing base_url at DashScope's OpenAI-
             # compatible endpoint to talk to Qwen/DeepSeek models.
-            model=os.environ.get("DASHSCOPE_LLM_MODEL", "deepseek-v4-flash"),
+            model=os.environ.get("DASHSCOPE_LLM_MODEL", "deepseek-v4-flash-0731"),
             base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
             api_key=os.environ.get("DASHSCOPE_API_KEY"),  # type: ignore[arg-type]
             extra_body={"enable_thinking": False},
@@ -1015,7 +1015,7 @@ async def my_agent(ctx: JobContext) -> None:
         except Exception:
             logger.exception("transcript replay coroutine failed")
         # 用 say() 直接 TTS, 不走 generate_reply: 小模型 (Qwen-turbo /
-        # deepseek-v4-flash 等) 会把"候选人刚才因网络问题短暂离线"这种元指令
+        # deepseek-v4-flash-0731 等) 会把"候选人刚才因网络问题短暂离线"这种元指令
         # 当成候选人在反思, 进而切换到候选人口吻. say() 跳过 LLM 杜绝漂移.
         # Bypass LLM-driven greet: small models misread the meta-instruction
         # as the candidate's own utterance and flip role.

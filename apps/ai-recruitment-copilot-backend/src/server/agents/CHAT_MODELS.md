@@ -102,7 +102,7 @@ Next.js dev cache 会持有旧模块引用，不清的话本地页面可能短�
 | alibaba  | `qwen3.6-max-preview` | 最强能力                       |
 | alibaba  | `qwen3.6-flash`       | 快速/低价                      |
 | deepseek | `deepseek-v4-pro`     | DeepSeek 旗舰，hybrid thinking |
-| deepseek | `deepseek-v4-flash`   | DeepSeek 低价款                |
+| deepseek | `deepseek-v4-flash-0731` | DeepSeek 低价款             |
 | moonshot | `kimi-k2.6`           | Kimi 旗舰，默认开 thinking     |
 | zhipu    | `glm-5.1`             | GLM 旗舰                       |
 | zhipu    | `glm-4.5-air`         | GLM 轻量                       |

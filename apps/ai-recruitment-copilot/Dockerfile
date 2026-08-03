@@ -25,7 +25,7 @@ FROM base AS builder
 WORKDIR /repo
 
 ARG ALIBABA_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-ARG ALIBABA_FAST_MODEL=deepseek-v4-flash
+ARG ALIBABA_FAST_MODEL=deepseek-v4-flash-0731
 ARG ALIBABA_MODEL=deepseek-v4-pro
 ARG ALIBABA_STRUCTURED_MODEL=deepseek-v4-pro
 ARG BETTER_AUTH_SECRET=build-time-placeholder

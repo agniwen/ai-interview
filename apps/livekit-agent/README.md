@@ -12,7 +12,7 @@ For repo-wide setup (web + agent together), see the root [`README.md`](../../REA
 | Stage          | Provider                                          | Notes                           |
 | -------------- | ------------------------------------------------- | ------------------------------- |
 | STT            | ElevenLabs (`scribe_v2`, language `zh`)           | livekit-plugins-elevenlabs      |
-| LLM            | Aliyun DashScope (`deepseek-v4-flash` by default) | OpenAI-compatible endpoint      |
+| LLM            | Aliyun DashScope (`deepseek-v4-flash-0731` by default) | OpenAI-compatible endpoint      |
 | TTS            | Minimax                                           | livekit-plugins-minimax-ai      |
 | VAD            | Silero                                            | downloaded via `download-files` |
 | Turn-detection | LiveKit multilingual model                        | downloaded via `download-files` |

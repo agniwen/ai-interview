@@ -11,7 +11,7 @@ afterEach(() => {
 describe("server env", () => {
   const configuredEnv = {
     ALIBABA_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    ALIBABA_FAST_MODEL: "deepseek-v4-flash",
+    ALIBABA_FAST_MODEL: "deepseek-v4-flash-0731",
     ALIBABA_MODEL: "deepseek-v4-pro",
     ALIBABA_STRUCTURED_MODEL: "deepseek-v4-pro",
     BETTER_AUTH_SECRET: "better-auth-secret",
@@ -54,7 +54,7 @@ describe("server env", () => {
 
     expect(target).toMatchObject({
       ALIBABA_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-      ALIBABA_FAST_MODEL: "deepseek-v4-flash",
+      ALIBABA_FAST_MODEL: "deepseek-v4-flash-0731",
       ALIBABA_MODEL: "deepseek-v4-pro",
       ALIBABA_STRUCTURED_MODEL: "deepseek-v4-pro",
       BETTER_AUTH_SECRET: "better-auth-secret",
