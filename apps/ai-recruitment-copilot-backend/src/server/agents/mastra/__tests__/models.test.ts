@@ -25,13 +25,13 @@ describe("Mastra model configuration", () => {
       ALIBABA_API_KEY: "legacy-key",
       ALIBABA_BASE_URL: " https://dashscope.aliyuncs.com/compatible-mode/v1 ",
       ALIBABA_FAST_MODEL: "deepseek-v4-flash-0731",
-      ALIBABA_MODEL: "deepseek-v4-pro",
+      ALIBABA_MODEL: "deepseek-v4-flash-0731",
       ALIBABA_STRUCTURED_MODEL: "qwen-plus",
     });
 
     expect(config.chatModel).toEqual({
       apiKey: "legacy-key",
-      modelId: "deepseek-v4-pro",
+      modelId: "deepseek-v4-flash-0731",
       providerId: "alibaba",
       url: "https://dashscope.aliyuncs.com/compatible-mode/v1",
     });

@@ -2,7 +2,7 @@ import type { MastraModelConfig as CoreMastraModelConfig } from "@mastra/core/ll
 
 const ALIBABA_CODING_PLAN_PREFIX = "alibaba-coding-plan/";
 const ALIBABA_PROVIDER_ID = "alibaba";
-const DEFAULT_ALIBABA_COMPATIBLE_MODEL = "deepseek-v4-pro";
+const DEFAULT_ALIBABA_COMPATIBLE_MODEL = "deepseek-v4-flash-0731";
 const DEFAULT_ALIBABA_COMPATIBLE_FAST_MODEL = "deepseek-v4-flash-0731";
 
 export const DEFAULT_CHAT_MODEL = `${ALIBABA_CODING_PLAN_PREFIX}MiniMax-M2.5`;
