@@ -6,6 +6,7 @@ import type {
   CandidateInterviewFeedback,
   CandidateInterviewFeedbackInput,
 } from "@arc/db-schema/studio-interviews";
+import { cn } from "@arc/shared/utils";
 import { useAgent, useSession } from "@livekit/components-react";
 import { ConnectionState, DisconnectReason, RoomEvent, TokenSource } from "livekit-client";
 
@@ -274,8 +275,18 @@ function WaitingView({
         <ThemeToggle />
       </div>
 
-      <main className="relative flex min-h-dvh w-full select-none flex-col pb-40 md:items-center md:justify-center">
-        <div className="mx-auto flex w-full max-w-2xl flex-col px-5 pt-12 sm:px-2 sm:pt-20 md:pt-16">
+      <main
+        className={cn(
+          "relative flex min-h-dvh w-full select-none flex-col md:items-center md:justify-center md:pb-40",
+          !isRoundCompleted && "pb-40",
+        )}
+      >
+        <div
+          className={cn(
+            "mx-auto flex w-full max-w-2xl flex-col px-5 pt-12 sm:px-2 sm:pt-20 md:pt-16",
+            isRoundCompleted && "min-h-dvh pb-6 md:min-h-0 md:pb-0",
+          )}
+        >
           <section>
             <h1 className="text-2xl tracking-tight sm:text-3xl">
               {isRecovering ? "正在恢复面试连接" : resolveTitle(isRoundCompleted, candidateName)}
@@ -285,7 +296,7 @@ function WaitingView({
 
           {showPreparation ? <DevicePreflightCard recordingEnabled={recordingEnabled} /> : null}
           {isRoundCompleted ? (
-            <div className="mt-8">
+            <div className="mt-auto pt-8 md:mt-8 md:pt-0">
               <CandidateInterviewFeedbackPanel
                 feedback={interviewView?.currentRoundFeedback ?? null}
                 onSubmit={onSubmitFeedback}

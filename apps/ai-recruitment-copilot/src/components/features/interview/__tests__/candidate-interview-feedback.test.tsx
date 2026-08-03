@@ -49,6 +49,30 @@ describe("CandidateInterviewFeedbackPanel", () => {
     expect(html).not.toContain(">反馈问题<");
   });
 
+  it("puts the mobile feedback action above its description without title or media", async () => {
+    mobileViewport.value = true;
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+
+    await act(() => {
+      root.render(<CandidateInterviewFeedbackPanel feedback={null} onSubmit={vi.fn()} />);
+    });
+
+    const media = host.querySelector<HTMLElement>('[data-slot="item-media"]');
+    const title = host.querySelector<HTMLElement>('[data-slot="item-title"]');
+    const content = host.querySelector<HTMLElement>('[data-slot="item-content"]');
+    const actions = host.querySelector<HTMLElement>('[data-slot="item-actions"]');
+    expect(media?.className).toContain("hidden");
+    expect(title?.className).toContain("hidden");
+    expect(actions?.className).toContain("order-1");
+    expect(content?.className).toContain("order-2");
+
+    await act(() => {
+      root.unmount();
+    });
+  });
+
   it("lets candidates expand the mobile drawer to full screen", async () => {
     mobileViewport.value = true;
     const host = document.createElement("div");

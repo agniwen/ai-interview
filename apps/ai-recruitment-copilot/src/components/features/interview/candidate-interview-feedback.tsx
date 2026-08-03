@@ -163,14 +163,14 @@ export function CandidateInterviewFeedbackPanel({
       <div className="flex flex-col gap-4">
         <Separator />
         <Item className="items-start p-1">
-          <ItemMedia>
+          <ItemMedia className="hidden md:flex">
             <IconMessageCircle className="size-5 text-muted-foreground" />
           </ItemMedia>
-          <ItemContent>
-            <ItemTitle>面试过程不太顺利？</ItemTitle>
+          <ItemContent className="order-2 basis-full md:order-none md:basis-auto">
+            <ItemTitle className="hidden md:flex">面试过程不太顺利？</ItemTitle>
             <ItemDescription>如遇音视频、网络或 AI 对话问题，可以告诉我们。</ItemDescription>
           </ItemContent>
-          <ItemActions className="basis-full pl-8 sm:basis-auto sm:self-center sm:pl-0">
+          <ItemActions className="order-1 basis-full md:order-none md:basis-auto md:self-center">
             <Button onClick={() => setOpen(true)} size="sm" type="button" variant="secondary">
               反馈问题
               <IconChevronRight data-icon="inline-end" />
