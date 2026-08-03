@@ -1,6 +1,23 @@
+// @vitest-environment jsdom
+
+import { act } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CandidateInterviewFeedbackPanel } from "../candidate-interview-feedback";
+
+const { mobileViewport } = vi.hoisted(() => ({
+  mobileViewport: { value: false },
+}));
+
+vi.mock("@/hooks/use-mobile", () => ({
+  useIsMobile: () => mobileViewport.value,
+}));
+
+afterEach(() => {
+  mobileViewport.value = false;
+  document.body.replaceChildren();
+});
 
 describe("CandidateInterviewFeedbackPanel", () => {
   it("shows the feedback action until the candidate has submitted", () => {
@@ -30,5 +47,42 @@ describe("CandidateInterviewFeedbackPanel", () => {
     expect(html).toContain("网络连接");
     expect(html).toContain("面试过程中声音断断续续，并且发生过一次网络重连。");
     expect(html).not.toContain(">反馈问题<");
+  });
+
+  it("lets candidates expand the mobile drawer to full screen", async () => {
+    mobileViewport.value = true;
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+
+    await act(() => {
+      root.render(<CandidateInterviewFeedbackPanel feedback={null} onSubmit={vi.fn()} />);
+    });
+    const feedbackButton = host.querySelector<HTMLButtonElement>("button");
+    await act(() => {
+      feedbackButton?.click();
+    });
+
+    const expandButton = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="全屏展开反馈面板"]',
+    );
+    const drawerContent = document.querySelector<HTMLElement>('[data-slot="dialog-content"]');
+    expect(expandButton?.getAttribute("aria-expanded")).toBe("false");
+    expect(drawerContent?.className).not.toContain("h-dvh");
+
+    await act(() => {
+      expandButton?.click();
+    });
+    expect(
+      document
+        .querySelector<HTMLButtonElement>('button[aria-label="收起反馈面板"]')
+        ?.getAttribute("aria-expanded"),
+    ).toBe("true");
+    expect(drawerContent?.className).toContain("h-dvh");
+    expect(drawerContent?.className).toContain("rounded-none");
+
+    await act(() => {
+      root.unmount();
+    });
   });
 });

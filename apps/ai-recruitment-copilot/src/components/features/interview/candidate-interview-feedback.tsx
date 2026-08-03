@@ -10,7 +10,14 @@ import {
   candidateInterviewFeedbackCategoryValues,
   candidateInterviewFeedbackInputSchema,
 } from "@arc/db-schema/studio-interviews";
-import { IconChevronRight, IconCircleCheck, IconMessageCircle } from "@tabler/icons-react";
+import { cn } from "@arc/shared/utils";
+import {
+  IconArrowsMaximize,
+  IconArrowsMinimize,
+  IconChevronRight,
+  IconCircleCheck,
+  IconMessageCircle,
+} from "@tabler/icons-react";
 import { useState } from "react";
 import { LocalDateTimeText } from "@/components/features/display/local-date-time-text";
 import {
@@ -81,6 +88,7 @@ export function CandidateInterviewFeedbackPanel({
   const [detail, setDetail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDrawerExpanded, setIsDrawerExpanded] = useState(false);
 
   if (feedback) {
     return (
@@ -119,6 +127,13 @@ export function CandidateInterviewFeedbackPanel({
     }
     setError(null);
     setConfirmOpen(true);
+  }
+
+  function handleOpenChange(nextOpen: boolean) {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      setIsDrawerExpanded(false);
+    }
   }
 
   async function confirmSubmission() {
@@ -164,11 +179,31 @@ export function CandidateInterviewFeedbackPanel({
         </Item>
       </div>
 
-      <Dialog onOpenChange={setOpen} open={open}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
+      <Dialog onOpenChange={handleOpenChange} open={open}>
+        <DialogContent
+          className={cn(
+            "sm:max-w-xl",
+            isDrawerExpanded && "max-md:mt-0 max-md:h-dvh max-md:max-h-dvh max-md:rounded-none",
+          )}
+        >
+          <DialogHeader className="relative pr-10">
             <DialogTitle>反馈面试问题</DialogTitle>
             <DialogDescription>请选择问题分类，并描述本轮 AI 面试中遇到的情况。</DialogDescription>
+            <Button
+              aria-expanded={isDrawerExpanded}
+              aria-label={isDrawerExpanded ? "收起反馈面板" : "全屏展开反馈面板"}
+              className="absolute top-0 right-0 md:hidden"
+              onClick={() => setIsDrawerExpanded((current) => !current)}
+              size="icon-sm"
+              type="button"
+              variant="ghost"
+            >
+              {isDrawerExpanded ? (
+                <IconArrowsMinimize data-icon="inline-start" />
+              ) : (
+                <IconArrowsMaximize data-icon="inline-start" />
+              )}
+            </Button>
           </DialogHeader>
           <div className="space-y-5">
             <fieldset className="space-y-3">
@@ -215,7 +250,7 @@ export function CandidateInterviewFeedbackPanel({
             {error ? <p className="text-destructive text-sm">{error}</p> : null}
           </div>
           <DialogFooter>
-            <Button onClick={() => setOpen(false)} type="button" variant="outline">
+            <Button onClick={() => handleOpenChange(false)} type="button" variant="outline">
               取消
             </Button>
             <Button onClick={requestConfirmation} type="button">
