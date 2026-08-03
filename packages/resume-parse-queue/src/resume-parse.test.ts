@@ -31,9 +31,9 @@ describe("resume parse queue configuration", () => {
     });
   });
 
-  it("defaults resume parsing concurrency to 12", () => {
-    expect(resolveResumeParseWorkerConcurrency({})).toBe(12);
-    expect(resolveResumeParseWorkerConcurrency({ RESUME_PARSE_WORKER_CONCURRENCY: "16" })).toBe(16);
+  it("defaults resume parsing concurrency to 16", () => {
+    expect(resolveResumeParseWorkerConcurrency({})).toBe(16);
+    expect(resolveResumeParseWorkerConcurrency({ RESUME_PARSE_WORKER_CONCURRENCY: "20" })).toBe(20);
   });
 
   it("isolates queues by database URL by default", () => {
