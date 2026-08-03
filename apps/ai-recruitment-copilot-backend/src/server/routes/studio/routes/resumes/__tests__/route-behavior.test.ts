@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   enqueueResumeReassessmentForRecord: vi.fn(),
   enqueueResumeSemanticIndexJobBestEffort: vi.fn(),
   findSemanticResumeDuplicates: vi.fn(),
+  flattenPresetQuestionsFromContextSnapshot: vi.fn(),
   insertedValues: [] as Record<string, unknown>[],
   invalidateStudioInterviewCaches: vi.fn(),
   jobDescriptionIdsExist: vi.fn(),
@@ -31,6 +32,7 @@ const mocks = vi.hoisted(() => ({
   resetResumeEvaluationForJobChange: vi.fn(),
   resolveRecruitingVisibilityScope: vi.fn(),
   resolveResumeUploadStorage: vi.fn(),
+  retryFailedResumeParse: vi.fn(),
   scheduleResumeEvaluationForRecord: vi.fn(),
   submitResumeEvaluationOnce: vi.fn(),
   transaction: vi.fn(),
@@ -42,7 +44,31 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
     delete: () => ({
       where: () => ({ returning: mocks.deleteReturning }),
     }),
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          limit: () =>
+            Promise.resolve([
+              {
+                detail: {
+                  personalizedQuestionCount: 0,
+                  questionCount: 0,
+                  roundId: "round-1",
+                  roundLabel: "AI 一面",
+                },
+                id: "audit-launch-1",
+              },
+            ]),
+        }),
+      }),
+    }),
     transaction: mocks.transaction,
+    update: () => ({
+      set: (patch: Record<string, unknown>) => {
+        mocks.updatePatches.push(patch);
+        return { where: () => Promise.resolve() };
+      },
+    }),
   },
 }));
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
@@ -143,6 +169,7 @@ vi.mock(
 vi.mock(
   "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots",
   () => ({
+    flattenPresetQuestionsFromContextSnapshot: mocks.flattenPresetQuestionsFromContextSnapshot,
     loadOrCreateActiveInterviewContextSnapshot: mocks.loadOrCreateActiveInterviewContextSnapshot,
   }),
 );
@@ -180,6 +207,10 @@ vi.mock(
 vi.mock(
   "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-worker",
   () => ({ reassessResumeRecord: vi.fn() }),
+);
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/retry",
+  () => ({ retryFailedResumeParse: mocks.retryFailedResumeParse }),
 );
 vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview", () => ({
   createPptxPreviewPdfResponse: vi.fn(),
@@ -228,6 +259,7 @@ describe("resumeLibraryRouter behavior", () => {
     mocks.updatePatches.length = 0;
     mocks.resolveRecruitingVisibilityScope.mockResolvedValue({ kind: "all" });
     mocks.resolveResumeUploadStorage.mockResolvedValue(null);
+    mocks.retryFailedResumeParse.mockResolvedValue({ status: "queued" });
     mocks.jobDescriptionIdsExist.mockResolvedValue(true);
     mocks.enqueueResumeReassessmentForRecord.mockResolvedValue("enqueued");
     mocks.scheduleResumeEvaluationForRecord.mockResolvedValue({
@@ -306,6 +338,40 @@ describe("resumeLibraryRouter behavior", () => {
     ]);
   });
 
+  it("queues one retry for an eligible failed resume record", async () => {
+    mocks.loadResumeDetail.mockResolvedValue({
+      id: RECORD_ID,
+      resumeParseRetryable: true,
+      resumeParseStatus: "failed",
+    });
+
+    const response = await makeApp().request(`/resumes/${RECORD_ID}/retry-parse`, {
+      method: "POST",
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.retryFailedResumeParse).toHaveBeenCalledWith({
+      organizationId: ORGANIZATION_ID,
+      requestedBy: USER_ID,
+      resumeRecordId: RECORD_ID,
+    });
+  });
+
+  it("rejects a resume record that already used its retry", async () => {
+    mocks.loadResumeDetail.mockResolvedValue({
+      id: RECORD_ID,
+      resumeParseRetryable: false,
+      resumeParseStatus: "failed",
+    });
+
+    const response = await makeApp().request(`/resumes/${RECORD_ID}/retry-parse`, {
+      method: "POST",
+    });
+
+    expect(response.status).toBe(409);
+    expect(mocks.retryFailedResumeParse).not.toHaveBeenCalled();
+  });
+
   it("persists duplicate matches after creating a resume-library record", async () => {
     const matches = [{ id: "duplicate-1" }];
     mocks.findSemanticResumeDuplicates.mockResolvedValue(matches);
@@ -341,6 +407,7 @@ describe("resumeLibraryRouter behavior", () => {
       poolOwnerUserId: USER_ID,
       sourceId: RECORD_ID,
       sourceType: "studio_interview",
+      visibilityScope: { kind: "all" },
     });
   });
 

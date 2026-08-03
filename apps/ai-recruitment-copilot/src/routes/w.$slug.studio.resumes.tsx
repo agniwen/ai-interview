@@ -1,5 +1,3 @@
-import { HydrationBoundary } from "@tanstack/react-query";
-import type { DehydratedState } from "@tanstack/react-query";
 import { formatDocumentTitle } from "@/lib/start/document-title";
 import {
   Outlet,
@@ -13,14 +11,8 @@ import {
 import { loadStudioResumesState } from "@/lib/start/studio/resumes.functions";
 import type { StudioResumesState } from "@/lib/start/studio/resumes.functions";
 
-import { RecruitingPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
-
 import { ResumeLibraryPage } from "@/components/features/studio/resumes/resume-library-page";
-import {
-  coerceSearchParams,
-  parseResumeQuery,
-} from "@/components/features/studio/resumes/resume-library-page-model";
-import type { SearchParamsRecord } from "@/components/features/studio/resumes/resume-library-page-model";
+import { coerceSearchParams } from "@/components/features/studio/resumes/resume-library-page-model";
 function StudioResumesRoute() {
   const state = useLoaderData({
     from: "/w/$slug/studio/resumes",
@@ -36,28 +28,15 @@ function StudioResumesRoute() {
     return <Outlet />;
   }
 
-  if (state.mode !== "list") {
-    return null;
-  }
-
-  return (
-    <HydrationBoundary state={state.dehydratedState as unknown as DehydratedState}>
-      <ResumeLibraryPage />
-    </HydrationBoundary>
-  );
+  return <ResumeLibraryPage />;
 }
 
 export const Route = createFileRoute("/w/$slug/studio/resumes")({
   validateSearch: (search: Record<string, unknown>) => coerceSearchParams(search),
   loader: async (loaderContext) => {
-    const { location, params } = loaderContext as unknown as {
-      location: { pathname: string; search: SearchParamsRecord };
-      params: { slug: string };
-    };
-    const isListRoute = location.pathname === `/w/${params.slug}/studio/resumes`;
-    const query = parseResumeQuery(location.search);
+    const { params } = loaderContext as unknown as { params: { slug: string } };
     const state = (await loadStudioResumesState({
-      data: { prefetchList: isListRoute, query, slug: params.slug },
+      data: { slug: params.slug },
     })) as StudioResumesState;
     if (state.status === "unauthenticated") {
       throw redirect({
@@ -73,6 +52,5 @@ export const Route = createFileRoute("/w/$slug/studio/resumes")({
     meta: [{ title: formatDocumentTitle("招聘台") }],
   }),
   component: StudioResumesRoute,
-  pendingComponent: RecruitingPageSkeleton,
-  shouldReload: ({ location, params }) => location.pathname === `/w/${params.slug}/studio/resumes`,
+  shouldReload: false,
 });

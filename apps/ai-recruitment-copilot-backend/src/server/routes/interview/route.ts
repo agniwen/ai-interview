@@ -30,9 +30,11 @@ import {
   loadCandidateInterviewRecord,
   loadScheduleEntriesForRedirect,
 } from "./utils";
+import { candidateInterviewFeedbackRouter } from "./routes/feedback/route";
 
 export const interviewRouter = factory
   .createApp()
+  .route("/", candidateInterviewFeedbackRouter)
   // oxlint-disable-next-line complexity -- Token issuance composes auth, form gate, and the hot-reconnect state machine in one flow.
   .post("/:id/:roundId/livekit-token", async (c) => {
     const id = c.req.param("id");

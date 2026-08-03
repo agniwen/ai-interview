@@ -455,6 +455,18 @@ export async function listResumeParseQueueJobs({
   };
 }
 
+export async function getResumeParseQueueJobsByItemIds(
+  itemIds: string[],
+): Promise<ResumeParseQueueJobRecord[]> {
+  if (itemIds.length === 0 || !isResumeParseQueueConfigured()) {
+    return [];
+  }
+  const q = getResumeParseQueue();
+  const jobs = await Promise.all(itemIds.map((itemId) => q.getJob(buildResumeParseJobId(itemId))));
+  const records = await Promise.all(jobs.map((job) => serializeJob(job)));
+  return records.filter((record): record is ResumeParseQueueJobRecord => record !== null);
+}
+
 export async function closeResumeParseQueue(): Promise<void> {
   await queue?.close();
   queue = null;

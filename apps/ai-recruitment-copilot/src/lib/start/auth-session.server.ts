@@ -3,7 +3,6 @@ import { and, asc, eq, isNull, ne, or } from "drizzle-orm";
 import type {
   ActiveOrganizationState,
   NoAccessWaitState,
-  StudioPageAccessState,
   StudioPagePermissionAction,
   WorkspaceAccessState,
   WorkspaceSelectionState,
@@ -230,21 +229,6 @@ export async function resolveWorkspaceAccessFromRequest(
   slug: string,
 ): Promise<WorkspaceAccessState> {
   return await resolveWorkspaceAccess(getRequestHeaders(), slug);
-}
-
-export async function resolveStudioPageAccessFromRequest(
-  slug: string,
-  action: StudioPagePermissionAction,
-): Promise<StudioPageAccessState> {
-  const state = await resolveWorkspaceAccess(getRequestHeaders(), slug);
-  if (state.status !== "ready") {
-    return state;
-  }
-
-  return {
-    ...state,
-    allowed: hasPermissionInStatements(state.permissions, "page", action),
-  };
 }
 
 /**

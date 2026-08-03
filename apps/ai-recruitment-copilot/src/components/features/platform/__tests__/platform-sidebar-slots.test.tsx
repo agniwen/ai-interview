@@ -3,7 +3,7 @@
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { enableReactActEnvironment, renderInAct, unmountInAct } from "@/test-utils/react-act";
-import { PlatformSidebarSlots } from "../platform-sidebar-slots";
+import { PlatformSidebarSlots, resolvePlatformSidebarNavItem } from "../platform-sidebar-slots";
 import { resolvePlatformSidebarTab } from "../platform-sidebar-tabs";
 
 const routerMocks = vi.hoisted(() => ({
@@ -141,6 +141,13 @@ describe("PlatformSidebarSlots", () => {
     expect(resolvePlatformSidebarTab("/platform/users")).toBe("manage");
     expect(resolvePlatformSidebarTab("/platform/mastra-studio")).toBe("mastra");
     expect(resolvePlatformSidebarTab("/platform/mastra-studio/agents/demo")).toBe("mastra");
+  });
+
+  it("resolves active menu items from nested paths", () => {
+    expect(resolvePlatformSidebarNavItem("/platform/users/member-1")?.title).toBe("所有用户");
+    expect(
+      resolvePlatformSidebarNavItem("/platform/mastra-studio/agents/demo")?.icon,
+    ).toBeDefined();
   });
 
   it("keeps the existing management navigation and switches to debugging", async () => {

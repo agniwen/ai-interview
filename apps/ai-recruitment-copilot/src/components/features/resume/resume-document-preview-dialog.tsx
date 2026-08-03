@@ -18,6 +18,7 @@ const PdfPreviewDialog = lazy(async () => {
 });
 
 export interface ResumeDocumentPreviewDialogProps {
+  downloadUrl?: string;
   kind: ResumeDocumentPreviewKind;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -176,6 +177,7 @@ export function ImageResumePreviewContent({ filename, url }: { filename?: string
 }
 
 export function ResumeDocumentPreviewDialog({
+  downloadUrl,
   kind,
   open,
   onOpenChange,
@@ -185,13 +187,14 @@ export function ResumeDocumentPreviewDialog({
   const [isDark, setIsDark] = useState(false);
   const title = filename ?? getDefaultPreviewTitle(kind);
   const downloadFileName = getResumePreviewDownloadFileName(kind, filename);
+  const resolvedDownloadUrl = downloadUrl ?? url;
 
   if (kind === "pdf") {
     return (
       <Suspense fallback={null}>
         <PdfPreviewDialog
           downloadFileName={downloadFileName}
-          downloadUrl={url}
+          downloadUrl={resolvedDownloadUrl}
           filename={filename}
           onOpenChange={onOpenChange}
           open={open}
@@ -217,7 +220,7 @@ export function ResumeDocumentPreviewDialog({
         headerExtra={
           <ResumePreviewHeaderActions
             downloadFileName={downloadFileName}
-            downloadUrl={url}
+            downloadUrl={resolvedDownloadUrl}
             onClose={() => onOpenChange(false)}
           />
         }
@@ -242,7 +245,7 @@ export function ResumeDocumentPreviewDialog({
       headerExtra={
         <ResumePreviewHeaderActions
           downloadFileName={downloadFileName}
-          downloadUrl={url}
+          downloadUrl={resolvedDownloadUrl}
           onClose={() => onOpenChange(false)}
         />
       }

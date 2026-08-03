@@ -26,7 +26,10 @@ import {
 } from "@arc/db-schema/schema";
 import { buildInterviewLink } from "@arc/shared/interview/interview-record";
 import { deriveJdRequiredSkills } from "@arc/shared/resume-screening";
-import { scheduleEntryStatusSchema } from "@arc/db-schema/studio-interviews";
+import {
+  buildCandidateInterviewFeedback,
+  scheduleEntryStatusSchema,
+} from "@arc/db-schema/studio-interviews";
 import type { ScheduleEntryStatus } from "@arc/db-schema/studio-interviews";
 import type {
   PaginatedStudioInterviewRoundsResult,
@@ -427,6 +430,9 @@ export async function loadInterviewRoundDetail(
   const [row] = await db
     .select({
       allowTextInput: studioInterviewSchedule.allowTextInput,
+      candidateFeedbackCategories: studioInterviewSchedule.candidateFeedbackCategories,
+      candidateFeedbackDetail: studioInterviewSchedule.candidateFeedbackDetail,
+      candidateFeedbackSubmittedAt: studioInterviewSchedule.candidateFeedbackSubmittedAt,
       candidateId: studioInterviewSchedule.interviewRecordId,
       conversationId: studioInterviewSchedule.conversationId,
       createdAt: studioInterviewSchedule.createdAt,
@@ -479,6 +485,11 @@ export async function loadInterviewRoundDetail(
   return {
     allowTextInput: row.allowTextInput,
     candidate,
+    candidateFeedback: buildCandidateInterviewFeedback({
+      categories: row.candidateFeedbackCategories,
+      detail: row.candidateFeedbackDetail,
+      submittedAt: row.candidateFeedbackSubmittedAt,
+    }),
     conversationId: row.conversationId,
     createdAt: serializeDate(row.createdAt) ?? "",
     disconnectedAt: serializeDate(row.disconnectedAt),

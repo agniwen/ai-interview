@@ -7,6 +7,7 @@ import {
   IconGitBranch,
   IconLink,
   IconLoader2,
+  IconRefresh,
   IconSchool,
   IconSend,
   IconTrash,
@@ -14,7 +15,11 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { ResumePoolScope } from "@arc/db-schema/schema";
-import type { ResumePoolDetail, ResumePoolListRecord } from "@arc/shared/resume-pool";
+import type {
+  ResumePoolDetail,
+  ResumePoolLatestExperienceDetail,
+  ResumePoolListRecord,
+} from "@arc/shared/resume-pool";
 
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
@@ -53,7 +58,7 @@ import {
 } from "./resume-pool-page-model";
 import { ResumePoolRecommendationsPanel } from "./resume-pool-recommendations-panel";
 
-const RESUME_POOL_CARD_SKILL_LIMIT = 18;
+const RESUME_POOL_CARD_SKILL_LIMIT = 9;
 
 function notesPreview(value: string | null) {
   const trimmed = value?.trim();
@@ -198,11 +203,8 @@ function ResumePoolDetailSummaryPanel({
               <p className="mb-2 text-muted-foreground text-xs">核心技能</p>
               <ul className="flex flex-wrap gap-2">
                 {skills.map((skill) => (
-                  <li
-                    className="rounded-sm bg-background px-2.5 py-1 text-xs ring-1 ring-border/50"
-                    key={skill}
-                  >
-                    {skill}
+                  <li key={skill}>
+                    <Badge variant="outline">{skill}</Badge>
                   </li>
                 ))}
               </ul>
@@ -277,6 +279,27 @@ function ResumePoolHighlightRow({
   );
 }
 
+function ResumePoolLatestExperience({
+  detail,
+  title,
+}: {
+  detail: ResumePoolLatestExperienceDetail | null;
+  title: string;
+}) {
+  const metadata = [detail?.role, detail?.period].filter(Boolean).join(" · ");
+  return (
+    <div className="min-w-0">
+      <p className="font-medium text-xs">{title}</p>
+      {metadata ? <p className="mt-0.5 text-muted-foreground text-[11px]">{metadata}</p> : null}
+      {detail?.summary ? (
+        <p className="mt-1 line-clamp-2 text-muted-foreground text-[11px] leading-4">
+          {detail.summary}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function ResumePoolCardHighlights({ record }: { record: ResumePoolListRecord }) {
   const { profileHighlights } = record;
   const { educationItems } = profileHighlights;
@@ -306,13 +329,23 @@ function ResumePoolCardHighlights({ record }: { record: ResumePoolListRecord }) 
     {
       icon: IconBuilding,
       label: "最近公司",
-      value: profileHighlights.latestCompany ?? "",
+      value: (
+        <ResumePoolLatestExperience
+          detail={profileHighlights.latestCompanyDetail}
+          title={profileHighlights.latestCompany ?? ""}
+        />
+      ),
       visible: Boolean(profileHighlights.latestCompany),
     },
     {
       icon: IconGitBranch,
       label: "最近项目",
-      value: profileHighlights.latestProject ?? "",
+      value: (
+        <ResumePoolLatestExperience
+          detail={profileHighlights.latestProjectDetail}
+          title={profileHighlights.latestProject ?? ""}
+        />
+      ),
       visible: Boolean(profileHighlights.latestProject),
     },
   ].filter((item) => item.visible);
@@ -357,15 +390,17 @@ export function ResumePoolDetailDialog({
   onOpenDuplicateMatches,
   onOpenChange,
   record,
+  recordId,
   slug,
 }: {
   currentUserId: string | null;
   record: ResumePoolListRecord | null;
+  recordId?: string | null;
   slug: string;
   onOpenChange: (open: boolean) => void;
   onOpenDuplicateMatches?: (record: ResumePoolListRecord) => void;
 }) {
-  const itemId = record?.id ?? "";
+  const itemId = record?.id ?? recordId ?? "";
   const detailQuery = useQuery({
     enabled: Boolean(itemId),
     queryFn: async () => {
@@ -395,11 +430,11 @@ export function ResumePoolDetailDialog({
   return (
     <>
       <Modal
-        description={record?.resumeFileName ?? undefined}
+        description={detail?.resumeFileName ?? record?.resumeFileName ?? undefined}
         onOpenChange={onOpenChange}
-        open={record !== null}
+        open={Boolean(itemId)}
         size="2xl"
-        title={record ? getCandidateTitleWithId(record) : "候选人详情"}
+        title={detail ? getCandidateTitleWithId(detail) : "候选人详情"}
       >
         {detail ? (
           <div className="space-y-8">
@@ -446,34 +481,57 @@ function ResumePoolCardActions({
   canDelete,
   canImport,
   canPublish,
+  canRetryParse,
   deleting,
   importActionState,
   onDelete,
   onImport,
   onPublish,
+  onRetryParse,
   publishing,
+  retrying,
   record,
   scope,
 }: {
   canDelete: boolean;
   canImport: boolean;
   canPublish: boolean;
+  canRetryParse: boolean;
   deleting: boolean;
   importActionState: ReturnType<typeof getResumePoolImportActionState>;
   publishing: boolean;
+  retrying: boolean;
   record: ResumePoolListRecord;
   scope: ResumePoolScope;
   onDelete: (record: ResumePoolListRecord) => void;
   onImport: (record: ResumePoolListRecord) => void;
   onPublish: (record: ResumePoolListRecord) => void;
+  onRetryParse: (record: ResumePoolListRecord) => void;
 }) {
   const showPublishAction = scope === "private" && canPublish;
-  if (!canImport && !showPublishAction && !canDelete) {
+  const showRetryAction =
+    canRetryParse && record.resumeParseStatus === "failed" && record.resumeParseRetryable === true;
+  if (!canImport && !showPublishAction && !canDelete && !showRetryAction) {
     return null;
   }
 
   return (
     <CardFooter className="flex items-center gap-2 p-3 pt-0">
+      {showRetryAction ? (
+        <Button
+          className="min-w-0 flex-1 justify-center"
+          disabled={retrying}
+          onClick={() => onRetryParse(record)}
+          variant="outline"
+        >
+          {retrying ? (
+            <IconLoader2 className="size-4 animate-spin" />
+          ) : (
+            <IconRefresh className="size-4" />
+          )}
+          {retrying ? "加入队列中…" : "重新解析"}
+        </Button>
+      ) : null}
       {canImport ? (
         <Button
           aria-label={importActionState.label}
@@ -525,6 +583,7 @@ export function ResumePoolCard({
   canDelete,
   canImport,
   canPublish,
+  canRetryParse,
   deleting,
   onDelete,
   onOpenDuplicateMatches,
@@ -532,8 +591,10 @@ export function ResumePoolCard({
   onOpenPdf,
   onImport,
   onPublish,
+  onRetryParse,
   onSelectionChange,
   publishing,
+  retrying,
   record,
   selected,
   selectionDisabled,
@@ -544,7 +605,9 @@ export function ResumePoolCard({
   canDelete: boolean;
   canImport: boolean;
   canPublish: boolean;
+  canRetryParse: boolean;
   publishing: boolean;
+  retrying: boolean;
   deleting: boolean;
   selected: boolean;
   selectionDisabled: boolean;
@@ -553,6 +616,7 @@ export function ResumePoolCard({
   onOpenPdf: (record: ResumePoolListRecord) => void;
   onImport: (record: ResumePoolListRecord) => void;
   onPublish: (record: ResumePoolListRecord) => void;
+  onRetryParse: (record: ResumePoolListRecord) => void;
   onDelete: (record: ResumePoolListRecord) => void;
   onSelectionChange: (record: ResumePoolListRecord, selected: boolean) => void;
 }) {
@@ -692,12 +756,15 @@ export function ResumePoolCard({
         canDelete={canDelete}
         canImport={canImport}
         canPublish={canPublish}
+        canRetryParse={canRetryParse}
         deleting={deleting}
         importActionState={importActionState}
         onDelete={onDelete}
         onImport={onImport}
         onPublish={onPublish}
+        onRetryParse={onRetryParse}
         publishing={publishing}
+        retrying={retrying}
         record={record}
         scope={scope}
       />

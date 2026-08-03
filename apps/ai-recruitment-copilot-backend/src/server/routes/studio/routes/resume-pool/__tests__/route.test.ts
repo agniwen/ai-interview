@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   findSemanticResumeDuplicates: vi.fn(),
   getObjectBytes: vi.fn(),
   getObjectStream: vi.fn(),
+  importPoolItemToResumeLibrary: vi.fn(),
   intersectRequestedCreatorIds: vi.fn(
     (
       requestedCreatorIds: string[] | null | undefined,
@@ -35,6 +36,7 @@ const mocks = vi.hoisted(() => ({
   queryResumePoolItems: vi.fn(),
   replaceDuplicateMatchesForSource: vi.fn(),
   resolveRecruitingVisibilityScope: vi.fn(),
+  retryFailedResumeParse: vi.fn(),
   runResumeSemanticIndexJob: vi.fn(),
   storeInterviewResume: vi.fn(),
 }));
@@ -74,6 +76,10 @@ vi.mock(
   "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue",
   () => ({ enqueueResumeReviewGenerationForRecordBestEffort: vi.fn() }),
 );
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/retry",
+  () => ({ retryFailedResumeParse: mocks.retryFailedResumeParse }),
+);
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service", () => ({
   findSemanticResumeDuplicates: mocks.findSemanticResumeDuplicates,
 }));
@@ -87,7 +93,7 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/duplicat
 vi.mock("../dao", () => ({
   createResumePoolItem: mocks.createResumePoolItem,
   deleteOwnPoolItem: mocks.deleteOwnPoolItem,
-  importPoolItemToResumeLibrary: vi.fn(),
+  importPoolItemToResumeLibrary: mocks.importPoolItemToResumeLibrary,
   listResumePoolUploaders: mocks.listResumePoolUploaders,
   loadResumePoolItem: mocks.loadResumePoolItem,
   markResumePoolItemParseFailed: mocks.markResumePoolItemParseFailed,
@@ -122,6 +128,7 @@ describe("resume pool private uploader visibility", () => {
       kind: "restricted",
       userIds: [USER_ID, "subordinate-user"],
     });
+    mocks.retryFailedResumeParse.mockResolvedValue({ status: "queued" });
   });
 
   it("defaults private listings to the current uploader", async () => {
@@ -184,6 +191,40 @@ describe("resume pool private uploader visibility", () => {
         userIds: [USER_ID, "subordinate-user"],
       },
     });
+  });
+
+  it("queues one retry for an eligible failed resume", async () => {
+    mocks.loadResumePoolItem.mockResolvedValue({
+      id: "failed-item",
+      resumeParseRetryable: true,
+      resumeParseStatus: "failed",
+    });
+
+    const response = await makeApp().request("/resume-pool/failed-item/retry-parse", {
+      method: "POST",
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.retryFailedResumeParse).toHaveBeenCalledWith({
+      organizationId: ORGANIZATION_ID,
+      poolItemId: "failed-item",
+      requestedBy: USER_ID,
+    });
+  });
+
+  it("rejects a failed resume that already used its retry", async () => {
+    mocks.loadResumePoolItem.mockResolvedValue({
+      id: "failed-item",
+      resumeParseRetryable: false,
+      resumeParseStatus: "failed",
+    });
+
+    const response = await makeApp().request("/resume-pool/failed-item/retry-parse", {
+      method: "POST",
+    });
+
+    expect(response.status).toBe(409);
+    expect(mocks.retryFailedResumeParse).not.toHaveBeenCalled();
   });
 
   it("reads a subordinate resume file through the recruiting visibility scope", async () => {
@@ -318,6 +359,46 @@ describe("resumePoolImportInputSchema", () => {
 
     expect(result.jobDescriptionId).toBeNull();
   });
+
+  it("preserves an explicit reimport request", () => {
+    const result = resumePoolImportInputSchema.parse({
+      dedupPolicy: "force",
+      jobDescriptionId: null,
+      jobDescriptionMode: "none",
+      reimport: true,
+    });
+
+    expect(result.reimport).toBe(true);
+  });
+});
+
+describe("resume pool import route", () => {
+  it("forwards an explicit reimport request to the DAO", async () => {
+    mocks.importPoolItemToResumeLibrary.mockResolvedValue({
+      resumeRecordId: "resume-record-2",
+      status: "imported",
+    });
+
+    const response = await makeApp().request("/resume-pool/pool-item-1/import", {
+      body: JSON.stringify({
+        dedupPolicy: "force",
+        jobDescriptionMode: "none",
+        reimport: true,
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    expect(response.status).toBe(201);
+    expect(mocks.importPoolItemToResumeLibrary).toHaveBeenCalledWith({
+      dedupPolicy: "force",
+      importedBy: USER_ID,
+      jobDescriptionId: null,
+      organizationId: ORGANIZATION_ID,
+      poolItemId: "pool-item-1",
+      reimport: true,
+    });
+  });
 });
 
 describe("resume pool duplicate handling", () => {
@@ -383,6 +464,10 @@ describe("resume pool duplicate handling", () => {
       poolOwnerUserId: USER_ID,
       sourceId: "pool-item-1",
       sourceType: "resume_pool_item",
+      visibilityScope: {
+        kind: "restricted",
+        userIds: [USER_ID, "subordinate-user"],
+      },
     });
   });
 });

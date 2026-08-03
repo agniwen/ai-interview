@@ -3,7 +3,6 @@ import { Outlet, createFileRoute, notFound, redirect } from "@tanstack/react-rou
 import { PendingOutlet } from "@/components/layout/pending-outlet";
 import { SiteHeader } from "@/components/features/studio/site-header";
 import { StudioHeaderProvider } from "@/components/features/studio/studio-header-context";
-import { RecruitingPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 import { documentTitleMeta } from "@/lib/start/document-title";
 import { STUDIO_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/studio-scroll-restoration";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -51,15 +50,8 @@ function StudioShellRoute() {
   );
 }
 
-function StudioPendingRoute() {
-  return (
-    <StudioLayout>
-      <RecruitingPageSkeleton />
-    </StudioLayout>
-  );
-}
-
 export const Route = createFileRoute("/w/$slug/studio")({
+  ssr: "data-only",
   loader: async (loaderContext) => {
     const { location, params, parentMatchPromise } = loaderContext;
 
@@ -98,5 +90,4 @@ export const Route = createFileRoute("/w/$slug/studio")({
     ],
   }),
   component: StudioShellRoute,
-  pendingComponent: StudioPendingRoute,
 });

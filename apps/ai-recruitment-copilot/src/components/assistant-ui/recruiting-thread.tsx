@@ -29,6 +29,7 @@ import {
   ResumeDocumentFileIcon,
   getResumeDocumentFileIconKind,
 } from "@/components/features/resume/resume-document-file-icon";
+import { Badge } from "@/components/ui/badge";
 import {
   UnsupportedResumeDocumentPreviewTooltip,
   isPreviewableResumeDocumentInput,
@@ -38,11 +39,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { pipelineStageMeta, pipelineStageSchema } from "@arc/db-schema/studio-interviews";
 import { RecruitingContextPanel } from "./recruiting-context-panel";
+import { activeThreadStyle, useRecruitingCopilotContext } from "./recruiting-copilot-context";
 import {
-  activeThreadStyle,
   composerSendButtonClass,
-  useRecruitingCopilotContext,
-} from "./recruiting-copilot-context";
+  recruitingComposerDisclaimer,
+  recruitingComposerPlaceholder,
+} from "./recruiting-composer-style";
 import {
   RecruitingComposerDirectiveChip,
   RecruitingDirectiveText,
@@ -249,33 +251,33 @@ function ThreadMessage() {
   return null;
 }
 
-function RecruitingComposerInput() {
+function RecruitingComposerInput({ autoFocus = true }: { autoFocus?: boolean }) {
   "use no memo";
   // Lexical renders mentions as inline chips; textarea would show raw `:type[label]{name=id}`.
   return (
     <LexicalComposerInput
       aria-label="招聘问题输入"
-      autoFocus
+      autoFocus={autoFocus}
       className={cn(
         "aui-composer-input relative max-h-32 min-h-10 w-full bg-transparent px-2 py-2 text-base text-foreground",
         "[&_.aui-lexical-input]:min-h-10 [&_.aui-lexical-input]:outline-none [&_.aui-lexical-input]:whitespace-pre-wrap [&_p]:m-0",
         "[&_.aui-lexical-placeholder]:pointer-events-none [&_.aui-lexical-placeholder]:absolute [&_.aui-lexical-placeholder]:inset-x-2 [&_.aui-lexical-placeholder]:top-2 [&_.aui-lexical-placeholder]:text-muted-foreground",
       )}
       directiveChip={RecruitingComposerDirectiveChip}
-      placeholder="输入招聘问题，或输入 @ 提及候选人..."
+      placeholder={recruitingComposerPlaceholder}
       submitMode="enter"
     />
   );
 }
 
-function Composer() {
+function Composer({ autoFocus = true }: { autoFocus?: boolean }) {
   "use no memo";
   return (
     <ComposerPrimitive.Unstable_TriggerPopoverRoot>
       <div className="relative flex w-full flex-col">
         <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
           <div className="aui-composer-shell relative flex w-full flex-col gap-2 rounded-[28px] border border-input bg-background px-3 py-2 transition-colors focus-within:border-foreground/20">
-            <RecruitingComposerInput />
+            <RecruitingComposerInput autoFocus={autoFocus} />
             <div className="aui-composer-action-wrapper flex items-center justify-end gap-1">
               <AuiIf condition={(state) => !state.thread.isRunning}>
                 <ComposerPrimitive.Send asChild>
@@ -428,9 +430,7 @@ function CandidateSummaryCardButton({ card }: { card: CandidateSummaryCard }) {
           <span className="pointer-events-auto">
             <CandidateResumePreviewIcon card={card} />
           </span>
-          <span className="rounded-full border bg-muted/50 px-2 py-0.5 text-muted-foreground text-xs">
-            {stageLabel}
-          </span>
+          <Badge variant="outline">{stageLabel}</Badge>
         </div>
       </div>
       {card.resumeSummary ? (
@@ -441,12 +441,9 @@ function CandidateSummaryCardButton({ card }: { card: CandidateSummaryCard }) {
       {card.keySkills.length > 0 ? (
         <div className="pointer-events-none relative z-20 mt-2 flex flex-wrap gap-1">
           {card.keySkills.map((skill) => (
-            <span
-              className="rounded-full border border-border/70 bg-muted/50 px-2 py-0.5 text-muted-foreground text-xs"
-              key={skill}
-            >
+            <Badge key={skill} variant="outline">
               {skill}
-            </span>
+            </Badge>
           ))}
         </div>
       ) : null}
@@ -525,10 +522,20 @@ export function RecruitingToolRenderers() {
   );
 }
 
-export function RecruitingThread({ isRunning }: { isRunning: boolean }) {
+export function RecruitingThread({
+  historyLoadingFallback,
+  isRunning,
+}: {
+  historyLoadingFallback?: ReactNode;
+  isRunning: boolean;
+}) {
+  const isHistoryLoading = historyLoadingFallback !== undefined;
+
   return (
     <ThreadPrimitive.Root
+      aria-busy={isHistoryLoading || undefined}
       className="aui-root aui-thread-root relative flex min-h-0 flex-1 flex-col bg-background text-foreground"
+      inert={isHistoryLoading || undefined}
       style={activeThreadStyle}
     >
       <div className="relative flex min-h-0 flex-1">
@@ -539,20 +546,22 @@ export function RecruitingThread({ isRunning }: { isRunning: boolean }) {
             scrollToBottomOnRunStart
             turnAnchor="top"
           >
-            <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-col gap-6 px-4 pt-6 pb-8">
-              <ThreadPrimitive.Messages>{() => <ThreadMessage />}</ThreadPrimitive.Messages>
-              {isRunning ? (
-                <div className="aui-assistant-working w-fit rounded-2xl bg-muted/55 px-3 py-2 text-muted-foreground text-sm">
-                  思考中...
-                </div>
-              ) : null}
-            </div>
+            {historyLoadingFallback ?? (
+              <div className="mx-auto flex w-full max-w-(--thread-max-width) flex-col gap-6 px-4 pt-6 pb-8">
+                <ThreadPrimitive.Messages>{() => <ThreadMessage />}</ThreadPrimitive.Messages>
+                {isRunning ? (
+                  <div className="aui-assistant-working w-fit rounded-2xl bg-muted/55 px-3 py-2 text-muted-foreground text-sm">
+                    思考中...
+                  </div>
+                ) : null}
+              </div>
+            )}
           </ThreadPrimitive.Viewport>
           <div className="aui-thread-footer sticky bottom-0 bg-background px-4 pb-3">
             <div className="mx-auto w-full max-w-(--thread-max-width)">
-              <Composer />
+              <Composer autoFocus={!isHistoryLoading} />
               <p className="mt-2 text-center text-muted-foreground text-xs">
-                AI Recruitment Copilot 可能出错，请在确认动作前核对候选人和岗位信息。
+                {recruitingComposerDisclaimer}
               </p>
             </div>
           </div>

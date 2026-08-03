@@ -54,10 +54,10 @@ _DEBUG_FAST = os.environ.get("INTERVIEW_DEBUG_FAST", "").lower() in (
 )
 
 if _DEBUG_FAST:
-    # 数值挑选: 与生产 18.5/21/24/1min 同形比例, 同时保证
+    # 数值挑选: 与生产 30/33/35/1min 同形比例, 同时保证
     # 相邻两阶段之间留出至少 10s 间隙, 给 _force_wind_down / _enforce_time_limit
     # 的 wait_for_playout 有播放窗口. 硬切总时长 = 45 + 15 = 60s.
-    # Values chosen to keep the same shape as the prod 18.5/21/24/1min timeline
+    # Values chosen to keep the same shape as the prod 30/33/35/1min timeline
     # while leaving ≥10s between adjacent phases so the playout windows for
     # _force_wind_down / _enforce_time_limit don't overlap. Total hard cutoff
     # lands at 45 + 15 = 60s.
@@ -74,12 +74,13 @@ if _DEBUG_FAST:
         INTERVIEW_TIME_LIMIT_SECONDS + INTERVIEW_HARD_GRACE_SECONDS,
     )
 else:
-    INTERVIEW_TIME_LIMIT_SECONDS = 24 * 60
-    INTERVIEW_SOFT_WRAP_SECONDS = 18 * 60 + 30
-    INTERVIEW_FINAL_WRAP_SECONDS = 21 * 60
+    # 30:00 soft reminder / stop new questions; 33:00 finish current;
+    # 35:00 force goodbye; kill boundary is +1 min in agent.py (KILL_SECONDS).
+    INTERVIEW_SOFT_WRAP_SECONDS = 30 * 60
+    INTERVIEW_FINAL_WRAP_SECONDS = 33 * 60
+    INTERVIEW_TIME_LIMIT_SECONDS = 35 * 60
     # Hard cutoff is enforced in agent.py; allow 1 min after the time limit so
-    # the LLM has time to ask the closing question, hear the answer, and say
-    # goodbye without being interrupted mid-sentence.
+    # the fixed goodbye cue can finish playout before the stuck-session kill.
     INTERVIEW_HARD_GRACE_SECONDS = 60
 
 
@@ -120,8 +121,14 @@ class InterviewAgent(Agent):
         self._opening_instructions = interview_context.prompts.opening
         self._closing_instructions = interview_context.prompts.closing
 
+        # end_call 只挂在 WrapUpTask 上, 避免必问题阶段工具面泄漏导致模型提前挂断.
+        # EndCallTool lives only on WrapUpTask so the required-question phase
+        # cannot hang up the call mid-coverage.
         self._end_call_tool = EndCallTool(
-            extra_description="当面试结束、候选人要求结束、候选人连续三次答非所问、态度恶劣，或系统计时提示已到时间上限时，调用此工具结束面试。",
+            extra_description=(
+                "仅在收尾阶段、全部必问题已处理完毕、候选人明确要求结束、"
+                "或系统计时已到上限时调用。必问题未完成时禁止调用。"
+            ),
             delete_room=True,
             end_instructions=self._closing_instructions,
         )
@@ -129,9 +136,15 @@ class InterviewAgent(Agent):
         super().__init__(
             instructions=(
                 f"{interview_context.prompts.system}\n\n"
-                f"## 中文面试语言要求\n{LANGUAGE_POLICY}"
+                f"## 中文面试语言要求\n{LANGUAGE_POLICY}\n\n"
+                "## 结束面试约束\n"
+                "必问题未全部完成前，禁止向候选人道别或声称面试/信息收集已结束。"
+                "礼貌用语（谢谢、好的、嗯、下一题）不是结束信号。"
+                "收尾与 end_call 只在系统转入收尾流程后进行。"
             ),
-            tools=self._end_call_tool.tools,  # type: ignore
+            # 父 agent 不暴露 end_call; 仅 enter_wrap_up (装饰器工具) 可用.
+            # Parent agent does not expose end_call; only enter_wrap_up is available.
+            tools=[],
         )
 
         self._candidate_name = interview_context.candidate.name
@@ -143,6 +156,7 @@ class InterviewAgent(Agent):
         self._question_outcomes: dict[str, InterviewQuestionOutcome] = {}
         self._question_group = None
         self._call_completion_status: str | None = None
+        self._workflow_stop_reason: str | None = None
         self._started_at: float | None = None
         # 防止 enter_wrap_up 被重复调用: WrapUpTask 进入后会自行 end_call 关闭 session,
         # 但模型在 hint 持续提示下可能在 wrap-up 还没生效前再次尝试调用本工具.
@@ -170,6 +184,31 @@ class InterviewAgent(Agent):
         return self._call_completion_status
 
     @property
+    def workflow_stop_reason(self) -> str | None:
+        """Business-level stop reason for report/finalize (not LiveKit CloseReason)."""
+        return self._workflow_stop_reason
+
+    def note_workflow_stop(self, reason: str) -> None:
+        """Record why the interview workflow stopped; first write wins."""
+        if self._workflow_stop_reason is None and reason:
+            self._workflow_stop_reason = reason
+
+    @property
+    def has_incomplete_required_questions(self) -> bool:
+        if not self._questions:
+            return False
+        terminal = {
+            QuestionOutcomeStatus.ANSWERED,
+            QuestionOutcomeStatus.INSUFFICIENT,
+            QuestionOutcomeStatus.SKIPPED,
+        }
+        for question in self._questions:
+            outcome = self._question_outcomes.get(question.id)
+            if outcome is None or outcome.status not in terminal:
+                return True
+        return False
+
+    @property
     def current_question_text(self) -> str | None:
         current_id = (
             self._question_group.current_question_id
@@ -185,11 +224,19 @@ class InterviewAgent(Agent):
         )
 
     def stop_question_workflow(self, reason: str) -> bool:
+        self.note_workflow_stop(reason)
         if self._question_group is None:
             return False
         return self._question_group.interrupt_current(reason)
 
-    def finalize_missing_question_outcomes(self, reason: str) -> None:
+    def finalize_missing_question_outcomes(self, reason: str | None = None) -> None:
+        """Fill interrupted/unasked outcomes using the best-known business reason.
+
+        Prefer an explicit reason, then the workflow stop reason already noted
+        during the session, and only fall back to system_shutdown when unknown.
+        """
+        resolved = reason or self._workflow_stop_reason or "system_shutdown"
+        self.note_workflow_stop(resolved)
         current_id = (
             self._question_group.current_question_id
             if self._question_group is not None
@@ -198,11 +245,11 @@ class InterviewAgent(Agent):
         if current_id is not None and current_id not in self._question_outcomes:
             current_outcome = self._question_group.current_interrupted_outcome(
                 now=self.elapsed_seconds(),
-                reason=reason,
+                reason=resolved,
             )
             if current_outcome is not None:
                 self._question_outcomes[current_id] = current_outcome
-        self._record_unasked(reason)
+        self._record_unasked(resolved)
 
     async def _on_question_completed(self, event) -> None:
         outcome = event.result
@@ -212,8 +259,11 @@ class InterviewAgent(Agent):
         if self._on_question_completed_callback is not None:
             await self._on_question_completed_callback(outcome)
         if outcome.status is QuestionOutcomeStatus.INTERRUPTED:
-            raise InterviewWorkflowStoppedError(outcome.reason or "system_shutdown")
+            stop_reason = outcome.reason or "system_shutdown"
+            self.note_workflow_stop(stop_reason)
+            raise InterviewWorkflowStoppedError(stop_reason)
         if self.elapsed_seconds() >= STOP_NEW_QUESTIONS_SECONDS:
+            self.note_workflow_stop("time_limit")
             raise InterviewWorkflowStoppedError("time_limit")
 
     def _record_unasked(self, reason: str) -> None:
@@ -294,14 +344,13 @@ class InterviewAgent(Agent):
         if elapsed >= self._time_limit:
             hint = (
                 f"[计时提示] 面试已达到 {_format_mmss(self._time_limit)} 时间上限。"
-                "请用一两句温暖、体面的话向候选人告别（感谢参与、祝顺利），"
-                "随后调用 end_call 工具结束面试，不要再发起新提问。"
+                "不要再发起新提问；听完当前回答后进入收尾告别流程。"
             )
         elif elapsed >= INTERVIEW_FINAL_WRAP_SECONDS:
             hint = (
                 f"[计时提示] 面试已进行 {_format_mmss(elapsed)}，时间接近上限。"
                 "不要再开新话题或追问；如果当前题目还未答完，听完这一题的回答即可，"
-                "之后用一两句话向候选人体面告别并调用 end_call 结束面试。"
+                "之后进入收尾告别，不要在必问题阶段提前宣布面试结束。"
             )
         elif elapsed >= INTERVIEW_SOFT_WRAP_SECONDS:
             hint = (
@@ -314,6 +363,7 @@ class InterviewAgent(Agent):
             hint = (
                 f"[计时提示] 面试已进行 {_format_mmss(elapsed)}，"
                 f"剩余 {_format_mmss(remaining)}。请合理分配剩余时间。"
+                "礼貌用语（谢谢、好的）不是结束信号；必问题未完成前不要告别。"
             )
         turn_ctx.add_message(role="system", content=hint)
 
@@ -346,6 +396,7 @@ class InterviewAgent(Agent):
         )
         if not ready:
             self._call_completion_status = "partial"
+            self.note_workflow_stop("candidate_ended_round")
             self._record_unasked("candidate_ended_round")
             await WrapUpTask(
                 self._end_call_tool,
@@ -363,8 +414,10 @@ class InterviewAgent(Agent):
         try:
             await self._question_group
             self._call_completion_status = "success"
+            self.note_workflow_stop("task_completed")
         except InterviewWorkflowStoppedError as error:
             stop_reason = error.reason
+            self.note_workflow_stop(error.reason)
             self._record_unasked(error.reason)
             self._call_completion_status = (
                 "success"
@@ -374,6 +427,7 @@ class InterviewAgent(Agent):
                 else "partial"
             )
 
+        # 收尾阶段才暴露 end_call; 必问题阶段父 agent / 题任务都没有该工具.
         await WrapUpTask(
             self._end_call_tool,
             ask_closing_question=stop_reason in {None, "time_limit"},

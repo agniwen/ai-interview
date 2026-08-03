@@ -351,6 +351,10 @@ _Avoid_: Screening-only refresh
 One scheduled AI interview attempt for a candidate.
 _Avoid_: Candidate row, interview record
 
+**Candidate Interview Feedback**:
+The candidate's final account of problems encountered during one AI interview round. Each round can have at most one immutable feedback record; it is deleted only with that round and is visible to the candidate and members already authorized to access the round.
+_Avoid_: Interview report, candidate-level feedback, HR assessment
+
 **Interview Active Time**:
 The elapsed time in an AI interview round while the candidate is connected and the interview can progress. Time spent inside the hot-reconnect grace window is excluded, although the grace window itself remains bounded.
 _Avoid_: Room lifetime, wall-clock duration, recording duration

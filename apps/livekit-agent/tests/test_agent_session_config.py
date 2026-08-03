@@ -45,7 +45,9 @@ def test_agent_session_uses_scribe_v2_batch_stt(monkeypatch):
     monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
     monkeypatch.setattr(agent_module.minimax, "TTS", _FakeComponent)
     monkeypatch.setattr(
-        agent_module.inference, "TurnDetector", lambda: "audio-turn-detector"
+        agent_module.inference,
+        "TurnDetector",
+        lambda **_kwargs: "audio-turn-detector",
     )
 
     session = _build_session(
@@ -69,7 +71,9 @@ def test_agent_session_endpointing_balances_pauses_with_response_latency(monkeyp
     monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
     monkeypatch.setattr(agent_module.minimax, "TTS", _FakeComponent)
     monkeypatch.setattr(
-        agent_module.inference, "TurnDetector", lambda: "audio-turn-detector"
+        agent_module.inference,
+        "TurnDetector",
+        lambda **_kwargs: "audio-turn-detector",
     )
 
     session = _build_session(
@@ -81,8 +85,8 @@ def test_agent_session_endpointing_balances_pauses_with_response_latency(monkeyp
     endpointing = session.kwargs["turn_handling"]["endpointing"]
 
     assert endpointing["mode"] == "dynamic"
-    assert endpointing["min_delay"] == 0.5
-    assert endpointing["max_delay"] == 3.0
+    assert endpointing["min_delay"] == 1.5
+    assert endpointing["max_delay"] == 7.0
 
 
 def test_agent_session_preemptively_starts_llm_generation(monkeypatch):
@@ -91,7 +95,9 @@ def test_agent_session_preemptively_starts_llm_generation(monkeypatch):
     monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
     monkeypatch.setattr(agent_module.minimax, "TTS", _FakeComponent)
     monkeypatch.setattr(
-        agent_module.inference, "TurnDetector", lambda: "audio-turn-detector"
+        agent_module.inference,
+        "TurnDetector",
+        lambda **_kwargs: "audio-turn-detector",
     )
 
     session = _build_session(
@@ -113,7 +119,9 @@ def test_agent_session_uses_audio_turn_detector_and_user_turn_limit(monkeypatch)
     monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
     monkeypatch.setattr(agent_module.minimax, "TTS", _FakeComponent)
     monkeypatch.setattr(
-        agent_module.inference, "TurnDetector", lambda: "audio-turn-detector"
+        agent_module.inference,
+        "TurnDetector",
+        lambda **_kwargs: "audio-turn-detector",
     )
 
     session = _build_session(
@@ -188,7 +196,9 @@ def test_agent_session_uses_pcm_for_minimax_streaming_audio(monkeypatch):
     monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
     monkeypatch.setattr(agent_module.minimax, "TTS", _FakeComponent)
     monkeypatch.setattr(
-        agent_module.inference, "TurnDetector", lambda: "audio-turn-detector"
+        agent_module.inference,
+        "TurnDetector",
+        lambda **_kwargs: "audio-turn-detector",
     )
 
     session = _build_session(

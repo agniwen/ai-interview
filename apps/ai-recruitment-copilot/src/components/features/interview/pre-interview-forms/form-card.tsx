@@ -8,6 +8,7 @@
  * Submitted forms render with a faded look and a "已提交" badge to discourage edits.
  */
 
+import { Badge } from "@/components/ui/badge";
 import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
 import { QuestionView } from "./question-view";
 import type { AnswerValue, FieldErrorMap, RequiredTemplate } from "./types";
@@ -40,11 +41,7 @@ export function FormCard({
             <p className="mt-1 text-muted-foreground text-sm">{template.snapshot.description}</p>
           ) : null}
         </div>
-        {submitted ? (
-          <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-primary text-xs">
-            已提交
-          </span>
-        ) : null}
+        {submitted ? <Badge className="shrink-0">已提交</Badge> : null}
       </header>
       <div className="space-y-5">
         {template.snapshot.questions.map((question, index) => {

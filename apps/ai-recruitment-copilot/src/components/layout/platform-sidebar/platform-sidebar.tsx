@@ -1,7 +1,13 @@
 "use client";
 
 import type { ComponentProps } from "react";
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from "@/components/ui/sidebar";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarRail,
+} from "@/components/ui/sidebar";
 import {
   SidebarBodyPortalTarget,
   SidebarFooterPortalTarget,
@@ -33,6 +39,7 @@ export function PlatformSidebar({ ...props }: PlatformSidebarProps) {
           <SidebarFooterSkeleton />
         </SidebarSlotHydrationFallback>
       </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
   );
 }

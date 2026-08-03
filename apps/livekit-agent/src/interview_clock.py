@@ -13,10 +13,15 @@ class InterviewTimelinePhase(StrEnum):
     KILL = "kill"
 
 
-STOP_NEW_QUESTIONS_SECONDS = 18 * 60 + 30
-END_CURRENT_QUESTION_SECONDS = 21 * 60
-CLOSE_SECONDS = 24 * 60
-KILL_SECONDS = 25 * 60
+# Active-time timeline (reconnect pauses excluded):
+# 30:00 soft reminder / stop starting new required questions
+# 33:00 finish the current question and enter wrap-up pressure
+# 35:00 force closing goodbye and end the call
+# 36:00 stuck-session kill if shutdown did not complete
+STOP_NEW_QUESTIONS_SECONDS = 30 * 60
+END_CURRENT_QUESTION_SECONDS = 33 * 60
+CLOSE_SECONDS = 35 * 60
+KILL_SECONDS = 36 * 60
 
 
 def classify_timeline_phase(elapsed: float) -> InterviewTimelinePhase:

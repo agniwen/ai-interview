@@ -69,7 +69,7 @@ function DocxAnnotationCard({
           <div className="truncate">{meta}</div>
           {date ? <div className="mt-0.5 truncate">{date}</div> : null}
         </div>
-        <Badge variant={badgeVariant} className="max-w-[92px] truncate text-[10px]">
+        <Badge className="max-w-[92px] truncate" variant={badgeVariant}>
           {badge}
         </Badge>
       </div>

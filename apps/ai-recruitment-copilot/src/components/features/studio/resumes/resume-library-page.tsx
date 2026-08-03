@@ -1,6 +1,6 @@
-/* oxlint-disable complexity -- page controller coordinates grid queries and dialogs. */
+/* oxlint-disable complexity, max-lines -- page controller coordinates grid queries, filters, and dialogs. */
 import { IconUsers } from "@tabler/icons-react";
-import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearch } from "@tanstack/react-router";
 import { buildInfiniteDataGridQueryKey } from "@/components/data-grid/query-contract";
 import { parseCsvParam } from "@arc/shared/csv";
@@ -17,7 +17,7 @@ import { pipelineStageMeta } from "@arc/db-schema/studio-interviews";
 import type { PipelineStage } from "@arc/db-schema/studio-interviews";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ResumeDuplicateMatchesDialog } from "@/components/features/resume/resume-dedup-overlay";
 import { toDedupSourceFromLibraryRecord } from "@/components/features/resume/resume-dedup-source";
@@ -41,15 +41,18 @@ import {
   bulkDeleteStudioResumes,
   deleteStudioResume,
   fetchStudioResumeDuplicateMatches,
+  fetchStudioResumeMetrics,
   fetchStudioResumeSkillSuggestions,
   fetchStudioResumes,
+  rpcFetch,
+  retryStudioResumeParse,
 } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { runAsyncAction } from "@/lib/client/async-control";
-import { rpcFetch } from "@/lib/client/api/rpc-fetch";
 import { authClient } from "@/lib/client/auth-client";
 import { useWorkspaceMemberRole, useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { useHasPermission } from "@/hooks/use-has-permission";
+import { studioResumeKeys } from "@/lib/client/api/query-keys";
 import { StudioPersonDetailDialog } from "@/components/features/studio/studio-person-detail-dialog";
 import { StudioPersonEditDialog } from "@/components/features/studio/studio-person-edit-dialog";
 import { StudioScrollToTopButton } from "@/components/features/studio/studio-scroll-to-top-button";
@@ -60,6 +63,7 @@ import {
 import { LaunchInterviewDialog } from "@/components/features/studio/resumes/launch-interview-dialog";
 import { TransitionCandidateDialog } from "@/components/features/studio/resumes/transition-candidate-dialog";
 import { ResumeLibraryMetricsSection } from "@/components/features/studio/resumes/resume-library-metrics-section";
+import { RecruitingPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
 
 import {
   PIPELINE_STAGE_TAB_DESCRIPTIONS,
@@ -89,6 +93,8 @@ export function ResumeLibraryPage() {
   const canDeleteResumeLibrary = useHasPermission("resumeLibrary", "delete");
   const canReadResumeUploadBatch = useHasPermission("resumeUploadBatch", "read");
   const canCreateResumeUploadBatch = useHasPermission("resumeUploadBatch", "create");
+  const canRetryResumeParse = useHasPermission("resumeUploadBatch", "process");
+  const [retriedRecordIds, setRetriedRecordIds] = useState<ReadonlySet<string>>(() => new Set());
 
   const invalidateAll = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ["studio-resumes"] });
@@ -309,6 +315,19 @@ export function ResumeLibraryPage() {
     }),
     staleTime: 30_000,
   });
+  const metricsQuery = useQuery({
+    queryFn: () => fetchStudioResumeMetrics(slug),
+    queryKey: studioResumeKeys.metrics(slug),
+  });
+  const retryParseMutation = useMutation({
+    mutationFn: (record: ResumeLibraryListRecord) => retryStudioResumeParse(slug, record.id),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "重新解析简历失败"),
+    onSuccess: (_result, record) => {
+      setRetriedRecordIds((current) => new Set(current).add(record.id));
+      toast.success("已重新加入解析队列");
+      invalidateAll();
+    },
+  });
   const loadedResumeRecords = useMemo(
     () => resumeLibraryListQuery.data?.pages.flatMap((page) => page.records) ?? [],
     [resumeLibraryListQuery.data?.pages],
@@ -485,6 +504,11 @@ export function ResumeLibraryPage() {
     });
   }
 
+  const isInitialPageLoading = resumeLibraryListQuery.isPending && metricsQuery.isPending;
+  if (isInitialPageLoading) {
+    return <RecruitingPageSkeleton />;
+  }
+
   const resumeLibraryEmptyState = grid.filters.stage ? (
     <Empty className="border-border">
       <EmptyHeader>
@@ -526,7 +550,11 @@ export function ResumeLibraryPage() {
           title="招聘台"
           description="已经进入招聘流程的候选人在这里跟进：看简历、匹配岗位、推进到面试。"
         />
-        <ResumeLibraryMetricsSection />
+        <ResumeLibraryMetricsSection
+          error={metricsQuery.error}
+          metrics={metricsQuery.data}
+          onRetry={() => metricsQuery.refetch()}
+        />
         <Tabs
           onValueChange={(value) => {
             setRowSelection({});
@@ -562,11 +590,13 @@ export function ResumeLibraryPage() {
           canCreateInterview={canCreateInterview}
           canDeleteResumeLibrary={canDeleteResumeLibrary}
           canReadResumeUploadBatch={canReadResumeUploadBatch}
+          canRetryResumeParse={canRetryResumeParse}
           canUpdateResumeLibrary={canUpdateResumeLibrary}
           canUploadResumeLibrary={canUploadResumeLibrary}
           currentMemberRole={currentMemberRole}
           currentUserId={currentUserId}
           empty={resumeLibraryEmptyState}
+          error={resumeLibraryListQuery.error}
           fetchNextPage={resumeLibraryListQuery.fetchNextPage}
           filters={filtersConfig}
           grid={grid}
@@ -614,6 +644,10 @@ export function ResumeLibraryPage() {
           }}
           onOpenUploadEntry={() => setUploadEntryOpen(true)}
           onPreviewResume={setPreviewRecord}
+          onRetry={() => {
+            void resumeLibraryListQuery.refetch();
+          }}
+          onRetryParse={retryParseMutation.mutate}
           onShowDuplicateMatches={setDuplicateMatchRecord}
           onTransition={(record, mode) =>
             setTransitionTarget({
@@ -624,6 +658,10 @@ export function ResumeLibraryPage() {
           records={loadedResumeRecords}
           structuredScoreSortActive={activeSort?.id === "structuredScore"}
           structuredScoreSortEnabled={Boolean(selectedStructuredJob)}
+          retryingRecordId={
+            retryParseMutation.isPending ? (retryParseMutation.variables?.id ?? null) : null
+          }
+          retriedRecordIds={retriedRecordIds}
           total={resumeLibraryTotal}
           uploadEntryDisabled={uploadEntryDisabled}
         />

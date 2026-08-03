@@ -41,6 +41,7 @@ import {
   queryResumePoolItems,
 } from "./dao";
 import { resumePoolRecommendationsRouter } from "./routes/recommendations/route";
+import { retryFailedResumeParse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/retry";
 import {
   resumePoolBindSchema,
   resumePoolCreateInputSchema,
@@ -174,9 +175,60 @@ export const resumePoolRouter = factory
       poolOwnerUserId: item.createdBy ?? user.id,
       sourceId: poolItemId,
       sourceType: "resume_pool_item",
+      visibilityScope,
     });
     return c.json({ matches }, 200);
   })
+  .post(
+    "/:id/retry-parse",
+    requirePermission("resumePool", "read"),
+    requirePermission("resumeUploadBatch", "process"),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!activeOrg || !user) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const visibilityScope = await resolveRecruitingVisibilityScope({
+        currentRole: c.var.member?.role,
+        organizationId: activeOrg.id,
+        userId: user.id,
+      });
+      const poolItemId = c.req.param("id");
+      const item = await loadResumePoolItem({
+        organizationId: activeOrg.id,
+        poolItemId,
+        visibilityScope,
+      });
+      if (!item) {
+        return c.json({ error: "记录不存在。" }, 404);
+      }
+      if (item.resumeParseStatus !== "failed") {
+        return c.json({ error: "只有解析失败的简历可以重新解析。" }, 409);
+      }
+      if (!item.resumeParseRetryable) {
+        return c.json({ error: "该简历已重新解析过，不能再次操作。" }, 409);
+      }
+      try {
+        const result = await retryFailedResumeParse({
+          organizationId: activeOrg.id,
+          poolItemId,
+          requestedBy: user.id,
+        });
+        if (result.status === "queued") {
+          return c.json({ status: "queued" as const }, 200);
+        }
+        if (result.status === "queue_unavailable") {
+          return c.json({ error: "简历解析队列未配置 REDIS_URL。" }, 503);
+        }
+        return c.json({ error: "该简历当前不能重新解析，请刷新后重试。" }, 409);
+      } catch (error) {
+        return c.json(
+          { error: error instanceof Error ? error.message : "简历解析队列入队失败。" },
+          503,
+        );
+      }
+    },
+  )
   .get("/:id/resume", requirePermission("resumePool", "read"), async (c) => {
     const { activeOrg, user } = c.var;
     if (!activeOrg || !user) {
@@ -383,6 +435,7 @@ export const resumePoolRouter = factory
           jobDescriptionId: input.jobDescriptionId,
           organizationId: activeOrg.id,
           poolItemId: c.req.param("id"),
+          reimport: input.reimport === true,
         });
         if (result.status === "imported" && input.jobDescriptionId) {
           const scheduling = await enqueueResumeReviewGenerationForRecordBestEffort({

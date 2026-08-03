@@ -92,7 +92,7 @@ export function InterviewPreparationView({
                     />
                   }
                 />
-                <ScheduleItem label="预计用时" value="约 20 分钟" />
+                <ScheduleItem label="预计用时" value="约 30 分钟" />
                 <ScheduleItem
                   label="面试内容"
                   value={

@@ -8,6 +8,7 @@ import { ResumeEducationDisplayLine } from "@/components/features/resume/resume-
 import { DataField } from "@/components/features/display/data-field";
 import { DataFields } from "@/components/features/display/data-fields";
 import { EmptyValue } from "@/components/features/display/empty-value";
+import { Badge } from "@/components/ui/badge";
 import { Frame, FramePanel } from "@/components/ui/frame";
 import type { ExperienceItemType } from "@/components/features/resume/work-experience";
 import { WorkExperience } from "@/components/features/resume/work-experience";
@@ -146,8 +147,8 @@ function ChipList({ items }: { items: string[] }) {
   return (
     <ul className="flex flex-wrap gap-2">
       {items.map((item) => (
-        <li key={item} className="rounded-full bg-muted px-2.5 py-1 text-xs">
-          {item}
+        <li key={item}>
+          <Badge variant="outline">{item}</Badge>
         </li>
       ))}
     </ul>

@@ -312,7 +312,7 @@ function RecruitmentStageHoverCard({
             onClick={onViewCurrentStage}
             size="sm"
             type="button"
-            variant="ghost"
+            variant="text"
           >
             <IconInfoCircle className="size-4" />
             当前阶段：{pipelineStageMeta[pipelineStage].label}
@@ -356,11 +356,7 @@ function RecruitmentStageHoverCard({
                       >
                         {pipelineStageMeta[stage].label}
                       </span>
-                      {isCurrent ? (
-                        <Badge className="h-5 px-1.5 text-[10px]" variant="outline">
-                          当前
-                        </Badge>
-                      ) : null}
+                      {isCurrent ? <Badge variant="outline">当前</Badge> : null}
                     </div>
                   </div>
                 </li>

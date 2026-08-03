@@ -14,6 +14,7 @@ import {
 // Purpose: simplified Studio resume library mock, mirroring the real components 1:1.
 
 import { PdfFileIcon } from "@/components/features/pdf/pdf-file-icon";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -22,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@arc/shared/utils";
 import { AppShell, StudioNav } from "./_parts/app-shell";
 import type { BreadcrumbCrumb } from "./_parts/app-shell";
 import { ScreenFrame } from "./screen-frame";
@@ -527,15 +529,6 @@ const RESUMES: ResumeRow[] = [
   },
 ];
 
-const LIFECYCLE_TONE_CLASS: Record<ResumeRow["lifecycleTone"], string> = {
-  info: "border-sky-500/20 bg-sky-500/5 text-sky-700/80 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300/80",
-  outline: "border-border bg-muted/40 text-foreground dark:bg-muted/30",
-  success:
-    "border-emerald-500/20 bg-emerald-500/5 text-emerald-700/80 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300/80",
-  warning:
-    "border-amber-500/20 bg-amber-500/5 text-amber-700/80 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300/80",
-};
-
 const LIFECYCLE_RING_CLASS: Record<ResumeRow["lifecycleTone"], string> = {
   info: "hover:ring-sky-500/10",
   outline: "hover:ring-muted/70 dark:hover:ring-muted/50",
@@ -545,24 +538,32 @@ const LIFECYCLE_RING_CLASS: Record<ResumeRow["lifecycleTone"], string> = {
 
 function LifecycleBadge({ row }: { row: ResumeRow }) {
   return (
-    <button
-      aria-label={`${row.lifecycleStage}，${row.lifecycleDetail}`}
-      className={`group/lifecycle inline-flex w-44 max-w-full items-center justify-start gap-1.5 overflow-hidden rounded-full border px-2.5 py-1 pr-1.5 text-left font-normal text-xs whitespace-nowrap transition-shadow duration-200 hover:ring-2 ${LIFECYCLE_TONE_CLASS[row.lifecycleTone]} ${LIFECYCLE_RING_CLASS[row.lifecycleTone]}`}
-      title={`${row.lifecycleStage} · ${row.lifecycleDetail}`}
-      type="button"
-    >
-      <span className="shrink-0">{row.lifecycleStage}</span>
-      <span aria-hidden="true" className="shrink-0 opacity-45">
-        ·
-      </span>
-      <span className="min-w-0 truncate opacity-75">{row.lifecycleDetail}</span>
-      <span
-        aria-hidden="true"
-        className="ml-auto flex size-4 shrink-0 items-center justify-center rounded-full border border-current/25 bg-current/10 opacity-70 transition-[transform,background-color,opacity] duration-200 group-hover/lifecycle:scale-110 group-hover/lifecycle:bg-current/15 group-hover/lifecycle:opacity-100"
-      >
-        <IconChevronRight className="size-3 transition-transform duration-200 group-hover/lifecycle:scale-110" />
-      </span>
-    </button>
+    <Badge
+      className={cn(
+        "group/lifecycle w-44 max-w-full justify-start text-left transition-shadow duration-200 hover:ring-2",
+        LIFECYCLE_RING_CLASS[row.lifecycleTone],
+      )}
+      render={
+        <button
+          aria-label={`${row.lifecycleStage}，${row.lifecycleDetail}`}
+          title={`${row.lifecycleStage} · ${row.lifecycleDetail}`}
+          type="button"
+        >
+          <span className="shrink-0">{row.lifecycleStage}</span>
+          <span aria-hidden="true" className="shrink-0 opacity-45">
+            ·
+          </span>
+          <span className="min-w-0 truncate opacity-75">{row.lifecycleDetail}</span>
+          <span
+            aria-hidden="true"
+            className="ml-auto flex size-4 shrink-0 items-center justify-center rounded-full border border-current/25 bg-current/10 opacity-70 transition-[transform,background-color,opacity] duration-200 group-hover/lifecycle:scale-110 group-hover/lifecycle:bg-current/15 group-hover/lifecycle:opacity-100"
+          >
+            <IconChevronRight className="size-3 transition-transform duration-200 group-hover/lifecycle:scale-110" />
+          </span>
+        </button>
+      }
+      variant={row.lifecycleTone}
+    />
   );
 }
 

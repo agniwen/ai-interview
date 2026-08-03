@@ -3,6 +3,8 @@ import {
   IconCircleOff,
   IconDots,
   IconEdit,
+  IconLoader2,
+  IconRefresh,
   IconSparkles,
 } from "@tabler/icons-react";
 import type { ReactNode } from "react";
@@ -40,14 +42,17 @@ type ResumeLibraryCardActionsProps = Pick<
   ResumeLibraryCardProps,
   | "canCreateInterview"
   | "canDeleteResumeLibrary"
+  | "canRetryResumeParse"
   | "canUpdateResumeLibrary"
   | "onCopyDetailLink"
   | "onDelete"
   | "onEdit"
   | "onLaunchInterview"
   | "onPreviewResume"
+  | "onRetryParse"
   | "onTransition"
   | "record"
+  | "retrying"
 > & {
   canCopyLink: boolean;
 };
@@ -210,17 +215,25 @@ export function ResumeLibraryCardActions({
   canCopyLink,
   canCreateInterview,
   canDeleteResumeLibrary,
+  canRetryResumeParse,
   canUpdateResumeLibrary,
   onCopyDetailLink,
   onDelete,
   onEdit,
   onLaunchInterview,
   onPreviewResume,
+  onRetryParse,
   onTransition,
   record,
+  retrying,
 }: ResumeLibraryCardActionsProps) {
   const canEdit = canUpdateResumeLibrary && canEditResumeRecord(record.resumeParseStatus);
   const canDelete = canDeleteResumeLibrary && canDeleteResumeRecord(record.resumeParseStatus);
+  const canRetry =
+    canUpdateResumeLibrary &&
+    canRetryResumeParse &&
+    record.resumeParseStatus === "failed" &&
+    record.resumeParseRetryable === true;
   const previewable = isPreviewableResumeDocumentInput({ fileName: record.resumeFileName });
   const canLaunchInterview =
     canCreateInterview &&
@@ -242,6 +255,23 @@ export function ResumeLibraryCardActions({
     <div className="flex justify-end self-center">
       <div className="flex items-center justify-end gap-1.5 xl:flex-col xl:items-stretch">
         <PreviewAction onPreviewResume={onPreviewResume} record={record} />
+        {canRetry ? (
+          <Button
+            className={ACTION_BUTTON_CLASS}
+            disabled={retrying}
+            onClick={() => onRetryParse(record)}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            {retrying ? (
+              <IconLoader2 className={`${ACTION_ICON_CLASS} animate-spin`} />
+            ) : (
+              <IconRefresh className={ACTION_ICON_CLASS} />
+            )}
+            <span>{retrying ? "入队中" : "重新解析"}</span>
+          </Button>
+        ) : null}
         {canEdit ? (
           <TextActionButton label="编辑" onClick={() => onEdit(record)}>
             <IconEdit className={ACTION_ICON_CLASS} />

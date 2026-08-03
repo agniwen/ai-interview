@@ -88,6 +88,15 @@ export function publishResumePoolItem(slug: string, id: string): Promise<ResumeP
   );
 }
 
+export function retryResumePoolItemParse(slug: string, id: string): Promise<{ status: "queued" }> {
+  return rpcFetch<{ status: "queued" }>(
+    rpc.api.w[":slug"].studio["resume-pool"][":id"]["retry-parse"].$post({
+      param: { id, slug },
+    }),
+    "重新解析简历失败",
+  );
+}
+
 export function importResumePoolItem(
   slug: string,
   id: string,

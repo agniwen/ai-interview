@@ -1,6 +1,13 @@
 import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
-import type { ScheduleEntryStatus } from "@arc/db-schema/studio-interviews";
-import { RECONNECT_GRACE_MS } from "@arc/db-schema/studio-interviews";
+import type {
+  CandidateInterviewFeedback,
+  CandidateInterviewFeedbackCategory,
+  ScheduleEntryStatus,
+} from "@arc/db-schema/studio-interviews";
+import {
+  buildCandidateInterviewFeedback,
+  RECONNECT_GRACE_MS,
+} from "@arc/db-schema/studio-interviews";
 import type { ResumeReviewDimensionKey, ResumeReviewLoose } from "../resume-review";
 import {
   getResumeReviewBaseScore,
@@ -59,6 +66,9 @@ export interface InterviewScheduleEntry {
   sortOrder: number;
   conversationId: string | null;
   allowTextInput: boolean;
+  candidateFeedbackCategories: CandidateInterviewFeedbackCategory[] | null;
+  candidateFeedbackDetail: string | null;
+  candidateFeedbackSubmittedAt: string | Date | null;
   createdAt: string | Date;
   updatedAt: string | Date;
   // 热重连相关字段（首次开始时填充，断连后用于续连判定）。
@@ -89,6 +99,7 @@ export interface CandidateInterviewView {
   currentRoundStatus: ScheduleEntryStatus | null;
   currentRoundTime: string | Date | null;
   currentRoundAllowTextInput: boolean;
+  currentRoundFeedback: CandidateInterviewFeedback | null;
   // 当轮次处于 interrupted 且 disconnectedAt + 宽限期 > 现在时，给出可续连的截止时间 ISO 字符串。
   // ISO timestamp of the latest moment the candidate may rejoin; non-null only
   // while the round is "interrupted" within the 3-minute grace window.
@@ -206,6 +217,11 @@ export function buildCandidateInterviewView(
   roundId: string,
 ): CandidateInterviewView {
   const currentEntry = scheduleEntries.find((e) => e.id === roundId) ?? null;
+  const currentRoundFeedback = buildCandidateInterviewFeedback({
+    categories: currentEntry?.candidateFeedbackCategories ?? null,
+    detail: currentEntry?.candidateFeedbackDetail ?? null,
+    submittedAt: currentEntry?.candidateFeedbackSubmittedAt ?? null,
+  });
 
   return {
     aiReview: buildCandidateAiReview(record.resumeReview),
@@ -213,6 +229,7 @@ export function buildCandidateInterviewView(
     companyContext: null,
     currentRoundAllowTextInput: currentEntry?.allowTextInput ?? false,
     currentRoundCanResume: computeCanResume(currentEntry),
+    currentRoundFeedback,
     currentRoundId: currentEntry?.id ?? null,
     currentRoundLabel: currentEntry?.roundLabel ?? null,
     currentRoundRecoverableUntil: computeRecoverableUntil(currentEntry),

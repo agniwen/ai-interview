@@ -139,4 +139,31 @@ describe("admitResumePoolItem", () => {
     });
     expect(retriedWithExistingRecordId).toBe("record-for-pool-1");
   });
+
+  it("creates a new Resume Record for an explicit reimport", async () => {
+    const { deps, records } = createStore();
+    records.set("record-for-pool-1", { error: null, status: "ready" });
+    deps.ensureAdmissionRecord = () => {
+      records.set("record-for-pool-1-reimported", { error: null, status: "processing" });
+      return Promise.resolve("record-for-pool-1-reimported");
+    };
+
+    const result = await admitResumePoolItem(
+      {
+        dedupPolicy: "force",
+        importedBy: "user-1",
+        jobDescriptionId: null,
+        organizationId: "target-org",
+        poolItemId: "pool-1",
+        reimport: true,
+      },
+      deps,
+    );
+
+    expect(result).toEqual({
+      resumeRecordId: "record-for-pool-1-reimported",
+      status: "imported",
+    });
+    expect(records.size).toBe(2);
+  });
 });

@@ -15,6 +15,7 @@ import { ResumeLibraryCard } from "@/components/features/studio/resumes/resume-l
 import type { ResumeDetailDefaultTab } from "@/components/features/studio/resumes/resume-library-card";
 import { ResumeLibraryFloatingActionBar } from "@/components/features/studio/resumes/resume-library-floating-action-bar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ListLoadError } from "@/components/data-grid/list-load-error";
 
 import {
   formatResumeLibraryJobDescriptionLabel,
@@ -30,11 +31,13 @@ interface ResumeLibraryCardListProps {
   canCreateInterview: boolean;
   canDeleteResumeLibrary: boolean;
   canReadResumeUploadBatch: boolean;
+  canRetryResumeParse: boolean;
   canUpdateResumeLibrary: boolean;
   canUploadResumeLibrary: boolean;
   currentMemberRole: string;
   currentUserId: string | null;
   empty: ReactNode;
+  error: unknown;
   fetchNextPage: () => Promise<unknown>;
   filters: ToolbarFilterConfig[];
   grid: ResumeLibraryGridState;
@@ -48,10 +51,14 @@ interface ResumeLibraryCardListProps {
   onOpenDetail: (record: ResumeLibraryListRecord, tab?: ResumeDetailDefaultTab) => void;
   onOpenUploadEntry: () => void;
   onPreviewResume: (record: ResumeLibraryListRecord) => void;
+  onRetryParse: (record: ResumeLibraryListRecord) => void;
+  onRetry: () => void;
   onShowDuplicateMatches: (record: ResumeLibraryListRecord) => void;
   onTransition: (record: ResumeLibraryListRecord, mode: "close" | "reactivate") => void;
   onToggleStructuredScoreSort: () => void;
   records: ResumeLibraryListRecord[];
+  retryingRecordId: string | null;
+  retriedRecordIds: ReadonlySet<string>;
   isFetchingNextPage: boolean;
   isInitialLoading: boolean;
   isRefetching: boolean;
@@ -66,11 +73,13 @@ export function ResumeLibraryCardList({
   canCreateInterview,
   canDeleteResumeLibrary,
   canReadResumeUploadBatch,
+  canRetryResumeParse,
   canUpdateResumeLibrary,
   canUploadResumeLibrary,
   currentMemberRole,
   currentUserId,
   empty,
+  error,
   fetchNextPage,
   filters,
   grid,
@@ -88,10 +97,14 @@ export function ResumeLibraryCardList({
   onOpenDetail,
   onOpenUploadEntry,
   onPreviewResume,
+  onRetryParse,
+  onRetry,
   onShowDuplicateMatches,
   onTransition,
   onToggleStructuredScoreSort,
   records,
+  retryingRecordId,
+  retriedRecordIds,
   total,
   structuredScoreSortActive,
   structuredScoreSortEnabled,
@@ -205,7 +218,9 @@ export function ResumeLibraryCardList({
   }
 
   let listContent: ReactNode = empty;
-  if (isInitialLoading) {
+  if (error && records.length === 0) {
+    listContent = <ListLoadError error={error} onRetry={onRetry} />;
+  } else if (isInitialLoading) {
     listContent = (
       <div className="grid gap-3">
         {Array.from({ length: 4 }, (_, index) => (
@@ -216,6 +231,7 @@ export function ResumeLibraryCardList({
   } else if (records.length > 0) {
     listContent = (
       <>
+        {error ? <ListLoadError compact error={error} onRetry={onRetry} /> : null}
         <div className="relative transition-opacity" style={{ height: virtualizer.getTotalSize() }}>
           {virtualItems.map((virtualRow) => {
             const record = records[virtualRow.index];
@@ -236,6 +252,7 @@ export function ResumeLibraryCardList({
                 <ResumeLibraryCard
                   canCreateInterview={canCreateInterview}
                   canDeleteResumeLibrary={canDeleteResumeLibrary}
+                  canRetryResumeParse={canRetryResumeParse && !retriedRecordIds.has(record.id)}
                   canUpdateResumeLibrary={canUpdateResumeLibrary}
                   currentMemberRole={currentMemberRole}
                   currentUserId={currentUserId}
@@ -245,10 +262,12 @@ export function ResumeLibraryCardList({
                   onLaunchInterview={onLaunchInterview}
                   onOpenDetail={handleOpenDetail}
                   onPreviewResume={onPreviewResume}
+                  onRetryParse={onRetryParse}
                   onSelectChange={handleSelectionChange}
                   onShowDuplicateMatches={onShowDuplicateMatches}
                   onTransition={onTransition}
                   record={record}
+                  retrying={retryingRecordId === record.id}
                   selected={Boolean(grid.bind.rowSelection[record.id])}
                 />
               </div>

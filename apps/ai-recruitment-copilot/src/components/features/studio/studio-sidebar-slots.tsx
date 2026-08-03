@@ -33,7 +33,7 @@ import { useHasPermission } from "@/hooks/use-has-permission";
 import { useWorkspaceMemberRole, useWorkspaceSlug } from "@/lib/client/workspace-context";
 import type { statement } from "@arc/shared/permissions";
 
-interface NavItem {
+export interface NavItem {
   /** Path under /w/[slug]/studio — leading slash, no slug prefix. */
   path: string;
   icon: typeof IconRobot;
@@ -176,6 +176,15 @@ const navGroups: NavGroup[] = [
     label: "系统配置",
   },
 ];
+
+const WORKSPACE_PREFIX_REGEX = /^\/w\/[^/]+/;
+
+export function resolveStudioSidebarNavItem(pathname: string): NavItem | undefined {
+  const studioPath = pathname.replace(WORKSPACE_PREFIX_REGEX, "");
+  return navGroups
+    .flatMap((group) => group.items)
+    .find((item) => studioPath === item.path || studioPath.startsWith(`${item.path}/`));
+}
 
 function SidebarNavItem({ item, active, href }: { item: NavItem; active: boolean; href: string }) {
   // Hook must be called unconditionally

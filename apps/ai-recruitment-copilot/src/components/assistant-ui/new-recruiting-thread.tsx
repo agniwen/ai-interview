@@ -7,7 +7,10 @@ import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { withCleanup } from "@/lib/client/async-control";
 import { cn } from "@/lib/utils";
-import { composerSendButtonClass } from "./recruiting-copilot-context";
+import {
+  composerSendButtonClass,
+  recruitingComposerPlaceholder,
+} from "./recruiting-composer-style";
 import { RecruitingComposerDirectiveChip } from "./recruiting-directive-text";
 import { RecruitingPersonMentionPopover } from "./recruiting-person-mention";
 import { emptyThreadStyle } from "./recruiting-thread-layout";
@@ -117,7 +120,7 @@ function NewRecruitingComposerShell({
         autoFocus={!disabled}
         className={newComposerInputClassName}
         directiveChip={RecruitingComposerDirectiveChip}
-        placeholder="输入招聘问题，或输入 @ 提及候选人..."
+        placeholder={recruitingComposerPlaceholder}
         submitMode="none"
       />
       <NewThreadEnterSubmitPlugin disabled={!canSubmit} onSubmit={handleSubmit} />

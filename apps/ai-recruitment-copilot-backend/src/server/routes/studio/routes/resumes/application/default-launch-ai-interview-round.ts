@@ -3,7 +3,10 @@ import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { invalidateStudioInterviewCaches } from "@arc/ai-recruitment-copilot-backend/server/cache-tags";
 import { buildScheduleRows } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/utils";
 import { autoBindApplicableTemplates } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interview-questions/dao/bindings";
-import { refreshInterviewContextSnapshot } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
+import {
+  flattenPresetQuestionsFromContextSnapshot,
+  refreshInterviewContextSnapshot,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/context-snapshots";
 import { setResumeEvaluationStatusWithAuditTx } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/evaluation";
 import { interviewAuditLog, studioInterview, studioInterviewSchedule } from "@arc/db-schema/schema";
 import { createDefaultScheduleEntry } from "@arc/db-schema/studio-interviews";
@@ -152,18 +155,22 @@ export function persistLaunchAiInterviewRound(
         ),
       );
     await autoBindApplicableTemplates(tx, interviewRecordId, candidate.jobDescriptionId);
-    await refreshInterviewContextSnapshot(tx, {
+    const snapshot = await refreshInterviewContextSnapshot(tx, {
       createdAt: now,
       createdBy: actorId,
       interviewRecordId,
       reason: "create",
       scheduleEntryId: schedule.id,
     });
+    const requiredQuestionCount = flattenPresetQuestionsFromContextSnapshot(
+      snapshot.payload,
+    ).length;
     await tx.insert(interviewAuditLog).values({
       action: "ai_interview_launched",
       createdAt: now,
       detail: {
-        questionCount: interviewQuestions.length,
+        personalizedQuestionCount: interviewQuestions.length,
+        questionCount: requiredQuestionCount,
         roundId: schedule.id,
         roundLabel: schedule.roundLabel,
       },

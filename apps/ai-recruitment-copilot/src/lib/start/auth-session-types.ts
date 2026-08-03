@@ -15,13 +15,6 @@ export type ActiveOrganizationState =
       };
     };
 
-export type StudioPageAccessState =
-  | { status: "unauthenticated" }
-  | { status: "not_found" }
-  | (Extract<WorkspaceAccessState, { status: "ready" }> & {
-      allowed: boolean;
-    });
-
 export type StudioPagePermissionAction = (typeof statement)["page"][number];
 
 export type WorkspaceSelectionState =

@@ -13,6 +13,7 @@ import {
 //   AgentTrackControl (2-button group, rounded-l-full / rounded-r-full) + Disconnect rounded-full font-mono
 // Purpose: simplified mid-interview UI mirroring AgentSessionView_01 + livekit AgentControlBar.
 
+import { Badge } from "@/components/ui/badge";
 import { ScreenFrame } from "./screen-frame";
 
 // ─────────────── Agent audio visualizer (bars) ───────────────
@@ -58,9 +59,9 @@ function CandidateCameraTile() {
       <div className="-translate-x-1/2 absolute bottom-[-32px] left-1/2 grid size-[110px] place-items-center rounded-full bg-slate-600/60">
         <IconUser className="size-10 text-slate-400" strokeWidth={1.5} />
       </div>
-      <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded-md bg-black/55 px-2 py-1 font-medium text-[10px] text-white backdrop-blur">
+      <Badge className="absolute top-2 left-2 backdrop-blur" variant="inverse">
         <span className="size-1.5 animate-pulse rounded-full bg-rose-500/45" />你
-      </div>
+      </Badge>
     </div>
   );
 }
@@ -183,10 +184,10 @@ function InterviewCanvas() {
   return (
     <div className="relative h-full w-full overflow-hidden bg-background text-foreground">
       {/* Top-left: AgentSpeechTimer */}
-      <div className="absolute top-4 left-4 z-30 flex items-center gap-2 rounded-md border border-border bg-background/80 px-2.5 py-1 font-mono text-[11px] tabular-nums backdrop-blur">
+      <Badge className="absolute top-4 left-4 z-30 tabular-nums backdrop-blur" variant="outline">
         <span className="size-1.5 animate-pulse rounded-full bg-emerald-500/55" />
         00:42
-      </div>
+      </Badge>
 
       {/* Top-right: ThemeToggle */}
       <div className="absolute top-4 right-4 z-30">

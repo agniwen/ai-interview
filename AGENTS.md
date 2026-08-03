@@ -206,7 +206,7 @@ Either run via turbo from the root, or directly:
 ### Agent (from `apps/livekit-agent/`)
 
 - `uv sync` — install dependencies
-- `uv run src/agent.py download-files` — download VAD + turn-detector models (required before first run)
+- `uv run -m livekit.agents download-files` — download VAD + turn-detector models (required before first run)
 - `uv run src/agent.py dev` — dev mode with hot reload
 - `uv run src/agent.py console` — interactive terminal chat
 - `uv run pytest` — run tests
@@ -354,6 +354,6 @@ The round-email feature (`/api/w/:slug/studio/interviews/round-emails/...`) call
 
 ## Gotchas
 
-- Must run `uv run src/agent.py download-files` before first agent run to download Silero VAD and turn-detector models
+- Must run `uv run -m livekit.agents download-files` before first agent run to download Silero VAD and turn-detector models
 - Generated/upstream UI is excluded from oxlint: `src/components/agents-ui/`, `src/hooks/agents-ui/`, `src/components/ui/`, `src/components/react-bits/`, `src/components/spell-ui/` — avoid hand-editing these
 - Drizzle ORM is on RC (`1.0.0-rc.1`) — pin carefully when upgrading

@@ -23,7 +23,7 @@ import { authClient } from "@/lib/client/auth-client";
 import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { getVisibleConversationTitle, useSetChatHeaderTitle } from "./chat-header";
-import { ChatMessageListSkeleton, ChatPageSkeleton } from "./chat-page-skeleton";
+import { ChatMessageSkeletonContent, ChatPageSkeleton } from "./chat-page-skeleton";
 import { CHAT_EVENTS, notifyConversationsChanged } from "./lib/chat-events";
 import { setChatMeta } from "./lib/chat-meta";
 import { getOrCreateChat, hasChat } from "./lib/chat-registry";
@@ -334,17 +334,24 @@ export default function ChatWorkspace({ initialSessionId }: { initialSessionId: 
     void regenerate();
   }, [clearError, messages, regenerate]);
 
-  if (!isHistoryReady) {
-    return initialSessionId ? <ChatMessageListSkeleton /> : <ChatPageSkeleton />;
+  if (!isHistoryReady && !initialSessionId) {
+    return <ChatPageSkeleton />;
   }
+
+  const showConversationThread = Boolean(
+    activeConversationId || (initialSessionId && !isHistoryReady),
+  );
 
   return (
     <div className="relative flex h-full w-full flex-col">
       <AssistantRuntimeProvider runtime={runtime}>
         <RecruitingCopilotContextProvider conversationId={activeConversationId}>
           <RecruitingToolRenderers />
-          {activeConversationId ? (
-            <RecruitingThread isRunning={isStreaming} />
+          {showConversationThread ? (
+            <RecruitingThread
+              historyLoadingFallback={isHistoryReady ? undefined : <ChatMessageSkeletonContent />}
+              isRunning={isStreaming}
+            />
           ) : (
             <NewRecruitingThread
               disabled={isCreatingConversation || !session}

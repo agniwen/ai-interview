@@ -162,6 +162,7 @@ export interface ResumeLibraryListRecord {
   structuredScoreGrade: StructuredResumeGrade | null;
   resumeSummary: string | null;
   resumeParseStatus: ResumeParseStatus;
+  resumeParseRetryable: boolean;
   resumeSkills: string[];
   resumeProfileSnapshot: ResumeLibraryProfileSnapshot;
   hasResumeFile: boolean;

@@ -133,12 +133,9 @@ export function SearchableMultiSelect({
                         </ComboboxChip>
                       ))}
                       {hiddenCount > 0 ? (
-                        <span
-                          className="flex h-[calc(--spacing(5.5))] w-fit items-center justify-center rounded-sm bg-muted px-1.5 font-medium text-muted-foreground text-xs whitespace-nowrap"
-                          title={`还有 ${hiddenCount} 项未展示`}
-                        >
+                        <Badge title={`还有 ${hiddenCount} 项未展示`} variant="secondary">
                           +{hiddenCount}
-                        </span>
+                        </Badge>
                       ) : null}
                     </>
                   )}
@@ -187,7 +184,7 @@ export function SearchableMultiSelect({
       {showBadges && selectedItems.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {visibleSelectedItems.map((item) => (
-            <Badge className="gap-1 pr-0.5" key={item.value} variant="secondary">
+            <Badge key={item.value} variant="secondary">
               {item.label}
               <button
                 aria-label={`移除 ${item.label}`}

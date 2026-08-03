@@ -99,22 +99,25 @@ export function ResumePoolListContent({
   canImportToLibrary,
   canResetFilters,
   canPublishToPool,
+  canRetryResumeParse,
   canUpload,
   currentOrganizationId,
   currentUserId,
   deleting,
   emptyTitle,
   isInitialPoolLoading,
-  isPoolBusy,
   onDelete,
   onImport,
   onOpenDuplicateMatches,
   onOpenDetail,
   onOpenPdf,
   onPublish,
+  onRetryParse,
   onSelectionChange,
   onUpload,
   publishing,
+  retryingRecordId,
+  retriedRecordIds,
   records,
   selectedPrivateResumeIds,
   selectionDisabled,
@@ -126,13 +129,13 @@ export function ResumePoolListContent({
   canDeletePoolRecords: boolean;
   canImportToLibrary: boolean;
   canPublishToPool: boolean;
+  canRetryResumeParse: boolean;
   canUpload: boolean;
   currentOrganizationId: string | null;
   currentUserId: string | null;
   publishing: boolean;
   deleting: boolean;
   isInitialPoolLoading: boolean;
-  isPoolBusy: boolean;
   showEmptyState: boolean;
   emptyTitle: string;
   canResetFilters: boolean;
@@ -141,11 +144,14 @@ export function ResumePoolListContent({
   onOpenPdf: (record: ResumePoolListRecord) => void;
   onImport: (record: ResumePoolListRecord) => void;
   onPublish: (record: ResumePoolListRecord) => void;
+  onRetryParse: (record: ResumePoolListRecord) => void;
   onDelete: (record: ResumePoolListRecord) => void;
   onSelectionChange: (record: ResumePoolListRecord, selected: boolean) => void;
   onUpload: () => void;
   selectedPrivateResumeIds: ReadonlySet<string>;
   selectionDisabled: boolean;
+  retryingRecordId: string | null;
+  retriedRecordIds: ReadonlySet<string>;
 }) {
   if (records.length > 0) {
     const cards = records.map((record) => {
@@ -160,6 +166,7 @@ export function ResumePoolListContent({
           canDelete={canDelete}
           canImport={canImportToLibrary && canManageRecord}
           canPublish={canPublishToPool && canManageRecord}
+          canRetryParse={canRetryResumeParse && canManageRecord && !retriedRecordIds.has(record.id)}
           deleting={deleting}
           key={record.id}
           onDelete={onDelete}
@@ -168,7 +175,9 @@ export function ResumePoolListContent({
           onOpenDetail={onOpenDetail}
           onOpenPdf={onOpenPdf}
           onPublish={onPublish}
+          onRetryParse={onRetryParse}
           publishing={publishing}
+          retrying={retryingRecordId === record.id}
           record={record}
           selected={selectedPrivateResumeIds.has(record.id)}
           selectionDisabled={selectionDisabled}
@@ -181,13 +190,11 @@ export function ResumePoolListContent({
       <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{cards}</div>
     );
     return (
-      <div className={isPoolBusy ? "opacity-60 transition-opacity" : "transition-opacity"}>
-        <ClientOnly fallback={fallback}>
-          <Suspense fallback={fallback}>
-            <ResumePoolMasonry>{cards}</ResumePoolMasonry>
-          </Suspense>
-        </ClientOnly>
-      </div>
+      <ClientOnly fallback={fallback}>
+        <Suspense fallback={fallback}>
+          <ResumePoolMasonry>{cards}</ResumePoolMasonry>
+        </Suspense>
+      </ClientOnly>
     );
   }
 

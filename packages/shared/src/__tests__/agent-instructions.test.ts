@@ -127,4 +127,21 @@ describe("buildAgentInstructions", () => {
     expect(out).not.toContain("追问方向：追问容量估算和降级策略");
     expect(out).toContain("考核点和追问方向仅供你内部参考，提问时不要念出来");
   });
+
+  it("treats polite acknowledgements as non-terminal and requires full question coverage", () => {
+    const out = buildAgentInstructions({
+      candidateName: "Alex",
+      companyContext: "",
+      interviewQuestions: [],
+      interviewerPrompt: "",
+      jobDescriptionPresetQuestions: [],
+      jobDescriptionPrompt: "",
+      resumeProfile: null,
+      targetRole: "Backend Engineer",
+    });
+
+    expect(out).toContain("礼貌用语");
+    expect(out).toContain("不是结束信号");
+    expect(out).toContain("必问题未完成前禁止告别");
+  });
 });

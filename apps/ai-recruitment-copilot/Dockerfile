@@ -25,9 +25,9 @@ FROM base AS builder
 WORKDIR /repo
 
 ARG ALIBABA_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-ARG ALIBABA_FAST_MODEL=deepseek-v4-flash
-ARG ALIBABA_MODEL=deepseek-v4-pro
-ARG ALIBABA_STRUCTURED_MODEL=deepseek-v4-pro
+ARG ALIBABA_FAST_MODEL=deepseek-v4-flash-0731
+ARG ALIBABA_MODEL=deepseek-v4-flash-0731
+ARG ALIBABA_STRUCTURED_MODEL=deepseek-v4-flash-0731
 ARG BETTER_AUTH_SECRET=build-time-placeholder
 ARG BETTER_AUTH_URL
 ARG FEISHU_APP_ID=build-time-placeholder
@@ -36,7 +36,7 @@ ARG FEISHU_APP_SECRET=build-time-placeholder
 ARG FEISHU_APP_SECRET2=build-time-placeholder
 ARG GOOGLE_CLIENT_ID=build-time-placeholder
 ARG GOOGLE_CLIENT_SECRET=build-time-placeholder
-ARG INTERVIEW_EVALUATION_MODEL=deepseek-v4-pro
+ARG INTERVIEW_EVALUATION_MODEL=deepseek-v4-flash-0731
 ARG MINIMAX_TTS_BASE_URL=https://api.minimax.chat
 ARG NEXT_PUBLIC_AGENT_NAME=giaogiao
 ARG NEXT_PUBLIC_BASE_URL

@@ -6,11 +6,11 @@ import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 
-import type { ComponentProps } from "react";
 import { useCallback, useRef } from "react";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import type { ChevronsUpDownIconHandle } from "@/components/icons/chevrons-up-down-icon";
 import { ChevronsUpDownIcon } from "@/components/icons/chevrons-up-down-icon";
+import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@arc/shared/utils";
@@ -68,7 +68,7 @@ export function WorkExperience({ className, experiences }: WorkExperienceProps) 
   return (
     <div
       className={cn(
-        "relative bg-background px-4 text-foreground",
+        "relative  px-4 text-foreground",
         experiences.length > 1 &&
           "before:absolute before:top-7 before:bottom-7 before:left-7 before:w-px before:bg-border",
         className,
@@ -251,24 +251,12 @@ function ExperiencePositionItem({ position }: ExperiencePositionItemProps) {
         <ul className="not-prose flex flex-wrap gap-1.5 pt-3 pl-9">
           {position.skills.map((skill, index) => (
             <li className="flex" key={`${position.id}-skill-${index}`}>
-              <Skill>{skill}</Skill>
+              <Badge variant="outline">{skill}</Badge>
             </li>
           ))}
         </ul>
       )}
     </Collapsible>
-  );
-}
-
-function Skill({ className, ...props }: ComponentProps<"span">) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-md border bg-muted/50 px-1.5 py-0.5 font-mono text-muted-foreground text-xs",
-        className,
-      )}
-      {...props}
-    />
   );
 }
 

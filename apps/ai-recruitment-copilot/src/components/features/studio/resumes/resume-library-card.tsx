@@ -4,6 +4,7 @@ import { memo, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 
 import { TimeDisplay } from "@/components/features/display/time-display";
+import { ResumeDuplicateMatchBadge } from "@/components/features/resume/resume-duplicate-match-badge";
 import { formatResumeRecordDisplayId } from "@/components/features/resume/resume-record-display-id";
 import { JobDescriptionHoverCard } from "@/components/features/studio/job-descriptions/job-description-hover-card";
 import { ResumeLifecycleBadge } from "@/components/features/studio/resumes/resume-lifecycle-badge";
@@ -212,33 +213,7 @@ function duplicateMatchBadge(record: ResumeLibraryListRecord, onClick?: () => vo
   if (!record.duplicateMatch) {
     return null;
   }
-  const isDuplicate = record.duplicateMatch.highestLevel === "high";
-  const badgeText = isDuplicate ? "重复简历" : "相似简历";
-  const label =
-    record.duplicateMatch.count > 1 ? `${badgeText} ${record.duplicateMatch.count} 条` : badgeText;
-  const variant = isDuplicate ? "destructive" : "secondary";
-  return onClick ? (
-    <Badge
-      className="shrink-0 cursor-pointer"
-      render={
-        <button
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            onClick();
-          }}
-          type="button"
-        >
-          {label}
-        </button>
-      }
-      variant={variant}
-    />
-  ) : (
-    <Badge className="shrink-0" variant={variant}>
-      {label}
-    </Badge>
-  );
+  return <ResumeDuplicateMatchBadge duplicateMatch={record.duplicateMatch} onClick={onClick} />;
 }
 
 function getResumeAvatarValue(record: ResumeLibraryListRecord) {
@@ -382,6 +357,7 @@ function ResumeCardProfileSnapshot({ snapshot }: { snapshot: ResumeLibraryProfil
 function ResumeLibraryCardComponent({
   canCreateInterview,
   canDeleteResumeLibrary,
+  canRetryResumeParse,
   canUpdateResumeLibrary,
   currentMemberRole,
   currentUserId,
@@ -391,10 +367,12 @@ function ResumeLibraryCardComponent({
   onLaunchInterview,
   onOpenDetail,
   onPreviewResume,
+  onRetryParse,
   onSelectChange,
   onShowDuplicateMatches,
   onTransition,
   record,
+  retrying,
   selected,
 }: ResumeLibraryCardProps) {
   const jobDescriptionLabel = getResumeLibraryJobDescriptionLabel(record);
@@ -591,14 +569,17 @@ function ResumeLibraryCardComponent({
           canCopyLink={canCopyLink}
           canCreateInterview={canCreateInterview}
           canDeleteResumeLibrary={canDeleteResumeLibrary}
+          canRetryResumeParse={canRetryResumeParse}
           canUpdateResumeLibrary={canUpdateResumeLibrary}
           onCopyDetailLink={onCopyDetailLink}
           onDelete={onDelete}
           onEdit={onEdit}
           onLaunchInterview={onLaunchInterview}
           onPreviewResume={onPreviewResume}
+          onRetryParse={onRetryParse}
           onTransition={onTransition}
           record={record}
+          retrying={retrying}
         />
       </CardPanel>
     </Card>

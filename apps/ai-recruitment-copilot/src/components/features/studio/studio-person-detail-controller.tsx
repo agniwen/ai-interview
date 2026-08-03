@@ -99,6 +99,7 @@ interface UnifiedRecord {
   roundStatus?: StudioInterviewRoundDetail["status"];
   roundInterviewLink?: string;
   roundAllowTextInput?: boolean;
+  roundCandidateFeedback?: StudioInterviewRoundDetail["candidateFeedback"];
   roundHasReport?: boolean;
 }
 
@@ -120,6 +121,7 @@ function toUnifiedRoundRecord(round: StudioInterviewRoundDetail): UnifiedRecord 
     resumeProfile: round.candidate.resumeProfile ?? null,
     resumeStorageKey: round.candidate.resumeStorageKey,
     roundAllowTextInput: round.allowTextInput,
+    roundCandidateFeedback: round.candidateFeedback,
     roundHasReport: round.hasReport,
     roundId: round.id,
     roundInterviewLink: round.interviewLink,

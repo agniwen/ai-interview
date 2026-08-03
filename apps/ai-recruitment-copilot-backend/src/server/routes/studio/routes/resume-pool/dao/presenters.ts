@@ -14,6 +14,12 @@ import type {
 } from "@arc/shared/resume-pool";
 
 type PoolRow = typeof resumePoolItem.$inferSelect;
+interface PoolImportRow {
+  creatorImage: string | null;
+  creatorName: string | null;
+  importedAt: Date;
+  resumeRecordId: string;
+}
 
 export interface PoolUploaderMeta {
   uploaderEmail: string | null;
@@ -41,14 +47,41 @@ function cleanHighlightText(value: string | null | undefined): string | null {
   return text;
 }
 
-function firstPresentValue(values: (string | null | undefined)[]): string | null {
-  for (const value of values) {
-    const text = cleanHighlightText(value);
-    if (text) {
-      return text;
-    }
+function experiencePeriodRank(period: string | null | undefined): number {
+  const text = cleanHighlightText(period);
+  if (!text) {
+    return Number.NEGATIVE_INFINITY;
   }
-  return null;
+  if (/(至今|现在|目前|present|current)/iu.test(text)) {
+    return Number.POSITIVE_INFINITY;
+  }
+  const months = [...text.matchAll(/(\d{4})\s*[./年-]\s*(\d{1,2})\s*月?/gu)].map(
+    ([, year, month]) => Number(year) * 12 + Number(month),
+  );
+  if (months.length > 0) {
+    return months.at(-1) ?? Number.NEGATIVE_INFINITY;
+  }
+  const years = [...text.matchAll(/(?:^|[^\d])(\d{4})(?=$|[^\d])/gu)].map(
+    ([, year]) => Number(year) * 12,
+  );
+  return years.at(-1) ?? Number.NEGATIVE_INFINITY;
+}
+
+function findLatestExperience<T extends { period: string | null }>(
+  experiences: T[],
+  getName: (experience: T) => string | null | undefined,
+): T | undefined {
+  return experiences
+    .filter((experience) => cleanHighlightText(getName(experience)))
+    .toSorted((a, b) => {
+      const aRank = experiencePeriodRank(a.period);
+      const bRank = experiencePeriodRank(b.period);
+      if (aRank === bRank) {
+        return 0;
+      }
+      return bRank > aRank ? 1 : -1;
+    })
+    .at(0);
 }
 
 export function buildProfileHighlights(profile: ResumeProfile | null): ResumePoolProfileHighlights {
@@ -57,18 +90,36 @@ export function buildProfileHighlights(profile: ResumeProfile | null): ResumePoo
       educationItems: [],
       educationLines: [],
       latestCompany: null,
+      latestCompanyDetail: null,
       latestProject: null,
+      latestProjectDetail: null,
       schools: [],
     };
   }
   const schools = profile.schools
     .map(cleanHighlightText)
     .filter((item): item is string => item !== null);
+  const latestCompany = findLatestExperience(profile.workExperiences, (item) => item.company);
+  const latestProject = findLatestExperience(profile.projectExperiences, (item) => item.name);
   return {
     educationItems: formatResumeEducationItems(profile.educationExperiences),
     educationLines: formatResumeEducationLines(profile.educationExperiences),
-    latestCompany: firstPresentValue(profile.workExperiences.map((item) => item.company)),
-    latestProject: firstPresentValue(profile.projectExperiences.map((item) => item.name)),
+    latestCompany: cleanHighlightText(latestCompany?.company),
+    latestCompanyDetail: latestCompany
+      ? {
+          period: cleanHighlightText(latestCompany.period),
+          role: cleanHighlightText(latestCompany.role),
+          summary: cleanHighlightText(latestCompany.summary),
+        }
+      : null,
+    latestProject: cleanHighlightText(latestProject?.name),
+    latestProjectDetail: latestProject
+      ? {
+          period: cleanHighlightText(latestProject.period),
+          role: cleanHighlightText(latestProject.role),
+          summary: cleanHighlightText(latestProject.summary),
+        }
+      : null,
     schools,
   };
 }
@@ -85,12 +136,14 @@ export function buildMasteredSkills(profile: ResumeProfile | null): string[] {
 
 export function toResumePoolListRecord(
   row: PoolRow,
-  importRow?: { importedAt: Date; resumeRecordId: string } | null,
+  importRows: PoolImportRow[] = [],
   uploaderMeta: PoolUploaderMeta = EMPTY_UPLOADER_META,
   sourceChannel: ResumePoolSourceChannel | null = null,
   duplicateMatch: ResumeDuplicateMatchSummary | null = null,
   jobDescriptionName: string | null = null,
+  resumeParseRetryable = false,
 ): ResumePoolListRecord {
+  const latestImport = importRows[0] ?? null;
   return {
     candidateEmail: row.candidateEmail,
     candidateName: row.candidateName,
@@ -99,8 +152,14 @@ export function toResumePoolListRecord(
     createdBy: row.createdBy,
     duplicateMatch,
     id: row.id,
-    importedAt: importRow ? importRow.importedAt.toISOString() : null,
-    importedResumeRecordId: importRow?.resumeRecordId ?? null,
+    importedAt: latestImport?.importedAt.toISOString() ?? null,
+    importedRecords: importRows.map((item) => ({
+      creatorImage: item.creatorImage,
+      creatorName: item.creatorName,
+      importedAt: item.importedAt.toISOString(),
+      resumeRecordId: item.resumeRecordId,
+    })),
+    importedResumeRecordId: latestImport?.resumeRecordId ?? null,
     jobDescriptionId: row.jobDescriptionId,
     jobDescriptionName,
     masteredSkills: buildMasteredSkills(row.resumeProfile),
@@ -112,6 +171,7 @@ export function toResumePoolListRecord(
     resumeContentHash: row.resumeContentHash,
     resumeFileName: row.resumeFileName,
     resumeParseError: row.resumeParseError,
+    resumeParseRetryable,
     resumeParseStatus: row.resumeParseStatus,
     resumeParsedAt: serializeDate(row.resumeParsedAt),
     resumeProfileSnapshot: buildResumeProfileSnapshotFromProfile(row.resumeProfile),
@@ -135,20 +195,22 @@ export function toResumePoolListRecord(
 
 export function toResumePoolDetail(
   row: PoolRow,
-  importRow?: { importedAt: Date; resumeRecordId: string } | null,
+  importRows: PoolImportRow[] = [],
   uploaderMeta: PoolUploaderMeta = EMPTY_UPLOADER_META,
   sourceChannel: ResumePoolSourceChannel | null = null,
   duplicateMatch: ResumeDuplicateMatchSummary | null = null,
   jobDescriptionName: string | null = null,
+  resumeParseRetryable = false,
 ): ResumePoolDetail {
   return {
     ...toResumePoolListRecord(
       row,
-      importRow,
+      importRows,
       uploaderMeta,
       sourceChannel,
       duplicateMatch,
       jobDescriptionName,
+      resumeParseRetryable,
     ),
     resumeProfile: row.resumeProfile,
   };

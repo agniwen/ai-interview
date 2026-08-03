@@ -1,6 +1,74 @@
 import type { ResumeAnalysisResult } from "./interview/types";
 import { z } from "zod";
 
+export const candidateInterviewFeedbackCategoryValues = [
+  "audio",
+  "video",
+  "network",
+  "ai_conversation",
+  "question_content",
+  "page_operation",
+  "other",
+] as const;
+
+export const candidateInterviewFeedbackCategorySchema = z.enum(
+  candidateInterviewFeedbackCategoryValues,
+);
+export type CandidateInterviewFeedbackCategory = z.infer<
+  typeof candidateInterviewFeedbackCategorySchema
+>;
+
+export const candidateInterviewFeedbackCategoryMeta: Record<
+  CandidateInterviewFeedbackCategory,
+  { label: string }
+> = {
+  ai_conversation: { label: "AI 对话" },
+  audio: { label: "音频" },
+  network: { label: "网络连接" },
+  other: { label: "其他" },
+  page_operation: { label: "页面操作" },
+  question_content: { label: "题目内容" },
+  video: { label: "视频" },
+};
+
+export const candidateInterviewFeedbackInputSchema = z.object({
+  categories: z
+    .array(candidateInterviewFeedbackCategorySchema)
+    .min(1, "请至少选择一个问题分类。")
+    .max(candidateInterviewFeedbackCategoryValues.length)
+    .refine((categories) => new Set(categories).size === categories.length, "问题分类不能重复。"),
+  detail: z
+    .string()
+    .trim()
+    .min(10, "请至少填写 10 个字的问题描述。")
+    .max(2000, "问题描述不能超过 2000 个字。"),
+});
+
+export type CandidateInterviewFeedbackInput = z.infer<typeof candidateInterviewFeedbackInputSchema>;
+
+export interface CandidateInterviewFeedback extends CandidateInterviewFeedbackInput {
+  submittedAt: string;
+}
+
+export function buildCandidateInterviewFeedback(input: {
+  categories: CandidateInterviewFeedbackCategory[] | null;
+  detail: string | null;
+  submittedAt: Date | string | null;
+}): CandidateInterviewFeedback | null {
+  if (!(input.categories && input.detail && input.submittedAt)) {
+    return null;
+  }
+  const submittedAt = new Date(input.submittedAt);
+  if (Number.isNaN(submittedAt.getTime())) {
+    return null;
+  }
+  return {
+    categories: input.categories,
+    detail: input.detail,
+    submittedAt: submittedAt.toISOString(),
+  };
+}
+
 // ── 新模型：pipelineStage（候选人在 pipeline 哪个阶段）+ outcome（最终结论）──
 // Candidate lifecycle uses an explicit "where in the hiring pipeline" stage
 // plus a separate "what's the verdict" outcome.

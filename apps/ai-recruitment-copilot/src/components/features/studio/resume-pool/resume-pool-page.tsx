@@ -8,7 +8,7 @@ import type { ResumePoolScope, ResumeUploadBatchDedupPolicy } from "@arc/db-sche
 import { resumePoolScopeMeta } from "@arc/shared/resume-pool";
 import type { ResumePoolListRecord } from "@arc/shared/resume-pool";
 
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useDataGridState } from "@/components/data-grid";
 import { Toolbar } from "@/components/data-grid/parts/toolbar";
@@ -39,6 +39,7 @@ import {
   fetchResumePoolItems,
   fetchResumePoolUploaders,
   publishResumePoolItem,
+  retryResumePoolItemParse,
 } from "@/lib/client/api";
 import { listBulkResumeBatches } from "@/lib/client/api/endpoints/bulk-resume-upload";
 import { authClient } from "@/lib/client/auth-client";
@@ -58,6 +59,7 @@ import {
   normalizeScope,
   pruneSelectedPrivateResumeIds,
   removeSelectedPrivateResumeId,
+  RESUME_POOL_LOAD_MORE_ROOT_MARGIN,
   RESUME_POOL_UPLOADER_QUERY_FRESHNESS,
   sessionUserId,
   updateSelectedPrivateResumeIds,
@@ -100,6 +102,7 @@ export function ResumePoolPage() {
   const canCreateResumeLibrary = useHasPermission("resumeLibrary", "create");
   const canReadResumeUploadBatch = useHasPermission("resumeUploadBatch", "read");
   const canCreateResumeUploadBatch = useHasPermission("resumeUploadBatch", "create");
+  const canRetryResumeParse = useHasPermission("resumeUploadBatch", "process");
   const search = useSearch({ from: "/w/$slug/studio/resume-pool" }) as ResumePoolSearch;
   const navigate = useNavigate({ from: "/w/$slug/studio/resume-pool" });
   const scope = normalizeScope(search.scope);
@@ -138,6 +141,7 @@ export function ResumePoolPage() {
     uploadScope,
   } = useResumePoolPageState(scope);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const [retriedRecordIds, setRetriedRecordIds] = useState<ReadonlySet<string>>(() => new Set());
 
   const queryKeyPrefix = useMemo(() => ["resume-pool", slug] as const, [slug]);
   const fetcher = useMemo(
@@ -284,7 +288,7 @@ export function ResumePoolPage() {
           loadMoreRecords();
         }
       },
-      { rootMargin: "360px 0px" },
+      { rootMargin: RESUME_POOL_LOAD_MORE_ROOT_MARGIN },
     );
 
     observer.observe(node);
@@ -361,6 +365,15 @@ export function ResumePoolPage() {
       toast.success(`${deletePoolRecordLabel(record)}已删除`);
       setSelectedPrivateResumeIds((current) => removeSelectedPrivateResumeId(current, record.id));
       setDeleteTarget(null);
+      invalidatePool();
+    },
+  });
+  const retryParseMutation = useMutation({
+    mutationFn: (record: ResumePoolListRecord) => retryResumePoolItemParse(slug, record.id),
+    onError: (error) => toast.error(error instanceof Error ? error.message : "重新解析简历失败"),
+    onSuccess: (_result, record) => {
+      setRetriedRecordIds((current) => new Set(current).add(record.id));
+      toast.success("已重新加入解析队列");
       invalidatePool();
     },
   });
@@ -499,22 +512,27 @@ export function ResumePoolPage() {
             canDeletePoolRecords={canDeleteResumePool}
             canImportToLibrary={canImportToLibrary}
             canPublishToPool={canPublishResumePool}
+            canRetryResumeParse={canRetryResumeParse}
             canUpload={canUploadResumePool}
             currentOrganizationId={currentOrganizationId}
             currentUserId={currentUserId}
             deleting={isDeletingPoolRecords}
             emptyTitle={emptyTitle}
             isInitialPoolLoading={isInitialPoolLoading}
-            isPoolBusy={isPoolBusy}
             onDelete={setDeleteTarget}
             onImport={setImportTarget}
             onOpenDuplicateMatches={setDuplicateMatchRecord}
             onOpenDetail={setDetailRecord}
             onOpenPdf={setPreviewRecord}
             onPublish={publishMutation.mutate}
+            onRetryParse={retryParseMutation.mutate}
             onSelectionChange={handlePrivateResumeSelection}
             onUpload={() => setUploadOpen(true)}
             publishing={publishMutation.isPending}
+            retryingRecordId={
+              retryParseMutation.isPending ? (retryParseMutation.variables?.id ?? null) : null
+            }
+            retriedRecordIds={retriedRecordIds}
             records={grid.bind.data}
             selectedPrivateResumeIds={selectedPrivateResumeIds}
             selectionDisabled={isDeletingPoolRecords}
