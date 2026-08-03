@@ -9,14 +9,14 @@ For repo-wide setup (web + agent together), see the root [`README.md`](../../REA
 
 ## Pipeline
 
-| Stage          | Provider                                          | Notes                           |
-| -------------- | ------------------------------------------------- | ------------------------------- |
-| STT            | ElevenLabs (`scribe_v2`, language `zh`)           | livekit-plugins-elevenlabs      |
+| Stage          | Provider                                               | Notes                           |
+| -------------- | ------------------------------------------------------ | ------------------------------- |
+| STT            | ElevenLabs (`scribe_v2`, language `zh`)                | livekit-plugins-elevenlabs      |
 | LLM            | Aliyun DashScope (`deepseek-v4-flash-0731` by default) | OpenAI-compatible endpoint      |
-| TTS            | Minimax                                           | livekit-plugins-minimax-ai      |
-| VAD            | Silero                                            | downloaded via `download-files` |
-| Turn-detection | LiveKit multilingual model                        | downloaded via `download-files` |
-| Recording      | LiveKit Egress → Cloudflare R2                    | see `src/recording.py`          |
+| TTS            | Minimax                                                | livekit-plugins-minimax-ai      |
+| VAD            | Silero                                                 | downloaded via `download-files` |
+| Turn-detection | LiveKit multilingual model                             | downloaded via `download-files` |
+| Recording      | LiveKit Egress → Cloudflare R2                         | see `src/recording.py`          |
 
 Worker registers with `AGENT_NAME`, defaulting to `giaogiao`. The web side
 dispatches sessions to that name via `AGENT_NAME` / `NEXT_PUBLIC_AGENT_NAME` —
