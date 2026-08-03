@@ -63,10 +63,14 @@ describe("CandidateInterviewFeedbackPanel", () => {
     const title = host.querySelector<HTMLElement>('[data-slot="item-title"]');
     const content = host.querySelector<HTMLElement>('[data-slot="item-content"]');
     const actions = host.querySelector<HTMLElement>('[data-slot="item-actions"]');
+    const feedbackButton = host.querySelector<HTMLButtonElement>('[data-slot="button"]');
     expect(media?.className).toContain("hidden");
     expect(title?.className).toContain("hidden");
     expect(actions?.className).toContain("order-1");
     expect(content?.className).toContain("order-2");
+    expect(feedbackButton?.dataset.size).toBe("lg");
+    expect(feedbackButton?.className).toContain("w-full");
+    expect(feedbackButton?.className).toContain("md:w-auto");
 
     await act(() => {
       root.unmount();

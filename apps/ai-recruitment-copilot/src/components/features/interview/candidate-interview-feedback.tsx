@@ -171,7 +171,13 @@ export function CandidateInterviewFeedbackPanel({
             <ItemDescription>如遇音视频、网络或 AI 对话问题，可以告诉我们。</ItemDescription>
           </ItemContent>
           <ItemActions className="order-1 basis-full md:order-none md:basis-auto md:self-center">
-            <Button onClick={() => setOpen(true)} size="sm" type="button" variant="secondary">
+            <Button
+              className="w-full md:h-8 md:w-auto md:gap-1.5 md:px-3 md:has-[>svg]:px-2.5"
+              onClick={() => setOpen(true)}
+              size="lg"
+              type="button"
+              variant="secondary"
+            >
               反馈问题
               <IconChevronRight data-icon="inline-end" />
             </Button>
