@@ -35,6 +35,7 @@ import type { JobDescriptionConfig } from "./job-description-config";
 import type { MinimaxVoiceId } from "./minimax-voices";
 import type {
   CandidateExpectationsMeta,
+  CandidateInterviewFeedbackCategory,
   CandidateOutcome,
   ClosedMeta,
   HumanInterviewFormat,
@@ -747,6 +748,13 @@ export const studioInterviewSchedule = pgTable(
   "studio_interview_schedule",
   {
     allowTextInput: boolean("allow_text_input").notNull().default(false),
+    candidateFeedbackCategories: jsonb("candidate_feedback_categories").$type<
+      CandidateInterviewFeedbackCategory[] | null
+    >(),
+    candidateFeedbackDetail: text("candidate_feedback_detail"),
+    candidateFeedbackSubmittedAt: timestamp("candidate_feedback_submitted_at", {
+      withTimezone: true,
+    }),
     conversationId: text("conversation_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),

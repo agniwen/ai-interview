@@ -225,6 +225,7 @@ function makeRoundDetail(
       targetRole: "前端工程师",
       updatedAt: "2026-06-15T00:00:00.000Z",
     },
+    candidateFeedback: null,
     conversationId: null,
     createdAt: "2026-06-15T00:00:00.000Z",
     disconnectedAt: null,

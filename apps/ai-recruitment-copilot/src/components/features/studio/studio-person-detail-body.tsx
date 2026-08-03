@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 import { env } from "@/env/client";
 
 import { CandidateBasicInfoView } from "@/components/features/candidate/candidate-basic-info-view";
+import { CandidateInterviewFeedbackContent } from "@/components/features/interview/candidate-interview-feedback";
 import { MarkdownView } from "@/components/features/display/markdown-view";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
 import {
@@ -290,6 +291,12 @@ function InterviewResultFrame({
             "候选人完成面试后，这里会优先显示结论、评分和关键摘要。",
           )}
         />
+        {record.roundCandidateFeedback ? (
+          <div className="mt-5 border-border/50 border-t pt-5">
+            <h3 className="mb-3 font-medium text-sm">候选人反馈</h3>
+            <CandidateInterviewFeedbackContent feedback={record.roundCandidateFeedback} />
+          </div>
+        ) : null}
         {showCopyInterviewLink ? (
           <div className="mt-5 border-border/50 border-t pt-5">
             <Button

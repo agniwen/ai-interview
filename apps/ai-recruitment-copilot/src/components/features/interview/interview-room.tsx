@@ -2,6 +2,10 @@
 
 import { IconAlertTriangle, IconMicrophone, IconMicrophoneOff } from "@tabler/icons-react";
 import type { CandidateInterviewView } from "@arc/shared/interview/interview-record";
+import type {
+  CandidateInterviewFeedback,
+  CandidateInterviewFeedbackInput,
+} from "@arc/db-schema/studio-interviews";
 import { useAgent, useSession } from "@livekit/components-react";
 import { ConnectionState, DisconnectReason, RoomEvent, TokenSource } from "livekit-client";
 
@@ -24,6 +28,7 @@ import {
 import { Toaster } from "@/components/ui/sonner";
 import { env } from "@/env/client";
 import { runAsyncAction } from "@/lib/client/async-control";
+import { ApiError, rpcFetch } from "@/lib/client/api";
 import { rpc } from "@/lib/client/rpc";
 import { InterviewFlowFloatingBar } from "./interview-flow-floating-bar";
 import { InterviewTimer } from "./interview-timer";
@@ -33,6 +38,7 @@ import { startInterviewSession } from "./interview-session-start";
 import { DevicePreflightCard } from "./interview-device-preflight";
 import { fetchPreInterviewForms } from "./pre-interview-forms-view";
 import type { FormsPayload } from "./pre-interview-forms/types";
+import { CandidateInterviewFeedbackPanel } from "./candidate-interview-feedback";
 
 function AgentSpeechTimer() {
   const { state } = useAgent();
@@ -199,6 +205,7 @@ function WaitingView({
   isRecovering,
   onBack,
   onStart,
+  onSubmitFeedback,
   recordingEnabled,
 }: {
   hasForms: boolean;
@@ -211,6 +218,7 @@ function WaitingView({
   isRecovering: boolean;
   onBack?: () => void;
   onStart: (options?: { muted?: boolean }) => void;
+  onSubmitFeedback: (input: CandidateInterviewFeedbackInput) => Promise<void>;
   recordingEnabled: boolean;
 }) {
   const candidateName = interviewView?.candidateName ?? "";
@@ -276,6 +284,14 @@ function WaitingView({
           </section>
 
           {showPreparation ? <DevicePreflightCard recordingEnabled={recordingEnabled} /> : null}
+          {isRoundCompleted ? (
+            <div className="mt-8">
+              <CandidateInterviewFeedbackPanel
+                feedback={interviewView?.currentRoundFeedback ?? null}
+                onSubmit={onSubmitFeedback}
+              />
+            </div>
+          ) : null}
         </div>
       </main>
       {showPreparation ? (
@@ -651,6 +667,29 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
   // can render a contradictory "recovering / ended" frame for a tick.
   const isRecovering = !isRoundCompleted && isRecoverable && (isConnecting || autoRejoinTriggered);
 
+  const handleSubmitFeedback = useCallback(
+    async (input: CandidateInterviewFeedbackInput) => {
+      try {
+        const { feedback } = await rpcFetch<{ feedback: CandidateInterviewFeedback }>(
+          rpc.api.interview[":id"][":roundId"].feedback.$post({
+            json: input,
+            param: { id: interviewId, roundId },
+          }),
+          "提交反馈失败，请重试。",
+        );
+        setInterviewView((current) =>
+          current ? { ...current, currentRoundFeedback: feedback } : current,
+        );
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 409) {
+          void loadEntryData();
+        }
+        throw error;
+      }
+    },
+    [interviewId, loadEntryData, roundId],
+  );
+
   if (isDisconnected || isConnecting) {
     const hasForms = (formsPayload?.required.length ?? 0) > 0;
     const waitingView = (
@@ -663,6 +702,7 @@ export default function InterviewRoom({ interviewId, roundId }: InterviewRoomPro
         isRoundCompleted={isRoundCompleted}
         onBack={hasForms ? undefined : () => setPreparationConfirmed(false)}
         onStart={handleStart}
+        onSubmitFeedback={handleSubmitFeedback}
         recordingEnabled={interviewRecordingEnabled}
       />
     );

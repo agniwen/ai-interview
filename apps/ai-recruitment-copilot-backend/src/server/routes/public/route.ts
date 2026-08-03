@@ -375,7 +375,7 @@ export const publicRouter = factory
     if (!detail) {
       return c.json({ error: "记录不存在。" }, 404);
     }
-    return c.json(detail, 200);
+    return c.json({ ...detail, candidateFeedback: null }, 200);
   })
   .get("/interview-rounds/:id/reports", async (c) => {
     const roundId = c.req.param("id");
