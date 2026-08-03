@@ -40,7 +40,6 @@ describe("AI 面试详情 tabs", () => {
     expect(controllerSource).toContain("if (showAgentInstructions)");
     expect(controllerSource).toContain("{showAgentInstructions ? (");
     expect(bodySource).toContain("{showAgentInstructions ? (");
-    expect(bodySource).not.toContain("import.meta.env.DEV");
   });
 
   it("places the form reset action in the form frame header", () => {
@@ -110,8 +109,8 @@ describe("AI 面试详情 tabs", () => {
     expect(resultFrameSource).toContain("<TimeDisplay");
   });
 
-  it("shows copy interview link below the result frame only while the round is pending", () => {
-    expect(resultFrameSource).toContain('roundStatus === "pending"');
+  it("always shows the copy interview link in development and only while pending otherwise", () => {
+    expect(resultFrameSource).toContain('import.meta.env.DEV || record.roundStatus === "pending"');
     expect(resultFrameSource).toContain("copyInterviewLink");
     expect(resultFrameSource).toContain("<IconCopy");
     expect(resultFrameSource).toContain("复制面试链接");

@@ -235,7 +235,7 @@ function InterviewResultFrame({
   record: NonNullable<StudioPersonDetailViewModel["record"]>;
   report: StudioPersonDetailViewModel["selectedResultReport"];
 }) {
-  const showCopyInterviewLink = record.roundStatus === "pending";
+  const showCopyInterviewLink = import.meta.env.DEV || record.roundStatus === "pending";
 
   return (
     <Frame className="h-full">
