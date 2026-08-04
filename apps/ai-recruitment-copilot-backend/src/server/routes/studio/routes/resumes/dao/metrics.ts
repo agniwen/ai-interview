@@ -14,13 +14,15 @@ import {
   studioInterview,
   studioInterviewSchedule,
   studioOfferDraft,
+  user,
 } from "@arc/db-schema/schema";
 import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
 import type { CandidateOutcome, PipelineStage } from "@arc/db-schema/studio-interviews";
 
-// 近 N 天的窗口宽度，与 UI 卡片标题保持一致。
-// Lookback window used by the 「近 N 天每日新增」 chart.
-const DAILY_LOOKBACK_DAYS = 30;
+// Dashboard activity still uses a 30-day window; the resume-library calendar
+// heatmap uses a full year for the GitHub-style contribution grid.
+const DASHBOARD_LOOKBACK_DAYS = 30;
+const DAILY_ADDED_LOOKBACK_DAYS = 365;
 
 // 子查询：该候选人是否已有任意 AI 面试轮次。与 dao/resumes.ts 里的版本同形——
 // 这里独立一份避免相互 import 循环，并让聚合查询自包含。
@@ -60,12 +62,11 @@ async function loadByPipeline(organizationId: string) {
   }));
 }
 
-async function loadDailyAdded(organizationId: string) {
-  // Postgres date_trunc → date 截断到天；窗口取 [today - 29, today]，共 30 天。
-  // 服务端只返回非零日；前端零填充以维持 X 轴连续。
-  // Truncate created_at to day; window is [today - 29, today] (30 days total).
-  // Only non-zero days are returned; the client zero-fills for X-axis continuity.
-  const since = new Date(Date.now() - (DAILY_LOOKBACK_DAYS - 1) * 24 * 60 * 60 * 1000);
+async function loadDailyAdded(organizationId: string): Promise<ResumeLibraryMetrics["dailyAdded"]> {
+  // Truncate created_at to day; window is the last 365 days for the GitHub-style
+  // year calendar. Group by day + uploader so tooltips can list per-user counts.
+  // Only non-zero days are returned; the client zero-fills the full grid.
+  const since = new Date(Date.now() - (DAILY_ADDED_LOOKBACK_DAYS - 1) * 24 * 60 * 60 * 1000);
   since.setUTCHours(0, 0, 0, 0);
 
   const dayExpr = sql<string>`to_char(date_trunc('day', ${studioInterview.createdAt}), 'YYYY-MM-DD')`;
@@ -74,18 +75,43 @@ async function loadDailyAdded(organizationId: string) {
     .select({
       count: count(),
       day: dayExpr,
+      userId: studioInterview.createdBy,
+      userName: user.name,
     })
     .from(studioInterview)
+    .leftJoin(user, eq(user.id, studioInterview.createdBy))
     .where(
       and(
         eq(studioInterview.organizationId, organizationId),
         gte(studioInterview.createdAt, since),
       ),
     )
-    .groupBy(dayExpr)
+    .groupBy(dayExpr, studioInterview.createdBy, user.name)
     .orderBy(dayExpr);
 
-  return rows.map((row) => ({ count: row.count, day: row.day }));
+  const byDay = new Map<
+    string,
+    { byUser: ResumeLibraryMetrics["dailyAdded"][number]["byUser"]; count: number; day: string }
+  >();
+
+  for (const row of rows) {
+    const existing = byDay.get(row.day) ?? { byUser: [], count: 0, day: row.day };
+    existing.count += row.count;
+    existing.byUser.push({
+      count: row.count,
+      userId: row.userId ?? "unknown",
+      userName: row.userName?.trim() || "未知用户",
+    });
+    byDay.set(row.day, existing);
+  }
+
+  return [...byDay.values()]
+    .toSorted((left, right) => left.day.localeCompare(right.day))
+    .map((row) => ({
+      byUser: row.byUser.toSorted((left, right) => right.count - left.count),
+      count: row.count,
+      day: row.day,
+    }));
 }
 
 async function loadConversion(organizationId: string) {
@@ -123,7 +149,7 @@ async function queryResumeLibraryMetrics(organizationId: string): Promise<Resume
   return { byPipeline, conversion, dailyAdded };
 }
 
-function makeLookbackStart(days = DAILY_LOOKBACK_DAYS) {
+function makeLookbackStart(days = DASHBOARD_LOOKBACK_DAYS) {
   const since = new Date(Date.now() - (days - 1) * 24 * 60 * 60 * 1000);
   since.setUTCHours(0, 0, 0, 0);
   return since;
@@ -133,7 +159,7 @@ function buildZeroActivityRows(): DashboardActivityRow[] {
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
   const rows: DashboardActivityRow[] = [];
-  for (let i = DAILY_LOOKBACK_DAYS - 1; i >= 0; i -= 1) {
+  for (let i = DASHBOARD_LOOKBACK_DAYS - 1; i >= 0; i -= 1) {
     const day = new Date(today);
     day.setUTCDate(day.getUTCDate() - i);
     rows.push({
@@ -463,7 +489,7 @@ export async function loadRecruitingDashboardMetrics(
 }
 
 /**
- * 招聘台聚合数据的缓存入口。三段并发查询：状态分布 / 近 30 天每日新增 / AI 面试转化。
+ * 招聘台聚合数据的缓存入口。三段并发查询：状态分布 / 近一年每日新增 / AI 面试转化。
  * cacheTag 与现有列表查询一致（`studio-resumes`），写入侧的 invalidate 已经覆盖。
  *
  * Cached entry point used by the resume-library page header charts. Three

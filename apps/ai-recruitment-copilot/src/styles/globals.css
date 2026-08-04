@@ -406,7 +406,7 @@
   --os-handle-bg-active: color-mix(in oklch, var(--muted-foreground) 55%, transparent);
 }
 
-/* TanStack Charts native tooltip surface */
+/* TanStack Charts native tooltip surface — soft, compact shadow */
 .arc-ts-chart-tooltip {
   min-width: 8rem;
   max-width: 18rem;
@@ -418,7 +418,7 @@
   font-size: 0.75rem;
   line-height: 1.35;
   box-shadow:
-    0 10px 15px -3px rgb(0 0 0 / 0.1),
-    0 4px 6px -4px rgb(0 0 0 / 0.1);
+    0 2px 8px -2px rgb(0 0 0 / 0.08),
+    0 1px 2px -1px rgb(0 0 0 / 0.04);
   white-space: pre-line;
 }

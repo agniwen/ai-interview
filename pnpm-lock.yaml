@@ -311,6 +311,9 @@ importers:
       d3-shape:
         specifier: ^3.2.0
         version: 3.2.0
+      d3-time:
+        specifier: ^3.1.0
+        version: 3.1.0
       date-fns:
         specifier: 4.4.0
         version: 4.4.0
@@ -513,6 +516,9 @@ importers:
       '@types/d3-shape':
         specifier: ^3.1.8
         version: 3.1.8
+      '@types/d3-time':
+        specifier: ^3.0.4
+        version: 3.0.4
       '@types/json-schema':
         specifier: ^7.0.15
         version: 7.0.15
