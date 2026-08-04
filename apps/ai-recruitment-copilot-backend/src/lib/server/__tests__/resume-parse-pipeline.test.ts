@@ -1,4 +1,3 @@
-import { setTimeout as delay } from "node:timers/promises";
 import JSZip from "jszip";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -8,7 +7,6 @@ const mocks = vi.hoisted(() => ({
   getPdfPageCount: vi.fn(),
   qwenPdfOcr: vi.fn(),
   qwenVlOcr: vi.fn(),
-  rasterizePdfWithMeta: vi.fn(),
   resumeStructuredAgent: { id: "resume-structured-agent" },
   runAliyunResumeExtraction: vi.fn(),
 }));
@@ -25,9 +23,8 @@ vi.mock("../office-conversion", () => ({
   convertLegacyOfficeToOoxml: mocks.convertLegacyOfficeToOoxml,
 }));
 
-vi.mock("../pdf-rasterize", () => ({
+vi.mock("../pdf-inspect", () => ({
   getPdfPageCount: mocks.getPdfPageCount,
-  rasterizePdfWithMeta: mocks.rasterizePdfWithMeta,
 }));
 
 vi.mock("../qwen-ocr", () => ({
@@ -40,7 +37,7 @@ vi.mock("../aliyun-docmining", () => ({
   runAliyunResumeExtraction: mocks.runAliyunResumeExtraction,
 }));
 
-const { extractResumeDocumentText, generateResumeStructured, parseResumeFast, parseResumeOcrOnly } =
+const { extractResumeDocumentText, generateResumeStructured, parseResumeFast } =
   await import("../resume-parse-pipeline");
 
 const STRUCTURED_RESUME = {
@@ -124,154 +121,12 @@ function createStoredZip(entries: Record<string, string>): Promise<Uint8Array> {
   return zip.generateAsync({ compression: "STORE", type: "uint8array" });
 }
 
-describe("parseResumeOcrOnly", () => {
-  const originalConcurrency = process.env.RESUME_PARSE_OCR_PAGE_CONCURRENCY;
-  const originalAttempts = process.env.RESUME_PARSE_OCR_ATTEMPTS;
-  const originalRetryDelay = process.env.RESUME_PARSE_OCR_RETRY_DELAY_MS;
-
-  beforeEach(() => {
-    vi.resetAllMocks();
-    process.env.RESUME_PARSE_OCR_PAGE_CONCURRENCY = "1";
-    process.env.RESUME_PARSE_OCR_ATTEMPTS = "2";
-    process.env.RESUME_PARSE_OCR_RETRY_DELAY_MS = "0";
-    mocks.rasterizePdfWithMeta.mockResolvedValue({
-      pageCount: 3,
-      pages: [Buffer.from("page-1"), Buffer.from("page-2"), Buffer.from("page-3")],
-    });
-  });
-
-  afterEach(() => {
-    if (originalConcurrency === undefined) {
-      delete process.env.RESUME_PARSE_OCR_PAGE_CONCURRENCY;
-    } else {
-      process.env.RESUME_PARSE_OCR_PAGE_CONCURRENCY = originalConcurrency;
-    }
-    if (originalAttempts === undefined) {
-      delete process.env.RESUME_PARSE_OCR_ATTEMPTS;
-    } else {
-      process.env.RESUME_PARSE_OCR_ATTEMPTS = originalAttempts;
-    }
-    if (originalRetryDelay === undefined) {
-      delete process.env.RESUME_PARSE_OCR_RETRY_DELAY_MS;
-    } else {
-      process.env.RESUME_PARSE_OCR_RETRY_DELAY_MS = originalRetryDelay;
-    }
-  });
-
-  it("limits OCR page concurrency from env", async () => {
-    let active = 0;
-    let maxActive = 0;
-    mocks.qwenVlOcr.mockImplementation(async (png: Buffer) => {
-      active += 1;
-      maxActive = Math.max(maxActive, active);
-      await delay(1);
-      active -= 1;
-      return png.toString();
-    });
-
-    const result = await parseResumeOcrOnly(new Uint8Array([1, 2, 3]));
-
-    expect(result.text).toBe("page-1\n\npage-2\n\npage-3");
-    expect(maxActive).toBe(1);
-  });
-
-  it("emits page-level OCR progress without changing the OCR result", async () => {
-    mocks.qwenVlOcr.mockImplementation((png: Buffer) => png.toString());
-    const events: unknown[] = [];
-
-    const result = await parseResumeOcrOnly(new Uint8Array([1, 2, 3]), {
-      onProgress: (event) => events.push(event),
-    });
-
-    expect(result.text).toBe("page-1\n\npage-2\n\npage-3");
-    expect(events).toEqual([
-      {
-        renderedPages: 3,
-        totalPages: 3,
-        type: "document.pages.ready",
-      },
-      {
-        page: 1,
-        totalPages: 3,
-        type: "ocr.page.started",
-      },
-      {
-        charCount: 6,
-        page: 1,
-        textPreview: "page-1",
-        totalPages: 3,
-        type: "ocr.page.completed",
-      },
-      {
-        page: 2,
-        totalPages: 3,
-        type: "ocr.page.started",
-      },
-      {
-        charCount: 6,
-        page: 2,
-        textPreview: "page-2",
-        totalPages: 3,
-        type: "ocr.page.completed",
-      },
-      {
-        page: 3,
-        totalPages: 3,
-        type: "ocr.page.started",
-      },
-      {
-        charCount: 6,
-        page: 3,
-        textPreview: "page-3",
-        totalPages: 3,
-        type: "ocr.page.completed",
-      },
-      {
-        outputChars: 22,
-        renderedPages: 3,
-        totalPages: 3,
-        type: "ocr.completed",
-      },
-    ]);
-  });
-
-  it("retries transient OCR connection errors", async () => {
-    mocks.qwenVlOcr
-      .mockRejectedValueOnce(new Error("Connection error."))
-      .mockResolvedValueOnce("page-1")
-      .mockResolvedValueOnce("page-2")
-      .mockResolvedValueOnce("page-3");
-
-    const result = await parseResumeOcrOnly(new Uint8Array([1, 2, 3]));
-
-    expect(result.text).toBe("page-1\n\npage-2\n\npage-3");
-    expect(mocks.qwenVlOcr).toHaveBeenCalledTimes(4);
-  });
-
-  it("retries transient OCR TypeErrors that the provider uses for connection failures", async () => {
-    mocks.qwenVlOcr
-      .mockRejectedValueOnce(new TypeError("Connection error."))
-      .mockResolvedValueOnce("page-1")
-      .mockResolvedValueOnce("page-2")
-      .mockResolvedValueOnce("page-3");
-
-    const result = await parseResumeOcrOnly(new Uint8Array([1, 2, 3]));
-
-    expect(result.text).toBe("page-1\n\npage-2\n\npage-3");
-    expect(mocks.qwenVlOcr).toHaveBeenCalledTimes(4);
-  });
-});
-
 describe("extractResumeDocumentText", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     process.env.ALIBABA_API_KEY = "test-key";
     process.env.ALIBABA_BASE_URL = "https://example.test";
     process.env.ALIBABA_STRUCTURED_MODEL = "qwen-test";
-    mocks.rasterizePdfWithMeta.mockResolvedValue({
-      pageCount: 1,
-      pages: [Buffer.from("pdf-page")],
-    });
     mocks.getPdfPageCount.mockResolvedValue(3);
     mocks.qwenPdfOcr.mockResolvedValue("整份 PDF 候选人 TypeScript");
     mocks.qwenVlOcr.mockResolvedValue("PDF 候选人 TypeScript");
@@ -293,7 +148,6 @@ describe("extractResumeDocumentText", () => {
     expect(mocks.qwenPdfOcr).toHaveBeenCalledWith(
       "https://storage.example.test/resume.pdf?signature=secret",
     );
-    expect(mocks.rasterizePdfWithMeta).not.toHaveBeenCalled();
   });
 
   it("retries a transient whole-document Qwen3.5 OCR connection failure", async () => {
@@ -344,7 +198,6 @@ describe("extractResumeDocumentText", () => {
         mediaType: "application/pdf",
       }),
     ).toThrow("需要可访问的文件 URL");
-    expect(mocks.rasterizePdfWithMeta).not.toHaveBeenCalled();
   });
 
   it("runs OCR directly for image resumes without PDF rasterization", async () => {
@@ -361,7 +214,6 @@ describe("extractResumeDocumentText", () => {
       text: "图片简历 候选人 JavaScript",
       textSource: "qwen3.5-ocr",
     });
-    expect(mocks.rasterizePdfWithMeta).not.toHaveBeenCalled();
     expect(mocks.qwenVlOcr).toHaveBeenCalledWith(Buffer.from([4, 5, 6]), "image/jpeg");
   });
 

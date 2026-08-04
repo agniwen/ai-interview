@@ -69,6 +69,8 @@ const STRUCTURED = {
   workYears: null,
 };
 
+const STREAM_CONTEXT = { organizationId: "org-1", userId: "user-1" };
+
 async function readStreamEvents(stream: ReadableStream<Uint8Array>) {
   const text = await new Response(stream).text();
   return text
@@ -171,6 +173,7 @@ describe("resume parsing agent", () => {
     const events = await readStreamEvents(
       streamParseResumeProfile(
         new File([new Uint8Array([1, 2, 3])], "resume.pdf", { type: "application/pdf" }),
+        STREAM_CONTEXT,
       ),
     );
 
@@ -221,6 +224,7 @@ describe("resume parsing agent", () => {
     const events = await readStreamEvents(
       streamParseResumeProfile(
         new File([new Uint8Array([1, 2, 3])], "resume.pdf", { type: "application/pdf" }),
+        STREAM_CONTEXT,
       ),
     );
 
@@ -238,6 +242,7 @@ describe("resume parsing agent", () => {
     const events = await readStreamEvents(
       streamParseResumeProfile(
         new File([new Uint8Array([1, 2, 3])], "resume.pdf", { type: "application/pdf" }),
+        STREAM_CONTEXT,
       ),
     );
 
@@ -287,6 +292,7 @@ describe("resume parsing agent", () => {
     const events = await readStreamEvents(
       streamParseResumeProfile(
         new File([new Uint8Array([1, 2, 3])], "resume.pdf", { type: "application/pdf" }),
+        STREAM_CONTEXT,
       ),
     );
 
@@ -352,6 +358,7 @@ describe("resume parsing agent", () => {
     const events = await readStreamEvents(
       streamParseResumeProfile(
         new File([new Uint8Array([1, 2, 3])], "resume.pdf", { type: "application/pdf" }),
+        STREAM_CONTEXT,
       ),
     );
 

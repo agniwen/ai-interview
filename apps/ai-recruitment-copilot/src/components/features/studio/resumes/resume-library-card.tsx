@@ -234,7 +234,13 @@ function describeStructuredReviewCard(record: ResumeLibraryListRecord): {
     return { label: "AI 评估中", tone: "muted" };
   }
   if (record.structuredGateStatus === "failed") {
-    return { label: "未通过门槛", tone: "danger" };
+    return {
+      label:
+        record.structuredCompositeScore === null
+          ? "未通过门槛"
+          : `未通过门槛 · ${record.structuredCompositeScore} 分`,
+      tone: "danger",
+    };
   }
   if (record.structuredGateStatus === "needs_verification") {
     return { label: "门槛待核实", tone: "warning" };

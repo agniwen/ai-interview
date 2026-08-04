@@ -67,6 +67,7 @@ async function main() {
     import("@arc/ai-recruitment-copilot-backend/server/agents/json-output"),
   ]);
   const filePath = path.resolve(arg("file"));
+  const fileUrl = arg("file-url");
   const outputDirectory = path.resolve(arg("output", ".eval/resume-parse-benchmark"));
   const aliyunPromptFile = arg("aliyun-prompt-file", "");
   const parseTimeoutMs = Number.parseInt(arg("aliyun-parse-timeout-ms", "120000"), 10);
@@ -93,6 +94,7 @@ async function main() {
     extractResumeDocumentText({
       bytes,
       fileName,
+      fileUrl,
       mediaType: "application/pdf",
     }),
   );
