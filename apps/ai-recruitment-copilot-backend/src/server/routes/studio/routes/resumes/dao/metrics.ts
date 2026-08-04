@@ -1,5 +1,6 @@
 import { and, count, desc, eq, exists, gte, isNotNull, ne, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import { startOfBeijingDay, toBeijingCalendarDate } from "@arc/shared/beijing-calendar";
 import type {
   DashboardActivityRow,
   DashboardActionItem,
@@ -76,10 +77,11 @@ async function loadDailyAdded(
   // Truncate created_at to day; window is the last 365 days for the GitHub-style
   // year calendar. Group by day + uploader so tooltips can list per-user counts.
   // Only non-zero days are returned; the client zero-fills the full grid.
-  const since = new Date(Date.now() - (DAILY_ADDED_LOOKBACK_DAYS - 1) * 24 * 60 * 60 * 1000);
-  since.setUTCHours(0, 0, 0, 0);
+  const since = startOfBeijingDay(
+    new Date(Date.now() - (DAILY_ADDED_LOOKBACK_DAYS - 1) * 24 * 60 * 60 * 1000),
+  );
 
-  const dayExpr = sql<string>`to_char(date_trunc('day', ${studioInterview.createdAt}), 'YYYY-MM-DD')`;
+  const dayExpr = sql<string>`to_char(date_trunc('day', ${studioInterview.createdAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
 
   const rows = await db
     .select({
@@ -169,14 +171,11 @@ async function queryResumeLibraryMetrics(
 }
 
 function makeLookbackStart(days = DASHBOARD_LOOKBACK_DAYS) {
-  const since = new Date(Date.now() - (days - 1) * 24 * 60 * 60 * 1000);
-  since.setUTCHours(0, 0, 0, 0);
-  return since;
+  return startOfBeijingDay(new Date(Date.now() - (days - 1) * 24 * 60 * 60 * 1000));
 }
 
 function buildZeroActivityRows(): DashboardActivityRow[] {
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
+  const today = toBeijingCalendarDate();
   const rows: DashboardActivityRow[] = [];
   for (let i = DASHBOARD_LOOKBACK_DAYS - 1; i >= 0; i -= 1) {
     const day = new Date(today);
@@ -236,11 +235,11 @@ async function loadDashboardActivity(organizationId: string) {
   const since = makeLookbackStart();
   const rows = buildZeroActivityRows();
 
-  const resumeDay = sql<string>`to_char(date_trunc('day', ${studioInterview.createdAt}), 'YYYY-MM-DD')`;
-  const aiDay = sql<string>`to_char(date_trunc('day', ${studioInterviewSchedule.updatedAt}), 'YYYY-MM-DD')`;
-  const humanDay = sql<string>`to_char(date_trunc('day', ${studioHumanInterviewRound.completedAt}), 'YYYY-MM-DD')`;
-  const offerDay = sql<string>`to_char(date_trunc('day', ${studioOfferDraft.sentAt}), 'YYYY-MM-DD')`;
-  const formDay = sql<string>`to_char(date_trunc('day', ${candidateFormSubmission.submittedAt}), 'YYYY-MM-DD')`;
+  const resumeDay = sql<string>`to_char(date_trunc('day', ${studioInterview.createdAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
+  const aiDay = sql<string>`to_char(date_trunc('day', ${studioInterviewSchedule.updatedAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
+  const humanDay = sql<string>`to_char(date_trunc('day', ${studioHumanInterviewRound.completedAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
+  const offerDay = sql<string>`to_char(date_trunc('day', ${studioOfferDraft.sentAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
+  const formDay = sql<string>`to_char(date_trunc('day', ${candidateFormSubmission.submittedAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
 
   const [resumeRows, aiRows, humanRows, offerRows, formRows] = await Promise.all([
     loadDailyCountByDateExpr({

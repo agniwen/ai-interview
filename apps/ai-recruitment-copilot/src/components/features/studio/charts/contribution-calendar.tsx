@@ -10,6 +10,7 @@ import type { ChartConfig } from "@/components/ui/chart";
 import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { withHorizontalWheelScroll } from "@/lib/client/charts/horizontal-wheel-scroll";
+import { toBeijingCalendarDate } from "@arc/shared/beijing-calendar";
 import { cn } from "@arc/shared/utils";
 
 export interface ContributionDayCount {
@@ -74,7 +75,7 @@ function countToLevel(count: number, max: number): number {
 
 function buildCalendarDays(dailyAdded: readonly ContributionDayCount[]): CalendarDayCell[] {
   const byDay = new Map(dailyAdded.map((row) => [row.day, row]));
-  const end = utcDay.floor(new Date());
+  const end = toBeijingCalendarDate();
   const start = utcDay.offset(end, -(LOOKBACK_DAYS - 1));
   const gridStart = utcSunday.floor(start);
   const gridEnd = utcDay.offset(utcSunday.ceil(utcDay.offset(end, 1)), -1);

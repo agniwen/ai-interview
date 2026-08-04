@@ -13,6 +13,7 @@ import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { defineDonutChart } from "@/lib/client/charts/donut";
 import { withHorizontalWheelScroll } from "@/lib/client/charts/horizontal-wheel-scroll";
+import { toBeijingCalendarDate } from "@arc/shared/beijing-calendar";
 import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
 import { cn } from "@arc/shared/utils";
 
@@ -150,11 +151,6 @@ function formatUtcDay(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-function utcStartOfToday(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-}
-
 /** Map raw counts onto GitHub-like 0–4 intensity levels. */
 function countToLevel(count: number, max: number): 0 | 1 | 2 | 3 | 4 {
   if (count <= 0 || max <= 0) {
@@ -183,7 +179,7 @@ function countToLevel(count: number, max: number): 0 | 1 | 2 | 3 | 4 {
  */
 function buildCalendarDays(rows: ResumeLibraryMetrics["dailyAdded"]): CalendarDayCell[] {
   const byDay = new Map(rows.map((row) => [row.day, row]));
-  const end = utcStartOfToday();
+  const end = toBeijingCalendarDate();
   const start = utcDay.offset(end, -(DAILY_LOOKBACK_DAYS - 1));
   const gridStart = utcSunday.floor(start);
   const gridEnd = utcDay.offset(utcSunday.ceil(utcDay.offset(end, 1)), -1);

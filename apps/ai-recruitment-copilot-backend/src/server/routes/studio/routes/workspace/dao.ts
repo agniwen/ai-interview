@@ -1,5 +1,6 @@
 import { and, asc, count, desc, eq, gte, inArray, notExists, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import { startOfBeijingDay } from "@arc/shared/beijing-calendar";
 import {
   member,
   recruitingGroup,
@@ -506,10 +507,11 @@ export async function loadMyResumeActivity({
   organizationId: string;
   userId: string;
 }): Promise<MyResumeActivityDay[]> {
-  const since = new Date(Date.now() - (MY_ACTIVITY_LOOKBACK_DAYS - 1) * 24 * 60 * 60 * 1000);
-  since.setUTCHours(0, 0, 0, 0);
+  const since = startOfBeijingDay(
+    new Date(Date.now() - (MY_ACTIVITY_LOOKBACK_DAYS - 1) * 24 * 60 * 60 * 1000),
+  );
 
-  const dayExpr = sql<string>`to_char(date_trunc('day', ${studioInterview.createdAt}), 'YYYY-MM-DD')`;
+  const dayExpr = sql<string>`to_char(date_trunc('day', ${studioInterview.createdAt} AT TIME ZONE 'Asia/Shanghai'), 'YYYY-MM-DD')`;
 
   const rows = await db
     .select({
