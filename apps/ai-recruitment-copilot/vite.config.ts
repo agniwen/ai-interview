@@ -94,15 +94,13 @@ export default defineConfig({
       pages: [
         {
           path: "/",
-          // The home loader is request-scoped and Nitro prerender currently leaves
-          // Rolldown workers alive after crawling this route.
-          prerender: { enabled: false, outputPath: "/index.html" },
+          prerender: { enabled: true, outputPath: "/index.html" },
         },
       ],
       prerender: {
         autoStaticPathsDiscovery: false,
         crawlLinks: false,
-        enabled: false,
+        enabled: true,
       },
       router: {
         // Ignore non-route artifacts under `src/routes` so colocated tests
@@ -144,6 +142,9 @@ export default defineConfig({
       },
     }),
   ],
+  preview: {
+    strictPort: process.env.TSS_PRERENDERING !== "true",
+  },
   resolve: {
     tsconfigPaths: true,
   },

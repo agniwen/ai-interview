@@ -52,7 +52,7 @@ async function createReadinessResponse() {
 }
 
 function startFeishuBotsIfEnabled() {
-  if (process.env.FEISHU_BOT_ENABLED !== "true") {
+  if (process.env.FEISHU_BOT_ENABLED !== "true" || process.env.TSS_PRERENDERING === "true") {
     return;
   }
 

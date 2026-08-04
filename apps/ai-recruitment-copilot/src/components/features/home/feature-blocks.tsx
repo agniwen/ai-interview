@@ -594,10 +594,12 @@ export function FeatureBlocks() {
             {blocks.map((block, i) => (
               <div
                 className="absolute inset-0 flex items-center"
+                data-home-scene={i}
                 key={block.title}
                 ref={(el) => {
                   sceneRefs.current[i] = el;
                 }}
+                style={i === 0 ? undefined : { opacity: 0, visibility: "hidden" }}
               >
                 <SceneByLayout block={block} layout={LAYOUTS[i]} />
               </div>
