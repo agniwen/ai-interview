@@ -5,6 +5,7 @@ export type ResumeDetailDefaultTab = "overview" | "rounds" | "human-interview" |
 export interface ResumeLibraryCardProps {
   canCreateInterview: boolean;
   canDeleteResumeLibrary: boolean;
+  canForceReparse: boolean;
   canRetryResumeParse: boolean;
   canUpdateResumeLibrary: boolean;
   currentMemberRole: string;
@@ -12,6 +13,7 @@ export interface ResumeLibraryCardProps {
   onCopyDetailLink: (record: ResumeLibraryListRecord) => void;
   onDelete: (record: ResumeLibraryListRecord) => void;
   onEdit: (record: ResumeLibraryListRecord) => void;
+  onForceReparse: (record: ResumeLibraryListRecord) => void;
   onLaunchInterview: (record: ResumeLibraryListRecord) => void;
   onOpenDetail: (record: ResumeLibraryListRecord, tab?: ResumeDetailDefaultTab) => void;
   onPreviewResume: (record: ResumeLibraryListRecord) => void;

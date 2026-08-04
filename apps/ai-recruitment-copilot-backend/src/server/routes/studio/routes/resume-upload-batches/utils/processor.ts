@@ -72,13 +72,19 @@ type ParsedResume = Awaited<ReturnType<typeof parseResumeBytesToProfile>>;
 //   1) 命中注册表 → 投影 parsedStructured（零额外调用）
 //   2) 未命中 / 投影失败 → 从 S3 拉 PDF 现场跑 parseResumeFastToProfile
 // Two paths to obtaining resumeProfile: cache hit (projection) or live parse fallback.
-async function resolveResumeProfile(item: NonNullable<ItemRow>): Promise<{
+// Admin force-reparse sets bypassCache so path 1 is skipped and S3 is re-parsed.
+async function resolveResumeProfile(
+  item: NonNullable<ItemRow>,
+  options: { bypassCache?: boolean } = {},
+): Promise<{
   parsed: ParsedResume | null;
   resumeProfile: ParsedResume["resumeProfile"];
   resumeText: string | null;
 }> {
   const startedAt = Date.now();
-  if (isResumeParseCacheEnabled(process.env)) {
+  if (options.bypassCache) {
+    logStep("cache.lookup.bypassed", { itemId: item.id });
+  } else if (isResumeParseCacheEnabled(process.env)) {
     logStep("cache.lookup.start", { itemId: item.id });
     const cached = await findAttachmentByStorageKey(item.storageKey);
     const fromCache =
@@ -246,6 +252,7 @@ async function fetchAndParse(
   batchRow: BatchRow,
   organizationId: string,
   userId: string,
+  options: { bypassCache?: boolean } = {},
 ): Promise<{
   autoMatchJobDescription: boolean;
   jobDescriptionId: string | null;
@@ -261,7 +268,7 @@ async function fetchAndParse(
     throw new Error("简历文件存储路径为空，无法读取。请重试上传。");
   }
 
-  const { resumeProfile, resumeText } = await resolveResumeProfile(item);
+  const { resumeProfile, resumeText } = await resolveResumeProfile(item, options);
   await assertBatchItemNotCancelled(batchRow.id, item.id);
 
   const autoMatchJobDescription = batchRow.jdMode === "auto";
@@ -513,10 +520,12 @@ async function loadCancelledProcessResult(
 async function processClaimedItem(
   item: NonNullable<ItemRow>,
   batchRow: BatchRow,
+  options: { bypassCache?: boolean } = {},
 ): Promise<ProcessNextResult | null> {
   const startedAt = Date.now();
   logStep("item.process.start", {
     batchId: batchRow.id,
+    bypassCache: Boolean(options.bypassCache),
     itemId: item.id,
     jdMode: batchRow.jdMode,
     target: batchRow.target,
@@ -536,7 +545,13 @@ async function processClaimedItem(
   };
 
   try {
-    const result = await fetchAndParse(item, batchRow, batchRow.organizationId, batchRow.createdBy);
+    const result = await fetchAndParse(
+      item,
+      batchRow,
+      batchRow.organizationId,
+      batchRow.createdBy,
+      options,
+    );
     await assertBatchItemNotCancelled(batchRow.id, item.id);
     outcome = { ...outcome, ...result };
   } catch (error) {
@@ -593,9 +608,12 @@ async function processClaimedItem(
   };
 }
 
-export async function processBatchItem(itemId: string): Promise<ProcessNextResult | null> {
+export async function processBatchItem(
+  itemId: string,
+  options: { bypassCache?: boolean } = {},
+): Promise<ProcessNextResult | null> {
   const startedAt = Date.now();
-  logStep("job.claim.start", { itemId });
+  logStep("job.claim.start", { bypassCache: Boolean(options.bypassCache), itemId });
   const claimed = await db.transaction(async (tx) => {
     const item = await claimPendingItemById(tx, itemId);
     if (!item) {
@@ -633,7 +651,7 @@ export async function processBatchItem(itemId: string): Promise<ProcessNextResul
     durationMs: elapsed(startedAt),
     itemId: claimed.item.id,
   });
-  return processClaimedItem(claimed.item, claimed.batchRow);
+  return processClaimedItem(claimed.item, claimed.batchRow, options);
 }
 
 // 処理一個 pending item：拉 S3 → parse → 創建可閲覧記録 → 派發 enrichment → 更新 batch counter。

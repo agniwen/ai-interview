@@ -42,11 +42,13 @@ type ResumeLibraryCardActionsProps = Pick<
   ResumeLibraryCardProps,
   | "canCreateInterview"
   | "canDeleteResumeLibrary"
+  | "canForceReparse"
   | "canRetryResumeParse"
   | "canUpdateResumeLibrary"
   | "onCopyDetailLink"
   | "onDelete"
   | "onEdit"
+  | "onForceReparse"
   | "onLaunchInterview"
   | "onPreviewResume"
   | "onRetryParse"
@@ -142,22 +144,27 @@ function MoreMenu({
   canClose,
   canCopyLink,
   canDelete,
+  canForceReparse,
   canPreviewFromMenu,
   canReactivate,
+  forceReparsing,
   onCopyDetailLink,
   onDelete,
+  onForceReparse,
   onPreviewResume,
   onTransition,
   record,
 }: Pick<
   ResumeLibraryCardProps,
-  "onCopyDetailLink" | "onDelete" | "onPreviewResume" | "onTransition" | "record"
+  "onCopyDetailLink" | "onDelete" | "onForceReparse" | "onPreviewResume" | "onTransition" | "record"
 > & {
   canClose: boolean;
   canCopyLink: boolean;
   canDelete: boolean;
+  canForceReparse: boolean;
   canPreviewFromMenu: boolean;
   canReactivate: boolean;
+  forceReparsing: boolean;
 }) {
   return (
     <DropdownMenu modal={false}>
@@ -186,6 +193,12 @@ function MoreMenu({
         {canPreviewFromMenu ? (
           <DropdownMenuItem onClick={() => onPreviewResume(record)}>查看简历</DropdownMenuItem>
         ) : null}
+        {canForceReparse ? (
+          <DropdownMenuItem disabled={forceReparsing} onClick={() => onForceReparse(record)}>
+            <IconRefresh className={ACTION_ICON_CLASS} />
+            {forceReparsing ? "入队中" : "重新解析"}
+          </DropdownMenuItem>
+        ) : null}
         {canClose ? (
           <DropdownMenuItem onClick={() => onTransition(record, "close")}>
             <IconCircleOff className={ACTION_ICON_CLASS} />
@@ -211,15 +224,60 @@ function MoreMenu({
   );
 }
 
+function resolveCardActionFlags({
+  canCreateInterview,
+  canDeleteResumeLibrary,
+  canForceReparse,
+  canRetryResumeParse,
+  canUpdateResumeLibrary,
+  record,
+}: Pick<
+  ResumeLibraryCardActionsProps,
+  | "canCreateInterview"
+  | "canDeleteResumeLibrary"
+  | "canForceReparse"
+  | "canRetryResumeParse"
+  | "canUpdateResumeLibrary"
+  | "record"
+>) {
+  const parseEditable = canEditResumeRecord(record.resumeParseStatus);
+  const previewable = isPreviewableResumeDocumentInput({ fileName: record.resumeFileName });
+  const isClosed = record.pipelineStage === "closed";
+  const parseInFlight =
+    record.resumeParseStatus === "queued" || record.resumeParseStatus === "processing";
+
+  return {
+    canClose: canUpdateResumeLibrary && parseEditable && !isClosed,
+    canDelete: canDeleteResumeLibrary && canDeleteResumeRecord(record.resumeParseStatus),
+    canEdit: canUpdateResumeLibrary && parseEditable,
+    canLaunchInterview:
+      canCreateInterview &&
+      canLaunchInterviewFromResume(record.resumeParseStatus) &&
+      !record.hasInterviewRounds &&
+      !isClosed,
+    canPreviewFromMenu: !parseEditable && record.hasResumeFile && previewable,
+    canReactivate: canUpdateResumeLibrary && parseEditable && isClosed,
+    canRetry:
+      canUpdateResumeLibrary &&
+      canRetryResumeParse &&
+      record.resumeParseStatus === "failed" &&
+      record.resumeParseRetryable === true,
+    // Admin force reparse: any record with a file that is not already in-flight.
+    showForceReparseInMenu: canForceReparse && record.hasResumeFile && !parseInFlight,
+  };
+}
+
 export function ResumeLibraryCardActions({
   canCopyLink,
   canCreateInterview,
   canDeleteResumeLibrary,
+  canForceReparse,
   canRetryResumeParse,
   canUpdateResumeLibrary,
   onCopyDetailLink,
   onDelete,
   onEdit,
+  onForceReparse,
   onLaunchInterview,
   onPreviewResume,
   onRetryParse,
@@ -227,35 +285,20 @@ export function ResumeLibraryCardActions({
   record,
   retrying,
 }: ResumeLibraryCardActionsProps) {
-  const canEdit = canUpdateResumeLibrary && canEditResumeRecord(record.resumeParseStatus);
-  const canDelete = canDeleteResumeLibrary && canDeleteResumeRecord(record.resumeParseStatus);
-  const canRetry =
-    canUpdateResumeLibrary &&
-    canRetryResumeParse &&
-    record.resumeParseStatus === "failed" &&
-    record.resumeParseRetryable === true;
-  const previewable = isPreviewableResumeDocumentInput({ fileName: record.resumeFileName });
-  const canLaunchInterview =
-    canCreateInterview &&
-    canLaunchInterviewFromResume(record.resumeParseStatus) &&
-    !record.hasInterviewRounds &&
-    record.pipelineStage !== "closed";
-  const canPreviewFromMenu =
-    !canEditResumeRecord(record.resumeParseStatus) && record.hasResumeFile && previewable;
-  const canClose =
-    canUpdateResumeLibrary &&
-    canEditResumeRecord(record.resumeParseStatus) &&
-    record.pipelineStage !== "closed";
-  const canReactivate =
-    canUpdateResumeLibrary &&
-    canEditResumeRecord(record.resumeParseStatus) &&
-    record.pipelineStage === "closed";
+  const flags = resolveCardActionFlags({
+    canCreateInterview,
+    canDeleteResumeLibrary,
+    canForceReparse,
+    canRetryResumeParse,
+    canUpdateResumeLibrary,
+    record,
+  });
 
   return (
     <div className="flex justify-end self-center">
       <div className="flex items-center justify-end gap-1.5 xl:flex-col xl:items-stretch">
         <PreviewAction onPreviewResume={onPreviewResume} record={record} />
-        {canRetry ? (
+        {flags.canRetry ? (
           <Button
             className={ACTION_BUTTON_CLASS}
             disabled={retrying}
@@ -272,24 +315,27 @@ export function ResumeLibraryCardActions({
             <span>{retrying ? "入队中" : "重新解析"}</span>
           </Button>
         ) : null}
-        {canEdit ? (
+        {flags.canEdit ? (
           <TextActionButton label="编辑" onClick={() => onEdit(record)}>
             <IconEdit className={ACTION_ICON_CLASS} />
           </TextActionButton>
         ) : null}
-        {canLaunchInterview ? (
+        {flags.canLaunchInterview ? (
           <TextActionButton label="AI面" onClick={() => onLaunchInterview(record)}>
             <IconSparkles className={ACTION_ICON_CLASS} />
           </TextActionButton>
         ) : null}
         <MoreMenu
-          canClose={canClose}
+          canClose={flags.canClose}
           canCopyLink={canCopyLink}
-          canDelete={canDelete}
-          canPreviewFromMenu={canPreviewFromMenu}
-          canReactivate={canReactivate}
+          canDelete={flags.canDelete}
+          canForceReparse={flags.showForceReparseInMenu}
+          canPreviewFromMenu={flags.canPreviewFromMenu}
+          canReactivate={flags.canReactivate}
+          forceReparsing={retrying && flags.showForceReparseInMenu}
           onCopyDetailLink={onCopyDetailLink}
           onDelete={onDelete}
+          onForceReparse={onForceReparse}
           onPreviewResume={onPreviewResume}
           onTransition={onTransition}
           record={record}

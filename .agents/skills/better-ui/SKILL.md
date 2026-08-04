@@ -15,12 +15,12 @@ Typography (text wrapping, font rendering, tabular numbers, spacing) is covered 
 
 ## Quick Reference
 
-| Category | When to Use |
-| --- | --- |
-| [Surfaces](surfaces.md) | Border radius, optical alignment, shadows, image outlines |
-| [Animations](animations.md) | Interruptible animations, enter/exit transitions, icon animations, scale on press, motion restraint |
-| [Icons](icons.md) | Icon stroke weight, states via `currentColor`, outline vs fill, sizing, RTL flipping |
-| [Performance](performance.md) | Transition specificity, `will-change` usage |
+| Category                      | When to Use                                                                                         |
+| ----------------------------- | --------------------------------------------------------------------------------------------------- |
+| [Surfaces](surfaces.md)       | Border radius, optical alignment, shadows, image outlines                                           |
+| [Animations](animations.md)   | Interruptible animations, enter/exit transitions, icon animations, scale on press, motion restraint |
+| [Icons](icons.md)             | Icon stroke weight, states via `currentColor`, outline vs fill, sizing, RTL flipping                |
+| [Performance](performance.md) | Transition specificity, `will-change` usage                                                         |
 
 ## Core Principles
 
@@ -86,19 +86,19 @@ No custom animation on high-frequency interactions: the attention cost repeats o
 
 ## Common Mistakes
 
-| Mistake | Fix |
-| --- | --- |
-| Same border radius on closely nested parent and child | Calculate `outerRadius = innerRadius + padding` |
-| Icons look off-center | Adjust optically with padding or fix SVG directly |
-| Border used only to fake elevation | Use layered `box-shadow` with transparency; keep structural and state borders |
-| Jarring staged entrance or contextual exit | Stagger infrequent entrances and keep context-preserving exits subtle |
+| Mistake                                                         | Fix                                                                                  |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Same border radius on closely nested parent and child           | Calculate `outerRadius = innerRadius + padding`                                      |
+| Icons look off-center                                           | Adjust optically with padding or fix SVG directly                                    |
+| Border used only to fake elevation                              | Use layered `box-shadow` with transparency; keep structural and state borders        |
+| Jarring staged entrance or contextual exit                      | Stagger infrequent entrances and keep context-preserving exits subtle                |
 | Stateful icon or toggle animates its default state on page load | Add `initial={false}` to that `AnimatePresence`; preserve intentional page entrances |
-| `transition: all` on elements | Specify exact properties |
-| First-frame animation stutter | Add `will-change: transform` (sparingly) |
-| Hairline icon beside bold text | Match the stroke width to the text weight |
-| Separate icon assets per state | One `currentColor` SVG, states via CSS |
-| Filled icons everywhere | Outline as default, fill only for the active state |
-| Entrance animation on every hover or keystroke | Instant feedback or ≤150ms opacity/color transition |
+| `transition: all` on elements                                   | Specify exact properties                                                             |
+| First-frame animation stutter                                   | Add `will-change: transform` (sparingly)                                             |
+| Hairline icon beside bold text                                  | Match the stroke width to the text weight                                            |
+| Separate icon assets per state                                  | One `currentColor` SVG, states via CSS                                               |
+| Filled icons everywhere                                         | Outline as default, fill only for the active state                                   |
+| Entrance animation on every hover or keystroke                  | Instant feedback or ≤150ms opacity/color transition                                  |
 
 ## Review Output Format
 
@@ -120,16 +120,18 @@ Consolidate a repeated systemic issue into one row and list every affected locat
 ### Example
 
 #### Concentric border radius
-| Severity | Location | Before | After | Why |
-| --- | --- | --- | --- | --- |
-| LOW | `src/Card.tsx:28` | `rounded-xl` on card + `rounded-xl` on inner button (`p-2`) | `rounded-2xl` on card (`8 + 8 = 16`), `rounded-lg` on inner button | Nested corners should be concentric |
-| LOW | `src/card.css:11` | `border-radius: 16px` on both nested surfaces | Outer `24px`, inner `16px` with `8px` padding | Equal nested radii make the inner surface look pinched |
+
+| Severity | Location          | Before                                                      | After                                                              | Why                                                    |
+| -------- | ----------------- | ----------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------ |
+| LOW      | `src/Card.tsx:28` | `rounded-xl` on card + `rounded-xl` on inner button (`p-2`) | `rounded-2xl` on card (`8 + 8 = 16`), `rounded-lg` on inner button | Nested corners should be concentric                    |
+| LOW      | `src/card.css:11` | `border-radius: 16px` on both nested surfaces               | Outer `24px`, inner `16px` with `8px` padding                      | Equal nested radii make the inner surface look pinched |
 
 #### Scale on press
-| Severity | Location | Before | After | Why |
-| --- | --- | --- | --- | --- |
-| LOW | `src/Button.tsx:19` | `<button className="...">` | Add `active:scale-[0.96] transition-transform` | Press feedback makes the control feel responsive |
-| MEDIUM | `src/button.css:24` | `scale(0.9)` on press | Raise to `scale(0.96)` | Anything below `0.95` feels exaggerated |
+
+| Severity | Location            | Before                     | After                                          | Why                                              |
+| -------- | ------------------- | -------------------------- | ---------------------------------------------- | ------------------------------------------------ |
+| LOW      | `src/Button.tsx:19` | `<button className="...">` | Add `active:scale-[0.96] transition-transform` | Press feedback makes the control feel responsive |
+| MEDIUM   | `src/button.css:24` | `scale(0.9)` on press      | Raise to `scale(0.96)`                         | Anything below `0.95` feels exaggerated          |
 
 ### Verification and Verdict
 

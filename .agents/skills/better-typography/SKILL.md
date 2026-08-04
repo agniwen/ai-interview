@@ -15,14 +15,14 @@ The words themselves (button labels, error messages, empty states) are covered b
 
 ## Quick Reference
 
-| Category | When to use | Reference |
-| --- | --- | --- |
-| Choosing fonts | Font categories, pairing, formats, typeface anatomy | [choosing-fonts.md](choosing-fonts.md) |
-| Variable fonts & OpenType | Axes, weights, tabular numbers, stylistic sets | [variable-fonts-and-opentype.md](variable-fonts-and-opentype.md) |
-| Spacing & sizing | Type scale, heading hierarchy, line-height, letter-spacing, text trimming | [spacing-and-sizing.md](spacing-and-sizing.md) |
-| Wrapping & punctuation | Measure, wrapping, truncation, smart punctuation, RTL | [wrapping-and-punctuation.md](wrapping-and-punctuation.md) |
-| Details & accessibility | Underlines, selection, forms, decorative text, contrast | [details-and-accessibility.md](details-and-accessibility.md) |
-| CSS cheat sheet | Quick lookup of every property covered, with Tailwind equivalents | [css-cheat-sheet.md](css-cheat-sheet.md) |
+| Category                  | When to use                                                               | Reference                                                        |
+| ------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Choosing fonts            | Font categories, pairing, formats, typeface anatomy                       | [choosing-fonts.md](choosing-fonts.md)                           |
+| Variable fonts & OpenType | Axes, weights, tabular numbers, stylistic sets                            | [variable-fonts-and-opentype.md](variable-fonts-and-opentype.md) |
+| Spacing & sizing          | Type scale, heading hierarchy, line-height, letter-spacing, text trimming | [spacing-and-sizing.md](spacing-and-sizing.md)                   |
+| Wrapping & punctuation    | Measure, wrapping, truncation, smart punctuation, RTL                     | [wrapping-and-punctuation.md](wrapping-and-punctuation.md)       |
+| Details & accessibility   | Underlines, selection, forms, decorative text, contrast                   | [details-and-accessibility.md](details-and-accessibility.md)     |
+| CSS cheat sheet           | Quick lookup of every property covered, with Tailwind equivalents         | [css-cheat-sheet.md](css-cheat-sheet.md)                         |
 
 ## Core Principles
 
@@ -104,31 +104,31 @@ Set `lang` so browsers and assistive technology choose the right pronunciation, 
 
 ## Common Mistakes
 
-| Mistake | Fix |
-| --- | --- |
-| `.ttf`/`.otf` served on the web | Convert to `.woff2` |
-| `font-variation-settings: "wght"` for weight | `font-weight` (works with non-variable fallbacks) |
-| `font-feature-settings: "tnum" 1` | `font-variant-numeric: tabular-nums` |
-| Synthesized face differs from the intended design | Load the required face; disable only the verified synthesis mode without erasing emphasis |
-| Hard-coded one-off font sizes | Use the type scale |
-| Child heading visually overpowers its parent | Map that section's hierarchy to descending scale steps |
-| Heading element picked for its default size | Choose semantics with `better-accessibility`, then set the visual size in CSS |
-| `line-height: 24px` on scalable text | Unitless value (`1.5`) |
-| Full-width paragraphs | Cap around 60–75 characters per line |
-| Orphan on the last line of a paragraph | `text-wrap: pretty` |
-| Lopsided two-line heading | `text-wrap: balance` |
-| Numbers cause layout shift | `tabular-nums` |
-| Truncated text with no way to read it | Tooltip or expanded view for the full value |
-| `UPPERCASE` typed into copy | Natural case + `text-transform` |
-| Justified text in an interface | `text-align: start`; reserve justify for specific editorial layouts |
-| Underline cuts through descenders | `text-decoration-skip-ink: auto`, `from-font` metrics |
-| Inputs below `16px` zoom on iOS | `text-base sm:text-sm` |
-| Root layout omits font smoothing | Apply `antialiased` once at the root |
-| Mixed-direction value renders in the wrong order | Set the correct `lang`/`dir`; isolate the value with `<bdi>` when needed |
-| Selection disabled across application chrome | Restore selection; suppress it only on a specific interaction that conflicts with dragging or gestures |
-| Extra-info hint with no visual cue | Dotted underline via `text-decoration-style: dotted` |
-| Thin/Light weight on `14px` UI text | Weight `400`+ below `18px`; thin weights are display-only |
-| `leading-none` on a three-line card description | At least `1.4` on any text that wraps to 3+ lines |
+| Mistake                                           | Fix                                                                                                    |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `.ttf`/`.otf` served on the web                   | Convert to `.woff2`                                                                                    |
+| `font-variation-settings: "wght"` for weight      | `font-weight` (works with non-variable fallbacks)                                                      |
+| `font-feature-settings: "tnum" 1`                 | `font-variant-numeric: tabular-nums`                                                                   |
+| Synthesized face differs from the intended design | Load the required face; disable only the verified synthesis mode without erasing emphasis              |
+| Hard-coded one-off font sizes                     | Use the type scale                                                                                     |
+| Child heading visually overpowers its parent      | Map that section's hierarchy to descending scale steps                                                 |
+| Heading element picked for its default size       | Choose semantics with `better-accessibility`, then set the visual size in CSS                          |
+| `line-height: 24px` on scalable text              | Unitless value (`1.5`)                                                                                 |
+| Full-width paragraphs                             | Cap around 60–75 characters per line                                                                   |
+| Orphan on the last line of a paragraph            | `text-wrap: pretty`                                                                                    |
+| Lopsided two-line heading                         | `text-wrap: balance`                                                                                   |
+| Numbers cause layout shift                        | `tabular-nums`                                                                                         |
+| Truncated text with no way to read it             | Tooltip or expanded view for the full value                                                            |
+| `UPPERCASE` typed into copy                       | Natural case + `text-transform`                                                                        |
+| Justified text in an interface                    | `text-align: start`; reserve justify for specific editorial layouts                                    |
+| Underline cuts through descenders                 | `text-decoration-skip-ink: auto`, `from-font` metrics                                                  |
+| Inputs below `16px` zoom on iOS                   | `text-base sm:text-sm`                                                                                 |
+| Root layout omits font smoothing                  | Apply `antialiased` once at the root                                                                   |
+| Mixed-direction value renders in the wrong order  | Set the correct `lang`/`dir`; isolate the value with `<bdi>` when needed                               |
+| Selection disabled across application chrome      | Restore selection; suppress it only on a specific interaction that conflicts with dragging or gestures |
+| Extra-info hint with no visual cue                | Dotted underline via `text-decoration-style: dotted`                                                   |
+| Thin/Light weight on `14px` UI text               | Weight `400`+ below `18px`; thin weights are display-only                                              |
+| `leading-none` on a three-line card description   | At least `1.4` on any text that wraps to 3+ lines                                                      |
 
 ## Review Output Format
 
@@ -150,16 +150,18 @@ Consolidate a repeated systemic issue into one row and list every affected locat
 ### Example
 
 #### Tabular numbers
-| Severity | Location | Before | After | Why |
-| --- | --- | --- | --- | --- |
-| MEDIUM | `src/Price.tsx:17` | `<span>{price}</span>` on a live price | `<span className="tabular-nums">{price}</span>` | Proportional digits cause changing values to shift |
-| LOW | `src/numbers.css:8` | `font-feature-settings: "tnum" 1` | `font-variant-numeric: tabular-nums` | The high-level property preserves fallback behavior |
+
+| Severity | Location            | Before                                 | After                                           | Why                                                 |
+| -------- | ------------------- | -------------------------------------- | ----------------------------------------------- | --------------------------------------------------- |
+| MEDIUM   | `src/Price.tsx:17`  | `<span>{price}</span>` on a live price | `<span className="tabular-nums">{price}</span>` | Proportional digits cause changing values to shift  |
+| LOW      | `src/numbers.css:8` | `font-feature-settings: "tnum" 1`      | `font-variant-numeric: tabular-nums`            | The high-level property preserves fallback behavior |
 
 #### Line-height and measure
-| Severity | Location | Before | After | Why |
-| --- | --- | --- | --- | --- |
-| MEDIUM | `src/Article.tsx:33` | `leading-none` on a body paragraph | `leading-normal` (`1.5`–`1.6`) | Wrapped body text needs enough vertical separation |
-| MEDIUM | `src/article.css:12` | Full-width article column | `max-width` near 65 characters at `16px` | Long measures make lines hard to track |
+
+| Severity | Location             | Before                             | After                                    | Why                                                |
+| -------- | -------------------- | ---------------------------------- | ---------------------------------------- | -------------------------------------------------- |
+| MEDIUM   | `src/Article.tsx:33` | `leading-none` on a body paragraph | `leading-normal` (`1.5`–`1.6`)           | Wrapped body text needs enough vertical separation |
+| MEDIUM   | `src/article.css:12` | Full-width article column          | `max-width` near 65 characters at `16px` | Long measures make lines hard to track             |
 
 ### Verification and Verdict
 

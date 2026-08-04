@@ -9,13 +9,13 @@ OKLCH is a perceptually uniform color space where lightness, chroma, and hue are
 
 ## Quick Reference
 
-| Category | When to use | Reference |
-| --- | --- | --- |
-| Conversion | Hex/rgb/hsl to oklch | [color-conversion.md](color-conversion.md) |
-| Palettes | Generate scales, multi-hue, dark mode | [palette-generation.md](palette-generation.md) |
-| Contrast | APCA/WCAG checks, reporting failures, fixing on request | [accessibility-contrast.md](accessibility-contrast.md) |
-| Gamut & Tailwind | P3 fallbacks, `@theme` scales, gamut clamping | [gamut-and-tailwind.md](gamut-and-tailwind.md) |
-| Usage | Semantic tokens, one meaning per color, primary-action emphasis, appearance variants | [color-usage.md](color-usage.md) |
+| Category         | When to use                                                                          | Reference                                              |
+| ---------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------ |
+| Conversion       | Hex/rgb/hsl to oklch                                                                 | [color-conversion.md](color-conversion.md)             |
+| Palettes         | Generate scales, multi-hue, dark mode                                                | [palette-generation.md](palette-generation.md)         |
+| Contrast         | APCA/WCAG checks, reporting failures, fixing on request                              | [accessibility-contrast.md](accessibility-contrast.md) |
+| Gamut & Tailwind | P3 fallbacks, `@theme` scales, gamut clamping                                        | [gamut-and-tailwind.md](gamut-and-tailwind.md)         |
+| Usage            | Semantic tokens, one meaning per color, primary-action emphasis, appearance variants | [color-usage.md](color-usage.md)                       |
 
 ## Core Principles
 
@@ -34,12 +34,12 @@ oklch(L C H)
 oklch(L C H / alpha)
 ```
 
-| Channel | Range | Description |
-| --- | --- | --- |
-| L (Lightness) | 0–1 | 0 = black, 1 = white. Perceptually uniform. |
-| C (Chroma) | 0–~0.4 | Colorfulness. 0 = gray. Max depends on L and H. |
-| H (Hue) | 0–360 | Hue angle in degrees. |
-| alpha | 0–1 | Optional transparency. Slash syntax. |
+| Channel       | Range  | Description                                     |
+| ------------- | ------ | ----------------------------------------------- |
+| L (Lightness) | 0–1    | 0 = black, 1 = white. Perceptually uniform.     |
+| C (Chroma)    | 0–~0.4 | Colorfulness. 0 = gray. Max depends on L and H. |
+| H (Hue)       | 0–360  | Hue angle in degrees.                           |
+| alpha         | 0–1    | Optional transparency. Slash syntax.            |
 
 ```css
 oklch(0.637 0.237 25.331)
@@ -50,35 +50,35 @@ Use three decimal places for L and C and up to three for H. Drop trailing zeros 
 
 ### 3. Measure Contrast, Gamut, and Palette Behavior
 
-| Rule | Value |
-| --- | --- |
-| Light/dark boundary | L > 0.73 = light background → dark text; below it, light text still scores higher |
-| Lightness gap (light bg) | Foreground L < 0.35 when background L > 0.9 |
-| Lightness gap (dark bg) | Foreground L > 0.9 when background L < 0.25 |
-| Hue drift threshold | > 10° spread across palette steps = visible drift |
-| APCA body text | \|Lc\| >= 75 minimum, >= 90 preferred |
-| APCA non-body text | \|Lc\| >= 60 minimum |
-| WCAG 2 normal text | 4.5:1 AA, 7:1 AAA |
-| Contrast fix (only when asked) | Adjust L first; preserve C and H when possible, then remeasure the rendered pair |
+| Rule                           | Value                                                                             |
+| ------------------------------ | --------------------------------------------------------------------------------- |
+| Light/dark boundary            | L > 0.73 = light background → dark text; below it, light text still scores higher |
+| Lightness gap (light bg)       | Foreground L < 0.35 when background L > 0.9                                       |
+| Lightness gap (dark bg)        | Foreground L > 0.9 when background L < 0.25                                       |
+| Hue drift threshold            | > 10° spread across palette steps = visible drift                                 |
+| APCA body text                 | \|Lc\| >= 75 minimum, >= 90 preferred                                             |
+| APCA non-body text             | \|Lc\| >= 60 minimum                                                              |
+| WCAG 2 normal text             | 4.5:1 AA, 7:1 AAA                                                                 |
+| Contrast fix (only when asked) | Adjust L first; preserve C and H when possible, then remeasure the rendered pair  |
 
 ## Common Mistakes
 
-| Issue | Fix |
-| --- | --- |
-| Raw color bypasses the project's semantic token system | Reuse or add the correct role token in the project's existing notation |
-| Isolated OKLCH value introduced into a hex/RGB codebase | Preserve the established notation unless the task includes a color-system migration |
-| HSL palette ramp with hue drift | Rebuild with constant oklch hue |
-| Failing contrast (check foreground vs its background using APCA) | Report the pair, its measured Lc and the threshold it misses; change colors only when asked (then adjust L, keep C and H) |
-| High chroma without gamut check | Clamp to max chroma for the L/H in sRGB |
-| Same absolute C across different hues | Use same C% (percentage of max) for consistent vividness |
-| P3 color without sRGB fallback | Add `@media (color-gamut: p3)` pattern |
-| Dark mode created by mechanically reversing the light palette | Use the light palette as a starting point, then tune chroma and lightness and recheck every foreground/background pair |
-| Hex in Tailwind v4 `@theme` | Convert to oklch values |
-| Alpha with comma syntax | Use slash: `oklch(L C H / alpha)` |
-| Same hue means two different things (link color reused decoratively) | One color, one meaning; give the second use a neutral |
-| Semantic token used outside its role (separator as text) | Add a token for the missing role; never borrow by value |
-| Several colored control backgrounds in one view | Fill only the single primary action; secondaries stay neutral |
-| Palette verified only in light mode | Recheck every foreground/background pair in both appearances |
+| Issue                                                                | Fix                                                                                                                       |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Raw color bypasses the project's semantic token system               | Reuse or add the correct role token in the project's existing notation                                                    |
+| Isolated OKLCH value introduced into a hex/RGB codebase              | Preserve the established notation unless the task includes a color-system migration                                       |
+| HSL palette ramp with hue drift                                      | Rebuild with constant oklch hue                                                                                           |
+| Failing contrast (check foreground vs its background using APCA)     | Report the pair, its measured Lc and the threshold it misses; change colors only when asked (then adjust L, keep C and H) |
+| High chroma without gamut check                                      | Clamp to max chroma for the L/H in sRGB                                                                                   |
+| Same absolute C across different hues                                | Use same C% (percentage of max) for consistent vividness                                                                  |
+| P3 color without sRGB fallback                                       | Add `@media (color-gamut: p3)` pattern                                                                                    |
+| Dark mode created by mechanically reversing the light palette        | Use the light palette as a starting point, then tune chroma and lightness and recheck every foreground/background pair    |
+| Hex in Tailwind v4 `@theme`                                          | Convert to oklch values                                                                                                   |
+| Alpha with comma syntax                                              | Use slash: `oklch(L C H / alpha)`                                                                                         |
+| Same hue means two different things (link color reused decoratively) | One color, one meaning; give the second use a neutral                                                                     |
+| Semantic token used outside its role (separator as text)             | Add a token for the missing role; never borrow by value                                                                   |
+| Several colored control backgrounds in one view                      | Fill only the single primary action; secondaries stay neutral                                                             |
+| Palette verified only in light mode                                  | Recheck every foreground/background pair in both appearances                                                              |
 
 ## Review Output Format
 
@@ -97,11 +97,11 @@ Group all confirmed findings by principle. Use a markdown table with **Severity*
 
 Consolidate a repeated systemic issue into one row and list every affected location. Omit principles with no findings.
 
-| Severity | Location | Before | After | Why |
-| --- | --- | --- | --- | --- |
-| MEDIUM | `src/theme.css:18` | `color: #3b82f6` | `color: oklch(0.623 0.188 259.815)` | New project colors use OKLCH tokens |
-| MEDIUM | `src/palette.ts:31` | Same absolute C across hues | Same C% of each hue's maximum chroma | Equal chroma values do not appear equally vivid across hues |
-| HIGH | `src/theme.css:52` | P3 color with no fallback | Add an sRGB fallback before `@media (color-gamut: p3)` | The color fails on non-P3 displays |
+| Severity | Location            | Before                      | After                                                  | Why                                                         |
+| -------- | ------------------- | --------------------------- | ------------------------------------------------------ | ----------------------------------------------------------- |
+| MEDIUM   | `src/theme.css:18`  | `color: #3b82f6`            | `color: oklch(0.623 0.188 259.815)`                    | New project colors use OKLCH tokens                         |
+| MEDIUM   | `src/palette.ts:31` | Same absolute C across hues | Same C% of each hue's maximum chroma                   | Equal chroma values do not appear equally vivid across hues |
+| HIGH     | `src/theme.css:52`  | P3 color with no fallback   | Add an sRGB fallback before `@media (color-gamut: p3)` | The color fails on non-P3 displays                          |
 
 ### Verification and Verdict
 

@@ -1,13 +1,9 @@
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts3";
-import { CustomTooltip } from "./chart-card";
+import { useMemo } from "react";
+import { defineChart, lineY } from "@tanstack/charts";
+import { scaleLinear, scalePoint } from "d3-scale";
+import { Chart } from "@tanstack/react-charts";
+import { tooltip } from "@tanstack/charts/tooltip";
+
 const LABEL_COLOR = "#a1a1aa";
 
 interface Series {
@@ -28,9 +24,75 @@ export function DashboardLineChart({
   height?: number;
   yDomain?: [number, number];
 }) {
+  const longRows = useMemo(
+    () =>
+      data.flatMap((row) =>
+        series.map((item) => ({
+          color: item.color,
+          label: item.label,
+          series: item.dataKey,
+          time: String(row.time ?? ""),
+          value: Number(row[item.dataKey] ?? 0),
+        })),
+      ),
+    [data, series],
+  );
+
+  const definition = useMemo(() => {
+    const times = data.map((row) => String(row.time ?? ""));
+    const tickValues = times.filter((_, index) => index % 6 === 0);
+    return defineChart({
+      margin: { bottom: 24, left: 30, right: 8, top: 8 },
+      marks: series.map((item) =>
+        lineY(
+          longRows.filter((row) => row.series === item.dataKey),
+          {
+            key: (row) => `${row.time}:${row.series}`,
+            stroke: item.color,
+            strokeWidth: 2,
+            x: "time",
+            y: "value",
+          },
+        ),
+      ),
+      theme: {
+        foreground: LABEL_COLOR,
+        grid: "rgba(255,255,255,0.08)",
+        muted: LABEL_COLOR,
+      },
+      tooltip: {
+        className: "arc-ts-chart-tooltip",
+        format: (point) => {
+          const row = point.datum as (typeof longRows)[number];
+          return `${row.time}\n${row.label}: ${row.value}`;
+        },
+        use: tooltip,
+      },
+      x: {
+        axis: {
+          ticks: {
+            format: String,
+            values: tickValues,
+          },
+        },
+        scale: () => scalePoint<string>().padding(0.05),
+      },
+      y: {
+        axis: {
+          ticks: {
+            format: String,
+          },
+        },
+        grid: true,
+        nice: !yDomain,
+        scale: yDomain ? scaleLinear().domain(yDomain) : scaleLinear,
+      },
+    });
+  }, [data, longRows, series, yDomain]);
+
   return (
     <div>
-      <div className="flex flex-wrap items-end gap-4 mb-4">
+      <div className="mb-4 flex flex-wrap items-end gap-4">
         {series.map((s) => {
           const aggregated = s.aggregate?.(data);
           return (
@@ -40,7 +102,7 @@ export function DashboardLineChart({
                 <span className="text-ui-xs text-neutral3 uppercase">{s.label}</span>
               </div>
               {aggregated && (
-                <p className="text-ui-md text-neutral4 pl-5">
+                <p className="pl-5 text-ui-md text-neutral4">
                   {aggregated.value}
                   {aggregated.suffix && (
                     <span className="text-ui-sm text-neutral2"> {aggregated.suffix}</span>
@@ -52,37 +114,12 @@ export function DashboardLineChart({
         })}
       </div>
       <div style={{ height }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data}>
-            <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
-            <XAxis
-              dataKey="time"
-              tick={{ fill: LABEL_COLOR, fontFamily: "var(--font-mono)", fontSize: 10 }}
-              tickLine={false}
-              axisLine={false}
-              interval={5}
-            />
-            <YAxis
-              tick={{ fill: LABEL_COLOR, fontFamily: "var(--font-mono)", fontSize: 10 }}
-              tickLine={false}
-              axisLine={false}
-              width={30}
-              domain={yDomain}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            {series.map((s) => (
-              <Line
-                key={s.dataKey}
-                type="linear"
-                dataKey={s.dataKey}
-                stroke={s.color}
-                strokeWidth={2}
-                dot={false}
-                name={s.label}
-              />
-            ))}
-          </LineChart>
-        </ResponsiveContainer>
+        <Chart
+          ariaLabel="指标趋势"
+          className="h-full w-full"
+          definition={definition}
+          height={height}
+        />
       </div>
     </div>
   );

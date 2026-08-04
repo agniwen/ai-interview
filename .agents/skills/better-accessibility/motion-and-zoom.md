@@ -27,7 +27,9 @@ For an existing codebase where opt-in isn't feasible, the global kill switch is 
 
 ```css
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -42,11 +44,11 @@ For an existing codebase where opt-in isn't feasible, the global kill switch is 
 
 Reduced motion means reduced, not eliminated: it targets vestibular triggers, not feedback.
 
-| Disable entirely | Replace | Keep |
-| --- | --- | --- |
-| Parallax scrolling | Slide/scale/zoom transitions → opacity crossfade | Loading spinners and progress |
-| Autoplaying video, GIFs, looping decoration | Smooth scrolling → instant jump | Instant state changes (hover color, focus ring) |
-| Spinning, large-scale movement across the screen | Auto-rotating carousels → start paused | Brief functional feedback (button press) |
+| Disable entirely                                 | Replace                                          | Keep                                            |
+| ------------------------------------------------ | ------------------------------------------------ | ----------------------------------------------- |
+| Parallax scrolling                               | Slide/scale/zoom transitions → opacity crossfade | Loading spinners and progress                   |
+| Autoplaying video, GIFs, looping decoration      | Smooth scrolling → instant jump                  | Instant state changes (hover color, focus ring) |
+| Spinning, large-scale movement across the screen | Auto-rotating carousels → start paused           | Brief functional feedback (button press)        |
 
 Animations must be interruptible and driven by user input; nothing should autoplay or refuse to stop. Under reduced motion, carousels start paused.
 
@@ -69,11 +71,11 @@ Fixed heights are what break under zoom: use `min-height` on anything containing
 
 Respect how the codebase is set up: if the project sizes in `px` (or an established Tailwind scale), stay consistent with it; don't introduce mixed units into someone else's system. Where you do have the choice (new code, or a codebase already on `rem`), `rem` respects the user's base font size and `px` ignores it:
 
-| Use `rem` | Use `px` |
-| --- | --- |
-| `font-size` | Borders and hairlines |
-| `max-width` of text containers | Focus outline width and offset |
-| Media-query breakpoints (`@media (min-width: 48rem)`) | `box-shadow` details |
-| Spacing that should scale with text | Fixed-size decorations |
+| Use `rem`                                             | Use `px`                       |
+| ----------------------------------------------------- | ------------------------------ |
+| `font-size`                                           | Borders and hairlines          |
+| `max-width` of text containers                        | Focus outline width and offset |
+| Media-query breakpoints (`@media (min-width: 48rem)`) | `box-shadow` details           |
+| Spacing that should scale with text                   | Fixed-size decorations         |
 
 Breakpoints are where the choice matters most: at a larger base font size, an `em`/`rem` query switches to the mobile layout when the text needs it; a `px` query doesn't.

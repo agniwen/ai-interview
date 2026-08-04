@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
 import { act } from "react";
-import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
@@ -9,19 +8,9 @@ import { StructuredResumeEvaluationPanel } from "../structured-resume-evaluation
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-vi.mock("@/components/ui/chart", () => ({
-  ChartContainer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  ChartTooltip: () => null,
-  ChartTooltipContent: () => null,
-}));
-
-vi.mock("recharts", () => ({
-  PolarAngleAxis: () => null,
-  PolarGrid: () => null,
-  PolarRadiusAxis: () => null,
-  Radar: () => null,
-  RadarChart: ({ children, data }: { children: ReactNode; data: { key: string }[] }) => (
-    <div data-radar-order={data.map((item) => item.key).join(",")}>{children}</div>
+vi.mock("@/components/ui/chart-radar", () => ({
+  DimensionRadarChart: ({ dimensions }: { dimensions: { key: string }[] }) => (
+    <div data-radar-order={dimensions.map((item) => item.key).join(",")} />
   ),
 }));
 

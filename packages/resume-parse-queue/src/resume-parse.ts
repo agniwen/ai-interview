@@ -22,6 +22,8 @@ const RESUME_PARSE_JOB_TYPES: JobType[] = [...RESUME_PARSE_COUNT_TYPES];
 
 export const resumeParseJobSchema = z.object({
   batchId: z.string().min(1),
+  /** When true, the worker must re-parse from S3 and skip attachment parse cache. */
+  bypassCache: z.boolean().optional(),
   itemId: z.string().min(1),
   organizationId: z.string().min(1),
   userId: z.string().min(1),

@@ -4,11 +4,11 @@
 
 Design system palettes use a numeric scale from 50 (lightest) to 950 (darkest). The standard labels by palette size:
 
-| Size | Labels |
-| --- | --- |
-| 5 | 100, 300, 500, 700, 900 |
-| 9 | 50, 100, 200, 300, 500, 700, 800, 900, 950 |
-| 11 | 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950 |
+| Size | Labels                                               |
+| ---- | ---------------------------------------------------- |
+| 5    | 100, 300, 500, 700, 900                              |
+| 9    | 50, 100, 200, 300, 500, 700, 800, 900, 950           |
+| 11   | 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950 |
 
 11 steps matches Tailwind's default scales; use 9 as a leaner default when the `400`/`600` in-betweens aren't needed.
 
@@ -60,9 +60,9 @@ When generating palettes for multiple hues, use the same **lightness** and **chr
 ```css
 :root {
   /* Same L, same C% (80% of max): different absolute C per hue */
-  --blue-500: oklch(0.623 0.141 250);   /* 80% of max 0.176 */
-  --green-500: oklch(0.623 0.157 145);  /* 80% of max 0.196 */
-  --red-500: oklch(0.623 0.202 25);     /* 80% of max 0.253 */
+  --blue-500: oklch(0.623 0.141 250); /* 80% of max 0.176 */
+  --green-500: oklch(0.623 0.157 145); /* 80% of max 0.196 */
+  --red-500: oklch(0.623 0.202 25); /* 80% of max 0.253 */
 }
 ```
 

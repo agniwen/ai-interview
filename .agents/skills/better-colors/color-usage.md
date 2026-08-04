@@ -8,12 +8,20 @@ Use a color consistently for one purpose (interactive, destructive, featured) ac
 
 ```css
 /* Bad: brand blue means both "link" and "decorative heading" */
-a { color: oklch(0.623 0.188 259.815); }
-.section-title { color: oklch(0.65 0.17 259.815); }
+a {
+  color: oklch(0.623 0.188 259.815);
+}
+.section-title {
+  color: oklch(0.65 0.17 259.815);
+}
 
 /* Good: interactive elements own the brand hue; headings stay neutral */
-a { color: oklch(0.623 0.188 259.815); }
-.section-title { color: oklch(0.279 0.041 260.031); }
+a {
+  color: oklch(0.623 0.188 259.815);
+}
+.section-title {
+  color: oklch(0.279 0.041 260.031);
+}
 ```
 
 ## Semantic tokens over raw values
@@ -30,10 +38,14 @@ Name colors by role, not by appearance, and apply them only in that role: `--col
 }
 
 /* Bad: separator token repurposed as text color because it "looked right" */
-.caption { color: var(--color-separator); }
+.caption {
+  color: var(--color-separator);
+}
 
 /* Bad: secondary-text token repurposed as a background */
-.tag { background: var(--color-text-secondary); }
+.tag {
+  background: var(--color-text-secondary);
+}
 ```
 
 If a role has no token yet, add the token; don't borrow one that happens to have the right value today. In Tailwind projects, this is the `@theme` block; see [gamut-and-tailwind.md](gamut-and-tailwind.md).
@@ -59,12 +71,12 @@ Put the color on the background, not the label: a filled `bg-blue-600 text-white
 
 Color meaning is not universal. If a color is load-bearing (finance, status, alerts), verify the meaning holds in every locale you ship to.
 
-| Color | Common Western reading | Elsewhere |
-| --- | --- | --- |
-| Red | Danger, loss, errors | Luck, prosperity; **gains** in Chinese financial UIs |
-| Green | Success, gains, go | Losses in Chinese financial UIs |
-| White | Purity, cleanliness | Mourning in parts of East Asia |
-| Gold | Premium, luxury | Religious significance in some regions |
+| Color | Common Western reading | Elsewhere                                            |
+| ----- | ---------------------- | ---------------------------------------------------- |
+| Red   | Danger, loss, errors   | Luck, prosperity; **gains** in Chinese financial UIs |
+| Green | Success, gains, go     | Losses in Chinese financial UIs                      |
+| White | Purity, cleanliness    | Mourning in parts of East Asia                       |
+| Gold  | Premium, luxury        | Religious significance in some regions               |
 
 The classic case: stock tickers show gains in green for English locales and in red for Chinese locales. If your product localizes into such markets, make the gain/loss colors a per-locale token, not a hardcoded value.
 
@@ -78,11 +90,15 @@ Every custom color needs a light and a dark variant; dark mode derivation is cov
 }
 
 @media (prefers-color-scheme: dark) {
-  :root { --color-accent: oklch(0.707 0.165 254.624); }
+  :root {
+    --color-accent: oklch(0.707 0.165 254.624);
+  }
 }
 
 @media (prefers-contrast: more) {
-  :root { --color-accent: oklch(0.488 0.243 264.376); }
+  :root {
+    --color-accent: oklch(0.488 0.243 264.376);
+  }
 }
 ```
 

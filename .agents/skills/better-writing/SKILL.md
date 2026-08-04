@@ -20,12 +20,12 @@ Before writing or reviewing, inspect nearby interface copy, the product's termin
 
 The product has one voice, established by its existing system rather than invented during a local edit. Keep terms consistent: if it's "Archive" in the menu, it isn't "Move to storage" in the toast. Tone flexes with the stakes:
 
-| Context | Tone |
-| --- | --- |
-| Success, onboarding, empty states | Warm, can be light |
-| Routine actions, settings | Neutral, minimal |
+| Context                           | Tone                          |
+| --------------------------------- | ----------------------------- |
+| Success, onboarding, empty states | Warm, can be light            |
+| Routine actions, settings         | Neutral, minimal              |
 | Errors, destructive confirmations | Calm, plain, zero playfulness |
-| Data loss, security | Serious, explicit |
+| Data loss, security               | Serious, explicit             |
 
 ### 3. Address the Reader Directly
 
@@ -59,10 +59,10 @@ Label a toggle for what happens when it's on: "Send read receipts", and users in
 
 An error is an instruction, adjacent to the failing field:
 
-| Bad | Good |
-| --- | --- |
-| That password is too short | Choose a password with at least 8 characters |
-| Invalid name | Use only letters for your name |
+| Bad                         | Good                                                 |
+| --------------------------- | ---------------------------------------------------- |
+| That password is too short  | Choose a password with at least 8 characters         |
+| Invalid name                | Use only letters for your name                       |
 | Oops! Something went wrong. | Unable to save. Check your connection and try again. |
 
 No blame, no "oops", no exclamation marks. Phrase hints positively ("Use only letters", not "Don't use numbers or symbols") and show them before the mistake, not after. If the same error keeps firing for many users, redesign the interaction instead of rewording it.
@@ -89,20 +89,20 @@ Placeholders show the expected format (`name@example.com`, `DD/MM/YYYY`). A plac
 
 ## Common Mistakes
 
-| Mistake | Fix |
-| --- | --- |
+| Mistake                                                              | Fix                                                               |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | Local rewrite ignores the product's established terminology or voice | Inspect nearby copy and the style guide before proposing a change |
-| "The user" in instructional interface copy | Address the reader directly as "you" |
-| "We're having trouble…" obscures responsibility or recovery | Use a direct status and next step: "Unable to load content" |
-| `OK` / `Yes` confirming a destructive dialog | Repeat the consequence: "Delete project" |
-| "Continue" on step 2, "Next" on step 3 | One flow vocabulary throughout |
-| "Click here" or bare "Learn more" link | Describe the destination: "Read the billing docs" |
-| "Save Changes" beside "Discard changes" | One capitalization policy per element type |
-| "Don't send read receipts" toggle | Label the ON state: "Send read receipts" |
-| "Oops! Something went wrong." | Say what to do, next to the failing field |
-| "No results." as the whole empty state | Orient and point forward with a next action |
-| Placeholder doing the label's job | Visible label; placeholder shows the format |
-| `"You have " + n + " messages"` | Full templated strings with pluralization |
+| "The user" in instructional interface copy                           | Address the reader directly as "you"                              |
+| "We're having trouble…" obscures responsibility or recovery          | Use a direct status and next step: "Unable to load content"       |
+| `OK` / `Yes` confirming a destructive dialog                         | Repeat the consequence: "Delete project"                          |
+| "Continue" on step 2, "Next" on step 3                               | One flow vocabulary throughout                                    |
+| "Click here" or bare "Learn more" link                               | Describe the destination: "Read the billing docs"                 |
+| "Save Changes" beside "Discard changes"                              | One capitalization policy per element type                        |
+| "Don't send read receipts" toggle                                    | Label the ON state: "Send read receipts"                          |
+| "Oops! Something went wrong."                                        | Say what to do, next to the failing field                         |
+| "No results." as the whole empty state                               | Orient and point forward with a next action                       |
+| Placeholder doing the label's job                                    | Visible label; placeholder shows the format                       |
+| `"You have " + n + " messages"`                                      | Full templated strings with pluralization                         |
 
 ## Review Output Format
 
@@ -124,16 +124,18 @@ Consolidate a repeated systemic issue into one row and list every affected locat
 ### Example
 
 #### Errors say how to fix
-| Severity | Location | Before | After | Why |
-| --- | --- | --- | --- | --- |
-| MEDIUM | `src/PasswordField.tsx:36` | "Invalid password" | "Choose a password with at least 8 characters" | The error must say how to fix the problem |
-| HIGH | `src/Editor.tsx:81` | "We couldn't process your request" toast | Inline "Unable to save. Check your connection and try again." | The current message neither locates the failure nor offers recovery |
+
+| Severity | Location                   | Before                                   | After                                                         | Why                                                                 |
+| -------- | -------------------------- | ---------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------- |
+| MEDIUM   | `src/PasswordField.tsx:36` | "Invalid password"                       | "Choose a password with at least 8 characters"                | The error must say how to fix the problem                           |
+| HIGH     | `src/Editor.tsx:81`        | "We couldn't process your request" toast | Inline "Unable to save. Check your connection and try again." | The current message neither locates the failure nor offers recovery |
 
 #### Verb-first buttons
-| Severity | Location | Before | After | Why |
-| --- | --- | --- | --- | --- |
-| HIGH | `src/DeleteDialog.tsx:29` | "OK" on the delete confirmation | "Delete project" | A consequential action must repeat the consequence |
-| MEDIUM | `src/Signup.tsx:54` | "Let's go!" | "Create account" | The label must name the action |
+
+| Severity | Location                  | Before                          | After            | Why                                                |
+| -------- | ------------------------- | ------------------------------- | ---------------- | -------------------------------------------------- |
+| HIGH     | `src/DeleteDialog.tsx:29` | "OK" on the delete confirmation | "Delete project" | A consequential action must repeat the consequence |
+| MEDIUM   | `src/Signup.tsx:54`       | "Let's go!"                     | "Create account" | The label must name the action                     |
 
 ### Verification and Verdict
 

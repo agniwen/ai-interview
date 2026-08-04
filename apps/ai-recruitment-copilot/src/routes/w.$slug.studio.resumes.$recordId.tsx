@@ -107,7 +107,7 @@ function RecruiterResumeDetailSkeleton() {
             </div>
           </div>
         </header>
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_28rem]">
           <div className="min-w-0 flex flex-col gap-8">
             <section className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">

@@ -37,7 +37,7 @@ import { JobDescriptionHoverCard } from "@/components/features/studio/job-descri
 import { JobDescriptionSelectField } from "@/components/features/studio/interviews/job-description-select-field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { DimensionRadarChart } from "@/components/ui/chart-radar";
 import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { Input } from "@/components/ui/input";
@@ -52,7 +52,6 @@ import {
 import { updateStudioResumeIdentity } from "@/lib/client/api";
 import { runAsyncAction } from "@/lib/client/async-control";
 import { cn } from "@arc/shared/utils";
-import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart } from "recharts";
 
 const DIMENSION_LABELS = RESUME_REVIEW_DIMENSIONS;
 const STRUCTURED_GATE_LABELS = {
@@ -160,7 +159,7 @@ function structuredConclusion(
   return `综合评分 ${evaluation.calculations.compositeScore} 分，处于“${STRUCTURED_GRADE_LABELS[evaluation.grade]}”区间；${gateConclusion}。`;
 }
 
-function DimensionRadarChart({
+function OverviewDimensionRadar({
   compact = false,
   dimensions,
 }: {
@@ -181,62 +180,22 @@ function DimensionRadarChart({
   }
 
   return (
-    <ChartContainer
-      className={cn(
-        "mx-auto aspect-square w-full",
-        compact ? "min-h-[12rem] max-w-[14rem]" : "min-h-[16rem] max-w-[19rem] lg:min-h-[17rem]",
+    <DimensionRadarChart
+      ariaLabel="简历维度评分雷达图"
+      compact={compact}
+      dimensions={dimensions}
+      tooltipBody={(payload) => (
+        <div className="min-w-0 space-y-1">
+          <div className="font-medium text-foreground">
+            {payload.label}：{String(payload.score ?? "—")}
+          </div>
+          <div className="text-muted-foreground text-xs leading-5">
+            权重 {String(payload.weight ?? "—")}%
+            {typeof payload.rationale === "string" ? ` · ${payload.rationale}` : ""}
+          </div>
+        </div>
       )}
-      config={{
-        score: {
-          color: "var(--primary)",
-          label: "评分",
-        },
-      }}
-    >
-      <RadarChart
-        data={dimensions}
-        margin={{ bottom: 18, left: 18, right: 18, top: 18 }}
-        outerRadius="72%"
-      >
-        <PolarGrid gridType="polygon" />
-        <PolarAngleAxis
-          dataKey="label"
-          tick={{ fill: "var(--muted-foreground)", fontSize: compact ? 10 : 12 }}
-        />
-        <PolarRadiusAxis angle={90} axisLine={false} domain={[0, 100]} tick={false} />
-        <ChartTooltip
-          content={
-            <ChartTooltipContent
-              formatter={(value, _name, item) => {
-                const payload = item.payload as ReviewDimensionDisplay | undefined;
-                return (
-                  <div className="min-w-0 space-y-1">
-                    <div className="font-medium text-foreground">
-                      {payload?.label ?? "维度"}：{String(value)}
-                    </div>
-                    {payload ? (
-                      <div className="text-muted-foreground text-xs leading-5">
-                        权重 {payload.weight}% · {payload.rationale}
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              }}
-              hideLabel
-            />
-          }
-        />
-        <Radar
-          dataKey="score"
-          dot={{ fill: "var(--color-score)", r: 3 }}
-          fill="var(--color-score)"
-          fillOpacity={0.22}
-          name="评分"
-          stroke="var(--color-score)"
-          strokeWidth={2}
-        />
-      </RadarChart>
-    </ChartContainer>
+    />
   );
 }
 
@@ -343,7 +302,7 @@ function ResumeOverviewAiScoreSection({
 
       <div className="grid gap-5 lg:grid-cols-[minmax(14rem,0.8fr)_minmax(0,1.2fr)] lg:items-center">
         <div className="min-w-0">
-          <DimensionRadarChart compact dimensions={dimensionScores} />
+          <OverviewDimensionRadar compact dimensions={dimensionScores} />
         </div>
         <div className="min-w-0 space-y-3">
           <div className="min-w-0 space-y-1.5">
@@ -607,7 +566,7 @@ export function ResumeReviewStructuredView({
         {review ? (
           <div className="grid gap-1 lg:grid-cols-2">
             <FramePanel className="flex min-w-0 items-center justify-center lg:rounded-tr-[2px] lg:rounded-br-[2px] lg:rounded-bl-[2px] lg:before:rounded-tr-[1px] lg:before:rounded-br-[1px] lg:before:rounded-bl-[1px]">
-              <DimensionRadarChart dimensions={dimensionScores} />
+              <OverviewDimensionRadar dimensions={dimensionScores} />
             </FramePanel>
             {dimensionScoreGroups.map((group, index) => (
               <DimensionScoreGroup

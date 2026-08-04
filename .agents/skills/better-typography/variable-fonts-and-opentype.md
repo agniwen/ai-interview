@@ -26,13 +26,13 @@ For body and interface text, keep synthesis enabled unless a verified font setup
 
 Variable-font controls, each with a four-letter tag. A font only supports the axes its designer included.
 
-| Axis | Tag | Controls |
-| --- | --- | --- |
-| Weight | `wght` | Stroke thickness (like `font-weight`) |
-| Optical size | `opsz` | Details and spacing tuned for the display size |
-| Width | `wdth` | Glyph width |
-| Slant | `slnt` | Slant angle |
-| Custom | e.g. `GRAD` (Roboto Flex) | Whatever the designer built |
+| Axis         | Tag                       | Controls                                       |
+| ------------ | ------------------------- | ---------------------------------------------- |
+| Weight       | `wght`                    | Stroke thickness (like `font-weight`)          |
+| Optical size | `opsz`                    | Details and spacing tuned for the display size |
+| Width        | `wdth`                    | Glyph width                                    |
+| Slant        | `slnt`                    | Slant angle                                    |
+| Custom       | e.g. `GRAD` (Roboto Flex) | Whatever the designer built                    |
 
 Inter's variable file exposes only `wght` and `opsz`.
 
@@ -64,13 +64,13 @@ When a property exists, use it. `font-weight` keeps working when a non-variable 
 
 OpenType is the standard behind almost every modern font. Features are extra built-in options and, unlike axes, they work the same on static and variable fonts. A font only ships the features its designer included.
 
-| Tag | Feature |
-| --- | --- |
-| `tnum` | Tabular numbers: every digit the same width |
-| `zero` | Slashed zero: `0` distinct from `O` |
-| `liga` | Ligatures: joins pairs like "fi" into one shape |
-| `ss01`–`ss20` | Stylistic sets (numbered slots) |
-| `cv01`–`cv99` | Character variants (numbered slots) |
+| Tag           | Feature                                         |
+| ------------- | ----------------------------------------------- |
+| `tnum`        | Tabular numbers: every digit the same width     |
+| `zero`        | Slashed zero: `0` distinct from `O`             |
+| `liga`        | Ligatures: joins pairs like "fi" into one shape |
+| `ss01`–`ss20` | Stylistic sets (numbered slots)                 |
+| `cv01`–`cv99` | Character variants (numbered slots)             |
 
 Same rule as axes: prefer the `font-variant-*` properties, reserve `font-feature-settings` for tags with no property:
 

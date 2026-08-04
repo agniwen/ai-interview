@@ -14,11 +14,11 @@ No ARIA is better than bad ARIA: a screen reader trusts your roles, so a wrong r
 
 ## Button vs link vs div
 
-| Element | Use for | Why |
-| --- | --- | --- |
-| `<a href>` | Navigation: anything that goes somewhere or changes the URL | Free Cmd/Ctrl/middle-click, right-click → copy link, Enter activation |
-| `<button>` | Actions: submit, toggle, open, delete | Free focus, Enter *and* Space activation, form semantics |
-| `<div onClick>` | Nothing | No role, no focus, no keyboard; screen readers see plain text |
+| Element         | Use for                                                     | Why                                                                   |
+| --------------- | ----------------------------------------------------------- | --------------------------------------------------------------------- |
+| `<a href>`      | Navigation: anything that goes somewhere or changes the URL | Free Cmd/Ctrl/middle-click, right-click → copy link, Enter activation |
+| `<button>`      | Actions: submit, toggle, open, delete                       | Free focus, Enter _and_ Space activation, form semantics              |
+| `<div onClick>` | Nothing                                                     | No role, no focus, no keyboard; screen readers see plain text         |
 
 ```tsx
 // Bad: invisible to keyboard and screen readers
@@ -64,13 +64,13 @@ Add `translate="no"` to brand names, code tokens, and identifiers so auto-transl
 
 ## Common ARIA mistakes
 
-| Mistake | Why it fails |
-| --- | --- |
-| `aria-label` on a plain `<div>` or `<span>` | Names on non-interactive, role-less elements are ignored by most screen readers |
-| `<button role="button">` | Redundant role; adds noise, no benefit |
-| `aria-hidden="true"` on or above a focusable element | Creates elements you can Tab to but that don't exist for screen readers |
-| `aria-labelledby`/`aria-describedby` pointing at a missing ID | Silently produces no name or description |
-| `role="menu"` on a nav list | `menu` promises app-style arrow-key behavior; site navigation is `<nav>` with a list |
+| Mistake                                                       | Why it fails                                                                         |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `aria-label` on a plain `<div>` or `<span>`                   | Names on non-interactive, role-less elements are ignored by most screen readers      |
+| `<button role="button">`                                      | Redundant role; adds noise, no benefit                                               |
+| `aria-hidden="true"` on or above a focusable element          | Creates elements you can Tab to but that don't exist for screen readers              |
+| `aria-labelledby`/`aria-describedby` pointing at a missing ID | Silently produces no name or description                                             |
+| `role="menu"` on a nav list                                   | `menu` promises app-style arrow-key behavior; site navigation is `<nav>` with a list |
 
 ## Disabled states
 

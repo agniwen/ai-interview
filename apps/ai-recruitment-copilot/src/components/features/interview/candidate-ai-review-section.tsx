@@ -1,74 +1,35 @@
 "use client";
 
 import type { CandidateAiReview } from "@arc/shared/interview/interview-record";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { DimensionRadarChart } from "@/components/ui/chart-radar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useEffect, useRef } from "react";
-import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart } from "recharts";
 
 function CandidateReviewRadar({ dimensions }: { dimensions: CandidateAiReview["dimensions"] }) {
-  if (dimensions.length === 0) {
-    return (
-      <div className="flex min-h-64 items-center justify-center text-muted-foreground text-sm">
-        暂无匹配维度
-      </div>
-    );
-  }
-
   return (
-    <ChartContainer
-      className="mx-auto aspect-square min-h-[17rem] w-full max-w-[20rem]"
-      config={{ score: { color: "var(--primary)", label: "评分" } }}
-    >
-      <RadarChart
-        accessibilityLayer
-        data={dimensions}
-        margin={{ bottom: 20, left: 24, right: 24, top: 20 }}
-        outerRadius="70%"
-      >
-        <PolarGrid gridType="polygon" />
-        <PolarAngleAxis dataKey="label" tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
-        <PolarRadiusAxis angle={90} axisLine={false} domain={[0, 100]} tick={false} />
-        <ChartTooltip
-          content={
-            <ChartTooltipContent
-              formatter={(value, _name, item) => {
-                const dimension = item.payload as
-                  | CandidateAiReview["dimensions"][number]
-                  | undefined;
-                return (
-                  <div className="flex max-w-72 flex-col gap-1.5">
-                    <div className="flex items-center justify-between gap-6">
-                      <span className="font-medium text-foreground">
-                        {dimension?.label ?? "维度"}
-                      </span>
-                      <span className="font-medium text-foreground tabular-nums">
-                        {String(value)} 分
-                      </span>
-                    </div>
-                    {dimension ? (
-                      <p className="text-muted-foreground text-xs leading-5">
-                        {dimension.rationale}
-                      </p>
-                    ) : null}
-                  </div>
-                );
-              }}
-              hideLabel
-            />
-          }
-        />
-        <Radar
-          dataKey="score"
-          dot={{ fill: "var(--color-score)", r: 3 }}
-          fill="var(--color-score)"
-          fillOpacity={0.18}
-          name="评分"
-          stroke="var(--color-score)"
-          strokeWidth={2}
-        />
-      </RadarChart>
-    </ChartContainer>
+    <DimensionRadarChart
+      ariaLabel="匹配维度雷达图"
+      className="min-h-[17rem] max-w-[20rem]"
+      dimensions={dimensions.map((dimension) => ({
+        key: dimension.label,
+        label: dimension.label,
+        rationale: dimension.rationale,
+        score: dimension.score,
+      }))}
+      tooltipBody={(dimension) => (
+        <div className="flex max-w-72 flex-col gap-1.5">
+          <div className="flex items-center justify-between gap-6">
+            <span className="font-medium text-foreground">{dimension.label}</span>
+            <span className="font-medium text-foreground tabular-nums">
+              {String(dimension.score ?? "—")} 分
+            </span>
+          </div>
+          {typeof dimension.rationale === "string" ? (
+            <p className="text-muted-foreground text-xs leading-5">{dimension.rationale}</p>
+          ) : null}
+        </div>
+      )}
+    />
   );
 }
 

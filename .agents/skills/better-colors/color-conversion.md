@@ -4,10 +4,10 @@ Use this reference only when the user asks for conversion, the project is alread
 
 ## Supported input formats
 
-| Format | Examples |
-| --- | --- |
-| Hex (3/6/8-digit) | `#f00`, `#ff0000`, `#ff000080` |
-| `rgb()` / `rgba()` | `rgb(255, 0, 0)`, `rgba(255, 0, 0, 0.5)` |
+| Format             | Examples                                       |
+| ------------------ | ---------------------------------------------- |
+| Hex (3/6/8-digit)  | `#f00`, `#ff0000`, `#ff000080`                 |
+| `rgb()` / `rgba()` | `rgb(255, 0, 0)`, `rgba(255, 0, 0, 0.5)`       |
 | `hsl()` / `hsla()` | `hsl(0, 100%, 50%)`, `hsla(0, 100%, 50%, 0.5)` |
 
 ## Conversion examples

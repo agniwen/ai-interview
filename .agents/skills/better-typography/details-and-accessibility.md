@@ -65,14 +65,14 @@ Avoid the `maximum-scale=1` viewport meta as a fix: Safari ignores the cap for p
 
 ## Decorative text
 
-| Property | Effect |
-| --- | --- |
-| `::first-letter` | Drop cap, widely supported |
-| `::first-line` | Styles only the first line |
-| `initial-letter` | Sizes the drop cap; limited support, no Firefox yet |
-| `background-clip: text` | Clips a background or gradient to the letter shapes |
-| `-webkit-text-stroke` | Outlines the letters; works across modern browsers despite the prefix |
-| `text-shadow` | Like `box-shadow` but follows the character shapes |
+| Property                | Effect                                                                |
+| ----------------------- | --------------------------------------------------------------------- |
+| `::first-letter`        | Drop cap, widely supported                                            |
+| `::first-line`          | Styles only the first line                                            |
+| `initial-letter`        | Sizes the drop cap; limited support, no Firefox yet                   |
+| `background-clip: text` | Clips a background or gradient to the letter shapes                   |
+| `-webkit-text-stroke`   | Outlines the letters; works across modern browsers despite the prefix |
+| `text-shadow`           | Like `box-shadow` but follows the character shapes                    |
 
 If a text stroke draws lines inside the letters, that is the font: the stroke traces every contour and variable fonts usually keep overlapping shapes unmerged. Static fonts do not have this issue.
 
@@ -80,12 +80,12 @@ If a text stroke draws lines inside the letters, that is the font: the stroke tr
 
 Typography must survive the reader changing it: zoom, a larger browser font size, overridden line height or letter spacing.
 
-| Text | Size |
-| --- | --- |
-| Long-form body starting point | Around `16px`, verified in the actual typeface and measure |
-| Inputs and menus starting point | Around `14px` |
-| Captions | `13px` |
-| Floor | Rarely below `12px` |
+| Text                            | Size                                                       |
+| ------------------------------- | ---------------------------------------------------------- |
+| Long-form body starting point   | Around `16px`, verified in the actual typeface and measure |
+| Inputs and menus starting point | Around `14px`                                              |
+| Captions                        | `13px`                                                     |
+| Floor                           | Rarely below `12px`                                        |
 
 When text appears low-contrast, use `better-colors` to measure the rendered foreground/background pair and `better-accessibility` to classify the applicable requirement. Changing the project's colors remains a design decision unless the user asks for remediation.
 

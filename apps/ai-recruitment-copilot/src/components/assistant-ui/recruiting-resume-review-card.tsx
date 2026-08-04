@@ -8,8 +8,7 @@ import {
 import type { ResumeReviewLoose } from "@arc/shared/resume-review";
 import { Button } from "@/components/ui/button";
 import { CardFooter, CardHeader, CardPanel } from "@/components/ui/card";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart } from "recharts";
+import { DimensionRadarChart } from "@/components/ui/chart-radar";
 import { RecruitingChatCard } from "./recruiting-chat-card";
 import { useRecruitingCopilotContext } from "./recruiting-copilot-context";
 import type { ResumeRecordDetailResult } from "./recruiting-copilot-context";
@@ -19,13 +18,6 @@ interface RecruitingResumeReviewDimension {
   label: string;
   score: number | null;
 }
-
-const REVIEW_CHART_CONFIG = {
-  score: {
-    color: "var(--primary)",
-    label: "评分",
-  },
-};
 
 export function buildRecruitingResumeReviewCardModel(
   review: ResumeReviewLoose | null | undefined,
@@ -48,7 +40,7 @@ export function buildRecruitingResumeReviewCardModel(
   };
 }
 
-function DimensionRadarChart({ dimensions }: { dimensions: RecruitingResumeReviewDimension[] }) {
+function ReviewDimensionRadar({ dimensions }: { dimensions: RecruitingResumeReviewDimension[] }) {
   const hasScores = dimensions.some((dimension) => dimension.score !== null);
 
   if (!hasScores) {
@@ -60,44 +52,17 @@ function DimensionRadarChart({ dimensions }: { dimensions: RecruitingResumeRevie
   }
 
   return (
-    <ChartContainer
-      className="mx-auto aspect-square min-h-48 w-full max-w-52"
-      config={REVIEW_CHART_CONFIG}
-    >
-      <RadarChart
-        data={dimensions}
-        margin={{ bottom: 16, left: 16, right: 16, top: 16 }}
-        outerRadius="70%"
-      >
-        <PolarGrid gridType="polygon" />
-        <PolarAngleAxis dataKey="label" tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} />
-        <PolarRadiusAxis angle={90} axisLine={false} domain={[0, 100]} tick={false} />
-        <ChartTooltip
-          content={
-            <ChartTooltipContent
-              formatter={(value, _name, item) => {
-                const dimension = item.payload as RecruitingResumeReviewDimension | undefined;
-                return (
-                  <div className="font-medium text-foreground">
-                    {dimension?.label ?? "维度"}：{String(value)}
-                  </div>
-                );
-              }}
-              hideLabel
-            />
-          }
-        />
-        <Radar
-          dataKey="score"
-          dot={{ fill: "var(--color-score)", r: 2.5 }}
-          fill="var(--color-score)"
-          fillOpacity={0.16}
-          name="评分"
-          stroke="var(--color-score)"
-          strokeWidth={2}
-        />
-      </RadarChart>
-    </ChartContainer>
+    <DimensionRadarChart
+      ariaLabel="简历评分雷达图"
+      className="min-h-48 max-w-52"
+      compact
+      dimensions={dimensions}
+      tooltipBody={(dimension) => (
+        <div className="font-medium text-foreground">
+          {dimension.label}：{String(dimension.score ?? "—")}
+        </div>
+      )}
+    />
   );
 }
 
@@ -131,7 +96,7 @@ export function RecruitingResumeReviewCard({
       </CardHeader>
 
       <CardPanel className="grid gap-4 px-4 py-3.5 sm:grid-cols-[minmax(12rem,0.8fr)_minmax(0,1.2fr)] sm:items-center">
-        <DimensionRadarChart dimensions={model.dimensions} />
+        <ReviewDimensionRadar dimensions={model.dimensions} />
         <div className="min-w-0">
           <p className="text-sm leading-6">
             {model.conclusion ?? "该候选人尚未生成 AI评分，六维评分暂无数据。"}

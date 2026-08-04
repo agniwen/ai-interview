@@ -741,7 +741,8 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
     selectedResultInterviewItems,
     selectedResultReport,
     setActiveTab,
-    showTimelineAtBottom,
+    canUseTimelineRailScroll,
+    showTimelineRail,
     showAgentInstructions,
     tabContentRootRef,
     tabVisibilityRecord,
@@ -768,7 +769,7 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
   record ? (
     <div className={bodyLayoutClassName}>
       <div className={detailScrollClassName} ref={tabContentRootRef}>
-        <AnimatedHeight clip={!showTimelineAtBottom}>
+        <AnimatedHeight clip={!showTimelineRail}>
           <TabsContent value="overview">
             <div className="space-y-8">
               {/* 简历模式：复用 ResumeOverviewPanel —— 与「发起 AI 面试」
@@ -893,14 +894,21 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
           ) : null}
         </AnimatedHeight>
       </div>
-      {showTimelineAtBottom ? (
-        <section className="border-border/50 border-t pt-6">
+      {showTimelineRail ? (
+        <aside
+          className={cn(
+            "min-h-0 min-w-0 max-w-full overflow-hidden",
+            canUseTimelineRailScroll ? "xl:h-full" : "",
+          )}
+        >
           <CandidateTimeline
+            className={canUseTimelineRailScroll ? "xl:h-full" : undefined}
             data={candidateTimeline}
+            density="rail"
             isLoading={isTimelineLoading}
-            scrollMode="page"
+            scrollMode={canUseTimelineRailScroll ? "internal" : "page"}
           />
-        </section>
+        </aside>
       ) : null}
     </div>
   ) : (

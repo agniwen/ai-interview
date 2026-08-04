@@ -2,7 +2,6 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
-import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
@@ -18,19 +17,9 @@ vi.mock("@/components/features/studio/job-descriptions/job-description-hover-car
   JobDescriptionHoverCard: ({ name }: { name: string | null }) => <span>{name}</span>,
 }));
 
-vi.mock("@/components/ui/chart", () => ({
-  ChartContainer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  ChartTooltip: () => null,
-  ChartTooltipContent: () => null,
-}));
-
-vi.mock("recharts", () => ({
-  PolarAngleAxis: () => null,
-  PolarGrid: () => null,
-  PolarRadiusAxis: () => null,
-  Radar: () => null,
-  RadarChart: ({ children, data }: { children: ReactNode; data: { key: string }[] }) => (
-    <div data-radar-order={data.map((item) => item.key).join(",")}>{children}</div>
+vi.mock("@/components/ui/chart-radar", () => ({
+  DimensionRadarChart: ({ dimensions }: { dimensions: { key: string }[] }) => (
+    <div data-radar-order={dimensions.map((item) => item.key).join(",")} />
   ),
 }));
 

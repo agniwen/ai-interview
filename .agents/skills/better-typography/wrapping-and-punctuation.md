@@ -14,12 +14,12 @@ Any unit works. `65ch` measures characters directly (one `ch` is the width of th
 
 ## Wrapping
 
-| Property | Use |
-| --- | --- |
-| `text-wrap: balance` | Distributes text evenly across multiple lines |
-| `text-wrap: pretty` | Avoids leaving a single short word on the final line |
+| Property                    | Use                                                                |
+| --------------------------- | ------------------------------------------------------------------ |
+| `text-wrap: balance`        | Distributes text evenly across multiple lines                      |
+| `text-wrap: pretty`         | Avoids leaving a single short word on the final line               |
 | `overflow-wrap: break-word` | Lets long words, links and IDs break before escaping the container |
-| `white-space: nowrap` | Keeps labels and badges on one line where a break looks broken |
+| `white-space: nowrap`       | Keeps labels and badges on one line where a break looks broken     |
 
 Use `balance` on headings and `pretty` on descriptions; combined they give the best outcome. Skip both in long-form text: browsers ignore `balance` past a few lines anyway, and evening out a whole paragraph wastes space and makes it harder to read.
 
@@ -38,14 +38,14 @@ Truncation hides content. If the missing text matters, make the full value avail
 
 Keyboard characters are not always the best characters:
 
-| Instead of | Use |
-| --- | --- |
-| Straight quotes `"..."` | Curly quotes that curve around the text (keep straight quotes in code) |
-| Hyphen in ranges | En dash: `2010–2020` |
-| Two hyphens for an aside | Em dash character |
-| Three periods `...` | The single ellipsis character `…` |
-| Regular space in `16 px` | `&nbsp;` so the value never breaks apart |
-| Uncontrolled word breaks | `&shy;` to mark where a word may break |
+| Instead of               | Use                                                                    |
+| ------------------------ | ---------------------------------------------------------------------- |
+| Straight quotes `"..."`  | Curly quotes that curve around the text (keep straight quotes in code) |
+| Hyphen in ranges         | En dash: `2010–2020`                                                   |
+| Two hyphens for an aside | Em dash character                                                      |
+| Three periods `...`      | The single ellipsis character `…`                                      |
+| Regular space in `16 px` | `&nbsp;` so the value never breaks apart                               |
+| Uncontrolled word breaks | `&shy;` to mark where a word may break                                 |
 
 ## Internationalization
 

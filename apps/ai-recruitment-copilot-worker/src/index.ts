@@ -81,10 +81,10 @@ async function main() {
   let mailIngestScheduler: MailIngestScheduler | null = null;
   if (isResumeParseQueueConfigured()) {
     await recoverIncompleteResumeParseJobs();
-    worker = createResumeParseWorker(async ({ itemId }) => {
+    worker = createResumeParseWorker(async ({ bypassCache, itemId }) => {
       const { runBulkResumeUploadWorkflow } =
         await import("@arc/ai-recruitment-copilot-backend/server/agents/mastra/workflows/bulk-resume-upload-workflow");
-      await runBulkResumeUploadWorkflow({ itemId });
+      await runBulkResumeUploadWorkflow({ bypassCache, itemId });
     });
     if (isResumeSemanticIndexEnabled()) {
       await recoverIncompleteResumeSemanticIndexJobs();

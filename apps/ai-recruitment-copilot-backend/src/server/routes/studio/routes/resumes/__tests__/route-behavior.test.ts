@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   enqueueResumeSemanticIndexJobBestEffort: vi.fn(),
   findSemanticResumeDuplicates: vi.fn(),
   flattenPresetQuestionsFromContextSnapshot: vi.fn(),
+  forceResumeReparse: vi.fn(),
   insertedValues: [] as Record<string, unknown>[],
   invalidateStudioInterviewCaches: vi.fn(),
   jobDescriptionIdsExist: vi.fn(),
@@ -210,7 +211,10 @@ vi.mock(
 );
 vi.mock(
   "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/utils/retry",
-  () => ({ retryFailedResumeParse: mocks.retryFailedResumeParse }),
+  () => ({
+    forceResumeReparse: mocks.forceResumeReparse,
+    retryFailedResumeParse: mocks.retryFailedResumeParse,
+  }),
 );
 vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview", () => ({
   createPptxPreviewPdfResponse: vi.fn(),
@@ -259,6 +263,7 @@ describe("resumeLibraryRouter behavior", () => {
     mocks.updatePatches.length = 0;
     mocks.resolveRecruitingVisibilityScope.mockResolvedValue({ kind: "all" });
     mocks.resolveResumeUploadStorage.mockResolvedValue(null);
+    mocks.forceResumeReparse.mockResolvedValue({ status: "queued" });
     mocks.retryFailedResumeParse.mockResolvedValue({ status: "queued" });
     mocks.jobDescriptionIdsExist.mockResolvedValue(true);
     mocks.enqueueResumeReassessmentForRecord.mockResolvedValue("enqueued");
@@ -370,6 +375,45 @@ describe("resumeLibraryRouter behavior", () => {
 
     expect(response.status).toBe(409);
     expect(mocks.retryFailedResumeParse).not.toHaveBeenCalled();
+  });
+
+  it("queues an admin force reparse that bypasses parse cache", async () => {
+    mocks.loadResumeDetail.mockResolvedValue({
+      hasResumeFile: true,
+      id: RECORD_ID,
+      resumeParseStatus: "ready",
+    });
+
+    const response = await makeApp().request(`/resumes/${RECORD_ID}/force-reparse`, {
+      method: "POST",
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.forceResumeReparse).toHaveBeenCalledWith({
+      organizationId: ORGANIZATION_ID,
+      requestedBy: USER_ID,
+      resumeRecordId: RECORD_ID,
+    });
+    expect(mocks.invalidateStudioInterviewCaches).toHaveBeenCalledWith(ORGANIZATION_ID);
+  });
+
+  it("rejects force reparse for non-admin workspace members", async () => {
+    const app = factory
+      .createApp()
+      .use("*", async (c, next) => {
+        c.set("activeOrg", { id: ORGANIZATION_ID } as never);
+        c.set("member", { role: "member" } as never);
+        c.set("user", { id: USER_ID } as never);
+        await next();
+      })
+      .route("/resumes", resumeLibraryRouter);
+
+    const response = await app.request(`/resumes/${RECORD_ID}/force-reparse`, {
+      method: "POST",
+    });
+
+    expect(response.status).toBe(403);
+    expect(mocks.forceResumeReparse).not.toHaveBeenCalled();
   });
 
   it("persists duplicate matches after creating a resume-library record", async () => {

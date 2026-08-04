@@ -2,22 +2,13 @@
 
 import type { ReactNode } from "react";
 import { useMemo } from "react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { areaY, barX, defineChart, lineY, stack } from "@tanstack/charts";
+import { scaleBand, scaleLinear, scalePoint } from "d3-scale";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { Chart, ChartContainer, chartColor, chartTooltip } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
+import { defineDonutChart } from "@/lib/client/charts/donut";
 import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
 
 type PipelineBucket =
@@ -117,16 +108,6 @@ function ChartCardShell({
   );
 }
 
-function stackRadius(index: number, total: number): [number, number, number, number] | undefined {
-  if (index === 0) {
-    return [4, 0, 0, 4];
-  }
-  if (index === total - 1) {
-    return [0, 4, 4, 0];
-  }
-  return undefined;
-}
-
 function buildDailySeries(rows: ResumeLibraryMetrics["dailyAdded"]) {
   const counts = new Map(rows.map((row) => [row.day, row.count]));
   const today = new Date();
@@ -185,12 +166,15 @@ function buildPipelineRow(rows: ResumeLibraryMetrics["byPipeline"]) {
     }
   }
 
-  const data: Record<string, number | string> = { label: "总计" };
-  for (const bucket of BUCKET_ORDER) {
-    data[bucket] = counts[bucket];
-  }
+  const stackRows = BUCKET_ORDER.map((bucket) => ({
+    bucket,
+    category: "总计",
+    color: BUCKET_COLORS[bucket],
+    label: BUCKET_LABEL[bucket],
+    value: counts[bucket],
+  }));
   const active = counts.screening + counts.ai_interview + counts.human_interview + counts.offer;
-  return { active, counts, data: [data], total };
+  return { active, counts, stackRows, total };
 }
 
 const statusChartConfig: ChartConfig = {};
@@ -211,8 +195,45 @@ const conversionChartConfig: ChartConfig = {
 };
 
 function StatusCard({ byPipeline }: { byPipeline: ResumeLibraryMetrics["byPipeline"] }) {
-  const { active, counts, data, total } = useMemo(() => buildPipelineRow(byPipeline), [byPipeline]);
+  const { active, counts, stackRows, total } = useMemo(
+    () => buildPipelineRow(byPipeline),
+    [byPipeline],
+  );
   const hasData = total > 0;
+
+  const definition = useMemo(() => {
+    if (!hasData) {
+      return null;
+    }
+    return defineChart({
+      margin: { bottom: 4, left: 0, right: 0, top: 4 },
+      marks: [
+        barX(stackRows, {
+          fill: (row) => row.color,
+          layout: stack({ order: BUCKET_ORDER }),
+          radius: 4,
+          x: "value",
+          y: "category",
+          z: "bucket",
+        }),
+      ],
+      tooltip: {
+        ...chartTooltip,
+        format: (point) => {
+          const row = point.datum as (typeof stackRows)[number];
+          return `${row.label}: ${row.value}`;
+        },
+      },
+      x: {
+        axis: false,
+        scale: scaleLinear,
+      },
+      y: {
+        axis: false,
+        scale: () => scaleBand().padding(0.2),
+      },
+    });
+  }, [hasData, stackRows]);
 
   return (
     <ChartCardShell
@@ -223,23 +244,15 @@ function StatusCard({ byPipeline }: { byPipeline: ResumeLibraryMetrics["byPipeli
       ]}
       title="面试流程分布"
     >
-      {hasData ? (
+      {hasData && definition ? (
         <div className="flex flex-col gap-3">
           <ChartContainer className="aspect-auto h-16 w-full" config={statusChartConfig}>
-            <BarChart accessibilityLayer data={data} layout="vertical" margin={{ left: 0 }}>
-              <XAxis hide type="number" />
-              <YAxis dataKey="label" hide type="category" />
-              <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
-              {BUCKET_ORDER.map((bucket, index) => (
-                <Bar
-                  dataKey={bucket}
-                  fill={BUCKET_COLORS[bucket]}
-                  key={bucket}
-                  radius={stackRadius(index, BUCKET_ORDER.length)}
-                  stackId="pipeline"
-                />
-              ))}
-            </BarChart>
+            <Chart
+              ariaLabel="面试流程分布"
+              className="h-16 w-full"
+              definition={definition}
+              height={64}
+            />
           </ChartContainer>
           <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-muted-foreground text-xs">
             {BUCKET_ORDER.map((bucket) => (
@@ -272,6 +285,52 @@ function DailyAddedCard({ dailyAdded }: { dailyAdded: ResumeLibraryMetrics["dail
   const peak = useMemo(() => Math.max(0, ...series.map((row) => row.count)), [series]);
   const hasData = total > 0;
 
+  const definition = useMemo(() => {
+    if (!hasData) {
+      return null;
+    }
+    const tickValues = series.filter((_, index) => index % 7 === 0).map((row) => row.day);
+    return defineChart({
+      margin: { bottom: 20, left: 4, right: 8, top: 8 },
+      marks: [
+        areaY(series, {
+          fill: chartColor("count"),
+          fillOpacity: 0.28,
+          x: "day",
+          y: "count",
+        }),
+        lineY(series, {
+          stroke: chartColor("count"),
+          strokeWidth: 2,
+          x: "day",
+          y: "count",
+        }),
+      ],
+      tooltip: {
+        ...chartTooltip,
+        format: (point) => {
+          const row = point.datum as (typeof series)[number];
+          return `${row.day}: ${row.count} 份`;
+        },
+      },
+      x: {
+        axis: {
+          ticks: {
+            format: (value) => String(value).slice(5),
+            values: tickValues,
+          },
+        },
+        scale: () => scalePoint<string>().padding(0.1),
+      },
+      y: {
+        axis: false,
+        grid: true,
+        nice: true,
+        scale: scaleLinear,
+      },
+    });
+  }, [hasData, series]);
+
   return (
     <ChartCardShell
       description={hasData ? "展示近 30 天新增趋势" : "近 30 天暂无新增"}
@@ -281,41 +340,14 @@ function DailyAddedCard({ dailyAdded }: { dailyAdded: ResumeLibraryMetrics["dail
       ]}
       title="近 30 天每日新增"
     >
-      {hasData ? (
+      {hasData && definition ? (
         <ChartContainer className="aspect-auto h-32 w-full" config={dailyChartConfig}>
-          <AreaChart accessibilityLayer data={series} margin={{ left: 0, right: 8, top: 4 }}>
-            <defs>
-              <linearGradient id="fill-resume-daily" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-count)" stopOpacity={0.4} />
-                <stop offset="100%" stopColor="var(--color-count)" stopOpacity={0.05} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid vertical={false} />
-            <XAxis
-              axisLine={false}
-              dataKey="day"
-              interval={6}
-              tickFormatter={(value: string) => value.slice(5)}
-              tickLine={false}
-              tickMargin={6}
-            />
-            <YAxis allowDecimals={false} axisLine={false} hide tickLine={false} width={24} />
-            <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  indicator="dot"
-                  labelFormatter={(value: unknown) => (typeof value === "string" ? value : "")}
-                />
-              }
-            />
-            <Area
-              dataKey="count"
-              fill="url(#fill-resume-daily)"
-              stroke="var(--color-count)"
-              strokeWidth={2}
-              type="monotone"
-            />
-          </AreaChart>
+          <Chart
+            ariaLabel="近 30 天每日新增简历"
+            className="h-32 w-full"
+            definition={definition}
+            height={128}
+          />
         </ChartContainer>
       ) : (
         <EmptyHint message="过去 30 天没有新简历入库" />
@@ -329,16 +361,27 @@ function ConversionCard({ conversion }: { conversion: ResumeLibraryMetrics["conv
   const percent = total > 0 ? Math.round((conversion.withInterview / total) * 100) : 0;
   const hasData = total > 0;
 
-  const data = useMemo(
+  const slices = useMemo(
     () => [
-      { fill: CONVERSION_PURPLE, key: "withInterview", value: conversion.withInterview },
+      {
+        fill: CONVERSION_PURPLE,
+        key: "withInterview",
+        label: "已发起 AI 面试",
+        value: conversion.withInterview,
+      },
       {
         fill: CONVERSION_PURPLE_LIGHT,
         key: "withoutInterview",
+        label: "仅入库",
         value: conversion.withoutInterview,
       },
     ],
     [conversion.withInterview, conversion.withoutInterview],
+  );
+
+  const definition = useMemo(
+    () => (hasData ? defineDonutChart(slices, { innerRatio: 0.66 }) : null),
+    [hasData, slices],
   );
 
   return (
@@ -350,7 +393,7 @@ function ConversionCard({ conversion }: { conversion: ResumeLibraryMetrics["conv
       ]}
       title="AI 面试转化"
     >
-      {hasData ? (
+      {hasData && definition ? (
         <div className="grid min-h-36 grid-cols-[minmax(7.5rem,9rem)_9rem] items-center justify-center gap-3">
           <ul className="flex min-w-0 flex-col gap-2 text-muted-foreground text-xs">
             <li className="flex min-w-0 items-center gap-2">
@@ -377,24 +420,12 @@ function ConversionCard({ conversion }: { conversion: ResumeLibraryMetrics["conv
               className="absolute inset-0 aspect-square size-full"
               config={conversionChartConfig}
             >
-              <PieChart>
-                <ChartTooltip content={<ChartTooltipContent indicator="dot" nameKey="key" />} />
-                <Pie
-                  cornerRadius={8}
-                  data={data}
-                  dataKey="value"
-                  innerRadius={42}
-                  nameKey="key"
-                  outerRadius={64}
-                  paddingAngle={2}
-                  stroke="var(--background)"
-                  strokeWidth={3}
-                >
-                  {data.map((entry) => (
-                    <Cell fill={entry.fill} fillOpacity={0.78} key={entry.key} />
-                  ))}
-                </Pie>
-              </PieChart>
+              <Chart
+                ariaLabel="AI 面试转化"
+                className="size-full"
+                definition={definition}
+                height={144}
+              />
             </ChartContainer>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
               <span className="font-mono font-semibold text-2xl tabular-nums">{percent}%</span>

@@ -9,10 +9,9 @@ import { STRUCTURED_RESUME_DIMENSIONS } from "@arc/shared/structured-resume-scor
 import { cn } from "@arc/shared/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { DimensionRadarChart } from "@/components/ui/chart-radar";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { correctStructuredResumeGate } from "@/lib/client/api/endpoints/studio-resumes";
-import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart } from "recharts";
 
 const DIMENSION_LABELS = {
   educationBackground: "学历",
@@ -375,46 +374,21 @@ export function StructuredResumeEvaluationPanel({
         </FrameHeader>
         <div className="grid gap-1 lg:grid-cols-2">
           <FramePanel className="flex min-w-0 items-center justify-center">
-            <ChartContainer
-              className="mx-auto aspect-square min-h-[16rem] w-full max-w-[19rem] lg:min-h-[17rem]"
-              config={{
-                score: { color: "var(--primary)", label: "原始分" },
+            <DimensionRadarChart
+              ariaLabel="结构化维度评分雷达图"
+              dimensions={radarDimensions}
+              tooltipBody={(point) => {
+                const weight = typeof point.weight === "number" ? point.weight : "—";
+                const contribution =
+                  typeof point.contribution === "number" ? point.contribution : "—";
+                return (
+                  <div className="font-medium text-foreground text-xs">
+                    {point.label} {String(point.score ?? "—")} 分 · 权重 {weight}% · 贡献{" "}
+                    {contribution} 分
+                  </div>
+                );
               }}
-            >
-              <RadarChart
-                data={radarDimensions}
-                margin={{ bottom: 18, left: 18, right: 18, top: 18 }}
-                outerRadius="72%"
-              >
-                <PolarGrid gridType="polygon" />
-                <PolarAngleAxis
-                  dataKey="label"
-                  tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
-                />
-                <PolarRadiusAxis angle={90} axisLine={false} domain={[0, 100]} tick={false} />
-                <ChartTooltip
-                  content={
-                    <ChartTooltipContent
-                      formatter={(value, _name, item) => {
-                        const point = item.payload as (typeof dimensions)[number] | undefined;
-                        return point
-                          ? `${point.label} ${String(value)} 分 · 权重 ${point.weight}% · 贡献 ${point.contribution} 分`
-                          : String(value);
-                      }}
-                      hideLabel
-                    />
-                  }
-                />
-                <Radar
-                  dataKey="score"
-                  dot={{ fill: "var(--color-score)", r: 3 }}
-                  fill="var(--color-score)"
-                  fillOpacity={0.22}
-                  stroke="var(--color-score)"
-                  strokeWidth={2}
-                />
-              </RadarChart>
-            </ChartContainer>
+            />
           </FramePanel>
           {dimensionGroups.map((group) => (
             <StructuredDimensionGroup

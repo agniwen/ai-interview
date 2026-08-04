@@ -39,6 +39,10 @@ export type ResumeParseRetryResult =
   | { status: "queued" }
   | { status: "not_failed" | "not_found" | "queue_unavailable" | "retry_exhausted" };
 
+export type ResumeForceReparseResult =
+  | { status: "queued" }
+  | { status: "busy" | "not_found" | "no_file" | "queue_unavailable" };
+
 export async function retryFailedResumeParse(
   input: ResumeParseRetryRequest,
   adapters: ResumeParseRetryAdapters = DEFAULT_ADAPTERS,
@@ -57,6 +61,34 @@ export async function retryFailedResumeParse(
       errorMessage: claim.errorMessage,
       job: claim.job,
       target: input,
+    });
+    throw new Error("简历解析队列入队失败，请稍后重试。", { cause: error });
+  }
+  return { status: "queued" };
+}
+
+export async function forceResumeReparse(input: {
+  organizationId: string;
+  requestedBy: string;
+  resumeRecordId: string;
+}): Promise<ResumeForceReparseResult> {
+  if (!isResumeParseQueueConfigured()) {
+    return { status: "queue_unavailable" };
+  }
+  const { claimForceResumeReparse, rollbackForceResumeReparse } =
+    await import("@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-upload-batches/dao/retry");
+  const claim = await claimForceResumeReparse(input);
+  if (claim.status !== "claimed") {
+    return claim;
+  }
+  try {
+    await enqueueResumeParseJobs([claim.job]);
+  } catch (error) {
+    await rollbackForceResumeReparse({
+      job: claim.job,
+      organizationId: input.organizationId,
+      previousStatus: claim.previousStatus,
+      resumeRecordId: input.resumeRecordId,
     });
     throw new Error("简历解析队列入队失败，请稍后重试。", { cause: error });
   }

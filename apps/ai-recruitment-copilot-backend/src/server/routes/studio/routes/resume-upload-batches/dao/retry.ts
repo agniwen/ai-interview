@@ -22,6 +22,14 @@ export type ResumeParseRetryClaim =
     }
   | { status: "not_failed" | "not_found" | "retry_exhausted" };
 
+export type ResumeForceReparseClaim =
+  | {
+      job: ResumeParseJobData;
+      previousStatus: "failed" | "ready" | "unparsed";
+      status: "claimed";
+    }
+  | { status: "busy" | "not_found" | "no_file" };
+
 export type ResumeParseRetryRequest = ResumeParseRetryTarget & {
   organizationId: string;
   requestedBy: string;
@@ -312,6 +320,160 @@ export async function rollbackFailedResumeParseRetry(input: {
       await reconcileBatchProgress(input.job.batchId);
     } catch (error) {
       console.warn("[resume-parse-retry] failed to reconcile rolled-back batch", {
+        batchId: input.job.batchId,
+        error,
+      });
+    }
+  }
+}
+
+const FORCE_REPARSE_BUSY_STATUSES = new Set(["queued", "processing"]);
+
+/**
+ * Admin force reparse: re-queue an existing resume-library record for a full
+ * async parse that replaces current structured fields. Unlike the one-shot
+ * failed-retry path, this accepts ready/failed/unparsed as long as a file
+ * exists and parse is not already in flight.
+ */
+export function claimForceResumeReparse(input: {
+  organizationId: string;
+  requestedBy: string;
+  resumeRecordId: string;
+}): Promise<ResumeForceReparseClaim> {
+  return db.transaction(async (tx) => {
+    const [source] = await tx
+      .select({
+        contentHash: studioInterview.resumeContentHash,
+        createdBy: studioInterview.createdBy,
+        fileName: studioInterview.resumeFileName,
+        jobDescriptionId: studioInterview.jobDescriptionId,
+        parseStatus: studioInterview.resumeParseStatus,
+        storageKey: studioInterview.resumeStorageKey,
+      })
+      .from(studioInterview)
+      .where(
+        and(
+          eq(studioInterview.id, input.resumeRecordId),
+          eq(studioInterview.organizationId, input.organizationId),
+        ),
+      )
+      .limit(1)
+      .for("update");
+    if (!source) {
+      return { status: "not_found" };
+    }
+    if (!source.storageKey) {
+      return { status: "no_file" };
+    }
+    if (FORCE_REPARSE_BUSY_STATUSES.has(source.parseStatus)) {
+      return { status: "busy" };
+    }
+    const previousStatus: "failed" | "ready" | "unparsed" =
+      source.parseStatus === "failed" || source.parseStatus === "unparsed"
+        ? source.parseStatus
+        : "ready";
+
+    const batchId = crypto.randomUUID();
+    const itemId = crypto.randomUUID();
+    const now = new Date();
+    const userId = source.createdBy ?? input.requestedBy;
+    await tx.insert(resumeUploadBatch).values({
+      createdAt: now,
+      createdBy: userId,
+      dedupPolicy: "create",
+      id: batchId,
+      jdMode: source.jobDescriptionId ? "bind" : "none",
+      jobDescriptionId: source.jobDescriptionId,
+      organizationId: input.organizationId,
+      resumePoolScope: null,
+      status: "pending",
+      target: "resume_library",
+      totalCount: 1,
+      updatedAt: now,
+    });
+    await tx.insert(resumeUploadBatchItem).values({
+      // Keep attemptCount at 1 so assessment artifacts reset when the profile is replaced.
+      attemptCount: 1,
+      batchId,
+      contentHash: source.contentHash,
+      fileSize: 0,
+      id: itemId,
+      orderIndex: 0,
+      organizationId: input.organizationId,
+      originalFileName: source.fileName ?? "resume.pdf",
+      poolItemId: null,
+      queuedAt: now,
+      resumeRecordId: input.resumeRecordId,
+      status: "pending",
+      storageKey: source.storageKey,
+    });
+    await tx
+      .update(studioInterview)
+      .set({
+        resumeParseError: null,
+        resumeParseStatus: "queued",
+        updatedAt: now,
+      })
+      .where(eq(studioInterview.id, input.resumeRecordId));
+
+    return {
+      job: {
+        batchId,
+        bypassCache: true,
+        itemId,
+        organizationId: input.organizationId,
+        userId,
+      },
+      previousStatus,
+      status: "claimed",
+    };
+  });
+}
+
+export async function rollbackForceResumeReparse(input: {
+  job: ResumeParseJobData;
+  previousStatus: "failed" | "ready" | "unparsed";
+  resumeRecordId: string;
+  organizationId: string;
+}): Promise<void> {
+  const rolledBack = await db.transaction(async (tx) => {
+    const rows = await tx
+      .update(resumeUploadBatchItem)
+      .set({
+        errorMessage: "强制重新解析入队失败。",
+        finishedAt: new Date(),
+        status: "failed",
+      })
+      .where(
+        and(
+          eq(resumeUploadBatchItem.id, input.job.itemId),
+          eq(resumeUploadBatchItem.status, "pending"),
+        ),
+      )
+      .returning({ id: resumeUploadBatchItem.id });
+    if (rows.length === 0) {
+      return false;
+    }
+    await tx
+      .update(studioInterview)
+      .set({
+        resumeParseStatus: input.previousStatus,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(studioInterview.id, input.resumeRecordId),
+          eq(studioInterview.organizationId, input.organizationId),
+          eq(studioInterview.resumeParseStatus, "queued"),
+        ),
+      );
+    return true;
+  });
+  if (rolledBack) {
+    try {
+      await reconcileBatchProgress(input.job.batchId);
+    } catch (error) {
+      console.warn("[resume-force-reparse] failed to reconcile rolled-back batch", {
         batchId: input.job.batchId,
         error,
       });

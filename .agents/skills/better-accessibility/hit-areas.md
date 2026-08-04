@@ -6,12 +6,12 @@ Target sizes, expanding hit areas without changing visual size, and collision ru
 
 Separate the conformance baseline from larger usability targets:
 
-| Standard | Minimum |
-| --- | --- |
-| WCAG 2.5.8 (AA) | 24×24px, the hard floor |
-| WCAG 2.5.5 (AAA) | 44×44px |
-| Apple HIG | 44×44pt |
-| Material Design | 48×48dp |
+| Standard         | Minimum                 |
+| ---------------- | ----------------------- |
+| WCAG 2.5.8 (AA)  | 24×24px, the hard floor |
+| WCAG 2.5.5 (AAA) | 44×44px                 |
+| Apple HIG        | 44×44pt                 |
+| Material Design  | 48×48dp                 |
 
 WCAG 2.5.8 Level AA requires a 24×24 CSS-pixel target or one of its defined exceptions. Treat 44px as a recommended touch target for primary controls and 40px as a useful desktop target when the product's density permits. Smaller controls are not automatically failures: check the spacing, equivalent-control, inline, user-agent, and essential exceptions before reporting one.
 

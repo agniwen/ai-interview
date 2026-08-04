@@ -6,13 +6,13 @@ Choosing a typeface, the right file format and understanding why fonts look the 
 
 Font families set the tone before the specific font does.
 
-| Category | Traits | Use for |
-| --- | --- | --- |
-| Serif | Small strokes at the ends of letters guide the eye along a line | Long passages, editorial reading |
-| Sans-serif | Clean, even shapes that stay crisp at small sizes | Default for most interfaces (Helvetica, Inter, Geist) |
-| Monospace | Every glyph the same width so columns line up | Code, tables, tabular data |
-| Display | Drawn for large headlines | Marketing headlines, hero text |
-| Script | Mimics handwriting | Rare, decorative moments |
+| Category   | Traits                                                          | Use for                                               |
+| ---------- | --------------------------------------------------------------- | ----------------------------------------------------- |
+| Serif      | Small strokes at the ends of letters guide the eye along a line | Long passages, editorial reading                      |
+| Sans-serif | Clean, even shapes that stay crisp at small sizes               | Default for most interfaces (Helvetica, Inter, Geist) |
+| Monospace  | Every glyph the same width so columns line up                   | Code, tables, tabular data                            |
+| Display    | Drawn for large headlines                                       | Marketing headlines, hero text                        |
+| Script     | Mimics handwriting                                              | Rare, decorative moments                              |
 
 CSS exposes `cursive` and `fantasy` keywords for the last two categories.
 
@@ -34,7 +34,12 @@ When a type change is asked for: a system-native macOS/iOS feel comes from the s
 ```css
 /* System-native macOS/iOS feel */
 html {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
 }
 
 /* Commercial brand face with safe fallbacks */
@@ -45,20 +50,20 @@ html {
 
 ## Formats
 
-| Format | Notes |
-| --- | --- |
-| `.woff2` | Brotli compression, broadly supported. Use this on the web. |
-| `.woff` | Older compression. Fallback only for very old browsers. |
+| Format          | Notes                                                                                        |
+| --------------- | -------------------------------------------------------------------------------------------- |
+| `.woff2`        | Brotli compression, broadly supported. Use this on the web.                                  |
+| `.woff`         | Older compression. Fallback only for very old browsers.                                      |
 | `.ttf` / `.otf` | Raw formats, no web compression, larger files. Desktop only unless there is no other option. |
 
 ## Anatomy of a typeface
 
-| Term | Meaning |
-| --- | --- |
-| x-height | Height of a lowercase `x` |
-| Cap height | Height of uppercase letters |
-| Baseline | The invisible line letters sit on |
-| Ascender | Part of a letter rising above the x-height |
-| Descender | Part dropping below the baseline |
+| Term       | Meaning                                    |
+| ---------- | ------------------------------------------ |
+| x-height   | Height of a lowercase `x`                  |
+| Cap height | Height of uppercase letters                |
+| Baseline   | The invisible line letters sit on          |
+| Ascender   | Part of a letter rising above the x-height |
+| Descender  | Part dropping below the baseline           |
 
 These measurements are why two fonts at the same `font-size` can look like different sizes. A font with a large x-height looks bigger.

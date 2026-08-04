@@ -13,14 +13,14 @@ Rendered-pair contrast measurement and color remediation are covered by the `bet
 
 ## Quick Reference
 
-| Category | When to Use |
-| --- | --- |
-| [Focus & Keyboard](focus-and-keyboard.md) | Focus rings, skip links, tabindex, focus trapping, APG keyboard patterns |
+| Category                                  | When to Use                                                                         |
+| ----------------------------------------- | ----------------------------------------------------------------------------------- |
+| [Focus & Keyboard](focus-and-keyboard.md) | Focus rings, skip links, tabindex, focus trapping, APG keyboard patterns            |
 | [Semantics & ARIA](semantics-and-aria.md) | Native elements first, button vs link, landmarks, accessible names, disabled states |
-| [Forms](forms.md) | Labels, autocomplete, error messaging, input types |
-| [Screen Readers](screen-readers.md) | Visually hidden content, live regions, toasts, alt text, SVG |
-| [Hit Areas](hit-areas.md) | Target sizes, expanding hit areas, collision rules |
-| [Motion & Zoom](motion-and-zoom.md) | `prefers-reduced-motion`, autoplay and timed UI, 200% zoom, reflow, rem vs px |
+| [Forms](forms.md)                         | Labels, autocomplete, error messaging, input types                                  |
+| [Screen Readers](screen-readers.md)       | Visually hidden content, live regions, toasts, alt text, SVG                        |
+| [Hit Areas](hit-areas.md)                 | Target sizes, expanding hit areas, collision rules                                  |
+| [Motion & Zoom](motion-and-zoom.md)       | `prefers-reduced-motion`, autoplay and timed UI, 200% zoom, reflow, rem vs px       |
 
 ## Core Principles
 
@@ -82,19 +82,19 @@ The page must work at 200% zoom and reflow at 320px width without horizontal scr
 
 ## Common Mistakes
 
-| Mistake | Fix |
-| --- | --- |
-| `outline: none` to remove the focus ring | Style `:focus-visible` instead; mouse clicks won't show it |
-| Custom focus color assumed to work everywhere | Verify the full indicator against every adjacent color and in forced-colors mode |
-| `<div onClick>` for a button or link | `<button>` for actions, `<a href>` for navigation |
-| Placeholder used as the only label | Add a visible `<label for>`; placeholders disappear on input |
-| Positive `tabindex` to fix focus order | Fix the DOM order; only use `0` and `-1` |
+| Mistake                                         | Fix                                                                                   |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `outline: none` to remove the focus ring        | Style `:focus-visible` instead; mouse clicks won't show it                            |
+| Custom focus color assumed to work everywhere   | Verify the full indicator against every adjacent color and in forced-colors mode      |
+| `<div onClick>` for a button or link            | `<button>` for actions, `<a href>` for navigation                                     |
+| Placeholder used as the only label              | Add a visible `<label for>`; placeholders disappear on input                          |
+| Positive `tabindex` to fix focus order          | Fix the DOM order; only use `0` and `-1`                                              |
 | Repeated polite update inconsistently announced | Keep a stable empty status region and update its text; test the target screen readers |
-| `assertive` live region for a routine toast | Use `polite`; reserve `assertive` for errors |
-| `aria-hidden="true"` on a focusable element | Remove it or make the element non-focusable |
-| Functional icon alt describes the picture | Describe the action: `alt="Search"`, not `alt="magnifying glass"` |
-| `maximum-scale=1` to stop iOS input zoom | 16px input font on mobile (see `better-typography`); never block zoom |
-| Submit disabled until the form is valid | Keep it enabled; validate on submit and focus the first error |
+| `assertive` live region for a routine toast     | Use `polite`; reserve `assertive` for errors                                          |
+| `aria-hidden="true"` on a focusable element     | Remove it or make the element non-focusable                                           |
+| Functional icon alt describes the picture       | Describe the action: `alt="Search"`, not `alt="magnifying glass"`                     |
+| `maximum-scale=1` to stop iOS input zoom        | 16px input font on mobile (see `better-typography`); never block zoom                 |
+| Submit disabled until the form is valid         | Keep it enabled; validate on submit and focus the first error                         |
 
 ## Review Output Format
 
@@ -116,27 +116,31 @@ Consolidate a repeated systemic issue into one row and list every affected locat
 ### Example
 
 #### Accessible names everywhere
-| Severity | Location | Before | After | Why |
-| --- | --- | --- | --- | --- |
-| HIGH | `src/Dialog.tsx:42` | `<button><XIcon /></button>` | Add `aria-label="Close"`; mark the icon `aria-hidden="true"` | The icon-only control has no accessible name |
-| HIGH | `src/Nav.tsx:18` | `<a href="/settings"><GearIcon /></a>` | Add `aria-label="Settings"` | The link destination is unavailable to screen readers |
+
+| Severity | Location            | Before                                 | After                                                        | Why                                                   |
+| -------- | ------------------- | -------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------- |
+| HIGH     | `src/Dialog.tsx:42` | `<button><XIcon /></button>`           | Add `aria-label="Close"`; mark the icon `aria-hidden="true"` | The icon-only control has no accessible name          |
+| HIGH     | `src/Nav.tsx:18`    | `<a href="/settings"><GearIcon /></a>` | Add `aria-label="Settings"`                                  | The link destination is unavailable to screen readers |
 
 #### Visible focus rings
-| Severity | Location | Before | After | Why |
-| --- | --- | --- | --- | --- |
-| HIGH | `src/button.css:12` | `button:focus { outline: none; }` | `button:focus-visible { outline: 2px solid; outline-offset: 2px; }` | Keyboard users cannot see focus |
-| HIGH | `src/Menu.tsx:31` | `focus:outline-none` | `focus-visible:outline-2 focus-visible:outline-offset-2` | Menu navigation has no visible focus indicator |
+
+| Severity | Location            | Before                            | After                                                               | Why                                            |
+| -------- | ------------------- | --------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------- |
+| HIGH     | `src/button.css:12` | `button:focus { outline: none; }` | `button:focus-visible { outline: 2px solid; outline-offset: 2px; }` | Keyboard users cannot see focus                |
+| HIGH     | `src/Menu.tsx:31`   | `focus:outline-none`              | `focus-visible:outline-2 focus-visible:outline-offset-2`            | Menu navigation has no visible focus indicator |
 
 #### Errors that announce
-| Severity | Location | Before | After | Why |
-| --- | --- | --- | --- | --- |
-| HIGH | `src/EmailField.tsx:27` | Error shown only as `border-red-500` | Add `aria-invalid="true"` + `aria-describedby="email-error"` with inline error text | Color alone neither explains nor announces the error |
-| MEDIUM | `src/SignupForm.tsx:64` | Submit disabled until the form is valid | Keep submit enabled; on failure, focus the first invalid field | A disabled action hides what must be fixed |
+
+| Severity | Location                | Before                                  | After                                                                               | Why                                                  |
+| -------- | ----------------------- | --------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| HIGH     | `src/EmailField.tsx:27` | Error shown only as `border-red-500`    | Add `aria-invalid="true"` + `aria-describedby="email-error"` with inline error text | Color alone neither explains nor announces the error |
+| MEDIUM   | `src/SignupForm.tsx:64` | Submit disabled until the form is valid | Keep submit enabled; on failure, focus the first invalid field                      | A disabled action hides what must be fixed           |
 
 #### Minimum hit area
-| Severity | Location | Before | After | Why |
-| --- | --- | --- | --- | --- |
-| MEDIUM | `src/Toolbar.tsx:22` | `size-4` icon-only button | Extend the hit area to 44×44px with `after:absolute after:size-11` | The target is too small for reliable touch input |
+
+| Severity | Location             | Before                    | After                                                              | Why                                              |
+| -------- | -------------------- | ------------------------- | ------------------------------------------------------------------ | ------------------------------------------------ |
+| MEDIUM   | `src/Toolbar.tsx:22` | `size-4` icon-only button | Extend the hit area to 44×44px with `after:absolute after:size-11` | The target is too small for reliable touch input |
 
 ### Verification and Verdict
 

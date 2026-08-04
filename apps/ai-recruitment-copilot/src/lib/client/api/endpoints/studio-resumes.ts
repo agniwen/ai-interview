@@ -363,6 +363,16 @@ export function retryStudioResumeParse(slug: string, id: string): Promise<{ stat
   );
 }
 
+/** Admin force reparse: re-run async parse from storage, bypassing parse cache. */
+export function forceStudioResumeReparse(slug: string, id: string): Promise<{ status: "queued" }> {
+  return rpcFetch<{ status: "queued" }>(
+    rpc.api.w[":slug"].studio.resumes[":id"]["force-reparse"].$post({
+      param: { id, slug },
+    }),
+    "强制重新解析失败",
+  );
+}
+
 /**
  * 批量删除简历记录。
  * Bulk-delete resume records.

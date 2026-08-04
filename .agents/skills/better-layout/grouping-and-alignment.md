@@ -14,11 +14,22 @@ The structural rule: the gap between groups must be at least 2× the gap within 
 
 ```css
 /* Good: spacing alone communicates the grouping */
-.field-group { display: flex; flex-direction: column; gap: 8px; }
-.form { display: flex; flex-direction: column; gap: 24px; }
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
 
 /* Bad: uniform spacing plus lines to compensate */
-.form > * { margin-bottom: 12px; border-bottom: 1px solid var(--separator); }
+.form > * {
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--separator);
+}
 ```
 
 ```html
@@ -56,26 +67,36 @@ Pick a small set of alignment edges and put everything on them; the eye tracks s
 
 ```css
 /* Good: one shared leading edge, one indent step */
-.section { padding-inline: 24px; }
-.section .child { margin-inline-start: 16px; }
+.section {
+  padding-inline: 24px;
+}
+.section .child {
+  margin-inline-start: 16px;
+}
 
 /* Bad: three unrelated leading edges in one column */
-.header { padding-inline-start: 20px; }
-.list-item { padding-inline-start: 14px; }
-.footer { padding-inline-start: 24px; }
+.header {
+  padding-inline-start: 20px;
+}
+.list-item {
+  padding-inline-start: 14px;
+}
+.footer {
+  padding-inline-start: 24px;
+}
 ```
 
 ## Logical Properties, Not Physical
 
 Express direction-dependent horizontal position as leading/trailing so the layout mirrors automatically under `dir="rtl"`:
 
-| Physical (avoid) | Logical (use) |
-| --- | --- |
-| `margin-left` | `margin-inline-start` |
-| `padding-right` | `padding-inline-end` |
-| `left: 0` | `inset-inline-start: 0` |
-| `text-align: left` | `text-align: start` |
-| `border-right` | `border-inline-end` |
+| Physical (avoid)   | Logical (use)           |
+| ------------------ | ----------------------- |
+| `margin-left`      | `margin-inline-start`   |
+| `padding-right`    | `padding-inline-end`    |
+| `left: 0`          | `inset-inline-start: 0` |
+| `text-align: left` | `text-align: start`     |
+| `border-right`     | `border-inline-end`     |
 
 ```html
 <!-- Good: Tailwind logical utilities -->

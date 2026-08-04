@@ -363,6 +363,7 @@ function ResumeCardProfileSnapshot({ snapshot }: { snapshot: ResumeLibraryProfil
 function ResumeLibraryCardComponent({
   canCreateInterview,
   canDeleteResumeLibrary,
+  canForceReparse,
   canRetryResumeParse,
   canUpdateResumeLibrary,
   currentMemberRole,
@@ -370,6 +371,7 @@ function ResumeLibraryCardComponent({
   onCopyDetailLink,
   onDelete,
   onEdit,
+  onForceReparse,
   onLaunchInterview,
   onOpenDetail,
   onPreviewResume,
@@ -596,11 +598,13 @@ function ResumeLibraryCardComponent({
           canCopyLink={canCopyLink}
           canCreateInterview={canCreateInterview}
           canDeleteResumeLibrary={canDeleteResumeLibrary}
+          canForceReparse={canForceReparse}
           canRetryResumeParse={canRetryResumeParse}
           canUpdateResumeLibrary={canUpdateResumeLibrary}
           onCopyDetailLink={onCopyDetailLink}
           onDelete={onDelete}
           onEdit={onEdit}
+          onForceReparse={onForceReparse}
           onLaunchInterview={onLaunchInterview}
           onPreviewResume={onPreviewResume}
           onRetryParse={onRetryParse}

@@ -816,9 +816,20 @@ export function useStudioPersonDetailController({
       </div>
     );
   }
-  const showTimelineAtBottom = mode === "resume" && !isPublic && activeTab === "overview";
-  const bodyLayoutClassName = "flex flex-col gap-8";
-  const detailScrollClassName = "min-w-0 flex flex-col gap-8";
+  const showTimelineRail = mode === "resume" && !isPublic && activeTab === "overview";
+  const canUseTimelineRailScroll = showTimelineRail && layoutMode === "modal";
+  let bodyLayoutClassName = "flex flex-col gap-8";
+  if (showTimelineRail) {
+    bodyLayoutClassName = cn(
+      "grid gap-4 xl:grid-cols-[minmax(0,1fr)_28rem]",
+      canUseTimelineRailScroll && "xl:h-full xl:min-h-0 xl:overflow-hidden",
+      !canUseTimelineRailScroll && "xl:items-start",
+    );
+  }
+  const detailScrollClassName = cn(
+    "min-w-0 flex flex-col gap-8",
+    canUseTimelineRailScroll && "xl:h-full xl:min-h-0 xl:overflow-y-auto xl:pr-1",
+  );
   return {
     activeTab,
     bodyLayoutClassName,
@@ -833,6 +844,7 @@ export function useStudioPersonDetailController({
     canUpdateOffer,
     canUpdateResumeLibrary,
     canUseManagementActions,
+    canUseTimelineRailScroll,
     canViewReportMetadata,
     candidateRounds,
     candidateTimeline,
@@ -892,7 +904,7 @@ export function useStudioPersonDetailController({
     setMetadataReport,
     shell,
     showAgentInstructions,
-    showTimelineAtBottom,
+    showTimelineRail,
     slug,
     tabContentRootRef,
     tabVisibilityRecord,

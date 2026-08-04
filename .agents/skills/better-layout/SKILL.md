@@ -13,9 +13,9 @@ Treat the numeric values below as starting points for interfaces without an esta
 
 ## Quick Reference
 
-| Category | When to Use |
-| --- | --- |
-| [Grouping & Alignment](grouping-and-alignment.md) | Space vs separators, alignment edges, logical properties, importance ordering |
+| Category                                          | When to Use                                                                                                   |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| [Grouping & Alignment](grouping-and-alignment.md) | Space vs separators, alignment edges, logical properties, importance ordering                                 |
 | [Spacing & Adaptivity](spacing-and-adaptivity.md) | Spacing between targets, layout margins, progressive disclosure, full-bleed content, breakpoints, i18n growth |
 
 ## Core Principles
@@ -62,16 +62,16 @@ Plan for substantial and language-dependent string growth rather than relying on
 
 ## Common Mistakes
 
-| Mistake | Fix |
-| --- | --- |
-| Separator line where spacing would do | Remove the line, double the gap between groups |
-| `margin-left` / `padding-right` in a localizable layout | `margin-inline-start` / `padding-inline-end` |
-| Content-layout button accidentally touches the viewport | Inset within the project margins; preserve intentional platform chrome |
-| Carousel/scroller that looks complete | Let the next item peek `16–32px` past the edge |
-| Adjacent controls merge or expanded hit areas overlap | Increase the gap using the project scale; use `12px`/`24px` as starting points |
-| Breakpoints at 768/1024 because they're the defaults | Break where the content actually stops fitting |
-| Fixed-width text container sized to one language | `max-width` + wrapping; test pseudo-localization and representative locales |
-| Primary action at the clip-prone bottom of a pane | Sticky positioning or stable chrome with safe-area padding |
+| Mistake                                                 | Fix                                                                            |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Separator line where spacing would do                   | Remove the line, double the gap between groups                                 |
+| `margin-left` / `padding-right` in a localizable layout | `margin-inline-start` / `padding-inline-end`                                   |
+| Content-layout button accidentally touches the viewport | Inset within the project margins; preserve intentional platform chrome         |
+| Carousel/scroller that looks complete                   | Let the next item peek `16–32px` past the edge                                 |
+| Adjacent controls merge or expanded hit areas overlap   | Increase the gap using the project scale; use `12px`/`24px` as starting points |
+| Breakpoints at 768/1024 because they're the defaults    | Break where the content actually stops fitting                                 |
+| Fixed-width text container sized to one language        | `max-width` + wrapping; test pseudo-localization and representative locales    |
+| Primary action at the clip-prone bottom of a pane       | Sticky positioning or stable chrome with safe-area padding                     |
 
 ## Review Output Format
 
@@ -93,16 +93,18 @@ Consolidate a repeated systemic issue into one row and list every affected locat
 ### Example
 
 #### Group with space, not lines
-| Severity | Location | Before | After | Why |
-| --- | --- | --- | --- | --- |
-| LOW | `src/Settings.tsx:41` | `border-b` on every settings row | Remove borders; use `space-y-2` within groups and `space-y-8` between groups | Spacing communicates grouping with less visual noise |
-| LOW | `src/ProfileForm.tsx:58` | `<hr>` between form sections | Replace with `mt-10` on each section heading | Section hierarchy should not depend on repeated rules |
+
+| Severity | Location                 | Before                           | After                                                                        | Why                                                   |
+| -------- | ------------------------ | -------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------- |
+| LOW      | `src/Settings.tsx:41`    | `border-b` on every settings row | Remove borders; use `space-y-2` within groups and `space-y-8` between groups | Spacing communicates grouping with less visual noise  |
+| LOW      | `src/ProfileForm.tsx:58` | `<hr>` between form sections     | Replace with `mt-10` on each section heading                                 | Section hierarchy should not depend on repeated rules |
 
 #### Align to shared edges
-| Severity | Location | Before | After | Why |
-| --- | --- | --- | --- | --- |
-| LOW | `src/Card.tsx:24` | Card text at `pl-4`, card icon at `pl-3` | Align both to the same `pl-4` edge | Shared edges create a legible structure |
-| MEDIUM | `src/Nav.css:19` | `margin-left: 16px` | `margin-inline-start: 16px` | Physical properties break direction-aware layouts |
+
+| Severity | Location          | Before                                   | After                              | Why                                               |
+| -------- | ----------------- | ---------------------------------------- | ---------------------------------- | ------------------------------------------------- |
+| LOW      | `src/Card.tsx:24` | Card text at `pl-4`, card icon at `pl-3` | Align both to the same `pl-4` edge | Shared edges create a legible structure           |
+| MEDIUM   | `src/Nav.css:19`  | `margin-left: 16px`                      | `margin-inline-start: 16px`        | Physical properties break direction-aware layouts |
 
 ### Verification and Verdict
 

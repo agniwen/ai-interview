@@ -10,12 +10,12 @@ APCA (Accessible Perceptual Contrast Algorithm) is more perceptually accurate th
 
 Lc (Lightness Contrast) measures the perceived contrast between foreground and background. These levels are simplified from APCA's full font-size/weight lookup table:
 
-| Content Type | Minimum | Preferred |
-| --- | --- | --- |
-| Body text (columns/blocks of text) | Lc 75 | Lc 90 |
-| Non-body text (labels, headlines) | Lc 60 | Lc 75 |
-| Large text (≥36px) | Lc 45 | Lc 60 |
-| UI components | Lc 30 | n/a |
+| Content Type                       | Minimum | Preferred |
+| ---------------------------------- | ------- | --------- |
+| Body text (columns/blocks of text) | Lc 75   | Lc 90     |
+| Non-body text (labels, headlines)  | Lc 60   | Lc 75     |
+| Large text (≥36px)                 | Lc 45   | Lc 60     |
+| UI components                      | Lc 30   | n/a       |
 
 Lc 30 is also APCA's minimum for disabled and placeholder text; the absolute floor for non-text elements to be discernible at all is Lc 15.
 
@@ -25,11 +25,11 @@ APCA's Lc value is signed: positive means dark text on a light background, negat
 
 WCAG 2 is still required when making formal WCAG 2.x conformance claims. It uses a luminance ratio that can be both too strict and too lenient depending on the color pair.
 
-| Content Type | AA | AAA |
-| --- | --- | --- |
-| Normal text (<24px / <18.5px bold) | 4.5:1 | 7:1 |
-| Large text (>=24px / >=18.5px bold) | 3:1 | 4.5:1 |
-| UI components & graphical objects | 3:1 | n/a |
+| Content Type                        | AA    | AAA   |
+| ----------------------------------- | ----- | ----- |
+| Normal text (<24px / <18.5px bold)  | 4.5:1 | 7:1   |
+| Large text (>=24px / >=18.5px bold) | 3:1   | 4.5:1 |
+| UI components & graphical objects   | 3:1   | n/a   |
 
 WCAG defines "large text" in points: 18pt ≈ `24px`, or 14pt bold ≈ `18.5px`.
 
@@ -39,11 +39,11 @@ In hex/rgb, fixing contrast means trial and error across three channels. In oklc
 
 ```css
 /* Failing: text too close in lightness to its background (Lc ≈ 50) */
-color: oklch(0.65 0.08 250);      /* foreground */
+color: oklch(0.65 0.08 250); /* foreground */
 background: oklch(0.95 0.02 250); /* background */
 
 /* Fix: darken the text, keep C and H unchanged (Lc ≈ 90) */
-color: oklch(0.3 0.08 250);       /* foreground: more L distance */
+color: oklch(0.3 0.08 250); /* foreground: more L distance */
 background: oklch(0.95 0.02 250); /* background: unchanged */
 ```
 
