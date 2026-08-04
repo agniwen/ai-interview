@@ -3,11 +3,11 @@ import type { JobDescriptionStructuredConfig } from "@arc/db-schema/job-descript
 export function getJobDescriptionUpgradeActionLabel(record: {
   evaluationMode: "legacy" | "structured";
   hasEvaluationUpgradeDraft: boolean;
-}): "升级到新版" | "继续升级" | null {
+}): "升级评分规则" | "继续升级" | null {
   if (record.evaluationMode !== "legacy") {
     return null;
   }
-  return record.hasEvaluationUpgradeDraft ? "继续升级" : "升级到新版";
+  return record.hasEvaluationUpgradeDraft ? "继续升级" : "升级评分规则";
 }
 
 export function hasUnsavedJobDescriptionUpgradeChanges(input: {

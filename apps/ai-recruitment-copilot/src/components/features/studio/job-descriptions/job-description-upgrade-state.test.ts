@@ -16,7 +16,7 @@ describe("job description upgrade state", () => {
         evaluationMode: "legacy",
         hasEvaluationUpgradeDraft: false,
       }),
-    ).toBe("升级到新版");
+    ).toBe("升级评分规则");
     expect(
       getJobDescriptionUpgradeActionLabel({
         evaluationMode: "legacy",

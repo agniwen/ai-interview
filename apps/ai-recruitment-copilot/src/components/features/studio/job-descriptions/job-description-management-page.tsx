@@ -24,6 +24,7 @@ import {
   customColumn,
   DataGrid,
   dateColumn,
+  estimateActionsColumnSize,
   textColumn,
   useDataGridState,
 } from "@/components/data-grid";
@@ -314,6 +315,27 @@ export function JobDescriptionManagementPage({
       actionsColumn<JobDescriptionListRecord>({
         inline: [
           {
+            label: "编辑",
+            onClick: (r) => {
+              void crud.openEdit(r);
+            },
+            show: () => canUpdateJobDescription,
+          },
+          {
+            label: "升级评分规则",
+            onClick: (r) => setUpgradeRecord(r),
+            show: (r) =>
+              canUpdateJobDescription && getJobDescriptionUpgradeActionLabel(r) === "升级评分规则",
+          },
+          {
+            label: "继续升级",
+            onClick: (r) => setUpgradeRecord(r),
+            show: (r) =>
+              canUpdateJobDescription && getJobDescriptionUpgradeActionLabel(r) === "继续升级",
+          },
+        ],
+        menu: [
+          {
             label: "推荐",
             onClick: (r) => {
               setRecommendationScope({ id: r.id, name: r.name });
@@ -327,40 +349,18 @@ export function JobDescriptionManagementPage({
             onClick: copyReferralLink,
           },
           {
-            label: "编辑运营设置",
-            onClick: (r) => {
-              void crud.openEdit(r);
-            },
-            show: (r) => canUpdateJobDescription && r.evaluationMode === "legacy",
-          },
-          {
-            label: "编辑",
-            onClick: (r) => {
-              void crud.openEdit(r);
-            },
-            show: (r) => canUpdateJobDescription && r.evaluationMode === "structured",
-          },
-          {
-            label: "升级到新版",
-            onClick: (r) => setUpgradeRecord(r),
-            show: (r) =>
-              canUpdateJobDescription && getJobDescriptionUpgradeActionLabel(r) === "升级到新版",
-          },
-          {
-            label: "继续升级",
-            onClick: (r) => setUpgradeRecord(r),
-            show: (r) =>
-              canUpdateJobDescription && getJobDescriptionUpgradeActionLabel(r) === "继续升级",
-          },
-        ],
-        menu: [
-          {
             label: "删除",
             onClick: (r) => crud.setDeleteRecord(r),
+            separator: "before",
             show: () => canDeleteJobDescription,
             variant: "destructive",
           },
         ],
+        // Mutually exclusive upgrade labels would otherwise both be counted in width.
+        size: estimateActionsColumnSize({
+          hasMenu: true,
+          inlineLabels: ["编辑", "升级评分规则"],
+        }),
       }),
     ],
     // oxlint-disable-next-line react-hooks/exhaustive-deps
