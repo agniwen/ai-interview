@@ -28,5 +28,11 @@ export {
   type DataGridQueryState,
   type DataGridSortOrder,
 } from "./query-contract";
-export { DataGrid, type BulkActionContext, type DataGridProps } from "./data-grid";
+export {
+  DataGrid,
+  type BulkActionContext,
+  type DataGridColumnDef,
+  type DataGridProps,
+} from "./data-grid";
+export { dataGridFeatures, type DataGridFeatures } from "./table-features";
 export { type ToolbarFilterConfig } from "./parts/toolbar";

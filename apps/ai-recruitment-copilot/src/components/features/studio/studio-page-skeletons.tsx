@@ -252,25 +252,27 @@ export function DashboardPageSkeleton() {
 
 export function ProfilePageSkeleton() {
   return (
-    <PageShell label="我的信息">
-      <HeaderSkeleton />
-      <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-6">
-        <div className="flex w-full max-w-3xl flex-col gap-8">
-          {Array.from({ length: 3 }).map((_, sectionIndex) => (
-            <div className="space-y-5" key={sectionIndex}>
-              <div className="space-y-2">
-                <Skeleton className="h-5 w-28" />
-                <Skeleton className="h-3 w-64 max-w-full" />
-              </div>
-              {Array.from({ length: sectionIndex === 0 ? 4 : 2 }).map((__, rowIndex) => (
-                <div className="space-y-2" key={rowIndex}>
-                  <Skeleton className="h-3 w-20" />
-                  <Skeleton className="h-9 w-full" />
-                </div>
-              ))}
-              {sectionIndex < 2 ? <Skeleton className="h-px w-full" /> : null}
-            </div>
-          ))}
+    <PageShell label="个人中心">
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-5">
+        <HeaderSkeleton />
+        <div className="flex flex-col items-center gap-3 py-2">
+          <Skeleton className="size-20 rounded-full" />
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-4 w-48" />
+        </div>
+        <div className="space-y-2.5">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-24 w-full rounded-lg" />
+        </div>
+        <Skeleton className="h-px w-full" />
+        <div className="space-y-2.5">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-28 w-full rounded-lg" />
+        </div>
+        <Skeleton className="h-px w-full" />
+        <div className="space-y-2.5">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-20 w-full rounded-lg" />
         </div>
       </div>
     </PageShell>

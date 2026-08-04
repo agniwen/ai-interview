@@ -336,7 +336,9 @@ describe("resumeLibraryRouter behavior", () => {
       conversion: { withInterview: 0, withoutInterview: 0 },
       dailyAdded: [],
     });
-    expect(mocks.loadResumeLibraryMetrics).toHaveBeenCalledWith(ORGANIZATION_ID);
+    expect(mocks.loadResumeLibraryMetrics).toHaveBeenCalledWith(ORGANIZATION_ID, {
+      createdByUserId: undefined,
+    });
     expect(mocks.permissionChecks).toEqual([
       ["page", "resumes"],
       ["resumeLibrary", "read"],

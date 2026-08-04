@@ -415,7 +415,7 @@ export function JobDescriptionManagementPage({
 
         <DataGrid<JobDescriptionListRecord>
           {...grid.bind}
-          columnPinning={{ right: ["actions"] }}
+          columnPinning={{ end: ["actions"] }}
           columns={columns}
           empty={
             missingRefs ? (

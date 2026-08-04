@@ -45,7 +45,6 @@ describe("actionsColumn", () => {
     expect(column.size).toBeTypeOf("number");
     expect(column.minSize).toBe(column.size);
     expect(column.maxSize).toBe(column.size);
-    expect(column.enableResizing).toBe(false);
   });
 
   it("respects an explicit size override", () => {

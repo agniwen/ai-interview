@@ -35,7 +35,14 @@ const hasInterviewRoundsSql = exists(
     .where(eq(studioInterviewSchedule.interviewRecordId, studioInterview.id)),
 );
 
-async function loadByPipeline(organizationId: string) {
+function resumeMetricsOrgFilters(organizationId: string, createdByUserId?: string) {
+  return and(
+    eq(studioInterview.organizationId, organizationId),
+    createdByUserId ? eq(studioInterview.createdBy, createdByUserId) : undefined,
+  );
+}
+
+async function loadByPipeline(organizationId: string, createdByUserId?: string) {
   // 漏斗分布：按 (pipelineStage, outcome) 分桶；outcome='archived' 排除，避免
   // 冷藏长尾压扁主流程展示。其他 closed outcome（hired / rejected / withdrawn）保留。
   // Pipeline funnel: bucket by (pipelineStage, outcome); archived outcomes are
@@ -49,7 +56,7 @@ async function loadByPipeline(organizationId: string) {
     .from(studioInterview)
     .where(
       and(
-        eq(studioInterview.organizationId, organizationId),
+        resumeMetricsOrgFilters(organizationId, createdByUserId),
         ne(studioInterview.outcome, "archived"),
       ),
     )
@@ -62,7 +69,10 @@ async function loadByPipeline(organizationId: string) {
   }));
 }
 
-async function loadDailyAdded(organizationId: string): Promise<ResumeLibraryMetrics["dailyAdded"]> {
+async function loadDailyAdded(
+  organizationId: string,
+  createdByUserId?: string,
+): Promise<ResumeLibraryMetrics["dailyAdded"]> {
   // Truncate created_at to day; window is the last 365 days for the GitHub-style
   // year calendar. Group by day + uploader so tooltips can list per-user counts.
   // Only non-zero days are returned; the client zero-fills the full grid.
@@ -82,7 +92,7 @@ async function loadDailyAdded(organizationId: string): Promise<ResumeLibraryMetr
     .leftJoin(user, eq(user.id, studioInterview.createdBy))
     .where(
       and(
-        eq(studioInterview.organizationId, organizationId),
+        resumeMetricsOrgFilters(organizationId, createdByUserId),
         gte(studioInterview.createdAt, since),
       ),
     )
@@ -114,7 +124,7 @@ async function loadDailyAdded(organizationId: string): Promise<ResumeLibraryMetr
     }));
 }
 
-async function loadConversion(organizationId: string) {
+async function loadConversion(organizationId: string, createdByUserId?: string) {
   // 把"已发起 AI 面试 vs 未发起"压成两个 count，archived 排除。
   // FILTER 表达式拿 hasInterviewRoundsSql 直接复用为布尔条件。
   // Pack "launched vs not launched" into two parallel counts in a single query;
@@ -129,7 +139,7 @@ async function loadConversion(organizationId: string) {
     .from(studioInterview)
     .where(
       and(
-        eq(studioInterview.organizationId, organizationId),
+        resumeMetricsOrgFilters(organizationId, createdByUserId),
         ne(studioInterview.outcome, "archived"),
       ),
     );
@@ -140,11 +150,20 @@ async function loadConversion(organizationId: string) {
   };
 }
 
-async function queryResumeLibraryMetrics(organizationId: string): Promise<ResumeLibraryMetrics> {
+export interface ResumeLibraryMetricsOptions {
+  /** When set, only count candidates created by this user (personal scope). */
+  createdByUserId?: string;
+}
+
+async function queryResumeLibraryMetrics(
+  organizationId: string,
+  options?: ResumeLibraryMetricsOptions,
+): Promise<ResumeLibraryMetrics> {
+  const createdByUserId = options?.createdByUserId;
   const [byPipeline, dailyAdded, conversion] = await Promise.all([
-    loadByPipeline(organizationId),
-    loadDailyAdded(organizationId),
-    loadConversion(organizationId),
+    loadByPipeline(organizationId, createdByUserId),
+    loadDailyAdded(organizationId, createdByUserId),
+    loadConversion(organizationId, createdByUserId),
   ]);
   return { byPipeline, conversion, dailyAdded };
 }
@@ -497,8 +516,11 @@ export async function loadRecruitingDashboardMetrics(
  * days, and AI-interview conversion. Shares the `studio-resumes` cache tag
  * with the list query so existing invalidation hooks already cover it.
  */
-export function loadResumeLibraryMetrics(organizationId: string): Promise<ResumeLibraryMetrics> {
-  return queryResumeLibraryMetrics(organizationId);
+export function loadResumeLibraryMetrics(
+  organizationId: string,
+  options?: ResumeLibraryMetricsOptions,
+): Promise<ResumeLibraryMetrics> {
+  return queryResumeLibraryMetrics(organizationId, options);
 }
 
 // 暴露给测试做精确断言（绕开 cache 包装）。

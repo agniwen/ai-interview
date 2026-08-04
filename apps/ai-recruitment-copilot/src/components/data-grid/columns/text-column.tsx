@@ -1,6 +1,7 @@
-import type { ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef, RowData } from "@tanstack/react-table";
 import type { ReactNode } from "react";
 import { cn } from "@arc/shared/utils";
+import type { DataGridFeatures } from "../table-features";
 
 export interface TextColumnOptions<TData> {
   key: keyof TData & string;
@@ -14,7 +15,9 @@ export interface TextColumnOptions<TData> {
   cell?: (row: TData) => ReactNode;
 }
 
-export function textColumn<TData>(opts: TextColumnOptions<TData>): ColumnDef<TData> {
+export function textColumn<TData extends RowData>(
+  opts: TextColumnOptions<TData>,
+): ColumnDef<DataGridFeatures, TData> {
   let truncateClass: string | undefined;
   if (opts.truncate === true) {
     truncateClass = "max-w-sm truncate";

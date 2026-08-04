@@ -1,7 +1,14 @@
 /* oxlint-disable complexity, max-lines -- page controller coordinates grid queries, filters, and dialogs. */
 import { IconUsers } from "@tabler/icons-react";
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useRouter, useSearch } from "@tanstack/react-router";
+import { useAtom } from "jotai";
 import { buildInfiniteDataGridQueryKey } from "@/components/data-grid/query-contract";
 import { parseCsvParam } from "@arc/shared/csv";
 import {
@@ -65,6 +72,8 @@ import { LaunchInterviewDialog } from "@/components/features/studio/resumes/laun
 import { TransitionCandidateDialog } from "@/components/features/studio/resumes/transition-candidate-dialog";
 import { ResumeLibraryMetricsSection } from "@/components/features/studio/resumes/resume-library-metrics-section";
 import { RecruitingPageSkeleton } from "@/components/features/studio/studio-page-skeletons";
+import { resumeMetricsScopeAtom } from "@/lib/client/atoms/resume-metrics-scope";
+import { Button } from "@/components/ui/button";
 
 import {
   PIPELINE_STAGE_TAB_DESCRIPTIONS,
@@ -319,10 +328,23 @@ export function ResumeLibraryPage() {
     }),
     staleTime: 30_000,
   });
+  const [metricsScope, setMetricsScope] = useAtom(resumeMetricsScopeAtom);
   const metricsQuery = useQuery({
-    queryFn: () => fetchStudioResumeMetrics(slug),
-    queryKey: studioResumeKeys.metrics(slug),
+    // Keep the previous chart set visible (dimmed) until the other scope returns.
+    placeholderData: keepPreviousData,
+    // queryKey includes metricsScope — React Query re-runs this on every switch.
+    queryFn: () => fetchStudioResumeMetrics(slug, metricsScope),
+    queryKey: studioResumeKeys.metrics(slug, metricsScope),
+    // Avoid structural sharing so chart consumers always see a new metrics object.
+    structuralSharing: false,
   });
+  /** Dim charts while a scope switch (or refetch) is in flight and old data is still shown. */
+  const metricsSwitching =
+    metricsQuery.isFetching && (metricsQuery.isPlaceholderData || Boolean(metricsQuery.data));
+  // Remount chart surfaces when scope data actually lands (TanStack Charts is definition-identity driven).
+  const metricsChartKey = metricsQuery.isPlaceholderData
+    ? `pending:${metricsScope}`
+    : `${metricsScope}:${metricsQuery.dataUpdatedAt}`;
   const retryParseMutation = useMutation({
     mutationFn: (record: ResumeLibraryListRecord) => retryStudioResumeParse(slug, record.id),
     onError: (error) => toast.error(error instanceof Error ? error.message : "重新解析简历失败"),
@@ -559,11 +581,34 @@ export function ResumeLibraryPage() {
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
         <PageHeader
-          title="招聘台"
+          className="items-end sm:items-end"
+          actionRender={
+            <Button
+              className="opacity-80 hover:opacity-100"
+              disabled={metricsQuery.isFetching}
+              onClick={() => {
+                const next = metricsScope === "team" ? "personal" : "team";
+                // Clear target-scope cache so switch always hits the network and charts remount.
+                void queryClient.removeQueries({
+                  queryKey: studioResumeKeys.metrics(slug, next),
+                });
+                setMetricsScope(next);
+              }}
+              suppressHydrationWarning
+              type="button"
+              size="xs"
+              variant="ghost"
+            >
+              {metricsScope === "team" ? "切换个人维度" : "切换到团队维度"}
+            </Button>
+          }
           description="已经进入招聘流程的候选人在这里跟进：看简历、匹配岗位、推进到面试。"
+          title="招聘台"
         />
         <ResumeLibraryMetricsSection
+          chartKey={metricsChartKey}
           error={metricsQuery.error}
+          isSwitching={metricsSwitching}
           metrics={metricsQuery.data}
           onRetry={() => metricsQuery.refetch()}
         />
@@ -686,7 +731,7 @@ export function ResumeLibraryPage() {
           {...grid.bind}
           columns={columns}
           getRowId={(r) => r.id}
-          columnPinning={{ left: ["select", "candidateName"], right: ["actions"] }}
+          columnPinning={{ end: ["actions"], start: ["select", "candidateName"] }}
           filters={filtersConfig}
           toolbarRight={...}
           bulkActions={...}

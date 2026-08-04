@@ -564,8 +564,8 @@ export function InterviewManagementPage() {
           columns={columns}
           getRowId={(r) => r.id}
           columnPinning={{
-            left: canDeleteInterview ? ["select", "candidateName"] : ["candidateName"],
-            right: ["actions"],
+            end: ["actions"],
+            start: canDeleteInterview ? ["select", "candidateName"] : ["candidateName"],
           }}
           filters={filtersConfig}
           headerExtra={stats}

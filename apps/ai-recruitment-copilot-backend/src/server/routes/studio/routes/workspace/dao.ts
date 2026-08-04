@@ -1,10 +1,11 @@
-import { and, asc, desc, eq, inArray, notExists, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, notExists, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   member,
   recruitingGroup,
   recruitingGroupMember,
   session,
+  studioInterview,
   user,
 } from "@arc/db-schema/schema";
 
@@ -484,4 +485,47 @@ export async function listWorkspaceMemberLastActives(
     lastActiveAt: toIso(row.lastActiveAt),
     userId: row.userId,
   }));
+}
+
+/** Full-year window for the personal contribution calendar (~53 weeks). */
+const MY_ACTIVITY_LOOKBACK_DAYS = 365;
+
+export interface MyResumeActivityDay {
+  count: number;
+  day: string;
+}
+
+/**
+ * Daily count of candidates the current user added to this workspace over the
+ * last year. Empty days are omitted; the client zero-fills the calendar grid.
+ */
+export async function loadMyResumeActivity({
+  organizationId,
+  userId,
+}: {
+  organizationId: string;
+  userId: string;
+}): Promise<MyResumeActivityDay[]> {
+  const since = new Date(Date.now() - (MY_ACTIVITY_LOOKBACK_DAYS - 1) * 24 * 60 * 60 * 1000);
+  since.setUTCHours(0, 0, 0, 0);
+
+  const dayExpr = sql<string>`to_char(date_trunc('day', ${studioInterview.createdAt}), 'YYYY-MM-DD')`;
+
+  const rows = await db
+    .select({
+      count: count(),
+      day: dayExpr,
+    })
+    .from(studioInterview)
+    .where(
+      and(
+        eq(studioInterview.organizationId, organizationId),
+        eq(studioInterview.createdBy, userId),
+        gte(studioInterview.createdAt, since),
+      ),
+    )
+    .groupBy(dayExpr)
+    .orderBy(dayExpr);
+
+  return rows.map((row) => ({ count: row.count, day: row.day }));
 }

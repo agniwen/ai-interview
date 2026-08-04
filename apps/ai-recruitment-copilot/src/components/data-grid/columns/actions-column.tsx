@@ -1,5 +1,5 @@
 // src/components/data-grid/columns/actions-column.tsx
-import type { ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef, RowData } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@arc/shared/utils";
+import type { DataGridFeatures } from "../table-features";
 
 export interface ActionInline<TData> {
   /** Visible button text and aria-label/title fallback. */
@@ -102,7 +103,9 @@ export function estimateActionsColumnSize(opts: {
   return Math.max(MIN_ACTION_COLUMN_SIZE, contentWidth, headerWidth);
 }
 
-export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnDef<TData> {
+export function actionsColumn<TData extends RowData>(
+  opts: ActionsColumnOptions<TData>,
+): ColumnDef<DataGridFeatures, TData> {
   const inlineButtons = opts.inline ?? [];
   const menuItems = opts.menu ?? [];
   const headerLabel = opts.title ?? HEADER_LABEL;
@@ -186,8 +189,6 @@ export function actionsColumn<TData>(opts: ActionsColumnOptions<TData>): ColumnD
         </div>
       );
     },
-    enableHiding: false,
-    enableResizing: false,
     enableSorting: false,
     header: () => <div className="text-right">{headerLabel}</div>,
     id: opts.id ?? "actions",

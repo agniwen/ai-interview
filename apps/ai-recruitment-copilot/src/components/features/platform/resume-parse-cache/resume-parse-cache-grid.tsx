@@ -421,7 +421,7 @@ export function ResumeParseCacheGrid() {
     <>
       <DataGrid<ResumeParseCacheRecord>
         {...grid.bind}
-        columnPinning={{ right: ["actions"] }}
+        columnPinning={{ end: ["actions"] }}
         columns={columns}
         empty={
           <Empty className="border-border">

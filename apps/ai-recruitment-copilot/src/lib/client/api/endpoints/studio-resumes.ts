@@ -96,10 +96,14 @@ export function fetchStudioResumes(
   );
 }
 
-export function fetchStudioResumeMetrics(slug: string): Promise<ResumeLibraryMetrics> {
+export function fetchStudioResumeMetrics(
+  slug: string,
+  scope: "team" | "personal" = "team",
+): Promise<ResumeLibraryMetrics> {
   return rpcFetch<ResumeLibraryMetrics>(
     rpc.api.w[":slug"].studio.resumes.metrics.$get({
       param: { slug },
+      query: { scope },
     }),
     "加载招聘指标失败",
   );

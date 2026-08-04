@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 
-import type { ColumnDef } from "@tanstack/react-table";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DataGrid } from "@/components/data-grid/data-grid";
+import type { DataGridColumnDef } from "@/components/data-grid/data-grid";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -13,7 +13,7 @@ interface Row {
   name: string;
 }
 
-const columns: ColumnDef<Row>[] = [{ accessorKey: "name", header: "姓名" }];
+const columns: DataGridColumnDef<Row>[] = [{ accessorKey: "name", header: "姓名" }];
 
 function renderGrid({ data = [], loading = false }: { data?: Row[]; loading?: boolean }) {
   const container = document.createElement("div");

@@ -175,9 +175,22 @@ export const resumeLibraryReadRouter = factory
     "/metrics",
     requirePermission("page", "resumes"),
     requirePermission("resumeLibrary", "read"),
+    zValidator(
+      "query",
+      z.object({
+        scope: z.enum(["team", "personal"]).optional().default("team"),
+      }),
+      jsonValidatorError("招聘指标参数无效。"),
+    ),
     async (c) => {
       const { organization } = getWorkspaceRequestContext(c);
-      const metrics = await loadResumeLibraryMetrics(organization.id);
+      const { scope } = c.req.valid("query");
+      if (scope === "personal" && !c.var.user?.id) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const metrics = await loadResumeLibraryMetrics(organization.id, {
+        createdByUserId: scope === "personal" ? c.var.user?.id : undefined,
+      });
       return c.json(metrics, 200);
     },
   )

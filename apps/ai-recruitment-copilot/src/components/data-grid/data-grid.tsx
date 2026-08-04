@@ -1,8 +1,14 @@
 "use client";
 
-import type { ColumnDef, OnChangeFn, RowSelectionState, SortingState } from "@tanstack/react-table";
+import type {
+  ColumnDef,
+  OnChangeFn,
+  RowData,
+  RowSelectionState,
+  SortingState,
+} from "@tanstack/react-table";
 import type { ReactNode } from "react";
-import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
+import { flexRender, useTable } from "@tanstack/react-table";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Table,
@@ -27,6 +33,8 @@ import {
 import { Toolbar } from "./parts/toolbar";
 import type { ToolbarFilterConfig } from "./parts/toolbar";
 import { ListLoadError } from "./list-load-error";
+import { dataGridFeatures } from "./table-features";
+import type { DataGridFeatures } from "./table-features";
 
 const DEFAULT_PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100] as const;
 const SKELETON_CELL_WIDTHS = ["w-16", "w-24", "w-32", "w-20"] as const;
@@ -84,16 +92,19 @@ export interface BulkActionContext<TData> {
   clearSelection: () => void;
 }
 
-export interface DataGridProps<TData> {
+export type DataGridColumnDef<TData extends RowData> = ColumnDef<DataGridFeatures, TData>;
+
+export interface DataGridProps<TData extends RowData> {
   data: TData[];
   total: number;
   totalPages: number;
   loading?: boolean;
   refetching?: boolean;
 
-  columns: ColumnDef<TData>[];
+  columns: DataGridColumnDef<TData>[];
   getRowId: (row: TData) => string;
-  columnPinning?: { left?: string[]; right?: string[] };
+  /** Logical pin sides (TanStack Table V9). `start` ≈ left in LTR, `end` ≈ right. */
+  columnPinning?: { end?: string[]; start?: string[] };
 
   pagination: {
     page: number;
@@ -114,9 +125,7 @@ export interface DataGridProps<TData> {
   onFilterChange?: (key: string, value: string) => void;
   /**
    * 渲染在配置式 filters 之后、左侧 filter 区内的额外节点。
-   * 用于在不扩展 ToolbarFilterConfig 类型的前提下，把页面定制的筛选器
-   * （比如 DropdownMenu 单选）和搜索/多选挤在同一行。
-   * Extra node rendered after the configured filters in the left filter region.
+   * Extra node rendered after the configured filters in the start filter region.
    */
   filtersExtra?: ReactNode;
   toolbarRight?: ReactNode;
@@ -131,16 +140,12 @@ export interface DataGridProps<TData> {
   canResetFilters?: boolean;
   /**
    * 表格滚动区最大高度。默认不限制高度，页面滚动交给外层 layout。
-   * 传入具体高度时会启用表格内部滚动与 sticky 表头。
-   *
-   * Max height for the table scroll viewport. By default there is no height cap,
-   * so the outer layout owns scrolling. Pass a concrete height to enable an
-   * internal scroll viewport and sticky header.
+   * Max height for the table scroll viewport.
    */
   maxHeight?: string | null;
 }
 
-export function DataGrid<TData>(props: DataGridProps<TData>) {
+export function DataGrid<TData extends RowData>(props: DataGridProps<TData>) {
   const {
     bulkActions,
     canResetFilters,
@@ -174,20 +179,21 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
 
   const normalizedPinning = useMemo(
     () => ({
-      left: columnPinning?.left ?? [],
-      right: columnPinning?.right ?? [],
+      end: columnPinning?.end ?? [],
+      start: columnPinning?.start ?? [],
     }),
     [columnPinning],
   );
-  const hasPinning = normalizedPinning.left.length > 0 || normalizedPinning.right.length > 0;
+  const hasPinning = normalizedPinning.start.length > 0 || normalizedPinning.end.length > 0;
 
-  const table = useReactTable({
+  const table = useTable({
     columns,
     data,
+    // Preserve V8 non-range checkbox behavior (V9 enables Shift range by default).
+    enableRowRangeSelection: false,
     enableRowSelection: rowSelection !== undefined,
-    getCoreRowModel: getCoreRowModel(),
+    features: dataGridFeatures,
     getRowId,
-    manualPagination: true,
     manualSorting: true,
     onRowSelectionChange,
     onSortingChange,
@@ -229,8 +235,8 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [scrollOverflow, setScrollOverflow] = useState({
-    canScrollLeft: false,
-    canScrollRight: false,
+    canScrollEnd: false,
+    canScrollStart: false,
   });
 
   const updateScrollOverflow = useCallback(() => {
@@ -254,7 +260,7 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
 
   useEffect(() => {
     if (!hasPinning) {
-      setScrollOverflow({ canScrollLeft: false, canScrollRight: false });
+      setScrollOverflow({ canScrollEnd: false, canScrollStart: false });
       return;
     }
 
@@ -324,10 +330,10 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
                           maxHeight && STICKY_HEADER_CLASS,
                           pin && PINNED_HEADER_CLASS,
                           getPinnedEdgeClassName({
-                            isLeftEdge: edge.isLeftEdge,
-                            isRightEdge: edge.isRightEdge,
-                            showLeftEdge: scrollOverflow.canScrollLeft,
-                            showRightEdge: scrollOverflow.canScrollRight,
+                            isEndEdge: edge.isEndEdge,
+                            isStartEdge: edge.isStartEdge,
+                            showEndEdge: scrollOverflow.canScrollEnd,
+                            showStartEdge: scrollOverflow.canScrollStart,
                           }),
                         )}
                         key={header.id}
@@ -348,7 +354,7 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
             <TableBody>
               {rows.map((row) => (
                 <TableRow data-state={row.getIsSelected() ? "selected" : undefined} key={row.id}>
-                  {row.getVisibleCells().map((cell) => {
+                  {row.getAllCells().map((cell) => {
                     const pin = cell.column.getIsPinned();
                     const edge = getPinnedEdgeSides(cell.column);
                     return (
@@ -356,10 +362,10 @@ export function DataGrid<TData>(props: DataGridProps<TData>) {
                         className={cn(
                           pin && PINNED_CELL_CLASS,
                           getPinnedEdgeClassName({
-                            isLeftEdge: edge.isLeftEdge,
-                            isRightEdge: edge.isRightEdge,
-                            showLeftEdge: scrollOverflow.canScrollLeft,
-                            showRightEdge: scrollOverflow.canScrollRight,
+                            isEndEdge: edge.isEndEdge,
+                            isStartEdge: edge.isStartEdge,
+                            showEndEdge: scrollOverflow.canScrollEnd,
+                            showStartEdge: scrollOverflow.canScrollStart,
                           }),
                         )}
                         key={cell.id}

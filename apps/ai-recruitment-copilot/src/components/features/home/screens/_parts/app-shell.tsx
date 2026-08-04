@@ -62,7 +62,7 @@ export const STUDIO_NAV_GROUPS: NavGroup[] = [
   },
   {
     items: [
-      { icon: IconUser, label: "我的信息" },
+      { icon: IconUser, label: "个人中心" },
       { icon: IconUserCog, label: "工作区管理" },
       { icon: IconMessageChatbot, label: "上下文设置" },
     ],

@@ -21,7 +21,8 @@ export const studioCalendarKeys = {
 };
 
 export const studioResumeKeys = {
-  metrics: (slug: string) => ["studio-resumes", slug, "metrics"] as const,
+  metrics: (slug: string, scope: "team" | "personal" = "team") =>
+    ["studio-resumes", slug, "metrics", scope] as const,
 };
 
 type QueryInvalidator = Pick<QueryClient, "invalidateQueries">;

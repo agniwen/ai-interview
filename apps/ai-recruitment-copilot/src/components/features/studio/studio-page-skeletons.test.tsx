@@ -20,7 +20,7 @@ describe("Studio page skeletons", () => {
     ["AI 面试", () => <StudioTablePageSkeleton label="AI 面试" summary />],
     ["数据看板", () => <DashboardPageSkeleton />],
     ["岗位设置", () => <JobDescriptionsPageSkeleton />],
-    ["我的信息", () => <ProfilePageSkeleton />],
+    ["个人中心", () => <ProfilePageSkeleton />],
     ["工作区管理", () => <MembersPageSkeleton />],
     ["权限管理", () => <PermissionsPageSkeleton />],
     ["上下文设置", () => <GlobalConfigPageSkeleton />],
@@ -44,8 +44,7 @@ describe("Studio page skeletons", () => {
     expect(resumePool).toContain("lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4");
     expect(dashboard).toContain("grid-cols-2 gap-4 xl:grid-cols-4");
     expect(dashboard).toContain("xl:grid-cols-[minmax(0,1fr)_24rem]");
-    expect(profile).toContain("max-w-[96rem]");
-    expect(profile).toContain("max-w-3xl");
+    expect(profile).toContain("max-w-2xl");
     expect(permissions).toContain("min-w-[72rem]");
   });
 });

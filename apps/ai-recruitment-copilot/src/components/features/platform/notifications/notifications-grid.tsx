@@ -487,7 +487,7 @@ export function NotificationsGrid() {
     <>
       <DataGrid<PlatformNotificationRecord>
         {...grid.bind}
-        columnPinning={{ right: ["actions"] }}
+        columnPinning={{ end: ["actions"] }}
         columns={columns}
         empty={
           <Empty className="border-border">

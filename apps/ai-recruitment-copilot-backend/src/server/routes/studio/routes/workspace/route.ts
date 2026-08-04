@@ -11,6 +11,7 @@ import {
   listRecruitingGroupBoard,
   listWorkspaceMemberLastActives,
   listWorkspaceMembers,
+  loadMyResumeActivity,
   removeRecruitingGroupMember,
   updateRecruitingGroupMemberRole,
 } from "./dao";
@@ -37,6 +38,17 @@ function isRecruitingGroupNameConflict(error: unknown): boolean {
 export const workspaceRouter = factory
   .createApp()
   .route("/invite-links", inviteLinksRouter)
+  .get("/my-activity", async (c) => {
+    const { activeOrg, user } = c.var;
+    if (!(activeOrg && user?.id)) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const dailyAdded = await loadMyResumeActivity({
+      organizationId: activeOrg.id,
+      userId: user.id,
+    });
+    return c.json({ dailyAdded }, 200);
+  })
   .get("/member-last-actives", async (c) => {
     const { activeOrg } = c.var;
     if (!activeOrg) {

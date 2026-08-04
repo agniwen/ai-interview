@@ -43,7 +43,7 @@ export const STUDIO_PAGE_PERMISSION_LABELS = {
   interviews: "AI 面试",
   jobDescriptions: "岗位设置",
   mailIngestAccounts: "邮箱监听",
-  me: "我的信息",
+  me: "个人中心",
   members: "工作区管理",
   permissions: "权限管理",
   resumePool: "人才库",

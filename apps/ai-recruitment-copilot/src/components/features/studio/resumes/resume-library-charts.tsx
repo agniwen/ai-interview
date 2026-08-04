@@ -12,6 +12,7 @@ import type { ChartConfig } from "@/components/ui/chart";
 import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { defineDonutChart } from "@/lib/client/charts/donut";
+import { withHorizontalWheelScroll } from "@/lib/client/charts/horizontal-wheel-scroll";
 import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
 import { cn } from "@arc/shared/utils";
 
@@ -425,32 +426,33 @@ function DailyAddedCard({ dailyAdded }: { dailyAdded: ResumeLibraryMetrics["dail
   // Scroll once to the newest weeks after the first layout that actually overflows.
   const didScrollToEndRef = useRef(false);
   const calendarScrollEvents = useMemo<EventListeners>(
-    () => ({
-      initialized: (instance) => {
-        didScrollToEndRef.current = false;
-        const { viewport } = instance.elements();
-        requestAnimationFrame(() => {
+    () =>
+      withHorizontalWheelScroll({
+        initialized: (instance) => {
+          didScrollToEndRef.current = false;
+          const { viewport } = instance.elements();
           requestAnimationFrame(() => {
-            if (viewport.scrollWidth <= viewport.clientWidth) {
-              return;
-            }
-            scrollViewportToEnd(viewport);
-            didScrollToEndRef.current = true;
+            requestAnimationFrame(() => {
+              if (viewport.scrollWidth <= viewport.clientWidth) {
+                return;
+              }
+              scrollViewportToEnd(viewport);
+              didScrollToEndRef.current = true;
+            });
           });
-        });
-      },
-      updated: (instance) => {
-        if (didScrollToEndRef.current) {
-          return;
-        }
-        const { viewport } = instance.elements();
-        if (viewport.scrollWidth <= viewport.clientWidth) {
-          return;
-        }
-        scrollViewportToEnd(viewport);
-        didScrollToEndRef.current = true;
-      },
-    }),
+        },
+        updated: (instance) => {
+          if (didScrollToEndRef.current) {
+            return;
+          }
+          const { viewport } = instance.elements();
+          if (viewport.scrollWidth <= viewport.clientWidth) {
+            return;
+          }
+          scrollViewportToEnd(viewport);
+          didScrollToEndRef.current = true;
+        },
+      }),
     [],
   );
 
