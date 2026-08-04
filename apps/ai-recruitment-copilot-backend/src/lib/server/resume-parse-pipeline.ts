@@ -5,7 +5,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { convert as htmlToText } from "html-to-text";
 import mammoth from "mammoth";
-import pLimit from "p-limit";
 import pRetry from "p-retry";
 import {
   generateStructuredWithMastraAgent,
@@ -28,7 +27,7 @@ import {
   readOfficeXmlAttribute as readAttribute,
   readOfficeZipText as readZipText,
 } from "./office-xml";
-import { rasterizePdfWithMeta } from "./pdf-rasterize";
+import { processPdfPagesWithMeta } from "./pdf-rasterize";
 import { parseResumeWithAliyun } from "./resume-parse-aliyun";
 import { getResumeParseProvider } from "./resume-parse-provider";
 import { isQwenOcrConfigured, qwenVlOcr } from "./qwen-ocr";
@@ -613,66 +612,73 @@ export async function parseResumeOcrOnly(
   }
 
   devOcrLog("start", { bytes: bytes.byteLength, maxPages: 6, scale: 2 });
-  const rasterizeStartedAt = nowMs();
-  const { pages, pageCount } = await rasterizePdfWithMeta(bytes, { maxPages: 6, scale: 2 });
-  devOcrLog("rasterize completed", {
-    duration: formatDuration(rasterizeStartedAt),
-    pageCount,
-    renderedPages: pages.length,
-    renderedSizes: pages.map((page) => page.byteLength),
-  });
-  emitResumeParseProgress(options.onProgress, {
-    renderedPages: pages.length,
-    totalPages: pageCount,
-    type: "document.pages.ready",
-  });
-
-  if (pages.length === 0) {
-    throw new Error("Rasterization produced no pages; PDF may be empty or unreadable.");
-  }
-
   const ocrStartedAt = nowMs();
   const pageConcurrency = parsePositiveInteger(
     process.env.RESUME_PARSE_OCR_PAGE_CONCURRENCY,
     DEFAULT_OCR_PAGE_CONCURRENCY,
   );
-  const limitOcrPage = pLimit(pageConcurrency);
-  const ocrTexts = await Promise.all(
-    pages.map((png, index) =>
-      limitOcrPage(async () => {
-        const pageStartedAt = nowMs();
+  let renderedPages = 0;
+  let sourcePageCount = 0;
+  const {
+    pageCount,
+    renderedSizes,
+    results: ocrTexts,
+  } = await processPdfPagesWithMeta(
+    bytes,
+    {
+      concurrency: pageConcurrency,
+      maxPages: 6,
+      onReady: (meta) => {
+        renderedPages = meta.selectedPages;
+        sourcePageCount = meta.pageCount;
         emitResumeParseProgress(options.onProgress, {
-          page: index + 1,
-          totalPages: pageCount,
-          type: "ocr.page.started",
+          renderedPages,
+          totalPages: sourcePageCount,
+          type: "document.pages.ready",
         });
-        const text = await qwenVlOcrWithRetry(png, index + 1);
-        devOcrLog("page completed", {
-          chars: text.length,
-          duration: formatDuration(pageStartedAt),
-          page: index + 1,
-          pngBytes: png.byteLength,
-        });
-        emitResumeParseProgress(options.onProgress, {
-          charCount: text.length,
-          page: index + 1,
-          textPreview: toOcrTextPreview(text),
-          totalPages: pageCount,
-          type: "ocr.page.completed",
-        });
-        return text;
-      }),
-    ),
+      },
+      scale: 2,
+    },
+    async (png, index) => {
+      const pageStartedAt = nowMs();
+      emitResumeParseProgress(options.onProgress, {
+        page: index + 1,
+        totalPages: sourcePageCount,
+        type: "ocr.page.started",
+      });
+      const text = await qwenVlOcrWithRetry(png, index + 1);
+      devOcrLog("page completed", {
+        chars: text.length,
+        duration: formatDuration(pageStartedAt),
+        page: index + 1,
+        pngBytes: png.byteLength,
+      });
+      emitResumeParseProgress(options.onProgress, {
+        charCount: text.length,
+        page: index + 1,
+        textPreview: toOcrTextPreview(text),
+        totalPages: sourcePageCount,
+        type: "ocr.page.completed",
+      });
+      return text;
+    },
   );
+
+  if (renderedPages === 0) {
+    throw new Error("Rasterization produced no pages; PDF may be empty or unreadable.");
+  }
+
   const text = ocrTexts.filter((chunk) => chunk.trim().length > 0).join("\n\n");
   devOcrLog("ocr completed", {
     duration: formatDuration(ocrStartedAt),
     outputChars: text.length,
-    pages: pages.length,
+    pageCount,
+    renderedPages,
+    renderedSizes,
   });
   emitResumeParseProgress(options.onProgress, {
     outputChars: text.length,
-    renderedPages: pages.length,
+    renderedPages,
     totalPages: pageCount,
     type: "ocr.completed",
   });
@@ -685,7 +691,7 @@ export async function parseResumeOcrOnly(
     duration: formatDuration(totalStartedAt),
     outputChars: text.length,
     pageCount,
-    renderedPages: pages.length,
+    renderedPages,
   });
   return { pageCount, text, textSource: "qwen-ocr" };
 }
