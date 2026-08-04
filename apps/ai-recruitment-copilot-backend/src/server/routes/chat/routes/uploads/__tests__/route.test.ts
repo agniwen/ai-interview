@@ -6,7 +6,6 @@ const mocks = vi.hoisted(() => ({
   createAttachment: vi.fn(),
   findAttachmentByContentHash: vi.fn(),
   parseResumeDocument: vi.fn(),
-  presignGetObjectUrl: vi.fn(),
   putObjectBytes: vi.fn(),
   sha256HexOfBytes: vi.fn(),
 }));
@@ -14,7 +13,6 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@arc/shared/file-hash", () => ({ sha256HexOfBytes: mocks.sha256HexOfBytes }));
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
   buildAttachmentKeyByHash: mocks.buildAttachmentKeyByHash,
-  presignGetObjectUrl: mocks.presignGetObjectUrl,
   putObjectBytes: mocks.putObjectBytes,
 }));
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline", () => ({
@@ -66,9 +64,6 @@ describe("uploadsRouter cache policy", () => {
     mocks.sha256HexOfBytes.mockResolvedValue(HASH);
     mocks.buildAttachmentKeyByHash.mockResolvedValue(STORAGE_KEY);
     mocks.putObjectBytes.mockImplementation(async () => {});
-    mocks.presignGetObjectUrl.mockResolvedValue(
-      "https://storage.example.test/resume.pdf?signature=secret",
-    );
     mocks.parseResumeDocument.mockResolvedValue({
       pageCount: 1,
       text: "fresh ocr text",
@@ -157,34 +152,6 @@ describe("uploadsRouter cache policy", () => {
       storageKey: STORAGE_KEY,
       userId: USER_ID,
     });
-  });
-
-  it("uploads a PDF before parsing it through its signed storage URL", async () => {
-    process.env.RESUME_PARSE_DISABLE_CACHE = "true";
-    mocks.buildAttachmentKeyByHash.mockResolvedValue("dev/chat-attachments/fresh.pdf");
-
-    const form = new FormData();
-    form.set(
-      "file",
-      new File([new TextEncoder().encode("pdf-bytes")], "resume.pdf", {
-        type: "application/pdf",
-      }),
-    );
-
-    const res = await makeApp().request("/uploads", {
-      body: form,
-      method: "POST",
-    });
-
-    expect(res.status).toBe(200);
-    expect(mocks.presignGetObjectUrl).toHaveBeenCalledWith("dev/chat-attachments/fresh.pdf");
-    expect(mocks.parseResumeDocument).toHaveBeenCalledWith(
-      expect.objectContaining({
-        fileName: "resume.pdf",
-        fileUrl: "https://storage.example.test/resume.pdf?signature=secret",
-        mediaType: "application/pdf",
-      }),
-    );
   });
 
   it("stores structured output immediately when Aliyun document mining is selected", async () => {

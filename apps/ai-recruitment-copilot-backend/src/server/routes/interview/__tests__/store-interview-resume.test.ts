@@ -11,7 +11,6 @@ const mocks = vi.hoisted(() => ({
   findAttachmentByContentHash: vi.fn(),
   generateResumeStructured: vi.fn(),
   parseResumeFastToProfile: vi.fn(),
-  presignGetObjectUrl: vi.fn(),
   projectAttachmentToResumeProfile: vi.fn(),
   putObjectBytes: vi.fn(),
   sha256HexOfBytes: vi.fn(),
@@ -21,7 +20,6 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@arc/shared/file-hash", () => ({ sha256HexOfBytes: mocks.sha256HexOfBytes }));
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
   buildAttachmentKeyByHash: mocks.buildAttachmentKeyByHash,
-  presignGetObjectUrl: mocks.presignGetObjectUrl,
   putObjectBytes: mocks.putObjectBytes,
 }));
 vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments", () => ({
@@ -131,9 +129,6 @@ describe("storeInterviewResume", () => {
     delete process.env.RESUME_PARSE_DISABLE_CACHE;
     mocks.sha256HexOfBytes.mockResolvedValue(HASH);
     mocks.buildAttachmentKeyByHash.mockResolvedValue(STORAGE_KEY);
-    mocks.presignGetObjectUrl.mockResolvedValue(
-      "https://storage.example.test/resume.pdf?signature=secret",
-    );
   });
 
   it("registry hit: reuses storageKey + cached profile, no PUT, copies attachment row", async () => {
@@ -189,10 +184,7 @@ describe("storeInterviewResume", () => {
     expect(mocks.findAttachmentByContentHash).not.toHaveBeenCalled();
     expect(mocks.projectAttachmentToResumeProfile).not.toHaveBeenCalled();
     expect(mocks.putObjectBytes).toHaveBeenCalledTimes(1);
-    expect(mocks.presignGetObjectUrl).toHaveBeenCalledWith(STORAGE_KEY);
-    expect(mocks.parseResumeFastToProfile).toHaveBeenCalledWith(expect.any(File), {
-      fileUrl: "https://storage.example.test/resume.pdf?signature=secret",
-    });
+    expect(mocks.parseResumeFastToProfile).toHaveBeenCalledTimes(1);
     expect(mocks.createAttachment.mock.calls[0]?.[0]).toMatchObject({
       contentHash: HASH,
       parsedStructured: { name: "新候选人" },

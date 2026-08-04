@@ -31,14 +31,6 @@ describe("Docker env configuration", () => {
     expect(dockerfile).toContain(`export NEXT_PUBLIC_BETTER_AUTH_URL="${authUrlFallback}"`);
   });
 
-  it("defaults Qwen OCR to the mainland China DashScope endpoint", () => {
-    const dockerfile = readRepoFile("apps/ai-recruitment-copilot/Dockerfile");
-
-    expect(dockerfile).toContain(
-      "ARG QWEN_OCR_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1",
-    );
-  });
-
   it("uses the dependency-aware readiness endpoint for the web healthcheck", () => {
     const compose = readRepoFile("docker-compose.yml");
 

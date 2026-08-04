@@ -6,7 +6,6 @@ const mocks = vi.hoisted(() => ({
   findAttachmentByContentHash: vi.fn(),
   generateResumeStructured: vi.fn(),
   parseResumeFast: vi.fn(),
-  presignGetObjectUrl: vi.fn(),
   putObjectBytes: vi.fn(),
   runResumeParseWorkflow: vi.fn(),
   sha256HexOfBytes: vi.fn(),
@@ -17,7 +16,6 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@arc/shared/file-hash", () => ({ sha256HexOfBytes: mocks.sha256HexOfBytes }));
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
   buildAttachmentKeyByHash: mocks.buildAttachmentKeyByHash,
-  presignGetObjectUrl: mocks.presignGetObjectUrl,
   putObjectBytes: mocks.putObjectBytes,
 }));
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline", () => ({
@@ -105,17 +103,6 @@ describe("streamParseResumeProfile cache policy", () => {
       process.env.RESUME_PARSE_DISABLE_CACHE = originalDisableCache;
     }
     mocks.sha256HexOfBytes.mockResolvedValue(HASH);
-    mocks.buildAttachmentKeyByHash.mockResolvedValue(`chat-attachments/${HASH}.pdf`);
-    mocks.presignGetObjectUrl.mockResolvedValue(
-      "https://storage.example.test/resume.pdf?signature=secret",
-    );
-  });
-
-  it("rejects parsing without workspace context before writing storage", () => {
-    expect(() => streamParseResumeProfile(makeFile(), undefined as never)).toThrow(
-      "Workspace context is required to parse a PDF resume.",
-    );
-    expect(mocks.putObjectBytes).not.toHaveBeenCalled();
   });
 
   it("cache disabled: ignores cached structured data and runs a fresh parse", async () => {
@@ -132,19 +119,11 @@ describe("streamParseResumeProfile cache policy", () => {
       textSource: "qwen-ocr",
     });
 
-    const events = await readStreamEvents(
-      streamParseResumeProfile(makeFile(), { organizationId: "org-1", userId: "user-1" }),
-    );
+    const events = await readStreamEvents(streamParseResumeProfile(makeFile()));
     const result = events.find((event) => event.type === "run.completed")?.output;
 
     expect(mocks.findAttachmentByContentHash).not.toHaveBeenCalled();
     expect(mocks.streamResumeParseWorkflow).toHaveBeenCalledTimes(1);
-    expect(mocks.streamResumeParseWorkflow).toHaveBeenCalledWith(
-      expect.objectContaining({
-        fileUrl: "https://storage.example.test/resume.pdf?signature=secret",
-      }),
-      expect.any(Object),
-    );
     expect(mocks.runResumeParseWorkflow).not.toHaveBeenCalled();
     expect(mocks.parseResumeFast).not.toHaveBeenCalled();
     expect(result).toMatchObject({

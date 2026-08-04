@@ -25,7 +25,7 @@ import {
   updateStructuredByHash,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/chat/dao/chat-attachments";
 import { generateResumeStructured } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline";
-import { getResumeDocumentExtension, getResumeDocumentKind } from "@arc/shared/resume-documents";
+import { getResumeDocumentExtension } from "@arc/shared/resume-documents";
 import {
   flattenPresetQuestionsFromContextSnapshot,
   loadActiveInterviewContextSnapshot,
@@ -33,54 +33,15 @@ import {
 import { sha256HexOfBytes } from "@arc/shared/file-hash";
 import {
   buildAttachmentKeyByHash,
-  presignGetObjectUrl,
   putObjectBytes,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import { isResumeParseCacheEnabled } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-cache-policy";
-import {
-  getResumeParseProvider,
-  isResumeParseCacheSourceCompatible,
-} from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-provider";
+import { isResumeParseCacheSourceCompatible } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-provider";
 import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend/server/error-handler";
 import { resolveCandidateCompanyContext } from "./candidate-briefing";
 
 export type StudioInterviewRow = typeof studioInterview.$inferSelect;
 export type StudioInterviewScheduleRow = typeof studioInterviewSchedule.$inferSelect;
-
-async function uploadAndParseInterviewResume(input: {
-  bytes: Uint8Array;
-  file: File;
-  storageKey: string;
-}): Promise<
-  [
-    PromiseSettledResult<void>,
-    PromiseSettledResult<Awaited<ReturnType<typeof parseResumeFastToProfile>>>,
-  ]
-> {
-  const putPromise = putObjectBytes({
-    body: input.bytes,
-    contentType: input.file.type || "application/octet-stream",
-    storageKey: input.storageKey,
-  });
-  const shouldParseStoredPdf =
-    getResumeParseProvider() === "ocr-llm" &&
-    getResumeDocumentKind({ fileName: input.file.name, mediaType: input.file.type }) === "pdf";
-  if (!shouldParseStoredPdf) {
-    return Promise.allSettled([putPromise, parseResumeFastToProfile(input.file)]);
-  }
-
-  const [putOutcome] = await Promise.allSettled([putPromise]);
-  if (putOutcome.status === "rejected") {
-    return [putOutcome, { reason: putOutcome.reason, status: "rejected" }];
-  }
-  const [parseOutcome] = await Promise.allSettled([
-    (async () => {
-      const fileUrl = await presignGetObjectUrl(input.storageKey);
-      return parseResumeFastToProfile(input.file, { fileUrl });
-    })(),
-  ]);
-  return [putOutcome, parseOutcome];
-}
 
 // =====================================================================
 // Candidate interview record loaders
@@ -338,15 +299,20 @@ export async function storeInterviewResume(
       }
     }
 
+    // 未命中：parse + PUT 并行。
+    // Miss: parse + PUT in parallel.
     const storageKey = await buildAttachmentKeyByHash(
       contentHash,
       getResumeDocumentExtension({ fileName: file.name, mediaType: file.type }),
     );
-    const [putOutcome, parseOutcome] = await uploadAndParseInterviewResume({
-      bytes,
-      file,
-      storageKey,
-    });
+    const [putOutcome, parseOutcome] = await Promise.allSettled([
+      putObjectBytes({
+        body: bytes,
+        contentType: file.type || "application/octet-stream",
+        storageKey,
+      }),
+      parseResumeFastToProfile(file),
+    ]);
 
     if (putOutcome.status === "rejected") {
       console.error("[studio-interview] failed to upload resume to S3:", putOutcome.reason);

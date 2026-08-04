@@ -12,7 +12,6 @@ import {
 const resumeAnalysisInputSchema = z.object({
   bytesBase64: z.string().min(1),
   fileName: z.string().trim().min(1),
-  fileUrl: z.string().url().optional(),
   mediaType: z.string().trim().optional(),
 });
 
@@ -43,7 +42,6 @@ export function createResumeAnalysisWorkflow(deps: ResumeAnalysisWorkflowDeps) {
       const parsed = await deps.parseResume({
         bytes: Buffer.from(inputData.bytesBase64, "base64"),
         fileName: inputData.fileName,
-        fileUrl: inputData.fileUrl,
         mediaType: inputData.mediaType,
       });
       return {
@@ -90,7 +88,6 @@ export const resumeAnalysisWorkflow = createResumeAnalysisWorkflow({
 export async function runResumeAnalysisWorkflow(input: {
   bytes: Uint8Array;
   fileName: string;
-  fileUrl?: string;
   mediaType?: string;
 }): Promise<ResumeAnalysisWorkflowOutput> {
   const run = await resumeAnalysisWorkflow.createRun();
@@ -98,7 +95,6 @@ export async function runResumeAnalysisWorkflow(input: {
     inputData: {
       bytesBase64: Buffer.from(input.bytes).toString("base64"),
       fileName: input.fileName,
-      fileUrl: input.fileUrl,
       mediaType: input.mediaType,
     },
   });

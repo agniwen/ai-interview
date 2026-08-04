@@ -1,6 +1,11 @@
+// End-to-end deterministic resume parsing pipeline.
+// Runs Qwen-VL OCR on every page of the PDF, then extracts structured
+// candidate info via a schema-constrained Mastra agent call.
+
 import { setTimeout as delay } from "node:timers/promises";
 import { convert as htmlToText } from "html-to-text";
 import mammoth from "mammoth";
+import pLimit from "p-limit";
 import pRetry from "p-retry";
 import {
   generateStructuredWithMastraAgent,
@@ -23,7 +28,7 @@ import {
   readOfficeXmlAttribute as readAttribute,
   readOfficeZipText as readZipText,
 } from "./office-xml";
-import { parseQwenPdfResume } from "./qwen-pdf-resume";
+import { rasterizePdfWithMeta } from "./pdf-rasterize";
 import { parseResumeWithAliyun } from "./resume-parse-aliyun";
 import { getResumeParseProvider } from "./resume-parse-provider";
 import { isQwenOcrConfigured, qwenVlOcr } from "./qwen-ocr";
@@ -31,6 +36,7 @@ import { isQwenOcrConfigured, qwenVlOcr } from "./qwen-ocr";
 const STRUCTURED_TEXT_MAX_CHARS = 16_000;
 const DEV_OCR_LOG_PREFIX = "[resume-ocr]";
 const DEFAULT_OCR_ATTEMPTS = 3;
+const DEFAULT_OCR_PAGE_CONCURRENCY = 1;
 const DEFAULT_OCR_RETRY_DELAY_MS = 1000;
 const OFFICE_TEXT_MAX_CHARS = 80_000;
 const XLSX_MAX_SHEETS = 8;
@@ -110,7 +116,6 @@ export {
 export interface ResumeDocumentInput {
   bytes: Uint8Array;
   fileName?: string;
-  fileUrl?: string;
   mediaType?: string;
   onProgress?: (event: ResumeParseProgressEvent) => void;
 }
@@ -563,7 +568,7 @@ async function extractImageText(input: ResumeDocumentInput): Promise<ParsedResum
     totalPages: 1,
     type: "ocr.completed",
   });
-  return { pageCount: 1, text, textSource: "qwen3.5-ocr" };
+  return { pageCount: 1, text, textSource: "qwen-ocr" };
 }
 
 export async function generateResumeStructured(text: string): Promise<ResumeParserStructured> {
@@ -591,6 +596,100 @@ export async function generateResumeStructured(text: string): Promise<ResumePars
   return output;
 }
 
+/**
+ * OCR-only: rasterize PDF → Qwen-VL OCR → 返回纯文本与页数。
+ * 不跑结构化抽取，让调用方在真正需要 LLM 结构化时再单独跑。
+ *
+ * OCR-only path: rasterize + Qwen-VL OCR. Returns plain text & page count;
+ * callers run structured extraction separately when they actually need it.
+ */
+export async function parseResumeOcrOnly(
+  bytes: Uint8Array,
+  options: { onProgress?: ResumeDocumentInput["onProgress"] } = {},
+): Promise<ParsedResumeOcr> {
+  const totalStartedAt = nowMs();
+  if (!isQwenOcrConfigured()) {
+    throw new Error("Qwen OCR is not configured (missing ALIBABA_API_KEY).");
+  }
+
+  devOcrLog("start", { bytes: bytes.byteLength, maxPages: 6, scale: 2 });
+  const rasterizeStartedAt = nowMs();
+  const { pages, pageCount } = await rasterizePdfWithMeta(bytes, { maxPages: 6, scale: 2 });
+  devOcrLog("rasterize completed", {
+    duration: formatDuration(rasterizeStartedAt),
+    pageCount,
+    renderedPages: pages.length,
+    renderedSizes: pages.map((page) => page.byteLength),
+  });
+  emitResumeParseProgress(options.onProgress, {
+    renderedPages: pages.length,
+    totalPages: pageCount,
+    type: "document.pages.ready",
+  });
+
+  if (pages.length === 0) {
+    throw new Error("Rasterization produced no pages; PDF may be empty or unreadable.");
+  }
+
+  const ocrStartedAt = nowMs();
+  const pageConcurrency = parsePositiveInteger(
+    process.env.RESUME_PARSE_OCR_PAGE_CONCURRENCY,
+    DEFAULT_OCR_PAGE_CONCURRENCY,
+  );
+  const limitOcrPage = pLimit(pageConcurrency);
+  const ocrTexts = await Promise.all(
+    pages.map((png, index) =>
+      limitOcrPage(async () => {
+        const pageStartedAt = nowMs();
+        emitResumeParseProgress(options.onProgress, {
+          page: index + 1,
+          totalPages: pageCount,
+          type: "ocr.page.started",
+        });
+        const text = await qwenVlOcrWithRetry(png, index + 1);
+        devOcrLog("page completed", {
+          chars: text.length,
+          duration: formatDuration(pageStartedAt),
+          page: index + 1,
+          pngBytes: png.byteLength,
+        });
+        emitResumeParseProgress(options.onProgress, {
+          charCount: text.length,
+          page: index + 1,
+          textPreview: toOcrTextPreview(text),
+          totalPages: pageCount,
+          type: "ocr.page.completed",
+        });
+        return text;
+      }),
+    ),
+  );
+  const text = ocrTexts.filter((chunk) => chunk.trim().length > 0).join("\n\n");
+  devOcrLog("ocr completed", {
+    duration: formatDuration(ocrStartedAt),
+    outputChars: text.length,
+    pages: pages.length,
+  });
+  emitResumeParseProgress(options.onProgress, {
+    outputChars: text.length,
+    renderedPages: pages.length,
+    totalPages: pageCount,
+    type: "ocr.completed",
+  });
+
+  if (text.trim().length === 0) {
+    throw new Error("Qwen OCR returned empty text for every page.");
+  }
+
+  devOcrLog("completed", {
+    duration: formatDuration(totalStartedAt),
+    outputChars: text.length,
+    pageCount,
+    renderedPages: pages.length,
+  });
+  return { pageCount, text, textSource: "qwen-ocr" };
+}
+
 export function extractResumeDocumentText(input: ResumeDocumentInput): Promise<ParsedResumeOcr> {
   const kind = getResumeDocumentKind(input);
   if (!kind) {
@@ -599,14 +698,7 @@ export function extractResumeDocumentText(input: ResumeDocumentInput): Promise<P
 
   switch (kind) {
     case "pdf": {
-      if (!input.fileUrl) {
-        throw new Error("Qwen3.5 OCR 解析 PDF 需要可访问的文件 URL。");
-      }
-      return parseQwenPdfResume({
-        bytes: input.bytes,
-        fileUrl: input.fileUrl,
-        onProgress: input.onProgress,
-      });
+      return parseResumeOcrOnly(input.bytes, { onProgress: input.onProgress });
     }
     case "doc": {
       return convertLegacyOfficeToOoxml({
@@ -662,17 +754,23 @@ export function parseResumeDocument(input: ResumeDocumentInput): Promise<ParsedR
 
 /**
  * 完整解析：OCR + 结构化抽取。
- * 现在内部由文档文本提取 + generateResumeStructured 两步组合而成，
+ * 现在内部由 parseResumeOcrOnly + generateResumeStructured 两步组合而成，
  * 行为与拆分前等价，保留导出以便那些一次性需要结构化结果的调用方继续用。
  *
  * Full pipeline: OCR + structured extraction. Now a composition of
- * Document text extraction + generateResumeStructured. Behavior is unchanged from
+ * parseResumeOcrOnly + generateResumeStructured. Behavior is unchanged from
  * the pre-split version; callers that want both in one shot keep using this.
  */
-export async function parseResumeFast(input: ResumeDocumentInput): Promise<ParsedResumeFast> {
+export async function parseResumeFast(
+  input: Uint8Array | ResumeDocumentInput,
+): Promise<ParsedResumeFast> {
   const startedAt = nowMs();
-  devOcrLog("full parse start", { bytes: input.bytes.byteLength });
-  const parsed = await parseResumeDocument(input);
+  const documentInput =
+    input instanceof Uint8Array
+      ? { bytes: input, fileName: "resume.pdf", mediaType: "application/pdf" }
+      : input;
+  devOcrLog("full parse start", { bytes: documentInput.bytes.byteLength });
+  const parsed = await parseResumeDocument(documentInput);
   if ("structured" in parsed) {
     devOcrLog("full parse completed", {
       duration: formatDuration(startedAt),

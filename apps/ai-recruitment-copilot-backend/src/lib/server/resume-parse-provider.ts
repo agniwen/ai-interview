@@ -16,5 +16,5 @@ export function isResumeParseCacheSourceCompatible(
   const isAliyunResult = textSource === "aliyun-docmining";
   return getResumeParseProvider(env) === "aliyun-docmining"
     ? isAliyunResult
-    : !isAliyunResult && textSource !== "qwen-ocr";
+    : !isAliyunResult && textSource !== "qwen3.5-ocr";
 }

@@ -46,7 +46,6 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", async () => {
   return {
     ...actual,
     getObjectStream: vi.fn(),
-    presignGetObjectUrl: vi.fn().mockResolvedValue("https://storage.test/resume.pdf"),
   };
 });
 
