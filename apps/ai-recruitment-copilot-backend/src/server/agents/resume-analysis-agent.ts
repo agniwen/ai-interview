@@ -349,13 +349,13 @@ export interface ResumeParseResult {
 
 export interface StreamParseResumeContext {
   /**
-   * 本次请求解析出的 userId / organizationId。提供这两个值才会在 cache miss
-   * 时把解析结果回写 chat_attachment 注册表 + S3，否则只返回解析结果不落表。
-   * Provide both to populate the chat_attachment registry + S3 on cache miss;
-   * omit to keep this endpoint side-effect-free.
+   * 本次请求解析出的 userId / organizationId。cache miss 时会将原始文件写入 S3，
+   * 并把解析结果回写 chat_attachment 注册表。
+   * Request-scoped userId / organizationId. On a cache miss, the original file
+   * is stored in S3 and the parse result is written to the chat_attachment registry.
    */
   userId: string;
-  organizationId: string | null;
+  organizationId: string;
 }
 
 /**
@@ -382,9 +382,6 @@ async function persistParseToRegistry(args: {
     textSource: ResumeTextSource;
   };
 }): Promise<void> {
-  if (!args.context.organizationId) {
-    return;
-  }
   try {
     const storageKey =
       args.storageKey ??
@@ -439,9 +436,12 @@ async function persistParseToRegistry(args: {
  */
 export function streamParseResumeProfile(
   file: File,
-  context?: StreamParseResumeContext,
+  context: StreamParseResumeContext,
 ): ReadableStream<Uint8Array> {
   validateResumeFile(file);
+  if (!context?.organizationId) {
+    throw new Error("Workspace context is required to parse a PDF resume.");
+  }
 
   const runId = crypto.randomUUID();
   return createAiRunEventStream({
@@ -520,25 +520,19 @@ export function streamParseResumeProfile(
       let fileUrl: string | undefined;
       let storageKey: string | undefined;
       const shouldParseStoredPdf =
-        context?.organizationId &&
         getResumeParseProvider() === "ocr-llm" &&
         getResumeDocumentKind({ fileName: file.name, mediaType: file.type }) === "pdf";
       if (shouldParseStoredPdf) {
-        try {
-          storageKey = await buildAttachmentKeyByHash(
-            contentHash,
-            getResumeDocumentExtension({ fileName: file.name, mediaType: file.type }),
-          );
-          await putObjectBytes({
-            body: bytes,
-            contentType: file.type || "application/octet-stream",
-            storageKey,
-          });
-          fileUrl = await presignGetObjectUrl(storageKey);
-        } catch (error) {
-          storageKey = undefined;
-          console.error("[parse-resume] failed to prepare stored PDF URL; using fallback", error);
-        }
+        storageKey = await buildAttachmentKeyByHash(
+          contentHash,
+          getResumeDocumentExtension({ fileName: file.name, mediaType: file.type }),
+        );
+        await putObjectBytes({
+          body: bytes,
+          contentType: file.type || "application/octet-stream",
+          storageKey,
+        });
+        fileUrl = await presignGetObjectUrl(storageKey);
       }
 
       const workflowInput = {
@@ -552,9 +546,7 @@ export function streamParseResumeProfile(
         onWorkflowEvent: (event) => emitForegroundWorkflowEvent(event, emitAiRun),
       });
 
-      if (context) {
-        await persistParseToRegistry({ bytes, contentHash, context, file, parsed, storageKey });
-      }
+      await persistParseToRegistry({ bytes, contentHash, context, file, parsed, storageKey });
 
       const result: ResumeParseResult = {
         fileName: file.name,

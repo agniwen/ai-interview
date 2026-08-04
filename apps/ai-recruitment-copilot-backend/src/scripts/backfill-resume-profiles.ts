@@ -298,18 +298,21 @@ async function extractEducationForRecord(
     };
   }
 
-  const [{ extractResumeDocumentText }, { getObjectBytes }] = await Promise.all([
-    import("@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline"),
-    import("@arc/ai-recruitment-copilot-backend/lib/server/s3"),
-  ]);
+  const [{ extractResumeDocumentText }, { getObjectBytes, presignGetObjectUrl }] =
+    await Promise.all([
+      import("@arc/ai-recruitment-copilot-backend/lib/server/resume-parse-pipeline"),
+      import("@arc/ai-recruitment-copilot-backend/lib/server/s3"),
+    ]);
   const object = await getObjectBytes(record.storageKey);
   if (!object) {
     throw new Error(`Resume object not found in storage: ${record.storageKey}`);
   }
+  const fileUrl = await presignGetObjectUrl(record.storageKey);
 
   const extracted = await extractResumeDocumentText({
     bytes: object.bytes,
     fileName: record.fileName,
+    fileUrl,
     mediaType: object.contentType,
   });
 

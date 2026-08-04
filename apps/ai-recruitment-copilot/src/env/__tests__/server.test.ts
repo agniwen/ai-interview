@@ -26,7 +26,7 @@ describe("server env", () => {
     MINIMAX_TTS_BASE_URL: "https://api.minimax.chat",
     NEXT_PUBLIC_BASE_URL: "https://app.example.com",
     QWEN_OCR_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    QWEN_OCR_MODEL: "qwen-vl-ocr-latest",
+    QWEN_OCR_MODEL: "qwen3.5-ocr",
     RECORDING_R2_FORCE_PATH_STYLE: "true",
     RECORDING_R2_KEY_PREFIX: "recordings",
     RECORDING_R2_REGION: "auto",
@@ -63,7 +63,7 @@ describe("server env", () => {
       MINIMAX_TTS_BASE_URL: "https://api.minimax.chat",
       NEXT_PUBLIC_BASE_URL: "https://app.example.com",
       QWEN_OCR_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-      QWEN_OCR_MODEL: "qwen-vl-ocr-latest",
+      QWEN_OCR_MODEL: "qwen3.5-ocr",
       RESUME_PARSE_PROVIDER: "aliyun-docmining",
       S3_FORCE_PATH_STYLE: "false",
     });

@@ -22,7 +22,7 @@ const configuredEnv = {
   NEXT_PUBLIC_BETTER_AUTH_URL: "https://app.example.com",
   NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: "false",
   QWEN_OCR_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-  QWEN_OCR_MODEL: "qwen-vl-ocr-latest",
+  QWEN_OCR_MODEL: "qwen3.5-ocr",
   RECORDING_R2_FORCE_PATH_STYLE: "true",
   RECORDING_R2_KEY_PREFIX: "recordings",
   RECORDING_R2_REGION: "auto",

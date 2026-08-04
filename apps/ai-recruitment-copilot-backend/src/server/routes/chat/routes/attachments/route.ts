@@ -1,4 +1,8 @@
-import { getObjectBytes, getObjectStream } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
+import {
+  getObjectBytes,
+  getObjectStream,
+  presignGetObjectUrl,
+} from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import {
   generateResumeStructured,
   parseResumeFast,
@@ -15,6 +19,7 @@ import { createInternalErrorResponse } from "@arc/ai-recruitment-copilot-backend
 import { resolveJobDescriptionMatchBestEffort } from "@arc/ai-recruitment-copilot-backend/server/routes/interview/match-job-description";
 import { listRecruitingJobDescriptions } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { createPptxPreviewPdfResponse } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/utils/pptx-preview";
+import { getResumeDocumentKind } from "@arc/shared/resume-documents";
 
 const PREVIEW_SUFFIX = "-preview.pdf";
 
@@ -51,9 +56,17 @@ export const attachmentsRouter = factory
     if (!resumeProfile) {
       const object = await getObjectBytes(attachment.storageKey);
       if (object) {
+        const fileUrl =
+          getResumeDocumentKind({
+            fileName: attachment.filename,
+            mediaType: object.contentType || attachment.mediaType,
+          }) === "pdf"
+            ? await presignGetObjectUrl(attachment.storageKey)
+            : undefined;
         const parsed = await parseResumeFast({
           bytes: object.bytes,
           fileName: attachment.filename,
+          fileUrl,
           mediaType: object.contentType || attachment.mediaType,
         });
         if (attachment.contentHash) {

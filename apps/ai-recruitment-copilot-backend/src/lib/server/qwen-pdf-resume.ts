@@ -1,6 +1,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 import pRetry from "p-retry";
-import { getPdfPageCount } from "./pdf-rasterize";
+import { getPdfPageCount } from "./pdf-inspect";
 import { qwenPdfOcr } from "./qwen-ocr";
 
 const DEFAULT_OCR_ATTEMPTS = 3;
