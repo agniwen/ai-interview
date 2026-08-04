@@ -92,6 +92,9 @@ export interface JobDescriptionRecord {
   evaluationBlueprintPreviewInputHash: string | null;
   evaluationBlueprintSchemaVersion: number | null;
   evaluationMode: JobEvaluationMode;
+  evaluationUpgradedAt: string | Date | null;
+  evaluationUpgradedBy: string | null;
+  hasEvaluationUpgradeDraft: boolean;
   interviewerIds: string[];
   lifecycleStatus: JobLifecycleStatus;
   name: string;

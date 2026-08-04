@@ -76,6 +76,8 @@ export async function createResumeRecordFromStorage(
       notes: input.notes,
       organizationId: input.organizationId,
       resumeContentHash: input.contentHash,
+      resumeEvaluationArtifactMode: input.resumeReview ? "legacy" : null,
+      resumeEvaluationAttemptMode: input.resumeReview ? "legacy" : null,
       resumeFileName: input.resumeFileName,
       resumeParseError: null,
       resumeParseStatus:

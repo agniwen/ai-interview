@@ -25,6 +25,7 @@ const record: ResumeLibraryListRecord = {
   outcome: "in_pipeline",
   pipelineStage: "screening",
   resumeEvaluationArtifactMode: "structured",
+  resumeEvaluationAttemptMode: "structured",
   resumeEvaluationStatus: null,
   resumeFileName: null,
   resumeParseRetryable: false,
@@ -81,4 +82,91 @@ describe("ResumeLibraryCard", () => {
 
     expect(content).toContain("未通过门槛 · 68 分");
   });
+
+  it("keeps showing a labeled legacy score after the job upgrades", () => {
+    const noop = vi.fn();
+    const content = renderToStaticMarkup(
+      <ResumeLibraryCard
+        canCreateInterview={false}
+        canDeleteResumeLibrary={false}
+        canRetryResumeParse={false}
+        canUpdateResumeLibrary={false}
+        currentMemberRole="viewer"
+        currentUserId={null}
+        onCopyDetailLink={noop}
+        onDelete={noop}
+        onEdit={noop}
+        onLaunchInterview={noop}
+        onOpenDetail={noop}
+        onPreviewResume={noop}
+        onRetryParse={noop}
+        onSelectChange={noop}
+        onShowDuplicateMatches={noop}
+        onTransition={noop}
+        record={{
+          ...record,
+          resumeEvaluationArtifactMode: "legacy",
+          resumeEvaluationAttemptMode: null,
+          resumeReviewBaseScore: 82,
+          resumeReviewNextStepAction: "interview",
+          structuredCompositeScore: null,
+          structuredGateSortRank: null,
+          structuredGateStatus: null,
+          structuredScoreGrade: null,
+        }}
+        retrying={false}
+        selected={false}
+      />,
+    );
+
+    expect(content).toContain("老版本结果 · 建议进入面试（82分）");
+  });
+
+  it.each([
+    ["queued", "新版重评中"],
+    ["processing", "新版重评中"],
+    ["failed", "新版重评失败"],
+  ] as const)(
+    "keeps the legacy score visible while a structured replacement is %s",
+    (resumeReviewStatus, replacementStatusLabel) => {
+      const noop = vi.fn();
+      const content = renderToStaticMarkup(
+        <ResumeLibraryCard
+          canCreateInterview={false}
+          canDeleteResumeLibrary={false}
+          canRetryResumeParse={false}
+          canUpdateResumeLibrary={false}
+          currentMemberRole="viewer"
+          currentUserId={null}
+          onCopyDetailLink={noop}
+          onDelete={noop}
+          onEdit={noop}
+          onLaunchInterview={noop}
+          onOpenDetail={noop}
+          onPreviewResume={noop}
+          onRetryParse={noop}
+          onSelectChange={noop}
+          onShowDuplicateMatches={noop}
+          onTransition={noop}
+          record={{
+            ...record,
+            resumeEvaluationArtifactMode: "legacy",
+            resumeEvaluationAttemptMode: "structured",
+            resumeReviewBaseScore: 82,
+            resumeReviewNextStepAction: "interview",
+            resumeReviewStatus,
+            structuredCompositeScore: null,
+            structuredGateSortRank: null,
+            structuredGateStatus: null,
+            structuredScoreGrade: null,
+          }}
+          retrying={false}
+          selected={false}
+        />,
+      );
+
+      expect(content).toContain("老版本结果 · 建议进入面试（82分）");
+      expect(content).toContain(replacementStatusLabel);
+    },
+  );
 });

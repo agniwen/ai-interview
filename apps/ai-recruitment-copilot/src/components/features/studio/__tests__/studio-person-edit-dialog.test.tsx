@@ -158,6 +158,7 @@ function makeDetail(overrides: Partial<ResumeLibraryDetail> = {}): ResumeLibrary
     pipelineStage: "screening",
     resumeContentHash: "hash",
     resumeEvaluationArtifactMode: null,
+    resumeEvaluationAttemptMode: null,
     resumeEvaluationStatus: null,
     resumeFileName: "resume.pdf",
     resumeParseError: null,

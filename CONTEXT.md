@@ -57,12 +57,16 @@ A job description whose recruiting and resume-evaluation configuration is still 
 _Avoid_: Inactive position, unpublished config
 
 **Published Job Description**:
-A job description available to recruiting workflows. For structured jobs, its name, code, description, prompt, resume gates, evaluation blueprint, scoring weights, scoring adjustments, and scoring-rule-set version are immutable, while operational interview assignments and questions may still change; legacy jobs retain their existing edit/version behavior.
+A job description available to recruiting workflows. For structured jobs, its name, code, description, prompt, resume gates, evaluation blueprint, scoring weights, scoring adjustments, and scoring-rule-set version are immutable, while operational interview assignments and questions may still change. A legacy job may keep its existing evaluation behavior or create a separate structured-upgrade draft; only publishing that draft atomically changes the job to structured mode and freezes its evaluation configuration.
 _Avoid_: Saved draft, editable active job
 
 **Job Resume Evaluation Mode**:
-The immutable evaluation lineage of a published job description: legacy for jobs created before structured evaluation, or structured for newly published jobs. A legacy job cannot be upgraded in place; using structured evaluation requires a new job description.
+The server-owned evaluation contract currently used for new evaluation attempts: legacy for jobs that have not adopted structured evaluation, or structured for newly published and explicitly upgraded jobs. A published legacy job may switch once to structured mode through the upgrade-publication transition; it cannot switch back or otherwise mutate its mode.
 _Avoid_: Feature flag, scoring version, temporary rollout state
+
+**Job Evaluation Upgrade Draft**:
+A separately stored, discardable structured-evaluation draft for one published legacy job. Creating or editing it does not change the live job, candidate routing, or existing results; publishing it atomically upgrades the same job and deletes the draft.
+_Avoid_: Live job edit, automatic migration, second job
 
 **Job Code**:
 A workspace-scoped generated identifier for a job description.
@@ -270,8 +274,16 @@ The current structured-job evaluation artifact containing frozen job expectation
 _Avoid_: Legacy resume review, recruiter decision, resume-pool note
 
 **Current Resume Evaluation**:
-The mode-specific generated artifact currently valid for one resume record and its bound job: legacy v4 for a legacy job or structured V1 for a structured job.
+The mode-specific generated artifact currently valid for one resume record and its bound job. Its persisted artifact mode may remain legacy after the bound job has been upgraded to structured, until an explicit structured reassessment succeeds.
 _Avoid_: Any non-null review field, historical evaluation, recruiter decision
+
+**Resume Evaluation Artifact Mode**:
+The persisted mode of the candidate's current valid generated artifact: legacy, structured, or absent. Rendering and mixed-mode ordering use this value rather than inferring it from the job's current evaluation mode.
+_Avoid_: Job evaluation mode, latest attempt mode
+
+**Resume Evaluation Attempt Mode**:
+The persisted mode targeted by the current or latest evaluation attempt. It may be structured while the current artifact mode is still legacy; a failed replacement attempt does not erase or relabel that legacy artifact.
+_Avoid_: Current valid result, job migration state
 
 **Resume Review Dimension**:
 One of the six product-defined aspects always independently scored for a structured resume evaluation: skill match, experience relevance, project match, education/background, potential, or stability. Its configured weight controls only its contribution to the composite score.

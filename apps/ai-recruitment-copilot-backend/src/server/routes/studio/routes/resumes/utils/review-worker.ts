@@ -60,6 +60,8 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
         outcome: studioInterview.outcome,
         pipelineStage: studioInterview.pipelineStage,
         resumeContentHash: studioInterview.resumeContentHash,
+        resumeEvaluationArtifactMode: studioInterview.resumeEvaluationArtifactMode,
+        resumeEvaluationAttemptMode: studioInterview.resumeEvaluationAttemptMode,
         resumeParseStatus: studioInterview.resumeParseStatus,
         resumeProfile: studioInterview.resumeProfile,
         resumeReview: studioInterview.resumeReview,
@@ -94,6 +96,8 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
     const updated = await db
       .update(studioInterview)
       .set({
+        resumeEvaluationArtifactMode: input.mode,
+        resumeEvaluationAttemptMode: input.mode,
         resumeReviewError: null,
         resumeReviewGeneratedAt: now,
         resumeReviewStatus: "ready",
@@ -211,9 +215,12 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
           .update(studioInterview)
           .set({
             notes: null,
+            resumeEvaluationArtifactMode: "structured",
+            resumeEvaluationAttemptMode: "structured",
             resumeReview: null,
             resumeReviewError: null,
             resumeReviewGeneratedAt: now,
+            resumeReviewRunId: null,
             resumeReviewStatus: "ready",
             resumeScreeningError: null,
             resumeScreeningEvaluatedAt: null,
@@ -235,6 +242,8 @@ const lifecycleDeps: ResumeAssessmentLifecycleDeps = {
       .update(studioInterview)
       .set({
         notes: input.assessment.review,
+        resumeEvaluationArtifactMode: "legacy",
+        resumeEvaluationAttemptMode: "legacy",
         resumeReview: input.assessment.resumeReview,
         resumeReviewError: null,
         resumeReviewGeneratedAt: now,

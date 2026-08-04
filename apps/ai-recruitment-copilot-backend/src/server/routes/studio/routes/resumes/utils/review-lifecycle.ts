@@ -26,6 +26,8 @@ export type GeneratedResumeAssessment =
 export interface ResumeAssessmentRecord {
   jobDescriptionId: string | null;
   evaluationMode: "legacy" | "structured" | null;
+  resumeEvaluationArtifactMode: "legacy" | "structured" | null;
+  resumeEvaluationAttemptMode: "legacy" | "structured" | null;
   outcome: CandidateOutcome;
   pipelineStage: PipelineStage;
   resumeParseStatus: ResumeParseStatus;
@@ -99,10 +101,15 @@ function resolveExistingAssessment(input: {
   key: ResumeAssessmentLifecycleKey;
   record: ResumeAssessmentRecord;
 }): Extract<ResumeAssessmentLifecycleResult, { status: "skipped" }> | null {
-  const hasCurrentArtifact =
-    input.record.evaluationMode === "structured"
-      ? Boolean(input.record.structuredResumeEvaluation)
-      : Boolean(input.record.resumeReview);
+  let hasCurrentArtifact: boolean;
+  if (input.record.resumeEvaluationArtifactMode === "structured") {
+    hasCurrentArtifact = Boolean(input.record.structuredResumeEvaluation);
+  } else if (input.record.resumeEvaluationArtifactMode === "legacy") {
+    hasCurrentArtifact = Boolean(input.record.resumeReview);
+  } else {
+    hasCurrentArtifact =
+      Boolean(input.record.structuredResumeEvaluation) || Boolean(input.record.resumeReview);
+  }
   if (input.force || !hasCurrentArtifact || !input.record.evaluationMode) {
     return null;
   }
@@ -150,7 +157,7 @@ export async function runResumeAssessmentLifecycle(
       ...key,
       errorMessage: error.message,
       expectedJobDescriptionId: record.jobDescriptionId,
-      mode: record.evaluationMode ?? "legacy",
+      mode: record.resumeEvaluationAttemptMode ?? record.evaluationMode ?? "legacy",
     });
     if (!marked) {
       return { reason: "stale_job_description", status: "skipped" };
@@ -174,11 +181,12 @@ export async function runResumeAssessmentLifecycle(
     expectedJobDescriptionId: record.jobDescriptionId,
     runId: record.resumeReviewRunId,
   };
+  const attemptMode = record.resumeEvaluationAttemptMode ?? record.evaluationMode;
   if (
     !(await deps.markProcessing({
       ...key,
       ...guard,
-      mode: record.evaluationMode,
+      mode: attemptMode,
     }))
   ) {
     return { reason: "stale_job_description", status: "skipped" };
@@ -199,8 +207,8 @@ export async function runResumeAssessmentLifecycle(
       resumeText: record.resumeText,
       runId: record.resumeReviewRunId,
     });
-    if (assessment.mode !== record.evaluationMode) {
-      throw new Error("评估结果模式与岗位评估模式不一致。");
+    if (assessment.mode !== attemptMode) {
+      throw new Error("评估结果模式与本次评估模式不一致。");
     }
     const committed = await deps.markReady({ ...key, ...guard, assessment });
     return committed ? { status: "ready" } : { reason: "superseded", status: "skipped" };
@@ -210,7 +218,7 @@ export async function runResumeAssessmentLifecycle(
       ...key,
       ...guard,
       errorMessage,
-      mode: record.evaluationMode,
+      mode: attemptMode,
     });
     if (!committed) {
       return { reason: "superseded", status: "skipped" };

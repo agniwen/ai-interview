@@ -249,7 +249,7 @@ function ResumeOverviewAiScoreSection({
 }) {
   const review = detail.resumeReview;
   const structuredEvaluation =
-    detail.jobEvaluationMode === "structured" ? detail.structuredResumeEvaluation : null;
+    detail.resumeEvaluationArtifactMode === "structured" ? detail.structuredResumeEvaluation : null;
   let score = review ? getResumeReviewBaseScore(review) : null;
   let conclusion: string | null = review?.overall.conclusion ?? "暂无 AI评分结果";
   let scoreRationale =
@@ -264,7 +264,7 @@ function ResumeOverviewAiScoreSection({
     <Badge variant="outline">未生成</Badge>
   );
 
-  if (detail.jobEvaluationMode === "structured") {
+  if (detail.resumeEvaluationArtifactMode === "structured") {
     score = structuredEvaluation?.calculations.compositeScore ?? null;
     conclusion = structuredEvaluation
       ? structuredConclusion(structuredEvaluation)
@@ -293,12 +293,33 @@ function ResumeOverviewAiScoreSection({
     }
   }
 
+  if (detail.resumeEvaluationArtifactMode === "legacy" && review) {
+    statusBadges = (
+      <>
+        <Badge variant="outline">老版本结果</Badge>
+        {statusBadges}
+      </>
+    );
+  }
+
   const isPriorStructuredRun =
     Boolean(structuredEvaluation?.runId) &&
     Boolean(detail.resumeReviewRunId) &&
     structuredEvaluation?.runId !== detail.resumeReviewRunId;
   let retainedResultNotice: string | null = null;
-  if (isPriorStructuredRun && detail.resumeReviewStatus === "failed") {
+  if (
+    detail.resumeEvaluationArtifactMode === "legacy" &&
+    detail.resumeEvaluationAttemptMode === "structured" &&
+    detail.resumeReviewStatus === "failed"
+  ) {
+    retainedResultNotice = `${detail.resumeReviewError || "新版评估失败"} 当前展示老版本结果。`;
+  } else if (
+    detail.resumeEvaluationArtifactMode === "legacy" &&
+    detail.resumeEvaluationAttemptMode === "structured" &&
+    (detail.resumeReviewStatus === "processing" || detail.resumeReviewStatus === "queued")
+  ) {
+    retainedResultNotice = "正在使用新版重新评估，当前展示老版本结果。";
+  } else if (isPriorStructuredRun && detail.resumeReviewStatus === "failed") {
     retainedResultNotice = `${detail.resumeReviewError || "评估失败"} 当前展示上一次已完成的评估结果。`;
   } else if (
     isPriorStructuredRun &&

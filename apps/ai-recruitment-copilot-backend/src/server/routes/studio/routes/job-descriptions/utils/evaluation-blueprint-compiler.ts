@@ -190,6 +190,57 @@ function sourceContains(source: string | null | undefined, quote: string): boole
   return normalizeSource(source).includes(normalizeSource(quote));
 }
 
+const JD_SECTION_HEADING_RE =
+  /^(?:#{1,6}\s*)?(岗位定位|岗位职责|任职要求|技能要求|核心技能|辅助技能|经验要求|项目要求|学历要求|潜力与稳定性|优先条件|优先项|加分项)\s*[:：]?\s*(.*)$/u;
+const PRIORITY_SECTION_NAMES = new Set(["优先条件", "优先项", "加分项"]);
+const MAX_SCORING_SKILLS_PER_TIER = 8;
+const NON_SKILL_CONCEPT_RE =
+  /经验|经历|从业|需求拆解|拆解需求|项目把控|把控项目|技术难点攻坚|攻坚技术难点|平台增长|项目落地|团队管理|研发管理|跨部门协同|结果导向|业务落地|技术体系建设|人才梯队/u;
+
+function partitionJobSource(value: string): { base: string; priority: string } {
+  const base: string[] = [];
+  const priority: string[] = [];
+  let inPrioritySection = false;
+  for (const line of value.split(/\r?\n/u)) {
+    const heading = JD_SECTION_HEADING_RE.exec(line.trim());
+    if (heading) {
+      inPrioritySection = PRIORITY_SECTION_NAMES.has(heading[1] ?? "");
+      const inlineContent = heading[2]?.trim();
+      if (inlineContent) {
+        (inPrioritySection ? priority : base).push(inlineContent);
+      }
+      continue;
+    }
+    (inPrioritySection ? priority : base).push(line);
+  }
+  return { base: base.join("\n"), priority: priority.join("\n") };
+}
+
+function sourceAppearsOnlyInPrioritySection(
+  input: Pick<CompileEvaluationBlueprintInput, "description" | "prompt">,
+  sourceText: string,
+): boolean {
+  const sections = [input.description ?? "", input.prompt].map(partitionJobSource);
+  return (
+    sections.some((section) => sourceContains(section.priority, sourceText)) &&
+    !sections.some((section) => sourceContains(section.base, sourceText))
+  );
+}
+
+function baseScoringSource(value: string): string {
+  return partitionJobSource(value).base;
+}
+
+function isScoringSkillCandidate(
+  input: CompileEvaluationBlueprintInput,
+  candidate: BlueprintSkillCandidate,
+): boolean {
+  if (sourceAppearsOnlyInPrioritySection(input, candidate.sourceText)) {
+    return false;
+  }
+  return !NON_SKILL_CONCEPT_RE.test(normalizeSource(candidate.normalizedSkill));
+}
+
 function hardGateSource(
   config: JobDescriptionStructuredConfig,
   category: keyof typeof HARD_GATE_SOURCE_KEYS,
@@ -249,6 +300,9 @@ function mapSkillCandidates(
 ) {
   const unique = new Map<string, (typeof candidates)[number]>();
   for (const candidate of candidates) {
+    if (!isScoringSkillCandidate(input, candidate)) {
+      continue;
+    }
     const key = normalizeSource(candidate.normalizedSkill);
     if (!unique.has(key)) {
       unique.set(key, candidate);
@@ -335,6 +389,9 @@ function normalizeRelevantExperienceScope(
 
 function compileRelevantExperienceCandidates(input: CompileEvaluationBlueprintInput) {
   return input.modelOutput.requiredRelevantExperiences.flatMap((candidate) => {
+    if (sourceAppearsOnlyInPrioritySection(input, candidate.sourceText)) {
+      return [];
+    }
     try {
       return [
         {
@@ -351,9 +408,11 @@ function compileRelevantExperienceCandidates(input: CompileEvaluationBlueprintIn
   });
 }
 
-function explicitExperienceThresholds(input: CompileEvaluationBlueprintInput) {
+function explicitExperienceThresholds(
+  input: Pick<CompileEvaluationBlueprintInput, "description" | "prompt">,
+) {
   const unique = new Map<string, { clause: string; years: number }>();
-  for (const source of [input.description ?? "", input.prompt]) {
+  for (const source of [input.description ?? "", input.prompt].map(baseScoringSource)) {
     for (const rawClause of source.split(/[\n；;。，,]+/u)) {
       const clause = rawClause
         .trim()
@@ -382,8 +441,8 @@ function explicitExperienceThresholds(input: CompileEvaluationBlueprintInput) {
 }
 
 function assertCompleteExperienceRequirementCoverage(
-  input: CompileEvaluationBlueprintInput,
-  candidates: ReturnType<typeof compileRelevantExperienceCandidates>,
+  input: Pick<CompileEvaluationBlueprintInput, "description" | "prompt">,
+  candidates: readonly { sourceText: string; years: number }[],
 ): void {
   const usedCandidateIndexes = new Set<number>();
   for (const threshold of explicitExperienceThresholds(input)) {
@@ -512,6 +571,9 @@ function compileDimensionExpectations(input: CompileEvaluationBlueprintInput) {
         JobEvaluationBlueprint["dimensionExpectations"][keyof JobEvaluationBlueprint["dimensionExpectations"]][number]
       >();
       for (const sourceExpectation of [...supplementalExperienceExpectations, ...expectations]) {
+        if (sourceAppearsOnlyInPrioritySection(input, sourceExpectation.sourceText)) {
+          continue;
+        }
         const expectation = normalizeDimensionExpectation(
           dimension as keyof typeof DIMENSION_EXPECTATION_LIMITS,
           sourceExpectation,
@@ -545,7 +607,7 @@ function compileDimensionExpectations(input: CompileEvaluationBlueprintInput) {
 
 function compileEducationExpectation(input: CompileEvaluationBlueprintInput) {
   const expectation = input.modelOutput.educationExpectation;
-  if (!expectation) {
+  if (!expectation || sourceAppearsOnlyInPrioritySection(input, expectation.sourceText)) {
     return null;
   }
   try {
@@ -586,11 +648,14 @@ export function compileEvaluationBlueprint(
   }
   assertCompleteHardGateCoverage(input, hardGateAtoms);
 
-  const coreSkills = mapSkillCandidates(input, input.modelOutput.coreSkills);
-  const coreKeys = new Set(coreSkills.map((skill) => normalizeSource(skill.normalizedSkill)));
-  const auxiliarySkills = mapSkillCandidates(input, input.modelOutput.auxiliarySkills).filter(
-    (skill) => !coreKeys.has(normalizeSource(skill.normalizedSkill)),
+  const coreSkills = mapSkillCandidates(input, input.modelOutput.coreSkills).slice(
+    0,
+    MAX_SCORING_SKILLS_PER_TIER,
   );
+  const coreKeys = new Set(coreSkills.map((skill) => normalizeSource(skill.normalizedSkill)));
+  const auxiliarySkills = mapSkillCandidates(input, input.modelOutput.auxiliarySkills)
+    .filter((skill) => !coreKeys.has(normalizeSource(skill.normalizedSkill)))
+    .slice(0, MAX_SCORING_SKILLS_PER_TIER);
 
   const dimensionExpectations = compileDimensionExpectations(input);
   const compiledExperienceCandidates = compileRelevantExperienceCandidates(input);
@@ -636,7 +701,7 @@ export function compileEvaluationBlueprint(
   return jobEvaluationBlueprintSchema.parse(blueprint);
 }
 
-export const JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION = "structured-job-blueprint-v8";
+export const JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION = "structured-job-blueprint-v9";
 
 interface EvaluationBlueprintGenerationJob {
   description: string | null;
@@ -704,6 +769,7 @@ function validateRemainingDimensionsCandidate(
   input: ScoringBlueprintGenerationInput,
 ): void {
   validateScoringCandidateSources(value, input);
+  assertCompleteExperienceRequirementCoverage(input, value.requiredRelevantExperiences);
   if (value.dimensionExpectations.projectMatch.length > 3) {
     throw new Error("projectMatch 最多返回 3 项岗位级项目标准。");
   }
@@ -755,7 +821,9 @@ function generateScoringBlueprintCandidate(
         'JSON 字段必须严格为：{"coreSkills":[{"normalizedSkill":"标准技能名","sourceText":"JD连续原文"}],"auxiliarySkills":[{"normalizedSkill":"标准技能名","sourceText":"JD连续原文"}],"educationExpectation":{"degreeLevel":"bachelor","majorExpectation":"专业要求","sourceText":"JD连续原文"}}。degreeLevel 只能是 associate、bachelor、master、doctorate 或 JSON null；majorExpectation 可为 JSON null；没有学历要求时 educationExpectation 返回 JSON null。没有技能时数组返回 []，不得省略任何字段。',
         "不得推测或生成硬性门槛、权重、扣分数值、优先条件或排除条件。enabledRuleIds 只表示启用的基础规则，不代表分值。",
         "只能复述 description 或 prompt 中存在的要求，每项 sourceText 必须逐字复制其中的最短连续原文片段，禁止删词、改写或拼接；括号内的“请 HR 确认”等文字也不得擅自删除。对于新版岗位，prompt 是 HR 确认后的完整 JD。",
-        "核心技能来自强制、必需、精通等明确要求；辅助技能来自优先、加分、了解、熟悉等软要求。合并同义项后核心技能最多 20 项，辅助技能最多 12 项。",
+        "技能只包括岗位明确要求候选人掌握的技术语言、框架、工具、平台或专业方法；岗位职责、经验、项目、管理行为、业务成果和软能力不得作为技能。",
+        "核心技能只来自任职要求、核心技能或技能要求中“必须、精通、熟练掌握”等明确强要求；辅助技能来自“熟悉、了解”等软要求。不要把职责动作拆成技能。合并同义项后核心技能最多 8 项，辅助技能最多 8 项。",
+        "优先条件或加分项下的内容不得进入技能；从业背景、行业经历和项目经历应留在经验或项目维度。",
         "educationExpectation 只提取 JD 明确写出的学历层级和专业要求；没有则返回 null。不要生成 ID、分数或扣分。",
         JSON.stringify(skillEducationInput),
       ].join("\n"),
@@ -774,6 +842,7 @@ function generateScoringBlueprintCandidate(
         "不得推测或生成硬性门槛、权重、扣分数值、优先条件或排除条件。enabledRuleIds 只表示启用的基础规则，不代表分值。",
         "只能复述 description 或 prompt 中存在的要求，每项 sourceText 必须逐字复制其中的最短连续原文片段，禁止删词、改写或拼接；括号内的“请 HR 确认”等文字也不得擅自删除。对于新版岗位，prompt 是 HR 确认后的完整 JD。",
         "保留全部明确经验年限到 requiredRelevantExperiences，不要自行合并。只有原文明示总工作经验、累计工作经验或工作年限时才用 total_employment；前端、管理等限定经验使用对应 role 或 capability。",
+        "优先条件或加分项下的内容不得进入基础评分依据；这些内容缺失时不能产生扣分。不要把同一要求同时放进技能、经验和项目。",
         "experienceRelevance 填行业、岗位、管理或业务经验要求，最多 6 项；团队人数、管理范围等无法用单一年限表达的条件也要保留，相邻的管理年限和团队规模合并为一项。",
         "projectMatch 不是摘抄岗位职责，而是根据整个岗位最需要候选人证明的项目经历，提炼为最多 3 项岗位级项目标准。按核心业务交付、复杂技术/工程体系、关键业务成果等主题合并；expectation 每项建议 20～50 字、最多 80 字，描述项目类型、复杂度、候选人角色和预期成果，不要逐条复述职责；sourceText 单独保留最能支撑该标准的 JD 连续原文。经验和项目均需重点阅读岗位职责。",
         "potential 只提取对候选人本人学习、成长、创新或能力进阶的明确要求；培养下属、人才梯队和团队效率属于管理经验。stability 只填任职连续性、跳槽和空档要求，驻外意愿、工作地点、语言或证书不得放入 stability。无原文依据的维度返回空数组。",

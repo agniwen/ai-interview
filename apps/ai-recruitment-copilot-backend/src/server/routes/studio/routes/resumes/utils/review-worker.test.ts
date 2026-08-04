@@ -71,6 +71,8 @@ function assessmentRecord(overrides: Record<string, unknown>) {
     outcome: "in_pipeline",
     pipelineStage: "screening",
     resumeContentHash: "content-hash",
+    resumeEvaluationArtifactMode: null,
+    resumeEvaluationAttemptMode: "legacy",
     resumeParseStatus: "ready",
     resumeProfile: { name: "候选人" },
     resumeReview: null,
@@ -126,6 +128,8 @@ describe("processResumeReviewGenerationJob", () => {
       resumeScreeningStatus: "processing",
     });
     expect(mocks.updates[1]).toMatchObject({
+      resumeEvaluationArtifactMode: "legacy",
+      resumeEvaluationAttemptMode: "legacy",
       resumeReview: { overall: { baseScore: 85 } },
       resumeReviewStatus: "ready",
       resumeScreeningResult: { recommendation: "pass" },

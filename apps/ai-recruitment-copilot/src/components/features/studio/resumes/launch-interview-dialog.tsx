@@ -55,7 +55,7 @@ const EMPTY_FORM_VALUES: LaunchFormValues = { interviewQuestions: [] };
 
 export function requiresStructuredLaunchConfirmation(detail: ResumeLibraryDetail | null): boolean {
   return (
-    detail?.jobEvaluationMode === "structured" &&
+    detail?.resumeEvaluationArtifactMode === "structured" &&
     (detail.structuredGateStatus === "failed" || detail.structuredScoreGrade === "unmatched")
   );
 }

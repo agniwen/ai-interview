@@ -11,7 +11,10 @@ function detail(
     "jobEvaluationMode" | "structuredGateStatus" | "structuredScoreGrade"
   >,
 ): ResumeLibraryDetail {
-  return input as ResumeLibraryDetail;
+  return {
+    ...input,
+    resumeEvaluationArtifactMode: input.jobEvaluationMode,
+  } as ResumeLibraryDetail;
 }
 
 describe("structured AI interview launch confirmation", () => {
@@ -61,6 +64,7 @@ describe("structured AI interview launch confirmation", () => {
     expect(
       getStructuredLaunchConfirmation({
         jobEvaluationMode: "structured",
+        resumeEvaluationArtifactMode: "structured",
         structuredGateStatus: "failed",
         structuredResumeEvaluation: { runId: "run-1" },
         structuredScoreGrade: "matched",

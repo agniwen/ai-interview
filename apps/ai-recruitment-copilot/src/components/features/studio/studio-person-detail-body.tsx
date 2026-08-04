@@ -800,7 +800,7 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
           {mode === "resume" ? (
             <TabsContent value="ai-analysis">
               <div className="space-y-6">
-                {resumeRecord?.jobEvaluationMode === "structured" ? (
+                {resumeRecord?.resumeEvaluationArtifactMode === "structured" ? (
                   <StructuredResumeEvaluationPanel
                     canEdit={Boolean(model.canUpdateResumeLibrary)}
                     detail={resumeRecord}

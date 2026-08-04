@@ -41,6 +41,8 @@ import { runAsyncAction } from "@/lib/client/async-control";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { JobDescriptionFormDialog } from "@/components/features/studio/job-descriptions/job-description-form-dialog";
 import { JobDescriptionTalentRecommendationsDialog } from "@/components/features/studio/job-descriptions/job-description-talent-recommendations-dialog";
+import { JobDescriptionUpgradeDialog } from "@/components/features/studio/job-descriptions/job-description-upgrade-dialog";
+import { getJobDescriptionUpgradeActionLabel } from "@/components/features/studio/job-descriptions/job-description-upgrade-state";
 import { copyTextToClipboard } from "@/lib/client/clipboard";
 import { useHasPermission } from "@/hooks/use-has-permission";
 import { toast } from "sonner";
@@ -64,6 +66,7 @@ export function JobDescriptionManagementPage({
     id: string;
     name: string;
   } | null>(null);
+  const [upgradeRecord, setUpgradeRecord] = useState<JobDescriptionRecord | null>(null);
   const [copyingReferralIds, setCopyingReferralIds] = useState<Set<string>>(() => new Set());
   const canCreateJobDescription = useHasPermission("jd", "create");
   const canUpdateJobDescription = useHasPermission("jd", "update");
@@ -220,7 +223,11 @@ export function JobDescriptionManagementPage({
       customColumn<JobDescriptionListRecord>({
         cell: (record) => {
           if (record.evaluationMode === "legacy") {
-            return <Badge variant="outline">旧版岗位</Badge>;
+            return (
+              <Badge variant="outline">
+                {record.hasEvaluationUpgradeDraft ? "旧版岗位 · 升级中" : "旧版岗位"}
+              </Badge>
+            );
           }
           return record.lifecycleStatus === "draft" ? (
             <Badge variant="secondary">草稿</Badge>
@@ -320,11 +327,30 @@ export function JobDescriptionManagementPage({
             onClick: copyReferralLink,
           },
           {
+            label: "编辑运营设置",
+            onClick: (r) => {
+              void crud.openEdit(r);
+            },
+            show: (r) => canUpdateJobDescription && r.evaluationMode === "legacy",
+          },
+          {
             label: "编辑",
             onClick: (r) => {
               void crud.openEdit(r);
             },
-            show: () => canUpdateJobDescription,
+            show: (r) => canUpdateJobDescription && r.evaluationMode === "structured",
+          },
+          {
+            label: "升级到新版",
+            onClick: (r) => setUpgradeRecord(r),
+            show: (r) =>
+              canUpdateJobDescription && getJobDescriptionUpgradeActionLabel(r) === "升级到新版",
+          },
+          {
+            label: "继续升级",
+            onClick: (r) => setUpgradeRecord(r),
+            show: (r) =>
+              canUpdateJobDescription && getJobDescriptionUpgradeActionLabel(r) === "继续升级",
           },
         ],
         menu: [
@@ -454,6 +480,17 @@ export function JobDescriptionManagementPage({
           record={crud.editingRecord}
         />
       ) : null}
+
+      <JobDescriptionUpgradeDialog
+        onChanged={invalidateJobDescriptionData}
+        onOpenChange={(next) => {
+          if (!next) {
+            setUpgradeRecord(null);
+          }
+        }}
+        open={canUpdateJobDescription && upgradeRecord !== null}
+        record={upgradeRecord}
+      />
 
       <EntityDeleteDialog
         confirmDisabled={(record) => record.resumeCount > 0}

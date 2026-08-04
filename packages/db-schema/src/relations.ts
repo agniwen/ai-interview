@@ -209,6 +209,8 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.jobDescription.departmentId,
       to: r.department.id,
     }),
+    evaluationUpgradeAudits: r.many.jobDescriptionEvaluationUpgradeAudit(),
+    evaluationUpgradeDraft: r.one.jobDescriptionEvaluationUpgradeDraft(),
     interviewQuestionTemplateLinks: r.many.interviewQuestionTemplateJobDescription(),
     interviewerLinks: r.many.jobDescriptionInterviewer(),
     organization: r.one.organization({
@@ -219,6 +221,30 @@ export const relations = defineRelations(schema, (r) => ({
     user: r.one.user({
       from: r.jobDescription.createdBy,
       to: r.user.id,
+    }),
+  },
+  jobDescriptionEvaluationUpgradeAudit: {
+    jobDescription: r.one.jobDescription({
+      from: r.jobDescriptionEvaluationUpgradeAudit.jobDescriptionId,
+      to: r.jobDescription.id,
+    }),
+    organization: r.one.organization({
+      from: r.jobDescriptionEvaluationUpgradeAudit.organizationId,
+      to: r.organization.id,
+    }),
+    user: r.one.user({
+      from: r.jobDescriptionEvaluationUpgradeAudit.upgradedBy,
+      to: r.user.id,
+    }),
+  },
+  jobDescriptionEvaluationUpgradeDraft: {
+    jobDescription: r.one.jobDescription({
+      from: r.jobDescriptionEvaluationUpgradeDraft.jobDescriptionId,
+      to: r.jobDescription.id,
+    }),
+    organization: r.one.organization({
+      from: r.jobDescriptionEvaluationUpgradeDraft.organizationId,
+      to: r.organization.id,
     }),
   },
   jobDescriptionInterviewer: {

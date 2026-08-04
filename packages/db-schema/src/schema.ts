@@ -473,6 +473,10 @@ export const studioInterview = pgTable(
     // Stage axis; default lets pre-migration INSERTs succeed.
     pipelineStage: text("pipeline_stage").$type<PipelineStage>().notNull().default("screening"),
     resumeContentHash: text("resume_content_hash"),
+    resumeEvaluationArtifactMode: text(
+      "resume_evaluation_artifact_mode",
+    ).$type<JobEvaluationMode>(),
+    resumeEvaluationAttemptMode: text("resume_evaluation_attempt_mode").$type<JobEvaluationMode>(),
     resumeEvaluationStatus: text("resume_evaluation_status").$type<ResumeEvaluationStatus>(),
     resumeFileName: text("resume_file_name"),
     resumeParseError: text("resume_parse_error"),
@@ -562,6 +566,14 @@ export const studioInterview = pgTable(
     check(
       "studio_interview_resume_evaluation_status_check",
       sql`${table.resumeEvaluationStatus} IS NULL OR ${table.resumeEvaluationStatus} IN ('pass', 'fail')`,
+    ),
+    check(
+      "studio_interview_resume_evaluation_artifact_mode_check",
+      sql`${table.resumeEvaluationArtifactMode} IS NULL OR ${table.resumeEvaluationArtifactMode} IN ('legacy', 'structured')`,
+    ),
+    check(
+      "studio_interview_resume_evaluation_attempt_mode_check",
+      sql`${table.resumeEvaluationAttemptMode} IS NULL OR ${table.resumeEvaluationAttemptMode} IN ('legacy', 'structured')`,
     ),
     index("studio_interview_resume_parse_status_idx").on(table.resumeParseStatus),
     index("studio_interview_resume_source_pool_item_idx").on(table.resumeSourcePoolItemId),
@@ -762,6 +774,10 @@ export const jobDescription = pgTable(
       .$type<JobEvaluationMode>()
       .notNull()
       .default("structured"),
+    evaluationUpgradedAt: timestamp("evaluation_upgraded_at", { withTimezone: true }),
+    evaluationUpgradedBy: text("evaluation_upgraded_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
     feishuChatBoundAt: timestamp("feishu_chat_bound_at", { withTimezone: true }),
     feishuChatBoundBy: text("feishu_chat_bound_by").references(() => user.id, {
       onDelete: "set null",
@@ -858,6 +874,84 @@ export const jobDescription = pgTable(
         AND ${table.evaluationBlueprintPreviewGeneratedAt} IS NULL
       )`,
     ),
+  ],
+);
+
+export const jobDescriptionEvaluationUpgradeDraft = pgTable(
+  "job_description_evaluation_upgrade_draft",
+  {
+    blueprintPreview: jsonb("blueprint_preview").$type<JobEvaluationBlueprint | null>(),
+    blueprintPreviewGeneratedAt: timestamp("blueprint_preview_generated_at", {
+      withTimezone: true,
+    }),
+    blueprintPreviewHash: text("blueprint_preview_hash"),
+    blueprintPreviewInputHash: text("blueprint_preview_input_hash"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    id: text("id").primaryKey(),
+    jobDescriptionId: text("job_description_id")
+      .notNull()
+      .references(() => jobDescription.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    prompt: text("prompt").notNull(),
+    structuredConfig: jsonb("structured_config").$type<JobDescriptionStructuredConfig>().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+    version: integer("version").notNull().default(1),
+  },
+  (table) => [
+    uniqueIndex("job_description_evaluation_upgrade_draft_job_uq").on(table.jobDescriptionId),
+    index("job_description_evaluation_upgrade_draft_org_idx").on(table.organizationId),
+    check(
+      "job_description_evaluation_upgrade_draft_preview_check",
+      sql`(
+        ${table.blueprintPreview} IS NULL
+        AND ${table.blueprintPreviewInputHash} IS NULL
+        AND ${table.blueprintPreviewHash} IS NULL
+        AND ${table.blueprintPreviewGeneratedAt} IS NULL
+      ) OR (
+        ${table.blueprintPreview} IS NOT NULL
+        AND ${table.blueprintPreviewInputHash} IS NOT NULL
+        AND ${table.blueprintPreviewHash} IS NOT NULL
+        AND ${table.blueprintPreviewGeneratedAt} IS NOT NULL
+      )`,
+    ),
+    check("job_description_evaluation_upgrade_draft_version_check", sql`${table.version} > 0`),
+  ],
+);
+
+export const jobDescriptionEvaluationUpgradeAudit = pgTable(
+  "job_description_evaluation_upgrade_audit",
+  {
+    blueprint: jsonb("blueprint").$type<JobEvaluationBlueprint>().notNull(),
+    blueprintHash: text("blueprint_hash").notNull(),
+    blueprintSchemaVersion: integer("blueprint_schema_version").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    deductionRuleSetVersion: integer("deduction_rule_set_version").notNull(),
+    draftVersion: integer("draft_version").notNull(),
+    id: text("id").primaryKey(),
+    jobDescriptionId: text("job_description_id")
+      .notNull()
+      .references(() => jobDescription.id, { onDelete: "cascade" }),
+    legacySnapshot: jsonb("legacy_snapshot").$type<Record<string, unknown>>().notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    prompt: text("prompt").notNull(),
+    structuredConfig: jsonb("structured_config").$type<JobDescriptionStructuredConfig>().notNull(),
+    upgradedBy: text("upgraded_by").references(() => user.id, { onDelete: "set null" }),
+  },
+  (table) => [
+    index("job_description_evaluation_upgrade_audit_job_idx").on(
+      table.jobDescriptionId,
+      table.createdAt,
+    ),
+    index("job_description_evaluation_upgrade_audit_org_idx").on(table.organizationId),
   ],
 );
 
