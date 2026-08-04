@@ -10,7 +10,6 @@ import type {
 import { toJobEvaluationRuleDraft } from "@arc/db-schema/job-description-evaluation";
 import type { DepartmentRecord } from "@arc/shared/departments";
 import type { InterviewerListRecord } from "@arc/shared/interviewers";
-import type { ResumeScreeningPolicy } from "@arc/shared/resume-screening";
 import type { InterviewQuestionTemplateListRecord } from "@arc/db-schema/interview-question-templates";
 import type { JobDescriptionDeductionRules } from "@arc/db-schema/job-description-structured-config";
 import {
@@ -54,7 +53,6 @@ import { TextareaCounter } from "@/components/ui/textarea-counter";
 import { hasFieldErrors, toFieldErrors } from "../interviews/interview-form";
 import { JobDescriptionStructuredFields } from "./job-description-structured-fields";
 import { JobEvaluationBlueprintPreview } from "./job-evaluation-blueprint-preview";
-import { ResumeScreeningPolicyFields } from "./job-description-screening-fields";
 import {
   LinkedFormsList,
   LinkedInterviewQuestionTemplatesList,
@@ -66,7 +64,7 @@ const NAME_MAX_LENGTH = 120;
 const DESCRIPTION_MAX_LENGTH = 500;
 const PROMPT_MAX_LENGTH = 10_000;
 
-type JobDescriptionFormTab = "basic" | "screening" | "interview-questions" | "forms";
+type JobDescriptionFormTab = "basic" | "interview-questions" | "forms";
 type JobDescriptionSubmitAction = "preview" | "save";
 type JobDescriptionMutationPayload = Partial<JobDescriptionRecord> & { error?: string };
 
@@ -176,15 +174,17 @@ export function JobDescriptionFormDialog({
   const currentRecord = workingRecord;
   const isEdit = currentRecord !== null;
   const isLegacyJob = currentRecord?.evaluationMode === "legacy";
-  const evaluationFrozen =
-    currentRecord?.evaluationMode === "structured" && currentRecord.lifecycleStatus === "published";
+  const evaluationFrozen = Boolean(
+    currentRecord?.evaluationMode === "legacy" ||
+    (currentRecord?.evaluationMode === "structured" &&
+      currentRecord.lifecycleStatus === "published"),
+  );
   const isStructuredDraft =
     currentRecord?.evaluationMode === "structured" && currentRecord.lifecycleStatus === "draft";
   const codeLocked = Boolean(currentRecord?.code);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [isGeneratingJobDescription, setIsGeneratingJobDescription] = useState(false);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
-  const [isGeneratingScreeningPolicy, setIsGeneratingScreeningPolicy] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [preview, setPreview] = useState<{
     blueprint: JobEvaluationBlueprint;
@@ -295,11 +295,8 @@ export function JobDescriptionFormDialog({
           (key === "structuredConfig" || key.startsWith("structuredConfig.")) &&
           (fieldMeta.errors?.length ?? 0) > 0,
       );
-      const hasScreeningError = (meta.resumeScreeningPolicy?.errors?.length ?? 0) > 0;
       if (hasBasicError || hasStructuredError) {
         setActiveTab("basic");
-      } else if (isLegacyJob && hasScreeningError) {
-        setActiveTab("screening");
       }
     },
     onSubmitMeta: { action: "save" } as { action: JobDescriptionSubmitAction },
@@ -567,42 +564,6 @@ export function JobDescriptionFormDialog({
     );
   }
 
-  async function handleGenerateScreeningPolicy() {
-    const { values } = form.store.state;
-    if (!values.prompt.trim()) {
-      toast.error("请先填写岗位 Prompt");
-      return;
-    }
-    setIsGeneratingScreeningPolicy(true);
-    await withCleanup(
-      async () => {
-        const response = await rpc.api.w[":slug"].studio["job-descriptions"][
-          "generate-screening-policy"
-        ].$post({
-          json: {
-            description: values.description?.trim() || undefined,
-            name: values.name.trim() || undefined,
-            prompt: values.prompt.trim(),
-          },
-          param: { slug },
-        });
-        const payload = (await response.json().catch(() => null)) as {
-          error?: string;
-          policy?: ResumeScreeningPolicy;
-        } | null;
-        if (!response.ok || !payload?.policy) {
-          toast.error(payload?.error ?? "筛选规则生成失败");
-          return;
-        }
-        form.setFieldValue("resumeScreeningPolicy", payload.policy);
-        toast.success(
-          payload.policy.rules.length > 0 ? "已生成筛选规则草稿" : "JD 中未发现明确筛选规则",
-        );
-      },
-      () => setIsGeneratingScreeningPolicy(false),
-    );
-  }
-
   async function handleGenerateJobDescription() {
     const { values } = form.store.state;
     const currentJobDescription = values.prompt.trim();
@@ -708,7 +669,7 @@ export function JobDescriptionFormDialog({
         title={isEdit ? "编辑在招岗位" : "新建在招岗位"}
         description={
           isLegacyJob
-            ? "维护旧版岗位描述与面试 Prompt。"
+            ? "旧版评估配置只读；这里仅维护所属部门、跨部门范围和面试官。需要修改评估设置时，请从岗位列表发起新版升级。"
             : "岗位 JD 同时用于简历评估和 AI 面试，请确认要求清晰、分层且可量化。"
         }
         bodyClassName={isLegacyJob ? undefined : "px-5 py-3"}
@@ -719,7 +680,6 @@ export function JobDescriptionFormDialog({
           isEdit ? (
             <TabsList className="mt-2">
               <TabsTrigger value="basic">基本信息</TabsTrigger>
-              {isLegacyJob ? <TabsTrigger value="screening">筛选规则</TabsTrigger> : null}
               <TabsTrigger value="interview-questions">沟通题</TabsTrigger>
               <TabsTrigger value="forms">表单题</TabsTrigger>
             </TabsList>
@@ -1139,20 +1099,6 @@ export function JobDescriptionFormDialog({
                 </form.Field>
               )}
             </TabsContent>
-            {isLegacyJob ? (
-              <TabsContent value="screening">
-                <form.Field name="resumeScreeningPolicy">
-                  {(field) => (
-                    <ResumeScreeningPolicyFields
-                      isGenerating={isGeneratingScreeningPolicy}
-                      onChange={field.handleChange}
-                      onGenerateFromJobDescription={handleGenerateScreeningPolicy}
-                      policy={field.state.value}
-                    />
-                  )}
-                </form.Field>
-              </TabsContent>
-            ) : null}
             {isEdit ? (
               <TabsContent value="interview-questions">
                 {/* oxlint-disable-next-line no-use-before-define */}

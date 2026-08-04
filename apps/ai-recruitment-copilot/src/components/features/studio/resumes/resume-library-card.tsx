@@ -388,14 +388,28 @@ function ResumeLibraryCardComponent({
   const summary = record.resumeSummary;
   const canCopyLink = canCopyResumeDetailLink({ currentMemberRole, currentUserId, record });
   const { jobDescriptionId } = record;
-  const reviewCard =
-    record.jobEvaluationMode === "structured"
+  const artifactMode = record.resumeEvaluationArtifactMode ?? record.jobEvaluationMode;
+  const hasRetainedLegacyReview =
+    artifactMode === "legacy" && record.resumeReviewBaseScore !== null;
+  const baseReviewCard =
+    artifactMode === "structured"
       ? describeStructuredReviewCard(record)
       : describeResumeLibraryReviewCard({
           baseScore: record.resumeReviewBaseScore,
           nextStepAction: record.resumeReviewNextStepAction,
-          status: record.resumeReviewStatus,
+          status: hasRetainedLegacyReview ? "ready" : record.resumeReviewStatus,
         });
+  const reviewCard = hasRetainedLegacyReview
+    ? { ...baseReviewCard, label: `老版本结果 · ${baseReviewCard.label}` }
+    : baseReviewCard;
+  let replacementAttemptLabel: string | null = null;
+  if (hasRetainedLegacyReview && record.resumeEvaluationAttemptMode === "structured") {
+    if (record.resumeReviewStatus === "queued" || record.resumeReviewStatus === "processing") {
+      replacementAttemptLabel = "新版重评中";
+    } else if (record.resumeReviewStatus === "failed") {
+      replacementAttemptLabel = "新版重评失败";
+    }
+  }
   const jobDescriptionTextClass =
     "block w-full max-w-full min-w-0 truncate text-left underline decoration-transparent underline-offset-2 transition-colors hover:decoration-foreground/40";
   const toggleSelected = () => onSelectChange(record.id, !selected);
@@ -538,13 +552,20 @@ function ResumeLibraryCardComponent({
                     }
                     label="下一步建议"
                   >
-                    <span
-                      className={cn(
-                        "min-w-0 truncate font-medium",
-                        REVIEW_ACTION_TONE_CLASS[reviewCard.tone],
-                      )}
-                    >
-                      {reviewCard.label}
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span
+                        className={cn(
+                          "min-w-0 truncate font-medium",
+                          REVIEW_ACTION_TONE_CLASS[reviewCard.tone],
+                        )}
+                      >
+                        {reviewCard.label}
+                      </span>
+                      {replacementAttemptLabel ? (
+                        <span className="shrink-0 text-muted-foreground">
+                          {replacementAttemptLabel}
+                        </span>
+                      ) : null}
                     </span>
                   </ResumeCardMetaItem>
                 </div>

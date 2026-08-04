@@ -11,7 +11,7 @@ This delivery includes:
 - draft and published states for new job descriptions;
 - immutable resume-evaluation settings after publication;
 - a publish-time, recruiter-confirmed evaluation blueprint;
-- permanent separation between legacy and structured job evaluation;
+- explicit separation between legacy and structured evaluation artifacts, including after an optional legacy-job upgrade;
 - a dedicated structured Mastra workflow;
 - atomic hard-gate judgments and evidence;
 - versioned, product-owned six-dimension rule identities and semantics, with job-owned enablement and integer deduction values;
@@ -24,7 +24,6 @@ This delivery includes:
 
 This delivery excludes:
 
-- upgrading a legacy job in place;
 - converting legacy screening policies or scores;
 - automatically reassessing historical candidates;
 - automatic candidate-stage progression;
@@ -37,12 +36,12 @@ This delivery excludes:
 
 ### Evaluation modes
 
-Every job has one immutable evaluation mode:
+Every job has one server-owned current evaluation mode:
 
-- `legacy`: every job that existed before structured evaluation. It permanently uses the existing screening and resume-review flow.
-- `structured`: every new job published through the structured configuration flow. It permanently uses the new structured workflow.
+- `legacy`: a job that existed before structured evaluation and has not published an upgrade. It continues to use the existing screening and resume-review flow.
+- `structured`: a newly published structured job or a legacy job that has atomically published a structured upgrade. New evaluation attempts use the structured workflow.
 
-A legacy job cannot enable structured evaluation. To use the new rules for the same role, the recruiter creates a new job, producing a separate candidate population and score lineage. Job copying is not part of V1.
+A published legacy job may optionally create one separate upgrade draft. Draft creation, editing, preview generation, and discard do not change the live job. Publishing the upgrade atomically changes the same job to `structured`, preserves its original `publishedAt`, records upgrade audit metadata, and cannot be reversed. Only the legacy public `prompt` initializes the structured configuration; the legacy `description` and screening policy are read-only references and are not converted.
 
 ### Migration identity
 
@@ -53,7 +52,7 @@ The rollout migration applies these values:
 - every job row that exists before the migration becomes `evaluationMode = legacy` and `lifecycleStatus = published`;
 - its synthetic `publishedAt` is set to its existing `createdAt` for compatibility and is not presented as a historically verified publication event;
 - every job created after the migration is server-assigned `evaluationMode = structured` and begins with `lifecycleStatus = draft`;
-- clients cannot submit or change evaluation mode;
+- clients cannot submit evaluation mode directly; the server changes it only during the guarded legacy-upgrade publication transition;
 - legacy jobs retain `resumeScreeningPolicy`; structured jobs neither require nor execute that legacy policy.
 
 The job record adds explicit lifecycle fields plus two distinct sets of structured publication data:
@@ -61,11 +60,19 @@ The job record adds explicit lifecycle fields plus two distinct sets of structur
 - draft preview fields: server-generated blueprint preview, preview-input hash, preview-blueprint hash, and preview-generated time;
 - published fields: immutable evaluation blueprint, blueprint hash, pinned deduction-rule-set version, and publication time.
 
-The published blueprint is absent for drafts and legacy jobs. Draft preview fields are absent for legacy and published jobs.
+The published blueprint is absent for new-job drafts and non-upgraded legacy jobs. New-job draft preview fields remain on their draft job row; legacy upgrade preview fields live in a separate upgrade-draft record and never modify the live legacy row.
 
-The synthetic `published` state does not retroactively apply structured-field freezing to legacy jobs. Legacy editing and versioning behavior remains unchanged; structured publication rules are enforced only when `evaluationMode = structured`.
+The synthetic `published` state does not retroactively apply structured-field freezing to a legacy job. Its operational configuration keeps the existing behavior, while evaluation-owned changes must go through the separate upgrade draft. Structured publication rules apply after `evaluationMode` becomes `structured`.
 
-Job-management responses always expose evaluation mode and lifecycle state. The legacy UI continues to show the legacy settings and never offers structured publication or the structured editor; any backfilled default `structuredConfig` on a legacy row is ignored.
+Job-management responses always expose evaluation mode, lifecycle state, upgrade audit metadata, and whether an upgrade draft exists. The legacy UI offers separate operational editing and `升级到新版`/`继续升级` actions. Any backfilled default `structuredConfig` on a legacy row is ignored until an upgrade publication stores a validated structured snapshot.
+
+### Legacy upgrade publication
+
+A published legacy job has at most one upgrade draft. The draft uses optimistic concurrency and contains only the next structured evaluation configuration, preview, input hashes, and authoring metadata. Saving or discarding it never changes recruiting behavior.
+
+Upgrade publication is one transaction that locks the job and draft, revalidates their modes and versions, verifies the confirmed preview and current input hashes, writes an audit snapshot, changes the job mode to `structured`, copies the exact confirmed configuration and blueprint, records `evaluationUpgradedAt` and `evaluationUpgradedBy`, invalidates queued or processing legacy attempts, and removes the draft. It preserves job ID, lifecycle `published`, original `publishedAt`, completed artifacts, recruiter decisions, and pipeline state. It enqueues no historical bulk reassessment.
+
+After upgrade, new candidates and explicit reassessments use structured evaluation. A historical candidate keeps a valid legacy artifact until a structured reassessment succeeds. A failed replacement attempt preserves that artifact. This requires persisted current-artifact and attempt modes; neither is inferred from the job's current mode.
 
 ### Draft and publication
 
@@ -149,7 +156,7 @@ The backend exposes separate management and recruiting loaders/validators. Recru
 
 ## Workflow boundary
 
-The legacy `resume-review-workflow` remains unchanged. The resume-evaluation lifecycle loads the bound job, requires it to be published, and resolves its immutable evaluation mode before entering Mastra:
+The legacy `resume-review-workflow` remains unchanged. The resume-evaluation lifecycle loads the bound job, requires it to be published, and resolves the mode for the new attempt before entering Mastra:
 
 ```text
 resume evaluation lifecycle
@@ -157,14 +164,15 @@ resume evaluation lifecycle
   └─ structured job → structured-resume-review-workflow
 ```
 
-The lifecycle uses a mode-aware current-result contract:
+The lifecycle uses a persisted artifact-and-attempt contract:
 
-| Mode         | Current artifact                | Legacy screening fields                    | Already-current check                              |
-| ------------ | ------------------------------- | ------------------------------------------ | -------------------------------------------------- |
-| `legacy`     | existing `resumeReview` v4      | existing result/status/error remain active | valid legacy artifact exists                       |
-| `structured` | `structuredResumeEvaluation` V1 | never read or written                      | valid structured artifact and summary fields exist |
+| Artifact mode | Current artifact                | Replacement behavior                                                            |
+| ------------- | ------------------------------- | ------------------------------------------------------------------------------- |
+| `legacy`      | existing `resumeReview` v4      | remains current while a structured replacement is queued, processing, or failed |
+| `structured`  | `structuredResumeEvaluation` V1 | remains current until evidence invalidation or another successful replacement   |
+| absent        | none                            | the target attempt follows the bound published job's current mode               |
 
-The common generation status/run/error/generated-at fields may be reused, but artifact existence, invalidation, readiness, and enqueue deduplication always branch by evaluation mode. A structured run cannot mark legacy screening as processing/ready/failed, and a null legacy `resumeReview` does not imply that a ready structured result is missing.
+The common generation status/run/error/generated-at fields may be reused, but artifact existence, invalidation, readiness, rendering, and enqueue deduplication use the persisted artifact mode. A task snapshots its attempt mode at enqueue time. Successful persistence atomically writes the mode-specific result and artifact mode; failure updates attempt state without deleting the current valid artifact. A stale or explicitly invalidated run cannot write after an upgrade publication.
 
 For a structured job, the lifecycle loads and validates the immutable published snapshot and passes it into Mastra together with the resume input. The workflow performs no job/configuration database lookup. Its input contains the job ID, blueprint and hash, frozen weights and adjustments, pinned deduction catalog, resume profile/text, one UTC `evaluationAsOf` calendar date captured at run start, and the run/input identity used to reject stale writes.
 
@@ -452,7 +460,7 @@ The stage transition uses a row lock or equivalent conditional update checked in
 
 ## Sorting and comparability
 
-Composite-score sorting and score filters are available only after selecting one job. The all-jobs view does not compare legacy and structured scores or aggregate their averages. Legacy jobs keep their existing labels and score interpretation; structured jobs use the new gates and three grades.
+Composite-score sorting and score filters are available only after selecting one job. The all-jobs view does not compare legacy and structured scores or aggregate their averages. A selected upgraded job may temporarily contain both artifact modes: structured artifacts sort first by structured rules, legacy artifacts follow and sort only by the legacy score, and candidates without an artifact sort last. The UI labels the legacy group and never directly compares its numeric scores with structured scores.
 
 Structured ordering uses materialized result fields: gate-passed/no-gate candidates first, then needs-verification candidates, then failed candidates; candidates inside each group sort by composite score descending. Score filtering uses the materialized integer composite score. Candidates without a ready current structured result sort after ready candidates.
 

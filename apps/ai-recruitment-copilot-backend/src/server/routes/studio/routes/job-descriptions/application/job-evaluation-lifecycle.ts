@@ -30,7 +30,7 @@ import {
   JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION,
 } from "../utils/evaluation-blueprint-compiler";
 
-interface JobEvaluationDraft {
+export interface JobEvaluationDraft {
   description: string | null;
   evaluationBlueprintPreview: JobEvaluationBlueprint | null;
   evaluationBlueprintPreviewHash: string | null;
@@ -409,7 +409,9 @@ function saveManualPreviewDefault(
   });
 }
 
-async function compileDefault(job: JobEvaluationDraft): Promise<JobEvaluationBlueprint> {
+export async function compileJobEvaluationDraft(
+  job: Pick<JobEvaluationDraft, "description" | "prompt" | "structuredConfig">,
+): Promise<JobEvaluationBlueprint> {
   const generatedAt = new Date().toISOString();
   let modelOutput;
   try {
@@ -534,7 +536,7 @@ function publishStoredPreviewDefault(input: PublishInput): Promise<PublishStored
 }
 
 const defaultLifecycle = createJobEvaluationLifecycle({
-  compile: compileDefault,
+  compile: compileJobEvaluationDraft,
   load: loadDefault,
   publishStoredPreview: publishStoredPreviewDefault,
   saveManualPreview: saveManualPreviewDefault,

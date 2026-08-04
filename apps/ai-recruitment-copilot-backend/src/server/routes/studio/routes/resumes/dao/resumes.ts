@@ -246,6 +246,8 @@ const SELECTED_COLUMNS = {
   >`${studioInterview.resumeProfile}->'educationExperiences'->0->>'school'`.as(
     "resume_education_school",
   ),
+  resumeEvaluationArtifactMode: studioInterview.resumeEvaluationArtifactMode,
+  resumeEvaluationAttemptMode: studioInterview.resumeEvaluationAttemptMode,
   resumeEvaluationStatus: studioInterview.resumeEvaluationStatus,
   resumeFileName: studioInterview.resumeFileName,
   resumeParseError: studioInterview.resumeParseError,
@@ -326,6 +328,8 @@ const LIST_SELECTED_COLUMNS = {
   resumeEducationMajor: SELECTED_COLUMNS.resumeEducationMajor,
   resumeEducationPeriod: SELECTED_COLUMNS.resumeEducationPeriod,
   resumeEducationSchool: SELECTED_COLUMNS.resumeEducationSchool,
+  resumeEvaluationArtifactMode: SELECTED_COLUMNS.resumeEvaluationArtifactMode,
+  resumeEvaluationAttemptMode: SELECTED_COLUMNS.resumeEvaluationAttemptMode,
   resumeEvaluationStatus: SELECTED_COLUMNS.resumeEvaluationStatus,
   resumeFileName: SELECTED_COLUMNS.resumeFileName,
   resumeParseStatus: SELECTED_COLUMNS.resumeParseStatus,
@@ -366,16 +370,33 @@ function selectRows({
 }) {
   const { page, pageSize, sortBy, sortOrder } = paginationSchema.parse(pagination ?? {});
   const offset = (page - 1) * pageSize;
+  const artifactGroup = sql`case
+    when ${studioInterview.resumeEvaluationArtifactMode} = 'structured'
+      or (
+        ${studioInterview.resumeEvaluationArtifactMode} is null
+        and ${studioInterview.structuredCompositeScore} is not null
+      ) then 0
+    when ${studioInterview.resumeEvaluationArtifactMode} = 'legacy'
+      or (
+        ${studioInterview.resumeEvaluationArtifactMode} is null
+        and ${studioInterview.resumeReview} is not null
+      ) then 1
+    else 2
+  end`;
   const orderBy =
     sortBy === "structuredScore"
       ? [
-          asc(
-            sql`case when ${studioInterview.resumeReviewStatus} = 'ready'
-              and ${studioInterview.structuredCompositeScore} is not null
-              then 0 else 1 end`,
-          ),
+          asc(artifactGroup),
           asc(studioInterview.structuredGateSortRank),
           desc(studioInterview.structuredCompositeScore),
+          desc(
+            sql`case when ${artifactGroup} = 1
+              then coalesce(
+                ${studioInterview.resumeReview}->'overall'->>'baseScore',
+                ${studioInterview.resumeReview}->'overall'->>'score'
+              )::numeric
+              else null end`,
+          ),
           asc(studioInterview.candidateName),
           asc(studioInterview.id),
         ]
@@ -473,14 +494,17 @@ function parseResumeScreeningResult(value: unknown) {
 }
 
 function resolveResumeEvaluationArtifactMode(row: {
-  jobEvaluationMode: "legacy" | "structured" | null;
+  resumeEvaluationArtifactMode: "legacy" | "structured" | null;
   resumeReviewBaseScore: string | null;
   structuredCompositeScore: number | null;
 }) {
-  if (row.jobEvaluationMode === "structured" && row.structuredCompositeScore !== null) {
+  if (row.resumeEvaluationArtifactMode) {
+    return row.resumeEvaluationArtifactMode;
+  }
+  if (row.structuredCompositeScore !== null) {
     return "structured" as const;
   }
-  if (row.jobEvaluationMode === "legacy" && row.resumeReviewBaseScore !== null) {
+  if (row.resumeReviewBaseScore !== null) {
     return "legacy" as const;
   }
   return null;
@@ -714,6 +738,7 @@ function toRecord(
     outcome: row.outcome,
     pipelineStage: row.pipelineStage,
     resumeEvaluationArtifactMode: resolveResumeEvaluationArtifactMode(row),
+    resumeEvaluationAttemptMode: row.resumeEvaluationAttemptMode,
     resumeEvaluationStatus: row.resumeEvaluationStatus,
     resumeFileName: row.resumeFileName,
     resumeParseRetryable:

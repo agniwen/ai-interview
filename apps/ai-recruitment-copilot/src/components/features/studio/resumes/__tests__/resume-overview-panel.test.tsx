@@ -53,6 +53,8 @@ function createStructuredDetail(): ResumeLibraryDetail {
     jobDescriptionId: "job-1",
     jobDescriptionName: "前端技术经理",
     jobEvaluationMode: "structured",
+    resumeEvaluationArtifactMode: "structured",
+    resumeEvaluationAttemptMode: "structured",
     resumeEvaluationStatus: null,
     resumeParseStatus: "ready",
     resumeProfile: null,
@@ -125,6 +127,8 @@ function createLegacyDetail(): ResumeLibraryDetail {
   return {
     ...createStructuredDetail(),
     jobEvaluationMode: "legacy",
+    resumeEvaluationArtifactMode: "legacy",
+    resumeEvaluationAttemptMode: "legacy",
     resumeReview: {
       dimensions: {
         educationBackground: { rationale: "学历符合要求", score: 80 },
@@ -147,12 +151,43 @@ function createLegacyDetail(): ResumeLibraryDetail {
   } as unknown as ResumeLibraryDetail;
 }
 
+function createUpgradedLegacyDetail(): ResumeLibraryDetail {
+  return {
+    ...createLegacyDetail(),
+    jobEvaluationMode: "structured",
+    resumeEvaluationArtifactMode: "legacy",
+    resumeEvaluationAttemptMode: "structured",
+    resumeReviewError: "新版评估暂时失败",
+    resumeReviewStatus: "failed",
+  } as ResumeLibraryDetail;
+}
+
 afterEach(() => {
   document.body.innerHTML = "";
   vi.clearAllMocks();
 });
 
 describe("ResumeOverviewPanel", () => {
+  it("retains the legacy result when a structured reassessment fails", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const queryClient = new QueryClient();
+
+    act(() => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <ResumeOverviewPanel detail={createUpgradedLegacyDetail()} />
+        </QueryClientProvider>,
+      );
+    });
+
+    const content = container.textContent ?? "";
+    expect(content).toContain("老版本结果");
+    expect(content).toContain("84");
+    expect(content).toContain("新版评估暂时失败");
+  });
+
   it("shows the structured radar, score and overall evaluation in overview", () => {
     const container = document.createElement("div");
     document.body.append(container);

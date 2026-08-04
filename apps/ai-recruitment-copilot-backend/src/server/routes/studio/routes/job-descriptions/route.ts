@@ -20,7 +20,6 @@ import {
 } from "@arc/shared/job-descriptions";
 import { jobEvaluationRuleDraftSchema } from "@arc/db-schema/job-description-evaluation";
 import { jobDescriptionDeductionRulesSchema } from "@arc/db-schema/job-description-structured-config";
-import { computeResumeScreeningPolicyHash } from "@arc/shared/resume-screening";
 import type { ReferralLinkCreateResult } from "@arc/shared/referrals";
 import { validateJobDescriptionInterviewerDepartments } from "@arc/shared/job-description-interviewers";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
@@ -56,6 +55,7 @@ import {
 } from "./application/job-evaluation-lifecycle";
 import { BlueprintCompilationError } from "./utils/evaluation-blueprint-compiler";
 import { computeJobEvaluationDraftInputHash } from "@arc/ai-recruitment-copilot-backend/lib/server/job-evaluation-hash";
+import { jobEvaluationUpgradeRouter } from "./routes/upgrade/route";
 
 const generateJobDescriptionBodySchema = z.object({
   departmentName: z.string().trim().max(120).optional(),
@@ -377,6 +377,8 @@ export const jobDescriptionsRouter = factory
           evaluationBlueprintPreviewInputHash: null,
           evaluationBlueprintSchemaVersion: null,
           evaluationMode: "structured",
+          evaluationUpgradedAt: null,
+          evaluationUpgradedBy: null,
           feishuChatBoundAt: null,
           feishuChatBoundBy: null,
           feishuChatId: null,
@@ -659,7 +661,16 @@ export const jobDescriptionsRouter = factory
       const rawInput = c.req.valid("json");
       let input = publishedJobOperationalUpdateSchema.safeParse(rawInput);
       if (existing.evaluationMode === "legacy") {
-        input = legacyJobDescriptionUpdateSchema.safeParse(rawInput);
+        input = publishedJobOperationalUpdateSchema.safeParse(rawInput);
+        if (!input.success) {
+          return c.json(
+            {
+              code: "JOB_LEGACY_REQUIRES_UPGRADE",
+              error: "老版本岗位的评估设置需要通过升级到新版进行修改。",
+            },
+            409,
+          );
+        }
       } else if (existing.lifecycleStatus === "draft") {
         input = structuredJobDescriptionDraftUpdateSchema.safeParse(rawInput);
       }
@@ -697,31 +708,7 @@ export const jobDescriptionsRouter = factory
         updatedAt: now,
       };
       let updateValues: Partial<typeof jobDescription.$inferInsert> = operationalValues;
-      if (existing.evaluationMode === "legacy") {
-        const legacyInput = legacyJobDescriptionUpdateSchema.parse(input.data);
-        const nextPolicyHash = computeResumeScreeningPolicyHash(legacyInput.resumeScreeningPolicy);
-        const existingPolicyHash =
-          existing.resumeScreeningPolicyHash ??
-          computeResumeScreeningPolicyHash(existing.resumeScreeningPolicy);
-        const policyChanged = nextPolicyHash !== existingPolicyHash;
-        const nextPolicyVersion = policyChanged
-          ? existing.resumeScreeningPolicyVersion + 1
-          : existing.resumeScreeningPolicyVersion;
-        updateValues = {
-          ...operationalValues,
-          description: legacyInput.description?.trim() || null,
-          ...(!existing.code && legacyInput.code ? { code: legacyInput.code } : {}),
-          name: legacyInput.name.trim(),
-          prompt: legacyInput.prompt.trim(),
-          resumeScreeningPolicy: {
-            ...legacyInput.resumeScreeningPolicy,
-            version: nextPolicyVersion,
-          },
-          resumeScreeningPolicyHash: nextPolicyHash,
-          resumeScreeningPolicyVersion: nextPolicyVersion,
-          structuredConfig: legacyInput.structuredConfig,
-        };
-      } else if (existing.lifecycleStatus === "draft") {
+      if (existing.evaluationMode === "structured" && existing.lifecycleStatus === "draft") {
         const draftInput = structuredJobDescriptionDraftUpdateSchema.parse(input.data);
         const oldInputHash = computeJobEvaluationDraftInputHash({
           description: existing.description,
@@ -794,13 +781,6 @@ export const jobDescriptionsRouter = factory
       safeUpdateTag(`job-descriptions:${activeOrg.id}`);
       safeUpdateTag(`interviewers:${activeOrg.id}`);
 
-      if (existing.evaluationMode === "legacy") {
-        await enqueueJobDescriptionIndexJobBestEffort({
-          jobDescriptionId: id,
-          organizationId: activeOrg.id,
-        });
-      }
-
       const updated = await loadJobDescriptionById(activeOrg.id, id);
       return c.json(updated, 200);
     },
@@ -851,4 +831,5 @@ export const jobDescriptionsRouter = factory
     });
 
     return c.json({ success: true }, 200);
-  });
+  })
+  .route("/", jobEvaluationUpgradeRouter);

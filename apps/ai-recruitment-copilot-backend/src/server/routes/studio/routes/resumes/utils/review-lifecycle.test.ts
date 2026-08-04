@@ -50,6 +50,8 @@ function createStore(overrides: Partial<ResumeAssessmentRecord> = {}) {
     outcome: "in_pipeline",
     pipelineStage: "screening",
     resumeContentHash: "file-hash",
+    resumeEvaluationArtifactMode: "legacy",
+    resumeEvaluationAttemptMode: "legacy",
     resumeParseStatus: "ready",
     resumeProfile: PROFILE,
     resumeReview: OLD_REVIEW,
@@ -153,6 +155,18 @@ describe("runResumeAssessmentLifecycle", () => {
     expect(record.resumeReviewStatus).toBe("failed");
   });
 
+  it("treats a legacy artifact as current after its job upgrades", async () => {
+    const { deps } = createStore({
+      evaluationMode: "structured",
+      resumeEvaluationArtifactMode: "legacy",
+      resumeEvaluationAttemptMode: null,
+    });
+
+    await expect(
+      runResumeAssessmentLifecycle({ ...RUN_INPUT, force: false }, deps),
+    ).resolves.toEqual({ reason: "already_ready", status: "skipped" });
+  });
+
   it("rejects a stale job binding before generation", async () => {
     const { deps } = createStore({ jobDescriptionId: "jd-new" });
     const result = await runResumeAssessmentLifecycle(RUN_INPUT, deps);
@@ -182,12 +196,13 @@ describe("runResumeAssessmentLifecycle", () => {
   it("rejects an assessment generated for a different job evaluation mode", async () => {
     const { deps, record } = createStore({
       evaluationMode: "structured",
+      resumeEvaluationAttemptMode: "structured",
       resumeReview: null,
       structuredResumeEvaluation: null,
     });
 
     await expect(runResumeAssessmentLifecycle(RUN_INPUT, deps)).rejects.toThrow(
-      "评估结果模式与岗位评估模式不一致",
+      "评估结果模式与本次评估模式不一致",
     );
     expect(record.resumeReview).toBeNull();
     expect(record.resumeReviewStatus).toBe("failed");

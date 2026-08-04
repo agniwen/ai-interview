@@ -182,10 +182,12 @@ vi.mock("./job-description-linked-resources", () => ({
 
 vi.mock("@/components/features/markdown-editor", () => ({
   MarkdownEditor: ({
+    disabled,
     onChange,
     showPreview,
     value,
   }: {
+    disabled?: boolean;
     onChange: (value: string) => void;
     showPreview?: boolean;
     value: string;
@@ -193,6 +195,7 @@ vi.mock("@/components/features/markdown-editor", () => ({
     <textarea
       aria-label="MarkdownEditor"
       data-show-preview={String(showPreview)}
+      disabled={disabled}
       onChange={(event) => onChange(event.target.value)}
       value={value}
     />
@@ -219,6 +222,9 @@ const record: JobDescriptionRecord = {
   evaluationBlueprintPreviewInputHash: null,
   evaluationBlueprintSchemaVersion: null,
   evaluationMode: "structured",
+  evaluationUpgradedAt: null,
+  evaluationUpgradedBy: null,
+  hasEvaluationUpgradeDraft: false,
   id: "job-1",
   interviewerIds: ["interviewer-1"],
   lifecycleStatus: "draft",
@@ -242,7 +248,7 @@ afterEach(() => {
 api.state.savedRecord = record as unknown as Record<string, unknown>;
 
 describe("structured job description preview flow", () => {
-  it("uses a single 岗位 JD field for structured jobs and preserves legacy fields", async () => {
+  it("uses a single 岗位 JD field for structured jobs and freezes legacy evaluation fields", async () => {
     const structuredContainer = document.createElement("div");
     document.body.append(structuredContainer);
     const structuredRoot = createRoot(structuredContainer);
@@ -314,12 +320,13 @@ describe("structured job description preview flow", () => {
     );
     expect(legacyLabels).toContain("描述");
     expect(legacyLabels).toContain("岗位 Prompt *");
-    expect(legacyContainer.textContent).toContain("旧版筛选规则");
+    expect(legacyContainer.textContent).not.toContain("旧版筛选规则");
     expect(legacyContainer.textContent).not.toContain("新版评分设置");
-    expect(
-      legacyContainer.querySelector<HTMLTextAreaElement>('textarea[aria-label="MarkdownEditor"]')
-        ?.dataset.showPreview,
-    ).toBe("true");
+    const legacyPrompt = legacyContainer.querySelector<HTMLTextAreaElement>(
+      'textarea[aria-label="MarkdownEditor"]',
+    );
+    expect(legacyPrompt?.dataset.showPreview).toBe("true");
+    expect(legacyPrompt?.disabled).toBe(true);
     act(() => legacyRoot.unmount());
   });
 

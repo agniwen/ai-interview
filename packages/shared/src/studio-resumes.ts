@@ -156,6 +156,7 @@ export interface ResumeLibraryListRecord {
   resumeReviewRunId: string | null;
   resumeEvaluationStatus: ResumeEvaluationStatus | null;
   resumeEvaluationArtifactMode: JobEvaluationMode | null;
+  resumeEvaluationAttemptMode: JobEvaluationMode | null;
   structuredCompositeScore: number | null;
   structuredGateSortRank: number | null;
   structuredGateStatus: StructuredResumeGateStatus | null;

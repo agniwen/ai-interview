@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- this route-owned read model keeps job list, detail, and metrics serialization aligned. */
 import type {
   JobDescriptionInterviewerSummary,
   JobDescriptionListRecord,
@@ -31,6 +32,7 @@ import {
   department,
   interviewer,
   jobDescription,
+  jobDescriptionEvaluationUpgradeDraft,
   jobDescriptionInterviewer,
   studioInterview,
   studioInterviewSchedule,
@@ -188,6 +190,8 @@ function listJobDescriptionRows({
       evaluationBlueprintPreviewInputHash: jobDescription.evaluationBlueprintPreviewInputHash,
       evaluationBlueprintSchemaVersion: jobDescription.evaluationBlueprintSchemaVersion,
       evaluationMode: jobDescription.evaluationMode,
+      evaluationUpgradedAt: jobDescription.evaluationUpgradedAt,
+      evaluationUpgradedBy: jobDescription.evaluationUpgradedBy,
       id: jobDescription.id,
       lifecycleStatus: jobDescription.lifecycleStatus,
       name: jobDescription.name,
@@ -315,10 +319,22 @@ async function loadResumeCountsForJobDescriptions(
   return map;
 }
 
+async function loadUpgradeDraftJobIds(jobDescriptionIds: string[]): Promise<Set<string>> {
+  if (jobDescriptionIds.length === 0) {
+    return new Set();
+  }
+  const rows = await db
+    .select({ jobDescriptionId: jobDescriptionEvaluationUpgradeDraft.jobDescriptionId })
+    .from(jobDescriptionEvaluationUpgradeDraft)
+    .where(inArray(jobDescriptionEvaluationUpgradeDraft.jobDescriptionId, jobDescriptionIds));
+  return new Set(rows.map((row) => row.jobDescriptionId));
+}
+
 function toJobDescriptionListRecord(
   row: Awaited<ReturnType<typeof listJobDescriptionRows>>[number],
   interviewers: JobDescriptionInterviewerSummary[],
   resumeCount: number,
+  hasEvaluationUpgradeDraft: boolean,
 ): JobDescriptionListRecord {
   const resumeScreeningPolicy = parseResumeScreeningPolicy(row.resumeScreeningPolicy);
   return {
@@ -340,6 +356,9 @@ function toJobDescriptionListRecord(
     evaluationBlueprintPreviewInputHash: row.evaluationBlueprintPreviewInputHash,
     evaluationBlueprintSchemaVersion: row.evaluationBlueprintSchemaVersion,
     evaluationMode: row.evaluationMode,
+    evaluationUpgradedAt: row.evaluationUpgradedAt ? serializeDate(row.evaluationUpgradedAt) : null,
+    evaluationUpgradedBy: row.evaluationUpgradedBy,
+    hasEvaluationUpgradeDraft,
     id: row.id,
     interviewerIds: interviewers.map((item) => item.id),
     interviewers,
@@ -428,9 +447,10 @@ export async function queryPaginatedJobDescriptions(
   ]);
 
   const ids = records.map((record) => record.id);
-  const [interviewersMap, resumeCountsMap] = await Promise.all([
+  const [interviewersMap, resumeCountsMap, upgradeDraftJobIds] = await Promise.all([
     loadInterviewersForJobDescriptions(ids),
     loadResumeCountsForJobDescriptions(ids),
+    loadUpgradeDraftJobIds(ids),
   ]);
 
   return {
@@ -441,6 +461,7 @@ export async function queryPaginatedJobDescriptions(
         record,
         interviewersMap.get(record.id) ?? [],
         resumeCountsMap.get(record.id) ?? 0,
+        upgradeDraftJobIds.has(record.id),
       ),
     ),
     total,
@@ -465,15 +486,17 @@ export async function listManagedJobDescriptions(
 ): Promise<JobDescriptionListRecord[]> {
   const rows = await listJobDescriptionRows({ organizationId, sortBy: "name", sortOrder: "asc" });
   const ids = rows.map((row) => row.id);
-  const [interviewersMap, resumeCountsMap] = await Promise.all([
+  const [interviewersMap, resumeCountsMap, upgradeDraftJobIds] = await Promise.all([
     loadInterviewersForJobDescriptions(ids),
     loadResumeCountsForJobDescriptions(ids),
+    loadUpgradeDraftJobIds(ids),
   ]);
   return rows.map((row) =>
     toJobDescriptionListRecord(
       row,
       interviewersMap.get(row.id) ?? [],
       resumeCountsMap.get(row.id) ?? 0,
+      upgradeDraftJobIds.has(row.id),
     ),
   );
 }
@@ -488,15 +511,17 @@ export async function listRecruitingJobDescriptions(
     sortOrder: "asc",
   });
   const ids = rows.map((row) => row.id);
-  const [interviewersMap, resumeCountsMap] = await Promise.all([
+  const [interviewersMap, resumeCountsMap, upgradeDraftJobIds] = await Promise.all([
     loadInterviewersForJobDescriptions(ids),
     loadResumeCountsForJobDescriptions(ids),
+    loadUpgradeDraftJobIds(ids),
   ]);
   return rows.map((row) =>
     toJobDescriptionListRecord(
       row,
       interviewersMap.get(row.id) ?? [],
       resumeCountsMap.get(row.id) ?? 0,
+      upgradeDraftJobIds.has(row.id),
     ),
   );
 }
@@ -576,11 +601,13 @@ export async function loadManagedJobDescriptionById(
     return null;
   }
   const interviewersMap = await loadInterviewersForJobDescriptions([id]);
+  const upgradeDraftJobIds = await loadUpgradeDraftJobIds([id]);
   const interviewers = interviewersMap.get(id) ?? [];
   // eslint-disable-next-line no-use-before-define -- kept near public load functions for readability.
   return serializeJobDescription(
     row,
     interviewers.map((item) => item.id),
+    upgradeDraftJobIds.has(id),
   );
 }
 
@@ -757,6 +784,7 @@ export function loadJobDescriptionMetrics(organizationId: string): Promise<JobDe
 export function serializeJobDescription(
   row: typeof jobDescription.$inferSelect,
   interviewerIds: string[],
+  hasEvaluationUpgradeDraft = false,
 ): JobDescriptionRecord {
   const resumeScreeningPolicy = parseResumeScreeningPolicy(row.resumeScreeningPolicy);
   return {
@@ -777,6 +805,9 @@ export function serializeJobDescription(
     evaluationBlueprintPreviewInputHash: row.evaluationBlueprintPreviewInputHash,
     evaluationBlueprintSchemaVersion: row.evaluationBlueprintSchemaVersion,
     evaluationMode: row.evaluationMode,
+    evaluationUpgradedAt: row.evaluationUpgradedAt ? serializeDate(row.evaluationUpgradedAt) : null,
+    evaluationUpgradedBy: row.evaluationUpgradedBy,
+    hasEvaluationUpgradeDraft,
     id: row.id,
     interviewerIds,
     lifecycleStatus: row.lifecycleStatus,

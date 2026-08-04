@@ -1,12 +1,37 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// oxlint-disable promise/prefer-await-to-callbacks -- the fake transaction executes Drizzle's callback API.
+
 const mocks = vi.hoisted(() => ({
+  claimJob: null as null | {
+    evaluationMode: "legacy" | "structured";
+    id: string;
+    lifecycleStatus: "draft" | "published";
+  },
   enqueue: vi.fn(),
   job: null as null | { evaluationMode: "legacy" | "structured"; id: string },
   queueConfigured: true,
   record: null as null | Record<string, unknown>,
   updates: [] as Record<string, unknown>[],
 }));
+
+function updateBuilder() {
+  return {
+    set: (patch: Record<string, unknown>) => {
+      mocks.updates.push(patch);
+      return {
+        where: () => ({
+          returning: () =>
+            Promise.resolve(
+              "jobDescriptionId" in patch
+                ? [{ jobDescriptionId: patch.jobDescriptionId }]
+                : [{ id: "resume-1" }],
+            ),
+        }),
+      };
+    },
+  };
+}
 
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
   db: {
@@ -17,21 +42,20 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/db", () => ({
         }),
       }),
     }),
-    update: () => ({
-      set: (patch: Record<string, unknown>) => {
-        mocks.updates.push(patch);
-        return {
-          where: () => ({
-            returning: () =>
-              Promise.resolve(
-                "jobDescriptionId" in patch
-                  ? [{ jobDescriptionId: patch.jobDescriptionId }]
-                  : [{ id: "resume-1" }],
-              ),
+    transaction: (callback: (tx: unknown) => unknown) =>
+      callback({
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              limit: () => ({
+                for: () => Promise.resolve(mocks.claimJob ? [mocks.claimJob] : []),
+              }),
+            }),
           }),
-        };
-      },
-    }),
+        }),
+        update: updateBuilder,
+      }),
+    update: updateBuilder,
   },
 }));
 vi.mock("@arc/resume-parse-queue/resume-review-generation", () => ({
@@ -70,10 +94,13 @@ const PROFILE = {
 
 function setContext(mode: "legacy" | "structured") {
   mocks.job = { evaluationMode: mode, id: "jd-1" };
+  mocks.claimJob = { evaluationMode: mode, id: "jd-1", lifecycleStatus: "published" };
   mocks.record = {
     jobDescriptionId: "jd-1",
     outcome: "in_pipeline",
     pipelineStage: "screening",
+    resumeEvaluationArtifactMode: null,
+    resumeEvaluationAttemptMode: null,
     resumeParseStatus: "ready",
     resumeProfile: PROFILE,
     resumeReview: null,
@@ -125,6 +152,20 @@ describe("scheduleResumeEvaluationForRecord", () => {
     });
   });
 
+  it("does not automatically replace a persisted legacy artifact after the job upgrades", async () => {
+    mocks.record = {
+      ...mocks.record,
+      resumeEvaluationArtifactMode: "legacy",
+      resumeReview: { overall: { baseScore: 82 } },
+    };
+
+    await expect(scheduleResumeEvaluationForRecord(INPUT)).resolves.toEqual({
+      status: "already_current",
+    });
+    expect(mocks.updates).toHaveLength(0);
+    expect(mocks.enqueue).not.toHaveBeenCalled();
+  });
+
   it("keeps legacy screening lifecycle behavior", async () => {
     setContext("legacy");
     await scheduleResumeEvaluationForRecord(INPUT);
@@ -150,5 +191,20 @@ describe("scheduleResumeEvaluationForRecord", () => {
     const result = await scheduleResumeEvaluationForRecord(INPUT);
     expect(result.status).toBe("failed");
     expect(mocks.updates).toHaveLength(0);
+  });
+
+  it("does not persist or enqueue a legacy run after the job upgrades", async () => {
+    setContext("legacy");
+    mocks.claimJob = {
+      evaluationMode: "structured",
+      id: "jd-1",
+      lifecycleStatus: "published",
+    };
+
+    const result = await scheduleResumeEvaluationForRecord(INPUT);
+
+    expect(result.status).toBe("failed");
+    expect(mocks.updates).toHaveLength(0);
+    expect(mocks.enqueue).not.toHaveBeenCalled();
   });
 });
