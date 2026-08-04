@@ -718,7 +718,6 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
     canUpdateHumanInterview,
     canUpdateOffer,
     canUseManagementActions,
-    canUseTimelineRailScroll,
     candidateRounds,
     candidateTimeline,
     detailScrollClassName,
@@ -742,7 +741,7 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
     selectedResultInterviewItems,
     selectedResultReport,
     setActiveTab,
-    showTimelineRail,
+    showTimelineAtBottom,
     showAgentInstructions,
     tabContentRootRef,
     tabVisibilityRecord,
@@ -769,7 +768,7 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
   record ? (
     <div className={bodyLayoutClassName}>
       <div className={detailScrollClassName} ref={tabContentRootRef}>
-        <AnimatedHeight clip={!showTimelineRail}>
+        <AnimatedHeight clip={!showTimelineAtBottom}>
           <TabsContent value="overview">
             <div className="space-y-8">
               {/* 简历模式：复用 ResumeOverviewPanel —— 与「发起 AI 面试」
@@ -802,17 +801,13 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
             <TabsContent value="ai-analysis">
               <div className="space-y-6">
                 {resumeRecord?.jobEvaluationMode === "structured" ? (
-                  <>
-                    {resumeReassessAction ? (
-                      <div className="flex justify-end">{resumeReassessAction}</div>
-                    ) : null}
-                    <StructuredResumeEvaluationPanel
-                      canEdit={Boolean(model.canUpdateResumeLibrary)}
-                      detail={resumeRecord}
-                      onUpdated={model.onResumeIdentityUpdated}
-                      slug={model.slug}
-                    />
-                  </>
+                  <StructuredResumeEvaluationPanel
+                    canEdit={Boolean(model.canUpdateResumeLibrary)}
+                    detail={resumeRecord}
+                    onUpdated={model.onResumeIdentityUpdated}
+                    slug={model.slug}
+                    summaryAction={resumeReassessAction ?? undefined}
+                  />
                 ) : (
                   <ResumeReviewStructuredView
                     review={resumeRecord?.resumeReview}
@@ -898,21 +893,14 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
           ) : null}
         </AnimatedHeight>
       </div>
-      {showTimelineRail ? (
-        <aside
-          className={cn(
-            "min-h-0 min-w-0 max-w-full overflow-hidden",
-            canUseTimelineRailScroll ? "xl:h-full" : "",
-          )}
-        >
+      {showTimelineAtBottom ? (
+        <section className="border-border/50 border-t pt-6">
           <CandidateTimeline
-            className={canUseTimelineRailScroll ? "xl:h-full" : undefined}
             data={candidateTimeline}
-            density="rail"
             isLoading={isTimelineLoading}
-            scrollMode={canUseTimelineRailScroll ? "internal" : "page"}
+            scrollMode="page"
           />
-        </aside>
+        </section>
       ) : null}
     </div>
   ) : (

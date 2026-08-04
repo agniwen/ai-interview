@@ -20,7 +20,9 @@ vi.mock("recharts", () => ({
   PolarGrid: () => null,
   PolarRadiusAxis: () => null,
   Radar: () => null,
-  RadarChart: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  RadarChart: ({ children, data }: { children: ReactNode; data: { key: string }[] }) => (
+    <div data-radar-order={data.map((item) => item.key).join(",")}>{children}</div>
+  ),
 }));
 
 const dimension = (rawScore: number, weight: number, ruleId: string, reason: string) => ({
@@ -65,7 +67,10 @@ function createDetail(): ResumeLibraryDetail {
           {
             appliedPoints: 5,
             conditionId: "priority-1",
-            evidence: [{ quote: "拥有支付行业经验", source: "resume_text" }],
+            evidence: [
+              { quote: "拥有支付行业经验", source: "resume_text" },
+              { quote: "拥有支付行业经验", source: "resume_text" },
+            ],
             kind: "priority",
             matched: true,
             points: 5,
@@ -83,7 +88,7 @@ function createDetail(): ResumeLibraryDetail {
       },
       dimensions: {
         educationBackground: dimension(80, 10, "education.below_tier", "学历低于岗位要求"),
-        experienceRelevance: dimension(85, 25, "experience.missing_year", "相关经验缺少两年"),
+        experienceRelevance: dimension(85, 25, "experience.missing_year", "相关经验缺少两年。"),
         potential: dimension(92, 8, "potential.no_growth_two_years", "近期成长记录不足"),
         projectMatch: dimension(88, 15, "project.old_relevant_project", "相关项目距今较久"),
         skillMatch: dimension(90, 0, "skill.missing_core", "缺少核心技能"),
@@ -95,7 +100,10 @@ function createDetail(): ResumeLibraryDetail {
           {
             aiStatus: "failed",
             category: "学历",
-            evidence: [{ quote: "最高学历为大专", source: "resume_profile" }],
+            evidence: [
+              { quote: "最高学历为大专", source: "resume_profile" },
+              { quote: "最高学历为大专", source: "resume_profile" },
+            ],
             reason: "未达到本科要求",
             requirementId: "gate-1",
           },
@@ -104,8 +112,25 @@ function createDetail(): ResumeLibraryDetail {
       },
       grade: "recommended",
       narrative: {
+        dimensionComments: {
+          educationBackground: "学历背景存在明确差距，其他背景要求未触发扣分。",
+          experienceRelevance: "相关经验整体充分，但经验年限仍有扣分项。",
+          potential: "近期成长证据偏弱，其余潜力信号未触发扣分。",
+          projectMatch: "项目方向匹配，但项目新鲜度存在扣分。",
+          skillMatch: "核心技能有缺口，已有技能具备实操证据。",
+          stability: "存在短期任职，其余稳定性规则未触发扣分。",
+        },
+        levelRecommendation: {
+          level: "高级",
+          rationale: "具备复杂项目交付经验，但需核实岗位门槛。",
+        },
+        overallComment: "候选人的技能与项目经验具有匹配基础，但学历门槛和部分经历仍有风险。",
         recommendation: "建议进入下一轮",
         summary: "技能和经验整体匹配",
+        teamPositioning: {
+          rationale: "支付系统重构经历与岗位核心职责相符。",
+          suggestion: "核心业务研发",
+        },
       },
       runId: "run-1",
     },
@@ -118,6 +143,31 @@ afterEach(() => {
 });
 
 describe("StructuredResumeEvaluationPanel", () => {
+  it("renders the reassessment action inside the comprehensive evaluation header", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    act(() => {
+      root.render(
+        <StructuredResumeEvaluationPanel
+          canEdit={false}
+          detail={createDetail()}
+          summaryAction={<button type="button">重新评估</button>}
+        />,
+      );
+    });
+
+    const comprehensiveHeader = [
+      ...container.querySelectorAll<HTMLElement>('[data-slot="frame-panel-header"]'),
+    ].find((header) => header.textContent?.includes("综合评价"));
+    const action = container.querySelector("button");
+    expect(action?.textContent).toBe("重新评估");
+    expect(action?.closest('[data-slot="frame-panel-header"]')).toBe(comprehensiveHeader);
+
+    act(() => root.unmount());
+  });
+
   it("keeps HR decision primary and renders all raw dimensions including zero weight", () => {
     const container = document.createElement("div");
     document.body.append(container);
@@ -140,24 +190,46 @@ describe("StructuredResumeEvaluationPanel", () => {
     expect(content).toContain("稳定");
     expect(content).toContain("权重 0% · 贡献 0 分");
     expect(content).toContain("最高学历为大专");
-    expect(content).toContain("主导支付系统重构");
     expect(content).toContain("拥有支付行业经验");
-    expect(content).toContain("AI 原始结论：");
+    expect(content).toContain("整体评语：");
+    expect(content).toContain("候选人的技能与项目经验具有匹配基础");
+    expect(content).toContain("综合评分 87 分，处于“推荐”区间；硬性门槛未通过。");
+    expect(content).not.toContain("技能和经验整体匹配");
+    expect(content).toContain("职级建议");
+    expect(content).toContain("高级");
+    expect(content).toContain("团队定位");
+    expect(content).toContain("核心业务研发");
+    expect(
+      Array.from(container.querySelectorAll("blockquote"), (node) => node.textContent),
+    ).toEqual(expect.arrayContaining(["最高学历为大专", "拥有支付行业经验"]));
+    expect(
+      Array.from(container.querySelectorAll("blockquote"), (node) => node.textContent).filter(
+        (text) => text === "最高学历为大专" || text === "拥有支付行业经验",
+      ),
+    ).toEqual(["最高学历为大专", "拥有支付行业经验"]);
+    expect(content).not.toContain("AI 原始结论：");
 
     const frameTitles = Array.from(
       container.querySelectorAll('[data-slot="frame-panel-title"]'),
       (element) => element.textContent,
     );
     expect(frameTitles.slice(0, 2)).toEqual(["综合评价", "维度评分"]);
+    expect(frameTitles.slice(2, 5)).toEqual(["硬性门槛", "职级建议", "团队定位"]);
     expect(container.querySelectorAll("[data-structured-dimension-group]")).toHaveLength(3);
     expect(container.querySelectorAll("[data-structured-dimension-score]")).toHaveLength(6);
+    expect(container.querySelector<HTMLElement>("[data-radar-order]")?.dataset.radarOrder).toBe(
+      "skillMatch,experienceRelevance,stability,educationBackground,potential,projectMatch",
+    );
     const experienceDimension = container.querySelector(
       '[data-structured-dimension-score="experienceRelevance"]',
     );
-    expect(experienceDimension?.textContent).toContain("标准化扣分明细");
-    expect(experienceDimension?.textContent).toContain("经验年限不足");
-    expect(experienceDimension?.textContent).toContain("-15 分");
-    expect(experienceDimension?.textContent).toContain("相关经验缺少两年");
+    expect(experienceDimension?.textContent).toContain("相关经验整体充分");
+    expect(experienceDimension?.textContent).toContain("相关经验缺少两年，扣 15 分");
+    expect(experienceDimension?.textContent).toContain("本维度合计扣 15 分");
+    expect(experienceDimension?.textContent).not.toContain("经验年限不足");
+    expect(experienceDimension?.textContent).not.toContain("未扣分方面");
+    expect(experienceDimension?.textContent).not.toContain("证据不足项");
+    expect(experienceDimension?.textContent).not.toContain("标准化扣分明细");
     expect(frameTitles).not.toContain("标准化扣分明细");
 
     act(() => root.unmount());
@@ -181,6 +253,42 @@ describe("StructuredResumeEvaluationPanel", () => {
     expect(container.textContent).toContain("AI 分析生成失败。");
     expect(container.textContent).toContain("当前展示上一次已完成的评估结果");
     expect(container.querySelector("[data-structured-composite-score]")?.textContent).toBe("87");
+
+    act(() => root.unmount());
+  });
+
+  it("builds readable dimension comments for older structured evaluations", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const detail = createDetail();
+    const evaluation = detail.structuredResumeEvaluation;
+    if (!evaluation) {
+      throw new Error("missing evaluation fixture");
+    }
+    const legacyDetail = {
+      ...detail,
+      structuredResumeEvaluation: {
+        ...evaluation,
+        narrative: {
+          recommendation: evaluation.narrative.recommendation,
+          summary: evaluation.narrative.summary,
+        },
+      },
+    } as ResumeLibraryDetail;
+
+    act(() => {
+      root.render(<StructuredResumeEvaluationPanel canEdit={false} detail={legacyDetail} />);
+    });
+
+    const experienceDimension = container.querySelector(
+      '[data-structured-dimension-score="experienceRelevance"]',
+    );
+    expect(experienceDimension?.textContent).toContain("该维度整体表现较好");
+    expect(experienceDimension?.textContent).toContain("相关经验缺少两年，扣 15 分");
+    expect(experienceDimension?.textContent).not.toContain("经验年限不足");
+    expect(experienceDimension?.textContent).not.toContain("。。");
+    expect(container.textContent).not.toContain("整体评语：");
 
     act(() => root.unmount());
   });

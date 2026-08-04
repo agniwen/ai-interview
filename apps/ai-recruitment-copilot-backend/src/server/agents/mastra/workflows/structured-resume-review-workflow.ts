@@ -120,7 +120,7 @@ export function createStructuredResumeReviewWorkflow(deps: {
       return {
         ...inputData,
         narrative: await deps.generateNarrative({
-          calculation: calculationResult.calculation,
+          calculationResult,
           workflowInput: workflowInputFrom(inputData),
         }),
       };

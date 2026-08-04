@@ -376,6 +376,7 @@ function validateArtifactInvariants(
     ) as Record<StructuredResumeDimension, StructuredResumeRuleJudgment[]>;
     const calculation = computeStructuredResumeEvaluation({
       adjustments: artifact.adjustments.matches,
+      deductionRules: caseInput.jobInput.publishedConfig.deductionRules,
       dimensionRuleJudgments,
       gateJudgments: artifact.gates.judgments,
       weights: artifact.weights,

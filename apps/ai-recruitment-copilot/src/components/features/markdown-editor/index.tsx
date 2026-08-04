@@ -23,6 +23,7 @@ export interface MarkdownEditorProps {
   className?: string;
   minHeight?: number;
   id?: string;
+  showPreview?: boolean;
   "aria-invalid"?: boolean;
 }
 
@@ -57,6 +58,7 @@ export function MarkdownEditor({
   className,
   minHeight = 240,
   id,
+  showPreview = true,
   "aria-invalid": ariaInvalid,
 }: MarkdownEditorProps) {
   const { changeMode, editor, mode } = useMarkdownEditor({
@@ -67,6 +69,7 @@ export function MarkdownEditor({
     placeholder,
     value,
   });
+  const visibleMode = showPreview ? mode : "edit";
 
   const over = typeof maxLength === "number" && value.length > maxLength;
 
@@ -86,20 +89,21 @@ export function MarkdownEditor({
         <MarkdownEditorToolbar
           disabled={disabled}
           editor={editor}
-          mode={mode}
+          mode={visibleMode}
           onModeChange={changeMode}
+          showModeSwitcher={showPreview}
         />
       </div>
 
       <div className="relative z-10 bg-transparent" style={{ minHeight }}>
-        {mode === "edit" && (
+        {visibleMode === "edit" && (
           <>
             <EditorContent className={editorContentClassName} editor={editor} onBlur={onBlur} />
             <MarkdownEditorBubbleMenu editor={editor} />
           </>
         )}
 
-        {mode === "preview" && (
+        {visibleMode === "preview" && (
           <div className="px-3 py-2 text-sm">
             <MarkdownView content={value} />
           </div>

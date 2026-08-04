@@ -49,6 +49,7 @@ const blueprint = {
   hardGateRequirements: [],
   priorityConditions: [],
   requiredRelevantExperience: null,
+  requiredRelevantExperiences: [],
   schemaVersion: 1 as const,
 };
 
@@ -86,6 +87,28 @@ const workflowInput = {
     },
     resumeText: null,
     runId: "run-1",
+  },
+};
+
+const narrativeOutput = {
+  dimensionComments: {
+    educationBackground: "学历背景符合岗位现有要求。",
+    experienceRelevance: "相关经验能够支撑岗位职责。",
+    potential: "成长轨迹与岗位发展方向基本一致。",
+    projectMatch: "项目经历与岗位场景具有关联。",
+    skillMatch: "技能证据覆盖岗位核心要求。",
+    stability: "任职经历未触发稳定性扣分。",
+  },
+  levelRecommendation: {
+    level: "高级",
+    rationale: "结合职责范围、项目复杂度和经验综合判断。",
+  },
+  overallComment: "候选人的核心能力与岗位整体匹配，主要风险可在面试中继续确认。",
+  recommendation: "建议进入下一轮",
+  summary: "综合条件符合岗位要求",
+  teamPositioning: {
+    rationale: "相关项目经验可支撑核心业务交付。",
+    suggestion: "核心业务研发",
   },
 };
 
@@ -945,6 +968,84 @@ describe("structured resume workflow contracts", () => {
     expect(calculation.calculation.dimensions.experienceRelevance.rawScore).toBe(73);
   });
 
+  it("scores every JD experience threshold instead of only the highest-year requirement", () => {
+    const frontendRequirement = {
+      relevanceScope: "role" as const,
+      requirementId: "experience-frontend",
+      scopeDescription: "前端开发",
+      sourceRef: { kind: "job_description" as const, path: "prompt" },
+      sourceText: "8 年以上前端开发经验",
+      years: 8,
+    };
+    const managementRequirement = {
+      relevanceScope: "capability" as const,
+      requirementId: "experience-management",
+      scopeDescription: "团队管理",
+      sourceRef: { kind: "job_description" as const, path: "prompt" },
+      sourceText: "3 年以上团队管理经验",
+      years: 3,
+    };
+    const input = {
+      ...workflowInput,
+      jobSnapshot: {
+        ...workflowInput.jobSnapshot,
+        blueprint: {
+          ...blueprint,
+          requiredRelevantExperience: frontendRequirement,
+          requiredRelevantExperiences: [frontendRequirement, managementRequirement],
+        },
+      },
+    };
+    const facts = {
+      employmentEpisodes: [
+        {
+          current: true,
+          endMonth: null,
+          evidence: [],
+          gapExplanation: null,
+          id: "frontend",
+          primaryStatus: "primary" as const,
+          relevance: "relevant" as const,
+          relevanceReason: "前端开发经历",
+          startMonth: "2018-07",
+        },
+      ],
+      projects: [],
+      ruleJudgments: [],
+      skillFacts: [],
+    };
+    const gateOutput = {
+      judgments: [
+        {
+          aiStatus: "passed" as const,
+          evidence: [],
+          experienceEpisodes: [
+            { current: true, endMonth: null, evidence: [], startMonth: "2018-07" },
+          ],
+          reason: "前端经验达到要求",
+          requirementId: frontendRequirement.requirementId,
+        },
+        {
+          aiStatus: "failed" as const,
+          evidence: [],
+          experienceEpisodes: [
+            { current: true, endMonth: null, evidence: [], startMonth: "2025-07" },
+          ],
+          reason: "管理经验只有一年",
+          requirementId: managementRequirement.requirementId,
+        },
+      ],
+    };
+
+    const judgments = deriveStructuredRuleJudgments(input, facts, gateOutput);
+
+    expect(
+      judgments.experienceRelevance.find(
+        (judgment) => judgment.ruleId === "experience.missing_year",
+      ),
+    ).toMatchObject({ status: "matched", units: 2 });
+  });
+
   it("derives education-level deductions from the resume profile instead of a conflicting model judgment", () => {
     const educationGate = {
       category: "education" as const,
@@ -1059,8 +1160,8 @@ describe("structured resume workflow contracts", () => {
   });
 
   it("tells the narrative Agent to explain only actually applied adjustment points", async () => {
-    generator.mockResolvedValue({ recommendation: "推荐", summary: "说明" });
-    const { calculation } = computeStructuredResumeCalculation({
+    generator.mockResolvedValue(narrativeOutput);
+    const calculationResult = computeStructuredResumeCalculation({
       adjustmentOutput: { judgments: [] },
       dimensionOutput: {
         employmentEpisodes: [],
@@ -1072,12 +1173,23 @@ describe("structured resume workflow contracts", () => {
       workflowInput,
     });
 
-    await generateStructuredNarrative({ calculation, workflowInput });
+    await generateStructuredNarrative({ calculationResult, workflowInput });
 
     const prompt = generator.mock.calls[0]?.[0]?.prompt as string;
     expect(prompt).toContain("未命中的优先条件 appliedPoints=0，不加分也不扣分");
     expect(prompt).toContain("只解释 appliedPoints 实际非零的加减分");
     expect(prompt).toContain("门槛状态不改变代码给出的分数等级");
+    expect(prompt).toContain("dimensions.weightedContribution 的单位是分");
+    expect(prompt).toContain("dimensionComments 必须覆盖六个维度");
+    expect(prompt).toContain("只概括候选人在该维度的整体表现");
+    expect(prompt).toContain("不要输出规则名称、规则编号或逐项规则状态");
+    expect(prompt).toContain("不得复述综合分、等级、门槛状态或推荐结论");
+    expect(prompt).toContain("units=1 时只能表述为一项");
+    expect(prompt).toContain("teamPositioning.suggestion");
+    expect(prompt).toContain("levelRecommendation.level");
+    expect(prompt).toContain('"ruleJudgments":');
+    expect(prompt).toContain('"weightedContribution":');
+    expect(prompt).not.toContain("weightedContributionHundredths");
     expect(generator.mock.calls[0]?.[0]?.timeoutMs).toBe(240_000);
   });
 
@@ -1121,6 +1233,7 @@ describe("structured resume workflow contracts", () => {
     const artifact = assembleStructuredResumeEvaluation({
       calculationResult,
       narrative: {
+        ...narrativeOutput,
         recommendation: "匹配",
         summary: "7项门槛中3项未通过。",
       },
@@ -1129,6 +1242,33 @@ describe("structured resume workflow contracts", () => {
 
     expect(artifact.narrative.summary).toContain("共评估12项硬性门槛，其中4项未通过");
     expect(artifact.narrative.summary).not.toContain("7项门槛中3项未通过");
+  });
+
+  it("rejects narrative contributions that treat stored hundredths as display points", () => {
+    const calculationResult = computeStructuredResumeCalculation({
+      adjustmentOutput: { judgments: [] },
+      dimensionOutput: {
+        employmentEpisodes: [],
+        projects: [],
+        ruleJudgments: [],
+        skillFacts: [],
+      },
+      gateOutput: { judgments: [] },
+      workflowInput,
+    });
+
+    const artifact = assembleStructuredResumeEvaluation({
+      calculationResult,
+      narrative: {
+        ...narrativeOutput,
+        recommendation: "推荐",
+        summary: "技能维度加权贡献3500分。",
+      },
+      workflowInput,
+    });
+
+    expect(artifact.narrative.summary).toContain("六维评分：");
+    expect(artifact.narrative.summary).not.toContain("加权贡献3500分");
   });
 
   it("marks job-benchmark rules not applicable when the blueprint has no benchmark", () => {
@@ -1148,6 +1288,34 @@ describe("structured resume workflow contracts", () => {
     expect(
       judgments.projectMatch.find((item) => item.ruleId === "project.no_relevant_project"),
     ).toMatchObject({ status: "not_applicable" });
+  });
+
+  it("omits disabled job deduction rules from the persisted judgments", () => {
+    const publishedConfig = createDefaultJobDescriptionStructuredConfig();
+    publishedConfig.deductionRules["stability.short_tenure"] = {
+      enabled: false,
+      points: 12,
+    };
+
+    const judgments = deriveStructuredRuleJudgments(
+      {
+        ...workflowInput,
+        jobSnapshot: {
+          ...workflowInput.jobSnapshot,
+          publishedConfig,
+        },
+      },
+      {
+        employmentEpisodes: [],
+        projects: [],
+        ruleJudgments: [],
+        skillFacts: [],
+      },
+    );
+
+    expect(judgments.stability.some((item) => item.ruleId === "stability.short_tenure")).toBe(
+      false,
+    );
   });
 
   it("derives no-relevant-project from the normalized project facts instead of a conflicting model judgment", () => {
@@ -1261,10 +1429,7 @@ describe("structured resume workflow contracts", () => {
         skillFacts: [],
       })
       .mockResolvedValueOnce({ judgments: [] })
-      .mockResolvedValueOnce({
-        recommendation: "建议进入下一轮",
-        summary: "综合条件符合岗位要求",
-      });
+      .mockResolvedValueOnce(narrativeOutput);
 
     const result = await runStructuredResumeReviewWorkflow({
       ...workflowInput,
@@ -1279,8 +1444,12 @@ describe("structured resume workflow contracts", () => {
       calculations: { compositeScore: 93 },
       grade: "recommended",
       narrative: {
+        dimensionComments: narrativeOutput.dimensionComments,
+        levelRecommendation: narrativeOutput.levelRecommendation,
+        overallComment: narrativeOutput.overallComment,
         recommendation: "推荐",
         summary: "综合评分93分，等级为推荐；硬性门槛通过。综合条件符合岗位要求",
+        teamPositioning: narrativeOutput.teamPositioning,
       },
     });
   });
@@ -1350,7 +1519,7 @@ describe("structured resume workflow contracts", () => {
     ).toMatchObject({ status: "matched", units: 1 });
   });
 
-  it("rejects evidence quotes that do not exist in their declared resume source", () => {
+  it("rejects evidence quotes that do not exist in either resume source", () => {
     expect(() =>
       computeStructuredResumeCalculation({
         adjustmentOutput: { judgments: [] },
@@ -1378,6 +1547,40 @@ describe("structured resume workflow contracts", () => {
         },
       }),
     ).toThrow("STRUCTURED_RESUME_EVIDENCE_MISMATCH");
+  });
+
+  it("corrects an evidence source when the exact quote exists in the other resume source", () => {
+    const calculation = computeStructuredResumeCalculation({
+      adjustmentOutput: { judgments: [] },
+      dimensionOutput: {
+        employmentEpisodes: [],
+        projects: [],
+        ruleJudgments: [
+          {
+            dimension: "potential" as const,
+            evidence: [{ quote: "精通 TypeScript", source: "resume_profile" as const }],
+            reason: "引用内容来自简历原文",
+            ruleId: "potential.no_growth_two_years" as const,
+            status: "not_matched" as const,
+          },
+        ],
+        skillFacts: [],
+      },
+      gateOutput: { judgments: [] },
+      workflowInput: {
+        ...workflowInput,
+        resumeInput: {
+          ...workflowInput.resumeInput,
+          resumeText: "候选人精通 TypeScript，具备项目实操经验。",
+        },
+      },
+    });
+
+    expect(
+      calculation.dimensionRuleJudgments.potential.find(
+        (judgment) => judgment.ruleId === "potential.no_growth_two_years",
+      )?.evidence,
+    ).toEqual([{ quote: "精通 TypeScript", source: "resume_text" }]);
   });
 
   it("rejects resume-profile JSON keys and null literals as fabricated evidence", () => {

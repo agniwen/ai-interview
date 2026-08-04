@@ -2,9 +2,14 @@
 
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { createDefaultJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
 import type { JobEvaluationBlueprint } from "@arc/db-schema/job-description-evaluation";
-import { JobEvaluationBlueprintPreview } from "./job-evaluation-blueprint-preview";
+import { toJobEvaluationRuleDraft } from "@arc/db-schema/job-description-evaluation";
+import {
+  JobEvaluationBlueprintPreview,
+  serializeEvaluationRules,
+} from "./job-evaluation-blueprint-preview";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -31,6 +36,7 @@ const blueprint: JobEvaluationBlueprint = {
   hardGateRequirements: [],
   priorityConditions: [],
   requiredRelevantExperience: null,
+  requiredRelevantExperiences: [],
   schemaVersion: 1,
 };
 
@@ -39,43 +45,89 @@ describe("JobEvaluationBlueprintPreview", () => {
     document.body.innerHTML = "";
   });
 
-  it("shows the recognized standards for all six scoring dimensions", () => {
+  it("shows all editable scoring content in one text area", () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
+    const onDeductionRulesChange = vi.fn();
+    const onRuleDraftChange = vi.fn();
 
     act(() => {
       root.render(
         <JobEvaluationBlueprintPreview
-          blueprint={blueprint}
-          weights={{
-            educationBackground: 10,
-            experienceRelevance: 25,
-            potential: 8,
-            projectMatch: 15,
-            skillMatch: 35,
-            stability: 7,
-          }}
+          deductionRules={createDefaultJobDescriptionStructuredConfig().deductionRules}
+          onDeductionRulesChange={onDeductionRulesChange}
+          onRuleDraftChange={onRuleDraftChange}
+          ruleDraft={toJobEvaluationRuleDraft(blueprint)}
         />,
       );
     });
 
-    expect(container.textContent).toContain("六维评分标准");
-    expect(container.textContent).toContain("技能35%");
-    expect(container.textContent).toContain("精通React");
-    expect(container.textContent).toContain("经验25%");
-    expect(container.textContent).toContain("管理3-6人团队");
-    expect(container.textContent).toContain("项目15%");
-    expect(container.textContent).toContain("主导核心项目");
-    expect(container.textContent).toContain("学历10%");
-    expect(container.textContent).toContain("本科及以上");
-    expect(container.textContent).toContain("潜力8%");
-    expect(container.textContent).toContain("持续学习");
-    expect(container.textContent).toContain("稳定7%");
-    expect(container.textContent).toContain("可长期驻外");
+    const textarea = container.querySelector<HTMLTextAreaElement>("textarea");
+    expect(container.querySelectorAll("textarea")).toHaveLength(1);
+    if (!textarea) {
+      throw new Error("expected the complete scoring rules text area");
+    }
+    expect(textarea.ariaLabel).toBe("完整评分规则");
+    expect(textarea.value).toContain("【技能】");
+    expect(textarea.value).toContain("精通React");
+    expect(textarea.value).toContain("【经验】");
+    expect(textarea.value).toContain("管理3-6人团队");
+    expect(textarea.value).toContain("【项目】");
+    expect(textarea.value).toContain("主导核心项目");
+    expect(textarea.value).toContain("【学历】");
+    expect(textarea.value).toContain("本科及以上");
+    expect(textarea.value).toContain("【潜力】");
+    expect(textarea.value).toContain("持续学习");
+    expect(textarea.value).toContain("【稳定】");
+    expect(textarea.value).toContain("可长期驻外");
+    expect(textarea.value).toContain("岗位判断依据：");
+    expect(textarea.value).toContain("计分规则：");
+    expect(textarea.value).not.toContain("评分标准：");
+    expect(textarea.value).not.toContain("评估项目：");
+    expect(textarea.value).not.toContain("扣分规则：");
+    expect(textarea.value).not.toContain("- 未设置");
+    expect(textarea.value).not.toContain("权重");
+    expect(container.querySelectorAll("[data-dimension-rule], input, details")).toHaveLength(0);
+
+    const editedRules = textarea.value
+      .replace("精通React", "熟练掌握 React")
+      .replace("每缺失 1 项核心技能：-14 分", "每缺失 1 项核心技能：-18 分");
+    act(() => {
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        "value",
+      )?.set;
+      valueSetter?.call(textarea, editedRules);
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      textarea.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    });
+    expect(onRuleDraftChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dimensionExpectations: expect.objectContaining({ skillMatch: ["熟练掌握 React"] }),
+      }),
+    );
+    expect(onDeductionRulesChange).toHaveBeenCalledWith(
+      expect.objectContaining({ "skill.missing_core": { enabled: true, points: 18 } }),
+    );
 
     act(() => {
       root.unmount();
     });
+  });
+
+  it("omits the job benchmark heading when a dimension has no extracted benchmark", () => {
+    const ruleDraft = toJobEvaluationRuleDraft(blueprint);
+    ruleDraft.dimensionExpectations.projectMatch = [];
+
+    const rules = serializeEvaluationRules({
+      deductionRules: createDefaultJobDescriptionStructuredConfig().deductionRules,
+      ruleDraft,
+    });
+    const projectSection = rules.match(/【项目】([\s\S]*?)【学历】/)?.[1];
+
+    expect(projectSection).toBeDefined();
+    expect(projectSection).not.toContain("岗位判断依据：");
+    expect(projectSection).toContain("计分规则：");
   });
 });

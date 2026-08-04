@@ -14,12 +14,37 @@ import { JobDescriptionFormDialog } from "./job-description-form-dialog";
 const api = vi.hoisted(() => {
   const calls: string[] = [];
   const state = { savedRecord: null as Record<string, unknown> | null };
+  const blueprint = {
+    auxiliarySkills: [],
+    compiler: {
+      generatedAt: "2026-08-03T00:00:00.000Z",
+      modelId: "test",
+      promptVersion: "v1",
+    },
+    coreSkills: [],
+    dimensionExpectations: {
+      educationBackground: [],
+      experienceRelevance: [],
+      potential: [],
+      projectMatch: [],
+      skillMatch: [],
+      stability: [],
+    },
+    educationExpectation: null,
+    exclusionConditions: [],
+    hardGateRequirements: [],
+    priorityConditions: [],
+    requiredRelevantExperience: null,
+    schemaVersion: 1,
+  };
   return {
+    blueprint,
     calls,
     generateJobDescription: vi.fn(() =>
       Promise.resolve(
         Response.json({
-          jobDescription: "## 岗位职责\n负责前端架构与团队管理。",
+          jobDescription:
+            "岗位职责\n负责前端架构与团队管理。\n任职要求\n具备大型项目和团队管理经验。",
           suggestedName: "前端技术经理",
           supplementedItems: [
             {
@@ -34,7 +59,7 @@ const api = vi.hoisted(() => {
       calls.push("preview");
       return Promise.resolve(
         Response.json({
-          blueprint: {},
+          blueprint,
           blueprintHash: "blueprint-hash",
         }),
       );
@@ -43,6 +68,14 @@ const api = vi.hoisted(() => {
       calls.push("save");
       return Promise.resolve(Response.json({ ...state.savedRecord, ...json }));
     }),
+    saveRuleDraft: vi.fn(() =>
+      Promise.resolve(
+        Response.json({
+          blueprint,
+          blueprintHash: "saved-blueprint-hash",
+        }),
+      ),
+    ),
     state,
   };
 });
@@ -62,10 +95,14 @@ vi.mock("@/lib/client/rpc", () => ({
         ":slug": {
           studio: {
             "job-descriptions": {
+              $post: api.saveDraft,
               ":id": {
                 $patch: api.saveDraft,
                 "evaluation-blueprint-preview": {
                   $post: api.generatePreview,
+                },
+                "evaluation-rule-draft": {
+                  $put: api.saveRuleDraft,
                 },
                 operational: { $patch: vi.fn() },
                 publish: { $post: vi.fn() },
@@ -119,7 +156,23 @@ vi.mock("./job-description-screening-fields", () => ({
 }));
 
 vi.mock("./job-evaluation-blueprint-preview", () => ({
-  JobEvaluationBlueprintPreview: () => null,
+  JobEvaluationBlueprintPreview: ({
+    onRuleDraftChange,
+    ruleDraft,
+  }: {
+    onRuleDraftChange: (draft: Record<string, unknown>) => void;
+    ruleDraft: Record<string, unknown>;
+  }) => (
+    <div>
+      <span>可编辑评分规则</span>
+      <button
+        onClick={() => onRuleDraftChange({ ...ruleDraft, coreSkills: ["React"] })}
+        type="button"
+      >
+        模拟编辑评分规则
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock("./job-description-linked-resources", () => ({
@@ -128,9 +181,18 @@ vi.mock("./job-description-linked-resources", () => ({
 }));
 
 vi.mock("@/components/features/markdown-editor", () => ({
-  MarkdownEditor: ({ onChange, value }: { onChange: (value: string) => void; value: string }) => (
+  MarkdownEditor: ({
+    onChange,
+    showPreview,
+    value,
+  }: {
+    onChange: (value: string) => void;
+    showPreview?: boolean;
+    value: string;
+  }) => (
     <textarea
       aria-label="MarkdownEditor"
+      data-show-preview={String(showPreview)}
       onChange={(event) => onChange(event.target.value)}
       value={value}
     />
@@ -213,6 +275,14 @@ describe("structured job description preview flow", () => {
     expect(structuredLabels).not.toContain("岗位 Prompt *");
     expect(structuredContainer.textContent).toContain("新版评分设置");
     expect(structuredContainer.textContent).not.toContain("旧版筛选规则");
+    expect(
+      structuredContainer.querySelector<HTMLTextAreaElement>('textarea[aria-label="岗位 JD"]'),
+    ).not.toBeNull();
+    expect(
+      structuredContainer.querySelector<HTMLTextAreaElement>(
+        'textarea[aria-label="MarkdownEditor"]',
+      ),
+    ).toBeNull();
     act(() => structuredRoot.unmount());
 
     const legacyContainer = document.createElement("div");
@@ -246,6 +316,10 @@ describe("structured job description preview flow", () => {
     expect(legacyLabels).toContain("岗位 Prompt *");
     expect(legacyContainer.textContent).toContain("旧版筛选规则");
     expect(legacyContainer.textContent).not.toContain("新版评分设置");
+    expect(
+      legacyContainer.querySelector<HTMLTextAreaElement>('textarea[aria-label="MarkdownEditor"]')
+        ?.dataset.showPreview,
+    ).toBe("true");
     act(() => legacyRoot.unmount());
   });
 
@@ -290,9 +364,7 @@ describe("structured job description preview flow", () => {
       await vi.waitFor(() => expect(api.generateJobDescription).toHaveBeenCalledTimes(1));
     });
 
-    const editor = container.querySelector<HTMLTextAreaElement>(
-      'textarea[aria-label="MarkdownEditor"]',
-    );
+    const editor = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="岗位 JD"]');
     expect(editor?.value).toBe("负责前端研发。");
     expect(container.textContent).toContain("请核对 AI 补充内容");
     expect(container.textContent).toContain("补充了团队规模和管理年限要求");
@@ -305,7 +377,68 @@ describe("structured job description preview flow", () => {
       await Promise.resolve();
     });
 
-    expect(editor?.value).toBe("## 岗位职责\n负责前端架构与团队管理。");
+    expect(editor?.value).toBe(
+      "岗位职责\n负责前端架构与团队管理。\n任职要求\n具备大型项目和团队管理经验。",
+    );
+    act(() => root.unmount());
+  });
+
+  it("creates a draft and renders scoring rules from the new-job form", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const onSaved = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <JobDescriptionFormDialog
+          departments={[{ id: "department-1", name: "研发部" } as never]}
+          initialDraft={{
+            allowCrossDepartmentInterviewers: false,
+            code: "",
+            departmentId: "department-1",
+            description: "",
+            interviewerIds: ["interviewer-1"],
+            name: "前端技术经理",
+            prompt: "岗位要求",
+            resumeScreeningPolicy: createDefaultResumeScreeningPolicy(),
+            structuredConfig: createDefaultJobDescriptionStructuredConfig(),
+          }}
+          interviewers={[
+            {
+              departmentId: "department-1",
+              id: "interviewer-1",
+              name: "面试官",
+            } as never,
+          ]}
+          onOpenChange={vi.fn()}
+          onSaved={onSaved}
+          open
+          record={null}
+        />,
+      );
+      await Promise.resolve();
+    });
+
+    const generateButton = [...container.querySelectorAll("button")].find((item) =>
+      item.textContent?.includes("生成评分规则"),
+    );
+    expect(generateButton).toBeDefined();
+
+    await act(async () => {
+      generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await vi.waitFor(() => expect(api.generatePreview).toHaveBeenCalledTimes(1));
+    });
+
+    expect(api.calls).toEqual(["save", "preview"]);
+    expect(container.textContent).toContain("可编辑评分规则");
+    expect(onSaved).toHaveBeenCalledWith(
+      expect.objectContaining({
+        evaluationBlueprintPreviewHash: "blueprint-hash",
+        id: "job-1",
+      }),
+    );
+
     act(() => root.unmount());
   });
 
@@ -335,7 +468,7 @@ describe("structured job description preview flow", () => {
     });
 
     const button = [...container.querySelectorAll("button")].find((item) =>
-      item.textContent?.includes("生成配置预览"),
+      item.textContent?.includes("生成评分规则"),
     );
     expect(button).toBeDefined();
 
@@ -354,6 +487,7 @@ describe("structured job description preview flow", () => {
         }),
       }),
     );
+    expect(container.textContent).toContain("可编辑评分规则");
 
     const publishButton = [...container.querySelectorAll("button")].find((item) =>
       item.textContent?.includes("确认并发布"),
@@ -371,6 +505,214 @@ describe("structured job description preview flow", () => {
 
     expect(publishButton?.hasAttribute("disabled")).toBe(true);
 
+    act(() => root.unmount());
+  });
+
+  it("keeps the adopted JD visible while scoring rules are being generated", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const adoptedPrompt = "采用后的岗位职责\n采用后的任职要求";
+    const adoptedRecord = { ...record, prompt: adoptedPrompt };
+    const { promise: previewResponse, resolve: resolvePreview } = Promise.withResolvers<Response>();
+    api.saveDraft.mockImplementationOnce(({ json }: { json: Record<string, unknown> }) =>
+      Promise.resolve(Response.json({ ...record, ...json, prompt: "岗位要求" })),
+    );
+    api.generatePreview.mockImplementationOnce(() => previewResponse);
+
+    await act(async () => {
+      root.render(
+        <JobDescriptionFormDialog
+          departments={[{ id: "department-1", name: "研发部" } as never]}
+          interviewers={[
+            {
+              departmentId: "department-1",
+              id: "interviewer-1",
+              name: "面试官",
+            } as never,
+          ]}
+          onOpenChange={vi.fn()}
+          onSaved={vi.fn()}
+          open
+          record={adoptedRecord as never}
+        />,
+      );
+      await Promise.resolve();
+    });
+
+    const editor = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="岗位 JD"]');
+    expect(editor).not.toBeNull();
+    expect(editor?.value).toBe(adoptedPrompt);
+
+    const generateButton = [...container.querySelectorAll("button")].find((item) =>
+      item.textContent?.includes("生成评分规则"),
+    );
+    await act(async () => {
+      generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await vi.waitFor(() => expect(api.generatePreview).toHaveBeenCalledTimes(1));
+    });
+
+    expect(editor?.value).toBe(adoptedPrompt);
+
+    await act(async () => {
+      resolvePreview(Response.json({ blueprint: api.blueprint, blueprintHash: "hash" }));
+      await previewResponse;
+      await Promise.resolve();
+    });
+    act(() => root.unmount());
+  });
+
+  it("allows an unchanged saved preview to be published after reopening", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <JobDescriptionFormDialog
+          departments={[{ id: "department-1", name: "研发部" } as never]}
+          interviewers={[
+            {
+              departmentId: "department-1",
+              id: "interviewer-1",
+              name: "面试官",
+            } as never,
+          ]}
+          onOpenChange={vi.fn()}
+          onSaved={vi.fn()}
+          open
+          record={
+            {
+              ...record,
+              evaluationBlueprintPreview: api.blueprint,
+              evaluationBlueprintPreviewHash: "blueprint-hash",
+            } as never
+          }
+        />,
+      );
+      await Promise.resolve();
+    });
+
+    const publishButton = [...container.querySelectorAll("button")].find((item) =>
+      item.textContent?.includes("确认并发布"),
+    );
+    expect(publishButton).toBeDefined();
+    expect(publishButton?.hasAttribute("disabled")).toBe(false);
+
+    const nameInput = container.querySelector<HTMLInputElement>("#name");
+    act(() => {
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      valueSetter?.call(nameInput, "尚未保存的新岗位名");
+      nameInput?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(publishButton?.hasAttribute("disabled")).toBe(true);
+
+    act(() => root.unmount());
+  });
+
+  it("persists recruiter edits before allowing publication", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const onOpenChange = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <JobDescriptionFormDialog
+          departments={[{ id: "department-1", name: "研发部" } as never]}
+          interviewers={[
+            {
+              departmentId: "department-1",
+              id: "interviewer-1",
+              name: "面试官",
+            } as never,
+          ]}
+          onOpenChange={onOpenChange}
+          onSaved={vi.fn()}
+          open
+          record={record as never}
+        />,
+      );
+      await Promise.resolve();
+    });
+
+    const generateButton = [...container.querySelectorAll("button")].find((item) =>
+      item.textContent?.includes("生成评分规则"),
+    );
+    await act(async () => {
+      generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await vi.waitFor(() => expect(api.generatePreview).toHaveBeenCalledTimes(1));
+    });
+
+    const editButton = [...container.querySelectorAll("button")].find((item) =>
+      item.textContent?.includes("模拟编辑评分规则"),
+    );
+    act(() => editButton?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    expect(container.textContent).toContain("评分规则有未保存修改");
+
+    const saveButton = [...container.querySelectorAll("button")].find(
+      (item) => item.textContent?.trim() === "保存",
+    );
+    await act(async () => {
+      saveButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await vi.waitFor(() => expect(api.saveRuleDraft).toHaveBeenCalledTimes(1));
+    });
+
+    expect(api.saveRuleDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        json: expect.objectContaining({
+          expectedBlueprintHash: "blueprint-hash",
+          ruleDraft: expect.objectContaining({ coreSkills: ["React"] }),
+        }),
+      }),
+    );
+    expect(api.saveDraft).toHaveBeenCalledTimes(1);
+    expect(onOpenChange).not.toHaveBeenCalled();
+    act(() => root.unmount());
+  });
+
+  it("keeps the dialog open after saving job information", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const onOpenChange = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <JobDescriptionFormDialog
+          departments={[{ id: "department-1", name: "研发部" } as never]}
+          interviewers={[
+            {
+              departmentId: "department-1",
+              id: "interviewer-1",
+              name: "面试官",
+            } as never,
+          ]}
+          onOpenChange={onOpenChange}
+          onSaved={vi.fn()}
+          open
+          record={record as never}
+        />,
+      );
+      await Promise.resolve();
+    });
+
+    const nameInput = container.querySelector<HTMLInputElement>("#name");
+    act(() => {
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      valueSetter?.call(nameInput, "保存后继续编辑");
+      nameInput?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const saveButton = [...container.querySelectorAll("button")].find(
+      (item) => item.textContent?.trim() === "保存",
+    );
+    await act(async () => {
+      saveButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await vi.waitFor(() => expect(api.saveDraft).toHaveBeenCalledTimes(1));
+    });
+
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("编辑在招岗位");
     act(() => root.unmount());
   });
 
@@ -426,7 +768,7 @@ describe("structured job description preview flow", () => {
     });
 
     const previewButton = [...container.querySelectorAll("button")].find((item) =>
-      item.textContent?.includes("生成配置预览"),
+      item.textContent?.includes("生成评分规则"),
     );
     await act(async () => {
       previewButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));

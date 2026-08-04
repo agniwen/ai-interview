@@ -34,7 +34,6 @@ import { StudioPersonDetailBody } from "./studio-person-detail-body";
 export function StudioPersonDetailView({ model }: { model: StudioPersonDetailViewModel }) {
   const {
     activeTab,
-    canUseTimelineRailScroll,
     canViewReportMetadata,
     confirmResetSubmission,
     description,
@@ -57,8 +56,8 @@ export function StudioPersonDetailView({ model }: { model: StudioPersonDetailVie
 
   const body = <StudioPersonDetailBody model={model} />;
   const footer = null;
-  const bodyClassName = canUseTimelineRailScroll ? "xl:overflow-hidden" : undefined;
-  const modalClassName = cn("sm:rounded-2xl", canUseTimelineRailScroll && "xl:h-[90vh]");
+  const bodyClassName = undefined;
+  const modalClassName = "sm:rounded-2xl";
   let modalSize: StudioPersonDetailSlots["modalSize"] = "full";
   if (mode === "resume") {
     modalSize = "3xl";

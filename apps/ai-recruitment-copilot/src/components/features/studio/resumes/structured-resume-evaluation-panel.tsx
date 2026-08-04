@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { toast } from "sonner";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import type { StructuredResumeGateStatus } from "@arc/db-schema/structured-resume-evaluation";
-import type { StructuredResumeRuleId } from "@arc/shared/structured-resume-scoring";
 import { STRUCTURED_RESUME_DIMENSIONS } from "@arc/shared/structured-resume-scoring";
 import { cn } from "@arc/shared/utils";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,15 @@ const DIMENSION_LABELS = {
   stability: "稳定",
 } as const;
 
+const RADAR_DIMENSION_ORDER = [
+  "skillMatch",
+  "experienceRelevance",
+  "stability",
+  "educationBackground",
+  "potential",
+  "projectMatch",
+] as const;
+
 const GATE_LABELS: Record<StructuredResumeGateStatus, string> = {
   failed: "未通过门槛",
   needs_verification: "门槛待核实",
@@ -35,39 +44,9 @@ const GRADE_LABELS = {
   unmatched: "不匹配",
 } as const;
 
-const DEDUCTION_RULE_LABELS: Record<StructuredResumeRuleId, string> = {
-  "education.below_tier": "学历低于门槛",
-  "education.major_unrelated": "专业与岗位无关",
-  "experience.fragmented": "相关经历碎片化",
-  "experience.industry_unrelated": "行业完全不相关",
-  "experience.missing_year": "经验年限不足",
-  "potential.illogical_switches": "职业方向频繁变化",
-  "potential.no_growth_two_years": "近两年缺少成长记录",
-  "potential.unexplained_gap_over_six_months": "长期空档缺少解释",
-  "project.edge_participation": "仅边缘参与项目",
-  "project.no_relevant_project": "无相关项目",
-  "project.old_relevant_project": "相关项目距今较久",
-  "project.scale_low": "项目规模或复杂度不足",
-  "skill.missing_auxiliary": "缺少辅助技能",
-  "skill.missing_core": "缺少核心技能",
-  "skill.no_related_skill": "无岗位相关技能",
-  "skill.shallow": "技能仅停留在浅层了解",
-  "stability.frequent_unrelated_industries": "频繁跨无关行业",
-  "stability.gap_over_six_months": "空档超过六个月",
-  "stability.gap_three_to_six_months": "空档三至六个月",
-  "stability.short_tenure": "存在短期任职",
-  "stability.three_changes_one_year": "一年内变动三次及以上",
-  "stability.two_changes_one_year": "一年内变动两次",
-  "stability.two_changes_two_years": "两年内变动两次",
-};
-
 type StructuredDimensionKey = (typeof STRUCTURED_RESUME_DIMENSIONS)[number];
 type StructuredEvaluation = NonNullable<ResumeLibraryDetail["structuredResumeEvaluation"]>;
 type StructuredDimensionResult = StructuredEvaluation["dimensions"][StructuredDimensionKey];
-
-function deductionRuleLabel(ruleId: string) {
-  return DEDUCTION_RULE_LABELS[ruleId as StructuredResumeRuleId] ?? ruleId;
-}
 
 function uniqueEvidence<T extends { quote: string; source: string }>(evidence: T[]) {
   return [...new Map(evidence.map((item) => [`${item.source}:${item.quote}`, item])).values()];
@@ -83,6 +62,16 @@ function statusVariant(status: StructuredResumeGateStatus) {
   return "success" as const;
 }
 
+function gateConclusion(status: StructuredResumeGateStatus): string {
+  if (status === "failed") {
+    return "硬性门槛未通过";
+  }
+  if (status === "needs_verification") {
+    return "硬性门槛存在待核实项";
+  }
+  return "硬性门槛通过";
+}
+
 function hrStatusLabel(status: ResumeLibraryDetail["resumeEvaluationStatus"]) {
   if (status === "pass") {
     return "HR 已通过";
@@ -94,19 +83,98 @@ function hrStatusLabel(status: ResumeLibraryDetail["resumeEvaluationStatus"]) {
 }
 
 interface StructuredDimensionDisplay {
+  comment: string;
   contribution: number;
   deductionTotal: number;
-  deductions: StructuredDimensionResult["appliedDeductions"];
-  insufficientEvidence: StructuredDimensionResult["ruleJudgments"];
   key: StructuredDimensionKey;
   label: string;
   score: number;
   weight: number;
 }
 
+function describeDeductionPoints(
+  deduction: StructuredDimensionResult["appliedDeductions"][number] | undefined,
+): string {
+  if (!deduction) {
+    return "";
+  }
+  if (deduction.appliedPoints > 0) {
+    return `，扣 ${deduction.appliedPoints} 分`;
+  }
+  return "，本维度直接记 0 分";
+}
+
+function trimCommentPunctuation(value: string): string {
+  return value.trim().replaceAll(/[。；，、！？!?;,:：]+$/gu, "");
+}
+
+function buildDimensionFallback(score: number): string {
+  if (score >= 90) {
+    return "该维度整体表现优秀。";
+  }
+  if (score >= 75) {
+    return "该维度整体表现较好。";
+  }
+  if (score >= 60) {
+    return "该维度存在一定不足。";
+  }
+  return "该维度与岗位要求存在明显差距。";
+}
+
+function buildDeductionComment(dimension: StructuredDimensionResult): string {
+  if (dimension.appliedDeductions.length === 0) {
+    return "";
+  }
+  const deductions = dimension.appliedDeductions.map(
+    (deduction) =>
+      `${trimCommentPunctuation(deduction.reason)}${describeDeductionPoints(deduction)}`,
+  );
+  return `扣分说明：${deductions.join("；")}。`;
+}
+
+function StructuredRecommendationPanels({
+  narrative,
+}: {
+  narrative: StructuredEvaluation["narrative"];
+}) {
+  if (!(narrative.levelRecommendation || narrative.teamPositioning)) {
+    return null;
+  }
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      {narrative.levelRecommendation ? (
+        <Frame>
+          <FrameHeader>
+            <FrameTitle>职级建议</FrameTitle>
+          </FrameHeader>
+          <FramePanel className="space-y-2">
+            <p className="font-medium text-base leading-6">{narrative.levelRecommendation.level}</p>
+            <p className="text-muted-foreground text-sm leading-6">
+              {narrative.levelRecommendation.rationale}
+            </p>
+          </FramePanel>
+        </Frame>
+      ) : null}
+      {narrative.teamPositioning ? (
+        <Frame>
+          <FrameHeader>
+            <FrameTitle>团队定位</FrameTitle>
+          </FrameHeader>
+          <FramePanel className="space-y-2">
+            <p className="font-medium text-base leading-6">
+              {narrative.teamPositioning.suggestion}
+            </p>
+            <p className="text-muted-foreground text-sm leading-6">
+              {narrative.teamPositioning.rationale}
+            </p>
+          </FramePanel>
+        </Frame>
+      ) : null}
+    </div>
+  );
+}
+
 function StructuredDimensionScore({ dimension }: { dimension: StructuredDimensionDisplay }) {
-  const hasDeductions = dimension.deductions.length > 0;
-  const hasInsufficientEvidence = dimension.insufficientEvidence.length > 0;
   return (
     <div
       className={cn("min-w-0", dimension.weight === 0 && "text-muted-foreground")}
@@ -121,62 +189,14 @@ function StructuredDimensionScore({ dimension }: { dimension: StructuredDimensio
         </div>
         <div className="font-semibold text-xl tabular-nums leading-none">{dimension.score}</div>
       </div>
-      {hasDeductions || hasInsufficientEvidence ? (
-        <div className="mt-4 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="font-medium text-sm">标准化扣分明细</div>
-            {dimension.deductionTotal > 0 ? (
-              <div className="text-muted-foreground text-xs">
-                合计扣分 {dimension.deductionTotal} 分
-              </div>
-            ) : null}
-          </div>
-          {dimension.deductions.map((deduction) => (
-            <div
-              className="rounded-md border border-border/60 bg-muted/20 p-3"
-              key={deduction.ruleId}
-            >
-              <div className="flex items-start justify-between gap-3 text-sm">
-                <span className="font-medium">{deductionRuleLabel(deduction.ruleId)}</span>
-                <span className="shrink-0 font-semibold text-destructive tabular-nums">
-                  {deduction.appliedPoints > 0 ? `-${deduction.appliedPoints} 分` : "直接记 0 分"}
-                </span>
-              </div>
-              <p className="mt-1.5 text-muted-foreground text-xs leading-5">{deduction.reason}</p>
-              {uniqueEvidence(deduction.evidence).map((evidence) => (
-                <blockquote
-                  className="mt-2 border-l-2 pl-2 text-muted-foreground text-xs leading-5"
-                  key={`${evidence.source}-${evidence.quote}`}
-                >
-                  {evidence.quote}
-                </blockquote>
-              ))}
-            </div>
-          ))}
-          {dimension.insufficientEvidence.map((judgment) => (
-            <div
-              className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3"
-              key={`insufficient-${judgment.ruleId}`}
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium text-sm">{deductionRuleLabel(judgment.ruleId)}</span>
-                <Badge variant="warning">证据不足</Badge>
-              </div>
-              <p className="mt-1.5 text-muted-foreground text-xs leading-5">{judgment.reason}</p>
-              {uniqueEvidence(judgment.evidence).map((evidence) => (
-                <blockquote
-                  className="mt-2 border-l-2 pl-2 text-muted-foreground text-xs leading-5"
-                  key={`${evidence.source}-${evidence.quote}`}
-                >
-                  {evidence.quote}
-                </blockquote>
-              ))}
-            </div>
-          ))}
+      <div className="mt-3 space-y-2">
+        <p className="text-muted-foreground text-sm leading-6">{dimension.comment}</p>
+        <div className="text-muted-foreground text-xs">
+          {dimension.deductionTotal > 0
+            ? `本维度合计扣 ${dimension.deductionTotal} 分`
+            : "本维度无扣分"}
         </div>
-      ) : (
-        <p className="mt-3 text-muted-foreground text-sm leading-6">本维度未触发标准化扣分</p>
-      )}
+      </div>
     </div>
   );
 }
@@ -193,16 +213,25 @@ function StructuredDimensionGroup({ dimensions }: { dimensions: StructuredDimens
   );
 }
 
+function EmptyHardGateState({ hasGates }: { hasGates: boolean }) {
+  if (hasGates) {
+    return null;
+  }
+  return <p className="p-4 text-muted-foreground text-sm">岗位未配置硬性门槛</p>;
+}
+
 export function StructuredResumeEvaluationPanel({
   canEdit,
   detail,
   onUpdated,
   slug,
+  summaryAction,
 }: {
   canEdit: boolean;
   detail: ResumeLibraryDetail;
   onUpdated?: () => void;
   slug?: string;
+  summaryAction?: ReactNode;
 }) {
   const evaluation = detail.structuredResumeEvaluation;
   const [savingRequirementId, setSavingRequirementId] = useState<string | null>(null);
@@ -221,13 +250,13 @@ export function StructuredResumeEvaluationPanel({
 
   const dimensions = STRUCTURED_RESUME_DIMENSIONS.map((key) => {
     const result = evaluation.dimensions[key];
+    const generatedComment = evaluation.narrative.dimensionComments?.[key];
+    const overallComment = generatedComment?.trim() || buildDimensionFallback(result.rawScore);
+    const deductionComment = buildDeductionComment(result);
     return {
+      comment: [overallComment, deductionComment].filter(Boolean).join(" "),
       contribution: Math.round(result.weightedContributionHundredths / 100),
       deductionTotal: result.deductionTotal,
-      deductions: result.appliedDeductions,
-      insufficientEvidence: result.ruleJudgments.filter(
-        (judgment) => judgment.status === "insufficient_evidence",
-      ),
       key,
       label: DIMENSION_LABELS[key],
       score: result.rawScore,
@@ -235,6 +264,10 @@ export function StructuredResumeEvaluationPanel({
     };
   });
   const evaluationRunId = evaluation.runId;
+  const dimensionByKey = new Map(dimensions.map((dimension) => [dimension.key, dimension]));
+  const radarDimensions = RADAR_DIMENSION_ORDER.map((key) => dimensionByKey.get(key)).filter(
+    (dimension): dimension is (typeof dimensions)[number] => dimension !== undefined,
+  );
   const dimensionGroups = [dimensions.slice(0, 2), dimensions.slice(2, 4), dimensions.slice(4, 6)];
   const hrLabel = hrStatusLabel(detail.resumeEvaluationStatus);
   const isPriorRun =
@@ -287,8 +320,9 @@ export function StructuredResumeEvaluationPanel({
       ) : null}
 
       <Frame>
-        <FrameHeader>
+        <FrameHeader className="justify-between gap-3">
           <FrameTitle>综合评价</FrameTitle>
+          {summaryAction}
         </FrameHeader>
         <FramePanel>
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_12rem] lg:items-start">
@@ -309,12 +343,16 @@ export function StructuredResumeEvaluationPanel({
               </div>
               <div className="space-y-2">
                 <h3 className="font-semibold text-base leading-7">
-                  {evaluation.narrative.summary}
+                  综合评分 {evaluation.calculations.compositeScore} 分，处于“
+                  {GRADE_LABELS[evaluation.grade]}”区间；
+                  {gateConclusion(evaluation.gates.effectiveStatus)}。
                 </h3>
-                <p className="text-muted-foreground text-sm leading-6">
-                  <span className="font-medium text-foreground">AI 原始结论：</span>
-                  {evaluation.narrative.recommendation}
-                </p>
+                {evaluation.narrative.overallComment ? (
+                  <p className="text-muted-foreground text-sm leading-6">
+                    <span className="font-medium text-foreground">整体评语：</span>
+                    {evaluation.narrative.overallComment}
+                  </p>
+                ) : null}
               </div>
             </div>
             <div className="flex min-w-0 flex-col items-start gap-5 lg:items-end lg:text-right">
@@ -344,7 +382,7 @@ export function StructuredResumeEvaluationPanel({
               }}
             >
               <RadarChart
-                data={dimensions}
+                data={radarDimensions}
                 margin={{ bottom: 18, left: 18, right: 18, top: 18 }}
                 outerRadius="72%"
               >
@@ -392,6 +430,7 @@ export function StructuredResumeEvaluationPanel({
           <FrameTitle>硬性门槛</FrameTitle>
         </FrameHeader>
         <FramePanel className="divide-y p-0">
+          <EmptyHardGateState hasGates={evaluation.gates.judgments.length > 0} />
           {evaluation.gates.judgments.map((judgment) => {
             const effectiveStatus = judgment.correction?.correctedStatus ?? judgment.aiStatus;
             return (
@@ -404,7 +443,7 @@ export function StructuredResumeEvaluationPanel({
                   {judgment.correction ? <Badge variant="outline">HR 已核实</Badge> : null}
                 </div>
                 <p className="text-muted-foreground text-sm leading-6">{judgment.reason}</p>
-                {judgment.evidence.map((evidence) => (
+                {uniqueEvidence(judgment.evidence).map((evidence) => (
                   <blockquote
                     className="border-l-2 pl-3 text-muted-foreground text-xs"
                     key={`${evidence.source}-${evidence.quote}`}
@@ -453,6 +492,8 @@ export function StructuredResumeEvaluationPanel({
         </FramePanel>
       </Frame>
 
+      <StructuredRecommendationPanels narrative={evaluation.narrative} />
+
       {evaluation.adjustments.matches.length > 0 ? (
         <Frame>
           <FrameHeader>
@@ -465,7 +506,7 @@ export function StructuredResumeEvaluationPanel({
                 <div className="mt-1 text-muted-foreground">
                   {match.matched ? `命中 · ${match.appliedPoints} 分` : "未命中"} · {match.reason}
                 </div>
-                {match.evidence.map((evidence) => (
+                {uniqueEvidence(match.evidence).map((evidence) => (
                   <blockquote
                     className="mt-2 border-l-2 pl-3 text-muted-foreground text-xs"
                     key={`${evidence.source}-${evidence.quote}`}

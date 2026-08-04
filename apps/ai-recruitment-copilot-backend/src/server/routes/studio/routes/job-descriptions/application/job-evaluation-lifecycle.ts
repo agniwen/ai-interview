@@ -1,10 +1,17 @@
-import type { JobEvaluationBlueprint } from "@arc/db-schema/job-description-evaluation";
+import type {
+  JobEvaluationBlueprint,
+  JobEvaluationRuleDraft,
+} from "@arc/db-schema/job-description-evaluation";
 import {
   JOB_EVALUATION_BLUEPRINT_SCHEMA_VERSION,
   jobEvaluationBlueprintSchema,
+  jobEvaluationRuleDraftSchema,
 } from "@arc/db-schema/job-description-evaluation";
-import type { JobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
-import { jobDescriptionStructuredConfigSchema } from "@arc/db-schema/job-description-structured-config";
+import type {
+  JobDescriptionDeductionRules,
+  JobDescriptionStructuredConfig,
+} from "@arc/db-schema/job-description-structured-config";
+import { parseStoredJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
 import { STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION } from "@arc/shared/structured-resume-scoring";
 import { and, eq } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
@@ -25,6 +32,8 @@ import {
 
 interface JobEvaluationDraft {
   description: string | null;
+  evaluationBlueprintPreview: JobEvaluationBlueprint | null;
+  evaluationBlueprintPreviewHash: string | null;
   evaluationMode: "legacy" | "structured";
   id: string;
   lifecycleStatus: "draft" | "published";
@@ -40,6 +49,12 @@ interface GeneratePreviewInput {
 
 interface PublishInput extends GeneratePreviewInput {
   confirmedBlueprintHash: string;
+}
+
+interface SaveRuleDraftInput extends GeneratePreviewInput {
+  deductionRules: JobDescriptionDeductionRules;
+  expectedBlueprintHash: string;
+  ruleDraft: JobEvaluationRuleDraft;
 }
 
 interface PreviewResult {
@@ -60,6 +75,13 @@ interface LifecycleDependencies {
     organizationId: string;
   }): Promise<JobEvaluationDraft | null>;
   publishStoredPreview(input: PublishInput): Promise<PublishStoredResult>;
+  saveManualPreview(
+    input: GeneratePreviewInput &
+      PreviewResult & {
+        deductionRules: JobDescriptionDeductionRules;
+        expectedBlueprintHash: string;
+      },
+  ): Promise<boolean>;
   savePreview(input: GeneratePreviewInput & PreviewResult): Promise<boolean>;
 }
 
@@ -86,9 +108,121 @@ function assertDraft(job: JobEvaluationDraft | null): asserts job is JobEvaluati
   if (job.lifecycleStatus !== "draft") {
     throw new JobEvaluationLifecycleError(
       "JOB_ALREADY_PUBLISHED",
-      "岗位已发布，不能重新生成评估蓝图。",
+      "岗位已发布，不能重新生成评分规则。",
     );
   }
+}
+
+function manualSource(path: string, sourceText: string) {
+  return {
+    sourceRef: { kind: "manual" as const, path },
+    sourceText,
+  };
+}
+
+function sameExperienceRequirement(
+  left: NonNullable<JobEvaluationBlueprint["requiredRelevantExperience"]>,
+  right: NonNullable<JobEvaluationBlueprint["requiredRelevantExperience"]>,
+): boolean {
+  return (
+    left.relevanceScope === right.relevanceScope &&
+    left.scopeDescription === right.scopeDescription &&
+    left.sourceText === right.sourceText &&
+    left.years === right.years
+  );
+}
+
+function applyManualExperienceRequirement(
+  blueprint: JobEvaluationBlueprint,
+  draft: JobEvaluationRuleDraft,
+): Pick<JobEvaluationBlueprint, "requiredRelevantExperience" | "requiredRelevantExperiences"> {
+  const previousPrimary = blueprint.requiredRelevantExperience;
+  const existing =
+    blueprint.requiredRelevantExperiences ??
+    (previousPrimary
+      ? [
+          {
+            ...previousPrimary,
+            requirementId: `experience_${computeJobEvaluationPayloadHash({
+              relevanceScope: previousPrimary.relevanceScope,
+              scopeDescription: previousPrimary.scopeDescription,
+              years: previousPrimary.years,
+            }).slice(0, 20)}`,
+          },
+        ]
+      : []);
+  const nextPrimary = draft.requiredRelevantExperience
+    ? {
+        ...draft.requiredRelevantExperience,
+        ...manualSource(
+          "requiredRelevantExperience",
+          `${draft.requiredRelevantExperience.years} 年 · ${draft.requiredRelevantExperience.scopeDescription}`,
+        ),
+      }
+    : null;
+  const replacement = nextPrimary
+    ? {
+        ...nextPrimary,
+        requirementId: `experience_${computeJobEvaluationPayloadHash({
+          relevanceScope: nextPrimary.relevanceScope,
+          scopeDescription: nextPrimary.scopeDescription,
+          years: nextPrimary.years,
+        }).slice(0, 20)}`,
+      }
+    : null;
+  let replaced = false;
+  const requiredRelevantExperiences = existing.flatMap((requirement) => {
+    if (previousPrimary && sameExperienceRequirement(requirement, previousPrimary)) {
+      replaced = true;
+      return replacement ? [replacement] : [];
+    }
+    return [requirement];
+  });
+  if (replacement && !replaced) {
+    requiredRelevantExperiences.unshift(replacement);
+  }
+  return { requiredRelevantExperience: nextPrimary, requiredRelevantExperiences };
+}
+
+export function applyManualRuleDraft(
+  blueprint: JobEvaluationBlueprint,
+  input: JobEvaluationRuleDraft,
+): JobEvaluationBlueprint {
+  const draft = jobEvaluationRuleDraftSchema.parse(input);
+  const dimensionExpectations = Object.fromEntries(
+    Object.entries(draft.dimensionExpectations).map(([dimension, expectations]) => [
+      dimension,
+      expectations.map((expectation, index) => ({
+        expectation,
+        ...manualSource(`dimensionExpectations.${dimension}.${index}`, expectation),
+      })),
+    ]),
+  ) as JobEvaluationBlueprint["dimensionExpectations"];
+  const experienceRequirements = applyManualExperienceRequirement(blueprint, draft);
+  return jobEvaluationBlueprintSchema.parse({
+    ...blueprint,
+    auxiliarySkills: draft.auxiliarySkills.map((skill, index) => ({
+      normalizedSkill: skill,
+      ...manualSource(`auxiliarySkills.${index}`, skill),
+    })),
+    coreSkills: draft.coreSkills.map((skill, index) => ({
+      normalizedSkill: skill,
+      ...manualSource(`coreSkills.${index}`, skill),
+    })),
+    dimensionExpectations,
+    educationExpectation: draft.educationExpectation
+      ? {
+          ...draft.educationExpectation,
+          ...manualSource(
+            "educationExpectation",
+            [draft.educationExpectation.degreeLevel, draft.educationExpectation.majorExpectation]
+              .filter(Boolean)
+              .join(" · ") || "未限定学历背景",
+          ),
+        }
+      : null,
+    ...experienceRequirements,
+  });
 }
 
 export function createJobEvaluationLifecycle(dependencies: LifecycleDependencies) {
@@ -110,7 +244,7 @@ export function createJobEvaluationLifecycle(dependencies: LifecycleDependencies
       if (!saved) {
         throw new JobEvaluationLifecycleError(
           "JOB_BLUEPRINT_PREVIEW_STALE",
-          "岗位配置已变化，请重新生成评估蓝图。",
+          "岗位配置已变化，请重新生成评分规则。",
         );
       }
       return { blueprint, blueprintHash, generatedAt, inputHash };
@@ -127,13 +261,51 @@ export function createJobEvaluationLifecycle(dependencies: LifecycleDependencies
       if (result.status === "stale") {
         throw new JobEvaluationLifecycleError(
           "JOB_BLUEPRINT_PREVIEW_STALE",
-          "评估蓝图已失效，请重新生成并确认。",
+          "评分规则已失效，请重新生成并确认。",
         );
       }
       if (result.status !== "published") {
-        throw new JobEvaluationLifecycleError("JOB_BLUEPRINT_PREVIEW_STALE", "评估蓝图状态无效。");
+        throw new JobEvaluationLifecycleError("JOB_BLUEPRINT_PREVIEW_STALE", "评分规则状态无效。");
       }
       return result.job;
+    },
+
+    async saveRuleDraft(input: SaveRuleDraftInput): Promise<PreviewResult> {
+      const job = await dependencies.load(input);
+      assertDraft(job);
+      if (
+        !job.evaluationBlueprintPreview ||
+        job.evaluationBlueprintPreviewHash !== input.expectedBlueprintHash
+      ) {
+        throw new JobEvaluationLifecycleError(
+          "JOB_BLUEPRINT_PREVIEW_STALE",
+          "评分规则已变化，请刷新后重试。",
+        );
+      }
+      const inputHash = computeJobEvaluationDraftInputHash({
+        ...job,
+        structuredConfig: {
+          ...job.structuredConfig,
+          deductionRules: input.deductionRules,
+        },
+      });
+      const blueprint = applyManualRuleDraft(job.evaluationBlueprintPreview, input.ruleDraft);
+      const blueprintHash = computeJobEvaluationPayloadHash(blueprint);
+      const { generatedAt } = blueprint.compiler;
+      const saved = await dependencies.saveManualPreview({
+        ...input,
+        blueprint,
+        blueprintHash,
+        generatedAt,
+        inputHash,
+      });
+      if (!saved) {
+        throw new JobEvaluationLifecycleError(
+          "JOB_BLUEPRINT_PREVIEW_STALE",
+          "岗位或评分规则已变化，请刷新后重试。",
+        );
+      }
+      return { blueprint, blueprintHash, generatedAt, inputHash };
     },
   };
 }
@@ -145,6 +317,8 @@ async function loadDefault(input: {
   const [row] = await db
     .select({
       description: jobDescription.description,
+      evaluationBlueprintPreview: jobDescription.evaluationBlueprintPreview,
+      evaluationBlueprintPreviewHash: jobDescription.evaluationBlueprintPreviewHash,
       evaluationMode: jobDescription.evaluationMode,
       id: jobDescription.id,
       lifecycleStatus: jobDescription.lifecycleStatus,
@@ -164,8 +338,75 @@ async function loadDefault(input: {
   }
   return {
     ...row,
-    structuredConfig: jobDescriptionStructuredConfigSchema.parse(row.structuredConfig),
+    evaluationBlueprintPreview: row.evaluationBlueprintPreview
+      ? jobEvaluationBlueprintSchema.parse(row.evaluationBlueprintPreview)
+      : null,
+    structuredConfig: parseStoredJobDescriptionStructuredConfig(row.structuredConfig),
   };
+}
+
+function saveManualPreviewDefault(
+  input: GeneratePreviewInput &
+    PreviewResult & {
+      deductionRules: JobDescriptionDeductionRules;
+      expectedBlueprintHash: string;
+    },
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const [current] = await tx
+      .select()
+      .from(jobDescription)
+      .where(
+        and(
+          eq(jobDescription.id, input.jobDescriptionId),
+          eq(jobDescription.organizationId, input.organizationId),
+        ),
+      )
+      .limit(1)
+      .for("update");
+    if (
+      !current ||
+      current.evaluationMode !== "structured" ||
+      current.lifecycleStatus !== "draft" ||
+      current.evaluationBlueprintPreviewHash !== input.expectedBlueprintHash
+    ) {
+      return false;
+    }
+    const currentConfig = parseStoredJobDescriptionStructuredConfig(current.structuredConfig);
+    if (
+      computeJobEvaluationDraftInputHash({
+        description: current.description,
+        prompt: current.prompt,
+        structuredConfig: currentConfig,
+      }) !== current.evaluationBlueprintPreviewInputHash
+    ) {
+      return false;
+    }
+    const nextConfig = {
+      ...currentConfig,
+      deductionRules: input.deductionRules,
+    };
+    if (
+      computeJobEvaluationDraftInputHash({
+        description: current.description,
+        prompt: current.prompt,
+        structuredConfig: nextConfig,
+      }) !== input.inputHash
+    ) {
+      return false;
+    }
+    await tx
+      .update(jobDescription)
+      .set({
+        evaluationBlueprintPreview: input.blueprint,
+        evaluationBlueprintPreviewHash: input.blueprintHash,
+        evaluationBlueprintPreviewInputHash: input.inputHash,
+        structuredConfig: nextConfig,
+        updatedAt: new Date(),
+      })
+      .where(eq(jobDescription.id, current.id));
+    return true;
+  });
 }
 
 async function compileDefault(job: JobEvaluationDraft): Promise<JobEvaluationBlueprint> {
@@ -209,7 +450,7 @@ function savePreviewDefault(input: GeneratePreviewInput & PreviewResult): Promis
     ) {
       return false;
     }
-    const currentConfig = jobDescriptionStructuredConfigSchema.parse(current.structuredConfig);
+    const currentConfig = parseStoredJobDescriptionStructuredConfig(current.structuredConfig);
     if (
       computeJobEvaluationDraftInputHash({
         description: current.description,
@@ -252,7 +493,7 @@ function publishStoredPreviewDefault(input: PublishInput): Promise<PublishStored
     if (current.lifecycleStatus === "published") {
       return { status: "already_published" };
     }
-    const config = jobDescriptionStructuredConfigSchema.parse(current.structuredConfig);
+    const config = parseStoredJobDescriptionStructuredConfig(current.structuredConfig);
     const currentInputHash = computeJobEvaluationDraftInputHash({
       description: current.description,
       prompt: current.prompt,
@@ -296,8 +537,10 @@ const defaultLifecycle = createJobEvaluationLifecycle({
   compile: compileDefault,
   load: loadDefault,
   publishStoredPreview: publishStoredPreviewDefault,
+  saveManualPreview: saveManualPreviewDefault,
   savePreview: savePreviewDefault,
 });
 
 export const generateStructuredJobBlueprintPreview = defaultLifecycle.generatePreview;
 export const publishStructuredJob = defaultLifecycle.publish;
+export const saveStructuredJobRuleDraft = defaultLifecycle.saveRuleDraft;

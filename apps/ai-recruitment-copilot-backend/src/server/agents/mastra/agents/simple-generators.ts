@@ -48,7 +48,7 @@ export const titleAgent = new Agent({
 
 export const jobDescriptionDraftAgent = new Agent({
   id: "job-description-draft-agent",
-  instructions: "你是 HR 岗位配置助手，负责生成岗位描述和 AI 面试 Prompt。",
+  instructions: "你是招聘岗位文案助手，负责在保留原始格式的前提下优化可对外发布的岗位 JD。",
   maxRetries: 1,
   model: mastraModels.structuredModel,
   name: "JobDescriptionDraftAgent",

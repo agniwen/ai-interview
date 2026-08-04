@@ -6,7 +6,7 @@ status: accepted
 
 Structured resume evaluation compiles free-text gates and job-side expectations once before publication. Per-resume AI identifies evidence and reports matched frozen gates, standardized deductions, or job adjustments. Code calculates all six dimension scores from a 100-point baseline, the weighted base score, adjustment totals, the clamped integer composite score, and the score grade; the narrative Agent runs only after these values exist.
 
-The product-owned deduction catalog is versioned and pinned when a job is published. Recruiters configure only job weights and priority/exclusion adjustments; deduction amounts are not editable per job or workspace. Every dimension is evaluated and retains its raw score; a zero weight contributes zero only when code calculates the composite. Missing evidence uses explicit dimension fallbacks, including a score of `min(max(100 - matched deductions, 0), 50)` for capped dimensions, and every result stores job, blueprint, rules, engine, model, evidence, deduction, adjustment, and calculation snapshots.
+The product-owned deduction catalog provides versioned rule identities and semantics and is pinned when a job is published. Recruiters may enable/disable those fixed rules and configure each ordinary rule's integer deduction amount per draft job; they cannot change rule identity, dimension, direct-zero semantics, threshold families, or evidence contracts. Every dimension is evaluated and retains its raw score; a zero weight contributes zero only when code calculates the composite. Missing evidence uses explicit dimension fallbacks, including a score of `min(max(100 - matched deductions, 0), 50)` for capped dimensions, and every result stores job, blueprint, rules, engine, model, evidence, deduction, adjustment, and calculation snapshots.
 
 Composite grades are 推荐 for 85–100, 匹配 for 75–84, and 不匹配 for 0–74. Gate failures and needs-verification results take AI presentation/ranking precedence without erasing the score. Models are not permanently pinned to jobs, but any model change must pass a fixed calibration suite and historical results are never automatically recomputed.
 
@@ -20,4 +20,4 @@ Every engine/model candidate must pass a versioned calibration corpus of at leas
 
 - Let the model output six final scores: rejected because it cannot enforce uniform deduction arithmetic.
 - Store one global mutable rule set: rejected because a rule change would make candidates within a published job incomparable.
-- Configure deductions per workspace: rejected because the requested V1 uses one standardized ruler across recruiting teams.
+- Allow arbitrary workspace/job semantic rules: rejected because V1 keeps one standardized rule identity and evidence contract while allowing job-specific enablement and integer magnitudes.

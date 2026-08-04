@@ -4,10 +4,12 @@ import {
   jobDescriptionDraftAgent,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/mastra/agents/simple-generators";
 
-const JOB_DESCRIPTION_PROMPT = `你是一名 HR 岗位配置助手。请根据 HR 的填写指令和上下文，生成一份可直接确认和编辑的完整岗位 JD。
+const JOB_DESCRIPTION_PROMPT = `你是一名招聘岗位文案助手。请根据 HR 的原始岗位 JD 和上下文，优化成一份可直接编辑并发布到外部招聘平台的岗位 JD。
 
-## HR 填写指令（最高优先级，必须逐条落实）
+## HR 原始岗位 JD（最高优先级，必须保留原有格式）
 {hrPrompt}
+
+原 JD 已按行加入 ⟦JD_LINE_0000⟧ 形式的只读标记。jobDescription 必须保留全部标记、原顺序和原数量，不得修改、删除或新增标记；只能优化每个标记后的文字。空行标记后不得填写内容。系统会在返回 HR 前移除标记并还原原排版。
 
 ## 岗位名称
 {jobName}
@@ -16,14 +18,17 @@ const JOB_DESCRIPTION_PROMPT = `你是一名 HR 岗位配置助手。请根据 H
 {departmentName}
 
 ## 输出要求
-- jobDescription：使用 Markdown 格式，按“岗位职责、核心技能、辅助技能、经验要求、项目要求、学历/背景、潜力与稳定性要求”分层组织
-  - 要求必须明确、分层、可量化，避免“能力优秀”“经验丰富”等无法判断的表述
+- jobDescription：可直接发布到外部招聘平台的完整岗位 JD
+  - 必须保留原文的标题数量与层级、章节顺序、编号方式、列表类型和整体排版风格，不得增删章节或强制套用固定模板；可优化标题措辞
+  - 原文没有标题或列表时，不得擅自增加标题或列表；在原有格式内优化措辞、消除重复并补全信息
+  - 要求应尽量明确、可判断，避免“能力优秀”“经验丰富”等空泛表述
   - HR 未提供但岗位配置需要的信息，可以结合岗位合理补充；不得虚构公司内部制度、薪资或福利
-  - 不得把无法从 HR 指令合理推导的规模、年限、比例或性能数值静默写成硬性要求；需要补充建议值时，必须明确标为“建议值，请 HR 确认”
-  - 长度 500–3000 字，既作为简历评估依据，也作为 AI 面试的岗位上下文
+  - 不得在正文中出现“建议值”“请 HR 确认”等内部提示；所有主动补充统一通过 supplementedItems 告知 HR
+  - 不得输出潜力评估、稳定性评估、评分维度、权重、扣分规则等内部筛选内容
+  - 保持与原文篇幅相称，不为达到字数而扩写
 - suggestedName：若岗位名称为空或未命名，给出简洁的中文岗位名称；若已有名称则原样返回
 - supplementedItems：仅列出 HR 原始指令中没有明确说明、但你在 jobDescription 中主动补充的信息
-  - section 只能使用 job_responsibilities、core_skills、supporting_skills、experience、projects、education、potential_stability
+  - section 只能使用 job_responsibilities、core_skills、supporting_skills、experience、projects、education、other_requirements
   - 每个 section 最多返回一项；同类补充合并到一条 detail 中
   - detail 用一句中文说明具体补充了什么，不能只写分类名称
   - 任何新增的数值阈值、项目规模、工具名称、专业背景或适应性要求，都必须纳入对应 section 的 detail，不能遗漏
@@ -32,7 +37,7 @@ const JOB_DESCRIPTION_PROMPT = `你是一名 HR 岗位配置助手。请根据 H
 
 ## 输出 JSON 结构（必须严格遵守，仅输出 JSON 对象）
 {
-  "jobDescription": "Markdown 格式的完整岗位 JD",
+  "jobDescription": "⟦JD_LINE_0000⟧优化后的第一行\n⟦JD_LINE_0001⟧\n⟦JD_LINE_0002⟧优化后的第三行",
   "suggestedName": "岗位名称",
   "supplementedItems": [
     {
@@ -50,7 +55,7 @@ const supplementedSectionSchema = z.enum([
   "experience",
   "projects",
   "education",
-  "potential_stability",
+  "other_requirements",
 ]);
 
 const generationSchema = z.object({
@@ -75,15 +80,61 @@ export interface GeneratedJobDescriptionContent {
   }[];
 }
 
-export function normalizeGeneratedJobDescription(value: string): string {
-  return value
-    .replaceAll(/[ \t]+-{3,}[ \t]+/g, "\n")
-    .replaceAll(/[ \t]{2,}(?=#{1,6}\s)/g, "\n\n")
-    .replaceAll(/[ \t]{2,}(?=\d+\.\s)/g, "\n")
-    .replaceAll(/[ \t]{2,}(?=-\s)/g, "\n")
-    .replaceAll(/[ \t]{2,}/g, " ")
-    .replaceAll(/\n{3,}/g, "\n\n")
-    .trim();
+const LINE_TOKEN_PATTERN = /⟦JD_LINE_(\d{4})⟧/g;
+
+interface TokenizedJobDescription {
+  lines: { content: string; prefix: string; token: string }[];
+  prompt: string;
+}
+
+export function tokenizeJobDescription(value: string): TokenizedJobDescription {
+  const lines = value
+    .replaceAll("\r\n", "\n")
+    .trim()
+    .split("\n")
+    .map((line, index) => {
+      const heading = /^(#{1,6}\s+)(.*)$/.exec(line);
+      const list = /^(\s*(?:-|\*|\+|\d+[.)])\s+)(.*)$/.exec(line);
+      const plain = /^(\s*)(.*)$/.exec(line);
+      const prefix = heading?.[1] ?? list?.[1] ?? plain?.[1] ?? "";
+      const content = heading?.[2] ?? list?.[2] ?? plain?.[2] ?? "";
+      return {
+        content,
+        prefix,
+        token: `⟦JD_LINE_${index.toString().padStart(4, "0")}⟧`,
+      };
+    });
+  return {
+    lines,
+    prompt: lines.map((line) => `${line.token}${line.content}`).join("\n"),
+  };
+}
+
+export function restoreTokenizedJobDescription(
+  original: TokenizedJobDescription,
+  generated: string,
+): { jobDescription: string; usedGeneratedContent: boolean } {
+  const matches = [...generated.matchAll(LINE_TOKEN_PATTERN)];
+  if (
+    matches.length !== original.lines.length ||
+    matches.some((match, index) => match[0] !== original.lines[index]?.token)
+  ) {
+    return {
+      jobDescription: original.lines.map((line) => `${line.prefix}${line.content}`).join("\n"),
+      usedGeneratedContent: false,
+    };
+  }
+
+  const restoredLines = original.lines.map((line, index) => {
+    if (!line.content) {
+      return "";
+    }
+    const start = (matches[index]?.index ?? 0) + line.token.length;
+    const end = matches[index + 1]?.index ?? generated.length;
+    const content = generated.slice(start, end).replaceAll(/\s+/g, " ").trim();
+    return `${line.prefix}${content || line.content}`;
+  });
+  return { jobDescription: restoredLines.join("\n"), usedGeneratedContent: true };
 }
 
 export async function generateJobDescriptionFromPrompt(options: {
@@ -91,18 +142,22 @@ export async function generateJobDescriptionFromPrompt(options: {
   hrPrompt: string;
   jobName: string | null;
 }): Promise<GeneratedJobDescriptionContent> {
-  const prompt = JOB_DESCRIPTION_PROMPT.replace("{hrPrompt}", options.hrPrompt.trim())
+  const tokenizedPrompt = tokenizeJobDescription(options.hrPrompt);
+  const prompt = JOB_DESCRIPTION_PROMPT.replace("{hrPrompt}", tokenizedPrompt.prompt)
     .replace("{jobName}", options.jobName?.trim() || "（未填写，请根据指令生成）")
     .replace("{departmentName}", options.departmentName?.trim() || "（未指定）");
 
   const result = await generateStructuredWithMastraAgent({
     agent: jobDescriptionDraftAgent,
     prompt,
+    retryOnInvalid: true,
     schema: generationSchema,
     temperature: 0.3,
   });
+  const restored = restoreTokenizedJobDescription(tokenizedPrompt, result.jobDescription);
   return {
     ...result,
-    jobDescription: normalizeGeneratedJobDescription(result.jobDescription),
+    jobDescription: restored.jobDescription,
+    supplementedItems: restored.usedGeneratedContent ? result.supplementedItems : [],
   };
 }

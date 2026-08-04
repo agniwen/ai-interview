@@ -16,7 +16,7 @@
 
 **Architecture:** Introduce three deep modules behind narrow interfaces:
 
-1. **Job evaluation lifecycle** — owns blueprint preview generation, stale-preview detection, publication, and immutable structured-job state.
+1. **Job evaluation lifecycle** — owns public-JD generation, blueprint preview generation, constrained recruiter edits, stale-preview detection, publication, and immutable structured-job state.
 2. **Structured scoring engine** — accepts a frozen job snapshot plus schema-valid semantic judgments and deterministically returns gate aggregation, six dimension scores, adjustments, integer composite score, grade, and persistence summaries.
 3. **Mode-aware resume evaluation lifecycle** — resolves a published job's immutable mode before Mastra, dispatches legacy jobs unchanged, dispatches structured jobs to a dedicated workflow, and atomically persists only the matching artifact.
 
@@ -41,8 +41,8 @@ Mastra owns semantic judgment and narrative generation. It never loads live job 
 - Draft jobs are management/setup resources only. They never appear in recruiting selectors, bindings, matching, referrals, recommendations, semantic indexes, or evaluation.
 - `resumeReview` v4 and `resumeScreeningResult` remain legacy-only. Structured results use `StructuredResumeEvaluationV1` and separate summary columns.
 - All six dimensions always receive raw integer scores. Weight `0` only removes that score's contribution to the composite.
-- The job prompt never contributes core or auxiliary skill expectations. Skills come from the structured required-skills gate and published JD description.
-- Missing gate evidence is `needs_verification`; missing priority/exclusion evidence is `matched = false`.
+- For structured jobs, the single `prompt` storage field is the public JD. Skills come from its strong/soft wording plus the structured required-skills gate; there is no separate hidden prompt editor.
+- Missing gate evidence is `failed`; `needs_verification` is reserved for conflicting or genuinely indeterminate related evidence. Missing priority/exclusion evidence is `matched = false`.
 - The model never outputs trusted points, durations, totals, composite score, or grade.
 - The displayed, sorted, filtered, and graded structured score is the same server-calculated integer.
 - AI output never writes the recruiter pass/fail status or advances the pipeline.
@@ -194,9 +194,11 @@ pnpm --filter @arc/shared test structured-resume
 pnpm --filter @arc/db-schema typecheck
 ```
 
-**Step 2: Implement the product-owned V1 deduction catalog**
+**Step 2: Implement the product-owned V1 deduction semantics and job-owned values**
 
-- [ ] Encode stable rule IDs and the accepted deduction values.
+- [ ] Encode stable rule IDs, dimensions, direct-zero behavior, threshold families, and default values.
+- [ ] Store a complete `{ enabled, points }` configuration on every structured job; ordinary points are integers from 0 through 100 and direct-zero semantics remain product-owned.
+- [ ] Exclude disabled rules from judgment and calculation while preserving all six raw dimension scores.
 - [ ] Keep rule applicability, semantic judgment, arithmetic, and display labels separate.
 - [ ] Make code derive every duration/threshold-family result from normalized semantic input.
 - [ ] Do not reuse `computeResumeReviewBaseScore`; legacy v4 semantics remain untouched.
@@ -314,6 +316,15 @@ export function publishStructuredJob(input: {
   confirmedBlueprintHash: string;
   actorId: string;
 }): Promise<PublishedStructuredJob>;
+
+export function saveStructuredJobRuleDraft(input: {
+  organizationId: string;
+  jobDescriptionId: string;
+  expectedBlueprintHash: string;
+  ruleDraft: JobEvaluationRuleDraft;
+  deductionRules: JobDescriptionDeductionRules;
+  actorId: string;
+}): Promise<JobEvaluationBlueprintPreview>;
 ```
 
 All Agent calls, canonicalization, hashing, row locks, stale checks, and persistence stay behind these interfaces.
@@ -324,7 +335,7 @@ All Agent calls, canonicalization, hashing, row locks, stale checks, and persist
 - [ ] Generate stable server IDs; never trust model-generated IDs.
 - [ ] Extract core skills from required-skills gate plus strong wording in JD description.
 - [ ] Extract auxiliary skills only from soft wording in JD description.
-- [ ] Prove prompt-only skills never enter either list.
+- [ ] Prove the structured public JD stored in `prompt` contributes strong/soft skills while legacy hidden-prompt semantics do not leak into the structured flow.
 - [ ] Preserve source text and source reference for every expectation.
 - [ ] Reject invented expectations.
 - [ ] Reject more than 20 atoms in one category or 60 total.
@@ -334,7 +345,7 @@ All Agent calls, canonicalization, hashing, row locks, stale checks, and persist
 
 **Step 2: Implement canonical hashes**
 
-- [ ] Hash only blueprint/scoring inputs for preview invalidation: description, prompt, seven gates, six weights, priority conditions, and exclusion conditions.
+- [ ] Hash only blueprint/scoring inputs for preview invalidation: public JD, seven gates, six weights, priority conditions, exclusion conditions, and the complete deduction-rule configuration.
 - [ ] Exclude name, code, department, interviewer assignment, communication questions, and candidate forms. Name and code still freeze at publication, but changing them on a draft does not invalidate a blueprint they do not influence.
 - [ ] Canonicalize object keys and condition ordering before hashing.
 - [ ] Keep Node crypto in backend `lib/server`; do not pull `node:*` into `@arc/shared`.
@@ -346,6 +357,7 @@ All Agent calls, canonicalization, hashing, row locks, stale checks, and persist
 - [ ] Evaluation-input edit clears every preview field.
 - [ ] Name/code and operational-only edits preserve preview.
 - [ ] Preview persistence conditionally updates the draft only when its current input hash still matches the hash captured before the Agent call.
+- [ ] Constrained rule-draft persistence verifies the expected blueprint hash and that non-rule inputs still match the stored preview before atomically saving manual sources, deduction values, and refreshed hashes.
 - [ ] An evaluation-input edit while compilation is in flight discards the generated preview, leaves the edited draft's preview fields clear, and returns `409 JOB_BLUEPRINT_PREVIEW_STALE`.
 - [ ] Publish locks the row, verifies current input hash and submitted blueprint hash, and copies the exact stored preview.
 - [ ] Stale/missing preview returns `JOB_BLUEPRINT_PREVIEW_STALE`.
@@ -402,6 +414,7 @@ Communication questions and candidate forms remain owned by their existing `inte
 - [ ] `POST /job-descriptions` always creates `structured + draft`.
 - [ ] Creation does not enqueue semantic indexing.
 - [ ] `POST /:id/evaluation-blueprint-preview` returns/stores the server preview.
+- [ ] `PUT /:id/evaluation-rule-draft` accepts only the expected preview hash, constrained rule draft, and complete deduction configuration.
 - [ ] `POST /:id/publish` accepts only the confirmed preview hash.
 - [ ] Successful publication enqueues semantic indexing only after commit.
 - [ ] Published structured updates reject frozen fields with `409 JOB_EVALUATION_FROZEN`.
@@ -413,8 +426,10 @@ Communication questions and candidate forms remain owned by their existing `inte
 
 - [ ] New job save creates a draft, not an active recruiting job.
 - [ ] Show draft/published/legacy badges in job management.
-- [ ] For a structured draft, allow editing and show `生成配置预览`.
-- [ ] Render atomized gates, skill expectations, relevant-experience requirement, education expectation, weights, and adjustments from the stored preview.
+- [ ] For a structured draft, show the public JD on the left and `生成评分规则` plus the six-dimension rule editor on the right.
+- [ ] `一键生成 JD` preserves the user's headings/order/list formatting, excludes internal potential/stability scoring text, and shows AI-added facts in a confirmation dialog before applying them.
+- [ ] Allow constrained editing of core/auxiliary skills, experience, project, education, potential, stability, and each standard deduction enable/value; never accept a client-supplied full blueprint.
+- [ ] Weight-zero dimensions remain visible and editable but visually muted and contribute zero only to the composite.
 - [ ] Publish only after the recruiter confirms the displayed preview hash.
 - [ ] Any later evaluation-input edit visibly invalidates the preview.
 - [ ] After publication, disable name/code/description/prompt/gates/weights/adjustments; keep department/interviewer controls editable and keep the existing communication-question/candidate-form management links usable.

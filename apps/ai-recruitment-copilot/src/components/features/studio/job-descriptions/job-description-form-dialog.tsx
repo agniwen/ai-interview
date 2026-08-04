@@ -3,11 +3,16 @@
 
 import { IconLoader2 } from "@tabler/icons-react";
 import type { CandidateFormTemplateListRecord } from "@arc/db-schema/candidate-forms";
-import type { JobEvaluationBlueprint } from "@arc/db-schema/job-description-evaluation";
+import type {
+  JobEvaluationBlueprint,
+  JobEvaluationRuleDraft,
+} from "@arc/db-schema/job-description-evaluation";
+import { toJobEvaluationRuleDraft } from "@arc/db-schema/job-description-evaluation";
 import type { DepartmentRecord } from "@arc/shared/departments";
 import type { InterviewerListRecord } from "@arc/shared/interviewers";
 import type { ResumeScreeningPolicy } from "@arc/shared/resume-screening";
 import type { InterviewQuestionTemplateListRecord } from "@arc/db-schema/interview-question-templates";
+import type { JobDescriptionDeductionRules } from "@arc/db-schema/job-description-structured-config";
 import {
   createDefaultJobDescriptionStructuredConfig,
   createDefaultResumeScreeningPolicy,
@@ -64,6 +69,22 @@ const PROMPT_MAX_LENGTH = 10_000;
 type JobDescriptionFormTab = "basic" | "screening" | "interview-questions" | "forms";
 type JobDescriptionSubmitAction = "preview" | "save";
 type JobDescriptionMutationPayload = Partial<JobDescriptionRecord> & { error?: string };
+
+function recordEvaluationPreview(record: JobDescriptionRecord | null) {
+  if (record?.evaluationBlueprintPreview && record.evaluationBlueprintPreviewHash) {
+    return {
+      blueprint: record.evaluationBlueprintPreview,
+      blueprintHash: record.evaluationBlueprintPreviewHash,
+    };
+  }
+  if (record?.evaluationBlueprint && record.evaluationBlueprintHash) {
+    return {
+      blueprint: record.evaluationBlueprint,
+      blueprintHash: record.evaluationBlueprintHash,
+    };
+  }
+  return null;
+}
 
 export function emptyJobDescriptionFormValues(): JobDescriptionFormValues {
   return {
@@ -126,6 +147,13 @@ function normalizeDepartmentId(value: string | null): string {
   return value ?? "";
 }
 
+function hasUnsavedFormChanges(
+  values: JobDescriptionFormValues,
+  savedValues: JobDescriptionFormValues,
+): boolean {
+  return JSON.stringify(values) !== JSON.stringify(savedValues);
+}
+
 export function JobDescriptionFormDialog({
   initialDraft,
   open,
@@ -144,13 +172,15 @@ export function JobDescriptionFormDialog({
   onSaved: (record: JobDescriptionRecord) => void;
 }) {
   const slug = useWorkspaceSlug();
-  const isEdit = record !== null;
-  const isLegacyJob = record?.evaluationMode === "legacy";
+  const [workingRecord, setWorkingRecord] = useState<JobDescriptionRecord | null>(record);
+  const currentRecord = workingRecord;
+  const isEdit = currentRecord !== null;
+  const isLegacyJob = currentRecord?.evaluationMode === "legacy";
   const evaluationFrozen =
-    record?.evaluationMode === "structured" && record.lifecycleStatus === "published";
+    currentRecord?.evaluationMode === "structured" && currentRecord.lifecycleStatus === "published";
   const isStructuredDraft =
-    record?.evaluationMode === "structured" && record.lifecycleStatus === "draft";
-  const codeLocked = Boolean(record?.code);
+    currentRecord?.evaluationMode === "structured" && currentRecord.lifecycleStatus === "draft";
+  const codeLocked = Boolean(currentRecord?.code);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [isGeneratingJobDescription, setIsGeneratingJobDescription] = useState(false);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
@@ -159,13 +189,17 @@ export function JobDescriptionFormDialog({
   const [preview, setPreview] = useState<{
     blueprint: JobEvaluationBlueprint;
     blueprintHash: string;
-  } | null>(
-    record?.evaluationBlueprintPreview && record.evaluationBlueprintPreviewHash
-      ? {
-          blueprint: record.evaluationBlueprintPreview,
-          blueprintHash: record.evaluationBlueprintPreviewHash,
-        }
-      : null,
+  } | null>(() => recordEvaluationPreview(record));
+  const [ruleDraft, setRuleDraft] = useState<JobEvaluationRuleDraft | null>(() => {
+    const initialPreview = recordEvaluationPreview(record);
+    return initialPreview ? toJobEvaluationRuleDraft(initialPreview.blueprint) : null;
+  });
+  const [ruleDraftDirty, setRuleDraftDirty] = useState(false);
+  const [regenerateConfirmationOpen, setRegenerateConfirmationOpen] = useState(false);
+  const [deductionRules, setDeductionRules] = useState<JobDescriptionDeductionRules>(
+    () =>
+      record?.structuredConfig.deductionRules ??
+      createDefaultJobDescriptionStructuredConfig().deductionRules,
   );
   const [activeTab, setActiveTab] = useState<JobDescriptionFormTab>("basic");
   const [pendingGeneratedJobDescription, setPendingGeneratedJobDescription] = useState<{
@@ -182,6 +216,13 @@ export function JobDescriptionFormDialog({
     }
     return emptyJobDescriptionFormValues();
   }, [initialDraft, interviewers, record]);
+  const savedFormValues = useMemo(
+    () =>
+      currentRecord
+        ? toDepartmentScopedFormValues(currentRecord, interviewers)
+        : resolvedInitialValues,
+    [currentRecord, interviewers, resolvedInitialValues],
+  );
 
   const { data: linkedForms = [], isLoading: isFormsLoading } = useQuery({
     enabled: open && isEdit && !!record?.id,
@@ -282,18 +323,20 @@ export function JobDescriptionFormDialog({
     [allowCrossDepartmentInterviewers, interviewers, selectedDepartmentId],
   );
 
+  useEffect(() => setWorkingRecord(record), [record]);
+
   useEffect(() => {
     if (open) {
       form.reset(resolvedInitialValues);
       setActiveTab("basic");
       setPendingGeneratedJobDescription(null);
-      setPreview(
-        record?.evaluationBlueprintPreview && record.evaluationBlueprintPreviewHash
-          ? {
-              blueprint: record.evaluationBlueprintPreview,
-              blueprintHash: record.evaluationBlueprintPreviewHash,
-            }
-          : null,
+      const nextPreview = recordEvaluationPreview(record);
+      setPreview(nextPreview);
+      setRuleDraft(nextPreview ? toJobEvaluationRuleDraft(nextPreview.blueprint) : null);
+      setRuleDraftDirty(false);
+      setDeductionRules(
+        record?.structuredConfig.deductionRules ??
+          createDefaultJobDescriptionStructuredConfig().deductionRules,
       );
     }
   }, [
@@ -301,6 +344,10 @@ export function JobDescriptionFormDialog({
     open,
     record?.evaluationBlueprintPreview,
     record?.evaluationBlueprintPreviewHash,
+    record?.evaluationBlueprint,
+    record?.evaluationBlueprintHash,
+    record?.structuredConfig.deductionRules,
+    record,
     resolvedInitialValues,
   ]);
 
@@ -318,7 +365,7 @@ export function JobDescriptionFormDialog({
       structuredConfig: value.structuredConfig,
     };
     const body =
-      record?.evaluationMode === "legacy"
+      currentRecord?.evaluationMode === "legacy"
         ? {
             ...structuredBody,
             resumeScreeningPolicy: value.resumeScreeningPolicy,
@@ -326,19 +373,19 @@ export function JobDescriptionFormDialog({
         : structuredBody;
 
     let response;
-    if (record && evaluationFrozen) {
+    if (currentRecord && evaluationFrozen) {
       response = await rpc.api.w[":slug"].studio["job-descriptions"][":id"].operational.$patch({
         json: {
           allowCrossDepartmentInterviewers: value.allowCrossDepartmentInterviewers,
           departmentId: value.departmentId,
           interviewerIds: value.interviewerIds,
         },
-        param: { id: record.id, slug },
+        param: { id: currentRecord.id, slug },
       });
-    } else if (record) {
+    } else if (currentRecord) {
       response = await rpc.api.w[":slug"].studio["job-descriptions"][":id"].$patch({
         json: body,
-        param: { id: record.id, slug },
+        param: { id: currentRecord.id, slug },
       });
     } else {
       response = await rpc.api.w[":slug"].studio["job-descriptions"].$post({
@@ -357,17 +404,16 @@ export function JobDescriptionFormDialog({
       toast.error(isEdit ? "更新失败" : "创建失败");
       return null;
     }
-    return payload as JobDescriptionRecord;
+    const savedRecord = payload as JobDescriptionRecord;
+    setWorkingRecord(savedRecord);
+    return savedRecord;
   }
 
-  async function requestEvaluationBlueprintPreview() {
-    if (!record) {
-      return;
-    }
+  async function requestEvaluationBlueprintPreview(jobDescriptionId: string) {
     const response = await rpc.api.w[":slug"].studio["job-descriptions"][":id"][
       "evaluation-blueprint-preview"
     ].$post({
-      param: { id: record.id, slug },
+      param: { id: jobDescriptionId, slug },
     });
     const payload = (await response.json().catch(() => null)) as {
       blueprint?: JobEvaluationBlueprint;
@@ -375,14 +421,41 @@ export function JobDescriptionFormDialog({
       error?: string;
     } | null;
     if (!response.ok || !payload?.blueprint || !payload.blueprintHash) {
-      toast.error(payload?.error ?? "生成评估蓝图失败");
-      return;
+      toast.error(payload?.error ?? "生成评分规则失败");
+      return null;
     }
-    setPreview({
+    return {
       blueprint: payload.blueprint,
       blueprintHash: payload.blueprintHash,
+    };
+  }
+
+  async function requestSaveEvaluationRuleDraft(
+    jobDescriptionId: string,
+    nextDeductionRules: JobDescriptionDeductionRules,
+    expectedBlueprintHash: string,
+    nextRuleDraft: JobEvaluationRuleDraft,
+  ) {
+    const response = await rpc.api.w[":slug"].studio["job-descriptions"][":id"][
+      "evaluation-rule-draft"
+    ].$put({
+      json: {
+        deductionRules: nextDeductionRules,
+        expectedBlueprintHash,
+        ruleDraft: nextRuleDraft,
+      },
+      param: { id: jobDescriptionId, slug },
     });
-    toast.success("当前草稿已保存，评估蓝图已生成，请确认后发布");
+    const payload = (await response.json().catch(() => null)) as {
+      blueprint?: JobEvaluationBlueprint;
+      blueprintHash?: string;
+      error?: string;
+    } | null;
+    if (!response.ok || !payload?.blueprint || !payload.blueprintHash) {
+      toast.error(payload?.error ?? "保存评分规则失败");
+      return null;
+    }
+    return { blueprint: payload.blueprint, blueprintHash: payload.blueprintHash };
   }
 
   async function submitJobDescription(
@@ -390,22 +463,77 @@ export function JobDescriptionFormDialog({
     action: JobDescriptionSubmitAction,
   ) {
     if (action === "preview") {
-      if (!record || !isStructuredDraft) {
+      if (isLegacyJob || evaluationFrozen || (currentRecord && !isStructuredDraft)) {
         return;
       }
       setIsGeneratingPreview(true);
       await withCleanup(
         async () => {
-          const savedRecord = await persistJob(value);
+          const submittedPrompt = value.prompt;
+          const savedRecord = await persistJob({
+            ...value,
+            structuredConfig: { ...value.structuredConfig, deductionRules },
+          });
           if (!savedRecord) {
             return;
           }
-          form.reset(toDepartmentScopedFormValues(savedRecord, interviewers));
-          onSaved(savedRecord);
-          await requestEvaluationBlueprintPreview();
+          form.reset({
+            ...toDepartmentScopedFormValues(savedRecord, interviewers),
+            prompt: submittedPrompt,
+          });
+          const generatedPreview = await requestEvaluationBlueprintPreview(savedRecord.id);
+          if (!generatedPreview) {
+            onSaved(savedRecord);
+            return;
+          }
+          setPreview(generatedPreview);
+          setRuleDraft(toJobEvaluationRuleDraft(generatedPreview.blueprint));
+          setRuleDraftDirty(false);
+          setDeductionRules(savedRecord.structuredConfig.deductionRules);
+          const previewRecord = {
+            ...savedRecord,
+            evaluationBlueprintPreview: generatedPreview.blueprint,
+            evaluationBlueprintPreviewHash: generatedPreview.blueprintHash,
+            prompt: submittedPrompt,
+          };
+          setWorkingRecord(previewRecord);
+          onSaved(previewRecord);
+          toast.success("当前草稿已保存，评分规则已生成，请确认后发布");
         },
         () => setIsGeneratingPreview(false),
       );
+      return;
+    }
+    const formDirty = hasUnsavedFormChanges(form.store.state.values, savedFormValues);
+    if (ruleDraftDirty && formDirty) {
+      toast.error("岗位内容与评分规则均有修改，请重新生成评分规则后再保存。");
+      return;
+    }
+    if (ruleDraftDirty && !isLegacyJob && currentRecord && preview && ruleDraft) {
+      const savedRules = await requestSaveEvaluationRuleDraft(
+        currentRecord.id,
+        deductionRules,
+        preview.blueprintHash,
+        ruleDraft,
+      );
+      if (!savedRules) {
+        return;
+      }
+      setPreview(savedRules);
+      setRuleDraft(toJobEvaluationRuleDraft(savedRules.blueprint));
+      setRuleDraftDirty(false);
+      const finalRecord = {
+        ...currentRecord,
+        evaluationBlueprintPreview: savedRules.blueprint,
+        evaluationBlueprintPreviewHash: savedRules.blueprintHash,
+        structuredConfig: { ...currentRecord.structuredConfig, deductionRules },
+      };
+      setWorkingRecord(finalRecord);
+      toast.success("评分规则已保存");
+      onSaved(finalRecord);
+      return;
+    }
+    if (!formDirty && currentRecord) {
       return;
     }
     const savedRecord = await persistJob(value);
@@ -414,7 +542,6 @@ export function JobDescriptionFormDialog({
     }
     toast.success(isEdit ? "在招岗位已更新" : "在招岗位已创建");
     onSaved(savedRecord);
-    onOpenChange(false);
   }
 
   async function handleGenerateCode() {
@@ -530,11 +657,20 @@ export function JobDescriptionFormDialog({
   }
 
   function handleGeneratePreview() {
+    if (ruleDraftDirty) {
+      setRegenerateConfirmationOpen(true);
+      return;
+    }
+    void form.handleSubmit({ action: "preview" });
+  }
+
+  function confirmGeneratePreview() {
+    setRegenerateConfirmationOpen(false);
     void form.handleSubmit({ action: "preview" });
   }
 
   async function handlePublish() {
-    if (!record || !preview) {
+    if (!currentRecord || !preview) {
       return;
     }
     setIsPublishing(true);
@@ -542,7 +678,7 @@ export function JobDescriptionFormDialog({
       async () => {
         const response = await rpc.api.w[":slug"].studio["job-descriptions"][":id"].publish.$post({
           json: { confirmedBlueprintHash: preview.blueprintHash },
-          param: { id: record.id, slug },
+          param: { id: currentRecord.id, slug },
         });
         const payload = (await response
           .json()
@@ -556,6 +692,7 @@ export function JobDescriptionFormDialog({
           return;
         }
         toast.success("岗位已发布，评估设置已冻结");
+        setWorkingRecord(payload as JobDescriptionRecord);
         onSaved(payload as JobDescriptionRecord);
         onOpenChange(false);
       },
@@ -593,22 +730,16 @@ export function JobDescriptionFormDialog({
             <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
               取消
             </Button>
-            {isStructuredDraft ? (
-              <Button
-                disabled={isGeneratingPreview || isSubmitting}
-                onClick={handleGeneratePreview}
-                type="button"
-                variant="outline"
-              >
-                {isGeneratingPreview ? <IconLoader2 className="size-4 animate-spin" /> : null}
-                生成配置预览
-              </Button>
-            ) : null}
-            <form.Subscribe selector={(state) => state.isDirty}>
-              {(isDirty) =>
+            <form.Subscribe selector={(state) => state.values}>
+              {(values) =>
                 isStructuredDraft && preview ? (
                   <Button
-                    disabled={isDirty || isPublishing || isSubmitting}
+                    disabled={
+                      hasUnsavedFormChanges(values, savedFormValues) ||
+                      ruleDraftDirty ||
+                      isPublishing ||
+                      isSubmitting
+                    }
                     onClick={handlePublish}
                     type="button"
                   >
@@ -835,7 +966,9 @@ export function JobDescriptionFormDialog({
                   </form.Field>
                 </div>
 
-                <div className={isLegacyJob ? "space-y-5" : ""}>
+                <div
+                  className={isLegacyJob ? "space-y-5" : "grid items-start gap-3 xl:grid-cols-2"}
+                >
                   {isLegacyJob ? (
                     <form.Field name="description">
                       {(field) => {
@@ -897,27 +1030,101 @@ export function JobDescriptionFormDialog({
                             ) : null}
                           </div>
                           <FieldContent className="gap-1">
-                            <MarkdownEditor
-                              aria-invalid={!!errors?.length}
-                              id={field.name}
-                              disabled={evaluationFrozen}
-                              maxLength={PROMPT_MAX_LENGTH}
-                              minHeight={112}
-                              onBlur={field.handleBlur}
-                              onChange={field.handleChange}
-                              placeholder={
-                                isLegacyJob
-                                  ? "岗位关键职责、技术栈要求、期望的考察维度……"
-                                  : "明确填写岗位职责、核心与辅助技能、经验、项目、学历及其他要求……"
-                              }
-                              value={field.state.value}
-                            />
+                            {isLegacyJob ? (
+                              <MarkdownEditor
+                                aria-invalid={!!errors?.length}
+                                id={field.name}
+                                disabled={evaluationFrozen}
+                                maxLength={PROMPT_MAX_LENGTH}
+                                minHeight={112}
+                                onBlur={field.handleBlur}
+                                onChange={field.handleChange}
+                                placeholder="岗位关键职责、技术栈要求、期望的考察维度……"
+                                showPreview
+                                value={field.state.value}
+                              />
+                            ) : (
+                              <div className="relative">
+                                <Textarea
+                                  aria-invalid={!!errors?.length}
+                                  aria-label="岗位 JD"
+                                  className="min-h-48 resize-y whitespace-pre-wrap pb-6 leading-relaxed"
+                                  disabled={evaluationFrozen}
+                                  id={field.name}
+                                  maxLength={PROMPT_MAX_LENGTH}
+                                  onBlur={field.handleBlur}
+                                  onChange={(event) => field.handleChange(event.target.value)}
+                                  placeholder="明确填写岗位职责、核心与辅助技能、经验、项目、学历及其他要求……"
+                                  value={field.state.value}
+                                />
+                                <TextareaCounter
+                                  maxLength={PROMPT_MAX_LENGTH}
+                                  value={field.state.value}
+                                />
+                              </div>
+                            )}
                             <FieldError errors={errors} />
                           </FieldContent>
                         </Field>
                       );
                     }}
                   </form.Field>
+                  {isLegacyJob ? null : (
+                    <div className="space-y-2">
+                      <div className="flex min-h-8 items-center justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-sm">评分规则</p>
+                          <p className="text-muted-foreground text-xs">
+                            根据岗位 JD 和下方结构化设置生成，可继续编辑并核对后发布。
+                          </p>
+                        </div>
+                        {evaluationFrozen ? null : (
+                          <Button
+                            disabled={isGeneratingPreview || isSubmitting || missingRefs}
+                            onClick={handleGeneratePreview}
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                          >
+                            {isGeneratingPreview ? (
+                              <IconLoader2 className="size-4 animate-spin" />
+                            ) : null}
+                            {isGeneratingPreview
+                              ? "生成中…"
+                              : `${preview ? "重新" : ""}生成评分规则`}
+                          </Button>
+                        )}
+                      </div>
+                      {preview && ruleDraft ? (
+                        <div className="space-y-2">
+                          {ruleDraftDirty ? (
+                            <p className="rounded-md bg-amber-50 px-3 py-2 text-amber-800 text-xs dark:bg-amber-950/30 dark:text-amber-300">
+                              评分规则有未保存修改，保存岗位后才可发布。
+                            </p>
+                          ) : null}
+                          <JobEvaluationBlueprintPreview
+                            deductionRules={deductionRules}
+                            disabled={evaluationFrozen}
+                            onDeductionRulesChange={(nextDeductionRules) => {
+                              setDeductionRules(nextDeductionRules);
+                              setRuleDraftDirty(true);
+                            }}
+                            onRuleDraftChange={(nextRuleDraft) => {
+                              setRuleDraft(nextRuleDraft);
+                              setRuleDraftDirty(true);
+                            }}
+                            ruleDraft={ruleDraft}
+                          />
+                        </div>
+                      ) : (
+                        <Card className="border-dashed">
+                          <CardContent className="flex min-h-28 items-center justify-center p-4 text-center text-muted-foreground text-sm">
+                            填写岗位 JD 和结构化设置后，点击“生成评分规则”查看结果。
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  )}
                 </div>
               </FieldGroup>
               {isLegacyJob ? null : (
@@ -931,12 +1138,6 @@ export function JobDescriptionFormDialog({
                   )}
                 </form.Field>
               )}
-              {!isLegacyJob && preview ? (
-                <JobEvaluationBlueprintPreview
-                  blueprint={preview.blueprint}
-                  weights={form.state.values.structuredConfig.weights}
-                />
-              ) : null}
             </TabsContent>
             {isLegacyJob ? (
               <TabsContent value="screening">
@@ -957,7 +1158,7 @@ export function JobDescriptionFormDialog({
                 {/* oxlint-disable-next-line no-use-before-define */}
                 <LinkedInterviewQuestionTemplatesList
                   isLoading={isInterviewQuestionsLoading}
-                  jobDescriptionId={record?.id ?? ""}
+                  jobDescriptionId={currentRecord?.id ?? ""}
                   templates={linkedInterviewQuestions}
                 />
               </TabsContent>
@@ -967,13 +1168,38 @@ export function JobDescriptionFormDialog({
                 {/* oxlint-disable-next-line no-use-before-define */}
                 <LinkedFormsList
                   isLoading={isFormsLoading}
-                  jobDescriptionId={record?.id ?? ""}
+                  jobDescriptionId={currentRecord?.id ?? ""}
                   templates={linkedForms}
                 />
               </TabsContent>
             ) : null}
           </AnimatedHeight>
         </form>
+      </Modal>
+      <Modal
+        description="重新生成会覆盖当前尚未保存的人工评分规则修改。"
+        footer={
+          <>
+            <Button
+              onClick={() => setRegenerateConfirmationOpen(false)}
+              type="button"
+              variant="outline"
+            >
+              取消
+            </Button>
+            <Button onClick={confirmGeneratePreview} type="button">
+              确认重新生成
+            </Button>
+          </>
+        }
+        onOpenChange={setRegenerateConfirmationOpen}
+        open={regenerateConfirmationOpen}
+        size="sm"
+        title="覆盖人工修改？"
+      >
+        <p className="text-muted-foreground text-sm">
+          岗位 JD、结构化设置和当前扣分配置会作为新的生成依据。
+        </p>
       </Modal>
       <Modal
         description="以下内容在原岗位 JD 中不明确，AI 已在新 JD 中补充。请认真核对，确认后仍可直接编辑。"

@@ -10,7 +10,7 @@ import {
 } from "@arc/shared/resume-screening";
 import {
   createDefaultJobDescriptionStructuredConfig,
-  jobDescriptionStructuredConfigSchema,
+  parseStoredJobDescriptionStructuredConfig,
 } from "@arc/db-schema/job-description-structured-config";
 import type { MinimaxVoiceId } from "@arc/db-schema/minimax-voices";
 import { and, asc, count, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
@@ -63,8 +63,11 @@ function parseResumeScreeningPolicy(value: unknown) {
 }
 
 function parseStructuredConfig(value: unknown) {
-  const parsedConfig = jobDescriptionStructuredConfigSchema.safeParse(value);
-  return parsedConfig.success ? parsedConfig.data : createDefaultJobDescriptionStructuredConfig();
+  try {
+    return parseStoredJobDescriptionStructuredConfig(value);
+  } catch {
+    return createDefaultJobDescriptionStructuredConfig();
+  }
 }
 
 function buildWhereConditions({

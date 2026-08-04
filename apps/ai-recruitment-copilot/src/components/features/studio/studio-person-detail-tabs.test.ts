@@ -20,6 +20,17 @@ const resultFrameSource = bodySource.slice(
 );
 
 describe("AI 面试详情 tabs", () => {
+  it("places the resume activity timeline below the overview instead of in a side rail", () => {
+    expect(controllerSource).toContain(
+      'const showTimelineAtBottom = mode === "resume" && !isPublic && activeTab === "overview"',
+    );
+    expect(controllerSource).not.toContain("xl:grid-cols-[minmax(0,1fr)_22rem]");
+    expect(bodySource).toContain("{showTimelineAtBottom ? (");
+    expect(bodySource).toContain('<section className="border-border/50 border-t pt-6">');
+    expect(bodySource).not.toContain('density="rail"');
+    expect(bodySource).not.toContain("<aside");
+  });
+
   it("keeps communication questions and form responses inside the result tab", () => {
     expect(controllerSource).not.toContain('value="questions"');
     expect(controllerSource).not.toContain('value="forms"');

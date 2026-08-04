@@ -65,6 +65,22 @@ const STRUCTURED_GRADE_LABELS = {
   recommended: "推荐",
   unmatched: "不匹配",
 } as const;
+const STRUCTURED_DIMENSION_LABELS = {
+  educationBackground: "学历",
+  experienceRelevance: "经验",
+  potential: "潜力",
+  projectMatch: "项目",
+  skillMatch: "技能",
+  stability: "稳定",
+} as const;
+const STRUCTURED_RADAR_DIMENSION_ORDER = [
+  "skillMatch",
+  "experienceRelevance",
+  "stability",
+  "educationBackground",
+  "potential",
+  "projectMatch",
+] as const;
 
 /** Plain empty copy for unevaluated review cards — no badge/border chrome. */
 function UnevaluatedText({ className }: { className?: string }) {
@@ -115,6 +131,33 @@ function getReviewDimensionDisplays(review: ResumeReviewLoose): ReviewDimensionD
       },
     ];
   });
+}
+
+function getStructuredDimensionDisplays(
+  evaluation: NonNullable<ResumeLibraryDetail["structuredResumeEvaluation"]>,
+): ReviewDimensionDisplay[] {
+  return STRUCTURED_RADAR_DIMENSION_ORDER.map((key) => {
+    const dimension = evaluation.dimensions[key];
+    return {
+      key,
+      label: STRUCTURED_DIMENSION_LABELS[key],
+      rationale:
+        evaluation.narrative.dimensionComments?.[key] ?? "查看详细评分了解该维度判断依据。",
+      score: dimension.rawScore,
+      weight: dimension.weight,
+    };
+  });
+}
+
+function structuredConclusion(
+  evaluation: NonNullable<ResumeLibraryDetail["structuredResumeEvaluation"]>,
+): string {
+  const gateConclusion = {
+    failed: "硬性门槛未通过",
+    needs_verification: "硬性门槛存在待核实项",
+    passed: "硬性门槛通过",
+  }[evaluation.gates.effectiveStatus];
+  return `综合评分 ${evaluation.calculations.compositeScore} 分，处于“${STRUCTURED_GRADE_LABELS[evaluation.grade]}”区间；${gateConclusion}。`;
 }
 
 function DimensionRadarChart({
@@ -209,7 +252,10 @@ function ResumeOverviewAiScoreSection({
     detail.jobEvaluationMode === "structured" ? detail.structuredResumeEvaluation : null;
   let score = review ? getResumeReviewBaseScore(review) : null;
   let conclusion: string | null = review?.overall.conclusion ?? "暂无 AI评分结果";
-  let recommendation: string | null = null;
+  let scoreRationale =
+    review?.overall.scoreRationale ??
+    "系统完成 AI评分后，这里会展示候选人的综合评价、分数和维度分布。";
+  let dimensionScores = review ? getReviewDimensionDisplays(review) : [];
   let statusBadges: ReactNode = review ? (
     <Badge variant={actionVariant(review.nextStep.action)}>
       建议{resumeReviewActionLabel[review.nextStep.action]}
@@ -220,8 +266,15 @@ function ResumeOverviewAiScoreSection({
 
   if (detail.jobEvaluationMode === "structured") {
     score = structuredEvaluation?.calculations.compositeScore ?? null;
-    conclusion = structuredEvaluation ? null : "暂无 AI评分结果";
-    recommendation = structuredEvaluation?.narrative.recommendation ?? null;
+    conclusion = structuredEvaluation
+      ? structuredConclusion(structuredEvaluation)
+      : "暂无 AI评分结果";
+    scoreRationale = structuredEvaluation
+      ? (structuredEvaluation.narrative.overallComment ?? structuredEvaluation.narrative.summary)
+      : "系统完成 AI评分后，这里会展示候选人的综合评价、分数和维度分布。";
+    dimensionScores = structuredEvaluation
+      ? getStructuredDimensionDisplays(structuredEvaluation)
+      : [];
     statusBadges = structuredEvaluation ? (
       <>
         <Badge variant={structuredGateVariant(structuredEvaluation.gates.effectiveStatus)}>
@@ -267,30 +320,32 @@ function ResumeOverviewAiScoreSection({
         </p>
       ) : null}
 
-      <div className="min-w-0 space-y-3">
-        <div className="min-w-0 space-y-1.5">
-          <div className="text-muted-foreground text-xs">综合评分</div>
-          <div className="font-semibold text-4xl tabular-nums leading-none tracking-tight">
-            {score ?? <EmptyValue />}
-          </div>
+      <div className="grid gap-5 lg:grid-cols-[minmax(14rem,0.8fr)_minmax(0,1.2fr)] lg:items-center">
+        <div className="min-w-0">
+          <DimensionRadarChart compact dimensions={dimensionScores} />
         </div>
-        {conclusion ? <h4 className="font-semibold text-sm leading-6">{conclusion}</h4> : null}
-        {recommendation ? (
-          <p className="text-muted-foreground text-sm leading-6">
-            <span className="font-medium text-foreground">AI 结论：</span>
-            {recommendation}
-          </p>
-        ) : null}
-        {onViewAiScore ? (
-          <Button
-            className="h-auto px-0 text-xs"
-            onClick={onViewAiScore}
-            type="button"
-            variant="link"
-          >
-            查看详情
-          </Button>
-        ) : null}
+        <div className="min-w-0 space-y-3">
+          <div className="min-w-0 space-y-1.5">
+            <div className="text-muted-foreground text-xs">综合评分</div>
+            <div className="font-semibold text-4xl tabular-nums leading-none tracking-tight">
+              {score ?? <EmptyValue />}
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            {conclusion ? <h4 className="font-semibold text-sm leading-6">{conclusion}</h4> : null}
+            <p className="text-muted-foreground text-sm leading-6">{scoreRationale}</p>
+          </div>
+          {onViewAiScore ? (
+            <Button
+              className="h-auto px-0 text-xs"
+              onClick={onViewAiScore}
+              type="button"
+              variant="link"
+            >
+              查看详情
+            </Button>
+          ) : null}
+        </div>
       </div>
     </section>
   );

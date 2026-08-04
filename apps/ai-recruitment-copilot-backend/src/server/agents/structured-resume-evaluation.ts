@@ -218,8 +218,31 @@ export const structuredAdjustmentAgentOutputSchema = z.object({
 
 export const structuredNarrativeAgentOutputSchema = z
   .object({
+    dimensionComments: z
+      .object({
+        educationBackground: z.string().trim().min(1),
+        experienceRelevance: z.string().trim().min(1),
+        potential: z.string().trim().min(1),
+        projectMatch: z.string().trim().min(1),
+        skillMatch: z.string().trim().min(1),
+        stability: z.string().trim().min(1),
+      })
+      .strict(),
+    levelRecommendation: z
+      .object({
+        level: z.string().trim().min(1),
+        rationale: z.string().trim().min(1),
+      })
+      .strict(),
+    overallComment: z.string().trim().min(1),
     recommendation: z.string().trim().min(1),
     summary: z.string().trim().min(1),
+    teamPositioning: z
+      .object({
+        rationale: z.string().trim().min(1),
+        suggestion: z.string().trim().min(1),
+      })
+      .strict(),
   })
   .strict();
 
@@ -303,6 +326,17 @@ function validateEvidenceList(
     ) {
       continue;
     }
+    const correctedSource = item.source === "resume_text" ? "resume_profile" : "resume_text";
+    if (
+      areStructuredResumeEvidenceSourcesValid({
+        evidence: [{ ...item, source: correctedSource }],
+        resumeProfile: workflowInput.resumeInput.resumeProfile,
+        resumeText: workflowInput.resumeInput.resumeText,
+      })
+    ) {
+      item.source = correctedSource;
+      continue;
+    }
     const quote = item.quote.replaceAll(/\s+/g, " ").slice(0, 120);
     mismatches.push(`${item.source} 未找到逐字引文“${quote}”`);
   }
@@ -332,15 +366,21 @@ function validateGateAgentOutput(
     ]),
   );
   const outputById = new Map(output.judgments.map((item) => [item.requirementId, item]));
-  for (const requirement of input.jobSnapshot.blueprint.hardGateRequirements) {
-    if (
-      requirement.category !== "work_experience" ||
-      parseRequiredExperienceYears(requirement.normalizedRequirement) === null
-    ) {
-      continue;
-    }
+  const numericExperienceRequirements = [
+    ...input.jobSnapshot.blueprint.hardGateRequirements.flatMap((requirement) => {
+      if (
+        requirement.category !== "work_experience" ||
+        parseRequiredExperienceYears(requirement.normalizedRequirement) === null
+      ) {
+        return [];
+      }
+      return [requirement];
+    }),
+    ...(input.jobSnapshot.blueprint.requiredRelevantExperiences ?? []),
+  ];
+  for (const requirement of numericExperienceRequirements) {
     const result = outputById.get(requirement.requirementId);
-    if (result && result.experienceEpisodes === undefined) {
+    if (!result || result.experienceEpisodes === undefined) {
       throw new Error(
         `STRUCTURED_RESUME_EXPERIENCE_EPISODES_REQUIRED：${requirement.sourceText} 必须返回 experienceEpisodes`,
       );
@@ -353,13 +393,14 @@ export function judgeStructuredHardGates(input: StructuredResumeWorkflowInput) {
     agent: structuredResumeGateAgent,
     maxOutputTokens: 16_000,
     prompt: buildPrompt(
-      "逐项判断冻结门槛，只返回 passed / failed / needs_verification。",
+      "逐项判断冻结门槛，并为每个数值经验评分要求提取对应经历；只返回 passed / failed / needs_verification。",
       input,
       [
         "简历没有写明或没有证据支持门槛要求时，判定 failed，不得仅因候选人可能补充信息而判定 needs_verification。",
         "needs_verification 仅用于简历已有相关证据但证据相互冲突、日期或含义无法可靠确定的情况。",
         "门槛写明数值范围时按闭区间精确判断；只出现高于上限或低于下限的证据不得视为命中，例如带过 8 人团队不等于带过 3-6 人团队。",
         "对每个包含明确年限的 work_experience 门槛，必须返回 experienceEpisodes：逐段列出满足该门槛特定口径的任职起止月份，不得计算总月份；完全没有相关经历时返回空数组。",
+        "对 blueprint.requiredRelevantExperiences 中的每个评分要求，也必须按 requirementId 返回独立判断和 experienceEpisodes；这些要求只用于经验缺年扣分，不会自动成为硬性门槛。",
         "同一段任职可同时属于不同经验门槛，但必须分别在对应门槛下判断，例如前端研发经验与团队管理经验不能互相替代。",
       ].join("\n"),
     ),
@@ -761,6 +802,7 @@ function linkedTeamSizeQualifiers(
   });
 }
 
+// oxlint-disable-next-line complexity -- one deterministic pass merges hard-gate and JD scoring experience requirements without double counting.
 function deriveMissingExperienceYearsJudgment(
   input: StructuredResumeWorkflowInput,
   facts: DimensionFacts,
@@ -775,7 +817,7 @@ function deriveMissingExperienceYearsJudgment(
         buildGateJudgments(input, gateOutput).map((item) => [item.requirementId, item])
       : [],
   );
-  const requirements = input.jobSnapshot.blueprint.hardGateRequirements
+  const hardGateRequirements = input.jobSnapshot.blueprint.hardGateRequirements
     .filter((requirement) => requirement.category === "work_experience")
     .flatMap((requirement) => {
       const years = parseRequiredExperienceYears(requirement.normalizedRequirement);
@@ -791,7 +833,19 @@ function deriveMissingExperienceYearsJudgment(
             ) ===
             normalizedExperienceRequirementKey(item.requirement.normalizedRequirement, item.years),
         ) === index,
-    );
+    )
+    .map((item) => ({ ...item, source: "hard_gate" as const }));
+  const scoringRequirements = (input.jobSnapshot.blueprint.requiredRelevantExperiences ?? []).map(
+    (requirement) => ({ requirement, source: "scoring" as const, years: requirement.years }),
+  );
+  const requirements = [...hardGateRequirements, ...scoringRequirements].filter(
+    (item, index, all) =>
+      all.findIndex(
+        (candidate) =>
+          normalizedExperienceRequirementKey(candidate.requirement.sourceText, candidate.years) ===
+          normalizedExperienceRequirementKey(item.requirement.sourceText, item.years),
+      ) === index,
+  );
   const primary = input.jobSnapshot.blueprint.requiredRelevantExperience;
 
   if (requirements.length === 0) {
@@ -822,11 +876,14 @@ function deriveMissingExperienceYearsJudgment(
   let missingYearUnits = 0;
   const reasons: string[] = [];
   const evidence: z.infer<typeof structuredResumeEvidenceSchema>[] = [];
-  for (const { requirement, years } of requirements) {
+  for (const { requirement, source, years } of requirements) {
     const output = gateOutputById.get(requirement.requirementId);
-    const linkedQualifiers = linkedTeamSizeQualifiers(input, requirement).map((qualifier) =>
-      normalizedGateById.get(qualifier.requirementId),
-    );
+    const linkedQualifiers =
+      source === "hard_gate"
+        ? linkedTeamSizeQualifiers(input, requirement).map((qualifier) =>
+            normalizedGateById.get(qualifier.requirementId),
+          )
+        : [];
     if (linkedQualifiers.some((qualifier) => qualifier?.aiStatus === "needs_verification")) {
       hasInsufficientEvidence = true;
       reasons.push(`${requirement.sourceText}：关联的团队规模要求待核实`);
@@ -839,9 +896,14 @@ function deriveMissingExperienceYearsJudgment(
       reasons.push(`${requirement.sourceText}：未发现同时满足关联团队规模要求的管理经历`);
       continue;
     }
-    if (!output) {
+    if (!output && source === "hard_gate") {
       missingYearUnits += Math.ceil(years);
       reasons.push(`${requirement.sourceText}：AI 未返回该经验门槛，按未命中处理`);
+      continue;
+    }
+    if (!output) {
+      hasInsufficientEvidence = true;
+      reasons.push(`${requirement.sourceText}：AI 未返回该经验评分要求的时间线`);
       continue;
     }
     if (output.aiStatus === "needs_verification") {
@@ -1101,6 +1163,11 @@ export function deriveStructuredRuleJudgments(
     );
   }
   judgments.projectMatch.push(projectFreshness);
+  for (const dimension of STRUCTURED_RESUME_DIMENSIONS) {
+    judgments[dimension] = judgments[dimension].filter(
+      ({ ruleId }) => input.jobSnapshot.publishedConfig.deductionRules[ruleId].enabled,
+    );
+  }
   return judgments;
 }
 
@@ -1287,9 +1354,26 @@ function validateEvidenceSources(input: {
 }
 
 export function generateStructuredNarrative(input: {
-  calculation: ReturnType<typeof computeStructuredResumeEvaluation>;
+  calculationResult: StructuredResumeCalculation;
   workflowInput: StructuredResumeWorkflowInput;
 }) {
+  const { calculation, dimensionRuleJudgments } = input.calculationResult;
+  const narrativeDimensions = Object.fromEntries(
+    STRUCTURED_RESUME_DIMENSIONS.map((dimension) => {
+      const result = calculation.dimensions[dimension];
+      return [
+        dimension,
+        {
+          appliedDeductions: result.appliedDeductions,
+          deductionTotal: result.deductionTotal,
+          rawScore: result.rawScore,
+          ruleJudgments: dimensionRuleJudgments[dimension],
+          weight: result.weight,
+          weightedContribution: result.weightedContributionHundredths / 100,
+        },
+      ];
+    }),
+  );
   return generateStructuredWithMastraAgent({
     agent: structuredResumeNarrativeAgent,
     prompt: [
@@ -1297,12 +1381,19 @@ export function generateStructuredNarrative(input: {
       "未命中的优先条件 appliedPoints=0，不加分也不扣分；未命中的排除条件同样不产生分数变化。",
       "只解释 appliedPoints 实际非零的加减分，不得把未应用的配置 points 写成已加分或已扣分。",
       "门槛状态不改变代码给出的分数等级；必须分别说明门槛状态和理论分数等级。",
+      "dimensions.weightedContribution 的单位是分，直接按该值说明，不得放大 100 倍。",
+      "overallComment 用 2-4 句话形成整体评语：基于简历事实说明最重要的岗位适配优势和主要风险。不得复述综合分、等级、门槛状态或推荐结论，不得重复 summary，不得创造新事实或改分。",
+      "dimensionComments 必须覆盖六个维度。每个维度用 1-2 句话，只概括候选人在该维度的整体表现、主要优势和总体短板；不要输出规则名称、规则编号或逐项规则状态，不要枚举未扣分项和证据不足项，也不要重复分数、权重或扣分数值。实际扣分原因由代码单独展示，不要在评语中逐条复述。units=1 时只能表述为一项，不得写成多项、较多或大批缺失；没有 units 时不得自行推断数量。",
+      "teamPositioning.suggestion 给出可执行的团队角色或职责方向，rationale 说明简历事实和岗位依据；不得把建议写成候选人已经具备的事实。",
+      "levelRecommendation.level 使用“初级 / 初中级 / 中级 / 中高级 / 高级 / 资深 / 专家”或岗位已有的 P 级，rationale 说明经验、职责范围、项目复杂度和管理证据；不得仅按工作年限判断。",
       JSON.stringify({
-        adjustments: input.calculation.adjustments,
-        compositeScore: input.calculation.compositeScore,
-        dimensions: input.calculation.dimensions,
-        gates: input.calculation.gates,
-        grade: input.calculation.grade,
+        adjustments: calculation.adjustments,
+        compositeScore: calculation.compositeScore,
+        dimensions: narrativeDimensions,
+        gates: calculation.gates,
+        grade: calculation.grade,
+        jobExpectations: input.workflowInput.jobSnapshot.blueprint.dimensionExpectations,
+        resumeProfile: input.workflowInput.resumeInput.resumeProfile,
       }),
     ].join("\n"),
     retryOnInvalid: true,
@@ -1341,6 +1432,7 @@ export function computeStructuredResumeCalculation(input: {
   const adjustments = buildAdjustmentMatches(workflowInput, adjustmentOutput);
   const calculation = computeStructuredResumeEvaluation({
     adjustments,
+    deductionRules: workflowInput.jobSnapshot.publishedConfig.deductionRules,
     dimensionRuleJudgments,
     gateJudgments,
     weights: workflowInput.jobSnapshot.publishedConfig.weights,
@@ -1362,12 +1454,24 @@ function isStructuredNarrativeFactuallyConsistent(
   };
   const allMatchesEqual = (pattern: RegExp, expected: number) =>
     [...summary.matchAll(pattern)].every((match) => Number(match[1]) === expected);
+  const weightedContributions = STRUCTURED_RESUME_DIMENSIONS.map(
+    (dimension) => calculation.dimensions[dimension].weightedContributionHundredths / 100,
+  );
+  const hasValidWeightedContributions = [
+    ...summary.matchAll(/加权贡献\s*(\d+(?:\.\d+)?)\s*分/g),
+  ].every((match) =>
+    weightedContributions.some((expected) => Math.abs(Number(match[1]) - expected) <= 0.1),
+  );
 
   return (
     allMatchesEqual(/(?:综合评分|综合得分|最终得分)\s*(\d+)\s*分/g, calculation.compositeScore) &&
     allMatchesEqual(/(\d+)\s*项(?:硬性)?门槛/g, expectedGateCounts.total) &&
     allMatchesEqual(/(\d+)\s*项(?:门槛)?(?:未通过|失败)/g, expectedGateCounts.failed) &&
-    allMatchesEqual(/(\d+)\s*项(?:门槛)?(?:待核实|需要核实)/g, expectedGateCounts.needsVerification)
+    allMatchesEqual(
+      /(\d+)\s*项(?:门槛)?(?:待核实|需要核实)/g,
+      expectedGateCounts.needsVerification,
+    ) &&
+    hasValidWeightedContributions
   );
 }
 
@@ -1534,7 +1638,7 @@ export async function evaluateStructuredResume(rawInput: StructuredResumeWorkflo
     workflowInput: input,
   });
   const narrative = await generateStructuredNarrative({
-    calculation: calculationResult.calculation,
+    calculationResult,
     workflowInput: input,
   });
   return assembleStructuredResumeEvaluation({

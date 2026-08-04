@@ -169,8 +169,34 @@ export const structuredResumeEvaluationV1Schema = z
     jobId: z.string().trim().min(1),
     narrative: z
       .object({
+        dimensionComments: z
+          .object({
+            educationBackground: z.string().trim().min(1),
+            experienceRelevance: z.string().trim().min(1),
+            potential: z.string().trim().min(1),
+            projectMatch: z.string().trim().min(1),
+            skillMatch: z.string().trim().min(1),
+            stability: z.string().trim().min(1),
+          })
+          .strict()
+          .optional(),
+        levelRecommendation: z
+          .object({
+            level: z.string().trim().min(1),
+            rationale: z.string().trim().min(1),
+          })
+          .strict()
+          .optional(),
+        overallComment: z.string().trim().min(1).optional(),
         recommendation: z.string().trim().min(1),
         summary: z.string().trim().min(1),
+        teamPositioning: z
+          .object({
+            rationale: z.string().trim().min(1),
+            suggestion: z.string().trim().min(1),
+          })
+          .strict()
+          .optional(),
       })
       .strict(),
     requiredRelevantExperience: z

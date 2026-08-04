@@ -68,6 +68,7 @@ function createValidRawArtifact(engine: {
   }
   const calculation = computeStructuredResumeEvaluation({
     adjustments: [],
+    deductionRules: config.deductionRules,
     dimensionRuleJudgments,
     gateJudgments: [],
     weights: config.weights,

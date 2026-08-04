@@ -419,7 +419,7 @@ export function JobDescriptionStructuredFields({
       <Alert className="bg-muted/40 px-3 py-2">
         <IconInfoCircle />
         <AlertDescription>
-          发布前请生成并确认评估蓝图；发布后门槛、权重和条件将冻结。
+          发布前请生成并确认评分规则；发布后门槛、权重和条件将冻结。
         </AlertDescription>
       </Alert>
 

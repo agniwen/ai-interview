@@ -18,6 +18,8 @@ import {
   structuredJobDescriptionDraftUpdateSchema,
   structuredJobDescriptionPublishSchema,
 } from "@arc/shared/job-descriptions";
+import { jobEvaluationRuleDraftSchema } from "@arc/db-schema/job-description-evaluation";
+import { jobDescriptionDeductionRulesSchema } from "@arc/db-schema/job-description-structured-config";
 import { computeResumeScreeningPolicyHash } from "@arc/shared/resume-screening";
 import type { ReferralLinkCreateResult } from "@arc/shared/referrals";
 import { validateJobDescriptionInterviewerDepartments } from "@arc/shared/job-description-interviewers";
@@ -50,6 +52,7 @@ import {
   generateStructuredJobBlueprintPreview,
   JobEvaluationLifecycleError,
   publishStructuredJob,
+  saveStructuredJobRuleDraft,
 } from "./application/job-evaluation-lifecycle";
 import { BlueprintCompilationError } from "./utils/evaluation-blueprint-compiler";
 import { computeJobEvaluationDraftInputHash } from "@arc/ai-recruitment-copilot-backend/lib/server/job-evaluation-hash";
@@ -149,6 +152,14 @@ const recommendationBodySchema = z.object({
   excludeAlreadyLinked: z.boolean().optional().default(true),
   limit: z.number().int().min(1).max(50).optional().default(20),
 });
+
+const saveEvaluationRuleDraftBodySchema = z
+  .object({
+    deductionRules: jobDescriptionDeductionRulesSchema,
+    expectedBlueprintHash: z.string().trim().min(1),
+    ruleDraft: jobEvaluationRuleDraftSchema,
+  })
+  .strict();
 
 const jobDescriptionPatchBodySchema = z.union([
   legacyJobDescriptionUpdateSchema,
@@ -440,6 +451,39 @@ export const jobDescriptionsRouter = factory
       throw error;
     }
   })
+  .put(
+    "/:id/evaluation-rule-draft",
+    requirePermission("jd", "update"),
+    zValidator("json", saveEvaluationRuleDraftBodySchema, jsonValidatorError("评分规则无效。")),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!activeOrg || !user) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const body = c.req.valid("json");
+      try {
+        const preview = await saveStructuredJobRuleDraft({
+          actorId: user.id,
+          deductionRules: body.deductionRules,
+          expectedBlueprintHash: body.expectedBlueprintHash,
+          jobDescriptionId: c.req.param("id"),
+          organizationId: activeOrg.id,
+          ruleDraft: body.ruleDraft,
+        });
+        safeUpdateTag(`job-descriptions:${activeOrg.id}`);
+        return c.json(preview, 200);
+      } catch (error) {
+        if (error instanceof JobEvaluationLifecycleError) {
+          const status = error.code === "JOB_NOT_FOUND" ? 404 : 409;
+          return c.json(jobLifecycleErrorPayload(error), status);
+        }
+        if (error instanceof z.ZodError) {
+          return c.json({ error: "评分规则无效。" }, 422);
+        }
+        throw error;
+      }
+    },
+  )
   .post(
     "/:id/publish",
     requirePermission("jd", "update"),

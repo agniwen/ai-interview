@@ -22,6 +22,7 @@ const evidence = [{ quote: "简历证据", source: "resume_profile" as const }];
 function baseInput(): StructuredResumeCalculationInput {
   return {
     adjustments: [],
+    deductionRules: createDefaultJobDescriptionStructuredConfig().deductionRules,
     dimensionRuleJudgments: {
       educationBackground: [],
       experienceRelevance: [],
@@ -85,6 +86,13 @@ describe("structured job configuration", () => {
         priorityConditions: [{ condition: "加分", id: "p1", points: 1.5 }],
       }).success,
     ).toBe(false);
+  });
+
+  it("keeps direct-zero rule points fixed at zero", () => {
+    const config = createDefaultJobDescriptionStructuredConfig();
+    config.deductionRules["skill.no_related_skill"].points = 10;
+
+    expect(jobDescriptionStructuredConfigSchema.safeParse(config).success).toBe(false);
   });
 });
 
@@ -170,6 +178,61 @@ describe("computeStructuredResumeEvaluation", () => {
     expect(result.dimensions.educationBackground.rawScore).toBe(50);
     expect(result.dimensions.projectMatch.rawScore).toBe(0);
     expect(result.dimensions.projectMatch.deductionTotal).toBe(23);
+  });
+
+  it("uses the job-owned enabled state and deduction points", () => {
+    const input = baseInput();
+    input.deductionRules["skill.missing_core"] = { enabled: true, points: 21 };
+    input.deductionRules["skill.missing_auxiliary"] = { enabled: false, points: 4 };
+    input.dimensionRuleJudgments.skillMatch = [
+      {
+        evidence,
+        reason: "缺失一项核心技能",
+        ruleId: "skill.missing_core",
+        status: "matched",
+      },
+      {
+        evidence,
+        reason: "缺失一项辅助技能",
+        ruleId: "skill.missing_auxiliary",
+        status: "matched",
+      },
+    ];
+
+    const result = computeStructuredResumeEvaluation(input);
+
+    expect(result.dimensions.skillMatch.deductionTotal).toBe(21);
+    expect(result.dimensions.skillMatch.rawScore).toBe(79);
+    expect(result.dimensions.skillMatch.appliedDeductions.map((item) => item.ruleId)).toEqual([
+      "skill.missing_core",
+    ]);
+  });
+
+  it("selects the most severe threshold tier even when its configured points are lower", () => {
+    const input = baseInput();
+    input.deductionRules["stability.two_changes_two_years"].points = 50;
+    input.deductionRules["stability.three_changes_one_year"].points = 5;
+    input.dimensionRuleJudgments.stability = [
+      {
+        evidence,
+        reason: "两年内跳槽两次",
+        ruleId: "stability.two_changes_two_years",
+        status: "matched",
+      },
+      {
+        evidence,
+        reason: "一年内跳槽三次",
+        ruleId: "stability.three_changes_one_year",
+        status: "matched",
+      },
+    ];
+
+    const result = computeStructuredResumeEvaluation(input);
+
+    expect(result.dimensions.stability.deductionTotal).toBe(5);
+    expect(result.dimensions.stability.appliedDeductions).toEqual([
+      expect.objectContaining({ ruleId: "stability.three_changes_one_year" }),
+    ]);
   });
 
   it("uses exact hundredths, adjustments, clamping, and half-up integer rounding", () => {

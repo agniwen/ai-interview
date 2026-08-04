@@ -14,7 +14,7 @@ This delivery includes:
 - permanent separation between legacy and structured job evaluation;
 - a dedicated structured Mastra workflow;
 - atomic hard-gate judgments and evidence;
-- versioned, product-owned six-dimension deduction rules;
+- versioned, product-owned six-dimension rule identities and semantics, with job-owned enablement and integer deduction values;
 - code-computed dimension, weighted-base, adjustment, and final scores;
 - AI match grades and post-score narrative;
 - evaluation snapshots and engine/model metadata;
@@ -29,7 +29,7 @@ This delivery excludes:
 - automatically reassessing historical candidates;
 - automatic candidate-stage progression;
 - comparing or sorting scores across jobs or evaluation modes;
-- workspace or job editors for the standardized deduction catalog;
+- workspace-level deduction-rule editors;
 - cross-job evaluation history when a resume is rebound;
 - aggregate scoring reports.
 
@@ -76,16 +76,18 @@ A structured job begins as a draft. Creating it stores the draft only; it does n
 - produce referral/application links;
 - run resume evaluation.
 
-The draft publication flow calls a server-owned preview operation. It compiles and validates a blueprint, then atomically stores the complete preview plus hashes on the draft before returning it to the recruiter. Clients cannot submit or replace preview content.
+The structured editor has one public-facing JD field. `一键生成 JD` may improve its wording and add concrete requirements, but must preserve the recruiter's headings, order, numbering, list style, and overall formatting. It must not add potential/stability scoring language or other internal scoring instructions to the public JD. AI-added facts are shown in a confirmation dialog before the generated JD is applied, after which the recruiter can edit it normally.
 
-The recruiter confirms that stored preview. Any subsequent change to the job description, prompt, gates, weights, or adjustments atomically clears all preview fields and requires regeneration. Operational-only draft changes do not invalidate it.
+The draft publication flow first saves the current job, then calls a server-owned scoring-rule generation operation. It compiles and validates a blueprint and atomically stores the complete preview plus hashes. The recruiter may edit only the constrained rule-draft fields exposed by the product: core and auxiliary skills, six-dimension expectations, normalized experience and education expectations, and each standardized rule's enabled state and integer deduction value. The server maps those edits back to source-tracked blueprint fields; clients cannot submit an arbitrary full blueprint, hard-gate result, compiler metadata, or hash.
+
+The recruiter confirms that stored preview. Any subsequent change to the public JD, gates, weights, priority conditions, or exclusion conditions atomically clears all preview fields and requires regeneration. A constrained scoring-rule edit is saved through its own optimistic-concurrency endpoint and atomically refreshes the blueprint and draft-input hashes. Operational-only draft changes do not invalidate it.
 
 Publishing is one atomic transition from `draft` to `published`. It:
 
 1. locks the draft row and loads the server-stored preview;
 2. recomputes the current draft-input hash and verifies both the submitted preview-blueprint hash and stored preview-input hash;
-3. validates all structured configuration, including integer weights totaling 100;
-4. pins the current deduction-rule-set and blueprint-schema versions;
+3. validates all structured configuration, including integer weights totaling 100 and the complete job-owned deduction configuration;
+4. pins the current deduction-rule-set semantics and blueprint-schema versions;
 5. copies the exact stored preview into the published blueprint fields and clears the preview fields;
 6. writes `publishedAt` and makes the job eligible for recruiting workflows.
 
@@ -93,7 +95,7 @@ If preview generation, validation, or persistence fails, the job remains a draft
 
 ### Published evaluation blueprint
 
-The evaluation blueprint is compiled once from the draft's frozen description, prompt, hard-gate configuration, weights, and adjustments. It contains:
+The evaluation blueprint is compiled once from the draft's frozen public JD, hard-gate configuration, weights, adjustments, and recruiter-edited scoring standards. It contains:
 
 - stable IDs and source mappings for every atomized hard-gate requirement;
 - de-duplicated core and auxiliary skill expectations;
@@ -117,6 +119,7 @@ After publication, the following fields are immutable:
 - job description and prompt;
 - all seven hard-gate fields;
 - all six weights;
+- all standardized deduction-rule enabled states and integer values;
 - priority and exclusion conditions;
 - the pinned deduction-rule-set version.
 
@@ -128,6 +131,7 @@ The API/shared layer uses separate request schemas instead of reusing one base s
 
 - structured create input: job basics, structured configuration, and operational assignments; no legacy screening policy;
 - structured draft update input: all draft-editable fields;
+- structured scoring-rule update input: expected preview hash plus the constrained rule draft and complete deduction-rule configuration;
 - structured publish input: the confirmed preview-blueprint hash only;
 - published operational update input: only the operationally editable fields;
 - legacy update input: the existing legacy contract.
@@ -223,7 +227,7 @@ A correction stores the original AI status unchanged plus corrected status, recr
 
 ### Ownership and versions
 
-The deduction catalog is product-owned, fixed-identity, and versioned. It is not configurable per workspace or job. A structured job pins the current catalog version when published, and all evaluations for that job use that version. A later catalog version applies only to newly published jobs.
+The deduction catalog has product-owned, fixed, versioned rule identities and semantics. A draft job owns the enabled state and integer point value for every catalog rule. Recruiters can disable a rule or change its point value, but cannot create a new semantic rule, change its dimension, direct-zero behavior, threshold-family membership, evidence contract, or rule ID. A structured job freezes the complete configuration and current semantic catalog version when published. Later edits or catalog versions do not affect it.
 
 Each of the six dimensions starts at 100, accumulates matched deductions, and is floored at 0. A direct-zero rule overrides ordinary deductions. Rules in the same threshold family use only the most severe matched tier; independent facts continue to accumulate.
 
@@ -231,7 +235,7 @@ A deduction that compares the resume with a job-side threshold or expectation is
 
 ### Rule judgments and evidence sufficiency
 
-Every standardized rule is returned with one status:
+Every enabled standardized rule is returned with one status; disabled rules are neither judged nor deducted:
 
 - `matched`: sufficient resume evidence proves the deduction condition;
 - `not_matched`: sufficient evidence proves the condition does not apply;
@@ -282,7 +286,9 @@ V1 temporal definitions are:
 - a gap is unexplained only when the supplied resume evidence contains no reason for that interval;
 - a project is older than three years when its resolved end month precedes the inclusive three-year lookback boundary; a current project is never old under this rule.
 
-### V1 deduction catalog
+### V1 deduction catalog defaults
+
+The values below initialize a new structured job. The recruiter may replace an ordinary rule's value with any integer from 0 through 100 or disable the rule. Direct-zero rules retain product-owned score-zero semantics and may only be enabled or disabled.
 
 #### Skill match
 
@@ -293,7 +299,7 @@ V1 temporal definitions are:
 | Skill is mentioned only at shallow-awareness level with no applied evidence |    9 per skill |
 | No evidence of any job-related skill                                        | Direct score 0 |
 
-Core skills include every skill in the structured required-skills gate plus skills expressed in the published job description with strong wording such as "必须", "必备", "精通", or "熟练掌握". Auxiliary skills come only from the published job description and require explicit soft wording such as "优先", "加分", "了解", or "熟悉". The job prompt never contributes a core or auxiliary skill expectation. These de-duplicated expectations are compiled into the published evaluation blueprint and reused unchanged for every resume bound to that job.
+Core skills include every skill in the structured required-skills gate plus skills expressed in the published public JD with strong wording such as "必须", "必备", "精通", or "熟练掌握". Auxiliary skills come only from the public JD and require explicit soft wording such as "优先", "加分", "了解", or "熟悉". For structured jobs that public JD is stored in the existing `prompt` column; there is no separate hidden prompt input. These de-duplicated expectations are compiled into the published evaluation blueprint and reused unchanged for every resume bound to that job.
 
 For a core-skill expectation sourced from `hardGates.requiredSkills`, the corresponding atomic gate judgment is also the authoritative skill fact: `passed` maps to applied, `needs_verification` maps to shallow, and `failed` maps to missing. An omitted gate judgment is treated as failed/missing rather than falling back to a contradictory dimension-model claim. The dimension scorer must not independently produce a skill status that contradicts the same run's gate result.
 
@@ -351,7 +357,7 @@ The three job-change frequency rules are one threshold family, so only the most 
 
 ### Conflicting source text
 
-The later ad-hoc values `-5` for industry mismatch, `-3` for fragmented experience, and `-10` for an unrelated major are invalid and are not part of V1. Narrative examples that mention `-20`, `-8`, or `-2` without a matching catalog rule are also invalid; examples never create implicit rules.
+The later ad-hoc values `-5` for industry mismatch, `-3` for fragmented experience, and `-10` for an unrelated major are not defaults. They are valid only when explicitly saved in that job's rule configuration. Narrative examples that mention values without a matching configured rule never create implicit rules.
 
 ### Insufficient evidence
 

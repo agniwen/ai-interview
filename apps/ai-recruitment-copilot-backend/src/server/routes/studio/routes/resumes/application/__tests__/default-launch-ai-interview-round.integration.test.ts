@@ -218,6 +218,15 @@ describe("atomic AI interview launch persistence", () => {
       ok: true,
       roundId: "atomic_launch_structured_round",
     });
+
+    const [launchAudit] = await db
+      .select({ detail: interviewAuditLog.detail })
+      .from(interviewAuditLog)
+      .where(eq(interviewAuditLog.id, "atomic_launch_structured_audit"));
+    expect(launchAudit?.detail).toMatchObject({
+      personalizedQuestionCount: 1,
+      questionCount: 0,
+    });
   });
 
   it("does not treat an artifact from a replaced run as the current structured evaluation", async () => {

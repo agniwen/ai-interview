@@ -1,4 +1,9 @@
-import type { JobDescriptionDimensionWeights } from "@arc/db-schema/job-description-structured-config";
+import type {
+  JobDescriptionDeductionRules,
+  JobDescriptionDimensionWeights,
+  StructuredResumeRuleId,
+} from "@arc/db-schema/job-description-structured-config";
+import { DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES } from "@arc/db-schema/job-description-structured-config";
 import type { StructuredResumeEvaluationV1 } from "@arc/db-schema/structured-resume-evaluation";
 
 export const STRUCTURED_RESUME_DIMENSIONS = [
@@ -101,6 +106,7 @@ export interface StructuredResumeGateJudgment {
 
 export interface StructuredResumeCalculationInput {
   adjustments: StructuredResumeAdjustmentMatch[];
+  deductionRules: JobDescriptionDeductionRules;
   dimensionRuleJudgments: Record<StructuredResumeDimension, StructuredResumeRuleJudgment[]>;
   gateJudgments: StructuredResumeGateJudgment[];
   weights: JobDescriptionDimensionWeights;
@@ -155,82 +161,119 @@ interface DeductionRule {
   directZero?: boolean;
   points: number;
   thresholdFamily?: string;
+  thresholdRank?: number;
 }
 
-export type StructuredResumeRuleId =
-  | "education.below_tier"
-  | "education.major_unrelated"
-  | "experience.fragmented"
-  | "experience.industry_unrelated"
-  | "experience.missing_year"
-  | "potential.illogical_switches"
-  | "potential.no_growth_two_years"
-  | "potential.unexplained_gap_over_six_months"
-  | "project.edge_participation"
-  | "project.no_relevant_project"
-  | "project.old_relevant_project"
-  | "project.scale_low"
-  | "skill.missing_auxiliary"
-  | "skill.missing_core"
-  | "skill.no_related_skill"
-  | "skill.shallow"
-  | "stability.frequent_unrelated_industries"
-  | "stability.gap_over_six_months"
-  | "stability.gap_three_to_six_months"
-  | "stability.short_tenure"
-  | "stability.three_changes_one_year"
-  | "stability.two_changes_one_year"
-  | "stability.two_changes_two_years";
+export type { StructuredResumeRuleId } from "@arc/db-schema/job-description-structured-config";
 
 export const STRUCTURED_RESUME_DEDUCTION_RULE_SET_VERSION = 1;
 
 export const STRUCTURED_RESUME_DEDUCTION_CATALOG: Record<StructuredResumeRuleId, DeductionRule> = {
-  "education.below_tier": { dimension: "educationBackground", points: 38 },
-  "education.major_unrelated": { dimension: "educationBackground", points: 14 },
-  "experience.fragmented": { dimension: "experienceRelevance", points: 13 },
-  "experience.industry_unrelated": { dimension: "experienceRelevance", points: 28 },
-  "experience.missing_year": { dimension: "experienceRelevance", points: 9 },
-  "potential.illogical_switches": { dimension: "potential", points: 24 },
-  "potential.no_growth_two_years": { dimension: "potential", points: 19 },
-  "potential.unexplained_gap_over_six_months": { dimension: "potential", points: 14 },
-  "project.edge_participation": { dimension: "projectMatch", points: 23 },
+  "education.below_tier": {
+    dimension: "educationBackground",
+    points: DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["education.below_tier"].points,
+  },
+  "education.major_unrelated": {
+    dimension: "educationBackground",
+    points: DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["education.major_unrelated"].points,
+  },
+  "experience.fragmented": {
+    dimension: "experienceRelevance",
+    points: DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["experience.fragmented"].points,
+  },
+  "experience.industry_unrelated": {
+    dimension: "experienceRelevance",
+    points: DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["experience.industry_unrelated"].points,
+  },
+  "experience.missing_year": {
+    dimension: "experienceRelevance",
+    points: DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["experience.missing_year"].points,
+  },
+  "potential.illogical_switches": {
+    dimension: "potential",
+    points: DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["potential.illogical_switches"].points,
+  },
+  "potential.no_growth_two_years": {
+    dimension: "potential",
+    points: DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["potential.no_growth_two_years"].points,
+  },
+  "potential.unexplained_gap_over_six_months": {
+    dimension: "potential",
+    points:
+      DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["potential.unexplained_gap_over_six_months"].points,
+  },
+  "project.edge_participation": {
+    dimension: "projectMatch",
+    points: DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["project.edge_participation"].points,
+  },
   "project.no_relevant_project": {
     dimension: "projectMatch",
     directZero: true,
-    points: 0,
+    points: DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["project.no_relevant_project"].points,
   },
-  "project.old_relevant_project": { dimension: "projectMatch", points: 12 },
-  "project.scale_low": { dimension: "projectMatch", points: 18 },
-  "skill.missing_auxiliary": { dimension: "skillMatch", points: 4 },
-  "skill.missing_core": { dimension: "skillMatch", points: 14 },
-  "skill.no_related_skill": { dimension: "skillMatch", directZero: true, points: 0 },
-  "skill.shallow": { dimension: "skillMatch", points: 9 },
-  "stability.frequent_unrelated_industries": { dimension: "stability", points: 8 },
+  "project.old_relevant_project": {
+    dimension: "projectMatch",
+    points: DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["project.old_relevant_project"].points,
+  },
+  "project.scale_low": {
+    dimension: "projectMatch",
+    points: DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["project.scale_low"].points,
+  },
+  "skill.missing_auxiliary": {
+    dimension: "skillMatch",
+    points: DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["skill.missing_auxiliary"].points,
+  },
+  "skill.missing_core": {
+    dimension: "skillMatch",
+    points: DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["skill.missing_core"].points,
+  },
+  "skill.no_related_skill": {
+    dimension: "skillMatch",
+    directZero: true,
+    points: DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["skill.no_related_skill"].points,
+  },
+  "skill.shallow": {
+    dimension: "skillMatch",
+    points: DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["skill.shallow"].points,
+  },
+  "stability.frequent_unrelated_industries": {
+    dimension: "stability",
+    points:
+      DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["stability.frequent_unrelated_industries"].points,
+  },
   "stability.gap_over_six_months": {
     dimension: "stability",
-    points: 12,
+    points: DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["stability.gap_over_six_months"].points,
     thresholdFamily: "stability.gap_duration",
+    thresholdRank: 2,
   },
   "stability.gap_three_to_six_months": {
     dimension: "stability",
-    points: 6,
+    points: DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["stability.gap_three_to_six_months"].points,
     thresholdFamily: "stability.gap_duration",
+    thresholdRank: 1,
   },
-  "stability.short_tenure": { dimension: "stability", points: 12 },
+  "stability.short_tenure": {
+    dimension: "stability",
+    points: DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["stability.short_tenure"].points,
+  },
   "stability.three_changes_one_year": {
     dimension: "stability",
-    points: 40,
+    points: DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["stability.three_changes_one_year"].points,
     thresholdFamily: "stability.job_change_frequency",
+    thresholdRank: 3,
   },
   "stability.two_changes_one_year": {
     dimension: "stability",
-    points: 30,
+    points: DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["stability.two_changes_one_year"].points,
     thresholdFamily: "stability.job_change_frequency",
+    thresholdRank: 2,
   },
   "stability.two_changes_two_years": {
     dimension: "stability",
-    points: 13,
+    points: DEFAULT_JOB_DESCRIPTION_DEDUCTION_RULES["stability.two_changes_two_years"].points,
     thresholdFamily: "stability.job_change_frequency",
+    thresholdRank: 1,
   },
 };
 
@@ -253,11 +296,15 @@ function aggregateGateStatus(statuses: StructuredResumeGateStatus[]): Structured
 
 function selectedMatchedJudgments(
   judgments: StructuredResumeRuleJudgment[],
+  deductionRules: JobDescriptionDeductionRules,
 ): StructuredResumeRuleJudgment[] {
   const ordinary: StructuredResumeRuleJudgment[] = [];
   const thresholdFamilies = new Map<string, StructuredResumeRuleJudgment>();
   for (const judgment of judgments) {
     if (judgment.status !== "matched") {
+      continue;
+    }
+    if (!deductionRules[judgment.ruleId].enabled) {
       continue;
     }
     const rule = STRUCTURED_RESUME_DEDUCTION_CATALOG[judgment.ruleId];
@@ -266,11 +313,10 @@ function selectedMatchedJudgments(
       continue;
     }
     const selected = thresholdFamilies.get(rule.thresholdFamily);
-    const selectedPoints = selected
-      ? STRUCTURED_RESUME_DEDUCTION_CATALOG[selected.ruleId].points * (selected.units ?? 1)
+    const selectedRank = selected
+      ? (STRUCTURED_RESUME_DEDUCTION_CATALOG[selected.ruleId].thresholdRank ?? 0)
       : -1;
-    const candidatePoints = rule.points * (judgment.units ?? 1);
-    if (candidatePoints > selectedPoints) {
+    if ((rule.thresholdRank ?? 0) > selectedRank) {
       thresholdFamilies.set(rule.thresholdFamily, judgment);
     }
   }
@@ -279,6 +325,7 @@ function selectedMatchedJudgments(
 
 function calculateDimension(
   dimension: StructuredResumeDimension,
+  deductionRules: JobDescriptionDeductionRules,
   judgments: StructuredResumeRuleJudgment[],
   weight: number,
 ): StructuredResumeDimensionCalculation {
@@ -291,11 +338,10 @@ function calculateDimension(
       throw new Error(`Rule ${judgment.ruleId} units must be a positive integer.`);
     }
   }
-  const selected = selectedMatchedJudgments(judgments);
+  const selected = selectedMatchedJudgments(judgments, deductionRules);
   const appliedDeductions = selected.map((judgment) => ({
     ...judgment,
-    appliedPoints:
-      STRUCTURED_RESUME_DEDUCTION_CATALOG[judgment.ruleId].points * (judgment.units ?? 1),
+    appliedPoints: deductionRules[judgment.ruleId].points * (judgment.units ?? 1),
   }));
   const deductionTotal = appliedDeductions.reduce(
     (total, deduction) => total + deduction.appliedPoints,
@@ -305,7 +351,10 @@ function calculateDimension(
     (judgment) => STRUCTURED_RESUME_DEDUCTION_CATALOG[judgment.ruleId].directZero,
   );
   const insufficientEvidenceRuleIds = judgments
-    .filter((judgment) => judgment.status === "insufficient_evidence")
+    .filter(
+      (judgment) =>
+        judgment.status === "insufficient_evidence" && deductionRules[judgment.ruleId].enabled,
+    )
     .map((judgment) => judgment.ruleId);
   let rawScore = Math.max(100 - deductionTotal, 0);
   if (insufficientEvidenceRuleIds.length > 0 && EVIDENCE_CAPPED_DIMENSIONS.has(dimension)) {
@@ -339,6 +388,7 @@ export function computeStructuredResumeEvaluation(
       dimension,
       calculateDimension(
         dimension,
+        input.deductionRules,
         input.dimensionRuleJudgments[dimension],
         input.weights[dimension],
       ),

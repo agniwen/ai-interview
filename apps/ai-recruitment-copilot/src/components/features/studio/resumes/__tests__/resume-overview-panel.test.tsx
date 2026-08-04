@@ -29,7 +29,9 @@ vi.mock("recharts", () => ({
   PolarGrid: () => null,
   PolarRadiusAxis: () => null,
   Radar: () => null,
-  RadarChart: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  RadarChart: ({ children, data }: { children: ReactNode; data: { key: string }[] }) => (
+    <div data-radar-order={data.map((item) => item.key).join(",")}>{children}</div>
+  ),
 }));
 
 const dimension = (rawScore: number, weight: number) => ({
@@ -102,6 +104,15 @@ function createStructuredDetail(): ResumeLibraryDetail {
       },
       grade: "recommended",
       narrative: {
+        dimensionComments: {
+          educationBackground: "学历背景存在一定差距。",
+          experienceRelevance: "相关经验能够支撑岗位职责。",
+          potential: "成长轨迹较为清晰。",
+          projectMatch: "项目经历与岗位场景匹配。",
+          skillMatch: "核心技能覆盖较好。",
+          stability: "任职稳定性存在一定风险。",
+        },
+        overallComment: "候选人的核心技能和项目经验较为匹配，学历背景是当前主要风险。",
         recommendation: "建议进入下一轮",
         summary: "技能和经验整体匹配",
       },
@@ -115,6 +126,14 @@ function createLegacyDetail(): ResumeLibraryDetail {
     ...createStructuredDetail(),
     jobEvaluationMode: "legacy",
     resumeReview: {
+      dimensions: {
+        educationBackground: { rationale: "学历符合要求", score: 80 },
+        experienceRelevance: { rationale: "经验能够支撑岗位职责", score: 86 },
+        potential: { rationale: "成长轨迹清晰", score: 82 },
+        projectMatch: { rationale: "项目复杂度符合预期", score: 85 },
+        skillMatch: { rationale: "核心技能匹配", score: 88 },
+        stability: { rationale: "任职经历较稳定", score: 78 },
+      },
       nextStep: {
         action: "interview",
       },
@@ -134,7 +153,7 @@ afterEach(() => {
 });
 
 describe("ResumeOverviewPanel", () => {
-  it("shows only the structured AI score conclusion in overview", () => {
+  it("shows the structured radar, score and overall evaluation in overview", () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -153,13 +172,15 @@ describe("ResumeOverviewPanel", () => {
     expect(content).toContain("AI评分");
     expect(content).toContain("推荐 · 87 分");
     expect(content).toContain("未通过门槛");
+    expect(content).toContain("综合评分 87 分，处于“推荐”区间；硬性门槛未通过。");
+    expect(content).toContain("候选人的核心技能和项目经验较为匹配");
     expect(content).not.toContain("技能和经验整体匹配");
-    expect(content).toContain("建议进入下一轮");
     expect(content).toContain("查看详情");
-    expect(content).not.toContain("权重 35%");
     expect(content).not.toContain("最高学历为大专");
     expect(content).not.toContain("拥有支付行业经验");
-    expect(content).not.toContain("硬性门槛");
+    expect(container.querySelector<HTMLElement>("[data-radar-order]")?.dataset.radarOrder).toBe(
+      "skillMatch,experienceRelevance,stability,educationBackground,potential,projectMatch",
+    );
 
     const detailButton = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "查看详情",
@@ -171,7 +192,7 @@ describe("ResumeOverviewPanel", () => {
     act(() => root.unmount());
   });
 
-  it("shows only the legacy AI score conclusion in overview", () => {
+  it("keeps the legacy radar, score and overall evaluation in overview", () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -189,9 +210,9 @@ describe("ResumeOverviewPanel", () => {
     expect(content).toContain("建议进入面试");
     expect(content).toContain("综合评分84");
     expect(content).toContain("候选人与岗位高度匹配");
+    expect(container.querySelector("[data-radar-order]")).not.toBeNull();
     expect(content).toContain("查看详情");
-    expect(content).not.toContain("六维度评分依据与详细扣分说明");
-    expect(content).not.toContain("维度评分");
+    expect(content).toContain("六维度评分依据与详细扣分说明");
 
     act(() => root.unmount());
   });

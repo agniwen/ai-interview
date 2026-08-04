@@ -149,7 +149,7 @@ export function JobDescriptionManagementPage({
   });
 
   function handleJobDescriptionSaved(savedRecord: JobDescriptionRecord) {
-    if (crud.editingRecord?.id === savedRecord.id) {
+    if (!crud.editingRecord || crud.editingRecord.id === savedRecord.id) {
       crud.setEditingRecord(savedRecord);
     }
     invalidateJobDescriptionData();

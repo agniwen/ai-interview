@@ -5,7 +5,7 @@ export type JobDescriptionSupplementedSection =
   | "experience"
   | "projects"
   | "education"
-  | "potential_stability";
+  | "other_requirements";
 
 export interface JobDescriptionSupplementedItem {
   detail: string;
@@ -17,7 +17,7 @@ export const SUPPLEMENTED_SECTION_LABELS: Record<JobDescriptionSupplementedSecti
   education: "学历/背景",
   experience: "经验要求",
   job_responsibilities: "岗位职责",
-  potential_stability: "潜力与稳定性",
+  other_requirements: "其他任职要求",
   projects: "项目要求",
   supporting_skills: "辅助技能",
 };

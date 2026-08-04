@@ -3,10 +3,17 @@ import {
   createDefaultJobDescriptionStructuredConfig,
   jobDescriptionStructuredConfigSchema,
 } from "../job-descriptions";
+import { parseStoredJobDescriptionStructuredConfig } from "@arc/db-schema/job-description-structured-config";
 
 describe("job description structured config", () => {
   it("creates the confirmed six-dimension defaults", () => {
-    expect(createDefaultJobDescriptionStructuredConfig()).toEqual({
+    const config = createDefaultJobDescriptionStructuredConfig();
+    expect(config).toEqual({
+      deductionRules: expect.objectContaining({
+        "experience.missing_year": { enabled: true, points: 9 },
+        "skill.missing_core": { enabled: true, points: 14 },
+        "stability.short_tenure": { enabled: true, points: 12 },
+      }),
       exclusionConditions: [],
       hardGates: {
         education: "",
@@ -27,6 +34,24 @@ describe("job description structured config", () => {
         skillMatch: 35,
         stability: 7,
       },
+    });
+    expect(Object.keys(config.deductionRules)).toHaveLength(23);
+  });
+
+  it("fills the V1 deduction defaults without discarding existing structured settings", () => {
+    const { deductionRules: _, ...existingV1Config } =
+      createDefaultJobDescriptionStructuredConfig();
+    existingV1Config.hardGates.requiredSkills = "TypeScript";
+    existingV1Config.weights.skillMatch = 40;
+    existingV1Config.weights.experienceRelevance = 20;
+
+    const parsed = parseStoredJobDescriptionStructuredConfig(existingV1Config);
+
+    expect(parsed.hardGates.requiredSkills).toBe("TypeScript");
+    expect(parsed.weights.skillMatch).toBe(40);
+    expect(parsed.deductionRules["skill.missing_core"]).toEqual({
+      enabled: true,
+      points: 14,
     });
   });
 
