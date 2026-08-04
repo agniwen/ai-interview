@@ -36,7 +36,7 @@ import { isQwenOcrConfigured, qwenVlOcr } from "./qwen-ocr";
 const STRUCTURED_TEXT_MAX_CHARS = 16_000;
 const DEV_OCR_LOG_PREFIX = "[resume-ocr]";
 const DEFAULT_OCR_ATTEMPTS = 3;
-const DEFAULT_OCR_PAGE_CONCURRENCY = 1;
+const DEFAULT_OCR_PAGE_CONCURRENCY = 4;
 const DEFAULT_OCR_RETRY_DELAY_MS = 1000;
 const OFFICE_TEXT_MAX_CHARS = 80_000;
 const XLSX_MAX_SHEETS = 8;

@@ -6,4 +6,8 @@ describe("resume parse worker defaults", () => {
     expect(isResumeParseCacheDisabled({})).toBe(false);
     expect(getResumeParseConfigSummary({}).cacheDisabled).toBe(false);
   });
+
+  it("defaults PDF OCR page concurrency to 4", () => {
+    expect(getResumeParseConfigSummary({}).ocrPageConcurrency).toBe("4");
+  });
 });

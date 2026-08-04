@@ -171,6 +171,27 @@ describe("parseResumeOcrOnly", () => {
     expect(maxActive).toBe(1);
   });
 
+  it("defaults OCR page concurrency to 4", async () => {
+    delete process.env.RESUME_PARSE_OCR_PAGE_CONCURRENCY;
+    mocks.rasterizePdfWithMeta.mockResolvedValue({
+      pageCount: 6,
+      pages: Array.from({ length: 6 }, (_, index) => Buffer.from(`page-${index + 1}`)),
+    });
+    let active = 0;
+    let maxActive = 0;
+    mocks.qwenVlOcr.mockImplementation(async (png: Buffer) => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await delay(1);
+      active -= 1;
+      return png.toString();
+    });
+
+    await parseResumeOcrOnly(new Uint8Array([1, 2, 3]));
+
+    expect(maxActive).toBe(4);
+  });
+
   it("emits page-level OCR progress without changing the OCR result", async () => {
     mocks.qwenVlOcr.mockImplementation((png: Buffer) => png.toString());
     const events: unknown[] = [];
