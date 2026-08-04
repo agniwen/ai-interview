@@ -14,6 +14,7 @@ import type { ResumeParseProgressEvent } from "@arc/ai-recruitment-copilot-backe
 const resumeParseInputSchema = z.object({
   bytesBase64: z.string().min(1),
   fileName: z.string().trim().min(1),
+  fileUrl: z.string().url().optional(),
   mediaType: z.string().trim().optional(),
 });
 
@@ -83,10 +84,16 @@ function buildResumePreview(structured: z.infer<typeof structuredSchema>) {
   };
 }
 
-function toWorkflowInput(input: { bytes: Uint8Array; fileName: string; mediaType?: string }) {
+function toWorkflowInput(input: {
+  bytes: Uint8Array;
+  fileName: string;
+  fileUrl?: string;
+  mediaType?: string;
+}) {
   return {
     bytesBase64: Buffer.from(input.bytes).toString("base64"),
     fileName: input.fileName,
+    fileUrl: input.fileUrl,
     mediaType: input.mediaType,
   };
 }
@@ -107,6 +114,7 @@ export function createResumeParseWorkflow(deps: ResumeParseWorkflowDeps) {
       const parsed = await deps.parseDocument({
         bytes: bytesFromBase64(inputData.bytesBase64),
         fileName: inputData.fileName,
+        fileUrl: inputData.fileUrl,
         mediaType: inputData.mediaType,
       });
       return {
@@ -194,6 +202,7 @@ export async function runResumeParseWorkflow(
   input: {
     bytes: Uint8Array;
     fileName: string;
+    fileUrl?: string;
     mediaType?: string;
   },
   options: RunResumeParseWorkflowOptions = {},
@@ -219,6 +228,7 @@ export async function streamResumeParseWorkflow(
   input: {
     bytes: Uint8Array;
     fileName: string;
+    fileUrl?: string;
     mediaType?: string;
   },
   options: StreamResumeParseWorkflowOptions,

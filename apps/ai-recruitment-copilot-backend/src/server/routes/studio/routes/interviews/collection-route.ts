@@ -16,6 +16,7 @@ import {
 import {
   analyzeResumeFile,
   generateInterviewQuestionsForProfile,
+  getStoredResumeParseFileUrl,
   parseResumeFastToProfile,
 } from "@arc/ai-recruitment-copilot-backend/server/agents/resume-analysis-agent";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
@@ -156,6 +157,7 @@ export const studioInterviewCollectionRouter = factory
       // Reuse order: client-prebaked → registry cache → server full analysis.
       let analysis = parsedResumePayload;
       if (!analysis && resume) {
+        const fileUrl = await getStoredResumeParseFileUrl(resume, resumeStorageKey);
         if (uploadResult?.cachedResumeProfile) {
           const interviewQuestions = candidateQuestionGenerationEnabled
             ? await generateInterviewQuestionsForProfile(uploadResult.cachedResumeProfile)
@@ -167,10 +169,10 @@ export const studioInterviewCollectionRouter = factory
             resumeText: uploadResult.resumeText,
           };
         } else if (candidateQuestionGenerationEnabled) {
-          analysis = await analyzeResumeFile(resume);
+          analysis = await analyzeResumeFile(resume, { fileUrl });
           ({ resumeText } = analysis);
         } else {
-          const parsed = await parseResumeFastToProfile(resume);
+          const parsed = await parseResumeFastToProfile(resume, { fileUrl });
           resumeText = parsed.parsedText;
           analysis = {
             fileName: resume.name,

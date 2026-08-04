@@ -1,7 +1,3 @@
-// End-to-end deterministic resume parsing pipeline.
-// Runs Qwen-VL OCR on every page of the PDF, then extracts structured
-// candidate info via a schema-constrained Mastra agent call.
-
 import { setTimeout as delay } from "node:timers/promises";
 import { convert as htmlToText } from "html-to-text";
 import mammoth from "mammoth";
@@ -29,6 +25,7 @@ import {
   readOfficeZipText as readZipText,
 } from "./office-xml";
 import { rasterizePdfWithMeta } from "./pdf-rasterize";
+import { parseQwenPdfResume } from "./qwen-pdf-resume";
 import { parseResumeWithAliyun } from "./resume-parse-aliyun";
 import { getResumeParseProvider } from "./resume-parse-provider";
 import { isQwenOcrConfigured, qwenVlOcr } from "./qwen-ocr";
@@ -116,6 +113,7 @@ export {
 export interface ResumeDocumentInput {
   bytes: Uint8Array;
   fileName?: string;
+  fileUrl?: string;
   mediaType?: string;
   onProgress?: (event: ResumeParseProgressEvent) => void;
 }
@@ -568,7 +566,7 @@ async function extractImageText(input: ResumeDocumentInput): Promise<ParsedResum
     totalPages: 1,
     type: "ocr.completed",
   });
-  return { pageCount: 1, text, textSource: "qwen-ocr" };
+  return { pageCount: 1, text, textSource: "qwen3.5-ocr" };
 }
 
 export async function generateResumeStructured(text: string): Promise<ResumeParserStructured> {
@@ -687,7 +685,7 @@ export async function parseResumeOcrOnly(
     pageCount,
     renderedPages: pages.length,
   });
-  return { pageCount, text, textSource: "qwen-ocr" };
+  return { pageCount, text, textSource: "qwen3.5-ocr" };
 }
 
 export function extractResumeDocumentText(input: ResumeDocumentInput): Promise<ParsedResumeOcr> {
@@ -698,7 +696,14 @@ export function extractResumeDocumentText(input: ResumeDocumentInput): Promise<P
 
   switch (kind) {
     case "pdf": {
-      return parseResumeOcrOnly(input.bytes, { onProgress: input.onProgress });
+      if (!input.fileUrl) {
+        throw new Error("Qwen3.5 OCR 解析 PDF 需要可访问的文件 URL。");
+      }
+      return parseQwenPdfResume({
+        bytes: input.bytes,
+        fileUrl: input.fileUrl,
+        onProgress: input.onProgress,
+      });
     }
     case "doc": {
       return convertLegacyOfficeToOoxml({

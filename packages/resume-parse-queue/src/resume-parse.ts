@@ -89,7 +89,7 @@ export interface ResumeParseQueueJobsResult {
 
 const DEFAULT_ATTEMPTS = 3;
 const DEFAULT_BACKOFF_MS = 30_000;
-const DEFAULT_CONCURRENCY = 9;
+const DEFAULT_CONCURRENCY = 16;
 
 let queue: Queue<ResumeParseJobData> | null = null;
 
@@ -472,6 +472,10 @@ export async function closeResumeParseQueue(): Promise<void> {
   queue = null;
 }
 
+export function resolveResumeParseWorkerConcurrency(env: NodeJS.ProcessEnv = process.env): number {
+  return parsePositiveInteger(env.RESUME_PARSE_WORKER_CONCURRENCY, DEFAULT_CONCURRENCY);
+}
+
 export function createResumeParseWorker(
   processJob: ResumeParseJobProcessor,
 ): Worker<ResumeParseJobData> {
@@ -482,10 +486,7 @@ export function createResumeParseWorker(
       await processJob(payload);
     },
     {
-      concurrency: parsePositiveInteger(
-        process.env.RESUME_PARSE_WORKER_CONCURRENCY,
-        DEFAULT_CONCURRENCY,
-      ),
+      concurrency: resolveResumeParseWorkerConcurrency(),
       connection: createRedisConnection(),
       prefix: buildResumeParseQueuePrefix(),
     },
@@ -493,10 +494,7 @@ export function createResumeParseWorker(
 
   worker.on("ready", () => {
     console.info("[resume-parse-worker] ready", {
-      concurrency: parsePositiveInteger(
-        process.env.RESUME_PARSE_WORKER_CONCURRENCY,
-        DEFAULT_CONCURRENCY,
-      ),
+      concurrency: resolveResumeParseWorkerConcurrency(),
       queue: RESUME_PARSE_QUEUE_NAME,
     });
   });

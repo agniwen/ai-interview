@@ -14,5 +14,7 @@ export function isResumeParseCacheSourceCompatible(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
   const isAliyunResult = textSource === "aliyun-docmining";
-  return getResumeParseProvider(env) === "aliyun-docmining" ? isAliyunResult : !isAliyunResult;
+  return getResumeParseProvider(env) === "aliyun-docmining"
+    ? isAliyunResult
+    : !isAliyunResult && textSource !== "qwen-ocr";
 }

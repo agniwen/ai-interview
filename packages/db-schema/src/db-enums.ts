@@ -27,6 +27,7 @@ export const attachmentTextSourceValues = [
   "pdf-parse",
   "aliyun-docmining",
   "qwen-ocr",
+  "qwen3.5-ocr",
   "docx-text",
   "html-text",
   "pptx-text",

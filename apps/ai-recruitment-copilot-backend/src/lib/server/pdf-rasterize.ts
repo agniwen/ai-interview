@@ -1,5 +1,4 @@
-// Rasterize PDF pages to PNG buffers (server-side, Node.js).
-// Used to feed PDFs to Qwen-VL OCR (which only accepts images).
+// Inspect PDFs and, for legacy fallback paths, rasterize pages to PNG buffers.
 //
 // Backed by `mupdf` (WASM): no native build, no canvas/CMap fragility, ships
 // its own font + cmap data, runs anywhere Node runs.
@@ -26,6 +25,17 @@ export interface RasterizeResult {
   pages: Buffer[];
   /** Total page count of the source PDF (independent of `maxPages`). */
   pageCount: number;
+}
+
+export async function getPdfPageCount(bytes: Uint8Array): Promise<number> {
+  const mupdf = await loadMupdf();
+  const owned = new Uint8Array(bytes);
+  const doc = mupdf.Document.openDocument(owned, "application/pdf");
+  try {
+    return doc.countPages();
+  } finally {
+    doc.destroy();
+  }
 }
 
 export async function rasterizePdfWithMeta(

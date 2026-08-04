@@ -58,7 +58,7 @@ export function getResumeParseConfigSummary(
       env.QWEN_OCR_BASE_URL,
       "https://dashscope.aliyuncs.com/compatible-mode/v1",
     ),
-    qwenOcrModel: env.QWEN_OCR_MODEL?.trim() || "qwen-vl-ocr-latest",
+    qwenOcrModel: env.QWEN_OCR_MODEL?.trim() || "qwen3.5-ocr",
     s3Configured: !getResumeParseReadinessIssue({ ...env, ALIBABA_API_KEY: "placeholder" }),
     staleProcessingSeconds: getEnvNumberString(env.RESUME_PARSE_STALE_PROCESSING_SECONDS, 900),
   };

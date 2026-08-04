@@ -4,6 +4,7 @@ import {
   buildResumeParseQueuePrefix,
   createRedisConnectionFromUrl,
   defaultResumeParseJobOptions,
+  resolveResumeParseWorkerConcurrency,
   resumeParseJobSchema,
   shouldRemoveCancelledResumeParseJob,
   shouldRemoveExistingResumeParseJob,
@@ -28,6 +29,11 @@ describe("resume parse queue configuration", () => {
         type: "exponential",
       },
     });
+  });
+
+  it("defaults resume parsing concurrency to 16", () => {
+    expect(resolveResumeParseWorkerConcurrency({})).toBe(16);
+    expect(resolveResumeParseWorkerConcurrency({ RESUME_PARSE_WORKER_CONCURRENCY: "20" })).toBe(20);
   });
 
   it("isolates queues by database URL by default", () => {
