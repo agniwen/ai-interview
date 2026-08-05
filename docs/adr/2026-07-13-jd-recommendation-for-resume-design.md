@@ -23,7 +23,7 @@
 1. **JD 也进向量库**：把 JD 用与现有「JD→候选人」相同的 3 个 chunk（`buildJobRecommendationQueryTexts`）索引进**同一个 Qdrant collection** `resume_semantic_v1`，靠 payload `sourceType` 区分。推荐从此变成一次对称的向量搜索，请求时不再 embed JD，两侧向量都复用。
 2. **JD 索引走独立旁路**：不改动现有简历 indexer。新增薄的 JD 语义索引模块，复用 embedding / 向量库 / `resume_semantic_index` 状态表 / queue 管道。worker 按 `sourceType` 分流——简历**业务处理路径**（`runResumeSemanticIndexJob`）不动；共享 queue schema enum 与 worker 分流点做**加法式扩展**（非"零改动"，而是"简历业务逻辑零回归"）。**无需 DB migration**：全 schema 零 `pgEnum`，`sourceType` 与 `resumePoolEvent.type` 皆为 `text().$type<...>()`，加值即 TS 联合拓宽；状态行复用 `resume_semantic_index`（`organizationId` 列、`resume_semantic_index_org_status_idx` 索引均已存在）。
 3. **入口=简历详情页按需推荐**：本期不做批量视图、不做列表内联标签。
-4. **动作=一键回填 `resumePoolItem.jobDescriptionId`**：新增轻量端点 `POST /:id/bind`（仅 UPDATE 该列 + 校验 JD 属组织 + 写 resumePoolEvent）。**注意**：现有 `POST /:id/import` 的 `jobDescriptionMode:"bind"` 写的是 `studioInterview.jobDescriptionId`（新建人才库记录 + review 生成 + 去重），**不碰 pool item 自身的 jobDescriptionId**，语义是"入库开筛"而非"打标签"，且不满足决策 5 的隐藏 gate；故不复用它，另建纯绑定端点（见 plan Task B5）。
+4. **动作=一键回填 `resumePoolItem.jobDescriptionId`**：新增轻量端点 `POST /:id/bind`（仅 UPDATE 该列 + 校验 JD 属组织 + 写 resumePoolEvent）。`POST /:id/import` 的 `jobDescriptionMode:"bind"` 在成功创建 `studioInterview` 并完成入库就绪处理后，也会把明确选择的岗位写入 pool item；再次入库选择其他岗位时覆盖为最新选择，未选择岗位时保留已有值。`POST /:id/bind` 仍用于不入库时的纯绑定动作，并保持 bind-once。历史空关联通过幂等命令 `repair:resume-pool-job-associations` 从最近一次非空导入岗位回填；默认只预览，显式传入 `--apply` 才写入，已有非空关联不覆盖。
 5. **已绑定简历不显示推荐**：详情页 `jobDescriptionId` 非空时不展示推荐面板，也不提供重推入口。
 
 ## 复用清单（不改核心）
@@ -141,7 +141,7 @@ JD 删   → deleteResumeEmbeddings(job_description, id) + 删状态行
 - 反向（简历→JD）评测 harness（后续可仿 reco-eval 补）。
 - JD 侧独立权重调参、目标岗位字面加权。
 - 重推/换岗位入口（已绑定简历不展示推荐）。服务端以 `POST /:id/bind` **条件更新 `jobDescriptionId IS NULL` 兜底 bind-once**：对已绑定的 pool item 再次 bind 返回 **409**（并发双写先到者赢）。
-- 误绑后的解绑/换绑闭环（纠错）：本期不做；如需纠错走既有 pool item 编辑或人工，后续可加独立端点。
+- 独立的解绑/换绑端点：本期不做；`POST /:id/bind` 仍是 bind-once。显式再次入库时可以用本次选择的岗位覆盖 pool item 的已有岗位。
 
 ## 未决 / 待实现时确认
 
