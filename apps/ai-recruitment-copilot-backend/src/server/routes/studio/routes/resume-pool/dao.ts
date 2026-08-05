@@ -683,10 +683,10 @@ export async function publishPrivatePoolItem(
   return publicItem;
 }
 
-export function importPoolItemToResumeLibrary(
+export async function importPoolItemToResumeLibrary(
   input: ImportPoolItemInput,
 ): Promise<ResumePoolImportResult> {
-  return admitResumePoolItem<PoolRow, ResumePoolImportDuplicateMatchRecord>(input, {
+  const result = await admitResumePoolItem<PoolRow, ResumePoolImportDuplicateMatchRecord>(input, {
     cloneSemanticIndex: (admission) =>
       cloneResumeSemanticIndexFromPoolToInterview({
         poolItemId: admission.poolItemId,
@@ -852,6 +852,27 @@ export function importPoolItemToResumeLibrary(
       });
     },
   });
+  if (result.status === "imported" && input.jobDescriptionId) {
+    await db.transaction(async (tx) => {
+      await tx
+        .update(resumePoolItem)
+        .set({ jobDescriptionId: input.jobDescriptionId, updatedAt: new Date() })
+        .where(
+          and(
+            eq(resumePoolItem.id, input.poolItemId),
+            eq(resumePoolItem.organizationId, input.organizationId),
+          ),
+        );
+      await writeResumePoolEvent(tx, {
+        actorId: input.importedBy,
+        organizationId: input.organizationId,
+        payload: { jobDescriptionId: input.jobDescriptionId },
+        poolItemId: input.poolItemId,
+        type: "bound",
+      });
+    });
+  }
+  return result;
 }
 
 export async function deleteOwnPoolItem(input: DeleteOwnPoolItemInput): Promise<void> {

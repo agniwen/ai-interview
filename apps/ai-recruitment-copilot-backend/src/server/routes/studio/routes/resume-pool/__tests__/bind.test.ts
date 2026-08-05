@@ -12,6 +12,7 @@ import {
   member,
   organization,
   resumePoolItem,
+  studioInterview,
   user,
 } from "@arc/db-schema/schema";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
@@ -19,9 +20,28 @@ import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { createResumePoolItem } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resume-pool/dao";
 import { deleteFixtureResumePoolItems } from "../../../../../../test-utils/db-fixture-cleanup";
 
+const mocks = vi.hoisted(() => ({
+  cloneResumeSemanticIndexFromPoolToInterview: vi.fn(async () => {}),
+  enqueueResumeReviewGenerationForRecordBestEffort: vi.fn(),
+  findSemanticResumeDuplicates: vi.fn(),
+}));
+
 vi.mock("@arc/ai-recruitment-copilot-backend/server/middlewares/permission", () => ({
   requirePermission: () => (_c: unknown, next: () => Promise<void>) => next(),
 }));
+vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/clone", () => ({
+  cloneResumeSemanticIndexFromPoolToInterview: mocks.cloneResumeSemanticIndexFromPoolToInterview,
+}));
+vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/dedup-service", () => ({
+  findSemanticResumeDuplicates: mocks.findSemanticResumeDuplicates,
+}));
+vi.mock(
+  "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/review-queue",
+  () => ({
+    enqueueResumeReviewGenerationForRecordBestEffort:
+      mocks.enqueueResumeReviewGenerationForRecordBestEffort,
+  }),
+);
 
 // oxlint-disable-next-line import/first -- must follow vi.mock() calls for correct hoisting.
 import { resumePoolRouter } from "../route";
@@ -33,6 +53,7 @@ const USER_B = "resume_pool_bind_user_b";
 const DEPARTMENT_A = "resume_pool_bind_department_a";
 const DEPARTMENT_B = "resume_pool_bind_department_b";
 const JD_A = "resume_pool_bind_jd_a";
+const JD_A_REPLACEMENT = "resume_pool_bind_jd_a_replacement";
 const JD_B = "resume_pool_bind_jd_b";
 const NOW = new Date("2026-06-14T09:00:00.000Z");
 
@@ -56,6 +77,7 @@ function makeApp() {
     .createApp()
     .use("*", async (c, next) => {
       c.set("activeOrg", { id: ORG_A } as never);
+      c.set("member", { role: "owner" } as never);
       c.set("user", { id: USER_A } as never);
       await next();
     })
@@ -88,6 +110,8 @@ async function cleanup() {
     organizationIds: [ORG_A, ORG_B],
     userIds: [USER_A, USER_B],
   });
+  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_A));
+  await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_B));
   await db.delete(jobDescription).where(eq(jobDescription.organizationId, ORG_A));
   await db.delete(jobDescription).where(eq(jobDescription.organizationId, ORG_B));
   await db.delete(department).where(eq(department.organizationId, ORG_A));
@@ -185,6 +209,19 @@ beforeAll(async () => {
       publishedAt: NOW,
       updatedAt: NOW,
     },
+    {
+      createdAt: NOW,
+      createdBy: USER_A,
+      departmentId: DEPARTMENT_A,
+      evaluationMode: "legacy",
+      id: JD_A_REPLACEMENT,
+      lifecycleStatus: "published",
+      name: "资深前端工程师",
+      organizationId: ORG_A,
+      prompt: "负责资深前端开发。",
+      publishedAt: NOW,
+      updatedAt: NOW,
+    },
   ]);
 });
 
@@ -270,5 +307,93 @@ describe("POST /:id/bind", () => {
 
     const [row] = await db.select().from(resumePoolItem).where(eq(resumePoolItem.id, poolItemId));
     expect(row?.jobDescriptionId).toBe(JD_A);
+  });
+});
+
+describe("POST /:id/import job association", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.enqueueResumeReviewGenerationForRecordBestEffort.mockResolvedValue({
+      runId: "resume-pool-import-review-run",
+      status: "enqueued",
+    });
+    mocks.findSemanticResumeDuplicates.mockResolvedValue([]);
+  });
+
+  it("exposes the selected job on the pool item after import", async () => {
+    const poolItemId = await seedPoolItem({ contentHash: "hash-import-bind-success" });
+
+    const response = await client[":id"].import.$post({
+      json: {
+        dedupPolicy: "force",
+        jobDescriptionId: JD_A,
+        jobDescriptionMode: "bind",
+      },
+      param: { id: poolItemId },
+    });
+
+    expect(response.status).toBe(201);
+
+    const detailResponse = await client[":id"].$get({ param: { id: poolItemId } });
+    expect(detailResponse.status).toBe(200);
+    expect(await detailResponse.json()).toMatchObject({
+      jobDescriptionId: JD_A,
+      jobDescriptionName: "前端工程师",
+    });
+  });
+
+  it("replaces the pool item job when explicitly reimported for another job", async () => {
+    const poolItemId = await seedPoolItem({ contentHash: "hash-reimport-replace-job" });
+
+    const firstResponse = await client[":id"].import.$post({
+      json: {
+        dedupPolicy: "force",
+        jobDescriptionId: JD_A,
+        jobDescriptionMode: "bind",
+      },
+      param: { id: poolItemId },
+    });
+    expect(firstResponse.status).toBe(201);
+
+    const secondResponse = await client[":id"].import.$post({
+      json: {
+        dedupPolicy: "force",
+        jobDescriptionId: JD_A_REPLACEMENT,
+        jobDescriptionMode: "bind",
+        reimport: true,
+      },
+      param: { id: poolItemId },
+    });
+    expect(secondResponse.status).toBe(201);
+
+    const detailResponse = await client[":id"].$get({ param: { id: poolItemId } });
+    expect(detailResponse.status).toBe(200);
+    expect(await detailResponse.json()).toMatchObject({
+      jobDescriptionId: JD_A_REPLACEMENT,
+      jobDescriptionName: "资深前端工程师",
+    });
+  });
+
+  it("keeps the existing pool item job when imported without selecting a job", async () => {
+    const poolItemId = await seedPoolItem({
+      contentHash: "hash-import-without-job",
+      jobDescriptionId: JD_A,
+    });
+
+    const response = await client[":id"].import.$post({
+      json: {
+        dedupPolicy: "force",
+        jobDescriptionMode: "none",
+      },
+      param: { id: poolItemId },
+    });
+    expect(response.status).toBe(201);
+
+    const detailResponse = await client[":id"].$get({ param: { id: poolItemId } });
+    expect(detailResponse.status).toBe(200);
+    expect(await detailResponse.json()).toMatchObject({
+      jobDescriptionId: JD_A,
+      jobDescriptionName: "前端工程师",
+    });
   });
 });
