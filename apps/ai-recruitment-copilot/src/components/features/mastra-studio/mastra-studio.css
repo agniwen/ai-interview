@@ -81,11 +81,19 @@ body.mastra-studio-active [data-base-ui-portal] :is(input, textarea, [role="comb
   color: var(--foreground);
 }
 
-.mastra-studio-theme :is(input, textarea, [role="combobox"]):focus-visible,
+.mastra-studio-theme :is(input, textarea, [role="combobox"]):focus,
+body.mastra-studio-active [data-base-ui-portal] :is(input, textarea, [role="combobox"]):focus {
+  border-color: var(--ring);
+  outline: none;
+  box-shadow: 0 0 0 1px var(--ring);
+}
+
+.mastra-studio-theme [data-slot="slider-thumb"]:is(:hover, :has(:focus-visible)),
 body.mastra-studio-active
   [data-base-ui-portal]
-  :is(input, textarea, [role="combobox"]):focus-visible {
+  [data-slot="slider-thumb"]:is(:hover, :has(:focus-visible)) {
   border-color: var(--ring);
+  box-shadow: 0 0 0 1px var(--ring);
 }
 
 body.mastra-studio-active [data-slot="dialog-content"] {

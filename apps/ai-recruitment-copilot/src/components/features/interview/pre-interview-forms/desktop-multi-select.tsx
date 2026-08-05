@@ -60,7 +60,7 @@ export function DesktopMultiSelect({
             className={cn(
               "flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-left text-sm shadow-xs transition-[color,box-shadow]",
               "data-[invalid=true]:border-destructive data-[invalid=true]:ring-[3px] data-[invalid=true]:ring-destructive/20",
-              "focus-visible:border-ring focus-visible:outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring/50",
+              "focus-visible:border-ring focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring",
             )}
             data-invalid={invalid ? true : undefined}
             id={inputId}

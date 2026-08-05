@@ -230,7 +230,7 @@ function DimensionWeightBar({
                 aria-valuemax={nextBoundary}
                 aria-valuemin={previousBoundary}
                 aria-valuenow={boundary}
-                className="absolute size-4 -translate-x-1/2 -translate-y-1/2 touch-none rounded-full border border-input bg-background shadow-sm outline-none ring-ring/24 hover:ring-4 focus-visible:ring-4"
+                className="absolute size-4 -translate-x-1/2 -translate-y-1/2 touch-none rounded-full border border-input bg-background shadow-sm outline-none hover:border-ring hover:ring-1 hover:ring-ring focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
                 key={`${leftDimension?.key ?? index}-boundary`}
                 onKeyDown={(event) => {
                   if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {

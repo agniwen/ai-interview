@@ -11,11 +11,11 @@ const cossControlOverlayClass = "";
 
 const cossFieldSurfaceClass =
   "relative rounded-md border border-input bg-background bg-clip-padding text-foreground ring-ring/24 transition-[border-color,box-shadow] dark:bg-input/30 " +
-  "has-focus-visible:border-ring has-focus-visible:ring-[3px] has-[input:disabled]:opacity-50 has-[textarea:disabled]:opacity-50 has-[select:disabled]:opacity-50 has-aria-invalid:border-destructive has-aria-invalid:ring-destructive/20 dark:has-aria-invalid:ring-destructive/40";
+  "has-focus-visible:border-ring has-focus-visible:ring-1 has-focus-visible:ring-ring has-[input:disabled]:opacity-50 has-[textarea:disabled]:opacity-50 has-[select:disabled]:opacity-50 has-aria-invalid:border-destructive has-aria-invalid:ring-destructive/20 dark:has-aria-invalid:ring-destructive/40";
 
 const cossTriggerSurfaceClass =
   "relative rounded-md border border-input bg-background bg-clip-padding text-foreground outline-none ring-ring/24 transition-[border-color,box-shadow] dark:bg-input/30 " +
-  "focus-visible:border-ring focus-visible:ring-[3px] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[invalid=true]:border-destructive data-[invalid=true]:ring-[3px] data-[invalid=true]:ring-destructive/20 dark:aria-invalid:ring-destructive/40";
+  "focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[invalid=true]:border-destructive data-[invalid=true]:ring-[3px] data-[invalid=true]:ring-destructive/20 dark:aria-invalid:ring-destructive/40";
 
 const cossPopupSurfaceClass =
   "relative rounded-md border border-border bg-popover bg-clip-padding text-popover-foreground outline-none " +

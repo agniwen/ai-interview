@@ -53,9 +53,9 @@ export function WorkflowInputTypeToggle({
             disabled={disabled}
             onClick={() => onChange(option.value)}
             className={cn(
-              "flex items-center justify-center rounded-md transition-colors",
+              "flex items-center justify-center rounded-md border border-transparent transition-colors",
               compact ? "gap-0.5 px-1 py-0" : "gap-2 px-3 py-1.5",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent1",
+              "focus-visible:border-accent1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent1",
               isActive ? "bg-surface5 text-neutral5" : "text-neutral3 hover:text-neutral4",
               disabled && "cursor-not-allowed opacity-50",
             )}
