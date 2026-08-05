@@ -206,6 +206,7 @@ export function LaunchInterviewDialog({
             structuredEvaluationConfirmation,
           );
           toast.success("AI 面试已发起");
+          setAdvisoryConfirmationOpen(false);
           onLaunchedRef.current(round);
           onOpenChange(false);
         },
@@ -428,7 +429,15 @@ export function LaunchInterviewDialog({
           </div>
         </Modal>
       </Tabs>
-      <AlertDialog onOpenChange={setAdvisoryConfirmationOpen} open={advisoryConfirmationOpen}>
+      <AlertDialog
+        onOpenChange={(next) => {
+          if (!next && submitting) {
+            return;
+          }
+          setAdvisoryConfirmationOpen(next);
+        }}
+        open={advisoryConfirmationOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>仍要发起 AI 面试？</AlertDialogTitle>
@@ -438,14 +447,16 @@ export function LaunchInterviewDialog({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel disabled={submitting}>取消</AlertDialogCancel>
             <AlertDialogAction
+              disabled={submitting}
               onClick={() => {
                 advisoryConfirmedRef.current = true;
                 void form.handleSubmit();
               }}
             >
-              确认发起
+              {submitting ? <IconLoader2 className="size-4 animate-spin" /> : null}
+              {submitting ? "正在发起" : "确认发起"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
