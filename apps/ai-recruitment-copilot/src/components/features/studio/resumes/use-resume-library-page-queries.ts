@@ -190,8 +190,8 @@ export function useResumeLibraryPageQueries({
     queryKey: studioResumeKeys.metrics(slug, metricsScope),
     structuralSharing: false,
   });
-  const metricsSwitching =
-    metricsQuery.isFetching && (metricsQuery.isPlaceholderData || Boolean(metricsQuery.data));
+  /** Dim charts only while switching scope and the previous scope is still shown. */
+  const metricsSwitching = metricsQuery.isPlaceholderData;
   const metricsChartKey = metricsQuery.isPlaceholderData
     ? `pending:${metricsScope}`
     : `${metricsScope}:${metricsQuery.dataUpdatedAt}`;

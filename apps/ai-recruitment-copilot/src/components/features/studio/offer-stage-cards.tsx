@@ -1,11 +1,11 @@
 "use client";
 
-import { IconBan, IconCircleCheck, IconMail, IconPencil, IconSend } from "@tabler/icons-react";
+import { IconBan, IconCircleCheck, IconMail, IconPencil } from "@tabler/icons-react";
 /* oxlint-disable no-use-before-define -- helper components defined below export component for top-down readability */
 // Offer 阶段的详情面板内容：
 //   - 顶部：候选人期望（薪资 / 现 base / 期望入职日）—— 可编辑，partial merge
 //   - 下方：Offer 草稿版本时间线（version desc）
-//   - 新建 Offer / 编辑 draft / 发送 / 记录响应 / 撤回
+//   - 新建 Offer / 编辑 draft / 记录响应 / 撤回
 //   - 候选人接受 Offer 时弹二次确认，请上层走「标记结案 hired」流程
 //
 // Offer-stage panel: candidate expectations inline form + offer draft
@@ -22,7 +22,6 @@ import {
   cancelOfferDraft,
   fetchStudioResume,
   patchOfferDraft,
-  sendOfferDraft,
   updateCandidateExpectations,
 } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
@@ -239,9 +238,7 @@ export function OfferCard({
   canDelete,
   canUpdate,
   candidateId,
-  candidateEmail,
   disabled,
-  onSent,
   onRespond,
   onSaved,
   onCancelled,
@@ -250,16 +247,13 @@ export function OfferCard({
   canDelete: boolean;
   canUpdate: boolean;
   candidateId: string;
-  candidateEmail: string | null;
   disabled?: boolean;
-  onSent: () => void;
   onRespond: () => void;
   onSaved: () => void;
   onCancelled: () => void;
 }) {
   const slug = useWorkspaceSlug();
   const meta = offerDraftStatusMeta[draft.status];
-  const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<OfferFormState>(() => offerFormStateFromDraft(draft));
   const setFormField = createOfferFormFieldSetter(setForm);
@@ -270,15 +264,6 @@ export function OfferCard({
     }
   }, [draft, editing]);
 
-  const sendMutation = useMutation({
-    mutationFn: () => sendOfferDraft(slug, candidateId, draft.id),
-    onError: (e) => toast.error(e instanceof Error ? e.message : "发送失败"),
-    onSuccess: () => {
-      toast.success("Offer 已发送");
-      setSendConfirmOpen(false);
-      onSent();
-    },
-  });
   const cancelMutation = useMutation({
     mutationFn: () => cancelOfferDraft(slug, candidateId, draft.id),
     onError: (e) => toast.error(e instanceof Error ? e.message : "撤回失败"),
@@ -363,20 +348,11 @@ export function OfferCard({
                 draft={draft}
                 onEdit={() => setEditing(true)}
                 onRespond={onRespond}
-                onSend={() => setSendConfirmOpen(true)}
-                sendPending={sendMutation.isPending}
               />
             </div>
           )}
         </div>
       </CardContent>
-      <SendOfferConfirmDialog
-        candidateEmail={candidateEmail}
-        isPending={sendMutation.isPending}
-        onConfirm={() => sendMutation.mutate()}
-        onOpenChange={setSendConfirmOpen}
-        open={sendConfirmOpen}
-      />
     </Card>
   );
 }
@@ -387,8 +363,6 @@ function OfferCardActions({
   canUpdate,
   onEdit,
   onRespond,
-  onSend,
-  sendPending,
   cancelMutation,
 }: {
   draft: OfferDraftRecord;
@@ -396,8 +370,6 @@ function OfferCardActions({
   canUpdate: boolean;
   onEdit: () => void;
   onRespond: () => void;
-  onSend: () => void;
-  sendPending: boolean;
   cancelMutation: { mutate: () => void; isPending: boolean };
 }) {
   if (draft.status === "draft") {
@@ -409,10 +381,6 @@ function OfferCardActions({
         <Button onClick={onEdit} size="sm" variant="ghost">
           <IconPencil className="size-4" />
           编辑
-        </Button>
-        <Button disabled={sendPending} onClick={onSend} size="sm">
-          <IconSend className="size-4" />
-          发送
         </Button>
       </div>
     );

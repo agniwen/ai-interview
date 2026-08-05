@@ -1,8 +1,10 @@
+import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
 import {
   humanInterviewKeys,
   invalidateHumanInterviewCandidateQueries,
   studioCalendarKeys,
+  studioResumeKeys,
 } from "@/lib/client/api/query-keys";
 
 describe("humanInterviewKeys", () => {
@@ -49,5 +51,22 @@ describe("studioCalendarKeys", () => {
       "2026-07-01",
       "2026-08-01",
     ]);
+  });
+});
+
+describe("studioResumeKeys", () => {
+  it("keeps metrics out of resume-list invalidations", async () => {
+    const queryClient = new QueryClient();
+    const metricsKey = studioResumeKeys.metrics("acme", "team");
+
+    queryClient.setQueryData(["studio-resumes", "acme", "list"], []);
+    queryClient.setQueryData(metricsKey, { totalCandidates: 12 });
+
+    await queryClient.invalidateQueries({
+      queryKey: ["studio-resumes"],
+      refetchType: "none",
+    });
+
+    expect(queryClient.getQueryState(metricsKey)?.isInvalidated).toBe(false);
   });
 });

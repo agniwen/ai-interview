@@ -117,7 +117,10 @@ function ChartCardShell({
           <CardDescription className="truncate">{description}</CardDescription>
         </CardHeader>
         {metrics.map((metric) => (
-          <div className="border-t px-4 py-3 sm:border-t-0 sm:border-l sm:px-5" key={metric.label}>
+          <div
+            className="flex flex-col justify-center border-t px-4 py-3 sm:border-t-0 sm:border-l sm:px-5"
+            key={metric.label}
+          >
             <div className="truncate text-muted-foreground text-xs">{metric.label}</div>
             <div className="mt-1 font-mono font-semibold text-2xl leading-none tabular-nums">
               {metric.value}

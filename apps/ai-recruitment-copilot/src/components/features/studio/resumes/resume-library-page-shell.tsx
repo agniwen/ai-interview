@@ -1,3 +1,4 @@
+import { IconRefresh } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { pipelineStageMeta } from "@arc/db-schema/studio-interviews";
 import type { ResumeLibraryMetrics } from "@arc/shared/studio-resumes";
@@ -46,23 +47,38 @@ export function ResumeLibraryPageShell({
       <PageHeader
         className="items-end sm:items-end"
         actionRender={
-          <Button
-            className="opacity-80 hover:opacity-100"
-            disabled={metricsFetching}
-            onClick={() => {
-              const next = metricsScope === "team" ? "personal" : "team";
-              void queryClient.removeQueries({
-                queryKey: studioResumeKeys.metrics(slug, next),
-              });
-              onMetricsScopeChange(next);
-            }}
-            suppressHydrationWarning
-            type="button"
-            size="xs"
-            variant="ghost"
-          >
-            {metricsScope === "team" ? "切换个人维度" : "切换到团队维度"}
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              className="opacity-80 hover:opacity-100"
+              disabled={metricsFetching}
+              onClick={() => {
+                const next = metricsScope === "team" ? "personal" : "team";
+                // Clear target-scope cache so switch always hits the network and charts remount.
+                void queryClient.removeQueries({
+                  queryKey: studioResumeKeys.metrics(slug, next),
+                });
+                onMetricsScopeChange(next);
+              }}
+              suppressHydrationWarning
+              type="button"
+              size="xs"
+              variant="ghost"
+            >
+              {metricsScope === "team" ? "切换个人维度" : "切换到团队维度"}
+            </Button>
+            <Button
+              aria-label="刷新招聘指标"
+              className="opacity-80 hover:opacity-100"
+              disabled={metricsFetching}
+              onClick={() => void onMetricsRetry()}
+              size="icon-xs"
+              title="刷新招聘指标"
+              type="button"
+              variant="ghost"
+            >
+              <IconRefresh className={metricsFetching ? "size-3 animate-spin" : "size-3"} />
+            </Button>
+          </div>
         }
         description="已经进入招聘流程的候选人在这里跟进：看简历、匹配岗位、推进到面试。"
         title="招聘台"
