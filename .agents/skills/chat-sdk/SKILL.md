@@ -65,7 +65,6 @@ Chat SDK exposes a zero-dependency static catalog at `chat/adapters`.
 Agents can import `ADAPTERS`, `ADAPTER_NAMES`, `getAdapter`, `isAdapterSlug`, `listEnvVars`, `getSecretEnvVars`, and metadata types like `CatalogAdapter` and `AdapterSlug` from this subpath without importing any adapter implementation package.
 
 Use it for:
-
 - Listing official and vendor-official adapter slugs, names, npm packages, groups, and platform vs state types.
 - Building setup or onboarding flows that need package names, peer dependencies, and install guidance before any adapter is installed.
 - Discovering required, optional, and credential-mode environment variables for an adapter, including which variables are secrets.

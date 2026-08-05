@@ -19,7 +19,8 @@
     "benchmark:resume-parse": "pnpm --filter @arc/ai-recruitment-copilot-backend benchmark:resume-parse",
     "db:generate": "pnpm --filter @arc/ai-recruitment-copilot db:generate",
     "db:migrate": "pnpm --filter @arc/ai-recruitment-copilot db:migrate",
-    "db:studio": "pnpm --filter @arc/ai-recruitment-copilot db:studio"
+    "db:studio": "pnpm --filter @arc/ai-recruitment-copilot db:studio",
+    "skills:update": "npx skills update -y"
   },
   "devDependencies": {
     "lefthook": "^2.1.6",

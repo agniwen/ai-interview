@@ -1,13 +1,9 @@
 ---
 name: agents
-description: Build voice AI agents with ElevenLabs. Use when creating voice assistants, customer service bots, interactive voice characters, or any real-time voice conversation experience.
+description: Build voice AI agents with ElevenLabs. Use when creating voice assistants, voice-based customer service bots, interactive voice characters, or any real-time voice conversation experience. Not for text-only chatbots with no voice component.
 license: MIT
 compatibility: Requires internet access and an ElevenLabs API key (ELEVENLABS_API_KEY).
-metadata:
-  {
-    "openclaw":
-      { "requires": { "env": ["ELEVENLABS_API_KEY"] }, "primaryEnv": "ELEVENLABS_API_KEY" },
-  }
+metadata: {"openclaw": {"requires": {"env": ["ELEVENLABS_API_KEY"]}, "primaryEnv": "ELEVENLABS_API_KEY"}}
 ---
 
 # ElevenLabs Agents Platform
@@ -74,11 +70,11 @@ const agent = await client.conversationalAi.agents.create({
       prompt: {
         prompt: "You are a helpful assistant.",
         llm: "gemini-2.0-flash",
-        temperature: 0.7,
-      },
+        temperature: 0.7
+      }
     },
-    tts: { voiceId: "JBFqnCBsd6RMkjVDRZzb" },
-  },
+    tts: { voiceId: "JBFqnCBsd6RMkjVDRZzb" }
+  }
 });
 ```
 
@@ -106,8 +102,16 @@ Until the ElevenLabs LiveKit server supports `/rtc/v1`, browser clients using We
 
 Use the pin when the app logs `/rtc/v1` 404s, `v1 RTC path not found`, or `could not establish pc connection` during session startup. This is a LiveKit server compatibility workaround for WebRTC sessions, not the ElevenLabs `connectionType: "websocket"` transport. Remove it after the upstream LiveKit server or SDK issue is fixed.
 
-**Server-side (Python):** Get signed URL for client connection:
+**Authenticated WebRTC:** Request a session token from your backend. The response includes both
+the token and the conversation ID:
+```python
+session = client.conversational_ai.conversations.get_webrtc_token(
+    agent_id="your-agent-id",
+)
+print(session.token, session.conversation_id)
+```
 
+**Server-side (Python):** Get signed URL for client connection:
 ```python
 signed_url = client.conversational_ai.conversations.get_signed_url(
     agent_id="your-agent-id",
@@ -116,7 +120,6 @@ signed_url = client.conversational_ai.conversations.get_signed_url(
 ```
 
 **Client-side (JavaScript):**
-
 ```javascript
 import { Conversation } from "@elevenlabs/client";
 
@@ -127,7 +130,7 @@ const conversation = await Conversation.startSession({
   onMessage: (msg) => console.log("Agent:", msg.message),
   onUserTranscript: (t) => console.log("User:", t.message),
   onPing: (event) => console.log("Estimated latency:", event.ping_ms),
-  onError: (e) => console.error(e),
+  onError: (e) => console.error(e)
 });
 ```
 
@@ -135,7 +138,6 @@ const conversation = await Conversation.startSession({
 `useConversationControls` and `useConversationStatus` for session controls and UI state;
 `useConversation` remains available as the convenience all-in-one hook. Pass provider-level
 callbacks such as `onError` when you want React to handle conversation errors in one place.
-
 ```typescript
 import {
   ConversationProvider,
@@ -172,13 +174,13 @@ function App({ signedUrl }: { signedUrl: string }) {
 
 ## Configuration
 
-| Provider   | Models                                                                                                                                                                                                                                                                                                                         |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| OpenAI     | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5`, `gpt-5.5-2026-04-23`, `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.4-nano`, `gpt-5.4-2026-03-05`, `gpt-5.4-mini-2026-03-17`, `gpt-5.4-nano-2026-03-17`, `gpt-5`, `gpt-5-mini`, `gpt-5-nano`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo` |
-| Anthropic  | `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-sonnet-4`, `claude-haiku-4-5`, `claude-3-7-sonnet`, `claude-3-5-sonnet`, `claude-3-haiku`                                                                                                                                                                 |
-| Google     | `gemini-3.1-flash-lite-preview`, `gemini-3.1-pro-preview`, `gemini-3-pro-preview`, `gemini-3-flash-preview`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-2.0-flash`, `gemini-2.0-flash-lite`                                                                                                                          |
-| ElevenLabs | `glm-45-air-fp8`, `qwen3-30b-a3b`, `qwen36-35b-a3b`, `qwen35-35b-a3b`, `qwen35-397b-a17b`, `gpt-oss-120b`                                                                                                                                                                                                                      |
-| Custom     | `custom-llm` (bring your own endpoint)                                                                                                                                                                                                                                                                                         |
+| Provider | Models |
+|----------|--------|
+| OpenAI | `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5`, `gpt-5.5-2026-04-23`, `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.4-nano`, `gpt-5.4-2026-03-05`, `gpt-5.4-mini-2026-03-17`, `gpt-5.4-nano-2026-03-17`, `gpt-5`, `gpt-5-mini`, `gpt-5-nano`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo` |
+| Anthropic | `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-sonnet-4`, `claude-haiku-4-5`, `claude-3-7-sonnet`, `claude-3-5-sonnet`, `claude-3-haiku` |
+| Google | `gemini-3.1-flash-lite-preview`, `gemini-3.1-pro-preview`, `gemini-3-pro-preview`, `gemini-3-flash-preview`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-2.0-flash`, `gemini-2.0-flash-lite` |
+| ElevenLabs | `glm-45-air-fp8`, `qwen3-30b-a3b`, `qwen36-35b-a3b`, `qwen35-35b-a3b`, `qwen35-397b-a17b`, `gpt-oss-120b` |
+| Custom | `custom-llm` (bring your own endpoint) |
 
 Use `GET /v1/convai/llm/list` to inspect the current model catalog, including deprecation state, token/context limits, capability flags such as image-input support, and model-specific reasoning effort support.
 
@@ -229,13 +231,12 @@ Workspace environment variables can resolve per-environment server tool URLs, he
 ```
 
 **Client tools** run in browser:
-
 ```javascript
 clientTools: {
   show_product: async ({ productId }) => {
     document.getElementById("product").src = `/products/${productId}`;
     return { success: true };
-  };
+  }
 }
 ```
 
@@ -245,17 +246,17 @@ See [Client Tools Reference](references/client-tools.md) for complete documentat
 
 Set under `conversation_config.agent.prompt.built_in_tools`. `{}` enables defaults; provide `description` to customize; omit to disable.
 
-| Tool                     | Enable for                             |
-| ------------------------ | -------------------------------------- |
-| `end_call`               | All agents                             |
-| `language_detection`     | Multilingual agents                    |
-| `transfer_to_number`     | Phone-based human escalation           |
-| `transfer_to_agent`      | Multi-agent workflows                  |
-| `start_procedure`        | Procedure-guided conversations         |
-| `end_procedure`          | Completing active procedures           |
-| `skip_turn`              | Tutoring / coaching (silent listening) |
-| `voicemail_detection`    | Outbound calling                       |
-| `play_keypad_touch_tone` | IVR navigation                         |
+| Tool | Enable for |
+|------|------------|
+| `end_call` | All agents |
+| `language_detection` | Multilingual agents |
+| `transfer_to_number` | Phone-based human escalation |
+| `transfer_to_agent` | Multi-agent workflows |
+| `start_procedure` | Procedure-guided conversations |
+| `end_procedure` | Completing active procedures |
+| `skip_turn` | Tutoring / coaching (silent listening) |
+| `voicemail_detection` | Outbound calling |
+| `play_keypad_touch_tone` | IVR navigation |
 
 `run_subagent` is a system tool for delegating a task to another configured agent. Add it to
 `conversation_config.agent.prompt.tools` with `params.system_tool_type: "run_subagent"` and an
@@ -266,12 +267,12 @@ Set under `conversation_config.agent.prompt.built_in_tools`. `{}` enables defaul
 
 Pre-built connectors managed by the platform. Create a connection with credentials, then attach via `tool_ids`:
 
-| Integration  | Use case                   |
-| ------------ | -------------------------- |
-| `calcom`     | Scheduling appointments    |
+| Integration | Use case |
+|-------------|----------|
+| `calcom` | Scheduling appointments |
 | `salesforce` | CRM lookups, case creation |
-| `hubspot`    | CRM, marketing, contacts   |
-| `zendesk`    | Support ticketing          |
+| `hubspot` | CRM, marketing, contacts |
+| `zendesk` | Support ticketing |
 
 Three-step flow: `POST /v1/convai/api-integrations/{id}/connections` → `GET /v1/convai/api-integrations/{id}/tools` → `POST /v1/convai/tools` with `api_integration_id` and `api_integration_connection_id`. Attach to the agent with `"prompt": {"tool_ids": ["tool_xxxx"]}`. Inline `tools` and `tool_ids` can coexist — prefer an integration over a duplicate custom webhook.
 
@@ -279,11 +280,11 @@ Three-step flow: `POST /v1/convai/api-integrations/{id}/connections` → `GET /v
 
 No-auth APIs useful for prototypes (URLs must be HTTPS):
 
-| Tool                | URL                                                         | Purpose         |
-| ------------------- | ----------------------------------------------------------- | --------------- |
-| `get_weather`       | `https://wttr.in/{location}?format=j1`                      | Current weather |
-| `search_wikipedia`  | `https://en.wikipedia.org/api/rest_v1/page/summary/{topic}` | Topic summary   |
-| `get_exchange_rate` | `https://open.er-api.com/v6/latest/{base_currency}`         | FX rates        |
+| Tool | URL | Purpose |
+|------|-----|---------|
+| `get_weather` | `https://wttr.in/{location}?format=j1` | Current weather |
+| `search_wikipedia` | `https://en.wikipedia.org/api/rest_v1/page/summary/{topic}` | Topic summary |
+| `get_exchange_rate` | `https://open.er-api.com/v6/latest/{base_currency}` | FX rates |
 
 ## Workflows
 
@@ -302,7 +303,7 @@ Route conversations through discrete steps with branching logic. Define under th
   "additional_prompt": "Discuss preferred dates and doctors. Show the booking form once agreed.",
   "entry_behavior": "wait_for_user",
   "additional_tool_ids": ["show_booking_form", "display_appointment_card"],
-  "position": { "x": 0, "y": 400 }
+  "position": {"x": 0, "y": 400}
 }
 ```
 
@@ -312,6 +313,14 @@ Use `entry_behavior` on `override_agent` nodes to choose whether a sub-agent spe
 
 For nested agent transfers, set `enable_nesting` on a `standalone_agent` node and
 `return_when_nested` on an `end` node that should return control to the parent workflow.
+
+### Procedures
+
+Use [procedures](https://elevenlabs.io/docs/eleven-agents/customization/procedures) to give an
+agent task-specific instructions selected by a trigger. Free-form procedures let the agent adapt
+the wording and order of natural-language instructions; structured procedures run an ordered list
+of typed steps consistently. Use workflows instead when you need explicit branching and control
+over each subagent.
 
 ## Guardrails
 
@@ -349,11 +358,11 @@ Layered safety enforcement that runs independently of the LLM — configured und
 
 Three test types via `POST /v1/convai/agent-testing/create`, then attached with PATCH on the agent. Reference: [Agent Testing](https://elevenlabs.io/docs/eleven-agents/customization/agent-testing).
 
-| Type         | Purpose                                                            |
-| ------------ | ------------------------------------------------------------------ |
-| `llm`        | Scenario test — does the agent respond appropriately to a message? |
-| `tool`       | Tool-call test — right tool, right parameters?                     |
-| `simulation` | Multi-turn flow with a simulated user persona                      |
+| Type | Purpose |
+|------|---------|
+| `llm` | Scenario test — does the agent respond appropriately to a message? |
+| `tool` | Tool-call test — right tool, right parameters? |
+| `simulation` | Multi-turn flow with a simulated user persona |
 
 ```json
 // Tool-call test (snake_case throughout; chat_history role is "user" or "agent")
@@ -361,16 +370,13 @@ Three test types via `POST /v1/convai/agent-testing/create`, then attached with 
   "name": "Books with correct doctor and date",
   "type": "tool",
   "chat_history": [
-    { "role": "user", "message": "Dr. Smith on March 5 at 2pm", "time_in_call_secs": 10 }
+    {"role": "user", "message": "Dr. Smith on March 5 at 2pm", "time_in_call_secs": 10}
   ],
   "tool_call_parameters": {
-    "referenced_tool": { "id": "show_booking_form", "type": "client" },
+    "referenced_tool": {"id": "show_booking_form", "type": "client"},
     "parameters": [
-      {
-        "path": "doctor_name",
-        "eval": { "type": "llm", "description": "Should reference Dr. Smith" }
-      },
-      { "path": "date", "eval": { "type": "regex", "pattern": "2025-03-05|March 5" } }
+      {"path": "doctor_name", "eval": {"type": "llm", "description": "Should reference Dr. Smith"}},
+      {"path": "date", "eval": {"type": "regex", "pattern": "2025-03-05|March 5"}}
     ]
   }
 }
@@ -396,11 +402,7 @@ For completed conversations, rerun one evaluation criterion with `POST /v1/conva
 
 ```html
 <elevenlabs-convai agent-id="your-agent-id"></elevenlabs-convai>
-<script
-  src="https://unpkg.com/@elevenlabs/convai-widget-embed"
-  async
-  type="text/javascript"
-></script>
+<script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
 ```
 
 Customize with attributes: `avatar-image-url`, `action-text`, `start-call-text`, `end-call-text`.

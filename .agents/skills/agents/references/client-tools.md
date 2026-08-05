@@ -4,11 +4,11 @@ Extend your agent with custom capabilities. Tools let the agent take actions bey
 
 ## Tool Types
 
-| Type        | Execution               | Use Case                                       |
-| ----------- | ----------------------- | ---------------------------------------------- |
-| **Webhook** | Server-side via HTTP    | Database queries, API calls, secure operations |
-| **Client**  | Browser-side JavaScript | UI updates, local storage, navigation          |
-| **System**  | Built-in ElevenLabs     | End call, transfer, standard actions           |
+| Type | Execution | Use Case |
+|------|-----------|----------|
+| **Webhook** | Server-side via HTTP | Database queries, API calls, secure operations |
+| **Client** | Browser-side JavaScript | UI updates, local storage, navigation |
+| **System** | Built-in ElevenLabs | End call, transfer, standard actions |
 
 ## Where Tools Live
 
@@ -171,15 +171,15 @@ context as a lazily evaluated JSON history object with user, agent, and tool ent
 
 ### Webhook Tool Options
 
-| Field                        | Type   | Default       | Description                                                                                                                                                               |
-| ---------------------------- | ------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `response_timeout_secs`      | int    | `20`          | Timeout in seconds (5-120)                                                                                                                                                |
-| `interruption_mode`          | string | `"allow"`     | Controls whether the user can interrupt around this tool call: `allow`, `disable_during_tool`, or `disable_during_tool_and_turn`                                          |
-| `execution_mode`             | string | `"immediate"` | `immediate`, `post_tool_speech`, or `async`                                                                                                                               |
-| `tool_call_sound`            | string | -             | Sound during execution: `typing`, `elevator1`-`elevator4`                                                                                                                 |
-| `pre_tool_speech`            | string | `"auto"`      | Controls whether the agent speaks before execution: `auto`, `force`, or `off`                                                                                             |
-| `tool_error_handling_mode`   | string | `"auto"`      | `auto`, `summarized`, `passthrough`, or `hide`                                                                                                                            |
-| `api_schema.response_filter` | object | -             | Filters JSON webhook responses before the LLM sees them. Use `mode: "allow"` with `filters` dot-paths to keep selected fields, or `mode: "hide_all"` to hide the response |
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `response_timeout_secs` | int | `20` | Timeout in seconds (5-120) |
+| `interruption_mode` | string | `"allow"` | Controls whether the user can interrupt around this tool call: `allow`, `disable_during_tool`, or `disable_during_tool_and_turn` |
+| `execution_mode` | string | `"immediate"` | `immediate`, `post_tool_speech`, or `async` |
+| `tool_call_sound` | string | - | Sound during execution: `typing`, `elevator1`-`elevator4` |
+| `pre_tool_speech` | string | `"auto"` | Controls whether the agent speaks before execution: `auto`, `force`, or `off` |
+| `tool_error_handling_mode` | string | `"auto"` | `auto`, `summarized`, `passthrough`, or `hide` |
+| `api_schema.response_filter` | object | - | Filters JSON webhook responses before the LLM sees them. Use `mode: "allow"` with `filters` dot-paths to keep selected fields, or `mode: "hide_all"` to hide the response |
 
 MCP server configuration supports the same `pre_tool_speech`, `interruption_mode`, `execution_mode`, and
 `response_timeout_secs` controls at the server level, with per-tool overrides in
@@ -362,8 +362,8 @@ When users want to go somewhere, use navigate_to.""",
 
 ### Client Tool Options
 
-| Field              | Type | Default | Description                                |
-| ------------------ | ---- | ------- | ------------------------------------------ |
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
 | `expects_response` | bool | `false` | Whether the tool returns data to the agent |
 
 ### Client Tool Return Values
@@ -494,12 +494,12 @@ For optional tool parameters that should never be sent in the request payload, s
 
 Configure how tool errors are shared with the agent using `tool_error_handling_mode`:
 
-| Mode          | Behavior                                              |
-| ------------- | ----------------------------------------------------- |
-| `auto`        | ElevenLabs automatically decides how to handle errors |
-| `summarized`  | Errors are summarized before being sent to the agent  |
-| `passthrough` | Full error details are passed to the agent            |
-| `hide`        | Errors are hidden from the agent                      |
+| Mode | Behavior |
+|------|----------|
+| `auto` | ElevenLabs automatically decides how to handle errors |
+| `summarized` | Errors are summarized before being sent to the agent |
+| `passthrough` | Full error details are passed to the agent |
+| `hide` | Errors are hidden from the agent |
 
 Return helpful error messages:
 

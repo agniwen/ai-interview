@@ -114,7 +114,9 @@ with absolutely-positioned `Badge`s.
 **Incorrect:**
 
 ```tsx
-<div className="w-fit rounded-2xl bg-primary px-3 py-2 text-primary-foreground">{text}</div>
+<div className="w-fit rounded-2xl bg-primary px-3 py-2 text-primary-foreground">
+  {text}
+</div>
 ```
 
 **Correct:**
