@@ -297,6 +297,10 @@ const SELECTED_COLUMNS = {
   structuredGateSortRank: studioInterview.structuredGateSortRank,
   structuredGateStatus: studioInterview.structuredGateStatus,
   structuredResumeEvaluation: studioInterview.structuredResumeEvaluation,
+  structuredResumeSummary: sql<string | null>`coalesce(
+    ${studioInterview.structuredResumeEvaluation}->'narrative'->>'overallComment',
+    ${studioInterview.structuredResumeEvaluation}->'narrative'->>'summary'
+  )`.as("structured_resume_summary"),
   structuredScoreGrade: studioInterview.structuredScoreGrade,
   targetRole: studioInterview.targetRole,
   updatedAt: studioInterview.updatedAt,
@@ -352,6 +356,7 @@ const LIST_SELECTED_COLUMNS = {
   structuredCompositeScore: SELECTED_COLUMNS.structuredCompositeScore,
   structuredGateSortRank: SELECTED_COLUMNS.structuredGateSortRank,
   structuredGateStatus: SELECTED_COLUMNS.structuredGateStatus,
+  structuredResumeSummary: SELECTED_COLUMNS.structuredResumeSummary,
   structuredScoreGrade: SELECTED_COLUMNS.structuredScoreGrade,
   targetRole: SELECTED_COLUMNS.targetRole,
   updatedAt: SELECTED_COLUMNS.updatedAt,
@@ -755,7 +760,8 @@ function toRecord(
     resumeReviewRunId: row.resumeReviewRunId,
     resumeReviewStatus: row.resumeReviewStatus,
     resumeSkills: buildResumeSkills(row.resumeSkills),
-    resumeSummary: row.resumeReviewConclusion ?? row.notes?.trim() ?? null,
+    resumeSummary:
+      row.structuredResumeSummary ?? row.resumeReviewConclusion ?? row.notes?.trim() ?? null,
     stageProgress: resolvedDerived.stageProgress,
     structuredCompositeScore: row.structuredCompositeScore,
     structuredGateSortRank: row.structuredGateSortRank,

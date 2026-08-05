@@ -225,6 +225,59 @@ describe("queryPaginatedResumeRecords", () => {
     expect(typeof sample.createdAt).toBe("string");
   });
 
+  it.each([
+    {
+      expected: "候选人核心经验匹配，但仍需核实复杂项目中的主导程度。",
+      narrative: {
+        overallComment: "候选人核心经验匹配，但仍需核实复杂项目中的主导程度。",
+        summary: "候选人整体匹配岗位。",
+      },
+      source: "overall comment",
+    },
+    {
+      expected: "候选人整体匹配岗位，建议进入下一轮核实项目深度。",
+      narrative: {
+        summary: "候选人整体匹配岗位，建议进入下一轮核实项目深度。",
+      },
+      source: "fallback summary for older evaluations",
+    },
+  ])("returns the structured $source as the list summary", async ({ expected, narrative }) => {
+    await db
+      .update(studioInterview)
+      .set({
+        notes: null,
+        resumeEvaluationArtifactMode: "structured",
+        resumeReview: null,
+        structuredCompositeScore: 65,
+        structuredGateSortRank: 0,
+        structuredGateStatus: "passed",
+        structuredResumeEvaluation: {
+          narrative,
+        } as (typeof studioInterview.$inferInsert)["structuredResumeEvaluation"],
+        structuredScoreGrade: "matched",
+      })
+      .where(eq(studioInterview.id, "ri_test_a_1"));
+
+    try {
+      const result = await queryPaginatedResumeRecords(ORG_A);
+      const record = result.records.find((item) => item.id === "ri_test_a_1");
+
+      expect(record?.resumeSummary).toBe(expected);
+    } finally {
+      await db
+        .update(studioInterview)
+        .set({
+          resumeEvaluationArtifactMode: null,
+          structuredCompositeScore: null,
+          structuredGateSortRank: null,
+          structuredGateStatus: null,
+          structuredResumeEvaluation: null,
+          structuredScoreGrade: null,
+        })
+        .where(eq(studioInterview.id, "ri_test_a_1"));
+    }
+  });
+
   it("reuses a known total for later pages", async () => {
     const result = await queryPaginatedResumeRecords(
       ORG_A,
