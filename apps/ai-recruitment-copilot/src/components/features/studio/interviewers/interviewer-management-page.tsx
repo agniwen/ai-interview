@@ -65,7 +65,7 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
               sortOrder: params.sortOrder ?? "desc",
             },
           }),
-          "加载面试官列表失败",
+          "加载 AI面试官列表失败",
         ),
     [slug],
   );
@@ -112,8 +112,8 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
     invalidate: invalidateInterviewerData,
     loadDetail: loadInterviewerDetail,
     messages: {
-      deleteSuccess: "面试官已删除",
-      loadDetailError: "加载面试官失败",
+      deleteSuccess: "AI面试官已删除",
+      loadDetailError: "加载 AI面试官失败",
     },
   });
 
@@ -214,8 +214,8 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
     <>
       <div className="mx-auto w-full max-w-[96rem] space-y-6">
         <PageHeader
-          description="给不同部门配好 AI 面试官的人设、追问风格和声音，面试时更贴合岗位。"
-          title="面试官管理"
+          description="给不同部门配好 AI面试官的人设、追问风格和声音，面试时更贴合岗位。"
+          title="AI面试官管理"
         />
 
         <DataGrid<InterviewerListRecord>
@@ -230,7 +230,7 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
                   </EmptyMedia>
                   <EmptyTitle>请先创建部门</EmptyTitle>
                   <EmptyDescription>
-                    面试官必须挂在某个部门下，先去「部门管理」创建一个部门。
+                    AI面试官必须挂在某个部门下，先去「部门管理」创建一个部门。
                   </EmptyDescription>
                 </EmptyHeader>
               </Empty>
@@ -240,16 +240,16 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
                   <EmptyMedia variant="icon">
                     <IconUserCircle className="size-5" />
                   </EmptyMedia>
-                  <EmptyTitle>还没有面试官</EmptyTitle>
+                  <EmptyTitle>还没有 AI面试官</EmptyTitle>
                   <EmptyDescription>
-                    新建一个面试官，配置 prompt 和音色后即可供在招岗位引用。
+                    新建一个 AI面试官，配置 prompt 和音色后即可供在招岗位引用。
                   </EmptyDescription>
                 </EmptyHeader>
                 {canCreateInterviewer ? (
                   <EmptyContent>
                     <Button onClick={crud.openCreate}>
                       <IconPlus className="size-4" />
-                      新建面试官
+                      新建 AI面试官
                     </Button>
                   </EmptyContent>
                 ) : null}
@@ -266,7 +266,7 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
                 onClick={crud.openCreate}
               >
                 <IconPlus className="size-4" />
-                新建面试官
+                新建 AI面试官
               </Button>
             ) : null
           }
@@ -286,13 +286,13 @@ export function InterviewerManagementPage({ departments }: { departments: Depart
       <EntityDeleteDialog
         description={(record) =>
           record.jobDescriptionCount > 0
-            ? "该面试官仍被在招岗位引用，将无法删除。"
-            : `即将删除面试官：${record.name}，删除后无法恢复。`
+            ? "该 AI面试官仍被在招岗位引用，将无法删除。"
+            : `即将删除 AI面试官：${record.name}，删除后无法恢复。`
         }
         onClose={() => crud.setDeleteRecord(null)}
         onConfirm={crud.handleDelete}
         record={canDeleteInterviewer ? crud.deleteRecord : null}
-        title="确认删除这个面试官？"
+        title="确认删除这个 AI面试官？"
       />
 
       <ScopedJobDescriptionsModal
