@@ -6,7 +6,11 @@ Add an ElevenLabs agent to any website with the conversation widget.
 
 ```html
 <elevenlabs-convai agent-id="your-agent-id"></elevenlabs-convai>
-<script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
+<script
+  src="https://unpkg.com/@elevenlabs/convai-widget-embed"
+  async
+  type="text/javascript"
+></script>
 ```
 
 This creates a floating launcher. Voice-only agents show a call entry point, text-only agents
@@ -18,39 +22,39 @@ show a message entry point, and multimodal agents show both.
 
 ### Required
 
-| Attribute | Description |
-|-----------|-------------|
-| `agent-id` | Your ElevenLabs agent ID |
+| Attribute    | Description                                      |
+| ------------ | ------------------------------------------------ |
+| `agent-id`   | Your ElevenLabs agent ID                         |
 | `signed-url` | Alternative to `agent-id` when using signed URLs |
 
 ### Appearance
 
-| Attribute | Description | Default |
-|-----------|-------------|---------|
-| `avatar-image-url` | URL for agent avatar image | ElevenLabs logo |
-| `avatar-orb-color-1` | Primary orb gradient color | `#2792dc` |
-| `avatar-orb-color-2` | Secondary orb gradient color | `#9ce6e6` |
+| Attribute            | Description                  | Default         |
+| -------------------- | ---------------------------- | --------------- |
+| `avatar-image-url`   | URL for agent avatar image   | ElevenLabs logo |
+| `avatar-orb-color-1` | Primary orb gradient color   | `#2792dc`       |
+| `avatar-orb-color-2` | Secondary orb gradient color | `#9ce6e6`       |
 
 ### Text Labels
 
-| Attribute | Description | Default |
-|-----------|-------------|---------|
-| `action-text` | Tooltip when hovering | "Talk to AI" |
-| `start-call-text` | Button to start call | "Start call" |
-| `end-call-text` | Button to end call | "End call" |
-| `expand-text` | Expand chat button | "Open" |
-| `collapse-text` | Collapse chat button | "Close" |
-| `listening-text` | Listening state label | "Listening..." |
-| `speaking-text` | Speaking state label | "Assistant speaking" |
+| Attribute         | Description           | Default              |
+| ----------------- | --------------------- | -------------------- |
+| `action-text`     | Tooltip when hovering | "Talk to AI"         |
+| `start-call-text` | Button to start call  | "Start call"         |
+| `end-call-text`   | Button to end call    | "End call"           |
+| `expand-text`     | Expand chat button    | "Open"               |
+| `collapse-text`   | Collapse chat button  | "Close"              |
+| `listening-text`  | Listening state label | "Listening..."       |
+| `speaking-text`   | Speaking state label  | "Assistant speaking" |
 
 ### Behavior
 
-| Attribute | Description | Default |
-|-----------|-------------|---------|
-| `variant` | Widget style: `compact` or `expanded` | `compact` |
-| `server-location` | Server region (`us`, `eu-residency`, `in-residency`, `global`) | `us` |
-| `dismissible` | Allow the user to minimize the widget | `false` |
-| `disable-banner` | Hide "Powered by ElevenLabs" | `false` |
+| Attribute         | Description                                                    | Default   |
+| ----------------- | -------------------------------------------------------------- | --------- |
+| `variant`         | Widget style: `compact` or `expanded`                          | `compact` |
+| `server-location` | Server region (`us`, `eu-residency`, `in-residency`, `global`) | `us`      |
+| `dismissible`     | Allow the user to minimize the widget                          | `false`   |
+| `disable-banner`  | Hide "Powered by ElevenLabs"                                   | `false`   |
 
 ## Examples
 
@@ -87,10 +91,7 @@ show a message entry point, and multimodal agents show both.
 ### Expanded Variant
 
 ```html
-<elevenlabs-convai
-  agent-id="your-agent-id"
-  variant="expanded"
-></elevenlabs-convai>
+<elevenlabs-convai agent-id="your-agent-id" variant="expanded"></elevenlabs-convai>
 ```
 
 ### File Uploads
@@ -187,9 +188,7 @@ Hide the default widget and use your own button:
   }
 </style>
 
-<button onclick="document.getElementById('widget').startConversation()">
-  Talk to AI
-</button>
+<button onclick="document.getElementById('widget').startConversation()">Talk to AI</button>
 
 <elevenlabs-convai id="widget" agent-id="your-agent-id"></elevenlabs-convai>
 ```
@@ -333,10 +332,7 @@ import Script from "next/script";
 export default function Page() {
   return (
     <>
-      <Script
-        src="https://unpkg.com/@elevenlabs/convai-widget-embed"
-        strategy="lazyOnload"
-      />
+      <Script src="https://unpkg.com/@elevenlabs/convai-widget-embed" strategy="lazyOnload" />
       <elevenlabs-convai agent-id="your-agent-id"></elevenlabs-convai>
     </>
   );

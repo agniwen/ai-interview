@@ -14,14 +14,14 @@ See the [main agents skill](../SKILL.md#outbound-calls) for basic Twilio Python,
 
 ## Request Parameters
 
-| Parameter | Type | Provider | Required | Description |
-|-----------|------|----------|----------|-------------|
-| `agent_id` | string | Twilio, Exotel | Yes | The ID of your ElevenLabs agent |
-| `agent_phone_number_id` | string | Twilio, Exotel | Yes | The ID of the linked phone number |
-| `to_number` | string | Twilio, Exotel | Yes | The destination phone number in E.164 format |
-| `conversation_initiation_client_data` | object | Twilio, Exotel | No | Override conversation settings for this call |
-| `telephony_call_config` | object | Twilio, Exotel | No | Telephony call settings like ringing timeout |
-| `call_recording_enabled` | boolean | Twilio | No | Whether to let Twilio record the call |
+| Parameter                             | Type    | Provider       | Required | Description                                  |
+| ------------------------------------- | ------- | -------------- | -------- | -------------------------------------------- |
+| `agent_id`                            | string  | Twilio, Exotel | Yes      | The ID of your ElevenLabs agent              |
+| `agent_phone_number_id`               | string  | Twilio, Exotel | Yes      | The ID of the linked phone number            |
+| `to_number`                           | string  | Twilio, Exotel | Yes      | The destination phone number in E.164 format |
+| `conversation_initiation_client_data` | object  | Twilio, Exotel | No       | Override conversation settings for this call |
+| `telephony_call_config`               | object  | Twilio, Exotel | No       | Telephony call settings like ringing timeout |
+| `call_recording_enabled`              | boolean | Twilio         | No       | Whether to let Twilio record the call        |
 
 `conversation_initiation_client_data` also accepts `branch_id` to route the call to a specific
 agent branch and `environment` to control how environment variables resolve for that call.
@@ -37,12 +37,12 @@ agent branch and `environment` to control how environment variables resolve for 
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `success` | boolean | Whether the call was initiated successfully |
-| `message` | string | Status message |
-| `conversation_id` | string | ElevenLabs conversation ID for tracking |
-| `callSid` | string | Provider call SID for reference |
+| Field             | Type    | Description                                 |
+| ----------------- | ------- | ------------------------------------------- |
+| `success`         | boolean | Whether the call was initiated successfully |
+| `message`         | string  | Status message                              |
+| `conversation_id` | string  | ElevenLabs conversation ID for tracking     |
+| `callSid`         | string  | Provider call SID for reference             |
 
 ## Exotel Calls
 
@@ -118,25 +118,25 @@ const response = await client.conversationalAi.twilio.outboundCall({
 
 ### Agent Settings
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `first_message` | string | Custom greeting for this call |
-| `language` | string | Language code (e.g., "en", "es", "fr") |
-| `prompt` | object | Override agent prompt and LLM settings |
+| Option          | Type   | Description                            |
+| --------------- | ------ | -------------------------------------- |
+| `first_message` | string | Custom greeting for this call          |
+| `language`      | string | Language code (e.g., "en", "es", "fr") |
+| `prompt`        | object | Override agent prompt and LLM settings |
 
 ### TTS Settings
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `voice_id` | string | Voice ID to use for this call |
-| `stability` | number | Voice stability (0.0-1.0) |
+| Option             | Type   | Description                      |
+| ------------------ | ------ | -------------------------------- |
+| `voice_id`         | string | Voice ID to use for this call    |
+| `stability`        | number | Voice stability (0.0-1.0)        |
 | `similarity_boost` | number | Voice similarity boost (0.0-1.0) |
-| `speed` | number | Speech speed multiplier |
+| `speed`            | number | Speech speed multiplier          |
 
 ### Telephony Call Configuration
 
-| Option | Type | Description |
-|--------|------|-------------|
+| Option                 | Type    | Description                                                     |
+| ---------------------- | ------- | --------------------------------------------------------------- |
 | `ringing_timeout_secs` | integer | How long to ring the recipient before giving up (default: `60`) |
 
 ### Dynamic Variables
@@ -152,8 +152,8 @@ workspace environment variables against a non-default deployment target such as 
 
 When assigning dynamic variables, you can use the `sanitize` option to remove sensitive values from tool responses before they are sent to the LLM and transcript, while still allowing variable assignment:
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| Field      | Type    | Default | Description                                                                                                                                 |
+| ---------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sanitize` | boolean | `false` | If true, the assignment's value is removed from tool responses before sending to LLM/transcript but still processed for variable assignment |
 
 ## Complete Example
