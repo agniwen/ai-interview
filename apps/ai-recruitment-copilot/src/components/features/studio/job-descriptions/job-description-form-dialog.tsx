@@ -35,7 +35,14 @@ import { AnimatedHeight } from "@/components/features/motion/animated-height";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
-import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   InputGroup,
@@ -63,6 +70,9 @@ import type { JobDescriptionSupplementedItem } from "./ai-job-description";
 const NAME_MAX_LENGTH = 120;
 const DESCRIPTION_MAX_LENGTH = 500;
 const PROMPT_MAX_LENGTH = 10_000;
+const JOB_SETTING_FIELD_CLASS = "px-3.5 py-2.5 @md/field-group:gap-4";
+const JOB_SETTING_CONTROL_CLASS =
+  "flex w-full flex-col gap-2 @md/field-group:basis-80 @md/field-group:shrink-0";
 
 type JobDescriptionFormTab = "basic" | "interview-questions" | "forms";
 type JobDescriptionSubmitAction = "preview" | "save";
@@ -731,22 +741,25 @@ export function JobDescriptionFormDialog({
           <AnimatedHeight>
             <TabsContent value="basic">
               <FieldGroup className={isLegacyJob ? "mt-4 gap-5" : "mt-2 gap-3"}>
-                <div
-                  className={
-                    isLegacyJob
-                      ? "grid gap-5 md:grid-cols-2"
-                      : "grid gap-3 md:grid-cols-2 lg:grid-cols-3"
-                  }
-                >
+                <div className="divide-y overflow-hidden rounded-lg border">
                   <form.Field name="name">
                     {(field) => {
                       const errors = toFieldErrors(field.state.meta.errors);
                       return (
-                        <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                          <FieldLabel htmlFor={field.name}>
-                            岗位名称 <span className="text-destructive">*</span>
-                          </FieldLabel>
-                          <FieldContent className="gap-2">
+                        <Field
+                          className={JOB_SETTING_FIELD_CLASS}
+                          data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
+                          orientation="responsive"
+                        >
+                          <FieldContent className="min-w-0 gap-0.5">
+                            <FieldLabel htmlFor={field.name}>
+                              岗位名称 <span className="text-destructive">*</span>
+                            </FieldLabel>
+                            <FieldDescription className="text-xs leading-relaxed">
+                              显示在岗位列表、候选人和面试记录中。
+                            </FieldDescription>
+                          </FieldContent>
+                          <div className={JOB_SETTING_CONTROL_CLASS}>
                             <Input
                               aria-invalid={!!errors?.length}
                               id={field.name}
@@ -758,7 +771,7 @@ export function JobDescriptionFormDialog({
                               value={field.state.value}
                             />
                             <FieldError errors={errors} />
-                          </FieldContent>
+                          </div>
                         </Field>
                       );
                     }}
@@ -775,9 +788,18 @@ export function JobDescriptionFormDialog({
                         codeButtonLabel = "生成中";
                       }
                       return (
-                        <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                          <FieldLabel htmlFor={field.name}>岗位编码</FieldLabel>
-                          <FieldContent className="gap-2">
+                        <Field
+                          className={JOB_SETTING_FIELD_CLASS}
+                          data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
+                          orientation="responsive"
+                        >
+                          <FieldContent className="min-w-0 gap-0.5">
+                            <FieldLabel htmlFor={field.name}>岗位编码</FieldLabel>
+                            <FieldDescription className="text-xs leading-relaxed">
+                              用于内部识别；保存时可自动生成。
+                            </FieldDescription>
+                          </FieldContent>
+                          <div className={JOB_SETTING_CONTROL_CLASS}>
                             <InputGroup>
                               <InputGroupInput
                                 aria-invalid={!!errors?.length}
@@ -800,7 +822,7 @@ export function JobDescriptionFormDialog({
                               </InputGroupAddon>
                             </InputGroup>
                             <FieldError errors={errors} />
-                          </FieldContent>
+                          </div>
                         </Field>
                       );
                     }}
@@ -810,11 +832,20 @@ export function JobDescriptionFormDialog({
                     {(field) => {
                       const errors = toFieldErrors(field.state.meta.errors);
                       return (
-                        <Field data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}>
-                          <FieldLabel htmlFor={field.name}>
-                            所属部门 <span className="text-destructive">*</span>
-                          </FieldLabel>
-                          <FieldContent className="gap-2">
+                        <Field
+                          className={JOB_SETTING_FIELD_CLASS}
+                          data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
+                          orientation="responsive"
+                        >
+                          <FieldContent className="min-w-0 gap-0.5">
+                            <FieldLabel htmlFor={field.name}>
+                              所属部门 <span className="text-destructive">*</span>
+                            </FieldLabel>
+                            <FieldDescription className="text-xs leading-relaxed">
+                              决定默认可选择的面试官范围。
+                            </FieldDescription>
+                          </FieldContent>
+                          <div className={JOB_SETTING_CONTROL_CLASS}>
                             <SearchableSelect
                               id={field.name}
                               invalid={!!errors?.length}
@@ -840,7 +871,7 @@ export function JobDescriptionFormDialog({
                               value={field.state.value || null}
                             />
                             <FieldError errors={errors} />
-                          </FieldContent>
+                          </div>
                         </Field>
                       );
                     }}
@@ -849,36 +880,36 @@ export function JobDescriptionFormDialog({
                   <form.Field name="allowCrossDepartmentInterviewers">
                     {(field) => (
                       <Field
-                        className={isLegacyJob ? "md:col-span-2" : "md:col-span-2 lg:col-span-1"}
+                        className={`${JOB_SETTING_FIELD_CLASS} @md/field-group:items-center!`}
+                        orientation="responsive"
                       >
-                        <Card className="gap-0 rounded-lg py-0">
-                          <CardContent className="flex items-center justify-between gap-4 px-3 py-2.5">
-                            <div className="space-y-0.5">
-                              <FieldLabel htmlFor={field.name}>允许匹配跨部门面试官</FieldLabel>
-                              <p className="text-muted-foreground text-xs">
-                                关闭时只能选择所属部门下的面试官；开启后可选择任意部门的面试官。
-                              </p>
-                            </div>
-                            <Switch
-                              checked={field.state.value}
-                              id={field.name}
-                              onCheckedChange={(checked) => {
-                                field.handleChange(checked);
-                                if (!checked) {
-                                  form.setFieldValue(
-                                    "interviewerIds",
-                                    filterInterviewerIdsByDepartment(
-                                      interviewers,
-                                      selectedDepartmentId,
-                                      selectedInterviewerIds,
-                                      false,
-                                    ),
-                                  );
-                                }
-                              }}
-                            />
-                          </CardContent>
-                        </Card>
+                        <FieldContent className="min-w-0 gap-0.5">
+                          <FieldLabel htmlFor={field.name}>允许匹配跨部门面试官</FieldLabel>
+                          <FieldDescription className="text-xs leading-relaxed">
+                            关闭时仅可选择所属部门面试官；开启后可选择任意部门。
+                          </FieldDescription>
+                        </FieldContent>
+                        <div className="flex w-full justify-end @md/field-group:basis-80 @md/field-group:shrink-0">
+                          <Switch
+                            checked={field.state.value}
+                            className="h-6! w-11! [&_[data-slot=switch-thumb]]:size-5!"
+                            id={field.name}
+                            onCheckedChange={(checked) => {
+                              field.handleChange(checked);
+                              if (!checked) {
+                                form.setFieldValue(
+                                  "interviewerIds",
+                                  filterInterviewerIdsByDepartment(
+                                    interviewers,
+                                    selectedDepartmentId,
+                                    selectedInterviewerIds,
+                                    false,
+                                  ),
+                                );
+                              }
+                            }}
+                          />
+                        </div>
                       </Field>
                     )}
                   </form.Field>
@@ -888,15 +919,22 @@ export function JobDescriptionFormDialog({
                       const errors = toFieldErrors(field.state.meta.errors);
                       return (
                         <Field
-                          className={isLegacyJob ? "md:col-span-2" : "md:col-span-2 lg:col-span-2"}
+                          className={JOB_SETTING_FIELD_CLASS}
                           data-invalid={hasFieldErrors(field.state.meta.errors) || undefined}
+                          orientation="responsive"
                         >
-                          <FieldLabel>
-                            面试官 <span className="text-destructive">*</span>
-                          </FieldLabel>
-                          <FieldContent className="gap-2">
+                          <FieldContent className="min-w-0 gap-0.5">
+                            <FieldLabel htmlFor={field.name}>
+                              面试官 <span className="text-destructive">*</span>
+                            </FieldLabel>
+                            <FieldDescription className="text-xs leading-relaxed">
+                              选择负责该岗位的一位或多位面试官。
+                            </FieldDescription>
+                          </FieldContent>
+                          <div className={JOB_SETTING_CONTROL_CLASS}>
                             <SearchableMultiSelect
                               emptyMessage="没有匹配的面试官"
+                              id={field.name}
                               invalid={!!errors?.length}
                               onChange={(next) => {
                                 const synced = getDepartmentSyncedInterviewerSelection({
@@ -919,16 +957,14 @@ export function JobDescriptionFormDialog({
                               value={field.state.value}
                             />
                             <FieldError errors={errors} />
-                          </FieldContent>
+                          </div>
                         </Field>
                       );
                     }}
                   </form.Field>
                 </div>
 
-                <div
-                  className={isLegacyJob ? "space-y-5" : "grid items-start gap-3 xl:grid-cols-2"}
-                >
+                <div className="flex flex-col gap-5">
                   {isLegacyJob ? (
                     <form.Field name="description">
                       {(field) => {
@@ -990,39 +1026,22 @@ export function JobDescriptionFormDialog({
                             ) : null}
                           </div>
                           <FieldContent className="gap-1">
-                            {isLegacyJob ? (
-                              <MarkdownEditor
-                                aria-invalid={!!errors?.length}
-                                id={field.name}
-                                disabled={evaluationFrozen}
-                                maxLength={PROMPT_MAX_LENGTH}
-                                minHeight={112}
-                                onBlur={field.handleBlur}
-                                onChange={field.handleChange}
-                                placeholder="岗位关键职责、技术栈要求、期望的考察维度……"
-                                showPreview
-                                value={field.state.value}
-                              />
-                            ) : (
-                              <div className="relative">
-                                <Textarea
-                                  aria-invalid={!!errors?.length}
-                                  aria-label="岗位 JD"
-                                  className="min-h-48 resize-y whitespace-pre-wrap pb-6 leading-relaxed"
-                                  disabled={evaluationFrozen}
-                                  id={field.name}
-                                  maxLength={PROMPT_MAX_LENGTH}
-                                  onBlur={field.handleBlur}
-                                  onChange={(event) => field.handleChange(event.target.value)}
-                                  placeholder="明确填写岗位职责、核心与辅助技能、经验、项目、学历及其他要求……"
-                                  value={field.state.value}
-                                />
-                                <TextareaCounter
-                                  maxLength={PROMPT_MAX_LENGTH}
-                                  value={field.state.value}
-                                />
-                              </div>
-                            )}
+                            <MarkdownEditor
+                              aria-invalid={!!errors?.length}
+                              id={field.name}
+                              disabled={evaluationFrozen}
+                              maxLength={PROMPT_MAX_LENGTH}
+                              minHeight={isLegacyJob ? 112 : 192}
+                              onBlur={field.handleBlur}
+                              onChange={field.handleChange}
+                              placeholder={
+                                isLegacyJob
+                                  ? "岗位关键职责、技术栈要求、期望的考察维度……"
+                                  : "明确填写岗位职责、核心与辅助技能、经验、项目、学历及其他要求……"
+                              }
+                              showPreview
+                              value={field.state.value}
+                            />
                             <FieldError errors={errors} />
                           </FieldContent>
                         </Field>
@@ -1030,7 +1049,7 @@ export function JobDescriptionFormDialog({
                     }}
                   </form.Field>
                   {isLegacyJob ? null : (
-                    <div className="space-y-2">
+                    <div className="flex flex-col gap-2">
                       <div className="flex min-h-8 items-center justify-between gap-3">
                         <div>
                           <p className="font-medium text-sm">评分规则</p>
@@ -1056,7 +1075,7 @@ export function JobDescriptionFormDialog({
                         )}
                       </div>
                       {preview && ruleDraft ? (
-                        <div className="space-y-2">
+                        <div className="flex flex-col gap-2">
                           {ruleDraftDirty ? (
                             <p className="rounded-md bg-amber-50 px-3 py-2 text-amber-800 text-xs dark:bg-amber-950/30 dark:text-amber-300">
                               评分规则有未保存修改，保存岗位后才可发布。

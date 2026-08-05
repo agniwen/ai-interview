@@ -281,14 +281,19 @@ describe("structured job description preview flow", () => {
     expect(structuredLabels).not.toContain("岗位 Prompt *");
     expect(structuredContainer.textContent).toContain("新版评分设置");
     expect(structuredContainer.textContent).not.toContain("旧版筛选规则");
-    expect(
-      structuredContainer.querySelector<HTMLTextAreaElement>('textarea[aria-label="岗位 JD"]'),
-    ).not.toBeNull();
-    expect(
-      structuredContainer.querySelector<HTMLTextAreaElement>(
-        'textarea[aria-label="MarkdownEditor"]',
-      ),
-    ).toBeNull();
+    const structuredPrompt = structuredContainer.querySelector<HTMLTextAreaElement>(
+      'textarea[aria-label="MarkdownEditor"]',
+    );
+    expect(structuredPrompt).not.toBeNull();
+    expect(structuredPrompt?.dataset.showPreview).toBe("true");
+    const settingsGroup = structuredContainer.querySelector(".divide-y");
+    const settingsFields = settingsGroup?.querySelectorAll('[data-slot="field"]');
+    expect(settingsFields).toHaveLength(5);
+    expect(settingsGroup?.querySelector('[data-slot="card"]')).toBeNull();
+    expect(settingsGroup?.querySelectorAll('[data-slot="field-description"]')).toHaveLength(5);
+    expect(settingsGroup?.textContent).toContain("显示在岗位列表、候选人和面试记录中。");
+    expect(settingsFields?.[3]?.className).toContain("@md/field-group:items-center!");
+    expect(settingsFields?.[3]?.querySelector('[data-slot="switch"]')?.className).toContain("h-6!");
     act(() => structuredRoot.unmount());
 
     const legacyContainer = document.createElement("div");
@@ -371,7 +376,9 @@ describe("structured job description preview flow", () => {
       await vi.waitFor(() => expect(api.generateJobDescription).toHaveBeenCalledTimes(1));
     });
 
-    const editor = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="岗位 JD"]');
+    const editor = container.querySelector<HTMLTextAreaElement>(
+      'textarea[aria-label="MarkdownEditor"]',
+    );
     expect(editor?.value).toBe("负责前端研发。");
     expect(container.textContent).toContain("请核对 AI 补充内容");
     expect(container.textContent).toContain("补充了团队规模和管理年限要求");
@@ -547,7 +554,9 @@ describe("structured job description preview flow", () => {
       await Promise.resolve();
     });
 
-    const editor = container.querySelector<HTMLTextAreaElement>('textarea[aria-label="岗位 JD"]');
+    const editor = container.querySelector<HTMLTextAreaElement>(
+      'textarea[aria-label="MarkdownEditor"]',
+    );
     expect(editor).not.toBeNull();
     expect(editor?.value).toBe(adoptedPrompt);
 

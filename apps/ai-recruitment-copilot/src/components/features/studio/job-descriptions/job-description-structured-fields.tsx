@@ -14,12 +14,11 @@ import {
   JOB_DESCRIPTION_SCORING_CONDITION_MAX_LENGTH,
 } from "@arc/db-schema/job-description-structured-config";
 import { cn } from "@arc/shared/utils";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   getDimensionWeightBoundaries,
@@ -69,14 +68,13 @@ const HARD_GATE_FIELDS = [
   placeholder: string;
 }[];
 
+type HardGateKey = (typeof HARD_GATE_FIELDS)[number]["key"];
+
 function SectionHeader({ description, title }: { description: string; title: string }) {
   return (
-    <div className="space-y-0.5">
-      <div className="flex items-center gap-2">
-        <span className="size-2 rounded-sm bg-primary" />
-        <h3 className="font-semibold text-sm">{title}</h3>
-      </div>
-      <p className="text-muted-foreground text-xs">{description}</p>
+    <div className="flex flex-col gap-0.5">
+      <h3 className="font-semibold text-sm">{title}</h3>
+      <p className="text-muted-foreground text-xs leading-relaxed">{description}</p>
     </div>
   );
 }
@@ -88,21 +86,62 @@ function HardGateFields({
   hardGates: JobDescriptionStructuredConfig["hardGates"];
   onChange: (hardGates: JobDescriptionStructuredConfig["hardGates"]) => void;
 }) {
+  const [activeHardGate, setActiveHardGate] = useState<HardGateKey>(HARD_GATE_FIELDS[0].key);
+  const shouldFocusActiveInput = useRef(false);
+  const textareaRefs = useRef<Partial<Record<HardGateKey, HTMLTextAreaElement | null>>>({});
+
+  useEffect(() => {
+    if (!shouldFocusActiveInput.current) {
+      return;
+    }
+
+    const textarea = textareaRefs.current[activeHardGate];
+    if (textarea) {
+      const cursorPosition = textarea.value.length;
+      textarea.focus();
+      textarea.setSelectionRange(cursorPosition, cursorPosition);
+    }
+    shouldFocusActiveInput.current = false;
+  }, [activeHardGate]);
+
   return (
-    <Card className="gap-3 p-3">
-      <SectionHeader
-        description="每个非空字段会在发布前拆成可确认的原子门槛，并用于新版简历评估。"
-        title="硬性门槛"
-      />
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+    <section className="flex flex-col gap-3">
+      <SectionHeader description="填写需要一票否决的条件；留空项不参与评估。" title="硬性门槛" />
+      <Tabs
+        activationMode="manual"
+        className="grid grid-cols-[7.5rem_minmax(0,1fr)] items-start gap-4"
+        onValueChange={(nextValue) => {
+          const nextField = HARD_GATE_FIELDS.find(({ key }) => key === nextValue);
+          if (!nextField || nextField.key === activeHardGate) {
+            return;
+          }
+
+          shouldFocusActiveInput.current = true;
+          setActiveHardGate(nextField.key);
+        }}
+        orientation="vertical"
+        value={activeHardGate}
+      >
+        <TabsList
+          aria-label="硬性门槛字段"
+          className="h-fit w-full items-stretch"
+          variant="underline"
+        >
+          {HARD_GATE_FIELDS.map((definition) => (
+            <TabsTrigger
+              className="data-active:rounded-l-none"
+              key={definition.key}
+              value={definition.key}
+            >
+              {definition.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
         {HARD_GATE_FIELDS.map((definition) => (
-          <div
-            className={cn("space-y-1.5", definition.key === "other" && "lg:col-span-3")}
-            key={definition.key}
-          >
-            <FieldLabel htmlFor={`hard-gate-${definition.key}`}>{definition.label}</FieldLabel>
+          <TabsContent className="min-w-0" key={definition.key} value={definition.key}>
             <Textarea
-              className="min-h-16"
+              aria-label={definition.label}
+              className="h-56 min-h-56 resize-none"
               id={`hard-gate-${definition.key}`}
               maxLength={JOB_DESCRIPTION_HARD_GATE_MAX_LENGTH}
               onChange={(event) =>
@@ -112,12 +151,15 @@ function HardGateFields({
                 })
               }
               placeholder={definition.placeholder}
+              ref={(element) => {
+                textareaRefs.current[definition.key] = element;
+              }}
               value={hardGates[definition.key]}
             />
-          </div>
+          </TabsContent>
         ))}
-      </div>
-    </Card>
+      </Tabs>
+    </section>
   );
 }
 
@@ -147,7 +189,7 @@ function DimensionWeightBar({
   }
 
   return (
-    <Card className="gap-3 p-3">
+    <section className="flex flex-col gap-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <SectionHeader
           description="拖动分界点调整相邻维度；拖到 0% 时该维度停用并置灰。"
@@ -232,7 +274,7 @@ function DimensionWeightBar({
           })}
         </div>
       </div>
-    </Card>
+    </section>
   );
 }
 
@@ -264,7 +306,7 @@ function ScoringConditionList({
   return (
     <div
       className={cn(
-        "space-y-3 rounded-lg border p-3",
+        "flex flex-col gap-3 rounded-lg border p-3",
         accent === "positive"
           ? "border-emerald-200 bg-emerald-50/50"
           : "border-red-200 bg-red-50/50",
@@ -291,11 +333,11 @@ function ScoringConditionList({
               },
             ])
           }
-          size="xs"
+          size="sm"
           type="button"
-          variant="outline"
+          variant="secondary"
         >
-          <IconPlus className="size-3.5" />
+          <IconPlus data-icon="inline-start" />
           添加
         </Button>
       </div>
@@ -305,26 +347,24 @@ function ScoringConditionList({
           {emptyText}
         </p>
       ) : (
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           {conditions.map((condition, index) => {
             const conditionMissing = condition.condition.trim().length === 0;
             return (
-              <div className="space-y-1" key={condition.id}>
-                <div className="grid grid-cols-[minmax(0,1fr)_6.5rem_2rem] gap-2">
-                  <Input
+              <div className="flex flex-col gap-1" key={condition.id}>
+                <InputGroup>
+                  <InputGroupInput
                     aria-invalid={conditionMissing || undefined}
                     maxLength={JOB_DESCRIPTION_SCORING_CONDITION_MAX_LENGTH}
                     onChange={(event) => patchCondition(index, { condition: event.target.value })}
                     placeholder="输入条件内容"
                     value={condition.condition}
                   />
-                  <label className="relative">
-                    <span className="pointer-events-none absolute top-1/2 left-3 z-20 -translate-y-1/2 font-medium text-muted-foreground text-sm">
-                      {sign}
-                    </span>
-                    <Input
+                  <InputGroupAddon align="inline-end" className="gap-1">
+                    <span>{sign}</span>
+                    <InputGroupInput
                       aria-label={`${title}分值`}
-                      className="pl-6"
+                      className="w-14 flex-none px-1 text-center"
                       max={100}
                       min={1}
                       onChange={(event) => {
@@ -338,19 +378,19 @@ function ScoringConditionList({
                       type="number"
                       value={condition.points}
                     />
-                  </label>
-                  <Button
-                    aria-label={`删除${title}`}
-                    onClick={() =>
-                      onChange(conditions.filter((_, conditionIndex) => conditionIndex !== index))
-                    }
-                    size="icon-xs"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <IconTrash className="size-3.5" />
-                  </Button>
-                </div>
+                    <Button
+                      aria-label={`删除${title}`}
+                      onClick={() =>
+                        onChange(conditions.filter((_, conditionIndex) => conditionIndex !== index))
+                      }
+                      size="icon-xs"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <IconTrash data-icon="inline-start" />
+                    </Button>
+                  </InputGroupAddon>
+                </InputGroup>
                 {conditionMissing ? (
                   <p className="text-destructive text-xs">请输入条件内容</p>
                 ) : null}
@@ -371,7 +411,7 @@ function ScoringConditions({
   onChange: (config: JobDescriptionStructuredConfig) => void;
 }) {
   return (
-    <Card className="gap-3 p-3">
+    <section className="flex flex-col gap-3">
       <SectionHeader
         description="规则不绑定六维；发布后会按命中结果叠加到综合分。"
         title="优先与排除条件"
@@ -394,7 +434,7 @@ function ScoringConditions({
           title="排除条件"
         />
       </div>
-    </Card>
+    </section>
   );
 }
 
@@ -408,8 +448,8 @@ export function JobDescriptionStructuredFields({
   onChange: (config: JobDescriptionStructuredConfig) => void;
 }) {
   return (
-    <fieldset className="mt-5 space-y-3 border-t pt-4" disabled={disabled}>
-      <div className="space-y-0.5">
+    <fieldset className="mt-5 flex flex-col gap-6 border-t pt-4" disabled={disabled}>
+      <div className="flex flex-col gap-0.5">
         <h2 className="font-semibold text-base">JD 结构化</h2>
         <p className="text-muted-foreground text-sm">
           配置岗位硬性门槛、评分维度权重以及优先与排除条件。
