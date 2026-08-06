@@ -324,6 +324,18 @@ export const humanInterviewMeetingInputSchema = z.object({
 });
 export type HumanInterviewMeetingInput = z.infer<typeof humanInterviewMeetingInputSchema>;
 
+export const humanInterviewMeetingScheduleUpdateSchema = z.object({
+  scheduledAt: z
+    .string()
+    .trim()
+    .min(1, "请输入面试时间")
+    .refine(isExplicitTimezoneDateTimeString, "时间必须包含明确的时区信息。"),
+  validUntil: nullableInstantDateTimeInputSchema,
+});
+export type HumanInterviewMeetingScheduleUpdate = z.infer<
+  typeof humanInterviewMeetingScheduleUpdateSchema
+>;
+
 // ── Offer 阶段 / Offer Stage ──
 
 // Offer 状态机：

@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- Feishu sync checkpoints stay together so retry state remains auditable. */
 import { and, eq, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { FEISHU_PROVIDER_IDS } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
@@ -52,6 +53,18 @@ interface CreateCalendarEventInput {
   meetingUrl: string;
   startAt: Date;
   title: string;
+}
+
+interface UpdateCalendarEventTimeInput {
+  calendarId: string;
+  endAt: Date;
+  eventId: string;
+  startAt: Date;
+}
+
+interface UpdateReserveInput {
+  endAt: Date;
+  reserveId: string;
 }
 
 interface CreateCalendarEventResponse {
@@ -382,6 +395,52 @@ export function createFeishuHumanInterviewClient({
         ),
       );
     },
+    async updateCalendarEventTime(input: UpdateCalendarEventTimeInput): Promise<void> {
+      const response = await fetchImplementation(
+        `${FEISHU_OPEN_API_BASE_URL}/calendar/v4/calendars/${encodeURIComponent(input.calendarId)}/events/${encodeURIComponent(input.eventId)}?user_id_type=open_id`,
+        {
+          body: JSON.stringify({
+            end_time: {
+              timestamp: String(Math.floor(input.endAt.getTime() / 1000)),
+              timezone: "Asia/Shanghai",
+            },
+            need_notification: true,
+            start_time: {
+              timestamp: String(Math.floor(input.startAt.getTime() / 1000)),
+              timezone: "Asia/Shanghai",
+            },
+          }),
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+            "content-type": "application/json; charset=utf-8",
+          },
+          method: "PATCH",
+        },
+      );
+      const result = (await response.json()) as FeishuResponse<unknown>;
+      if (!response.ok || result.code !== 0) {
+        throw new Error(`飞书日程更新时间失败：${result.msg || result.code || response.status}`);
+      }
+    },
+    async updateReserve(input: UpdateReserveInput): Promise<void> {
+      const response = await fetchImplementation(
+        `${FEISHU_OPEN_API_BASE_URL}/vc/v1/reserves/${encodeURIComponent(input.reserveId)}?user_id_type=open_id`,
+        {
+          body: JSON.stringify({
+            end_time: String(Math.floor(input.endAt.getTime() / 1000)),
+          }),
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+            "content-type": "application/json; charset=utf-8",
+          },
+          method: "PUT",
+        },
+      );
+      const result = (await response.json()) as FeishuResponse<unknown>;
+      if (!response.ok || result.code !== 0) {
+        throw new Error(`飞书会议更新时间失败：${result.msg || result.code || response.status}`);
+      }
+    },
   };
 }
 
@@ -417,6 +476,7 @@ export async function syncHumanInterviewMeetingToFeishu({
     throw new Error("请先设置真人复面时间，再创建飞书会议。");
   }
   const { scheduledAt } = meeting;
+  const endAt = meeting.validUntil ?? new Date(scheduledAt.getTime() + 60 * 60 * 1000);
 
   const claimTime = new Date();
   const staleBefore = new Date(claimTime.getTime() - FEISHU_SYNC_LEASE_DURATION_MS);
@@ -606,9 +666,14 @@ export async function syncHumanInterviewMeetingToFeishu({
         reserveId: meeting.feishuReserveId,
       }
     : null;
-  if (!reserve) {
+  if (reserve) {
+    if (!reserve.reserveId) {
+      throw new Error("飞书预约检查点缺少 reserve ID，不能安全更新时间。");
+    }
+    await client.updateReserve({ endAt, reserveId: reserve.reserveId });
+  } else {
     const createdReserve = await client.createReserve({
-      endAt: new Date(scheduledAt.getTime() + 60 * 60 * 1000),
+      endAt,
       hostOpenIds,
       ownerOpenId,
       title: meeting.title,
@@ -647,11 +712,18 @@ export async function syncHumanInterviewMeetingToFeishu({
   }
 
   let eventId = meeting.feishuCalendarEventId;
-  if (!eventId) {
+  if (eventId) {
+    await client.updateCalendarEventTime({
+      calendarId,
+      endAt,
+      eventId,
+      startAt: scheduledAt,
+    });
+  } else {
     const event = await client.createCalendarEvent({
       calendarId,
       description: meeting.notes ?? `真人面试：${meeting.title}`,
-      endAt: new Date(scheduledAt.getTime() + 60 * 60 * 1000),
+      endAt,
       idempotencyKey: `human-interview-meeting-${meeting.id}`,
       meetingUrl: reserve.meetingUrl,
       startAt: scheduledAt,

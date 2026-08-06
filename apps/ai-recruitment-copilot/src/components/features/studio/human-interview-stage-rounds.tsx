@@ -23,7 +23,7 @@ import type {
   HumanInterviewRoundRecord,
 } from "@arc/shared/studio-pipeline-stages";
 import { dateTimeLocalInputToISOString } from "@/lib/client/datetime-local";
-import { patchHumanInterviewRound } from "@/lib/client/api";
+import { patchHumanInterviewRound, updateHumanInterviewMeeting } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { DATE_TIME_DISPLAY_OPTIONS, TimeDisplay } from "@/components/features/display/time-display";
 import { DateTimePicker } from "@/components/date-time-picker";
@@ -43,6 +43,7 @@ import {
   hasRoundDetails,
   toDateTimeLocalInputValue,
 } from "./human-interview-stage-utils";
+import { getCreatedMeetingFeishuFailure } from "./human-interview-feishu-error";
 
 export function RoundCard({
   round,
@@ -173,14 +174,38 @@ function RoundScheduledAtControl({
   const inputId = `human-round-${round.id}-scheduled-at`;
   const validUntilInputId = `human-round-${round.id}-valid-until`;
   const mutation = useMutation({
-    mutationFn: () =>
-      patchHumanInterviewRound(slug, round.interviewRecordId, round.id, {
-        scheduledAt: dateTimeLocalInputToISOString(scheduledAt),
-        validUntil: dateTimeLocalInputToISOString(validUntil),
-      }),
+    mutationFn: async () => {
+      const nextScheduledAt = dateTimeLocalInputToISOString(scheduledAt);
+      const nextValidUntil = dateTimeLocalInputToISOString(validUntil);
+      if (!nextScheduledAt) {
+        throw new Error("请输入有效的面试时间");
+      }
+      try {
+        await (meeting
+          ? updateHumanInterviewMeeting(slug, meeting.id, {
+              scheduledAt: nextScheduledAt,
+              validUntil: nextValidUntil,
+            })
+          : patchHumanInterviewRound(slug, round.interviewRecordId, round.id, {
+              scheduledAt: nextScheduledAt,
+              validUntil: nextValidUntil,
+            }));
+        return { feishuFailure: null };
+      } catch (error) {
+        const feishuFailure = meeting ? getCreatedMeetingFeishuFailure(error) : null;
+        if (!feishuFailure) {
+          throw error;
+        }
+        return { feishuFailure };
+      }
+    },
     onError: (e) => toast.error(e instanceof Error ? e.message : "调整时间失败"),
-    onSuccess: () => {
-      toast.success("面试时间已调整");
+    onSuccess: ({ feishuFailure }) => {
+      const notify = feishuFailure ? toast.warning : toast.success;
+      const message = feishuFailure
+        ? "面试时间已调整，但飞书同步失败，可在会议链接中重试"
+        : "面试时间已调整";
+      notify(message);
       setEditing(false);
       onRescheduled();
     },

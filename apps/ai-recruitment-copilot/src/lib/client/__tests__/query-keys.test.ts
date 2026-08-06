@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   humanInterviewKeys,
   invalidateHumanInterviewCandidateQueries,
+  invalidateHumanInterviewWorkspaceQueries,
   studioCalendarKeys,
   studioResumeKeys,
 } from "@/lib/client/api/query-keys";
@@ -36,6 +37,23 @@ describe("humanInterviewKeys", () => {
     });
     expect(invalidateQueries).toHaveBeenNthCalledWith(2, {
       queryKey: ["human-interview-meetings", "acme", "candidate_1"],
+    });
+    expect(invalidateQueries).toHaveBeenNthCalledWith(3, {
+      queryKey: ["studio-resumes"],
+    });
+  });
+
+  it("invalidates every candidate's human interview data after a group meeting changes", async () => {
+    const invalidateQueries = vi.fn().mockResolvedValue(null);
+
+    await invalidateHumanInterviewWorkspaceQueries({ invalidateQueries }, { slug: "acme" });
+
+    expect(invalidateQueries).toHaveBeenCalledTimes(3);
+    expect(invalidateQueries).toHaveBeenNthCalledWith(1, {
+      queryKey: ["human-interview-rounds", "acme"],
+    });
+    expect(invalidateQueries).toHaveBeenNthCalledWith(2, {
+      queryKey: ["human-interview-meetings", "acme"],
     });
     expect(invalidateQueries).toHaveBeenNthCalledWith(3, {
       queryKey: ["studio-resumes"],

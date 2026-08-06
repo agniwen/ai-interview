@@ -6,9 +6,12 @@ import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import {
   account,
+  interviewAuditLog,
   member,
   organization,
   studioHumanInterviewMeeting,
+  studioHumanInterviewMeetingInterviewer,
+  studioHumanInterviewMeetingRound,
   studioHumanInterviewRound,
   studioInterview,
   user,
@@ -33,7 +36,46 @@ const ORG_ID = "test_feishu_meeting_org";
 const OUTSIDER_ID = "test_feishu_meeting_outsider";
 const PRIMARY_INTERVIEWER_ID = "test_feishu_meeting_primary_interviewer";
 const ROUND_ID = "test_feishu_meeting_round";
+const SECOND_INTERVIEW_ID = "test_feishu_meeting_candidate_2";
+const SECOND_ROUND_ID = "test_feishu_meeting_round_2";
 const SECONDARY_INTERVIEWER_ID = "test_feishu_meeting_secondary_interviewer";
+
+async function seedReadyFeishuMeeting(meetingId: string, roundIds = [ROUND_ID]) {
+  await db.insert(studioHumanInterviewMeeting).values({
+    createdAt: NOW,
+    createdBy: OPERATOR_ID,
+    feishuAppLink: "https://applink.feishu.cn/client/video/123456789",
+    feishuAttendeeOpenIds: ["ou_interviewer_secondary"],
+    feishuCalendarEventId: "event_route_schedule_update",
+    feishuCalendarEventUrl:
+      "https://applink.feishu.cn/client/calendar/event/detail?key=event_retry",
+    feishuCalendarId: "feishu.cn_bot@group.calendar.feishu.cn",
+    feishuMeetingNo: "123456789",
+    feishuMeetingUrl: "https://vc.feishu.cn/j/123456789",
+    feishuOwnerOpenId: "ou_interviewer_secondary",
+    feishuProviderId: "feishu-jiguang-hr",
+    feishuReserveId: "reserve_route_schedule_update",
+    feishuSyncStatus: "ready",
+    feishuSyncedAt: NOW,
+    id: meetingId,
+    liveKitRoomName: `human_${meetingId}`,
+    organizationId: ORG_ID,
+    scheduledAt: new Date("2026-08-05T09:30:00.000Z"),
+    status: "scheduled",
+    title: "张三 - 真人复面",
+    updatedAt: NOW,
+    validUntil: new Date("2026-08-05T10:30:00.000Z"),
+  });
+  await db
+    .insert(studioHumanInterviewMeetingRound)
+    .values(roundIds.map((roundId) => ({ meetingId, roundId })));
+  await db.insert(studioHumanInterviewMeetingInterviewer).values({
+    feishuOpenId: "ou_interviewer_secondary",
+    meetingId,
+    role: "host",
+    userId: INTERVIEWER_ID,
+  });
+}
 
 async function cleanup() {
   await db
@@ -234,26 +276,50 @@ beforeAll(async () => {
       userId: SECONDARY_INTERVIEWER_ID,
     },
   ]);
-  await db.insert(studioInterview).values({
-    candidateName: "张三",
-    createdAt: NOW,
-    createdBy: OPERATOR_ID,
-    id: INTERVIEW_ID,
-    organizationId: ORG_ID,
-    updatedAt: NOW,
-  });
-  await db.insert(studioHumanInterviewRound).values({
-    createdAt: NOW,
-    format: "online",
-    id: ROUND_ID,
-    interviewRecordId: INTERVIEW_ID,
-    label: "真人复面",
-    organizationId: ORG_ID,
-    scheduledAt: new Date("2026-08-05T09:30:00.000Z"),
-    sortOrder: 0,
-    status: "pending",
-    updatedAt: NOW,
-  });
+  await db.insert(studioInterview).values([
+    {
+      candidateName: "张三",
+      createdAt: NOW,
+      createdBy: OPERATOR_ID,
+      id: INTERVIEW_ID,
+      organizationId: ORG_ID,
+      updatedAt: NOW,
+    },
+    {
+      candidateName: "李四",
+      createdAt: NOW,
+      createdBy: OPERATOR_ID,
+      id: SECOND_INTERVIEW_ID,
+      organizationId: ORG_ID,
+      updatedAt: NOW,
+    },
+  ]);
+  await db.insert(studioHumanInterviewRound).values([
+    {
+      createdAt: NOW,
+      format: "online",
+      id: ROUND_ID,
+      interviewRecordId: INTERVIEW_ID,
+      label: "真人复面",
+      organizationId: ORG_ID,
+      scheduledAt: new Date("2026-08-05T09:30:00.000Z"),
+      sortOrder: 0,
+      status: "pending",
+      updatedAt: NOW,
+    },
+    {
+      createdAt: NOW,
+      format: "online",
+      id: SECOND_ROUND_ID,
+      interviewRecordId: SECOND_INTERVIEW_ID,
+      label: "真人复面",
+      organizationId: ORG_ID,
+      scheduledAt: new Date("2026-08-05T09:30:00.000Z"),
+      sortOrder: 0,
+      status: "pending",
+      updatedAt: NOW,
+    },
+  ]);
 });
 
 afterAll(cleanup);
@@ -262,6 +328,7 @@ beforeEach(async () => {
   vi.restoreAllMocks();
   process.env.FEISHU_APP_ID = "cli_test_feishu_primary";
   process.env.FEISHU_APP_ID2 = "cli_test_feishu_secondary";
+  await db.delete(interviewAuditLog).where(eq(interviewAuditLog.organizationId, ORG_ID));
   await db
     .delete(studioHumanInterviewMeeting)
     .where(eq(studioHumanInterviewMeeting.organizationId, ORG_ID));
@@ -391,6 +458,253 @@ describe("POST /human-interview-meetings", () => {
     expect(body.feishu?.status).toBe("ready");
     expect(body.feishu?.meetingUrl).toBe("https://vc.feishu.cn/j/123456789");
     expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
+
+  it("updates the existing Feishu reserve and calendar event when the meeting time changes", async () => {
+    const meetingId = "test_feishu_schedule_update";
+    await seedReadyFeishuMeeting(meetingId);
+    await db
+      .update(studioHumanInterviewMeeting)
+      .set({ feishuSyncStatus: "failed", feishuSyncedAt: null })
+      .where(eq(studioHumanInterviewMeeting.id, meetingId));
+    process.env.FEISHU_APP_ID2 = "cli_test_feishu_schedule_update";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 0,
+            expire: 7200,
+            msg: "success",
+            tenant_access_token: "schedule-update-token",
+          }),
+          { headers: { "content-type": "application/json" }, status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
+          headers: { "content-type": "application/json" },
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
+          headers: { "content-type": "application/json" },
+          status: 200,
+        }),
+      );
+    const app = makeApp("feishu");
+    const response = await app.request(`/human-interview-meetings/${meetingId}`, {
+      body: JSON.stringify({
+        scheduledAt: "2026-08-05T10:30:00.000Z",
+        validUntil: "2026-08-05T11:30:00.000Z",
+      }),
+      headers: { "content-type": "application/json" },
+      method: "PATCH",
+    });
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      feishu?: { status?: string };
+      scheduledAt?: string;
+      validUntil?: string;
+    };
+    expect(body).toMatchObject({
+      feishu: { status: "ready" },
+      scheduledAt: "2026-08-05T10:30:00.000Z",
+      validUntil: "2026-08-05T11:30:00.000Z",
+    });
+    const reserveUpdate = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes("/vc/v1/reserves/reserve_route_schedule_update"),
+    );
+    expect(reserveUpdate?.[1]?.method).toBe("PUT");
+    expect(JSON.parse(String(reserveUpdate?.[1]?.body))).toEqual({ end_time: "1785929400" });
+    const calendarUpdate = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes("/events/event_route_schedule_update"),
+    );
+    expect(calendarUpdate?.[1]?.method).toBe("PATCH");
+    expect(JSON.parse(String(calendarUpdate?.[1]?.body))).toEqual({
+      end_time: { timestamp: "1785929400", timezone: "Asia/Shanghai" },
+      need_notification: true,
+      start_time: { timestamp: "1785925800", timezone: "Asia/Shanghai" },
+    });
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/reserves/apply"))).toBe(
+      false,
+    );
+    const [updatedRound] = await db
+      .select({ scheduledAt: studioHumanInterviewRound.scheduledAt })
+      .from(studioHumanInterviewRound)
+      .where(eq(studioHumanInterviewRound.id, ROUND_ID));
+    expect(updatedRound?.scheduledAt?.toISOString()).toBe("2026-08-05T10:30:00.000Z");
+  });
+
+  it("records a reschedule activity for every candidate linked to the meeting", async () => {
+    const meetingId = "test_feishu_group_schedule_update";
+    await seedReadyFeishuMeeting(meetingId, [ROUND_ID, SECOND_ROUND_ID]);
+    process.env.FEISHU_APP_ID2 = "cli_test_feishu_group_schedule_update";
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 0,
+            expire: 7200,
+            msg: "success",
+            tenant_access_token: "group-schedule-update-token",
+          }),
+          { headers: { "content-type": "application/json" }, status: 200 },
+        ),
+      )
+      .mockImplementation(
+        async () =>
+          new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
+            headers: { "content-type": "application/json" },
+            status: 200,
+          }),
+      );
+
+    const response = await makeApp("feishu").request(`/human-interview-meetings/${meetingId}`, {
+      body: JSON.stringify({
+        scheduledAt: "2026-08-05T10:30:00.000Z",
+        validUntil: "2026-08-05T11:30:00.000Z",
+      }),
+      headers: { "content-type": "application/json" },
+      method: "PATCH",
+    });
+
+    expect(response.status).toBe(200);
+    const activities = await db
+      .select({
+        action: interviewAuditLog.action,
+        detail: interviewAuditLog.detail,
+        interviewRecordId: interviewAuditLog.interviewRecordId,
+        operatorId: interviewAuditLog.operatorId,
+      })
+      .from(interviewAuditLog)
+      .where(eq(interviewAuditLog.organizationId, ORG_ID));
+    expect(
+      activities.toSorted((left, right) =>
+        left.interviewRecordId.localeCompare(right.interviewRecordId),
+      ),
+    ).toEqual([
+      {
+        action: "human_interview_round_updated",
+        detail: {
+          roundId: ROUND_ID,
+          roundLabel: "真人复面",
+          scheduledAt: "2026-08-05T10:30:00.000Z",
+        },
+        interviewRecordId: INTERVIEW_ID,
+        operatorId: OPERATOR_ID,
+      },
+      {
+        action: "human_interview_round_updated",
+        detail: {
+          roundId: SECOND_ROUND_ID,
+          roundLabel: "真人复面",
+          scheduledAt: "2026-08-05T10:30:00.000Z",
+        },
+        interviewRecordId: SECOND_INTERVIEW_ID,
+        operatorId: OPERATOR_ID,
+      },
+    ]);
+  });
+
+  it("keeps the changed local time retryable when the Feishu calendar update fails", async () => {
+    const meetingId = "test_feishu_reschedule_retry";
+    await seedReadyFeishuMeeting(meetingId);
+    process.env.FEISHU_APP_ID2 = "cli_test_feishu_reschedule_retry";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 0,
+            expire: 7200,
+            msg: "success",
+            tenant_access_token: "reschedule-retry-token",
+          }),
+          { headers: { "content-type": "application/json" }, status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
+          headers: { "content-type": "application/json" },
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ code: 12_345, msg: "calendar update denied" }), {
+          headers: { "content-type": "application/json" },
+          status: 403,
+        }),
+      );
+
+    const app = makeApp("feishu");
+    const response = await app.request(`/human-interview-meetings/${meetingId}`, {
+      body: JSON.stringify({
+        scheduledAt: "2026-08-05T10:30:00.000Z",
+        validUntil: "2026-08-05T11:30:00.000Z",
+      }),
+      headers: { "content-type": "application/json" },
+      method: "PATCH",
+    });
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      error: "飞书日程更新时间失败：calendar update denied",
+      feishuStatus: "failed",
+      meetingId,
+    });
+    const [failedMeeting] = await db
+      .select({
+        scheduledAt: studioHumanInterviewMeeting.scheduledAt,
+        status: studioHumanInterviewMeeting.feishuSyncStatus,
+        validUntil: studioHumanInterviewMeeting.validUntil,
+      })
+      .from(studioHumanInterviewMeeting)
+      .where(eq(studioHumanInterviewMeeting.id, meetingId));
+    expect(failedMeeting).toMatchObject({ status: "failed" });
+    expect(failedMeeting?.scheduledAt?.toISOString()).toBe("2026-08-05T10:30:00.000Z");
+    expect(failedMeeting?.validUntil?.toISOString()).toBe("2026-08-05T11:30:00.000Z");
+    const failedSyncActivities = await db
+      .select({
+        action: interviewAuditLog.action,
+        interviewRecordId: interviewAuditLog.interviewRecordId,
+      })
+      .from(interviewAuditLog)
+      .where(eq(interviewAuditLog.organizationId, ORG_ID));
+    expect(failedSyncActivities).toEqual([
+      {
+        action: "human_interview_round_updated",
+        interviewRecordId: INTERVIEW_ID,
+      },
+    ]);
+
+    fetchMock
+      .mockReset()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
+          headers: { "content-type": "application/json" },
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
+          headers: { "content-type": "application/json" },
+          status: 200,
+        }),
+      );
+    const retryResponse = await app.request(`/human-interview-meetings/${meetingId}/feishu-sync`, {
+      method: "POST",
+    });
+
+    expect(retryResponse.status).toBe(200);
+    await expect(retryResponse.json()).resolves.toMatchObject({
+      feishu: { status: "ready" },
+      scheduledAt: "2026-08-05T10:30:00.000Z",
+      validUntil: "2026-08-05T11:30:00.000Z",
+    });
+    expect(fetchMock.mock.calls.every(([, init]) => init?.method !== "POST")).toBe(true);
   });
 
   it("rejects interviewers without a common Feishu app before calling Feishu", async () => {
@@ -526,6 +840,12 @@ describe("POST /human-interview-meetings", () => {
     fetchMock
       .mockReset()
       .mockResolvedValueOnce(
+        new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
+          headers: { "content-type": "application/json" },
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
             code: 0,
@@ -578,7 +898,7 @@ describe("POST /human-interview-meetings", () => {
       meetingUrl: "https://vc.feishu.cn/j/987654321",
       status: "ready",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     const attendeeRequest = fetchMock.mock.calls.find(([url]) =>
       String(url).includes("/attendees"),
     );
@@ -586,9 +906,11 @@ describe("POST /human-interview-meetings", () => {
       attendees: [{ type: "user", user_id: "ou_interviewer_secondary" }],
       need_notification: true,
     });
-    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/vc/v1/reserves"))).toBe(
-      false,
-    );
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, init]) => String(url).includes("/vc/v1/reserves/") && init?.method === "PUT",
+      ),
+    ).toBe(true);
   });
 
   it("persists a retryable failed state when the tenant token request fails", async () => {
@@ -774,7 +1096,13 @@ describe("POST /human-interview-meetings", () => {
         .where(eq(studioHumanInterviewMeeting.id, failureBody.meetingId));
       expect(persisted?.attendeeOpenIds).toEqual(["ou_interviewer_secondary"]);
 
-      fetchMock.mockReset().mockImplementation(async (_input, init) => {
+      fetchMock.mockReset().mockImplementation(async (input, init) => {
+        if (!String(input).includes("/attendees")) {
+          return new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
+            headers: { "content-type": "application/json" },
+            status: 200,
+          });
+        }
         const body = JSON.parse(String(init?.body)) as {
           attendees: { user_id: string }[];
         };
@@ -794,7 +1122,10 @@ describe("POST /human-interview-meetings", () => {
         { method: "POST" },
       );
       expect(retryResponse.status).toBe(200);
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(
+        fetchMock.mock.calls.filter(([url]) => String(url).includes("/attendees")),
+      ).toHaveLength(1);
     } finally {
       process.env.FEISHU_APP_ID2 = originalSecondaryAppId;
     }

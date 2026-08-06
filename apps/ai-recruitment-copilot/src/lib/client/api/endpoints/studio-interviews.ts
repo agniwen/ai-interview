@@ -25,6 +25,7 @@ import type {
   CandidateOutcome,
   ClosedMeta,
   HumanInterviewMeetingInput,
+  HumanInterviewMeetingScheduleUpdate,
   HumanInterviewRoundInput,
   HumanInterviewRoundOutcome,
   OfferDraftInput,
@@ -407,6 +408,20 @@ export function createHumanInterviewMeeting(
       param: { slug },
     }),
     "新建真人复面会议失败",
+  );
+}
+
+export function updateHumanInterviewMeeting(
+  slug: string,
+  meetingId: string,
+  input: HumanInterviewMeetingScheduleUpdate,
+): Promise<HumanInterviewMeetingRecord> {
+  return rpcFetch<HumanInterviewMeetingRecord>(
+    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"].$patch({
+      json: input,
+      param: { meetingId, slug },
+    }),
+    "更新真人复面会议时间失败",
   );
 }
 
