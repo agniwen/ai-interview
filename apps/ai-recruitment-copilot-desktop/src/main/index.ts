@@ -1,5 +1,8 @@
 import { electronApp, optimizer } from "@electron-toolkit/utils";
 import { app, BrowserWindow } from "electron";
+import { registerContextMenu } from "./context-menu";
+import { registerOrpcIpc } from "./orpc";
+import { applySettingsAtStartup } from "./settings";
 import { registerWindowIpc } from "./ipc/window";
 import { createMainWindow } from "./window";
 
@@ -18,6 +21,9 @@ async function bootstrap(): Promise<void> {
     optimizer.watchWindowShortcuts(window);
   });
 
+  applySettingsAtStartup();
+  registerContextMenu();
+  registerOrpcIpc();
   registerWindowIpc();
   createMainWindow();
   app.on("activate", handleActivate);

@@ -1,56 +1,176 @@
-import { IconArrowLeft } from "@tabler/icons-react";
-import { Link } from "@tanstack/react-router";
-import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { IconDeviceDesktop, IconMoon, IconSun } from "@tabler/icons-react";
+import { useTheme } from "next-themes";
+import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { SettingsGroup, SettingsRow, SettingsSection } from "@/components/settings/settings-ui";
+import type { ThemeMode } from "@/lib/settings";
+import { updateSettings, useSettings } from "@/lib/settings";
+
+const THEME_OPTIONS = [
+  { icon: IconSun, label: "浅色", value: "light" },
+  { icon: IconMoon, label: "深色", value: "dark" },
+  { icon: IconDeviceDesktop, label: "跟随系统", value: "system" },
+] as const;
+
+/** Theme dropdown; selection flows through next-themes (class + localStorage). */
+function ThemeSelect(): React.JSX.Element {
+  const { theme, setTheme } = useTheme();
+  const current = THEME_OPTIONS.find((option) => option.value === theme) ?? THEME_OPTIONS[2];
+  const CurrentIcon = current.icon;
+
+  return (
+    <Select
+      aria-label="主题"
+      onValueChange={(value) => {
+        if (typeof value === "string") {
+          setTheme(value as ThemeMode);
+        }
+      }}
+      value={theme}
+    >
+      <SelectTrigger className="w-full" id="theme">
+        <CurrentIcon className="size-4" />
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {THEME_OPTIONS.map((option) => {
+          const Icon = option.icon;
+          return (
+            <SelectItem key={option.value} value={option.value}>
+              <Icon className="size-4" />
+              {option.label}
+            </SelectItem>
+          );
+        })}
+      </SelectContent>
+    </Select>
+  );
+}
+
+/** Text field that saves ~800ms after typing stops and flushes on blur. */
+function ApiBaseField(): React.JSX.Element {
+  const settings = useSettings();
+  const [value, setValue] = useState(settings.apiBase);
+  const timerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    setValue(settings.apiBase);
+  }, [settings.apiBase]);
+
+  useEffect(
+    () => () => {
+      if (timerRef.current !== null) {
+        window.clearTimeout(timerRef.current);
+      }
+    },
+    [],
+  );
+
+  const scheduleSave = (next: string): void => {
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current);
+    }
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = null;
+      void updateSettings({ apiBase: next });
+    }, 800);
+  };
+
+  return (
+    <Input
+      autoComplete="off"
+      id="api-base"
+      onChange={(event) => {
+        setValue(event.target.value);
+        scheduleSave(event.target.value);
+      }}
+      onBlur={() => {
+        if (timerRef.current !== null) {
+          window.clearTimeout(timerRef.current);
+          timerRef.current = null;
+        }
+        void updateSettings({ apiBase: value });
+      }}
+      placeholder="https://example.com"
+      spellCheck={false}
+      value={value}
+    />
+  );
+}
 
 export function SettingsPage(): React.JSX.Element {
+  const settings = useSettings();
+
   return (
-    <div className="mx-auto w-full max-w-lg space-y-6 p-6 pb-16">
-      <div className="flex items-center gap-3">
-        <Button
-          nativeButton={false}
-          render={<Link aria-label="返回" to="/" />}
-          size="icon-sm"
-          variant="ghost"
-        >
-          <IconArrowLeft className="size-4" />
-        </Button>
-        <div className="space-y-0.5">
-          <h1 className="text-xl font-medium tracking-tight text-foreground">设置</h1>
-          <p className="text-sm text-muted-foreground">桌面端偏好（后续对接后端）。</p>
-        </div>
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 p-6 pb-16">
+      <div className="space-y-0.5">
+        <h1 className="text-xl font-medium tracking-tight text-foreground">设置</h1>
+        <p className="text-sm text-muted-foreground">外观与运行偏好，修改后自动保存。</p>
       </div>
 
-      <FieldGroup>
-        <Field>
-          <FieldLabel htmlFor="api-base">API 基址</FieldLabel>
-          <Input
-            defaultValue="http://localhost:3000"
-            id="api-base"
-            placeholder="https://example.com"
-          />
-          <FieldDescription>开发期指向本地 web/backend；生产环境可改为部署地址。</FieldDescription>
-        </Field>
+      <SettingsSection description="选择桌面端的外观主题，立即生效。" title="外观">
+        <SettingsGroup>
+          <SettingsRow
+            description="浅色、深色或跟随系统，修改后自动保存。"
+            htmlFor="theme"
+            label="主题"
+          >
+            <ThemeSelect />
+          </SettingsRow>
+        </SettingsGroup>
+      </SettingsSection>
 
-        <Field orientation="horizontal">
-          <Switch defaultChecked id="launch-at-login" />
-          <FieldLabel htmlFor="launch-at-login">开机启动</FieldLabel>
-        </Field>
+      <SettingsSection description="应用运行相关的通用偏好。" title="通用">
+        <SettingsGroup>
+          <SettingsRow
+            description="开发期指向本地 web/backend；生产环境可改为部署地址。"
+            htmlFor="api-base"
+            label="API 基址"
+          >
+            <ApiBaseField />
+          </SettingsRow>
 
-        <Field orientation="horizontal">
-          <Switch defaultChecked id="notify-on-finish" />
-          <FieldLabel htmlFor="notify-on-finish">录制结束系统通知</FieldLabel>
-        </Field>
-      </FieldGroup>
+          <SettingsRow
+            description="登录系统时自动启动应用。"
+            htmlFor="launch-at-login"
+            label="开机启动"
+          >
+            <div className="flex justify-end">
+              <Switch
+                checked={settings.launchAtLogin}
+                id="launch-at-login"
+                onCheckedChange={(checked) => {
+                  void updateSettings({ launchAtLogin: checked });
+                }}
+              />
+            </div>
+          </SettingsRow>
 
-      <div className="flex gap-2">
-        <Button type="button">保存设置</Button>
-        <Button nativeButton={false} render={<Link to="/" />} type="button" variant="outline">
-          返回主页
-        </Button>
-      </div>
+          <SettingsRow
+            description="录制完成后发送系统通知。"
+            htmlFor="notify-on-finish"
+            label="录制结束系统通知"
+          >
+            <div className="flex justify-end">
+              <Switch
+                checked={settings.notifyOnFinish}
+                id="notify-on-finish"
+                onCheckedChange={(checked) => {
+                  void updateSettings({ notifyOnFinish: checked });
+                }}
+              />
+            </div>
+          </SettingsRow>
+        </SettingsGroup>
+      </SettingsSection>
     </div>
   );
 }

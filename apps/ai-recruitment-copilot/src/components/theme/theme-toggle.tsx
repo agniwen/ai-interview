@@ -57,7 +57,7 @@ export function ThemeToggle({
             const Icon = option.icon;
             return (
               <DropdownMenuRadioItem key={option.value} value={option.value}>
-                <Icon className="mr-2 size-4" />
+                <Icon className=" size-4" />
                 {option.label}
               </DropdownMenuRadioItem>
             );

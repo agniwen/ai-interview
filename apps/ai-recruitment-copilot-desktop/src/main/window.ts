@@ -19,17 +19,21 @@ export function createMainWindow(): BrowserWindow {
     // Windows/Linux: frameless so we draw our own controls.
     ...(isMac
       ? {
-          // Traffic lights ~12px tall; y centers them in the 35px custom title bar.
-          // Keep in sync with TITLE_BAR_HEIGHT_PX + title-bar leading pad.
+          // Traffic lights are 12px dots; y=11 puts their center (17) exactly on
+          // the content midline of the 35px title bar, aligned with the history
+          // nav / settings buttons. Keep in sync with TITLE_BAR_HEIGHT_PX.
           titleBarStyle: "hiddenInset" as const,
-          trafficLightPosition: { x: 16, y: 12 },
+          trafficLightPosition: { x: 16, y: 11 },
         }
       : {
           frame: false,
         }),
     webPreferences: {
       preload: join(mainDir, "../preload/index.js"),
+      // Native-app feel: Chromium's red spellcheck squiggles don't belong in
+      // desktop inputs; keyboard/context-menu editing still works.
       sandbox: false,
+      spellcheck: false,
     },
     width: 1100,
     ...(process.platform === "linux" ? { icon } : {}),
@@ -42,6 +46,13 @@ export function createMainWindow(): BrowserWindow {
   mainWindow.webContents.setWindowOpenHandler((details) => {
     void shell.openExternal(details.url);
     return { action: "deny" };
+  });
+
+  // SPA: block any page-initiated navigation (e.g. a file dropped into the
+  // window would otherwise navigate to file://). Programmatic loadURL from
+  // main and hash changes are unaffected.
+  mainWindow.webContents.on("will-navigate", (event) => {
+    event.preventDefault();
   });
 
   const emitMaximized = (): void => {

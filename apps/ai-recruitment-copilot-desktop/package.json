@@ -24,14 +24,19 @@
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@hookform/resolvers": "^5.4.0",
+    "@orpc/client": "2.0.0-beta.25",
+    "@orpc/contract": "2.0.0-beta.25",
+    "@orpc/server": "2.0.0-beta.25",
     "@tabler/icons-react": "^3.44.0",
     "@tanstack/query-core": "^5.100.14",
     "@tanstack/react-query": "^5.100.14",
     "@tanstack/react-router": "^1.170.17",
     "class-variance-authority": "^0.7.1",
+    "next-themes": "^0.4.6",
     "overlayscrollbars": "^2.16.0",
     "overlayscrollbars-react": "^0.5.6",
-    "react-hook-form": "^7.76.1"
+    "react-hook-form": "^7.76.1",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@electron-toolkit/tsconfig": "^2.0.0",

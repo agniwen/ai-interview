@@ -772,6 +772,15 @@ importers:
       '@hookform/resolvers':
         specifier: ^5.4.0
         version: 5.4.0(react-hook-form@7.76.1(react@19.2.7))
+      '@orpc/client':
+        specifier: 2.0.0-beta.25
+        version: 2.0.0-beta.25(@opentelemetry/api@1.9.1)
+      '@orpc/contract':
+        specifier: 2.0.0-beta.25
+        version: 2.0.0-beta.25(@opentelemetry/api@1.9.1)
+      '@orpc/server':
+        specifier: 2.0.0-beta.25
+        version: 2.0.0-beta.25(@opentelemetry/api@1.9.1)(crossws@0.4.9(srvx@0.11.20))
       '@tabler/icons-react':
         specifier: ^3.44.0
         version: 3.44.0(react@19.2.7)
@@ -787,6 +796,9 @@ importers:
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
+      next-themes:
+        specifier: ^0.4.6
+        version: 0.4.6(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       overlayscrollbars:
         specifier: ^2.16.0
         version: 2.16.0
@@ -796,6 +808,9 @@ importers:
       react-hook-form:
         specifier: ^7.76.1
         version: 7.76.1(react@19.2.7)
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@electron-toolkit/tsconfig':
         specifier: ^2.0.0
@@ -3164,6 +3179,31 @@ packages:
     resolution: {integrity: sha512-9+qMSaDpahC0+vX2ChM46/ls6a5Ankqs6RTLrHSaFpm7o1mFanP82e+jm9/0o5D660ueK8dWJGPCXQrBxBNNWA==}
     engines: {node: '>= 12'}
 
+  '@orpc/client@2.0.0-beta.25':
+    resolution: {integrity: sha512-DnSLYhXX1qLPwsQA8Dx6rDwRl5zswp/ClhIZDWaLi8OP/g38Jepf9Q7Qp5QpE2wpZrnQZqaXIJ7HECCwGJRB9Q==}
+
+  '@orpc/contract@2.0.0-beta.25':
+    resolution: {integrity: sha512-bTbpTh1LWDas2NR2sVoeTv80NqUoCClThKDsSNLKag5wh7QrLL7zU2VEddJ/z9KUkpTSGVYtzTLyHKn5aYs2tQ==}
+
+  '@orpc/server@2.0.0-beta.25':
+    resolution: {integrity: sha512-qyEWWKTYGVh4HyFb0OLPQsojIWnb3DcAdmzGvce1JGIizv5yVpov9dhxPZKCLNrQHsgbTTP7+KTaby4p8AhrDQ==}
+    peerDependencies:
+      crossws: '>=0.3.4'
+      fastify: '>=5.6.1'
+    peerDependenciesMeta:
+      crossws:
+        optional: true
+      fastify:
+        optional: true
+
+  '@orpc/shared@2.0.0-beta.25':
+    resolution: {integrity: sha512-6Uah75bNnxudWiADIk5Sv+pyh5y6+eQFwGxAKwfmfo3xK+hFOrM24N79w1E3EKPrDst2/T2Y6YBYgq55KJkavQ==}
+    peerDependencies:
+      '@opentelemetry/api': '>=1.9.0'
+    peerDependenciesMeta:
+      '@opentelemetry/api':
+        optional: true
+
   '@oxc-project/types@0.134.0':
     resolution: {integrity: sha512-T0xuRRKrQFmocH8y+jGfpmSkGcheaJExY9lEihmR1Gm2aH+75B8CzgU2rABRQSzzDxLjZ15Sc0bRVLj5lVeNXQ==}
 
@@ -4982,6 +5022,32 @@ packages:
 
   '@standard-schema/utils@0.3.0':
     resolution: {integrity: sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g==}
+
+  '@standardserver/aws-lambda@0.7.1':
+    resolution: {integrity: sha512-fuwAx2M2O5Bnjk2JdFrtEQALmBwVtnn4jKApzFVmlIivWA7EGMj5kOzCNaJizxCQXlhPmC+doDHqf/H7FKMaNA==}
+
+  '@standardserver/core@0.7.1':
+    resolution: {integrity: sha512-ZMoFDR92p9HnaI6vXK1iNFKXyLK8/6r3D4EJUM+SqeyReUH3OEJO4CZKU8BfXyzAV1A6Nsa7y2dGqDOYqH5LlQ==}
+
+  '@standardserver/fastify@0.7.1':
+    resolution: {integrity: sha512-Oa+ttR0CyNkFjNczs2dO/WFFeZ4sAszVBKIOhKb1FFcDtD9VdqDgMBhbQ4sFR885fwpYckoYjFU6xXWWTueBlw==}
+    peerDependencies:
+      fastify: '>=5.6.1'
+    peerDependenciesMeta:
+      fastify:
+        optional: true
+
+  '@standardserver/fetch@0.7.1':
+    resolution: {integrity: sha512-BeiAWESedv0woYpoBHCnq2Y3xLZZ3voFahdzpFd+HqLyenXIL4XX3z7/WgWNQnf+WsSQrK6HzBkDWCicCXVoKQ==}
+
+  '@standardserver/node@0.7.1':
+    resolution: {integrity: sha512-Ikc07cGBTJ8tJgPd1OanNKVNpijcbixB1iKk0GdL/b1vkYbriGgNW3oHvbApM7+XqeCeNHj5XawHk6q90mwEEA==}
+
+  '@standardserver/peer@0.7.1':
+    resolution: {integrity: sha512-ggqPbwz4X4GIziQgoyCTDHFw9nM9YuEvlSpO21pfoXLYF80ijtpN/iq4P0zKpb4kcXnBoSVDRUSnBJSZi0SJDg==}
+
+  '@standardserver/shared@0.7.1':
+    resolution: {integrity: sha512-tBDheI3Me1gQEKPU+XhcCZ6/njmkKgJhA5rhi1/m6GauGhHq87UuVslDNc8qB+T/xsxVch/qETFhssEWO9c6BA==}
 
   '@streamdown/cjk@1.0.3':
     resolution: {integrity: sha512-WRg8HR/gHbBoTgsMd91OKFUClIoDcEFVofJvluvEAyjx3KpU0aGgD9tGDqHkHj14ShoMSkX0IYetWGegTcwIJw==}
@@ -6851,6 +6917,10 @@ packages:
   cookie@1.1.1:
     resolution: {integrity: sha512-ei8Aos7ja0weRpFzJnEA9UHJ/7XQmqglbRwnf2ATjcB9Wq874VKH9kfjjirM6UhU2/E5fFYadylyhFldcqSidQ==}
     engines: {node: '>=18'}
+
+  cookie@2.0.1:
+    resolution: {integrity: sha512-yuToqVvRrj6pfDXREyQAAv8SkAEk/8GS3jQRTiUMm66TVtBYmqQeoEjL2Lmq8Rpo6271vH76InTChTitEAm65w==}
+    engines: {node: '>=22'}
 
   copy-anything@4.0.5:
     resolution: {integrity: sha512-7Vv6asjS4gMOuILabD3l739tsaxFQmC+a7pLZm02zyvs8p977bL3zEgq3yDk5rn9B0PbYgIv++jmHcuUab4RhA==}
@@ -9998,6 +10068,10 @@ packages:
   quick-lru@6.1.2:
     resolution: {integrity: sha512-AAFUA5O1d83pIHEhJwWCq/RQcRukCkn/NSm2QsTEMle5f2hP0ChI2+3Xb051PZCkLryI/Ir1MVKviT2FIloaTQ==}
     engines: {node: '>=12'}
+
+  radash@12.1.1:
+    resolution: {integrity: sha512-h36JMxKRqrAxVD8201FrCpyeNuUY9Y5zZwujr20fFO77tpUtGa6EZzfKw/3WaiBX95fq7+MpsuMLNdSnORAwSA==}
+    engines: {node: '>=14.18.0'}
 
   radix-ui@1.6.1:
     resolution: {integrity: sha512-QXDXJtB6sK83mLASONYUZCauatcWb+knFviFpN1EhtdbbmlsRmzCLrbZSKztnNiem2KOHIBbiDbauVB7SORXMw==}
@@ -14344,6 +14418,48 @@ snapshots:
       estree-walker: 2.0.2
       magic-string: 0.30.21
 
+  '@orpc/client@2.0.0-beta.25(@opentelemetry/api@1.9.1)':
+    dependencies:
+      '@orpc/shared': 2.0.0-beta.25(@opentelemetry/api@1.9.1)
+      '@standardserver/core': 0.7.1
+      '@standardserver/fetch': 0.7.1
+      '@standardserver/peer': 0.7.1
+    transitivePeerDependencies:
+      - '@opentelemetry/api'
+
+  '@orpc/contract@2.0.0-beta.25(@opentelemetry/api@1.9.1)':
+    dependencies:
+      '@orpc/client': 2.0.0-beta.25(@opentelemetry/api@1.9.1)
+      '@orpc/shared': 2.0.0-beta.25(@opentelemetry/api@1.9.1)
+      '@standard-schema/spec': 1.1.0
+    transitivePeerDependencies:
+      - '@opentelemetry/api'
+
+  '@orpc/server@2.0.0-beta.25(@opentelemetry/api@1.9.1)(crossws@0.4.9(srvx@0.11.20))':
+    dependencies:
+      '@orpc/client': 2.0.0-beta.25(@opentelemetry/api@1.9.1)
+      '@orpc/contract': 2.0.0-beta.25(@opentelemetry/api@1.9.1)
+      '@orpc/shared': 2.0.0-beta.25(@opentelemetry/api@1.9.1)
+      '@standardserver/aws-lambda': 0.7.1
+      '@standardserver/core': 0.7.1
+      '@standardserver/fastify': 0.7.1
+      '@standardserver/fetch': 0.7.1
+      '@standardserver/node': 0.7.1
+      '@standardserver/peer': 0.7.1
+      cookie: 2.0.1
+    optionalDependencies:
+      crossws: 0.4.9(srvx@0.11.20)
+    transitivePeerDependencies:
+      - '@opentelemetry/api'
+
+  '@orpc/shared@2.0.0-beta.25(@opentelemetry/api@1.9.1)':
+    dependencies:
+      '@standardserver/shared': 0.7.1
+      radash: 12.1.1
+      type-fest: 5.8.0
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.1
+
   '@oxc-project/types@0.134.0': {}
 
   '@oxc-project/types@0.138.0': {}
@@ -15861,6 +15977,40 @@ snapshots:
   '@standard-schema/spec@1.1.0': {}
 
   '@standard-schema/utils@0.3.0': {}
+
+  '@standardserver/aws-lambda@0.7.1':
+    dependencies:
+      '@standardserver/core': 0.7.1
+      '@standardserver/fetch': 0.7.1
+      '@standardserver/node': 0.7.1
+      '@standardserver/shared': 0.7.1
+
+  '@standardserver/core@0.7.1':
+    dependencies:
+      '@standardserver/shared': 0.7.1
+
+  '@standardserver/fastify@0.7.1':
+    dependencies:
+      '@standardserver/core': 0.7.1
+      '@standardserver/node': 0.7.1
+
+  '@standardserver/fetch@0.7.1':
+    dependencies:
+      '@standardserver/core': 0.7.1
+      '@standardserver/shared': 0.7.1
+
+  '@standardserver/node@0.7.1':
+    dependencies:
+      '@standardserver/core': 0.7.1
+      '@standardserver/fetch': 0.7.1
+      '@standardserver/shared': 0.7.1
+
+  '@standardserver/peer@0.7.1':
+    dependencies:
+      '@standardserver/core': 0.7.1
+      '@standardserver/shared': 0.7.1
+
+  '@standardserver/shared@0.7.1': {}
 
   '@streamdown/cjk@1.0.3(@types/mdast@4.0.4)(micromark-util-types@2.0.2)(micromark@4.0.2)(react@19.2.7)(unified@11.0.5)':
     dependencies:
@@ -17948,6 +18098,8 @@ snapshots:
 
   cookie@1.1.1:
     optional: true
+
+  cookie@2.0.1: {}
 
   copy-anything@4.0.5:
     dependencies:
@@ -21413,6 +21565,8 @@ snapshots:
 
   quick-lru@6.1.2: {}
 
+  radash@12.1.1: {}
+
   radix-ui@1.6.1(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7):
     dependencies:
       '@radix-ui/primitive': 1.1.4
@@ -22541,8 +22695,7 @@ snapshots:
 
   tabbable@6.5.0: {}
 
-  tagged-tag@1.0.0:
-    optional: true
+  tagged-tag@1.0.0: {}
 
   tailwind-merge@3.6.0: {}
 
@@ -22760,7 +22913,6 @@ snapshots:
   type-fest@5.8.0:
     dependencies:
       tagged-tag: 1.0.0
-    optional: true
 
   type-is@2.1.0:
     dependencies:

@@ -2,6 +2,18 @@ import { electronAPI } from "@electron-toolkit/preload";
 import { contextBridge, ipcRenderer } from "electron";
 import type { WindowApi } from "./window-api";
 
+/**
+ * oRPC MessageChannel handoff: the renderer creates a MessageChannel and
+ * posts one port through the window; we forward it to the main process where
+ * the oRPC `RPCHandler` upgrades it. See `src/renderer/src/lib/orpc.ts`.
+ */
+window.addEventListener("message", (event) => {
+  if (event.data === "start-orpc-client") {
+    const [serverPort] = event.ports;
+    ipcRenderer.postMessage("start-orpc-server", null, [serverPort]);
+  }
+});
+
 const windowApi: WindowApi = {
   close: () => ipcRenderer.invoke("window:close"),
   isMaximized: () => ipcRenderer.invoke("window:is-maximized"),
