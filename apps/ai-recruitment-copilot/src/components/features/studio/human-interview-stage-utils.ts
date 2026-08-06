@@ -139,5 +139,9 @@ export function addOneHourToDateTimeLocalInputValue(value: string): string {
   return toDateTimeLocalInputValue(new Date(date.getTime() + 60 * 60 * 1000).toISOString());
 }
 
+export function buildHumanInterviewMeetingTitle(candidateName: string, roundLabel: string): string {
+  return `${candidateName} - ${roundLabel}`.slice(0, 100);
+}
+
 // ── 新建轮次 dialog ──
 // Schedule (create) dialog.

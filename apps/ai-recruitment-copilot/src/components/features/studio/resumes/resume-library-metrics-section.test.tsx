@@ -61,7 +61,11 @@ describe("ResumeLibraryMetricsSection", () => {
       "utf-8",
     );
 
-    expect(pageSource).toContain("resumeLibraryListQuery.isPending && metricsQuery.isPending");
+    const queriesSource = readFileSync(
+      path.join(import.meta.dirname, "use-resume-library-page-queries.ts"),
+      "utf-8",
+    );
+    expect(queriesSource).toContain("resumeLibraryListQuery.isPending && metricsQuery.isPending");
     expect(pageSource).toContain("return <RecruitingPageSkeleton />");
     expect(routeSource).not.toContain("pendingComponent:");
     expect(sectionSource).not.toContain("useSuspenseQuery");

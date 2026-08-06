@@ -158,7 +158,7 @@ export function InterviewerFormDialog({
         toast.error(payload?.error ?? (isEdit ? "更新失败" : "创建失败"));
         return;
       }
-      toast.success(isEdit ? "面试官已更新" : "面试官已创建");
+      toast.success(isEdit ? "AI面试官已更新" : "AI面试官已创建");
       onSaved();
       onOpenChange(false);
     },
@@ -168,7 +168,7 @@ export function InterviewerFormDialog({
 
   return (
     <EntityFormDialog
-      description="面试官 prompt 与音色会在开始面试时传给语音 agent。"
+      description="AI面试官的 prompt 与音色会在开始面试时传给语音 agent。"
       formId="interviewer-form"
       isEdit={isEdit}
       isSubmitting={isSubmitting}
@@ -177,7 +177,7 @@ export function InterviewerFormDialog({
       open={open}
       size="xl"
       submitDisabled={noDepartments}
-      title={isEdit ? "编辑面试官" : "新建面试官"}
+      title={isEdit ? "编辑 AI面试官" : "新建 AI面试官"}
     >
       <div className="grid gap-5 md:grid-cols-2">
         <form.Field name="name">

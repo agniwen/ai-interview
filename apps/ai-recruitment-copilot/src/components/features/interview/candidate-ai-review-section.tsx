@@ -5,6 +5,14 @@ import { DimensionRadarChart } from "@/components/ui/chart-radar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useEffect, useRef } from "react";
 
+/** Candidate-facing grade while numeric scoring is still unreliable. */
+function toMatchGrade(score: number | null): "A" | "S" | null {
+  if (score === null) {
+    return null;
+  }
+  return score > 80 ? "S" : "A";
+}
+
 function CandidateReviewRadar({ dimensions }: { dimensions: CandidateAiReview["dimensions"] }) {
   return (
     <DimensionRadarChart
@@ -18,12 +26,7 @@ function CandidateReviewRadar({ dimensions }: { dimensions: CandidateAiReview["d
       }))}
       tooltipBody={(dimension) => (
         <div className="flex max-w-72 flex-col gap-1.5">
-          <div className="flex items-center justify-between gap-6">
-            <span className="font-medium text-foreground">{dimension.label}</span>
-            <span className="font-medium text-foreground tabular-nums">
-              {String(dimension.score ?? "—")} 分
-            </span>
-          </div>
+          <span className="font-medium text-foreground">{dimension.label}</span>
           {typeof dimension.rationale === "string" ? (
             <p className="text-muted-foreground text-xs leading-5">{dimension.rationale}</p>
           ) : null}
@@ -34,6 +37,7 @@ function CandidateReviewRadar({ dimensions }: { dimensions: CandidateAiReview["d
 }
 
 export function CandidateAiReviewSection({ review }: { review: CandidateAiReview | null }) {
+  const grade = review ? toMatchGrade(review.baseScore) : null;
   const strengthsViewportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -88,8 +92,11 @@ export function CandidateAiReviewSection({ review }: { review: CandidateAiReview
             <div className="flex min-w-0 flex-col justify-center border-foreground/15 border-t py-8 lg:border-t-0">
               <div className="lg:pl-10">
                 <h3 className="text-muted-foreground text-xs tracking-wide">综合匹配度</h3>
-                <span className="mt-4 block font-semibold text-6xl tabular-nums leading-none tracking-tighter">
-                  {review.baseScore ?? "—"}
+                <span
+                  aria-label={grade ? `综合匹配度 ${grade}` : "综合匹配度暂无"}
+                  className="mt-4 block font-semibold text-6xl leading-none tracking-tighter"
+                >
+                  {grade ?? "—"}
                 </span>
               </div>
               <div className="mt-8 border-foreground/15 border-t pt-6 lg:pl-10">
@@ -102,9 +109,7 @@ export function CandidateAiReviewSection({ review }: { review: CandidateAiReview
           </div>
 
           <div className="py-8">
-            <div className="flex items-center justify-between gap-4">
-              <h3 className="text-muted-foreground text-xs tracking-wide">您的优势</h3>
-            </div>
+            <h3 className="text-muted-foreground text-xs tracking-wide">您的优势</h3>
             {review.strengths.length > 0 ? (
               <ScrollArea
                 className="mt-5 w-full"

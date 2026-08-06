@@ -22,7 +22,7 @@ export const studioCalendarKeys = {
 
 export const studioResumeKeys = {
   metrics: (slug: string, scope: "team" | "personal" = "team") =>
-    ["studio-resumes", slug, "metrics", scope] as const,
+    ["studio-resume-metrics", slug, scope] as const,
 };
 
 type QueryInvalidator = Pick<QueryClient, "invalidateQueries">;

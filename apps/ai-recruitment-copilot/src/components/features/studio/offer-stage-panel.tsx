@@ -5,7 +5,7 @@ import { IconHeartHandshake, IconPlus } from "@tabler/icons-react";
 // Offer 阶段的详情面板内容：
 //   - 顶部：候选人期望（薪资 / 现 base / 期望入职日）—— 可编辑，partial merge
 //   - 下方：Offer 草稿版本时间线（version desc）
-//   - 新建 Offer / 编辑 draft / 发送 / 记录响应 / 撤回
+//   - 新建 Offer / 编辑 draft / 记录响应 / 撤回
 //   - 候选人接受 Offer 时弹二次确认，请上层走「标记结案 hired」流程
 //
 // Offer-stage panel: candidate expectations inline form + offer draft
@@ -109,7 +109,6 @@ export function OfferStagePanel({
           <OfferCard
             canDelete={canDelete}
             canUpdate={canUpdate}
-            candidateEmail={candidateEmail}
             candidateId={candidateId}
             disabled={disabled}
             draft={draft}
@@ -117,7 +116,6 @@ export function OfferStagePanel({
             onCancelled={invalidateDrafts}
             onRespond={() => setRespondTarget(draft)}
             onSaved={invalidateDrafts}
-            onSent={invalidateDrafts}
           />
         ))}
       </div>

@@ -32,7 +32,11 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { SearchableMultiSelect } from "@/components/ui/searchable-multi-select";
 import { Textarea } from "@/components/ui/textarea";
-import { addOneHourToDateTimeLocalInputValue } from "./human-interview-stage-utils";
+import { getCreatedMeetingFeishuFailure } from "./human-interview-feishu-error";
+import {
+  addOneHourToDateTimeLocalInputValue,
+  buildHumanInterviewMeetingTitle,
+} from "./human-interview-stage-utils";
 
 interface WorkspaceMember {
   id: string;
@@ -58,6 +62,7 @@ interface ScheduleDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   candidateId: string;
+  candidateName: string;
   existingCount: number;
   onScheduled: () => void;
 }
@@ -73,6 +78,7 @@ export function ScheduleRoundDialog({
   open,
   onOpenChange,
   candidateId,
+  candidateName,
   existingCount,
   onScheduled,
 }: ScheduleDialogProps) {
@@ -124,19 +130,31 @@ export function ScheduleRoundDialog({
         scheduledAt: scheduledAtIso,
       });
       const validUntilIso = dateTimeLocalInputToISOString(validUntil);
-      await createHumanInterviewMeeting(slug, {
-        interviewerIds,
-        notes: notes.trim() || null,
-        roundIds: [round.id],
-        scheduledAt: scheduledAtIso,
-        title: roundLabel,
-        validUntil: validUntilIso,
-      });
-      return round;
+      try {
+        await createHumanInterviewMeeting(slug, {
+          interviewerIds,
+          notes: notes.trim() || null,
+          roundIds: [round.id],
+          scheduledAt: scheduledAtIso,
+          title: buildHumanInterviewMeetingTitle(candidateName, roundLabel),
+          validUntil: validUntilIso,
+        });
+        return { feishuFailure: null, round };
+      } catch (error) {
+        const feishuFailure = getCreatedMeetingFeishuFailure(error);
+        if (!feishuFailure) {
+          throw error;
+        }
+        return { feishuFailure, round };
+      }
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "创建失败"),
-    onSuccess: () => {
-      toast.success("已安排线上真人复面");
+    onSuccess: ({ feishuFailure }) => {
+      if (feishuFailure) {
+        toast.warning("真人复面已安排，飞书同步失败，可在会议链接中重试");
+      } else {
+        toast.success("已安排线上真人复面");
+      }
       void invalidateHumanInterviewCandidateQueries(queryClient, { candidateId, slug });
       onScheduled();
       handleOpenChange(false);
@@ -155,7 +173,7 @@ export function ScheduleRoundDialog({
         <DialogHeader>
           <DialogTitle>安排真人复面</DialogTitle>
           <DialogDescription>
-            填好基础信息后保存。系统会创建线上复面会议；有效时间为空时默认到面试时间后一小时。
+            保存后会同时创建线上复面会议、飞书会议和日程；有效时间为空时默认到面试时间后一小时。
           </DialogDescription>
         </DialogHeader>
 

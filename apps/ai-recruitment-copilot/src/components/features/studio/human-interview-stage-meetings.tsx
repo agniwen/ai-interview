@@ -3,15 +3,18 @@
 /* oxlint-disable no-use-before-define -- helper components follow the public dialog */
 
 import { IconCopy, IconLink, IconLoader2, IconUsers } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { MouseEvent } from "react";
 import { toast } from "sonner";
-import type { HumanInterviewMeetingInterviewerRole } from "@arc/db-schema/studio-interviews";
+import type {
+  FeishuHumanInterviewSyncStatus,
+  HumanInterviewMeetingInterviewerRole,
+} from "@arc/db-schema/studio-interviews";
 import type {
   HumanInterviewMeetingLinkBundle,
   HumanInterviewMeetingRecord,
 } from "@arc/shared/studio-pipeline-stages";
-import { issueHumanInterviewMeetingLinks } from "@/lib/client/api";
+import { issueHumanInterviewMeetingLinks, retryHumanInterviewFeishuSync } from "@/lib/client/api";
 import { copyTextToClipboard, toAbsoluteUrl } from "@/lib/client/clipboard";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import {
@@ -94,6 +97,7 @@ export function MeetingLinksDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const slug = useWorkspaceSlug();
+  const queryClient = useQueryClient();
   const { data, error, isFetching } = useQuery({
     enabled: Boolean(meeting),
     queryFn: () => {
@@ -103,6 +107,25 @@ export function MeetingLinksDialog({
       return issueHumanInterviewMeetingLinks(slug, meeting.id);
     },
     queryKey: ["human-interview-meeting-links", slug, meeting?.id],
+  });
+  const retryFeishu = useMutation({
+    mutationFn: () => {
+      if (!meeting) {
+        throw new Error("missing meeting");
+      }
+      return retryHumanInterviewFeishuSync(slug, meeting.id);
+    },
+    onError: (retryError) => {
+      toast.error(retryError instanceof Error ? retryError.message : "重试飞书同步失败");
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["human-interview-meeting-links", slug, meeting?.id],
+      });
+    },
+    onSuccess: () => {
+      toast.success("飞书会议与日程已创建");
+    },
   });
 
   return (
@@ -129,16 +152,62 @@ export function MeetingLinksDialog({
               {error instanceof Error ? error.message : "生成链接失败"}
             </p>
           ) : null}
-          {data ? <MeetingLinksContent links={data} /> : null}
+          {data ? (
+            <MeetingLinksContent
+              isRetrying={retryFeishu.isPending}
+              links={data}
+              onRetry={() => retryFeishu.mutate()}
+            />
+          ) : null}
         </div>
       </DialogContent>
     </Dialog>
   );
 }
 
-function MeetingLinksContent({ links }: { links: HumanInterviewMeetingLinkBundle }) {
+function MeetingLinksContent({
+  isRetrying,
+  links,
+  onRetry,
+}: {
+  isRetrying: boolean;
+  links: HumanInterviewMeetingLinkBundle;
+  onRetry: () => void;
+}) {
+  const retryCopy = getFeishuRetryCopy(links.feishu?.status);
+
   return (
     <div className="space-y-5">
+      {retryCopy ? (
+        <div
+          className={`flex items-center justify-between gap-3 rounded-lg border p-3 ${retryCopy.tone}`}
+        >
+          <p className="text-sm">{retryCopy.message}</p>
+          <Button disabled={isRetrying} onClick={onRetry} size="sm" variant="outline">
+            {isRetrying ? <IconLoader2 className="size-4 animate-spin" /> : null}
+            {retryCopy.button}
+          </Button>
+        </div>
+      ) : null}
+      {links.feishu?.status === "unknown" ? (
+        <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-amber-700 text-sm dark:text-amber-300">
+          飞书会议创建结果未知，请先在飞书中人工核查，暂时不能直接重试。
+        </p>
+      ) : null}
+
+      {links.feishu?.meetingUrl ? (
+        <section className="space-y-2">
+          <h4 className="flex items-center gap-2 font-medium text-sm">
+            <IconLink className="size-4" />
+            飞书会议链接
+          </h4>
+          <MeetingLinkRow description="发给候选人" label="飞书会议" url={links.feishu.meetingUrl} />
+          <p className="text-muted-foreground text-xs">
+            飞书日程创建后，系统内改期或取消不会自动同步到飞书，请同时在飞书中处理。
+          </p>
+        </section>
+      ) : null}
+
       <section className="space-y-2">
         <h4 className="flex items-center gap-2 font-medium text-sm">
           <IconUsers className="size-4" />
@@ -174,6 +243,31 @@ function MeetingLinksContent({ links }: { links: HumanInterviewMeetingLinkBundle
       </section>
     </div>
   );
+}
+
+function getFeishuRetryCopy(status: FeishuHumanInterviewSyncStatus | undefined) {
+  if (status === "failed") {
+    return {
+      button: "重试飞书同步",
+      message: "飞书同步失败，现有候选人和面试官链接仍可使用。",
+      tone: "border-destructive/30 bg-destructive/5 text-destructive",
+    };
+  }
+  if (status === "pending") {
+    return {
+      button: "继续飞书同步",
+      message: "飞书同步尚未完成，可以继续创建飞书会议与日程。",
+      tone: "border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300",
+    };
+  }
+  if (status === "creating") {
+    return {
+      button: "检查并恢复同步",
+      message: "飞书同步可能仍在进行；若长时间未完成，可以检查并恢复。",
+      tone: "border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300",
+    };
+  }
+  return null;
 }
 
 function MeetingLinkRow({

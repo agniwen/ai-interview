@@ -5,26 +5,34 @@ const controllerSource = readFileSync(
   new URL("studio-person-detail-controller.tsx", import.meta.url),
   "utf-8",
 );
+const headerSource = readFileSync(
+  new URL("studio-person-detail-header.tsx", import.meta.url),
+  "utf-8",
+);
 const bodySource = readFileSync(new URL("studio-person-detail-body.tsx", import.meta.url), "utf-8");
-const resultContentSource = bodySource.slice(
-  bodySource.indexOf("function InterviewResultTabContent"),
-  bodySource.indexOf("export function StudioPersonDetailBody"),
+const resultContentSource = readFileSync(
+  new URL("interview-result/interview-result-tab-content.tsx", import.meta.url),
+  "utf-8",
 );
-const reportDetailsSource = bodySource.slice(
-  bodySource.indexOf("function InterviewReportDetailSection"),
-  bodySource.indexOf("function InterviewResultTabContent"),
+const reportDetailsSource = readFileSync(
+  new URL("interview-result/interview-report-details.tsx", import.meta.url),
+  "utf-8",
 );
-const resultFrameSource = bodySource.slice(
-  bodySource.indexOf("function InterviewResultFrame"),
-  bodySource.indexOf("function InterviewReportDetailSection"),
+const resultFrameSource = readFileSync(
+  new URL("interview-result/interview-result-frame.tsx", import.meta.url),
+  "utf-8",
+);
+const recordSelectorSource = readFileSync(
+  new URL("interview-result/interview-record-selector.tsx", import.meta.url),
+  "utf-8",
 );
 
 describe("AI 面试详情 tabs", () => {
   it("places the resume activity timeline in a right rail on wide screens", () => {
-    expect(controllerSource).toContain(
+    expect(headerSource).toContain(
       'const showTimelineRail = mode === "resume" && !isPublic && activeTab === "overview"',
     );
-    expect(controllerSource).toContain("xl:grid-cols-[minmax(0,1fr)_28rem]");
+    expect(headerSource).toContain("xl:grid-cols-[minmax(0,1fr)_28rem]");
     expect(bodySource).toContain("{showTimelineRail ? (");
     expect(bodySource).toContain("<aside");
     expect(bodySource).toContain('density="rail"');
@@ -36,9 +44,9 @@ describe("AI 面试详情 tabs", () => {
     expect(controllerSource).not.toContain('value="forms"');
     expect(bodySource).not.toContain('<TabsContent value="forms">');
     expect(bodySource).not.toContain("StudioPersonDetailQuestionsTab");
-    expect(bodySource).toContain("<FrameTitle>表单题</FrameTitle>");
-    expect(bodySource).toContain('emptyLabel="暂无表单答复" items={formItems}');
-    expect(bodySource).toContain("<FrameTitle>沟通题</FrameTitle>");
+    expect(resultContentSource).toContain("<FrameTitle>表单题</FrameTitle>");
+    expect(resultContentSource).toContain('emptyLabel="暂无表单答复" items={formItems}');
+    expect(resultContentSource).toContain("<FrameTitle>沟通题</FrameTitle>");
     expect(resultContentSource).toContain('emptyLabel="暂无沟通题"');
     expect(resultContentSource).toContain("items={interviewItems}");
   });
@@ -48,19 +56,18 @@ describe("AI 面试详情 tabs", () => {
       'const showAgentInstructions = import.meta.env.DEV && mode === "interview" && !isPublic',
     );
     expect(controllerSource.match(/import\.meta\.env\.DEV/g)).toHaveLength(1);
-    expect(controllerSource).toContain("if (showAgentInstructions)");
-    expect(controllerSource).toContain("{showAgentInstructions ? (");
+    expect(headerSource).toContain("{showAgentInstructions ? (");
     expect(bodySource).toContain("{showAgentInstructions ? (");
   });
 
   it("places the form reset action in the form frame header", () => {
-    const formTitleIndex = bodySource.indexOf("<FrameTitle>表单题</FrameTitle>");
-    const formHeaderStart = bodySource.lastIndexOf("<FrameHeader", formTitleIndex);
-    const formHeaderEnd = bodySource.indexOf("</FrameHeader>", formTitleIndex);
+    const formTitleIndex = resultContentSource.indexOf("<FrameTitle>表单题</FrameTitle>");
+    const formHeaderStart = resultContentSource.lastIndexOf("<FrameHeader", formTitleIndex);
+    const formHeaderEnd = resultContentSource.indexOf("</FrameHeader>", formTitleIndex);
     expect(formTitleIndex).toBeGreaterThan(-1);
     expect(formHeaderStart).toBeGreaterThan(-1);
     expect(formHeaderEnd).toBeGreaterThan(formTitleIndex);
-    expect(bodySource.slice(formHeaderStart, formHeaderEnd)).toContain(
+    expect(resultContentSource.slice(formHeaderStart, formHeaderEnd)).toContain(
       "<FormSubmissionResetAction",
     );
   });
@@ -109,8 +116,8 @@ describe("AI 面试详情 tabs", () => {
   it("replaces the standalone report tab with a report selector in the result tab", () => {
     expect(controllerSource).not.toContain('value="reports"');
     expect(bodySource).not.toContain('<TabsContent value="reports">');
-    expect(bodySource).toContain("reports.length > 1");
-    expect(bodySource).toContain("<Select");
+    expect(recordSelectorSource).toContain("reports.length > 1");
+    expect(recordSelectorSource).toContain("<Select");
     expect(resultContentSource).toContain("onSelectedReportChange");
   });
 
