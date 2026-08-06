@@ -15,6 +15,8 @@ export default defineConfig({
     "**/src/components/spell-ui/**",
     "apps/ai-recruitment-copilot/src/routeTree.gen.ts",
     "apps/ai-recruitment-copilot-worker/dist/**",
+    // Upstream/shared shadcn-style UI — keep parity with web exclusions.
+    "apps/ai-recruitment-copilot-desktop/src/renderer/src/components/ui/**",
   ],
   overrides: [
     {
@@ -37,6 +39,14 @@ export default defineConfig({
       files: ["apps/ai-recruitment-copilot/src/app/_components/home/footer.tsx"],
       rules: {
         "nextjs/no-html-link-for-pages": "off",
+      },
+    },
+    {
+      // Electron desktop app is not a Next.js app; Next-only rules do not apply.
+      files: ["apps/ai-recruitment-copilot-desktop/**/*.{ts,tsx}"],
+      rules: {
+        "nextjs/no-html-link-for-pages": "off",
+        "nextjs/no-img-element": "off",
       },
     },
   ],

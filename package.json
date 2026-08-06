@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "turbo run dev",
+    "dev:desktop": "pnpm --filter @arc/ai-recruitment-copilot-desktop dev",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",

@@ -21,6 +21,8 @@ allowBuilds:
   canvas: set this to true or false
   cbor-extract: true
   core-js: false
+  electron: true
+  electron-winstaller: true
   esbuild: true
   lefthook: true
   msgpackr-extract: false
@@ -55,15 +57,14 @@ trustPolicy: no-downgrade
 # without provenance (signing key unchanged). pnpm flags this as a
 # downgrade; it is not.
 trustPolicyExclude:
-  - "semver@6.3.1"
-  # @base-ui/utils@0.2.8 transitively pins reselect: ^5.1.1. 5.1.0 was
-  # CI-published with provenance; 5.1.1 was republished by Redux maintainer
-  # acemarke (Mark Erikson) from a local machine. Same npm signing key.
+  # Version-specific entries (semver@6.3.1 etc.) do not match lockfile verification
+  # in pnpm@11.5.2; package-name form is required for electron-builder's transitive
+  # semver@5.7.2 / eslint-plugin-react's semver@6.3.1 republish-without-provenance cases.
+  - "semver"
   - "reselect@5.1.1"
-  # vitest@4.x pulls tinyexec@^1.0.2. 1.2.2 was published with provenance
-  # attestation and the same npm registry signing key as earlier 1.x releases;
-  # pnpm flags the publisher/provenance evidence change as a downgrade.
   - "tinyexec@1.2.2"
+  # electron@39 → @types/node@22 → undici-types@6.21.0 (DefinitelyTyped republish)
+  - "undici-types@6.21.0"
 
 minimumReleaseAgeExclude:
   - "@extend-ai/react-docx@0.7.1"

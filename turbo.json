@@ -29,7 +29,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".output/**", "dist/**"]
+      "outputs": [".output/**", "dist/**", "out/**"]
     },
     "dev": {
       "cache": false,
