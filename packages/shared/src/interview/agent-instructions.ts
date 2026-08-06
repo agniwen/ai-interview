@@ -1,5 +1,5 @@
 /**
- * AI 面试官 prompt 拼装：把候选人信息 / 岗位 / 题目组合成最终 system prompt。
+ * AI面试官 prompt 拼装：把候选人信息 / 岗位 / 题目组合成最终 system prompt。
  * AI interviewer prompt assembly: merges candidate info / role / questions into the
  * final system prompt sent to the agent.
  *

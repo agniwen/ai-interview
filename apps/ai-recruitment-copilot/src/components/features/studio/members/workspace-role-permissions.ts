@@ -104,7 +104,7 @@ export const WORKSPACE_PERMISSION_GROUPS = [
     title: "招聘流程",
   },
   {
-    description: "组织结构、面试官和题库配置。",
+    description: "组织结构、AI面试官和题库配置。",
     resources: [
       {
         actions: ["create", "read", "update", "delete"] as const,
@@ -114,7 +114,7 @@ export const WORKSPACE_PERMISSION_GROUPS = [
       {
         actions: ["create", "read", "update", "delete"] as const,
         key: "interviewer",
-        label: "面试官",
+        label: "AI面试官",
       },
       {
         actions: ["create", "read", "update", "delete"] as const,
@@ -188,7 +188,7 @@ const PAGE_PERMISSION_DESCRIPTIONS: Partial<Record<string, string>> = {
   interviewQuestions:
     "控制是否能在侧边栏看到并访问「沟通题」页面；题库列表、版本和增删改仍受「沟通题」相关权限控制。",
   interviewers:
-    "控制是否能在侧边栏看到并访问「面试官管理」页面；面试官列表、详情和增删改仍受「面试官」相关权限控制。",
+    "控制是否能在侧边栏看到并访问「AI面试官管理」页面；AI面试官列表、详情和增删改仍受「AI面试官」相关权限控制。",
   interviews:
     "控制是否能在侧边栏看到并访问「AI 面试」页面；列表、详情、报告、录音、轮次和操作仍受「AI 面试」相关权限控制。",
   jobDescriptions:
@@ -245,10 +245,10 @@ const RESOURCE_ACTION_DESCRIPTIONS: Partial<Record<PermissionResource, Record<st
     update: "允许编辑 AI 面试、轮次、题目绑定、邮件、重置、面试结果、人面安排和 offer 草稿等操作。",
   },
   interviewer: {
-    create: "允许在「面试官管理」页面新增面试官。",
-    delete: "允许删除面试官。",
-    read: "允许加载面试官列表、全部面试官选项和面试官详情；相关选择器也依赖该权限。",
-    update: "允许编辑面试官资料和可用性等配置。",
+    create: "允许在「AI面试官管理」页面新增 AI面试官。",
+    delete: "允许删除 AI面试官。",
+    read: "允许加载 AI面试官列表、全部 AI面试官选项和详情；相关选择器也依赖该权限。",
+    update: "允许编辑 AI面试官资料和可用性等配置。",
   },
   invitation: {
     cancel: "允许取消尚未接受的成员邀请。",

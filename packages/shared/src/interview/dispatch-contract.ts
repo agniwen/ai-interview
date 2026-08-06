@@ -115,7 +115,7 @@ export function buildInterviewDispatchContract(
   const targetRole = input.targetRole?.trim() || "未指定岗位";
   const selectedInterviewer = input.selectedInterviewer
     ? {
-        name: input.selectedInterviewer.name.trim() || "AI 面试官",
+        name: input.selectedInterviewer.name.trim() || "AI面试官",
         voice: input.selectedInterviewer.voice?.trim() || null,
       }
     : null;

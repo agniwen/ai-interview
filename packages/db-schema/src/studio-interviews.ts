@@ -260,6 +260,20 @@ export const humanInterviewMeetingStatusValues = [
 export const humanInterviewMeetingStatusSchema = z.enum(humanInterviewMeetingStatusValues);
 export type HumanInterviewMeetingStatus = z.infer<typeof humanInterviewMeetingStatusSchema>;
 
+export const feishuHumanInterviewProviderIdValues = ["feishu", "feishu-jiguang-hr"] as const;
+export const feishuHumanInterviewProviderIdSchema = z.enum(feishuHumanInterviewProviderIdValues);
+export type FeishuHumanInterviewProviderId = z.infer<typeof feishuHumanInterviewProviderIdSchema>;
+
+export const feishuHumanInterviewSyncStatusValues = [
+  "pending",
+  "creating",
+  "ready",
+  "failed",
+  "unknown",
+] as const;
+export const feishuHumanInterviewSyncStatusSchema = z.enum(feishuHumanInterviewSyncStatusValues);
+export type FeishuHumanInterviewSyncStatus = z.infer<typeof feishuHumanInterviewSyncStatusSchema>;
+
 export const humanInterviewMeetingInterviewerRoleValues = [
   "host",
   "interviewer",
@@ -298,7 +312,7 @@ export const humanInterviewMeetingInputSchema = z.object({
   interviewerIds: z
     .array(z.string().trim().min(1))
     .min(1, "至少添加 1 位面试官")
-    .max(20, "面试官最多 20 人"),
+    .max(10, "面试官最多 10 人"),
   notes: z.string().trim().max(1000, "会议备注不能超过 1000 字").nullable().optional(),
   roundIds: z
     .array(z.string().trim().min(1))

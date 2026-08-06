@@ -39,7 +39,7 @@ export const STUDIO_PAGE_PERMISSION_LABELS = {
   forms: "表单题",
   globalConfig: "上下文设置",
   interviewQuestions: "沟通题",
-  interviewers: "面试官管理",
+  interviewers: "AI面试官管理",
   interviews: "AI 面试",
   jobDescriptions: "岗位设置",
   mailIngestAccounts: "邮箱监听",

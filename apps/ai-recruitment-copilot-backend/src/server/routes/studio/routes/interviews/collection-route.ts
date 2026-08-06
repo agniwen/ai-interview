@@ -40,6 +40,14 @@ import {
   HumanInterviewLiveKitConfigError,
   signHumanInterviewMeetingToken,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/utils/human-interview-livekit";
+import { getFeishuTenantAccessToken } from "@arc/ai-recruitment-copilot-backend/lib/server/feishu-access-token";
+import { getFeishuAppCredentials } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
+import {
+  isFeishuSyncConflictError,
+  recordFeishuHumanInterviewSyncFailure,
+  resolveHumanInterviewFeishuProviderId,
+  syncHumanInterviewMeetingToFeishu,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/utils/feishu-human-interview-meeting";
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
 import { recruitingJobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { syncResumeSkills } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
@@ -329,23 +337,139 @@ export const studioInterviewCollectionRouter = factory
       jsonValidatorError("真人复面会议参数无效。"),
     ),
     async (c) => {
-      const { activeOrg, user } = c.var;
-      if (!activeOrg) {
+      const { activeOrg, session, user } = c.var;
+      if (!activeOrg || !user) {
         return c.json({ message: "Unauthorized" }, 401);
       }
       try {
+        const providerId = await resolveHumanInterviewFeishuProviderId({
+          authProviderId: session?.authProviderId,
+          userId: user.id,
+        });
         const created = await createHumanInterviewMeeting({
-          createdBy: user?.id ?? null,
+          createdBy: user.id,
+          feishuProviderId: providerId,
           input: c.req.valid("json"),
           organizationId: activeOrg.id,
         });
+        let synced;
+        try {
+          const credentials = getFeishuAppCredentials(providerId);
+          const accessToken = await getFeishuTenantAccessToken(
+            credentials.appId,
+            credentials.appSecret,
+          );
+          synced = await syncHumanInterviewMeetingToFeishu({
+            accessToken,
+            meetingId: created.id,
+            operatorId: user.id,
+            organizationId: activeOrg.id,
+            providerId,
+          });
+        } catch (error) {
+          if (isFeishuSyncConflictError(error)) {
+            return c.json(
+              {
+                error: error.message,
+                feishuStatus: error.feishuStatus,
+                meetingId: created.id,
+              },
+              409,
+            );
+          }
+          const failure = await recordFeishuHumanInterviewSyncFailure({
+            error,
+            meetingId: created.id,
+            organizationId: activeOrg.id,
+          });
+          return c.json(
+            {
+              error: failure.message,
+              feishuStatus: failure.status,
+              meetingId: created.id,
+            },
+            502,
+          );
+        }
         invalidateStudioInterviewCaches(activeOrg.id);
-        return c.json(created, 200);
+        return c.json(synced, 200);
       } catch (error) {
         if (error instanceof HumanInterviewMeetingError) {
           return c.json({ error: error.message }, error.status);
         }
         throw error;
+      }
+    },
+  )
+  .post(
+    "/human-interview-meetings/:meetingId/feishu-sync",
+    requirePermission("humanInterview", "update"),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!activeOrg || !user) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const meetingId = c.req.param("meetingId");
+      const meeting = await loadHumanInterviewMeetingById(meetingId, activeOrg.id);
+      if (!meeting) {
+        return c.json({ error: "真人复面会议不存在。" }, 404);
+      }
+      if (!meeting.feishu) {
+        return c.json({ error: "该真人复面会议尚未配置飞书同步。" }, 400);
+      }
+      if (meeting.feishu.status === "ready") {
+        return c.json(meeting, 200);
+      }
+      if (meeting.feishu.status === "unknown") {
+        return c.json(
+          {
+            error: "飞书会议创建结果未知，请先在飞书中核查，不能直接重试。",
+            feishuStatus: "unknown" as const,
+            meetingId,
+          },
+          409,
+        );
+      }
+
+      try {
+        const credentials = getFeishuAppCredentials(meeting.feishu.providerId);
+        const accessToken = await getFeishuTenantAccessToken(
+          credentials.appId,
+          credentials.appSecret,
+        );
+        const synced = await syncHumanInterviewMeetingToFeishu({
+          accessToken,
+          meetingId,
+          operatorId: meeting.createdBy ?? user.id,
+          organizationId: activeOrg.id,
+          providerId: meeting.feishu.providerId,
+        });
+        invalidateStudioInterviewCaches(activeOrg.id);
+        return c.json(synced, 200);
+      } catch (error) {
+        if (isFeishuSyncConflictError(error)) {
+          return c.json(
+            {
+              error: error.message,
+              feishuStatus: error.feishuStatus,
+              meetingId,
+            },
+            409,
+          );
+        }
+        const failure = await recordFeishuHumanInterviewSyncFailure({
+          error,
+          meetingId,
+          organizationId: activeOrg.id,
+        });
+        return c.json(
+          {
+            error: failure.message,
+            feishuStatus: failure.status,
+            meetingId,
+          },
+          502,
+        );
       }
     },
   )

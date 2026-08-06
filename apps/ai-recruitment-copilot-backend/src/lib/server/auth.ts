@@ -9,6 +9,7 @@ import { uniq } from "lodash-es";
 import { getAuthRequestHeaders } from "@arc/ai-recruitment-copilot-backend/lib/server/auth-request-context";
 import { getRequiredEnv } from "@arc/ai-recruitment-copilot-backend/lib/server/env";
 import { getFeishuTenantAccessToken } from "@arc/ai-recruitment-copilot-backend/lib/server/feishu-access-token";
+import { resolveSessionAuthProviderId } from "@arc/ai-recruitment-copilot-backend/lib/server/session-auth-provider";
 import {
   canAssignWorkspaceRole,
   dynamicWorkspaceRoleExists,
@@ -244,6 +245,12 @@ export const auth = betterAuth({
             console.warn("[auth] failed to stamp user.lastActiveAt", error);
           }
         },
+        before(newSession, context) {
+          const authProviderId = resolveSessionAuthProviderId(context);
+          return Promise.resolve({
+            data: authProviderId ? { ...newSession, authProviderId } : newSession,
+          });
+        },
       },
     },
   },
@@ -464,6 +471,13 @@ export const auth = betterAuth({
   // at 1 day. 5 minutes is a balanced trade between DB write frequency and
   // perceived freshness; expiresIn stays at 7 days.
   session: {
+    additionalFields: {
+      authProviderId: {
+        input: false,
+        required: false,
+        type: "string",
+      },
+    },
     // 7 天 = 60 * 60 * 24 * 7
     expiresIn: 60 * 60 * 24 * 7,
     // 5 分钟 = 60 * 5；让"最近活跃"列足够新鲜

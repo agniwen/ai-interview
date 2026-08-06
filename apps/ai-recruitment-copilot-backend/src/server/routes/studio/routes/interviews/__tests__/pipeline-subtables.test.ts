@@ -96,13 +96,29 @@ beforeAll(async () => {
     name: "Pipeline Subtables Org",
     slug: "test-pipeline-subtables",
   });
-  await db.insert(member).values({
-    createdAt: NOW,
-    id: "m_pipeline_hr",
-    organizationId: ORG,
-    role: "owner",
-    userId: HR_USER,
-  });
+  await db.insert(member).values([
+    {
+      createdAt: NOW,
+      id: "m_pipeline_hr",
+      organizationId: ORG,
+      role: "owner",
+      userId: HR_USER,
+    },
+    {
+      createdAt: NOW,
+      id: "m_pipeline_int_a",
+      organizationId: ORG,
+      role: "member",
+      userId: INTERVIEWER_A,
+    },
+    {
+      createdAt: NOW,
+      id: "m_pipeline_int_b",
+      organizationId: ORG,
+      role: "member",
+      userId: INTERVIEWER_B,
+    },
+  ]);
   await db.insert(studioInterview).values([
     {
       candidateName: "复面测试",
