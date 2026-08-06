@@ -35,8 +35,10 @@ import {
   CompleteRoundDialog,
   ScheduleRoundDialog,
 } from "./human-interview-stage-dialogs";
+import { getCreatedMeetingFeishuFailure } from "./human-interview-feishu-error";
 import { EndMeetingDialog, MeetingLinksDialog } from "./human-interview-stage-meetings";
 import { RoundCard } from "./human-interview-stage-rounds";
+import { buildHumanInterviewMeetingTitle } from "./human-interview-stage-utils";
 
 interface PanelProps {
   candidateId: string;
@@ -130,18 +132,32 @@ export function HumanInterviewStagePanel({
     },
   });
   const createMeetingMutation = useMutation({
-    mutationFn: (round: HumanInterviewRoundRecord) =>
-      createHumanInterviewMeeting(slug, {
-        interviewerIds: round.interviewers.map((interviewer) => interviewer.id),
-        notes: round.notes,
-        roundIds: [round.id],
-        scheduledAt: round.scheduledAt,
-        title: round.label,
-        validUntil: null,
-      }),
+    mutationFn: async (round: HumanInterviewRoundRecord) => {
+      try {
+        await createHumanInterviewMeeting(slug, {
+          interviewerIds: round.interviewers.map((interviewer) => interviewer.id),
+          notes: round.notes,
+          roundIds: [round.id],
+          scheduledAt: round.scheduledAt,
+          title: buildHumanInterviewMeetingTitle(candidateName, round.label),
+          validUntil: null,
+        });
+        return { feishuFailure: null };
+      } catch (error) {
+        const feishuFailure = getCreatedMeetingFeishuFailure(error);
+        if (!feishuFailure) {
+          throw error;
+        }
+        return { feishuFailure };
+      }
+    },
     onError: (e) => toast.error(e instanceof Error ? e.message : "创建视频会议失败"),
-    onSuccess: () => {
-      toast.success("已创建视频会议");
+    onSuccess: ({ feishuFailure }) => {
+      if (feishuFailure) {
+        toast.warning("视频会议已创建，飞书同步失败，可在会议链接中重试");
+      } else {
+        toast.success("已创建视频会议");
+      }
       invalidateRounds();
     },
   });
@@ -229,6 +245,7 @@ export function HumanInterviewStagePanel({
 
       <ScheduleRoundDialog
         candidateId={candidateId}
+        candidateName={candidateName}
         existingCount={rounds.length}
         onOpenChange={(open) => dispatchDialog({ open, type: "scheduleOpenChanged" })}
         onScheduled={invalidateRounds}

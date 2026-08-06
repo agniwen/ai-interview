@@ -434,6 +434,20 @@ export function issueHumanInterviewMeetingLinks(
   );
 }
 
+export function retryHumanInterviewFeishuSync(
+  slug: string,
+  meetingId: string,
+): Promise<HumanInterviewMeetingRecord> {
+  return rpcFetch<HumanInterviewMeetingRecord>(
+    rpc.api.w[":slug"].studio.interviews["human-interview-meetings"][":meetingId"][
+      "feishu-sync"
+    ].$post({
+      param: { meetingId, slug },
+    }),
+    "重试飞书会议同步失败",
+  );
+}
+
 export function endHumanInterviewMeeting(
   slug: string,
   meetingId: string,
