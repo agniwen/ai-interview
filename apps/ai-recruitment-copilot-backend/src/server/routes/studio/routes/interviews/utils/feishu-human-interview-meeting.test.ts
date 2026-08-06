@@ -67,6 +67,36 @@ describe("Feishu human interview HTTP contract", () => {
     });
   });
 
+  it("updates the existing reserve end time without creating another reserve", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
+        headers: { "content-type": "application/json" },
+        status: 200,
+      }),
+    );
+    const client = createFeishuHumanInterviewClient({
+      accessToken: "tenant-token",
+      fetch: fetchMock,
+    });
+
+    await client.updateReserve({
+      endAt: new Date("2026-08-05T11:30:00.000Z"),
+      reserveId: "reserve_1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://open.feishu.cn/open-apis/vc/v1/reserves/reserve_1?user_id_type=open_id",
+      {
+        body: JSON.stringify({ end_time: "1785929400" }),
+        headers: {
+          authorization: "Bearer tenant-token",
+          "content-type": "application/json; charset=utf-8",
+        },
+        method: "PUT",
+      },
+    );
+  });
+
   it("loads the bot primary calendar", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
@@ -157,6 +187,42 @@ describe("Feishu human interview HTTP contract", () => {
         vc_type: "third_party",
       },
     });
+  });
+
+  it("updates the existing calendar event time and notifies attendees", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ code: 0, data: {}, msg: "success" }), {
+        headers: { "content-type": "application/json" },
+        status: 200,
+      }),
+    );
+    const client = createFeishuHumanInterviewClient({
+      accessToken: "tenant-token",
+      fetch: fetchMock,
+    });
+
+    await client.updateCalendarEventTime({
+      calendarId: "feishu.cn_bot@group.calendar.feishu.cn",
+      endAt: new Date("2026-08-05T11:30:00.000Z"),
+      eventId: "event_1",
+      startAt: new Date("2026-08-05T10:30:00.000Z"),
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://open.feishu.cn/open-apis/calendar/v4/calendars/feishu.cn_bot%40group.calendar.feishu.cn/events/event_1?user_id_type=open_id",
+      {
+        body: JSON.stringify({
+          end_time: { timestamp: "1785929400", timezone: "Asia/Shanghai" },
+          need_notification: true,
+          start_time: { timestamp: "1785925800", timezone: "Asia/Shanghai" },
+        }),
+        headers: {
+          authorization: "Bearer tenant-token",
+          "content-type": "application/json; charset=utf-8",
+        },
+        method: "PATCH",
+      },
+    );
   });
 
   it("adds selected interviewers as unique notified attendees", async () => {

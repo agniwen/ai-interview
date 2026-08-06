@@ -19,6 +19,7 @@ import {
 import {
   humanInterviewKeys,
   invalidateHumanInterviewCandidateQueries,
+  invalidateHumanInterviewWorkspaceQueries,
 } from "@/lib/client/api/query-keys";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { Button } from "@/components/ui/button";
@@ -120,6 +121,10 @@ export function HumanInterviewStagePanel({
     void invalidateHumanInterviewCandidateQueries(queryClient, { candidateId, slug });
   }
 
+  function invalidateRescheduledMeeting() {
+    void invalidateHumanInterviewWorkspaceQueries(queryClient, { slug });
+  }
+
   const [dialogState, dispatchDialog] = useReducer(dialogReducer, initialDialogState);
   const { cancelTarget, completeTarget, endTarget, linksTarget, scheduleOpen } = dialogState;
   const endMeetingMutation = useMutation({
@@ -210,7 +215,7 @@ export function HumanInterviewStagePanel({
               onCreateMeeting={() => createMeetingMutation.mutate(round)}
               onEndMeeting={(item) => dispatchDialog({ target: item, type: "endTargetChanged" })}
               onOpenLinks={(item) => dispatchDialog({ target: item, type: "linksTargetChanged" })}
-              onRescheduled={invalidateRounds}
+              onRescheduled={invalidateRescheduledMeeting}
               round={round}
             />
           );

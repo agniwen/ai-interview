@@ -8,8 +8,10 @@ export const chatConversationKeys = {
 export const humanInterviewKeys = {
   meetings: (slug: string, candidateId: string) =>
     ["human-interview-meetings", slug, candidateId] as const,
+  meetingsByWorkspace: (slug: string) => ["human-interview-meetings", slug] as const,
   rounds: (slug: string, candidateId: string) =>
     ["human-interview-rounds", slug, candidateId] as const,
+  roundsByWorkspace: (slug: string) => ["human-interview-rounds", slug] as const,
   studioResumes: () => ["studio-resumes"] as const,
 };
 
@@ -44,6 +46,17 @@ export async function invalidateHumanInterviewCandidateQueries(
     queryClient.invalidateQueries({
       queryKey: humanInterviewKeys.meetings(slug, candidateId),
     }),
+    queryClient.invalidateQueries({ queryKey: humanInterviewKeys.studioResumes() }),
+  ]);
+}
+
+export async function invalidateHumanInterviewWorkspaceQueries(
+  queryClient: QueryInvalidator,
+  { slug }: { slug: string },
+): Promise<void> {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: humanInterviewKeys.roundsByWorkspace(slug) }),
+    queryClient.invalidateQueries({ queryKey: humanInterviewKeys.meetingsByWorkspace(slug) }),
     queryClient.invalidateQueries({ queryKey: humanInterviewKeys.studioResumes() }),
   ]);
 }

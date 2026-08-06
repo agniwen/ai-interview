@@ -8,6 +8,7 @@ import { resolveRecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-ba
 import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import {
   humanInterviewMeetingInputSchema,
+  humanInterviewMeetingScheduleUpdateSchema,
   parseResumePayloadInput,
   parseScheduleEntriesInput,
   studioInterviewFormSchema,
@@ -35,6 +36,7 @@ import {
   loadHumanInterviewMeetingById,
   markHumanInterviewMeetingInProgress,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/human-interview-meetings";
+import { updateHumanInterviewMeetingSchedule } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/human-interview-meeting-schedule";
 import {
   deleteHumanInterviewLiveKitRoom,
   HumanInterviewLiveKitConfigError,
@@ -48,6 +50,7 @@ import {
   resolveHumanInterviewFeishuProviderId,
   syncHumanInterviewMeetingToFeishu,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/utils/feishu-human-interview-meeting";
+import { recordCandidateActivity } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/utils/candidate-activity";
 import { enqueueResumeSemanticIndexJobBestEffort } from "@arc/ai-recruitment-copilot-backend/lib/server/resume-semantic/enqueue";
 import { recruitingJobDescriptionIdsExist } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/job-descriptions/dao";
 import { syncResumeSkills } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/skills";
@@ -392,6 +395,92 @@ export const studioInterviewCollectionRouter = factory
         }
         invalidateStudioInterviewCaches(activeOrg.id);
         return c.json(synced, 200);
+      } catch (error) {
+        if (error instanceof HumanInterviewMeetingError) {
+          return c.json({ error: error.message }, error.status);
+        }
+        throw error;
+      }
+    },
+  )
+  .patch(
+    "/human-interview-meetings/:meetingId",
+    requirePermission("humanInterview", "update"),
+    zValidator(
+      "json",
+      humanInterviewMeetingScheduleUpdateSchema,
+      jsonValidatorError("真人复面会议时间参数无效。"),
+    ),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!activeOrg || !user) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const meetingId = c.req.param("meetingId");
+      try {
+        const updated = await updateHumanInterviewMeetingSchedule({
+          input: c.req.valid("json"),
+          meetingId,
+          organizationId: activeOrg.id,
+        });
+        await Promise.all(
+          updated.rounds.map((round) =>
+            recordCandidateActivity({
+              action: "human_interview_round_updated",
+              detail: {
+                roundId: round.roundId,
+                roundLabel: round.label,
+                scheduledAt: updated.scheduledAt,
+              },
+              interviewRecordId: round.interviewRecordId,
+              operatorId: user.id,
+              organizationId: activeOrg.id,
+            }),
+          ),
+        );
+        invalidateStudioInterviewCaches(activeOrg.id);
+        if (!updated.feishu) {
+          return c.json(updated, 200);
+        }
+
+        try {
+          const credentials = getFeishuAppCredentials(updated.feishu.providerId);
+          const accessToken = await getFeishuTenantAccessToken(
+            credentials.appId,
+            credentials.appSecret,
+          );
+          const synced = await syncHumanInterviewMeetingToFeishu({
+            accessToken,
+            meetingId,
+            organizationId: activeOrg.id,
+            providerId: updated.feishu.providerId,
+          });
+          return c.json(synced, 200);
+        } catch (error) {
+          if (isFeishuSyncConflictError(error)) {
+            return c.json(
+              {
+                error: error.message,
+                feishuStatus: error.feishuStatus,
+                meetingId,
+              },
+              409,
+            );
+          }
+          const failure = await recordFeishuHumanInterviewSyncFailure({
+            error,
+            meetingId,
+            organizationId: activeOrg.id,
+          });
+          return c.json(
+            {
+              error: failure.message,
+              feishuStatus: failure.status,
+              meetingId,
+            },
+            502,
+          );
+        }
       } catch (error) {
         if (error instanceof HumanInterviewMeetingError) {
           return c.json({ error: error.message }, error.status);
