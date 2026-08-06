@@ -22,7 +22,7 @@ afterEach(() => {
 });
 
 describe("ScheduleRoundDialog", () => {
-  it("shows workspace member avatars in the interviewer list", async () => {
+  it("shows member avatars and disables interviewers from incompatible Feishu apps", async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -30,12 +30,14 @@ describe("ScheduleRoundDialog", () => {
       records: [
         {
           email: "guang@example.com",
+          feishuProviderIds: ["feishu"],
           id: "member-1",
           image: "https://example.com/guang.png",
           name: "光芒",
         },
         {
           email: "zhang@example.com",
+          feishuProviderIds: ["feishu-jiguang-hr"],
           id: "member-2",
           image: null,
           name: "张三",
@@ -80,6 +82,22 @@ describe("ScheduleRoundDialog", () => {
       expect(document.querySelectorAll('[data-slot="avatar"]')).toHaveLength(2);
       expect(document.body.textContent).toContain("张三");
       expect(document.body.textContent).toContain("张");
+    });
+
+    const primaryInterviewer = [
+      ...document.querySelectorAll<HTMLElement>('[data-slot="combobox-item"]'),
+    ].find((item) => item.textContent?.includes("光芒"));
+    expect(primaryInterviewer).not.toBeUndefined();
+    await act(async () => {
+      primaryInterviewer?.click();
+      await Promise.resolve();
+    });
+
+    await vi.waitFor(() => {
+      const secondaryInterviewer = [
+        ...document.querySelectorAll<HTMLElement>('[data-slot="combobox-item"]'),
+      ].find((item) => item.textContent?.includes("张三"));
+      expect(secondaryInterviewer?.getAttribute("aria-disabled")).toBe("true");
     });
 
     act(() => root.unmount());

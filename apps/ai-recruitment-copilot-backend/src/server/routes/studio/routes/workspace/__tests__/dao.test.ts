@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
+  account,
   member,
   organization,
   recruitingGroup,
@@ -11,6 +12,7 @@ import {
 import {
   addMemberToDefaultRecruitingGroup,
   ensureDefaultRecruitingGroupForWorkspace,
+  listWorkspaceMembers,
   listRecruitingGroupBoard,
   UNGROUPED_RECRUITING_GROUP_ID,
 } from "../dao";
@@ -179,5 +181,40 @@ describe("workspace recruiting group dao", () => {
       name: "未分组",
     });
     expect(groups[1]?.members).toEqual([expect.objectContaining({ role: null, userId: MEMBER })]);
+  }, 30_000);
+
+  it("lists each member's available Feishu app sources", async () => {
+    const now = new Date();
+    await db.insert(account).values([
+      {
+        accountId: "ou_workspace_member_primary",
+        createdAt: now,
+        id: "account_workspace_member_primary",
+        providerId: "feishu",
+        updatedAt: now,
+        userId: MEMBER,
+      },
+      {
+        accountId: "ou_workspace_member_secondary",
+        createdAt: now,
+        id: "account_workspace_member_secondary",
+        providerId: "feishu-jiguang-hr",
+        updatedAt: now,
+        userId: MEMBER,
+      },
+    ]);
+
+    const members = await listWorkspaceMembers(ORG);
+
+    expect(members).toEqual([
+      expect.objectContaining({
+        feishuProviderIds: ["feishu-jiguang-hr"],
+        id: CREATOR,
+      }),
+      expect.objectContaining({
+        feishuProviderIds: ["feishu", "feishu-jiguang-hr"],
+        id: MEMBER,
+      }),
+    ]);
   }, 30_000);
 });

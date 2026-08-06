@@ -38,11 +38,30 @@ import {
   buildHumanInterviewMeetingTitle,
 } from "./human-interview-stage-utils";
 
+type FeishuProviderId = "feishu" | "feishu-jiguang-hr";
+
 interface WorkspaceMember {
   id: string;
   name: string;
   email: string;
+  feishuProviderIds: FeishuProviderId[];
   image: string | null;
+}
+
+function getCommonFeishuProviderIds(members: WorkspaceMember[]): Set<FeishuProviderId> | null {
+  const [firstMember, ...remainingMembers] = members;
+  if (!firstMember) {
+    return null;
+  }
+  const commonProviderIds = new Set(firstMember.feishuProviderIds);
+  for (const member of remainingMembers) {
+    for (const providerId of commonProviderIds) {
+      if (!member.feishuProviderIds.includes(providerId)) {
+        commonProviderIds.delete(providerId);
+      }
+    }
+  }
+  return commonProviderIds;
 }
 
 function useWorkspaceMembers() {
@@ -161,10 +180,17 @@ export function ScheduleRoundDialog({
     },
   });
 
-  const memberOptions = (members?.records ?? []).map((m) => ({
-    avatarUrl: m.image,
-    label: m.name,
-    value: m.id,
+  const memberRecords = members?.records ?? [];
+  const selectedMembers = memberRecords.filter((member) => interviewerIds.includes(member.id));
+  const commonProviderIds = getCommonFeishuProviderIds(selectedMembers);
+  const memberOptions = memberRecords.map((member) => ({
+    avatarUrl: member.image,
+    disabled:
+      !interviewerIds.includes(member.id) &&
+      commonProviderIds !== null &&
+      !member.feishuProviderIds.some((providerId) => commonProviderIds.has(providerId)),
+    label: member.name,
+    value: member.id,
   }));
 
   return (
