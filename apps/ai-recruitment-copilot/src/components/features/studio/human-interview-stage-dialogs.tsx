@@ -144,6 +144,7 @@ export function ScheduleRoundDialog({
   });
 
   const memberOptions = (members?.records ?? []).map((m) => ({
+    avatarUrl: m.image,
     label: m.name,
     value: m.id,
   }));
