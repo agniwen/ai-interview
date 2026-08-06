@@ -11,7 +11,10 @@ import {
   studioHumanInterviewRound,
   user,
 } from "@arc/db-schema/schema";
-import { loadHumanInterviewMeetingById } from "../dao/human-interview-meetings";
+import {
+  HumanInterviewMeetingError,
+  loadHumanInterviewMeetingById,
+} from "../dao/human-interview-meetings";
 
 const FEISHU_OPEN_API_BASE_URL = "https://open.feishu.cn/open-apis";
 const FEISHU_SYNC_LEASE_DURATION_MS = 10 * 60 * 1000;
@@ -141,32 +144,53 @@ export function isFeishuSyncConflictError(error: unknown): error is FeishuSyncCo
 }
 
 export async function resolveHumanInterviewFeishuProviderId({
-  authProviderId,
-  userId,
+  interviewerIds,
+  organizationId,
 }: {
-  authProviderId: string | null | undefined;
-  userId: string;
+  interviewerIds: string[];
+  organizationId: string;
 }): Promise<FeishuProviderId> {
-  if (authProviderId === "feishu" || authProviderId === "feishu-jiguang-hr") {
-    return authProviderId;
+  const uniqueInterviewerIds = [...new Set(interviewerIds)];
+  const rows = await db
+    .select({ providerId: account.providerId, userId: member.userId })
+    .from(member)
+    .leftJoin(
+      account,
+      and(eq(account.userId, member.userId), inArray(account.providerId, [...FEISHU_PROVIDER_IDS])),
+    )
+    .where(
+      and(eq(member.organizationId, organizationId), inArray(member.userId, uniqueInterviewerIds)),
+    );
+  const providerIdsByInterviewer = new Map<string, Set<FeishuProviderId>>();
+  for (const row of rows) {
+    const providerIds = providerIdsByInterviewer.get(row.userId) ?? new Set<FeishuProviderId>();
+    if (row.providerId === "feishu" || row.providerId === "feishu-jiguang-hr") {
+      providerIds.add(row.providerId);
+    }
+    providerIdsByInterviewer.set(row.userId, providerIds);
   }
-  if (authProviderId) {
-    return "feishu-jiguang-hr";
+  if (providerIdsByInterviewer.size !== uniqueInterviewerIds.length) {
+    throw new HumanInterviewMeetingError("存在不属于当前工作区的真人面试官。", 404);
   }
 
-  const linkedAccounts = await db
-    .select({ providerId: account.providerId })
-    .from(account)
-    .where(and(eq(account.userId, userId), inArray(account.providerId, [...FEISHU_PROVIDER_IDS])));
-  const linkedProviderIds = new Set<FeishuProviderId>();
-  for (const linkedAccount of linkedAccounts) {
-    if (linkedAccount.providerId === "feishu" || linkedAccount.providerId === "feishu-jiguang-hr") {
-      linkedProviderIds.add(linkedAccount.providerId);
-    }
+  let commonProviderIds = new Set<FeishuProviderId>(FEISHU_PROVIDER_IDS);
+  for (const interviewerId of uniqueInterviewerIds) {
+    const linkedProviderIds = providerIdsByInterviewer.get(interviewerId);
+    const availableProviderIds =
+      linkedProviderIds && linkedProviderIds.size > 0
+        ? linkedProviderIds
+        : new Set<FeishuProviderId>(["feishu-jiguang-hr"]);
+    commonProviderIds = new Set(
+      [...commonProviderIds].filter((providerId) => availableProviderIds.has(providerId)),
+    );
   }
-  return linkedProviderIds.size === 1
-    ? ([...linkedProviderIds][0] ?? "feishu-jiguang-hr")
-    : "feishu-jiguang-hr";
+  if (commonProviderIds.has("feishu-jiguang-hr")) {
+    return "feishu-jiguang-hr";
+  }
+  if (commonProviderIds.has("feishu")) {
+    return "feishu";
+  }
+  throw new HumanInterviewMeetingError("所选面试官不属于同一个飞书应用来源。", 400);
 }
 
 export function createFeishuHumanInterviewClient({
@@ -365,13 +389,11 @@ export function createFeishuHumanInterviewClient({
 export async function syncHumanInterviewMeetingToFeishu({
   accessToken,
   meetingId,
-  operatorId,
   organizationId,
   providerId,
 }: {
   accessToken: string;
   meetingId: string;
-  operatorId: string;
   organizationId: string;
   providerId: FeishuProviderId;
 }) {
@@ -471,6 +493,7 @@ export async function syncHumanInterviewMeetingToFeishu({
   const interviewerRows = await db
     .select({
       feishuOpenId: studioHumanInterviewMeetingInterviewer.feishuOpenId,
+      role: studioHumanInterviewMeetingInterviewer.role,
       userId: studioHumanInterviewMeetingInterviewer.userId,
     })
     .from(studioHumanInterviewMeetingInterviewer)
@@ -482,7 +505,7 @@ export async function syncHumanInterviewMeetingToFeishu({
   const hostOpenIds: string[] = [];
   if (hasReserveCheckpoint) {
     if (!meeting.feishuOwnerOpenId) {
-      throw new Error("飞书预约检查点缺少操作人身份，不能安全继续同步。");
+      throw new Error("飞书预约检查点缺少会议 owner 身份，不能安全继续同步。");
     }
     ownerOpenId = meeting.feishuOwnerOpenId;
     for (const interviewerRow of interviewerRows) {
@@ -492,7 +515,7 @@ export async function syncHumanInterviewMeetingToFeishu({
       hostOpenIds.push(interviewerRow.feishuOpenId);
     }
   } else {
-    const participantIds = [...new Set([operatorId, ...interviewerIds])];
+    const participantIds = interviewerIds;
     const participants = await db
       .select({
         email: user.email,
@@ -511,7 +534,7 @@ export async function syncHumanInterviewMeetingToFeishu({
     );
     const missingMembers = participantIds.filter((id) => !participantsById.has(id));
     if (missingMembers.length > 0) {
-      throw new Error("操作人或面试官不属于当前工作区。");
+      throw new Error("面试官不属于当前工作区。");
     }
 
     const participantsMissingOpenId = participants.filter((participant) => !participant.openId);
@@ -534,9 +557,12 @@ export async function syncHumanInterviewMeetingToFeishu({
       throw new Error(`以下人员未找到飞书账号：${unresolvedNames.join("、")}`);
     }
 
-    const resolvedOwnerOpenId = participantOpenIds.get(operatorId);
+    const ownerInterviewer = interviewerRows.find((interviewer) => interviewer.role === "host");
+    const resolvedOwnerOpenId = ownerInterviewer
+      ? participantOpenIds.get(ownerInterviewer.userId)
+      : undefined;
     if (!resolvedOwnerOpenId) {
-      throw new Error("操作人未找到飞书账号。");
+      throw new Error("首位面试官未找到飞书账号。");
     }
     ownerOpenId = resolvedOwnerOpenId;
     for (const interviewerId of interviewerIds) {
@@ -642,7 +668,7 @@ export async function syncHumanInterviewMeetingToFeishu({
       .where(eq(studioHumanInterviewMeeting.id, meetingId));
   }
 
-  const attendeeOpenIds = [ownerOpenId, ...hostOpenIds];
+  const attendeeOpenIds = hostOpenIds;
   const alreadyAddedOpenIds = new Set(meeting.feishuAttendeeOpenIds);
   const missingAttendeeOpenIds = attendeeOpenIds.filter(
     (openId) => !alreadyAddedOpenIds.has(openId),

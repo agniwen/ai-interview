@@ -31,7 +31,9 @@ const NOW = new Date("2026-08-05T09:00:00.000Z");
 const OPERATOR_ID = "test_feishu_meeting_operator";
 const ORG_ID = "test_feishu_meeting_org";
 const OUTSIDER_ID = "test_feishu_meeting_outsider";
+const PRIMARY_INTERVIEWER_ID = "test_feishu_meeting_primary_interviewer";
 const ROUND_ID = "test_feishu_meeting_round";
+const SECONDARY_INTERVIEWER_ID = "test_feishu_meeting_secondary_interviewer";
 
 async function cleanup() {
   await db
@@ -43,11 +45,15 @@ async function cleanup() {
   await db.delete(studioInterview).where(eq(studioInterview.organizationId, ORG_ID));
   await db.delete(account).where(eq(account.userId, OPERATOR_ID));
   await db.delete(account).where(eq(account.userId, INTERVIEWER_ID));
+  await db.delete(account).where(eq(account.userId, PRIMARY_INTERVIEWER_ID));
+  await db.delete(account).where(eq(account.userId, SECONDARY_INTERVIEWER_ID));
   await db.delete(member).where(eq(member.organizationId, ORG_ID));
   await db.delete(organization).where(eq(organization.id, ORG_ID));
   await db.delete(user).where(eq(user.id, OPERATOR_ID));
   await db.delete(user).where(eq(user.id, INTERVIEWER_ID));
   await db.delete(user).where(eq(user.id, OUTSIDER_ID));
+  await db.delete(user).where(eq(user.id, PRIMARY_INTERVIEWER_ID));
+  await db.delete(user).where(eq(user.id, SECONDARY_INTERVIEWER_ID));
 }
 
 function makeApp(authProviderId: string | null) {
@@ -125,6 +131,22 @@ beforeAll(async () => {
       name: "外部用户",
       updatedAt: NOW,
     },
+    {
+      createdAt: NOW,
+      email: "primary-interviewer-feishu-meeting@example.com",
+      emailVerified: true,
+      id: PRIMARY_INTERVIEWER_ID,
+      name: "第一应用面试官",
+      updatedAt: NOW,
+    },
+    {
+      createdAt: NOW,
+      email: "secondary-interviewer-feishu-meeting@example.com",
+      emailVerified: true,
+      id: SECONDARY_INTERVIEWER_ID,
+      name: "极光 HR 面试官",
+      updatedAt: NOW,
+    },
   ]);
   await db.insert(organization).values({
     createdAt: NOW,
@@ -146,6 +168,20 @@ beforeAll(async () => {
       organizationId: ORG_ID,
       role: "member",
       userId: INTERVIEWER_ID,
+    },
+    {
+      createdAt: NOW,
+      id: "test_feishu_meeting_member_primary_interviewer",
+      organizationId: ORG_ID,
+      role: "member",
+      userId: PRIMARY_INTERVIEWER_ID,
+    },
+    {
+      createdAt: NOW,
+      id: "test_feishu_meeting_member_secondary_interviewer",
+      organizationId: ORG_ID,
+      role: "member",
+      userId: SECONDARY_INTERVIEWER_ID,
     },
   ]);
   await db.insert(account).values([
@@ -181,6 +217,22 @@ beforeAll(async () => {
       updatedAt: NOW,
       userId: INTERVIEWER_ID,
     },
+    {
+      accountId: "ou_primary_interviewer",
+      createdAt: NOW,
+      id: "test_feishu_meeting_account_primary_interviewer",
+      providerId: "feishu",
+      updatedAt: NOW,
+      userId: PRIMARY_INTERVIEWER_ID,
+    },
+    {
+      accountId: "ou_secondary_interviewer",
+      createdAt: NOW,
+      id: "test_feishu_meeting_account_secondary_interviewer",
+      providerId: "feishu-jiguang-hr",
+      updatedAt: NOW,
+      userId: SECONDARY_INTERVIEWER_ID,
+    },
   ]);
   await db.insert(studioInterview).values({
     candidateName: "张三",
@@ -208,13 +260,15 @@ afterAll(cleanup);
 
 beforeEach(async () => {
   vi.restoreAllMocks();
+  process.env.FEISHU_APP_ID = "cli_test_feishu_primary";
+  process.env.FEISHU_APP_ID2 = "cli_test_feishu_secondary";
   await db
     .delete(studioHumanInterviewMeeting)
     .where(eq(studioHumanInterviewMeeting.organizationId, ORG_ID));
 });
 
 describe("POST /human-interview-meetings", () => {
-  it("uses the first Feishu app for a session created by the first Feishu login", async () => {
+  it("uses the interviewers' common app and only adds interviewers to Feishu", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
@@ -223,7 +277,7 @@ describe("POST /human-interview-meetings", () => {
             code: 0,
             expire: 7200,
             msg: "success",
-            tenant_access_token: "primary-tenant-token",
+            tenant_access_token: "secondary-tenant-token",
           }),
           { headers: { "content-type": "application/json" }, status: 200 },
         ),
@@ -284,10 +338,7 @@ describe("POST /human-interview-meetings", () => {
           JSON.stringify({
             code: 0,
             data: {
-              attendees: [
-                { user_id: "ou_operator_primary" },
-                { user_id: "ou_interviewer_primary" },
-              ],
+              attendees: [{ user_id: "ou_interviewer_secondary" }],
             },
             msg: "success",
           }),
@@ -314,19 +365,59 @@ describe("POST /human-interview-meetings", () => {
       String(url).includes("tenant_access_token/internal"),
     );
     expect(JSON.parse(String(tenantTokenRequest?.[1]?.body))).toEqual({
-      app_id: "cli_test_feishu_primary",
-      app_secret: "primary-secret",
+      app_id: "cli_test_feishu_secondary",
+      app_secret: "secondary-secret",
+    });
+    const reserveRequest = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes("/vc/v1/reserves/apply"),
+    );
+    expect(JSON.parse(String(reserveRequest?.[1]?.body))).toMatchObject({
+      meeting_settings: {
+        assign_host_list: [{ id: "ou_interviewer_secondary", user_type: 1 }],
+      },
+      owner_id: "ou_interviewer_secondary",
+    });
+    const attendeeRequest = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes("/attendees"),
+    );
+    expect(JSON.parse(String(attendeeRequest?.[1]?.body))).toEqual({
+      attendees: [{ type: "user", user_id: "ou_interviewer_secondary" }],
+      need_notification: true,
     });
     const body = (await response.json()) as {
       feishu?: { meetingUrl?: string; providerId?: string; status?: string };
     };
-    expect(body.feishu?.providerId).toBe("feishu");
+    expect(body.feishu?.providerId).toBe("feishu-jiguang-hr");
     expect(body.feishu?.status).toBe("ready");
     expect(body.feishu?.meetingUrl).toBe("https://vc.feishu.cn/j/123456789");
     expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 
+  it("rejects interviewers without a common Feishu app before calling Feishu", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    const response = await makeApp("feishu").request("/human-interview-meetings", {
+      body: JSON.stringify({
+        interviewerIds: [PRIMARY_INTERVIEWER_ID, SECONDARY_INTERVIEWER_ID],
+        notes: null,
+        roundIds: [ROUND_ID],
+        scheduledAt: "2026-08-05T09:30:00.000Z",
+        title: "张三 - 真人复面",
+        validUntil: "2026-08-06T09:30:00.000Z",
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "所选面试官不属于同一个飞书应用来源。",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("returns a retryable failed state when calendar creation fails after the reserve", async () => {
+    process.env.FEISHU_APP_ID2 = "cli_test_feishu_secondary_calendar_failure";
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
@@ -412,7 +503,7 @@ describe("POST /human-interview-meetings", () => {
       String(url).includes("tenant_access_token/internal"),
     );
     expect(JSON.parse(String(tenantTokenRequest?.[1]?.body))).toEqual({
-      app_id: "cli_test_feishu_secondary",
+      app_id: "cli_test_feishu_secondary_calendar_failure",
       app_secret: "secondary-secret",
     });
 
@@ -454,10 +545,7 @@ describe("POST /human-interview-meetings", () => {
           JSON.stringify({
             code: 0,
             data: {
-              attendees: [
-                { user_id: "ou_operator_secondary" },
-                { user_id: "ou_interviewer_secondary" },
-              ],
+              attendees: [{ user_id: "ou_interviewer_secondary" }],
             },
             msg: "success",
           }),
@@ -495,10 +583,7 @@ describe("POST /human-interview-meetings", () => {
       String(url).includes("/attendees"),
     );
     expect(JSON.parse(String(attendeeRequest?.[1]?.body))).toEqual({
-      attendees: [
-        { type: "user", user_id: "ou_operator_secondary" },
-        { type: "user", user_id: "ou_interviewer_secondary" },
-      ],
+      attendees: [{ type: "user", user_id: "ou_interviewer_secondary" }],
       need_notification: true,
     });
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/vc/v1/reserves"))).toBe(
@@ -592,9 +677,9 @@ describe("POST /human-interview-meetings", () => {
   });
 
   it("checkpoints partially added attendees and retries only the missing person", async () => {
-    const originalPrimaryAppId = process.env.FEISHU_APP_ID;
-    process.env.FEISHU_APP_ID = "cli_test_feishu_primary_partial_attendees";
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const originalSecondaryAppId = process.env.FEISHU_APP_ID2;
+    process.env.FEISHU_APP_ID2 = "cli_test_feishu_secondary_partial_attendees";
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
       if (url.includes("tenant_access_token/internal")) {
         return new Response(
@@ -608,6 +693,15 @@ describe("POST /human-interview-meetings", () => {
         );
       }
       if (url.includes("/vc/v1/reserves/apply")) {
+        expect(JSON.parse(String(init?.body))).toMatchObject({
+          meeting_settings: {
+            assign_host_list: [
+              { id: "ou_interviewer_secondary", user_type: 1 },
+              { id: "ou_secondary_interviewer", user_type: 1 },
+            ],
+          },
+          owner_id: "ou_interviewer_secondary",
+        });
         return new Response(
           JSON.stringify({
             code: 0,
@@ -638,7 +732,7 @@ describe("POST /human-interview-meetings", () => {
         return new Response(
           JSON.stringify({
             code: 0,
-            data: { attendees: [{ user_id: "ou_operator_primary" }] },
+            data: { attendees: [{ user_id: "ou_interviewer_secondary" }] },
             msg: "success",
           }),
           { headers: { "content-type": "application/json" }, status: 200 },
@@ -662,7 +756,7 @@ describe("POST /human-interview-meetings", () => {
     try {
       const response = await makeApp("feishu").request("/human-interview-meetings", {
         body: JSON.stringify({
-          interviewerIds: [INTERVIEWER_ID],
+          interviewerIds: [INTERVIEWER_ID, SECONDARY_INTERVIEWER_ID],
           roundIds: [ROUND_ID],
           scheduledAt: "2026-08-05T09:30:00.000Z",
           title: "张三 - 真人复面",
@@ -678,17 +772,17 @@ describe("POST /human-interview-meetings", () => {
         .select({ attendeeOpenIds: studioHumanInterviewMeeting.feishuAttendeeOpenIds })
         .from(studioHumanInterviewMeeting)
         .where(eq(studioHumanInterviewMeeting.id, failureBody.meetingId));
-      expect(persisted?.attendeeOpenIds).toEqual(["ou_operator_primary"]);
+      expect(persisted?.attendeeOpenIds).toEqual(["ou_interviewer_secondary"]);
 
       fetchMock.mockReset().mockImplementation(async (_input, init) => {
         const body = JSON.parse(String(init?.body)) as {
           attendees: { user_id: string }[];
         };
-        expect(body.attendees).toEqual([{ type: "user", user_id: "ou_interviewer_primary" }]);
+        expect(body.attendees).toEqual([{ type: "user", user_id: "ou_secondary_interviewer" }]);
         return new Response(
           JSON.stringify({
             code: 0,
-            data: { attendees: [{ user_id: "ou_interviewer_primary" }] },
+            data: { attendees: [{ user_id: "ou_secondary_interviewer" }] },
             msg: "success",
           }),
           { headers: { "content-type": "application/json" }, status: 200 },
@@ -702,7 +796,7 @@ describe("POST /human-interview-meetings", () => {
       expect(retryResponse.status).toBe(200);
       expect(fetchMock).toHaveBeenCalledTimes(1);
     } finally {
-      process.env.FEISHU_APP_ID = originalPrimaryAppId;
+      process.env.FEISHU_APP_ID2 = originalSecondaryAppId;
     }
   });
 
@@ -749,8 +843,8 @@ describe("POST /human-interview-meetings", () => {
   });
 
   it("checkpoints a created reserve when Feishu reports an invalid host", async () => {
-    const originalPrimaryAppId = process.env.FEISHU_APP_ID;
-    process.env.FEISHU_APP_ID = "cli_test_feishu_primary_invalid_host";
+    const originalSecondaryAppId = process.env.FEISHU_APP_ID2;
+    process.env.FEISHU_APP_ID2 = "cli_test_feishu_secondary_invalid_host";
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
       if (url.includes("tenant_access_token/internal")) {
@@ -775,7 +869,7 @@ describe("POST /human-interview-meetings", () => {
               url: "https://vc.feishu.cn/j/444555666",
             },
             reserve_correction_check_info: {
-              invalid_host_id_list: ["ou_interviewer_primary"],
+              invalid_host_id_list: ["ou_interviewer_secondary"],
             },
           },
           msg: "success",
@@ -818,7 +912,7 @@ describe("POST /human-interview-meetings", () => {
       });
       expect(fetchMock).toHaveBeenCalledTimes(2);
     } finally {
-      process.env.FEISHU_APP_ID = originalPrimaryAppId;
+      process.env.FEISHU_APP_ID2 = originalSecondaryAppId;
     }
   });
 
@@ -876,8 +970,8 @@ describe("POST /human-interview-meetings", () => {
   });
 
   it("allows only one concurrent retry to create a Feishu reserve", async () => {
-    const originalPrimaryAppId = process.env.FEISHU_APP_ID;
-    process.env.FEISHU_APP_ID = "cli_test_feishu_primary_concurrent_retry";
+    const originalSecondaryAppId = process.env.FEISHU_APP_ID2;
+    process.env.FEISHU_APP_ID2 = "cli_test_feishu_secondary_concurrent_retry";
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
       if (url.includes("tenant_access_token/internal")) {
@@ -951,10 +1045,7 @@ describe("POST /human-interview-meetings", () => {
             JSON.stringify({
               code: 0,
               data: {
-                attendees: [
-                  { user_id: "ou_operator_primary" },
-                  { user_id: "ou_interviewer_primary" },
-                ],
+                attendees: [{ user_id: "ou_interviewer_secondary" }],
               },
               msg: "success",
             }),
@@ -986,13 +1077,13 @@ describe("POST /human-interview-meetings", () => {
       expect(responses.map((response) => response.status).toSorted()).toEqual([200, 409]);
       expect(reserveCallCount).toBe(1);
     } finally {
-      process.env.FEISHU_APP_ID = originalPrimaryAppId;
+      process.env.FEISHU_APP_ID2 = originalSecondaryAppId;
     }
   });
 
   it("marks a stale creating state without a reserve checkpoint as unknown", async () => {
-    const originalPrimaryAppId = process.env.FEISHU_APP_ID;
-    process.env.FEISHU_APP_ID = "cli_test_feishu_primary_stale_creation";
+    const originalSecondaryAppId = process.env.FEISHU_APP_ID2;
+    process.env.FEISHU_APP_ID2 = "cli_test_feishu_secondary_stale_creation";
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(JSON.stringify({ code: 99_991_663, msg: "temporary token failure" }), {
         headers: { "content-type": "application/json" },
@@ -1053,14 +1144,13 @@ describe("POST /human-interview-meetings", () => {
         fetchMock.mock.calls.some(([url]) => String(url).includes("/vc/v1/reserves/apply")),
       ).toBe(false);
     } finally {
-      process.env.FEISHU_APP_ID = originalPrimaryAppId;
+      process.env.FEISHU_APP_ID2 = originalSecondaryAppId;
     }
   });
 
-  it("uses the only linked Feishu app when a historical session has no provider snapshot", async () => {
-    await db
-      .delete(account)
-      .where(eq(account.id, "test_feishu_meeting_account_operator_secondary"));
+  it("defaults an interviewer without a Feishu binding to the second app", async () => {
+    process.env.FEISHU_APP_ID2 = "cli_test_feishu_secondary_unlinked_interviewer";
+    await db.delete(account).where(eq(account.id, "test_feishu_meeting_account_interviewer"));
     await db
       .delete(account)
       .where(eq(account.id, "test_feishu_meeting_account_interviewer_secondary"));
@@ -1083,10 +1173,6 @@ describe("POST /human-interview-meetings", () => {
             code: 0,
             data: {
               user_list: [
-                {
-                  email: "operator-feishu-meeting@example.com",
-                  user_id: "ou_operator_fallback",
-                },
                 {
                   email: "interviewer-feishu-meeting@example.com",
                   user_id: "ou_interviewer_fallback",
@@ -1157,7 +1243,7 @@ describe("POST /human-interview-meetings", () => {
       );
     });
 
-    const response = await makeApp(null).request("/human-interview-meetings", {
+    const response = await makeApp("feishu").request("/human-interview-meetings", {
       body: JSON.stringify({
         interviewerIds: [INTERVIEWER_ID],
         notes: null,
@@ -1172,6 +1258,6 @@ describe("POST /human-interview-meetings", () => {
 
     expect(response.status).toBe(200);
     const body = (await response.json()) as { feishu?: { providerId?: string } };
-    expect(body.feishu?.providerId).toBe("feishu");
+    expect(body.feishu?.providerId).toBe("feishu-jiguang-hr");
   });
 });

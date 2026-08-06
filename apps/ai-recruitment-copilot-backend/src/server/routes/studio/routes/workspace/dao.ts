@@ -1,7 +1,10 @@
 import { and, asc, count, desc, eq, gte, inArray, notExists, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { startOfBeijingDay } from "@arc/shared/beijing-calendar";
+import { FEISHU_PROVIDER_IDS } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
+import type { FeishuProviderId } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
 import {
+  account,
   member,
   recruitingGroup,
   recruitingGroupMember,
@@ -40,6 +43,7 @@ export interface WorkspaceMemberRow {
   id: string;
   name: string;
   email: string;
+  feishuProviderIds: FeishuProviderId[];
   image: string | null;
 }
 
@@ -55,12 +59,42 @@ export async function listWorkspaceMembers(organizationId: string): Promise<Work
     .innerJoin(user, eq(member.userId, user.id))
     .where(eq(member.organizationId, organizationId))
     .orderBy(asc(user.name));
-  return rows.map((row) => ({
-    email: row.email,
-    id: row.id,
-    image: row.image,
-    name: row.name ?? "未命名",
-  }));
+  if (rows.length === 0) {
+    return [];
+  }
+  const feishuAccounts = await db
+    .select({ providerId: account.providerId, userId: account.userId })
+    .from(account)
+    .where(
+      and(
+        inArray(
+          account.userId,
+          rows.map((row) => row.id),
+        ),
+        inArray(account.providerId, [...FEISHU_PROVIDER_IDS]),
+      ),
+    );
+  const providerIdsByUser = new Map<string, Set<FeishuProviderId>>();
+  for (const feishuAccount of feishuAccounts) {
+    if (feishuAccount.providerId !== "feishu" && feishuAccount.providerId !== "feishu-jiguang-hr") {
+      continue;
+    }
+    const providerIds = providerIdsByUser.get(feishuAccount.userId) ?? new Set<FeishuProviderId>();
+    providerIds.add(feishuAccount.providerId);
+    providerIdsByUser.set(feishuAccount.userId, providerIds);
+  }
+  return rows.map((row) => {
+    const feishuProviderIds = FEISHU_PROVIDER_IDS.filter((providerId) =>
+      providerIdsByUser.get(row.id)?.has(providerId),
+    );
+    return {
+      email: row.email,
+      feishuProviderIds: feishuProviderIds.length > 0 ? feishuProviderIds : ["feishu-jiguang-hr"],
+      id: row.id,
+      image: row.image,
+      name: row.name ?? "未命名",
+    };
+  });
 }
 
 export function ensureDefaultRecruitingGroupForWorkspace({

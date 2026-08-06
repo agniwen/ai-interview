@@ -7,7 +7,7 @@ import {
 } from "./feishu-human-interview-meeting";
 
 describe("Feishu human interview HTTP contract", () => {
-  it("creates a reserve owned by the operator with interviewers as hosts", async () => {
+  it("creates a reserve owned and hosted by the selected interviewers", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -33,7 +33,7 @@ describe("Feishu human interview HTTP contract", () => {
     const reserve = await client.createReserve({
       endAt: new Date("2026-08-05T10:30:00.000Z"),
       hostOpenIds: ["ou_interviewer_1", "ou_interviewer_2"],
-      ownerOpenId: "ou_operator",
+      ownerOpenId: "ou_interviewer_1",
       title: "张三 - 真人复面",
     });
 
@@ -63,7 +63,7 @@ describe("Feishu human interview HTTP contract", () => {
         auto_record: false,
         topic: "张三 - 真人复面",
       },
-      owner_id: "ou_operator",
+      owner_id: "ou_interviewer_1",
     });
   });
 
@@ -159,15 +159,15 @@ describe("Feishu human interview HTTP contract", () => {
     });
   });
 
-  it("adds the operator and interviewers as unique notified attendees", async () => {
+  it("adds selected interviewers as unique notified attendees", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
         JSON.stringify({
           code: 0,
           data: {
             attendees: [
-              { attendee_id: "attendee_1", type: "user", user_id: "ou_operator" },
-              { attendee_id: "attendee_2", type: "user", user_id: "ou_interviewer" },
+              { attendee_id: "attendee_1", type: "user", user_id: "ou_interviewer_1" },
+              { attendee_id: "attendee_2", type: "user", user_id: "ou_interviewer_2" },
             ],
           },
           msg: "success",
@@ -182,19 +182,19 @@ describe("Feishu human interview HTTP contract", () => {
 
     await expect(
       client.addCalendarAttendees({
-        attendeeOpenIds: ["ou_operator", "ou_interviewer", "ou_operator"],
+        attendeeOpenIds: ["ou_interviewer_1", "ou_interviewer_2", "ou_interviewer_1"],
         calendarId: "feishu.cn_bot@group.calendar.feishu.cn",
         eventId: "event_1",
       }),
-    ).resolves.toEqual(["ou_operator", "ou_interviewer"]);
+    ).resolves.toEqual(["ou_interviewer_1", "ou_interviewer_2"]);
     const [url, init] = fetchMock.mock.calls[0] ?? [];
     expect(url).toBe(
       "https://open.feishu.cn/open-apis/calendar/v4/calendars/feishu.cn_bot%40group.calendar.feishu.cn/events/event_1/attendees?user_id_type=open_id",
     );
     expect(JSON.parse(String(init?.body))).toEqual({
       attendees: [
-        { type: "user", user_id: "ou_operator" },
-        { type: "user", user_id: "ou_interviewer" },
+        { type: "user", user_id: "ou_interviewer_1" },
+        { type: "user", user_id: "ou_interviewer_2" },
       ],
       need_notification: true,
     });

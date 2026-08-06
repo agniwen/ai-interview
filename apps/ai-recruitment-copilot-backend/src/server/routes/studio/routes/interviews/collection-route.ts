@@ -337,14 +337,14 @@ export const studioInterviewCollectionRouter = factory
       jsonValidatorError("真人复面会议参数无效。"),
     ),
     async (c) => {
-      const { activeOrg, session, user } = c.var;
+      const { activeOrg, user } = c.var;
       if (!activeOrg || !user) {
         return c.json({ message: "Unauthorized" }, 401);
       }
       try {
         const providerId = await resolveHumanInterviewFeishuProviderId({
-          authProviderId: session?.authProviderId,
-          userId: user.id,
+          interviewerIds: c.req.valid("json").interviewerIds,
+          organizationId: activeOrg.id,
         });
         const created = await createHumanInterviewMeeting({
           createdBy: user.id,
@@ -362,7 +362,6 @@ export const studioInterviewCollectionRouter = factory
           synced = await syncHumanInterviewMeetingToFeishu({
             accessToken,
             meetingId: created.id,
-            operatorId: user.id,
             organizationId: activeOrg.id,
             providerId,
           });
@@ -440,7 +439,6 @@ export const studioInterviewCollectionRouter = factory
         const synced = await syncHumanInterviewMeetingToFeishu({
           accessToken,
           meetingId,
-          operatorId: meeting.createdBy ?? user.id,
           organizationId: activeOrg.id,
           providerId: meeting.feishu.providerId,
         });
