@@ -51,6 +51,7 @@ describe("ScheduleRoundDialog", () => {
         <QueryClientProvider client={queryClient}>
           <ScheduleRoundDialog
             candidateId="candidate-1"
+            candidateName="候选人"
             existingCount={0}
             onOpenChange={vi.fn()}
             onScheduled={vi.fn()}
