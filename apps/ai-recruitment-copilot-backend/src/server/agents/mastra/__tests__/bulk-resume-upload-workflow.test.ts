@@ -22,9 +22,14 @@ describe("runBulkResumeUploadWorkflow", () => {
       item: { id: "item-1" },
     });
 
-    const result = await runBulkResumeUploadWorkflow({ itemId: "item-1" });
+    const result = await runBulkResumeUploadWorkflow({
+      bypassCache: true,
+      itemId: "item-1",
+    });
 
-    expect(mocks.processBatchItem).toHaveBeenCalledWith("item-1");
+    expect(mocks.processBatchItem).toHaveBeenCalledWith("item-1", {
+      bypassCache: true,
+    });
     expect(result).toEqual({
       batch: { id: "batch-1" },
       done: false,

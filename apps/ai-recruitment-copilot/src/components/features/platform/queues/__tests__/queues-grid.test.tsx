@@ -257,13 +257,13 @@ describe("QueuesGrid", () => {
       cell.textContent?.includes("操作"),
     );
     expect(actionHeader?.style.position).toBe("sticky");
-    expect(actionHeader?.style.right).toBe("0px");
+    expect(actionHeader?.style.insetInlineEnd).toBe("0px");
 
     const actionCell = [...document.querySelectorAll("td")].find((cell) =>
       cell.textContent?.includes("详情"),
     );
     expect(actionCell?.style.position).toBe("sticky");
-    expect(actionCell?.style.right).toBe("0px");
+    expect(actionCell?.style.insetInlineEnd).toBe("0px");
 
     act(() => {
       root.unmount();

@@ -213,7 +213,7 @@ describe("mail ingest workspace administration dao", () => {
 
   it("lists mail ingest rows across all organizations for platform administration", async () => {
     const result = await queryPaginatedPlatformMailIngestAccounts(
-      { search: "mail-ingest.test" },
+      { search: "Mail Ingest Org" },
       { page: "1", pageSize: "10" },
     );
 

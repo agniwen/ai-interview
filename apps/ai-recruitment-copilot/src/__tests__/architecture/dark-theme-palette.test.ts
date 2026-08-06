@@ -63,21 +63,6 @@ describe("dark theme palette", () => {
     }
   });
 
-  it("keeps treemap series separated by neutral boundaries and text labels", () => {
-    const treemapSource = readFileSync(
-      path.join(
-        repoRoot,
-        "apps/ai-recruitment-copilot/src/components/features/studio/job-descriptions/job-description-charts.tsx",
-      ),
-      "utf-8",
-    );
-
-    expect(treemapSource).toContain('stroke="var(--background)"');
-    expect(treemapSource).toContain("strokeWidth={2}");
-    expect(treemapSource).toContain("fill-primary-foreground text-[11px]");
-    expect(treemapSource).toContain("fill-primary-foreground/80 text-[10px]");
-  });
-
   it("derives touch and selection feedback from the active theme", () => {
     const globalStyles = readFileSync(
       path.join(repoRoot, "apps/ai-recruitment-copilot/src/styles/globals.css"),

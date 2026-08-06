@@ -28,7 +28,7 @@ describe("Calendar", () => {
     const selected = new Date(2026, 6, 24);
 
     act(() => {
-      root.render(<Calendar mode="single" selected={selected} />);
+      root.render(<Calendar defaultMonth={selected} mode="single" selected={selected} />);
     });
 
     const selectedDay = container.querySelector<HTMLButtonElement>(

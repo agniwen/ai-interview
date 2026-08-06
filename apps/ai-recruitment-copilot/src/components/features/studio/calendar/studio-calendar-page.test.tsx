@@ -3,7 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { StudioCalendarPage } from "./studio-calendar-page";
 
@@ -108,7 +108,13 @@ vi.mock("@/lib/client/api", () => ({
   fetchStudioCalendar: fetchStudioCalendarMock,
 }));
 
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-06-17T09:00:00+08:00"));
+});
+
 afterEach(() => {
+  vi.useRealTimers();
   document.body.innerHTML = "";
   vi.clearAllMocks();
 });
@@ -186,7 +192,10 @@ describe("StudioCalendarPage", () => {
     const monthTab = [...host.querySelectorAll<HTMLElement>('[data-slot="tabs-tab"]')].find(
       (tab) => tab.textContent === "月",
     );
-    act(() => monthTab?.click());
+    await act(async () => {
+      monthTab?.click();
+      await Promise.resolve();
+    });
 
     expect(host.querySelector('[aria-label="正在加载面试日程"]')).toBeNull();
     expect(host.querySelector('[data-slot="event-calendar"]')).not.toBeNull();
@@ -197,9 +206,14 @@ describe("StudioCalendarPage", () => {
     const dayTab = [...host.querySelectorAll<HTMLElement>('[data-slot="tabs-tab"]')].find(
       (tab) => tab.textContent === "日",
     );
-    act(() => dayTab?.click());
-    expect(host.querySelectorAll('[data-calendar-event-icon="ai"]')).toHaveLength(1);
-    expect(host.querySelectorAll('[data-calendar-event-icon="human"]')).toHaveLength(1);
+    await act(async () => {
+      dayTab?.click();
+      await Promise.resolve();
+    });
+    await vi.waitFor(() => {
+      expect(host.querySelectorAll('[data-calendar-event-icon="ai"]')).toHaveLength(1);
+      expect(host.querySelectorAll('[data-calendar-event-icon="human"]')).toHaveLength(1);
+    });
 
     act(() => root.unmount());
   });
