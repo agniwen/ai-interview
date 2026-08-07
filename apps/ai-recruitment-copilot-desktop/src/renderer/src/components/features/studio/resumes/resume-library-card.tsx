@@ -226,15 +226,23 @@ function renderProfileLine(line: ResumeLibraryProfileSnapshotLine) {
   );
 }
 
+function hasProfileSnapshotContent(snapshot: ResumeLibraryProfileSnapshot | null | undefined) {
+  if (!snapshot) {
+    return false;
+  }
+  return (
+    snapshot.work.length > 0 ||
+    snapshot.education.length > 0 ||
+    snapshot.workHasMore ||
+    snapshot.educationHasMore
+  );
+}
+
 function ResumeCardProfileSnapshot({ snapshot }: { snapshot: ResumeLibraryProfileSnapshot }) {
   const workLines = snapshot.work.slice(0, snapshot.workHasMore ? 2 : 3);
   const educationLines = snapshot.education.slice(0, snapshot.educationHasMore ? 2 : 3);
   const hasWorkGroup = workLines.length > 0 || snapshot.workHasMore;
   const hasEducationGroup = educationLines.length > 0 || snapshot.educationHasMore;
-
-  if (!(hasWorkGroup || hasEducationGroup)) {
-    return null;
-  }
 
   return (
     <div className="min-w-0 xl:border-border/60 xl:border-l xl:border-dashed xl:pl-8">
@@ -279,132 +287,143 @@ function ResumeLibraryCardComponent({ record }: { record: ResumeLibraryListRecor
   const reviewCard = hasRetainedLegacyReview
     ? { ...baseReviewCard, label: `旧版本结果 · ${baseReviewCard.label}` }
     : baseReviewCard;
+  // Profile (work / education) only at xl+ as a side column. On narrow /
+  // min-width layouts it stacks and bloats the card — hide it entirely.
+  const showProfile = hasProfileSnapshotContent(profileSnapshot);
 
   return (
     <article
       className={cn(
         "flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card",
-        "dark:bg-background",
+        "transition-colors hover:border-border hover:bg-muted/30",
+        "dark:bg-background dark:hover:bg-input/30",
       )}
     >
-      <div className="grid flex-1 gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
-        <div className="flex min-w-0 gap-3">
-          <Avatar className="mt-0.5 size-12 shrink-0 rounded-full" size="default">
-            <AvatarFallback className="rounded-full text-sm">
-              {getCandidateInitials(record.candidateName)}
-            </AvatarFallback>
-          </Avatar>
+      <div className="flex gap-3 p-4">
+        <Avatar className="mt-0.5 size-12 shrink-0 rounded-full" size="default">
+          <AvatarFallback className="rounded-full text-sm">
+            {getCandidateInitials(record.candidateName)}
+          </AvatarFallback>
+        </Avatar>
 
-          <div className="min-w-0 flex-1">
-            <div className="grid min-w-0 gap-x-4 gap-y-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)] xl:gap-x-8">
-              <div className="flex min-w-0 flex-wrap items-center gap-2 xl:col-span-2">
-                <p className="min-w-0 truncate font-semibold text-base">
-                  <span>{record.candidateName}</span>{" "}
-                  <span className="font-normal text-muted-foreground/60 text-xs">
-                    ({formatResumeRecordDisplayId(record.id)})
-                  </span>
-                </p>
-                <span
-                  className={cn(
-                    "inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs",
-                    LIFECYCLE_TONE_CLASS[lifecycle.tone],
-                  )}
-                  title={lifecycle.fullLabel}
-                >
-                  <span className="shrink-0">{lifecycle.stageLabel}</span>
-                  {lifecycle.detailLabel ? (
-                    <>
-                      <span aria-hidden className="shrink-0 opacity-45">
-                        ·
-                      </span>
-                      <span className="min-w-0 truncate opacity-75">{lifecycle.detailLabel}</span>
-                    </>
-                  ) : null}
+        <div className="min-w-0 flex-1">
+          <div
+            className={cn(
+              "grid min-w-0 gap-x-4 gap-y-3",
+              showProfile && "xl:grid-cols-[minmax(0,1.1fr)_minmax(16rem,0.7fr)] xl:gap-x-8",
+            )}
+          >
+            <div
+              className={cn(
+                "flex min-w-0 flex-wrap items-center gap-2",
+                showProfile && "xl:col-span-2",
+              )}
+            >
+              <p className="min-w-0 truncate font-semibold text-base">
+                <span>{record.candidateName}</span>{" "}
+                <span className="font-normal text-muted-foreground/60 text-xs">
+                  ({formatResumeRecordDisplayId(record.id)})
                 </span>
-              </div>
-
-              <div className="min-w-0">
-                <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2 2xl:grid-cols-3">
-                  <ResumeCardMetaItem
-                    className="sm:col-span-2 2xl:col-span-1"
-                    icon={<Icon className="size-3.5" icon="ph:briefcase" />}
-                    label="关联岗位"
-                  >
-                    <span
-                      className={cn(
-                        "block w-full max-w-full min-w-0 truncate text-left",
-                        jobDescriptionLabel ? "text-foreground" : "text-muted-foreground",
-                      )}
-                    >
-                      {jobDescriptionLabel ?? "未绑定岗位"}
+              </p>
+              <span
+                className={cn(
+                  "inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs",
+                  LIFECYCLE_TONE_CLASS[lifecycle.tone],
+                )}
+                title={lifecycle.fullLabel}
+              >
+                <span className="shrink-0">{lifecycle.stageLabel}</span>
+                {lifecycle.detailLabel ? (
+                  <>
+                    <span aria-hidden className="shrink-0 opacity-45">
+                      ·
                     </span>
-                  </ResumeCardMetaItem>
-
-                  <span className="flex h-6 w-full min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
-                    <Icon
-                      className="size-3.5 shrink-0 text-muted-foreground/70"
-                      icon="ph:upload-simple"
-                    />
-                    <span className="shrink-0">上传人</span>
-                    <Avatar className="size-4! shrink-0" size="sm">
-                      {record.creatorImage ? (
-                        <AvatarImage
-                          alt={textOrDash(record.creatorName)}
-                          src={record.creatorImage}
-                        />
-                      ) : null}
-                      <AvatarFallback>{getCreatorInitial(record.creatorName)}</AvatarFallback>
-                    </Avatar>
-                    <span className="min-w-0 flex-1 truncate">
-                      {textOrDash(record.creatorName)}
-                    </span>
-                  </span>
-
-                  <span className="inline-flex min-h-6 min-w-0 items-center text-muted-foreground text-xs">
-                    {formatLocalDateTime(record.createdAt)}
-                  </span>
-
-                  <ResumeCardMetaItem
-                    icon={
-                      <span className={REVIEW_ACTION_TONE_CLASS[reviewCard.tone]}>
-                        <Icon className="size-3.5" icon="ph:sparkle" />
-                      </span>
-                    }
-                    label="下一步建议"
-                  >
-                    <span
-                      className={cn(
-                        "min-w-0 truncate font-medium",
-                        REVIEW_ACTION_TONE_CLASS[reviewCard.tone],
-                      )}
-                    >
-                      {reviewCard.label}
-                    </span>
-                  </ResumeCardMetaItem>
-                </div>
-
-                {summary ? (
-                  <p className="mt-3 line-clamp-2 text-muted-foreground text-sm leading-6">
-                    {summary}
-                  </p>
+                    <span className="min-w-0 truncate opacity-75">{lifecycle.detailLabel}</span>
+                  </>
                 ) : null}
-
-                {skills.length > 0 ? (
-                  <div className="mt-3 flex max-h-14 flex-wrap gap-1.5 overflow-hidden">
-                    {skills.map((item) => (
-                      <span
-                        className="inline-flex max-w-52 truncate rounded-md border border-border px-2 py-0.5 text-xs"
-                        key={item}
-                      >
-                        {item}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-
-              <ResumeCardProfileSnapshot snapshot={profileSnapshot} />
+              </span>
             </div>
+
+            <div className="min-w-0">
+              <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2 2xl:grid-cols-3">
+                <ResumeCardMetaItem
+                  className="sm:col-span-2 2xl:col-span-1"
+                  icon={<Icon className="size-3.5" icon="ph:briefcase" />}
+                  label="关联岗位"
+                >
+                  <span
+                    className={cn(
+                      "block w-full max-w-full min-w-0 truncate text-left",
+                      jobDescriptionLabel ? "text-foreground" : "text-muted-foreground",
+                    )}
+                  >
+                    {jobDescriptionLabel ?? "未绑定岗位"}
+                  </span>
+                </ResumeCardMetaItem>
+
+                <span className="flex h-6 w-full min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
+                  <Icon
+                    className="size-3.5 shrink-0 text-muted-foreground/70"
+                    icon="ph:upload-simple"
+                  />
+                  <span className="shrink-0">上传人</span>
+                  <Avatar className="size-4! shrink-0" size="sm">
+                    {record.creatorImage ? (
+                      <AvatarImage alt={textOrDash(record.creatorName)} src={record.creatorImage} />
+                    ) : null}
+                    <AvatarFallback>{getCreatorInitial(record.creatorName)}</AvatarFallback>
+                  </Avatar>
+                  <span className="min-w-0 flex-1 truncate">{textOrDash(record.creatorName)}</span>
+                </span>
+
+                <span className="inline-flex min-h-6 min-w-0 items-center text-muted-foreground text-xs">
+                  {formatLocalDateTime(record.createdAt)}
+                </span>
+
+                <ResumeCardMetaItem
+                  icon={
+                    <span className={REVIEW_ACTION_TONE_CLASS[reviewCard.tone]}>
+                      <Icon className="size-3.5" icon="ph:sparkle" />
+                    </span>
+                  }
+                  label="下一步建议"
+                >
+                  <span
+                    className={cn(
+                      "min-w-0 truncate font-medium",
+                      REVIEW_ACTION_TONE_CLASS[reviewCard.tone],
+                    )}
+                  >
+                    {reviewCard.label}
+                  </span>
+                </ResumeCardMetaItem>
+              </div>
+
+              {summary ? (
+                <p className="mt-3 line-clamp-2 text-muted-foreground text-sm leading-6">
+                  {summary}
+                </p>
+              ) : null}
+
+              {skills.length > 0 ? (
+                <div className="mt-3 flex max-h-14 flex-wrap gap-1.5 overflow-hidden">
+                  {skills.map((item) => (
+                    <span
+                      className="inline-flex max-w-52 truncate rounded-md border border-border px-2 py-0.5 text-xs"
+                      key={item}
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            {showProfile && profileSnapshot ? (
+              <div className="hidden min-w-0 xl:block">
+                <ResumeCardProfileSnapshot snapshot={profileSnapshot} />
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

@@ -37,6 +37,9 @@ export function ResumeLibraryList({
 }: ResumeLibraryListProps) {
   const listRootRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  // Fixed row height (like web). Viewport breakpoints match Tailwind layout
+  // (sm / xl / 2xl) so estimates don't stay "tall md" while the card is already
+  // in the short xl side-by-side profile layout.
   const cardHeight = useResumeLibraryCardHeight();
 
   const getScrollElement = useCallback(() => {

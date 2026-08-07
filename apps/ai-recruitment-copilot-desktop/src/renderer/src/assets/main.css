@@ -1,3 +1,16 @@
+/*
+ * MiSans — same family/weights as the web app (misans@4.1.0 / jsDelivr CDN).
+ *
+ * Electron UI fonts belong in the *renderer* bundle (Vite resolves these
+ * @font-face urls into out/renderer/assets). Do not put them under
+ * resources/ — that directory is for main-process / native extras
+ * (icons, binaries) reached via process.resourcesPath, not for CSS fonts.
+ */
+@import "misans/lib/Normal/MiSans-Regular.min.css";
+@import "misans/lib/Normal/MiSans-Medium.min.css";
+@import "misans/lib/Normal/MiSans-Semibold.min.css";
+@import "misans/lib/Normal/MiSans-Bold.min.css";
+
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -177,6 +190,18 @@
   }
 
   /*
+   * Electron renders TanStack <Link> as real <a href>. Chromium lets users
+   * drag those as URL payloads (and shows a ghost URL) — not native for a
+   * desktop shell. Kill drag on anchors/images app-wide.
+   */
+  a,
+  a *,
+  img {
+    -webkit-user-drag: none;
+    user-drag: none;
+  }
+
+  /*
    * Themed native scrollbars (fallback for any overflow-auto surface that
    * is not wrapped in OverlayScrollbars). Prefer ScrollArea at call sites.
    * Light mode stays softer / higher transparency so the thumb does not
@@ -245,10 +270,20 @@
  * Frameless / custom title-bar drag regions (Electron).
  * Prefer a dedicated full-size .app-drag layer; only mark interactive
  * controls as .app-no-drag. Never put .app-no-drag on an inset-0 overlay.
+ *
+ * While html[data-chrome-drag-suspend] is set (open select/menu in chrome),
+ * force drag strips to no-drag so outside clicks reach the renderer —
+ * Electron otherwise swallows pointer events on app-region:drag and
+ * floating UIs never dismiss.
  */
 .app-drag {
   -webkit-app-region: drag;
   app-region: drag;
+}
+
+html[data-chrome-drag-suspend] .app-drag {
+  -webkit-app-region: no-drag !important;
+  app-region: no-drag !important;
 }
 
 .app-no-drag,

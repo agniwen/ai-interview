@@ -1,5 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import type { CSSProperties } from "react";
+import { WorkspaceSelect } from "@/components/features/workspace/workspace-select";
 import { HistoryNav } from "@/components/history-nav";
 import { SidebarToggle } from "@/components/layout/app-sidebar/sidebar-toggle";
 import {
@@ -24,6 +25,11 @@ const noDragStyle = {
   appRegion: "no-drag",
 } as CSSProperties;
 
+/** Compact workspace select in the right chrome cluster (max-w ~10rem + caret). */
+const WORKSPACE_SELECT_APPROX_PX = 160;
+/** gap-1.5 between workspace select and settings gear. */
+const CHROME_RIGHT_GAP_PX = 6;
+
 /** Approx. Win/Linux window-control cluster (3 × 44px). macOS is 0. */
 function windowControlsWidthPx(): number {
   return window.api.window.platform === "darwin" ? 0 : 44 * 3;
@@ -36,7 +42,7 @@ function windowControlsWidthPx(): number {
  * - Only empty absolute rectangles are `app-drag` (never under buttons).
  * - Toggle / history stay mounted and fixed; history eases between
  *   sidebar-right (expanded) and next-to-toggle (collapsed).
- * - Settings stays on the right of this same bar.
+ * - Workspace select + settings stay on the right of this same bar.
  */
 export function DesktopChromeBar(): React.JSX.Element {
   const { state } = useSidebar();
@@ -56,7 +62,13 @@ export function DesktopChromeBar(): React.JSX.Element {
 
   const toggleEnd = leftInset + CHROME_BTN_PX;
   const historyClusterPx = showHistoryNav ? CHROME_BTN_PX * 2 + 4 : 0;
-  const settingsClusterPx = CHROME_EDGE_PAD_PX + CHROME_BTN_PX + windowControlsWidthPx();
+  // Right cluster: workspace select + gap + settings + window controls + edge pad.
+  const settingsClusterPx =
+    CHROME_EDGE_PAD_PX +
+    WORKSPACE_SELECT_APPROX_PX +
+    CHROME_RIGHT_GAP_PX +
+    CHROME_BTN_PX +
+    windowControlsWidthPx();
 
   // Expanded: history ends at sidebar right pad.
   // Collapsed: history starts just after the toggle.
@@ -140,6 +152,9 @@ export function DesktopChromeBar(): React.JSX.Element {
         className="app-no-drag absolute inset-y-0 right-0 z-10 flex items-center gap-1.5"
         style={{ ...noDragStyle, paddingRight: CHROME_EDGE_PAD_PX }}
       >
+        <div className="app-no-drag" style={noDragStyle}>
+          <WorkspaceSelect />
+        </div>
         <Link
           aria-label="设置"
           className="app-no-drag flex size-7 shrink-0 items-center justify-center text-muted-foreground opacity-80 transition-opacity hover:opacity-100"

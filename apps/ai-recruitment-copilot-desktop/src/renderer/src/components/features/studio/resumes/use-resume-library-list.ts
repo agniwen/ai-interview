@@ -3,12 +3,12 @@ import { RESUME_LIBRARY_INFINITE_PAGE_SIZE } from "@arc/shared/studio-resumes";
 import type { PaginatedResumeLibraryResult } from "@arc/shared/studio-resumes";
 import { useMemo } from "react";
 import { fetchStudioResumes } from "@/lib/client/studio-resumes";
-import { resolveActiveWorkspace } from "@/lib/client/workspace";
+import { desktopWorkspaceKeys, resolveActiveWorkspace } from "@/lib/client/workspace";
 
 export function useResumeLibraryList() {
   const workspaceQuery = useQuery({
     queryFn: resolveActiveWorkspace,
-    queryKey: ["desktop-active-workspace"],
+    queryKey: desktopWorkspaceKeys.active,
     staleTime: 60_000,
   });
 

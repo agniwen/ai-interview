@@ -44,16 +44,7 @@ export function ResumeLibraryPage() {
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 pb-10 sm:px-6">
       <div className="space-y-1">
         <h1 className="font-medium text-xl tracking-tight text-foreground">招聘台</h1>
-        <p className="text-muted-foreground text-sm">
-          {workspace ? (
-            <>
-              工作区 <span className="text-foreground">{workspace.name}</span>
-              {total > 0 ? ` · 共 ${total} 条` : null}
-            </>
-          ) : (
-            "加载中…"
-          )}
-        </p>
+        <p className="text-muted-foreground text-sm">点击候选人可发起会议转录</p>
       </div>
 
       <ResumeLibraryList
