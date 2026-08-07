@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { AppSidebarShell } from "@/components/layout/app-sidebar/app-sidebar-shell";
+import { Toaster } from "@/components/ui/sonner";
 
 /**
  * Root desktop chrome (Cursor-style, no global title bar):
@@ -10,6 +11,7 @@ export function AppShell({ children }: { children: ReactNode }): React.JSX.Eleme
   return (
     <div className="flex h-full min-h-0 flex-col bg-transparent">
       <AppSidebarShell>{children}</AppSidebarShell>
+      <Toaster />
     </div>
   );
 }

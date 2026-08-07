@@ -17,8 +17,8 @@ export const CHROME_TRAFFIC_LIGHT_INSET_PX = 82;
 /** Horizontal padding used for chrome control clusters (matches pr-3 / pl-3). */
 export const CHROME_EDGE_PAD_PX = 12;
 
-/** Hit target size for a chrome icon button (matches ChromeIconButton size-7). */
-export const CHROME_BTN_PX = 28;
+/** Hit target size for a chrome icon button (matches ChromeIconButton size-6). */
+export const CHROME_BTN_PX = 24;
 
 export function handleTitleBarDoubleClick(): void {
   void window.api.window.maximize();

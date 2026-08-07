@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { DesktopScrollToTopButton } from "@/components/features/studio/desktop-scroll-to-top-button";
 import { ResumeLibraryFiltersBar } from "./resume-library-filters";
 import { ResumeLibraryList } from "./resume-library-list";
 import { useResumeLibraryList } from "./use-resume-library-list";
@@ -95,6 +96,8 @@ export function ResumeLibraryPage() {
         records={records}
         total={total}
       />
+
+      <DesktopScrollToTopButton />
     </div>
   );
 }

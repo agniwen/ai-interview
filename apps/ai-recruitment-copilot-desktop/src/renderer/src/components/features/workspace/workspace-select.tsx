@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { CSSProperties } from "react";
 import { useState } from "react";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Icon } from "@/components/ui/icon";
 import {
   desktopWorkspaceKeys,
   listWorkspaces,
@@ -15,9 +16,16 @@ import {
 } from "@/lib/client/workspace";
 import type { WorkspaceOrg } from "@/lib/client/workspace";
 import { useSuspendChromeDrag } from "@/lib/use-suspend-chrome-drag";
+import { cn } from "@arc/shared/utils";
+
+const noDragStyle = {
+  WebkitAppRegion: "no-drag",
+  appRegion: "no-drag",
+} as CSSProperties;
 
 /**
  * Compact workspace picker for the desktop chrome bar (left of settings).
+ * Trigger width follows the active workspace name (not the longest option).
  * Switching updates session active org and the desktop-active-workspace query
  * so studio lists (e.g. 招聘台) refetch against the new slug.
  */
@@ -50,10 +58,11 @@ export function WorkspaceSelect(): React.JSX.Element | null {
   });
 
   const orgs = orgsQuery.data ?? [];
-  const activeId = activeQuery.data?.id ?? null;
+  const active = activeQuery.data ?? null;
+  const label = active?.name ?? "选择工作区";
 
   if (orgsQuery.isPending || activeQuery.isPending) {
-    return <div aria-hidden className="h-7 w-[8.5rem] shrink-0 rounded-md bg-muted/40" />;
+    return <div aria-hidden className="h-6 w-20 shrink-0 rounded-[6px] bg-muted/40" />;
   }
 
   if (orgs.length === 0) {
@@ -61,32 +70,39 @@ export function WorkspaceSelect(): React.JSX.Element | null {
   }
 
   return (
-    <Select
-      disabled={switchMutation.isPending}
-      onOpenChange={setOpen}
-      onValueChange={(value) => {
-        if (typeof value !== "string" || value === activeId) {
-          return;
-        }
-        switchMutation.mutate(value);
-      }}
-      open={open}
-      value={activeId ?? undefined}
-    >
-      <SelectTrigger
+    <DropdownMenu onOpenChange={setOpen} open={open}>
+      <DropdownMenuTrigger
         aria-label="选择工作区"
-        className="h-7 max-w-[10rem] min-w-[7rem] gap-1 border-0 bg-transparent px-2 shadow-none hover:bg-muted/50 dark:hover:bg-muted/40"
-        size="sm"
+        className={cn(
+          "app-no-drag inline-flex h-6 max-w-[10rem] shrink-0 items-center gap-1 rounded-[6px] px-1.5 text-xs text-muted-foreground opacity-80 transition-[opacity,background-color]",
+          "hover:bg-foreground/8 hover:opacity-100 dark:hover:bg-foreground/12",
+          "outline-none focus-visible:ring-1 focus-visible:ring-ring",
+          "disabled:pointer-events-none disabled:opacity-50",
+        )}
+        disabled={switchMutation.isPending}
+        style={noDragStyle}
+        type="button"
       >
-        <SelectValue placeholder="选择工作区" />
-      </SelectTrigger>
-      <SelectContent align="end" className="z-[250] min-w-[10rem]">
+        <span className="min-w-0 truncate">{label}</span>
+        <Icon className="size-3 shrink-0 opacity-70" icon="ph:caret-down" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="z-[250] min-w-[10rem]" sideOffset={6}>
         {orgs.map((org) => (
-          <SelectItem key={org.id} value={org.id}>
-            {org.name}
-          </SelectItem>
+          <DropdownMenuItem
+            className={cn(org.id === active?.id && "bg-accent")}
+            disabled={switchMutation.isPending}
+            key={org.id}
+            onClick={() => {
+              if (org.id === active?.id) {
+                return;
+              }
+              switchMutation.mutate(org.id);
+            }}
+          >
+            <span className="truncate">{org.name}</span>
+          </DropdownMenuItem>
         ))}
-      </SelectContent>
-    </Select>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

@@ -317,7 +317,13 @@ function MeetingRecordingAction({ onStart, visible }: { onStart?: () => void; vi
  * Desktop resume library card. Content layout mirrors web; hover reveals a
  * bottom-right 「新建会议录制」 action that opens the associate-resume modal.
  */
-function ResumeLibraryCardComponent({ record }: { record: ResumeLibraryListRecord }) {
+function ResumeLibraryCardComponent({
+  onOpenDetail,
+  record,
+}: {
+  onOpenDetail: (record: ResumeLibraryListRecord) => void;
+  record: ResumeLibraryListRecord;
+}) {
   const { openMeetingRecording } = useMeetingRecording();
   const [hovered, setHovered] = useState(false);
 
@@ -330,6 +336,10 @@ function ResumeLibraryCardComponent({ record }: { record: ResumeLibraryListRecor
   const handlePointerLeave = useCallback(() => {
     setHovered(false);
   }, []);
+
+  const openDetail = useCallback(() => {
+    onOpenDetail(record);
+  }, [onOpenDetail, record]);
 
   const jobDescriptionLabel = getResumeLibraryJobDescriptionLabel(record);
   const lifecycle = describeLifecycleCell(record);
@@ -355,12 +365,14 @@ function ResumeLibraryCardComponent({ record }: { record: ResumeLibraryListRecor
   const showProfile = hasProfileSnapshotContent(profileSnapshot);
 
   return (
+    // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <article
       className={cn(
-        "relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card",
+        "relative flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-border bg-card",
         "transition-colors hover:border-border hover:bg-muted/30",
         "dark:bg-background dark:hover:bg-input/30",
       )}
+      onClick={openDetail}
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}
     >

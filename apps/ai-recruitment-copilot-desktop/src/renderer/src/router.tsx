@@ -14,6 +14,7 @@ import { getQueryClient } from "@/lib/query-client";
 import { AuthCallbackPage } from "@/routes/auth-callback-page";
 import { HomePage } from "@/routes/home-page";
 import { LoginPage } from "@/routes/login-page";
+import { ResumeDetailRoutePage } from "@/routes/resume-detail-page";
 import { SettingsPage } from "@/routes/settings-page";
 
 export interface RouterContext {
@@ -96,6 +97,12 @@ const indexRoute = createRoute({
   path: "/",
 });
 
+const resumeDetailRoute = createRoute({
+  component: ResumeDetailRoutePage,
+  getParentRoute: () => appRoute,
+  path: "/resumes/$recordId",
+});
+
 const settingsRoute = createRoute({
   component: SettingsPage,
   getParentRoute: () => appRoute,
@@ -106,7 +113,7 @@ const settingsRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   loginRoute,
   authCallbackRoute,
-  appRoute.addChildren([indexRoute, settingsRoute]),
+  appRoute.addChildren([indexRoute, resumeDetailRoute, settingsRoute]),
 ]);
 
 /**

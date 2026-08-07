@@ -7,10 +7,13 @@ const noDragStyle = {
   appRegion: "no-drag",
 } as CSSProperties;
 
+/** Shared square chrome icon control (toggle / history / settings). */
+export const chromeIconControlClassName =
+  "app-no-drag flex size-6 shrink-0 items-center justify-center rounded-[6px] text-muted-foreground opacity-80 transition-[opacity,background-color] hover:bg-foreground/8 hover:opacity-100 dark:hover:bg-foreground/12";
+
 /**
  * Shared chrome control style (sidebar history nav, sidebar toggle, content
- * settings): plain icon, no fill box — opacity shift on hover only.
- * Fixed hit target keeps spacing even across icons.
+ * settings): square hit target, muted icon, gray hover fill + light radius.
  */
 export function ChromeIconButton({
   ariaLabel,
@@ -29,7 +32,8 @@ export function ChromeIconButton({
     <button
       aria-label={ariaLabel}
       className={cn(
-        "app-no-drag flex size-7 shrink-0 items-center justify-center text-muted-foreground opacity-80 transition-opacity enabled:hover:opacity-100 disabled:opacity-25",
+        chromeIconControlClassName,
+        "disabled:pointer-events-none disabled:opacity-25",
         className,
       )}
       disabled={disabled}

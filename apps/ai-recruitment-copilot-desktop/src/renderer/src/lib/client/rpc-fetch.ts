@@ -19,14 +19,15 @@ function extractErrorMessage(data: unknown): string | null {
 export async function apiJson<T>(
   input: string,
   errorFallback: string,
-  init?: RequestInit,
+  init?: RequestInit & { allow404?: boolean },
 ): Promise<T> {
+  const { allow404, ...requestInit } = init ?? {};
   const response = await fetch(input, {
-    ...init,
+    ...requestInit,
     credentials: "include",
     headers: {
       Accept: "application/json",
-      ...init?.headers,
+      ...requestInit.headers,
     },
   });
 
@@ -41,6 +42,9 @@ export async function apiJson<T>(
   }
 
   if (!response.ok) {
+    if (allow404 && response.status === 404) {
+      return null as T;
+    }
     throw new ApiError(extractErrorMessage(payload) ?? errorFallback, {
       payload,
       status: response.status,

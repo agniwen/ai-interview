@@ -60,7 +60,7 @@ export function HistoryNav(): React.JSX.Element {
   }, [router]);
 
   return (
-    <div className="app-no-drag flex h-full items-center gap-0.5">
+    <div className="app-no-drag flex h-full items-center gap-0">
       <ChromeIconButton
         ariaLabel="后退"
         disabled={!nav.canBack}

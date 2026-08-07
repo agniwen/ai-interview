@@ -1,4 +1,9 @@
-import type { PaginatedResumeLibraryResult } from "@arc/shared/studio-resumes";
+import type {
+  StructuredResumeEvaluationV1,
+  StructuredResumeGateStatus,
+} from "@arc/db-schema/structured-resume-evaluation";
+import type { StructuredResumeSummaryFields } from "@arc/shared/structured-resume-scoring";
+import type { PaginatedResumeLibraryResult, ResumeLibraryDetail } from "@arc/shared/studio-resumes";
 import { apiJson } from "./rpc-fetch";
 import { apiUrl } from "./rpc";
 
@@ -136,4 +141,40 @@ export function fetchStudioResumeSkillSuggestions(
   return apiJson<{ records: SkillSuggestion[] }>(apiUrl(path), "加载技能建议失败").then(
     (payload) => payload.records,
   );
+}
+
+/**
+ * 招聘台单条详情；不存在时返回 null。
+ * GET /api/w/:slug/studio/resumes/:id
+ */
+export function fetchStudioResume(slug: string, id: string): Promise<ResumeLibraryDetail | null> {
+  const path = `/api/w/${encodeURIComponent(slug)}/studio/resumes/${encodeURIComponent(id)}`;
+  return apiJson<ResumeLibraryDetail | null>(apiUrl(path), "加载简历详情失败", {
+    allow404: true,
+  });
+}
+
+/**
+ * 核实 / 纠正结构化评估硬性门槛。
+ * PATCH /api/w/:slug/studio/resumes/:id/structured-evaluation/gates/:requirementId
+ */
+export function correctStructuredResumeGate(
+  slug: string,
+  resumeId: string,
+  requirementId: string,
+  input: {
+    correctedStatus: StructuredResumeGateStatus | null;
+    expectedRunId: string;
+  },
+): Promise<{
+  evaluation: StructuredResumeEvaluationV1;
+  status: "updated";
+  summaries: StructuredResumeSummaryFields;
+}> {
+  const path = `/api/w/${encodeURIComponent(slug)}/studio/resumes/${encodeURIComponent(resumeId)}/structured-evaluation/gates/${encodeURIComponent(requirementId)}`;
+  return apiJson(apiUrl(path), "更新门槛核实结果失败", {
+    body: JSON.stringify(input),
+    headers: { "Content-Type": "application/json" },
+    method: "PATCH",
+  });
 }

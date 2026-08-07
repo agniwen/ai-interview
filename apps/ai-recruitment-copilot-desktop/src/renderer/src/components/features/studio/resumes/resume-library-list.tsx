@@ -1,11 +1,21 @@
+import { useNavigate } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { DESKTOP_SCROLL_TO_TOP_EVENT } from "@/components/features/studio/desktop-scroll-to-top-button";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
 import { useResumeLibraryCardHeight } from "./card-height";
 import { ResumeLibraryCard } from "./resume-library-card";
+import {
+  findDesktopMainScrollElement,
+  resumeLibraryScrollRestoreSnapshot,
+  setResumeLibraryScrollRestoreSnapshot,
+  useResumeLibraryInitialScrollRestore,
+  useResumeLibraryResizeScrollRestore,
+  useResumeLibraryScrollElement,
+} from "./scroll-restore";
 
 interface ResumeLibraryListProps {
   emptyHint?: string;
@@ -37,37 +47,14 @@ export function ResumeLibraryList({
   records,
   total,
 }: ResumeLibraryListProps) {
+  const navigate = useNavigate();
   const listRootRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  // Fixed row height (like web). Viewport breakpoints match Tailwind layout
-  // (sm / xl / 2xl) so estimates don't stay "tall md" while the card is already
-  // in the short xl side-by-side profile layout.
+  const [initialRestoreSnapshot] = useState(() => resumeLibraryScrollRestoreSnapshot.current);
+  const restoreSnapshotRef = useRef(initialRestoreSnapshot);
+  const scrollElement = useResumeLibraryScrollElement(listRootRef);
   const cardHeight = useResumeLibraryCardHeight();
-
-  const getScrollElement = useCallback(() => {
-    const byId = document.querySelector<HTMLElement>('[data-scroll-restoration-id="desktop-main"]');
-    if (byId) {
-      return byId;
-    }
-    const root = listRootRef.current;
-    if (!root) {
-      return null;
-    }
-    // Prefer the nearest OverlayScrollbars / overflow scroll parent from the shell.
-    let node: HTMLElement | null = root.parentElement;
-    while (node) {
-      const { overflowY } = getComputedStyle(node);
-      if (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") {
-        return node;
-      }
-      // OverlayScrollbars viewport class
-      if (node.classList.contains("os-viewport")) {
-        return node;
-      }
-      node = node.parentElement;
-    }
-    return document.documentElement;
-  }, []);
+  const initialScrollRestore = useResumeLibraryInitialScrollRestore(initialRestoreSnapshot);
 
   const getVirtualItemKey = useCallback(
     (index: number) => records[index]?.id ?? `resume-placeholder-${index}`,
@@ -78,7 +65,9 @@ export function ResumeLibraryList({
     count: records.length,
     estimateSize: () => cardHeight,
     getItemKey: getVirtualItemKey,
-    getScrollElement,
+    getScrollElement: () => scrollElement,
+    initialMeasurementsCache: initialScrollRestore.initialMeasurementsCache,
+    initialOffset: initialScrollRestore.initialOffset,
     overscan: 6,
   });
 
@@ -87,22 +76,62 @@ export function ResumeLibraryList({
   }, [cardHeight, virtualizer]);
 
   useEffect(() => {
+    const onScrollToTop = () => {
+      const viewport = scrollElement ?? findDesktopMainScrollElement();
+      if (viewport) {
+        viewport.scrollTop = 0;
+      }
+      virtualizer.scrollToOffset(0, { align: "start" });
+    };
+    window.addEventListener(DESKTOP_SCROLL_TO_TOP_EVENT, onScrollToTop);
+    return () => window.removeEventListener(DESKTOP_SCROLL_TO_TOP_EVENT, onScrollToTop);
+  }, [scrollElement, virtualizer]);
+
+  const handleOpenDetail = useCallback(
+    (record: ResumeLibraryListRecord) => {
+      const viewport = scrollElement ?? findDesktopMainScrollElement();
+      const rowElement = listRootRef.current?.querySelector<HTMLElement>(
+        `[data-resume-record-id="${record.id}"]`,
+      );
+      if (viewport && rowElement) {
+        setResumeLibraryScrollRestoreSnapshot({
+          measurements: virtualizer.takeSnapshot(),
+          recordId: record.id,
+          recordTopInScrollElement:
+            rowElement.getBoundingClientRect().top - viewport.getBoundingClientRect().top,
+          scrollOffset: viewport.scrollTop,
+          viewportWidth: viewport.clientWidth,
+        });
+      }
+      void navigate({ params: { recordId: record.id }, to: "/resumes/$recordId" });
+    },
+    [navigate, scrollElement, virtualizer],
+  );
+
+  useEffect(() => {
     const node = loadMoreRef.current;
     if (!node || !hasNextPage || typeof IntersectionObserver === "undefined") {
       return;
     }
-    const scrollElement = getScrollElement();
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting) && !isFetchingNextPage) {
           void fetchNextPage();
         }
       },
-      { root: scrollElement instanceof Element ? scrollElement : null, rootMargin: "720px 0px" },
+      { root: scrollElement, rootMargin: "720px 0px" },
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [fetchNextPage, getScrollElement, hasNextPage, isFetchingNextPage]);
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage, scrollElement]);
+
+  useResumeLibraryResizeScrollRestore({
+    listRootRef,
+    records,
+    restoreSnapshotRef,
+    scrollElement,
+    virtualizer,
+  });
 
   let loadMoreStatusText = "已显示全部简历";
   if (hasNextPage) {
@@ -166,7 +195,7 @@ export function ResumeLibraryList({
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
               >
-                <ResumeLibraryCard record={record} />
+                <ResumeLibraryCard onOpenDetail={handleOpenDetail} record={record} />
               </div>
             );
           })}

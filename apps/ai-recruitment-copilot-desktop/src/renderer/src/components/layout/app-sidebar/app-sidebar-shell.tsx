@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { ContentTitleBar } from "@/components/layout/content-title-bar";
 import { DesktopChromeBar } from "@/components/layout/desktop-chrome-bar";
 import { SidebarUserSection } from "@/components/layout/sidebar-user-section";
+import { DESKTOP_MAIN_SCROLL_RESTORATION_ID } from "@/components/features/studio/resumes/scroll-restore";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./app-sidebar";
@@ -50,7 +51,7 @@ export function AppSidebarShell({ children }: { children: ReactNode }) {
               <ContentTitleBar />
               <ScrollArea
                 className="min-h-0 flex-1"
-                scrollRestorationId="desktop-main"
+                scrollRestorationId={DESKTOP_MAIN_SCROLL_RESTORATION_ID}
                 scrollbars="leave"
               >
                 {children}

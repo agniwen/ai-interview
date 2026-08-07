@@ -11,6 +11,7 @@ import {
   handleTitleBarDoubleClick,
   isMacPlatform,
 } from "@/components/layout/chrome";
+import { chromeIconControlClassName } from "@/components/layout/chrome-icon-button";
 import { Icon } from "@/components/ui/icon";
 import { useSidebar } from "@/components/ui/sidebar";
 import { WindowControls } from "@/components/window-controls";
@@ -61,7 +62,7 @@ export function DesktopChromeBar(): React.JSX.Element {
   const leftInset = isMac ? CHROME_TRAFFIC_LIGHT_INSET_PX : CHROME_EDGE_PAD_PX;
 
   const toggleEnd = leftInset + CHROME_BTN_PX;
-  const historyClusterPx = showHistoryNav ? CHROME_BTN_PX * 2 + 4 : 0;
+  const historyClusterPx = showHistoryNav ? CHROME_BTN_PX * 2 + 2 : 0;
   // Right cluster: workspace select + gap + settings + window controls + edge pad.
   const settingsClusterPx =
     CHROME_EDGE_PAD_PX +
@@ -178,7 +179,7 @@ export function DesktopChromeBar(): React.JSX.Element {
         </div>
         <Link
           aria-label="设置"
-          className="app-no-drag flex size-7 shrink-0 items-center justify-center text-muted-foreground opacity-80 transition-opacity hover:opacity-100"
+          className={chromeIconControlClassName}
           onDoubleClick={(event) => event.stopPropagation()}
           style={noDragStyle}
           to="/settings"
