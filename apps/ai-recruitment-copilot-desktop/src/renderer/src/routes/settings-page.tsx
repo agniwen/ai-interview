@@ -26,7 +26,6 @@ const THEME_OPTIONS: { icon: AppIconName; label: string; value: ThemeMode }[] = 
 /** Theme dropdown; selection flows through next-themes (class + localStorage). */
 function ThemeSelect(): React.JSX.Element {
   const { theme, setTheme } = useTheme();
-  const current = THEME_OPTIONS.find((option) => option.value === theme) ?? THEME_OPTIONS[2];
 
   return (
     <Select
@@ -39,14 +38,25 @@ function ThemeSelect(): React.JSX.Element {
       value={theme}
     >
       <SelectTrigger className="w-full" id="theme">
-        <Icon className="size-4" icon={current.icon} />
-        <SelectValue />
+        <SelectValue>
+          {(value) => {
+            const option = THEME_OPTIONS.find((item) => item.value === value) ?? THEME_OPTIONS[2];
+            return (
+              <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                <Icon className="size-4 shrink-0" icon={option.icon} />
+                {option.label}
+              </span>
+            );
+          }}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
         {THEME_OPTIONS.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            <Icon className="size-4" icon={option.icon} />
-            {option.label}
+          <SelectItem key={option.value} label={option.label} value={option.value}>
+            <span className="inline-flex items-center gap-2 whitespace-nowrap">
+              <Icon className="size-4 shrink-0" icon={option.icon} />
+              {option.label}
+            </span>
           </SelectItem>
         ))}
       </SelectContent>
