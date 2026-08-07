@@ -1,6 +1,10 @@
-import { memo } from "react";
-import type { ReactNode } from "react";
+import AvvvatarsModule from "avvvatars-react";
+import { m, useReducedMotion } from "motion/react";
+import { memo, useCallback, useState } from "react";
+import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
+import { useMeetingRecording } from "@/components/features/meeting/meeting-recording-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { describeResumeLibraryReviewCard } from "@arc/shared/resume-review";
 import type { ResumeReviewActionTone } from "@arc/shared/resume-review";
@@ -16,6 +20,12 @@ import {
   formatResumeRecordDisplayId,
   getResumeLibraryJobDescriptionLabel,
 } from "./resume-display";
+
+// CJS/ESM interop: Vite may surface either the function or `{ default: fn }`.
+const Avvvatars =
+  typeof AvvvatarsModule === "function"
+    ? AvvvatarsModule
+    : (AvvvatarsModule as unknown as { default: typeof AvvvatarsModule }).default;
 
 const REVIEW_ACTION_TONE_CLASS: Record<ResumeReviewActionTone, string> = {
   danger: "text-rose-700 dark:text-rose-300",
@@ -40,12 +50,9 @@ function getCreatorInitial(name: string | null | undefined) {
   return name?.trim().slice(0, 1).toUpperCase() || "?";
 }
 
-function getCandidateInitials(name: string) {
-  const source = name.trim();
-  if (!source) {
-    return "U";
-  }
-  return source.slice(0, 2).toUpperCase();
+/** Stable seed for Avvvatars — same as web resume library card. */
+function getResumeAvatarValue(record: ResumeLibraryListRecord) {
+  return [record.candidateName, record.candidateEmail].filter(Boolean).join(" ") || record.id;
 }
 
 function describeCompactAiLifecycle(record: ResumeLibraryListRecord): string {
@@ -263,11 +270,67 @@ function ResumeCardProfileSnapshot({ snapshot }: { snapshot: ResumeLibraryProfil
   );
 }
 
+/** Strong ease-out — snappy enter for hover UI (emil-design-eng). */
+const EASE_OUT = [0.23, 1, 0.32, 1] as const;
+const ACTION_SLIDE_PX = 12;
+const ACTION_DURATION_S = 0.2;
+
+function MeetingRecordingAction({ onStart, visible }: { onStart?: () => void; visible: boolean }) {
+  const reduceMotion = useReducedMotion();
+  const [focused, setFocused] = useState(false);
+  const shown = visible || focused;
+
+  return (
+    <m.div
+      animate={{
+        // Prefer full `transform` string over `x` for GPU-accelerated paint path.
+        opacity: shown ? 1 : 0,
+        transform: reduceMotion || shown ? "translateX(0px)" : `translateX(${ACTION_SLIDE_PX}px)`,
+      }}
+      className="absolute right-3 bottom-3 z-10"
+      initial={false}
+      onBlurCapture={() => setFocused(false)}
+      onFocusCapture={() => setFocused(true)}
+      style={{ pointerEvents: shown ? "auto" : "none" }}
+      transition={{
+        duration: reduceMotion ? 0.12 : ACTION_DURATION_S,
+        ease: EASE_OUT,
+      }}
+    >
+      <Button
+        onClick={(event) => {
+          event.stopPropagation();
+          onStart?.();
+        }}
+        size="sm"
+        type="button"
+        variant="default"
+      >
+        <Icon className="size-4" icon="ph:record" />
+        新建会议录制
+      </Button>
+    </m.div>
+  );
+}
+
 /**
- * Read-only resume library card for desktop (no actions / checkbox / detail nav).
- * Layout mirrors web `ResumeLibraryCard` content columns for breakpoint heights.
+ * Desktop resume library card. Content layout mirrors web; hover reveals a
+ * bottom-right 「新建会议录制」 action that opens the associate-resume modal.
  */
 function ResumeLibraryCardComponent({ record }: { record: ResumeLibraryListRecord }) {
+  const { openMeetingRecording } = useMeetingRecording();
+  const [hovered, setHovered] = useState(false);
+
+  // Only fine-pointer hover (avoid sticky hover after tap on touch targets).
+  const handlePointerEnter = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    if (event.pointerType === "mouse") {
+      setHovered(true);
+    }
+  }, []);
+  const handlePointerLeave = useCallback(() => {
+    setHovered(false);
+  }, []);
+
   const jobDescriptionLabel = getResumeLibraryJobDescriptionLabel(record);
   const lifecycle = describeLifecycleCell(record);
   const profileSnapshot = record.resumeProfileSnapshot;
@@ -294,17 +357,17 @@ function ResumeLibraryCardComponent({ record }: { record: ResumeLibraryListRecor
   return (
     <article
       className={cn(
-        "flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card",
+        "relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card",
         "transition-colors hover:border-border hover:bg-muted/30",
         "dark:bg-background dark:hover:bg-input/30",
       )}
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handlePointerLeave}
     >
       <div className="flex gap-3 p-4">
-        <Avatar className="mt-0.5 size-12 shrink-0 rounded-full" size="default">
-          <AvatarFallback className="rounded-full text-sm">
-            {getCandidateInitials(record.candidateName)}
-          </AvatarFallback>
-        </Avatar>
+        <div className="mt-0.5 size-12 shrink-0 overflow-hidden rounded-full">
+          <Avvvatars radius={48} size={48} style="shape" value={getResumeAvatarValue(record)} />
+        </div>
 
         <div className="min-w-0 flex-1">
           <div
@@ -427,6 +490,11 @@ function ResumeLibraryCardComponent({ record }: { record: ResumeLibraryListRecor
           </div>
         </div>
       </div>
+
+      <MeetingRecordingAction
+        onStart={() => openMeetingRecording({ resumeRecord: record, resumeRecordId: record.id })}
+        visible={hovered}
+      />
     </article>
   );
 }

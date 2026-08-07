@@ -1,19 +1,31 @@
 import { Button } from "@/components/ui/button";
+import { ResumeLibraryFiltersBar } from "./resume-library-filters";
 import { ResumeLibraryList } from "./resume-library-list";
 import { useResumeLibraryList } from "./use-resume-library-list";
 
 export function ResumeLibraryPage() {
   const {
+    canResetFilters,
     fetchNextPage,
+    filters,
+    hasActiveFilters,
     hasNextPage,
     isFetchingNextPage,
     isInitialLoading,
+    isRefetching,
+    jobDescriptions,
     listError,
+    onFilterChange,
+    onResetFilters,
     records,
     refetch,
+    search,
+    selectedStructuredJob,
+    skillSuggestions,
     total,
     workspace,
     workspaceError,
+    workspaceMembers,
   } = useResumeLibraryList();
 
   if (workspaceError) {
@@ -47,7 +59,29 @@ export function ResumeLibraryPage() {
         <p className="text-muted-foreground text-sm">点击候选人可发起会议转录</p>
       </div>
 
+      <ResumeLibraryFiltersBar
+        canResetFilters={canResetFilters}
+        filters={filters}
+        isListLoading={isInitialLoading}
+        isRefetching={isRefetching}
+        jobDescriptions={jobDescriptions}
+        onFilterChange={onFilterChange}
+        onRefresh={() => {
+          void refetch();
+        }}
+        onResetFilters={onResetFilters}
+        search={search}
+        selectedStructuredJob={selectedStructuredJob}
+        skillSuggestions={skillSuggestions}
+        workspaceMembers={workspaceMembers}
+      />
+
       <ResumeLibraryList
+        emptyHint={
+          hasActiveFilters
+            ? "当前筛选条件下没有匹配的候选人，试试调整筛选条件"
+            : "当前工作区还没有招聘台记录"
+        }
         error={listError}
         fetchNextPage={async () => {
           await fetchNextPage();

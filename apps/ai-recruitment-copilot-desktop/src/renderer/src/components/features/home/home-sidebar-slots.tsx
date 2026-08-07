@@ -1,4 +1,5 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { useRouterState } from "@tanstack/react-router";
+import { useMeetingRecording } from "@/components/features/meeting/meeting-recording-context";
 import {
   SidebarBodyPortalContent,
   SidebarHeaderPortalContent,
@@ -20,6 +21,7 @@ import {
 export function HomeSidebarSlots() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const isHome = pathname === "/";
+  const { openMeetingRecording } = useMeetingRecording();
 
   return (
     <>
@@ -29,14 +31,12 @@ export function HomeSidebarSlots() {
             <SidebarMenuButton
               className="font-normal"
               isActive={false}
-              render={
-                <Link to="/">
-                  <Icon icon="ph:plus" />
-                  <span>新建对话</span>
-                </Link>
-              }
-              tooltip="新建对话"
-            />
+              onClick={() => openMeetingRecording()}
+              tooltip="新建会议录制"
+            >
+              <Icon icon="ph:record" />
+              <span>新建会议录制</span>
+            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeaderPortalContent>

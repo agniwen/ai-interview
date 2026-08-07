@@ -3,12 +3,14 @@ import "./assets/main.css";
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
+import { LazyMotion, domAnimation } from "motion/react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { getQueryClient } from "@/lib/query-client";
 import { hydrateSettings } from "@/lib/settings";
 import type { ThemeMode } from "@/lib/settings";
 import { createDesktopRouter } from "@/router";
+import { MeetingRecordingProvider } from "@/components/features/meeting/meeting-recording-context";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { ThemeSync } from "@/components/theme/theme-sync";
 
@@ -71,9 +73,13 @@ createRoot(rootElement).render(
       enableSystem
     >
       <ThemeSync />
-      <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>
+      <LazyMotion features={domAnimation} strict>
+        <QueryClientProvider client={queryClient}>
+          <MeetingRecordingProvider>
+            <RouterProvider router={router} />
+          </MeetingRecordingProvider>
+        </QueryClientProvider>
+      </LazyMotion>
     </ThemeProvider>
   </StrictMode>,
 );

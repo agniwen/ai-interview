@@ -146,7 +146,7 @@ function SelectContent({
         align={align}
         alignOffset={alignOffset}
         alignItemWithTrigger={alignItemWithTrigger}
-        className="isolate z-50"
+        className="isolate z-[350]"
       >
         <SelectPrimitive.Popup
           data-slot="select-content"
@@ -155,7 +155,7 @@ function SelectContent({
           data-vaul-no-drag=""
           className={cn(
             cossPopupSurfaceClass,
-            "relative isolate z-50 max-h-(--available-height) min-w-[8rem] origin-(--transform-origin) touch-pan-y overflow-x-hidden overflow-y-auto data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[align-trigger=true]:w-(--anchor-width) data-[align-trigger=true]:animate-none",
+            "relative isolate z-[350] max-h-(--available-height) min-w-[8rem] origin-(--transform-origin) touch-pan-y overflow-x-hidden overflow-y-auto data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[align-trigger=true]:w-(--anchor-width) data-[align-trigger=true]:animate-none",
             className,
           )}
           data-align-trigger={alignItemWithTrigger}

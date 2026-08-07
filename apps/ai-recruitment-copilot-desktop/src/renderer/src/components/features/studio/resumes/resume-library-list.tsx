@@ -8,6 +8,7 @@ import { useResumeLibraryCardHeight } from "./card-height";
 import { ResumeLibraryCard } from "./resume-library-card";
 
 interface ResumeLibraryListProps {
+  emptyHint?: string;
   error: unknown;
   fetchNextPage: () => Promise<unknown>;
   hasNextPage: boolean;
@@ -26,6 +27,7 @@ function errorMessage(error: unknown) {
 }
 
 export function ResumeLibraryList({
+  emptyHint = "当前工作区还没有招聘台记录",
   error,
   fetchNextPage,
   hasNextPage,
@@ -132,7 +134,7 @@ export function ResumeLibraryList({
     listContent = (
       <div className="rounded-2xl border border-dashed border-border px-6 py-16 text-center">
         <p className="font-medium text-sm">暂无简历</p>
-        <p className="mt-1 text-muted-foreground text-xs">当前工作区还没有招聘台记录</p>
+        <p className="mt-1 text-muted-foreground text-xs">{emptyHint}</p>
       </div>
     );
   } else {

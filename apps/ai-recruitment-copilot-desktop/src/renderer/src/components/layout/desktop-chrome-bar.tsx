@@ -84,6 +84,12 @@ export function DesktopChromeBar(): React.JSX.Element {
   //       = 100% - sidebar-width + pad + historyWidth
   const expandedSidebarDragRight = `calc(100% - var(--sidebar-width) + ${CHROME_EDGE_PAD_PX + historyClusterPx}px)`;
 
+  // Product name sits at the left of the content header (after sidebar when
+  // expanded; after toggle/history when collapsed).
+  const appTitleLeft = collapsed
+    ? collapsedLeftEnd + 8
+    : `calc(var(--sidebar-width) + ${CHROME_EDGE_PAD_PX}px)`;
+
   return (
     <div
       className="fixed inset-x-0 top-0 z-[200]"
@@ -147,6 +153,21 @@ export function DesktopChromeBar(): React.JSX.Element {
           <HistoryNav />
         </div>
       ) : null}
+
+      {/* Content-header product name (visual only — drag strip sits above). */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 z-10 flex min-w-0 items-center"
+        style={{
+          left: appTitleLeft,
+          right: settingsClusterPx,
+          transition: "left 200ms ease",
+        }}
+      >
+        <span className="truncate select-none font-medium text-muted-foreground text-sm tracking-tight">
+          ARC Desktop
+        </span>
+      </div>
 
       <div
         className="app-no-drag absolute inset-y-0 right-0 z-10 flex items-center gap-1.5"
