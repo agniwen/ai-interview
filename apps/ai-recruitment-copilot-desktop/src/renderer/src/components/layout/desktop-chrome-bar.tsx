@@ -42,7 +42,14 @@ export function DesktopChromeBar(): React.JSX.Element {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const showHistoryNav = useRouterState({
-    select: (routerState) => !routerState.location.pathname.startsWith("/settings"),
+    select: (routerState) => {
+      const path = routerState.location.pathname;
+      // Hide history on settings + unauthenticated/auth chrome routes.
+      if (path.startsWith("/settings") || path.startsWith("/login") || path.startsWith("/auth")) {
+        return false;
+      }
+      return true;
+    },
   });
   const isMac = isMacPlatform();
   const leftInset = isMac ? CHROME_TRAFFIC_LIGHT_INSET_PX : CHROME_EDGE_PAD_PX;

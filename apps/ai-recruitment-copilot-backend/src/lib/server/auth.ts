@@ -24,7 +24,42 @@ import { db } from "./db";
 import * as schema from "@arc/db-schema/schema";
 
 const baseURL = getRequiredEnv("BETTER_AUTH_URL");
-const trustedOrigins = uniq([baseURL, "http://localhost:3000"]);
+
+/**
+ * Default trusted origins when `BETTER_AUTH_TRUSTED_ORIGINS` is unset.
+ * Always merged in so local web + desktop OAuth work without extra env.
+ * Extend (never replace) via BETTER_AUTH_TRUSTED_ORIGINS or TRUSTED_ORIGINS.
+ *
+ * - localhost:3000 — web / BETTER_AUTH_URL in local monorepo
+ * - localhost:5173/5174 — electron-vite desktop renderer (OAuth callback origin)
+ */
+const DEFAULT_BETTER_AUTH_TRUSTED_ORIGINS = [
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5174",
+] as const;
+
+function parseOriginList(raw: string | undefined): string[] {
+  if (!raw) {
+    return [];
+  }
+  return raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+// Prefer BETTER_AUTH_TRUSTED_ORIGINS (better-auth convention); TRUSTED_ORIGINS
+// is a project alias. Both extend the built-in defaults rather than replacing them.
+const trustedOrigins = uniq([
+  baseURL,
+  ...DEFAULT_BETTER_AUTH_TRUSTED_ORIGINS,
+  ...parseOriginList(process.env.BETTER_AUTH_TRUSTED_ORIGINS),
+  ...parseOriginList(process.env.TRUSTED_ORIGINS),
+]);
 
 function pickFirstNonEmpty(...values: (string | undefined)[]): string | undefined {
   return values.find((v) => typeof v === "string" && v.length > 0);

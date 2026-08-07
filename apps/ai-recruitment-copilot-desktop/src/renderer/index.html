@@ -3,10 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <title>ARC</title>
-    <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
+    <!--
+      CSP for Electron renderer:
+      - script/style stay tight (no remote JS)
+      - connect-src must allow better-auth / API hosts (e.g. interview.chainthink.cn
+        or http://localhost:3000). Without this, get-session fetch is blocked.
+    -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' http://localhost:* http://127.0.0.1:* https: ws: wss:; font-src 'self' data:"
     />
   </head>
 

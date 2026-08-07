@@ -1,5 +1,6 @@
 import { electronAPI } from "@electron-toolkit/preload";
 import { contextBridge, ipcRenderer } from "electron";
+import type { AuthApi } from "./auth-api";
 import type { WindowApi } from "./window-api";
 
 /**
@@ -22,7 +23,12 @@ const windowApi: WindowApi = {
   platform: process.platform,
 };
 
+const authApi: AuthApi = {
+  openOAuth: (url, successUrl) => ipcRenderer.invoke("auth:open-oauth", { successUrl, url }),
+};
+
 const api = {
+  auth: authApi,
   window: windowApi,
 };
 

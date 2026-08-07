@@ -4,13 +4,17 @@ import {
   createRoute,
   createRouter,
   Outlet,
+  redirect,
 } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { AppShell } from "@/components/layout/app-shell";
-import { HomePage } from "@/routes/home-page";
-import { SettingsPage } from "@/routes/settings-page";
+import { authClient } from "@/lib/auth-client";
 import { getQueryClient } from "@/lib/query-client";
+import { AuthCallbackPage } from "@/routes/auth-callback-page";
+import { HomePage } from "@/routes/home-page";
+import { LoginPage } from "@/routes/login-page";
+import { SettingsPage } from "@/routes/settings-page";
 
 export interface RouterContext {
   queryClient: QueryClient;
@@ -32,30 +36,78 @@ const settingsSearchSchema = z.object({
   section: z.preprocess(parseSettingsSection, z.enum(settingsSectionValues).optional()),
 });
 
+const loginSearchSchema = z.object({
+  error: z.string().optional(),
+});
+
+async function requireSession() {
+  const session = await authClient.getSession();
+  if (!session.data) {
+    throw redirect({ to: "/login" });
+  }
+  return session.data;
+}
+
+async function redirectIfAuthenticated() {
+  const session = await authClient.getSession();
+  if (session.data) {
+    throw redirect({ to: "/" });
+  }
+}
+
+/** Root: no chrome — login stays bare; app routes mount AppShell themselves. */
 const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: function RootLayout() {
+    return <Outlet />;
+  },
+});
+
+const loginRoute = createRoute({
+  beforeLoad: redirectIfAuthenticated,
+  component: LoginPage,
+  getParentRoute: () => rootRoute,
+  path: "/login",
+  validateSearch: loginSearchSchema,
+});
+
+const authCallbackRoute = createRoute({
+  component: AuthCallbackPage,
+  getParentRoute: () => rootRoute,
+  path: "/auth/callback",
+});
+
+/** Authenticated app shell with sidebar chrome. */
+const appRoute = createRoute({
+  beforeLoad: requireSession,
+  component: function AppLayout() {
     return (
       <AppShell>
         <Outlet />
       </AppShell>
     );
   },
+  getParentRoute: () => rootRoute,
+  id: "/_app",
 });
 
 const indexRoute = createRoute({
   component: HomePage,
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appRoute,
   path: "/",
 });
 
 const settingsRoute = createRoute({
   component: SettingsPage,
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => appRoute,
   path: "/settings",
   validateSearch: settingsSearchSchema,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, settingsRoute]);
+const routeTree = rootRoute.addChildren([
+  loginRoute,
+  authCallbackRoute,
+  appRoute.addChildren([indexRoute, settingsRoute]),
+]);
 
 /**
  * Hash history is the safe default for Electron:

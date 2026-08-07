@@ -3,6 +3,7 @@ import { app, BrowserWindow } from "electron";
 import { registerContextMenu } from "./context-menu";
 import { registerOrpcIpc } from "./orpc";
 import { applySettingsAtStartup } from "./settings";
+import { registerAuthIpc } from "./ipc/auth";
 import { registerWindowIpc } from "./ipc/window";
 import { createMainWindow } from "./window";
 
@@ -25,6 +26,7 @@ async function bootstrap(): Promise<void> {
   registerContextMenu();
   registerOrpcIpc();
   registerWindowIpc();
+  registerAuthIpc();
   createMainWindow();
   app.on("activate", handleActivate);
 }
