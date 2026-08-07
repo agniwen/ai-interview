@@ -1,6 +1,6 @@
 "use client";
 
-import { IconCheck, IconChevronDown, IconChevronUp } from "@tabler/icons-react";
+import { Icon } from "@/components/ui/icon";
 import { Select as SelectPrimitive } from "@base-ui/react/select";
 import * as React from "react";
 
@@ -118,7 +118,7 @@ function SelectTrigger({
     >
       {children}
       <SelectPrimitive.Icon
-        render={<IconChevronDown className="relative z-10 size-4 opacity-50" />}
+        render={<Icon className="relative z-10 size-4 opacity-50" icon="ph:caret-down" />}
       />
     </SelectPrimitive.Trigger>
   );
@@ -206,7 +206,7 @@ function SelectItem({
           />
         }
       >
-        <IconCheck className="size-4" />
+        <Icon className="size-4" icon="ph:check" />
       </SelectPrimitive.ItemIndicator>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
     </SelectPrimitive.Item>
@@ -233,7 +233,7 @@ function SelectScrollUpButton({
       className={cn("flex cursor-default items-center justify-center py-1", className)}
       {...props}
     >
-      <IconChevronUp className="size-4" />
+      <Icon className="size-4" icon="ph:caret-up" />
     </SelectPrimitive.ScrollUpArrow>
   );
 }
@@ -248,7 +248,7 @@ function SelectScrollDownButton({
       className={cn("flex cursor-default items-center justify-center py-1", className)}
       {...props}
     >
-      <IconChevronDown className="size-4" />
+      <Icon className="size-4" icon="ph:caret-down" />
     </SelectPrimitive.ScrollDownArrow>
   );
 }

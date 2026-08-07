@@ -1,9 +1,9 @@
 "use client";
 
-import { IconCheck } from "@tabler/icons-react";
 import { Checkbox as CheckboxPrimitive } from "@base-ui/react/checkbox";
 
 import { cossControlOverlayClass } from "@/components/ui/coss-style";
+import { Icon } from "@/components/ui/icon";
 import { cn } from "@arc/shared/utils";
 
 function Checkbox({ className, ...props }: CheckboxPrimitive.Root.Props) {
@@ -21,7 +21,7 @@ function Checkbox({ className, ...props }: CheckboxPrimitive.Root.Props) {
         data-slot="checkbox-indicator"
         className="relative z-10 grid place-content-center text-current transition-none"
       >
-        <IconCheck className="size-3.5" />
+        <Icon className="size-3.5" icon="ph:check" />
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   );

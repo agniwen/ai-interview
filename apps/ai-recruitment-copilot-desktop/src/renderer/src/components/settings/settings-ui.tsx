@@ -8,14 +8,17 @@ import { cn } from "@arc/shared/utils";
 export function SettingsSection({
   children,
   description,
+  id,
   title,
 }: {
   children: React.ReactNode;
   description?: string;
+  /** Anchor id for sidebar section links (e.g. #appearance). */
+  id?: string;
   title: string;
 }) {
   return (
-    <section className="flex flex-col gap-2.5">
+    <section className="flex flex-col gap-2.5 scroll-mt-6" id={id}>
       <div className="space-y-0.5">
         <h2 className="font-medium text-sm">{title}</h2>
         {description ? (

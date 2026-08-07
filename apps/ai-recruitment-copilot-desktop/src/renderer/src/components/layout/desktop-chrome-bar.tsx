@@ -1,0 +1,149 @@
+import { Link, useRouterState } from "@tanstack/react-router";
+import type { CSSProperties } from "react";
+import { HistoryNav } from "@/components/history-nav";
+import { SidebarToggle } from "@/components/layout/app-sidebar/sidebar-toggle";
+import {
+  CHROME_BTN_PX,
+  CHROME_EDGE_PAD_PX,
+  CHROME_TRAFFIC_LIGHT_INSET_PX,
+  TITLE_BAR_HEIGHT_PX,
+  handleTitleBarDoubleClick,
+  isMacPlatform,
+} from "@/components/layout/chrome";
+import { Icon } from "@/components/ui/icon";
+import { useSidebar } from "@/components/ui/sidebar";
+import { WindowControls } from "@/components/window-controls";
+
+const dragStyle = {
+  WebkitAppRegion: "drag",
+  appRegion: "drag",
+} as CSSProperties;
+
+const noDragStyle = {
+  WebkitAppRegion: "no-drag",
+  appRegion: "no-drag",
+} as CSSProperties;
+
+/** Approx. Win/Linux window-control cluster (3 × 44px). macOS is 0. */
+function windowControlsWidthPx(): number {
+  return window.api.window.platform === "darwin" ? 0 : 44 * 3;
+}
+
+/**
+ * Single fixed top chrome for the whole window.
+ *
+ * - Container is **no-drag** so controls always receive clicks in Electron.
+ * - Only empty absolute rectangles are `app-drag` (never under buttons).
+ * - Toggle / history stay mounted and fixed; history eases between
+ *   sidebar-right (expanded) and next-to-toggle (collapsed).
+ * - Settings stays on the right of this same bar.
+ */
+export function DesktopChromeBar(): React.JSX.Element {
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
+  const showHistoryNav = useRouterState({
+    select: (routerState) => !routerState.location.pathname.startsWith("/settings"),
+  });
+  const isMac = isMacPlatform();
+  const leftInset = isMac ? CHROME_TRAFFIC_LIGHT_INSET_PX : CHROME_EDGE_PAD_PX;
+
+  const toggleEnd = leftInset + CHROME_BTN_PX;
+  const historyClusterPx = showHistoryNav ? CHROME_BTN_PX * 2 + 4 : 0;
+  const settingsClusterPx = CHROME_EDGE_PAD_PX + CHROME_BTN_PX + windowControlsWidthPx();
+
+  // Expanded: history ends at sidebar right pad.
+  // Collapsed: history starts just after the toggle.
+  const historyLeft = collapsed
+    ? toggleEnd
+    : `calc(var(--sidebar-width) - ${CHROME_EDGE_PAD_PX}px)`;
+
+  // Collapsed left controls end (toggle + optional history).
+  const collapsedLeftEnd = toggleEnd + historyClusterPx;
+
+  // Expanded: end the in-sidebar drag just before the history cluster.
+  // right = 100% - (sidebar-width - pad - historyWidth)
+  //       = 100% - sidebar-width + pad + historyWidth
+  const expandedSidebarDragRight = `calc(100% - var(--sidebar-width) + ${CHROME_EDGE_PAD_PX + historyClusterPx}px)`;
+
+  return (
+    <div
+      className="fixed inset-x-0 top-0 z-[200]"
+      onDoubleClick={handleTitleBarDoubleClick}
+      style={{
+        ...noDragStyle,
+        height: TITLE_BAR_HEIGHT_PX,
+      }}
+    >
+      {/* ── Drag only on empty strips (never under controls) ── */}
+      {collapsed ? (
+        <div
+          className="app-drag absolute inset-y-0"
+          style={{
+            ...dragStyle,
+            left: collapsedLeftEnd,
+            right: settingsClusterPx,
+          }}
+        />
+      ) : (
+        <>
+          {/* Sidebar middle (between toggle and history) */}
+          <div
+            className="app-drag absolute inset-y-0"
+            style={{
+              ...dragStyle,
+              left: toggleEnd,
+              right: expandedSidebarDragRight,
+            }}
+          />
+          {/* Content middle (between sidebar edge and settings) */}
+          <div
+            className="app-drag absolute inset-y-0"
+            style={{
+              ...dragStyle,
+              left: "var(--sidebar-width)",
+              right: settingsClusterPx,
+            }}
+          />
+        </>
+      )}
+
+      {/* ── Controls: always mounted, always no-drag ── */}
+      <div
+        className="app-no-drag absolute inset-y-0 z-10 flex items-center"
+        style={{ ...noDragStyle, left: leftInset }}
+      >
+        <SidebarToggle />
+      </div>
+
+      {showHistoryNav ? (
+        <div
+          className="app-no-drag absolute inset-y-0 z-10 flex items-center"
+          style={{
+            ...noDragStyle,
+            left: historyLeft,
+            transform: collapsed ? "none" : "translateX(-100%)",
+            transition: "left 200ms ease, transform 200ms ease",
+          }}
+        >
+          <HistoryNav />
+        </div>
+      ) : null}
+
+      <div
+        className="app-no-drag absolute inset-y-0 right-0 z-10 flex items-center gap-1.5"
+        style={{ ...noDragStyle, paddingRight: CHROME_EDGE_PAD_PX }}
+      >
+        <Link
+          aria-label="设置"
+          className="app-no-drag flex size-7 shrink-0 items-center justify-center text-muted-foreground opacity-80 transition-opacity hover:opacity-100"
+          onDoubleClick={(event) => event.stopPropagation()}
+          style={noDragStyle}
+          to="/settings"
+        >
+          <Icon className="size-4" icon="ph:gear" />
+        </Link>
+        <WindowControls />
+      </div>
+    </div>
+  );
+}

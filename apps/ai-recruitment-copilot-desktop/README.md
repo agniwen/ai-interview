@@ -9,7 +9,7 @@ Electron desktop app (electron-vite + React + TypeScript) for HR–candidate con
 - TanStack Router (hash history — safe for Electron `file://` + dev)
 - TanStack Query (`@arc/shared/query-client` defaults)
 - Tailwind CSS v4 (`@tailwindcss/vite`) — theme tokens aligned with web app
-- Tabler icons (`@tabler/icons-react`)
+- Icons via Iconify + Phosphor (`@iconify/react`, `@iconify-json/ph`) — https://icones.js.org/collection/ph
 - shadcn/coss-style UI subset under `src/renderer/src/components/ui/`
 - electron-builder for packaging
 
@@ -21,9 +21,44 @@ C-end form basics:
 - `checkbox`, `radio-group`, `switch`, `select`
 - `field`, `form`, `separator`, `coss-style`
 - `scroll-area` (OverlayScrollbars + `os-theme-app`)
+- `sidebar`, `tooltip`, `skeleton` (desktop-native sidebar chrome)
 
-Root shell (`AppShell`) wraps page content in `ScrollArea` so the main viewport
-does not show the OS-native scrollbar.
+### Layout (Cursor-style)
+
+No global title bar. Sidebar and content each own a top drag strip:
+
+```
+AppShell
+  AppSidebarShell              # Magic Portal providers + SidebarProvider
+    AppSidebar
+      SidebarDragRegion        # top drag (macOS traffic lights sit here)
+      portal targets           # header / body / footer
+    SidebarInset
+      ContentTitleBar          # drag + history nav + settings + window controls
+      ScrollArea > <page>      # portal *content* co-located with the page
+```
+
+Sidebar menus are not hard-coded in the shell. Pages inject them with the same
+Magic Portal pattern as the web studio sidebar (see foxact
+[Magic Portal](https://foxact.skk.moe/magic-portal/)):
+
+```ts
+// in a page / feature module
+import { SidebarBodyPortalContent } from "@/components/layout/app-sidebar/portals";
+
+export function HomeSidebarSlots() {
+  return (
+    <SidebarBodyPortalContent>
+      {/* menu items */}
+    </SidebarBodyPortalContent>
+  );
+}
+```
+
+- Home: `components/features/home/home-sidebar-slots.tsx`
+- Settings: `components/features/settings/settings-sidebar-slots.tsx`
+
+`⌘B` / `Ctrl+B` toggles the sidebar (icon collapse).
 
 Import with the same alias as web:
 

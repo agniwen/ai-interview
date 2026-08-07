@@ -43,6 +43,8 @@ function bootstrapTheme(): void {
     resolved = savedTheme;
   }
   html.classList.toggle("dark", resolved === "dark");
+  // Used by CSS to fall back to solid sidebar on Linux (no OS acrylic).
+  html.classList.add(`platform-${window.api.window.platform}`);
 }
 
 bootstrapTheme();

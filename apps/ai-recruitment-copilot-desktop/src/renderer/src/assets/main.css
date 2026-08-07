@@ -18,10 +18,12 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-active: var(--sidebar-accent-active);
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  --color-sidebar-glass: var(--sidebar-glass);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -82,7 +84,8 @@
   --accent: #f5f5f5;
   --accent-foreground: oklch(0.36 0.05 254);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: #eeeeed;
+  /* Soft window / pane dividers — keep light so glass chrome does not feel boxed-in. */
+  --border: oklch(0.55 0 0 / 0.08);
   --input: #eeeeed;
   --ring: oklch(0.644 0.164 254);
   --chart-1: oklch(0.62 0.17 254);
@@ -90,13 +93,23 @@
   --chart-3: oklch(0.8 0.09 254);
   --chart-4: oklch(0.87 0.05 254);
   --chart-5: oklch(0.5 0.16 254);
+  /*
+   * Sidebar chrome tokens. On macOS/Win the glass panel is mostly transparent
+   * so native vibrancy/acrylic (window-level) shows through. A faint wash
+   * improves label contrast without hiding the desktop blur.
+   */
   --sidebar: #f7f7f7;
-  --sidebar-foreground: oklch(0.28 0 0);
+  /* Very light wash only — desktop vibrancy must stay visible underneath. */
+  --sidebar-glass: oklch(1 0 0 / 0.08);
+  /* Between main UI black and muted gray — readable on glass without feeling heavy. */
+  --sidebar-foreground: oklch(0.36 0 0);
   --sidebar-primary: oklch(0.3 0 0);
   --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.95 0 0);
-  --sidebar-accent-foreground: oklch(0.24 0 0);
-  --sidebar-border: oklch(0.88 0 0);
+  /* Menu hover / active — keep translucent so items match the glass sidebar. */
+  --sidebar-accent: oklch(0.2 0 0 / 0.06);
+  --sidebar-accent-active: oklch(0.2 0 0 / 0.1);
+  --sidebar-accent-foreground: oklch(0.32 0 0);
+  --sidebar-border: oklch(0.55 0 0 / 0.08);
   --sidebar-ring: oklch(0.55 0 0);
 }
 
@@ -116,7 +129,7 @@
   --accent: oklch(0.255 0.02 254);
   --accent-foreground: oklch(0.97 0.006 254);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
+  --border: oklch(1 0 0 / 7%);
   --input: oklch(1 0 0 / 15%);
   --ring: #a78bfa;
   --chart-1: #c4b5fd;
@@ -125,12 +138,14 @@
   --chart-4: #fbcfe8;
   --chart-5: #a5b4fc;
   --sidebar: #0e151e;
-  --sidebar-foreground: oklch(0.97 0.006 254);
+  --sidebar-glass: oklch(0.12 0.02 254 / 0.12);
+  --sidebar-foreground: oklch(0.88 0.008 254);
   --sidebar-primary: #c4b5fd;
   --sidebar-primary-foreground: #241d3f;
-  --sidebar-accent: oklch(0.255 0.02 254);
-  --sidebar-accent-foreground: oklch(0.97 0.006 254);
-  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-accent: oklch(1 0 0 / 0.08);
+  --sidebar-accent-active: oklch(1 0 0 / 0.14);
+  --sidebar-accent-foreground: oklch(0.92 0.008 254);
+  --sidebar-border: oklch(1 0 0 / 7%);
   --sidebar-ring: #a78bfa;
 }
 
@@ -139,6 +154,11 @@
   body,
   #root {
     height: 100%;
+    /*
+     * Critical for native vibrancy/acrylic: the page must not paint an opaque
+     * background, or the OS material under the window never shows through.
+     */
+    background: transparent;
   }
 
   * {
@@ -146,23 +166,25 @@
   }
 
   body {
-    @apply font-sans text-foreground bg-background;
+    @apply font-sans text-foreground;
     margin: 0;
     overflow: hidden;
     user-select: none;
     font-optical-sizing: auto;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    background: transparent;
   }
 
   /*
    * Themed native scrollbars (fallback for any overflow-auto surface that
    * is not wrapped in OverlayScrollbars). Prefer ScrollArea at call sites.
-   * Cursor policy is unlayered below (must beat Tailwind utilities).
+   * Light mode stays softer / higher transparency so the thumb does not
+   * compete with content; dark keeps a slightly stronger handle.
    */
   * {
     scrollbar-width: thin;
-    scrollbar-color: color-mix(in oklch, var(--muted-foreground) 45%, transparent) transparent;
+    scrollbar-color: color-mix(in oklch, var(--muted-foreground) 22%, transparent) transparent;
   }
 
   *::-webkit-scrollbar {
@@ -177,23 +199,43 @@
   *::-webkit-scrollbar-thumb {
     border: 2px solid transparent;
     border-radius: 9999px;
-    background: color-mix(in oklch, var(--muted-foreground) 45%, transparent);
+    background: color-mix(in oklch, var(--muted-foreground) 22%, transparent);
     background-clip: content-box;
   }
 
   *::-webkit-scrollbar-thumb:hover {
-    background: color-mix(in oklch, var(--muted-foreground) 65%, transparent);
+    background: color-mix(in oklch, var(--muted-foreground) 38%, transparent);
+    background-clip: content-box;
+  }
+
+  .dark * {
+    scrollbar-color: color-mix(in oklch, var(--muted-foreground) 40%, transparent) transparent;
+  }
+
+  .dark *::-webkit-scrollbar-thumb {
+    background: color-mix(in oklch, var(--muted-foreground) 40%, transparent);
+    background-clip: content-box;
+  }
+
+  .dark *::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklch, var(--muted-foreground) 58%, transparent);
     background-clip: content-box;
   }
 }
 
-/* Project-themed OverlayScrollbars (same as web `os-theme-app`). */
+/* Project-themed OverlayScrollbars (ScrollArea). Light = lower opacity. */
 .os-theme-app {
   --os-size: 10px;
   --os-padding-perpendicular: 2px;
   --os-padding-axis: 2px;
   --os-track-border-radius: 9999px;
   --os-handle-border-radius: 9999px;
+  --os-handle-bg: color-mix(in oklch, var(--muted-foreground) 14%, transparent);
+  --os-handle-bg-hover: color-mix(in oklch, var(--muted-foreground) 26%, transparent);
+  --os-handle-bg-active: color-mix(in oklch, var(--muted-foreground) 36%, transparent);
+}
+
+.dark .os-theme-app {
   --os-handle-bg: color-mix(in oklch, var(--muted-foreground) 25%, transparent);
   --os-handle-bg-hover: color-mix(in oklch, var(--muted-foreground) 40%, transparent);
   --os-handle-bg-active: color-mix(in oklch, var(--muted-foreground) 55%, transparent);
@@ -212,10 +254,45 @@
 .app-no-drag,
 .app-no-drag button,
 .app-no-drag a,
-.app-no-drag input {
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
+.app-no-drag input,
+.app-no-drag svg {
+  -webkit-app-region: no-drag !important;
+  app-region: no-drag !important;
 }
+
+/*
+ * Native glass stack (macOS vibrancy / Win acrylic on the BrowserWindow):
+ * - Window + html/body transparent → OS material shows through empty pixels.
+ * - Sidebar: near-transparent wash only (do not paint opaque bg here).
+ * - Content (sidebar-inset): fully opaque, offset with margin so it does not
+ *   cover the sidebar strip (padding would still paint opaque under glass).
+ */
+[data-slot="sidebar"][data-variant="glass"] {
+  background-color: var(--sidebar-glass);
+}
+
+[data-slot="sidebar-inset"] {
+  background-color: var(--background);
+}
+
+/* Linux / reduced-transparency: solid sidebar (no OS acrylic). */
+@media (prefers-reduced-transparency: reduce) {
+  [data-slot="sidebar"][data-variant="glass"] {
+    background-color: var(--sidebar);
+  }
+}
+
+html.platform-linux [data-slot="sidebar"][data-variant="glass"] {
+  background-color: var(--sidebar);
+}
+
+/*
+ * Debug aid: temporarily force a vivid transparent wash so you can tell
+ * “vibrancy working” vs “still covered by opaque layer”. Leave off in prod.
+ * html.debug-vibrancy [data-slot="sidebar"][data-variant="glass"] {
+ *   background-color: rgb(255 0 0 / 0.15);
+ * }
+ */
 
 /*
  * Desktop-native cursor policy (unlayered so it beats Tailwind utilities /

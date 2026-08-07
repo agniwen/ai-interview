@@ -1,10 +1,10 @@
 "use client";
 
-import { IconCircle } from "@tabler/icons-react";
 import { Radio as RadioPrimitive } from "@base-ui/react/radio";
 import { RadioGroup as RadioGroupPrimitive } from "@base-ui/react/radio-group";
 
 import { cossControlOverlayClass } from "@/components/ui/coss-style";
+import { Icon } from "@/components/ui/icon";
 import { cn } from "@arc/shared/utils";
 
 function RadioGroup({ className, ...props }: RadioGroupPrimitive.Props) {
@@ -32,7 +32,10 @@ function RadioGroupItem({ className, ...props }: RadioPrimitive.Root.Props) {
         data-slot="radio-group-indicator"
         className="relative z-10 flex items-center justify-center"
       >
-        <IconCircle className="absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 fill-primary" />
+        <Icon
+          className="absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 fill-primary text-primary"
+          icon="ph:circle-fill"
+        />
       </RadioPrimitive.Indicator>
     </RadioPrimitive.Root>
   );

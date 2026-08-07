@@ -1,6 +1,7 @@
-import { IconArrowLeft, IconArrowRight } from "@tabler/icons-react";
 import { useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { ChromeIconButton } from "@/components/layout/chrome-icon-button";
+import { Icon } from "@/components/ui/icon";
 
 const NAV_MAX_INDEX_KEY = "arc-desktop-nav-max-index";
 
@@ -27,43 +28,12 @@ interface HistoryNavState {
 }
 
 /**
- * Cursor-style back/forward buttons for the title bar.
+ * Cursor-style back/forward buttons for the sidebar top drag strip (right).
  *
  * TanStack's history exposes `canGoBack` but not `canGoForward`, so we track
- * the session's `__TSR_index` ourselves: each push assigns current+1 and
- * truncates the browser's forward stack, so after a push the new index IS the
- * top of the stack; BACK/FORWARD/GO move within `[0, maxIndex]`. The max is
- * persisted so it survives reloads / HMR.
- *
- * Visual style mirrors the title-bar settings button: plain icon, no padding
- * box, no hover background — just an opacity shift on hover. Double-clicks
- * must not bubble to the title bar's double-click maximize.
+ * the session's `__TSR_index` ourselves. Hosted by `SidebarDragRegion` and
+ * hidden on `/settings`.
  */
-function NavButton({
-  ariaLabel,
-  children,
-  disabled,
-  onClick,
-}: {
-  ariaLabel: string;
-  children: React.ReactNode;
-  disabled: boolean;
-  onClick: () => void;
-}): React.JSX.Element {
-  return (
-    <button
-      aria-label={ariaLabel}
-      className="flex items-center justify-center p-0.5 text-muted-foreground opacity-80 transition-opacity enabled:hover:opacity-100 disabled:opacity-25"
-      disabled={disabled}
-      onClick={onClick}
-      onDoubleClick={(event) => event.stopPropagation()}
-      type="button"
-    >
-      {children}
-    </button>
-  );
-}
-
 export function HistoryNav(): React.JSX.Element {
   const router = useRouter();
   const maxIndexRef = useRef(0);
@@ -90,17 +60,21 @@ export function HistoryNav(): React.JSX.Element {
   }, [router]);
 
   return (
-    <div className="app-no-drag flex h-full items-center gap-1">
-      <NavButton ariaLabel="后退" disabled={!nav.canBack} onClick={() => router.history.back()}>
-        <IconArrowLeft className="size-4" stroke={1.75} />
-      </NavButton>
-      <NavButton
+    <div className="app-no-drag flex h-full items-center gap-0.5">
+      <ChromeIconButton
+        ariaLabel="后退"
+        disabled={!nav.canBack}
+        onClick={() => router.history.back()}
+      >
+        <Icon className="size-4" icon="ph:arrow-left" />
+      </ChromeIconButton>
+      <ChromeIconButton
         ariaLabel="前进"
         disabled={!nav.canForward}
         onClick={() => router.history.forward()}
       >
-        <IconArrowRight className="size-4" stroke={1.75} />
-      </NavButton>
+        <Icon className="size-4" icon="ph:arrow-right" />
+      </ChromeIconButton>
     </div>
   );
 }

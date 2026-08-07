@@ -6,6 +6,7 @@ import {
   Outlet,
 } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
+import { z } from "zod";
 import { AppShell } from "@/components/layout/app-shell";
 import { HomePage } from "@/routes/home-page";
 import { SettingsPage } from "@/routes/settings-page";
@@ -14,6 +15,22 @@ import { getQueryClient } from "@/lib/query-client";
 export interface RouterContext {
   queryClient: QueryClient;
 }
+
+const settingsSectionValues = ["appearance", "general"] as const;
+
+function parseSettingsSection(value: unknown): "appearance" | "general" | undefined {
+  if (
+    typeof value === "string" &&
+    settingsSectionValues.includes(value as (typeof settingsSectionValues)[number])
+  ) {
+    return value as "appearance" | "general";
+  }
+  return undefined;
+}
+
+const settingsSearchSchema = z.object({
+  section: z.preprocess(parseSettingsSection, z.enum(settingsSectionValues).optional()),
+});
 
 const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: function RootLayout() {
@@ -35,6 +52,7 @@ const settingsRoute = createRoute({
   component: SettingsPage,
   getParentRoute: () => rootRoute,
   path: "/settings",
+  validateSearch: settingsSearchSchema,
 });
 
 const routeTree = rootRoute.addChildren([indexRoute, settingsRoute]);

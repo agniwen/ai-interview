@@ -1,6 +1,9 @@
-import { IconDeviceDesktop, IconMoon, IconSun } from "@tabler/icons-react";
 import { useTheme } from "next-themes";
 import { useEffect, useRef, useState } from "react";
+import { useRouterState } from "@tanstack/react-router";
+import { SettingsSidebarSlots } from "@/components/features/settings/settings-sidebar-slots";
+import type { AppIconName } from "@/components/ui/icon";
+import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -14,17 +17,16 @@ import { SettingsGroup, SettingsRow, SettingsSection } from "@/components/settin
 import type { ThemeMode } from "@/lib/settings";
 import { updateSettings, useSettings } from "@/lib/settings";
 
-const THEME_OPTIONS = [
-  { icon: IconSun, label: "浅色", value: "light" },
-  { icon: IconMoon, label: "深色", value: "dark" },
-  { icon: IconDeviceDesktop, label: "跟随系统", value: "system" },
-] as const;
+const THEME_OPTIONS: { icon: AppIconName; label: string; value: ThemeMode }[] = [
+  { icon: "ph:sun", label: "浅色", value: "light" },
+  { icon: "ph:moon", label: "深色", value: "dark" },
+  { icon: "ph:monitor", label: "跟随系统", value: "system" },
+];
 
 /** Theme dropdown; selection flows through next-themes (class + localStorage). */
 function ThemeSelect(): React.JSX.Element {
   const { theme, setTheme } = useTheme();
   const current = THEME_OPTIONS.find((option) => option.value === theme) ?? THEME_OPTIONS[2];
-  const CurrentIcon = current.icon;
 
   return (
     <Select
@@ -37,19 +39,16 @@ function ThemeSelect(): React.JSX.Element {
       value={theme}
     >
       <SelectTrigger className="w-full" id="theme">
-        <CurrentIcon className="size-4" />
+        <Icon className="size-4" icon={current.icon} />
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {THEME_OPTIONS.map((option) => {
-          const Icon = option.icon;
-          return (
-            <SelectItem key={option.value} value={option.value}>
-              <Icon className="size-4" />
-              {option.label}
-            </SelectItem>
-          );
-        })}
+        {THEME_OPTIONS.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            <Icon className="size-4" icon={option.icon} />
+            {option.label}
+          </SelectItem>
+        ))}
       </SelectContent>
     </Select>
   );
@@ -108,69 +107,90 @@ function ApiBaseField(): React.JSX.Element {
 
 export function SettingsPage(): React.JSX.Element {
   const settings = useSettings();
+  const section = useRouterState({
+    select: (state) => {
+      const search = state.location.search as { section?: string };
+      return search.section ?? "appearance";
+    },
+  });
+
+  useEffect(() => {
+    const el = document.querySelector(`#${section}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [section]);
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 p-6 pb-16">
-      <div className="space-y-0.5">
-        <h1 className="text-xl font-medium tracking-tight text-foreground">设置</h1>
-        <p className="text-sm text-muted-foreground">外观与运行偏好，修改后自动保存。</p>
+    <>
+      <SettingsSidebarSlots />
+
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 p-6 pb-16">
+        <div className="space-y-0.5">
+          <h1 className="text-xl font-medium tracking-tight text-foreground">设置</h1>
+          <p className="text-sm text-muted-foreground">外观与运行偏好，修改后自动保存。</p>
+        </div>
+
+        <SettingsSection
+          description="选择桌面端的外观主题，立即生效。"
+          id="appearance"
+          title="外观"
+        >
+          <SettingsGroup>
+            <SettingsRow
+              description="浅色、深色或跟随系统，修改后自动保存。"
+              htmlFor="theme"
+              label="主题"
+            >
+              <ThemeSelect />
+            </SettingsRow>
+          </SettingsGroup>
+        </SettingsSection>
+
+        <SettingsSection description="应用运行相关的通用偏好。" id="general" title="通用">
+          <SettingsGroup>
+            <SettingsRow
+              description="开发期指向本地 web/backend；生产环境可改为部署地址。"
+              htmlFor="api-base"
+              label="API 基址"
+            >
+              <ApiBaseField />
+            </SettingsRow>
+
+            <SettingsRow
+              description="登录系统时自动启动应用。"
+              htmlFor="launch-at-login"
+              label="开机启动"
+            >
+              <div className="flex justify-end">
+                <Switch
+                  checked={settings.launchAtLogin}
+                  id="launch-at-login"
+                  onCheckedChange={(checked) => {
+                    void updateSettings({ launchAtLogin: checked });
+                  }}
+                />
+              </div>
+            </SettingsRow>
+
+            <SettingsRow
+              description="录制完成后发送系统通知。"
+              htmlFor="notify-on-finish"
+              label="录制结束系统通知"
+            >
+              <div className="flex justify-end">
+                <Switch
+                  checked={settings.notifyOnFinish}
+                  id="notify-on-finish"
+                  onCheckedChange={(checked) => {
+                    void updateSettings({ notifyOnFinish: checked });
+                  }}
+                />
+              </div>
+            </SettingsRow>
+          </SettingsGroup>
+        </SettingsSection>
       </div>
-
-      <SettingsSection description="选择桌面端的外观主题，立即生效。" title="外观">
-        <SettingsGroup>
-          <SettingsRow
-            description="浅色、深色或跟随系统，修改后自动保存。"
-            htmlFor="theme"
-            label="主题"
-          >
-            <ThemeSelect />
-          </SettingsRow>
-        </SettingsGroup>
-      </SettingsSection>
-
-      <SettingsSection description="应用运行相关的通用偏好。" title="通用">
-        <SettingsGroup>
-          <SettingsRow
-            description="开发期指向本地 web/backend；生产环境可改为部署地址。"
-            htmlFor="api-base"
-            label="API 基址"
-          >
-            <ApiBaseField />
-          </SettingsRow>
-
-          <SettingsRow
-            description="登录系统时自动启动应用。"
-            htmlFor="launch-at-login"
-            label="开机启动"
-          >
-            <div className="flex justify-end">
-              <Switch
-                checked={settings.launchAtLogin}
-                id="launch-at-login"
-                onCheckedChange={(checked) => {
-                  void updateSettings({ launchAtLogin: checked });
-                }}
-              />
-            </div>
-          </SettingsRow>
-
-          <SettingsRow
-            description="录制完成后发送系统通知。"
-            htmlFor="notify-on-finish"
-            label="录制结束系统通知"
-          >
-            <div className="flex justify-end">
-              <Switch
-                checked={settings.notifyOnFinish}
-                id="notify-on-finish"
-                onCheckedChange={(checked) => {
-                  void updateSettings({ notifyOnFinish: checked });
-                }}
-              />
-            </div>
-          </SettingsRow>
-        </SettingsGroup>
-      </SettingsSection>
-    </div>
+    </>
   );
 }
