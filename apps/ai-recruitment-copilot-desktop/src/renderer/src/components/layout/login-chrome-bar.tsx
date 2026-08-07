@@ -6,6 +6,7 @@ import {
   handleTitleBarDoubleClick,
   isMacPlatform,
 } from "@/components/layout/chrome";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { WindowControls } from "@/components/window-controls";
 
 const dragStyle = {
@@ -19,12 +20,14 @@ const noDragStyle = {
 } as CSSProperties;
 
 /**
- * Bare top chrome for the login screen: drag + window controls only
- * (no sidebar toggle / history).
+ * Bare top chrome for the login screen: drag + theme toggle + window controls
+ * (no sidebar toggle / history). Theme sits where the settings gear is on app chrome.
  */
 export function LoginChromeBar(): React.JSX.Element {
   const isMac = isMacPlatform();
   const leftInset = isMac ? CHROME_TRAFFIC_LIGHT_INSET_PX : CHROME_EDGE_PAD_PX;
+  // Theme button (~28px) + gap before window controls on Win/Linux.
+  const rightControlsPx = CHROME_EDGE_PAD_PX + 28 + (isMac ? 0 : 44 * 3 + 6);
 
   return (
     <div
@@ -37,13 +40,14 @@ export function LoginChromeBar(): React.JSX.Element {
         style={{
           ...dragStyle,
           left: leftInset,
-          right: isMac ? 0 : 44 * 3 + CHROME_EDGE_PAD_PX,
+          right: rightControlsPx,
         }}
       />
       <div
-        className="app-no-drag absolute inset-y-0 right-0 z-10 flex items-center"
+        className="app-no-drag absolute inset-y-0 right-0 z-10 flex items-center gap-1.5"
         style={{ ...noDragStyle, paddingRight: CHROME_EDGE_PAD_PX }}
       >
+        <ThemeToggle />
         <WindowControls />
       </div>
     </div>
