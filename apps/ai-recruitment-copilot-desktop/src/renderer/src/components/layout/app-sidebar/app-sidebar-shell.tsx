@@ -1,11 +1,13 @@
 import type { CSSProperties, ReactNode } from "react";
 import { ContentTitleBar } from "@/components/layout/content-title-bar";
 import { DesktopChromeBar } from "@/components/layout/desktop-chrome-bar";
+import { SidebarUserSection } from "@/components/layout/sidebar-user-section";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./app-sidebar";
 import {
   SidebarBodyPortalProvider,
+  SidebarFooterPortalContent,
   SidebarFooterPortalProvider,
   SidebarHeaderPortalProvider,
 } from "./portals";
@@ -14,6 +16,18 @@ const sidebarStyle = {
   "--sidebar-width": "17rem",
   "--sidebar-width-icon": "3rem",
 } as CSSProperties;
+
+/**
+ * Always-on sidebar footer (user chip). Lives under SidebarProvider so
+ * useSidebar / session hooks work; teleported into AppSidebar footer.
+ */
+function AuthenticatedSidebarFooter() {
+  return (
+    <SidebarFooterPortalContent>
+      <SidebarUserSection />
+    </SidebarFooterPortalContent>
+  );
+}
 
 /**
  * Cursor-style shell:
@@ -31,9 +45,14 @@ export function AppSidebarShell({ children }: { children: ReactNode }) {
           <SidebarProvider className="min-h-0 flex-1" style={sidebarStyle}>
             <DesktopChromeBar />
             <AppSidebar />
+            <AuthenticatedSidebarFooter />
             <SidebarInset>
               <ContentTitleBar />
-              <ScrollArea className="min-h-0 flex-1" scrollbars="leave">
+              <ScrollArea
+                className="min-h-0 flex-1"
+                scrollRestorationId="desktop-main"
+                scrollbars="leave"
+              >
                 {children}
               </ScrollArea>
             </SidebarInset>

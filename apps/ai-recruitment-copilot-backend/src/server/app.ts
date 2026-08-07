@@ -2,7 +2,7 @@ import type { Env } from "@arc/ai-recruitment-copilot-backend/server/type";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { auth } from "@arc/ai-recruitment-copilot-backend/lib/server/auth";
+import { auth, trustedOrigins } from "@arc/ai-recruitment-copilot-backend/lib/server/auth";
 import { runWithAuthRequestHeaders } from "@arc/ai-recruitment-copilot-backend/lib/server/auth-request-context";
 import { handleServerError } from "./error-handler";
 import { factory } from "./factory";
@@ -34,6 +34,22 @@ const apiRoutes = factory
   .route("/join", joinRouter)
   .route("/w/:slug", workspaceRouter);
 
+const trustedOriginSet = new Set(trustedOrigins);
+
+/**
+ * CORS for credentialed browser clients (web + Electron desktop at localhost).
+ * Allow-list matches better-auth `trustedOrigins` so desktop can call studio
+ * RPCs cross-origin with cookies after Feishu login.
+ */
+const apiCors = cors({
+  allowHeaders: ["Content-Type", "Authorization"],
+  allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  credentials: true,
+  exposeHeaders: ["Content-Length"],
+  maxAge: 600,
+  origin: (origin) => (origin && trustedOriginSet.has(origin) ? origin : null),
+});
+
 // 中文：app.ts 只做 CORS、better-auth handler、betterAuth 上下文注入、apiRoutes 挂载。
 // 业务中间件（auth/admin）请在各自 route 内部声明，不要在这里 .use(...)。
 // English: app.ts is mount-only — CORS, the better-auth handler, the
@@ -42,17 +58,9 @@ const apiRoutes = factory
 export function createServerApp() {
   const honoApp = new Hono<Env>()
     .use(logger())
-    .use(
-      "/api/auth/*",
-      cors({
-        allowHeaders: ["Content-Type", "Authorization"],
-        allowMethods: ["POST", "GET", "OPTIONS"],
-        credentials: true,
-        exposeHeaders: ["Content-Length"],
-        maxAge: 600,
-        origin: "*",
-      }),
-    )
+    // Desktop + any cross-origin trusted client: CORS on all /api routes
+    // (auth was previously the only path; studio resumes need the same headers).
+    .use("/api/*", apiCors)
     .on(["POST", "GET"], "/api/auth/*", (c) =>
       runWithAuthRequestHeaders(c.req.raw.headers, () => auth.handler(c.req.raw)),
     )

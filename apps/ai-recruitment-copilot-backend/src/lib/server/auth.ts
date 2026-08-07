@@ -54,7 +54,9 @@ function parseOriginList(raw: string | undefined): string[] {
 
 // Prefer BETTER_AUTH_TRUSTED_ORIGINS (better-auth convention); TRUSTED_ORIGINS
 // is a project alias. Both extend the built-in defaults rather than replacing them.
-const trustedOrigins = uniq([
+// Exported so Hono CORS on /api/* can share the same allow-list as better-auth
+// (desktop Electron at localhost:5173 needs credentials CORS for studio RPCs).
+export const trustedOrigins = uniq([
   baseURL,
   ...DEFAULT_BETTER_AUTH_TRUSTED_ORIGINS,
   ...parseOriginList(process.env.BETTER_AUTH_TRUSTED_ORIGINS),

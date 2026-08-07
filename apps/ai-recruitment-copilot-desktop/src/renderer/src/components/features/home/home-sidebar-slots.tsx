@@ -15,9 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 
 /**
- * Home-route sidebar content, co-located with the home page and teleported
- * into the shell sidebar via Magic Portal (same model as studio slots).
- * Settings lives on the content title bar, not here.
+ * Home-route sidebar content. 工作台 → 招聘台 (resume library).
  */
 export function HomeSidebarSlots() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
@@ -51,21 +49,12 @@ export function HomeSidebarSlots() {
               <SidebarNavItem
                 active={isHome}
                 item={{
-                  icon: "ph:chat-circle",
-                  title: "对话记录",
+                  icon: "ph:briefcase",
+                  title: "招聘台",
                   to: "/",
                 }}
               />
             </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>最近</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <p className="px-2 py-1.5 text-xs text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden">
-              暂无会话
-            </p>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarBodyPortalContent>

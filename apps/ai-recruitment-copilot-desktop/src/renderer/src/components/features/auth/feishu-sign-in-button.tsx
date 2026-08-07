@@ -2,7 +2,14 @@ import { useState } from "react";
 import { FeishuIcon } from "@/components/features/auth/feishu-icon";
 import { Button } from "@/components/ui/button";
 import { withCleanup } from "@/lib/async-control";
-import { authClient, desktopAuthErrorUrl, desktopAuthSuccessUrl } from "@/lib/auth-client";
+import {
+  authApiOrigin,
+  authClient,
+  desktopAppOrigin,
+  desktopAuthErrorUrl,
+  desktopAuthSuccessUrl,
+} from "@/lib/auth-client";
+import { env } from "@/env";
 import { cn } from "@arc/shared/utils";
 
 interface FeishuSignInButtonProps {
@@ -14,7 +21,8 @@ interface FeishuSignInButtonProps {
 
 /**
  * Feishu OAuth via better-auth. Opens a child BrowserWindow (shared session)
- * instead of navigating the app shell away.
+ * that starts the OAuth request first-party on the auth host, so the
+ * better-auth state cookie is not dropped as a third-party cookie.
  */
 export function FeishuSignInButton({
   className,
@@ -32,25 +40,18 @@ export function FeishuSignInButton({
 
     await withCleanup(
       async () => {
-        const successUrl = desktopAuthSuccessUrl();
-        const result = await authClient.signIn.oauth2({
-          callbackURL: successUrl,
-          errorCallbackURL: desktopAuthErrorUrl(providerId),
+        const callbackURL = desktopAuthSuccessUrl();
+        const errorCallbackURL = desktopAuthErrorUrl(providerId);
+
+        const oauthResult = await window.api.auth.openOAuth({
+          appOrigin: desktopAppOrigin(),
+          authApiOrigin: authApiOrigin(),
+          authBaseURL: env.VITE_BETTER_AUTH_URL,
+          callbackURL,
+          errorCallbackURL,
           providerId,
         });
 
-        if (result.error) {
-          setErrorMessage(result.error.message ?? "登录失败");
-          return;
-        }
-
-        const oauthUrl = result.data?.url;
-        if (!oauthUrl) {
-          setErrorMessage("未能获取飞书授权地址");
-          return;
-        }
-
-        const oauthResult = await window.api.auth.openOAuth(oauthUrl, successUrl);
         if (!oauthResult.ok) {
           setErrorMessage(oauthResult.message);
           return;
@@ -60,15 +61,13 @@ export function FeishuSignInButton({
           return;
         }
 
-        // Session cookie should now be in the shared Electron session.
         const session = await authClient.getSession();
         if (!session.data) {
-          setErrorMessage("登录未完成，请重试");
+          setErrorMessage("登录未完成：未拿到会话。请完全退出桌面应用后重试");
           return;
         }
 
         shouldResetSubmitting = false;
-        // Hash router: send the shell to home after a successful bounce.
         window.location.hash = "#/";
       },
       () => {

@@ -24,7 +24,7 @@ const windowApi: WindowApi = {
 };
 
 const authApi: AuthApi = {
-  openOAuth: (url, successUrl) => ipcRenderer.invoke("auth:open-oauth", { successUrl, url }),
+  openOAuth: (input) => ipcRenderer.invoke("auth:open-oauth", input),
 };
 
 const api = {
