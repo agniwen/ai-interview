@@ -2,7 +2,7 @@
   "name": "@arc/ai-recruitment-copilot-desktop",
   "version": "0.0.0",
   "private": true,
-  "description": "Electron desktop app for HR–candidate conversation capture and transcription",
+  "description": "Meeting Buddy (AI Recruitment Copilot Desktop) — Electron app for HR–candidate conversation capture and transcription",
   "homepage": "https://github.com/agniwen/ai-interview",
   "author": "ARC",
   "main": "./out/main/index.js",

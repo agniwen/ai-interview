@@ -15,7 +15,7 @@ export function LoginPage(): React.JSX.Element {
           <div className="space-y-2 text-center">
             <h1 className="font-medium text-2xl text-foreground tracking-tight">登录</h1>
             <p className="text-muted-foreground text-sm leading-6">
-              使用飞书账号登录后继续使用桌面端。
+              使用飞书账号登录后继续使用 Meeting Buddy。
             </p>
           </div>
 

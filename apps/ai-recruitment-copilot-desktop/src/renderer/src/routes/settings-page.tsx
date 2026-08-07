@@ -142,7 +142,7 @@ export function SettingsPage(): React.JSX.Element {
         </div>
 
         <SettingsSection
-          description="选择桌面端的外观主题，立即生效。"
+          description="选择 Meeting Buddy 的外观主题，立即生效。"
           id="appearance"
           title="外观"
         >

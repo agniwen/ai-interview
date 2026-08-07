@@ -166,7 +166,7 @@ export function DesktopChromeBar(): React.JSX.Element {
         }}
       >
         <span className="truncate select-none font-medium text-muted-foreground text-sm tracking-tight">
-          ARC Desktop
+          Meeting Buddy
         </span>
       </div>
 

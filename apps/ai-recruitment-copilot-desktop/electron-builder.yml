@@ -1,5 +1,5 @@
 appId: com.arc.ai-recruitment-copilot-desktop
-productName: ARC Desktop
+productName: Meeting Buddy
 directories:
   buildResources: build
 files:
@@ -22,8 +22,8 @@ mac:
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     NSCameraUsageDescription: Application requests access to the device's camera.
-    NSMicrophoneUsageDescription: ARC Desktop needs microphone access to record interview conversations.
-    NSAudioCaptureUsageDescription: ARC Desktop needs system audio access to capture remote candidate audio during calls.
+    NSMicrophoneUsageDescription: Meeting Buddy needs microphone access to record interview conversations.
+    NSAudioCaptureUsageDescription: Meeting Buddy needs system audio access to capture remote candidate audio during calls.
     NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   notarize: false
