@@ -6,12 +6,17 @@ const mocks = vi.hoisted(() => ({
   completeMeetingRecordingMultipartUpload: vi.fn(),
   createMeetingRecordingMultipartUpload: vi.fn(),
   createOrLoadMeetingSession: vi.fn(),
+  enqueueMeetingPlaybackJobs: vi.fn(),
   headMeetingRecordingObject: vi.fn(),
+  isMeetingProcessingQueueConfigured: vi.fn(),
   listMeetingRecordingUploadParts: vi.fn(),
+  listMeetingSessionsForAccess: vi.fn(),
   loadMeetingSession: vi.fn(),
+  loadMeetingSessionForAccess: vi.fn(),
   markMeetingSessionVerified: vi.fn(),
   presignMeetingRecordingPutObject: vi.fn(),
   presignMeetingRecordingUploadPart: vi.fn(),
+  presignRecordingGetObjectUrl: vi.fn(),
   recordMeetingAssetMultipartUploadId: vi.fn(),
 }));
 
@@ -24,19 +29,29 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
   listMeetingRecordingUploadParts: mocks.listMeetingRecordingUploadParts,
   presignMeetingRecordingPutObject: mocks.presignMeetingRecordingPutObject,
   presignMeetingRecordingUploadPart: mocks.presignMeetingRecordingUploadPart,
+  presignRecordingGetObjectUrl: mocks.presignRecordingGetObjectUrl,
 }));
 vi.mock("./dao", () => ({
   createOrLoadMeetingSession: mocks.createOrLoadMeetingSession,
+  listMeetingSessionsForAccess: mocks.listMeetingSessionsForAccess,
   loadMeetingSession: mocks.loadMeetingSession,
+  loadMeetingSessionForAccess: mocks.loadMeetingSessionForAccess,
   markMeetingSessionVerified: mocks.markMeetingSessionVerified,
   recordMeetingAssetMultipartUploadId: mocks.recordMeetingAssetMultipartUploadId,
+}));
+vi.mock("@arc/meeting-processing-queue/meeting-playback", () => ({
+  enqueueMeetingPlaybackJobs: mocks.enqueueMeetingPlaybackJobs,
+  isMeetingProcessingQueueConfigured: mocks.isMeetingProcessingQueueConfigured,
 }));
 
 // oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
 import {
   completeSmallSavedMeeting,
+  createMeetingPlaybackAuthorization,
   createMultipartSavedMeeting,
   createSmallSavedMeeting,
+  listSavedMeetings,
+  retryMeetingPlayback,
 } from "./service";
 
 const MANIFEST_SHA = "a".repeat(64);
@@ -77,6 +92,7 @@ const baseMeeting = {
 describe("small Saved Meeting service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.isMeetingProcessingQueueConfigured.mockReturnValue(true);
     mocks.markMeetingSessionVerified.mockResolvedValue(new Date("2026-08-10T03:00:00.000Z"));
   });
 
@@ -110,6 +126,37 @@ describe("small Saved Meeting service", () => {
 
     expect(result).toMatchObject({ state: "workspace-verified", uploads: [] });
     expect(mocks.presignMeetingRecordingPutObject).not.toHaveBeenCalled();
+  });
+
+  it("does not reset an exhausted processing budget through an idempotent save", async () => {
+    mocks.buildMeetingRecordingAssetKey.mockResolvedValue("unused");
+    mocks.createOrLoadMeetingSession.mockResolvedValue({
+      created: false,
+      meeting: { ...baseMeeting, status: "processing-failed" },
+    });
+
+    await createSmallSavedMeeting({
+      input: {
+        assets: baseMeeting.assets.map(
+          ({ contentType, durationMs, fragmentCount, sha256, sizeBytes, track }) => ({
+            contentType,
+            durationMs,
+            fragmentCount,
+            sha256,
+            sizeBytes,
+            track: track as "microphone" | "system",
+          }),
+        ),
+        id: "00000000-0000-4000-8000-000000000072",
+        manifestSha256: MANIFEST_SHA,
+        savedAt: "2026-08-09T03:01:00.000Z",
+        startedAt: "2026-08-09T03:00:00.000Z",
+      },
+      organizationId: "org",
+      ownerId: "owner",
+    });
+
+    expect(mocks.enqueueMeetingPlaybackJobs).not.toHaveBeenCalled();
   });
 
   it("resumes multipart assets by signing only parts not confirmed by object storage", async () => {
@@ -318,6 +365,9 @@ describe("small Saved Meeting service", () => {
 
     expect(result).toMatchObject({ completed: true, state: "workspace-verified" });
     expect(mocks.markMeetingSessionVerified).toHaveBeenCalledTimes(1);
+    expect(mocks.enqueueMeetingPlaybackJobs).toHaveBeenCalledWith([
+      { meetingId: "meeting", organizationId: "org" },
+    ]);
   });
 
   it("completes exact multipart assets once and starts the 24-hour recovery deadline", async () => {
@@ -391,5 +441,118 @@ describe("small Saved Meeting service", () => {
       recoveryCopyDeleteAfter: "2026-08-10T03:00:00.000Z",
     });
     expect(mocks.completeMeetingRecordingMultipartUpload).not.toHaveBeenCalled();
+    expect(mocks.enqueueMeetingPlaybackJobs).toHaveBeenCalledWith([
+      { meetingId: "meeting", organizationId: "org" },
+    ]);
+  });
+});
+
+describe("Saved Meeting private read service", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("scopes ordinary members to meetings they own while administrators can list the workspace", async () => {
+    mocks.listMeetingSessionsForAccess.mockResolvedValue([]);
+
+    await listSavedMeetings({
+      memberRole: "hr",
+      organizationId: "org",
+      userId: "user",
+    });
+    expect(mocks.listMeetingSessionsForAccess).toHaveBeenLastCalledWith({
+      includeAllPrivateMeetings: false,
+      organizationId: "org",
+      userId: "user",
+    });
+
+    await listSavedMeetings({
+      memberRole: "admin",
+      organizationId: "org",
+      userId: "user",
+    });
+    expect(mocks.listMeetingSessionsForAccess).toHaveBeenLastCalledWith({
+      includeAllPrivateMeetings: true,
+      organizationId: "org",
+      userId: "user",
+    });
+  });
+
+  it("does not sign or expose playback storage for an unauthorized meeting", async () => {
+    mocks.loadMeetingSessionForAccess.mockResolvedValue(null);
+
+    const result = await createMeetingPlaybackAuthorization({
+      meetingId: "meeting",
+      memberRole: "viewer",
+      organizationId: "org",
+      userId: "viewer",
+    });
+
+    expect(result).toBeNull();
+    expect(mocks.presignRecordingGetObjectUrl).not.toHaveBeenCalled();
+  });
+
+  it("returns only a short-lived URL after authorized ready playback lookup", async () => {
+    mocks.loadMeetingSessionForAccess.mockResolvedValue({
+      assets: [
+        {
+          status: "ready",
+          storageKey: "private/playback.webm",
+          track: "playback",
+        },
+      ],
+      id: "meeting",
+      status: "ready",
+    });
+    mocks.presignRecordingGetObjectUrl.mockResolvedValue(
+      "https://r2.invalid/private/playback.webm",
+    );
+
+    const result = await createMeetingPlaybackAuthorization({
+      meetingId: "meeting",
+      memberRole: "admin",
+      organizationId: "org",
+      userId: "admin",
+    });
+
+    expect(result).toEqual({
+      expiresAt: expect.any(String),
+      url: "https://r2.invalid/private/playback.webm",
+    });
+    expect(result).not.toHaveProperty("storageKey");
+  });
+
+  it("starts a fresh retry budget only after an authorized explicit retry", async () => {
+    mocks.loadMeetingSessionForAccess.mockResolvedValue({
+      assets: [],
+      id: "meeting",
+      status: "processing-failed",
+    });
+
+    const result = await retryMeetingPlayback({
+      meetingId: "meeting",
+      memberRole: "admin",
+      organizationId: "org",
+      userId: "admin",
+    });
+
+    expect(result).toEqual({ state: "processing" });
+    expect(mocks.enqueueMeetingPlaybackJobs).toHaveBeenCalledWith([
+      { meetingId: "meeting", organizationId: "org" },
+    ]);
+  });
+
+  it("does not reveal or enqueue an unauthorized retry target", async () => {
+    mocks.loadMeetingSessionForAccess.mockResolvedValue(null);
+
+    const result = await retryMeetingPlayback({
+      meetingId: "meeting",
+      memberRole: "viewer",
+      organizationId: "org",
+      userId: "viewer",
+    });
+
+    expect(result).toBeNull();
+    expect(mocks.enqueueMeetingPlaybackJobs).not.toHaveBeenCalled();
   });
 });

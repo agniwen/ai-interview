@@ -37,6 +37,7 @@
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.56",
     "@arc/db-schema": "workspace:*",
+    "@arc/meeting-processing-queue": "workspace:*",
     "@arc/resume-parse-queue": "workspace:*",
     "@arc/shared": "workspace:*",
     "@aws-sdk/client-s3": "^3.1045.0",

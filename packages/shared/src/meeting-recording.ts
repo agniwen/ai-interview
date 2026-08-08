@@ -159,3 +159,32 @@ export interface SmallSavedMeetingResponse {
   state: "uploading" | "workspace-verified";
   uploads: SmallMeetingUploadInstruction[];
 }
+
+export const MEETING_PROCESSING_STATES = ["processing", "ready", "failed"] as const;
+export type MeetingProcessingState = (typeof MEETING_PROCESSING_STATES)[number];
+
+export interface MeetingCreatorSummary {
+  id: string;
+  image: string | null;
+  name: string;
+}
+
+export interface MeetingLibraryItem {
+  creator: MeetingCreatorSummary;
+  durationMs: number;
+  id: string;
+  processingState: MeetingProcessingState;
+  recordingAvailable: boolean;
+  savedAt: string;
+  title: string;
+}
+
+export interface MeetingDetail extends MeetingLibraryItem {
+  startedAt: string;
+  verifiedAt: string | null;
+}
+
+export interface MeetingPlaybackAuthorization {
+  expiresAt: string;
+  url: string;
+}

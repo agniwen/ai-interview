@@ -8,9 +8,16 @@ import {
   listMeetingRecordingUploadParts,
   presignMeetingRecordingPutObject,
   presignMeetingRecordingUploadPart,
+  presignRecordingGetObjectUrl,
 } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import {
+  enqueueMeetingPlaybackJobs,
+  isMeetingProcessingQueueConfigured,
+} from "@arc/meeting-processing-queue/meeting-playback";
+import {
   createOrLoadMeetingSession,
+  listMeetingSessionsForAccess,
+  loadMeetingSessionForAccess,
   loadMeetingSession,
   markMeetingSessionVerified,
   recordMeetingAssetMultipartUploadId,
@@ -19,9 +26,56 @@ import type {
   CreateMultipartSavedMeetingInput,
   CreateSmallSavedMeetingInput,
   MeetingSourceTrack,
+  MeetingDetail,
+  MeetingLibraryItem,
+  MeetingProcessingState,
+  MeetingPlaybackAuthorization,
   MultipartSavedMeetingResponse,
   SmallSavedMeetingResponse,
 } from "@arc/shared/meeting-recording";
+
+const SERVER_VERIFIED_STATUSES = new Set([
+  "workspace-verified",
+  "processing",
+  "processing-failed",
+  "ready",
+]);
+
+function sourceAssets<T extends { track: string }>(assets: T[]): T[] {
+  return assets.filter((asset) => asset.track === "microphone" || asset.track === "system");
+}
+
+function isWorkspaceAdministrator(memberRole: string): boolean {
+  return memberRole === "owner" || memberRole === "admin";
+}
+
+function processingState(status: string): MeetingProcessingState {
+  if (status === "ready") {
+    return "ready";
+  }
+  if (status === "processing-failed") {
+    return "failed";
+  }
+  return "processing";
+}
+
+function shouldAutomaticallyEnqueuePlayback(status: string): boolean {
+  return status === "workspace-verified" || status === "processing";
+}
+
+async function enqueueMeetingPlaybackBestEffort(input: {
+  meetingId: string;
+  organizationId: string;
+}): Promise<void> {
+  try {
+    await enqueueMeetingPlaybackJobs([input]);
+  } catch (error) {
+    console.error("[meeting-playback] enqueue failed; startup recovery will retry", {
+      error,
+      meetingId: input.meetingId,
+    });
+  }
+}
 
 type CreateResult =
   | { conflict: true; message: string }
@@ -70,7 +124,7 @@ export async function createSmallSavedMeeting(input: {
       message: "Meeting Session 已绑定另一份本地录音清单",
     };
   }
-  if (meeting.status === "workspace-verified") {
+  if (SERVER_VERIFIED_STATUSES.has(meeting.status)) {
     const recoveryCopyDeleteAfter =
       meeting.recoveryCopyDeleteAfter ??
       (await markMeetingSessionVerified({
@@ -78,6 +132,12 @@ export async function createSmallSavedMeeting(input: {
         organizationId: input.organizationId,
         ownerId: input.ownerId,
       }));
+    if (shouldAutomaticallyEnqueuePlayback(meeting.status)) {
+      await enqueueMeetingPlaybackBestEffort({
+        meetingId: meeting.id,
+        organizationId: input.organizationId,
+      });
+    }
     return {
       created,
       meetingId: meeting.id,
@@ -188,7 +248,7 @@ export async function createMultipartSavedMeeting(input: {
   if (!meeting || !ownsMeeting(meeting, { ...input, manifestSha256: input.input.manifestSha256 })) {
     return { conflict: true, message: "Meeting Session 已绑定另一份本地录音清单" };
   }
-  if (meeting.status === "workspace-verified") {
+  if (SERVER_VERIFIED_STATUSES.has(meeting.status)) {
     const recoveryCopyDeleteAfter =
       meeting.recoveryCopyDeleteAfter ??
       (await markMeetingSessionVerified({
@@ -196,6 +256,12 @@ export async function createMultipartSavedMeeting(input: {
         organizationId: input.organizationId,
         ownerId: input.ownerId,
       }));
+    if (shouldAutomaticallyEnqueuePlayback(meeting.status)) {
+      await enqueueMeetingPlaybackBestEffort({
+        meetingId: meeting.id,
+        organizationId: input.organizationId,
+      });
+    }
     return {
       created: createdResult.created,
       meetingId: meeting.id,
@@ -205,7 +271,8 @@ export async function createMultipartSavedMeeting(input: {
     };
   }
   const expectedByTrack = new Map(assets.map((asset) => [asset.track, asset]));
-  const storedPlanMatches = meeting.assets.every((asset) => {
+  const storedSourceAssets = sourceAssets(meeting.assets);
+  const storedPlanMatches = storedSourceAssets.every((asset) => {
     const expected = expectedByTrack.get(asset.track as MeetingSourceTrack);
     return Boolean(
       expected &&
@@ -216,7 +283,7 @@ export async function createMultipartSavedMeeting(input: {
       JSON.stringify(asset.multipartParts) === JSON.stringify(expected.parts),
     );
   });
-  if (meeting.assets.length !== 2 || !storedPlanMatches) {
+  if (storedSourceAssets.length !== 2 || !storedPlanMatches) {
     return { conflict: true, message: "Meeting Session multipart 保存计划不一致" };
   }
 
@@ -249,7 +316,7 @@ export async function createMultipartSavedMeeting(input: {
   }
 
   const uploadsByAsset = await Promise.all(
-    meeting.assets.map(async (asset) => {
+    sourceAssets(meeting.assets).map(async (asset) => {
       if (!(asset.multipartUploadId && asset.multipartParts)) {
         throw new Error("Meeting Session multipart 保存计划不完整");
       }
@@ -325,9 +392,15 @@ export async function completeSmallSavedMeeting(input: {
   if (!ownsMeeting(meeting, input)) {
     return { error: "Meeting Session 保存身份不匹配", status: 409 };
   }
-  if (meeting.status === "workspace-verified") {
+  if (SERVER_VERIFIED_STATUSES.has(meeting.status)) {
     const recoveryCopyDeleteAfter =
       meeting.recoveryCopyDeleteAfter ?? (await markMeetingSessionVerified(input));
+    if (shouldAutomaticallyEnqueuePlayback(meeting.status)) {
+      await enqueueMeetingPlaybackBestEffort({
+        meetingId: meeting.id,
+        organizationId: input.organizationId,
+      });
+    }
     return {
       completed: false,
       meetingId: meeting.id,
@@ -335,11 +408,12 @@ export async function completeSmallSavedMeeting(input: {
       state: "workspace-verified",
     };
   }
-  if (meeting.assets.length !== 2) {
+  const sources = sourceAssets(meeting.assets);
+  if (sources.length !== 2) {
     return { error: "Meeting Session 音轨不完整", status: 409 };
   }
   const verified = await Promise.all(
-    meeting.assets.map(async (asset) => {
+    sources.map(async (asset) => {
       if (asset.uploadMode === "multipart") {
         if (!(asset.multipartParts && asset.multipartUploadId)) {
           return false;
@@ -399,10 +473,130 @@ export async function completeSmallSavedMeeting(input: {
     return { error: "源音轨尚未通过对象完整性校验", status: 409 };
   }
   const recoveryCopyDeleteAfter = await markMeetingSessionVerified(input);
+  await enqueueMeetingPlaybackBestEffort({
+    meetingId: meeting.id,
+    organizationId: input.organizationId,
+  });
   return {
     completed: true,
     meetingId: meeting.id,
     recoveryCopyDeleteAfter: recoveryCopyDeleteAfter.toISOString(),
     state: "workspace-verified",
   };
+}
+
+export async function listSavedMeetings(input: {
+  memberRole: string;
+  organizationId: string;
+  userId: string;
+}): Promise<MeetingLibraryItem[]> {
+  const rows = await listMeetingSessionsForAccess({
+    includeAllPrivateMeetings: isWorkspaceAdministrator(input.memberRole),
+    organizationId: input.organizationId,
+    userId: input.userId,
+  });
+  return rows.map((row) => ({
+    creator: {
+      id: row.creatorId,
+      image: row.creatorImage,
+      name: row.creatorName,
+    },
+    durationMs: row.durationMs,
+    id: row.id,
+    processingState: processingState(row.status),
+    recordingAvailable: row.recordingAvailable,
+    savedAt: row.savedAt.toISOString(),
+    title: row.title,
+  }));
+}
+
+function loadAuthorizedMeeting(input: {
+  meetingId: string;
+  memberRole: string;
+  organizationId: string;
+  userId: string;
+}) {
+  return loadMeetingSessionForAccess({
+    includeAllPrivateMeetings: isWorkspaceAdministrator(input.memberRole),
+    meetingId: input.meetingId,
+    organizationId: input.organizationId,
+    userId: input.userId,
+  });
+}
+
+export async function getSavedMeetingDetail(input: {
+  meetingId: string;
+  memberRole: string;
+  organizationId: string;
+  userId: string;
+}): Promise<MeetingDetail | null> {
+  const meeting = await loadAuthorizedMeeting(input);
+  if (!(meeting && meeting.owner)) {
+    return null;
+  }
+  const sources = sourceAssets(meeting.assets);
+  const playback = meeting.assets.find(
+    (asset) => asset.track === "playback" && asset.status === "ready",
+  );
+  return {
+    creator: {
+      id: meeting.owner.id,
+      image: meeting.owner.image,
+      name: meeting.owner.name,
+    },
+    durationMs: Math.max(0, ...sources.map((asset) => asset.durationMs)),
+    id: meeting.id,
+    processingState: processingState(meeting.status),
+    recordingAvailable: Boolean(playback),
+    savedAt: meeting.savedAt.toISOString(),
+    startedAt: meeting.startedAt.toISOString(),
+    title: meeting.title,
+    verifiedAt: meeting.verifiedAt?.toISOString() ?? null,
+  };
+}
+
+export async function createMeetingPlaybackAuthorization(input: {
+  meetingId: string;
+  memberRole: string;
+  organizationId: string;
+  userId: string;
+}): Promise<MeetingPlaybackAuthorization | null> {
+  const meeting = await loadAuthorizedMeeting(input);
+  const playback = meeting?.assets.find(
+    (asset) => asset.track === "playback" && asset.status === "ready",
+  );
+  if (!(meeting?.status === "ready" && playback)) {
+    return null;
+  }
+  const expiresInSeconds = 300;
+  const url = await presignRecordingGetObjectUrl(playback.storageKey, expiresInSeconds);
+  return {
+    expiresAt: new Date(Date.now() + expiresInSeconds * 1000).toISOString(),
+    url,
+  };
+}
+
+export async function retryMeetingPlayback(input: {
+  meetingId: string;
+  memberRole: string;
+  organizationId: string;
+  userId: string;
+}): Promise<{ state: "processing" | "ready" | "unavailable" } | null> {
+  const meeting = await loadAuthorizedMeeting(input);
+  if (!meeting) {
+    return null;
+  }
+  if (meeting.status === "ready") {
+    return { state: "ready" };
+  }
+  if (meeting.status !== "processing-failed") {
+    return { state: "processing" };
+  }
+  if (!isMeetingProcessingQueueConfigured()) {
+    return { state: "unavailable" };
+  }
+  await enqueueMeetingPlaybackJobs([
+    { meetingId: input.meetingId, organizationId: input.organizationId },
+  ]);
+  return { state: "processing" };
 }

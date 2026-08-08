@@ -4,8 +4,12 @@ import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 
 const mocks = vi.hoisted(() => ({
   completeSmallSavedMeeting: vi.fn(),
+  createMeetingPlaybackAuthorization: vi.fn(),
   createMultipartSavedMeeting: vi.fn(),
   createSmallSavedMeeting: vi.fn(),
+  getSavedMeetingDetail: vi.fn(),
+  listSavedMeetings: vi.fn(),
+  retryMeetingPlayback: vi.fn(),
 }));
 
 vi.mock("./service", () => mocks);
@@ -47,6 +51,7 @@ function makeApp() {
     .createApp()
     .use("*", async (c, next) => {
       c.set("activeOrg", { id: "org-72" } as never);
+      c.set("member", { role: "admin" } as never);
       c.set("user", { id: "user-72" } as never);
       await next();
     })
@@ -191,6 +196,85 @@ describe("Meeting Buddy small Saved Meeting control plane", () => {
       meetingId: MEETING_ID,
       organizationId: "org-72",
       ownerId: "user-72",
+    });
+  });
+
+  it("lists private Saved Meetings using owner-or-administrator authorization", async () => {
+    mocks.listSavedMeetings.mockResolvedValue([
+      {
+        creator: { id: "owner-74", image: null, name: "Alice" },
+        durationMs: 62_000,
+        id: MEETING_ID,
+        processingState: "ready",
+        recordingAvailable: true,
+        savedAt: "2026-08-09T04:00:00.000Z",
+        title: "录制记录-2608091200",
+      },
+    ]);
+
+    const response = await client.meetings.$get();
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      records: [{ id: MEETING_ID, recordingAvailable: true }],
+    });
+    expect(mocks.listSavedMeetings).toHaveBeenCalledWith({
+      memberRole: "admin",
+      organizationId: "org-72",
+      userId: "user-72",
+    });
+  });
+
+  it("returns the same 404 for a missing or unauthorized private meeting", async () => {
+    mocks.getSavedMeetingDetail.mockResolvedValue(null);
+
+    const response = await client.meetings[":id"].$get({ param: { id: MEETING_ID } });
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "Meeting Session 不存在" });
+    expect(mocks.getSavedMeetingDetail).toHaveBeenCalledWith({
+      meetingId: MEETING_ID,
+      memberRole: "admin",
+      organizationId: "org-72",
+      userId: "user-72",
+    });
+  });
+
+  it("signs playback only after the same full meeting authorization", async () => {
+    mocks.createMeetingPlaybackAuthorization.mockResolvedValue({
+      expiresAt: "2026-08-09T04:06:00.000Z",
+      url: "https://r2.invalid/playback.webm",
+    });
+
+    const response = await client.meetings[":id"].playback.$get({ param: { id: MEETING_ID } });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      expiresAt: "2026-08-09T04:06:00.000Z",
+      url: "https://r2.invalid/playback.webm",
+    });
+    expect(mocks.createMeetingPlaybackAuthorization).toHaveBeenCalledWith({
+      meetingId: MEETING_ID,
+      memberRole: "admin",
+      organizationId: "org-72",
+      userId: "user-72",
+    });
+  });
+
+  it("accepts an authorized explicit playback retry", async () => {
+    mocks.retryMeetingPlayback.mockResolvedValue({ state: "processing" });
+
+    const response = await client.meetings[":id"].playback.retry.$post({
+      param: { id: MEETING_ID },
+    });
+
+    expect(response.status).toBe(202);
+    expect(await response.json()).toEqual({ state: "processing" });
+    expect(mocks.retryMeetingPlayback).toHaveBeenCalledWith({
+      meetingId: MEETING_ID,
+      memberRole: "admin",
+      organizationId: "org-72",
+      userId: "user-72",
     });
   });
 });

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { meetingCapture } from "@/lib/meeting-capture";
+import { desktopMeetingKeys } from "@/lib/client/meetings";
 import type { MeetingCaptureSnapshot } from "../../../../../preload/meeting-capture";
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
 import { MeetingCaptureStatus } from "./meeting-capture-status";
@@ -56,6 +58,7 @@ function discardDialogDescription(deletingRecoveryCopy: boolean, includeSaved: b
 }
 
 export function MeetingRecordingProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [preselectedResumeId, setPreselectedResumeId] = useState<string | null>(null);
   const [preselectedResumeRecord, setPreselectedResumeRecord] =
@@ -67,6 +70,17 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
   } | null>(null);
 
   useEffect(() => meetingCapture.observe(setCaptureSnapshot), []);
+
+  const verifiedWorkspaceCaptureIds = captureSnapshot.workspaceSaves
+    .filter((item) => item.state === "workspace-verified")
+    .map((item) => item.captureId)
+    .toSorted()
+    .join(",");
+  useEffect(() => {
+    if (verifiedWorkspaceCaptureIds) {
+      void queryClient.invalidateQueries({ queryKey: desktopMeetingKeys.root });
+    }
+  }, [queryClient, verifiedWorkspaceCaptureIds]);
 
   const openMeetingRecording = useCallback((options?: OpenMeetingRecordingOptions) => {
     const record = options?.resumeRecord ?? null;

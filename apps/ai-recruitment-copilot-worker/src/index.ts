@@ -14,6 +14,12 @@ import {
   closeResumeReviewGenerationQueue,
   createResumeReviewGenerationWorker,
 } from "@arc/resume-parse-queue/resume-review-generation";
+import {
+  closeMeetingPlaybackQueue,
+  createMeetingPlaybackWorker,
+  enqueueMeetingPlaybackJobs,
+  isMeetingProcessingQueueConfigured,
+} from "@arc/meeting-processing-queue/meeting-playback";
 import { createWorkerApp } from "./app";
 import { resolveWorkerServerConfig } from "./config";
 import { getWorkerConnectionSummary, loadWorkerEnv } from "./env";
@@ -57,6 +63,36 @@ async function recoverIncompleteResumeSemanticIndexJobs(): Promise<void> {
   });
 }
 
+async function recoverIncompleteMeetingPlaybackJobs(): Promise<void> {
+  const { listRecoverableMeetingPlaybackJobs } =
+    await import("@arc/ai-recruitment-copilot-backend/server/routes/meetings/dao");
+  const jobs = await listRecoverableMeetingPlaybackJobs();
+  if (jobs.length === 0) {
+    console.info("[meeting-playback-worker] startup recovery found no pending meetings");
+    return;
+  }
+  await enqueueMeetingPlaybackJobs(jobs);
+  console.info("[meeting-playback-worker] startup recovery enqueued meetings", {
+    count: jobs.length,
+  });
+}
+
+let meetingPlaybackRecoveryRunning = false;
+
+async function reconcileMeetingPlaybackJobs(): Promise<void> {
+  if (meetingPlaybackRecoveryRunning) {
+    return;
+  }
+  meetingPlaybackRecoveryRunning = true;
+  try {
+    await recoverIncompleteMeetingPlaybackJobs();
+  } catch (error) {
+    console.error("[meeting-playback-worker] periodic recovery failed", { error });
+  } finally {
+    meetingPlaybackRecoveryRunning = false;
+  }
+}
+
 async function main() {
   const { hostname, port } = resolveWorkerServerConfig();
   const app = createWorkerApp();
@@ -79,6 +115,19 @@ async function main() {
   let semanticIndexWorker: ReturnType<typeof createResumeSemanticIndexWorker> | null = null;
   let reviewGenerationWorker: ReturnType<typeof createResumeReviewGenerationWorker> | null = null;
   let mailIngestScheduler: MailIngestScheduler | null = null;
+  let meetingPlaybackWorker: ReturnType<typeof createMeetingPlaybackWorker> | null = null;
+  let meetingPlaybackRecoveryTimer: NodeJS.Timeout | null = null;
+  if (isMeetingProcessingQueueConfigured()) {
+    meetingPlaybackWorker = createMeetingPlaybackWorker(async (payload) => {
+      const { runMeetingPlaybackProcessing } = await import("./meeting-playback/processor");
+      await runMeetingPlaybackProcessing(payload);
+    });
+    await reconcileMeetingPlaybackJobs();
+    meetingPlaybackRecoveryTimer = setInterval(() => {
+      void reconcileMeetingPlaybackJobs();
+    }, 60_000);
+    meetingPlaybackRecoveryTimer.unref();
+  }
   if (isResumeParseQueueConfigured()) {
     await recoverIncompleteResumeParseJobs();
     worker = createResumeParseWorker(async ({ bypassCache, itemId }) => {
@@ -125,6 +174,11 @@ async function main() {
         await worker?.close();
         await semanticIndexWorker?.close();
         await reviewGenerationWorker?.close();
+        if (meetingPlaybackRecoveryTimer) {
+          clearInterval(meetingPlaybackRecoveryTimer);
+        }
+        await meetingPlaybackWorker?.close();
+        await closeMeetingPlaybackQueue();
         await closeResumeParseQueue();
         await closeResumeSemanticIndexQueue();
         await closeResumeReviewGenerationQueue();

@@ -9,10 +9,25 @@ import {
   completeSmallSavedMeeting,
   createMultipartSavedMeeting,
   createSmallSavedMeeting,
+  getSavedMeetingDetail,
+  listSavedMeetings,
 } from "./service";
+import { meetingPlaybackRouter } from "./routes/playback/route";
 
 export const meetingsRouter = factory
   .createApp()
+  .get("/", async (c) => {
+    const { activeOrg, member, user } = c.var;
+    if (!(activeOrg && member && user)) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const records = await listSavedMeetings({
+      memberRole: member.role,
+      organizationId: activeOrg.id,
+      userId: user.id,
+    });
+    return c.json({ records }, 200);
+  })
   .post(
     "/",
     zValidator("json", createSmallSavedMeetingSchema, jsonValidatorError("保存清单无效")),
@@ -93,4 +108,21 @@ export const meetingsRouter = factory
         200,
       );
     },
-  );
+  )
+  .route("/:id/playback", meetingPlaybackRouter)
+  .get("/:id", async (c) => {
+    const { activeOrg, member, user } = c.var;
+    if (!(activeOrg && member && user)) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const result = await getSavedMeetingDetail({
+      meetingId: c.req.param("id"),
+      memberRole: member.role,
+      organizationId: activeOrg.id,
+      userId: user.id,
+    });
+    if (!result) {
+      return c.json({ error: "Meeting Session 不存在" }, 404);
+    }
+    return c.json(result, 200);
+  });

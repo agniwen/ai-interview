@@ -5,6 +5,8 @@ import {
   createRouter,
   Outlet,
   redirect,
+  useParams,
+  useSearch,
 } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
 import { z } from "zod";
@@ -17,6 +19,8 @@ import { getQueryClient } from "@/lib/query-client";
 import { AuthCallbackPage } from "@/routes/auth-callback-page";
 import { HomePage } from "@/routes/home-page";
 import { LoginPage } from "@/routes/login-page";
+import { MeetingDetailRoutePage } from "@/routes/meeting-detail-page";
+import { MeetingLibraryRoutePage } from "@/routes/meeting-library-page";
 import { ResumeDetailRoutePage } from "@/routes/resume-detail-page";
 
 export interface RouterContext {
@@ -25,6 +29,13 @@ export interface RouterContext {
 
 const loginSearchSchema = z.object({
   error: z.string().optional(),
+});
+
+const meetingDetailSearchSchema = z.object({
+  at: z.preprocess(
+    (value) => (typeof value === "number" && value >= 0 ? value : undefined),
+    z.number().nonnegative().optional(),
+  ),
 });
 
 async function requireSession() {
@@ -89,6 +100,25 @@ const resumeDetailRoute = createRoute({
   path: "/resumes/$recordId",
 });
 
+const meetingLibraryRoute = createRoute({
+  component: MeetingLibraryRoutePage,
+  getParentRoute: () => appRoute,
+  path: "/meetings",
+});
+
+function MeetingDetailRouteComponent() {
+  const { meetingId } = useParams({ from: "/_app/meetings/$meetingId" });
+  const { at } = useSearch({ from: "/_app/meetings/$meetingId" });
+  return <MeetingDetailRoutePage meetingId={meetingId} seekToSeconds={at} />;
+}
+
+const meetingDetailRoute = createRoute({
+  component: MeetingDetailRouteComponent,
+  getParentRoute: () => appRoute,
+  path: "/meetings/$meetingId",
+  validateSearch: meetingDetailSearchSchema,
+});
+
 const settingsRoute = createRoute({
   beforeLoad: () => {
     throw redirect({ to: "/settings/general" });
@@ -126,6 +156,8 @@ const routeTree = rootRoute.addChildren([
   authCallbackRoute,
   appRoute.addChildren([
     indexRoute,
+    meetingLibraryRoute,
+    meetingDetailRoute,
     resumeDetailRoute,
     settingsRoute,
     settingsGeneralRoute,

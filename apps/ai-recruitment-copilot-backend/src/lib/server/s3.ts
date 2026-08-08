@@ -1,4 +1,6 @@
 import type { S3Client } from "@aws-sdk/client-s3";
+import { createReadStream, createWriteStream } from "node:fs";
+import { pipeline } from "node:stream/promises";
 import { getRequiredBooleanEnv, getRequiredEnv } from "./env";
 
 interface S3Config {
@@ -135,6 +137,30 @@ export async function buildMeetingRecordingAssetKey(input: {
   const organizationId = encodeURIComponent(input.organizationId);
   const meetingId = encodeURIComponent(input.meetingId);
   return `${prefix}meetings/${organizationId}/${meetingId}/${input.track}.webm`.replace(/^\/+/, "");
+}
+
+export async function buildMeetingPlaybackAssetKey(input: {
+  meetingId: string;
+  organizationId: string;
+  processingRunId: string;
+}): Promise<string> {
+  const { config } = await getRecordingClient();
+  const prefix = config.keyPrefix ? `${config.keyPrefix.replace(/\/+$/, "")}/` : "";
+  const organizationId = encodeURIComponent(input.organizationId);
+  const meetingId = encodeURIComponent(input.meetingId);
+  const processingRunId = encodeURIComponent(input.processingRunId);
+  return `${prefix}meetings/${organizationId}/${meetingId}/playback/${processingRunId}.webm`.replace(
+    /^\/+/,
+    "",
+  );
+}
+
+export async function deleteMeetingRecordingObject(storageKey: string): Promise<void> {
+  const [{ DeleteObjectCommand }, { client, config }] = await Promise.all([
+    import("@aws-sdk/client-s3"),
+    getRecordingClient(),
+  ]);
+  await client.send(new DeleteObjectCommand({ Bucket: config.bucket, Key: storageKey }));
 }
 
 function isNoSuchKey(error: unknown): boolean {
@@ -340,6 +366,47 @@ export async function headMeetingRecordingObject(storageKey: string): Promise<{
     }
     throw error;
   }
+}
+
+export async function downloadMeetingRecordingObjectToFile(input: {
+  filePath: string;
+  storageKey: string;
+}): Promise<void> {
+  const [{ GetObjectCommand }, { client, config }] = await Promise.all([
+    import("@aws-sdk/client-s3"),
+    getRecordingClient(),
+  ]);
+  const response = await client.send(
+    new GetObjectCommand({ Bucket: config.bucket, Key: input.storageKey }),
+  );
+  if (!response.Body) {
+    throw new Error("Meeting Recording 源对象没有可读取内容");
+  }
+  await pipeline(response.Body.transformToWebStream(), createWriteStream(input.filePath));
+}
+
+export async function putMeetingRecordingFile(input: {
+  contentType: string;
+  filePath: string;
+  sha256: string;
+  sizeBytes: number;
+  storageKey: string;
+}): Promise<void> {
+  const [{ PutObjectCommand }, { client, config }] = await Promise.all([
+    import("@aws-sdk/client-s3"),
+    getRecordingClient(),
+  ]);
+  await client.send(
+    new PutObjectCommand({
+      Body: createReadStream(input.filePath),
+      Bucket: config.bucket,
+      ChecksumSHA256: Buffer.from(input.sha256, "hex").toString("base64"),
+      ContentLength: input.sizeBytes,
+      ContentType: input.contentType,
+      Key: input.storageKey,
+      Metadata: { sha256: input.sha256 },
+    }),
+  );
 }
 
 function getClient() {

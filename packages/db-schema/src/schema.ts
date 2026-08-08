@@ -301,10 +301,13 @@ export const meetingSession = pgTable(
     ownerId: text("owner_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    processingError: text("processing_error"),
+    processingRunId: text("processing_run_id"),
     recoveryCopyDeleteAfter: timestamp("recovery_copy_delete_after", { withTimezone: true }),
     savedAt: timestamp("saved_at", { withTimezone: true }).notNull(),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
     status: text("status").default("uploading").notNull(),
+    title: text("title").notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
@@ -315,6 +318,11 @@ export const meetingSession = pgTable(
     index("meeting_session_org_owner_saved_idx").on(
       table.organizationId,
       table.ownerId,
+      table.savedAt,
+    ),
+    index("meeting_session_org_status_saved_idx").on(
+      table.organizationId,
+      table.status,
       table.savedAt,
     ),
   ],

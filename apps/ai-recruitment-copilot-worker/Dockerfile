@@ -15,6 +15,7 @@ COPY patches patches
 COPY apps/ai-recruitment-copilot-worker/package.json apps/ai-recruitment-copilot-worker/
 COPY apps/ai-recruitment-copilot-backend/package.json apps/ai-recruitment-copilot-backend/
 COPY packages/db-schema/package.json packages/db-schema/
+COPY packages/meeting-processing-queue/package.json packages/meeting-processing-queue/
 COPY packages/resume-parse-queue/package.json packages/resume-parse-queue/
 COPY packages/shared/package.json packages/shared/
 
@@ -30,6 +31,8 @@ COPY apps/ai-recruitment-copilot-backend/tsconfig.json apps/ai-recruitment-copil
 COPY apps/ai-recruitment-copilot-backend/src apps/ai-recruitment-copilot-backend/src
 COPY packages/db-schema/tsconfig.json packages/db-schema/
 COPY packages/db-schema/src packages/db-schema/src
+COPY packages/meeting-processing-queue/tsconfig.json packages/meeting-processing-queue/
+COPY packages/meeting-processing-queue/src packages/meeting-processing-queue/src
 COPY packages/resume-parse-queue/tsconfig.json packages/resume-parse-queue/
 COPY packages/resume-parse-queue/src packages/resume-parse-queue/src
 COPY packages/shared/tsconfig.json packages/shared/
@@ -50,6 +53,7 @@ ENV LIBREOFFICE_BIN=/usr/bin/soffice
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     fontconfig \
+    ffmpeg \
     fonts-noto-cjk \
     libreoffice-calc \
     libreoffice-impress \
