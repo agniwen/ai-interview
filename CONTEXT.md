@@ -357,6 +357,88 @@ _Avoid_: Resume review, screening result, interview report
 The act of clearing and regenerating the current job's AI evaluation after resume evidence or job binding changes, or after an explicit eligible rerun. It does not itself change a recruiter decision; a job rebind separately resets that decision under the binding contract.
 _Avoid_: Screening-only refresh
 
+### Meeting Buddy
+
+**Meeting Buddy**:
+A general-purpose desktop meeting companion that captures a meeting for transcription and follow-up. Recruiting is one optional integration rather than the product boundary.
+_Avoid_: Recruiting recorder, interview-only recorder, meeting bot
+
+**Meeting Session**:
+One user-started meeting capture in the active workspace that is visible to its creator and workspace administrators by default after it is saved. It can exist independently or be linked to another business record.
+_Avoid_: Candidate interview round, calendar event, LiveKit room
+
+**Active Meeting Capture**:
+The local-first recording period of a meeting session before the user finishes and saves it. Local recording remains authoritative during capture even when live AI or the network is unavailable.
+_Avoid_: Saved meeting, cloud recording, live transcript draft
+
+**Saved Meeting**:
+A meeting session whose local capture has ended and whose recording and derived artifacts are being persisted to the workspace. An interrupted upload remains recoverable and continues until the save succeeds or an authorized user discards it.
+_Avoid_: Active meeting capture, completed upload, trashed meeting
+
+**Recruiting Context Link**:
+An optional association between a meeting session and at most one candidate recruiting record so the meeting artifacts can participate in the recruiting workflow. A meeting Owner or workspace administrator may add, change, or remove it after the meeting is saved.
+_Avoid_: Required candidate binding, meeting ownership, interview round
+
+**Meeting Share**:
+An explicit grant that makes a creator-private meeting session available to selected workspace members or to the whole workspace. Meeting Buddy does not expose meeting sessions through unauthenticated public links.
+_Avoid_: Public link, recruiting context link, default workspace visibility
+
+**Meeting Access Role**:
+The permission level granted for a meeting session: Owner controls sharing, deletion, export, and regeneration; Editor may revise notes, speaker names, and corrected transcripts; Viewer may view, play, and ask questions about the meeting.
+_Avoid_: Workspace role, recruiting role, provider permission
+
+**Meeting Recording**:
+The source audio captured locally during a meeting session and persisted to the workspace when the user finishes and saves the meeting. It remains available until an authorized user explicitly deletes it.
+_Avoid_: Transcript, meeting session, summary
+
+**Local Recording Recovery Copy**:
+The local copy retained for 24 hours after the server verifies a saved meeting recording, allowing recovery without becoming a second long-term meeting library.
+_Avoid_: Unsaved recording, server recording, permanent local archive
+
+**Live Transcript Draft**:
+The provisional transcript shown while a meeting session is still being captured. It may change during or after the meeting and is not the authoritative meeting record.
+_Avoid_: Final transcript, verbatim record, meeting summary
+
+**Final Meeting Transcript**:
+The post-meeting, speaker-attributed transcript produced from the complete meeting recording after final transcription processing.
+_Avoid_: Live transcript draft, meeting summary, recording
+
+**Human-Corrected Meeting Transcript**:
+A user-revised view of a final meeting transcript that preserves the underlying machine-produced revision while correcting text, structure, or speaker names. Meeting intelligence uses this view when it exists.
+_Avoid_: Overwritten machine transcript, live transcript draft, meeting notes
+
+**Meeting Note**:
+User-authored content captured alongside a meeting session to mark context or importance without replacing what the transcript records.
+_Avoid_: Transcript correction, meeting intelligence, source audio
+
+**Meeting Intelligence**:
+The transcript-grounded structured output for one meeting session, including its summary, topics, decisions, action items, and open questions.
+_Avoid_: Transcript, raw model response, cross-meeting analysis
+
+**Meeting Answer**:
+An answer to a user's question about one meeting session, supported by references to that meeting's transcript.
+_Avoid_: Workspace-wide answer, unsupported summary, transcript text
+
+**Meeting Intelligence Template**:
+A product-defined structure that determines which transcript-grounded meeting intelligence fields are produced for a type of meeting. The initial templates are General Meeting and Recruiting Interview.
+_Avoid_: Arbitrary prompt, transcript schema, meeting note
+
+**Meeting Intelligence Revision**:
+One preserved version of meeting intelligence generated from a specific transcript revision and template. Regeneration creates a new revision instead of overwriting an earlier result.
+_Avoid_: Transcript revision, mutable summary, model retry
+
+**Meeting Library Search**:
+Search across the meeting sessions visible to a user by title, transcript, notes, speaker, creator, or time without performing cross-meeting AI question answering.
+_Avoid_: Workspace-wide AI answer, single-meeting answer, semantic agent memory
+
+**Trashed Meeting**:
+A deleted meeting session recoverable for seven days before its recording and derived artifacts are permanently removed. Trashing it removes any recruiting context link without deleting the linked recruiting record.
+_Avoid_: Archived meeting, immediately purged meeting, deleted recruiting record
+
+**Workspace-Custodied Meeting**:
+A creator-private meeting session retained by the workspace after its creator leaves, available to workspace administrators for reassignment. Workspace administrators have the highest meeting access level.
+_Avoid_: Creator-owned export, automatically shared meeting, deleted meeting
+
 ### Interview Workflow
 
 **AI Interview Round**:
