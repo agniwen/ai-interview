@@ -293,6 +293,7 @@ export const meetingSession = pgTable(
   "meeting_session",
   {
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    custodianId: text("custodian_id").references(() => user.id, { onDelete: "set null" }),
     id: text("id").primaryKey(),
     manifestSha256: text("manifest_sha256").notNull(),
     organizationId: text("organization_id")
@@ -313,8 +314,13 @@ export const meetingSession = pgTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
     verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    visibility: text("visibility").default("restricted").notNull(),
   },
   (table) => [
+    check(
+      "meeting_session_visibility_check",
+      sql`${table.visibility} in ('restricted', 'workspace')`,
+    ),
     index("meeting_session_org_owner_saved_idx").on(
       table.organizationId,
       table.ownerId,
@@ -359,6 +365,80 @@ export const meetingRecordingAsset = pgTable(
   (table) => [
     uniqueIndex("meeting_recording_asset_meeting_track_uq").on(table.meetingId, table.track),
     index("meeting_recording_asset_meeting_idx").on(table.meetingId),
+  ],
+);
+
+export const meetingAccessGrant = pgTable(
+  "meeting_access_grant",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    id: text("id").primaryKey(),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    memberId: text("member_id")
+      .notNull()
+      .references(() => member.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    check("meeting_access_grant_role_check", sql`${table.role} in ('editor', 'viewer')`),
+    uniqueIndex("meeting_access_grant_meeting_member_uq").on(table.meetingId, table.memberId),
+    index("meeting_access_grant_org_member_idx").on(table.organizationId, table.memberId),
+  ],
+);
+
+export const meetingNote = pgTable(
+  "meeting_note",
+  {
+    authorId: text("author_id").references(() => user.id, { onDelete: "set null" }),
+    authorName: text("author_name").notNull(),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    meetingTimeMs: integer("meeting_time_ms").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    check("meeting_note_time_check", sql`${table.meetingTimeMs} >= 0`),
+    index("meeting_note_meeting_time_idx").on(table.meetingId, table.meetingTimeMs),
+    index("meeting_note_org_author_idx").on(table.organizationId, table.authorId),
+  ],
+);
+
+export const meetingAuditLog = pgTable(
+  "meeting_audit_log",
+  {
+    action: text("action").notNull(),
+    actorId: text("actor_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    detail: jsonb("detail").$type<Record<string, unknown>>().notNull().default({}),
+    id: text("id").primaryKey(),
+    meetingId: text("meeting_id").references(() => meetingSession.id, { onDelete: "set null" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("meeting_audit_log_meeting_created_idx").on(table.meetingId, table.createdAt),
+    index("meeting_audit_log_org_created_idx").on(table.organizationId, table.createdAt),
   ],
 );
 

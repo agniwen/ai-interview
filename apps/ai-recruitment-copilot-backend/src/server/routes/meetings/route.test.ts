@@ -3,16 +3,24 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 
 const mocks = vi.hoisted(() => ({
+  addMeetingNote: vi.fn(),
   completeSmallSavedMeeting: vi.fn(),
   createMeetingPlaybackAuthorization: vi.fn(),
   createMultipartSavedMeeting: vi.fn(),
   createSmallSavedMeeting: vi.fn(),
+  editMeetingNote: vi.fn(),
+  getMeetingNotes: vi.fn(),
+  getMeetingShareSettings: vi.fn(),
   getSavedMeetingDetail: vi.fn(),
   listSavedMeetings: vi.fn(),
+  reassignSavedMeetingOwner: vi.fn(),
+  removeMeetingNote: vi.fn(),
   retryMeetingPlayback: vi.fn(),
+  updateMeetingShare: vi.fn(),
 }));
 
 vi.mock("./service", () => mocks);
+vi.mock("./collaboration-service", () => mocks);
 
 // oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
 import { meetingsRouter } from "./route";
@@ -276,5 +284,97 @@ describe("Meeting Buddy small Saved Meeting control plane", () => {
       organizationId: "org-72",
       userId: "user-72",
     });
+  });
+
+  it("rejects a playback retry when the resolved meeting role is read-only", async () => {
+    mocks.retryMeetingPlayback.mockResolvedValue("forbidden");
+
+    const response = await client.meetings[":id"].playback.retry.$post({
+      param: { id: MEETING_ID },
+    });
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({ error: "无权重试会议处理" });
+  });
+
+  it("returns timestamped notes only after meeting access is authorized", async () => {
+    mocks.getMeetingNotes.mockResolvedValue([
+      {
+        author: { id: "editor", name: "Editor" },
+        body: "决定下周跟进",
+        createdAt: "2026-08-09T06:00:00.000Z",
+        id: "note-1",
+        meetingTimeMs: 5000,
+        updatedAt: "2026-08-09T06:00:00.000Z",
+      },
+    ]);
+
+    const response = await client.meetings[":id"].notes.$get({ param: { id: MEETING_ID } });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      records: [{ id: "note-1", meetingTimeMs: 5000 }],
+    });
+  });
+
+  it("rejects a viewer attempting to create a meeting note", async () => {
+    mocks.addMeetingNote.mockResolvedValue("forbidden");
+
+    const response = await client.meetings[":id"].notes.$post({
+      json: { body: "不能写入", meetingTimeMs: 5000 },
+      param: { id: MEETING_ID },
+    });
+
+    expect(response.status).toBe(403);
+  });
+
+  it("updates selected grants and workspace visibility through the share subresource", async () => {
+    mocks.updateMeetingShare.mockResolvedValue("updated");
+
+    const response = await client.meetings[":id"].share.$put({
+      json: {
+        grants: [{ role: "editor", userId: "editor" }],
+        visibility: "workspace",
+      },
+      param: { id: MEETING_ID },
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.updateMeetingShare).toHaveBeenCalledWith({
+      meetingId: MEETING_ID,
+      memberRole: "admin",
+      organizationId: "org-72",
+      share: { grants: [{ role: "editor", userId: "editor" }], visibility: "workspace" },
+      userId: "user-72",
+    });
+  });
+
+  it("lets an administrator reassign custody to a current workspace member", async () => {
+    mocks.reassignSavedMeetingOwner.mockResolvedValue("updated");
+
+    const response = await client.meetings[":id"].share.owner.$post({
+      json: { userId: "new-owner" },
+      param: { id: MEETING_ID },
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.reassignSavedMeetingOwner).toHaveBeenCalledWith({
+      meetingId: MEETING_ID,
+      memberRole: "admin",
+      organizationId: "org-72",
+      targetUserId: "new-owner",
+      userId: "user-72",
+    });
+  });
+
+  it("rejects owner reassignment while the current owner is still a workspace member", async () => {
+    mocks.reassignSavedMeetingOwner.mockResolvedValue("not-custodied");
+
+    const response = await client.meetings[":id"].share.owner.$post({
+      json: { userId: "new-owner" },
+      param: { id: MEETING_ID },
+    });
+
+    expect(response.status).toBe(409);
   });
 });

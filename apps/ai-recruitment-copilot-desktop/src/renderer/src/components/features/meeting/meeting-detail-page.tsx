@@ -11,6 +11,12 @@ import {
 } from "@/lib/client/meetings";
 import { desktopWorkspaceKeys, resolveActiveWorkspace } from "@/lib/client/workspace";
 import { MeetingDetailView } from "./meeting-library-view";
+import { MeetingNotesPanel } from "./meeting-notes-panel";
+import { MeetingSharePanel } from "./meeting-share-panel";
+
+export function canRetryMeetingProcessing(role: MeetingDetail["accessRole"]): boolean {
+  return role === "administrator" || role === "owner";
+}
 
 export function meetingDetailRefetchInterval(
   meeting: MeetingDetail | null | undefined,
@@ -128,10 +134,24 @@ export function MeetingDetailPage({
         onPlaybackError={() => {
           void playbackQuery.refetch();
         }}
-        onRetryProcessing={() => retryMutation.mutate()}
+        onRetryProcessing={
+          canRetryMeetingProcessing(detailQuery.data.accessRole)
+            ? () => retryMutation.mutate()
+            : undefined
+        }
         playback={playbackQuery.data ?? null}
         retryProcessing={retryMutation.isPending}
         seekToSeconds={seekToSeconds}
+      />
+      <MeetingNotesPanel
+        accessRole={detailQuery.data.accessRole}
+        meetingId={meetingId}
+        slug={workspace?.slug ?? ""}
+      />
+      <MeetingSharePanel
+        accessRole={detailQuery.data.accessRole}
+        meetingId={meetingId}
+        slug={workspace?.slug ?? ""}
       />
     </div>
   );

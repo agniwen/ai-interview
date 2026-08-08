@@ -41,6 +41,9 @@ export const meetingPlaybackRouter = factory
     if (!result) {
       return c.json({ error: "Meeting Session 不存在" }, 404);
     }
+    if (result === "forbidden") {
+      return c.json({ error: "无权重试会议处理" }, 403);
+    }
     if (result.state === "unavailable") {
       return c.json({ error: "会议处理队列暂不可用" }, 503);
     }

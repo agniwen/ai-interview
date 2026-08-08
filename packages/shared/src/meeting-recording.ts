@@ -162,6 +162,55 @@ export interface SmallSavedMeetingResponse {
 
 export const MEETING_PROCESSING_STATES = ["processing", "ready", "failed"] as const;
 export type MeetingProcessingState = (typeof MEETING_PROCESSING_STATES)[number];
+export type MeetingAccessRole = "administrator" | "editor" | "owner" | "viewer";
+export type MeetingGrantRole = "editor" | "viewer";
+export type MeetingVisibility = "restricted" | "workspace";
+
+export const updateMeetingShareSchema = z
+  .object({
+    grants: z
+      .array(
+        z.object({
+          role: z.enum(["editor", "viewer"]),
+          userId: z.string().min(1),
+        }),
+      )
+      .max(500),
+    visibility: z.enum(["restricted", "workspace"]),
+  })
+  .superRefine((input, context) => {
+    const seen = new Set<string>();
+    for (const [index, grant] of input.grants.entries()) {
+      if (seen.has(grant.userId)) {
+        context.addIssue({
+          code: "custom",
+          message: "同一成员只能设置一个会议访问角色",
+          path: ["grants", index, "userId"],
+        });
+      }
+      seen.add(grant.userId);
+    }
+  });
+
+export const reassignMeetingOwnerSchema = z.object({ userId: z.string().min(1) });
+
+export const createMeetingNoteSchema = z.object({
+  body: z.string().trim().min(1).max(10_000),
+  meetingTimeMs: z.number().int().nonnegative(),
+});
+
+export const updateMeetingNoteSchema = z
+  .object({
+    body: z.string().trim().min(1).max(10_000).optional(),
+    meetingTimeMs: z.number().int().nonnegative().optional(),
+  })
+  .refine((input) => input.body !== undefined || input.meetingTimeMs !== undefined, {
+    message: "至少更新一个字段",
+  });
+
+export type UpdateMeetingShareInput = z.infer<typeof updateMeetingShareSchema>;
+export type CreateMeetingNoteInput = z.infer<typeof createMeetingNoteSchema>;
+export type UpdateMeetingNoteInput = z.infer<typeof updateMeetingNoteSchema>;
 
 export interface MeetingCreatorSummary {
   id: string;
@@ -170,6 +219,7 @@ export interface MeetingCreatorSummary {
 }
 
 export interface MeetingLibraryItem {
+  accessRole: MeetingAccessRole;
   creator: MeetingCreatorSummary;
   durationMs: number;
   id: string;
@@ -177,6 +227,7 @@ export interface MeetingLibraryItem {
   recordingAvailable: boolean;
   savedAt: string;
   title: string;
+  workspaceCustodied: boolean;
 }
 
 export interface MeetingDetail extends MeetingLibraryItem {
@@ -187,4 +238,27 @@ export interface MeetingDetail extends MeetingLibraryItem {
 export interface MeetingPlaybackAuthorization {
   expiresAt: string;
   url: string;
+}
+
+export interface MeetingNote {
+  author: { id: string | null; name: string };
+  body: string;
+  canDelete: boolean;
+  canEdit: boolean;
+  createdAt: string;
+  id: string;
+  meetingTimeMs: number;
+  updatedAt: string;
+}
+
+export interface MeetingShareGrant {
+  member: MeetingCreatorSummary;
+  role: MeetingGrantRole;
+}
+
+export interface MeetingShareSettings {
+  grants: MeetingShareGrant[];
+  owner: MeetingCreatorSummary;
+  visibility: MeetingVisibility;
+  workspaceCustodied: boolean;
 }

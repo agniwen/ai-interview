@@ -13,6 +13,8 @@ import {
   listSavedMeetings,
 } from "./service";
 import { meetingPlaybackRouter } from "./routes/playback/route";
+import { meetingNotesRouter } from "./routes/notes/route";
+import { meetingShareRouter } from "./routes/share/route";
 
 export const meetingsRouter = factory
   .createApp()
@@ -110,6 +112,8 @@ export const meetingsRouter = factory
     },
   )
   .route("/:id/playback", meetingPlaybackRouter)
+  .route("/:id/notes", meetingNotesRouter)
+  .route("/:id/share", meetingShareRouter)
   .get("/:id", async (c) => {
     const { activeOrg, member, user } = c.var;
     if (!(activeOrg && member && user)) {

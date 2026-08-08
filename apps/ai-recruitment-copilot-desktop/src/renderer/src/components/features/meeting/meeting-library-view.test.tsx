@@ -2,13 +2,17 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { MeetingLibraryItem } from "@arc/shared/meeting-recording";
 import {
+  canRetryMeetingProcessing,
   meetingDetailRefetchInterval,
   playbackAuthorizationRefetchInterval,
 } from "./meeting-detail-page";
 import { MeetingDetailView, MeetingLibraryView } from "./meeting-library-view";
+import { canCreateMeetingNotes } from "./meeting-notes-panel";
+import { canManageMeetingSharing } from "./meeting-share-panel";
 import { meetingLibraryRefetchInterval } from "./use-meeting-library";
 
 const item: MeetingLibraryItem = {
+  accessRole: "owner",
   creator: { id: "user-74", image: null, name: "Alice" },
   durationMs: 62_000,
   id: "meeting-74",
@@ -16,9 +20,21 @@ const item: MeetingLibraryItem = {
   recordingAvailable: false,
   savedAt: "2026-08-09T04:00:00.000Z",
   title: "录制记录-2608091200",
+  workspaceCustodied: false,
 };
 
 describe("Meeting Library views", () => {
+  it("keeps viewers read-only while editors can author notes without managing sharing", () => {
+    expect(canCreateMeetingNotes("viewer")).toBe(false);
+    expect(canManageMeetingSharing("viewer")).toBe(false);
+    expect(canCreateMeetingNotes("editor")).toBe(true);
+    expect(canManageMeetingSharing("editor")).toBe(false);
+    expect(canRetryMeetingProcessing("editor")).toBe(false);
+    expect(canRetryMeetingProcessing("owner")).toBe(true);
+    expect(canManageMeetingSharing("owner")).toBe(true);
+    expect(canManageMeetingSharing("administrator")).toBe(true);
+  });
+
   it("keeps observing retryable failures and refreshes playback authorization before expiry", () => {
     expect(meetingLibraryRefetchInterval([{ ...item, processingState: "processing" }])).toBe(5000);
     expect(meetingLibraryRefetchInterval([{ ...item, processingState: "failed" }])).toBe(30_000);

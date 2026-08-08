@@ -257,6 +257,26 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.jobDescription.id,
     }),
   },
+  meetingAccessGrant: {
+    meeting: r.one.meetingSession({
+      from: r.meetingAccessGrant.meetingId,
+      to: r.meetingSession.id,
+    }),
+    member: r.one.member({
+      from: r.meetingAccessGrant.memberId,
+      to: r.member.id,
+    }),
+  },
+  meetingNote: {
+    author: r.one.user({
+      from: r.meetingNote.authorId,
+      to: r.user.id,
+    }),
+    meeting: r.one.meetingSession({
+      from: r.meetingNote.meetingId,
+      to: r.meetingSession.id,
+    }),
+  },
   meetingRecordingAsset: {
     meeting: r.one.meetingSession({
       from: r.meetingRecordingAsset.meetingId,
@@ -264,7 +284,13 @@ export const relations = defineRelations(schema, (r) => ({
     }),
   },
   meetingSession: {
+    accessGrants: r.many.meetingAccessGrant(),
     assets: r.many.meetingRecordingAsset(),
+    custodian: r.one.user({
+      from: r.meetingSession.custodianId,
+      to: r.user.id,
+    }),
+    notes: r.many.meetingNote(),
     organization: r.one.organization({
       from: r.meetingSession.organizationId,
       to: r.organization.id,

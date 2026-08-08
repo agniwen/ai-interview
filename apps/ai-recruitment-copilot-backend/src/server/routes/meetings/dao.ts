@@ -1,9 +1,21 @@
-import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import { meetingRecordingAsset, meetingSession, user } from "@arc/db-schema/schema";
+import {
+  meetingAccessGrant,
+  meetingAuditLog,
+  meetingNote,
+  meetingRecordingAsset,
+  meetingSession,
+  member,
+  user,
+} from "@arc/db-schema/schema";
 import type {
+  CreateMeetingNoteInput,
   CreateMultipartSavedMeetingInput,
   CreateSmallSavedMeetingInput,
+  MeetingGrantRole,
+  UpdateMeetingNoteInput,
+  UpdateMeetingShareInput,
 } from "@arc/shared/meeting-recording";
 
 export type NewMeetingAsset = (
@@ -138,38 +150,67 @@ export async function markMeetingSessionVerified(input: {
   return persistedDeadline;
 }
 
-export function listMeetingSessionsForAccess(input: {
+export async function listMeetingSessionsForAccess(input: {
   includeAllPrivateMeetings: boolean;
   organizationId: string;
   userId: string;
 }) {
+  const activeMember = await db.query.member.findFirst({
+    columns: { id: true },
+    where: { organizationId: input.organizationId, userId: input.userId },
+  });
+  const controllerId = sql<string>`coalesce(${meetingSession.custodianId}, ${meetingSession.ownerId})`;
   const access = input.includeAllPrivateMeetings
     ? eq(meetingSession.organizationId, input.organizationId)
     : and(
         eq(meetingSession.organizationId, input.organizationId),
-        eq(meetingSession.ownerId, input.userId),
+        or(
+          eq(controllerId, input.userId),
+          eq(meetingSession.visibility, "workspace"),
+          isNotNull(meetingAccessGrant.id),
+        ),
       );
   return db
     .select({
+      controllerId,
       creatorId: user.id,
       creatorImage: user.image,
       creatorName: user.name,
       durationMs: sql<number>`coalesce(max(${meetingRecordingAsset.durationMs}) filter (where ${meetingRecordingAsset.track} in ('microphone', 'system')), 0)`,
+      grantRole: meetingAccessGrant.role,
       id: meetingSession.id,
       recordingAvailable: sql<boolean>`coalesce(bool_or(${meetingRecordingAsset.track} = 'playback' and ${meetingRecordingAsset.status} = 'ready'), false)`,
       savedAt: meetingSession.savedAt,
       status: meetingSession.status,
       title: meetingSession.title,
+      visibility: meetingSession.visibility,
+      workspaceCustodied: sql<boolean>`not exists (
+        select 1 from ${member}
+        where ${member.organizationId} = ${meetingSession.organizationId}
+          and ${member.userId} = ${controllerId}
+      )`,
     })
     .from(meetingSession)
     .innerJoin(user, eq(user.id, meetingSession.ownerId))
     .leftJoin(meetingRecordingAsset, eq(meetingRecordingAsset.meetingId, meetingSession.id))
+    .leftJoin(
+      meetingAccessGrant,
+      and(
+        eq(meetingAccessGrant.meetingId, meetingSession.id),
+        eq(meetingAccessGrant.organizationId, input.organizationId),
+        activeMember ? eq(meetingAccessGrant.memberId, activeMember.id) : sql`false`,
+      ),
+    )
     .where(and(access, inArray(meetingSession.status, [...LIBRARY_MEETING_STATUSES])))
     .groupBy(
       meetingSession.id,
+      meetingSession.custodianId,
+      meetingSession.ownerId,
       meetingSession.title,
       meetingSession.savedAt,
       meetingSession.status,
+      meetingSession.visibility,
+      meetingAccessGrant.role,
       user.id,
       user.name,
       user.image,
@@ -177,20 +218,396 @@ export function listMeetingSessionsForAccess(input: {
     .orderBy(desc(meetingSession.savedAt));
 }
 
-export function loadMeetingSessionForAccess(input: {
+export async function loadMeetingSessionForAccess(input: {
   includeAllPrivateMeetings: boolean;
   meetingId: string;
   organizationId: string;
   userId: string;
 }) {
-  return db.query.meetingSession.findFirst({
+  const activeMember = await db.query.member.findFirst({
+    columns: { id: true },
+    where: { organizationId: input.organizationId, userId: input.userId },
+  });
+  const controllerId = sql<string>`coalesce(${meetingSession.custodianId}, ${meetingSession.ownerId})`;
+  const [authorized] = await db
+    .select({
+      grantRole: meetingAccessGrant.role,
+      workspaceCustodied: sql<boolean>`not exists (
+        select 1 from ${member}
+        where ${member.organizationId} = ${meetingSession.organizationId}
+          and ${member.userId} = ${controllerId}
+      )`,
+    })
+    .from(meetingSession)
+    .leftJoin(
+      meetingAccessGrant,
+      and(
+        eq(meetingAccessGrant.meetingId, meetingSession.id),
+        eq(meetingAccessGrant.organizationId, input.organizationId),
+        activeMember ? eq(meetingAccessGrant.memberId, activeMember.id) : sql`false`,
+      ),
+    )
+    .where(
+      and(
+        eq(meetingSession.id, input.meetingId),
+        eq(meetingSession.organizationId, input.organizationId),
+        inArray(meetingSession.status, [...LIBRARY_MEETING_STATUSES]),
+        input.includeAllPrivateMeetings
+          ? undefined
+          : or(
+              eq(controllerId, input.userId),
+              eq(meetingSession.visibility, "workspace"),
+              isNotNull(meetingAccessGrant.id),
+            ),
+      ),
+    )
+    .limit(1);
+  if (!authorized) {
+    return null;
+  }
+  const meeting = await db.query.meetingSession.findFirst({
     where: {
       id: input.meetingId,
       organizationId: input.organizationId,
-      ownerId: input.includeAllPrivateMeetings ? undefined : input.userId,
       status: { in: [...LIBRARY_MEETING_STATUSES] },
     },
-    with: { assets: true, owner: true },
+    with: { assets: true, custodian: true, owner: true },
+  });
+  return meeting
+    ? {
+        ...meeting,
+        accessGrantRole: authorized.grantRole as MeetingGrantRole | null,
+        workspaceCustodied: authorized.workspaceCustodied,
+      }
+    : null;
+}
+
+export function listMeetingAccessGrants(input: { meetingId: string; organizationId: string }) {
+  return db
+    .select({
+      image: user.image,
+      name: user.name,
+      role: meetingAccessGrant.role,
+      userId: member.userId,
+    })
+    .from(meetingAccessGrant)
+    .innerJoin(
+      member,
+      and(
+        eq(member.id, meetingAccessGrant.memberId),
+        eq(member.organizationId, input.organizationId),
+      ),
+    )
+    .innerJoin(user, eq(user.id, member.userId))
+    .where(
+      and(
+        eq(meetingAccessGrant.meetingId, input.meetingId),
+        eq(meetingAccessGrant.organizationId, input.organizationId),
+      ),
+    )
+    .orderBy(asc(user.name));
+}
+
+export async function replaceMeetingAccessGrants(input: {
+  actorId: string;
+  meetingId: string;
+  organizationId: string;
+  ownerId: string;
+  share: UpdateMeetingShareInput;
+}): Promise<boolean> {
+  return await db.transaction(async (tx) => {
+    const userIds = input.share.grants.map((grant) => grant.userId);
+    const memberIds = new Map<string, string>();
+    if (userIds.includes(input.ownerId)) {
+      return false;
+    }
+    if (userIds.length > 0) {
+      const members = await tx
+        .select({ id: member.id, userId: member.userId })
+        .from(member)
+        .where(
+          and(eq(member.organizationId, input.organizationId), inArray(member.userId, userIds)),
+        );
+      if (members.length !== userIds.length) {
+        return false;
+      }
+      for (const workspaceMember of members) {
+        memberIds.set(workspaceMember.userId, workspaceMember.id);
+      }
+    }
+    const [updated] = await tx
+      .update(meetingSession)
+      .set({ visibility: input.share.visibility })
+      .where(
+        and(
+          eq(meetingSession.id, input.meetingId),
+          eq(meetingSession.organizationId, input.organizationId),
+          eq(
+            sql<string>`coalesce(${meetingSession.custodianId}, ${meetingSession.ownerId})`,
+            input.ownerId,
+          ),
+        ),
+      )
+      .returning({ id: meetingSession.id });
+    if (!updated) {
+      return false;
+    }
+    await tx
+      .delete(meetingAccessGrant)
+      .where(
+        and(
+          eq(meetingAccessGrant.meetingId, input.meetingId),
+          eq(meetingAccessGrant.organizationId, input.organizationId),
+        ),
+      );
+    if (input.share.grants.length > 0) {
+      const memberIdFor = (userId: string): string => {
+        const memberId = memberIds.get(userId);
+        if (!memberId) {
+          throw new Error("Workspace member disappeared while updating meeting access");
+        }
+        return memberId;
+      };
+      await tx.insert(meetingAccessGrant).values(
+        input.share.grants.map((grant) => ({
+          createdBy: input.actorId,
+          id: crypto.randomUUID(),
+          meetingId: input.meetingId,
+          memberId: memberIdFor(grant.userId),
+          organizationId: input.organizationId,
+          role: grant.role,
+        })),
+      );
+    }
+    await tx.insert(meetingAuditLog).values({
+      action: "meeting.share_updated",
+      actorId: input.actorId,
+      detail: { grants: input.share.grants, visibility: input.share.visibility },
+      id: crypto.randomUUID(),
+      meetingId: input.meetingId,
+      organizationId: input.organizationId,
+    });
+    return true;
+  });
+}
+
+export async function reassignMeetingOwner(input: {
+  actorId: string;
+  meetingId: string;
+  organizationId: string;
+  userId: string;
+}): Promise<"invalid-member" | "not-custodied" | "updated"> {
+  return await db.transaction(async (tx) => {
+    const [current] = await tx
+      .select({
+        custodianId: meetingSession.custodianId,
+        ownerId: meetingSession.ownerId,
+      })
+      .from(meetingSession)
+      .where(
+        and(
+          eq(meetingSession.id, input.meetingId),
+          eq(meetingSession.organizationId, input.organizationId),
+        ),
+      )
+      .for("update")
+      .limit(1);
+    if (!current) {
+      return "invalid-member";
+    }
+    const previousOwnerId = current.custodianId ?? current.ownerId;
+    const currentController = await tx.query.member.findFirst({
+      columns: { id: true },
+      where: { organizationId: input.organizationId, userId: previousOwnerId },
+    });
+    if (currentController) {
+      return "not-custodied";
+    }
+    const target = await tx.query.member.findFirst({
+      where: { organizationId: input.organizationId, userId: input.userId },
+    });
+    if (!target) {
+      return "invalid-member";
+    }
+    const [updated] = await tx
+      .update(meetingSession)
+      .set({ custodianId: input.userId })
+      .where(
+        and(
+          eq(meetingSession.id, input.meetingId),
+          eq(meetingSession.organizationId, input.organizationId),
+        ),
+      )
+      .returning({ id: meetingSession.id });
+    if (!updated) {
+      return "invalid-member";
+    }
+    await tx
+      .delete(meetingAccessGrant)
+      .where(
+        and(
+          eq(meetingAccessGrant.meetingId, input.meetingId),
+          eq(meetingAccessGrant.memberId, target.id),
+        ),
+      );
+    await tx.insert(meetingAuditLog).values({
+      action: "meeting.owner_reassigned",
+      actorId: input.actorId,
+      detail: {
+        previousOwnerId,
+        userId: input.userId,
+      },
+      id: crypto.randomUUID(),
+      meetingId: input.meetingId,
+      organizationId: input.organizationId,
+    });
+    return "updated";
+  });
+}
+
+export function listMeetingNotes(input: { meetingId: string; organizationId: string }) {
+  return db
+    .select()
+    .from(meetingNote)
+    .where(
+      and(
+        eq(meetingNote.meetingId, input.meetingId),
+        eq(meetingNote.organizationId, input.organizationId),
+      ),
+    )
+    .orderBy(asc(meetingNote.meetingTimeMs), asc(meetingNote.createdAt));
+}
+
+export async function createMeetingNote(input: {
+  authorId: string;
+  authorName: string;
+  meetingId: string;
+  note: CreateMeetingNoteInput;
+  organizationId: string;
+}) {
+  const [created] = await db
+    .insert(meetingNote)
+    .values({
+      authorId: input.authorId,
+      authorName: input.authorName,
+      body: input.note.body,
+      id: crypto.randomUUID(),
+      meetingId: input.meetingId,
+      meetingTimeMs: input.note.meetingTimeMs,
+      organizationId: input.organizationId,
+    })
+    .returning();
+  return created;
+}
+
+export async function updateMeetingNote(input: {
+  actorId: string;
+  canEditAll: boolean;
+  canGovern: boolean;
+  meetingId: string;
+  note: UpdateMeetingNoteInput;
+  noteId: string;
+  organizationId: string;
+}) {
+  return await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(meetingNote)
+      .set(input.note)
+      .where(
+        and(
+          eq(meetingNote.id, input.noteId),
+          eq(meetingNote.meetingId, input.meetingId),
+          eq(meetingNote.organizationId, input.organizationId),
+          input.canEditAll ? undefined : sql`false`,
+        ),
+      )
+      .returning();
+    if (!updated) {
+      return null;
+    }
+    if (input.canGovern && updated.authorId !== input.actorId) {
+      await tx.insert(meetingAuditLog).values({
+        action: "meeting.note_governed",
+        actorId: input.actorId,
+        detail: {
+          noteId: input.noteId,
+          operation: "updated",
+          originalAuthorId: updated.authorId,
+        },
+        id: crypto.randomUUID(),
+        meetingId: input.meetingId,
+        organizationId: input.organizationId,
+      });
+    }
+    return updated;
+  });
+}
+
+export async function recordMeetingAudit(input: {
+  action: string;
+  actorId: string;
+  detail?: Record<string, unknown>;
+  dedupeWithinMs?: number;
+  meetingId?: string;
+  organizationId: string;
+}): Promise<void> {
+  if (input.dedupeWithinMs) {
+    const recent = await db.query.meetingAuditLog.findFirst({
+      where: {
+        action: input.action,
+        actorId: input.actorId,
+        createdAt: { gt: new Date(Date.now() - input.dedupeWithinMs) },
+        meetingId: input.meetingId ?? { isNull: true },
+        organizationId: input.organizationId,
+      },
+    });
+    if (recent) {
+      return;
+    }
+  }
+  await db.insert(meetingAuditLog).values({
+    action: input.action,
+    actorId: input.actorId,
+    detail: input.detail ?? {},
+    id: crypto.randomUUID(),
+    meetingId: input.meetingId,
+    organizationId: input.organizationId,
+  });
+}
+
+export async function deleteMeetingNote(input: {
+  canGovern: boolean;
+  meetingId: string;
+  noteId: string;
+  organizationId: string;
+  userId: string;
+}): Promise<boolean> {
+  return await db.transaction(async (tx) => {
+    const [deleted] = await tx
+      .delete(meetingNote)
+      .where(
+        and(
+          eq(meetingNote.id, input.noteId),
+          eq(meetingNote.meetingId, input.meetingId),
+          eq(meetingNote.organizationId, input.organizationId),
+          input.canGovern ? undefined : eq(meetingNote.authorId, input.userId),
+        ),
+      )
+      .returning({ authorId: meetingNote.authorId });
+    if (!deleted) {
+      return false;
+    }
+    if (input.canGovern && deleted.authorId !== input.userId) {
+      await tx.insert(meetingAuditLog).values({
+        action: "meeting.note_governed",
+        actorId: input.userId,
+        detail: { noteId: input.noteId },
+        id: crypto.randomUUID(),
+        meetingId: input.meetingId,
+        organizationId: input.organizationId,
+      });
+    }
+    return true;
   });
 }
 

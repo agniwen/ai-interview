@@ -17,22 +17,30 @@ import {
 import {
   createOrLoadMeetingSession,
   listMeetingSessionsForAccess,
-  loadMeetingSessionForAccess,
   loadMeetingSession,
   markMeetingSessionVerified,
+  recordMeetingAudit,
   recordMeetingAssetMultipartUploadId,
 } from "./dao";
 import type {
   CreateMultipartSavedMeetingInput,
   CreateSmallSavedMeetingInput,
-  MeetingSourceTrack,
+  MeetingAccessRole,
   MeetingDetail,
+  MeetingGrantRole,
   MeetingLibraryItem,
-  MeetingProcessingState,
   MeetingPlaybackAuthorization,
+  MeetingProcessingState,
+  MeetingSourceTrack,
   MultipartSavedMeetingResponse,
   SmallSavedMeetingResponse,
 } from "@arc/shared/meeting-recording";
+import {
+  isWorkspaceAdministrator,
+  meetingAccessCapabilities,
+  resolveMeetingAccessRole,
+} from "./access";
+import { loadAuthorizedMeeting, meetingRole } from "./authorized-meeting";
 
 const SERVER_VERIFIED_STATUSES = new Set([
   "workspace-verified",
@@ -40,13 +48,10 @@ const SERVER_VERIFIED_STATUSES = new Set([
   "processing-failed",
   "ready",
 ]);
+const ADMIN_ACCESS_AUDIT_DEDUPE_MS = 5 * 60 * 1000;
 
 function sourceAssets<T extends { track: string }>(assets: T[]): T[] {
   return assets.filter((asset) => asset.track === "microphone" || asset.track === "system");
-}
-
-function isWorkspaceAdministrator(memberRole: string): boolean {
-  return memberRole === "owner" || memberRole === "admin";
 }
 
 function processingState(status: string): MeetingProcessingState {
@@ -495,7 +500,21 @@ export async function listSavedMeetings(input: {
     organizationId: input.organizationId,
     userId: input.userId,
   });
+  if (isWorkspaceAdministrator(input.memberRole)) {
+    await recordMeetingAudit({
+      action: "meeting.library_accessed",
+      actorId: input.userId,
+      dedupeWithinMs: ADMIN_ACCESS_AUDIT_DEDUPE_MS,
+      organizationId: input.organizationId,
+    });
+  }
   return rows.map((row) => ({
+    accessRole: resolveMeetingAccessRole({
+      grantRole: row.grantRole as MeetingGrantRole | null,
+      isOwner: row.controllerId === input.userId,
+      isWorkspaceAdministrator: isWorkspaceAdministrator(input.memberRole),
+      visibility: row.visibility as "restricted" | "workspace",
+    }) as MeetingAccessRole,
     creator: {
       id: row.creatorId,
       image: row.creatorImage,
@@ -507,21 +526,8 @@ export async function listSavedMeetings(input: {
     recordingAvailable: row.recordingAvailable,
     savedAt: row.savedAt.toISOString(),
     title: row.title,
+    workspaceCustodied: row.workspaceCustodied,
   }));
-}
-
-function loadAuthorizedMeeting(input: {
-  meetingId: string;
-  memberRole: string;
-  organizationId: string;
-  userId: string;
-}) {
-  return loadMeetingSessionForAccess({
-    includeAllPrivateMeetings: isWorkspaceAdministrator(input.memberRole),
-    meetingId: input.meetingId,
-    organizationId: input.organizationId,
-    userId: input.userId,
-  });
 }
 
 export async function getSavedMeetingDetail(input: {
@@ -538,7 +544,18 @@ export async function getSavedMeetingDetail(input: {
   const playback = meeting.assets.find(
     (asset) => asset.track === "playback" && asset.status === "ready",
   );
+  const accessRole = meetingRole(meeting, input);
+  if (accessRole === "administrator") {
+    await recordMeetingAudit({
+      action: "meeting.detail_accessed",
+      actorId: input.userId,
+      dedupeWithinMs: ADMIN_ACCESS_AUDIT_DEDUPE_MS,
+      meetingId: meeting.id,
+      organizationId: input.organizationId,
+    });
+  }
   return {
+    accessRole,
     creator: {
       id: meeting.owner.id,
       image: meeting.owner.image,
@@ -552,6 +569,7 @@ export async function getSavedMeetingDetail(input: {
     startedAt: meeting.startedAt.toISOString(),
     title: meeting.title,
     verifiedAt: meeting.verifiedAt?.toISOString() ?? null,
+    workspaceCustodied: meeting.workspaceCustodied,
   };
 }
 
@@ -568,6 +586,15 @@ export async function createMeetingPlaybackAuthorization(input: {
   if (!(meeting?.status === "ready" && playback)) {
     return null;
   }
+  if (meetingRole(meeting, input) === "administrator") {
+    await recordMeetingAudit({
+      action: "meeting.playback_accessed",
+      actorId: input.userId,
+      dedupeWithinMs: ADMIN_ACCESS_AUDIT_DEDUPE_MS,
+      meetingId: meeting.id,
+      organizationId: input.organizationId,
+    });
+  }
   const expiresInSeconds = 300;
   const url = await presignRecordingGetObjectUrl(playback.storageKey, expiresInSeconds);
   return {
@@ -581,10 +608,13 @@ export async function retryMeetingPlayback(input: {
   memberRole: string;
   organizationId: string;
   userId: string;
-}): Promise<{ state: "processing" | "ready" | "unavailable" } | null> {
+}): Promise<{ state: "processing" | "ready" | "unavailable" } | "forbidden" | null> {
   const meeting = await loadAuthorizedMeeting(input);
   if (!meeting) {
     return null;
+  }
+  if (!meetingAccessCapabilities(meetingRole(meeting, input)).canRetryProcessing) {
+    return "forbidden";
   }
   if (meeting.status === "ready") {
     return { state: "ready" };
@@ -598,5 +628,11 @@ export async function retryMeetingPlayback(input: {
   await enqueueMeetingPlaybackJobs([
     { meetingId: input.meetingId, organizationId: input.organizationId },
   ]);
+  await recordMeetingAudit({
+    action: "meeting.processing_retried",
+    actorId: input.userId,
+    meetingId: input.meetingId,
+    organizationId: input.organizationId,
+  });
   return { state: "processing" };
 }
