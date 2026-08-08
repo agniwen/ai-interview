@@ -13,9 +13,10 @@
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
     "build": "pnpm run typecheck && electron-vite build",
-    "build:unpack": "pnpm run build && electron-builder --dir",
+    "build:unpack": "pnpm run build && electron-builder --dir --config.mac.icon=icon.icns",
     "build:win": "pnpm run build && electron-builder --win",
     "build:mac": "electron-vite build && electron-builder --mac",
+    "build:mac:legacy": "electron-vite build && electron-builder --mac --config.mac.icon=icon.icns",
     "build:linux": "electron-vite build && electron-builder --linux"
   },
   "dependencies": {
