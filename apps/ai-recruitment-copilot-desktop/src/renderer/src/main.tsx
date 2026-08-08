@@ -60,8 +60,8 @@ if (!rootElement) {
 const queryClient = getQueryClient();
 const router = createDesktopRouter(queryClient);
 
-// Fire-and-forget: settings.json values (api base, toggles) hydrate into the
-// store shortly after; the theme is already applied above from localStorage.
+// Fire-and-forget: settings.json values hydrate into the store shortly after;
+// the theme is already applied above from localStorage.
 void hydrateSettings();
 
 createRoot(rootElement).render(

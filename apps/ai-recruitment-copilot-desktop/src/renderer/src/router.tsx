@@ -8,6 +8,9 @@ import {
 } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
 import { z } from "zod";
+import { AppearanceSettingsPage } from "@/components/features/settings/appearance-settings-page";
+import { GeneralSettingsPage } from "@/components/features/settings/general-settings-page";
+import { SettingsLayout } from "@/components/features/settings/settings-layout";
 import { AppShell } from "@/components/layout/app-shell";
 import { authClient } from "@/lib/auth-client";
 import { getQueryClient } from "@/lib/query-client";
@@ -15,27 +18,10 @@ import { AuthCallbackPage } from "@/routes/auth-callback-page";
 import { HomePage } from "@/routes/home-page";
 import { LoginPage } from "@/routes/login-page";
 import { ResumeDetailRoutePage } from "@/routes/resume-detail-page";
-import { SettingsPage } from "@/routes/settings-page";
 
 export interface RouterContext {
   queryClient: QueryClient;
 }
-
-const settingsSectionValues = ["appearance", "general"] as const;
-
-function parseSettingsSection(value: unknown): "appearance" | "general" | undefined {
-  if (
-    typeof value === "string" &&
-    settingsSectionValues.includes(value as (typeof settingsSectionValues)[number])
-  ) {
-    return value as "appearance" | "general";
-  }
-  return undefined;
-}
-
-const settingsSearchSchema = z.object({
-  section: z.preprocess(parseSettingsSection, z.enum(settingsSectionValues).optional()),
-});
 
 const loginSearchSchema = z.object({
   error: z.string().optional(),
@@ -104,16 +90,47 @@ const resumeDetailRoute = createRoute({
 });
 
 const settingsRoute = createRoute({
-  component: SettingsPage,
+  beforeLoad: () => {
+    throw redirect({ to: "/settings/general" });
+  },
   getParentRoute: () => appRoute,
   path: "/settings",
-  validateSearch: settingsSearchSchema,
+});
+
+const settingsGeneralRoute = createRoute({
+  component: function GeneralSettingsRoutePage() {
+    return (
+      <SettingsLayout>
+        <GeneralSettingsPage />
+      </SettingsLayout>
+    );
+  },
+  getParentRoute: () => appRoute,
+  path: "/settings/general",
+});
+
+const settingsAppearanceRoute = createRoute({
+  component: function AppearanceSettingsRoutePage() {
+    return (
+      <SettingsLayout>
+        <AppearanceSettingsPage />
+      </SettingsLayout>
+    );
+  },
+  getParentRoute: () => appRoute,
+  path: "/settings/appearance",
 });
 
 const routeTree = rootRoute.addChildren([
   loginRoute,
   authCallbackRoute,
-  appRoute.addChildren([indexRoute, resumeDetailRoute, settingsRoute]),
+  appRoute.addChildren([
+    indexRoute,
+    resumeDetailRoute,
+    settingsRoute,
+    settingsGeneralRoute,
+    settingsAppearanceRoute,
+  ]),
 ]);
 
 /**

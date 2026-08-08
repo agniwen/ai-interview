@@ -16,18 +16,18 @@ import {
 
 const settingsSections: {
   icon: AppIconName;
-  section: "appearance" | "general";
   title: string;
+  to: "/settings/appearance" | "/settings/general";
 }[] = [
   {
-    icon: "ph:monitor",
-    section: "appearance",
-    title: "外观",
+    icon: "ph:gear",
+    title: "通用",
+    to: "/settings/general",
   },
   {
-    icon: "ph:globe",
-    section: "general",
-    title: "通用",
+    icon: "ph:monitor",
+    title: "外观",
+    to: "/settings/appearance",
   },
 ];
 
@@ -35,15 +35,12 @@ const settingsSections: {
  * Settings-route sidebar content — category nav co-located with the settings
  * page, teleported into the shell sidebar via Magic Portal.
  *
- * Section links use `?section=` (not `#hash`) because the desktop router is
- * hash-history based (`#/settings`), so fragment anchors would collide.
+ * Each menu item targets its own settings route so navigation, active state,
+ * history, and deep links all behave like real pages.
  */
 export function SettingsSidebarSlots() {
-  const section = useRouterState({
-    select: (state) => {
-      const search = state.location.search as { section?: string };
-      return search.section ?? "appearance";
-    },
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
   });
 
   return (
@@ -70,11 +67,11 @@ export function SettingsSidebarSlots() {
           <SidebarGroupContent>
             <SidebarMenu>
               {settingsSections.map((item) => (
-                <SidebarMenuItem key={item.section}>
+                <SidebarMenuItem key={item.to}>
                   <SidebarMenuButton
-                    isActive={section === item.section}
+                    isActive={pathname === item.to}
                     render={
-                      <Link search={{ section: item.section }} to="/settings">
+                      <Link activeOptions={{ exact: true }} to={item.to}>
                         <Icon icon={item.icon} />
                         <span>{item.title}</span>
                       </Link>

@@ -4,8 +4,6 @@ import { dirname, join } from "node:path";
 import type { DesktopSettings, ThemeMode } from "../preload/orpc-contract";
 
 const DEFAULTS: DesktopSettings = {
-  apiBase: "http://localhost:3000",
-  launchAtLogin: false,
   notifyOnFinish: false,
   theme: "system",
 };
@@ -23,16 +21,16 @@ function writeSettings(settings: DesktopSettings): void {
 /** Apply native-side effects that depend on settings values. */
 function applySettings(settings: DesktopSettings): void {
   nativeTheme.themeSource = settings.theme;
-  if (process.platform !== "linux") {
-    app.setLoginItemSettings({ openAtLogin: settings.launchAtLogin });
-  }
 }
 
 export function readSettings(): DesktopSettings {
   try {
     const raw = readFileSync(settingsPath(), "utf-8");
     const parsed = JSON.parse(raw) as Partial<DesktopSettings>;
-    return { ...DEFAULTS, ...parsed };
+    return {
+      notifyOnFinish: parsed.notifyOnFinish ?? DEFAULTS.notifyOnFinish,
+      theme: parsed.theme ?? DEFAULTS.theme,
+    };
   } catch {
     return { ...DEFAULTS };
   }
@@ -46,8 +44,12 @@ export function updateSettings(patch: Partial<DesktopSettings>): DesktopSettings
   return settings;
 }
 
-/** Apply native effects (theme, login item) once at startup. */
+/** Apply native effects once at startup. */
 export function applySettingsAtStartup(): void {
+  // Remove login items left behind by versions that exposed this setting.
+  if (process.platform !== "linux") {
+    app.setLoginItemSettings({ openAtLogin: false });
+  }
   applySettings(readSettings());
 }
 

@@ -16,8 +16,6 @@ export type ThemeMode = DesktopSettings["theme"];
 export type SettingsPatch = Parameters<typeof orpc.settings.set>[0];
 
 const FALLBACK: DesktopSettings = {
-  apiBase: "http://localhost:3000",
-  launchAtLogin: false,
   notifyOnFinish: false,
   theme: "system",
 };

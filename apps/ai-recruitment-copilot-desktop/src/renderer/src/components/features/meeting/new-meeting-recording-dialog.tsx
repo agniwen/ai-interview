@@ -6,6 +6,7 @@ import {
   getResumeLibraryJobDescriptionLabel,
 } from "@/components/features/studio/resumes/resume-display";
 import { PIPELINE_STAGE_TABS } from "@/components/features/studio/resumes/resume-library-filter-model";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -58,6 +59,27 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function CreatorDetailRow({ record }: { record: ResumeLibraryListRecord }) {
+  const creatorName = record.creatorName?.trim() || "—";
+  const creatorInitial = record.creatorName?.trim().slice(0, 1).toUpperCase() || "?";
+
+  return (
+    <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-2 text-sm">
+      <span className="text-muted-foreground">创建人</span>
+      <span
+        className="flex min-w-0 items-center gap-1.5 font-medium text-foreground"
+        title={creatorName}
+      >
+        <Avatar className="size-4!" size="sm">
+          {record.creatorImage ? <AvatarImage alt={creatorName} src={record.creatorImage} /> : null}
+          <AvatarFallback>{creatorInitial}</AvatarFallback>
+        </Avatar>
+        <span className="min-w-0 truncate">{creatorName}</span>
+      </span>
+    </div>
+  );
+}
+
 function SelectedResumeDetails({ record }: { record: ResumeLibraryListRecord }) {
   const jobLabel = getResumeLibraryJobDescriptionLabel(record) ?? "未绑定岗位";
   const stageLabel = PIPELINE_STAGE_LABEL[record.pipelineStage] ?? record.pipelineStage;
@@ -76,7 +98,7 @@ function SelectedResumeDetails({ record }: { record: ResumeLibraryListRecord }) 
         </span>
       </p>
       <div className="space-y-1.5">
-        <DetailRow label="创建人" value={record.creatorName?.trim() || "—"} />
+        <CreatorDetailRow record={record} />
         <DetailRow label="创建时间" value={formatLocalDateTime(record.createdAt)} />
         <DetailRow label="关联部门/岗位" value={jobLabel} />
         <DetailRow label="面试阶段" value={stageLabel} />

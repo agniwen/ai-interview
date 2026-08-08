@@ -12,8 +12,6 @@ import { z } from "zod";
 export const themeModeSchema = z.enum(["light", "dark", "system"]);
 
 export const desktopSettingsSchema = z.object({
-  apiBase: z.string(),
-  launchAtLogin: z.boolean(),
   notifyOnFinish: z.boolean(),
   theme: themeModeSchema,
 });

@@ -249,6 +249,20 @@
   }
 }
 
+/*
+ * Meeting Buddy is a desktop shell: Chromium's web-style focus halo clashes
+ * with the quieter native controls. Keep controls keyboard-focusable and keep
+ * their hover, active, selected, and validation states, but suppress only the
+ * Tailwind ring/offset ring and CSS outline for focus and focus-within states.
+ * This unlayered rule intentionally sits above Tailwind's utility layer so it
+ * also covers Base UI/shadcn primitives and future desktop components.
+ */
+:where(:focus, :focus-visible, :focus-within) {
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  outline: none !important;
+}
+
 /* Project-themed OverlayScrollbars (ScrollArea). Light = lower opacity. */
 .os-theme-app {
   --os-size: 10px;
