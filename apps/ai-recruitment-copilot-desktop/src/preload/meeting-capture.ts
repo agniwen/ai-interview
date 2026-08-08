@@ -29,7 +29,7 @@ export interface ActiveMeetingCapture {
 
 export interface RecordingTrackSummary {
   bytes: number;
-  committedThrough: number;
+  committedThroughMs: number;
   fragmentCount: number;
 }
 
@@ -154,6 +154,27 @@ const initialSnapshot = (): MeetingCaptureSnapshot => ({
   saved: null,
 });
 
+function asRecoverable(saved: LocalSavedMeeting): RecoverableMeetingCapture {
+  return {
+    captureId: saved.captureId,
+    possibleTailGap: saved.possibleTailGap,
+    recruitingRecordId: saved.recruitingRecordId,
+    startedAt: saved.startedAt,
+    status: saved.status,
+    tracks: saved.tracks,
+  };
+}
+
+function retainSaved(
+  recoverable: RecoverableMeetingCapture[],
+  saved: LocalSavedMeeting | null,
+): RecoverableMeetingCapture[] {
+  if (!saved || recoverable.some((item) => item.captureId === saved.captureId)) {
+    return recoverable;
+  }
+  return [...recoverable, asRecoverable(saved)];
+}
+
 export function createMeetingCapture({
   idFactory = () => globalThis.crypto.randomUUID(),
   now = () => new Date(),
@@ -164,6 +185,8 @@ export function createMeetingCapture({
   let prepared: PreparedCapture | null = null;
   let silenceTimer: ReturnType<typeof setTimeout> | null = null;
   let savePromise: Promise<LocalSavedMeeting> | null = null;
+  let discardPromise: Promise<void> | null = null;
+  let terminalOperation: "discard" | "save" | null = null;
   const pendingFragments = new Set<Promise<void>>();
   const listeners = new Set<(next: MeetingCaptureSnapshot) => void>();
 
@@ -214,7 +237,11 @@ export function createMeetingCapture({
   };
 
   const sink: CaptureSink = {
-    failure: (error) => patch({ error: error.message, phase: "error" }),
+    failure: (error) => {
+      if (terminalOperation !== "discard") {
+        patch({ error: error.message, phase: "error" });
+      }
+    },
     fragment: async (fragment) => {
       const { active } = snapshot;
       if (!active || !prepared) {
@@ -248,11 +275,22 @@ export function createMeetingCapture({
 
   const start = async (input: StartMeetingCaptureInput = {}) => {
     await ready;
-    if (snapshot.active || snapshot.phase === "starting" || snapshot.phase === "saving") {
+    if (
+      terminalOperation ||
+      snapshot.active ||
+      snapshot.phase === "starting" ||
+      snapshot.phase === "saving" ||
+      snapshot.phase === "discarding"
+    ) {
       throw new Error("已有会议正在录制");
     }
 
-    patch({ error: null, phase: "starting", saved: null });
+    patch({
+      error: null,
+      phase: "starting",
+      recoverable: retainSaved(snapshot.recoverable, snapshot.saved),
+      saved: null,
+    });
     const captureId = idFactory();
     let acquired: PreparedCapture | null = null;
     try {
@@ -305,6 +343,9 @@ export function createMeetingCapture({
   };
 
   const save = (input: SaveMeetingCaptureInput = {}): Promise<LocalSavedMeeting> => {
+    if (terminalOperation === "discard") {
+      return Promise.reject(new Error("正在放弃录制，不能同时保存"));
+    }
     if (snapshot.saved && (!input.captureId || input.captureId === snapshot.saved.captureId)) {
       return Promise.resolve(snapshot.saved);
     }
@@ -315,15 +356,18 @@ export function createMeetingCapture({
       ? snapshot.recoverable.find((item) => item.captureId === input.captureId)
       : undefined;
     if (recovered && !snapshot.active) {
+      terminalOperation = "save";
       patch({ error: null, phase: "saving" });
       savePromise = store
         .save(recovered.captureId)
         .then((saved) => {
+          const retained = retainSaved(
+            snapshot.recoverable.filter((item) => item.captureId !== recovered.captureId),
+            snapshot.saved,
+          );
           patch({
             phase: "saved-local",
-            recoverable: snapshot.recoverable.filter(
-              (item) => item.captureId !== recovered.captureId,
-            ),
+            recoverable: retained,
             saved,
           });
           return saved;
@@ -337,6 +381,7 @@ export function createMeetingCapture({
         })
         .finally(() => {
           savePromise = null;
+          terminalOperation = null;
         });
       return savePromise;
     }
@@ -352,6 +397,7 @@ export function createMeetingCapture({
     const { active } = snapshot;
     const capture = prepared;
     clearSilenceTimer();
+    terminalOperation = "save";
     patch({ error: null, phase: "saving" });
     savePromise = (async () => {
       try {
@@ -368,14 +414,18 @@ export function createMeetingCapture({
         throw error;
       } finally {
         savePromise = null;
+        terminalOperation = null;
       }
     })();
     return savePromise;
   };
 
   const discard = (input: DiscardMeetingCaptureInput = {}): Promise<void> => {
-    if (snapshot.phase === "saving" || savePromise) {
+    if (terminalOperation === "save" || snapshot.phase === "saving" || savePromise) {
       return Promise.reject(new Error("正在保存，不能同时放弃录制"));
+    }
+    if (discardPromise) {
+      return discardPromise;
     }
 
     const activeId = snapshot.active?.captureId;
@@ -390,15 +440,18 @@ export function createMeetingCapture({
 
     const capture = prepared;
     clearSilenceTimer();
+    terminalOperation = "discard";
     patch({ error: null, phase: "discarding" });
-    return (async () => {
+    discardPromise = (async () => {
       try {
         if (captureId === activeId && capture) {
           await capture.dispose();
           await Promise.allSettled(pendingFragments);
         }
         await store.discard(captureId);
-        prepared = null;
+        if (captureId === activeId && prepared === capture) {
+          prepared = null;
+        }
         patch({
           active: captureId === activeId ? null : snapshot.active,
           phase: snapshot.active && captureId !== activeId ? "active" : "idle",
@@ -409,8 +462,12 @@ export function createMeetingCapture({
         const message = error instanceof Error ? error.message : "放弃本地录音失败";
         patch({ error: message, phase: "error" });
         throw error;
+      } finally {
+        discardPromise = null;
+        terminalOperation = null;
       }
     })();
+    return discardPromise;
   };
 
   return {

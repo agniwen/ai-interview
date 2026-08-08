@@ -52,18 +52,40 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
   async acquire(): Promise<PreparedCapture> {
     let microphoneStream: MediaStream | null = null;
     let displayStream: MediaStream | null = null;
+    let acquisitionFailed = false;
+    let videoTracksDiscarded = 0;
     try {
-      [microphoneStream, displayStream] = await Promise.all([
-        navigator.mediaDevices.getUserMedia({
+      const microphoneRequest = navigator.mediaDevices
+        .getUserMedia({
           audio: {
             autoGainControl: false,
             echoCancellation: false,
             noiseSuppression: false,
           },
           video: false,
-        }),
-        navigator.mediaDevices.getDisplayMedia({ audio: true, video: true }),
-      ]);
+        })
+        .then((stream) => {
+          microphoneStream = stream;
+          if (acquisitionFailed) {
+            stopStream(stream);
+          }
+          return stream;
+        });
+      const displayRequest = navigator.mediaDevices
+        .getDisplayMedia({ audio: true, video: true })
+        .then((stream) => {
+          displayStream = stream;
+          const videoTracks = stream.getVideoTracks();
+          videoTracksDiscarded = videoTracks.length;
+          for (const videoTrack of videoTracks) {
+            videoTrack.stop();
+          }
+          if (acquisitionFailed) {
+            stopStream(stream);
+          }
+          return stream;
+        });
+      [microphoneStream, displayStream] = await Promise.all([microphoneRequest, displayRequest]);
       const [microphoneTrack] = microphoneStream.getAudioTracks();
       const [systemTrack] = displayStream.getAudioTracks();
       if (!microphoneTrack) {
@@ -71,11 +93,6 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
       }
       if (!systemTrack) {
         throw new Error("系统音频没有返回可录制音轨，请检查屏幕与系统音频权限和输出路由");
-      }
-
-      const videoTracks = displayStream.getVideoTracks();
-      for (const videoTrack of videoTracks) {
-        videoTrack.stop();
       }
 
       const mimeType = chooseMimeType();
@@ -90,11 +107,14 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
           return;
         }
         disposed = true;
+        const stopped = recorders.map(({ recorder }) => waitForStop(recorder));
         for (const recorder of recorders) {
           if (recorder.recorder.state !== "inactive") {
             recorder.recorder.stop();
           }
         }
+        await Promise.all(stopped);
+        await Promise.all(recorders.map(({ writeChain }) => writeChain));
         await Promise.allSettled(monitors.map((stop) => stop()));
         stopStream(microphoneStream as MediaStream);
         stopStream(displayStream as MediaStream);
@@ -105,7 +125,7 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
         start: (sink: CaptureSink) => {
           const startedAt = performance.now();
           const fail = (error: Error) => {
-            if (captureError) {
+            if (captureError || disposed) {
               return;
             }
             captureError = error;
@@ -157,7 +177,7 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
               writeChain: Promise.resolve(),
             };
             recorder.addEventListener("dataavailable", (event) => {
-              if (event.data.size === 0) {
+              if (disposed || event.data.size === 0) {
                 return;
               }
               const boundaryMs = performance.now();
@@ -221,9 +241,10 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
           microphone: mimeType || "application/octet-stream",
           system: mimeType || "application/octet-stream",
         },
-        videoTracksDiscarded: videoTracks.length,
+        videoTracksDiscarded,
       };
     } catch (error) {
+      acquisitionFailed = true;
       if (microphoneStream) {
         stopStream(microphoneStream);
       }

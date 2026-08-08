@@ -71,6 +71,8 @@ function RecoveryRow({
   onSave: (captureId: string) => void;
 }) {
   const fragments = capture.tracks.microphone.fragmentCount + capture.tracks.system.fragmentCount;
+  const microphoneSeconds = Math.floor(capture.tracks.microphone.committedThroughMs / 1000);
+  const systemSeconds = Math.floor(capture.tracks.system.committedThroughMs / 1000);
   return (
     <div className="grid gap-2 rounded-lg border border-border bg-muted/30 p-3">
       <div>
@@ -78,8 +80,8 @@ function RecoveryRow({
           {capture.status === "interrupted" ? "发现中断的本地录音" : "发现待处理的本地保存"}
         </p>
         <p className="text-muted-foreground text-xs">
-          已校验 {fragments} 个连续分片
-          {capture.possibleTailGap ? "，结尾可能有未落盘缺口" : ""}
+          已校验 {fragments} 个连续分片；麦克风落盘至 {microphoneSeconds}s，系统音频落盘至{" "}
+          {systemSeconds}s{capture.possibleTailGap ? "，结尾可能有未落盘缺口" : ""}
         </p>
       </div>
       <div className="flex justify-end gap-2">

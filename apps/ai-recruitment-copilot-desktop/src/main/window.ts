@@ -1,6 +1,6 @@
 import { is } from "@electron-toolkit/utils";
 import { BrowserWindow, shell } from "electron";
-import type { BrowserWindowConstructorOptions } from "electron";
+import type { BrowserWindowConstructorOptions, WebContents } from "electron";
 import { join } from "node:path";
 import icon from "../../resources/icon.png?asset";
 
@@ -8,6 +8,14 @@ const mainDir = import.meta.dirname;
 
 const isMac = process.platform === "darwin";
 const isWin = process.platform === "win32";
+let currentMainWindow: BrowserWindow | null = null;
+
+export function getMainWindowWebContents(): WebContents | null {
+  if (!currentMainWindow || currentMainWindow.isDestroyed()) {
+    return null;
+  }
+  return currentMainWindow.webContents;
+}
 
 function platformWindowOptions(): BrowserWindowConstructorOptions {
   if (isMac) {
@@ -72,6 +80,13 @@ export function createMainWindow(): BrowserWindow {
     },
     width: 1100,
     ...platformWindowOptions(),
+  });
+  currentMainWindow = mainWindow;
+
+  mainWindow.on("closed", () => {
+    if (currentMainWindow === mainWindow) {
+      currentMainWindow = null;
+    }
   });
 
   mainWindow.on("ready-to-show", () => {

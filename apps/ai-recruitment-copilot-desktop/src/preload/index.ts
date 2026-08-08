@@ -10,6 +10,13 @@ import type { WindowApi } from "./window-api";
  * the oRPC `RPCHandler` upgrades it. See `src/renderer/src/lib/orpc.ts`.
  */
 window.addEventListener("message", (event) => {
+  if (
+    event.source !== window ||
+    event.origin !== window.location.origin ||
+    event.ports.length !== 1
+  ) {
+    return;
+  }
   if (event.data === "start-orpc-client") {
     const [serverPort] = event.ports;
     ipcRenderer.postMessage("start-orpc-server", null, [serverPort]);

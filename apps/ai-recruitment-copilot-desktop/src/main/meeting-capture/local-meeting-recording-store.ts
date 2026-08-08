@@ -81,10 +81,111 @@ function extensionFor(contentType: string): string {
   return ".webm";
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function isIsoDateOrNull(value: unknown): value is string | null {
+  return value === null || (typeof value === "string" && !Number.isNaN(Date.parse(value)));
+}
+
+function isNonNegativeNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function isStoredFragment(value: unknown): value is StoredFragment {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const { track } = value;
+  const { sequence } = value;
+  const { contentType } = value;
+  if (
+    !(track === "microphone" || track === "system") ||
+    !(typeof contentType === "string" && contentType.length > 0 && contentType.length <= 256) ||
+    !(Number.isInteger(sequence) && isNonNegativeNumber(sequence))
+  ) {
+    return false;
+  }
+  const expectedPath = join(
+    "fragments",
+    track,
+    `${String(sequence).padStart(8, "0")}${extensionFor(contentType)}`,
+  );
+  return (
+    value.localPath === expectedPath &&
+    typeof value.sha256 === "string" &&
+    /^[a-f\d]{64}$/i.test(value.sha256) &&
+    Number.isInteger(value.sizeBytes) &&
+    isNonNegativeNumber(value.sizeBytes) &&
+    isNonNegativeNumber(value.durationMs) &&
+    isNonNegativeNumber(value.startedAtMonotonicMs) &&
+    isNonNegativeNumber(value.endedAtMonotonicMs) &&
+    value.endedAtMonotonicMs >= value.startedAtMonotonicMs
+  );
+}
+
+function isTrackContentTypes(value: unknown): value is Record<CaptureTrack, string> {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.microphone === "string" &&
+    value.microphone.length > 0 &&
+    value.microphone.length <= 256 &&
+    typeof value.system === "string" &&
+    value.system.length > 0 &&
+    value.system.length <= 256
+  );
+}
+
+function hasValidManifestMetadata(value: Record<string, unknown>, captureId: string): boolean {
+  const { status } = value;
+  return (
+    value.manifestVersion === MANIFEST_VERSION &&
+    value.captureId === captureId &&
+    (status === "recording" || status === "interrupted" || status === "saved-local") &&
+    isIsoDateOrNull(value.endedAt) &&
+    isIsoDateOrNull(value.savedAt) &&
+    typeof value.startedAt === "string" &&
+    !Number.isNaN(Date.parse(value.startedAt)) &&
+    typeof value.possibleTailGap === "boolean" &&
+    (value.recruitingRecordId === null || typeof value.recruitingRecordId === "string") &&
+    Number.isInteger(value.videoTracksDiscarded) &&
+    isNonNegativeNumber(value.videoTracksDiscarded) &&
+    value.videoTracksPersisted === 0 &&
+    (value.manifestSha256 === undefined ||
+      (typeof value.manifestSha256 === "string" && /^[a-f\d]{64}$/i.test(value.manifestSha256)))
+  );
+}
+
+function hasValidManifestMedia(value: Record<string, unknown>): boolean {
+  const { container, fragments } = value;
+  return (
+    isTrackContentTypes(value.trackContentTypes) &&
+    isRecord(container) &&
+    container.kind === "ordered-mediarecorder-stream" &&
+    container.independentlyDecodableFragments === false &&
+    Array.isArray(fragments) &&
+    fragments.every(isStoredFragment)
+  );
+}
+
+function parseStoredManifest(value: unknown, captureId: string): StoredManifest {
+  if (!isRecord(value)) {
+    throw new Error("本地录音清单不是对象");
+  }
+  const valid = hasValidManifestMetadata(value, captureId) && hasValidManifestMedia(value);
+  if (!valid) {
+    throw new Error("本地录音清单结构无效");
+  }
+  return value as unknown as StoredManifest;
+}
+
 function emptyTrackSummary(): Record<CaptureTrack, RecordingTrackSummary> {
   return {
-    microphone: { bytes: 0, committedThrough: -1, fragmentCount: 0 },
-    system: { bytes: 0, committedThrough: -1, fragmentCount: 0 },
+    microphone: { bytes: 0, committedThroughMs: 0, fragmentCount: 0 },
+    system: { bytes: 0, committedThroughMs: 0, fragmentCount: 0 },
   };
 }
 
@@ -93,7 +194,7 @@ function summarize(fragments: StoredFragment[]): Record<CaptureTrack, RecordingT
   for (const fragment of fragments) {
     const track = tracks[fragment.track];
     track.bytes += fragment.sizeBytes;
-    track.committedThrough = fragment.sequence;
+    track.committedThroughMs = fragment.endedAtMonotonicMs;
     track.fragmentCount += 1;
   }
   return tracks;
@@ -151,7 +252,8 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
   }
 
   private async readManifest(captureId: string): Promise<StoredManifest> {
-    return JSON.parse(await readFile(this.manifestPath(captureId), "utf-8")) as StoredManifest;
+    const contents = await readFile(this.manifestPath(captureId), "utf-8");
+    return parseStoredManifest(JSON.parse(contents), captureId);
   }
 
   private async writeManifest(manifest: StoredManifest): Promise<void> {
@@ -383,38 +485,70 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
     }
   }
 
+  private async reconcileActiveLock(): Promise<void> {
+    let captureId: string;
+    try {
+      const lockContents = await readFile(this.activeLockPath(), "utf-8");
+      captureId = lockContents.trim();
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return;
+      }
+      throw error;
+    }
+    if (!CAPTURE_ID_PATTERN.test(captureId)) {
+      await unlink(this.activeLockPath());
+      return;
+    }
+    try {
+      await this.readManifest(captureId);
+    } catch {
+      await this.releaseActiveLock(captureId);
+    }
+  }
+
   async recover(): Promise<RecoverableMeetingCapture[]> {
     await mkdir(this.capturesRoot(), { mode: 0o700, recursive: true });
+    await this.reconcileActiveLock();
     const entries = await readdir(this.capturesRoot(), { withFileTypes: true });
     const recoverable: RecoverableMeetingCapture[] = [];
     for (const entry of entries) {
       if (!(entry.isDirectory() && CAPTURE_ID_PATTERN.test(entry.name))) {
         continue;
       }
-      await this.enqueue(entry.name, async () => {
-        const manifest = await this.readManifest(entry.name);
-        const verification = await this.verifiedPrefix(manifest);
-        if (manifest.status === "recording") {
-          manifest.status = "interrupted";
-          manifest.fragments = verification.fragments;
-          manifest.possibleTailGap = true;
-          await this.writeManifest(manifest);
+      try {
+        await this.enqueue(entry.name, async () => {
+          const manifest = await this.readManifest(entry.name);
+          const verification = await this.verifiedPrefix(manifest);
+          if (manifest.status === "recording" || manifest.status === "interrupted") {
+            const wasRecording = manifest.status === "recording";
+            manifest.status = "interrupted";
+            manifest.fragments = verification.fragments;
+            manifest.possibleTailGap =
+              manifest.possibleTailGap || wasRecording || verification.truncated;
+            if (wasRecording || verification.truncated) {
+              await this.writeManifest(manifest);
+            }
+          }
+          if (manifest.status === "saved-local") {
+            await this.verifySavedManifestAndIntent(manifest);
+          }
           await this.releaseActiveLock(manifest.captureId);
-        }
-        if (manifest.status === "saved-local") {
-          await this.verifySavedManifestAndIntent(manifest);
-        }
-        if (manifest.status === "interrupted" || manifest.status === "saved-local") {
-          recoverable.push({
-            captureId: manifest.captureId,
-            possibleTailGap: manifest.possibleTailGap || verification.truncated,
-            recruitingRecordId: manifest.recruitingRecordId,
-            startedAt: manifest.startedAt,
-            status: manifest.status,
-            tracks: summarize(verification.fragments),
-          });
-        }
-      });
+          if (manifest.status === "interrupted" || manifest.status === "saved-local") {
+            recoverable.push({
+              captureId: manifest.captureId,
+              possibleTailGap: manifest.possibleTailGap || verification.truncated,
+              recruitingRecordId: manifest.recruitingRecordId,
+              startedAt: manifest.startedAt,
+              status: manifest.status,
+              tracks: summarize(verification.fragments),
+            });
+          }
+        });
+      } catch (error) {
+        console.error("[meeting-capture] skipped unrecoverable local capture", entry.name, error);
+        await this.releaseActiveLock(entry.name);
+      }
     }
     return recoverable.toSorted((left, right) => right.startedAt.localeCompare(left.startedAt));
   }

@@ -12,7 +12,7 @@ import {
   registerMeetingCaptureMediaSession,
 } from "./meeting-capture/ipc";
 import { LocalMeetingRecordingStore } from "./meeting-capture/local-meeting-recording-store";
-import { createMainWindow } from "./window";
+import { createMainWindow, getMainWindowWebContents } from "./window";
 
 function handleActivate(): void {
   if (BrowserWindow.getAllWindows().length === 0) {
@@ -52,4 +52,17 @@ app.on("window-all-closed", () => {
   }
 });
 
-void bootstrap();
+if (app.requestSingleInstanceLock()) {
+  app.on("second-instance", () => {
+    const contents = getMainWindowWebContents();
+    const mainWindow = contents ? BrowserWindow.fromWebContents(contents) : null;
+    if (mainWindow?.isMinimized()) {
+      mainWindow.restore();
+    }
+    mainWindow?.show();
+    mainWindow?.focus();
+  });
+  void bootstrap();
+} else {
+  app.quit();
+}
