@@ -174,7 +174,7 @@ export function DesktopChromeBar(): React.JSX.Element {
         className="app-no-drag absolute inset-y-0 right-0 z-10 flex items-center gap-1.5"
         style={{ ...noDragStyle, paddingRight: CHROME_EDGE_PAD_PX }}
       >
-        <div className="app-no-drag" style={noDragStyle}>
+        <div className="app-no-drag flex items-center" style={noDragStyle}>
           <WorkspaceSelect />
         </div>
         <Link

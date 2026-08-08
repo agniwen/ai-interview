@@ -216,19 +216,20 @@ export function registerMeetingCaptureIpc(store: LocalMeetingRecordingStore): vo
 
 export function registerMeetingCaptureMediaSession(): void {
   const appSession = session.defaultSession;
-  appSession.setPermissionCheckHandler(
-    (contents, permission, _requestingOrigin, details) =>
-      permission === "media" &&
-      details.mediaType === "audio" &&
-      isTrustedMainDocument(contents, details),
-  );
+  appSession.setPermissionCheckHandler((contents, permission, _requestingOrigin, details) => {
+    const allowedPermission =
+      permission === "media" && (details.mediaType === undefined || details.mediaType === "audio");
+    return allowedPermission && isTrustedMainDocument(contents, details);
+  });
   appSession.setPermissionRequestHandler((contents, permission, callback, details) => {
+    const isDisplayMedia = "mediaTypes" in details && details.mediaTypes?.length === 0;
     const isAudioOnly =
       "mediaTypes" in details &&
       details.mediaTypes?.length === 1 &&
       details.mediaTypes[0] === "audio";
     const allowedPermission =
-      permission === "display-capture" || (permission === "media" && isAudioOnly);
+      permission === "display-capture" ||
+      (permission === "media" && (isAudioOnly || isDisplayMedia));
     callback(allowedPermission && isTrustedMainDocument(contents, details));
   });
   appSession.setDisplayMediaRequestHandler(

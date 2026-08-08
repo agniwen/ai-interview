@@ -14,6 +14,10 @@ import {
 import { LocalMeetingRecordingStore } from "./meeting-capture/local-meeting-recording-store";
 import { createMainWindow, getMainWindowWebContents } from "./window";
 
+if (process.platform === "darwin" && !app.isPackaged) {
+  app.commandLine.appendSwitch("disable-features", "MacCatapLoopbackAudioForScreenShare");
+}
+
 function handleActivate(): void {
   if (BrowserWindow.getAllWindows().length === 0) {
     createMainWindow();

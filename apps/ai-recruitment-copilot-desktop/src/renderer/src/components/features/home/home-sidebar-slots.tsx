@@ -38,19 +38,29 @@ export function HomeSidebarSlots() {
               <span>新建会议录制</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          <SidebarMenu>
+            <SidebarNavItem
+              active={isHome}
+              item={{
+                icon: "ph:briefcase",
+                title: "AI Recruitment Copilot 招聘台",
+                to: "/",
+              }}
+            />
+          </SidebarMenu>
         </SidebarMenu>
       </SidebarHeaderPortalContent>
 
       <SidebarBodyPortalContent>
         <SidebarGroup>
-          <SidebarGroupLabel>工作台</SidebarGroupLabel>
+          <SidebarGroupLabel>录制记录</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarNavItem
                 active={isHome}
                 item={{
                   icon: "ph:briefcase",
-                  title: "招聘台",
+                  title: "录制记录-2608090332",
                   to: "/",
                 }}
               />

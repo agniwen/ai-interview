@@ -46,10 +46,6 @@ export function updateSettings(patch: Partial<DesktopSettings>): DesktopSettings
 
 /** Apply native effects once at startup. */
 export function applySettingsAtStartup(): void {
-  // Remove login items left behind by versions that exposed this setting.
-  if (process.platform !== "linux") {
-    app.setLoginItemSettings({ openAtLogin: false });
-  }
   applySettings(readSettings());
 }
 
