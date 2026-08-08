@@ -6,6 +6,7 @@ import type {
   FragmentWriteResponse,
 } from "../../preload/meeting-capture-api";
 import type { LocalMeetingRecordingStore } from "./local-meeting-recording-store";
+import type { SmallMeetingUploadInstruction } from "@arc/shared/meeting-recording";
 import { getMainWindowWebContents } from "../window";
 
 const MAX_FRAGMENT_BYTES = 32 * 1024 * 1024;
@@ -43,6 +44,39 @@ function isCaptureId(value: unknown): value is string {
 
 function isContentType(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= 256;
+}
+
+function hasValidUploadHeaders(value: unknown): value is Record<string, string> {
+  if (!(value && typeof value === "object")) {
+    return false;
+  }
+  const headers = value as Record<string, unknown>;
+  return (
+    isContentType(headers["content-type"]) &&
+    typeof headers["x-amz-meta-sha256"] === "string" &&
+    /^[a-f\d]{64}$/i.test(headers["x-amz-meta-sha256"]) &&
+    typeof headers["x-amz-checksum-sha256"] === "string" &&
+    /^[A-Za-z\d+/]{43}=$/.test(headers["x-amz-checksum-sha256"])
+  );
+}
+
+function isUploadInstruction(value: unknown): value is SmallMeetingUploadInstruction {
+  if (!(value && typeof value === "object")) {
+    return false;
+  }
+  const instruction = value as Record<string, unknown>;
+  return (
+    (instruction.track === "microphone" || instruction.track === "system") &&
+    instruction.method === "PUT" &&
+    isContentType(instruction.contentType) &&
+    Number.isInteger(instruction.sizeBytes) &&
+    isFiniteNonNegative(instruction.sizeBytes) &&
+    typeof instruction.url === "string" &&
+    instruction.url.length <= 8192 &&
+    typeof instruction.expiresAt === "string" &&
+    !Number.isNaN(Date.parse(instruction.expiresAt)) &&
+    hasValidUploadHeaders(instruction.headers)
+  );
 }
 
 function isBeginRequest(
@@ -113,6 +147,24 @@ export function registerMeetingCaptureIpc(store: LocalMeetingRecordingStore): vo
       throw new Error("不受信任的录制请求");
     }
     return store.save(captureId);
+  });
+  ipcMain.handle("meeting-capture:describe-workspace-save", (event, captureId) => {
+    if (!isTrustedMainFrame(event) || !isCaptureId(captureId)) {
+      throw new Error("不受信任的录制请求");
+    }
+    return store.describeWorkspaceSave(captureId);
+  });
+  ipcMain.handle("meeting-capture:upload-small", (event, captureId, instructions) => {
+    if (
+      !isTrustedMainFrame(event) ||
+      !isCaptureId(captureId) ||
+      !Array.isArray(instructions) ||
+      instructions.length !== 2 ||
+      !instructions.every(isUploadInstruction)
+    ) {
+      throw new Error("不受信任的录制上传请求");
+    }
+    return store.uploadSmall(captureId, instructions);
   });
   ipcMain.handle("meeting-capture:discard", (event, captureId) => {
     if (!isTrustedMainFrame(event) || !isCaptureId(captureId)) {

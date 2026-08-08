@@ -64,6 +64,28 @@ export interface MeetingCaptureSnapshot {
   recoverable: RecoverableMeetingCapture[];
   recoveryComplete: boolean;
   saved: LocalSavedMeeting | null;
+  workspaceSaves: WorkspaceSaveState[];
+}
+
+export type WorkspaceSavePhase =
+  | "waiting-for-network"
+  | "uploading"
+  | "verifying"
+  | "workspace-verified"
+  | "action-required";
+
+export interface WorkspaceSaveState {
+  captureId: string;
+  error: string | null;
+  state: WorkspaceSavePhase;
+}
+
+export interface WorkspaceRecordingPort {
+  persist: (input: {
+    captureId: string;
+    manifestSha256: string;
+    report: (state: Extract<WorkspaceSavePhase, "uploading" | "verifying">) => void;
+  }) => Promise<void>;
 }
 
 export interface CaptureFragment {
@@ -143,6 +165,7 @@ interface CreateMeetingCaptureInput {
   now?: () => Date;
   source: MeetingCaptureSource;
   store: MeetingRecordingStore;
+  workspace?: WorkspaceRecordingPort;
 }
 
 const initialSnapshot = (): MeetingCaptureSnapshot => ({
@@ -152,6 +175,7 @@ const initialSnapshot = (): MeetingCaptureSnapshot => ({
   recoverable: [],
   recoveryComplete: false,
   saved: null,
+  workspaceSaves: [],
 });
 
 function asRecoverable(saved: LocalSavedMeeting): RecoverableMeetingCapture {
@@ -180,6 +204,7 @@ export function createMeetingCapture({
   now = () => new Date(),
   source,
   store,
+  workspace,
 }: CreateMeetingCaptureInput): MeetingCapture {
   let snapshot = initialSnapshot();
   let prepared: PreparedCapture | null = null;
@@ -189,6 +214,7 @@ export function createMeetingCapture({
   let terminalOperation: "discard" | "save" | null = null;
   const pendingFragments = new Set<Promise<void>>();
   const listeners = new Set<(next: MeetingCaptureSnapshot) => void>();
+  const workspaceOperations = new Map<string, Promise<void>>();
 
   const publish = (next: MeetingCaptureSnapshot) => {
     snapshot = next;
@@ -199,6 +225,41 @@ export function createMeetingCapture({
 
   const patch = (next: Partial<MeetingCaptureSnapshot>) => {
     publish({ ...snapshot, ...next });
+  };
+
+  const patchWorkspaceSave = (captureId: string, next: Omit<WorkspaceSaveState, "captureId">) => {
+    const current = snapshot.workspaceSaves.filter((item) => item.captureId !== captureId);
+    patch({ workspaceSaves: [...current, { captureId, ...next }] });
+  };
+
+  const persistToWorkspace = (saved: LocalSavedMeeting): void => {
+    if (!workspace || workspaceOperations.has(saved.captureId)) {
+      return;
+    }
+    const current = snapshot.workspaceSaves.find((item) => item.captureId === saved.captureId);
+    if (current?.state === "workspace-verified") {
+      return;
+    }
+    patchWorkspaceSave(saved.captureId, { error: null, state: "waiting-for-network" });
+    const operation = workspace
+      .persist({
+        captureId: saved.captureId,
+        manifestSha256: saved.manifestSha256,
+        report: (state) => patchWorkspaceSave(saved.captureId, { error: null, state }),
+      })
+      .then(() => {
+        patchWorkspaceSave(saved.captureId, { error: null, state: "workspace-verified" });
+      })
+      .catch((error: unknown) => {
+        patchWorkspaceSave(saved.captureId, {
+          error: error instanceof Error ? error.message : "保存到工作区失败",
+          state: "action-required",
+        });
+      })
+      .finally(() => {
+        workspaceOperations.delete(saved.captureId);
+      });
+    workspaceOperations.set(saved.captureId, operation);
   };
 
   const ready = store
@@ -347,6 +408,7 @@ export function createMeetingCapture({
       return Promise.reject(new Error("正在放弃录制，不能同时保存"));
     }
     if (snapshot.saved && (!input.captureId || input.captureId === snapshot.saved.captureId)) {
+      persistToWorkspace(snapshot.saved);
       return Promise.resolve(snapshot.saved);
     }
     if (savePromise) {
@@ -370,6 +432,7 @@ export function createMeetingCapture({
             recoverable: retained,
             saved,
           });
+          persistToWorkspace(saved);
           return saved;
         })
         .catch((error: unknown) => {
@@ -407,6 +470,7 @@ export function createMeetingCapture({
         await capture.dispose();
         prepared = null;
         patch({ active: null, phase: "saved-local", saved });
+        persistToWorkspace(saved);
         return saved;
       } catch (error) {
         const message = error instanceof Error ? error.message : "保存本地录音失败";
@@ -457,6 +521,7 @@ export function createMeetingCapture({
           phase: snapshot.active && captureId !== activeId ? "active" : "idle",
           recoverable: snapshot.recoverable.filter((item) => item.captureId !== captureId),
           saved: captureId === savedId ? null : snapshot.saved,
+          workspaceSaves: snapshot.workspaceSaves.filter((item) => item.captureId !== captureId),
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : "放弃本地录音失败";

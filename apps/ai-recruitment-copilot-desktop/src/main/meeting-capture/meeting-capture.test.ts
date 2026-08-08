@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,6 +9,7 @@ import type {
   MeetingCaptureSnapshot,
   MeetingRecordingStore,
   PreparedCapture,
+  WorkspaceRecordingPort,
 } from "../../preload/meeting-capture";
 import { LocalMeetingRecordingStore } from "./local-meeting-recording-store";
 
@@ -201,6 +203,165 @@ describe("MeetingCapture", () => {
 
     await restarted.discard({ captureId: saved.captureId, includeSaved: true });
     expect(afterRestart.read()).toMatchObject({ phase: "idle", saved: null });
+  });
+
+  it("persists only after local Save and keeps repeated Save idempotent", async () => {
+    const source = new DeterministicCaptureSource();
+    const persist = vi.fn<WorkspaceRecordingPort["persist"]>(({ report }) => {
+      report("uploading");
+      report("verifying");
+      return Promise.resolve();
+    });
+    const capture = createMeetingCapture({
+      idFactory: () => "00000000-0000-4000-8000-000000000012",
+      source,
+      store: new LocalMeetingRecordingStore(root),
+      workspace: { persist },
+    });
+    const observed = latestSnapshot(capture);
+
+    await capture.start();
+    expect(persist).not.toHaveBeenCalled();
+    await source.fragment("microphone", 0, "mic-0");
+    await source.fragment("system", 0, "system-0");
+
+    const saved = await capture.save();
+    await capture.save();
+    await waitFor(
+      observed.read,
+      (snapshot) => snapshot.workspaceSaves[0]?.state === "workspace-verified",
+    );
+
+    expect(persist).toHaveBeenCalledTimes(1);
+    expect(persist).toHaveBeenCalledWith(
+      expect.objectContaining({
+        captureId: saved.captureId,
+        manifestSha256: saved.manifestSha256,
+      }),
+    );
+  });
+
+  it("streams complete logical tracks to object uploads without a combined renderer payload", async () => {
+    const uploaded = new Map<string, Uint8Array>();
+    const store = new LocalMeetingRecordingStore(root, {
+      allowedUploadOrigin: "https://account.r2.cloudflarestorage.com",
+      putObject: async ({ body, url }) => {
+        const chunks: Uint8Array[] = [];
+        const reader = body.getReader();
+        while (true) {
+          const result = await reader.read();
+          if (result.done) {
+            break;
+          }
+          chunks.push(result.value);
+        }
+        uploaded.set(url, Uint8Array.from(chunks.flatMap((chunk) => [...chunk])));
+      },
+    });
+    const source = new DeterministicCaptureSource();
+    const capture = createMeetingCapture({
+      idFactory: () => "00000000-0000-4000-8000-000000000014",
+      source,
+      store,
+    });
+    await capture.start();
+    await source.fragment("microphone", 0, "mic-a");
+    await source.fragment("system", 0, "sys-a");
+    await source.fragment("microphone", 1, "mic-b");
+    await source.fragment("system", 1, "sys-b");
+    const saved = await capture.save();
+    const descriptor = await store.describeWorkspaceSave(saved.captureId);
+
+    await store.uploadSmall(
+      saved.captureId,
+      descriptor.assets.map((asset) => ({
+        contentType: asset.contentType,
+        expiresAt: "2026-08-09T03:10:00.000Z",
+        headers: {
+          "content-type": asset.contentType,
+          "x-amz-checksum-sha256": Buffer.from(asset.sha256, "hex").toString("base64"),
+          "x-amz-meta-sha256": asset.sha256,
+        },
+        method: "PUT",
+        sizeBytes: asset.sizeBytes,
+        track: asset.track,
+        url: `https://bucket.account.r2.cloudflarestorage.com/${asset.track}`,
+      })),
+    );
+
+    expect(
+      new TextDecoder().decode(
+        uploaded.get("https://bucket.account.r2.cloudflarestorage.com/microphone"),
+      ),
+    ).toBe("mic-amic-b");
+    expect(
+      new TextDecoder().decode(
+        uploaded.get("https://bucket.account.r2.cloudflarestorage.com/system"),
+      ),
+    ).toBe("sys-asys-b");
+    expect(descriptor.assets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sha256: createHash("sha256").update("mic-amic-b").digest("hex"),
+          track: "microphone",
+        }),
+      ]),
+    );
+
+    await expect(
+      store.uploadSmall(
+        saved.captureId,
+        descriptor.assets.map((asset) => ({
+          contentType: asset.contentType,
+          expiresAt: "2026-08-09T03:10:00.000Z",
+          headers: {
+            "content-type": asset.contentType,
+            "x-amz-checksum-sha256": Buffer.from(asset.sha256, "hex").toString("base64"),
+            "x-amz-meta-sha256": asset.sha256,
+          },
+          method: "PUT",
+          sizeBytes: asset.sizeBytes,
+          track: asset.track,
+          url: `https://attacker.invalid/${asset.track}`,
+        })),
+      ),
+    ).rejects.toThrow("不属于已配置的 Recording R2");
+  });
+
+  it("retains an action-required local save and retries it on repeated Save", async () => {
+    const source = new DeterministicCaptureSource();
+    const persist = vi
+      .fn<WorkspaceRecordingPort["persist"]>()
+      .mockRejectedValueOnce(new Error("network unavailable"))
+      .mockImplementationOnce(({ report }) => {
+        report("uploading");
+        report("verifying");
+        return Promise.resolve();
+      });
+    const capture = createMeetingCapture({
+      idFactory: () => "00000000-0000-4000-8000-000000000013",
+      source,
+      store: new LocalMeetingRecordingStore(root),
+      workspace: { persist },
+    });
+    const observed = latestSnapshot(capture);
+
+    await capture.start();
+    await source.fragment("microphone", 0, "mic-0");
+    await source.fragment("system", 0, "system-0");
+    await capture.save();
+    await waitFor(
+      observed.read,
+      (snapshot) => snapshot.workspaceSaves[0]?.state === "action-required",
+    );
+
+    expect(observed.read().workspaceSaves[0]?.error).toBe("network unavailable");
+    await capture.save();
+    await waitFor(
+      observed.read,
+      (snapshot) => snapshot.workspaceSaves[0]?.state === "workspace-verified",
+    );
+    expect(persist).toHaveBeenCalledTimes(2);
   });
 
   it("recovers a verified contiguous prefix after an interrupted capture", async () => {

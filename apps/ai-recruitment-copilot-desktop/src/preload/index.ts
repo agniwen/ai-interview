@@ -41,9 +41,13 @@ const authApi: AuthApi = {
 
 const meetingCaptureApi: MeetingCaptureApi = {
   begin: (input) => ipcRenderer.invoke("meeting-capture:begin", input),
+  describeWorkspaceSave: (captureId) =>
+    ipcRenderer.invoke("meeting-capture:describe-workspace-save", captureId),
   discard: (captureId) => ipcRenderer.invoke("meeting-capture:discard", captureId),
   recover: () => ipcRenderer.invoke("meeting-capture:recover"),
   save: (captureId) => ipcRenderer.invoke("meeting-capture:save", captureId),
+  uploadSmall: (captureId, instructions) =>
+    ipcRenderer.invoke("meeting-capture:upload-small", captureId, instructions),
 };
 
 const api = {

@@ -289,6 +289,60 @@ export const member = pgTable(
   ],
 );
 
+export const meetingSession = pgTable(
+  "meeting_session",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    manifestSha256: text("manifest_sha256").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    savedAt: timestamp("saved_at", { withTimezone: true }).notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    status: text("status").default("uploading").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("meeting_session_org_owner_saved_idx").on(
+      table.organizationId,
+      table.ownerId,
+      table.savedAt,
+    ),
+  ],
+);
+
+export const meetingRecordingAsset = pgTable(
+  "meeting_recording_asset",
+  {
+    contentType: text("content_type").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    durationMs: integer("duration_ms").notNull(),
+    fragmentCount: integer("fragment_count").notNull(),
+    id: text("id").primaryKey(),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    sha256: text("sha256").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    status: text("status").default("uploading").notNull(),
+    storageKey: text("storage_key").notNull().unique(),
+    track: text("track").notNull(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("meeting_recording_asset_meeting_track_uq").on(table.meetingId, table.track),
+    index("meeting_recording_asset_meeting_idx").on(table.meetingId),
+  ],
+);
+
 export const organizationRole = pgTable(
   "organization_role",
   {

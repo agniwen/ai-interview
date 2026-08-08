@@ -5,6 +5,7 @@ import type {
   CaptureTrackState,
   MeetingCaptureSnapshot,
   RecoverableMeetingCapture,
+  WorkspaceSaveState,
 } from "../../../../../preload/meeting-capture";
 import { cn } from "@arc/shared/utils";
 
@@ -100,6 +101,36 @@ function RecoveryRow({
   );
 }
 
+const WORKSPACE_SAVE_COPY: Record<
+  WorkspaceSaveState["state"],
+  { description: string; title: string }
+> = {
+  "action-required": {
+    description: "本地录音仍然安全，可检查网络或工作区后重试。",
+    title: "保存到工作区需要处理",
+  },
+  uploading: { description: "正在把麦克风与系统音轨直接上传到录音存储。", title: "正在上传" },
+  verifying: { description: "服务器正在核对两条源音轨的对象与完整性。", title: "正在验证" },
+  "waiting-for-network": {
+    description: "本地保存已冻结，正在等待网络和工作区连接。",
+    title: "等待网络",
+  },
+  "workspace-verified": {
+    description: "两条源音轨已由服务器验证并保存到工作区。",
+    title: "已保存到工作区",
+  },
+};
+
+function workspaceSaveIcon(state?: WorkspaceSaveState["state"]): string {
+  if (state === "workspace-verified") {
+    return "ph:check-circle-fill";
+  }
+  if (state === "action-required") {
+    return "ph:warning-circle-fill";
+  }
+  return "ph:cloud-arrow-up";
+}
+
 export function MeetingCaptureStatus({
   onDiscard,
   onSave,
@@ -162,16 +193,41 @@ export function MeetingCaptureStatus({
 
       {!snapshot.active && snapshot.saved ? (
         <div className="grid gap-3">
-          <div className="flex items-start gap-2">
-            <Icon className="mt-0.5 size-5 text-emerald-600" icon="ph:check-circle-fill" />
-            <div>
-              <p className="font-semibold text-sm">录音已安全保存在本地</p>
-              <p className="text-muted-foreground text-xs">
-                双轨清单和保存意图已冻结；本步骤未连接服务器，也未上传录音。
-              </p>
-            </div>
-          </div>
+          {(() => {
+            const workspaceSave = snapshot.workspaceSaves.find(
+              (item) => item.captureId === snapshot.saved?.captureId,
+            );
+            const copy = workspaceSave ? WORKSPACE_SAVE_COPY[workspaceSave.state] : null;
+            return (
+              <div className="flex items-start gap-2">
+                <Icon
+                  className={cn(
+                    "mt-0.5 size-5 text-amber-600",
+                    workspaceSave?.state === "workspace-verified" && "text-emerald-600",
+                    workspaceSave?.state === "action-required" && "text-destructive",
+                  )}
+                  icon={workspaceSaveIcon(workspaceSave?.state)}
+                />
+                <div>
+                  <p className="font-semibold text-sm">{copy?.title ?? "录音已安全保存在本地"}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {workspaceSave?.error ??
+                      copy?.description ??
+                      "双轨清单和保存意图已冻结，尚未保存到工作区。"}
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
           <div className="flex justify-end">
+            {snapshot.workspaceSaves.some(
+              (item) =>
+                item.captureId === snapshot.saved?.captureId && item.state === "action-required",
+            ) ? (
+              <Button onClick={() => onSave(snapshot.saved?.captureId)} size="sm">
+                重试保存到工作区
+              </Button>
+            ) : null}
             <Button
               onClick={() => onDiscard(snapshot.saved?.captureId, true)}
               size="sm"

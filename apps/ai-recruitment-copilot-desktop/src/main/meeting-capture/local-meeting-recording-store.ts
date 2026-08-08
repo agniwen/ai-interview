@@ -3,6 +3,11 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, open, readFile, readdir, rename, rm, stat, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type {
+  CreateSmallSavedMeetingInput,
+  MeetingSourceTrack,
+  SmallMeetingUploadInstruction,
+} from "@arc/shared/meeting-recording";
+import type {
   AppendLocalFragmentInput,
   BeginLocalCaptureInput,
   CaptureTrack,
@@ -15,6 +20,20 @@ import type {
 const MANIFEST_VERSION = 1;
 const CAPTURE_ID_PATTERN = /^[a-f\d]{8}-[a-f\d]{4}-4[a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i;
 const TRACKS = new Set<CaptureTrack>(["microphone", "system"]);
+
+interface MeetingObjectUploadInput {
+  body: ReadableStream<Uint8Array>;
+  headers: Record<string, string>;
+  sizeBytes: number;
+  url: string;
+}
+
+type MeetingObjectUploader = (input: MeetingObjectUploadInput) => Promise<void>;
+
+interface LocalMeetingRecordingStoreOptions {
+  allowedUploadOrigin?: string;
+  putObject?: MeetingObjectUploader;
+}
 
 interface StoredFragment extends Omit<AppendLocalFragmentInput, "captureId"> {
   localPath: string;
@@ -222,11 +241,29 @@ function savedMeeting(manifest: StoredManifest): LocalSavedMeeting {
   };
 }
 
+async function uploadMeetingObject(input: MeetingObjectUploadInput): Promise<void> {
+  const response = await fetch(input.url, {
+    body: input.body,
+    duplex: "half",
+    headers: { ...input.headers, "content-length": String(input.sizeBytes) },
+    method: "PUT",
+  } as RequestInit & { duplex: "half" });
+  if (!response.ok) {
+    throw new Error(`录音对象上传失败 (${response.status})`);
+  }
+}
+
 export class LocalMeetingRecordingStore implements MeetingRecordingStore {
+  private readonly allowedUploadOrigin: URL | null;
   private readonly operations = new Map<string, Promise<unknown>>();
+  private readonly putObject: MeetingObjectUploader;
   private readonly root: string;
 
-  constructor(root: string) {
+  constructor(root: string, options: LocalMeetingRecordingStoreOptions = {}) {
+    const configuredOrigin =
+      options.allowedUploadOrigin ?? import.meta.env.VITE_RECORDING_R2_UPLOAD_ORIGIN;
+    this.allowedUploadOrigin = configuredOrigin ? new URL(configuredOrigin) : null;
+    this.putObject = options.putObject ?? uploadMeetingObject;
     this.root = root;
   }
 
@@ -423,6 +460,127 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
       await atomicWrite(this.saveIntentPath(captureId), jsonBytes(intent));
       await this.releaseActiveLock(captureId);
       return savedMeeting(manifest);
+    });
+  }
+
+  async describeWorkspaceSave(captureId: string): Promise<CreateSmallSavedMeetingInput> {
+    const manifest = await this.readManifest(captureId);
+    if (!(manifest.savedAt && manifest.manifestSha256 && manifest.status === "saved-local")) {
+      throw new Error("本地录音尚未冻结，不能保存到工作区");
+    }
+    await this.verifySavedManifestAndIntent(manifest);
+    const assets = await Promise.all(
+      (["microphone", "system"] as const).map(async (track) => {
+        const fragments = manifest.fragments
+          .filter((fragment) => fragment.track === track)
+          .toSorted((left, right) => left.sequence - right.sequence);
+        const hash = createHash("sha256");
+        for (const fragment of fragments) {
+          hash.update(await readFile(join(this.captureDirectory(captureId), fragment.localPath)));
+        }
+        const summary = summarize(fragments)[track];
+        return {
+          contentType: manifest.trackContentTypes[track],
+          durationMs: summary.committedThroughMs,
+          fragmentCount: summary.fragmentCount,
+          sha256: hash.digest("hex"),
+          sizeBytes: summary.bytes,
+          track,
+        };
+      }),
+    );
+    return {
+      assets,
+      id: manifest.captureId,
+      manifestSha256: manifest.manifestSha256,
+      savedAt: manifest.savedAt,
+      startedAt: manifest.startedAt,
+    };
+  }
+
+  async uploadSmall(
+    captureId: string,
+    instructions: SmallMeetingUploadInstruction[],
+  ): Promise<void> {
+    const descriptor = await this.describeWorkspaceSave(captureId);
+    if (instructions.length !== 2) {
+      throw new Error("工作区未返回完整的双轨上传指令");
+    }
+    const byTrack = new Map(instructions.map((instruction) => [instruction.track, instruction]));
+    await Promise.all(
+      descriptor.assets.map(async (asset) => {
+        const instruction = byTrack.get(asset.track);
+        if (
+          !instruction ||
+          instruction.contentType !== asset.contentType ||
+          instruction.sizeBytes !== asset.sizeBytes ||
+          instruction.method !== "PUT"
+        ) {
+          throw new Error(`${asset.track} 上传指令与本地录音不匹配`);
+        }
+        const url = new URL(instruction.url);
+        if (!this.isAllowedUploadUrl(url)) {
+          throw new Error("录音上传地址不属于已配置的 Recording R2");
+        }
+        const expectedHeaders = {
+          "content-type": asset.contentType,
+          "x-amz-checksum-sha256": Buffer.from(asset.sha256, "hex").toString("base64"),
+          "x-amz-meta-sha256": asset.sha256,
+        };
+        if (
+          instruction.headers["content-type"] !== expectedHeaders["content-type"] ||
+          instruction.headers["x-amz-checksum-sha256"] !==
+            expectedHeaders["x-amz-checksum-sha256"] ||
+          instruction.headers["x-amz-meta-sha256"] !== expectedHeaders["x-amz-meta-sha256"]
+        ) {
+          throw new Error(`${asset.track} 上传签名完整性信息不匹配`);
+        }
+        await this.putObject({
+          body: this.trackStream(captureId, asset.track),
+          headers: expectedHeaders,
+          sizeBytes: asset.sizeBytes,
+          url: instruction.url,
+        });
+      }),
+    );
+  }
+
+  private isAllowedUploadUrl(url: URL): boolean {
+    const allowed = this.allowedUploadOrigin;
+    if (
+      !allowed ||
+      allowed.protocol !== "https:" ||
+      url.protocol !== "https:" ||
+      url.username ||
+      url.password ||
+      (url.port && url.port !== "443")
+    ) {
+      return false;
+    }
+    return url.hostname === allowed.hostname || url.hostname.endsWith(`.${allowed.hostname}`);
+  }
+
+  private trackStream(captureId: string, track: MeetingSourceTrack): ReadableStream<Uint8Array> {
+    let fragments: StoredFragment[] | null = null;
+    let index = 0;
+    return new ReadableStream<Uint8Array>({
+      pull: async (controller) => {
+        if (!fragments) {
+          const manifest = await this.readManifest(captureId);
+          fragments = manifest.fragments
+            .filter((fragment) => fragment.track === track)
+            .toSorted((left, right) => left.sequence - right.sequence);
+        }
+        const fragment = fragments[index];
+        if (!fragment) {
+          controller.close();
+          return;
+        }
+        index += 1;
+        controller.enqueue(
+          await readFile(join(this.captureDirectory(captureId), fragment.localPath)),
+        );
+      },
     });
   }
 

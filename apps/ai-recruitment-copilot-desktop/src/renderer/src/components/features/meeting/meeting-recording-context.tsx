@@ -36,6 +36,7 @@ const INITIAL_CAPTURE_SNAPSHOT: MeetingCaptureSnapshot = {
   recoverable: [],
   recoveryComplete: false,
   saved: null,
+  workspaceSaves: [],
 };
 
 export function MeetingRecordingProvider({ children }: { children: ReactNode }) {

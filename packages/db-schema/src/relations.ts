@@ -257,6 +257,23 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.jobDescription.id,
     }),
   },
+  meetingRecordingAsset: {
+    meeting: r.one.meetingSession({
+      from: r.meetingRecordingAsset.meetingId,
+      to: r.meetingSession.id,
+    }),
+  },
+  meetingSession: {
+    assets: r.many.meetingRecordingAsset(),
+    organization: r.one.organization({
+      from: r.meetingSession.organizationId,
+      to: r.organization.id,
+    }),
+    owner: r.one.user({
+      from: r.meetingSession.ownerId,
+      to: r.user.id,
+    }),
+  },
   member: {
     inviteLink: r.one.workspaceInviteLink({
       from: r.member.inviteLinkId,

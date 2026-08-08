@@ -125,6 +125,94 @@ export async function buildRecordingFileKey(input: {
   );
 }
 
+export async function buildMeetingRecordingAssetKey(input: {
+  meetingId: string;
+  organizationId: string;
+  track: "microphone" | "system";
+}): Promise<string> {
+  const { config } = await getRecordingClient();
+  const prefix = config.keyPrefix ? `${config.keyPrefix.replace(/\/+$/, "")}/` : "";
+  const organizationId = encodeURIComponent(input.organizationId);
+  const meetingId = encodeURIComponent(input.meetingId);
+  return `${prefix}meetings/${organizationId}/${meetingId}/${input.track}.webm`.replace(/^\/+/, "");
+}
+
+function isNoSuchKey(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    (error as { name: string }).name === "NoSuchKey"
+  );
+}
+
+export async function presignMeetingRecordingPutObject(input: {
+  contentType: string;
+  sha256: string;
+  sizeBytes: number;
+  storageKey: string;
+  expiresInSeconds?: number;
+}): Promise<{ expiresAt: Date; headers: Record<string, string>; url: string }> {
+  const expiresInSeconds = input.expiresInSeconds ?? 300;
+  const [{ PutObjectCommand }, { getSignedUrl }, { client, config }] = await Promise.all([
+    import("@aws-sdk/client-s3"),
+    import("@aws-sdk/s3-request-presigner"),
+    getRecordingClient(),
+  ]);
+  const headers = {
+    "content-type": input.contentType,
+    "x-amz-checksum-sha256": Buffer.from(input.sha256, "hex").toString("base64"),
+    "x-amz-meta-sha256": input.sha256,
+  };
+  const url = await getSignedUrl(
+    client,
+    new PutObjectCommand({
+      Bucket: config.bucket,
+      ChecksumSHA256: headers["x-amz-checksum-sha256"],
+      ContentLength: input.sizeBytes,
+      ContentType: input.contentType,
+      Key: input.storageKey,
+      Metadata: { sha256: input.sha256 },
+    }),
+    { expiresIn: expiresInSeconds },
+  );
+  return { expiresAt: new Date(Date.now() + expiresInSeconds * 1000), headers, url };
+}
+
+export async function headMeetingRecordingObject(storageKey: string): Promise<{
+  checksumSha256: string | null;
+  contentLength: number;
+  contentType: string;
+  sha256: string | null;
+} | null> {
+  const [{ HeadObjectCommand }, { client, config }] = await Promise.all([
+    import("@aws-sdk/client-s3"),
+    getRecordingClient(),
+  ]);
+  try {
+    const result = await client.send(
+      new HeadObjectCommand({ Bucket: config.bucket, ChecksumMode: "ENABLED", Key: storageKey }),
+    );
+    if (!(typeof result.ContentLength === "number" && result.ContentType)) {
+      return null;
+    }
+    return {
+      checksumSha256: result.ChecksumSHA256 ?? null,
+      contentLength: result.ContentLength,
+      contentType: result.ContentType,
+      sha256: result.Metadata?.sha256 ?? null,
+    };
+  } catch (error) {
+    if (
+      isNoSuchKey(error) ||
+      (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode === 404
+    ) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 function getClient() {
   cached ??= buildClient();
   return cached;
@@ -184,15 +272,6 @@ export interface ObjectResult {
   body: ReadableStream<Uint8Array>;
   contentLength?: number;
   contentType?: string;
-}
-
-function isNoSuchKey(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "name" in error &&
-    (error as { name: string }).name === "NoSuchKey"
-  );
 }
 
 export async function getObjectStream(storageKey: string): Promise<ObjectResult | null> {
