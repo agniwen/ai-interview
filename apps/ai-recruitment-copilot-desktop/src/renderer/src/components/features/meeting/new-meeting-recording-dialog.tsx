@@ -109,11 +109,13 @@ function SelectedResumeDetails({ record }: { record: ResumeLibraryListRecord }) 
 
 export function NewMeetingRecordingDialog({
   onOpenChange,
+  onStart,
   open,
   preselectedResumeId,
   preselectedResumeRecord,
 }: {
   onOpenChange: (open: boolean) => void;
+  onStart: (recruitingRecordId: string | null) => Promise<void>;
   open: boolean;
   preselectedResumeId?: string | null;
   /** Optional full record when opening from a card (for immediate detail preview). */
@@ -122,6 +124,8 @@ export function NewMeetingRecordingDialog({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<ResumeLibraryListRecord | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [startError, setStartError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
   const deferredSearch = useDeferredValue(searchQuery.trim());
 
   const workspaceQuery = useQuery({
@@ -141,6 +145,7 @@ export function NewMeetingRecordingDialog({
     setSelectedId(nextId);
     setSelectedRecord(preselectedResumeRecord ?? null);
     setSearchQuery("");
+    setStartError(null);
   }, [open, preselectedResumeId, preselectedResumeRecord]);
 
   const listQuery = useQuery({
@@ -224,15 +229,19 @@ export function NewMeetingRecordingDialog({
     setSelectedRecord(recordsById.get(nextId) ?? null);
   };
 
-  const canSubmit = Boolean(selectedId);
+  const canSubmit = !starting;
   const isWorkspaceMissing = open && !workspaceQuery.isPending && !slug;
 
-  const handleConfirm = () => {
-    if (!selectedId) {
-      return;
+  const handleConfirm = async () => {
+    setStarting(true);
+    setStartError(null);
+    try {
+      await onStart(selectedId);
+    } catch (error) {
+      setStartError(error instanceof Error ? error.message : "无法开始会议录制");
+    } finally {
+      setStarting(false);
     }
-    // Meeting capture flow is wired later — for now close with a selection.
-    onOpenChange(false);
   };
 
   return (
@@ -241,13 +250,13 @@ export function NewMeetingRecordingDialog({
         <DialogHeader>
           <DialogTitle>新建会议录制</DialogTitle>
           <DialogDescription>
-            选择要关联的招聘台候选人记录，录制内容将归集到该候选人。
+            录制麦克风和系统音频。招聘记录是可选关联，不选择也可以录制通用会议。
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-3">
           <div className="grid gap-2">
-            <Label htmlFor="meeting-resume-select">关联招聘记录</Label>
+            <Label htmlFor="meeting-resume-select">关联招聘记录（可选）</Label>
             {isWorkspaceMissing ? (
               <p className="text-muted-foreground text-sm">
                 未加入工作区，请先在网页端加入或创建工作区。
@@ -273,14 +282,19 @@ export function NewMeetingRecordingDialog({
           </div>
 
           {selectedRecord ? <SelectedResumeDetails record={selectedRecord} /> : null}
+          {startError ? (
+            <p className="rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm">
+              {startError}
+            </p>
+          ) : null}
         </div>
 
         <DialogFooter>
           <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
             取消
           </Button>
-          <Button disabled={!canSubmit} onClick={handleConfirm} type="button">
-            开始录制
+          <Button disabled={!canSubmit} onClick={() => void handleConfirm()} type="button">
+            {starting ? "正在请求音频权限…" : "开始录制"}
           </Button>
         </DialogFooter>
       </DialogContent>

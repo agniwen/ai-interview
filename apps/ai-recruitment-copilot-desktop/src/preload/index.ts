@@ -1,6 +1,7 @@
 import { electronAPI } from "@electron-toolkit/preload";
 import { contextBridge, ipcRenderer } from "electron";
 import type { AuthApi } from "./auth-api";
+import type { MeetingCaptureApi } from "./meeting-capture-api";
 import type { WindowApi } from "./window-api";
 
 /**
@@ -12,6 +13,10 @@ window.addEventListener("message", (event) => {
   if (event.data === "start-orpc-client") {
     const [serverPort] = event.ports;
     ipcRenderer.postMessage("start-orpc-server", null, [serverPort]);
+  }
+  if (event.data === "start-meeting-capture-fragment-client") {
+    const [serverPort] = event.ports;
+    ipcRenderer.postMessage("meeting-capture:fragment-port", null, [serverPort]);
   }
 });
 
@@ -27,8 +32,16 @@ const authApi: AuthApi = {
   openOAuth: (input) => ipcRenderer.invoke("auth:open-oauth", input),
 };
 
+const meetingCaptureApi: MeetingCaptureApi = {
+  begin: (input) => ipcRenderer.invoke("meeting-capture:begin", input),
+  discard: (captureId) => ipcRenderer.invoke("meeting-capture:discard", captureId),
+  recover: () => ipcRenderer.invoke("meeting-capture:recover"),
+  save: (captureId) => ipcRenderer.invoke("meeting-capture:save", captureId),
+};
+
 const api = {
   auth: authApi,
+  meetingCapture: meetingCaptureApi,
   window: windowApi,
 };
 

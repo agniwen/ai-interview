@@ -1,11 +1,17 @@
 import { electronApp, optimizer } from "@electron-toolkit/utils";
 import { app, BrowserWindow } from "electron";
+import { join } from "node:path";
 import macIcon from "../../resources/icon-mac.png?asset";
 import { registerContextMenu } from "./context-menu";
 import { registerOrpcIpc } from "./orpc";
 import { applySettingsAtStartup } from "./settings";
 import { registerAuthIpc } from "./ipc/auth";
 import { registerWindowIpc } from "./ipc/window";
+import {
+  registerMeetingCaptureIpc,
+  registerMeetingCaptureMediaSession,
+} from "./meeting-capture/ipc";
+import { LocalMeetingRecordingStore } from "./meeting-capture/local-meeting-recording-store";
 import { createMainWindow } from "./window";
 
 function handleActivate(): void {
@@ -28,6 +34,11 @@ async function bootstrap(): Promise<void> {
 
   applySettingsAtStartup();
   registerContextMenu();
+  const meetingCaptureStore = new LocalMeetingRecordingStore(
+    join(app.getPath("userData"), "meeting-capture", "default-profile"),
+  );
+  registerMeetingCaptureIpc(meetingCaptureStore);
+  registerMeetingCaptureMediaSession();
   registerOrpcIpc();
   registerWindowIpc();
   registerAuthIpc();
