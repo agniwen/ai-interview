@@ -39,6 +39,22 @@ const INITIAL_CAPTURE_SNAPSHOT: MeetingCaptureSnapshot = {
   workspaceSaves: [],
 };
 
+function discardDialogTitle(deletingRecoveryCopy: boolean, includeSaved: boolean): string {
+  if (deletingRecoveryCopy) {
+    return "提前删除本地 Recovery Copy？";
+  }
+  return includeSaved ? "清除本地保存？" : "结束并放弃录制？";
+}
+
+function discardDialogDescription(deletingRecoveryCopy: boolean, includeSaved: boolean): string {
+  if (deletingRecoveryCopy) {
+    return "只会删除本机上的恢复副本；已经过服务器验证的工作区录音会继续保留。";
+  }
+  return includeSaved
+    ? "这份录音尚未上传。清除后将无法恢复。"
+    : "已录制的麦克风与系统音频会从本机删除，此操作无法撤销。";
+}
+
 export function MeetingRecordingProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [preselectedResumeId, setPreselectedResumeId] = useState<string | null>(null);
@@ -89,6 +105,16 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
     }
   }, [pendingDiscard]);
 
+  const deletingRecoveryCopy = Boolean(
+    pendingDiscard?.captureId &&
+    (captureSnapshot.workspaceSaves.some(
+      (item) => item.captureId === pendingDiscard.captureId && item.state === "workspace-verified",
+    ) ||
+      captureSnapshot.recoverable.some(
+        (item) => item.captureId === pendingDiscard.captureId && item.recoveryCopyDeleteAfter,
+      )),
+  );
+
   return (
     <MeetingRecordingContext.Provider value={value}>
       {children}
@@ -123,12 +149,13 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>
-              {pendingDiscard?.includeSaved ? "清除本地保存？" : "结束并放弃录制？"}
+              {discardDialogTitle(deletingRecoveryCopy, Boolean(pendingDiscard?.includeSaved))}
             </DialogTitle>
             <DialogDescription>
-              {pendingDiscard?.includeSaved
-                ? "这份录音尚未上传。清除后将无法恢复。"
-                : "已录制的麦克风与系统音频会从本机删除，此操作无法撤销。"}
+              {discardDialogDescription(
+                deletingRecoveryCopy,
+                Boolean(pendingDiscard?.includeSaved),
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

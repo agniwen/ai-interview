@@ -41,11 +41,21 @@ const authApi: AuthApi = {
 
 const meetingCaptureApi: MeetingCaptureApi = {
   begin: (input) => ipcRenderer.invoke("meeting-capture:begin", input),
+  describeMultipartWorkspaceSave: (captureId) =>
+    ipcRenderer.invoke("meeting-capture:describe-multipart-workspace-save", captureId),
   describeWorkspaceSave: (captureId) =>
     ipcRenderer.invoke("meeting-capture:describe-workspace-save", captureId),
   discard: (captureId) => ipcRenderer.invoke("meeting-capture:discard", captureId),
+  markWorkspaceVerified: (captureId, recoveryCopyDeleteAfter) =>
+    ipcRenderer.invoke(
+      "meeting-capture:mark-workspace-verified",
+      captureId,
+      recoveryCopyDeleteAfter,
+    ),
   recover: () => ipcRenderer.invoke("meeting-capture:recover"),
   save: (captureId) => ipcRenderer.invoke("meeting-capture:save", captureId),
+  uploadMultipart: (captureId, instructions) =>
+    ipcRenderer.invoke("meeting-capture:upload-multipart", captureId, instructions),
   uploadSmall: (captureId, instructions) =>
     ipcRenderer.invoke("meeting-capture:upload-small", captureId, instructions),
 };

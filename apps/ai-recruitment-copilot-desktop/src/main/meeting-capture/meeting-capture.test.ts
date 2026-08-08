@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createMeetingCapture } from "../../preload/meeting-capture";
 import type {
@@ -68,6 +69,8 @@ function createDelayedDiscardStore(root: string): {
         await gate.promise;
         await delegate.discard(captureId);
       },
+      markWorkspaceVerified: (captureId, recoveryCopyDeleteAfter) =>
+        delegate.markWorkspaceVerified(captureId, recoveryCopyDeleteAfter),
       recover: () => delegate.recover(),
       save: (captureId) => delegate.save(captureId),
     },
@@ -210,7 +213,7 @@ describe("MeetingCapture", () => {
     const persist = vi.fn<WorkspaceRecordingPort["persist"]>(({ report }) => {
       report("uploading");
       report("verifying");
-      return Promise.resolve();
+      return Promise.resolve({ recoveryCopyDeleteAfter: "2026-08-10T03:00:00.000Z" });
     });
     const capture = createMeetingCapture({
       idFactory: () => "00000000-0000-4000-8000-000000000012",
@@ -328,6 +331,88 @@ describe("MeetingCapture", () => {
     ).rejects.toThrow("不属于已配置的 Recording R2");
   });
 
+  it("aggregates fixed multipart ranges across recording fragments and uploads only requested parts", async () => {
+    const uploaded = new Map<string, Uint8Array>();
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const store = new LocalMeetingRecordingStore(root, {
+      allowedUploadOrigin: "https://account.r2.cloudflarestorage.com",
+      multipartPartSizeBytes: 8,
+      putObject: async ({ body, url }) => {
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await delay(5);
+        const chunks: Uint8Array[] = [];
+        const reader = body.getReader();
+        while (true) {
+          const result = await reader.read();
+          if (result.done) {
+            break;
+          }
+          chunks.push(result.value);
+        }
+        uploaded.set(url, Uint8Array.from(chunks.flatMap((chunk) => [...chunk])));
+        inFlight -= 1;
+      },
+    });
+    const source = new DeterministicCaptureSource();
+    const capture = createMeetingCapture({
+      idFactory: () => "00000000-0000-4000-8000-000000000015",
+      source,
+      store,
+    });
+    await capture.start();
+    await source.fragment("microphone", 0, "abcde");
+    await source.fragment("system", 0, "12345");
+    await source.fragment("microphone", 1, "fghijklmnopqrstuvwxyzABCDEFGHIJKLMN");
+    await source.fragment("system", 1, "fghijklmnopqrstuvwxyzABCDEFGHIJKLMN");
+    const saved = await capture.save();
+
+    const descriptor = await store.describeMultipartWorkspaceSave(saved.captureId);
+    expect(descriptor.assets.find((asset) => asset.track === "microphone")?.parts[0]).toEqual({
+      md5Base64: "6NxAgbE0NLRRiacgt3toGA==",
+      offsetBytes: 0,
+      partNumber: 1,
+      sizeBytes: 8,
+    });
+
+    await store.uploadMultipart(saved.captureId, [
+      {
+        expiresAt: "2026-08-09T03:10:00.000Z",
+        headers: { "content-md5": "6NxAgbE0NLRRiacgt3toGA==" },
+        method: "PUT",
+        offsetBytes: 0,
+        partNumber: 1,
+        sizeBytes: 8,
+        track: "microphone",
+        url: "https://bucket.account.r2.cloudflarestorage.com/microphone?partNumber=1",
+      },
+    ]);
+
+    expect(uploaded.size).toBe(1);
+    expect(
+      new TextDecoder().decode(
+        uploaded.get("https://bucket.account.r2.cloudflarestorage.com/microphone?partNumber=1"),
+      ),
+    ).toBe("abcdefgh");
+
+    maxInFlight = 0;
+    await store.uploadMultipart(
+      saved.captureId,
+      descriptor.assets.flatMap((asset) =>
+        asset.parts.map(({ md5Base64, ...part }) => ({
+          ...part,
+          expiresAt: "2026-08-09T03:10:00.000Z",
+          headers: { "content-md5": md5Base64 },
+          method: "PUT" as const,
+          track: asset.track,
+          url: `https://bucket.account.r2.cloudflarestorage.com/${asset.track}?partNumber=${part.partNumber}`,
+        })),
+      ),
+    );
+    expect(maxInFlight).toBe(4);
+  });
+
   it("retains an action-required local save and retries it on repeated Save", async () => {
     const source = new DeterministicCaptureSource();
     const persist = vi
@@ -336,7 +421,7 @@ describe("MeetingCapture", () => {
       .mockImplementationOnce(({ report }) => {
         report("uploading");
         report("verifying");
-        return Promise.resolve();
+        return Promise.resolve({ recoveryCopyDeleteAfter: "2026-08-10T03:00:00.000Z" });
       });
     const capture = createMeetingCapture({
       idFactory: () => "00000000-0000-4000-8000-000000000013",
@@ -362,6 +447,109 @@ describe("MeetingCapture", () => {
       (snapshot) => snapshot.workspaceSaves[0]?.state === "workspace-verified",
     );
     expect(persist).toHaveBeenCalledTimes(2);
+  });
+
+  it("automatically resumes a pending workspace save after the desktop restarts", async () => {
+    const source = new DeterministicCaptureSource();
+    const first = createMeetingCapture({
+      idFactory: () => "00000000-0000-4000-8000-000000000016",
+      source,
+      store: new LocalMeetingRecordingStore(root),
+    });
+    await first.start();
+    await source.fragment("microphone", 0, "mic");
+    await source.fragment("system", 0, "system");
+    const saved = await first.save();
+    const persist = vi.fn<WorkspaceRecordingPort["persist"]>(() =>
+      Promise.resolve({ recoveryCopyDeleteAfter: "2026-08-10T03:00:00.000Z" }),
+    );
+
+    const restarted = createMeetingCapture({
+      source: new DeterministicCaptureSource(),
+      store: new LocalMeetingRecordingStore(root),
+      workspace: { persist },
+    });
+    const observed = latestSnapshot(restarted);
+    await waitFor(observed.read, (snapshot) => snapshot.recoveryComplete);
+    await vi.waitFor(() => expect(persist).toHaveBeenCalledTimes(1));
+
+    expect(persist).toHaveBeenCalledWith(
+      expect.objectContaining({
+        captureId: saved.captureId,
+        manifestSha256: saved.manifestSha256,
+      }),
+    );
+  });
+
+  it("cleans only server-verified recovery copies after their durable deadline", async () => {
+    const firstSource = new DeterministicCaptureSource();
+    const store = new LocalMeetingRecordingStore(root);
+    const first = createMeetingCapture({
+      idFactory: () => "00000000-0000-4000-8000-000000000017",
+      source: firstSource,
+      store,
+    });
+    await first.start();
+    await firstSource.fragment("microphone", 0, "mic-one");
+    await firstSource.fragment("system", 0, "sys-one");
+    const verified = await first.save();
+    await store.markWorkspaceVerified(verified.captureId, "2026-08-10T03:00:00.000Z");
+
+    const secondSource = new DeterministicCaptureSource();
+    const second = createMeetingCapture({
+      idFactory: () => "00000000-0000-4000-8000-000000000018",
+      source: secondSource,
+      store,
+    });
+    await second.start();
+    await secondSource.fragment("microphone", 0, "mic-two");
+    await secondSource.fragment("system", 0, "sys-two");
+    const pending = await second.save();
+
+    const beforeDeadline = await new LocalMeetingRecordingStore(root, {
+      now: () => new Date("2026-08-10T02:59:59.000Z"),
+    }).recover();
+    expect(beforeDeadline).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          captureId: verified.captureId,
+          recoveryCopyDeleteAfter: "2026-08-10T03:00:00.000Z",
+        }),
+        expect.objectContaining({ captureId: pending.captureId }),
+      ]),
+    );
+
+    const afterDeadline = await new LocalMeetingRecordingStore(root, {
+      now: () => new Date("2026-08-10T03:00:01.000Z"),
+    }).recover();
+    expect(afterDeadline.map((capture) => capture.captureId)).toEqual([pending.captureId]);
+  });
+
+  it("automatically removes a verified recovery copy when its deadline arrives while running", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-09T03:00:00.000Z"));
+    const source = new DeterministicCaptureSource();
+    const capture = createMeetingCapture({
+      idFactory: () => "00000000-0000-4000-8000-000000000019",
+      source,
+      store: new LocalMeetingRecordingStore(root),
+      workspace: {
+        persist: () => Promise.resolve({ recoveryCopyDeleteAfter: "2026-08-09T03:00:01.000Z" }),
+      },
+    });
+    const observed = latestSnapshot(capture);
+    await capture.start();
+    await source.fragment("microphone", 0, "mic");
+    await source.fragment("system", 0, "system");
+    await capture.save();
+    await vi.waitFor(() =>
+      expect(observed.read().workspaceSaves[0]?.state).toBe("workspace-verified"),
+    );
+
+    await vi.advanceTimersByTimeAsync(1001);
+
+    await vi.waitFor(() => expect(observed.read()).toMatchObject({ phase: "idle", saved: null }));
+    expect(await new LocalMeetingRecordingStore(root).recover()).toEqual([]);
   });
 
   it("recovers a verified contiguous prefix after an interrupted capture", async () => {

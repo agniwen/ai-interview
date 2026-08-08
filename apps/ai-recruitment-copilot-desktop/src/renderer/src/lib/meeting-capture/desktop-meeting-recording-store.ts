@@ -77,6 +77,10 @@ export class DesktopMeetingRecordingStore implements MeetingRecordingStore {
     return window.api.meetingCapture.discard(captureId);
   }
 
+  markWorkspaceVerified(captureId: string, recoveryCopyDeleteAfter: string): Promise<void> {
+    return window.api.meetingCapture.markWorkspaceVerified(captureId, recoveryCopyDeleteAfter);
+  }
+
   recover(): Promise<RecoverableMeetingCapture[]> {
     return window.api.meetingCapture.recover();
   }

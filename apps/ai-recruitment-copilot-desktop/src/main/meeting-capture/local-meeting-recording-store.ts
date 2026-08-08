@@ -5,8 +5,17 @@ import { dirname, join } from "node:path";
 import type {
   CreateSmallSavedMeetingInput,
   MeetingSourceTrack,
+  MultipartMeetingUploadInstruction,
+  MultipartSavedMeetingDescriptor,
   SmallMeetingUploadInstruction,
 } from "@arc/shared/meeting-recording";
+import { MEETING_MULTIPART_PART_BYTES } from "@arc/shared/meeting-recording";
+import {
+  describeLocalMeetingMultipart,
+  uploadMeetingObject,
+  uploadLocalMeetingMultipart,
+} from "./local-meeting-multipart";
+import type { MeetingObjectUploader } from "./local-meeting-multipart";
 import type {
   AppendLocalFragmentInput,
   BeginLocalCaptureInput,
@@ -21,17 +30,10 @@ const MANIFEST_VERSION = 1;
 const CAPTURE_ID_PATTERN = /^[a-f\d]{8}-[a-f\d]{4}-4[a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i;
 const TRACKS = new Set<CaptureTrack>(["microphone", "system"]);
 
-interface MeetingObjectUploadInput {
-  body: ReadableStream<Uint8Array>;
-  headers: Record<string, string>;
-  sizeBytes: number;
-  url: string;
-}
-
-type MeetingObjectUploader = (input: MeetingObjectUploadInput) => Promise<void>;
-
 interface LocalMeetingRecordingStoreOptions {
   allowedUploadOrigin?: string;
+  multipartPartSizeBytes?: number;
+  now?: () => Date;
   putObject?: MeetingObjectUploader;
 }
 
@@ -61,8 +63,9 @@ interface StoredManifest {
 interface SaveIntent {
   captureId: string;
   manifestSha256: string;
+  recoveryCopyDeleteAfter: string | null;
   savedAt: string;
-  status: "pending-server-save";
+  status: "pending-server-save" | "workspace-verified";
 }
 
 const jsonBytes = (value: unknown) => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
@@ -241,20 +244,10 @@ function savedMeeting(manifest: StoredManifest): LocalSavedMeeting {
   };
 }
 
-async function uploadMeetingObject(input: MeetingObjectUploadInput): Promise<void> {
-  const response = await fetch(input.url, {
-    body: input.body,
-    duplex: "half",
-    headers: { ...input.headers, "content-length": String(input.sizeBytes) },
-    method: "PUT",
-  } as RequestInit & { duplex: "half" });
-  if (!response.ok) {
-    throw new Error(`录音对象上传失败 (${response.status})`);
-  }
-}
-
 export class LocalMeetingRecordingStore implements MeetingRecordingStore {
   private readonly allowedUploadOrigin: URL | null;
+  private readonly multipartPartSizeBytes: number;
+  private readonly now: () => Date;
   private readonly operations = new Map<string, Promise<unknown>>();
   private readonly putObject: MeetingObjectUploader;
   private readonly root: string;
@@ -263,6 +256,11 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
     const configuredOrigin =
       options.allowedUploadOrigin ?? import.meta.env.VITE_RECORDING_R2_UPLOAD_ORIGIN;
     this.allowedUploadOrigin = configuredOrigin ? new URL(configuredOrigin) : null;
+    this.multipartPartSizeBytes = options.multipartPartSizeBytes ?? MEETING_MULTIPART_PART_BYTES;
+    if (!(Number.isSafeInteger(this.multipartPartSizeBytes) && this.multipartPartSizeBytes > 0)) {
+      throw new Error("multipart part 大小必须是正整数");
+    }
+    this.now = options.now ?? (() => new Date());
     this.putObject = options.putObject ?? uploadMeetingObject;
     this.root = root;
   }
@@ -454,6 +452,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
       const intent: SaveIntent = {
         captureId,
         manifestSha256: manifest.manifestSha256,
+        recoveryCopyDeleteAfter: null,
         savedAt,
         status: "pending-server-save",
       };
@@ -545,6 +544,35 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
     );
   }
 
+  async describeMultipartWorkspaceSave(
+    captureId: string,
+  ): Promise<MultipartSavedMeetingDescriptor> {
+    const descriptor = await this.describeWorkspaceSave(captureId);
+    const manifest = await this.readManifest(captureId);
+    return describeLocalMeetingMultipart({
+      captureDirectory: this.captureDirectory(captureId),
+      descriptor,
+      fragments: manifest.fragments,
+      partSizeBytes: this.multipartPartSizeBytes,
+    });
+  }
+
+  async uploadMultipart(
+    captureId: string,
+    instructions: MultipartMeetingUploadInstruction[],
+  ): Promise<void> {
+    const descriptor = await this.describeMultipartWorkspaceSave(captureId);
+    const manifest = await this.readManifest(captureId);
+    await uploadLocalMeetingMultipart({
+      captureDirectory: this.captureDirectory(captureId),
+      descriptor,
+      fragments: manifest.fragments,
+      instructions,
+      isAllowedUploadUrl: (url) => this.isAllowedUploadUrl(url),
+      putObject: this.putObject,
+    });
+  }
+
   private isAllowedUploadUrl(url: URL): boolean {
     const allowed = this.allowedUploadOrigin;
     if (
@@ -584,7 +612,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
     });
   }
 
-  private async verifySavedManifestAndIntent(manifest: StoredManifest): Promise<void> {
+  private async verifySavedManifestAndIntent(manifest: StoredManifest): Promise<SaveIntent> {
     if (!(manifest.manifestSha256 && manifest.savedAt)) {
       throw new Error("本地保存清单缺少完整性信息");
     }
@@ -598,27 +626,57 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
     const expected: SaveIntent = {
       captureId: manifest.captureId,
       manifestSha256: manifest.manifestSha256,
+      recoveryCopyDeleteAfter: null,
       savedAt: manifest.savedAt,
       status: "pending-server-save",
     };
     try {
-      const intent = JSON.parse(
+      const stored = JSON.parse(
         await readFile(this.saveIntentPath(manifest.captureId), "utf-8"),
-      ) as SaveIntent;
+      ) as Partial<SaveIntent>;
       if (
-        intent.captureId !== expected.captureId ||
-        intent.manifestSha256 !== expected.manifestSha256 ||
-        intent.savedAt !== expected.savedAt ||
-        intent.status !== expected.status
+        stored.captureId !== expected.captureId ||
+        stored.manifestSha256 !== expected.manifestSha256 ||
+        stored.savedAt !== expected.savedAt ||
+        !(stored.status === "pending-server-save" || stored.status === "workspace-verified") ||
+        (stored.status === "workspace-verified" &&
+          !(
+            typeof stored.recoveryCopyDeleteAfter === "string" &&
+            !Number.isNaN(Date.parse(stored.recoveryCopyDeleteAfter))
+          ))
       ) {
         throw new Error("本地保存意图与录音清单不一致");
       }
+      return {
+        ...expected,
+        recoveryCopyDeleteAfter: stored.recoveryCopyDeleteAfter ?? null,
+        status: stored.status,
+      };
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
         throw error;
       }
       await atomicWrite(this.saveIntentPath(manifest.captureId), jsonBytes(expected));
+      return expected;
     }
+  }
+
+  markWorkspaceVerified(captureId: string, recoveryCopyDeleteAfter: string): Promise<void> {
+    return this.enqueue(captureId, async () => {
+      if (Number.isNaN(Date.parse(recoveryCopyDeleteAfter))) {
+        throw new TypeError("Local Recording Recovery Copy 清理时间无效");
+      }
+      const manifest = await this.readManifest(captureId);
+      const intent = await this.verifySavedManifestAndIntent(manifest);
+      await atomicWrite(
+        this.saveIntentPath(captureId),
+        jsonBytes({
+          ...intent,
+          recoveryCopyDeleteAfter,
+          status: "workspace-verified",
+        } satisfies SaveIntent),
+      );
+    });
   }
 
   async discard(captureId: string): Promise<void> {
@@ -689,13 +747,37 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
             }
           }
           if (manifest.status === "saved-local") {
-            await this.verifySavedManifestAndIntent(manifest);
-          }
-          await this.releaseActiveLock(manifest.captureId);
-          if (manifest.status === "interrupted" || manifest.status === "saved-local") {
+            const intent = await this.verifySavedManifestAndIntent(manifest);
+            if (
+              intent.status === "workspace-verified" &&
+              intent.recoveryCopyDeleteAfter &&
+              Date.parse(intent.recoveryCopyDeleteAfter) <= this.now().getTime()
+            ) {
+              await rm(this.captureDirectory(manifest.captureId), {
+                force: true,
+                recursive: true,
+              });
+              await this.releaseActiveLock(manifest.captureId);
+              return;
+            }
+            await this.releaseActiveLock(manifest.captureId);
             recoverable.push({
               captureId: manifest.captureId,
               possibleTailGap: manifest.possibleTailGap || verification.truncated,
+              recoveryCopyDeleteAfter: intent.recoveryCopyDeleteAfter,
+              recruitingRecordId: manifest.recruitingRecordId,
+              startedAt: manifest.startedAt,
+              status: manifest.status,
+              tracks: summarize(verification.fragments),
+            });
+            return;
+          }
+          await this.releaseActiveLock(manifest.captureId);
+          if (manifest.status === "interrupted") {
+            recoverable.push({
+              captureId: manifest.captureId,
+              possibleTailGap: manifest.possibleTailGap || verification.truncated,
+              recoveryCopyDeleteAfter: null,
               recruitingRecordId: manifest.recruitingRecordId,
               startedAt: manifest.startedAt,
               status: manifest.status,

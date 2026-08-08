@@ -179,10 +179,138 @@ export async function presignMeetingRecordingPutObject(input: {
   return { expiresAt: new Date(Date.now() + expiresInSeconds * 1000), headers, url };
 }
 
+export async function createMeetingRecordingMultipartUpload(input: {
+  contentType: string;
+  sha256: string;
+  storageKey: string;
+}): Promise<string> {
+  const [{ CreateMultipartUploadCommand }, { client, config }] = await Promise.all([
+    import("@aws-sdk/client-s3"),
+    getRecordingClient(),
+  ]);
+  const result = await client.send(
+    new CreateMultipartUploadCommand({
+      Bucket: config.bucket,
+      ContentType: input.contentType,
+      Key: input.storageKey,
+      Metadata: { sha256: input.sha256 },
+    }),
+  );
+  if (!result.UploadId) {
+    throw new Error("Recording R2 未返回 multipart upload id");
+  }
+  return result.UploadId;
+}
+
+export async function abortMeetingRecordingMultipartUpload(input: {
+  storageKey: string;
+  uploadId: string;
+}): Promise<void> {
+  const [{ AbortMultipartUploadCommand }, { client, config }] = await Promise.all([
+    import("@aws-sdk/client-s3"),
+    getRecordingClient(),
+  ]);
+  await client.send(
+    new AbortMultipartUploadCommand({
+      Bucket: config.bucket,
+      Key: input.storageKey,
+      UploadId: input.uploadId,
+    }),
+  );
+}
+
+export async function listMeetingRecordingUploadParts(input: {
+  storageKey: string;
+  uploadId: string;
+}): Promise<{ etag: string; partNumber: number; sizeBytes: number }[]> {
+  const [{ ListPartsCommand }, { client, config }] = await Promise.all([
+    import("@aws-sdk/client-s3"),
+    getRecordingClient(),
+  ]);
+  const parts: { etag: string; partNumber: number; sizeBytes: number }[] = [];
+  let partNumberMarker: string | undefined;
+  do {
+    const result = await client.send(
+      new ListPartsCommand({
+        Bucket: config.bucket,
+        Key: input.storageKey,
+        PartNumberMarker: partNumberMarker,
+        UploadId: input.uploadId,
+      }),
+    );
+    for (const part of result.Parts ?? []) {
+      if (
+        typeof part.ETag === "string" &&
+        typeof part.PartNumber === "number" &&
+        typeof part.Size === "number"
+      ) {
+        parts.push({ etag: part.ETag, partNumber: part.PartNumber, sizeBytes: part.Size });
+      }
+    }
+    partNumberMarker = result.IsTruncated ? result.NextPartNumberMarker : undefined;
+  } while (partNumberMarker);
+  return parts;
+}
+
+export async function presignMeetingRecordingUploadPart(input: {
+  md5Base64: string;
+  partNumber: number;
+  sizeBytes: number;
+  storageKey: string;
+  uploadId: string;
+  expiresInSeconds?: number;
+}): Promise<{ expiresAt: Date; headers: Record<string, string>; url: string }> {
+  const expiresInSeconds = input.expiresInSeconds ?? 3600;
+  const [{ UploadPartCommand }, { getSignedUrl }, { client, config }] = await Promise.all([
+    import("@aws-sdk/client-s3"),
+    import("@aws-sdk/s3-request-presigner"),
+    getRecordingClient(),
+  ]);
+  const url = await getSignedUrl(
+    client,
+    new UploadPartCommand({
+      Bucket: config.bucket,
+      ContentLength: input.sizeBytes,
+      ContentMD5: input.md5Base64,
+      Key: input.storageKey,
+      PartNumber: input.partNumber,
+      UploadId: input.uploadId,
+    }),
+    { expiresIn: expiresInSeconds },
+  );
+  return {
+    expiresAt: new Date(Date.now() + expiresInSeconds * 1000),
+    headers: { "content-md5": input.md5Base64 },
+    url,
+  };
+}
+
+export async function completeMeetingRecordingMultipartUpload(input: {
+  parts: { etag: string; partNumber: number }[];
+  storageKey: string;
+  uploadId: string;
+}): Promise<void> {
+  const [{ CompleteMultipartUploadCommand }, { client, config }] = await Promise.all([
+    import("@aws-sdk/client-s3"),
+    getRecordingClient(),
+  ]);
+  await client.send(
+    new CompleteMultipartUploadCommand({
+      Bucket: config.bucket,
+      Key: input.storageKey,
+      MultipartUpload: {
+        Parts: input.parts.map((part) => ({ ETag: part.etag, PartNumber: part.partNumber })),
+      },
+      UploadId: input.uploadId,
+    }),
+  );
+}
+
 export async function headMeetingRecordingObject(storageKey: string): Promise<{
   checksumSha256: string | null;
   contentLength: number;
   contentType: string;
+  etag: string | null;
   sha256: string | null;
 } | null> {
   const [{ HeadObjectCommand }, { client, config }] = await Promise.all([
@@ -200,6 +328,7 @@ export async function headMeetingRecordingObject(storageKey: string): Promise<{
       checksumSha256: result.ChecksumSHA256 ?? null,
       contentLength: result.ContentLength,
       contentType: result.ContentType,
+      etag: result.ETag ?? null,
       sha256: result.Metadata?.sha256 ?? null,
     };
   } catch (error) {

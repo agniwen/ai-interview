@@ -301,6 +301,7 @@ export const meetingSession = pgTable(
     ownerId: text("owner_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    recoveryCopyDeleteAfter: timestamp("recovery_copy_delete_after", { withTimezone: true }),
     savedAt: timestamp("saved_at", { withTimezone: true }).notNull(),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
     status: text("status").default("uploading").notNull(),
@@ -330,11 +331,21 @@ export const meetingRecordingAsset = pgTable(
     meetingId: text("meeting_id")
       .notNull()
       .references(() => meetingSession.id, { onDelete: "cascade" }),
+    multipartParts: jsonb("multipart_parts").$type<
+      {
+        md5Base64: string;
+        offsetBytes: number;
+        partNumber: number;
+        sizeBytes: number;
+      }[]
+    >(),
+    multipartUploadId: text("multipart_upload_id"),
     sha256: text("sha256").notNull(),
     sizeBytes: integer("size_bytes").notNull(),
     status: text("status").default("uploading").notNull(),
     storageKey: text("storage_key").notNull().unique(),
     track: text("track").notNull(),
+    uploadMode: text("upload_mode").default("single").notNull(),
     verifiedAt: timestamp("verified_at", { withTimezone: true }),
   },
   (table) => [

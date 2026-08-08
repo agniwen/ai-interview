@@ -1,9 +1,21 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { meetingRecordingAsset, meetingSession } from "@arc/db-schema/schema";
-import type { CreateSmallSavedMeetingInput } from "@arc/shared/meeting-recording";
+import type {
+  CreateMultipartSavedMeetingInput,
+  CreateSmallSavedMeetingInput,
+} from "@arc/shared/meeting-recording";
 
-export type NewMeetingAsset = CreateSmallSavedMeetingInput["assets"][number] & {
+export type NewMeetingAsset = (
+  | (CreateSmallSavedMeetingInput["assets"][number] & {
+      multipartParts?: null;
+      uploadMode?: "single";
+    })
+  | (CreateMultipartSavedMeetingInput["assets"][number] & {
+      multipartParts: CreateMultipartSavedMeetingInput["assets"][number]["parts"];
+      uploadMode: "multipart";
+    })
+) & {
   storageKey: string;
 };
 
@@ -46,11 +58,13 @@ export async function createOrLoadMeetingSession(input: {
         fragmentCount: asset.fragmentCount,
         id: `${input.meeting.id}:${asset.track}`,
         meetingId: input.meeting.id,
+        multipartParts: asset.multipartParts ?? null,
         sha256: asset.sha256,
         sizeBytes: asset.sizeBytes,
         status: "uploading",
         storageKey: asset.storageKey,
         track: asset.track,
+        uploadMode: asset.uploadMode ?? "single",
       })),
     );
     return true;
@@ -58,26 +72,54 @@ export async function createOrLoadMeetingSession(input: {
   return { created, meeting: await loadMeetingSession(input.meeting.id) };
 }
 
+export async function recordMeetingAssetMultipartUploadId(input: {
+  assetId: string;
+  uploadId: string;
+}): Promise<boolean> {
+  const updated = await db
+    .update(meetingRecordingAsset)
+    .set({ multipartUploadId: input.uploadId })
+    .where(
+      and(
+        eq(meetingRecordingAsset.id, input.assetId),
+        isNull(meetingRecordingAsset.multipartUploadId),
+      ),
+    )
+    .returning({ id: meetingRecordingAsset.id });
+  return updated.length > 0;
+}
+
 export async function markMeetingSessionVerified(input: {
   meetingId: string;
   organizationId: string;
   ownerId: string;
-}): Promise<void> {
+}): Promise<Date> {
   const verifiedAt = new Date();
-  await db.transaction(async (tx) => {
+  const recoveryCopyDeleteAfter = new Date(verifiedAt.getTime() + 24 * 60 * 60 * 1000);
+  const persistedDeadline = await db.transaction(async (tx) => {
     await tx
       .update(meetingRecordingAsset)
       .set({ status: "ready", verifiedAt })
       .where(eq(meetingRecordingAsset.meetingId, input.meetingId));
-    await tx
+    const [updated] = await tx
       .update(meetingSession)
-      .set({ status: "workspace-verified", verifiedAt })
+      .set({
+        recoveryCopyDeleteAfter: sql`coalesce(${meetingSession.recoveryCopyDeleteAfter}, ${recoveryCopyDeleteAfter})`,
+        status: "workspace-verified",
+        verifiedAt,
+      })
       .where(
         and(
           eq(meetingSession.id, input.meetingId),
           eq(meetingSession.organizationId, input.organizationId),
           eq(meetingSession.ownerId, input.ownerId),
         ),
-      );
+      )
+      .returning({ recoveryCopyDeleteAfter: meetingSession.recoveryCopyDeleteAfter });
+    return updated?.recoveryCopyDeleteAfter;
   });
+  if (!persistedDeadline) {
+    throw new Error("Meeting Session 验证状态未能持久化");
+  }
+  return persistedDeadline;
 }

@@ -4,6 +4,7 @@ import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 
 const mocks = vi.hoisted(() => ({
   completeSmallSavedMeeting: vi.fn(),
+  createMultipartSavedMeeting: vi.fn(),
   createSmallSavedMeeting: vi.fn(),
 }));
 
@@ -110,6 +111,61 @@ describe("Meeting Buddy small Saved Meeting control plane", () => {
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({
       error: "Meeting Session 已绑定另一份本地录音清单",
+    });
+  });
+
+  it("creates a resumable multipart plan for large logical source tracks", async () => {
+    const firstPartBytes = 8 * 1024 * 1024;
+    const multipartInput = {
+      ...createInput,
+      assets: createInput.assets.map((asset) => ({
+        ...asset,
+        parts: [
+          {
+            md5Base64: "6NxAgbE0NLRRiacgt3toGA==",
+            offsetBytes: 0,
+            partNumber: 1,
+            sizeBytes: firstPartBytes,
+          },
+          {
+            md5Base64: "e+1lendcN8JXB4bQy+79iA==",
+            offsetBytes: firstPartBytes,
+            partNumber: 2,
+            sizeBytes: 2,
+          },
+        ],
+        sizeBytes: firstPartBytes + 2,
+      })),
+    };
+    mocks.createMultipartSavedMeeting.mockResolvedValue({
+      created: false,
+      meetingId: MEETING_ID,
+      state: "uploading",
+      uploads: [
+        {
+          expiresAt: "2026-08-09T02:06:00.000Z",
+          headers: { "content-md5": "e+1lendcN8JXB4bQy+79iA==" },
+          method: "PUT",
+          offsetBytes: firstPartBytes,
+          partNumber: 2,
+          sizeBytes: 2,
+          track: "microphone",
+          url: "https://r2.invalid/microphone-part-2",
+        },
+      ],
+    });
+
+    const response = await client.meetings.multipart.$post({ json: multipartInput });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      state: "uploading",
+      uploads: [{ partNumber: 2, track: "microphone" }],
+    });
+    expect(mocks.createMultipartSavedMeeting).toHaveBeenCalledWith({
+      input: multipartInput,
+      organizationId: "org-72",
+      ownerId: "user-72",
     });
   });
 

@@ -27,6 +27,20 @@ function formatElapsed(milliseconds: number): string {
     .join(":");
 }
 
+function formatRecoveryDeadline(value: string): string {
+  return new Intl.DateTimeFormat("zh-CN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function recoveryTitle(capture: RecoverableMeetingCapture): string {
+  if (capture.status === "interrupted") {
+    return "发现中断的本地录音";
+  }
+  return capture.recoveryCopyDeleteAfter ? "Local Recording Recovery Copy" : "发现待处理的本地保存";
+}
+
 function useElapsed(startedAt?: string) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -77,12 +91,11 @@ function RecoveryRow({
   return (
     <div className="grid gap-2 rounded-lg border border-border bg-muted/30 p-3">
       <div>
-        <p className="font-medium text-sm">
-          {capture.status === "interrupted" ? "发现中断的本地录音" : "发现待处理的本地保存"}
-        </p>
+        <p className="font-medium text-sm">{recoveryTitle(capture)}</p>
         <p className="text-muted-foreground text-xs">
-          已校验 {fragments} 个连续分片；麦克风落盘至 {microphoneSeconds}s，系统音频落盘至{" "}
-          {systemSeconds}s{capture.possibleTailGap ? "，结尾可能有未落盘缺口" : ""}
+          {capture.recoveryCopyDeleteAfter
+            ? `服务器已验证双轨源音频；本地副本将在 ${formatRecoveryDeadline(capture.recoveryCopyDeleteAfter)} 后自动清理。`
+            : `已校验 ${fragments} 个连续分片；麦克风落盘至 ${microphoneSeconds}s，系统音频落盘至 ${systemSeconds}s${capture.possibleTailGap ? "，结尾可能有未落盘缺口" : ""}`}
         </p>
       </div>
       <div className="flex justify-end gap-2">
@@ -93,9 +106,11 @@ function RecoveryRow({
         >
           放弃
         </Button>
-        <Button onClick={() => onSave(capture.captureId)} size="sm">
-          保存恢复录音
-        </Button>
+        {capture.recoveryCopyDeleteAfter ? null : (
+          <Button onClick={() => onSave(capture.captureId)} size="sm">
+            保存恢复录音
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -212,8 +227,10 @@ export function MeetingCaptureStatus({
                   <p className="font-semibold text-sm">{copy?.title ?? "录音已安全保存在本地"}</p>
                   <p className="text-muted-foreground text-xs">
                     {workspaceSave?.error ??
-                      copy?.description ??
-                      "双轨清单和保存意图已冻结，尚未保存到工作区。"}
+                      (workspaceSave?.state === "workspace-verified" &&
+                      workspaceSave.recoveryCopyDeleteAfter
+                        ? `双轨源音频已验证；本地 Recovery Copy 将在 ${formatRecoveryDeadline(workspaceSave.recoveryCopyDeleteAfter)} 后自动清理。`
+                        : (copy?.description ?? "双轨清单和保存意图已冻结，尚未保存到工作区。"))}
                   </p>
                 </div>
               </div>

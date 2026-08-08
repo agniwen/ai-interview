@@ -52,6 +52,7 @@ export interface RecoverableMeetingCapture {
   captureId: string;
   possibleTailGap: boolean;
   recruitingRecordId: string | null;
+  recoveryCopyDeleteAfter: string | null;
   startedAt: string;
   status: "interrupted" | "saved-local";
   tracks: Record<CaptureTrack, RecordingTrackSummary>;
@@ -77,6 +78,7 @@ export type WorkspaceSavePhase =
 export interface WorkspaceSaveState {
   captureId: string;
   error: string | null;
+  recoveryCopyDeleteAfter: string | null;
   state: WorkspaceSavePhase;
 }
 
@@ -85,7 +87,7 @@ export interface WorkspaceRecordingPort {
     captureId: string;
     manifestSha256: string;
     report: (state: Extract<WorkspaceSavePhase, "uploading" | "verifying">) => void;
-  }) => Promise<void>;
+  }) => Promise<{ recoveryCopyDeleteAfter: string }>;
 }
 
 export interface CaptureFragment {
@@ -136,6 +138,7 @@ export interface MeetingRecordingStore {
   append: (input: AppendLocalFragmentInput, bytes: Uint8Array) => Promise<void>;
   begin: (input: BeginLocalCaptureInput) => Promise<void>;
   discard: (captureId: string) => Promise<void>;
+  markWorkspaceVerified: (captureId: string, recoveryCopyDeleteAfter: string) => Promise<void>;
   recover: () => Promise<RecoverableMeetingCapture[]>;
   save: (captureId: string) => Promise<LocalSavedMeeting>;
 }
@@ -182,6 +185,7 @@ function asRecoverable(saved: LocalSavedMeeting): RecoverableMeetingCapture {
   return {
     captureId: saved.captureId,
     possibleTailGap: saved.possibleTailGap,
+    recoveryCopyDeleteAfter: null,
     recruitingRecordId: saved.recruitingRecordId,
     startedAt: saved.startedAt,
     status: saved.status,
@@ -215,6 +219,7 @@ export function createMeetingCapture({
   const pendingFragments = new Set<Promise<void>>();
   const listeners = new Set<(next: MeetingCaptureSnapshot) => void>();
   const workspaceOperations = new Map<string, Promise<void>>();
+  const recoveryCleanupTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   const publish = (next: MeetingCaptureSnapshot) => {
     snapshot = next;
@@ -227,9 +232,62 @@ export function createMeetingCapture({
     publish({ ...snapshot, ...next });
   };
 
-  const patchWorkspaceSave = (captureId: string, next: Omit<WorkspaceSaveState, "captureId">) => {
-    const current = snapshot.workspaceSaves.filter((item) => item.captureId !== captureId);
-    patch({ workspaceSaves: [...current, { captureId, ...next }] });
+  const patchWorkspaceSave = (
+    captureId: string,
+    next: Omit<WorkspaceSaveState, "captureId" | "recoveryCopyDeleteAfter"> &
+      Partial<Pick<WorkspaceSaveState, "recoveryCopyDeleteAfter">>,
+  ) => {
+    const existing = snapshot.workspaceSaves.find((item) => item.captureId === captureId);
+    const retained = snapshot.workspaceSaves.filter((item) => item.captureId !== captureId);
+    patch({
+      workspaceSaves: [
+        ...retained,
+        {
+          captureId,
+          recoveryCopyDeleteAfter:
+            next.recoveryCopyDeleteAfter ?? existing?.recoveryCopyDeleteAfter ?? null,
+          ...next,
+        },
+      ],
+    });
+  };
+
+  const clearRecoveryCleanup = (captureId: string) => {
+    const timer = recoveryCleanupTimers.get(captureId);
+    if (timer) {
+      clearTimeout(timer);
+      recoveryCleanupTimers.delete(captureId);
+    }
+  };
+
+  const scheduleRecoveryCleanup = (captureId: string, deadline: string): void => {
+    clearRecoveryCleanup(captureId);
+    const remainingMs = Date.parse(deadline) - now().getTime();
+    const delayMs = Math.max(0, Math.min(remainingMs, 2_147_000_000));
+    const timer = setTimeout(() => {
+      recoveryCleanupTimers.delete(captureId);
+      if (remainingMs > delayMs) {
+        scheduleRecoveryCleanup(captureId, deadline);
+        return;
+      }
+      void store
+        .discard(captureId)
+        .then(() => {
+          patch({
+            phase: snapshot.active ? snapshot.phase : "idle",
+            recoverable: snapshot.recoverable.filter((item) => item.captureId !== captureId),
+            saved: snapshot.saved?.captureId === captureId ? null : snapshot.saved,
+            workspaceSaves: snapshot.workspaceSaves.filter((item) => item.captureId !== captureId),
+          });
+        })
+        .catch((error: unknown) => {
+          patch({
+            error:
+              error instanceof Error ? error.message : "Local Recording Recovery Copy 自动清理失败",
+          });
+        });
+    }, delayMs);
+    recoveryCleanupTimers.set(captureId, timer);
   };
 
   const persistToWorkspace = (saved: LocalSavedMeeting): void => {
@@ -247,8 +305,14 @@ export function createMeetingCapture({
         manifestSha256: saved.manifestSha256,
         report: (state) => patchWorkspaceSave(saved.captureId, { error: null, state }),
       })
-      .then(() => {
-        patchWorkspaceSave(saved.captureId, { error: null, state: "workspace-verified" });
+      .then(async (result) => {
+        await store.markWorkspaceVerified(saved.captureId, result.recoveryCopyDeleteAfter);
+        scheduleRecoveryCleanup(saved.captureId, result.recoveryCopyDeleteAfter);
+        patchWorkspaceSave(saved.captureId, {
+          error: null,
+          recoveryCopyDeleteAfter: result.recoveryCopyDeleteAfter,
+          state: "workspace-verified",
+        });
       })
       .catch((error: unknown) => {
         patchWorkspaceSave(saved.captureId, {
@@ -264,8 +328,16 @@ export function createMeetingCapture({
 
   const ready = store
     .recover()
-    .then((recoverable) => {
+    .then(async (recoverable) => {
       patch({ recoverable, recoveryComplete: true });
+      for (const capture of recoverable) {
+        if (capture.recoveryCopyDeleteAfter) {
+          scheduleRecoveryCleanup(capture.captureId, capture.recoveryCopyDeleteAfter);
+        }
+        if (capture.status === "saved-local" && !capture.recoveryCopyDeleteAfter) {
+          persistToWorkspace(await store.save(capture.captureId));
+        }
+      }
     })
     .catch((error: unknown) => {
       patch({
@@ -393,6 +465,7 @@ export function createMeetingCapture({
       }
       try {
         await store.discard(captureId);
+        clearRecoveryCleanup(captureId);
       } catch {
         // Best effort when begin did not reach durable spool creation.
       }

@@ -6,7 +6,10 @@ import type {
   FragmentWriteResponse,
 } from "../../preload/meeting-capture-api";
 import type { LocalMeetingRecordingStore } from "./local-meeting-recording-store";
-import type { SmallMeetingUploadInstruction } from "@arc/shared/meeting-recording";
+import type {
+  MultipartMeetingUploadInstruction,
+  SmallMeetingUploadInstruction,
+} from "@arc/shared/meeting-recording";
 import { getMainWindowWebContents } from "../window";
 
 const MAX_FRAGMENT_BYTES = 32 * 1024 * 1024;
@@ -76,6 +79,40 @@ function isUploadInstruction(value: unknown): value is SmallMeetingUploadInstruc
     typeof instruction.expiresAt === "string" &&
     !Number.isNaN(Date.parse(instruction.expiresAt)) &&
     hasValidUploadHeaders(instruction.headers)
+  );
+}
+
+function isMultipartPartIdentity(instruction: Record<string, unknown>): boolean {
+  return (
+    Number.isInteger(instruction.partNumber) &&
+    typeof instruction.partNumber === "number" &&
+    instruction.partNumber > 0 &&
+    instruction.partNumber <= 10_000 &&
+    Number.isInteger(instruction.offsetBytes) &&
+    isFiniteNonNegative(instruction.offsetBytes) &&
+    Number.isInteger(instruction.sizeBytes) &&
+    typeof instruction.sizeBytes === "number" &&
+    instruction.sizeBytes > 0
+  );
+}
+
+function isMultipartUploadInstruction(value: unknown): value is MultipartMeetingUploadInstruction {
+  if (!(value && typeof value === "object")) {
+    return false;
+  }
+  const instruction = value as Record<string, unknown>;
+  const headers = instruction.headers as Record<string, unknown> | undefined;
+  return (
+    (instruction.track === "microphone" || instruction.track === "system") &&
+    instruction.method === "PUT" &&
+    isMultipartPartIdentity(instruction) &&
+    typeof instruction.url === "string" &&
+    instruction.url.length <= 8192 &&
+    typeof instruction.expiresAt === "string" &&
+    !Number.isNaN(Date.parse(instruction.expiresAt)) &&
+    Boolean(headers) &&
+    typeof headers?.["content-md5"] === "string" &&
+    /^[A-Za-z\d+/]{22}==$/.test(headers["content-md5"])
   );
 }
 
@@ -154,6 +191,12 @@ export function registerMeetingCaptureIpc(store: LocalMeetingRecordingStore): vo
     }
     return store.describeWorkspaceSave(captureId);
   });
+  ipcMain.handle("meeting-capture:describe-multipart-workspace-save", (event, captureId) => {
+    if (!isTrustedMainFrame(event) || !isCaptureId(captureId)) {
+      throw new Error("不受信任的录制请求");
+    }
+    return store.describeMultipartWorkspaceSave(captureId);
+  });
   ipcMain.handle("meeting-capture:upload-small", (event, captureId, instructions) => {
     if (
       !isTrustedMainFrame(event) ||
@@ -166,12 +209,38 @@ export function registerMeetingCaptureIpc(store: LocalMeetingRecordingStore): vo
     }
     return store.uploadSmall(captureId, instructions);
   });
+  ipcMain.handle("meeting-capture:upload-multipart", (event, captureId, instructions) => {
+    if (
+      !isTrustedMainFrame(event) ||
+      !isCaptureId(captureId) ||
+      !Array.isArray(instructions) ||
+      instructions.length > 20_000 ||
+      !instructions.every(isMultipartUploadInstruction)
+    ) {
+      throw new Error("不受信任的录制 multipart 上传请求");
+    }
+    return store.uploadMultipart(captureId, instructions);
+  });
   ipcMain.handle("meeting-capture:discard", (event, captureId) => {
     if (!isTrustedMainFrame(event) || !isCaptureId(captureId)) {
       throw new Error("不受信任的录制请求");
     }
     return store.discard(captureId);
   });
+  ipcMain.handle(
+    "meeting-capture:mark-workspace-verified",
+    (event, captureId, recoveryCopyDeleteAfter) => {
+      if (
+        !isTrustedMainFrame(event) ||
+        !isCaptureId(captureId) ||
+        typeof recoveryCopyDeleteAfter !== "string" ||
+        Number.isNaN(Date.parse(recoveryCopyDeleteAfter))
+      ) {
+        throw new Error("不受信任的录制验证请求");
+      }
+      return store.markWorkspaceVerified(captureId, recoveryCopyDeleteAfter);
+    },
+  );
   ipcMain.handle("meeting-capture:recover", (event) => {
     if (!isTrustedMainFrame(event)) {
       throw new Error("不受信任的录制请求");

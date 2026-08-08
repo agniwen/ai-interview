@@ -1,10 +1,15 @@
 import { zValidator } from "@hono/zod-validator";
 import {
   completeSmallSavedMeetingSchema,
+  createMultipartSavedMeetingSchema,
   createSmallSavedMeetingSchema,
 } from "@arc/shared/meeting-recording";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
-import { completeSmallSavedMeeting, createSmallSavedMeeting } from "./service";
+import {
+  completeSmallSavedMeeting,
+  createMultipartSavedMeeting,
+  createSmallSavedMeeting,
+} from "./service";
 
 export const meetingsRouter = factory
   .createApp()
@@ -25,7 +30,39 @@ export const meetingsRouter = factory
         return c.json({ error: result.message }, 409);
       }
       return c.json(
-        { meetingId: result.meetingId, state: result.state, uploads: result.uploads },
+        {
+          meetingId: result.meetingId,
+          recoveryCopyDeleteAfter: result.recoveryCopyDeleteAfter,
+          state: result.state,
+          uploads: result.uploads,
+        },
+        result.created ? 201 : 200,
+      );
+    },
+  )
+  .post(
+    "/multipart",
+    zValidator("json", createMultipartSavedMeetingSchema, jsonValidatorError("保存清单无效")),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!(activeOrg && user)) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const result = await createMultipartSavedMeeting({
+        input: c.req.valid("json"),
+        organizationId: activeOrg.id,
+        ownerId: user.id,
+      });
+      if ("conflict" in result) {
+        return c.json({ error: result.message }, 409);
+      }
+      return c.json(
+        {
+          meetingId: result.meetingId,
+          recoveryCopyDeleteAfter: result.recoveryCopyDeleteAfter,
+          state: result.state,
+          uploads: result.uploads,
+        },
         result.created ? 201 : 200,
       );
     },
@@ -47,6 +84,13 @@ export const meetingsRouter = factory
       if ("error" in result) {
         return c.json({ error: result.error }, result.status);
       }
-      return c.json({ meetingId: result.meetingId, state: result.state }, 200);
+      return c.json(
+        {
+          meetingId: result.meetingId,
+          recoveryCopyDeleteAfter: result.recoveryCopyDeleteAfter,
+          state: result.state,
+        },
+        200,
+      );
     },
   );
