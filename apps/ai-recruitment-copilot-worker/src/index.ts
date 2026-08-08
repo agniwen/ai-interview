@@ -20,6 +20,13 @@ import {
   enqueueMeetingPlaybackJobs,
   isMeetingProcessingQueueConfigured,
 } from "@arc/meeting-processing-queue/meeting-playback";
+import {
+  closeMeetingTranscriptionQueue,
+  createMeetingTranscriptionWorker,
+  enqueueMeetingTranscriptionJobs,
+  isMeetingTranscriptionQueueConfigured,
+} from "@arc/meeting-processing-queue/meeting-transcription";
+import { listMeetingTranscriptionProviderCandidates } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/provider-registry";
 import { createWorkerApp } from "./app";
 import { resolveWorkerServerConfig } from "./config";
 import { getWorkerConnectionSummary, loadWorkerEnv } from "./env";
@@ -77,7 +84,22 @@ async function recoverIncompleteMeetingPlaybackJobs(): Promise<void> {
   });
 }
 
+async function recoverIncompleteMeetingTranscriptionJobs(): Promise<void> {
+  const { listRecoverableMeetingTranscriptionJobs } =
+    await import("@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/dao");
+  const jobs = await listRecoverableMeetingTranscriptionJobs();
+  if (jobs.length === 0) {
+    console.info("[meeting-transcription-worker] recovery found no pending meetings");
+    return;
+  }
+  await enqueueMeetingTranscriptionJobs(jobs);
+  console.info("[meeting-transcription-worker] recovery enqueued meetings", {
+    count: jobs.length,
+  });
+}
+
 let meetingPlaybackRecoveryRunning = false;
+let meetingTranscriptionRecoveryRunning = false;
 
 async function reconcileMeetingPlaybackJobs(): Promise<void> {
   if (meetingPlaybackRecoveryRunning) {
@@ -90,6 +112,20 @@ async function reconcileMeetingPlaybackJobs(): Promise<void> {
     console.error("[meeting-playback-worker] periodic recovery failed", { error });
   } finally {
     meetingPlaybackRecoveryRunning = false;
+  }
+}
+
+async function reconcileMeetingTranscriptionJobs(): Promise<void> {
+  if (meetingTranscriptionRecoveryRunning) {
+    return;
+  }
+  meetingTranscriptionRecoveryRunning = true;
+  try {
+    await recoverIncompleteMeetingTranscriptionJobs();
+  } catch (error) {
+    console.error("[meeting-transcription-worker] periodic recovery failed", { error });
+  } finally {
+    meetingTranscriptionRecoveryRunning = false;
   }
 }
 
@@ -117,6 +153,8 @@ async function main() {
   let mailIngestScheduler: MailIngestScheduler | null = null;
   let meetingPlaybackWorker: ReturnType<typeof createMeetingPlaybackWorker> | null = null;
   let meetingPlaybackRecoveryTimer: NodeJS.Timeout | null = null;
+  let meetingTranscriptionWorker: ReturnType<typeof createMeetingTranscriptionWorker> | null = null;
+  let meetingTranscriptionRecoveryTimer: NodeJS.Timeout | null = null;
   if (isMeetingProcessingQueueConfigured()) {
     meetingPlaybackWorker = createMeetingPlaybackWorker(async (payload) => {
       const { runMeetingPlaybackProcessing } = await import("./meeting-playback/processor");
@@ -127,6 +165,25 @@ async function main() {
       void reconcileMeetingPlaybackJobs();
     }, 60_000);
     meetingPlaybackRecoveryTimer.unref();
+  }
+  if (
+    isMeetingTranscriptionQueueConfigured() &&
+    listMeetingTranscriptionProviderCandidates().length > 0
+  ) {
+    const { reapStaleMeetingTranscriptionDirectories, validateMeetingTranscriptionRuntime } =
+      await import("./meeting-transcription/processor");
+    await reapStaleMeetingTranscriptionDirectories();
+    await validateMeetingTranscriptionRuntime();
+    meetingTranscriptionWorker = createMeetingTranscriptionWorker(async (payload, context) => {
+      const { runMeetingTranscriptionProcessing } =
+        await import("./meeting-transcription/processor");
+      await runMeetingTranscriptionProcessing(payload, context);
+    });
+    await reconcileMeetingTranscriptionJobs();
+    meetingTranscriptionRecoveryTimer = setInterval(() => {
+      void reconcileMeetingTranscriptionJobs();
+    }, 60_000);
+    meetingTranscriptionRecoveryTimer.unref();
   }
   if (isResumeParseQueueConfigured()) {
     await recoverIncompleteResumeParseJobs();
@@ -177,8 +234,13 @@ async function main() {
         if (meetingPlaybackRecoveryTimer) {
           clearInterval(meetingPlaybackRecoveryTimer);
         }
+        if (meetingTranscriptionRecoveryTimer) {
+          clearInterval(meetingTranscriptionRecoveryTimer);
+        }
         await meetingPlaybackWorker?.close();
+        await meetingTranscriptionWorker?.close();
         await closeMeetingPlaybackQueue();
+        await closeMeetingTranscriptionQueue();
         await closeResumeParseQueue();
         await closeResumeSemanticIndexQueue();
         await closeResumeReviewGenerationQueue();

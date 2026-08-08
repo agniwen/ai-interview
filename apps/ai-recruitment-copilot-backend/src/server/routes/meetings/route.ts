@@ -15,9 +15,12 @@ import {
 import { meetingPlaybackRouter } from "./routes/playback/route";
 import { meetingNotesRouter } from "./routes/notes/route";
 import { meetingShareRouter } from "./routes/share/route";
+import { meetingTranscriptRouter } from "./routes/transcript/route";
+import { meetingTranscriptionPolicyRouter } from "./routes/transcription-policy/route";
 
 export const meetingsRouter = factory
   .createApp()
+  .route("/transcription-policy", meetingTranscriptionPolicyRouter)
   .get("/", async (c) => {
     const { activeOrg, member, user } = c.var;
     if (!(activeOrg && member && user)) {
@@ -114,6 +117,7 @@ export const meetingsRouter = factory
   .route("/:id/playback", meetingPlaybackRouter)
   .route("/:id/notes", meetingNotesRouter)
   .route("/:id/share", meetingShareRouter)
+  .route("/:id/transcript", meetingTranscriptRouter)
   .get("/:id", async (c) => {
     const { activeOrg, member, user } = c.var;
     if (!(activeOrg && member && user)) {

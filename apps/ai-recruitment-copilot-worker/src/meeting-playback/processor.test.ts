@@ -24,6 +24,7 @@ function createDependencies() {
     createWorkingDirectory: vi.fn(() => Promise.resolve("/tmp/meeting-74")),
     deletePlayback: vi.fn(() => Promise.resolve()),
     downloadSource: vi.fn(() => Promise.resolve()),
+    enqueueTranscription: vi.fn(() => Promise.resolve()),
     inspectOutput: vi.fn(() => Promise.resolve({ sha256: "d".repeat(64), sizeBytes: 4096 })),
     loadSource: vi.fn(() =>
       Promise.resolve({
@@ -91,6 +92,10 @@ describe("Meeting playback processor", () => {
       sizeBytes: 4096,
       storageKey: "meetings/org/meeting/playback.webm",
     });
+    expect(deps.enqueueTranscription).toHaveBeenCalledWith({
+      meetingId: "meeting-74",
+      organizationId: "org-74",
+    });
   });
 
   it("keeps verified sources intact and leaves a retryable failure when mixing fails", async () => {
@@ -136,6 +141,18 @@ describe("Meeting playback processor", () => {
     expect(deps.publishPlayback).toHaveBeenCalledTimes(1);
     expect(deps.deletePlayback).toHaveBeenCalledWith("meetings/org/meeting/playback.webm");
     expect(deps.markFailed).not.toHaveBeenCalled();
+    expect(deps.enqueueTranscription).not.toHaveBeenCalled();
+  });
+
+  it("keeps the published playback ready when immediate transcription enqueue fails", async () => {
+    const deps = createDependencies();
+    deps.enqueueTranscription.mockRejectedValueOnce(new Error("redis unavailable"));
+
+    await runMeetingPlaybackProcessing({ meetingId: "meeting-74", organizationId: "org-74" }, deps);
+
+    expect(deps.publishPlayback).toHaveBeenCalledTimes(1);
+    expect(deps.markFailed).not.toHaveBeenCalled();
+    expect(deps.deletePlayback).not.toHaveBeenCalled();
   });
 
   it("removes its run object after verification proves it cannot be published", async () => {

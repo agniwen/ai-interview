@@ -2,7 +2,7 @@
 # Build from the monorepo root:
 #   docker build -f apps/ai-recruitment-copilot-worker/Dockerfile .
 
-FROM node:22-slim AS base
+FROM node:22.23.1-bookworm-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
@@ -42,18 +42,21 @@ RUN pnpm --filter @arc/ai-recruitment-copilot-worker build
 RUN node -e "const fs = require('node:fs'); const path = require('node:path'); const entry = require.resolve('mupdf', { paths: ['/repo/apps/ai-recruitment-copilot-backend'] }); fs.copyFileSync(path.join(path.dirname(entry), 'mupdf-wasm.wasm'), '/repo/apps/ai-recruitment-copilot-worker/dist/mupdf-wasm.wasm');"
 RUN CI=true pnpm --filter @arc/ai-recruitment-copilot-worker deploy --legacy --prod /prod
 
-FROM node:22-slim AS runner
+FROM node:22.23.1-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV WORKER_HOST="0.0.0.0"
 ENV WORKER_PORT=8790
 ENV LIBREOFFICE_BIN=/usr/bin/soffice
+ENV MEETING_TRANSCRIPTION_FFMPEG_VERSION_PREFIX="ffmpeg version 5.1.9"
+
+ARG FFMPEG_DEBIAN_VERSION="7:5.1.9-0+deb12u1"
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     fontconfig \
-    ffmpeg \
+    ffmpeg="${FFMPEG_DEBIAN_VERSION}" \
     fonts-noto-cjk \
     libreoffice-calc \
     libreoffice-impress \

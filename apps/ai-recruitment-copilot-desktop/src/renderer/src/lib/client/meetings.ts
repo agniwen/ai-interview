@@ -8,6 +8,11 @@ import type {
   UpdateMeetingNoteInput,
   UpdateMeetingShareInput,
 } from "@arc/shared/meeting-recording";
+import type {
+  MeetingTranscriptResult,
+  MeetingTranscriptionPolicy,
+  UpdateMeetingTranscriptionPolicyInput,
+} from "@arc/shared/meeting-transcription";
 import { apiJson } from "./rpc-fetch";
 import { apiUrl } from "./rpc";
 
@@ -22,7 +27,15 @@ export const desktopMeetingKeys = {
   root: ["desktop-meetings"] as const,
   share: (slug: string, meetingId: string) =>
     ["desktop-meetings", slug, "share", meetingId] as const,
+  transcript: (slug: string, meetingId: string) =>
+    ["desktop-meetings", slug, "transcript", meetingId] as const,
+  transcriptionPolicy: (slug: string) =>
+    ["desktop-meetings", slug, "transcription-policy"] as const,
 };
+
+function meetingSubresourcePath(slug: string, meetingId: string, resource: string): string {
+  return `/api/w/${encodeURIComponent(slug)}/meetings/${encodeURIComponent(meetingId)}/${resource}`;
+}
 
 export function fetchMeetings(slug: string): Promise<MeetingLibraryItem[]> {
   const path = `/api/w/${encodeURIComponent(slug)}/meetings`;
@@ -54,8 +67,42 @@ export function retryMeetingPlayback(
   return apiJson(apiUrl(path), "重试会议录音处理失败", { method: "POST" });
 }
 
-function meetingSubresourcePath(slug: string, meetingId: string, resource: string): string {
-  return `/api/w/${encodeURIComponent(slug)}/meetings/${encodeURIComponent(meetingId)}/${resource}`;
+export function fetchMeetingTranscript(
+  slug: string,
+  meetingId: string,
+): Promise<MeetingTranscriptResult> {
+  return apiJson(
+    apiUrl(meetingSubresourcePath(slug, meetingId, "transcript")),
+    "加载最终会议转录失败",
+  );
+}
+
+export function retryMeetingTranscript(
+  slug: string,
+  meetingId: string,
+): Promise<{ state: "processing" | "ready" }> {
+  return apiJson(
+    apiUrl(`${meetingSubresourcePath(slug, meetingId, "transcript")}/retry`),
+    "重试最终会议转录失败",
+    { method: "POST" },
+  );
+}
+
+export function fetchMeetingTranscriptionPolicy(slug: string): Promise<MeetingTranscriptionPolicy> {
+  const path = `/api/w/${encodeURIComponent(slug)}/meetings/transcription-policy`;
+  return apiJson(apiUrl(path), "加载最终转录策略失败");
+}
+
+export function updateMeetingTranscriptionPolicy(
+  slug: string,
+  policy: UpdateMeetingTranscriptionPolicyInput,
+): Promise<MeetingTranscriptionPolicy> {
+  const path = `/api/w/${encodeURIComponent(slug)}/meetings/transcription-policy`;
+  return apiJson(apiUrl(path), "更新最终转录策略失败", {
+    body: JSON.stringify(policy),
+    headers: { "Content-Type": "application/json" },
+    method: "PUT",
+  });
 }
 
 export function fetchMeetingNotes(slug: string, meetingId: string): Promise<MeetingNote[]> {

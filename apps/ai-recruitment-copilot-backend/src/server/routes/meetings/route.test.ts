@@ -12,15 +12,20 @@ const mocks = vi.hoisted(() => ({
   getMeetingNotes: vi.fn(),
   getMeetingShareSettings: vi.fn(),
   getSavedMeetingDetail: vi.fn(),
+  getSavedMeetingTranscript: vi.fn(),
+  getWorkspaceMeetingTranscriptionPolicy: vi.fn(),
   listSavedMeetings: vi.fn(),
   reassignSavedMeetingOwner: vi.fn(),
   removeMeetingNote: vi.fn(),
   retryMeetingPlayback: vi.fn(),
+  retrySavedMeetingTranscription: vi.fn(),
   updateMeetingShare: vi.fn(),
+  updateWorkspaceMeetingTranscriptionPolicy: vi.fn(),
 }));
 
 vi.mock("./service", () => mocks);
 vi.mock("./collaboration-service", () => mocks);
+vi.mock("./transcription/service", () => mocks);
 
 // oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
 import { meetingsRouter } from "./route";
@@ -376,5 +381,88 @@ describe("Meeting Buddy small Saved Meeting control plane", () => {
     });
 
     expect(response.status).toBe(409);
+  });
+
+  it("returns the explicit workspace transcription provider policy", async () => {
+    mocks.getWorkspaceMeetingTranscriptionPolicy.mockResolvedValue({
+      allowedProviders: ["openai"],
+      availableProviders: [
+        {
+          id: "openai",
+          label: "OpenAI candidate",
+          model: "gpt-4o-transcribe-diarize",
+          region: "openai-default",
+        },
+      ],
+      canManage: true,
+      revision: 1,
+      selectedProvider: "openai",
+    });
+
+    const response = await client.meetings["transcription-policy"].$get();
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ selectedProvider: "openai" });
+  });
+
+  it("updates provider policy through an administrator-only route", async () => {
+    mocks.updateWorkspaceMeetingTranscriptionPolicy.mockResolvedValue({
+      allowedProviders: ["openai"],
+      availableProviders: [],
+      canManage: true,
+      revision: 2,
+      selectedProvider: "openai",
+    });
+
+    const response = await client.meetings["transcription-policy"].$put({
+      json: { allowedProviders: ["openai"], selectedProvider: "openai" },
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.updateWorkspaceMeetingTranscriptionPolicy).toHaveBeenCalledWith({
+      memberRole: "admin",
+      organizationId: "org-72",
+      policy: { allowedProviders: ["openai"], selectedProvider: "openai" },
+      userId: "user-72",
+    });
+  });
+
+  it("returns a speaker-attributed final transcript after meeting authorization", async () => {
+    mocks.getSavedMeetingTranscript.mockResolvedValue({
+      error: null,
+      revision: {
+        createdAt: "2026-08-09T08:00:00.000Z",
+        id: "revision-76",
+        kind: "final",
+        language: "zh",
+        model: "gpt-4o-transcribe-diarize",
+        provider: "openai",
+        region: "openai-default",
+        revision: 1,
+        turns: [
+          {
+            confidence: null,
+            endMs: 2000,
+            id: "turn-76",
+            sequence: 0,
+            speakerKey: "local",
+            startMs: 1000,
+            text: "你好",
+            track: "local",
+          },
+        ],
+      },
+      state: "ready",
+    });
+
+    const response = await client.meetings[":id"].transcript.$get({
+      param: { id: MEETING_ID },
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      revision: { turns: [{ speakerKey: "local", startMs: 1000 }] },
+      state: "ready",
+    });
   });
 });

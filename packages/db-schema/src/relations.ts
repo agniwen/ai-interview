@@ -277,6 +277,17 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.meetingSession.id,
     }),
   },
+  meetingProcessingRun: {
+    meeting: r.one.meetingSession({
+      from: r.meetingProcessingRun.meetingId,
+      to: r.meetingSession.id,
+    }),
+    organization: r.one.organization({
+      from: r.meetingProcessingRun.organizationId,
+      to: r.organization.id,
+    }),
+    transcriptRevisions: r.many.meetingTranscriptRevision(),
+  },
   meetingRecordingAsset: {
     meeting: r.one.meetingSession({
       from: r.meetingRecordingAsset.meetingId,
@@ -297,6 +308,50 @@ export const relations = defineRelations(schema, (r) => ({
     }),
     owner: r.one.user({
       from: r.meetingSession.ownerId,
+      to: r.user.id,
+    }),
+    processingRuns: r.many.meetingProcessingRun(),
+    transcriptRevisions: r.many.meetingTranscriptRevision(),
+    transcriptionChunks: r.many.meetingTranscriptionChunk(),
+  },
+  meetingTranscriptRevision: {
+    meeting: r.one.meetingSession({
+      from: r.meetingTranscriptRevision.meetingId,
+      to: r.meetingSession.id,
+    }),
+    organization: r.one.organization({
+      from: r.meetingTranscriptRevision.organizationId,
+      to: r.organization.id,
+    }),
+    processingRun: r.one.meetingProcessingRun({
+      from: r.meetingTranscriptRevision.processingRunId,
+      to: r.meetingProcessingRun.id,
+    }),
+    turns: r.many.meetingTranscriptTurn(),
+  },
+  meetingTranscriptTurn: {
+    revision: r.one.meetingTranscriptRevision({
+      from: r.meetingTranscriptTurn.revisionId,
+      to: r.meetingTranscriptRevision.id,
+    }),
+  },
+  meetingTranscriptionChunk: {
+    meeting: r.one.meetingSession({
+      from: r.meetingTranscriptionChunk.meetingId,
+      to: r.meetingSession.id,
+    }),
+    organization: r.one.organization({
+      from: r.meetingTranscriptionChunk.organizationId,
+      to: r.organization.id,
+    }),
+  },
+  meetingTranscriptionPolicy: {
+    organization: r.one.organization({
+      from: r.meetingTranscriptionPolicy.organizationId,
+      to: r.organization.id,
+    }),
+    updatedByUser: r.one.user({
+      from: r.meetingTranscriptionPolicy.updatedBy,
       to: r.user.id,
     }),
   },
@@ -332,6 +387,10 @@ export const relations = defineRelations(schema, (r) => ({
     interviewers: r.many.interviewer(),
     invitations: r.many.invitation(),
     jobDescriptions: r.many.jobDescription(),
+    meetingProcessingRuns: r.many.meetingProcessingRun(),
+    meetingTranscriptRevisions: r.many.meetingTranscriptRevision(),
+    meetingTranscriptionChunks: r.many.meetingTranscriptionChunk(),
+    meetingTranscriptionPolicies: r.many.meetingTranscriptionPolicy(),
     members: r.many.member(),
     organizationRoles: r.many.organizationRole(),
     studioHumanInterviewMeetings: r.many.studioHumanInterviewMeeting(),

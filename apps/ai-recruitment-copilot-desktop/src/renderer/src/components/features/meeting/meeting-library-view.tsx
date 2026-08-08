@@ -89,10 +89,12 @@ export function MeetingLibraryView({
 function MeetingAudioPlayer({
   onPlaybackError,
   playback,
+  seekRequestId,
   seekToSeconds,
 }: {
   onPlaybackError?: () => void;
   playback: MeetingPlaybackAuthorization;
+  seekRequestId?: number;
   seekToSeconds?: number;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -111,7 +113,7 @@ function MeetingAudioPlayer({
       audioRef.current.currentTime = seekToSeconds;
       lastPositionRef.current = seekToSeconds;
     }
-  }, [seekToSeconds]);
+  }, [seekRequestId, seekToSeconds]);
   const resumePlayback = async (audio: HTMLAudioElement) => {
     try {
       await audio.play();
@@ -166,6 +168,7 @@ export function MeetingDetailView({
   onRetryProcessing,
   playback,
   retryProcessing = false,
+  seekRequestId,
   seekToSeconds,
 }: {
   meeting: MeetingDetail;
@@ -173,6 +176,7 @@ export function MeetingDetailView({
   onRetryProcessing?: () => void;
   playback: MeetingPlaybackAuthorization | null;
   retryProcessing?: boolean;
+  seekRequestId?: number;
   seekToSeconds?: number;
 }) {
   const state = PROCESSING_STATE_META[meeting.processingState];
@@ -201,6 +205,7 @@ export function MeetingDetailView({
           <MeetingAudioPlayer
             onPlaybackError={onPlaybackError}
             playback={playback}
+            seekRequestId={seekRequestId}
             seekToSeconds={seekToSeconds}
           />
         ) : (

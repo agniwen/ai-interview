@@ -1,0 +1,486 @@
+import { and, eq } from "drizzle-orm";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import {
+  meetingProcessingRun,
+  meetingRecordingAsset,
+  meetingSession,
+  meetingTranscriptRevision,
+  meetingTranscriptTurn,
+  meetingTranscriptionChunk,
+  meetingTranscriptionPolicy,
+  member,
+  organization,
+  user,
+} from "@arc/db-schema/schema";
+import {
+  claimMeetingTranscriptionChunk,
+  claimMeetingTranscriptionRun,
+  loadMeetingTranscriptionChunkCheckpoint,
+  markMeetingTranscriptionFailed,
+  publishMeetingTranscript,
+  saveMeetingTranscriptionChunkCheckpoint,
+  updateMeetingTranscriptionPolicy,
+} from "./dao";
+
+const TEST_SUFFIX = String(process.pid);
+const ORGANIZATION_ID = `meeting_transcription_test_org_${TEST_SUFFIX}`;
+const USER_ID = `meeting_transcription_test_user_${TEST_SUFFIX}`;
+const MEETING_ID = `meeting_transcription_test_meeting_${TEST_SUFFIX}`;
+const SOURCE_SHA = "a".repeat(64);
+const runId = (name: string) => `${name}-${TEST_SUFFIX}`;
+
+const job = {
+  meetingId: MEETING_ID,
+  model: "gpt-4o-transcribe-diarize",
+  organizationId: ORGANIZATION_ID,
+  pipelineVersion: "final-v1" as const,
+  policyRevision: 1,
+  provider: "openai" as const,
+  region: "openai-default",
+  sourceManifestSha256: SOURCE_SHA,
+};
+
+async function clean(): Promise<void> {
+  await db.delete(organization).where(eq(organization.id, ORGANIZATION_ID));
+  await db.delete(user).where(eq(user.id, USER_ID));
+}
+
+describe("Meeting transcription publication", () => {
+  beforeEach(async () => {
+    await clean();
+    await db.insert(user).values({
+      createdAt: new Date(),
+      email: `meeting-transcription-${TEST_SUFFIX}@example.test`,
+      emailVerified: true,
+      id: USER_ID,
+      name: "Meeting Transcription Tester",
+      updatedAt: new Date(),
+    });
+    await db.insert(organization).values({
+      createdAt: new Date(),
+      id: ORGANIZATION_ID,
+      name: "Meeting Transcription Test",
+      slug: `meeting-transcription-test-${TEST_SUFFIX}`,
+    });
+    await db.insert(member).values({
+      createdAt: new Date(),
+      id: `meeting_transcription_test_member_${TEST_SUFFIX}`,
+      organizationId: ORGANIZATION_ID,
+      role: "admin",
+      userId: USER_ID,
+    });
+    const now = new Date("2026-08-09T08:00:00.000Z");
+    await db.insert(meetingSession).values({
+      id: MEETING_ID,
+      manifestSha256: SOURCE_SHA,
+      organizationId: ORGANIZATION_ID,
+      ownerId: USER_ID,
+      savedAt: now,
+      startedAt: now,
+      status: "ready",
+      title: "Transcription integration meeting",
+    });
+    await db.insert(meetingRecordingAsset).values([
+      {
+        contentType: "audio/webm",
+        durationMs: 10_000,
+        fragmentCount: 1,
+        id: `${MEETING_ID}:microphone`,
+        meetingId: MEETING_ID,
+        sha256: "b".repeat(64),
+        sizeBytes: 100,
+        status: "ready",
+        storageKey: `${MEETING_ID}/microphone.webm`,
+        track: "microphone",
+        uploadMode: "single",
+        verifiedAt: now,
+      },
+      {
+        contentType: "audio/webm",
+        durationMs: 10_000,
+        fragmentCount: 1,
+        id: `${MEETING_ID}:system`,
+        meetingId: MEETING_ID,
+        sha256: "c".repeat(64),
+        sizeBytes: 100,
+        status: "ready",
+        storageKey: `${MEETING_ID}/system.webm`,
+        track: "system",
+        uploadMode: "single",
+        verifiedAt: now,
+      },
+    ]);
+    await db.insert(meetingTranscriptionPolicy).values({
+      allowedProviders: ["openai"],
+      organizationId: ORGANIZATION_ID,
+      selectedProvider: "openai",
+      updatedBy: USER_ID,
+    });
+  }, 30_000);
+
+  afterEach(clean, 30_000);
+
+  it("publishes one revision when an old provider-success run loses its DB lease", async () => {
+    await expect(
+      claimMeetingTranscriptionRun({ ...job, attempt: 1, processingRunId: runId("run-old") }),
+    ).resolves.toBe("claimed");
+    await expect(
+      claimMeetingTranscriptionRun({ ...job, attempt: 2, processingRunId: runId("run-winner") }),
+    ).resolves.toBe("claimed");
+
+    const transcript = {
+      language: "zh",
+      turns: [
+        {
+          confidence: null,
+          endMs: 2000,
+          speakerKey: "local",
+          startMs: 1000,
+          text: "最终稿",
+          track: "local" as const,
+        },
+      ],
+    };
+    await expect(
+      publishMeetingTranscript({ ...job, processingRunId: runId("run-old"), transcript }),
+    ).resolves.toBe(false);
+    await expect(
+      publishMeetingTranscript({ ...job, processingRunId: runId("run-winner"), transcript }),
+    ).resolves.toBe(true);
+    await expect(
+      claimMeetingTranscriptionRun({ ...job, attempt: 3, processingRunId: runId("run-restart") }),
+    ).resolves.toBe("already-ready");
+
+    await expect(
+      db
+        .select({ id: meetingTranscriptRevision.id })
+        .from(meetingTranscriptRevision)
+        .where(eq(meetingTranscriptRevision.meetingId, MEETING_ID)),
+    ).resolves.toHaveLength(1);
+    await expect(
+      db
+        .select({ id: meetingTranscriptTurn.id })
+        .from(meetingTranscriptTurn)
+        .innerJoin(
+          meetingTranscriptRevision,
+          eq(meetingTranscriptRevision.id, meetingTranscriptTurn.revisionId),
+        )
+        .where(eq(meetingTranscriptRevision.meetingId, MEETING_ID)),
+    ).resolves.toHaveLength(1);
+
+    const runs = await db
+      .select({ attempt: meetingProcessingRun.attempt, status: meetingProcessingRun.status })
+      .from(meetingProcessingRun)
+      .where(
+        and(
+          eq(meetingProcessingRun.meetingId, MEETING_ID),
+          eq(meetingProcessingRun.provider, "openai"),
+          eq(meetingProcessingRun.model, "gpt-4o-transcribe-diarize"),
+          eq(meetingProcessingRun.region, "openai-default"),
+        ),
+      );
+    expect(runs).toEqual(
+      expect.arrayContaining([
+        { attempt: 1, status: "failed" },
+        { attempt: 2, status: "succeeded" },
+      ]),
+    );
+  });
+
+  it("revokes an in-flight run when an administrator changes provider policy", async () => {
+    await expect(
+      claimMeetingTranscriptionRun({ ...job, attempt: 1, processingRunId: runId("run-revoked") }),
+    ).resolves.toBe("claimed");
+
+    await expect(
+      updateMeetingTranscriptionPolicy({
+        actorId: USER_ID,
+        organizationId: ORGANIZATION_ID,
+        policy: { allowedProviders: [], selectedProvider: null },
+      }),
+    ).resolves.toMatchObject({ revision: 2, selectedProvider: null });
+
+    await expect(
+      publishMeetingTranscript({
+        ...job,
+        processingRunId: runId("run-revoked"),
+        transcript: { language: "zh", turns: [] },
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      db.query.meetingSession.findFirst({
+        columns: { transcriptionRunId: true, transcriptionStatus: true },
+        where: { id: MEETING_ID },
+      }),
+    ).resolves.toMatchObject({ transcriptionRunId: null, transcriptionStatus: "pending" });
+    await expect(
+      db.query.meetingProcessingRun.findFirst({
+        columns: { errorCode: true, status: true },
+        where: { id: runId("run-revoked") },
+      }),
+    ).resolves.toMatchObject({ errorCode: "policy-changed", status: "failed" });
+  });
+
+  it("serializes a provider policy change with a concurrent run claim", async () => {
+    const [claimResult] = await Promise.all([
+      claimMeetingTranscriptionRun({
+        ...job,
+        attempt: 1,
+        processingRunId: runId("run-policy-race"),
+      }),
+      updateMeetingTranscriptionPolicy({
+        actorId: USER_ID,
+        organizationId: ORGANIZATION_ID,
+        policy: { allowedProviders: [], selectedProvider: null },
+      }),
+    ]);
+
+    expect(["claimed", "not-eligible"]).toContain(claimResult);
+    await expect(
+      db.query.meetingSession.findFirst({
+        columns: { transcriptionRunId: true, transcriptionStatus: true },
+        where: { id: MEETING_ID },
+      }),
+    ).resolves.toMatchObject({ transcriptionRunId: null, transcriptionStatus: "pending" });
+  });
+
+  it("does not overwrite a committed publication after an ambiguous DB response", async () => {
+    await expect(
+      claimMeetingTranscriptionRun({ ...job, attempt: 1, processingRunId: runId("run-committed") }),
+    ).resolves.toBe("claimed");
+    await expect(
+      publishMeetingTranscript({
+        ...job,
+        processingRunId: runId("run-committed"),
+        transcript: { language: "zh", turns: [] },
+      }),
+    ).resolves.toBe(true);
+
+    await expect(
+      markMeetingTranscriptionFailed({
+        ...job,
+        errorMessage: "connection closed after commit",
+        processingRunId: runId("run-committed"),
+        terminal: true,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      db.query.meetingProcessingRun.findFirst({
+        columns: { errorCode: true, status: true },
+        where: { id: runId("run-committed") },
+      }),
+    ).resolves.toMatchObject({ errorCode: null, status: "succeeded" });
+  });
+
+  it("keeps the meeting processing until the queue retry budget is exhausted", async () => {
+    await expect(
+      claimMeetingTranscriptionRun({ ...job, attempt: 1, processingRunId: runId("run-retryable") }),
+    ).resolves.toBe("claimed");
+
+    await expect(
+      markMeetingTranscriptionFailed({
+        ...job,
+        errorMessage: "provider temporarily unavailable",
+        processingRunId: runId("run-retryable"),
+        terminal: false,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      db.query.meetingSession.findFirst({
+        columns: { transcriptionError: true, transcriptionStatus: true },
+        where: { id: MEETING_ID },
+      }),
+    ).resolves.toMatchObject({ transcriptionError: null, transcriptionStatus: "processing" });
+
+    await claimMeetingTranscriptionRun({
+      ...job,
+      attempt: 5,
+      processingRunId: runId("run-terminal"),
+    });
+    await markMeetingTranscriptionFailed({
+      ...job,
+      errorMessage: "ffmpeg /tmp/private/source.webm failed at https://storage.internal",
+      processingRunId: runId("run-terminal"),
+      terminal: true,
+    });
+    await expect(
+      db.query.meetingSession.findFirst({
+        columns: { transcriptionError: true, transcriptionStatus: true },
+        where: { id: MEETING_ID },
+      }),
+    ).resolves.toMatchObject({
+      transcriptionError: "最终会议转录失败，请稍后重试。",
+      transcriptionStatus: "failed",
+    });
+  });
+
+  it("returns a backoff meeting to pending when provider policy is disabled", async () => {
+    await expect(
+      claimMeetingTranscriptionRun({ ...job, attempt: 1, processingRunId: runId("run-backoff") }),
+    ).resolves.toBe("claimed");
+    await markMeetingTranscriptionFailed({
+      ...job,
+      errorMessage: "provider temporarily unavailable",
+      processingRunId: runId("run-backoff"),
+      terminal: false,
+    });
+
+    await updateMeetingTranscriptionPolicy({
+      actorId: USER_ID,
+      organizationId: ORGANIZATION_ID,
+      policy: { allowedProviders: [], selectedProvider: null },
+    });
+
+    await expect(
+      db.query.meetingSession.findFirst({
+        columns: { transcriptionRunId: true, transcriptionStatus: true },
+        where: { id: MEETING_ID },
+      }),
+    ).resolves.toMatchObject({ transcriptionRunId: null, transcriptionStatus: "pending" });
+  });
+
+  it("serializes a provider failure with a concurrent policy change", async () => {
+    await claimMeetingTranscriptionRun({
+      ...job,
+      attempt: 1,
+      processingRunId: runId("run-failure-policy-race"),
+    });
+
+    await Promise.all([
+      markMeetingTranscriptionFailed({
+        ...job,
+        errorMessage: "provider unavailable",
+        processingRunId: runId("run-failure-policy-race"),
+        terminal: false,
+      }),
+      updateMeetingTranscriptionPolicy({
+        actorId: USER_ID,
+        organizationId: ORGANIZATION_ID,
+        policy: { allowedProviders: [], selectedProvider: null },
+      }),
+    ]);
+
+    await expect(
+      db.query.meetingSession.findFirst({
+        columns: { transcriptionRunId: true, transcriptionStatus: true },
+        where: { id: MEETING_ID },
+      }),
+    ).resolves.toMatchObject({ transcriptionRunId: null, transcriptionStatus: "pending" });
+    await expect(
+      db.query.meetingProcessingRun.findFirst({
+        columns: { status: true },
+        where: { id: runId("run-failure-policy-race") },
+      }),
+    ).resolves.toMatchObject({ status: "failed" });
+  });
+
+  it("linearizes a policy disable with a concurrent transcript publish", async () => {
+    await claimMeetingTranscriptionRun({
+      ...job,
+      attempt: 1,
+      processingRunId: runId("run-publish-policy-race"),
+    });
+    const [published] = await Promise.all([
+      publishMeetingTranscript({
+        ...job,
+        processingRunId: runId("run-publish-policy-race"),
+        transcript: { language: "zh", turns: [] },
+      }),
+      updateMeetingTranscriptionPolicy({
+        actorId: USER_ID,
+        organizationId: ORGANIZATION_ID,
+        policy: { allowedProviders: [], selectedProvider: null },
+      }),
+    ]);
+
+    const [meeting, run, revisions] = await Promise.all([
+      db.query.meetingSession.findFirst({
+        columns: { transcriptionStatus: true },
+        where: { id: MEETING_ID },
+      }),
+      db.query.meetingProcessingRun.findFirst({
+        columns: { status: true },
+        where: { id: runId("run-publish-policy-race") },
+      }),
+      db
+        .select({ id: meetingTranscriptRevision.id })
+        .from(meetingTranscriptRevision)
+        .where(eq(meetingTranscriptRevision.meetingId, MEETING_ID)),
+    ]);
+    if (published) {
+      expect(meeting?.transcriptionStatus).toBe("ready");
+      expect(run?.status).toBe("succeeded");
+      expect(revisions).toHaveLength(1);
+    } else {
+      expect(meeting?.transcriptionStatus).toBe("pending");
+      expect(run?.status).toBe("failed");
+      expect(revisions).toHaveLength(0);
+    }
+  });
+
+  it("persists each provider chunk once and resumes with the original canonical result", async () => {
+    const chunk = {
+      contentType: "audio/webm",
+      endMs: 30_000,
+      filePath: "/tmp/system-000.webm",
+      index: 0,
+      startMs: 0,
+      track: "system" as const,
+    };
+    const original = {
+      language: "zh",
+      turns: [
+        {
+          confidence: null,
+          endMs: 2000,
+          speakerKey: "remote-1",
+          startMs: 1000,
+          text: "首次 provider 结果",
+          track: "remote" as const,
+        },
+      ],
+    };
+    await claimMeetingTranscriptionRun({
+      ...job,
+      attempt: 1,
+      processingRunId: runId("run-chunk"),
+    });
+    const claims = await Promise.all([
+      claimMeetingTranscriptionChunk({ ...job, processingRunId: runId("run-chunk") }, chunk),
+      claimMeetingTranscriptionChunk({ ...job, processingRunId: runId("run-chunk") }, chunk),
+    ]);
+    expect(claims.map((claim) => claim.status).toSorted()).toEqual(["busy", "claimed"]);
+    await saveMeetingTranscriptionChunkCheckpoint(
+      { ...job, processingRunId: runId("run-chunk") },
+      chunk,
+      original,
+    );
+    await expect(
+      saveMeetingTranscriptionChunkCheckpoint(
+        { ...job, processingRunId: runId("run-chunk") },
+        chunk,
+        {
+          language: "zh",
+          turns: [{ ...original.turns[0], text: "重复 delivery 的不同结果" }],
+        },
+      ),
+    ).resolves.toEqual(original);
+    await expect(loadMeetingTranscriptionChunkCheckpoint(job, chunk)).resolves.toEqual(original);
+    await expect(
+      loadMeetingTranscriptionChunkCheckpoint(job, { ...chunk, endMs: 31_000 }),
+    ).resolves.toBeNull();
+    await expect(
+      loadMeetingTranscriptionChunkCheckpoint(
+        { ...job, pipelineVersion: "final-v2" as never },
+        chunk,
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      db
+        .select({ status: meetingTranscriptionChunk.status })
+        .from(meetingTranscriptionChunk)
+        .where(eq(meetingTranscriptionChunk.meetingId, MEETING_ID)),
+    ).resolves.toEqual([{ status: "succeeded" }]);
+  });
+});

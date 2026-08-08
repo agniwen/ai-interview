@@ -43,6 +43,7 @@ export interface MeetingPlaybackDependencies {
   createWorkingDirectory: () => Promise<string>;
   deletePlayback: typeof deleteMeetingRecordingObject;
   downloadSource: typeof downloadMeetingRecordingObjectToFile;
+  enqueueTranscription: (input: { meetingId: string; organizationId: string }) => Promise<void>;
   inspectOutput: (filePath: string) => Promise<{ sha256: string; sizeBytes: number }>;
   loadSource: (input: MeetingPlaybackJobData) => Promise<PlaybackSource | null | undefined>;
   markFailed: typeof markMeetingPlaybackFailed;
@@ -109,6 +110,17 @@ const defaultDependencies: MeetingPlaybackDependencies = {
   createWorkingDirectory: () => mkdtemp(join(tmpdir(), "meeting-playback-")),
   deletePlayback: deleteMeetingRecordingObject,
   downloadSource: downloadMeetingRecordingObjectToFile,
+  enqueueTranscription: async (input) => {
+    const [{ getMeetingTranscriptionJobForMeeting }, { enqueueMeetingTranscriptionJobs }] =
+      await Promise.all([
+        import("@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/dao"),
+        import("@arc/meeting-processing-queue/meeting-transcription"),
+      ]);
+    const job = await getMeetingTranscriptionJobForMeeting(input);
+    if (job) {
+      await enqueueMeetingTranscriptionJobs([job]);
+    }
+  },
   inspectOutput: inspectFile,
   loadSource: loadMeetingPlaybackSource,
   markFailed: markMeetingPlaybackFailed,
@@ -196,7 +208,19 @@ export async function runMeetingPlaybackProcessing(
       sizeBytes: output.sizeBytes,
       storageKey,
     });
-    if (!published) {
+    if (published) {
+      try {
+        await dependencies.enqueueTranscription({
+          meetingId: input.meetingId,
+          organizationId: input.organizationId,
+        });
+      } catch (error) {
+        console.error("[meeting-playback-worker] immediate transcription enqueue failed", {
+          error,
+          meetingId: input.meetingId,
+        });
+      }
+    } else {
       cleanupPlayback = true;
     }
   } catch (error) {

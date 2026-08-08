@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useReducer } from "react";
 import type { MeetingDetail, MeetingPlaybackAuthorization } from "@arc/shared/meeting-recording";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,6 +14,7 @@ import { desktopWorkspaceKeys, resolveActiveWorkspace } from "@/lib/client/works
 import { MeetingDetailView } from "./meeting-library-view";
 import { MeetingNotesPanel } from "./meeting-notes-panel";
 import { MeetingSharePanel } from "./meeting-share-panel";
+import { MeetingTranscriptPanel } from "./meeting-transcript-panel";
 
 export function canRetryMeetingProcessing(role: MeetingDetail["accessRole"]): boolean {
   return role === "administrator" || role === "owner";
@@ -52,28 +54,39 @@ export function MeetingDetailPage({
   seekToSeconds?: number;
 }) {
   const queryClient = useQueryClient();
+  const [seekRequest, requestSeek] = useReducer(
+    (current: { id: number; seconds?: number }, seconds: number | undefined) => ({
+      id: current.id + 1,
+      seconds,
+    }),
+    { id: 0, seconds: seekToSeconds },
+  );
+  useEffect(() => {
+    requestSeek(seekToSeconds);
+  }, [seekToSeconds]);
   const workspaceQuery = useQuery({
     queryFn: resolveActiveWorkspace,
     queryKey: desktopWorkspaceKeys.active,
     staleTime: 30_000,
   });
   const workspace = workspaceQuery.data;
+  const workspaceSlug = workspace?.slug ?? "";
   const detailQuery = useQuery({
     enabled: Boolean(workspace),
-    queryFn: () => fetchMeetingDetail(workspace?.slug ?? "", meetingId),
-    queryKey: desktopMeetingKeys.detail(workspace?.slug ?? "", meetingId),
+    queryFn: () => fetchMeetingDetail(workspaceSlug, meetingId),
+    queryKey: desktopMeetingKeys.detail(workspaceSlug, meetingId),
     refetchInterval: (query) => meetingDetailRefetchInterval(query.state.data),
     staleTime: 5000,
   });
   const playbackQuery = useQuery({
     enabled: Boolean(workspace && detailQuery.data?.recordingAvailable),
-    queryFn: () => fetchMeetingPlayback(workspace?.slug ?? "", meetingId),
-    queryKey: desktopMeetingKeys.playback(workspace?.slug ?? "", meetingId),
+    queryFn: () => fetchMeetingPlayback(workspaceSlug, meetingId),
+    queryKey: desktopMeetingKeys.playback(workspaceSlug, meetingId),
     refetchInterval: (query) => playbackAuthorizationRefetchInterval(query.state.data),
     staleTime: 4 * 60 * 1000,
   });
   const retryMutation = useMutation({
-    mutationFn: () => retryMeetingPlayback(workspace?.slug ?? "", meetingId),
+    mutationFn: () => retryMeetingPlayback(workspaceSlug, meetingId),
     onSuccess: async () => {
       if (!workspace) {
         return;
@@ -141,17 +154,24 @@ export function MeetingDetailPage({
         }
         playback={playbackQuery.data ?? null}
         retryProcessing={retryMutation.isPending}
-        seekToSeconds={seekToSeconds}
+        seekRequestId={seekRequest.id}
+        seekToSeconds={seekRequest.seconds}
+      />
+      <MeetingTranscriptPanel
+        accessRole={detailQuery.data.accessRole}
+        meetingId={meetingId}
+        onSeek={requestSeek}
+        slug={workspaceSlug}
       />
       <MeetingNotesPanel
         accessRole={detailQuery.data.accessRole}
         meetingId={meetingId}
-        slug={workspace?.slug ?? ""}
+        slug={workspaceSlug}
       />
       <MeetingSharePanel
         accessRole={detailQuery.data.accessRole}
         meetingId={meetingId}
-        slug={workspace?.slug ?? ""}
+        slug={workspaceSlug}
       />
     </div>
   );

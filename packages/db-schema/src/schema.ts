@@ -72,6 +72,7 @@ import {
   bigserial,
   boolean,
   check,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -81,6 +82,7 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
 // --- Tables managed by @chat-adapter/state-pg ---
 // Declared here so drizzle-kit sees them and doesn't try to drop them on `db:push`.
@@ -292,6 +294,11 @@ export const member = pgTable(
 export const meetingSession = pgTable(
   "meeting_session",
   {
+    activeTranscriptRevisionId: text("active_transcript_revision_id").references(
+      // oxlint-disable-next-line no-use-before-define -- Drizzle resolves this circular FK lazily.
+      (): AnyPgColumn => meetingTranscriptRevision.id,
+      { onDelete: "set null" },
+    ),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     custodianId: text("custodian_id").references(() => user.id, { onDelete: "set null" }),
     id: text("id").primaryKey(),
@@ -309,6 +316,13 @@ export const meetingSession = pgTable(
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
     status: text("status").default("uploading").notNull(),
     title: text("title").notNull(),
+    transcriptionError: text("transcription_error"),
+    transcriptionRunId: text("transcription_run_id").references(
+      // oxlint-disable-next-line no-use-before-define -- Drizzle resolves this circular FK lazily.
+      (): AnyPgColumn => meetingProcessingRun.id,
+      { onDelete: "set null" },
+    ),
+    transcriptionStatus: text("transcription_status").default("pending").notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
@@ -321,6 +335,10 @@ export const meetingSession = pgTable(
       "meeting_session_visibility_check",
       sql`${table.visibility} in ('restricted', 'workspace')`,
     ),
+    check(
+      "meeting_session_transcription_status_check",
+      sql`${table.transcriptionStatus} in ('pending', 'processing', 'ready', 'failed')`,
+    ),
     index("meeting_session_org_owner_saved_idx").on(
       table.organizationId,
       table.ownerId,
@@ -330,6 +348,207 @@ export const meetingSession = pgTable(
       table.organizationId,
       table.status,
       table.savedAt,
+    ),
+  ],
+);
+
+export const meetingTranscriptionPolicy = pgTable(
+  "meeting_transcription_policy",
+  {
+    allowedProviders: jsonb("allowed_providers").$type<string[]>().notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    organizationId: text("organization_id")
+      .primaryKey()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    revision: integer("revision").notNull().default(1),
+    selectedProvider: text("selected_provider"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+  },
+  (table) => [
+    check("meeting_transcription_policy_revision_check", sql`${table.revision} > 0`),
+    check(
+      "meeting_transcription_policy_selected_check",
+      sql`${table.selectedProvider} is null or ${table.allowedProviders} ? ${table.selectedProvider}`,
+    ),
+  ],
+);
+
+export const meetingProcessingRun = pgTable(
+  "meeting_processing_run",
+  {
+    attempt: integer("attempt").notNull(),
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    id: text("id").primaryKey(),
+    idempotencyKey: text("idempotency_key").notNull().unique(),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    model: text("model").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    pipelineVersion: text("pipeline_version").notNull(),
+    provider: text("provider").notNull(),
+    region: text("region").notNull(),
+    stage: text("stage").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
+    status: text("status").notNull(),
+  },
+  (table) => [
+    check("meeting_processing_run_attempt_check", sql`${table.attempt} > 0`),
+    check("meeting_processing_run_stage_check", sql`${table.stage} in ('final-transcription')`),
+    check(
+      "meeting_processing_run_status_check",
+      sql`${table.status} in ('processing', 'succeeded', 'failed')`,
+    ),
+    index("meeting_processing_run_meeting_stage_idx").on(
+      table.meetingId,
+      table.stage,
+      table.startedAt,
+    ),
+    index("meeting_processing_run_org_status_idx").on(
+      table.organizationId,
+      table.status,
+      table.startedAt,
+    ),
+  ],
+);
+
+export const meetingTranscriptRevision = pgTable(
+  "meeting_transcript_revision",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    kind: text("kind").notNull(),
+    language: text("language"),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    model: text("model").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    pipelineVersion: text("pipeline_version").notNull(),
+    processingRunId: text("processing_run_id")
+      .notNull()
+      .references(() => meetingProcessingRun.id, { onDelete: "restrict" }),
+    provider: text("provider").notNull(),
+    region: text("region").notNull(),
+    revision: integer("revision").notNull(),
+    sourceManifestSha256: text("source_manifest_sha256").notNull(),
+  },
+  (table) => [
+    check("meeting_transcript_revision_kind_check", sql`${table.kind} in ('final', 'human')`),
+    check("meeting_transcript_revision_number_check", sql`${table.revision} > 0`),
+    uniqueIndex("meeting_transcript_revision_meeting_revision_uq").on(
+      table.meetingId,
+      table.revision,
+    ),
+    uniqueIndex("meeting_transcript_revision_machine_input_uq").on(
+      table.meetingId,
+      table.kind,
+      table.sourceManifestSha256,
+      table.provider,
+      table.model,
+      table.region,
+      table.pipelineVersion,
+    ),
+    index("meeting_transcript_revision_org_created_idx").on(table.organizationId, table.createdAt),
+  ],
+);
+
+export const meetingTranscriptTurn = pgTable(
+  "meeting_transcript_turn",
+  {
+    confidence: doublePrecision("confidence"),
+    endMs: integer("end_ms").notNull(),
+    id: text("id").primaryKey(),
+    revisionId: text("revision_id")
+      .notNull()
+      .references(() => meetingTranscriptRevision.id, { onDelete: "cascade" }),
+    sequence: integer("sequence").notNull(),
+    speakerKey: text("speaker_key").notNull(),
+    startMs: integer("start_ms").notNull(),
+    text: text("text").notNull(),
+    track: text("track").notNull(),
+  },
+  (table) => [
+    check("meeting_transcript_turn_sequence_check", sql`${table.sequence} >= 0`),
+    check("meeting_transcript_turn_time_check", sql`${table.endMs} > ${table.startMs}`),
+    check("meeting_transcript_turn_track_check", sql`${table.track} in ('local', 'remote')`),
+    uniqueIndex("meeting_transcript_turn_revision_sequence_uq").on(
+      table.revisionId,
+      table.sequence,
+    ),
+    index("meeting_transcript_turn_revision_time_idx").on(
+      table.revisionId,
+      table.startMs,
+      table.endMs,
+    ),
+  ],
+);
+
+export const meetingTranscriptionChunk = pgTable(
+  "meeting_transcription_chunk",
+  {
+    chunkIndex: integer("chunk_index").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    endMs: integer("end_ms").notNull(),
+    id: text("id").primaryKey(),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    model: text("model").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    pipelineVersion: text("pipeline_version").notNull(),
+    policyRevision: integer("policy_revision").notNull(),
+    processingRunId: text("processing_run_id").references(() => meetingProcessingRun.id, {
+      onDelete: "set null",
+    }),
+    provider: text("provider").notNull(),
+    region: text("region").notNull(),
+    sourceManifestSha256: text("source_manifest_sha256").notNull(),
+    startMs: integer("start_ms").notNull(),
+    status: text("status").notNull(),
+    track: text("track").notNull(),
+    transcript: jsonb("transcript"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    check("meeting_transcription_chunk_index_check", sql`${table.chunkIndex} >= 0`),
+    check("meeting_transcription_chunk_time_check", sql`${table.endMs} > ${table.startMs}`),
+    check(
+      "meeting_transcription_chunk_track_check",
+      sql`${table.track} in ('microphone', 'system')`,
+    ),
+    check(
+      "meeting_transcription_chunk_status_check",
+      sql`${table.status} in ('processing', 'succeeded', 'failed')`,
+    ),
+    check(
+      "meeting_transcription_chunk_result_check",
+      sql`(${table.status} = 'succeeded') = (${table.transcript} is not null)`,
+    ),
+    uniqueIndex("meeting_transcription_chunk_input_uq").on(
+      table.meetingId,
+      table.sourceManifestSha256,
+      table.policyRevision,
+      table.provider,
+      table.model,
+      table.region,
+      table.pipelineVersion,
+      table.track,
+      table.chunkIndex,
+      table.startMs,
+      table.endMs,
     ),
   ],
 );
