@@ -33,6 +33,7 @@ function platformWindowOptions(): BrowserWindowConstructorOptions {
       backgroundColor: "#00000000",
       backgroundMaterial: "acrylic",
       frame: false,
+      icon,
       transparent: true,
     };
   }

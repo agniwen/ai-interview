@@ -1,5 +1,6 @@
 import { electronApp, optimizer } from "@electron-toolkit/utils";
 import { app, BrowserWindow } from "electron";
+import macIcon from "../../resources/icon-mac.png?asset";
 import { registerContextMenu } from "./context-menu";
 import { registerOrpcIpc } from "./orpc";
 import { applySettingsAtStartup } from "./settings";
@@ -17,6 +18,9 @@ async function bootstrap(): Promise<void> {
   await app.whenReady();
 
   electronApp.setAppUserModelId("com.arc.ai-recruitment-copilot-desktop");
+  if (process.platform === "darwin") {
+    app.dock?.setIcon(macIcon);
+  }
 
   app.on("browser-window-created", (_event, window) => {
     optimizer.watchWindowShortcuts(window);
