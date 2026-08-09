@@ -1,9 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { execFile } from "node:child_process";
 import { mkdtemp, readdir, rm, stat, statfs } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import { downloadMeetingRecordingObjectToFile } from "@arc/ai-recruitment-copilot-backend/lib/server/s3";
 import {
   claimMeetingTranscriptionChunk,
@@ -15,18 +13,28 @@ import {
   saveMeetingTranscriptionChunkCheckpoint,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/dao";
 import { createOpenAiMeetingTranscriptionProvider } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/providers/openai";
+import { createDeepgramMeetingTranscriptionProvider } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/providers/deepgram";
+import { assertMeetingTranscriptionJobEndpoint } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/provider-endpoint";
+import {
+  assertMeetingTranscriptionFfmpegVersion,
+  mergeMeetingTranscriptionChunkResults,
+  prepareMeetingTranscriptionAudioChunks,
+  readMeetingTranscriptionFfmpegVersion,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/audio-pipeline";
 import { requestAutomaticMeetingIntelligence } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/intelligence/service";
 import type {
   FinalTranscriptionAudioChunk,
   MeetingTranscriptionProvider,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/provider";
-import { MeetingProviderQuotaError } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/provider";
+import {
+  MeetingProviderQuotaError,
+  MeetingProviderResponseError,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/provider";
 import type { MeetingTranscriptionJobData } from "@arc/meeting-processing-queue/meeting-transcription";
-import { canonicalMeetingTranscriptSchema } from "@arc/shared/meeting-transcription";
 import type { CanonicalMeetingTranscript } from "@arc/shared/meeting-transcription";
 
-const execFileAsync = promisify(execFile);
-const CHUNK_DURATION_MS = 30 * 60 * 1000;
+export { assertMeetingTranscriptionFfmpegVersion } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/audio-pipeline";
+
 const MAX_DURATION_MS = 8 * 60 * 60 * 1000;
 const MAX_SOURCE_BYTES = 2 * 1024 * 1024 * 1024;
 const MAX_TOTAL_SOURCE_BYTES = 2 * 1024 * 1024 * 1024;
@@ -72,6 +80,7 @@ export interface MeetingTranscriptionDependencies {
     sources: PrepareChunkSource[];
   }) => Promise<FinalTranscriptionAudioChunk[]>;
   provider: MeetingTranscriptionProvider;
+  providerForJob?: (input: MeetingTranscriptionJobData) => MeetingTranscriptionProvider;
   publish: typeof publishMeetingTranscript;
   requestIntelligence: typeof requestAutomaticMeetingIntelligence;
   removeWorkingDirectory: (directory: string) => Promise<void>;
@@ -128,61 +137,33 @@ const withMediaPermit = createMediaPermitPool(
   positiveEnvInteger("MEETING_TRANSCRIPTION_MEDIA_CONCURRENCY", 2),
 );
 
-async function prepareAudioChunks(input: {
-  directory: string;
-  sources: PrepareChunkSource[];
-}): Promise<FinalTranscriptionAudioChunk[]> {
-  const chunks: FinalTranscriptionAudioChunk[] = [];
-  for (const source of input.sources) {
-    const outputPattern = join(input.directory, `${source.track}-%03d.webm`);
-    await execFileAsync(
-      process.env.FFMPEG_BIN?.trim() || "ffmpeg",
-      [
-        "-nostdin",
-        "-y",
-        "-i",
-        source.filePath,
-        "-map",
-        "0:a:0",
-        "-ac",
-        "1",
-        "-ar",
-        "16000",
-        "-c:a",
-        "libopus",
-        "-b:a",
-        "32k",
-        "-f",
-        "segment",
-        "-segment_time",
-        String(CHUNK_DURATION_MS / 1000),
-        "-reset_timestamps",
-        "1",
-        outputPattern,
-      ],
-      {
-        killSignal: "SIGKILL",
-        maxBuffer: 4 * 1024 * 1024,
-        timeout: positiveEnvInteger("MEETING_TRANSCRIPTION_FFMPEG_TIMEOUT_MS", 30 * 60 * 1000),
-      },
-    );
-    const directoryEntries = await readdir(input.directory);
-    const names = directoryEntries
-      .filter((name) => name.startsWith(`${source.track}-`) && name.endsWith(".webm"))
-      .toSorted();
-    for (const [index, name] of names.entries()) {
-      const startMs = index * CHUNK_DURATION_MS;
-      chunks.push({
-        contentType: "audio/webm",
-        endMs: Math.min(source.durationMs, startMs + CHUNK_DURATION_MS),
-        filePath: join(input.directory, name),
-        index,
-        startMs,
-        track: source.track,
-      });
-    }
+export function createMeetingTranscriptionProviderForJob(
+  job: MeetingTranscriptionJobData,
+  env: NodeJS.ProcessEnv = process.env,
+): MeetingTranscriptionProvider {
+  if (job.provider === "openai") {
+    const baseUrl = assertMeetingTranscriptionJobEndpoint({
+      baseUrl: env.OPENAI_BASE_URL?.trim() || "https://api.openai.com/v1",
+      provider: "openai",
+      region: job.region,
+    });
+    return createOpenAiMeetingTranscriptionProvider({
+      apiKey: env.OPENAI_API_KEY?.trim() || "",
+      baseUrl,
+    });
   }
-  return chunks;
+  if (job.provider === "deepgram") {
+    const baseUrl = assertMeetingTranscriptionJobEndpoint({
+      baseUrl: env.DEEPGRAM_BASE_URL?.trim() || "https://api.deepgram.com",
+      provider: "deepgram",
+      region: job.region,
+    });
+    return createDeepgramMeetingTranscriptionProvider({
+      apiKey: env.DEEPGRAM_API_KEY?.trim() || "",
+      baseUrl,
+    });
+  }
+  throw new Error(`Meeting transcription provider ${job.provider} is benchmark-only`);
 }
 
 const defaultDependencies: MeetingTranscriptionDependencies = {
@@ -201,11 +182,20 @@ const defaultDependencies: MeetingTranscriptionDependencies = {
   loadSource: loadMeetingTranscriptionSource,
   markChunkFailed: markMeetingTranscriptionChunkFailed,
   markFailed: markMeetingTranscriptionFailed,
-  prepareChunks: prepareAudioChunks,
+  prepareChunks: (input) =>
+    prepareMeetingTranscriptionAudioChunks({
+      ...input,
+      ffmpegBin: process.env.FFMPEG_BIN,
+      ffmpegTimeoutMs: positiveEnvInteger(
+        "MEETING_TRANSCRIPTION_FFMPEG_TIMEOUT_MS",
+        30 * 60 * 1000,
+      ),
+    }),
   provider: createOpenAiMeetingTranscriptionProvider({
     apiKey: process.env.OPENAI_API_KEY?.trim() || "",
     baseUrl: process.env.OPENAI_BASE_URL?.trim(),
   }),
+  providerForJob: createMeetingTranscriptionProviderForJob,
   publish: publishMeetingTranscript,
   removeWorkingDirectory: (directory) => rm(directory, { force: true, recursive: true }),
   requestIntelligence: requestAutomaticMeetingIntelligence,
@@ -213,54 +203,8 @@ const defaultDependencies: MeetingTranscriptionDependencies = {
   withMediaPermit,
 };
 
-function mergeChunkTranscripts(
-  results: { chunk: FinalTranscriptionAudioChunk; transcript: CanonicalMeetingTranscript }[],
-): CanonicalMeetingTranscript {
-  const remoteSpeakers = new Map<string, string>();
-  const turns = results.flatMap(({ chunk, transcript }) =>
-    transcript.turns.map((turn) => {
-      if (turn.track === "local") {
-        return turn;
-      }
-      const identity = `${chunk.track}:${chunk.index}:${turn.speakerKey}`;
-      let speakerKey = remoteSpeakers.get(identity);
-      if (!speakerKey) {
-        speakerKey = `remote-${remoteSpeakers.size + 1}`;
-        remoteSpeakers.set(identity, speakerKey);
-      }
-      return { ...turn, speakerKey };
-    }),
-  );
-  turns.sort(
-    (left, right) =>
-      left.startMs - right.startMs ||
-      left.track.localeCompare(right.track) ||
-      left.endMs - right.endMs,
-  );
-  return canonicalMeetingTranscriptSchema.parse({
-    language: results.find((result) => result.transcript.language)?.transcript.language ?? null,
-    turns,
-  });
-}
-
-export function assertMeetingTranscriptionFfmpegVersion(
-  versionLine: string,
-  expected?: string,
-): void {
-  const expectedPrefix = expected?.trim();
-  if (!expectedPrefix) {
-    throw new Error("MEETING_TRANSCRIPTION_FFMPEG_VERSION_PREFIX is required");
-  }
-  if (!versionLine.startsWith(expectedPrefix)) {
-    throw new Error(`FFmpeg version mismatch; expected prefix ${expectedPrefix}`);
-  }
-}
-
 export async function validateMeetingTranscriptionRuntime(): Promise<void> {
-  const { stdout } = await execFileAsync(process.env.FFMPEG_BIN?.trim() || "ffmpeg", ["-version"], {
-    timeout: 10_000,
-  });
-  const versionLine = stdout.split("\n")[0] ?? "";
+  const versionLine = await readMeetingTranscriptionFfmpegVersion(process.env.FFMPEG_BIN);
   assertMeetingTranscriptionFfmpegVersion(
     versionLine,
     process.env.MEETING_TRANSCRIPTION_FFMPEG_VERSION_PREFIX,
@@ -307,7 +251,8 @@ async function transcribeChunk(input: {
   }
   let providerResult: CanonicalMeetingTranscript;
   try {
-    providerResult = await input.dependencies.provider.transcribeFinal({
+    const provider = input.dependencies.providerForJob?.(input.job) ?? input.dependencies.provider;
+    providerResult = await provider.transcribeFinal({
       chunks: [input.chunk],
       languageHint: null,
       model: input.job.model,
@@ -439,7 +384,7 @@ export async function runMeetingTranscriptionProcessing(
       }
       chunkResults.push({ chunk, transcript });
     }
-    const transcript = mergeChunkTranscripts(chunkResults);
+    const transcript = mergeMeetingTranscriptionChunkResults(chunkResults);
     const published = await dependencies.publish({ ...input, processingRunId, transcript });
     if (published) {
       await requestAutomaticIntelligenceBestEffort({
@@ -457,7 +402,8 @@ export async function runMeetingTranscriptionProcessing(
         errorCode: error instanceof MeetingProviderQuotaError ? "provider-quota" : "provider-error",
         errorMessage,
         processingRunId,
-        terminal: context.attempt >= context.maxAttempts,
+        terminal:
+          error instanceof MeetingProviderResponseError || context.attempt >= context.maxAttempts,
       });
     } catch (markFailedError) {
       console.error("[meeting-transcription-worker] failed to persist processing failure", {

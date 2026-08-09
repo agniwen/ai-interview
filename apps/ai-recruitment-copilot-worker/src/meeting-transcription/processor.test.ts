@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { MeetingProviderQuotaError } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/provider";
+import {
+  MeetingProviderQuotaError,
+  MeetingProviderResponseError,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/provider";
 import type { MeetingTranscriptionDependencies } from "./processor";
 
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
@@ -26,6 +29,7 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/meetings/intelligence
 // oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
 import {
   assertMeetingTranscriptionFfmpegVersion,
+  createMeetingTranscriptionProviderForJob,
   runMeetingTranscriptionProcessing,
 } from "./processor";
 
@@ -125,6 +129,19 @@ function createDependencies() {
 }
 
 describe("Meeting final transcription processor", () => {
+  it("rejects a production job when the worker endpoint cannot prove the recorded region", () => {
+    expect(() =>
+      createMeetingTranscriptionProviderForJob(job, {
+        OPENAI_BASE_URL: "https://proxy.example.com/v1",
+      } as NodeJS.ProcessEnv),
+    ).toThrow("not in the verified region map");
+    expect(() =>
+      createMeetingTranscriptionProviderForJob({ ...job, region: "openai-other" }, {
+        OPENAI_BASE_URL: "https://api.openai.com/v1",
+      } as NodeJS.ProcessEnv),
+    ).toThrow("does not match worker endpoint");
+  });
+
   it("requires the pinned FFmpeg version prefix", () => {
     expect(() => assertMeetingTranscriptionFfmpegVersion("ffmpeg version 5.1.9")).toThrow(
       "is required",
@@ -172,6 +189,28 @@ describe("Meeting final transcription processor", () => {
       meetingId: job.meetingId,
       organizationId: job.organizationId,
     });
+  });
+
+  it("resolves the production adapter from the provider snapshot on the job", async () => {
+    const baseDependencies = createDependencies();
+    const deepgram = {
+      transcribeFinal: vi.fn(() => Promise.resolve({ language: "zh", turns: [] })),
+    };
+    const dependencies = Object.assign(baseDependencies, {
+      providerForJob: vi.fn(() => deepgram),
+    });
+
+    await runMeetingTranscriptionProcessing(
+      { ...job, model: "nova-3", provider: "deepgram", region: "deepgram-us" },
+      { attempt: 1, maxAttempts: 5 },
+      dependencies,
+    );
+
+    expect(dependencies.providerForJob).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: "deepgram" }),
+    );
+    expect(deepgram.transcribeFinal).toHaveBeenCalledTimes(2);
+    expect(dependencies.provider.transcribeFinal).not.toHaveBeenCalled();
   });
 
   it("does not fail the published transcript when automatic intelligence enqueue fails", async () => {
@@ -267,6 +306,21 @@ describe("Meeting final transcription processor", () => {
       processingRunId: "run-76",
       terminal: true,
     });
+  });
+
+  it("marks a deterministic malformed provider response terminal without paying for later attempts", async () => {
+    const dependencies = createDependencies();
+    dependencies.provider.transcribeFinal.mockRejectedValueOnce(
+      new MeetingProviderResponseError("malformed-response", "fixture"),
+    );
+
+    await expect(
+      runMeetingTranscriptionProcessing(job, { attempt: 1, maxAttempts: 5 }, dependencies),
+    ).rejects.toMatchObject({ code: "malformed-response" });
+
+    expect(dependencies.markFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ terminal: true }),
+    );
   });
 
   it("does not call the provider when another delivery owns the chunk", async () => {

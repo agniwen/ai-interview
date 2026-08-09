@@ -8,6 +8,7 @@ import {
   meetingTranscriptTurn,
   meetingTranscriptionChunk,
   meetingTranscriptionPolicy,
+  member,
 } from "@arc/db-schema/schema";
 import { MEETING_TRANSCRIPTION_PIPELINE_VERSION } from "@arc/meeting-processing-queue/meeting-transcription";
 import type { MeetingTranscriptionJobData } from "@arc/meeting-processing-queue/meeting-transcription";
@@ -17,6 +18,7 @@ import type {
   UpdateMeetingTranscriptionPolicyInput,
 } from "@arc/shared/meeting-transcription";
 import { rebuildMeetingSearchProjection } from "../routes/search/dao";
+import { isWorkspaceAdministrator } from "../access";
 import { canonicalMeetingTranscriptSchema } from "@arc/shared/meeting-transcription";
 import type { FinalTranscriptionAudioChunk } from "./provider";
 import { findMeetingTranscriptionProviderCandidate } from "./provider-registry";
@@ -36,23 +38,35 @@ function policyAllows(
   provider: MeetingTranscriptionProviderId,
 ): boolean {
   return Boolean(
-    policy && policy.selectedProvider === provider && policy.allowedProviders.includes(provider),
+    policy &&
+    [policy.selectedProvider, policy.fallbackProvider].includes(provider) &&
+    policy.allowedProviders.includes(provider),
   );
 }
 
 export async function loadMeetingTranscriptionPolicy(organizationId: string): Promise<{
   allowedProviders: MeetingTranscriptionProviderId[];
+  fallbackProvider: MeetingTranscriptionProviderId | null;
   revision: number;
+  selectionReason: string | null;
   selectedProvider: MeetingTranscriptionProviderId | null;
 }> {
   const row = await db.query.meetingTranscriptionPolicy.findFirst({ where: { organizationId } });
   return row
     ? {
         allowedProviders: row.allowedProviders as MeetingTranscriptionProviderId[],
+        fallbackProvider: row.fallbackProvider as MeetingTranscriptionProviderId | null,
         revision: row.revision,
         selectedProvider: row.selectedProvider as MeetingTranscriptionProviderId | null,
+        selectionReason: row.selectionReason,
       }
-    : { allowedProviders: [], revision: 0, selectedProvider: null };
+    : {
+        allowedProviders: [],
+        fallbackProvider: null,
+        revision: 0,
+        selectedProvider: null,
+        selectionReason: null,
+      };
 }
 
 export async function updateMeetingTranscriptionPolicy(input: {
@@ -61,23 +75,37 @@ export async function updateMeetingTranscriptionPolicy(input: {
   policy: UpdateMeetingTranscriptionPolicyInput;
 }): Promise<{
   allowedProviders: MeetingTranscriptionProviderId[];
+  fallbackProvider: MeetingTranscriptionProviderId | null;
   revision: number;
+  selectionReason: string | null;
   selectedProvider: MeetingTranscriptionProviderId | null;
-}> {
+} | null> {
   return await db.transaction(async (tx) => {
+    const [activeMembership] = await tx
+      .select({ role: member.role })
+      .from(member)
+      .where(and(eq(member.organizationId, input.organizationId), eq(member.userId, input.actorId)))
+      .for("share");
+    if (!activeMembership || !isWorkspaceAdministrator(activeMembership.role)) {
+      return null;
+    }
     const [row] = await tx
       .insert(meetingTranscriptionPolicy)
       .values({
         allowedProviders: input.policy.allowedProviders,
+        fallbackProvider: input.policy.fallbackProvider,
         organizationId: input.organizationId,
         selectedProvider: input.policy.selectedProvider,
+        selectionReason: input.policy.selectionReason,
         updatedBy: input.actorId,
       })
       .onConflictDoUpdate({
         set: {
           allowedProviders: input.policy.allowedProviders,
+          fallbackProvider: input.policy.fallbackProvider,
           revision: sql`${meetingTranscriptionPolicy.revision} + 1`,
           selectedProvider: input.policy.selectedProvider,
+          selectionReason: input.policy.selectionReason,
           updatedAt: new Date(),
           updatedBy: input.actorId,
         },
@@ -132,8 +160,10 @@ export async function updateMeetingTranscriptionPolicy(input: {
     });
     return {
       allowedProviders: row.allowedProviders as MeetingTranscriptionProviderId[],
+      fallbackProvider: row.fallbackProvider as MeetingTranscriptionProviderId | null,
       revision: row.revision,
       selectedProvider: row.selectedProvider as MeetingTranscriptionProviderId | null,
+      selectionReason: row.selectionReason,
     };
   });
 }
@@ -147,6 +177,7 @@ function sourceAssetsReady(assets: { status: string; track: string }[]): boolean
 export async function getMeetingTranscriptionJobForMeeting(input: {
   meetingId: string;
   organizationId: string;
+  preferFallback?: boolean;
 }): Promise<MeetingTranscriptionJobData | null> {
   const [meeting, policy] = await Promise.all([
     db.query.meetingSession.findFirst({
@@ -162,7 +193,11 @@ export async function getMeetingTranscriptionJobForMeeting(input: {
       where: { organizationId: input.organizationId },
     }),
   ]);
-  const provider = policy?.selectedProvider as MeetingTranscriptionProviderId | null | undefined;
+  const provider = (
+    input.preferFallback && policy?.fallbackProvider
+      ? policy.fallbackProvider
+      : policy?.selectedProvider
+  ) as MeetingTranscriptionProviderId | null | undefined;
   if (
     !(
       meeting &&

@@ -7,7 +7,15 @@ import type {
 } from "@arc/shared/meeting-transcription";
 import { SettingsGroup, SettingsRow } from "@/components/settings/settings-ui";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
   desktopMeetingKeys,
   fetchMeetingTranscriptionPolicy,
@@ -25,9 +33,13 @@ export function MeetingTranscriptionPolicyView({
   saving: boolean;
 }) {
   const [allowedProviders, setAllowedProviders] = useState(policy.allowedProviders);
+  const [fallbackProvider, setFallbackProvider] = useState(policy.fallbackProvider);
+  const [selectionReason, setSelectionReason] = useState(policy.selectionReason ?? "");
   const [selectedProvider, setSelectedProvider] = useState(policy.selectedProvider);
   useEffect(() => {
     setAllowedProviders(policy.allowedProviders);
+    setFallbackProvider(policy.fallbackProvider);
+    setSelectionReason(policy.selectionReason ?? "");
     setSelectedProvider(policy.selectedProvider);
   }, [policy]);
   const setAllowed = (provider: MeetingTranscriptionProviderId, allowed: boolean) => {
@@ -36,6 +48,11 @@ export function MeetingTranscriptionPolicyView({
     );
     if (!allowed && selectedProvider === provider) {
       setSelectedProvider(null);
+      setFallbackProvider(null);
+      setSelectionReason("");
+    }
+    if (!allowed && fallbackProvider === provider) {
+      setFallbackProvider(null);
     }
   };
 
@@ -72,41 +89,105 @@ export function MeetingTranscriptionPolicyView({
         </SettingsRow>
       ))}
       <SettingsRow
-        description="选择用于新 Final Transcript 的 provider；不会静默回退。"
+        description="选择用于新 Final Transcript 的默认 provider。"
         htmlFor="meeting-transcription-selected-provider"
         label="Final Transcript provider"
       >
-        <select
-          className="h-9 w-full rounded-md border bg-background px-3 text-sm disabled:opacity-50"
+        <Select
           disabled={!policy.canManage || allowedProviders.length === 0}
-          id="meeting-transcription-selected-provider"
-          onChange={(event) =>
-            setSelectedProvider(
-              (event.target.value || null) as MeetingTranscriptionProviderId | null,
-            )
-          }
-          value={selectedProvider ?? ""}
+          onValueChange={(value) => {
+            const next = value === "none" ? null : (value as MeetingTranscriptionProviderId);
+            setSelectedProvider(next);
+            if (!next) {
+              setFallbackProvider(null);
+              setSelectionReason("");
+            } else if (fallbackProvider === next) {
+              setFallbackProvider(null);
+            }
+          }}
+          value={selectedProvider ?? "none"}
         >
-          <option value="">未选择</option>
-          {policy.availableProviders
-            .filter((provider) => allowedProviders.includes(provider.id))
-            .map((provider) => (
-              <option key={provider.id} value={provider.id}>
-                {provider.label}
-              </option>
-            ))}
-        </select>
+          <SelectTrigger className="w-full" id="meeting-transcription-selected-provider">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">未选择</SelectItem>
+            {policy.availableProviders
+              .filter((provider) => allowedProviders.includes(provider.id))
+              .map((provider) => (
+                <SelectItem key={provider.id} value={provider.id}>
+                  {provider.label}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+      </SettingsRow>
+      <SettingsRow
+        description="默认 provider 失败后可显式转给另一个已允许 provider；不设置则不回退。"
+        htmlFor="meeting-transcription-fallback-provider"
+        label="Fallback provider"
+      >
+        <Select
+          disabled={!policy.canManage || !selectedProvider}
+          onValueChange={(value) =>
+            setFallbackProvider(value === "none" ? null : (value as MeetingTranscriptionProviderId))
+          }
+          value={fallbackProvider ?? "none"}
+        >
+          <SelectTrigger className="w-full" id="meeting-transcription-fallback-provider">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">不自动回退</SelectItem>
+            {policy.availableProviders
+              .filter(
+                (provider) =>
+                  allowedProviders.includes(provider.id) && provider.id !== selectedProvider,
+              )
+              .map((provider) => (
+                <SelectItem key={provider.id} value={provider.id}>
+                  {provider.label}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+      </SettingsRow>
+      <SettingsRow
+        description="记录本次 corpus run、区域、质量、删除和实际费用为何支持这个选择。"
+        htmlFor="meeting-transcription-selection-reason"
+        label="选择理由"
+      >
+        <Textarea
+          disabled={!policy.canManage || !selectedProvider}
+          id="meeting-transcription-selection-reason"
+          maxLength={500}
+          onChange={(event) => setSelectionReason(event.target.value)}
+          placeholder="例如：consented-corpus-v1 中中文 CER 最低，且满足中国大陆数据驻留要求。"
+          value={selectionReason}
+        />
       </SettingsRow>
       <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
-        <p className="text-muted-foreground text-xs">
-          {policy.canManage
-            ? `策略 revision ${policy.revision}`
-            : "只有 Workspace Administrator 可以修改"}
-        </p>
+        <div className="space-y-1">
+          <p className="text-muted-foreground text-xs">
+            Final 默认值不影响实时草稿；实时草稿当前使用允许列表中的 OpenAI。
+          </p>
+          <p className="text-muted-foreground text-xs">
+            {policy.canManage
+              ? `策略 revision ${policy.revision}`
+              : "只有 Workspace Administrator 可以修改"}
+          </p>
+        </div>
         {policy.canManage ? (
           <Button
-            disabled={saving}
-            onClick={() => onSave({ allowedProviders, selectedProvider })}
+            disabled={saving || Boolean(selectedProvider && selectionReason.trim().length < 10)}
+            onClick={() =>
+              onSave({
+                allowedProviders,
+                fallbackProvider,
+                selectedProvider,
+                selectionReason: selectedProvider ? selectionReason.trim() : null,
+              })
+            }
             size="sm"
             type="button"
           >

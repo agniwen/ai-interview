@@ -174,6 +174,7 @@ describe("Meeting lifecycle DAO", () => {
       organizationId: ORGANIZATION_ID,
       revision: 1,
       selectedProvider: "openai",
+      selectionReason: "同一授权语料评测后选择 OpenAI。",
       updatedBy: OWNER_ID,
     });
     await db.insert(meetingTranscriptRevision).values({

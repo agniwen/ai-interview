@@ -39,6 +39,12 @@ describe("Meeting transcription queue", () => {
     );
     expect(meetingTranscriptionJobSchema.safeParse({ ...job, model: "" }).success).toBe(false);
     expect(meetingTranscriptionJobSchema.safeParse({ ...job, region: "" }).success).toBe(false);
+    expect(meetingTranscriptionJobSchema.safeParse({ ...job, provider: "deepgram" }).success).toBe(
+      true,
+    );
+    expect(
+      meetingTranscriptionJobSchema.safeParse({ ...job, provider: "native-payload" }).success,
+    ).toBe(false);
   });
 
   it("defaults final transcription concurrency to the agreed capacity", () => {

@@ -517,11 +517,13 @@ export const meetingTranscriptionPolicy = pgTable(
   {
     allowedProviders: jsonb("allowed_providers").$type<string[]>().notNull().default([]),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    fallbackProvider: text("fallback_provider"),
     organizationId: text("organization_id")
       .primaryKey()
       .references(() => organization.id, { onDelete: "cascade" }),
     revision: integer("revision").notNull().default(1),
     selectedProvider: text("selected_provider"),
+    selectionReason: text("selection_reason"),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
@@ -533,6 +535,14 @@ export const meetingTranscriptionPolicy = pgTable(
     check(
       "meeting_transcription_policy_selected_check",
       sql`${table.selectedProvider} is null or ${table.allowedProviders} ? ${table.selectedProvider}`,
+    ),
+    check(
+      "meeting_transcription_policy_fallback_check",
+      sql`${table.fallbackProvider} is null or (${table.selectedProvider} is not null and ${table.fallbackProvider} <> ${table.selectedProvider} and ${table.allowedProviders} ? ${table.fallbackProvider})`,
+    ),
+    check(
+      "meeting_transcription_policy_reason_check",
+      sql`(${table.selectedProvider} is null and ${table.selectionReason} is null) or (${table.selectedProvider} is not null and ${table.selectionReason} is not null and length(trim(${table.selectionReason})) between 10 and 500)`,
     ),
   ],
 );

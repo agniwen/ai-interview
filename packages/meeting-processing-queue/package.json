@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@arc/shared": "workspace:*",
     "bullmq": "^5.66.0",
     "zod": "catalog:"
   },

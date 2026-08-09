@@ -1,13 +1,15 @@
 import { z } from "zod";
 
-export const MEETING_TRANSCRIPTION_PROVIDERS = ["openai"] as const;
+export const MEETING_TRANSCRIPTION_PROVIDERS = ["tingwu", "deepgram", "openai"] as const;
 export const meetingTranscriptionProviderSchema = z.enum(MEETING_TRANSCRIPTION_PROVIDERS);
 export type MeetingTranscriptionProviderId = z.infer<typeof meetingTranscriptionProviderSchema>;
 
 export const updateMeetingTranscriptionPolicySchema = z
   .object({
     allowedProviders: z.array(meetingTranscriptionProviderSchema).max(10),
+    fallbackProvider: meetingTranscriptionProviderSchema.nullable(),
     selectedProvider: meetingTranscriptionProviderSchema.nullable(),
+    selectionReason: z.string().trim().min(10).max(500).nullable(),
   })
   .strict()
   .superRefine((input, context) => {
@@ -23,6 +25,41 @@ export const updateMeetingTranscriptionPolicySchema = z
         code: "custom",
         message: "选中的转录 provider 必须在允许列表中",
         path: ["selectedProvider"],
+      });
+    }
+    if (input.fallbackProvider && !input.allowedProviders.includes(input.fallbackProvider)) {
+      context.addIssue({
+        code: "custom",
+        message: "回退转录 provider 必须在允许列表中",
+        path: ["fallbackProvider"],
+      });
+    }
+    if (input.fallbackProvider && input.fallbackProvider === input.selectedProvider) {
+      context.addIssue({
+        code: "custom",
+        message: "回退转录 provider 必须不同于默认 provider",
+        path: ["fallbackProvider"],
+      });
+    }
+    if (input.fallbackProvider && !input.selectedProvider) {
+      context.addIssue({
+        code: "custom",
+        message: "设置回退 provider 前必须先选择默认 provider",
+        path: ["fallbackProvider"],
+      });
+    }
+    if (input.selectedProvider && !input.selectionReason) {
+      context.addIssue({
+        code: "custom",
+        message: "选择默认转录 provider 时必须记录理由",
+        path: ["selectionReason"],
+      });
+    }
+    if (!input.selectedProvider && input.selectionReason) {
+      context.addIssue({
+        code: "custom",
+        message: "未选择默认转录 provider 时不能记录选择理由",
+        path: ["selectionReason"],
       });
     }
   });
@@ -177,7 +214,9 @@ export interface MeetingTranscriptionPolicy {
   allowedProviders: MeetingTranscriptionProviderId[];
   availableProviders: MeetingTranscriptionProviderCandidate[];
   canManage: boolean;
+  fallbackProvider: MeetingTranscriptionProviderId | null;
   revision: number;
+  selectionReason: string | null;
   selectedProvider: MeetingTranscriptionProviderId | null;
 }
 

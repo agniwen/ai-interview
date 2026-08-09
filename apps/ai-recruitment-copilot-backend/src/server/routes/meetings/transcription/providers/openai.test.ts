@@ -126,4 +126,41 @@ describe("OpenAI Meeting transcription adapter", () => {
       expect((body as FormData).get("chunking_strategy")).toBe("auto");
     }
   });
+
+  it("classifies malformed and incomplete successful responses", async () => {
+    const input = {
+      chunks: [
+        {
+          contentType: "audio/webm",
+          endMs: 1000,
+          filePath: "/tmp/local.webm",
+          index: 0,
+          startMs: 0,
+          track: "microphone" as const,
+        },
+      ],
+      languageHint: null,
+      model: "gpt-4o-transcribe-diarize",
+      region: "openai-default",
+    };
+    const malformed = createOpenAiMeetingTranscriptionProvider({
+      apiKey: "test-key",
+      fetch: vi.fn<typeof globalThis.fetch>().mockResolvedValue(Response.json({ segments: "bad" })),
+      readAudioFile: vi.fn(() => Promise.resolve(new Uint8Array([1]))),
+    });
+    await expect(malformed.transcribeFinal(input)).rejects.toEqual(
+      expect.objectContaining({ code: "malformed-response" }),
+    );
+
+    const partial = createOpenAiMeetingTranscriptionProvider({
+      apiKey: "test-key",
+      fetch: vi
+        .fn<typeof globalThis.fetch>()
+        .mockResolvedValue(new Response(null, { status: 206 })),
+      readAudioFile: vi.fn(() => Promise.resolve(new Uint8Array([1]))),
+    });
+    await expect(partial.transcribeFinal(input)).rejects.toEqual(
+      expect.objectContaining({ code: "partial-result" }),
+    );
+  });
 });

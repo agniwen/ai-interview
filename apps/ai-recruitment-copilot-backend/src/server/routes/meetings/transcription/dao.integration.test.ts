@@ -127,6 +127,7 @@ describe("Meeting transcription publication", () => {
       allowedProviders: ["openai"],
       organizationId: ORGANIZATION_ID,
       selectedProvider: "openai",
+      selectionReason: "同一授权语料评测后选择 OpenAI。",
       updatedBy: USER_ID,
     });
   }, 30_000);
@@ -427,7 +428,12 @@ describe("Meeting transcription publication", () => {
       updateMeetingTranscriptionPolicy({
         actorId: USER_ID,
         organizationId: ORGANIZATION_ID,
-        policy: { allowedProviders: [], selectedProvider: null },
+        policy: {
+          allowedProviders: [],
+          fallbackProvider: null,
+          selectedProvider: null,
+          selectionReason: null,
+        },
       }),
     ).resolves.toMatchObject({ revision: 2, selectedProvider: null });
 
@@ -462,7 +468,12 @@ describe("Meeting transcription publication", () => {
       updateMeetingTranscriptionPolicy({
         actorId: USER_ID,
         organizationId: ORGANIZATION_ID,
-        policy: { allowedProviders: [], selectedProvider: null },
+        policy: {
+          allowedProviders: [],
+          fallbackProvider: null,
+          selectedProvider: null,
+          selectionReason: null,
+        },
       }),
     ]);
 
@@ -563,7 +574,12 @@ describe("Meeting transcription publication", () => {
     await updateMeetingTranscriptionPolicy({
       actorId: USER_ID,
       organizationId: ORGANIZATION_ID,
-      policy: { allowedProviders: [], selectedProvider: null },
+      policy: {
+        allowedProviders: [],
+        fallbackProvider: null,
+        selectedProvider: null,
+        selectionReason: null,
+      },
     });
 
     await expect(
@@ -572,6 +588,29 @@ describe("Meeting transcription publication", () => {
         where: { id: MEETING_ID },
       }),
     ).resolves.toMatchObject({ transcriptionRunId: null, transcriptionStatus: "pending" });
+  });
+
+  it("rejects a stale administrator role after the member is demoted", async () => {
+    await db
+      .update(member)
+      .set({ role: "member" })
+      .where(and(eq(member.organizationId, ORGANIZATION_ID), eq(member.userId, USER_ID)));
+
+    await expect(
+      updateMeetingTranscriptionPolicy({
+        actorId: USER_ID,
+        organizationId: ORGANIZATION_ID,
+        policy: {
+          allowedProviders: [],
+          fallbackProvider: null,
+          selectedProvider: null,
+          selectionReason: null,
+        },
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      db.query.meetingTranscriptionPolicy.findFirst({ where: { organizationId: ORGANIZATION_ID } }),
+    ).resolves.toMatchObject({ selectedProvider: "openai" });
   });
 
   it("exposes quota exhaustion without removing the verified recording", async () => {
@@ -615,7 +654,12 @@ describe("Meeting transcription publication", () => {
       updateMeetingTranscriptionPolicy({
         actorId: USER_ID,
         organizationId: ORGANIZATION_ID,
-        policy: { allowedProviders: [], selectedProvider: null },
+        policy: {
+          allowedProviders: [],
+          fallbackProvider: null,
+          selectedProvider: null,
+          selectionReason: null,
+        },
       }),
     ]);
 
@@ -648,7 +692,12 @@ describe("Meeting transcription publication", () => {
       updateMeetingTranscriptionPolicy({
         actorId: USER_ID,
         organizationId: ORGANIZATION_ID,
-        policy: { allowedProviders: [], selectedProvider: null },
+        policy: {
+          allowedProviders: [],
+          fallbackProvider: null,
+          selectedProvider: null,
+          selectionReason: null,
+        },
       }),
     ]);
 

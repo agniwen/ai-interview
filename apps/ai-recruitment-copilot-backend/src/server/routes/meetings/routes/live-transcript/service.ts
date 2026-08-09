@@ -24,7 +24,6 @@ export async function createWorkspaceMeetingLiveTranscriptAuthorization(input: {
   const providers = listMeetingTranscriptionProviderCandidates();
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (
-    policy.selectedProvider !== "openai" ||
     !policy.allowedProviders.includes("openai") ||
     !providers.some((provider) => provider.id === "openai") ||
     !apiKey

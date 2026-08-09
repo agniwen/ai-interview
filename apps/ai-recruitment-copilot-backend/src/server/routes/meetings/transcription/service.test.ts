@@ -54,7 +54,12 @@ describe("Meeting transcription service", () => {
       updateWorkspaceMeetingTranscriptionPolicy({
         memberRole: "member",
         organizationId: "org-76",
-        policy: { allowedProviders: ["openai"], selectedProvider: "openai" },
+        policy: {
+          allowedProviders: ["openai"],
+          fallbackProvider: null,
+          selectedProvider: "openai",
+          selectionReason: "同一授权语料评测后选择 OpenAI。",
+        },
         userId: "member-76",
       }),
     ).resolves.toBe("forbidden");
@@ -68,7 +73,12 @@ describe("Meeting transcription service", () => {
       updateWorkspaceMeetingTranscriptionPolicy({
         memberRole: "admin",
         organizationId: "org-76",
-        policy: { allowedProviders: ["openai"], selectedProvider: "openai" },
+        policy: {
+          allowedProviders: ["openai"],
+          fallbackProvider: null,
+          selectedProvider: "openai",
+          selectionReason: "同一授权语料评测后选择 OpenAI。",
+        },
         userId: "admin-76",
       }),
     ).resolves.toBe("invalid-provider");
@@ -77,8 +87,10 @@ describe("Meeting transcription service", () => {
   it("persists an explicit policy and enqueues only recoverable final jobs", async () => {
     mocks.updateMeetingTranscriptionPolicy.mockResolvedValue({
       allowedProviders: ["openai"],
+      fallbackProvider: null,
       revision: 2,
       selectedProvider: "openai",
+      selectionReason: "同一授权语料评测后选择 OpenAI。",
     });
     mocks.listRecoverableMeetingTranscriptionJobs.mockResolvedValue([{ meetingId: "meeting-76" }]);
 
@@ -86,7 +98,12 @@ describe("Meeting transcription service", () => {
       updateWorkspaceMeetingTranscriptionPolicy({
         memberRole: "admin",
         organizationId: "org-76",
-        policy: { allowedProviders: ["openai"], selectedProvider: "openai" },
+        policy: {
+          allowedProviders: ["openai"],
+          fallbackProvider: null,
+          selectedProvider: "openai",
+          selectionReason: "同一授权语料评测后选择 OpenAI。",
+        },
         userId: "admin-76",
       }),
     ).resolves.toMatchObject({ revision: 2, selectedProvider: "openai" });
@@ -125,7 +142,10 @@ describe("Meeting transcription service", () => {
     });
     mocks.isMeetingTranscriptionQueueConfigured.mockReturnValue(true);
     mocks.resetMeetingTranscriptionForRetry.mockResolvedValue([{ id: "meeting-76" }]);
-    mocks.getMeetingTranscriptionJobForMeeting.mockResolvedValue({ meetingId: "meeting-76" });
+    mocks.getMeetingTranscriptionJobForMeeting.mockResolvedValue({
+      meetingId: "meeting-76",
+      provider: "openai",
+    });
 
     await expect(
       retrySavedMeetingTranscription({
@@ -135,7 +155,14 @@ describe("Meeting transcription service", () => {
         userId: "owner-76",
       }),
     ).resolves.toEqual({ state: "processing" });
-    expect(mocks.retryMeetingTranscriptionJob).toHaveBeenCalledWith({ meetingId: "meeting-76" });
+    expect(mocks.retryMeetingTranscriptionJob).toHaveBeenCalledWith(
+      expect.objectContaining({ meetingId: "meeting-76", provider: "openai" }),
+    );
+    expect(mocks.getMeetingTranscriptionJobForMeeting).toHaveBeenCalledWith({
+      meetingId: "meeting-76",
+      organizationId: "org-76",
+      preferFallback: true,
+    });
   });
 
   it.each(["editor", "owner", "administrator"] as const)(

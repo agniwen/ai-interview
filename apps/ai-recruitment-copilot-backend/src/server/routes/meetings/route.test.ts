@@ -1,4 +1,5 @@
 import { testClient } from "hono/testing";
+/* oxlint-disable max-lines -- Meeting route authorization scenarios share one typed Hono client fixture. */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import { LiveTranscriptAuthorizationRateLimitError } from "./routes/live-transcript/authorization-gate";
@@ -566,8 +567,10 @@ describe("Meeting Buddy small Saved Meeting control plane", () => {
         },
       ],
       canManage: true,
+      fallbackProvider: null,
       revision: 1,
       selectedProvider: "openai",
+      selectionReason: "同一授权语料评测后选择 OpenAI。",
     });
 
     const response = await client.meetings["transcription-policy"].$get();
@@ -645,19 +648,31 @@ describe("Meeting Buddy small Saved Meeting control plane", () => {
       allowedProviders: ["openai"],
       availableProviders: [],
       canManage: true,
+      fallbackProvider: null,
       revision: 2,
       selectedProvider: "openai",
+      selectionReason: "同一授权语料评测后选择 OpenAI。",
     });
 
     const response = await client.meetings["transcription-policy"].$put({
-      json: { allowedProviders: ["openai"], selectedProvider: "openai" },
+      json: {
+        allowedProviders: ["openai"],
+        fallbackProvider: null,
+        selectedProvider: "openai",
+        selectionReason: "同一授权语料评测后选择 OpenAI。",
+      },
     });
 
     expect(response.status).toBe(200);
     expect(mocks.updateWorkspaceMeetingTranscriptionPolicy).toHaveBeenCalledWith({
       memberRole: "admin",
       organizationId: "org-72",
-      policy: { allowedProviders: ["openai"], selectedProvider: "openai" },
+      policy: {
+        allowedProviders: ["openai"],
+        fallbackProvider: null,
+        selectedProvider: "openai",
+        selectionReason: "同一授权语料评测后选择 OpenAI。",
+      },
       userId: "user-72",
     });
   });

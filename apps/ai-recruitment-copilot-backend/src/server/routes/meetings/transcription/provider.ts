@@ -1,6 +1,8 @@
 import type { CanonicalMeetingTranscript } from "@arc/shared/meeting-transcription";
 import type { MeetingSourceTrack } from "@arc/shared/meeting-recording";
 
+export { MeetingProviderResponseError } from "./provider-response-error";
+
 export class MeetingProviderQuotaError extends Error {
   readonly code = "provider-quota" as const;
 
@@ -24,6 +26,7 @@ export interface FinalTranscriptionInput {
   languageHint: string | null;
   model: string;
   region: string;
+  signal?: AbortSignal;
 }
 
 export interface MeetingProviderArtifactInput {

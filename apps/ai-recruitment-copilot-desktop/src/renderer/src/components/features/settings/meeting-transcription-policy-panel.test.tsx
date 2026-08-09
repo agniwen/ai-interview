@@ -14,8 +14,10 @@ const policy: MeetingTranscriptionPolicy = {
     },
   ],
   canManage: true,
+  fallbackProvider: null,
   revision: 2,
   selectedProvider: "openai",
+  selectionReason: "consented-corpus-v1 中 OpenAI 综合质量最好。",
 };
 
 describe("Meeting transcription policy settings", () => {
@@ -26,7 +28,9 @@ describe("Meeting transcription policy settings", () => {
 
     expect(html).toContain("允许使用 OpenAI");
     expect(html).toContain("gpt-4o-transcribe-diarize");
-    expect(html).toContain("选择用于新 Final Transcript 的 provider");
+    expect(html).toContain("选择用于新 Final Transcript 的默认 provider");
+    expect(html).toContain("Fallback provider");
+    expect(html).toContain("选择理由");
     expect(html).toContain("保存转录策略");
   });
 

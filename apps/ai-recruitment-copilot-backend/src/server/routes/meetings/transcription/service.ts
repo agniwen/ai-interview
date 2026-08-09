@@ -53,15 +53,21 @@ export async function getWorkspaceMeetingTranscriptionPolicy(input: {
     Promise.resolve(listMeetingTranscriptionProviderCandidates()),
   ]);
   const available = new Set(availableProviders.map((provider) => provider.id));
+  const selectedProvider =
+    policy.selectedProvider && available.has(policy.selectedProvider)
+      ? policy.selectedProvider
+      : null;
   return {
     allowedProviders: policy.allowedProviders.filter((provider) => available.has(provider)),
     availableProviders,
     canManage: isWorkspaceAdministrator(input.memberRole),
-    revision: policy.revision,
-    selectedProvider:
-      policy.selectedProvider && available.has(policy.selectedProvider)
-        ? policy.selectedProvider
+    fallbackProvider:
+      selectedProvider && policy.fallbackProvider && available.has(policy.fallbackProvider)
+        ? policy.fallbackProvider
         : null,
+    revision: policy.revision,
+    selectedProvider,
+    selectionReason: selectedProvider ? policy.selectionReason : null,
   };
 }
 
@@ -86,6 +92,9 @@ export async function updateWorkspaceMeetingTranscriptionPolicy(input: {
     organizationId: input.organizationId,
     policy: input.policy,
   });
+  if (!updated) {
+    return "forbidden";
+  }
   await enqueueRecoverableTranscriptionsBestEffort();
   return {
     ...updated,
@@ -257,6 +266,7 @@ export async function retrySavedMeetingTranscription(input: {
   const job = await getMeetingTranscriptionJobForMeeting({
     meetingId: input.meetingId,
     organizationId: input.organizationId,
+    preferFallback: true,
   });
   if (!job) {
     return { state: "unavailable" };
@@ -265,6 +275,7 @@ export async function retrySavedMeetingTranscription(input: {
   await recordMeetingAudit({
     action: "meeting.transcription_retried",
     actorId: input.userId,
+    detail: { provider: job.provider },
     meetingId: input.meetingId,
     organizationId: input.organizationId,
   });

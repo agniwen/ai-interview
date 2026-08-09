@@ -33,11 +33,11 @@ describe("Meeting live transcript service", () => {
     mocks.listMeetingTranscriptionProviderCandidates.mockReturnValue([candidate]);
   });
 
-  it("mints a track-scoped live authorization only under the selected workspace policy", async () => {
+  it("keeps the OpenAI live provider independent from the selected final provider", async () => {
     mocks.loadMeetingTranscriptionPolicy.mockResolvedValue({
-      allowedProviders: ["openai"],
+      allowedProviders: ["deepgram", "openai"],
       revision: 3,
-      selectedProvider: "openai",
+      selectedProvider: "deepgram",
     });
     mocks.createOpenAiRealtimeTranscriptionAuthorization.mockResolvedValue({
       clientSecret: "ephemeral-secret",
@@ -65,7 +65,7 @@ describe("Meeting live transcript service", () => {
     );
   });
 
-  it("does not mint a live secret when the workspace has not selected the provider", async () => {
+  it("does not mint a live secret when no live-capable provider is allowed", async () => {
     mocks.loadMeetingTranscriptionPolicy.mockResolvedValue({
       allowedProviders: [],
       revision: 0,

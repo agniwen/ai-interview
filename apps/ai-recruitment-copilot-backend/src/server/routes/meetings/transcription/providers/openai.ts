@@ -5,7 +5,7 @@ import type {
   CanonicalMeetingTranscript,
   CanonicalMeetingTranscriptTurn,
 } from "@arc/shared/meeting-transcription";
-import { MeetingProviderQuotaError } from "../provider";
+import { MeetingProviderQuotaError, MeetingProviderResponseError } from "../provider";
 import type { FinalTranscriptionAudioChunk, MeetingTranscriptionProvider } from "../provider";
 
 const openAiDiarizedResponseSchema = z
@@ -81,6 +81,12 @@ export function createOpenAiMeetingTranscriptionProvider(
         (left, right) => left.startMs - right.startMs || left.track.localeCompare(right.track),
       );
       for (const chunk of chunks) {
+        const signal = input.signal
+          ? AbortSignal.any([
+              input.signal,
+              AbortSignal.timeout(dependencies.requestTimeoutMs ?? 5 * 60 * 1000),
+            ])
+          : AbortSignal.timeout(dependencies.requestTimeoutMs ?? 5 * 60 * 1000);
         const bytes = await readAudioFile(chunk.filePath);
         const form = new FormData();
         form.append(
@@ -98,15 +104,23 @@ export function createOpenAiMeetingTranscriptionProvider(
           body: form,
           headers: { Authorization: `Bearer ${dependencies.apiKey}` },
           method: "POST",
-          signal: AbortSignal.timeout(dependencies.requestTimeoutMs ?? 5 * 60 * 1000),
+          signal,
         });
+        if (response.status === 206) {
+          throw new MeetingProviderResponseError("partial-result", "OpenAI");
+        }
         if (!response.ok) {
           if (response.status === 429) {
             throw new MeetingProviderQuotaError();
           }
           throw new Error(`OpenAI transcription failed with HTTP ${response.status}`);
         }
-        const providerResponse = openAiDiarizedResponseSchema.parse(await response.json());
+        let providerResponse: z.infer<typeof openAiDiarizedResponseSchema>;
+        try {
+          providerResponse = openAiDiarizedResponseSchema.parse(await response.json());
+        } catch {
+          throw new MeetingProviderResponseError("malformed-response", "OpenAI");
+        }
         if (providerResponse.language) {
           languages.push(providerResponse.language);
         }

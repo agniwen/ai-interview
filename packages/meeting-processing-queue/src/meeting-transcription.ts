@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { Queue, Worker } from "bullmq";
 import type { ConnectionOptions, JobsOptions, JobType } from "bullmq";
 import { z } from "zod";
+import { meetingTranscriptionProviderSchema } from "@arc/shared/meeting-transcription";
 
 export const MEETING_TRANSCRIPTION_QUEUE_NAME = "meeting-transcription";
 export const MEETING_TRANSCRIPTION_JOB_NAME = "transcribe-final-meeting";
@@ -13,7 +14,7 @@ export const meetingTranscriptionJobSchema = z.object({
   organizationId: z.string().min(1),
   pipelineVersion: z.literal(MEETING_TRANSCRIPTION_PIPELINE_VERSION),
   policyRevision: z.number().int().positive(),
-  provider: z.literal("openai"),
+  provider: meetingTranscriptionProviderSchema,
   region: z.string().min(1),
   sourceManifestSha256: z.string().regex(/^[a-f\d]{64}$/i),
 });

@@ -62,15 +62,58 @@ describe("Meeting transcription contracts", () => {
     expect(
       updateMeetingTranscriptionPolicySchema.safeParse({
         allowedProviders: [],
+        fallbackProvider: null,
         selectedProvider: "openai",
+        selectionReason: "同一授权语料评测后选择 OpenAI。",
       }).success,
     ).toBe(false);
     expect(
       updateMeetingTranscriptionPolicySchema.parse({
-        allowedProviders: ["openai"],
-        selectedProvider: "openai",
+        allowedProviders: ["tingwu", "openai"],
+        fallbackProvider: "openai",
+        selectedProvider: "tingwu",
+        selectionReason: "同一授权语料评测后，通义听悟在中文质量与区域要求上得分最高。",
       }),
-    ).toEqual({ allowedProviders: ["openai"], selectedProvider: "openai" });
+    ).toEqual({
+      allowedProviders: ["tingwu", "openai"],
+      fallbackProvider: "openai",
+      selectedProvider: "tingwu",
+      selectionReason: "同一授权语料评测后，通义听悟在中文质量与区域要求上得分最高。",
+    });
+  });
+
+  it("requires an allowed, distinct fallback and a recorded selection reason", () => {
+    const base = {
+      allowedProviders: ["deepgram", "openai"],
+      fallbackProvider: "openai",
+      selectedProvider: "deepgram",
+    } as const;
+
+    expect(
+      updateMeetingTranscriptionPolicySchema.safeParse({ ...base, selectionReason: null }).success,
+    ).toBe(false);
+    expect(
+      updateMeetingTranscriptionPolicySchema.safeParse({
+        ...base,
+        fallbackProvider: "deepgram",
+        selectionReason: "同一授权语料评测后选择。",
+      }).success,
+    ).toBe(false);
+    expect(
+      updateMeetingTranscriptionPolicySchema.safeParse({
+        ...base,
+        allowedProviders: ["deepgram"],
+        selectionReason: "同一授权语料评测后选择。",
+      }).success,
+    ).toBe(false);
+    expect(
+      updateMeetingTranscriptionPolicySchema.safeParse({
+        allowedProviders: [],
+        fallbackProvider: null,
+        selectedProvider: null,
+        selectionReason: null,
+      }).success,
+    ).toBe(true);
   });
 
   it("scopes live transcript authorization to one capture and source track", () => {
