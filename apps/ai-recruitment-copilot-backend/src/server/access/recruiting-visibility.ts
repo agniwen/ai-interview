@@ -16,6 +16,33 @@ const GROUP_ROLE_RANK: Record<string, number> = {
   viewer: 0,
 };
 
+export function resolveRecruitingVisibilityScopeFromRows(input: {
+  currentMemberships: { groupId: string; role: string }[];
+  groupRows: { groupId: string; role: string; userId: string }[];
+  memberRole: string;
+  userId: string;
+}): RecruitingVisibilityScope {
+  if (ALL_DATA_ROLES.has(input.memberRole)) {
+    return { kind: "all" };
+  }
+  if (input.currentMemberships.length === 0) {
+    return { kind: "restricted", userIds: [input.userId] };
+  }
+
+  const ownRankByGroup = new Map(
+    input.currentMemberships.map((row) => [row.groupId, GROUP_ROLE_RANK[row.role] ?? 0]),
+  );
+  const visible = new Set<string>([input.userId]);
+  for (const row of input.groupRows) {
+    const ownRank = ownRankByGroup.get(row.groupId) ?? 0;
+    const targetRank = GROUP_ROLE_RANK[row.role] ?? 0;
+    if (ownRank >= GROUP_ROLE_RANK.recruitingLead && targetRank < ownRank) {
+      visible.add(row.userId);
+    }
+  }
+  return { kind: "restricted", userIds: [...visible] };
+}
+
 export async function resolveRecruitingVisibilityScope({
   currentRole,
   organizationId,
@@ -39,10 +66,6 @@ export async function resolveRecruitingVisibilityScope({
     return { kind: "none" };
   }
 
-  if (ALL_DATA_ROLES.has(currentMember.role)) {
-    return { kind: "all" };
-  }
-
   const currentMemberships = await db
     .select({ groupId: recruitingGroupMember.groupId, role: recruitingGroupMember.role })
     .from(recruitingGroupMember)
@@ -53,40 +76,32 @@ export async function resolveRecruitingVisibilityScope({
       ),
     );
 
-  if (currentMemberships.length === 0) {
-    return { kind: "restricted", userIds: [userId] };
-  }
+  const groupRows =
+    currentMemberships.length === 0
+      ? []
+      : await db
+          .select({
+            groupId: recruitingGroupMember.groupId,
+            role: recruitingGroupMember.role,
+            userId: recruitingGroupMember.userId,
+          })
+          .from(recruitingGroupMember)
+          .where(
+            and(
+              eq(recruitingGroupMember.organizationId, organizationId),
+              inArray(
+                recruitingGroupMember.groupId,
+                currentMemberships.map((row) => row.groupId),
+              ),
+            ),
+          );
 
-  const ownRankByGroup = new Map(
-    currentMemberships.map((row) => [row.groupId, GROUP_ROLE_RANK[row.role] ?? 0]),
-  );
-  const groupRows = await db
-    .select({
-      groupId: recruitingGroupMember.groupId,
-      role: recruitingGroupMember.role,
-      userId: recruitingGroupMember.userId,
-    })
-    .from(recruitingGroupMember)
-    .where(
-      and(
-        eq(recruitingGroupMember.organizationId, organizationId),
-        inArray(recruitingGroupMember.groupId, [...ownRankByGroup.keys()]),
-      ),
-    );
-
-  const visible = new Set<string>([userId]);
-  for (const row of groupRows) {
-    const ownRank = ownRankByGroup.get(row.groupId) ?? 0;
-    const targetRank = GROUP_ROLE_RANK[row.role] ?? 0;
-    if (ownRank >= GROUP_ROLE_RANK.recruitingLead && targetRank < ownRank) {
-      visible.add(row.userId);
-    }
-  }
-
-  return {
-    kind: "restricted",
-    userIds: [...visible],
-  };
+  return resolveRecruitingVisibilityScopeFromRows({
+    currentMemberships,
+    groupRows,
+    memberRole: currentMember.role,
+    userId,
+  });
 }
 
 export function intersectRequestedCreatorIds(

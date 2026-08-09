@@ -9,6 +9,7 @@
  */
 
 import type { InterviewQuestion, ResumeProfile } from "@arc/db-schema/interview/types";
+import type { MeetingLibraryItem } from "@arc/shared/meeting-recording";
 import type {
   StudioInterviewRoundDetail,
   StudioInterviewRoundListRecord,
@@ -144,6 +145,13 @@ export function fetchStudioResume(slug: string, id: string): Promise<ResumeLibra
     "加载简历详情失败",
     { allow404: true },
   );
+}
+
+export function fetchStudioResumeMeetings(slug: string, id: string): Promise<MeetingLibraryItem[]> {
+  return rpcFetch<{ records: MeetingLibraryItem[] }>(
+    rpc.api.w[":slug"].studio.resumes[":id"].meetings.$get({ param: { id, slug } }),
+    "加载候选人关联会议失败",
+  ).then((payload) => payload.records);
 }
 
 /**

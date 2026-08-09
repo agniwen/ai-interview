@@ -493,11 +493,13 @@ export async function completeSmallSavedMeeting(input: {
 export async function listSavedMeetings(input: {
   memberRole: string;
   organizationId: string;
+  recruitingRecordId?: string;
   userId: string;
 }): Promise<MeetingLibraryItem[]> {
   const rows = await listMeetingSessionsForAccess({
     includeAllPrivateMeetings: isWorkspaceAdministrator(input.memberRole),
     organizationId: input.organizationId,
+    ...(input.recruitingRecordId ? { recruitingRecordId: input.recruitingRecordId } : {}),
     userId: input.userId,
   });
   if (isWorkspaceAdministrator(input.memberRole)) {

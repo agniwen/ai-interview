@@ -194,6 +194,10 @@ export const updateMeetingShareSchema = z
 
 export const reassignMeetingOwnerSchema = z.object({ userId: z.string().min(1) });
 
+export const updateMeetingRecruitingContextSchema = z.object({
+  recruitingRecordId: z.string().trim().min(1).nullable(),
+});
+
 export const createMeetingNoteSchema = z.object({
   body: z.string().trim().min(1).max(10_000),
   meetingTimeMs: z.number().int().nonnegative(),
@@ -209,6 +213,9 @@ export const updateMeetingNoteSchema = z
   });
 
 export type UpdateMeetingShareInput = z.infer<typeof updateMeetingShareSchema>;
+export type UpdateMeetingRecruitingContextInput = z.infer<
+  typeof updateMeetingRecruitingContextSchema
+>;
 export type CreateMeetingNoteInput = z.infer<typeof createMeetingNoteSchema>;
 export type UpdateMeetingNoteInput = z.infer<typeof updateMeetingNoteSchema>;
 
@@ -233,6 +240,27 @@ export interface MeetingLibraryItem {
 export interface MeetingDetail extends MeetingLibraryItem {
   startedAt: string;
   verifiedAt: string | null;
+}
+
+export interface MeetingRecruitingRecordSummary {
+  candidateName: string;
+  id: string;
+  jobDescriptionName: string | null;
+  outcome: string;
+  pipelineStage: string;
+  targetRole: string | null;
+}
+
+export interface MeetingRecruitingContextLink {
+  linkedAt: string;
+  linkedBy: string | null;
+  record: MeetingRecruitingRecordSummary;
+  templateSuggestion: "recruiting-interview";
+}
+
+export interface MeetingRecruitingContextSettings {
+  canManage: boolean;
+  link: MeetingRecruitingContextLink | null;
 }
 
 export interface MeetingPlaybackAuthorization {

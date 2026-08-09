@@ -294,6 +294,16 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.meetingSession.id,
     }),
   },
+  meetingRecruitingContext: {
+    meeting: r.one.meetingSession({
+      from: r.meetingRecruitingContext.meetingId,
+      to: r.meetingSession.id,
+    }),
+    recruitingRecord: r.one.studioInterview({
+      from: r.meetingRecruitingContext.recruitingRecordId,
+      to: r.studioInterview.id,
+    }),
+  },
   meetingSession: {
     accessGrants: r.many.meetingAccessGrant(),
     assets: r.many.meetingRecordingAsset(),
@@ -311,6 +321,10 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.user.id,
     }),
     processingRuns: r.many.meetingProcessingRun(),
+    recruitingContext: r.one.meetingRecruitingContext({
+      from: r.meetingSession.id,
+      to: r.meetingRecruitingContext.meetingId,
+    }),
     transcriptRevisions: r.many.meetingTranscriptRevision(),
     transcriptionChunks: r.many.meetingTranscriptionChunk(),
   },
@@ -535,6 +549,7 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.studioInterview.jobDescriptionId,
       to: r.jobDescription.id,
     }),
+    meetingContexts: r.many.meetingRecruitingContext(),
     offerDrafts: r.many.studioOfferDraft(),
     organization: r.one.organization({
       from: r.studioInterview.organizationId,

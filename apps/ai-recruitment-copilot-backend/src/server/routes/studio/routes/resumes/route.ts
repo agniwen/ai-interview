@@ -62,6 +62,7 @@ import {
   INVALIDATED_RESUME_ASSESSMENT_FOR_JOB_CHANGE,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/utils/resume-assessment-invalidation";
 import { structuredResumeEvaluationRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/routes/structured-evaluation/route";
+import { recruitingRecordMeetingsRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/routes/meetings/route";
 import {
   forceResumeReparse,
   retryFailedResumeParse,
@@ -168,6 +169,7 @@ export function parseResumeReviewFormInput(
 export const resumeLibraryRouter = factory
   .createApp()
   .route("/", resumeLibraryReadRouter)
+  .route("/:id/meetings", recruitingRecordMeetingsRouter)
   .route("/:id/structured-evaluation", structuredResumeEvaluationRouter)
   .post(
     "/:id/retry-parse",

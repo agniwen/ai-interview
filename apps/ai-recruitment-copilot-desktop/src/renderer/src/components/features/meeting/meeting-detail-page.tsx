@@ -13,6 +13,7 @@ import {
 import { desktopWorkspaceKeys, resolveActiveWorkspace } from "@/lib/client/workspace";
 import { MeetingDetailView } from "./meeting-library-view";
 import { MeetingNotesPanel } from "./meeting-notes-panel";
+import { MeetingRecruitingContextPanel } from "./meeting-recruiting-context-panel";
 import { MeetingSharePanel } from "./meeting-share-panel";
 import { MeetingTranscriptPanel } from "./meeting-transcript-panel";
 
@@ -156,6 +157,11 @@ export function MeetingDetailPage({
         retryProcessing={retryMutation.isPending}
         seekRequestId={seekRequest.id}
         seekToSeconds={seekRequest.seconds}
+      />
+      <MeetingRecruitingContextPanel
+        accessRole={detailQuery.data.accessRole}
+        meetingId={meetingId}
+        slug={workspaceSlug}
       />
       <MeetingTranscriptPanel
         accessRole={detailQuery.data.accessRole}

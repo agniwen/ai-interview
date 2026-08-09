@@ -5,6 +5,7 @@ import { LiveTranscriptAuthorizationRateLimitError } from "./routes/live-transcr
 
 const mocks = vi.hoisted(() => ({
   addMeetingNote: vi.fn(),
+  changeMeetingRecruitingContext: vi.fn(),
   completeSmallSavedMeeting: vi.fn(),
   correctSavedMeetingTranscript: vi.fn(),
   createMeetingPlaybackAuthorization: vi.fn(),
@@ -13,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   createWorkspaceMeetingLiveTranscriptAuthorization: vi.fn(),
   editMeetingNote: vi.fn(),
   getMeetingNotes: vi.fn(),
+  getMeetingRecruitingContext: vi.fn(),
+  getMeetingRecruitingRecordCandidates: vi.fn(),
   getMeetingShareSettings: vi.fn(),
   getSavedMeetingDetail: vi.fn(),
   getSavedMeetingTranscript: vi.fn(),
@@ -32,6 +35,10 @@ vi.mock("./service", () => mocks);
 vi.mock("./collaboration-service", () => mocks);
 vi.mock("./transcription/service", () => mocks);
 vi.mock("./routes/live-transcript/service", () => mocks);
+vi.mock("./recruiting-context-service", () => mocks);
+vi.mock("@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy", () => ({
+  createRequestWorkspaceAuthorizer: () => () => Promise.resolve(true),
+}));
 
 // oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
 import { meetingsRouter } from "./route";
@@ -256,6 +263,43 @@ describe("Meeting Buddy small Saved Meeting control plane", () => {
       memberRole: "admin",
       organizationId: "org-72",
       userId: "user-72",
+    });
+  });
+
+  it("returns and changes one Recruiting Context Link without exposing invalid records", async () => {
+    mocks.getMeetingRecruitingContext.mockResolvedValue({
+      canManage: true,
+      link: {
+        linkedAt: "2026-08-09T10:30:00.000Z",
+        linkedBy: "user-72",
+        record: {
+          candidateName: "Alice",
+          id: "candidate-79",
+          jobDescriptionName: "Product Designer",
+          outcome: "in_pipeline",
+          pipelineStage: "human_interview",
+          targetRole: "Product Designer",
+        },
+        templateSuggestion: "recruiting-interview",
+      },
+    });
+    mocks.changeMeetingRecruitingContext.mockResolvedValue("invalid-record");
+
+    const getResponse = await makeApp().request(`/meetings/${MEETING_ID}/recruiting-context`);
+    expect(getResponse.status).toBe(200);
+    await expect(getResponse.json()).resolves.toMatchObject({
+      canManage: true,
+      link: { record: { id: "candidate-79" } },
+    });
+
+    const putResponse = await makeApp().request(`/meetings/${MEETING_ID}/recruiting-context`, {
+      body: JSON.stringify({ recruitingRecordId: "foreign-candidate" }),
+      headers: { "content-type": "application/json" },
+      method: "PUT",
+    });
+    expect(putResponse.status).toBe(404);
+    await expect(putResponse.json()).resolves.toEqual({
+      error: "招聘记录不存在或无权访问",
     });
   });
 

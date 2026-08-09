@@ -5,6 +5,7 @@ import {
   meetingAuditLog,
   meetingNote,
   meetingRecordingAsset,
+  meetingRecruitingContext,
   meetingSession,
   member,
   user,
@@ -153,6 +154,7 @@ export async function markMeetingSessionVerified(input: {
 export async function listMeetingSessionsForAccess(input: {
   includeAllPrivateMeetings: boolean;
   organizationId: string;
+  recruitingRecordId?: string;
   userId: string;
 }) {
   const activeMember = await db.query.member.findFirst({
@@ -201,7 +203,22 @@ export async function listMeetingSessionsForAccess(input: {
         activeMember ? eq(meetingAccessGrant.memberId, activeMember.id) : sql`false`,
       ),
     )
-    .where(and(access, inArray(meetingSession.status, [...LIBRARY_MEETING_STATUSES])))
+    .leftJoin(
+      meetingRecruitingContext,
+      and(
+        eq(meetingRecruitingContext.meetingId, meetingSession.id),
+        eq(meetingRecruitingContext.organizationId, input.organizationId),
+      ),
+    )
+    .where(
+      and(
+        access,
+        inArray(meetingSession.status, [...LIBRARY_MEETING_STATUSES]),
+        input.recruitingRecordId
+          ? eq(meetingRecruitingContext.recruitingRecordId, input.recruitingRecordId)
+          : undefined,
+      ),
+    )
     .groupBy(
       meetingSession.id,
       meetingSession.custodianId,

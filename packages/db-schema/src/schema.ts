@@ -73,6 +73,7 @@ import {
   boolean,
   check,
   doublePrecision,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -348,6 +349,49 @@ export const meetingSession = pgTable(
       table.organizationId,
       table.status,
       table.savedAt,
+    ),
+    uniqueIndex("meeting_session_id_org_uq").on(table.id, table.organizationId),
+  ],
+);
+
+export const meetingRecruitingContext = pgTable(
+  "meeting_recruiting_context",
+  {
+    linkedAt: timestamp("linked_at", { withTimezone: true }).defaultNow().notNull(),
+    linkedBy: text("linked_by").references(() => user.id, { onDelete: "set null" }),
+    meetingId: text("meeting_id")
+      .primaryKey()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    recruitingRecordId: text("recruiting_record_id")
+      .notNull()
+      .references(
+        // oxlint-disable-next-line no-use-before-define -- Drizzle resolves refs lazily.
+        (): AnyPgColumn => studioInterview.id,
+        { onDelete: "cascade" },
+      ),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.meetingId, table.organizationId],
+      foreignColumns: [meetingSession.id, meetingSession.organizationId],
+      name: "meeting_recruiting_context_meeting_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.recruitingRecordId, table.organizationId],
+      foreignColumns: [
+        // oxlint-disable-next-line no-use-before-define -- Drizzle resolves table extras lazily.
+        studioInterview.id,
+        // oxlint-disable-next-line no-use-before-define -- Drizzle resolves table extras lazily.
+        studioInterview.organizationId,
+      ],
+      name: "meeting_recruiting_context_record_org_fk",
+    }).onDelete("cascade"),
+    index("meeting_recruiting_context_org_record_idx").on(
+      table.organizationId,
+      table.recruitingRecordId,
     ),
   ],
 );
@@ -940,6 +984,7 @@ export const studioInterview = pgTable(
     index("studio_interview_job_description_idx").on(table.jobDescriptionId),
     index("studio_interview_organization_idx").on(table.organizationId),
     index("studio_interview_org_created_at_idx").on(table.organizationId, table.createdAt),
+    uniqueIndex("studio_interview_id_org_uq").on(table.id, table.organizationId),
     index("studio_interview_org_created_by_created_at_idx").on(
       table.organizationId,
       table.createdBy,

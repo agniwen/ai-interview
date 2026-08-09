@@ -4,6 +4,8 @@ import type {
   MeetingLibraryItem,
   MeetingNote,
   MeetingPlaybackAuthorization,
+  MeetingRecruitingContextSettings,
+  MeetingRecruitingRecordSummary,
   MeetingShareSettings,
   UpdateMeetingNoteInput,
   UpdateMeetingShareInput,
@@ -29,6 +31,10 @@ export const desktopMeetingKeys = {
     ["desktop-meetings", slug, "notes", meetingId] as const,
   playback: (slug: string, meetingId: string) =>
     ["desktop-meetings", slug, "playback", meetingId] as const,
+  recruitingContext: (slug: string, meetingId: string) =>
+    ["desktop-meetings", slug, "recruiting-context", meetingId] as const,
+  recruitingContextCandidates: (slug: string, meetingId: string, search: string) =>
+    ["desktop-meetings", slug, "recruiting-context", meetingId, "candidates", search] as const,
   root: ["desktop-meetings"] as const,
   share: (slug: string, meetingId: string) =>
     ["desktop-meetings", slug, "share", meetingId] as const,
@@ -74,6 +80,52 @@ export function retryMeetingPlayback(
 ): Promise<{ state: "processing" | "ready" }> {
   const path = `/api/w/${encodeURIComponent(slug)}/meetings/${encodeURIComponent(meetingId)}/playback/retry`;
   return apiJson(apiUrl(path), "重试会议录音处理失败", { method: "POST" });
+}
+
+export function fetchMeetingRecruitingContext(
+  slug: string,
+  meetingId: string,
+): Promise<MeetingRecruitingContextSettings | null> {
+  return apiJson(
+    apiUrl(meetingSubresourcePath(slug, meetingId, "recruiting-context")),
+    "加载招聘关联失败",
+    { allow404: true },
+  );
+}
+
+export function fetchMeetingRecruitingContextCandidates(
+  slug: string,
+  meetingId: string,
+  search: string,
+  signal?: AbortSignal,
+): Promise<MeetingRecruitingRecordSummary[]> {
+  const params = new URLSearchParams({ limit: "20" });
+  if (search.trim()) {
+    params.set("search", search.trim());
+  }
+  return apiJson<{ records: MeetingRecruitingRecordSummary[] }>(
+    apiUrl(
+      `${meetingSubresourcePath(slug, meetingId, "recruiting-context")}/candidates?${params.toString()}`,
+    ),
+    "加载招聘记录候选项失败",
+    { signal },
+  ).then((payload) => payload.records);
+}
+
+export function updateMeetingRecruitingContext(
+  slug: string,
+  meetingId: string,
+  recruitingRecordId: string | null,
+): Promise<{ state: "unchanged" | "updated" }> {
+  return apiJson(
+    apiUrl(meetingSubresourcePath(slug, meetingId, "recruiting-context")),
+    "保存招聘关联失败",
+    {
+      body: JSON.stringify({ recruitingRecordId }),
+      headers: { "Content-Type": "application/json" },
+      method: "PUT",
+    },
+  );
 }
 
 export function fetchMeetingTranscript(

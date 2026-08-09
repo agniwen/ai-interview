@@ -9,6 +9,7 @@ import {
   ResumeReviewStructuredView,
 } from "@/components/features/studio/resumes/resume-overview-panel";
 import { StructuredResumeEvaluationPanel } from "@/components/features/studio/resumes/structured-resume-evaluation-panel";
+import { CandidateMeetingLinks } from "@/components/features/studio/resumes/candidate-meeting-links";
 import { AnimatedHeight } from "@/components/features/motion/animated-height";
 import { Button } from "@/components/ui/button";
 import { TabsContent } from "@/components/ui/tabs";
@@ -66,6 +67,7 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
     canUseTimelineRailScroll,
     showTimelineRail,
     showAgentInstructions,
+    showRecruitingMeetings,
     tabContentRootRef,
     tabVisibilityRecord,
   } = model;
@@ -99,13 +101,18 @@ export function StudioPersonDetailBody({ model }: { model: StudioPersonDetailVie
               Resume mode: defer to ResumeOverviewPanel so the
               launch-interview dialog and this view stay in sync. */}
               {mode === "resume" && resumeRecord ? (
-                <ResumeOverviewPanel
-                  canEdit={Boolean(model.canUpdateResumeLibrary)}
-                  detail={resumeRecord}
-                  onUpdated={model.onResumeIdentityUpdated}
-                  onViewAiScore={() => setActiveTab("ai-analysis")}
-                  slug={model.slug}
-                />
+                <>
+                  <ResumeOverviewPanel
+                    canEdit={Boolean(model.canUpdateResumeLibrary)}
+                    detail={resumeRecord}
+                    onUpdated={model.onResumeIdentityUpdated}
+                    onViewAiScore={() => setActiveTab("ai-analysis")}
+                    slug={model.slug}
+                  />
+                  {showRecruitingMeetings ? (
+                    <CandidateMeetingLinks candidateId={resumeRecord.id} slug={model.slug} />
+                  ) : null}
+                </>
               ) : (
                 <InterviewResultTabContent
                   evaluationSummary={selectedResultEvaluationSummary}
