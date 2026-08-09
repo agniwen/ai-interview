@@ -655,11 +655,162 @@ export const meetingIntelligenceRevision = pgTable(
       table.meetingId,
       table.revision,
     ),
+    uniqueIndex("meeting_intelligence_revision_id_meeting_org_uq").on(
+      table.id,
+      table.meetingId,
+      table.organizationId,
+    ),
     index("meeting_intelligence_revision_org_created_idx").on(
       table.organizationId,
       table.createdAt,
     ),
     index("meeting_intelligence_revision_transcript_idx").on(table.transcriptRevisionId),
+  ],
+);
+
+export const meetingQuestionThread = pgTable(
+  "meeting_question_thread",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    id: text("id").primaryKey(),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.meetingId, table.organizationId],
+      foreignColumns: [meetingSession.id, meetingSession.organizationId],
+      name: "meeting_question_thread_meeting_org_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("meeting_question_thread_id_meeting_org_uq").on(
+      table.id,
+      table.meetingId,
+      table.organizationId,
+    ),
+    uniqueIndex("meeting_question_thread_id_meeting_org_creator_uq").on(
+      table.id,
+      table.meetingId,
+      table.organizationId,
+      table.createdBy,
+    ),
+    index("meeting_question_thread_owner_updated_idx").on(
+      table.organizationId,
+      table.createdBy,
+      table.updatedAt,
+    ),
+  ],
+);
+
+export const meetingQuestionExchange = pgTable(
+  "meeting_question_exchange",
+  {
+    answer: jsonb("answer"),
+    answeredAt: timestamp("answered_at", { withTimezone: true }),
+    attempt: integer("attempt").default(0).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    errorCode: text("error_code"),
+    executionToken: text("execution_token"),
+    id: text("id").primaryKey(),
+    inputIntelligenceRevisionId: text("input_intelligence_revision_id").references(
+      () => meetingIntelligenceRevision.id,
+      { onDelete: "set null" },
+    ),
+    inputTranscriptRevisionId: text("input_transcript_revision_id")
+      .notNull()
+      .references(() => meetingTranscriptRevision.id, { onDelete: "restrict" }),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    model: text("model").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    promptVersion: text("prompt_version").notNull(),
+    provider: text("provider").notNull(),
+    question: text("question").notNull(),
+    requestId: text("request_id").notNull(),
+    sequence: integer("sequence").notNull(),
+    status: text("status").default("pending").notNull(),
+    threadId: text("thread_id")
+      .notNull()
+      .references(() => meetingQuestionThread.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.threadId, table.meetingId, table.organizationId],
+      foreignColumns: [
+        meetingQuestionThread.id,
+        meetingQuestionThread.meetingId,
+        meetingQuestionThread.organizationId,
+      ],
+      name: "meeting_question_exchange_thread_meeting_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.threadId, table.meetingId, table.organizationId, table.createdBy],
+      foreignColumns: [
+        meetingQuestionThread.id,
+        meetingQuestionThread.meetingId,
+        meetingQuestionThread.organizationId,
+        meetingQuestionThread.createdBy,
+      ],
+      name: "meeting_question_exchange_thread_creator_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.inputTranscriptRevisionId, table.meetingId, table.organizationId],
+      foreignColumns: [
+        meetingTranscriptRevision.id,
+        meetingTranscriptRevision.meetingId,
+        meetingTranscriptRevision.organizationId,
+      ],
+      name: "meeting_question_exchange_transcript_meeting_org_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.inputIntelligenceRevisionId, table.meetingId, table.organizationId],
+      foreignColumns: [
+        meetingIntelligenceRevision.id,
+        meetingIntelligenceRevision.meetingId,
+        meetingIntelligenceRevision.organizationId,
+      ],
+      name: "meeting_question_exchange_intelligence_meeting_org_fk",
+    }),
+    check("meeting_question_exchange_attempt_check", sql`${table.attempt} >= 0`),
+    check("meeting_question_exchange_sequence_check", sql`${table.sequence} > 0`),
+    check(
+      "meeting_question_exchange_status_check",
+      sql`${table.status} in ('pending', 'processing', 'ready', 'failed')`,
+    ),
+    check(
+      "meeting_question_exchange_answer_check",
+      sql`(${table.status} = 'ready') = (${table.answer} is not null)`,
+    ),
+    uniqueIndex("meeting_question_exchange_thread_request_uq").on(table.threadId, table.requestId),
+    uniqueIndex("meeting_question_exchange_thread_sequence_uq").on(table.threadId, table.sequence),
+    index("meeting_question_exchange_recovery_idx").on(table.status, table.leaseExpiresAt),
+    index("meeting_question_exchange_creator_created_idx").on(
+      table.organizationId,
+      table.createdBy,
+      table.createdAt,
+    ),
   ],
 );
 

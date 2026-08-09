@@ -15,6 +15,12 @@ import {
   createResumeReviewGenerationWorker,
 } from "@arc/resume-parse-queue/resume-review-generation";
 import {
+  closeMeetingAnswerQueue,
+  createMeetingAnswerWorker,
+  enqueueMeetingAnswerJobs,
+  isMeetingAnswerQueueConfigured,
+} from "@arc/meeting-processing-queue/meeting-answer";
+import {
   closeMeetingIntelligenceQueue,
   createMeetingIntelligenceWorker,
   enqueueMeetingIntelligenceJobs,
@@ -90,6 +96,18 @@ async function recoverIncompleteMeetingPlaybackJobs(): Promise<void> {
   });
 }
 
+async function recoverIncompleteMeetingAnswerJobs(): Promise<void> {
+  const { listRecoverableMeetingAnswerJobs } =
+    await import("@arc/ai-recruitment-copilot-backend/server/routes/meetings/answers/dao");
+  const jobs = await listRecoverableMeetingAnswerJobs();
+  if (jobs.length === 0) {
+    console.info("[meeting-answer-worker] recovery found no pending exchanges");
+    return;
+  }
+  await enqueueMeetingAnswerJobs(jobs);
+  console.info("[meeting-answer-worker] recovery enqueued exchanges", { count: jobs.length });
+}
+
 async function recoverIncompleteMeetingIntelligenceJobs(): Promise<void> {
   const { listMeetingsNeedingAutomaticIntelligence, listRecoverableMeetingIntelligenceJobs } =
     await import("@arc/ai-recruitment-copilot-backend/server/routes/meetings/intelligence/dao");
@@ -131,6 +149,7 @@ async function recoverIncompleteMeetingTranscriptionJobs(): Promise<void> {
 }
 
 let meetingPlaybackRecoveryRunning = false;
+let meetingAnswerRecoveryRunning = false;
 let meetingIntelligenceRecoveryRunning = false;
 let meetingTranscriptionRecoveryRunning = false;
 
@@ -145,6 +164,22 @@ async function reconcileMeetingIntelligenceJobs(): Promise<void> {
     console.error("[meeting-intelligence-worker] periodic recovery failed", { error });
   } finally {
     meetingIntelligenceRecoveryRunning = false;
+  }
+}
+
+async function reconcileMeetingAnswerJobs(): Promise<void> {
+  if (meetingAnswerRecoveryRunning) {
+    return;
+  }
+  meetingAnswerRecoveryRunning = true;
+  try {
+    await recoverIncompleteMeetingAnswerJobs();
+  } catch (error) {
+    console.error("[meeting-answer-worker] periodic recovery failed", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+  } finally {
+    meetingAnswerRecoveryRunning = false;
   }
 }
 
@@ -198,12 +233,25 @@ async function main() {
   let semanticIndexWorker: ReturnType<typeof createResumeSemanticIndexWorker> | null = null;
   let reviewGenerationWorker: ReturnType<typeof createResumeReviewGenerationWorker> | null = null;
   let mailIngestScheduler: MailIngestScheduler | null = null;
+  let meetingAnswerWorker: ReturnType<typeof createMeetingAnswerWorker> | null = null;
+  let meetingAnswerRecoveryTimer: NodeJS.Timeout | null = null;
   let meetingIntelligenceWorker: ReturnType<typeof createMeetingIntelligenceWorker> | null = null;
   let meetingIntelligenceRecoveryTimer: NodeJS.Timeout | null = null;
   let meetingPlaybackWorker: ReturnType<typeof createMeetingPlaybackWorker> | null = null;
   let meetingPlaybackRecoveryTimer: NodeJS.Timeout | null = null;
   let meetingTranscriptionWorker: ReturnType<typeof createMeetingTranscriptionWorker> | null = null;
   let meetingTranscriptionRecoveryTimer: NodeJS.Timeout | null = null;
+  if (isMeetingAnswerQueueConfigured()) {
+    meetingAnswerWorker = createMeetingAnswerWorker(async (payload, context) => {
+      const { runMeetingAnswerProcessing } = await import("./meeting-answer/processor");
+      await runMeetingAnswerProcessing(payload, context);
+    });
+    await reconcileMeetingAnswerJobs();
+    meetingAnswerRecoveryTimer = setInterval(() => {
+      void reconcileMeetingAnswerJobs();
+    }, 60_000);
+    meetingAnswerRecoveryTimer.unref();
+  }
   if (isMeetingProcessingQueueConfigured()) {
     meetingPlaybackWorker = createMeetingPlaybackWorker(async (payload) => {
       const { runMeetingPlaybackProcessing } = await import("./meeting-playback/processor");
@@ -294,6 +342,9 @@ async function main() {
         if (meetingPlaybackRecoveryTimer) {
           clearInterval(meetingPlaybackRecoveryTimer);
         }
+        if (meetingAnswerRecoveryTimer) {
+          clearInterval(meetingAnswerRecoveryTimer);
+        }
         if (meetingIntelligenceRecoveryTimer) {
           clearInterval(meetingIntelligenceRecoveryTimer);
         }
@@ -301,9 +352,11 @@ async function main() {
           clearInterval(meetingTranscriptionRecoveryTimer);
         }
         await meetingPlaybackWorker?.close();
+        await meetingAnswerWorker?.close();
         await meetingIntelligenceWorker?.close();
         await meetingTranscriptionWorker?.close();
         await closeMeetingPlaybackQueue();
+        await closeMeetingAnswerQueue();
         await closeMeetingIntelligenceQueue();
         await closeMeetingTranscriptionQueue();
         await closeResumeParseQueue();

@@ -3,6 +3,12 @@ import type {
   MeetingIntelligenceTemplate,
 } from "@arc/shared/meeting-intelligence";
 import type {
+  CreateMeetingQuestion,
+  MeetingQuestionExchange,
+  MeetingQuestionThread,
+  MeetingQuestionThreadSummary,
+} from "@arc/shared/meeting-answer";
+import type {
   CreateMeetingNoteInput,
   MeetingDetail,
   MeetingLibraryItem,
@@ -37,6 +43,10 @@ export const desktopMeetingKeys = {
     ["desktop-meetings", slug, "notes", meetingId] as const,
   playback: (slug: string, meetingId: string) =>
     ["desktop-meetings", slug, "playback", meetingId] as const,
+  questionThread: (slug: string, meetingId: string, threadId: string) =>
+    ["desktop-meetings", slug, "questions", meetingId, threadId] as const,
+  questions: (slug: string, meetingId: string) =>
+    ["desktop-meetings", slug, "questions", meetingId] as const,
   recruitingContext: (slug: string, meetingId: string) =>
     ["desktop-meetings", slug, "recruiting-context", meetingId] as const,
   recruitingContextCandidates: (slug: string, meetingId: string, search: string) =>
@@ -151,6 +161,64 @@ export function fetchMeetingIntelligence(
   return apiJson(
     apiUrl(meetingSubresourcePath(slug, meetingId, "intelligence")),
     "加载 Meeting Intelligence 失败",
+  );
+}
+
+export function fetchMeetingQuestionThreads(
+  slug: string,
+  meetingId: string,
+): Promise<MeetingQuestionThreadSummary[]> {
+  return apiJson<{ records: MeetingQuestionThreadSummary[] }>(
+    apiUrl(meetingSubresourcePath(slug, meetingId, "questions")),
+    "加载会议提问线程失败",
+  ).then((payload) => payload.records);
+}
+
+export function createMeetingQuestionThread(
+  slug: string,
+  meetingId: string,
+  title?: string,
+): Promise<MeetingQuestionThreadSummary> {
+  return apiJson(
+    apiUrl(meetingSubresourcePath(slug, meetingId, "questions")),
+    "创建会议提问线程失败",
+    {
+      body: JSON.stringify(title ? { title } : {}),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    },
+  );
+}
+
+export function fetchMeetingQuestionThread(
+  slug: string,
+  meetingId: string,
+  threadId: string,
+): Promise<MeetingQuestionThread> {
+  return apiJson(
+    apiUrl(
+      `${meetingSubresourcePath(slug, meetingId, "questions")}/${encodeURIComponent(threadId)}`,
+    ),
+    "加载会议提问内容失败",
+  );
+}
+
+export function askMeetingQuestion(
+  slug: string,
+  meetingId: string,
+  threadId: string,
+  input: CreateMeetingQuestion,
+): Promise<MeetingQuestionExchange> {
+  return apiJson(
+    apiUrl(
+      `${meetingSubresourcePath(slug, meetingId, "questions")}/${encodeURIComponent(threadId)}/messages`,
+    ),
+    "提交会议问题失败",
+    {
+      body: JSON.stringify(input),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    },
   );
 }
 

@@ -318,6 +318,39 @@ export const relations = defineRelations(schema, (r) => ({
     }),
     transcriptRevisions: r.many.meetingTranscriptRevision(),
   },
+  meetingQuestionExchange: {
+    creator: r.one.user({
+      from: r.meetingQuestionExchange.createdBy,
+      to: r.user.id,
+    }),
+    intelligenceRevision: r.one.meetingIntelligenceRevision({
+      from: r.meetingQuestionExchange.inputIntelligenceRevisionId,
+      to: r.meetingIntelligenceRevision.id,
+    }),
+    meeting: r.one.meetingSession({
+      from: r.meetingQuestionExchange.meetingId,
+      to: r.meetingSession.id,
+    }),
+    thread: r.one.meetingQuestionThread({
+      from: r.meetingQuestionExchange.threadId,
+      to: r.meetingQuestionThread.id,
+    }),
+    transcriptRevision: r.one.meetingTranscriptRevision({
+      from: r.meetingQuestionExchange.inputTranscriptRevisionId,
+      to: r.meetingTranscriptRevision.id,
+    }),
+  },
+  meetingQuestionThread: {
+    creator: r.one.user({
+      from: r.meetingQuestionThread.createdBy,
+      to: r.user.id,
+    }),
+    exchanges: r.many.meetingQuestionExchange(),
+    meeting: r.one.meetingSession({
+      from: r.meetingQuestionThread.meetingId,
+      to: r.meetingSession.id,
+    }),
+  },
   meetingRecordingAsset: {
     meeting: r.one.meetingSession({
       from: r.meetingRecordingAsset.meetingId,
@@ -352,6 +385,8 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.user.id,
     }),
     processingRuns: r.many.meetingProcessingRun(),
+    questionExchanges: r.many.meetingQuestionExchange(),
+    questionThreads: r.many.meetingQuestionThread(),
     recruitingContext: r.one.meetingRecruitingContext({
       from: r.meetingSession.id,
       to: r.meetingRecruitingContext.meetingId,

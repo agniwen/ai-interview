@@ -5,11 +5,13 @@ import { LiveTranscriptAuthorizationRateLimitError } from "./routes/live-transcr
 
 const mocks = vi.hoisted(() => ({
   addMeetingNote: vi.fn(),
+  askMeetingQuestion: vi.fn(),
   changeMeetingRecruitingContext: vi.fn(),
   completeSmallSavedMeeting: vi.fn(),
   correctSavedMeetingTranscript: vi.fn(),
   createMeetingPlaybackAuthorization: vi.fn(),
   createMultipartSavedMeeting: vi.fn(),
+  createSavedMeetingQuestionThread: vi.fn(),
   createSmallSavedMeeting: vi.fn(),
   createWorkspaceMeetingLiveTranscriptAuthorization: vi.fn(),
   editMeetingNote: vi.fn(),
@@ -19,10 +21,12 @@ const mocks = vi.hoisted(() => ({
   getMeetingShareSettings: vi.fn(),
   getSavedMeetingDetail: vi.fn(),
   getSavedMeetingIntelligence: vi.fn(),
+  getSavedMeetingQuestionThread: vi.fn(),
   getSavedMeetingTranscript: vi.fn(),
   getSavedMeetingTranscriptHistory: vi.fn(),
   getSavedMeetingTranscriptRevision: vi.fn(),
   getWorkspaceMeetingTranscriptionPolicy: vi.fn(),
+  listSavedMeetingQuestionThreads: vi.fn(),
   listSavedMeetings: vi.fn(),
   reassignSavedMeetingOwner: vi.fn(),
   regenerateSavedMeetingIntelligence: vi.fn(),
@@ -39,6 +43,7 @@ vi.mock("./transcription/service", () => mocks);
 vi.mock("./routes/live-transcript/service", () => mocks);
 vi.mock("./recruiting-context-service", () => mocks);
 vi.mock("./intelligence/service", () => mocks);
+vi.mock("./answers/service", () => mocks);
 vi.mock("@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy", () => ({
   createRequestWorkspaceAuthorizer: () => () => Promise.resolve(true),
 }));

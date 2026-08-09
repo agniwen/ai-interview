@@ -216,6 +216,15 @@ export const meetingIntelligenceDecisionPolicyAgent = new Agent({
   name: "MeetingIntelligenceDecisionPolicyAgent",
 });
 
+export const meetingAnswerAgent = new Agent({
+  id: "meeting-answer-agent",
+  instructions:
+    "你是 Meeting Buddy 的单会议问答助手。只能使用本次请求提供的当前会议资料；事实回答必须引用输入中的稳定 transcript turn ID，证据不足时明确返回 insufficient-evidence。",
+  maxRetries: 1,
+  model: mastraModels.structuredModel,
+  name: "MeetingAnswerAgent",
+});
+
 export const resumeEducationBackfillAgent = new Agent({
   id: "resume-education-backfill-agent",
   instructions: "你是简历教育经历解析助手，只提取教育经历并输出结构化字段。",

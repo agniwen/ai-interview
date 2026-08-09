@@ -34,6 +34,7 @@ export function meetingAccessCapabilities(role: MeetingAccessRole) {
   const owner = role === "owner";
   const editor = role === "editor";
   return {
+    canAskQuestions: true,
     canCorrectTranscript: administrator || owner || editor,
     canCreateNotes: administrator || owner || editor,
     canDeleteMeeting: administrator || owner,
