@@ -13,6 +13,7 @@ import {
   listSavedMeetings,
 } from "./service";
 import { meetingPlaybackRouter } from "./routes/playback/route";
+import { meetingLiveTranscriptRouter } from "./routes/live-transcript/route";
 import { meetingNotesRouter } from "./routes/notes/route";
 import { meetingShareRouter } from "./routes/share/route";
 import { meetingTranscriptRouter } from "./routes/transcript/route";
@@ -20,6 +21,7 @@ import { meetingTranscriptionPolicyRouter } from "./routes/transcription-policy/
 
 export const meetingsRouter = factory
   .createApp()
+  .route("/live-transcript", meetingLiveTranscriptRouter)
   .route("/transcription-policy", meetingTranscriptionPolicyRouter)
   .get("/", async (c) => {
     const { activeOrg, member, user } = c.var;

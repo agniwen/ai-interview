@@ -12,6 +12,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { meetingCapture } from "@/lib/meeting-capture";
+import { meetingLiveTranscriptDraft } from "@/lib/meeting-capture/live-transcript-draft-client";
+import type { LiveTranscriptDraftSnapshot } from "@/lib/meeting-capture/live-transcript-draft";
 import { desktopMeetingKeys } from "@/lib/client/meetings";
 import type { MeetingCaptureSnapshot } from "../../../../../preload/meeting-capture";
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
@@ -41,6 +43,17 @@ const INITIAL_CAPTURE_SNAPSHOT: MeetingCaptureSnapshot = {
   workspaceSaves: [],
 };
 
+const INITIAL_LIVE_DRAFT_SNAPSHOT: LiveTranscriptDraftSnapshot = {
+  captureId: null,
+  droppedPcmFrames: 0,
+  error: null,
+  queuedPcmBytes: 0,
+  sections: [],
+  status: "idle",
+  trackStatus: { microphone: "idle", system: "idle" },
+  turns: [],
+};
+
 function discardDialogTitle(deletingRecoveryCopy: boolean, includeSaved: boolean): string {
   if (deletingRecoveryCopy) {
     return "提前删除本地 Recovery Copy？";
@@ -64,12 +77,14 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
   const [preselectedResumeRecord, setPreselectedResumeRecord] =
     useState<ResumeLibraryListRecord | null>(null);
   const [captureSnapshot, setCaptureSnapshot] = useState(INITIAL_CAPTURE_SNAPSHOT);
+  const [liveDraftSnapshot, setLiveDraftSnapshot] = useState(INITIAL_LIVE_DRAFT_SNAPSHOT);
   const [pendingDiscard, setPendingDiscard] = useState<{
     captureId?: string;
     includeSaved: boolean;
   } | null>(null);
 
   useEffect(() => meetingCapture.observe(setCaptureSnapshot), []);
+  useEffect(() => meetingLiveTranscriptDraft.observe(setLiveDraftSnapshot), []);
 
   const verifiedWorkspaceCaptureIds = captureSnapshot.workspaceSaves
     .filter((item) => item.state === "workspace-verified")
@@ -146,6 +161,7 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
         preselectedResumeRecord={preselectedResumeRecord}
       />
       <MeetingCaptureStatus
+        liveDraft={liveDraftSnapshot}
         onDiscard={(captureId, includeSaved = false) =>
           setPendingDiscard({ captureId, includeSaved })
         }

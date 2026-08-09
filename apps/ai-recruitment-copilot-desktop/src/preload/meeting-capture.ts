@@ -111,7 +111,7 @@ export interface CaptureSink {
 
 export interface PreparedCapture {
   dispose: () => Promise<void>;
-  start: (sink: CaptureSink) => Promise<void>;
+  start: (sink: CaptureSink, input: { captureId: string }) => Promise<void>;
   stop: () => Promise<void>;
   trackContentTypes: Record<CaptureTrack, string>;
   videoTracksDiscarded: number;
@@ -448,7 +448,7 @@ export function createMeetingCapture({
         videoTracksPersisted: 0,
       };
       patch({ active });
-      await acquired.start(sink);
+      await acquired.start(sink, { captureId });
       patch({ phase: "active" });
       silenceTimer = setTimeout(() => {
         if (snapshot.active?.tracks.system.health === "checking") {

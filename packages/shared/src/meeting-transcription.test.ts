@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canonicalMeetingTranscriptSchema,
+  createMeetingLiveTranscriptAuthorizationSchema,
   updateMeetingTranscriptionPolicySchema,
 } from "./meeting-transcription";
 
@@ -53,5 +54,23 @@ describe("Meeting transcription contracts", () => {
         selectedProvider: "openai",
       }),
     ).toEqual({ allowedProviders: ["openai"], selectedProvider: "openai" });
+  });
+
+  it("scopes live transcript authorization to one capture and source track", () => {
+    expect(
+      createMeetingLiveTranscriptAuthorizationSchema.parse({
+        captureId: "00000000-0000-4000-8000-000000000077",
+        track: "microphone",
+      }),
+    ).toEqual({
+      captureId: "00000000-0000-4000-8000-000000000077",
+      track: "microphone",
+    });
+    expect(
+      createMeetingLiveTranscriptAuthorizationSchema.safeParse({
+        captureId: "not-a-capture-id",
+        track: "mixed",
+      }).success,
+    ).toBe(false);
   });
 });

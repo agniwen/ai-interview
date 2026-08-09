@@ -1,6 +1,7 @@
 import { testClient } from "hono/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { LiveTranscriptAuthorizationRateLimitError } from "./routes/live-transcript/authorization-gate";
 
 const mocks = vi.hoisted(() => ({
   addMeetingNote: vi.fn(),
@@ -8,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   createMeetingPlaybackAuthorization: vi.fn(),
   createMultipartSavedMeeting: vi.fn(),
   createSmallSavedMeeting: vi.fn(),
+  createWorkspaceMeetingLiveTranscriptAuthorization: vi.fn(),
   editMeetingNote: vi.fn(),
   getMeetingNotes: vi.fn(),
   getMeetingShareSettings: vi.fn(),
@@ -26,6 +28,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("./service", () => mocks);
 vi.mock("./collaboration-service", () => mocks);
 vi.mock("./transcription/service", () => mocks);
+vi.mock("./routes/live-transcript/service", () => mocks);
 
 // oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
 import { meetingsRouter } from "./route";
@@ -403,6 +406,53 @@ describe("Meeting Buddy small Saved Meeting control plane", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ selectedProvider: "openai" });
+  });
+
+  it("creates an ephemeral live transcript authorization for the active workspace member", async () => {
+    mocks.createWorkspaceMeetingLiveTranscriptAuthorization.mockResolvedValue({
+      clientSecret: "ephemeral-77",
+      expiresAt: "2026-08-09T01:21:00.000Z",
+      model: "gpt-4o-mini-transcribe",
+      provider: "openai",
+      track: "microphone",
+    });
+
+    const response = await client.meetings["live-transcript"].$post({
+      json: {
+        captureId: "00000000-0000-4000-8000-000000000077",
+        track: "microphone",
+      },
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(await response.json()).toMatchObject({
+      clientSecret: "ephemeral-77",
+      provider: "openai",
+      track: "microphone",
+    });
+    expect(mocks.createWorkspaceMeetingLiveTranscriptAuthorization).toHaveBeenCalledWith({
+      captureId: "00000000-0000-4000-8000-000000000077",
+      organizationId: "org-72",
+      track: "microphone",
+      userId: "user-72",
+    });
+  });
+
+  it("returns a bounded retry window when live authorization is rate limited", async () => {
+    mocks.createWorkspaceMeetingLiveTranscriptAuthorization.mockRejectedValue(
+      new LiveTranscriptAuthorizationRateLimitError(42),
+    );
+
+    const response = await client.meetings["live-transcript"].$post({
+      json: {
+        captureId: "00000000-0000-4000-8000-000000000077",
+        track: "microphone",
+      },
+    });
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBe("42");
   });
 
   it("updates provider policy through an administrator-only route", async () => {

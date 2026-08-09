@@ -8,6 +8,8 @@ import type {
   WorkspaceSaveState,
 } from "../../../../../preload/meeting-capture";
 import { cn } from "@arc/shared/utils";
+import type { LiveTranscriptDraftSnapshot } from "@/lib/meeting-capture/live-transcript-draft";
+import { LiveTranscriptDraftPanel } from "./live-transcript-draft-panel";
 
 const HEALTH_LABEL: Record<CaptureTrackState["health"], string> = {
   checking: "检测中",
@@ -147,10 +149,12 @@ function workspaceSaveIcon(state?: WorkspaceSaveState["state"]): string {
 }
 
 export function MeetingCaptureStatus({
+  liveDraft,
   onDiscard,
   onSave,
   snapshot,
 }: {
+  liveDraft: LiveTranscriptDraftSnapshot;
   onDiscard: (captureId?: string, includeSaved?: boolean) => void;
   onSave: (captureId?: string) => void;
   snapshot: MeetingCaptureSnapshot;
@@ -184,6 +188,7 @@ export function MeetingCaptureStatus({
             <TrackMeter label="我的麦克风" state={snapshot.active.tracks.microphone} />
             <TrackMeter label="系统音频" state={snapshot.active.tracks.system} />
           </div>
+          <LiveTranscriptDraftPanel snapshot={liveDraft} />
           {snapshot.active.tracks.system.health === "silent" ? (
             <p className="rounded-md bg-destructive/10 px-2.5 py-2 text-destructive text-xs">
               系统音频持续无有效电平。请先确认会议正在播放声音，再检查 macOS

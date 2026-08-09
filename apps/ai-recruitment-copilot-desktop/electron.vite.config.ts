@@ -9,6 +9,10 @@ export default defineConfig({
   main: {},
   preload: {},
   renderer: {
+    build: {
+      // AudioWorklet modules must remain same-origin files under the packaged renderer CSP.
+      assetsInlineLimit: 0,
+    },
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

@@ -48,7 +48,21 @@ interface RecorderState {
   writeChain: Promise<void>;
 }
 
+export interface MeetingLiveTranscriptSidecar {
+  start: (input: {
+    captureId: string;
+    tracks: Record<CaptureTrack, MediaStreamTrack>;
+  }) => Promise<void>;
+  stop: () => void;
+}
+
 export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
+  private readonly liveTranscriptSidecar: MeetingLiveTranscriptSidecar | undefined;
+
+  constructor(liveTranscriptSidecar?: MeetingLiveTranscriptSidecar) {
+    this.liveTranscriptSidecar = liveTranscriptSidecar;
+  }
+
   async acquire(): Promise<PreparedCapture> {
     let microphoneStream: MediaStream | null = null;
     let displayStream: MediaStream | null = null;
@@ -101,12 +115,22 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
       let disposed = false;
       let captureError: Error | null = null;
       let pendingBytes = 0;
+      let sidecarStopped = false;
+
+      const stopSidecar = () => {
+        if (sidecarStopped) {
+          return;
+        }
+        sidecarStopped = true;
+        this.liveTranscriptSidecar?.stop();
+      };
 
       const dispose = async () => {
         if (disposed) {
           return;
         }
         disposed = true;
+        stopSidecar();
         const stopped = recorders.map(({ recorder }) => waitForStop(recorder));
         for (const recorder of recorders) {
           if (recorder.recorder.state !== "inactive") {
@@ -122,7 +146,7 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
 
       return {
         dispose,
-        start: (sink: CaptureSink) => {
+        start: (sink: CaptureSink, input: { captureId: string }) => {
           const startedAt = performance.now();
           const fail = (error: Error) => {
             if (captureError || disposed) {
@@ -221,9 +245,18 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
           startMonitor("system", systemTrack);
           startRecorder("microphone", microphoneTrack);
           startRecorder("system", systemTrack);
+          void this.liveTranscriptSidecar
+            ?.start({
+              captureId: input.captureId,
+              tracks: { microphone: microphoneTrack, system: systemTrack },
+            })
+            .catch(() => {
+              // Live Transcript Draft is explicitly non-authoritative and must not fail recording.
+            });
           return Promise.resolve();
         },
         stop: async () => {
+          stopSidecar();
           const stopped = recorders.map(({ recorder }) => waitForStop(recorder));
           for (const { recorder } of recorders) {
             if (recorder.state !== "inactive") {

@@ -9,6 +9,8 @@ import type {
   UpdateMeetingShareInput,
 } from "@arc/shared/meeting-recording";
 import type {
+  CreateMeetingLiveTranscriptAuthorizationInput,
+  MeetingLiveTranscriptAuthorization,
   MeetingTranscriptResult,
   MeetingTranscriptionPolicy,
   UpdateMeetingTranscriptionPolicyInput,
@@ -91,6 +93,19 @@ export function retryMeetingTranscript(
 export function fetchMeetingTranscriptionPolicy(slug: string): Promise<MeetingTranscriptionPolicy> {
   const path = `/api/w/${encodeURIComponent(slug)}/meetings/transcription-policy`;
   return apiJson(apiUrl(path), "加载最终转录策略失败");
+}
+
+export function createMeetingLiveTranscriptAuthorization(
+  slug: string,
+  input: CreateMeetingLiveTranscriptAuthorizationInput,
+): Promise<MeetingLiveTranscriptAuthorization> {
+  const path = `/api/w/${encodeURIComponent(slug)}/meetings/live-transcript`;
+  return apiJson(apiUrl(path), "创建实时字幕授权失败", {
+    body: JSON.stringify(input),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+    signal: AbortSignal.timeout(10_000),
+  });
 }
 
 export function updateMeetingTranscriptionPolicy(

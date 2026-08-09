@@ -31,6 +31,28 @@ export type UpdateMeetingTranscriptionPolicyInput = z.infer<
   typeof updateMeetingTranscriptionPolicySchema
 >;
 
+export const meetingLiveTranscriptTrackSchema = z.enum(["microphone", "system"]);
+export type MeetingLiveTranscriptTrack = z.infer<typeof meetingLiveTranscriptTrackSchema>;
+
+export const createMeetingLiveTranscriptAuthorizationSchema = z
+  .object({
+    captureId: z.uuid(),
+    track: meetingLiveTranscriptTrackSchema,
+  })
+  .strict();
+
+export type CreateMeetingLiveTranscriptAuthorizationInput = z.infer<
+  typeof createMeetingLiveTranscriptAuthorizationSchema
+>;
+
+export interface MeetingLiveTranscriptAuthorization {
+  clientSecret: string;
+  expiresAt: string;
+  model: string;
+  provider: MeetingTranscriptionProviderId;
+  track: MeetingLiveTranscriptTrack;
+}
+
 const canonicalTranscriptTurnBaseSchema = z
   .object({
     confidence: z.number().min(0).max(1).nullable(),
