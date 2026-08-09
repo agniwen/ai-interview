@@ -10,8 +10,11 @@ import type {
 } from "@arc/shared/meeting-recording";
 import type {
   CreateMeetingLiveTranscriptAuthorizationInput,
+  CreateMeetingTranscriptCorrectionInput,
+  FinalMeetingTranscriptRevision,
   MeetingLiveTranscriptAuthorization,
   MeetingTranscriptResult,
+  MeetingTranscriptRevisionHistory,
   MeetingTranscriptionPolicy,
   UpdateMeetingTranscriptionPolicyInput,
 } from "@arc/shared/meeting-transcription";
@@ -31,6 +34,10 @@ export const desktopMeetingKeys = {
     ["desktop-meetings", slug, "share", meetingId] as const,
   transcript: (slug: string, meetingId: string) =>
     ["desktop-meetings", slug, "transcript", meetingId] as const,
+  transcriptHistory: (slug: string, meetingId: string) =>
+    ["desktop-meetings", slug, "transcript", meetingId, "revisions"] as const,
+  transcriptRevision: (slug: string, meetingId: string, revisionId: string) =>
+    ["desktop-meetings", slug, "transcript", meetingId, "revisions", revisionId] as const,
   transcriptionPolicy: (slug: string) =>
     ["desktop-meetings", slug, "transcription-policy"] as const,
 };
@@ -87,6 +94,45 @@ export function retryMeetingTranscript(
     apiUrl(`${meetingSubresourcePath(slug, meetingId, "transcript")}/retry`),
     "重试最终会议转录失败",
     { method: "POST" },
+  );
+}
+
+export function fetchMeetingTranscriptHistory(
+  slug: string,
+  meetingId: string,
+): Promise<MeetingTranscriptRevisionHistory> {
+  return apiJson(
+    apiUrl(`${meetingSubresourcePath(slug, meetingId, "transcript")}/revisions`),
+    "加载会议转录修订历史失败",
+  );
+}
+
+export function fetchMeetingTranscriptRevision(
+  slug: string,
+  meetingId: string,
+  revisionId: string,
+): Promise<FinalMeetingTranscriptRevision> {
+  return apiJson(
+    apiUrl(
+      `${meetingSubresourcePath(slug, meetingId, "transcript")}/revisions/${encodeURIComponent(revisionId)}`,
+    ),
+    "加载会议转录 revision 失败",
+  );
+}
+
+export function createMeetingTranscriptCorrection(
+  slug: string,
+  meetingId: string,
+  correction: CreateMeetingTranscriptCorrectionInput,
+): Promise<FinalMeetingTranscriptRevision> {
+  return apiJson(
+    apiUrl(`${meetingSubresourcePath(slug, meetingId, "transcript")}/corrections`),
+    "保存会议转录修订失败",
+    {
+      body: JSON.stringify(correction),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    },
   );
 }
 

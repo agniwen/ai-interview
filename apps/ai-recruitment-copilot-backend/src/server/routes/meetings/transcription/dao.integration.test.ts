@@ -22,6 +22,7 @@ import {
   saveMeetingTranscriptionChunkCheckpoint,
   updateMeetingTranscriptionPolicy,
 } from "./dao";
+import { createHumanMeetingTranscriptRevision } from "./revision-dao";
 
 const TEST_SUFFIX = String(process.pid);
 const ORGANIZATION_ID = `meeting_transcription_test_org_${TEST_SUFFIX}`;
@@ -186,6 +187,202 @@ describe("Meeting transcription publication", () => {
         { attempt: 2, status: "succeeded" },
       ]),
     );
+  });
+
+  it("keeps the machine revision immutable and detects concurrent human corrections", async () => {
+    await expect(
+      claimMeetingTranscriptionRun({ ...job, attempt: 1, processingRunId: runId("run-correct") }),
+    ).resolves.toBe("claimed");
+    await expect(
+      publishMeetingTranscript({
+        ...job,
+        processingRunId: runId("run-correct"),
+        transcript: {
+          language: "zh",
+          turns: [
+            {
+              confidence: 0.8,
+              endMs: 2000,
+              speakerKey: "local",
+              startMs: 1000,
+              text: "机器原文",
+              track: "local",
+            },
+          ],
+        },
+      }),
+    ).resolves.toBe(true);
+    const machine = await db.query.meetingTranscriptRevision.findFirst({
+      where: { meetingId: MEETING_ID },
+      with: { turns: true },
+    });
+    expect(machine).toBeTruthy();
+
+    const correction = {
+      actorId: USER_ID,
+      correction: {
+        language: "zh",
+        sourceRevisionId: machine?.id ?? "missing",
+        turns: [
+          {
+            confidence: null,
+            endMs: 2000,
+            speakerDisplayName: "面试官",
+            speakerKey: "local",
+            startMs: 1000,
+            text: "人工修正文",
+            track: "local" as const,
+          },
+        ],
+      },
+      meetingId: MEETING_ID,
+      organizationId: ORGANIZATION_ID,
+    };
+    await expect(
+      createHumanMeetingTranscriptRevision({
+        ...correction,
+        correction: {
+          ...correction.correction,
+          turns: correction.correction.turns.map((turn) => ({ ...turn, endMs: 10_001 })),
+        },
+      }),
+    ).resolves.toBe("invalid-range");
+    const results = await Promise.all([
+      createHumanMeetingTranscriptRevision(correction),
+      createHumanMeetingTranscriptRevision(correction),
+    ]);
+    expect(results.filter((result) => result === "conflict")).toHaveLength(1);
+    const human = results.find((result) => typeof result !== "string");
+    expect(human).toMatchObject({
+      basedOnRevisionId: machine?.id,
+      createdBy: { id: USER_ID },
+      kind: "human",
+      revision: 2,
+      turns: [{ speakerDisplayName: "面试官", text: "人工修正文" }],
+    });
+    if (!human || typeof human === "string") {
+      throw new Error("expected one human correction winner");
+    }
+    const secondHuman = await createHumanMeetingTranscriptRevision({
+      ...correction,
+      correction: {
+        ...correction.correction,
+        sourceRevisionId: human.id,
+        turns: correction.correction.turns.map((turn) => ({
+          ...turn,
+          text: "第二次人工修正",
+        })),
+      },
+    });
+    expect(secondHuman).toMatchObject({
+      basedOnRevisionId: human.id,
+      kind: "human",
+      revision: 3,
+    });
+    if (typeof secondHuman === "string") {
+      throw new TypeError("expected a second human correction");
+    }
+    await expect(
+      claimMeetingTranscriptionRun({
+        ...job,
+        attempt: 2,
+        processingRunId: runId("run-correct-redelivery"),
+      }),
+    ).resolves.toBe("already-ready");
+    await expect(
+      db.query.meetingSession.findFirst({
+        columns: { activeTranscriptRevisionId: true },
+        where: { id: MEETING_ID },
+      }),
+    ).resolves.toMatchObject({ activeTranscriptRevisionId: secondHuman.id });
+
+    await expect(
+      db.query.meetingTranscriptRevision.findMany({
+        where: { meetingId: MEETING_ID },
+        with: { turns: { orderBy: { sequence: "asc" } } },
+      }),
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: machine?.id,
+          kind: "final",
+          turns: [expect.objectContaining({ speakerDisplayName: null, text: "机器原文" })],
+        }),
+        expect.objectContaining({ kind: "human" }),
+      ]),
+    );
+    await expect(
+      db.query.meetingAuditLog.findMany({
+        where: { action: "meeting.transcript_corrected", meetingId: MEETING_ID },
+      }),
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          actorId: USER_ID,
+          detail: expect.objectContaining({
+            renamedSpeakerKeys: ["local"],
+            sourceRevisionId: machine?.id,
+          }),
+        }),
+        expect.objectContaining({
+          actorId: USER_ID,
+          detail: expect.objectContaining({ sourceRevisionId: human.id }),
+        }),
+      ]),
+    );
+  });
+
+  it("persists the maximum 10,000-turn correction without exceeding PostgreSQL parameters", async () => {
+    await expect(
+      claimMeetingTranscriptionRun({ ...job, attempt: 1, processingRunId: runId("run-max-turns") }),
+    ).resolves.toBe("claimed");
+    await expect(
+      publishMeetingTranscript({
+        ...job,
+        processingRunId: runId("run-max-turns"),
+        transcript: {
+          language: "zh",
+          turns: [
+            {
+              confidence: null,
+              endMs: 1,
+              speakerKey: "local",
+              startMs: 0,
+              text: "机器原文",
+              track: "local",
+            },
+          ],
+        },
+      }),
+    ).resolves.toBe(true);
+    const meeting = await db.query.meetingSession.findFirst({
+      columns: { activeTranscriptRevisionId: true },
+      where: { id: MEETING_ID },
+    });
+    const result = await createHumanMeetingTranscriptRevision({
+      actorId: USER_ID,
+      correction: {
+        language: "zh",
+        sourceRevisionId: meeting?.activeTranscriptRevisionId ?? "missing",
+        turns: Array.from({ length: 10_000 }, (_, index) => ({
+          confidence: null,
+          endMs: index + 1,
+          speakerDisplayName: "面试官",
+          speakerKey: "local",
+          startMs: index,
+          text: "修正",
+          track: "local" as const,
+        })),
+      },
+      meetingId: MEETING_ID,
+      organizationId: ORGANIZATION_ID,
+    });
+
+    expect(result).toMatchObject({ kind: "human", revision: 2 });
+    if (typeof result === "string") {
+      throw new TypeError("expected a human correction");
+    }
+    expect(result.turns).toHaveLength(10_000);
   });
 
   it("revokes an in-flight run when an administrator changes provider policy", async () => {

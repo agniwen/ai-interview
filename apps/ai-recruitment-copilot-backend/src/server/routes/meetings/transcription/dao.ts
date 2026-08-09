@@ -13,7 +13,6 @@ import { MEETING_TRANSCRIPTION_PIPELINE_VERSION } from "@arc/meeting-processing-
 import type { MeetingTranscriptionJobData } from "@arc/meeting-processing-queue/meeting-transcription";
 import type {
   CanonicalMeetingTranscript,
-  FinalMeetingTranscriptRevision,
   MeetingTranscriptionProviderId,
   UpdateMeetingTranscriptionPolicyInput,
 } from "@arc/shared/meeting-transcription";
@@ -439,6 +438,7 @@ export async function claimMeetingTranscriptionRun(
     }
     const [meeting] = await tx
       .select({
+        activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
         manifestSha256: meetingSession.manifestSha256,
         transcriptionRunId: meetingSession.transcriptionRunId,
       })
@@ -464,7 +464,7 @@ export async function claimMeetingTranscriptionRun(
       await tx
         .update(meetingSession)
         .set({
-          activeTranscriptRevisionId: existing.id,
+          activeTranscriptRevisionId: meeting.activeTranscriptRevisionId ?? existing.id,
           transcriptionError: null,
           transcriptionRunId: null,
           transcriptionStatus: "ready",
@@ -655,50 +655,6 @@ export async function publishMeetingTranscript(
       .where(eq(meetingSession.id, input.meetingId));
     return true;
   });
-}
-
-export async function loadActiveMeetingTranscript(input: {
-  meetingId: string;
-  organizationId: string;
-}): Promise<FinalMeetingTranscriptRevision | null> {
-  const meeting = await db.query.meetingSession.findFirst({
-    columns: { activeTranscriptRevisionId: true },
-    where: { id: input.meetingId, organizationId: input.organizationId },
-  });
-  if (!meeting?.activeTranscriptRevisionId) {
-    return null;
-  }
-  const revision = await db.query.meetingTranscriptRevision.findFirst({
-    where: {
-      id: meeting.activeTranscriptRevisionId,
-      meetingId: input.meetingId,
-      organizationId: input.organizationId,
-    },
-    with: { turns: { orderBy: { sequence: "asc" } } },
-  });
-  if (!revision) {
-    return null;
-  }
-  return {
-    createdAt: revision.createdAt.toISOString(),
-    id: revision.id,
-    kind: "final",
-    language: revision.language,
-    model: revision.model,
-    provider: revision.provider as MeetingTranscriptionProviderId,
-    region: revision.region,
-    revision: revision.revision,
-    turns: revision.turns.map((turn) => ({
-      confidence: turn.confidence,
-      endMs: turn.endMs,
-      id: turn.id,
-      sequence: turn.sequence,
-      speakerKey: turn.speakerKey,
-      startMs: turn.startMs,
-      text: turn.text,
-      track: turn.track as "local" | "remote",
-    })),
-  };
 }
 
 export async function resetMeetingTranscriptionForRetry(input: {

@@ -423,7 +423,12 @@ export const meetingProcessingRun = pgTable(
 export const meetingTranscriptRevision = pgTable(
   "meeting_transcript_revision",
   {
+    basedOnRevisionId: text("based_on_revision_id").references(
+      // oxlint-disable-next-line no-use-before-define -- Drizzle resolves this self-reference lazily.
+      (): AnyPgColumn => meetingTranscriptRevision.id,
+    ),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     id: text("id").primaryKey(),
     kind: text("kind").notNull(),
     language: text("language"),
@@ -435,9 +440,9 @@ export const meetingTranscriptRevision = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
     pipelineVersion: text("pipeline_version").notNull(),
-    processingRunId: text("processing_run_id")
-      .notNull()
-      .references(() => meetingProcessingRun.id, { onDelete: "restrict" }),
+    processingRunId: text("processing_run_id").references(() => meetingProcessingRun.id, {
+      onDelete: "restrict",
+    }),
     provider: text("provider").notNull(),
     region: text("region").notNull(),
     revision: integer("revision").notNull(),
@@ -445,20 +450,27 @@ export const meetingTranscriptRevision = pgTable(
   },
   (table) => [
     check("meeting_transcript_revision_kind_check", sql`${table.kind} in ('final', 'human')`),
+    check(
+      "meeting_transcript_revision_source_check",
+      sql`(${table.kind} = 'final' and ${table.basedOnRevisionId} is null and ${table.processingRunId} is not null)
+        or (${table.kind} = 'human' and ${table.basedOnRevisionId} is not null and ${table.processingRunId} is null)`,
+    ),
     check("meeting_transcript_revision_number_check", sql`${table.revision} > 0`),
     uniqueIndex("meeting_transcript_revision_meeting_revision_uq").on(
       table.meetingId,
       table.revision,
     ),
-    uniqueIndex("meeting_transcript_revision_machine_input_uq").on(
-      table.meetingId,
-      table.kind,
-      table.sourceManifestSha256,
-      table.provider,
-      table.model,
-      table.region,
-      table.pipelineVersion,
-    ),
+    uniqueIndex("meeting_transcript_revision_machine_input_uq")
+      .on(
+        table.meetingId,
+        table.sourceManifestSha256,
+        table.provider,
+        table.model,
+        table.region,
+        table.pipelineVersion,
+      )
+      .where(sql`${table.kind} = 'final'`),
+    index("meeting_transcript_revision_based_on_idx").on(table.basedOnRevisionId),
     index("meeting_transcript_revision_org_created_idx").on(table.organizationId, table.createdAt),
   ],
 );
@@ -473,6 +485,7 @@ export const meetingTranscriptTurn = pgTable(
       .notNull()
       .references(() => meetingTranscriptRevision.id, { onDelete: "cascade" }),
     sequence: integer("sequence").notNull(),
+    speakerDisplayName: text("speaker_display_name"),
     speakerKey: text("speaker_key").notNull(),
     startMs: integer("start_ms").notNull(),
     text: text("text").notNull(),

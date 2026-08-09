@@ -1,12 +1,21 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { MeetingTranscriptResult } from "@arc/shared/meeting-transcription";
-import { MeetingTranscriptView, transcriptSeekSeconds } from "./meeting-transcript-panel";
+import {
+  canCorrectMeetingTranscript,
+  isTranscriptCorrectionConflict,
+  MeetingTranscriptView,
+  splitTranscriptTurn,
+  transcriptSeekSeconds,
+} from "./meeting-transcript-panel";
+import { ApiError } from "@/lib/client/api-error";
 
 const readyTranscript: MeetingTranscriptResult = {
   error: null,
   revision: {
+    basedOnRevisionId: null,
     createdAt: "2026-08-09T08:00:00.000Z",
+    createdBy: null,
     id: "revision-76",
     kind: "final",
     language: "zh",
@@ -20,6 +29,7 @@ const readyTranscript: MeetingTranscriptResult = {
         endMs: 3500,
         id: "turn-1",
         sequence: 0,
+        speakerDisplayName: null,
         speakerKey: "local",
         startMs: 1250,
         text: "你好，我们开始吧。",
@@ -30,6 +40,7 @@ const readyTranscript: MeetingTranscriptResult = {
         endMs: 7000,
         id: "turn-2",
         sequence: 1,
+        speakerDisplayName: null,
         speakerKey: "remote-1",
         startMs: 4000,
         text: "好的。",
@@ -89,5 +100,57 @@ describe("Final Meeting Transcript panel", () => {
     expect(html).toContain("远端 1");
     expect(html).toContain("你好，我们开始吧。");
     expect(transcriptSeekSeconds(1250)).toBe(1.25);
+  });
+
+  it("distinguishes human display names from stable speaker keys", () => {
+    const corrected: MeetingTranscriptResult = {
+      ...readyTranscript,
+      revision: readyTranscript.revision
+        ? {
+            ...readyTranscript.revision,
+            basedOnRevisionId: readyTranscript.revision.id,
+            createdBy: { id: "editor-78", name: "Lin" },
+            id: "revision-human-78",
+            kind: "human",
+            revision: 2,
+            turns: readyTranscript.revision.turns.map((turn) => ({
+              ...turn,
+              speakerDisplayName: turn.speakerKey === "local" ? "面试官" : "候选人",
+            })),
+          }
+        : null,
+    };
+    const html = renderToStaticMarkup(
+      <MeetingTranscriptView
+        canRetry={false}
+        onRetry={() => {}}
+        onSeek={() => {}}
+        result={corrected}
+      />,
+    );
+
+    expect(html).toContain("人工修订 revision 2");
+    expect(html).toContain("面试官");
+    expect(html).toContain("候选人");
+  });
+
+  it("allows editors to split transcript structure while viewers remain read-only", () => {
+    expect(canCorrectMeetingTranscript("editor")).toBe(true);
+    expect(canCorrectMeetingTranscript("viewer")).toBe(false);
+    const source = readyTranscript.revision?.turns[0];
+    if (!source) {
+      throw new Error("expected a source transcript turn");
+    }
+    const split = splitTranscriptTurn(source);
+    expect(split).toHaveLength(2);
+    expect(split?.[0]).toMatchObject({ endMs: 2375, text: "你好，我们" });
+    expect(split?.[1]).toMatchObject({ startMs: 2375, text: "开始吧。" });
+  });
+
+  it("recognizes a stale correction so the panel can refresh to the winning revision", () => {
+    expect(isTranscriptCorrectionConflict(new ApiError("revision conflict", { status: 409 }))).toBe(
+      true,
+    );
+    expect(isTranscriptCorrectionConflict(new ApiError("invalid", { status: 400 }))).toBe(false);
   });
 });

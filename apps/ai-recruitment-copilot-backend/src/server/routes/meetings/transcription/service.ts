@@ -4,6 +4,9 @@ import {
   retryMeetingTranscriptionJob,
 } from "@arc/meeting-processing-queue/meeting-transcription";
 import type {
+  CreateMeetingTranscriptCorrectionInput,
+  FinalMeetingTranscriptRevision,
+  MeetingTranscriptRevisionHistory,
   MeetingTranscriptResult,
   MeetingTranscriptionPolicy,
   MeetingTranscriptionProviderId,
@@ -15,12 +18,17 @@ import { recordMeetingAudit } from "../dao";
 import {
   getMeetingTranscriptionJobForMeeting,
   listRecoverableMeetingTranscriptionJobs,
-  loadActiveMeetingTranscript,
   loadMeetingTranscriptionPolicy,
   resetMeetingTranscriptionForRetry,
   updateMeetingTranscriptionPolicy,
 } from "./dao";
 import { listMeetingTranscriptionProviderCandidates } from "./provider-registry";
+import {
+  createHumanMeetingTranscriptRevision,
+  listMeetingTranscriptRevisions,
+  loadActiveMeetingTranscript,
+  loadMeetingTranscriptRevision,
+} from "./revision-dao";
 
 const ADMIN_ACCESS_AUDIT_DEDUPE_MS = 5 * 60 * 1000;
 
@@ -115,6 +123,90 @@ export async function getSavedMeetingTranscript(input: {
     revision,
     state: meeting.transcriptionStatus as MeetingTranscriptResult["state"],
   };
+}
+
+export async function getSavedMeetingTranscriptHistory(input: {
+  meetingId: string;
+  memberRole: string;
+  organizationId: string;
+  userId: string;
+}): Promise<MeetingTranscriptRevisionHistory | null> {
+  const meeting = await loadAuthorizedMeeting(input);
+  if (!meeting) {
+    return null;
+  }
+  if (meetingRole(meeting, input) === "administrator") {
+    await recordMeetingAudit({
+      action: "meeting.transcript_history_accessed",
+      actorId: input.userId,
+      dedupeWithinMs: ADMIN_ACCESS_AUDIT_DEDUPE_MS,
+      meetingId: input.meetingId,
+      organizationId: input.organizationId,
+    });
+  }
+  return {
+    records: await listMeetingTranscriptRevisions({
+      meetingId: input.meetingId,
+      organizationId: input.organizationId,
+    }),
+  };
+}
+
+export async function getSavedMeetingTranscriptRevision(input: {
+  meetingId: string;
+  memberRole: string;
+  organizationId: string;
+  revisionId: string;
+  userId: string;
+}): Promise<FinalMeetingTranscriptRevision | null> {
+  const meeting = await loadAuthorizedMeeting(input);
+  if (!meeting) {
+    return null;
+  }
+  if (meetingRole(meeting, input) === "administrator") {
+    await recordMeetingAudit({
+      action: "meeting.transcript_revision_accessed",
+      actorId: input.userId,
+      dedupeWithinMs: ADMIN_ACCESS_AUDIT_DEDUPE_MS,
+      detail: { revisionId: input.revisionId },
+      meetingId: input.meetingId,
+      organizationId: input.organizationId,
+    });
+  }
+  return loadMeetingTranscriptRevision({
+    meetingId: input.meetingId,
+    organizationId: input.organizationId,
+    revisionId: input.revisionId,
+  });
+}
+
+export async function correctSavedMeetingTranscript(input: {
+  correction: CreateMeetingTranscriptCorrectionInput;
+  meetingId: string;
+  memberRole: string;
+  organizationId: string;
+  userId: string;
+}): Promise<
+  FinalMeetingTranscriptRevision | "conflict" | "forbidden" | "invalid-range" | "not-ready" | null
+> {
+  const meeting = await loadAuthorizedMeeting(input);
+  if (!meeting) {
+    return null;
+  }
+  const role = meetingRole(meeting, input);
+  if (!meetingAccessCapabilities(role).canCorrectTranscript) {
+    return "forbidden";
+  }
+  if (meeting.transcriptionStatus !== "ready" || !meeting.activeTranscriptRevisionId) {
+    return "not-ready";
+  }
+  const result = await createHumanMeetingTranscriptRevision({
+    actorId: input.userId,
+    correction: input.correction,
+    meetingId: input.meetingId,
+    organizationId: input.organizationId,
+  });
+  return result === "not-found" ? null : result;
 }
 
 export async function retrySavedMeetingTranscription(input: {

@@ -88,6 +88,65 @@ export const canonicalMeetingTranscriptSchema = z
 export type CanonicalMeetingTranscript = z.infer<typeof canonicalMeetingTranscriptSchema>;
 export type CanonicalMeetingTranscriptTurn = z.infer<typeof canonicalMeetingTranscriptTurnSchema>;
 
+const correctedMeetingTranscriptTurnSchema = canonicalTranscriptTurnBaseSchema.extend({
+  confidence: z.null(),
+  speakerDisplayName: z.string().trim().min(1).max(128).nullable(),
+});
+
+export const createMeetingTranscriptCorrectionSchema = z
+  .object({
+    language: z.string().trim().min(1).max(64).nullable(),
+    sourceRevisionId: z.uuid(),
+    turns: z.array(correctedMeetingTranscriptTurnSchema).max(10_000),
+  })
+  .strict()
+  .superRefine((input, context) => {
+    if (input.turns.reduce((total, turn) => total + turn.text.length, 0) > 1_000_000) {
+      context.addIssue({
+        code: "custom",
+        message: "人工修订总文字长度超过限制",
+        path: ["turns"],
+      });
+    }
+    const displayNames = new Map<string, string | null>();
+    let previousStartMs = -1;
+    for (const [index, turn] of input.turns.entries()) {
+      const { speakerDisplayName: _speakerDisplayName, ...canonicalTurn } = turn;
+      const parsed = canonicalMeetingTranscriptTurnSchema.safeParse(canonicalTurn);
+      if (!parsed.success) {
+        for (const issue of parsed.error.issues) {
+          context.addIssue({
+            ...issue,
+            path: ["turns", index, ...issue.path],
+          });
+        }
+      }
+      if (displayNames.has(turn.speakerKey)) {
+        if (displayNames.get(turn.speakerKey) !== turn.speakerDisplayName) {
+          context.addIssue({
+            code: "custom",
+            message: "同一 speakerKey 的展示名必须一致",
+            path: ["turns", index, "speakerDisplayName"],
+          });
+        }
+      } else {
+        displayNames.set(turn.speakerKey, turn.speakerDisplayName);
+      }
+      if (turn.startMs < previousStartMs) {
+        context.addIssue({
+          code: "custom",
+          message: "转录片段必须按开始时间排序",
+          path: ["turns", index, "startMs"],
+        });
+      }
+      previousStartMs = turn.startMs;
+    }
+  });
+
+export type CreateMeetingTranscriptCorrectionInput = z.infer<
+  typeof createMeetingTranscriptCorrectionSchema
+>;
+
 export type MeetingTranscriptState = "failed" | "pending" | "processing" | "ready";
 
 export interface MeetingTranscriptionProviderCandidate {
@@ -108,18 +167,27 @@ export interface MeetingTranscriptionPolicy {
 export interface FinalMeetingTranscriptTurn extends CanonicalMeetingTranscriptTurn {
   id: string;
   sequence: number;
+  speakerDisplayName: string | null;
 }
 
 export interface FinalMeetingTranscriptRevision {
+  basedOnRevisionId: string | null;
   createdAt: string;
+  createdBy: { id: string; name: string } | null;
   id: string;
-  kind: "final";
+  kind: "final" | "human";
   language: string | null;
   model: string;
   provider: MeetingTranscriptionProviderId;
   region: string;
   revision: number;
   turns: FinalMeetingTranscriptTurn[];
+}
+
+export type MeetingTranscriptRevisionSummary = Omit<FinalMeetingTranscriptRevision, "turns">;
+
+export interface MeetingTranscriptRevisionHistory {
+  records: MeetingTranscriptRevisionSummary[];
 }
 
 export interface MeetingTranscriptResult {

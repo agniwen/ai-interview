@@ -6,6 +6,7 @@ import { LiveTranscriptAuthorizationRateLimitError } from "./routes/live-transcr
 const mocks = vi.hoisted(() => ({
   addMeetingNote: vi.fn(),
   completeSmallSavedMeeting: vi.fn(),
+  correctSavedMeetingTranscript: vi.fn(),
   createMeetingPlaybackAuthorization: vi.fn(),
   createMultipartSavedMeeting: vi.fn(),
   createSmallSavedMeeting: vi.fn(),
@@ -15,6 +16,8 @@ const mocks = vi.hoisted(() => ({
   getMeetingShareSettings: vi.fn(),
   getSavedMeetingDetail: vi.fn(),
   getSavedMeetingTranscript: vi.fn(),
+  getSavedMeetingTranscriptHistory: vi.fn(),
+  getSavedMeetingTranscriptRevision: vi.fn(),
   getWorkspaceMeetingTranscriptionPolicy: vi.fn(),
   listSavedMeetings: vi.fn(),
   reassignSavedMeetingOwner: vi.fn(),
@@ -514,5 +517,102 @@ describe("Meeting Buddy small Saved Meeting control plane", () => {
       revision: { turns: [{ speakerKey: "local", startMs: 1000 }] },
       state: "ready",
     });
+  });
+
+  it("creates a human transcript revision and exposes revision history", async () => {
+    const correction = {
+      language: "zh",
+      sourceRevisionId: "00000000-0000-4000-8000-000000000076",
+      turns: [
+        {
+          confidence: null,
+          endMs: 2000,
+          speakerDisplayName: "面试官",
+          speakerKey: "local",
+          startMs: 1000,
+          text: "人工修正",
+          track: "local" as const,
+        },
+      ],
+    };
+    mocks.correctSavedMeetingTranscript.mockResolvedValue({
+      basedOnRevisionId: correction.sourceRevisionId,
+      id: "revision-human-78",
+      kind: "human",
+      revision: 2,
+      turns: correction.turns,
+    });
+    mocks.getSavedMeetingTranscriptHistory.mockResolvedValue({
+      records: [{ id: "revision-human-78", kind: "human", revision: 2 }],
+    });
+
+    const correctionResponse = await client.meetings[":id"].transcript.corrections.$post({
+      json: correction,
+      param: { id: MEETING_ID },
+    });
+    expect(correctionResponse.status).toBe(201);
+    expect(mocks.correctSavedMeetingTranscript).toHaveBeenCalledWith({
+      correction,
+      meetingId: MEETING_ID,
+      memberRole: "admin",
+      organizationId: "org-72",
+      userId: "user-72",
+    });
+
+    const historyResponse = await client.meetings[":id"].transcript.revisions.$get({
+      param: { id: MEETING_ID },
+    });
+    expect(historyResponse.status).toBe(200);
+    expect(await historyResponse.json()).toMatchObject({
+      records: [{ id: "revision-human-78", revision: 2 }],
+    });
+
+    mocks.getSavedMeetingTranscriptRevision.mockResolvedValue({
+      id: "revision-human-78",
+      kind: "human",
+      revision: 2,
+      turns: correction.turns,
+    });
+    const revisionResponse = await client.meetings[":id"].transcript.revisions[":revisionId"].$get({
+      param: { id: MEETING_ID, revisionId: "revision-human-78" },
+    });
+    expect(revisionResponse.status).toBe(200);
+    expect(await revisionResponse.json()).toMatchObject({
+      id: "revision-human-78",
+      turns: [{ speakerDisplayName: "面试官" }],
+    });
+  });
+
+  it("returns a detectable conflict for a stale transcript correction", async () => {
+    mocks.correctSavedMeetingTranscript.mockResolvedValue("conflict");
+
+    const response = await client.meetings[":id"].transcript.corrections.$post({
+      json: {
+        language: "zh",
+        sourceRevisionId: "00000000-0000-4000-8000-000000000076",
+        turns: [],
+      },
+      param: { id: MEETING_ID },
+    });
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: "会议转录已被其他人更新，请刷新后重试",
+    });
+  });
+
+  it("rejects an oversized transcript correction before parsing JSON", async () => {
+    const response = await makeApp().request(`/meetings/${MEETING_ID}/transcript/corrections`, {
+      body: "{}",
+      headers: {
+        "content-length": String(9 * 1024 * 1024),
+        "content-type": "application/json",
+      },
+      method: "POST",
+    });
+
+    expect(response.status).toBe(413);
+    expect(await response.json()).toEqual({ error: "会议转录修订请求过大" });
+    expect(mocks.correctSavedMeetingTranscript).not.toHaveBeenCalled();
   });
 });

@@ -1,15 +1,24 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useRef } from "react";
+import { useMemo, useRef, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
 import type { MeetingAccessRole } from "@arc/shared/meeting-recording";
 import type {
+  CreateMeetingTranscriptCorrectionInput,
+  FinalMeetingTranscriptRevision,
   FinalMeetingTranscriptTurn,
   MeetingTranscriptResult,
 } from "@arc/shared/meeting-transcription";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { isApiError } from "@/lib/client/api-error";
 import {
+  createMeetingTranscriptCorrection,
   desktopMeetingKeys,
   fetchMeetingTranscript,
+  fetchMeetingTranscriptHistory,
+  fetchMeetingTranscriptRevision,
   retryMeetingTranscript,
 } from "@/lib/client/meetings";
 
@@ -27,12 +36,43 @@ function formatTranscriptTime(timeMs: number): string {
     .join(":");
 }
 
-function speakerLabel(speakerKey: string): string {
+function speakerLabel(speakerKey: string, speakerDisplayName?: string | null): string {
+  if (speakerDisplayName) {
+    return speakerDisplayName;
+  }
   if (speakerKey === "local") {
     return "本机";
   }
   const remoteNumber = speakerKey.match(/^remote-(\d+)$/)?.[1];
   return remoteNumber ? `远端 ${remoteNumber}` : "远端";
+}
+
+export function canCorrectMeetingTranscript(role: MeetingAccessRole): boolean {
+  return role !== "viewer";
+}
+
+export function isTranscriptCorrectionConflict(error: unknown): boolean {
+  return isApiError(error) && error.status === 409;
+}
+
+export function splitTranscriptTurn(
+  turn: FinalMeetingTranscriptTurn,
+): [FinalMeetingTranscriptTurn, FinalMeetingTranscriptTurn] | null {
+  const midpointMs = Math.floor((turn.startMs + turn.endMs) / 2);
+  const text = turn.text.trim();
+  if (midpointMs <= turn.startMs || midpointMs >= turn.endMs || text.length < 2) {
+    return null;
+  }
+  const midpointText = Math.ceil(text.length / 2);
+  const firstText = text.slice(0, midpointText).trim();
+  const secondText = text.slice(midpointText).trim();
+  if (!(firstText && secondText)) {
+    return null;
+  }
+  return [
+    { ...turn, endMs: midpointMs, id: crypto.randomUUID(), text: firstText },
+    { ...turn, id: crypto.randomUUID(), startMs: midpointMs, text: secondText },
+  ];
 }
 
 function VirtualTranscriptTurns({
@@ -75,7 +115,7 @@ function VirtualTranscriptTurns({
               </Button>
               <div className="min-w-0">
                 <p className="mb-1 text-muted-foreground text-xs">
-                  {speakerLabel(turn.speakerKey)}
+                  {speakerLabel(turn.speakerKey, turn.speakerDisplayName)}
                 </p>
                 <p className="whitespace-pre-wrap text-sm leading-relaxed">{turn.text}</p>
               </div>
@@ -87,15 +127,244 @@ function VirtualTranscriptTurns({
   );
 }
 
+function MeetingTranscriptCorrectionEditor({
+  error,
+  onCancel,
+  onSave,
+  revision,
+  saving,
+}: {
+  error: Error | null;
+  onCancel: () => void;
+  onSave: (correction: CreateMeetingTranscriptCorrectionInput) => void;
+  revision: FinalMeetingTranscriptRevision;
+  saving: boolean;
+}) {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [turns, setTurns] = useState(() => revision.turns.map((turn) => ({ ...turn })));
+  const selected = turns[selectedIndex] ?? null;
+  const valid = turns.every(
+    (turn, index) =>
+      turn.text.trim() &&
+      turn.startMs >= 0 &&
+      turn.endMs > turn.startMs &&
+      (index === 0 || turn.startMs >= (turns[index - 1]?.startMs ?? 0)),
+  );
+
+  function updateSelected(patch: Partial<FinalMeetingTranscriptTurn>) {
+    setTurns((current) =>
+      current.map((turn, index) => (index === selectedIndex ? { ...turn, ...patch } : turn)),
+    );
+  }
+
+  function updateSpeakerDisplayName(speakerKey: string, displayName: string) {
+    const speakerDisplayName = displayName.length === 0 ? null : displayName;
+    setTurns((current) =>
+      current.map((turn) =>
+        turn.speakerKey === speakerKey ? { ...turn, speakerDisplayName } : turn,
+      ),
+    );
+  }
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!valid) {
+      return;
+    }
+    onSave({
+      language: revision.language,
+      sourceRevisionId: revision.id,
+      turns: turns.map(({ endMs, speakerDisplayName, speakerKey, startMs, text, track }) => ({
+        confidence: null,
+        endMs,
+        speakerDisplayName: speakerDisplayName?.trim() || null,
+        speakerKey,
+        startMs,
+        text: text.trim(),
+        track,
+      })),
+    });
+  }
+
+  const next = turns[selectedIndex + 1] ?? null;
+  const canSplit = Boolean(
+    selected && selected.endMs - selected.startMs > 1 && selected.text.trim().length > 1,
+  );
+  const canMerge = Boolean(
+    selected && next && selected.speakerKey === next.speakerKey && selected.track === next.track,
+  );
+  return (
+    <form className="flex flex-col gap-4" onSubmit={submit}>
+      <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+        <p className="font-medium">基于 revision {revision.revision} 创建新的人工修订</p>
+        <p className="mt-1 text-muted-foreground text-xs">
+          speaker 展示名只用于这份转录的阅读，不代表声纹或生物识别身份验证。
+        </p>
+      </div>
+      {error ? <p className="text-destructive text-sm">{error.message}</p> : null}
+      {selected ? (
+        <div className="flex flex-col gap-3 rounded-lg border p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-muted-foreground text-xs">
+              片段 {selectedIndex + 1} / {turns.length} · stable key: {selected.speakerKey}
+            </span>
+            <div className="flex gap-1">
+              <Button
+                disabled={selectedIndex === 0}
+                onClick={() => setSelectedIndex((index) => Math.max(0, index - 1))}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
+                上一段
+              </Button>
+              <Button
+                disabled={selectedIndex >= turns.length - 1}
+                onClick={() => setSelectedIndex((index) => Math.min(turns.length - 1, index + 1))}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
+                下一段
+              </Button>
+            </div>
+          </div>
+          <label className="flex flex-col gap-1 text-sm" htmlFor="transcript-speaker-name">
+            <span>speaker 展示名</span>
+            <Input
+              id="transcript-speaker-name"
+              onChange={(event) =>
+                updateSpeakerDisplayName(selected.speakerKey, event.target.value)
+              }
+              placeholder={speakerLabel(selected.speakerKey)}
+              value={selected.speakerDisplayName ?? ""}
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1 text-sm" htmlFor="transcript-start-time">
+              <span>开始（秒）</span>
+              <Input
+                id="transcript-start-time"
+                min={0}
+                onChange={(event) =>
+                  updateSelected({
+                    startMs: Math.max(0, Math.round(event.target.valueAsNumber * 1000)),
+                  })
+                }
+                step="0.1"
+                type="number"
+                value={selected.startMs / 1000}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm" htmlFor="transcript-end-time">
+              <span>结束（秒）</span>
+              <Input
+                id="transcript-end-time"
+                min={0}
+                onChange={(event) =>
+                  updateSelected({
+                    endMs: Math.max(0, Math.round(event.target.valueAsNumber * 1000)),
+                  })
+                }
+                step="0.1"
+                type="number"
+                value={selected.endMs / 1000}
+              />
+            </label>
+          </div>
+          <label className="flex flex-col gap-1 text-sm" htmlFor="transcript-turn-text">
+            <span>转录文字</span>
+            <Textarea
+              id="transcript-turn-text"
+              onChange={(event) => updateSelected({ text: event.target.value })}
+              value={selected.text}
+            />
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              disabled={!canSplit}
+              onClick={() => {
+                const split = splitTranscriptTurn(selected);
+                if (split) {
+                  setTurns((current) => [
+                    ...current.slice(0, selectedIndex),
+                    ...split,
+                    ...current.slice(selectedIndex + 1),
+                  ]);
+                }
+              }}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              拆分片段
+            </Button>
+            <Button
+              disabled={!canMerge}
+              onClick={() => {
+                if (!(selected && next && canMerge)) {
+                  return;
+                }
+                setTurns((current) => [
+                  ...current.slice(0, selectedIndex),
+                  {
+                    ...selected,
+                    endMs: next.endMs,
+                    text: `${selected.text.trim()} ${next.text.trim()}`.trim(),
+                  },
+                  ...current.slice(selectedIndex + 2),
+                ]);
+              }}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              与下一段合并
+            </Button>
+            <Button
+              onClick={() => {
+                setTurns((current) => current.filter((_, index) => index !== selectedIndex));
+                setSelectedIndex((index) => Math.max(0, Math.min(index, turns.length - 2)));
+              }}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              删除片段
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <p className="text-muted-foreground text-sm">这份人工修订将不包含任何语音片段。</p>
+      )}
+      {valid ? null : (
+        <p className="text-destructive text-sm">每个片段都需要有效文字和时间范围。</p>
+      )}
+      <div className="flex gap-2">
+        <Button disabled={!valid || saving} type="submit">
+          {saving ? "正在保存…" : "保存为新的人工修订"}
+        </Button>
+        <Button onClick={onCancel} type="button" variant="ghost">
+          取消
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 export function MeetingTranscriptView({
+  canCorrect = false,
   canRetry,
+  onEdit,
   onRetry,
   onSeek,
   result,
   retrying = false,
 }: {
+  canCorrect?: boolean;
   canRetry: boolean;
-  onRetry: () => void;
+  onEdit?: () => void;
+  onRetry?: () => void;
   onSeek: (seconds: number) => void;
   result: MeetingTranscriptResult;
   retrying?: boolean;
@@ -114,7 +383,7 @@ export function MeetingTranscriptView({
     return (
       <div className="flex flex-col items-start gap-3">
         <p className="text-destructive text-sm">{result.error ?? "最终会议转录失败"}</p>
-        {canRetry ? (
+        {canRetry && onRetry ? (
           <Button disabled={retrying} onClick={onRetry} type="button">
             {retrying ? "正在重试…" : "重试最终转录"}
           </Button>
@@ -127,10 +396,18 @@ export function MeetingTranscriptView({
   }
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-muted-foreground text-xs">
-        Final revision {result.revision.revision} · {result.revision.provider} ·{" "}
-        {result.revision.model}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-muted-foreground text-xs">
+          {result.revision.kind === "human" ? "人工修订" : "机器生成"} revision{" "}
+          {result.revision.revision} · {result.revision.provider} · {result.revision.model}
+          {result.revision.createdBy ? ` · ${result.revision.createdBy.name}` : ""}
+        </p>
+        {canCorrect && onEdit ? (
+          <Button onClick={onEdit} size="sm" type="button" variant="outline">
+            修正转录
+          </Button>
+        ) : null}
+      </div>
       {result.revision.turns.length === 0 ? (
         <p className="text-muted-foreground text-sm">此录音没有识别到语音。</p>
       ) : (
@@ -156,7 +433,12 @@ export function MeetingTranscriptPanel({
   slug: string;
 }) {
   const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [conflictNotice, setConflictNotice] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [selectedRevisionId, setSelectedRevisionId] = useState<string | null>(null);
   const transcriptKey = desktopMeetingKeys.transcript(slug, meetingId);
+  const historyKey = desktopMeetingKeys.transcriptHistory(slug, meetingId);
   const transcriptQuery = useQuery({
     enabled: Boolean(slug),
     queryFn: () => fetchMeetingTranscript(slug, meetingId),
@@ -167,7 +449,75 @@ export function MeetingTranscriptPanel({
     mutationFn: () => retryMeetingTranscript(slug, meetingId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: transcriptKey }),
   });
+  const historyQuery = useQuery({
+    enabled: historyOpen,
+    queryFn: () => fetchMeetingTranscriptHistory(slug, meetingId),
+    queryKey: historyKey,
+  });
+  const historicalRevisionQuery = useQuery({
+    enabled: Boolean(selectedRevisionId),
+    queryFn: () => fetchMeetingTranscriptRevision(slug, meetingId, selectedRevisionId as string),
+    queryKey: desktopMeetingKeys.transcriptRevision(slug, meetingId, selectedRevisionId ?? ""),
+  });
+  const correctionMutation = useMutation({
+    mutationFn: (correction: CreateMeetingTranscriptCorrectionInput) =>
+      createMeetingTranscriptCorrection(slug, meetingId, correction),
+    onError: (error) => {
+      if (!isTranscriptCorrectionConflict(error)) {
+        return;
+      }
+      setConflictNotice(error.message);
+      setEditing(false);
+      setSelectedRevisionId(null);
+      void queryClient.invalidateQueries({ queryKey: transcriptKey });
+    },
+    onSuccess: async () => {
+      setConflictNotice(null);
+      setEditing(false);
+      await queryClient.invalidateQueries({ queryKey: transcriptKey });
+    },
+  });
   const canRetry = accessRole === "administrator" || accessRole === "owner";
+  const canCorrect = canCorrectMeetingTranscript(accessRole);
+  const historyRevisionNumbers = useMemo(
+    () =>
+      new Map(
+        (historyQuery.data?.records ?? []).map((revision) => [revision.id, revision.revision]),
+      ),
+    [historyQuery.data],
+  );
+  const activeRevision = transcriptQuery.data?.revision ?? null;
+  let transcriptContent: ReactNode = null;
+  if (transcriptQuery.data) {
+    transcriptContent =
+      editing && activeRevision ? (
+        <MeetingTranscriptCorrectionEditor
+          error={correctionMutation.error}
+          key={activeRevision.id}
+          onCancel={() => {
+            correctionMutation.reset();
+            setEditing(false);
+          }}
+          onSave={(correction) => correctionMutation.mutate(correction)}
+          revision={activeRevision}
+          saving={correctionMutation.isPending}
+        />
+      ) : (
+        <MeetingTranscriptView
+          canCorrect={canCorrect}
+          canRetry={canRetry}
+          onEdit={() => {
+            setConflictNotice(null);
+            correctionMutation.reset();
+            setEditing(true);
+          }}
+          onRetry={() => retryMutation.mutate()}
+          onSeek={onSeek}
+          result={transcriptQuery.data}
+          retrying={retryMutation.isPending}
+        />
+      );
+  }
   return (
     <section className="rounded-xl border bg-card p-4">
       <div className="mb-4">
@@ -186,14 +536,91 @@ export function MeetingTranscriptPanel({
             : "加载最终会议转录失败"}
         </p>
       ) : null}
-      {transcriptQuery.data ? (
-        <MeetingTranscriptView
-          canRetry={canRetry}
-          onRetry={() => retryMutation.mutate()}
-          onSeek={onSeek}
-          result={transcriptQuery.data}
-          retrying={retryMutation.isPending}
-        />
+      {conflictNotice ? <p className="mb-3 text-destructive text-sm">{conflictNotice}</p> : null}
+      {transcriptContent}
+      {transcriptQuery.data?.state === "ready" ? (
+        <div className="mt-4 border-t pt-4">
+          <Button
+            onClick={() => setHistoryOpen((open) => !open)}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            {historyOpen ? "收起修订历史" : "查看修订历史"}
+          </Button>
+          {historyOpen ? (
+            <div className="mt-3 flex flex-col gap-2">
+              {historyQuery.isPending ? (
+                <p className="text-muted-foreground text-sm">正在加载修订历史…</p>
+              ) : null}
+              {historyQuery.error ? (
+                <p className="text-destructive text-sm">
+                  {historyQuery.error instanceof Error
+                    ? historyQuery.error.message
+                    : "加载修订历史失败"}
+                </p>
+              ) : null}
+              {historyQuery.data?.records.map((revision) => (
+                <article className="rounded-lg border p-3 text-sm" key={revision.id}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-medium">
+                      revision {revision.revision} ·{" "}
+                      {revision.kind === "human" ? "人工修订" : "机器生成"}
+                      {revision.id === activeRevision?.id ? " · 当前权威版本" : ""}
+                    </span>
+                    <span className="text-muted-foreground text-xs">
+                      {new Date(revision.createdAt).toLocaleString("zh-CN")}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-muted-foreground text-xs">
+                    {revision.createdBy?.name ?? "自动转录服务"}
+                    {revision.basedOnRevisionId
+                      ? ` · 基于 revision ${historyRevisionNumbers.get(revision.basedOnRevisionId) ?? "?"}`
+                      : ""}
+                  </p>
+                  <Button
+                    className="mt-2"
+                    onClick={() =>
+                      setSelectedRevisionId((selected) =>
+                        selected === revision.id ? null : revision.id,
+                      )
+                    }
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    {selectedRevisionId === revision.id ? "收起版本" : "查看版本"}
+                  </Button>
+                  {selectedRevisionId === revision.id ? (
+                    <div className="mt-3 border-t pt-3">
+                      {historicalRevisionQuery.isPending ? (
+                        <p className="text-muted-foreground text-sm">正在加载 revision…</p>
+                      ) : null}
+                      {historicalRevisionQuery.error ? (
+                        <p className="text-destructive text-sm">
+                          {historicalRevisionQuery.error instanceof Error
+                            ? historicalRevisionQuery.error.message
+                            : "加载 revision 失败"}
+                        </p>
+                      ) : null}
+                      {historicalRevisionQuery.data ? (
+                        <MeetingTranscriptView
+                          canRetry={false}
+                          onSeek={onSeek}
+                          result={{
+                            error: null,
+                            revision: historicalRevisionQuery.data,
+                            state: "ready",
+                          }}
+                        />
+                      ) : null}
+                    </div>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </div>
       ) : null}
     </section>
   );

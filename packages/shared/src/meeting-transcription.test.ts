@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   canonicalMeetingTranscriptSchema,
   createMeetingLiveTranscriptAuthorizationSchema,
+  createMeetingTranscriptCorrectionSchema,
   updateMeetingTranscriptionPolicySchema,
 } from "./meeting-transcription";
 
@@ -70,6 +71,53 @@ describe("Meeting transcription contracts", () => {
       createMeetingLiveTranscriptAuthorizationSchema.safeParse({
         captureId: "not-a-capture-id",
         track: "mixed",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("validates a human correction as a complete revision based on an existing revision", () => {
+    const correction = createMeetingTranscriptCorrectionSchema.parse({
+      language: "zh",
+      sourceRevisionId: "00000000-0000-4000-8000-000000000078",
+      turns: [
+        {
+          confidence: null,
+          endMs: 2600,
+          speakerDisplayName: "面试官",
+          speakerKey: "local",
+          startMs: 1000,
+          text: "大家好",
+          track: "local",
+        },
+        {
+          confidence: null,
+          endMs: 4100,
+          speakerDisplayName: "候选人",
+          speakerKey: "remote-0",
+          startMs: 2700,
+          text: "你好",
+          track: "remote",
+        },
+      ],
+    });
+
+    expect(correction.turns[1]).toMatchObject({
+      speakerDisplayName: "候选人",
+      speakerKey: "remote-0",
+    });
+    expect(
+      createMeetingTranscriptCorrectionSchema.safeParse({
+        ...correction,
+        turns: [
+          correction.turns[1],
+          { ...correction.turns[1], speakerDisplayName: "另一位候选人" },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      createMeetingTranscriptCorrectionSchema.safeParse({
+        ...correction,
+        turns: [...correction.turns].toReversed(),
       }).success,
     ).toBe(false);
   });
