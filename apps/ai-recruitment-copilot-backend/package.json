@@ -77,13 +77,14 @@
     "mupdf": "^1.27.0",
     "nanoid": "^5.1.11",
     "openai": "^6.37.0",
-    "p-limit": "7.3.0",
+    "p-limit": "7.3.1",
     "p-retry": "7.1.1",
     "postgres": "^3.4.9",
     "react": "catalog:",
     "react-dom": "catalog:",
     "resend": "^6.12.3",
     "tsx": "^4.21.0",
+    "write-file-atomic": "^7.0.1",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -91,6 +92,7 @@
     "@types/lodash-es": "^4.17.12",
     "@types/node": "24.11.2",
     "@types/react": "catalog:",
+    "@types/write-file-atomic": "^4.0.3",
     "mastra": "1.18.2",
     "typescript": "catalog:",
     "vitest": "catalog:"

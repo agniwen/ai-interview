@@ -44,6 +44,31 @@ describe("Meeting transcription benchmark checkpoint", () => {
     expect(JSON.parse(await readFile(path, "utf-8"))).toEqual(input);
   });
 
+  it("serializes concurrent checkpoint replacements without a shared temp-file collision", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "meeting-transcription-eval-"));
+    const path = join(directory, "run.partial.json");
+    const expectedCaseIds = Array.from({ length: 20 }, (_, index) => `case-${index + 1}`);
+    const base = {
+      attemptHistory: [],
+      corpusFingerprint: "a".repeat(64),
+      expectedCaseIds,
+      inFlight: null,
+    };
+
+    await expect(
+      Promise.all([
+        saveMeetingTranscriptionBenchmarkCheckpoint(path, { ...base, runs: [] }),
+        saveMeetingTranscriptionBenchmarkCheckpoint(path, { ...base, runs: [run] }),
+      ]),
+    ).resolves.toHaveLength(2);
+
+    const saved = await loadMeetingTranscriptionBenchmarkCheckpoint(path, {
+      corpusFingerprint: base.corpusFingerprint,
+      expectedCaseIds,
+    });
+    expect([0, 1]).toContain(saved.runs.length);
+  });
+
   it("refuses a checkpoint from another corpus or with duplicate paid runs", async () => {
     const directory = await mkdtemp(join(tmpdir(), "meeting-transcription-eval-"));
     const path = join(directory, "run.partial.json");

@@ -1,7 +1,9 @@
 // oxlint-disable promise/prefer-await-to-then -- The per-capture promise chain is the serialization primitive.
-import { createHash, randomUUID } from "node:crypto";
-import { mkdir, open, readFile, readdir, rename, rm, stat, unlink } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, open, readFile, readdir, rm, stat, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import writeFileAtomic from "write-file-atomic";
+import { z } from "zod";
 import type {
   CreateSmallSavedMeetingInput,
   MeetingSourceTrack,
@@ -37,51 +39,12 @@ interface LocalMeetingRecordingStoreOptions {
   putObject?: MeetingObjectUploader;
 }
 
-interface StoredFragment extends Omit<AppendLocalFragmentInput, "captureId"> {
-  localPath: string;
-  sha256: string;
-  sizeBytes: number;
-}
-
-interface StoredManifest {
-  captureId: string;
-  container: LocalSavedMeeting["container"];
-  endedAt: string | null;
-  fragments: StoredFragment[];
-  manifestSha256?: string;
-  manifestVersion: number;
-  possibleTailGap: boolean;
-  recruitingRecordId: string | null;
-  savedAt: string | null;
-  startedAt: string;
-  status: "recording" | "interrupted" | "saved-local";
-  trackContentTypes: Record<CaptureTrack, string>;
-  videoTracksDiscarded: number;
-  videoTracksPersisted: 0;
-}
-
-interface SaveIntent {
-  captureId: string;
-  manifestSha256: string;
-  recoveryCopyDeleteAfter: string | null;
-  savedAt: string;
-  status: "pending-server-save" | "workspace-verified";
-}
-
 const jsonBytes = (value: unknown) => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
 const sha256 = (bytes: Uint8Array | string) => createHash("sha256").update(bytes).digest("hex");
 
 async function atomicWrite(filePath: string, bytes: Uint8Array): Promise<void> {
   await mkdir(dirname(filePath), { mode: 0o700, recursive: true });
-  const temporaryPath = `${filePath}.${process.pid}.${randomUUID()}.tmp`;
-  const handle = await open(temporaryPath, "wx", 0o600);
-  try {
-    await handle.writeFile(bytes);
-    await handle.sync();
-  } finally {
-    await handle.close();
-  }
-  await rename(temporaryPath, filePath);
+  await writeFileAtomic(filePath, Buffer.from(bytes), { fsync: true, mode: 0o600 });
   const directory = await open(dirname(filePath), "r");
   try {
     await directory.sync();
@@ -103,105 +66,76 @@ function extensionFor(contentType: string): string {
   return ".webm";
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
-
-function isIsoDateOrNull(value: unknown): value is string | null {
-  return value === null || (typeof value === "string" && !Number.isNaN(Date.parse(value)));
-}
-
-function isNonNegativeNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0;
-}
-
-function isStoredFragment(value: unknown): value is StoredFragment {
-  if (!isRecord(value)) {
-    return false;
-  }
-  const { track } = value;
-  const { sequence } = value;
-  const { contentType } = value;
-  if (
-    !(track === "microphone" || track === "system") ||
-    !(typeof contentType === "string" && contentType.length > 0 && contentType.length <= 256) ||
-    !(Number.isInteger(sequence) && isNonNegativeNumber(sequence))
-  ) {
-    return false;
-  }
-  const expectedPath = join(
-    "fragments",
-    track,
-    `${String(sequence).padStart(8, "0")}${extensionFor(contentType)}`,
+const isoDateSchema = z.string().refine((value) => !Number.isNaN(Date.parse(value)));
+const contentTypeSchema = z.string().min(1).max(256);
+const storedFragmentSchema = z
+  .object({
+    contentType: contentTypeSchema,
+    durationMs: z.number().finite().nonnegative(),
+    endedAtMonotonicMs: z.number().finite().nonnegative(),
+    localPath: z.string(),
+    sequence: z.number().int().nonnegative(),
+    sha256: z.string().regex(/^[a-f\d]{64}$/i),
+    sizeBytes: z.number().int().nonnegative(),
+    startedAtMonotonicMs: z.number().finite().nonnegative(),
+    track: z.enum(["microphone", "system"]),
+  })
+  .refine((fragment) => fragment.endedAtMonotonicMs >= fragment.startedAtMonotonicMs)
+  .refine(
+    (fragment) =>
+      fragment.localPath ===
+      join(
+        "fragments",
+        fragment.track,
+        `${String(fragment.sequence).padStart(8, "0")}${extensionFor(fragment.contentType)}`,
+      ),
   );
-  return (
-    value.localPath === expectedPath &&
-    typeof value.sha256 === "string" &&
-    /^[a-f\d]{64}$/i.test(value.sha256) &&
-    Number.isInteger(value.sizeBytes) &&
-    isNonNegativeNumber(value.sizeBytes) &&
-    isNonNegativeNumber(value.durationMs) &&
-    isNonNegativeNumber(value.startedAtMonotonicMs) &&
-    isNonNegativeNumber(value.endedAtMonotonicMs) &&
-    value.endedAtMonotonicMs >= value.startedAtMonotonicMs
+const storedManifestSchema = z.object({
+  captureId: z.string().regex(CAPTURE_ID_PATTERN),
+  container: z.object({
+    independentlyDecodableFragments: z.literal(false),
+    kind: z.literal("ordered-mediarecorder-stream"),
+  }),
+  endedAt: isoDateSchema.nullable(),
+  fragments: z.array(storedFragmentSchema),
+  manifestSha256: z
+    .string()
+    .regex(/^[a-f\d]{64}$/i)
+    .optional(),
+  manifestVersion: z.literal(MANIFEST_VERSION),
+  possibleTailGap: z.boolean(),
+  recruitingRecordId: z.string().nullable(),
+  savedAt: isoDateSchema.nullable(),
+  startedAt: isoDateSchema,
+  status: z.enum(["recording", "interrupted", "saved-local"]),
+  trackContentTypes: z.object({
+    microphone: contentTypeSchema,
+    system: contentTypeSchema,
+  }),
+  videoTracksDiscarded: z.number().int().nonnegative(),
+  videoTracksPersisted: z.literal(0),
+});
+const saveIntentSchema = z
+  .object({
+    captureId: z.string().regex(CAPTURE_ID_PATTERN),
+    manifestSha256: z.string().regex(/^[a-f\d]{64}$/i),
+    recoveryCopyDeleteAfter: isoDateSchema.nullable(),
+    savedAt: isoDateSchema,
+    status: z.enum(["pending-server-save", "workspace-verified"]),
+  })
+  .refine(
+    (intent) => intent.status === "pending-server-save" || intent.recoveryCopyDeleteAfter !== null,
   );
-}
-
-function isTrackContentTypes(value: unknown): value is Record<CaptureTrack, string> {
-  if (!isRecord(value)) {
-    return false;
-  }
-  return (
-    typeof value.microphone === "string" &&
-    value.microphone.length > 0 &&
-    value.microphone.length <= 256 &&
-    typeof value.system === "string" &&
-    value.system.length > 0 &&
-    value.system.length <= 256
-  );
-}
-
-function hasValidManifestMetadata(value: Record<string, unknown>, captureId: string): boolean {
-  const { status } = value;
-  return (
-    value.manifestVersion === MANIFEST_VERSION &&
-    value.captureId === captureId &&
-    (status === "recording" || status === "interrupted" || status === "saved-local") &&
-    isIsoDateOrNull(value.endedAt) &&
-    isIsoDateOrNull(value.savedAt) &&
-    typeof value.startedAt === "string" &&
-    !Number.isNaN(Date.parse(value.startedAt)) &&
-    typeof value.possibleTailGap === "boolean" &&
-    (value.recruitingRecordId === null || typeof value.recruitingRecordId === "string") &&
-    Number.isInteger(value.videoTracksDiscarded) &&
-    isNonNegativeNumber(value.videoTracksDiscarded) &&
-    value.videoTracksPersisted === 0 &&
-    (value.manifestSha256 === undefined ||
-      (typeof value.manifestSha256 === "string" && /^[a-f\d]{64}$/i.test(value.manifestSha256)))
-  );
-}
-
-function hasValidManifestMedia(value: Record<string, unknown>): boolean {
-  const { container, fragments } = value;
-  return (
-    isTrackContentTypes(value.trackContentTypes) &&
-    isRecord(container) &&
-    container.kind === "ordered-mediarecorder-stream" &&
-    container.independentlyDecodableFragments === false &&
-    Array.isArray(fragments) &&
-    fragments.every(isStoredFragment)
-  );
-}
+type StoredFragment = z.infer<typeof storedFragmentSchema>;
+type StoredManifest = z.infer<typeof storedManifestSchema>;
+type SaveIntent = z.infer<typeof saveIntentSchema>;
 
 function parseStoredManifest(value: unknown, captureId: string): StoredManifest {
-  if (!isRecord(value)) {
-    throw new Error("本地录音清单不是对象");
-  }
-  const valid = hasValidManifestMetadata(value, captureId) && hasValidManifestMedia(value);
-  if (!valid) {
+  const parsed = storedManifestSchema.safeParse(value);
+  if (!parsed.success || parsed.data.captureId !== captureId) {
     throw new Error("本地录音清单结构无效");
   }
-  return value as unknown as StoredManifest;
+  return parsed.data;
 }
 
 function emptyTrackSummary(): Record<CaptureTrack, RecordingTrackSummary> {
@@ -631,19 +565,13 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
       status: "pending-server-save",
     };
     try {
-      const stored = JSON.parse(
-        await readFile(this.saveIntentPath(manifest.captureId), "utf-8"),
-      ) as Partial<SaveIntent>;
+      const stored = saveIntentSchema.parse(
+        JSON.parse(await readFile(this.saveIntentPath(manifest.captureId), "utf-8")),
+      );
       if (
         stored.captureId !== expected.captureId ||
         stored.manifestSha256 !== expected.manifestSha256 ||
-        stored.savedAt !== expected.savedAt ||
-        !(stored.status === "pending-server-save" || stored.status === "workspace-verified") ||
-        (stored.status === "workspace-verified" &&
-          !(
-            typeof stored.recoveryCopyDeleteAfter === "string" &&
-            !Number.isNaN(Date.parse(stored.recoveryCopyDeleteAfter))
-          ))
+        stored.savedAt !== expected.savedAt
       ) {
         throw new Error("本地保存意图与录音清单不一致");
       }

@@ -11,7 +11,8 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
-import { setTimeout as delay } from "node:timers/promises";
+import { parseArgs } from "node:util";
+import pRetry from "p-retry";
 import { z } from "zod";
 import { MeetingProviderQuotaError } from "../../server/routes/meetings/transcription/provider";
 import type {
@@ -72,10 +73,20 @@ const tingwuUrlSchema = z.record(
       .max(32),
   ),
 );
-function argument(name: string): string | null {
-  const index = process.argv.indexOf(name);
-  return index === -1 ? null : (process.argv[index + 1] ?? null);
-}
+
+const { values: cliOptions } = parseArgs({
+  allowPositionals: false,
+  options: {
+    "ambiguous-cost-usd": { type: "string" },
+    "ambiguous-deletion": { type: "string" },
+    costs: { type: "string" },
+    dataset: { type: "string" },
+    out: { type: "string" },
+    "retry-ambiguous": { default: false, type: "boolean" },
+    "tingwu-urls": { type: "string" },
+  },
+  strict: true,
+});
 
 function requiredEnvironment(name: string): string {
   const value = process.env[name]?.trim();
@@ -122,9 +133,9 @@ function requiredAmbiguousRecovery(): {
   actualCostUsd: number;
   deletion: MeetingTranscriptionBenchmarkRun["deletion"];
 } {
-  const costValue = argument("--ambiguous-cost-usd");
-  const cost = costValue === null ? Number.NaN : Number(costValue);
-  const deletion = argument("--ambiguous-deletion");
+  const costValue = cliOptions["ambiguous-cost-usd"];
+  const cost = costValue === undefined ? Number.NaN : Number(costValue);
+  const deletion = cliOptions["ambiguous-deletion"];
   if (
     !(Number.isFinite(cost) && cost >= 0) ||
     !["deleted", "delete-failed", "not-applicable", "unsupported"].includes(deletion ?? "")
@@ -156,6 +167,50 @@ function mergeDeletionEvidence(
   return "not-applicable";
 }
 
+async function transcribeBenchmarkChunk(input: {
+  benchmarkCase: MeetingTranscriptionEvalCase;
+  chunk: FinalTranscriptionAudioChunk;
+  model: string;
+  provider: MeetingTranscriptionProvider;
+  region: string;
+  signal: AbortSignal;
+  taskIds?: string[];
+}) {
+  let retryCount = 0;
+  let taskCountBeforeAttempt = input.taskIds?.length ?? 0;
+  const transcript = await pRetry(
+    () => {
+      taskCountBeforeAttempt = input.taskIds?.length ?? 0;
+      return input.provider.transcribeFinal({
+        chunks: [input.chunk],
+        languageHint: input.benchmarkCase.reference.language,
+        model: input.model,
+        region: input.region,
+        signal: input.signal,
+      });
+    },
+    {
+      factor: 2,
+      minTimeout: 1000,
+      onFailedAttempt: ({ error, retriesLeft }) => {
+        if (
+          retriesLeft > 0 &&
+          error instanceof MeetingProviderQuotaError &&
+          (input.taskIds?.length ?? 0) === taskCountBeforeAttempt
+        ) {
+          retryCount += 1;
+        }
+      },
+      retries: 2,
+      shouldRetry: ({ error }) =>
+        error instanceof MeetingProviderQuotaError &&
+        (input.taskIds?.length ?? 0) === taskCountBeforeAttempt,
+      signal: input.signal,
+    },
+  );
+  return { retryCount, transcript };
+}
+
 function providerAdapter(input: {
   benchmarkCase: MeetingTranscriptionEvalCase;
   chunks: FinalTranscriptionAudioChunk[];
@@ -170,33 +225,17 @@ function providerAdapter(input: {
       try {
         const results = [];
         for (const chunk of input.chunks) {
-          let attempt = 0;
-          while (attempt < 3) {
-            attempt += 1;
-            const taskCountBeforeAttempt = input.taskIds?.length ?? 0;
-            try {
-              const transcript = await input.provider.transcribeFinal({
-                chunks: [chunk],
-                languageHint: input.benchmarkCase.reference.language,
-                model: input.model,
-                region: input.region,
-                signal,
-              });
-              results.push({ chunk, transcript });
-              break;
-            } catch (error) {
-              if (
-                error instanceof MeetingProviderQuotaError &&
-                attempt < 3 &&
-                (input.taskIds?.length ?? 0) === taskCountBeforeAttempt
-              ) {
-                retryCount += 1;
-                await delay(1000 * 2 ** (attempt - 1));
-                continue;
-              }
-              throw error;
-            }
-          }
+          const result = await transcribeBenchmarkChunk({
+            benchmarkCase: input.benchmarkCase,
+            chunk,
+            model: input.model,
+            provider: input.provider,
+            region: input.region,
+            signal,
+            taskIds: input.taskIds,
+          });
+          retryCount += result.retryCount;
+          results.push({ chunk, transcript: result.transcript });
         }
         return {
           artifact: input.taskIds && input.taskIds.length > 0 ? [...input.taskIds] : undefined,
@@ -216,12 +255,12 @@ function providerAdapter(input: {
 
 // oxlint-disable-next-line complexity -- one private CLI coordinates three explicit provider adapters and durable evidence.
 async function runBenchmark(outputPath: string) {
-  const datasetPath = resolve(argument("--dataset") ?? "");
-  if (!argument("--dataset")) {
+  if (!cliOptions.dataset) {
     throw new Error(
       "Usage: --dataset <private manifest> [--tingwu-urls <private urls>] [--costs <ledger>] [--out <report>]",
     );
   }
+  const datasetPath = resolve(cliOptions.dataset);
   const dataset = meetingTranscriptionEvalDatasetSchema.parse(
     await readBoundedBenchmarkJson(datasetPath),
   );
@@ -246,7 +285,7 @@ async function runBenchmark(outputPath: string) {
     .digest("hex");
   const expectedCaseIds = dataset.cases.map((item) => item.id);
   const checkpointPath = `${outputPath}.partial`;
-  const tingwuUrlPath = argument("--tingwu-urls");
+  const tingwuUrlPath = cliOptions["tingwu-urls"];
   const tingwuUrls = tingwuUrlPath
     ? tingwuUrlSchema.parse(await readBoundedBenchmarkJson(resolve(tingwuUrlPath)))
     : null;
@@ -271,7 +310,7 @@ async function runBenchmark(outputPath: string) {
     openAiApiKey: requiredEnvironment("OPENAI_API_KEY"),
     tingwuAppKey: requiredEnvironment("TINGWU_APP_KEY"),
   };
-  const costPath = argument("--costs");
+  const costPath = cliOptions.costs;
   const costs = costPath
     ? meetingTranscriptionCostLedgerSchema.parse(await readBoundedBenchmarkJson(resolve(costPath)))
     : {};
@@ -307,7 +346,7 @@ async function runBenchmark(outputPath: string) {
     corpusFingerprint,
     expectedCaseIds,
   });
-  if (checkpoint.inFlight && !process.argv.includes("--retry-ambiguous")) {
+  if (checkpoint.inFlight && !cliOptions["retry-ambiguous"]) {
     throw new Error(
       `The prior ${checkpoint.inFlight.provider}/${checkpoint.inFlight.caseId} call has an ambiguous billing outcome. Verify the provider console, then pass --retry-ambiguous only if a new paid call is intended.`,
     );
@@ -495,7 +534,7 @@ async function runBenchmark(outputPath: string) {
 }
 
 async function main() {
-  const outputPath = resolve(argument("--out") ?? ".eval/meeting-transcription/report.json");
+  const outputPath = resolve(cliOptions.out ?? ".eval/meeting-transcription/report.json");
   const release = await acquireMeetingTranscriptionBenchmarkRunLock(outputPath);
   try {
     await runBenchmark(outputPath);

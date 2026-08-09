@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { parseArgs } from "node:util";
 import { z } from "zod";
 import { MEETING_TRANSCRIPTION_PIPELINE_VERSION } from "@arc/meeting-processing-queue/meeting-transcription";
 import {
@@ -18,15 +19,19 @@ const runArtifactSchema = z.object({
   runs: z.array(meetingTranscriptionBenchmarkRunSchema),
 });
 
-function argument(name: string): string | null {
-  const index = process.argv.indexOf(name);
-  return index === -1 ? null : (process.argv[index + 1] ?? null);
-}
-
 async function main() {
-  const runPath = argument("--run");
-  const costPath = argument("--costs");
-  const outputPath = argument("--out");
+  const { values } = parseArgs({
+    allowPositionals: false,
+    options: {
+      costs: { type: "string" },
+      out: { type: "string" },
+      run: { type: "string" },
+    },
+    strict: true,
+  });
+  const runPath = values.run;
+  const costPath = values.costs;
+  const outputPath = values.out;
   if (!(runPath && costPath && outputPath)) {
     throw new Error("Usage: --run <original run> --costs <actual cost ledger> --out <new report>");
   }

@@ -1,6 +1,7 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { z } from "zod";
+import writeFileAtomic from "write-file-atomic";
 import { meetingTranscriptionProviderSchema } from "@arc/shared/meeting-transcription";
 import { meetingTranscriptionBenchmarkRunSchema } from "./types";
 import type { MeetingTranscriptionBenchmarkRun } from "./types";
@@ -103,10 +104,8 @@ export async function saveMeetingTranscriptionBenchmarkCheckpoint(
   const checkpoint = checkpointSchema.parse(input);
   assertUniqueRuns(checkpoint.runs);
   await mkdir(dirname(path), { recursive: true });
-  const temporaryPath = `${path}.${process.pid}.tmp`;
-  await writeFile(temporaryPath, `${JSON.stringify(checkpoint, null, 2)}\n`, {
-    flag: "wx",
+  await writeFileAtomic(path, `${JSON.stringify(checkpoint, null, 2)}\n`, {
+    fsync: true,
     mode: 0o600,
   });
-  await rename(temporaryPath, path);
 }

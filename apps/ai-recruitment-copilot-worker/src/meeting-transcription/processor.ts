@@ -32,6 +32,7 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/provider";
 import type { MeetingTranscriptionJobData } from "@arc/meeting-processing-queue/meeting-transcription";
 import type { CanonicalMeetingTranscript } from "@arc/shared/meeting-transcription";
+import pLimit from "p-limit";
 
 export { assertMeetingTranscriptionFfmpegVersion } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/audio-pipeline";
 
@@ -101,36 +102,20 @@ function positiveEnvInteger(name: string, fallback: number): number {
 }
 
 function createMediaPermitPool(concurrency: number) {
-  let active = 0;
   let reservedBytes = 0;
-  const waiting: (() => void)[] = [];
-  const acquire = async () => {
-    if (active < concurrency) {
-      active += 1;
-      return;
-    }
-    const permit = Promise.withResolvers<boolean>();
-    waiting.push(() => permit.resolve(true));
-    await permit.promise;
-    active += 1;
-  };
-  const release = () => {
-    active -= 1;
-    waiting.shift()?.();
-  };
-  return async <Result>(
+  const limit = pLimit(concurrency);
+  return <Result>(
     requiredBytes: number,
     task: (totalReservedBytes: number) => Promise<Result>,
-  ): Promise<Result> => {
-    await acquire();
-    reservedBytes += requiredBytes;
-    try {
-      return await task(reservedBytes);
-    } finally {
-      reservedBytes -= requiredBytes;
-      release();
-    }
-  };
+  ): Promise<Result> =>
+    limit(async () => {
+      reservedBytes += requiredBytes;
+      try {
+        return await task(reservedBytes);
+      } finally {
+        reservedBytes -= requiredBytes;
+      }
+    });
 }
 
 const withMediaPermit = createMediaPermitPool(

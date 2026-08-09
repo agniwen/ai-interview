@@ -1,5 +1,5 @@
-import { setTimeout as delay } from "node:timers/promises";
 import { canonicalMeetingTranscriptSchema } from "@arc/shared/meeting-transcription";
+import pRetry from "p-retry";
 import type {
   CanonicalMeetingTranscript,
   MeetingTranscriptionProviderId,
@@ -70,10 +70,6 @@ function classifyError(error: unknown): NonNullable<MeetingTranscriptionBenchmar
   return "provider-error";
 }
 
-function terminalError(error: unknown): boolean {
-  return error instanceof MeetingProviderResponseError;
-}
-
 export async function runMeetingTranscriptionBenchmarkCase(input: {
   actualCostUsd: number | null;
   adapter: MeetingTranscriptionBenchmarkAdapter;
@@ -91,43 +87,48 @@ export async function runMeetingTranscriptionBenchmarkCase(input: {
   let artifact: unknown;
   let transcript: CanonicalMeetingTranscript | null = null;
   let failure: unknown;
-  while (attempts < input.maxAttempts) {
-    attempts += 1;
-    try {
-      const result = await input.adapter.transcribe({
-        benchmarkCase: input.benchmarkCase,
-        signal: AbortSignal.timeout(input.timeoutMs ?? 30 * 60 * 1000),
-      });
-      const parsed = canonicalMeetingTranscriptSchema.safeParse(result.transcript);
-      if (!parsed.success) {
-        throw new MeetingProviderResponseError("malformed-response", input.provider);
-      }
-      if (
-        parsed.data.turns.reduce((total, turn) => total + turn.text.length, 0) >
-        MEETING_TRANSCRIPTION_BENCHMARK_MAX_TRANSCRIPT_CHARS
-      ) {
-        throw new MeetingProviderResponseError("malformed-response", input.provider);
-      }
-      transcript = parsed.data;
-      adapterRetryCount = result.retryCount ?? 0;
-      ({ artifact } = result);
-      break;
-    } catch (error) {
-      const providerError =
-        error instanceof MeetingTranscriptionBenchmarkCallError ? error.cause : error;
-      if (error instanceof MeetingTranscriptionBenchmarkCallError) {
-        ({ artifact } = error);
-        adapterRetryCount = error.retryCount;
-      }
-      failure = providerError;
-      if (terminalError(providerError)) {
-        break;
-      }
-      if (providerError instanceof MeetingProviderQuotaError && attempts < input.maxAttempts) {
-        await (input.retryDelay?.(attempts) ?? delay(1000 * 2 ** (attempts - 1)));
-        continue;
-      }
-      break;
+  try {
+    transcript = await pRetry(
+      async (attemptNumber) => {
+        attempts = attemptNumber;
+        const result = await input.adapter.transcribe({
+          benchmarkCase: input.benchmarkCase,
+          signal: AbortSignal.timeout(input.timeoutMs ?? 30 * 60 * 1000),
+        });
+        const parsed = canonicalMeetingTranscriptSchema.safeParse(result.transcript);
+        if (!parsed.success) {
+          throw new MeetingProviderResponseError("malformed-response", input.provider);
+        }
+        if (
+          parsed.data.turns.reduce((total, turn) => total + turn.text.length, 0) >
+          MEETING_TRANSCRIPTION_BENCHMARK_MAX_TRANSCRIPT_CHARS
+        ) {
+          throw new MeetingProviderResponseError("malformed-response", input.provider);
+        }
+        transcript = parsed.data;
+        adapterRetryCount = result.retryCount ?? 0;
+        ({ artifact } = result);
+        return parsed.data;
+      },
+      {
+        factor: 2,
+        minTimeout: input.retryDelay ? 0 : 1000,
+        onFailedAttempt: input.retryDelay
+          ? async ({ attemptNumber, error, retriesLeft }) => {
+              if (error instanceof MeetingProviderQuotaError && retriesLeft > 0) {
+                await input.retryDelay?.(attemptNumber);
+              }
+            }
+          : undefined,
+        retries: Math.max(0, input.maxAttempts - 1),
+        shouldRetry: ({ error }) => error instanceof MeetingProviderQuotaError,
+      },
+    );
+  } catch (error) {
+    failure = error instanceof MeetingTranscriptionBenchmarkCallError ? error.cause : error;
+    if (error instanceof MeetingTranscriptionBenchmarkCallError) {
+      ({ artifact } = error);
+      adapterRetryCount = error.retryCount;
     }
   }
   const latencyMs = Math.round(performance.now() - startedAt);
