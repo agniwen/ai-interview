@@ -22,6 +22,10 @@ function isPermanentPurgeConflict(error: unknown): boolean {
   );
 }
 
+/**
+ * 将已冻结的本地录音提交到 Workspace：Renderer 只编排 API，音频字节始终由 Main 进程流式上传。
+ * Commits a frozen local capture to the workspace: renderer orchestrates APIs while main streams the audio bytes.
+ */
 export class DesktopWorkspaceRecordingPort implements WorkspaceRecordingPort {
   async reportRecoveryCopyCleanup(
     captureId: string,
@@ -53,6 +57,8 @@ export class DesktopWorkspaceRecordingPort implements WorkspaceRecordingPort {
   async persist(
     input: Parameters<WorkspaceRecordingPort["persist"]>[0],
   ): Promise<{ recoveryCopyDeleteAfter: string }> {
+    // 协议顺序是 plan -> heartbeat + upload -> server verification；只有最后一步才可标记 workspace-verified。
+    // Protocol order is plan -> heartbeat + upload -> server verification; only the final step marks workspace-verified.
     const workspace = await resolveActiveWorkspace();
     if (!workspace) {
       throw new Error("请先加入或选择一个工作区");

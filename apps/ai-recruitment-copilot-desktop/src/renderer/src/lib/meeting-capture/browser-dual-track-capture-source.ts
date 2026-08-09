@@ -56,6 +56,10 @@ export interface MeetingLiveTranscriptSidecar {
   stop: () => void;
 }
 
+/**
+ * 同时采集麦克风与系统音频，立即丢弃 display video，并把两个 MediaRecorder 流分片写入持久层。
+ * Captures microphone and system audio, discards display video immediately, and streams both MediaRecorders into durable fragments.
+ */
 export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
   private readonly liveTranscriptSidecar: MeetingLiveTranscriptSidecar | undefined;
 
@@ -89,6 +93,8 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
         .getDisplayMedia({ audio: true, video: true })
         .then((stream) => {
           displayStream = stream;
+          // macOS 系统音频需要通过 display capture 获取，但产品只录音，因此视频轨一取得就停止。
+          // macOS system audio arrives through display capture, but this audio-only product stops video immediately.
           const videoTracks = stream.getVideoTracks();
           videoTracksDiscarded = videoTracks.length;
           for (const videoTrack of videoTracks) {
@@ -215,6 +221,8 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
                 fail(new Error("本地磁盘写入跟不上录音速度，录制已停止以避免静默丢失音频"));
                 return;
               }
+              // 每条音轨独立串行化 Blob 转换与落盘，保持 MediaRecorder 的原始字节顺序。
+              // Each track serializes Blob conversion and persistence to preserve MediaRecorder byte order.
               state.writeChain = state.writeChain
                 .then(async () => {
                   const bytes = new Uint8Array(await event.data.arrayBuffer());

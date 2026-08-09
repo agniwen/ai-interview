@@ -42,6 +42,10 @@ interface LocalMeetingRecordingStoreOptions {
 const jsonBytes = (value: unknown) => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
 const sha256 = (bytes: Uint8Array | string) => createHash("sha256").update(bytes).digest("hex");
 
+/**
+ * 原子写入文件并同步父目录，确保掉电或进程崩溃后只会看到旧版本或完整新版本。
+ * Atomically writes a file and fsyncs its parent so crashes expose either the old or complete new version.
+ */
 async function atomicWrite(filePath: string, bytes: Uint8Array): Promise<void> {
   await mkdir(dirname(filePath), { mode: 0o700, recursive: true });
   await writeFileAtomic(filePath, Buffer.from(bytes), { fsync: true, mode: 0o600 });
@@ -178,6 +182,13 @@ function savedMeeting(manifest: StoredManifest): LocalSavedMeeting {
   };
 }
 
+/**
+ * Main 进程中的本地录音事实源：按 Capture 串行落盘双轨分片、冻结清单并恢复已校验前缀。
+ * Main-process source of truth for serializing dual-track fragments, freezing manifests, and recovering verified prefixes.
+ *
+ * MediaRecorder 分片必须按顺序拼接，不能当作独立可解码文件。
+ * MediaRecorder fragments are ordered stream pieces and are not independently decodable files.
+ */
 export class LocalMeetingRecordingStore implements MeetingRecordingStore {
   private readonly allowedUploadOrigin: URL | null;
   private readonly multipartPartSizeBytes: number;
@@ -230,6 +241,8 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
   }
 
   private enqueue<T>(captureId: string, operation: () => Promise<T>): Promise<T> {
+    // 同一 Capture 的 append/save/discard 必须线性化，避免终态操作越过仍在落盘的分片。
+    // Mutations for one capture are linearized so terminal operations cannot overtake fragment writes.
     const previous = this.operations.get(captureId) ?? Promise.resolve();
     const current = previous.then(operation, operation);
     this.operations.set(captureId, current);
@@ -335,6 +348,8 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
     fragments: StoredFragment[];
     truncated: boolean;
   }> {
+    // 恢复只信任序号连续且大小、SHA-256 都匹配的前缀；损坏尾部永不进入后续上传。
+    // Recovery trusts only a contiguous size-and-SHA-256-verified prefix; a damaged tail is never uploaded.
     const expected: Record<CaptureTrack, number> = { microphone: 0, system: 0 };
     const verified: StoredFragment[] = [];
     let truncated = false;
@@ -652,6 +667,8 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
   }
 
   async recover(): Promise<RecoverableMeetingCapture[]> {
+    // 启动扫描把未正常结束的 recording 降级为 interrupted，并保留仍可安全保存的连续前缀。
+    // Startup recovery converts unfinished recordings to interrupted and retains their safely savable prefix.
     await mkdir(this.capturesRoot(), { mode: 0o700, recursive: true });
     await this.reconcileActiveLock();
     const entries = await readdir(this.capturesRoot(), { withFileTypes: true });

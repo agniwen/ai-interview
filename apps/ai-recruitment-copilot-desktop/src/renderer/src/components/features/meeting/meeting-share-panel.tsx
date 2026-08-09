@@ -15,6 +15,13 @@ export function canManageMeetingSharing(role: MeetingAccessRole): boolean {
   return role === "administrator" || role === "owner";
 }
 
+/**
+ * Meeting ACL 编辑器：restricted/workspace 可见性与显式 Viewer/Editor grant 组成同一次保存快照。
+ * Meeting ACL editor saving visibility and explicit Viewer/Editor grants as one snapshot.
+ *
+ * Owner reassignment 只在服务端确认 Workspace-Custodied 后开放，普通会议不能借 UI 绕过 Creator 控制权。
+ * Owner reassignment is available only for server-confirmed workspace custody, never as a shortcut around an active creator.
+ */
 export function MeetingSharePanel({
   accessRole,
   meetingId,
@@ -49,6 +56,8 @@ export function MeetingSharePanel({
       Object.fromEntries(shareQuery.data.grants.map((grant) => [grant.member.id, grant.role])),
     );
   }, [shareQuery.data]);
+  // visibility/grants 是可取消的本地工作副本；直到点击保存才整体提交。
+  // visibility/grants form a cancellable local working copy submitted atomically on Save.
   const saveMutation = useMutation({
     mutationFn: () =>
       updateMeetingShare(slug, meetingId, {

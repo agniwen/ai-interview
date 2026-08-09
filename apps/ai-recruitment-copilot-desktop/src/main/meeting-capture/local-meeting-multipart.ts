@@ -100,6 +100,8 @@ export async function describeLocalMeetingMultipart(input: {
   fragments: LocalMultipartFragment[];
   partSizeBytes: number;
 }): Promise<MultipartSavedMeetingDescriptor> {
+  // 逻辑音轨由有序分片拼成；这里直接跨分片计算每个 part，避免生成同体积的临时合并文件。
+  // A logical track spans ordered fragments; parts are derived across them without a second full-size temp file.
   return {
     ...input.descriptor,
     assets: await Promise.all(
@@ -139,6 +141,8 @@ export async function uploadLocalMeetingMultipart(input: {
   isAllowedUploadUrl: (url: URL) => boolean;
   putObject: MeetingObjectUploader;
 }): Promise<void> {
+  // 固定大小的 worker pool 限制内存和上行并发；首错后不再领取新 part，但等待在途请求收敛。
+  // A fixed worker pool bounds memory/uplink use; the first error stops new work while in-flight requests settle.
   const assets = new Map(input.descriptor.assets.map((asset) => [asset.track, asset]));
   let nextInstruction = 0;
   let uploadError: Error | undefined;

@@ -27,6 +27,8 @@ export function intelligenceEvidenceTurns(
   evidenceTurnIds: string[],
   transcript: FinalMeetingTranscriptRevision | null,
 ): FinalMeetingTranscriptTurn[] {
+  // Evidence ID 只在生成该 Intelligence 的精确 transcript revision 中解析，不能回退到当前版本。
+  // Resolve evidence only against the exact transcript revision used for generation, never the current revision.
   if (!transcript) {
     return [];
   }
@@ -290,6 +292,10 @@ function intelligenceRefetchInterval(result: MeetingIntelligenceResult | undefin
   return result?.state === "pending" || result?.state === "processing" ? 5000 : false;
 }
 
+/**
+ * 展示版本化 Intelligence，并为所选历史版本加载其绑定的 transcript revision 以保证证据跳转一致。
+ * Renders versioned intelligence and loads the transcript revision bound to the selected history item for stable evidence links.
+ */
 export function MeetingIntelligencePanel({
   accessRole,
   meetingId,

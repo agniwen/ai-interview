@@ -23,6 +23,10 @@ import {
 } from "@/lib/client/meetings";
 import { desktopWorkspaceKeys, resolveActiveWorkspace } from "@/lib/client/workspace";
 
+/**
+ * Final Transcript 策略的本地工作副本，维护 allowed、selected 与 fallback 三者的联动不变量。
+ * Local working copy for Final Transcript policy, preserving invariants among allowed, selected, and fallback providers.
+ */
 export function MeetingTranscriptionPolicyView({
   onSave,
   policy,
@@ -47,6 +51,8 @@ export function MeetingTranscriptionPolicyView({
       allowed ? [...new Set([...current, provider])] : current.filter((item) => item !== provider),
     );
     if (!allowed && selectedProvider === provider) {
+      // 被禁止的 Provider 不能继续作为默认或 fallback，也不能保留误导性的选择理由。
+      // A disallowed provider cannot remain selected/fallback or retain a misleading selection reason.
       setSelectedProvider(null);
       setFallbackProvider(null);
       setSelectionReason("");
@@ -199,6 +205,10 @@ export function MeetingTranscriptionPolicyView({
   );
 }
 
+/**
+ * Workspace 级转录策略容器；只有管理员可写，服务端更新 revision 并使旧策略下的运行失效。
+ * Workspace transcription-policy container; admins write while the server revisions policy and invalidates stale runs.
+ */
 export function MeetingTranscriptionPolicyPanel() {
   const queryClient = useQueryClient();
   const workspaceQuery = useQuery({

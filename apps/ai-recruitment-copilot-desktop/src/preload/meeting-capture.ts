@@ -230,6 +230,13 @@ function retainSaved(
   return [...recoverable, asRecoverable(saved)];
 }
 
+/**
+ * Preload 层录制协调器：连接 Renderer 采集源与 Main 本地存储，并发布可观察的单一状态快照。
+ * Preload capture coordinator joining the renderer media source to main-process storage through one observable snapshot.
+ *
+ * Save 与 Discard 是互斥终态；录音先本地冻结，工作区上传失败不会破坏 Recovery Copy。
+ * Save and Discard are mutually exclusive terminals; local freezing succeeds independently of workspace upload.
+ */
 export function createMeetingCapture({
   diagnostics = (event) => console.info("[meeting-capture-metric]", event),
   idFactory = () => globalThis.crypto.randomUUID(),
@@ -331,6 +338,8 @@ export function createMeetingCapture({
   };
 
   const persistToWorkspace = (saved: LocalSavedMeeting): void => {
+    // 工作区保存是本地提交后的可重试副作用，不属于录音成功的提交条件。
+    // Workspace persistence is a retryable post-commit side effect, not a prerequisite for local capture success.
     if (!workspace || workspaceOperations.has(saved.captureId)) {
       return;
     }

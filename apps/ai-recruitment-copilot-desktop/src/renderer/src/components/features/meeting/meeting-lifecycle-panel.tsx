@@ -8,6 +8,10 @@ export function canManageMeetingLifecycle(role: MeetingAccessRole): boolean {
   return role === "administrator" || role === "owner";
 }
 
+/**
+ * Owner/Admin 的生命周期入口。客户端角色判断只控制可见性，服务端仍在事务中重新验证权限。
+ * Lifecycle affordance for owners/admins; client role checks control visibility while the server revalidates authority transactionally.
+ */
 export function MeetingLifecyclePanel({
   accessRole,
   meetingId,

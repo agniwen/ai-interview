@@ -39,6 +39,10 @@ import type { MeetingAudioExportTrack, MeetingExportFormat } from "@arc/shared/m
 import { apiJson } from "./rpc-fetch";
 import { apiUrl } from "./rpc";
 
+/**
+ * Meeting Query key 工厂。层级前缀用于在 Note、修订、生命周期等写操作后精确或整组失效。
+ * Meeting query-key factory whose hierarchy supports precise or subtree invalidation after mutations.
+ */
 export const desktopMeetingKeys = {
   all: (slug: string) => ["desktop-meetings", slug] as const,
   detail: (slug: string, meetingId: string) =>
@@ -84,6 +88,8 @@ export function meetingExportUrl(
   format: MeetingExportFormat,
   track?: MeetingAudioExportTrack,
 ): string {
+  // 导出是二进制/流式响应，不能走 JSON RPC；这里只构造供 Main download session 使用的受限 URL。
+  // Exports are binary/streaming rather than JSON RPC; build only the constrained URL consumed by main download session.
   const url = apiUrl(
     `${meetingSubresourcePath(slug, meetingId, "exports")}/${encodeURIComponent(format)}`,
   );
@@ -123,6 +129,8 @@ export function restoreMeeting(slug: string, meetingId: string): Promise<{ state
 }
 
 export async function purgeMeeting(slug: string, meetingId: string): Promise<null> {
+  // localRecoveryCleanup 只描述当前设备的清理结果；服务端仍会协调其他设备和持久化对象的清扫。
+  // localRecoveryCleanup reports this device only; server purge still coordinates other devices and durable objects.
   let localRecoveryCleanup = "deleted";
   try {
     await window.api.meetingCapture.discard(meetingId);
@@ -140,6 +148,8 @@ export function searchMeetings(
   timeZone: string,
   signal?: AbortSignal,
 ): Promise<MeetingLibrarySearchResult[]> {
+  // timeZone 属于查询语义和缓存身份，AbortSignal 则淘汰 debounce 后仍过期的在途请求。
+  // timeZone is part of query semantics/cache identity, while AbortSignal cancels superseded in-flight searches.
   const params = new URLSearchParams({ limit: "20", q: query, timeZone });
   const path = `/api/w/${encodeURIComponent(slug)}/meetings/search?${params.toString()}`;
   return apiJson<MeetingLibrarySearchResponse>(apiUrl(path), "搜索会议记录失败", { signal }).then(
@@ -369,6 +379,8 @@ export function createMeetingLiveTranscriptAuthorization(
   slug: string,
   input: CreateMeetingLiveTranscriptAuthorizationInput,
 ): Promise<MeetingLiveTranscriptAuthorization> {
+  // 这里只获取短期、单轨授权；长期 Provider key 永不进入 Desktop。
+  // This returns a short-lived track-scoped grant; long-lived provider credentials never enter Desktop.
   const path = `/api/w/${encodeURIComponent(slug)}/meetings/live-transcript`;
   return apiJson(apiUrl(path), "创建实时字幕授权失败", {
     body: JSON.stringify(input),

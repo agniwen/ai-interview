@@ -93,6 +93,8 @@ function ActiveMeetingLibrary({
             match?.startMs === null || match?.startMs === undefined
               ? {}
               : { at: match.startMs / 1000 };
+          // 带时间的搜索命中直接写入路由 search param，使详情页播放器与证据视图共享同一跳转协议。
+          // Timed search hits enter the route search param shared by playback and evidence navigation.
           return (
             <Link
               className="block h-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -110,11 +112,17 @@ function ActiveMeetingLibrary({
   );
 }
 
+/**
+ * Meeting Library 的模式协调器：普通列表、全文搜索与废纸篓互斥展示，并只暴露当前模式的错误/重试。
+ * Mode coordinator for mutually visible list, full-text search, and trash views with mode-specific errors and retries.
+ */
 export function MeetingLibraryPage() {
   const [searchText, setSearchText] = useState("");
   const [debouncedSearchText, setDebouncedSearchText] = useState("");
   const [showTrash, setShowTrash] = useState(false);
   useEffect(() => {
+    // useDeferredValue 不是网络 debounce；显式 250ms 延迟可避免逐键触发数据库搜索。
+    // useDeferredValue is not a network debounce; an explicit 250ms delay prevents per-keystroke DB searches.
     const timer = window.setTimeout(() => setDebouncedSearchText(searchText), 250);
     return () => window.clearTimeout(timer);
   }, [searchText]);

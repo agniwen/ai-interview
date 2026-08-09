@@ -42,6 +42,13 @@ function waitForDataChannelOpen(channel: RTCDataChannel): Promise<void> {
   });
 }
 
+/**
+ * 使用短期凭证从 Desktop 直连 OpenAI WebRTC；业务 Backend 不代理实时 PCM。
+ * Connects Desktop directly to OpenAI WebRTC with an ephemeral grant; the application backend never proxies live PCM.
+ *
+ * sendPcm 在 DataChannel 超过高水位时返回 false，把背压决策交给上层有界队列。
+ * sendPcm returns false above the data-channel high-water mark so the bounded draft queue owns backpressure.
+ */
 export async function connectOpenAiRealtimeTranscription(input: {
   authorization: MeetingLiveTranscriptAuthorization;
   fetch?: typeof globalThis.fetch;

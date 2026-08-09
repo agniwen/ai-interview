@@ -98,6 +98,10 @@ const MAX_DRAFT_SECTIONS = 200;
 const MAX_DRAFT_TURN_CHARS = 10_000;
 const TRACKS: MeetingLiveTranscriptTrack[] = ["microphone", "system"];
 
+/**
+ * WebRTC 背压期间的有界 PCM 队列；宁可丢弃 Draft 帧，也不能让非权威字幕拖垮本地录音。
+ * Bounded PCM queue for WebRTC backpressure; draft frames may drop rather than endanger authoritative local recording.
+ */
 class BoundedPcmQueue {
   private readonly frames: Int16Array[] = [];
   private readonly maxBytes: number;
@@ -166,6 +170,10 @@ function closeConnection(runtime: TrackRuntime): void {
   runtime.connection = null;
 }
 
+/**
+ * 管理双轨实时字幕草稿、独立重连和服务端容量租约。Draft 永远不是最终权威转录。
+ * Manages dual-track live drafts, independent reconnects, and the server capacity lease; drafts are never authoritative.
+ */
 export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDependencies) {
   const maxQueuedPcmBytes = dependencies.maxQueuedPcmBytesPerTrack ?? DEFAULT_MAX_QUEUED_PCM_BYTES;
   const runtimes: Record<MeetingLiveTranscriptTrack, TrackRuntime> = {
@@ -282,6 +290,8 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
   };
 
   const releaseLeaseWhenAllTracksTerminal = (captureId: string): void => {
+    // 仅当两轨都没有连接、启动或待重连工作时释放共享 Capture 租约。
+    // Release the shared capture lease only after neither track can still become live or reconnect.
     if (
       snapshot.captureId !== captureId ||
       TRACKS.some((track) => {
@@ -432,6 +442,8 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
     runtime.cancelReconnect = null;
     runtime.queue.clear();
     runtime.status = reconnecting ? "reconnecting" : "starting";
+    // generation 令牌阻止迟到的授权、连接或 AudioWorklet 回调复活旧会话。
+    // The generation token prevents late authorization, connection, or AudioWorklet work from reviving stale sessions.
     runtime.generation += 1;
     const { generation } = runtime;
     const sectionId = `${captureId}:${track}:${sectionSequence}`;

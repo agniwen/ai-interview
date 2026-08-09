@@ -172,6 +172,10 @@ function respond(port: MessagePortMain, response: FragmentWriteResponse): void {
   port.postMessage(response);
 }
 
+/**
+ * 录音 IPC 的安全边界：只接受主窗口主 Frame，并在任何磁盘或网络操作前验证载荷和大小上限。
+ * Security boundary for capture IPC: only the trusted main frame may cross into disk/network operations after validation.
+ */
 export function registerMeetingCaptureIpc(store: LocalMeetingRecordingStore): void {
   ipcMain.handle("meeting-capture:begin", (event, input) => {
     if (!isTrustedMainFrame(event) || !isBeginRequest(input)) {
@@ -283,6 +287,10 @@ export function registerMeetingCaptureIpc(store: LocalMeetingRecordingStore): vo
   });
 }
 
+/**
+ * 为可信主文档授予麦克风和系统音频。Electron 39 在系统音频请求中可能返回空 mediaTypes。
+ * Grants microphone/system audio only to the trusted main document; Electron 39 may report system capture with empty mediaTypes.
+ */
 export function registerMeetingCaptureMediaSession(): void {
   const appSession = session.defaultSession;
   appSession.setPermissionCheckHandler((contents, permission, _requestingOrigin, details) => {

@@ -87,6 +87,8 @@ function RecoveryRow({
   onDiscard: (captureId: string, includeSaved: boolean) => void;
   onSave: (captureId: string) => void;
 }) {
+  // 恢复项展示的是 Main 进程验证后的连续前缀，而不是 Renderer 曾经看见过的全部分片。
+  // Recovery rows represent the main-process verified prefix, not every fragment once observed by renderer.
   const fragments = capture.tracks.microphone.fragmentCount + capture.tracks.system.fragmentCount;
   const microphoneSeconds = Math.floor(capture.tracks.microphone.committedThroughMs / 1000);
   const systemSeconds = Math.floor(capture.tracks.system.committedThroughMs / 1000);
@@ -148,6 +150,13 @@ function workspaceSaveIcon(state?: WorkspaceSaveState["state"]): string {
   return "ph:cloud-arrow-up";
 }
 
+/**
+ * 录制生命周期的常驻投影：同时呈现 Active Capture、本地提交、工作区上传和可恢复副本。
+ * Persistent projection of capture lifecycle across active recording, local commit, workspace upload, and recovery copies.
+ *
+ * 本组件只渲染 Preload 快照并发出命令，不在 React 中推导或持久化录制真相。
+ * It renders preload snapshots and emits commands; React never derives or persists capture truth here.
+ */
 export function MeetingCaptureStatus({
   liveDraft,
   onDiscard,

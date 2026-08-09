@@ -72,6 +72,10 @@ function MeetingQuestionAnswer({
   );
 }
 
+/**
+ * 当前用户的私有问答线程视图；引用只跳向服务端已验证的 transcript turn。
+ * Private per-user Q&A thread view; citations seek only to server-validated transcript turns.
+ */
 export function MeetingQuestionThreadView({
   onSeek,
   thread,
@@ -120,6 +124,10 @@ function MeetingQuestionThreadState({
   );
 }
 
+/**
+ * 管理私有线程和串行问答：同一线程存在 pending/processing exchange 时禁止提交下一题。
+ * Manages private threads and serialized Q&A, blocking a follow-up while an exchange is pending or processing.
+ */
 export function MeetingQuestionsPanel({
   meetingId,
   onSeek,
@@ -131,6 +139,8 @@ export function MeetingQuestionsPanel({
 }) {
   const queryClient = useQueryClient();
   const [question, setQuestion] = useState("");
+  // requestId 是一次用户提交的幂等键；失败后编辑问题会换新键，普通重渲染不会。
+  // requestId is the idempotency key for one user submission; editing after failure rotates it, rerenders do not.
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const threadsKey = desktopMeetingKeys.questions(slug, meetingId);
@@ -150,6 +160,8 @@ export function MeetingQuestionsPanel({
     enabled: Boolean(selectedThreadId),
     queryFn: () => fetchMeetingQuestionThread(slug, meetingId, selectedThreadId ?? ""),
     queryKey: threadKey,
+    // 仅在当前 exchange 非终态时短轮询，避免长期打开详情页持续请求。
+    // Poll quickly only while the current exchange is non-terminal, avoiding permanent background traffic.
     refetchInterval: (query) =>
       query.state.data?.exchanges.some(
         (exchange) => exchange.status === "pending" || exchange.status === "processing",

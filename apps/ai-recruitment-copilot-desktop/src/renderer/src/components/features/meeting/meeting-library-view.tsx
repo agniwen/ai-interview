@@ -112,6 +112,10 @@ export function MeetingLibraryView({
   );
 }
 
+/**
+ * 可续签播放器：签名 URL 更新时保留 currentTime 和播放意图，避免五分钟授权轮换打断用户。
+ * Renewable player preserving currentTime and play intent while short-lived signed URLs rotate.
+ */
 function MeetingAudioPlayer({
   onPlaybackError,
   playback,
@@ -205,6 +209,8 @@ export function MeetingDetailView({
   seekRequestId?: number;
   seekToSeconds?: number;
 }) {
+  // 这是无数据副作用的展示组件；重试、续签和跨面板 seek 都由 MeetingDetailPage 编排。
+  // This is a side-effect-free view; retries, authorization refresh, and cross-panel seeking live in MeetingDetailPage.
   const state = PROCESSING_STATE_META[meeting.processingState];
   return (
     <Frame>

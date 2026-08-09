@@ -4,6 +4,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { desktopMeetingKeys, purgeMeeting, restoreMeeting } from "@/lib/client/meetings";
 
+/**
+ * 七天恢复窗口的废纸篓视图。二次点击只是防误触，永久删除的幂等与对象清扫由服务端 Tombstone 保证。
+ * Trash view for the seven-day restore window; double-click confirmation is UX only, while server tombstones own durable purge.
+ */
 export function MeetingTrashView({
   meetings,
   slug,

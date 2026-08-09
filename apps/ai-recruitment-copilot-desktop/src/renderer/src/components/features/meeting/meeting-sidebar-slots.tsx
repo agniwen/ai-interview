@@ -17,6 +17,10 @@ import {
 import { useMeetingRecording } from "./meeting-recording-context";
 import { useMeetingLibrary } from "./use-meeting-library";
 
+/**
+ * 通过 Sidebar Portal 注入 Meeting 导航与最近会议，复用 Library Query 而不创建第二份列表状态。
+ * Injects meeting navigation/recent items through sidebar portals while reusing the Library query as the sole list state.
+ */
 export function MeetingSidebarSlots() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { openMeetingRecording } = useMeetingRecording();

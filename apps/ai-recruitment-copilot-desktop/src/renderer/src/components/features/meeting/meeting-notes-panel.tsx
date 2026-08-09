@@ -24,6 +24,10 @@ function formatNoteTime(meetingTimeMs: number): string {
   return `${String(minutes).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
+/**
+ * 时间定位的协作 Notes。服务端返回的逐条 canEdit/canDelete 是最终能力，不能只从 Meeting role 推导。
+ * Time-anchored collaborative notes; per-note server capabilities are authoritative and cannot be inferred from meeting role alone.
+ */
 export function MeetingNotesPanel({
   accessRole,
   meetingId,
@@ -44,6 +48,8 @@ export function MeetingNotesPanel({
     queryKey: notesKey,
   });
   const refreshNotes = () =>
+    // Note 同时参与 Meeting 搜索投影，修改后必须刷新详情集合和搜索命名空间。
+    // Notes feed the meeting search projection, so mutations invalidate both note and search namespaces.
     Promise.all([
       queryClient.invalidateQueries({ queryKey: notesKey }),
       queryClient.invalidateQueries({ queryKey: desktopMeetingKeys.searchRoot(slug) }),

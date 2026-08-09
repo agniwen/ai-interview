@@ -75,6 +75,10 @@ export function splitTranscriptTurn(
   ];
 }
 
+/**
+ * 虚拟化权威转录列表，避免最长会议的全部 turn 同时进入 Electron DOM。
+ * Virtualizes authoritative turns so long meetings do not mount the entire transcript in Electron's DOM.
+ */
 function VirtualTranscriptTurns({
   onSeek,
   turns,
@@ -127,6 +131,10 @@ function VirtualTranscriptTurns({
   );
 }
 
+/**
+ * 人工修订编辑器只提交新的 append-only revision，不在客户端原地覆盖机器版本。
+ * Human corrections create an append-only revision instead of mutating the machine revision in place.
+ */
 function MeetingTranscriptCorrectionEditor({
   error,
   onCancel,
@@ -421,6 +429,10 @@ function transcriptRefetchInterval(result: MeetingTranscriptResult | undefined):
   return result?.state === "pending" || result?.state === "processing" ? 5000 : false;
 }
 
+/**
+ * 协调当前/历史转录、轮询、重试和人工修订；409 表示基线已变化，必须退出陈旧编辑器并刷新。
+ * Coordinates current/history queries, polling, retries, and corrections; a 409 exits stale editing and refetches the baseline.
+ */
 export function MeetingTranscriptPanel({
   accessRole,
   meetingId,

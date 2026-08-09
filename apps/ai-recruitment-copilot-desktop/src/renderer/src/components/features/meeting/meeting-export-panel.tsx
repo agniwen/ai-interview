@@ -30,6 +30,8 @@ export function canExportMeeting(role: MeetingAccessRole): boolean {
 }
 
 async function startMeetingExportDownload(url: string): Promise<void> {
+  // 主窗口禁止普通导航；交给 Main 的同一 Electron session 下载，才能携带现有认证 Cookie。
+  // Main-window navigation is blocked, so main downloads with the same Electron session and authenticated cookies.
   try {
     const started = await window.api.download.start(url);
     if (!started) {
@@ -40,6 +42,10 @@ async function startMeetingExportDownload(url: string): Promise<void> {
   }
 }
 
+/**
+ * 只为 Owner/Admin 暴露当前权威版本的导出入口；真正的 ACL 与导出审计由服务端执行。
+ * Exposes current-authoritative exports to owners/admins while the server enforces ACL and audit evidence.
+ */
 export function MeetingExportPanel({
   accessRole,
   meetingId,

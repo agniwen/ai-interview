@@ -51,6 +51,10 @@ export function playbackAuthorizationRefetchInterval(
   return Math.max(1000, expiresAt - now - 60_000);
 }
 
+/**
+ * Meeting 详情编排页：集中装配权限相同但生命周期独立的播放、转录、Intelligence、问答和协作子资源。
+ * Meeting detail orchestrator composing independently-lived playback, transcript, intelligence, Q&A, and collaboration resources.
+ */
 export function MeetingDetailPage({
   meetingId,
   seekToSeconds,
@@ -59,6 +63,8 @@ export function MeetingDetailPage({
   seekToSeconds?: number;
 }) {
   const queryClient = useQueryClient();
+  // id 让连续两次跳到同一秒也能触发播放器 effect；仅依赖 seconds 会被 React 判定为未变化。
+  // The id retriggers equal-time seeks; depending on seconds alone would make React ignore repeated requests.
   const [seekRequest, requestSeek] = useReducer(
     (current: { id: number; seconds?: number }, seconds: number | undefined) => ({
       id: current.id + 1,
@@ -87,6 +93,8 @@ export function MeetingDetailPage({
     enabled: Boolean(workspace && detailQuery.data?.recordingAvailable),
     queryFn: () => fetchMeetingPlayback(workspaceSlug, meetingId),
     queryKey: desktopMeetingKeys.playback(workspaceSlug, meetingId),
+    // 签名 URL 在到期前一分钟轮换，播放器组件负责保留播放位置并按需继续播放。
+    // Rotate signed URLs one minute early; the player preserves position and resumes when appropriate.
     refetchInterval: (query) => playbackAuthorizationRefetchInterval(query.state.data),
     staleTime: 4 * 60 * 1000,
   });

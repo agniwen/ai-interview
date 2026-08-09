@@ -70,6 +70,10 @@ function discardDialogDescription(deletingRecoveryCopy: boolean, includeSaved: b
     : "已录制的麦克风与系统音频会从本机删除，此操作无法撤销。";
 }
 
+/**
+ * 应用级录制 UI 桥接层：订阅 Preload 状态机并承载弹窗、Toast 与查询失效，不持有录音事实状态。
+ * App-level recording UI bridge: subscribes to preload state and owns dialogs/toasts/query invalidation, not capture truth.
+ */
 export function MeetingRecordingProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);

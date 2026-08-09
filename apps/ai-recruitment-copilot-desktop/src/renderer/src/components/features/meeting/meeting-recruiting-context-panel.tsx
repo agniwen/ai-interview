@@ -35,6 +35,10 @@ function candidateDescription(candidate: MeetingRecruitingRecordSummary): string
   return candidate.jobDescriptionName ?? candidate.targetRole ?? "未关联岗位";
 }
 
+/**
+ * 0..1 Recruiting Record 关联编辑器；Picker 选项已经过服务端 Workspace 与招聘可见性过滤。
+ * Editor for the optional single recruiting link; picker options are server-filtered by workspace and recruiting visibility.
+ */
 export function MeetingRecruitingContextView({
   candidates,
   loadingCandidates = false,
@@ -116,6 +120,10 @@ export function MeetingRecruitingContextView({
   );
 }
 
+/**
+ * 招聘关联的数据协调器。客户端 canManage 只避免无效请求，DAO 在写入事务内重新验证对象权限。
+ * Recruiting-link data coordinator; client canManage avoids useless requests while DAO revalidates object access on write.
+ */
 export function MeetingRecruitingContextPanel({
   accessRole,
   meetingId,
