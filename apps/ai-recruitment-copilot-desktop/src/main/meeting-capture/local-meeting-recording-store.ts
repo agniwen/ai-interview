@@ -787,7 +787,9 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
           }
         });
       } catch (error) {
-        console.error("[meeting-capture] skipped unrecoverable local capture", entry.name, error);
+        console.error("[meeting-capture] skipped unrecoverable local capture", {
+          errorName: error instanceof Error ? error.name : "UnknownError",
+        });
         await this.releaseActiveLock(entry.name);
       }
     }

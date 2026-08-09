@@ -348,6 +348,7 @@ export const meetingSession = pgTable(
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
+    uploadLeaseExpiresAt: timestamp("upload_lease_expires_at", { withTimezone: true }),
     verifiedAt: timestamp("verified_at", { withTimezone: true }),
     visibility: text("visibility").default("restricted").notNull(),
   },
@@ -363,6 +364,10 @@ export const meetingSession = pgTable(
     check(
       "meeting_session_transcription_status_check",
       sql`${table.transcriptionStatus} in ('pending', 'processing', 'ready', 'failed')`,
+    ),
+    check(
+      "meeting_session_upload_lease_check",
+      sql`${table.status} <> 'uploading' or ${table.uploadLeaseExpiresAt} is not null`,
     ),
     check(
       "meeting_session_trash_state_check",
@@ -398,8 +403,33 @@ export const meetingSession = pgTable(
       table.status,
       table.savedAt,
     ),
+    index("meeting_session_upload_lease_idx").on(table.uploadLeaseExpiresAt),
     index("meeting_session_purge_due_idx").on(table.status, table.purgeAfter),
     uniqueIndex("meeting_session_id_org_uq").on(table.id, table.organizationId),
+  ],
+);
+
+export const meetingLiveTranscriptLease = pgTable(
+  "meeting_live_transcript_lease",
+  {
+    captureId: text("capture_id").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    track: text("track").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    check(
+      "meeting_live_transcript_lease_track_check",
+      sql`${table.track} in ('microphone', 'system')`,
+    ),
+    primaryKey({ columns: [table.organizationId, table.captureId, table.track] }),
+    index("meeting_live_transcript_lease_expires_idx").on(table.expiresAt),
   ],
 );
 

@@ -47,6 +47,7 @@ export interface LiveTranscriptPcmTap {
 }
 
 interface LiveTranscriptDraftDependencies {
+  authorizationFailureReason?: (error: unknown) => "authorization" | "capacity";
   authorize: (input: {
     captureId: string;
     track: MeetingLiveTranscriptTrack;
@@ -62,13 +63,16 @@ interface LiveTranscriptDraftDependencies {
     onFrame: (frame: Int16Array) => void;
     track: MeetingLiveTranscriptTrack;
   }) => Promise<LiveTranscriptPcmTap>;
+  heartbeat?: (captureId: string) => Promise<boolean>;
   maxDraftTurns?: number;
   maxQueuedPcmBytesPerTrack?: number;
   maxReconnectAttempts?: number;
   maxReconnectDelayMs?: number;
   random?: () => number;
+  release?: (captureId: string) => Promise<void>;
   reconnectDelayMs?: number;
   scheduleReconnect?: (callback: () => void, delayMs: number) => () => void;
+  scheduleLeaseHeartbeat?: (callback: () => void, delayMs: number) => () => void;
   shouldReconnect?: (error: unknown) => boolean;
 }
 
@@ -89,6 +93,7 @@ const DEFAULT_MAX_DRAFT_TURNS = 500;
 const DEFAULT_MAX_RECONNECT_ATTEMPTS = 8;
 const DEFAULT_MAX_RECONNECT_DELAY_MS = 30_000;
 const DEFAULT_RECONNECT_DELAY_MS = 1500;
+const LEASE_HEARTBEAT_MS = 30_000;
 const MAX_DRAFT_SECTIONS = 200;
 const MAX_DRAFT_TURN_CHARS = 10_000;
 const TRACKS: MeetingLiveTranscriptTrack[] = ["microphone", "system"];
@@ -150,6 +155,9 @@ function publicError(reason: string): string {
   if (reason === "authorization") {
     return "实时字幕授权暂不可用，录音仍在继续";
   }
+  if (reason === "capacity") {
+    return "实时字幕容量已满，Meeting Recording 仍在本地继续";
+  }
   return "实时字幕已中断，录音仍在继续";
 }
 
@@ -193,6 +201,25 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
     });
   let snapshot = initialSnapshot();
   let sectionSequence = 0;
+  let cancelLeaseHeartbeat: (() => void) | null = null;
+  let leaseHeartbeatFailures = 0;
+  let releasedLeaseCaptureId: string | null = null;
+
+  const releaseLeaseBestEffort = async (captureId: string): Promise<void> => {
+    try {
+      await dependencies.release?.(captureId);
+    } catch {
+      // The short lease expires server-side if release cannot be delivered.
+    }
+  };
+
+  const releaseLeaseOnce = (captureId: string): void => {
+    if (releasedLeaseCaptureId === captureId) {
+      return;
+    }
+    releasedLeaseCaptureId = captureId;
+    void releaseLeaseBestEffort(captureId);
+  };
 
   const aggregateStatus = (): LiveTranscriptDraftStatus => {
     const statuses = TRACKS.map((track) => runtimes[track].status);
@@ -228,6 +255,10 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
   };
 
   const stop = (): void => {
+    const releasedCaptureId = snapshot.captureId;
+    cancelLeaseHeartbeat?.();
+    cancelLeaseHeartbeat = null;
+    leaseHeartbeatFailures = 0;
     for (const track of TRACKS) {
       const runtime = runtimes[track];
       runtime.generation += 1;
@@ -245,7 +276,89 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
     sectionSequence = 0;
     snapshot = initialSnapshot();
     publish();
+    if (releasedCaptureId) {
+      releaseLeaseOnce(releasedCaptureId);
+    }
   };
+
+  const releaseLeaseWhenAllTracksTerminal = (captureId: string): void => {
+    if (
+      snapshot.captureId !== captureId ||
+      TRACKS.some((track) => {
+        const runtime = runtimes[track];
+        return (
+          runtime.connection ||
+          runtime.cancelReconnect ||
+          ["live", "reconnecting", "starting"].includes(runtime.status)
+        );
+      })
+    ) {
+      return;
+    }
+    cancelLeaseHeartbeat?.();
+    cancelLeaseHeartbeat = null;
+    leaseHeartbeatFailures = 0;
+    for (const track of TRACKS) {
+      runtimes[track].pcmTap?.stop();
+      runtimes[track].pcmTap = null;
+    }
+    releaseLeaseOnce(captureId);
+  };
+
+  function scheduleLeaseHeartbeat(captureId: string, delayMs = LEASE_HEARTBEAT_MS): void {
+    const { heartbeat } = dependencies;
+    if (!heartbeat) {
+      return;
+    }
+    const schedule =
+      dependencies.scheduleLeaseHeartbeat ??
+      ((callback: () => void, delay: number) => {
+        const timer = setTimeout(callback, delay);
+        return () => clearTimeout(timer);
+      });
+    cancelLeaseHeartbeat?.();
+    cancelLeaseHeartbeat = schedule(() => {
+      const handleFailure = () => {
+        if (snapshot.captureId !== captureId) {
+          return;
+        }
+        leaseHeartbeatFailures += 1;
+        if (leaseHeartbeatFailures < 3) {
+          scheduleLeaseHeartbeat(captureId, 5000);
+          return;
+        }
+        for (const track of TRACKS) {
+          const runtime = runtimes[track];
+          runtime.generation += 1;
+          runtime.cancelReconnect?.();
+          runtime.cancelReconnect = null;
+          closeConnection(runtime);
+          runtime.pcmTap?.stop();
+          runtime.pcmTap = null;
+          runtime.status = "interrupted";
+        }
+        cancelLeaseHeartbeat = null;
+        publish({ error: publicError("authorization") });
+      };
+      const runHeartbeat = async (): Promise<void> => {
+        try {
+          const renewed = await heartbeat(captureId);
+          if (snapshot.captureId !== captureId) {
+            return;
+          }
+          if (renewed) {
+            leaseHeartbeatFailures = 0;
+            scheduleLeaseHeartbeat(captureId);
+            return;
+          }
+          handleFailure();
+        } catch {
+          handleFailure();
+        }
+      };
+      void runHeartbeat();
+    }, delayMs);
+  }
 
   const appendTranscript = (
     track: MeetingLiveTranscriptTrack,
@@ -350,13 +463,19 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
           () => void connectTrack(track, true),
         );
       }
+      releaseLeaseWhenAllTracksTerminal(captureId);
     };
 
     try {
       const authorization = await dependencies.authorize({ captureId, track });
       if (runtime.generation !== generation || snapshot.captureId !== captureId) {
+        if (snapshot.captureId !== captureId) {
+          void releaseLeaseBestEffort(captureId);
+        }
         return;
       }
+      releasedLeaseCaptureId = null;
+      scheduleLeaseHeartbeat(captureId);
       const connection = await dependencies.connect({
         authorization,
         onDisconnect: (reason) => interrupt(reason),
@@ -390,7 +509,10 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
       publish({ error: null });
       flush(track);
     } catch (error) {
-      interrupt("authorization", dependencies.shouldReconnect?.(error) ?? true);
+      interrupt(
+        dependencies.authorizationFailureReason?.(error) ?? "authorization",
+        dependencies.shouldReconnect?.(error) ?? true,
+      );
     }
   };
 
@@ -415,6 +537,7 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
     tracks: Record<MeetingLiveTranscriptTrack, MediaStreamTrack>;
   }): Promise<void> => {
     stop();
+    releasedLeaseCaptureId = null;
     snapshot = { ...initialSnapshot(), captureId: input.captureId };
     for (const track of TRACKS) {
       const runtime = runtimes[track];
@@ -444,6 +567,7 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
           }
           runtime.status = "interrupted";
           publish({ error: publicError("authorization") });
+          releaseLeaseWhenAllTracksTerminal(input.captureId);
         }
       }),
     );

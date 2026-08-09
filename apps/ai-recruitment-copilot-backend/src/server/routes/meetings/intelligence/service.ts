@@ -21,7 +21,7 @@ async function enqueueIntelligenceBestEffort(processingRunId: string): Promise<v
     await enqueueMeetingIntelligenceJobs([{ processingRunId }]);
   } catch (error) {
     console.error("[meeting-intelligence] failed to enqueue processing run", {
-      error,
+      errorName: error instanceof Error ? error.name : "UnknownError",
       processingRunId,
     });
   }

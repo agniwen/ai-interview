@@ -24,7 +24,9 @@ class MeetingExportAuthorizationRevokedError extends Error {
 }
 
 function logAuditFailure(error: unknown): void {
-  console.error("[meeting-export] audit write failed", { error });
+  console.error("[meeting-export] audit write failed", {
+    errorName: error instanceof Error ? error.name : "UnknownError",
+  });
 }
 
 export type PreparedMeetingExport =

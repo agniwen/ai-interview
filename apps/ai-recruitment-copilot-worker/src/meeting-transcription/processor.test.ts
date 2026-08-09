@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { MeetingProviderQuotaError } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/provider";
 import type { MeetingTranscriptionDependencies } from "./processor";
 
 vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
@@ -242,11 +243,30 @@ describe("Meeting final transcription processor", () => {
     expect(dependencies.publish).not.toHaveBeenCalled();
     expect(dependencies.markFailed).toHaveBeenCalledWith({
       ...job,
+      errorCode: "provider-error",
       errorMessage: "provider unavailable",
       processingRunId: "run-76",
       terminal: false,
     });
     expect(dependencies.markChunkFailed).toHaveBeenCalledTimes(1);
+  });
+
+  it("records provider quota exhaustion separately while preserving the saved meeting", async () => {
+    const dependencies = createDependencies();
+    dependencies.provider.transcribeFinal.mockRejectedValueOnce(new MeetingProviderQuotaError());
+
+    await expect(
+      runMeetingTranscriptionProcessing(job, { attempt: 5, maxAttempts: 5 }, dependencies),
+    ).rejects.toBeInstanceOf(MeetingProviderQuotaError);
+
+    expect(dependencies.publish).not.toHaveBeenCalled();
+    expect(dependencies.markFailed).toHaveBeenCalledWith({
+      ...job,
+      errorCode: "provider-quota",
+      errorMessage: "Meeting transcription provider quota is exhausted",
+      processingRunId: "run-76",
+      terminal: true,
+    });
   });
 
   it("does not call the provider when another delivery owns the chunk", async () => {
@@ -292,6 +312,7 @@ describe("Meeting final transcription processor", () => {
 
     expect(dependencies.markFailed).toHaveBeenCalledWith({
       ...job,
+      errorCode: "provider-error",
       errorMessage: "unsupported audio",
       processingRunId: "run-76",
       terminal: true,

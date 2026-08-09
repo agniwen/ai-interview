@@ -1,5 +1,6 @@
 // oxlint-disable promise/prefer-await-to-then, promise/prefer-await-to-callbacks -- The observable state machine publishes around durable promise transitions.
 export const CAPTURE_FRAGMENT_DURATION_MS = 15_000;
+export const MEETING_CAPTURE_MAX_DURATION_MS = 4 * 60 * 60 * 1000;
 export const SYSTEM_SILENCE_WARNING_MS = 6000;
 export const AUDIBLE_LEVEL_THRESHOLD = 0.005;
 
@@ -171,12 +172,30 @@ export interface MeetingCapture {
 }
 
 interface CreateMeetingCaptureInput {
+  diagnostics?: (event: MeetingCaptureMetric) => void;
   idFactory?: () => string;
+  maxDurationMs?: number;
   now?: () => Date;
   source: MeetingCaptureSource;
   store: MeetingRecordingStore;
   workspace?: WorkspaceRecordingPort;
 }
+
+export type MeetingCaptureMetric =
+  | {
+      committedGapMs: number;
+      name: "meeting.capture.saved";
+      spoolBytes: number;
+    }
+  | {
+      name: "meeting.capture.recovery";
+      outcome: "cleanup-failed" | "deleted" | "retained" | "scan-failed";
+      possibleTailGap: boolean;
+    }
+  | {
+      name: "meeting.capture.workspace-verified";
+      saveToUploadMs: number;
+    };
 
 const initialSnapshot = (): MeetingCaptureSnapshot => ({
   active: null,
@@ -212,7 +231,9 @@ function retainSaved(
 }
 
 export function createMeetingCapture({
+  diagnostics = (event) => console.info("[meeting-capture-metric]", event),
   idFactory = () => globalThis.crypto.randomUUID(),
+  maxDurationMs = MEETING_CAPTURE_MAX_DURATION_MS,
   now = () => new Date(),
   source,
   store,
@@ -221,6 +242,7 @@ export function createMeetingCapture({
   let snapshot = initialSnapshot();
   let prepared: PreparedCapture | null = null;
   let silenceTimer: ReturnType<typeof setTimeout> | null = null;
+  let durationTimer: ReturnType<typeof setTimeout> | null = null;
   let savePromise: Promise<LocalSavedMeeting> | null = null;
   let discardPromise: Promise<void> | null = null;
   let terminalOperation: "discard" | "save" | null = null;
@@ -228,6 +250,16 @@ export function createMeetingCapture({
   const listeners = new Set<(next: MeetingCaptureSnapshot) => void>();
   const workspaceOperations = new Map<string, Promise<void>>();
   const recoveryCleanupTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+  const reportSavedMetric = (saved: LocalSavedMeeting): void => {
+    diagnostics({
+      committedGapMs: Math.abs(
+        saved.tracks.microphone.committedThroughMs - saved.tracks.system.committedThroughMs,
+      ),
+      name: "meeting.capture.saved",
+      spoolBytes: saved.tracks.microphone.bytes + saved.tracks.system.bytes,
+    });
+  };
 
   const publish = (next: MeetingCaptureSnapshot) => {
     snapshot = next;
@@ -315,6 +347,10 @@ export function createMeetingCapture({
       })
       .then(async (result) => {
         await store.markWorkspaceVerified(saved.captureId, result.recoveryCopyDeleteAfter);
+        diagnostics({
+          name: "meeting.capture.workspace-verified",
+          saveToUploadMs: Math.max(0, now().getTime() - Date.parse(saved.savedAt)),
+        });
         scheduleRecoveryCleanup(saved.captureId, result.recoveryCopyDeleteAfter);
         patchWorkspaceSave(saved.captureId, {
           error: null,
@@ -359,6 +395,11 @@ export function createMeetingCapture({
     try {
       await store.discard(capture.captureId);
     } catch (error) {
+      diagnostics({
+        name: "meeting.capture.recovery",
+        outcome: "cleanup-failed",
+        possibleTailGap: capture.possibleTailGap,
+      });
       await workspace
         .reportRecoveryCopyCleanup?.(capture.captureId, capture.manifestSha256, "failed")
         .catch((reportError: unknown) => {
@@ -378,6 +419,11 @@ export function createMeetingCapture({
           errorName: reportError instanceof Error ? reportError.name : "UnknownError",
         });
       });
+    diagnostics({
+      name: "meeting.capture.recovery",
+      outcome: "deleted",
+      possibleTailGap: capture.possibleTailGap,
+    });
     return false;
   };
 
@@ -388,6 +434,11 @@ export function createMeetingCapture({
       for (const capture of recoverable) {
         if (await reconcileRecoveryCopy(capture)) {
           retained.push(capture);
+          diagnostics({
+            name: "meeting.capture.recovery",
+            outcome: "retained",
+            possibleTailGap: capture.possibleTailGap,
+          });
         }
       }
       patch({ recoverable: retained, recoveryComplete: true });
@@ -401,6 +452,11 @@ export function createMeetingCapture({
       }
     })
     .catch((error: unknown) => {
+      diagnostics({
+        name: "meeting.capture.recovery",
+        outcome: "scan-failed",
+        possibleTailGap: false,
+      });
       patch({
         error: error instanceof Error ? error.message : "无法扫描本地录音恢复目录",
         phase: "error",
@@ -412,6 +468,13 @@ export function createMeetingCapture({
     if (silenceTimer) {
       clearTimeout(silenceTimer);
       silenceTimer = null;
+    }
+  };
+
+  const clearDurationTimer = () => {
+    if (durationTimer) {
+      clearTimeout(durationTimer);
+      durationTimer = null;
     }
   };
 
@@ -511,6 +574,13 @@ export function createMeetingCapture({
       patch({ active });
       await acquired.start(sink, { captureId });
       patch({ phase: "active" });
+      durationTimer = setTimeout(() => {
+        durationTimer = null;
+        // oxlint-disable-next-line no-use-before-define -- Duration guard invokes the same terminal Save path.
+        void save({ captureId }).catch(() => {
+          // Save publishes a safe action-required error while retaining the durable spool.
+        });
+      }, maxDurationMs);
       silenceTimer = setTimeout(() => {
         if (snapshot.active?.tracks.system.health === "checking") {
           updateTrack("system", { health: "silent" });
@@ -531,6 +601,7 @@ export function createMeetingCapture({
         // Best effort when begin did not reach durable spool creation.
       }
       prepared = null;
+      clearDurationTimer();
       const message = error instanceof Error ? error.message : "无法开始会议录制";
       patch({ active: null, error: message, phase: "error" });
       throw error;
@@ -557,6 +628,7 @@ export function createMeetingCapture({
       savePromise = store
         .save(recovered.captureId)
         .then((saved) => {
+          reportSavedMetric(saved);
           const retained = retainSaved(
             snapshot.recoverable.filter((item) => item.captureId !== recovered.captureId),
             snapshot.saved,
@@ -594,6 +666,7 @@ export function createMeetingCapture({
     const { active } = snapshot;
     const capture = prepared;
     clearSilenceTimer();
+    clearDurationTimer();
     terminalOperation = "save";
     patch({ error: null, phase: "saving" });
     savePromise = (async () => {
@@ -601,6 +674,7 @@ export function createMeetingCapture({
         await capture.stop();
         await Promise.all(pendingFragments);
         const saved = await store.save(captureId);
+        reportSavedMetric(saved);
         await capture.dispose();
         prepared = null;
         patch({ active: null, phase: "saved-local", saved });
@@ -638,6 +712,7 @@ export function createMeetingCapture({
 
     const capture = prepared;
     clearSilenceTimer();
+    clearDurationTimer();
     terminalOperation = "discard";
     patch({ error: null, phase: "discarding" });
     discardPromise = (async () => {

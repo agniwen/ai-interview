@@ -20,6 +20,7 @@ import type {
   FinalTranscriptionAudioChunk,
   MeetingTranscriptionProvider,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/provider";
+import { MeetingProviderQuotaError } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/provider";
 import type { MeetingTranscriptionJobData } from "@arc/meeting-processing-queue/meeting-transcription";
 import { canonicalMeetingTranscriptSchema } from "@arc/shared/meeting-transcription";
 import type { CanonicalMeetingTranscript } from "@arc/shared/meeting-transcription";
@@ -320,7 +321,8 @@ async function transcribeChunk(input: {
       );
     } catch (markChunkFailedError) {
       console.error("[meeting-transcription-worker] failed to release provider-failed chunk", {
-        error: markChunkFailedError,
+        errorName:
+          markChunkFailedError instanceof Error ? markChunkFailedError.name : "UnknownError",
         meetingId: input.job.meetingId,
         processingRunId: input.processingRunId,
       });
@@ -346,7 +348,7 @@ async function requestAutomaticIntelligenceBestEffort(input: {
     });
   } catch (error) {
     console.error("[meeting-transcription-worker] failed to request Meeting Intelligence", {
-      error,
+      errorName: error instanceof Error ? error.name : "UnknownError",
       meetingId: input.meetingId,
     });
   }
@@ -452,13 +454,14 @@ export async function runMeetingTranscriptionProcessing(
     try {
       await dependencies.markFailed({
         ...input,
+        errorCode: error instanceof MeetingProviderQuotaError ? "provider-quota" : "provider-error",
         errorMessage,
         processingRunId,
         terminal: context.attempt >= context.maxAttempts,
       });
     } catch (markFailedError) {
       console.error("[meeting-transcription-worker] failed to persist processing failure", {
-        error: markFailedError,
+        errorName: markFailedError instanceof Error ? markFailedError.name : "UnknownError",
         meetingId: input.meetingId,
         processingRunId,
       });

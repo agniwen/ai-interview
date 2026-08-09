@@ -23,6 +23,7 @@ import {
   meetingAcceptsUploadAuthorization,
   recordMeetingAudit,
   recordMeetingAssetMultipartUploadId,
+  renewMeetingDirectUploadLease,
 } from "./dao";
 import type {
   CreateMultipartSavedMeetingInput,
@@ -70,6 +71,14 @@ function shouldAutomaticallyEnqueuePlayback(status: string): boolean {
   return status === "workspace-verified" || status === "processing";
 }
 
+export function heartbeatSavedMeetingUpload(input: {
+  meetingId: string;
+  organizationId: string;
+  ownerId: string;
+}): Promise<boolean> {
+  return renewMeetingDirectUploadLease(input);
+}
+
 function isMeetingLifecycleUnavailable(status: string): boolean {
   return status === "trashed" || status === "purging";
 }
@@ -82,14 +91,18 @@ async function enqueueMeetingPlaybackBestEffort(input: {
     await enqueueMeetingPlaybackJobs([input]);
   } catch (error) {
     console.error("[meeting-playback] enqueue failed; startup recovery will retry", {
-      error,
+      errorName: error instanceof Error ? error.name : "UnknownError",
       meetingId: input.meetingId,
     });
   }
 }
 
 type CreateResult =
-  | { code?: "meeting-purged"; conflict: true; message: string }
+  | {
+      code?: "meeting-purged" | "meeting-upload-capacity-exhausted";
+      conflict: true;
+      message: string;
+    }
   | (SmallSavedMeetingResponse & { created: boolean });
 
 function ownsMeeting(
@@ -118,7 +131,7 @@ export async function createSmallSavedMeeting(input: {
       }),
     })),
   );
-  const { blockedByPurge, created, meeting } = await createOrLoadMeetingSession({
+  const { blockedByCapacity, blockedByPurge, created, meeting } = await createOrLoadMeetingSession({
     assets,
     meeting: {
       id: input.input.id,
@@ -129,6 +142,13 @@ export async function createSmallSavedMeeting(input: {
       startedAt: input.input.startedAt,
     },
   });
+  if (blockedByCapacity) {
+    return {
+      code: "meeting-upload-capacity-exhausted",
+      conflict: true,
+      message: "录音上传容量已满，本地 Meeting Recording 已保留",
+    };
+  }
   if (blockedByPurge) {
     return { code: "meeting-purged", conflict: true, message: "Meeting Session 已被永久清除" };
   }
@@ -184,6 +204,19 @@ export async function createSmallSavedMeeting(input: {
     }),
   );
   if (
+    !(await renewMeetingDirectUploadLease({
+      meetingId: meeting.id,
+      organizationId: input.organizationId,
+      ownerId: input.ownerId,
+    }))
+  ) {
+    return {
+      code: "meeting-upload-capacity-exhausted",
+      conflict: true,
+      message: "录音上传容量已满，本地 Meeting Recording 已保留",
+    };
+  }
+  if (
     !(await meetingAcceptsUploadAuthorization({
       meetingId: meeting.id,
       organizationId: input.organizationId,
@@ -202,7 +235,11 @@ export async function createSmallSavedMeeting(input: {
 }
 
 type MultipartCreateResult =
-  | { code?: "meeting-purged"; conflict: true; message: string }
+  | {
+      code?: "meeting-purged" | "meeting-upload-capacity-exhausted";
+      conflict: true;
+      message: string;
+    }
   | (MultipartSavedMeetingResponse & { created: boolean });
 
 function normalizedEtag(etag: string): string {
@@ -238,7 +275,9 @@ async function abortUnpersistedMultipartUpload(input: {
   try {
     await abortMeetingRecordingMultipartUpload(input);
   } catch (error) {
-    console.error("[meeting-recording] failed to abort unpersisted multipart upload", error);
+    console.error("[meeting-recording] failed to abort unpersisted multipart upload", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
   }
 }
 
@@ -270,6 +309,13 @@ export async function createMultipartSavedMeeting(input: {
       startedAt: input.input.startedAt,
     },
   });
+  if (createdResult.blockedByCapacity) {
+    return {
+      code: "meeting-upload-capacity-exhausted",
+      conflict: true,
+      message: "录音上传容量已满，本地 Meeting Recording 已保留",
+    };
+  }
   if (createdResult.blockedByPurge) {
     return { code: "meeting-purged", conflict: true, message: "Meeting Session 已被永久清除" };
   }
@@ -393,6 +439,19 @@ export async function createMultipartSavedMeeting(input: {
     }),
   );
   const uploads = uploadsByAsset.flatMap((parts) => parts.filter((part) => part !== null));
+  if (
+    !(await renewMeetingDirectUploadLease({
+      meetingId: meeting.id,
+      organizationId: input.organizationId,
+      ownerId: input.ownerId,
+    }))
+  ) {
+    return {
+      code: "meeting-upload-capacity-exhausted",
+      conflict: true,
+      message: "录音上传容量已满，本地 Meeting Recording 已保留",
+    };
+  }
   if (
     !(await meetingAcceptsUploadAuthorization({
       meetingId: meeting.id,

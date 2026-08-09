@@ -186,6 +186,42 @@ describe("Live Transcript Draft", () => {
     expect(draft.getSnapshot().status).toBe("idle");
   });
 
+  it("releases a lease claimed by an authorization that completes after stop", async () => {
+    const authorizationResolvers: ((track: "microphone" | "system") => void)[] = [];
+    const release = vi.fn(() => Promise.resolve());
+    const draft = createLiveTranscriptDraft({
+      authorize: () =>
+        new Promise((resolve) => {
+          authorizationResolvers.push((resolvedTrack) =>
+            resolve({
+              clientSecret: `secret-${resolvedTrack}`,
+              expiresAt: "2026-08-09T01:21:00.000Z",
+              model: "gpt-4o-mini-transcribe",
+              provider: "openai",
+              track: resolvedTrack,
+            }),
+          );
+        }),
+      connect: vi.fn(),
+      createPcmTap: () => Promise.resolve({ stop: vi.fn() }),
+      release,
+    });
+
+    const starting = draft.start({
+      captureId: CAPTURE_ID,
+      tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
+    });
+    await vi.waitFor(() => expect(authorizationResolvers).toHaveLength(2));
+    draft.stop();
+    await vi.waitFor(() => expect(release).toHaveBeenCalledTimes(1));
+    authorizationResolvers[0]?.("microphone");
+    authorizationResolvers[1]?.("system");
+    await starting;
+
+    await vi.waitFor(() => expect(release.mock.calls.length).toBeGreaterThanOrEqual(2));
+    expect(release).toHaveBeenCalledWith(CAPTURE_ID);
+  });
+
   it("does not retry terminal authorization failures", async () => {
     const scheduled: (() => void)[] = [];
     const draft = createLiveTranscriptDraft({
@@ -206,6 +242,62 @@ describe("Live Transcript Draft", () => {
 
     expect(draft.getSnapshot().status).toBe("interrupted");
     expect(scheduled).toHaveLength(0);
+  });
+
+  it("shows capacity rejection without claiming the local recording stopped", async () => {
+    const release = vi.fn(() => Promise.resolve());
+    const draft = createLiveTranscriptDraft({
+      authorizationFailureReason: () => "capacity",
+      authorize: () => Promise.reject(new Error("capacity")),
+      connect: vi.fn(),
+      createPcmTap: () => Promise.resolve({ stop: vi.fn() }),
+      release,
+      shouldReconnect: () => false,
+    });
+
+    await draft.start({
+      captureId: CAPTURE_ID,
+      tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
+    });
+
+    expect(draft.getSnapshot()).toMatchObject({
+      error: "实时字幕容量已满，Meeting Recording 仍在本地继续",
+      status: "interrupted",
+    });
+    await vi.waitFor(() => expect(release).toHaveBeenCalledWith(CAPTURE_ID));
+  });
+
+  it("renews the capture lease while live and releases it on stop", async () => {
+    const heartbeat = vi.fn().mockResolvedValue(true);
+    const release = vi.fn(() => Promise.resolve());
+    const scheduled: (() => void)[] = [];
+    const draft = createLiveTranscriptDraft({
+      authorize: ({ track }) =>
+        Promise.resolve({
+          clientSecret: `secret-${track}`,
+          expiresAt: "2026-08-09T01:21:00.000Z",
+          model: "gpt-4o-mini-transcribe",
+          provider: "openai",
+          track,
+        }),
+      connect: () => Promise.resolve({ close: vi.fn(), sendPcm: vi.fn().mockReturnValue(true) }),
+      createPcmTap: () => Promise.resolve({ stop: vi.fn() }),
+      heartbeat,
+      release,
+      scheduleLeaseHeartbeat: (callback) => {
+        scheduled.push(callback);
+        return () => {};
+      },
+    });
+
+    await draft.start({
+      captureId: CAPTURE_ID,
+      tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
+    });
+    scheduled[0]?.();
+    await vi.waitFor(() => expect(heartbeat).toHaveBeenCalledWith(CAPTURE_ID));
+    draft.stop();
+    await vi.waitFor(() => expect(release).toHaveBeenCalledWith(CAPTURE_ID));
   });
 
   it("backs off transient failures and stops after a bounded attempt count", async () => {

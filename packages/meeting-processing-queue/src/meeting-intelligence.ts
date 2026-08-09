@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Queue, Worker } from "bullmq";
-import type { ConnectionOptions, JobsOptions } from "bullmq";
+import type { ConnectionOptions, JobsOptions, JobType } from "bullmq";
 import { z } from "zod";
 
 export const MEETING_INTELLIGENCE_QUEUE_NAME = "meeting-intelligence";
@@ -26,6 +26,10 @@ interface MeetingIntelligenceQueuePort {
 }
 
 let queue: Queue<MeetingIntelligenceJobData> | null = null;
+
+interface MeetingQueueStatsPort {
+  getJobCounts: (...types: JobType[]) => Promise<Record<string, number>>;
+}
 
 function redisUrl(env: NodeJS.ProcessEnv = process.env): string | null {
   return env.REDIS_URL?.trim() || null;
@@ -108,6 +112,20 @@ export function getMeetingIntelligenceQueue(): Queue<MeetingIntelligenceJobData>
   return queue;
 }
 
+export async function getMeetingIntelligenceQueueStats(
+  currentQueue: MeetingQueueStatsPort = getMeetingIntelligenceQueue(),
+  env: NodeJS.ProcessEnv = process.env,
+) {
+  const counts = await currentQueue.getJobCounts("waiting", "active", "delayed", "failed");
+  return {
+    active: counts.active ?? 0,
+    concurrency: resolveMeetingIntelligenceWorkerConcurrency(env),
+    delayed: counts.delayed ?? 0,
+    failed: counts.failed ?? 0,
+    waiting: counts.waiting ?? 0,
+  };
+}
+
 export async function reconcileMeetingIntelligenceJob(
   currentQueue: MeetingIntelligenceQueuePort,
   data: MeetingIntelligenceJobData,
@@ -160,7 +178,8 @@ export function createMeetingIntelligenceWorker(
   });
   worker.on("failed", (job, error) => {
     console.error("[meeting-intelligence-worker] job failed", {
-      error,
+      attempt: job?.attemptsMade,
+      errorName: error.name,
       jobId: job?.id,
       processingRunId: job?.data.processingRunId,
     });

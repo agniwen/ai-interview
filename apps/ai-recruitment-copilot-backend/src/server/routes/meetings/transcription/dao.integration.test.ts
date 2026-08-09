@@ -490,6 +490,7 @@ describe("Meeting transcription publication", () => {
     await expect(
       markMeetingTranscriptionFailed({
         ...job,
+        errorCode: "provider-error",
         errorMessage: "connection closed after commit",
         processingRunId: runId("run-committed"),
         terminal: true,
@@ -511,6 +512,7 @@ describe("Meeting transcription publication", () => {
     await expect(
       markMeetingTranscriptionFailed({
         ...job,
+        errorCode: "provider-error",
         errorMessage: "provider temporarily unavailable",
         processingRunId: runId("run-retryable"),
         terminal: false,
@@ -530,6 +532,7 @@ describe("Meeting transcription publication", () => {
     });
     await markMeetingTranscriptionFailed({
       ...job,
+      errorCode: "provider-error",
       errorMessage: "ffmpeg /tmp/private/source.webm failed at https://storage.internal",
       processingRunId: runId("run-terminal"),
       terminal: true,
@@ -551,6 +554,7 @@ describe("Meeting transcription publication", () => {
     ).resolves.toBe("claimed");
     await markMeetingTranscriptionFailed({
       ...job,
+      errorCode: "provider-error",
       errorMessage: "provider temporarily unavailable",
       processingRunId: runId("run-backoff"),
       terminal: false,
@@ -570,6 +574,29 @@ describe("Meeting transcription publication", () => {
     ).resolves.toMatchObject({ transcriptionRunId: null, transcriptionStatus: "pending" });
   });
 
+  it("exposes quota exhaustion without removing the verified recording", async () => {
+    await claimMeetingTranscriptionRun({
+      ...job,
+      attempt: 5,
+      processingRunId: runId("run-provider-quota"),
+    });
+    await markMeetingTranscriptionFailed({
+      ...job,
+      errorCode: "provider-quota",
+      errorMessage: "Meeting transcription provider quota is exhausted",
+      processingRunId: runId("run-provider-quota"),
+      terminal: true,
+    });
+
+    await expect(
+      db.query.meetingSession.findFirst({ where: { id: MEETING_ID } }),
+    ).resolves.toMatchObject({
+      status: "ready",
+      transcriptionError: "最终会议转录因 provider 配额不足失败，录音已保留，请稍后重试。",
+      transcriptionStatus: "failed",
+    });
+  });
+
   it("serializes a provider failure with a concurrent policy change", async () => {
     await claimMeetingTranscriptionRun({
       ...job,
@@ -580,6 +607,7 @@ describe("Meeting transcription publication", () => {
     await Promise.all([
       markMeetingTranscriptionFailed({
         ...job,
+        errorCode: "provider-error",
         errorMessage: "provider unavailable",
         processingRunId: runId("run-failure-policy-race"),
         terminal: false,

@@ -1,7 +1,38 @@
 import { describe, expect, it, vi } from "vitest";
+import { MeetingProviderQuotaError } from "../provider";
 import { createOpenAiMeetingTranscriptionProvider } from "./openai";
 
 describe("OpenAI Meeting transcription adapter", () => {
+  it("classifies provider capacity responses without exposing the response body", async () => {
+    const provider = createOpenAiMeetingTranscriptionProvider({
+      apiKey: "test-key",
+      fetch: vi
+        .fn<typeof globalThis.fetch>()
+        .mockResolvedValue(
+          Response.json({ error: { message: "secret provider detail" } }, { status: 429 }),
+        ),
+      readAudioFile: vi.fn(() => Promise.resolve(new Uint8Array([1, 2, 3]))),
+    });
+
+    await expect(
+      provider.transcribeFinal({
+        chunks: [
+          {
+            contentType: "audio/webm",
+            endMs: 1000,
+            filePath: "/tmp/local.webm",
+            index: 0,
+            startMs: 0,
+            track: "microphone",
+          },
+        ],
+        languageHint: null,
+        model: "gpt-4o-transcribe-diarize",
+        region: "openai-default",
+      }),
+    ).rejects.toEqual(expect.any(MeetingProviderQuotaError));
+  });
+
   it("maps provider segments onto local and remote canonical turns with chunk offsets", async () => {
     const fetch = vi
       .fn<typeof globalThis.fetch>()

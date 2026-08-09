@@ -158,6 +158,49 @@ describe("MeetingCapture", () => {
     expect(afterRestart.read().recoverable).toEqual([]);
   });
 
+  it("stops at the four-hour boundary and durably saves committed audio", async () => {
+    vi.useFakeTimers();
+    const source = new DeterministicCaptureSource();
+    const diagnostics = vi.fn();
+    const capture = createMeetingCapture({
+      diagnostics,
+      idFactory: () => "00000000-0000-4000-8000-000000000085",
+      maxDurationMs: 1000,
+      source,
+      store: new LocalMeetingRecordingStore(root),
+    });
+    const observed = latestSnapshot(capture);
+
+    await capture.start();
+    await source.fragment("microphone", 0, "mic-committed");
+    await source.fragment("system", 0, "system-committed");
+    await vi.advanceTimersByTimeAsync(1001);
+    await waitFor(observed.read, (snapshot) => snapshot.phase === "saved-local");
+
+    expect(observed.read()).toMatchObject({
+      active: null,
+      saved: {
+        captureId: "00000000-0000-4000-8000-000000000085",
+        tracks: {
+          microphone: { committedThroughMs: 15_000, fragmentCount: 1 },
+          system: { committedThroughMs: 15_000, fragmentCount: 1 },
+        },
+      },
+    });
+    expect(diagnostics).toHaveBeenCalledWith({
+      committedGapMs: 0,
+      name: "meeting.capture.saved",
+      spoolBytes: 29,
+    });
+    expect(JSON.stringify(diagnostics.mock.calls)).not.toContain("00000000-0000-4000");
+    await expect(new LocalMeetingRecordingStore(root).recover()).resolves.toEqual([
+      expect.objectContaining({
+        captureId: "00000000-0000-4000-8000-000000000085",
+        status: "saved-local",
+      }),
+    ]);
+  });
+
   it("saves ordered MediaRecorder streams idempotently and can explicitly discard the pending save", async () => {
     // MediaRecorder's first WebM timeslice carries the EBML header while later
     // timeslices commonly begin with a Cluster and are not standalone files.

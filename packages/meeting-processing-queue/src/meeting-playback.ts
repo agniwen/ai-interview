@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Queue, Worker } from "bullmq";
-import type { ConnectionOptions, JobsOptions } from "bullmq";
+import type { ConnectionOptions, JobsOptions, JobType } from "bullmq";
 import { z } from "zod";
 
 export const MEETING_PLAYBACK_QUEUE_NAME = "meeting-playback";
@@ -15,6 +15,10 @@ export type MeetingPlaybackJobData = z.infer<typeof meetingPlaybackJobSchema>;
 export type MeetingPlaybackJobProcessor = (payload: MeetingPlaybackJobData) => Promise<void>;
 
 let queue: Queue<MeetingPlaybackJobData> | null = null;
+
+interface MeetingQueueStatsPort {
+  getJobCounts: (...types: JobType[]) => Promise<Record<string, number>>;
+}
 
 function redisUrl(env: NodeJS.ProcessEnv = process.env): string | null {
   return env.REDIS_URL?.trim() || null;
@@ -95,6 +99,20 @@ export function getMeetingPlaybackQueue(): Queue<MeetingPlaybackJobData> {
   return queue;
 }
 
+export async function getMeetingPlaybackQueueStats(
+  currentQueue: MeetingQueueStatsPort = getMeetingPlaybackQueue(),
+  env: NodeJS.ProcessEnv = process.env,
+) {
+  const counts = await currentQueue.getJobCounts("waiting", "active", "delayed", "failed");
+  return {
+    active: counts.active ?? 0,
+    concurrency: resolveMeetingPlaybackWorkerConcurrency(env),
+    delayed: counts.delayed ?? 0,
+    failed: counts.failed ?? 0,
+    waiting: counts.waiting ?? 0,
+  };
+}
+
 export async function enqueueMeetingPlaybackJobs(jobs: MeetingPlaybackJobData[]): Promise<void> {
   if (jobs.length === 0 || !isMeetingProcessingQueueConfigured()) {
     return;
@@ -144,7 +162,8 @@ export function createMeetingPlaybackWorker(
   });
   worker.on("failed", (job, error) => {
     console.error("[meeting-playback-worker] job failed", {
-      error,
+      attempt: job?.attemptsMade,
+      errorName: error.name,
       jobId: job?.id,
       meetingId: job?.data.meetingId,
     });

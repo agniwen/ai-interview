@@ -323,7 +323,9 @@ export function registerMeetingCaptureMediaSession(): void {
           video: request.videoRequested ? source : undefined,
         });
       } catch (error) {
-        console.error("[meeting-capture] display-media grant failed", error);
+        console.error("[meeting-capture] display-media grant failed", {
+          errorName: error instanceof Error ? error.name : "UnknownError",
+        });
         callback({});
       }
     },

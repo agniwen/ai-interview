@@ -3,6 +3,7 @@ import {
   buildMeetingTranscriptionJobId,
   MEETING_TRANSCRIPTION_PIPELINE_VERSION,
   meetingTranscriptionJobSchema,
+  getMeetingTranscriptionQueueStats,
   reconcileMeetingTranscriptionJob,
   resolveMeetingTranscriptionWorkerConcurrency,
 } from "./meeting-transcription";
@@ -42,6 +43,20 @@ describe("Meeting transcription queue", () => {
 
   it("defaults final transcription concurrency to the agreed capacity", () => {
     expect(resolveMeetingTranscriptionWorkerConcurrency({})).toBe(20);
+  });
+
+  it("reports queue depth separately from final transcription concurrency", async () => {
+    const currentQueue = {
+      getJobCounts: vi.fn(() => Promise.resolve({ active: 7, delayed: 3, failed: 2, waiting: 11 })),
+    };
+
+    await expect(getMeetingTranscriptionQueueStats(currentQueue, {})).resolves.toEqual({
+      active: 7,
+      concurrency: 20,
+      delayed: 3,
+      failed: 2,
+      waiting: 11,
+    });
   });
 
   it("replaces a retained failed job during reconciliation", async () => {

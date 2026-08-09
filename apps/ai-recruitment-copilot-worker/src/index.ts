@@ -137,7 +137,7 @@ async function recoverIncompleteMeetingIntelligenceJobs(): Promise<void> {
       await requestAutomaticMeetingIntelligence(meeting);
     } catch (error) {
       console.error("[meeting-intelligence-worker] failed to recover missing meeting", {
-        error,
+        errorName: error instanceof Error ? error.name : "UnknownError",
         meetingId: meeting.meetingId,
         organizationId: meeting.organizationId,
       });
@@ -180,7 +180,9 @@ async function reconcileMeetingIntelligenceJobs(): Promise<void> {
   try {
     await recoverIncompleteMeetingIntelligenceJobs();
   } catch (error) {
-    console.error("[meeting-intelligence-worker] periodic recovery failed", { error });
+    console.error("[meeting-intelligence-worker] periodic recovery failed", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
   } finally {
     meetingIntelligenceRecoveryRunning = false;
   }
@@ -210,7 +212,9 @@ async function reconcileMeetingPlaybackJobs(): Promise<void> {
   try {
     await recoverIncompleteMeetingPlaybackJobs();
   } catch (error) {
-    console.error("[meeting-playback-worker] periodic recovery failed", { error });
+    console.error("[meeting-playback-worker] periodic recovery failed", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
   } finally {
     meetingPlaybackRecoveryRunning = false;
   }
@@ -240,7 +244,9 @@ async function reconcileMeetingTranscriptionJobs(): Promise<void> {
   try {
     await recoverIncompleteMeetingTranscriptionJobs();
   } catch (error) {
-    console.error("[meeting-transcription-worker] periodic recovery failed", { error });
+    console.error("[meeting-transcription-worker] periodic recovery failed", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
   } finally {
     meetingTranscriptionRecoveryRunning = false;
   }
@@ -258,7 +264,7 @@ async function main() {
     if (error.code === "EADDRINUSE") {
       console.error(`[worker] ${hostname}:${port} is already in use.`);
     } else {
-      console.error("[worker] server error:", error);
+      console.error("[worker] server error", { errorName: error.name });
     }
     process.exit(1);
   });
@@ -422,7 +428,9 @@ async function main() {
         }
         process.exit(0);
       } catch (error) {
-        console.error(`[worker] failed to shut down after ${signal}:`, error);
+        console.error(`[worker] failed to shut down after ${signal}`, {
+          errorName: error instanceof Error ? error.name : "UnknownError",
+        });
         process.exit(1);
       }
     })();
@@ -435,6 +443,8 @@ async function main() {
 try {
   await main();
 } catch (error) {
-  console.error(error);
+  console.error("[worker] fatal startup failure", {
+    errorName: error instanceof Error ? error.name : "UnknownError",
+  });
   process.exit(1);
 }

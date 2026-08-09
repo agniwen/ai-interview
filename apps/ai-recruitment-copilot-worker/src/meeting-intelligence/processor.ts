@@ -160,7 +160,7 @@ export async function runMeetingIntelligenceProcessing(
       });
     } catch (markFailedError) {
       console.error("[meeting-intelligence-worker] failed to persist processing failure", {
-        error: markFailedError,
+        errorName: markFailedError instanceof Error ? markFailedError.name : "UnknownError",
         processingRunId: input.processingRunId,
       });
     }

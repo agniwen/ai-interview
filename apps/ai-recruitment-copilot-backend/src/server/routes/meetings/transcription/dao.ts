@@ -22,6 +22,14 @@ import type { FinalTranscriptionAudioChunk } from "./provider";
 import { findMeetingTranscriptionProviderCandidate } from "./provider-registry";
 
 const PUBLIC_TRANSCRIPTION_FAILURE_MESSAGE = "最终会议转录失败，请稍后重试。";
+const PUBLIC_TRANSCRIPTION_QUOTA_MESSAGE =
+  "最终会议转录因 provider 配额不足失败，录音已保留，请稍后重试。";
+
+function publicTranscriptionFailure(errorCode: "provider-error" | "provider-quota"): string {
+  return errorCode === "provider-quota"
+    ? PUBLIC_TRANSCRIPTION_QUOTA_MESSAGE
+    : PUBLIC_TRANSCRIPTION_FAILURE_MESSAGE;
+}
 
 function policyAllows(
   policy: typeof meetingTranscriptionPolicy.$inferSelect | null | undefined,
@@ -530,6 +538,7 @@ export async function claimMeetingTranscriptionRun(
 
 export async function markMeetingTranscriptionFailed(
   input: MeetingTranscriptionJobData & {
+    errorCode: "provider-error" | "provider-quota";
     errorMessage: string;
     processingRunId: string;
     terminal: boolean;
@@ -539,7 +548,7 @@ export async function markMeetingTranscriptionFailed(
     const [updated] = await tx
       .update(meetingSession)
       .set({
-        transcriptionError: input.terminal ? PUBLIC_TRANSCRIPTION_FAILURE_MESSAGE : null,
+        transcriptionError: input.terminal ? publicTranscriptionFailure(input.errorCode) : null,
         transcriptionRunId: null,
         transcriptionStatus: input.terminal ? "failed" : "processing",
       })
@@ -557,7 +566,7 @@ export async function markMeetingTranscriptionFailed(
     await tx
       .update(meetingProcessingRun)
       .set({
-        errorCode: "provider-error",
+        errorCode: input.errorCode,
         errorMessage: input.errorMessage.slice(0, 1000),
         finishedAt: new Date(),
         status: "failed",

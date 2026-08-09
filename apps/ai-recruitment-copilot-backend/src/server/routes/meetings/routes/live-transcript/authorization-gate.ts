@@ -12,7 +12,6 @@ interface AuthorizationIdentity {
 
 interface AuthorizationGateOptions {
   maxGrantsPerCaptureTrack?: number;
-  maxGrantsPerOrganization?: number;
   maxGrantsPerUser?: number;
   now?: () => number;
   windowMs?: number;
@@ -26,16 +25,24 @@ interface RateWindow {
 const DEFAULT_WINDOW_MS = 60_000;
 const DEFAULT_MAX_GRANTS_PER_CAPTURE_TRACK = 10;
 const DEFAULT_MAX_GRANTS_PER_USER = 20;
-const DEFAULT_MAX_GRANTS_PER_ORGANIZATION = 100;
 
 export class LiveTranscriptAuthorizationRateLimitError extends Error {
   readonly retryAfterSeconds: number;
+  readonly scope: "capture-track" | "user";
 
-  constructor(retryAfterSeconds: number) {
+  constructor(retryAfterSeconds: number, scope: "capture-track" | "user" = "user") {
     super("Live transcript authorization rate limit exceeded");
     this.name = "LiveTranscriptAuthorizationRateLimitError";
     this.retryAfterSeconds = retryAfterSeconds;
+    this.scope = scope;
   }
+}
+
+export function resolveMeetingLiveTranscriptConcurrency(
+  env: NodeJS.ProcessEnv = process.env,
+): number {
+  const parsed = Number.parseInt(env.MEETING_LIVE_TRANSCRIPT_CONCURRENCY || "100", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 100;
 }
 
 function activeGrantKey(input: AuthorizationIdentity): string {
@@ -44,8 +51,10 @@ function activeGrantKey(input: AuthorizationIdentity): string {
 
 export function createLiveTranscriptAuthorizationGate(options: AuthorizationGateOptions = {}) {
   const captureTrackWindows = new Map<string, RateWindow>();
-  const inFlightGrants = new Map<string, Promise<MeetingLiveTranscriptAuthorization>>();
-  const organizationWindows = new Map<string, RateWindow>();
+  const inFlightGrants = new Map<
+    string,
+    Promise<MeetingLiveTranscriptAuthorization | "capacity">
+  >();
   const userWindows = new Map<string, RateWindow>();
   const now = options.now ?? Date.now;
   const windowMs = options.windowMs ?? DEFAULT_WINDOW_MS;
@@ -60,10 +69,16 @@ export function createLiveTranscriptAuthorizationGate(options: AuthorizationGate
     return next;
   };
 
-  const assertWithinLimit = (window: RateWindow, limit: number, timestamp: number) => {
+  const assertWithinLimit = (
+    window: RateWindow,
+    limit: number,
+    timestamp: number,
+    scope: LiveTranscriptAuthorizationRateLimitError["scope"],
+  ) => {
     if (window.count >= limit) {
       throw new LiveTranscriptAuthorizationRateLimitError(
         Math.max(1, Math.ceil((window.resetsAt - timestamp) / 1000)),
+        scope,
       );
     }
   };
@@ -71,10 +86,10 @@ export function createLiveTranscriptAuthorizationGate(options: AuthorizationGate
   return {
     issue: async (
       input: AuthorizationIdentity,
-      mint: () => Promise<MeetingLiveTranscriptAuthorization>,
-    ): Promise<MeetingLiveTranscriptAuthorization> => {
+      mint: () => Promise<MeetingLiveTranscriptAuthorization | "capacity">,
+    ): Promise<MeetingLiveTranscriptAuthorization | "capacity"> => {
       const timestamp = now();
-      for (const windows of [captureTrackWindows, organizationWindows, userWindows]) {
+      for (const windows of [captureTrackWindows, userWindows]) {
         for (const [windowKey, window] of windows) {
           if (window.resetsAt <= timestamp) {
             windows.delete(windowKey);
@@ -93,29 +108,20 @@ export function createLiveTranscriptAuthorizationGate(options: AuthorizationGate
         `${input.organizationId}:${input.userId}`,
         timestamp,
       );
-      const organizationWindow = currentWindow(
-        organizationWindows,
-        input.organizationId,
-        timestamp,
-      );
       assertWithinLimit(
         captureTrackWindow,
         options.maxGrantsPerCaptureTrack ?? DEFAULT_MAX_GRANTS_PER_CAPTURE_TRACK,
         timestamp,
+        "capture-track",
       );
       assertWithinLimit(
         userWindow,
         options.maxGrantsPerUser ?? DEFAULT_MAX_GRANTS_PER_USER,
         timestamp,
-      );
-      assertWithinLimit(
-        organizationWindow,
-        options.maxGrantsPerOrganization ?? DEFAULT_MAX_GRANTS_PER_ORGANIZATION,
-        timestamp,
+        "user",
       );
       captureTrackWindow.count += 1;
       userWindow.count += 1;
-      organizationWindow.count += 1;
 
       const grant = mint();
       inFlightGrants.set(key, grant);

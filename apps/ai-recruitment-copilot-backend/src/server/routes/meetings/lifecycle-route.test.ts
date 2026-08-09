@@ -76,4 +76,16 @@ describe("Meeting lifecycle routes", () => {
       organizationId: "org-84",
     });
   });
+
+  it("keeps an uploading meeting in trash when restore capacity is full", async () => {
+    mocks.restoreSavedMeeting.mockResolvedValue({ state: "capacity" });
+    const response = await makeClient().meetings[":id"].restore.$post({
+      param: { id: MEETING_ID },
+    });
+
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "meeting-upload-capacity-exhausted",
+    });
+  });
 });

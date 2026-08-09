@@ -236,10 +236,9 @@ export async function runMeetingPlaybackProcessing(
         });
       } catch (error) {
         console.error("[meeting-playback-worker] failed to retire published cleanup key", {
-          error,
+          errorName: error instanceof Error ? error.name : "UnknownError",
           meetingId: input.meetingId,
           processingRunId,
-          storageKey,
         });
       }
       try {
@@ -249,7 +248,7 @@ export async function runMeetingPlaybackProcessing(
         });
       } catch (error) {
         console.error("[meeting-playback-worker] immediate transcription enqueue failed", {
-          error,
+          errorName: error instanceof Error ? error.name : "UnknownError",
           meetingId: input.meetingId,
         });
       }
@@ -263,7 +262,7 @@ export async function runMeetingPlaybackProcessing(
       cleanupPlayback = await dependencies.markFailed({ ...input, errorMessage, processingRunId });
     } catch (markFailedError) {
       console.error("[meeting-playback-worker] failed to persist processing failure", {
-        error: markFailedError,
+        errorName: markFailedError instanceof Error ? markFailedError.name : "UnknownError",
         meetingId: input.meetingId,
         processingRunId,
       });
@@ -280,10 +279,9 @@ export async function runMeetingPlaybackProcessing(
         });
       } catch (error) {
         console.error("[meeting-playback-worker] failed to remove unpublished playback", {
-          error,
+          errorName: error instanceof Error ? error.name : "UnknownError",
           meetingId: input.meetingId,
           processingRunId,
-          storageKey: playbackStorageKey,
         });
       }
     }

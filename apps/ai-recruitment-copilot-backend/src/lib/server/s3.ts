@@ -225,6 +225,7 @@ export async function createMeetingRecordingMultipartUpload(input: {
       Key: input.storageKey,
       Metadata: { sha256: input.sha256 },
     }),
+    { abortSignal: AbortSignal.timeout(MEETING_RECORDING_CLEANUP_TIMEOUT_MS) },
   );
   if (!result.UploadId) {
     throw new Error("Recording R2 未返回 multipart upload id");
@@ -280,6 +281,7 @@ export async function listMeetingRecordingUploadParts(input: {
         PartNumberMarker: partNumberMarker,
         UploadId: input.uploadId,
       }),
+      { abortSignal: AbortSignal.timeout(MEETING_RECORDING_CLEANUP_TIMEOUT_MS) },
     );
     for (const part of result.Parts ?? []) {
       if (

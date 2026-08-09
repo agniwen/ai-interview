@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildMeetingPlaybackQueuePrefix,
   buildMeetingPlaybackJobId,
+  getMeetingPlaybackQueueStats,
   meetingPlaybackJobSchema,
   resolveMeetingPlaybackWorkerConcurrency,
 } from "./meeting-playback";
@@ -37,5 +38,19 @@ describe("Meeting playback queue contract", () => {
     expect(buildMeetingPlaybackQueuePrefix({ MEETING_PLAYBACK_QUEUE_PREFIX: "meeting-prod" })).toBe(
       "meeting-prod",
     );
+  });
+
+  it("reports media-finalization depth with its own concurrency", async () => {
+    const currentQueue = {
+      getJobCounts: () => Promise.resolve({ active: 2, delayed: 1, failed: 4, waiting: 8 }),
+    };
+
+    await expect(getMeetingPlaybackQueueStats(currentQueue, {})).resolves.toEqual({
+      active: 2,
+      concurrency: 2,
+      delayed: 1,
+      failed: 4,
+      waiting: 8,
+    });
   });
 });

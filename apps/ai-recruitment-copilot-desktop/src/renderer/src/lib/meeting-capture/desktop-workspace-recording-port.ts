@@ -10,6 +10,8 @@ import { apiUrl } from "@/lib/client/rpc";
 import { apiJson } from "@/lib/client/rpc-fetch";
 import { isApiError } from "@/lib/client/api-error";
 
+const UPLOAD_HEARTBEAT_INTERVAL_MS = 30 * 60 * 1000;
+
 function isPermanentPurgeConflict(error: unknown): boolean {
   return Boolean(
     isApiError(error) &&
@@ -97,6 +99,24 @@ export class DesktopWorkspaceRecordingPort implements WorkspaceRecordingPort {
       return { recoveryCopyDeleteAfter: plan.recoveryCopyDeleteAfter };
     }
     input.report("uploading");
+    const heartbeatUrl = `${meetingsUrl}/${encodeURIComponent(input.captureId)}/upload-heartbeat`;
+    let heartbeatRunning = false;
+    const heartbeat = async (): Promise<void> => {
+      if (heartbeatRunning) {
+        return;
+      }
+      heartbeatRunning = true;
+      try {
+        await apiJson<null>(heartbeatUrl, "续期录音上传租约失败", { method: "POST" });
+      } catch (error) {
+        console.warn("[meeting-capture] direct-upload heartbeat failed", {
+          errorName: error instanceof Error ? error.name : "UnknownError",
+        });
+      } finally {
+        heartbeatRunning = false;
+      }
+    };
+    const heartbeatTimer = setInterval(() => void heartbeat(), UPLOAD_HEARTBEAT_INTERVAL_MS);
     const upload = usesMultipart
       ? window.api.meetingCapture.uploadMultipart(
           input.captureId,
@@ -106,7 +126,11 @@ export class DesktopWorkspaceRecordingPort implements WorkspaceRecordingPort {
           input.captureId,
           (plan as SmallSavedMeetingResponse).uploads,
         );
-    await upload;
+    try {
+      await upload;
+    } finally {
+      clearInterval(heartbeatTimer);
+    }
     input.report("verifying");
     const completed = await apiJson<{
       meetingId: string;

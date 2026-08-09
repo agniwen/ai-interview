@@ -1,5 +1,6 @@
+/* oxlint-disable max-lines -- lifecycle integration scenarios share one expensive database fixture. */
 import { and, eq, inArray } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   meetingAccessGrant,
@@ -23,6 +24,7 @@ import {
   user,
 } from "@arc/db-schema/schema";
 import { createOrLoadMeetingSession, loadMeetingSessionForAccess } from "./dao";
+import { withDatabaseAdvisoryTestLock } from "../../../test-utils/database-advisory-lock";
 import { listMeetingQuestionThreads } from "./answers/dao";
 import { publishMeetingTranscript } from "./transcription/dao";
 import {
@@ -262,7 +264,86 @@ describe("Meeting lifecycle DAO", () => {
       .where(eq(meetingSession.id, MEETING_ID));
   }, 30_000);
 
-  afterEach(clean, 30_000);
+  afterEach(async () => {
+    vi.unstubAllEnvs();
+    await clean();
+  }, 30_000);
+
+  it("re-admits an uploading meeting before restoring it from trash", async () => {
+    await withDatabaseAdvisoryTestLock("meeting-direct-capacity-integration", async () => {
+      const now = new Date("2026-08-09T09:00:00.000Z");
+      const blockerId = `meeting_lifecycle_blocker_${SUFFIX}`;
+      await db
+        .update(meetingSession)
+        .set({
+          status: "uploading",
+          uploadLeaseExpiresAt: new Date(now.getTime() + 60_000),
+        })
+        .where(eq(meetingSession.id, MEETING_ID));
+      await trashMeetingSession({
+        actorId: OWNER_ID,
+        meetingId: MEETING_ID,
+        now,
+        organizationId: ORGANIZATION_ID,
+      });
+      await expect(
+        db.query.meetingSession.findFirst({ where: { id: MEETING_ID } }),
+      ).resolves.toMatchObject({
+        status: "trashed",
+        uploadLeaseExpiresAt: expect.any(Date),
+      });
+      await db
+        .update(meetingSession)
+        .set({ uploadLeaseExpiresAt: new Date(now.getTime() - 1000) })
+        .where(eq(meetingSession.id, MEETING_ID));
+      await db.insert(meetingSession).values({
+        id: blockerId,
+        manifestSha256: "b".repeat(64),
+        organizationId: ORGANIZATION_ID,
+        ownerId: OWNER_ID,
+        savedAt: now,
+        startedAt: now,
+        status: "uploading",
+        title: "Capacity blocker",
+        uploadLeaseExpiresAt: new Date(now.getTime() + 60_000),
+      });
+      vi.stubEnv("MEETING_DIRECT_UPLOAD_CONCURRENCY", "1");
+
+      await expect(
+        restoreMeetingSession({
+          actorId: OWNER_ID,
+          meetingId: MEETING_ID,
+          now,
+          organizationId: ORGANIZATION_ID,
+        }),
+      ).resolves.toEqual({ state: "capacity" });
+      await expect(
+        db.query.meetingSession.findFirst({ where: { id: MEETING_ID } }),
+      ).resolves.toMatchObject({
+        status: "trashed",
+        uploadLeaseExpiresAt: expect.any(Date),
+      });
+
+      await db
+        .update(meetingSession)
+        .set({ status: "workspace-verified", uploadLeaseExpiresAt: null })
+        .where(eq(meetingSession.id, blockerId));
+      vi.stubEnv("MEETING_DIRECT_UPLOAD_CONCURRENCY", "1000000");
+      await expect(
+        restoreMeetingSession({
+          actorId: OWNER_ID,
+          meetingId: MEETING_ID,
+          now,
+          organizationId: ORGANIZATION_ID,
+        }),
+      ).resolves.toEqual({ state: "restored" });
+      await expect(
+        db.query.meetingSession.findFirst({ where: { id: MEETING_ID } }),
+      ).resolves.toMatchObject({ status: "uploading" });
+      const restored = await db.query.meetingSession.findFirst({ where: { id: MEETING_ID } });
+      expect(restored?.uploadLeaseExpiresAt?.getTime()).toBeGreaterThan(now.getTime());
+    });
+  });
 
   it("atomically hides a meeting, unlinks recruiting context and restores before the deadline", async () => {
     const now = new Date("2026-08-09T09:00:00.000Z");
@@ -446,11 +527,12 @@ describe("Meeting lifecycle DAO", () => {
       errorCode: "simulated-finalize-failure",
       executionToken: providerClaim?.executionToken ?? "missing",
       meetingId: MEETING_ID,
+      now: new Date(now.getTime() + 124 * 60 * 1000),
       organizationId: ORGANIZATION_ID,
     });
     const resumedClaim = await claimMeetingPurge({
       meetingId: MEETING_ID,
-      now: new Date(now.getTime() + 125 * 60 * 1000),
+      now: new Date(now.getTime() + 186 * 60 * 1000),
       organizationId: ORGANIZATION_ID,
     });
     expect(resumedClaim?.providerArtifacts).toEqual([
@@ -480,11 +562,12 @@ describe("Meeting lifecycle DAO", () => {
       errorCode: "simulated-post-provider-failure",
       executionToken: resumedClaim?.executionToken ?? "missing",
       meetingId: MEETING_ID,
+      now: new Date(now.getTime() + 186 * 60 * 1000),
       organizationId: ORGANIZATION_ID,
     });
     const finalClaim = await claimMeetingPurge({
       meetingId: MEETING_ID,
-      now: new Date(now.getTime() + 126 * 60 * 1000),
+      now: new Date(now.getTime() + 248 * 60 * 1000),
       organizationId: ORGANIZATION_ID,
     });
     expect(finalClaim?.providerArtifacts).toEqual([]);

@@ -10,26 +10,13 @@ import {
   member,
   user,
 } from "@arc/db-schema/schema";
-import type {
-  CreateMultipartSavedMeetingInput,
-  CreateSmallSavedMeetingInput,
-  MeetingGrantRole,
-  UpdateMeetingShareInput,
-} from "@arc/shared/meeting-recording";
-import { rebuildMeetingSearchProjection } from "./routes/search/dao";
+import type { MeetingGrantRole, UpdateMeetingShareInput } from "@arc/shared/meeting-recording";
 
-export type NewMeetingAsset = (
-  | (CreateSmallSavedMeetingInput["assets"][number] & {
-      multipartParts?: null;
-      uploadMode?: "single";
-    })
-  | (CreateMultipartSavedMeetingInput["assets"][number] & {
-      multipartParts: CreateMultipartSavedMeetingInput["assets"][number]["parts"];
-      uploadMode: "multipart";
-    })
-) & {
-  storageKey: string;
-};
+export {
+  createOrLoadMeetingSession,
+  renewMeetingDirectUploadLease,
+  resolveMeetingDirectUploadConcurrency,
+} from "./capacity-dao";
 
 const LIBRARY_MEETING_STATUSES = [
   "workspace-verified",
@@ -37,11 +24,6 @@ const LIBRARY_MEETING_STATUSES = [
   "processing-failed",
   "ready",
 ] as const;
-
-function defaultMeetingTitle(startedAt: string): string {
-  return `录制记录-${startedAt.slice(2, 16).replaceAll(/[-T:]/g, "")}`;
-}
-
 export function loadMeetingSession(id: string) {
   return db.query.meetingSession.findFirst({
     where: { id },
@@ -64,69 +46,6 @@ export async function meetingAcceptsUploadAuthorization(input: {
     },
   });
   return Boolean(meeting);
-}
-
-export async function createOrLoadMeetingSession(input: {
-  assets: NewMeetingAsset[];
-  meeting: Omit<CreateSmallSavedMeetingInput, "assets" | "id"> & {
-    id: string;
-    organizationId: string;
-    ownerId: string;
-  };
-}) {
-  const created = await db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.meeting.id}))`);
-    const tombstone = await tx.query.meetingPurgeTombstone.findFirst({
-      columns: { meetingId: true },
-      where: { meetingId: input.meeting.id },
-    });
-    if (tombstone) {
-      return "purged" as const;
-    }
-    const inserted = await tx
-      .insert(meetingSession)
-      .values({
-        id: input.meeting.id,
-        manifestSha256: input.meeting.manifestSha256,
-        organizationId: input.meeting.organizationId,
-        ownerId: input.meeting.ownerId,
-        savedAt: new Date(input.meeting.savedAt),
-        startedAt: new Date(input.meeting.startedAt),
-        status: "uploading",
-        title: defaultMeetingTitle(input.meeting.startedAt),
-      })
-      .onConflictDoNothing({ target: meetingSession.id })
-      .returning({ id: meetingSession.id });
-    if (inserted.length === 0) {
-      return false as const;
-    }
-    await tx.insert(meetingRecordingAsset).values(
-      input.assets.map((asset) => ({
-        contentType: asset.contentType,
-        durationMs: asset.durationMs,
-        fragmentCount: asset.fragmentCount,
-        id: `${input.meeting.id}:${asset.track}`,
-        meetingId: input.meeting.id,
-        multipartParts: asset.multipartParts ?? null,
-        sha256: asset.sha256,
-        sizeBytes: asset.sizeBytes,
-        status: "uploading",
-        storageKey: asset.storageKey,
-        track: asset.track,
-        uploadMode: asset.uploadMode ?? "single",
-      })),
-    );
-    await rebuildMeetingSearchProjection(tx, {
-      meetingId: input.meeting.id,
-      organizationId: input.meeting.organizationId,
-    });
-    return true as const;
-  });
-  return {
-    blockedByPurge: created === "purged",
-    created: created === true,
-    meeting: created === "purged" ? undefined : await loadMeetingSession(input.meeting.id),
-  };
 }
 
 export async function isMeetingPurgeTombstoned(meetingId: string): Promise<boolean> {
@@ -171,8 +90,9 @@ export async function markMeetingSessionVerified(input: {
       .set({
         processingError: null,
         processingRunId: null,
-        recoveryCopyDeleteAfter: sql`coalesce(${meetingSession.recoveryCopyDeleteAfter}, ${recoveryCopyDeleteAfter})`,
+        recoveryCopyDeleteAfter: sql`coalesce(${meetingSession.recoveryCopyDeleteAfter}, ${recoveryCopyDeleteAfter.toISOString()}::timestamptz)`,
         status: "processing",
+        uploadLeaseExpiresAt: null,
         verifiedAt,
       })
       .where(

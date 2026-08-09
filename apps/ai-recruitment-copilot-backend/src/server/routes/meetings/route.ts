@@ -11,6 +11,7 @@ import {
   createMultipartSavedMeeting,
   createSmallSavedMeeting,
   getSavedMeetingDetail,
+  heartbeatSavedMeetingUpload,
   listSavedMeetings,
 } from "./service";
 import { permanentlyPurgeSavedMeeting } from "./lifecycle-service";
@@ -65,7 +66,10 @@ export const meetingsRouter = factory
         ownerId: user.id,
       });
       if ("conflict" in result) {
-        return c.json({ code: result.code, error: result.message }, 409);
+        return c.json(
+          { code: result.code, error: result.message },
+          result.code === "meeting-upload-capacity-exhausted" ? 429 : 409,
+        );
       }
       return c.json(
         {
@@ -92,7 +96,10 @@ export const meetingsRouter = factory
         ownerId: user.id,
       });
       if ("conflict" in result) {
-        return c.json({ code: result.code, error: result.message }, 409);
+        return c.json(
+          { code: result.code, error: result.message },
+          result.code === "meeting-upload-capacity-exhausted" ? 429 : 409,
+        );
       }
       return c.json(
         {
@@ -105,6 +112,21 @@ export const meetingsRouter = factory
       );
     },
   )
+  .post("/:id/upload-heartbeat", async (c) => {
+    const { activeOrg, user } = c.var;
+    if (!(activeOrg && user)) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const renewed = await heartbeatSavedMeetingUpload({
+      meetingId: c.req.param("id"),
+      organizationId: activeOrg.id,
+      ownerId: user.id,
+    });
+    if (!renewed) {
+      return c.json({ error: "录音上传租约已失效，本地 Meeting Recording 已保留" }, 409);
+    }
+    return c.body(null, 204);
+  })
   .post(
     "/:id/complete",
     zValidator("json", completeSmallSavedMeetingSchema, jsonValidatorError("完成请求无效")),

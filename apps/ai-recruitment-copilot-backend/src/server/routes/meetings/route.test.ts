@@ -26,12 +26,14 @@ const mocks = vi.hoisted(() => ({
   getSavedMeetingTranscriptHistory: vi.fn(),
   getSavedMeetingTranscriptRevision: vi.fn(),
   getWorkspaceMeetingTranscriptionPolicy: vi.fn(),
+  heartbeatWorkspaceMeetingLiveTranscript: vi.fn(),
   listSavedMeetingQuestionThreads: vi.fn(),
   listSavedMeetings: vi.fn(),
   listTrashedSavedMeetings: vi.fn(),
   permanentlyPurgeSavedMeeting: vi.fn(),
   reassignSavedMeetingOwner: vi.fn(),
   regenerateSavedMeetingIntelligence: vi.fn(),
+  releaseWorkspaceMeetingLiveTranscript: vi.fn(),
   removeMeetingNote: vi.fn(),
   restoreSavedMeeting: vi.fn(),
   retryMeetingPlayback: vi.fn(),
@@ -157,6 +159,21 @@ describe("Meeting Buddy small Saved Meeting control plane", () => {
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({
       error: "Meeting Session 已绑定另一份本地录音清单",
+    });
+  });
+
+  it("returns an explicit retryable state when direct-upload capacity is full", async () => {
+    mocks.createSmallSavedMeeting.mockResolvedValue({
+      code: "meeting-upload-capacity-exhausted",
+      conflict: true,
+      message: "录音上传容量已满，本地 Meeting Recording 已保留",
+    });
+
+    const response = await client.meetings.$post({ json: createInput });
+
+    expect(await response.json()).toEqual({
+      code: "meeting-upload-capacity-exhausted",
+      error: "录音上传容量已满，本地 Meeting Recording 已保留",
     });
   });
 
@@ -604,6 +621,23 @@ describe("Meeting Buddy small Saved Meeting control plane", () => {
 
     expect(response.status).toBe(429);
     expect(response.headers.get("retry-after")).toBe("42");
+  });
+
+  it("returns an explicit local-recording-safe state when live capacity is full", async () => {
+    mocks.createWorkspaceMeetingLiveTranscriptAuthorization.mockResolvedValue("capacity");
+
+    const response = await client.meetings["live-transcript"].$post({
+      json: {
+        captureId: "00000000-0000-4000-8000-000000000077",
+        track: "microphone",
+      },
+    });
+
+    expect(response.status).toBe(429);
+    expect(await response.json()).toEqual({
+      code: "live-transcript-capacity-exhausted",
+      error: "实时字幕容量已满，Meeting Recording 仍在本地继续",
+    });
   });
 
   it("updates provider policy through an administrator-only route", async () => {

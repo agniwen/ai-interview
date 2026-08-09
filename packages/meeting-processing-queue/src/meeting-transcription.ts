@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Queue, Worker } from "bullmq";
-import type { ConnectionOptions, JobsOptions } from "bullmq";
+import type { ConnectionOptions, JobsOptions, JobType } from "bullmq";
 import { z } from "zod";
 
 export const MEETING_TRANSCRIPTION_QUEUE_NAME = "meeting-transcription";
@@ -35,6 +35,10 @@ interface MeetingTranscriptionQueuePort {
       }
     | undefined
   >;
+}
+
+interface MeetingQueueStatsPort {
+  getJobCounts: (...types: JobType[]) => Promise<Record<string, number>>;
 }
 
 function redisUrl(env: NodeJS.ProcessEnv = process.env): string | null {
@@ -128,6 +132,20 @@ export function getMeetingTranscriptionQueue(): Queue<MeetingTranscriptionJobDat
   return queue;
 }
 
+export async function getMeetingTranscriptionQueueStats(
+  currentQueue: MeetingQueueStatsPort = getMeetingTranscriptionQueue(),
+  env: NodeJS.ProcessEnv = process.env,
+) {
+  const counts = await currentQueue.getJobCounts("waiting", "active", "delayed", "failed");
+  return {
+    active: counts.active ?? 0,
+    concurrency: resolveMeetingTranscriptionWorkerConcurrency(env),
+    delayed: counts.delayed ?? 0,
+    failed: counts.failed ?? 0,
+    waiting: counts.waiting ?? 0,
+  };
+}
+
 export async function reconcileMeetingTranscriptionJob(
   currentQueue: MeetingTranscriptionQueuePort,
   data: MeetingTranscriptionJobData,
@@ -192,7 +210,8 @@ export function createMeetingTranscriptionWorker(
   });
   worker.on("failed", (job, error) => {
     console.error("[meeting-transcription-worker] job failed", {
-      error,
+      attempt: job?.attemptsMade,
+      errorName: error.name,
       jobId: job?.id,
       meetingId: job?.data.meetingId,
     });

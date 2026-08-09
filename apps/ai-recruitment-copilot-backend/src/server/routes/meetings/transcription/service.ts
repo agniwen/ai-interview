@@ -38,7 +38,9 @@ async function enqueueRecoverableTranscriptionsBestEffort(): Promise<void> {
     const jobs = await listRecoverableMeetingTranscriptionJobs();
     await enqueueMeetingTranscriptionJobs(jobs);
   } catch (error) {
-    console.error("[meeting-transcription] failed to enqueue recoverable jobs", { error });
+    console.error("[meeting-transcription] failed to enqueue recoverable jobs", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
   }
 }
 
@@ -215,7 +217,7 @@ export async function correctSavedMeetingTranscript(input: {
       });
     } catch (error) {
       console.error("[meeting-transcription] failed to request corrected intelligence", {
-        error,
+        errorName: error instanceof Error ? error.name : "UnknownError",
         meetingId: input.meetingId,
       });
     }

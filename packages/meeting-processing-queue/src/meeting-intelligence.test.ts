@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   buildMeetingIntelligenceJobId,
+  getMeetingIntelligenceQueueStats,
   meetingIntelligenceJobSchema,
   reconcileMeetingIntelligenceJob,
   resolveMeetingIntelligenceWorkerConcurrency,
@@ -18,6 +19,20 @@ describe("Meeting Intelligence queue", () => {
 
   it("defaults expensive intelligence generation to bounded concurrency", () => {
     expect(resolveMeetingIntelligenceWorkerConcurrency({})).toBe(4);
+  });
+
+  it("reports intelligence depth with its own concurrency", async () => {
+    const currentQueue = {
+      getJobCounts: () => Promise.resolve({ active: 4, delayed: 5, failed: 1, waiting: 9 }),
+    };
+
+    await expect(getMeetingIntelligenceQueueStats(currentQueue, {})).resolves.toEqual({
+      active: 4,
+      concurrency: 4,
+      delayed: 5,
+      failed: 1,
+      waiting: 9,
+    });
   });
 
   it("replaces a retained failed job during reconciliation", async () => {

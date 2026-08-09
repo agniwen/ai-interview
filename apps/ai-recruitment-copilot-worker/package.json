@@ -9,6 +9,7 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsx watch src/index.ts",
+    "load:meeting-capacity": "tsx src/scripts/meeting-capacity-load.ts",
     "start": "node dist/index.mjs",
     "test": "vitest run",
     "test:watch": "vitest",

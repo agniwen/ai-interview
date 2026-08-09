@@ -5,6 +5,7 @@ import type {
   CanonicalMeetingTranscript,
   CanonicalMeetingTranscriptTurn,
 } from "@arc/shared/meeting-transcription";
+import { MeetingProviderQuotaError } from "../provider";
 import type { FinalTranscriptionAudioChunk, MeetingTranscriptionProvider } from "../provider";
 
 const openAiDiarizedResponseSchema = z
@@ -100,6 +101,9 @@ export function createOpenAiMeetingTranscriptionProvider(
           signal: AbortSignal.timeout(dependencies.requestTimeoutMs ?? 5 * 60 * 1000),
         });
         if (!response.ok) {
+          if (response.status === 429) {
+            throw new MeetingProviderQuotaError();
+          }
           throw new Error(`OpenAI transcription failed with HTTP ${response.status}`);
         }
         const providerResponse = openAiDiarizedResponseSchema.parse(await response.json());

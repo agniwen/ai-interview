@@ -18,6 +18,11 @@ import {
 } from "@arc/db-schema/schema";
 import { MEETING_TRASH_RETENTION_MS } from "@arc/shared/meeting-recording";
 import type { MeetingPurgeJobData } from "@arc/meeting-processing-queue/meeting-purge";
+import {
+  hasMeetingDirectUploadCapacity,
+  lockMeetingDirectUploadCapacity,
+  meetingDirectUploadLeaseExpiresAt,
+} from "./capacity-dao";
 import { rebuildMeetingSearchProjection } from "./routes/search/dao";
 
 const TRASHABLE_STATUSES = [
@@ -185,9 +190,10 @@ export async function restoreMeetingSession(input: {
   meetingId: string;
   now?: Date;
   organizationId: string;
-}): Promise<{ state: "expired" | "forbidden" | "not-found" | "restored" }> {
+}): Promise<{ state: "capacity" | "expired" | "forbidden" | "not-found" | "restored" }> {
   const now = input.now ?? new Date();
   return await db.transaction(async (tx) => {
+    await lockMeetingDirectUploadCapacity(tx);
     const [meeting] = await tx
       .select({
         custodianId: meetingSession.custodianId,
@@ -215,6 +221,15 @@ export async function restoreMeetingSession(input: {
     if (!meeting.purgeAfter || meeting.purgeAfter.getTime() <= now.getTime()) {
       return { state: "expired" } as const;
     }
+    if (
+      meeting.trashedFromStatus === "uploading" &&
+      !(await hasMeetingDirectUploadCapacity(tx, {
+        excludeMeetingId: input.meetingId,
+        now,
+      }))
+    ) {
+      return { state: "capacity" } as const;
+    }
     await tx
       .update(meetingSession)
       .set({
@@ -223,6 +238,8 @@ export async function restoreMeetingSession(input: {
         status: meeting.trashedFromStatus,
         trashedAt: null,
         trashedFromStatus: null,
+        uploadLeaseExpiresAt:
+          meeting.trashedFromStatus === "uploading" ? meetingDirectUploadLeaseExpiresAt(now) : null,
       })
       .where(eq(meetingSession.id, input.meetingId));
     await rebuildMeetingSearchProjection(tx, {

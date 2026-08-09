@@ -24,5 +24,14 @@ export const meetingRestoreRouter = factory.createApp().post("/", async (c) => {
   if (result.state === "expired") {
     return c.json({ error: "Meeting Session 已超过七天恢复期限" }, 409);
   }
+  if (result.state === "capacity") {
+    return c.json(
+      {
+        code: "meeting-upload-capacity-exhausted",
+        error: "录音上传容量已满，Meeting Session 仍保留在废纸篓中",
+      },
+      429,
+    );
+  }
   return c.json(result, 200);
 });

@@ -74,6 +74,13 @@ const defaultDependencies: MeetingPurgeDependencies = {
 const STORAGE_OPERATION_CONCURRENCY = 8;
 const PROVIDER_DELETE_TIMEOUT_MS = 30_000;
 
+function purgeFailureCode(error: unknown): string {
+  if (error instanceof Error && error.message.startsWith("meeting-")) {
+    return error.message;
+  }
+  return "meeting-purge-failed";
+}
+
 async function runBounded<T>(items: T[], operation: (item: T) => Promise<void>): Promise<void> {
   for (let offset = 0; offset < items.length; offset += STORAGE_OPERATION_CONCURRENCY) {
     const results = await Promise.allSettled(
@@ -175,7 +182,7 @@ export async function runMeetingPurgeProcessing(
       storageObjectCount: claim.storageKeys.length,
     });
   } catch (error) {
-    const errorCode = error instanceof Error ? error.message : "meeting-purge-failed";
+    const errorCode = purgeFailureCode(error);
     try {
       await dependencies.release({
         ...input,

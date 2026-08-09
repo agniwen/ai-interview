@@ -378,6 +378,22 @@ export function createMeetingLiveTranscriptAuthorization(
   });
 }
 
+export function heartbeatMeetingLiveTranscript(slug: string, captureId: string): Promise<null> {
+  const path = `/api/w/${encodeURIComponent(slug)}/meetings/live-transcript/${encodeURIComponent(captureId)}/heartbeat`;
+  return apiJson<null>(apiUrl(path), "续期实时字幕失败", {
+    method: "POST",
+    signal: AbortSignal.timeout(10_000),
+  });
+}
+
+export function releaseMeetingLiveTranscript(slug: string, captureId: string): Promise<null> {
+  const path = `/api/w/${encodeURIComponent(slug)}/meetings/live-transcript/${encodeURIComponent(captureId)}`;
+  return apiJson<null>(apiUrl(path), "释放实时字幕失败", {
+    method: "DELETE",
+    signal: AbortSignal.timeout(10_000),
+  });
+}
+
 export function updateMeetingTranscriptionPolicy(
   slug: string,
   policy: UpdateMeetingTranscriptionPolicyInput,

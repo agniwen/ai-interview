@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   reassignMeetingOwner: vi.fn(),
   recordMeetingAssetMultipartUploadId: vi.fn(),
   recordMeetingAudit: vi.fn(),
+  renewMeetingDirectUploadLease: vi.fn(),
   replaceMeetingAccessGrants: vi.fn(),
   updateMeetingNote: vi.fn(),
 }));
@@ -54,6 +55,7 @@ vi.mock("./dao", () => ({
   reassignMeetingOwner: mocks.reassignMeetingOwner,
   recordMeetingAssetMultipartUploadId: mocks.recordMeetingAssetMultipartUploadId,
   recordMeetingAudit: mocks.recordMeetingAudit,
+  renewMeetingDirectUploadLease: mocks.renewMeetingDirectUploadLease,
   replaceMeetingAccessGrants: mocks.replaceMeetingAccessGrants,
 }));
 vi.mock("./routes/notes/dao", () => ({
@@ -74,6 +76,7 @@ import {
   createMultipartSavedMeeting,
   createSmallSavedMeeting,
   getSavedMeetingDetail,
+  heartbeatSavedMeetingUpload,
   listSavedMeetings,
   retryMeetingPlayback,
 } from "./service";
@@ -128,6 +131,24 @@ describe("small Saved Meeting service", () => {
     mocks.isMeetingPurgeTombstoned.mockResolvedValue(false);
     mocks.markMeetingSessionVerified.mockResolvedValue(new Date("2026-08-10T03:00:00.000Z"));
     mocks.meetingAcceptsUploadAuthorization.mockResolvedValue(true);
+    mocks.renewMeetingDirectUploadLease.mockResolvedValue(true);
+  });
+
+  it("renews an owned direct-upload lease without exposing storage instructions", async () => {
+    mocks.renewMeetingDirectUploadLease.mockResolvedValue(true);
+
+    await expect(
+      heartbeatSavedMeetingUpload({
+        meetingId: "meeting",
+        organizationId: "org",
+        ownerId: "owner",
+      }),
+    ).resolves.toBe(true);
+    expect(mocks.renewMeetingDirectUploadLease).toHaveBeenCalledWith({
+      meetingId: "meeting",
+      organizationId: "org",
+      ownerId: "owner",
+    });
   });
 
   it("does not recreate a permanently purged meeting id", async () => {
@@ -163,6 +184,44 @@ describe("small Saved Meeting service", () => {
       code: "meeting-purged",
       conflict: true,
       message: "Meeting Session 已被永久清除",
+    });
+    expect(mocks.presignMeetingRecordingPutObject).not.toHaveBeenCalled();
+  });
+
+  it("does not sign uploads when the independent direct-upload capacity is full", async () => {
+    mocks.buildMeetingRecordingAssetKey.mockResolvedValue("unused");
+    mocks.createOrLoadMeetingSession.mockResolvedValue({
+      blockedByCapacity: true,
+      blockedByPurge: false,
+      created: false,
+      meeting: undefined,
+    });
+
+    const result = await createSmallSavedMeeting({
+      input: {
+        assets: baseMeeting.assets.map(
+          ({ contentType, durationMs, fragmentCount, sha256, sizeBytes, track }) => ({
+            contentType,
+            durationMs,
+            fragmentCount,
+            sha256,
+            sizeBytes,
+            track: track as "microphone" | "system",
+          }),
+        ),
+        id: "meeting-capacity",
+        manifestSha256: MANIFEST_SHA,
+        savedAt: "2026-08-09T03:01:00.000Z",
+        startedAt: "2026-08-09T03:00:00.000Z",
+      },
+      organizationId: "org",
+      ownerId: "owner",
+    });
+
+    expect(result).toEqual({
+      code: "meeting-upload-capacity-exhausted",
+      conflict: true,
+      message: "录音上传容量已满，本地 Meeting Recording 已保留",
     });
     expect(mocks.presignMeetingRecordingPutObject).not.toHaveBeenCalled();
   });
@@ -207,6 +266,51 @@ describe("small Saved Meeting service", () => {
       message: "Meeting Session 已移入废纸篓或正在永久清除",
     });
     expect(mocks.presignMeetingRecordingPutObject).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not return newly signed uploads when final capacity admission fails", async () => {
+    mocks.buildMeetingRecordingAssetKey.mockResolvedValue("unused");
+    mocks.createOrLoadMeetingSession.mockResolvedValue({
+      blockedByCapacity: false,
+      blockedByPurge: false,
+      created: false,
+      meeting: baseMeeting,
+    });
+    mocks.presignMeetingRecordingPutObject.mockResolvedValue({
+      expiresAt: new Date("2026-08-09T03:10:00.000Z"),
+      headers: {},
+      url: "https://r2.invalid/upload",
+    });
+    mocks.renewMeetingDirectUploadLease.mockResolvedValue(false);
+
+    const result = await createSmallSavedMeeting({
+      input: {
+        assets: baseMeeting.assets.map(
+          ({ contentType, durationMs, fragmentCount, sha256, sizeBytes, track }) => ({
+            contentType,
+            durationMs,
+            fragmentCount,
+            sha256,
+            sizeBytes,
+            track: track as "microphone" | "system",
+          }),
+        ),
+        id: "meeting",
+        manifestSha256: MANIFEST_SHA,
+        savedAt: "2026-08-09T03:01:00.000Z",
+        startedAt: "2026-08-09T03:00:00.000Z",
+      },
+      organizationId: "org",
+      ownerId: "owner",
+    });
+
+    expect(result).toEqual({
+      code: "meeting-upload-capacity-exhausted",
+      conflict: true,
+      message: "录音上传容量已满，本地 Meeting Recording 已保留",
+    });
+    expect(mocks.presignMeetingRecordingPutObject).toHaveBeenCalledTimes(2);
+    expect(mocks.meetingAcceptsUploadAuthorization).not.toHaveBeenCalled();
   });
 
   it("does not generate another upload plan for an already verified idempotent create", async () => {
@@ -355,6 +459,11 @@ describe("small Saved Meeting service", () => {
     });
     expect(mocks.presignMeetingRecordingUploadPart).toHaveBeenCalledTimes(1);
     expect(mocks.listMeetingRecordingUploadParts).toHaveBeenCalledTimes(1);
+    expect(mocks.renewMeetingDirectUploadLease).toHaveBeenCalledWith({
+      meetingId: "meeting",
+      organizationId: "org",
+      ownerId: "owner",
+    });
   });
 
   it("aborts a multipart upload that loses concurrent initialization", async () => {

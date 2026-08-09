@@ -3,6 +3,7 @@ import type { MeetingLiveTranscriptAuthorization } from "@arc/shared/meeting-tra
 import {
   createLiveTranscriptAuthorizationGate,
   LiveTranscriptAuthorizationRateLimitError,
+  resolveMeetingLiveTranscriptConcurrency,
 } from "./authorization-gate";
 
 const authorization = (capture: number): MeetingLiveTranscriptAuthorization => ({
@@ -14,6 +15,13 @@ const authorization = (capture: number): MeetingLiveTranscriptAuthorization => (
 });
 
 describe("live transcript authorization gate", () => {
+  it("defaults live draft concurrency to 100 sessions", () => {
+    expect(resolveMeetingLiveTranscriptConcurrency({})).toBe(100);
+    expect(
+      resolveMeetingLiveTranscriptConcurrency({ MEETING_LIVE_TRANSCRIPT_CONCURRENCY: "8" }),
+    ).toBe(8);
+  });
+
   it("deduplicates concurrent requests and limits each capture-track grant window", async () => {
     const mint = vi.fn(async () => {
       await Promise.resolve();
@@ -42,7 +50,6 @@ describe("live transcript authorization gate", () => {
   it("limits distinct authorization grants per member and resets after the window", async () => {
     let now = Date.parse("2026-08-09T02:00:00.000Z");
     const gate = createLiveTranscriptAuthorizationGate({
-      maxGrantsPerOrganization: 4,
       maxGrantsPerUser: 2,
       now: () => now,
       windowMs: 60_000,
