@@ -6,6 +6,7 @@ import type {
   MeetingPlaybackAuthorization,
   MeetingProcessingState,
 } from "@arc/shared/meeting-recording";
+import type { MeetingLibrarySearchMatch } from "@arc/shared/meeting-search";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,7 +37,13 @@ export function formatMeetingDuration(durationMs: number): string {
   return [minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
 }
 
-function MeetingSummary({ meeting }: { meeting: MeetingLibraryItem }) {
+function MeetingSummary({
+  meeting,
+  searchMatch,
+}: {
+  meeting: MeetingLibraryItem;
+  searchMatch?: MeetingLibrarySearchMatch;
+}) {
   const state = PROCESSING_STATE_META[meeting.processingState];
   return (
     <Frame className="h-full">
@@ -54,30 +61,49 @@ function MeetingSummary({ meeting }: { meeting: MeetingLibraryItem }) {
             {meeting.recordingAvailable ? "录音可用" : "录音准备中"}
           </span>
         </div>
+        {searchMatch ? (
+          <div className="rounded-lg bg-muted/60 px-3 py-2 text-sm">
+            <p className="line-clamp-2">{searchMatch.snippet}</p>
+            {searchMatch.startMs === null ? null : (
+              <p className="mt-1 text-muted-foreground text-xs">
+                {formatMeetingDuration(searchMatch.startMs)}
+                {searchMatch.endMs === null ? null : `–${formatMeetingDuration(searchMatch.endMs)}`}
+              </p>
+            )}
+          </div>
+        ) : null}
       </FramePanel>
     </Frame>
   );
 }
 
 export function MeetingLibraryView({
+  emptyDescription = "结束并保存录制后，会议会出现在这里",
+  emptyTitle = "还没有已保存的会议",
   meetings,
   renderMeeting,
+  searchMatches,
 }: {
+  emptyDescription?: string;
+  emptyTitle?: string;
   meetings: MeetingLibraryItem[];
   renderMeeting?: (meeting: MeetingLibraryItem, content: ReactNode) => ReactNode;
+  searchMatches?: Record<string, MeetingLibrarySearchMatch>;
 }) {
   if (meetings.length === 0) {
     return (
       <div className="py-16 text-center">
-        <p className="font-medium text-sm">还没有已保存的会议</p>
-        <p className="mt-1 text-muted-foreground text-xs">结束并保存录制后，会议会出现在这里</p>
+        <p className="font-medium text-sm">{emptyTitle}</p>
+        <p className="mt-1 text-muted-foreground text-xs">{emptyDescription}</p>
       </div>
     );
   }
   return (
     <div className="grid gap-3 md:grid-cols-2">
       {meetings.map((meeting) => {
-        const content = <MeetingSummary meeting={meeting} />;
+        const content = (
+          <MeetingSummary meeting={meeting} searchMatch={searchMatches?.[meeting.id]} />
+        );
         return (
           <div key={meeting.id}>{renderMeeting ? renderMeeting(meeting, content) : content}</div>
         );

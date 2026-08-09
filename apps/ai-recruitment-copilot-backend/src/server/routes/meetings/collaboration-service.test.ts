@@ -12,7 +12,19 @@ const mocks = vi.hoisted(() => ({
   updateMeetingNote: vi.fn(),
 }));
 
-vi.mock("./dao", () => mocks);
+vi.mock("./dao", () => ({
+  listMeetingAccessGrants: mocks.listMeetingAccessGrants,
+  loadMeetingSessionForAccess: mocks.loadMeetingSessionForAccess,
+  reassignMeetingOwner: mocks.reassignMeetingOwner,
+  recordMeetingAudit: mocks.recordMeetingAudit,
+  replaceMeetingAccessGrants: mocks.replaceMeetingAccessGrants,
+}));
+vi.mock("./routes/notes/dao", () => ({
+  createMeetingNote: mocks.createMeetingNote,
+  deleteMeetingNote: mocks.deleteMeetingNote,
+  listMeetingNotes: mocks.listMeetingNotes,
+  updateMeetingNote: mocks.updateMeetingNote,
+}));
 
 // oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
 import {

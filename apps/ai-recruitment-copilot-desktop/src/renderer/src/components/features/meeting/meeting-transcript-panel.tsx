@@ -474,7 +474,10 @@ export function MeetingTranscriptPanel({
     onSuccess: async () => {
       setConflictNotice(null);
       setEditing(false);
-      await queryClient.invalidateQueries({ queryKey: transcriptKey });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: transcriptKey }),
+        queryClient.invalidateQueries({ queryKey: desktopMeetingKeys.searchRoot(slug) }),
+      ]);
     },
   });
   const canRetry = accessRole === "administrator" || accessRole === "owner";

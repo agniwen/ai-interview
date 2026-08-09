@@ -30,6 +30,10 @@ import type {
   MeetingTranscriptionPolicy,
   UpdateMeetingTranscriptionPolicyInput,
 } from "@arc/shared/meeting-transcription";
+import type {
+  MeetingLibrarySearchResponse,
+  MeetingLibrarySearchResult,
+} from "@arc/shared/meeting-search";
 import { apiJson } from "./rpc-fetch";
 import { apiUrl } from "./rpc";
 
@@ -52,6 +56,9 @@ export const desktopMeetingKeys = {
   recruitingContextCandidates: (slug: string, meetingId: string, search: string) =>
     ["desktop-meetings", slug, "recruiting-context", meetingId, "candidates", search] as const,
   root: ["desktop-meetings"] as const,
+  search: (slug: string, query: string, timeZone: string) =>
+    ["desktop-meetings", slug, "search", query, timeZone] as const,
+  searchRoot: (slug: string) => ["desktop-meetings", slug, "search"] as const,
   share: (slug: string, meetingId: string) =>
     ["desktop-meetings", slug, "share", meetingId] as const,
   transcript: (slug: string, meetingId: string) =>
@@ -71,6 +78,19 @@ function meetingSubresourcePath(slug: string, meetingId: string, resource: strin
 export function fetchMeetings(slug: string): Promise<MeetingLibraryItem[]> {
   const path = `/api/w/${encodeURIComponent(slug)}/meetings`;
   return apiJson<{ records: MeetingLibraryItem[] }>(apiUrl(path), "加载会议记录失败").then(
+    (payload) => payload.records,
+  );
+}
+
+export function searchMeetings(
+  slug: string,
+  query: string,
+  timeZone: string,
+  signal?: AbortSignal,
+): Promise<MeetingLibrarySearchResult[]> {
+  const params = new URLSearchParams({ limit: "20", q: query, timeZone });
+  const path = `/api/w/${encodeURIComponent(slug)}/meetings/search?${params.toString()}`;
+  return apiJson<MeetingLibrarySearchResponse>(apiUrl(path), "搜索会议记录失败", { signal }).then(
     (payload) => payload.records,
   );
 }

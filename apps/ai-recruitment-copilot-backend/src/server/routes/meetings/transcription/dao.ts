@@ -16,6 +16,7 @@ import type {
   MeetingTranscriptionProviderId,
   UpdateMeetingTranscriptionPolicyInput,
 } from "@arc/shared/meeting-transcription";
+import { rebuildMeetingSearchProjection } from "../routes/search/dao";
 import { canonicalMeetingTranscriptSchema } from "@arc/shared/meeting-transcription";
 import type { FinalTranscriptionAudioChunk } from "./provider";
 import { findMeetingTranscriptionProviderCandidate } from "./provider-registry";
@@ -653,6 +654,7 @@ export async function publishMeetingTranscript(
         transcriptionStatus: "ready",
       })
       .where(eq(meetingSession.id, input.meetingId));
+    await rebuildMeetingSearchProjection(tx, input);
     return true;
   });
 }

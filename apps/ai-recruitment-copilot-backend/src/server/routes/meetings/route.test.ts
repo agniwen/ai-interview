@@ -33,6 +33,7 @@ const mocks = vi.hoisted(() => ({
   removeMeetingNote: vi.fn(),
   retryMeetingPlayback: vi.fn(),
   retrySavedMeetingTranscription: vi.fn(),
+  searchSavedMeetings: vi.fn(),
   updateMeetingShare: vi.fn(),
   updateWorkspaceMeetingTranscriptionPolicy: vi.fn(),
 }));
@@ -44,6 +45,7 @@ vi.mock("./routes/live-transcript/service", () => mocks);
 vi.mock("./recruiting-context-service", () => mocks);
 vi.mock("./intelligence/service", () => mocks);
 vi.mock("./answers/service", () => mocks);
+vi.mock("./routes/search/service", () => mocks);
 vi.mock("@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy", () => ({
   createRequestWorkspaceAuthorizer: () => () => Promise.resolve(true),
 }));
@@ -259,6 +261,51 @@ describe("Meeting Buddy small Saved Meeting control plane", () => {
     });
   });
 
+  it("searches only through the server-owned authorized Meeting Library projection", async () => {
+    mocks.searchSavedMeetings.mockResolvedValue([
+      {
+        accessRole: "administrator",
+        creator: { id: "owner-74", image: null, name: "Alice" },
+        durationMs: 62_000,
+        id: MEETING_ID,
+        match: {
+          endMs: 34_000,
+          kind: "transcript",
+          snippet: "客户预算需要在本周确认",
+          startMs: 30_000,
+        },
+        processingState: "ready",
+        recordingAvailable: true,
+        savedAt: "2026-08-09T04:00:00.000Z",
+        title: "预算复盘",
+        workspaceCustodied: false,
+      },
+    ]);
+
+    const response = await client.meetings.search.$get({
+      query: { limit: "20", q: "预算", timeZone: "Asia/Shanghai" },
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      records: [{ id: MEETING_ID, match: { kind: "transcript", startMs: 30_000 } }],
+    });
+    expect(mocks.searchSavedMeetings).toHaveBeenCalledWith({
+      limit: 20,
+      organizationId: "org-72",
+      query: "预算",
+      timeZone: "Asia/Shanghai",
+      userId: "user-72",
+    });
+  });
+
+  it("rejects an empty Meeting Library search before querying the projection", async () => {
+    const response = await client.meetings.search.$get({ query: { q: "   " } });
+
+    expect(response.status).toBe(400);
+    expect(mocks.searchSavedMeetings).not.toHaveBeenCalled();
+  });
+
   it("returns the same 404 for a missing or unauthorized private meeting", async () => {
     mocks.getSavedMeetingDetail.mockResolvedValue(null);
 
@@ -422,6 +469,17 @@ describe("Meeting Buddy small Saved Meeting control plane", () => {
     });
 
     expect(response.status).toBe(403);
+  });
+
+  it("rejects a Meeting Note that would exceed the bounded search projection", async () => {
+    mocks.addMeetingNote.mockResolvedValue("limit-exceeded");
+
+    const response = await client.meetings[":id"].notes.$post({
+      json: { body: "超出上限", meetingTimeMs: 5000 },
+      param: { id: MEETING_ID },
+    });
+
+    expect(response.status).toBe(409);
   });
 
   it("updates selected grants and workspace visibility through the share subresource", async () => {

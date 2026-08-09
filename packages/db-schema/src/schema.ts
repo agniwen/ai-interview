@@ -962,6 +962,31 @@ export const meetingNote = pgTable(
   ],
 );
 
+export const meetingSearchProjection = pgTable(
+  "meeting_search_projection",
+  {
+    meetingId: text("meeting_id")
+      .primaryKey()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    searchText: text("search_text").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.meetingId, table.organizationId],
+      foreignColumns: [meetingSession.id, meetingSession.organizationId],
+      name: "meeting_search_projection_meeting_org_fk",
+    }).onDelete("cascade"),
+    index("meeting_search_projection_org_idx").on(table.organizationId),
+    index("meeting_search_projection_text_trgm_idx")
+      .using("gin", table.searchText.asc().op("gin_trgm_ops"))
+      .concurrently(),
+  ],
+);
+
 export const meetingAuditLog = pgTable(
   "meeting_audit_log",
   {

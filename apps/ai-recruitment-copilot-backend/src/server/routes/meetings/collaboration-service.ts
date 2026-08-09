@@ -9,17 +9,19 @@ import type {
 } from "@arc/shared/meeting-recording";
 import type { loadMeetingSessionForAccess } from "./dao";
 import {
-  createMeetingNote,
-  deleteMeetingNote,
   listMeetingAccessGrants,
-  listMeetingNotes,
   reassignMeetingOwner,
   recordMeetingAudit,
   replaceMeetingAccessGrants,
-  updateMeetingNote,
 } from "./dao";
 import { isWorkspaceAdministrator, meetingAccessCapabilities } from "./access";
 import { loadAuthorizedMeeting, meetingRole } from "./authorized-meeting";
+import {
+  createMeetingNote,
+  deleteMeetingNote,
+  listMeetingNotes,
+  updateMeetingNote,
+} from "./routes/notes/dao";
 
 const ADMIN_ACCESS_AUDIT_DEDUPE_MS = 5 * 60 * 1000;
 
@@ -178,7 +180,7 @@ export async function addMeetingNote(input: {
   organizationId: string;
   userId: string;
   userName: string;
-}): Promise<MeetingNote | "forbidden" | "invalid-time" | null> {
+}): Promise<MeetingNote | "forbidden" | "invalid-time" | "limit-exceeded" | null> {
   const meeting = await loadAuthorizedMeeting(input);
   if (!meeting) {
     return null;
@@ -197,6 +199,9 @@ export async function addMeetingNote(input: {
     note: input.note,
     organizationId: input.organizationId,
   });
+  if (note === "limit-exceeded") {
+    return note;
+  }
   return note ? serializeMeetingNote(note, { role, userId: input.userId }) : null;
 }
 
@@ -207,7 +212,7 @@ export async function editMeetingNote(input: {
   noteId: string;
   organizationId: string;
   userId: string;
-}): Promise<MeetingNote | "forbidden" | "invalid-time" | null> {
+}): Promise<MeetingNote | "forbidden" | "invalid-time" | "limit-exceeded" | null> {
   const meeting = await loadAuthorizedMeeting(input);
   if (!meeting) {
     return null;
@@ -231,6 +236,9 @@ export async function editMeetingNote(input: {
     noteId: input.noteId,
     organizationId: input.organizationId,
   });
+  if (note === "limit-exceeded") {
+    return note;
+  }
   return note ? serializeMeetingNote(note, { role, userId: input.userId }) : "forbidden";
 }
 

@@ -10,13 +10,12 @@ import {
   user,
 } from "@arc/db-schema/schema";
 import {
-  deleteMeetingNote,
   listMeetingAccessGrants,
   listMeetingSessionsForAccess,
   reassignMeetingOwner,
   replaceMeetingAccessGrants,
-  updateMeetingNote,
 } from "./dao";
+import { deleteMeetingNote, updateMeetingNote } from "./routes/notes/dao";
 
 const ORGANIZATION_ID = "meeting_collaboration_test_org";
 const CREATOR_ID = "meeting_collaboration_test_creator";

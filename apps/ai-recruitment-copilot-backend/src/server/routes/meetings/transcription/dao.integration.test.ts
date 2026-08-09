@@ -23,6 +23,7 @@ import {
   updateMeetingTranscriptionPolicy,
 } from "./dao";
 import { createHumanMeetingTranscriptRevision } from "./revision-dao";
+import { searchMeetingSessionsForAccess } from "../routes/search/dao";
 
 const TEST_SUFFIX = String(process.pid);
 const ORGANIZATION_ID = `meeting_transcription_test_org_${TEST_SUFFIX}`;
@@ -41,6 +42,16 @@ const job = {
   region: "openai-default",
   sourceManifestSha256: SOURCE_SHA,
 };
+
+function searchTranscript(query: string) {
+  return searchMeetingSessionsForAccess({
+    limit: 20,
+    organizationId: ORGANIZATION_ID,
+    query,
+    timeZone: "UTC",
+    userId: USER_ID,
+  }).then((result) => result.records);
+}
 
 async function clean(): Promise<void> {
   await db.delete(organization).where(eq(organization.id, ORGANIZATION_ID));
@@ -149,6 +160,9 @@ describe("Meeting transcription publication", () => {
     await expect(
       publishMeetingTranscript({ ...job, processingRunId: runId("run-winner"), transcript }),
     ).resolves.toBe(true);
+    await expect(searchTranscript("最终稿")).resolves.toMatchObject([
+      { id: MEETING_ID, match: { kind: "transcript", startMs: 1000 } },
+    ]);
     await expect(
       claimMeetingTranscriptionRun({ ...job, attempt: 3, processingRunId: runId("run-restart") }),
     ).resolves.toBe("already-ready");
@@ -286,6 +300,13 @@ describe("Meeting transcription publication", () => {
     if (typeof secondHuman === "string") {
       throw new TypeError("expected a second human correction");
     }
+    await expect(searchTranscript("机器原文")).resolves.toEqual([]);
+    await expect(searchTranscript("第二次人工修正")).resolves.toMatchObject([
+      { match: { kind: "transcript", startMs: 1000 } },
+    ]);
+    await expect(searchTranscript("面试官")).resolves.toMatchObject([
+      { match: { kind: "speaker", startMs: 1000 } },
+    ]);
     await expect(
       claimMeetingTranscriptionRun({
         ...job,

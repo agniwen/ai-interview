@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { MeetingLibraryItem } from "@arc/shared/meeting-recording";
-import { desktopMeetingKeys, fetchMeetings } from "@/lib/client/meetings";
+import { desktopMeetingKeys, fetchMeetings, searchMeetings } from "@/lib/client/meetings";
 import { desktopWorkspaceKeys, resolveActiveWorkspace } from "@/lib/client/workspace";
 
 export function meetingLibraryRefetchInterval(
@@ -15,7 +15,7 @@ export function meetingLibraryRefetchInterval(
   return false;
 }
 
-export function useMeetingLibrary() {
+export function useMeetingLibrary(searchText = "") {
   const workspaceQuery = useQuery({
     queryFn: resolveActiveWorkspace,
     queryKey: desktopWorkspaceKeys.active,
@@ -29,5 +29,14 @@ export function useMeetingLibrary() {
     refetchInterval: (query) => meetingLibraryRefetchInterval(query.state.data),
     staleTime: 5000,
   });
-  return { meetingsQuery, workspace, workspaceQuery };
+  const normalizedSearch = searchText.trim();
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const searchQuery = useQuery({
+    enabled: Boolean(workspace && normalizedSearch),
+    queryFn: ({ signal }) =>
+      searchMeetings(workspace?.slug ?? "", normalizedSearch, timeZone, signal),
+    queryKey: desktopMeetingKeys.search(workspace?.slug ?? "", normalizedSearch, timeZone),
+    staleTime: 5000,
+  });
+  return { meetingsQuery, searchQuery, workspace, workspaceQuery };
 }

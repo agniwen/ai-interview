@@ -43,7 +43,11 @@ export function MeetingNotesPanel({
     queryFn: () => fetchMeetingNotes(slug, meetingId),
     queryKey: notesKey,
   });
-  const refreshNotes = () => queryClient.invalidateQueries({ queryKey: notesKey });
+  const refreshNotes = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: notesKey }),
+      queryClient.invalidateQueries({ queryKey: desktopMeetingKeys.searchRoot(slug) }),
+    ]);
   const createMutation = useMutation({
     mutationFn: () =>
       createMeetingNote(slug, meetingId, {

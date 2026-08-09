@@ -3,7 +3,6 @@ import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   meetingAccessGrant,
   meetingAuditLog,
-  meetingNote,
   meetingRecordingAsset,
   meetingRecruitingContext,
   meetingSession,
@@ -11,13 +10,12 @@ import {
   user,
 } from "@arc/db-schema/schema";
 import type {
-  CreateMeetingNoteInput,
   CreateMultipartSavedMeetingInput,
   CreateSmallSavedMeetingInput,
   MeetingGrantRole,
-  UpdateMeetingNoteInput,
   UpdateMeetingShareInput,
 } from "@arc/shared/meeting-recording";
+import { rebuildMeetingSearchProjection } from "./routes/search/dao";
 
 export type NewMeetingAsset = (
   | (CreateSmallSavedMeetingInput["assets"][number] & {
@@ -92,6 +90,10 @@ export async function createOrLoadMeetingSession(input: {
         uploadMode: asset.uploadMode ?? "single",
       })),
     );
+    await rebuildMeetingSearchProjection(tx, {
+      meetingId: input.meeting.id,
+      organizationId: input.meeting.organizationId,
+    });
     return true;
   });
   return { created, meeting: await loadMeetingSession(input.meeting.id) };
@@ -482,84 +484,6 @@ export async function reassignMeetingOwner(input: {
   });
 }
 
-export function listMeetingNotes(input: { meetingId: string; organizationId: string }) {
-  return db
-    .select()
-    .from(meetingNote)
-    .where(
-      and(
-        eq(meetingNote.meetingId, input.meetingId),
-        eq(meetingNote.organizationId, input.organizationId),
-      ),
-    )
-    .orderBy(asc(meetingNote.meetingTimeMs), asc(meetingNote.createdAt));
-}
-
-export async function createMeetingNote(input: {
-  authorId: string;
-  authorName: string;
-  meetingId: string;
-  note: CreateMeetingNoteInput;
-  organizationId: string;
-}) {
-  const [created] = await db
-    .insert(meetingNote)
-    .values({
-      authorId: input.authorId,
-      authorName: input.authorName,
-      body: input.note.body,
-      id: crypto.randomUUID(),
-      meetingId: input.meetingId,
-      meetingTimeMs: input.note.meetingTimeMs,
-      organizationId: input.organizationId,
-    })
-    .returning();
-  return created;
-}
-
-export async function updateMeetingNote(input: {
-  actorId: string;
-  canEditAll: boolean;
-  canGovern: boolean;
-  meetingId: string;
-  note: UpdateMeetingNoteInput;
-  noteId: string;
-  organizationId: string;
-}) {
-  return await db.transaction(async (tx) => {
-    const [updated] = await tx
-      .update(meetingNote)
-      .set(input.note)
-      .where(
-        and(
-          eq(meetingNote.id, input.noteId),
-          eq(meetingNote.meetingId, input.meetingId),
-          eq(meetingNote.organizationId, input.organizationId),
-          input.canEditAll ? undefined : sql`false`,
-        ),
-      )
-      .returning();
-    if (!updated) {
-      return null;
-    }
-    if (input.canGovern && updated.authorId !== input.actorId) {
-      await tx.insert(meetingAuditLog).values({
-        action: "meeting.note_governed",
-        actorId: input.actorId,
-        detail: {
-          noteId: input.noteId,
-          operation: "updated",
-          originalAuthorId: updated.authorId,
-        },
-        id: crypto.randomUUID(),
-        meetingId: input.meetingId,
-        organizationId: input.organizationId,
-      });
-    }
-    return updated;
-  });
-}
-
 export async function recordMeetingAudit(input: {
   action: string;
   actorId: string;
@@ -589,42 +513,6 @@ export async function recordMeetingAudit(input: {
     id: crypto.randomUUID(),
     meetingId: input.meetingId,
     organizationId: input.organizationId,
-  });
-}
-
-export async function deleteMeetingNote(input: {
-  canGovern: boolean;
-  meetingId: string;
-  noteId: string;
-  organizationId: string;
-  userId: string;
-}): Promise<boolean> {
-  return await db.transaction(async (tx) => {
-    const [deleted] = await tx
-      .delete(meetingNote)
-      .where(
-        and(
-          eq(meetingNote.id, input.noteId),
-          eq(meetingNote.meetingId, input.meetingId),
-          eq(meetingNote.organizationId, input.organizationId),
-          input.canGovern ? undefined : eq(meetingNote.authorId, input.userId),
-        ),
-      )
-      .returning({ authorId: meetingNote.authorId });
-    if (!deleted) {
-      return false;
-    }
-    if (input.canGovern && deleted.authorId !== input.userId) {
-      await tx.insert(meetingAuditLog).values({
-        action: "meeting.note_governed",
-        actorId: input.userId,
-        detail: { noteId: input.noteId },
-        id: crypto.randomUUID(),
-        meetingId: input.meetingId,
-        organizationId: input.organizationId,
-      });
-    }
-    return true;
   });
 }
 

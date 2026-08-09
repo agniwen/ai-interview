@@ -78,12 +78,26 @@ export const canonicalMeetingTranscriptTurnSchema = canonicalTranscriptTurnBaseS
   },
 );
 
+export const MAX_MEETING_TRANSCRIPT_TEXT_CHARS = 1_000_000;
+
 export const canonicalMeetingTranscriptSchema = z
   .object({
     language: z.string().trim().min(1).max(64).nullable(),
     turns: z.array(canonicalMeetingTranscriptTurnSchema).max(10_000),
   })
-  .strict();
+  .strict()
+  .superRefine((input, context) => {
+    if (
+      input.turns.reduce((total, turn) => total + turn.text.length, 0) >
+      MAX_MEETING_TRANSCRIPT_TEXT_CHARS
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "转录总文字长度超过限制",
+        path: ["turns"],
+      });
+    }
+  });
 
 export type CanonicalMeetingTranscript = z.infer<typeof canonicalMeetingTranscriptSchema>;
 export type CanonicalMeetingTranscriptTurn = z.infer<typeof canonicalMeetingTranscriptTurnSchema>;
@@ -101,7 +115,10 @@ export const createMeetingTranscriptCorrectionSchema = z
   })
   .strict()
   .superRefine((input, context) => {
-    if (input.turns.reduce((total, turn) => total + turn.text.length, 0) > 1_000_000) {
+    if (
+      input.turns.reduce((total, turn) => total + turn.text.length, 0) >
+      MAX_MEETING_TRANSCRIPT_TEXT_CHARS
+    ) {
       context.addIssue({
         code: "custom",
         message: "人工修订总文字长度超过限制",

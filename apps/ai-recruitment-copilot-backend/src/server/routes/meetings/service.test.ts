@@ -40,11 +40,8 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
   presignRecordingGetObjectUrl: mocks.presignRecordingGetObjectUrl,
 }));
 vi.mock("./dao", () => ({
-  createMeetingNote: mocks.createMeetingNote,
   createOrLoadMeetingSession: mocks.createOrLoadMeetingSession,
-  deleteMeetingNote: mocks.deleteMeetingNote,
   listMeetingAccessGrants: mocks.listMeetingAccessGrants,
-  listMeetingNotes: mocks.listMeetingNotes,
   listMeetingSessionsForAccess: mocks.listMeetingSessionsForAccess,
   loadMeetingSession: mocks.loadMeetingSession,
   loadMeetingSessionForAccess: mocks.loadMeetingSessionForAccess,
@@ -53,6 +50,11 @@ vi.mock("./dao", () => ({
   recordMeetingAssetMultipartUploadId: mocks.recordMeetingAssetMultipartUploadId,
   recordMeetingAudit: mocks.recordMeetingAudit,
   replaceMeetingAccessGrants: mocks.replaceMeetingAccessGrants,
+}));
+vi.mock("./routes/notes/dao", () => ({
+  createMeetingNote: mocks.createMeetingNote,
+  deleteMeetingNote: mocks.deleteMeetingNote,
+  listMeetingNotes: mocks.listMeetingNotes,
   updateMeetingNote: mocks.updateMeetingNote,
 }));
 vi.mock("@arc/meeting-processing-queue/meeting-playback", () => ({

@@ -15,6 +15,7 @@ import type {
   MeetingTranscriptRevisionSummary,
   MeetingTranscriptionProviderId,
 } from "@arc/shared/meeting-transcription";
+import { rebuildMeetingSearchProjection } from "../routes/search/dao";
 
 const TRANSCRIPT_TURN_INSERT_BATCH_SIZE = 1000;
 
@@ -226,6 +227,7 @@ export async function createHumanMeetingTranscriptRevision(input: {
       meetingId: input.meetingId,
       organizationId: input.organizationId,
     });
+    await rebuildMeetingSearchProjection(tx, input);
     return { revision, turns };
   });
   return typeof result === "string"

@@ -42,6 +42,22 @@ describe("Meeting transcription contracts", () => {
     ).toBe(false);
   });
 
+  it("bounds the total canonical transcript text used by downstream projections", () => {
+    expect(
+      canonicalMeetingTranscriptSchema.safeParse({
+        language: "zh",
+        turns: Array.from({ length: 11 }, (_, index) => ({
+          confidence: null,
+          endMs: index + 1,
+          speakerKey: "local",
+          startMs: index,
+          text: "字".repeat(100_000),
+          track: "local",
+        })),
+      }).success,
+    ).toBe(false);
+  });
+
   it("requires the selected provider to be explicitly allowed", () => {
     expect(
       updateMeetingTranscriptionPolicySchema.safeParse({

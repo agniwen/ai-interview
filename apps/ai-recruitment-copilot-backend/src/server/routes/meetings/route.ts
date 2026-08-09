@@ -15,6 +15,7 @@ import {
 import { meetingPlaybackRouter } from "./routes/playback/route";
 import { meetingQuestionsRouter } from "./routes/questions/route";
 import { meetingRecruitingContextRouter } from "./routes/recruiting-context/route";
+import { meetingSearchRouter } from "./routes/search/route";
 import { meetingLiveTranscriptRouter } from "./routes/live-transcript/route";
 import { meetingIntelligenceRouter } from "./routes/intelligence/route";
 import { meetingNotesRouter } from "./routes/notes/route";
@@ -26,6 +27,7 @@ export const meetingsRouter = factory
   .createApp()
   .route("/live-transcript", meetingLiveTranscriptRouter)
   .route("/transcription-policy", meetingTranscriptionPolicyRouter)
+  .route("/search", meetingSearchRouter)
   .get("/", async (c) => {
     const { activeOrg, member, user } = c.var;
     if (!(activeOrg && member && user)) {

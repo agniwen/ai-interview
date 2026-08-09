@@ -56,6 +56,9 @@ export const meetingNotesRouter = factory
       if (result === "invalid-time") {
         return c.json({ error: "Meeting Note 时间超出录音时长" }, 400);
       }
+      if (result === "limit-exceeded") {
+        return c.json({ error: "Meeting Note 数量或总文字长度已达到上限" }, 409);
+      }
       return c.json(result, 201);
     },
   )
@@ -87,6 +90,9 @@ export const meetingNotesRouter = factory
       }
       if (result === "invalid-time") {
         return c.json({ error: "Meeting Note 时间超出录音时长" }, 400);
+      }
+      if (result === "limit-exceeded") {
+        return c.json({ error: "Meeting Note 数量或总文字长度已达到上限" }, 409);
       }
       return c.json(result, 200);
     },

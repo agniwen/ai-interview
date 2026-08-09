@@ -24,6 +24,25 @@ const item: MeetingLibraryItem = {
 };
 
 describe("Meeting Library views", () => {
+  it("renders a bounded search snippet and transcript time range", () => {
+    const html = renderToStaticMarkup(
+      <MeetingLibraryView
+        meetings={[item]}
+        searchMatches={{
+          [item.id]: {
+            endMs: 34_000,
+            kind: "transcript",
+            snippet: "主持人：客户预算需要在本周确认",
+            startMs: 30_000,
+          },
+        }}
+      />,
+    );
+
+    expect(html).toContain("客户预算需要在本周确认");
+    expect(html).toContain("00:30–00:34");
+  });
+
   it("keeps viewers read-only while editors can author notes without managing sharing", () => {
     expect(canCreateMeetingNotes("viewer")).toBe(false);
     expect(canManageMeetingSharing("viewer")).toBe(false);

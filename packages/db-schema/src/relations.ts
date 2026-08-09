@@ -367,6 +367,16 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.studioInterview.id,
     }),
   },
+  meetingSearchProjection: {
+    meeting: r.one.meetingSession({
+      from: r.meetingSearchProjection.meetingId,
+      to: r.meetingSession.id,
+    }),
+    organization: r.one.organization({
+      from: r.meetingSearchProjection.organizationId,
+      to: r.organization.id,
+    }),
+  },
   meetingSession: {
     accessGrants: r.many.meetingAccessGrant(),
     assets: r.many.meetingRecordingAsset(),
@@ -390,6 +400,10 @@ export const relations = defineRelations(schema, (r) => ({
     recruitingContext: r.one.meetingRecruitingContext({
       from: r.meetingSession.id,
       to: r.meetingRecruitingContext.meetingId,
+    }),
+    searchProjection: r.one.meetingSearchProjection({
+      from: r.meetingSession.id,
+      to: r.meetingSearchProjection.meetingId,
     }),
     transcriptRevisions: r.many.meetingTranscriptRevision(),
     transcriptionChunks: r.many.meetingTranscriptionChunk(),
