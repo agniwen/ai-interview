@@ -24,6 +24,7 @@ from interview_clock import (
 from interview_question_task import (
     InterviewQuestionOutcome,
     QuestionOutcomeStatus,
+    _merge_terminal_revision,
     build_question_task_group,
 )
 from prompts import LANGUAGE_POLICY
@@ -255,9 +256,14 @@ class InterviewAgent(Agent):
         outcome = event.result
         if not isinstance(outcome, InterviewQuestionOutcome):
             return
-        self._question_outcomes[outcome.question_id] = outcome
+        stored_outcome = _merge_terminal_revision(
+            self._question_outcomes.get(outcome.question_id),
+            outcome,
+            preserve_interruption=True,
+        )
+        self._question_outcomes[outcome.question_id] = stored_outcome
         if self._on_question_completed_callback is not None:
-            await self._on_question_completed_callback(outcome)
+            await self._on_question_completed_callback(stored_outcome)
         if outcome.status is QuestionOutcomeStatus.INTERRUPTED:
             stop_reason = outcome.reason or "system_shutdown"
             self.note_workflow_stop(stop_reason)
@@ -327,7 +333,10 @@ class InterviewAgent(Agent):
         # WrapUpTask drives the close via the shared EndCallTool, so under the
         # happy path execution never returns here. Cancellation is handled by
         # the outer session lifecycle (hard timeout / candidate disconnect).
-        await WrapUpTask(self._end_call_tool)
+        await WrapUpTask(
+            self._end_call_tool,
+            closing_instructions=self._closing_instructions,
+        )
         return None
 
     async def on_user_turn_completed(
@@ -401,6 +410,7 @@ class InterviewAgent(Agent):
             await WrapUpTask(
                 self._end_call_tool,
                 ask_closing_question=False,
+                closing_instructions=self._closing_instructions,
             )
             return
 
@@ -431,6 +441,7 @@ class InterviewAgent(Agent):
         await WrapUpTask(
             self._end_call_tool,
             ask_closing_question=stop_reason in {None, "time_limit"},
+            closing_instructions=self._closing_instructions,
         )
 
     async def stt_node(

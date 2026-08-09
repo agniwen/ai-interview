@@ -116,6 +116,12 @@ _USER_TURN_LIMIT_MAX_DURATION_SECONDS = 240.0
 _USER_TURN_LIMIT_MAX_WORDS = 1000
 
 
+def _build_reconnect_message(*, has_active_question: bool) -> str:
+    if has_active_question:
+        return "欢迎回来，请继续刚才的回答。"
+    return "欢迎回来，我们继续刚才的面试。"
+
+
 # --------------------------------------------------------------------------- #
 # 数据结构 / Data structures
 # --------------------------------------------------------------------------- #
@@ -307,6 +313,9 @@ def _build_session(
             base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
             api_key=os.environ.get("DASHSCOPE_API_KEY"),  # type: ignore[arg-type]
             extra_body={"enable_thinking": False},
+            # Question tasks are state machines: two simultaneous decisions can
+            # otherwise complete a task and enqueue a stale follow-up together.
+            parallel_tool_calls=False,
         ),
         tts=minimax.TTS(
             audio_format="pcm",
@@ -564,9 +573,7 @@ async def _on_session_end(ctx: JobContext) -> None:
 
     # Prefer business close reason in the report metadata; keep LiveKit reason
     # as a secondary field when both exist.
-    livekit_close_reason = (
-        state.close_reason.value if state.close_reason else "unknown"
-    )
+    livekit_close_reason = state.close_reason.value if state.close_reason else "unknown"
     report_close_reason = state.business_close_reason or livekit_close_reason
 
     await asyncio.gather(
@@ -1019,14 +1026,15 @@ async def my_agent(ctx: JobContext) -> None:
         # 当成候选人在反思, 进而切换到候选人口吻. say() 跳过 LLM 杜绝漂移.
         # Bypass LLM-driven greet: small models misread the meta-instruction
         # as the candidate's own utterance and flip role.
-        current_question = interview_agent.current_question_text
-        reconnect_message = (
-            f"欢迎回来。我们继续刚才这道题：{current_question}"
-            if current_question
-            else "欢迎回来，我们继续刚才的面试。"
-        )
         try:
-            session.say(reconnect_message, allow_interruptions=True)
+            session.say(
+                _build_reconnect_message(
+                    has_active_question=(
+                        interview_agent.current_question_text is not None
+                    )
+                ),
+                allow_interruptions=True,
+            )
         except Exception:
             logger.exception("re-greeting after reconnect failed")
 

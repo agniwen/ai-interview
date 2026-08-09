@@ -11,8 +11,10 @@ from interview_agent import (
     INTERVIEW_SOFT_WRAP_SECONDS,
     INTERVIEW_TIME_LIMIT_SECONDS,
     InterviewAgent,
+    InterviewWorkflowStoppedError,
     _is_noise_transcript,
 )
+from interview_question_task import InterviewQuestionProgress, QuestionOutcomeStatus
 
 
 def _ctx(
@@ -170,7 +172,10 @@ async def test_declined_candidate_uses_wrap_up_without_another_question(monkeypa
     await a.on_enter()
 
     assert captured["tool"] is a._end_call_tool
-    assert captured["kwargs"] == {"ask_closing_question": False}
+    assert captured["kwargs"] == {
+        "ask_closing_question": False,
+        "closing_instructions": "再见郭靖",
+    }
     assert a.call_completion_status == "partial"
     assert [outcome.status for outcome in a.question_outcomes] == ["unasked"]
     assert session.calls == []
@@ -254,3 +259,43 @@ def test_finalize_missing_outcomes_prefers_workflow_stop_reason():
 def test_has_incomplete_required_questions_before_any_outcome():
     a = InterviewAgent(_ctx())
     assert a.has_incomplete_required_questions is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reason", ["time_limit", "candidate_ended_round"])
+async def test_interrupted_revisit_stops_workflow_without_downgrading_saved_answer(
+    reason,
+):
+    checkpoints = []
+
+    async def save(outcome):
+        checkpoints.append(outcome)
+
+    a = InterviewAgent(_ctx(), on_question_completed=save)
+    question = a._questions[0]
+    previous = InterviewQuestionProgress(
+        question,
+        started_at=10.0,
+    ).record_answered("原回答已足够评估", now=20.0)
+    a._question_outcomes[question.id] = previous
+    interrupted = InterviewQuestionProgress(
+        question,
+        initial_follow_up_count=previous.follow_up_count,
+        revision=2,
+        started_at=30.0,
+    ).record_interrupted(
+        reason=reason,
+        now=40.0,
+        answer_summary="补充阶段又收集到一项信息",
+    )
+
+    with pytest.raises(InterviewWorkflowStoppedError, match=reason):
+        await a._on_question_completed(SimpleNamespace(result=interrupted))
+
+    stored = a.question_outcomes[0]
+    assert stored.status is QuestionOutcomeStatus.ANSWERED
+    assert stored.reason is None
+    assert stored.revision == 2
+    assert "原回答已足够评估" in stored.answer_summary
+    assert "补充阶段又收集到一项信息" in stored.answer_summary
+    assert checkpoints == [stored]

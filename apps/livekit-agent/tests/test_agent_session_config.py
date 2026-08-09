@@ -1,7 +1,12 @@
 from types import SimpleNamespace
 
 import agent as agent_module
-from agent import _build_room_options, _build_session, prewarm
+from agent import (
+    _build_reconnect_message,
+    _build_room_options,
+    _build_session,
+    prewarm,
+)
 
 
 class _FakeAgentSession:
@@ -63,6 +68,35 @@ def test_agent_session_uses_scribe_v2_batch_stt(monkeypatch):
     assert stt.kwargs["tag_audio_events"] is False
     assert "server_vad" not in stt.kwargs
     assert "api_key" not in stt.kwargs
+
+
+def test_agent_session_disables_parallel_llm_tool_calls(monkeypatch):
+    monkeypatch.setattr(agent_module, "AgentSession", _FakeAgentSession)
+    monkeypatch.setattr(agent_module.elevenlabs, "STT", _FakeComponent)
+    monkeypatch.setattr(agent_module.openai, "LLM", _FakeComponent)
+    monkeypatch.setattr(agent_module.minimax, "TTS", _FakeComponent)
+    monkeypatch.setattr(
+        agent_module.inference,
+        "TurnDetector",
+        lambda **_kwargs: "audio-turn-detector",
+    )
+
+    session = _build_session(
+        proc=SimpleNamespace(userdata={"vad": "silero-vad"}),
+        selected_voice="voice_agent_Male_Phone_1",
+        state=object(),
+    )
+
+    assert session.kwargs["llm"].kwargs["parallel_tool_calls"] is False
+
+
+def test_reconnect_message_never_repeats_the_active_question():
+    assert _build_reconnect_message(has_active_question=True) == (
+        "欢迎回来，请继续刚才的回答。"
+    )
+    assert _build_reconnect_message(has_active_question=False) == (
+        "欢迎回来，我们继续刚才的面试。"
+    )
 
 
 def test_agent_session_endpointing_balances_pauses_with_response_latency(monkeypatch):
