@@ -68,7 +68,7 @@ export function loadMeetingExportContext(input: {
         ),
       )
       .for("share");
-    if (!meeting || meeting.status === "trashed") {
+    if (!meeting || meeting.status === "trashed" || meeting.status === "purging") {
       return { kind: "not-found" };
     }
     const [membership] = await tx
@@ -184,6 +184,7 @@ export function loadMeetingExportTurnsPage(input: {
     if (
       !meeting ||
       meeting.status === "trashed" ||
+      meeting.status === "purging" ||
       meeting.activeTranscriptRevisionId !== input.revisionId ||
       meeting.activeIntelligenceRevisionId !== input.expectedIntelligenceRevisionId
     ) {

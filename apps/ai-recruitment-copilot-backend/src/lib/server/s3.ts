@@ -93,6 +93,8 @@ async function buildClient() {
 }
 
 let recordingCached: Promise<{ client: S3Client; config: S3Config }> | undefined;
+const MEETING_RECORDING_CLEANUP_TIMEOUT_MS = 30_000;
+const MEETING_RECORDING_WRITE_TIMEOUT_MS = 10 * 60 * 1000;
 
 function getRecordingClient() {
   recordingCached ??= (async () => {
@@ -160,7 +162,9 @@ export async function deleteMeetingRecordingObject(storageKey: string): Promise<
     import("@aws-sdk/client-s3"),
     getRecordingClient(),
   ]);
-  await client.send(new DeleteObjectCommand({ Bucket: config.bucket, Key: storageKey }));
+  await client.send(new DeleteObjectCommand({ Bucket: config.bucket, Key: storageKey }), {
+    abortSignal: AbortSignal.timeout(MEETING_RECORDING_CLEANUP_TIMEOUT_MS),
+  });
 }
 
 function isNoSuchKey(error: unknown): boolean {
@@ -236,13 +240,26 @@ export async function abortMeetingRecordingMultipartUpload(input: {
     import("@aws-sdk/client-s3"),
     getRecordingClient(),
   ]);
-  await client.send(
-    new AbortMultipartUploadCommand({
-      Bucket: config.bucket,
-      Key: input.storageKey,
-      UploadId: input.uploadId,
-    }),
-  );
+  try {
+    await client.send(
+      new AbortMultipartUploadCommand({
+        Bucket: config.bucket,
+        Key: input.storageKey,
+        UploadId: input.uploadId,
+      }),
+      { abortSignal: AbortSignal.timeout(MEETING_RECORDING_CLEANUP_TIMEOUT_MS) },
+    );
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "name" in error &&
+      (error as { name: string }).name === "NoSuchUpload"
+    ) {
+      return;
+    }
+    throw error;
+  }
 }
 
 export async function listMeetingRecordingUploadParts(input: {
@@ -329,6 +346,7 @@ export async function completeMeetingRecordingMultipartUpload(input: {
       },
       UploadId: input.uploadId,
     }),
+    { abortSignal: AbortSignal.timeout(MEETING_RECORDING_WRITE_TIMEOUT_MS) },
   );
 }
 
@@ -346,6 +364,7 @@ export async function headMeetingRecordingObject(storageKey: string): Promise<{
   try {
     const result = await client.send(
       new HeadObjectCommand({ Bucket: config.bucket, ChecksumMode: "ENABLED", Key: storageKey }),
+      { abortSignal: AbortSignal.timeout(MEETING_RECORDING_CLEANUP_TIMEOUT_MS) },
     );
     if (!(typeof result.ContentLength === "number" && result.ContentType)) {
       return null;
@@ -385,28 +404,47 @@ export async function downloadMeetingRecordingObjectToFile(input: {
   await pipeline(response.Body.transformToWebStream(), createWriteStream(input.filePath));
 }
 
-export async function putMeetingRecordingFile(input: {
+interface MeetingRecordingFileInput {
   contentType: string;
+  deadlineAt: Date;
   filePath: string;
   sha256: string;
   sizeBytes: number;
   storageKey: string;
-}): Promise<void> {
+}
+
+async function prepareMeetingRecordingFileUpload(input: MeetingRecordingFileInput) {
   const [{ PutObjectCommand }, { client, config }] = await Promise.all([
     import("@aws-sdk/client-s3"),
     getRecordingClient(),
   ]);
-  await client.send(
-    new PutObjectCommand({
-      Body: createReadStream(input.filePath),
-      Bucket: config.bucket,
-      ChecksumSHA256: Buffer.from(input.sha256, "hex").toString("base64"),
-      ContentLength: input.sizeBytes,
-      ContentType: input.contentType,
-      Key: input.storageKey,
-      Metadata: { sha256: input.sha256 },
-    }),
-  );
+  const command = new PutObjectCommand({
+    Body: createReadStream(input.filePath),
+    Bucket: config.bucket,
+    ChecksumSHA256: Buffer.from(input.sha256, "hex").toString("base64"),
+    ContentLength: input.sizeBytes,
+    ContentType: input.contentType,
+    Key: input.storageKey,
+    Metadata: { sha256: input.sha256 },
+  });
+
+  return {
+    send: async (abortSignal: AbortSignal) => {
+      await client.send(command, { abortSignal });
+    },
+  };
+}
+
+export async function putMeetingRecordingFile(
+  input: MeetingRecordingFileInput,
+  prepareUpload = prepareMeetingRecordingFileUpload,
+): Promise<void> {
+  const upload = await prepareUpload(input);
+  const remainingMs = input.deadlineAt.getTime() - Date.now();
+  if (remainingMs <= 0) {
+    throw new Error("Meeting playback writer lease 已过期");
+  }
+  await upload.send(AbortSignal.timeout(Math.min(MEETING_RECORDING_WRITE_TIMEOUT_MS, remainingMs)));
 }
 
 function getClient() {

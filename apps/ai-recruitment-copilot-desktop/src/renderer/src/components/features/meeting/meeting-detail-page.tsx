@@ -14,6 +14,7 @@ import { desktopWorkspaceKeys, resolveActiveWorkspace } from "@/lib/client/works
 import { MeetingDetailView } from "./meeting-library-view";
 import { MeetingExportPanel } from "./meeting-export-panel";
 import { MeetingIntelligencePanel } from "./meeting-intelligence-panel";
+import { MeetingLifecyclePanel } from "./meeting-lifecycle-panel";
 import { MeetingNotesPanel } from "./meeting-notes-panel";
 import { MeetingQuestionsPanel } from "./meeting-questions-panel";
 import { MeetingRecruitingContextPanel } from "./meeting-recruiting-context-panel";
@@ -162,6 +163,11 @@ export function MeetingDetailPage({
         seekToSeconds={seekRequest.seconds}
       />
       <MeetingExportPanel
+        accessRole={detailQuery.data.accessRole}
+        meetingId={meetingId}
+        slug={workspaceSlug}
+      />
+      <MeetingLifecyclePanel
         accessRole={detailQuery.data.accessRole}
         meetingId={meetingId}
         slug={workspaceSlug}

@@ -16,6 +16,7 @@ interface LocalMultipartFragment {
 }
 
 const MULTIPART_UPLOAD_CONCURRENCY = 4;
+const MEETING_OBJECT_UPLOAD_TIMEOUT_MS = 55 * 60 * 1000;
 
 export interface MeetingObjectUploadInput {
   body: ReadableStream<Uint8Array>;
@@ -32,6 +33,7 @@ export async function uploadMeetingObject(input: MeetingObjectUploadInput): Prom
     duplex: "half",
     headers: { ...input.headers, "content-length": String(input.sizeBytes) },
     method: "PUT",
+    signal: AbortSignal.timeout(MEETING_OBJECT_UPLOAD_TIMEOUT_MS),
   } as RequestInit & { duplex: "half" });
   if (!response.ok) {
     throw new Error(`录音对象上传失败 (${response.status})`);

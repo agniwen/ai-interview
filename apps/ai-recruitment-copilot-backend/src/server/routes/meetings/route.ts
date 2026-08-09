@@ -1,4 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
+import { z } from "zod";
 import {
   completeSmallSavedMeetingSchema,
   createMultipartSavedMeetingSchema,
@@ -12,6 +13,7 @@ import {
   getSavedMeetingDetail,
   listSavedMeetings,
 } from "./service";
+import { permanentlyPurgeSavedMeeting } from "./lifecycle-service";
 import { meetingPlaybackRouter } from "./routes/playback/route";
 import { meetingExportsRouter } from "./routes/exports/route";
 import { meetingQuestionsRouter } from "./routes/questions/route";
@@ -23,12 +25,20 @@ import { meetingNotesRouter } from "./routes/notes/route";
 import { meetingShareRouter } from "./routes/share/route";
 import { meetingTranscriptRouter } from "./routes/transcript/route";
 import { meetingTranscriptionPolicyRouter } from "./routes/transcription-policy/route";
+import { meetingRestoreRouter } from "./routes/restore/route";
+import { meetingTrashActionRouter } from "./routes/trash-action/route";
+import { meetingTrashRouter } from "./routes/trash/route";
+
+const purgeMeetingQuerySchema = z.object({
+  localRecoveryCleanup: z.enum(["deleted", "failed", "not-reported"]).default("not-reported"),
+});
 
 export const meetingsRouter = factory
   .createApp()
   .route("/live-transcript", meetingLiveTranscriptRouter)
   .route("/transcription-policy", meetingTranscriptionPolicyRouter)
   .route("/search", meetingSearchRouter)
+  .route("/trash", meetingTrashRouter)
   .get("/", async (c) => {
     const { activeOrg, member, user } = c.var;
     if (!(activeOrg && member && user)) {
@@ -55,7 +65,7 @@ export const meetingsRouter = factory
         ownerId: user.id,
       });
       if ("conflict" in result) {
-        return c.json({ error: result.message }, 409);
+        return c.json({ code: result.code, error: result.message }, 409);
       }
       return c.json(
         {
@@ -82,7 +92,7 @@ export const meetingsRouter = factory
         ownerId: user.id,
       });
       if ("conflict" in result) {
-        return c.json({ error: result.message }, 409);
+        return c.json({ code: result.code, error: result.message }, 409);
       }
       return c.json(
         {
@@ -130,6 +140,28 @@ export const meetingsRouter = factory
   .route("/:id/notes", meetingNotesRouter)
   .route("/:id/share", meetingShareRouter)
   .route("/:id/transcript", meetingTranscriptRouter)
+  .route("/:id/trash", meetingTrashActionRouter)
+  .route("/:id/restore", meetingRestoreRouter)
+  .delete(
+    "/:id",
+    zValidator("query", purgeMeetingQuerySchema, jsonValidatorError("永久清除参数无效")),
+    async (c) => {
+      const { activeOrg, user } = c.var;
+      if (!(activeOrg && user)) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const result = await permanentlyPurgeSavedMeeting({
+        actorId: user.id,
+        localRecoveryCleanup: c.req.valid("query").localRecoveryCleanup,
+        meetingId: c.req.param("id"),
+        organizationId: activeOrg.id,
+      });
+      if (result.state === "forbidden") {
+        return c.json({ error: "只有 Meeting Owner 或 Workspace 管理员可以永久清除会议" }, 403);
+      }
+      return c.body(null, 202);
+    },
+  )
   .get("/:id", async (c) => {
     const { activeOrg, member, user } = c.var;
     if (!(activeOrg && member && user)) {

@@ -16,9 +16,11 @@ import {
 } from "@arc/meeting-processing-queue/meeting-playback";
 import {
   createOrLoadMeetingSession,
+  isMeetingPurgeTombstoned,
   listMeetingSessionsForAccess,
   loadMeetingSession,
   markMeetingSessionVerified,
+  meetingAcceptsUploadAuthorization,
   recordMeetingAudit,
   recordMeetingAssetMultipartUploadId,
 } from "./dao";
@@ -68,6 +70,10 @@ function shouldAutomaticallyEnqueuePlayback(status: string): boolean {
   return status === "workspace-verified" || status === "processing";
 }
 
+function isMeetingLifecycleUnavailable(status: string): boolean {
+  return status === "trashed" || status === "purging";
+}
+
 async function enqueueMeetingPlaybackBestEffort(input: {
   meetingId: string;
   organizationId: string;
@@ -83,7 +89,7 @@ async function enqueueMeetingPlaybackBestEffort(input: {
 }
 
 type CreateResult =
-  | { conflict: true; message: string }
+  | { code?: "meeting-purged"; conflict: true; message: string }
   | (SmallSavedMeetingResponse & { created: boolean });
 
 function ownsMeeting(
@@ -112,7 +118,7 @@ export async function createSmallSavedMeeting(input: {
       }),
     })),
   );
-  const { created, meeting } = await createOrLoadMeetingSession({
+  const { blockedByPurge, created, meeting } = await createOrLoadMeetingSession({
     assets,
     meeting: {
       id: input.input.id,
@@ -123,11 +129,17 @@ export async function createSmallSavedMeeting(input: {
       startedAt: input.input.startedAt,
     },
   });
+  if (blockedByPurge) {
+    return { code: "meeting-purged", conflict: true, message: "Meeting Session 已被永久清除" };
+  }
   if (!meeting || !ownsMeeting(meeting, { ...input, manifestSha256: input.input.manifestSha256 })) {
     return {
       conflict: true,
       message: "Meeting Session 已绑定另一份本地录音清单",
     };
+  }
+  if (isMeetingLifecycleUnavailable(meeting.status)) {
+    return { conflict: true, message: "Meeting Session 已移入废纸篓或正在永久清除" };
   }
   if (SERVER_VERIFIED_STATUSES.has(meeting.status)) {
     const recoveryCopyDeleteAfter =
@@ -171,6 +183,15 @@ export async function createSmallSavedMeeting(input: {
       };
     }),
   );
+  if (
+    !(await meetingAcceptsUploadAuthorization({
+      meetingId: meeting.id,
+      organizationId: input.organizationId,
+      ownerId: input.ownerId,
+    }))
+  ) {
+    return { conflict: true, message: "Meeting Session 已移入废纸篓或正在永久清除" };
+  }
   return {
     created,
     meetingId: meeting.id,
@@ -181,7 +202,7 @@ export async function createSmallSavedMeeting(input: {
 }
 
 type MultipartCreateResult =
-  | { conflict: true; message: string }
+  | { code?: "meeting-purged"; conflict: true; message: string }
   | (MultipartSavedMeetingResponse & { created: boolean });
 
 function normalizedEtag(etag: string): string {
@@ -249,9 +270,15 @@ export async function createMultipartSavedMeeting(input: {
       startedAt: input.input.startedAt,
     },
   });
+  if (createdResult.blockedByPurge) {
+    return { code: "meeting-purged", conflict: true, message: "Meeting Session 已被永久清除" };
+  }
   let { meeting } = createdResult;
   if (!meeting || !ownsMeeting(meeting, { ...input, manifestSha256: input.input.manifestSha256 })) {
     return { conflict: true, message: "Meeting Session 已绑定另一份本地录音清单" };
+  }
+  if (isMeetingLifecycleUnavailable(meeting.status)) {
+    return { conflict: true, message: "Meeting Session 已移入废纸篓或正在永久清除" };
   }
   if (SERVER_VERIFIED_STATUSES.has(meeting.status)) {
     const recoveryCopyDeleteAfter =
@@ -366,6 +393,15 @@ export async function createMultipartSavedMeeting(input: {
     }),
   );
   const uploads = uploadsByAsset.flatMap((parts) => parts.filter((part) => part !== null));
+  if (
+    !(await meetingAcceptsUploadAuthorization({
+      meetingId: meeting.id,
+      organizationId: input.organizationId,
+      ownerId: input.ownerId,
+    }))
+  ) {
+    return { conflict: true, message: "Meeting Session 已移入废纸篓或正在永久清除" };
+  }
   return {
     created: createdResult.created,
     meetingId: meeting.id,
@@ -392,10 +428,15 @@ export async function completeSmallSavedMeeting(input: {
 }): Promise<CompleteResult> {
   const meeting = await loadMeetingSession(input.meetingId);
   if (!meeting) {
-    return { error: "Meeting Session 不存在", status: 404 };
+    return (await isMeetingPurgeTombstoned(input.meetingId))
+      ? { error: "Meeting Session 已被永久清除", status: 409 }
+      : { error: "Meeting Session 不存在", status: 404 };
   }
   if (!ownsMeeting(meeting, input)) {
     return { error: "Meeting Session 保存身份不匹配", status: 409 };
+  }
+  if (isMeetingLifecycleUnavailable(meeting.status)) {
+    return { error: "Meeting Session 已移入废纸篓或正在永久清除", status: 409 };
   }
   if (SERVER_VERIFIED_STATUSES.has(meeting.status)) {
     const recoveryCopyDeleteAfter =

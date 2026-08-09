@@ -50,6 +50,7 @@ export interface LocalSavedMeeting {
 
 export interface RecoverableMeetingCapture {
   captureId: string;
+  manifestSha256?: string;
   possibleTailGap: boolean;
   recruitingRecordId: string | null;
   recoveryCopyDeleteAfter: string | null;
@@ -88,6 +89,12 @@ export interface WorkspaceRecordingPort {
     manifestSha256: string;
     report: (state: Extract<WorkspaceSavePhase, "uploading" | "verifying">) => void;
   }) => Promise<{ recoveryCopyDeleteAfter: string }>;
+  reportRecoveryCopyCleanup?: (
+    captureId: string,
+    manifestSha256: string,
+    status: "deleted" | "failed",
+  ) => Promise<void>;
+  shouldDeleteRecoveryCopy?: (captureId: string, manifestSha256: string) => Promise<boolean>;
 }
 
 export interface CaptureFragment {
@@ -184,6 +191,7 @@ const initialSnapshot = (): MeetingCaptureSnapshot => ({
 function asRecoverable(saved: LocalSavedMeeting): RecoverableMeetingCapture {
   return {
     captureId: saved.captureId,
+    manifestSha256: saved.manifestSha256,
     possibleTailGap: saved.possibleTailGap,
     recoveryCopyDeleteAfter: null,
     recruitingRecordId: saved.recruitingRecordId,
@@ -326,11 +334,64 @@ export function createMeetingCapture({
     workspaceOperations.set(saved.captureId, operation);
   };
 
+  const reconcileRecoveryCopy = async (capture: RecoverableMeetingCapture): Promise<boolean> => {
+    if (
+      !(
+        capture.manifestSha256 &&
+        capture.recoveryCopyDeleteAfter &&
+        workspace?.shouldDeleteRecoveryCopy
+      )
+    ) {
+      return true;
+    }
+    let deleteRequired = false;
+    try {
+      deleteRequired = await workspace.shouldDeleteRecoveryCopy(
+        capture.captureId,
+        capture.manifestSha256,
+      );
+    } catch {
+      return true;
+    }
+    if (!deleteRequired) {
+      return true;
+    }
+    try {
+      await store.discard(capture.captureId);
+    } catch (error) {
+      await workspace
+        .reportRecoveryCopyCleanup?.(capture.captureId, capture.manifestSha256, "failed")
+        .catch((reportError: unknown) => {
+          console.warn("[meeting-capture] local recovery cleanup report failed", {
+            errorName: reportError instanceof Error ? reportError.name : "UnknownError",
+          });
+        });
+      patch({
+        error: error instanceof Error ? error.message : "Local Recording Recovery Copy 清理失败",
+      });
+      return true;
+    }
+    await workspace
+      .reportRecoveryCopyCleanup?.(capture.captureId, capture.manifestSha256, "deleted")
+      .catch((reportError: unknown) => {
+        console.warn("[meeting-capture] local recovery cleanup report failed", {
+          errorName: reportError instanceof Error ? reportError.name : "UnknownError",
+        });
+      });
+    return false;
+  };
+
   const ready = store
     .recover()
     .then(async (recoverable) => {
-      patch({ recoverable, recoveryComplete: true });
+      const retained: RecoverableMeetingCapture[] = [];
       for (const capture of recoverable) {
+        if (await reconcileRecoveryCopy(capture)) {
+          retained.push(capture);
+        }
+      }
+      patch({ recoverable: retained, recoveryComplete: true });
+      for (const capture of retained) {
         if (capture.recoveryCopyDeleteAfter) {
           scheduleRecoveryCleanup(capture.captureId, capture.recoveryCopyDeleteAfter);
         }

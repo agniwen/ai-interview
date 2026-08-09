@@ -33,6 +33,12 @@ import {
   isMeetingProcessingQueueConfigured,
 } from "@arc/meeting-processing-queue/meeting-playback";
 import {
+  closeMeetingPurgeQueue,
+  createMeetingPurgeWorker,
+  enqueueMeetingPurgeJobs,
+  isMeetingPurgeQueueConfigured,
+} from "@arc/meeting-processing-queue/meeting-purge";
+import {
   closeMeetingTranscriptionQueue,
   createMeetingTranscriptionWorker,
   enqueueMeetingTranscriptionJobs,
@@ -96,6 +102,18 @@ async function recoverIncompleteMeetingPlaybackJobs(): Promise<void> {
   });
 }
 
+async function recoverIncompleteMeetingPurgeJobs(): Promise<void> {
+  const { listRecoverableMeetingPurgeJobs } =
+    await import("@arc/ai-recruitment-copilot-backend/server/routes/meetings/lifecycle-dao");
+  const jobs = await listRecoverableMeetingPurgeJobs();
+  if (jobs.length === 0) {
+    console.info("[meeting-purge-worker] recovery found no due meetings");
+    return;
+  }
+  await enqueueMeetingPurgeJobs(jobs);
+  console.info("[meeting-purge-worker] recovery enqueued meetings", { count: jobs.length });
+}
+
 async function recoverIncompleteMeetingAnswerJobs(): Promise<void> {
   const { listRecoverableMeetingAnswerJobs } =
     await import("@arc/ai-recruitment-copilot-backend/server/routes/meetings/answers/dao");
@@ -149,6 +167,7 @@ async function recoverIncompleteMeetingTranscriptionJobs(): Promise<void> {
 }
 
 let meetingPlaybackRecoveryRunning = false;
+let meetingPurgeRecoveryRunning = false;
 let meetingAnswerRecoveryRunning = false;
 let meetingIntelligenceRecoveryRunning = false;
 let meetingTranscriptionRecoveryRunning = false;
@@ -197,6 +216,22 @@ async function reconcileMeetingPlaybackJobs(): Promise<void> {
   }
 }
 
+async function reconcileMeetingPurgeJobs(): Promise<void> {
+  if (meetingPurgeRecoveryRunning) {
+    return;
+  }
+  meetingPurgeRecoveryRunning = true;
+  try {
+    await recoverIncompleteMeetingPurgeJobs();
+  } catch (error) {
+    console.error("[meeting-purge-worker] periodic recovery failed", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+  } finally {
+    meetingPurgeRecoveryRunning = false;
+  }
+}
+
 async function reconcileMeetingTranscriptionJobs(): Promise<void> {
   if (meetingTranscriptionRecoveryRunning) {
     return;
@@ -239,6 +274,8 @@ async function main() {
   let meetingIntelligenceRecoveryTimer: NodeJS.Timeout | null = null;
   let meetingPlaybackWorker: ReturnType<typeof createMeetingPlaybackWorker> | null = null;
   let meetingPlaybackRecoveryTimer: NodeJS.Timeout | null = null;
+  let meetingPurgeWorker: ReturnType<typeof createMeetingPurgeWorker> | null = null;
+  let meetingPurgeRecoveryTimer: NodeJS.Timeout | null = null;
   let meetingTranscriptionWorker: ReturnType<typeof createMeetingTranscriptionWorker> | null = null;
   let meetingTranscriptionRecoveryTimer: NodeJS.Timeout | null = null;
   if (isMeetingAnswerQueueConfigured()) {
@@ -262,6 +299,17 @@ async function main() {
       void reconcileMeetingPlaybackJobs();
     }, 60_000);
     meetingPlaybackRecoveryTimer.unref();
+  }
+  if (isMeetingPurgeQueueConfigured()) {
+    meetingPurgeWorker = createMeetingPurgeWorker(async (payload) => {
+      const { runMeetingPurgeProcessing } = await import("./meeting-purge/processor");
+      await runMeetingPurgeProcessing(payload);
+    });
+    await reconcileMeetingPurgeJobs();
+    meetingPurgeRecoveryTimer = setInterval(() => {
+      void reconcileMeetingPurgeJobs();
+    }, 60_000);
+    meetingPurgeRecoveryTimer.unref();
   }
   if (isMeetingIntelligenceQueueConfigured()) {
     meetingIntelligenceWorker = createMeetingIntelligenceWorker(async (payload, context) => {
@@ -342,6 +390,9 @@ async function main() {
         if (meetingPlaybackRecoveryTimer) {
           clearInterval(meetingPlaybackRecoveryTimer);
         }
+        if (meetingPurgeRecoveryTimer) {
+          clearInterval(meetingPurgeRecoveryTimer);
+        }
         if (meetingAnswerRecoveryTimer) {
           clearInterval(meetingAnswerRecoveryTimer);
         }
@@ -352,10 +403,12 @@ async function main() {
           clearInterval(meetingTranscriptionRecoveryTimer);
         }
         await meetingPlaybackWorker?.close();
+        await meetingPurgeWorker?.close();
         await meetingAnswerWorker?.close();
         await meetingIntelligenceWorker?.close();
         await meetingTranscriptionWorker?.close();
         await closeMeetingPlaybackQueue();
+        await closeMeetingPurgeQueue();
         await closeMeetingAnswerQueue();
         await closeMeetingIntelligenceQueue();
         await closeMeetingTranscriptionQueue();

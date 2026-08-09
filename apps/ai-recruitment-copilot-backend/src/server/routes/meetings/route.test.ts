@@ -28,17 +28,22 @@ const mocks = vi.hoisted(() => ({
   getWorkspaceMeetingTranscriptionPolicy: vi.fn(),
   listSavedMeetingQuestionThreads: vi.fn(),
   listSavedMeetings: vi.fn(),
+  listTrashedSavedMeetings: vi.fn(),
+  permanentlyPurgeSavedMeeting: vi.fn(),
   reassignSavedMeetingOwner: vi.fn(),
   regenerateSavedMeetingIntelligence: vi.fn(),
   removeMeetingNote: vi.fn(),
+  restoreSavedMeeting: vi.fn(),
   retryMeetingPlayback: vi.fn(),
   retrySavedMeetingTranscription: vi.fn(),
   searchSavedMeetings: vi.fn(),
+  trashSavedMeeting: vi.fn(),
   updateMeetingShare: vi.fn(),
   updateWorkspaceMeetingTranscriptionPolicy: vi.fn(),
 }));
 
 vi.mock("./service", () => mocks);
+vi.mock("./lifecycle-service", () => mocks);
 vi.mock("./collaboration-service", () => mocks);
 vi.mock("./transcription/service", () => mocks);
 vi.mock("./routes/live-transcript/service", () => mocks);

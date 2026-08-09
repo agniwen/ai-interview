@@ -763,6 +763,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
             await this.releaseActiveLock(manifest.captureId);
             recoverable.push({
               captureId: manifest.captureId,
+              manifestSha256: intent.manifestSha256,
               possibleTailGap: manifest.possibleTailGap || verification.truncated,
               recoveryCopyDeleteAfter: intent.recoveryCopyDeleteAfter,
               recruitingRecordId: manifest.recruitingRecordId,

@@ -292,6 +292,7 @@ export async function claimMeetingIntelligenceRun(input: {
         .select({
           activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
           intelligenceRunId: meetingSession.intelligenceRunId,
+          status: meetingSession.status,
         })
         .from(meetingSession)
         .where(
@@ -316,6 +317,7 @@ export async function claimMeetingIntelligenceRun(input: {
       }
       if (
         !meeting ||
+        meeting.status !== "ready" ||
         meeting.intelligenceRunId !== run.id ||
         meeting.activeTranscriptRevisionId !== run.inputTranscriptRevisionId ||
         run.status === "failed" ||
@@ -468,6 +470,7 @@ export async function publishMeetingIntelligence(input: {
       .select({
         activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
         intelligenceRunId: meetingSession.intelligenceRunId,
+        status: meetingSession.status,
       })
       .from(meetingSession)
       .where(
@@ -497,6 +500,7 @@ export async function publishMeetingIntelligence(input: {
     }
     if (
       !meeting ||
+      meeting.status !== "ready" ||
       meeting.intelligenceRunId !== run.id ||
       meeting.activeTranscriptRevisionId !== run.inputTranscriptRevisionId ||
       run.executionToken !== input.executionToken ||
@@ -583,7 +587,10 @@ export async function markMeetingIntelligenceFailed(input: {
   }
   return await db.transaction(async (tx) => {
     const [meeting] = await tx
-      .select({ intelligenceRunId: meetingSession.intelligenceRunId })
+      .select({
+        intelligenceRunId: meetingSession.intelligenceRunId,
+        status: meetingSession.status,
+      })
       .from(meetingSession)
       .where(
         and(
@@ -601,6 +608,7 @@ export async function markMeetingIntelligenceFailed(input: {
       .limit(1);
     if (
       !meeting ||
+      meeting.status !== "ready" ||
       meeting.intelligenceRunId !== input.processingRunId ||
       run?.executionToken !== input.executionToken ||
       run.status !== "processing"

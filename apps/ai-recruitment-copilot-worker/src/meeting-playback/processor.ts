@@ -17,6 +17,8 @@ import {
   markMeetingPlaybackFailed,
   markMeetingPlaybackProcessing,
   publishMeetingPlaybackAsset,
+  registerMeetingPlaybackCleanupKey,
+  removeMeetingPlaybackCleanupKey,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/dao";
 import type { MeetingPlaybackJobData } from "@arc/meeting-processing-queue/meeting-playback";
 
@@ -54,6 +56,8 @@ export interface MeetingPlaybackDependencies {
     systemPath: string;
   }) => Promise<void>;
   publishPlayback: typeof publishMeetingPlaybackAsset;
+  registerCleanupKey: typeof registerMeetingPlaybackCleanupKey;
+  removeCleanupKey: typeof removeMeetingPlaybackCleanupKey;
   removeWorkingDirectory: (directory: string) => Promise<void>;
   uploadPlayback: typeof putMeetingRecordingFile;
   verifyPlayback: (input: {
@@ -127,6 +131,8 @@ const defaultDependencies: MeetingPlaybackDependencies = {
   markProcessing: markMeetingPlaybackProcessing,
   mixSources: runFfmpeg,
   publishPlayback: publishMeetingPlaybackAsset,
+  registerCleanupKey: registerMeetingPlaybackCleanupKey,
+  removeCleanupKey: removeMeetingPlaybackCleanupKey,
   removeWorkingDirectory: (directory) => rm(directory, { force: true, recursive: true }),
   uploadPlayback: putMeetingRecordingFile,
   verifyPlayback: async (input) => {
@@ -140,6 +146,7 @@ const defaultDependencies: MeetingPlaybackDependencies = {
   },
 };
 
+// oxlint-disable-next-line complexity -- claim, external upload, CAS publish, and loser cleanup form one job boundary.
 export async function runMeetingPlaybackProcessing(
   input: MeetingPlaybackJobData,
   dependencies: MeetingPlaybackDependencies = defaultDependencies,
@@ -181,9 +188,21 @@ export async function runMeetingPlaybackProcessing(
     const output = await dependencies.inspectOutput(outputPath);
     const storageKey = await dependencies.buildPlaybackStorageKey({ ...input, processingRunId });
     playbackStorageKey = storageKey;
+    const cleanupRegistration = await dependencies.registerCleanupKey({
+      ...input,
+      processingRunId,
+      storageKey,
+    });
+    if (!cleanupRegistration) {
+      throw new Error("Meeting playback run 已被替换或会议正在清除");
+    }
+    if (cleanupRegistration.writerLeaseExpiresAt.getTime() <= Date.now()) {
+      throw new Error("Meeting playback writer lease 已过期");
+    }
     const contentType = "audio/webm";
     await dependencies.uploadPlayback({
       contentType,
+      deadlineAt: cleanupRegistration.writerLeaseExpiresAt,
       filePath: outputPath,
       sha256: output.sha256,
       sizeBytes: output.sizeBytes,
@@ -209,6 +228,20 @@ export async function runMeetingPlaybackProcessing(
       storageKey,
     });
     if (published) {
+      try {
+        await dependencies.removeCleanupKey({
+          meetingId: input.meetingId,
+          organizationId: input.organizationId,
+          storageKey,
+        });
+      } catch (error) {
+        console.error("[meeting-playback-worker] failed to retire published cleanup key", {
+          error,
+          meetingId: input.meetingId,
+          processingRunId,
+          storageKey,
+        });
+      }
       try {
         await dependencies.enqueueTranscription({
           meetingId: input.meetingId,
@@ -240,6 +273,11 @@ export async function runMeetingPlaybackProcessing(
     if (cleanupPlayback && playbackStorageKey) {
       try {
         await dependencies.deletePlayback(playbackStorageKey);
+        await dependencies.removeCleanupKey({
+          meetingId: input.meetingId,
+          organizationId: input.organizationId,
+          storageKey: playbackStorageKey,
+        });
       } catch (error) {
         console.error("[meeting-playback-worker] failed to remove unpublished playback", {
           error,

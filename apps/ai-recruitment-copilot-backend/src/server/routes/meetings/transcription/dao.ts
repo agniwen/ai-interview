@@ -296,7 +296,10 @@ export async function claimMeetingTranscriptionChunk(
       return { status: "not-current" };
     }
     const [meeting] = await tx
-      .select({ transcriptionRunId: meetingSession.transcriptionRunId })
+      .select({
+        status: meetingSession.status,
+        transcriptionRunId: meetingSession.transcriptionRunId,
+      })
       .from(meetingSession)
       .where(
         and(
@@ -306,7 +309,7 @@ export async function claimMeetingTranscriptionChunk(
       )
       .for("update")
       .limit(1);
-    if (meeting?.transcriptionRunId !== input.processingRunId) {
+    if (meeting?.status !== "ready" || meeting.transcriptionRunId !== input.processingRunId) {
       return { status: "not-current" };
     }
     const [inserted] = await tx
@@ -591,7 +594,10 @@ export async function publishMeetingTranscript(
       return false;
     }
     const [meeting] = await tx
-      .select({ transcriptionRunId: meetingSession.transcriptionRunId })
+      .select({
+        status: meetingSession.status,
+        transcriptionRunId: meetingSession.transcriptionRunId,
+      })
       .from(meetingSession)
       .where(
         and(
@@ -601,7 +607,7 @@ export async function publishMeetingTranscript(
       )
       .for("update")
       .limit(1);
-    if (meeting?.transcriptionRunId !== input.processingRunId) {
+    if (meeting?.status !== "ready" || meeting.transcriptionRunId !== input.processingRunId) {
       return false;
     }
     const [existing] = await tx

@@ -101,10 +101,13 @@ describe("Meeting library search DAO", () => {
         manifestSha256: "3".repeat(64),
         organizationId: ORGANIZATION_ID,
         ownerId: CREATOR_ID,
+        purgeAfter: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
         savedAt: new Date(now.getTime() - 2000),
         startedAt: now,
         status: "trashed",
         title: "Trashed Quartz roadmap",
+        trashedAt: now,
+        trashedFromStatus: "ready",
         visibility: "workspace",
       },
     ]);

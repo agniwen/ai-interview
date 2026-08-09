@@ -324,6 +324,12 @@ export const meetingSession = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     processingError: text("processing_error"),
     processingRunId: text("processing_run_id"),
+    purgeAfter: timestamp("purge_after", { withTimezone: true }),
+    purgeClaimToken: text("purge_claim_token"),
+    purgeInitialSweepCompletedAt: timestamp("purge_initial_sweep_completed_at", {
+      withTimezone: true,
+    }),
+    purgeLeaseExpiresAt: timestamp("purge_lease_expires_at", { withTimezone: true }),
     recoveryCopyDeleteAfter: timestamp("recovery_copy_delete_after", { withTimezone: true }),
     savedAt: timestamp("saved_at", { withTimezone: true }).notNull(),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
@@ -336,6 +342,8 @@ export const meetingSession = pgTable(
       { onDelete: "set null" },
     ),
     transcriptionStatus: text("transcription_status").default("pending").notNull(),
+    trashedAt: timestamp("trashed_at", { withTimezone: true }),
+    trashedFromStatus: text("trashed_from_status"),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
@@ -356,6 +364,30 @@ export const meetingSession = pgTable(
       "meeting_session_transcription_status_check",
       sql`${table.transcriptionStatus} in ('pending', 'processing', 'ready', 'failed')`,
     ),
+    check(
+      "meeting_session_trash_state_check",
+      sql`(
+        ${table.status} not in ('trashed', 'purging')
+        and ${table.trashedAt} is null
+        and ${table.trashedFromStatus} is null
+        and ${table.purgeAfter} is null
+        and ${table.purgeClaimToken} is null
+        and ${table.purgeInitialSweepCompletedAt} is null
+        and ${table.purgeLeaseExpiresAt} is null
+      ) or (
+        ${table.status} = 'trashed'
+        and ${table.trashedAt} is not null
+        and ${table.trashedFromStatus} is not null
+        and ${table.purgeAfter} is not null
+        and ${table.purgeClaimToken} is null
+        and ${table.purgeLeaseExpiresAt} is null
+      ) or (
+        ${table.status} = 'purging'
+        and ${table.trashedAt} is not null
+        and ${table.trashedFromStatus} is not null
+        and ${table.purgeAfter} is not null
+      )`,
+    ),
     index("meeting_session_org_owner_saved_idx").on(
       table.organizationId,
       table.ownerId,
@@ -366,7 +398,45 @@ export const meetingSession = pgTable(
       table.status,
       table.savedAt,
     ),
+    index("meeting_session_purge_due_idx").on(table.status, table.purgeAfter),
     uniqueIndex("meeting_session_id_org_uq").on(table.id, table.organizationId),
+  ],
+);
+
+export const meetingPurgeTombstone = pgTable(
+  "meeting_purge_tombstone",
+  {
+    manifestSha256: text("manifest_sha256").notNull(),
+    meetingId: text("meeting_id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    ownerId: text("owner_id").notNull(),
+    purgedAt: timestamp("purged_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("meeting_purge_tombstone_org_purged_idx").on(table.organizationId, table.purgedAt),
+  ],
+);
+
+export const meetingStorageCleanupKey = pgTable(
+  "meeting_storage_cleanup_key",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    finalSweepCompletedAt: timestamp("final_sweep_completed_at", { withTimezone: true }),
+    initialSweepCompletedAt: timestamp("initial_sweep_completed_at", { withTimezone: true }),
+    meetingId: text("meeting_id").notNull(),
+    organizationId: text("organization_id").notNull(),
+    storageKey: text("storage_key").primaryKey(),
+    writerLeaseExpiresAt: timestamp("writer_lease_expires_at", { withTimezone: true }),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.meetingId, table.organizationId],
+      foreignColumns: [meetingSession.id, meetingSession.organizationId],
+      name: "meeting_storage_cleanup_key_meeting_org_fk",
+    }).onDelete("cascade"),
+    index("meeting_storage_cleanup_key_meeting_idx").on(table.meetingId, table.createdAt),
   ],
 );
 
@@ -463,6 +533,9 @@ export const meetingProcessingRun = pgTable(
     promptVersion: text("prompt_version"),
     provider: text("provider").notNull(),
     region: text("region").notNull(),
+    remoteArtifactPurgeAttempts: integer("remote_artifact_purge_attempts").notNull().default(0),
+    remoteArtifactPurgeExecutionToken: text("remote_artifact_purge_execution_token"),
+    remoteArtifactPurgeStatus: text("remote_artifact_purge_status"),
     requestKind: text("request_kind"),
     requestedBy: text("requested_by").references(() => user.id, { onDelete: "set null" }),
     result: jsonb("result"),
@@ -485,6 +558,14 @@ export const meetingProcessingRun = pgTable(
     check(
       "meeting_processing_run_status_check",
       sql`${table.status} in ('pending', 'processing', 'succeeded', 'failed')`,
+    ),
+    check(
+      "meeting_processing_run_remote_purge_status_check",
+      sql`${table.remoteArtifactPurgeStatus} is null or ${table.remoteArtifactPurgeStatus} in ('deleted', 'failed', 'unsupported')`,
+    ),
+    check(
+      "meeting_processing_run_remote_purge_attempts_check",
+      sql`${table.remoteArtifactPurgeAttempts} >= 0`,
     ),
     index("meeting_processing_run_meeting_stage_idx").on(
       table.meetingId,

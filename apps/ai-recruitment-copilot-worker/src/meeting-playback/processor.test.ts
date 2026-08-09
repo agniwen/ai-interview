@@ -12,6 +12,8 @@ vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/meetings/dao", () => 
   markMeetingPlaybackFailed: vi.fn(),
   markMeetingPlaybackProcessing: vi.fn(),
   publishMeetingPlaybackAsset: vi.fn(),
+  registerMeetingPlaybackCleanupKey: vi.fn(),
+  removeMeetingPlaybackCleanupKey: vi.fn(),
 }));
 
 // oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
@@ -53,6 +55,12 @@ function createDependencies() {
     markProcessing: vi.fn(() => Promise.resolve(true)),
     mixSources: vi.fn(() => Promise.resolve()),
     publishPlayback: vi.fn(() => Promise.resolve(true)),
+    registerCleanupKey: vi.fn(() =>
+      Promise.resolve<{ writerLeaseExpiresAt: Date } | null>({
+        writerLeaseExpiresAt: new Date("2099-08-09T12:12:00.000Z"),
+      }),
+    ),
+    removeCleanupKey: vi.fn(() => Promise.resolve()),
     removeWorkingDirectory: vi.fn(() => Promise.resolve()),
     uploadPlayback: vi.fn(() => Promise.resolve()),
     verifyPlayback: vi.fn(() => Promise.resolve(true)),
@@ -82,6 +90,12 @@ describe("Meeting playback processor", () => {
       organizationId: "org-74",
       processingRunId: "run-74",
     });
+    expect(deps.registerCleanupKey).toHaveBeenCalledWith({
+      meetingId: "meeting-74",
+      organizationId: "org-74",
+      processingRunId: "run-74",
+      storageKey: "meetings/org/meeting/playback.webm",
+    });
     expect(deps.publishPlayback).toHaveBeenCalledWith({
       contentType: "audio/webm",
       durationMs: 62_000,
@@ -96,6 +110,32 @@ describe("Meeting playback processor", () => {
       meetingId: "meeting-74",
       organizationId: "org-74",
     });
+    expect(deps.removeCleanupKey).toHaveBeenCalledWith({
+      meetingId: "meeting-74",
+      organizationId: "org-74",
+      storageKey: "meetings/org/meeting/playback.webm",
+    });
+  });
+
+  it("does not upload when purge wins before the cleanup key is registered", async () => {
+    const deps = createDependencies();
+    deps.registerCleanupKey.mockResolvedValueOnce(null);
+
+    await expect(
+      runMeetingPlaybackProcessing({ meetingId: "meeting-74", organizationId: "org-74" }, deps),
+    ).rejects.toThrow("正在清除");
+    expect(deps.uploadPlayback).not.toHaveBeenCalled();
+  });
+
+  it("does not let a paused writer start uploading after its absolute lease expires", async () => {
+    const deps = createDependencies();
+    deps.registerCleanupKey.mockResolvedValueOnce({ writerLeaseExpiresAt: new Date(0) });
+
+    await expect(
+      runMeetingPlaybackProcessing({ meetingId: "meeting-74", organizationId: "org-74" }, deps),
+    ).rejects.toThrow("writer lease 已过期");
+
+    expect(deps.uploadPlayback).not.toHaveBeenCalled();
   });
 
   it("keeps verified sources intact and leaves a retryable failure when mixing fails", async () => {
@@ -140,6 +180,11 @@ describe("Meeting playback processor", () => {
 
     expect(deps.publishPlayback).toHaveBeenCalledTimes(1);
     expect(deps.deletePlayback).toHaveBeenCalledWith("meetings/org/meeting/playback.webm");
+    expect(deps.removeCleanupKey).toHaveBeenCalledWith({
+      meetingId: "meeting-74",
+      organizationId: "org-74",
+      storageKey: "meetings/org/meeting/playback.webm",
+    });
     expect(deps.markFailed).not.toHaveBeenCalled();
     expect(deps.enqueueTranscription).not.toHaveBeenCalled();
   });

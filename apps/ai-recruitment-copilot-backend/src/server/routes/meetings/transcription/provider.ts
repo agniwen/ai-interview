@@ -17,6 +17,17 @@ export interface FinalTranscriptionInput {
   region: string;
 }
 
+export interface MeetingProviderArtifactInput {
+  meetingId: string;
+  organizationId: string;
+  processingRunId: string;
+  providerArtifact: unknown;
+  signal: AbortSignal;
+  stage: string;
+}
+
 export interface MeetingTranscriptionProvider {
+  /** Implementations must honor `signal` and treat an already-missing artifact as deleted. */
+  deleteRemoteArtifact?: (input: MeetingProviderArtifactInput) => Promise<void>;
   transcribeFinal(input: FinalTranscriptionInput): Promise<CanonicalMeetingTranscript>;
 }

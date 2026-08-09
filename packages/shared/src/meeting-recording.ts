@@ -5,6 +5,7 @@ export const MEETING_MULTIPART_PART_BYTES = 8 * 1024 * 1024;
 export const MEETING_SINGLE_PUT_MAX_BYTES = 100 * 1024 * 1024;
 export const SMALL_MEETING_TRACK_MAX_BYTES = MEETING_SINGLE_PUT_MAX_BYTES;
 export const MEETING_TRACK_MAX_BYTES = 2_000_000_000;
+export const MEETING_TRASH_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
 const sha256Schema = z.string().regex(/^[a-f\d]{64}$/i, "SHA-256 格式无效");
 
@@ -240,6 +241,15 @@ export interface MeetingLibraryItem {
 export interface MeetingDetail extends MeetingLibraryItem {
   startedAt: string;
   verifiedAt: string | null;
+}
+
+export interface TrashedMeetingItem {
+  creator: MeetingCreatorSummary;
+  id: string;
+  purgeAfter: string;
+  savedAt: string;
+  title: string;
+  trashedAt: string;
 }
 
 export interface MeetingRecruitingRecordSummary {

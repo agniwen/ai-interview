@@ -56,7 +56,7 @@ async function hasMeetingAccess(
     )
     .for("share")
     .limit(1);
-  if (!meeting) {
+  if (!meeting || meeting.status === "trashed" || meeting.status === "purging") {
     return null;
   }
   const [membership] = await tx

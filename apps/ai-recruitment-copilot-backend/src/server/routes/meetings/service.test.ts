@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- Saved Meeting upload and lifecycle regressions share one service mock boundary. */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -11,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   enqueueMeetingPlaybackJobs: vi.fn(),
   headMeetingRecordingObject: vi.fn(),
   isMeetingProcessingQueueConfigured: vi.fn(),
+  isMeetingPurgeTombstoned: vi.fn(),
   listMeetingAccessGrants: vi.fn(),
   listMeetingNotes: vi.fn(),
   listMeetingRecordingUploadParts: vi.fn(),
@@ -18,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   loadMeetingSession: vi.fn(),
   loadMeetingSessionForAccess: vi.fn(),
   markMeetingSessionVerified: vi.fn(),
+  meetingAcceptsUploadAuthorization: vi.fn(),
   presignMeetingRecordingPutObject: vi.fn(),
   presignMeetingRecordingUploadPart: vi.fn(),
   presignRecordingGetObjectUrl: vi.fn(),
@@ -41,11 +44,13 @@ vi.mock("@arc/ai-recruitment-copilot-backend/lib/server/s3", () => ({
 }));
 vi.mock("./dao", () => ({
   createOrLoadMeetingSession: mocks.createOrLoadMeetingSession,
+  isMeetingPurgeTombstoned: mocks.isMeetingPurgeTombstoned,
   listMeetingAccessGrants: mocks.listMeetingAccessGrants,
   listMeetingSessionsForAccess: mocks.listMeetingSessionsForAccess,
   loadMeetingSession: mocks.loadMeetingSession,
   loadMeetingSessionForAccess: mocks.loadMeetingSessionForAccess,
   markMeetingSessionVerified: mocks.markMeetingSessionVerified,
+  meetingAcceptsUploadAuthorization: mocks.meetingAcceptsUploadAuthorization,
   reassignMeetingOwner: mocks.reassignMeetingOwner,
   recordMeetingAssetMultipartUploadId: mocks.recordMeetingAssetMultipartUploadId,
   recordMeetingAudit: mocks.recordMeetingAudit,
@@ -120,7 +125,88 @@ describe("small Saved Meeting service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.isMeetingProcessingQueueConfigured.mockReturnValue(true);
+    mocks.isMeetingPurgeTombstoned.mockResolvedValue(false);
     mocks.markMeetingSessionVerified.mockResolvedValue(new Date("2026-08-10T03:00:00.000Z"));
+    mocks.meetingAcceptsUploadAuthorization.mockResolvedValue(true);
+  });
+
+  it("does not recreate a permanently purged meeting id", async () => {
+    mocks.buildMeetingRecordingAssetKey.mockResolvedValue("unused");
+    mocks.createOrLoadMeetingSession.mockResolvedValue({
+      blockedByPurge: true,
+      created: false,
+      meeting: undefined,
+    });
+
+    const result = await createSmallSavedMeeting({
+      input: {
+        assets: baseMeeting.assets.map(
+          ({ contentType, durationMs, fragmentCount, sha256, sizeBytes, track }) => ({
+            contentType,
+            durationMs,
+            fragmentCount,
+            sha256,
+            sizeBytes,
+            track: track as "microphone" | "system",
+          }),
+        ),
+        id: "meeting",
+        manifestSha256: MANIFEST_SHA,
+        savedAt: "2026-08-09T03:01:00.000Z",
+        startedAt: "2026-08-09T03:00:00.000Z",
+      },
+      organizationId: "org",
+      ownerId: "owner",
+    });
+
+    expect(result).toEqual({
+      code: "meeting-purged",
+      conflict: true,
+      message: "Meeting Session 已被永久清除",
+    });
+    expect(mocks.presignMeetingRecordingPutObject).not.toHaveBeenCalled();
+  });
+
+  it("does not return a signed upload plan after a concurrent purge begins", async () => {
+    mocks.buildMeetingRecordingAssetKey.mockResolvedValue("unused");
+    mocks.createOrLoadMeetingSession.mockResolvedValue({
+      blockedByPurge: false,
+      created: false,
+      meeting: baseMeeting,
+    });
+    mocks.presignMeetingRecordingPutObject.mockResolvedValue({
+      expiresAt: new Date("2026-08-09T03:10:00.000Z"),
+      headers: {},
+      url: "https://r2.invalid/upload",
+    });
+    mocks.meetingAcceptsUploadAuthorization.mockResolvedValue(false);
+
+    const result = await createSmallSavedMeeting({
+      input: {
+        assets: baseMeeting.assets.map(
+          ({ contentType, durationMs, fragmentCount, sha256, sizeBytes, track }) => ({
+            contentType,
+            durationMs,
+            fragmentCount,
+            sha256,
+            sizeBytes,
+            track: track as "microphone" | "system",
+          }),
+        ),
+        id: "meeting",
+        manifestSha256: MANIFEST_SHA,
+        savedAt: "2026-08-09T03:01:00.000Z",
+        startedAt: "2026-08-09T03:00:00.000Z",
+      },
+      organizationId: "org",
+      ownerId: "owner",
+    });
+
+    expect(result).toEqual({
+      conflict: true,
+      message: "Meeting Session 已移入废纸篓或正在永久清除",
+    });
+    expect(mocks.presignMeetingRecordingPutObject).toHaveBeenCalledTimes(2);
   });
 
   it("does not generate another upload plan for an already verified idempotent create", async () => {

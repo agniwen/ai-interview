@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- state-machine restart regressions intentionally share the real store fixture. */
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -242,6 +243,49 @@ describe("MeetingCapture", () => {
         manifestSha256: saved.manifestSha256,
       }),
     );
+  });
+
+  it("deletes a verified recovery copy on restart after server-side purge", async () => {
+    const captureId = "00000000-0000-4000-8000-000000000084";
+    const source = new DeterministicCaptureSource();
+    const firstProcess = createMeetingCapture({
+      idFactory: () => captureId,
+      source,
+      store: new LocalMeetingRecordingStore(root),
+      workspace: {
+        persist: () => Promise.resolve({ recoveryCopyDeleteAfter: "2026-08-10T03:00:00.000Z" }),
+      },
+    });
+    const firstObserved = latestSnapshot(firstProcess);
+    await firstProcess.start();
+    await source.fragment("microphone", 0, "mic");
+    await source.fragment("system", 0, "system");
+    await firstProcess.save();
+    await waitFor(
+      firstObserved.read,
+      (snapshot) => snapshot.workspaceSaves[0]?.state === "workspace-verified",
+    );
+
+    const reportRecoveryCopyCleanup = vi.fn(async () => {});
+    const restarted = createMeetingCapture({
+      source: new DeterministicCaptureSource(),
+      store: new LocalMeetingRecordingStore(root),
+      workspace: {
+        persist: vi.fn(),
+        reportRecoveryCopyCleanup,
+        shouldDeleteRecoveryCopy: vi.fn().mockResolvedValue(true),
+      },
+    });
+    const restartedObserved = latestSnapshot(restarted);
+    await waitFor(restartedObserved.read, (snapshot) => snapshot.recoveryComplete);
+
+    expect(restartedObserved.read().recoverable).toEqual([]);
+    expect(reportRecoveryCopyCleanup).toHaveBeenCalledWith(
+      captureId,
+      expect.stringMatching(/^[a-f0-9]{64}$/u),
+      "deleted",
+    );
+    await expect(new LocalMeetingRecordingStore(root).recover()).resolves.toEqual([]);
   });
 
   it("streams complete logical tracks to object uploads without a combined renderer payload", async () => {

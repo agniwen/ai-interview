@@ -11,6 +11,7 @@ import { agentRouter } from "./routes/agent/route";
 import { interviewRouter } from "./routes/interview/route";
 import { joinRouter } from "./routes/join/route";
 import { livekitRouter } from "./routes/livekit/route";
+import { meetingLocalRecoveryRouter } from "./routes/meeting-local-recovery/route";
 import { platformRouter } from "./routes/platform/route";
 import { publicRouter } from "./routes/public/route";
 import { resumeRouter } from "./routes/resume/route";
@@ -27,6 +28,7 @@ const apiRoutes = factory
   .createApp()
   .route("/agent", agentRouter)
   .route("/livekit", livekitRouter)
+  .route("/meeting-local-recovery", meetingLocalRecoveryRouter)
   .route("/resume", resumeRouter)
   .route("/interview", interviewRouter)
   .route("/platform", platformRouter)

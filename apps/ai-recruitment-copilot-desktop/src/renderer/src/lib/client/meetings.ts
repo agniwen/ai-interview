@@ -17,6 +17,7 @@ import type {
   MeetingRecruitingContextSettings,
   MeetingRecruitingRecordSummary,
   MeetingShareSettings,
+  TrashedMeetingItem,
   UpdateMeetingNoteInput,
   UpdateMeetingShareInput,
 } from "@arc/shared/meeting-recording";
@@ -70,6 +71,7 @@ export const desktopMeetingKeys = {
     ["desktop-meetings", slug, "transcript", meetingId, "revisions", revisionId] as const,
   transcriptionPolicy: (slug: string) =>
     ["desktop-meetings", slug, "transcription-policy"] as const,
+  trash: (slug: string) => ["desktop-meetings", slug, "trash"] as const,
 };
 
 function meetingSubresourcePath(slug: string, meetingId: string, resource: string): string {
@@ -96,6 +98,40 @@ export function fetchMeetings(slug: string): Promise<MeetingLibraryItem[]> {
   return apiJson<{ records: MeetingLibraryItem[] }>(apiUrl(path), "加载会议记录失败").then(
     (payload) => payload.records,
   );
+}
+
+export function fetchTrashedMeetings(slug: string): Promise<TrashedMeetingItem[]> {
+  const path = `/api/w/${encodeURIComponent(slug)}/meetings/trash`;
+  return apiJson<{ records: TrashedMeetingItem[] }>(apiUrl(path), "加载会议废纸篓失败").then(
+    (payload) => payload.records,
+  );
+}
+
+export function trashMeeting(
+  slug: string,
+  meetingId: string,
+): Promise<{ purgeAfter: string; state: "already-trashed" | "trashed" }> {
+  return apiJson(apiUrl(meetingSubresourcePath(slug, meetingId, "trash")), "移入废纸篓失败", {
+    method: "POST",
+  });
+}
+
+export function restoreMeeting(slug: string, meetingId: string): Promise<{ state: "restored" }> {
+  return apiJson(apiUrl(meetingSubresourcePath(slug, meetingId, "restore")), "恢复会议失败", {
+    method: "POST",
+  });
+}
+
+export async function purgeMeeting(slug: string, meetingId: string): Promise<null> {
+  let localRecoveryCleanup = "deleted";
+  try {
+    await window.api.meetingCapture.discard(meetingId);
+  } catch {
+    localRecoveryCleanup = "failed";
+  }
+  const query = new URLSearchParams({ localRecoveryCleanup });
+  const path = `/api/w/${encodeURIComponent(slug)}/meetings/${encodeURIComponent(meetingId)}?${query.toString()}`;
+  return apiJson<null>(apiUrl(path), "永久清除会议失败", { method: "DELETE" });
 }
 
 export function searchMeetings(

@@ -6,6 +6,7 @@ import {
   meetingRecordingAsset,
   meetingRecruitingContext,
   meetingSession,
+  meetingStorageCleanupKey,
   member,
   user,
 } from "@arc/db-schema/schema";
@@ -48,6 +49,23 @@ export function loadMeetingSession(id: string) {
   });
 }
 
+export async function meetingAcceptsUploadAuthorization(input: {
+  meetingId: string;
+  organizationId: string;
+  ownerId: string;
+}): Promise<boolean> {
+  const meeting = await db.query.meetingSession.findFirst({
+    columns: { id: true },
+    where: {
+      id: input.meetingId,
+      organizationId: input.organizationId,
+      ownerId: input.ownerId,
+      status: "uploading",
+    },
+  });
+  return Boolean(meeting);
+}
+
 export async function createOrLoadMeetingSession(input: {
   assets: NewMeetingAsset[];
   meeting: Omit<CreateSmallSavedMeetingInput, "assets" | "id"> & {
@@ -57,6 +75,14 @@ export async function createOrLoadMeetingSession(input: {
   };
 }) {
   const created = await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.meeting.id}))`);
+    const tombstone = await tx.query.meetingPurgeTombstone.findFirst({
+      columns: { meetingId: true },
+      where: { meetingId: input.meeting.id },
+    });
+    if (tombstone) {
+      return "purged" as const;
+    }
     const inserted = await tx
       .insert(meetingSession)
       .values({
@@ -72,7 +98,7 @@ export async function createOrLoadMeetingSession(input: {
       .onConflictDoNothing({ target: meetingSession.id })
       .returning({ id: meetingSession.id });
     if (inserted.length === 0) {
-      return false;
+      return false as const;
     }
     await tx.insert(meetingRecordingAsset).values(
       input.assets.map((asset) => ({
@@ -94,9 +120,21 @@ export async function createOrLoadMeetingSession(input: {
       meetingId: input.meeting.id,
       organizationId: input.meeting.organizationId,
     });
-    return true;
+    return true as const;
   });
-  return { created, meeting: await loadMeetingSession(input.meeting.id) };
+  return {
+    blockedByPurge: created === "purged",
+    created: created === true,
+    meeting: created === "purged" ? undefined : await loadMeetingSession(input.meeting.id),
+  };
+}
+
+export async function isMeetingPurgeTombstoned(meetingId: string): Promise<boolean> {
+  const tombstone = await db.query.meetingPurgeTombstone.findFirst({
+    columns: { meetingId: true },
+    where: { meetingId },
+  });
+  return Boolean(tombstone);
 }
 
 export async function recordMeetingAssetMultipartUploadId(input: {
@@ -560,6 +598,66 @@ export async function markMeetingPlaybackProcessing(input: {
     )
     .returning({ id: meetingSession.id });
   return updated.length > 0;
+}
+
+export async function registerMeetingPlaybackCleanupKey(input: {
+  meetingId: string;
+  organizationId: string;
+  processingRunId: string;
+  storageKey: string;
+}): Promise<{ writerLeaseExpiresAt: Date } | null> {
+  const writerLeaseExpiresAt = new Date(Date.now() + 12 * 60 * 1000);
+  return await db.transaction(async (tx) => {
+    const [meeting] = await tx
+      .select({ id: meetingSession.id })
+      .from(meetingSession)
+      .where(
+        and(
+          eq(meetingSession.id, input.meetingId),
+          eq(meetingSession.organizationId, input.organizationId),
+          eq(meetingSession.processingRunId, input.processingRunId),
+          eq(meetingSession.status, "processing"),
+        ),
+      )
+      .for("share")
+      .limit(1);
+    if (!meeting) {
+      return null;
+    }
+    await tx
+      .insert(meetingStorageCleanupKey)
+      .values({
+        meetingId: input.meetingId,
+        organizationId: input.organizationId,
+        storageKey: input.storageKey,
+        writerLeaseExpiresAt,
+      })
+      .onConflictDoUpdate({
+        set: {
+          finalSweepCompletedAt: null,
+          initialSweepCompletedAt: null,
+          writerLeaseExpiresAt,
+        },
+        target: meetingStorageCleanupKey.storageKey,
+      });
+    return { writerLeaseExpiresAt };
+  });
+}
+
+export async function removeMeetingPlaybackCleanupKey(input: {
+  meetingId: string;
+  organizationId: string;
+  storageKey: string;
+}): Promise<void> {
+  await db
+    .delete(meetingStorageCleanupKey)
+    .where(
+      and(
+        eq(meetingStorageCleanupKey.meetingId, input.meetingId),
+        eq(meetingStorageCleanupKey.organizationId, input.organizationId),
+        eq(meetingStorageCleanupKey.storageKey, input.storageKey),
+      ),
+    );
 }
 
 export async function markMeetingPlaybackFailed(input: {
