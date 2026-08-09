@@ -295,6 +295,11 @@ export const member = pgTable(
 export const meetingSession = pgTable(
   "meeting_session",
   {
+    activeIntelligenceRevisionId: text("active_intelligence_revision_id").references(
+      // oxlint-disable-next-line no-use-before-define -- Drizzle resolves this circular FK lazily.
+      (): AnyPgColumn => meetingIntelligenceRevision.id,
+      { onDelete: "set null" },
+    ),
     activeTranscriptRevisionId: text("active_transcript_revision_id").references(
       // oxlint-disable-next-line no-use-before-define -- Drizzle resolves this circular FK lazily.
       (): AnyPgColumn => meetingTranscriptRevision.id,
@@ -303,6 +308,13 @@ export const meetingSession = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     custodianId: text("custodian_id").references(() => user.id, { onDelete: "set null" }),
     id: text("id").primaryKey(),
+    intelligenceError: text("intelligence_error"),
+    intelligenceRunId: text("intelligence_run_id").references(
+      // oxlint-disable-next-line no-use-before-define -- Drizzle resolves this circular FK lazily.
+      (): AnyPgColumn => meetingProcessingRun.id,
+      { onDelete: "set null" },
+    ),
+    intelligenceStatus: text("intelligence_status").default("pending").notNull(),
     manifestSha256: text("manifest_sha256").notNull(),
     organizationId: text("organization_id")
       .notNull()
@@ -335,6 +347,10 @@ export const meetingSession = pgTable(
     check(
       "meeting_session_visibility_check",
       sql`${table.visibility} in ('restricted', 'workspace')`,
+    ),
+    check(
+      "meeting_session_intelligence_status_check",
+      sql`${table.intelligenceStatus} in ('pending', 'processing', 'ready', 'failed')`,
     ),
     check(
       "meeting_session_transcription_status_check",
@@ -427,9 +443,15 @@ export const meetingProcessingRun = pgTable(
     attempt: integer("attempt").notNull(),
     errorCode: text("error_code"),
     errorMessage: text("error_message"),
+    executionToken: text("execution_token"),
     finishedAt: timestamp("finished_at", { withTimezone: true }),
     id: text("id").primaryKey(),
     idempotencyKey: text("idempotency_key").notNull().unique(),
+    inputTranscriptRevisionId: text("input_transcript_revision_id").references(
+      // oxlint-disable-next-line no-use-before-define -- Drizzle resolves this circular FK lazily.
+      (): AnyPgColumn => meetingTranscriptRevision.id,
+      { onDelete: "restrict" },
+    ),
     meetingId: text("meeting_id")
       .notNull()
       .references(() => meetingSession.id, { onDelete: "cascade" }),
@@ -438,18 +460,31 @@ export const meetingProcessingRun = pgTable(
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
     pipelineVersion: text("pipeline_version").notNull(),
+    promptVersion: text("prompt_version"),
     provider: text("provider").notNull(),
     region: text("region").notNull(),
+    requestKind: text("request_kind"),
+    requestedBy: text("requested_by").references(() => user.id, { onDelete: "set null" }),
+    result: jsonb("result"),
     stage: text("stage").notNull(),
     startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
     status: text("status").notNull(),
+    templateKey: text("template_key"),
   },
   (table) => [
-    check("meeting_processing_run_attempt_check", sql`${table.attempt} > 0`),
-    check("meeting_processing_run_stage_check", sql`${table.stage} in ('final-transcription')`),
+    check("meeting_processing_run_attempt_check", sql`${table.attempt} >= 0`),
+    check(
+      "meeting_processing_run_intelligence_input_check",
+      sql`(${table.stage} = 'meeting-intelligence' and ${table.inputTranscriptRevisionId} is not null and ${table.templateKey} is not null and ${table.promptVersion} is not null and ${table.requestKind} in ('automatic', 'manual'))
+        or (${table.stage} = 'final-transcription' and ${table.inputTranscriptRevisionId} is null and ${table.templateKey} is null and ${table.promptVersion} is null and ${table.requestKind} is null)`,
+    ),
+    check(
+      "meeting_processing_run_stage_check",
+      sql`${table.stage} in ('final-transcription', 'meeting-intelligence')`,
+    ),
     check(
       "meeting_processing_run_status_check",
-      sql`${table.status} in ('processing', 'succeeded', 'failed')`,
+      sql`${table.status} in ('pending', 'processing', 'succeeded', 'failed')`,
     ),
     index("meeting_processing_run_meeting_stage_idx").on(
       table.meetingId,
@@ -460,6 +495,11 @@ export const meetingProcessingRun = pgTable(
       table.organizationId,
       table.status,
       table.startedAt,
+    ),
+    uniqueIndex("meeting_processing_run_id_meeting_org_uq").on(
+      table.id,
+      table.meetingId,
+      table.organizationId,
     ),
   ],
 );
@@ -503,6 +543,11 @@ export const meetingTranscriptRevision = pgTable(
     uniqueIndex("meeting_transcript_revision_meeting_revision_uq").on(
       table.meetingId,
       table.revision,
+    ),
+    uniqueIndex("meeting_transcript_revision_id_meeting_org_uq").on(
+      table.id,
+      table.meetingId,
+      table.organizationId,
     ),
     uniqueIndex("meeting_transcript_revision_machine_input_uq")
       .on(
@@ -548,6 +593,73 @@ export const meetingTranscriptTurn = pgTable(
       table.startMs,
       table.endMs,
     ),
+  ],
+);
+
+export const meetingIntelligenceRevision = pgTable(
+  "meeting_intelligence_revision",
+  {
+    content: jsonb("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    id: text("id").primaryKey(),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetingSession.id, { onDelete: "cascade" }),
+    model: text("model").notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    processingRunId: text("processing_run_id")
+      .notNull()
+      .unique()
+      .references(() => meetingProcessingRun.id, { onDelete: "restrict" }),
+    promptVersion: text("prompt_version").notNull(),
+    provider: text("provider").notNull(),
+    revision: integer("revision").notNull(),
+    templateKey: text("template_key").notNull(),
+    transcriptRevisionId: text("transcript_revision_id")
+      .notNull()
+      .references(() => meetingTranscriptRevision.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    check("meeting_intelligence_revision_number_check", sql`${table.revision} > 0`),
+    check(
+      "meeting_intelligence_revision_template_check",
+      sql`${table.templateKey} in ('general', 'recruiting-interview')`,
+    ),
+    foreignKey({
+      columns: [table.meetingId, table.organizationId],
+      foreignColumns: [meetingSession.id, meetingSession.organizationId],
+      name: "meeting_intelligence_revision_meeting_org_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.processingRunId, table.meetingId, table.organizationId],
+      foreignColumns: [
+        meetingProcessingRun.id,
+        meetingProcessingRun.meetingId,
+        meetingProcessingRun.organizationId,
+      ],
+      name: "meeting_intelligence_revision_run_meeting_org_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.transcriptRevisionId, table.meetingId, table.organizationId],
+      foreignColumns: [
+        meetingTranscriptRevision.id,
+        meetingTranscriptRevision.meetingId,
+        meetingTranscriptRevision.organizationId,
+      ],
+      name: "meeting_intelligence_revision_transcript_meeting_org_fk",
+    }).onDelete("restrict"),
+    uniqueIndex("meeting_intelligence_revision_meeting_revision_uq").on(
+      table.meetingId,
+      table.revision,
+    ),
+    index("meeting_intelligence_revision_org_created_idx").on(
+      table.organizationId,
+      table.createdAt,
+    ),
+    index("meeting_intelligence_revision_transcript_idx").on(table.transcriptRevisionId),
   ],
 );
 

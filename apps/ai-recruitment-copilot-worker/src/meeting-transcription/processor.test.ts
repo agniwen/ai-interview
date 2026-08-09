@@ -18,6 +18,9 @@ vi.mock(
   "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/providers/openai",
   () => ({ createOpenAiMeetingTranscriptionProvider: vi.fn(() => ({ transcribeFinal: vi.fn() })) }),
 );
+vi.mock("@arc/ai-recruitment-copilot-backend/server/routes/meetings/intelligence/service", () => ({
+  requestAutomaticMeetingIntelligence: vi.fn(),
+}));
 
 // oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
 import {
@@ -114,6 +117,7 @@ function createDependencies() {
     },
     publish: vi.fn(() => Promise.resolve(true)),
     removeWorkingDirectory: vi.fn(() => Promise.resolve()),
+    requestIntelligence: vi.fn(() => Promise.resolve()),
     saveChunkCheckpoint: vi.fn((_input, _chunk, transcript) => Promise.resolve(transcript)),
     withMediaPermit: vi.fn((requiredBytes, task) => task(requiredBytes)),
   };
@@ -163,6 +167,22 @@ describe("Meeting final transcription processor", () => {
         turns: expect.arrayContaining([expect.objectContaining({ text: "你好" })]),
       }),
     });
+    expect(dependencies.requestIntelligence).toHaveBeenCalledWith({
+      meetingId: job.meetingId,
+      organizationId: job.organizationId,
+    });
+  });
+
+  it("does not fail the published transcript when automatic intelligence enqueue fails", async () => {
+    const dependencies = createDependencies();
+    dependencies.requestIntelligence.mockRejectedValueOnce(new Error("queue unavailable"));
+
+    await expect(
+      runMeetingTranscriptionProcessing(job, { attempt: 1, maxAttempts: 5 }, dependencies),
+    ).resolves.toBeUndefined();
+
+    expect(dependencies.publish).toHaveBeenCalledOnce();
+    expect(dependencies.markFailed).not.toHaveBeenCalled();
   });
 
   it("does not call the provider after a duplicate delivery finds a published revision", async () => {
@@ -173,6 +193,10 @@ describe("Meeting final transcription processor", () => {
 
     expect(dependencies.provider.transcribeFinal).not.toHaveBeenCalled();
     expect(dependencies.createWorkingDirectory).not.toHaveBeenCalled();
+    expect(dependencies.requestIntelligence).toHaveBeenCalledWith({
+      meetingId: job.meetingId,
+      organizationId: job.organizationId,
+    });
   });
 
   it("resumes from a durable chunk checkpoint without repeating that provider request", async () => {

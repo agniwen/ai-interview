@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   loadMeetingTranscriptRevision: vi.fn(),
   loadMeetingTranscriptionPolicy: vi.fn(),
   recordMeetingAudit: vi.fn(),
+  requestAutomaticMeetingIntelligence: vi.fn(),
   resetMeetingTranscriptionForRetry: vi.fn(),
   retryMeetingTranscriptionJob: vi.fn(),
   updateMeetingTranscriptionPolicy: vi.fn(),
@@ -23,6 +24,7 @@ vi.mock("./revision-dao", () => mocks);
 vi.mock("./provider-registry", () => mocks);
 vi.mock("../dao", () => mocks);
 vi.mock("@arc/meeting-processing-queue/meeting-transcription", () => mocks);
+vi.mock("../intelligence/service", () => mocks);
 
 // oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
 import {
@@ -165,6 +167,10 @@ describe("Meeting transcription service", () => {
           userId: "actor-78",
         }),
       ).resolves.toMatchObject({ id: "revision-human-78", kind: "human" });
+      expect(mocks.requestAutomaticMeetingIntelligence).toHaveBeenCalledWith({
+        meetingId: "meeting-78",
+        organizationId: "org-78",
+      });
     },
   );
 

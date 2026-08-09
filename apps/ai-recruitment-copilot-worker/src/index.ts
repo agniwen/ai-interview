@@ -15,6 +15,12 @@ import {
   createResumeReviewGenerationWorker,
 } from "@arc/resume-parse-queue/resume-review-generation";
 import {
+  closeMeetingIntelligenceQueue,
+  createMeetingIntelligenceWorker,
+  enqueueMeetingIntelligenceJobs,
+  isMeetingIntelligenceQueueConfigured,
+} from "@arc/meeting-processing-queue/meeting-intelligence";
+import {
   closeMeetingPlaybackQueue,
   createMeetingPlaybackWorker,
   enqueueMeetingPlaybackJobs,
@@ -84,6 +90,32 @@ async function recoverIncompleteMeetingPlaybackJobs(): Promise<void> {
   });
 }
 
+async function recoverIncompleteMeetingIntelligenceJobs(): Promise<void> {
+  const { listMeetingsNeedingAutomaticIntelligence, listRecoverableMeetingIntelligenceJobs } =
+    await import("@arc/ai-recruitment-copilot-backend/server/routes/meetings/intelligence/dao");
+  const { requestAutomaticMeetingIntelligence } =
+    await import("@arc/ai-recruitment-copilot-backend/server/routes/meetings/intelligence/service");
+  const missing = await listMeetingsNeedingAutomaticIntelligence();
+  for (const meeting of missing) {
+    try {
+      await requestAutomaticMeetingIntelligence(meeting);
+    } catch (error) {
+      console.error("[meeting-intelligence-worker] failed to recover missing meeting", {
+        error,
+        meetingId: meeting.meetingId,
+        organizationId: meeting.organizationId,
+      });
+    }
+  }
+  const jobs = await listRecoverableMeetingIntelligenceJobs();
+  if (jobs.length === 0) {
+    console.info("[meeting-intelligence-worker] recovery found no pending runs");
+    return;
+  }
+  await enqueueMeetingIntelligenceJobs(jobs);
+  console.info("[meeting-intelligence-worker] recovery enqueued runs", { count: jobs.length });
+}
+
 async function recoverIncompleteMeetingTranscriptionJobs(): Promise<void> {
   const { listRecoverableMeetingTranscriptionJobs } =
     await import("@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/dao");
@@ -99,7 +131,22 @@ async function recoverIncompleteMeetingTranscriptionJobs(): Promise<void> {
 }
 
 let meetingPlaybackRecoveryRunning = false;
+let meetingIntelligenceRecoveryRunning = false;
 let meetingTranscriptionRecoveryRunning = false;
+
+async function reconcileMeetingIntelligenceJobs(): Promise<void> {
+  if (meetingIntelligenceRecoveryRunning) {
+    return;
+  }
+  meetingIntelligenceRecoveryRunning = true;
+  try {
+    await recoverIncompleteMeetingIntelligenceJobs();
+  } catch (error) {
+    console.error("[meeting-intelligence-worker] periodic recovery failed", { error });
+  } finally {
+    meetingIntelligenceRecoveryRunning = false;
+  }
+}
 
 async function reconcileMeetingPlaybackJobs(): Promise<void> {
   if (meetingPlaybackRecoveryRunning) {
@@ -151,6 +198,8 @@ async function main() {
   let semanticIndexWorker: ReturnType<typeof createResumeSemanticIndexWorker> | null = null;
   let reviewGenerationWorker: ReturnType<typeof createResumeReviewGenerationWorker> | null = null;
   let mailIngestScheduler: MailIngestScheduler | null = null;
+  let meetingIntelligenceWorker: ReturnType<typeof createMeetingIntelligenceWorker> | null = null;
+  let meetingIntelligenceRecoveryTimer: NodeJS.Timeout | null = null;
   let meetingPlaybackWorker: ReturnType<typeof createMeetingPlaybackWorker> | null = null;
   let meetingPlaybackRecoveryTimer: NodeJS.Timeout | null = null;
   let meetingTranscriptionWorker: ReturnType<typeof createMeetingTranscriptionWorker> | null = null;
@@ -165,6 +214,17 @@ async function main() {
       void reconcileMeetingPlaybackJobs();
     }, 60_000);
     meetingPlaybackRecoveryTimer.unref();
+  }
+  if (isMeetingIntelligenceQueueConfigured()) {
+    meetingIntelligenceWorker = createMeetingIntelligenceWorker(async (payload, context) => {
+      const { runMeetingIntelligenceProcessing } = await import("./meeting-intelligence/processor");
+      await runMeetingIntelligenceProcessing(payload, context);
+    });
+    await reconcileMeetingIntelligenceJobs();
+    meetingIntelligenceRecoveryTimer = setInterval(() => {
+      void reconcileMeetingIntelligenceJobs();
+    }, 60_000);
+    meetingIntelligenceRecoveryTimer.unref();
   }
   if (
     isMeetingTranscriptionQueueConfigured() &&
@@ -234,12 +294,17 @@ async function main() {
         if (meetingPlaybackRecoveryTimer) {
           clearInterval(meetingPlaybackRecoveryTimer);
         }
+        if (meetingIntelligenceRecoveryTimer) {
+          clearInterval(meetingIntelligenceRecoveryTimer);
+        }
         if (meetingTranscriptionRecoveryTimer) {
           clearInterval(meetingTranscriptionRecoveryTimer);
         }
         await meetingPlaybackWorker?.close();
+        await meetingIntelligenceWorker?.close();
         await meetingTranscriptionWorker?.close();
         await closeMeetingPlaybackQueue();
+        await closeMeetingIntelligenceQueue();
         await closeMeetingTranscriptionQueue();
         await closeResumeParseQueue();
         await closeResumeSemanticIndexQueue();

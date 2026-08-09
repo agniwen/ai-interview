@@ -15,6 +15,7 @@ import {
 import { meetingPlaybackRouter } from "./routes/playback/route";
 import { meetingRecruitingContextRouter } from "./routes/recruiting-context/route";
 import { meetingLiveTranscriptRouter } from "./routes/live-transcript/route";
+import { meetingIntelligenceRouter } from "./routes/intelligence/route";
 import { meetingNotesRouter } from "./routes/notes/route";
 import { meetingShareRouter } from "./routes/share/route";
 import { meetingTranscriptRouter } from "./routes/transcript/route";
@@ -118,6 +119,7 @@ export const meetingsRouter = factory
     },
   )
   .route("/:id/playback", meetingPlaybackRouter)
+  .route("/:id/intelligence", meetingIntelligenceRouter)
   .route("/:id/recruiting-context", meetingRecruitingContextRouter)
   .route("/:id/notes", meetingNotesRouter)
   .route("/:id/share", meetingShareRouter)

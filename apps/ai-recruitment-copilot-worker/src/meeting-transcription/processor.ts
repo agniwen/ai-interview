@@ -15,6 +15,7 @@ import {
   saveMeetingTranscriptionChunkCheckpoint,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/dao";
 import { createOpenAiMeetingTranscriptionProvider } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/providers/openai";
+import { requestAutomaticMeetingIntelligence } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/intelligence/service";
 import type {
   FinalTranscriptionAudioChunk,
   MeetingTranscriptionProvider,
@@ -71,6 +72,7 @@ export interface MeetingTranscriptionDependencies {
   }) => Promise<FinalTranscriptionAudioChunk[]>;
   provider: MeetingTranscriptionProvider;
   publish: typeof publishMeetingTranscript;
+  requestIntelligence: typeof requestAutomaticMeetingIntelligence;
   removeWorkingDirectory: (directory: string) => Promise<void>;
   saveChunkCheckpoint: (
     input: MeetingTranscriptionJobData & { processingRunId: string },
@@ -205,6 +207,7 @@ const defaultDependencies: MeetingTranscriptionDependencies = {
   }),
   publish: publishMeetingTranscript,
   removeWorkingDirectory: (directory) => rm(directory, { force: true, recursive: true }),
+  requestIntelligence: requestAutomaticMeetingIntelligence,
   saveChunkCheckpoint: saveMeetingTranscriptionChunkCheckpoint,
   withMediaPermit,
 };
@@ -331,6 +334,25 @@ async function transcribeChunk(input: {
   );
 }
 
+async function requestAutomaticIntelligenceBestEffort(input: {
+  dependencies: MeetingTranscriptionDependencies;
+  meetingId: string;
+  organizationId: string;
+}): Promise<void> {
+  try {
+    await input.dependencies.requestIntelligence({
+      meetingId: input.meetingId,
+      organizationId: input.organizationId,
+    });
+  } catch (error) {
+    console.error("[meeting-transcription-worker] failed to request Meeting Intelligence", {
+      error,
+      meetingId: input.meetingId,
+    });
+  }
+}
+
+// oxlint-disable-next-line complexity -- source admission, checkpoint recovery, and failure persistence form one job boundary.
 export async function runMeetingTranscriptionProcessing(
   input: MeetingTranscriptionJobData,
   context: { attempt: number; maxAttempts: number },
@@ -346,6 +368,14 @@ export async function runMeetingTranscriptionProcessing(
     attempt: context.attempt,
     processingRunId,
   });
+  if (claim === "already-ready") {
+    await requestAutomaticIntelligenceBestEffort({
+      dependencies,
+      meetingId: input.meetingId,
+      organizationId: input.organizationId,
+    });
+    return;
+  }
   if (claim !== "claimed") {
     return;
   }
@@ -408,7 +438,14 @@ export async function runMeetingTranscriptionProcessing(
       chunkResults.push({ chunk, transcript });
     }
     const transcript = mergeChunkTranscripts(chunkResults);
-    await dependencies.publish({ ...input, processingRunId, transcript });
+    const published = await dependencies.publish({ ...input, processingRunId, transcript });
+    if (published) {
+      await requestAutomaticIntelligenceBestEffort({
+        dependencies,
+        meetingId: input.meetingId,
+        organizationId: input.organizationId,
+      });
+    }
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Meeting transcription processing failed";

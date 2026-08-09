@@ -217,6 +217,10 @@ describe("Meeting transcription publication", () => {
       with: { turns: true },
     });
     expect(machine).toBeTruthy();
+    await db
+      .update(meetingSession)
+      .set({ intelligenceStatus: "ready" })
+      .where(eq(meetingSession.id, MEETING_ID));
 
     const correction = {
       actorId: USER_ID,
@@ -291,10 +295,18 @@ describe("Meeting transcription publication", () => {
     ).resolves.toBe("already-ready");
     await expect(
       db.query.meetingSession.findFirst({
-        columns: { activeTranscriptRevisionId: true },
+        columns: {
+          activeTranscriptRevisionId: true,
+          intelligenceRunId: true,
+          intelligenceStatus: true,
+        },
         where: { id: MEETING_ID },
       }),
-    ).resolves.toMatchObject({ activeTranscriptRevisionId: secondHuman.id });
+    ).resolves.toMatchObject({
+      activeTranscriptRevisionId: secondHuman.id,
+      intelligenceRunId: null,
+      intelligenceStatus: "pending",
+    });
 
     await expect(
       db.query.meetingTranscriptRevision.findMany({

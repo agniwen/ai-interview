@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, max } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   meetingAuditLog,
+  meetingProcessingRun,
   meetingRecordingAsset,
   meetingSession,
   meetingTranscriptRevision,
@@ -82,7 +83,10 @@ export async function createHumanMeetingTranscriptRevision(input: {
 }): Promise<FinalMeetingTranscriptRevision | "conflict" | "invalid-range" | "not-found"> {
   const result = await db.transaction(async (tx) => {
     const [meeting] = await tx
-      .select({ activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId })
+      .select({
+        activeTranscriptRevisionId: meetingSession.activeTranscriptRevisionId,
+        intelligenceRunId: meetingSession.intelligenceRunId,
+      })
       .from(meetingSession)
       .where(
         and(
@@ -183,9 +187,31 @@ export async function createHumanMeetingTranscriptRevision(input: {
           .values(turns.slice(offset, offset + TRANSCRIPT_TURN_INSERT_BATCH_SIZE));
       }
     }
+    if (meeting.intelligenceRunId) {
+      await tx
+        .update(meetingProcessingRun)
+        .set({
+          errorCode: "superseded",
+          errorMessage: "Authoritative transcript was corrected",
+          executionToken: null,
+          finishedAt: new Date(),
+          status: "failed",
+        })
+        .where(
+          and(
+            eq(meetingProcessingRun.id, meeting.intelligenceRunId),
+            inArray(meetingProcessingRun.status, ["pending", "processing"]),
+          ),
+        );
+    }
     await tx
       .update(meetingSession)
-      .set({ activeTranscriptRevisionId: revisionId })
+      .set({
+        activeTranscriptRevisionId: revisionId,
+        intelligenceError: null,
+        intelligenceRunId: null,
+        intelligenceStatus: "pending",
+      })
       .where(
         and(
           eq(meetingSession.id, input.meetingId),

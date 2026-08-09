@@ -198,6 +198,24 @@ export const interviewReportEvaluationAgent = new Agent({
   name: "InterviewReportEvaluationAgent",
 });
 
+export const meetingIntelligenceAgent = new Agent({
+  id: "meeting-intelligence-agent",
+  instructions:
+    "你是 Meeting Buddy 的会议信息整理助手，只能根据带稳定 turn ID 的转录生成结构化结果，并为每条事实保留原文证据。",
+  maxRetries: 1,
+  model: mastraModels.structuredModel,
+  name: "MeetingIntelligenceAgent",
+});
+
+export const meetingIntelligenceDecisionPolicyAgent = new Agent({
+  id: "meeting-intelligence-decision-policy-agent",
+  instructions:
+    "你是招聘决定政策分类器。识别任何由系统作出的录用、拒绝、通过、不通过、推进候选人、进入下一轮或结束招聘流程的结论或建议；候选人的事实陈述不属于系统决定。只返回结构化分类。",
+  maxRetries: 1,
+  model: mastraModels.structuredModel,
+  name: "MeetingIntelligenceDecisionPolicyAgent",
+});
+
 export const resumeEducationBackfillAgent = new Agent({
   id: "resume-education-backfill-agent",
   instructions: "你是简历教育经历解析助手，只提取教育经历并输出结构化字段。",
@@ -270,6 +288,13 @@ function isRetryableStructuredOutputError(error: Error): boolean {
     message.includes("schema validation") ||
     message.includes("schema_validation")
   );
+}
+
+export class StructuredOutputValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "StructuredOutputValidationError";
+  }
 }
 
 async function throwAfterTimeout(timeoutMs: number, signal: AbortSignal): Promise<never> {
@@ -351,6 +376,7 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
       if (!isRetryableStructuredOutputError(lastError)) {
         throw lastError;
       }
+      lastError = new StructuredOutputValidationError(lastError.message);
       if (attempt + 1 < maxAttempts) {
         attemptPrompt = `${prompt}\n\n上一次结构化输出无效：${lastError.message}\n请严格按照原字段和类型重新输出完整的 JSON 对象，不要输出 Markdown 或解释。`;
       }
@@ -361,6 +387,7 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
       if (!isRetryableStructuredOutputError(lastError)) {
         throw lastError;
       }
+      lastError = new StructuredOutputValidationError(lastError.message);
     } else {
       const parsed = schema.safeParse(result.object);
       if (parsed.success) {
@@ -368,10 +395,14 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
           validate?.(parsed.data);
           return parsed.data;
         } catch (error) {
-          lastError = error instanceof Error ? error : new Error(String(error));
+          lastError = new StructuredOutputValidationError(
+            error instanceof Error ? error.message : String(error),
+          );
         }
       } else {
-        lastError = new Error(parsed.error.issues[0]?.message ?? "AI 生成的结构化内容校验失败。");
+        lastError = new StructuredOutputValidationError(
+          parsed.error.issues[0]?.message ?? "AI 生成的结构化内容校验失败。",
+        );
         if (result.text.trim()) {
           try {
             const fallback = parseJsonOutput(
@@ -382,7 +413,9 @@ export async function generateStructuredWithMastraAgent<TSchema extends z.ZodTyp
             validate?.(fallback);
             return fallback;
           } catch (error) {
-            lastError = error instanceof Error ? error : new Error(String(error));
+            lastError = new StructuredOutputValidationError(
+              error instanceof Error ? error.message : String(error),
+            );
           }
         }
       }

@@ -267,6 +267,28 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.member.id,
     }),
   },
+  meetingIntelligenceRevision: {
+    createdByUser: r.one.user({
+      from: r.meetingIntelligenceRevision.createdBy,
+      to: r.user.id,
+    }),
+    meeting: r.one.meetingSession({
+      from: r.meetingIntelligenceRevision.meetingId,
+      to: r.meetingSession.id,
+    }),
+    organization: r.one.organization({
+      from: r.meetingIntelligenceRevision.organizationId,
+      to: r.organization.id,
+    }),
+    processingRun: r.one.meetingProcessingRun({
+      from: r.meetingIntelligenceRevision.processingRunId,
+      to: r.meetingProcessingRun.id,
+    }),
+    transcriptRevision: r.one.meetingTranscriptRevision({
+      from: r.meetingIntelligenceRevision.transcriptRevisionId,
+      to: r.meetingTranscriptRevision.id,
+    }),
+  },
   meetingNote: {
     author: r.one.user({
       from: r.meetingNote.authorId,
@@ -278,6 +300,14 @@ export const relations = defineRelations(schema, (r) => ({
     }),
   },
   meetingProcessingRun: {
+    inputTranscriptRevision: r.one.meetingTranscriptRevision({
+      from: r.meetingProcessingRun.inputTranscriptRevisionId,
+      to: r.meetingTranscriptRevision.id,
+    }),
+    intelligenceRevision: r.one.meetingIntelligenceRevision({
+      from: r.meetingProcessingRun.id,
+      to: r.meetingIntelligenceRevision.processingRunId,
+    }),
     meeting: r.one.meetingSession({
       from: r.meetingProcessingRun.meetingId,
       to: r.meetingSession.id,
@@ -311,6 +341,7 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.meetingSession.custodianId,
       to: r.user.id,
     }),
+    intelligenceRevisions: r.many.meetingIntelligenceRevision(),
     notes: r.many.meetingNote(),
     organization: r.one.organization({
       from: r.meetingSession.organizationId,
@@ -329,6 +360,7 @@ export const relations = defineRelations(schema, (r) => ({
     transcriptionChunks: r.many.meetingTranscriptionChunk(),
   },
   meetingTranscriptRevision: {
+    intelligenceRevisions: r.many.meetingIntelligenceRevision(),
     meeting: r.one.meetingSession({
       from: r.meetingTranscriptRevision.meetingId,
       to: r.meetingSession.id,

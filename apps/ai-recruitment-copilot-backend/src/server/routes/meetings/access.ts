@@ -42,6 +42,7 @@ export function meetingAccessCapabilities(role: MeetingAccessRole) {
     canManageRecruitingContext: administrator || owner,
     canManageSharing: administrator || owner,
     canRead: true,
+    canRegenerateIntelligence: administrator || owner,
     canRetryProcessing: administrator || owner,
   };
 }

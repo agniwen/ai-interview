@@ -15,6 +15,7 @@ import type {
 import { meetingAccessCapabilities, isWorkspaceAdministrator } from "../access";
 import { loadAuthorizedMeeting, meetingRole } from "../authorized-meeting";
 import { recordMeetingAudit } from "../dao";
+import { requestAutomaticMeetingIntelligence } from "../intelligence/service";
 import {
   getMeetingTranscriptionJobForMeeting,
   listRecoverableMeetingTranscriptionJobs,
@@ -206,6 +207,19 @@ export async function correctSavedMeetingTranscript(input: {
     meetingId: input.meetingId,
     organizationId: input.organizationId,
   });
+  if (typeof result === "object") {
+    try {
+      await requestAutomaticMeetingIntelligence({
+        meetingId: input.meetingId,
+        organizationId: input.organizationId,
+      });
+    } catch (error) {
+      console.error("[meeting-transcription] failed to request corrected intelligence", {
+        error,
+        meetingId: input.meetingId,
+      });
+    }
+  }
   return result === "not-found" ? null : result;
 }
 

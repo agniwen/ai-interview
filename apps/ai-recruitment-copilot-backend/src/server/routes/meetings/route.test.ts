@@ -18,12 +18,14 @@ const mocks = vi.hoisted(() => ({
   getMeetingRecruitingRecordCandidates: vi.fn(),
   getMeetingShareSettings: vi.fn(),
   getSavedMeetingDetail: vi.fn(),
+  getSavedMeetingIntelligence: vi.fn(),
   getSavedMeetingTranscript: vi.fn(),
   getSavedMeetingTranscriptHistory: vi.fn(),
   getSavedMeetingTranscriptRevision: vi.fn(),
   getWorkspaceMeetingTranscriptionPolicy: vi.fn(),
   listSavedMeetings: vi.fn(),
   reassignSavedMeetingOwner: vi.fn(),
+  regenerateSavedMeetingIntelligence: vi.fn(),
   removeMeetingNote: vi.fn(),
   retryMeetingPlayback: vi.fn(),
   retrySavedMeetingTranscription: vi.fn(),
@@ -36,6 +38,7 @@ vi.mock("./collaboration-service", () => mocks);
 vi.mock("./transcription/service", () => mocks);
 vi.mock("./routes/live-transcript/service", () => mocks);
 vi.mock("./recruiting-context-service", () => mocks);
+vi.mock("./intelligence/service", () => mocks);
 vi.mock("@arc/ai-recruitment-copilot-backend/server/access/workspace-access-policy", () => ({
   createRequestWorkspaceAuthorizer: () => () => Promise.resolve(true),
 }));
@@ -300,6 +303,39 @@ describe("Meeting Buddy small Saved Meeting control plane", () => {
     expect(putResponse.status).toBe(404);
     await expect(putResponse.json()).resolves.toEqual({
       error: "招聘记录不存在或无权访问",
+    });
+  });
+
+  it("returns versioned Meeting Intelligence and accepts an explicit template regeneration", async () => {
+    mocks.getSavedMeetingIntelligence.mockResolvedValue({
+      canRegenerate: true,
+      current: null,
+      error: null,
+      history: [],
+      state: "pending",
+      suggestedTemplate: "recruiting-interview",
+    });
+    mocks.regenerateSavedMeetingIntelligence.mockResolvedValue({ state: "processing" });
+
+    const getResponse = await makeApp().request(`/meetings/${MEETING_ID}/intelligence`);
+    expect(getResponse.status).toBe(200);
+    await expect(getResponse.json()).resolves.toMatchObject({
+      state: "pending",
+      suggestedTemplate: "recruiting-interview",
+    });
+
+    const postResponse = await makeApp().request(`/meetings/${MEETING_ID}/intelligence`, {
+      body: JSON.stringify({ template: "recruiting-interview" }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+    expect(postResponse.status).toBe(202);
+    expect(mocks.regenerateSavedMeetingIntelligence).toHaveBeenCalledWith({
+      meetingId: MEETING_ID,
+      memberRole: "admin",
+      organizationId: "org-72",
+      template: "recruiting-interview",
+      userId: "user-72",
     });
   });
 

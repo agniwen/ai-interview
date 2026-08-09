@@ -1,4 +1,8 @@
 import type {
+  MeetingIntelligenceResult,
+  MeetingIntelligenceTemplate,
+} from "@arc/shared/meeting-intelligence";
+import type {
   CreateMeetingNoteInput,
   MeetingDetail,
   MeetingLibraryItem,
@@ -27,6 +31,8 @@ export const desktopMeetingKeys = {
   all: (slug: string) => ["desktop-meetings", slug] as const,
   detail: (slug: string, meetingId: string) =>
     ["desktop-meetings", slug, "detail", meetingId] as const,
+  intelligence: (slug: string, meetingId: string) =>
+    ["desktop-meetings", slug, "intelligence", meetingId] as const,
   notes: (slug: string, meetingId: string) =>
     ["desktop-meetings", slug, "notes", meetingId] as const,
   playback: (slug: string, meetingId: string) =>
@@ -135,6 +141,32 @@ export function fetchMeetingTranscript(
   return apiJson(
     apiUrl(meetingSubresourcePath(slug, meetingId, "transcript")),
     "加载最终会议转录失败",
+  );
+}
+
+export function fetchMeetingIntelligence(
+  slug: string,
+  meetingId: string,
+): Promise<MeetingIntelligenceResult> {
+  return apiJson(
+    apiUrl(meetingSubresourcePath(slug, meetingId, "intelligence")),
+    "加载 Meeting Intelligence 失败",
+  );
+}
+
+export function regenerateMeetingIntelligence(
+  slug: string,
+  meetingId: string,
+  template: MeetingIntelligenceTemplate,
+): Promise<{ state: "processing" }> {
+  return apiJson(
+    apiUrl(meetingSubresourcePath(slug, meetingId, "intelligence")),
+    "重新生成 Meeting Intelligence 失败",
+    {
+      body: JSON.stringify({ template }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    },
   );
 }
 
