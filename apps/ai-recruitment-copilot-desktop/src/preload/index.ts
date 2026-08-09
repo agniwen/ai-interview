@@ -1,6 +1,7 @@
 import { electronAPI } from "@electron-toolkit/preload";
 import { contextBridge, ipcRenderer } from "electron";
 import type { AuthApi } from "./auth-api";
+import type { DownloadApi } from "./download-api";
 import type { MeetingCaptureApi } from "./meeting-capture-api";
 import type { WindowApi } from "./window-api";
 
@@ -39,6 +40,10 @@ const authApi: AuthApi = {
   openOAuth: (input) => ipcRenderer.invoke("auth:open-oauth", input),
 };
 
+const downloadApi: DownloadApi = {
+  start: (url) => ipcRenderer.invoke("download:start", url),
+};
+
 const meetingCaptureApi: MeetingCaptureApi = {
   begin: (input) => ipcRenderer.invoke("meeting-capture:begin", input),
   describeMultipartWorkspaceSave: (captureId) =>
@@ -62,6 +67,7 @@ const meetingCaptureApi: MeetingCaptureApi = {
 
 const api = {
   auth: authApi,
+  download: downloadApi,
   meetingCapture: meetingCaptureApi,
   window: windowApi,
 };

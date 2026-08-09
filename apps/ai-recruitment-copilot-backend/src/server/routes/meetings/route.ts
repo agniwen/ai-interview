@@ -13,6 +13,7 @@ import {
   listSavedMeetings,
 } from "./service";
 import { meetingPlaybackRouter } from "./routes/playback/route";
+import { meetingExportsRouter } from "./routes/exports/route";
 import { meetingQuestionsRouter } from "./routes/questions/route";
 import { meetingRecruitingContextRouter } from "./routes/recruiting-context/route";
 import { meetingSearchRouter } from "./routes/search/route";
@@ -122,6 +123,7 @@ export const meetingsRouter = factory
     },
   )
   .route("/:id/playback", meetingPlaybackRouter)
+  .route("/:id/exports", meetingExportsRouter)
   .route("/:id/questions", meetingQuestionsRouter)
   .route("/:id/intelligence", meetingIntelligenceRouter)
   .route("/:id/recruiting-context", meetingRecruitingContextRouter)

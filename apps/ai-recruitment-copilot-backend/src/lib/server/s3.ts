@@ -517,15 +517,26 @@ export async function presignGetObjectUrl(
 export async function presignRecordingGetObjectUrl(
   storageKey: string,
   expiresInSeconds = 600,
+  downloadFilename?: string,
 ): Promise<string> {
   const [{ GetObjectCommand }, { getSignedUrl }, { client, config }] = await Promise.all([
     import("@aws-sdk/client-s3"),
     import("@aws-sdk/s3-request-presigner"),
     getRecordingClient(),
   ]);
-  return getSignedUrl(client, new GetObjectCommand({ Bucket: config.bucket, Key: storageKey }), {
-    expiresIn: expiresInSeconds,
-  });
+  return getSignedUrl(
+    client,
+    new GetObjectCommand({
+      Bucket: config.bucket,
+      Key: storageKey,
+      ...(downloadFilename
+        ? {
+            ResponseContentDisposition: `attachment; filename="meeting-recording.webm"; filename*=UTF-8''${encodeURIComponent(downloadFilename)}`,
+          }
+        : {}),
+    }),
+    { expiresIn: expiresInSeconds },
+  );
 }
 
 export async function getObjectBytes(storageKey: string): Promise<{

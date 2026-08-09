@@ -12,6 +12,7 @@ import {
 } from "@/lib/client/meetings";
 import { desktopWorkspaceKeys, resolveActiveWorkspace } from "@/lib/client/workspace";
 import { MeetingDetailView } from "./meeting-library-view";
+import { MeetingExportPanel } from "./meeting-export-panel";
 import { MeetingIntelligencePanel } from "./meeting-intelligence-panel";
 import { MeetingNotesPanel } from "./meeting-notes-panel";
 import { MeetingQuestionsPanel } from "./meeting-questions-panel";
@@ -159,6 +160,11 @@ export function MeetingDetailPage({
         retryProcessing={retryMutation.isPending}
         seekRequestId={seekRequest.id}
         seekToSeconds={seekRequest.seconds}
+      />
+      <MeetingExportPanel
+        accessRole={detailQuery.data.accessRole}
+        meetingId={meetingId}
+        slug={workspaceSlug}
       />
       <MeetingRecruitingContextPanel
         accessRole={detailQuery.data.accessRole}

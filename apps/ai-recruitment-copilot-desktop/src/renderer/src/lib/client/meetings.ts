@@ -34,6 +34,7 @@ import type {
   MeetingLibrarySearchResponse,
   MeetingLibrarySearchResult,
 } from "@arc/shared/meeting-search";
+import type { MeetingAudioExportTrack, MeetingExportFormat } from "@arc/shared/meeting-export";
 import { apiJson } from "./rpc-fetch";
 import { apiUrl } from "./rpc";
 
@@ -73,6 +74,21 @@ export const desktopMeetingKeys = {
 
 function meetingSubresourcePath(slug: string, meetingId: string, resource: string): string {
   return `/api/w/${encodeURIComponent(slug)}/meetings/${encodeURIComponent(meetingId)}/${resource}`;
+}
+
+export function meetingExportUrl(
+  slug: string,
+  meetingId: string,
+  format: MeetingExportFormat,
+  track?: MeetingAudioExportTrack,
+): string {
+  const url = apiUrl(
+    `${meetingSubresourcePath(slug, meetingId, "exports")}/${encodeURIComponent(format)}`,
+  );
+  if (format === "audio" && track) {
+    return `${url}?${new URLSearchParams({ track }).toString()}`;
+  }
+  return url;
 }
 
 export function fetchMeetings(slug: string): Promise<MeetingLibraryItem[]> {

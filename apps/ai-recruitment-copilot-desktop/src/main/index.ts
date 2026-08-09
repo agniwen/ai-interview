@@ -6,6 +6,7 @@ import { registerContextMenu } from "./context-menu";
 import { registerOrpcIpc } from "./orpc";
 import { applySettingsAtStartup } from "./settings";
 import { registerAuthIpc } from "./ipc/auth";
+import { registerDownloadIpc } from "./ipc/download";
 import { registerWindowIpc } from "./ipc/window";
 import {
   registerMeetingCaptureIpc,
@@ -46,6 +47,7 @@ async function bootstrap(): Promise<void> {
   registerOrpcIpc();
   registerWindowIpc();
   registerAuthIpc();
+  registerDownloadIpc();
   createMainWindow();
   app.on("activate", handleActivate);
 }
