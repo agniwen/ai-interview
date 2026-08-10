@@ -174,25 +174,57 @@ function sourceAssetsReady(assets: { status: string; track: string }[]): boolean
   );
 }
 
+export const DEFAULT_MEETING_TRANSCRIPTION_PROVIDER = "qwen" as const;
+export const DEFAULT_MEETING_TRANSCRIPTION_POLICY_REASON = "未配置转录策略时默认使用百炼 Qwen ASR";
+
+/**
+ * 工作区尚未配置转录策略时，幂等物化一行默认使用 Qwen ASR 的策略。
+ * 仅当部署里启用了 qwen 候选才写入；并发写入靠 organizationId 主键去重。
+ * Materialize the default Qwen ASR policy when a workspace has none configured.
+ */
+export async function ensureDefaultMeetingTranscriptionPolicy(
+  organizationId: string,
+): Promise<typeof meetingTranscriptionPolicy.$inferSelect | null> {
+  if (!findMeetingTranscriptionProviderCandidate(DEFAULT_MEETING_TRANSCRIPTION_PROVIDER)) {
+    return null;
+  }
+  await db
+    .insert(meetingTranscriptionPolicy)
+    .values({
+      allowedProviders: [DEFAULT_MEETING_TRANSCRIPTION_PROVIDER],
+      organizationId,
+      selectedProvider: DEFAULT_MEETING_TRANSCRIPTION_PROVIDER,
+      selectionReason: DEFAULT_MEETING_TRANSCRIPTION_POLICY_REASON,
+    })
+    .onConflictDoNothing({ target: meetingTranscriptionPolicy.organizationId });
+  return (
+    (await db.query.meetingTranscriptionPolicy.findFirst({
+      where: { organizationId },
+    })) ?? null
+  );
+}
+
 export async function getMeetingTranscriptionJobForMeeting(input: {
   meetingId: string;
   organizationId: string;
   preferFallback?: boolean;
 }): Promise<MeetingTranscriptionJobData | null> {
-  const [meeting, policy] = await Promise.all([
-    db.query.meetingSession.findFirst({
-      where: {
-        id: input.meetingId,
-        organizationId: input.organizationId,
-        status: "ready",
-        transcriptionStatus: { in: ["pending", "processing"] },
-      },
-      with: { assets: true },
-    }),
-    db.query.meetingTranscriptionPolicy.findFirst({
+  const meeting = await db.query.meetingSession.findFirst({
+    where: {
+      id: input.meetingId,
+      organizationId: input.organizationId,
+      status: "ready",
+      transcriptionStatus: { in: ["pending", "processing"] },
+    },
+    with: { assets: true },
+  });
+  let policy: typeof meetingTranscriptionPolicy.$inferSelect | null | undefined =
+    await db.query.meetingTranscriptionPolicy.findFirst({
       where: { organizationId: input.organizationId },
-    }),
-  ]);
+    });
+  if (!policy) {
+    policy = await ensureDefaultMeetingTranscriptionPolicy(input.organizationId);
+  }
   const provider = (
     input.preferFallback && policy?.fallbackProvider
       ? policy.fallbackProvider
@@ -241,6 +273,16 @@ export async function listRecoverableMeetingTranscriptionJobs(): Promise<
     .from(meetingTranscriptionPolicy)
     .where(inArray(meetingTranscriptionPolicy.organizationId, organizationIds));
   const policyByOrganization = new Map(policies.map((policy) => [policy.organizationId, policy]));
+  // 尚未配置策略的工作区默认使用 Qwen ASR，幂等物化后再生成 job。
+  for (const organizationId of organizationIds) {
+    if (policyByOrganization.has(organizationId)) {
+      continue;
+    }
+    const ensured = await ensureDefaultMeetingTranscriptionPolicy(organizationId);
+    if (ensured) {
+      policyByOrganization.set(organizationId, ensured);
+    }
+  }
   const jobs: MeetingTranscriptionJobData[] = [];
   for (const meeting of meetings) {
     const policy = policyByOrganization.get(meeting.organizationId);

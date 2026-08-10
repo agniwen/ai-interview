@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- integration suite covering run claims, policy linearization, chunk checkpoints, and default-policy materialization in one transactional fixture. */
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
@@ -16,6 +17,7 @@ import {
 import {
   claimMeetingTranscriptionChunk,
   claimMeetingTranscriptionRun,
+  getMeetingTranscriptionJobForMeeting,
   loadMeetingTranscriptionChunkCheckpoint,
   markMeetingTranscriptionFailed,
   publishMeetingTranscript,
@@ -790,4 +792,35 @@ describe("Meeting transcription publication", () => {
         .where(eq(meetingTranscriptionChunk.meetingId, MEETING_ID)),
     ).resolves.toEqual([{ status: "succeeded" }]);
   });
+
+  it("materializes the Qwen ASR default policy and enqueues it when no policy exists", async () => {
+    await db
+      .delete(meetingTranscriptionPolicy)
+      .where(eq(meetingTranscriptionPolicy.organizationId, ORGANIZATION_ID));
+    process.env.MEETING_TRANSCRIPTION_QWEN_ENABLED = "true";
+    try {
+      await expect(
+        getMeetingTranscriptionJobForMeeting({
+          meetingId: MEETING_ID,
+          organizationId: ORGANIZATION_ID,
+        }),
+      ).resolves.toMatchObject({
+        meetingId: MEETING_ID,
+        model: "qwen3-asr-flash-filetrans",
+        policyRevision: 1,
+        provider: "qwen",
+        region: "qwen-cn-beijing",
+        sourceManifestSha256: SOURCE_SHA,
+      });
+      const [row] = await db
+        .select()
+        .from(meetingTranscriptionPolicy)
+        .where(eq(meetingTranscriptionPolicy.organizationId, ORGANIZATION_ID));
+      expect(row?.selectedProvider).toBe("qwen");
+      expect(row?.allowedProviders).toEqual(["qwen"]);
+      expect(row?.revision).toBe(1);
+    } finally {
+      delete process.env.MEETING_TRANSCRIPTION_QWEN_ENABLED;
+    }
+  }, 30_000);
 });

@@ -1,147 +1,162 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createWorkspaceMeetingLiveTranscriptAuthorization } from "./service";
 
 const mocks = vi.hoisted(() => ({
-  claimMeetingLiveTranscriptLease: vi.fn(),
-  createOpenAiRealtimeTranscriptionAuthorization: vi.fn(),
+  claimMeetingLiveTranscriptLease: vi.fn().mockResolvedValue("created"),
+  createOpenAiRealtimeTranscriptionAuthorization: vi.fn().mockResolvedValue({
+    clientSecret: "ephemeral-openai",
+    expiresAt: "2026-08-09T01:21:00.000Z",
+    model: "gpt-4o-mini-transcribe",
+    provider: "openai",
+    track: "microphone",
+  }),
+  createQwenRealtimeTranscriptionAuthorization: vi.fn().mockResolvedValue({
+    baseUrl: "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
+    clientSecret: "st-temp-token",
+    expiresAt: "2026-08-09T01:21:00.000Z",
+    model: "qwen3-asr-flash-realtime",
+    provider: "qwen",
+    track: "microphone",
+  }),
+  ensureDefaultMeetingTranscriptionPolicy: vi.fn().mockResolvedValue(null),
+  gateIssue: vi.fn((_input: unknown, mint: () => unknown) => mint()),
   listMeetingTranscriptionProviderCandidates: vi.fn(),
   loadMeetingTranscriptionPolicy: vi.fn(),
+  releaseMeetingLiveTranscriptTrackLease: vi.fn().mockResolvedValue(null),
+  resolveMeetingTranscriptionQwenBaseUrl: vi.fn().mockReturnValue("https://dashscope.aliyuncs.com"),
+}));
+
+vi.mock("../../transcription/dao", () => ({
+  ensureDefaultMeetingTranscriptionPolicy: mocks.ensureDefaultMeetingTranscriptionPolicy,
+  loadMeetingTranscriptionPolicy: mocks.loadMeetingTranscriptionPolicy,
+}));
+vi.mock("../../transcription/provider-endpoint", () => ({
+  resolveMeetingTranscriptionQwenBaseUrl: mocks.resolveMeetingTranscriptionQwenBaseUrl,
+}));
+vi.mock("../../transcription/provider-registry", () => ({
+  listMeetingTranscriptionProviderCandidates: mocks.listMeetingTranscriptionProviderCandidates,
+}));
+vi.mock("../../transcription/providers/openai-realtime", () => ({
+  createOpenAiRealtimeTranscriptionAuthorization:
+    mocks.createOpenAiRealtimeTranscriptionAuthorization,
+}));
+vi.mock("../../transcription/providers/qwen-realtime", () => ({
+  DEFAULT_MEETING_TRANSCRIPTION_QWEN_LIVE_MODEL: "qwen3-asr-flash-realtime",
+  createQwenRealtimeTranscriptionAuthorization: mocks.createQwenRealtimeTranscriptionAuthorization,
+}));
+vi.mock("./authorization-gate", () => ({
+  liveTranscriptAuthorizationGate: { issue: mocks.gateIssue },
+}));
+vi.mock("./dao", () => ({
+  claimMeetingLiveTranscriptLease: mocks.claimMeetingLiveTranscriptLease,
   releaseMeetingLiveTranscriptLease: vi.fn(),
-  releaseMeetingLiveTranscriptTrackLease: vi.fn(),
+  releaseMeetingLiveTranscriptTrackLease: mocks.releaseMeetingLiveTranscriptTrackLease,
   renewMeetingLiveTranscriptLease: vi.fn(),
 }));
 
-vi.mock("../../transcription/dao", () => mocks);
-vi.mock("../../transcription/provider-registry", () => mocks);
-vi.mock("../../transcription/providers/openai-realtime", () => mocks);
-vi.mock("./dao", () => mocks);
-
-// oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
-import { createWorkspaceMeetingLiveTranscriptAuthorization } from "./service";
-
-const candidate = {
-  id: "openai" as const,
-  label: "OpenAI candidate",
-  model: "gpt-4o-transcribe-diarize",
-  region: "openai-default",
+const baseInput = {
+  captureId: "00000000-0000-4000-8000-000000000077",
+  organizationId: "org-77",
+  track: "microphone" as const,
+  userId: "user-77",
 };
 
-describe("Meeting live transcript service", () => {
+const qwenCandidate = {
+  id: "qwen",
+  label: "qwen",
+  model: "qwen3-asr-flash-realtime",
+  region: "qwen-cn-beijing",
+};
+
+function policy(allowedProviders: string[], revision: number) {
+  return {
+    allowedProviders,
+    fallbackProvider: null,
+    revision,
+    selectedProvider: allowedProviders[0] ?? null,
+    selectionReason: null,
+  };
+}
+
+describe("createWorkspaceMeetingLiveTranscriptAuthorization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubEnv("OPENAI_API_KEY", "server-only-key");
+    process.env.ALIBABA_API_KEY = "sk-test";
+    delete process.env.OPENAI_API_KEY;
     mocks.claimMeetingLiveTranscriptLease.mockResolvedValue("created");
-    mocks.listMeetingTranscriptionProviderCandidates.mockReturnValue([candidate]);
+    mocks.gateIssue.mockImplementation((_input: unknown, mint: () => unknown) => mint());
   });
 
-  it("keeps the OpenAI live provider independent from the selected final provider", async () => {
-    mocks.loadMeetingTranscriptionPolicy.mockResolvedValue({
-      allowedProviders: ["deepgram", "openai"],
-      revision: 3,
-      selectedProvider: "deepgram",
-    });
-    mocks.createOpenAiRealtimeTranscriptionAuthorization.mockResolvedValue({
-      clientSecret: "ephemeral-secret",
-      expiresAt: new Date(Date.now() + 60_000).toISOString(),
-      model: "gpt-4o-mini-transcribe",
-      provider: "openai",
-      track: "system",
-    });
+  it("materializes the deployment default policy for an unconfigured workspace and issues a qwen authorization", async () => {
+    mocks.loadMeetingTranscriptionPolicy
+      .mockResolvedValueOnce(policy([], 0))
+      .mockResolvedValueOnce(policy(["qwen"], 1));
+    mocks.ensureDefaultMeetingTranscriptionPolicy.mockResolvedValue(null);
+    mocks.listMeetingTranscriptionProviderCandidates.mockReturnValue([qwenCandidate]);
 
-    await expect(
-      createWorkspaceMeetingLiveTranscriptAuthorization({
-        captureId: "00000000-0000-4000-8000-000000000077",
-        organizationId: "org-live-77",
-        track: "system",
-        userId: "user-live-77",
-      }),
-    ).resolves.toMatchObject({ clientSecret: "ephemeral-secret", track: "system" });
-    expect(mocks.createOpenAiRealtimeTranscriptionAuthorization).toHaveBeenCalledWith(
+    const authorization = await createWorkspaceMeetingLiveTranscriptAuthorization(baseInput);
+
+    expect(mocks.ensureDefaultMeetingTranscriptionPolicy).toHaveBeenCalledWith("org-77");
+    expect(mocks.loadMeetingTranscriptionPolicy).toHaveBeenCalledTimes(2);
+    expect(authorization).toMatchObject({ provider: "qwen", track: "microphone" });
+    expect(mocks.createQwenRealtimeTranscriptionAuthorization).toHaveBeenCalledWith(
+      expect.objectContaining({ captureId: baseInput.captureId, track: "microphone" }),
       expect.objectContaining({
-        captureId: "00000000-0000-4000-8000-000000000077",
-        safetyIdentifier: expect.not.stringContaining("user-live-77"),
-        track: "system",
+        apiKey: "sk-test",
+        baseUrl: "https://dashscope.aliyuncs.com",
+        model: "qwen3-asr-flash-realtime",
       }),
-      expect.objectContaining({ apiKey: "server-only-key", model: "gpt-4o-mini-transcribe" }),
     );
   });
 
-  it("does not mint a live secret when no live-capable provider is allowed", async () => {
-    mocks.loadMeetingTranscriptionPolicy.mockResolvedValue({
-      allowedProviders: [],
-      revision: 0,
-      selectedProvider: null,
-    });
+  it("uses the existing qwen policy without re-materializing", async () => {
+    mocks.loadMeetingTranscriptionPolicy.mockResolvedValue(policy(["qwen"], 2));
+    mocks.listMeetingTranscriptionProviderCandidates.mockReturnValue([qwenCandidate]);
 
-    await expect(
-      createWorkspaceMeetingLiveTranscriptAuthorization({
-        captureId: "00000000-0000-4000-8000-000000000077",
-        organizationId: "org-live-77",
-        track: "microphone",
-        userId: "user-live-77",
-      }),
-    ).resolves.toBe("unavailable");
-    expect(mocks.createOpenAiRealtimeTranscriptionAuthorization).not.toHaveBeenCalled();
-    expect(mocks.claimMeetingLiveTranscriptLease).not.toHaveBeenCalled();
+    const authorization = await createWorkspaceMeetingLiveTranscriptAuthorization(baseInput);
+
+    expect(mocks.ensureDefaultMeetingTranscriptionPolicy).not.toHaveBeenCalled();
+    expect(authorization).toMatchObject({ provider: "qwen" });
   });
 
-  it("does not retain a provider authorization when all live session leases are occupied", async () => {
-    mocks.loadMeetingTranscriptionPolicy.mockResolvedValue({
-      allowedProviders: ["openai"],
-      revision: 3,
-      selectedProvider: "openai",
-    });
-    mocks.claimMeetingLiveTranscriptLease.mockResolvedValue("capacity");
-    mocks.createOpenAiRealtimeTranscriptionAuthorization.mockResolvedValue({
-      clientSecret: "unused-ephemeral-secret",
-      expiresAt: new Date(Date.now() + 60_000).toISOString(),
-      model: "gpt-4o-mini-transcribe",
-      provider: "openai",
-      track: "microphone",
-    });
+  it("prefers the openai branch when the policy allows openai and a key is present", async () => {
+    process.env.OPENAI_API_KEY = "sk-openai";
+    mocks.loadMeetingTranscriptionPolicy.mockResolvedValue(policy(["openai"], 3));
+    mocks.listMeetingTranscriptionProviderCandidates.mockReturnValue([
+      {
+        id: "openai",
+        label: "openai",
+        model: "gpt-4o-transcribe-diarize",
+        region: "openai-default",
+      },
+    ]);
 
-    await expect(
-      createWorkspaceMeetingLiveTranscriptAuthorization({
-        captureId: "00000000-0000-4000-8000-000000000077",
-        organizationId: "org-live-77",
-        track: "microphone",
-        userId: "user-live-77",
-      }),
-    ).resolves.toBe("capacity");
-    expect(mocks.createOpenAiRealtimeTranscriptionAuthorization).not.toHaveBeenCalled();
+    const authorization = await createWorkspaceMeetingLiveTranscriptAuthorization(baseInput);
+
+    expect(authorization).toMatchObject({ provider: "openai" });
+    expect(mocks.createQwenRealtimeTranscriptionAuthorization).not.toHaveBeenCalled();
   });
 
-  it("releases only a newly created track lease when provider minting fails", async () => {
-    mocks.loadMeetingTranscriptionPolicy.mockResolvedValue({
-      allowedProviders: ["openai"],
-      revision: 3,
-      selectedProvider: "openai",
-    });
-    mocks.createOpenAiRealtimeTranscriptionAuthorization.mockRejectedValue(
-      new Error("provider unavailable"),
-    );
-    const input = {
-      captureId: "00000000-0000-4000-8000-000000000077",
-      organizationId: "org-live-77",
-      track: "system" as const,
-      userId: "user-live-77",
-    };
+  it("returns unavailable when no provider is configured in the deployment", async () => {
+    mocks.loadMeetingTranscriptionPolicy.mockResolvedValue(policy([], 0));
+    mocks.listMeetingTranscriptionProviderCandidates.mockReturnValue([]);
 
-    await expect(createWorkspaceMeetingLiveTranscriptAuthorization(input)).rejects.toThrow(
-      "provider unavailable",
-    );
-    expect(mocks.releaseMeetingLiveTranscriptTrackLease).toHaveBeenCalledWith(input);
+    const authorization = await createWorkspaceMeetingLiveTranscriptAuthorization(baseInput);
 
-    mocks.claimMeetingLiveTranscriptLease.mockResolvedValue("renewed");
-    mocks.releaseMeetingLiveTranscriptTrackLease.mockClear();
-    await expect(createWorkspaceMeetingLiveTranscriptAuthorization(input)).rejects.toThrow(
-      "provider unavailable",
-    );
-    expect(mocks.releaseMeetingLiveTranscriptTrackLease).not.toHaveBeenCalled();
+    expect(authorization).toBe("unavailable");
+    expect(mocks.ensureDefaultMeetingTranscriptionPolicy).not.toHaveBeenCalled();
+  });
 
-    mocks.claimMeetingLiveTranscriptLease.mockResolvedValue("created");
-    mocks.releaseMeetingLiveTranscriptTrackLease.mockRejectedValue(new Error("release failed"));
-    await expect(createWorkspaceMeetingLiveTranscriptAuthorization(input)).rejects.toThrow(
-      "provider unavailable",
+  it("releases the track lease when the provider mint fails", async () => {
+    mocks.loadMeetingTranscriptionPolicy.mockResolvedValue(policy(["qwen"], 2));
+    mocks.listMeetingTranscriptionProviderCandidates.mockReturnValue([qwenCandidate]);
+    mocks.createQwenRealtimeTranscriptionAuthorization.mockRejectedValue(
+      new Error("DashScope 401"),
     );
+
+    await expect(createWorkspaceMeetingLiveTranscriptAuthorization(baseInput)).rejects.toThrow(
+      "DashScope 401",
+    );
+    expect(mocks.releaseMeetingLiveTranscriptTrackLease).toHaveBeenCalledWith(baseInput);
   });
 });

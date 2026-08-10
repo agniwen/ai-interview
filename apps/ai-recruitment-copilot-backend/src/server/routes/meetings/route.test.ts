@@ -610,6 +610,33 @@ describe("Meeting Buddy small Saved Meeting control plane", () => {
     });
   });
 
+  it("returns a DashScope temp-token authorization when the workspace live provider is qwen", async () => {
+    mocks.createWorkspaceMeetingLiveTranscriptAuthorization.mockResolvedValue({
+      baseUrl: "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
+      clientSecret: "st-temp-token-77",
+      expiresAt: "2026-08-09T01:21:00.000Z",
+      model: "qwen3-asr-flash-realtime",
+      provider: "qwen",
+      track: "system",
+    });
+
+    const response = await client.meetings["live-transcript"].$post({
+      json: {
+        captureId: "00000000-0000-4000-8000-000000000077",
+        track: "system",
+      },
+    });
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({
+      baseUrl: "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
+      clientSecret: "st-temp-token-77",
+      model: "qwen3-asr-flash-realtime",
+      provider: "qwen",
+      track: "system",
+    });
+  });
+
   it("returns a bounded retry window when live authorization is rate limited", async () => {
     mocks.createWorkspaceMeetingLiveTranscriptAuthorization.mockRejectedValue(
       new LiveTranscriptAuthorizationRateLimitError(42),

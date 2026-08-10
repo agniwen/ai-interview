@@ -22,9 +22,15 @@ window.addEventListener("message", (event) => {
     const [serverPort] = event.ports;
     ipcRenderer.postMessage("start-orpc-server", null, [serverPort]);
   }
-  if (event.data === "start-meeting-capture-fragment-client") {
+  if (
+    event.data &&
+    typeof event.data === "object" &&
+    (event.data as { type?: unknown }).type === "start-meeting-live-transcript-client"
+  ) {
     const [serverPort] = event.ports;
-    ipcRenderer.postMessage("meeting-capture:fragment-port", null, [serverPort]);
+    const { authorization } = event.data as { authorization?: unknown };
+    console.log("[preload] forwarding live-transcript port");
+    ipcRenderer.postMessage("meeting-live-transcript:port", authorization, [serverPort]);
   }
 });
 
@@ -45,6 +51,8 @@ const downloadApi: DownloadApi = {
 };
 
 const meetingCaptureApi: MeetingCaptureApi = {
+  appendFragment: (input, bytes) =>
+    ipcRenderer.invoke("meeting-capture:append-fragment", input, bytes),
   begin: (input) => ipcRenderer.invoke("meeting-capture:begin", input),
   describeMultipartWorkspaceSave: (captureId) =>
     ipcRenderer.invoke("meeting-capture:describe-multipart-workspace-save", captureId),

@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  DEFAULT_MEETING_TRANSCRIPTION_POLICY_REASON: "未配置转录策略时默认使用百炼 Qwen ASR",
+  DEFAULT_MEETING_TRANSCRIPTION_PROVIDER: "qwen",
   createHumanMeetingTranscriptRevision: vi.fn(),
   enqueueMeetingTranscriptionJobs: vi.fn(),
   getMeetingTranscriptionJobForMeeting: vi.fn(),
@@ -32,6 +34,7 @@ import {
   getSavedMeetingTranscript,
   getSavedMeetingTranscriptHistory,
   getSavedMeetingTranscriptRevision,
+  getWorkspaceMeetingTranscriptionPolicy,
   retrySavedMeetingTranscription,
   updateWorkspaceMeetingTranscriptionPolicy,
 } from "./service";
@@ -82,6 +85,59 @@ describe("Meeting transcription service", () => {
         userId: "admin-76",
       }),
     ).resolves.toBe("invalid-provider");
+  });
+
+  it("shows Qwen ASR as the default provider when the workspace has no policy", async () => {
+    mocks.loadMeetingTranscriptionPolicy.mockResolvedValue({
+      allowedProviders: [],
+      fallbackProvider: null,
+      revision: 0,
+      selectedProvider: null,
+      selectionReason: null,
+    });
+    mocks.listMeetingTranscriptionProviderCandidates.mockReturnValue([
+      {
+        id: "qwen",
+        label: "通义千问 ASR（百炼 Qwen3-ASR-Flash）",
+        model: "qwen3-asr-flash-filetrans",
+        region: "qwen-cn-beijing",
+      },
+    ]);
+
+    await expect(
+      getWorkspaceMeetingTranscriptionPolicy({
+        memberRole: "admin",
+        organizationId: "org-76",
+      }),
+    ).resolves.toMatchObject({
+      allowedProviders: ["qwen"],
+      revision: 0,
+      selectedProvider: "qwen",
+      selectionReason: "未配置转录策略时默认使用百炼 Qwen ASR",
+    });
+  });
+
+  it("shows the configured policy unchanged once a workspace chooses a provider", async () => {
+    mocks.loadMeetingTranscriptionPolicy.mockResolvedValue({
+      allowedProviders: ["openai"],
+      fallbackProvider: null,
+      revision: 1,
+      selectedProvider: "openai",
+      selectionReason: "同一授权语料评测后选择 OpenAI。",
+    });
+    mocks.listMeetingTranscriptionProviderCandidates.mockReturnValue([candidate]);
+
+    await expect(
+      getWorkspaceMeetingTranscriptionPolicy({
+        memberRole: "admin",
+        organizationId: "org-76",
+      }),
+    ).resolves.toMatchObject({
+      allowedProviders: ["openai"],
+      revision: 1,
+      selectedProvider: "openai",
+      selectionReason: "同一授权语料评测后选择 OpenAI。",
+    });
   });
 
   it("persists an explicit policy and enqueues only recoverable final jobs", async () => {

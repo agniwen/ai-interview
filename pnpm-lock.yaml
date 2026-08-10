@@ -371,7 +371,7 @@ importers:
         version: 1.0.11
       openai:
         specifier: ^6.37.0
-        version: 6.39.0(ws@8.21.0)(zod@4.4.3)
+        version: 6.39.0(ws@8.21.3)(zod@4.4.3)
       overlayscrollbars:
         specifier: ^2.16.0
         version: 2.16.0
@@ -639,7 +639,7 @@ importers:
         version: 1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3)
       '@mastra/editor':
         specifier: 0.13.6
-        version: 0.13.6(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(@mastra/mcp@1.13.1(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)
+        version: 0.13.6(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(@mastra/mcp@1.13.1(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(zod@4.4.3))(ws@8.21.3)(zod@4.4.3)
       '@mastra/evals':
         specifier: ^1.5.0
         version: 1.5.0(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))
@@ -714,7 +714,7 @@ importers:
         version: 5.1.11
       openai:
         specifier: ^6.37.0
-        version: 6.39.0(ws@8.21.0)(zod@4.4.3)
+        version: 6.39.0(ws@8.21.3)(zod@4.4.3)
       p-limit:
         specifier: 7.3.1
         version: 7.3.1
@@ -869,6 +869,9 @@ importers:
       write-file-atomic:
         specifier: ^7.0.1
         version: 7.0.1
+      ws:
+        specifier: ^8.21.3
+        version: 8.21.3
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -897,6 +900,9 @@ importers:
       '@types/write-file-atomic':
         specifier: ^4.0.3
         version: 4.0.3
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       '@vitejs/plugin-react':
         specifier: ^5.1.1
         version: 5.2.0(vite@8.1.3(@types/node@24.11.2)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
@@ -6065,6 +6071,9 @@ packages:
 
   '@types/write-file-atomic@4.0.3':
     resolution: {integrity: sha512-qdo+vZRchyJIHNeuI1nrpsLw+hnkgqP/8mlaN6Wle/NKhydHmUN9l4p3ZE8yP90AJNJW4uB8HQhedb4f1vNayQ==}
+
+  '@types/ws@8.18.1':
+    resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
 
   '@types/yauzl@2.10.3':
     resolution: {integrity: sha512-oJoftv0LSuaDZE3Le4DbKX+KS9G36NzOeSap90UIK0yMA/NhKJhqlSGtNDORNRaIbQfzjXDrQa0ytJ6mNRGz/Q==}
@@ -11796,6 +11805,18 @@ packages:
       utf-8-validate:
         optional: true
 
+  ws@8.21.3:
+    resolution: {integrity: sha512-201TZ/kPWxoPr/OKWjquZR1SWKXcvxdH+e1xrx89b3YbmzLMFCLfnaG1HFIgWzJOEWZ7MvpK++odZufgYR50Rw==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
   wsl-utils@0.3.1:
     resolution: {integrity: sha512-g/eziiSUNBSsdDJtCLB8bdYEUMj4jR7AGeUo96p/3dTafgjHhpF4RiCFPiRILwjQoDXx5MqkBr4fwWtR3Ky4Wg==}
     engines: {node: '>=20'}
@@ -12926,13 +12947,13 @@ snapshots:
 
   '@composio/client@0.1.0-alpha.66': {}
 
-  '@composio/core@0.6.11(ws@8.21.0)(zod@4.4.3)':
+  '@composio/core@0.6.11(ws@8.21.3)(zod@4.4.3)':
     dependencies:
       '@composio/client': 0.1.0-alpha.66
       '@composio/json-schema-to-zod': 0.1.20(zod@4.4.3)
       '@types/json-schema': 7.0.15
       chalk: 4.1.2
-      openai: 6.39.0(ws@8.21.0)(zod@4.4.3)
+      openai: 6.39.0(ws@8.21.3)(zod@4.4.3)
       pusher-js: 8.5.0
       semver: 7.8.5
       zod: 4.4.3
@@ -12944,9 +12965,9 @@ snapshots:
     dependencies:
       zod: 4.4.3
 
-  '@composio/mastra@0.6.11(@composio/core@0.6.11(ws@8.21.0)(zod@4.4.3))(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(zod@4.4.3)':
+  '@composio/mastra@0.6.11(@composio/core@0.6.11(ws@8.21.3)(zod@4.4.3))(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(zod@4.4.3)':
     dependencies:
-      '@composio/core': 0.6.11(ws@8.21.0)(zod@4.4.3)
+      '@composio/core': 0.6.11(ws@8.21.3)(zod@4.4.3)
       '@mastra/core': 1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3)
       '@mastra/schema-compat': 1.3.3(zod@4.4.3)
       zod: 4.4.3
@@ -14093,11 +14114,11 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@mastra/editor@0.13.6(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(@mastra/mcp@1.13.1(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)':
+  '@mastra/editor@0.13.6(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(@mastra/mcp@1.13.1(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(zod@4.4.3))(ws@8.21.3)(zod@4.4.3)':
     dependencies:
       '@arcadeai/arcadejs': 2.4.1
-      '@composio/core': 0.6.11(ws@8.21.0)(zod@4.4.3)
-      '@composio/mastra': 0.6.11(@composio/core@0.6.11(ws@8.21.0)(zod@4.4.3))(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(zod@4.4.3)
+      '@composio/core': 0.6.11(ws@8.21.3)(zod@4.4.3)
+      '@composio/mastra': 0.6.11(@composio/core@0.6.11(ws@8.21.3)(zod@4.4.3))(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))(zod@4.4.3)
       '@mastra/core': 1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3)
       '@mastra/memory': 1.22.2(@mastra/core@1.50.1(ai@6.0.219(zod@4.4.3))(express@5.2.1)(rxjs@7.8.2)(zod@4.4.3))
       '@mastra/schema-compat': 1.3.3(zod@4.4.3)
@@ -17264,6 +17285,10 @@ snapshots:
   '@types/webxr@0.5.24': {}
 
   '@types/write-file-atomic@4.0.3':
+    dependencies:
+      '@types/node': 24.11.2
+
+  '@types/ws@8.18.1':
     dependencies:
       '@types/node': 24.11.2
 
@@ -21118,9 +21143,9 @@ snapshots:
       is-docker: 2.2.1
       is-wsl: 2.2.0
 
-  openai@6.39.0(ws@8.21.0)(zod@4.4.3):
+  openai@6.39.0(ws@8.21.3)(zod@4.4.3):
     optionalDependencies:
-      ws: 8.21.0
+      ws: 8.21.3
       zod: 4.4.3
 
   openapi-fetch@0.17.0:
@@ -23495,6 +23520,8 @@ snapshots:
       signal-exit: 4.1.0
 
   ws@8.21.0: {}
+
+  ws@8.21.3: {}
 
   wsl-utils@0.3.1:
     dependencies:

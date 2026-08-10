@@ -102,7 +102,13 @@ export function ResumeDetailPage() {
             ? workspaceQuery.error.message
             : "请先在网页端加入或创建工作区"}
         </p>
-        <Button className="mt-4" render={<Link to="/" />} type="button" variant="outline">
+        <Button
+          className="mt-4"
+          nativeButton={false}
+          render={<Link to="/" />}
+          type="button"
+          variant="outline"
+        >
           返回招聘台
         </Button>
       </div>
@@ -115,7 +121,13 @@ export function ResumeDetailPage() {
         <p className="text-muted-foreground text-sm">
           {detailQuery.error instanceof Error ? detailQuery.error.message : "加载详情失败"}
         </p>
-        <Button onClick={() => void detailQuery.refetch()} type="button" variant="outline">
+        <Button
+          onClick={() => {
+            void detailQuery.refetch();
+          }}
+          type="button"
+          variant="outline"
+        >
           重试
         </Button>
       </div>
@@ -128,7 +140,13 @@ export function ResumeDetailPage() {
       <div className="px-6 py-16 text-center">
         <p className="font-medium text-sm">未找到招聘记录</p>
         <p className="mt-1 text-muted-foreground text-xs">记录可能已删除，或你没有查看权限</p>
-        <Button className="mt-4" render={<Link to="/" />} type="button" variant="outline">
+        <Button
+          className="mt-4"
+          nativeButton={false}
+          render={<Link to="/" />}
+          type="button"
+          variant="outline"
+        >
           返回招聘台
         </Button>
       </div>
@@ -197,7 +215,9 @@ export function ResumeDetailPage() {
                   <StructuredResumeEvaluationPanel
                     canEdit={false}
                     detail={detail}
-                    onUpdated={() => void detailQuery.refetch()}
+                    onUpdated={() => {
+                      void detailQuery.refetch();
+                    }}
                     slug={slug}
                   />
                 ) : (

@@ -257,7 +257,7 @@ describe("MeetingCapture", () => {
     const persist = vi.fn<WorkspaceRecordingPort["persist"]>(({ report }) => {
       report("uploading");
       report("verifying");
-      return Promise.resolve({ recoveryCopyDeleteAfter: "2026-08-10T03:00:00.000Z" });
+      return Promise.resolve({ recoveryCopyDeleteAfter: "2030-08-10T03:00:00.000Z" });
     });
     const capture = createMeetingCapture({
       idFactory: () => "00000000-0000-4000-8000-000000000012",
@@ -296,7 +296,7 @@ describe("MeetingCapture", () => {
       source,
       store: new LocalMeetingRecordingStore(root),
       workspace: {
-        persist: () => Promise.resolve({ recoveryCopyDeleteAfter: "2026-08-10T03:00:00.000Z" }),
+        persist: () => Promise.resolve({ recoveryCopyDeleteAfter: "2030-08-10T03:00:00.000Z" }),
       },
     });
     const firstObserved = latestSnapshot(firstProcess);
@@ -508,7 +508,7 @@ describe("MeetingCapture", () => {
       .mockImplementationOnce(({ report }) => {
         report("uploading");
         report("verifying");
-        return Promise.resolve({ recoveryCopyDeleteAfter: "2026-08-10T03:00:00.000Z" });
+        return Promise.resolve({ recoveryCopyDeleteAfter: "2030-08-10T03:00:00.000Z" });
       });
     const capture = createMeetingCapture({
       idFactory: () => "00000000-0000-4000-8000-000000000013",
@@ -548,7 +548,7 @@ describe("MeetingCapture", () => {
     await source.fragment("system", 0, "system");
     const saved = await first.save();
     const persist = vi.fn<WorkspaceRecordingPort["persist"]>(() =>
-      Promise.resolve({ recoveryCopyDeleteAfter: "2026-08-10T03:00:00.000Z" }),
+      Promise.resolve({ recoveryCopyDeleteAfter: "2030-08-10T03:00:00.000Z" }),
     );
 
     const restarted = createMeetingCapture({
@@ -580,7 +580,7 @@ describe("MeetingCapture", () => {
     await firstSource.fragment("microphone", 0, "mic-one");
     await firstSource.fragment("system", 0, "sys-one");
     const verified = await first.save();
-    await store.markWorkspaceVerified(verified.captureId, "2026-08-10T03:00:00.000Z");
+    await store.markWorkspaceVerified(verified.captureId, "2030-08-10T03:00:00.000Z");
 
     const secondSource = new DeterministicCaptureSource();
     const second = createMeetingCapture({
@@ -594,20 +594,20 @@ describe("MeetingCapture", () => {
     const pending = await second.save();
 
     const beforeDeadline = await new LocalMeetingRecordingStore(root, {
-      now: () => new Date("2026-08-10T02:59:59.000Z"),
+      now: () => new Date("2030-08-10T02:59:59.000Z"),
     }).recover();
     expect(beforeDeadline).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           captureId: verified.captureId,
-          recoveryCopyDeleteAfter: "2026-08-10T03:00:00.000Z",
+          recoveryCopyDeleteAfter: "2030-08-10T03:00:00.000Z",
         }),
         expect.objectContaining({ captureId: pending.captureId }),
       ]),
     );
 
     const afterDeadline = await new LocalMeetingRecordingStore(root, {
-      now: () => new Date("2026-08-10T03:00:01.000Z"),
+      now: () => new Date("2030-08-10T03:00:01.000Z"),
     }).recover();
     expect(afterDeadline.map((capture) => capture.captureId)).toEqual([pending.captureId]);
   });

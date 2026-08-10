@@ -12,8 +12,26 @@ import {
   registerMeetingCaptureIpc,
   registerMeetingCaptureMediaSession,
 } from "./meeting-capture/ipc";
+import { registerLiveTranscriptIpc } from "./meeting-capture/live-transcript-ipc";
 import { LocalMeetingRecordingStore } from "./meeting-capture/local-meeting-recording-store";
 import { createMainWindow, getMainWindowWebContents } from "./window";
+
+// 全局未捕获异常/拒绝兜底：主进程任何未捕获错误都落一条带 stack 的日志，
+// 避免分片 ack 静默丢失后只能看到“落盘超时”而不知主进程已死。
+// Global safety net: any uncaught main-process error logs a stack so a dead
+// renderer-facing port never masquerades as a silent fragment-write timeout.
+process.on("uncaughtException", (error) => {
+  console.error("[main] uncaughtException", {
+    errorMessage: error instanceof Error ? error.message : String(error),
+    stack: error instanceof Error ? error.stack : undefined,
+  });
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("[main] unhandledRejection", {
+    errorMessage: reason instanceof Error ? reason.message : String(reason),
+    stack: reason instanceof Error ? reason.stack : undefined,
+  });
+});
 
 if (process.platform === "darwin" && !app.isPackaged) {
   app.commandLine.appendSwitch("disable-features", "MacCatapLoopbackAudioForScreenShare");
@@ -44,6 +62,7 @@ async function bootstrap(): Promise<void> {
   );
   registerMeetingCaptureIpc(meetingCaptureStore);
   registerMeetingCaptureMediaSession();
+  registerLiveTranscriptIpc();
   registerOrpcIpc();
   registerWindowIpc();
   registerAuthIpc();

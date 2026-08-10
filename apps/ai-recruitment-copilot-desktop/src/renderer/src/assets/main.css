@@ -38,6 +38,7 @@
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
   --color-sidebar-glass: var(--sidebar-glass);
+  --color-sidebar-skeleton: var(--sidebar-skeleton);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -123,6 +124,9 @@
   --sidebar-accent: oklch(0.2 0 0 / 0.06);
   --sidebar-accent-active: oklch(0.2 0 0 / 0.1);
   --sidebar-accent-foreground: oklch(0.32 0 0);
+  /* Skeleton bars — translucent wash in the same hue family as --sidebar-accent,
+     so placeholders sit on the glass instead of painting solid blocks. */
+  --sidebar-skeleton: oklch(0.2 0 0 / 0.06);
   --sidebar-border: oklch(0.55 0 0 / 0.08);
   --sidebar-ring: oklch(0.55 0 0);
 }
@@ -159,6 +163,8 @@
   --sidebar-accent: oklch(1 0 0 / 0.08);
   --sidebar-accent-active: oklch(1 0 0 / 0.14);
   --sidebar-accent-foreground: oklch(0.92 0.008 254);
+  /* Skeleton bars — translucent light wash over the dark glass sidebar. */
+  --sidebar-skeleton: oklch(1 0 0 / 0.07);
   --sidebar-border: oklch(1 0 0 / 7%);
   --sidebar-ring: #a78bfa;
 }

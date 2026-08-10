@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const MEETING_TRANSCRIPTION_PROVIDERS = ["tingwu", "deepgram", "openai"] as const;
+export const MEETING_TRANSCRIPTION_PROVIDERS = ["tingwu", "deepgram", "openai", "qwen"] as const;
 export const meetingTranscriptionProviderSchema = z.enum(MEETING_TRANSCRIPTION_PROVIDERS);
 export type MeetingTranscriptionProviderId = z.infer<typeof meetingTranscriptionProviderSchema>;
 
@@ -83,8 +83,12 @@ export type CreateMeetingLiveTranscriptAuthorizationInput = z.infer<
 >;
 
 export interface MeetingLiveTranscriptAuthorization {
+  /** wss 端点（仅 relay 型 provider 使用，如 DashScope 实时 ASR）。 */
+  baseUrl?: string;
   clientSecret: string;
   expiresAt: string;
+  /** provider 识别语言提示（如 qwen realtime 的 session language）。 */
+  language?: string;
   model: string;
   provider: MeetingTranscriptionProviderId;
   track: MeetingLiveTranscriptTrack;

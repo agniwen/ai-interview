@@ -17,6 +17,8 @@ import { loadAuthorizedMeeting, meetingRole } from "../authorized-meeting";
 import { recordMeetingAudit } from "../dao";
 import { requestAutomaticMeetingIntelligence } from "../intelligence/service";
 import {
+  DEFAULT_MEETING_TRANSCRIPTION_POLICY_REASON,
+  DEFAULT_MEETING_TRANSCRIPTION_PROVIDER,
   getMeetingTranscriptionJobForMeeting,
   listRecoverableMeetingTranscriptionJobs,
   loadMeetingTranscriptionPolicy,
@@ -53,21 +55,44 @@ export async function getWorkspaceMeetingTranscriptionPolicy(input: {
     Promise.resolve(listMeetingTranscriptionProviderCandidates()),
   ]);
   const available = new Set(availableProviders.map((provider) => provider.id));
-  const selectedProvider =
-    policy.selectedProvider && available.has(policy.selectedProvider)
-      ? policy.selectedProvider
-      : null;
+  const defaultProviderAvailable = available.has(DEFAULT_MEETING_TRANSCRIPTION_PROVIDER);
+  const {
+    allowedProviders: configuredProviders,
+    fallbackProvider,
+    revision,
+    selectedProvider: configuredProvider,
+    selectionReason: configuredReason,
+  } = policy;
+  const usingDefaultPolicy = revision === 0 && defaultProviderAvailable;
+  const availableProvider = (provider: MeetingTranscriptionProviderId | null) =>
+    provider && available.has(provider) ? provider : null;
+  // 未配置策略时默认展示 Qwen ASR，避免面板上出现“无可用 provider”的误导。
+  const selectedProvider = usingDefaultPolicy
+    ? DEFAULT_MEETING_TRANSCRIPTION_PROVIDER
+    : availableProvider(configuredProvider);
+  let allowedProviders: MeetingTranscriptionProviderId[];
+  if (revision > 0) {
+    allowedProviders = configuredProviders.filter((provider) => available.has(provider));
+  } else if (defaultProviderAvailable) {
+    allowedProviders = [DEFAULT_MEETING_TRANSCRIPTION_PROVIDER];
+  } else {
+    allowedProviders = [];
+  }
+
   return {
-    allowedProviders: policy.allowedProviders.filter((provider) => available.has(provider)),
+    allowedProviders,
     availableProviders,
     canManage: isWorkspaceAdministrator(input.memberRole),
     fallbackProvider:
-      selectedProvider && policy.fallbackProvider && available.has(policy.fallbackProvider)
-        ? policy.fallbackProvider
+      selectedProvider && fallbackProvider && available.has(fallbackProvider)
+        ? fallbackProvider
         : null,
-    revision: policy.revision,
+    revision,
     selectedProvider,
-    selectionReason: selectedProvider ? policy.selectionReason : null,
+    selectionReason: selectedProvider
+      ? (configuredReason ??
+        (usingDefaultPolicy ? DEFAULT_MEETING_TRANSCRIPTION_POLICY_REASON : null))
+      : null,
   };
 }
 

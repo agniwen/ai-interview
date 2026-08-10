@@ -14,7 +14,12 @@ import {
 } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/dao";
 import { createOpenAiMeetingTranscriptionProvider } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/providers/openai";
 import { createDeepgramMeetingTranscriptionProvider } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/providers/deepgram";
-import { assertMeetingTranscriptionJobEndpoint } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/provider-endpoint";
+import { createQwenAsrMeetingTranscriptionProvider } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/providers/qwen-asr";
+import {
+  assertMeetingTranscriptionJobEndpoint,
+  resolveMeetingTranscriptionQwenBaseUrl,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/provider-endpoint";
+import { createQwenAsrAudioUrlDependencies } from "./qwen-asr-r2";
 import {
   assertMeetingTranscriptionFfmpegVersion,
   mergeMeetingTranscriptionChunkResults,
@@ -148,6 +153,26 @@ export function createMeetingTranscriptionProviderForJob(
       baseUrl,
     });
   }
+  if (job.provider === "qwen") {
+    const baseUrl = assertMeetingTranscriptionJobEndpoint({
+      baseUrl: resolveMeetingTranscriptionQwenBaseUrl(env),
+      provider: "qwen",
+      region: job.region,
+    });
+    const { createAudioUrl, deleteAudioUrl } = createQwenAsrAudioUrlDependencies({
+      env,
+      meetingId: job.meetingId,
+      organizationId: job.organizationId,
+      stagingToken: randomUUID(),
+    });
+    return createQwenAsrMeetingTranscriptionProvider({
+      apiKey: env.ALIBABA_API_KEY?.trim() || "",
+      baseUrl,
+      createAudioUrl,
+      deleteAudioUrl,
+      model: env.MEETING_TRANSCRIPTION_QWEN_MODEL?.trim() || "qwen3-asr-flash-filetrans",
+    });
+  }
   throw new Error(`Meeting transcription provider ${job.provider} is benchmark-only`);
 }
 
@@ -210,7 +235,9 @@ export async function reapStaleMeetingTranscriptionDirectories(
         const details = await stat(path);
         if (now - details.mtimeMs > STALE_DIRECTORY_AGE_MS) {
           await rm(path, { force: true, recursive: true });
+          return true;
         }
+        return false;
       }),
   );
 }

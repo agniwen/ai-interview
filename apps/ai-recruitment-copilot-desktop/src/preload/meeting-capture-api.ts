@@ -12,6 +12,7 @@ import type {
 } from "@arc/shared/meeting-recording";
 
 export interface MeetingCaptureApi {
+  appendFragment: (input: AppendLocalFragmentInput, bytes: Uint8Array) => Promise<void>;
   begin: (input: BeginLocalCaptureInput) => Promise<void>;
   discard: (captureId: string) => Promise<void>;
   markWorkspaceVerified: (captureId: string, recoveryCopyDeleteAfter: string) => Promise<void>;
@@ -25,13 +26,3 @@ export interface MeetingCaptureApi {
     instructions: MultipartMeetingUploadInstruction[],
   ) => Promise<void>;
 }
-
-export interface FragmentWriteRequest {
-  bytes: ArrayBuffer;
-  id: string;
-  input: AppendLocalFragmentInput;
-}
-
-export type FragmentWriteResponse =
-  | { id: string; ok: true }
-  | { error: string; id: string; ok: false };

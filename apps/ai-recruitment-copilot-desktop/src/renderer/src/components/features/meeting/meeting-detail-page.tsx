@@ -144,7 +144,7 @@ export function MeetingDetailPage({
     return (
       <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
         <p className="font-medium text-sm">会议不存在或你无权访问</p>
-        <Button render={<Link to="/meetings" />} variant="outline">
+        <Button nativeButton={false} render={<Link to="/meetings" />} variant="outline">
           返回会议记录
         </Button>
       </div>
@@ -152,7 +152,12 @@ export function MeetingDetailPage({
   }
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-4 pb-10 sm:px-6">
-      <Button className="self-start" render={<Link to="/meetings" />} variant="ghost">
+      <Button
+        className="self-start"
+        nativeButton={false}
+        render={<Link to="/meetings" />}
+        variant="ghost"
+      >
         返回会议记录
       </Button>
       <MeetingDetailView

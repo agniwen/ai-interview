@@ -62,8 +62,9 @@ export function MeetingSidebarSlots() {
             <SidebarMenu>
               {meetingsQuery.isPending ? (
                 <>
-                  <SidebarMenuSkeleton showIcon />
-                  <SidebarMenuSkeleton showIcon />
+                  <SidebarMenuSkeleton />
+                  <SidebarMenuSkeleton />
+                  <SidebarMenuSkeleton />
                 </>
               ) : (
                 (meetingsQuery.data ?? []).map((meeting) => (

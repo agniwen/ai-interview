@@ -200,7 +200,15 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
   constructor(root: string, options: LocalMeetingRecordingStoreOptions = {}) {
     const configuredOrigin =
       options.allowedUploadOrigin ?? import.meta.env.VITE_RECORDING_R2_UPLOAD_ORIGIN;
-    this.allowedUploadOrigin = configuredOrigin ? new URL(configuredOrigin) : null;
+    if (configuredOrigin) {
+      try {
+        this.allowedUploadOrigin = new URL(configuredOrigin);
+      } catch {
+        throw new Error("Recording R2 上传源地址不是合法 URL");
+      }
+    } else {
+      this.allowedUploadOrigin = null;
+    }
     this.multipartPartSizeBytes = options.multipartPartSizeBytes ?? MEETING_MULTIPART_PART_BYTES;
     if (!(Number.isSafeInteger(this.multipartPartSizeBytes) && this.multipartPartSizeBytes > 0)) {
       throw new Error("multipart part 大小必须是正整数");
@@ -233,7 +241,13 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
 
   private async readManifest(captureId: string): Promise<StoredManifest> {
     const contents = await readFile(this.manifestPath(captureId), "utf-8");
-    return parseStoredManifest(JSON.parse(contents), captureId);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(contents);
+    } catch {
+      throw new Error("本地录音清单 JSON 损坏");
+    }
+    return parseStoredManifest(parsed, captureId);
   }
 
   private async writeManifest(manifest: StoredManifest): Promise<void> {
@@ -258,7 +272,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
   async begin(input: BeginLocalCaptureInput): Promise<void> {
     assertCaptureId(input.captureId);
     await mkdir(this.root, { mode: 0o700, recursive: true });
-    let lock;
+    let lock: Awaited<ReturnType<typeof open>>;
     try {
       lock = await open(this.activeLockPath(), "wx", 0o600);
     } catch (error) {
@@ -308,8 +322,16 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
 
   append(input: AppendLocalFragmentInput, bytes: Uint8Array): Promise<void> {
     return this.enqueue(input.captureId, async () => {
+      const startedAt = Date.now();
       const manifest = await this.readManifest(input.captureId);
+      const manifestReadMs = Date.now() - startedAt;
       if (manifest.status !== "recording") {
+        console.error("[meeting-capture] append rejected by manifest status", {
+          captureId: input.captureId,
+          sequence: input.sequence,
+          status: manifest.status,
+          track: input.track,
+        });
         throw new Error(`录制状态为 ${manifest.status}，不能写入新分片`);
       }
       if (!TRACKS.has(input.track)) {
@@ -329,6 +351,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
         `${String(input.sequence).padStart(8, "0")}${extensionFor(input.contentType)}`,
       );
       await atomicWrite(join(this.captureDirectory(input.captureId), relativePath), bytes);
+      const fragmentWriteMs = Date.now() - startedAt - manifestReadMs;
       manifest.fragments.push({
         contentType: input.contentType,
         durationMs: input.durationMs,
@@ -341,6 +364,18 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
         track: input.track,
       });
       await this.writeManifest(manifest);
+      const totalMs = Date.now() - startedAt;
+      if (totalMs > 3000) {
+        console.warn("[meeting-capture] slow append stages", {
+          captureId: input.captureId,
+          fragmentWriteMs,
+          manifestReadMs,
+          manifestWriteMs: totalMs - fragmentWriteMs - manifestReadMs,
+          sequence: input.sequence,
+          totalMs,
+          track: input.track,
+        });
+      }
     });
   }
 
@@ -456,7 +491,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
     }
     const byTrack = new Map(instructions.map((instruction) => [instruction.track, instruction]));
     await Promise.all(
-      descriptor.assets.map(async (asset) => {
+      descriptor.assets.map((asset) => {
         const instruction = byTrack.get(asset.track);
         if (
           !instruction ||
@@ -466,7 +501,12 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
         ) {
           throw new Error(`${asset.track} 上传指令与本地录音不匹配`);
         }
-        const url = new URL(instruction.url);
+        let url: URL;
+        try {
+          url = new URL(instruction.url);
+        } catch {
+          throw new Error(`${asset.track} 上传地址无效`);
+        }
         if (!this.isAllowedUploadUrl(url)) {
           throw new Error("录音上传地址不属于已配置的 Recording R2");
         }
@@ -483,7 +523,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
         ) {
           throw new Error(`${asset.track} 上传签名完整性信息不匹配`);
         }
-        await this.putObject({
+        return this.putObject({
           body: this.trackStream(captureId, asset.track),
           headers: expectedHeaders,
           sizeBytes: asset.sizeBytes,

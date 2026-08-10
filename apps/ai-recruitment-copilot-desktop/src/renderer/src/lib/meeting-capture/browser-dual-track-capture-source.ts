@@ -208,6 +208,12 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
             };
             recorder.addEventListener("dataavailable", (event) => {
               if (disposed || event.data.size === 0) {
+                console.info("[meeting-capture-renderer] dataavailable skipped", {
+                  disposed,
+                  sequence: state.sequence,
+                  sizeBytes: event.data.size,
+                  track,
+                });
                 return;
               }
               const boundaryMs = performance.now();
@@ -226,6 +232,11 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
               state.writeChain = state.writeChain
                 .then(async () => {
                   const bytes = new Uint8Array(await event.data.arrayBuffer());
+                  console.info("[meeting-capture-renderer] dataavailable", {
+                    sequence,
+                    sizeBytes: bytes.byteLength,
+                    track,
+                  });
                   await sink.fragment({
                     bytes,
                     durationMs: Math.max(0, Math.round(endedAtMonotonicMs - startedAtMonotonicMs)),

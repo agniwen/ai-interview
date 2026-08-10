@@ -1,10 +1,7 @@
-// oxlint-disable promise/prefer-await-to-callbacks -- Electron permission and MessagePort APIs are callback/event based.
+// oxlint-disable promise/prefer-await-to-callbacks -- Electron permission APIs are callback based.
 import { desktopCapturer, ipcMain, session } from "electron";
-import type { IpcMainEvent, IpcMainInvokeEvent, MessagePortMain, WebContents } from "electron";
-import type {
-  FragmentWriteRequest,
-  FragmentWriteResponse,
-} from "../../preload/meeting-capture-api";
+import type { IpcMainEvent, IpcMainInvokeEvent, WebContents } from "electron";
+import type { AppendLocalFragmentInput } from "../../preload/meeting-capture";
 import type { LocalMeetingRecordingStore } from "./local-meeting-recording-store";
 import type {
   MultipartMeetingUploadInstruction,
@@ -33,7 +30,7 @@ function isTrustedMainDocument(
   );
 }
 
-function isTrustedMainFrame(event: IpcMainEvent | IpcMainInvokeEvent): boolean {
+export function isTrustedMainFrame(event: IpcMainEvent | IpcMainInvokeEvent): boolean {
   return isTrustedApplicationContents(event.sender) && event.senderFrame === event.sender.mainFrame;
 }
 
@@ -136,7 +133,7 @@ function isBeginRequest(
   );
 }
 
-function isFragmentInput(input: unknown): input is FragmentWriteRequest["input"] {
+function isFragmentInput(input: unknown): input is AppendLocalFragmentInput {
   if (!(input && typeof input === "object")) {
     return false;
   }
@@ -153,23 +150,33 @@ function isFragmentInput(input: unknown): input is FragmentWriteRequest["input"]
   );
 }
 
-function isFragmentRequest(data: unknown): data is FragmentWriteRequest {
-  if (!(data && typeof data === "object")) {
-    return false;
-  }
-  const request = data as Partial<FragmentWriteRequest>;
+function isFragmentBytes(value: unknown): value is Uint8Array {
   return (
-    request.bytes instanceof ArrayBuffer &&
-    request.bytes.byteLength <= MAX_FRAGMENT_BYTES &&
-    typeof request.id === "string" &&
-    request.id.length > 0 &&
-    request.id.length <= 128 &&
-    isFragmentInput(request.input)
+    value instanceof Uint8Array && value.byteLength > 0 && value.byteLength <= MAX_FRAGMENT_BYTES
   );
 }
 
-function respond(port: MessagePortMain, response: FragmentWriteResponse): void {
-  port.postMessage(response);
+async function logCaptureOperation(
+  operation: string,
+  run: () => Promise<unknown>,
+): Promise<unknown> {
+  const startedAt = Date.now();
+  try {
+    const result = await run();
+    console.info("[meeting-capture] operation ok", {
+      elapsedMs: Date.now() - startedAt,
+      operation,
+    });
+    return result;
+  } catch (error: unknown) {
+    console.error("[meeting-capture] operation failed", {
+      elapsedMs: Date.now() - startedAt,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorName: error instanceof Error ? error.name : "UnknownError",
+      operation,
+    });
+    throw error;
+  }
 }
 
 /**
@@ -181,13 +188,15 @@ export function registerMeetingCaptureIpc(store: LocalMeetingRecordingStore): vo
     if (!isTrustedMainFrame(event) || !isBeginRequest(input)) {
       throw new Error("不受信任的录制请求");
     }
-    return store.begin(input);
+    console.info("[meeting-capture] begin", { captureId: input.captureId });
+    return logCaptureOperation("begin", () => store.begin(input));
   });
   ipcMain.handle("meeting-capture:save", (event, captureId) => {
     if (!isTrustedMainFrame(event) || !isCaptureId(captureId)) {
       throw new Error("不受信任的录制请求");
     }
-    return store.save(captureId);
+    console.info("[meeting-capture] save", { captureId });
+    return logCaptureOperation("save", () => store.save(captureId));
   });
   ipcMain.handle("meeting-capture:describe-workspace-save", (event, captureId) => {
     if (!isTrustedMainFrame(event) || !isCaptureId(captureId)) {
@@ -229,7 +238,7 @@ export function registerMeetingCaptureIpc(store: LocalMeetingRecordingStore): vo
     if (!isTrustedMainFrame(event) || !isCaptureId(captureId)) {
       throw new Error("不受信任的录制请求");
     }
-    return store.discard(captureId);
+    return logCaptureOperation("discard", () => store.discard(captureId));
   });
   ipcMain.handle(
     "meeting-capture:mark-workspace-verified",
@@ -252,38 +261,39 @@ export function registerMeetingCaptureIpc(store: LocalMeetingRecordingStore): vo
     return store.recover();
   });
 
-  ipcMain.on("meeting-capture:fragment-port", (event) => {
-    const [port] = event.ports;
-    if (!(port && event.ports.length === 1 && isTrustedMainFrame(event))) {
-      port?.close();
-      return;
+  ipcMain.handle("meeting-capture:append-fragment", async (event, input, bytes) => {
+    if (!isTrustedMainFrame(event) || !isFragmentInput(input) || !isFragmentBytes(bytes)) {
+      throw new Error("不受信任的分片写入请求");
     }
-    port.on("message", ({ data }: { data: unknown }) => {
-      if (!isFragmentRequest(data)) {
-        respond(port, {
-          error: "音频分片无效或超过 32 MiB 安全上限",
-          id:
-            data && typeof data === "object" && "id" in data && typeof data.id === "string"
-              ? data.id
-              : "unknown",
-          ok: false,
-        });
-        return;
-      }
-      void (async () => {
-        try {
-          await store.append(data.input, new Uint8Array(data.bytes));
-          respond(port, { id: data.id, ok: true });
-        } catch (error) {
-          respond(port, {
-            error: error instanceof Error ? error.message : "音频分片落盘失败",
-            id: data.id,
-            ok: false,
-          });
-        }
-      })();
+    const startedAt = Date.now();
+    console.info("[meeting-capture] fragment received", {
+      captureId: input.captureId,
+      sequence: input.sequence,
+      sizeBytes: bytes.byteLength,
+      track: input.track,
     });
-    port.start();
+    try {
+      await store.append(input, bytes);
+      const elapsedMs = Date.now() - startedAt;
+      if (elapsedMs > 5000) {
+        console.warn("[meeting-capture] slow fragment append", {
+          captureId: input.captureId,
+          elapsedMs,
+          sequence: input.sequence,
+          sizeBytes: bytes.byteLength,
+          track: input.track,
+        });
+      }
+    } catch (error) {
+      console.error("[meeting-capture] fragment append failed", {
+        captureId: input.captureId,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        sequence: input.sequence,
+        track: input.track,
+      });
+      throw error;
+    }
   });
 }
 

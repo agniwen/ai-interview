@@ -65,10 +65,13 @@ const tingwuUrlSchema = z.record(
         z
           .url()
           .max(4096)
-          .refine(
-            (value) => new URL(value).protocol === "https:",
-            "Tingwu source URL must use HTTPS",
-          ),
+          .refine((value) => {
+            try {
+              return new URL(value).protocol === "https:";
+            } catch {
+              return false;
+            }
+          }, "Tingwu source URL must use HTTPS"),
       )
       .max(32),
   ),

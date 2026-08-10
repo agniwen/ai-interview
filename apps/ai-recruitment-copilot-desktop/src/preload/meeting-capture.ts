@@ -583,6 +583,11 @@ export function createMeetingCapture({
       patch({ active });
       await acquired.start(sink, { captureId });
       patch({ phase: "active" });
+      console.info("[meeting-capture-renderer] recording active", {
+        captureId,
+        recruitingRecordId: input.recruitingRecordId ?? null,
+        videoTracksDiscarded: acquired.videoTracksDiscarded,
+      });
       durationTimer = setTimeout(() => {
         durationTimer = null;
         // oxlint-disable-next-line no-use-before-define -- Duration guard invokes the same terminal Save path.
@@ -612,6 +617,10 @@ export function createMeetingCapture({
       prepared = null;
       clearDurationTimer();
       const message = error instanceof Error ? error.message : "无法开始会议录制";
+      console.error("[meeting-capture-renderer] recording start failed", {
+        captureId,
+        errorMessage: message,
+      });
       patch({ active: null, error: message, phase: "error" });
       throw error;
     }
@@ -680,9 +689,21 @@ export function createMeetingCapture({
     patch({ error: null, phase: "saving" });
     savePromise = (async () => {
       try {
+        const saveStartedAt = Date.now();
         await capture.stop();
+        const stopElapsedMs = Date.now() - saveStartedAt;
+        console.info("[meeting-capture-renderer] save: capture stopped", {
+          pendingFragments: pendingFragments.size,
+          stopElapsedMs,
+        });
         await Promise.all(pendingFragments);
+        console.info("[meeting-capture-renderer] save: fragments settled", {
+          elapsedMs: Date.now() - saveStartedAt,
+        });
         const saved = await store.save(captureId);
+        console.info("[meeting-capture-renderer] save: local saved", {
+          elapsedMs: Date.now() - saveStartedAt,
+        });
         reportSavedMetric(saved);
         await capture.dispose();
         prepared = null;

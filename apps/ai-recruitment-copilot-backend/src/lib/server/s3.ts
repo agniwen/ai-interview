@@ -13,11 +13,29 @@ interface S3Config {
   secretAccessKey: string;
 }
 
+/**
+ * 对象存储 endpoint 必须是不带 bucket 路径的 origin；bucket 由 Bucket 参数指定。
+ * 若配置误带了 `/bucket` 路径（如 `...r2.cloudflarestorage.com/ai-interview`），
+ * SDK 会拼出重复 bucket 路径导致 SigV4 签名不匹配（403 SignatureDoesNotMatch）。
+ * Storage endpoints must be bare origins; the bucket is supplied by the Bucket
+ * parameter. A trailing `/bucket` path duplicates the bucket and breaks SigV4.
+ */
+function normalizeStorageEndpoint(raw: string | undefined): string | undefined {
+  if (!raw) {
+    return undefined;
+  }
+  try {
+    return new URL(raw).origin;
+  } catch {
+    throw new Error("Storage endpoint is not a valid URL");
+  }
+}
+
 function readConfig(): S3Config {
   const bucket = process.env.S3_BUCKET_NAME;
   const accessKeyId = process.env.S3_ACCESS_KEY_ID;
   const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
-  const endpoint = process.env.S3_ENDPOINT?.trim();
+  const endpoint = normalizeStorageEndpoint(process.env.S3_ENDPOINT?.trim());
   const region = getRequiredEnv("S3_REGION");
 
   if (!(bucket && accessKeyId && secretAccessKey && endpoint)) {
@@ -41,7 +59,7 @@ function readRecordingConfig(): S3Config {
   const bucket = process.env.RECORDING_R2_BUCKET_NAME;
   const accessKeyId = process.env.RECORDING_R2_ACCESS_KEY_ID;
   const secretAccessKey = process.env.RECORDING_R2_SECRET_ACCESS_KEY;
-  const endpoint = process.env.RECORDING_R2_ENDPOINT?.trim();
+  const endpoint = normalizeStorageEndpoint(process.env.RECORDING_R2_ENDPOINT?.trim());
   const region = getRequiredEnv("RECORDING_R2_REGION");
 
   if (!(bucket && accessKeyId && secretAccessKey && endpoint)) {
@@ -157,6 +175,23 @@ export async function buildMeetingPlaybackAssetKey(input: {
   );
 }
 
+export async function buildMeetingTranscriptionStagingKey(input: {
+  index: number;
+  meetingId: string;
+  organizationId: string;
+  stagingToken: string;
+  track: "microphone" | "system";
+}): Promise<string> {
+  const { config } = await getRecordingClient();
+  const prefix = config.keyPrefix ? `${config.keyPrefix.replace(/\/+$/, "")}/` : "";
+  const organizationId = encodeURIComponent(input.organizationId);
+  const meetingId = encodeURIComponent(input.meetingId);
+  return `${prefix}meetings/${organizationId}/${meetingId}/transcription-staging/${input.stagingToken}/${input.track}-${input.index}.wav`.replace(
+    /^\/+/,
+    "",
+  );
+}
+
 export async function deleteMeetingRecordingObject(storageKey: string): Promise<void> {
   const [{ DeleteObjectCommand }, { client, config }] = await Promise.all([
     import("@aws-sdk/client-s3"),
@@ -204,7 +239,14 @@ export async function presignMeetingRecordingPutObject(input: {
       Key: input.storageKey,
       Metadata: { sha256: input.sha256 },
     }),
-    { expiresIn: expiresInSeconds },
+    {
+      expiresIn: expiresInSeconds,
+      // S3RequestPresigner 默认把 x-amz-* header 提升为 query 参数；R2 只认
+      // header 形式的 metadata/checksum，必须强制它们留在 header 并进签名。
+      // The presigner hoists x-amz-* headers into query params by default; R2
+      // only honors metadata/checksums sent as signed headers.
+      unhoistableHeaders: new Set(["x-amz-checksum-sha256", "x-amz-meta-sha256"]),
+    },
   );
   return { expiresAt: new Date(Date.now() + expiresInSeconds * 1000), headers, url };
 }
@@ -321,7 +363,11 @@ export async function presignMeetingRecordingUploadPart(input: {
       PartNumber: input.partNumber,
       UploadId: input.uploadId,
     }),
-    { expiresIn: expiresInSeconds },
+    {
+      expiresIn: expiresInSeconds,
+      // 同 PutObject：content-md5 必须作为已签名 header 发送，R2 才校验分片完整性。
+      unhoistableHeaders: new Set(["content-md5"]),
+    },
   );
   return {
     expiresAt: new Date(Date.now() + expiresInSeconds * 1000),

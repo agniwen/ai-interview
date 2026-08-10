@@ -36,7 +36,7 @@ describe("Meeting transcription benchmark report", () => {
   });
 
   it("chooses only from a complete traceable run and keeps region evidence", () => {
-    const providers = ["deepgram", "openai", "tingwu"] as const;
+    const providers = ["deepgram", "openai", "tingwu", "qwen"] as const;
     const report = buildMeetingTranscriptionBenchmarkReport({
       corpusId: "corpus-v1",
       expectedCaseIds: ["case-01"],
@@ -71,7 +71,7 @@ describe("Meeting transcription benchmark report", () => {
   });
 
   it("keeps a benchmark-only winner in ranking but blocks a production recommendation", () => {
-    const providers = ["tingwu", "deepgram", "openai"] as const;
+    const providers = ["tingwu", "deepgram", "openai", "qwen"] as const;
     const report = buildMeetingTranscriptionBenchmarkReport({
       corpusId: "corpus-v1",
       expectedCaseIds: ["case-01"],
@@ -125,6 +125,7 @@ describe("Meeting transcription benchmark report", () => {
         { ...failedRun, provider: "openai" },
         { ...failedRun, provider: "openai" },
         { ...failedRun, provider: "deepgram" },
+        { ...failedRun, provider: "qwen" },
         { ...failedRun, provider: "tingwu" },
       ],
     });
@@ -137,7 +138,7 @@ describe("Meeting transcription benchmark report", () => {
   });
 
   it("refuses to turn a custom endpoint's claimed region into decision evidence", () => {
-    const providers = ["tingwu", "deepgram", "openai"] as const;
+    const providers = ["tingwu", "deepgram", "openai", "qwen"] as const;
     const report = buildMeetingTranscriptionBenchmarkReport({
       corpusId: "corpus-v1",
       expectedCaseIds: ["case-01"],
