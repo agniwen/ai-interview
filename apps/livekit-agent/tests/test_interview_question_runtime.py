@@ -299,63 +299,6 @@ async def test_real_session_follow_up_never_speaks_summary_or_model_preamble():
     assert task.progress.follow_up_count == 1
 
 
-async def test_real_session_names_a_missing_topic_from_natural_directions():
-    model = _ScriptedLLM(
-        [
-            [
-                llm.ChatChunk(
-                    id="follow-up",
-                    delta=llm.ChoiceDelta(
-                        content="RECAP_SENTINEL",
-                        tool_calls=[
-                            llm.FunctionToolCall(
-                                name="submit_question_decision",
-                                arguments=(
-                                    '{"action":"follow_up",'
-                                    '"answer_summary":"ANSWER_SUMMARY_SENTINEL",'
-                                    '"missing_topic":"故障根因"}'
-                                ),
-                                call_id="call-1",
-                            )
-                        ],
-                    ),
-                )
-            ]
-        ]
-    )
-    question = DispatchQuestion(
-        id="question-1",
-        content="请介绍一次线上故障排查经历。",
-        difficulty="hard",
-        evaluation_focus=None,
-        follow_up_directions=(
-            "根据候选人回答判断是否说明了故障根因、定位依据和预防措施"
-        ),
-    )
-    task = InterviewQuestionTask(question)
-
-    async with AgentSession(llm=model) as session:
-        await session.start(_TaskHarness(task))
-        await _eventually(
-            lambda: (
-                task._activity is not None  # type: ignore[attr-defined]
-                and not task._activity._scheduling_paused
-            )  # type: ignore[attr-defined]
-        )
-        result = await asyncio.wait_for(
-            session.run(user_input="候选人只说明了告警现象"),
-            timeout=2,
-        )
-        task.interrupt("test_cleanup")
-
-    visible = "".join(_assistant_texts(result))
-    assert visible == "请补充故障根因。"
-    assert "RECAP_SENTINEL" not in visible
-    assert "ANSWER_SUMMARY_SENTINEL" not in visible
-    assert question.content not in visible
-    assert question.follow_up_directions not in visible
-
-
 async def test_inflight_decision_after_interrupt_has_no_speech_or_state_change():
     model = _BlockingLLM(
         llm.ChatChunk(

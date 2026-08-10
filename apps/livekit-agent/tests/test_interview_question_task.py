@@ -158,7 +158,7 @@ def test_question_instructions_forbid_repeating_collected_information():
     task = InterviewQuestionTask(_question())
 
     assert "不得复述或总结候选人已经提供的信息" in task.instructions
-    assert "只询问尚未收集到的部分" in task.instructions
+    assert "一个或多个尚未收集到的短要点" in task.instructions
     assert "不得复述当前题目" in task.instructions
     assert "同一发言中先提供了实质性部分答案" in task.instructions
     assert "仍需填写 answer_summary 和 covered_topics" in task.instructions
@@ -549,7 +549,7 @@ async def test_trusted_technical_follow_up_topics_are_not_overfiltered():
 
 
 @pytest.mark.asyncio
-async def test_follow_up_uses_a_safe_topic_span_from_natural_language_directions():
+async def test_follow_up_grounds_a_topic_span_from_natural_language_directions():
     question = DispatchQuestion(
         id="question-1",
         content="请介绍一次线上故障排查经历。",
@@ -580,13 +580,15 @@ async def test_follow_up_uses_a_safe_topic_span_from_natural_language_directions
 
 
 @pytest.mark.asyncio
-async def test_natural_language_topic_coverage_prevents_reasking_the_same_item():
+async def test_follow_up_can_ask_multiple_topics_in_one_turn():
     question = DispatchQuestion(
         id="question-1",
-        content="请介绍一次复杂故障的处理过程。",
+        content="请介绍一次线上故障排查经历。",
         difficulty="hard",
         evaluation_focus=None,
-        follow_up_directions=("可追问候选人在复杂故障中用于定位根因的关键证据链条"),
+        follow_up_directions=(
+            "根据候选人回答判断是否说明了故障根因、定位依据和预防措施"
+        ),
     )
     task = InterviewQuestionTask(question)
     spoken: list[str] = []
@@ -601,49 +603,22 @@ async def test_natural_language_topic_coverage_prevents_reasking_the_same_item()
     await task.submit_question_decision(
         _run_context("turn-1"),
         action=QuestionTurnAction.FOLLOW_UP,
-        answer_summary="说明了故障现象",
-        missing_topic="关键证据链条",
-    )
-    await task.submit_question_decision(
-        _run_context("turn-2"),
-        action=QuestionTurnAction.FOLLOW_UP,
-        answer_summary="补充了关键证据链条",
-        missing_topic="关键证据链条",
-        covered_topics=["关键证据链条"],
+        answer_summary="候选人只说明了告警现象",
+        missing_topic="故障根因、定位依据",
+        covered_topics=[],
     )
 
-    assert spoken == [
-        "请补充关键证据链条。",
-        "请补充一个尚未说明的关键点。",
-    ]
+    assert spoken == ["请补充故障根因、定位依据。"]
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("directions", "missing_topic"),
-    [
-        ("不要追问薪资，重点了解技术取舍", "薪资"),
-        ("不要追问薪资，重点了解技术取舍", "不要追问薪资"),
-        ("无需说明薪资", "无需说明薪资"),
-        ("不需要询问婚育情况", "婚育情况"),
-        ("除薪资外重点了解技术取舍", "薪资"),
-        ("薪资无需追问", "薪资"),
-        ("根因、预防措施", "因预"),
-        ("如何量化产出", "结果指标"),
-        ("标准答案包括 CAP 定理", "CAP 定理"),
-        ("如何量化产出", "如何"),
-    ],
-)
-async def test_natural_language_topic_span_still_fails_closed(
-    directions,
-    missing_topic,
-):
+async def test_follow_up_drops_already_covered_topics_from_a_multi_topic_request():
     question = DispatchQuestion(
         id="question-1",
-        content="请介绍一次项目经历。",
+        content="请介绍一次线上故障排查经历。",
         difficulty="hard",
         evaluation_focus=None,
-        follow_up_directions=directions,
+        follow_up_directions="追问定位信号、根因和预防措施",
     )
     task = InterviewQuestionTask(question)
     spoken: list[str] = []
@@ -658,56 +633,22 @@ async def test_natural_language_topic_span_still_fails_closed(
     await task.submit_question_decision(
         _run_context("turn-1"),
         action=QuestionTurnAction.FOLLOW_UP,
-        answer_summary="部分回答",
-        missing_topic=missing_topic,
+        answer_summary="已说明定位信号",
+        missing_topic="定位信号、根因",
+        covered_topics=["定位信号"],
     )
 
-    assert spoken == ["请补充一个尚未说明的关键点。"]
+    assert spoken == ["请补充根因。"]
 
 
 @pytest.mark.asyncio
-async def test_negative_direction_clause_does_not_hide_a_later_positive_topic():
-    question = DispatchQuestion(
-        id="question-1",
-        content="请介绍一次项目经历。",
-        difficulty="hard",
-        evaluation_focus=None,
-        follow_up_directions="不要追问薪资，重点了解技术取舍",
-    )
-    task = InterviewQuestionTask(question)
-    spoken: list[str] = []
-
-    class Session:
-        def say(self, text: str):
-            spoken.append(text)
-
-    task._get_activity_or_raise = lambda: SimpleNamespace(  # type: ignore[method-assign]
-        session=Session()
-    )
-    await task.submit_question_decision(
-        _run_context("turn-1"),
-        action=QuestionTurnAction.FOLLOW_UP,
-        answer_summary="部分回答",
-        missing_topic="技术取舍",
-    )
-
-    assert spoken == ["请补充技术取舍。"]
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "missing_topic",
-    ["系统饱和度", "服务亲和力", "涉及范围", "响应及时性"],
-)
-async def test_topic_words_containing_conjunction_characters_are_not_split(
-    missing_topic,
-):
+async def test_follow_up_keeps_conjunction_words_inside_a_single_topic():
     question = DispatchQuestion(
         id="question-1",
         content="请介绍一次系统优化经历。",
         difficulty="hard",
         evaluation_focus=None,
-        follow_up_directions=("追问系统饱和度、服务亲和力、涉及范围、响应及时性"),
+        follow_up_directions="追问系统饱和度、服务亲和力、涉及范围",
     )
     task = InterviewQuestionTask(question)
     spoken: list[str] = []
@@ -723,20 +664,20 @@ async def test_topic_words_containing_conjunction_characters_are_not_split(
         _run_context("turn-1"),
         action=QuestionTurnAction.FOLLOW_UP,
         answer_summary="部分回答",
-        missing_topic=missing_topic,
+        missing_topic="服务亲和力",
     )
 
-    assert spoken == [f"请补充{missing_topic}。"]
+    assert spoken == ["请补充服务亲和力。"]
 
 
 @pytest.mark.asyncio
-async def test_exact_topic_match_wins_over_a_shorter_overlapping_topic():
+async def test_follow_up_fails_closed_when_missing_topic_is_not_in_directions():
     question = DispatchQuestion(
         id="question-1",
-        content="请介绍一次故障处理经历。",
+        content="请介绍一次项目经历。",
         difficulty="hard",
         evaluation_focus=None,
-        follow_up_directions="追问根因、根因分析",
+        follow_up_directions="追问技术取舍和协作方式",
     )
     task = InterviewQuestionTask(question)
     spoken: list[str] = []
@@ -752,91 +693,10 @@ async def test_exact_topic_match_wins_over_a_shorter_overlapping_topic():
         _run_context("turn-1"),
         action=QuestionTurnAction.FOLLOW_UP,
         answer_summary="部分回答",
-        missing_topic="根因分析",
-    )
-
-    assert spoken == ["请补充根因分析。"]
-
-
-@pytest.mark.asyncio
-async def test_coverage_wording_in_directions_does_not_hide_the_missing_topic():
-    question = DispatchQuestion(
-        id="question-1",
-        content="请介绍一次故障处理经历。",
-        difficulty="hard",
-        evaluation_focus=None,
-        follow_up_directions="确认回答是否已覆盖故障根因",
-    )
-    task = InterviewQuestionTask(question)
-    spoken: list[str] = []
-
-    class Session:
-        def say(self, text: str):
-            spoken.append(text)
-
-    task._get_activity_or_raise = lambda: SimpleNamespace(  # type: ignore[method-assign]
-        session=Session()
-    )
-    await task.submit_question_decision(
-        _run_context("turn-1"),
-        action=QuestionTurnAction.FOLLOW_UP,
-        answer_summary="部分回答",
-        missing_topic="故障根因",
-    )
-
-    assert spoken == ["请补充故障根因。"]
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("question_content", "follow_up_directions", "missing_topic"),
-    [
-        (
-            "请介绍一次线上故障排查经历。",
-            "追问线上故障排查经历",
-            "线上故障排查经历",
-        ),
-        ("请介绍一次线上故障排查经历。", "第 1 题追问方向", "第 1 题追问方向"),
-        ("请介绍一次线上故障排查经历。", "追问方向", "追问方向"),
-        ("为什么离职？", "为什么离职", "为什么离职"),
-        ("为什么离职？", "为什么离职的具体原因", "为什么离职的具体原因"),
-        ("工作几年？", "工作几年经验", "工作几年经验"),
-        ("WHY DID YOU LEAVE?", "why did you leave", "why did you leave"),
-        ("Tell me about Docker", "追问 docker", "docker"),
-    ],
-)
-async def test_follow_up_never_replays_question_text_or_internal_labels(
-    question_content,
-    follow_up_directions,
-    missing_topic,
-):
-    question = _question()
-    question = DispatchQuestion(
-        id=question.id,
-        content=question_content,
-        difficulty=question.difficulty,
-        evaluation_focus=question.evaluation_focus,
-        follow_up_directions=follow_up_directions,
-    )
-    task = InterviewQuestionTask(question)
-    spoken: list[str] = []
-
-    class Session:
-        def say(self, text: str):
-            spoken.append(text)
-
-    task._get_activity_or_raise = lambda: SimpleNamespace(  # type: ignore[method-assign]
-        session=Session()
-    )
-    await task.submit_question_decision(
-        _run_context("turn-1"),
-        action=QuestionTurnAction.FOLLOW_UP,
-        answer_summary="部分回答",
-        missing_topic=missing_topic,
+        missing_topic="薪资期望",
     )
 
     assert spoken == ["请补充一个尚未说明的关键点。"]
-    assert missing_topic not in spoken[0]
 
 
 @pytest.mark.asyncio

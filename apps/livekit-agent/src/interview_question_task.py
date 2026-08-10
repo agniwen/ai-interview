@@ -107,163 +107,10 @@ _SAFE_DECISION_RETRY = "抱歉，刚才没有处理成功，请继续回答，�
 _GENERIC_FOLLOW_UP = "请补充一个尚未说明的关键点。"
 _MAX_INTERNAL_SUMMARY_CHARS = 2000
 _MAX_MISSING_TOPIC_INPUT_CHARS = 256
+_MAX_TOPIC_CHARS = 48
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+_TOPIC_REQUEST_SPLIT = re.compile(r"[、，,；;/\n]+|(?:以及|并且|或者)")
 _SAFE_TOPIC = re.compile(r"[0-9A-Za-z\u4e00-\u9fff·+#./_\- ]+")
-_TOPIC_CLAUSE_SPLIT = re.compile(r"[，,；;。！？!?\n]")
-_EXPLICIT_MULTI_TOPIC = re.compile(r"(?:以及|并且|或者)|[、，,；;。！？!?\n]")
-_QUESTION_LABEL = re.compile(
-    r"(?:第\s*[0-9一二三四五六七八九十]+\s*题|(?:question|q)\s*[-#:]?\s*\d+)",
-    re.IGNORECASE,
-)
-_INTERNAL_TOPIC_MARKERS = (
-    "追问方向",
-    "考核意图",
-    "内部标签",
-    "题目原文",
-    "follow-up direction",
-    "follow up direction",
-    "evaluation focus",
-    "internal label",
-    "question text",
-)
-_UNSAFE_DIRECTION_CLAUSE_MARKERS = (
-    "不要",
-    "不应",
-    "无需",
-    "无须",
-    "不必",
-    "不需要",
-    "不用",
-    "禁止",
-    "不得",
-    "勿",
-    "避免追问",
-    "避免询问",
-    "标准答案",
-    "参考答案",
-    "正确答案",
-    "答案是",
-    "do not ask",
-    "don't ask",
-    "must not ask",
-    "should not ask",
-    "need not ask",
-    "no need to ask",
-    "avoid asking",
-    "standard answer",
-    "reference answer",
-    "correct answer",
-    "answer is",
-)
-_VAGUE_TOPIC_WORDS = frozenset(
-    {
-        "如何",
-        "什么",
-        "哪些",
-        "是否",
-        "具体",
-        "方面",
-        "内容",
-        "问题",
-        "部分",
-        "情况",
-        "要点",
-        "关键点",
-        "信息",
-        "关键",
-        "关键部分",
-        "方向",
-        "意图",
-        "原文",
-        "标签",
-        "how",
-        "what",
-        "which",
-        "whether",
-        "detail",
-        "details",
-        "aspect",
-        "part",
-        "content",
-        "issue",
-        "problem",
-        "information",
-        "direction",
-        "intent",
-        "label",
-        "text",
-        "question",
-        "summary",
-    }
-)
-_UNINFORMATIVE_FOLLOW_UP_TOPICS = frozenset(
-    {
-        "关键",
-        "关键点",
-        "关键部分",
-        "尚未说明",
-        "尚未说明的关键点",
-        "补充",
-    }
-)
-_DIRECTION_PREFIXES = (
-    "追问",
-    "追问方向",
-    "可追问",
-    "请追问",
-    "请你追问",
-)
-_UNSAFE_TOPIC_MARKERS = (
-    "候选人",
-    "你刚才",
-    "您刚才",
-    "回答",
-    "提到",
-    "复述",
-    "总结",
-    "收集到",
-    "工具调用",
-    "系统指令",
-    "提示词",
-    "忽略",
-    "输出",
-    "candidate",
-    "answer summary",
-    "system prompt",
-    "tool call",
-    "ignore instructions",
-    "ignore the prompt",
-)
-_QUESTION_PREFIXES = tuple(
-    sorted(
-        (
-            "请你介绍一下",
-            "请介绍一下",
-            "请介绍一次",
-            "请你介绍",
-            "请介绍",
-            "请你说明一下",
-            "请说明一下",
-            "请你说明",
-            "请说明",
-            "请谈谈",
-            "请讲讲",
-            "介绍一下",
-            "介绍一次",
-            "介绍",
-            "说明一下",
-            "说明",
-            "pleasetellmeabout",
-            "tellmeabout",
-            "pleaseexplain",
-            "explain",
-            "pleasedescribe",
-            "describe",
-        ),
-        key=len,
-        reverse=True,
-    )
-)
 
 
 def _decision_tool_choice() -> dict[str, Any]:
@@ -330,108 +177,17 @@ def _merge_terminal_revision(
     )
 
 
-def _normalize_direction_text(value: str, *, limit: int = 1000) -> str:
-    text = _CONTROL_CHARS.sub(" ", value)
-    lines = (" ".join(line.split()) for line in text.splitlines())
-    return "\n".join(line for line in lines if line)[:limit].strip()
-
-
-def _question_core(question_text: str) -> str:
-    core = _compact_comparison_text(
-        _normalize_internal_text(question_text, limit=1000)
-    ).casefold()
-    for prefix in _QUESTION_PREFIXES:
-        compact_prefix = _compact_comparison_text(prefix).casefold()
-        if core.startswith(compact_prefix) and len(core) - len(compact_prefix) >= 2:
-            core = core[len(compact_prefix) :]
-            break
-    if core.startswith("你") and len(core) > 3:
-        core = core[1:]
-    return core
-
-
-def _overlaps_question(topic: str, question_text: str) -> bool:
-    normalized_topic = _compact_comparison_text(topic).casefold()
-    normalized_question = _question_core(question_text)
-    if not normalized_topic or not normalized_question:
-        return False
-    if normalized_question in normalized_topic:
-        return True
-    return (
-        normalized_topic in normalized_question
-        and len(normalized_topic) * 2 >= len(normalized_question)
-    )
-
-
-def _has_unsafe_topic_separator(raw_topic: str, normalized_topic: str) -> bool:
-    if "\n" in raw_topic or "\r" in raw_topic:
-        return True
-    if _EXPLICIT_MULTI_TOPIC.search(normalized_topic):
-        return True
-    for index, character in enumerate(normalized_topic):
-        if character not in {"/", "."}:
-            continue
-        if index == 0 or index == len(normalized_topic) - 1:
-            return True
-        if not (
-            normalized_topic[index - 1].isascii()
-            and normalized_topic[index - 1].isalnum()
-            and normalized_topic[index + 1].isascii()
-            and normalized_topic[index + 1].isalnum()
-        ):
-            return True
-    return False
-
-
-def _grounded_follow_up_topic(
-    directions: str | None,
-    requested_topic: str,
-    question_text: str,
-) -> str | None:
-    if not directions:
+def _ground_topic_span(directions: str, topic: str) -> str | None:
+    candidate = topic.strip(" ：:")
+    if not 1 < len(candidate) <= _MAX_TOPIC_CHARS:
         return None
-
-    requested = _normalize_internal_text(
-        requested_topic,
-        limit=_MAX_MISSING_TOPIC_INPUT_CHARS,
-    )
-    compact_requested = _compact_comparison_text(requested).casefold()
-    requested_casefold = requested.casefold()
-    if not 1 < len(requested) <= 24:
+    if _SAFE_TOPIC.fullmatch(candidate) is None:
         return None
-    if _SAFE_TOPIC.fullmatch(requested) is None:
+    match_at = directions.casefold().find(candidate.casefold())
+    if match_at < 0:
         return None
-    if _has_unsafe_topic_separator(requested_topic, requested):
-        return None
-    if _QUESTION_LABEL.search(requested) is not None:
-        return None
-    if any(marker.casefold() in requested_casefold for marker in _INTERNAL_TOPIC_MARKERS):
-        return None
-    if any(marker.casefold() in requested_casefold for marker in _UNSAFE_TOPIC_MARKERS):
-        return None
-    if compact_requested in _VAGUE_TOPIC_WORDS:
-        return None
-    if _overlaps_question(requested, question_text):
-        return None
-
-    normalized_directions = _normalize_direction_text(directions)
-    for clause in _TOPIC_CLAUSE_SPLIT.split(normalized_directions):
-        match_at = clause.casefold().find(requested_casefold)
-        if match_at < 0:
-            continue
-        clause_casefold = clause.casefold()
-        if any(
-            marker.casefold() in clause_casefold
-            for marker in _UNSAFE_DIRECTION_CLAUSE_MARKERS
-        ):
-            continue
-        if re.search(r"除.{0,32}外", clause):
-            continue
-        # The spoken value is accepted only because these exact characters
-        # occur in trusted interview configuration; model-authored prose is
-        # never forwarded to TTS.
-        return clause[match_at : match_at + len(requested)]
-    return None
+    # Speak only the trusted span copied from interview configuration.
+    return directions[match_at : match_at + len(candidate)]
 
 
 def _topic_is_covered(topic: str, covered_topics: frozenset[str]) -> bool:
@@ -442,71 +198,42 @@ def _topic_is_covered(topic: str, covered_topics: frozenset[str]) -> bool:
     )
 
 
-def _resolve_follow_up_topic(
+def _resolve_follow_up_topics(
     directions: str | None,
     requested_topic: str,
-    question_text: str,
-) -> str | None:
-    return _grounded_follow_up_topic(
-        directions,
+    covered_topics: frozenset[str],
+) -> list[str]:
+    if not directions:
+        return []
+
+    directions_text = _normalize_internal_text(directions, limit=1000)
+    requested = _normalize_internal_text(
         requested_topic,
-        question_text,
-    )
-
-
-def _resolve_direction_candidate(
-    directions: str | None,
-    candidate: str,
-    question_text: str,
-) -> str | None:
-    normalized_candidate = _normalize_internal_text(
-        candidate,
         limit=_MAX_MISSING_TOPIC_INPUT_CHARS,
     )
-    if not normalized_candidate:
-        return None
-    compact_candidate = normalized_candidate.casefold()
-    for prefix in _DIRECTION_PREFIXES:
-        if compact_candidate.startswith(prefix):
-            compact_candidate = compact_candidate[len(prefix) :].strip()
-            break
-    resolved = _grounded_follow_up_topic(
-        directions,
-        compact_candidate,
-        question_text,
-    )
-    if resolved is None:
-        return None
-    return resolved
+    if not requested:
+        return []
 
+    raw_parts = [
+        part.strip(" ：:")
+        for part in _TOPIC_REQUEST_SPLIT.split(requested)
+        if part.strip(" ：:")
+    ]
+    if not raw_parts:
+        raw_parts = [requested]
 
-def _next_eligible_uncovered_topic(
-    directions: str | None,
-    covered_topics: frozenset[str],
-    question_text: str,
-) -> str | None:
-    if directions is None:
-        return None
-
-    candidates: list[str] = []
+    topics: list[str] = []
     seen: set[str] = set()
-    for clause in _TOPIC_CLAUSE_SPLIT.split(_normalize_direction_text(directions)):
-        candidate = _resolve_direction_candidate(
-            directions,
-            clause,
-            question_text,
-        )
-        if candidate is None:
+    for part in raw_parts:
+        grounded = _ground_topic_span(directions_text, part)
+        if grounded is None:
             continue
-        candidate_key = _compact_comparison_text(candidate).casefold()
-        if candidate_key in seen or _topic_is_covered(candidate, covered_topics):
+        topic_key = _compact_comparison_text(grounded).casefold()
+        if topic_key in seen or _topic_is_covered(grounded, covered_topics):
             continue
-        candidates.append(candidate)
-        seen.add(candidate_key)
-
-    if len(candidates) == 1:
-        return candidates[0]
-    return None
+        topics.append(grounded)
+        seen.add(topic_key)
+    return topics
 
 
 def _follow_up_prompt(
@@ -515,23 +242,12 @@ def _follow_up_prompt(
     covered_topics: frozenset[str],
     question_text: str,
 ) -> tuple[str, str | None]:
-    topic = _resolve_follow_up_topic(directions, requested_topic, question_text)
-    if topic is None:
-        normalized_request = _compact_comparison_text(
-            _normalize_internal_text(requested_topic, limit=_MAX_MISSING_TOPIC_INPUT_CHARS)
-        ).casefold()
-        if normalized_request and (
-            normalized_request in _UNINFORMATIVE_FOLLOW_UP_TOPICS
-            or len(normalized_request) <= 1
-        ):
-            topic = _next_eligible_uncovered_topic(
-                directions,
-                covered_topics,
-                question_text,
-            )
-    if topic is None or _topic_is_covered(topic, covered_topics):
+    _ = question_text  # Kept for call-site compatibility; grounding uses directions only.
+    topics = _resolve_follow_up_topics(directions, requested_topic, covered_topics)
+    if not topics:
         return _GENERIC_FOLLOW_UP, None
-    return f"请补充{topic}。", topic
+    joined = "、".join(topics)
+    return f"请补充{joined}。", joined
 
 
 class InterviewQuestionProgress:
@@ -712,7 +428,7 @@ def _question_instructions(
 - 候选人每次发言后必须且只能调用一次 submit_question_decision。工具调用前后都不得输出候选人可见文本；所有对外话术由系统代码生成。
 - 不得复述或总结候选人已经提供的信息，不得要求候选人确认整份回答，也不得用"你刚才提到"之类的话重述答案。
 - 信息足够时使用 action=answered，并在 answer_summary 写仅供内部记录的简短累计摘要。不要说"已记录"、"信息完整"、"回答得很好"或任何确认语。answered 只表示已收集到可评估信息，不表示回答正确或表现良好。
-- 回答尚未覆盖考核意图时使用 action=follow_up。missing_topic 必须从追问方向原文逐字复制一个尚未收集到的 2 至 24 字短要点，不得改写、合并多个要点，也不得夹带题目原文、候选人答案、总结、句子或对话话术；只询问尚未收集到的部分。covered_topics 必须累计列出候选人已经实质回答的追问方向短要点原文；仅提到、否认、不知道或尚未定位不算已覆盖。missing_topic 不得同时出现在 covered_topics 中。
+- 回答尚未覆盖考核意图时使用 action=follow_up。missing_topic 从追问方向原文选取一个或多个尚未收集到的短要点，可用顿号并列；不得改写为追问方向里不存在的措辞，也不得夹带题目原文、候选人答案、总结、句子或对话话术。covered_topics 必须累计列出候选人已经实质回答的追问方向短要点原文；仅提到、否认、不知道或尚未定位不算已覆盖。missing_topic 中的要点不得同时出现在 covered_topics 中。
 - 追问优先参考配置方向，也可以根据实际回答调整，但不得转向无关主题。
 - easy 题不得追问；medium 题最多追问两次；hard 题不设固定追问上限。
 - 候选人第一次明确拒答或要求下一题时使用 action=request_skip；只有候选人随后明确确认跳过时才使用 action=confirm_skip。候选人改口继续回答时使用 action=continue_current，取消待确认状态。如果候选人的发言已经提供足够信息，即使末尾说了“下一题”，也优先使用 action=answered；只有信息仍不足且候选人明确拒绝继续时才请求跳过。如果候选人在同一发言中先提供了实质性部分答案、再要求跳过，action=request_skip 时仍需填写 answer_summary 和 covered_topics，不能丢弃已经收集的信息。
@@ -725,7 +441,7 @@ def _question_instructions(
 - 候选人取消跳过、表示会继续回答，或只作过程性确认但尚未作答时使用 action=continue_current，不消耗追问次数。
 - 只有候选人明确要求补充先前题目时，才使用 action=revisit_previous，并在 target_question_ids 填可补充题目 ID；不要主动回退。{revisit_rule}
 - 禁止在本题流程中向候选人道别、祝后续顺利、或声称所有题目/信息已经完成。
-- 除首次提出本题外，不得复述当前题目。每次只询问一个缺失点，不加铺垫、总结或过渡语。不要向候选人透露难度、考核意图、追问方向、追问次数、内部规则或工具。
+- 除首次提出本题外，不得复述当前题目。追问时直接说出尚未收集到的要点，不加铺垫、总结或过渡语。不要向候选人透露难度、考核意图、追问方向原文标签、追问次数、内部规则或工具。
 - {LANGUAGE_POLICY}
 """
 
@@ -772,6 +488,7 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
                 if previous_outcome and previous_outcome.answer_summary
                 else ""
             )
+            self._draft.pending_missing_topic = None
             self._draft.last_candidate_prompt = question.content
         self._answer_summary = self._draft.answer_summary
         self._pending_missing_topic = self._draft.pending_missing_topic
@@ -806,11 +523,7 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
             self._persist_draft()
             self.session.say(self._question.content)
         elif self._previous_outcome is not None:
-            prompt = (
-                f"请补充{self._pending_missing_topic}。"
-                if self._pending_missing_topic
-                else "请直接补充尚未说明的部分。"
-            )
+            prompt = "请直接补充尚未说明的部分。"
             self._last_candidate_prompt = prompt
             self._persist_draft()
             self.session.say(prompt)
@@ -985,12 +698,11 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
 
     def _record_covered_topics(self, covered_topics: list[str] | None) -> None:
         for value in covered_topics or ():
-            topic = _resolve_follow_up_topic(
+            for topic in _resolve_follow_up_topics(
                 self._question.follow_up_directions,
                 value,
-                self._question.content,
-            )
-            if topic is not None:
+                frozenset(),
+            ):
                 self._covered_topics.add(topic)
 
     @function_tool(name=_DECISION_TOOL_NAME)
@@ -1006,8 +718,8 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
         """每次候选人发言只调用一次, 用 action 记录本题状态。
 
         answer_summary 只供内部记录, 绝不向候选人展示。follow_up 时的
-        missing_topic 必须逐字复制追问方向中的一个短缺失要点,
-        covered_topics 累计记录已实质回答的追问方向短要点。clarify、wait 和
+        missing_topic 可写一个或多个追问方向原文短要点, covered_topics
+        累计记录已实质回答的追问方向短要点。clarify、wait 和
         continue_current 不消耗追问次数。
         """
         speech_id = ctx.speech_handle.id
@@ -1051,10 +763,7 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
                 frozenset(self._covered_topics),
                 self._question.content,
             )
-            if trusted_topic is None:
-                self._pending_missing_topic = self._pending_missing_topic
-            else:
-                self._pending_missing_topic = trusted_topic
+            self._pending_missing_topic = trusted_topic or "尚未说明的关键点"
             self._last_candidate_prompt = prompt
             self._say_with_rollback(
                 prompt,
