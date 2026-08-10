@@ -246,9 +246,8 @@ afterEach(() => {
 });
 
 api.state.savedRecord = record as unknown as Record<string, unknown>;
-
 describe("structured job description preview flow", () => {
-  it("uses a single 岗位 JD field for structured jobs and freezes legacy evaluation fields", async () => {
+  it("uses a single 岗位 JD field and a side-by-side scoring preview for structured jobs", async () => {
     const structuredContainer = document.createElement("div");
     document.body.append(structuredContainer);
     const structuredRoot = createRoot(structuredContainer);
@@ -286,6 +285,7 @@ describe("structured job description preview flow", () => {
     );
     expect(structuredPrompt).not.toBeNull();
     expect(structuredPrompt?.dataset.showPreview).toBe("true");
+    expect(structuredContainer.querySelector(".xl\\:grid-cols-2")).not.toBeNull();
     const settingsGroup = structuredContainer.querySelector(".divide-y");
     const settingsFields = settingsGroup?.querySelectorAll('[data-slot="field"]');
     expect(settingsFields).toHaveLength(5);

@@ -323,7 +323,11 @@ export function JobDescriptionFormDialog({
                   selectedInterviewerIds={selectedInterviewerIds}
                 />
 
-                <div className="flex flex-col gap-5">
+                <div
+                  className={
+                    isLegacyJob ? "flex flex-col gap-5" : "grid items-start gap-3 xl:grid-cols-2"
+                  }
+                >
                   <JobDescriptionPromptFields
                     evaluationFrozen={evaluationFrozen}
                     form={form}

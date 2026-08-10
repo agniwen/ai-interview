@@ -58,6 +58,7 @@ type RepositoryFailure =
 interface JobEvaluationUpgradeDependencies {
   compile(input: {
     description: null;
+    id: string;
     prompt: string;
     structuredConfig: JobDescriptionStructuredConfig;
   }): Promise<JobEvaluationBlueprint>;
@@ -175,6 +176,7 @@ export function createJobEvaluationUpgradeApplication(
       const blueprint = jobEvaluationBlueprintSchema.parse(
         await dependencies.compile({
           description: null,
+          id: draft.jobDescriptionId,
           prompt: draft.prompt,
           structuredConfig: draft.structuredConfig,
         }),

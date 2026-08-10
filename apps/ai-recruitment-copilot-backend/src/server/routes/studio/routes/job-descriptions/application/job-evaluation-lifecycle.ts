@@ -88,8 +88,8 @@ interface LifecycleDependencies {
 export class JobEvaluationLifecycleError extends Error {
   readonly code: string;
 
-  constructor(code: string, message: string) {
-    super(message);
+  constructor(code: string, message: string, options?: ErrorOptions) {
+    super(message, options);
     this.code = code;
     this.name = "JobEvaluationLifecycleError";
   }
@@ -410,23 +410,33 @@ function saveManualPreviewDefault(
 }
 
 export async function compileJobEvaluationDraft(
-  job: Pick<JobEvaluationDraft, "description" | "prompt" | "structuredConfig">,
+  job: Pick<JobEvaluationDraft, "description" | "id" | "prompt" | "structuredConfig">,
 ): Promise<JobEvaluationBlueprint> {
+  const startedAt = Date.now();
   const generatedAt = new Date().toISOString();
+  const modelId = getMastraModelIdentifier(mastraModels.structuredModel);
   let modelOutput;
   try {
     modelOutput = await generateEvaluationBlueprintCandidate(job);
-  } catch {
+  } catch (error) {
+    console.error("[job-evaluation-blueprint] generation failed", {
+      durationMs: Date.now() - startedAt,
+      error,
+      jobDescriptionId: job.id,
+      modelId,
+      promptVersion: JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION,
+    });
     throw new JobEvaluationLifecycleError(
       "JOB_BLUEPRINT_GENERATION_FAILED",
       "AI 评估蓝图生成暂时不可用，请稍后重试。",
+      { cause: error },
     );
   }
   return compileEvaluationBlueprint(
     { ...job, modelOutput },
     {
       generatedAt,
-      modelId: getMastraModelIdentifier(mastraModels.structuredModel),
+      modelId,
       promptVersion: JOB_EVALUATION_BLUEPRINT_COMPILER_PROMPT_VERSION,
     },
   );
