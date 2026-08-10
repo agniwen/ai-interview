@@ -44,6 +44,7 @@ overrides:
 packageExtensionsChecksum: sha256-Q4nnIBsm8X0lFtot0w7Ymjksc/uVGU8skIGJo+VkcxA=
 
 patchedDependencies:
+  '@larksuiteoapi/node-sdk@1.63.1': 5a25e253af9070ab5b6cb4c7e74521a4d4de81d2dcab48216eb7deaef703dffc
   '@mastra/playground-ui@40.0.1': d0a1975af7722c340c81524b41514729deccd06b89620f57e3cc4026e2164693
 
 importers:
@@ -624,6 +625,9 @@ importers:
       '@larksuite/vercel-chat-adapter':
         specifier: ^0.1.2
         version: 0.1.2(ai@6.0.219(zod@4.4.3))(chat@4.29.0(ai@6.0.219(zod@4.4.3))(zod@4.4.3))(zod@4.4.3)
+      '@larksuiteoapi/node-sdk':
+        specifier: ^1.63.1
+        version: 1.63.1(patch_hash=5a25e253af9070ab5b6cb4c7e74521a4d4de81d2dcab48216eb7deaef703dffc)
       '@livekit/protocol':
         specifier: ^1.45.8
         version: 1.46.0
@@ -13634,7 +13638,7 @@ snapshots:
   '@larksuite/vercel-chat-adapter@0.1.2(ai@6.0.219(zod@4.4.3))(chat@4.29.0(ai@6.0.219(zod@4.4.3))(zod@4.4.3))(zod@4.4.3)':
     dependencies:
       '@chat-adapter/shared': 4.29.0(ai@6.0.219(zod@4.4.3))(zod@4.4.3)
-      '@larksuiteoapi/node-sdk': 1.63.1
+      '@larksuiteoapi/node-sdk': 1.63.1(patch_hash=5a25e253af9070ab5b6cb4c7e74521a4d4de81d2dcab48216eb7deaef703dffc)
       chat: 4.29.0(ai@6.0.219(zod@4.4.3))(zod@4.4.3)
     transitivePeerDependencies:
       - ai
@@ -13644,7 +13648,7 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@larksuiteoapi/node-sdk@1.63.1':
+  '@larksuiteoapi/node-sdk@1.63.1(patch_hash=5a25e253af9070ab5b6cb4c7e74521a4d4de81d2dcab48216eb7deaef703dffc)':
     dependencies:
       axios: 1.13.6
       lodash.identity: 3.0.0

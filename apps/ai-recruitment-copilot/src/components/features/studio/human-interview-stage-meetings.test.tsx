@@ -52,6 +52,8 @@ const meeting: HumanInterviewMeetingRecord = {
   },
   id: "meeting-1",
   interviewers: [],
+  lifecycleOccurredAt: null,
+  lifecycleSource: null,
   liveKitRoomName: "human-interview-meeting-1",
   notes: null,
   organizationId: "org-1",
@@ -91,7 +93,7 @@ const links: HumanInterviewMeetingLinkBundle = {
 };
 
 describe("MeetingLinksDialog", () => {
-  it("shows the direct Feishu meeting link before the LiveKit links", async () => {
+  it("keeps LiveKit as the current entry channel when a Feishu meeting is synchronized", async () => {
     issueLinksMock.mockResolvedValue(links);
     const container = document.createElement("div");
     document.body.append(container);
@@ -115,8 +117,9 @@ describe("MeetingLinksDialog", () => {
     expect(text).toContain("飞书会议链接");
     expect(text.indexOf("飞书会议链接")).toBeLessThan(text.indexOf("候选人链接"));
     expect(document.body.innerHTML).toContain("https://vc.feishu.cn/j/123456789");
-    expect(text).toContain("候选人链接");
-    expect(text).toContain("面试官链接");
+    expect(text).not.toContain("飞书会议链接（当前使用）");
+    expect(text).toContain("候选人链接（当前使用）");
+    expect(text).toContain("面试官链接（当前使用）");
 
     act(() => root.unmount());
   });

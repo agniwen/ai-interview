@@ -95,6 +95,8 @@ const meeting: HumanInterviewMeetingRecord = {
   },
   id: "meeting-1",
   interviewers: [],
+  lifecycleOccurredAt: null,
+  lifecycleSource: null,
   liveKitRoomName: "human-meeting-1",
   notes: null,
   organizationId: "org-1",

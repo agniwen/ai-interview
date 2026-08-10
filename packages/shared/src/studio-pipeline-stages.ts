@@ -6,6 +6,7 @@
 import type {
   FeishuHumanInterviewProviderId,
   FeishuHumanInterviewSyncStatus,
+  HumanInterviewMeetingLifecycleSource,
   HumanInterviewMeetingInterviewerRole,
   HumanInterviewMeetingStatus,
   HumanInterviewFormat,
@@ -79,6 +80,8 @@ export interface HumanInterviewMeetingRecord {
   organizationId: string;
   title: string;
   liveKitRoomName: string | null;
+  lifecycleOccurredAt: string | null;
+  lifecycleSource: HumanInterviewMeetingLifecycleSource | null;
   scheduledAt: string | null;
   status: HumanInterviewMeetingStatus;
   startedAt: string | null;

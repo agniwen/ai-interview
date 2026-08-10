@@ -127,7 +127,6 @@ export function MeetingLinksDialog({
       toast.success("飞书会议与日程已创建");
     },
   });
-
   return (
     <Dialog onOpenChange={onOpenChange} open={meeting !== null}>
       <DialogContent className="sm:max-w-2xl">
@@ -211,7 +210,7 @@ function MeetingLinksContent({
       <section className="space-y-2">
         <h4 className="flex items-center gap-2 font-medium text-sm">
           <IconUsers className="size-4" />
-          候选人链接
+          候选人链接（当前使用）
         </h4>
         <div className="space-y-2">
           {links.candidateLinks.map((link) => (
@@ -228,7 +227,7 @@ function MeetingLinksContent({
       <section className="space-y-2">
         <h4 className="flex items-center gap-2 font-medium text-sm">
           <IconLink className="size-4" />
-          面试官链接
+          面试官链接（当前使用）
         </h4>
         <div className="space-y-2">
           {links.interviewerLinks.map((link) => (

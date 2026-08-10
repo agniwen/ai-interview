@@ -34,7 +34,6 @@ import {
   issueHumanInterviewMeetingLinks,
   listHumanInterviewMeetings,
   loadHumanInterviewMeetingById,
-  markHumanInterviewMeetingInProgress,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/human-interview-meetings";
 import { updateHumanInterviewMeetingSchedule } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/human-interview-meeting-schedule";
 import {
@@ -43,7 +42,10 @@ import {
   signHumanInterviewMeetingToken,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/utils/human-interview-livekit";
 import { getFeishuTenantAccessToken } from "@arc/ai-recruitment-copilot-backend/lib/server/feishu-access-token";
-import { getFeishuAppCredentials } from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
+import {
+  getFeishuAppCredentials,
+  isFeishuHumanInterviewEnabled,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/feishu/utils/provider";
 import {
   isFeishuSyncConflictError,
   recordFeishuHumanInterviewSyncFailure,
@@ -345,16 +347,23 @@ export const studioInterviewCollectionRouter = factory
         return c.json({ message: "Unauthorized" }, 401);
       }
       try {
-        const providerId = await resolveHumanInterviewFeishuProviderId({
-          interviewerIds: c.req.valid("json").interviewerIds,
-          organizationId: activeOrg.id,
-        });
+        const feishuEnabled = isFeishuHumanInterviewEnabled();
+        const providerId = feishuEnabled
+          ? await resolveHumanInterviewFeishuProviderId({
+              interviewerIds: c.req.valid("json").interviewerIds,
+              organizationId: activeOrg.id,
+            })
+          : null;
         const created = await createHumanInterviewMeeting({
           createdBy: user.id,
           feishuProviderId: providerId,
           input: c.req.valid("json"),
           organizationId: activeOrg.id,
         });
+        if (!feishuEnabled || !providerId) {
+          invalidateStudioInterviewCaches(activeOrg.id);
+          return c.json(created, 200);
+        }
         let synced;
         try {
           const credentials = getFeishuAppCredentials(providerId);
@@ -439,7 +448,7 @@ export const studioInterviewCollectionRouter = factory
           ),
         );
         invalidateStudioInterviewCaches(activeOrg.id);
-        if (!updated.feishu) {
+        if (!isFeishuHumanInterviewEnabled() || !updated.feishu) {
           return c.json(updated, 200);
         }
 
@@ -496,6 +505,9 @@ export const studioInterviewCollectionRouter = factory
       const { activeOrg, user } = c.var;
       if (!activeOrg || !user) {
         return c.json({ message: "Unauthorized" }, 401);
+      }
+      if (!isFeishuHumanInterviewEnabled()) {
+        return c.json({ error: "飞书真人面试功能未启用。" }, 409);
       }
       const meetingId = c.req.param("meetingId");
       const meeting = await loadHumanInterviewMeetingById(meetingId, activeOrg.id);
@@ -639,7 +651,6 @@ export const studioInterviewCollectionRouter = factory
           participantRole: meetingInterviewer.role,
           roomName: meeting.liveKitRoomName,
         });
-        await markHumanInterviewMeetingInProgress(meeting.id);
         return c.json(token, 200);
       } catch (error) {
         if (error instanceof HumanInterviewLiveKitConfigError) {

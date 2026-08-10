@@ -22,11 +22,12 @@ afterEach(() => {
 });
 
 describe("ScheduleRoundDialog", () => {
-  it("shows member avatars and disables interviewers from incompatible Feishu apps", async () => {
+  it("allows interviewers from different Feishu apps when Feishu human interviews are disabled", async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
     queryClient.setQueryData(["workspace-members", "test-workspace"], {
+      feishuHumanInterviewEnabled: false,
       records: [
         {
           email: "guang@example.com",
@@ -93,12 +94,84 @@ describe("ScheduleRoundDialog", () => {
       await Promise.resolve();
     });
 
-    await vi.waitFor(() => {
-      const secondaryInterviewer = [
-        ...document.querySelectorAll<HTMLElement>('[data-slot="combobox-item"]'),
-      ].find((item) => item.textContent?.includes("张三"));
-      expect(secondaryInterviewer?.getAttribute("aria-disabled")).toBe("true");
+    const secondaryInterviewer = [
+      ...document.querySelectorAll<HTMLElement>('[data-slot="combobox-item"]'),
+    ].find((item) => item.textContent?.includes("张三"));
+    expect(secondaryInterviewer?.getAttribute("aria-disabled")).not.toBe("true");
+
+    act(() => root.unmount());
+    queryClient.clear();
+    host.remove();
+  });
+
+  it("disables interviewers from a different Feishu app when the integration is enabled", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
     });
+    queryClient.setQueryData(["workspace-members", "test-workspace"], {
+      feishuHumanInterviewEnabled: true,
+      records: [
+        {
+          email: "guang@example.com",
+          feishuProviderIds: ["feishu"],
+          id: "member-1",
+          image: "https://example.com/guang.png",
+          name: "光芒",
+        },
+        {
+          email: "zhang@example.com",
+          feishuProviderIds: ["feishu-jiguang-hr"],
+          id: "member-2",
+          image: null,
+          name: "张三",
+        },
+      ],
+    });
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <ScheduleRoundDialog
+            candidateId="candidate-1"
+            candidateName="候选人"
+            existingCount={0}
+            onOpenChange={vi.fn()}
+            onScheduled={vi.fn()}
+            open
+          />
+        </QueryClientProvider>,
+      );
+      await Promise.resolve();
+    });
+
+    const interviewerInput = document.querySelector<HTMLInputElement>(
+      'input[aria-label="搜索成员…"]',
+    );
+    await act(async () => {
+      interviewerInput?.focus();
+      interviewerInput?.click();
+      interviewerInput?.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "ArrowDown" }),
+      );
+      await Promise.resolve();
+    });
+
+    const primaryInterviewer = [
+      ...document.querySelectorAll<HTMLElement>('[data-slot="combobox-item"]'),
+    ].find((item) => item.textContent?.includes("光芒"));
+    expect(primaryInterviewer).not.toBeUndefined();
+    await act(async () => {
+      primaryInterviewer?.click();
+      await Promise.resolve();
+    });
+
+    const secondaryInterviewer = [
+      ...document.querySelectorAll<HTMLElement>('[data-slot="combobox-item"]'),
+    ].find((item) => item.textContent?.includes("张三"));
+    expect(secondaryInterviewer?.getAttribute("aria-disabled")).toBe("true");
 
     act(() => root.unmount());
     queryClient.clear();

@@ -5,7 +5,10 @@ import { loadStandaloneEnv } from "./standalone/env";
 import { RuntimeCloseStack } from "./standalone/runtime-lifecycle";
 
 async function startFeishuBotsIfEnabled(): Promise<(() => Promise<void>) | null> {
-  if (process.env.FEISHU_BOT_ENABLED !== "true") {
+  if (
+    process.env.FEISHU_BOT_ENABLED !== "true" &&
+    process.env.FEISHU_HUMAN_INTERVIEW_ENABLED !== "true"
+  ) {
     return null;
   }
 

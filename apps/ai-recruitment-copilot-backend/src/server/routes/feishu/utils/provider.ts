@@ -2,9 +2,21 @@ export const FEISHU_PROVIDER_IDS = ["feishu", "feishu-jiguang-hr"] as const;
 
 export type FeishuProviderId = (typeof FEISHU_PROVIDER_IDS)[number];
 
+/**
+ * Controls the optional Feishu reservation and lifecycle integration for
+ * human interviews. The messaging bot has its own FEISHU_BOT_ENABLED switch.
+ */
+export function isFeishuHumanInterviewEnabled(): boolean {
+  return process.env.FEISHU_HUMAN_INTERVIEW_ENABLED === "true";
+}
+
 const FEISHU_APP_CONFIG: Record<
   FeishuProviderId,
-  { appIdEnv: string; appSecretEnv: string; evaluationFolderTokenEnv: string }
+  {
+    appIdEnv: string;
+    appSecretEnv: string;
+    evaluationFolderTokenEnv: string;
+  }
 > = {
   feishu: {
     appIdEnv: "FEISHU_APP_ID",

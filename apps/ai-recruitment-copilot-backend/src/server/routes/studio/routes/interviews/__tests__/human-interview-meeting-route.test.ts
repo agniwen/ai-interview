@@ -4,6 +4,8 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import { factory } from "@arc/ai-recruitment-copilot-backend/server/factory";
+import { publicRouter } from "@arc/ai-recruitment-copilot-backend/server/routes/public/route";
+import { issueHumanInterviewMeetingLinks } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/human-interview-meetings";
 import {
   account,
   interviewAuditLog,
@@ -328,13 +330,75 @@ beforeEach(async () => {
   vi.restoreAllMocks();
   process.env.FEISHU_APP_ID = "cli_test_feishu_primary";
   process.env.FEISHU_APP_ID2 = "cli_test_feishu_secondary";
+  process.env.FEISHU_HUMAN_INTERVIEW_ENABLED = "true";
   await db.delete(interviewAuditLog).where(eq(interviewAuditLog.organizationId, ORG_ID));
   await db
     .delete(studioHumanInterviewMeeting)
     .where(eq(studioHumanInterviewMeeting.organizationId, ORG_ID));
 });
 
+describe("LiveKit entry with synchronized Feishu meetings", () => {
+  it("issues an interviewer token instead of redirecting to Feishu", async () => {
+    const meetingId = "test_feishu_meeting_livekit_entry";
+    await seedReadyFeishuMeeting(meetingId);
+    const currentTime = new Date();
+    await db
+      .update(studioHumanInterviewMeeting)
+      .set({
+        scheduledAt: currentTime,
+        validUntil: new Date(currentTime.getTime() + 60 * 60 * 1000),
+      })
+      .where(eq(studioHumanInterviewMeeting.id, meetingId));
+    process.env.LIVEKIT_API_KEY = "test-livekit-key";
+    process.env.LIVEKIT_API_SECRET = "test-livekit-secret";
+    process.env.LIVEKIT_URL = "wss://livekit.example.test";
+
+    const links = await issueHumanInterviewMeetingLinks({ meetingId, organizationId: ORG_ID });
+    const interviewerUrl = links.interviewerLinks[0]?.url;
+    expect(interviewerUrl).toBeDefined();
+    const inviteToken = interviewerUrl?.split("/").at(-1);
+    expect(inviteToken).toBeDefined();
+
+    const response = await factory
+      .createApp()
+      .route("/", publicRouter)
+      .request(`/human-interview-meetings/interviewer/${inviteToken}/livekit-token`, {
+        body: JSON.stringify({}),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      participantName: "光芒",
+      roomName: `human_${meetingId}`,
+    });
+  });
+});
+
 describe("POST /human-interview-meetings", () => {
+  it("creates a LiveKit-only meeting without calling Feishu when the integration is disabled", async () => {
+    process.env.FEISHU_HUMAN_INTERVIEW_ENABLED = "false";
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    const response = await makeApp("feishu").request("/human-interview-meetings", {
+      body: JSON.stringify({
+        interviewerIds: [PRIMARY_INTERVIEWER_ID, SECONDARY_INTERVIEWER_ID],
+        notes: null,
+        roundIds: [ROUND_ID],
+        scheduledAt: "2026-08-05T09:30:00.000Z",
+        title: "张三 - 真人复面",
+        validUntil: "2026-08-06T09:30:00.000Z",
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect((await response.json()) as { feishu: unknown }).toMatchObject({ feishu: null });
+  });
+
   it("uses the interviewers' common app and only adds interviewers to Feishu", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
@@ -458,6 +522,36 @@ describe("POST /human-interview-meetings", () => {
     expect(body.feishu?.status).toBe("ready");
     expect(body.feishu?.meetingUrl).toBe("https://vc.feishu.cn/j/123456789");
     expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
+
+  it("keeps an existing Feishu meeting on the LiveKit-only path when the integration is disabled", async () => {
+    const meetingId = "test_feishu_meeting_disabled_reschedule";
+    await seedReadyFeishuMeeting(meetingId);
+    process.env.FEISHU_HUMAN_INTERVIEW_ENABLED = "false";
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    const response = await makeApp("feishu").request(`/human-interview-meetings/${meetingId}`, {
+      body: JSON.stringify({
+        scheduledAt: "2026-08-05T11:30:00.000Z",
+        validUntil: "2026-08-05T12:30:00.000Z",
+      }),
+      headers: { "content-type": "application/json" },
+      method: "PATCH",
+    });
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect((await response.json()) as { scheduledAt: string }).toMatchObject({
+      scheduledAt: "2026-08-05T11:30:00.000Z",
+    });
+
+    const retryResponse = await makeApp("feishu").request(
+      `/human-interview-meetings/${meetingId}/feishu-sync`,
+      { method: "POST" },
+    );
+    expect(retryResponse.status).toBe(409);
+    await expect(retryResponse.json()).resolves.toEqual({ error: "飞书真人面试功能未启用。" });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("updates the existing Feishu reserve and calendar event when the meeting time changes", async () => {

@@ -1,9 +1,15 @@
 import { createPostgresState } from "@chat-adapter/state-pg";
 import { createLarkAdapter } from "@larksuite/vercel-chat-adapter";
+import { createLarkChannel } from "@larksuiteoapi/node-sdk";
 import { cardChildToFallbackText, Chat, isCardElement, toCardElement } from "chat";
 import type { AdapterPostableMessage, CardChild, CardElement } from "chat";
 import type { FeishuProviderId } from "./provider";
-import { FEISHU_PROVIDER_IDS, getFeishuAppCredentials } from "./provider";
+import {
+  FEISHU_PROVIDER_IDS,
+  getFeishuAppCredentials,
+  isFeishuHumanInterviewEnabled,
+} from "./provider";
+import { createFeishuMeetingLifecycleEventHandlers } from "./meeting-lifecycle";
 import { routeDM, routeGroupMention } from "./router";
 
 type LarkAdapter = ReturnType<typeof createLarkAdapter>;
@@ -321,6 +327,13 @@ export function getFeishuBot(providerId: FeishuProviderId = "feishu"): FeishuBot
   const adapter = createLarkAdapter({
     appId,
     appSecret,
+    channelFactory: (options) =>
+      createLarkChannel({
+        ...options,
+        ...(isFeishuHumanInterviewEnabled()
+          ? { eventHandlers: createFeishuMeetingLifecycleEventHandlers(providerId) }
+          : {}),
+      }),
     userName: "resume-bot",
   });
 

@@ -48,6 +48,7 @@
     "@hono/node-server": "^1.19.14",
     "@hono/zod-validator": "^0.7.6",
     "@larksuite/vercel-chat-adapter": "^0.1.2",
+    "@larksuiteoapi/node-sdk": "^1.63.1",
     "@livekit/protocol": "^1.45.8",
     "@mastra/ai-sdk": "^1.6.1",
     "@mastra/core": "^1.50.1",

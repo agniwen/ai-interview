@@ -115,6 +115,13 @@ export function HumanInterviewStagePanel({
   const { data: meetings = [] } = useQuery({
     queryFn: () => listHumanInterviewMeetings(slug, { interviewRecordId: candidateId }),
     queryKey: humanInterviewKeys.meetings(slug, candidateId),
+    refetchInterval: (query) =>
+      query.state.data?.some(
+        (meeting) => meeting.status === "scheduled" || meeting.status === "in_progress",
+      )
+        ? 10_000
+        : false,
+    refetchIntervalInBackground: false,
   });
 
   function invalidateRounds() {

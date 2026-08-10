@@ -68,7 +68,7 @@ function useWorkspaceMembers() {
   const slug = useWorkspaceSlug();
   return useQuery({
     queryFn: () =>
-      rpcFetch<{ records: WorkspaceMember[] }>(
+      rpcFetch<{ feishuHumanInterviewEnabled: boolean; records: WorkspaceMember[] }>(
         rpc.api.w[":slug"].studio.workspace.members.$get({ param: { slug } }),
         "加载成员列表失败",
       ),
@@ -186,6 +186,7 @@ export function ScheduleRoundDialog({
   const memberOptions = memberRecords.map((member) => ({
     avatarUrl: member.image,
     disabled:
+      members?.feishuHumanInterviewEnabled === true &&
       !interviewerIds.includes(member.id) &&
       commonProviderIds !== null &&
       !member.feishuProviderIds.some((providerId) => commonProviderIds.has(providerId)),
@@ -199,7 +200,7 @@ export function ScheduleRoundDialog({
         <DialogHeader>
           <DialogTitle>安排真人复面</DialogTitle>
           <DialogDescription>
-            保存后会同时创建线上复面会议、飞书会议和日程；有效时间为空时默认到面试时间后一小时。
+            保存后会创建线上复面会议；有效时间为空时默认到面试时间后一小时。
           </DialogDescription>
         </DialogHeader>
 

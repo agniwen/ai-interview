@@ -157,6 +157,16 @@ describe("TanStack Start server entry", () => {
     expect(initializeFeishuBots).toHaveBeenCalledTimes(1);
   });
 
+  it("starts Feishu websocket connections when human interview integration is enabled", async () => {
+    vi.stubEnv("FEISHU_HUMAN_INTERVIEW_ENABLED", "true");
+    const serverModule = await import("../server");
+    const entry = serverModule.default;
+
+    await entry.fetch(new Request("https://example.test/api/rpc/health"));
+
+    expect(initializeFeishuBots).toHaveBeenCalledTimes(1);
+  });
+
   it("does not start Feishu bot websocket connections while prerendering", async () => {
     vi.stubEnv("FEISHU_BOT_ENABLED", "true");
     vi.stubEnv("TSS_PRERENDERING", "true");

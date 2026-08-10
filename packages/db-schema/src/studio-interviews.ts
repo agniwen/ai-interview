@@ -260,6 +260,20 @@ export const humanInterviewMeetingStatusValues = [
 export const humanInterviewMeetingStatusSchema = z.enum(humanInterviewMeetingStatusValues);
 export type HumanInterviewMeetingStatus = z.infer<typeof humanInterviewMeetingStatusSchema>;
 
+// 生命周期事件由 LiveKit 或飞书提供。两者都可以报告同一场真人复面的状态。
+export const humanInterviewMeetingProviderValues = ["feishu", "livekit"] as const;
+export const humanInterviewMeetingProviderSchema = z.enum(humanInterviewMeetingProviderValues);
+export type HumanInterviewMeetingProvider = z.infer<typeof humanInterviewMeetingProviderSchema>;
+
+// 来源只记录“谁最后确认了会议状态”，不与飞书预约创建状态混用。
+export const humanInterviewMeetingLifecycleSourceValues = ["feishu", "livekit", "manual"] as const;
+export const humanInterviewMeetingLifecycleSourceSchema = z.enum(
+  humanInterviewMeetingLifecycleSourceValues,
+);
+export type HumanInterviewMeetingLifecycleSource = z.infer<
+  typeof humanInterviewMeetingLifecycleSourceSchema
+>;
+
 export const feishuHumanInterviewProviderIdValues = ["feishu", "feishu-jiguang-hr"] as const;
 export const feishuHumanInterviewProviderIdSchema = z.enum(feishuHumanInterviewProviderIdValues);
 export type FeishuHumanInterviewProviderId = z.infer<typeof feishuHumanInterviewProviderIdSchema>;

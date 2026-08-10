@@ -48,7 +48,9 @@ import type {
   FeishuHumanInterviewProviderId,
   FeishuHumanInterviewSyncStatus,
   HumanInterviewFormat,
+  HumanInterviewMeetingLifecycleSource,
   HumanInterviewMeetingInterviewerRole,
+  HumanInterviewMeetingProvider,
   HumanInterviewMeetingStatus,
   HumanInterviewRoundOutcome,
   HumanInterviewRoundStatus,
@@ -1941,6 +1943,7 @@ export const studioHumanInterviewMeeting = pgTable(
     feishuCalendarEventUrl: text("feishu_calendar_event_url"),
     feishuCalendarId: text("feishu_calendar_id"),
     feishuLastError: text("feishu_last_error"),
+    feishuMeetingId: text("feishu_meeting_id"),
     feishuMeetingNo: text("feishu_meeting_no"),
     feishuMeetingUrl: text("feishu_meeting_url"),
     feishuOwnerOpenId: text("feishu_owner_open_id"),
@@ -1949,6 +1952,8 @@ export const studioHumanInterviewMeeting = pgTable(
     feishuSyncStatus: text("feishu_sync_status").$type<FeishuHumanInterviewSyncStatus>(),
     feishuSyncedAt: timestamp("feishu_synced_at", { withTimezone: true }),
     id: text("id").primaryKey(),
+    lifecycleOccurredAt: timestamp("lifecycle_occurred_at", { withTimezone: true }),
+    lifecycleSource: text("lifecycle_source").$type<HumanInterviewMeetingLifecycleSource>(),
     liveKitRoomName: text("livekit_room_name"),
     notes: text("notes"),
     organizationId: text("organization_id")
@@ -1974,6 +1979,33 @@ export const studioHumanInterviewMeeting = pgTable(
     ),
     index("studio_human_interview_meeting_status_idx").on(table.organizationId, table.status),
     uniqueIndex("studio_human_interview_meeting_livekit_room_idx").on(table.liveKitRoomName),
+    index("studio_human_interview_meeting_feishu_meeting_idx").on(
+      table.feishuProviderId,
+      table.feishuMeetingId,
+    ),
+  ],
+);
+
+// Provider webhook deliveries are at-least-once. Keep a compact receipt so a
+// duplicate or delayed delivery cannot regress the persisted lifecycle.
+export const studioHumanInterviewMeetingEvent = pgTable(
+  "studio_human_interview_meeting_event",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    id: text("id").primaryKey(),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => studioHumanInterviewMeeting.id, { onDelete: "cascade" }),
+    provider: text("provider").$type<HumanInterviewMeetingProvider>().notNull(),
+    providerEventId: text("provider_event_id").notNull(),
+    type: text("type").notNull(),
+  },
+  (table) => [
+    index("studio_human_interview_meeting_event_meeting_idx").on(table.meetingId),
+    uniqueIndex("studio_human_interview_meeting_event_provider_event_idx").on(
+      table.provider,
+      table.providerEventId,
+    ),
   ],
 );
 

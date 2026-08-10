@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getFeishuEvaluationFolderToken } from "../utils/provider";
+import { getFeishuEvaluationFolderToken, isFeishuHumanInterviewEnabled } from "../utils/provider";
 
 describe("getFeishuEvaluationFolderToken", () => {
   afterEach(() => {
@@ -18,5 +18,18 @@ describe("getFeishuEvaluationFolderToken", () => {
     vi.stubEnv("FEISHU_EVALUATION_FOLDER_TOKEN", "  ");
 
     expect(getFeishuEvaluationFolderToken("feishu")).toBeUndefined();
+  });
+});
+
+describe("isFeishuHumanInterviewEnabled", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("is disabled unless explicitly enabled", () => {
+    expect(isFeishuHumanInterviewEnabled()).toBe(false);
+
+    vi.stubEnv("FEISHU_HUMAN_INTERVIEW_ENABLED", "true");
+    expect(isFeishuHumanInterviewEnabled()).toBe(true);
   });
 });

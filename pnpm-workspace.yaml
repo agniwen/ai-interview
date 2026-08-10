@@ -103,4 +103,5 @@ minimumReleaseAgeExclude:
 # workspace packages, so this patch is unused there — allow rather than fail CI.
 allowUnusedPatches: true
 patchedDependencies:
+  "@larksuiteoapi/node-sdk@1.63.1": patches/@larksuiteoapi__node-sdk@1.63.1.patch
   "@mastra/playground-ui@40.0.1": patches/@mastra__playground-ui@40.0.1.patch
