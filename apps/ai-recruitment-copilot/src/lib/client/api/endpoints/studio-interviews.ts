@@ -63,6 +63,8 @@ export interface DedupMatchRecord {
   /** Mastered skills for comparison UI (top skills from resume profile). */
   skills?: string[];
   status: "active" | "archived";
+  /** 招聘台记录当前招聘状态（describeResumeProgress 文案），人才库记录为 null。 */
+  pipelineStatus?: { label: string; tone: "success" | "warning" | "info" | "outline" } | null;
   createdAt: string;
   conflictingSignals?: string[];
   level?: "high" | "low" | "medium";

@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import type { ResumeDedupCompareMode } from "./resume-dedup-compare-dialog";
 import { getResumeComparisonDocumentKind } from "./resume-dedup-compare-model";
+import { CreatedAtRelativeLabel } from "./resume-created-at-relative";
 
 const ResumeDedupCompareDialog = lazy(async () => {
   const mod = await import("./resume-dedup-compare-dialog");
@@ -121,16 +122,33 @@ function ContactFields({
   email,
   phone,
   createdAt,
+  createdAtReference,
 }: {
   email: string | null | undefined;
   phone: string | null | undefined;
   createdAt?: string | null;
+  createdAtReference?: string | null;
 }) {
   return (
     <div className="grid min-w-0 gap-1">
       <FieldLine label="邮箱" value={textOrNull(email) ?? <EmptyValue />} />
       <FieldLine label="手机" value={textOrNull(phone) ?? <EmptyValue />} />
-      {createdAt ? <FieldLine label="创建" value={formatCreatedAt(createdAt)} /> : null}
+      {createdAt ? (
+        <FieldLine
+          label="创建"
+          value={
+            <>
+              {formatCreatedAt(createdAt)}
+              {createdAtReference ? (
+                <CreatedAtRelativeLabel
+                  createdAt={createdAt}
+                  referenceCreatedAt={createdAtReference}
+                />
+              ) : null}
+            </>
+          }
+        />
+      ) : null}
     </div>
   );
 }
@@ -213,6 +231,7 @@ function CandidateBody({
   email,
   phone,
   createdAt,
+  createdAtReference,
   skills,
   snapshot,
   uploaderImage,
@@ -224,6 +243,7 @@ function CandidateBody({
   email: string | null | undefined;
   phone: string | null | undefined;
   createdAt?: string | null;
+  createdAtReference?: string | null;
   skills: string[] | null | undefined;
   snapshot: DedupMatchRecord["resumeProfileSnapshot"];
   uploaderImage: string | null | undefined;
@@ -234,7 +254,12 @@ function CandidateBody({
     <div className="min-w-0 space-y-2.5">
       <RoleText jobDescriptionName={jobDescriptionName} targetRole={targetRole} />
       <UploaderMeta image={uploaderImage} name={uploaderName} />
-      <ContactFields createdAt={createdAt} email={email} phone={phone} />
+      <ContactFields
+        createdAt={createdAt}
+        createdAtReference={createdAtReference}
+        email={email}
+        phone={phone}
+      />
       <ResumeProfileSnapshotView showLabels snapshot={snapshot} />
       <SkillsLine skills={skills} />
       {footer}
@@ -270,12 +295,14 @@ function MatchCandidateRow({
   match,
   onOpenDetail,
   onOpenResume,
+  sourceCreatedAt,
 }: {
   canCompareDetail: boolean;
   canCompareResume: boolean;
   match: DedupMatchRecord;
   onOpenDetail: (match: DedupMatchRecord) => void;
   onOpenResume: (match: DedupMatchRecord) => void;
+  sourceCreatedAt?: string | null;
 }) {
   const statusLabel = match.status === "active" ? "有效" : "已归档";
   return (
@@ -292,8 +319,12 @@ function MatchCandidateRow({
                 {typeof match.score === "number" ? ` ${match.score}%` : ""}
               </Badge>
             ) : null}
+            {match.pipelineStatus ? (
+              <Badge variant={match.pipelineStatus.tone}>{match.pipelineStatus.label}</Badge>
+            ) : null}
             <span className="text-muted-foreground text-[11px]">
-              {sourceTypeLabel(match)} · {statusLabel}
+              {sourceTypeLabel(match)}
+              {match.pipelineStatus ? "" : ` · ${statusLabel}`}
             </span>
           </div>
         </div>
@@ -316,6 +347,7 @@ function MatchCandidateRow({
       <div className="mt-2 min-w-0">
         <CandidateBody
           createdAt={match.createdAt}
+          createdAtReference={sourceCreatedAt}
           email={match.candidateEmail}
           footer={<JudgmentLines match={match} />}
           jobDescriptionName={match.jobDescriptionName}
@@ -373,6 +405,7 @@ export function ResumeDedupMatchList({
             match={match}
             onOpenDetail={(selectedMatch) => openComparison(selectedMatch, "detail")}
             onOpenResume={(selectedMatch) => openComparison(selectedMatch, "resume")}
+            sourceCreatedAt={source?.createdAt ?? null}
           />
         ))}
       </div>

@@ -1,5 +1,10 @@
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
+import { describeResumeProgress } from "@arc/shared/studio-resumes";
+import {
+  EMPTY_STAGE_PROGRESS,
+  loadResumeStageProgress,
+} from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resume-derived-fields";
 import type { DedupMatchRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
 import { buildResumeProfileSnapshotFromProfile } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resume-profile-snapshot";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
@@ -172,6 +177,11 @@ function profileSkills(profile: ResumeProfile | null | undefined): string[] {
   return skills;
 }
 
+interface PipelineStatus {
+  label: string;
+  tone: "success" | "warning" | "info" | "outline";
+}
+
 function toMatchRecord(
   match: DuplicateMatchRow,
   target: {
@@ -181,6 +191,7 @@ function toMatchRecord(
     createdAt: Date;
     id: string;
     jobDescriptionName: string | null;
+    pipelineStatus: PipelineStatus | null;
     resumeFileName: string | null;
     resumeProfile: ResumeProfile | null;
     status: DedupMatchRecord["status"];
@@ -198,6 +209,7 @@ function toMatchRecord(
     id: target.id,
     jobDescriptionName: target.jobDescriptionName,
     level: match.level,
+    pipelineStatus: target.pipelineStatus,
     resumeFileName: target.resumeFileName,
     resumeProfileSnapshot: buildResumeProfileSnapshotFromProfile(target.resumeProfile),
     score: match.score,
@@ -254,8 +266,12 @@ export async function listDuplicateMatchesForSource(input: {
             createdAt: studioInterview.createdAt,
             id: studioInterview.id,
             jobDescriptionName: jobDescription.name,
+            outcome: studioInterview.outcome,
+            pipelineStage: studioInterview.pipelineStage,
             resumeFileName: studioInterview.resumeFileName,
+            resumeParseStatus: studioInterview.resumeParseStatus,
             resumeProfile: studioInterview.resumeProfile,
+            resumeReviewStatus: studioInterview.resumeReviewStatus,
             status: sql<"active" | "archived">`
               CASE
                 WHEN ${studioInterview.pipelineStage} = 'closed' THEN 'archived'
@@ -316,9 +332,28 @@ export async function listDuplicateMatchesForSource(input: {
           ),
   ]);
 
+  // 招聘台匹配记录附带当前招聘状态（与招聘台卡片 badge 同一套 describeResumeProgress 文案）。
+  // Attach the current recruiting status to studio matches — same single source
+  // of truth (describeResumeProgress) as the resume library lifecycle badge.
+  const stageProgressById = await loadResumeStageProgress(studioIds);
   const targets = new Map<string, Parameters<typeof toMatchRecord>[1]>([
-    ...studioRows.map((row) => [`studio_interview:${row.id}`, row] as const),
-    ...poolRows.map((row) => [`resume_pool_item:${row.id}`, row] as const),
+    ...studioRows.map((row): [string, Parameters<typeof toMatchRecord>[1]] => [
+      `studio_interview:${row.id}`,
+      {
+        ...row,
+        pipelineStatus: describeResumeProgress({
+          outcome: row.outcome,
+          pipelineStage: row.pipelineStage,
+          resumeParseStatus: row.resumeParseStatus,
+          resumeReviewStatus: row.resumeReviewStatus,
+          stageProgress: stageProgressById.get(row.id)?.stageProgress ?? EMPTY_STAGE_PROGRESS,
+        }),
+      },
+    ]),
+    ...poolRows.map((row): [string, Parameters<typeof toMatchRecord>[1]] => [
+      `resume_pool_item:${row.id}`,
+      { ...row, pipelineStatus: null },
+    ]),
   ]);
 
   return matchRows

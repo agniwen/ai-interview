@@ -14,6 +14,7 @@ const details = [
     createdAt: "2026-07-24T08:00:00.000Z",
     id: "current-id",
     jobDescriptionName: null,
+    pipelineStatus: { label: "AI 面试 · 第 2/2 轮 · 进行中", tone: "warning" },
     resumeFileName: "current.pdf",
     resumeProfile: null,
     sourceLabel: "招聘台",
@@ -136,4 +137,23 @@ describe("ResumeDedupCompareDialog", () => {
       expect(markup).toContain("size-5");
     },
   );
+
+  it.each(["detail", "resume"] as const)(
+    "annotates the suspected resume's creation time relative to the current one in %s mode",
+    (mode) => {
+      // source query (call #1) = 2026-07-24, match query (call #2) = 2026-07-25 → later.
+      const markup = renderComparison(mode);
+
+      expect(markup).toContain("比当前简历加入晚");
+      expect(markup).toContain("text-green-600");
+    },
+  );
+
+  it("shows the current recruiting status badge for library records in detail mode", () => {
+    // The source column (call #1) is a studio_interview record with a pipeline status.
+    const markup = renderComparison("detail");
+
+    expect(markup).toContain("AI 面试 · 第 2/2 轮 · 进行中");
+    expect(markup).toContain("text-amber-700");
+  });
 });

@@ -4,10 +4,12 @@ import { IconDownload, IconLoader2 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { describeResumeProgress } from "@arc/shared/studio-resumes";
 import { formatDate } from "@arc/shared/utils/time";
 import { EmptyValue } from "@/components/features/display/empty-value";
 import { ResumeProfileView } from "@/components/features/resume/resume-profile-view";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DocxViewerPreview } from "@/components/ui/docx-viewer";
@@ -23,6 +25,7 @@ import { formatResumeCandidateTitle } from "./resume-record-display-id";
 import { ImageResumePreviewContent } from "./resume-document-preview-dialog";
 import { getResumeComparisonDocument } from "./resume-dedup-compare-model";
 import type { ResumeComparisonSourceType } from "./resume-dedup-compare-model";
+import { CreatedAtRelativeLabel } from "./resume-created-at-relative";
 
 export type ResumeDedupCompareMode = "detail" | "resume";
 
@@ -33,6 +36,8 @@ interface ResumeComparisonDetail {
   createdAt: string;
   id: string;
   jobDescriptionName: string | null;
+  /** 招聘台记录当前招聘状态（describeResumeProgress 文案），人才库记录为 null。 */
+  pipelineStatus: { label: string; tone: "success" | "warning" | "info" | "outline" } | null;
   resumeFileName: string | null;
   resumeProfile: ResumeProfile | null;
   sourceLabel: string;
@@ -143,6 +148,7 @@ async function fetchComparisonDetail(
           createdAt: detail.createdAt,
           id: detail.id,
           jobDescriptionName: detail.jobDescriptionName,
+          pipelineStatus: null,
           resumeFileName: detail.resumeFileName,
           resumeProfile: detail.resumeProfile,
           sourceLabel: "人才库",
@@ -164,6 +170,13 @@ async function fetchComparisonDetail(
         createdAt: detail.createdAt,
         id: detail.id,
         jobDescriptionName: detail.jobDescriptionName,
+        pipelineStatus: describeResumeProgress({
+          outcome: detail.outcome,
+          pipelineStage: detail.pipelineStage,
+          resumeParseStatus: detail.resumeParseStatus,
+          resumeReviewStatus: detail.resumeReviewStatus,
+          stageProgress: detail.stageProgress,
+        }),
         resumeFileName: detail.resumeFileName,
         resumeProfile: detail.resumeProfile,
         sourceLabel: "招聘台",
@@ -194,7 +207,16 @@ function DetailComparisonContent({ detail }: { detail: ResumeComparisonDetail })
         <ComparisonMeta label="邮箱" value={detail.candidateEmail} />
         <ComparisonMeta label="手机" value={detail.candidatePhone} />
         <ComparisonMeta label="来源" value={detail.sourceLabel} />
-        <ComparisonMeta label="记录状态" value={detail.statusLabel} />
+        <ComparisonMeta
+          label="记录状态"
+          value={
+            detail.pipelineStatus ? (
+              <Badge variant={detail.pipelineStatus.tone}>{detail.pipelineStatus.label}</Badge>
+            ) : (
+              detail.statusLabel
+            )
+          }
+        />
       </dl>
       <div className="border-border/70 border-t pt-5">
         <ResumeProfileView profile={detail.resumeProfile} />
@@ -353,6 +375,7 @@ function ComparisonColumn({
   label,
   mode,
   onScrollViewportChange,
+  referenceCreatedAt,
   slug,
 }: {
   candidate: ResumeComparisonRef;
@@ -362,6 +385,7 @@ function ComparisonColumn({
   label: string;
   mode: ResumeDedupCompareMode;
   onScrollViewportChange: (element: HTMLElement | null) => void;
+  referenceCreatedAt?: string | null;
   slug: string;
 }) {
   const [outerViewport, setOuterViewport] = useState<HTMLDivElement | null>(null);
@@ -436,7 +460,15 @@ function ComparisonColumn({
                 </Avatar>
                 <span className="truncate">上传人：{detail.uploaderName || "—"}</span>
               </span>
-              <span className="shrink-0">上传时间：{formatDate(detail.createdAt)}</span>
+              <span className="shrink-0">
+                上传时间：{formatDate(detail.createdAt)}
+                {referenceCreatedAt ? (
+                  <CreatedAtRelativeLabel
+                    createdAt={detail.createdAt}
+                    referenceCreatedAt={referenceCreatedAt}
+                  />
+                ) : null}
+              </span>
             </div>
           ) : null}
         </div>
@@ -551,6 +583,7 @@ export function ResumeDedupCompareDialog({
             label="疑似简历"
             mode={mode}
             onScrollViewportChange={setMatchViewport}
+            referenceCreatedAt={sourceQuery.data?.createdAt}
             slug={slug}
           />
         </div>

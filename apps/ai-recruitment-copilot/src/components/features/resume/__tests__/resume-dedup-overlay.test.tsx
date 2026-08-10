@@ -227,4 +227,100 @@ describe("ResumeDuplicateMatchesDialog", () => {
     expect(document.body.textContent).toContain("详情");
     expect(document.body.textContent).not.toContain("简历");
   });
+
+  it("annotates each suspected record's creation time relative to the current resume", async () => {
+    const { root } = await renderInAct(
+      <ResumeDedupMatchList
+        matches={[
+          {
+            candidateEmail: null,
+            candidateName: "早加入的疑似",
+            candidatePhone: null,
+            createdAt: "2026-07-24T00:00:00.000Z",
+            id: "earlier-id",
+            jobDescriptionName: null,
+            resumeFileName: "earlier.pdf",
+            sourceType: "studio_interview",
+            status: "active",
+            targetRole: null,
+          },
+          {
+            candidateEmail: null,
+            candidateName: "晚加入的疑似",
+            candidatePhone: null,
+            createdAt: "2026-07-26T00:00:00.000Z",
+            id: "later-id",
+            jobDescriptionName: null,
+            resumeFileName: "later.pdf",
+            sourceType: "studio_interview",
+            status: "active",
+            targetRole: null,
+          },
+        ]}
+        source={{
+          candidateEmail: null,
+          candidateName: "当前候选人",
+          candidatePhone: null,
+          createdAt: "2026-07-25T00:00:00.000Z",
+          id: "current-id",
+          jobDescriptionName: null,
+          resumeFileName: "current.pdf",
+          resumeProfileSnapshot: null,
+          skills: [],
+          sourceType: "studio_interview",
+          targetRole: null,
+        }}
+      />,
+    );
+    roots.push(root);
+
+    const earlierLabel = [...document.querySelectorAll("span")].find(
+      (element) => element.textContent === "比当前简历加入早",
+    );
+    const laterLabel = [...document.querySelectorAll("span")].find(
+      (element) => element.textContent === "比当前简历加入晚",
+    );
+    expect(earlierLabel?.className).toContain("text-red-600");
+    expect(laterLabel?.className).toContain("text-green-600");
+  });
+
+  it("shows the current recruiting status badge for resume-library matches", async () => {
+    const { root } = await renderInAct(
+      <ResumeDedupMatchList
+        matches={[
+          {
+            candidateEmail: null,
+            candidateName: "招聘台候选人",
+            candidatePhone: null,
+            createdAt: "2026-07-24T00:00:00.000Z",
+            id: "studio-1",
+            jobDescriptionName: null,
+            pipelineStatus: { label: "AI 面试 · 第 2/2 轮 · 进行中", tone: "warning" },
+            resumeFileName: "suspected.pdf",
+            sourceType: "studio_interview",
+            status: "active",
+            targetRole: null,
+          },
+        ]}
+        source={{
+          candidateEmail: null,
+          candidateName: "当前候选人",
+          candidatePhone: null,
+          createdAt: "2026-07-25T00:00:00.000Z",
+          id: "current-id",
+          jobDescriptionName: null,
+          resumeFileName: "current.pdf",
+          resumeProfileSnapshot: null,
+          skills: [],
+          sourceType: "studio_interview",
+          targetRole: null,
+        }}
+      />,
+    );
+    roots.push(root);
+
+    expect(document.body.textContent).toContain("AI 面试 · 第 2/2 轮 · 进行中");
+    // 招聘台记录用状态 badge 取代通用「有效」文案。
+    expect(document.body.textContent).not.toContain("· 有效");
+  });
 });
