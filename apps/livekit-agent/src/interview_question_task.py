@@ -107,10 +107,8 @@ _SAFE_DECISION_RETRY = "抱歉，刚才没有处理成功，请继续回答，�
 _GENERIC_FOLLOW_UP = "请补充一个尚未说明的关键点。"
 _MAX_INTERNAL_SUMMARY_CHARS = 2000
 _MAX_MISSING_TOPIC_INPUT_CHARS = 256
-_MAX_TOPIC_CHARS = 48
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 _TOPIC_REQUEST_SPLIT = re.compile(r"[、，,；;/\n]+|(?:以及|并且|或者)")
-_SAFE_TOPIC = re.compile(r"[0-9A-Za-z\u4e00-\u9fff·+#./_\- ]+")
 
 
 def _decision_tool_choice() -> dict[str, Any]:
@@ -177,36 +175,20 @@ def _merge_terminal_revision(
     )
 
 
-def _ground_topic_span(directions: str, topic: str) -> str | None:
-    candidate = topic.strip(" ：:")
-    if not 1 < len(candidate) <= _MAX_TOPIC_CHARS:
-        return None
-    if _SAFE_TOPIC.fullmatch(candidate) is None:
-        return None
-    match_at = directions.casefold().find(candidate.casefold())
-    if match_at < 0:
-        return None
-    # Speak only the trusted span copied from interview configuration.
-    return directions[match_at : match_at + len(candidate)]
-
-
 def _topic_is_covered(topic: str, covered_topics: frozenset[str]) -> bool:
     normalized_topic = _compact_comparison_text(topic).casefold()
+    if not normalized_topic:
+        return False
     return any(
         _compact_comparison_text(covered).casefold() == normalized_topic
         for covered in covered_topics
     )
 
 
-def _resolve_follow_up_topics(
-    directions: str | None,
+def _requested_follow_up_topics(
     requested_topic: str,
     covered_topics: frozenset[str],
 ) -> list[str]:
-    if not directions:
-        return []
-
-    directions_text = _normalize_internal_text(directions, limit=1000)
     requested = _normalize_internal_text(
         requested_topic,
         limit=_MAX_MISSING_TOPIC_INPUT_CHARS,
@@ -225,13 +207,10 @@ def _resolve_follow_up_topics(
     topics: list[str] = []
     seen: set[str] = set()
     for part in raw_parts:
-        grounded = _ground_topic_span(directions_text, part)
-        if grounded is None:
+        topic_key = _compact_comparison_text(part).casefold()
+        if not topic_key or topic_key in seen or _topic_is_covered(part, covered_topics):
             continue
-        topic_key = _compact_comparison_text(grounded).casefold()
-        if topic_key in seen or _topic_is_covered(grounded, covered_topics):
-            continue
-        topics.append(grounded)
+        topics.append(part)
         seen.add(topic_key)
     return topics
 
@@ -242,8 +221,9 @@ def _follow_up_prompt(
     covered_topics: frozenset[str],
     question_text: str,
 ) -> tuple[str, str | None]:
-    _ = question_text  # Kept for call-site compatibility; grounding uses directions only.
-    topics = _resolve_follow_up_topics(directions, requested_topic, covered_topics)
+    _ = directions
+    _ = question_text
+    topics = _requested_follow_up_topics(requested_topic, covered_topics)
     if not topics:
         return _GENERIC_FOLLOW_UP, None
     joined = "、".join(topics)
@@ -698,11 +678,7 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
 
     def _record_covered_topics(self, covered_topics: list[str] | None) -> None:
         for value in covered_topics or ():
-            for topic in _resolve_follow_up_topics(
-                self._question.follow_up_directions,
-                value,
-                frozenset(),
-            ):
+            for topic in _requested_follow_up_topics(value, frozenset()):
                 self._covered_topics.add(topic)
 
     @function_tool(name=_DECISION_TOOL_NAME)
