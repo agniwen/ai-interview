@@ -256,10 +256,8 @@ export const resumeLibraryReadRouter = factory
     }
     const matches = await listDuplicateMatchesForSource({
       organizationId: activeOrg.id,
-      poolOwnerUserId: user.id,
       sourceId: id,
       sourceType: "studio_interview",
-      visibilityScope,
     });
     return c.json({ matches }, 200);
   })

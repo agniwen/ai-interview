@@ -16,7 +16,7 @@ import { Modal } from "@/components/ui/modal";
 import { PDFViewer } from "@/components/ui/pdf-viewer";
 import type { PDFViewerHandle } from "@/components/ui/pdf-viewer";
 import { XlsxViewerPreview } from "@/components/ui/xlsx-viewer";
-import { fetchResumePoolItem, fetchStudioResume } from "@/lib/client/api";
+import { fetchResumePoolItemReview, fetchStudioResumeReview } from "@/lib/client/api";
 import type { DedupMatchRecord, DedupSourceCandidate } from "@/lib/client/api";
 import { useWorkspaceSlug } from "@/lib/client/workspace-context";
 import { formatResumeCandidateTitle } from "./resume-record-display-id";
@@ -129,8 +129,12 @@ async function fetchComparisonDetail(
   slug: string,
   candidate: ResumeComparisonRef,
 ): Promise<ResumeComparisonDetail | null> {
+  // 查重对照走 /:id/review（同工作区成员即可读）而非 /:id，保证查重查看不受
+  // resumeLibrary/resumePool 读权限与可见范围配置影响（产品决策：查重查看忽略权限配置）。
+  // Dedup comparison reads use the permission-free review endpoints so the
+  // dialog works regardless of resume read permission / visibility scoping.
   if (candidate.sourceType === "resume_pool_item") {
-    const detail = await fetchResumePoolItem(slug, candidate.id);
+    const detail = await fetchResumePoolItemReview(slug, candidate.id);
     return detail
       ? {
           candidateEmail: detail.candidateEmail,
@@ -151,7 +155,7 @@ async function fetchComparisonDetail(
       : null;
   }
 
-  const detail = await fetchStudioResume(slug, candidate.id);
+  const detail = await fetchStudioResumeReview(slug, candidate.id);
   return detail
     ? {
         candidateEmail: detail.candidateEmail,

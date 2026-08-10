@@ -58,8 +58,8 @@ vi.mock("@/lib/client/workspace-context", () => ({
 }));
 
 vi.mock("@/lib/client/api", () => ({
-  fetchResumePoolItem: vi.fn(),
-  fetchStudioResume: vi.fn(),
+  fetchResumePoolItemReview: vi.fn(),
+  fetchStudioResumeReview: vi.fn(),
 }));
 
 vi.mock("@/components/ui/modal", () => ({

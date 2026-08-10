@@ -450,10 +450,8 @@ describe("resumeLibraryRouter behavior", () => {
     expect(await response.json()).toEqual({ matches });
     expect(mocks.listDuplicateMatchesForSource).toHaveBeenCalledWith({
       organizationId: ORGANIZATION_ID,
-      poolOwnerUserId: USER_ID,
       sourceId: RECORD_ID,
       sourceType: "studio_interview",
-      visibilityScope: { kind: "all" },
     });
   });
 

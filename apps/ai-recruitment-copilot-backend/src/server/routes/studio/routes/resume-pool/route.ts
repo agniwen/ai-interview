@@ -172,12 +172,84 @@ export const resumePoolRouter = factory
     }
     const matches = await listDuplicateMatchesForSource({
       organizationId: activeOrg.id,
-      poolOwnerUserId: item.createdBy ?? user.id,
       sourceId: poolItemId,
       sourceType: "resume_pool_item",
-      visibilityScope,
     });
     return c.json({ matches }, 200);
+  })
+  // 疑似重复简历对照等场景使用「同工作区成员即可读」的详情/简历接口：
+  // 与招聘台 /:id/review 采用同一权限策略 —— 仅校验登录 + 工作区成员身份，
+  // 不做 resumePool read 动作权限与可见范围过滤（产品决策：查重查看忽略权限配置）。
+  // Permission-free read surface for the duplicate-resume comparison dialog —
+  // same policy as studio resumes /:id/review: workspace membership only,
+  // no resumePool read action permission, no visibility-scope filtering.
+  .get("/:id/review", async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const item = await loadResumePoolItem({
+      organizationId: activeOrg.id,
+      poolItemId: c.req.param("id"),
+      visibilityScope: { kind: "all" },
+    });
+    if (!item) {
+      return c.json({ error: "记录不存在。" }, 404);
+    }
+    return c.json(item, 200);
+  })
+  .get("/:id/review/resume", async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const item = await loadResumePoolItem({
+      organizationId: activeOrg.id,
+      poolItemId: c.req.param("id"),
+      visibilityScope: { kind: "all" },
+    });
+    if (!item?.resumeStorageKey) {
+      return c.json({ error: "简历文件已不可用。" }, 404);
+    }
+    const object = await getObjectStream(item.resumeStorageKey);
+    if (!object) {
+      return c.json({ error: "简历文件已不可用。" }, 404);
+    }
+    const filename = item.resumeFileName || "resume.pdf";
+    return new Response(object.body, {
+      headers: {
+        "Cache-Control": "private, max-age=300",
+        "Content-Disposition": `inline; filename="${encodeURIComponent(filename)}"`,
+        "Content-Type": object.contentType ?? "application/octet-stream",
+        ...(object.contentLength !== undefined && {
+          "Content-Length": String(object.contentLength),
+        }),
+      },
+    });
+  })
+  .get("/:id/review/resume-preview.pdf", async (c) => {
+    const { activeOrg } = c.var;
+    if (!activeOrg) {
+      return c.json({ message: "Unauthorized" }, 401);
+    }
+    const item = await loadResumePoolItem({
+      organizationId: activeOrg.id,
+      poolItemId: c.req.param("id"),
+      visibilityScope: { kind: "all" },
+    });
+    if (!item?.resumeStorageKey) {
+      return c.json({ error: "简历文件已不可用。" }, 404);
+    }
+    const object = await getObjectBytes(item.resumeStorageKey);
+    if (!object) {
+      return c.json({ error: "简历文件已不可用。" }, 404);
+    }
+    return createPptxPreviewPdfResponse({
+      bytes: object.bytes,
+      cacheKey: item.resumeStorageKey,
+      fileName: item.resumeFileName,
+      mediaType: object.contentType,
+    });
   })
   .post(
     "/:id/retry-parse",

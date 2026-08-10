@@ -25,15 +25,6 @@ vi.mock("@/hooks/use-mobile", () => ({
   useIsMobile: () => false,
 }));
 
-const permissionMocks = vi.hoisted(() => ({
-  resumeLibrary: true,
-  resumePool: true,
-}));
-
-vi.mock("@/hooks/use-has-permission", () => ({
-  useHasPermission: (resource: "resumeLibrary" | "resumePool") => permissionMocks[resource],
-}));
-
 vi.mock("../resume-dedup-compare-dialog", () => ({
   ResumeDedupCompareDialog: ({ mode }: { mode: string }) => (
     <div data-testid="resume-dedup-compare">{mode}</div>
@@ -47,8 +38,6 @@ afterEach(async () => {
     await unmountInAct(root);
   }
   roots.length = 0;
-  permissionMocks.resumeLibrary = true;
-  permissionMocks.resumePool = true;
 });
 
 describe("ResumeDuplicateMatchesDialog", () => {
@@ -163,8 +152,9 @@ describe("ResumeDuplicateMatchesDialog", () => {
     expect(badge?.className).toContain("font-normal");
   });
 
-  it("hides cross-resource comparison actions without permission to read both sides", async () => {
-    permissionMocks.resumeLibrary = false;
+  // 产品决策：查重查看忽略 resumeLibrary/resumePool 读权限配置 ——
+  // 即使当前用户没有某一侧的读权限，详情/简历对照入口依然可见可用。
+  it("keeps cross-resource comparison actions without read permission", async () => {
     const { root } = await renderInAct(
       <ResumeDedupMatchList
         matches={[
@@ -197,8 +187,8 @@ describe("ResumeDuplicateMatchesDialog", () => {
     );
     roots.push(root);
 
-    expect(document.body.textContent).not.toContain("详情");
-    expect(document.body.textContent).not.toContain("简历");
+    expect(document.body.textContent).toContain("详情");
+    expect(document.body.textContent).toContain("简历");
   });
 
   it("keeps detail comparison but hides resume comparison for unsupported files", async () => {

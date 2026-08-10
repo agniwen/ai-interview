@@ -36,8 +36,12 @@ export function getResumeComparisonDocument(input: {
     fileName: input.fileName ?? undefined,
   });
   const documentKind = getResumeComparisonDocumentKind(input.fileName);
+  // 查重对照的简历文件统一走 /:id/review 只读接口（同工作区成员即可读），
+  // 保证对照查看不受 resumeLibrary/resumePool 读权限与可见范围配置影响。
+  // The comparison dialog reads resume files from the permission-free
+  // /:id/review surface so dedup viewing ignores the permission config.
   const resource = input.sourceType === "resume_pool_item" ? "resume-pool" : "resumes";
-  const baseUrl = `/api/w/${input.slug}/studio/${resource}/${input.id}`;
+  const baseUrl = `/api/w/${input.slug}/studio/${resource}/${input.id}/review`;
   const downloadUrl = `${baseUrl}/resume`;
 
   if (sourceDocumentKind === "pptx") {

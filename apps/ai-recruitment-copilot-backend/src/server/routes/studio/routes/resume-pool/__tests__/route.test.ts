@@ -461,13 +461,83 @@ describe("resume pool duplicate handling", () => {
     expect(await response.json()).toEqual({ matches });
     expect(mocks.listDuplicateMatchesForSource).toHaveBeenCalledWith({
       organizationId: ORGANIZATION_ID,
-      poolOwnerUserId: USER_ID,
       sourceId: "pool-item-1",
       sourceType: "resume_pool_item",
-      visibilityScope: {
-        kind: "restricted",
-        userIds: [USER_ID, "subordinate-user"],
-      },
+    });
+  });
+});
+
+describe("resume pool review routes (permission-free dedup comparison reads)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("loads a pool item detail ignoring the visibility scope", async () => {
+    mocks.loadResumePoolItem.mockResolvedValue({ id: "pool-item-1" });
+
+    const response = await makeApp().request("/resume-pool/pool-item-1/review");
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ id: "pool-item-1" });
+    expect(mocks.loadResumePoolItem).toHaveBeenCalledWith({
+      organizationId: ORGANIZATION_ID,
+      poolItemId: "pool-item-1",
+      visibilityScope: { kind: "all" },
+    });
+  });
+
+  it("returns 404 for a pool item outside the workspace", async () => {
+    mocks.loadResumePoolItem.mockResolvedValue(null);
+
+    const response = await makeApp().request("/resume-pool/missing-item/review");
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "记录不存在。" });
+  });
+
+  it("streams the original resume file from the review endpoint", async () => {
+    mocks.loadResumePoolItem.mockResolvedValue({
+      resumeFileName: "candidate.pdf",
+      resumeStorageKey: "keys/candidate.pdf",
+    });
+    mocks.getObjectStream.mockResolvedValue({
+      body: new Blob(["resume"]).stream(),
+      contentLength: 6,
+      contentType: "application/pdf",
+    });
+
+    const response = await makeApp().request("/resume-pool/pool-item-1/review/resume");
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/pdf");
+    expect(mocks.loadResumePoolItem).toHaveBeenCalledWith({
+      organizationId: ORGANIZATION_ID,
+      poolItemId: "pool-item-1",
+      visibilityScope: { kind: "all" },
+    });
+    expect(mocks.getObjectStream).toHaveBeenCalledWith("keys/candidate.pdf");
+  });
+
+  it("serves the converted preview PDF for PPTX sources", async () => {
+    mocks.loadResumePoolItem.mockResolvedValue({
+      resumeFileName: "deck.pptx",
+      resumeStorageKey: "keys/deck.pptx",
+    });
+    mocks.getObjectBytes.mockResolvedValue({
+      bytes: new Uint8Array([1, 2, 3]),
+      contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    });
+    mocks.createPptxPreviewPdfResponse.mockResolvedValue(new Response("preview", { status: 200 }));
+
+    const response = await makeApp().request("/resume-pool/pool-item-1/review/resume-preview.pdf");
+
+    expect(response.status).toBe(200);
+    expect(mocks.getObjectBytes).toHaveBeenCalledWith("keys/deck.pptx");
+    expect(mocks.createPptxPreviewPdfResponse).toHaveBeenCalledWith({
+      bytes: expect.any(Uint8Array),
+      cacheKey: "keys/deck.pptx",
+      fileName: "deck.pptx",
+      mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     });
   });
 });

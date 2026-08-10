@@ -21,7 +21,6 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
-import { useHasPermission } from "@/hooks/use-has-permission";
 import type { ResumeDedupCompareMode } from "./resume-dedup-compare-dialog";
 import { getResumeComparisonDocumentKind } from "./resume-dedup-compare-model";
 
@@ -341,8 +340,10 @@ export function ResumeDedupMatchList({
   className?: string;
   source?: DedupSourceCandidate | null;
 }) {
-  const canReadResumeLibrary = useHasPermission("resumeLibrary", "read");
-  const canReadResumePool = useHasPermission("resumePool", "read");
+  // 查重对照忽略 resumeLibrary/resumePool 读权限配置（产品决策）：
+  // 只要来源记录与疑似记录在疑似列表中可见，就允许打开详情/简历对照。
+  // Dedup comparison ignores resume read permission config — any match
+  // visible in the list can be opened for detail/resume comparison.
   const [comparison, setComparison] = useState<{
     match: DedupMatchRecord;
     mode: ResumeDedupCompareMode;
@@ -352,11 +353,6 @@ export function ResumeDedupMatchList({
     setComparison({ match, mode });
   }
 
-  function canReadSourceType(sourceType: DedupMatchRecord["sourceType"]) {
-    return sourceType === "resume_pool_item" ? canReadResumePool : canReadResumeLibrary;
-  }
-
-  const canReadCurrent = source ? canReadSourceType(source.sourceType) : false;
   const currentDocumentKind = getResumeComparisonDocumentKind(source?.resumeFileName);
 
   return (
@@ -365,15 +361,10 @@ export function ResumeDedupMatchList({
         {matches.map((match) => (
           <MatchCandidateRow
             canCompareDetail={Boolean(
-              source &&
-              canReadCurrent &&
-              canReadSourceType(match.sourceType) &&
-              !(match.sourceType === "resume_pool_item" && match.status === "archived"),
+              source && !(match.sourceType === "resume_pool_item" && match.status === "archived"),
             )}
             canCompareResume={Boolean(
               source &&
-              canReadCurrent &&
-              canReadSourceType(match.sourceType) &&
               currentDocumentKind &&
               getResumeComparisonDocumentKind(match.resumeFileName) &&
               !(match.sourceType === "resume_pool_item" && match.status === "archived"),

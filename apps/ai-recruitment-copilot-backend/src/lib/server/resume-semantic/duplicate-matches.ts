@@ -1,6 +1,5 @@
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
-import type { RecruitingVisibilityScope } from "@arc/ai-recruitment-copilot-backend/server/access/recruiting-visibility";
 import type { DedupMatchRecord } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/interviews/dao/studio-interviews";
 import { buildResumeProfileSnapshotFromProfile } from "@arc/ai-recruitment-copilot-backend/server/routes/studio/routes/resumes/dao/resume-profile-snapshot";
 import type { ResumeProfile } from "@arc/db-schema/interview/types";
@@ -215,11 +214,15 @@ function toMatchRecord(
 
 export async function listDuplicateMatchesForSource(input: {
   organizationId: string;
-  poolOwnerUserId?: string | null;
   sourceId: string;
   sourceType: ResumeSemanticSourceType;
-  visibilityScope: RecruitingVisibilityScope;
 }): Promise<DedupMatchRecord[]> {
+  // 查重列表忽略可见范围 / 私有简历归属过滤（产品决策：查重查看忽略权限配置）。
+  // 只要查重记录属于当前组织，就返回其匹配记录（含详情对照所需的全部字段）；
+  // 组织边界仍由 resumeDuplicateMatch.organizationId 与下面的 join 条件保证。
+  // The dedup list ignores the recruiting visibility scope and pool-item
+  // ownership — any match persisted for this organization is returned, so
+  // the list stays consistent with the permission-free comparison detail.
   const matchRows = await db
     .select()
     .from(resumeDuplicateMatch)
@@ -233,12 +236,9 @@ export async function listDuplicateMatchesForSource(input: {
     )
     .orderBy(desc(resumeDuplicateMatch.score), desc(resumeDuplicateMatch.createdAt));
 
-  const studioIds =
-    input.visibilityScope.kind === "none"
-      ? []
-      : matchRows
-          .filter((row) => row.matchedSourceType === "studio_interview")
-          .map((row) => row.matchedSourceId);
+  const studioIds = matchRows
+    .filter((row) => row.matchedSourceType === "studio_interview")
+    .map((row) => row.matchedSourceId);
   const poolIds = matchRows
     .filter((row) => row.matchedSourceType === "resume_pool_item")
     .map((row) => row.matchedSourceId);
@@ -279,9 +279,6 @@ export async function listDuplicateMatchesForSource(input: {
             and(
               eq(studioInterview.organizationId, input.organizationId),
               inArray(studioInterview.id, studioIds),
-              input.visibilityScope.kind === "restricted"
-                ? inArray(studioInterview.createdBy, input.visibilityScope.userIds)
-                : undefined,
             ),
           ),
     poolIds.length === 0
@@ -314,16 +311,7 @@ export async function listDuplicateMatchesForSource(input: {
             and(
               inArray(resumePoolItem.id, poolIds),
               eq(resumePoolItem.status, "active"),
-              or(
-                eq(resumePoolItem.scope, "public"),
-                and(
-                  eq(resumePoolItem.organizationId, input.organizationId),
-                  eq(resumePoolItem.scope, "private"),
-                  input.poolOwnerUserId
-                    ? eq(resumePoolItem.createdBy, input.poolOwnerUserId)
-                    : sql`false`,
-                ),
-              ),
+              eq(resumePoolItem.organizationId, input.organizationId),
             ),
           ),
   ]);

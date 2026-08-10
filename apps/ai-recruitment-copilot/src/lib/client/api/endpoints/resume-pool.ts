@@ -53,6 +53,25 @@ export function fetchResumePoolItem(slug: string, id: string): Promise<ResumePoo
   );
 }
 
+/**
+ * 拉取人才库简历详情（同工作区成员即可读，忽略 resumePool 读权限与可见范围配置）。
+ * 仅供疑似重复简历对照弹窗使用 —— 查重查看忽略权限配置（产品决策）。
+ * Permission-free pool detail used by the duplicate-resume comparison dialog;
+ * mirrors GET /:id/review semantics (workspace membership only).
+ */
+export function fetchResumePoolItemReview(
+  slug: string,
+  id: string,
+): Promise<ResumePoolDetail | null> {
+  return rpcFetch<ResumePoolDetail>(
+    rpc.api.w[":slug"].studio["resume-pool"][":id"].review.$get({
+      param: { id, slug },
+    }),
+    "加载简历详情失败",
+    { allow404: true },
+  );
+}
+
 export function bindResumePoolItem(
   slug: string,
   id: string,
