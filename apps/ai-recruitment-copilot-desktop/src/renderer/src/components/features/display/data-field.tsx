@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { EmptyValue } from "@/components/features/display/empty-value";
-import { formatLocalDateTime } from "@/components/features/studio/resumes/resume-display";
+import { formatAppDate, formatAppDateTime } from "@/lib/client/datetime";
 import { cn } from "@arc/shared/utils";
 
 export type DataFieldKind = "boolean" | "date" | "datetime" | "email" | "number" | "phone" | "text";
@@ -47,13 +47,10 @@ function renderContactLink(kind: "email" | "phone", value: string) {
 }
 
 function renderDateOrDateTime(kind: "date" | "datetime", value: string | number | Date) {
-  if (kind === "date" && (typeof value === "string" || typeof value === "number")) {
-    const date = new Date(value);
-    if (!Number.isNaN(date.getTime())) {
-      return date.toLocaleDateString("zh-CN");
-    }
+  if (kind === "date") {
+    return formatAppDate(value);
   }
-  return formatLocalDateTime(value instanceof Date ? value.toISOString() : String(value));
+  return formatAppDateTime(value);
 }
 
 function renderValue({

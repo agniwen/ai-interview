@@ -1,3 +1,4 @@
+import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import {
@@ -7,15 +8,6 @@ import {
 } from "@/components/features/studio/resumes/resume-display";
 import { PIPELINE_STAGE_TABS } from "@/components/features/studio/resumes/resume-library-filter-model";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import type { SearchableSelectOption } from "@/components/ui/searchable-select";
@@ -23,6 +15,10 @@ import { fetchStudioResumes } from "@/lib/client/studio-resumes";
 import { desktopWorkspaceKeys, resolveActiveWorkspace } from "@/lib/client/workspace";
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
 import { cn } from "@arc/shared/utils";
+import { useMeetingRecording } from "./meeting-recording-context";
+import { MeetingSetupComposer } from "./meeting-capture-status";
+import { MeetingTranscriptIdleStage } from "./live-transcript-draft-panel";
+import { MeetingRecordingSessionLayout } from "./meeting-recording-session-layout";
 
 /** 默认拉取条数（在线搜索分页第一页）。 */
 export const MEETING_RESUME_PICKER_PAGE_SIZE = 50;
@@ -38,7 +34,6 @@ function resumeToOption(record: ResumeLibraryListRecord): SearchableSelectOption
   const displayId = formatResumeRecordDisplayId(record.id);
   const jobLabel = getResumeLibraryJobDescriptionLabel(record);
   return {
-    // Option secondary line: id first, then department/job when present.
     description: jobLabel ? `${displayId} · ${jobLabel}` : displayId,
     label: record.candidateName,
     searchValue: [record.candidateName, record.candidateEmail, jobLabel, record.id, displayId]
@@ -107,38 +102,97 @@ function SelectedResumeDetails({ record }: { record: ResumeLibraryListRecord }) 
   );
 }
 
-export function NewMeetingRecordingDialog({
-  onOpenChange,
-  onStart,
-  open,
+function MeetingRecruitingLinkSection({
+  deferredSearch,
+  isWorkspaceMissing,
+  listFetching,
+  onSearch,
+  onSelectChange,
+  options,
+  optionsWithSelected,
+  selectedId,
+  selectedRecord,
+}: {
+  deferredSearch: string;
+  isWorkspaceMissing: boolean;
+  listFetching: boolean;
+  onSearch: (query: string) => void;
+  onSelectChange: (nextId: string | null) => void;
+  options: SearchableSelectOption[];
+  optionsWithSelected: SearchableSelectOption[];
+  selectedId: string | null;
+  selectedRecord: ResumeLibraryListRecord | null;
+}) {
+  return (
+    <div className="grid gap-3">
+      <div className="grid gap-2">
+        <Label htmlFor="meeting-resume-select">关联招聘记录</Label>
+        {isWorkspaceMissing ? (
+          <p className="text-muted-foreground text-sm">
+            未加入工作区，请先在网页端加入或创建工作区。
+          </p>
+        ) : (
+          <SearchableSelect
+            clearable
+            emptyMessage={deferredSearch ? "没有匹配的招聘记录" : "当前工作区暂无招聘台记录"}
+            id="meeting-resume-select"
+            loading={listFetching && options.length === 0}
+            onChange={onSelectChange}
+            onSearch={onSearch}
+            options={optionsWithSelected}
+            placeholder="选择关联的招聘记录"
+            searchPlaceholder="搜索候选人、邮箱、岗位、ID…"
+            serverSideFilter
+            value={selectedId}
+          />
+        )}
+      </div>
+
+      {selectedRecord ? <SelectedResumeDetails record={selectedRecord} /> : null}
+    </div>
+  );
+}
+
+/**
+ * 新建会议录制初始化页。仅当 URL 带 `resumeRecordId`（从招聘台跳入）时展示关联招聘记录。
+ * Init page for a new meeting recording. Recruiting link UI only when `resumeRecordId` is in the URL.
+ */
+export function NewMeetingRecordingPage({
+  linkRecruiting = false,
   preselectedResumeId,
   preselectedResumeRecord,
 }: {
-  onOpenChange: (open: boolean) => void;
-  onStart: (recruitingRecordId: string | null) => Promise<void>;
-  open: boolean;
+  /** 是否展示「关联招聘记录」——由路由 search 是否含 resumeRecordId 决定。 */
+  linkRecruiting?: boolean;
   preselectedResumeId?: string | null;
-  /** Optional full record when opening from a card (for immediate detail preview). */
   preselectedResumeRecord?: ResumeLibraryListRecord | null;
 }) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [selectedRecord, setSelectedRecord] = useState<ResumeLibraryListRecord | null>(null);
+  const navigate = useNavigate();
+  const { startRecording } = useMeetingRecording();
+  const [selectedId, setSelectedId] = useState<string | null>(
+    linkRecruiting ? (preselectedResumeId ?? preselectedResumeRecord?.id ?? null) : null,
+  );
+  const [selectedRecord, setSelectedRecord] = useState<ResumeLibraryListRecord | null>(
+    linkRecruiting ? (preselectedResumeRecord ?? null) : null,
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [startError, setStartError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const deferredSearch = useDeferredValue(searchQuery.trim());
 
   const workspaceQuery = useQuery({
-    enabled: open,
     queryFn: resolveActiveWorkspace,
     queryKey: desktopWorkspaceKeys.active,
     staleTime: 60_000,
   });
   const slug = workspaceQuery.data?.slug ?? null;
 
-  // Reset selection when dialog opens / preselect changes.
   useEffect(() => {
-    if (!open) {
+    if (!linkRecruiting) {
+      setSelectedId(null);
+      setSelectedRecord(null);
+      setSearchQuery("");
+      setStartError(null);
       return;
     }
     const nextId = preselectedResumeId ?? preselectedResumeRecord?.id ?? null;
@@ -146,10 +200,10 @@ export function NewMeetingRecordingDialog({
     setSelectedRecord(preselectedResumeRecord ?? null);
     setSearchQuery("");
     setStartError(null);
-  }, [open, preselectedResumeId, preselectedResumeRecord]);
+  }, [linkRecruiting, preselectedResumeId, preselectedResumeRecord]);
 
   const listQuery = useQuery({
-    enabled: open && Boolean(slug),
+    enabled: linkRecruiting && Boolean(slug),
     placeholderData: (previous) => previous,
     queryFn: () =>
       fetchStudioResumes(slug as string, {
@@ -187,7 +241,6 @@ export function NewMeetingRecordingDialog({
     return records.map(resumeToOption);
   }, [listQuery.data?.records]);
 
-  // Keep preselected / selected option visible even if not in the current page.
   const optionsWithSelected = useMemo(() => {
     if (!selectedId) {
       return options;
@@ -209,7 +262,6 @@ export function NewMeetingRecordingDialog({
     ];
   }, [options, recordsById, selectedId]);
 
-  // Hydrate details when list catches up with a bare selected id.
   useEffect(() => {
     if (!selectedId) {
       return;
@@ -229,14 +281,18 @@ export function NewMeetingRecordingDialog({
     setSelectedRecord(recordsById.get(nextId) ?? null);
   };
 
-  const canSubmit = !starting;
-  const isWorkspaceMissing = open && !workspaceQuery.isPending && !slug;
+  const isWorkspaceMissing = !workspaceQuery.isPending && !slug;
 
   const handleConfirm = async () => {
     setStarting(true);
     setStartError(null);
     try {
-      await onStart(selectedId);
+      const { captureId } = await startRecording(linkRecruiting ? selectedId : null);
+      await navigate({
+        params: { meetingId: captureId },
+        replace: true,
+        to: "/meetings/$meetingId",
+      });
     } catch (error) {
       setStartError(error instanceof Error ? error.message : "无法开始会议录制");
     } finally {
@@ -245,59 +301,36 @@ export function NewMeetingRecordingDialog({
   };
 
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>新建会议录制</DialogTitle>
-          <DialogDescription>
-            录制麦克风和系统音频。招聘记录是可选关联，不选择也可以录制通用会议。
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="grid gap-3">
-          <div className="grid gap-2">
-            <Label htmlFor="meeting-resume-select">关联招聘记录（可选）</Label>
-            {isWorkspaceMissing ? (
-              <p className="text-muted-foreground text-sm">
-                未加入工作区，请先在网页端加入或创建工作区。
-              </p>
-            ) : (
-              <SearchableSelect
-                clearable
-                emptyMessage={deferredSearch ? "没有匹配的招聘记录" : "当前工作区暂无招聘台记录"}
-                id="meeting-resume-select"
-                loading={listQuery.isFetching && options.length === 0}
-                onChange={handleSelectChange}
-                onSearch={setSearchQuery}
-                options={optionsWithSelected}
-                placeholder="选择关联的招聘记录"
-                searchPlaceholder="搜索候选人、邮箱、岗位、ID…"
-                serverSideFilter
-                value={selectedId}
-              />
-            )}
-            <p className="text-muted-foreground text-xs">
-              默认展示最近 {MEETING_RESUME_PICKER_PAGE_SIZE} 条，输入关键词可在线搜索。
-            </p>
+    <MeetingRecordingSessionLayout
+      composer={
+        <MeetingSetupComposer
+          disabled={starting || (linkRecruiting && isWorkspaceMissing)}
+          error={startError}
+          onStart={() => void handleConfirm()}
+          starting={starting}
+        />
+      }
+      main={
+        <MeetingTranscriptIdleStage>
+          <div className="space-y-2">
+            <h1 className="font-semibold text-xl tracking-tight">新建会议录制</h1>
           </div>
 
-          {selectedRecord ? <SelectedResumeDetails record={selectedRecord} /> : null}
-          {startError ? (
-            <p className="rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm">
-              {startError}
-            </p>
+          {linkRecruiting ? (
+            <MeetingRecruitingLinkSection
+              deferredSearch={deferredSearch}
+              isWorkspaceMissing={isWorkspaceMissing}
+              listFetching={listQuery.isFetching}
+              onSearch={setSearchQuery}
+              onSelectChange={handleSelectChange}
+              options={options}
+              optionsWithSelected={optionsWithSelected}
+              selectedId={selectedId}
+              selectedRecord={selectedRecord}
+            />
           ) : null}
-        </div>
-
-        <DialogFooter>
-          <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
-            取消
-          </Button>
-          <Button disabled={!canSubmit} onClick={() => void handleConfirm()} type="button">
-            {starting ? "正在请求音频权限…" : "开始录制"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </MeetingTranscriptIdleStage>
+      }
+    />
   );
 }

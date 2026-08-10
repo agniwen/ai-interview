@@ -10,6 +10,7 @@ import {
 } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
 import { z } from "zod";
+import { MeetingRecordingProvider } from "@/components/features/meeting/meeting-recording-context";
 import { AppearanceSettingsPage } from "@/components/features/settings/appearance-settings-page";
 import { GeneralSettingsPage } from "@/components/features/settings/general-settings-page";
 import { SettingsLayout } from "@/components/features/settings/settings-layout";
@@ -21,6 +22,8 @@ import { HomePage } from "@/routes/home-page";
 import { LoginPage } from "@/routes/login-page";
 import { MeetingDetailRoutePage } from "@/routes/meeting-detail-page";
 import { MeetingLibraryRoutePage } from "@/routes/meeting-library-page";
+import { MeetingMoreRoutePage } from "@/routes/meeting-more-page";
+import { MeetingNewRoutePage } from "@/routes/meeting-new-page";
 import { ResumeDetailRoutePage } from "@/routes/resume-detail-page";
 
 export interface RouterContext {
@@ -36,6 +39,10 @@ const meetingDetailSearchSchema = z.object({
     (value) => (typeof value === "number" && value >= 0 ? value : undefined),
     z.number().nonnegative().optional(),
   ),
+});
+
+const meetingNewSearchSchema = z.object({
+  resumeRecordId: z.string().optional(),
 });
 
 async function requireSession() {
@@ -79,9 +86,11 @@ const appRoute = createRoute({
   beforeLoad: requireSession,
   component: function AppLayout() {
     return (
-      <AppShell>
-        <Outlet />
-      </AppShell>
+      <MeetingRecordingProvider>
+        <AppShell>
+          <Outlet />
+        </AppShell>
+      </MeetingRecordingProvider>
     );
   },
   getParentRoute: () => rootRoute,
@@ -106,6 +115,18 @@ const meetingLibraryRoute = createRoute({
   path: "/meetings",
 });
 
+function MeetingNewRouteComponent() {
+  const { resumeRecordId } = useSearch({ from: "/_app/meetings/new" });
+  return <MeetingNewRoutePage resumeRecordId={resumeRecordId} />;
+}
+
+const meetingNewRoute = createRoute({
+  component: MeetingNewRouteComponent,
+  getParentRoute: () => appRoute,
+  path: "/meetings/new",
+  validateSearch: meetingNewSearchSchema,
+});
+
 function MeetingDetailRouteComponent() {
   const { meetingId } = useParams({ from: "/_app/meetings/$meetingId" });
   const { at } = useSearch({ from: "/_app/meetings/$meetingId" });
@@ -116,6 +137,19 @@ const meetingDetailRoute = createRoute({
   component: MeetingDetailRouteComponent,
   getParentRoute: () => appRoute,
   path: "/meetings/$meetingId",
+  validateSearch: meetingDetailSearchSchema,
+});
+
+function MeetingMoreRouteComponent() {
+  const { meetingId } = useParams({ from: "/_app/meetings/$meetingId/more" });
+  const { at } = useSearch({ from: "/_app/meetings/$meetingId/more" });
+  return <MeetingMoreRoutePage meetingId={meetingId} seekToSeconds={at} />;
+}
+
+const meetingMoreRoute = createRoute({
+  component: MeetingMoreRouteComponent,
+  getParentRoute: () => appRoute,
+  path: "/meetings/$meetingId/more",
   validateSearch: meetingDetailSearchSchema,
 });
 
@@ -157,7 +191,9 @@ const routeTree = rootRoute.addChildren([
   appRoute.addChildren([
     indexRoute,
     meetingLibraryRoute,
+    meetingNewRoute,
     meetingDetailRoute,
+    meetingMoreRoute,
     resumeDetailRoute,
     settingsRoute,
     settingsGeneralRoute,

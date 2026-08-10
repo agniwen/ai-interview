@@ -1,3 +1,5 @@
+import { formatAppDateTime } from "@/lib/client/datetime";
+
 export function formatResumeRecordDisplayId(id: string): string {
   const text = id.trim();
   if (text.length <= 8) {
@@ -6,21 +8,9 @@ export function formatResumeRecordDisplayId(id: string): string {
   return `${text.slice(0, 4)}****${text.slice(-4)}`;
 }
 
+/** Display timestamps in Asia/Shanghai via shared dayjs helpers. */
 export function formatLocalDateTime(value: string | null | undefined): string {
-  if (!value) {
-    return "—";
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "—";
-  }
-  return date.toLocaleString("zh-CN", {
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  return formatAppDateTime(value);
 }
 
 export function getResumeLibraryJobDescriptionLabel(record: {

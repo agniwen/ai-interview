@@ -168,7 +168,8 @@ export interface MeetingCapture {
   discard: (input?: DiscardMeetingCaptureInput) => Promise<void>;
   observe: (listener: (snapshot: MeetingCaptureSnapshot) => void) => () => void;
   save: (input?: SaveMeetingCaptureInput) => Promise<LocalSavedMeeting>;
-  start: (input?: StartMeetingCaptureInput) => Promise<void>;
+  /** Returns the new captureId (also used as the workspace meeting id after upload). */
+  start: (input?: StartMeetingCaptureInput) => Promise<{ captureId: string }>;
 }
 
 interface CreateMeetingCaptureInput {
@@ -539,7 +540,7 @@ export function createMeetingCapture({
     status: ({ health, track }) => updateTrack(track, { health }),
   };
 
-  const start = async (input: StartMeetingCaptureInput = {}) => {
+  const start = async (input: StartMeetingCaptureInput = {}): Promise<{ captureId: string }> => {
     await ready;
     if (
       terminalOperation ||
@@ -600,6 +601,7 @@ export function createMeetingCapture({
           updateTrack("system", { health: "silent" });
         }
       }, SYSTEM_SILENCE_WARNING_MS);
+      return { captureId };
     } catch (error) {
       if (acquired) {
         try {

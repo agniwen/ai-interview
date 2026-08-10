@@ -1,3 +1,4 @@
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -17,18 +18,24 @@ import type { LiveTranscriptDraftSnapshot } from "@/lib/meeting-capture/live-tra
 import { desktopMeetingKeys } from "@/lib/client/meetings";
 import type { MeetingCaptureSnapshot } from "../../../../../preload/meeting-capture";
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
-import { MeetingCaptureStatus } from "./meeting-capture-status";
-import { NewMeetingRecordingDialog } from "./new-meeting-recording-dialog";
+import { MeetingActiveRecordingIndicator } from "./meeting-capture-status";
 
 export interface OpenMeetingRecordingOptions {
   /** 预选招聘台记录 id（从卡片点入时传入）。 */
   resumeRecordId?: string | null;
-  /** 可选完整记录，便于弹窗立刻展示详情（不必等列表回填）。 */
+  /** 可选完整记录，便于初始化页立刻展示详情（不必等列表回填）。 */
   resumeRecord?: ResumeLibraryListRecord | null;
 }
 
 interface MeetingRecordingContextValue {
+  captureSnapshot: MeetingCaptureSnapshot;
+  liveDraft: LiveTranscriptDraftSnapshot;
   openMeetingRecording: (options?: OpenMeetingRecordingOptions) => void;
+  /** 预选简历（由 openMeetingRecording 写入，初始化页读取一次后仍可通过 search 回填）。 */
+  preselectedResumeRecord: ResumeLibraryListRecord | null;
+  requestDiscard: (captureId?: string, includeSaved?: boolean) => void;
+  saveRecording: (captureId?: string) => Promise<void>;
+  startRecording: (recruitingRecordId: string | null) => Promise<{ captureId: string }>;
 }
 
 const MeetingRecordingContext = createContext<MeetingRecordingContextValue | null>(null);
@@ -71,13 +78,13 @@ function discardDialogDescription(deletingRecoveryCopy: boolean, includeSaved: b
 }
 
 /**
- * 应用级录制 UI 桥接层：订阅 Preload 状态机并承载弹窗、Toast 与查询失效，不持有录音事实状态。
- * App-level recording UI bridge: subscribes to preload state and owns dialogs/toasts/query invalidation, not capture truth.
+ * 应用级录制 UI 桥接层：订阅 Preload 状态机并承载导航、Toast 与查询失效，不持有录音事实状态。
+ * App-level recording UI bridge: subscribes to preload state and owns navigation/toasts/query invalidation, not capture truth.
  */
 export function MeetingRecordingProvider({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [preselectedResumeId, setPreselectedResumeId] = useState<string | null>(null);
   const [preselectedResumeRecord, setPreselectedResumeRecord] =
     useState<ResumeLibraryListRecord | null>(null);
   const [captureSnapshot, setCaptureSnapshot] = useState(INITIAL_CAPTURE_SNAPSHOT);
@@ -101,19 +108,24 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
     }
   }, [queryClient, verifiedWorkspaceCaptureIds]);
 
-  const openMeetingRecording = useCallback((options?: OpenMeetingRecordingOptions) => {
-    const record = options?.resumeRecord ?? null;
-    setPreselectedResumeRecord(record);
-    setPreselectedResumeId(options?.resumeRecordId ?? record?.id ?? null);
-    setOpen(true);
-  }, []);
-
-  const value = useMemo(() => ({ openMeetingRecording }), [openMeetingRecording]);
+  const openMeetingRecording = useCallback(
+    (options?: OpenMeetingRecordingOptions) => {
+      const record = options?.resumeRecord ?? null;
+      setPreselectedResumeRecord(record);
+      const resumeRecordId = options?.resumeRecordId ?? record?.id ?? undefined;
+      // 招聘台入口必须带 resumeRecordId，侧栏入口用空 search，控制是否展示关联字段。
+      void navigate({
+        search: resumeRecordId ? { resumeRecordId } : {},
+        to: "/meetings/new",
+      });
+    },
+    [navigate],
+  );
 
   const startRecording = useCallback(async (recruitingRecordId: string | null) => {
-    await meetingCapture.start({ recruitingRecordId });
-    setOpen(false);
+    const result = await meetingCapture.start({ recruitingRecordId });
     toast.success("会议录制已开始，断网不会中断本地录音");
+    return result;
   }, []);
 
   const saveRecording = useCallback(async (captureId?: string) => {
@@ -125,18 +137,60 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
     }
   }, []);
 
+  const requestDiscard = useCallback((captureId?: string, includeSaved = false) => {
+    setPendingDiscard({ captureId, includeSaved });
+  }, []);
+
   const discardRecording = useCallback(async () => {
     if (!pendingDiscard) {
       return;
     }
+    const discardedId =
+      pendingDiscard.captureId ??
+      captureSnapshot.active?.captureId ??
+      captureSnapshot.saved?.captureId;
     try {
       await meetingCapture.discard(pendingDiscard);
       setPendingDiscard(null);
       toast.success("本地录音已放弃并清理");
+      if (
+        discardedId &&
+        (pathname === `/meetings/${discardedId}` ||
+          pathname.startsWith(`/meetings/${discardedId}/`))
+      ) {
+        void navigate({ to: "/meetings" });
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "清理本地录音失败");
     }
-  }, [pendingDiscard]);
+  }, [
+    captureSnapshot.active?.captureId,
+    captureSnapshot.saved?.captureId,
+    navigate,
+    pathname,
+    pendingDiscard,
+  ]);
+
+  const value = useMemo(
+    () => ({
+      captureSnapshot,
+      liveDraft: liveDraftSnapshot,
+      openMeetingRecording,
+      preselectedResumeRecord,
+      requestDiscard,
+      saveRecording,
+      startRecording,
+    }),
+    [
+      captureSnapshot,
+      liveDraftSnapshot,
+      openMeetingRecording,
+      preselectedResumeRecord,
+      requestDiscard,
+      saveRecording,
+      startRecording,
+    ],
+  );
 
   const deletingRecoveryCopy = Boolean(
     pendingDiscard?.captureId &&
@@ -151,27 +205,7 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
   return (
     <MeetingRecordingContext.Provider value={value}>
       {children}
-      <NewMeetingRecordingDialog
-        onOpenChange={(next) => {
-          setOpen(next);
-          if (!next) {
-            setPreselectedResumeId(null);
-            setPreselectedResumeRecord(null);
-          }
-        }}
-        open={open}
-        onStart={startRecording}
-        preselectedResumeId={preselectedResumeId}
-        preselectedResumeRecord={preselectedResumeRecord}
-      />
-      <MeetingCaptureStatus
-        liveDraft={liveDraftSnapshot}
-        onDiscard={(captureId, includeSaved = false) =>
-          setPendingDiscard({ captureId, includeSaved })
-        }
-        onSave={(captureId) => void saveRecording(captureId)}
-        snapshot={captureSnapshot}
-      />
+      <MeetingActiveRecordingIndicator snapshot={captureSnapshot} />
       <Dialog
         onOpenChange={(next) => {
           if (!next) {

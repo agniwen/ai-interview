@@ -93,14 +93,15 @@ function ActiveMeetingLibrary({
             match?.startMs === null || match?.startMs === undefined
               ? {}
               : { at: match.startMs / 1000 };
-          // 带时间的搜索命中直接写入路由 search param，使详情页播放器与证据视图共享同一跳转协议。
-          // Timed search hits enter the route search param shared by playback and evidence navigation.
+          // 带时间的搜索命中进入「更多信息」页，由播放器消费 at search param。
+          // Timed search hits open the More page so the player can consume the at search param.
+          const hasTimedHit = typeof match?.startMs === "number";
           return (
             <Link
               className="block h-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               params={{ meetingId: meeting.id }}
               search={search}
-              to="/meetings/$meetingId"
+              to={hasTimedHit ? "/meetings/$meetingId/more" : "/meetings/$meetingId"}
             >
               {content}
             </Link>

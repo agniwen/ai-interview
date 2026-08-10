@@ -1,80 +1,112 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useReducer } from "react";
-import type { MeetingDetail, MeetingPlaybackAuthorization } from "@arc/shared/meeting-recording";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   desktopMeetingKeys,
   fetchMeetingDetail,
-  fetchMeetingPlayback,
   retryMeetingPlayback,
 } from "@/lib/client/meetings";
 import { desktopWorkspaceKeys, resolveActiveWorkspace } from "@/lib/client/workspace";
-import { MeetingDetailView } from "./meeting-library-view";
-import { MeetingExportPanel } from "./meeting-export-panel";
-import { MeetingIntelligencePanel } from "./meeting-intelligence-panel";
-import { MeetingLifecyclePanel } from "./meeting-lifecycle-panel";
-import { MeetingNotesPanel } from "./meeting-notes-panel";
-import { MeetingQuestionsPanel } from "./meeting-questions-panel";
-import { MeetingRecruitingContextPanel } from "./meeting-recruiting-context-panel";
-import { MeetingSharePanel } from "./meeting-share-panel";
+import type { MeetingDetail } from "@arc/shared/meeting-recording";
+import { MeetingCaptureComposer, MeetingLocalSaveStatus } from "./meeting-capture-status";
+import { canRetryMeetingProcessing, meetingDetailRefetchInterval } from "./meeting-detail-helpers";
+import { LiveTranscriptDraftPanel } from "./live-transcript-draft-panel";
+import { MeetingRecordingSessionLayout } from "./meeting-recording-session-layout";
+import { useMeetingRecording } from "./meeting-recording-context";
 import { MeetingTranscriptPanel } from "./meeting-transcript-panel";
+import { meetingDisplayTitle } from "@arc/shared/utils/time";
 
-export function canRetryMeetingProcessing(role: MeetingDetail["accessRole"]): boolean {
-  return role === "administrator" || role === "owner";
+export {
+  canRetryMeetingProcessing,
+  meetingDetailRefetchInterval,
+  playbackAuthorizationRefetchInterval,
+} from "./meeting-detail-helpers";
+
+function MeetingDetailUnavailable({ message }: { message: string }) {
+  return (
+    <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
+      <p className="font-medium text-sm">{message}</p>
+      <Button nativeButton={false} render={<Link to="/meetings" />} variant="outline">
+        返回会议记录
+      </Button>
+    </div>
+  );
 }
 
-export function meetingDetailRefetchInterval(
-  meeting: MeetingDetail | null | undefined,
-): number | false {
-  if (meeting?.processingState === "processing") {
-    return 5000;
-  }
-  if (meeting?.processingState === "failed") {
-    return 30_000;
-  }
-  return false;
-}
+function MeetingDetailHeader({
+  meeting,
+  meetingId,
+  onRetry,
+  retryPending,
+  title,
+}: {
+  meeting: MeetingDetail | undefined;
+  meetingId: string;
+  onRetry: () => void;
+  retryPending: boolean;
+  title: string;
+}) {
+  const processing = meeting?.processingState === "processing";
+  const failed = meeting?.processingState === "failed";
+  const canRetry = meeting ? canRetryMeetingProcessing(meeting.accessRole) : false;
 
-export function playbackAuthorizationRefetchInterval(
-  playback: MeetingPlaybackAuthorization | null | undefined,
-  now = Date.now(),
-): number | false {
-  if (!playback) {
-    return false;
-  }
-  const expiresAt = Date.parse(playback.expiresAt);
-  if (!Number.isFinite(expiresAt)) {
-    return 60_000;
-  }
-  return Math.max(1000, expiresAt - now - 60_000);
+  return (
+    <header className="flex flex-wrap items-start justify-between gap-3">
+      <div className="min-w-0 space-y-1">
+        <Button
+          className="h-auto px-0 text-muted-foreground"
+          nativeButton={false}
+          render={<Link to="/meetings" />}
+          size="sm"
+          variant="link"
+        >
+          会议记录
+        </Button>
+        <h1 className="truncate font-semibold text-xl">{title}</h1>
+        {processing ? (
+          <p className="text-muted-foreground text-xs">正在处理录音与最终转录…</p>
+        ) : null}
+        {failed ? (
+          <div className="flex items-center gap-2">
+            <p className="text-destructive text-xs">处理失败</p>
+            {canRetry ? (
+              <Button disabled={retryPending} onClick={onRetry} size="sm" variant="outline">
+                重试处理
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+      {meeting ? (
+        <Button
+          nativeButton={false}
+          render={<Link params={{ meetingId }} to="/meetings/$meetingId/more" />}
+          size="sm"
+          variant="outline"
+        >
+          <Icon className="size-4" icon="ph:info" />
+          更多信息
+        </Button>
+      ) : null}
+    </header>
+  );
 }
 
 /**
- * Meeting 详情编排页：集中装配权限相同但生命周期独立的播放、转录、Intelligence、问答和协作子资源。
- * Meeting detail orchestrator composing independently-lived playback, transcript, intelligence, Q&A, and collaboration resources.
+ * Meeting session 主页：录制中主区实时字幕、底部 composer 控制；就绪后展示最终转录。
+ * Meeting session page: live transcript stage + bottom composer while capturing; final transcript when ready.
  */
-export function MeetingDetailPage({
-  meetingId,
-  seekToSeconds,
-}: {
-  meetingId: string;
-  seekToSeconds?: number;
-}) {
+export function MeetingDetailPage({ meetingId }: { meetingId: string; seekToSeconds?: number }) {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  // id 让连续两次跳到同一秒也能触发播放器 effect；仅依赖 seconds 会被 React 判定为未变化。
-  // The id retriggers equal-time seeks; depending on seconds alone would make React ignore repeated requests.
-  const [seekRequest, requestSeek] = useReducer(
-    (current: { id: number; seconds?: number }, seconds: number | undefined) => ({
-      id: current.id + 1,
-      seconds,
-    }),
-    { id: 0, seconds: seekToSeconds },
-  );
-  useEffect(() => {
-    requestSeek(seekToSeconds);
-  }, [seekToSeconds]);
+  const { captureSnapshot, liveDraft, requestDiscard, saveRecording } = useMeetingRecording();
+
+  const isActiveCapture = captureSnapshot.active?.captureId === meetingId;
+  const isLocalSaved = captureSnapshot.saved?.captureId === meetingId;
+  const isLocalSession = isActiveCapture || isLocalSaved;
+
   const workspaceQuery = useQuery({
     queryFn: resolveActiveWorkspace,
     queryKey: desktopWorkspaceKeys.active,
@@ -83,20 +115,12 @@ export function MeetingDetailPage({
   const workspace = workspaceQuery.data;
   const workspaceSlug = workspace?.slug ?? "";
   const detailQuery = useQuery({
-    enabled: Boolean(workspace),
+    enabled: Boolean(workspace) && !isActiveCapture,
     queryFn: () => fetchMeetingDetail(workspaceSlug, meetingId),
     queryKey: desktopMeetingKeys.detail(workspaceSlug, meetingId),
     refetchInterval: (query) => meetingDetailRefetchInterval(query.state.data),
+    retry: isLocalSession ? false : 1,
     staleTime: 5000,
-  });
-  const playbackQuery = useQuery({
-    enabled: Boolean(workspace && detailQuery.data?.recordingAvailable),
-    queryFn: () => fetchMeetingPlayback(workspaceSlug, meetingId),
-    queryKey: desktopMeetingKeys.playback(workspaceSlug, meetingId),
-    // 签名 URL 在到期前一分钟轮换，播放器组件负责保留播放位置并按需继续播放。
-    // Rotate signed URLs one minute early; the player preserves position and resumes when appropriate.
-    refetchInterval: (query) => playbackAuthorizationRefetchInterval(query.state.data),
-    staleTime: 4 * 60 * 1000,
   });
   const retryMutation = useMutation({
     mutationFn: () => retryMeetingPlayback(workspaceSlug, meetingId),
@@ -112,107 +136,76 @@ export function MeetingDetailPage({
       ]);
     },
   });
-  if (workspaceQuery.isPending || detailQuery.isPending) {
+
+  const openPlaybackAt = (seconds: number) => {
+    void navigate({
+      params: { meetingId },
+      search: { at: seconds },
+      to: "/meetings/$meetingId/more",
+    });
+  };
+
+  if (isActiveCapture) {
+    return (
+      <MeetingRecordingSessionLayout
+        composer={
+          <MeetingCaptureComposer
+            onSave={(captureId) => void saveRecording(captureId)}
+            snapshot={captureSnapshot}
+          />
+        }
+        main={<LiveTranscriptDraftPanel snapshot={liveDraft} />}
+      />
+    );
+  }
+
+  if (workspaceQuery.isPending || (detailQuery.isPending && !isLocalSaved)) {
     return <Skeleton className="mx-auto mt-6 h-64 w-[min(56rem,calc(100%-3rem))] rounded-2xl" />;
   }
-  const error = workspaceQuery.error ?? detailQuery.error ?? playbackQuery.error;
-  if (error) {
+
+  const meeting = detailQuery.data;
+  if (!(meeting || isLocalSaved)) {
+    const error = workspaceQuery.error ?? detailQuery.error;
     return (
-      <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-        <p className="text-muted-foreground text-sm">
-          {error instanceof Error ? error.message : "加载会议详情失败"}
-        </p>
-        <Button
-          onClick={() => {
-            void Promise.all([
-              workspaceQuery.refetch(),
-              detailQuery.refetch(),
-              ...(workspace && detailQuery.data?.recordingAvailable
-                ? [playbackQuery.refetch()]
-                : []),
-            ]);
-          }}
-          type="button"
-          variant="outline"
-        >
-          重试
-        </Button>
-      </div>
+      <MeetingDetailUnavailable
+        message={error instanceof Error ? error.message : "会议不存在或你无权访问"}
+      />
     );
   }
-  if (!detailQuery.data) {
-    return (
-      <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-        <p className="font-medium text-sm">会议不存在或你无权访问</p>
-        <Button nativeButton={false} render={<Link to="/meetings" />} variant="outline">
-          返回会议记录
-        </Button>
-      </div>
-    );
-  }
+
+  const title = meeting ? meetingDisplayTitle(meeting.title, meeting.savedAt) : "本地录音";
+
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-4 pb-10 sm:px-6">
-      <Button
-        className="self-start"
-        nativeButton={false}
-        render={<Link to="/meetings" />}
-        variant="ghost"
-      >
-        返回会议记录
-      </Button>
-      <MeetingDetailView
-        meeting={detailQuery.data}
-        onPlaybackError={() => {
-          void playbackQuery.refetch();
-        }}
-        onRetryProcessing={
-          canRetryMeetingProcessing(detailQuery.data.accessRole)
-            ? () => retryMutation.mutate()
-            : undefined
-        }
-        playback={playbackQuery.data ?? null}
-        retryProcessing={retryMutation.isPending}
-        seekRequestId={seekRequest.id}
-        seekToSeconds={seekRequest.seconds}
-      />
-      <MeetingExportPanel
-        accessRole={detailQuery.data.accessRole}
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4 pb-10 sm:px-6">
+      <MeetingDetailHeader
+        meeting={meeting}
         meetingId={meetingId}
-        slug={workspaceSlug}
+        onRetry={() => retryMutation.mutate()}
+        retryPending={retryMutation.isPending}
+        title={title}
       />
-      <MeetingLifecyclePanel
-        accessRole={detailQuery.data.accessRole}
-        meetingId={meetingId}
-        slug={workspaceSlug}
-      />
-      <MeetingRecruitingContextPanel
-        accessRole={detailQuery.data.accessRole}
-        meetingId={meetingId}
-        slug={workspaceSlug}
-      />
-      <MeetingIntelligencePanel
-        accessRole={detailQuery.data.accessRole}
-        meetingId={meetingId}
-        onSeek={requestSeek}
-        slug={workspaceSlug}
-      />
-      <MeetingQuestionsPanel meetingId={meetingId} onSeek={requestSeek} slug={workspaceSlug} />
-      <MeetingTranscriptPanel
-        accessRole={detailQuery.data.accessRole}
-        meetingId={meetingId}
-        onSeek={requestSeek}
-        slug={workspaceSlug}
-      />
-      <MeetingNotesPanel
-        accessRole={detailQuery.data.accessRole}
-        meetingId={meetingId}
-        slug={workspaceSlug}
-      />
-      <MeetingSharePanel
-        accessRole={detailQuery.data.accessRole}
-        meetingId={meetingId}
-        slug={workspaceSlug}
-      />
+
+      {isLocalSaved ? (
+        <MeetingLocalSaveStatus
+          captureId={meetingId}
+          onDiscard={requestDiscard}
+          onSave={(captureId) => void saveRecording(captureId)}
+          snapshot={captureSnapshot}
+        />
+      ) : null}
+
+      {meeting ? (
+        <MeetingTranscriptPanel
+          accessRole={meeting.accessRole}
+          meetingId={meetingId}
+          onSeek={openPlaybackAt}
+          slug={workspaceSlug}
+        />
+      ) : (
+        <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-muted-foreground text-sm">
+          工作区验证完成后将在此展示最终转录。
+        </p>
+      )}
     </div>
   );
 }

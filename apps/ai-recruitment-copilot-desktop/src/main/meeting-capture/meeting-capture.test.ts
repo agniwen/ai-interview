@@ -727,7 +727,9 @@ describe("MeetingCapture", () => {
     finishDiscard();
     await discarding;
 
-    await expect(capture.start()).resolves.toBeUndefined();
+    await expect(capture.start()).resolves.toEqual({
+      captureId: expect.any(String),
+    });
   });
 
   it("keeps both pending local saves manageable across consecutive recordings", async () => {

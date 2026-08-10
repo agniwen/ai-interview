@@ -5,7 +5,7 @@ import {
   canRetryMeetingProcessing,
   meetingDetailRefetchInterval,
   playbackAuthorizationRefetchInterval,
-} from "./meeting-detail-page";
+} from "./meeting-detail-helpers";
 import { MeetingDetailView, MeetingLibraryView } from "./meeting-library-view";
 import { canCreateMeetingNotes } from "./meeting-notes-panel";
 import { canManageMeetingSharing } from "./meeting-share-panel";

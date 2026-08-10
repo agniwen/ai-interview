@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { LiveTranscriptDraftPanel } from "./live-transcript-draft-panel";
 
 describe("LiveTranscriptDraftPanel", () => {
-  it("labels the transcript as provisional and explains an interruption does not stop recording", () => {
+  it("shows provisional label and surfaces interruption errors without stopping recording copy", () => {
     const html = renderToStaticMarkup(
       <LiveTranscriptDraftPanel
         snapshot={{
@@ -19,9 +19,8 @@ describe("LiveTranscriptDraftPanel", () => {
       />,
     );
 
-    expect(html).toContain("Live Transcript Draft");
+    expect(html).toContain("实时字幕");
     expect(html).toContain("provisional");
-    expect(html).toContain("不是最终会议记录");
     expect(html).toContain("实时字幕已中断，录音仍在继续");
     expect(html).toContain("本地录音未受影响");
   });

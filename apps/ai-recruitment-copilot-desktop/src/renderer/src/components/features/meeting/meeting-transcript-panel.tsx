@@ -21,6 +21,7 @@ import {
   fetchMeetingTranscriptRevision,
   retryMeetingTranscript,
 } from "@/lib/client/meetings";
+import { formatAppDateTime } from "@/lib/client/datetime";
 
 export function transcriptSeekSeconds(startMs: number): number {
   return Math.max(0, startMs / 1000);
@@ -584,7 +585,7 @@ export function MeetingTranscriptPanel({
                       {revision.id === activeRevision?.id ? " · 当前权威版本" : ""}
                     </span>
                     <span className="text-muted-foreground text-xs">
-                      {new Date(revision.createdAt).toLocaleString("zh-CN")}
+                      {formatAppDateTime(revision.createdAt)}
                     </span>
                   </div>
                   <p className="mt-1 text-muted-foreground text-xs">

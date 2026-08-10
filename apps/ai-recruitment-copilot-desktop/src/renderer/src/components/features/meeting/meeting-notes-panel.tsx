@@ -13,6 +13,7 @@ import {
   fetchMeetingNotes,
   updateMeetingNote,
 } from "@/lib/client/meetings";
+import { formatAppDateTime } from "@/lib/client/datetime";
 
 export function canCreateMeetingNotes(role: MeetingAccessRole): boolean {
   return role !== "viewer";
@@ -110,7 +111,7 @@ export function MeetingNotesPanel({
                     <Link
                       params={{ meetingId }}
                       search={{ at: note.meetingTimeMs / 1000 }}
-                      to="/meetings/$meetingId"
+                      to="/meetings/$meetingId/more"
                     />
                   }
                   size="sm"
@@ -120,9 +121,7 @@ export function MeetingNotesPanel({
                 </Button>
                 <span className="text-muted-foreground">{note.author.name}</span>
               </div>
-              <span className="text-muted-foreground">
-                {new Date(note.updatedAt).toLocaleString("zh-CN")}
-              </span>
+              <span className="text-muted-foreground">{formatAppDateTime(note.updatedAt)}</span>
             </div>
             {editingId === note.id ? (
               <div className="flex flex-col gap-2">

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { MeetingLibraryItem } from "@arc/shared/meeting-recording";
+import { APP_TIME_ZONE } from "@/lib/client/datetime";
 import { desktopMeetingKeys, fetchMeetings, searchMeetings } from "@/lib/client/meetings";
 import { desktopWorkspaceKeys, resolveActiveWorkspace } from "@/lib/client/workspace";
 
@@ -34,9 +35,8 @@ export function useMeetingLibrary(searchText = "") {
     staleTime: 5000,
   });
   const normalizedSearch = searchText.trim();
-  // 日期搜索必须携带用户 IANA 时区，才能与 Desktop 展示的本地日历日期一致。
-  // Date search carries the user's IANA zone so results match locally rendered calendar dates.
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  // 日期搜索与 UI 展示统一使用东八区，避免本机时区漂移。
+  const timeZone = APP_TIME_ZONE;
   const searchQuery = useQuery({
     enabled: Boolean(workspace && normalizedSearch),
     queryFn: ({ signal }) =>

@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import type { CSSProperties } from "react";
 import { WorkspaceSelect } from "@/components/features/workspace/workspace-select";
+import { MeetingInboxMenu } from "@/components/features/meeting/meeting-inbox-menu";
 import { HistoryNav } from "@/components/history-nav";
 import { SidebarToggle } from "@/components/layout/app-sidebar/sidebar-toggle";
 import {
@@ -28,7 +29,7 @@ const noDragStyle = {
 
 /** Compact workspace select in the right chrome cluster (max-w ~10rem + caret). */
 const WORKSPACE_SELECT_APPROX_PX = 160;
-/** gap-1.5 between workspace select and settings gear. */
+/** gap-1.5 between right-cluster controls. */
 const CHROME_RIGHT_GAP_PX = 6;
 
 /** Approx. Win/Linux window-control cluster (3 × 44px). macOS is 0. */
@@ -63,10 +64,12 @@ export function DesktopChromeBar(): React.JSX.Element {
 
   const toggleEnd = leftInset + CHROME_BTN_PX;
   const historyClusterPx = showHistoryNav ? CHROME_BTN_PX * 2 + 2 : 0;
-  // Right cluster: workspace select + gap + settings + window controls + edge pad.
+  // Right cluster: workspace + inbox + settings + window controls + edge pad.
   const settingsClusterPx =
     CHROME_EDGE_PAD_PX +
     WORKSPACE_SELECT_APPROX_PX +
+    CHROME_RIGHT_GAP_PX +
+    CHROME_BTN_PX +
     CHROME_RIGHT_GAP_PX +
     CHROME_BTN_PX +
     windowControlsWidthPx();
@@ -177,6 +180,7 @@ export function DesktopChromeBar(): React.JSX.Element {
         <div className="app-no-drag flex items-center" style={noDragStyle}>
           <WorkspaceSelect />
         </div>
+        <MeetingInboxMenu />
         <Link
           aria-label="设置"
           className={chromeIconControlClassName}

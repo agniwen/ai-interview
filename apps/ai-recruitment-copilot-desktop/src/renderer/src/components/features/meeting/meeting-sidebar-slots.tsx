@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useMeetingRecording } from "./meeting-recording-context";
 import { useMeetingLibrary } from "./use-meeting-library";
+import { meetingDisplayTitle } from "@arc/shared/utils/time";
 
 /**
  * 通过 Sidebar Portal 注入 Meeting 导航与最近会议，复用 Library Query 而不创建第二份列表状态。
@@ -23,8 +24,14 @@ import { useMeetingLibrary } from "./use-meeting-library";
  */
 export function MeetingSidebarSlots() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const { openMeetingRecording } = useMeetingRecording();
+  const { captureSnapshot } = useMeetingRecording();
   const { meetingsQuery } = useMeetingLibrary();
+  const activeCaptureId = captureSnapshot.active?.captureId;
+  const meetings = meetingsQuery.data ?? [];
+  const meetingsWithoutActive = activeCaptureId
+    ? meetings.filter((meeting) => meeting.id !== activeCaptureId)
+    : meetings;
+
   return (
     <>
       <SidebarHeaderPortalContent>
@@ -32,13 +39,15 @@ export function MeetingSidebarSlots() {
           <SidebarMenuItem>
             <SidebarMenuButton
               className="font-normal"
-              isActive={false}
-              onClick={() => openMeetingRecording()}
+              isActive={pathname === "/meetings/new"}
+              render={
+                <Link search={{}} to="/meetings/new">
+                  <Icon icon="ph:record" />
+                  <span>新建会议录制</span>
+                </Link>
+              }
               tooltip="新建会议录制"
-            >
-              <Icon icon="ph:record" />
-              <span>新建会议录制</span>
-            </SidebarMenuButton>
+            />
           </SidebarMenuItem>
           <SidebarNavItem
             active={pathname === "/"}
@@ -60,6 +69,23 @@ export function MeetingSidebarSlots() {
           <SidebarGroupLabel>录制记录</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
+              {activeCaptureId ? (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    isActive={
+                      pathname === `/meetings/${activeCaptureId}` ||
+                      pathname.startsWith(`/meetings/${activeCaptureId}/`)
+                    }
+                    render={
+                      <Link params={{ meetingId: activeCaptureId }} to="/meetings/$meetingId">
+                        <Icon className="text-red-500" icon="ph:record-fill" />
+                        <span>录制中…</span>
+                      </Link>
+                    }
+                    tooltip="录制中"
+                  />
+                </SidebarMenuItem>
+              ) : null}
               {meetingsQuery.isPending ? (
                 <>
                   <SidebarMenuSkeleton />
@@ -67,20 +93,26 @@ export function MeetingSidebarSlots() {
                   <SidebarMenuSkeleton />
                 </>
               ) : (
-                (meetingsQuery.data ?? []).map((meeting) => (
-                  <SidebarMenuItem key={meeting.id}>
-                    <SidebarMenuButton
-                      isActive={pathname === `/meetings/${meeting.id}`}
-                      render={
-                        <Link params={{ meetingId: meeting.id }} to="/meetings/$meetingId">
-                          <Icon icon="ph:waveform" />
-                          <span>{meeting.title}</span>
-                        </Link>
-                      }
-                      tooltip={meeting.title}
-                    />
-                  </SidebarMenuItem>
-                ))
+                meetingsWithoutActive.map((meeting) => {
+                  const title = meetingDisplayTitle(meeting.title, meeting.savedAt);
+                  return (
+                    <SidebarMenuItem key={meeting.id}>
+                      <SidebarMenuButton
+                        isActive={
+                          pathname === `/meetings/${meeting.id}` ||
+                          pathname.startsWith(`/meetings/${meeting.id}/`)
+                        }
+                        render={
+                          <Link params={{ meetingId: meeting.id }} to="/meetings/$meetingId">
+                            <Icon icon="ph:waveform" />
+                            <span>{title}</span>
+                          </Link>
+                        }
+                        tooltip={title}
+                      />
+                    </SidebarMenuItem>
+                  );
+                })
               )}
             </SidebarMenu>
           </SidebarGroupContent>

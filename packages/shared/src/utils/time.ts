@@ -10,6 +10,17 @@
  */
 
 import dayjs from "dayjs";
+import timezone from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+/**
+ * 产品默认展示时区（东八区）。
+ * Product display timezone (UTC+8).
+ */
+export const APP_TIME_ZONE = "Asia/Shanghai";
 
 /**
  * 默认 `formatDate` 格式：`YY/MM/DD HH:mm`。
@@ -22,6 +33,11 @@ export const DEFAULT_DATE_TIME_FORMAT = "YY/MM/DD HH:mm";
  * Default date-only pattern.
  */
 export const DEFAULT_DATE_FORMAT = "YY/MM/DD";
+
+/** Auto-generated meeting titles embed `YYMMDDHHmm` after this prefix. */
+export const DEFAULT_MEETING_TITLE_PREFIX = "录制记录-";
+
+const AUTO_MEETING_TITLE_RE = /^录制记录-\d{10}$/;
 
 /**
  * `formatRelativeTime` 内部使用的时间单位阈值。
@@ -49,8 +65,8 @@ export function toDate(value: string | number | Date | null | undefined): Date |
 }
 
 /**
- * 友好格式化日期：默认 `YY/MM/DD HH:mm`。
- * Format a date in a friendly way; defaults to `YY/MM/DD HH:mm`.
+ * 友好格式化日期：默认 `YY/MM/DD HH:mm`（浏览器本地时区）。
+ * Format a date in a friendly way; defaults to `YY/MM/DD HH:mm` (runtime local tz).
  */
 export function formatDate(
   value: string | number | Date | null | undefined,
@@ -64,11 +80,54 @@ export function formatDate(
 }
 
 /**
+ * 按产品时区（Asia/Shanghai）格式化。
+ * Format in the product timezone (Asia/Shanghai).
+ */
+export function formatDateInAppTimeZone(
+  value: string | number | Date | null | undefined,
+  format: string = DEFAULT_DATE_TIME_FORMAT,
+): string {
+  const date = toDate(value);
+  if (!date) {
+    return "—";
+  }
+  return dayjs(date).tz(APP_TIME_ZONE).format(format);
+}
+
+/**
  * 仅日期（无时间）：默认 `YY/MM/DD`。
  * Date-only formatting; defaults to `YY/MM/DD`.
  */
 export function formatDateOnly(value: string | number | Date | null | undefined): string {
   return formatDate(value, DEFAULT_DATE_FORMAT);
+}
+
+/**
+ * 默认会议标题：`录制记录-YYMMDDHHmm`（东八区）。
+ * Default meeting title stamp in Asia/Shanghai.
+ */
+export function formatDefaultMeetingTitle(
+  startedAt: string | number | Date | null | undefined,
+): string {
+  const stamp = formatDateInAppTimeZone(startedAt, "YYMMDDHHmm");
+  if (stamp === "—") {
+    return `${DEFAULT_MEETING_TITLE_PREFIX}未知时间`;
+  }
+  return `${DEFAULT_MEETING_TITLE_PREFIX}${stamp}`;
+}
+
+/**
+ * 侧栏/列表展示用标题：自动标题按 savedAt 重算东八区，自定义标题原样返回。
+ * Display title: re-derive auto titles from savedAt in Asia/Shanghai; keep custom titles.
+ */
+export function meetingDisplayTitle(
+  title: string,
+  savedAt: string | number | Date | null | undefined,
+): string {
+  if (AUTO_MEETING_TITLE_RE.test(title)) {
+    return formatDefaultMeetingTitle(savedAt);
+  }
+  return title;
 }
 
 /**

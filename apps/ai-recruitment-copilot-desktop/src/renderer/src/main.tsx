@@ -10,7 +10,6 @@ import { getQueryClient } from "@/lib/query-client";
 import { hydrateSettings } from "@/lib/settings";
 import type { ThemeMode } from "@/lib/settings";
 import { createDesktopRouter } from "@/router";
-import { MeetingRecordingProvider } from "@/components/features/meeting/meeting-recording-context";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { ThemeSync } from "@/components/theme/theme-sync";
 
@@ -75,9 +74,7 @@ createRoot(rootElement).render(
       <ThemeSync />
       <LazyMotion features={domAnimation} strict>
         <QueryClientProvider client={queryClient}>
-          <MeetingRecordingProvider>
-            <RouterProvider router={router} />
-          </MeetingRecordingProvider>
+          <RouterProvider router={router} />
         </QueryClientProvider>
       </LazyMotion>
     </ThemeProvider>

@@ -1,7 +1,7 @@
 "use client";
 
 import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
-import type { EventListeners } from "overlayscrollbars";
+import type { EventListeners, PartialOptions } from "overlayscrollbars";
 import type { ComponentProps, Ref } from "react";
 
 import { cn } from "@arc/shared/utils";
@@ -27,12 +27,15 @@ function ScrollArea({
   scrollbars = "leave",
   scrollRestorationId,
   events: externalEvents,
+  options: optionsProp,
   viewportClassName,
   viewportProps,
   viewportRef,
   ...props
 }: ScrollAreaProps) {
-  if (viewportClassName || viewportProps || viewportRef || orientation || scrollbarGutter) {
+  // Native viewport path — only when callers need a real DOM viewport ref/class.
+  // `orientation` alone stays on OverlayScrollbars (overlay thumbs, no layout cost).
+  if (viewportClassName || viewportProps || viewportRef || scrollbarGutter) {
     const { className: innerClassName, style: innerStyle, ...innerProps } = viewportProps ?? {};
 
     return (
@@ -62,6 +65,8 @@ function ScrollArea({
     );
   }
 
+  const fadeClass = orientation === "horizontal" ? "scroll-fade-x" : "scroll-fade";
+
   const events: EventListeners | undefined =
     scrollFade || scrollRestorationId || externalEvents
       ? {
@@ -70,7 +75,7 @@ function ScrollArea({
             externalEvents?.initialized?.(instance);
             const { viewport } = instance.elements();
             if (scrollFade) {
-              viewport.classList.add("scroll-fade");
+              viewport.classList.add(fadeClass);
             }
             if (scrollRestorationId) {
               viewport.setAttribute("data-scroll-restoration-id", scrollRestorationId);
@@ -78,6 +83,13 @@ function ScrollArea({
           },
         }
       : undefined;
+
+  const orientationOverflow: PartialOptions["overflow"] =
+    orientation === "horizontal"
+      ? { x: "scroll", y: "hidden" }
+      : orientation === "vertical"
+        ? { x: "hidden", y: "scroll" }
+        : undefined;
 
   return (
     <OverlayScrollbarsComponent
@@ -87,10 +99,13 @@ function ScrollArea({
       element="div"
       events={events}
       options={{
+        overflow: orientationOverflow,
+        ...optionsProp,
         scrollbars: {
           autoHide: scrollbars,
           autoHideDelay: 600,
           theme: "os-theme-app",
+          ...optionsProp?.scrollbars,
         },
       }}
       {...props}

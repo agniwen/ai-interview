@@ -3,6 +3,8 @@ import type { TrashedMeetingItem } from "@arc/shared/meeting-recording";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { desktopMeetingKeys, purgeMeeting, restoreMeeting } from "@/lib/client/meetings";
+import { formatAppDateTime } from "@/lib/client/datetime";
+import { meetingDisplayTitle } from "@arc/shared/utils/time";
 
 /**
  * 七天恢复窗口的废纸篓视图。二次点击只是防误触，永久删除的幂等与对象清扫由服务端 Tombstone 保证。
@@ -42,10 +44,11 @@ export function MeetingTrashView({
         <article className="rounded-2xl border border-border/70 p-4" key={meeting.id}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="font-medium text-sm">{meeting.title}</h2>
+              <h2 className="font-medium text-sm">
+                {meetingDisplayTitle(meeting.title, meeting.savedAt)}
+              </h2>
               <p className="mt-1 text-muted-foreground text-xs">
-                {meeting.creator.name} · 将于 {new Date(meeting.purgeAfter).toLocaleString("zh-CN")}{" "}
-                永久清除
+                {meeting.creator.name} · 将于 {formatAppDateTime(meeting.purgeAfter)} 永久清除
               </p>
             </div>
             <div className="flex gap-2">

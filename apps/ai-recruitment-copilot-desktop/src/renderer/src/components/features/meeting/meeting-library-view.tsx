@@ -16,6 +16,8 @@ import {
   FramePanel,
   FrameTitle,
 } from "@/components/ui/frame";
+import { formatAppDateTime } from "@/lib/client/datetime";
+import { meetingDisplayTitle } from "@arc/shared/utils/time";
 
 const PROCESSING_STATE_META: Record<
   MeetingProcessingState,
@@ -48,12 +50,14 @@ function MeetingSummary({
   return (
     <Frame className="h-full">
       <FrameHeader className="justify-between gap-3">
-        <FrameTitle className="truncate">{meeting.title}</FrameTitle>
+        <FrameTitle className="truncate">
+          {meetingDisplayTitle(meeting.title, meeting.savedAt)}
+        </FrameTitle>
         <Badge variant={state.variant}>{state.label}</Badge>
       </FrameHeader>
       <FramePanel className="flex flex-col gap-3">
         <FrameDescription>
-          {meeting.creator.name} · {new Date(meeting.savedAt).toLocaleString("zh-CN")}
+          {meeting.creator.name} · {formatAppDateTime(meeting.savedAt)}
         </FrameDescription>
         <div className="flex items-center justify-between text-sm">
           <span>{formatMeetingDuration(meeting.durationMs)}</span>
@@ -215,7 +219,9 @@ export function MeetingDetailView({
   return (
     <Frame>
       <FrameHeader className="justify-between gap-3">
-        <FrameTitle className="truncate">{meeting.title}</FrameTitle>
+        <FrameTitle className="truncate">
+          {meetingDisplayTitle(meeting.title, meeting.savedAt)}
+        </FrameTitle>
         <Badge variant={state.variant}>{state.label}</Badge>
       </FrameHeader>
       <FramePanel className="flex flex-col gap-5">
@@ -230,7 +236,7 @@ export function MeetingDetailView({
           </div>
           <div>
             <p className="text-muted-foreground text-xs">保存时间</p>
-            <p>{new Date(meeting.savedAt).toLocaleString("zh-CN")}</p>
+            <p>{formatAppDateTime(meeting.savedAt)}</p>
           </div>
         </div>
         {playback ? (

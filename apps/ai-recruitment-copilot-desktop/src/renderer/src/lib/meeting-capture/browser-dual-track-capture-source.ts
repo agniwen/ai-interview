@@ -6,6 +6,7 @@ import type {
   MeetingCaptureSource,
   PreparedCapture,
 } from "../../../../preload/meeting-capture";
+import { clearCapturePreviewStreams, setCapturePreviewStreams } from "./capture-preview-streams";
 
 const MAX_PENDING_BYTES = 32 * 1024 * 1024;
 const LEVEL_SAMPLE_MS = 200;
@@ -136,6 +137,7 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
           return;
         }
         disposed = true;
+        clearCapturePreviewStreams();
         stopSidecar();
         const stopped = recorders.map(({ recorder }) => waitForStop(recorder));
         for (const recorder of recorders) {
@@ -260,6 +262,10 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
 
           addTrackObservers("microphone", microphoneTrack);
           addTrackObservers("system", systemTrack);
+          setCapturePreviewStreams({
+            microphone: new MediaStream([microphoneTrack]),
+            system: new MediaStream([systemTrack]),
+          });
           startMonitor("microphone", microphoneTrack);
           startMonitor("system", systemTrack);
           startRecorder("microphone", microphoneTrack);
@@ -275,6 +281,7 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
           return Promise.resolve();
         },
         stop: async () => {
+          clearCapturePreviewStreams();
           stopSidecar();
           const stopped = recorders.map(({ recorder }) => waitForStop(recorder));
           for (const { recorder } of recorders) {

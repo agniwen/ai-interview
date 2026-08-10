@@ -1,15 +1,23 @@
+import { useNavigate, useRouterState } from "@tanstack/react-router";
+import { LocalAudioTrack } from "livekit-client";
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { toast } from "sonner";
+import { AgentAudioVisualizerBar } from "@/components/agents-ui/agent-audio-visualizer-bar";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import type {
+  CaptureTrack,
   CaptureTrackState,
   MeetingCaptureSnapshot,
-  RecoverableMeetingCapture,
   WorkspaceSaveState,
 } from "../../../../../preload/meeting-capture";
 import { cn } from "@arc/shared/utils";
-import type { LiveTranscriptDraftSnapshot } from "@/lib/meeting-capture/live-transcript-draft";
-import { LiveTranscriptDraftPanel } from "./live-transcript-draft-panel";
+import { observeCapturePreviewStreams } from "@/lib/meeting-capture/capture-preview-streams";
+import type { CapturePreviewStreams } from "@/lib/meeting-capture/capture-preview-streams";
+import { formatAppDateTime } from "@/lib/client/datetime";
+import { MeetingRecordingComposerFrame } from "./meeting-recording-session-layout";
 
 const HEALTH_LABEL: Record<CaptureTrackState["health"], string> = {
   checking: "检测中",
@@ -30,20 +38,10 @@ function formatElapsed(milliseconds: number): string {
 }
 
 function formatRecoveryDeadline(value: string): string {
-  return new Intl.DateTimeFormat("zh-CN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
+  return formatAppDateTime(value);
 }
 
-function recoveryTitle(capture: RecoverableMeetingCapture): string {
-  if (capture.status === "interrupted") {
-    return "发现中断的本地录音";
-  }
-  return capture.recoveryCopyDeleteAfter ? "Local Recording Recovery Copy" : "发现待处理的本地保存";
-}
-
-function useElapsed(startedAt?: string) {
+export function useElapsed(startedAt?: string) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     if (!startedAt) {
@@ -55,67 +53,88 @@ function useElapsed(startedAt?: string) {
   return startedAt ? formatElapsed(now - new Date(startedAt).getTime()) : "00:00:00";
 }
 
-function TrackMeter({ label, state }: { label: string; state: CaptureTrackState }) {
-  const warning = state.health === "silent" || state.health === "ended";
-  return (
-    <div className="grid gap-1.5">
-      <div className="flex items-center justify-between text-xs">
-        <span className="font-medium text-foreground">{label}</span>
-        <span className={cn("text-muted-foreground", warning && "text-destructive")}>
-          {HEALTH_LABEL[state.health]}
-        </span>
-      </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-        <div
-          className={cn(
-            "h-full rounded-full bg-emerald-500 transition-[width]",
-            warning && "bg-destructive",
-          )}
-          style={{ width: `${Math.max(2, Math.min(100, state.level * 350))}%` }}
-        />
-      </div>
-    </div>
-  );
+function useCapturePreviewStreams() {
+  const [streams, setStreams] = useState<CapturePreviewStreams>({
+    microphone: null,
+    system: null,
+  });
+  useEffect(() => observeCapturePreviewStreams(setStreams), []);
+  return streams;
 }
 
-function RecoveryRow({
-  capture,
-  onDiscard,
-  onSave,
+function visualizerStateFor(
+  health: CaptureTrackState["health"],
+): "connecting" | "listening" | "speaking" {
+  if (health === "checking") {
+    return "connecting";
+  }
+  if (health === "silent" || health === "muted" || health === "ended") {
+    return "listening";
+  }
+  return "speaking";
+}
+
+/** Wrap a capture MediaStream as LiveKit LocalAudioTrack without taking ownership of the track. */
+function useLocalAudioTrackFromMediaStream(
+  stream: MediaStream | null,
+): LocalAudioTrack | undefined {
+  const mediaTrack = stream?.getAudioTracks()[0] ?? null;
+  const [audioTrack, setAudioTrack] = useState<LocalAudioTrack | undefined>();
+
+  useEffect(() => {
+    if (!mediaTrack) {
+      setAudioTrack(undefined);
+      return;
+    }
+    const local = new LocalAudioTrack(mediaTrack, undefined, true);
+    setAudioTrack(local);
+    return () => {
+      local.stop();
+    };
+  }, [mediaTrack]);
+
+  return audioTrack;
+}
+
+function TrackMeter({
+  label,
+  mediaStream,
+  state,
+  track,
 }: {
-  capture: RecoverableMeetingCapture;
-  onDiscard: (captureId: string, includeSaved: boolean) => void;
-  onSave: (captureId: string) => void;
+  label: string;
+  mediaStream: MediaStream | null;
+  state: CaptureTrackState;
+  track: CaptureTrack;
 }) {
-  // 恢复项展示的是 Main 进程验证后的连续前缀，而不是 Renderer 曾经看见过的全部分片。
-  // Recovery rows represent the main-process verified prefix, not every fragment once observed by renderer.
-  const fragments = capture.tracks.microphone.fragmentCount + capture.tracks.system.fragmentCount;
-  const microphoneSeconds = Math.floor(capture.tracks.microphone.committedThroughMs / 1000);
-  const systemSeconds = Math.floor(capture.tracks.system.committedThroughMs / 1000);
+  const warning = state.health === "silent" || state.health === "ended";
+  const visualizerState = visualizerStateFor(state.health);
+  const audioTrack = useLocalAudioTrackFromMediaStream(mediaStream);
   return (
-    <div className="grid gap-2 rounded-lg border border-border bg-muted/30 p-3">
-      <div>
-        <p className="font-medium text-sm">{recoveryTitle(capture)}</p>
-        <p className="text-muted-foreground text-xs">
-          {capture.recoveryCopyDeleteAfter
-            ? `服务器已验证双轨源音频；本地副本将在 ${formatRecoveryDeadline(capture.recoveryCopyDeleteAfter)} 后自动清理。`
-            : `已校验 ${fragments} 个连续分片；麦克风落盘至 ${microphoneSeconds}s，系统音频落盘至 ${systemSeconds}s${capture.possibleTailGap ? "，结尾可能有未落盘缺口" : ""}`}
-        </p>
-      </div>
-      <div className="flex justify-end gap-2">
-        <Button
-          onClick={() => onDiscard(capture.captureId, capture.status === "saved-local")}
-          size="sm"
-          variant="ghost"
-        >
-          放弃
-        </Button>
-        {capture.recoveryCopyDeleteAfter ? null : (
-          <Button onClick={() => onSave(capture.captureId)} size="sm">
-            保存恢复录音
-          </Button>
+    <div
+      className={cn("flex h-9 min-w-0 items-center gap-1.5 rounded-full px-2.5")}
+      data-track={track}
+      title={`${label} · ${HEALTH_LABEL[state.health]}`}
+    >
+      <span className="shrink-0 text-xs leading-none">{label}</span>
+      <AgentAudioVisualizerBar
+        audioTrack={audioTrack}
+        barCount={5}
+        className={cn(
+          "h-4 w-12 shrink-0 gap-0.5 sm:w-14",
+          warning ? "text-destructive" : "text-foreground/55",
         )}
-      </div>
+        size="icon"
+        state={visualizerState}
+      />
+      <span
+        className={cn(
+          "hidden shrink-0 text-[10px] leading-none sm:inline",
+          warning ? "text-destructive" : "text-muted-foreground",
+        )}
+      >
+        {HEALTH_LABEL[state.health]}
+      </span>
     </div>
   );
 }
@@ -150,136 +169,249 @@ function workspaceSaveIcon(state?: WorkspaceSaveState["state"]): string {
   return "ph:cloud-arrow-up";
 }
 
-/**
- * 录制生命周期的常驻投影：同时呈现 Active Capture、本地提交、工作区上传和可恢复副本。
- * Persistent projection of capture lifecycle across active recording, local commit, workspace upload, and recovery copies.
- *
- * 本组件只渲染 Preload 快照并发出命令，不在 React 中推导或持久化录制真相。
- * It renders preload snapshots and emits commands; React never derives or persists capture truth here.
- */
-export function MeetingCaptureStatus({
-  liveDraft,
+function localSaveDescription(
+  workspaceSave: WorkspaceSaveState | undefined,
+  copy: { description: string; title: string } | null,
+): string {
+  if (workspaceSave?.error) {
+    return workspaceSave.error;
+  }
+  if (workspaceSave?.state === "workspace-verified" && workspaceSave.recoveryCopyDeleteAfter) {
+    return `双轨源音频已验证；本地 Recovery Copy 将在 ${formatRecoveryDeadline(workspaceSave.recoveryCopyDeleteAfter)} 后自动清理。`;
+  }
+  return copy?.description ?? "双轨清单和保存意图已冻结，尚未保存到工作区。";
+}
+
+export function MeetingLocalSaveStatus({
+  captureId,
+  className,
   onDiscard,
   onSave,
   snapshot,
 }: {
-  liveDraft: LiveTranscriptDraftSnapshot;
+  captureId: string;
+  className?: string;
   onDiscard: (captureId?: string, includeSaved?: boolean) => void;
   onSave: (captureId?: string) => void;
   snapshot: MeetingCaptureSnapshot;
 }) {
+  const saved = snapshot.saved?.captureId === captureId ? snapshot.saved : null;
+  if (!saved) {
+    return null;
+  }
+  const workspaceSave = snapshot.workspaceSaves.find((item) => item.captureId === captureId);
+  const copy = workspaceSave ? WORKSPACE_SAVE_COPY[workspaceSave.state] : null;
+  const needsRetry = workspaceSave?.state === "action-required";
+  return (
+    <div className={cn("grid gap-3 rounded-xl border border-border bg-muted/20 p-4", className)}>
+      <div className="flex items-start gap-2">
+        <Icon
+          className={cn(
+            "mt-0.5 size-5 text-amber-600",
+            workspaceSave?.state === "workspace-verified" && "text-emerald-600",
+            needsRetry && "text-destructive",
+          )}
+          icon={workspaceSaveIcon(workspaceSave?.state)}
+        />
+        <div>
+          <p className="font-semibold text-sm">{copy?.title ?? "录音已安全保存在本地"}</p>
+          <p className="text-muted-foreground text-xs">
+            {localSaveDescription(workspaceSave, copy)}
+          </p>
+        </div>
+      </div>
+      <div className="flex justify-end gap-2">
+        {needsRetry ? (
+          <Button onClick={() => onSave(captureId)} size="sm">
+            重试保存到工作区
+          </Button>
+        ) : null}
+        <Button onClick={() => onDiscard(captureId, true)} size="sm" variant="ghost">
+          清除这份本地保存
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+const IDLE_TRACK_STATE: CaptureTrackState = { health: "checking", level: 0 };
+
+/**
+ * Horizontally scrollable track-meter strip: sides stay fixed, middle scrolls.
+ * OverlayScrollbars 不占位；溢出边缘用 scroll-fade-x 渐隐（与 web 一致）。
+ */
+function ComposerTrackMetersScroll({ children }: { children: ReactNode }) {
+  return (
+    <ScrollArea
+      className="h-9 min-w-0 flex-1 basis-0 overflow-hidden [--scroll-fade-size:1.25rem]"
+      orientation="horizontal"
+      scrollFade
+    >
+      <div className="flex h-9 w-max items-center gap-1.5 pr-1">{children}</div>
+    </ScrollArea>
+  );
+}
+
+/**
+ * Bottom composer while recording: dual-track visualizers + end actions.
+ * 录制中底部 composer：双轨电平 + 结束操作。
+ */
+export function MeetingCaptureComposer({
+  onSave,
+  snapshot,
+}: {
+  onSave: (captureId?: string) => void;
+  snapshot: MeetingCaptureSnapshot;
+}) {
   const elapsed = useElapsed(snapshot.active?.startedAt);
-  if (!(snapshot.active || snapshot.saved || snapshot.recoverable.length > 0)) {
+  const previewStreams = useCapturePreviewStreams();
+  const systemSilent = snapshot.active?.tracks.system.health === "silent";
+  const captureId = snapshot.active?.captureId;
+
+  useEffect(() => {
+    if (!systemSilent || !captureId) {
+      return;
+    }
+    toast.warning("系统音频疑似无声，请检查会议播放与录屏权限", {
+      duration: 10_000,
+      id: `meeting-system-silent:${captureId}`,
+    });
+  }, [captureId, systemSilent]);
+
+  if (!snapshot.active) {
     return null;
   }
   const busy = snapshot.phase === "saving" || snapshot.phase === "discarding";
 
   return (
-    <aside className="fixed right-5 bottom-5 z-[60] grid w-[min(22rem,calc(100vw-2.5rem))] gap-3 rounded-xl border border-border bg-background/95 p-4 shadow-xl backdrop-blur">
-      {snapshot.active ? (
-        <>
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="relative flex size-3">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-60" />
-                <span className="relative inline-flex size-3 rounded-full bg-red-500" />
-              </span>
-              <div>
-                <p className="font-semibold text-sm">
-                  {snapshot.phase === "saving" ? "正在保存本地录音" : "会议录制中"}
-                </p>
-                <p className="font-mono text-muted-foreground text-xs">{elapsed}</p>
-              </div>
-            </div>
-            <Icon className="size-5 text-muted-foreground" icon="ph:waveform" />
+    <MeetingRecordingComposerFrame>
+      <div className="grid min-w-0 gap-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex h-9 shrink-0 items-center gap-1.5">
+            <span className="relative size-2 shrink-0" aria-hidden>
+              <span className="absolute inset-0 animate-ping rounded-full bg-red-400 opacity-60" />
+              <span className="absolute inset-0 rounded-full bg-red-500" />
+            </span>
+            <span className="font-mono text-[11px] text-muted-foreground tabular-nums leading-none">
+              {elapsed}
+            </span>
           </div>
-          <div className="grid gap-2.5">
-            <TrackMeter label="我的麦克风" state={snapshot.active.tracks.microphone} />
-            <TrackMeter label="系统音频" state={snapshot.active.tracks.system} />
-          </div>
-          <LiveTranscriptDraftPanel snapshot={liveDraft} />
-          {snapshot.active.tracks.system.health === "silent" ? (
-            <p className="rounded-md bg-destructive/10 px-2.5 py-2 text-destructive text-xs">
-              系统音频持续无有效电平。请先确认会议正在播放声音，再检查 macOS
-              录屏与系统音频权限、耳机或输出路由；检测到声音后警告会自动清除。
-            </p>
-          ) : null}
-          {snapshot.error ? (
-            <p className="rounded-md bg-destructive/10 px-2.5 py-2 text-destructive text-xs">
-              {snapshot.error}
-            </p>
-          ) : null}
-          <div className="flex justify-end gap-2">
-            <Button disabled={busy} onClick={() => onDiscard()} size="sm" variant="outline">
-              结束并放弃
-            </Button>
-            <Button disabled={busy} onClick={() => onSave()} size="sm">
-              {snapshot.phase === "saving" ? "保存中…" : "结束并保存"}
-            </Button>
-          </div>
-        </>
-      ) : null}
-
-      {!snapshot.active && snapshot.saved ? (
-        <div className="grid gap-3">
-          {(() => {
-            const workspaceSave = snapshot.workspaceSaves.find(
-              (item) => item.captureId === snapshot.saved?.captureId,
-            );
-            const copy = workspaceSave ? WORKSPACE_SAVE_COPY[workspaceSave.state] : null;
-            return (
-              <div className="flex items-start gap-2">
-                <Icon
-                  className={cn(
-                    "mt-0.5 size-5 text-amber-600",
-                    workspaceSave?.state === "workspace-verified" && "text-emerald-600",
-                    workspaceSave?.state === "action-required" && "text-destructive",
-                  )}
-                  icon={workspaceSaveIcon(workspaceSave?.state)}
-                />
-                <div>
-                  <p className="font-semibold text-sm">{copy?.title ?? "录音已安全保存在本地"}</p>
-                  <p className="text-muted-foreground text-xs">
-                    {workspaceSave?.error ??
-                      (workspaceSave?.state === "workspace-verified" &&
-                      workspaceSave.recoveryCopyDeleteAfter
-                        ? `双轨源音频已验证；本地 Recovery Copy 将在 ${formatRecoveryDeadline(workspaceSave.recoveryCopyDeleteAfter)} 后自动清理。`
-                        : (copy?.description ?? "双轨清单和保存意图已冻结，尚未保存到工作区。"))}
-                  </p>
-                </div>
-              </div>
-            );
-          })()}
-          <div className="flex justify-end">
-            {snapshot.workspaceSaves.some(
-              (item) =>
-                item.captureId === snapshot.saved?.captureId && item.state === "action-required",
-            ) ? (
-              <Button onClick={() => onSave(snapshot.saved?.captureId)} size="sm">
-                重试保存到工作区
-              </Button>
-            ) : null}
-            <Button
-              onClick={() => onDiscard(snapshot.saved?.captureId, true)}
-              size="sm"
-              variant="ghost"
-            >
-              清除这份本地保存
-            </Button>
-          </div>
-        </div>
-      ) : null}
-
-      {snapshot.active
-        ? null
-        : snapshot.recoverable.map((capture) => (
-            <RecoveryRow
-              capture={capture}
-              key={capture.captureId}
-              onDiscard={onDiscard}
-              onSave={onSave}
+          <ComposerTrackMetersScroll>
+            <TrackMeter
+              label="麦克风"
+              mediaStream={previewStreams.microphone}
+              state={snapshot.active.tracks.microphone}
+              track="microphone"
             />
-          ))}
-    </aside>
+            <TrackMeter
+              label="系统"
+              mediaStream={previewStreams.system}
+              state={snapshot.active.tracks.system}
+              track="system"
+            />
+          </ComposerTrackMetersScroll>
+          <Button
+            className="shrink-0 rounded-full"
+            disabled={busy}
+            onClick={() => onSave()}
+            size="sm"
+            variant="destructive"
+          >
+            <Icon
+              className={cn("size-4", snapshot.phase === "saving" && "animate-spin")}
+              icon={snapshot.phase === "saving" ? "ph:circle-notch" : "ph:stop-fill"}
+            />
+            {snapshot.phase === "saving" ? "保存中…" : "结束录制"}
+          </Button>
+        </div>
+        {snapshot.error ? (
+          <p className="truncate px-1 text-[11px] text-destructive">{snapshot.error}</p>
+        ) : null}
+      </div>
+    </MeetingRecordingComposerFrame>
+  );
+}
+
+/**
+ * Bottom composer on the new-meeting page: idle track bars + start.
+ * 新建录制页底部 composer：空闲双轨电平 + 开始录制。
+ */
+export function MeetingSetupComposer({
+  disabled,
+  error,
+  onStart,
+  starting,
+}: {
+  disabled?: boolean;
+  error?: string | null;
+  onStart: () => void;
+  starting: boolean;
+}) {
+  return (
+    <MeetingRecordingComposerFrame>
+      <div className="grid min-w-0 gap-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <ComposerTrackMetersScroll>
+            <TrackMeter
+              label="麦克风"
+              mediaStream={null}
+              state={IDLE_TRACK_STATE}
+              track="microphone"
+            />
+            <TrackMeter label="系统" mediaStream={null} state={IDLE_TRACK_STATE} track="system" />
+          </ComposerTrackMetersScroll>
+          <Button
+            className="shrink-0 rounded-full"
+            disabled={disabled || starting}
+            onClick={onStart}
+            type="button"
+            size="sm"
+          >
+            <Icon
+              className={cn("size-4", starting && "animate-spin")}
+              icon={starting ? "ph:circle-notch" : "ph:record-fill"}
+            />
+            {starting ? "请求权限…" : "开始录制"}
+          </Button>
+        </div>
+        {error ? <p className="truncate px-1 text-[11px] text-destructive">{error}</p> : null}
+      </div>
+    </MeetingRecordingComposerFrame>
+  );
+}
+
+/**
+ * 离开当前录制 session 时的最小全局指示，点击回到该 session。
+ * Minimal global indicator when the user leaves the active recording session page.
+ */
+export function MeetingActiveRecordingIndicator({
+  snapshot,
+}: {
+  snapshot: MeetingCaptureSnapshot;
+}) {
+  const navigate = useNavigate();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const elapsed = useElapsed(snapshot.active?.startedAt);
+  const activeId = snapshot.active?.captureId;
+  if (!activeId) {
+    return null;
+  }
+  if (pathname === `/meetings/${activeId}` || pathname.startsWith(`/meetings/${activeId}/`)) {
+    return null;
+  }
+
+  return (
+    <button
+      className="fixed right-5 bottom-5 z-[60] flex items-center gap-2 rounded-full border border-border bg-background/95 px-4 py-2.5 shadow-xl backdrop-blur transition-colors hover:bg-accent"
+      onClick={() => void navigate({ params: { meetingId: activeId }, to: "/meetings/$meetingId" })}
+      type="button"
+    >
+      <span className="relative flex size-2.5">
+        <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-60" />
+        <span className="relative inline-flex size-2.5 rounded-full bg-red-500" />
+      </span>
+      <span className="font-medium text-sm">录制中</span>
+      <span className="font-mono text-muted-foreground text-xs">{elapsed}</span>
+    </button>
   );
 }

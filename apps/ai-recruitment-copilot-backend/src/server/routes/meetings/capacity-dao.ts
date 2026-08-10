@@ -5,6 +5,7 @@ import type {
   CreateMultipartSavedMeetingInput,
   CreateSmallSavedMeetingInput,
 } from "@arc/shared/meeting-recording";
+import { formatDefaultMeetingTitle } from "@arc/shared/utils/time";
 import { rebuildMeetingSearchProjection } from "./routes/search/dao";
 
 type NewMeetingAsset = (
@@ -101,7 +102,7 @@ export function renewMeetingDirectUploadLease(input: {
 }
 
 function defaultMeetingTitle(startedAt: string): string {
-  return `录制记录-${startedAt.slice(2, 16).replaceAll(/[-T:]/g, "")}`;
+  return formatDefaultMeetingTitle(startedAt);
 }
 
 function loadMeetingSession(id: string) {
