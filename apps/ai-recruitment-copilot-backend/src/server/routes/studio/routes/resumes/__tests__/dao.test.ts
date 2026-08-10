@@ -327,7 +327,13 @@ describe("queryPaginatedResumeRecords", () => {
         count: 1,
         highestLevel: "high",
       });
-      expect(result.records.find((row) => row.id === "ri_test_a_2")?.duplicateMatch).toBeNull();
+      // 双向计数：a_2 是活跃行（a_1→a_2）的 matched 侧，也计入 a_2 的重复。
+      // Bidirectional counts: a_2 is the matched side of the active row, so it
+      // also shows a duplicate; the dismissed row is filtered out either way.
+      expect(result.records.find((row) => row.id === "ri_test_a_2")?.duplicateMatch).toEqual({
+        count: 1,
+        highestLevel: "high",
+      });
 
       const detail = await loadResumeDetail("ri_test_a_1", ORG_A);
       expect(detail?.duplicateMatch).toEqual({ count: 1, highestLevel: "high" });
