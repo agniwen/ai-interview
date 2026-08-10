@@ -1,4 +1,7 @@
-import { IconCopy } from "@tabler/icons-react";
+"use client";
+
+import { IconCopy, IconListDetails } from "@tabler/icons-react";
+import { useState } from "react";
 
 import { CandidateInterviewFeedbackContent } from "@/components/features/interview/candidate-interview-feedback";
 import { MarkdownView } from "@/components/features/display/markdown-view";
@@ -6,6 +9,7 @@ import { TimeDisplay } from "@/components/features/display/time-display";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
+import { cn } from "@arc/shared/utils";
 
 import { copyInterviewLink } from "../interviews/interview-link-actions";
 import {
@@ -16,6 +20,68 @@ import {
 import { SummaryMetric } from "../studio-person-detail-skeletons";
 import { compactText } from "../studio-person-detail-sections";
 import type { StudioPersonDetailViewModel } from "../studio-person-detail-controller";
+import { RecommendedQuestionsDialog } from "./recommended-questions-dialog";
+
+type InterviewResultRecord = NonNullable<StudioPersonDetailViewModel["record"]>;
+
+function InterviewResultActionRow({ record }: { record: InterviewResultRecord }) {
+  const [recommendedQuestionsOpen, setRecommendedQuestionsOpen] = useState(false);
+  const recommendedQuestions = record.interviewQuestions ?? [];
+  const hasRecommendedQuestions = recommendedQuestions.length > 0;
+  const showCopyInterviewLink = import.meta.env.DEV || record.roundStatus === "pending";
+
+  if (!(hasRecommendedQuestions || showCopyInterviewLink)) {
+    return null;
+  }
+
+  return (
+    <>
+      <div
+        className={cn(
+          "mt-5 grid gap-2 border-border/50 border-t pt-5",
+          hasRecommendedQuestions && showCopyInterviewLink
+            ? "grid-cols-1 sm:grid-cols-2"
+            : "grid-cols-1",
+        )}
+      >
+        {hasRecommendedQuestions ? (
+          <Button
+            className="w-full"
+            onClick={() => setRecommendedQuestionsOpen(true)}
+            type="button"
+            variant="outline"
+          >
+            <IconListDetails className="size-4" />
+            查看推荐问题
+          </Button>
+        ) : null}
+        {showCopyInterviewLink ? (
+          <Button
+            className="w-full"
+            disabled={!record.roundInterviewLink}
+            onClick={() => {
+              if (record.roundInterviewLink) {
+                void copyInterviewLink({ interviewLink: record.roundInterviewLink });
+              }
+            }}
+            type="button"
+            variant="outline"
+          >
+            <IconCopy className="size-4" />
+            复制面试链接
+          </Button>
+        ) : null}
+      </div>
+      {hasRecommendedQuestions ? (
+        <RecommendedQuestionsDialog
+          onOpenChange={setRecommendedQuestionsOpen}
+          open={recommendedQuestionsOpen}
+          questions={recommendedQuestions}
+        />
+      ) : null}
+    </>
+  );
+}
 
 export function InterviewResultFrame({
   evaluationSummary,
@@ -23,11 +89,9 @@ export function InterviewResultFrame({
   report,
 }: {
   evaluationSummary: StudioPersonDetailViewModel["selectedResultEvaluationSummary"];
-  record: NonNullable<StudioPersonDetailViewModel["record"]>;
+  record: InterviewResultRecord;
   report: StudioPersonDetailViewModel["selectedResultReport"];
 }) {
-  const showCopyInterviewLink = import.meta.env.DEV || record.roundStatus === "pending";
-
   return (
     <Frame className="h-full">
       <FrameHeader className="flex-row items-center justify-between gap-3">
@@ -88,24 +152,7 @@ export function InterviewResultFrame({
             <CandidateInterviewFeedbackContent feedback={record.roundCandidateFeedback} />
           </div>
         ) : null}
-        {showCopyInterviewLink ? (
-          <div className="mt-5 border-border/50 border-t pt-5">
-            <Button
-              className="w-full"
-              disabled={!record.roundInterviewLink}
-              onClick={() => {
-                if (record.roundInterviewLink) {
-                  void copyInterviewLink({ interviewLink: record.roundInterviewLink });
-                }
-              }}
-              type="button"
-              variant="outline"
-            >
-              <IconCopy className="size-4" />
-              复制面试链接
-            </Button>
-          </div>
-        ) : null}
+        <InterviewResultActionRow record={record} />
       </FramePanel>
     </Frame>
   );

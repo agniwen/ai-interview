@@ -138,6 +138,15 @@ describe("AI 面试详情 tabs", () => {
     expect(resultContentSource).toContain("record={record}");
   });
 
+  it("shows recommended questions beside the copy link when questions exist", () => {
+    expect(resultFrameSource).toContain("record.interviewQuestions");
+    expect(resultFrameSource).toContain("查看推荐问题");
+    expect(resultFrameSource).toContain("<RecommendedQuestionsDialog");
+    expect(resultFrameSource).toContain("sm:grid-cols-2");
+    expect(resultFrameSource).toContain("hasRecommendedQuestions");
+    expect(resultFrameSource).toContain("showCopyInterviewLink");
+  });
+
   it("shows frame skeletons while a selected report is being fetched", () => {
     expect(resultContentSource).toContain("isSelectedReportLoading");
     expect(resultContentSource).toContain("<InterviewResultFramesSkeleton");
