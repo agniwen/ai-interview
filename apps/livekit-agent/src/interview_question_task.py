@@ -108,13 +108,92 @@ _GENERIC_FOLLOW_UP = "请补充一个尚未说明的关键点。"
 _MAX_INTERNAL_SUMMARY_CHARS = 2000
 _MAX_MISSING_TOPIC_INPUT_CHARS = 256
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
-_TOPIC_SPLIT = re.compile(r"(?:以及|并且|或者|和|与|及)|[、，,；;。！？!?/\n]")
-_TOPIC_PREFIX = re.compile(
-    r"^(?:重点)?(?:追问|关注|了解|确认|考察|考查|询问)\s*[:：]?\s*"
+_SAFE_TOPIC = re.compile(r"[0-9A-Za-z\u4e00-\u9fff·+#./_\- ]+")
+_TOPIC_CLAUSE_SPLIT = re.compile(r"[，,；;。！？!?\n]")
+_EXPLICIT_MULTI_TOPIC = re.compile(r"(?:以及|并且|或者)|[、，,；;。！？!?\n]")
+_QUESTION_LABEL = re.compile(
+    r"(?:第\s*[0-9一二三四五六七八九十]+\s*题|(?:question|q)\s*[-#:]?\s*\d+)",
+    re.IGNORECASE,
 )
-_SAFE_TOPIC = re.compile(r"[0-9A-Za-z\u4e00-\u9fff·+\- ]+")
-_QUESTION_LABEL = re.compile(r"第\s*[0-9一二三四五六七八九十]+\s*题")
-_INTERNAL_TOPIC_MARKERS = ("追问方向", "考核意图", "内部标签", "题目原文")
+_INTERNAL_TOPIC_MARKERS = (
+    "追问方向",
+    "考核意图",
+    "内部标签",
+    "题目原文",
+    "follow-up direction",
+    "follow up direction",
+    "evaluation focus",
+    "internal label",
+    "question text",
+)
+_UNSAFE_DIRECTION_CLAUSE_MARKERS = (
+    "不要",
+    "不应",
+    "无需",
+    "无须",
+    "不必",
+    "不需要",
+    "不用",
+    "禁止",
+    "不得",
+    "勿",
+    "避免追问",
+    "避免询问",
+    "标准答案",
+    "参考答案",
+    "正确答案",
+    "答案是",
+    "do not ask",
+    "don't ask",
+    "must not ask",
+    "should not ask",
+    "need not ask",
+    "no need to ask",
+    "avoid asking",
+    "standard answer",
+    "reference answer",
+    "correct answer",
+    "answer is",
+)
+_VAGUE_TOPIC_WORDS = frozenset(
+    {
+        "如何",
+        "什么",
+        "哪些",
+        "是否",
+        "具体",
+        "方面",
+        "内容",
+        "问题",
+        "部分",
+        "情况",
+        "要点",
+        "关键点",
+        "信息",
+        "方向",
+        "意图",
+        "原文",
+        "标签",
+        "how",
+        "what",
+        "which",
+        "whether",
+        "detail",
+        "details",
+        "aspect",
+        "part",
+        "content",
+        "issue",
+        "problem",
+        "information",
+        "direction",
+        "intent",
+        "label",
+        "text",
+        "question",
+        "summary",
+    }
+)
 _UNSAFE_TOPIC_MARKERS = (
     "候选人",
     "你刚才",
@@ -129,6 +208,42 @@ _UNSAFE_TOPIC_MARKERS = (
     "提示词",
     "忽略",
     "输出",
+    "candidate",
+    "answer summary",
+    "system prompt",
+    "tool call",
+    "ignore instructions",
+    "ignore the prompt",
+)
+_QUESTION_PREFIXES = tuple(
+    sorted(
+        (
+            "请你介绍一下",
+            "请介绍一下",
+            "请介绍一次",
+            "请你介绍",
+            "请介绍",
+            "请你说明一下",
+            "请说明一下",
+            "请你说明",
+            "请说明",
+            "请谈谈",
+            "请讲讲",
+            "介绍一下",
+            "介绍一次",
+            "介绍",
+            "说明一下",
+            "说明",
+            "pleasetellmeabout",
+            "tellmeabout",
+            "pleaseexplain",
+            "explain",
+            "pleasedescribe",
+            "describe",
+        ),
+        key=len,
+        reverse=True,
+    )
 )
 
 
@@ -196,47 +311,127 @@ def _merge_terminal_revision(
     )
 
 
-def _configured_follow_up_topics(directions: str | None) -> tuple[str, ...]:
-    if not directions:
-        return ()
-
-    topics: list[str] = []
-    normalized = _normalize_internal_text(directions, limit=1000)
-    for fragment in _TOPIC_SPLIT.split(normalized):
-        if any(marker in fragment for marker in _INTERNAL_TOPIC_MARKERS):
-            continue
-        topic = _TOPIC_PREFIX.sub("", fragment).strip(" ：:")
-        if not 1 < len(topic) <= 24:
-            continue
-        if _SAFE_TOPIC.fullmatch(topic) is None:
-            continue
-        if any(marker in topic for marker in _UNSAFE_TOPIC_MARKERS):
-            continue
-        if topic not in topics:
-            topics.append(topic)
-    return tuple(topics)
+def _normalize_direction_text(value: str, *, limit: int = 1000) -> str:
+    text = _CONTROL_CHARS.sub(" ", value)
+    lines = (" ".join(line.split()) for line in text.splitlines())
+    return "\n".join(line for line in lines if line)[:limit].strip()
 
 
-def _allowed_follow_up_topics(
-    directions: str | None,
-    question_text: str,
-) -> tuple[str, ...]:
-    normalized_question = _compact_comparison_text(
+def _question_core(question_text: str) -> str:
+    core = _compact_comparison_text(
         _normalize_internal_text(question_text, limit=1000)
+    ).casefold()
+    for prefix in _QUESTION_PREFIXES:
+        compact_prefix = _compact_comparison_text(prefix).casefold()
+        if core.startswith(compact_prefix) and len(core) - len(compact_prefix) >= 2:
+            core = core[len(compact_prefix) :]
+            break
+    if core.startswith("你") and len(core) > 3:
+        core = core[1:]
+    return core
+
+
+def _overlaps_question(topic: str, question_text: str) -> bool:
+    normalized_topic = _compact_comparison_text(topic).casefold()
+    normalized_question = _question_core(question_text)
+    if not normalized_topic or not normalized_question:
+        return False
+    if normalized_question in normalized_topic:
+        return True
+    return (
+        normalized_topic in normalized_question
+        and len(normalized_topic) * 2 >= len(normalized_question)
     )
-    return tuple(
-        topic
-        for topic in _configured_follow_up_topics(directions)
-        if _QUESTION_LABEL.search(topic) is None
-        and not any(marker in topic for marker in _INTERNAL_TOPIC_MARKERS)
-        and _compact_comparison_text(topic) not in {"方向", "意图", "原文", "标签"}
-        and not (
-            normalized_question
-            and (
-                _compact_comparison_text(topic) in normalized_question
-                or normalized_question in _compact_comparison_text(topic)
-            )
-        )
+
+
+def _has_unsafe_topic_separator(raw_topic: str, normalized_topic: str) -> bool:
+    if "\n" in raw_topic or "\r" in raw_topic:
+        return True
+    if _EXPLICIT_MULTI_TOPIC.search(normalized_topic):
+        return True
+    for index, character in enumerate(normalized_topic):
+        if character not in {"/", "."}:
+            continue
+        if index == 0 or index == len(normalized_topic) - 1:
+            return True
+        if not (
+            normalized_topic[index - 1].isascii()
+            and normalized_topic[index - 1].isalnum()
+            and normalized_topic[index + 1].isascii()
+            and normalized_topic[index + 1].isalnum()
+        ):
+            return True
+    return False
+
+
+def _grounded_follow_up_topic(
+    directions: str | None,
+    requested_topic: str,
+    question_text: str,
+) -> str | None:
+    if not directions:
+        return None
+
+    requested = _normalize_internal_text(
+        requested_topic,
+        limit=_MAX_MISSING_TOPIC_INPUT_CHARS,
+    )
+    compact_requested = _compact_comparison_text(requested).casefold()
+    requested_casefold = requested.casefold()
+    if not 1 < len(requested) <= 24:
+        return None
+    if _SAFE_TOPIC.fullmatch(requested) is None:
+        return None
+    if _has_unsafe_topic_separator(requested_topic, requested):
+        return None
+    if _QUESTION_LABEL.search(requested) is not None:
+        return None
+    if any(marker.casefold() in requested_casefold for marker in _INTERNAL_TOPIC_MARKERS):
+        return None
+    if any(marker.casefold() in requested_casefold for marker in _UNSAFE_TOPIC_MARKERS):
+        return None
+    if compact_requested in _VAGUE_TOPIC_WORDS:
+        return None
+    if _overlaps_question(requested, question_text):
+        return None
+
+    normalized_directions = _normalize_direction_text(directions)
+    for clause in _TOPIC_CLAUSE_SPLIT.split(normalized_directions):
+        match_at = clause.casefold().find(requested_casefold)
+        if match_at < 0:
+            continue
+        clause_casefold = clause.casefold()
+        if any(
+            marker.casefold() in clause_casefold
+            for marker in _UNSAFE_DIRECTION_CLAUSE_MARKERS
+        ):
+            continue
+        if re.search(r"除.{0,32}外", clause):
+            continue
+        # The spoken value is accepted only because these exact characters
+        # occur in trusted interview configuration; model-authored prose is
+        # never forwarded to TTS.
+        return clause[match_at : match_at + len(requested)]
+    return None
+
+
+def _topic_is_covered(topic: str, covered_topics: frozenset[str]) -> bool:
+    normalized_topic = _compact_comparison_text(topic).casefold()
+    return any(
+        _compact_comparison_text(covered).casefold() == normalized_topic
+        for covered in covered_topics
+    )
+
+
+def _resolve_follow_up_topic(
+    directions: str | None,
+    requested_topic: str,
+    question_text: str,
+) -> str | None:
+    return _grounded_follow_up_topic(
+        directions,
+        requested_topic,
+        question_text,
     )
 
 
@@ -246,16 +441,8 @@ def _follow_up_prompt(
     covered_topics: frozenset[str],
     question_text: str,
 ) -> tuple[str, str | None]:
-    requested = _normalize_internal_text(
-        requested_topic,
-        limit=_MAX_MISSING_TOPIC_INPUT_CHARS,
-    )
-    topics = _allowed_follow_up_topics(directions, question_text)
-    requested_matches = [topic for topic in topics if topic in requested]
-    if len(requested_matches) != 1:
-        return _GENERIC_FOLLOW_UP, None
-    topic = requested_matches[0]
-    if topic in covered_topics:
+    topic = _resolve_follow_up_topic(directions, requested_topic, question_text)
+    if topic is None or _topic_is_covered(topic, covered_topics):
         return _GENERIC_FOLLOW_UP, None
     return f"请补充{topic}。", topic
 
@@ -438,7 +625,7 @@ def _question_instructions(
 - 候选人每次发言后必须且只能调用一次 submit_question_decision。工具调用前后都不得输出候选人可见文本；所有对外话术由系统代码生成。
 - 不得复述或总结候选人已经提供的信息，不得要求候选人确认整份回答，也不得用"你刚才提到"之类的话重述答案。
 - 信息足够时使用 action=answered，并在 answer_summary 写仅供内部记录的简短累计摘要。不要说"已记录"、"信息完整"、"回答得很好"或任何确认语。answered 只表示已收集到可评估信息，不表示回答正确或表现良好。
-- 回答尚未覆盖考核意图时使用 action=follow_up。missing_topic 只能填写一个尚未收集到的短要点，优先从追问方向原文选取，不得夹带题目原文、候选人答案、总结、句子或对话话术；只询问尚未收集到的部分。covered_topics 必须累计列出候选人已经实质回答的配置要点原文；仅提到、否认、不知道或尚未定位不算已覆盖。missing_topic 不得同时出现在 covered_topics 中。
+- 回答尚未覆盖考核意图时使用 action=follow_up。missing_topic 必须从追问方向原文逐字复制一个尚未收集到的 2 至 24 字短要点，不得改写、合并多个要点，也不得夹带题目原文、候选人答案、总结、句子或对话话术；只询问尚未收集到的部分。covered_topics 必须累计列出候选人已经实质回答的追问方向短要点原文；仅提到、否认、不知道或尚未定位不算已覆盖。missing_topic 不得同时出现在 covered_topics 中。
 - 追问优先参考配置方向，也可以根据实际回答调整，但不得转向无关主题。
 - easy 题不得追问；medium 题最多追问两次；hard 题不设固定追问上限。
 - 候选人第一次明确拒答或要求下一题时使用 action=request_skip；只有候选人随后明确确认跳过时才使用 action=confirm_skip。候选人改口继续回答时使用 action=continue_current，取消待确认状态。如果候选人的发言已经提供足够信息，即使末尾说了“下一题”，也优先使用 action=answered；只有信息仍不足且候选人明确拒绝继续时才请求跳过。如果候选人在同一发言中先提供了实质性部分答案、再要求跳过，action=request_skip 时仍需填写 answer_summary 和 covered_topics，不能丢弃已经收集的信息。
@@ -707,19 +894,14 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
         self._draft.covered_topics = tuple(sorted(self._covered_topics))
 
     def _record_covered_topics(self, covered_topics: list[str] | None) -> None:
-        allowed = set(
-            _allowed_follow_up_topics(
+        for value in covered_topics or ():
+            topic = _resolve_follow_up_topic(
                 self._question.follow_up_directions,
+                value,
                 self._question.content,
             )
-        )
-        for value in covered_topics or ():
-            normalized = _normalize_internal_text(
-                value,
-                limit=_MAX_MISSING_TOPIC_INPUT_CHARS,
-            )
-            if normalized in allowed:
-                self._covered_topics.add(normalized)
+            if topic is not None:
+                self._covered_topics.add(topic)
 
     @function_tool(name=_DECISION_TOOL_NAME)
     async def submit_question_decision(
@@ -734,8 +916,9 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
         """每次候选人发言只调用一次, 用 action 记录本题状态。
 
         answer_summary 只供内部记录, 绝不向候选人展示。follow_up 时的
-        missing_topic 只能写一个短缺失要点, covered_topics 累计记录已实质
-        回答的配置要点。clarify、wait 和 continue_current 不消耗追问次数。
+        missing_topic 必须逐字复制追问方向中的一个短缺失要点,
+        covered_topics 累计记录已实质回答的追问方向短要点。clarify、wait 和
+        continue_current 不消耗追问次数。
         """
         speech_id = ctx.speech_handle.id
         if self.done() or speech_id in self._handled_speech_ids:
