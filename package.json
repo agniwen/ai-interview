@@ -31,7 +31,7 @@
     "typescript": "catalog:",
     "ultracite": "7.6.0"
   },
-  "packageManager": "pnpm@12.0.0-rc.3+sha512.259f5f0c61fe58b75175312290ddd4c5e65ee9ba4363b758c15d115f4f8eac9f76eef73bd976c87782095de4fef9e6cd140f5c177210d6cc225c711dfcc6aad1",
+  "packageManager": "pnpm@11.5.2",
   "intent": {
     "skills": [
       "@tanstack/react-start",
