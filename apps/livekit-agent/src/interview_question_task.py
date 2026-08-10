@@ -170,6 +170,8 @@ _VAGUE_TOPIC_WORDS = frozenset(
         "要点",
         "关键点",
         "信息",
+        "关键",
+        "关键部分",
         "方向",
         "意图",
         "原文",
@@ -193,6 +195,23 @@ _VAGUE_TOPIC_WORDS = frozenset(
         "question",
         "summary",
     }
+)
+_UNINFORMATIVE_FOLLOW_UP_TOPICS = frozenset(
+    {
+        "关键",
+        "关键点",
+        "关键部分",
+        "尚未说明",
+        "尚未说明的关键点",
+        "补充",
+    }
+)
+_DIRECTION_PREFIXES = (
+    "追问",
+    "追问方向",
+    "可追问",
+    "请追问",
+    "请你追问",
 )
 _UNSAFE_TOPIC_MARKERS = (
     "候选人",
@@ -435,6 +454,61 @@ def _resolve_follow_up_topic(
     )
 
 
+def _resolve_direction_candidate(
+    directions: str | None,
+    candidate: str,
+    question_text: str,
+) -> str | None:
+    normalized_candidate = _normalize_internal_text(
+        candidate,
+        limit=_MAX_MISSING_TOPIC_INPUT_CHARS,
+    )
+    if not normalized_candidate:
+        return None
+    compact_candidate = normalized_candidate.casefold()
+    for prefix in _DIRECTION_PREFIXES:
+        if compact_candidate.startswith(prefix):
+            compact_candidate = compact_candidate[len(prefix) :].strip()
+            break
+    resolved = _grounded_follow_up_topic(
+        directions,
+        compact_candidate,
+        question_text,
+    )
+    if resolved is None:
+        return None
+    return resolved
+
+
+def _next_eligible_uncovered_topic(
+    directions: str | None,
+    covered_topics: frozenset[str],
+    question_text: str,
+) -> str | None:
+    if directions is None:
+        return None
+
+    candidates: list[str] = []
+    seen: set[str] = set()
+    for clause in _TOPIC_CLAUSE_SPLIT.split(_normalize_direction_text(directions)):
+        candidate = _resolve_direction_candidate(
+            directions,
+            clause,
+            question_text,
+        )
+        if candidate is None:
+            continue
+        candidate_key = _compact_comparison_text(candidate).casefold()
+        if candidate_key in seen or _topic_is_covered(candidate, covered_topics):
+            continue
+        candidates.append(candidate)
+        seen.add(candidate_key)
+
+    if len(candidates) == 1:
+        return candidates[0]
+    return None
+
+
 def _follow_up_prompt(
     directions: str | None,
     requested_topic: str,
@@ -442,6 +516,19 @@ def _follow_up_prompt(
     question_text: str,
 ) -> tuple[str, str | None]:
     topic = _resolve_follow_up_topic(directions, requested_topic, question_text)
+    if topic is None:
+        normalized_request = _compact_comparison_text(
+            _normalize_internal_text(requested_topic, limit=_MAX_MISSING_TOPIC_INPUT_CHARS)
+        ).casefold()
+        if normalized_request and (
+            normalized_request in _UNINFORMATIVE_FOLLOW_UP_TOPICS
+            or len(normalized_request) <= 1
+        ):
+            topic = _next_eligible_uncovered_topic(
+                directions,
+                covered_topics,
+                question_text,
+            )
     if topic is None or _topic_is_covered(topic, covered_topics):
         return _GENERIC_FOLLOW_UP, None
     return f"请补充{topic}。", topic
@@ -685,7 +772,6 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
                 if previous_outcome and previous_outcome.answer_summary
                 else ""
             )
-            self._draft.pending_missing_topic = None
             self._draft.last_candidate_prompt = question.content
         self._answer_summary = self._draft.answer_summary
         self._pending_missing_topic = self._draft.pending_missing_topic
@@ -720,7 +806,11 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
             self._persist_draft()
             self.session.say(self._question.content)
         elif self._previous_outcome is not None:
-            prompt = "请直接补充尚未说明的部分。"
+            prompt = (
+                f"请补充{self._pending_missing_topic}。"
+                if self._pending_missing_topic
+                else "请直接补充尚未说明的部分。"
+            )
             self._last_candidate_prompt = prompt
             self._persist_draft()
             self.session.say(prompt)
@@ -961,7 +1051,10 @@ class InterviewQuestionTask(AgentTask[InterviewQuestionOutcome]):
                 frozenset(self._covered_topics),
                 self._question.content,
             )
-            self._pending_missing_topic = trusted_topic or "尚未说明的关键点"
+            if trusted_topic is None:
+                self._pending_missing_topic = self._pending_missing_topic
+            else:
+                self._pending_missing_topic = trusted_topic
             self._last_candidate_prompt = prompt
             self._say_with_rollback(
                 prompt,
