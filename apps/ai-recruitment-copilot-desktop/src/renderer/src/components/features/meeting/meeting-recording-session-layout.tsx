@@ -18,11 +18,11 @@ export function MeetingRecordingSessionLayout({
 }) {
   return (
     <div
-      className={cn("relative mx-auto flex w-full max-w-3xl flex-col overflow-hidden", className)}
+      className={cn("relative flex w-full flex-col overflow-hidden", className)}
       style={{ height: `calc(100dvh - ${TITLE_BAR_HEIGHT_PX}px)` }}
     >
       <ScrollArea className="min-h-0 flex-1" orientation="vertical">
-        <div className="min-h-full px-4 pt-4 pb-3 sm:px-6">{main}</div>
+        <div className="container mx-auto min-h-full px-4 pt-4 pb-3 sm:px-6">{main}</div>
       </ScrollArea>
       <div className="shrink-0 px-4 pt-2 pb-3 sm:px-6">
         <div className="mx-auto w-full max-w-2xl">{composer}</div>
