@@ -7,6 +7,8 @@ import type {
 import { cn } from "@arc/shared/utils";
 
 const STATUS_LABEL: Record<Exclude<LiveTranscriptDraftStatus, "idle">, string> = {
+  buffering: "delayed",
+  degraded: "degraded",
   interrupted: "interrupted",
   live: "live",
   reconnecting: "reconnecting",
@@ -17,6 +19,16 @@ const TRACK_LABEL = {
   microphone: "我的麦克风",
   system: "系统音频",
 } as const;
+
+function statusIcon(status: Exclude<LiveTranscriptDraftStatus, "idle">): string {
+  if (status === "live") {
+    return "ph:broadcast-fill";
+  }
+  if (["buffering", "degraded"].includes(status)) {
+    return "ph:warning-circle-fill";
+  }
+  return "ph:circle-notch";
+}
 
 /**
  * Live transcript stage for the meeting session main area.
@@ -48,6 +60,7 @@ export function LiveTranscriptDraftPanel({
           className={cn(
             "flex items-center gap-1 text-[11px] text-muted-foreground",
             status === "live" && "text-emerald-600 dark:text-emerald-400",
+            ["buffering", "degraded"].includes(status) && "text-amber-600 dark:text-amber-400",
             status === "interrupted" && "text-destructive",
           )}
         >
@@ -56,12 +69,26 @@ export function LiveTranscriptDraftPanel({
               "size-3.5",
               ["starting", "reconnecting"].includes(status) && "animate-spin",
             )}
-            icon={status === "live" ? "ph:broadcast-fill" : "ph:circle-notch"}
+            icon={statusIcon(status)}
           />
           {STATUS_LABEL[status]}
         </span>
       </div>
-      {snapshot.error ? <p className="text-destructive text-xs">{snapshot.error}</p> : null}
+      {snapshot.error ? (
+        <p
+          className={cn(
+            "text-xs",
+            status === "degraded" ? "text-amber-700 dark:text-amber-300" : "text-destructive",
+          )}
+        >
+          {snapshot.error}
+        </p>
+      ) : null}
+      {status === "buffering" ? (
+        <p className="text-amber-600 text-xs dark:text-amber-400">
+          字幕延迟约 {(snapshot.queuedAudioMs / 1000).toFixed(1)} 秒，正在追赶…
+        </p>
+      ) : null}
       {snapshot.turns.length > 0 ? (
         <div className="grid flex-1 gap-3 pr-1" aria-live="polite">
           {snapshot.turns.map((turn) => {
@@ -94,7 +121,7 @@ export function LiveTranscriptDraftPanel({
       )}
       {snapshot.droppedPcmFrames > 0 ? (
         <p className="text-[11px] text-muted-foreground">
-          已跳过 {snapshot.droppedPcmFrames} 个实时 PCM frame；本地录音未受影响。
+          本段实时字幕可能遗漏约 {Math.round(snapshot.droppedAudioMs)} ms；本地录音未受影响。
         </p>
       ) : null}
     </section>

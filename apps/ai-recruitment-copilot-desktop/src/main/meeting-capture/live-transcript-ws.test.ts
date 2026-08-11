@@ -15,7 +15,7 @@ interface FakeWebSocketInstance {
   onopen: (() => void) | null;
   terminate: ReturnType<typeof vi.fn>;
   close: () => void;
-  send: (data: string) => void;
+  send: (data: string, callback?: (error?: Error) => void) => void;
 }
 
 const mocks = vi.hoisted(() => {
@@ -66,8 +66,9 @@ const mocks = vi.hoisted(() => {
       }
     }
 
-    send(data: string) {
+    send(data: string, callback?: (error?: Error) => void) {
       this.sent.push(data);
+      callback?.();
     }
   }
   return { FakeWebSocket, instances };
@@ -158,12 +159,27 @@ describe("connectDashScopeRealtimeWs", () => {
       expect(connection.sendPcm(new Uint8Array(16))).toBe(false);
       instance.bufferedAmount = 0;
       vi.advanceTimersByTime(300);
-      expect(dependencies.onDrain).not.toHaveBeenCalled();
-      instance.bufferedAmount = 1024 * 1024;
-      vi.advanceTimersByTime(300);
-      instance.bufferedAmount = 0;
+      expect(dependencies.onDrain).toHaveBeenCalledTimes(1);
       vi.advanceTimersByTime(300);
       expect(dependencies.onDrain).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not emit drain after closing a backpressured connection", () => {
+    vi.useFakeTimers();
+    try {
+      const { connection, dependencies, instance } = createConnection();
+      instance.onopen?.();
+      instance.bufferedAmount = 1024 * 1024;
+      expect(connection.sendPcm(new Uint8Array(16))).toBe(false);
+
+      connection.close();
+      instance.bufferedAmount = 0;
+      vi.advanceTimersByTime(300);
+
+      expect(dependencies.onDrain).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }

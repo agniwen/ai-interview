@@ -5,7 +5,7 @@ import { WebSocket } from "ws";
 const MAX_BUFFERED_BYTES = 256 * 1024;
 const LOW_WATER_BYTES = 64 * 1024;
 const CONNECTION_TIMEOUT_MS = 10_000;
-const DRAIN_POLL_MS = 250;
+const DRAIN_POLL_MS = 50;
 const GRACEFUL_FINISH_TIMEOUT_MS = 1500;
 
 export interface DashScopeRealtimeWsConnection {
@@ -45,8 +45,12 @@ export function connectDashScopeRealtimeWs(
     },
   );
   let closed = false;
-  let aboveLowWater = false;
+  let backpressureStartedAt: number | null = null;
+  let bufferedBytesAtPause = 0;
+  let backpressured = false;
+  let drainCount = 0;
   let finishSent = false;
+  let sendCallbackErrorCount = 0;
   let drainTimer: ReturnType<typeof setInterval> | null = null;
 
   const notifyClose = (reason: string) => {
@@ -65,13 +69,53 @@ export function connectDashScopeRealtimeWs(
   // 异常不能从 ipcMain 的 port 消息处理器冒出去（会打崩主进程、连累分片 ack）。
   // ws send can throw synchronously when the socket closes between the readyState
   // check and the write; it must never escape into the IPC port handler.
-  const sendJson = (payload: unknown): boolean => {
+  const sendText = (payload: string): boolean => {
     try {
-      socket.send(JSON.stringify(payload));
+      // oxlint-disable-next-line promise/prefer-await-to-callbacks -- ws exposes write completion only through this callback.
+      socket.send(payload, (error) => {
+        if (error) {
+          sendCallbackErrorCount += 1;
+          console.error("[live-transcript] provider send callback failed", {
+            count: sendCallbackErrorCount,
+            model: dependencies.model,
+          });
+          notifyClose(`provider-error:${error.message ?? "write-failed"}`);
+        }
+      });
       return true;
     } catch {
       return false;
     }
+  };
+  const sendJson = (payload: unknown): boolean => sendText(JSON.stringify(payload));
+
+  const scheduleDrainPoll = () => {
+    if (closed || !backpressured || drainTimer) {
+      return;
+    }
+    drainTimer = setTimeout(() => {
+      drainTimer = null;
+      if (closed || socket.readyState !== WebSocket.OPEN) {
+        return;
+      }
+      if (socket.bufferedAmount <= LOW_WATER_BYTES) {
+        backpressured = false;
+        drainCount += 1;
+        console.info("[live-transcript] provider backpressure recovered", {
+          bufferedBytesAtPause,
+          drainCount,
+          durationMs:
+            backpressureStartedAt === null ? 0 : Math.max(0, Date.now() - backpressureStartedAt),
+          model: dependencies.model,
+        });
+        backpressureStartedAt = null;
+        bufferedBytesAtPause = 0;
+        dependencies.onDrain?.();
+        return;
+      }
+      scheduleDrainPoll();
+    }, DRAIN_POLL_MS);
+    drainTimer.unref();
   };
 
   socket.on("open", () => {
@@ -117,21 +161,6 @@ export function connectDashScopeRealtimeWs(
     notifyClose(detail ? `provider-disconnected:${detail}` : `provider-disconnected:${code}`);
   });
 
-  // Node ws has no bufferedamountlow event; poll the socket buffer and emit an
-  // edge-triggered drain so the renderer resumes flushing its bounded queue.
-  const drainTimerHandle = setInterval(() => {
-    if (closed || socket.readyState !== WebSocket.OPEN) {
-      return;
-    }
-    const buffered = socket.bufferedAmount;
-    const wasAbove = aboveLowWater;
-    aboveLowWater = buffered > LOW_WATER_BYTES;
-    if (wasAbove && !aboveLowWater) {
-      dependencies.onDrain?.();
-    }
-  }, DRAIN_POLL_MS);
-  drainTimer = drainTimerHandle;
-
   return {
     close: () => {
       if (closed) {
@@ -159,14 +188,27 @@ export function connectDashScopeRealtimeWs(
       if (closed || socket.readyState !== WebSocket.OPEN) {
         return false;
       }
-      if (socket.bufferedAmount + bytes.length > MAX_BUFFERED_BYTES) {
-        return false;
-      }
-      return sendJson({
+      const payload = JSON.stringify({
         audio: pcmBytesToBase64(bytes),
         event_id: randomUUID(),
         type: "input_audio_buffer.append",
       });
+      const payloadBytes = Buffer.byteLength(payload);
+      if (socket.bufferedAmount + payloadBytes > MAX_BUFFERED_BYTES) {
+        if (!backpressured) {
+          backpressured = true;
+          backpressureStartedAt = Date.now();
+          bufferedBytesAtPause = socket.bufferedAmount;
+          console.warn("[live-transcript] provider backpressure started", {
+            bufferedBytes: socket.bufferedAmount,
+            model: dependencies.model,
+            payloadBytes,
+          });
+        }
+        scheduleDrainPoll();
+        return false;
+      }
+      return sendText(payload);
     },
   };
 }

@@ -52,11 +52,17 @@ const INITIAL_CAPTURE_SNAPSHOT: MeetingCaptureSnapshot = {
 
 const INITIAL_LIVE_DRAFT_SNAPSHOT: LiveTranscriptDraftSnapshot = {
   captureId: null,
+  droppedAudioMs: 0,
   droppedPcmFrames: 0,
   error: null,
+  queuePeakAudioMs: 0,
+  queuedAudioMs: 0,
   queuedPcmBytes: 0,
   sections: [],
   status: "idle",
+  trackDroppedAudioMs: { microphone: 0, system: 0 },
+  trackQueuePeakAudioMs: { microphone: 0, system: 0 },
+  trackQueuedAudioMs: { microphone: 0, system: 0 },
   trackStatus: { microphone: "idle", system: "idle" },
   turns: [],
 };

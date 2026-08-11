@@ -181,17 +181,20 @@ describe("connectQwenRealtimeTranscription", () => {
     connection.close();
   });
 
-  it("keeps accepting PCM when the main process acknowledges normally consumed frames", async () => {
+  it("accepts ten minutes of 100 ms PCM frames under normal acknowledgements", async () => {
     acknowledgePcm = true;
     const { connection } = await openConnection();
     const frame = new Int16Array(2400);
 
-    for (let attempt = 0; attempt < 100; attempt += 1) {
-      expect(connection.sendPcm(frame)).toBe(true);
+    for (let batch = 0; batch < 600; batch += 1) {
+      for (let frameIndex = 0; frameIndex < 10; frameIndex += 1) {
+        expect(connection.sendPcm(frame)).toBe(true);
+      }
+      await tick();
       await tick();
     }
 
-    expect(receivedPcm).toHaveLength(100);
+    expect(receivedPcm).toHaveLength(6000);
     connection.close();
   });
 

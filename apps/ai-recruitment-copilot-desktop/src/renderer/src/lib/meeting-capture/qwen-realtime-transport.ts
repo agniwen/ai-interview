@@ -4,7 +4,7 @@ import type { LiveTranscriptConnection, LiveTranscriptEvent } from "./live-trans
 
 const WORKLET_SAMPLE_RATE = 24_000;
 const DASHSCOPE_SAMPLE_RATE = 16_000;
-const MAX_INFLIGHT_BYTES = 256 * 1024;
+const MAX_INFLIGHT_BYTES = 64 * 1024;
 const CONNECTION_TIMEOUT_MS = 10_000;
 
 interface DashScopeServerEvent {
@@ -91,6 +91,7 @@ export async function connectQwenRealtimeTranscription(input: {
   let backpressured = false;
   let blockedFrameBytes = 0;
   let closing = false;
+  let peakInFlightBytes = 0;
   let providerWritable = true;
   const disconnect = (reason: string) => {
     if (!closing) {
@@ -105,6 +106,10 @@ export async function connectQwenRealtimeTranscription(input: {
     ) {
       backpressured = false;
       blockedFrameBytes = 0;
+      console.info("[meeting-capture-renderer] Qwen IPC backpressure recovered", {
+        inFlightBytes,
+        peakInFlightBytes,
+      });
       input.onWritable();
     }
   };
@@ -208,14 +213,23 @@ export async function connectQwenRealtimeTranscription(input: {
       }
       const resampled = resamplePcm16(frame, WORKLET_SAMPLE_RATE, DASHSCOPE_SAMPLE_RATE);
       const bytes = new Uint8Array(resampled.buffer, resampled.byteOffset, resampled.byteLength);
-      if (!providerWritable || inFlightBytes + bytes.byteLength > MAX_INFLIGHT_BYTES) {
+      const { byteLength } = bytes;
+      if (!providerWritable || inFlightBytes + byteLength > MAX_INFLIGHT_BYTES) {
+        if (!backpressured) {
+          console.warn("[meeting-capture-renderer] Qwen IPC backpressure started", {
+            inFlightBytes,
+            peakInFlightBytes,
+            providerWritable,
+          });
+        }
         backpressured = true;
-        blockedFrameBytes = bytes.byteLength;
+        blockedFrameBytes = byteLength;
         return false;
       }
       try {
-        clientPort.postMessage({ bytes, type: "pcm" }, []);
-        inFlightBytes += bytes.byteLength;
+        clientPort.postMessage({ bytes, type: "pcm" }, [bytes.buffer]);
+        inFlightBytes += byteLength;
+        peakInFlightBytes = Math.max(peakInFlightBytes, inFlightBytes);
         return true;
       } catch {
         return false;

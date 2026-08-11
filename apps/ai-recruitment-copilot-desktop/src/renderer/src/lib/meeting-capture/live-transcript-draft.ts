@@ -8,6 +8,8 @@ export type LiveTranscriptDraftStatus =
   | "idle"
   | "starting"
   | "live"
+  | "buffering"
+  | "degraded"
   | "interrupted"
   | "reconnecting";
 
@@ -28,11 +30,17 @@ export interface LiveTranscriptDraftTurn {
 
 export interface LiveTranscriptDraftSnapshot {
   captureId: string | null;
+  droppedAudioMs: number;
   droppedPcmFrames: number;
   error: string | null;
+  queuedAudioMs: number;
   queuedPcmBytes: number;
+  queuePeakAudioMs: number;
   sections: LiveTranscriptDraftSection[];
   status: LiveTranscriptDraftStatus;
+  trackDroppedAudioMs: Record<MeetingLiveTranscriptTrack, number>;
+  trackQueuePeakAudioMs: Record<MeetingLiveTranscriptTrack, number>;
+  trackQueuedAudioMs: Record<MeetingLiveTranscriptTrack, number>;
   trackStatus: Record<MeetingLiveTranscriptTrack, LiveTranscriptDraftStatus>;
   turns: LiveTranscriptDraftTurn[];
 }
@@ -71,6 +79,7 @@ interface LiveTranscriptDraftDependencies {
   }) => Promise<LiveTranscriptPcmTap>;
   heartbeat?: (captureId: string) => Promise<boolean>;
   maxDraftTurns?: number;
+  maxQueuedAudioMsPerTrack?: number;
   maxQueuedPcmBytesPerTrack?: number;
   maxReconnectAttempts?: number;
   maxReconnectDelayMs?: number;
@@ -95,6 +104,8 @@ interface TrackRuntime {
 }
 
 const DEFAULT_MAX_QUEUED_PCM_BYTES = 512 * 1024;
+const DEFAULT_MAX_QUEUED_AUDIO_MS = 5000;
+const BUFFERING_NOTICE_MS = 2000;
 const DEFAULT_MAX_DRAFT_TURNS = 500;
 const DEFAULT_MAX_RECONNECT_ATTEMPTS = 8;
 const DEFAULT_MAX_RECONNECT_DELAY_MS = 30_000;
@@ -102,6 +113,7 @@ const DEFAULT_RECONNECT_DELAY_MS = 1500;
 const LEASE_HEARTBEAT_MS = 30_000;
 const MAX_DRAFT_SECTIONS = 200;
 const MAX_DRAFT_TURN_CHARS = 10_000;
+const PCM_SAMPLE_RATE = 24_000;
 const TRACKS: MeetingLiveTranscriptTrack[] = ["microphone", "system"];
 
 /**
@@ -109,12 +121,19 @@ const TRACKS: MeetingLiveTranscriptTrack[] = ["microphone", "system"];
  * Bounded PCM queue for WebRTC backpressure; draft frames may drop rather than endanger authoritative local recording.
  */
 class BoundedPcmQueue {
-  private readonly frames: Int16Array[] = [];
+  private readonly frames: { audioMs: number; frame: Int16Array }[] = [];
+  private readonly maxAudioMs: number;
   private readonly maxBytes: number;
+  private durationMs = 0;
   private sizeBytes = 0;
 
-  constructor(maxBytes: number) {
+  constructor(maxBytes: number, maxAudioMs: number) {
     this.maxBytes = maxBytes;
+    this.maxAudioMs = maxAudioMs;
+  }
+
+  get audioMs(): number {
+    return this.durationMs;
   }
 
   get bytes(): number {
@@ -123,44 +142,66 @@ class BoundedPcmQueue {
 
   clear(): void {
     this.frames.length = 0;
+    this.durationMs = 0;
     this.sizeBytes = 0;
   }
 
-  enqueue(frame: Int16Array): boolean {
-    if (frame.byteLength > this.maxBytes || this.sizeBytes + frame.byteLength > this.maxBytes) {
-      return false;
+  enqueueLatest(frame: Int16Array): { audioMs: number; frames: number } {
+    const audioMs = (frame.length / PCM_SAMPLE_RATE) * 1000;
+    if (frame.byteLength > this.maxBytes || audioMs > this.maxAudioMs) {
+      return { audioMs, frames: 1 };
     }
-    this.frames.push(frame);
+    let droppedAudioMs = 0;
+    let droppedFrames = 0;
+    while (
+      this.frames.length > 0 &&
+      (this.sizeBytes + frame.byteLength > this.maxBytes ||
+        this.durationMs + audioMs > this.maxAudioMs)
+    ) {
+      droppedAudioMs += this.shift();
+      droppedFrames += 1;
+    }
+    this.frames.push({ audioMs, frame });
+    this.durationMs += audioMs;
     this.sizeBytes += frame.byteLength;
-    return true;
+    return { audioMs: droppedAudioMs, frames: droppedFrames };
   }
 
   peek(): Int16Array | undefined {
-    return this.frames[0];
+    return this.frames[0]?.frame;
   }
 
-  shift(): void {
-    const frame = this.frames.shift();
-    if (frame) {
-      this.sizeBytes -= frame.byteLength;
+  shift(): number {
+    const item = this.frames.shift();
+    if (item) {
+      this.durationMs -= item.audioMs;
+      this.sizeBytes -= item.frame.byteLength;
+      return item.audioMs;
     }
+    return 0;
   }
 }
 
 const initialSnapshot = (): LiveTranscriptDraftSnapshot => ({
   captureId: null,
+  droppedAudioMs: 0,
   droppedPcmFrames: 0,
   error: null,
+  queuePeakAudioMs: 0,
+  queuedAudioMs: 0,
   queuedPcmBytes: 0,
   sections: [],
   status: "idle",
+  trackDroppedAudioMs: { microphone: 0, system: 0 },
+  trackQueuePeakAudioMs: { microphone: 0, system: 0 },
+  trackQueuedAudioMs: { microphone: 0, system: 0 },
   trackStatus: { microphone: "idle", system: "idle" },
   turns: [],
 });
 
 function publicError(reason: string): string {
-  if (reason === "backpressure") {
-    return "实时字幕处理暂时跟不上，录音仍在继续";
+  if (reason === "degraded") {
+    return "实时字幕可能有遗漏，录音仍在继续";
   }
   if (reason === "authorization") {
     return "实时字幕授权暂不可用，录音仍在继续";
@@ -182,6 +223,7 @@ function closeConnection(runtime: TrackRuntime): void {
  */
 export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDependencies) {
   const maxQueuedPcmBytes = dependencies.maxQueuedPcmBytesPerTrack ?? DEFAULT_MAX_QUEUED_PCM_BYTES;
+  const maxQueuedAudioMs = dependencies.maxQueuedAudioMsPerTrack ?? DEFAULT_MAX_QUEUED_AUDIO_MS;
   const runtimes: Record<MeetingLiveTranscriptTrack, TrackRuntime> = {
     microphone: {
       cancelReconnect: null,
@@ -189,7 +231,7 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
       generation: 0,
       mediaTrack: null,
       pcmTap: null,
-      queue: new BoundedPcmQueue(maxQueuedPcmBytes),
+      queue: new BoundedPcmQueue(maxQueuedPcmBytes, maxQueuedAudioMs),
       reconnectAttempts: 0,
       sectionId: null,
       status: "idle",
@@ -200,7 +242,7 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
       generation: 0,
       mediaTrack: null,
       pcmTap: null,
-      queue: new BoundedPcmQueue(maxQueuedPcmBytes),
+      queue: new BoundedPcmQueue(maxQueuedPcmBytes, maxQueuedAudioMs),
       reconnectAttempts: 0,
       sectionId: null,
       status: "idle",
@@ -243,21 +285,42 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
     if (statuses.includes("interrupted")) {
       return "interrupted";
     }
+    if (statuses.includes("degraded")) {
+      return "degraded";
+    }
+    if (statuses.includes("buffering")) {
+      return "buffering";
+    }
     if (statuses.every((status) => status === "live")) {
       return "live";
     }
-    if (statuses.some((status) => status === "starting" || status === "live")) {
+    if (statuses.some((status) => ["starting", "live", "buffering", "degraded"].includes(status))) {
       return "starting";
     }
     return "idle";
   };
 
   const publish = (next: Partial<LiveTranscriptDraftSnapshot> = {}) => {
+    const trackQueuedAudioMs = {
+      microphone: runtimes.microphone.queue.audioMs,
+      system: runtimes.system.queue.audioMs,
+    };
+    const queuedAudioMs = Math.max(...Object.values(trackQueuedAudioMs));
     snapshot = {
       ...snapshot,
       ...next,
+      queuePeakAudioMs: Math.max(snapshot.queuePeakAudioMs, queuedAudioMs),
+      queuedAudioMs,
       queuedPcmBytes: TRACKS.reduce((total, track) => total + runtimes[track].queue.bytes, 0),
       status: aggregateStatus(),
+      trackQueuePeakAudioMs: {
+        microphone: Math.max(
+          snapshot.trackQueuePeakAudioMs.microphone,
+          trackQueuedAudioMs.microphone,
+        ),
+        system: Math.max(snapshot.trackQueuePeakAudioMs.system, trackQueuedAudioMs.system),
+      },
+      trackQueuedAudioMs,
       trackStatus: {
         microphone: runtimes.microphone.status,
         system: runtimes.system.status,
@@ -266,6 +329,14 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
     for (const listener of listeners) {
       listener(snapshot);
     }
+  };
+
+  const updateFlowControlStatus = (runtime: TrackRuntime, droppedFrames = 0) => {
+    if (droppedFrames > 0) {
+      runtime.status = "degraded";
+      return;
+    }
+    runtime.status = runtime.queue.audioMs >= BUFFERING_NOTICE_MS ? "buffering" : "live";
   };
 
   const stop = (): void => {
@@ -419,7 +490,6 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
       }
       runtime.queue.shift();
     }
-    publish();
     return true;
   };
 
@@ -509,12 +579,12 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
           if (runtime.generation !== generation || runtime.sectionId !== sectionId) {
             return;
           }
-          runtime.status = "live";
           if (flush(track)) {
+            runtime.status = "live";
             publish({ error: null });
           } else {
-            runtime.status = "interrupted";
-            publish({ error: publicError("backpressure") });
+            updateFlowControlStatus(runtime);
+            publish({ error: null });
           }
         },
       });
@@ -523,9 +593,12 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
         return;
       }
       runtime.connection = connection;
-      runtime.status = "live";
+      if (flush(track)) {
+        runtime.status = "live";
+      } else {
+        updateFlowControlStatus(runtime);
+      }
       publish({ error: null });
-      flush(track);
     } catch (error) {
       interrupt(
         dependencies.authorizationFailureReason?.(error) ?? "authorization",
@@ -539,15 +612,24 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
     if (runtime.connection && runtime.queue.bytes === 0 && runtime.connection.sendPcm(frame)) {
       return;
     }
-    if (!runtime.queue.enqueue(frame)) {
-      snapshot = { ...snapshot, droppedPcmFrames: snapshot.droppedPcmFrames + 1 };
+    const dropped = runtime.queue.enqueueLatest(frame);
+    if (dropped.frames > 0) {
+      snapshot = {
+        ...snapshot,
+        droppedAudioMs: snapshot.droppedAudioMs + dropped.audioMs,
+        droppedPcmFrames: snapshot.droppedPcmFrames + dropped.frames,
+        trackDroppedAudioMs: {
+          ...snapshot.trackDroppedAudioMs,
+          [track]: snapshot.trackDroppedAudioMs[track] + dropped.audioMs,
+        },
+      };
     }
     if (runtime.connection) {
-      runtime.status = "interrupted";
-      publish({ error: publicError("backpressure") });
+      updateFlowControlStatus(runtime, dropped.frames);
+      publish({ error: dropped.frames > 0 ? publicError("degraded") : null });
       return;
     }
-    publish();
+    publish({ error: dropped.frames > 0 ? publicError("degraded") : null });
   };
 
   const start = async (input: {

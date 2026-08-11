@@ -84,19 +84,79 @@ describe("Live Transcript Draft", () => {
       tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
     });
     frameCallbacks.get("microphone")?.(new Int16Array([1, 2, 3]));
+    expect(draft.getSnapshot()).toMatchObject({
+      droppedPcmFrames: 0,
+      error: null,
+      queuedPcmBytes: 6,
+      status: "live",
+    });
+
     frameCallbacks.get("microphone")?.(new Int16Array([4, 5, 6]));
 
     expect(draft.getSnapshot()).toMatchObject({
       captureId: CAPTURE_ID,
+      droppedAudioMs: 0.125,
       droppedPcmFrames: 1,
+      error: "实时字幕可能有遗漏，录音仍在继续",
       queuedPcmBytes: 6,
-      status: "interrupted",
+      status: "degraded",
     });
     expect(connection.close).not.toHaveBeenCalled();
     expect(scheduled).toHaveLength(0);
 
     writableCallbacks[0]?.();
-    expect(draft.getSnapshot()).toMatchObject({ queuedPcmBytes: 0, status: "live" });
+    expect(draft.getSnapshot()).toMatchObject({
+      droppedPcmFrames: 1,
+      error: null,
+      queuedPcmBytes: 0,
+      status: "live",
+    });
+  });
+
+  it("shows five seconds of queued audio as delayed and fully recovers on writable", async () => {
+    const frameCallbacks = new Map<string, (frame: Int16Array) => void>();
+    const writableCallbacks: (() => void)[] = [];
+    let writable = false;
+    const draft = createLiveTranscriptDraft({
+      authorize: ({ track }) =>
+        Promise.resolve({
+          clientSecret: `secret-${track}`,
+          expiresAt: "2026-08-09T01:21:00.000Z",
+          model: "qwen3-asr-flash-realtime",
+          provider: "qwen",
+          track,
+        }),
+      connect: ({ onWritable }) => {
+        writableCallbacks.push(onWritable);
+        return Promise.resolve({ close: vi.fn(), sendPcm: vi.fn(() => writable) });
+      },
+      createPcmTap: ({ onFrame, track }) => {
+        frameCallbacks.set(track, onFrame);
+        return Promise.resolve({ stop: vi.fn() });
+      },
+    });
+
+    await draft.start({
+      captureId: CAPTURE_ID,
+      tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
+    });
+    for (let index = 0; index < 50; index += 1) {
+      frameCallbacks.get("microphone")?.(new Int16Array(2400));
+    }
+
+    expect(draft.getSnapshot()).toMatchObject({
+      droppedPcmFrames: 0,
+      error: null,
+      queuePeakAudioMs: 5000,
+      queuedAudioMs: 5000,
+      status: "buffering",
+      trackQueuePeakAudioMs: { microphone: 5000, system: 0 },
+      trackQueuedAudioMs: { microphone: 5000, system: 0 },
+    });
+
+    writable = true;
+    writableCallbacks[0]?.();
+    expect(draft.getSnapshot()).toMatchObject({ error: null, queuedAudioMs: 0, status: "live" });
   });
 
   it("creates a new section on reconnect without rewriting prior draft turns", async () => {
