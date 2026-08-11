@@ -348,7 +348,7 @@ export function MeetingSetupComposer({
   starting: boolean;
 }) {
   return (
-    <MeetingRecordingComposerFrame>
+    <MeetingRecordingComposerFrame className="mb-2">
       <div className="grid min-w-0 gap-1">
         <div className="flex min-w-0 items-center gap-2">
           <ComposerTrackMetersScroll>

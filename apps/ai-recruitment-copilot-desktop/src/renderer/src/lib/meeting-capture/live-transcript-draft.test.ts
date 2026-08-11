@@ -1,11 +1,51 @@
 // oxlint-disable promise/avoid-new, promise/prefer-await-to-callbacks -- Deferred provider callbacks are the behavior under test.
 import { describe, expect, it, vi } from "vitest";
 import { createLiveTranscriptDraft } from "./live-transcript-draft";
-import type { LiveTranscriptConnection, LiveTranscriptPcmTap } from "./live-transcript-draft";
+import type {
+  LiveTranscriptConnection,
+  LiveTranscriptEvent,
+  LiveTranscriptPcmTap,
+} from "./live-transcript-draft";
 
 const CAPTURE_ID = "00000000-0000-4000-8000-000000000077";
 
 describe("Live Transcript Draft", () => {
+  it("replaces cumulative provider snapshots instead of appending repeated prefixes", async () => {
+    const events = new Map<"microphone" | "system", (event: LiveTranscriptEvent) => void>();
+    const draft = createLiveTranscriptDraft({
+      authorize: ({ track }) =>
+        Promise.resolve({
+          clientSecret: `secret-${track}`,
+          expiresAt: "2026-08-09T01:21:00.000Z",
+          model: "qwen3-asr-flash-realtime",
+          provider: "qwen",
+          track,
+        }),
+      connect: ({ authorization, onTranscript }) => {
+        events.set(authorization.track, onTranscript);
+        return Promise.resolve({ close: vi.fn(), sendPcm: vi.fn().mockReturnValue(true) });
+      },
+      createPcmTap: () => Promise.resolve({ stop: vi.fn() }),
+    });
+
+    await draft.start({
+      captureId: CAPTURE_ID,
+      tracks: { microphone: {} as MediaStreamTrack, system: {} as MediaStreamTrack },
+    });
+    const onTranscript = events.get("microphone");
+    onTranscript?.({ itemId: "item-1", text: "Thank", type: "snapshot" });
+    onTranscript?.({ itemId: "item-1", text: "Thank you", type: "snapshot" });
+
+    expect(draft.getSnapshot().turns).toEqual([
+      expect.objectContaining({ final: false, text: "Thank you" }),
+    ]);
+
+    onTranscript?.({ itemId: "item-1", text: "Thank you.", type: "completed" });
+    expect(draft.getSnapshot().turns).toEqual([
+      expect.objectContaining({ final: true, text: "Thank you." }),
+    ]);
+  });
+
   it("keeps a bounded sidecar queue and treats provider backpressure as draft-only", async () => {
     const frameCallbacks = new Map<string, (frame: Int16Array) => void>();
     const writableCallbacks: (() => void)[] = [];
@@ -61,11 +101,7 @@ describe("Live Transcript Draft", () => {
 
   it("creates a new section on reconnect without rewriting prior draft turns", async () => {
     const disconnects: ((reason: string) => void)[] = [];
-    const events: ((event: {
-      itemId: string;
-      text: string;
-      type: "completed" | "delta";
-    }) => void)[] = [];
+    const events: ((event: LiveTranscriptEvent) => void)[] = [];
     const scheduled: (() => void)[] = [];
     const draft = createLiveTranscriptDraft({
       authorize: ({ track }) =>

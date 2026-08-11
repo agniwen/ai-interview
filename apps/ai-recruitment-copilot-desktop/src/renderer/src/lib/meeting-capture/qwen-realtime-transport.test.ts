@@ -15,12 +15,13 @@ const AUTHORIZATION: MeetingLiveTranscriptAuthorization = {
 interface TranscriptEvent {
   itemId: string;
   text: string;
-  type: "completed" | "delta";
+  type: "completed" | "delta" | "snapshot";
 }
 
 let serverPort: MessagePort | null = null;
 let postedHandshake: unknown = null;
 let receivedPcm: Uint8Array[] = [];
+let acknowledgePcm = false;
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -28,6 +29,7 @@ beforeEach(() => {
   serverPort = null;
   postedHandshake = null;
   receivedPcm = [];
+  acknowledgePcm = false;
   vi.stubGlobal("window", {
     postMessage: (message: unknown, _targetOrigin: string, transfer: MessagePort[]) => {
       postedHandshake = message;
@@ -36,6 +38,12 @@ beforeEach(() => {
         const data = event.data as { type?: string };
         if (data?.type === "pcm" && event.data.bytes instanceof Uint8Array) {
           receivedPcm.push(event.data.bytes);
+          if (acknowledgePcm) {
+            serverPort?.postMessage(
+              { byteLength: event.data.bytes.byteLength, type: "pcm-ack" },
+              [],
+            );
+          }
         }
       });
     },
@@ -79,8 +87,20 @@ describe("connectQwenRealtimeTranscription", () => {
       {
         event: {
           item_id: "item-1",
-          stash: "天气",
-          text: "今天",
+          stash: "Thank",
+          text: "",
+          type: "conversation.item.input_audio_transcription.text",
+        },
+        type: "event",
+      },
+      [],
+    );
+    serverPort?.postMessage(
+      {
+        event: {
+          item_id: "item-1",
+          stash: " you",
+          text: "Thank",
           type: "conversation.item.input_audio_transcription.text",
         },
         type: "event",
@@ -100,7 +120,8 @@ describe("connectQwenRealtimeTranscription", () => {
     );
     await tick();
     expect(transcripts).toEqual([
-      { itemId: "item-1", text: "今天天气", type: "delta" },
+      { itemId: "item-1", text: "Thank", type: "snapshot" },
+      { itemId: "item-1", text: "Thank you", type: "snapshot" },
       { itemId: "item-2", text: "今天天气怎么样", type: "completed" },
     ]);
     connection.close();
@@ -117,7 +138,7 @@ describe("connectQwenRealtimeTranscription", () => {
     connection.close();
   });
 
-  it("resamples 24k frames to 16k and enforces in-flight backpressure until drain", async () => {
+  it("resamples 24k frames to 16k and enforces in-flight backpressure until acknowledged", async () => {
     const { connection, writableCalls } = await openConnection();
     const frame = new Int16Array(2400);
     for (let index = 0; index < frame.length; index += 1) {
@@ -135,11 +156,42 @@ describe("connectQwenRealtimeTranscription", () => {
     expect(accepted).toBeLessThan(200);
     const last = receivedPcm.at(-1);
     expect(last?.byteLength).toBe(1600 * 2);
-    const drainedBefore = writableCalls.length;
+    const writableBefore = writableCalls.length;
+    serverPort?.postMessage(
+      { byteLength: accepted * (last?.byteLength ?? 0), type: "pcm-ack" },
+      [],
+    );
+    await tick();
+    expect(writableCalls.length).toBeGreaterThan(writableBefore);
+    expect(connection.sendPcm(frame)).toBe(true);
+    connection.close();
+  });
+
+  it("pauses on provider backpressure and resumes after drain", async () => {
+    const { connection } = await openConnection();
+    const frame = new Int16Array(2400);
+
+    serverPort?.postMessage({ type: "backpressure" }, []);
+    await tick();
+    expect(connection.sendPcm(frame)).toBe(false);
+
     serverPort?.postMessage({ type: "drain" }, []);
     await tick();
-    expect(writableCalls.length).toBeGreaterThan(drainedBefore);
     expect(connection.sendPcm(frame)).toBe(true);
+    connection.close();
+  });
+
+  it("keeps accepting PCM when the main process acknowledges normally consumed frames", async () => {
+    acknowledgePcm = true;
+    const { connection } = await openConnection();
+    const frame = new Int16Array(2400);
+
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      expect(connection.sendPcm(frame)).toBe(true);
+      await tick();
+    }
+
+    expect(receivedPcm).toHaveLength(100);
     connection.close();
   });
 

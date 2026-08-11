@@ -42,6 +42,12 @@ export interface LiveTranscriptConnection {
   sendPcm: (frame: Int16Array) => boolean;
 }
 
+export interface LiveTranscriptEvent {
+  itemId: string;
+  text: string;
+  type: "completed" | "delta" | "snapshot";
+}
+
 export interface LiveTranscriptPcmTap {
   stop: () => void;
 }
@@ -55,7 +61,7 @@ interface LiveTranscriptDraftDependencies {
   connect: (input: {
     authorization: MeetingLiveTranscriptAuthorization;
     onDisconnect: (reason: string) => void;
-    onTranscript: (event: { itemId: string; text: string; type: "completed" | "delta" }) => void;
+    onTranscript: (event: LiveTranscriptEvent) => void;
     onWritable: () => void;
   }) => Promise<LiveTranscriptConnection>;
   createPcmTap: (input: {
@@ -373,7 +379,7 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
   const appendTranscript = (
     track: MeetingLiveTranscriptTrack,
     sectionId: string,
-    event: { itemId: string; text: string; type: "completed" | "delta" },
+    event: LiveTranscriptEvent,
   ) => {
     const id = `${sectionId}:${event.itemId}`;
     const index = snapshot.turns.findIndex((turn) => turn.id === id);
@@ -391,7 +397,7 @@ export function createLiveTranscriptDraft(dependencies: LiveTranscriptDraftDepen
       turns[index] = {
         ...current,
         final: event.type === "completed",
-        text: (event.type === "completed" ? event.text : `${current.text}${event.text}`).slice(
+        text: (event.type === "delta" ? `${current.text}${event.text}` : event.text).slice(
           0,
           MAX_DRAFT_TURN_CHARS,
         ),

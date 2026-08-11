@@ -11,7 +11,7 @@ interface FakeWebSocketInstance {
   url: string;
   onclose: ((code: number, reason: Buffer) => void) | null;
   onerror: ((event: { message?: string }) => void) | null;
-  onmessage: ((data: string) => void) | null;
+  onmessage: ((data: Buffer | string, isBinary: boolean) => void) | null;
   onopen: (() => void) | null;
   terminate: ReturnType<typeof vi.fn>;
   close: () => void;
@@ -30,7 +30,7 @@ const mocks = vi.hoisted(() => {
     sent: string[] = [];
     onclose: ((code: number, reason: Buffer) => void) | null = null;
     onerror: ((event: { message?: string }) => void) | null = null;
-    onmessage: ((data: string) => void) | null = null;
+    onmessage: ((data: Buffer | string, isBinary: boolean) => void) | null = null;
     onopen: (() => void) | null = null;
     terminate = vi.fn();
     readonly url: string;
@@ -56,7 +56,7 @@ const mocks = vi.hoisted(() => {
         this.onopen = callback as () => void;
       }
       if (event === "message") {
-        this.onmessage = callback as (data: string) => void;
+        this.onmessage = callback as (data: Buffer | string, isBinary: boolean) => void;
       }
       if (event === "error") {
         this.onerror = callback as (event: { message?: string }) => void;
@@ -173,10 +173,13 @@ describe("connectDashScopeRealtimeWs", () => {
     const { connection, dependencies, instance } = createConnection();
     instance.onopen?.();
     instance.onmessage?.(
-      JSON.stringify({
-        transcript: "你好",
-        type: "conversation.item.input_audio_transcription.completed",
-      }),
+      Buffer.from(
+        JSON.stringify({
+          transcript: "你好",
+          type: "conversation.item.input_audio_transcription.completed",
+        }),
+      ),
+      false,
     );
     expect(dependencies.onEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: "conversation.item.input_audio_transcription.completed" }),

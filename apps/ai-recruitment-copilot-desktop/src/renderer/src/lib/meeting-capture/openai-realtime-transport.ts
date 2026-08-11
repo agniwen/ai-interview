@@ -1,6 +1,6 @@
 // oxlint-disable promise/avoid-new -- RTCDataChannel readiness is exposed only through DOM events.
 import type { MeetingLiveTranscriptAuthorization } from "@arc/shared/meeting-transcription";
-import type { LiveTranscriptConnection } from "./live-transcript-draft";
+import type { LiveTranscriptConnection, LiveTranscriptEvent } from "./live-transcript-draft";
 
 const MAX_DATA_CHANNEL_BUFFERED_BYTES = 256 * 1024;
 const DATA_CHANNEL_LOW_WATER_BYTES = 64 * 1024;
@@ -53,7 +53,7 @@ export async function connectOpenAiRealtimeTranscription(input: {
   authorization: MeetingLiveTranscriptAuthorization;
   fetch?: typeof globalThis.fetch;
   onDisconnect: (reason: string) => void;
-  onTranscript: (event: { itemId: string; text: string; type: "completed" | "delta" }) => void;
+  onTranscript: (event: LiveTranscriptEvent) => void;
   onWritable: () => void;
 }): Promise<LiveTranscriptConnection> {
   const fetch = input.fetch ?? globalThis.fetch;

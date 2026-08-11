@@ -158,7 +158,11 @@ export function registerLiveTranscriptIpc(): void {
     });
     port.on("message", ({ data }: { data: unknown }) => {
       if (isPcmFrame(data)) {
-        connection?.sendPcm(data.bytes);
+        const accepted = connection?.sendPcm(data.bytes) ?? false;
+        if (!accepted) {
+          deliver({ type: "backpressure" });
+        }
+        deliver({ byteLength: data.bytes.byteLength, type: "pcm-ack" });
         return;
       }
       if (isCloseMessage(data)) {

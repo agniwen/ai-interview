@@ -97,12 +97,12 @@ export function connectDashScopeRealtimeWs(
     sendJson({ event_id: randomUUID(), session, type: "session.update" });
   });
 
-  socket.on("message", (data) => {
-    if (typeof data !== "string") {
+  socket.on("message", (data, isBinary) => {
+    if (isBinary) {
       return;
     }
     try {
-      dependencies.onEvent?.(JSON.parse(data) as unknown);
+      dependencies.onEvent?.(JSON.parse(data.toString()) as unknown);
     } catch {
       // Ignore malformed provider events without failing the sidecar.
     }

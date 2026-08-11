@@ -1,6 +1,6 @@
 // oxlint-disable promise/avoid-new -- The IPC handshake is confirmed by the first provider event.
 import type { MeetingLiveTranscriptAuthorization } from "@arc/shared/meeting-transcription";
-import type { LiveTranscriptConnection } from "./live-transcript-draft";
+import type { LiveTranscriptConnection, LiveTranscriptEvent } from "./live-transcript-draft";
 
 const WORKLET_SAMPLE_RATE = 24_000;
 const DASHSCOPE_SAMPLE_RATE = 16_000;
@@ -16,6 +16,7 @@ interface DashScopeServerEvent {
 }
 
 interface PortMessage {
+  byteLength?: number;
   event?: DashScopeServerEvent;
   reason?: string;
   type?: string;
@@ -46,13 +47,13 @@ function handleDashScopeEvent(
   event: DashScopeServerEvent,
   input: {
     onDisconnect: (reason: string) => void;
-    onTranscript: (event: { itemId: string; text: string; type: "completed" | "delta" }) => void;
+    onTranscript: (event: LiveTranscriptEvent) => void;
   },
 ): void {
   if (event.type === "conversation.item.input_audio_transcription.text") {
     if (typeof event.item_id === "string") {
       const text = [event.text, event.stash].filter((part) => typeof part === "string").join("");
-      input.onTranscript({ itemId: event.item_id, text, type: "delta" });
+      input.onTranscript({ itemId: event.item_id, text, type: "snapshot" });
     }
     return;
   }
@@ -82,15 +83,29 @@ function handleDashScopeEvent(
 export async function connectQwenRealtimeTranscription(input: {
   authorization: MeetingLiveTranscriptAuthorization;
   onDisconnect: (reason: string) => void;
-  onTranscript: (event: { itemId: string; text: string; type: "completed" | "delta" }) => void;
+  onTranscript: (event: LiveTranscriptEvent) => void;
   onWritable: () => void;
 }): Promise<LiveTranscriptConnection> {
   const { port1: clientPort, port2: serverPort } = new MessageChannel();
   let inFlightBytes = 0;
+  let backpressured = false;
+  let blockedFrameBytes = 0;
   let closing = false;
+  let providerWritable = true;
   const disconnect = (reason: string) => {
     if (!closing) {
       input.onDisconnect(reason);
+    }
+  };
+  const resumeIfWritable = () => {
+    if (
+      backpressured &&
+      providerWritable &&
+      inFlightBytes + blockedFrameBytes <= MAX_INFLIGHT_BYTES
+    ) {
+      backpressured = false;
+      blockedFrameBytes = 0;
+      input.onWritable();
     }
   };
 
@@ -138,9 +153,23 @@ export async function connectQwenRealtimeTranscription(input: {
       });
       return;
     }
+    if (
+      message.type === "pcm-ack" &&
+      typeof message.byteLength === "number" &&
+      Number.isSafeInteger(message.byteLength) &&
+      message.byteLength > 0
+    ) {
+      inFlightBytes = Math.max(0, inFlightBytes - message.byteLength);
+      resumeIfWritable();
+      return;
+    }
+    if (message.type === "backpressure") {
+      providerWritable = false;
+      return;
+    }
     if (message.type === "drain") {
-      inFlightBytes = 0;
-      input.onWritable();
+      providerWritable = true;
+      resumeIfWritable();
       return;
     }
     if (message.type === "close") {
@@ -179,12 +208,14 @@ export async function connectQwenRealtimeTranscription(input: {
       }
       const resampled = resamplePcm16(frame, WORKLET_SAMPLE_RATE, DASHSCOPE_SAMPLE_RATE);
       const bytes = new Uint8Array(resampled.buffer, resampled.byteOffset, resampled.byteLength);
-      if (inFlightBytes + bytes.byteLength > MAX_INFLIGHT_BYTES) {
+      if (!providerWritable || inFlightBytes + bytes.byteLength > MAX_INFLIGHT_BYTES) {
+        backpressured = true;
+        blockedFrameBytes = bytes.byteLength;
         return false;
       }
-      inFlightBytes += bytes.byteLength;
       try {
         clientPort.postMessage({ bytes, type: "pcm" }, []);
+        inFlightBytes += bytes.byteLength;
         return true;
       } catch {
         return false;

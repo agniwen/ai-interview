@@ -119,11 +119,22 @@ describe("registerLiveTranscriptIpc", () => {
     const connection = mocks.connectDashScopeRealtimeWs.mock.results[0]?.value as
       | DashScopeRealtimeWsConnection
       | undefined;
+    if (!connection) {
+      throw new Error("expected a DashScope connection");
+    }
     port.emit("message", { data: { bytes: new Uint8Array([1, 2, 3]), type: "pcm" } });
-    expect(connection?.sendPcm).toHaveBeenCalledWith(new Uint8Array([1, 2, 3]));
+    expect(connection.sendPcm).toHaveBeenCalledWith(new Uint8Array([1, 2, 3]));
+    expect(port.posted).toContainEqual({ byteLength: 3, type: "pcm-ack" });
+
+    vi.mocked(connection.sendPcm).mockReturnValueOnce(false);
+    port.emit("message", { data: { bytes: new Uint8Array([4, 5]), type: "pcm" } });
+    expect(port.posted.slice(-2)).toEqual([
+      { type: "backpressure" },
+      { byteLength: 2, type: "pcm-ack" },
+    ]);
 
     port.emit("message", { data: { type: "close" } });
-    expect(connection?.close).toHaveBeenCalled();
+    expect(connection.close).toHaveBeenCalled();
     expect(port.close).toHaveBeenCalled();
   });
 
