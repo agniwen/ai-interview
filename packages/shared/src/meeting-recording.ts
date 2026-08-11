@@ -167,6 +167,10 @@ export type MeetingAccessRole = "administrator" | "editor" | "owner" | "viewer";
 export type MeetingGrantRole = "editor" | "viewer";
 export type MeetingVisibility = "restricted" | "workspace";
 
+export const updateMeetingMetadataSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+});
+
 export const updateMeetingShareSchema = z
   .object({
     grants: z
@@ -214,6 +218,7 @@ export const updateMeetingNoteSchema = z
   });
 
 export type UpdateMeetingShareInput = z.infer<typeof updateMeetingShareSchema>;
+export type UpdateMeetingMetadataInput = z.infer<typeof updateMeetingMetadataSchema>;
 export type UpdateMeetingRecruitingContextInput = z.infer<
   typeof updateMeetingRecruitingContextSchema
 >;

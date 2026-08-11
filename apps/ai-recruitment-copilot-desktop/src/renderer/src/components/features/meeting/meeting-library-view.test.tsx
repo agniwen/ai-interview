@@ -80,7 +80,8 @@ describe("Meeting Library views", () => {
     expect(html).toContain("处理中");
     expect(html).toContain('aria-label="会议记录表格"');
     expect(html).toContain('data-variant="default"');
-    expect(html).toContain("录制记录-2608091200");
+    expect(html).toContain("录制记录");
+    expect(html).not.toContain("录制记录-2608091200");
     expect(html).toContain("Alice");
     expect(html).toContain("01:02");
   });

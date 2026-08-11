@@ -37,8 +37,6 @@ export const DEFAULT_DATE_FORMAT = "YY/MM/DD";
 /** Auto-generated meeting titles embed `YYMMDDHHmm` after this prefix. */
 export const DEFAULT_MEETING_TITLE_PREFIX = "录制记录-";
 
-const AUTO_MEETING_TITLE_RE = /^录制记录-\d{10}$/;
-
 /**
  * `formatRelativeTime` 内部使用的时间单位阈值。
  * Threshold table used by `formatRelativeTime`.
@@ -117,17 +115,11 @@ export function formatDefaultMeetingTitle(
 }
 
 /**
- * 侧栏/列表展示用标题：自动标题按 savedAt 重算东八区，自定义标题原样返回。
- * Display title: re-derive auto titles from savedAt in Asia/Shanghai; keep custom titles.
+ * 会议展示标题：移除自动附加的 `-YYMMDDHHmm` 后缀。
+ * Meeting display title: remove the automatically appended `-YYMMDDHHmm` suffix.
  */
-export function meetingDisplayTitle(
-  title: string,
-  savedAt: string | number | Date | null | undefined,
-): string {
-  if (AUTO_MEETING_TITLE_RE.test(title)) {
-    return formatDefaultMeetingTitle(savedAt);
-  }
-  return title;
+export function meetingDisplayTitle(title: string): string {
+  return title.replace(/-\d{10}$/, "");
 }
 
 /**

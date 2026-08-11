@@ -1,5 +1,7 @@
+import { useLayoutEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { Icon } from "@/components/ui/icon";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import type {
   LiveTranscriptDraftSnapshot,
   LiveTranscriptDraftStatus,
@@ -15,10 +17,18 @@ const STATUS_LABEL: Record<Exclude<LiveTranscriptDraftStatus, "idle">, string> =
   starting: "starting",
 };
 
-const TRACK_LABEL = {
-  microphone: "我的麦克风",
-  system: "系统音频",
-} as const;
+const AUTO_FOLLOW_BOTTOM_THRESHOLD_PX = 80;
+
+export function shouldFollowLiveTranscript(viewport: {
+  clientHeight: number;
+  scrollHeight: number;
+  scrollTop: number;
+}): boolean {
+  return (
+    viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <
+    AUTO_FOLLOW_BOTTOM_THRESHOLD_PX
+  );
+}
 
 function statusIcon(status: Exclude<LiveTranscriptDraftStatus, "idle">): string {
   if (status === "live") {
@@ -44,86 +54,108 @@ export function LiveTranscriptDraftPanel({
   emptyHint?: string;
 }) {
   const status = snapshot.status === "idle" ? "starting" : snapshot.status;
-  const sections = new Map(snapshot.sections.map((section) => [section.id, section]));
-  let previousSectionId: string | null = null;
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const shouldFollowRef = useRef(true);
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    if (viewport && shouldFollowRef.current) {
+      viewport.scrollTop = viewport.scrollHeight;
+    }
+  }, [snapshot.turns]);
+
+  const droppedWarning =
+    snapshot.droppedPcmFrames > 0 ? (
+      <p className="text-[11px] text-muted-foreground">
+        本段实时字幕可能遗漏约 {Math.round(snapshot.droppedAudioMs)} ms；本地录音未受影响。
+      </p>
+    ) : null;
 
   return (
-    <section className={cn("flex min-h-full flex-col gap-3", className)}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5">
-          <p className="font-medium text-sm">实时字幕</p>
-          <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 font-medium text-[10px] text-amber-700 dark:text-amber-300">
-            provisional
+    <section className={cn("flex h-full min-h-0 flex-col gap-3", className)}>
+      <div className="container mx-auto grid max-w-3xl gap-3 px-4 sm:px-6">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5">
+            <p className="font-medium text-sm">实时字幕</p>
+            <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 font-medium text-[10px] text-amber-700 dark:text-amber-300">
+              草稿
+            </span>
+          </div>
+          <span
+            aria-label={status === "live" ? "实时字幕状态：实时" : undefined}
+            className={cn(
+              "flex items-center gap-1 text-[11px] text-muted-foreground",
+              status === "live" && "text-emerald-600 dark:text-emerald-400",
+              ["buffering", "degraded"].includes(status) && "text-amber-600 dark:text-amber-400",
+              status === "interrupted" && "text-destructive",
+            )}
+          >
+            <Icon
+              aria-hidden
+              className={cn(
+                "size-3.5",
+                ["starting", "reconnecting"].includes(status) && "animate-spin",
+              )}
+              icon={statusIcon(status)}
+            />
+            {status === "live" ? null : STATUS_LABEL[status]}
           </span>
         </div>
-        <span
-          className={cn(
-            "flex items-center gap-1 text-[11px] text-muted-foreground",
-            status === "live" && "text-emerald-600 dark:text-emerald-400",
-            ["buffering", "degraded"].includes(status) && "text-amber-600 dark:text-amber-400",
-            status === "interrupted" && "text-destructive",
-          )}
-        >
-          <Icon
+        {snapshot.error ? (
+          <p
             className={cn(
-              "size-3.5",
-              ["starting", "reconnecting"].includes(status) && "animate-spin",
+              "text-xs",
+              status === "degraded" ? "text-amber-700 dark:text-amber-300" : "text-destructive",
             )}
-            icon={statusIcon(status)}
-          />
-          {STATUS_LABEL[status]}
-        </span>
+          >
+            {snapshot.error}
+          </p>
+        ) : null}
+        {status === "buffering" ? (
+          <p className="text-amber-600 text-xs dark:text-amber-400">
+            字幕延迟约 {(snapshot.queuedAudioMs / 1000).toFixed(1)} 秒，正在追赶…
+          </p>
+        ) : null}
       </div>
-      {snapshot.error ? (
-        <p
-          className={cn(
-            "text-xs",
-            status === "degraded" ? "text-amber-700 dark:text-amber-300" : "text-destructive",
-          )}
-        >
-          {snapshot.error}
-        </p>
-      ) : null}
-      {status === "buffering" ? (
-        <p className="text-amber-600 text-xs dark:text-amber-400">
-          字幕延迟约 {(snapshot.queuedAudioMs / 1000).toFixed(1)} 秒，正在追赶…
-        </p>
-      ) : null}
-      {snapshot.turns.length > 0 ? (
-        <div className="grid flex-1 gap-3 pr-1" aria-live="polite">
-          {snapshot.turns.map((turn) => {
-            const section = sections.get(turn.sectionId);
-            const showSection = turn.sectionId !== previousSectionId;
-            previousSectionId = turn.sectionId;
-            return (
-              <div className="grid gap-1" key={turn.id}>
-                {showSection && section ? (
-                  <p className="pt-2 text-[11px] text-muted-foreground first:pt-0">
-                    草稿区段 {section.sequence + 1} · {TRACK_LABEL[section.track]}
-                  </p>
-                ) : null}
-                <p
-                  className={cn(
-                    "text-sm leading-relaxed",
-                    !turn.final && "text-muted-foreground italic",
-                  )}
-                >
-                  {turn.text}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="flex flex-1 items-center justify-center px-4 py-16">
-          <p className="text-center text-muted-foreground text-sm">{emptyHint}</p>
-        </div>
-      )}
-      {snapshot.droppedPcmFrames > 0 ? (
-        <p className="text-[11px] text-muted-foreground">
-          本段实时字幕可能遗漏约 {Math.round(snapshot.droppedAudioMs)} ms；本地录音未受影响。
-        </p>
-      ) : null}
+      <ScrollArea
+        className="min-h-0 flex-1"
+        orientation="vertical"
+        scrollFade
+        scrollbars="leave"
+        viewportProps={{
+          onScroll: (event) => {
+            shouldFollowRef.current = shouldFollowLiveTranscript(event.currentTarget);
+          },
+        }}
+        viewportRef={viewportRef}
+      >
+        {snapshot.turns.length > 0 ? (
+          <div
+            className="container mx-auto grid max-w-3xl gap-3 px-4 pb-20 sm:px-6"
+            aria-live="polite"
+          >
+            {snapshot.turns.map((turn) => (
+              <p
+                className={cn(
+                  "text-sm leading-relaxed",
+                  !turn.final && "text-muted-foreground italic",
+                )}
+                key={turn.id}
+              >
+                {turn.text}
+              </p>
+            ))}
+            {droppedWarning}
+          </div>
+        ) : (
+          <div className="container mx-auto flex min-h-full max-w-3xl flex-col px-4 pb-20 sm:px-6">
+            <div className="flex flex-1 items-center justify-center py-16">
+              <p className="text-center text-muted-foreground text-sm">{emptyHint}</p>
+            </div>
+            {droppedWarning}
+          </div>
+        )}
+      </ScrollArea>
     </section>
   );
 }
@@ -140,11 +172,13 @@ export function MeetingTranscriptIdleStage({
   className?: string;
 }) {
   return (
-    <section className={cn("flex min-h-full flex-col gap-6", className)}>
+    <section
+      className={cn(
+        "container mx-auto flex min-h-full max-w-3xl flex-col gap-6 px-4 pb-20 sm:px-6",
+        className,
+      )}
+    >
       {children}
-      <div className="flex flex-1 items-center justify-center px-6 py-16">
-        <p className="text-muted-foreground text-sm">实时字幕</p>
-      </div>
     </section>
   );
 }

@@ -4,6 +4,7 @@ import {
   completeSmallSavedMeetingSchema,
   createMultipartSavedMeetingSchema,
   createSmallSavedMeetingSchema,
+  updateMeetingMetadataSchema,
 } from "@arc/shared/meeting-recording";
 import { factory, jsonValidatorError } from "@arc/ai-recruitment-copilot-backend/server/factory";
 import {
@@ -13,6 +14,7 @@ import {
   getSavedMeetingDetail,
   heartbeatSavedMeetingUpload,
   listSavedMeetings,
+  renameSavedMeeting,
 } from "./service";
 import { permanentlyPurgeSavedMeeting } from "./lifecycle-service";
 import { meetingPlaybackRouter } from "./routes/playback/route";
@@ -164,6 +166,30 @@ export const meetingsRouter = factory
   .route("/:id/transcript", meetingTranscriptRouter)
   .route("/:id/trash", meetingTrashActionRouter)
   .route("/:id/restore", meetingRestoreRouter)
+  .patch(
+    "/:id",
+    zValidator("json", updateMeetingMetadataSchema, jsonValidatorError("会议名称无效")),
+    async (c) => {
+      const { activeOrg, member, user } = c.var;
+      if (!(activeOrg && member && user)) {
+        return c.json({ message: "Unauthorized" }, 401);
+      }
+      const result = await renameSavedMeeting({
+        meetingId: c.req.param("id"),
+        memberRole: member.role,
+        organizationId: activeOrg.id,
+        title: c.req.valid("json").title,
+        userId: user.id,
+      });
+      if (!result) {
+        return c.json({ error: "Meeting Session 不存在" }, 404);
+      }
+      if (result === "forbidden") {
+        return c.json({ error: "只有 Meeting Owner 或 Workspace 管理员可以修改会议名称" }, 403);
+      }
+      return c.json(result, 200);
+    },
+  )
   .delete(
     "/:id",
     zValidator("query", purgeMeetingQuerySchema, jsonValidatorError("永久清除参数无效")),

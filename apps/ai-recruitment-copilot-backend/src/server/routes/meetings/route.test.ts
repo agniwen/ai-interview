@@ -36,6 +36,7 @@ const mocks = vi.hoisted(() => ({
   regenerateSavedMeetingIntelligence: vi.fn(),
   releaseWorkspaceMeetingLiveTranscript: vi.fn(),
   removeMeetingNote: vi.fn(),
+  renameSavedMeeting: vi.fn(),
   restoreSavedMeeting: vi.fn(),
   retryMeetingPlayback: vi.fn(),
   retrySavedMeetingTranscription: vi.fn(),
@@ -340,6 +341,25 @@ describe("Meeting Buddy small Saved Meeting control plane", () => {
       meetingId: MEETING_ID,
       memberRole: "admin",
       organizationId: "org-72",
+      userId: "user-72",
+    });
+  });
+
+  it("renames an authorized meeting with validated metadata", async () => {
+    mocks.renameSavedMeeting.mockResolvedValue({ title: "产品复盘" });
+
+    const response = await client.meetings[":id"].$patch({
+      json: { title: "产品复盘" },
+      param: { id: MEETING_ID },
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ title: "产品复盘" });
+    expect(mocks.renameSavedMeeting).toHaveBeenCalledWith({
+      meetingId: MEETING_ID,
+      memberRole: "admin",
+      organizationId: "org-72",
+      title: "产品复盘",
       userId: "user-72",
     });
   });

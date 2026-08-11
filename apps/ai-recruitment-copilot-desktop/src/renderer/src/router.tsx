@@ -56,7 +56,7 @@ async function requireSession() {
 async function redirectIfAuthenticated() {
   const session = await authClient.getSession();
   if (session.data) {
-    throw redirect({ to: "/" });
+    throw redirect({ to: "/meetings/new" });
   }
 }
 
@@ -98,9 +98,17 @@ const appRoute = createRoute({
 });
 
 const indexRoute = createRoute({
-  component: HomePage,
+  beforeLoad: () => {
+    throw redirect({ replace: true, to: "/meetings/new" });
+  },
   getParentRoute: () => appRoute,
   path: "/",
+});
+
+const recruitmentRoute = createRoute({
+  component: HomePage,
+  getParentRoute: () => appRoute,
+  path: "/recruitment",
 });
 
 const resumeDetailRoute = createRoute({
@@ -190,6 +198,7 @@ const routeTree = rootRoute.addChildren([
   authCallbackRoute,
   appRoute.addChildren([
     indexRoute,
+    recruitmentRoute,
     meetingLibraryRoute,
     meetingNewRoute,
     meetingDetailRoute,

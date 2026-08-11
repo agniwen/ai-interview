@@ -173,7 +173,7 @@ export function MeetingDetailPage({ meetingId }: { meetingId: string; seekToSeco
     );
   }
 
-  const title = meeting ? meetingDisplayTitle(meeting.title, meeting.savedAt) : "本地录音";
+  const title = meeting ? meetingDisplayTitle(meeting.title) : "本地录音";
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4 pb-10 sm:px-6">

@@ -312,10 +312,6 @@ export function NewMeetingRecordingPage({
       }
       main={
         <MeetingTranscriptIdleStage>
-          <div className="space-y-2">
-            <h1 className="font-semibold text-xl tracking-tight">新建会议录制</h1>
-          </div>
-
           {linkRecruiting ? (
             <MeetingRecruitingLinkSection
               deferredSearch={deferredSearch}

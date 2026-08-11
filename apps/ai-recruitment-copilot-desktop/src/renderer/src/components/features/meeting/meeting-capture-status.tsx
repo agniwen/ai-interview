@@ -321,7 +321,7 @@ export function MeetingCaptureComposer({
               className={cn("size-4", snapshot.phase === "saving" && "animate-spin")}
               icon={snapshot.phase === "saving" ? "ph:circle-notch" : "ph:stop-fill"}
             />
-            {snapshot.phase === "saving" ? "保存中…" : "结束录制"}
+            {snapshot.phase === "saving" ? "保存中…" : "结束"}
           </Button>
         </div>
         {snapshot.error ? (
@@ -348,7 +348,7 @@ export function MeetingSetupComposer({
   starting: boolean;
 }) {
   return (
-    <MeetingRecordingComposerFrame className="mb-2">
+    <MeetingRecordingComposerFrame>
       <div className="grid min-w-0 gap-1">
         <div className="flex min-w-0 items-center gap-2">
           <ComposerTrackMetersScroll>
@@ -371,7 +371,7 @@ export function MeetingSetupComposer({
               className={cn("size-4", starting && "animate-spin")}
               icon={starting ? "ph:circle-notch" : "ph:record-fill"}
             />
-            {starting ? "请求权限…" : "开始录制"}
+            {starting ? "请求权限…" : "开始"}
           </Button>
         </div>
         {error ? <p className="truncate px-1 text-[11px] text-destructive">{error}</p> : null}

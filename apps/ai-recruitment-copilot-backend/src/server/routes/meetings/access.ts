@@ -38,6 +38,7 @@ export function meetingAccessCapabilities(role: MeetingAccessRole) {
     canCorrectTranscript: administrator || owner || editor,
     canCreateNotes: administrator || owner || editor,
     canDeleteMeeting: administrator || owner,
+    canEditMetadata: administrator || owner,
     canEditNotes: administrator || owner || editor,
     canExport: administrator || owner,
     canManageRecruitingContext: administrator || owner,

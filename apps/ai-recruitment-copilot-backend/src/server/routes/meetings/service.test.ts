@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   reassignMeetingOwner: vi.fn(),
   recordMeetingAssetMultipartUploadId: vi.fn(),
   recordMeetingAudit: vi.fn(),
+  renameMeetingSession: vi.fn(),
   renewMeetingDirectUploadLease: vi.fn(),
   replaceMeetingAccessGrants: vi.fn(),
   updateMeetingNote: vi.fn(),
@@ -55,6 +56,7 @@ vi.mock("./dao", () => ({
   reassignMeetingOwner: mocks.reassignMeetingOwner,
   recordMeetingAssetMultipartUploadId: mocks.recordMeetingAssetMultipartUploadId,
   recordMeetingAudit: mocks.recordMeetingAudit,
+  renameMeetingSession: mocks.renameMeetingSession,
   renewMeetingDirectUploadLease: mocks.renewMeetingDirectUploadLease,
   replaceMeetingAccessGrants: mocks.replaceMeetingAccessGrants,
 }));
@@ -78,6 +80,7 @@ import {
   getSavedMeetingDetail,
   heartbeatSavedMeetingUpload,
   listSavedMeetings,
+  renameSavedMeeting,
   retryMeetingPlayback,
 } from "./service";
 // oxlint-disable-next-line import/first -- must follow vi.mock() for hoisting.
@@ -984,6 +987,48 @@ describe("Saved Meeting private read service", () => {
         memberRole: "hr",
         organizationId: "org",
         share: { grants: [], visibility: "restricted" },
+        userId: "editor",
+      }),
+    ).resolves.toBe("forbidden");
+  });
+
+  it("allows only the owner or administrator to rename a meeting", async () => {
+    mocks.loadMeetingSessionForAccess.mockResolvedValue({
+      accessGrantRole: null,
+      assets: baseMeeting.assets,
+      id: "meeting",
+      ownerId: "owner",
+      status: "ready",
+      visibility: "restricted",
+      workspaceCustodied: false,
+    });
+    mocks.renameMeetingSession.mockResolvedValue({ title: "产品复盘" });
+
+    await expect(
+      renameSavedMeeting({
+        meetingId: "meeting",
+        memberRole: "hr",
+        organizationId: "org",
+        title: "产品复盘",
+        userId: "owner",
+      }),
+    ).resolves.toEqual({ title: "产品复盘" });
+
+    mocks.loadMeetingSessionForAccess.mockResolvedValueOnce({
+      accessGrantRole: "editor",
+      assets: baseMeeting.assets,
+      id: "meeting",
+      ownerId: "owner",
+      status: "ready",
+      visibility: "restricted",
+      workspaceCustodied: false,
+    });
+    await expect(
+      renameSavedMeeting({
+        meetingId: "meeting",
+        memberRole: "hr",
+        organizationId: "org",
+        title: "无权修改",
         userId: "editor",
       }),
     ).resolves.toBe("forbidden");

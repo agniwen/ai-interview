@@ -44,9 +44,7 @@ export function MeetingTrashView({
         <article className="rounded-2xl border border-border/70 p-4" key={meeting.id}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="font-medium text-sm">
-                {meetingDisplayTitle(meeting.title, meeting.savedAt)}
-              </h2>
+              <h2 className="font-medium text-sm">{meetingDisplayTitle(meeting.title)}</h2>
               <p className="mt-1 text-muted-foreground text-xs">
                 {meeting.creator.name} · 将于 {formatAppDateTime(meeting.purgeAfter)} 永久清除
               </p>

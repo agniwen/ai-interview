@@ -128,6 +128,19 @@ export function restoreMeeting(slug: string, meetingId: string): Promise<{ state
   });
 }
 
+export function renameMeeting(
+  slug: string,
+  meetingId: string,
+  title: string,
+): Promise<{ title: string }> {
+  const path = `/api/w/${encodeURIComponent(slug)}/meetings/${encodeURIComponent(meetingId)}`;
+  return apiJson(apiUrl(path), "修改会议名称失败", {
+    body: JSON.stringify({ title }),
+    headers: { "Content-Type": "application/json" },
+    method: "PATCH",
+  });
+}
+
 export async function purgeMeeting(slug: string, meetingId: string): Promise<null> {
   // localRecoveryCleanup 只描述当前设备的清理结果；服务端仍会协调其他设备和持久化对象的清扫。
   // localRecoveryCleanup reports this device only; server purge still coordinates other devices and durable objects.

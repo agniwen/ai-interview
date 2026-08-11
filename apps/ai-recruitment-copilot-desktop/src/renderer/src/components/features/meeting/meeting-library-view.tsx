@@ -50,9 +50,7 @@ function MeetingNameCell({
 }) {
   return (
     <div className="min-w-0">
-      <p className="truncate font-medium text-foreground">
-        {meetingDisplayTitle(meeting.title, meeting.savedAt)}
-      </p>
+      <p className="truncate font-medium text-foreground">{meetingDisplayTitle(meeting.title)}</p>
       <p className="mt-1 truncate text-muted-foreground text-xs">
         {formatMeetingDuration(meeting.durationMs)} ·{" "}
         {meeting.recordingAvailable ? "录音可用" : "录音准备中"}
@@ -234,9 +232,7 @@ export function MeetingDetailView({
   return (
     <Frame>
       <FrameHeader className="justify-between gap-3">
-        <FrameTitle className="truncate">
-          {meetingDisplayTitle(meeting.title, meeting.savedAt)}
-        </FrameTitle>
+        <FrameTitle className="truncate">{meetingDisplayTitle(meeting.title)}</FrameTitle>
         <Badge variant={state.variant}>{state.label}</Badge>
       </FrameHeader>
       <FramePanel className="flex flex-col gap-5">

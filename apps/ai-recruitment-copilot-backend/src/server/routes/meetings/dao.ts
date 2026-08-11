@@ -11,6 +11,7 @@ import {
   user,
 } from "@arc/db-schema/schema";
 import type { MeetingGrantRole, UpdateMeetingShareInput } from "@arc/shared/meeting-recording";
+import { rebuildMeetingSearchProjection } from "./routes/search/dao";
 
 export {
   createOrLoadMeetingSession,
@@ -471,6 +472,60 @@ export async function recordMeetingAudit(input: {
     id: crypto.randomUUID(),
     meetingId: input.meetingId,
     organizationId: input.organizationId,
+  });
+}
+
+export function renameMeetingSession(input: {
+  actorId: string;
+  meetingId: string;
+  organizationId: string;
+  title: string;
+}): Promise<{ title: string } | null> {
+  return db.transaction(async (tx) => {
+    const [current] = await tx
+      .select({ title: meetingSession.title })
+      .from(meetingSession)
+      .where(
+        and(
+          eq(meetingSession.id, input.meetingId),
+          eq(meetingSession.organizationId, input.organizationId),
+          inArray(meetingSession.status, [...LIBRARY_MEETING_STATUSES]),
+        ),
+      )
+      .for("update")
+      .limit(1);
+    if (!current) {
+      return null;
+    }
+    if (current.title === input.title) {
+      return { title: current.title };
+    }
+    const [updated] = await tx
+      .update(meetingSession)
+      .set({ title: input.title })
+      .where(
+        and(
+          eq(meetingSession.id, input.meetingId),
+          eq(meetingSession.organizationId, input.organizationId),
+        ),
+      )
+      .returning({ title: meetingSession.title });
+    if (!updated) {
+      return null;
+    }
+    await rebuildMeetingSearchProjection(tx, {
+      meetingId: input.meetingId,
+      organizationId: input.organizationId,
+    });
+    await tx.insert(meetingAuditLog).values({
+      action: "meeting.renamed",
+      actorId: input.actorId,
+      detail: { previousTitle: current.title, title: updated.title },
+      id: crypto.randomUUID(),
+      meetingId: input.meetingId,
+      organizationId: input.organizationId,
+    });
+    return updated;
   });
 }
 

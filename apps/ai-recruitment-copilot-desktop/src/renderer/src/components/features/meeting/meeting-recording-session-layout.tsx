@@ -4,8 +4,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@arc/shared/utils";
 
 /**
- * Agent-style meeting recording shell: scrollable main stage + fixed bottom composer.
- * 会议录制页壳：上方可滚动主区（字幕），底部固定 composer（电平 + 开始/结束）。
+ * Agent-style meeting recording shell: full-height scroll stage + floating bottom composer.
+ * 会议录制页壳：主区占满并滚动，composer 浮在底部；main 在滚动内容末尾预留展示空间。
  */
 export function MeetingRecordingSessionLayout({
   composer,
@@ -22,18 +22,18 @@ export function MeetingRecordingSessionLayout({
       style={{ height: `calc(100dvh - ${TITLE_BAR_HEIGHT_PX}px)` }}
     >
       <ScrollArea className="min-h-0 flex-1" orientation="vertical">
-        <div className="container mx-auto max-w-5xl min-h-full px-4 pt-4 pb-3 sm:px-6">{main}</div>
+        <div className="h-full min-h-full pt-4">{main}</div>
       </ScrollArea>
-      <div className="shrink-0 px-4 pt-2 pb-3 sm:px-6">
-        <div className="mx-auto w-full max-w-2xl">{composer}</div>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-4 pb-3 sm:px-6">
+        <div className="pointer-events-auto mx-auto w-full max-w-lg">{composer}</div>
       </div>
     </div>
   );
 }
 
 /**
- * Bottom control pill — fully rounded, border only.
- * 底部控制条：全圆角、仅边框。中间区域自行横向滚动，外层勿裁切滚动条。
+ * Bottom control pill — compact white surface with a soft border and elevation.
+ * 底部控制条：紧凑白色表面、全圆角、细边框与轻阴影。中间区域自行横向滚动。
  */
 export function MeetingRecordingComposerFrame({
   children,
@@ -45,7 +45,7 @@ export function MeetingRecordingComposerFrame({
   return (
     <div
       className={cn(
-        "min-w-0 rounded-full border border-border bg-border/80 py-1 pr-1.5 pl-4",
+        "min-w-0 rounded-full border border-border/70 bg-background py-1 pr-1.5 pl-3.5 shadow-[0_2px_10px_rgb(0_0_0/0.07)]",
         className,
       )}
     >

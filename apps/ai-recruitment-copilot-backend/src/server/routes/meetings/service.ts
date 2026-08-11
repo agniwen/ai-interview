@@ -23,6 +23,7 @@ import {
   meetingAcceptsUploadAuthorization,
   recordMeetingAudit,
   recordMeetingAssetMultipartUploadId,
+  renameMeetingSession,
   renewMeetingDirectUploadLease,
 } from "./dao";
 import type {
@@ -673,6 +674,28 @@ export async function getSavedMeetingDetail(input: {
     verifiedAt: meeting.verifiedAt?.toISOString() ?? null,
     workspaceCustodied: meeting.workspaceCustodied,
   };
+}
+
+export async function renameSavedMeeting(input: {
+  meetingId: string;
+  memberRole: string;
+  organizationId: string;
+  title: string;
+  userId: string;
+}): Promise<"forbidden" | { title: string } | null> {
+  const meeting = await loadAuthorizedMeeting(input);
+  if (!meeting) {
+    return null;
+  }
+  if (!meetingAccessCapabilities(meetingRole(meeting, input)).canEditMetadata) {
+    return "forbidden";
+  }
+  return renameMeetingSession({
+    actorId: input.userId,
+    meetingId: input.meetingId,
+    organizationId: input.organizationId,
+    title: input.title,
+  });
 }
 
 export async function createMeetingPlaybackAuthorization(input: {

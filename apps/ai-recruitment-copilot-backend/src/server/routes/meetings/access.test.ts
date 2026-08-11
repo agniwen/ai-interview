@@ -55,10 +55,12 @@ describe("Meeting Access Role", () => {
     expect(meetingAccessCapabilities("viewer")).toMatchObject({
       canCreateNotes: false,
       canDeleteMeeting: false,
+      canEditMetadata: false,
       canEditNotes: false,
       canExport: false,
       canManageSharing: false,
       canRead: true,
     });
+    expect(meetingAccessCapabilities("owner").canEditMetadata).toBe(true);
   });
 });

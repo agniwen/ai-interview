@@ -105,7 +105,7 @@ export function ResumeDetailPage() {
         <Button
           className="mt-4"
           nativeButton={false}
-          render={<Link to="/" />}
+          render={<Link to="/recruitment" />}
           type="button"
           variant="outline"
         >
@@ -143,7 +143,7 @@ export function ResumeDetailPage() {
         <Button
           className="mt-4"
           nativeButton={false}
-          render={<Link to="/" />}
+          render={<Link to="/recruitment" />}
           type="button"
           variant="outline"
         >

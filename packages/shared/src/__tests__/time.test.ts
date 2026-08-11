@@ -88,11 +88,10 @@ describe("formatDefaultMeetingTitle", () => {
     expect(formatDateInAppTimeZone("2026-08-09T04:00:00.000Z", "YYMMDDHHmm")).toBe("2608091200");
   });
 
-  it("re-derives auto titles from savedAt for display", () => {
-    expect(meetingDisplayTitle("录制记录-2608090400", "2026-08-09T04:00:00.000Z")).toBe(
-      "录制记录-2608091200",
-    );
-    expect(meetingDisplayTitle("自定义标题", "2026-08-09T04:00:00.000Z")).toBe("自定义标题");
+  it("removes the generated timestamp suffix from display titles", () => {
+    expect(meetingDisplayTitle("录制记录-2608090400")).toBe("录制记录");
+    expect(meetingDisplayTitle("产品周会-2608090400")).toBe("产品周会");
+    expect(meetingDisplayTitle("自定义标题")).toBe("自定义标题");
   });
 });
 
