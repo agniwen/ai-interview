@@ -9,6 +9,6 @@ describe("MeetingRecordingSessionLayout", () => {
     );
 
     expect(html).toContain('class="relative flex w-full flex-col overflow-hidden"');
-    expect(html).toContain('class="container mx-auto');
+    expect(html).toContain('class="container mx-auto max-w-5xl');
   });
 });

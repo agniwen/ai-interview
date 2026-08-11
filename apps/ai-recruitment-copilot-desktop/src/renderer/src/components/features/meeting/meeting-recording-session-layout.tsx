@@ -22,7 +22,7 @@ export function MeetingRecordingSessionLayout({
       style={{ height: `calc(100dvh - ${TITLE_BAR_HEIGHT_PX}px)` }}
     >
       <ScrollArea className="min-h-0 flex-1" orientation="vertical">
-        <div className="container mx-auto min-h-full px-4 pt-4 pb-3 sm:px-6">{main}</div>
+        <div className="container mx-auto max-w-5xl min-h-full px-4 pt-4 pb-3 sm:px-6">{main}</div>
       </ScrollArea>
       <div className="shrink-0 px-4 pt-2 pb-3 sm:px-6">
         <div className="mx-auto w-full max-w-2xl">{composer}</div>
