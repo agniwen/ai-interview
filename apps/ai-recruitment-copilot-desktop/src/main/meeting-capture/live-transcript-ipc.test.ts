@@ -1,4 +1,5 @@
 // oxlint-disable no-promise-executor-return, prefer-await-to-callbacks, promise/avoid-new -- The fake MessagePortMain mirrors Electron's event API.
+import { runInNewContext } from "node:vm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { registerLiveTranscriptIpc } from "./live-transcript-ipc";
 import type {
@@ -136,6 +137,26 @@ describe("registerLiveTranscriptIpc", () => {
     port.emit("message", { data: { type: "close" } });
     expect(connection.close).toHaveBeenCalled();
     expect(port.close).toHaveBeenCalled();
+  });
+
+  it("accepts PCM typed arrays cloned from another JavaScript realm", () => {
+    const handler = registerAndGetHandler();
+    const port = createFakePort();
+    handler({ ports: [port] }, validAuthorization());
+
+    const connection = mocks.connectDashScopeRealtimeWs.mock.results[0]?.value as
+      | DashScopeRealtimeWsConnection
+      | undefined;
+    if (!connection) {
+      throw new Error("expected a DashScope connection");
+    }
+    const bytes = runInNewContext("new Uint8Array([7, 8, 9])") as Uint8Array;
+    expect(bytes).not.toBeInstanceOf(Uint8Array);
+
+    port.emit("message", { data: { bytes, type: "pcm" } });
+
+    expect(connection.sendPcm).toHaveBeenCalledWith(bytes);
+    expect(port.posted).toContainEqual({ byteLength: 3, type: "pcm-ack" });
   });
 
   it("closes the WebSocket when the renderer port closes", () => {

@@ -280,6 +280,7 @@ async function processAccountGroup(
       user: connectionAccount.username,
     },
     host: connectionAccount.imapHost,
+    logger: false,
     port: connectionAccount.imapPort,
     secure: connectionAccount.imapSecure,
   });

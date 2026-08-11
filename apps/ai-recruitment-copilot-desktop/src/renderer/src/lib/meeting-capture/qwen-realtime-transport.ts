@@ -227,7 +227,7 @@ export async function connectQwenRealtimeTranscription(input: {
         return false;
       }
       try {
-        clientPort.postMessage({ bytes, type: "pcm" }, [bytes.buffer]);
+        clientPort.postMessage({ bytes, type: "pcm" }, []);
         inFlightBytes += byteLength;
         peakInFlightBytes = Math.max(peakInFlightBytes, inFlightBytes);
         return true;

@@ -167,6 +167,19 @@ describe("connectQwenRealtimeTranscription", () => {
     connection.close();
   });
 
+  it("clones PCM frames without transferring their ArrayBuffer ownership", async () => {
+    const postMessage = vi.spyOn(MessagePort.prototype, "postMessage");
+    const { connection } = await openConnection();
+
+    expect(connection.sendPcm(new Int16Array(2400))).toBe(true);
+    const pcmCall = postMessage.mock.calls.find(
+      ([message]) => (message as { type?: unknown })?.type === "pcm",
+    );
+
+    expect(pcmCall?.[1]?.length).toBe(0);
+    connection.close();
+  });
+
   it("pauses on provider backpressure and resumes after drain", async () => {
     const { connection } = await openConnection();
     const frame = new Int16Array(2400);

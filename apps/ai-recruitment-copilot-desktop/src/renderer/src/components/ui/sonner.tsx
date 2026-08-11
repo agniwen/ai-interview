@@ -30,7 +30,8 @@ function Toaster({ ...props }: ToasterProps) {
       theme={theme as ToasterProps["theme"]}
       toastOptions={{
         classNames: {
-          actionButton: "bg-white/80 text-foreground hover:bg-white",
+          actionButton:
+            "rounded-full border border-border/60 bg-white/80 px-3 text-foreground hover:bg-white",
           cancelButton: "bg-black/5 text-foreground hover:bg-black/10",
           closeButton:
             "border-white/50 bg-white/70 text-foreground/70 hover:bg-white hover:text-foreground",

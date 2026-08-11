@@ -839,6 +839,9 @@ importers:
       d3-shape:
         specifier: ^3.2.0
         version: 3.2.0
+      date-fns:
+        specifier: 4.4.0
+        version: 4.4.0
       dayjs:
         specifier: ^1.11.20
         version: 1.11.20
@@ -860,6 +863,9 @@ importers:
       overlayscrollbars-react:
         specifier: ^0.5.6
         version: 0.5.6(overlayscrollbars@2.16.0)(react@19.2.7)
+      react-day-picker:
+        specifier: ^9.14.0
+        version: 9.14.0(react@19.2.7)
       react-hook-form:
         specifier: ^7.76.1
         version: 7.76.1(react@19.2.7)

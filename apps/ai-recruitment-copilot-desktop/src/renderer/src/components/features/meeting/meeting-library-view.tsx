@@ -9,13 +9,15 @@ import type {
 import type { MeetingLibrarySearchMatch } from "@arc/shared/meeting-search";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import {
-  Frame,
-  FrameDescription,
-  FrameHeader,
-  FramePanel,
-  FrameTitle,
-} from "@/components/ui/frame";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { formatAppDateTime } from "@/lib/client/datetime";
 import { meetingDisplayTitle } from "@arc/shared/utils/time";
 
@@ -39,45 +41,34 @@ export function formatMeetingDuration(durationMs: number): string {
   return [minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
 }
 
-function MeetingSummary({
+function MeetingNameCell({
   meeting,
   searchMatch,
 }: {
   meeting: MeetingLibraryItem;
   searchMatch?: MeetingLibrarySearchMatch;
 }) {
-  const state = PROCESSING_STATE_META[meeting.processingState];
   return (
-    <Frame className="h-full">
-      <FrameHeader className="justify-between gap-3">
-        <FrameTitle className="truncate">
-          {meetingDisplayTitle(meeting.title, meeting.savedAt)}
-        </FrameTitle>
-        <Badge variant={state.variant}>{state.label}</Badge>
-      </FrameHeader>
-      <FramePanel className="flex flex-col gap-3">
-        <FrameDescription>
-          {meeting.creator.name} · {formatAppDateTime(meeting.savedAt)}
-        </FrameDescription>
-        <div className="flex items-center justify-between text-sm">
-          <span>{formatMeetingDuration(meeting.durationMs)}</span>
-          <span className="text-muted-foreground">
-            {meeting.recordingAvailable ? "录音可用" : "录音准备中"}
-          </span>
+    <div className="min-w-0">
+      <p className="truncate font-medium text-foreground">
+        {meetingDisplayTitle(meeting.title, meeting.savedAt)}
+      </p>
+      <p className="mt-1 truncate text-muted-foreground text-xs">
+        {formatMeetingDuration(meeting.durationMs)} ·{" "}
+        {meeting.recordingAvailable ? "录音可用" : "录音准备中"}
+      </p>
+      {searchMatch ? (
+        <div className="mt-1 min-w-0 text-muted-foreground text-xs">
+          <p className="truncate">{searchMatch.snippet}</p>
+          {searchMatch.startMs === null ? null : (
+            <span className="tabular-nums">
+              {formatMeetingDuration(searchMatch.startMs)}
+              {searchMatch.endMs === null ? null : `–${formatMeetingDuration(searchMatch.endMs)}`}
+            </span>
+          )}
         </div>
-        {searchMatch ? (
-          <div className="rounded-lg bg-muted/60 px-3 py-2 text-sm">
-            <p className="line-clamp-2">{searchMatch.snippet}</p>
-            {searchMatch.startMs === null ? null : (
-              <p className="mt-1 text-muted-foreground text-xs">
-                {formatMeetingDuration(searchMatch.startMs)}
-                {searchMatch.endMs === null ? null : `–${formatMeetingDuration(searchMatch.endMs)}`}
-              </p>
-            )}
-          </div>
-        ) : null}
-      </FramePanel>
-    </Frame>
+      ) : null}
+    </div>
   );
 }
 
@@ -103,15 +94,39 @@ export function MeetingLibraryView({
     );
   }
   return (
-    <div className="grid gap-3 md:grid-cols-2">
-      {meetings.map((meeting) => {
-        const content = (
-          <MeetingSummary meeting={meeting} searchMatch={searchMatches?.[meeting.id]} />
-        );
-        return (
-          <div key={meeting.id}>{renderMeeting ? renderMeeting(meeting, content) : content}</div>
-        );
-      })}
+    <div className="w-full overflow-hidden rounded-lg border">
+      <Table aria-label="会议记录表格" className="min-w-[680px] table-fixed">
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[300px]">会议名称</TableHead>
+            <TableHead className="w-[160px]">日期</TableHead>
+            <TableHead className="w-[120px]">状态</TableHead>
+            <TableHead className="w-[150px]">创建者</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {meetings.map((meeting) => {
+            const state = PROCESSING_STATE_META[meeting.processingState];
+            const nameCell = (
+              <MeetingNameCell meeting={meeting} searchMatch={searchMatches?.[meeting.id]} />
+            );
+            return (
+              <TableRow key={meeting.id}>
+                <TableCell>{renderMeeting ? renderMeeting(meeting, nameCell) : nameCell}</TableCell>
+                <TableCell className="text-muted-foreground tabular-nums">
+                  {formatAppDateTime(meeting.savedAt)}
+                </TableCell>
+                <TableCell>
+                  <Badge variant={state.variant}>{state.label}</Badge>
+                </TableCell>
+                <TableCell className="truncate text-muted-foreground">
+                  {meeting.creator.name}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
     </div>
   );
 }

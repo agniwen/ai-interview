@@ -62,14 +62,20 @@ interface PcmFrameMessage {
   type?: string;
 }
 
+function isUint8Array(value: unknown): value is Uint8Array {
+  return (
+    ArrayBuffer.isView(value) &&
+    Object.prototype.toString.call(value) === "[object Uint8Array]" &&
+    value.byteLength > 0
+  );
+}
+
 function isPcmFrame(data: unknown): data is PcmFrameMessage & { bytes: Uint8Array } {
   if (!(data && typeof data === "object")) {
     return false;
   }
   const message = data as PcmFrameMessage;
-  return (
-    message.type === "pcm" && message.bytes instanceof Uint8Array && message.bytes.byteLength > 0
-  );
+  return message.type === "pcm" && isUint8Array(message.bytes);
 }
 
 function isCloseMessage(data: unknown): boolean {

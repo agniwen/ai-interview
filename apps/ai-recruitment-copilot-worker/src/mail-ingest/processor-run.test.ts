@@ -20,6 +20,7 @@ import type { MailIngestConfig } from "./config";
 const mocks = vi.hoisted(() => ({
   claimMailIngestAccount: vi.fn(),
   connect: vi.fn(),
+  constructorOptions: undefined as unknown,
   errorListenerCount: 0,
   fetchOne: vi.fn(),
   finishMailIngestAccountRun: vi.fn(),
@@ -34,6 +35,10 @@ vi.mock("imapflow", () => ({
   ImapFlow: class MockImapFlow {
     mailbox = { uidValidity: "uid-validity-1" };
     private readonly listeners = new Map<string, unknown[]>();
+
+    constructor(options: unknown) {
+      mocks.constructorOptions = options;
+    }
 
     on(event: string, listener: unknown) {
       const listeners = this.listeners.get(event) ?? [];
@@ -148,6 +153,7 @@ function account() {
 describe("runMailIngestOnce", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.constructorOptions = undefined;
     mocks.errorListenerCount = 0;
     mocks.connect.mockRejectedValue(new Error("IMAP login failed"));
     mocks.listEnabledMailIngestAccounts.mockResolvedValue([account()]);
@@ -189,6 +195,13 @@ describe("runMailIngestOnce", () => {
       "account_1",
       expect.objectContaining({ error: expect.any(Error) }),
     );
+  });
+
+  it("disables ImapFlow protocol logging while retaining business error handling", async () => {
+    await runMailIngestOnce(config);
+
+    expect(mocks.constructorOptions).toEqual(expect.objectContaining({ logger: false }));
+    expect(mocks.errorListenerCount).toBeGreaterThan(0);
   });
 
   it("a failed poll preserves prior counters (no zeroed counts written)", async () => {
