@@ -687,7 +687,7 @@ describe("structured job description preview flow", () => {
     act(() => root.unmount());
   });
 
-  it("keeps the dialog open after saving job information", async () => {
+  it("saves unchanged job information and keeps the dialog open", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -713,12 +713,6 @@ describe("structured job description preview flow", () => {
       await Promise.resolve();
     });
 
-    const nameInput = container.querySelector<HTMLInputElement>("#name");
-    act(() => {
-      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
-      valueSetter?.call(nameInput, "保存后继续编辑");
-      nameInput?.dispatchEvent(new Event("input", { bubbles: true }));
-    });
     const saveButton = [...container.querySelectorAll("button")].find(
       (item) => item.textContent?.trim() === "保存",
     );

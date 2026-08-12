@@ -266,9 +266,6 @@ export function useJobDescriptionFormActions({
       onSaved(finalRecord);
       return;
     }
-    if (!formDirty && currentRecord) {
-      return;
-    }
     const savedRecord = await persistJob(value);
     if (!savedRecord) {
       return;
