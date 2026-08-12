@@ -3,7 +3,6 @@ import { zValidator } from "@hono/zod-validator";
 import { and, count, eq, inArray, ne } from "drizzle-orm";
 import { uniq } from "lodash-es";
 import { z } from "zod";
-import { streamSSE } from "hono/streaming";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
   department,
@@ -57,6 +56,7 @@ import {
 import { BlueprintCompilationError } from "./utils/evaluation-blueprint-compiler";
 import { computeJobEvaluationDraftInputHash } from "@arc/ai-recruitment-copilot-backend/lib/server/job-evaluation-hash";
 import { jobEvaluationUpgradeRouter } from "./routes/upgrade/route";
+import { jobEvaluationPreviewStreamRouter } from "./routes/evaluation-blueprint-preview/route";
 
 const generateJobDescriptionBodySchema = z.object({
   departmentName: z.string().trim().max(120).optional(),
@@ -465,53 +465,6 @@ export const jobDescriptionsRouter = factory
       throw error;
     }
   })
-  .post("/:id/evaluation-blueprint-preview-stream", requirePermission("jd", "update"), (c) => {
-    const { activeOrg, user } = c.var;
-    if (!activeOrg || !user) {
-      return c.json({ message: "Unauthorized" }, 401);
-    }
-    return streamSSE(c, async (stream) => {
-      try {
-        const preview = await generateStructuredJobBlueprintPreview(
-          {
-            actorId: user.id,
-            jobDescriptionId: c.req.param("id"),
-            organizationId: activeOrg.id,
-          },
-          {
-            onProgress: async (ruleDraft) => {
-              await stream.writeSSE({
-                data: JSON.stringify({ ruleDraft, type: "preview.partial" }),
-                event: "job-evaluation-preview",
-              });
-            },
-          },
-        );
-        safeUpdateTag(`job-descriptions:${activeOrg.id}`);
-        await stream.writeSSE({
-          data: JSON.stringify({
-            blueprint: preview.blueprint,
-            blueprintHash: preview.blueprintHash,
-            type: "preview.completed",
-          }),
-          event: "job-evaluation-preview",
-        });
-      } catch (error) {
-        const failure = evaluationPreviewError(error);
-        const payload = failure?.payload ?? {
-          code: "JOB_BLUEPRINT_GENERATION_FAILED",
-          error: "生成评分规则失败",
-        };
-        await stream.writeSSE({
-          data: JSON.stringify({
-            error: { code: payload.code, message: payload.error },
-            type: "preview.failed",
-          }),
-          event: "job-evaluation-preview",
-        });
-      }
-    });
-  })
   .put(
     "/:id/evaluation-rule-draft",
     requirePermission("jd", "update"),
@@ -891,4 +844,5 @@ export const jobDescriptionsRouter = factory
 
     return c.json({ success: true }, 200);
   })
-  .route("/", jobEvaluationUpgradeRouter);
+  .route("/", jobEvaluationUpgradeRouter)
+  .route("/", jobEvaluationPreviewStreamRouter);
