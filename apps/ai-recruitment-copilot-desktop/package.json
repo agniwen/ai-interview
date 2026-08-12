@@ -47,6 +47,7 @@
     "d3-shape": "^3.2.0",
     "date-fns": "4.4.0",
     "dayjs": "^1.11.20",
+    "jotai": "^2.20.2",
     "livekit-client": "^2.20.1",
     "misans": "4.1.0",
     "motion": "^12.40.0",

@@ -66,7 +66,8 @@ const meetingCaptureApi: MeetingCaptureApi = {
       recoveryCopyDeleteAfter,
     ),
   recover: () => ipcRenderer.invoke("meeting-capture:recover"),
-  save: (captureId) => ipcRenderer.invoke("meeting-capture:save", captureId),
+  save: (captureId, liveTranscriptDraft) =>
+    ipcRenderer.invoke("meeting-capture:save", captureId, liveTranscriptDraft),
   uploadMultipart: (captureId, instructions) =>
     ipcRenderer.invoke("meeting-capture:upload-multipart", captureId, instructions),
   uploadSmall: (captureId, instructions) =>

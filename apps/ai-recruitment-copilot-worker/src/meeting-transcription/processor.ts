@@ -27,6 +27,7 @@ import {
   readMeetingTranscriptionFfmpegVersion,
 } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/audio-pipeline";
 import { requestAutomaticMeetingIntelligence } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/intelligence/service";
+import { generateMeetingTitleFromTranscript } from "@arc/ai-recruitment-copilot-backend/server/routes/meetings/transcription/title";
 import type {
   FinalTranscriptionAudioChunk,
   MeetingTranscriptionProvider,
@@ -76,6 +77,7 @@ export interface MeetingTranscriptionDependencies {
   createWorkingDirectory: () => Promise<string>;
   downloadSource: typeof downloadMeetingRecordingObjectToFile;
   ensureDiskCapacity: (input: { directory: string; requiredBytes: number }) => Promise<void>;
+  generateTitle: (transcript: CanonicalMeetingTranscript) => Promise<string | null>;
   loadSource: (
     input: MeetingTranscriptionJobData,
   ) => Promise<TranscriptionSource | null | undefined>;
@@ -189,6 +191,7 @@ const defaultDependencies: MeetingTranscriptionDependencies = {
       throw new Error("Meeting transcription 工作目录可用空间不足");
     }
   },
+  generateTitle: generateMeetingTitleFromTranscript,
   loadSource: loadMeetingTranscriptionSource,
   markChunkFailed: markMeetingTranscriptionChunkFailed,
   markFailed: markMeetingTranscriptionFailed,
@@ -311,6 +314,20 @@ async function requestAutomaticIntelligenceBestEffort(input: {
   }
 }
 
+async function generateMeetingTitleBestEffort(
+  transcript: CanonicalMeetingTranscript,
+  dependencies: MeetingTranscriptionDependencies,
+): Promise<string | null> {
+  try {
+    return await dependencies.generateTitle(transcript);
+  } catch (error) {
+    console.error("[meeting-transcription-worker] failed to generate Meeting Session title", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+    return null;
+  }
+}
+
 // oxlint-disable-next-line complexity -- source admission, checkpoint recovery, and failure persistence form one job boundary.
 export async function runMeetingTranscriptionProcessing(
   input: MeetingTranscriptionJobData,
@@ -397,7 +414,13 @@ export async function runMeetingTranscriptionProcessing(
       chunkResults.push({ chunk, transcript });
     }
     const transcript = mergeMeetingTranscriptionChunkResults(chunkResults);
-    const published = await dependencies.publish({ ...input, processingRunId, transcript });
+    const generatedTitle = await generateMeetingTitleBestEffort(transcript, dependencies);
+    const published = await dependencies.publish({
+      ...input,
+      generatedTitle,
+      processingRunId,
+      transcript,
+    });
     if (published) {
       await requestAutomaticIntelligenceBestEffort({
         dependencies,

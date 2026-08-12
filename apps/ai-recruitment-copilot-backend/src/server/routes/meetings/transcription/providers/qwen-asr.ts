@@ -22,6 +22,8 @@ const submitTaskResponseSchema = z
   .object({
     output: z
       .object({
+        code: z.string().nullish(),
+        message: z.string().nullish(),
         task_id: z.string().min(1),
         task_status: z.string().nullish(),
       })
@@ -153,12 +155,8 @@ export function createQwenAsrMeetingTranscriptionProvider(
         input: { file_url: input.audioUrl },
         model: dependencies.model,
         parameters: {
-          // 分片已被 audio-pipeline 转成单声道，channel_id 固定取第一轨。
           channel_id: [0],
-          // 本地麦克风轨不跑说话人分离；系统轨多人时开启。
-          diarization_enabled: input.chunk.track === "system",
-          disfluency_removal_enabled: true,
-          timestamp_alignment_enabled: true,
+          enable_itn: true,
         },
       }),
       headers: authHeaders(),
@@ -180,12 +178,12 @@ export function createQwenAsrMeetingTranscriptionProvider(
     return parsed.output.task_id;
   }
 
-  async function pollTask(input: { signal: AbortSignal; taskId: string }): Promise<string> {
+  async function pollTask(input: { signal: AbortSignal; taskId: string }): Promise<string | null> {
     const deadline = Date.now() + pollTimeoutMs;
     while (Date.now() < deadline) {
       const response = await fetch(`${origin}/api/v1/tasks/${input.taskId}`, {
         headers: authHeaders(),
-        method: "POST",
+        method: "GET",
         signal: input.signal,
       });
       if (response.status === 429) {
@@ -217,7 +215,14 @@ export function createQwenAsrMeetingTranscriptionProvider(
         return transcriptionUrl;
       }
       if (parsed.output.task_status === "FAILED" || parsed.output.task_status === "CANCELED") {
-        throw new MeetingProviderResponseError("partial-result", "Qwen ASR");
+        if (parsed.output.code === "SUCCESS_WITH_NO_VALID_FRAGMENT") {
+          return null;
+        }
+        throw new MeetingProviderResponseError(
+          "partial-result",
+          "Qwen ASR",
+          [parsed.output.code, parsed.output.message].filter(Boolean).join(": "),
+        );
       }
       await delay(pollIntervalMs, undefined, { signal: input.signal });
     }
@@ -259,6 +264,9 @@ export function createQwenAsrMeetingTranscriptionProvider(
         try {
           const taskId = await submitTask({ audioUrl, chunk, signal });
           const resultUrl = await pollTask({ signal, taskId });
+          if (!resultUrl) {
+            continue;
+          }
           const result = await fetchResult({ signal, url: resultUrl });
           for (const transcript of result.transcripts ?? []) {
             for (const sentence of transcript.sentences ?? []) {

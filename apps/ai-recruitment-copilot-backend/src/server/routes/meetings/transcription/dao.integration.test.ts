@@ -136,6 +136,83 @@ describe("Meeting transcription publication", () => {
 
   afterEach(clean, 30_000);
 
+  it("replaces an automatic meeting title when the transcript is published", async () => {
+    await db
+      .update(meetingSession)
+      .set({ title: "录制记录-2608121124" })
+      .where(eq(meetingSession.id, MEETING_ID));
+    await expect(
+      claimMeetingTranscriptionRun({ ...job, attempt: 1, processingRunId: runId("run-title") }),
+    ).resolves.toBe("claimed");
+
+    await expect(
+      publishMeetingTranscript({
+        ...job,
+        generatedTitle: "第三季度产品发布计划",
+        processingRunId: runId("run-title"),
+        transcript: {
+          language: "zh",
+          turns: [
+            {
+              confidence: null,
+              endMs: 2000,
+              speakerKey: "local",
+              startMs: 1000,
+              text: "我们来确认后续安排",
+              track: "local",
+            },
+          ],
+        },
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      db
+        .select({ title: meetingSession.title })
+        .from(meetingSession)
+        .where(eq(meetingSession.id, MEETING_ID)),
+    ).resolves.toEqual([{ title: "第三季度产品发布计划" }]);
+    await expect(searchTranscript("第三季度产品")).resolves.toMatchObject([
+      { id: MEETING_ID, match: { kind: "title" }, title: "第三季度产品发布计划" },
+    ]);
+  });
+
+  it("does not overwrite a manually edited meeting title", async () => {
+    await expect(
+      claimMeetingTranscriptionRun({
+        ...job,
+        attempt: 1,
+        processingRunId: runId("run-manual-title"),
+      }),
+    ).resolves.toBe("claimed");
+
+    await expect(
+      publishMeetingTranscript({
+        ...job,
+        generatedTitle: "模型生成标题",
+        processingRunId: runId("run-manual-title"),
+        transcript: {
+          language: "zh",
+          turns: [
+            {
+              confidence: null,
+              endMs: 2000,
+              speakerKey: "local",
+              startMs: 1000,
+              text: "人工标题应当保留",
+              track: "local",
+            },
+          ],
+        },
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      db
+        .select({ title: meetingSession.title })
+        .from(meetingSession)
+        .where(eq(meetingSession.id, MEETING_ID)),
+    ).resolves.toEqual([{ title: "Transcription integration meeting" }]);
+  });
+
   it("publishes one revision when an old provider-success run loses its DB lease", async () => {
     await expect(
       claimMeetingTranscriptionRun({ ...job, attempt: 1, processingRunId: runId("run-old") }),
@@ -791,6 +868,34 @@ describe("Meeting transcription publication", () => {
         .from(meetingTranscriptionChunk)
         .where(eq(meetingTranscriptionChunk.meetingId, MEETING_ID)),
     ).resolves.toEqual([{ status: "succeeded" }]);
+  });
+
+  it("lets a superseding run reclaim an unfinished provider chunk", async () => {
+    const chunk = {
+      contentType: "audio/webm",
+      endMs: 30_000,
+      filePath: "/tmp/microphone-000.webm",
+      index: 0,
+      startMs: 0,
+      track: "microphone" as const,
+    };
+    await claimMeetingTranscriptionRun({
+      ...job,
+      attempt: 1,
+      processingRunId: runId("run-stalled"),
+    });
+    await expect(
+      claimMeetingTranscriptionChunk({ ...job, processingRunId: runId("run-stalled") }, chunk),
+    ).resolves.toMatchObject({ status: "claimed" });
+    await claimMeetingTranscriptionRun({
+      ...job,
+      attempt: 2,
+      processingRunId: runId("run-recovery"),
+    });
+
+    await expect(
+      claimMeetingTranscriptionChunk({ ...job, processingRunId: runId("run-recovery") }, chunk),
+    ).resolves.toMatchObject({ status: "claimed" });
   });
 
   it("materializes the Qwen ASR default policy and enqueues it when no policy exists", async () => {

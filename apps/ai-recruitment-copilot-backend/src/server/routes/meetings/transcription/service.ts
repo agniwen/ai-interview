@@ -156,6 +156,7 @@ export async function getSavedMeetingTranscript(input: {
         })
       : null;
   return {
+    draft: meeting.liveTranscriptDraft,
     error: meeting.transcriptionError,
     revision,
     state: meeting.transcriptionStatus as MeetingTranscriptResult["state"],

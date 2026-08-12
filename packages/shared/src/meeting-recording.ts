@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { meetingLiveTranscriptDraftSchema } from "@arc/shared/meeting-transcription";
 
 export const MEETING_SOURCE_TRACKS = ["microphone", "system"] as const;
 export const MEETING_MULTIPART_PART_BYTES = 8 * 1024 * 1024;
@@ -25,6 +26,7 @@ export const createSmallSavedMeetingSchema = z
   .object({
     assets: z.array(meetingSourceAssetSchema).length(2),
     id: z.string().uuid(),
+    liveTranscriptDraft: meetingLiveTranscriptDraftSchema.nullable().optional(),
     manifestSha256: sha256Schema,
     savedAt: z.string().datetime({ offset: true }),
     startedAt: z.string().datetime({ offset: true }),
@@ -94,6 +96,7 @@ export const createMultipartSavedMeetingSchema = z
   .object({
     assets: z.array(multipartMeetingSourceAssetSchema).length(2),
     id: z.string().uuid(),
+    liveTranscriptDraft: meetingLiveTranscriptDraftSchema.nullable().optional(),
     manifestSha256: sha256Schema,
     savedAt: z.string().datetime({ offset: true }),
     startedAt: z.string().datetime({ offset: true }),

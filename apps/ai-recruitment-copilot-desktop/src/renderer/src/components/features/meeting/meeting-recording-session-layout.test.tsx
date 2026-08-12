@@ -27,4 +27,13 @@ describe("MeetingRecordingSessionLayout", () => {
 
     expect(html).not.toContain("mb-2");
   });
+
+  it("does not mount a composer overlay for a saved session", () => {
+    const html = renderToStaticMarkup(
+      <MeetingRecordingSessionLayout main={<div>saved transcript</div>} />,
+    );
+
+    expect(html).toContain("saved transcript");
+    expect(html).not.toContain("pointer-events-none absolute inset-x-0 bottom-0");
+  });
 });

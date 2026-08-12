@@ -81,6 +81,9 @@ export async function prepareMeetingTranscriptionAudioChunks(input: {
       .toSorted();
     for (const [index, name] of names.entries()) {
       const startMs = index * MEETING_TRANSCRIPTION_AUDIO_CHUNK_DURATION_MS;
+      if (startMs >= source.durationMs) {
+        continue;
+      }
       chunks.push({
         contentType: "audio/webm",
         endMs: Math.min(source.durationMs, startMs + MEETING_TRANSCRIPTION_AUDIO_CHUNK_DURATION_MS),

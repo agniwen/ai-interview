@@ -4,6 +4,7 @@ import "./assets/main.css";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import { LazyMotion, domAnimation } from "motion/react";
+import { Provider as JotaiProvider } from "jotai";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { getQueryClient } from "@/lib/query-client";
@@ -12,6 +13,8 @@ import type { ThemeMode } from "@/lib/settings";
 import { createDesktopRouter } from "@/router";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { ThemeSync } from "@/components/theme/theme-sync";
+import { meetingRecordingStore } from "@/components/features/meeting/meeting-recording-store";
+import { initializeMeetingRecordingStore } from "@/components/features/meeting/meeting-recording-store-init";
 
 const THEME_VALUES: readonly ThemeMode[] = ["light", "dark", "system"];
 
@@ -58,6 +61,7 @@ if (!rootElement) {
 
 const queryClient = getQueryClient();
 const router = createDesktopRouter(queryClient);
+initializeMeetingRecordingStore();
 
 // Fire-and-forget: settings.json values hydrate into the store shortly after;
 // the theme is already applied above from localStorage.
@@ -73,9 +77,11 @@ createRoot(rootElement).render(
     >
       <ThemeSync />
       <LazyMotion features={domAnimation} strict>
-        <QueryClientProvider client={queryClient}>
-          <RouterProvider router={router} />
-        </QueryClientProvider>
+        <JotaiProvider store={meetingRecordingStore}>
+          <QueryClientProvider client={queryClient}>
+            <RouterProvider router={router} />
+          </QueryClientProvider>
+        </JotaiProvider>
       </LazyMotion>
     </ThemeProvider>
   </StrictMode>,

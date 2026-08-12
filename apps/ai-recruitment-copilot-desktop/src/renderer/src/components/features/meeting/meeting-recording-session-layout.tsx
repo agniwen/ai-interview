@@ -12,7 +12,7 @@ export function MeetingRecordingSessionLayout({
   main,
   className,
 }: {
-  composer: ReactNode;
+  composer?: ReactNode;
   main: ReactNode;
   className?: string;
 }) {
@@ -24,9 +24,11 @@ export function MeetingRecordingSessionLayout({
       <ScrollArea className="min-h-0 flex-1" orientation="vertical">
         <div className="h-full min-h-full pt-4">{main}</div>
       </ScrollArea>
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-4 pb-3 sm:px-6">
-        <div className="pointer-events-auto mx-auto w-full max-w-lg">{composer}</div>
-      </div>
+      {composer ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-4 pb-3 sm:px-6">
+          <div className="pointer-events-auto mx-auto w-full max-w-lg">{composer}</div>
+        </div>
+      ) : null}
     </div>
   );
 }

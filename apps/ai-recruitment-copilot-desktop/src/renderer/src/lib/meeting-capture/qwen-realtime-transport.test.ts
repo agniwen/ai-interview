@@ -176,7 +176,7 @@ describe("connectQwenRealtimeTranscription", () => {
       ([message]) => (message as { type?: unknown })?.type === "pcm",
     );
 
-    expect(pcmCall?.[1]?.length).toBe(0);
+    expect(Array.isArray(pcmCall?.[1]) ? pcmCall[1].length : 0).toBe(0);
     connection.close();
   });
 

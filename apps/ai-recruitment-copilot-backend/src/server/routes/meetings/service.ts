@@ -136,6 +136,7 @@ export async function createSmallSavedMeeting(input: {
     assets,
     meeting: {
       id: input.input.id,
+      liveTranscriptDraft: input.input.liveTranscriptDraft ?? null,
       manifestSha256: input.input.manifestSha256,
       organizationId: input.organizationId,
       ownerId: input.ownerId,
@@ -303,6 +304,7 @@ export async function createMultipartSavedMeeting(input: {
     assets,
     meeting: {
       id: input.input.id,
+      liveTranscriptDraft: input.input.liveTranscriptDraft ?? null,
       manifestSha256: input.input.manifestSha256,
       organizationId: input.organizationId,
       ownerId: input.ownerId,

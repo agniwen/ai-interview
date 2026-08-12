@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines -- transcription claims, checkpoints, and publication share transactional invariants. */
 import { and, desc, eq, inArray, isNotNull, max, ne, sql } from "drizzle-orm";
 import { db } from "@arc/ai-recruitment-copilot-backend/lib/server/db";
 import {
@@ -17,6 +18,7 @@ import type {
   MeetingTranscriptionProviderId,
   UpdateMeetingTranscriptionPolicyInput,
 } from "@arc/shared/meeting-transcription";
+import { DEFAULT_MEETING_TITLE_PREFIX } from "@arc/shared/utils/time";
 import { rebuildMeetingSearchProjection } from "../routes/search/dao";
 import { isWorkspaceAdministrator } from "../access";
 import { canonicalMeetingTranscriptSchema } from "@arc/shared/meeting-transcription";
@@ -453,6 +455,19 @@ export async function claimMeetingTranscriptionChunk(
         .where(eq(meetingTranscriptionChunk.id, existing.id));
       return { status: "claimed" };
     }
+    const claimedByCurrentRun = await tx
+      .update(meetingTranscriptionChunk)
+      .set({ processingRunId: input.processingRunId, updatedAt: new Date() })
+      .where(
+        and(
+          eq(meetingTranscriptionChunk.id, existing.id),
+          ne(meetingTranscriptionChunk.processingRunId, input.processingRunId),
+        ),
+      )
+      .returning({ id: meetingTranscriptionChunk.id });
+    if (claimedByCurrentRun.length > 0) {
+      return { status: "claimed" };
+    }
     return { status: "busy" };
   });
 }
@@ -660,6 +675,7 @@ export async function markMeetingTranscriptionFailed(
 
 export async function publishMeetingTranscript(
   input: MeetingTranscriptionJobData & {
+    generatedTitle?: string | null;
     processingRunId: string;
     transcript: CanonicalMeetingTranscript;
   },
@@ -682,6 +698,7 @@ export async function publishMeetingTranscript(
     const [meeting] = await tx
       .select({
         status: meetingSession.status,
+        title: meetingSession.title,
         transcriptionRunId: meetingSession.transcriptionRunId,
       })
       .from(meetingSession)
@@ -741,6 +758,9 @@ export async function publishMeetingTranscript(
       .update(meetingSession)
       .set({
         activeTranscriptRevisionId: revisionId,
+        ...(input.generatedTitle && meeting.title.startsWith(DEFAULT_MEETING_TITLE_PREFIX)
+          ? { title: input.generatedTitle }
+          : {}),
         transcriptionError: null,
         transcriptionRunId: null,
         transcriptionStatus: "ready",

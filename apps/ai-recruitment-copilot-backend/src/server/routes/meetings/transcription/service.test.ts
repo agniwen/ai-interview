@@ -169,8 +169,17 @@ describe("Meeting transcription service", () => {
   });
 
   it("returns the final machine revision only after meeting access is authorized", async () => {
+    const liveTranscriptDraft = {
+      capturedAt: "2026-08-12T08:00:00.000Z",
+      droppedAudioMs: 0,
+      droppedPcmFrames: 0,
+      error: null,
+      sections: [],
+      turns: [],
+    };
     mocks.loadMeetingSessionForAccess.mockResolvedValue({
       accessGrantRole: "viewer",
+      liveTranscriptDraft,
       ownerId: "owner-76",
       transcriptionError: null,
       transcriptionStatus: "ready",
@@ -185,7 +194,11 @@ describe("Meeting transcription service", () => {
         organizationId: "org-76",
         userId: "viewer-76",
       }),
-    ).resolves.toMatchObject({ revision: { id: "revision-76" }, state: "ready" });
+    ).resolves.toMatchObject({
+      draft: liveTranscriptDraft,
+      revision: { id: "revision-76" },
+      state: "ready",
+    });
   });
 
   it("lets an owner explicitly retry a failed final transcription", async () => {

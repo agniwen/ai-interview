@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -10,12 +10,16 @@ import {
 } from "@/lib/client/meetings";
 import { desktopWorkspaceKeys, resolveActiveWorkspace } from "@/lib/client/workspace";
 import type { MeetingDetail } from "@arc/shared/meeting-recording";
-import { MeetingCaptureComposer, MeetingLocalSaveStatus } from "./meeting-capture-status";
+import { MeetingCaptureComposer } from "./meeting-capture-status";
 import { canRetryMeetingProcessing, meetingDetailRefetchInterval } from "./meeting-detail-helpers";
 import { LiveTranscriptDraftPanel } from "./live-transcript-draft-panel";
 import { MeetingRecordingSessionLayout } from "./meeting-recording-session-layout";
-import { useMeetingRecording } from "./meeting-recording-context";
-import { MeetingTranscriptPanel } from "./meeting-transcript-panel";
+import {
+  useMeetingCaptureSnapshot,
+  useMeetingLiveTranscriptDraft,
+  useMeetingRecordingActions,
+} from "./meeting-recording-context";
+import { MeetingTranscriptStage } from "./meeting-transcript-panel";
 import { meetingDisplayTitle } from "@arc/shared/utils/time";
 
 export {
@@ -86,8 +90,8 @@ function MeetingDetailHeader({
           size="sm"
           variant="outline"
         >
-          <Icon className="size-4" icon="ph:info" />
-          更多信息
+          <Icon className="size-4" icon="ph:arrow-right" />
+          查看更多
         </Button>
       ) : null}
     </header>
@@ -95,13 +99,14 @@ function MeetingDetailHeader({
 }
 
 /**
- * Meeting session 主页：录制中主区实时字幕、底部 composer 控制；就绪后展示最终转录。
- * Meeting session page: live transcript stage + bottom composer while capturing; final transcript when ready.
+ * Meeting session 主页：录制中展示实时字幕与 composer；录制后保留同一字幕舞台但移除 composer。
+ * Session landing page: live transcript + composer while recording, read-only transcript stage after save.
  */
 export function MeetingDetailPage({ meetingId }: { meetingId: string; seekToSeconds?: number }) {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { captureSnapshot, liveDraft, requestDiscard, saveRecording } = useMeetingRecording();
+  const captureSnapshot = useMeetingCaptureSnapshot();
+  const liveDraft = useMeetingLiveTranscriptDraft();
+  const { saveRecording } = useMeetingRecordingActions();
 
   const isActiveCapture = captureSnapshot.active?.captureId === meetingId;
   const isLocalSaved = captureSnapshot.saved?.captureId === meetingId;
@@ -137,14 +142,6 @@ export function MeetingDetailPage({ meetingId }: { meetingId: string; seekToSeco
     },
   });
 
-  const openPlaybackAt = (seconds: number) => {
-    void navigate({
-      params: { meetingId },
-      search: { at: seconds },
-      to: "/meetings/$meetingId/more",
-    });
-  };
-
   if (isActiveCapture) {
     return (
       <MeetingRecordingSessionLayout
@@ -176,36 +173,29 @@ export function MeetingDetailPage({ meetingId }: { meetingId: string; seekToSeco
   const title = meeting ? meetingDisplayTitle(meeting.title) : "本地录音";
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4 pb-10 sm:px-6">
-      <MeetingDetailHeader
-        meeting={meeting}
-        meetingId={meetingId}
-        onRetry={() => retryMutation.mutate()}
-        retryPending={retryMutation.isPending}
-        title={title}
-      />
-
-      {isLocalSaved ? (
-        <MeetingLocalSaveStatus
-          captureId={meetingId}
-          onDiscard={requestDiscard}
-          onSave={(captureId) => void saveRecording(captureId)}
-          snapshot={captureSnapshot}
-        />
-      ) : null}
-
-      {meeting ? (
-        <MeetingTranscriptPanel
-          accessRole={meeting.accessRole}
-          meetingId={meetingId}
-          onSeek={openPlaybackAt}
-          slug={workspaceSlug}
-        />
-      ) : (
-        <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-muted-foreground text-sm">
-          工作区验证完成后将在此展示最终转录。
-        </p>
-      )}
-    </div>
+    <MeetingRecordingSessionLayout
+      main={
+        <div className="flex min-h-full flex-col gap-6">
+          <div className="container mx-auto max-w-3xl px-4 sm:px-6">
+            <MeetingDetailHeader
+              meeting={meeting ?? undefined}
+              meetingId={meetingId}
+              onRetry={() => retryMutation.mutate()}
+              retryPending={retryMutation.isPending}
+              title={title}
+            />
+          </div>
+          {meeting ? (
+            <MeetingTranscriptStage meetingId={meetingId} slug={workspaceSlug} />
+          ) : (
+            <div className="container mx-auto flex max-w-3xl flex-1 items-center justify-center px-4 pb-10 sm:px-6">
+              <p className="text-center text-muted-foreground text-sm">
+                录音已安全保存在本地，工作区验证完成后将在此展示字幕。
+              </p>
+            </div>
+          )}
+        </div>
+      }
+    />
   );
 }

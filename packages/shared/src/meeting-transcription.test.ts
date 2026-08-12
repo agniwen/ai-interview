@@ -3,6 +3,7 @@ import {
   canonicalMeetingTranscriptSchema,
   createMeetingLiveTranscriptAuthorizationSchema,
   createMeetingTranscriptCorrectionSchema,
+  meetingLiveTranscriptDraftSchema,
   updateMeetingTranscriptionPolicySchema,
 } from "./meeting-transcription";
 
@@ -130,6 +131,40 @@ describe("Meeting transcription contracts", () => {
       createMeetingLiveTranscriptAuthorizationSchema.safeParse({
         captureId: "not-a-capture-id",
         track: "mixed",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("validates durable live drafts without promoting them to canonical turns", () => {
+    const draft = {
+      capturedAt: "2026-08-12T08:00:00.000Z",
+      droppedAudioMs: 0,
+      droppedPcmFrames: 0,
+      error: null,
+      sections: [
+        {
+          id: "microphone-1",
+          sequence: 0,
+          startedAt: "2026-08-12T07:59:00.000Z",
+          track: "microphone",
+        },
+      ],
+      turns: [
+        {
+          final: true,
+          id: "microphone-1:turn-1",
+          sectionId: "microphone-1",
+          text: "实时字幕草稿",
+          track: "microphone",
+        },
+      ],
+    };
+
+    expect(meetingLiveTranscriptDraftSchema.safeParse(draft).success).toBe(true);
+    expect(
+      meetingLiveTranscriptDraftSchema.safeParse({
+        ...draft,
+        turns: [{ ...draft.turns[0], sectionId: "missing-section" }],
       }).success,
     ).toBe(false);
   });

@@ -85,6 +85,46 @@ describe("Final Meeting Transcript panel", () => {
     expect(failed).toContain("重试最终转录");
   });
 
+  it("renders the durable live draft while final transcription is pending", () => {
+    const html = renderToStaticMarkup(
+      <MeetingTranscriptView
+        canRetry={false}
+        onSeek={() => {}}
+        result={{
+          draft: {
+            capturedAt: "2026-08-12T08:00:00.000Z",
+            droppedAudioMs: 0,
+            droppedPcmFrames: 0,
+            error: null,
+            sections: [
+              {
+                id: "system-1",
+                sequence: 0,
+                startedAt: "2026-08-12T07:59:00.000Z",
+                track: "system",
+              },
+            ],
+            turns: [
+              {
+                final: true,
+                id: "system-1:turn-1",
+                sectionId: "system-1",
+                text: "候选人的实时回答",
+                track: "system",
+              },
+            ],
+          },
+          error: null,
+          revision: null,
+          state: "pending",
+        }}
+      />,
+    );
+
+    expect(html).toContain("已保存的实时字幕草稿");
+    expect(html).toContain("候选人的实时回答");
+  });
+
   it("renders provider-neutral final turns and maps timestamps to playback seconds", () => {
     const html = renderToStaticMarkup(
       <MeetingTranscriptView

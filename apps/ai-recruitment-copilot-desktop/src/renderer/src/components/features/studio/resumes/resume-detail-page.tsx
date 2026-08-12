@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { useState } from "react";
 import type { ResumeLibraryDetail } from "@arc/shared/studio-resumes";
-import { useMeetingRecording } from "@/components/features/meeting/meeting-recording-context";
+import { useMeetingRecordingActions } from "@/components/features/meeting/meeting-recording-context";
 import { ResumeOverviewPanel } from "@/components/features/studio/resumes/resume-overview-panel";
 import { ResumeReviewStructuredView } from "@/components/features/studio/resumes/resume-review-structured-view";
 import { ResumeScreeningResultPanel } from "@/components/features/studio/resumes/resume-screening-result-panel";
@@ -72,7 +72,7 @@ function DetailHeaderText({ detail }: { detail: ResumeLibraryDetail }) {
 
 export function ResumeDetailPage() {
   const { recordId } = useParams({ from: "/_app/resumes/$recordId" });
-  const { openMeetingRecording } = useMeetingRecording();
+  const { openMeetingRecording } = useMeetingRecordingActions();
   const [activeTab, setActiveTab] = useState<DetailTab>("overview");
 
   const workspaceQuery = useQuery({

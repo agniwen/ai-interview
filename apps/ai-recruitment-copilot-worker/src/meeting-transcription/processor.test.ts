@@ -54,6 +54,7 @@ function createDependencies() {
     createWorkingDirectory: vi.fn(() => Promise.resolve("/tmp/meeting-76")),
     downloadSource: vi.fn(() => Promise.resolve()),
     ensureDiskCapacity: vi.fn(() => Promise.resolve()),
+    generateTitle: vi.fn(() => Promise.resolve("候选人项目经验沟通")),
     loadSource: vi.fn(() =>
       Promise.resolve({
         assets: [
@@ -180,6 +181,7 @@ describe("Meeting final transcription processor", () => {
     expect(dependencies.saveChunkCheckpoint).toHaveBeenCalledTimes(2);
     expect(dependencies.publish).toHaveBeenCalledWith({
       ...job,
+      generatedTitle: "候选人项目经验沟通",
       processingRunId: "run-76",
       transcript: expect.objectContaining({
         turns: expect.arrayContaining([expect.objectContaining({ text: "你好" })]),
@@ -189,6 +191,20 @@ describe("Meeting final transcription processor", () => {
       meetingId: job.meetingId,
       organizationId: job.organizationId,
     });
+  });
+
+  it("keeps final transcription successful when title generation fails", async () => {
+    const dependencies = createDependencies();
+    dependencies.generateTitle.mockRejectedValueOnce(new Error("title model unavailable"));
+
+    await expect(
+      runMeetingTranscriptionProcessing(job, { attempt: 1, maxAttempts: 5 }, dependencies),
+    ).resolves.toBeUndefined();
+
+    expect(dependencies.publish).toHaveBeenCalledWith(
+      expect.objectContaining({ generatedTitle: null }),
+    );
+    expect(dependencies.markFailed).not.toHaveBeenCalled();
   });
 
   it("resolves the production adapter from the provider snapshot on the job", async () => {

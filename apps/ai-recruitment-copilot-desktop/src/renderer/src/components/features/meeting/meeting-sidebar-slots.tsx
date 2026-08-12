@@ -29,7 +29,7 @@ import {
   trashMeeting,
 } from "@/lib/client/meetings";
 import { canManageMeetingLifecycle } from "./meeting-lifecycle-panel";
-import { useMeetingRecording } from "./meeting-recording-context";
+import { useMeetingCaptureSnapshot } from "./meeting-recording-context";
 import { useMeetingLibrary } from "./use-meeting-library";
 
 /**
@@ -43,7 +43,7 @@ export function MeetingSidebarSlots() {
   const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const editingFormRef = useRef<HTMLFormElement>(null);
-  const { captureSnapshot } = useMeetingRecording();
+  const captureSnapshot = useMeetingCaptureSnapshot();
   const { meetingsQuery, workspace } = useMeetingLibrary();
   const activeCaptureId = captureSnapshot.active?.captureId;
   const meetings = meetingsQuery.data ?? [];
@@ -92,6 +92,7 @@ export function MeetingSidebarSlots() {
             撤回
           </Button>
         ),
+        style: { paddingBlock: "8px" },
       });
 
       if (pathname === `/meetings/${meetingId}` || pathname.startsWith(`/meetings/${meetingId}/`)) {

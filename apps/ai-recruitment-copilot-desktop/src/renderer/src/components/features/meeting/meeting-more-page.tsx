@@ -23,6 +23,7 @@ import { MeetingNotesPanel } from "./meeting-notes-panel";
 import { MeetingQuestionsPanel } from "./meeting-questions-panel";
 import { MeetingRecruitingContextPanel } from "./meeting-recruiting-context-panel";
 import { MeetingSharePanel } from "./meeting-share-panel";
+import { MeetingTranscriptPanel } from "./meeting-transcript-panel";
 
 /**
  * Meeting「更多信息」二级页：播放器、Intelligence、Notes、Share 等非转录内容。
@@ -156,6 +157,12 @@ export function MeetingMorePage({
         retryProcessing={retryMutation.isPending}
         seekRequestId={seekRequest.id}
         seekToSeconds={seekRequest.seconds}
+      />
+      <MeetingTranscriptPanel
+        accessRole={meeting.accessRole}
+        meetingId={meetingId}
+        onSeek={requestSeek}
+        slug={workspaceSlug}
       />
       <MeetingExportPanel
         accessRole={meeting.accessRole}

@@ -86,6 +86,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
+import type { MeetingLiveTranscriptDraftRecord } from "./meeting-live-transcript";
 
 // --- Tables managed by @chat-adapter/state-pg ---
 // Declared here so drizzle-kit sees them and doesn't try to drop them on `db:push`.
@@ -317,6 +318,7 @@ export const meetingSession = pgTable(
       { onDelete: "set null" },
     ),
     intelligenceStatus: text("intelligence_status").default("pending").notNull(),
+    liveTranscriptDraft: jsonb("live_transcript_draft").$type<MeetingLiveTranscriptDraftRecord>(),
     manifestSha256: text("manifest_sha256").notNull(),
     organizationId: text("organization_id")
       .notNull()

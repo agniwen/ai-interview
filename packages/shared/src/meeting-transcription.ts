@@ -71,6 +71,58 @@ export type UpdateMeetingTranscriptionPolicyInput = z.infer<
 export const meetingLiveTranscriptTrackSchema = z.enum(["microphone", "system"]);
 export type MeetingLiveTranscriptTrack = z.infer<typeof meetingLiveTranscriptTrackSchema>;
 
+const meetingLiveTranscriptDraftSectionSchema = z
+  .object({
+    id: z.string().min(1).max(256),
+    sequence: z.number().int().nonnegative(),
+    startedAt: z.string().datetime({ offset: true }),
+    track: meetingLiveTranscriptTrackSchema,
+  })
+  .strict();
+
+const meetingLiveTranscriptDraftTurnSchema = z
+  .object({
+    final: z.boolean(),
+    id: z.string().min(1).max(512),
+    sectionId: z.string().min(1).max(256),
+    text: z.string().trim().min(1).max(10_000),
+    track: meetingLiveTranscriptTrackSchema,
+  })
+  .strict();
+
+/** A durable, non-authoritative snapshot captured when local recording stops. */
+export const meetingLiveTranscriptDraftSchema = z
+  .object({
+    capturedAt: z.string().datetime({ offset: true }),
+    droppedAudioMs: z.number().finite().nonnegative(),
+    droppedPcmFrames: z.number().int().nonnegative(),
+    error: z.string().max(2000).nullable(),
+    sections: z.array(meetingLiveTranscriptDraftSectionSchema).max(200),
+    turns: z.array(meetingLiveTranscriptDraftTurnSchema).max(500),
+  })
+  .strict()
+  .superRefine((draft, context) => {
+    const sectionIds = new Set(draft.sections.map((section) => section.id));
+    for (const [index, turn] of draft.turns.entries()) {
+      if (!sectionIds.has(turn.sectionId)) {
+        context.addIssue({
+          code: "custom",
+          message: "实时字幕片段引用了不存在的 section",
+          path: ["turns", index, "sectionId"],
+        });
+      }
+    }
+    if (draft.turns.reduce((total, turn) => total + turn.text.length, 0) > 1_000_000) {
+      context.addIssue({
+        code: "custom",
+        message: "实时字幕草稿总文字长度超过限制",
+        path: ["turns"],
+      });
+    }
+  });
+
+export type MeetingLiveTranscriptDraft = z.infer<typeof meetingLiveTranscriptDraftSchema>;
+
 export const createMeetingLiveTranscriptAuthorizationSchema = z
   .object({
     captureId: z.uuid(),
@@ -251,6 +303,7 @@ export interface MeetingTranscriptRevisionHistory {
 }
 
 export interface MeetingTranscriptResult {
+  draft?: MeetingLiveTranscriptDraft | null;
   error: string | null;
   revision: FinalMeetingTranscriptRevision | null;
   state: MeetingTranscriptState;

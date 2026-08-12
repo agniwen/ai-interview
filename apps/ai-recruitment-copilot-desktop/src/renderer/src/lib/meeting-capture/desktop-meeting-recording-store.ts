@@ -6,6 +6,7 @@ import type {
   MeetingRecordingStore,
   RecoverableMeetingCapture,
 } from "../../../../preload/meeting-capture";
+import type { MeetingLiveTranscriptDraft } from "@arc/shared/meeting-transcription";
 
 const WRITE_TIMEOUT_MS = 30_000;
 
@@ -70,8 +71,11 @@ export class DesktopMeetingRecordingStore implements MeetingRecordingStore {
     ]);
   }
 
-  save(captureId: string): Promise<LocalSavedMeeting> {
-    return window.api.meetingCapture.save(captureId);
+  save(
+    captureId: string,
+    liveTranscriptDraft?: MeetingLiveTranscriptDraft | null,
+  ): Promise<LocalSavedMeeting> {
+    return window.api.meetingCapture.save(captureId, liveTranscriptDraft);
   }
 
   discard(captureId: string): Promise<void> {

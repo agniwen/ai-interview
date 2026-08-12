@@ -1,7 +1,8 @@
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo } from "react";
 import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,11 +15,16 @@ import {
 } from "@/components/ui/dialog";
 import { meetingCapture } from "@/lib/meeting-capture";
 import { meetingLiveTranscriptDraft } from "@/lib/meeting-capture/live-transcript-draft-client";
-import type { LiveTranscriptDraftSnapshot } from "@/lib/meeting-capture/live-transcript-draft";
+import { createDurableLiveTranscriptDraft } from "@/lib/meeting-capture/live-transcript-draft";
 import { desktopMeetingKeys } from "@/lib/client/meetings";
-import type { MeetingCaptureSnapshot } from "../../../../../preload/meeting-capture";
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
 import { MeetingActiveRecordingIndicator } from "./meeting-capture-status";
+import {
+  captureSnapshotAtom,
+  liveTranscriptDraftAtom,
+  pendingMeetingDiscardAtom,
+  preselectedResumeRecordAtom,
+} from "./meeting-recording-store";
 
 export interface OpenMeetingRecordingOptions {
   /** 预选招聘台记录 id（从卡片点入时传入）。 */
@@ -28,44 +34,13 @@ export interface OpenMeetingRecordingOptions {
 }
 
 interface MeetingRecordingContextValue {
-  captureSnapshot: MeetingCaptureSnapshot;
-  liveDraft: LiveTranscriptDraftSnapshot;
   openMeetingRecording: (options?: OpenMeetingRecordingOptions) => void;
-  /** 预选简历（由 openMeetingRecording 写入，初始化页读取一次后仍可通过 search 回填）。 */
-  preselectedResumeRecord: ResumeLibraryListRecord | null;
   requestDiscard: (captureId?: string, includeSaved?: boolean) => void;
   saveRecording: (captureId?: string) => Promise<void>;
   startRecording: (recruitingRecordId: string | null) => Promise<{ captureId: string }>;
 }
 
 const MeetingRecordingContext = createContext<MeetingRecordingContextValue | null>(null);
-
-const INITIAL_CAPTURE_SNAPSHOT: MeetingCaptureSnapshot = {
-  active: null,
-  error: null,
-  phase: "idle",
-  recoverable: [],
-  recoveryComplete: false,
-  saved: null,
-  workspaceSaves: [],
-};
-
-const INITIAL_LIVE_DRAFT_SNAPSHOT: LiveTranscriptDraftSnapshot = {
-  captureId: null,
-  droppedAudioMs: 0,
-  droppedPcmFrames: 0,
-  error: null,
-  queuePeakAudioMs: 0,
-  queuedAudioMs: 0,
-  queuedPcmBytes: 0,
-  sections: [],
-  status: "idle",
-  trackDroppedAudioMs: { microphone: 0, system: 0 },
-  trackQueuePeakAudioMs: { microphone: 0, system: 0 },
-  trackQueuedAudioMs: { microphone: 0, system: 0 },
-  trackStatus: { microphone: "idle", system: "idle" },
-  turns: [],
-};
 
 function discardDialogTitle(deletingRecoveryCopy: boolean, includeSaved: boolean): string {
   if (deletingRecoveryCopy) {
@@ -91,17 +66,9 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const queryClient = useQueryClient();
-  const [preselectedResumeRecord, setPreselectedResumeRecord] =
-    useState<ResumeLibraryListRecord | null>(null);
-  const [captureSnapshot, setCaptureSnapshot] = useState(INITIAL_CAPTURE_SNAPSHOT);
-  const [liveDraftSnapshot, setLiveDraftSnapshot] = useState(INITIAL_LIVE_DRAFT_SNAPSHOT);
-  const [pendingDiscard, setPendingDiscard] = useState<{
-    captureId?: string;
-    includeSaved: boolean;
-  } | null>(null);
-
-  useEffect(() => meetingCapture.observe(setCaptureSnapshot), []);
-  useEffect(() => meetingLiveTranscriptDraft.observe(setLiveDraftSnapshot), []);
+  const captureSnapshot = useAtomValue(captureSnapshotAtom);
+  const [pendingDiscard, setPendingDiscard] = useAtom(pendingMeetingDiscardAtom);
+  const setPreselectedResumeRecord = useSetAtom(preselectedResumeRecordAtom);
 
   const verifiedWorkspaceCaptureIds = captureSnapshot.workspaceSaves
     .filter((item) => item.state === "workspace-verified")
@@ -125,7 +92,7 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
         to: "/meetings/new",
       });
     },
-    [navigate],
+    [navigate, setPreselectedResumeRecord],
   );
 
   const startRecording = useCallback(async (recruitingRecordId: string | null) => {
@@ -136,16 +103,23 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
 
   const saveRecording = useCallback(async (captureId?: string) => {
     try {
-      await meetingCapture.save({ captureId });
+      const liveTranscriptDraft = createDurableLiveTranscriptDraft(
+        meetingLiveTranscriptDraft.getSnapshot(),
+        captureId,
+      );
+      await meetingCapture.save({ captureId, liveTranscriptDraft });
       toast.success("双轨录音已安全保存到本地");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "保存本地录音失败");
     }
   }, []);
 
-  const requestDiscard = useCallback((captureId?: string, includeSaved = false) => {
-    setPendingDiscard({ captureId, includeSaved });
-  }, []);
+  const requestDiscard = useCallback(
+    (captureId?: string, includeSaved = false) => {
+      setPendingDiscard({ captureId, includeSaved });
+    },
+    [setPendingDiscard],
+  );
 
   const discardRecording = useCallback(async () => {
     if (!pendingDiscard) {
@@ -175,27 +149,17 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
     navigate,
     pathname,
     pendingDiscard,
+    setPendingDiscard,
   ]);
 
   const value = useMemo(
     () => ({
-      captureSnapshot,
-      liveDraft: liveDraftSnapshot,
       openMeetingRecording,
-      preselectedResumeRecord,
       requestDiscard,
       saveRecording,
       startRecording,
     }),
-    [
-      captureSnapshot,
-      liveDraftSnapshot,
-      openMeetingRecording,
-      preselectedResumeRecord,
-      requestDiscard,
-      saveRecording,
-      startRecording,
-    ],
+    [openMeetingRecording, requestDiscard, saveRecording, startRecording],
   );
 
   const deletingRecoveryCopy = Boolean(
@@ -246,10 +210,25 @@ export function MeetingRecordingProvider({ children }: { children: ReactNode }) 
   );
 }
 
-export function useMeetingRecording() {
+function useMeetingRecordingContext() {
   const ctx = useContext(MeetingRecordingContext);
   if (!ctx) {
-    throw new Error("useMeetingRecording must be used within MeetingRecordingProvider");
+    throw new Error("useMeetingRecordingActions must be used within MeetingRecordingProvider");
   }
   return ctx;
+}
+
+export const useMeetingRecordingActions = useMeetingRecordingContext;
+
+export function useMeetingCaptureSnapshot() {
+  return useAtomValue(captureSnapshotAtom);
+}
+
+export function useMeetingLiveTranscriptDraft() {
+  return useAtomValue(liveTranscriptDraftAtom);
+}
+
+/** 预选简历由录制入口写入，初始化页读取；search 参数仍是刷新后的事实来源。 */
+export function usePreselectedResumeRecord() {
+  return useAtomValue(preselectedResumeRecordAtom);
 }

@@ -1,4 +1,6 @@
 // oxlint-disable promise/prefer-await-to-then, promise/prefer-await-to-callbacks -- The observable state machine publishes around durable promise transitions.
+import type { MeetingLiveTranscriptDraft } from "@arc/shared/meeting-transcription";
+
 export const CAPTURE_FRAGMENT_DURATION_MS = 15_000;
 export const MEETING_CAPTURE_MAX_DURATION_MS = 4 * 60 * 60 * 1000;
 export const SYSTEM_SILENCE_WARNING_MS = 6000;
@@ -119,6 +121,7 @@ export interface CaptureSink {
 
 export interface PreparedCapture {
   dispose: () => Promise<void>;
+  getLiveTranscriptDraft?: () => MeetingLiveTranscriptDraft | null;
   start: (sink: CaptureSink, input: { captureId: string }) => Promise<void>;
   stop: () => Promise<void>;
   trackContentTypes: Record<CaptureTrack, string>;
@@ -148,7 +151,10 @@ export interface MeetingRecordingStore {
   discard: (captureId: string) => Promise<void>;
   markWorkspaceVerified: (captureId: string, recoveryCopyDeleteAfter: string) => Promise<void>;
   recover: () => Promise<RecoverableMeetingCapture[]>;
-  save: (captureId: string) => Promise<LocalSavedMeeting>;
+  save: (
+    captureId: string,
+    liveTranscriptDraft?: MeetingLiveTranscriptDraft | null,
+  ) => Promise<LocalSavedMeeting>;
 }
 
 export interface StartMeetingCaptureInput {
@@ -162,6 +168,7 @@ export interface DiscardMeetingCaptureInput {
 
 export interface SaveMeetingCaptureInput {
   captureId?: string;
+  liveTranscriptDraft?: MeetingLiveTranscriptDraft | null;
 }
 
 export interface MeetingCapture {
@@ -692,6 +699,10 @@ export function createMeetingCapture({
     savePromise = (async () => {
       try {
         const saveStartedAt = Date.now();
+        const liveTranscriptDraft =
+          input.liveTranscriptDraft === undefined
+            ? (capture.getLiveTranscriptDraft?.() ?? null)
+            : input.liveTranscriptDraft;
         await capture.stop();
         const stopElapsedMs = Date.now() - saveStartedAt;
         console.info("[meeting-capture-renderer] save: capture stopped", {
@@ -702,7 +713,7 @@ export function createMeetingCapture({
         console.info("[meeting-capture-renderer] save: fragments settled", {
           elapsedMs: Date.now() - saveStartedAt,
         });
-        const saved = await store.save(captureId);
+        const saved = await store.save(captureId, liveTranscriptDraft);
         console.info("[meeting-capture-renderer] save: local saved", {
           elapsedMs: Date.now() - saveStartedAt,
         });

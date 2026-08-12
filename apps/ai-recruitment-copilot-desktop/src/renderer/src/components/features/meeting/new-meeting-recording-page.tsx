@@ -15,7 +15,7 @@ import { fetchStudioResumes } from "@/lib/client/studio-resumes";
 import { desktopWorkspaceKeys, resolveActiveWorkspace } from "@/lib/client/workspace";
 import type { ResumeLibraryListRecord } from "@arc/shared/studio-resumes";
 import { cn } from "@arc/shared/utils";
-import { useMeetingRecording } from "./meeting-recording-context";
+import { useMeetingRecordingActions } from "./meeting-recording-context";
 import { MeetingSetupComposer } from "./meeting-capture-status";
 import { MeetingTranscriptIdleStage } from "./live-transcript-draft-panel";
 import { MeetingRecordingSessionLayout } from "./meeting-recording-session-layout";
@@ -168,7 +168,7 @@ export function NewMeetingRecordingPage({
   preselectedResumeRecord?: ResumeLibraryListRecord | null;
 }) {
   const navigate = useNavigate();
-  const { startRecording } = useMeetingRecording();
+  const { startRecording } = useMeetingRecordingActions();
   const [selectedId, setSelectedId] = useState<string | null>(
     linkRecruiting ? (preselectedResumeId ?? preselectedResumeRecord?.id ?? null) : null,
   );

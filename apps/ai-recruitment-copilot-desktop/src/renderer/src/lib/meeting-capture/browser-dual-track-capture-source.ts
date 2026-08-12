@@ -6,6 +6,8 @@ import type {
   MeetingCaptureSource,
   PreparedCapture,
 } from "../../../../preload/meeting-capture";
+import { createDurableLiveTranscriptDraft } from "./live-transcript-draft";
+import type { LiveTranscriptDraftSnapshot } from "./live-transcript-draft";
 import { clearCapturePreviewStreams, setCapturePreviewStreams } from "./capture-preview-streams";
 
 const MAX_PENDING_BYTES = 32 * 1024 * 1024;
@@ -50,6 +52,7 @@ interface RecorderState {
 }
 
 export interface MeetingLiveTranscriptSidecar {
+  getSnapshot?: () => LiveTranscriptDraftSnapshot;
   start: (input: {
     captureId: string;
     tracks: Record<CaptureTrack, MediaStreamTrack>;
@@ -154,6 +157,10 @@ export class BrowserDualTrackCaptureSource implements MeetingCaptureSource {
 
       return {
         dispose,
+        getLiveTranscriptDraft: () => {
+          const snapshot = this.liveTranscriptSidecar?.getSnapshot?.();
+          return snapshot ? createDurableLiveTranscriptDraft(snapshot) : null;
+        },
         start: (sink: CaptureSink, input: { captureId: string }) => {
           const startedAt = performance.now();
           const fail = (error: Error) => {

@@ -845,6 +845,9 @@ importers:
       dayjs:
         specifier: ^1.11.20
         version: 1.11.20
+      jotai:
+        specifier: ^2.20.2
+        version: 2.20.2(@babel/core@7.29.7)(@babel/template@7.29.7)(@types/react@19.2.17)(react@19.2.7)
       livekit-client:
         specifier: ^2.20.1
         version: 2.20.1(@types/dom-mediacapture-record@1.0.22)

@@ -2,7 +2,7 @@ import AvvvatarsModule from "avvvatars-react";
 import { m, useReducedMotion } from "motion/react";
 import { memo, useCallback, useState } from "react";
 import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
-import { useMeetingRecording } from "@/components/features/meeting/meeting-recording-context";
+import { useMeetingRecordingActions } from "@/components/features/meeting/meeting-recording-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -324,7 +324,7 @@ function ResumeLibraryCardComponent({
   onOpenDetail: (record: ResumeLibraryListRecord) => void;
   record: ResumeLibraryListRecord;
 }) {
-  const { openMeetingRecording } = useMeetingRecording();
+  const { openMeetingRecording } = useMeetingRecordingActions();
   const [hovered, setHovered] = useState(false);
 
   // Only fine-pointer hover (avoid sticky hover after tap on touch targets).

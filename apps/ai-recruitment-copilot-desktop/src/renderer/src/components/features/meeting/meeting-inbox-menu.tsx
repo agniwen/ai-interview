@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { CSSProperties, ReactNode } from "react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -19,8 +20,10 @@ import type {
 } from "../../../../../preload/meeting-capture";
 import { cn } from "@arc/shared/utils";
 import { formatAppDateTimeShort } from "@/lib/client/datetime";
+import { meetingCapture } from "@/lib/meeting-capture";
 import { useSuspendChromeDrag } from "@/lib/use-suspend-chrome-drag";
-import { useMeetingRecording } from "./meeting-recording-context";
+import { createDeferredInboxDiscard } from "./inbox-deferred-discard";
+import { useMeetingCaptureSnapshot, useMeetingRecordingActions } from "./meeting-recording-context";
 
 const noDragStyle = {
   WebkitAppRegion: "no-drag",
@@ -112,7 +115,7 @@ function InboxSavedRow({
   snapshot,
 }: {
   captureId: string;
-  onDiscard: (captureId?: string, includeSaved?: boolean) => void;
+  onDiscard: (captureId: string, includeSaved: boolean) => void;
   onSave: (captureId?: string) => void;
   snapshot: MeetingCaptureSnapshot;
 }) {
@@ -210,12 +213,58 @@ function InboxRecoverableRow({
  * Header 收件箱：本地录音恢复与待处理保存。
  */
 export function MeetingInboxMenu() {
-  const { captureSnapshot, requestDiscard, saveRecording } = useMeetingRecording();
+  const captureSnapshot = useMeetingCaptureSnapshot();
+  const { saveRecording } = useMeetingRecordingActions();
+  const [hiddenCaptureIds, setHiddenCaptureIds] = useState(() => new Set<string>());
   const [open, setOpen] = useState(false);
   // Title-bar drag regions swallow clicks; suspend while open so outside click closes.
   useSuspendChromeDrag(open);
-  const entries = collectInboxEntries(captureSnapshot);
+  const entries = collectInboxEntries(captureSnapshot).filter(
+    (entry) =>
+      !hiddenCaptureIds.has(entry.kind === "saved" ? entry.captureId : entry.capture.captureId),
+  );
   const count = entries.length;
+
+  function setCaptureHidden(captureId: string, hidden: boolean) {
+    setHiddenCaptureIds((current) => {
+      const next = new Set(current);
+      if (hidden) {
+        next.add(captureId);
+      } else {
+        next.delete(captureId);
+      }
+      return next;
+    });
+  }
+
+  function discardFromInbox(captureId: string, includeSaved: boolean) {
+    setCaptureHidden(captureId, true);
+    const discard = createDeferredInboxDiscard({
+      commit: () => meetingCapture.discard({ captureId, includeSaved }),
+      onError: (error) => {
+        setCaptureHidden(captureId, false);
+        toast.error(error instanceof Error ? error.message : "清理本地录音失败");
+      },
+    });
+    const toastId = toast.success("已移除本地录音", {
+      action: (
+        <Button
+          className="ml-auto"
+          onClick={() => {
+            discard.undo();
+            setCaptureHidden(captureId, false);
+            toast.dismiss(toastId);
+          }}
+          size="sm"
+          type="button"
+        >
+          撤销
+        </Button>
+      ),
+      onAutoClose: discard.afterToastDismissed,
+      onDismiss: discard.afterToastDismissed,
+    });
+  }
 
   return (
     <DropdownMenu onOpenChange={setOpen} open={open}>
@@ -246,7 +295,7 @@ export function MeetingInboxMenu() {
                 <InboxSavedRow
                   captureId={entry.captureId}
                   key={`saved-${entry.captureId}`}
-                  onDiscard={requestDiscard}
+                  onDiscard={discardFromInbox}
                   onSave={(captureId) => void saveRecording(captureId)}
                   snapshot={captureSnapshot}
                 />
@@ -254,7 +303,7 @@ export function MeetingInboxMenu() {
                 <InboxRecoverableRow
                   capture={entry.capture}
                   key={`recoverable-${entry.capture.captureId}`}
-                  onDiscard={requestDiscard}
+                  onDiscard={discardFromInbox}
                   onSave={(captureId) => void saveRecording(captureId)}
                 />
               ),

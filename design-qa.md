@@ -1,37 +1,30 @@
-# Meeting Recording Composer Design QA
+# Desktop session deletion toast and Inbox deferred deletion
 
-- Source visual truth: `/var/folders/zt/dl47l3gj6gz7mxcr_bp1t8nr0000gn/T/codex-clipboard-146e6e2c-6c9c-43ba-a4b7-3cf445423650.png`
-- Implementation full screenshot: `/tmp/meeting-composer-final.png`
-- Implementation focused screenshot: `/tmp/meeting-composer-final-focused.png`
-- Viewport: macOS desktop, 2560 x 1440 screenshot, light theme
-- State: new meeting, idle capture composer
-- Source dimensions: 508 x 146 px; visible prompt bar approximately 421 x 42 px
-- Implementation dimensions: full screenshot 2560 x 1440 px; focused crop 620 x 120 px; visible composer approximately 445 x 44 px
-- Density normalization: compared visible component pixels at the native screenshot scale; implementation max width is 448 CSS px
+- Source visual truth: `/var/folders/gb/t_zbp9355sjgn2r5rp4l_qbw0000gn/T/codex-clipboard-c9a132ff-cfcb-4134-a398-acb65b7a7a99.png`
+- Implementation screenshot: `/var/folders/gb/t_zbp9355sjgn2r5rp4l_qbw0000gn/T/com.openai.sky.CUAService/Electron Screenshot 2026-08-12 at 12.12.46 PM.jpeg`
+- Source pixels: 1687 × 886
+- Implementation pixels: 1464 × 768
+- CSS viewport / density: native Electron window; no density normalization applied because the target toast state could not be reproduced through the available accessibility surface.
+- State: source shows the meeting-trash undo toast; implementation capture shows the saved-meeting detail screen.
+
+## Full-view comparison evidence
+
+The existing shell, typography, colors, and icon assets remain unchanged. The requested toast-only spacing change is scoped to the `已移入废纸篓` toast through an inline `paddingBlock: 8px` override, so it cannot affect other toast states.
+
+## Focused region comparison evidence
+
+Blocked: the native Electron accessibility tree exposes only window chrome, and coordinate interaction did not expose the Inbox or toast overlay for a same-state capture. A focused visual comparison would therefore be speculative.
 
 ## Findings
 
-- No actionable P0, P1, or P2 differences remain.
-- Typography and copy intentionally retain the Meeting Buddy controls rather than cloning Prompt Bar content.
-- Spacing and layout rhythm match the reference's compact single-row density while preserving the existing meters and CTA arrangement.
-- Colors and visual tokens reproduce the white surface, low-contrast border, full radius, and soft elevation. The surrounding Meeting Buddy canvas remains white by design.
-- No image assets are present in either component; existing Iconify controls remain vector-native and sharp.
-- The blue start-recording CTA is intentionally preserved instead of adopting the reference's black send button.
+- No code-level design drift found outside the requested toast.
+- Interaction behavior is covered by tests: deletion is not committed before toast exit; undo prevents deletion; duplicate dismissal callbacks commit only once.
+- Visual verification of the compact toast and Inbox undo state remains blocked by the native overlay capture limitation.
 
-## Comparison History
+## Comparison history
 
-1. First pass used a 512 px maximum width. The resulting composer was approximately 508 x 44 px and remained noticeably wider than the 421 x 42 px reference (P2 density mismatch).
-2. Reduced the maximum width to 448 px without changing the control layout. The final composer is approximately 445 x 44 px, with the middle meter region retaining horizontal overflow behavior.
+- Initial pass: blocked because source and implementation could not be captured in the same interaction state. No visual fixes were inferred from mismatched states.
 
-## Implementation Checklist
+## Final result
 
-- [x] Compact width applied to new and active recording states.
-- [x] White background, subtle border, full radius, and soft shadow applied through the shared frame.
-- [x] Existing controls, behavior, and responsive meter scrolling preserved.
-- [x] Electron render compared against the source screenshot.
-
-## Follow-up Polish
-
-- None required for the requested material treatment.
-
-final result: passed
+final result: blocked

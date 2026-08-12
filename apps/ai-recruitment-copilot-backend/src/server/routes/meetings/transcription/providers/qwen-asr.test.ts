@@ -93,7 +93,7 @@ function createProvider(options: {
 
 describe("Qwen ASR Meeting transcription provider", () => {
   it("submits a DashScope task, polls, and maps sentences into canonical remote turns", async () => {
-    const submit = vi.fn((url: string | URL | Request) => {
+    const submit = vi.fn((url: string | URL | Request, _init?: RequestInit) => {
       const path = String(url);
       if (path.includes("/services/audio/asr/transcription")) {
         return Promise.resolve(
@@ -104,13 +104,10 @@ describe("Qwen ASR Meeting transcription provider", () => {
         return Promise.resolve(
           jsonResponse({
             output: {
-              results: [
-                {
-                  subtask_status: "SUCCEEDED",
-                  transcription_url:
-                    "https://dashscope-result-bj.oss-cn-beijing.aliyuncs.com/result.json?Expires=1",
-                },
-              ],
+              result: {
+                transcription_url:
+                  "https://dashscope-result-bj.oss-cn-beijing.aliyuncs.com/result.json?Expires=1",
+              },
               task_status: "SUCCEEDED",
             },
           }),
@@ -155,18 +152,18 @@ describe("Qwen ASR Meeting transcription provider", () => {
       model: "qwen3-asr-flash-filetrans",
       parameters: {
         channel_id: [0],
-        diarization_enabled: true,
-        disfluency_removal_enabled: true,
-        timestamp_alignment_enabled: true,
+        enable_itn: true,
       },
     });
+    const pollCall = submit.mock.calls.find(([url]) => String(url).includes("/api/v1/tasks/"));
+    expect(pollCall?.[1]).toMatchObject({ method: "GET" });
     expect(deleteAudioUrl).toHaveBeenCalledWith(
       "https://consented-audio.invalid/chunk.wav",
       expect.any(AbortSignal),
     );
   });
 
-  it("keeps the microphone track on the local speaker without diarization", async () => {
+  it("keeps the microphone track local without sending unsupported diarization options", async () => {
     const submit = vi.fn((url: string | URL | Request) => {
       if (String(url).includes("/services/audio/asr/transcription")) {
         return Promise.resolve(
@@ -205,8 +202,8 @@ describe("Qwen ASR Meeting transcription provider", () => {
     } catch {
       throw new Error("mock submit body must be valid JSON");
     }
-    const body = submitBody as { parameters?: { diarization_enabled?: boolean } };
-    expect(body.parameters?.diarization_enabled).toBe(false);
+    expect(submitBody).toMatchObject({ parameters: { channel_id: [0], enable_itn: true } });
+    expect(JSON.stringify(submitBody)).not.toContain("diarization");
   });
 
   it("surfaces provider quota exhaustion", async () => {
@@ -224,18 +221,51 @@ describe("Qwen ASR Meeting transcription provider", () => {
     const deleteAudioUrl = vi.fn(() => Promise.resolve());
     const fetch = vi.fn((url: string | URL | Request) => {
       if (String(url).includes("/api/v1/tasks/")) {
-        return Promise.resolve(jsonResponse({ output: { results: [], task_status: "FAILED" } }));
+        return Promise.resolve(
+          jsonResponse({
+            output: {
+              code: "FILE_DOWNLOAD_FAILED",
+              message: "audio URL is unavailable",
+              results: [],
+              task_status: "FAILED",
+            },
+          }),
+        );
       }
       return Promise.resolve(
         jsonResponse({ output: { task_id: "task-3", task_status: "PENDING" } }),
       );
     });
-    await expect(createProvider({ deleteAudioUrl, fetch })).rejects.toBeInstanceOf(
-      MeetingProviderResponseError,
+    await expect(createProvider({ deleteAudioUrl, fetch })).rejects.toThrow(
+      "FILE_DOWNLOAD_FAILED: audio URL is unavailable",
     );
     expect(deleteAudioUrl).toHaveBeenCalledWith(
       "https://consented-audio.invalid/chunk.wav",
       expect.any(AbortSignal),
     );
+  });
+
+  it("treats a track without a valid speech fragment as an empty transcript", async () => {
+    const fetch = vi.fn((url: string | URL | Request) => {
+      if (String(url).includes("/api/v1/tasks/")) {
+        return Promise.resolve(
+          jsonResponse({
+            output: {
+              code: "SUCCESS_WITH_NO_VALID_FRAGMENT",
+              message: "SUCCESS_WITH_NO_VALID_FRAGMENT",
+              task_status: "FAILED",
+            },
+          }),
+        );
+      }
+      return Promise.resolve(
+        jsonResponse({ output: { task_id: "task-empty", task_status: "PENDING" } }),
+      );
+    });
+
+    await expect(createProvider({ fetch, track: "microphone" })).resolves.toEqual({
+      language: null,
+      turns: [],
+    });
   });
 });

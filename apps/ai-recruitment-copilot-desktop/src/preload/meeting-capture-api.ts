@@ -10,6 +10,7 @@ import type {
   MultipartSavedMeetingDescriptor,
   SmallMeetingUploadInstruction,
 } from "@arc/shared/meeting-recording";
+import type { MeetingLiveTranscriptDraft } from "@arc/shared/meeting-transcription";
 
 export interface MeetingCaptureApi {
   appendFragment: (input: AppendLocalFragmentInput, bytes: Uint8Array) => Promise<void>;
@@ -19,7 +20,10 @@ export interface MeetingCaptureApi {
   describeWorkspaceSave: (captureId: string) => Promise<CreateSmallSavedMeetingInput>;
   describeMultipartWorkspaceSave: (captureId: string) => Promise<MultipartSavedMeetingDescriptor>;
   recover: () => Promise<RecoverableMeetingCapture[]>;
-  save: (captureId: string) => Promise<LocalSavedMeeting>;
+  save: (
+    captureId: string,
+    liveTranscriptDraft?: MeetingLiveTranscriptDraft | null,
+  ) => Promise<LocalSavedMeeting>;
   uploadSmall: (captureId: string, instructions: SmallMeetingUploadInstruction[]) => Promise<void>;
   uploadMultipart: (
     captureId: string,

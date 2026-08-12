@@ -12,6 +12,8 @@ import type {
   SmallMeetingUploadInstruction,
 } from "@arc/shared/meeting-recording";
 import { MEETING_MULTIPART_PART_BYTES } from "@arc/shared/meeting-recording";
+import { meetingLiveTranscriptDraftSchema } from "@arc/shared/meeting-transcription";
+import type { MeetingLiveTranscriptDraft } from "@arc/shared/meeting-transcription";
 import {
   describeLocalMeetingMultipart,
   uploadMeetingObject,
@@ -102,6 +104,7 @@ const storedManifestSchema = z.object({
   }),
   endedAt: isoDateSchema.nullable(),
   fragments: z.array(storedFragmentSchema),
+  liveTranscriptDraft: meetingLiveTranscriptDraftSchema.nullable().optional(),
   manifestSha256: z
     .string()
     .regex(/^[a-f\d]{64}$/i)
@@ -296,6 +299,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
       },
       endedAt: null,
       fragments: [],
+      liveTranscriptDraft: null,
       manifestVersion: MANIFEST_VERSION,
       possibleTailGap: false,
       recruitingRecordId: input.recruitingRecordId,
@@ -411,9 +415,12 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
     return { fragments: verified, truncated };
   }
 
-  save(captureId: string): Promise<LocalSavedMeeting> {
+  save(
+    captureId: string,
+    liveTranscriptDraft?: MeetingLiveTranscriptDraft | null,
+  ): Promise<LocalSavedMeeting> {
     return this.enqueue(captureId, async () => {
-      const manifest = await this.readManifest(captureId);
+      let manifest = await this.readManifest(captureId);
       if (manifest.status === "saved-local") {
         await this.verifySavedManifestAndIntent(manifest);
         return savedMeeting(manifest);
@@ -428,6 +435,10 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
       const savedAt = new Date().toISOString();
       manifest.endedAt = savedAt;
       manifest.fragments = verification.fragments;
+      manifest = parseStoredManifest(
+        { ...manifest, liveTranscriptDraft: liveTranscriptDraft ?? null },
+        captureId,
+      );
       manifest.possibleTailGap = manifest.status === "interrupted";
       manifest.savedAt = savedAt;
       manifest.status = "saved-local";
@@ -475,6 +486,7 @@ export class LocalMeetingRecordingStore implements MeetingRecordingStore {
     return {
       assets,
       id: manifest.captureId,
+      liveTranscriptDraft: manifest.liveTranscriptDraft ?? null,
       manifestSha256: manifest.manifestSha256,
       savedAt: manifest.savedAt,
       startedAt: manifest.startedAt,

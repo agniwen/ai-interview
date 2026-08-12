@@ -194,6 +194,7 @@ export async function createOrLoadMeetingSession(input: {
       .insert(meetingSession)
       .values({
         id: input.meeting.id,
+        liveTranscriptDraft: input.meeting.liveTranscriptDraft ?? null,
         manifestSha256: input.meeting.manifestSha256,
         organizationId: input.meeting.organizationId,
         ownerId: input.meeting.ownerId,

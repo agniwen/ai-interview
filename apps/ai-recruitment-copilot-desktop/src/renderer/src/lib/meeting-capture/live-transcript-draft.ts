@@ -1,5 +1,6 @@
 // oxlint-disable promise/prefer-await-to-callbacks -- Reconnect scheduling is callback-based by design.
 import type {
+  MeetingLiveTranscriptDraft,
   MeetingLiveTranscriptAuthorization,
   MeetingLiveTranscriptTrack,
 } from "@arc/shared/meeting-transcription";
@@ -43,6 +44,25 @@ export interface LiveTranscriptDraftSnapshot {
   trackQueuedAudioMs: Record<MeetingLiveTranscriptTrack, number>;
   trackStatus: Record<MeetingLiveTranscriptTrack, LiveTranscriptDraftStatus>;
   turns: LiveTranscriptDraftTurn[];
+}
+
+export function createDurableLiveTranscriptDraft(
+  snapshot: LiveTranscriptDraftSnapshot,
+  captureId?: string,
+): MeetingLiveTranscriptDraft | null {
+  if (!snapshot.captureId || (captureId && snapshot.captureId !== captureId)) {
+    return null;
+  }
+  const turns = snapshot.turns.filter((turn) => turn.text.trim().length > 0);
+  const referencedSectionIds = new Set(turns.map((turn) => turn.sectionId));
+  return {
+    capturedAt: new Date().toISOString(),
+    droppedAudioMs: snapshot.droppedAudioMs,
+    droppedPcmFrames: snapshot.droppedPcmFrames,
+    error: snapshot.error,
+    sections: snapshot.sections.filter((section) => referencedSectionIds.has(section.id)),
+    turns: turns.map((turn) => ({ ...turn, text: turn.text.trim() })),
+  };
 }
 
 export interface LiveTranscriptConnection {

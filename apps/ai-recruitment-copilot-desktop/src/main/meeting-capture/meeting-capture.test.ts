@@ -359,8 +359,33 @@ describe("MeetingCapture", () => {
     await source.fragment("system", 0, "sys-a");
     await source.fragment("microphone", 1, "mic-b");
     await source.fragment("system", 1, "sys-b");
-    const saved = await capture.save();
+    const liveTranscriptDraft = {
+      capturedAt: "2026-08-12T08:00:00.000Z",
+      droppedAudioMs: 0,
+      droppedPcmFrames: 0,
+      error: null,
+      sections: [
+        {
+          id: "microphone-1",
+          sequence: 0,
+          startedAt: "2026-08-12T07:59:00.000Z",
+          track: "microphone" as const,
+        },
+      ],
+      turns: [
+        {
+          final: true,
+          id: "microphone-1:turn-1",
+          sectionId: "microphone-1",
+          text: "这段实时字幕必须保留",
+          track: "microphone" as const,
+        },
+      ],
+    };
+    const saved = await capture.save({ liveTranscriptDraft });
     const descriptor = await store.describeWorkspaceSave(saved.captureId);
+
+    expect(descriptor.liveTranscriptDraft).toEqual(liveTranscriptDraft);
 
     await store.uploadSmall(
       saved.captureId,

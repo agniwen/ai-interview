@@ -74,6 +74,12 @@ function visualizerStateFor(
   return "speaking";
 }
 
+export function createCapturePreviewAudioTrack(mediaTrack: MediaStreamTrack): LocalAudioTrack {
+  // The visualizer owns only a clone. LocalAudioTrack.stop() always stops its underlying
+  // MediaStreamTrack, so wrapping the recording source directly would end capture on route unmount.
+  return new LocalAudioTrack(mediaTrack.clone(), undefined, true);
+}
+
 /** Wrap a capture MediaStream as LiveKit LocalAudioTrack without taking ownership of the track. */
 function useLocalAudioTrackFromMediaStream(
   stream: MediaStream | null,
@@ -86,7 +92,7 @@ function useLocalAudioTrackFromMediaStream(
       setAudioTrack(undefined);
       return;
     }
-    const local = new LocalAudioTrack(mediaTrack, undefined, true);
+    const local = createCapturePreviewAudioTrack(mediaTrack);
     setAudioTrack(local);
     return () => {
       local.stop();

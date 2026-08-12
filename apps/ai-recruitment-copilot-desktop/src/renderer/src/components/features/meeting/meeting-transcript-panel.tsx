@@ -48,6 +48,41 @@ function speakerLabel(speakerKey: string, speakerDisplayName?: string | null): s
   return remoteNumber ? `远端 ${remoteNumber}` : "远端";
 }
 
+function SavedLiveTranscriptDraft({
+  draft,
+}: {
+  draft: NonNullable<MeetingTranscriptResult["draft"]>;
+}) {
+  return (
+    <div className="mt-3 rounded-lg border border-dashed bg-muted/20 p-3">
+      <p className="font-medium text-sm">已保存的实时字幕草稿</p>
+      <p className="mb-3 text-muted-foreground text-xs">
+        这是录制结束时保留的临时识别结果，最终转写完成后仍会保留但不作为权威版本。
+      </p>
+      {draft.turns.length === 0 ? (
+        <p className="text-muted-foreground text-sm">实时字幕没有识别到文字。</p>
+      ) : (
+        <div className="flex max-h-80 flex-col gap-3 overflow-y-auto">
+          {draft.turns.map((turn) => (
+            <article className="border-b pb-3 last:border-b-0" key={turn.id}>
+              <p className="mb-1 text-muted-foreground text-xs">
+                {turn.track === "microphone" ? "本机" : "系统/远端"}
+                {turn.final ? "" : " · 未完成片段"}
+              </p>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">{turn.text}</p>
+            </article>
+          ))}
+        </div>
+      )}
+      {draft.error || draft.droppedPcmFrames > 0 ? (
+        <p className="mt-3 text-amber-700 text-xs dark:text-amber-400">
+          此草稿可能有遗漏；完整录音不受影响。
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function canCorrectMeetingTranscript(role: MeetingAccessRole): boolean {
   return role !== "viewer";
 }
@@ -378,15 +413,24 @@ export function MeetingTranscriptView({
   result: MeetingTranscriptResult;
   retrying?: boolean;
 }) {
+  const savedDraft = result.draft ? <SavedLiveTranscriptDraft draft={result.draft} /> : null;
   if (result.state === "pending") {
     return (
-      <p className="text-muted-foreground text-sm">
-        等待 Workspace 管理员配置并选择转录服务，或等待进入处理队列。
-      </p>
+      <>
+        <p className="text-muted-foreground text-sm">
+          等待 Workspace 管理员配置并选择转录服务，或等待进入处理队列。
+        </p>
+        {savedDraft}
+      </>
     );
   }
   if (result.state === "processing") {
-    return <p className="text-muted-foreground text-sm">正在生成 Final Meeting Transcript…</p>;
+    return (
+      <>
+        <p className="text-muted-foreground text-sm">正在生成 Final Meeting Transcript…</p>
+        {savedDraft}
+      </>
+    );
   }
   if (result.state === "failed") {
     return (
@@ -397,6 +441,7 @@ export function MeetingTranscriptView({
             {retrying ? "正在重试…" : "重试最终转录"}
           </Button>
         ) : null}
+        {savedDraft}
       </div>
     );
   }
@@ -417,6 +462,7 @@ export function MeetingTranscriptView({
           </Button>
         ) : null}
       </div>
+      {savedDraft}
       {result.revision.turns.length === 0 ? (
         <p className="text-muted-foreground text-sm">此录音没有识别到语音。</p>
       ) : (
@@ -428,6 +474,73 @@ export function MeetingTranscriptView({
 
 function transcriptRefetchInterval(result: MeetingTranscriptResult | undefined): number | false {
   return result?.state === "pending" || result?.state === "processing" ? 5000 : false;
+}
+
+function transcriptStageEmptyHint(
+  result: MeetingTranscriptResult | undefined,
+  error: unknown,
+  hasTurns: boolean,
+): string {
+  if (error) {
+    return error instanceof Error ? error.message : "加载会议字幕失败";
+  }
+  if (result?.state === "processing" || result?.state === "pending") {
+    return "录音已保存，正在生成最终字幕…";
+  }
+  if (result?.state === "failed") {
+    return result.error ?? "字幕处理失败，可在“查看更多”中重试";
+  }
+  if (result && !hasTurns) {
+    return "这次录制没有识别到文字";
+  }
+  return "正在加载字幕…";
+}
+
+/** Read-only transcript stage used by the session landing page. */
+export function MeetingTranscriptStage({ meetingId, slug }: { meetingId: string; slug: string }) {
+  const transcriptQuery = useQuery({
+    enabled: Boolean(slug),
+    queryFn: () => fetchMeetingTranscript(slug, meetingId),
+    queryKey: desktopMeetingKeys.transcript(slug, meetingId),
+    refetchInterval: (query) => transcriptRefetchInterval(query.state.data),
+  });
+  const result = transcriptQuery.data;
+  const draftTurns = result?.draft?.turns ?? [];
+  const finalTurns = result?.revision?.turns ?? [];
+  const turns = draftTurns.length > 0 ? draftTurns : finalTurns;
+
+  const emptyHint = transcriptStageEmptyHint(result, transcriptQuery.error, turns.length > 0);
+
+  return (
+    <section className="container mx-auto flex min-h-full max-w-3xl flex-col gap-3 px-4 pb-10 sm:px-6">
+      <div className="flex items-center gap-1.5">
+        <h2 className="font-medium text-sm">字幕</h2>
+        {draftTurns.length > 0 ? (
+          <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 font-medium text-[10px] text-amber-700 dark:text-amber-300">
+            录制草稿
+          </span>
+        ) : null}
+      </div>
+      {turns.length > 0 ? (
+        <div className="grid gap-3" aria-live="polite">
+          {turns.map((turn) => (
+            <article className="grid gap-1" key={turn.id}>
+              {"speakerKey" in turn ? (
+                <p className="text-muted-foreground text-xs">
+                  {speakerLabel(turn.speakerKey, turn.speakerDisplayName)}
+                </p>
+              ) : null}
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">{turn.text}</p>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-1 items-center justify-center py-16">
+          <p className="text-center text-muted-foreground text-sm">{emptyHint}</p>
+        </div>
+      )}
+    </section>
+  );
 }
 
 /**
@@ -539,7 +652,7 @@ export function MeetingTranscriptPanel({
       <div className="mb-4">
         <h2 className="font-medium">Final Meeting Transcript</h2>
         <p className="text-muted-foreground text-xs">
-          由已验证的双轨录音生成；Live Draft 不会复制或提升为最终版本。
+          实时字幕草稿会单独保留；最终版本仍由已验证的双轨录音生成。
         </p>
       </div>
       {transcriptQuery.isPending ? (

@@ -7,6 +7,7 @@ import type {
   MultipartMeetingUploadInstruction,
   SmallMeetingUploadInstruction,
 } from "@arc/shared/meeting-recording";
+import { meetingLiveTranscriptDraftSchema } from "@arc/shared/meeting-transcription";
 import { getMainWindowWebContents } from "../window";
 
 const MAX_FRAGMENT_BYTES = 32 * 1024 * 1024;
@@ -191,12 +192,18 @@ export function registerMeetingCaptureIpc(store: LocalMeetingRecordingStore): vo
     console.info("[meeting-capture] begin", { captureId: input.captureId });
     return logCaptureOperation("begin", () => store.begin(input));
   });
-  ipcMain.handle("meeting-capture:save", (event, captureId) => {
-    if (!isTrustedMainFrame(event) || !isCaptureId(captureId)) {
+  ipcMain.handle("meeting-capture:save", (event, captureId, liveTranscriptDraft) => {
+    if (
+      !isTrustedMainFrame(event) ||
+      !isCaptureId(captureId) ||
+      (liveTranscriptDraft !== undefined &&
+        liveTranscriptDraft !== null &&
+        !meetingLiveTranscriptDraftSchema.safeParse(liveTranscriptDraft).success)
+    ) {
       throw new Error("不受信任的录制请求");
     }
     console.info("[meeting-capture] save", { captureId });
-    return logCaptureOperation("save", () => store.save(captureId));
+    return logCaptureOperation("save", () => store.save(captureId, liveTranscriptDraft));
   });
   ipcMain.handle("meeting-capture:describe-workspace-save", (event, captureId) => {
     if (!isTrustedMainFrame(event) || !isCaptureId(captureId)) {
